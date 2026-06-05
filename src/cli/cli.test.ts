@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { createInitiative, createPhase, createProject, createTask } from "../core";
+import { createInitiative, createPhase, createProject, createTask, notFound } from "../core";
 import type { Db } from "../core";
 import { createTestDb } from "../db/testing";
 import type { Io } from "./render";
+import { UsageError, exitCodeFor, renderError } from "./errors";
 import { runCli } from "./run";
 
 interface CapturingIo extends Io {
@@ -41,10 +42,11 @@ test("no command prints help and exits 0", async () => {
   expect(io.out.join("")).toContain("usage: mimir");
 });
 
-test("unknown command exits 1 with an error", async () => {
+test("unknown command exits 2 with an error", async () => {
   const io = fakeIo(true);
-  expect(await runCli(["frobnicate"], db, io)).toBe(1);
+  expect(await runCli(["frobnicate"], db, io)).toBe(2);
   expect(io.err.join("")).toContain("unknown command");
+  expect(io.out).toHaveLength(0);
 });
 
 test("next --format json lists ready tasks (count-led envelope)", async () => {
@@ -78,7 +80,8 @@ test("get returns a record; a missing id exits non-zero", async () => {
 
   const missing = fakeIo();
   expect(await runCli(["get", "MMR-999"], db, missing)).toBe(1);
-  expect(missing.err.join("")).toContain("error:");
+  expect(missing.err.join("")).toContain("[err]");
+  expect(missing.out).toHaveLength(0);
 });
 
 test("status reports the rollup of a non-leaf", async () => {
@@ -94,9 +97,9 @@ test("status reports the rollup of a non-leaf", async () => {
   expect(parsed.state).toBe("ready");
 });
 
-test("an invalid flag value exits 1 with a validation message", async () => {
+test("an invalid flag value is a usage error → exit 2", async () => {
   const io = fakeIo();
-  expect(await runCli(["next", "--priority", "p9"], db, io)).toBe(1);
+  expect(await runCli(["next", "--priority", "p9"], db, io)).toBe(2);
   expect(io.err.join("")).toContain("invalid priority");
 });
 
@@ -105,4 +108,50 @@ test("list --predicate selects the matching set", async () => {
   const io = fakeIo();
   await runCli(["list", "--scope", "MMR", "--predicate", "ready", "--format", "ids"], db, io);
   expect(io.out.join("")).toContain("MMR-");
+});
+
+test("a bad --format value is a usage error → exit 2", async () => {
+  const io = fakeIo(false);
+  expect(await runCli(["next", "-f", "bogus"], db, io)).toBe(2);
+  expect(io.out).toHaveLength(0);
+});
+
+test("renderError + exitCodeFor: json format produces structured envelope", () => {
+  const err = notFound("no node MMR-9", "hint text");
+  const io = fakeIo(true);
+  renderError(err, "json", io);
+  const parsed = JSON.parse(io.err.join("")) as {
+    error: { code: string; message: string; hint: string };
+  };
+  expect(parsed.error.code).toBe("not_found");
+  expect(parsed.error.message).toBe("no node MMR-9");
+  expect(parsed.error.hint).toBe("hint text");
+});
+
+test("renderError: jsonl format produces same structured envelope as json", () => {
+  const err = notFound("no node MMR-9", "hint text");
+  const io = fakeIo(true);
+  renderError(err, "jsonl", io);
+  const parsed = JSON.parse(io.err.join("")) as {
+    error: { code: string; message: string; hint: string };
+  };
+  expect(parsed.error.code).toBe("not_found");
+  expect(parsed.error.message).toBe("no node MMR-9");
+  expect(parsed.error.hint).toBe("hint text");
+});
+
+test("renderError + exitCodeFor: records format produces [err] line and note: line (plain)", () => {
+  const err = notFound("no node MMR-9", "hint text");
+  const io = fakeIo(false);
+  renderError(err, "records", io);
+  const output = io.err.join("\n");
+  expect(output).toContain("[err]");
+  expect(output).toContain("note:");
+});
+
+test("exitCodeFor returns 1 for MimirError and 2 for UsageError", () => {
+  const mimirErr = notFound("no node MMR-9");
+  const usageErr = new UsageError("bad invocation");
+  expect(exitCodeFor(mimirErr)).toBe(1);
+  expect(exitCodeFor(usageErr)).toBe(2);
 });
