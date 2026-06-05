@@ -10,6 +10,33 @@ read commands:
   get <id>        full record for one node (KEY-seq)
   status <id>     a node's rollup distribution + state
 
+manage commands:
+  lifecycle:
+    start <id>              begin a task (todo → in_progress)
+    done <id>               complete a task
+    abandon <id> [reason]   abandon a task (kept, not deleted)
+
+  holds:
+    park <id> [reason]      put a task on hold
+    unpark <id>             clear the parked hold
+    block <id> [reason]     mark as externally blocked
+    unblock <id>            clear the blocked hold
+
+  structure:
+    depend <id> --on <ids>              add dependency edges
+    undepend <id> --on <ids>            remove dependency edges
+    move <id> --to <parent>             re-parent a node
+    reorder <id> --top|--bottom|        change rank within parent
+             --before <id>|--after <id>
+
+  data:
+    update <id> [--title …] [--priority …] [--size …] …   patch fields
+    annotate <id> <text>                append a freeform note
+
+  create/attach:
+    create <type> <name> […]            create project/initiative/phase/task
+    attach <id> --file <path>           freeze an artifact onto a node
+
 options:
   -s, --scope <KEY>       limit to a project
   -p, --priority <p0..p3> filter by priority (signal, not sort)
@@ -22,6 +49,24 @@ options:
   -f, --format <fmt>      table|records|ids|json|jsonl (default by destination)
       --ascii             no color/icons
   -h, --help              -h terse, --help with examples
+
+  write-verb flags:
+      --on <ids>          depend/undepend: comma-separated dependency ids
+      --to <parent>       move: destination parent (KEY or KEY-seq)
+      --before <id>       reorder: insert before this sibling
+      --after <id>        reorder: insert after this sibling
+      --top               reorder: move to first position
+      --bottom            reorder: move to last position
+      --parent <KEY|id>   create: parent node for initiative/phase/task
+      --key <KEY>         create project: short identifier key
+      --name <name>       create: display name (project)
+      --title <text>      create/update: title text
+      --desc <text>       create/update: description
+      --target <text>     create/update: target date or milestone
+      --ref <ref>         create/update: external reference
+      --file <path>       attach: path to artifact file
+      --link <ids>        attach: additional node links (comma-separated)
+      --project <KEY>     attach: associate artifact with a project key
 
 other: mimir migrate [status] · mimir mcp
 `;
@@ -36,9 +81,17 @@ examples:
   mimir status MMR-3                  # rollup of an initiative/phase
   mimir next --format json | jq .     # structured output for scripts
 
+  mimir create task "wire the API" --parent MMR-2 --priority p1
+  mimir start MMR-3                   # begin work
+  mimir done MMR-3                    # complete it
+  mimir depend MMR-4 --on MMR-3       # MMR-4 waits on MMR-3
+  mimir attach MMR-3 --file plan.md   # freeze an artifact onto a task
+
 notes:
   - identity selection (get/status) exits non-zero on a missing id;
     predicate selection (next/list) exits 0 on an empty result.
+  - mutations exit non-zero on a missing id or invariant violation and
+    echo the affected node on success.
   - rank is never shown — array order is the order (ADR 0007).
   - structured formats (ids/json/jsonl) never carry color; pipe-safe.
 `;
