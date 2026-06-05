@@ -1,17 +1,43 @@
 import { CHEAP_FACETS, type FacetName } from "../contract";
 import {
-  type ListOptions,
   MimirError,
+  type ListOptions,
   type NextOptions,
+  type UpdateFields,
+  abandonTask,
+  annotate,
+  attachArtifact,
+  blockTask,
+  buildNodeView,
+  completeTask,
+  createInitiative,
+  createPhase,
+  createProject,
+  createTask,
+  depend,
+  findNodeByRef,
   formatNodeJson,
   formatSetJson,
   formatStatusJson,
   getNode,
   listNodes,
+  moveNode,
   nextTasks,
+  notFound,
+  parkTask,
+  reorder,
+  startTask,
   statusOfNode,
+  unblockTask,
+  undepend,
+  unparkTask,
+  updateNode,
+  validation,
 } from "../core";
 import type { Db } from "../core";
+import { parseId } from "../core";
+import type { RankPosition } from "../core";
+import type { Priority, Size } from "../contract/enums";
 
 /**
  * The MCP tool handlers — the agent envelope over the shared intent layer.
@@ -29,22 +55,61 @@ export interface ToolResult {
 }
 
 const ok = (text: string): ToolResult => ({ content: [{ type: "text", text }] });
-const fail = (message: string): ToolResult => ({
-  content: [{ type: "text", text: message }],
+
+const fail = (code: string, message: string, hint?: string): ToolResult => ({
+  content: [
+    {
+      type: "text",
+      text: JSON.stringify(
+        hint === undefined ? { error: { code, message } } : { error: { code, message, hint } },
+      ),
+    },
+  ],
   isError: true,
 });
 
-/** Map a thrown {@link MimirError} to an `isError` result; rethrow anything else. */
+/** Map a thrown {@link MimirError} to a structured `isError` result; rethrow anything else. */
 async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {
   try {
     return await run();
   } catch (error) {
-    if (error instanceof MimirError) {
-      return fail(`error: ${error.message}`);
-    }
+    if (error instanceof MimirError) return fail(error.code, error.message, error.hint);
     throw error;
   }
 }
+
+/**
+ * Resolve a KEY-seq token to its surrogate id, throwing not_found (MimirError)
+ * if the token is malformed or the node doesn't exist.
+ */
+async function nodeId(db: Db, id: string): Promise<number> {
+  const n = await findNodeByRef(db, id);
+  if (n === undefined) throw notFound(`no node ${id}`);
+  return n.id;
+}
+
+/**
+ * Resolve a bare project KEY to its surrogate integer id.
+ * Throws not_found if no project with that key exists.
+ */
+async function projectId(db: Db, key: string): Promise<number> {
+  const row = await db.selectFrom("project").select("id").where("key", "=", key).executeTakeFirst();
+  if (row === undefined) throw notFound(`no project ${key}`);
+  return row.id;
+}
+
+/**
+ * Echo a returned Node row as bare JSON (the mutation echo contract).
+ * Accepts the Node row returned directly by mutation verbs — no reload needed.
+ * Typed via `Parameters` to avoid importing `Node` from db directly.
+ */
+async function echoNode(db: Db, node: Parameters<typeof buildNodeView>[1]): Promise<ToolResult> {
+  return ok(formatNodeJson(await buildNodeView(db, node)));
+}
+
+// ---------------------------------------------------------------------------
+// Read tools
+// ---------------------------------------------------------------------------
 
 export function toolNext(db: Db, args: NextOptions): Promise<ToolResult> {
   return guard(async () => ok(formatSetJson(await nextTasks(db, args))));
@@ -66,4 +131,309 @@ export function toolGet(db: Db, args: { id: string; facets?: FacetName[] }): Pro
 
 export function toolStatus(db: Db, args: { id: string }): Promise<ToolResult> {
   return guard(async () => ok(formatStatusJson(await statusOfNode(db, args.id))));
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle mutation tools
+// ---------------------------------------------------------------------------
+
+export function toolStart(db: Db, args: { id: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const node = await startTask(db, id);
+    return echoNode(db, node);
+  });
+}
+
+export function toolDone(db: Db, args: { id: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const node = await completeTask(db, id);
+    return echoNode(db, node);
+  });
+}
+
+export function toolAbandon(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const node = await abandonTask(db, id, args.reason);
+    return echoNode(db, node);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Hold mutation tools
+// ---------------------------------------------------------------------------
+
+export function toolPark(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const node = await parkTask(db, id, args.reason);
+    return echoNode(db, node);
+  });
+}
+
+export function toolUnpark(db: Db, args: { id: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const node = await unparkTask(db, id);
+    return echoNode(db, node);
+  });
+}
+
+export function toolBlock(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const node = await blockTask(db, id, args.reason);
+    return echoNode(db, node);
+  });
+}
+
+export function toolUnblock(db: Db, args: { id: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const node = await unblockTask(db, id);
+    return echoNode(db, node);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Dependency mutation tools
+// ---------------------------------------------------------------------------
+
+export function toolDepend(db: Db, args: { id: string; on: string[] }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const onIds = await Promise.all(args.on.map((t) => nodeId(db, t)));
+    const node = await depend(db, id, onIds);
+    return echoNode(db, node);
+  });
+}
+
+export function toolUndepend(db: Db, args: { id: string; on: string[] }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const onIds = await Promise.all(args.on.map((t) => nodeId(db, t)));
+    const node = await undepend(db, id, onIds);
+    return echoNode(db, node);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Structure mutation tools
+// ---------------------------------------------------------------------------
+
+export function toolMove(db: Db, args: { id: string; to: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const toId = await nodeId(db, args.to);
+    const node = await moveNode(db, id, toId);
+    return echoNode(db, node);
+  });
+}
+
+export function toolReorder(
+  db: Db,
+  args: { id: string; position: "top" | "bottom" | "before" | "after"; ref?: string },
+): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const position: RankPosition = args.position;
+    let refId: number | null = null;
+    if (position === "before" || position === "after") {
+      if (args.ref === undefined) {
+        throw validation("reorder before/after requires ref");
+      }
+      refId = await nodeId(db, args.ref);
+    }
+    const node = await reorder(db, id, position, refId);
+    return echoNode(db, node);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Data mutation tools
+// ---------------------------------------------------------------------------
+
+export function toolUpdate(
+  db: Db,
+  args: {
+    id: string;
+    title?: string;
+    description?: string;
+    priority?: string;
+    size?: string;
+    target?: string;
+    externalRef?: string;
+  },
+): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const fields: UpdateFields = {};
+    if (args.title !== undefined) fields.title = args.title;
+    if (args.description !== undefined) fields.description = args.description;
+    if (args.priority !== undefined) fields.priority = args.priority as Priority;
+    if (args.size !== undefined) fields.size = args.size as Size;
+    if (args.target !== undefined) fields.target = args.target;
+    if (args.externalRef !== undefined) fields.externalRef = args.externalRef;
+    const node = await updateNode(db, id, fields);
+    return echoNode(db, node);
+  });
+}
+
+export function toolAnnotate(db: Db, args: { id: string; content: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id);
+    const node = await annotate(db, id, args.content);
+    return echoNode(db, node);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Create tool
+// ---------------------------------------------------------------------------
+
+export function toolCreate(
+  db: Db,
+  args: {
+    type: "project" | "initiative" | "phase" | "task";
+    key?: string;
+    name?: string;
+    repo?: string;
+    path?: string;
+    parent?: string;
+    title?: string;
+    description?: string;
+    target?: string;
+    priority?: string;
+    size?: string;
+    externalRef?: string;
+  },
+): Promise<ToolResult> {
+  return guard(async () => {
+    switch (args.type) {
+      case "project": {
+        if (args.key === undefined) throw validation("create project requires key");
+        if (args.name === undefined) throw validation("create project requires name");
+        const project = await createProject(db, {
+          key: args.key,
+          name: args.name,
+          repo: args.repo,
+          path: args.path,
+        });
+        return ok(JSON.stringify({ project: { key: project.key, name: project.name } }));
+      }
+      case "initiative": {
+        if (args.title === undefined) throw validation("create initiative requires title");
+        if (args.parent === undefined) throw validation("create initiative requires parent");
+        // Initiative parent must be a bare project KEY (not a node ref)
+        if (parseId(args.parent) !== null) {
+          throw validation("an initiative's parent must be a project KEY, not a node ref");
+        }
+        const pid = await projectId(db, args.parent);
+        const node = await createInitiative(db, {
+          projectId: pid,
+          title: args.title,
+          description: args.description,
+        });
+        return echoNode(db, node);
+      }
+      case "phase": {
+        if (args.title === undefined) throw validation("create phase requires title");
+        if (args.parent === undefined) throw validation("create phase requires parent");
+        // Phase parent must be a node ref (initiative)
+        if (parseId(args.parent) === null) {
+          throw validation("a phase's parent must be an initiative node ref (KEY-seq)");
+        }
+        const parentNodeId = await nodeId(db, args.parent);
+        const node = await createPhase(db, {
+          parentId: parentNodeId,
+          title: args.title,
+          description: args.description,
+          target: args.target,
+        });
+        return echoNode(db, node);
+      }
+      case "task": {
+        if (args.title === undefined) throw validation("create task requires title");
+        if (args.parent === undefined) throw validation("create task requires parent");
+        // Task parent must be a node ref (phase or initiative)
+        if (parseId(args.parent) === null) {
+          throw validation("a task's parent must be a phase or initiative node ref (KEY-seq)");
+        }
+        const parentNodeId = await nodeId(db, args.parent);
+        const node = await createTask(db, {
+          parentId: parentNodeId,
+          title: args.title,
+          description: args.description,
+          priority: args.priority !== undefined ? (args.priority as Priority) : undefined,
+          size: args.size !== undefined ? (args.size as Size) : undefined,
+          externalRef: args.externalRef,
+        });
+        return echoNode(db, node);
+      }
+      default:
+        throw validation(`create: unknown type ${String((args as { type: string }).type)}`);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Attach tool
+// ---------------------------------------------------------------------------
+
+export function toolAttach(
+  db: Db,
+  args: {
+    node?: string;
+    project?: string;
+    content: string;
+    links?: string[];
+  },
+): Promise<ToolResult> {
+  return guard(async () => {
+    // Gather all node ref tokens: primary node (if any) + links
+    const linkTokens: string[] = [];
+    if (args.node !== undefined) linkTokens.push(args.node);
+    if (args.links !== undefined) {
+      for (const t of args.links) {
+        const trimmed = t.trim();
+        if (trimmed.length > 0) linkTokens.push(trimmed);
+      }
+    }
+
+    let pid: number;
+    const linkNodeIds: number[] = [];
+
+    if (linkTokens.length > 0) {
+      // Resolve all node refs; require they all belong to one project
+      const nodes = await Promise.all(
+        linkTokens.map(async (t) => {
+          const n = await findNodeByRef(db, t);
+          if (n === undefined) throw notFound(`no node ${t}`);
+          return n;
+        }),
+      );
+      const projects = new Set(nodes.map((n) => n.project_id));
+      if (projects.size > 1) throw validation("all attached nodes must be in one project");
+      const [resolvedProjectId] = projects;
+      if (resolvedProjectId === undefined)
+        throw validation("internal: nodes resolved but project_id missing");
+      pid = resolvedProjectId;
+      linkNodeIds.push(...nodes.map((n) => n.id));
+      // If --project is also provided, it must agree
+      if (args.project !== undefined) {
+        const explicitId = await projectId(db, args.project);
+        if (explicitId !== pid)
+          throw validation("project disagrees with the linked node(s)' project");
+      }
+    } else {
+      // No node refs — project is required
+      if (args.project === undefined) throw validation("attach requires a node id or project key");
+      pid = await projectId(db, args.project);
+    }
+
+    const { id } = await attachArtifact(db, { projectId: pid, content: args.content, linkNodeIds });
+    return ok(JSON.stringify({ artifact: { id } }));
+  });
 }
