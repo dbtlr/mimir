@@ -37,10 +37,14 @@ import {
   type Ctx,
   cmdAbandon,
   cmdBlock,
+  cmdDepend,
   cmdDone,
+  cmdMove,
   cmdPark,
+  cmdReorder,
   cmdStart,
   cmdUnblock,
+  cmdUndepend,
   cmdUnpark,
 } from "./mutations";
 
@@ -207,6 +211,14 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
         return await cmdBlock(mctx);
       case "unblock":
         return await cmdUnblock(mctx);
+      case "depend":
+        return await cmdDepend(mctx);
+      case "undepend":
+        return await cmdUndepend(mctx);
+      case "move":
+        return await cmdMove(mctx);
+      case "reorder":
+        return await cmdReorder(mctx);
       default:
         throw usage(`unknown command: ${command}`);
     }

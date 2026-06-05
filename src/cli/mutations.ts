@@ -8,12 +8,16 @@ import {
   abandonTask,
   blockTask,
   completeTask,
+  depend,
+  moveNode,
   parkTask,
+  reorder,
   startTask,
   unblockTask,
+  undepend,
   unparkTask,
 } from "../core";
-import type { Db } from "../core";
+import type { Db, RankPosition } from "../core";
 import { usage } from "./errors";
 import type { Format, Io } from "./render";
 import { echoNode, resolveNode } from "./resolve";
@@ -51,8 +55,7 @@ export async function cmdDone(c: Ctx): Promise<number> {
 
 export async function cmdAbandon(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "abandon"));
-  const reason = c.positionals.slice(2).join(" ") || undefined;
-  await abandonTask(c.db, id, reason);
+  await abandonTask(c.db, id, reasonTail(c));
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }
@@ -83,6 +86,57 @@ export async function cmdBlock(c: Ctx): Promise<number> {
 export async function cmdUnblock(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "unblock"));
   await unblockTask(c.db, id);
+  await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+async function resolveIds(db: Db, csv: string): Promise<number[]> {
+  return Promise.all(csv.split(",").map((t) => resolveNode(db, t.trim())));
+}
+
+export async function cmdDepend(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "depend"));
+  if (typeof c.values.on !== "string") throw usage("depend requires --on <ids>");
+  await depend(c.db, id, await resolveIds(c.db, c.values.on));
+  await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+export async function cmdUndepend(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "undepend"));
+  if (typeof c.values.on !== "string") throw usage("undepend requires --on <ids>");
+  await undepend(c.db, id, await resolveIds(c.db, c.values.on));
+  await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+export async function cmdMove(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "move"));
+  if (typeof c.values.to !== "string") throw usage("move requires --to <parent>");
+  const parentId = await resolveNode(c.db, c.values.to);
+  await moveNode(c.db, id, parentId);
+  await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+export async function cmdReorder(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "reorder"));
+  let position: RankPosition;
+  let refId: number | null = null;
+  if (c.values.top === true) {
+    position = "top";
+  } else if (c.values.bottom === true) {
+    position = "bottom";
+  } else if (typeof c.values.before === "string") {
+    position = "before";
+    refId = await resolveNode(c.db, c.values.before);
+  } else if (typeof c.values.after === "string") {
+    position = "after";
+    refId = await resolveNode(c.db, c.values.after);
+  } else {
+    throw usage("reorder requires one of --top | --bottom | --before <id> | --after <id>");
+  }
+  await reorder(c.db, id, position, refId);
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }

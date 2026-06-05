@@ -8,11 +8,15 @@ import { fakeIo } from "./testing";
 
 let db: Db;
 let taskRef: string;
+let phaseId: number;
+let initiativeId: number;
 beforeEach(async () => {
   db = await createTestDb();
   const p = await createProject(db, { key: "MMR", name: "m" });
   const init = await createInitiative(db, { projectId: p.id, title: "i" });
+  initiativeId = init.id;
   const phase = await createPhase(db, { parentId: init.id, title: "ph" });
+  phaseId = phase.id;
   const task = await createTask(db, { parentId: phase.id, title: "t" });
   taskRef = `MMR-${String(task.seq)}`;
 });
@@ -148,4 +152,33 @@ test("unpark clears the hold", async () => {
 test("block then unblock", async () => {
   expect(await runCli(["block", taskRef, "ci", "red"], db, fakeIo(false))).toBe(0);
   expect(await runCli(["unblock", taskRef], db, fakeIo(false))).toBe(0);
+});
+
+// dependency verbs: depend / undepend
+test("depend --on adds edges; undepend removes them", async () => {
+  const t2 = await createTask(db, { parentId: phaseId, title: "t2" });
+  const ref2 = `MMR-${String(t2.seq)}`;
+  expect(await runCli(["depend", taskRef, "--on", ref2], db, fakeIo(false))).toBe(0);
+  expect(await runCli(["undepend", taskRef, "--on", ref2], db, fakeIo(false))).toBe(0);
+});
+test("depend without --on is a usage error → exit 2", async () => {
+  expect(await runCli(["depend", taskRef], db, fakeIo(false))).toBe(2);
+});
+
+// structure verb: move
+test("move re-parents under --to", async () => {
+  const phase2 = await createPhase(db, { parentId: initiativeId, title: "ph2" });
+  const phase2Ref = `MMR-${String(phase2.seq)}`;
+  expect(await runCli(["move", taskRef, "--to", phase2Ref], db, fakeIo(false))).toBe(0);
+});
+
+// structure verb: reorder
+test("reorder --before and --top", async () => {
+  const t2 = await createTask(db, { parentId: phaseId, title: "t2" });
+  const ref2 = `MMR-${String(t2.seq)}`;
+  expect(await runCli(["reorder", taskRef, "--before", ref2], db, fakeIo(false))).toBe(0);
+  expect(await runCli(["reorder", taskRef, "--top"], db, fakeIo(false))).toBe(0);
+});
+test("reorder with no position flag is a usage error → exit 2", async () => {
+  expect(await runCli(["reorder", taskRef], db, fakeIo(false))).toBe(2);
 });
