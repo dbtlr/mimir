@@ -3,7 +3,7 @@
  * `db` and transports together. It opens the database (auto-applying migrations
  * on startup), then dispatches:
  *
- *   <verb> [args]   read commands (next/get/list/status) → CLI transport
+ *   <verb> [args]   read/write commands → CLI transport
  *   mcp             the agent envelope over stdio → MCP transport
  *   migrate [status] apply / inspect migrations
  *   --help, -h      help (handled by the CLI)
@@ -19,7 +19,24 @@ import { migrateToLatest, migrationStatus } from "./db/migrator";
 import type { Db } from "./core";
 import { serveStdio } from "./mcp";
 
-const DATA_COMMANDS = new Set(["next", "get", "list", "status"]);
+const READ_VERBS = new Set(["next", "get", "list", "status"]);
+const WRITE_VERBS = new Set([
+  "start",
+  "done",
+  "abandon",
+  "park",
+  "unpark",
+  "block",
+  "unblock",
+  "depend",
+  "undepend",
+  "move",
+  "reorder",
+  "update",
+  "annotate",
+  "create",
+  "attach",
+]);
 
 /**
  * The database path. `MIMIR_DB` overrides; otherwise a single user-global store
@@ -114,10 +131,10 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
-  // Read commands + help/unknown go through the CLI. Only data commands need the
+  // Read and write commands go through the CLI. Only data commands need the
   // real database; help/unknown run against a throwaway in-memory db so a bare
   // `mimir` / `mimir --help` never creates a file.
-  const needsData = command !== undefined && DATA_COMMANDS.has(command);
+  const needsData = command !== undefined && (READ_VERBS.has(command) || WRITE_VERBS.has(command));
   const db = needsData ? await openMigrated(dbPath()) : openClient(":memory:");
   try {
     return await runCli(argv, db, stdoutIo());
