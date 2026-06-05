@@ -9,6 +9,7 @@ import { fakeIo } from "./testing";
 let db: Db;
 let taskRef: string;
 let phaseId: number;
+let phaseRef: string;
 let initiativeId: number;
 beforeEach(async () => {
   db = await createTestDb();
@@ -17,6 +18,7 @@ beforeEach(async () => {
   initiativeId = init.id;
   const phase = await createPhase(db, { parentId: init.id, title: "ph" });
   phaseId = phase.id;
+  phaseRef = `MMR-${String(phase.seq)}`;
   const task = await createTask(db, { parentId: phase.id, title: "t" });
   taskRef = `MMR-${String(task.seq)}`;
 });
@@ -204,4 +206,35 @@ test("annotate from the positional tail exits 0", async () => {
 });
 test("annotate with no content is a usage error → exit 2", async () => {
   expect(await runCli(["annotate", taskRef], db, fakeIo(true))).toBe(2); // isTTY=true so stdin isn't read
+});
+
+// create verbs
+test("create project echoes the new key", async () => {
+  const io = fakeIo(false);
+  const code = await runCli(["create", "project", "--key", "NEW", "--name", "New Proj"], db, io);
+  expect(code).toBe(0);
+  expect(io.out.join("")).toContain("NEW");
+});
+test("create task under a phase, with signals", async () => {
+  const io = fakeIo(false);
+  const code = await runCli(
+    ["create", "task", "A new task", "--parent", phaseRef, "--priority", "p2", "-f", "json"],
+    db,
+    io,
+  );
+  expect(code).toBe(0);
+  const v = JSON.parse(io.out[0] ?? "{}");
+  expect(v.type).toBe("task");
+  expect(v.title).toBe("A new task");
+});
+test("create initiative under a bare project KEY", async () => {
+  expect(
+    await runCli(["create", "initiative", "Big bet", "--parent", "MMR"], db, fakeIo(false)),
+  ).toBe(0);
+});
+test("create with an unknown type is a usage error → exit 2", async () => {
+  expect(await runCli(["create", "widget", "x", "--parent", "MMR"], db, fakeIo(false))).toBe(2);
+});
+test("create task without --parent is a usage error → exit 2", async () => {
+  expect(await runCli(["create", "task", "orphan"], db, fakeIo(false))).toBe(2);
 });

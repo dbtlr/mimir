@@ -9,6 +9,10 @@ import {
   annotate,
   blockTask,
   completeTask,
+  createInitiative,
+  createPhase,
+  createProject,
+  createTask,
   depend,
   moveNode,
   parkTask,
@@ -23,7 +27,7 @@ import type { Db, RankPosition, UpdateFields } from "../core";
 import { usage } from "./errors";
 import { parsePriority, parseSize } from "./parse";
 import type { Format, Io } from "./render";
-import { echoNode, readContent, resolveNode } from "./resolve";
+import { echoNode, readContent, resolveNode, resolveParent } from "./resolve";
 
 /** Shared dispatch context built once in `run.ts` for every write verb. */
 export interface Ctx {
@@ -36,9 +40,9 @@ export interface Ctx {
 }
 
 /** Assert that positional at index `i` is present, else throw a usage error. */
-export function requirePos(c: Ctx, i: number, verb: string): string {
+export function requirePos(c: Ctx, i: number, verb: string, noun = "a node id (KEY-seq)"): string {
   const v = c.positionals[i];
-  if (v === undefined) throw usage(`${verb} requires a node id (KEY-seq)`);
+  if (v === undefined) throw usage(`${verb} requires ${noun}`);
   return v;
 }
 
@@ -165,4 +169,93 @@ export async function cmdAnnotate(c: Ctx): Promise<number> {
   await annotate(c.db, id, content);
   await echoNode(c.db, id, c.format, c.io);
   return 0;
+}
+
+function strFlag(c: Ctx, name: string, msg: string): string {
+  const v = c.values[name];
+  if (typeof v !== "string") throw usage(msg);
+  return v;
+}
+
+function optStr(c: Ctx, name: string): string | undefined {
+  const v = c.values[name];
+  return typeof v === "string" ? v : undefined;
+}
+
+export async function cmdCreate(c: Ctx): Promise<number> {
+  const type = c.positionals[1];
+  switch (type) {
+    case "project": {
+      const project = await createProject(c.db, {
+        key: strFlag(c, "key", "create project requires --key"),
+        name: strFlag(c, "name", "create project requires --name"),
+        repo: optStr(c, "repo"),
+        path: optStr(c, "path"),
+      });
+      if (c.format === "json" || c.format === "jsonl") {
+        c.io.write(JSON.stringify({ project: { key: project.key, name: project.name } }));
+      } else if (c.format === "ids") {
+        c.io.write(project.key);
+      } else {
+        c.io.write(`${c.io.plain ? "[ok]" : "\x1b[32m✓\x1b[0m"} created project ${project.key}`);
+      }
+      return 0;
+    }
+    case "initiative": {
+      const title = requirePos(c, 2, "create initiative", "a title");
+      const parent = await resolveParent(
+        c.db,
+        strFlag(c, "parent", "create initiative requires --parent <KEY>"),
+      );
+      if (parent.kind !== "project") throw usage("an initiative's --parent must be a project KEY");
+      const node = await createInitiative(c.db, {
+        projectId: parent.id,
+        title,
+        description: optStr(c, "desc"),
+      });
+      await echoNode(c.db, node.id, c.format, c.io);
+      return 0;
+    }
+    case "phase": {
+      const title = requirePos(c, 2, "create phase", "a title");
+      const parent = await resolveParent(
+        c.db,
+        strFlag(c, "parent", "create phase requires --parent <id>"),
+      );
+      if (parent.kind !== "node")
+        throw usage("a phase's --parent must be an initiative node (KEY-seq)");
+      const node = await createPhase(c.db, {
+        parentId: parent.id,
+        title,
+        description: optStr(c, "desc"),
+        target: optStr(c, "target"),
+      });
+      await echoNode(c.db, node.id, c.format, c.io);
+      return 0;
+    }
+    case "task": {
+      const title = requirePos(c, 2, "create task", "a title");
+      const parent = await resolveParent(
+        c.db,
+        strFlag(c, "parent", "create task requires --parent <id>"),
+      );
+      if (parent.kind !== "node")
+        throw usage("a task's --parent must be a phase or initiative node (KEY-seq)");
+      const node = await createTask(c.db, {
+        parentId: parent.id,
+        title,
+        description: optStr(c, "desc"),
+        priority:
+          typeof c.values.priority === "string" ? parsePriority(c.values.priority) : undefined,
+        size: typeof c.values.size === "string" ? parseSize(c.values.size) : undefined,
+        externalRef: optStr(c, "ref"),
+      });
+      await echoNode(c.db, node.id, c.format, c.io);
+      return 0;
+    }
+    default:
+      throw usage(
+        `create: unknown type ${type ?? "(none)"} (expected project|initiative|phase|task)`,
+      );
+  }
 }
