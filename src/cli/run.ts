@@ -35,6 +35,7 @@ import {
   cmdAbandon,
   cmdAnnotate,
   cmdBlock,
+  cmdCreate,
   cmdDepend,
   cmdDone,
   cmdMove,
@@ -86,6 +87,8 @@ const OPTIONS = {
   top: { type: "boolean" },
   bottom: { type: "boolean" },
   title: { type: "string" },
+  repo: { type: "string" },
+  path: { type: "string" },
 } as const;
 
 /**
@@ -123,6 +126,8 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
     top?: boolean;
     bottom?: boolean;
     title?: string;
+    repo?: string;
+    path?: string;
   };
   let positionals: string[];
   try {
@@ -224,6 +229,8 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
         return await cmdUpdate(mctx);
       case "annotate":
         return await cmdAnnotate(mctx);
+      case "create":
+        return await cmdCreate(mctx);
       default:
         throw usage(`unknown command: ${command}`);
     }
