@@ -1,0 +1,45 @@
+name: Release
+
+# Stub release pipeline: a `vX.Y.Z` tag compiles standalone binaries and
+# attaches them to a GitHub Release. Single-binary distribution is post-v1 in
+# the roadmap — this is the scaffold, not the final cross-platform story.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: compile + publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .tool-versions
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Re-run the gate before publishing — never ship red.
+      - name: Check + test
+        run: |
+          bun run check
+          bun test
+
+      - name: Compile standalone binaries
+        run: |
+          mkdir -p dist
+          for target in bun-linux-x64 bun-linux-arm64 bun-darwin-arm64 bun-darwin-x64; do
+            bun build src/main.ts --compile --target="$target" --outfile "dist/mimir-${target#bun-}"
+          done
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/mimir-*
+          generate_release_notes: true

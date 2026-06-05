@@ -10,6 +10,9 @@ CLAUDE.local.md
 # Dependencies & build output
 node_modules/
 dist/
+# Compiled standalone binaries (built by the release workflow / `bun build --compile`)
+/mimir
+/mimir-*
 
 # Local SQLite databases (WAL/SHM sidecars included)
 *.db
