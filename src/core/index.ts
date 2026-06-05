@@ -1,8 +1,17 @@
 /**
- * The core — transport-agnostic, storage-committed domain logic: predicates,
- * the rollup/`interpret` cascade, projections, the transactional mutation
- * verbs, and id/rank allocation. Imports `db` + `contract`; never a transport.
- *
- * Phase 1 fills this. Empty during the scaffold.
+ * The core — transport-agnostic, storage-committed domain logic. Public surface
+ * the intent layer (Phase 2) renders through the transports: create + mutation
+ * verbs, the live derivation (state word, rollup, predicates), rank ops, id
+ * rendering/resolution, and the error vocabulary. Imports `db` + `contract`;
+ * never a transport.
  */
-export {};
+export * from "./create";
+export * from "./mutations";
+export * from "./derive";
+export * from "./predicates";
+export * from "./rank";
+export * from "./ids";
+export * from "./lookup";
+export * from "./errors";
+export * from "./state";
+export { now } from "./time";

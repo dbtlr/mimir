@@ -1,6 +1,6 @@
 import type { Node } from "../db/schema";
 import type { Db, Tx } from "./context";
-import { parseId } from "./ids";
+import { parseId, renderId } from "./ids";
 
 /** Load a node row by surrogate id, or `undefined` if absent. */
 export async function loadNode(tx: Db | Tx, id: number): Promise<Node | undefined> {
@@ -31,4 +31,15 @@ export async function findNodeByRef(tx: Db | Tx, id: string): Promise<Node | und
     .where("project_id", "=", project.id)
     .where("seq", "=", ref.seq)
     .executeTakeFirst();
+}
+
+/** Render a node's external `KEY-seq` id from its surrogate id (joins the project key). */
+export async function renderNodeId(tx: Db | Tx, nodeId: number): Promise<string | null> {
+  const row = await tx
+    .selectFrom("node")
+    .innerJoin("project", "project.id", "node.project_id")
+    .select(["project.key as key", "node.seq as seq"])
+    .where("node.id", "=", nodeId)
+    .executeTakeFirst();
+  return row === undefined ? null : renderId(row);
 }
