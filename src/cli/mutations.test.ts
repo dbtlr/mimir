@@ -238,3 +238,37 @@ test("create with an unknown type is a usage error → exit 2", async () => {
 test("create task without --parent is a usage error → exit 2", async () => {
   expect(await runCli(["create", "task", "orphan"], db, fakeIo(false))).toBe(2);
 });
+
+// attach verb
+test("attach to a node infers the project and echoes an artifact id", async () => {
+  const tmp = `${process.env.TMPDIR ?? "/tmp"}/mimir-attach-ok.md`;
+  await Bun.write(tmp, "# plan\n");
+  const io = fakeIo(false);
+  const code = await runCli(["attach", taskRef, "--file", tmp, "-f", "json"], db, io);
+  expect(code).toBe(0);
+  expect(JSON.parse(io.out[0] ?? "{}").artifact.id).toBeGreaterThan(0);
+});
+test("attach rejects a --link in a different project (validation → exit 1)", async () => {
+  const other = await createProject(db, { key: "OTH", name: "o" });
+  const oi = await createInitiative(db, { projectId: other.id, title: "i" });
+  const op = await createPhase(db, { parentId: oi.id, title: "p" });
+  const ot = await createTask(db, { parentId: op.id, title: "t" });
+  const tmp = `${process.env.TMPDIR ?? "/tmp"}/mimir-attach-x.md`;
+  await Bun.write(tmp, "x");
+  const io = fakeIo(false);
+  const code = await runCli(
+    ["attach", taskRef, "--file", tmp, "--link", `OTH-${String(ot.seq)}`],
+    db,
+    io,
+  );
+  expect(code).toBe(1);
+  expect(io.out).toHaveLength(0);
+});
+test("attach with no content and no --file on a TTY is a usage error → exit 2", async () => {
+  expect(await runCli(["attach", taskRef], db, fakeIo(true))).toBe(2); // isTTY=true ⇒ stdin not read
+});
+test("attach to a missing node is not_found → exit 1", async () => {
+  const tmp = `${process.env.TMPDIR ?? "/tmp"}/mimir-attach-nf.md`;
+  await Bun.write(tmp, "x");
+  expect(await runCli(["attach", "MMR-9999", "--file", tmp], db, fakeIo(false))).toBe(1);
+});
