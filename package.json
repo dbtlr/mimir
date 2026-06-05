@@ -15,7 +15,8 @@
   "dependencies": {
     "@meck93/kysely-bun-sqlite": "0.2.16",
     "@modelcontextprotocol/sdk": "1.29.0",
-    "kysely": "0.28.17"
+    "kysely": "0.28.17",
+    "zod": "3"
   },
   "devDependencies": {
     "@types/bun": "latest",
