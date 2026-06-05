@@ -5,6 +5,7 @@
  * rendering/resolution, and the error vocabulary. Imports `db` + `contract`;
  * never a transport.
  */
+export type { Db, Tx } from "./context";
 export * from "./create";
 export * from "./mutations";
 export * from "./derive";

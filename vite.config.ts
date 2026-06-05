@@ -58,6 +58,9 @@ export default defineConfig({
       forbid(["src/cli/**"], ["db", "mcp", "http"]),
       forbid(["src/mcp/**"], ["db", "cli", "http"]),
       forbid(["src/http/**"], ["db", "cli", "mcp"]),
+      // Tests legitimately wire layers together (fixtures from `db/testing`,
+      // cross-layer assertions); the boundary constrains shipped code, not tests.
+      { files: ["**/*.test.ts"], rules: { "no-restricted-imports": "off" } },
     ],
   },
 });
