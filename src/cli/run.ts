@@ -4,11 +4,7 @@ import {
   FACET_NAMES,
   type FacetName,
   type NodeView,
-  PRIORITY_VALUES,
-  type Priority,
-  SIZE_VALUES,
   type SetResult,
-  type Size,
 } from "../contract";
 import {
   type ListPredicate,
@@ -33,9 +29,11 @@ import {
   renderTable,
 } from "./render";
 import { exitCodeFor, isRenderable, renderError, usage } from "./errors";
+import { parsePriority, parseSize } from "./parse";
 import {
   type Ctx,
   cmdAbandon,
+  cmdAnnotate,
   cmdBlock,
   cmdDepend,
   cmdDone,
@@ -46,6 +44,7 @@ import {
   cmdUnblock,
   cmdUndepend,
   cmdUnpark,
+  cmdUpdate,
 } from "./mutations";
 
 const LIST_PREDICATES: readonly ListPredicate[] = [
@@ -86,6 +85,7 @@ const OPTIONS = {
   project: { type: "string" },
   top: { type: "boolean" },
   bottom: { type: "boolean" },
+  title: { type: "string" },
 } as const;
 
 /**
@@ -122,6 +122,7 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
     project?: string;
     top?: boolean;
     bottom?: boolean;
+    title?: string;
   };
   let positionals: string[];
   try {
@@ -219,6 +220,10 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
         return await cmdMove(mctx);
       case "reorder":
         return await cmdReorder(mctx);
+      case "update":
+        return await cmdUpdate(mctx);
+      case "annotate":
+        return await cmdAnnotate(mctx);
       default:
         throw usage(`unknown command: ${command}`);
     }
@@ -323,22 +328,6 @@ function parseFacets(cols: string[] | undefined): FacetName[] {
     }
   }
   return facets;
-}
-
-function parsePriority(value: string | undefined): Priority | undefined {
-  if (value === undefined) return undefined;
-  if (!(PRIORITY_VALUES as readonly string[]).includes(value)) {
-    throw usage(`invalid priority: ${value} (expected ${PRIORITY_VALUES.join("|")})`);
-  }
-  return value as Priority;
-}
-
-function parseSize(value: string | undefined): Size | undefined {
-  if (value === undefined) return undefined;
-  if (!(SIZE_VALUES as readonly string[]).includes(value)) {
-    throw usage(`invalid size: ${value} (expected ${SIZE_VALUES.join("|")})`);
-  }
-  return value as Size;
 }
 
 function parsePredicate(value: string | undefined): ListPredicate | undefined {

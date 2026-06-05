@@ -6,6 +6,7 @@
 
 import {
   abandonTask,
+  annotate,
   blockTask,
   completeTask,
   depend,
@@ -16,11 +17,13 @@ import {
   unblockTask,
   undepend,
   unparkTask,
+  updateNode,
 } from "../core";
-import type { Db, RankPosition } from "../core";
+import type { Db, RankPosition, UpdateFields } from "../core";
 import { usage } from "./errors";
+import { parsePriority, parseSize } from "./parse";
 import type { Format, Io } from "./render";
-import { echoNode, resolveNode } from "./resolve";
+import { echoNode, readContent, resolveNode } from "./resolve";
 
 /** Shared dispatch context built once in `run.ts` for every write verb. */
 export interface Ctx {
@@ -137,6 +140,29 @@ export async function cmdReorder(c: Ctx): Promise<number> {
     throw usage("reorder requires one of --top | --bottom | --before <id> | --after <id>");
   }
   await reorder(c.db, id, position, refId);
+  await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+export async function cmdUpdate(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "update"));
+  const fields: UpdateFields = {};
+  if (typeof c.values.title === "string") fields.title = c.values.title;
+  if (typeof c.values.desc === "string") fields.description = c.values.desc;
+  if (typeof c.values.priority === "string") fields.priority = parsePriority(c.values.priority);
+  if (typeof c.values.size === "string") fields.size = parseSize(c.values.size);
+  if (typeof c.values.target === "string") fields.target = c.values.target;
+  if (typeof c.values.ref === "string") fields.externalRef = c.values.ref;
+  await updateNode(c.db, id, fields);
+  await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+export async function cmdAnnotate(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "annotate"));
+  const content = await readContent(c.positionals.slice(2), c.io);
+  if (content === "") throw usage("annotate requires content (positional or stdin)");
+  await annotate(c.db, id, content);
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }

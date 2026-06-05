@@ -182,3 +182,26 @@ test("reorder --before and --top", async () => {
 test("reorder with no position flag is a usage error → exit 2", async () => {
   expect(await runCli(["reorder", taskRef], db, fakeIo(false))).toBe(2);
 });
+
+// data verbs: update / annotate
+test("update patches scalar fields and echoes them", async () => {
+  const io = fakeIo(false);
+  const code = await runCli(
+    ["update", taskRef, "--priority", "p1", "--size", "large", "--title", "renamed", "-f", "json"],
+    db,
+    io,
+  );
+  expect(code).toBe(0);
+  const v = JSON.parse(io.out[0] ?? "{}");
+  expect(v.priority).toBe("p1");
+  expect(v.title).toBe("renamed");
+});
+test("update rejects an invalid priority as usage → exit 2", async () => {
+  expect(await runCli(["update", taskRef, "--priority", "p9"], db, fakeIo(false))).toBe(2);
+});
+test("annotate from the positional tail exits 0", async () => {
+  expect(await runCli(["annotate", taskRef, "looked", "into", "this"], db, fakeIo(false))).toBe(0);
+});
+test("annotate with no content is a usage error → exit 2", async () => {
+  expect(await runCli(["annotate", taskRef], db, fakeIo(true))).toBe(2); // isTTY=true so stdin isn't read
+});
