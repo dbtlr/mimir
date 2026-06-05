@@ -1,5 +1,9 @@
+import { formatNodeJson } from "../core";
 import type { NodeView, SetResult, StatusView } from "../contract/dto";
 import type { StateWord } from "../contract/enums";
+
+export const FORMATS = ["table", "records", "ids", "json", "jsonl"] as const;
+export type Format = (typeof FORMATS)[number];
 
 /**
  * The styled TTY formats — `table` (set view) and `records` (detail view).
@@ -137,6 +141,30 @@ export function renderRecords(node: NodeView, io: Io): string {
     lines.push(row(label, value, labelW));
   }
   return lines.join("\n");
+}
+
+/**
+ * Render a single node to `io` in the given format. Exhaustive over all five
+ * `Format` values — TypeScript enforces no gaps. No `default` branch so the
+ * compiler catches any missing case (no import from `./errors` to avoid the
+ * render↔errors import cycle).
+ */
+export function renderNodeView(view: NodeView, format: Format, io: Io): void {
+  switch (format) {
+    case "json":
+    case "jsonl":
+      io.write(formatNodeJson(view));
+      break;
+    case "ids":
+      io.write(view.id);
+      break;
+    case "table":
+      io.write(renderTable({ total: 1, returned: 1, startsAt: 0, items: [view] }, io));
+      break;
+    case "records":
+      io.write(renderRecords(view, io));
+      break;
+  }
 }
 
 /** `records`-style rendering of `status_of` — label + distribution. */
