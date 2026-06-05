@@ -2,26 +2,9 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createInitiative, createPhase, createProject, createTask, notFound } from "../core";
 import type { Db } from "../core";
 import { createTestDb } from "../db/testing";
-import type { Io } from "./render";
 import { UsageError, exitCodeFor, renderError } from "./errors";
 import { runCli } from "./run";
-
-interface CapturingIo extends Io {
-  out: string[];
-  err: string[];
-}
-function fakeIo(isTTY = false): CapturingIo {
-  const out: string[] = [];
-  const err: string[] = [];
-  return {
-    out,
-    err,
-    isTTY,
-    plain: true,
-    write: (s) => out.push(s),
-    error: (s) => err.push(s),
-  };
-}
+import { fakeIo } from "./testing";
 
 let db: Db;
 let phaseId: number;

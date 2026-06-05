@@ -33,6 +33,7 @@ import {
   renderTable,
 } from "./render";
 import { exitCodeFor, isRenderable, renderError, usage } from "./errors";
+import { type Ctx, cmdAbandon, cmdDone, cmdStart } from "./mutations";
 
 const LIST_PREDICATES: readonly ListPredicate[] = [
   "all",
@@ -56,6 +57,22 @@ const OPTIONS = {
   format: { type: "string", short: "f" },
   ascii: { type: "boolean" },
   help: { type: "boolean", short: "h" },
+  // Write-surface flags (Tasks 3–8) — all added here so later tasks only add dispatch cases
+  to: { type: "string" },
+  on: { type: "string" },
+  parent: { type: "string" },
+  before: { type: "string" },
+  after: { type: "string" },
+  key: { type: "string" },
+  name: { type: "string" },
+  desc: { type: "string" },
+  target: { type: "string" },
+  ref: { type: "string" },
+  file: { type: "string" },
+  link: { type: "string" },
+  project: { type: "string" },
+  top: { type: "boolean" },
+  bottom: { type: "boolean" },
 } as const;
 
 /**
@@ -76,6 +93,22 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
     format?: string;
     ascii?: boolean;
     help?: boolean;
+    // Write-surface flags
+    to?: string;
+    on?: string;
+    parent?: string;
+    before?: string;
+    after?: string;
+    key?: string;
+    name?: string;
+    desc?: string;
+    target?: string;
+    ref?: string;
+    file?: string;
+    link?: string;
+    project?: string;
+    top?: boolean;
+    bottom?: boolean;
   };
   let positionals: string[];
   try {
@@ -99,6 +132,16 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
   const ctx: Io = { ...io, plain: io.plain || values.ascii === true };
 
   try {
+    // Mutation context shared across all write-verb handlers (Tasks 3–8).
+    // Built inside the try block so a bad --format value is caught and rendered.
+    const mctx: Ctx = {
+      db,
+      positionals,
+      values: values as Record<string, unknown>,
+      format: pickFormat(values.format, "single", ctx),
+      io: ctx,
+    };
+
     switch (command) {
       case "next":
         return runSet(
@@ -141,6 +184,12 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
         ctx.write(format === "json" ? formatStatusJson(status) : renderStatus(status, ctx));
         return 0;
       }
+      case "start":
+        return await cmdStart(mctx);
+      case "done":
+        return await cmdDone(mctx);
+      case "abandon":
+        return await cmdAbandon(mctx);
       default:
         throw usage(`unknown command: ${command}`);
     }

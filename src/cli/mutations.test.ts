@@ -2,25 +2,9 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createInitiative, createPhase, createProject, createTask, findNodeByRef } from "../core";
 import type { Db } from "../core";
 import { createTestDb } from "../db/testing";
-import type { Io } from "./render";
 import { echoNode, readContent, resolveNode, resolveParent, resolveProject } from "./resolve";
-
-interface CapturingIo extends Io {
-  out: string[];
-  err: string[];
-}
-function fakeIo(isTTY = false): CapturingIo {
-  const out: string[] = [];
-  const err: string[] = [];
-  return {
-    out,
-    err,
-    isTTY,
-    plain: true,
-    write: (s) => out.push(s),
-    error: (s) => err.push(s),
-  };
-}
+import { runCli } from "./run";
+import { fakeIo } from "./testing";
 
 let db: Db;
 let taskRef: string;
@@ -124,4 +108,28 @@ test("readContent returns empty string when tail is empty and isTTY", async () =
   const io = fakeIo(true);
   const result = await readContent([], io);
   expect(result).toBe("");
+});
+
+// lifecycle verbs via runCli
+test("start moves a task to in_progress and echoes it (exit 0)", async () => {
+  const io = fakeIo(false);
+  const code = await runCli(["start", taskRef, "-f", "json"], db, io);
+  expect(code).toBe(0);
+  expect(JSON.parse(io.out[0] ?? "{}").state).toBe("in_progress");
+});
+test("done completes a started task", async () => {
+  await runCli(["start", taskRef], db, fakeIo(false));
+  const io = fakeIo(false);
+  const code = await runCli(["done", taskRef, "-f", "json"], db, io);
+  expect(code).toBe(0);
+  expect(JSON.parse(io.out[0] ?? "{}").state).toBe("done");
+});
+test("abandon records a reason from the positional tail", async () => {
+  const code = await runCli(["abandon", taskRef, "superseded", "by", "nine"], db, fakeIo(false));
+  expect(code).toBe(0);
+});
+test("a mutation on a missing id is not_found → exit 1", async () => {
+  const io = fakeIo(false);
+  expect(await runCli(["done", "MMR-9999"], db, io)).toBe(1);
+  expect(io.out).toHaveLength(0);
 });
