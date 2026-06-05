@@ -34,6 +34,7 @@ import {
   type Ctx,
   cmdAbandon,
   cmdAnnotate,
+  cmdAttach,
   cmdBlock,
   cmdCreate,
   cmdDepend,
@@ -229,6 +230,8 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
         return await cmdUpdate(mctx);
       case "annotate":
         return await cmdAnnotate(mctx);
+      case "attach":
+        return await cmdAttach(mctx);
       case "create":
         return await cmdCreate(mctx);
       default:

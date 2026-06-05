@@ -7,6 +7,7 @@
 import {
   abandonTask,
   annotate,
+  attachArtifact,
   blockTask,
   completeTask,
   createInitiative,
@@ -14,7 +15,9 @@ import {
   createProject,
   createTask,
   depend,
+  findNodeByRef,
   moveNode,
+  notFound,
   parkTask,
   reorder,
   startTask,
@@ -22,12 +25,13 @@ import {
   undepend,
   unparkTask,
   updateNode,
+  validation,
 } from "../core";
 import type { Db, RankPosition, UpdateFields } from "../core";
 import { usage } from "./errors";
 import { parsePriority, parseSize } from "./parse";
 import type { Format, Io } from "./render";
-import { echoNode, readContent, resolveNode, resolveParent } from "./resolve";
+import { echoNode, readContent, resolveNode, resolveParent, resolveProject } from "./resolve";
 
 /** Shared dispatch context built once in `run.ts` for every write verb. */
 export interface Ctx {
@@ -168,6 +172,62 @@ export async function cmdAnnotate(c: Ctx): Promise<number> {
   if (content === "") throw usage("annotate requires content (positional or stdin)");
   await annotate(c.db, id, content);
   await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+export async function cmdAttach(c: Ctx): Promise<number> {
+  const file = optStr(c, "file");
+  // Content from --file, else stdin — but never block on an interactive TTY.
+  const content =
+    file !== undefined ? await Bun.file(file).text() : c.io.isTTY ? "" : await Bun.stdin.text();
+  if (content.trim() === "") throw usage("attach requires content (--file <path> or piped stdin)");
+
+  // Node references: the positional primary (if any) + --link csv.
+  const linkTokens: string[] = [];
+  const primary = c.positionals[1];
+  if (primary !== undefined) linkTokens.push(primary);
+  if (typeof c.values.link === "string") {
+    linkTokens.push(
+      ...c.values.link
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+    );
+  }
+
+  let projectId: number;
+  const linkNodeIds: number[] = [];
+  if (linkTokens.length > 0) {
+    const nodes = await Promise.all(
+      linkTokens.map(async (t) => {
+        const n = await findNodeByRef(c.db, t);
+        if (n === undefined) throw notFound(`no node ${t}`);
+        return n;
+      }),
+    );
+    const projects = new Set(nodes.map((n) => n.project_id));
+    if (projects.size > 1) throw validation("all attached nodes must be in one project");
+    const [projectIdFromNodes] = projects; // number | undefined under noUncheckedIndexedAccess
+    if (projectIdFromNodes === undefined)
+      throw validation("internal: nodes resolved but project_id missing");
+    projectId = projectIdFromNodes;
+    linkNodeIds.push(...nodes.map((n) => n.id));
+    if (typeof c.values.project === "string") {
+      const explicit = await resolveProject(c.db, c.values.project);
+      if (explicit !== projectId)
+        throw validation("--project disagrees with the linked node(s)' project");
+    }
+  } else {
+    projectId = await resolveProject(
+      c.db,
+      strFlag(c, "project", "attach requires a node id or --project <KEY>"),
+    );
+  }
+
+  const { id } = await attachArtifact(c.db, { projectId, content, linkNodeIds });
+  if (c.format === "json" || c.format === "jsonl") c.io.write(JSON.stringify({ artifact: { id } }));
+  else if (c.format === "ids") c.io.write(`#${String(id)}`);
+  else c.io.write(`${c.io.plain ? "[ok]" : "\x1b[32m✓\x1b[0m"} attached artifact #${String(id)}`);
   return 0;
 }
 
