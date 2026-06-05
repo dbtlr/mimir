@@ -12,7 +12,6 @@ import {
 } from "../contract";
 import {
   type ListPredicate,
-  MimirError,
   formatIds,
   formatNodeJson,
   formatSetJson,
@@ -22,11 +21,11 @@ import {
   listNodes,
   nextTasks,
   statusOfNode,
-  validation,
 } from "../core";
 import type { Db } from "../core";
 import { FULL_HELP, TERSE_HELP } from "./help";
 import { type Io, renderRecords, renderStatus, renderTable } from "./render";
+import { exitCodeFor, isRenderable, renderError, usage } from "./errors";
 
 const FORMATS = ["table", "records", "ids", "json", "jsonl"] as const;
 type Format = (typeof FORMATS)[number];
@@ -80,9 +79,11 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
     values = parsed.values;
     positionals = parsed.positionals;
   } catch (error) {
-    io.error(error instanceof Error ? error.message : String(error));
-    io.error(TERSE_HELP);
-    return 1;
+    const msg = error instanceof Error ? error.message : String(error);
+    const fmt = errorFormat(argv);
+    renderError(usage(msg), fmt, io);
+    if (fmt !== "json" && fmt !== "jsonl") io.error(TERSE_HELP);
+    return 2;
   }
 
   const command = positionals[0];
@@ -137,17 +138,43 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
         return 0;
       }
       default:
-        io.error(`unknown command: ${command}\n`);
-        io.error(TERSE_HELP);
-        return 1;
+        throw usage(`unknown command: ${command}`);
     }
   } catch (error) {
-    if (error instanceof MimirError) {
-      io.error(`error: ${error.message}`);
-      return 1;
+    if (isRenderable(error)) {
+      renderError(error, errorFormat(argv), ctx);
+      return exitCodeFor(error);
     }
     throw error;
   }
+}
+
+/**
+ * Determine the error rendering format from the raw argv. Returns "json" or
+ * "jsonl" iff the user explicitly requested it, else "records" (human default).
+ * Scanning raw argv avoids depending on the already-parsed values, which may
+ * not be available when a parseArgs failure occurs.
+ *
+ * Handles both separate-token form (`--format json`) and equals form
+ * (`--format=json`, `-f=json`).
+ */
+function errorFormat(argv: string[]): string {
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i] ?? "";
+    // Equals form: --format=json or -f=json
+    const eqMatch = /^(?:--format|-f)=(.+)$/.exec(arg);
+    if (eqMatch) {
+      const val = eqMatch[1];
+      if (val === "json" || val === "jsonl") return val;
+      continue;
+    }
+    // Separate-token form: --format json or -f json
+    if ((arg === "-f" || arg === "--format") && i < argv.length - 1) {
+      const val = argv[i + 1] ?? "";
+      if (val === "json" || val === "jsonl") return val;
+    }
+  }
+  return "records";
 }
 
 function runSet(result: SetResult<NodeView>, explicit: string | undefined, io: Io): number {
@@ -199,7 +226,7 @@ function pickFormat(
 ): Format {
   if (explicit !== undefined) {
     if (!(FORMATS as readonly string[]).includes(explicit)) {
-      throw validation(`unknown format: ${explicit} (expected ${FORMATS.join("|")})`);
+      throw usage(`unknown format: ${explicit} (expected ${FORMATS.join("|")})`);
     }
     return explicit as Format;
   }
@@ -212,7 +239,7 @@ function pickFormat(
 
 function requireId(id: string | undefined, command: string): string {
   if (id === undefined) {
-    throw validation(`${command} requires a node id (KEY-seq)`);
+    throw usage(`${command} requires a node id (KEY-seq)`);
   }
   return id;
 }
@@ -223,7 +250,7 @@ function parseFacets(cols: string[] | undefined): FacetName[] {
     if (col.startsWith(".")) {
       const name = col.slice(1);
       if (!(FACET_NAMES as readonly string[]).includes(name)) {
-        throw validation(`unknown facet: ${col}`);
+        throw usage(`unknown facet: ${col}`);
       }
       facets.push(name as FacetName);
     }
@@ -234,7 +261,7 @@ function parseFacets(cols: string[] | undefined): FacetName[] {
 function parsePriority(value: string | undefined): Priority | undefined {
   if (value === undefined) return undefined;
   if (!(PRIORITY_VALUES as readonly string[]).includes(value)) {
-    throw validation(`invalid priority: ${value} (expected ${PRIORITY_VALUES.join("|")})`);
+    throw usage(`invalid priority: ${value} (expected ${PRIORITY_VALUES.join("|")})`);
   }
   return value as Priority;
 }
@@ -242,7 +269,7 @@ function parsePriority(value: string | undefined): Priority | undefined {
 function parseSize(value: string | undefined): Size | undefined {
   if (value === undefined) return undefined;
   if (!(SIZE_VALUES as readonly string[]).includes(value)) {
-    throw validation(`invalid size: ${value} (expected ${SIZE_VALUES.join("|")})`);
+    throw usage(`invalid size: ${value} (expected ${SIZE_VALUES.join("|")})`);
   }
   return value as Size;
 }
@@ -250,7 +277,7 @@ function parseSize(value: string | undefined): Size | undefined {
 function parsePredicate(value: string | undefined): ListPredicate | undefined {
   if (value === undefined) return undefined;
   if (!(LIST_PREDICATES as readonly string[]).includes(value)) {
-    throw validation(`invalid predicate: ${value} (expected ${LIST_PREDICATES.join("|")})`);
+    throw usage(`invalid predicate: ${value} (expected ${LIST_PREDICATES.join("|")})`);
   }
   return value as ListPredicate;
 }
@@ -259,7 +286,7 @@ function parseLimit(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
   const n = Number.parseInt(value, 10);
   if (Number.isNaN(n) || n < 0) {
-    throw validation(`invalid limit: ${value}`);
+    throw usage(`invalid limit: ${value}`);
   }
   return n;
 }

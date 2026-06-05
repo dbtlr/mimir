@@ -8,15 +8,21 @@ export type ErrorCode = "not_found" | "validation" | "conflict" | "invariant";
 
 export class MimirError extends Error {
   readonly code: ErrorCode;
+  readonly hint?: string;
 
-  constructor(code: ErrorCode, message: string) {
+  constructor(code: ErrorCode, message: string, hint?: string) {
     super(message);
     this.name = `MimirError(${code})`;
     this.code = code;
+    this.hint = hint;
   }
 }
 
-export const notFound = (message: string): MimirError => new MimirError("not_found", message);
-export const validation = (message: string): MimirError => new MimirError("validation", message);
-export const conflict = (message: string): MimirError => new MimirError("conflict", message);
-export const invariant = (message: string): MimirError => new MimirError("invariant", message);
+export const notFound = (message: string, hint?: string): MimirError =>
+  new MimirError("not_found", message, hint);
+export const validation = (message: string, hint?: string): MimirError =>
+  new MimirError("validation", message, hint);
+export const conflict = (message: string, hint?: string): MimirError =>
+  new MimirError("conflict", message, hint);
+export const invariant = (message: string, hint?: string): MimirError =>
+  new MimirError("invariant", message, hint);
