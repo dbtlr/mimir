@@ -7,3 +7,4 @@
  * output-format shapes from the output-contract reference.
  */
 export * from "./enums";
+export * from "./dto";

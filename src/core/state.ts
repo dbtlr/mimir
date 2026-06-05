@@ -1,4 +1,7 @@
 import type { Hold, Lifecycle, StateWord, TaskStateWord } from "../contract/enums";
+import type { Distribution } from "../contract/dto";
+
+export type { Distribution };
 
 /**
  * The State word machinery (ADR 0008): every node reduces to one canonical word
@@ -35,9 +38,6 @@ export function taskState({ lifecycle, hold, awaiting }: TaskStateInput): TaskSt
   // lifecycle === "todo", hold === "none"
   return awaiting ? "awaiting" : "ready";
 }
-
-/** A non-leaf node's rollup breakdown — counts of each State word among its direct children. */
-export type Distribution = Partial<Record<StateWord, number>>;
 
 /** Tally an iterable of State words into a {@link Distribution}. */
 export function tally(words: Iterable<StateWord>): Distribution {
