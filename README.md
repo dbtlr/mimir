@@ -1,1 +1,94 @@
 # mimir
+
+Mimir is the source of truth for **work state** — tasks, the work hierarchy, and
+the frozen artifacts attached to them. It is the _work_ tool in a three-part
+split along the founding distinction of knowledge vs. work: **Norn** keeps
+knowledge, **Mimir** holds work state, **Saga** weaves them into a session.
+
+Work state is ephemeral and fast-changing, so it lives in a structured store
+(SQLite) where it is the source of truth — markdown is a _projection_, not the
+store. Status rollups and dependency predicates are **derived live, never
+stored** (caching them is the sync problem Mimir exists to remove). The same
+core query layer serves an agent (via MCP) and a human/scripts (via a CLI).
+
+> **Status:** design complete; **Phases 0–2 built** — the storage-committed core
+> (schema, derivation, rank, mutation verbs) and the first read slice over both
+> **CLI** and **MCP**. Write verbs exist in the core; exposing them on the
+> transports is Phase 3. See the build roadmap in the Saga workspace.
+
+## Requirements
+
+- [Bun](https://bun.sh) `1.3.14` (pinned in `.tool-versions`).
+
+## Quickstart
+
+```sh
+bun install
+bun run src/main.ts migrate        # create / migrate the database (./mimir.db)
+bun run src/main.ts --help
+```
+
+The read commands (one intent layer, rendered as CLI or MCP):
+
+```sh
+mimir next                        # ready tasks in rank order — "what's next"
+mimir next --scope MMR -p p0      # filter by project / priority (signals, not sort)
+mimir list --predicate stale      # all|ready|awaiting|blocked|stale|blocking|orphaned
+mimir get MMR-16                  # full record for one node (KEY-seq id)
+mimir get MMR-16 --col .history   # add the transition log
+mimir status MMR-3                # an initiative/phase rollup (distribution + state)
+mimir next --format json | jq .   # structured, pipe-safe output
+```
+
+Formats: `table` / `records` (styled TTY) and `ids` / `json` / `jsonl`
+(structural, never styled). The default follows the destination — a table for a
+TTY set, `ids` when piped — and `--format` overrides. Identity selection
+(`get`/`status`) exits non-zero on a missing id; predicate selection
+(`next`/`list`) exits 0 on an empty result.
+
+Run as an MCP server for an agent:
+
+```sh
+mimir mcp     # JSON-RPC over stdio; tools: next, get, list, status
+```
+
+## The model
+
+```
+project → initiative → phase → task        (the work tree, via parent_id)
+```
+
+- **Two status axes** on tasks: `lifecycle` (todo → in_progress → done /
+  abandoned) and a `hold` overlay (none / blocked / parked). Non-leaf nodes
+  store **no** status — their truth is the live **distribution** over children,
+  reduced to one **State word** by a canonical `interpret` cascade.
+- **Rank** is a single relative order that wins over priority; priority/size are
+  orthogonal _signals_ that filter and advise, never the sort.
+- **Derived, never stored:** `ready`, `awaiting`, `blocked`, `blocking`,
+  `stale`, `orphaned`, and every rollup.
+
+## Development
+
+```sh
+bun run check     # oxfmt + oxlint + type-aware typecheck (zero-warning gate)
+bun test          # the full suite on in-memory SQLite
+```
+
+Architecture — one core, thin transports:
+
+```
+src/contract/   pure DTO + enum types (the dependency-free leaf; the UI imports it)
+src/db/         Kysely instance, schema/migrations, the Migrator
+src/core/       storage-committed domain logic: derivation, rank, verbs, intent layer
+src/cli/        the human transport (parseArgs + styled/structured renderers)
+src/mcp/        the agent transport (official MCP SDK over stdio)
+src/main.ts     composition root — dispatches subcommands
+```
+
+The layering `contract ← db ← core ← transports` is enforced by an oxlint
+`no-restricted-imports` rule: `core` may not import a transport, `db` may not
+import `core`, and the transports may not import each other or `db`.
+
+## License
+
+[MIT](./LICENSE)
