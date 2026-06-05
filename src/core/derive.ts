@@ -1,0 +1,94 @@
+import type { StateWord } from "../contract/enums";
+import type { Node } from "../db/schema";
+import type { Db, Tx } from "./context";
+import { invariant } from "./errors";
+import { type Distribution, interpret, tally, taskState } from "./state";
+
+/**
+ * The live-derivation layer: a node's State word, the rollup distribution, and
+ * the completeness notion the dependency predicates rest on. Everything here is
+ * computed on read — never stored (the spine; ADR 0001/0008).
+ */
+
+type Executor = Db | Tx;
+
+/** Terminal = a decided end state. `abandoned` counts as terminal (and never freezes a parent). */
+export function isTerminalWord(word: StateWord): boolean {
+  return word === "done" || word === "abandoned";
+}
+
+/**
+ * Is a node "settled" for dependency purposes — i.e. it no longer holds up work
+ * that depends on it? A task is settled iff its lifecycle is terminal; a
+ * non-leaf iff its rollup is terminal.
+ *
+ * NOTE (deliberate reading, cheap to reverse): a dependency is satisfied when
+ * its prerequisite is **terminal**, so an *abandoned* prerequisite satisfies
+ * (it no longer blocks), consistent with "abandoned never freezes." ADR 0001's
+ * shorthand was "all deps done"; we read it as "all deps settled" so an
+ * abandoned prerequisite doesn't strand its dependent forever. Flagged for
+ * confirmation.
+ */
+export async function isNodeSettled(
+  tx: Executor,
+  node: Pick<Node, "id" | "type" | "lifecycle">,
+): Promise<boolean> {
+  if (node.type === "task") {
+    return node.lifecycle === "done" || node.lifecycle === "abandoned";
+  }
+  return isTerminalWord(interpret(await childDistribution(tx, node.id)));
+}
+
+/** Does this task have ≥1 unsettled prerequisite? (The derived `awaiting` condition.) */
+export async function hasUnsettledPrereq(tx: Executor, taskId: number): Promise<boolean> {
+  const prereqs = await tx
+    .selectFrom("dependency")
+    .innerJoin("node", "node.id", "dependency.depends_on_node_id")
+    .where("dependency.node_id", "=", taskId)
+    .select(["node.id", "node.type", "node.lifecycle"])
+    .execute();
+  for (const prereq of prereqs) {
+    if (!(await isNodeSettled(tx, prereq))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Project any node to its State word (ADR 0008): a task via its axes + readiness, a non-leaf via `interpret`. */
+export async function nodeStateWord(tx: Executor, node: Node): Promise<StateWord> {
+  if (node.type === "task") {
+    if (node.lifecycle === null || node.hold === null) {
+      throw invariant(`task ${String(node.id)} is missing a status axis`);
+    }
+    const awaiting = await hasUnsettledPrereq(tx, node.id);
+    return taskState({ lifecycle: node.lifecycle, hold: node.hold, awaiting });
+  }
+  return interpret(await childDistribution(tx, node.id));
+}
+
+/** The rollup distribution over a node's **direct** children (their State words tallied). */
+export async function childDistribution(tx: Executor, nodeId: number): Promise<Distribution> {
+  const children = await tx
+    .selectFrom("node")
+    .selectAll()
+    .where("parent_id", "=", nodeId)
+    .execute();
+  const words: StateWord[] = [];
+  for (const child of children) {
+    words.push(await nodeStateWord(tx, child));
+  }
+  return tally(words);
+}
+
+/** `status_of` — a node's distribution and its single `interpret` label together (label = what, distribution = why). */
+export async function statusOf(
+  tx: Executor,
+  node: Node,
+): Promise<{ state: StateWord; distribution: Distribution }> {
+  if (node.type === "task") {
+    return { state: await nodeStateWord(tx, node), distribution: {} };
+  }
+  const distribution = await childDistribution(tx, node.id);
+  return { state: interpret(distribution), distribution };
+}
