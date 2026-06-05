@@ -1,0 +1,20 @@
+# Saga project binding — local, not shared
+.saga.toml
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Local workspace guidance — not shared
+CLAUDE.local.md
+
+# Dependencies & build output
+node_modules/
+dist/
+
+# Local SQLite databases (WAL/SHM sidecars included)
+*.db
+*.db-wal
+*.db-shm
+
+# viteplus cache
+.vite-plus/

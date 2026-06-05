@@ -1,0 +1,23 @@
+{
+  "name": "mimir",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Source of truth for work state — tasks, the work hierarchy, and frozen artifacts. Local-first, agent-driven; SQLite is the substrate, markdown a projection.",
+  "bin": {
+    "mimir": "./src/main.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "mimir": "bun run src/main.ts",
+    "check": "vp check",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@meck93/kysely-bun-sqlite": "0.2.16",
+    "kysely": "0.28.17"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "vite-plus": "0.1.24"
+  }
+}
