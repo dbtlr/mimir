@@ -33,7 +33,16 @@ import {
   renderTable,
 } from "./render";
 import { exitCodeFor, isRenderable, renderError, usage } from "./errors";
-import { type Ctx, cmdAbandon, cmdDone, cmdStart } from "./mutations";
+import {
+  type Ctx,
+  cmdAbandon,
+  cmdBlock,
+  cmdDone,
+  cmdPark,
+  cmdStart,
+  cmdUnblock,
+  cmdUnpark,
+} from "./mutations";
 
 const LIST_PREDICATES: readonly ListPredicate[] = [
   "all",
@@ -190,6 +199,14 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
         return await cmdDone(mctx);
       case "abandon":
         return await cmdAbandon(mctx);
+      case "park":
+        return await cmdPark(mctx);
+      case "unpark":
+        return await cmdUnpark(mctx);
+      case "block":
+        return await cmdBlock(mctx);
+      case "unblock":
+        return await cmdUnblock(mctx);
       default:
         throw usage(`unknown command: ${command}`);
     }

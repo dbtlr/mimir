@@ -4,7 +4,15 @@
  * write verbs. Tasks 4–8 will add more handlers here and cases to `run.ts`.
  */
 
-import { abandonTask, completeTask, startTask } from "../core";
+import {
+  abandonTask,
+  blockTask,
+  completeTask,
+  parkTask,
+  startTask,
+  unblockTask,
+  unparkTask,
+} from "../core";
 import type { Db } from "../core";
 import { usage } from "./errors";
 import type { Format, Io } from "./render";
@@ -45,6 +53,36 @@ export async function cmdAbandon(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "abandon"));
   const reason = c.positionals.slice(2).join(" ") || undefined;
   await abandonTask(c.db, id, reason);
+  await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+const reasonTail = (c: Ctx): string | undefined => c.positionals.slice(2).join(" ") || undefined;
+
+export async function cmdPark(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "park"));
+  await parkTask(c.db, id, reasonTail(c));
+  await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+export async function cmdUnpark(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "unpark"));
+  await unparkTask(c.db, id);
+  await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+export async function cmdBlock(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "block"));
+  await blockTask(c.db, id, reasonTail(c));
+  await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+export async function cmdUnblock(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "unblock"));
+  await unblockTask(c.db, id);
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }

@@ -133,3 +133,19 @@ test("a mutation on a missing id is not_found → exit 1", async () => {
   expect(await runCli(["done", "MMR-9999"], db, io)).toBe(1);
   expect(io.out).toHaveLength(0);
 });
+
+// hold verbs: park / unpark / block / unblock
+test("park sets the hold overlay → reads as parked", async () => {
+  const io = fakeIo(false);
+  const code = await runCli(["park", taskRef, "waiting", "on", "review", "-f", "json"], db, io);
+  expect(code).toBe(0);
+  expect(JSON.parse(io.out[0] ?? "{}").state).toBe("parked");
+});
+test("unpark clears the hold", async () => {
+  await runCli(["park", taskRef], db, fakeIo(false));
+  expect(await runCli(["unpark", taskRef], db, fakeIo(false))).toBe(0);
+});
+test("block then unblock", async () => {
+  expect(await runCli(["block", taskRef, "ci", "red"], db, fakeIo(false))).toBe(0);
+  expect(await runCli(["unblock", taskRef], db, fakeIo(false))).toBe(0);
+});
