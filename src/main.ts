@@ -8,6 +8,10 @@
  *   migrate [status] apply / inspect migrations
  *   --help, -h      help (handled by the CLI)
  */
+import { mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import pkg from "../package.json";
 import { runCli } from "./cli";
 import type { Io } from "./cli";
 import { createDb } from "./db/client";
@@ -17,13 +21,32 @@ import { serveStdio } from "./mcp";
 
 const DATA_COMMANDS = new Set(["next", "get", "list", "status"]);
 
+/**
+ * The database path. `MIMIR_DB` overrides; otherwise a single user-global store
+ * under the XDG data dir (`$XDG_DATA_HOME/mimir/mimir.db`, defaulting to
+ * `~/.local/share/mimir/mimir.db`), so a globally-installed `mimir` works from
+ * any directory.
+ */
 function dbPath(): string {
-  return process.env.MIMIR_DB ?? "mimir.db";
+  const override = process.env.MIMIR_DB;
+  if (override !== undefined) {
+    return override;
+  }
+  const dataHome = process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
+  return join(dataHome, "mimir", "mimir.db");
+}
+
+/** Create a client, ensuring the parent directory exists for a file-backed db. */
+function openClient(path: string): Db {
+  if (path !== ":memory:") {
+    mkdirSync(dirname(path), { recursive: true });
+  }
+  return createDb(path);
 }
 
 /** Open the database and apply any pending migrations under the migration lock. */
 async function openMigrated(path: string): Promise<Db> {
-  const db = createDb(path);
+  const db = openClient(path);
   const { error } = await migrateToLatest(db);
   if (error !== undefined) {
     await db.destroy();
@@ -46,7 +69,7 @@ function stdoutIo(): Io {
 }
 
 async function runMigrate(sub: string | undefined): Promise<number> {
-  const db = createDb(dbPath());
+  const db = openClient(dbPath());
   try {
     if (sub === "status") {
       for (const m of await migrationStatus(db)) {
@@ -75,6 +98,11 @@ async function runMigrate(sub: string | undefined): Promise<number> {
 async function main(argv: string[]): Promise<number> {
   const command = argv[0];
 
+  if (command === "--version" || command === "version") {
+    console.log(pkg.version);
+    return 0;
+  }
+
   if (command === "migrate") {
     return runMigrate(argv[1]);
   }
@@ -82,7 +110,7 @@ async function main(argv: string[]): Promise<number> {
   if (command === "mcp") {
     // Long-running: connect and let the stdio transport keep the process alive.
     const db = await openMigrated(dbPath());
-    await serveStdio(db);
+    await serveStdio(db, pkg.version);
     return 0;
   }
 
@@ -90,7 +118,7 @@ async function main(argv: string[]): Promise<number> {
   // real database; help/unknown run against a throwaway in-memory db so a bare
   // `mimir` / `mimir --help` never creates a file.
   const needsData = command !== undefined && DATA_COMMANDS.has(command);
-  const db = needsData ? await openMigrated(dbPath()) : createDb(":memory:");
+  const db = needsData ? await openMigrated(dbPath()) : openClient(":memory:");
   try {
     return await runCli(argv, db, stdoutIo());
   } finally {

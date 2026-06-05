@@ -11,22 +11,43 @@ store. Status rollups and dependency predicates are **derived live, never
 stored** (caching them is the sync problem Mimir exists to remove). The same
 core query layer serves an agent (via MCP) and a human/scripts (via a CLI).
 
-> **Status:** design complete; **Phases 0–2 built** — the storage-committed core
-> (schema, derivation, rank, mutation verbs) and the first read slice over both
-> **CLI** and **MCP**. Write verbs exist in the core; exposing them on the
-> transports is Phase 3. See the build roadmap in the Saga workspace.
+> **Status:** **pre-release** (`0.x`). Phases 0–2 are built — the
+> storage-committed core (schema, derivation, rank, mutation verbs) and the
+> first read slice over both **CLI** and **MCP**. Write verbs exist in the core;
+> exposing them on the transports is the next slice.
 
-## Requirements
+## Install
 
-- [Bun](https://bun.sh) `1.3.14` (pinned in `.tool-versions`).
+**Standalone binary** (no Bun needed on the target):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
+```
+
+Installs the binary for your platform from the latest [release](https://github.com/dbtlr/mimir/releases)
+to `~/.local/bin` (override with `MIMIR_INSTALL_DIR`, pin with `MIMIR_VERSION`).
+
+**From source** (requires [Bun](https://bun.sh) `1.3.14`):
+
+```sh
+bun add -g github:dbtlr/mimir     # global install, runs from source
+```
+
+```sh
+git clone https://github.com/dbtlr/mimir && cd mimir && bun install   # for development
+```
 
 ## Quickstart
 
 ```sh
-bun install
-bun run src/main.ts migrate        # create / migrate the database (./mimir.db)
-bun run src/main.ts --help
+mimir --version
+mimir --help
+mimir migrate        # create / migrate the database (applied automatically on first run)
 ```
+
+The database lives at `$XDG_DATA_HOME/mimir/mimir.db` (default
+`~/.local/share/mimir/mimir.db`), so `mimir` works from any directory; set
+`MIMIR_DB` to use a per-project store instead.
 
 The read commands (one intent layer, rendered as CLI or MCP):
 
@@ -70,9 +91,15 @@ project → initiative → phase → task        (the work tree, via parent_id)
 ## Development
 
 ```sh
-bun run check     # oxfmt + oxlint + type-aware typecheck (zero-warning gate)
-bun test          # the full suite on in-memory SQLite
+bun install
+bun run verify    # the full gate: format, lint, typecheck, test
 ```
+
+`verify` is `bun run check` (oxfmt + oxlint + type-aware typecheck, zero-warning)
+plus `bun test` (the suite on in-memory SQLite) — the same gate CI enforces.
+`main` is protected; changes land via PR. See
+[CONTRIBUTING.md](./CONTRIBUTING.md), [CHANGELOG.md](./CHANGELOG.md), and
+[SECURITY.md](./SECURITY.md).
 
 Architecture — one core, thin transports:
 

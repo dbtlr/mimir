@@ -52,7 +52,7 @@ function register<A>(
   registerTool(name, { description, inputSchema }, (args) => handler(args as A));
 }
 
-export function buildMcpServer(db: Db, version = "0.0.0"): McpServer {
+export function buildMcpServer(db: Db, version: string): McpServer {
   const server = new McpServer({ name: "mimir", version });
 
   register(
@@ -103,6 +103,6 @@ export function buildMcpServer(db: Db, version = "0.0.0"): McpServer {
 }
 
 /** Serve over stdio — the entry for `mimir mcp`. */
-export async function serveStdio(db: Db, version?: string): Promise<void> {
+export async function serveStdio(db: Db, version: string): Promise<void> {
   await buildMcpServer(db, version).connect(new StdioServerTransport());
 }

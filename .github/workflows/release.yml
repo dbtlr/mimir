@@ -1,21 +1,40 @@
 name: Release
 
-# Stub release pipeline: a `vX.Y.Z` tag compiles standalone binaries and
-# attaches them to a GitHub Release. Single-binary distribution is post-v1 in
-# the roadmap — this is the scaffold, not the final cross-platform story.
+# Tag-driven releases. A `vX.Y.Z` tag builds standalone binaries (one per
+# platform, each on its native runner so there is no cross-compile) and
+# publishes a GitHub Release with notes pulled from CHANGELOG.md. The build
+# matrix also runs on pull requests (build-only, no publish) so the release
+# path is validated before a tag is ever cut.
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths:
+      - "src/**"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/release.yml"
+      - "install.sh"
 
 permissions:
   contents: write
 
 jobs:
   build:
-    name: compile + publish
-    runs-on: ubuntu-latest
+    name: build ${{ matrix.asset }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, asset: mimir-darwin-arm64 }
+          - { os: ubuntu-latest, asset: mimir-linux-x64 }
+          - { os: ubuntu-24.04-arm, asset: mimir-linux-arm64 }
+          # darwin-x64 (Intel mac) is deferred — the macOS x64 runner is scarce
+          # and bun's cross-compile is unreliable from an arm64 host. Intel-mac
+          # users install from source (`bun add -g github:dbtlr/mimir`).
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -25,21 +44,58 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Re-run the gate before publishing — never ship red.
-      - name: Check + test
-        run: |
-          bun run check
-          bun test
+      # Test on the target platform before shipping its binary.
+      - name: Test
+        run: bun test
 
-      - name: Compile standalone binaries
+      - name: Compile
         run: |
           mkdir -p dist
-          for target in bun-linux-x64 bun-linux-arm64 bun-darwin-arm64 bun-darwin-x64; do
-            bun build src/main.ts --compile --target="$target" --outfile "dist/mimir-${target#bun-}"
-          done
+          bun build src/main.ts --compile --outfile "dist/${{ matrix.asset }}"
 
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
+      - name: Upload binary
+        uses: actions/upload-artifact@v7
         with:
-          files: dist/mimir-*
-          generate_release_notes: true
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+          if-no-files-found: error
+
+  publish:
+    name: publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download binaries
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum mimir-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Extract changelog notes
+        run: |
+          ver="${GITHUB_REF_NAME}"
+          awk -v ver="$ver" '
+            $0 ~ "^## " ver " " { capture = 1; next }
+            capture && /^## / { exit }
+            capture { print }
+          ' CHANGELOG.md > release-notes.md
+          echo "--- release notes ---"; cat release-notes.md
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          body_path: release-notes.md
+          files: |
+            dist/mimir-*
+            dist/SHA256SUMS
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
