@@ -13,7 +13,6 @@ import {
 import {
   type ListPredicate,
   formatIds,
-  formatNodeJson,
   formatSetJson,
   formatSetJsonl,
   formatStatusJson,
@@ -24,11 +23,16 @@ import {
 } from "../core";
 import type { Db } from "../core";
 import { FULL_HELP, TERSE_HELP } from "./help";
-import { type Io, renderRecords, renderStatus, renderTable } from "./render";
+import {
+  FORMATS,
+  type Format,
+  type Io,
+  renderNodeView,
+  renderRecords,
+  renderStatus,
+  renderTable,
+} from "./render";
 import { exitCodeFor, isRenderable, renderError, usage } from "./errors";
-
-const FORMATS = ["table", "records", "ids", "json", "jsonl"] as const;
-type Format = (typeof FORMATS)[number];
 
 const LIST_PREDICATES: readonly ListPredicate[] = [
   "all",
@@ -200,22 +204,7 @@ function runSet(result: SetResult<NodeView>, explicit: string | undefined, io: I
 }
 
 function renderSingle(node: NodeView, explicit: string | undefined, io: Io): number {
-  const format = pickFormat(explicit, "single", io);
-  switch (format) {
-    case "ids":
-      io.write(node.id);
-      break;
-    case "json":
-    case "jsonl":
-      io.write(formatNodeJson(node));
-      break;
-    case "table":
-      io.write(renderTable({ total: 1, returned: 1, startsAt: 0, items: [node] }, io));
-      break;
-    case "records":
-      io.write(renderRecords(node, io));
-      break;
-  }
+  renderNodeView(node, pickFormat(explicit, "single", io), io);
   return 0;
 }
 
