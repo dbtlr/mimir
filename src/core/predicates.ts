@@ -87,11 +87,12 @@ export async function isStale(
  * `orphaned` — a non-terminal task stranded under a parent whose *other*
  * children are all terminal (so the parent is effectively closed out around it).
  *
- * NOTE (deliberate reading): the literal glossary definition — "parent
- * phase/initiative is done/abandoned" — is unsatisfiable under strict
- * derivation, since a non-leaf can never roll up to a terminal word while it
- * still has a live child (this very task). We implement the meaningful sibling
- * of that intent: every *other* child is terminal. Flagged for confirmation.
+ * The original glossary wording — "parent phase/initiative is done/abandoned" —
+ * is unsatisfiable under strict derivation: a non-leaf can never roll up to a
+ * terminal word while it still has a live child (this very task). The glossary
+ * `orphaned` entry was refined (2026-06-05) to the meaningful sibling of that
+ * intent, which this computes: a non-terminal task whose every *other* sibling
+ * is terminal (a sole live child is not orphaned).
  */
 export async function isOrphaned(tx: Executor, task: Node): Promise<boolean> {
   if (task.type !== "task" || task.parent_id === null) {

@@ -22,12 +22,12 @@ export function isTerminalWord(word: StateWord): boolean {
  * that depends on it? A task is settled iff its lifecycle is terminal; a
  * non-leaf iff its rollup is terminal.
  *
- * NOTE (deliberate reading, cheap to reverse): a dependency is satisfied when
- * its prerequisite is **terminal**, so an *abandoned* prerequisite satisfies
- * (it no longer blocks), consistent with "abandoned never freezes." ADR 0001's
- * shorthand was "all deps done"; we read it as "all deps settled" so an
- * abandoned prerequisite doesn't strand its dependent forever. Flagged for
- * confirmation.
+ * A dependency is satisfied when its prerequisite is **terminal**, so an
+ * *abandoned* prerequisite satisfies (it no longer blocks), consistent with
+ * "abandoned never freezes." ADR 0001's original shorthand was "all deps done";
+ * refined (2026-06-05) to "all deps settled" so an abandoned prerequisite does
+ * not strand its dependent forever — see ADR 0001 § "Refinement — dependency
+ * satisfaction is terminal, not done."
  */
 export async function isNodeSettled(
   tx: Executor,
