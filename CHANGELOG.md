@@ -13,6 +13,8 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+## v0.2.0 - 2026-06-10
+
 The first release carrying the **write surface** (v0.1.0 was read-only), plus
 the contract revision groomed out of the first dogfood. Pre-release: the
 breaking changes below ship without deprecation shims — there are no external
