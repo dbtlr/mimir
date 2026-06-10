@@ -176,3 +176,65 @@ test("a task verb on an artifact id is a behavioral error", async () => {
   expect(await runCli(["start", "MMR-a1"], db, io)).toBe(1);
   expect(io.err.join("")).toContain("MMR-a1 is an artifact, not a task");
 });
+
+// tag write surface (MMR-31)
+
+test("tag and untag round-trip through the CLI", async () => {
+  const t = await createTask(db, { parentId: phaseId, title: "t" });
+  const ref = `MMR-${String(t.seq)}`;
+  const io = fakeIo(false);
+  expect(await runCli(["tag", `${ref},MMR`, "spec", "v2", "-f", "json"], db, io)).toBe(0);
+  expect(JSON.parse(io.out.join(""))).toEqual({
+    tagged: { ids: [ref, "MMR"], tags: ["spec", "v2"] },
+  });
+
+  const read = fakeIo(false);
+  await runCli(["get", ref, "-f", "json"], db, read);
+  const view = JSON.parse(read.out.join("")) as { tags: { tag: string }[] };
+  expect(view.tags.map((x) => x.tag)).toEqual(["spec", "v2"]);
+
+  const rm = fakeIo(false);
+  expect(await runCli(["untag", ref, "v2", "-f", "json"], db, rm)).toBe(0);
+  const reread = fakeIo(false);
+  await runCli(["get", ref, "-f", "json"], db, reread);
+  const after = JSON.parse(reread.out.join("")) as { tags: { tag: string }[] };
+  expect(after.tags.map((x) => x.tag)).toEqual(["spec"]);
+});
+
+test("tag without tags is a usage error", async () => {
+  const io = fakeIo(false);
+  expect(await runCli(["tag", "MMR-1"], db, io)).toBe(2);
+  expect(io.err.join("")).toContain("at least one tag");
+});
+
+test("create task --tag applies creation-time tags", async () => {
+  const io = fakeIo(false);
+  const phase = await db
+    .selectFrom("node")
+    .select("seq")
+    .where("id", "=", phaseId)
+    .executeTakeFirstOrThrow();
+  const code = await runCli(
+    [
+      "create",
+      "task",
+      "tt",
+      "--parent",
+      `MMR-${String(phase.seq)}`,
+      "--tag",
+      "spec",
+      "--tag",
+      "v2",
+      "-f",
+      "json",
+    ],
+    db,
+    io,
+  );
+  expect(code).toBe(0);
+  const echoed = JSON.parse(io.out.join("")) as { id: string };
+  const read = fakeIo(false);
+  await runCli(["get", echoed.id, "-f", "json"], db, read);
+  const view = JSON.parse(read.out.join("")) as { tags: { tag: string }[] };
+  expect(view.tags.map((x) => x.tag)).toEqual(["spec", "v2"]);
+});

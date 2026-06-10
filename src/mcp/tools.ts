@@ -28,11 +28,14 @@ import {
   notFound,
   parkTask,
   reorder,
+  resolveEntityToken,
   startTask,
   statusOfNode,
+  tagEntities,
   unblockTask,
   undepend,
   unparkTask,
+  untagEntities,
   updateNode,
   validation,
 } from "../core";
@@ -299,6 +302,33 @@ export function toolAnnotate(db: Db, args: { id: string; content: string }): Pro
 }
 
 // ---------------------------------------------------------------------------
+// Tag tools (MMR-31)
+// ---------------------------------------------------------------------------
+
+export function toolTag(
+  db: Db,
+  args: { ids: string[]; tags: string[]; note?: string },
+): Promise<ToolResult> {
+  return guard(async () => {
+    if (args.ids.length === 0) throw validation("tag requires at least one id");
+    if (args.tags.length === 0) throw validation("tag requires at least one tag");
+    const targets = await Promise.all(args.ids.map((t) => resolveEntityToken(db, t)));
+    await tagEntities(db, targets, args.tags, args.note);
+    return ok(JSON.stringify({ tagged: { ids: args.ids, tags: args.tags } }));
+  });
+}
+
+export function toolUntag(db: Db, args: { ids: string[]; tags: string[] }): Promise<ToolResult> {
+  return guard(async () => {
+    if (args.ids.length === 0) throw validation("untag requires at least one id");
+    if (args.tags.length === 0) throw validation("untag requires at least one tag");
+    const targets = await Promise.all(args.ids.map((t) => resolveEntityToken(db, t)));
+    await untagEntities(db, targets, args.tags);
+    return ok(JSON.stringify({ untagged: { ids: args.ids, tags: args.tags } }));
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Create tool
 // ---------------------------------------------------------------------------
 
@@ -317,6 +347,7 @@ export function toolCreate(
     priority?: string;
     size?: string;
     externalRef?: string;
+    tags?: string[];
   },
 ): Promise<ToolResult> {
   return guard(async () => {
@@ -329,6 +360,7 @@ export function toolCreate(
           name: args.name,
           repo: args.repo,
           path: args.path,
+          tags: args.tags,
         });
         return ok(JSON.stringify({ project: { key: project.key, name: project.name } }));
       }
@@ -344,6 +376,7 @@ export function toolCreate(
           projectId: pid,
           title: args.title,
           description: args.description,
+          tags: args.tags,
         });
         return echoNode(db, node);
       }
@@ -360,6 +393,7 @@ export function toolCreate(
           title: args.title,
           description: args.description,
           target: args.target,
+          tags: args.tags,
         });
         return echoNode(db, node);
       }
@@ -378,6 +412,7 @@ export function toolCreate(
           priority: args.priority !== undefined ? (args.priority as Priority) : undefined,
           size: args.size !== undefined ? (args.size as Size) : undefined,
           externalRef: args.externalRef,
+          tags: args.tags,
         });
         return echoNode(db, node);
       }

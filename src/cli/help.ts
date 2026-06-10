@@ -32,9 +32,12 @@ manage commands:
   data:
     update <id> [--title …] [--priority …] [--size …] …   patch fields
     annotate <id> <text>                append a freeform note
+    tag <ids> <tag>… [--note <text>]    tag entities (ids comma-separated)
+    untag <ids> <tag>…                  remove tags (plain delete, unlogged)
 
   create/attach:
     create <type> <name> […]            create project/initiative/phase/task
+                                        (repeatable --tag <t> tags at creation)
     attach <id> --file <path>           freeze an artifact onto a node
 
 options:
@@ -67,6 +70,8 @@ options:
       --file <path>       attach: path to artifact file
       --link <ids>        attach: additional node links (comma-separated)
       --project <KEY>     attach: associate artifact with a project key
+      --note <text>       tag: note stored with each tag application
+      --tag <t>           create: tag at creation (repeatable)
 
 other: mimir migrate [status] · mimir mcp
 `;
@@ -86,6 +91,8 @@ examples:
   mimir done MMR-3                    # complete it
   mimir depend MMR-4 --on MMR-3       # MMR-4 waits on MMR-3
   mimir attach MMR-3 --file plan.md   # freeze an artifact onto a task
+  mimir tag MMR-3,MMR-a1 spec v2      # tag a task and an artifact
+  mimir untag MMR-3 v2                # remove a tag
 
 notes:
   - ids: project = bare KEY, node = KEY-seq, artifact = KEY-aN; any id

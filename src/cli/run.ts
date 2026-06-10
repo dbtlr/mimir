@@ -46,9 +46,11 @@ import {
   cmdPark,
   cmdReorder,
   cmdStart,
+  cmdTag,
   cmdUnblock,
   cmdUndepend,
   cmdUnpark,
+  cmdUntag,
   cmdUpdate,
 } from "./mutations";
 
@@ -67,7 +69,8 @@ const OPTIONS = {
   priority: { type: "string", short: "p" },
   size: { type: "string" },
   predicate: { type: "string" },
-  tag: { type: "string", short: "t" },
+  tag: { type: "string", short: "t", multiple: true },
+  note: { type: "string" },
   type: { type: "string" },
   limit: { type: "string", short: "n" },
   col: { type: "string", multiple: true },
@@ -106,7 +109,8 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
     priority?: string;
     size?: string;
     predicate?: string;
-    tag?: string;
+    tag?: string[];
+    note?: string;
     type?: string;
     limit?: string;
     col?: string[];
@@ -185,7 +189,7 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
             predicate: parsePredicate(values.predicate),
             priority: parsePriority(values.priority),
             size: parseSize(values.size),
-            tag: values.tag,
+            tag: values.tag?.[0],
             limit: parseLimit(values.limit),
             facets: parseFacets(values.col),
           }),
@@ -245,6 +249,10 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
         return await cmdAttach(mctx);
       case "create":
         return await cmdCreate(mctx);
+      case "tag":
+        return await cmdTag(mctx);
+      case "untag":
+        return await cmdUntag(mctx);
       default:
         throw usage(`unknown command: ${command}`);
     }

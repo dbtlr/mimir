@@ -1,6 +1,8 @@
+import type { TagEntityType } from "../contract/enums";
 import type { Artifact, Node } from "../db/schema";
 import type { Db, Tx } from "./context";
-import { parseId, renderArtifactRef, renderId } from "./ids";
+import { notFound } from "./errors";
+import { parseId, parseIdentity, renderArtifactRef, renderId } from "./ids";
 
 /** Load a node row by surrogate id, or `undefined` if absent. */
 export async function loadNode(tx: Db | Tx, id: number): Promise<Node | undefined> {
@@ -63,6 +65,41 @@ export async function findArtifactByRef(
     .where("project_id", "=", project.id)
     .where("seq", "=", ref.seq)
     .executeTakeFirst();
+}
+
+/**
+ * Resolve any rendered identity — `KEY` | `KEY-seq` | `KEY-aN` — to its tag
+ * target (entity kind + surrogate id). Throws `not_found` naming the token;
+ * the caller decides which kinds it acts on.
+ */
+export async function resolveEntityToken(
+  tx: Db | Tx,
+  token: string,
+): Promise<{ entityType: TagEntityType; entityId: number }> {
+  const identity = parseIdentity(token);
+  if (identity === null) {
+    throw notFound(
+      `no such id ${token}`,
+      "ids are KEY (project), KEY-seq (node), KEY-aN (artifact)",
+    );
+  }
+  if (identity.kind === "project") {
+    const project = await tx
+      .selectFrom("project")
+      .select("id")
+      .where("key", "=", identity.key)
+      .executeTakeFirst();
+    if (project === undefined) throw notFound(`no project ${token}`);
+    return { entityType: "project", entityId: project.id };
+  }
+  if (identity.kind === "artifact") {
+    const artifact = await findArtifactByRef(tx, identity);
+    if (artifact === undefined) throw notFound(`no artifact ${token}`);
+    return { entityType: "artifact", entityId: artifact.id };
+  }
+  const node = await findNodeByRef(tx, token);
+  if (node === undefined) throw notFound(`no node ${token}`);
+  return { entityType: "node", entityId: node.id };
 }
 
 /** Render an artifact's external `KEY-aN` id from its surrogate id (joins the project key). */

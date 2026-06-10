@@ -1,7 +1,7 @@
-import type { Priority, Size } from "../contract/enums";
+import type { Priority, Size, TagEntityType } from "../contract/enums";
 import type { Node, Project } from "../db/schema";
 import { allocateSeq, isValidKey } from "./allocation";
-import type { Db } from "./context";
+import type { Db, Tx } from "./context";
 import { conflict, notFound, validation } from "./errors";
 import { loadNode } from "./lookup";
 import { appendRank } from "./rank";
@@ -16,11 +16,28 @@ import { appendRank } from "./rank";
  * null); phase → initiative; task → phase or initiative.
  */
 
+/** Insert creation-time tags (MMR-31) — idempotent, note-less, same transaction. */
+async function insertTags(
+  tx: Tx,
+  entityType: TagEntityType,
+  entityId: number,
+  tags?: string[],
+): Promise<void> {
+  for (const tag of tags ?? []) {
+    await tx
+      .insertInto("tag")
+      .values({ entity_type: entityType, entity_id: entityId, tag, note: null })
+      .onConflict((oc) => oc.columns(["entity_type", "entity_id", "tag"]).doNothing())
+      .execute();
+  }
+}
+
 export interface CreateProjectInput {
   key: string;
   name: string;
   repo?: string | null;
   path?: string | null;
+  tags?: string[];
 }
 
 export async function createProject(db: Db, input: CreateProjectInput): Promise<Project> {
@@ -36,7 +53,7 @@ export async function createProject(db: Db, input: CreateProjectInput): Promise<
     if (existing !== undefined) {
       throw conflict(`project key already exists: ${input.key}`);
     }
-    return tx
+    const project = await tx
       .insertInto("project")
       .values({
         key: input.key,
@@ -46,6 +63,8 @@ export async function createProject(db: Db, input: CreateProjectInput): Promise<
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    await insertTags(tx, "project", project.id, input.tags);
+    return project;
   });
 }
 
@@ -53,6 +72,7 @@ export interface CreateInitiativeInput {
   projectId: number;
   title: string;
   description?: string | null;
+  tags?: string[];
 }
 
 export async function createInitiative(db: Db, input: CreateInitiativeInput): Promise<Node> {
@@ -66,7 +86,7 @@ export async function createInitiative(db: Db, input: CreateInitiativeInput): Pr
       throw notFound("project not found");
     }
     const seq = await allocateSeq(tx, input.projectId);
-    return tx
+    const node = await tx
       .insertInto("node")
       .values({
         project_id: input.projectId,
@@ -78,6 +98,8 @@ export async function createInitiative(db: Db, input: CreateInitiativeInput): Pr
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    await insertTags(tx, "node", node.id, input.tags);
+    return node;
   });
 }
 
@@ -86,6 +108,7 @@ export interface CreatePhaseInput {
   title: string;
   description?: string | null;
   target?: string | null;
+  tags?: string[];
 }
 
 export async function createPhase(db: Db, input: CreatePhaseInput): Promise<Node> {
@@ -98,7 +121,7 @@ export async function createPhase(db: Db, input: CreatePhaseInput): Promise<Node
       throw validation(`a phase's parent must be an initiative, got ${parent.type}`);
     }
     const seq = await allocateSeq(tx, parent.project_id);
-    return tx
+    const node = await tx
       .insertInto("node")
       .values({
         project_id: parent.project_id,
@@ -111,6 +134,8 @@ export async function createPhase(db: Db, input: CreatePhaseInput): Promise<Node
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    await insertTags(tx, "node", node.id, input.tags);
+    return node;
   });
 }
 
@@ -121,6 +146,7 @@ export interface CreateTaskInput {
   priority?: Priority | null;
   size?: Size | null;
   externalRef?: string | null;
+  tags?: string[];
 }
 
 export async function createTask(db: Db, input: CreateTaskInput): Promise<Node> {
@@ -135,7 +161,7 @@ export async function createTask(db: Db, input: CreateTaskInput): Promise<Node> 
     const seq = await allocateSeq(tx, parent.project_id);
     // A fresh task is todo + none → in the rankable set → append to bottom.
     const rank = await appendRank(tx, parent.project_id);
-    return tx
+    const node = await tx
       .insertInto("node")
       .values({
         project_id: parent.project_id,
@@ -153,5 +179,7 @@ export async function createTask(db: Db, input: CreateTaskInput): Promise<Node> 
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    await insertTags(tx, "node", node.id, input.tags);
+    return node;
   });
 }
