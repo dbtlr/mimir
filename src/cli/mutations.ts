@@ -51,21 +51,21 @@ export function requirePos(c: Ctx, i: number, verb: string, noun = "a node id (K
 }
 
 export async function cmdStart(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.db, requirePos(c, 1, "start"));
+  const id = await resolveNode(c.db, requirePos(c, 1, "start"), "task");
   await startTask(c.db, id);
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }
 
 export async function cmdDone(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.db, requirePos(c, 1, "done"));
+  const id = await resolveNode(c.db, requirePos(c, 1, "done"), "task");
   await completeTask(c.db, id);
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }
 
 export async function cmdAbandon(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.db, requirePos(c, 1, "abandon"));
+  const id = await resolveNode(c.db, requirePos(c, 1, "abandon"), "task");
   await abandonTask(c.db, id, reasonTail(c));
   await echoNode(c.db, id, c.format, c.io);
   return 0;
@@ -74,28 +74,28 @@ export async function cmdAbandon(c: Ctx): Promise<number> {
 const reasonTail = (c: Ctx): string | undefined => c.positionals.slice(2).join(" ") || undefined;
 
 export async function cmdPark(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.db, requirePos(c, 1, "park"));
+  const id = await resolveNode(c.db, requirePos(c, 1, "park"), "task");
   await parkTask(c.db, id, reasonTail(c));
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }
 
 export async function cmdUnpark(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.db, requirePos(c, 1, "unpark"));
+  const id = await resolveNode(c.db, requirePos(c, 1, "unpark"), "task");
   await unparkTask(c.db, id);
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }
 
 export async function cmdBlock(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.db, requirePos(c, 1, "block"));
+  const id = await resolveNode(c.db, requirePos(c, 1, "block"), "task");
   await blockTask(c.db, id, reasonTail(c));
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }
 
 export async function cmdUnblock(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.db, requirePos(c, 1, "unblock"));
+  const id = await resolveNode(c.db, requirePos(c, 1, "unblock"), "task");
   await unblockTask(c.db, id);
   await echoNode(c.db, id, c.format, c.io);
   return 0;
@@ -131,7 +131,7 @@ export async function cmdMove(c: Ctx): Promise<number> {
 }
 
 export async function cmdReorder(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.db, requirePos(c, 1, "reorder"));
+  const id = await resolveNode(c.db, requirePos(c, 1, "reorder"), "task");
   let position: RankPosition;
   let refId: number | null = null;
   if (c.values.top === true) {
@@ -224,10 +224,11 @@ export async function cmdAttach(c: Ctx): Promise<number> {
     );
   }
 
-  const { id } = await attachArtifact(c.db, { projectId, content, linkNodeIds });
-  if (c.format === "json" || c.format === "jsonl") c.io.write(JSON.stringify({ artifact: { id } }));
-  else if (c.format === "ids") c.io.write(`#${String(id)}`);
-  else c.io.write(`${c.io.plain ? "[ok]" : "\x1b[32m✓\x1b[0m"} attached artifact #${String(id)}`);
+  const { renderedId } = await attachArtifact(c.db, { projectId, content, linkNodeIds });
+  if (c.format === "json" || c.format === "jsonl")
+    c.io.write(JSON.stringify({ artifact: { id: renderedId } }));
+  else if (c.format === "ids") c.io.write(renderedId);
+  else c.io.write(`${c.io.plain ? "[ok]" : "\x1b[32m✓\x1b[0m"} attached artifact ${renderedId}`);
   return 0;
 }
 

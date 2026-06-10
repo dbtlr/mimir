@@ -7,8 +7,8 @@ usage: mimir <command> [options]
 read commands:
   next            ready tasks in rank order ("what's next")
   list            broad selection by predicate/scope/tag
-  get <id>        full record for one node (KEY-seq)
-  status <id>     a node's rollup distribution + status
+  get <id>        full record: node (KEY-seq), project (KEY), artifact (KEY-aN)
+  status <id>     rollup distribution + status (node KEY-seq or project KEY)
 
 manage commands:
   lifecycle:
@@ -88,6 +88,8 @@ examples:
   mimir attach MMR-3 --file plan.md   # freeze an artifact onto a task
 
 notes:
+  - ids: project = bare KEY, node = KEY-seq, artifact = KEY-aN; any id
+    position takes the full grammar — the verb rejects what it can't act on.
   - identity selection (get/status) exits non-zero on a missing id;
     predicate selection (next/list) exits 0 on an empty result.
   - mutations exit non-zero on a missing id or invariant violation and

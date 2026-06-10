@@ -32,6 +32,7 @@ interface ProjectTable {
   repo: string | null;
   path: string | null;
   last_seq: Defaulted<number>;
+  last_artifact_seq: Defaulted<number>;
   created_at: DefaultedTimestamp;
   updated_at: DefaultedTimestamp;
 }
@@ -77,6 +78,7 @@ interface AnnotationTable {
 interface ArtifactTable {
   id: Generated<number>;
   project_id: number;
+  seq: number;
   content: string;
   created_at: DefaultedTimestamp;
 }

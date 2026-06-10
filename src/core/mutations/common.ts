@@ -1,6 +1,7 @@
 import type { NewTransitionRow, Node } from "../../db/schema";
 import type { Tx } from "../context";
 import { invariant, notFound, validation } from "../errors";
+import { renderNodeId } from "../lookup";
 import { now } from "../time";
 
 /**
@@ -14,7 +15,7 @@ import { now } from "../time";
 export async function reloadNode(tx: Tx, id: number): Promise<Node> {
   const node = await tx.selectFrom("node").selectAll().where("id", "=", id).executeTakeFirst();
   if (node === undefined) {
-    throw invariant(`node ${String(id)} vanished mid-transaction`);
+    throw invariant("node vanished mid-transaction");
   }
   return node;
 }
@@ -23,7 +24,7 @@ export async function reloadNode(tx: Tx, id: number): Promise<Node> {
 export async function requireNode(tx: Tx, id: number): Promise<Node> {
   const node = await tx.selectFrom("node").selectAll().where("id", "=", id).executeTakeFirst();
   if (node === undefined) {
-    throw notFound(`node ${String(id)} not found`);
+    throw notFound("node not found");
   }
   return node;
 }
@@ -32,7 +33,9 @@ export async function requireNode(tx: Tx, id: number): Promise<Node> {
 export async function requireTask(tx: Tx, id: number): Promise<Node> {
   const node = await requireNode(tx, id);
   if (node.type !== "task") {
-    throw validation(`node ${String(id)} is a ${node.type}, not a task`);
+    const rendered = (await renderNodeId(tx, id)) ?? "node";
+    const article = node.type === "initiative" ? "an" : "a";
+    throw validation(`${rendered} is ${article} ${node.type}, not a task`);
   }
   return node;
 }

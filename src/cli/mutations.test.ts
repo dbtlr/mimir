@@ -246,7 +246,7 @@ test("attach to a node infers the project and echoes an artifact id", async () =
   const io = fakeIo(false);
   const code = await runCli(["attach", taskRef, "--file", tmp, "-f", "json"], db, io);
   expect(code).toBe(0);
-  expect(JSON.parse(io.out[0] ?? "{}").artifact.id).toBeGreaterThan(0);
+  expect(JSON.parse(io.out[0] ?? "{}").artifact.id).toMatch(/^[A-Z]{2,4}-a\d+$/);
 });
 test("attach rejects a --link in a different project (validation → exit 1)", async () => {
   const other = await createProject(db, { key: "OTH", name: "o" });

@@ -32,7 +32,21 @@ export async function allocateSeq(tx: Tx, projectId: number): Promise<number> {
     .returning("last_seq")
     .executeTakeFirst();
   if (row === undefined) {
-    throw notFound(`project ${String(projectId)} not found`);
+    throw notFound("project not found");
   }
   return row.last_seq;
+}
+
+/** Atomically bump a project's `last_artifact_seq` — the `KEY-aN` counter (MMR-32). */
+export async function allocateArtifactSeq(tx: Tx, projectId: number): Promise<number> {
+  const row = await tx
+    .updateTable("project")
+    .set((eb) => ({ last_artifact_seq: eb("last_artifact_seq", "+", 1) }))
+    .where("id", "=", projectId)
+    .returning("last_artifact_seq")
+    .executeTakeFirst();
+  if (row === undefined) {
+    throw notFound("project not found");
+  }
+  return row.last_artifact_seq;
 }

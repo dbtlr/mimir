@@ -1,7 +1,15 @@
 /**
- * Human-readable node IDs (ADR 0006): the rendered identity is `KEY-seq`
- * (e.g. `MMR-16`) — `project.key` joined to the node's per-project `seq`. It is
- * **derived**, never stored; the surrogate integer PK is never exposed.
+ * Human-readable IDs (ADR 0006) and the identity grammar (MMR-32). Every
+ * entity has exactly one rendered id, spoken by every surface — echoes,
+ * errors, facets, history, JSON/MCP. The surrogate integer PK never crosses
+ * the surface.
+ *
+ *   project   bare `KEY`     (MMR)
+ *   node      `KEY-seq`      (MMR-22)
+ *   artifact  `KEY-aN`       (MMR-a1) — project-scoped, like tasks
+ *
+ * Any id-position accepts the full grammar; the *verb* rejects types it
+ * can't act on (a behavioral error, not a parse error).
  */
 
 export interface NodeRef {
@@ -9,16 +17,29 @@ export interface NodeRef {
   seq: number;
 }
 
-/** Render a project key + sequence as the external `KEY-seq` id. */
+/** A parsed rendered id — which entity kind a token names. */
+export type Identity =
+  | { kind: "project"; key: string }
+  | { kind: "node"; key: string; seq: number }
+  | { kind: "artifact"; key: string; seq: number };
+
+const PROJECT_PATTERN = /^[A-Z]{2,4}$/;
+const NODE_PATTERN = /^([A-Z]{2,4})-(\d+)$/;
+const ARTIFACT_PATTERN = /^([A-Z]{2,4})-a(\d+)$/;
+
+/** Render a project key + sequence as the external `KEY-seq` node id. */
 export function renderId(ref: NodeRef): string {
-  return `${ref.key}-${ref.seq}`;
+  return `${ref.key}-${String(ref.seq)}`;
 }
 
-const ID_PATTERN = /^([A-Z]{2,4})-(\d+)$/;
+/** Render a project key + artifact sequence as the external `KEY-aN` artifact id. */
+export function renderArtifactRef(ref: NodeRef): string {
+  return `${ref.key}-a${String(ref.seq)}`;
+}
 
-/** Parse a `KEY-seq` id back into its parts, or `null` if malformed. */
+/** Parse a `KEY-seq` node id back into its parts, or `null` if it isn't one. */
 export function parseId(id: string): NodeRef | null {
-  const match = ID_PATTERN.exec(id);
+  const match = NODE_PATTERN.exec(id);
   if (match === null) {
     return null;
   }
@@ -27,4 +48,23 @@ export function parseId(id: string): NodeRef | null {
     return null;
   }
   return { key, seq: Number(seqText) };
+}
+
+/** Parse any rendered identity — `KEY` | `KEY-seq` | `KEY-aN` — or `null` if malformed. */
+export function parseIdentity(token: string): Identity | null {
+  if (PROJECT_PATTERN.test(token)) {
+    return { kind: "project", key: token };
+  }
+  const artifact = ARTIFACT_PATTERN.exec(token);
+  if (artifact !== null) {
+    const [, key, seqText] = artifact;
+    if (key !== undefined && seqText !== undefined) {
+      return { kind: "artifact", key, seq: Number(seqText) };
+    }
+  }
+  const node = parseId(token);
+  if (node !== null) {
+    return { kind: "node", key: node.key, seq: node.seq };
+  }
+  return null;
 }

@@ -2,8 +2,8 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createTestDb, expectReject } from "../../db/testing";
 import type { Db } from "../context";
 import { createInitiative, createPhase, createProject, createTask } from "../create";
-import { blockTask, completeTask, depend, startTask } from "../mutations";
-import { getNode, listNodes, nextTasks, statusOfNode } from "./index";
+import { attachArtifact, blockTask, completeTask, depend, startTask } from "../mutations";
+import { getArtifact, getNode, listNodes, nextTasks, statusOfNode } from "./index";
 
 let db: Db;
 let phaseId: number;
@@ -84,6 +84,63 @@ test("status_of returns label + distribution for a non-leaf", async () => {
   const status = await statusOfNode(db, `${key}-${String(phase.seq)}`);
   expect(status.status).toBe("in_progress");
   expect(status.distribution).toEqual({ in_progress: 1, ready: 1 });
+});
+
+// addressability (MMR-32): the full grammar on get/status
+
+test("get on a bare KEY returns the whole-project view", async () => {
+  const t = await createTask(db, { parentId: phaseId, title: "t" });
+  await startTask(db, t.id);
+
+  const view = await getNode(db, key);
+  expect(view.id).toBe(key);
+  expect(view.type).toBe("project");
+  expect(view.title).toBe("m");
+  expect(view.status).toBe("in_progress"); // interpret over the root initiative
+  expect(view.children?.length).toBe(1); // the root initiative
+  expect(view.distribution).toEqual({ in_progress: 1 });
+});
+
+test("status_of on a bare KEY rolls up the project's roots", async () => {
+  const t = await createTask(db, { parentId: phaseId, title: "t" });
+  await startTask(db, t.id);
+
+  const status = await statusOfNode(db, key);
+  expect(status.id).toBe(key);
+  expect(status.status).toBe("in_progress");
+  expect(status.distribution).toEqual({ in_progress: 1 });
+});
+
+test("get on KEY-aN returns the artifact detail with rendered links", async () => {
+  const t = await createTask(db, { parentId: phaseId, title: "t" });
+  const project = await db.selectFrom("project").select("id").executeTakeFirstOrThrow();
+  const { renderedId } = await attachArtifact(db, {
+    projectId: project.id,
+    content: "# frozen\n",
+    linkNodeIds: [t.id],
+  });
+  expect(renderedId).toBe(`${key}-a1`);
+
+  const detail = await getArtifact(db, renderedId);
+  expect(detail.id).toBe(`${key}-a1`);
+  expect(detail.project).toBe(key);
+  expect(detail.links).toEqual([idOf(t)]);
+});
+
+test("status_of rejects an artifact id as a behavioral error", async () => {
+  await expectReject(() => statusOfNode(db, `${key}-a1`));
+});
+
+test("the node artifacts facet speaks KEY-aN", async () => {
+  const t = await createTask(db, { parentId: phaseId, title: "t" });
+  const project = await db.selectFrom("project").select("id").executeTakeFirstOrThrow();
+  await attachArtifact(db, { projectId: project.id, content: "x", linkNodeIds: [t.id] });
+
+  const view = await getNode(db, idOf(t));
+  expect(view.artifacts?.map((a) => a.id)).toEqual([`${key}-a1`]);
+
+  const projectView = await getNode(db, key, { facets: ["artifacts"] });
+  expect(projectView.artifacts?.map((a) => a.id)).toEqual([`${key}-a1`]);
 });
 
 test("list selects by predicate", async () => {

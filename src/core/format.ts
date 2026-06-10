@@ -1,4 +1,4 @@
-import type { NodeView, SetResult, StatusView } from "../contract/dto";
+import type { ArtifactDetail, NodeView, SetResult, StatusView } from "../contract/dto";
 
 /**
  * The **structural** output formats — `ids` / `json` / `jsonl` — a versioned
@@ -95,6 +95,21 @@ export function formatNodeJson(node: NodeView): string {
 export function formatStatusJson(status: StatusView): string {
   return JSON.stringify(
     { id: status.id, status: status.status, distribution: status.distribution },
+    null,
+    2,
+  );
+}
+
+/** `json` for a standalone artifact (`get KEY-aN`) — metadata + links, contract field names. */
+export function formatArtifactJson(artifact: ArtifactDetail): string {
+  return JSON.stringify(
+    {
+      id: artifact.id,
+      project: artifact.project,
+      links: artifact.links,
+      tags: artifact.tags,
+      created_at: artifact.createdAt,
+    },
     null,
     2,
   );
