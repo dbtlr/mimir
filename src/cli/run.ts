@@ -222,7 +222,7 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
       case "get": {
         const id = requireId(positionals[1], "get");
         if (parseIdentity(id)?.kind === "artifact") {
-          const content = (values.col ?? []).some((c) => c === "content" || c === ".content");
+          const content = (values.col ?? []).includes("content");
           renderArtifactDetail(
             await getArtifact(db, id, { content }),
             pickFormat(values.format, "single", ctx),
@@ -372,16 +372,22 @@ function requireId(id: string | undefined, command: string): string {
   return id;
 }
 
+/**
+ * The flat `--col` vocabulary (MMR-38) — the dot prefix is gone (it fenced a
+ * dynamic namespace Mimir doesn't have). One closed list; `content` is
+ * artifact-only and handled by the `get KEY-aN` path.
+ */
 function parseFacets(cols: string[] | undefined): FacetName[] {
   const facets: FacetName[] = [];
   for (const col of cols ?? []) {
     if (col.startsWith(".")) {
-      const name = col.slice(1);
-      if (!(FACET_NAMES as readonly string[]).includes(name)) {
-        throw usage(`unknown facet: ${col}`);
-      }
-      facets.push(name as FacetName);
+      throw usage(`columns are flat now: --col ${col.slice(1)} (the dot prefix was dropped)`);
     }
+    if (col === "content") continue; // artifact-only; a node simply has no body
+    if (!(FACET_NAMES as readonly string[]).includes(col)) {
+      throw usage(`unknown column: ${col}`, `columns: ${[...FACET_NAMES, "content"].join(", ")}`);
+    }
+    facets.push(col as FacetName);
   }
   return facets;
 }

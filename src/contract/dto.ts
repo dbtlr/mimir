@@ -12,7 +12,7 @@ import type { ValueWarning } from "./query";
 /**
  * The projection DTOs — the shape the intent layer produces and the CLI/MCP/UI
  * render (output-contract reference). One vocabulary on every selection
- * front-end: **bare fields** (scalars, always cheap) + **dot-facets** (sets /
+ * front-end: **bare fields** (scalars, always cheap) + **set-valued columns** (sets /
  * sub-objects, opt-in because they cost extra queries).
  *
  * Identity is the rendered `KEY-seq` id; the surrogate int is never exposed
@@ -32,26 +32,26 @@ export interface NodeRef {
   status?: StatusWord;
 }
 
-/** `.deps` — prerequisites of this node plus the derived `blocking` reverse set. */
+/** `deps` — prerequisites of this node plus the derived `blocking` reverse set. */
 export interface DepsFacet {
   dependsOn: NodeRef[];
   blocking: NodeRef[];
 }
 
-/** `.annotations` — freeform in-flight notes. */
+/** `annotations` — freeform in-flight notes. */
 export interface AnnotationView {
   content: string;
   createdAt: string;
 }
 
-/** `.tags` — tags on this node. */
+/** `tags` — tags on this node. */
 export interface TagView {
   tag: string;
   note: string | null;
   createdAt: string;
 }
 
-/** `.artifacts` — attached artifacts (metadata only; bodies fetched separately, byte-faithful). */
+/** `artifacts` — attached artifacts (metadata only; bodies fetched separately, byte-faithful). */
 export interface ArtifactView {
   /** Rendered `KEY-aN` id (MMR-32) — the surrogate int never crosses the surface. */
   id: string;
@@ -77,7 +77,7 @@ export interface ArtifactDetail {
   content?: string;
 }
 
-/** `.history` — a transition-log entry (heavy; opt-in even on `get`). */
+/** `history` — a transition-log entry (heavy; opt-in even on `get`). */
 export interface HistoryEntry {
   kind: TransitionKind;
   from: string | null;
@@ -131,7 +131,7 @@ export interface StatusView {
   distribution: Distribution;
 }
 
-/** The dot-facet names, for `--col` parsing and the cheap-vs-heavy default sets. */
+/** The set-valued column names (flat, MMR-38), for `--col` parsing and the cheap-vs-heavy default sets. */
 export const FACET_NAMES = [
   "deps",
   "annotations",
