@@ -326,9 +326,14 @@ export async function cmdCreate(c: Ctx): Promise<number> {
   const type = c.positionals[1];
   switch (type) {
     case "project": {
+      // Positional name like every other create type (MMR-35); --name still works.
+      const name = c.positionals[2] ?? optStr(c, "name");
+      if (name === undefined) {
+        throw usage("create project requires a name", 'create project "Name" --key KEY');
+      }
       const project = await createProject(c.db, {
         key: strFlag(c, "key", "create project requires --key"),
-        name: strFlag(c, "name", "create project requires --name"),
+        name,
         repo: optStr(c, "repo"),
         path: optStr(c, "path"),
         tags: tagFlags(c),

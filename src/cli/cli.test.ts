@@ -360,3 +360,24 @@ test("get KEY-aN --col content returns the frozen body", async () => {
   const parsed = JSON.parse(withContent.out.join("")) as { content: string };
   expect(parsed.content).toBe("# the frozen body\n");
 });
+
+// create project positional name (MMR-35)
+
+test("create project accepts a positional name", async () => {
+  const io = fakeIo(false);
+  const code = await runCli(
+    ["create", "project", "Other Tool", "--key", "OTH", "-f", "json"],
+    db,
+    io,
+  );
+  expect(code).toBe(0);
+  expect(JSON.parse(io.out.join(""))).toEqual({ project: { key: "OTH", name: "Other Tool" } });
+});
+
+test("create project still accepts --name and errors without either", async () => {
+  const io = fakeIo(false);
+  expect(await runCli(["create", "project", "--key", "FLG", "--name", "Flagged"], db, io)).toBe(0);
+  const bad = fakeIo(false);
+  expect(await runCli(["create", "project", "--key", "BAD"], db, bad)).toBe(2);
+  expect(bad.err.join("")).toContain("requires a name");
+});
