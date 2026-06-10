@@ -16,9 +16,11 @@ import {
   createTask,
   depend,
   findNodeByRef,
+  formatArtifactJson,
   formatNodeJson,
   formatSetJson,
   formatStatusJson,
+  getArtifact,
   getNode,
   listNodes,
   moveNode,
@@ -35,7 +37,7 @@ import {
   validation,
 } from "../core";
 import type { Db } from "../core";
-import { parseId } from "../core";
+import { parseId, parseIdentity } from "../core";
 import type { RankPosition } from "../core";
 import type { Priority, Size } from "../contract/enums";
 
@@ -79,10 +81,14 @@ async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {
 }
 
 /**
- * Resolve a KEY-seq token to its surrogate id, throwing not_found (MimirError)
- * if the token is malformed or the node doesn't exist.
+ * Resolve a node token to its surrogate id. Any rendered identity parses
+ * (MMR-32); a token naming a project or artifact is rejected by the verb as a
+ * behavioral error — `expected` names what the verb acts on.
  */
-async function nodeId(db: Db, id: string): Promise<number> {
+async function nodeId(db: Db, id: string, expected = "node"): Promise<number> {
+  const identity = parseIdentity(id);
+  if (identity?.kind === "project") throw validation(`${id} is a project, not a ${expected}`);
+  if (identity?.kind === "artifact") throw validation(`${id} is an artifact, not a ${expected}`);
   const n = await findNodeByRef(db, id);
   if (n === undefined) throw notFound(`no node ${id}`);
   return n.id;
@@ -121,6 +127,9 @@ export function toolList(db: Db, args: ListOptions): Promise<ToolResult> {
 
 export function toolGet(db: Db, args: { id: string; facets?: FacetName[] }): Promise<ToolResult> {
   return guard(async () => {
+    if (parseIdentity(args.id)?.kind === "artifact") {
+      return ok(formatArtifactJson(await getArtifact(db, args.id)));
+    }
     const facets =
       args.facets !== undefined && args.facets.length > 0
         ? [...new Set<FacetName>([...CHEAP_FACETS, ...args.facets])]
@@ -139,7 +148,7 @@ export function toolStatus(db: Db, args: { id: string }): Promise<ToolResult> {
 
 export function toolStart(db: Db, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id);
+    const id = await nodeId(db, args.id, "task");
     const node = await startTask(db, id);
     return echoNode(db, node);
   });
@@ -147,7 +156,7 @@ export function toolStart(db: Db, args: { id: string }): Promise<ToolResult> {
 
 export function toolDone(db: Db, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id);
+    const id = await nodeId(db, args.id, "task");
     const node = await completeTask(db, id);
     return echoNode(db, node);
   });
@@ -155,7 +164,7 @@ export function toolDone(db: Db, args: { id: string }): Promise<ToolResult> {
 
 export function toolAbandon(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id);
+    const id = await nodeId(db, args.id, "task");
     const node = await abandonTask(db, id, args.reason);
     return echoNode(db, node);
   });
@@ -167,7 +176,7 @@ export function toolAbandon(db: Db, args: { id: string; reason?: string }): Prom
 
 export function toolPark(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id);
+    const id = await nodeId(db, args.id, "task");
     const node = await parkTask(db, id, args.reason);
     return echoNode(db, node);
   });
@@ -175,7 +184,7 @@ export function toolPark(db: Db, args: { id: string; reason?: string }): Promise
 
 export function toolUnpark(db: Db, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id);
+    const id = await nodeId(db, args.id, "task");
     const node = await unparkTask(db, id);
     return echoNode(db, node);
   });
@@ -183,7 +192,7 @@ export function toolUnpark(db: Db, args: { id: string }): Promise<ToolResult> {
 
 export function toolBlock(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id);
+    const id = await nodeId(db, args.id, "task");
     const node = await blockTask(db, id, args.reason);
     return echoNode(db, node);
   });
@@ -191,7 +200,7 @@ export function toolBlock(db: Db, args: { id: string; reason?: string }): Promis
 
 export function toolUnblock(db: Db, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id);
+    const id = await nodeId(db, args.id, "task");
     const node = await unblockTask(db, id);
     return echoNode(db, node);
   });
@@ -237,7 +246,7 @@ export function toolReorder(
   args: { id: string; position: "top" | "bottom" | "before" | "after"; ref?: string },
 ): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id);
+    const id = await nodeId(db, args.id, "task");
     const position: RankPosition = args.position;
     let refId: number | null = null;
     if (position === "before" || position === "after") {
@@ -433,7 +442,11 @@ export function toolAttach(
       pid = await projectId(db, args.project);
     }
 
-    const { id } = await attachArtifact(db, { projectId: pid, content: args.content, linkNodeIds });
-    return ok(JSON.stringify({ artifact: { id } }));
+    const { renderedId } = await attachArtifact(db, {
+      projectId: pid,
+      content: args.content,
+      linkNodeIds,
+    });
+    return ok(JSON.stringify({ artifact: { id: renderedId } }));
   });
 }

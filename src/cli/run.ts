@@ -12,9 +12,11 @@ import {
   formatSetJson,
   formatSetJsonl,
   formatStatusJson,
+  getArtifact,
   getNode,
   listNodes,
   nextTasks,
+  parseIdentity,
   statusOfNode,
 } from "../core";
 import type { Db } from "../core";
@@ -23,6 +25,7 @@ import {
   FORMATS,
   type Format,
   type Io,
+  renderArtifactDetail,
   renderNodeView,
   renderRecords,
   renderStatus,
@@ -191,6 +194,14 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
         );
       case "get": {
         const id = requireId(positionals[1], "get");
+        if (parseIdentity(id)?.kind === "artifact") {
+          renderArtifactDetail(
+            await getArtifact(db, id),
+            pickFormat(values.format, "single", ctx),
+            ctx,
+          );
+          return 0;
+        }
         const facets = parseFacets(values.col);
         const node = await getNode(db, id, {
           facets: facets.length > 0 ? [...new Set([...CHEAP_FACETS, ...facets])] : undefined,
@@ -321,7 +332,7 @@ function pickFormat(
 
 function requireId(id: string | undefined, command: string): string {
   if (id === undefined) {
-    throw usage(`${command} requires a node id (KEY-seq)`);
+    throw usage(`${command} requires an id (KEY | KEY-seq | KEY-aN)`);
   }
   return id;
 }

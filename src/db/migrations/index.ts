@@ -1,5 +1,6 @@
 import type { Migration } from "kysely";
 import { migration as init0001 } from "./0001_init";
+import { migration as artifactSeq0002 } from "./0002_artifact_seq";
 
 /**
  * The static migration set, keyed by name. Keys sort lexicographically and
@@ -9,4 +10,5 @@ import { migration as init0001 } from "./0001_init";
  */
 export const migrations: Record<string, Migration> = {
   "0001_init": init0001,
+  "0002_artifact_seq": artifactSeq0002,
 };

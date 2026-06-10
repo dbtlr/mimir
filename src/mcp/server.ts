@@ -111,7 +111,7 @@ export function buildMcpServer(db: Db, version: string): McpServer {
   register(
     server,
     "get",
-    "Full record for one node by KEY-seq id (e.g. MMR-16). Cheap facets are included; add `history` for the transition log.",
+    "Full record by rendered id: a node (KEY-seq, e.g. MMR-16), a whole project (bare KEY), or an artifact (KEY-aN). Cheap facets are included for nodes/projects; add `history` for the transition log.",
     { id: z.string(), facets: z.array(FACET).optional() },
     (args: { id: string; facets?: FacetName[] }) => toolGet(db, args),
   );
@@ -119,7 +119,7 @@ export function buildMcpServer(db: Db, version: string): McpServer {
   register(
     server,
     "status",
-    "A node's rollup distribution and single status word (KEY-seq id).",
+    "A rollup distribution and single status word, for a node (KEY-seq) or a whole project (bare KEY).",
     { id: z.string() },
     (args: { id: string }) => toolStatus(db, args),
   );
@@ -314,7 +314,7 @@ export function buildMcpServer(db: Db, version: string): McpServer {
   register(
     server,
     "attach",
-    "Store a frozen artifact (content string) and optionally link it to nodes. Infers project from linked nodes. Echoes {artifact:{id}}.",
+    "Store a frozen artifact (content string) and optionally link it to nodes. Infers project from linked nodes. Echoes {artifact:{id}} with the rendered KEY-aN id.",
     {
       content: z.string(),
       node: z.string().optional(),

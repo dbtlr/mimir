@@ -2,6 +2,7 @@ import type { StatusWord } from "../contract/enums";
 import type { Node } from "../db/schema";
 import type { Db, Tx } from "./context";
 import { invariant } from "./errors";
+import { renderNodeId } from "./lookup";
 import { type Distribution, interpret, tally, taskStatus } from "./status";
 
 /**
@@ -59,7 +60,8 @@ export async function hasUnsettledPrereq(tx: Executor, taskId: number): Promise<
 export async function nodeStatusWord(tx: Executor, node: Node): Promise<StatusWord> {
   if (node.type === "task") {
     if (node.lifecycle === null || node.hold === null) {
-      throw invariant(`task ${String(node.id)} is missing a status axis`);
+      const rendered = (await renderNodeId(tx, node.id)) ?? "task";
+      throw invariant(`${rendered} is missing a status axis`);
     }
     const awaiting = await hasUnsettledPrereq(tx, node.id);
     return taskStatus({ lifecycle: node.lifecycle, hold: node.hold, awaiting });
@@ -90,5 +92,29 @@ export async function statusOf(
     return { status: await nodeStatusWord(tx, node), distribution: {} };
   }
   const distribution = await childDistribution(tx, node.id);
+  return { status: interpret(distribution), distribution };
+}
+
+/** The rollup distribution over a project's **root** nodes (the cascade's top step, MMR-32). */
+export async function rootDistribution(tx: Executor, projectId: number): Promise<Distribution> {
+  const roots = await tx
+    .selectFrom("node")
+    .selectAll()
+    .where("project_id", "=", projectId)
+    .where("parent_id", "is", null)
+    .execute();
+  const words: StatusWord[] = [];
+  for (const root of roots) {
+    words.push(await nodeStatusWord(tx, root));
+  }
+  return tally(words);
+}
+
+/** `status_of` for a whole project — `interpret` over its root nodes. */
+export async function statusOfProject(
+  tx: Executor,
+  projectId: number,
+): Promise<{ status: StatusWord; distribution: Distribution }> {
+  const distribution = await rootDistribution(tx, projectId);
   return { status: interpret(distribution), distribution };
 }

@@ -22,6 +22,9 @@ import type {
 /** A non-leaf node's rollup breakdown — counts of each Status word among its direct children. */
 export type Distribution = Partial<Record<StatusWord, number>>;
 
+/** The projected `type` vocabulary — the three tree-node types plus the project itself (MMR-32). */
+export type ViewType = NodeType | "project";
+
 /** A light reference to another node — its id, optionally its Status word. */
 export interface NodeRef {
   id: string;
@@ -49,7 +52,21 @@ export interface TagView {
 
 /** `.artifacts` — attached artifacts (metadata only; bodies fetched separately, byte-faithful). */
 export interface ArtifactView {
-  id: number;
+  /** Rendered `KEY-aN` id (MMR-32) — the surrogate int never crosses the surface. */
+  id: string;
+  tags: string[];
+  createdAt: string;
+}
+
+/**
+ * A standalone artifact record (`get KEY-aN`, MMR-32) — metadata plus the
+ * nodes it links to. The frozen body stays out of the default projection
+ * (the deliberately-heavy `content` column, MMR-34).
+ */
+export interface ArtifactDetail {
+  id: string;
+  project: string;
+  links: string[];
   tags: string[];
   createdAt: string;
 }
@@ -69,9 +86,9 @@ export interface HistoryEntry {
  * present only when requested.
  */
 export interface NodeView {
-  // bare — all nodes
+  // bare — all nodes (and the project view, MMR-32)
   id: string;
-  type: NodeType;
+  type: ViewType;
   title: string;
   status: StatusWord;
   parent: string | null;

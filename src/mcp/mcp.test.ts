@@ -269,8 +269,8 @@ test("create project without key returns validation error", async () => {
 test("attach to a node infers the project and echoes an artifact id", async () => {
   const res = await toolAttach(db, { node: taskRef, content: "# plan\n" });
   expect(res.isError).toBeUndefined();
-  const v = JSON.parse(textOf(res)) as { artifact: { id: number } };
-  expect(v.artifact.id).toBeGreaterThan(0);
+  const v = JSON.parse(textOf(res)) as { artifact: { id: string } };
+  expect(v.artifact.id).toMatch(/^[A-Z]{2,4}-a\d+$/);
 });
 
 test("attach cross-project link returns structured validation error", async () => {

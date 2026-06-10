@@ -1,5 +1,5 @@
-import { formatNodeJson } from "../core";
-import type { NodeView, SetResult, StatusView } from "../contract/dto";
+import { formatArtifactJson, formatNodeJson } from "../core";
+import type { ArtifactDetail, NodeView, SetResult, StatusView } from "../contract/dto";
 import type { StatusWord } from "../contract/enums";
 
 export const FORMATS = ["table", "records", "ids", "json", "jsonl"] as const;
@@ -164,6 +164,36 @@ export function renderNodeView(view: NodeView, format: Format, io: Io): void {
     case "records":
       io.write(renderRecords(view, io));
       break;
+  }
+}
+
+/** Render a standalone artifact (`get KEY-aN`) in any format — metadata + links (MMR-32). */
+export function renderArtifactDetail(artifact: ArtifactDetail, format: Format, io: Io): void {
+  switch (format) {
+    case "json":
+    case "jsonl":
+      io.write(formatArtifactJson(artifact));
+      break;
+    case "ids":
+      io.write(artifact.id);
+      break;
+    case "table": {
+      const tags = artifact.tags.length > 0 ? `   ${artifact.tags.join(", ")}` : "";
+      io.write(
+        [countLine(1, "artifact"), "", `${artifact.id}   ${artifact.createdAt}${tags}`].join("\n"),
+      );
+      break;
+    }
+    case "records": {
+      const pairs: [string, string][] = [["project", artifact.project]];
+      if (artifact.links.length > 0) pairs.push(["links", artifact.links.join(", ")]);
+      if (artifact.tags.length > 0) pairs.push(["tags", artifact.tags.join(", ")]);
+      pairs.push(["created", artifact.createdAt]);
+      const labelW = Math.max(...pairs.map(([label]) => label.length));
+      const lines = [bold(artifact.id, io.plain), ...pairs.map(([l, v]) => row(l, v, labelW))];
+      io.write(lines.join("\n"));
+      break;
+    }
   }
 }
 

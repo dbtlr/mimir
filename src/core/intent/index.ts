@@ -3,9 +3,10 @@ export {
   type ListOptions,
   type ListPredicate,
   type NextOptions,
+  getArtifact,
   getNode,
   listNodes,
   nextTasks,
   statusOfNode,
 } from "./queries";
-export { buildNodeView } from "./view";
+export { buildArtifactDetail, buildNodeView, buildProjectView } from "./view";

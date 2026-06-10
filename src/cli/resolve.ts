@@ -4,17 +4,32 @@
  * affected node back to stdout in the requested format.
  */
 
-import { buildNodeView, findNodeByRef, loadNode, notFound, parseId } from "../core";
+import {
+  buildNodeView,
+  findNodeByRef,
+  loadNode,
+  notFound,
+  parseIdentity,
+  validation,
+} from "../core";
 import type { Db } from "../core";
 import { type Format, type Io, renderNodeView } from "./render";
 
 export type { Format };
 
 /**
- * Resolve a `KEY-seq` token to its surrogate integer id. Throws `not_found`
- * (MimirError) if the token is malformed or the node doesn't exist.
+ * Resolve a node token to its surrogate integer id. Any rendered identity
+ * parses (MMR-32); a token naming a project or artifact is rejected by the
+ * verb as a behavioral error — `expected` names what the verb acts on.
  */
-export async function resolveNode(db: Db, token: string): Promise<number> {
+export async function resolveNode(db: Db, token: string, expected = "node"): Promise<number> {
+  const identity = parseIdentity(token);
+  if (identity?.kind === "project") {
+    throw validation(`${token} is a project, not a ${expected}`);
+  }
+  if (identity?.kind === "artifact") {
+    throw validation(`${token} is an artifact, not a ${expected}`);
+  }
   const node = await findNodeByRef(db, token);
   if (node === undefined) {
     throw notFound(`no node ${token}`, "list ids with: mimir list -f ids");
@@ -42,10 +57,14 @@ export async function resolveParent(
   db: Db,
   token: string,
 ): Promise<{ kind: "project"; id: number } | { kind: "node"; id: number }> {
-  if (parseId(token) === null) {
-    return { kind: "project", id: await resolveProject(db, token) };
+  const identity = parseIdentity(token);
+  if (identity?.kind === "artifact") {
+    throw validation(`${token} is an artifact — a parent must be a project KEY or node (KEY-seq)`);
   }
-  return { kind: "node", id: await resolveNode(db, token) };
+  if (identity?.kind === "node") {
+    return { kind: "node", id: await resolveNode(db, token) };
+  }
+  return { kind: "project", id: await resolveProject(db, token) };
 }
 
 /**
@@ -57,7 +76,7 @@ export async function resolveParent(
 export async function echoNode(db: Db, nodeId: number, format: Format, io: Io): Promise<void> {
   const node = await loadNode(db, nodeId);
   if (node === undefined) {
-    throw notFound(`no node id=${String(nodeId)}`);
+    throw notFound("node vanished before echo");
   }
   const view = await buildNodeView(db, node);
   renderNodeView(view, format, io);

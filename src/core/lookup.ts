@@ -1,6 +1,6 @@
-import type { Node } from "../db/schema";
+import type { Artifact, Node } from "../db/schema";
 import type { Db, Tx } from "./context";
-import { parseId, renderId } from "./ids";
+import { parseId, renderArtifactRef, renderId } from "./ids";
 
 /** Load a node row by surrogate id, or `undefined` if absent. */
 export async function loadNode(tx: Db | Tx, id: number): Promise<Node | undefined> {
@@ -42,4 +42,36 @@ export async function renderNodeId(tx: Db | Tx, nodeId: number): Promise<string 
     .where("node.id", "=", nodeId)
     .executeTakeFirst();
   return row === undefined ? null : renderId(row);
+}
+
+/** Resolve a parsed `KEY-aN` artifact identity to its row, or `undefined` if absent. */
+export async function findArtifactByRef(
+  tx: Db | Tx,
+  ref: { key: string; seq: number },
+): Promise<Artifact | undefined> {
+  const project = await tx
+    .selectFrom("project")
+    .select("id")
+    .where("key", "=", ref.key)
+    .executeTakeFirst();
+  if (project === undefined) {
+    return undefined;
+  }
+  return tx
+    .selectFrom("artifact")
+    .selectAll()
+    .where("project_id", "=", project.id)
+    .where("seq", "=", ref.seq)
+    .executeTakeFirst();
+}
+
+/** Render an artifact's external `KEY-aN` id from its surrogate id (joins the project key). */
+export async function renderArtifactId(tx: Db | Tx, artifactId: number): Promise<string | null> {
+  const row = await tx
+    .selectFrom("artifact")
+    .innerJoin("project", "project.id", "artifact.project_id")
+    .select(["project.key as key", "artifact.seq as seq"])
+    .where("artifact.id", "=", artifactId)
+    .executeTakeFirst();
+  return row === undefined ? null : renderArtifactRef(row);
 }

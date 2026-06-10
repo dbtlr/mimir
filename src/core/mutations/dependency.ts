@@ -46,7 +46,9 @@ export async function depend(db: Db, id: number, onIds: number[]): Promise<Node>
       await requireNode(tx, onId);
       // adding id → onId closes a cycle iff onId already reaches id
       if (await reaches(tx, onId, id)) {
-        throw validation(`dependency would create a cycle (${String(id)} → ${String(onId)})`);
+        const from = (await renderNodeId(tx, id)) ?? "node";
+        const to = (await renderNodeId(tx, onId)) ?? "node";
+        throw validation(`dependency would create a cycle (${from} → ${to})`);
       }
       const existing = await tx
         .selectFrom("dependency")

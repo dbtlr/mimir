@@ -1,7 +1,10 @@
 import type { Priority, Size } from "../../contract/enums";
 import type { Node, NodeUpdate } from "../../db/schema";
+import { allocateArtifactSeq } from "../allocation";
 import type { Db } from "../context";
 import { notFound, validation } from "../errors";
+import { renderArtifactRef } from "../ids";
+import { renderNodeId } from "../lookup";
 import { type RankPosition, reorderTask } from "../rank";
 import { now } from "../time";
 import { reloadNode, requireNode, requireTask, stamp } from "./common";
@@ -69,32 +72,37 @@ export interface AttachArtifactInput {
   linkNodeIds?: number[];
 }
 
-export async function attachArtifact(db: Db, input: AttachArtifactInput): Promise<{ id: number }> {
+export async function attachArtifact(
+  db: Db,
+  input: AttachArtifactInput,
+): Promise<{ id: number; renderedId: string }> {
   return db.transaction().execute(async (tx) => {
     const project = await tx
       .selectFrom("project")
-      .select("id")
+      .select("key")
       .where("id", "=", input.projectId)
       .executeTakeFirst();
     if (project === undefined) {
-      throw notFound(`project ${String(input.projectId)} not found`);
+      throw notFound("project not found");
     }
+    const seq = await allocateArtifactSeq(tx, input.projectId);
     const artifact = await tx
       .insertInto("artifact")
-      .values({ project_id: input.projectId, content: input.content })
+      .values({ project_id: input.projectId, seq, content: input.content })
       .returning("id")
       .executeTakeFirstOrThrow();
     for (const nodeId of input.linkNodeIds ?? []) {
       const node = await requireNode(tx, nodeId);
       if (node.project_id !== input.projectId) {
-        throw validation(`linked node ${String(nodeId)} is in a different project`);
+        const rendered = (await renderNodeId(tx, nodeId)) ?? "node";
+        throw validation(`linked node ${rendered} is in a different project`);
       }
       await tx
         .insertInto("artifact_link")
         .values({ artifact_id: artifact.id, node_id: nodeId })
         .execute();
     }
-    return { id: artifact.id };
+    return { id: artifact.id, renderedId: renderArtifactRef({ key: project.key, seq }) };
   });
 }
 

@@ -1,5 +1,6 @@
 import type {
   AnnotationView,
+  ArtifactDetail,
   ArtifactView,
   DepsFacet,
   FacetName,
@@ -8,10 +9,12 @@ import type {
   NodeView,
   TagView,
 } from "../../contract/dto";
-import type { Node } from "../../db/schema";
+import type { Artifact, Node, Project } from "../../db/schema";
 import type { Db, Tx } from "../context";
-import { childDistribution, nodeStatusWord } from "../derive";
+import { childDistribution, nodeStatusWord, rootDistribution } from "../derive";
+import { renderArtifactRef } from "../ids";
 import { loadNode, renderNodeId } from "../lookup";
+import { interpret } from "../status";
 
 /**
  * Projection assembly — build a {@link NodeView} from a node row plus the
@@ -24,7 +27,7 @@ type Executor = Db | Tx;
 
 async function toRef(tx: Executor, nodeId: number): Promise<NodeRef> {
   const node = await loadNode(tx, nodeId);
-  const id = (await renderNodeId(tx, nodeId)) ?? `#${String(nodeId)}`;
+  const id = (await renderNodeId(tx, nodeId)) ?? "unknown";
   return node === undefined ? { id } : { id, status: await nodeStatusWord(tx, node) };
 }
 
@@ -34,7 +37,7 @@ export async function buildNodeView(
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView> {
   const view: NodeView = {
-    id: (await renderNodeId(tx, node.id)) ?? `#${String(node.id)}`,
+    id: (await renderNodeId(tx, node.id)) ?? "unknown",
     type: node.type,
     title: node.title,
     status: await nodeStatusWord(tx, node),
@@ -132,21 +135,135 @@ async function buildArtifacts(tx: Executor, nodeId: number): Promise<ArtifactVie
   const rows = await tx
     .selectFrom("artifact_link")
     .innerJoin("artifact", "artifact.id", "artifact_link.artifact_id")
-    .select(["artifact.id as id", "artifact.created_at as createdAt"])
+    .innerJoin("project", "project.id", "artifact.project_id")
+    .select([
+      "artifact.id as id",
+      "artifact.seq as seq",
+      "artifact.created_at as createdAt",
+      "project.key as key",
+    ])
     .where("artifact_link.node_id", "=", nodeId)
-    .orderBy("artifact.id", "asc")
+    .orderBy("artifact.seq", "asc")
     .execute();
   const out: ArtifactView[] = [];
   for (const row of rows) {
-    const tags = await tx
-      .selectFrom("tag")
-      .select("tag")
-      .where("entity_type", "=", "artifact")
-      .where("entity_id", "=", row.id)
-      .execute();
-    out.push({ id: row.id, createdAt: row.createdAt, tags: tags.map((t) => t.tag) });
+    out.push({
+      id: renderArtifactRef(row),
+      createdAt: row.createdAt,
+      tags: await tagsOf(tx, "artifact", row.id),
+    });
   }
   return out;
+}
+
+async function tagsOf(
+  tx: Executor,
+  entityType: "project" | "node" | "artifact",
+  entityId: number,
+): Promise<string[]> {
+  const rows = await tx
+    .selectFrom("tag")
+    .select("tag")
+    .where("entity_type", "=", entityType)
+    .where("entity_id", "=", entityId)
+    .orderBy("created_at", "asc")
+    .execute();
+  return rows.map((r) => r.tag);
+}
+
+/** All of a project's artifacts — the inventory behind `get KEY --col artifacts` (MMR-32/34). */
+async function buildProjectArtifacts(tx: Executor, project: Project): Promise<ArtifactView[]> {
+  const rows = await tx
+    .selectFrom("artifact")
+    .select(["id", "seq", "created_at as createdAt"])
+    .where("project_id", "=", project.id)
+    .orderBy("seq", "asc")
+    .execute();
+  const out: ArtifactView[] = [];
+  for (const row of rows) {
+    out.push({
+      id: renderArtifactRef({ key: project.key, seq: row.seq }),
+      createdAt: row.createdAt,
+      tags: await tagsOf(tx, "artifact", row.id),
+    });
+  }
+  return out;
+}
+
+/**
+ * The whole-project view (`get KEY`, MMR-32) — the project rendered through the
+ * same projection contract as a node: `type: "project"`, status = `interpret`
+ * over its root nodes. Facets that don't apply to a project (deps,
+ * annotations, history) are silently absent.
+ */
+export async function buildProjectView(
+  tx: Executor,
+  project: Project,
+  facets: ReadonlySet<FacetName> = new Set(),
+): Promise<NodeView> {
+  const distribution = await rootDistribution(tx, project.id);
+  const view: NodeView = {
+    id: project.key,
+    type: "project",
+    title: project.name,
+    status: interpret(distribution),
+    parent: null,
+    description: null,
+    createdAt: project.created_at,
+    updatedAt: project.updated_at,
+  };
+  if (facets.has("children")) {
+    const roots = await tx
+      .selectFrom("node")
+      .select("id")
+      .where("project_id", "=", project.id)
+      .where("parent_id", "is", null)
+      .orderBy("seq", "asc")
+      .execute();
+    view.children = await Promise.all(roots.map((r) => toRef(tx, r.id)));
+  }
+  if (facets.has("distribution")) {
+    view.distribution = distribution;
+  }
+  if (facets.has("tags")) {
+    const rows = await tx
+      .selectFrom("tag")
+      .select(["tag", "note", "created_at"])
+      .where("entity_type", "=", "project")
+      .where("entity_id", "=", project.id)
+      .orderBy("created_at", "asc")
+      .execute();
+    view.tags = rows.map((r) => ({ tag: r.tag, note: r.note, createdAt: r.created_at }));
+  }
+  if (facets.has("artifacts")) {
+    view.artifacts = await buildProjectArtifacts(tx, project);
+  }
+  return view;
+}
+
+/** A standalone artifact record (`get KEY-aN`, MMR-32) — metadata + linked nodes + tags. */
+export async function buildArtifactDetail(
+  tx: Executor,
+  artifact: Artifact,
+  projectKey: string,
+): Promise<ArtifactDetail> {
+  const links = await tx
+    .selectFrom("artifact_link")
+    .select("node_id")
+    .where("artifact_id", "=", artifact.id)
+    .orderBy("node_id", "asc")
+    .execute();
+  const linkIds: string[] = [];
+  for (const link of links) {
+    linkIds.push((await renderNodeId(tx, link.node_id)) ?? "unknown");
+  }
+  return {
+    id: renderArtifactRef({ key: projectKey, seq: artifact.seq }),
+    project: projectKey,
+    links: linkIds,
+    tags: await tagsOf(tx, "artifact", artifact.id),
+    createdAt: artifact.created_at,
+  };
 }
 
 async function buildHistory(tx: Executor, nodeId: number): Promise<HistoryEntry[]> {

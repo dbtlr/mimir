@@ -1,5 +1,6 @@
 import { sql } from "kysely";
 import {
+  type ArtifactDetail,
   CHEAP_FACETS,
   type FacetName,
   type NodeView,
@@ -9,11 +10,12 @@ import {
 import type { NodeType, Priority, Size } from "../../contract/enums";
 import type { Node } from "../../db/schema";
 import type { Db } from "../context";
-import { statusOf } from "../derive";
-import { notFound } from "../errors";
-import { findNodeByRef, renderNodeId } from "../lookup";
+import { statusOf, statusOfProject } from "../derive";
+import { notFound, validation } from "../errors";
+import { parseIdentity } from "../ids";
+import { findArtifactByRef, findNodeByRef, renderNodeId } from "../lookup";
 import { isAwaiting, isBlocking, isOrphaned, isReady, isStale } from "../predicates";
-import { buildNodeView } from "./view";
+import { buildArtifactDetail, buildNodeView, buildProjectView } from "./view";
 
 /**
  * The intent layer — the read surface both the CLI and MCP render. Commands
@@ -177,21 +179,70 @@ export interface GetOptions {
 }
 
 /**
- * `get <id>` — identity selection by `KEY-seq`. Full record: all bare fields +
- * cheap facets by default (`history` stays opt-in). A missing target throws
- * (non-zero exit — identity selection).
+ * `get <id>` — identity selection by the full grammar (MMR-32): a node
+ * (`KEY-seq`) or a whole project (bare `KEY`), as one shared projection. Full
+ * record: all bare fields + cheap facets by default (`history` stays opt-in).
+ * A missing target throws (non-zero exit — identity selection). Artifacts
+ * (`KEY-aN`) have their own shape — see {@link getArtifact}.
  */
 export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promise<NodeView> {
+  const facets = new Set<FacetName>(opts.facets ?? CHEAP_FACETS);
+  const identity = parseIdentity(id);
+  if (identity?.kind === "project") {
+    const project = await db
+      .selectFrom("project")
+      .selectAll()
+      .where("key", "=", identity.key)
+      .executeTakeFirst();
+    if (project === undefined) {
+      throw notFound(`no project ${id}`);
+    }
+    return buildProjectView(db, project, facets);
+  }
+  if (identity?.kind === "artifact") {
+    throw validation(`${id} is an artifact — use getArtifact`, "transports dispatch on the id");
+  }
   const node = await findNodeByRef(db, id);
   if (node === undefined) {
     throw notFound(`no node with id ${id}`);
   }
-  const facets = new Set<FacetName>(opts.facets ?? CHEAP_FACETS);
   return buildNodeView(db, node, facets);
 }
 
-/** `status_of <id>` — a node's rollup distribution and its single `interpret` label. */
+/** `get KEY-aN` — identity selection of an artifact: metadata + links + tags (MMR-32). */
+export async function getArtifact(db: Db, id: string): Promise<ArtifactDetail> {
+  const identity = parseIdentity(id);
+  if (identity?.kind !== "artifact") {
+    throw notFound(`no artifact with id ${id}`);
+  }
+  const artifact = await findArtifactByRef(db, identity);
+  if (artifact === undefined) {
+    throw notFound(`no artifact with id ${id}`);
+  }
+  return buildArtifactDetail(db, artifact, identity.key);
+}
+
+/**
+ * `status_of <id>` — a rollup distribution and its single `interpret` label,
+ * for a node (`KEY-seq`) or a whole project (bare `KEY`, MMR-32).
+ */
 export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
+  const identity = parseIdentity(id);
+  if (identity?.kind === "project") {
+    const project = await db
+      .selectFrom("project")
+      .select("id")
+      .where("key", "=", identity.key)
+      .executeTakeFirst();
+    if (project === undefined) {
+      throw notFound(`no project ${id}`);
+    }
+    const { status, distribution } = await statusOfProject(db, project.id);
+    return { id: identity.key, status, distribution };
+  }
+  if (identity?.kind === "artifact") {
+    throw validation(`${id} is an artifact, not a project or node`);
+  }
   const node = await findNodeByRef(db, id);
   if (node === undefined) {
     throw notFound(`no node with id ${id}`);
