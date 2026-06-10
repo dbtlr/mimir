@@ -30,13 +30,13 @@ export const SIZE_VALUES = ["small", "medium", "large"] as const;
 export type Size = (typeof SIZE_VALUES)[number];
 
 /**
- * The closed **State word** vocabulary (ADR 0008) — one canonical label per
+ * The closed **Status word** vocabulary (ADR 0008) — one canonical label per
  * node, the unit both the per-task projection and the rollup distribution use.
  *
  * `new` is non-leaf-only (an empty container); a task never projects to it.
  * The shared (task-reachable) subset is everything except `new`.
  */
-export const STATE_WORD_VALUES = [
+export const STATUS_WORD_VALUES = [
   "ready",
   "awaiting",
   "blocked",
@@ -46,10 +46,10 @@ export const STATE_WORD_VALUES = [
   "abandoned",
   "new",
 ] as const;
-export type StateWord = (typeof STATE_WORD_VALUES)[number];
+export type StatusWord = (typeof STATUS_WORD_VALUES)[number];
 
-/** The state words a leaf task can project to — the closed set `interpret` recurses over, minus `new`. */
-export const TASK_STATE_WORD_VALUES = [
+/** The status words a leaf task can project to — the closed set `interpret` recurses over, minus `new`. */
+export const TASK_STATUS_WORD_VALUES = [
   "ready",
   "awaiting",
   "blocked",
@@ -58,7 +58,7 @@ export const TASK_STATE_WORD_VALUES = [
   "done",
   "abandoned",
 ] as const;
-export type TaskStateWord = (typeof TASK_STATE_WORD_VALUES)[number];
+export type TaskStatusWord = (typeof TASK_STATUS_WORD_VALUES)[number];
 
 /** Kinds of entity a tag (or artifact link) may attach to. */
 export const TAG_ENTITY_TYPE_VALUES = ["project", "node", "artifact"] as const;

@@ -12,7 +12,7 @@ const task = (id: string, over: Partial<NodeView> = {}): NodeView => ({
   id,
   type: "task",
   title: `title ${id}`,
-  state: "ready",
+  status: "ready",
   parent: "MMR-1",
   description: null,
   createdAt: "2026-06-05T00:00:00.000Z",
@@ -85,7 +85,7 @@ describe("formatNodeJson", () => {
       id: "MMR-1",
       type: "phase",
       title: "ph",
-      state: "ready",
+      status: "ready",
       parent: null,
       description: null,
       createdAt: "2026-06-05T00:00:00.000Z",
@@ -100,15 +100,15 @@ describe("formatNodeJson", () => {
 });
 
 describe("formatStatusJson", () => {
-  test("id, state, and distribution", () => {
+  test("id, status, and distribution", () => {
     const parsed = JSON.parse(
       formatStatusJson({
         id: "MMR-1",
-        state: "in_progress",
+        status: "in_progress",
         distribution: { in_progress: 1, ready: 2 },
       }),
-    ) as { id: string; state: string; distribution: Record<string, number> };
-    expect(parsed.state).toBe("in_progress");
+    ) as { id: string; status: string; distribution: Record<string, number> };
+    expect(parsed.status).toBe("in_progress");
     expect(parsed.distribution).toEqual({ in_progress: 1, ready: 2 });
   });
 });

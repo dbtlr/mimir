@@ -8,7 +8,7 @@ read commands:
   next            ready tasks in rank order ("what's next")
   list            broad selection by predicate/scope/tag
   get <id>        full record for one node (KEY-seq)
-  status <id>     a node's rollup distribution + state
+  status <id>     a node's rollup distribution + status
 
 manage commands:
   lifecycle:

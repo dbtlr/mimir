@@ -1,11 +1,11 @@
-import type { StateWord } from "../contract/enums";
+import type { StatusWord } from "../contract/enums";
 import type { Node } from "../db/schema";
 import type { Db, Tx } from "./context";
 import { invariant } from "./errors";
-import { type Distribution, interpret, tally, taskState } from "./state";
+import { type Distribution, interpret, tally, taskStatus } from "./status";
 
 /**
- * The live-derivation layer: a node's State word, the rollup distribution, and
+ * The live-derivation layer: a node's Status word, the rollup distribution, and
  * the completeness notion the dependency predicates rest on. Everything here is
  * computed on read — never stored (the spine; ADR 0001/0008).
  */
@@ -13,7 +13,7 @@ import { type Distribution, interpret, tally, taskState } from "./state";
 type Executor = Db | Tx;
 
 /** Terminal = a decided end state. `abandoned` counts as terminal (and never freezes a parent). */
-export function isTerminalWord(word: StateWord): boolean {
+export function isTerminalWord(word: StatusWord): boolean {
   return word === "done" || word === "abandoned";
 }
 
@@ -55,28 +55,28 @@ export async function hasUnsettledPrereq(tx: Executor, taskId: number): Promise<
   return false;
 }
 
-/** Project any node to its State word (ADR 0008): a task via its axes + readiness, a non-leaf via `interpret`. */
-export async function nodeStateWord(tx: Executor, node: Node): Promise<StateWord> {
+/** Project any node to its Status word (ADR 0008): a task via its axes + readiness, a non-leaf via `interpret`. */
+export async function nodeStatusWord(tx: Executor, node: Node): Promise<StatusWord> {
   if (node.type === "task") {
     if (node.lifecycle === null || node.hold === null) {
       throw invariant(`task ${String(node.id)} is missing a status axis`);
     }
     const awaiting = await hasUnsettledPrereq(tx, node.id);
-    return taskState({ lifecycle: node.lifecycle, hold: node.hold, awaiting });
+    return taskStatus({ lifecycle: node.lifecycle, hold: node.hold, awaiting });
   }
   return interpret(await childDistribution(tx, node.id));
 }
 
-/** The rollup distribution over a node's **direct** children (their State words tallied). */
+/** The rollup distribution over a node's **direct** children (their Status words tallied). */
 export async function childDistribution(tx: Executor, nodeId: number): Promise<Distribution> {
   const children = await tx
     .selectFrom("node")
     .selectAll()
     .where("parent_id", "=", nodeId)
     .execute();
-  const words: StateWord[] = [];
+  const words: StatusWord[] = [];
   for (const child of children) {
-    words.push(await nodeStateWord(tx, child));
+    words.push(await nodeStatusWord(tx, child));
   }
   return tally(words);
 }
@@ -85,10 +85,10 @@ export async function childDistribution(tx: Executor, nodeId: number): Promise<D
 export async function statusOf(
   tx: Executor,
   node: Node,
-): Promise<{ state: StateWord; distribution: Distribution }> {
+): Promise<{ status: StatusWord; distribution: Distribution }> {
   if (node.type === "task") {
-    return { state: await nodeStateWord(tx, node), distribution: {} };
+    return { status: await nodeStatusWord(tx, node), distribution: {} };
   }
   const distribution = await childDistribution(tx, node.id);
-  return { state: interpret(distribution), distribution };
+  return { status: interpret(distribution), distribution };
 }

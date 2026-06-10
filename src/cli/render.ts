@@ -1,13 +1,13 @@
 import { formatNodeJson } from "../core";
 import type { NodeView, SetResult, StatusView } from "../contract/dto";
-import type { StateWord } from "../contract/enums";
+import type { StatusWord } from "../contract/enums";
 
 export const FORMATS = ["table", "records", "ids", "json", "jsonl"] as const;
 export type Format = (typeof FORMATS)[number];
 
 /**
  * The styled TTY formats — `table` (set view) and `records` (detail view).
- * Color/icon only *highlight*; the State **word** is always present, so
+ * Color/icon only *highlight*; the Status **word** is always present, so
  * `--ascii` / NO_COLOR lose nothing (output-contract / Norn's "color is
  * decoration, never information"). Glyphs + palette are provisional — the brand
  * pass is deferred.
@@ -23,13 +23,13 @@ export interface Io {
   plain: boolean;
 }
 
-interface StateStyle {
+interface StatusStyle {
   icon: string;
   ascii: string;
   color: number;
 }
 
-const STATE_STYLE: Record<StateWord, StateStyle> = {
+const STATUS_STYLE: Record<StatusWord, StatusStyle> = {
   ready: { icon: "●", ascii: "*", color: 32 },
   awaiting: { icon: "◔", ascii: "~", color: 33 },
   in_progress: { icon: "▶", ascii: ">", color: 36 },
@@ -57,10 +57,10 @@ export function countLine(n: number, unit = "task"): string {
   return `${String(n)} ${unit}${n === 1 ? "" : "s"}`;
 }
 
-function stateCell(state: StateWord, width: number, plain: boolean): string {
-  const style = STATE_STYLE[state];
+function statusCell(status: StatusWord, width: number, plain: boolean): string {
+  const style = STATUS_STYLE[status];
   const glyph = plain ? style.ascii : style.icon;
-  return color(`${glyph} ${pad(state, width)}`, style.color, plain);
+  return color(`${glyph} ${pad(status, width)}`, style.color, plain);
 }
 
 /** `table` — one task per line, count-led, in array (rank) order. */
@@ -72,11 +72,11 @@ export function renderTable(result: SetResult<NodeView>, io: Io): string {
   }
   lines.push("");
   const idW = Math.max(...items.map((n) => n.id.length));
-  const stW = Math.max(...items.map((n) => n.state.length));
+  const stW = Math.max(...items.map((n) => n.status.length));
   for (const n of items) {
     const priority = n.priority ?? "";
     lines.push(
-      `${pad(n.id, idW)}   ${stateCell(n.state, stW, io.plain)}   ${pad(priority, 2)}   ${n.title}`,
+      `${pad(n.id, idW)}   ${statusCell(n.status, stW, io.plain)}   ${pad(priority, 2)}   ${n.title}`,
     );
   }
   return lines.join("\n");
@@ -91,7 +91,7 @@ export function renderRecords(node: NodeView, io: Io): string {
   const lines = [bold(node.id, io.plain)];
   const pairs: [string, string][] = [
     ["type", node.type],
-    ["state", stateCell(node.state, node.state.length, io.plain)],
+    ["status", statusCell(node.status, node.status.length, io.plain)],
     ["title", node.title],
   ];
   if (node.parent !== null) pairs.push(["parent", node.parent]);
@@ -112,7 +112,7 @@ export function renderRecords(node: NodeView, io: Io): string {
     pairs.push(["blocking", node.deps.blocking.map((r) => r.id).join(", ")]);
   }
   if (node.children !== undefined && node.children.length > 0) {
-    pairs.push(["children", node.children.map((r) => `${r.id} (${r.state ?? "?"})`).join(", ")]);
+    pairs.push(["children", node.children.map((r) => `${r.id} (${r.status ?? "?"})`).join(", ")]);
   }
   if (node.distribution !== undefined && Object.keys(node.distribution).length > 0) {
     const dist = Object.entries(node.distribution)
@@ -174,7 +174,7 @@ export function renderStatus(status: StatusView, io: Io): string {
     .join(", ");
   const lines = [
     bold(status.id, io.plain),
-    row("state", stateCell(status.state, status.state.length, io.plain), 12),
+    row("status", statusCell(status.status, status.status.length, io.plain), 12),
     row("distribution", dist === "" ? "(none)" : dist, 12),
   ];
   return lines.join("\n");

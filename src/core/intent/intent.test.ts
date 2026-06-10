@@ -33,7 +33,7 @@ test("next returns ready tasks in rank order, excluding awaiting/held", async ()
   const res = await nextTasks(db, { scope: key });
   expect(res.items.map((n) => n.id)).toEqual([idOf(a)]);
   expect(res.total).toBe(1);
-  expect(res.items[0]?.state).toBe("ready");
+  expect(res.items[0]?.status).toBe("ready");
 
   // completing a unblocks b
   await completeTask(db, a.id);
@@ -82,7 +82,7 @@ test("status_of returns label + distribution for a non-leaf", async () => {
     .where("id", "=", phaseId)
     .executeTakeFirstOrThrow();
   const status = await statusOfNode(db, `${key}-${String(phase.seq)}`);
-  expect(status.state).toBe("in_progress");
+  expect(status.status).toBe("in_progress");
   expect(status.distribution).toEqual({ in_progress: 1, ready: 1 });
 });
 

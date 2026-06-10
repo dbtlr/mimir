@@ -1,7 +1,7 @@
 /**
  * The core — transport-agnostic, storage-committed domain logic. Public surface
  * the intent layer (Phase 2) renders through the transports: create + mutation
- * verbs, the live derivation (state word, rollup, predicates), rank ops, id
+ * verbs, the live derivation (status word, rollup, predicates), rank ops, id
  * rendering/resolution, and the error vocabulary. Imports `db` + `contract`;
  * never a transport.
  */
@@ -14,7 +14,7 @@ export * from "./rank";
 export * from "./ids";
 export * from "./lookup";
 export * from "./errors";
-export * from "./state";
+export * from "./status";
 export * from "./intent";
 export * from "./format";
 export { now } from "./time";

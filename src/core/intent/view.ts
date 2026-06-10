@@ -10,7 +10,7 @@ import type {
 } from "../../contract/dto";
 import type { Node } from "../../db/schema";
 import type { Db, Tx } from "../context";
-import { childDistribution, nodeStateWord } from "../derive";
+import { childDistribution, nodeStatusWord } from "../derive";
 import { loadNode, renderNodeId } from "../lookup";
 
 /**
@@ -25,7 +25,7 @@ type Executor = Db | Tx;
 async function toRef(tx: Executor, nodeId: number): Promise<NodeRef> {
   const node = await loadNode(tx, nodeId);
   const id = (await renderNodeId(tx, nodeId)) ?? `#${String(nodeId)}`;
-  return node === undefined ? { id } : { id, state: await nodeStateWord(tx, node) };
+  return node === undefined ? { id } : { id, status: await nodeStatusWord(tx, node) };
 }
 
 export async function buildNodeView(
@@ -37,7 +37,7 @@ export async function buildNodeView(
     id: (await renderNodeId(tx, node.id)) ?? `#${String(node.id)}`,
     type: node.type,
     title: node.title,
-    state: await nodeStateWord(tx, node),
+    status: await nodeStatusWord(tx, node),
     parent: node.parent_id === null ? null : await renderNodeId(tx, node.parent_id),
     description: node.description,
     createdAt: node.created_at,

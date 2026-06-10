@@ -85,10 +85,10 @@ test("get tool returns a bare node; a missing id returns the structured error en
 test("status tool returns the rollup", async () => {
   const result = await toolStatus(db, { id: phaseRef });
   const parsed = JSON.parse(textOf(result)) as {
-    state: string;
+    status: string;
     distribution: Record<string, number>;
   };
-  expect(parsed.state).toBe("ready");
+  expect(parsed.status).toBe("ready");
   expect(parsed.distribution).toEqual({ ready: 1 });
 });
 
@@ -96,23 +96,23 @@ test("status tool returns the rollup", async () => {
 // Lifecycle mutation tools
 // ---------------------------------------------------------------------------
 
-test("start echoes the node as bare json with state in_progress", async () => {
+test("start echoes the node as bare json with status in_progress", async () => {
   const res = await toolStart(db, { id: taskRef });
   expect(res.isError).toBeUndefined();
-  expect(JSON.parse(textOf(res)).state).toBe("in_progress");
+  expect(JSON.parse(textOf(res)).status).toBe("in_progress");
 });
 
-test("done echoes the node as bare json with state done", async () => {
+test("done echoes the node as bare json with status done", async () => {
   await toolStart(db, { id: taskRef });
   const res = await toolDone(db, { id: taskRef });
   expect(res.isError).toBeUndefined();
-  expect(JSON.parse(textOf(res)).state).toBe("done");
+  expect(JSON.parse(textOf(res)).status).toBe("done");
 });
 
-test("abandon echoes the node with state abandoned", async () => {
+test("abandon echoes the node with status abandoned", async () => {
   const res = await toolAbandon(db, { id: taskRef, reason: "superseded" });
   expect(res.isError).toBeUndefined();
-  expect(JSON.parse(textOf(res)).state).toBe("abandoned");
+  expect(JSON.parse(textOf(res)).status).toBe("abandoned");
 });
 
 test("a not_found mutation returns the structured envelope as isError", async () => {
@@ -126,27 +126,27 @@ test("a not_found mutation returns the structured envelope as isError", async ()
 // Hold mutation tools
 // ---------------------------------------------------------------------------
 
-test("park sets the hold overlay → state parked", async () => {
+test("park sets the hold overlay → status parked", async () => {
   const res = await toolPark(db, { id: taskRef, reason: "waiting on review" });
   expect(res.isError).toBeUndefined();
-  expect(JSON.parse(textOf(res)).state).toBe("parked");
+  expect(JSON.parse(textOf(res)).status).toBe("parked");
 });
 
 test("unpark clears the hold", async () => {
   await toolPark(db, { id: taskRef });
   const res = await toolUnpark(db, { id: taskRef });
   expect(res.isError).toBeUndefined();
-  expect(JSON.parse(textOf(res)).state).toBe("ready");
+  expect(JSON.parse(textOf(res)).status).toBe("ready");
 });
 
 test("block then unblock", async () => {
   const blocked = await toolBlock(db, { id: taskRef, reason: "ci red" });
   expect(blocked.isError).toBeUndefined();
-  expect(JSON.parse(textOf(blocked)).state).toBe("blocked");
+  expect(JSON.parse(textOf(blocked)).status).toBe("blocked");
 
   const unblocked = await toolUnblock(db, { id: taskRef });
   expect(unblocked.isError).toBeUndefined();
-  expect(JSON.parse(textOf(unblocked)).state).toBe("ready");
+  expect(JSON.parse(textOf(unblocked)).status).toBe("ready");
 });
 
 // ---------------------------------------------------------------------------

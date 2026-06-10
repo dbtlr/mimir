@@ -76,8 +76,8 @@ test("status reports the rollup of a non-leaf", async () => {
     .executeTakeFirstOrThrow();
   const io = fakeIo();
   expect(await runCli(["status", `MMR-${String(phase.seq)}`, "--format", "json"], db, io)).toBe(0);
-  const parsed = JSON.parse(io.out.join("")) as { state: string };
-  expect(parsed.state).toBe("ready");
+  const parsed = JSON.parse(io.out.join("")) as { status: string };
+  expect(parsed.status).toBe("ready");
 });
 
 test("an invalid flag value is a usage error → exit 2", async () => {

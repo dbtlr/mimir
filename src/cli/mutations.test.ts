@@ -121,14 +121,14 @@ test("start moves a task to in_progress and echoes it (exit 0)", async () => {
   const io = fakeIo(false);
   const code = await runCli(["start", taskRef, "-f", "json"], db, io);
   expect(code).toBe(0);
-  expect(JSON.parse(io.out[0] ?? "{}").state).toBe("in_progress");
+  expect(JSON.parse(io.out[0] ?? "{}").status).toBe("in_progress");
 });
 test("done completes a started task", async () => {
   await runCli(["start", taskRef], db, fakeIo(false));
   const io = fakeIo(false);
   const code = await runCli(["done", taskRef, "-f", "json"], db, io);
   expect(code).toBe(0);
-  expect(JSON.parse(io.out[0] ?? "{}").state).toBe("done");
+  expect(JSON.parse(io.out[0] ?? "{}").status).toBe("done");
 });
 test("abandon records a reason from the positional tail", async () => {
   const code = await runCli(["abandon", taskRef, "superseded", "by", "nine"], db, fakeIo(false));
@@ -145,7 +145,7 @@ test("park sets the hold overlay → reads as parked", async () => {
   const io = fakeIo(false);
   const code = await runCli(["park", taskRef, "waiting", "on", "review", "-f", "json"], db, io);
   expect(code).toBe(0);
-  expect(JSON.parse(io.out[0] ?? "{}").state).toBe("parked");
+  expect(JSON.parse(io.out[0] ?? "{}").status).toBe("parked");
 });
 test("unpark clears the hold", async () => {
   await runCli(["park", taskRef], db, fakeIo(false));

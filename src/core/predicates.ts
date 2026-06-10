@@ -1,6 +1,6 @@
 import type { Node } from "../db/schema";
 import type { Db, Tx } from "./context";
-import { hasUnsettledPrereq, isNodeSettled, isTerminalWord, nodeStateWord } from "./derive";
+import { hasUnsettledPrereq, isNodeSettled, isTerminalWord, nodeStatusWord } from "./derive";
 import { loadNode } from "./lookup";
 import { now } from "./time";
 
@@ -60,7 +60,7 @@ export interface StaleOptions {
 }
 
 /**
- * `stale` — a task whose State word is `in_progress`, `ready`, or `blocked` and
+ * `stale` — a task whose Status word is `in_progress`, `ready`, or `blocked` and
  * whose `updated_at` is older than the threshold (glossary). Mutes `parked` and
  * `awaiting` (auto-clearing / deliberately set aside — don't nag); chases
  * `blocked` (untouched-for-weeks is exactly the nudge).
@@ -73,7 +73,7 @@ export async function isStale(
   if (task.type !== "task") {
     return false;
   }
-  const word = await nodeStateWord(tx, task);
+  const word = await nodeStatusWord(tx, task);
   if (word !== "in_progress" && word !== "ready" && word !== "blocked") {
     return false;
   }
@@ -115,7 +115,7 @@ export async function isOrphaned(tx: Executor, task: Node): Promise<boolean> {
     return false;
   }
   for (const sibling of siblings) {
-    if (!isTerminalWord(await nodeStateWord(tx, sibling))) {
+    if (!isTerminalWord(await nodeStatusWord(tx, sibling))) {
       return false;
     }
   }
