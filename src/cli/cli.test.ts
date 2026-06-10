@@ -314,3 +314,49 @@ test("depend --on still works as a write flag alongside the date op", async () =
   expect(code).toBe(0);
   expect((JSON.parse(io.out.join("")) as { status: string }).status).toBe("awaiting");
 });
+
+// artifact title + readback (MMR-34)
+
+test("attach defaults title from the file basename; --title overrides; --tag classifies", async () => {
+  const t = await createTask(db, { parentId: phaseId, title: "t" });
+  const ref = `MMR-${String(t.seq)}`;
+  const tmp = `${process.env.TMPDIR ?? "/tmp"}/dogfood-plan.md`;
+  await Bun.write(tmp, "# body\n");
+
+  const io = fakeIo(false);
+  await runCli(["attach", ref, "--file", tmp, "--tag", "spec"], db, io);
+  const read = fakeIo(false);
+  await runCli(["get", "MMR-a1", "-f", "json"], db, read);
+  const detail = JSON.parse(read.out.join("")) as { title: string; tags: string[] };
+  expect(detail.title).toBe("dogfood-plan.md");
+  expect(detail.tags).toEqual(["spec"]);
+
+  const io2 = fakeIo(false);
+  await runCli(["attach", ref, "--file", tmp, "--title", "the plan"], db, io2);
+  const read2 = fakeIo(false);
+  await runCli(["get", "MMR-a2", "-f", "json"], db, read2);
+  expect((JSON.parse(read2.out.join("")) as { title: string }).title).toBe("the plan");
+});
+
+test("attach from stdin without --title is a usage error", async () => {
+  const t = await createTask(db, { parentId: phaseId, title: "t" });
+  const io = fakeIo(true); // TTY → no stdin content either, but flag check comes after content
+  const code = await runCli(["attach", `MMR-${String(t.seq)}`], db, io);
+  expect(code).toBe(2);
+});
+
+test("get KEY-aN --col content returns the frozen body", async () => {
+  const t = await createTask(db, { parentId: phaseId, title: "t" });
+  const tmp = `${process.env.TMPDIR ?? "/tmp"}/body.md`;
+  await Bun.write(tmp, "# the frozen body\n");
+  await runCli(["attach", `MMR-${String(t.seq)}`, "--file", tmp], db, fakeIo(false));
+
+  const bare = fakeIo(false);
+  await runCli(["get", "MMR-a1", "-f", "json"], db, bare);
+  expect(JSON.parse(bare.out.join("")) as object).not.toHaveProperty("content");
+
+  const withContent = fakeIo(false);
+  await runCli(["get", "MMR-a1", "--col", "content", "-f", "json"], db, withContent);
+  const parsed = JSON.parse(withContent.out.join("")) as { content: string };
+  expect(parsed.content).toBe("# the frozen body\n");
+});

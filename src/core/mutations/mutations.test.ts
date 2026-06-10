@@ -180,6 +180,7 @@ test("annotate and attachArtifact persist and link", async () => {
 
   const { id: artifactId } = await attachArtifact(db, {
     projectId,
+    title: "session log",
     content: "# session log",
     linkNodeIds: [id],
   });

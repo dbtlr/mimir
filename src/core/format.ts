@@ -46,6 +46,7 @@ function toWire(node: NodeView): Record<string, unknown> {
   if (node.artifacts !== undefined) {
     wire.artifacts = node.artifacts.map((a) => ({
       id: a.id,
+      title: a.title,
       tags: a.tags,
       created_at: a.createdAt,
     }));
@@ -114,15 +115,14 @@ export function formatStatusJson(status: StatusView): string {
 
 /** `json` for a standalone artifact (`get KEY-aN`) — metadata + links, contract field names. */
 export function formatArtifactJson(artifact: ArtifactDetail): string {
-  return JSON.stringify(
-    {
-      id: artifact.id,
-      project: artifact.project,
-      links: artifact.links,
-      tags: artifact.tags,
-      created_at: artifact.createdAt,
-    },
-    null,
-    2,
-  );
+  const wire: Record<string, unknown> = {
+    id: artifact.id,
+    title: artifact.title,
+    project: artifact.project,
+    links: artifact.links,
+    tags: artifact.tags,
+    created_at: artifact.createdAt,
+  };
+  if (artifact.content !== undefined) wire.content = artifact.content;
+  return JSON.stringify(wire, null, 2);
 }

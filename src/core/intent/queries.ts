@@ -300,8 +300,15 @@ export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promis
   return buildNodeView(db, node, facets);
 }
 
-/** `get KEY-aN` — identity selection of an artifact: metadata + links + tags (MMR-32). */
-export async function getArtifact(db: Db, id: string): Promise<ArtifactDetail> {
+/**
+ * `get KEY-aN` — identity selection of an artifact: metadata + links + tags
+ * (MMR-32); the frozen body via the opt-in `content` column (MMR-34).
+ */
+export async function getArtifact(
+  db: Db,
+  id: string,
+  opts: { content?: boolean } = {},
+): Promise<ArtifactDetail> {
   const identity = parseIdentity(id);
   if (identity?.kind !== "artifact") {
     throw notFound(`no artifact with id ${id}`);
@@ -310,7 +317,7 @@ export async function getArtifact(db: Db, id: string): Promise<ArtifactDetail> {
   if (artifact === undefined) {
     throw notFound(`no artifact with id ${id}`);
   }
-  return buildArtifactDetail(db, artifact, identity.key);
+  return buildArtifactDetail(db, artifact, identity.key, opts);
 }
 
 /**

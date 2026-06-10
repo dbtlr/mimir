@@ -270,7 +270,7 @@ test("create project without key returns validation error", async () => {
 // ---------------------------------------------------------------------------
 
 test("attach to a node infers the project and echoes an artifact id", async () => {
-  const res = await toolAttach(db, { node: taskRef, content: "# plan\n" });
+  const res = await toolAttach(db, { node: taskRef, title: "plan", content: "# plan\n" });
   expect(res.isError).toBeUndefined();
   const v = JSON.parse(textOf(res)) as { artifact: { id: string } };
   expect(v.artifact.id).toMatch(/^[A-Z]{2,4}-a\d+$/);
@@ -285,6 +285,7 @@ test("attach cross-project link returns structured validation error", async () =
 
   const res = await toolAttach(db, {
     node: taskRef,
+    title: "x",
     content: "x",
     links: [otRef],
   });
@@ -293,13 +294,13 @@ test("attach cross-project link returns structured validation error", async () =
 });
 
 test("attach with no node refs and no project returns structured validation error", async () => {
-  const res = await toolAttach(db, { content: "# plan\n" });
+  const res = await toolAttach(db, { title: "plan", content: "# plan\n" });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe("validation");
 });
 
 test("attach to a missing node is not_found", async () => {
-  const res = await toolAttach(db, { node: "MMR-9999", content: "x" });
+  const res = await toolAttach(db, { node: "MMR-9999", title: "x", content: "x" });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe("not_found");
 });
@@ -314,6 +315,7 @@ test("attach with project disagreement returns structured validation error", asy
   // node is in MMR but --project says OTH
   const res = await toolAttach(db, {
     node: taskRef,
+    title: "x",
     content: "x",
     project: "OTH",
   });

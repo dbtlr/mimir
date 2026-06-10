@@ -180,17 +180,27 @@ export function renderArtifactDetail(artifact: ArtifactDetail, format: Format, i
     case "table": {
       const tags = artifact.tags.length > 0 ? `   ${artifact.tags.join(", ")}` : "";
       io.write(
-        [countLine(1, "artifact"), "", `${artifact.id}   ${artifact.createdAt}${tags}`].join("\n"),
+        [
+          countLine(1, "artifact"),
+          "",
+          `${artifact.id}   ${artifact.title}${tags}   ${artifact.createdAt}`,
+        ].join("\n"),
       );
       break;
     }
     case "records": {
-      const pairs: [string, string][] = [["project", artifact.project]];
+      const pairs: [string, string][] = [
+        ["title", artifact.title],
+        ["project", artifact.project],
+      ];
       if (artifact.links.length > 0) pairs.push(["links", artifact.links.join(", ")]);
       if (artifact.tags.length > 0) pairs.push(["tags", artifact.tags.join(", ")]);
       pairs.push(["created", artifact.createdAt]);
       const labelW = Math.max(...pairs.map(([label]) => label.length));
       const lines = [bold(artifact.id, io.plain), ...pairs.map(([l, v]) => row(l, v, labelW))];
+      if (artifact.content !== undefined) {
+        lines.push("", artifact.content);
+      }
       io.write(lines.join("\n"));
       break;
     }

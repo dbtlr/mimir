@@ -33,7 +33,7 @@ const tagsOf = async (entityType: "project" | "node" | "artifact", entityId: num
     .execute();
 
 test("tag reaches all three entity types via the identity grammar", async () => {
-  const { renderedId } = await attachArtifact(db, { projectId, content: "x" });
+  const { renderedId } = await attachArtifact(db, { projectId, title: "x", content: "x" });
   const targets = await Promise.all(
     ["MMR", "MMR-3", renderedId].map((t) => resolveEntityToken(db, t)),
   );

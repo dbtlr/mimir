@@ -9,7 +9,11 @@ test("migrateToLatest applies the bundled migrations on a fresh db", async () =>
 
     expect(error).toBeUndefined();
     expect(results).toBeDefined();
-    expect(results?.map((r) => r.migrationName)).toEqual(["0001_init", "0002_artifact_seq"]);
+    expect(results?.map((r) => r.migrationName)).toEqual([
+      "0001_init",
+      "0002_artifact_seq",
+      "0003_artifact_title",
+    ]);
     expect(results?.every((r) => r.status === "Success")).toBe(true);
   } finally {
     await db.destroy();
@@ -22,7 +26,11 @@ test("migrationStatus reports applied migrations after migrating", async () => {
     await migrateToLatest(db);
     const all = await migrationStatus(db);
 
-    expect(all.map((m) => m.name)).toEqual(["0001_init", "0002_artifact_seq"]);
+    expect(all.map((m) => m.name)).toEqual([
+      "0001_init",
+      "0002_artifact_seq",
+      "0003_artifact_title",
+    ]);
     expect(all.every((m) => m.executedAt !== undefined)).toBe(true);
   } finally {
     await db.destroy();
@@ -83,6 +91,35 @@ test("0002 backfills per-project artifact seqs and the allocator", async () => {
     expect(allocators).toEqual([
       { key: "AAA", last_artifact_seq: 2 },
       { key: "BBB", last_artifact_seq: 1 },
+    ]);
+  } finally {
+    await db.destroy();
+  }
+});
+
+test("0003 backfills artifact titles from the first markdown heading", async () => {
+  const db = createDb(":memory:");
+  try {
+    const { Migrator, sql } = await import("kysely");
+    const { migrations } = await import("./migrations");
+    const migrator = new Migrator({
+      db,
+      provider: { getMigrations: () => Promise.resolve(migrations) },
+    });
+    const upTo = await migrator.migrateTo("0002_artifact_seq");
+    expect(upTo.error).toBeUndefined();
+
+    await sql`INSERT INTO project (key, name) VALUES ('AAA', 'a')`.execute(db);
+    await sql`INSERT INTO artifact (project_id, seq, content)
+              VALUES (1, 1, ${"# Session Log\n\nbody"}), (1, 2, ${"no heading here"})`.execute(db);
+
+    const rest = await migrator.migrateToLatest();
+    expect(rest.error).toBeUndefined();
+
+    const rows = await db.selectFrom("artifact").select(["seq", "title"]).orderBy("seq").execute();
+    expect(rows).toEqual([
+      { seq: 1, title: "Session Log" },
+      { seq: 2, title: "untitled" },
     ]);
   } finally {
     await db.destroy();

@@ -222,8 +222,9 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
       case "get": {
         const id = requireId(positionals[1], "get");
         if (parseIdentity(id)?.kind === "artifact") {
+          const content = (values.col ?? []).some((c) => c === "content" || c === ".content");
           renderArtifactDetail(
-            await getArtifact(db, id),
+            await getArtifact(db, id, { content }),
             pickFormat(values.format, "single", ctx),
             ctx,
           );
