@@ -14,7 +14,7 @@ function toWire(node: NodeView): Record<string, unknown> {
     id: node.id,
     type: node.type,
     title: node.title,
-    state: node.state,
+    status: node.status,
     parent: node.parent,
     description: node.description,
   };
@@ -94,7 +94,7 @@ export function formatNodeJson(node: NodeView): string {
 /** `json` for `status_of` — id, label, and distribution together. */
 export function formatStatusJson(status: StatusView): string {
   return JSON.stringify(
-    { id: status.id, state: status.state, distribution: status.distribution },
+    { id: status.id, status: status.status, distribution: status.distribution },
     null,
     2,
   );

@@ -1,19 +1,19 @@
-import type { Hold, Lifecycle, StateWord, TaskStateWord } from "../contract/enums";
+import type { Hold, Lifecycle, StatusWord, TaskStatusWord } from "../contract/enums";
 import type { Distribution } from "../contract/dto";
 
 export type { Distribution };
 
 /**
- * The State word machinery (ADR 0008): every node reduces to one canonical word
+ * The Status word machinery (ADR 0008): every node reduces to one canonical word
  * from a closed vocabulary, so rollup recurses (a phase tallies task words, an
  * initiative tallies phase words). Two pure functions:
  *
- * - `taskState` — a leaf task's two axes + readiness → its word.
+ * - `taskStatus` — a leaf task's two axes + readiness → its word.
  * - `interpret` — a non-leaf's child distribution → its word.
  */
 
 /** The inputs a task's word is projected from. `awaiting` is consulted only in the `todo`+`none` case. */
-export interface TaskStateInput {
+export interface TaskStatusInput {
   lifecycle: Lifecycle;
   hold: Hold;
   /** `true` iff the task has ≥1 incomplete dependency. Only meaningful when `lifecycle=todo` and `hold=none`. */
@@ -21,7 +21,7 @@ export interface TaskStateInput {
 }
 
 /**
- * Project a task to its State word. Precedence, highest wins:
+ * Project a task to its Status word. Precedence, highest wins:
  *
  *   abandoned → done → blocked → parked → in_progress → awaiting → ready
  *
@@ -29,7 +29,7 @@ export interface TaskStateInput {
  * word, not `in_progress` — "set aside" is the salient glance-fact; the
  * in_progress position survives in the stored axis underneath.
  */
-export function taskState({ lifecycle, hold, awaiting }: TaskStateInput): TaskStateWord {
+export function taskStatus({ lifecycle, hold, awaiting }: TaskStatusInput): TaskStatusWord {
   if (lifecycle === "abandoned") return "abandoned";
   if (lifecycle === "done") return "done";
   if (hold === "blocked") return "blocked";
@@ -39,8 +39,8 @@ export function taskState({ lifecycle, hold, awaiting }: TaskStateInput): TaskSt
   return awaiting ? "awaiting" : "ready";
 }
 
-/** Tally an iterable of State words into a {@link Distribution}. */
-export function tally(words: Iterable<StateWord>): Distribution {
+/** Tally an iterable of Status words into a {@link Distribution}. */
+export function tally(words: Iterable<StatusWord>): Distribution {
   const dist: Distribution = {};
   for (const word of words) {
     dist[word] = (dist[word] ?? 0) + 1;
@@ -58,7 +58,7 @@ export function distributionTotal(dist: Distribution): number {
 }
 
 /**
- * Reduce a child distribution to the parent's State word (ADR 0008). A
+ * Reduce a child distribution to the parent's Status word (ADR 0008). A
  * precedence cascade — first non-empty bucket wins:
  *
  *   1. no children    → new          (empty-guard: never vacuously done)
@@ -73,10 +73,10 @@ export function distributionTotal(dist: Distribution): number {
  * The load-bearing order is the middle `awaiting > blocked > parked`, by
  * distance to motion.
  */
-export function interpret(dist: Distribution): StateWord {
+export function interpret(dist: Distribution): StatusWord {
   if (distributionTotal(dist) === 0) return "new";
 
-  const has = (word: StateWord): boolean => (dist[word] ?? 0) > 0;
+  const has = (word: StatusWord): boolean => (dist[word] ?? 0) > 0;
 
   if (has("in_progress")) return "in_progress";
   if (has("ready")) return "ready";

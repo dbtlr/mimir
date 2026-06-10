@@ -196,6 +196,6 @@ export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
   if (node === undefined) {
     throw notFound(`no node with id ${id}`);
   }
-  const { state, distribution } = await statusOf(db, node);
-  return { id: (await renderNodeId(db, node.id)) ?? id, state, distribution };
+  const { status, distribution } = await statusOf(db, node);
+  return { id: (await renderNodeId(db, node.id)) ?? id, status, distribution };
 }

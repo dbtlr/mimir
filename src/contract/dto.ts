@@ -1,4 +1,12 @@
-import type { Hold, Lifecycle, NodeType, Priority, Size, StateWord, TransitionKind } from "./enums";
+import type {
+  Hold,
+  Lifecycle,
+  NodeType,
+  Priority,
+  Size,
+  StatusWord,
+  TransitionKind,
+} from "./enums";
 
 /**
  * The projection DTOs — the shape the intent layer produces and the CLI/MCP/UI
@@ -11,13 +19,13 @@ import type { Hold, Lifecycle, NodeType, Priority, Size, StateWord, TransitionKi
  * intent (ADR 0007).
  */
 
-/** A non-leaf node's rollup breakdown — counts of each State word among its direct children. */
-export type Distribution = Partial<Record<StateWord, number>>;
+/** A non-leaf node's rollup breakdown — counts of each Status word among its direct children. */
+export type Distribution = Partial<Record<StatusWord, number>>;
 
-/** A light reference to another node — its id, optionally its State word. */
+/** A light reference to another node — its id, optionally its Status word. */
 export interface NodeRef {
   id: string;
-  state?: StateWord;
+  status?: StatusWord;
 }
 
 /** `.deps` — prerequisites of this node plus the derived `blocking` reverse set. */
@@ -65,7 +73,7 @@ export interface NodeView {
   id: string;
   type: NodeType;
   title: string;
-  state: StateWord;
+  status: StatusWord;
   parent: string | null;
   description: string | null;
   createdAt: string;
@@ -96,7 +104,7 @@ export interface NodeView {
 /** A node's `status_of`: the rollup distribution and its single `interpret` label together. */
 export interface StatusView {
   id: string;
-  state: StateWord;
+  status: StatusWord;
   distribution: Distribution;
 }
 
@@ -123,7 +131,7 @@ export const CHEAP_FACETS: readonly FacetName[] = [
 ];
 
 /** The lean bare-field set for broad selection (`next`/`list`). */
-export const LEAN_COLS = ["id", "title", "state", "priority", "size"] as const;
+export const LEAN_COLS = ["id", "title", "status", "priority", "size"] as const;
 
 /**
  * A count-led set result. The JSON format renders `items` under a unit key

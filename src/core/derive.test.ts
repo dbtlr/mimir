@@ -3,7 +3,7 @@ import type { Lifecycle } from "../contract/enums";
 import { createTestDb } from "../db/testing";
 import type { Db } from "./context";
 import { createInitiative, createPhase, createProject, createTask } from "./create";
-import { childDistribution, nodeStateWord, statusOf } from "./derive";
+import { childDistribution, nodeStatusWord, statusOf } from "./derive";
 import { loadNode } from "./lookup";
 
 let db: Db;
@@ -32,9 +32,9 @@ test("a fresh phase of todo tasks rolls up to ready", async () => {
   await createTask(db, { parentId: phase.id, title: "t2" });
 
   expect(await childDistribution(db, phase.id)).toEqual({ ready: 2 });
-  expect((await statusOf(db, await reload(phase.id))).state).toBe("ready");
+  expect((await statusOf(db, await reload(phase.id))).status).toBe("ready");
   // initiative tallies the phase's word
-  expect((await statusOf(db, await reload(init.id))).state).toBe("ready");
+  expect((await statusOf(db, await reload(init.id))).status).toBe("ready");
 });
 
 test("live work beats ready in the rollup", async () => {
@@ -46,7 +46,7 @@ test("live work beats ready in the rollup", async () => {
 
   await setLifecycle(t1.id, "in_progress");
   expect(await childDistribution(db, phase.id)).toEqual({ in_progress: 1, ready: 1 });
-  expect((await statusOf(db, await reload(phase.id))).state).toBe("in_progress");
+  expect((await statusOf(db, await reload(phase.id))).status).toBe("in_progress");
 });
 
 test("all-done rolls up to done; an empty phase is new", async () => {
@@ -55,13 +55,13 @@ test("all-done rolls up to done; an empty phase is new", async () => {
   const phase = await createPhase(db, { parentId: init.id, title: "ph" });
   const t1 = await createTask(db, { parentId: phase.id, title: "t1" });
   await setLifecycle(t1.id, "done");
-  expect((await statusOf(db, await reload(phase.id))).state).toBe("done");
+  expect((await statusOf(db, await reload(phase.id))).status).toBe("done");
 
   const empty = await createPhase(db, { parentId: init.id, title: "empty" });
-  expect((await statusOf(db, await reload(empty.id))).state).toBe("new");
+  expect((await statusOf(db, await reload(empty.id))).status).toBe("new");
 
   // initiative over [done phase, new phase] → new (only undefined chunks remain after terminal)
-  expect((await statusOf(db, await reload(init.id))).state).toBe("new");
+  expect((await statusOf(db, await reload(init.id))).status).toBe("new");
 });
 
 test("a task awaits an unsettled prerequisite and becomes ready once it settles", async () => {
@@ -75,10 +75,10 @@ test("a task awaits an unsettled prerequisite and becomes ready once it settles"
     .values({ node_id: dependent.id, depends_on_node_id: prereq.id })
     .execute();
 
-  expect(await nodeStateWord(db, await reload(dependent.id))).toBe("awaiting");
+  expect(await nodeStatusWord(db, await reload(dependent.id))).toBe("awaiting");
 
   await setLifecycle(prereq.id, "done");
-  expect(await nodeStateWord(db, await reload(dependent.id))).toBe("ready");
+  expect(await nodeStatusWord(db, await reload(dependent.id))).toBe("ready");
 
   // an abandoned prerequisite also settles the dependent (abandoned never freezes)
   const prereq2 = await createTask(db, { parentId: phase.id, title: "prereq2" });
@@ -86,7 +86,7 @@ test("a task awaits an unsettled prerequisite and becomes ready once it settles"
     .insertInto("dependency")
     .values({ node_id: dependent.id, depends_on_node_id: prereq2.id })
     .execute();
-  expect(await nodeStateWord(db, await reload(dependent.id))).toBe("awaiting");
+  expect(await nodeStatusWord(db, await reload(dependent.id))).toBe("awaiting");
   await setLifecycle(prereq2.id, "abandoned");
-  expect(await nodeStateWord(db, await reload(dependent.id))).toBe("ready");
+  expect(await nodeStatusWord(db, await reload(dependent.id))).toBe("ready");
 });

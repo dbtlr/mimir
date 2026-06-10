@@ -9,7 +9,7 @@ import { logTransition, reloadNode, requireTask, stamp } from "./common";
  * set (todo→in_progress, un-held); `done`/`abandon` are terminal and leave it,
  * clearing `rank`. `done` stamps `completed_at`; `abandon` carries its reason on
  * the transition-log row. Hold is left untouched on terminal transitions — the
- * State word projects to `done`/`abandoned` regardless, and the history records
+ * Status word projects to `done`/`abandoned` regardless, and the history records
  * what the hold was.
  */
 

@@ -119,7 +119,7 @@ export function buildMcpServer(db: Db, version: string): McpServer {
   register(
     server,
     "status",
-    "A node's rollup distribution and single state word (KEY-seq id).",
+    "A node's rollup distribution and single status word (KEY-seq id).",
     { id: z.string() },
     (args: { id: string }) => toolStatus(db, args),
   );
