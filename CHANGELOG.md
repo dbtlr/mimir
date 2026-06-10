@@ -35,7 +35,7 @@ consumers.
   "MMR is a project, not a task"). `get KEY` / `status KEY` render the
   whole-project view and rollup.
 - **The tag write surface** — `tag <ids> <tag>… [--note]` / `untag <ids>
-  <tag>…` reaching projects, nodes, and artifacts; repeatable `--tag` on
+<tag>…` reaching projects, nodes, and artifacts; repeatable `--tag` on
   every `create` and on `attach`. Vocabulary stays free-text; `untag` is a
   plain row delete, deliberately not transition-logged.
 - **Query surface v2** — `--status` picks the selection universe (the closed
