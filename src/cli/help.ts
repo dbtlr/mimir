@@ -74,7 +74,7 @@ options:
       --bottom            reorder: move to last position
       --parent <KEY|id>   create: parent node for initiative/phase/task
       --key <KEY>         create project: short identifier key
-      --name <name>       create: display name (project)
+      --name <name>       create project: display name (or positional)
       --title <text>      create/update: title text
       --desc <text>       create/update: description
       --target <text>     create/update: target date or milestone
