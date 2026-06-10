@@ -13,6 +13,61 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+The first release carrying the **write surface** (v0.1.0 was read-only), plus
+the contract revision groomed out of the first dogfood. Pre-release: the
+breaking changes below ship without deprecation shims — there are no external
+consumers.
+
+### Added
+
+- **The write surface** — all mutation/create verbs over both CLI and MCP:
+  lifecycle (`start` · `done` · `abandon`), holds (`park`/`unpark` ·
+  `block`/`unblock`), dependency edges (`depend`/`undepend --on`), structure
+  (`move --to`, `reorder --top|--bottom|--before|--after`), data (`update`,
+  `annotate`), `create project|initiative|phase|task`, and `attach`. Every
+  mutation echoes the affected node; errors render as a structured
+  `{"error":{code,message,hint?}}` envelope (machine formats) or a `✗` +
+  `note:` line (human formats), with coarse `0`/`1`/`2` exit codes.
+- **The identity grammar** — one rendered id per entity, spoken by every
+  surface: project `KEY`, node `KEY-seq`, artifact `KEY-aN` (per-project
+  sequence; migration backfills existing artifacts). Any id position accepts
+  the full grammar; the verb rejects types it can't act on (`done MMR` →
+  "MMR is a project, not a task"). `get KEY` / `status KEY` render the
+  whole-project view and rollup.
+- **The tag write surface** — `tag <ids> <tag>… [--note]` / `untag <ids>
+  <tag>…` reaching projects, nodes, and artifacts; repeatable `--tag` on
+  every `create` and on `attach`. Vocabulary stays free-text; `untag` is a
+  plain row delete, deliberately not transition-logged.
+- **Query surface v2** — `--status` picks the selection universe (the closed
+  status words plus `live` (default) / `terminal` / `all`; terminal orders by
+  `completed_at` desc), `--is`/`--not-is` select the derived verdicts
+  (`stale` · `blocking` · `orphaned`), and field operators filter within it:
+  `--eq`/`--not-eq`, `--in`/`--not-in`, `--has`/`--missing`, and the date ops
+  `--before`/`--on`/`--after`/`--not-before`/`--not-after` over the
+  projection's bare fields (`tag` is a multi-valued pseudo-field). All
+  AND-composed. A value fault (enum miss, bad date) warns and returns an
+  empty set — exit 0, structured `{"warning":…}` envelope with zod-style
+  `expected` info (folded into the payload over MCP); a structural fault
+  (unknown field, wrong-type operator) is a usage error.
+- **Artifact title + readback** — `title` is a required artifact column
+  (CLI defaults it from the `--file` basename; existing rows backfill from
+  the content's first markdown heading). `get KEY-aN` returns metadata +
+  links + tags, and the frozen body via the opt-in `content` column.
+- `create project` accepts a positional name like every other create type.
+
+### Changed (breaking)
+
+- The projected field `state` is renamed **`status`** on every surface —
+  DTO/wire, table/records labels, MCP schemas. The `mimir status` verb is
+  unchanged.
+- `--predicate` is replaced by `--status` + `--is` + the field operators.
+- The `--col` vocabulary is **flat** — the dot prefix (`--col .deps`) is
+  dropped; `--col deps`. A dotted column is now a usage error.
+- The artifact echo `#N` is replaced by the `KEY-aN` rendered id everywhere
+  (echoes, facets, JSON/MCP); internal integer ids no longer cross the
+  surface.
+- `attach` requires a title (explicit over MCP; basename default on the CLI).
+
 ## v0.1.0 - 2026-06-05
 
 The first pre-release: a usable read slice over a complete, storage-committed
