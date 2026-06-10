@@ -49,28 +49,53 @@ The database lives at `$XDG_DATA_HOME/mimir/mimir.db` (default
 `~/.local/share/mimir/mimir.db`), so `mimir` works from any directory; set
 `MIMIR_DB` to use a per-project store instead.
 
+Every entity has one rendered id, spoken by every surface: a project is the
+bare `KEY`, a tree node is `KEY-seq` (`MMR-16`), an artifact is `KEY-aN`
+(`MMR-a1`). Any id position takes the full grammar — the verb rejects what it
+can't act on.
+
 The read commands (one intent layer, rendered as CLI or MCP):
 
 ```sh
 mimir next                        # ready tasks in rank order — "what's next"
 mimir next --scope MMR -p p0      # filter by project / priority (signals, not sort)
-mimir list --predicate stale      # all|ready|awaiting|blocked|stale|blocking|orphaned
+mimir list --status done          # universe: status words, or live|terminal|all
+mimir list --is stale             # verdicts: stale|blocking|orphaned (--not-is negates)
+mimir list --eq priority:p1 --missing size --after created_at:2026-06-01
+mimir get MMR                     # the whole-project view (rollup + roots)
 mimir get MMR-16                  # full record for one node (KEY-seq id)
-mimir get MMR-16 --col .history   # add the transition log
-mimir status MMR-3                # an initiative/phase rollup (distribution + state)
+mimir get MMR-16 --col history    # add the transition log
+mimir get MMR-a1 --col content    # an artifact, with its frozen body
+mimir status MMR-3                # an initiative/phase rollup (distribution + status)
 mimir next --format json | jq .   # structured, pipe-safe output
+```
+
+Selection is AND-composed: `--status` picks the universe, `--is`/`--not-is`
+verdicts and the field operators (`--eq` `--not-eq` `--in` `--not-in` `--has`
+`--missing` + date ops) filter within it. A value miss (`--eq priority:p9`)
+warns and returns an empty set (exit 0); an unknown field is a usage error
+(exit 2).
+
+The write verbs:
+
+```sh
+mimir create task "wire the API" --parent MMR-2 --priority p1 --tag api
+mimir start MMR-3 && mimir done MMR-3
+mimir depend MMR-4 --on MMR-3     # MMR-4 waits on MMR-3
+mimir tag MMR-3,MMR-a1 spec v2    # tag tasks, projects, artifacts (free-text)
+mimir attach MMR-3 --file plan.md # freeze an artifact (title from basename)
 ```
 
 Formats: `table` / `records` (styled TTY) and `ids` / `json` / `jsonl`
 (structural, never styled). The default follows the destination — a table for a
 TTY set, `ids` when piped — and `--format` overrides. Identity selection
-(`get`/`status`) exits non-zero on a missing id; predicate selection
-(`next`/`list`) exits 0 on an empty result.
+(`get`/`status`) exits non-zero on a missing id; set selection (`next`/`list`)
+exits 0 on an empty result.
 
 Run as an MCP server for an agent:
 
 ```sh
-mimir mcp     # JSON-RPC over stdio; tools: next, get, list, status
+mimir mcp     # JSON-RPC over stdio; the same read + write surface as tools
 ```
 
 ## The model
@@ -82,7 +107,7 @@ project → initiative → phase → task        (the work tree, via parent_id)
 - **Two status axes** on tasks: `lifecycle` (todo → in_progress → done /
   abandoned) and a `hold` overlay (none / blocked / parked). Non-leaf nodes
   store **no** status — their truth is the live **distribution** over children,
-  reduced to one **State word** by a canonical `interpret` cascade.
+  reduced to one **status word** by a canonical `interpret` cascade.
 - **Rank** is a single relative order that wins over priority; priority/size are
   orthogonal _signals_ that filter and advise, never the sort.
 - **Derived, never stored:** `ready`, `awaiting`, `blocked`, `blocking`,
