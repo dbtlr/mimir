@@ -12,6 +12,7 @@ import {
   toolDepend,
   toolDone,
   toolGet,
+  toolList,
   toolMove,
   toolNext,
   toolPark,
@@ -355,4 +356,40 @@ test("create task with tags applies them", async () => {
     tags: { tag: string }[];
   };
   expect(view.tags.map((t) => t.tag)).toEqual(["v2"]);
+});
+
+// ---------------------------------------------------------------------------
+// Query surface v2 (MMR-33)
+// ---------------------------------------------------------------------------
+
+test("list folds value warnings into the payload (no stderr over MCP)", async () => {
+  const res = await toolList(db, { eq: ["priority:p9"] });
+  expect(res.isError).toBeUndefined();
+  const parsed = JSON.parse(textOf(res)) as {
+    total: number;
+    warnings: { code: string; expected: string[] }[];
+  };
+  expect(parsed.total).toBe(0);
+  expect(parsed.warnings[0]?.code).toBe("no_match_value");
+  expect(parsed.warnings[0]?.expected).toEqual(["p0", "p1", "p2", "p3"]);
+});
+
+test("a structural fault over MCP is a validation error", async () => {
+  const res = await toolList(db, { eq: ["bogus:x"] });
+  expect(res.isError).toBe(true);
+  expect(JSON.parse(textOf(res)).error.code).toBe("validation");
+});
+
+test("list selects by status universe and operators", async () => {
+  const start = await toolStart(db, { id: taskRef });
+  expect(start.isError).toBeUndefined();
+  const inProgress = JSON.parse(textOf(await toolList(db, { status: "in_progress" }))) as {
+    tasks: { id: string }[];
+  };
+  expect(inProgress.tasks.map((t) => t.id)).toEqual([taskRef]);
+
+  const byStatus = JSON.parse(textOf(await toolList(db, { eq: ["status:in_progress"] }))) as {
+    tasks: { id: string }[];
+  };
+  expect(byStatus.tasks.map((t) => t.id)).toEqual([taskRef]);
 });

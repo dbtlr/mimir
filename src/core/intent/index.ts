@@ -1,7 +1,6 @@
 export {
   type GetOptions,
   type ListOptions,
-  type ListPredicate,
   type NextOptions,
   getArtifact,
   getNode,

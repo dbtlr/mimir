@@ -13,6 +13,7 @@ export * from "./predicates";
 export * from "./rank";
 export * from "./ids";
 export * from "./lookup";
+export * from "./query";
 export * from "./errors";
 export * from "./status";
 export * from "./intent";

@@ -1,8 +1,16 @@
-import { CHEAP_FACETS, type FacetName } from "../contract";
+import {
+  CHEAP_FACETS,
+  type FacetName,
+  type FieldFilter,
+  type Priority,
+  type QueryOp,
+  type Size,
+  type StatusSelector,
+  type Verdict,
+  type VerdictSelector,
+} from "../contract";
 import {
   MimirError,
-  type ListOptions,
-  type NextOptions,
   type UpdateFields,
   abandonTask,
   annotate,
@@ -40,9 +48,8 @@ import {
   validation,
 } from "../core";
 import type { Db } from "../core";
-import { parseId, parseIdentity } from "../core";
+import { parseFilterToken, parseId, parseIdentity } from "../core";
 import type { RankPosition } from "../core";
-import type { Priority, Size } from "../contract/enums";
 
 /**
  * The MCP tool handlers — the agent envelope over the shared intent layer.
@@ -120,12 +127,90 @@ async function echoNode(db: Db, node: Parameters<typeof buildNodeView>[1]): Prom
 // Read tools
 // ---------------------------------------------------------------------------
 
-export function toolNext(db: Db, args: NextOptions): Promise<ToolResult> {
-  return guard(async () => ok(formatSetJson(await nextTasks(db, args))));
+/** The set-selection args shared by `next` and `list` (MMR-33) — named arrays per operator. */
+export interface SetQueryArgs {
+  scope?: string;
+  status?: StatusSelector;
+  is?: Verdict[];
+  notIs?: Verdict[];
+  eq?: string[];
+  notEq?: string[];
+  in?: string[];
+  notIn?: string[];
+  has?: string[];
+  missing?: string[];
+  before?: string[];
+  on?: string[];
+  after?: string[];
+  notBefore?: string[];
+  notAfter?: string[];
+  priority?: Priority;
+  size?: Size;
+  tag?: string;
+  limit?: number;
 }
 
-export function toolList(db: Db, args: ListOptions): Promise<ToolResult> {
-  return guard(async () => ok(formatSetJson(await listNodes(db, args))));
+const OP_ARGS: [QueryOp, keyof SetQueryArgs][] = [
+  ["eq", "eq"],
+  ["not-eq", "notEq"],
+  ["in", "in"],
+  ["not-in", "notIn"],
+  ["has", "has"],
+  ["missing", "missing"],
+  ["before", "before"],
+  ["on", "on"],
+  ["after", "after"],
+  ["not-before", "notBefore"],
+  ["not-after", "notAfter"],
+];
+
+function collectFilters(args: SetQueryArgs): FieldFilter[] {
+  const filters: FieldFilter[] = [];
+  for (const [op, key] of OP_ARGS) {
+    const tokens = args[key];
+    if (!Array.isArray(tokens)) continue;
+    for (const token of tokens) {
+      filters.push(parseFilterToken(op, token));
+    }
+  }
+  return filters;
+}
+
+function collectVerdicts(args: SetQueryArgs): VerdictSelector[] {
+  return [
+    ...(args.is ?? []).map((verdict) => ({ verdict, negate: false })),
+    ...(args.notIs ?? []).map((verdict) => ({ verdict, negate: true })),
+  ];
+}
+
+export function toolNext(db: Db, args: SetQueryArgs): Promise<ToolResult> {
+  return guard(async () => {
+    const result = await nextTasks(db, {
+      scope: args.scope,
+      priority: args.priority,
+      size: args.size,
+      verdicts: collectVerdicts(args),
+      filters: collectFilters(args),
+      limit: args.limit,
+    });
+    return ok(formatSetJson(result, "tasks", { includeWarnings: true }));
+  });
+}
+
+export function toolList(db: Db, args: SetQueryArgs): Promise<ToolResult> {
+  return guard(async () => {
+    const result = await listNodes(db, {
+      scope: args.scope,
+      status: args.status,
+      verdicts: collectVerdicts(args),
+      filters: collectFilters(args),
+      priority: args.priority,
+      size: args.size,
+      tag: args.tag,
+      limit: args.limit,
+    });
+    return ok(formatSetJson(result, "tasks", { includeWarnings: true }));
+  });
 }
 
 export function toolGet(db: Db, args: { id: string; facets?: FacetName[] }): Promise<ToolResult> {

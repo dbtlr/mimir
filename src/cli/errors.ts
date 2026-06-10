@@ -7,6 +7,7 @@
  * Machine formats (json/jsonl) emit a structured envelope; human formats
  * (records/table/ids) emit a Norn-style glyph line + optional note line.
  */
+import type { ValueWarning } from "../contract";
 import { MimirError } from "../core";
 import type { Io } from "./render";
 
@@ -53,5 +54,23 @@ export function renderError(err: RenderableError, format: string, io: Io): void 
   if (err.hint !== undefined) {
     const label = io.plain ? "note:" : "\x1b[36mnote:\x1b[0m";
     io.error(`${label} ${err.hint}`);
+  }
+}
+
+/**
+ * Render value warnings (MMR-33) to stderr — the non-fatal member of the
+ * diagnostic family, mirroring the error envelope. Exit stays 0; stdout
+ * carries the (empty) result.
+ */
+export function renderWarnings(warnings: readonly ValueWarning[], format: string, io: Io): void {
+  for (const warning of warnings) {
+    if (format === "json" || format === "jsonl") {
+      io.error(JSON.stringify({ warning }));
+      continue;
+    }
+    const glyph = io.plain ? "[warn]" : "\x1b[33m⚠\x1b[0m";
+    io.error(`${glyph} ${warning.message}`);
+    const label = io.plain ? "note:" : "\x1b[36mnote:\x1b[0m";
+    io.error(`${label} expected ${warning.expected.join(", ")}`);
   }
 }

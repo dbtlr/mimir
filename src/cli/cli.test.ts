@@ -86,11 +86,16 @@ test("an invalid flag value is a usage error → exit 2", async () => {
   expect(io.err.join("")).toContain("invalid priority");
 });
 
-test("list --predicate selects the matching set", async () => {
+test("list --status selects the matching universe", async () => {
   await createTask(db, { parentId: phaseId, title: "a" });
   const io = fakeIo();
-  await runCli(["list", "--scope", "MMR", "--predicate", "ready", "--format", "ids"], db, io);
+  await runCli(["list", "--scope", "MMR", "--status", "ready", "--format", "ids"], db, io);
   expect(io.out.join("")).toContain("MMR-");
+});
+
+test("--predicate is gone — unknown flag is a usage error", async () => {
+  const io = fakeIo();
+  expect(await runCli(["list", "--predicate", "ready"], db, io)).toBe(2);
 });
 
 test("a bad --format value is a usage error → exit 2", async () => {
@@ -237,4 +242,75 @@ test("create task --tag applies creation-time tags", async () => {
   await runCli(["get", echoed.id, "-f", "json"], db, read);
   const view = JSON.parse(read.out.join("")) as { tags: { tag: string }[] };
   expect(view.tags.map((x) => x.tag)).toEqual(["spec", "v2"]);
+});
+
+// query surface v2 (MMR-33)
+
+test("a value miss warns on stderr and exits 0 with an empty set", async () => {
+  await createTask(db, { parentId: phaseId, title: "a", priority: "p1" });
+  const io = fakeIo(true);
+  const code = await runCli(["list", "--scope", "MMR", "--eq", "priority:p9", "--ascii"], db, io);
+  expect(code).toBe(0);
+  expect(io.out.join("")).toContain("0 tasks");
+  expect(io.err.join("\n")).toContain("[warn] p9 is not a priority");
+  expect(io.err.join("\n")).toContain("expected p0, p1, p2, p3");
+});
+
+test("a value miss in json format emits the warning envelope on stderr", async () => {
+  const io = fakeIo(false);
+  const code = await runCli(["list", "--eq", "priority:p9", "-f", "json"], db, io);
+  expect(code).toBe(0);
+  const warning = JSON.parse(io.err.join("")) as {
+    warning: { code: string; field: string; value: string; expected: string[] };
+  };
+  expect(warning.warning.code).toBe("no_match_value");
+  expect(warning.warning.field).toBe("priority");
+  expect(warning.warning.expected).toEqual(["p0", "p1", "p2", "p3"]);
+  // stdout still carries the (empty) result
+  expect((JSON.parse(io.out.join("")) as { total: number }).total).toBe(0);
+});
+
+test("an unknown field is a usage error (exit 2)", async () => {
+  const io = fakeIo(false);
+  expect(await runCli(["list", "--eq", "bogus:x"], db, io)).toBe(2);
+  expect(io.err.join("")).toContain("unknown field bogus");
+});
+
+test("a date op on a non-date field is a usage error (exit 2)", async () => {
+  const io = fakeIo(false);
+  expect(await runCli(["list", "--before", "priority:p1"], db, io)).toBe(2);
+});
+
+test("--is/--not-is select verdicts; --status picks the universe", async () => {
+  const a = await createTask(db, { parentId: phaseId, title: "a" });
+  const b = await createTask(db, { parentId: phaseId, title: "b" });
+  const aRef = `MMR-${String(a.seq)}`;
+  const bRef = `MMR-${String(b.seq)}`;
+  await runCli(["depend", bRef, "--on", aRef], db, fakeIo(false));
+
+  const blocking = fakeIo(false);
+  await runCli(["list", "-s", "MMR", "--is", "blocking", "-f", "ids"], db, blocking);
+  expect(blocking.out.join("")).toBe(aRef);
+
+  const awaiting = fakeIo(false);
+  await runCli(["list", "-s", "MMR", "--status", "awaiting", "-f", "ids"], db, awaiting);
+  expect(awaiting.out.join("")).toBe(bRef);
+
+  await runCli(["done", aRef], db, fakeIo(false));
+  const terminal = fakeIo(false);
+  await runCli(["list", "-s", "MMR", "--status", "terminal", "-f", "ids"], db, terminal);
+  expect(terminal.out.join("")).toBe(aRef);
+});
+
+test("depend --on still works as a write flag alongside the date op", async () => {
+  const a = await createTask(db, { parentId: phaseId, title: "a" });
+  const b = await createTask(db, { parentId: phaseId, title: "b" });
+  const io = fakeIo(false);
+  const code = await runCli(
+    ["depend", `MMR-${String(b.seq)}`, "--on", `MMR-${String(a.seq)}`, "-f", "json"],
+    db,
+    io,
+  );
+  expect(code).toBe(0);
+  expect((JSON.parse(io.out.join("")) as { status: string }).status).toBe("awaiting");
 });
