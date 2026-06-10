@@ -143,17 +143,103 @@ test("the node artifacts facet speaks KEY-aN", async () => {
   expect(projectView.artifacts?.map((a) => a.id)).toEqual([`${key}-a1`]);
 });
 
-test("list selects by predicate", async () => {
+test("list selects by status universe (MMR-33)", async () => {
   const a = await createTask(db, { parentId: phaseId, title: "a" });
   const b = await createTask(db, { parentId: phaseId, title: "b" });
   await blockTask(db, b.id, "x");
 
-  const blocked = await listNodes(db, { scope: key, predicate: "blocked" });
+  const blocked = await listNodes(db, { scope: key, status: "blocked" });
   expect(blocked.items.map((n) => n.id)).toEqual([idOf(b)]);
 
-  const ready = await listNodes(db, { scope: key, predicate: "ready" });
+  const ready = await listNodes(db, { scope: key, status: "ready" });
   expect(ready.items.map((n) => n.id)).toEqual([idOf(a)]);
 
-  const all = await listNodes(db, { scope: key, predicate: "all" });
-  expect(all.total).toBe(2); // both non-terminal tasks
+  const live = await listNodes(db, { scope: key });
+  expect(live.total).toBe(2); // live is the default universe
+
+  await completeTask(db, a.id);
+  const terminal = await listNodes(db, { scope: key, status: "terminal" });
+  expect(terminal.items.map((n) => n.id)).toEqual([idOf(a)]);
+  const all = await listNodes(db, { scope: key, status: "all" });
+  expect(all.total).toBe(2);
+});
+
+test("list applies verdicts and field operators within the universe", async () => {
+  const a = await createTask(db, { parentId: phaseId, title: "a", priority: "p1" });
+  const b = await createTask(db, { parentId: phaseId, title: "b", priority: "p2" });
+  await depend(db, b.id, [a.id]); // a blocks b
+
+  const blocking = await listNodes(db, {
+    scope: key,
+    verdicts: [{ verdict: "blocking", negate: false }],
+  });
+  expect(blocking.items.map((n) => n.id)).toEqual([idOf(a)]);
+
+  const notBlocking = await listNodes(db, {
+    scope: key,
+    verdicts: [{ verdict: "blocking", negate: true }],
+  });
+  expect(notBlocking.items.map((n) => n.id)).toEqual([idOf(b)]);
+
+  const p2 = await listNodes(db, {
+    scope: key,
+    filters: [{ op: "eq", field: "priority", value: "p2" }],
+  });
+  expect(p2.items.map((n) => n.id)).toEqual([idOf(b)]);
+});
+
+test("a value fault returns an empty set with warnings, not an error", async () => {
+  await createTask(db, { parentId: phaseId, title: "a", priority: "p1" });
+  const res = await listNodes(db, {
+    scope: key,
+    filters: [{ op: "eq", field: "priority", value: "p9" }],
+  });
+  expect(res.total).toBe(0);
+  expect(res.items).toEqual([]);
+  expect(res.warnings?.[0]?.code).toBe("no_match_value");
+  expect(res.warnings?.[0]?.expected).toEqual(["p0", "p1", "p2", "p3"]);
+});
+
+test("a type filter widens list beyond tasks", async () => {
+  await createTask(db, { parentId: phaseId, title: "a" });
+  const phases = await listNodes(db, {
+    scope: key,
+    filters: [{ op: "eq", field: "type", value: "phase" }],
+  });
+  expect(phases.items.map((n) => n.type)).toEqual(["phase"]);
+});
+
+test("terminal universe orders by completed_at desc", async () => {
+  const a = await createTask(db, { parentId: phaseId, title: "a" });
+  const b = await createTask(db, { parentId: phaseId, title: "b" });
+  await completeTask(db, a.id);
+  await completeTask(db, b.id);
+  // pin distinct completion instants (same-ms completions would tie)
+  await db
+    .updateTable("node")
+    .set({ completed_at: "2026-06-01T00:00:00.000Z" })
+    .where("id", "=", a.id)
+    .execute();
+  await db
+    .updateTable("node")
+    .set({ completed_at: "2026-06-02T00:00:00.000Z" })
+    .where("id", "=", b.id)
+    .execute();
+  const done = await listNodes(db, { scope: key, status: "done" });
+  expect(done.items.map((n) => n.id)).toEqual([idOf(b), idOf(a)]);
+});
+
+test("the tag pseudo-field filters via the node's tag set", async () => {
+  const a = await createTask(db, { parentId: phaseId, title: "a", tags: ["spec"] });
+  await createTask(db, { parentId: phaseId, title: "b" });
+  const tagged = await listNodes(db, {
+    scope: key,
+    filters: [{ op: "eq", field: "tag", value: "spec" }],
+  });
+  expect(tagged.items.map((n) => n.id)).toEqual([idOf(a)]);
+  const untagged = await listNodes(db, {
+    scope: key,
+    filters: [{ op: "missing", field: "tag", value: null }],
+  });
+  expect(untagged.items.map((n) => n.title)).toEqual(["b"]);
 });

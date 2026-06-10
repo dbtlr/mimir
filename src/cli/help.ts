@@ -44,9 +44,21 @@ options:
   -s, --scope <KEY>       limit to a project
   -p, --priority <p0..p3> filter by priority (signal, not sort)
       --size <s|m|l>      filter by size
-      --predicate <name>  list: all|ready|awaiting|blocked|stale|blocking|orphaned
   -t, --tag <tag>         list: filter by tag
   -n, --limit <n>         cap the result count
+
+  selection (list/next — AND-composed):
+      --status <word>     list: the universe — ready|awaiting|in_progress|
+                          blocked|parked|done|abandoned, or unions
+                          live (default) | terminal | all
+      --is <verdict>      verdicts: stale|blocking|orphaned (repeatable)
+      --not-is <verdict>  negated verdict (repeatable)
+      --eq F:V            field equals (also --not-eq); --in F:V1,V2 any-of
+                          (also --not-in); --has F / --missing F presence
+      --before F:DATE     date fields (also --on, --after, --not-before,
+                          --not-after); DATE = YYYY-MM-DD or ISO timestamp
+                          fields = the bare projection fields; tag is multi-valued
+                          (eq=contains, in=any, not-in=none, missing=untagged)
       --col .<facet>      add a facet (.deps .tags .children .distribution
                           .annotations .artifacts .history)
   -f, --format <fmt>      table|records|ids|json|jsonl (default by destination)
@@ -80,7 +92,9 @@ export const FULL_HELP = `${TERSE_HELP}
 examples:
   mimir next --scope MMR              # what to work on next in project MMR
   mimir next -p p0                    # highest-priority ready tasks
-  mimir list --predicate stale        # tasks that have gone quiet
+  mimir list --is stale               # tasks that have gone quiet
+  mimir list --status done --after completed_at:2026-06-01
+  mimir list --eq priority:p1 --missing size
   mimir get MMR-16                    # full record (cheap facets included)
   mimir get MMR-16 --col .history     # add the transition log
   mimir status MMR-3                  # rollup of an initiative/phase
@@ -98,7 +112,9 @@ notes:
   - ids: project = bare KEY, node = KEY-seq, artifact = KEY-aN; any id
     position takes the full grammar — the verb rejects what it can't act on.
   - identity selection (get/status) exits non-zero on a missing id;
-    predicate selection (next/list) exits 0 on an empty result.
+    set selection (next/list) exits 0 on an empty result. A value miss
+    (--eq priority:p9) warns on stderr and returns an empty set (exit 0);
+    an unknown field or wrong-type operator is a usage error (exit 2).
   - mutations exit non-zero on a missing id or invariant violation and
     echo the affected node on success.
   - rank is never shown — array order is the order (ADR 0007).

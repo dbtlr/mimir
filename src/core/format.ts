@@ -67,18 +67,30 @@ export function formatIds(items: readonly NodeView[]): string {
   return items.map((n) => n.id).join("\n");
 }
 
-/** `json` for a set — the count-led envelope `{ total, returned, starts_at, <unit>: [...] }`. */
-export function formatSetJson(result: SetResult<NodeView>, unit = "tasks"): string {
-  return JSON.stringify(
-    {
-      total: result.total,
-      returned: result.returned,
-      starts_at: result.startsAt,
-      [unit]: result.items.map(toWire),
-    },
-    null,
-    2,
-  );
+/**
+ * `json` for a set — the count-led envelope `{ total, returned, starts_at,
+ * <unit>: [...] }`. Warnings stay out by default (the CLI renders them on
+ * stderr); MCP — no stderr — folds them in beside the result.
+ */
+export function formatSetJson(
+  result: SetResult<NodeView>,
+  unit = "tasks",
+  opts: { includeWarnings?: boolean } = {},
+): string {
+  const wrapper: Record<string, unknown> = {
+    total: result.total,
+    returned: result.returned,
+    starts_at: result.startsAt,
+    [unit]: result.items.map(toWire),
+  };
+  if (
+    opts.includeWarnings === true &&
+    result.warnings !== undefined &&
+    result.warnings.length > 0
+  ) {
+    wrapper.warnings = result.warnings;
+  }
+  return JSON.stringify(wrapper, null, 2);
 }
 
 /** `jsonl` for a set — one wire object per line, no wrapper (streaming). */

@@ -3,11 +3,18 @@ import {
   CHEAP_FACETS,
   FACET_NAMES,
   type FacetName,
+  type FieldFilter,
   type NodeView,
+  type QueryOp,
+  STATUS_SELECTOR_VALUES,
   type SetResult,
+  type StatusSelector,
+  VERDICT_VALUES,
+  type Verdict,
+  type VerdictSelector,
 } from "../contract";
 import {
-  type ListPredicate,
+  MimirError,
   formatIds,
   formatSetJson,
   formatSetJsonl,
@@ -16,6 +23,7 @@ import {
   getNode,
   listNodes,
   nextTasks,
+  parseFilterToken,
   parseIdentity,
   statusOfNode,
 } from "../core";
@@ -31,7 +39,7 @@ import {
   renderStatus,
   renderTable,
 } from "./render";
-import { exitCodeFor, isRenderable, renderError, usage } from "./errors";
+import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from "./errors";
 import { parsePriority, parseSize } from "./parse";
 import {
   type Ctx,
@@ -54,21 +62,24 @@ import {
   cmdUpdate,
 } from "./mutations";
 
-const LIST_PREDICATES: readonly ListPredicate[] = [
-  "all",
-  "ready",
-  "awaiting",
-  "blocked",
-  "stale",
-  "blocking",
-  "orphaned",
-];
-
 const OPTIONS = {
   scope: { type: "string", short: "s" },
   priority: { type: "string", short: "p" },
   size: { type: "string" },
-  predicate: { type: "string" },
+  status: { type: "string" },
+  is: { type: "string", multiple: true },
+  "not-is": { type: "string", multiple: true },
+  eq: { type: "string", multiple: true },
+  "not-eq": { type: "string", multiple: true },
+  in: { type: "string", multiple: true },
+  "not-in": { type: "string", multiple: true },
+  has: { type: "string", multiple: true },
+  missing: { type: "string", multiple: true },
+  before: { type: "string", multiple: true },
+  on: { type: "string", multiple: true },
+  after: { type: "string", multiple: true },
+  "not-before": { type: "string", multiple: true },
+  "not-after": { type: "string", multiple: true },
   tag: { type: "string", short: "t", multiple: true },
   note: { type: "string" },
   type: { type: "string" },
@@ -77,12 +88,10 @@ const OPTIONS = {
   format: { type: "string", short: "f" },
   ascii: { type: "boolean" },
   help: { type: "boolean", short: "h" },
-  // Write-surface flags (Tasks 3–8) — all added here so later tasks only add dispatch cases
+  // Write-surface flags — `--on` / `--before` / `--after` are shared with the
+  // query date-ops above (multiple); the write verbs read the last value.
   to: { type: "string" },
-  on: { type: "string" },
   parent: { type: "string" },
-  before: { type: "string" },
-  after: { type: "string" },
   key: { type: "string" },
   name: { type: "string" },
   desc: { type: "string" },
@@ -108,7 +117,20 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
     scope?: string;
     priority?: string;
     size?: string;
-    predicate?: string;
+    status?: string;
+    is?: string[];
+    "not-is"?: string[];
+    eq?: string[];
+    "not-eq"?: string[];
+    in?: string[];
+    "not-in"?: string[];
+    has?: string[];
+    missing?: string[];
+    before?: string[];
+    on?: string[];
+    after?: string[];
+    "not-before"?: string[];
+    "not-after"?: string[];
     tag?: string[];
     note?: string;
     type?: string;
@@ -119,10 +141,7 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
     help?: boolean;
     // Write-surface flags
     to?: string;
-    on?: string;
     parent?: string;
-    before?: string;
-    after?: string;
     key?: string;
     name?: string;
     desc?: string;
@@ -176,6 +195,8 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
             scope: values.scope,
             priority: parsePriority(values.priority),
             size: parseSize(values.size),
+            verdicts: parseVerdicts(values.is, values["not-is"]),
+            filters: parseFilters(values),
             limit: parseLimit(values.limit),
             facets: parseFacets(values.col),
           }),
@@ -186,7 +207,9 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
         return runSet(
           await listNodes(db, {
             scope: values.scope,
-            predicate: parsePredicate(values.predicate),
+            status: parseStatus(values.status),
+            verdicts: parseVerdicts(values.is, values["not-is"]),
+            filters: parseFilters(values),
             priority: parsePriority(values.priority),
             size: parseSize(values.size),
             tag: values.tag?.[0],
@@ -295,6 +318,9 @@ function errorFormat(argv: string[]): string {
 
 function runSet(result: SetResult<NodeView>, explicit: string | undefined, io: Io): number {
   const format = pickFormat(explicit, "set", io);
+  if (result.warnings !== undefined && result.warnings.length > 0) {
+    renderWarnings(result.warnings, format, io);
+  }
   switch (format) {
     case "ids":
       io.write(formatIds(result.items));
@@ -359,12 +385,64 @@ function parseFacets(cols: string[] | undefined): FacetName[] {
   return facets;
 }
 
-function parsePredicate(value: string | undefined): ListPredicate | undefined {
+function parseStatus(value: string | undefined): StatusSelector | undefined {
   if (value === undefined) return undefined;
-  if (!(LIST_PREDICATES as readonly string[]).includes(value)) {
-    throw usage(`invalid predicate: ${value} (expected ${LIST_PREDICATES.join("|")})`);
+  if (!(STATUS_SELECTOR_VALUES as readonly string[]).includes(value)) {
+    throw usage(`invalid status: ${value} (expected ${STATUS_SELECTOR_VALUES.join("|")})`);
   }
-  return value as ListPredicate;
+  return value as StatusSelector;
+}
+
+function parseVerdicts(is: string[] | undefined, notIs: string[] | undefined): VerdictSelector[] {
+  const out: VerdictSelector[] = [];
+  const take = (tokens: string[] | undefined, negate: boolean): void => {
+    for (const token of tokens ?? []) {
+      if (!(VERDICT_VALUES as readonly string[]).includes(token)) {
+        throw usage(`invalid verdict: ${token} (expected ${VERDICT_VALUES.join("|")})`);
+      }
+      out.push({ verdict: token as Verdict, negate });
+    }
+  };
+  take(is, false);
+  take(notIs, true);
+  return out;
+}
+
+/** The query-op flags, in declaration order. */
+const OP_FLAGS = [
+  "eq",
+  "not-eq",
+  "in",
+  "not-in",
+  "has",
+  "missing",
+  "before",
+  "on",
+  "after",
+  "not-before",
+  "not-after",
+] as const;
+
+/**
+ * Collect FIELD:VALUE filter tokens from the op flags. Structural faults
+ * (unknown field, operator-type mismatch) surface as usage — the caller's
+ * invocation is wrong (exit 2); the same fault over MCP stays `validation`.
+ */
+function parseFilters(values: Record<string, unknown>): FieldFilter[] {
+  const filters: FieldFilter[] = [];
+  for (const op of OP_FLAGS) {
+    const tokens = values[op];
+    if (!Array.isArray(tokens)) continue;
+    for (const token of tokens as string[]) {
+      try {
+        filters.push(parseFilterToken(op as QueryOp, token));
+      } catch (error) {
+        if (error instanceof MimirError) throw usage(error.message, error.hint);
+        throw error;
+      }
+    }
+  }
+  return filters;
 }
 
 function parseLimit(value: string | undefined): number | undefined {

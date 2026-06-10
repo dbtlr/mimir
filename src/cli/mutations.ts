@@ -110,16 +110,18 @@ async function resolveIds(db: Db, csv: string): Promise<number[]> {
 
 export async function cmdDepend(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "depend"));
-  if (typeof c.values.on !== "string") throw usage("depend requires --on <ids>");
-  await depend(c.db, id, await resolveIds(c.db, c.values.on));
+  const on = lastFlag(c, "on");
+  if (on === undefined) throw usage("depend requires --on <ids>");
+  await depend(c.db, id, await resolveIds(c.db, on));
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }
 
 export async function cmdUndepend(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "undepend"));
-  if (typeof c.values.on !== "string") throw usage("undepend requires --on <ids>");
-  await undepend(c.db, id, await resolveIds(c.db, c.values.on));
+  const on = lastFlag(c, "on");
+  if (on === undefined) throw usage("undepend requires --on <ids>");
+  await undepend(c.db, id, await resolveIds(c.db, on));
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }
@@ -137,16 +139,18 @@ export async function cmdReorder(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "reorder"), "task");
   let position: RankPosition;
   let refId: number | null = null;
+  const before = lastFlag(c, "before");
+  const after = lastFlag(c, "after");
   if (c.values.top === true) {
     position = "top";
   } else if (c.values.bottom === true) {
     position = "bottom";
-  } else if (typeof c.values.before === "string") {
+  } else if (before !== undefined) {
     position = "before";
-    refId = await resolveNode(c.db, c.values.before);
-  } else if (typeof c.values.after === "string") {
+    refId = await resolveNode(c.db, before);
+  } else if (after !== undefined) {
     position = "after";
-    refId = await resolveNode(c.db, c.values.after);
+    refId = await resolveNode(c.db, after);
   } else {
     throw usage("reorder requires one of --top | --bottom | --before <id> | --after <id>");
   }
@@ -239,6 +243,20 @@ function strFlag(c: Ctx, name: string, msg: string): string {
   const v = c.values[name];
   if (typeof v !== "string") throw usage(msg);
   return v;
+}
+
+/**
+ * Read a flag that parseArgs collects as `multiple` (shared with the query
+ * date-ops, MMR-33) as a single string — the last occurrence wins.
+ */
+function lastFlag(c: Ctx, name: string): string | undefined {
+  const v = c.values[name];
+  if (typeof v === "string") return v;
+  if (Array.isArray(v) && v.length > 0) {
+    const last: unknown = v[v.length - 1];
+    return typeof last === "string" ? last : undefined;
+  }
+  return undefined;
 }
 
 function optStr(c: Ctx, name: string): string | undefined {

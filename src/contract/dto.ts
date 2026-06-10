@@ -7,6 +7,7 @@ import type {
   StatusWord,
   TransitionKind,
 } from "./enums";
+import type { ValueWarning } from "./query";
 
 /**
  * The projection DTOs — the shape the intent layer produces and the CLI/MCP/UI
@@ -153,11 +154,13 @@ export const LEAN_COLS = ["id", "title", "status", "priority", "size"] as const;
 /**
  * A count-led set result. The JSON format renders `items` under a unit key
  * (`tasks`), and `truncated` is derivable (`returned < total`) so it is not
- * carried.
+ * carried. `warnings` carries value faults (MMR-33) — the CLI renders them on
+ * stderr; MCP folds them into the payload.
  */
 export interface SetResult<T> {
   total: number;
   returned: number;
   startsAt: number;
   items: T[];
+  warnings?: ValueWarning[];
 }

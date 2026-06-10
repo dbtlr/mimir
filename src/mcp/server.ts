@@ -1,9 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { type ZodRawShape, z } from "zod";
+import { STATUS_SELECTOR_VALUES, VERDICT_VALUES } from "../contract";
 import type { FacetName } from "../contract";
-import type { Db, ListOptions, NextOptions } from "../core";
+import type { Db } from "../core";
 import {
+  type SetQueryArgs,
   type ToolResult,
   toolAnnotate,
   toolAttach,
@@ -37,7 +39,25 @@ import {
 
 const PRIORITY = z.enum(["p0", "p1", "p2", "p3"]);
 const SIZE = z.enum(["small", "medium", "large"]);
-const PREDICATE = z.enum(["all", "ready", "awaiting", "blocked", "stale", "blocking", "orphaned"]);
+const STATUS = z.enum(STATUS_SELECTOR_VALUES);
+const VERDICT = z.enum(VERDICT_VALUES);
+const TOKENS = z.array(z.string());
+// Field operators (MMR-33): FIELD:VALUE tokens (bare FIELD for has/missing).
+const OPERATOR_SCHEMA = {
+  eq: TOKENS.optional(),
+  notEq: TOKENS.optional(),
+  in: TOKENS.optional(),
+  notIn: TOKENS.optional(),
+  has: TOKENS.optional(),
+  missing: TOKENS.optional(),
+  before: TOKENS.optional(),
+  on: TOKENS.optional(),
+  after: TOKENS.optional(),
+  notBefore: TOKENS.optional(),
+  notAfter: TOKENS.optional(),
+  is: z.array(VERDICT).optional(),
+  notIs: z.array(VERDICT).optional(),
+};
 const FACET = z.enum([
   "deps",
   "annotations",
@@ -85,29 +105,31 @@ export function buildMcpServer(db: Db, version: string): McpServer {
   register(
     server,
     "next",
-    "Ready tasks in rank order — what to work on next. Optionally scope to a project key and filter by priority/size.",
+    "Ready tasks in rank order — what to work on next. Optionally scope to a project key; filter by priority/size, verdicts (is/notIs: stale|blocking|orphaned), and field operators (eq/notEq/in/notIn/has/missing + date ops, FIELD:VALUE tokens). Value faults return an empty set plus a warnings array.",
     {
       scope: z.string().optional(),
       priority: PRIORITY.optional(),
       size: SIZE.optional(),
       limit: LIMIT.optional(),
+      ...OPERATOR_SCHEMA,
     },
-    (args: NextOptions) => toolNext(db, args),
+    (args: SetQueryArgs) => toolNext(db, args),
   );
 
   register(
     server,
     "list",
-    "Broad selection of non-terminal tasks by predicate (all|ready|awaiting|blocked|stale|blocking|orphaned), scope, or tag.",
+    "Broad selection: status picks the universe (ready|awaiting|in_progress|blocked|parked|done|abandoned or live|terminal|all; default live), verdicts (is/notIs) and field operators (FIELD:VALUE tokens) filter within it — all AND-composed. Value faults return an empty set plus a warnings array.",
     {
       scope: z.string().optional(),
-      predicate: PREDICATE.optional(),
+      status: STATUS.optional(),
       priority: PRIORITY.optional(),
       size: SIZE.optional(),
       tag: z.string().optional(),
       limit: LIMIT.optional(),
+      ...OPERATOR_SCHEMA,
     },
-    (args: ListOptions) => toolList(db, args),
+    (args: SetQueryArgs) => toolList(db, args),
   );
 
   register(
