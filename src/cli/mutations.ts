@@ -231,7 +231,19 @@ export async function cmdAttach(c: Ctx): Promise<number> {
     );
   }
 
-  const { renderedId } = await attachArtifact(c.db, { projectId, content, linkNodeIds });
+  const explicitTitle = optStr(c, "title");
+  const basename = file?.split("/").pop();
+  const title = explicitTitle ?? basename;
+  if (title === undefined || title.trim() === "") {
+    throw usage("attach from stdin requires --title <text>");
+  }
+  const { renderedId } = await attachArtifact(c.db, {
+    projectId,
+    title,
+    content,
+    linkNodeIds,
+    tags: tagFlags(c),
+  });
   if (c.format === "json" || c.format === "jsonl")
     c.io.write(JSON.stringify({ artifact: { id: renderedId } }));
   else if (c.format === "ids") c.io.write(renderedId);

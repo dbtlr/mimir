@@ -66,6 +66,7 @@ const FACET = z.enum([
   "tags",
   "children",
   "distribution",
+  "content", // artifact-only: the frozen body (heavy, opt-in)
 ]);
 const LIMIT = z.number().int().positive();
 
@@ -135,9 +136,9 @@ export function buildMcpServer(db: Db, version: string): McpServer {
   register(
     server,
     "get",
-    "Full record by rendered id: a node (KEY-seq, e.g. MMR-16), a whole project (bare KEY), or an artifact (KEY-aN). Cheap facets are included for nodes/projects; add `history` for the transition log.",
+    "Full record by rendered id: a node (KEY-seq, e.g. MMR-16), a whole project (bare KEY), or an artifact (KEY-aN). Cheap facets are included for nodes/projects; add `history` for the transition log, `content` for an artifact's frozen body.",
     { id: z.string(), facets: z.array(FACET).optional() },
-    (args: { id: string; facets?: FacetName[] }) => toolGet(db, args),
+    (args: { id: string; facets?: (FacetName | "content")[] }) => toolGet(db, args),
   );
 
   register(
@@ -364,15 +365,23 @@ export function buildMcpServer(db: Db, version: string): McpServer {
   register(
     server,
     "attach",
-    "Store a frozen artifact (content string) and optionally link it to nodes. Infers project from linked nodes. Echoes {artifact:{id}} with the rendered KEY-aN id.",
+    "Store a frozen artifact (title + content) and optionally link it to nodes and tag it. Infers project from linked nodes. Echoes {artifact:{id}} with the rendered KEY-aN id.",
     {
+      title: z.string(),
       content: z.string(),
       node: z.string().optional(),
       project: z.string().optional(),
       links: z.array(z.string()).optional(),
+      tags: z.array(z.string()).optional(),
     },
-    (args: { content: string; node?: string; project?: string; links?: string[] }) =>
-      toolAttach(db, args),
+    (args: {
+      title: string;
+      content: string;
+      node?: string;
+      project?: string;
+      links?: string[];
+      tags?: string[];
+    }) => toolAttach(db, args),
   );
 
   return server;

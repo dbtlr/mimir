@@ -55,6 +55,8 @@ export interface TagView {
 export interface ArtifactView {
   /** Rendered `KEY-aN` id (MMR-32) — the surrogate int never crosses the surface. */
   id: string;
+  /** Required human handle (MMR-34). */
+  title: string;
   tags: string[];
   createdAt: string;
 }
@@ -66,10 +68,13 @@ export interface ArtifactView {
  */
 export interface ArtifactDetail {
   id: string;
+  title: string;
   project: string;
   links: string[];
   tags: string[];
   createdAt: string;
+  /** The frozen body — the one deliberately heavy column, opt-in always (MMR-34). */
+  content?: string;
 }
 
 /** `.history` — a transition-log entry (heavy; opt-in even on `get`). */

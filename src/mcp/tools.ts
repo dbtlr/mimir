@@ -213,15 +213,20 @@ export function toolList(db: Db, args: SetQueryArgs): Promise<ToolResult> {
   });
 }
 
-export function toolGet(db: Db, args: { id: string; facets?: FacetName[] }): Promise<ToolResult> {
+export function toolGet(
+  db: Db,
+  args: { id: string; facets?: (FacetName | "content")[] },
+): Promise<ToolResult> {
   return guard(async () => {
+    const requested = args.facets ?? [];
     if (parseIdentity(args.id)?.kind === "artifact") {
-      return ok(formatArtifactJson(await getArtifact(db, args.id)));
+      const content = requested.includes("content");
+      return ok(formatArtifactJson(await getArtifact(db, args.id, { content })));
     }
+    // `content` is artifact-only; ignore it for nodes/projects.
+    const nodeFacets = requested.filter((f): f is FacetName => f !== "content");
     const facets =
-      args.facets !== undefined && args.facets.length > 0
-        ? [...new Set<FacetName>([...CHEAP_FACETS, ...args.facets])]
-        : undefined;
+      nodeFacets.length > 0 ? [...new Set<FacetName>([...CHEAP_FACETS, ...nodeFacets])] : undefined;
     return ok(formatNodeJson(await getNode(db, args.id, { facets })));
   });
 }
@@ -516,8 +521,10 @@ export function toolAttach(
   args: {
     node?: string;
     project?: string;
+    title: string;
     content: string;
     links?: string[];
+    tags?: string[];
   },
 ): Promise<ToolResult> {
   return guard(async () => {
@@ -564,8 +571,10 @@ export function toolAttach(
 
     const { renderedId } = await attachArtifact(db, {
       projectId: pid,
+      title: args.title,
       content: args.content,
       linkNodeIds,
+      tags: args.tags,
     });
     return ok(JSON.stringify({ artifact: { id: renderedId } }));
   });

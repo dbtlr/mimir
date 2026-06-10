@@ -116,6 +116,7 @@ test("get on KEY-aN returns the artifact detail with rendered links", async () =
   const project = await db.selectFrom("project").select("id").executeTakeFirstOrThrow();
   const { renderedId } = await attachArtifact(db, {
     projectId: project.id,
+    title: "frozen plan",
     content: "# frozen\n",
     linkNodeIds: [t.id],
   });
@@ -134,7 +135,12 @@ test("status_of rejects an artifact id as a behavioral error", async () => {
 test("the node artifacts facet speaks KEY-aN", async () => {
   const t = await createTask(db, { parentId: phaseId, title: "t" });
   const project = await db.selectFrom("project").select("id").executeTakeFirstOrThrow();
-  await attachArtifact(db, { projectId: project.id, content: "x", linkNodeIds: [t.id] });
+  await attachArtifact(db, {
+    projectId: project.id,
+    title: "x",
+    content: "x",
+    linkNodeIds: [t.id],
+  });
 
   const view = await getNode(db, idOf(t));
   expect(view.artifacts?.map((a) => a.id)).toEqual([`${key}-a1`]);

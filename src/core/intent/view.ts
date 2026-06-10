@@ -139,6 +139,7 @@ async function buildArtifacts(tx: Executor, nodeId: number): Promise<ArtifactVie
     .select([
       "artifact.id as id",
       "artifact.seq as seq",
+      "artifact.title as title",
       "artifact.created_at as createdAt",
       "project.key as key",
     ])
@@ -149,6 +150,7 @@ async function buildArtifacts(tx: Executor, nodeId: number): Promise<ArtifactVie
   for (const row of rows) {
     out.push({
       id: renderArtifactRef(row),
+      title: row.title,
       createdAt: row.createdAt,
       tags: await tagsOf(tx, "artifact", row.id),
     });
@@ -175,7 +177,7 @@ async function tagsOf(
 async function buildProjectArtifacts(tx: Executor, project: Project): Promise<ArtifactView[]> {
   const rows = await tx
     .selectFrom("artifact")
-    .select(["id", "seq", "created_at as createdAt"])
+    .select(["id", "seq", "title", "created_at as createdAt"])
     .where("project_id", "=", project.id)
     .orderBy("seq", "asc")
     .execute();
@@ -183,6 +185,7 @@ async function buildProjectArtifacts(tx: Executor, project: Project): Promise<Ar
   for (const row of rows) {
     out.push({
       id: renderArtifactRef({ key: project.key, seq: row.seq }),
+      title: row.title,
       createdAt: row.createdAt,
       tags: await tagsOf(tx, "artifact", row.id),
     });
@@ -241,11 +244,15 @@ export async function buildProjectView(
   return view;
 }
 
-/** A standalone artifact record (`get KEY-aN`, MMR-32) — metadata + linked nodes + tags. */
+/**
+ * A standalone artifact record (`get KEY-aN`, MMR-32/34) — metadata + linked
+ * nodes + tags; the frozen body only when opted in (`--col content`).
+ */
 export async function buildArtifactDetail(
   tx: Executor,
   artifact: Artifact,
   projectKey: string,
+  opts: { content?: boolean } = {},
 ): Promise<ArtifactDetail> {
   const links = await tx
     .selectFrom("artifact_link")
@@ -257,13 +264,18 @@ export async function buildArtifactDetail(
   for (const link of links) {
     linkIds.push((await renderNodeId(tx, link.node_id)) ?? "unknown");
   }
-  return {
+  const detail: ArtifactDetail = {
     id: renderArtifactRef({ key: projectKey, seq: artifact.seq }),
+    title: artifact.title,
     project: projectKey,
     links: linkIds,
     tags: await tagsOf(tx, "artifact", artifact.id),
     createdAt: artifact.created_at,
   };
+  if (opts.content === true) {
+    detail.content = artifact.content;
+  }
+  return detail;
 }
 
 async function buildHistory(tx: Executor, nodeId: number): Promise<HistoryEntry[]> {

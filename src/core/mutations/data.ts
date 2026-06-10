@@ -68,14 +68,21 @@ export async function annotate(db: Db, id: number, content: string): Promise<Nod
 
 export interface AttachArtifactInput {
   projectId: number;
+  /** Required (MMR-34): the human handle every artifact carries. */
+  title: string;
   content: string;
   linkNodeIds?: number[];
+  /** Attach-and-classify is one intent — creation-time tags on the artifact. */
+  tags?: string[];
 }
 
 export async function attachArtifact(
   db: Db,
   input: AttachArtifactInput,
 ): Promise<{ id: number; renderedId: string }> {
+  if (input.title.trim() === "") {
+    throw validation("attach requires a title");
+  }
   return db.transaction().execute(async (tx) => {
     const project = await tx
       .selectFrom("project")
@@ -88,9 +95,16 @@ export async function attachArtifact(
     const seq = await allocateArtifactSeq(tx, input.projectId);
     const artifact = await tx
       .insertInto("artifact")
-      .values({ project_id: input.projectId, seq, content: input.content })
+      .values({ project_id: input.projectId, seq, title: input.title, content: input.content })
       .returning("id")
       .executeTakeFirstOrThrow();
+    for (const tag of input.tags ?? []) {
+      await tx
+        .insertInto("tag")
+        .values({ entity_type: "artifact", entity_id: artifact.id, tag, note: null })
+        .onConflict((oc) => oc.columns(["entity_type", "entity_id", "tag"]).doNothing())
+        .execute();
+    }
     for (const nodeId of input.linkNodeIds ?? []) {
       const node = await requireNode(tx, nodeId);
       if (node.project_id !== input.projectId) {

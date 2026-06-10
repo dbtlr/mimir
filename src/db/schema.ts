@@ -79,6 +79,7 @@ interface ArtifactTable {
   id: Generated<number>;
   project_id: number;
   seq: number;
+  title: string;
   content: string;
   created_at: DefaultedTimestamp;
 }
