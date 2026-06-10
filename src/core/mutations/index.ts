@@ -11,3 +11,4 @@ export {
   reorder,
   updateNode,
 } from "./data";
+export { type EntityRef, tagEntities, untagEntities } from "./tags";

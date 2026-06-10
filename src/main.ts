@@ -36,6 +36,8 @@ const WRITE_VERBS = new Set([
   "annotate",
   "create",
   "attach",
+  "tag",
+  "untag",
 ]);
 
 /**

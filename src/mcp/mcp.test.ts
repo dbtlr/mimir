@@ -18,9 +18,11 @@ import {
   toolReorder,
   toolStart,
   toolStatus,
+  toolTag,
   toolUnblock,
   toolUndepend,
   toolUnpark,
+  toolUntag,
   toolUpdate,
 } from "./tools";
 
@@ -316,4 +318,41 @@ test("attach with project disagreement returns structured validation error", asy
   });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe("validation");
+});
+
+// ---------------------------------------------------------------------------
+// Tag tools (MMR-31)
+// ---------------------------------------------------------------------------
+
+test("tag and untag round-trip over MCP, reaching project and node", async () => {
+  const res = await toolTag(db, { ids: [taskRef, "MMR"], tags: ["spec"], note: "why" });
+  expect(res.isError).toBeUndefined();
+  expect(JSON.parse(textOf(res))).toEqual({ tagged: { ids: [taskRef, "MMR"], tags: ["spec"] } });
+
+  const view = await toolGet(db, { id: taskRef });
+  const parsed = JSON.parse(textOf(view)) as { tags: { tag: string; note: string | null }[] };
+  expect(parsed.tags.map((t) => ({ tag: t.tag, note: t.note }))).toEqual([
+    { tag: "spec", note: "why" },
+  ]);
+
+  const off = await toolUntag(db, { ids: [taskRef], tags: ["spec"] });
+  expect(off.isError).toBeUndefined();
+  const reread = JSON.parse(textOf(await toolGet(db, { id: taskRef }))) as { tags: unknown[] };
+  expect(reread.tags).toEqual([]);
+});
+
+test("tag on an unknown id returns a structured not_found", async () => {
+  const res = await toolTag(db, { ids: ["MMR-999"], tags: ["x"] });
+  expect(res.isError).toBe(true);
+  expect(JSON.parse(textOf(res)).error.code).toBe("not_found");
+});
+
+test("create task with tags applies them", async () => {
+  const res = await toolCreate(db, { type: "task", title: "tt", parent: phaseRef, tags: ["v2"] });
+  expect(res.isError).toBeUndefined();
+  const node = JSON.parse(textOf(res)) as { id: string };
+  const view = JSON.parse(textOf(await toolGet(db, { id: node.id }))) as {
+    tags: { tag: string }[];
+  };
+  expect(view.tags.map((t) => t.tag)).toEqual(["v2"]);
 });

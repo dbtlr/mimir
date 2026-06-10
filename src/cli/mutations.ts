@@ -20,10 +20,13 @@ import {
   notFound,
   parkTask,
   reorder,
+  resolveEntityToken,
   startTask,
+  tagEntities,
   unblockTask,
   undepend,
   unparkTask,
+  untagEntities,
   updateNode,
   validation,
 } from "../core";
@@ -243,6 +246,52 @@ function optStr(c: Ctx, name: string): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
+/** The repeatable `--tag` values on create (MMR-31). */
+function tagFlags(c: Ctx): string[] | undefined {
+  const v = c.values.tag;
+  return Array.isArray(v) && v.length > 0 ? (v as string[]) : undefined;
+}
+
+const splitCsv = (csv: string): string[] =>
+  csv
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+/** Echo a tag/untag result — ids + tags, no node reload (the op is the news). */
+function echoTagOp(c: Ctx, verb: "tagged" | "untagged", ids: string[], tags: string[]): void {
+  if (c.format === "json" || c.format === "jsonl") {
+    c.io.write(JSON.stringify({ [verb]: { ids, tags } }));
+  } else if (c.format === "ids") {
+    c.io.write(ids.join("\n"));
+  } else {
+    const glyph = c.io.plain ? "[ok]" : "\x1b[32m✓\x1b[0m";
+    c.io.write(`${glyph} ${verb} ${ids.join(", ")}: ${tags.join(", ")}`);
+  }
+}
+
+export async function cmdTag(c: Ctx): Promise<number> {
+  const ids = splitCsv(requirePos(c, 1, "tag", "ids (comma-separated)"));
+  if (ids.length === 0) throw usage("tag requires ids (comma-separated)");
+  const tags = c.positionals.slice(2);
+  if (tags.length === 0) throw usage("tag requires at least one tag");
+  const targets = await Promise.all(ids.map((t) => resolveEntityToken(c.db, t)));
+  await tagEntities(c.db, targets, tags, optStr(c, "note"));
+  echoTagOp(c, "tagged", ids, tags);
+  return 0;
+}
+
+export async function cmdUntag(c: Ctx): Promise<number> {
+  const ids = splitCsv(requirePos(c, 1, "untag", "ids (comma-separated)"));
+  if (ids.length === 0) throw usage("untag requires ids (comma-separated)");
+  const tags = c.positionals.slice(2);
+  if (tags.length === 0) throw usage("untag requires at least one tag");
+  const targets = await Promise.all(ids.map((t) => resolveEntityToken(c.db, t)));
+  await untagEntities(c.db, targets, tags);
+  echoTagOp(c, "untagged", ids, tags);
+  return 0;
+}
+
 export async function cmdCreate(c: Ctx): Promise<number> {
   const type = c.positionals[1];
   switch (type) {
@@ -252,6 +301,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         name: strFlag(c, "name", "create project requires --name"),
         repo: optStr(c, "repo"),
         path: optStr(c, "path"),
+        tags: tagFlags(c),
       });
       if (c.format === "json" || c.format === "jsonl") {
         c.io.write(JSON.stringify({ project: { key: project.key, name: project.name } }));
@@ -273,6 +323,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         projectId: parent.id,
         title,
         description: optStr(c, "desc"),
+        tags: tagFlags(c),
       });
       await echoNode(c.db, node.id, c.format, c.io);
       return 0;
@@ -290,6 +341,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         title,
         description: optStr(c, "desc"),
         target: optStr(c, "target"),
+        tags: tagFlags(c),
       });
       await echoNode(c.db, node.id, c.format, c.io);
       return 0;
@@ -310,6 +362,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
           typeof c.values.priority === "string" ? parsePriority(c.values.priority) : undefined,
         size: typeof c.values.size === "string" ? parseSize(c.values.size) : undefined,
         externalRef: optStr(c, "ref"),
+        tags: tagFlags(c),
       });
       await echoNode(c.db, node.id, c.format, c.io);
       return 0;

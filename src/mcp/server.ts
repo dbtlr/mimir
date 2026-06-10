@@ -20,9 +20,11 @@ import {
   toolReorder,
   toolStart,
   toolStatus,
+  toolTag,
   toolUnblock,
   toolUndepend,
   toolUnpark,
+  toolUntag,
   toolUpdate,
 } from "./tools";
 
@@ -270,6 +272,30 @@ export function buildMcpServer(db: Db, version: string): McpServer {
   );
 
   // ---------------------------------------------------------------------------
+  // Tag tools (MMR-31)
+  // ---------------------------------------------------------------------------
+
+  register(
+    server,
+    "tag",
+    "Apply free-text tags to entities by rendered id (project KEY, node KEY-seq, artifact KEY-aN). Idempotent; optional note rides the application. Not transition-logged.",
+    {
+      ids: z.array(z.string()).min(1),
+      tags: z.array(z.string()).min(1),
+      note: z.string().optional(),
+    },
+    (args: { ids: string[]; tags: string[]; note?: string }) => toolTag(db, args),
+  );
+
+  register(
+    server,
+    "untag",
+    "Remove tags from entities by rendered id. A plain row delete — not transition-logged.",
+    { ids: z.array(z.string()).min(1), tags: z.array(z.string()).min(1) },
+    (args: { ids: string[]; tags: string[] }) => toolUntag(db, args),
+  );
+
+  // ---------------------------------------------------------------------------
   // Create tool
   // ---------------------------------------------------------------------------
 
@@ -290,6 +316,7 @@ export function buildMcpServer(db: Db, version: string): McpServer {
       priority: PRIORITY.optional(),
       size: SIZE.optional(),
       externalRef: z.string().optional(),
+      tags: z.array(z.string()).optional(),
     },
     (args: {
       type: "project" | "initiative" | "phase" | "task";
@@ -304,6 +331,7 @@ export function buildMcpServer(db: Db, version: string): McpServer {
       priority?: string;
       size?: string;
       externalRef?: string;
+      tags?: string[];
     }) => toolCreate(db, args),
   );
 
