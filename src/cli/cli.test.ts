@@ -381,3 +381,22 @@ test("create project still accepts --name and errors without either", async () =
   expect(await runCli(["create", "project", "--key", "BAD"], db, bad)).toBe(2);
   expect(bad.err.join("")).toContain("requires a name");
 });
+
+// flat --col vocabulary (MMR-38)
+
+test("--col takes flat column names; the dot form is a usage error", async () => {
+  const t = await createTask(db, { parentId: phaseId, title: "t" });
+  const ref = `MMR-${String(t.seq)}`;
+  const io = fakeIo(false);
+  await runCli(["get", ref, "--col", "history", "-f", "json"], db, io);
+  const view = JSON.parse(io.out.join("")) as { history: unknown[] };
+  expect(Array.isArray(view.history)).toBe(true);
+
+  const dotted = fakeIo(false);
+  expect(await runCli(["get", ref, "--col", ".history"], db, dotted)).toBe(2);
+  expect(dotted.err.join("")).toContain("columns are flat now");
+
+  const unknown = fakeIo(false);
+  expect(await runCli(["get", ref, "--col", "bogus"], db, unknown)).toBe(2);
+  expect(unknown.err.join("")).toContain("unknown column: bogus");
+});

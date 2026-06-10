@@ -59,8 +59,9 @@ options:
                           --not-after); DATE = YYYY-MM-DD or ISO timestamp
                           fields = the bare projection fields; tag is multi-valued
                           (eq=contains, in=any, not-in=none, missing=untagged)
-      --col .<facet>      add a facet (.deps .tags .children .distribution
-                          .annotations .artifacts .history)
+      --col <col>         add a column (deps tags children distribution
+                          annotations artifacts history; content on KEY-aN —
+                          set-valued columns are heavier, opt-in)
   -f, --format <fmt>      table|records|ids|json|jsonl (default by destination)
       --ascii             no color/icons
   -h, --help              -h terse, --help with examples
@@ -96,7 +97,8 @@ examples:
   mimir list --status done --after completed_at:2026-06-01
   mimir list --eq priority:p1 --missing size
   mimir get MMR-16                    # full record (cheap facets included)
-  mimir get MMR-16 --col .history     # add the transition log
+  mimir get MMR-16 --col history      # add the transition log
+  mimir get MMR-a1 --col content      # an artifact's frozen body
   mimir status MMR-3                  # rollup of an initiative/phase
   mimir next --format json | jq .     # structured output for scripts
 
