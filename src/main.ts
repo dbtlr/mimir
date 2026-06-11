@@ -20,27 +20,6 @@ import type { Db } from "./core";
 import { createServer } from "./http";
 import { serveStdio } from "./mcp";
 
-const READ_VERBS = new Set(["next", "get", "list", "status", "bind"]);
-const WRITE_VERBS = new Set([
-  "start",
-  "done",
-  "abandon",
-  "park",
-  "unpark",
-  "block",
-  "unblock",
-  "depend",
-  "undepend",
-  "move",
-  "reorder",
-  "update",
-  "annotate",
-  "create",
-  "attach",
-  "tag",
-  "untag",
-]);
-
 /**
  * The database path. `MIMIR_DB` overrides; otherwise a single user-global store
  * under the XDG data dir (`$XDG_DATA_HOME/mimir/mimir.db`, defaulting to
@@ -56,17 +35,13 @@ function dbPath(): string {
   return join(dataHome, "mimir", "mimir.db");
 }
 
-/** Create a client, ensuring the parent directory exists for a file-backed db. */
-function openClient(path: string): Db {
-  if (path !== ":memory:") {
-    mkdirSync(dirname(path), { recursive: true });
-  }
-  return createDb(path);
-}
-
-/** Open the database and apply any pending migrations under the migration lock. */
+/**
+ * Open the database — creating the parent directory if needed — and apply any
+ * pending migrations under the migration lock.
+ */
 async function openMigrated(path: string): Promise<Db> {
-  const db = openClient(path);
+  mkdirSync(dirname(path), { recursive: true });
+  const db = createDb(path);
   const { error } = await migrateToLatest(db);
   if (error !== undefined) {
     await db.destroy();
@@ -89,7 +64,10 @@ function stdoutIo(): Io {
 }
 
 async function runMigrate(sub: string | undefined): Promise<number> {
-  const db = openClient(dbPath());
+  // Opens without auto-migrating — `migrate` inspects/applies them itself.
+  const path = dbPath();
+  mkdirSync(dirname(path), { recursive: true });
+  const db = createDb(path);
   try {
     if (sub === "status") {
       for (const m of await migrationStatus(db)) {
@@ -174,20 +152,21 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
-  // Read and write commands go through the CLI. Only data commands need the
-  // real database; help/unknown run against a throwaway in-memory db so a bare
-  // `mimir` / `mimir --help` never creates a file.
-  const needsData = command !== undefined && (READ_VERBS.has(command) || WRITE_VERBS.has(command));
-  const db = needsData ? await openMigrated(dbPath()) : openClient(":memory:");
+  // Read and write commands go through the CLI. The store is acquired lazily
+  // (MMR-39): a verb that touches data asks for it, opening + migrating on
+  // first ask; help, usage errors, and `skill install` never ask, so a bare
+  // `mimir` / `mimir --help` never creates a file. main holds no verb list.
+  let opened: Db | undefined;
+  const getDb = async (): Promise<Db> => (opened ??= await openMigrated(dbPath()));
   try {
     // Project Binding (ADR 0011): the nearest .mimir.toml supplies the
     // default -s scope; resolved here so the CLI itself never reads cwd.
-    return await runCli(argv, db, stdoutIo(), {
-      scope: needsData ? findBinding(process.cwd()) : undefined,
+    return await runCli(argv, getDb, stdoutIo(), {
+      scope: findBinding(process.cwd()),
       cwd: process.cwd(),
     });
   } finally {
-    await db.destroy();
+    await opened?.destroy();
   }
 }
 

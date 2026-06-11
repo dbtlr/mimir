@@ -1,7 +1,7 @@
 import type { TagEntityType } from "../contract/enums";
 import type { Artifact, Node } from "../db/schema";
 import type { Db, Tx } from "./context";
-import { notFound } from "./errors";
+import { notFound, validation } from "./errors";
 import { parseId, parseIdentity, renderArtifactRef, renderId } from "./ids";
 
 /** Load a node row by surrogate id, or `undefined` if absent. */
@@ -100,6 +100,33 @@ export async function resolveEntityToken(
   const node = await findNodeByRef(tx, token);
   if (node === undefined) throw notFound(`no node ${token}`);
   return { entityType: "node", entityId: node.id };
+}
+
+/**
+ * Resolve a node token (`KEY-seq`) to its surrogate id for a verb that acts
+ * on nodes. Any rendered identity parses (MMR-32); a token naming a project
+ * or artifact is rejected as a behavioral error — `expected` names what the
+ * verb acts on, and `hints` lets each transport point at its own surface.
+ * The single implementation behind the CLI, MCP, and HTTP guards (MMR-39).
+ */
+export async function resolveNodeToken(
+  tx: Db | Tx,
+  token: string,
+  expected = "node",
+  hints: { project?: string; artifact?: string; notFound?: string } = {},
+): Promise<number> {
+  const identity = parseIdentity(token);
+  if (identity?.kind === "project") {
+    throw validation(`${token} is a project, not a ${expected}`, hints.project);
+  }
+  if (identity?.kind === "artifact") {
+    throw validation(`${token} is an artifact, not a ${expected}`, hints.artifact);
+  }
+  const node = await findNodeByRef(tx, token);
+  if (node === undefined) {
+    throw notFound(`no node ${token}`, hints.notFound);
+  }
+  return node.id;
 }
 
 /** Render an artifact's external `KEY-aN` id from its surrogate id (joins the project key). */

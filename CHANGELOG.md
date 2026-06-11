@@ -13,6 +13,22 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Fixed
+
+- **The throwaway in-memory database is gone** — the CLI acquires the store
+  lazily, only when a verb actually touches data. Previously `main` kept a
+  hand-maintained verb list to decide who got the real database; a verb
+  missing from it silently ran against a throwaway in-memory store (the
+  v0.2.0 `tag`/`untag` write-loss bug class). There is no list to forget
+  anymore, `createDb` requires an explicit path (in-memory is test-only),
+  and bare `mimir`/`--help`/unknown commands still never create a file.
+
+### Changed
+
+- Node-token rejection ("`X` is a project, not a task") is one core
+  implementation behind the CLI, MCP, and HTTP guards instead of three
+  transport-edge copies.
+
 ### Added
 
 - **Architecture docs in-repo** (`docs/`): the twelve ADRs (`docs/decisions/`,
