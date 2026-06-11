@@ -211,7 +211,11 @@ test("annotate with no content is a usage error → exit 2", async () => {
 // create verbs
 test("create project echoes the new key", async () => {
   const io = fakeIo(false);
-  const code = await runCli(["create", "project", "--key", "NEW", "--name", "New Proj"], db, io);
+  const code = await runCli(
+    ["create", "project", "--key", "NEW", "--name", "New Proj", "-y"],
+    db,
+    io,
+  );
   expect(code).toBe(0);
   expect(io.out.join("")).toContain("NEW");
 });

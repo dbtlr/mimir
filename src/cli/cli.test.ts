@@ -366,7 +366,7 @@ test("get KEY-aN --col content returns the frozen body", async () => {
 test("create project accepts a positional name", async () => {
   const io = fakeIo(false);
   const code = await runCli(
-    ["create", "project", "Other Tool", "--key", "OTH", "-f", "json"],
+    ["create", "project", "Other Tool", "--key", "OTH", "-y", "-f", "json"],
     db,
     io,
   );
@@ -376,9 +376,11 @@ test("create project accepts a positional name", async () => {
 
 test("create project still accepts --name and errors without either", async () => {
   const io = fakeIo(false);
-  expect(await runCli(["create", "project", "--key", "FLG", "--name", "Flagged"], db, io)).toBe(0);
+  expect(
+    await runCli(["create", "project", "--key", "FLG", "--name", "Flagged", "-y"], db, io),
+  ).toBe(0);
   const bad = fakeIo(false);
-  expect(await runCli(["create", "project", "--key", "BAD"], db, bad)).toBe(2);
+  expect(await runCli(["create", "project", "--key", "BAD", "-y"], db, bad)).toBe(2);
   expect(bad.err.join("")).toContain("requires a name");
 });
 

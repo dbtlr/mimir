@@ -12,14 +12,14 @@ import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import pkg from "../package.json";
-import { runCli } from "./cli";
+import { findBinding, runCli } from "./cli";
 import type { Io } from "./cli";
 import { createDb } from "./db/client";
 import { migrateToLatest, migrationStatus } from "./db/migrator";
 import type { Db } from "./core";
 import { serveStdio } from "./mcp";
 
-const READ_VERBS = new Set(["next", "get", "list", "status"]);
+const READ_VERBS = new Set(["next", "get", "list", "status", "bind"]);
 const WRITE_VERBS = new Set([
   "start",
   "done",
@@ -128,8 +128,10 @@ async function main(argv: string[]): Promise<number> {
 
   if (command === "mcp") {
     // Long-running: connect and let the stdio transport keep the process alive.
+    // The MCP rendering honors the same Project Binding (ADR 0011), resolved
+    // from the server's spawn cwd.
     const db = await openMigrated(dbPath());
-    await serveStdio(db, pkg.version);
+    await serveStdio(db, pkg.version, findBinding(process.cwd()));
     return 0;
   }
 
@@ -139,7 +141,12 @@ async function main(argv: string[]): Promise<number> {
   const needsData = command !== undefined && (READ_VERBS.has(command) || WRITE_VERBS.has(command));
   const db = needsData ? await openMigrated(dbPath()) : openClient(":memory:");
   try {
-    return await runCli(argv, db, stdoutIo());
+    // Project Binding (ADR 0011): the nearest .mimir.toml supplies the
+    // default -s scope; resolved here so the CLI itself never reads cwd.
+    return await runCli(argv, db, stdoutIo(), {
+      scope: needsData ? findBinding(process.cwd()) : undefined,
+      cwd: process.cwd(),
+    });
   } finally {
     await db.destroy();
   }
