@@ -1,3 +1,4 @@
+import type { Verdicts } from "../contract/dto";
 import type { Node } from "../db/schema";
 import type { Db, Tx } from "./context";
 import { hasUnsettledPrereq, isNodeSettled, isTerminalWord, nodeStatusWord } from "./derive";
@@ -120,4 +121,20 @@ export async function isOrphaned(tx: Executor, task: Node): Promise<boolean> {
     }
   }
   return true;
+}
+
+/**
+ * All non-status verdicts for one node in one read (the `verdicts` facet —
+ * the API record's always-on derivation). Status words carry everything else.
+ */
+export async function verdictsOf(
+  tx: Executor,
+  node: Node,
+  options: StaleOptions = {},
+): Promise<Verdicts> {
+  return {
+    stale: await isStale(tx, node, options),
+    blocking: await isBlocking(tx, node),
+    orphaned: await isOrphaned(tx, node),
+  };
 }

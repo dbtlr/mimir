@@ -1,4 +1,4 @@
-import type { ArtifactDetail, NodeView, SetResult, StatusView } from "../contract/dto";
+import type { ArtifactDetail, NodeView, SetResult, StatusView, TreeView } from "../contract/dto";
 
 /**
  * The **structural** output formats — `ids` / `json` / `jsonl` — a versioned
@@ -9,7 +9,7 @@ import type { ArtifactDetail, NodeView, SetResult, StatusView } from "../contrac
  */
 
 /** Map a NodeView to its wire object — only defined fields, contract field names. */
-function toWire(node: NodeView): Record<string, unknown> {
+export function nodeToWire(node: NodeView): Record<string, unknown> {
   const wire: Record<string, unknown> = {
     id: node.id,
     type: node.type,
@@ -60,7 +60,14 @@ function toWire(node: NodeView): Record<string, unknown> {
       reason: h.reason,
     }));
   }
+  if (node.verdicts !== undefined) wire.verdicts = node.verdicts;
   return wire;
+}
+
+/** Map a nested {@link TreeView} to its wire object — the node record + nested `children`. */
+export function treeToWire(tree: TreeView): Record<string, unknown> {
+  const { children, ...node } = tree;
+  return { ...nodeToWire(node), children: children.map(treeToWire) };
 }
 
 /** `ids` — one `KEY-seq` per line (the pipe default). */
@@ -82,7 +89,7 @@ export function formatSetJson(
     total: result.total,
     returned: result.returned,
     starts_at: result.startsAt,
-    [unit]: result.items.map(toWire),
+    [unit]: result.items.map(nodeToWire),
   };
   if (
     opts.includeWarnings === true &&
@@ -96,12 +103,12 @@ export function formatSetJson(
 
 /** `jsonl` for a set — one wire object per line, no wrapper (streaming). */
 export function formatSetJsonl(items: readonly NodeView[]): string {
-  return items.map((n) => JSON.stringify(toWire(n))).join("\n");
+  return items.map((n) => JSON.stringify(nodeToWire(n))).join("\n");
 }
 
 /** `json` for a single node — the bare wire object (no set wrapper; `get` / mutation echo). */
 export function formatNodeJson(node: NodeView): string {
-  return JSON.stringify(toWire(node), null, 2);
+  return JSON.stringify(nodeToWire(node), null, 2);
 }
 
 /** `json` for `status_of` — id, label, and distribution together. */
@@ -113,8 +120,8 @@ export function formatStatusJson(status: StatusView): string {
   );
 }
 
-/** `json` for a standalone artifact (`get KEY-aN`) — metadata + links, contract field names. */
-export function formatArtifactJson(artifact: ArtifactDetail): string {
+/** Map a standalone artifact to its wire object — metadata + links, contract field names. */
+export function artifactToWire(artifact: ArtifactDetail): Record<string, unknown> {
   const wire: Record<string, unknown> = {
     id: artifact.id,
     title: artifact.title,
@@ -124,5 +131,10 @@ export function formatArtifactJson(artifact: ArtifactDetail): string {
     created_at: artifact.createdAt,
   };
   if (artifact.content !== undefined) wire.content = artifact.content;
-  return JSON.stringify(wire, null, 2);
+  return wire;
+}
+
+/** `json` for a standalone artifact (`get KEY-aN`). */
+export function formatArtifactJson(artifact: ArtifactDetail): string {
+  return JSON.stringify(artifactToWire(artifact), null, 2);
 }

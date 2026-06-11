@@ -87,6 +87,34 @@ export interface HistoryEntry {
 }
 
 /**
+ * `verdicts` — the derived-predicate verdicts that aren't Status words
+ * (the `--is` vocabulary, MMR-33), as one read. `stale`/`orphaned` are
+ * task-only and read `false` on containers; `blocking` applies to any node.
+ */
+export interface Verdicts {
+  stale: boolean;
+  blocking: boolean;
+  orphaned: boolean;
+}
+
+/** A cross-cutting transition-log read (`/api/transitions`) — `node` is the rendered id. */
+export interface TransitionView {
+  node: string;
+  kind: TransitionKind;
+  from: string | null;
+  to: string | null;
+  at: string;
+  reason: string | null;
+}
+
+/** A transitions page: entries after the caller's cursor, plus the cursor to resume from. */
+export interface TransitionsResult {
+  items: TransitionView[];
+  /** Opaque resume cursor — present when any items were returned. */
+  nextCursor?: string;
+}
+
+/**
  * The projected view of a node. Bare fields are always populated (one row);
  * task-only / phase-only fields are present only for that type; facets are
  * present only when requested.
@@ -122,6 +150,17 @@ export interface NodeView {
   tags?: TagView[];
   children?: NodeRef[];
   distribution?: Distribution;
+  verdicts?: Verdicts;
+}
+
+/**
+ * A node in the nested whole-project tree (`/api/projects/:key/tree`) — the
+ * same record shape everywhere, with `children` carrying full nested records
+ * instead of light refs. Children arrive rank-ordered (rank carries as array
+ * order, never a field — ADR 0007), containers by seq.
+ */
+export interface TreeView extends Omit<NodeView, "children"> {
+  children: TreeView[];
 }
 
 /** A node's `status_of`: the rollup distribution and its single `interpret` label together. */
@@ -140,6 +179,7 @@ export const FACET_NAMES = [
   "tags",
   "children",
   "distribution",
+  "verdicts",
 ] as const;
 export type FacetName = (typeof FACET_NAMES)[number];
 

@@ -14,6 +14,7 @@ import type { Db, Tx } from "../context";
 import { childDistribution, nodeStatusWord, rootDistribution } from "../derive";
 import { renderArtifactRef } from "../ids";
 import { loadNode, renderNodeId } from "../lookup";
+import { verdictsOf } from "../predicates";
 import { interpret } from "../status";
 
 /**
@@ -79,6 +80,9 @@ export async function buildNodeView(
   }
   if (facets.has("history")) {
     view.history = await buildHistory(tx, node.id);
+  }
+  if (facets.has("verdicts")) {
+    view.verdicts = await verdictsOf(tx, node);
   }
   return view;
 }
