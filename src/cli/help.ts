@@ -93,7 +93,11 @@ options:
       --note <text>       tag: note stored with each tag application
       --tag <t>           create: tag at creation (repeatable)
 
-other: mimir migrate [status] · mimir mcp
+other:
+  skill install [--global|--local] [--agent claude|codex]
+                          install the agent skill (default: --global, claude;
+                          claude → .claude/skills, codex → .agents/skills)
+  migrate [status] · mcp
 `;
 
 export const FULL_HELP = `${TERSE_HELP}

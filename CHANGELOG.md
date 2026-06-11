@@ -15,6 +15,13 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **The agent skill** (`mimir skill install`): the skill that teaches agents to
+  drive Mimir — session-start orientation, the transition contract, the id
+  grammar, the query gallery, tags, and setup — ships **embedded in the
+  binary** (it can never skew from the surface the binary speaks) and installs
+  with `mimir skill install [--global|--local] [--agent claude|codex]`
+  (claude → `.claude/skills/mimir`, codex → `.agents/skills/mimir`; re-run
+  after an upgrade to refresh).
 - **Project Binding** (ADR 0011): `mimir bind <KEY>` writes a checked-in
   `.mimir.toml` (`project = "KEY"`) binding a working copy to its project.
   Every command resolves the nearest binding file (walking up from cwd) as

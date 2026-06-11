@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { parseArgs } from "node:util";
 import {
   CHEAP_FACETS,
@@ -41,6 +43,7 @@ import {
 } from "./render";
 import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from "./errors";
 import { BINDING_FILE, writeBinding } from "./binding";
+import { SKILL_AGENTS, SKILL_FILES, type SkillAgent, skillDirFor } from "./skill-assets";
 import { resolveProject } from "./resolve";
 import { parsePriority, parseSize } from "./parse";
 import {
@@ -106,6 +109,10 @@ const OPTIONS = {
   bottom: { type: "boolean" },
   title: { type: "string" },
   yes: { type: "boolean", short: "y" },
+  // skill install
+  global: { type: "boolean" },
+  local: { type: "boolean" },
+  agent: { type: "string" },
 } as const;
 
 /**
@@ -183,6 +190,9 @@ export async function runCli(
     bottom?: boolean;
     title?: string;
     yes?: boolean;
+    global?: boolean;
+    local?: boolean;
+    agent?: string;
   };
   let positionals: string[];
   try {
@@ -305,6 +315,35 @@ export async function runCli(
         return await cmdTag(mctx);
       case "untag":
         return await cmdUntag(mctx);
+      case "skill": {
+        const sub = positionals[1];
+        if (sub !== "install") {
+          throw usage("skill: unknown subcommand (expected: skill install)");
+        }
+        if (values.global === true && values.local === true) {
+          throw usage("skill install takes --global or --local, not both");
+        }
+        const agent = values.agent ?? "claude";
+        if (!(SKILL_AGENTS as readonly string[]).includes(agent)) {
+          throw usage(`unknown agent: ${agent} (expected ${SKILL_AGENTS.join("|")})`);
+        }
+        const base = values.local === true ? (defaults.cwd ?? process.cwd()) : homedir();
+        const dir = skillDirFor(agent as SkillAgent, base);
+        for (const f of SKILL_FILES) {
+          const target = `${dir}/${f.path}`;
+          mkdirSync(target.slice(0, target.lastIndexOf("/")), { recursive: true });
+          writeFileSync(target, f.content);
+        }
+        if (mctx.format === "json" || mctx.format === "jsonl") {
+          ctx.write(JSON.stringify({ installed: { path: dir, files: SKILL_FILES.length, agent } }));
+        } else if (mctx.format === "ids") {
+          ctx.write(dir);
+        } else {
+          const glyph = ctx.plain ? "[ok]" : "\x1b[32m✓\x1b[0m";
+          ctx.write(`${glyph} installed the mimir skill → ${dir} (${SKILL_FILES.length} files)`);
+        }
+        return 0;
+      }
       case "bind": {
         const key = positionals[1];
         if (key === undefined) throw usage("bind requires a project KEY");
