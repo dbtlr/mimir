@@ -352,8 +352,6 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       const project = await createProject(c.db, {
         key,
         name,
-        repo: optStr(c, "repo"),
-        path: optStr(c, "path"),
         tags: tagFlags(c),
       });
       if (c.format === "json" || c.format === "jsonl") {

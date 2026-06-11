@@ -428,8 +428,6 @@ export function toolCreate(
     type: "project" | "initiative" | "phase" | "task";
     key?: string;
     name?: string;
-    repo?: string;
-    path?: string;
     parent?: string;
     title?: string;
     description?: string;
@@ -448,8 +446,6 @@ export function toolCreate(
         const project = await createProject(db, {
           key: args.key,
           name: args.name,
-          repo: args.repo,
-          path: args.path,
           tags: args.tags,
         });
         return ok(JSON.stringify({ project: { key: project.key, name: project.name } }));

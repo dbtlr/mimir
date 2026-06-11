@@ -13,6 +13,7 @@ test("migrateToLatest applies the bundled migrations on a fresh db", async () =>
       "0001_init",
       "0002_artifact_seq",
       "0003_artifact_title",
+      "0004_drop_repo_path",
     ]);
     expect(results?.every((r) => r.status === "Success")).toBe(true);
   } finally {
@@ -30,6 +31,7 @@ test("migrationStatus reports applied migrations after migrating", async () => {
       "0001_init",
       "0002_artifact_seq",
       "0003_artifact_title",
+      "0004_drop_repo_path",
     ]);
     expect(all.every((m) => m.executedAt !== undefined)).toBe(true);
   } finally {
@@ -121,6 +123,38 @@ test("0003 backfills artifact titles from the first markdown heading", async () 
       { seq: 1, title: "Session Log" },
       { seq: 2, title: "untitled" },
     ]);
+  } finally {
+    await db.destroy();
+  }
+});
+
+test("0004 drops project repo/path, preserving every other column (ADR 0011)", async () => {
+  const db = createDb(":memory:");
+  try {
+    const { Migrator, sql } = await import("kysely");
+    const { migrations } = await import("./migrations");
+    const migrator = new Migrator({
+      db,
+      provider: { getMigrations: () => Promise.resolve(migrations) },
+    });
+    const upTo = await migrator.migrateTo("0003_artifact_title");
+    expect(upTo.error).toBeUndefined();
+
+    await sql`INSERT INTO project (key, name, repo, path, last_seq)
+              VALUES ('AAA', 'a', 'git@host:a.git', '/home/x/a', 7)`.execute(db);
+
+    const rest = await migrator.migrateToLatest();
+    expect(rest.error).toBeUndefined();
+
+    const cols = await sql<{ name: string }>`SELECT name FROM pragma_table_info('project')`.execute(
+      db,
+    );
+    const names = cols.rows.map((r) => r.name);
+    expect(names).not.toContain("repo");
+    expect(names).not.toContain("path");
+
+    const rows = await db.selectFrom("project").select(["key", "name", "last_seq"]).execute();
+    expect(rows).toEqual([{ key: "AAA", name: "a", last_seq: 7 }]);
   } finally {
     await db.destroy();
   }

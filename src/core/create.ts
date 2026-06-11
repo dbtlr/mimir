@@ -35,8 +35,6 @@ async function insertTags(
 export interface CreateProjectInput {
   key: string;
   name: string;
-  repo?: string | null;
-  path?: string | null;
   tags?: string[];
 }
 
@@ -58,8 +56,6 @@ export async function createProject(db: Db, input: CreateProjectInput): Promise<
       .values({
         key: input.key,
         name: input.name,
-        repo: input.repo ?? null,
-        path: input.path ?? null,
       })
       .returningAll()
       .executeTakeFirstOrThrow();

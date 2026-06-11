@@ -13,6 +13,26 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Added
+
+- **Project Binding** (ADR 0011): `mimir bind <KEY>` writes a checked-in
+  `.mimir.toml` (`project = "KEY"`) binding a working copy to its project.
+  Every command resolves the nearest binding file (walking up from cwd) as
+  the default `--scope`; an explicit `-s` overrides, and the literal
+  `-s all` queries every project. The MCP server honors the same binding,
+  resolved from its spawn cwd.
+- `create project` now confirms the immutable key: interactive sessions get
+  a prompt; non-interactive callers must pass `-y`/`--yes` (usage error,
+  exit 2, otherwise).
+
+### Removed
+
+- **Breaking:** the `project.repo` / `project.path` columns and the
+  `--repo`/`--path` flags on `create project` (migration `0004`). A stored
+  filesystem path pins a project to one machine; the repo→project binding
+  lives repo-side in `.mimir.toml` now (ADR 0011). Both columns were
+  write-only — never rendered by any read surface.
+
 ## v0.2.0 - 2026-06-10
 
 The first release carrying the **write surface** (v0.1.0 was read-only), plus
