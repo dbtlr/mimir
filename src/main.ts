@@ -17,6 +17,7 @@ import type { Io } from "./cli";
 import { createDb } from "./db/client";
 import { migrateToLatest, migrationStatus } from "./db/migrator";
 import type { Db } from "./core";
+import { createServer } from "./http";
 import { serveStdio } from "./mcp";
 
 const READ_VERBS = new Set(["next", "get", "list", "status", "bind"]);
@@ -114,6 +115,23 @@ async function runMigrate(sub: string | undefined): Promise<number> {
   }
 }
 
+/** Default `serve` port — MIMIR on a phone keypad. */
+const DEFAULT_PORT = 64647;
+
+/** Parse `serve`'s `--port` flag; `null` means unusable (a usage fault). */
+function servePort(args: string[]): number | null {
+  const at = args.indexOf("--port");
+  if (at === -1) {
+    return DEFAULT_PORT;
+  }
+  const raw = args[at + 1];
+  const port = Number(raw);
+  if (raw === undefined || !Number.isInteger(port) || port < 1 || port > 65535) {
+    return null;
+  }
+  return port;
+}
+
 async function main(argv: string[]): Promise<number> {
   const command = argv[0];
 
@@ -124,6 +142,27 @@ async function main(argv: string[]): Promise<number> {
 
   if (command === "migrate") {
     return runMigrate(argv[1]);
+  }
+
+  if (command === "serve") {
+    const port = servePort(argv.slice(1));
+    if (port === null) {
+      console.error("✗ serve: --port expects an integer in 1–65535");
+      return 2;
+    }
+    // Long-running: the server keeps the process alive; loopback-only by
+    // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
+    const db = await openMigrated(dbPath());
+    const server = createServer(db, { port });
+    console.log(`mimir serve — listening on http://127.0.0.1:${String(server.port)}`);
+    const stop = async (): Promise<void> => {
+      await server.stop();
+      await db.destroy();
+      process.exit(0);
+    };
+    process.on("SIGINT", () => void stop());
+    process.on("SIGTERM", () => void stop());
+    return 0;
   }
 
   if (command === "mcp") {

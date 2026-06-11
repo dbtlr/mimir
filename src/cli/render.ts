@@ -135,6 +135,13 @@ export function renderRecords(node: NodeView, io: Io): string {
       node.history.map((h) => `${h.kind} ${h.from ?? "-"}→${h.to ?? "-"}`).join("; "),
     ]);
   }
+  if (node.verdicts !== undefined) {
+    const holding = Object.entries(node.verdicts)
+      .filter(([, holds]) => holds)
+      .map(([verdict]) => verdict)
+      .join(", ");
+    pairs.push(["verdicts", holding === "" ? "(none)" : holding]);
+  }
 
   const labelW = Math.max(...pairs.map(([label]) => label.length));
   for (const [label, value] of pairs) {

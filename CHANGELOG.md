@@ -13,6 +13,28 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Added
+
+- **The HTTP API** (`mimir serve`, ADR 0012): the resource envelope for the
+  operator-console UI — conventional REST over the core on native `Bun.serve`.
+  Reads: `GET /api/projects` (+ per-project rollups), `GET /api/projects/:key`,
+  `GET /api/projects/:key/tree` (the full nested hierarchy in board order),
+  `GET /api/nodes` (flat, cross-project, the whole filter dialect as query
+  params), `GET /api/nodes/:id`, annotations and artifacts as sub-resources,
+  and `GET /api/transitions?since=<cursor>` (the polling feed). Writes are the
+  core verbs as action sub-routes (`POST /api/nodes/:id/start` …); `PATCH
+/api/nodes/:id` is exactly the dumb `update`. Every write echoes the full
+  updated record; errors are the existing envelope plus a status code
+  (`not_found` 404, `validation` 400, `conflict`/`invariant` 409). Collections
+  return `{items: […]}` envelope objects (cursor room reserved; no pagination
+  yet). Binds `127.0.0.1` only, `--port` defaults to `64647`; TLS/exposure
+  belong to the proxy in front (auth deliberately open — ADR 0012).
+- **`verdicts`** — the non-status derived predicates (`stale`, `blocking`,
+  `orphaned`) as one read: always-on in API records, and available everywhere
+  as a `--col verdicts` column on the CLI/MCP `get`.
+- **Core resource reads** behind the API (transport-agnostic like everything
+  else): `listProjects`, `projectTree`, `listTransitions`.
+
 ## v0.3.0 - 2026-06-11
 
 The adoption release: the agent skill ships in the binary, and a working copy

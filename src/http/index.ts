@@ -1,6 +1,6 @@
 /**
- * The HTTP transport — the resource envelope for the future UI: fine,
- * complete, paginated endpoints (`mimir serve`). Imports `core` + `contract`
- * only. Phase 4 fills this.
+ * The HTTP transport — the resource envelope (ADR 0012): conventional REST
+ * over the core for the operator-console UI (`mimir serve`). Imports `core` +
+ * `contract` only.
  */
-export {};
+export { type ServeOptions, createServer } from "./server";
