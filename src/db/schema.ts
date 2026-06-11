@@ -11,7 +11,7 @@ import type {
 
 /**
  * The Kysely database interface — the typed shape of every table, realizing
- * `notes/mimir-schema-reference.md` / `migrations/0001_init`. The core is
+ * `docs/schema-reference.md` / `migrations/0001_init`. The core is
  * storage-committed: it queries this `Kysely<DB>` directly.
  */
 
