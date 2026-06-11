@@ -19,6 +19,7 @@ import {
   unblockTask,
   unparkTask,
   undepend,
+  updateArtifact,
   updateNode,
 } from "./index";
 
@@ -190,6 +191,26 @@ test("annotate and attachArtifact persist and link", async () => {
     .where("artifact_id", "=", artifactId)
     .execute();
   expect(links.map((l) => l.node_id)).toEqual([id]);
+});
+
+test("updateArtifact retitles; content frozen; blank title and unknown id refused (MMR-40)", async () => {
+  const id = await task();
+  const { id: artifactId } = await attachArtifact(db, {
+    projectId,
+    title: "first title",
+    content: "# body",
+    linkNodeIds: [id],
+  });
+  await updateArtifact(db, artifactId, { title: "fixed title" });
+  const row = await db
+    .selectFrom("artifact")
+    .select(["title", "content"])
+    .where("id", "=", artifactId)
+    .executeTakeFirstOrThrow();
+  expect(row.title).toBe("fixed title");
+  expect(row.content).toBe("# body"); // content is never touched
+  await expectMimirError("validation", () => updateArtifact(db, artifactId, { title: "  " }));
+  await expectMimirError("not_found", () => updateArtifact(db, 9999, { title: "x" }));
 });
 
 test("reorder moves within the rankable set and refuses terminal/held tasks", async () => {

@@ -29,6 +29,12 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **`update` accepts artifact ids** (`mimir update KEY-aN --title "…"`,
+  `PATCH /api/artifacts/:id`, and the MCP `update` tool): title is an
+  artifact's one mutable field, so a mistitled `attach` is no longer
+  permanent. Content stays frozen (ADR 0004); node-only fields on an
+  artifact id are a validation error. Re-tagging with `--note` already
+  replaced the stored note (tag is an upsert) — now documented in the skill.
 - Node-token rejection ("`X` is a project, not a task") is one core
   implementation behind the CLI, MCP, and HTTP guards instead of three
   transport-edge copies.

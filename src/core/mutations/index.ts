@@ -4,11 +4,13 @@ export { blockTask, parkTask, unblockTask, unparkTask } from "./hold";
 export { depend, undepend } from "./dependency";
 export { moveNode } from "./structure";
 export {
+  type ArtifactUpdateFields,
   type AttachArtifactInput,
   type UpdateFields,
   annotate,
   attachArtifact,
   reorder,
+  updateArtifact,
   updateNode,
 } from "./data";
 export { type EntityRef, tagEntities, untagEntities } from "./tags";

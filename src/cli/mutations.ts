@@ -15,8 +15,11 @@ import {
   createProject,
   createTask,
   depend,
+  findArtifactByRef,
   findNodeByRef,
+  getArtifact,
   moveNode,
+  parseIdentity,
   notFound,
   parkTask,
   reorder,
@@ -27,12 +30,14 @@ import {
   undepend,
   unparkTask,
   untagEntities,
+  updateArtifact,
   updateNode,
   validation,
 } from "../core";
 import type { Db, RankPosition, UpdateFields } from "../core";
 import { usage } from "./errors";
 import { parsePriority, parseSize } from "./parse";
+import { renderArtifactDetail } from "./render";
 import type { Format, Io } from "./render";
 import { echoNode, readContent, resolveNode, resolveParent, resolveProject } from "./resolve";
 
@@ -171,7 +176,11 @@ export async function cmdReorder(c: Ctx): Promise<number> {
 }
 
 export async function cmdUpdate(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.db, requirePos(c, 1, "update"));
+  const token = requirePos(c, 1, "update");
+  if (parseIdentity(token)?.kind === "artifact") {
+    return await cmdUpdateArtifact(c, token);
+  }
+  const id = await resolveNode(c.db, token);
   const fields: UpdateFields = {};
   if (typeof c.values.title === "string") fields.title = c.values.title;
   if (typeof c.values.desc === "string") fields.description = c.values.desc;
@@ -181,6 +190,30 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
   if (typeof c.values.ref === "string") fields.externalRef = c.values.ref;
   await updateNode(c.db, id, fields);
   await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+/** `update KEY-aN` — title is an artifact's one mutable field (MMR-40). */
+async function cmdUpdateArtifact(c: Ctx, token: string): Promise<number> {
+  for (const [key, flag] of [
+    ["desc", "--desc"],
+    ["priority", "--priority"],
+    ["size", "--size"],
+    ["target", "--target"],
+    ["ref", "--ref"],
+  ] as const) {
+    if (c.values[key] !== undefined) {
+      throw validation(`${flag} applies only to nodes — title is an artifact's one mutable field`);
+    }
+  }
+  const identity = parseIdentity(token);
+  if (identity?.kind !== "artifact") throw notFound(`no artifact with id ${token}`);
+  const artifact = await findArtifactByRef(c.db, identity);
+  if (artifact === undefined) throw notFound(`no artifact ${token}`);
+  if (typeof c.values.title === "string") {
+    await updateArtifact(c.db, artifact.id, { title: c.values.title });
+  }
+  renderArtifactDetail(await getArtifact(c.db, token), c.format, c.io);
   return 0;
 }
 

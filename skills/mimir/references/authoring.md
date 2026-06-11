@@ -43,6 +43,10 @@ mimir annotate KEY-9 "Realized the parser must be rewritten; filed KEY-12."
 ```
 
 - `update` patches scalar **fields**; it cannot touch status (verbs only).
+- `update KEY-aN --title "…"` retitles an artifact — title is an artifact's
+  one mutable field (content is frozen; attach a new artifact to correct one).
+- Re-tagging with `--note` replaces the stored note (`tag` is an upsert);
+  re-tagging without `--note` never clears one.
 - `annotate` appends a timestamped freeform note — the in-flight record of
   decisions, surprises, scope changes. Annotations are append-only and permanent:
   misdirected one? Append a correction note; nothing is edited or deleted.

@@ -23,6 +23,7 @@ import {
   createProject,
   createTask,
   depend,
+  findArtifactByRef,
   findNodeByRef,
   resolveNodeToken,
   formatArtifactJson,
@@ -45,6 +46,7 @@ import {
   undepend,
   unparkTask,
   untagEntities,
+  updateArtifact,
   updateNode,
   validation,
 } from "../core";
@@ -362,6 +364,9 @@ export function toolUpdate(
   },
 ): Promise<ToolResult> {
   return guard(async () => {
+    if (parseIdentity(args.id)?.kind === "artifact") {
+      return updateArtifactTool(db, args);
+    }
     const id = await nodeId(db, args.id);
     const fields: UpdateFields = {};
     if (args.title !== undefined) fields.title = args.title;
@@ -373,6 +378,37 @@ export function toolUpdate(
     const node = await updateNode(db, id, fields);
     return echoNode(db, node);
   });
+}
+
+/** `update` on a `KEY-aN` id — title is an artifact's one mutable field (MMR-40). */
+async function updateArtifactTool(
+  db: Db,
+  args: {
+    id: string;
+    title?: string;
+    description?: string;
+    priority?: string;
+    size?: string;
+    target?: string;
+    externalRef?: string;
+  },
+): Promise<ToolResult> {
+  const nodeOnly = (["description", "priority", "size", "target", "externalRef"] as const).filter(
+    (k) => args[k] !== undefined,
+  );
+  if (nodeOnly.length > 0) {
+    throw validation(
+      `${nodeOnly.join(", ")} appl${nodeOnly.length === 1 ? "ies" : "y"} only to nodes — title is an artifact's one mutable field`,
+    );
+  }
+  const identity = parseIdentity(args.id);
+  if (identity?.kind !== "artifact") throw notFound(`no artifact with id ${args.id}`);
+  const artifact = await findArtifactByRef(db, identity);
+  if (artifact === undefined) throw notFound(`no artifact ${args.id}`);
+  if (args.title !== undefined) {
+    await updateArtifact(db, artifact.id, { title: args.title });
+  }
+  return ok(formatArtifactJson(await getArtifact(db, args.id)));
 }
 
 export function toolAnnotate(db: Db, args: { id: string; content: string }): Promise<ToolResult> {

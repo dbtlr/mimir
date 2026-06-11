@@ -30,7 +30,7 @@ manage commands:
              --before <id>|--after <id>
 
   data:
-    update <id> [--title …] [--priority …] [--size …] …   patch fields
+    update <id> [--title …] [--priority …] [--size …] …   patch fields (KEY-aN: --title only)
     annotate <id> <text>                append a freeform note
     tag <ids> <tag>… [--note <text>]    tag entities (ids comma-separated)
     untag <ids> <tag>…                  remove tags (plain delete, unlogged)

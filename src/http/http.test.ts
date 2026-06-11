@@ -363,6 +363,24 @@ test("artifacts: POST freezes onto the node (201), GET returns content; cross-pr
   expect(crossed.status).toBe(400);
 });
 
+test("PATCH /api/artifacts/:id retitles; content frozen; unknown fields and blank titles 400 (MMR-40)", async () => {
+  await send("POST", `/api/nodes/${task1}/artifacts`, { title: "wrong", content: "# body" });
+
+  const patched = await send("PATCH", "/api/artifacts/MMR-a1", { title: "right" });
+  expect(patched.status).toBe(200);
+  const echo = await parse(patched);
+  expect(echo.title).toBe("right");
+  expect(echo.content).toBe("# body");
+
+  // content is frozen — not a patchable field
+  expect((await send("PATCH", "/api/artifacts/MMR-a1", { content: "new" })).status).toBe(400);
+  // blank title is validation
+  expect((await send("PATCH", "/api/artifacts/MMR-a1", { title: " " })).status).toBe(400);
+  // unknown artifact / node token on the artifact route
+  expect((await send("PATCH", "/api/artifacts/MMR-a9", { title: "x" })).status).toBe(404);
+  expect((await send("PATCH", `/api/artifacts/${task1}`, { title: "x" })).status).toBe(404);
+});
+
 // ---------------------------------------------------------------------------
 // Transitions feed
 // ---------------------------------------------------------------------------
