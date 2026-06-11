@@ -105,8 +105,6 @@ const OPTIONS = {
   top: { type: "boolean" },
   bottom: { type: "boolean" },
   title: { type: "string" },
-  repo: { type: "string" },
-  path: { type: "string" },
   yes: { type: "boolean", short: "y" },
 } as const;
 
@@ -184,8 +182,6 @@ export async function runCli(
     top?: boolean;
     bottom?: boolean;
     title?: string;
-    repo?: string;
-    path?: string;
     yes?: boolean;
   };
   let positionals: string[];

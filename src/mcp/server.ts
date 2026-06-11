@@ -339,8 +339,6 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
       type: z.enum(["project", "initiative", "phase", "task"]),
       key: z.string().optional(),
       name: z.string().optional(),
-      repo: z.string().optional(),
-      path: z.string().optional(),
       parent: z.string().optional(),
       title: z.string().optional(),
       description: z.string().optional(),
@@ -354,8 +352,6 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
       type: "project" | "initiative" | "phase" | "task";
       key?: string;
       name?: string;
-      repo?: string;
-      path?: string;
       parent?: string;
       title?: string;
       description?: string;
