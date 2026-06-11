@@ -15,6 +15,11 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Architecture docs in-repo** (`docs/`): the twelve ADRs (`docs/decisions/`,
+  Nygard convention) plus the two maintained engineering references —
+  `docs/schema-reference.md` and `docs/output-contract-reference.md` — moved
+  out of the maintainer's private workspace so code-comment citations resolve
+  for every reader.
 - **The HTTP API** (`mimir serve`, ADR 0012): the resource envelope for the
   operator-console UI — conventional REST over the core on native `Bun.serve`.
   Reads: `GET /api/projects` (+ per-project rollups), `GET /api/projects/:key`,

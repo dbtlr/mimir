@@ -113,6 +113,12 @@ project → initiative → phase → task        (the work tree, via parent_id)
 - **Derived, never stored:** `ready`, `awaiting`, `blocked`, `blocking`,
   `stale`, `orphaned`, and every rollup.
 
+The reasoning behind the model lives in
+[`docs/decisions/`](docs/decisions/README.md) (the ADRs), with the concrete
+schema in [`docs/schema-reference.md`](docs/schema-reference.md) and the
+CLI/MCP output contract in
+[`docs/output-contract-reference.md`](docs/output-contract-reference.md).
+
 ## Development
 
 ```sh

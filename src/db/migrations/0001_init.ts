@@ -1,7 +1,7 @@
 import { type Kysely, type Migration, sql } from "kysely";
 
 /**
- * The initial schema — the DDL from `notes/mimir-schema-reference.md` verbatim,
+ * The initial schema — the DDL from `docs/schema-reference.md` verbatim,
  * realizing ADRs 0001–0008. Forward-only (no `down`). Each statement runs on
  * its own via Kysely's `sql` tag.
  *
