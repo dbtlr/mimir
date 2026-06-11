@@ -139,13 +139,15 @@ function effectiveScope(
 }
 
 /**
- * Run the CLI for one invocation. `argv` is the args after `mimir`; `db` is an
- * open, migrated database; `io` is the injected sink + presentation context.
- * Returns the process exit code.
+ * Run the CLI for one invocation. `argv` is the args after `mimir`; `getDb`
+ * lazily supplies an open, migrated database — it must be idempotent (the
+ * caller owns the connection's lifecycle) and is called only by verbs that
+ * touch data, so help/usage/`skill` paths never open a store (MMR-39); `io`
+ * is the injected sink + presentation context. Returns the process exit code.
  */
 export async function runCli(
   argv: string[],
-  db: Db,
+  getDb: () => Db | Promise<Db>,
   io: Io,
   defaults: Defaults = {},
 ): Promise<number> {
@@ -216,20 +218,24 @@ export async function runCli(
   const ctx: Io = { ...io, plain: io.plain || values.ascii === true };
 
   try {
-    // Mutation context shared across all write-verb handlers (Tasks 3–8).
-    // Built inside the try block so a bad --format value is caught and rendered.
-    const mctx: Ctx = {
-      db,
+    // The write echo's format, picked inside the try block so a bad --format
+    // value is caught and rendered.
+    const singleFormat = pickFormat(values.format, "single", ctx);
+    // Mutation context shared across all write-verb handlers — built lazily so
+    // the store is acquired only by verbs that actually touch data (MMR-39):
+    // help, usage errors, and `skill install` never open or create it.
+    const mkCtx = async (): Promise<Ctx> => ({
+      db: await getDb(),
       positionals,
       values: values as Record<string, unknown>,
-      format: pickFormat(values.format, "single", ctx),
+      format: singleFormat,
       io: ctx,
-    };
+    });
 
     switch (command) {
       case "next":
         return runSet(
-          await nextTasks(db, {
+          await nextTasks(await getDb(), {
             scope: effectiveScope(values.scope, defaults.scope),
             priority: parsePriority(values.priority),
             size: parseSize(values.size),
@@ -243,7 +249,7 @@ export async function runCli(
         );
       case "list":
         return runSet(
-          await listNodes(db, {
+          await listNodes(await getDb(), {
             scope: effectiveScope(values.scope, defaults.scope),
             status: parseStatus(values.status),
             verdicts: parseVerdicts(values.is, values["not-is"]),
@@ -259,6 +265,7 @@ export async function runCli(
         );
       case "get": {
         const id = requireId(positionals[1], "get");
+        const db = await getDb();
         if (parseIdentity(id)?.kind === "artifact") {
           const content = (values.col ?? []).includes("content");
           renderArtifactDetail(
@@ -276,45 +283,45 @@ export async function runCli(
       }
       case "status": {
         const id = requireId(positionals[1], "status");
-        const status = await statusOfNode(db, id);
+        const status = await statusOfNode(await getDb(), id);
         const format = pickFormat(values.format, "status", ctx);
         ctx.write(format === "json" ? formatStatusJson(status) : renderStatus(status, ctx));
         return 0;
       }
       case "start":
-        return await cmdStart(mctx);
+        return await cmdStart(await mkCtx());
       case "done":
-        return await cmdDone(mctx);
+        return await cmdDone(await mkCtx());
       case "abandon":
-        return await cmdAbandon(mctx);
+        return await cmdAbandon(await mkCtx());
       case "park":
-        return await cmdPark(mctx);
+        return await cmdPark(await mkCtx());
       case "unpark":
-        return await cmdUnpark(mctx);
+        return await cmdUnpark(await mkCtx());
       case "block":
-        return await cmdBlock(mctx);
+        return await cmdBlock(await mkCtx());
       case "unblock":
-        return await cmdUnblock(mctx);
+        return await cmdUnblock(await mkCtx());
       case "depend":
-        return await cmdDepend(mctx);
+        return await cmdDepend(await mkCtx());
       case "undepend":
-        return await cmdUndepend(mctx);
+        return await cmdUndepend(await mkCtx());
       case "move":
-        return await cmdMove(mctx);
+        return await cmdMove(await mkCtx());
       case "reorder":
-        return await cmdReorder(mctx);
+        return await cmdReorder(await mkCtx());
       case "update":
-        return await cmdUpdate(mctx);
+        return await cmdUpdate(await mkCtx());
       case "annotate":
-        return await cmdAnnotate(mctx);
+        return await cmdAnnotate(await mkCtx());
       case "attach":
-        return await cmdAttach(mctx);
+        return await cmdAttach(await mkCtx());
       case "create":
-        return await cmdCreate(mctx);
+        return await cmdCreate(await mkCtx());
       case "tag":
-        return await cmdTag(mctx);
+        return await cmdTag(await mkCtx());
       case "untag":
-        return await cmdUntag(mctx);
+        return await cmdUntag(await mkCtx());
       case "skill": {
         const sub = positionals[1];
         if (sub !== "install") {
@@ -334,9 +341,9 @@ export async function runCli(
           mkdirSync(target.slice(0, target.lastIndexOf("/")), { recursive: true });
           writeFileSync(target, f.content);
         }
-        if (mctx.format === "json" || mctx.format === "jsonl") {
+        if (singleFormat === "json" || singleFormat === "jsonl") {
           ctx.write(JSON.stringify({ installed: { path: dir, files: SKILL_FILES.length, agent } }));
-        } else if (mctx.format === "ids") {
+        } else if (singleFormat === "ids") {
           ctx.write(dir);
         } else {
           const glyph = ctx.plain ? "[ok]" : "\x1b[32m✓\x1b[0m";
@@ -347,11 +354,11 @@ export async function runCli(
       case "bind": {
         const key = positionals[1];
         if (key === undefined) throw usage("bind requires a project KEY");
-        await resolveProject(db, key); // validates the project exists (not_found otherwise)
+        await resolveProject(await getDb(), key); // validates the project exists (not_found otherwise)
         writeBinding(defaults.cwd ?? process.cwd(), key);
-        if (mctx.format === "json" || mctx.format === "jsonl") {
+        if (singleFormat === "json" || singleFormat === "jsonl") {
           ctx.write(JSON.stringify({ bound: { project: key, file: BINDING_FILE } }));
-        } else if (mctx.format === "ids") {
+        } else if (singleFormat === "ids") {
           ctx.write(key);
         } else {
           const glyph = ctx.plain ? "[ok]" : "\x1b[32m✓\x1b[0m";

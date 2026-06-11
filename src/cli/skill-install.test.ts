@@ -45,9 +45,9 @@ test("skill install --local writes the full tree into the working copy", async (
   const dir = mkdtempSync(join(tmpdir(), "mimir-skill-"));
   try {
     const io = fakeIo();
-    expect(await runCli(["skill", "install", "--local", "-f", "ids"], db, io, { cwd: dir })).toBe(
-      0,
-    );
+    expect(
+      await runCli(["skill", "install", "--local", "-f", "ids"], () => db, io, { cwd: dir }),
+    ).toBe(0);
     const root = join(dir, ".claude", "skills", "mimir");
     expect(io.out.join("")).toBe(root);
     for (const f of SKILL_FILES) {
@@ -63,14 +63,14 @@ test("skill install --local --agent codex uses the .agents layout; reinstall ove
   const dir = mkdtempSync(join(tmpdir(), "mimir-skill-"));
   try {
     expect(
-      await runCli(["skill", "install", "--local", "--agent", "codex"], db, fakeIo(), {
+      await runCli(["skill", "install", "--local", "--agent", "codex"], () => db, fakeIo(), {
         cwd: dir,
       }),
     ).toBe(0);
     expect(existsSync(join(dir, ".agents", "skills", "mimir", "SKILL.md"))).toBe(true);
     // Refresh-on-upgrade: a second install over the same target succeeds.
     expect(
-      await runCli(["skill", "install", "--local", "--agent", "codex"], db, fakeIo(), {
+      await runCli(["skill", "install", "--local", "--agent", "codex"], () => db, fakeIo(), {
         cwd: dir,
       }),
     ).toBe(0);
@@ -82,13 +82,13 @@ test("skill install --local --agent codex uses the .agents layout; reinstall ove
 test("skill install rejects bad invocations (exit 2)", async () => {
   const dir = mkdtempSync(join(tmpdir(), "mimir-skill-"));
   try {
-    expect(await runCli(["skill"], db, fakeIo(), { cwd: dir })).toBe(2);
+    expect(await runCli(["skill"], () => db, fakeIo(), { cwd: dir })).toBe(2);
     expect(
-      await runCli(["skill", "install", "--global", "--local"], db, fakeIo(), { cwd: dir }),
+      await runCli(["skill", "install", "--global", "--local"], () => db, fakeIo(), { cwd: dir }),
     ).toBe(2);
     const io = fakeIo();
     expect(
-      await runCli(["skill", "install", "--local", "--agent", "vim"], db, io, { cwd: dir }),
+      await runCli(["skill", "install", "--local", "--agent", "vim"], () => db, io, { cwd: dir }),
     ).toBe(2);
     expect(io.err.join("")).toContain("unknown agent");
   } finally {

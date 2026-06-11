@@ -19,11 +19,13 @@ const PRAGMAS = [
 ] as const;
 
 /**
- * Open a Mimir database at `path` (default in-memory) as a typed Kysely
- * instance. The core is storage-committed: it talks to this `Kysely<DB>`
- * directly — there is no repository port to swap.
+ * Open a Mimir database at `path` as a typed Kysely instance. The path is
+ * always explicit — in-memory databases (`:memory:`) are a test-only
+ * construct (`db/testing.ts`); production code never constructs one. The
+ * core is storage-committed: it talks to this `Kysely<DB>` directly — there
+ * is no repository port to swap.
  */
-export function createDb(path = ":memory:"): Kysely<DB> {
+export function createDb(path: string): Kysely<DB> {
   const sqlite = new Database(path);
   for (const pragma of PRAGMAS) {
     sqlite.run(pragma);

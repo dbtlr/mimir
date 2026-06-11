@@ -6,10 +6,10 @@
 
 import {
   buildNodeView,
-  findNodeByRef,
   loadNode,
   notFound,
   parseIdentity,
+  resolveNodeToken,
   validation,
 } from "../core";
 import type { Db } from "../core";
@@ -18,23 +18,11 @@ import { type Format, type Io, renderNodeView } from "./render";
 export type { Format };
 
 /**
- * Resolve a node token to its surrogate integer id. Any rendered identity
- * parses (MMR-32); a token naming a project or artifact is rejected by the
- * verb as a behavioral error — `expected` names what the verb acts on.
+ * Resolve a node token to its surrogate integer id — the CLI's binding of the
+ * core `resolveNodeToken` guard, contributing the CLI-shaped not-found hint.
  */
 export async function resolveNode(db: Db, token: string, expected = "node"): Promise<number> {
-  const identity = parseIdentity(token);
-  if (identity?.kind === "project") {
-    throw validation(`${token} is a project, not a ${expected}`);
-  }
-  if (identity?.kind === "artifact") {
-    throw validation(`${token} is an artifact, not a ${expected}`);
-  }
-  const node = await findNodeByRef(db, token);
-  if (node === undefined) {
-    throw notFound(`no node ${token}`, "list ids with: mimir list -f ids");
-  }
-  return node.id;
+  return resolveNodeToken(db, token, expected, { notFound: "list ids with: mimir list -f ids" });
 }
 
 /**

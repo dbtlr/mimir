@@ -24,6 +24,7 @@ import {
   createTask,
   depend,
   findNodeByRef,
+  resolveNodeToken,
   getArtifact,
   getNode,
   listNodes,
@@ -68,23 +69,12 @@ const DETAIL_FACETS: readonly FacetName[] = [...SET_FACETS, "artifacts"];
 /** The project-record projection (verdicts/deps don't apply to a project). */
 const PROJECT_FACETS: readonly FacetName[] = ["children", "distribution", "tags", "artifacts"];
 
-/** Resolve a node token for a verb, rejecting project/artifact identities with a pointer. */
+/** Resolve a node token for a verb — the HTTP binding of the core guard, with route pointers. */
 async function nodeRef(db: Db, token: string, expected = "node"): Promise<number> {
-  const identity = parseIdentity(token);
-  if (identity?.kind === "project") {
-    throw validation(`${token} is a project, not a ${expected}`, "projects live at /api/projects");
-  }
-  if (identity?.kind === "artifact") {
-    throw validation(
-      `${token} is an artifact, not a ${expected}`,
-      "artifacts live at /api/artifacts",
-    );
-  }
-  const node = await findNodeByRef(db, token);
-  if (node === undefined) {
-    throw notFound(`no node ${token}`);
-  }
-  return node.id;
+  return resolveNodeToken(db, token, expected, {
+    project: "projects live at /api/projects",
+    artifact: "artifacts live at /api/artifacts",
+  });
 }
 
 /** The write echo — the full updated record, same shape as `GET /api/nodes/:id`. */

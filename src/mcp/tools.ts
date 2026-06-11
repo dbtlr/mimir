@@ -24,6 +24,7 @@ import {
   createTask,
   depend,
   findNodeByRef,
+  resolveNodeToken,
   formatArtifactJson,
   formatNodeJson,
   formatSetJson,
@@ -90,18 +91,9 @@ async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {
   }
 }
 
-/**
- * Resolve a node token to its surrogate id. Any rendered identity parses
- * (MMR-32); a token naming a project or artifact is rejected by the verb as a
- * behavioral error — `expected` names what the verb acts on.
- */
+/** Resolve a node token to its surrogate id — the MCP binding of the core guard. */
 async function nodeId(db: Db, id: string, expected = "node"): Promise<number> {
-  const identity = parseIdentity(id);
-  if (identity?.kind === "project") throw validation(`${id} is a project, not a ${expected}`);
-  if (identity?.kind === "artifact") throw validation(`${id} is an artifact, not a ${expected}`);
-  const n = await findNodeByRef(db, id);
-  if (n === undefined) throw notFound(`no node ${id}`);
-  return n.id;
+  return resolveNodeToken(db, id, expected);
 }
 
 /**

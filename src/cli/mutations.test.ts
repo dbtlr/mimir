@@ -119,70 +119,78 @@ test("readContent returns empty string when tail is empty and isTTY", async () =
 // lifecycle verbs via runCli
 test("start moves a task to in_progress and echoes it (exit 0)", async () => {
   const io = fakeIo(false);
-  const code = await runCli(["start", taskRef, "-f", "json"], db, io);
+  const code = await runCli(["start", taskRef, "-f", "json"], () => db, io);
   expect(code).toBe(0);
   expect(JSON.parse(io.out[0] ?? "{}").status).toBe("in_progress");
 });
 test("done completes a started task", async () => {
-  await runCli(["start", taskRef], db, fakeIo(false));
+  await runCli(["start", taskRef], () => db, fakeIo(false));
   const io = fakeIo(false);
-  const code = await runCli(["done", taskRef, "-f", "json"], db, io);
+  const code = await runCli(["done", taskRef, "-f", "json"], () => db, io);
   expect(code).toBe(0);
   expect(JSON.parse(io.out[0] ?? "{}").status).toBe("done");
 });
 test("abandon records a reason from the positional tail", async () => {
-  const code = await runCli(["abandon", taskRef, "superseded", "by", "nine"], db, fakeIo(false));
+  const code = await runCli(
+    ["abandon", taskRef, "superseded", "by", "nine"],
+    () => db,
+    fakeIo(false),
+  );
   expect(code).toBe(0);
 });
 test("a mutation on a missing id is not_found → exit 1", async () => {
   const io = fakeIo(false);
-  expect(await runCli(["done", "MMR-9999"], db, io)).toBe(1);
+  expect(await runCli(["done", "MMR-9999"], () => db, io)).toBe(1);
   expect(io.out).toHaveLength(0);
 });
 
 // hold verbs: park / unpark / block / unblock
 test("park sets the hold overlay → reads as parked", async () => {
   const io = fakeIo(false);
-  const code = await runCli(["park", taskRef, "waiting", "on", "review", "-f", "json"], db, io);
+  const code = await runCli(
+    ["park", taskRef, "waiting", "on", "review", "-f", "json"],
+    () => db,
+    io,
+  );
   expect(code).toBe(0);
   expect(JSON.parse(io.out[0] ?? "{}").status).toBe("parked");
 });
 test("unpark clears the hold", async () => {
-  await runCli(["park", taskRef], db, fakeIo(false));
-  expect(await runCli(["unpark", taskRef], db, fakeIo(false))).toBe(0);
+  await runCli(["park", taskRef], () => db, fakeIo(false));
+  expect(await runCli(["unpark", taskRef], () => db, fakeIo(false))).toBe(0);
 });
 test("block then unblock", async () => {
-  expect(await runCli(["block", taskRef, "ci", "red"], db, fakeIo(false))).toBe(0);
-  expect(await runCli(["unblock", taskRef], db, fakeIo(false))).toBe(0);
+  expect(await runCli(["block", taskRef, "ci", "red"], () => db, fakeIo(false))).toBe(0);
+  expect(await runCli(["unblock", taskRef], () => db, fakeIo(false))).toBe(0);
 });
 
 // dependency verbs: depend / undepend
 test("depend --on adds edges; undepend removes them", async () => {
   const t2 = await createTask(db, { parentId: phaseId, title: "t2" });
   const ref2 = `MMR-${String(t2.seq)}`;
-  expect(await runCli(["depend", taskRef, "--on", ref2], db, fakeIo(false))).toBe(0);
-  expect(await runCli(["undepend", taskRef, "--on", ref2], db, fakeIo(false))).toBe(0);
+  expect(await runCli(["depend", taskRef, "--on", ref2], () => db, fakeIo(false))).toBe(0);
+  expect(await runCli(["undepend", taskRef, "--on", ref2], () => db, fakeIo(false))).toBe(0);
 });
 test("depend without --on is a usage error → exit 2", async () => {
-  expect(await runCli(["depend", taskRef], db, fakeIo(false))).toBe(2);
+  expect(await runCli(["depend", taskRef], () => db, fakeIo(false))).toBe(2);
 });
 
 // structure verb: move
 test("move re-parents under --to", async () => {
   const phase2 = await createPhase(db, { parentId: initiativeId, title: "ph2" });
   const phase2Ref = `MMR-${String(phase2.seq)}`;
-  expect(await runCli(["move", taskRef, "--to", phase2Ref], db, fakeIo(false))).toBe(0);
+  expect(await runCli(["move", taskRef, "--to", phase2Ref], () => db, fakeIo(false))).toBe(0);
 });
 
 // structure verb: reorder
 test("reorder --before and --top", async () => {
   const t2 = await createTask(db, { parentId: phaseId, title: "t2" });
   const ref2 = `MMR-${String(t2.seq)}`;
-  expect(await runCli(["reorder", taskRef, "--before", ref2], db, fakeIo(false))).toBe(0);
-  expect(await runCli(["reorder", taskRef, "--top"], db, fakeIo(false))).toBe(0);
+  expect(await runCli(["reorder", taskRef, "--before", ref2], () => db, fakeIo(false))).toBe(0);
+  expect(await runCli(["reorder", taskRef, "--top"], () => db, fakeIo(false))).toBe(0);
 });
 test("reorder with no position flag is a usage error → exit 2", async () => {
-  expect(await runCli(["reorder", taskRef], db, fakeIo(false))).toBe(2);
+  expect(await runCli(["reorder", taskRef], () => db, fakeIo(false))).toBe(2);
 });
 
 // data verbs: update / annotate
@@ -190,7 +198,7 @@ test("update patches scalar fields and echoes them", async () => {
   const io = fakeIo(false);
   const code = await runCli(
     ["update", taskRef, "--priority", "p1", "--size", "large", "--title", "renamed", "-f", "json"],
-    db,
+    () => db,
     io,
   );
   expect(code).toBe(0);
@@ -199,13 +207,15 @@ test("update patches scalar fields and echoes them", async () => {
   expect(v.title).toBe("renamed");
 });
 test("update rejects an invalid priority as usage → exit 2", async () => {
-  expect(await runCli(["update", taskRef, "--priority", "p9"], db, fakeIo(false))).toBe(2);
+  expect(await runCli(["update", taskRef, "--priority", "p9"], () => db, fakeIo(false))).toBe(2);
 });
 test("annotate from the positional tail exits 0", async () => {
-  expect(await runCli(["annotate", taskRef, "looked", "into", "this"], db, fakeIo(false))).toBe(0);
+  expect(
+    await runCli(["annotate", taskRef, "looked", "into", "this"], () => db, fakeIo(false)),
+  ).toBe(0);
 });
 test("annotate with no content is a usage error → exit 2", async () => {
-  expect(await runCli(["annotate", taskRef], db, fakeIo(true))).toBe(2); // isTTY=true so stdin isn't read
+  expect(await runCli(["annotate", taskRef], () => db, fakeIo(true))).toBe(2); // isTTY=true so stdin isn't read
 });
 
 // create verbs
@@ -213,7 +223,7 @@ test("create project echoes the new key", async () => {
   const io = fakeIo(false);
   const code = await runCli(
     ["create", "project", "--key", "NEW", "--name", "New Proj", "-y"],
-    db,
+    () => db,
     io,
   );
   expect(code).toBe(0);
@@ -223,7 +233,7 @@ test("create task under a phase, with signals", async () => {
   const io = fakeIo(false);
   const code = await runCli(
     ["create", "task", "A new task", "--parent", phaseRef, "--priority", "p2", "-f", "json"],
-    db,
+    () => db,
     io,
   );
   expect(code).toBe(0);
@@ -233,14 +243,16 @@ test("create task under a phase, with signals", async () => {
 });
 test("create initiative under a bare project KEY", async () => {
   expect(
-    await runCli(["create", "initiative", "Big bet", "--parent", "MMR"], db, fakeIo(false)),
+    await runCli(["create", "initiative", "Big bet", "--parent", "MMR"], () => db, fakeIo(false)),
   ).toBe(0);
 });
 test("create with an unknown type is a usage error → exit 2", async () => {
-  expect(await runCli(["create", "widget", "x", "--parent", "MMR"], db, fakeIo(false))).toBe(2);
+  expect(await runCli(["create", "widget", "x", "--parent", "MMR"], () => db, fakeIo(false))).toBe(
+    2,
+  );
 });
 test("create task without --parent is a usage error → exit 2", async () => {
-  expect(await runCli(["create", "task", "orphan"], db, fakeIo(false))).toBe(2);
+  expect(await runCli(["create", "task", "orphan"], () => db, fakeIo(false))).toBe(2);
 });
 
 // attach verb
@@ -248,7 +260,7 @@ test("attach to a node infers the project and echoes an artifact id", async () =
   const tmp = `${process.env.TMPDIR ?? "/tmp"}/mimir-attach-ok.md`;
   await Bun.write(tmp, "# plan\n");
   const io = fakeIo(false);
-  const code = await runCli(["attach", taskRef, "--file", tmp, "-f", "json"], db, io);
+  const code = await runCli(["attach", taskRef, "--file", tmp, "-f", "json"], () => db, io);
   expect(code).toBe(0);
   expect(JSON.parse(io.out[0] ?? "{}").artifact.id).toMatch(/^[A-Z]{2,4}-a\d+$/);
 });
@@ -262,17 +274,17 @@ test("attach rejects a --link in a different project (validation → exit 1)", a
   const io = fakeIo(false);
   const code = await runCli(
     ["attach", taskRef, "--file", tmp, "--link", `OTH-${String(ot.seq)}`],
-    db,
+    () => db,
     io,
   );
   expect(code).toBe(1);
   expect(io.out).toHaveLength(0);
 });
 test("attach with no content and no --file on a TTY is a usage error → exit 2", async () => {
-  expect(await runCli(["attach", taskRef], db, fakeIo(true))).toBe(2); // isTTY=true ⇒ stdin not read
+  expect(await runCli(["attach", taskRef], () => db, fakeIo(true))).toBe(2); // isTTY=true ⇒ stdin not read
 });
 test("attach to a missing node is not_found → exit 1", async () => {
   const tmp = `${process.env.TMPDIR ?? "/tmp"}/mimir-attach-nf.md`;
   await Bun.write(tmp, "x");
-  expect(await runCli(["attach", "MMR-9999", "--file", tmp], db, fakeIo(false))).toBe(1);
+  expect(await runCli(["attach", "MMR-9999", "--file", tmp], () => db, fakeIo(false))).toBe(1);
 });
