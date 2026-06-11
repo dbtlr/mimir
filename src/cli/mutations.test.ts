@@ -288,3 +288,16 @@ test("attach to a missing node is not_found → exit 1", async () => {
   await Bun.write(tmp, "x");
   expect(await runCli(["attach", "MMR-9999", "--file", tmp], () => db, fakeIo(false))).toBe(1);
 });
+
+test("blank required tokens are usage errors → exit 2, not not_found (MMR-41)", async () => {
+  // flag tokens
+  expect(await runCli(["move", taskRef, "--to", ""], () => db, fakeIo(false))).toBe(2);
+  expect(await runCli(["depend", taskRef, "--on", ""], () => db, fakeIo(false))).toBe(2);
+  expect(await runCli(["undepend", taskRef, "--on", ""], () => db, fakeIo(false))).toBe(2);
+  expect(await runCli(["reorder", taskRef, "--before", ""], () => db, fakeIo(false))).toBe(2);
+  expect(await runCli(["reorder", taskRef, "--after", ""], () => db, fakeIo(false))).toBe(2);
+  // a blank entry inside a csv list is the same malformation
+  expect(await runCli(["depend", taskRef, "--on", `${taskRef},`], () => db, fakeIo(false))).toBe(2);
+  // blank positional id
+  expect(await runCli(["start", ""], () => db, fakeIo(false))).toBe(2);
+});

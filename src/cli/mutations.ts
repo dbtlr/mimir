@@ -46,11 +46,21 @@ export interface Ctx {
   io: Io;
 }
 
-/** Assert that positional at index `i` is present, else throw a usage error. */
+/** Assert that positional at index `i` is present and non-blank, else throw a usage error. */
 export function requirePos(c: Ctx, i: number, verb: string, noun = "a node id (KEY-seq)"): string {
   const v = c.positionals[i];
-  if (v === undefined) throw usage(`${verb} requires ${noun}`);
+  if (v === undefined || v.trim() === "") throw usage(`${verb} requires ${noun}`);
   return v;
+}
+
+/**
+ * Assert a flag's token is non-blank, else throw a usage error — a blank
+ * where a required id belongs is a malformed invocation, not a lookup miss
+ * (MMR-41: `--to ''` is usage/exit 2, never not_found/exit 1).
+ */
+function requireToken(value: string, verb: string, flag: string): string {
+  if (value.trim() === "") throw usage(`${verb} --${flag} expects an id (KEY-seq)`);
+  return value;
 }
 
 export async function cmdStart(c: Ctx): Promise<number> {
@@ -104,15 +114,16 @@ export async function cmdUnblock(c: Ctx): Promise<number> {
   return 0;
 }
 
-async function resolveIds(db: Db, csv: string): Promise<number[]> {
-  return Promise.all(csv.split(",").map((t) => resolveNode(db, t.trim())));
+async function resolveIds(db: Db, csv: string, verb: string, flag: string): Promise<number[]> {
+  const tokens = csv.split(",").map((t) => requireToken(t, verb, flag).trim());
+  return Promise.all(tokens.map((t) => resolveNode(db, t)));
 }
 
 export async function cmdDepend(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "depend"));
   const on = lastFlag(c, "on");
   if (on === undefined) throw usage("depend requires --on <ids>");
-  await depend(c.db, id, await resolveIds(c.db, on));
+  await depend(c.db, id, await resolveIds(c.db, on, "depend", "on"));
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }
@@ -121,7 +132,7 @@ export async function cmdUndepend(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "undepend"));
   const on = lastFlag(c, "on");
   if (on === undefined) throw usage("undepend requires --on <ids>");
-  await undepend(c.db, id, await resolveIds(c.db, on));
+  await undepend(c.db, id, await resolveIds(c.db, on, "undepend", "on"));
   await echoNode(c.db, id, c.format, c.io);
   return 0;
 }
@@ -129,7 +140,7 @@ export async function cmdUndepend(c: Ctx): Promise<number> {
 export async function cmdMove(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "move"));
   if (typeof c.values.to !== "string") throw usage("move requires --to <parent>");
-  const parentId = await resolveNode(c.db, c.values.to);
+  const parentId = await resolveNode(c.db, requireToken(c.values.to, "move", "to"));
   await moveNode(c.db, id, parentId);
   await echoNode(c.db, id, c.format, c.io);
   return 0;
@@ -147,10 +158,10 @@ export async function cmdReorder(c: Ctx): Promise<number> {
     position = "bottom";
   } else if (before !== undefined) {
     position = "before";
-    refId = await resolveNode(c.db, before);
+    refId = await resolveNode(c.db, requireToken(before, "reorder", "before"));
   } else if (after !== undefined) {
     position = "after";
-    refId = await resolveNode(c.db, after);
+    refId = await resolveNode(c.db, requireToken(after, "reorder", "after"));
   } else {
     throw usage("reorder requires one of --top | --bottom | --before <id> | --after <id>");
   }

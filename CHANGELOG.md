@@ -15,6 +15,10 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- Blank required tokens (`--to ''`, `--on ''`, `--before ''`/`--after ''`, a
+  blank positional id, or a blank entry in a `--on` list) are now usage
+  errors (exit 2) instead of resolving to `not_found` (exit 1) — a blank
+  where an id belongs is a malformed invocation, not a lookup miss.
 - **The throwaway in-memory database is gone** — the CLI acquires the store
   lazily, only when a verb actually touches data. Previously `main` kept a
   hand-maintained verb list to decide who got the real database; a verb
