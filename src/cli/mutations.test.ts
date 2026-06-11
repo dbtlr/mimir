@@ -301,3 +301,30 @@ test("blank required tokens are usage errors → exit 2, not not_found (MMR-41)"
   // blank positional id
   expect(await runCli(["start", ""], () => db, fakeIo(false))).toBe(2);
 });
+
+test("update KEY-aN retitles the artifact; node-only flags refused (MMR-40)", async () => {
+  const tmp = `${process.env.TMPDIR ?? "/tmp"}/mimir-retitle.md`;
+  await Bun.write(tmp, "# body");
+  const io = fakeIo(false);
+  expect(
+    await runCli(
+      ["attach", taskRef, "--file", tmp, "--title", "wrong", "-f", "json"],
+      () => db,
+      io,
+    ),
+  ).toBe(0);
+  const aId = (JSON.parse(io.out.join("")) as { artifact: { id: string } }).artifact.id;
+
+  const echo = fakeIo(false);
+  expect(await runCli(["update", aId, "--title", "right", "-f", "json"], () => db, echo)).toBe(0);
+  const detail = JSON.parse(echo.out.join("")) as { id: string; title: string };
+  expect(detail.id).toBe(aId);
+  expect(detail.title).toBe("right");
+
+  // node-only flags on an artifact id are a behavioral error → exit 1
+  expect(await runCli(["update", aId, "--priority", "p1"], () => db, fakeIo(false))).toBe(1);
+  // blank title is validation (the field is being set badly, not missing) → exit 1
+  expect(await runCli(["update", aId, "--title", ""], () => db, fakeIo(false))).toBe(1);
+  // unknown artifact → not_found
+  expect(await runCli(["update", "MMR-a999", "--title", "x"], () => db, fakeIo(false))).toBe(1);
+});

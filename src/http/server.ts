@@ -23,6 +23,7 @@ import {
   createProject,
   createTask,
   depend,
+  findArtifactByRef,
   findNodeByRef,
   resolveNodeToken,
   getArtifact,
@@ -46,6 +47,7 @@ import {
   undepend,
   unparkTask,
   untagEntities,
+  updateArtifact,
   updateNode,
   validation,
 } from "../core";
@@ -602,6 +604,24 @@ export function createServer(db: Db, opts: ServeOptions): Server<undefined> {
       "/api/artifacts/:id": {
         GET: (req) =>
           guarded(req, async () => {
+            const detail = await getArtifact(db, req.params.id, { content: true });
+            return json(req, artifactToWire(detail));
+          }),
+        // The dumb update for an artifact (MMR-40): title only; content is
+        // frozen (ADR 0004) and never patchable.
+        PATCH: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ["title"]);
+            const identity = parseIdentity(req.params.id);
+            if (identity?.kind !== "artifact") {
+              throw notFound(`no artifact with id ${req.params.id}`);
+            }
+            const artifact = await findArtifactByRef(db, identity);
+            if (artifact === undefined) throw notFound(`no artifact ${req.params.id}`);
+            const title = strField(body, "title");
+            if (title !== undefined) {
+              await updateArtifact(db, artifact.id, { title });
+            }
             const detail = await getArtifact(db, req.params.id, { content: true });
             return json(req, artifactToWire(detail));
           }),

@@ -274,7 +274,7 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
   register(
     server,
     "update",
-    "Patch a node's scalar fields (title, description, priority, size, target, externalRef). Echoes the updated node.",
+    "Patch a node's scalar fields (title, description, priority, size, target, externalRef), or retitle an artifact (KEY-aN id, title only). Echoes the updated record.",
     {
       id: z.string(),
       title: z.string().optional(),

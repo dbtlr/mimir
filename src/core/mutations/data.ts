@@ -66,6 +66,39 @@ export async function annotate(db: Db, id: number, content: string): Promise<Nod
   });
 }
 
+export interface ArtifactUpdateFields {
+  title?: string;
+}
+
+/**
+ * The dumb `update` for an artifact (MMR-40): `title` is the only mutable
+ * field — content stays frozen (ADR 0004), so a mistitled attach is
+ * repairable while the record itself remains immutable. Unlogged, like every
+ * metadata patch (the transition log records status transitions).
+ */
+export async function updateArtifact(
+  db: Db,
+  id: number,
+  fields: ArtifactUpdateFields,
+): Promise<void> {
+  if (fields.title !== undefined && fields.title.trim() === "") {
+    throw validation("an artifact title cannot be blank");
+  }
+  await db.transaction().execute(async (tx) => {
+    const artifact = await tx
+      .selectFrom("artifact")
+      .select("id")
+      .where("id", "=", id)
+      .executeTakeFirst();
+    if (artifact === undefined) {
+      throw notFound("artifact not found");
+    }
+    if (fields.title !== undefined) {
+      await tx.updateTable("artifact").set({ title: fields.title }).where("id", "=", id).execute();
+    }
+  });
+}
+
 export interface AttachArtifactInput {
   projectId: number;
   /** Required (MMR-34): the human handle every artifact carries. */
