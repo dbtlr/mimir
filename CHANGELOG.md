@@ -13,6 +13,12 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+## v0.4.0 - 2026-06-11
+
+The console release: the HTTP API ships in the binary, and the architecture
+docs ship in the repo. After upgrading, re-run `mimir skill install` to
+refresh installed copies of the embedded skill.
+
 ### Fixed
 
 - Blank required tokens (`--to ''`, `--on ''`, `--before ''`/`--after ''`, a
