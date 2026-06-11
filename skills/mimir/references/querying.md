@@ -44,6 +44,11 @@ mimir list --is orphaned           # live stragglers whose siblings all finished
 different signals — chase blocked, leave awaiting alone. Verdicts negate too:
 `--not-is stale`.
 
+To _read_ the verdicts on one record instead of filtering by them, ask for the
+`verdicts` column — `mimir get KEY-9 --col verdicts` adds the derived
+`stale`/`blocking`/`orphaned` flags to the detail (they're always present in
+the HTTP API's records).
+
 ## 4. Filtered queues
 
 ```sh
