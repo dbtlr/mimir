@@ -13,6 +13,16 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+## v0.3.0 - 2026-06-11
+
+The adoption release: the agent skill ships in the binary, and a working copy
+binds to its project with a checked-in file. Pre-release: the breaking change
+below ships without a deprecation shim — there are no external consumers.
+
+> Upgrade note: the first run of v0.3.0 migrates the store (`0004`); after
+> that, a v0.2.0 binary's `create project` will fail against it. Upgrade,
+> don't mix.
+
 ### Added
 
 - **The agent skill** (`mimir skill install`): the skill that teaches agents to
