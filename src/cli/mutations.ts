@@ -331,8 +331,26 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       if (name === undefined) {
         throw usage("create project requires a name", 'create project "Name" --key KEY');
       }
+      const key = strFlag(c, "key", "create project requires --key");
+      // The key is immutable, so creation is the one gated write (ADR 0011
+      // grooming): interactive sessions confirm at a prompt; non-interactive
+      // callers must pass -y/--yes — the recorded proof confirmation happened.
+      if (c.values.yes !== true) {
+        if (!c.io.isTTY) {
+          throw usage(
+            `create project ${key}: the key is immutable — confirmation required`,
+            "re-run with -y/--yes to confirm",
+          );
+        }
+        if (
+          !globalThis.confirm(`create project ${key} ("${name}") — the key is immutable. proceed?`)
+        ) {
+          c.io.error(`${c.io.plain ? "[err]" : "\x1b[31m✗\x1b[0m"} aborted`);
+          return 1;
+        }
+      }
       const project = await createProject(c.db, {
-        key: strFlag(c, "key", "create project requires --key"),
+        key,
         name,
         repo: optStr(c, "repo"),
         path: optStr(c, "path"),

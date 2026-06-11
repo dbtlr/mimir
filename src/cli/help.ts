@@ -40,8 +40,13 @@ manage commands:
                                         (repeatable --tag <t> tags at creation)
     attach <id> --file <path>           freeze an artifact onto a node
 
+  binding:
+    bind <KEY>              bind this directory to a project — writes
+                            .mimir.toml, the default --scope from then on
+
 options:
-  -s, --scope <KEY>       limit to a project
+  -s, --scope <KEY>       limit to a project (default: the .mimir.toml
+                          binding if present; "all" = every project)
   -p, --priority <p0..p3> filter by priority (signal, not sort)
       --size <s|m|l>      filter by size
   -t, --tag <tag>         list: filter by tag
@@ -75,6 +80,8 @@ options:
       --bottom            reorder: move to last position
       --parent <KEY|id>   create: parent node for initiative/phase/task
       --key <KEY>         create project: short identifier key
+  -y, --yes               create project: confirm the immutable key
+                          (required when not at a TTY)
       --name <name>       create project: display name (or positional)
       --title <text>      create/update: title text
       --desc <text>       create/update: description
@@ -109,6 +116,8 @@ examples:
   mimir attach MMR-3 --file plan.md   # freeze an artifact onto a task
   mimir tag MMR-3,MMR-a1 spec v2      # tag a task and an artifact
   mimir untag MMR-3 v2                # remove a tag
+  mimir bind MMR                      # .mimir.toml: default scope for this repo
+  mimir list -s all --is stale        # cross-project, ignoring the binding
 
 notes:
   - ids: project = bare KEY, node = KEY-seq, artifact = KEY-aN; any id
@@ -121,4 +130,6 @@ notes:
     echo the affected node on success.
   - rank is never shown — array order is the order (ADR 0007).
   - structured formats (ids/json/jsonl) never carry color; pipe-safe.
+  - scope default: the nearest .mimir.toml walking up from cwd (mimir bind);
+    explicit -s overrides, -s all queries every project.
 `;

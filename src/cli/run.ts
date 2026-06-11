@@ -40,6 +40,8 @@ import {
   renderTable,
 } from "./render";
 import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from "./errors";
+import { BINDING_FILE, writeBinding } from "./binding";
+import { resolveProject } from "./resolve";
 import { parsePriority, parseSize } from "./parse";
 import {
   type Ctx,
@@ -105,14 +107,43 @@ const OPTIONS = {
   title: { type: "string" },
   repo: { type: "string" },
   path: { type: "string" },
+  yes: { type: "boolean", short: "y" },
 } as const;
+
+/**
+ * Per-invocation environment defaults resolved by the composition root —
+ * the Project Binding scope (ADR 0011) and the directory `bind` writes into.
+ * Injected so the CLI stays testable without touching the real cwd.
+ */
+export interface Defaults {
+  scope?: string;
+  cwd?: string;
+}
+
+/**
+ * The effective `-s` scope: an explicit flag wins; the literal `all` is the
+ * cross-project escape (a key is uppercase, so `all` can never collide);
+ * otherwise the Project Binding's key, if any.
+ */
+function effectiveScope(
+  explicit: string | undefined,
+  bound: string | undefined,
+): string | undefined {
+  if (explicit === "all") return undefined;
+  return explicit ?? bound;
+}
 
 /**
  * Run the CLI for one invocation. `argv` is the args after `mimir`; `db` is an
  * open, migrated database; `io` is the injected sink + presentation context.
  * Returns the process exit code.
  */
-export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
+export async function runCli(
+  argv: string[],
+  db: Db,
+  io: Io,
+  defaults: Defaults = {},
+): Promise<number> {
   let values: {
     scope?: string;
     priority?: string;
@@ -155,6 +186,7 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
     title?: string;
     repo?: string;
     path?: string;
+    yes?: boolean;
   };
   let positionals: string[];
   try {
@@ -192,7 +224,7 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
       case "next":
         return runSet(
           await nextTasks(db, {
-            scope: values.scope,
+            scope: effectiveScope(values.scope, defaults.scope),
             priority: parsePriority(values.priority),
             size: parseSize(values.size),
             verdicts: parseVerdicts(values.is, values["not-is"]),
@@ -206,7 +238,7 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
       case "list":
         return runSet(
           await listNodes(db, {
-            scope: values.scope,
+            scope: effectiveScope(values.scope, defaults.scope),
             status: parseStatus(values.status),
             verdicts: parseVerdicts(values.is, values["not-is"]),
             filters: parseFilters(values),
@@ -277,6 +309,21 @@ export async function runCli(argv: string[], db: Db, io: Io): Promise<number> {
         return await cmdTag(mctx);
       case "untag":
         return await cmdUntag(mctx);
+      case "bind": {
+        const key = positionals[1];
+        if (key === undefined) throw usage("bind requires a project KEY");
+        await resolveProject(db, key); // validates the project exists (not_found otherwise)
+        writeBinding(defaults.cwd ?? process.cwd(), key);
+        if (mctx.format === "json" || mctx.format === "jsonl") {
+          ctx.write(JSON.stringify({ bound: { project: key, file: BINDING_FILE } }));
+        } else if (mctx.format === "ids") {
+          ctx.write(key);
+        } else {
+          const glyph = ctx.plain ? "[ok]" : "\x1b[32m✓\x1b[0m";
+          ctx.write(`${glyph} bound to ${key} (${BINDING_FILE})`);
+        }
+        return 0;
+      }
       default:
         throw usage(`unknown command: ${command}`);
     }
