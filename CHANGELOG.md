@@ -35,6 +35,9 @@ release. When a release is cut, this section is promoted to
   permanent. Content stays frozen (ADR 0004); node-only fields on an
   artifact id are a validation error. Re-tagging with `--note` already
   replaced the stored note (tag is an upsert) — now documented in the skill.
+- The embedded skill teaches the `--col verdicts` read (the Phase-4 derived
+  flags) alongside the `--is` filters; re-run `mimir skill install` after
+  upgrading to refresh installed copies.
 - Node-token rejection ("`X` is a project, not a task") is one core
   implementation behind the CLI, MCP, and HTTP guards instead of three
   transport-edge copies.
