@@ -28,8 +28,12 @@ jobs:
 
       # The same gate enforced locally: oxfmt + oxlint + type-aware typecheck,
       # warnings treated as errors (vite.config.ts: denyWarnings, maxWarnings 0).
+      # `check`/`test` regenerate the embedded-UI manifest first (ADR 0013).
       - name: Check (format · lint · typecheck)
         run: bun run check
 
       - name: Test
-        run: bun test
+        run: bun run test
+
+      - name: Test UI
+        run: bun run test:ui

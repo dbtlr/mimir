@@ -41,8 +41,12 @@ const forbid = (files: string[], layers: string[]): Override => ({
 });
 
 export default defineConfig({
+  fmt: {
+    // machine-written (scripts/generate-ui-assets.ts) and gitignored
+    ignorePatterns: ["**/*.generated.ts"],
+  },
   lint: {
-    ignorePatterns: ["dist/**", "node_modules/**"],
+    ignorePatterns: ["dist/**", "node_modules/**", "**/*.generated.ts"],
     options: {
       // The quality gate: type-aware lint + full type-check, warnings are errors.
       typeAware: true,

@@ -1,0 +1,89 @@
+import type {
+  Distribution,
+  Hold,
+  Lifecycle,
+  NodeRef,
+  Priority,
+  Size,
+  StatusWord,
+  Verdicts,
+  ViewType,
+} from "@mimir/contract";
+
+/**
+ * The wire shapes the resource envelope serves (`nodeToWire` in the binary):
+ * the contract's `NodeView` rendered in the output-contract's snake_case field
+ * names. Field *values* (status words, priorities, verdicts, refs…) are the
+ * contract's types verbatim — only the casing of facet field names differs,
+ * because the contract deliberately keeps the internal camelCase `NodeView`
+ * separate from the rendered wire (see `@mimir/bin` core/format.ts).
+ */
+
+export interface WireDeps {
+  depends_on: NodeRef[];
+  blocking: NodeRef[];
+}
+
+export interface WireTag {
+  tag: string;
+  note: string | null;
+  created_at: string;
+}
+
+export interface WireAnnotation {
+  content: string;
+  created_at: string;
+}
+
+export interface WireArtifact {
+  id: string;
+  title: string;
+  tags: string[];
+  created_at: string;
+}
+
+/** A rendered node record — bare fields always, facets when the route includes them. */
+export interface WireNode {
+  id: string;
+  type: ViewType;
+  title: string;
+  status: StatusWord;
+  parent: string | null;
+  description: string | null;
+
+  priority?: Priority | null;
+  size?: Size | null;
+  lifecycle?: Lifecycle;
+  hold?: Hold;
+  hold_reason?: string | null;
+  external_ref?: string | null;
+  target?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+
+  deps?: WireDeps;
+  children?: NodeRef[];
+  distribution?: Distribution;
+  tags?: WireTag[];
+  annotations?: WireAnnotation[];
+  artifacts?: WireArtifact[];
+  verdicts?: Verdicts;
+}
+
+/** The nested whole-project tree (`/api/projects/:key/tree`) — children rank-ordered. */
+export interface WireTreeNode extends Omit<WireNode, "children"> {
+  children: WireTreeNode[];
+}
+
+/** The collection envelope with its count (ADR 0012 — never a bare array). */
+export interface Collection<T> {
+  total: number;
+  items: T[];
+}
+
+/** The project key a rendered id belongs to (`MMR-16` → `MMR`, `MMR` → `MMR`). */
+export function projectKeyOf(id: string): string {
+  const dash = id.indexOf("-");
+  return dash === -1 ? id : id.slice(0, dash);
+}

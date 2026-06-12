@@ -9,10 +9,14 @@
   "type": "module",
   "scripts": {
     "mimir": "bun run packages/bin/src/main.ts",
-    "check": "vp check",
-    "test": "bun test",
-    "verify": "bun run check && bun test",
-    "build": "bun build packages/bin/src/main.ts --compile --outfile dist/mimir"
+    "assets": "bun packages/bin/scripts/generate-ui-assets.ts",
+    "build:ui": "bun run --cwd packages/ui build",
+    "dev:ui": "bun run --cwd packages/ui dev",
+    "check": "bun run assets && vp check",
+    "test": "bun run assets && bun test packages/bin",
+    "test:ui": "bun run --cwd packages/ui test",
+    "verify": "bun run check && bun run test && bun run test:ui",
+    "build": "bun run build:ui && bun run assets && bun build packages/bin/src/main.ts --compile --outfile dist/mimir"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -1,0 +1,75 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, test, vi } from "vitest";
+import type { ReactNode } from "react";
+import { NodeDrawer } from "../components/node-drawer";
+import { task } from "./fixtures";
+
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock("../api/client", () => ({ apiGet }));
+
+function wrapper({ children }: { children: ReactNode }) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchInterval: false } },
+  });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
+describe("NodeDrawer", () => {
+  test("renders the full record with annotations and artifact titles", async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === "/api/nodes/MMR-16") {
+        return Promise.resolve(
+          task({
+            id: "MMR-16",
+            status: "in_progress",
+            title: "Web UI chunk 1",
+            priority: "p1",
+            size: "large",
+            tags: [{ tag: "release:v0.5", note: null, created_at: "2026-06-10T00:00:00.000Z" }],
+            deps: {
+              depends_on: [{ id: "MMR-15", status: "done" }],
+              blocking: [{ id: "MMR-51", status: "awaiting" }],
+            },
+            artifacts: [
+              {
+                id: "MMR-a3",
+                title: "console design notes",
+                tags: [],
+                created_at: "2026-06-10T00:00:00.000Z",
+              },
+            ],
+          }),
+        );
+      }
+      if (path === "/api/nodes/MMR-16/annotations") {
+        return Promise.resolve({
+          total: 1,
+          items: [
+            {
+              content: "Groomed: read-only console first.",
+              created_at: "2026-06-10T01:00:00.000Z",
+            },
+          ],
+        });
+      }
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+
+    render(<NodeDrawer nodeId="MMR-16" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+
+    expect(await screen.findByText("Web UI chunk 1")).toBeDefined();
+    expect(await screen.findByText("Groomed: read-only console first.")).toBeDefined();
+    expect(await screen.findByText("console design notes")).toBeDefined();
+    expect(screen.getByText("MMR-15")).toBeDefined();
+    expect(screen.getByText("MMR-51")).toBeDefined();
+    expect(screen.getByText("release:v0.5")).toBeDefined();
+    expect(screen.getByText("p1")).toBeDefined();
+    expect(screen.getByText("In progress")).toBeDefined();
+  });
+
+  test("closed drawer renders nothing", () => {
+    render(<NodeDrawer nodeId={undefined} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    expect(screen.queryByTestId("drawer-body")).toBeNull();
+  });
+});
