@@ -20,13 +20,16 @@ plus `bun test` (the suite on in-memory SQLite).
 
 ## Project shape
 
-One core, thin transports. `src/contract` is the dependency-free type leaf;
-`src/db` owns persistence; `src/core` is the storage-committed domain logic
-(derivation, rank, mutation verbs, intent layer); `src/cli` and `src/mcp` are
-the transports; `src/main.ts` is the composition root. The layering
-`contract ← db ← core ← transports` is enforced by an oxlint rule — `core` may
-not import a transport, `db` may not import `core`, transports may not import
-each other or `db`.
+One core, thin transports, in a Bun workspace. `packages/contract`
+(`@mimir/contract`) is the dependency-free type leaf — the wire vocabulary
+every consumer parses. `packages/bin` (`@mimir/bin`) is the binary: `src/db`
+owns persistence; `src/core` is the storage-committed domain logic (derivation,
+rank, mutation verbs, intent layer); `src/cli`, `src/mcp`, and `src/http` are
+the transports; `src/main.ts` is the composition root. `packages/ui`
+(`@mimir/ui`) is the operator-console SPA, embedded in the binary at build
+time. Inside the binary the layering `contract ← db ← core ← transports` is
+enforced by an oxlint rule — `core` may not import a transport, `db` may not
+import `core`, transports may not import each other or `db`.
 
 ## Pull requests
 
