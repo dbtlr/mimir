@@ -46,7 +46,12 @@ jobs:
 
       # Test on the target platform before shipping its binary.
       - name: Test
-        run: bun test
+        run: bun run test
+
+      # The console builds before the binary so its dist embeds (ADR 0013):
+      # vite build → generate the asset manifest → compile.
+      - name: Build UI
+        run: bun run build:ui && bun run assets
 
       - name: Compile
         run: |

@@ -52,6 +52,8 @@ import {
   validation,
 } from "../core";
 import { guarded, json, preflight, readBody, requiredStr, strField, strList } from "./respond";
+import { uiResponse, type UiAssetMap } from "./static";
+import { UI_ASSETS } from "./ui-assets.generated";
 
 /**
  * The HTTP transport — the resource envelope (ADR 0012): conventional,
@@ -171,6 +173,8 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
 
 export interface ServeOptions {
   port: number;
+  /** The embedded-UI manifest; tests inject fixtures, prod uses the generated map. */
+  assets?: UiAssetMap;
 }
 
 /**
@@ -652,6 +656,14 @@ export function createServer(db: Db, opts: ServeOptions): Server<undefined> {
         return preflight(req);
       }
       const { pathname } = new URL(req.url);
+      // Everything outside /api/* is the console's: exact asset, else the
+      // SPA fallback (ADR 0013). With no UI built, misses stay 404s.
+      if (req.method === "GET" && pathname !== "/api" && !pathname.startsWith("/api/")) {
+        const ui = uiResponse(pathname, opts.assets ?? UI_ASSETS);
+        if (ui !== null) {
+          return ui;
+        }
+      }
       return json(req, { error: { code: "not_found", message: `no route ${pathname}` } }, 404);
     },
   });

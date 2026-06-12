@@ -1,0 +1,103 @@
+@import "@fontsource-variable/archivo";
+@import "@fontsource-variable/jetbrains-mono";
+@import "tailwindcss";
+
+/*
+ * The console's design system — "instrument panel over the well".
+ * Dark-first, dense, hairline-bordered. One status color system, declared
+ * once here and consumed identically by distribution bars, board column
+ * headers, tree badges, and the drawer (the spec's consistency rule).
+ */
+@theme {
+  --font-sans: "Archivo Variable", "Archivo", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+
+  /* the well — page/panel depths */
+  --color-well-950: #070a10;
+  --color-well-900: #0a0e16;
+  --color-well-850: #0d1320;
+  --color-well-800: #111828;
+  --color-well-700: #19233a;
+
+  /* ink — text depths */
+  --color-ink-bright: #eef3fa;
+  --color-ink: #c3cfdf;
+  --color-ink-dim: #6b7a90;
+  --color-ink-faint: #44506a;
+
+  /* hairlines + accent */
+  --color-line: #1d2840;
+  --color-line-bright: #2c3b5e;
+  --color-accent: #62d6e8;
+
+  /* the status vocabulary — the one color system */
+  --color-status-in-progress: #fdb45c;
+  --color-status-ready: #5da2ff;
+  --color-status-awaiting: #9a8cf5;
+  --color-status-blocked: #f4586c;
+  --color-status-parked: #a39a82;
+  --color-status-done: #46c184;
+  --color-status-abandoned: #5c6678;
+  --color-status-new: #3e4a61;
+
+  --animate-pulse-dot: pulse-dot 2.2s ease-in-out infinite;
+
+  @keyframes pulse-dot {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent);
+    }
+    50% {
+      opacity: 0.7;
+      box-shadow: 0 0 0 3px transparent;
+    }
+  }
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-well-900 font-sans text-ink antialiased;
+  /* faint engineering grid + vignette — atmosphere without noise */
+  background-image:
+    radial-gradient(ellipse 120% 90% at 50% -20%, #101a2e 0%, transparent 60%),
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--color-line) 32%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-line) 32%, transparent) 1px,
+      transparent 1px
+    );
+  background-size:
+    100% 100%,
+    44px 44px,
+    44px 44px;
+  background-attachment: fixed;
+}
+
+/* offline: the whole surface is last-known data — demote it, loudly */
+.offline-demoted {
+  filter: saturate(0.35) brightness(0.82);
+  transition: filter 400ms ease;
+}
+
+/* micro-label: the control-room caption idiom */
+.microlabel {
+  @apply font-sans text-[10px] font-semibold tracking-[0.18em] uppercase;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-well-700) transparent;
+}
