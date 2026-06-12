@@ -48,3 +48,22 @@ How Mimir's surfaces physically ship and how the repo is structured.
 The integration map's "agents → MCP" softens: agents consume the **intent envelope**, and the **CLI driven through the shell is the default rendering for them too** — a skill-equipped agent reads the contract on demand and runs `mimir …`, with zero per-project config and no standing tool-schema context cost. **MCP remains the rendering for hosts that can't shell out** (or where a host-managed server is preferred); the two renderings stay 1:1 by design, so nothing else moves.
 
 Decided while designing the agent skill (`MMR-24`): requiring MCP server config in every workspace is friction against the skill's whole job (cross-workspace dogfooding via one installed binary), and MCP's standing cost (every verb schema in context all session; null-serializing envelopes) loses to skill-based progressive disclosure over the CLI's `--json` contract. Saga's integration line updates accordingly: task flows are CLI invocations unless the host lacks a shell.
+
+## Refinement (2026-06-11 — the concrete workspace shape, at `MMR-15`)
+
+The monorepo this ADR deferred takes the **minimal split**: a private workspace
+root with `packages/bin` (`@mimir/bin` — the binary; `db`, `core`, and the
+three transports stay internal directories policed by the existing lint
+overrides), `packages/contract` (`@mimir/contract` — the type leaf; zero-deps
+becomes structural, its lint override drops), and `packages/ui` (`@mimir/ui`,
+arriving with the first UI chunk). No `core`/`db` package split — transport-only
+consumption means no second consumer exists. Nothing publishes to npm.
+
+`cli` was rejected as the binary package's name: the CLI is one transport of
+three, and `packages/cli/src/http` would overload a term the glossary keeps
+narrow. The contract package's boundary: today's `src/contract` plus the wire
+types every consumer parses — `ErrorCode` and the error-envelope type (moving
+from `core`; the `MimirError` class stays behind the transports) and the
+`{items}` collection-envelope type (ADR 0012's cursor-room contract, declared
+once). Types and `*_VALUES` tuples only — no zod (it remains an MCP-SDK
+requirement internal to that transport), no route map, no client SDK.
