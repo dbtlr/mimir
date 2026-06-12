@@ -13,6 +13,11 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+## v0.5.0 - 2026-06-12
+
+The console release, part two: the binary now ships the web UI. This is also
+the first release from the Bun-workspace monorepo.
+
 ### Added
 
 - **The operator console** — a read-only web UI embedded in the binary and
