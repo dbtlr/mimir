@@ -8,13 +8,20 @@ knowledge, **Mimir** holds work state, **Saga** weaves them into a session.
 Work state is ephemeral and fast-changing, so it lives in a structured store
 (SQLite) where it is the source of truth — markdown is a _projection_, not the
 store. Status rollups and dependency predicates are **derived live, never
-stored** (caching them is the sync problem Mimir exists to remove). The same
-core query layer serves an agent (via MCP) and a human/scripts (via a CLI).
+stored** (caching them is the sync problem Mimir exists to remove). One core
+query layer, four surfaces: a **CLI** for humans and scripts, **MCP** for
+agents (plus an embedded agent skill the binary installs itself), an **HTTP
+API**, and a web **operator console** served by the same binary.
 
-> **Status:** **pre-release** (`0.x`). Phases 0–2 are built — the
-> storage-committed core (schema, derivation, rank, mutation verbs) and the
-> first read slice over both **CLI** and **MCP**. Write verbs exist in the core;
-> exposing them on the transports is the next slice.
+![The operator console — a project board](docs/assets/console-board.png)
+
+> **Status:** **pre-release** (`0.x`), feature-complete for single-operator
+> use: the full read + write verb surface over CLI and MCP, the agent skill
+> (`mimir skill install`) with repo binding (`.mimir.toml`), the HTTP API
+> (`mimir serve`), and the read-only operator console — a kanban/tree PWA
+> embedded in the binary (columns are the status vocabulary; the Ready column
+> in rank order _is_ the queue). Write affordances in the console, and the
+> auth story that must precede them, are the next slices.
 
 ## Install
 
@@ -95,6 +102,22 @@ Run as an MCP server for an agent:
 mimir mcp     # JSON-RPC over stdio; the same read + write surface as tools
 ```
 
+Serve the HTTP API and the operator console:
+
+```sh
+mimir serve   # loopback-only, default port 64647
+```
+
+`http://127.0.0.1:64647/` is the console (the screenshot above): a fleet view
+of every project with an attention strip of in-flight and stuck work, and a
+per-project kanban board / tree with a detail drawer on every node. It is an
+installable PWA — usable from a phone behind your own reverse proxy — that
+polls while visible and, when the server is unreachable, shows the last-synced
+board behind an explicit offline banner. This first cut is **read-only**; the
+API under `/api/*` carries the same verb surface as the CLI/MCP for writes
+(TLS, hostnames, and exposure belong to the proxy in front — the binary stays
+loopback-only).
+
 ## The model
 
 ```
@@ -124,8 +147,11 @@ bun run verify    # the full gate: format, lint, typecheck, test
 ```
 
 `verify` is `bun run check` (oxfmt + oxlint + type-aware typecheck, zero-warning)
-plus `bun test` (the suite on in-memory SQLite) — the same gate CI enforces.
-`main` is protected; changes land via PR. See
+plus `bun test` (the suite on in-memory SQLite) plus `bun run test:ui` (the
+console's vitest suite) — the same gate CI enforces. For UI work, run
+`vite dev` in `packages/ui` against a running `mimir serve` (localhost CORS is
+pre-wired); `bun run build` builds the console and embeds it in the compiled
+binary. `main` is protected; changes land via PR. See
 [CONTRIBUTING.md](./CONTRIBUTING.md), [CHANGELOG.md](./CHANGELOG.md), and
 [SECURITY.md](./SECURITY.md).
 

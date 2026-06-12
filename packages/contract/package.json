@@ -1,6 +1,6 @@
 {
   "name": "@mimir/contract",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Mimir's dependency-free type leaf — the wire vocabulary every consumer (binary transports, UI) parses. Types and *_VALUES tuples only; no runtime logic.",
   "type": "module",
