@@ -13,6 +13,33 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Added
+
+- **The operator console** — a read-only web UI embedded in the binary and
+  served by `mimir serve` alongside the API (ADR 0013). `/` is the fleet view
+  (per-project status cards plus a cross-project attention strip of in-flight
+  and stuck work); `/p/KEY` is the project surface — a kanban board whose
+  columns are the status vocabulary (Ready in rank order _is_ the queue) with
+  a tree lens one toggle away; any node opens a URL-addressable detail drawer
+  (record, signals, dependencies, tags, annotations, artifact titles). The
+  console is an installable PWA: works on desktop and mobile, polls while
+  visible, and when the server is unreachable shows the last-synced board
+  behind an explicit offline banner. No write affordances in this first cut.
+
+### Changed
+
+- **The repo is a Bun workspace** (ADR 0010 refinement): `packages/bin`
+  (`@mimir/bin`, the binary) and `packages/contract` (`@mimir/contract`, the
+  dependency-free wire-type leaf, now also carrying the error-envelope and
+  `{items}` collection types), plus `packages/ui` (`@mimir/ui`). Installing
+  from source is now clone-and-build; the `curl|sh` binary install is
+  unchanged.
+
+### Fixed
+
+- The MCP tool schemas for `priority` and `size` now derive from the
+  contract's value tuples instead of hand-inlined copies.
+
 ## v0.4.0 - 2026-06-11
 
 The console release: the HTTP API ships in the binary, and the architecture
