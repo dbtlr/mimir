@@ -13,6 +13,15 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Added
+
+- **`serve` hunts for a free port** — when the requested (or default) port is
+  taken, `serve` walks upward up to 20 ports and binds the first free one,
+  always printing the actual bound URL (with a note when it differs from the
+  request). Past the hunt span it fails with the normal error. A dev
+  convenience: supervised deployments still pin the port and the proxy points
+  at it (ADR 0012).
+
 ## v0.5.0 - 2026-06-12
 
 The console release, part two: the binary now ships the web UI. This is also
