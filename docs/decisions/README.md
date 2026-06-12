@@ -31,6 +31,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0010](0010-one-binary-transport-only-consumption.md)             | One binary; transport-only consumption                         |
 | [0011](0011-repo-binding-is-repo-side.md)                         | Repo binding is repo-side; the store knows no paths            |
 | [0012](0012-http-api-true-resource-envelope.md)                   | The HTTP API is a true resource envelope                       |
+| [0013](0013-ui-embedded-spa.md)                                   | The UI is an embedded SPA — board-first console, PWA           |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete SQLite
