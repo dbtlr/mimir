@@ -131,8 +131,22 @@ async function main(argv: string[]): Promise<number> {
     // Long-running: the server keeps the process alive; loopback-only by
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
     const db = await openMigrated(dbPath());
-    const server = createServer(db, { port });
+    let server: ReturnType<typeof createServer>;
+    try {
+      server = createServer(db, { port });
+    } catch (err) {
+      await db.destroy();
+      if (err instanceof Error && "code" in err && err.code === "EADDRINUSE") {
+        console.error(`✗ serve: ${err.message}`);
+        console.error("note: pass --port to start the hunt elsewhere");
+        return 1;
+      }
+      throw err;
+    }
     console.log(`mimir serve — listening on http://127.0.0.1:${String(server.port)}`);
+    if (server.port !== port) {
+      console.log(`note: port ${String(port)} was taken — hunted up to ${String(server.port)}`);
+    }
     const stop = async (): Promise<void> => {
       await server.stop();
       await db.destroy();

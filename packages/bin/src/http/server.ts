@@ -177,14 +177,46 @@ export interface ServeOptions {
   assets?: UiAssetMap;
 }
 
+/** How far past a taken port the hunt walks before giving up (MMR-53). */
+export const PORT_HUNT_SPAN = 20;
+
+/** Bun's bind-collision error — the only one the hunt may swallow. */
+function isPortTaken(err: unknown): boolean {
+  return err instanceof Error && "code" in err && err.code === "EADDRINUSE";
+}
+
 /**
  * Build and start the server. Binds `127.0.0.1` unconditionally — the
- * loopback-only posture is the architecture, not a default (ADR 0012).
+ * loopback-only posture is the architecture, not a default (ADR 0012). A taken
+ * port hunts upward (+1 … +`PORT_HUNT_SPAN`) to the next free one — a dev
+ * convenience; a supervised deployment pins the port and the proxy points at
+ * it. Callers must surface the bound port: it may differ from the request.
  */
 export function createServer(db: Db, opts: ServeOptions): Server<undefined> {
+  const last = Math.min(opts.port + PORT_HUNT_SPAN, 65535);
+  for (let port = opts.port; ; port++) {
+    try {
+      return bindServer(db, opts, port);
+    } catch (err) {
+      if (!isPortTaken(err) || opts.port === 0) {
+        throw err;
+      }
+      if (port >= last) {
+        throw Object.assign(
+          new Error(`ports ${String(opts.port)}–${String(last)} are all in use`),
+          {
+            code: "EADDRINUSE",
+          },
+        );
+      }
+    }
+  }
+}
+
+function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined> {
   return Bun.serve({
     hostname: "127.0.0.1",
-    port: opts.port,
+    port,
     routes: {
       "/api/projects": {
         GET: (req) =>
