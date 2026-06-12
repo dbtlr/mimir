@@ -1,0 +1,17 @@
+{
+  "name": "@mimir/bin",
+  "version": "0.4.0",
+  "private": true,
+  "description": "The mimir binary — db, core, and the three transports (CLI, MCP, HTTP) over one SQLite store.",
+  "bin": {
+    "mimir": "./src/main.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "@meck93/kysely-bun-sqlite": "0.2.16",
+    "@mimir/contract": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "kysely": "0.28.17",
+    "zod": "4.4.3"
+  }
+}

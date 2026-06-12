@@ -30,11 +30,8 @@ to `~/.local/bin` (override with `MIMIR_INSTALL_DIR`, pin with `MIMIR_VERSION`).
 **From source** (requires [Bun](https://bun.sh) `1.3.14`):
 
 ```sh
-bun add -g github:dbtlr/mimir     # global install, runs from source
-```
-
-```sh
-git clone https://github.com/dbtlr/mimir && cd mimir && bun install   # for development
+git clone https://github.com/dbtlr/mimir && cd mimir && bun install
+bun run build    # compiles dist/mimir; or `bun run mimir <verb>` straight from source
 ```
 
 ## Quickstart
@@ -135,12 +132,15 @@ plus `bun test` (the suite on in-memory SQLite) — the same gate CI enforces.
 Architecture — one core, thin transports:
 
 ```
-src/contract/   pure DTO + enum types (the dependency-free leaf; the UI imports it)
-src/db/         Kysely instance, schema/migrations, the Migrator
-src/core/       storage-committed domain logic: derivation, rank, verbs, intent layer
-src/cli/        the human transport (parseArgs + styled/structured renderers)
-src/mcp/        the agent transport (official MCP SDK over stdio)
-src/main.ts     composition root — dispatches subcommands
+packages/contract/   @mimir/contract — pure DTO + wire types (the dependency-free leaf; the UI imports it)
+packages/bin/        @mimir/bin — the binary
+  src/db/            Kysely instance, schema/migrations, the Migrator
+  src/core/          storage-committed domain logic: derivation, rank, verbs, intent layer
+  src/cli/           the human transport (parseArgs + styled/structured renderers)
+  src/mcp/           the agent transport (official MCP SDK over stdio)
+  src/http/          the UI transport (resource-shaped REST over Bun.serve)
+  src/main.ts        composition root — dispatches subcommands
+packages/ui/         @mimir/ui — the operator console SPA (embedded in the binary)
 ```
 
 The layering `contract ← db ← core ← transports` is enforced by an oxlint
