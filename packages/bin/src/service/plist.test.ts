@@ -60,7 +60,10 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("escaped plist passes plutil -lint", () => {
+// plutil is macOS-only — the escaping is asserted on the string above for
+// every platform; this adds real plist validation where the tool exists (dev
+// + the macOS release runner), and is skipped on Linux CI.
+test.skipIf(process.platform !== "darwin")("escaped plist passes plutil -lint", () => {
   const xml = plistFor("/Users/op/Drew & Co/bin/mimir", {
     dbPath: "/data/a<b/m.db",
   });
