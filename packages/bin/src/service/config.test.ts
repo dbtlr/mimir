@@ -12,8 +12,24 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("configPath honors XDG_CONFIG_HOME", () => {
+// Fix 2 — rename existing test to match what it actually tests (explicit param)
+test("configPath resolves under the given XDG base", () => {
   expect(configPath(dir)).toBe(join(dir, "mimir", "config.toml"));
+});
+
+// Fix 2 — new test that exercises the env-var path
+test("configPath uses XDG_CONFIG_HOME env var when set", () => {
+  const original = process.env.XDG_CONFIG_HOME;
+  try {
+    process.env.XDG_CONFIG_HOME = dir;
+    expect(configPath()).toBe(join(dir, "mimir", "config.toml"));
+  } finally {
+    if (original === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = original;
+    }
+  }
 });
 
 test("missing file reads as empty config", () => {
@@ -26,11 +42,32 @@ test("reads [serve] port", () => {
   expect(readServeConfig(file)).toEqual({ port: 50123 });
 });
 
-test("malformed TOML or non-integer port reads as empty (no crash)", () => {
+// Fix 3 + updated assertions for Fix 1
+test("malformed TOML reports { problem: 'malformed' } and wrong-typed port reports { problem: 'invalid-port' }", () => {
   const file = join(dir, "config.toml");
+  // Fix 3 — malformed TOML
   writeFileSync(file, "[serve\nport = ???");
-  expect(readServeConfig(file)).toEqual({});
+  expect(readServeConfig(file)).toEqual({ problem: "malformed" });
+  // Fix 3 — wrong-typed string port
   writeFileSync(file, '[serve]\nport = "high"\n');
+  expect(readServeConfig(file)).toEqual({ problem: "invalid-port" });
+});
+
+// Fix 3 — boundary coverage: 0, 65536, 1.5 each yield { problem: "invalid-port" }
+test("port boundary values 0, 65536, and 1.5 each yield { problem: 'invalid-port' }", () => {
+  const file = join(dir, "config.toml");
+  for (const bad of [0, 65536, 1.5]) {
+    writeFileSync(file, `[serve]\nport = ${bad}\n`);
+    const result = readServeConfig(file);
+    expect(result).not.toHaveProperty("port");
+    expect(result).toEqual({ problem: "invalid-port" });
+  }
+});
+
+// Fix 1 — config with no serve.port at all is not a problem
+test("config with no [serve] port reads as empty (not a problem)", () => {
+  const file = join(dir, "config.toml");
+  writeFileSync(file, "[serve]\n");
   expect(readServeConfig(file)).toEqual({});
 });
 
