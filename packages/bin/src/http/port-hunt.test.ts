@@ -99,3 +99,15 @@ test("exhausting the hunt span fails with EADDRINUSE naming the range", async ()
   expect((thrown as Error).message).toContain(String(base));
   expect((thrown as Error).message).toContain(String(base + PORT_HUNT_SPAN));
 });
+
+test("hunt: false fails loudly on a taken port instead of walking", async () => {
+  db = await createTestDb();
+  const taken = portOf(squatWithHeadroom());
+  let thrown: unknown;
+  try {
+    createServer(db, { port: taken, version: "0.0.0-test", hunt: false });
+  } catch (err) {
+    thrown = err;
+  }
+  expect((thrown as { code?: string }).code).toBe("EADDRINUSE");
+});

@@ -97,8 +97,10 @@ other:
   skill install [--global|--local] [--agent claude|codex]
                           install the agent skill (default: --global, claude;
                           claude → .claude/skills, codex → .agents/skills)
-  serve [--port <n>]      HTTP API for the UI (default port 64647, loopback-only;
-                          a taken port hunts upward — the startup line names
+  serve [--port <n>] [--no-hunt]
+                          HTTP API + console (loopback-only; port: --port >
+                          config [serve] port > 64647; a taken port hunts
+                          upward unless --no-hunt — the startup line names
                           the bound URL)
   migrate [status] · mcp
 `;

@@ -19,6 +19,7 @@ import { migrateToLatest, migrationStatus } from "./db/migrator";
 import type { Db } from "./core";
 import { createServer } from "./http";
 import { serveStdio } from "./mcp";
+import { configPath, readServeConfig } from "./service/config";
 
 /**
  * The database path. `MIMIR_DB` overrides; otherwise a single user-global store
@@ -96,11 +97,16 @@ async function runMigrate(sub: string | undefined): Promise<number> {
 /** Default `serve` port — MIMIR on a phone keypad. */
 const DEFAULT_PORT = 64647;
 
-/** Parse `serve`'s `--port` flag; `null` means unusable (a usage fault). */
-function servePort(args: string[]): number | null {
+/**
+ * Parse `serve`'s `--port` flag.
+ * - `undefined`: flag absent — caller uses config or built-in default.
+ * - `null`: flag present but unusable (a usage fault).
+ * - `number`: the parsed port.
+ */
+function servePort(args: string[]): number | null | undefined {
   const at = args.indexOf("--port");
   if (at === -1) {
-    return DEFAULT_PORT;
+    return undefined;
   }
   const raw = args[at + 1];
   const port = Number(raw);
@@ -123,22 +129,34 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (command === "serve") {
-    const port = servePort(argv.slice(1));
-    if (port === null) {
+    const args = argv.slice(1);
+    const flagPort = servePort(args);
+    if (flagPort === null) {
       console.error("✗ serve: --port expects an integer in 1–65535");
       return 2;
     }
+    const noHunt = args.includes("--no-hunt");
+    // Declared port wins: flag > global config > built-in default (MMR-47).
+    const config = readServeConfig();
+    if (config.problem !== undefined) {
+      console.error(`⚠ serve: config ignored (${config.problem}) — ${configPath()}`);
+    }
+    const port = flagPort ?? config.port ?? DEFAULT_PORT;
     // Long-running: the server keeps the process alive; loopback-only by
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
     const db = await openMigrated(dbPath());
     let server: ReturnType<typeof createServer>;
     try {
-      server = createServer(db, { port, version: pkg.version });
+      server = createServer(db, { port, version: pkg.version, hunt: !noHunt });
     } catch (err) {
       await db.destroy();
       if (err instanceof Error && "code" in err && err.code === "EADDRINUSE") {
         console.error(`✗ serve: ${err.message}`);
-        console.error("note: pass --port to start the hunt elsewhere");
+        console.error(
+          noHunt
+            ? "note: --no-hunt is set — free the port or change [serve] port in the config"
+            : "note: pass --port to start the hunt elsewhere",
+        );
         return 1;
       }
       throw err;
