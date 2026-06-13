@@ -133,7 +133,7 @@ async function main(argv: string[]): Promise<number> {
     const db = await openMigrated(dbPath());
     let server: ReturnType<typeof createServer>;
     try {
-      server = createServer(db, { port });
+      server = createServer(db, { port, version: pkg.version });
     } catch (err) {
       await db.destroy();
       if (err instanceof Error && "code" in err && err.code === "EADDRINUSE") {

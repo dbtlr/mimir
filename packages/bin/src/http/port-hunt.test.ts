@@ -63,7 +63,7 @@ test("a free requested port binds exactly", async () => {
   await probe.stop(true);
   squatters.splice(squatters.indexOf(probe), 1);
 
-  const server = createServer(db, { port });
+  const server = createServer(db, { port, version: "0.0.0-test" });
   squatters.push(server);
   expect(server.port).toBe(port);
 });
@@ -72,7 +72,7 @@ test("a taken port hunts upward to the next free one", async () => {
   db = await createTestDb();
   const taken = portOf(squatWithHeadroom());
 
-  const server = createServer(db, { port: taken });
+  const server = createServer(db, { port: taken, version: "0.0.0-test" });
   squatters.push(server);
   expect(portOf(server)).toBeGreaterThan(taken);
   expect(portOf(server)).toBeLessThanOrEqual(taken + PORT_HUNT_SPAN);
@@ -90,7 +90,7 @@ test("exhausting the hunt span fails with EADDRINUSE naming the range", async ()
 
   let thrown: unknown;
   try {
-    createServer(db, { port: base });
+    createServer(db, { port: base, version: "0.0.0-test" });
   } catch (err) {
     thrown = err;
   }
