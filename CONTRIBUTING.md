@@ -50,11 +50,32 @@ _what_. `git log` is the best style reference.
 
 ## Releases
 
-Releases are tag-driven. To cut one: promote `[Unreleased]` in `CHANGELOG.md` to
-`## vX.Y.Z - YYYY-MM-DD`, bump `version` in `package.json` (the single source —
-`mimir --version` and the MCP server read it), then push a `vX.Y.Z` tag. The
-release workflow builds standalone binaries per platform and publishes a GitHub
-Release with notes pulled from the changelog.
+Releases are tag-driven, and the binary reports the exact tag it was built from
+(`--version` is injected at compile time; `packages/bin/package.json` is the
+fallback for local builds).
+
+**Continuous prereleases.** Between releases, `packages/bin/package.json` carries
+the next target as `X.Y.Z-next` (declared, never auto-written). Every
+build-affecting merge to `main` auto-publishes a `vX.Y.Z-next.N` prerelease
+(docs/vault-only merges produce nothing — the tagger is path-filtered). Install
+or update one with `MIMIR_NEXT=1 sh install.sh`, `mimir self-update --next`, or
+pin a build with `mimir self-update --tag v0.6.0-next.5`.
+
+**Cutting an official release** is a two-commit dance:
+
+1. **Cut commit:** bump `packages/bin/package.json` from `X.Y.Z-next` to
+   `X.Y.Z`, promote `[Unreleased]` in `CHANGELOG.md` to `## vX.Y.Z - YYYY-MM-DD`,
+   add a fresh `[Unreleased]`. Merge, then push the tag `vX.Y.Z`. The release
+   workflow builds the per-platform binaries and publishes a GitHub Release
+   (non-prerelease) with notes pulled from the changelog.
+2. **Open the next cycle (required):** bump `packages/bin/package.json` to the
+   next `-next` (e.g. `X.(Y+1).0-next`, or a major bump if that's the call) and
+   merge. This resumes the prerelease stream. The version guard fails any
+   build-affecting change that lands while a released clean version has no
+   next-cycle bump, so forgetting this step is loud, not silent.
+
+> Retention/pruning of old prereleases is tracked separately (a future cut
+> step); for now prereleases accumulate.
 
 ## Code of conduct
 

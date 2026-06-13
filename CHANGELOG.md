@@ -15,6 +15,13 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Continuous prerelease delivery** — every build-affecting merge to `main`
+  publishes an installable `vX.Y.Z-next.N` prerelease (docs/vault-only merges
+  produce nothing). `mimir --version` reports the exact tag the binary was built
+  from. Install/update the prerelease channel with `MIMIR_NEXT=1 sh install.sh`,
+  `mimir self-update --next`, or pin an exact build with `mimir self-update
+--tag v0.6.0-next.5`. Default `install`/`self-update` stay on official
+  releases. See CONTRIBUTING for the release procedure.
 - **`serve` hunts for a free port** — when the requested (or default) port is
   taken, `serve` walks upward up to 20 ports and binds the first free one,
   always printing the actual bound URL (with a note when it differs from the
