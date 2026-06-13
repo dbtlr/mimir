@@ -47,7 +47,7 @@ beforeEach(async () => {
   const ot = await createTask(db, { parentId: otherPhase.id, title: "elsewhere" });
   otherTask = `NRN-${String(ot.seq)}`;
 
-  server = createServer(db, { port: 0 });
+  server = createServer(db, { port: 0, version: "0.0.0-test" });
   base = `http://127.0.0.1:${String(server.port)}`;
 });
 
@@ -69,6 +69,16 @@ const send = (method: string, path: string, body?: unknown) =>
 const parse = async (res: Response): Promise<Rec> => JSON.parse(await res.text()) as Rec;
 
 const errorCode = (body: Rec): string => (body.error as { code: string }).code;
+
+// ---------------------------------------------------------------------------
+// Health
+// ---------------------------------------------------------------------------
+
+test("GET /api/health reports ok and the serving version", async () => {
+  const res = await get("/api/health");
+  expect(res.status).toBe(200);
+  expect(await parse(res)).toEqual({ status: "ok", version: "0.0.0-test" });
+});
 
 // ---------------------------------------------------------------------------
 // Projects

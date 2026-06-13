@@ -49,7 +49,7 @@ function fixtureAssets(): UiAssetMap {
 }
 
 function start(assets: UiAssetMap): string {
-  server = createServer(db, { port: 0, assets });
+  server = createServer(db, { port: 0, version: "0.0.0-test", assets });
   return `http://127.0.0.1:${String(server.port)}`;
 }
 

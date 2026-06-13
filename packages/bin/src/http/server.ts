@@ -173,6 +173,8 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
 
 export interface ServeOptions {
   port: number;
+  /** Reported by /api/health — how `service status` asks a live process what it is. */
+  version: string;
   /** The embedded-UI manifest; tests inject fixtures, prod uses the generated map. */
   assets?: UiAssetMap;
 }
@@ -218,6 +220,10 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
     hostname: "127.0.0.1",
     port,
     routes: {
+      "/api/health": {
+        GET: (req) => json(req, { status: "ok", version: opts.version }),
+      },
+
       "/api/projects": {
         GET: (req) =>
           guarded(req, async () => {
