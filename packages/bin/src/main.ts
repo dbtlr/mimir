@@ -64,6 +64,17 @@ async function openMigrated(path: string): Promise<Db> {
 
 function stdoutIo(): Io {
   const isTTY = process.stdout.isTTY === true;
+  // A downstream reader that closes early (`mimir … | head`) breaks the pipe;
+  // the stream then emits EPIPE asynchronously, which is fatal if unhandled.
+  // Exit quietly like a well-behaved Unix filter instead of surfacing a stack
+  // trace — matters for any verb that writes line-by-line (e.g. `service
+  // status`) rather than in one shot.
+  for (const stream of [process.stdout, process.stderr]) {
+    stream.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EPIPE") process.exit(0);
+      throw err;
+    });
+  }
   const line = (stream: NodeJS.WriteStream) => (text: string) => {
     stream.write(text.endsWith("\n") ? text : `${text}\n`);
   };
