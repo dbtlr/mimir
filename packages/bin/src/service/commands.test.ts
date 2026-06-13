@@ -111,35 +111,21 @@ test("a bad --port is a usage error and touches nothing", async () => {
   expect(existsSync(d.plistFile)).toBe(false);
 });
 
-// 4. start/stop/restart delegate and log
+// 4. start/stop/restart delegate and log — events accumulate in order in ONE file
 test("start/stop/restart delegate and log", async () => {
-  for (const verb of ["start", "stop", "restart"] as const) {
-    const localSup = new FakeSupervisor();
-    // Use a fresh sub-directory per verb so events files don't accumulate
-    const verbDir = mkdtempSync(join(tmpdir(), `mimir-svc-${verb}-`));
-    try {
-      const localD: ServiceDeps = {
-        supervisor: localSup,
-        platform: "darwin",
-        binPath: join(verbDir, "mimir"),
-        version: "0.5.0",
-        configFile: join(verbDir, "config.toml"),
-        plistFile: join(verbDir, "com.dbtlr.mimir.serve.plist"),
-        eventsFile: join(verbDir, "service-events.jsonl"),
-        health: () => Promise.resolve(undefined),
-        fetcher: () => Promise.reject(new Error("no network in tests")),
-        dbPath: undefined,
-      };
-      const localIo = fakeIo();
-      const code = await cmdService(["service", verb], {}, localIo, localD);
-      expect(code).toBe(0);
-      expect(localSup.calls).toEqual([verb]);
-      const events = recentEvents(localD.eventsFile, 10);
-      expect(events.map((e) => e.event)).toEqual([verb]);
-    } finally {
-      rmSync(verbDir, { recursive: true, force: true });
-    }
-  }
+  const sup = new FakeSupervisor();
+  const io = fakeIo();
+  const d = deps(sup);
+
+  const c1 = await cmdService(["service", "start"], {}, io, d);
+  const c2 = await cmdService(["service", "stop"], {}, io, d);
+  const c3 = await cmdService(["service", "restart"], {}, io, d);
+
+  expect(c1).toBe(0);
+  expect(c2).toBe(0);
+  expect(c3).toBe(0);
+  expect(sup.calls).toEqual(["start", "stop", "restart"]);
+  expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(["start", "stop", "restart"]);
 });
 
 // 5. unknown subcommand is usage; non-darwin is a loud operational error
@@ -210,7 +196,7 @@ test("status when not loaded says so and still shows paths", async () => {
   expect(out).toContain("paths:");
 });
 
-// 8. status surfaces an ignored config
+// 8. status surfaces an ignored config — warning goes to stderr with [warn] glyph (plain mode)
 test("status surfaces an ignored config", async () => {
   const sup = new FakeSupervisor();
   const io = fakeIo();
@@ -221,8 +207,9 @@ test("status surfaces an ignored config", async () => {
   const code = await cmdService(["service", "status"], {}, io, d);
 
   expect(code).toBe(0);
-  const out = io.out.join("\n");
-  expect(out).toContain("config ignored (invalid-port)");
+  // Warning must be on stderr (io.err), NOT stdout
+  expect(io.out.join("\n")).not.toContain("config ignored");
+  expect(io.err.join("\n")).toContain("[warn] config ignored (invalid-port)");
 });
 
 // 9. self-update: already up to date is a clean no-op
@@ -265,4 +252,79 @@ test("self-update refuses when not a compiled binary", async () => {
   }
   expect(thrown).toBeDefined();
   expect(thrown instanceof Error && thrown.message).toMatch(/installed binary/);
+});
+
+// 11. self-update logs the update even when restart fails
+test("self-update logs the update even when restart fails", async () => {
+  const newVersion = "0.6.0";
+  const newTag = `v${newVersion}`;
+  // Build a fake binary body and its matching SHA256SUMS line
+  const fakeBody = new TextEncoder().encode("fake-binary-content");
+  const sha256 = new Bun.CryptoHasher("sha256").update(fakeBody).digest("hex");
+  // assetName() returns the platform asset name — import it to stay in sync
+  const { assetName } = await import("./self-update");
+  const asset = assetName();
+  const fakeSums = `${sha256}  ${asset}\n`;
+
+  // Supervisor that marks itself loaded so restart is attempted, but restart throws
+  class FailingRestartSupervisor extends FakeSupervisor {
+    override info(): Promise<ServiceInfo> {
+      return Promise.resolve({ loaded: true, running: true, pid: 1234 });
+    }
+    override restart(): Promise<void> {
+      this.calls.push("restart");
+      return Promise.reject(new Error("launchctl kaboom"));
+    }
+  }
+
+  const sup = new FailingRestartSupervisor();
+  const io = fakeIo();
+  const d = deps(sup, {
+    // binPath must not start with "bun" — use the shared temp dir/mimir path
+    platform: "darwin",
+    version: "0.5.0",
+    fetcher: (url: string) => {
+      if (url.includes("/releases/latest")) {
+        return Promise.resolve(
+          new Response(null, {
+            status: 302,
+            headers: { location: `https://github.com/dbtlr/mimir/releases/tag/${newTag}` },
+          }),
+        );
+      }
+      if (url.includes(`/download/${newTag}/SHA256SUMS`)) {
+        return Promise.resolve(new Response(fakeSums, { status: 200 }));
+      }
+      if (url.includes(`/download/${newTag}/${asset}`)) {
+        return Promise.resolve(new Response(fakeBody, { status: 200 }));
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`));
+    },
+  });
+
+  // Must NOT throw — restart failure is non-fatal
+  const code = await cmdSelfUpdate(io, d);
+
+  expect(code).toBe(0);
+
+  // Binary file was actually replaced
+  const { readFileSync: rfs } = await import("node:fs");
+  expect(rfs(d.binPath)).toEqual(Buffer.from(fakeBody));
+
+  // Both events must be present in the log
+  const events = recentEvents(d.eventsFile, 10);
+  const eventNames = events.map((e) => e.event);
+  expect(eventNames).toContain("self-update");
+  expect(eventNames).toContain("restart");
+
+  // self-update event must be ok:true (binary replaced)
+  const suEvt = events.find((e) => e.event === "self-update");
+  expect(suEvt?.ok).toBe(true);
+
+  // restart event must be ok:false (restart failed)
+  const restartEvt = events.find((e) => e.event === "restart");
+  expect(restartEvt?.ok).toBe(false);
+
+  // Operator must be warned on stderr
+  expect(io.err.join("\n")).toContain("service did not restart");
 });

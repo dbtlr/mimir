@@ -20,6 +20,7 @@ import type { Db } from "./core";
 import { createServer } from "./http";
 import { serveStdio } from "./mcp";
 import {
+  DEFAULT_PORT,
   EVENTS_FILE,
   LaunchdSupervisor,
   type Health,
@@ -103,9 +104,6 @@ async function runMigrate(sub: string | undefined): Promise<number> {
     await db.destroy();
   }
 }
-
-/** Default `serve` port — MIMIR on a phone keypad. */
-const DEFAULT_PORT = 64647;
 
 /**
  * Parse `serve`'s `--port` flag.
