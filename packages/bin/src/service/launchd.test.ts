@@ -21,10 +21,11 @@ test("install bootouts stale state then bootstraps the plist", async () => {
 });
 
 test("install tolerates bootout failure (nothing loaded) but not bootstrap failure", async () => {
-  const { exec } = fakeExec((argv) =>
+  const { exec, calls } = fakeExec((argv) =>
     argv[1] === "bootout" ? { code: 113, stdout: "" } : { code: 0, stdout: "" },
   );
   await new LaunchdSupervisor(exec, 501).install("/tmp/x.plist"); // must not throw
+  expect(calls[1]?.[1]).toBe("bootstrap");
 });
 
 test("stop = bootout (KeepAlive would defeat a plain kill); start = bootstrap", async () => {

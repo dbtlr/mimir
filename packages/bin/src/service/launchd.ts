@@ -22,9 +22,9 @@ export interface ServiceInfo {
 }
 
 export interface Supervisor {
-  install(plistFile: string): Promise<void>;
+  install(serviceFile: string): Promise<void>;
   uninstall(): Promise<void>;
-  start(plistFile: string): Promise<void>;
+  start(serviceFile: string): Promise<void>;
   stop(): Promise<void>;
   restart(): Promise<void>;
   info(): Promise<ServiceInfo>;
