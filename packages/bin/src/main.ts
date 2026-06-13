@@ -11,9 +11,9 @@
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import pkg from "../package.json";
 import { findBinding, runCli } from "./cli";
 import type { Io } from "./cli";
+import { VERSION } from "./version";
 import { createDb } from "./db/client";
 import { migrateToLatest, migrationStatus } from "./db/migrator";
 import type { Db } from "./core";
@@ -140,7 +140,7 @@ function realServiceDeps(): ServiceDeps {
     supervisor: new LaunchdSupervisor(bunExec, process.getuid?.() ?? 501),
     platform: process.platform,
     binPath: process.execPath,
-    version: pkg.version,
+    version: VERSION,
     configFile: configPath(),
     plistFile: plistPath(),
     eventsFile: EVENTS_FILE,
@@ -164,7 +164,7 @@ async function main(argv: string[]): Promise<number> {
   const command = argv[0];
 
   if (command === "--version" || command === "version") {
-    console.log(pkg.version);
+    console.log(VERSION);
     return 0;
   }
 
@@ -191,7 +191,7 @@ async function main(argv: string[]): Promise<number> {
     const db = await openMigrated(dbPath());
     let server: ReturnType<typeof createServer>;
     try {
-      server = createServer(db, { port, version: pkg.version, hunt: !noHunt });
+      server = createServer(db, { port, version: VERSION, hunt: !noHunt });
     } catch (err) {
       await db.destroy();
       if (err instanceof Error && "code" in err && err.code === "EADDRINUSE") {
@@ -224,7 +224,7 @@ async function main(argv: string[]): Promise<number> {
     // The MCP rendering honors the same Project Binding (ADR 0011), resolved
     // from the server's spawn cwd.
     const db = await openMigrated(dbPath());
-    await serveStdio(db, pkg.version, findBinding(process.cwd()));
+    await serveStdio(db, VERSION, findBinding(process.cwd()));
     return 0;
   }
 
