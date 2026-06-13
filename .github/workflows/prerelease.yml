@@ -21,11 +21,14 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: write # push the tag
+  actions: write # dispatch release.yml at the new tag
 
 jobs:
   tag:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -53,6 +56,11 @@ jobs:
               echo "tagging $tag"
               git tag -a "$tag" -m "Prerelease $tag"
               git push origin "$tag"
+              # Dispatch the build/publish at the new tag — a GITHUB_TOKEN tag
+              # push won't trigger release.yml's `push: tags` (anti-recursion),
+              # but workflow_dispatch via GITHUB_TOKEN does start a run.
+              gh workflow run release.yml --ref "$tag"
+              echo "dispatched release.yml @ $tag"
               ;;
             *)
               echo "package.json version $ver is not a -next dev version; no prerelease."
