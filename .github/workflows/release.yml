@@ -8,6 +8,13 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # The prerelease tagger pushes vX.Y.Z-next.N tags with GITHUB_TOKEN, which
+  # GitHub's anti-recursion guard blocks from triggering the `push: tags` event
+  # above. It dispatches this workflow at the new tag instead (workflow_dispatch
+  # via GITHUB_TOKEN is the documented exception that DOES start a run). The
+  # build/publish steps read github.ref_name/ref_type, which resolve from the
+  # dispatched --ref exactly as they do for a pushed tag (MMR-57).
+  workflow_dispatch:
   pull_request:
     paths:
       - "packages/**"

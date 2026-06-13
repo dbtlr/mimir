@@ -388,7 +388,7 @@ export async function runCli(
         }
         return await cmdSelfUpdate(ctx, defaults.service, {
           next: values.next === true,
-          tag: values.tag?.[0],
+          tag: values.tag?.at(-1),
         });
       }
       default:

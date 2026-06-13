@@ -42,7 +42,7 @@ export interface ServiceDeps {
   platform: NodeJS.Platform;
   /** The binary the plist points at / self-update replaces (process.execPath). */
   binPath: string;
-  /** pkg.version of this invocation — the on-disk version by definition. */
+  /** This invocation's version (build-injected tag, or package.json) — the on-disk version by definition. */
   version: string;
   configFile: string;
   plistFile: string;
