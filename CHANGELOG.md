@@ -20,7 +20,23 @@ release. When a release is cut, this section is promoted to
   always printing the actual bound URL (with a note when it differs from the
   request). Past the hunt span it fails with the normal error. A dev
   convenience: supervised deployments still pin the port and the proxy points
-  at it (ADR 0012).
+  at it (ADR 0012). Port precedence: `--port` flag > config `[serve] port` >
+  default 64647; `--no-hunt` disables the walk and fails loudly on a taken
+  port (required for supervised/launchd operation).
+- **`mimir service`** (macOS): supervise `mimir serve` under launchd —
+  `install [--port <n>] · uninstall · start · stop · restart · status`. The
+  daemon runs on a declared port from the new global config
+  (`~/.config/mimir/config.toml`, `[serve] port`; `service install --port`
+  writes it) with `--no-hunt`, so a taken port fails loudly and launchd's
+  KeepAlive retries until it frees — the proxy's target can never drift. Every
+  lifecycle action is logged to `~/Library/Logs/mimir/service-events.jsonl`;
+  `service status` reports pid, port health, running vs on-disk version
+  ("restart pending"), and the recent events.
+- **`mimir self-update`**: resolve the latest release, verify the platform
+  binary against `SHA256SUMS`, atomically replace this binary, and restart the
+  service if one is loaded.
+- **`GET /api/health`** — `{status, version}`; no database touch, suitable
+  as a proxy health check.
 
 ## v0.5.0 - 2026-06-12
 

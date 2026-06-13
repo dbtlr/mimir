@@ -102,6 +102,12 @@ other:
                           config [serve] port > 64647; a taken port hunts
                           upward unless --no-hunt — the startup line names
                           the bound URL)
+  service <sub>           supervise serve under launchd (macOS):
+                          install [--port <n>] · uninstall · start · stop ·
+                          restart · status (--port writes the global config,
+                          ~/.config/mimir/config.toml)
+  self-update             download + verify the latest release, replace this
+                          binary, restart the service if one is loaded
   migrate [status] · mcp
 `;
 
