@@ -46,6 +46,7 @@ export interface ServiceDeps {
   dbPath: string | undefined;
 }
 
+/** Default `serve` port — MIMIR on a phone keypad. */
 export const DEFAULT_PORT = 64647;
 
 const SUBCOMMANDS = ["install", "uninstall", "start", "stop", "restart", "status"] as const;
@@ -140,7 +141,8 @@ async function statusReport(io: Io, deps: ServiceDeps): Promise<number> {
   const info = await deps.supervisor.info();
   const config = readServeConfig(deps.configFile);
   if (config.problem !== undefined) {
-    io.write(`⚠ config ignored (${config.problem}) — ${deps.configFile}`);
+    const warn = io.plain ? "[warn]" : "\x1b[33m⚠\x1b[0m";
+    io.error(`${warn} config ignored (${config.problem}) — ${deps.configFile}`);
   }
   const port = config.port ?? DEFAULT_PORT;
   if (!info.loaded) {
@@ -194,18 +196,7 @@ export async function cmdSelfUpdate(io: Io, deps: ServiceDeps): Promise<number> 
   replaceBinary(deps.binPath, body);
   const newVersion = tag.replace(/^v/, "");
   const detail = `${deps.version} → ${newVersion}`;
-  let restarted = false;
-  if (deps.platform === "darwin" && (await deps.supervisor.info()).loaded) {
-    await deps.supervisor.restart();
-    restarted = true;
-    appendEvent(deps.eventsFile, {
-      event: "restart",
-      source: "self-update",
-      version: newVersion,
-      ok: true,
-      detail,
-    });
-  }
+  // Log the replacement immediately — it already happened, regardless of what follows.
   appendEvent(deps.eventsFile, {
     event: "self-update",
     source: "self-update",
@@ -213,6 +204,35 @@ export async function cmdSelfUpdate(io: Io, deps: ServiceDeps): Promise<number> 
     ok: true,
     detail,
   });
+  let restarted = false;
+  let restartFailed = false;
+  if (deps.platform === "darwin" && (await deps.supervisor.info()).loaded) {
+    try {
+      await deps.supervisor.restart();
+      restarted = true;
+      appendEvent(deps.eventsFile, {
+        event: "restart",
+        source: "self-update",
+        version: newVersion,
+        ok: true,
+        detail,
+      });
+    } catch (err) {
+      restartFailed = true;
+      const msg = err instanceof Error ? err.message : String(err);
+      appendEvent(deps.eventsFile, {
+        event: "restart",
+        source: "self-update",
+        version: newVersion,
+        ok: false,
+        detail: `restart failed: ${msg}`,
+      });
+    }
+  }
   ok(io, `updated ${detail}${restarted ? " — service restarted" : ""}`);
+  if (restartFailed) {
+    const warn = io.plain ? "[warn]" : "\x1b[33m⚠\x1b[0m";
+    io.error(`${warn} service did not restart — run \`mimir service restart\` (binary is updated)`);
+  }
   return 0;
 }
