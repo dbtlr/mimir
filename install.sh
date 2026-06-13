@@ -3,7 +3,8 @@
 #
 # Downloads the standalone binary for your platform from the latest GitHub
 # release and installs it to ~/.local/bin. Override the directory with
-# MIMIR_INSTALL_DIR; pin a version with MIMIR_VERSION=v0.1.0.
+# MIMIR_INSTALL_DIR; pin a version with MIMIR_VERSION=v0.1.0; install the
+# latest prerelease (the `--next` channel) with MIMIR_NEXT=1.
 #
 #   curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 #
@@ -42,6 +43,15 @@ asset="mimir-${os}-${arch}"
 
 if [ -n "${MIMIR_VERSION:-}" ]; then
   base="https://github.com/$REPO/releases/download/$MIMIR_VERSION"
+elif [ -n "${MIMIR_NEXT:-}" ]; then
+  # Latest release including prereleases (the --next channel). GitHub's
+  # /releases/latest excludes prereleases, so read the atom feed — newest
+  # first, no auth. The first releases/tag/<tag> is the newest entry.
+  tag=$(curl -fsSL --proto '=https' --tlsv1.2 "https://github.com/$REPO/releases.atom" \
+        | grep -o 'releases/tag/[^"<]*' | head -1 | sed 's#releases/tag/##')
+  [ -n "${tag:-}" ] || err "could not resolve a prerelease tag"
+  info "latest prerelease: $tag"
+  base="https://github.com/$REPO/releases/download/$tag"
 else
   base="https://github.com/$REPO/releases/latest/download"
 fi
