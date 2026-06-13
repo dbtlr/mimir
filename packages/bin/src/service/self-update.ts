@@ -41,6 +41,28 @@ export async function resolveLatestTag(fetcher: Fetcher = manualFetch): Promise<
   return m[1];
 }
 
+export const ATOM_FEED = "https://github.com/dbtlr/mimir/releases.atom";
+
+/**
+ * The most recent release INCLUDING prereleases (the `--next` channel). GitHub's
+ * `/releases/latest` excludes prereleases, so we read the atom feed instead —
+ * newest-first, no auth, no REST rate limit. The first `/releases/tag/<tag>`
+ * occurrence is the newest entry.
+ */
+export async function resolveLatestPrereleaseTag(fetcher: Fetcher = manualFetch): Promise<string> {
+  const res = await fetcher(ATOM_FEED);
+  const text = await res.text();
+  const m = /\/releases\/tag\/([^"<]+)/.exec(text);
+  if (m?.[1] === undefined) {
+    throw new MimirError(
+      "validation",
+      "could not resolve a prerelease tag from the release feed",
+      "check network access to github.com",
+    );
+  }
+  return m[1];
+}
+
 /** The release asset for this machine — same names install.sh downloads. */
 export function assetName(): string {
   const os = process.platform === "darwin" ? "darwin" : "linux";

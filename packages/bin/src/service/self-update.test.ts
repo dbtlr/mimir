@@ -8,6 +8,7 @@ import {
   downloadAsset,
   downloadSums,
   replaceBinary,
+  resolveLatestPrereleaseTag,
   resolveLatestTag,
   verifyChecksum,
 } from "./self-update";
@@ -87,4 +88,26 @@ test("downloadAsset follows download redirects and downloadSums returns text", a
   const body = await downloadAsset("v0.6.0", fetcher);
   expect(new TextDecoder().decode(body)).toBe("BINARY");
   expect(await downloadSums("v0.6.0", fetcher)).toBe("abc  mimir-darwin-arm64\n");
+});
+
+test("resolveLatestPrereleaseTag returns the first entry tag from the atom feed", async () => {
+  const atom = `<?xml version="1.0"?><feed>
+    <entry><link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.6.0-next.5"/></entry>
+    <entry><link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.6.0-next.4"/></entry>
+  </feed>`;
+  const tag = await resolveLatestPrereleaseTag(() =>
+    Promise.resolve(new Response(atom, { status: 200 })),
+  );
+  expect(tag).toBe("v0.6.0-next.5");
+});
+
+test("resolveLatestPrereleaseTag throws when the feed names no release", async () => {
+  let thrown: unknown;
+  try {
+    await resolveLatestPrereleaseTag(() => Promise.resolve(new Response("<feed></feed>")));
+  } catch (err) {
+    thrown = err;
+  }
+  expect(thrown).toBeInstanceOf(Error);
+  expect((thrown as Error).message).toMatch(/prerelease|release/i);
 });
