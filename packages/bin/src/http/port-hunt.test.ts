@@ -105,9 +105,11 @@ test("hunt: false fails loudly on a taken port instead of walking", async () => 
   const taken = portOf(squatWithHeadroom());
   let thrown: unknown;
   try {
-    createServer(db, { port: taken, version: "0.0.0-test", hunt: false });
+    const server = createServer(db, { port: taken, version: "0.0.0-test", hunt: false });
+    squatters.push(server);
   } catch (err) {
     thrown = err;
   }
+  expect(thrown).toBeInstanceOf(Error);
   expect((thrown as { code?: string }).code).toBe("EADDRINUSE");
 });

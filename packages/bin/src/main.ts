@@ -154,7 +154,7 @@ async function main(argv: string[]): Promise<number> {
         console.error(`✗ serve: ${err.message}`);
         console.error(
           noHunt
-            ? "note: --no-hunt is set — free the port or change [serve] port in the config"
+            ? "note: --no-hunt is set — free the port, pass a different --port, or change [serve] port in the config"
             : "note: pass --port to start the hunt elsewhere",
         );
         return 1;
