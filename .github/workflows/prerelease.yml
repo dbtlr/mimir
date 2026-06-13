@@ -1,0 +1,61 @@
+name: Prerelease tagger
+
+# Every build-affecting push to main auto-tags a vX.Y.Z-next.N prerelease, which
+# release.yml then builds + publishes (it already flags `-` tags as prerelease).
+# The path filter is the changeset analyzer: a docs/vault-only merge doesn't
+# match, so no prerelease is produced (MMR-57).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/**"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/prerelease.yml"
+      - "install.sh"
+
+# Serialize so two quick merges can't race on "highest + 1".
+concurrency:
+  group: prerelease-tagger
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Compute and push the prerelease tag
+        run: |
+          set -euo pipefail
+          ver=$(grep '"version"' packages/bin/package.json | head -1 \
+                | sed -E 's/.*"version" *: *"([^"]+)".*/\1/')
+          case "$ver" in
+            *-next)
+              # Counter = highest existing vX.Y.Z-next.N for this base, + 1.
+              # Only real prerelease builds create tags, so noop merges never
+              # advance it; robust to pruning (we keep the max) and history shape.
+              max=0
+              for t in $(git tag -l "v${ver}.*"); do
+                n="${t#v${ver}.}"
+                case "$n" in (*[!0-9]*) continue ;; esac
+                if [ "$n" -gt "$max" ]; then max="$n"; fi
+              done
+              n=$((max + 1))
+              tag="v${ver}.${n}"
+              echo "tagging $tag"
+              git tag -a "$tag" -m "Prerelease $tag"
+              git push origin "$tag"
+              ;;
+            *)
+              echo "package.json version $ver is not a -next dev version; no prerelease."
+              echo "(The version guard enforces the release/next-cycle invariant.)"
+              ;;
+          esac
