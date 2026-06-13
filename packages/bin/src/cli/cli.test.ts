@@ -402,6 +402,20 @@ test("create project still accepts --name and errors without either", async () =
 
 // flat --col vocabulary (MMR-38)
 
+// self-update flag wiring (MMR-57)
+
+test("self-update --tag requires a value (usage error, exit 2)", async () => {
+  const io = fakeIo();
+  const code = await runCli(
+    ["self-update", "--tag"],
+    () => {
+      throw new Error("db must not open");
+    },
+    io,
+  );
+  expect(code).toBe(2);
+});
+
 test("--col takes flat column names; the dot form is a usage error", async () => {
   const t = await createTask(db, { parentId: phaseId, title: "t" });
   const ref = `MMR-${String(t.seq)}`;

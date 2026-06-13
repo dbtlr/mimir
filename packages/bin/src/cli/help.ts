@@ -106,8 +106,11 @@ other:
                           install [--port <n>] · uninstall · start · stop ·
                           restart · status (--port writes the global config,
                           ~/.config/mimir/config.toml)
-  self-update             download + verify the latest release, replace this
-                          binary, restart the service if one is loaded
+  self-update [--next] [--tag <tag>]
+                          download + verify a release, replace this binary,
+                          restart the service if loaded. default: latest
+                          official; --next: latest incl. prereleases; --tag:
+                          an exact tag (e.g. v0.6.0-next.5)
   migrate [status] · mcp
 `;
 
