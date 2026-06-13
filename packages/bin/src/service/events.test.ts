@@ -37,4 +37,6 @@ test("recentEvents caps at n, skips corrupt lines, empty when missing", () => {
   }
   appendFileSync(file, "not json\n");
   expect(recentEvents(file, 3)).toHaveLength(3);
+  expect(recentEvents(file, 10).every((e) => e.event === "start")).toBe(true);
+  expect(recentEvents(file, 0)).toEqual([]);
 });

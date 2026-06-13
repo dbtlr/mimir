@@ -1,7 +1,9 @@
 /**
  * The service lifecycle event log (MMR-47): one JSONL record per service
  * verb / self-update, discoverable by `service status`. A plain file, never
- * the SQLite store — ops state is consumer state (ADR 0002).
+ * the SQLite store — ops state is consumer state (ADR 0002). Load-bearing
+ * assumption: the file is append-only with no rotation — event rate is
+ * human-frequency (verbs + self-updates), so the whole-file read stays cheap.
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -35,6 +37,7 @@ export function appendEvent(file: string, event: Omit<ServiceEvent, "at">): void
 
 /** The last `n` events, oldest-first; corrupt lines are skipped, not fatal. */
 export function recentEvents(file: string, n: number): ServiceEvent[] {
+  if (n <= 0) return [];
   if (!existsSync(file)) return [];
   const events: ServiceEvent[] = [];
   for (const line of readFileSync(file, "utf8").split("\n")) {
