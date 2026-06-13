@@ -116,6 +116,9 @@ const OPTIONS = {
   agent: { type: "string" },
   // service flag
   port: { type: "string" },
+  // self-update selectors (--tag reuses the multiple `tag` flag above,
+  // last-wins like the other shared write-surface flags)
+  next: { type: "boolean" },
 } as const;
 
 /**
@@ -201,6 +204,7 @@ export async function runCli(
     local?: boolean;
     agent?: string;
     port?: string;
+    next?: boolean;
   };
   let positionals: string[];
   try {
@@ -382,7 +386,10 @@ export async function runCli(
         if (defaults.service === undefined) {
           throw usage("self-update is unavailable in this context");
         }
-        return await cmdSelfUpdate(ctx, defaults.service);
+        return await cmdSelfUpdate(ctx, defaults.service, {
+          next: values.next === true,
+          tag: values.tag?.[0],
+        });
       }
       default:
         throw usage(`unknown command: ${command}`);
