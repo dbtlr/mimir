@@ -177,6 +177,8 @@ export interface ServeOptions {
   version: string;
   /** The embedded-UI manifest; tests inject fixtures, prod uses the generated map. */
   assets?: UiAssetMap;
+  /** The MMR-53 walk-upward convenience; the daemon posture passes false (declared port, loud failure). */
+  hunt?: boolean;
 }
 
 /** How far past a taken port the hunt walks before giving up (MMR-53). */
@@ -200,7 +202,7 @@ export function createServer(db: Db, opts: ServeOptions): Server<undefined> {
     try {
       return bindServer(db, opts, port);
     } catch (err) {
-      if (!isPortTaken(err) || opts.port === 0) {
+      if (!isPortTaken(err) || opts.port === 0 || opts.hunt === false) {
         throw err;
       }
       if (port >= last) {
