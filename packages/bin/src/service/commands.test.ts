@@ -328,3 +328,39 @@ test("self-update logs the update even when restart fails", async () => {
   // Operator must be warned on stderr
   expect(io.err.join("\n")).toContain("service did not restart");
 });
+
+test("self-update --tag is a no-op when already on that exact tag", async () => {
+  const io = fakeIo();
+  const d = deps(new FakeSupervisor(), { version: "0.6.0-next.5", binPath: join(dir, "mimir") });
+  expect(await cmdSelfUpdate(io, d, { tag: "v0.6.0-next.5" })).toBe(0);
+  expect(io.out.join("\n")).toMatch(/already/i);
+});
+
+test("self-update --next reports up to date when running the latest prerelease", async () => {
+  const atom = `<entry><link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.6.0-next.5"/></entry>`;
+  const d = deps(new FakeSupervisor(), {
+    version: "0.6.0-next.5",
+    binPath: join(dir, "mimir"),
+    fetcher: () => Promise.resolve(new Response(atom)),
+  });
+  const io = fakeIo();
+  expect(await cmdSelfUpdate(io, d, { next: true })).toBe(0);
+  expect(io.out.join("\n")).toMatch(/up to date/i);
+});
+
+test("self-update (default selection {}) still uses official latest + semver compare", async () => {
+  const d = deps(new FakeSupervisor(), {
+    version: "0.6.0",
+    binPath: join(dir, "mimir"),
+    fetcher: () =>
+      Promise.resolve(
+        new Response(null, {
+          status: 302,
+          headers: { location: "https://github.com/dbtlr/mimir/releases/tag/v0.6.0" },
+        }),
+      ),
+  });
+  const io = fakeIo();
+  expect(await cmdSelfUpdate(io, d, {})).toBe(0);
+  expect(io.out.join("\n")).toMatch(/up to date/i);
+});

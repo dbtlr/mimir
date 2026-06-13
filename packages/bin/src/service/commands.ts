@@ -20,6 +20,7 @@ import {
   downloadAsset,
   downloadSums,
   replaceBinary,
+  resolveLatestPrereleaseTag,
   resolveLatestTag,
   verifyChecksum,
 } from "./self-update";
@@ -27,6 +28,13 @@ import {
 export interface Health {
   status: string;
   version: string;
+}
+
+export interface UpdateSelection {
+  /** Include prereleases — resolve the newest build on the next-version line (--next). */
+  next?: boolean;
+  /** Install this exact tag (official or prerelease); wins over `next` (--tag). */
+  tag?: string;
 }
 
 export interface ServiceDeps {
@@ -174,7 +182,11 @@ async function statusReport(io: Io, deps: ServiceDeps): Promise<number> {
   return 0;
 }
 
-export async function cmdSelfUpdate(io: Io, deps: ServiceDeps): Promise<number> {
+export async function cmdSelfUpdate(
+  io: Io,
+  deps: ServiceDeps,
+  sel: UpdateSelection = {},
+): Promise<number> {
   if (basename(deps.binPath).startsWith("bun")) {
     throw new MimirError(
       "validation",
@@ -182,19 +194,31 @@ export async function cmdSelfUpdate(io: Io, deps: ServiceDeps): Promise<number> 
       "running from source — use git pull / bun run instead",
     );
   }
-  const tag = await resolveLatestTag(deps.fetcher);
-  if (compareSemver(tag, deps.version) <= 0) {
+  const stripV = (t: string): string => t.replace(/^v/, "");
+  let targetTag: string;
+  let alreadyCurrent: boolean;
+  if (sel.tag !== undefined) {
+    targetTag = sel.tag.startsWith("v") ? sel.tag : `v${sel.tag}`;
+    alreadyCurrent = stripV(targetTag) === deps.version;
+  } else if (sel.next === true) {
+    targetTag = await resolveLatestPrereleaseTag(deps.fetcher);
+    alreadyCurrent = stripV(targetTag) === deps.version;
+  } else {
+    targetTag = await resolveLatestTag(deps.fetcher);
+    alreadyCurrent = compareSemver(targetTag, deps.version) <= 0;
+  }
+  if (alreadyCurrent) {
     ok(io, `already up to date (${deps.version})`);
     return 0;
   }
-  io.write(`updating ${deps.version} → ${tag.replace(/^v/, "")} (${assetName()})`);
+  io.write(`updating ${deps.version} → ${stripV(targetTag)} (${assetName()})`);
   const [body, sums] = await Promise.all([
-    downloadAsset(tag, deps.fetcher),
-    downloadSums(tag, deps.fetcher),
+    downloadAsset(targetTag, deps.fetcher),
+    downloadSums(targetTag, deps.fetcher),
   ]);
   verifyChecksum(body, sums, assetName());
   replaceBinary(deps.binPath, body);
-  const newVersion = tag.replace(/^v/, "");
+  const newVersion = stripV(targetTag);
   const detail = `${deps.version} → ${newVersion}`;
   // Log the replacement immediately — it already happened, regardless of what follows.
   appendEvent(deps.eventsFile, {
