@@ -19,7 +19,17 @@ import { migrateToLatest, migrationStatus } from "./db/migrator";
 import type { Db } from "./core";
 import { createServer } from "./http";
 import { serveStdio } from "./mcp";
-import { configPath, readServeConfig } from "./service/config";
+import {
+  EVENTS_FILE,
+  LaunchdSupervisor,
+  type Health,
+  type ServiceDeps,
+  bunExec,
+  configPath,
+  manualFetch,
+  plistPath,
+  readServeConfig,
+} from "./service";
 
 /**
  * The database path. `MIMIR_DB` overrides; otherwise a single user-global store
@@ -116,6 +126,31 @@ function servePort(args: string[]): number | null | undefined {
   return port;
 }
 
+function realServiceDeps(): ServiceDeps {
+  return {
+    supervisor: new LaunchdSupervisor(bunExec, process.getuid?.() ?? 501),
+    platform: process.platform,
+    binPath: process.execPath,
+    version: pkg.version,
+    configFile: configPath(),
+    plistFile: plistPath(),
+    eventsFile: EVENTS_FILE,
+    health: async (port: number): Promise<Health | undefined> => {
+      try {
+        const res = await fetch(`http://127.0.0.1:${String(port)}/api/health`, {
+          signal: AbortSignal.timeout(1500),
+        });
+        if (!res.ok) return undefined;
+        return (await res.json()) as Health;
+      } catch {
+        return undefined;
+      }
+    },
+    fetcher: manualFetch,
+    dbPath: process.env.MIMIR_DB,
+  };
+}
+
 async function main(argv: string[]): Promise<number> {
   const command = argv[0];
 
@@ -196,6 +231,7 @@ async function main(argv: string[]): Promise<number> {
     return await runCli(argv, getDb, stdoutIo(), {
       scope: findBinding(process.cwd()),
       cwd: process.cwd(),
+      service: realServiceDeps(),
     });
   } finally {
     await opened?.destroy();

@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { parseArgs } from "node:util";
+import { cmdSelfUpdate, cmdService, type ServiceDeps } from "../service";
 import {
   CHEAP_FACETS,
   FACET_NAMES,
@@ -113,6 +114,8 @@ const OPTIONS = {
   global: { type: "boolean" },
   local: { type: "boolean" },
   agent: { type: "string" },
+  // service flag
+  port: { type: "string" },
 } as const;
 
 /**
@@ -123,6 +126,8 @@ const OPTIONS = {
 export interface Defaults {
   scope?: string;
   cwd?: string;
+  /** Real service/self-update edges; absent where supervision is unavailable (tests). */
+  service?: ServiceDeps;
 }
 
 /**
@@ -195,6 +200,7 @@ export async function runCli(
     global?: boolean;
     local?: boolean;
     agent?: string;
+    port?: string;
   };
   let positionals: string[];
   try {
@@ -365,6 +371,18 @@ export async function runCli(
           ctx.write(`${glyph} bound to ${key} (${BINDING_FILE})`);
         }
         return 0;
+      }
+      case "service": {
+        if (defaults.service === undefined) {
+          throw usage("service is unavailable in this context");
+        }
+        return await cmdService(positionals, { port: values.port }, ctx, defaults.service);
+      }
+      case "self-update": {
+        if (defaults.service === undefined) {
+          throw usage("self-update is unavailable in this context");
+        }
+        return await cmdSelfUpdate(ctx, defaults.service);
       }
       default:
         throw usage(`unknown command: ${command}`);
