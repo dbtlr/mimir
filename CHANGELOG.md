@@ -13,6 +13,19 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Added
+
+- `mimir service status` now supports structured output (`-f json` / `-f jsonl`)
+  — a machine-readable report (loaded / running / pid / port / health /
+  versions / recent events / paths) for scripts and health-checks (MMR-59).
+
+### Changed
+
+- `service` and `self-update` output now follows the standard CLI format
+  contract. **Behavior change:** when stdout is not a TTY (piped, cron, CI),
+  these commands now default to JSON instead of human prose — pass `-f records`
+  for the prose form (MMR-59).
+
 ## v0.6.0 - 2026-06-14
 
 The operations release: run `mimir serve` as a supervised service, keep it

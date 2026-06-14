@@ -5,6 +5,7 @@
  * the command layer computes. Human (`table`/`records`) rendering lives here
  * too so commands.ts returns data, not prose.
  */
+import { emitWire } from "../core";
 import type { ServiceEvent } from "./events";
 
 export interface ServiceHealth {
@@ -48,13 +49,22 @@ export interface SelfUpdateResult {
   asset: string;
 }
 
-/** pretty=true → 2-space `json`; pretty=false → single-line `jsonl`. */
-function emit(wire: Record<string, unknown>, pretty: boolean): string {
-  return pretty ? JSON.stringify(wire, null, 2) : JSON.stringify(wire);
+/** Map a stored event to its wire object — explicit so the envelope is decoupled
+ *  from the internal {@link ServiceEvent} type (detail omitted when absent). */
+function eventToWire(e: ServiceEvent): Record<string, unknown> {
+  const wire: Record<string, unknown> = {
+    at: e.at,
+    event: e.event,
+    source: e.source,
+    version: e.version,
+    ok: e.ok,
+  };
+  if (e.detail !== undefined) wire.detail = e.detail;
+  return wire;
 }
 
 export function formatServiceStatusJson(status: ServiceStatus, pretty: boolean): string {
-  return emit(
+  return emitWire(
     {
       loaded: status.loaded,
       running: status.running,
@@ -69,7 +79,7 @@ export function formatServiceStatusJson(status: ServiceStatus, pretty: boolean):
               on_disk_version: status.health.onDiskVersion,
               restart_pending: status.health.restartPending,
             },
-      recent_events: status.recentEvents,
+      recent_events: status.recentEvents.map(eventToWire),
       paths: status.paths,
     },
     pretty,
@@ -80,11 +90,11 @@ export function formatServiceActionJson(result: ServiceActionResult, pretty: boo
   const wire: Record<string, unknown> = { action: result.action, ok: result.ok };
   if (result.port !== undefined) wire.port = result.port;
   if (result.paths !== undefined) wire.paths = result.paths;
-  return emit(wire, pretty);
+  return emitWire(wire, pretty);
 }
 
 export function formatSelfUpdateJson(result: SelfUpdateResult, pretty: boolean): string {
-  return emit(
+  return emitWire(
     {
       from: result.from,
       to: result.to,

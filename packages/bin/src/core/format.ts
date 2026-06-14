@@ -70,6 +70,15 @@ export function treeToWire(tree: TreeView): Record<string, unknown> {
   return { ...nodeToWire(node), children: children.map(treeToWire) };
 }
 
+/**
+ * Emit a wire object as the `json` form (pretty, 2-space) or the compact
+ * `jsonl`/single-line form. The one place the structural serialization shape
+ * is decided, so every transport's `json`/`jsonl` stays byte-identical.
+ */
+export function emitWire(wire: Record<string, unknown>, pretty: boolean): string {
+  return pretty ? JSON.stringify(wire, null, 2) : JSON.stringify(wire);
+}
+
 /** `ids` — one `KEY-seq` per line (the pipe default). */
 export function formatIds(items: readonly NodeView[]): string {
   return items.map((n) => n.id).join("\n");
@@ -98,25 +107,24 @@ export function formatSetJson(
   ) {
     wrapper.warnings = result.warnings;
   }
-  return JSON.stringify(wrapper, null, 2);
+  return emitWire(wrapper, true);
 }
 
 /** `jsonl` for a set — one wire object per line, no wrapper (streaming). */
 export function formatSetJsonl(items: readonly NodeView[]): string {
-  return items.map((n) => JSON.stringify(nodeToWire(n))).join("\n");
+  return items.map((n) => emitWire(nodeToWire(n), false)).join("\n");
 }
 
 /** `json` for a single node — the bare wire object (no set wrapper; `get` / mutation echo). */
 export function formatNodeJson(node: NodeView): string {
-  return JSON.stringify(nodeToWire(node), null, 2);
+  return emitWire(nodeToWire(node), true);
 }
 
 /** `json` for `status_of` — id, label, and distribution together. */
 export function formatStatusJson(status: StatusView): string {
-  return JSON.stringify(
+  return emitWire(
     { id: status.id, status: status.status, distribution: status.distribution },
-    null,
-    2,
+    true,
   );
 }
 
@@ -136,5 +144,5 @@ export function artifactToWire(artifact: ArtifactDetail): Record<string, unknown
 
 /** `json` for a standalone artifact (`get KEY-aN`). */
 export function formatArtifactJson(artifact: ArtifactDetail): string {
-  return JSON.stringify(artifactToWire(artifact), null, 2);
+  return emitWire(artifactToWire(artifact), true);
 }
