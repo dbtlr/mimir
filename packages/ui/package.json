@@ -35,7 +35,7 @@
     "tailwindcss": "^4.1.13",
     "vite": "^7.1.0",
     "vite-plugin-pwa": "^1.0.3",
-    "vitest": "^3.2.4",
+    "vitest": "^4.1.8",
     "workbox-window": "^7.4.1"
   }
 }
