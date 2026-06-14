@@ -57,6 +57,18 @@ export function countLine(n: number, unit = "task"): string {
   return `${String(n)} ${unit}${n === 1 ? "" : "s"}`;
 }
 
+/** Success line on stdout — the shared `✓`/`[ok]` glyph (color is decoration). */
+export function ok(io: Io, text: string): void {
+  const glyph = io.plain ? "[ok]" : "\x1b[32m✓\x1b[0m";
+  io.write(`${glyph} ${text}`);
+}
+
+/** Warning line on stderr — the shared `⚠`/`[warn]` glyph. */
+export function warn(io: Io, text: string): void {
+  const glyph = io.plain ? "[warn]" : "\x1b[33m⚠\x1b[0m";
+  io.error(`${glyph} ${text}`);
+}
+
 function statusCell(status: StatusWord, width: number, plain: boolean): string {
   const style = STATUS_STYLE[status];
   const glyph = plain ? style.ascii : style.icon;
