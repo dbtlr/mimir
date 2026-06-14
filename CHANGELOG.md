@@ -13,6 +13,12 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+## v0.6.0 - 2026-06-14
+
+The operations release: run `mimir serve` as a supervised service, keep it
+current with in-place self-update, and pull pre-release builds from a continuous
+channel for testing.
+
 ### Added
 
 - **Continuous prerelease delivery** — every build-affecting merge to `main`
