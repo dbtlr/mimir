@@ -348,6 +348,69 @@ test("self-update --next reports up to date when running the latest prerelease",
   expect(io.out.join("\n")).toMatch(/up to date/i);
 });
 
+// --- output contract (MMR-59): the format param routes to structured envelopes ---
+
+test("service status emits the json envelope when format is json", async () => {
+  const sup = new FakeSupervisor();
+  sup.state = { loaded: true, running: true, pid: 4242 };
+  const io = fakeIo();
+  const d = deps(sup, {
+    version: "0.6.0",
+    health: () => Promise.resolve({ status: "ok", version: "0.5.0" }),
+  });
+
+  const code = await cmdService(["service", "status"], {}, io, d, "json");
+
+  expect(code).toBe(0);
+  const parsed = JSON.parse(io.out.join("\n"));
+  expect(parsed).toMatchObject({
+    loaded: true,
+    running: true,
+    pid: 4242,
+    port: 64647,
+    health: { running_version: "0.5.0", on_disk_version: "0.6.0", restart_pending: true },
+  });
+  expect(parsed.paths.plist).toBe(d.plistFile);
+});
+
+test("service install echoes the action envelope when format is json", async () => {
+  const sup = new FakeSupervisor();
+  const io = fakeIo();
+  const d = deps(sup);
+
+  const code = await cmdService(["service", "install"], { port: "55440" }, io, d, "json");
+
+  expect(code).toBe(0);
+  const parsed = JSON.parse(io.out.join("\n"));
+  expect(parsed).toMatchObject({ action: "install", ok: true, port: 55440 });
+  expect(parsed.paths.plist).toBe(d.plistFile);
+  // The human path's detail lines must not leak into json mode.
+  expect(io.out.join("\n")).not.toContain("plist:");
+});
+
+test("self-update emits the json result envelope when format is json", async () => {
+  const sup = new FakeSupervisor();
+  const io = fakeIo();
+  const d = deps(sup, {
+    version: "0.5.0",
+    fetcher: (url: string) =>
+      url.includes("/releases/latest")
+        ? Promise.resolve(
+            new Response(null, {
+              status: 302,
+              headers: { location: "https://github.com/dbtlr/mimir/releases/tag/v0.5.0" },
+            }),
+          )
+        : Promise.reject(new Error("unexpected fetch in test")),
+  });
+
+  const code = await cmdSelfUpdate(io, d, {}, "json");
+
+  expect(code).toBe(0);
+  const parsed = JSON.parse(io.out.join("\n"));
+  expect(parsed).toMatchObject({ from: "0.5.0", updated: false, restarted: false });
+});
+
 test("self-update (default selection {}) still uses official latest + semver compare", async () => {
   const d = deps(new FakeSupervisor(), {
     version: "0.6.0",

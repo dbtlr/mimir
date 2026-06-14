@@ -380,16 +380,20 @@ export async function runCli(
         if (defaults.service === undefined) {
           throw usage("service is unavailable in this context");
         }
-        return await cmdService(positionals, { port: values.port }, ctx, defaults.service);
+        const format = pickFormat(values.format, "report", ctx);
+        return await cmdService(positionals, { port: values.port }, ctx, defaults.service, format);
       }
       case "self-update": {
         if (defaults.service === undefined) {
           throw usage("self-update is unavailable in this context");
         }
-        return await cmdSelfUpdate(ctx, defaults.service, {
-          next: values.next === true,
-          tag: values.tag?.at(-1),
-        });
+        const format = pickFormat(values.format, "report", ctx);
+        return await cmdSelfUpdate(
+          ctx,
+          defaults.service,
+          { next: values.next === true, tag: values.tag?.at(-1) },
+          format,
+        );
       }
       default:
         throw usage(`unknown command: ${command}`);
@@ -463,7 +467,7 @@ function renderSingle(node: NodeView, explicit: string | undefined, io: Io): num
 
 function pickFormat(
   explicit: string | undefined,
-  kind: "set" | "single" | "status",
+  kind: "set" | "single" | "status" | "report",
   io: Io,
 ): Format {
   if (explicit !== undefined) {
@@ -473,10 +477,14 @@ function pickFormat(
     return explicit as Format;
   }
   if (!io.isTTY) {
-    return kind === "status" ? "json" : "ids";
+    // `status`/`report` are structured by nature — machine default is json.
+    return kind === "status" || kind === "report" ? "json" : "ids";
   }
   if (kind === "set") return "table";
-  return kind === "status" ? "json" : "records";
+  // `report` is human-readable prose in a terminal (service status, self-update);
+  // `status` keeps its json default (the distribution rollup reads as data).
+  if (kind === "status") return "json";
+  return "records";
 }
 
 function requireId(id: string | undefined, command: string): string {
