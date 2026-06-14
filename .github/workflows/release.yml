@@ -120,3 +120,50 @@ jobs:
             dist/SHA256SUMS
           prerelease: ${{ contains(github.ref_name, '-') }}
           fail_on_unmatched_files: true
+
+      # Prune stale prerelease tags + Releases at an official cut (MMR-58).
+      # Lag-by-one retention: delete prereleases from cycles OLDER than the
+      # previous official (so the just-shipped cycle's trail survives one more
+      # release). Gated to official tags and best-effort, so a pruning hiccup
+      # never fails a real release. Enumerates via `gh` because this job's
+      # checkout is shallow and tagless, and the binaries live on the Releases.
+      #
+      # DRY-RUN: logs what it WOULD delete. After the first 0.7.0-era cut
+      # validates it against real accumulated prereleases, uncomment the
+      # `gh release delete` line (which also removes the underlying tag).
+      - name: Prune stale prereleases (dry-run)
+        if: ${{ !contains(github.ref_name, '-') }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cut="${GITHUB_REF_NAME#v}"   # X.Y.Z being cut (official)
+
+          # Previous official = highest non-prerelease version strictly < cut.
+          prev=""
+          while read -r v; do
+            [ "$v" = "$cut" ] && continue
+            [ "$(printf '%s\n%s\n' "$v" "$cut" | sort -V | tail -1)" = "$cut" ] && prev="$v"
+          done < <(gh release list --limit 500 --json tagName,isPrerelease \
+                     --jq '.[] | select(.isPrerelease == false) | .tagName' \
+                   | sed 's/^v//' | sort -V)
+
+          if [ -z "$prev" ]; then
+            echo "No previous official before $cut; nothing to prune."
+            exit 0
+          fi
+          echo "Cut $cut; previous official $prev — pruning prerelease cycles < $prev."
+
+          gh release list --limit 500 --json tagName,isPrerelease \
+            --jq '.[] | select(.isPrerelease) | .tagName' \
+          | while read -r tag; do
+              base="${tag#v}"; base="${base%%-next.*}"   # cycle A.B.C
+              lowest="$(printf '%s\n%s\n' "$base" "$prev" | sort -V | head -1)"
+              if [ "$base" != "$prev" ] && [ "$lowest" = "$base" ]; then
+                echo "WOULD DELETE prerelease $tag (cycle $base < $prev)"
+                # gh release delete "$tag" --yes --cleanup-tag
+              else
+                echo "keep $tag (cycle $base >= $prev)"
+              fi
+            done
