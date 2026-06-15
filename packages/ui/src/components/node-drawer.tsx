@@ -11,21 +11,24 @@ import { Skeleton } from "./ui/skeleton";
 import { PriorityBadge, SizeBadge, StaleBadge } from "./signal-badges";
 import { StatusBadge } from "./status-badge";
 import { StatusDot } from "./status-dot";
+import { TransitionMenu } from "./transition-menu";
 
 /**
  * The node-detail drawer — URL-addressable (`?node=KEY-seq`), layered over
  * whichever view is open. Chunk-1 scope: the full record, signals, deps,
  * tags, annotations, and artifact *titles* (bodies and transition history
- * are chunk 3). Read-only: no verbs anywhere.
+ * are chunk 3). Chunk-2 adds the transition kebab.
  */
 export function NodeDrawer({
   nodeId,
   onClose,
   onOpenNode,
+  offline,
 }: {
   nodeId: string | undefined;
   onClose: () => void;
   onOpenNode: (id: string) => void;
+  offline?: boolean;
 }) {
   return (
     <Sheet
@@ -36,7 +39,7 @@ export function NodeDrawer({
     >
       {nodeId !== undefined && (
         <SheetContent aria-describedby={undefined}>
-          <DrawerBody nodeId={nodeId} onOpenNode={onOpenNode} />
+          <DrawerBody nodeId={nodeId} onOpenNode={onOpenNode} offline={offline} />
         </SheetContent>
       )}
     </Sheet>
@@ -76,7 +79,15 @@ function RefRow({ refNode, onOpenNode }: { refNode: NodeRef; onOpenNode: (id: st
   );
 }
 
-function DrawerBody({ nodeId, onOpenNode }: { nodeId: string; onOpenNode: (id: string) => void }) {
+function DrawerBody({
+  nodeId,
+  onOpenNode,
+  offline,
+}: {
+  nodeId: string;
+  onOpenNode: (id: string) => void;
+  offline?: boolean;
+}) {
   const node = useQuery(nodeQuery(nodeId));
   const annotations = useQuery(annotationsQuery(nodeId));
 
@@ -97,9 +108,14 @@ function DrawerBody({ nodeId, onOpenNode }: { nodeId: string; onOpenNode: (id: s
             {node.data?.title ?? nodeId}
           </SheetTitle>
         </div>
-        <SheetClose className="rounded px-2 py-1 text-ink-dim transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent">
-          ✕
-        </SheetClose>
+        <div className="flex items-center gap-1">
+          {node.data !== undefined && (
+            <TransitionMenu node={{ id: nodeId, status: node.data.status }} disabled={offline} />
+          )}
+          <SheetClose className="rounded px-2 py-1 text-ink-dim transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent">
+            ✕
+          </SheetClose>
+        </div>
       </header>
 
       <ScrollArea className="min-h-0 flex-1">

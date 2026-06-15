@@ -95,7 +95,7 @@ export function ProjectPage() {
           </div>
         )}
         {view === "board" && boardReady && (
-          <BoardView board={buildBoard(live.data.items, done.data.items)} onOpenNode={openNode} />
+          <BoardView board={buildBoard(live.data.items, done.data.items)} onOpenNode={openNode} offline={conn.offline} />
         )}
 
         {view === "tree" && tree.isPending && <Skeleton className="h-64" />}
@@ -110,7 +110,7 @@ export function ProjectPage() {
           </p>
         )}
       </main>
-      <NodeDrawer nodeId={node} onClose={closeNode} onOpenNode={openNode} />
+      <NodeDrawer nodeId={node} onClose={closeNode} onOpenNode={openNode} offline={conn.offline} />
     </>
   );
 }
