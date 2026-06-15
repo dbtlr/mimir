@@ -26,3 +26,6 @@ dist/
 packages/bin/src/http/ui-assets.generated.ts
 # vite-plugin-pwa dev output
 packages/ui/dev-dist/
+
+# Playwright MCP scratch output (snapshots/screenshots from manual smokes)
+.playwright-mcp/
