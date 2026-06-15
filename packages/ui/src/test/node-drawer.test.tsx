@@ -5,8 +5,8 @@ import type { ReactNode } from "react";
 import { NodeDrawer } from "../components/node-drawer";
 import { task } from "./fixtures";
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock("../api/client", () => ({ apiGet }));
+const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
+vi.mock("../api/client", () => ({ apiGet, apiSend }));
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
@@ -71,5 +71,35 @@ describe("NodeDrawer", () => {
   test("closed drawer renders nothing", () => {
     render(<NodeDrawer nodeId={undefined} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
     expect(screen.queryByTestId("drawer-body")).toBeNull();
+  });
+
+  test("shows the transition kebab for a live node", async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === "/api/nodes/MMR-51") {
+        return Promise.resolve(task({ id: "MMR-51", status: "ready", title: "Chunk 2" }));
+      }
+      if (path === "/api/nodes/MMR-51/annotations") {
+        return Promise.resolve({ total: 0, items: [] });
+      }
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    render(<NodeDrawer nodeId="MMR-51" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    expect(await screen.findByLabelText("Actions")).toBeDefined();
+  });
+
+  test("offline disables the drawer's transition kebab", async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === "/api/nodes/MMR-51") {
+        return Promise.resolve(task({ id: "MMR-51", status: "ready", title: "Chunk 2" }));
+      }
+      if (path === "/api/nodes/MMR-51/annotations") {
+        return Promise.resolve({ total: 0, items: [] });
+      }
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    render(<NodeDrawer nodeId="MMR-51" offline onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+      wrapper,
+    });
+    expect(await screen.findByLabelText("Actions")).toHaveProperty("disabled", true);
   });
 });
