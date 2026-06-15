@@ -12,3 +12,31 @@ export async function apiGet<T>(path: string): Promise<T> {
   }
   return (await res.json()) as T;
 }
+
+type WriteMethod = "POST" | "PATCH" | "DELETE";
+
+/**
+ * The write seam — mirrors {@link apiGet} for mutations. Sends JSON, and on a
+ * non-2xx surfaces the resource envelope's `error.message` (ADR 0012) so the
+ * caller can toast the real reason rather than a bare status code.
+ */
+export async function apiSend<T>(method: WriteMethod, path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: { accept: "application/json", "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let message = `${method} ${path} → ${String(res.status)}`;
+    try {
+      const data = (await res.json()) as { error?: { message?: string } };
+      if (data.error?.message != null && data.error.message !== "") {
+        message = data.error.message;
+      }
+    } catch {
+      // non-JSON error body — keep the status-code message
+    }
+    throw new Error(message);
+  }
+  return (await res.json()) as T;
+}
