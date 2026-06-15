@@ -1,4 +1,5 @@
 import { Link, Outlet } from "@tanstack/react-router";
+import { Toaster } from "sonner";
 
 /** The app shell: brand bar + the routed surface. */
 export function Shell() {
@@ -16,6 +17,7 @@ export function Shell() {
         </Link>
       </header>
       <Outlet />
+      <Toaster theme="dark" position="bottom-right" richColors closeButton />
     </div>
   );
 }
