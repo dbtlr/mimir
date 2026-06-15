@@ -6,7 +6,10 @@ import { BoardView } from "../components/board";
 import { buildBoard } from "../lib/board";
 import { NOW, daysAgo, task } from "./fixtures";
 
-vi.mock("../api/mutations", () => ({ useTransition: () => ({ mutate: vi.fn() }) }));
+vi.mock("../api/mutations", () => ({
+  useTransition: () => ({ mutate: vi.fn() }),
+  useReorder: () => ({ mutate: vi.fn() }),
+}));
 
 function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>;
