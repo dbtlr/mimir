@@ -171,7 +171,12 @@ export function BoardView({ board, onOpenNode, offline }: BoardViewProps) {
               className="flex min-w-0 flex-col rounded-md border border-line bg-well-900/60"
             >
               <ColumnHeader column={column} count={board[column].length} />
-              <ColumnCards board={board} column={column} onOpenNode={onOpenNode} offline={offline} />
+              <ColumnCards
+                board={board}
+                column={column}
+                onOpenNode={onOpenNode}
+                offline={offline}
+              />
             </section>
           ))}
         </div>
