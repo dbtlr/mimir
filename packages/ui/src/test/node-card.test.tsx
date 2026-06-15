@@ -38,4 +38,40 @@ describe("NodeCard", () => {
     render(<NodeCard node={task({ id: "MMR-9", status: "done" })} onOpen={vi.fn()} />, { wrapper });
     expect(screen.queryByLabelText("Actions")).toBeNull();
   });
+
+  const sortable = { setNodeRef: () => {}, handleProps: {} };
+
+  test("renders the grip handle when sortable", () => {
+    render(
+      <NodeCard
+        node={task({ id: "MMR-9", status: "ready" })}
+        onOpen={vi.fn()}
+        sortable={sortable}
+      />,
+      {
+        wrapper,
+      },
+    );
+    expect(screen.getByLabelText("Reorder")).toBeDefined();
+  });
+
+  test("offline hides the grip handle even when sortable", () => {
+    render(
+      <NodeCard
+        node={task({ id: "MMR-9", status: "ready" })}
+        onOpen={vi.fn()}
+        sortable={sortable}
+        offline
+      />,
+      { wrapper },
+    );
+    expect(screen.queryByLabelText("Reorder")).toBeNull();
+  });
+
+  test("no grip when not sortable (held/done columns)", () => {
+    render(<NodeCard node={task({ id: "MMR-9", status: "ready" })} onOpen={vi.fn()} />, {
+      wrapper,
+    });
+    expect(screen.queryByLabelText("Reorder")).toBeNull();
+  });
 });
