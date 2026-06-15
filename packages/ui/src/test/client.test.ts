@@ -12,7 +12,7 @@ describe("apiSend", () => {
       .mockResolvedValue(new Response(JSON.stringify({ id: "MMR-9" }), { status: 200 }));
     const out = await apiSend<{ id: string }>("POST", "/api/nodes/MMR-9/start");
     expect(out).toEqual({ id: "MMR-9" });
-    const [, init] = fetchMock.mock.calls[0];
+    const init = fetchMock.mock.calls[0]?.[1];
     expect(init?.method).toBe("POST");
   });
 
@@ -21,7 +21,7 @@ describe("apiSend", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response("{}", { status: 200 }));
     await apiSend("POST", "/api/nodes/MMR-9/park", { reason: "waiting" });
-    const [, init] = fetchMock.mock.calls[0];
+    const init = fetchMock.mock.calls[0]?.[1];
     expect(init?.body).toBe(JSON.stringify({ reason: "waiting" }));
   });
 
