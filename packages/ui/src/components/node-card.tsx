@@ -1,38 +1,81 @@
+import type { CSSProperties, ReactNode } from "react";
 import { cn } from "../lib/cn";
 import { STATUS_META } from "../lib/status";
 import type { WireNode } from "../api/types";
 import { Badge } from "./ui/badge";
 import { PriorityBadge, SizeBadge, StaleBadge } from "./signal-badges";
+import { TransitionMenu } from "./transition-menu";
 
 const SHOWN_TAGS = 3;
 
+/** Drag wiring injected by the board's SortableCard (absent in non-rankable columns). */
+export interface CardSortable {
+  setNodeRef: (el: HTMLElement | null) => void;
+  handleProps: Record<string, unknown>;
+  style?: CSSProperties;
+  isDragging?: boolean;
+}
+
 /**
- * One board card: a status-cut left edge, mono id, dense title, and the
- * signal row (priority/size badges, tag chips, stale marker). Read-only —
- * the only affordance is opening the drawer.
+ * One board card. The title region opens the drawer; the kebab runs the legal
+ * transitions; an optional grip handle (rankable columns only) is the sole drag
+ * source — so list scroll and taps never read as a drag. Offline inerts both.
  */
-export function NodeCard({ node, onOpen }: { node: WireNode; onOpen: (id: string) => void }) {
+export function NodeCard({
+  node,
+  onOpen,
+  offline,
+  sortable,
+}: {
+  node: WireNode;
+  onOpen: (id: string) => void;
+  offline?: boolean;
+  sortable?: CardSortable;
+}) {
   const tags = node.tags ?? [];
   const overflow = tags.length - SHOWN_TAGS;
+  const grip: ReactNode =
+    sortable !== undefined && offline !== true ? (
+      <button
+        type="button"
+        aria-label="Reorder"
+        className="cursor-grab touch-none rounded px-1 text-[12px] leading-none text-ink-faint hover:text-ink active:cursor-grabbing"
+        {...sortable.handleProps}
+      >
+        ⠿
+      </button>
+    ) : null;
+
   return (
-    <button
-      type="button"
-      onClick={() => {
-        onOpen(node.id);
-      }}
+    <div
+      ref={sortable?.setNodeRef}
+      style={sortable?.style}
       className={cn(
-        "group block w-full rounded-[4px] border border-line border-l-2 bg-well-850 p-2 text-left transition-colors",
-        "hover:border-line-bright hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent",
+        "group relative rounded-[4px] border border-line border-l-2 bg-well-850 p-2 transition-colors",
+        "hover:border-line-bright hover:bg-well-800",
         STATUS_META[node.status].border.replace("border-", "border-l-"),
+        sortable?.isDragging === true && "opacity-50",
       )}
     >
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-mono text-[10px] text-ink-dim">{node.id}</span>
-        {node.verdicts?.stale === true && <StaleBadge />}
+        <div className="flex items-center gap-0.5">
+          {node.verdicts?.stale === true && <StaleBadge />}
+          {grip}
+          <TransitionMenu node={node} disabled={offline} />
+        </div>
       </div>
-      <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-ink group-hover:text-ink-bright">
-        {node.title}
-      </p>
+      <button
+        type="button"
+        onClick={() => {
+          onOpen(node.id);
+        }}
+        className="mt-0.5 block w-full text-left focus-visible:outline-2 focus-visible:outline-accent"
+      >
+        <p className="line-clamp-2 text-[12.5px] leading-snug text-ink group-hover:text-ink-bright">
+          {node.title}
+        </p>
+      </button>
       {(node.priority != null || node.size != null || tags.length > 0) && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
           {node.priority != null && <PriorityBadge priority={node.priority} />}
@@ -45,6 +88,6 @@ export function NodeCard({ node, onOpen }: { node: WireNode; onOpen: (id: string
           {overflow > 0 && <Badge variant="outline">+{overflow}</Badge>}
         </div>
       )}
-    </button>
+    </div>
   );
 }

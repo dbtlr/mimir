@@ -1,8 +1,16 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
+import type { ReactNode } from "react";
 import { BoardView } from "../components/board";
 import { buildBoard } from "../lib/board";
 import { NOW, daysAgo, task } from "./fixtures";
+
+vi.mock("../api/mutations", () => ({ useTransition: () => ({ mutate: vi.fn() }) }));
+
+function wrapper({ children }: { children: ReactNode }) {
+  return <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>;
+}
 
 describe("BoardView", () => {
   test("cards land in their status-word column, Ready in given order", () => {
@@ -16,12 +24,12 @@ describe("BoardView", () => {
       [task({ id: "MMR-50", status: "done", title: "shipped", completed_at: daysAgo(2) })],
       NOW,
     );
-    render(<BoardView board={board} onOpenNode={vi.fn()} />);
+    render(<BoardView board={board} onOpenNode={vi.fn()} />, { wrapper });
 
     // desktop sections are labelled by their status word
     const [ready] = screen.getAllByRole("region", { name: "Ready" });
     expect(ready).toBeDefined();
-    const readyCards = within(ready as HTMLElement).getAllByRole("button");
+    const readyCards = within(ready as HTMLElement).getAllByRole("listitem");
     expect(readyCards.map((c) => c.textContent)).toEqual([
       expect.stringContaining("MMR-9"),
       expect.stringContaining("MMR-7"),
@@ -46,14 +54,14 @@ describe("BoardView", () => {
       [],
       NOW,
     );
-    render(<BoardView board={board} onOpenNode={vi.fn()} />);
+    render(<BoardView board={board} onOpenNode={vi.fn()} />, { wrapper });
     expect(screen.getAllByText(/stale/).length).toBeGreaterThan(0);
   });
 
   test("clicking a card opens its node", async () => {
     const onOpen = vi.fn();
     const board = buildBoard([task({ id: "MMR-8", status: "ready", title: "open me" })], [], NOW);
-    render(<BoardView board={board} onOpenNode={onOpen} />);
+    render(<BoardView board={board} onOpenNode={onOpen} />, { wrapper });
     screen.getAllByText("open me")[0]?.closest("button")?.click();
     expect(onOpen).toHaveBeenCalledWith("MMR-8");
   });

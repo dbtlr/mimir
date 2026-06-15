@@ -1,0 +1,39 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, test, vi } from "vitest";
+import type { ReactNode } from "react";
+import { NodeCard } from "../components/node-card";
+import { task } from "./fixtures";
+
+vi.mock("../api/mutations", () => ({ useTransition: () => ({ mutate: vi.fn() }) }));
+
+function wrapper({ children }: { children: ReactNode }) {
+  return <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>;
+}
+
+describe("NodeCard", () => {
+  test("opens the node when the title region is clicked", async () => {
+    const onOpen = vi.fn();
+    render(<NodeCard node={task({ id: "MMR-9", status: "ready" })} onOpen={onOpen} />, { wrapper });
+    await userEvent.click(screen.getByText("task MMR-9"));
+    expect(onOpen).toHaveBeenCalledWith("MMR-9");
+  });
+
+  test("shows the actions kebab for a live card", () => {
+    render(<NodeCard node={task({ id: "MMR-9", status: "ready" })} onOpen={vi.fn()} />, { wrapper });
+    expect(screen.getByLabelText("Actions")).toBeDefined();
+  });
+
+  test("offline disables the actions kebab", () => {
+    render(<NodeCard node={task({ id: "MMR-9", status: "ready" })} onOpen={vi.fn()} offline />, {
+      wrapper,
+    });
+    expect(screen.getByLabelText("Actions")).toHaveProperty("disabled", true);
+  });
+
+  test("a done card has no kebab", () => {
+    render(<NodeCard node={task({ id: "MMR-9", status: "done" })} onOpen={vi.fn()} />, { wrapper });
+    expect(screen.queryByLabelText("Actions")).toBeNull();
+  });
+});
