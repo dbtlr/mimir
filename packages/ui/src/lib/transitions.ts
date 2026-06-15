@@ -1,14 +1,7 @@
 import type { StatusWord } from "@mimir/contract";
 
 /** The mutation verbs a human can drive from the console (lifecycle + hold). */
-export type TransitionVerb =
-  | "start"
-  | "done"
-  | "abandon"
-  | "park"
-  | "unpark"
-  | "block"
-  | "unblock";
+export type TransitionVerb = "start" | "done" | "abandon" | "park" | "unpark" | "block" | "unblock";
 
 export interface VerbSpec {
   verb: TransitionVerb;

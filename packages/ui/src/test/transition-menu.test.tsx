@@ -16,10 +16,9 @@ function wrapper({ children }: { children: ReactNode }) {
 
 describe("TransitionMenu", () => {
   test("renders nothing for a terminal status", () => {
-    const { container } = render(
-      <TransitionMenu node={{ id: "MMR-9", status: "done" }} />,
-      { wrapper },
-    );
+    const { container } = render(<TransitionMenu node={{ id: "MMR-9", status: "done" }} />, {
+      wrapper,
+    });
     expect(container.querySelector("[aria-label='Actions']")).toBeNull();
   });
 

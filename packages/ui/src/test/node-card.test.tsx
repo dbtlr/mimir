@@ -21,7 +21,9 @@ describe("NodeCard", () => {
   });
 
   test("shows the actions kebab for a live card", () => {
-    render(<NodeCard node={task({ id: "MMR-9", status: "ready" })} onOpen={vi.fn()} />, { wrapper });
+    render(<NodeCard node={task({ id: "MMR-9", status: "ready" })} onOpen={vi.fn()} />, {
+      wrapper,
+    });
     expect(screen.getByLabelText("Actions")).toBeDefined();
   });
 

@@ -95,7 +95,11 @@ export function ProjectPage() {
           </div>
         )}
         {view === "board" && boardReady && (
-          <BoardView board={buildBoard(live.data.items, done.data.items)} onOpenNode={openNode} offline={conn.offline} />
+          <BoardView
+            board={buildBoard(live.data.items, done.data.items)}
+            onOpenNode={openNode}
+            offline={conn.offline}
+          />
         )}
 
         {view === "tree" && tree.isPending && <Skeleton className="h-64" />}
