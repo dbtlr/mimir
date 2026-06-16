@@ -7,6 +7,7 @@ import { annotationsQuery, nodeQuery } from "../api/queries";
 import { useUpdateNode } from "../api/mutations";
 import type { WireNode } from "../api/types";
 import { AnnotationComposer } from "./annotation-composer";
+import { TagEditor } from "./tag-editor";
 import type { TaskFormValues } from "../lib/schemas";
 import { absoluteTime, ago } from "../lib/time";
 import { Badge } from "./ui/badge";
@@ -239,15 +240,9 @@ function DrawerBody({
                   </Section>
                 )}
 
-              {(node.data.tags?.length ?? 0) > 0 && (
+              {(!offline || (node.data.tags?.length ?? 0) > 0) && (
                 <Section label="Tags">
-                  <div className="flex flex-wrap gap-1">
-                    {node.data.tags?.map((t) => (
-                      <Badge key={t.tag} variant="outline" title={t.note ?? undefined}>
-                        {t.tag}
-                      </Badge>
-                    ))}
-                  </div>
+                  <TagEditor nodeId={node.data.id} tags={node.data.tags ?? []} offline={offline} />
                 </Section>
               )}
 
