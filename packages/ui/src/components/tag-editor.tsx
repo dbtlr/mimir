@@ -34,7 +34,8 @@ export function TagEditor({
             {!offline && (
               <button
                 type="button"
-                aria-label={`remove ${t.tag}`}
+                aria-label={`Remove ${t.tag}`}
+                disabled={tag.isPending || untag.isPending}
                 onClick={() => untag.mutate(t.tag)}
                 className="ml-0.5 text-ink-faint hover:text-ink transition-colors focus-visible:outline-2 focus-visible:outline-accent"
               >
@@ -59,7 +60,7 @@ export function TagEditor({
           />
           <button
             type="button"
-            aria-label="add tag"
+            aria-label="Add tag"
             disabled={addDisabled}
             onClick={handleAdd}
             className="rounded bg-accent px-3 py-1 text-[12px] font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
