@@ -135,6 +135,50 @@ describe("NodeDrawer", () => {
     expect(screen.getByRole("button", { name: /save/i })).toBeDefined();
   });
 
+  test("edit PATCH omits empty optional fields (no null values sent to server)", async () => {
+    // Fixture: task with null description and external_ref (the default fixture state)
+    apiGet.mockImplementation((path: string) => {
+      if (path === "/api/nodes/MMR-65") {
+        return Promise.resolve(
+          task({
+            id: "MMR-65",
+            status: "ready",
+            title: "Regression task",
+            description: null,
+            external_ref: null,
+          }),
+        );
+      }
+      if (path === "/api/nodes/MMR-65/annotations") {
+        return Promise.resolve({ total: 0, items: [] });
+      }
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    // apiSend must resolve so the mutate call succeeds
+    apiSend.mockResolvedValue({ id: "MMR-65" });
+
+    render(<NodeDrawer nodeId="MMR-65" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+      wrapper,
+    });
+
+    await screen.findByText("Regression task");
+    await userEvent.click(screen.getByRole("button", { name: /edit/i }));
+    // Save immediately without changing any fields
+    await userEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    // The PATCH body must NOT include description:null or external_ref:null
+    expect(apiSend).toHaveBeenCalledWith(
+      "PATCH",
+      expect.stringContaining("/api/nodes/"),
+      expect.not.objectContaining({ description: null }),
+    );
+    expect(apiSend).toHaveBeenCalledWith(
+      "PATCH",
+      expect.stringContaining("/api/nodes/"),
+      expect.not.objectContaining({ external_ref: null }),
+    );
+  });
+
   test("edit button is absent when offline", async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === "/api/nodes/MMR-51") {

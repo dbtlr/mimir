@@ -119,10 +119,10 @@ function DrawerBody({
     update.mutate(
       {
         title: values.title,
-        description: values.description,
-        priority: values.priority,
-        size: values.size,
-        external_ref: values.external_ref,
+        description: values.description ?? undefined,
+        priority: values.priority ?? undefined,
+        size: values.size ?? undefined,
+        external_ref: values.external_ref ?? undefined,
       },
       { onSuccess: () => setEditing(false) },
     );
