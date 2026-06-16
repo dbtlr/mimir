@@ -1,8 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { NodeRef } from "@mimir/contract";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { annotationsQuery, nodeQuery } from "../api/queries";
+import { useUpdateNode } from "../api/mutations";
+import type { WireNode } from "../api/types";
+import type { TaskFormValues } from "../lib/schemas";
 import { absoluteTime, ago } from "../lib/time";
 import { Badge } from "./ui/badge";
 import { ScrollArea } from "./ui/scroll-area";
@@ -12,7 +16,20 @@ import { Skeleton } from "./ui/skeleton";
 import { PriorityBadge, SizeBadge, StaleBadge } from "./signal-badges";
 import { StatusBadge } from "./status-badge";
 import { StatusDot } from "./status-dot";
+import { TaskForm } from "./task-form";
+import type { TaskFormSubmit } from "./task-form";
 import { TransitionMenu } from "./transition-menu";
+
+function fromNode(n: WireNode): TaskFormValues {
+  return {
+    title: n.title,
+    description: n.description ?? "",
+    priority: n.priority ?? "",
+    size: n.size ?? "",
+    external_ref: n.external_ref ?? "",
+    tags: [],
+  };
+}
 
 /**
  * The node-detail drawer — URL-addressable (`?node=KEY-seq`), layered over
@@ -92,6 +109,21 @@ function DrawerBody({
   const navigate = useNavigate();
   const node = useQuery(nodeQuery(nodeId));
   const annotations = useQuery(annotationsQuery(nodeId));
+  const [editing, setEditing] = useState(false);
+  const update = useUpdateNode(nodeId);
+
+  function handleEditSubmit(values: TaskFormSubmit) {
+    update.mutate(
+      {
+        title: values.title,
+        description: values.description,
+        priority: values.priority,
+        size: values.size,
+        external_ref: values.external_ref,
+      },
+      { onSuccess: () => setEditing(false) },
+    );
+  }
 
   return (
     <>
@@ -112,7 +144,19 @@ function DrawerBody({
         </div>
         <div className="flex items-center gap-1">
           {node.data !== undefined && (
-            <TransitionMenu node={{ id: nodeId, status: node.data.status }} disabled={offline} />
+            <>
+              {!offline && node.data.type === "task" && (
+                <button
+                  type="button"
+                  aria-label="Edit"
+                  onClick={() => setEditing(true)}
+                  className="rounded px-2 py-1 text-[12px] text-ink-dim transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  Edit
+                </button>
+              )}
+              <TransitionMenu node={{ id: nodeId, status: node.data.status }} disabled={offline} />
+            </>
           )}
           <SheetClose className="rounded px-2 py-1 text-ink-dim transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent">
             ✕
@@ -133,7 +177,17 @@ function DrawerBody({
             <p className="text-[12px] text-status-blocked">Couldn't load {nodeId}.</p>
           )}
 
-          {node.data !== undefined && (
+          {node.data !== undefined && editing && (
+            <TaskForm
+              mode="edit"
+              initial={fromNode(node.data)}
+              submitting={update.isPending}
+              onSubmit={handleEditSubmit}
+              onCancel={() => setEditing(false)}
+            />
+          )}
+
+          {node.data !== undefined && !editing && (
             <>
               {(node.data.priority != null ||
                 node.data.size != null ||
