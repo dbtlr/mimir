@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import type { ReactNode } from "react";
 import { NodeDrawer } from "../components/node-drawer";
@@ -7,6 +8,12 @@ import { task } from "./fixtures";
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock("../api/client", () => ({ apiGet, apiSend }));
+
+const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
+vi.mock("@tanstack/react-router", async (orig) => ({
+  ...(await orig<typeof import("@tanstack/react-router")>()),
+  useNavigate: () => navigate,
+}));
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
@@ -101,5 +108,36 @@ describe("NodeDrawer", () => {
       wrapper,
     });
     expect(await screen.findByLabelText("Actions")).toHaveProperty("disabled", true);
+  });
+
+  test("clicking an artifact navigates to the reader with provenance", async () => {
+    navigate.mockClear();
+    apiGet.mockImplementation((path: string) => {
+      if (path === "/api/nodes/MMR-16") {
+        return Promise.resolve(
+          task({
+            id: "MMR-16",
+            status: "in_progress",
+            title: "chunk 1",
+            artifacts: [
+              {
+                id: "MMR-a3",
+                title: "console notes",
+                tags: [],
+                created_at: "2026-06-10T00:00:00.000Z",
+              },
+            ],
+          }),
+        );
+      }
+      if (path === "/api/nodes/MMR-16/annotations") return Promise.resolve({ total: 0, items: [] });
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    render(<NodeDrawer nodeId="MMR-16" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    await userEvent.click(await screen.findByText("console notes"));
+    expect(navigate).toHaveBeenCalledWith({
+      to: "/artifacts",
+      search: { a: "MMR-a3", from: "MMR-16" },
+    });
   });
 });
