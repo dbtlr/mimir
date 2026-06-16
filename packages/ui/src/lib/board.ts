@@ -7,11 +7,11 @@ import type { WireNode } from "../api/types";
  * that order IS rank for Ready, and completion recency for Done.
  */
 export const BOARD_COLUMNS = [
-  "in_progress",
-  "ready",
-  "awaiting",
-  "blocked",
   "parked",
+  "blocked",
+  "awaiting",
+  "ready",
+  "in_progress",
   "done",
 ] as const;
 export type BoardColumn = (typeof BOARD_COLUMNS)[number];
@@ -28,11 +28,11 @@ export const DONE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
  */
 export function buildBoard(live: WireNode[], done: WireNode[], now = Date.now()): Board {
   const board: Board = {
-    in_progress: [],
-    ready: [],
-    awaiting: [],
-    blocked: [],
     parked: [],
+    blocked: [],
+    awaiting: [],
+    ready: [],
+    in_progress: [],
     done: [],
   };
   for (const node of live) {

@@ -126,10 +126,10 @@ function ColumnCards({
 }
 
 const MOBILE_TABS = [
-  { id: "in_progress", label: "In prog", columns: ["in_progress"] },
-  { id: "ready", label: "Ready", columns: ["ready"] },
+  { id: "held", label: "Held", columns: ["parked", "blocked"] },
   { id: "awaiting", label: "Await", columns: ["awaiting"] },
-  { id: "held", label: "Held", columns: ["blocked", "parked"] },
+  { id: "ready", label: "Ready", columns: ["ready"] },
+  { id: "in_progress", label: "In prog", columns: ["in_progress"] },
   { id: "done", label: "Done", columns: ["done"] },
 ] as const satisfies readonly { id: string; label: string; columns: readonly BoardColumn[] }[];
 

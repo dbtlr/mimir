@@ -1,6 +1,19 @@
 import { describe, expect, test } from "vitest";
-import { buildBoard } from "../lib/board";
+import { BOARD_COLUMNS, buildBoard } from "../lib/board";
 import { NOW, daysAgo, task } from "./fixtures";
+
+describe("BOARD_COLUMNS", () => {
+  test("reads left→right as a pipeline toward Done", () => {
+    expect(BOARD_COLUMNS).toEqual([
+      "parked",
+      "blocked",
+      "awaiting",
+      "ready",
+      "in_progress",
+      "done",
+    ]);
+  });
+});
 
 describe("buildBoard", () => {
   test("buckets by status word — columns are the status vocabulary", () => {
