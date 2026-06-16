@@ -13,7 +13,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-type WriteMethod = "POST" | "PATCH" | "DELETE";
+type WriteMethod = "POST" | "PUT" | "PATCH" | "DELETE";
 
 /**
  * The write seam — mirrors {@link apiGet} for mutations. Sends JSON, and on a

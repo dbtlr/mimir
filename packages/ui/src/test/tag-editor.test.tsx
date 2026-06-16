@@ -35,7 +35,7 @@ describe("TagEditor", () => {
     fireEvent.change(screen.getByRole("textbox"), { target: { value: " feat " } });
     fireEvent.click(screen.getByRole("button", { name: /add tag/i }));
     await waitFor(() =>
-      expect(apiSend).toHaveBeenCalledWith("POST", "/api/nodes/MMR-9/tags/feat", undefined),
+      expect(apiSend).toHaveBeenCalledWith("PUT", "/api/nodes/MMR-9/tags/feat", undefined),
     );
   });
 
