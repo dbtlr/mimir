@@ -1,4 +1,4 @@
-import type { ArtifactDetail, NodeView, SetResult, StatusView, TreeView } from "@mimir/contract";
+import type { ArtifactDetail, ArtifactSummary, NodeView, SetResult, StatusView, TreeView } from "@mimir/contract";
 
 /**
  * The **structural** output formats — `ids` / `json` / `jsonl` — a versioned
@@ -145,4 +145,15 @@ export function artifactToWire(artifact: ArtifactDetail): Record<string, unknown
 /** `json` for a standalone artifact (`get KEY-aN`). */
 export function formatArtifactJson(artifact: ArtifactDetail): string {
   return emitWire(artifactToWire(artifact), true);
+}
+
+/** Map an {@link ArtifactSummary} to its wire object — metadata only, no content. */
+export function artifactSummaryToWire(a: ArtifactSummary): Record<string, unknown> {
+  return {
+    id: a.id,
+    title: a.title,
+    project: a.project,
+    tags: a.tags,
+    created_at: a.createdAt,
+  };
 }

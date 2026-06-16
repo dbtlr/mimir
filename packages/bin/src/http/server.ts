@@ -13,6 +13,7 @@ import type { Db, ListOptions, RankPosition, UpdateFields } from "../core";
 import {
   abandonTask,
   annotate,
+  artifactSummaryToWire,
   artifactToWire,
   attachArtifact,
   blockTask,
@@ -28,6 +29,7 @@ import {
   resolveNodeToken,
   getArtifact,
   getNode,
+  listArtifacts,
   listNodes,
   listProjects,
   listTransitions,
@@ -54,6 +56,14 @@ import {
 import { guarded, json, preflight, readBody, requiredStr, strField, strList } from "./respond";
 import { uiResponse, type UiAssetMap } from "./static";
 import { UI_ASSETS } from "./ui-assets.generated";
+
+/** A bare `YYYY-MM-DD` filter date → an ISO-ms bound; full timestamps pass through. */
+function normalizeDate(value: string, edge: "start" | "end"): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return edge === "start" ? `${value}T00:00:00.000Z` : `${value}T23:59:59.999Z`;
+  }
+  return value;
+}
 
 /**
  * The HTTP transport — the resource envelope (ADR 0012): conventional,
@@ -642,6 +652,37 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             });
             const detail = await getArtifact(db, renderedId, { content: true });
             return json(req, artifactToWire(detail), 201);
+          }),
+      },
+
+      "/api/artifacts": {
+        GET: (req) =>
+          guarded(req, async () => {
+            const q = new URL(req.url).searchParams;
+            const opts: Parameters<typeof listArtifacts>[1] = {};
+            const project = q.get("project");
+            if (project !== null) opts.project = project;
+            const tag = q.get("tag");
+            if (tag !== null) opts.tag = tag;
+            const text = q.get("q");
+            if (text !== null) opts.q = text;
+            const since = q.get("since");
+            if (since !== null) opts.since = normalizeDate(since, "start");
+            const before = q.get("before");
+            if (before !== null) opts.before = normalizeDate(before, "end");
+            const limit = q.get("limit");
+            if (limit !== null) {
+              const n = Number(limit);
+              if (!Number.isInteger(n) || n < 1) {
+                throw validation(`invalid limit ${limit}`);
+              }
+              opts.limit = n;
+            }
+            const result = await listArtifacts(db, opts);
+            return json(req, {
+              total: result.total,
+              items: result.items.map(artifactSummaryToWire),
+            });
           }),
       },
 
