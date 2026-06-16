@@ -1,6 +1,7 @@
 @import "@fontsource-variable/archivo";
 @import "@fontsource-variable/jetbrains-mono";
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 /*
  * The console's design system — "instrument panel over the well".
