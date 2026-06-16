@@ -51,6 +51,15 @@ export interface TagView {
   createdAt: string;
 }
 
+/** A portfolio artifact-search result row (`listArtifacts`) — metadata, no body. */
+export interface ArtifactSummary {
+  id: string;
+  title: string;
+  project: string;
+  tags: string[];
+  createdAt: string;
+}
+
 /** `artifacts` — attached artifacts (metadata only; bodies fetched separately, byte-faithful). */
 export interface ArtifactView {
   /** Rendered `KEY-aN` id (MMR-32) — the surrogate int never crosses the surface. */
