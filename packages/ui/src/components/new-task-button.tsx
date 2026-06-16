@@ -50,7 +50,7 @@ export function NewTaskButton({ projectKey, offline }: { projectKey: string; off
               <TaskForm
                 mode="create"
                 parents={tree.data ? parentOptions(tree.data) : []}
-                submitting={create.isPending}
+                submitting={create.isPending || tree.isPending}
                 onSubmit={handleSubmit}
                 onCancel={() => setOpen(false)}
               />
