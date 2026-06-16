@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { annotationsQuery, nodeQuery } from "../api/queries";
 import { useUpdateNode } from "../api/mutations";
-import type { WireNode } from "../api/types";
+import type { WireAnnotation, WireHistoryEntry, WireNode } from "../api/types";
 import { AnnotationComposer } from "./annotation-composer";
 import { TagEditor } from "./tag-editor";
 import type { TaskFormValues } from "../lib/schemas";
@@ -15,6 +15,7 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "./ui/sheet";
 import { Skeleton } from "./ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { PriorityBadge, SizeBadge, StaleBadge } from "./signal-badges";
 import { StatusBadge } from "./status-badge";
 import { StatusDot } from "./status-dot";
@@ -36,9 +37,9 @@ function fromNode(n: WireNode): TaskFormValues {
 
 /**
  * The node-detail drawer — URL-addressable (`?node=KEY-seq`), layered over
- * whichever view is open. Chunk-1 scope: the full record, signals, deps,
- * tags, annotations, and artifact *titles* (bodies and transition history
- * are chunk 3). Chunk-2 adds the transition kebab.
+ * whichever view is open. Shows the full record, signals, deps, tags, artifact
+ * *titles*, the transition kebab, and a tabbed Timeline (transitions +
+ * annotations as one chronological feed; the `history` facet on the node fetch).
  */
 export function NodeDrawer({
   nodeId,
@@ -97,6 +98,137 @@ function RefRow({ refNode, onOpenNode }: { refNode: NodeRef; onOpenNode: (id: st
       {refNode.status !== undefined && <StatusDot status={refNode.status} />}
       <span className="font-mono text-[11px] text-accent">{refNode.id}</span>
     </button>
+  );
+}
+
+/** One merged feed entry — the node's birth, a transition, or an annotation. */
+type FeedItem =
+  | { variant: "created"; at: string; sort: number }
+  | { variant: "transition"; at: string; sort: number; entry: WireHistoryEntry }
+  | { variant: "annotation"; at: string; sort: number; content: string };
+
+/** Merge transitions + annotations + the creation anchor into one oldest-first feed. */
+function buildFeed(
+  createdAt: string,
+  history: readonly WireHistoryEntry[] | undefined,
+  annotations: readonly WireAnnotation[] | undefined,
+): FeedItem[] {
+  const items: FeedItem[] = [{ variant: "created", at: createdAt, sort: Date.parse(createdAt) }];
+  for (const e of history ?? []) {
+    items.push({ variant: "transition", at: e.at, sort: Date.parse(e.at), entry: e });
+  }
+  for (const a of annotations ?? []) {
+    items.push({
+      variant: "annotation",
+      at: a.created_at,
+      sort: Date.parse(a.created_at),
+      content: a.content,
+    });
+  }
+  return items.sort((a, b) => a.sort - b.sort);
+}
+
+/** Human label + optional detail for a transition_log entry (mirrors the verbs that wrote it). */
+function describeTransition(e: WireHistoryEntry): { label: string; detail?: string } {
+  switch (e.kind) {
+    case "lifecycle":
+      if (e.to === "in_progress") return { label: "Started" };
+      if (e.to === "done") return { label: "Completed" };
+      if (e.to === "abandoned") return { label: "Abandoned" };
+      return { label: `→ ${e.to ?? "?"}` };
+    case "hold":
+      if (e.to === "parked") return { label: "Parked" };
+      if (e.to === "blocked") return { label: "Blocked" };
+      if (e.from === "parked") return { label: "Unparked" };
+      if (e.from === "blocked") return { label: "Unblocked" };
+      return { label: "Resumed" };
+    case "dependency":
+      return e.from === null
+        ? { label: "Dependency added", detail: e.to ?? undefined }
+        : { label: "Dependency removed", detail: e.from ?? undefined };
+    case "move":
+      return { label: "Reparented", detail: `${e.from ?? "—"} → ${e.to ?? "—"}` };
+  }
+}
+
+function FeedRow({ item }: { item: FeedItem }) {
+  const glyph = item.variant === "annotation" ? "✎" : item.variant === "created" ? "○" : "◆";
+  return (
+    <li className="flex gap-2.5">
+      <span aria-hidden className="mt-0.5 text-[11px] text-ink-faint select-none">
+        {glyph}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <time className="font-mono text-[10px] text-ink-faint">
+          {absoluteTime(item.at)} · {ago(item.at)}
+        </time>
+        {item.variant === "created" && <span className="text-[12px] text-ink-dim">Created</span>}
+        {item.variant === "transition" && <TransitionLine entry={item.entry} />}
+        {item.variant === "annotation" && (
+          <p className="text-[12px] leading-relaxed whitespace-pre-wrap text-ink">{item.content}</p>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function TransitionLine({ entry }: { entry: WireHistoryEntry }) {
+  const { label, detail } = describeTransition(entry);
+  return (
+    <p className="text-[12px] text-ink">
+      <span className="font-medium">{label}</span>
+      {detail != null && (
+        <span className="ml-1.5 font-mono text-[11px] text-ink-dim">{detail}</span>
+      )}
+      {entry.reason != null && <span className="text-ink-dim"> — {entry.reason}</span>}
+    </p>
+  );
+}
+
+/** The drawer's tabbed history feed: All (merged), Activity (transitions), Notes (annotations). */
+function Timeline({
+  createdAt,
+  history,
+  annotations,
+  pending,
+  composer,
+}: {
+  createdAt: string;
+  history: readonly WireHistoryEntry[] | undefined;
+  annotations: readonly WireAnnotation[] | undefined;
+  pending: boolean;
+  composer?: ReactNode;
+}) {
+  const feed = buildFeed(createdAt, history, annotations);
+  const activity = feed.filter((i) => i.variant !== "annotation");
+  const notes = feed.filter((i) => i.variant === "annotation");
+
+  const panel = (items: FeedItem[], empty: string) => {
+    if (pending && items.length === 0) return <Skeleton className="h-12 w-full" />;
+    if (items.length === 0) return <p className="text-[12px] text-ink-faint">{empty}</p>;
+    return (
+      <ol className="flex flex-col gap-3">
+        {items.map((i) => (
+          <FeedRow key={`${i.variant}-${i.at}-${i.sort}`} item={i} />
+        ))}
+      </ol>
+    );
+  };
+
+  return (
+    <Section label="Timeline">
+      {composer}
+      <Tabs defaultValue="all" className="flex flex-col gap-2.5">
+        <TabsList>
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="notes">Notes</TabsTrigger>
+        </TabsList>
+        <TabsContent value="all">{panel(feed, "Nothing yet.")}</TabsContent>
+        <TabsContent value="activity">{panel(activity, "No activity yet.")}</TabsContent>
+        <TabsContent value="notes">{panel(notes, "No notes yet.")}</TabsContent>
+      </Tabs>
+    </Section>
   );
 }
 
@@ -247,30 +379,13 @@ function DrawerBody({
                 </Section>
               )}
 
-              <Section label="Annotations">
-                <AnnotationComposer nodeId={node.data.id} offline={offline} />
-                {annotations.isPending && <Skeleton className="h-12 w-full" />}
-                {annotations.data !== undefined && annotations.data.items.length === 0 && (
-                  <p className="text-[12px] text-ink-faint">None.</p>
-                )}
-                {annotations.data !== undefined && annotations.data.items.length > 0 && (
-                  <ol className="flex flex-col gap-2">
-                    {annotations.data.items.map((a) => (
-                      <li
-                        key={`${a.created_at}-${a.content.slice(0, 24)}`}
-                        className="rounded border border-line bg-well-850 p-2.5"
-                      >
-                        <time className="font-mono text-[10px] text-ink-faint">
-                          {absoluteTime(a.created_at)} · {ago(a.created_at)}
-                        </time>
-                        <p className="mt-1 text-[12px] leading-relaxed whitespace-pre-wrap text-ink">
-                          {a.content}
-                        </p>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </Section>
+              <Timeline
+                createdAt={node.data.created_at}
+                history={node.data.history}
+                annotations={annotations.data?.items}
+                pending={annotations.isPending}
+                composer={<AnnotationComposer nodeId={node.data.id} offline={offline} />}
+              />
 
               {(node.data.artifacts?.length ?? 0) > 0 && (
                 <Section label="Artifacts">

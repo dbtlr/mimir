@@ -75,6 +75,100 @@ describe("NodeDrawer", () => {
     expect(screen.getByText("In progress")).toBeDefined();
   });
 
+  test("Timeline merges transitions + annotations oldest-first, with the creation anchor", async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === "/api/nodes/MMR-60") {
+        return Promise.resolve(
+          task({
+            id: "MMR-60",
+            status: "parked",
+            title: "task timeline",
+            created_at: "2026-06-01T10:00:00.000Z",
+            history: [
+              {
+                kind: "lifecycle",
+                from: "todo",
+                to: "in_progress",
+                at: "2026-06-02T09:00:00.000Z",
+                reason: null,
+              },
+              {
+                kind: "hold",
+                from: "none",
+                to: "parked",
+                at: "2026-06-04T09:00:00.000Z",
+                reason: "waiting on Saga",
+              },
+            ],
+          }),
+        );
+      }
+      if (path === "/api/nodes/MMR-60/annotations") {
+        return Promise.resolve({
+          total: 1,
+          items: [{ content: "looked into the facet", created_at: "2026-06-03T09:00:00.000Z" }],
+        });
+      }
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+
+    render(<NodeDrawer nodeId="MMR-60" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+
+    // default "All" tab: every event, humanized (scoped to the feed rows —
+    // "Parked" also appears as the header status badge)
+    await screen.findByText("Created");
+    const rows = screen.getAllByRole("listitem").map((li) => li.textContent ?? "");
+    const idx = (needle: string) => rows.findIndex((t) => t.includes(needle));
+    expect(idx("Started")).toBeGreaterThanOrEqual(0);
+    expect(idx("Parked")).toBeGreaterThanOrEqual(0);
+    expect(idx("waiting on Saga")).toBeGreaterThanOrEqual(0);
+
+    // chronological order, oldest-first
+    expect(idx("Created")).toBeLessThan(idx("Started"));
+    expect(idx("Started")).toBeLessThan(idx("looked into the facet"));
+    expect(idx("looked into the facet")).toBeLessThan(idx("Parked"));
+  });
+
+  test("Timeline tabs split the feed: Activity hides notes, Notes hides transitions", async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === "/api/nodes/MMR-60") {
+        return Promise.resolve(
+          task({
+            id: "MMR-60",
+            status: "in_progress",
+            title: "task timeline",
+            history: [
+              {
+                kind: "lifecycle",
+                from: "todo",
+                to: "in_progress",
+                at: "2026-06-02T09:00:00.000Z",
+                reason: null,
+              },
+            ],
+          }),
+        );
+      }
+      if (path === "/api/nodes/MMR-60/annotations") {
+        return Promise.resolve({
+          total: 1,
+          items: [{ content: "a freeform note", created_at: "2026-06-03T09:00:00.000Z" }],
+        });
+      }
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+
+    render(<NodeDrawer nodeId="MMR-60" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Activity" }));
+    expect(screen.getByText("Started")).toBeDefined();
+    expect(screen.queryByText("a freeform note")).toBeNull();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Notes" }));
+    expect(screen.getByText("a freeform note")).toBeDefined();
+    expect(screen.queryByText("Started")).toBeNull();
+  });
+
   test("closed drawer renders nothing", () => {
     render(<NodeDrawer nodeId={undefined} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
     expect(screen.queryByTestId("drawer-body")).toBeNull();
