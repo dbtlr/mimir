@@ -28,7 +28,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  server.stop(true);
+  await server.stop(true);
   await db.destroy();
 });
 
@@ -38,8 +38,8 @@ test("GET /api/artifacts returns the envelope of summaries", async () => {
   const body = (await res.json()) as { total: number; items: { id: string; project: string }[] };
   expect(body.total).toBe(1);
   expect(body.items[0]).toMatchObject({ title: "Auth gate design", project: "MMR" });
-  expect(body.items[0].id).toMatch(/^MMR-a\d+$/);
-  expect((body.items[0] as Record<string, unknown>).content).toBeUndefined();
+  expect(body.items[0]?.id).toMatch(/^MMR-a\d+$/);
+  expect(body.items[0]).not.toHaveProperty("content");
 });
 
 test("q filter is honored over the wire", async () => {
