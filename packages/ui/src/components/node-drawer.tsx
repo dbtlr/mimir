@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import type { NodeRef } from "@mimir/contract";
 import type { ReactNode } from "react";
 import { annotationsQuery, nodeQuery } from "../api/queries";
@@ -88,6 +89,7 @@ function DrawerBody({
   onOpenNode: (id: string) => void;
   offline?: boolean;
 }) {
+  const navigate = useNavigate();
   const node = useQuery(nodeQuery(nodeId));
   const annotations = useQuery(annotationsQuery(nodeId));
 
@@ -222,9 +224,17 @@ function DrawerBody({
                 <Section label="Artifacts">
                   <ol className="flex flex-col gap-1">
                     {node.data.artifacts?.map((a) => (
-                      <li key={a.id} className="flex items-center gap-2 text-[12px] text-ink">
-                        <span className="font-mono text-[10px] text-ink-dim">{a.id}</span>
-                        <span className="truncate">{a.title}</span>
+                      <li key={a.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void navigate({ to: "/artifacts", search: { a: a.id, from: nodeId } });
+                          }}
+                          className="flex w-full items-center gap-2 rounded-[3px] px-1 py-0.5 text-left text-[12px] text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+                        >
+                          <span className="font-mono text-[10px] text-ink-dim">{a.id}</span>
+                          <span className="truncate">{a.title}</span>
+                        </button>
                       </li>
                     ))}
                   </ol>
