@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { annotationsQuery, nodeQuery } from "../api/queries";
 import { useUpdateNode } from "../api/mutations";
 import type { WireNode } from "../api/types";
+import { AnnotationComposer } from "./annotation-composer";
 import type { TaskFormValues } from "../lib/schemas";
 import { absoluteTime, ago } from "../lib/time";
 import { Badge } from "./ui/badge";
@@ -251,6 +252,7 @@ function DrawerBody({
               )}
 
               <Section label="Annotations">
+                <AnnotationComposer nodeId={node.data.id} offline={offline} />
                 {annotations.isPending && <Skeleton className="h-12 w-full" />}
                 {annotations.data !== undefined && annotations.data.items.length === 0 && (
                   <p className="text-[12px] text-ink-faint">None.</p>
