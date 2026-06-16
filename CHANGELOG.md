@@ -13,8 +13,23 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+## v0.7.0 - 2026-06-16
+
+The console release: the read-only operator console grows a write surface, and a
+portfolio-wide artifacts browser for reading the work's frozen record.
+
 ### Added
 
+- **Console intervention (write surface)** — drive task lifecycle and hold verbs
+  from the board and the node drawer (`start` / `done` / `park` / `block` /
+  `abandon` / `unpark` / `unblock`) via a per-card kebab menu that offers only the
+  legal transitions, and reorder the ready queue by dragging a card's grip handle.
+  `park` / `block` / `abandon` capture an optional reason; offline disables every
+  write (no write queue) (MMR-51).
+- **Portfolio artifacts browser** — a new `/artifacts` view searches and filters
+  frozen artifacts (specs, plans, session logs) across every project by project,
+  tag, date, and full text, and renders their markdown bodies with linked-node
+  backlinks. A task's drawer links straight to its artifacts (MMR-52).
 - `mimir service status` now supports structured output (`-f json` / `-f jsonl`)
   — a machine-readable report (loaded / running / pid / port / health /
   versions / recent events / paths) for scripts and health-checks (MMR-59).
