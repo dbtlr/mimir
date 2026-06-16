@@ -57,9 +57,7 @@ export function ArtifactReader({
 
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {artifact.isPending && <Skeleton className="h-40 w-full" />}
-        {artifact.isError && (
-          <p className="text-[12px] text-status-blocked">Couldn't load {id}.</p>
-        )}
+        {artifact.isError && <p className="text-[12px] text-status-blocked">Couldn't load {id}.</p>}
         {artifact.data?.content !== undefined && (
           <article className="prose prose-invert prose-sm max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{artifact.data.content}</ReactMarkdown>

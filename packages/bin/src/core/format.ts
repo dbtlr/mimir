@@ -1,4 +1,11 @@
-import type { ArtifactDetail, ArtifactSummary, NodeView, SetResult, StatusView, TreeView } from "@mimir/contract";
+import type {
+  ArtifactDetail,
+  ArtifactSummary,
+  NodeView,
+  SetResult,
+  StatusView,
+  TreeView,
+} from "@mimir/contract";
 
 /**
  * The **structural** output formats — `ids` / `json` / `jsonl` — a versioned

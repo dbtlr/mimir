@@ -26,9 +26,12 @@ export function ArtifactsPage() {
   const artifacts = useQuery(artifactsQuery(filters));
   const conn = connectivity([projects, artifacts]);
 
+  // `replace` so a filter edit replaces the current history entry rather than
+  // pushing one per keystroke (Back should leave the browser, not unwind typing).
   const setFilter = (partial: Partial<Filters>) =>
     void navigate({
       to: "/artifacts",
+      replace: true,
       search: (prev) => {
         const next = { ...prev, ...partial };
         for (const [k, v] of Object.entries(partial)) {

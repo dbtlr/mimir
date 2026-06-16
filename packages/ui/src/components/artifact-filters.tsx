@@ -1,15 +1,15 @@
 import type { ArtifactFilters as Filters } from "../api/queries";
 
 /**
- * The artifact-browser filter bar — controlled. `onChange` carries the single
- * changed field; the page merges it into the search params (and debounces `q`).
- * An empty string clears a filter (the page drops empties from the URL).
+ * The artifact-browser filter bar. `onChange` carries the single changed field;
+ * the page merges it into the search params (an empty string clears that filter)
+ * via a history-replacing navigation, so each keystroke updates the URL in place.
  *
- * Note: the Search input uses `defaultValue` so that the DOM accumulates typed
- * text between renders (since the page debounces and drives `filters.q` from
- * the URL param, the controlled value lags). In production the page passes the
- * real value back down after debounce; in tests this lets `e.target.value`
- * reflect the full typed string on each keystroke.
+ * The Search input is uncontrolled (`defaultValue`): it hydrates `filters.q` once
+ * at mount (so a deep-linked `?q=` populates it) and then owns its own DOM value
+ * while typing. The known trade-off is that an externally-changed `q` (a future
+ * "clear filters" button, or Back/Forward) won't re-sync the box — revisit with a
+ * controlled+debounced input if that case starts to matter.
  */
 export function ArtifactFilters({
   filters,
