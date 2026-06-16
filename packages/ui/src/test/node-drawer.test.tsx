@@ -110,6 +110,48 @@ describe("NodeDrawer", () => {
     expect(await screen.findByLabelText("Actions")).toHaveProperty("disabled", true);
   });
 
+  test("edit button toggles the drawer into the task form, prefilled with node values", async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === "/api/nodes/MMR-51") {
+        return Promise.resolve(task({ id: "MMR-51", status: "ready", title: "Chunk 2 edit test" }));
+      }
+      if (path === "/api/nodes/MMR-51/annotations") {
+        return Promise.resolve({ total: 0, items: [] });
+      }
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    render(<NodeDrawer nodeId="MMR-51" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+      wrapper,
+    });
+    // Wait for data to load
+    await screen.findByText("Chunk 2 edit test");
+    // Click the Edit button
+    await userEvent.click(screen.getByRole("button", { name: /edit/i }));
+    // Task form should be visible with the title prefilled
+    const titleInput = screen.getByLabelText(/title/i);
+    expect(titleInput).toBeDefined();
+    expect((titleInput as HTMLInputElement).value).toBe("Chunk 2 edit test");
+    // Save button should be present
+    expect(screen.getByRole("button", { name: /save/i })).toBeDefined();
+  });
+
+  test("edit button is absent when offline", async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === "/api/nodes/MMR-51") {
+        return Promise.resolve(task({ id: "MMR-51", status: "ready", title: "Chunk 2" }));
+      }
+      if (path === "/api/nodes/MMR-51/annotations") {
+        return Promise.resolve({ total: 0, items: [] });
+      }
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    render(<NodeDrawer nodeId="MMR-51" offline onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+      wrapper,
+    });
+    await screen.findByText("Chunk 2");
+    expect(screen.queryByRole("button", { name: /edit/i })).toBeNull();
+  });
+
   test("clicking an artifact navigates to the reader with provenance", async () => {
     navigate.mockClear();
     apiGet.mockImplementation((path: string) => {
