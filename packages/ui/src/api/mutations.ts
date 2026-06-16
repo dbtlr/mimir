@@ -86,10 +86,10 @@ export function useCreateTask() {
 
 export interface UpdateNodeInput {
   title?: string;
-  description?: string | null;
-  priority?: string | null;
-  size?: string | null;
-  external_ref?: string | null;
+  description?: string;
+  priority?: string;
+  size?: string;
+  external_ref?: string;
 }
 
 export function useUpdateNode(id: string) {
