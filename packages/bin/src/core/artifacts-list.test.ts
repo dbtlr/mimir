@@ -56,8 +56,8 @@ test("lists every artifact across projects, newest-first", async () => {
     "Auth gate design",
   ]);
   expect(items[0]).toMatchObject({ project: "NOVA", tags: ["kind:spec"] });
-  expect(items[0].id).toMatch(/^NOVA-a\d+$/);
-  expect((items[0] as Record<string, unknown>).content).toBeUndefined();
+  expect(items[0]?.id).toMatch(/^NOVA-a\d+$/);
+  expect(items[0]).not.toHaveProperty("content");
 });
 
 test("project filter scopes to one project", async () => {
