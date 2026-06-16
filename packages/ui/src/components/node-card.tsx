@@ -26,11 +26,14 @@ export function NodeCard({
   onOpen,
   offline,
   sortable,
+  ancestry,
 }: {
   node: WireNode;
   onOpen: (id: string) => void;
   offline?: boolean;
   sortable?: CardSortable;
+  /** `initiative › phase` breadcrumb locating this card in the tree. */
+  ancestry?: string;
 }) {
   const tags = node.tags ?? [];
   const overflow = tags.length - SHOWN_TAGS;
@@ -65,6 +68,11 @@ export function NodeCard({
           <TransitionMenu node={node} disabled={offline} />
         </div>
       </div>
+      {ancestry !== undefined && ancestry !== "" && (
+        <p className="truncate text-[10px] text-ink-faint" title={ancestry}>
+          {ancestry}
+        </p>
+      )}
       <button
         type="button"
         onClick={() => {
