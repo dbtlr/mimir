@@ -128,10 +128,10 @@ jobs:
       # never fails a real release. Enumerates via `gh` because this job's
       # checkout is shallow and tagless, and the binaries live on the Releases.
       #
-      # DRY-RUN: logs what it WOULD delete. After the first 0.7.0-era cut
-      # validates it against real accumulated prereleases, uncomment the
-      # `gh release delete` line (which also removes the underlying tag).
-      - name: Prune stale prereleases (dry-run)
+      # LIVE: deletes the prerelease Release + its tag. The dry-run was
+      # validated at the v0.7.0 cut (lag-by-one correct, 0 deletions, no
+      # cycles < the previous official yet) before enabling here (MMR-58).
+      - name: Prune stale prereleases
         if: ${{ !contains(github.ref_name, '-') }}
         continue-on-error: true
         env:
@@ -161,8 +161,8 @@ jobs:
               base="${tag#v}"; base="${base%%-next.*}"   # cycle A.B.C
               lowest="$(printf '%s\n%s\n' "$base" "$prev" | sort -V | head -1)"
               if [ "$base" != "$prev" ] && [ "$lowest" = "$base" ]; then
-                echo "WOULD DELETE prerelease $tag (cycle $base < $prev)"
-                # gh release delete "$tag" --yes --cleanup-tag
+                echo "deleting prerelease $tag (cycle $base < $prev)"
+                gh release delete "$tag" --yes --cleanup-tag
               else
                 echo "keep $tag (cycle $base >= $prev)"
               fi
