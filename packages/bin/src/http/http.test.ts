@@ -215,7 +215,20 @@ test("GET /api/nodes/:id returns the full record: verdicts on, artifacts listed,
   expect(body.verdicts).toEqual({ stale: false, blocking: false, orphaned: false });
   expect(body.tags).toEqual([]);
   expect(body.artifacts).toEqual([]);
+  expect(body.history).toEqual([]);
   expect(body).not.toContainKey("rank");
+});
+
+test("GET /api/nodes/:id carries the transition history facet (oldest-first, with reasons)", async () => {
+  await send("POST", `/api/nodes/${task1}/start`);
+  await send("POST", `/api/nodes/${task1}/park`, { reason: "later" });
+  const body = await parse(await get(`/api/nodes/${task1}`));
+  const history = body.history as Rec[];
+  expect(history.length).toBeGreaterThanOrEqual(2);
+  // oldest-first: the lifecycle start precedes the hold
+  expect(history[0]).toMatchObject({ kind: "lifecycle", to: "in_progress" });
+  const park = history.find((h) => h.kind === "hold" && h.to === "parked");
+  expect(park).toMatchObject({ reason: "later" });
 });
 
 test("GET /api/nodes/:id rejects project and artifact identities, 404s the unknown", async () => {

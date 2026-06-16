@@ -6,6 +6,7 @@ import type {
   Priority,
   Size,
   StatusWord,
+  TransitionKind,
   Verdicts,
   ViewType,
 } from "@mimir/contract";
@@ -33,6 +34,15 @@ export interface WireTag {
 export interface WireAnnotation {
   content: string;
   created_at: string;
+}
+
+/** A single transition_log entry — how the node moved (lifecycle/hold/dependency/move). */
+export interface WireHistoryEntry {
+  kind: TransitionKind;
+  from: string | null;
+  to: string | null;
+  at: string;
+  reason: string | null;
 }
 
 export interface WireArtifact {
@@ -88,6 +98,7 @@ export interface WireNode {
   tags?: WireTag[];
   annotations?: WireAnnotation[];
   artifacts?: WireArtifact[];
+  history?: WireHistoryEntry[];
   verdicts?: Verdicts;
 }
 
