@@ -117,7 +117,7 @@ export function useTag(id: string) {
   return useMutation({
     mutationFn: (tag: string) =>
       apiSend<WireNode>(
-        "POST",
+        "PUT",
         `/api/nodes/${encodeURIComponent(id)}/tags/${encodeURIComponent(tag)}`,
         undefined,
       ),

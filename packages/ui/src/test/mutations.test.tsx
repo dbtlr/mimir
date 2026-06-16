@@ -122,7 +122,7 @@ describe("authoring mutation hooks", () => {
     tag.result.current.mutate("needs design");
     await waitFor(() =>
       expect(apiSend).toHaveBeenCalledWith(
-        "POST",
+        "PUT",
         "/api/nodes/MMR-9/tags/needs%20design",
         undefined,
       ),
