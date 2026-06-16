@@ -3,6 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { ReactNode } from "react";
 import { useReorder, useTransition } from "../api/mutations";
+import { useAnnotate, useCreateTask, useTag, useUntag, useUpdateNode } from "../api/mutations";
 
 const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
 vi.mock("../api/client", () => ({ apiSend }));
@@ -69,5 +70,71 @@ describe("mutation hooks", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("already done");
     });
+  });
+});
+
+describe("authoring mutation hooks", () => {
+  test("useCreateTask POSTs /api/nodes with type=task", async () => {
+    apiSend.mockResolvedValue({ id: "MMR-99" });
+    const client = new QueryClient();
+    const { result } = renderHook(() => useCreateTask(), { wrapper: wrapper(client) });
+    result.current.mutate({ parent: "MMR-7", title: "new", priority: "p1", tags: ["ui"] });
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith("POST", "/api/nodes", {
+        type: "task",
+        parent: "MMR-7",
+        title: "new",
+        priority: "p1",
+        tags: ["ui"],
+      });
+    });
+  });
+
+  test("useUpdateNode PATCHes /api/nodes/:id with the given fields", async () => {
+    apiSend.mockResolvedValue({ id: "MMR-9" });
+    const client = new QueryClient();
+    const { result } = renderHook(() => useUpdateNode("MMR-9"), { wrapper: wrapper(client) });
+    result.current.mutate({ title: "renamed", size: "small" });
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith("PATCH", "/api/nodes/MMR-9", {
+        title: "renamed",
+        size: "small",
+      });
+    });
+  });
+
+  test("useAnnotate POSTs the annotations route with content", async () => {
+    apiSend.mockResolvedValue({ id: "MMR-9" });
+    const client = new QueryClient();
+    const { result } = renderHook(() => useAnnotate("MMR-9"), { wrapper: wrapper(client) });
+    result.current.mutate("a note");
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith("POST", "/api/nodes/MMR-9/annotations", {
+        content: "a note",
+      });
+    });
+  });
+
+  test("useTag POSTs and useUntag DELETEs the tag route (encoded)", async () => {
+    apiSend.mockResolvedValue({ id: "MMR-9" });
+    const client = new QueryClient();
+    const tag = renderHook(() => useTag("MMR-9"), { wrapper: wrapper(client) });
+    tag.result.current.mutate("needs design");
+    await waitFor(() =>
+      expect(apiSend).toHaveBeenCalledWith(
+        "POST",
+        "/api/nodes/MMR-9/tags/needs%20design",
+        undefined,
+      ),
+    );
+    const untag = renderHook(() => useUntag("MMR-9"), { wrapper: wrapper(client) });
+    untag.result.current.mutate("needs design");
+    await waitFor(() =>
+      expect(apiSend).toHaveBeenCalledWith(
+        "DELETE",
+        "/api/nodes/MMR-9/tags/needs%20design",
+        undefined,
+      ),
+    );
   });
 });
