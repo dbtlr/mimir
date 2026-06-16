@@ -6,6 +6,7 @@ import { connectivity } from "../lib/connectivity";
 import { cn } from "../lib/cn";
 import { BoardView } from "../components/board";
 import { DistributionBar } from "../components/distribution-bar";
+import { NewTaskButton } from "../components/new-task-button";
 import { NodeDrawer } from "../components/node-drawer";
 import { OfflineBanner } from "../components/offline-banner";
 import { StatusBadge } from "../components/status-badge";
@@ -83,6 +84,7 @@ export function ProjectPage() {
                 className="hidden w-36 md:flex"
               />
             )}
+            <NewTaskButton projectKey={key} offline={conn.offline} />
             <LensToggle view={view} nodeParam={node} />
           </div>
         </div>
