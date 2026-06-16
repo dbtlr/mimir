@@ -1,5 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { PRIORITY_VALUES, SIZE_VALUES } from "@mimir/contract";
+import type { Priority, Size } from "@mimir/contract";
 import { emptyTaskForm, taskFormSchema } from "../lib/schemas";
 import type { TaskFormValues } from "../lib/schemas";
 import type { ParentOption } from "../lib/parent-options";
@@ -8,8 +9,8 @@ export interface TaskFormSubmit {
   parent?: string;
   title: string;
   description: string | null;
-  priority: string | null;
-  size: string | null;
+  priority: Priority | null;
+  size: Size | null;
   external_ref: string | null;
   tags: string[];
 }
@@ -35,12 +36,12 @@ export function TaskForm({
 
   const form = useForm({
     defaultValues: {
-      parent: defaultParent,
       ...emptyTaskForm,
       ...initial,
+      parent: defaultParent, // always last, always a string
     } satisfies TaskFormValues & { parent: string },
     onSubmit: ({ value }) => {
-      const parsed = taskFormSchema.parse({
+      const result = taskFormSchema.safeParse({
         title: value.title,
         description: value.description,
         priority: value.priority,
@@ -48,6 +49,8 @@ export function TaskForm({
         external_ref: value.external_ref,
         tags: value.tags,
       });
+      if (!result.success) return;
+      const parsed = result.data;
       if (mode === "create") {
         onSubmit({ parent: value.parent, ...parsed });
       } else {
@@ -226,7 +229,7 @@ export function TaskForm({
                     id="task-form-tags"
                     type="text"
                     placeholder="Comma-separated tags"
-                    defaultValue={field.state.value.join(", ")}
+                    value={field.state.value.join(", ")}
                     onChange={(e) => {
                       const raw = e.target.value;
                       const tags = raw
