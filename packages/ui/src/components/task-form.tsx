@@ -1,0 +1,271 @@
+import { useForm } from "@tanstack/react-form";
+import { PRIORITY_VALUES, SIZE_VALUES } from "@mimir/contract";
+import { emptyTaskForm, taskFormSchema } from "../lib/schemas";
+import type { TaskFormValues } from "../lib/schemas";
+import type { ParentOption } from "../lib/parent-options";
+
+export interface TaskFormSubmit {
+  parent?: string;
+  title: string;
+  description: string | null;
+  priority: string | null;
+  size: string | null;
+  external_ref: string | null;
+  tags: string[];
+}
+
+export interface TaskFormProps {
+  mode: "create" | "edit";
+  parents?: ParentOption[];
+  initial?: Partial<TaskFormValues> & { parent?: string };
+  submitting?: boolean;
+  onSubmit: (values: TaskFormSubmit) => void;
+  onCancel: () => void;
+}
+
+export function TaskForm({
+  mode,
+  parents,
+  initial,
+  submitting,
+  onSubmit,
+  onCancel,
+}: TaskFormProps) {
+  const defaultParent = initial?.parent ?? parents?.[0]?.id ?? "";
+
+  const form = useForm({
+    defaultValues: {
+      parent: defaultParent,
+      ...emptyTaskForm,
+      ...initial,
+    } satisfies TaskFormValues & { parent: string },
+    onSubmit: ({ value }) => {
+      const parsed = taskFormSchema.parse({
+        title: value.title,
+        description: value.description,
+        priority: value.priority,
+        size: value.size,
+        external_ref: value.external_ref,
+        tags: value.tags,
+      });
+      if (mode === "create") {
+        onSubmit({ parent: value.parent, ...parsed });
+      } else {
+        onSubmit(parsed);
+      }
+    },
+  });
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void form.handleSubmit();
+      }}
+      className="flex flex-col gap-3"
+    >
+      {/* Parent picker — create mode only */}
+      {mode === "create" && (
+        <div className="flex flex-col gap-1">
+          <label htmlFor="task-form-parent" className="text-[12px] font-medium text-ink-dim">
+            Parent
+          </label>
+          <form.Field name="parent">
+            {(field) => (
+              <select
+                id="task-form-parent"
+                name={field.name}
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+                className="rounded border border-line bg-well-850 px-2 py-1.5 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+              >
+                {parents?.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.depth === 1 ? `  — ${o.label}` : o.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </form.Field>
+        </div>
+      )}
+
+      {/* Title — always visible */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="task-form-title" className="text-[12px] font-medium text-ink-dim">
+          Title
+        </label>
+        <form.Field name="title">
+          {(field) => (
+            <input
+              id="task-form-title"
+              type="text"
+              name={field.name}
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onBlur={field.handleBlur}
+              placeholder="Task title"
+              className="rounded border border-line bg-well-850 px-2 py-1.5 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+            />
+          )}
+        </form.Field>
+      </div>
+
+      {/* More details disclosure */}
+      <details open={mode === "edit"} className="flex flex-col gap-1">
+        <summary className="cursor-pointer text-[12px] text-ink-dim hover:text-ink">
+          More details
+        </summary>
+        <div className="mt-2 flex flex-col gap-3">
+          {/* Priority */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="task-form-priority" className="text-[12px] font-medium text-ink-dim">
+              Priority
+            </label>
+            <form.Field name="priority">
+              {(field) => (
+                <select
+                  id="task-form-priority"
+                  name={field.name}
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+                >
+                  <option value="">—</option>
+                  {PRIORITY_VALUES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </form.Field>
+          </div>
+
+          {/* Size */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="task-form-size" className="text-[12px] font-medium text-ink-dim">
+              Size
+            </label>
+            <form.Field name="size">
+              {(field) => (
+                <select
+                  id="task-form-size"
+                  name={field.name}
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+                >
+                  <option value="">—</option>
+                  {SIZE_VALUES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </form.Field>
+          </div>
+
+          {/* Description */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="task-form-description" className="text-[12px] font-medium text-ink-dim">
+              Description
+            </label>
+            <form.Field name="description">
+              {(field) => (
+                <textarea
+                  id="task-form-description"
+                  name={field.name}
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="Optional description"
+                  className="min-h-20 resize-y rounded border border-line bg-well-850 p-2 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+                />
+              )}
+            </form.Field>
+          </div>
+
+          {/* External ref */}
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor="task-form-external-ref"
+              className="text-[12px] font-medium text-ink-dim"
+            >
+              External ref
+            </label>
+            <form.Field name="external_ref">
+              {(field) => (
+                <input
+                  id="task-form-external-ref"
+                  type="text"
+                  name={field.name}
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="e.g. GH-123"
+                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+                />
+              )}
+            </form.Field>
+          </div>
+
+          {/* Tags input — create mode only */}
+          {mode === "create" && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor="task-form-tags" className="text-[12px] font-medium text-ink-dim">
+                Tags
+              </label>
+              <form.Field name="tags">
+                {(field) => (
+                  <input
+                    id="task-form-tags"
+                    type="text"
+                    placeholder="Comma-separated tags"
+                    defaultValue={field.state.value.join(", ")}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const tags = raw
+                        .split(",")
+                        .map((t) => t.trim())
+                        .filter((t) => t.length > 0);
+                      field.handleChange(tags);
+                    }}
+                    onBlur={field.handleBlur}
+                    className="rounded border border-line bg-well-850 px-2 py-1.5 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+                  />
+                )}
+              </form.Field>
+            </div>
+          )}
+        </div>
+      </details>
+
+      {/* Buttons */}
+      <div className="flex justify-end gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded px-3 py-1.5 text-[12px] text-ink-dim hover:text-ink"
+        >
+          Cancel
+        </button>
+        <form.Subscribe selector={(state) => state.values.title}>
+          {(title) => (
+            <button
+              type="submit"
+              disabled={submitting === true || title.trim() === ""}
+              className="rounded bg-accent px-3 py-1.5 text-[12px] font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {mode === "create" ? "Create" : "Save"}
+            </button>
+          )}
+        </form.Subscribe>
+      </div>
+    </form>
+  );
+}
