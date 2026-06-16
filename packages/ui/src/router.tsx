@@ -5,6 +5,7 @@ import {
   type SearchSchemaInput,
   stripSearchParams,
 } from "@tanstack/react-router";
+import { ArtifactsPage } from "./routes/artifacts";
 import { FleetPage } from "./routes/fleet";
 import { ProjectPage } from "./routes/project";
 import { Shell } from "./routes/shell";
@@ -50,7 +51,31 @@ export const projectRoute = createRoute({
   component: ProjectPage,
 });
 
-const routeTree = rootRoute.addChildren([fleetRoute, projectRoute]);
+export interface ArtifactsSearch {
+  project?: string;
+  tag?: string;
+  q?: string;
+  since?: string;
+  before?: string;
+  a?: string;
+  from?: string;
+}
+
+export const artifactsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/artifacts",
+  validateSearch: (search: Record<string, unknown>): ArtifactsSearch => {
+    const out: ArtifactsSearch = {};
+    for (const k of ["project", "tag", "q", "since", "before", "a", "from"] as const) {
+      const v = search[k];
+      if (typeof v === "string" && v !== "") out[k] = v;
+    }
+    return out;
+  },
+  component: ArtifactsPage,
+});
+
+const routeTree = rootRoute.addChildren([fleetRoute, projectRoute, artifactsRoute]);
 
 export const router = createRouter({ routeTree });
 

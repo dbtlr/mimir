@@ -15,6 +15,12 @@ export function Shell() {
           </span>
           <span className="microlabel hidden text-ink-faint sm:inline">operator console</span>
         </Link>
+        <Link
+          to="/artifacts"
+          className="microlabel text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          Artifacts
+        </Link>
       </header>
       <Outlet />
       <Toaster theme="dark" position="bottom-right" richColors closeButton />
