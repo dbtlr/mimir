@@ -23,6 +23,8 @@ interface BoardViewProps {
   board: Board;
   onOpenNode: (id: string) => void;
   offline?: boolean;
+  /** node id → `initiative › phase` breadcrumb, for the card's tree context. */
+  ancestry?: Map<string, string>;
 }
 
 /** The rankable set (ADR 0007) as board columns — drag-to-reorder lives here only. */
@@ -63,10 +65,12 @@ function SortableCard({
   node,
   onOpenNode,
   offline,
+  ancestry,
 }: {
   node: WireNode;
   onOpenNode: (id: string) => void;
   offline?: boolean;
+  ancestry?: string;
 }) {
   const { setNodeRef, transform, transition, attributes, listeners, isDragging } = useSortable({
     id: node.id,
@@ -77,6 +81,7 @@ function SortableCard({
       node={node}
       onOpen={onOpenNode}
       offline={offline}
+      ancestry={ancestry}
       sortable={{
         setNodeRef,
         handleProps: { ...attributes, ...listeners },
@@ -92,11 +97,13 @@ function ColumnCards({
   column,
   onOpenNode,
   offline,
+  ancestry,
 }: {
   board: Board;
   column: BoardColumn;
   onOpenNode: (id: string) => void;
   offline?: boolean;
+  ancestry?: Map<string, string>;
 }) {
   const items = board[column];
   if (items.length === 0) {
@@ -108,9 +115,19 @@ function ColumnCards({
       {items.map((node) => (
         <li key={node.id}>
           {rankable ? (
-            <SortableCard node={node} onOpenNode={onOpenNode} offline={offline} />
+            <SortableCard
+              node={node}
+              onOpenNode={onOpenNode}
+              offline={offline}
+              ancestry={ancestry?.get(node.id)}
+            />
           ) : (
-            <NodeCard node={node} onOpen={onOpenNode} offline={offline} />
+            <NodeCard
+              node={node}
+              onOpen={onOpenNode}
+              offline={offline}
+              ancestry={ancestry?.get(node.id)}
+            />
           )}
         </li>
       ))}
@@ -138,7 +155,7 @@ const MOBILE_TABS = [
  * only) runs `reorder`; all status changes are explicit (card kebab). One
  * DndContext spans the board; a drop resolves within its source column.
  */
-export function BoardView({ board, onOpenNode, offline }: BoardViewProps) {
+export function BoardView({ board, onOpenNode, offline, ancestry }: BoardViewProps) {
   const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor));
   const reorder = useReorder();
 
@@ -176,6 +193,7 @@ export function BoardView({ board, onOpenNode, offline }: BoardViewProps) {
                 column={column}
                 onOpenNode={onOpenNode}
                 offline={offline}
+                ancestry={ancestry}
               />
             </section>
           ))}
@@ -206,6 +224,7 @@ export function BoardView({ board, onOpenNode, offline }: BoardViewProps) {
                       column={column}
                       onOpenNode={onOpenNode}
                       offline={offline}
+                      ancestry={ancestry}
                     />
                   </section>
                 ))}

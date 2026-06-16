@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { boardDoneQuery, boardLiveQuery, projectQuery, treeQuery } from "../api/queries";
+import { buildAncestry } from "../lib/ancestry";
 import { buildBoard } from "../lib/board";
 import { connectivity } from "../lib/connectivity";
 import { cn } from "../lib/cn";
@@ -48,7 +49,12 @@ export function ProjectPage() {
   const project = useQuery(projectQuery(key));
   const live = useQuery({ ...boardLiveQuery(key), enabled: view === "board" });
   const done = useQuery({ ...boardDoneQuery(key), enabled: view === "board" });
-  const tree = useQuery({ ...treeQuery(key), enabled: view === "tree" });
+  // Fetched for both lenses: the tree view renders it, and the board uses it to
+  // label each card with its `initiative › phase` breadcrumb. Excluded from the
+  // board's connectivity so a tree miss never demotes a cached board — the
+  // breadcrumb just degrades to absent.
+  const tree = useQuery(treeQuery(key));
+  const ancestry = tree.data !== undefined ? buildAncestry(tree.data) : undefined;
 
   const conn = connectivity(view === "board" ? [project, live, done] : [project, tree]);
 
@@ -101,6 +107,7 @@ export function ProjectPage() {
             board={buildBoard(live.data.items, done.data.items)}
             onOpenNode={openNode}
             offline={conn.offline}
+            ancestry={ancestry}
           />
         )}
 

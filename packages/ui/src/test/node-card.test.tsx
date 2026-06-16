@@ -39,6 +39,26 @@ describe("NodeCard", () => {
     expect(screen.queryByLabelText("Actions")).toBeNull();
   });
 
+  test("shows the ancestry breadcrumb when provided", () => {
+    render(
+      <NodeCard
+        node={task({ id: "MMR-9", status: "ready" })}
+        onOpen={vi.fn()}
+        ancestry="Build › Phase 5"
+      />,
+      { wrapper },
+    );
+    expect(screen.getByText("Build › Phase 5")).toBeDefined();
+  });
+
+  test("renders no breadcrumb when ancestry is empty or absent", () => {
+    render(
+      <NodeCard node={task({ id: "MMR-9", status: "ready" })} onOpen={vi.fn()} ancestry="" />,
+      { wrapper },
+    );
+    expect(screen.queryByText("Build › Phase 5")).toBeNull();
+  });
+
   const sortable = { setNodeRef: () => {}, handleProps: {} };
 
   test("renders the grip handle when sortable", () => {
