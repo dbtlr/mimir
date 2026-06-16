@@ -1,6 +1,13 @@
 import { queryOptions } from "@tanstack/react-query";
 import { apiGet } from "./client";
-import type { Collection, WireAnnotation, WireNode, WireTreeNode } from "./types";
+import type {
+  Collection,
+  WireAnnotation,
+  WireArtifactDetail,
+  WireArtifactSummary,
+  WireNode,
+  WireTreeNode,
+} from "./types";
 
 /**
  * Every read the console makes, as shared `queryOptions`. Polling is the
@@ -85,4 +92,39 @@ export const annotationsQuery = (id: string) =>
     queryKey: ["node", id, "annotations"],
     queryFn: () =>
       apiGet<Collection<WireAnnotation>>(`/api/nodes/${encodeURIComponent(id)}/annotations`),
+  });
+
+/** The artifact-browser filter set; every field is optional and composes AND. */
+export interface ArtifactFilters {
+  project?: string;
+  tag?: string;
+  q?: string;
+  since?: string;
+  before?: string;
+}
+
+/** Build the `/api/artifacts` query string from set filters (empty → ""). */
+export function artifactParams(f: ArtifactFilters): string {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(f)) {
+    if (v !== undefined && v !== "") p.set(k, v);
+  }
+  return p.toString();
+}
+
+/** Portfolio artifact search — re-runs as filters change. */
+export const artifactsQuery = (f: ArtifactFilters) =>
+  queryOptions({
+    queryKey: ["artifacts", f],
+    queryFn: () => {
+      const qs = artifactParams(f);
+      return apiGet<Collection<WireArtifactSummary>>(`/api/artifacts${qs === "" ? "" : `?${qs}`}`);
+    },
+  });
+
+/** One artifact with its body — the reader's source. */
+export const artifactQuery = (id: string) =>
+  queryOptions({
+    queryKey: ["artifact", id],
+    queryFn: () => apiGet<WireArtifactDetail>(`/api/artifacts/${encodeURIComponent(id)}`),
   });

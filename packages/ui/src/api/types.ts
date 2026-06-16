@@ -42,6 +42,26 @@ export interface WireArtifact {
   created_at: string;
 }
 
+/** A portfolio artifact-search row (`GET /api/artifacts`). */
+export interface WireArtifactSummary {
+  id: string;
+  title: string;
+  project: string;
+  tags: string[];
+  created_at: string;
+}
+
+/** A single artifact with its frozen body (`GET /api/artifacts/:id`). */
+export interface WireArtifactDetail {
+  id: string;
+  title: string;
+  project: string;
+  links: string[];
+  tags: string[];
+  created_at: string;
+  content?: string;
+}
+
 /** A rendered node record — bare fields always, facets when the route includes them. */
 export interface WireNode {
   id: string;
