@@ -57,7 +57,7 @@ export function NodeDrawer({
     >
       {nodeId !== undefined && (
         <SheetContent aria-describedby={undefined}>
-          <DrawerBody nodeId={nodeId} onOpenNode={onOpenNode} offline={offline} />
+          <DrawerBody key={nodeId} nodeId={nodeId} onOpenNode={onOpenNode} offline={offline} />
         </SheetContent>
       )}
     </Sheet>
