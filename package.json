@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "oxlint": "1.67.0",
+    "oxlint": "1.70.0",
     "vite-plus": "0.1.24"
   }
 }
