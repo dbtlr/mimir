@@ -29,6 +29,7 @@ function fromNode(n: WireNode): TaskFormValues {
     priority: n.priority ?? "",
     size: n.size ?? "",
     external_ref: n.external_ref ?? "",
+    // Edit mode hides the tags input and useUpdateNode doesn't send tags; tags are managed separately via TagEditor.
     tags: [],
   };
 }

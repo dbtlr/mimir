@@ -77,6 +77,29 @@ describe("TaskForm (create)", () => {
     // The button is disabled due to empty title AND submitting — check it's disabled
     expect(screen.getByRole("button", { name: /create/i })).toBeDisabled();
   });
+
+  test("Create button disabled until both title and parent are provided", () => {
+    // Pass the full parents list so the parent picker is rendered; start with empty default
+    // by passing an empty parents array so defaultParent resolves to ""
+    const onSubmit = vi.fn();
+    render(<TaskForm mode="create" parents={[]} onSubmit={onSubmit} onCancel={() => {}} />);
+    // No title, no parent — disabled
+    expect(screen.getByRole("button", { name: /create/i })).toBeDisabled();
+    // Type a title — still disabled because parent is ""
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: "My task" } });
+    expect(screen.getByRole("button", { name: /create/i })).toBeDisabled();
+  });
+
+  test("Create button enabled after title typed and parent selected", () => {
+    const onSubmit = vi.fn();
+    render(<TaskForm mode="create" parents={parents} onSubmit={onSubmit} onCancel={() => {}} />);
+    // Default parent is MMR-1 (first option); type a title — should become enabled
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: "My task" } });
+    expect(screen.getByRole("button", { name: /create/i })).not.toBeDisabled();
+    // Change parent to MMR-7 — still enabled
+    fireEvent.change(screen.getByLabelText(/parent/i), { target: { value: "MMR-7" } });
+    expect(screen.getByRole("button", { name: /create/i })).not.toBeDisabled();
+  });
 });
 
 describe("TaskForm (edit)", () => {

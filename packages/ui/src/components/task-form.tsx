@@ -257,11 +257,17 @@ export function TaskForm({
         >
           Cancel
         </button>
-        <form.Subscribe selector={(state) => state.values.title}>
-          {(title) => (
+        <form.Subscribe
+          selector={(state) => ({ title: state.values.title, parent: state.values.parent })}
+        >
+          {({ title, parent }) => (
             <button
               type="submit"
-              disabled={submitting === true || title.trim() === ""}
+              disabled={
+                submitting === true ||
+                title.trim() === "" ||
+                (mode === "create" && (parent ?? "").trim() === "")
+              }
               className="rounded bg-accent px-3 py-1.5 text-[12px] font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {mode === "create" ? "Create" : "Save"}
