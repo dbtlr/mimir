@@ -102,6 +102,21 @@ export function useUpdateNode(id: string) {
   });
 }
 
+/**
+ * Reparent a node (MMR-73). Distinct from {@link useUpdateNode}: moving is a
+ * verb (`move_node`), not the dumb `update` — so the edit form's parent change
+ * goes through here, not the PATCH.
+ */
+export function useMoveNode(id: string) {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: (to: string) =>
+      apiSend<WireNode>("POST", `/api/nodes/${encodeURIComponent(id)}/move`, { to }),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+  });
+}
+
 export function useAnnotate(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({

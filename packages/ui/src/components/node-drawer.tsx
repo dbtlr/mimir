@@ -3,11 +3,13 @@ import { useNavigate } from "@tanstack/react-router";
 import type { NodeRef } from "@mimir/contract";
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { annotationsQuery, nodeQuery } from "../api/queries";
-import { useUpdateNode } from "../api/mutations";
+import { annotationsQuery, nodeQuery, treeQuery } from "../api/queries";
+import { useMoveNode, useUpdateNode } from "../api/mutations";
+import { projectKeyOf } from "../api/types";
 import type { WireAnnotation, WireHistoryEntry, WireNode } from "../api/types";
 import { AnnotationComposer } from "./annotation-composer";
 import { TagEditor } from "./tag-editor";
+import { parentOptions } from "../lib/parent-options";
 import type { TaskFormValues } from "../lib/schemas";
 import { absoluteTime, ago } from "../lib/time";
 import { Badge } from "./ui/badge";
@@ -248,6 +250,9 @@ function DrawerBody({
   const annotations = useQuery(annotationsQuery(nodeId));
   const [editing, setEditing] = useState(false);
   const update = useUpdateNode(nodeId);
+  const move = useMoveNode(nodeId);
+  // The project tree feeds the edit-mode parent picker (initiative→phase options).
+  const tree = useQuery({ ...treeQuery(projectKeyOf(nodeId)), enabled: editing });
 
   function handleEditSubmit(values: TaskFormSubmit) {
     update.mutate(
@@ -315,13 +320,37 @@ function DrawerBody({
           )}
 
           {node.data !== undefined && editing && (
-            <TaskForm
-              mode="edit"
-              initial={fromNode(node.data)}
-              submitting={update.isPending}
-              onSubmit={handleEditSubmit}
-              onCancel={() => setEditing(false)}
-            />
+            <div className="flex flex-col gap-3">
+              {/* Parent is a move (verb), not part of the dumb update submit (MMR-73). */}
+              <div className="flex flex-col gap-1">
+                <label htmlFor="drawer-parent" className="text-[0.75rem] font-medium text-ink-dim">
+                  Parent
+                </label>
+                <select
+                  id="drawer-parent"
+                  value={node.data.parent ?? ""}
+                  disabled={tree.data === undefined || move.isPending}
+                  onChange={(e) => {
+                    const to = e.target.value;
+                    if (to !== "" && to !== node.data?.parent) move.mutate(to);
+                  }}
+                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-[0.78125rem] text-ink outline-none focus-visible:border-accent disabled:opacity-50"
+                >
+                  {(tree.data ? parentOptions(tree.data) : []).map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.depth === 1 ? `  — ${o.label}` : o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <TaskForm
+                mode="edit"
+                initial={fromNode(node.data)}
+                submitting={update.isPending}
+                onSubmit={handleEditSubmit}
+                onCancel={() => setEditing(false)}
+              />
+            </div>
           )}
 
           {node.data !== undefined && !editing && (
