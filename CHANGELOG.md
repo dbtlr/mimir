@@ -13,6 +13,13 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+## v0.9.0 - 2026-06-17
+
+The web-console polish release: a light theme, a rebuilt top bar (project
+picker, global attention alert, "Mimir" rename), a denser board that
+foregrounds the actionable set, a portfolio `/tasks` browser, and a batch of
+ergonomic fixes.
+
 ### Added
 
 - **Light mode.** The console gains a light theme alongside dark — it follows
