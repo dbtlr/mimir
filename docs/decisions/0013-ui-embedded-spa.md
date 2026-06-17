@@ -104,3 +104,38 @@ hard-to-reverse shape.
 - PWA requires HTTPS; that lands on the proxy, where ADR 0012 puts boundary
   concerns. Mobile-on-LAN as an access path sharpens the auth revisit noted
   on the intervention chunk.
+
+## Refinement (v0.9, MMR-76 / MMR-78): the board foregrounds the actionable set; a `/tasks` browser is the complete view
+
+Dogfooding the board surfaced that one-column-per-status (§4) does not scale: the
+off-path states (Parked, Blocked, Awaiting) are noise on the working surface, and
+Done grows without bound. The board's job is the **actionable present**, not the
+complete record — the same operational/lookup split already drawn between the board
+and the `/artifacts` browser. §4 is refined accordingly; §3's "URLs name scopes"
+is preserved.
+
+- **The board is a three-tier status lens, not one column per status.**
+  - **Full columns — the actionable set:** Ready and In progress. (Ready in rank
+    order remains the `next` queue, per §4.)
+  - **Windowed column:** Done stays bounded to its recency window and shows an
+    `n of m` count with a drill-through to the complete list (the window itself
+    already existed: `DONE_WINDOW_MS`).
+  - **Collapsed columns — the non-actionable set:** Parked, Blocked, Awaiting
+    render as narrow strips showing the status and its count, expandable inline on
+    demand. Column order is the MMR-68 pipeline order (Parked → Blocked → Awaiting →
+    Ready → In progress → Done); this also supersedes §4's original left-to-right
+    listing.
+  - `abandoned` remains a filter, never a column; priority is never a column
+    (ADR 0007). Drag-to-verb (intervention) is unaffected.
+
+- **A `/tasks` portfolio browser is the complete, filterable, searchable view** —
+  the sibling of `/artifacts`: a master-detail list across all projects, reusing the
+  existing node selection surface (status universes, `eq`/`is`/`has`, project, limit).
+  It is a portfolio **scope route**, consistent with §3 (not a project lens). The
+  board's Done drill-through deep-links into it pre-filtered (`/tasks?project=KEY&status=done`),
+  mirroring the artifact reader's `from=` provenance.
+
+- **One server addition:** node listing gains a `q` case-insensitive substring
+  search over title (LIKE; FTS5 deferred on the same trigger as `/artifacts`,
+  per ADR 0012). The rich filters already exist server-side; only text search was
+  missing. This is the lone backend change in the otherwise frontend-only v0.9 set.
