@@ -108,6 +108,10 @@ export function ProjectPage() {
             onOpenNode={openNode}
             offline={conn.offline}
             ancestry={ancestry}
+            doneTotal={done.data.items.length}
+            onViewDone={() =>
+              void navigate({ to: "/tasks", search: { project: key, status: "done" } })
+            }
           />
         )}
 
