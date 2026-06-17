@@ -83,6 +83,20 @@ body {
   background-attachment: fixed;
 }
 
+/*
+ * Tailwind v4's preflight ships buttons with `cursor: default`; restore the
+ * pointer for enabled interactive controls. The console is button-dense —
+ * board/fleet cards, artifact rows, and verb menus are all <button>s — so the
+ * fix belongs at the source, not sprinkled per card. Disabled controls (e.g.
+ * offline-disabled writes) correctly keep the default cursor.
+ */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
 /* offline: the whole surface is last-known data — demote it, loudly */
 .offline-demoted {
   filter: saturate(0.35) brightness(0.82);
