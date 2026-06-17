@@ -105,7 +105,12 @@ export function ArtifactsPage() {
               </p>
             )}
           </div>
-          <div className={cn("min-h-0 flex-1", selected === undefined && "hidden md:flex")}>
+          <div
+            className={cn(
+              "min-h-0 flex-1 flex-col",
+              selected !== undefined ? "flex" : "hidden md:flex",
+            )}
+          >
             {selected !== undefined ? (
               <ArtifactReader id={selected} onBack={back} onOpenNode={openNode} />
             ) : (

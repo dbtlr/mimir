@@ -56,7 +56,7 @@ export function FleetPage() {
       <OfflineBanner {...conn} />
       <main
         className={cn(
-          "mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 p-4",
+          "mx-auto flex w-full max-w-7xl min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4",
           conn.offline && "offline-demoted",
         )}
       >
