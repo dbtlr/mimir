@@ -9,6 +9,7 @@ import { ArtifactsPage } from "./routes/artifacts";
 import { FleetPage } from "./routes/fleet";
 import { ProjectPage } from "./routes/project";
 import { Shell } from "./routes/shell";
+import { TasksPage } from "./routes/tasks";
 
 /**
  * Navigation (ADR 0013 §3): URLs name scopes — `/` the fleet, `/p/KEY` a
@@ -75,7 +76,29 @@ export const artifactsRoute = createRoute({
   component: ArtifactsPage,
 });
 
-const routeTree = rootRoute.addChildren([fleetRoute, projectRoute, artifactsRoute]);
+export interface TasksSearch {
+  project?: string;
+  status?: string;
+  q?: string;
+  /** The node opened in the drawer overlay (same param the board uses). */
+  node?: string;
+}
+
+export const tasksRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/tasks",
+  validateSearch: (search: Record<string, unknown>): TasksSearch => {
+    const out: TasksSearch = {};
+    for (const k of ["project", "status", "q", "node"] as const) {
+      const v = search[k];
+      if (typeof v === "string" && v !== "") out[k] = v;
+    }
+    return out;
+  },
+  component: TasksPage,
+});
+
+const routeTree = rootRoute.addChildren([fleetRoute, projectRoute, artifactsRoute, tasksRoute]);
 
 export const router = createRouter({ routeTree });
 

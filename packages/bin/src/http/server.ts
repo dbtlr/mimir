@@ -163,6 +163,10 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
   if (tag !== null) {
     opts.tag = tag;
   }
+  const qText = q.get("q");
+  if (qText !== null && qText !== "") {
+    opts.q = qText;
+  }
   const limit = q.get("limit");
   if (limit !== null) {
     const n = Number(limit);

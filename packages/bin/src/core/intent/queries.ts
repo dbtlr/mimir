@@ -183,6 +183,8 @@ export interface ListOptions {
   priority?: Priority;
   size?: Size;
   tag?: string;
+  /** Case-insensitive substring over title (MMR-78; LIKE, FTS5 deferred). */
+  q?: string;
   limit?: number;
   facets?: readonly FacetName[];
 }
@@ -231,6 +233,10 @@ export async function listNodes(db: Db, opts: ListOptions = {}): Promise<SetResu
         .where("entity_type", "=", "node")
         .where("tag", "=", tag),
     );
+  }
+  if (opts.q !== undefined && opts.q !== "") {
+    const like = `%${opts.q.toLowerCase()}%`;
+    query = query.where(sql<boolean>`lower(node.title) LIKE ${like}`);
   }
   const terminalOrder = universe === "terminal" || universe === "done" || universe === "abandoned";
   const rows = terminalOrder

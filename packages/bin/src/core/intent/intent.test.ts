@@ -170,6 +170,18 @@ test("list selects by status universe (MMR-33)", async () => {
   expect(all.total).toBe(2);
 });
 
+test("list filters by q — case-insensitive substring over title (MMR-78)", async () => {
+  const auth = await createTask(db, { parentId: phaseId, title: "Wire up AUTH gate" });
+  await createTask(db, { parentId: phaseId, title: "Polish the board" });
+
+  const hit = await listNodes(db, { scope: key, q: "auth" });
+  expect(hit.items.map((n) => n.id)).toEqual([idOf(auth)]);
+
+  expect((await listNodes(db, { scope: key, q: "zzz" })).total).toBe(0);
+  // an empty q is a no-op, not a match-nothing
+  expect((await listNodes(db, { scope: key, q: "" })).total).toBe(2);
+});
+
 test("list applies verdicts and field operators within the universe", async () => {
   const a = await createTask(db, { parentId: phaseId, title: "a", priority: "p1" });
   const b = await createTask(db, { parentId: phaseId, title: "b", priority: "p2" });

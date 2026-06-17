@@ -21,6 +21,12 @@ export function Shell() {
         <ProjectPicker />
         <div className="ml-auto flex items-center gap-1">
           <Link
+            to="/tasks"
+            className="microlabel rounded px-2 py-1 text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            Tasks
+          </Link>
+          <Link
             to="/artifacts"
             className="microlabel rounded px-2 py-1 text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
           >

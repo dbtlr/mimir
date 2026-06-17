@@ -51,6 +51,25 @@ export const readyQuery = queryOptions({
   queryFn: () => apiGet<Collection<WireNode>>("/api/nodes?type=task&status=ready"),
 });
 
+export interface TaskFilters {
+  project?: string;
+  status?: string;
+  q?: string;
+}
+
+/** The `/tasks` browser read (MMR-78): portfolio task list with filter + search. */
+export const tasksQuery = (f: TaskFilters) =>
+  queryOptions({
+    queryKey: ["nodes", "tasks", f],
+    queryFn: () => {
+      const p = new URLSearchParams({ type: "task" });
+      if (f.project !== undefined && f.project !== "") p.set("project", f.project);
+      if (f.status !== undefined && f.status !== "") p.set("status", f.status);
+      if (f.q !== undefined && f.q !== "") p.set("q", f.q);
+      return apiGet<Collection<WireNode>>(`/api/nodes?${p.toString()}`);
+    },
+  });
+
 /**
  * The board's live half: every non-terminal task in the project, in rank
  * order — the API's array order IS rank (ADR 0007), so the Ready column

@@ -164,6 +164,17 @@ test("GET /api/nodes?type= and ?project= narrow the selection", async () => {
   expect(scopedIds).not.toContain(task1);
 });
 
+test("GET /api/nodes?q= filters by title substring, case-insensitive (MMR-78)", async () => {
+  // "FIR" lowercases to a substring of "first" (task1) but not "elsewhere" (otherTask)
+  const hit = await parse(await get("/api/nodes?q=FIR"));
+  const ids = (hit.items as Rec[]).map((n) => n.id);
+  expect(ids).toContain(task1);
+  expect(ids).not.toContain(otherTask);
+
+  const miss = await parse(await get("/api/nodes?q=zzz"));
+  expect((miss.items as Rec[]).length).toBe(0);
+});
+
 test("GET /api/nodes?status= selects the universe; terminal tasks appear under all", async () => {
   await send("POST", `/api/nodes/${task1}/done`);
 

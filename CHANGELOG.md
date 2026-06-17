@@ -27,6 +27,11 @@ release. When a release is cut, this section is promoted to
 - **Reparent a task from the drawer** — the edit view gains a parent picker
   (the grouped initiative→phase list) that moves the task; reparenting is the
   `move` verb, kept distinct from the dumb field update (MMR-73).
+- **`/tasks` browser** — a portfolio task list (sibling of `/artifacts`):
+  filter by project and status universe, search titles, and open any task in
+  the node drawer. Backed by a new `q` case-insensitive title substring on the
+  node listing (`GET /api/nodes?q=`, core `listNodes`; LIKE, FTS5 deferred)
+  (MMR-78).
 
 ### Changed
 
