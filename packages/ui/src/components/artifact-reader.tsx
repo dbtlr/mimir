@@ -61,7 +61,7 @@ export function ArtifactReader({
           <p className="text-[0.75rem] text-status-blocked">Couldn't load {id}.</p>
         )}
         {artifact.data?.content !== undefined && (
-          <article className="prose prose-invert prose-sm max-w-none">
+          <article className="prose prose-sm max-w-none dark:prose-invert">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{artifact.data.content}</ReactMarkdown>
           </article>
         )}

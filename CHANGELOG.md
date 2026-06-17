@@ -13,6 +13,12 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Added
+
+- **Light mode.** The console gains a light theme alongside dark — it follows
+  the OS preference by default, remembers an explicit pick, and toggles from the
+  header. Faint text on dark cards is also more legible (MMR-74, MMR-77).
+
 ### Changed
 
 - **Console type scale is rem-relative.** Font sizes now derive from a single

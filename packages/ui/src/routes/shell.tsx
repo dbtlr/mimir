@@ -1,8 +1,11 @@
 import { Link, Outlet } from "@tanstack/react-router";
 import { Toaster } from "sonner";
+import { ThemeToggle } from "../components/theme-toggle";
+import { useTheme } from "../lib/use-theme";
 
 /** The app shell: brand bar + the routed surface. */
 export function Shell() {
+  const { theme, toggle } = useTheme();
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
       <header className="z-20 flex items-center gap-3 border-b border-line bg-well-900/85 px-4 py-2 backdrop-blur">
@@ -21,9 +24,12 @@ export function Shell() {
         >
           Artifacts
         </Link>
+        <div className="ml-auto">
+          <ThemeToggle theme={theme} onToggle={toggle} />
+        </div>
       </header>
       <Outlet />
-      <Toaster theme="dark" position="bottom-right" richColors closeButton />
+      <Toaster theme={theme} position="bottom-right" richColors closeButton />
     </div>
   );
 }
