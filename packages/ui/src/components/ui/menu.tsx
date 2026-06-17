@@ -41,7 +41,7 @@ export function MenuItem({ className, ...props }: ComponentProps<typeof Menu.Ite
   return (
     <Menu.Item
       className={cn(
-        "flex w-full cursor-default items-center gap-2 rounded-[3px] px-2 py-1.5 text-left text-[12px] text-ink outline-none select-none",
+        "flex w-full cursor-default items-center gap-2 rounded-[3px] px-2 py-1.5 text-left text-[0.75rem] text-ink outline-none select-none",
         "data-[highlighted]:bg-well-700 data-[highlighted]:text-ink-bright",
         className,
       )}

@@ -61,6 +61,15 @@ body {
   height: 100%;
 }
 
+/*
+ * The type-scale base. Every text size is rem-relative to this, so one knob
+ * bumps the whole scale (and the rem-based spacing with it, proportionally).
+ * `%` rather than px keeps the user's browser font-size preference honored.
+ */
+html {
+  font-size: 106.25%; /* ~17px at the 16px default — a slight bump from the dense baseline */
+}
+
 body {
   @apply bg-well-900 font-sans text-ink antialiased;
   /* faint engineering grid + vignette — atmosphere without noise */
@@ -105,7 +114,7 @@ body {
 
 /* micro-label: the control-room caption idiom */
 .microlabel {
-  @apply font-sans text-[10px] font-semibold tracking-[0.18em] uppercase;
+  @apply font-sans text-[0.625rem] font-semibold tracking-[0.18em] uppercase;
 }
 
 ::selection {

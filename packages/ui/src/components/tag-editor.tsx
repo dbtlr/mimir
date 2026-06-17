@@ -28,7 +28,7 @@ export function TagEditor({
         {tags.map((t) => (
           <span
             key={t.tag}
-            className="inline-flex items-center gap-1 rounded-[3px] border border-line-bright px-1.5 py-px text-[10px] font-medium text-ink-dim whitespace-nowrap"
+            className="inline-flex items-center gap-1 rounded-[3px] border border-line-bright px-1.5 py-px text-[0.625rem] font-medium text-ink-dim whitespace-nowrap"
           >
             {t.tag}
             {!offline && (
@@ -56,14 +56,14 @@ export function TagEditor({
               if (e.key === "Enter" && !addDisabled) handleAdd();
             }}
             placeholder="Add tag…"
-            className="min-w-0 flex-1 rounded border border-line bg-well-850 px-2 py-1 text-[12px] text-ink outline-none focus-visible:border-accent"
+            className="min-w-0 flex-1 rounded border border-line bg-well-850 px-2 py-1 text-[0.75rem] text-ink outline-none focus-visible:border-accent"
           />
           <button
             type="button"
             aria-label="Add tag"
             disabled={addDisabled}
             onClick={handleAdd}
-            className="rounded bg-accent px-3 py-1 text-[12px] font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded bg-accent px-3 py-1 text-[0.75rem] font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Add
           </button>

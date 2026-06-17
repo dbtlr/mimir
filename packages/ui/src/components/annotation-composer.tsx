@@ -20,7 +20,7 @@ export function AnnotationComposer({ nodeId, offline }: { nodeId: string; offlin
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="Add a note…"
-        className="min-h-16 resize-y rounded border border-line bg-well-850 p-2 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+        className="min-h-16 resize-y rounded border border-line bg-well-850 p-2 text-[0.78125rem] text-ink outline-none focus-visible:border-accent"
       />
       <div className="flex justify-end">
         <button
@@ -28,7 +28,7 @@ export function AnnotationComposer({ nodeId, offline }: { nodeId: string; offlin
           aria-label="Add note"
           disabled={disabled}
           onClick={handleClick}
-          className="rounded bg-accent px-3 py-1.5 text-[12px] font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded bg-accent px-3 py-1.5 text-[0.75rem] font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Add note
         </button>

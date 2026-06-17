@@ -30,7 +30,7 @@ export function TransitionMenu({
         <MenuTrigger
           aria-label="Actions"
           disabled={disabled}
-          className="rounded px-1.5 py-0.5 text-[14px] leading-none text-ink-dim transition-colors hover:bg-well-700 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
+          className="rounded px-1.5 py-0.5 text-[0.875rem] leading-none text-ink-dim transition-colors hover:bg-well-700 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
         >
           ⋯
         </MenuTrigger>

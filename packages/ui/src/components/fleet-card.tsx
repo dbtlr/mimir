@@ -22,7 +22,7 @@ function AttentionCount({
 }) {
   return (
     <span className={cn("flex items-baseline gap-1", count === 0 ? "text-ink-faint" : className)}>
-      <span className="font-mono text-[15px] font-semibold tabular-nums">{count}</span>
+      <span className="font-mono text-[0.9375rem] font-semibold tabular-nums">{count}</span>
       <span className="microlabel">{label}</span>
     </span>
   );
@@ -52,7 +52,7 @@ export function FleetCard({
             <span className="font-mono text-lg font-bold tracking-tight text-ink-bright">
               {project.id}
             </span>
-            <span className="truncate text-[12px] text-ink-dim">{project.title}</span>
+            <span className="truncate text-[0.75rem] text-ink-dim">{project.title}</span>
           </div>
           <StatusBadge status={project.status} />
         </CardHeader>

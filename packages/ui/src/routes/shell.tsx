@@ -10,7 +10,7 @@ export function Shell() {
           to="/"
           className="flex items-baseline gap-2 focus-visible:outline-2 focus-visible:outline-accent"
         >
-          <span className="font-mono text-[15px] font-bold tracking-[0.22em] text-ink-bright">
+          <span className="font-mono text-[0.9375rem] font-bold tracking-[0.22em] text-ink-bright">
             MIMIR
           </span>
           <span className="microlabel hidden text-ink-faint sm:inline">operator console</span>

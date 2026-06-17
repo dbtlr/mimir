@@ -78,7 +78,7 @@ export function ProjectPage() {
             <span className="font-mono text-lg font-bold tracking-tight text-ink-bright">
               {key}
             </span>
-            <span className="hidden truncate text-[12px] text-ink-dim sm:inline">
+            <span className="hidden truncate text-[0.75rem] text-ink-dim sm:inline">
               {project.data?.title}
             </span>
           </h1>
@@ -118,7 +118,7 @@ export function ProjectPage() {
 
         {((view === "board" && live.isError && live.data === undefined) ||
           (view === "tree" && tree.isError && tree.data === undefined)) && (
-          <p className="text-[12px] text-status-blocked">
+          <p className="text-[0.75rem] text-status-blocked">
             Unreachable, and nothing cached yet — is `mimir serve` running?
           </p>
         )}

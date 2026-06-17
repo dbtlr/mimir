@@ -9,7 +9,7 @@ export function StatusBadge({ status, className }: { status: StatusWord; classNa
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-[3px] px-1.5 py-0.5 text-[11px] font-semibold",
+        "inline-flex items-center gap-1.5 rounded-[3px] px-1.5 py-0.5 text-[0.6875rem] font-semibold",
         meta.chip,
         className,
       )}
