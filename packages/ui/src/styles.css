@@ -4,6 +4,13 @@
 @plugin "@tailwindcss/typography";
 
 /*
+ * Key the `dark:` variant on our explicit theme attribute, not the OS media
+ * query — an explicit pick can diverge from the OS preference. Lets utilities
+ * like `dark:prose-invert` follow the resolved theme.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
  * The console's design system — "instrument panel over the well".
  * Dark-first, dense, hairline-bordered. One status color system, declared
  * once here and consumed identically by distribution bars, board column
@@ -24,7 +31,7 @@
   --color-ink-bright: #eef3fa;
   --color-ink: #c3cfdf;
   --color-ink-dim: #6b7a90;
-  --color-ink-faint: #44506a;
+  --color-ink-faint: #586780; /* MMR-77: nudged up — #44506a was illegible on dark cards */
 
   /* hairlines + accent */
   --color-line: #1d2840;
@@ -124,4 +131,58 @@ body {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-well-700) transparent;
+}
+
+/*
+ * Light theme (MMR-74). Dark is the default (the @theme :root values above);
+ * the resolver sets `data-theme="light"` to swap in this palette. No component
+ * touches color directly, so overriding the tokens re-themes everything.
+ * Derived by inverting the lightness axis: wells go page-gray → white (higher
+ * number = more raised = lighter, same as dark), ink goes near-black → light;
+ * accent + status hues are kept but deepened for contrast on a light ground.
+ */
+:root[data-theme="light"] {
+  /* the well — page/panel depths (deepest → most raised) */
+  --color-well-950: #d3dae6;
+  --color-well-900: #e7ebf2;
+  --color-well-850: #f1f4f8;
+  --color-well-800: #f9fafc;
+  --color-well-700: #ffffff;
+
+  /* ink — text depths (brightest → faintest) */
+  --color-ink-bright: #0c121e;
+  --color-ink: #2b3850;
+  --color-ink-dim: #586679;
+  --color-ink-faint: #7a8597;
+
+  /* hairlines + accent */
+  --color-line: #d4dae4;
+  --color-line-bright: #bcc6d6;
+  --color-accent: #0e8aa0;
+
+  /* the status vocabulary — same hues, deepened for a light ground */
+  --color-status-in-progress: #b9700c;
+  --color-status-ready: #2563c4;
+  --color-status-awaiting: #6249cf;
+  --color-status-blocked: #cc2f44;
+  --color-status-parked: #837a5f;
+  --color-status-done: #1f9460;
+  --color-status-abandoned: #6b7480;
+  --color-status-new: #aab3c2;
+}
+
+/* The atmosphere gradient bakes in one dark color; give light its own vignette. */
+:root[data-theme="light"] body {
+  background-image:
+    radial-gradient(ellipse 120% 90% at 50% -20%, #dbe4f1 0%, transparent 60%),
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--color-line) 60%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-line) 60%, transparent) 1px,
+      transparent 1px
+    );
 }
