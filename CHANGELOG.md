@@ -35,6 +35,10 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **The board foregrounds the actionable set** — Ready and In progress stay
+  full columns; Parked, Blocked, and Awaiting collapse to count strips that
+  expand on click; Done is windowed to recent completions with a "view all →"
+  drill into `/tasks`. Refines ADR 0013 §4 (MMR-76).
 - **Renamed the console to "Mimir"** (from "Operator Console") (MMR-80).
 - **Fleet cards lead with the ready count** — the actionable number — in place
   of the in-flight/stale/blocked triplet (stuck work now lives in the attention

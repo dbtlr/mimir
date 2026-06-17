@@ -16,6 +16,18 @@ export const BOARD_COLUMNS = [
 ] as const;
 export type BoardColumn = (typeof BOARD_COLUMNS)[number];
 
+/**
+ * The non-actionable columns (MMR-76 / ADR 0013 §4 refinement): the board
+ * foregrounds the actionable set (Ready + In progress) as full columns, while
+ * these collapse to count strips that expand on demand. Done is its own tier —
+ * windowed, not collapsed.
+ */
+export const COLLAPSIBLE_COLUMNS = ["parked", "blocked", "awaiting"] as const;
+
+export function isCollapsible(column: BoardColumn): boolean {
+  return (COLLAPSIBLE_COLUMNS as readonly string[]).includes(column);
+}
+
 export type Board = Record<BoardColumn, WireNode[]>;
 
 /** Done stays a recency window, not an archive: the last 7 days of completions. */

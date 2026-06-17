@@ -9,8 +9,9 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useState } from "react";
 import { cn } from "../lib/cn";
-import { BOARD_COLUMNS, type Board, type BoardColumn } from "../lib/board";
+import { BOARD_COLUMNS, isCollapsible, type Board, type BoardColumn } from "../lib/board";
 import { reorderArgs, type ReorderArgs } from "../lib/reorder";
 import { STATUS_META } from "../lib/status";
 import { useReorder } from "../api/mutations";
@@ -25,6 +26,10 @@ interface BoardViewProps {
   offline?: boolean;
   /** node id → `initiative › phase` breadcrumb, for the card's tree context. */
   ancestry?: Map<string, string>;
+  /** Total completed tasks fetched (before the Done window) — the `m` in "n of m". */
+  doneTotal: number;
+  /** Drill from Done into the `/tasks` browser (kept a callback so the board stays router-free). */
+  onViewDone: () => void;
 }
 
 /** The rankable set (ADR 0007) as board columns — drag-to-reorder lives here only. */
@@ -49,14 +54,90 @@ export function dropToReorder(
   return reorderArgs(activeId, overId, orderedIds);
 }
 
-function ColumnHeader({ column, count }: { column: BoardColumn; count: number }) {
+function ColumnHeader({
+  column,
+  count,
+  onCollapse,
+}: {
+  column: BoardColumn;
+  count: number;
+  onCollapse?: () => void;
+}) {
   const meta = STATUS_META[column];
   return (
     <header className="flex items-center gap-2 border-b border-line px-2 py-1.5">
       <StatusDot status={column} />
       <h2 className={cn("microlabel", meta.text)}>{meta.label}</h2>
       <span className="ml-auto font-mono text-[0.625rem] text-ink-dim">{count}</span>
+      {onCollapse !== undefined && (
+        <button
+          type="button"
+          onClick={onCollapse}
+          aria-label={`Collapse ${meta.label}`}
+          className="rounded text-ink-faint transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="m15 18-6-6 6-6"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      )}
     </header>
+  );
+}
+
+/** A non-actionable column folded to a narrow count strip (MMR-76); click expands. */
+function CollapsedColumn({
+  column,
+  count,
+  onExpand,
+}: {
+  column: BoardColumn;
+  count: number;
+  onExpand: () => void;
+}) {
+  const meta = STATUS_META[column];
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      aria-label={`Expand ${meta.label} (${count})`}
+      className="flex w-9 shrink-0 flex-col items-center gap-2 rounded-md border border-line bg-well-900/40 py-2 transition-colors hover:border-line-bright hover:bg-well-900/70 focus-visible:outline-2 focus-visible:outline-accent"
+    >
+      <StatusDot status={column} />
+      <span className="font-mono text-[0.6875rem] font-semibold text-ink-dim tabular-nums">
+        {count}
+      </span>
+      <span className={cn("microlabel [writing-mode:vertical-rl] rotate-180", meta.text)}>
+        {meta.label}
+      </span>
+    </button>
+  );
+}
+
+/** Done's drill-through: the window shows recent completions; the rest is in `/tasks`. */
+function DoneFooter({
+  shown,
+  total,
+  onViewDone,
+}: {
+  shown: number;
+  total: number;
+  onViewDone: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onViewDone}
+      className="border-t border-line px-2 py-1.5 text-left text-[0.625rem] text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+    >
+      {total > shown ? `${shown} of ${total} recent · all →` : `${total} done · view all →`}
+    </button>
   );
 }
 
@@ -155,9 +236,25 @@ const MOBILE_TABS = [
  * only) runs `reorder`; all status changes are explicit (card kebab). One
  * DndContext spans the board; a drop resolves within its source column.
  */
-export function BoardView({ board, onOpenNode, offline, ancestry }: BoardViewProps) {
+export function BoardView({
+  board,
+  onOpenNode,
+  offline,
+  ancestry,
+  doneTotal,
+  onViewDone,
+}: BoardViewProps) {
   const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor));
   const reorder = useReorder();
+  // Which collapsed (non-actionable) columns the operator has expanded inline.
+  const [expanded, setExpanded] = useState<ReadonlySet<BoardColumn>>(new Set());
+  const toggle = (column: BoardColumn) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(column)) next.delete(column);
+      else next.add(column);
+      return next;
+    });
 
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -179,24 +276,52 @@ export function BoardView({ board, onOpenNode, offline, ancestry }: BoardViewPro
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <div data-testid="board">
-        {/* desktop */}
-        <div className="hidden min-h-0 grid-cols-6 gap-1.5 md:grid">
-          {BOARD_COLUMNS.map((column) => (
-            <section
-              key={column}
-              aria-label={STATUS_META[column].label}
-              className="flex min-w-0 flex-col rounded-md border border-line bg-well-900/60"
-            >
-              <ColumnHeader column={column} count={board[column].length} />
-              <ColumnCards
-                board={board}
-                column={column}
-                onOpenNode={onOpenNode}
-                offline={offline}
-                ancestry={ancestry}
-              />
-            </section>
-          ))}
+        {/* desktop — three tiers: full actionable columns, windowed Done, collapsed strips */}
+        <div className="hidden min-h-0 gap-1.5 md:flex">
+          {BOARD_COLUMNS.map((column) => {
+            const count = board[column].length;
+            if (isCollapsible(column) && !expanded.has(column)) {
+              return (
+                <CollapsedColumn
+                  key={column}
+                  column={column}
+                  count={count}
+                  onExpand={() => {
+                    toggle(column);
+                  }}
+                />
+              );
+            }
+            return (
+              <section
+                key={column}
+                aria-label={STATUS_META[column].label}
+                className="flex min-w-0 flex-1 flex-col rounded-md border border-line bg-well-900/60"
+              >
+                <ColumnHeader
+                  column={column}
+                  count={count}
+                  onCollapse={
+                    isCollapsible(column)
+                      ? () => {
+                          toggle(column);
+                        }
+                      : undefined
+                  }
+                />
+                <ColumnCards
+                  board={board}
+                  column={column}
+                  onOpenNode={onOpenNode}
+                  offline={offline}
+                  ancestry={ancestry}
+                />
+                {column === "done" && (
+                  <DoneFooter shown={count} total={doneTotal} onViewDone={onViewDone} />
+                )}
+              </section>
+            );
+          })}
         </div>
 
         {/* mobile */}

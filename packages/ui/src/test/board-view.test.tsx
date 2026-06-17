@@ -27,7 +27,9 @@ describe("BoardView", () => {
       [task({ id: "MMR-50", status: "done", title: "shipped", completed_at: daysAgo(2) })],
       NOW,
     );
-    render(<BoardView board={board} onOpenNode={vi.fn()} />, { wrapper });
+    render(<BoardView board={board} onOpenNode={vi.fn()} doneTotal={1} onViewDone={vi.fn()} />, {
+      wrapper,
+    });
 
     // desktop sections are labelled by their status word
     const [ready] = screen.getAllByRole("region", { name: "Ready" });
@@ -57,14 +59,18 @@ describe("BoardView", () => {
       [],
       NOW,
     );
-    render(<BoardView board={board} onOpenNode={vi.fn()} />, { wrapper });
+    render(<BoardView board={board} onOpenNode={vi.fn()} doneTotal={1} onViewDone={vi.fn()} />, {
+      wrapper,
+    });
     expect(screen.getAllByText(/stale/).length).toBeGreaterThan(0);
   });
 
   test("clicking a card opens its node", async () => {
     const onOpen = vi.fn();
     const board = buildBoard([task({ id: "MMR-8", status: "ready", title: "open me" })], [], NOW);
-    render(<BoardView board={board} onOpenNode={onOpen} />, { wrapper });
+    render(<BoardView board={board} onOpenNode={onOpen} doneTotal={0} onViewDone={vi.fn()} />, {
+      wrapper,
+    });
     screen.getAllByText("open me")[0]?.closest("button")?.click();
     expect(onOpen).toHaveBeenCalledWith("MMR-8");
   });
