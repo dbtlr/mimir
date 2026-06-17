@@ -9,7 +9,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { cn } from "../lib/cn";
 import { BOARD_COLUMNS, isCollapsible, type Board, type BoardColumn } from "../lib/board";
 import { reorderArgs, type ReorderArgs } from "../lib/reorder";
@@ -232,6 +232,21 @@ const MOBILE_TABS = [
 ] as const satisfies readonly { id: string; label: string; columns: readonly BoardColumn[] }[];
 
 /**
+ * Which mobile tab a swipe lands on, or null for a non-swipe (MMR-70). A swipe
+ * must be horizontal-dominant and clear the threshold; left (dx<0) advances,
+ * right retreats; past either end is a no-op.
+ */
+export function swipeTarget(
+  current: string,
+  dx: number,
+  dy: number,
+  ids: readonly string[],
+): string | null {
+  if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) return null;
+  return ids[ids.indexOf(current) + (dx < 0 ? 1 : -1)] ?? null;
+}
+
+/**
  * The board — the status lens. Drag-to-reorder (rankable columns, grip handle
  * only) runs `reorder`; all status changes are explicit (card kebab). One
  * DndContext spans the board; a drop resolves within its source column.
@@ -255,6 +270,27 @@ export function BoardView({
       else next.add(column);
       return next;
     });
+
+  // Mobile: swipe left/right to move between the column tabs (MMR-70).
+  const [mobileTab, setMobileTab] = useState<string>("in_progress");
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  function onTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    touchStart.current = t === undefined ? null : { x: t.clientX, y: t.clientY };
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    const t = e.changedTouches[0];
+    if (start === null || t === undefined) return;
+    const target = swipeTarget(
+      mobileTab,
+      t.clientX - start.x,
+      t.clientY - start.y,
+      MOBILE_TABS.map((tab): string => tab.id),
+    );
+    if (target !== null) setMobileTab(target);
+  }
 
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -324,9 +360,14 @@ export function BoardView({
           })}
         </div>
 
-        {/* mobile */}
-        <div className="md:hidden">
-          <Tabs defaultValue="in_progress">
+        {/* mobile — tabs, with swipe to move between them (MMR-70) */}
+        <div className="md:hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+          <Tabs
+            value={mobileTab}
+            onValueChange={(v) => {
+              setMobileTab(String(v));
+            }}
+          >
             <TabsList>
               {MOBILE_TABS.map((tab) => (
                 <TabsTrigger key={tab.id} value={tab.id}>
