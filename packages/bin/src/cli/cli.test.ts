@@ -51,18 +51,41 @@ test("next --format json lists ready tasks (count-led envelope)", async () => {
   expect(parsed.tasks[0]?.title).toBe("first");
 });
 
-test("next default format is ids when piped, table when TTY", async () => {
+test("next default is the informative table view whether piped or TTY (MMR-87)", async () => {
   const t = await createTask(db, { parentId: phaseId, title: "x" });
+  const id = `MMR-${String(t.seq)}`;
+
+  // Piped (non-TTY): the same informative table content, not a bare id.
   const piped = fakeIo(false);
   await runCli(["next", "--scope", "MMR"], () => db, piped);
-  expect(piped.out.join("")).toBe(`MMR-${String(t.seq)}`);
+  const pipedText = piped.out.join("");
+  expect(pipedText).toContain("1 task");
+  expect(pipedText).toContain(id);
+  expect(pipedText).toContain("ready");
+  expect(pipedText).not.toBe(id);
 
+  // TTY: identical information (decoration differs, content does not).
   const tty = fakeIo(true);
   await runCli(["next", "--scope", "MMR"], () => db, tty);
-  const text = tty.out.join("");
-  expect(text).toContain("1 task");
-  expect(text).toContain(`MMR-${String(t.seq)}`);
-  expect(text).toContain("ready");
+  const ttyText = tty.out.join("");
+  expect(ttyText).toContain("1 task");
+  expect(ttyText).toContain(id);
+  expect(ttyText).toContain("ready");
+
+  // Bare ids only on explicit -f ids (the composable pipeline opt-in).
+  const ids = fakeIo(false);
+  await runCli(["next", "--scope", "MMR", "-f", "ids"], () => db, ids);
+  expect(ids.out.join("")).toBe(id);
+});
+
+test("list piped default is the table view, not bare ids (MMR-87)", async () => {
+  await createTask(db, { parentId: phaseId, title: "alpha" });
+  const piped = fakeIo(false);
+  await runCli(["list", "--scope", "MMR", "--status", "ready"], () => db, piped);
+  const text = piped.out.join("");
+  expect(text).toContain("task");
+  expect(text).toContain("alpha");
+  expect(text).toContain("MMR-");
 });
 
 test("get returns a record; a missing id exits non-zero", async () => {
@@ -75,6 +98,25 @@ test("get returns a record; a missing id exits non-zero", async () => {
   expect(await runCli(["get", "MMR-999"], () => db, missing)).toBe(1);
   expect(missing.err.join("")).toContain("[err]");
   expect(missing.out).toHaveLength(0);
+});
+
+test("get piped default is the records view, not a bare id (MMR-87)", async () => {
+  const t = await createTask(db, { parentId: phaseId, title: "deep" });
+  const id = `MMR-${String(t.seq)}`;
+
+  const piped = fakeIo(false);
+  await runCli(["get", id], () => db, piped);
+  const text = piped.out.join("");
+  expect(text).toContain(id);
+  expect(text).toContain("title");
+  expect(text).toContain("deep");
+  expect(text).toContain("status");
+  expect(text).not.toBe(id);
+
+  // ids still available explicitly.
+  const ids = fakeIo(false);
+  await runCli(["get", id, "-f", "ids"], () => db, ids);
+  expect(ids.out.join("")).toBe(id);
 });
 
 test("status reports the rollup of a non-leaf", async () => {
@@ -177,9 +219,17 @@ test("attach echoes KEY-aN and get reads the artifact back", async () => {
   const t = await createTask(db, { parentId: phaseId, title: "t" });
   const tmp = `${process.env.TMPDIR ?? "/tmp"}/mimir-aid.md`;
   await Bun.write(tmp, "# body\n");
+  // -f ids is the composable id-capture form the skill teaches (ID=$(… -f ids)).
   const io = fakeIo(false);
-  expect(await runCli(["attach", `MMR-${String(t.seq)}`, "--file", tmp], () => db, io)).toBe(0);
+  expect(
+    await runCli(["attach", `MMR-${String(t.seq)}`, "--file", tmp, "-f", "ids"], () => db, io),
+  ).toBe(0);
   expect(io.out.join("")).toBe("MMR-a1");
+
+  // The default piped echo is the human confirmation line, carrying the id (MMR-87).
+  const conf = fakeIo(false);
+  await runCli(["attach", `MMR-${String(t.seq)}`, "--file", tmp], () => db, conf);
+  expect(conf.out.join("")).toContain("MMR-a");
 
   const read = fakeIo(false);
   expect(await runCli(["get", "MMR-a1", "-f", "json"], () => db, read)).toBe(0);

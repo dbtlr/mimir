@@ -85,10 +85,12 @@ export function renderTable(result: SetResult<NodeView>, io: Io): string {
   lines.push("");
   const idW = Math.max(...items.map((n) => n.id.length));
   const stW = Math.max(...items.map((n) => n.status.length));
+  // Parent id — the row's hierarchy anchor (MMR-87). A top-level node has none.
+  const parentW = Math.max(...items.map((n) => (n.parent ?? "").length));
   for (const n of items) {
     const priority = n.priority ?? "";
     lines.push(
-      `${pad(n.id, idW)}   ${statusCell(n.status, stW, io.plain)}   ${pad(priority, 2)}   ${n.title}`,
+      `${pad(n.id, idW)}   ${statusCell(n.status, stW, io.plain)}   ${pad(priority, 2)}   ${pad(n.parent ?? "", parentW)}   ${n.title}`,
     );
   }
   return lines.join("\n");

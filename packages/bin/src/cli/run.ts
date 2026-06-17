@@ -476,15 +476,18 @@ function pickFormat(
     }
     return explicit as Format;
   }
-  if (!io.isTTY) {
-    // `status`/`report` are structured by nature — machine default is json.
-    return kind === "status" || kind === "report" ? "json" : "ids";
-  }
-  if (kind === "set") return "table";
-  // `report` is human-readable prose in a terminal (service status, self-update);
-  // `status` keeps its json default (the distribution rollup reads as data).
+  // `status` is structured data — json on every destination.
   if (kind === "status") return "json";
-  return "records";
+  // `report` (service status / self-update) keeps its MMR-59 split: json when
+  // piped, human prose in a terminal.
+  if (kind === "report") return io.isTTY ? "records" : "json";
+  // `set`/`single` (MMR-87): `isTTY` governs *decoration* only, never
+  // *information*. The piped default carries the same fields as the interactive
+  // one — color is already stripped via `io.plain` (`NO_COLOR || !isTTY`).
+  // `ids`/`json`/`jsonl` stay explicit `-f` opt-ins: the non-TTY consumer is an
+  // agent reading to decide (for whom bare ids are useless), not a `| xargs`
+  // pipeline.
+  return kind === "set" ? "table" : "records";
 }
 
 function requireId(id: string | undefined, command: string): string {
