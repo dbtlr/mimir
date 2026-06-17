@@ -52,6 +52,15 @@ describe("TaskForm (create)", () => {
     );
   });
 
+  test("description is always visible, not behind the More details disclosure (MMR-75)", () => {
+    const onSubmit = vi.fn();
+    render(<TaskForm mode="create" parents={parents} onSubmit={onSubmit} onCancel={() => {}} />);
+    // Description must not be nested in the collapsed disclosure...
+    expect(screen.getByLabelText(/description/i).closest("details")).toBeNull();
+    // ...while priority stays under "More details".
+    expect(screen.getByLabelText(/priority/i).closest("details")).not.toBeNull();
+  });
+
   test("comma-separated tags input is split into tags array", async () => {
     const onSubmit = vi.fn();
     render(<TaskForm mode="create" parents={parents} onSubmit={onSubmit} onCancel={() => {}} />);

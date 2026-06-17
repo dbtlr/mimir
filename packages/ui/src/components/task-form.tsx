@@ -115,6 +115,26 @@ export function TaskForm({
         </form.Field>
       </div>
 
+      {/* Description — always visible, not behind disclosure (MMR-75) */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="task-form-description" className="text-[12px] font-medium text-ink-dim">
+          Description
+        </label>
+        <form.Field name="description">
+          {(field) => (
+            <textarea
+              id="task-form-description"
+              name={field.name}
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onBlur={field.handleBlur}
+              placeholder="Optional description"
+              className="min-h-20 resize-y rounded border border-line bg-well-850 p-2 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+            />
+          )}
+        </form.Field>
+      </div>
+
       {/* More details disclosure */}
       <details open={mode === "edit"} className="flex flex-col gap-1">
         <summary className="cursor-pointer text-[12px] text-ink-dim hover:text-ink">
@@ -169,26 +189,6 @@ export function TaskForm({
                     </option>
                   ))}
                 </select>
-              )}
-            </form.Field>
-          </div>
-
-          {/* Description */}
-          <div className="flex flex-col gap-1">
-            <label htmlFor="task-form-description" className="text-[12px] font-medium text-ink-dim">
-              Description
-            </label>
-            <form.Field name="description">
-              {(field) => (
-                <textarea
-                  id="task-form-description"
-                  name={field.name}
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                  placeholder="Optional description"
-                  className="min-h-20 resize-y rounded border border-line bg-well-850 p-2 text-[12.5px] text-ink outline-none focus-visible:border-accent"
-                />
               )}
             </form.Field>
           </div>
