@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { ReactNode } from "react";
-import { useReorder, useTransition } from "../api/mutations";
+import { useMoveNode, useReorder, useTransition } from "../api/mutations";
 import { useAnnotate, useCreateTask, useTag, useUntag, useUpdateNode } from "../api/mutations";
 
 const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
@@ -48,6 +48,16 @@ describe("mutation hooks", () => {
     result.current.mutate({ id: "MMR-9", after: "MMR-3" });
     await waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith("POST", "/api/nodes/MMR-9/reorder", { after: "MMR-3" });
+    });
+  });
+
+  test("useMoveNode POSTs the move route with the new parent (MMR-73)", async () => {
+    apiSend.mockResolvedValue({ id: "MMR-9" });
+    const client = new QueryClient();
+    const { result } = renderHook(() => useMoveNode("MMR-9"), { wrapper: wrapper(client) });
+    result.current.mutate("MMR-3");
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith("POST", "/api/nodes/MMR-9/move", { to: "MMR-3" });
     });
   });
 

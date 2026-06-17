@@ -24,6 +24,9 @@ release. When a release is cut, this section is promoted to
 - **Global attention alert** in the top bar — the cross-project stuck set
   (blocked + stale) as a count badge + menu, on every route; selecting an item
   opens it on its board (MMR-80).
+- **Reparent a task from the drawer** — the edit view gains a parent picker
+  (the grouped initiative→phase list) that moves the task; reparenting is the
+  `move` verb, kept distinct from the dumb field update (MMR-73).
 
 ### Changed
 
