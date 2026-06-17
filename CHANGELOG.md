@@ -13,6 +13,22 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Changed
+
+- **Console type scale is rem-relative.** Font sizes now derive from a single
+  `html` base (bumped slightly) instead of hardcoded pixels, so the whole UI
+  scales from one knob and honors the browser's font-size preference (MMR-71).
+- **Task form shows the description up front** — no longer hidden behind the
+  "More details" disclosure (MMR-75).
+
+### Fixed
+
+- **Buttons show a pointer cursor again** — Tailwind v4's preflight had reset
+  enabled controls to the default cursor (MMR-69).
+- **The artifacts list and reader scroll independently** — the console is now a
+  fixed-height app shell, so panes scroll internally instead of the whole page
+  (MMR-81).
+
 ## v0.8.0 - 2026-06-17
 
 The authoring release: the operator console grows a full write/authoring surface,
