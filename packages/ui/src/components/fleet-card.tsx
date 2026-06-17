@@ -1,41 +1,22 @@
-import { STATUS_META } from "../lib/status";
-import { cn } from "../lib/cn";
 import type { WireNode } from "../api/types";
 import { Card, CardContent, CardHeader } from "./ui/card";
 import { DistributionBar } from "./distribution-bar";
 import { StatusBadge } from "./status-badge";
 
-export interface FleetAttention {
-  inFlight: number;
-  stale: number;
-  blocked: number;
-}
-
-function AttentionCount({
-  label,
-  count,
-  className,
-}: {
-  label: string;
-  count: number;
-  className: string;
-}) {
-  return (
-    <span className={cn("flex items-baseline gap-1", count === 0 ? "text-ink-faint" : className)}>
-      <span className="font-mono text-[0.9375rem] font-semibold tabular-nums">{count}</span>
-      <span className="microlabel">{label}</span>
-    </span>
-  );
-}
-
-/** One project on the fleet: key, status word, rollup bar, attention counts. */
+/**
+ * One project on the fleet: key, title, status, the rollup bar, and the **ready**
+ * count — the one actionable number (MMR-82). The old in-flight/stale/blocked
+ * triplet is gone: the bar already shows the distribution, and stuck work now
+ * lives in the global attention alert.
+ */
 export function FleetCard({
   project,
-  attention,
+  ready,
   onOpen,
 }: {
   project: WireNode;
-  attention: FleetAttention;
+  /** Leaf ready-task count (from the portfolio ready read), not the rollup bucket. */
+  ready: number;
   onOpen: (key: string) => void;
 }) {
   return (
@@ -58,22 +39,11 @@ export function FleetCard({
         </CardHeader>
         <CardContent className="flex flex-col gap-2.5">
           <DistributionBar distribution={project.distribution ?? {}} />
-          <div className="flex gap-4">
-            <AttentionCount
-              label="in flight"
-              count={attention.inFlight}
-              className={STATUS_META.in_progress.text}
-            />
-            <AttentionCount
-              label="stale"
-              count={attention.stale}
-              className={STATUS_META.in_progress.text}
-            />
-            <AttentionCount
-              label="blocked"
-              count={attention.blocked}
-              className={STATUS_META.blocked.text}
-            />
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-mono text-lg font-semibold text-status-ready tabular-nums">
+              {ready}
+            </span>
+            <span className="microlabel text-ink-dim">ready</span>
           </div>
         </CardContent>
       </button>
