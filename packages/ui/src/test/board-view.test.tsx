@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import type { ReactNode } from "react";
-import { BoardView } from "../components/board";
+import { BoardView, swipeTarget } from "../components/board";
 import { buildBoard } from "../lib/board";
 import { NOW, daysAgo, task } from "./fixtures";
 
@@ -63,6 +63,16 @@ describe("BoardView", () => {
       wrapper,
     });
     expect(screen.getAllByText(/stale/).length).toBeGreaterThan(0);
+  });
+
+  test("swipeTarget: left advances, right retreats, weak/vertical swipes ignored (MMR-70)", () => {
+    const ids = ["held", "awaiting", "ready", "in_progress", "done"];
+    expect(swipeTarget("in_progress", -150, 10, ids)).toBe("done"); // left → next
+    expect(swipeTarget("in_progress", 150, 10, ids)).toBe("ready"); // right → prev
+    expect(swipeTarget("done", -150, 10, ids)).toBeNull(); // past the end
+    expect(swipeTarget("held", 150, 10, ids)).toBeNull(); // past the start
+    expect(swipeTarget("ready", -30, 10, ids)).toBeNull(); // below threshold
+    expect(swipeTarget("ready", -150, 200, ids)).toBeNull(); // vertical-dominant
   });
 
   test("clicking a card opens its node", async () => {

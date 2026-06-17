@@ -32,6 +32,8 @@ release. When a release is cut, this section is promoted to
   the node drawer. Backed by a new `q` case-insensitive title substring on the
   node listing (`GET /api/nodes?q=`, core `listNodes`; LIKE, FTS5 deferred)
   (MMR-78).
+- **Swipe between board columns on mobile** — a horizontal swipe moves to the
+  previous/next column tab (MMR-70).
 
 ### Changed
 
