@@ -13,6 +13,40 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+## v0.8.0 - 2026-06-17
+
+The authoring release: the operator console grows a full write/authoring surface,
+and the node drawer gains a transition-history timeline.
+
+### Added
+
+- **Task authoring on the console** — create work from the board (a `+ New task`
+  button opens a sheet with a grouped initiative→phase parent picker), edit a
+  task's mutable fields inline in the drawer (title, description, priority, size,
+  external ref), add freeform annotations from a composer, and add or remove tags
+  inline. Status is never edited here — lifecycle stays the explicit transition
+  verbs (MMR-64, MMR-65, MMR-66).
+- **Task timeline** — the node drawer shows how a task reached its current state:
+  its transition history (started / completed / parked / blocked / reparented /
+  dependency changes, with reasons) merged with annotations into one
+  chronological feed, split across All / Activity / Notes tabs. Backed by a new
+  `history` facet on `GET /api/nodes/:id` (MMR-60).
+- **Board card ancestry** — each task card shows its `initiative › phase`
+  breadcrumb, not just the drawer (MMR-67).
+
+### Changed
+
+- **Board column order** is now Parked → Blocked → Awaiting → Ready → In Progress
+  → Done (MMR-68).
+- **Artifacts search** is controlled and debounced — typing no longer issues a
+  query round-trip per keystroke, and the box re-syncs when the query changes
+  from outside, e.g. Back/Forward (MMR-63).
+- **Prerelease pruning** now runs at an official cut: cutting a release deletes
+  prereleases from cycles older than the previous official (lag-by-one
+  retention), where it previously only logged what it would delete (MMR-58).
+- Toolchain: Vite 7→8 and `@vitejs/plugin-react` 5→6 (MMR-61); Vitest 4, jsdom 29,
+  oxlint 1.70.
+
 ## v0.7.0 - 2026-06-16
 
 The console release: the read-only operator console grows a write surface, and a
