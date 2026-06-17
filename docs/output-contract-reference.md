@@ -103,34 +103,36 @@ One **flat, closed** vocabulary on every selection front-end — _the dot-facet 
 
 ## Selection-appropriate defaults
 
-- **`next` / `list`** (broad) → lean: **`id, title, status, priority, size`**. (`parent` deliberately out — add iff it proves missing.)
+- **`next` / `list`** (broad) → lean: **`id, status, priority, parent, title`** — `parent` is the row's hierarchy anchor (added `MMR-87`; `description` stays out, it's one `get` away once a row is picked).
 - **`get <id>`** (targeted) → full record: all scalar fields + cheap set columns (`deps`, `tags`, `children`, `distribution`, `annotations`, `artifacts`); heavy `history`/`content` stay opt-in.
 - A broad "full structured dump" modifier (`--all-cols`) includes every bare field + cheap facet, excludes heavy/expensive facets (Norn's `--all-cols` semantics).
 
 ## Formats (two-layer split)
 
-_Layout style_ — the styled TTY formats `records` + `table` (colors, icons, spacing) — is **evolvable and never parsed**; the _structural contract_ (`ids`/`json`/`jsonl`) is a **versioned promise**. Structured formats never emit ANSI; set-returning commands lead with a count. **Default follows destination + view kind:** TTY → `table` for a set, `records` for a single node; pipe → `ids` (`--format` overrides).
+_Layout style_ — the styled formats `records` + `table` (colors, icons, spacing) — is **evolvable and never parsed**; the _structural contract_ (`ids`/`json`/`jsonl`) is a **versioned promise**. Structured formats never emit ANSI; set-returning commands lead with a count.
 
-| format    | role                                                                                                                          | stable?                     |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `table`   | **set-view TTY default** (`next`/`list`) — one task per line; colored, icon+color highlighting `state`; rank order, count-led | no — styled, never parse it |
-| `records` | **detail TTY default** (`get`) — bold `id` header + aligned `label  value` rows                                               | no — styled, never parse it |
-| `ids`     | **pipe default** — one `KEY-seq` per line                                                                                     | yes                         |
-| `json`    | one-shot — tight wrapper `{ total, returned, starts_at, tasks: [ … ] }` (array key = unit)                                    | yes, versioned              |
-| `jsonl`   | streaming — one object per line, no wrapper                                                                                   | yes                         |
+**`isTTY` governs _decoration_ only, never _information_ (`MMR-87`).** The default is `table` for a set, `records` for a single node — **the same fields whether interactive or piped**; a pipe only drops the ANSI (color is already suppressed by `plain = NO_COLOR || !isTTY`). `ids`/`json`/`jsonl` are **explicit `-f` opt-ins**: `ids` for a genuine shell pipeline, `json`/`jsonl` to parse the embedded facet arrays. The non-TTY consumer is overwhelmingly an agent reading to decide (the ADR 0011 skill path), for whom bare ids carry no decision information; the old "pipe → `ids`" default optimized for a `| xargs` consumer that barely exists. (`status` is json everywhere; the `service`/`self-update` **report** keeps its split — prose in a terminal, json piped — see `MMR-59`.)
+
+| format    | role                                                                                                                                   | stable?                     |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `table`   | **set-view default** (`next`/`list`, piped or TTY) — one task per line; icon+color highlight `state` (TTY only); rank order, count-led | no — styled, never parse it |
+| `records` | **detail default** (`get`, piped or TTY) — bold `id` header + aligned `label  value` rows                                              | no — styled, never parse it |
+| `ids`     | **explicit opt-in** (`-f ids`) — one `KEY-seq` per line; the composable pipeline / id-capture form                                     | yes                         |
+| `json`    | one-shot — tight wrapper `{ total, returned, starts_at, tasks: [ … ] }` (array key = unit)                                             | yes, versioned              |
+| `jsonl`   | streaming — one object per line, no wrapper                                                                                            | yes                         |
 
 Wrapper carries nothing derivable (`truncated = returned < total`). Array key names the unit (`tasks`; other units as verbs are added).
 
 ### The `table` format (set-view rendering)
 
-One task per line — `id`, a `state` cell, `priority`, `title` — scannable top-to-bottom in rank order, led by a count line. State is highlighted by an **icon + color**, but the state **word** is always present in the cell: color/icon only _highlight_, so `--ascii` and NO*COLOR fallbacks lose nothing ([ADR 0009](decisions/0009-adopt-norn-output-and-selection-contract.md) / Norn's "color is decoration, never information"). The \_roles* — a distinct icon + color per **State word** — are fixed; the exact glyph set and palette are a **brand-pass deferral** (Mimir's own identity, not Norn's).
+One task per line — `id`, a `state` cell, `priority`, `parent`, `title` — scannable top-to-bottom in rank order, led by a count line. State is highlighted by an **icon + color**, but the state **word** is always present in the cell: color/icon only _highlight_, so `--ascii` and NO*COLOR fallbacks lose nothing ([ADR 0009](decisions/0009-adopt-norn-output-and-selection-contract.md) / Norn's "color is decoration, never information"). The \_roles* — a distinct icon + color per **State word** — are fixed; the exact glyph set and palette are a **brand-pass deferral** (Mimir's own identity, not Norn's).
 
 ```
 8 tasks
 
-MMR-16   ● ready      p1   write the first migration
-MMR-23   ● ready      p2   core rollup functions
-MMR-09   ◔ awaiting   p0   mcp read tools
+MMR-16   ● ready      p1   MMR-2    write the first migration
+MMR-23   ● ready      p2   MMR-2    core rollup functions
+MMR-09   ◔ awaiting   p0   MMR-5    mcp read tools
 ```
 
 (glyphs illustrative — pending the brand pass.)

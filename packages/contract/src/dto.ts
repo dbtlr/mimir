@@ -202,8 +202,8 @@ export const CHEAP_FACETS: readonly FacetName[] = [
   "artifacts",
 ];
 
-/** The lean bare-field set for broad selection (`next`/`list`). */
-export const LEAN_COLS = ["id", "title", "status", "priority", "size"] as const;
+/** The lean bare-field set for broad selection (`next`/`list`); `parent` is the row's hierarchy anchor (MMR-87). */
+export const LEAN_COLS = ["id", "title", "status", "priority", "size", "parent"] as const;
 
 /**
  * A count-led set result. The JSON format renders `items` under a unit key

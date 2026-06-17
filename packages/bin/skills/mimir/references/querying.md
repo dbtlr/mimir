@@ -85,6 +85,9 @@ ID=$(mimir create task "…" --parent KEY-2 -f ids)           # compose with the
 ```
 
 Formats: `table`/`records` (human, never parse) · `ids`/`json`/`jsonl` (stable
-machine contract, no color). Piped output defaults to `ids`. Exit codes: 0 ok
-(including empty sets), 1 operational (missing id, invariant), 2 bad invocation.
+machine contract, no color). The default is `table` for a set / `records` for a
+node **whether piped or not** — piping only drops the color, not the fields, so
+read output is informative by default; reach for `-f ids` (bare ids, e.g. the
+`ID=$(…)` capture above) or `-f json`/`jsonl` (to parse) explicitly. Exit codes:
+0 ok (including empty sets), 1 operational (missing id, invariant), 2 bad invocation.
 Rank is never a field — **array order is the order**.

@@ -67,7 +67,9 @@ options:
       --col <col>         add a column (deps tags children distribution
                           annotations artifacts history; content on KEY-aN —
                           set-valued columns are heavier, opt-in)
-  -f, --format <fmt>      table|records|ids|json|jsonl (default by destination)
+  -f, --format <fmt>      table|records|ids|json|jsonl (default: table for a
+                          set, records for a node — piped or not; -f ids for
+                          bare ids, -f json to parse)
       --ascii             no color/icons
   -h, --help              -h terse, --help with examples
 
