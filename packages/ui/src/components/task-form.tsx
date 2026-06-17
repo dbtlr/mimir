@@ -70,7 +70,7 @@ export function TaskForm({
       {/* Parent picker — create mode only */}
       {mode === "create" && (
         <div className="flex flex-col gap-1">
-          <label htmlFor="task-form-parent" className="text-[12px] font-medium text-ink-dim">
+          <label htmlFor="task-form-parent" className="text-[0.75rem] font-medium text-ink-dim">
             Parent
           </label>
           <form.Field name="parent">
@@ -81,7 +81,7 @@ export function TaskForm({
                 value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}
-                className="rounded border border-line bg-well-850 px-2 py-1.5 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+                className="rounded border border-line bg-well-850 px-2 py-1.5 text-[0.78125rem] text-ink outline-none focus-visible:border-accent"
               >
                 {parents?.map((o) => (
                   <option key={o.id} value={o.id}>
@@ -96,7 +96,7 @@ export function TaskForm({
 
       {/* Title — always visible */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="task-form-title" className="text-[12px] font-medium text-ink-dim">
+        <label htmlFor="task-form-title" className="text-[0.75rem] font-medium text-ink-dim">
           Title
         </label>
         <form.Field name="title">
@@ -109,7 +109,7 @@ export function TaskForm({
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
               placeholder="Task title"
-              className="rounded border border-line bg-well-850 px-2 py-1.5 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+              className="rounded border border-line bg-well-850 px-2 py-1.5 text-[0.78125rem] text-ink outline-none focus-visible:border-accent"
             />
           )}
         </form.Field>
@@ -117,7 +117,7 @@ export function TaskForm({
 
       {/* Description — always visible, not behind disclosure (MMR-75) */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="task-form-description" className="text-[12px] font-medium text-ink-dim">
+        <label htmlFor="task-form-description" className="text-[0.75rem] font-medium text-ink-dim">
           Description
         </label>
         <form.Field name="description">
@@ -129,7 +129,7 @@ export function TaskForm({
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
               placeholder="Optional description"
-              className="min-h-20 resize-y rounded border border-line bg-well-850 p-2 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+              className="min-h-20 resize-y rounded border border-line bg-well-850 p-2 text-[0.78125rem] text-ink outline-none focus-visible:border-accent"
             />
           )}
         </form.Field>
@@ -137,13 +137,13 @@ export function TaskForm({
 
       {/* More details disclosure */}
       <details open={mode === "edit"} className="flex flex-col gap-1">
-        <summary className="cursor-pointer text-[12px] text-ink-dim hover:text-ink">
+        <summary className="cursor-pointer text-[0.75rem] text-ink-dim hover:text-ink">
           More details
         </summary>
         <div className="mt-2 flex flex-col gap-3">
           {/* Priority */}
           <div className="flex flex-col gap-1">
-            <label htmlFor="task-form-priority" className="text-[12px] font-medium text-ink-dim">
+            <label htmlFor="task-form-priority" className="text-[0.75rem] font-medium text-ink-dim">
               Priority
             </label>
             <form.Field name="priority">
@@ -154,7 +154,7 @@ export function TaskForm({
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   onBlur={field.handleBlur}
-                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-[0.78125rem] text-ink outline-none focus-visible:border-accent"
                 >
                   <option value="">—</option>
                   {PRIORITY_VALUES.map((p) => (
@@ -169,7 +169,7 @@ export function TaskForm({
 
           {/* Size */}
           <div className="flex flex-col gap-1">
-            <label htmlFor="task-form-size" className="text-[12px] font-medium text-ink-dim">
+            <label htmlFor="task-form-size" className="text-[0.75rem] font-medium text-ink-dim">
               Size
             </label>
             <form.Field name="size">
@@ -180,7 +180,7 @@ export function TaskForm({
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   onBlur={field.handleBlur}
-                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-[0.78125rem] text-ink outline-none focus-visible:border-accent"
                 >
                   <option value="">—</option>
                   {SIZE_VALUES.map((s) => (
@@ -197,7 +197,7 @@ export function TaskForm({
           <div className="flex flex-col gap-1">
             <label
               htmlFor="task-form-external-ref"
-              className="text-[12px] font-medium text-ink-dim"
+              className="text-[0.75rem] font-medium text-ink-dim"
             >
               External ref
             </label>
@@ -211,7 +211,7 @@ export function TaskForm({
                   onChange={(e) => field.handleChange(e.target.value)}
                   onBlur={field.handleBlur}
                   placeholder="e.g. GH-123"
-                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-[0.78125rem] text-ink outline-none focus-visible:border-accent"
                 />
               )}
             </form.Field>
@@ -220,7 +220,7 @@ export function TaskForm({
           {/* Tags input — create mode only */}
           {mode === "create" && (
             <div className="flex flex-col gap-1">
-              <label htmlFor="task-form-tags" className="text-[12px] font-medium text-ink-dim">
+              <label htmlFor="task-form-tags" className="text-[0.75rem] font-medium text-ink-dim">
                 Tags
               </label>
               <form.Field name="tags">
@@ -239,7 +239,7 @@ export function TaskForm({
                       field.handleChange(tags);
                     }}
                     onBlur={field.handleBlur}
-                    className="rounded border border-line bg-well-850 px-2 py-1.5 text-[12.5px] text-ink outline-none focus-visible:border-accent"
+                    className="rounded border border-line bg-well-850 px-2 py-1.5 text-[0.78125rem] text-ink outline-none focus-visible:border-accent"
                   />
                 )}
               </form.Field>
@@ -253,7 +253,7 @@ export function TaskForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded px-3 py-1.5 text-[12px] text-ink-dim hover:text-ink"
+          className="rounded px-3 py-1.5 text-[0.75rem] text-ink-dim hover:text-ink"
         >
           Cancel
         </button>
@@ -268,7 +268,7 @@ export function TaskForm({
                 title.trim() === "" ||
                 (mode === "create" && (parent ?? "").trim() === "")
               }
-              className="rounded bg-accent px-3 py-1.5 text-[12px] font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded bg-accent px-3 py-1.5 text-[0.75rem] font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {mode === "create" ? "Create" : "Save"}
             </button>

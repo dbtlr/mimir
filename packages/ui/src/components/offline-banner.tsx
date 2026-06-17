@@ -13,7 +13,7 @@ export function OfflineBanner({ offline, lastSync }: Connectivity) {
   return (
     <div
       role="status"
-      className="sticky top-0 z-30 flex items-center justify-center gap-2 border-b border-status-blocked/40 bg-status-blocked/15 px-3 py-1.5 text-[12px] font-semibold text-status-blocked backdrop-blur"
+      className="sticky top-0 z-30 flex items-center justify-center gap-2 border-b border-status-blocked/40 bg-status-blocked/15 px-3 py-1.5 text-[0.75rem] font-semibold text-status-blocked backdrop-blur"
     >
       <span aria-hidden className="inline-block size-[7px] rounded-full bg-status-blocked" />
       Offline — last synced{" "}

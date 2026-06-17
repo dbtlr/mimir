@@ -55,7 +55,7 @@ function ColumnHeader({ column, count }: { column: BoardColumn; count: number })
     <header className="flex items-center gap-2 border-b border-line px-2 py-1.5">
       <StatusDot status={column} />
       <h2 className={cn("microlabel", meta.text)}>{meta.label}</h2>
-      <span className="ml-auto font-mono text-[10px] text-ink-dim">{count}</span>
+      <span className="ml-auto font-mono text-[0.625rem] text-ink-dim">{count}</span>
     </header>
   );
 }
@@ -107,7 +107,7 @@ function ColumnCards({
 }) {
   const items = board[column];
   if (items.length === 0) {
-    return <p className="px-2 py-3 text-center text-[11px] text-ink-faint">—</p>;
+    return <p className="px-2 py-3 text-center text-[0.6875rem] text-ink-faint">—</p>;
   }
   const rankable = isRankable(column);
   const list = (
@@ -206,7 +206,7 @@ export function BoardView({ board, onOpenNode, offline, ancestry }: BoardViewPro
               {MOBILE_TABS.map((tab) => (
                 <TabsTrigger key={tab.id} value={tab.id}>
                   {tab.label}
-                  <span className="font-mono text-[9px] opacity-70">
+                  <span className="font-mono text-[0.5625rem] opacity-70">
                     {tab.columns.reduce((n, c) => n + board[c].length, 0)}
                   </span>
                 </TabsTrigger>

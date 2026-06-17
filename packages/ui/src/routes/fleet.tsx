@@ -86,7 +86,7 @@ export function FleetPage() {
             </div>
           )}
           {projects.isError && projects.data === undefined && (
-            <p className="text-[12px] text-status-blocked">
+            <p className="text-[0.75rem] text-status-blocked">
               Unreachable, and nothing cached yet — is `mimir serve` running?
             </p>
           )}

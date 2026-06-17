@@ -18,7 +18,7 @@ export function TreeView({
   onOpenNode: (id: string) => void;
 }) {
   if (root.children.length === 0) {
-    return <p className="px-3 py-6 text-center text-[12px] text-ink-faint">An empty project.</p>;
+    return <p className="px-3 py-6 text-center text-[0.75rem] text-ink-faint">An empty project.</p>;
   }
   return (
     <div data-testid="tree" className="flex flex-col gap-1">
@@ -52,10 +52,10 @@ function TreeNode({
       )}
     >
       <StatusDot status={node.status} />
-      <span className="font-mono text-[10px] text-ink-dim">{node.id}</span>
+      <span className="font-mono text-[0.625rem] text-ink-dim">{node.id}</span>
       <span
         className={cn(
-          "truncate text-[12.5px]",
+          "truncate text-[0.78125rem]",
           container ? "font-semibold text-ink-bright" : "text-ink",
         )}
       >
@@ -82,7 +82,7 @@ function TreeNode({
       <summary className="flex cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden">
         <span
           aria-hidden
-          className="w-3 shrink-0 text-center text-[9px] text-ink-faint transition-transform group-open:rotate-90"
+          className="w-3 shrink-0 text-center text-[0.5625rem] text-ink-faint transition-transform group-open:rotate-90"
         >
           ▶
         </span>

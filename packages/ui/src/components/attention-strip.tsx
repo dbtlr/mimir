@@ -47,7 +47,7 @@ export function AttentionStrip({
 }) {
   if (items.length === 0) {
     return (
-      <p className="rounded-md border border-line bg-well-850/60 px-3 py-2 text-[12px] text-ink-faint">
+      <p className="rounded-md border border-line bg-well-850/60 px-3 py-2 text-[0.75rem] text-ink-faint">
         Nothing in flight, nothing stuck.
       </p>
     );
@@ -67,9 +67,9 @@ export function AttentionStrip({
             )}
           >
             <StatusDot status={reason} />
-            <span className="font-mono text-[10px] text-ink-dim">{node.id}</span>
+            <span className="font-mono text-[0.625rem] text-ink-dim">{node.id}</span>
             <span className="microlabel text-ink-faint">{projectKeyOf(node.id)}</span>
-            <span className="truncate text-[12px] text-ink">{node.title}</span>
+            <span className="truncate text-[0.75rem] text-ink">{node.title}</span>
             {stale && <StaleBadge />}
           </button>
         </li>

@@ -42,7 +42,7 @@ export function NodeCard({
       <button
         type="button"
         aria-label="Reorder"
-        className="cursor-grab touch-none rounded px-1 text-[12px] leading-none text-ink-faint hover:text-ink active:cursor-grabbing"
+        className="cursor-grab touch-none rounded px-1 text-[0.75rem] leading-none text-ink-faint hover:text-ink active:cursor-grabbing"
         {...sortable.handleProps}
       >
         ⠿
@@ -61,7 +61,7 @@ export function NodeCard({
       )}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-[10px] text-ink-dim">{node.id}</span>
+        <span className="font-mono text-[0.625rem] text-ink-dim">{node.id}</span>
         <div className="flex items-center gap-0.5">
           {node.verdicts?.stale === true && <StaleBadge />}
           {grip}
@@ -69,7 +69,7 @@ export function NodeCard({
         </div>
       </div>
       {ancestry !== undefined && ancestry !== "" && (
-        <p className="truncate text-[10px] text-ink-faint" title={ancestry}>
+        <p className="truncate text-[0.625rem] text-ink-faint" title={ancestry}>
           {ancestry}
         </p>
       )}
@@ -80,7 +80,7 @@ export function NodeCard({
         }}
         className="mt-0.5 block w-full text-left focus-visible:outline-2 focus-visible:outline-accent"
       >
-        <p className="line-clamp-2 text-[12.5px] leading-snug text-ink group-hover:text-ink-bright">
+        <p className="line-clamp-2 text-[0.78125rem] leading-snug text-ink group-hover:text-ink-bright">
           {node.title}
         </p>
       </button>
