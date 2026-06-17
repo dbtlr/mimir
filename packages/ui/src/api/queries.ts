@@ -42,6 +42,16 @@ export const staleQuery = queryOptions({
 });
 
 /**
+ * Ready leaf tasks, portfolio-wide — the actionable count behind a fleet card
+ * and a picker row (MMR-82). Leaf tasks, not the project rollup's `ready`
+ * bucket, which counts direct children and skews with tree depth.
+ */
+export const readyQuery = queryOptions({
+  queryKey: ["nodes", "ready"],
+  queryFn: () => apiGet<Collection<WireNode>>("/api/nodes?type=task&status=ready"),
+});
+
+/**
  * The board's live half: every non-terminal task in the project, in rank
  * order — the API's array order IS rank (ADR 0007), so the Ready column
  * renders items exactly as received.

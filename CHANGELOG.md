@@ -18,9 +18,19 @@ release. When a release is cut, this section is promoted to
 - **Light mode.** The console gains a light theme alongside dark — it follows
   the OS preference by default, remembers an explicit pick, and toggles from the
   header. Faint text on dark cards is also more legible (MMR-74, MMR-77).
+- **Project picker** in the top bar — switch between project boards from
+  anywhere via a dropdown of projects (status + ready count), without returning
+  to the fleet (MMR-79).
+- **Global attention alert** in the top bar — the cross-project stuck set
+  (blocked + stale) as a count badge + menu, on every route; selecting an item
+  opens it on its board (MMR-80).
 
 ### Changed
 
+- **Renamed the console to "Mimir"** (from "Operator Console") (MMR-80).
+- **Fleet cards lead with the ready count** — the actionable number — in place
+  of the in-flight/stale/blocked triplet (stuck work now lives in the attention
+  alert) (MMR-82).
 - **Console type scale is rem-relative.** Font sizes now derive from a single
   `html` base (bumped slightly) instead of hardcoded pixels, so the whole UI
   scales from one knob and honors the browser's font-size preference (MMR-71).
