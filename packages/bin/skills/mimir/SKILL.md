@@ -27,7 +27,7 @@ the gate below BEFORE other work. These thoughts mean STOP — you are rationali
 1. `command -v mimir` — missing → not installed; only raise it if the user wants
    work tracking (install: see `references/setup.md`).
 2. Is there a `.mimir.toml` here (this directory or any ancestor)? It binds the repo
-   to its project and becomes the default `--scope`.
+   to its project and becomes the default scope.
    - **Bound** → orient now: `mimir status <KEY>` then `mimir list` then `mimir next`
      (that order — see `references/querying.md`).
    - **Not bound** → this repo isn't Mimir-tracked. **Exit quietly and proceed

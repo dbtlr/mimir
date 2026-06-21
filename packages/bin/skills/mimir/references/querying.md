@@ -20,6 +20,11 @@ mimir next              # the READY set, in rank order
 up next", not "what is going on". Orienting via `next` alone is the classic trap:
 you will miss work already underway.
 
+**Rollup vs leaf.** `status KEY` tallies the distribution of direct children —
+it tells you the shape of a container, not which tasks to act on. `list --status
+ready` (and `next`) return **leaf tasks** — the actionable set. They answer
+different questions; don't read one as the other.
+
 ## 2. What's in the middle?
 
 ```sh
@@ -30,6 +35,13 @@ mimir get KEY-9                    # the full two-axis detail of one task
 A started-but-held task reads as the hold word (`blocked`/`parked`), **not**
 `in_progress`, in lists and rollups — "set aside" is the glance-fact. `get` shows
 both axes (`lifecycle` / `hold`), so use it when the single word isn't enough.
+
+**The "what is this?" idiom.** Given an unknown id, `mimir get <id>` is the
+canonical orientation move: it tells you the type, the meaning of its status,
+and — for containers — lists the children and their statuses. Follow up with
+`mimir tree <id>` to see the full sub-tree in one glance. Because the id grammar
+erases type (`KEY-N` alone doesn't say task vs phase vs initiative), `get` is
+the only reliable way to know what you're looking at.
 
 ## 3. Triage and hygiene
 
@@ -52,12 +64,19 @@ the HTTP API's records).
 ## 4. Filtered queues
 
 ```sh
-mimir next -p p0                   # only the urgent ready work
-mimir next --eq size:small         # quick wins
-mimir list -t release:v0.3 --status all     # everything in a release tag
-mimir list --eq priority:p1 --missing size  # grooming: p1 tasks nobody sized
-mimir list -s all --is stale       # cross-project hygiene sweep
+mimir next -p p0                              # only the urgent ready work
+mimir next --eq size:small                    # quick wins
+mimir list -t release:v0.3 --status all       # everything in a release tag
+mimir list --eq priority:p1 --missing size    # grooming: p1 tasks nobody sized
+mimir list -s all --is stale                  # cross-project hygiene sweep
+mimir list --status all --eq type:phase       # list phases (containers need --status all)
+mimir list --status all --in type:phase,task  # phases OR tasks
 ```
+
+There is no `--type` flag — type filtering uses the operator family:
+`--eq type:VALUE` (exact) or `--in type:A,B` (any-of). Containers
+(initiatives/phases) live outside `list`'s default `live` status group, so
+always add `--status all` when filtering by container type.
 
 Operators take `FIELD:VALUE` tokens: `--eq/--not-eq`, `--in/--not-in` (csv any-of),
 `--has/--missing FIELD` (presence), and date ops `--before/--on/--after/`
@@ -71,6 +90,7 @@ Operators take `FIELD:VALUE` tokens: `--eq/--not-eq`, `--in/--not-in` (csv any-o
 mimir get KEY-9                    # full record: deps, tags, annotations…
 mimir get KEY-9 --col history      # + the transition log
 mimir status KEY-3                 # a container's distribution — the WHY of its word
+mimir tree KEY-3                   # the sub-tree under a node, all depths
 mimir get KEY-a2 --col content     # an artifact's frozen body
 mimir get KEY                      # the whole project: children + distribution
 ```
