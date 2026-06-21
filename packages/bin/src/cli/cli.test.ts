@@ -506,3 +506,58 @@ test("--type is now an unknown option → rejected with exit 2 (MMR-94)", async 
   const code = await runCli(["list", "--type", "phase"], () => db, io);
   expect(code).toBe(2);
 });
+
+// MMR-95: empty set views print a clear no-results line on a TTY
+
+test("next empty on a TTY prints a no-results line (MMR-95)", async () => {
+  const io = fakeIo(true);
+  const code = await runCli(["next", "--scope", "MMR"], () => db, io);
+  expect(code).toBe(0);
+  const text = io.out.join("");
+  expect(text).toMatch(/No ready tasks/i);
+});
+
+test("next empty on a non-TTY (piped) omits the no-results line (MMR-95)", async () => {
+  const io = fakeIo(false);
+  const code = await runCli(["next", "--scope", "MMR"], () => db, io);
+  expect(code).toBe(0);
+  const text = io.out.join("");
+  // No human message — piped output is structural only
+  expect(text).not.toMatch(/No ready tasks/i);
+  expect(text).not.toMatch(/No tasks/i);
+});
+
+test("list empty --status blocked on a TTY prints a no-results line (MMR-95)", async () => {
+  const io = fakeIo(true);
+  const code = await runCli(["list", "--scope", "MMR", "--status", "blocked"], () => db, io);
+  expect(code).toBe(0);
+  const text = io.out.join("");
+  expect(text).toMatch(/No tasks/i);
+});
+
+test("next empty -f json produces unchanged structured output — no message leak (MMR-95)", async () => {
+  const io = fakeIo(true);
+  const code = await runCli(["next", "--scope", "MMR", "-f", "json"], () => db, io);
+  expect(code).toBe(0);
+  const parsed = JSON.parse(io.out.join("")) as { total: number; returned: number };
+  expect(parsed.total).toBe(0);
+  expect(parsed.returned).toBe(0);
+  // No message text in the JSON output
+  expect(io.out.join("")).not.toContain("No");
+});
+
+test("next empty -f ids produces empty output — no message leak (MMR-95)", async () => {
+  const io = fakeIo(true);
+  const code = await runCli(["next", "--scope", "MMR", "-f", "ids"], () => db, io);
+  expect(code).toBe(0);
+  // ids format on empty should be empty string (no message leak)
+  expect(io.out.join("")).toBe("");
+});
+
+test("next empty -f records on a TTY prints a no-results line (MMR-95)", async () => {
+  const io = fakeIo(true);
+  const code = await runCli(["next", "--scope", "MMR", "-f", "records"], () => db, io);
+  expect(code).toBe(0);
+  const text = io.out.join("");
+  expect(text).toMatch(/No ready tasks/i);
+});

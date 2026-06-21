@@ -245,10 +245,13 @@ export async function runCli(
     });
 
     switch (command) {
-      case "next":
+      case "next": {
+        const nextScope = effectiveScope(values.scope, defaults.scope);
+        const nextEmptyMsg =
+          nextScope !== undefined ? `No ready tasks in ${nextScope}.` : "No ready tasks.";
         return runSet(
           await nextTasks(await getDb(), {
-            scope: effectiveScope(values.scope, defaults.scope),
+            scope: nextScope,
             priority: parsePriority(values.priority),
             size: parseSize(values.size),
             verdicts: parseVerdicts(values.is, values["not-is"]),
@@ -258,7 +261,9 @@ export async function runCli(
           }),
           values.format,
           ctx,
+          nextEmptyMsg,
         );
+      }
       case "list":
         return runSet(
           await listNodes(await getDb(), {
@@ -274,6 +279,7 @@ export async function runCli(
           }),
           values.format,
           ctx,
+          "No tasks match.",
         );
       case "get": {
         const id = requireId(positionals[1], "get");
@@ -458,7 +464,12 @@ function errorFormat(argv: string[]): string {
   return "records";
 }
 
-function runSet(result: SetResult<NodeView>, explicit: string | undefined, io: Io): number {
+function runSet(
+  result: SetResult<NodeView>,
+  explicit: string | undefined,
+  io: Io,
+  emptyMsg?: string,
+): number {
   const format = pickFormat(explicit, "set", io);
   if (result.warnings !== undefined && result.warnings.length > 0) {
     renderWarnings(result.warnings, format, io);
@@ -474,10 +485,14 @@ function runSet(result: SetResult<NodeView>, explicit: string | undefined, io: I
       io.write(formatSetJsonl(result.items));
       break;
     case "records":
-      io.write(result.items.map((n) => renderRecords(n, io)).join("\n\n"));
+      if (result.items.length === 0 && io.isTTY && emptyMsg !== undefined) {
+        io.write(emptyMsg);
+      } else {
+        io.write(result.items.map((n) => renderRecords(n, io)).join("\n\n"));
+      }
       break;
     case "table":
-      io.write(renderTable(result, io));
+      io.write(renderTable(result, io, emptyMsg));
       break;
   }
   return 0;
