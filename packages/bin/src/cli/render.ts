@@ -76,10 +76,13 @@ function statusCell(status: StatusWord, width: number, plain: boolean): string {
 }
 
 /** `table` — one task per line, count-led, in array (rank) order. */
-export function renderTable(result: SetResult<NodeView>, io: Io): string {
+export function renderTable(result: SetResult<NodeView>, io: Io, emptyMsg?: string): string {
   const lines = [countLine(result.total)];
   const items = result.items;
   if (items.length === 0) {
+    if (io.isTTY && emptyMsg !== undefined) {
+      lines.push("", emptyMsg);
+    }
     return lines.join("\n");
   }
   lines.push("");

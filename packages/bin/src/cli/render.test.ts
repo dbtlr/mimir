@@ -33,3 +33,27 @@ test("a top-level node (no parent) renders an empty parent cell, not a crash (MM
   expect(text).toContain("MMR-1");
   expect(text).toContain("child");
 });
+
+// MMR-95: empty set views print a clear no-results line on a TTY
+test("renderTable: empty set on a TTY prints a no-results line (MMR-95)", () => {
+  const text = renderTable(
+    { total: 0, returned: 0, startsAt: 0, items: [] },
+    fakeIo(true),
+    "No tasks match.",
+  );
+  expect(text).toContain("No tasks match.");
+  // Must not be just the count line
+  expect(text).not.toBe("0 tasks");
+});
+
+test("renderTable: empty set on a non-TTY keeps the bare count line only (MMR-95)", () => {
+  const text = renderTable(
+    { total: 0, returned: 0, startsAt: 0, items: [] },
+    fakeIo(false),
+    "No tasks match.",
+  );
+  // No-results line must NOT appear in piped/non-TTY output
+  expect(text).not.toContain("No tasks match.");
+  // Count line is still present (it's informational, not a message leak)
+  expect(text).toContain("0 tasks");
+});
