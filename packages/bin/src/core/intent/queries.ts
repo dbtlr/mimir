@@ -337,7 +337,7 @@ export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
       throw projectNotFound(identity.key);
     }
     const { status, distribution } = await statusOfProject(db, project.id);
-    return { id: identity.key, status, distribution };
+    return { id: identity.key, type: "project", status, distribution };
   }
   if (identity?.kind === "artifact") {
     throw validation(`${id} is an artifact, not a project or node`);
@@ -347,5 +347,5 @@ export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
     throw notFound(`no node with id ${id}`);
   }
   const { status, distribution } = await statusOf(db, node);
-  return { id: (await renderNodeId(db, node.id)) ?? id, status, distribution };
+  return { id: (await renderNodeId(db, node.id)) ?? id, type: node.type, status, distribution };
 }

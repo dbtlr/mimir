@@ -172,6 +172,38 @@ describe("status -f records signpost (MMR-90 review fix 1)", () => {
     expect(parsed.status).toBeDefined();
     expect(parsed.distribution).toBeDefined();
   });
+
+  test("status <EMPTY container> -f records on TTY shows signpost and onward hint", async () => {
+    // Phase with no tasks — empty container, distribution is {}
+    const tty = fakeIo(true);
+    await runCli(["status", `MMR-${String(phaseSeq)}`, "-f", "records"], () => db, tty);
+    const text = tty.out.join("");
+    expect(text).toMatch(/rollup/);
+    expect(text).toMatch(/direct child/);
+    expect(text).toContain("mimir tree");
+  });
+
+  test("status with exactly 1 child reads '1 direct child' (singular)", async () => {
+    await createTask(db, { parentId: phaseId, title: "solo" });
+    const tty = fakeIo(true);
+    await runCli(["status", `MMR-${String(phaseSeq)}`, "-f", "records"], () => db, tty);
+    const text = tty.out.join("");
+    expect(text).toContain("1 direct child");
+    // Must NOT use "children" (plural) when n=1
+    expect(text).not.toMatch(/1 direct children/);
+  });
+
+  test("status default json output does not include 'type' field (machine contract unchanged)", async () => {
+    await createTask(db, { parentId: phaseId, title: "t1" });
+    const io = fakeIo(false);
+    await runCli(["status", `MMR-${String(phaseSeq)}`], () => db, io);
+    const parsed = JSON.parse(io.out.join("")) as Record<string, unknown>;
+    // The json wire format must stay prose-free and must NOT expose the internal type field
+    expect(parsed["type"]).toBeUndefined();
+    expect(parsed["id"]).toBeDefined();
+    expect(parsed["status"]).toBeDefined();
+    expect(parsed["distribution"]).toBeDefined();
+  });
 });
 
 // ─── Deliverable 3: mimir tree <id> ─────────────────────────────────────────

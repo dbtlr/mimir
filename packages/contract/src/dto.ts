@@ -176,6 +176,8 @@ export interface TreeView extends Omit<NodeView, "children"> {
 /** A node's `status_of`: the rollup distribution and its single `interpret` label together. */
 export interface StatusView {
   id: string;
+  /** The node's type — used by renderers to distinguish containers from leaf tasks. */
+  type: ViewType;
   status: StatusWord;
   distribution: Distribution;
 }
