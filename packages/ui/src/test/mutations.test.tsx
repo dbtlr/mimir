@@ -4,6 +4,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import type { ReactNode } from "react";
 import { useMoveNode, useReorder, useTransition } from "../api/mutations";
 import { useAnnotate, useCreateTask, useTag, useUntag, useUpdateNode } from "../api/mutations";
+import { useUpdateProject } from "../api/mutations";
 
 const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
 vi.mock("../api/client", () => ({ apiSend }));
@@ -121,6 +122,19 @@ describe("authoring mutation hooks", () => {
     await waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith("POST", "/api/nodes/MMR-9/annotations", {
         content: "a note",
+      });
+    });
+  });
+
+  test("useUpdateProject PATCHes /api/projects/:key with the given fields", async () => {
+    apiSend.mockResolvedValue({ id: "MMR" });
+    const client = new QueryClient();
+    const { result } = renderHook(() => useUpdateProject("MMR"), { wrapper: wrapper(client) });
+    result.current.mutate({ title: "Renamed", description: "A short blurb" });
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith("PATCH", "/api/projects/MMR", {
+        title: "Renamed",
+        description: "A short blurb",
       });
     });
   });
