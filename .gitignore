@@ -29,3 +29,4 @@ packages/ui/dev-dist/
 
 # Playwright MCP scratch output (snapshots/screenshots from manual smokes)
 .playwright-mcp/
+.superpowers/
