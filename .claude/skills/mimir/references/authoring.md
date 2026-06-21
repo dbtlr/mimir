@@ -6,9 +6,9 @@ next sequence number (numbers are never reused; a guess writes to the wrong row)
 ## Creating work
 
 ```sh
-mimir create initiative "Theme" --parent KEY [--desc "…"] [--tag t]...
-mimir create phase "Increment" --parent KEY-3 [--target "v1.0"]
-mimir create task "One session of work" --parent KEY-4 \
+mimir create initiative "Goal-level body of work" --parent KEY [--desc "…"] [--tag t]...
+mimir create phase "A testable increment / baseline" --parent KEY-3 [--target "v1.0"]
+mimir create task "A discrete, verifiable outcome" --parent KEY-4 \
     [--priority p0..p3] [--size small|medium|large] [--desc "…"] [--ref JIRA-123] [--tag t]...
 ```
 
@@ -17,6 +17,25 @@ mimir create task "One session of work" --parent KEY-4 \
   doesn't need).
 - `priority`/`size` are optional **signals** — they filter and advise; they never
   reorder the queue. Leave them off rather than guessing.
+
+## A task vs. a step
+
+A task **finishes something**: it names a verifiable definition-of-done and is
+bounded two ways — never so large that whether it's _done_ is unknowable, never so
+small that finishing it finishes nothing. Sizing is **not** a session, a time-box,
+or a commit/PR (all arbitrary). Below a task are **steps** — a checklist toward its
+done-state; steps are the executor's own todo list or `annotate` notes, **never
+child tasks** (the tree has no sub-task level).
+
+Before `create task`, check — any "no" means it's a step, not a node:
+
+1. **Finishes something** — when done, is a discrete, observable thing complete, not
+   just a layer touched? ("Add the migration" finishes nothing; "users can sign up,
+   behind passing tests" does.)
+2. **Knowable done** — can you state its done-state in one sentence two people would
+   agree on? Too big to answer → it's a phase; split it.
+3. **Stands alone** — reorderable or deferrable without dragging a sibling? Only
+   makes sense as "step N toward one outcome" → it's a step.
 
 ## Dependencies and structure
 
