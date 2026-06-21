@@ -23,6 +23,22 @@ mimir bind KEY        # validates KEY exists, writes ./.mimir.toml
 
 Done. Commit the file — every clone is then bound for free.
 
+## Case 1b — `.mimir.toml` exists but project is missing from the store
+
+A cloned repo (or a machine whose store was wiped) may have a `.mimir.toml` that
+names a key whose project has never been created locally. `mimir status KEY`
+(and most other commands) will report `no project KEY`.
+
+```sh
+cat .mimir.toml          # confirm the bound key
+mimir status KEY         # "no project KEY" → project doesn't exist in this store
+# Create it with the same key, then you're bound automatically:
+mimir create project "Display Name" --key KEY -y
+```
+
+The key is immutable, so use the exact value from `.mimir.toml`. No `mimir bind`
+step is needed — the toml is already there.
+
 ## Case 2 — new project
 
 **The key is immutable. Confirming it with the user is the one mandatory
