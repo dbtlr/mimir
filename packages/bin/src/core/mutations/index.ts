@@ -7,10 +7,12 @@ export {
   type ArtifactUpdateFields,
   type AttachArtifactInput,
   type UpdateFields,
+  type UpdateProjectFields,
   annotate,
   attachArtifact,
   reorder,
   updateArtifact,
   updateNode,
+  updateProject,
 } from "./data";
 export { type EntityRef, tagEntities, untagEntities } from "./tags";

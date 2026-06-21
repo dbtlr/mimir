@@ -103,6 +103,17 @@ test("POST /api/projects creates and echoes the project record; duplicate keys c
   expect(dup.status).toBe(409);
 });
 
+test("POST /api/projects with description stores and echoes it (MMR-88)", async () => {
+  const res = await send("POST", "/api/projects", {
+    key: "DSC",
+    name: "Described",
+    description: "stores desc",
+  });
+  expect(res.status).toBe(201);
+  const body = await parse(res);
+  expect(body.description).toBe("stores desc");
+});
+
 test("GET /api/projects/:key returns the project record; a node ref is rejected", async () => {
   const res = await get("/api/projects/MMR");
   expect(res.status).toBe(200);
@@ -112,6 +123,36 @@ test("GET /api/projects/:key returns the project record; a node ref is rejected"
 
   const wrong = await get(`/api/projects/${task1}`);
   expect(wrong.status).toBe(400);
+});
+
+test("PATCH /api/projects/:key patches name and description, echoes updated record (MMR-88)", async () => {
+  const res = await send("PATCH", "/api/projects/MMR", {
+    name: "Mimir Renamed",
+    description: "work tracker",
+  });
+  expect(res.status).toBe(200);
+  const body = await parse(res);
+  expect(body.type).toBe("project");
+  expect(body.id).toBe("MMR");
+  expect(body.title).toBe("Mimir Renamed");
+  expect(body.description).toBe("work tracker");
+});
+
+test("PATCH /api/projects/:key accepts title as alias for name (MMR-88)", async () => {
+  const res = await send("PATCH", "/api/projects/MMR", { title: "Via title" });
+  expect(res.status).toBe(200);
+  expect((await parse(res)).title).toBe("Via title");
+});
+
+test("PATCH /api/projects/:key on a non-existent project returns 404 (MMR-88)", async () => {
+  const res = await send("PATCH", "/api/projects/NOPE", { name: "x" });
+  expect(res.status).toBe(404);
+  expect(errorCode(await parse(res))).toBe("not_found");
+});
+
+test("PATCH /api/projects/:key with a node ref key returns 400 (MMR-88)", async () => {
+  const res = await send("PATCH", `/api/projects/${task1}`, { name: "x" });
+  expect(res.status).toBe(400);
 });
 
 test("GET /api/projects/:key/tree nests the full hierarchy in board order", async () => {

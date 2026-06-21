@@ -14,6 +14,7 @@ test("migrateToLatest applies the bundled migrations on a fresh db", async () =>
       "0002_artifact_seq",
       "0003_artifact_title",
       "0004_drop_repo_path",
+      "0005_project_description",
     ]);
     expect(results?.every((r) => r.status === "Success")).toBe(true);
   } finally {
@@ -32,6 +33,7 @@ test("migrationStatus reports applied migrations after migrating", async () => {
       "0002_artifact_seq",
       "0003_artifact_title",
       "0004_drop_repo_path",
+      "0005_project_description",
     ]);
     expect(all.every((m) => m.executedAt !== undefined)).toBe(true);
   } finally {
@@ -123,6 +125,36 @@ test("0003 backfills artifact titles from the first markdown heading", async () 
       { seq: 1, title: "Session Log" },
       { seq: 2, title: "untitled" },
     ]);
+  } finally {
+    await db.destroy();
+  }
+});
+
+test("0005 adds description column to project (MMR-88)", async () => {
+  const db = createDb(":memory:");
+  try {
+    const { Migrator, sql } = await import("kysely");
+    const { migrations } = await import("./migrations");
+    const migrator = new Migrator({
+      db,
+      provider: { getMigrations: () => Promise.resolve(migrations) },
+    });
+    const upTo = await migrator.migrateTo("0004_drop_repo_path");
+    expect(upTo.error).toBeUndefined();
+
+    await sql`INSERT INTO project (key, name, last_seq) VALUES ('AAA', 'a', 0)`.execute(db);
+
+    const rest = await migrator.migrateToLatest();
+    expect(rest.error).toBeUndefined();
+
+    const cols = await sql<{
+      name: string;
+    }>`SELECT name FROM pragma_table_info('project')`.execute(db);
+    expect(cols.rows.map((r) => r.name)).toContain("description");
+
+    // Existing row backfills to NULL
+    const rows = await db.selectFrom("project").select(["key", "description"]).execute();
+    expect(rows).toEqual([{ key: "AAA", description: null }]);
   } finally {
     await db.destroy();
   }

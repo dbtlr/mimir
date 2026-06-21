@@ -328,3 +328,58 @@ test("update KEY-aN retitles the artifact; node-only flags refused (MMR-40)", as
   // unknown artifact → not_found
   expect(await runCli(["update", "MMR-a999", "--title", "x"], () => db, fakeIo(false))).toBe(1);
 });
+
+// project update + create with description (MMR-88)
+test("update KEY renames a project with --name and echoes the updated record", async () => {
+  const io = fakeIo(false);
+  const code = await runCli(["update", "MMR", "--name", "Renamed", "-f", "json"], () => db, io);
+  expect(code).toBe(0);
+  const v = JSON.parse(io.out[0] ?? "{}") as { type: string; title: string; id: string };
+  expect(v.type).toBe("project");
+  expect(v.id).toBe("MMR");
+  expect(v.title).toBe("Renamed");
+});
+
+test("update KEY sets description with --desc and echoes it", async () => {
+  const io = fakeIo(false);
+  const code = await runCli(
+    ["update", "MMR", "--desc", "work state manager", "-f", "json"],
+    () => db,
+    io,
+  );
+  expect(code).toBe(0);
+  const v = JSON.parse(io.out[0] ?? "{}") as { description: string };
+  expect(v.description).toBe("work state manager");
+});
+
+test("update KEY renders description in records format", async () => {
+  await runCli(["update", "MMR", "--desc", "a description"], () => db, fakeIo(false));
+  const io = fakeIo(true);
+  const code = await runCli(["update", "MMR", "--name", "Keep"], () => db, io);
+  expect(code).toBe(0);
+  expect(io.out.join("")).toContain("description");
+});
+
+test("update KEY refuses node-only flags → exit 1", async () => {
+  expect(await runCli(["update", "MMR", "--title", "x"], () => db, fakeIo(false))).toBe(1);
+  expect(await runCli(["update", "MMR", "--priority", "p1"], () => db, fakeIo(false))).toBe(1);
+});
+
+test("update on missing project key → not_found (exit 1)", async () => {
+  expect(await runCli(["update", "ZZZ", "--name", "x"], () => db, fakeIo(false))).toBe(1);
+});
+
+test("create project with --desc stores the description", async () => {
+  const io = fakeIo(false);
+  const code = await runCli(
+    ["create", "project", "--key", "DSC", "--name", "Described", "--desc", "some desc", "-y"],
+    () => db,
+    io,
+  );
+  expect(code).toBe(0);
+  // Verify description was stored via get
+  const getIo = fakeIo(false);
+  await runCli(["get", "DSC", "-f", "json"], () => db, getIo);
+  const v = JSON.parse(getIo.out[0] ?? "{}") as { description: string };
+  expect(v.description).toBe("some desc");
+});

@@ -361,6 +361,44 @@ test("create task with tags applies them", async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Project update (MMR-88)
+// ---------------------------------------------------------------------------
+
+test("toolUpdate on a bare project KEY renames and patches description", async () => {
+  const res = await toolUpdate(db, { id: "MMR", name: "Renamed", description: "details" });
+  expect(res.isError).toBeUndefined();
+  const v = JSON.parse(textOf(res)) as { type: string; title: string; description: string };
+  expect(v.type).toBe("project");
+  expect(v.title).toBe("Renamed");
+  expect(v.description).toBe("details");
+});
+
+test("toolUpdate project rejects node-only flags", async () => {
+  const res = await toolUpdate(db, { id: "MMR", priority: "p1" });
+  expect(res.isError).toBe(true);
+  expect(JSON.parse(textOf(res)).error.code).toBe("validation");
+});
+
+test("toolUpdate project with missing key returns not_found", async () => {
+  const res = await toolUpdate(db, { id: "ZZZ", name: "x" });
+  expect(res.isError).toBe(true);
+  expect(JSON.parse(textOf(res)).error.code).toBe("not_found");
+});
+
+test("toolCreate project with description stores it", async () => {
+  const res = await toolCreate(db, {
+    type: "project",
+    key: "DSC",
+    name: "Described",
+    description: "a project",
+  });
+  expect(res.isError).toBeUndefined();
+  const get = await toolGet(db, { id: "DSC" });
+  const v = JSON.parse(textOf(get)) as { description: string };
+  expect(v.description).toBe("a project");
+});
+
+// ---------------------------------------------------------------------------
 // Query surface v2 (MMR-33)
 // ---------------------------------------------------------------------------
 

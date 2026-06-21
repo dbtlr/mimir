@@ -215,7 +215,7 @@ export async function buildProjectView(
     title: project.name,
     status: interpret(distribution),
     parent: null,
-    description: null,
+    description: project.description,
     createdAt: project.created_at,
     updatedAt: project.updated_at,
   };

@@ -19,6 +19,18 @@ test("createProject inserts and defaults last_seq to 0", async () => {
   expect(p.last_seq).toBe(0);
 });
 
+test("createProject stores optional description (MMR-88)", async () => {
+  const withDesc = await createProject(db, {
+    key: "MMR",
+    name: "Mimir",
+    description: "tracks work",
+  });
+  expect(withDesc.description).toBe("tracks work");
+
+  const withoutDesc = await createProject(db, { key: "NRN", name: "Norn" });
+  expect(withoutDesc.description).toBeNull();
+});
+
 test("createProject rejects a bad key and a duplicate key", async () => {
   await expectMimirError("validation", () => createProject(db, { key: "m1", name: "bad" }));
   await expectMimirError("validation", () => createProject(db, { key: "TOOLONG", name: "bad" }));

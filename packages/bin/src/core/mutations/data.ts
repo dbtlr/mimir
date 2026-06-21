@@ -1,5 +1,5 @@
 import type { Priority, Size } from "@mimir/contract";
-import type { Node, NodeUpdate } from "../../db/schema";
+import type { Node, NodeUpdate, Project } from "../../db/schema";
 import { allocateArtifactSeq } from "../allocation";
 import type { Db } from "../context";
 import { notFound, validation } from "../errors";
@@ -54,6 +54,49 @@ export async function updateNode(db: Db, id: number, fields: UpdateFields): Prom
       await tx.updateTable("node").set(patch).where("id", "=", id).execute();
     }
     return reloadNode(tx, id);
+  });
+}
+
+export interface UpdateProjectFields {
+  name?: string;
+  description?: string | null;
+}
+
+/**
+ * The dumb scalar patcher for a project row (MMR-88): `name` and `description`
+ * are the only mutable fields — `key` is immutable. No transition log (projects
+ * have no status). Returns the updated project row directly.
+ */
+export async function updateProject(
+  db: Db,
+  id: number,
+  fields: UpdateProjectFields,
+): Promise<Project> {
+  return db.transaction().execute(async (tx) => {
+    const project = await tx
+      .selectFrom("project")
+      .selectAll()
+      .where("id", "=", id)
+      .executeTakeFirst();
+    if (project === undefined) {
+      throw notFound("project not found");
+    }
+    if (fields.name !== undefined && fields.name.trim() === "") {
+      throw validation("project name cannot be blank");
+    }
+    const patch: Record<string, unknown> = {};
+    if (fields.name !== undefined) patch.name = fields.name;
+    if (fields.description !== undefined) patch.description = fields.description;
+
+    if (Object.keys(patch).length > 0) {
+      patch.updated_at = now();
+      await tx.updateTable("project").set(patch).where("id", "=", id).execute();
+    }
+    return (await tx
+      .selectFrom("project")
+      .selectAll()
+      .where("id", "=", id)
+      .executeTakeFirst()) as Project;
   });
 }
 
