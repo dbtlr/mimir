@@ -13,6 +13,47 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+## v0.10.0 - 2026-06-21
+
+The ergonomics & orientation release: responses that orient you and point
+onward, describable and renamable projects, and a new tree view.
+
+### Added
+
+- **Project descriptions and rename.** A project can carry a description and be
+  renamed: `mimir create project "Name" --key KEY --desc "…"`,
+  `mimir update KEY --desc "…"` / `--name "…"`, surfaced and editable in the web
+  console. New `PATCH /api/projects/:key` (MMR-88, MMR-89).
+- **`mimir tree <id>`** — a compact, recursive view of the hierarchy under any
+  node, rooted at a project, initiative, or phase (MMR-90).
+- **Self-orienting reads.** `get` / `status` now signpost when a status word is a
+  rollup over a node's direct children and point onward (to `mimir tree` and the
+  ready-task queue); node references carry titles. Hints render only in styled
+  terminal output — `json` / `jsonl` / `ids` stay a clean machine contract
+  (MMR-90).
+- **Actionable error hints.** A lifecycle verb aimed at a container (e.g. `start`
+  on a phase) names a ready task to start instead; referencing a project that
+  doesn't exist tells you how to create it — consistently across the CLI, MCP,
+  and HTTP surfaces (MMR-91).
+- **Empty-result clarity.** `next` / `list` with no matches print a clear
+  "No ready tasks" / "No tasks" line in the terminal, removing the
+  blank-versus-failed ambiguity (MMR-95).
+
+### Changed
+
+- **Type filtering** uses the query operator family — `--eq type:phase`,
+  `--in type:phase,task` — taught in `-h` / `--help` and the agent skill
+  (MMR-94, MMR-92).
+- **Agent skill** gained a bound-but-missing-project bootstrap recipe and
+  clearer teaching of rollup-versus-leaf, the "what is this?" idiom
+  (`get <id>`), container lifecycle, and the `-s` scope convention
+  (MMR-92, MMR-96).
+
+### Removed
+
+- The non-functional `--type` flag (it was silently ignored). Use `--eq type:`
+  / `--in type:` instead (MMR-94).
+
 ## v0.9.0 - 2026-06-17
 
 The web-console polish release: a light theme, a rebuilt top bar (project
