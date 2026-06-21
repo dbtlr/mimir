@@ -29,7 +29,9 @@ type Executor = Db | Tx;
 async function toRef(tx: Executor, nodeId: number): Promise<NodeRef> {
   const node = await loadNode(tx, nodeId);
   const id = (await renderNodeId(tx, nodeId)) ?? "unknown";
-  return node === undefined ? { id } : { id, status: await nodeStatusWord(tx, node) };
+  return node === undefined
+    ? { id }
+    : { id, title: node.title, status: await nodeStatusWord(tx, node) };
 }
 
 export async function buildNodeView(

@@ -4,7 +4,8 @@ import type { FacetName } from "@mimir/contract";
 import type { Node } from "../db/schema";
 import type { Db } from "./context";
 import { notFound, validation } from "./errors";
-import { renderNodeId } from "./lookup";
+import { parseIdentity } from "./ids";
+import { findNodeByRef, renderNodeId } from "./lookup";
 import { buildNodeView, buildProjectView } from "./intent/view";
 
 /**
@@ -72,6 +73,45 @@ export async function projectTree(
   const roots = await childRows(db, project.id, null);
   const { children: _refs, ...record } = rootView;
   return { ...record, children: await Promise.all(roots.map(subtree)) };
+}
+
+/**
+ * `nodeTree` — the hierarchy rooted at any node id (`KEY-seq`) or a whole
+ * project (`KEY`). Delegates the project-root case to `projectTree`; for a
+ * mid-tree node it builds the subtree using the same `childRows` + `buildNodeView`
+ * pipeline — one tree builder, not two (MMR-90).
+ */
+export async function nodeTree(
+  db: Db,
+  id: string,
+  facets: readonly FacetName[] = ["deps", "tags", "distribution", "verdicts"],
+): Promise<TreeView> {
+  const identity = parseIdentity(id);
+  if (identity === null) {
+    throw notFound(`no such id ${id}`);
+  }
+  // Project root — delegate to the existing builder.
+  if (identity.kind === "project") {
+    return projectTree(db, identity.key, facets);
+  }
+  if (identity.kind === "artifact") {
+    throw notFound(`${id} is an artifact, not a node or project`);
+  }
+  // Node id — resolve it and recurse down.
+  const rootNode = await findNodeByRef(db, id);
+  if (rootNode === undefined) {
+    throw notFound(`no node with id ${id}`);
+  }
+  const facetSet = new Set(facets);
+
+  const subtree = async (node: Node): Promise<TreeView> => {
+    const view = await buildNodeView(db, node, facetSet);
+    const children = await childRows(db, node.project_id, node.id);
+    const { children: _refs, ...record } = view;
+    return { ...record, children: await Promise.all(children.map(subtree)) };
+  };
+
+  return subtree(rootNode);
 }
 
 export interface TransitionsOptions {
