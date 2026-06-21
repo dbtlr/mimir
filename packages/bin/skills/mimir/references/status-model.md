@@ -48,6 +48,14 @@ What `list`/`get` show as `status` is computed:
 - `blocking` — has live dependents; finishing it unlocks work.
 - `orphaned` — live task whose every sibling is terminal — left behind.
 
+## Containers aren't lifecycle-managed
+
+Lifecycle verbs (`start`, `done`, `abandon`, `park`, `block`) only act on
+**tasks**. Trying to `start` a phase or initiative is an error — the response
+names a ready child task to start instead. Complete the leaf tasks and the
+container's rollup follows automatically; there is nothing to do at the
+container level.
+
 ## Don't fight the model
 
 - Don't look for a "backlog" state — the backlog is `todo` minus holds, ordered by
