@@ -117,6 +117,21 @@ export function useMoveNode(id: string) {
   });
 }
 
+export interface UpdateProjectInput {
+  title?: string;
+  description?: string;
+}
+
+export function useUpdateProject(key: string) {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: (fields: UpdateProjectInput) =>
+      apiSend<WireNode>("PATCH", `/api/projects/${encodeURIComponent(key)}`, fields),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+  });
+}
+
 export function useAnnotate(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({

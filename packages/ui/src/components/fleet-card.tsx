@@ -29,11 +29,16 @@ export function FleetCard({
         className="block w-full text-left focus-visible:outline-2 focus-visible:outline-accent"
       >
         <CardHeader className="flex-row items-center justify-between">
-          <div className="flex items-baseline gap-2.5">
-            <span className="font-mono text-lg font-bold tracking-tight text-ink-bright">
-              {project.id}
-            </span>
-            <span className="truncate text-[0.75rem] text-ink-dim">{project.title}</span>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="flex items-baseline gap-2.5">
+              <span className="font-mono text-lg font-bold tracking-tight text-ink-bright">
+                {project.id}
+              </span>
+              <span className="truncate text-[0.75rem] text-ink-dim">{project.title}</span>
+            </div>
+            {project.description != null && project.description !== "" && (
+              <p className="truncate text-[0.71875rem] text-ink-dim">{project.description}</p>
+            )}
           </div>
           <StatusBadge status={project.status} />
         </CardHeader>

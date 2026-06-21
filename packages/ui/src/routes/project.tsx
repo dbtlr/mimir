@@ -9,6 +9,7 @@ import { BoardView } from "../components/board";
 import { DistributionBar } from "../components/distribution-bar";
 import { NewTaskButton } from "../components/new-task-button";
 import { NodeDrawer } from "../components/node-drawer";
+import { ProjectSettingsButton } from "../components/project-settings-button";
 import { OfflineBanner } from "../components/offline-banner";
 import { StatusBadge } from "../components/status-badge";
 import { Skeleton } from "../components/ui/skeleton";
@@ -73,15 +74,20 @@ export function ProjectPage() {
           conn.offline && "offline-demoted",
         )}
       >
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="flex items-baseline gap-2.5">
-            <span className="font-mono text-lg font-bold tracking-tight text-ink-bright">
-              {key}
-            </span>
-            <span className="hidden truncate text-[0.75rem] text-ink-dim sm:inline">
-              {project.data?.title}
-            </span>
-          </h1>
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="flex flex-col gap-0.5">
+            <h1 className="flex items-baseline gap-2.5">
+              <span className="font-mono text-lg font-bold tracking-tight text-ink-bright">
+                {key}
+              </span>
+              <span className="hidden truncate text-[0.75rem] text-ink-dim sm:inline">
+                {project.data?.title}
+              </span>
+            </h1>
+            {project.data?.description != null && project.data.description !== "" && (
+              <p className="text-[0.75rem] text-ink-dim">{project.data.description}</p>
+            )}
+          </div>
           {project.data !== undefined && <StatusBadge status={project.data.status} />}
           <div className="ml-auto flex items-center gap-3">
             {project.data?.distribution !== undefined && (
@@ -89,6 +95,9 @@ export function ProjectPage() {
                 distribution={project.data.distribution}
                 className="hidden w-36 md:flex"
               />
+            )}
+            {project.data !== undefined && (
+              <ProjectSettingsButton project={project.data} offline={conn.offline} />
             )}
             <NewTaskButton projectKey={key} offline={conn.offline} />
             <LensToggle view={view} nodeParam={node} />
