@@ -105,7 +105,8 @@ function row(label: string, value: string, labelW: number): string {
 
 /**
  * Build a rollup signpost suffix for a container's status line.
- * Returns `" (rollup over N direct children)"` when children are known.
+ * Returns `" (rollup over N direct children)"` for any non-task node,
+ * including empty containers (n=0).
  * Prefers `children.length` (exact); falls back to summing the distribution.
  */
 function rollupSignpost(node: NodeView): string {
@@ -116,7 +117,16 @@ function rollupSignpost(node: NodeView): string {
   } else if (node.distribution !== undefined) {
     n = Object.values(node.distribution).reduce((s, c) => s + c, 0);
   }
-  if (n === 0) return "";
+  return ` (rollup over ${String(n)} direct child${n === 1 ? "" : "ren"})`;
+}
+
+/**
+ * Build a rollup signpost suffix for a `StatusView` container.
+ * Same logic as `rollupSignpost` but accepts the leaner `StatusView` shape.
+ */
+function statusRollupSignpost(status: StatusView): string {
+  if (status.type === "task") return "";
+  const n = Object.values(status.distribution).reduce((s, c) => s + c, 0);
   return ` (rollup over ${String(n)} direct child${n === 1 ? "" : "ren"})`;
 }
 
@@ -293,11 +303,8 @@ export function renderStatus(status: StatusView, io: Io): string {
   const dist = Object.entries(status.distribution)
     .map(([word, count]) => `${word}:${String(count)}`)
     .join(", ");
-  // A non-empty distribution means this is a container (leaf tasks return distribution:{}).
-  const isContainer = Object.keys(status.distribution).length > 0;
-  const signpost = isContainer
-    ? ` (rollup over ${String(Object.values(status.distribution).reduce((s, c) => s + c, 0))} direct children)`
-    : "";
+  const isContainer = status.type !== "task";
+  const signpost = isContainer ? statusRollupSignpost(status) : "";
   const lines = [
     bold(status.id, io.plain),
     row("status", statusCell(status.status, status.status.length, io.plain) + signpost, 12),

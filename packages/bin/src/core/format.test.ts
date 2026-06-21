@@ -104,6 +104,7 @@ describe("formatStatusJson", () => {
     const parsed = JSON.parse(
       formatStatusJson({
         id: "MMR-1",
+        type: "phase",
         status: "in_progress",
         distribution: { in_progress: 1, ready: 2 },
       }),
