@@ -37,6 +37,7 @@ import {
   moveNode,
   nodeToWire,
   notFound,
+  projectNotFound,
   parkTask,
   parseFilterToken,
   parseId,
@@ -288,7 +289,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
               .select("id")
               .where("key", "=", key)
               .executeTakeFirst();
-            if (project === undefined) throw notFound(`no project ${key}`);
+            if (project === undefined) throw projectNotFound(key);
             await updateProject(db, project.id, { name, description });
             const updated = await db
               .selectFrom("project")
@@ -361,7 +362,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
                 .where("key", "=", parent)
                 .executeTakeFirst();
               if (project === undefined) {
-                throw notFound(`no project ${parent}`);
+                throw projectNotFound(parent);
               }
               const node = await createInitiative(db, {
                 projectId: project.id,

@@ -3,7 +3,7 @@ import type { NodeView, TransitionsResult, TreeView } from "@mimir/contract";
 import type { FacetName } from "@mimir/contract";
 import type { Node } from "../db/schema";
 import type { Db } from "./context";
-import { notFound, validation } from "./errors";
+import { notFound, projectNotFound, validation } from "./errors";
 import { parseIdentity } from "./ids";
 import { findNodeByRef, renderNodeId } from "./lookup";
 import { buildNodeView, buildProjectView } from "./intent/view";
@@ -58,7 +58,7 @@ export async function projectTree(
     .where("key", "=", key)
     .executeTakeFirst();
   if (project === undefined) {
-    throw notFound(`no project ${key}`, `create it: mimir create project "Name" --key ${key} -y`);
+    throw projectNotFound(key);
   }
   const facetSet = new Set(facets);
 

@@ -1,7 +1,7 @@
 import type { TagEntityType } from "@mimir/contract";
 import type { Artifact, Node } from "../db/schema";
 import type { Db, Tx } from "./context";
-import { notFound, validation } from "./errors";
+import { notFound, projectNotFound, validation } from "./errors";
 import { parseId, parseIdentity, renderArtifactRef, renderId } from "./ids";
 
 /** Load a node row by surrogate id, or `undefined` if absent. */
@@ -89,11 +89,7 @@ export async function resolveEntityToken(
       .select("id")
       .where("key", "=", identity.key)
       .executeTakeFirst();
-    if (project === undefined)
-      throw notFound(
-        `no project ${token}`,
-        `create it: mimir create project "Name" --key ${token} -y`,
-      );
+    if (project === undefined) throw projectNotFound(identity.key);
     return { entityType: "project", entityId: project.id };
   }
   if (identity.kind === "artifact") {

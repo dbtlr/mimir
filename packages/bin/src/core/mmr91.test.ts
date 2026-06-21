@@ -13,6 +13,7 @@ import type { Io } from "../cli/render";
 import type { Db } from "./context";
 import { createInitiative, createPhase, createProject, createTask } from "./create";
 import { MimirError } from "./errors";
+import { nextTasks } from "./intent/queries";
 import { resolveEntityToken } from "./lookup";
 import { completeTask, startTask } from "./mutations";
 import { projectTree } from "./resource";
@@ -129,6 +130,19 @@ describe("Site B — missing project hint", () => {
     assertCreateHint(err);
 
     // The same hint reaches both renderings.
+    const { human, machine } = renderBoth(err);
+    expect(human).toContain("note:");
+    expect(human).toContain("mimir create project");
+    const parsed = JSON.parse(machine) as { error: { hint?: string } };
+    expect(parsed.error.hint).toContain("mimir create project");
+    expect(parsed.error.hint).toContain("--key NOPE");
+  });
+
+  test("nextTasks with unknown --scope key carries the create hint (core/intent/queries resolveScope)", async () => {
+    const err = await caught(() => nextTasks(db, { scope: "NOPE" }));
+    assertCreateHint(err);
+
+    // The hint reaches both renderings (previously this path threw a bare error).
     const { human, machine } = renderBoth(err);
     expect(human).toContain("note:");
     expect(human).toContain("mimir create project");

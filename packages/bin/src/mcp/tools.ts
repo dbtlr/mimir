@@ -38,6 +38,7 @@ import {
   moveNode,
   nextTasks,
   notFound,
+  projectNotFound,
   parkTask,
   reorder,
   resolveEntityToken,
@@ -107,7 +108,7 @@ async function nodeId(db: Db, id: string, expected = "node"): Promise<number> {
  */
 async function projectId(db: Db, key: string): Promise<number> {
   const row = await db.selectFrom("project").select("id").where("key", "=", key).executeTakeFirst();
-  if (row === undefined) throw notFound(`no project ${key}`);
+  if (row === undefined) throw projectNotFound(key);
   return row.id;
 }
 
@@ -421,7 +422,7 @@ async function updateProjectTool(
     .selectAll()
     .where("id", "=", pid)
     .executeTakeFirst();
-  if (project === undefined) throw notFound(`no project ${key}`);
+  if (project === undefined) throw projectNotFound(key);
   return ok(formatNodeJson(await buildProjectView(db, project)));
 }
 
