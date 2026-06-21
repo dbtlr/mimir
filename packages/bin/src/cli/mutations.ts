@@ -41,7 +41,7 @@ import { parsePriority, parseSize } from "./parse";
 import { renderArtifactDetail } from "./render";
 import type { Format, Io } from "./render";
 import {
-  echoNode,
+  echoNodeWith,
   echoProject,
   readContent,
   resolveNode,
@@ -60,7 +60,7 @@ export interface Ctx {
 }
 
 /** Assert that positional at index `i` is present and non-blank, else throw a usage error. */
-export function requirePos(c: Ctx, i: number, verb: string, noun = "a node id (KEY-seq)"): string {
+export function requirePos(c: Ctx, i: number, verb: string, noun = "an id (KEY-seq)"): string {
   const v = c.positionals[i];
   if (v === undefined || v.trim() === "") throw usage(`${verb} requires ${noun}`);
   return v;
@@ -76,24 +76,29 @@ function requireToken(value: string, verb: string, flag: string): string {
   return value;
 }
 
+/** Append ` · <reason>` to a signpost when a reason was given. */
+const withReason = (text: string, reason?: string): string =>
+  reason !== undefined ? `${text} · ${reason}` : text;
+
 export async function cmdStart(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "start"), "task");
   await startTask(c.db, id);
-  await echoNode(c.db, id, c.format, c.io);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `started ${rid} · todo → in_progress`);
   return 0;
 }
 
 export async function cmdDone(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "done"), "task");
   await completeTask(c.db, id);
-  await echoNode(c.db, id, c.format, c.io);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `completed ${rid}`);
   return 0;
 }
 
 export async function cmdAbandon(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "abandon"), "task");
-  await abandonTask(c.db, id, reasonTail(c));
-  await echoNode(c.db, id, c.format, c.io);
+  const reason = reasonTail(c);
+  await abandonTask(c.db, id, reason);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) => withReason(`abandoned ${rid}`, reason));
   return 0;
 }
 
@@ -101,29 +106,31 @@ const reasonTail = (c: Ctx): string | undefined => c.positionals.slice(2).join("
 
 export async function cmdPark(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "park"), "task");
-  await parkTask(c.db, id, reasonTail(c));
-  await echoNode(c.db, id, c.format, c.io);
+  const reason = reasonTail(c);
+  await parkTask(c.db, id, reason);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) => withReason(`parked ${rid}`, reason));
   return 0;
 }
 
 export async function cmdUnpark(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "unpark"), "task");
   await unparkTask(c.db, id);
-  await echoNode(c.db, id, c.format, c.io);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `unparked ${rid}`);
   return 0;
 }
 
 export async function cmdBlock(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "block"), "task");
-  await blockTask(c.db, id, reasonTail(c));
-  await echoNode(c.db, id, c.format, c.io);
+  const reason = reasonTail(c);
+  await blockTask(c.db, id, reason);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) => withReason(`blocked ${rid}`, reason));
   return 0;
 }
 
 export async function cmdUnblock(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "unblock"), "task");
   await unblockTask(c.db, id);
-  await echoNode(c.db, id, c.format, c.io);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `unblocked ${rid}`);
   return 0;
 }
 
@@ -132,12 +139,20 @@ async function resolveIds(db: Db, csv: string, verb: string, flag: string): Prom
   return Promise.all(tokens.map((t) => resolveNode(db, t)));
 }
 
+/** Clean a comma-separated id list back to a display string (`MMR-3, MMR-4`). */
+const idList = (csv: string): string =>
+  csv
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .join(", ");
+
 export async function cmdDepend(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "depend"));
   const on = lastFlag(c, "on");
   if (on === undefined) throw usage("depend requires --on <ids>");
   await depend(c.db, id, await resolveIds(c.db, on, "depend", "on"));
-  await echoNode(c.db, id, c.format, c.io);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `${rid} now depends on ${idList(on)}`);
   return 0;
 }
 
@@ -146,16 +161,23 @@ export async function cmdUndepend(c: Ctx): Promise<number> {
   const on = lastFlag(c, "on");
   if (on === undefined) throw usage("undepend requires --on <ids>");
   await undepend(c.db, id, await resolveIds(c.db, on, "undepend", "on"));
-  await echoNode(c.db, id, c.format, c.io);
+  await echoNodeWith(
+    c.db,
+    id,
+    c.format,
+    c.io,
+    (rid) => `${rid} no longer depends on ${idList(on)}`,
+  );
   return 0;
 }
 
 export async function cmdMove(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "move"));
   if (typeof c.values.to !== "string") throw usage("move requires --to <parent>");
-  const parentId = await resolveNode(c.db, requireToken(c.values.to, "move", "to"));
+  const to = requireToken(c.values.to, "move", "to");
+  const parentId = await resolveNode(c.db, to);
   await moveNode(c.db, id, parentId);
-  await echoNode(c.db, id, c.format, c.io);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `moved ${rid} → ${to}`);
   return 0;
 }
 
@@ -163,23 +185,30 @@ export async function cmdReorder(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, "reorder"), "task");
   let position: RankPosition;
   let refId: number | null = null;
+  let where: string;
   const before = lastFlag(c, "before");
   const after = lastFlag(c, "after");
   if (c.values.top === true) {
     position = "top";
+    where = "top";
   } else if (c.values.bottom === true) {
     position = "bottom";
+    where = "bottom";
   } else if (before !== undefined) {
     position = "before";
-    refId = await resolveNode(c.db, requireToken(before, "reorder", "before"));
+    const ref = requireToken(before, "reorder", "before");
+    refId = await resolveNode(c.db, ref);
+    where = `before ${ref}`;
   } else if (after !== undefined) {
     position = "after";
-    refId = await resolveNode(c.db, requireToken(after, "reorder", "after"));
+    const ref = requireToken(after, "reorder", "after");
+    refId = await resolveNode(c.db, ref);
+    where = `after ${ref}`;
   } else {
     throw usage("reorder requires one of --top | --bottom | --before <id> | --after <id>");
   }
   await reorder(c.db, id, position, refId);
-  await echoNode(c.db, id, c.format, c.io);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `reordered ${rid} → ${where}`);
   return 0;
 }
 
@@ -193,20 +222,40 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
   }
   const id = await resolveNode(c.db, token);
   const fields: UpdateFields = {};
-  if (typeof c.values.title === "string") fields.title = c.values.title;
-  if (typeof c.values.desc === "string") fields.description = c.values.desc;
-  if (typeof c.values.priority === "string") fields.priority = parsePriority(c.values.priority);
-  if (typeof c.values.size === "string") fields.size = parseSize(c.values.size);
-  if (typeof c.values.target === "string") fields.target = c.values.target;
-  if (typeof c.values.ref === "string") fields.externalRef = c.values.ref;
+  const changed: string[] = [];
+  if (typeof c.values.title === "string") {
+    fields.title = c.values.title;
+    changed.push("title");
+  }
+  if (typeof c.values.desc === "string") {
+    fields.description = c.values.desc;
+    changed.push("description");
+  }
+  if (typeof c.values.priority === "string") {
+    fields.priority = parsePriority(c.values.priority);
+    changed.push("priority");
+  }
+  if (typeof c.values.size === "string") {
+    fields.size = parseSize(c.values.size);
+    changed.push("size");
+  }
+  if (typeof c.values.target === "string") {
+    fields.target = c.values.target;
+    changed.push("target");
+  }
+  if (typeof c.values.ref === "string") {
+    fields.externalRef = c.values.ref;
+    changed.push("ref");
+  }
   await updateNode(c.db, id, fields);
-  await echoNode(c.db, id, c.format, c.io);
+  const suffix = changed.length > 0 ? ` (${changed.join(", ")})` : "";
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `updated ${rid}${suffix}`);
   return 0;
 }
 
 /** `update KEY` — patch a project's `name` and/or `description` (MMR-88). */
 async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
-  // Flags that only apply to nodes (not projects)
+  // Flags that don't apply to a project (only to tasks/phases).
   for (const [key, flag] of [
     ["title", "--title"],
     ["priority", "--priority"],
@@ -215,7 +264,7 @@ async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
     ["ref", "--ref"],
   ] as const) {
     if (c.values[key] !== undefined) {
-      throw validation(`${flag} applies only to nodes — use --name to rename a project`);
+      throw validation(`${flag} doesn't apply to a project — use --name to rename it`);
     }
   }
   const projectId = await resolveProject(c.db, token);
@@ -237,7 +286,7 @@ async function cmdUpdateArtifact(c: Ctx, token: string): Promise<number> {
     ["ref", "--ref"],
   ] as const) {
     if (c.values[key] !== undefined) {
-      throw validation(`${flag} applies only to nodes — title is an artifact's one mutable field`);
+      throw validation(`${flag} doesn't apply to an artifact — title is its one mutable field`);
     }
   }
   const identity = parseIdentity(token);
@@ -256,7 +305,7 @@ export async function cmdAnnotate(c: Ctx): Promise<number> {
   const content = await readContent(c.positionals.slice(2), c.io);
   if (content === "") throw usage("annotate requires content (positional or stdin)");
   await annotate(c.db, id, content);
-  await echoNode(c.db, id, c.format, c.io);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `annotated ${rid}`);
   return 0;
 }
 
@@ -286,26 +335,25 @@ export async function cmdAttach(c: Ctx): Promise<number> {
     const nodes = await Promise.all(
       linkTokens.map(async (t) => {
         const n = await findNodeByRef(c.db, t);
-        if (n === undefined) throw notFound(`no node ${t}`);
+        if (n === undefined) throw notFound(`${t} doesn't exist`);
         return n;
       }),
     );
     const projects = new Set(nodes.map((n) => n.project_id));
-    if (projects.size > 1) throw validation("all attached nodes must be in one project");
+    if (projects.size > 1) throw validation("all the links must be in one project");
     const [projectIdFromNodes] = projects; // number | undefined under noUncheckedIndexedAccess
     if (projectIdFromNodes === undefined)
-      throw validation("internal: nodes resolved but project_id missing");
+      throw validation("internal: links resolved but project is missing");
     projectId = projectIdFromNodes;
     linkNodeIds.push(...nodes.map((n) => n.id));
     if (typeof c.values.project === "string") {
       const explicit = await resolveProject(c.db, c.values.project);
-      if (explicit !== projectId)
-        throw validation("--project disagrees with the linked node(s)' project");
+      if (explicit !== projectId) throw validation("--project disagrees with the links' project");
     }
   } else {
     projectId = await resolveProject(
       c.db,
-      strFlag(c, "project", "attach requires a node id or --project <KEY>"),
+      strFlag(c, "project", "attach requires a link (KEY-seq) or --project <KEY>"),
     );
   }
 
@@ -448,14 +496,14 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         c.db,
         strFlag(c, "parent", "create initiative requires --parent <KEY>"),
       );
-      if (parent.kind !== "project") throw usage("an initiative's --parent must be a project KEY");
+      if (parent.kind !== "project") throw usage("an initiative's parent must be a project (KEY)");
       const node = await createInitiative(c.db, {
         projectId: parent.id,
         title,
         description: optStr(c, "desc"),
         tags: tagFlags(c),
       });
-      await echoNode(c.db, node.id, c.format, c.io);
+      await echoNodeWith(c.db, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;
     }
     case "phase": {
@@ -464,8 +512,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         c.db,
         strFlag(c, "parent", "create phase requires --parent <id>"),
       );
-      if (parent.kind !== "node")
-        throw usage("a phase's --parent must be an initiative node (KEY-seq)");
+      if (parent.kind !== "node") throw usage("a phase's parent must be an initiative (KEY-seq)");
       const node = await createPhase(c.db, {
         parentId: parent.id,
         title,
@@ -473,7 +520,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         target: optStr(c, "target"),
         tags: tagFlags(c),
       });
-      await echoNode(c.db, node.id, c.format, c.io);
+      await echoNodeWith(c.db, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;
     }
     case "task": {
@@ -483,7 +530,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         strFlag(c, "parent", "create task requires --parent <id>"),
       );
       if (parent.kind !== "node")
-        throw usage("a task's --parent must be a phase or initiative node (KEY-seq)");
+        throw usage("a task's parent must be a phase or initiative (KEY-seq)");
       const node = await createTask(c.db, {
         parentId: parent.id,
         title,
@@ -494,7 +541,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         externalRef: optStr(c, "ref"),
         tags: tagFlags(c),
       });
-      await echoNode(c.db, node.id, c.format, c.io);
+      await echoNodeWith(c.db, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;
     }
     default:

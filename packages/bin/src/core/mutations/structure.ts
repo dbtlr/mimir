@@ -17,10 +17,10 @@ function assertParentType(child: NodeType, parent: NodeType): void {
     throw validation("an initiative is top-level — move it with no parent");
   }
   if (child === "phase" && parent !== "initiative") {
-    throw validation(`a phase's parent must be an initiative, got ${parent}`);
+    throw validation(`a phase's parent must be an initiative, not a ${parent}`);
   }
   if (child === "task" && parent !== "phase" && parent !== "initiative") {
-    throw validation(`a task's parent must be a phase or initiative, got ${parent}`);
+    throw validation(`a task's parent must be a phase or initiative, not a ${parent}`);
   }
 }
 
@@ -56,7 +56,7 @@ export async function moveNode(db: Db, id: number, newParentId: number | null): 
       }
     } else {
       if (newParentId === id) {
-        throw validation("a node cannot be its own parent");
+        throw validation("cannot move it under itself");
       }
       const parent = await requireNode(tx, newParentId);
       if (parent.project_id !== node.project_id) {
@@ -64,7 +64,7 @@ export async function moveNode(db: Db, id: number, newParentId: number | null): 
       }
       assertParentType(node.type, parent.type);
       if (await isDescendantOf(tx, newParentId, id)) {
-        throw validation("cannot move a node under its own descendant");
+        throw validation("cannot move it under its own descendant");
       }
     }
 

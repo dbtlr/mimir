@@ -354,7 +354,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             const tags = strList(body, "tags");
             if (type === "initiative") {
               if (parseId(parent) !== null) {
-                throw validation("an initiative's parent must be a project KEY, not a node ref");
+                throw validation("an initiative's parent must be a project (KEY)");
               }
               const project = await db
                 .selectFrom("project")
@@ -640,7 +640,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             );
             const node = await findNodeByRef(db, req.params.id);
             if (node === undefined) {
-              throw notFound(`no node ${req.params.id}`);
+              throw notFound(`${req.params.id} doesn't exist`);
             }
             return echoNode(db, req, node);
           }),
@@ -650,7 +650,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             await untagEntities(db, [{ entityType: "node", entityId: id }], [req.params.tag]);
             const node = await findNodeByRef(db, req.params.id);
             if (node === undefined) {
-              throw notFound(`no node ${req.params.id}`);
+              throw notFound(`${req.params.id} doesn't exist`);
             }
             return echoNode(db, req, node);
           }),
@@ -662,16 +662,16 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             const body = await readBody(req, ["title", "content", "links", "tags"]);
             const anchor = await findNodeByRef(db, req.params.id);
             if (anchor === undefined) {
-              throw notFound(`no node ${req.params.id}`);
+              throw notFound(`${req.params.id} doesn't exist`);
             }
             const linkNodeIds = [anchor.id];
             for (const token of strList(body, "links") ?? []) {
               const linked = await findNodeByRef(db, token);
               if (linked === undefined) {
-                throw notFound(`no node ${token}`);
+                throw notFound(`${token} doesn't exist`);
               }
               if (linked.project_id !== anchor.project_id) {
-                throw validation("all attached nodes must be in one project");
+                throw validation("all the links must be in one project");
               }
               if (!linkNodeIds.includes(linked.id)) {
                 linkNodeIds.push(linked.id);

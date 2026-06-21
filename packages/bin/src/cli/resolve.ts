@@ -15,16 +15,22 @@ import {
   validation,
 } from "../core";
 import type { Db } from "../core";
-import { type Format, type Io, renderNodeView } from "./render";
+import { type Format, type Io, renderNodeView, signpost } from "./render";
 
 export type { Format };
 
 /**
  * Resolve a node token to its surrogate integer id — the CLI's binding of the
  * core `resolveNodeToken` guard, contributing the CLI-shaped not-found hint.
+ * `expected` names what the verb acts on; the default enumerates the work
+ * types rather than leaking the internal "node" word into the message.
  */
-export async function resolveNode(db: Db, token: string, expected = "node"): Promise<number> {
-  return resolveNodeToken(db, token, expected, { notFound: "list ids with: mimir list -f ids" });
+export async function resolveNode(
+  db: Db,
+  token: string,
+  expected = "task, phase, or initiative",
+): Promise<number> {
+  return resolveNodeToken(db, token, expected, { notFound: "see what exists: mimir list -f ids" });
 }
 
 /**
@@ -49,7 +55,9 @@ export async function resolveParent(
 ): Promise<{ kind: "project"; id: number } | { kind: "node"; id: number }> {
   const identity = parseIdentity(token);
   if (identity?.kind === "artifact") {
-    throw validation(`${token} is an artifact — a parent must be a project KEY or node (KEY-seq)`);
+    throw validation(
+      `${token} is an artifact — a parent must be a project (KEY) or a task/phase/initiative (KEY-seq)`,
+    );
   }
   if (identity?.kind === "node") {
     return { kind: "node", id: await resolveNode(db, token) };
@@ -66,9 +74,32 @@ export async function resolveParent(
 export async function echoNode(db: Db, nodeId: number, format: Format, io: Io): Promise<void> {
   const node = await loadNode(db, nodeId);
   if (node === undefined) {
-    throw notFound("node vanished before echo");
+    throw notFound("the record vanished before echo");
   }
   const view = await buildNodeView(db, node);
+  renderNodeView(view, format, io);
+}
+
+/**
+ * Echo the affected node with a what-happened signpost above it. `makeSignpost`
+ * receives the canonical rendered id (so the line matches the record header)
+ * and returns the effect line — `started MMR-3 · todo → in_progress`,
+ * `reordered MMR-3 → top`. The signpost shows on styled formats only; the
+ * record always follows (so a write needs no follow-up `get`).
+ */
+export async function echoNodeWith(
+  db: Db,
+  nodeId: number,
+  format: Format,
+  io: Io,
+  makeSignpost: (renderedId: string) => string,
+): Promise<void> {
+  const node = await loadNode(db, nodeId);
+  if (node === undefined) {
+    throw notFound("the record vanished before echo");
+  }
+  const view = await buildNodeView(db, node);
+  signpost(io, format, makeSignpost(view.id));
   renderNodeView(view, format, io);
 }
 

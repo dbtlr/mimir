@@ -530,7 +530,7 @@ export function toolCreate(
         if (args.parent === undefined) throw validation("create initiative requires parent");
         // Initiative parent must be a bare project KEY (not a node ref)
         if (parseId(args.parent) !== null) {
-          throw validation("an initiative's parent must be a project KEY, not a node ref");
+          throw validation("an initiative's parent must be a project (KEY)");
         }
         const pid = await projectId(db, args.parent);
         const node = await createInitiative(db, {
@@ -546,7 +546,7 @@ export function toolCreate(
         if (args.parent === undefined) throw validation("create phase requires parent");
         // Phase parent must be a node ref (initiative)
         if (parseId(args.parent) === null) {
-          throw validation("a phase's parent must be an initiative node ref (KEY-seq)");
+          throw validation("a phase's parent must be an initiative (KEY-seq)");
         }
         const parentNodeId = await nodeId(db, args.parent);
         const node = await createPhase(db, {
@@ -563,7 +563,7 @@ export function toolCreate(
         if (args.parent === undefined) throw validation("create task requires parent");
         // Task parent must be a node ref (phase or initiative)
         if (parseId(args.parent) === null) {
-          throw validation("a task's parent must be a phase or initiative node ref (KEY-seq)");
+          throw validation("a task's parent must be a phase or initiative (KEY-seq)");
         }
         const parentNodeId = await nodeId(db, args.parent);
         const node = await createTask(db, {
@@ -617,26 +617,26 @@ export function toolAttach(
       const nodes = await Promise.all(
         linkTokens.map(async (t) => {
           const n = await findNodeByRef(db, t);
-          if (n === undefined) throw notFound(`no node ${t}`);
+          if (n === undefined) throw notFound(`${t} doesn't exist`);
           return n;
         }),
       );
       const projects = new Set(nodes.map((n) => n.project_id));
-      if (projects.size > 1) throw validation("all attached nodes must be in one project");
+      if (projects.size > 1) throw validation("all the links must be in one project");
       const [resolvedProjectId] = projects;
       if (resolvedProjectId === undefined)
-        throw validation("internal: nodes resolved but project_id missing");
+        throw validation("internal: links resolved but project is missing");
       pid = resolvedProjectId;
       linkNodeIds.push(...nodes.map((n) => n.id));
       // If --project is also provided, it must agree
       if (args.project !== undefined) {
         const explicitId = await projectId(db, args.project);
-        if (explicitId !== pid)
-          throw validation("project disagrees with the linked node(s)' project");
+        if (explicitId !== pid) throw validation("project disagrees with the links' project");
       }
     } else {
-      // No node refs — project is required
-      if (args.project === undefined) throw validation("attach requires a node id or project key");
+      // No links — project is required
+      if (args.project === undefined)
+        throw validation("attach requires a link (KEY-seq) or a project key");
       pid = await projectId(db, args.project);
     }
 

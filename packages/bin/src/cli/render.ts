@@ -63,6 +63,23 @@ export function ok(io: Io, text: string): void {
   io.write(`${glyph} ${text}`);
 }
 
+/**
+ * The styled (human) formats carry prose — confirmations, signposts, hints;
+ * the structured formats (`json`/`jsonl`/`ids`) stay a clean machine contract.
+ */
+export const isStyled = (format: Format): boolean => format === "records" || format === "table";
+
+/**
+ * A mutation's what-happened signpost, emitted above the echoed record on
+ * styled formats only. The verb's effect (a transition, a re-parent, a
+ * reorder) is often invisible in the lean record — rank is never a field
+ * (ADR 0007), edges aren't echoed — so this line is the load-bearing signal
+ * that the write landed. Structured formats carry only the record.
+ */
+export function signpost(io: Io, format: Format, text: string): void {
+  if (isStyled(format)) ok(io, text);
+}
+
 /** Warning line on stderr — the shared `⚠`/`[warn]` glyph. */
 export function warn(io: Io, text: string): void {
   const glyph = io.plain ? "[warn]" : "\x1b[33m⚠\x1b[0m";

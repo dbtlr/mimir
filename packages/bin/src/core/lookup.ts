@@ -79,8 +79,8 @@ export async function resolveEntityToken(
   const identity = parseIdentity(token);
   if (identity === null) {
     throw notFound(
-      `no such id ${token}`,
-      "ids are KEY (project), KEY-seq (node), KEY-aN (artifact)",
+      `${token} is not a valid id`,
+      "ids: KEY (project) · KEY-seq (task/phase/initiative) · KEY-aN (artifact)",
     );
   }
   if (identity.kind === "project") {
@@ -98,7 +98,7 @@ export async function resolveEntityToken(
     return { entityType: "artifact", entityId: artifact.id };
   }
   const node = await findNodeByRef(tx, token);
-  if (node === undefined) throw notFound(`no node ${token}`);
+  if (node === undefined) throw notFound(`${token} doesn't exist`);
   return { entityType: "node", entityId: node.id };
 }
 
@@ -112,7 +112,7 @@ export async function resolveEntityToken(
 export async function resolveNodeToken(
   tx: Db | Tx,
   token: string,
-  expected = "node",
+  expected = "task, phase, or initiative",
   hints: { project?: string; artifact?: string; notFound?: string } = {},
 ): Promise<number> {
   const identity = parseIdentity(token);
@@ -124,7 +124,7 @@ export async function resolveNodeToken(
   }
   const node = await findNodeByRef(tx, token);
   if (node === undefined) {
-    throw notFound(`no node ${token}`, hints.notFound);
+    throw notFound(`${token} doesn't exist`, hints.notFound);
   }
   return node.id;
 }

@@ -79,7 +79,7 @@ export async function updateProject(
       .where("id", "=", id)
       .executeTakeFirst();
     if (project === undefined) {
-      throw notFound("project not found");
+      throw notFound("the project was not found");
     }
     if (fields.name !== undefined && fields.name.trim() === "") {
       throw validation("project name cannot be blank");
@@ -134,7 +134,7 @@ export async function updateArtifact(
       .where("id", "=", id)
       .executeTakeFirst();
     if (artifact === undefined) {
-      throw notFound("artifact not found");
+      throw notFound("the artifact was not found");
     }
     if (fields.title !== undefined) {
       await tx.updateTable("artifact").set({ title: fields.title }).where("id", "=", id).execute();
@@ -166,7 +166,7 @@ export async function attachArtifact(
       .where("id", "=", input.projectId)
       .executeTakeFirst();
     if (project === undefined) {
-      throw notFound("project not found");
+      throw notFound("the project was not found");
     }
     const seq = await allocateArtifactSeq(tx, input.projectId);
     const artifact = await tx
@@ -184,8 +184,8 @@ export async function attachArtifact(
     for (const nodeId of input.linkNodeIds ?? []) {
       const node = await requireNode(tx, nodeId);
       if (node.project_id !== input.projectId) {
-        const rendered = (await renderNodeId(tx, nodeId)) ?? "node";
-        throw validation(`linked node ${rendered} is in a different project`);
+        const rendered = (await renderNodeId(tx, nodeId)) ?? "it";
+        throw validation(`${rendered} is in a different project — links stay within one project`);
       }
       await tx
         .insertInto("artifact_link")

@@ -32,7 +32,7 @@ export async function allocateSeq(tx: Tx, projectId: number): Promise<number> {
     .returning("last_seq")
     .executeTakeFirst();
   if (row === undefined) {
-    throw notFound("project not found");
+    throw notFound("the project was not found");
   }
   return row.last_seq;
 }
@@ -46,7 +46,7 @@ export async function allocateArtifactSeq(tx: Tx, projectId: number): Promise<nu
     .returning("last_artifact_seq")
     .executeTakeFirst();
   if (row === undefined) {
-    throw notFound("project not found");
+    throw notFound("the project was not found");
   }
   return row.last_artifact_seq;
 }

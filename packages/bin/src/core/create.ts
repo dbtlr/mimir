@@ -81,7 +81,7 @@ export async function createInitiative(db: Db, input: CreateInitiativeInput): Pr
       .where("id", "=", input.projectId)
       .executeTakeFirst();
     if (project === undefined) {
-      throw notFound("project not found");
+      throw notFound("the project was not found");
     }
     const seq = await allocateSeq(tx, input.projectId);
     const node = await tx
@@ -113,10 +113,10 @@ export async function createPhase(db: Db, input: CreatePhaseInput): Promise<Node
   return db.transaction().execute(async (tx) => {
     const parent = await loadNode(tx, input.parentId);
     if (parent === undefined) {
-      throw notFound("parent node not found");
+      throw notFound("the parent was not found");
     }
     if (parent.type !== "initiative") {
-      throw validation(`a phase's parent must be an initiative, got ${parent.type}`);
+      throw validation(`a phase's parent must be an initiative, not a ${parent.type}`);
     }
     const seq = await allocateSeq(tx, parent.project_id);
     const node = await tx
@@ -151,10 +151,10 @@ export async function createTask(db: Db, input: CreateTaskInput): Promise<Node> 
   return db.transaction().execute(async (tx) => {
     const parent = await loadNode(tx, input.parentId);
     if (parent === undefined) {
-      throw notFound("parent node not found");
+      throw notFound("the parent was not found");
     }
     if (parent.type !== "phase" && parent.type !== "initiative") {
-      throw validation(`a task's parent must be a phase or initiative, got ${parent.type}`);
+      throw validation(`a task's parent must be a phase or initiative, not a ${parent.type}`);
     }
     const seq = await allocateSeq(tx, parent.project_id);
     // A fresh task is todo + none → in the rankable set → append to bottom.
