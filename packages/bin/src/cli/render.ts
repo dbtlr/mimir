@@ -118,18 +118,25 @@ function rollupSignpost(node: NodeView): string {
 }
 
 /**
- * Build the TTY-only onward hint lines. Shown only on styled formats (records/table)
- * when `io.isTTY` is true. Points to `mimir tree <id>` and the next leaf action.
+ * Build the TTY-only onward hint lines for a container node.
+ * Shown on the single-node `records` styled view (and `status -f records`) on a TTY.
+ * `table` (the set view) intentionally carries no per-entity hint.
+ * Points to `mimir tree <id>` and the next leaf action.
  */
-function onwardHint(node: NodeView, io: Io): string {
+function buildOnwardHint(id: string, isContainer: boolean, io: Io): string {
   if (!io.isTTY) return "";
-  if (node.type === "task") return "";
+  if (!isContainer) return "";
+  const projectKey = id.includes("-") ? id.split("-")[0] : id;
   const hintLines = [
     "",
-    `  hint  mimir tree ${node.id}   — full subtree`,
-    `        mimir list --status ready -s ${node.id.includes("-") ? node.id.split("-")[0] : node.id}   — leaf-actionable tasks`,
+    `  hint  mimir tree ${id}   — full subtree`,
+    `        mimir list --status ready -s ${projectKey}   — leaf-actionable tasks`,
   ];
   return hintLines.join("\n");
+}
+
+function onwardHint(node: NodeView, io: Io): string {
+  return buildOnwardHint(node.id, node.type !== "task", io);
 }
 
 /** `records` — bold id header + aligned `label  value` rows, bare fields then facets. */
@@ -278,16 +285,23 @@ export function renderArtifactDetail(artifact: ArtifactDetail, format: Format, i
   }
 }
 
-/** `records`-style rendering of `status_of` — label + distribution. */
+/** `records`-style rendering of `status_of` — label + distribution, with rollup signpost and TTY hint for containers. */
 export function renderStatus(status: StatusView, io: Io): string {
   const dist = Object.entries(status.distribution)
     .map(([word, count]) => `${word}:${String(count)}`)
     .join(", ");
+  // A non-empty distribution means this is a container (leaf tasks return distribution:{}).
+  const isContainer = Object.keys(status.distribution).length > 0;
+  const signpost = isContainer
+    ? ` (rollup over ${String(Object.values(status.distribution).reduce((s, c) => s + c, 0))} direct children)`
+    : "";
   const lines = [
     bold(status.id, io.plain),
-    row("status", statusCell(status.status, status.status.length, io.plain), 12),
+    row("status", statusCell(status.status, status.status.length, io.plain) + signpost, 12),
     row("distribution", dist === "" ? "(none)" : dist, 12),
   ];
+  const hint = buildOnwardHint(status.id, isContainer, io);
+  if (hint) lines.push(hint);
   return lines.join("\n");
 }
 

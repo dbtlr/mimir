@@ -142,6 +142,38 @@ describe("Rollup signpost and TTY hint (deliverable 2)", () => {
   });
 });
 
+// ─── Fix 1: status -f records signpost (MMR-90 review) ──────────────────────
+
+describe("status -f records signpost (MMR-90 review fix 1)", () => {
+  test("status <container> -f records on TTY shows rollup signpost", async () => {
+    await createTask(db, { parentId: phaseId, title: "t1" });
+    await createTask(db, { parentId: phaseId, title: "t2" });
+    const tty = fakeIo(true);
+    await runCli(["status", `MMR-${String(phaseSeq)}`, "-f", "records"], () => db, tty);
+    const text = tty.out.join("");
+    expect(text).toMatch(/rollup/);
+    expect(text).toMatch(/\d+ direct child/);
+    expect(text).toContain("mimir tree");
+  });
+
+  test("status <container> default (json) has NO prose hint and is structurally unchanged", async () => {
+    await createTask(db, { parentId: phaseId, title: "t1" });
+    const io = fakeIo(true); // even TTY: json path must stay clean
+    await runCli(["status", `MMR-${String(phaseSeq)}`], () => db, io);
+    const text = io.out.join("");
+    expect(text).not.toContain("mimir tree");
+    expect(text).not.toContain("hint");
+    const parsed = JSON.parse(text) as {
+      id: string;
+      status: string;
+      distribution: Record<string, number>;
+    };
+    expect(parsed.id).toBeDefined();
+    expect(parsed.status).toBeDefined();
+    expect(parsed.distribution).toBeDefined();
+  });
+});
+
 // ─── Deliverable 3: mimir tree <id> ─────────────────────────────────────────
 
 describe("mimir tree (deliverable 3)", () => {
