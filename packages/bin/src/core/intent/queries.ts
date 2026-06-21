@@ -12,7 +12,7 @@ import type { FieldFilter, StatusSelector, ValueWarning, VerdictSelector } from 
 import type { Node } from "../../db/schema";
 import type { Db } from "../context";
 import { isTerminalWord, nodeStatusWord, statusOf, statusOfProject } from "../derive";
-import { notFound, validation } from "../errors";
+import { notFound, projectNotFound, validation } from "../errors";
 import { parseIdentity } from "../ids";
 import { findArtifactByRef, findNodeByRef, renderNodeId } from "../lookup";
 import { isBlocking, isOrphaned, isReady, isStale } from "../predicates";
@@ -32,7 +32,7 @@ async function resolveScope(db: Db, key: string): Promise<number> {
     .where("key", "=", key)
     .executeTakeFirst();
   if (project === undefined) {
-    throw notFound(`no project with key ${key}`);
+    throw projectNotFound(key);
   }
   return project.id;
 }
@@ -287,7 +287,7 @@ export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promis
       .where("key", "=", identity.key)
       .executeTakeFirst();
     if (project === undefined) {
-      throw notFound(`no project ${id}`);
+      throw projectNotFound(identity.key);
     }
     return buildProjectView(db, project, facets);
   }
@@ -334,7 +334,7 @@ export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
       .where("key", "=", identity.key)
       .executeTakeFirst();
     if (project === undefined) {
-      throw notFound(`no project ${id}`);
+      throw projectNotFound(identity.key);
     }
     const { status, distribution } = await statusOfProject(db, project.id);
     return { id: identity.key, status, distribution };
