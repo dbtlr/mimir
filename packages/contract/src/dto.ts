@@ -26,9 +26,10 @@ export type Distribution = Partial<Record<StatusWord, number>>;
 /** The projected `type` vocabulary — the three tree-node types plus the project itself (MMR-32). */
 export type ViewType = NodeType | "project";
 
-/** A light reference to another node — its id, optionally its Status word. */
+/** A light reference to another node — its id, title, and optionally its Status word. */
 export interface NodeRef {
   id: string;
+  title?: string;
   status?: StatusWord;
 }
 

@@ -1,5 +1,5 @@
 import { formatArtifactJson, formatNodeJson } from "../core";
-import type { ArtifactDetail, NodeView, SetResult, StatusView } from "@mimir/contract";
+import type { ArtifactDetail, NodeView, SetResult, StatusView, TreeView } from "@mimir/contract";
 import type { StatusWord } from "@mimir/contract";
 
 export const FORMATS = ["table", "records", "ids", "json", "jsonl"] as const;
@@ -100,12 +100,46 @@ function row(label: string, value: string, labelW: number): string {
   return `  ${pad(label, labelW)}  ${value}`;
 }
 
+/**
+ * Build a rollup signpost suffix for a container's status line.
+ * Returns `" (rollup over N direct children)"` when children are known.
+ * Prefers `children.length` (exact); falls back to summing the distribution.
+ */
+function rollupSignpost(node: NodeView): string {
+  if (node.type === "task") return "";
+  let n = 0;
+  if (node.children !== undefined) {
+    n = node.children.length;
+  } else if (node.distribution !== undefined) {
+    n = Object.values(node.distribution).reduce((s, c) => s + c, 0);
+  }
+  if (n === 0) return "";
+  return ` (rollup over ${String(n)} direct child${n === 1 ? "" : "ren"})`;
+}
+
+/**
+ * Build the TTY-only onward hint lines. Shown only on styled formats (records/table)
+ * when `io.isTTY` is true. Points to `mimir tree <id>` and the next leaf action.
+ */
+function onwardHint(node: NodeView, io: Io): string {
+  if (!io.isTTY) return "";
+  if (node.type === "task") return "";
+  const hintLines = [
+    "",
+    `  hint  mimir tree ${node.id}   — full subtree`,
+    `        mimir list --status ready -s ${node.id.includes("-") ? node.id.split("-")[0] : node.id}   — leaf-actionable tasks`,
+  ];
+  return hintLines.join("\n");
+}
+
 /** `records` — bold id header + aligned `label  value` rows, bare fields then facets. */
 export function renderRecords(node: NodeView, io: Io): string {
   const lines = [bold(node.id, io.plain)];
+  const isContainer = node.type !== "task";
+  const signpost = isContainer ? rollupSignpost(node) : "";
   const pairs: [string, string][] = [
     ["type", node.type],
-    ["status", statusCell(node.status, node.status.length, io.plain)],
+    ["status", statusCell(node.status, node.status.length, io.plain) + signpost],
     ["title", node.title],
   ];
   if (node.parent !== null) pairs.push(["parent", node.parent]);
@@ -120,13 +154,27 @@ export function renderRecords(node: NodeView, io: Io): string {
   if (node.completedAt != null) pairs.push(["completed", node.completedAt]);
 
   if (node.deps !== undefined && node.deps.dependsOn.length > 0) {
-    pairs.push(["depends on", node.deps.dependsOn.map((r) => r.id).join(", ")]);
+    pairs.push([
+      "depends on",
+      node.deps.dependsOn.map((r) => (r.title ? `${r.id} · ${r.title}` : r.id)).join(", "),
+    ]);
   }
   if (node.deps !== undefined && node.deps.blocking.length > 0) {
-    pairs.push(["blocking", node.deps.blocking.map((r) => r.id).join(", ")]);
+    pairs.push([
+      "blocking",
+      node.deps.blocking.map((r) => (r.title ? `${r.id} · ${r.title}` : r.id)).join(", "),
+    ]);
   }
   if (node.children !== undefined && node.children.length > 0) {
-    pairs.push(["children", node.children.map((r) => `${r.id} (${r.status ?? "?"})`).join(", ")]);
+    pairs.push([
+      "children",
+      node.children
+        .map((r) => {
+          const base = r.title ? `${r.id} · ${r.title}` : r.id;
+          return r.status ? `${base} (${r.status})` : base;
+        })
+        .join(", "),
+    ]);
   }
   if (node.distribution !== undefined && Object.keys(node.distribution).length > 0) {
     const dist = Object.entries(node.distribution)
@@ -161,6 +209,8 @@ export function renderRecords(node: NodeView, io: Io): string {
   for (const [label, value] of pairs) {
     lines.push(row(label, value, labelW));
   }
+  const hint = onwardHint(node, io);
+  if (hint) lines.push(hint);
   return lines.join("\n");
 }
 
@@ -239,4 +289,17 @@ export function renderStatus(status: StatusView, io: Io): string {
     row("distribution", dist === "" ? "(none)" : dist, 12),
   ];
   return lines.join("\n");
+}
+
+/**
+ * `tree` — compact indented hierarchy: `id · status · title`, rank-then-seq
+ * order (children already arrive in that order from `nodeTree`/`projectTree`).
+ * Each depth level is indented by two spaces. The root node is unindented.
+ */
+export function renderTree(tree: TreeView, io: Io, depth = 0): string {
+  const indent = "  ".repeat(depth);
+  const statusGlyph = statusCell(tree.status, tree.status.length, io.plain);
+  const line = `${indent}${tree.id} · ${statusGlyph} · ${tree.title}`;
+  const childLines = tree.children.map((child) => renderTree(child, io, depth + 1));
+  return [line, ...childLines].join("\n");
 }

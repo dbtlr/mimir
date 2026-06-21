@@ -18,6 +18,7 @@ import {
 } from "@mimir/contract";
 import {
   MimirError,
+  emitWire,
   formatIds,
   formatSetJson,
   formatSetJsonl,
@@ -26,9 +27,11 @@ import {
   getNode,
   listNodes,
   nextTasks,
+  nodeTree,
   parseFilterToken,
   parseIdentity,
   statusOfNode,
+  treeToWire,
 } from "../core";
 import type { Db } from "../core";
 import { FULL_HELP, TERSE_HELP } from "./help";
@@ -41,6 +44,7 @@ import {
   renderRecords,
   renderStatus,
   renderTable,
+  renderTree,
 } from "./render";
 import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from "./errors";
 import { BINDING_FILE, writeBinding } from "./binding";
@@ -296,6 +300,27 @@ export async function runCli(
         const status = await statusOfNode(await getDb(), id);
         const format = pickFormat(values.format, "status", ctx);
         ctx.write(format === "json" ? formatStatusJson(status) : renderStatus(status, ctx));
+        return 0;
+      }
+      case "tree": {
+        const id = requireId(positionals[1], "tree");
+        const tree = await nodeTree(await getDb(), id);
+        const format = pickFormat(values.format, "single", ctx);
+        switch (format) {
+          case "json":
+            ctx.write(emitWire(treeToWire(tree), true));
+            break;
+          case "jsonl":
+            ctx.write(emitWire(treeToWire(tree), false));
+            break;
+          case "ids":
+            ctx.write(tree.id);
+            break;
+          case "records":
+          case "table":
+            ctx.write(renderTree(tree, ctx));
+            break;
+        }
         return 0;
       }
       case "start":

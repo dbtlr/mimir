@@ -9,6 +9,9 @@ read commands:
   list            broad selection by predicate/scope/tag
   get <id>        full record: node (KEY-seq), project (KEY), artifact (KEY-aN)
   status <id>     rollup distribution + status (node KEY-seq or project KEY)
+  tree <id>       full subtree rooted at any node (KEY-seq) or project (KEY)
+                  compact indented view: id · status · title; use after get/status
+                  to drill into a container's hierarchy
 
 manage commands:
   lifecycle:
@@ -127,6 +130,8 @@ examples:
   mimir get MMR-16 --col history      # add the transition log
   mimir get MMR-a1 --col content      # an artifact's frozen body
   mimir status MMR-3                  # rollup of an initiative/phase
+  mimir tree MMR                      # full hierarchy under the project
+  mimir tree MMR-3                    # subtree rooted at a phase/initiative
   mimir next --format json | jq .     # structured output for scripts
 
   mimir create task "wire the API" --parent MMR-2 --priority p1
