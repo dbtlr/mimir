@@ -126,6 +126,7 @@ examples:
   mimir list --is stale               # tasks that have gone quiet
   mimir list --status done --after completed_at:2026-06-01
   mimir list --eq priority:p1 --missing size
+  mimir list --eq type:phase                  # filter to phases (use --in type:phase,task for multi-type)
   mimir get MMR-16                    # full record (cheap facets included)
   mimir get MMR-16 --col history      # add the transition log
   mimir get MMR-a1 --col content      # an artifact's frozen body

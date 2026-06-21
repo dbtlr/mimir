@@ -92,7 +92,6 @@ const OPTIONS = {
   "not-after": { type: "string", multiple: true },
   tag: { type: "string", short: "t", multiple: true },
   note: { type: "string" },
-  type: { type: "string" },
   limit: { type: "string", short: "n" },
   col: { type: "string", multiple: true },
   format: { type: "string", short: "f" },
@@ -183,7 +182,6 @@ export async function runCli(
     "not-after"?: string[];
     tag?: string[];
     note?: string;
-    type?: string;
     limit?: string;
     col?: string[];
     format?: string;

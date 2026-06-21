@@ -482,3 +482,27 @@ test("--col takes flat column names; the dot form is a usage error", async () =>
   expect(await runCli(["get", ref, "--col", "bogus"], () => db, unknown)).toBe(2);
   expect(unknown.err.join("")).toContain("unknown column: bogus");
 });
+
+// --type removal (MMR-94)
+
+test("list --eq type:phase filters to phases only", async () => {
+  // The db has one phase (phaseId) and a task; ensure --eq type:phase returns phase but not tasks.
+  const t = await createTask(db, { parentId: phaseId, title: "a task" });
+  const io = fakeIo(false);
+  const code = await runCli(
+    ["list", "--scope", "MMR", "--status", "all", "--eq", "type:phase", "-f", "ids"],
+    () => db,
+    io,
+  );
+  expect(code).toBe(0);
+  const out = io.out.join("");
+  // Should contain a phase id (MMR-N) but not the task id
+  expect(out).toContain("MMR-");
+  expect(out).not.toContain(`MMR-${String(t.seq)}`);
+});
+
+test("--type is now an unknown option → rejected with exit 2 (MMR-94)", async () => {
+  const io = fakeIo(false);
+  const code = await runCli(["list", "--type", "phase"], () => db, io);
+  expect(code).toBe(2);
+});
