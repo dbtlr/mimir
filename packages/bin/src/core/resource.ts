@@ -58,7 +58,7 @@ export async function projectTree(
     .where("key", "=", key)
     .executeTakeFirst();
   if (project === undefined) {
-    throw notFound(`no project ${key}`);
+    throw notFound(`no project ${key}`, `create it: mimir create project "Name" --key ${key} -y`);
   }
   const facetSet = new Set(facets);
 
