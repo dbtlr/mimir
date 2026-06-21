@@ -2,6 +2,7 @@ import type { NewTransitionRow, Node } from "../../db/schema";
 import type { Tx } from "../context";
 import { invariant, notFound, validation } from "../errors";
 import { renderNodeId } from "../lookup";
+import { isReady } from "../predicates";
 import { now } from "../time";
 
 /**
@@ -29,13 +30,59 @@ export async function requireNode(tx: Tx, id: number): Promise<Node> {
   return node;
 }
 
+/**
+ * Collect ready descendant task ids under a container node, for actionable hints.
+ * Walks all tasks in the same project, checks parent chain for containment, then
+ * readiness (dependency settlement). Returns rendered ids like ["MMR-3", "MMR-4"].
+ */
+async function readyDescendantIds(tx: Tx, container: Node): Promise<string[]> {
+  const candidates = await tx
+    .selectFrom("node")
+    .selectAll()
+    .where("project_id", "=", container.project_id)
+    .where("type", "=", "task")
+    .where("lifecycle", "=", "todo")
+    .where("hold", "=", "none")
+    .where("rank", "is not", null)
+    .execute();
+
+  const ids: string[] = [];
+  for (const task of candidates) {
+    // Walk parent chain to check containment.
+    let cur: number | null = task.parent_id;
+    let isDescendant = false;
+    while (cur !== null) {
+      if (cur === container.id) {
+        isDescendant = true;
+        break;
+      }
+      const row = await tx
+        .selectFrom("node")
+        .select("parent_id")
+        .where("id", "=", cur)
+        .executeTakeFirst();
+      cur = row?.parent_id ?? null;
+    }
+    if (!isDescendant) continue;
+    if (!(await isReady(tx, task))) continue;
+    const rendered = await renderNodeId(tx, task.id);
+    if (rendered !== null) ids.push(rendered);
+  }
+  return ids;
+}
+
 /** Load a node, asserting it is a task (verbs that touch lifecycle/hold/rank). */
 export async function requireTask(tx: Tx, id: number): Promise<Node> {
   const node = await requireNode(tx, id);
   if (node.type !== "task") {
     const rendered = (await renderNodeId(tx, id)) ?? "node";
     const article = node.type === "initiative" ? "an" : "a";
-    throw validation(`${rendered} is ${article} ${node.type}, not a task`);
+    const readyIds = await readyDescendantIds(tx, node);
+    const hint =
+      readyIds.length > 0
+        ? `containers aren't started directly — start a ready task under it: ${readyIds.join(", ")}`
+        : `containers aren't started directly — no ready tasks under it; see its shape with 'mimir tree ${rendered}'`;
+    throw validation(`${rendered} is ${article} ${node.type}, not a task`, hint);
   }
   return node;
 }

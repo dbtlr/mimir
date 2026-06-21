@@ -33,7 +33,7 @@ export async function resolveNode(db: Db, token: string, expected = "node"): Pro
 export async function resolveProject(db: Db, key: string): Promise<number> {
   const row = await db.selectFrom("project").select("id").where("key", "=", key).executeTakeFirst();
   if (row === undefined) {
-    throw notFound(`no project ${key}`);
+    throw notFound(`no project ${key}`, `create it: mimir create project "Name" --key ${key} -y`);
   }
   return row.id;
 }

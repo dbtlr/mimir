@@ -89,7 +89,11 @@ export async function resolveEntityToken(
       .select("id")
       .where("key", "=", identity.key)
       .executeTakeFirst();
-    if (project === undefined) throw notFound(`no project ${token}`);
+    if (project === undefined)
+      throw notFound(
+        `no project ${token}`,
+        `create it: mimir create project "Name" --key ${token} -y`,
+      );
     return { entityType: "project", entityId: project.id };
   }
   if (identity.kind === "artifact") {
