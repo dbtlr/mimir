@@ -6,6 +6,7 @@
 
 import {
   buildNodeView,
+  buildProjectView,
   loadNode,
   notFound,
   parseIdentity,
@@ -67,6 +68,24 @@ export async function echoNode(db: Db, nodeId: number, format: Format, io: Io): 
     throw notFound("node vanished before echo");
   }
   const view = await buildNodeView(db, node);
+  renderNodeView(view, format, io);
+}
+
+/**
+ * Echo the updated project record to stdout in the requested format. Accepts
+ * the project key, loads the row, and projects it to a view through the same
+ * path as `get KEY`. Matches the write-echo idiom of every other mutation.
+ */
+export async function echoProject(db: Db, key: string, format: Format, io: Io): Promise<void> {
+  const project = await db
+    .selectFrom("project")
+    .selectAll()
+    .where("key", "=", key)
+    .executeTakeFirst();
+  if (project === undefined) {
+    throw notFound(`project ${key} vanished before echo`);
+  }
+  const view = await buildProjectView(db, project);
   renderNodeView(view, format, io);
 }
 

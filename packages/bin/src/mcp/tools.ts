@@ -12,11 +12,13 @@ import {
 import {
   MimirError,
   type UpdateFields,
+  type UpdateProjectFields,
   abandonTask,
   annotate,
   attachArtifact,
   blockTask,
   buildNodeView,
+  buildProjectView,
   completeTask,
   createInitiative,
   createPhase,
@@ -48,6 +50,7 @@ import {
   untagEntities,
   updateArtifact,
   updateNode,
+  updateProject,
   validation,
 } from "../core";
 import type { Db } from "../core";
@@ -356,6 +359,7 @@ export function toolUpdate(
   args: {
     id: string;
     title?: string;
+    name?: string;
     description?: string;
     priority?: string;
     size?: string;
@@ -366,6 +370,9 @@ export function toolUpdate(
   return guard(async () => {
     if (parseIdentity(args.id)?.kind === "artifact") {
       return updateArtifactTool(db, args);
+    }
+    if (parseIdentity(args.id)?.kind === "project") {
+      return updateProjectTool(db, args);
     }
     const id = await nodeId(db, args.id);
     const fields: UpdateFields = {};
@@ -378,6 +385,44 @@ export function toolUpdate(
     const node = await updateNode(db, id, fields);
     return echoNode(db, node);
   });
+}
+
+/** `update KEY` — patch a project's `name` and/or `description` (MMR-88). */
+async function updateProjectTool(
+  db: Db,
+  args: {
+    id: string;
+    name?: string;
+    description?: string;
+    title?: string;
+    priority?: string;
+    size?: string;
+    target?: string;
+    externalRef?: string;
+  },
+): Promise<ToolResult> {
+  const nodeOnly = (["title", "priority", "size", "target", "externalRef"] as const).filter(
+    (k) => args[k] !== undefined,
+  );
+  if (nodeOnly.length > 0) {
+    throw validation(
+      `${nodeOnly.join(", ")} appl${nodeOnly.length === 1 ? "ies" : "y"} only to nodes — use name to rename a project`,
+    );
+  }
+  const key = args.id;
+  const pid = await projectId(db, key);
+  const fields: UpdateProjectFields = {};
+  if (args.name !== undefined) fields.name = args.name;
+  if (args.description !== undefined) fields.description = args.description;
+  await updateProject(db, pid, fields);
+  // Echo the updated project through the same projection as getNode/get KEY
+  const project = await db
+    .selectFrom("project")
+    .selectAll()
+    .where("id", "=", pid)
+    .executeTakeFirst();
+  if (project === undefined) throw notFound(`no project ${key}`);
+  return ok(formatNodeJson(await buildProjectView(db, project)));
 }
 
 /** `update` on a `KEY-aN` id — title is an artifact's one mutable field (MMR-40). */
@@ -474,6 +519,7 @@ export function toolCreate(
         const project = await createProject(db, {
           key: args.key,
           name: args.name,
+          description: args.description,
           tags: args.tags,
         });
         return ok(JSON.stringify({ project: { key: project.key, name: project.name } }));

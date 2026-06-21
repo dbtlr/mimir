@@ -29,6 +29,7 @@ interface ProjectTable {
   id: Generated<number>;
   key: string;
   name: string;
+  description: string | null;
   last_seq: Defaulted<number>;
   last_artifact_seq: Defaulted<number>;
   created_at: DefaultedTimestamp;

@@ -32,14 +32,22 @@ import {
   untagEntities,
   updateArtifact,
   updateNode,
+  updateProject,
   validation,
 } from "../core";
-import type { Db, RankPosition, UpdateFields } from "../core";
+import type { Db, RankPosition, UpdateFields, UpdateProjectFields } from "../core";
 import { usage } from "./errors";
 import { parsePriority, parseSize } from "./parse";
 import { renderArtifactDetail } from "./render";
 import type { Format, Io } from "./render";
-import { echoNode, readContent, resolveNode, resolveParent, resolveProject } from "./resolve";
+import {
+  echoNode,
+  echoProject,
+  readContent,
+  resolveNode,
+  resolveParent,
+  resolveProject,
+} from "./resolve";
 
 /** Shared dispatch context built once in `run.ts` for every write verb. */
 export interface Ctx {
@@ -180,6 +188,9 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
   if (parseIdentity(token)?.kind === "artifact") {
     return await cmdUpdateArtifact(c, token);
   }
+  if (parseIdentity(token)?.kind === "project") {
+    return await cmdUpdateProject(c, token);
+  }
   const id = await resolveNode(c.db, token);
   const fields: UpdateFields = {};
   if (typeof c.values.title === "string") fields.title = c.values.title;
@@ -190,6 +201,29 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
   if (typeof c.values.ref === "string") fields.externalRef = c.values.ref;
   await updateNode(c.db, id, fields);
   await echoNode(c.db, id, c.format, c.io);
+  return 0;
+}
+
+/** `update KEY` — patch a project's `name` and/or `description` (MMR-88). */
+async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
+  // Flags that only apply to nodes (not projects)
+  for (const [key, flag] of [
+    ["title", "--title"],
+    ["priority", "--priority"],
+    ["size", "--size"],
+    ["target", "--target"],
+    ["ref", "--ref"],
+  ] as const) {
+    if (c.values[key] !== undefined) {
+      throw validation(`${flag} applies only to nodes — use --name to rename a project`);
+    }
+  }
+  const projectId = await resolveProject(c.db, token);
+  const fields: UpdateProjectFields = {};
+  if (typeof c.values.name === "string") fields.name = c.values.name;
+  if (typeof c.values.desc === "string") fields.description = c.values.desc;
+  await updateProject(c.db, projectId, fields);
+  await echoProject(c.db, token, c.format, c.io);
   return 0;
 }
 
@@ -396,6 +430,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       const project = await createProject(c.db, {
         key,
         name,
+        description: optStr(c, "desc"),
         tags: tagFlags(c),
       });
       if (c.format === "json" || c.format === "jsonl") {

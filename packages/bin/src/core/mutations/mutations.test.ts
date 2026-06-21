@@ -21,6 +21,7 @@ import {
   undepend,
   updateArtifact,
   updateNode,
+  updateProject,
 } from "./index";
 
 let db: Db;
@@ -211,6 +212,27 @@ test("updateArtifact retitles; content frozen; blank title and unknown id refuse
   expect(row.content).toBe("# body"); // content is never touched
   await expectMimirError("validation", () => updateArtifact(db, artifactId, { title: "  " }));
   await expectMimirError("not_found", () => updateArtifact(db, 9999, { title: "x" }));
+});
+
+test("updateProject patches name and description; key is immutable (MMR-88)", async () => {
+  const updated = await updateProject(db, projectId, { name: "New Name", description: "details" });
+  expect(updated.name).toBe("New Name");
+  expect(updated.description).toBe("details");
+
+  // Patch only description — name untouched
+  const again = await updateProject(db, projectId, { description: "updated desc" });
+  expect(again.name).toBe("New Name");
+  expect(again.description).toBe("updated desc");
+
+  // Clear description with explicit null
+  const cleared = await updateProject(db, projectId, { description: null });
+  expect(cleared.description).toBeNull();
+
+  // Blank name is rejected
+  await expectMimirError("validation", () => updateProject(db, projectId, { name: "  " }));
+
+  // Missing project
+  await expectMimirError("not_found", () => updateProject(db, 9999, { name: "x" }));
 });
 
 test("reorder moves within the rankable set and refuses terminal/held tasks", async () => {

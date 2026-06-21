@@ -18,6 +18,7 @@ import {
   attachArtifact,
   blockTask,
   buildNodeView,
+  buildProjectView,
   completeTask,
   createInitiative,
   createPhase,
@@ -51,6 +52,7 @@ import {
   untagEntities,
   updateArtifact,
   updateNode,
+  updateProject,
   validation,
 } from "../core";
 import { guarded, json, preflight, readBody, requiredStr, strField, strList } from "./respond";
@@ -248,10 +250,11 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           }),
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["key", "name", "tags"]);
+            const body = await readBody(req, ["key", "name", "description", "tags"]);
             const project = await createProject(db, {
               key: requiredStr(body, "key", "create project"),
               name: requiredStr(body, "name", "create project"),
+              description: strField(body, "description"),
               tags: strList(body, "tags"),
             });
             const view = await getNode(db, project.key, { facets: PROJECT_FACETS });
@@ -267,6 +270,32 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
               throw validation(`${key} is not a project key`, "nodes live at /api/nodes/:id");
             }
             const view = await getNode(db, key, { facets: PROJECT_FACETS });
+            return json(req, nodeToWire(view));
+          }),
+        PATCH: (req) =>
+          guarded(req, async () => {
+            const key = req.params.key;
+            if (parseIdentity(key)?.kind !== "project") {
+              throw validation(`${key} is not a project key`, "nodes live at /api/nodes/:id");
+            }
+            const body = await readBody(req, ["name", "title", "description"]);
+            // Accept both `name` and `title` as the project name field
+            // (`title` follows the NodeView wire name; `name` is the native field).
+            const name = strField(body, "name") ?? strField(body, "title");
+            const description = strField(body, "description");
+            const project = await db
+              .selectFrom("project")
+              .select("id")
+              .where("key", "=", key)
+              .executeTakeFirst();
+            if (project === undefined) throw notFound(`no project ${key}`);
+            await updateProject(db, project.id, { name, description });
+            const updated = await db
+              .selectFrom("project")
+              .selectAll()
+              .where("id", "=", project.id)
+              .executeTakeFirstOrThrow();
+            const view = await buildProjectView(db, updated, new Set(PROJECT_FACETS));
             return json(req, nodeToWire(view));
           }),
       },
