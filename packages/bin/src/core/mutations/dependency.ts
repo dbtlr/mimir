@@ -41,13 +41,13 @@ export async function depend(db: Db, id: number, onIds: number[]): Promise<Node>
     await requireNode(tx, id);
     for (const onId of onIds) {
       if (onId === id) {
-        throw validation("a node cannot depend on itself");
+        throw validation("a task cannot depend on itself");
       }
       await requireNode(tx, onId);
       // adding id → onId closes a cycle iff onId already reaches id
       if (await reaches(tx, onId, id)) {
-        const from = (await renderNodeId(tx, id)) ?? "node";
-        const to = (await renderNodeId(tx, onId)) ?? "node";
+        const from = (await renderNodeId(tx, id)) ?? "it";
+        const to = (await renderNodeId(tx, onId)) ?? "it";
         throw validation(`dependency would create a cycle (${from} → ${to})`);
       }
       const existing = await tx

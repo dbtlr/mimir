@@ -7,9 +7,9 @@ usage: mimir <command> [options]
 read commands:
   next            ready tasks in rank order ("what's next")
   list            broad selection by predicate/scope/tag
-  get <id>        full record: node (KEY-seq), project (KEY), artifact (KEY-aN)
-  status <id>     rollup distribution + status (node KEY-seq or project KEY)
-  tree <id>       full subtree rooted at any node (KEY-seq) or project (KEY)
+  get <id>        full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN)
+  status <id>     rollup distribution + status (KEY-seq or project KEY)
+  tree <id>       full subtree rooted at any KEY-seq or project (KEY)
                   compact indented view: id · status · title; use after get/status
                   to drill into a container's hierarchy
 
@@ -28,7 +28,7 @@ manage commands:
   structure:
     depend <id> --on <ids>              add dependency edges
     undepend <id> --on <ids>            remove dependency edges
-    move <id> --to <parent>             re-parent a node
+    move <id> --to <parent>             re-parent a task or phase
     reorder <id> --top|--bottom|        change rank within parent
              --before <id>|--after <id>
 
@@ -41,7 +41,7 @@ manage commands:
   create/attach:
     create <type> <name> […]            create project/initiative/phase/task
                                         (repeatable --tag <t> tags at creation)
-    attach <id> --file <path>           freeze an artifact onto a node
+    attach <id> --file <path>           freeze an artifact onto a task or phase
 
   binding:
     bind <KEY>              bind this directory to a project — writes
@@ -71,7 +71,7 @@ options:
                           annotations artifacts history; content on KEY-aN —
                           set-valued columns are heavier, opt-in)
   -f, --format <fmt>      table|records|ids|json|jsonl (default: table for a
-                          set, records for a node — piped or not; -f ids for
+                          set, records for a single result — piped or not; -f ids for
                           bare ids, -f json to parse)
       --ascii             no color/icons
   -h, --help              -h terse, --help with examples
@@ -83,7 +83,7 @@ options:
       --after <id>        reorder: insert after this sibling
       --top               reorder: move to first position
       --bottom            reorder: move to last position
-      --parent <KEY|id>   create: parent node for initiative/phase/task
+      --parent <KEY|id>   create: parent for initiative/phase/task
       --key <KEY>         create project: short identifier key
   -y, --yes               create project: confirm the immutable key
                           (required when not at a TTY)
@@ -93,7 +93,7 @@ options:
       --target <text>     create/update: target date or milestone
       --ref <ref>         create/update: external reference
       --file <path>       attach: path to artifact file
-      --link <ids>        attach: additional node links (comma-separated)
+      --link <ids>        attach: additional links — KEY-seq, comma-separated
       --project <KEY>     attach: associate artifact with a project key
       --note <text>       tag: note stored with each tag application
       --tag <t>           create: tag at creation (repeatable)
@@ -146,14 +146,14 @@ examples:
   mimir list -s all --is stale        # cross-project, ignoring the binding
 
 notes:
-  - ids: project = bare KEY, node = KEY-seq, artifact = KEY-aN; any id
-    position takes the full grammar — the verb rejects what it can't act on.
+  - ids: project = bare KEY, task/phase/initiative = KEY-seq, artifact = KEY-aN;
+    any id position takes the full grammar — the verb rejects what it can't act on.
   - identity selection (get/status) exits non-zero on a missing id;
     set selection (next/list) exits 0 on an empty result. A value miss
     (--eq priority:p9) warns on stderr and returns an empty set (exit 0);
     an unknown field or wrong-type operator is a usage error (exit 2).
   - mutations exit non-zero on a missing id or invariant violation and
-    echo the affected node on success.
+    echo the affected record on success.
   - rank is never shown — array order is the order (ADR 0007).
   - structured formats (ids/json/jsonl) never carry color; pipe-safe.
   - scope default: the nearest .mimir.toml walking up from cwd (mimir bind);

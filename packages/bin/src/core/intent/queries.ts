@@ -292,11 +292,11 @@ export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promis
     return buildProjectView(db, project, facets);
   }
   if (identity?.kind === "artifact") {
-    throw validation(`${id} is an artifact — use getArtifact`, "transports dispatch on the id");
+    throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
   const node = await findNodeByRef(db, id);
   if (node === undefined) {
-    throw notFound(`no node with id ${id}`);
+    throw notFound(`${id} doesn't exist`);
   }
   return buildNodeView(db, node, facets);
 }
@@ -312,11 +312,11 @@ export async function getArtifact(
 ): Promise<ArtifactDetail> {
   const identity = parseIdentity(id);
   if (identity?.kind !== "artifact") {
-    throw notFound(`no artifact with id ${id}`);
+    throw notFound(`${id} is not an artifact id`, "artifact ids look like KEY-aN");
   }
   const artifact = await findArtifactByRef(db, identity);
   if (artifact === undefined) {
-    throw notFound(`no artifact with id ${id}`);
+    throw notFound(`no artifact ${id}`);
   }
   return buildArtifactDetail(db, artifact, identity.key, opts);
 }
@@ -340,11 +340,11 @@ export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
     return { id: identity.key, type: "project", status, distribution };
   }
   if (identity?.kind === "artifact") {
-    throw validation(`${id} is an artifact, not a project or node`);
+    throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
   const node = await findNodeByRef(db, id);
   if (node === undefined) {
-    throw notFound(`no node with id ${id}`);
+    throw notFound(`${id} doesn't exist`);
   }
   const { status, distribution } = await statusOf(db, node);
   return { id: (await renderNodeId(db, node.id)) ?? id, type: node.type, status, distribution };

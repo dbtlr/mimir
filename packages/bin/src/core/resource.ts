@@ -88,19 +88,19 @@ export async function nodeTree(
 ): Promise<TreeView> {
   const identity = parseIdentity(id);
   if (identity === null) {
-    throw notFound(`no such id ${id}`);
+    throw notFound(`${id} is not a valid id`);
   }
   // Project root — delegate to the existing builder.
   if (identity.kind === "project") {
     return projectTree(db, identity.key, facets);
   }
   if (identity.kind === "artifact") {
-    throw notFound(`${id} is an artifact, not a node or project`);
+    throw notFound(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
   // Node id — resolve it and recurse down.
   const rootNode = await findNodeByRef(db, id);
   if (rootNode === undefined) {
-    throw notFound(`no node with id ${id}`);
+    throw notFound(`${id} doesn't exist`);
   }
   const facetSet = new Set(facets);
 

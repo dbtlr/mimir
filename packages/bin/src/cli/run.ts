@@ -248,7 +248,9 @@ export async function runCli(
       case "next": {
         const nextScope = effectiveScope(values.scope, defaults.scope);
         const nextEmptyMsg =
-          nextScope !== undefined ? `No ready tasks in ${nextScope}.` : "No ready tasks.";
+          nextScope !== undefined
+            ? `No ready tasks in ${nextScope} — mimir list --status awaiting -s ${nextScope} shows what's queued`
+            : "No ready tasks — mimir list --status awaiting shows what's queued";
         return runSet(
           await nextTasks(await getDb(), {
             scope: nextScope,
@@ -279,7 +281,7 @@ export async function runCli(
           }),
           values.format,
           ctx,
-          "No tasks match.",
+          "No tasks match — try --status all, or drop a filter",
         );
       case "get": {
         const id = requireId(positionals[1], "get");

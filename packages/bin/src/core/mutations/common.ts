@@ -16,7 +16,7 @@ import { now } from "../time";
 export async function reloadNode(tx: Tx, id: number): Promise<Node> {
   const node = await tx.selectFrom("node").selectAll().where("id", "=", id).executeTakeFirst();
   if (node === undefined) {
-    throw invariant("node vanished mid-transaction");
+    throw invariant("the record vanished mid-transaction");
   }
   return node;
 }
@@ -25,7 +25,7 @@ export async function reloadNode(tx: Tx, id: number): Promise<Node> {
 export async function requireNode(tx: Tx, id: number): Promise<Node> {
   const node = await tx.selectFrom("node").selectAll().where("id", "=", id).executeTakeFirst();
   if (node === undefined) {
-    throw notFound("node not found");
+    throw notFound("the record was not found");
   }
   return node;
 }
@@ -75,7 +75,7 @@ async function readyDescendantIds(tx: Tx, container: Node): Promise<string[]> {
 export async function requireTask(tx: Tx, id: number): Promise<Node> {
   const node = await requireNode(tx, id);
   if (node.type !== "task") {
-    const rendered = (await renderNodeId(tx, id)) ?? "node";
+    const rendered = (await renderNodeId(tx, id)) ?? "it";
     const article = node.type === "initiative" ? "an" : "a";
     const readyIds = await readyDescendantIds(tx, node);
     const hint =
