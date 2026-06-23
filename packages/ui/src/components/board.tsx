@@ -189,7 +189,11 @@ function ColumnCards({
 }) {
   const items = board[column];
   if (items.length === 0) {
-    return <p className="px-2 py-3 text-center text-[0.6875rem] text-ink-faint">—</p>;
+    return (
+      <p className="px-2 py-4 text-center text-[0.6875rem] text-ink-faint">
+        Nothing {STATUS_META[column].label.toLowerCase()}
+      </p>
+    );
   }
   const rankable = isRankable(column);
   const list = (
@@ -268,9 +272,19 @@ function MobileColumnSwitcher({
   const active = MOBILE_TABS.find((t) => t.id === current);
   if (active === undefined) return null;
   const activeDot = active.columns.length === 1 ? active.columns[0] : undefined;
+  // The signature control carries the active column's status color on its left edge (like the cards).
+  const accent =
+    activeDot !== undefined
+      ? STATUS_META[activeDot].border.replace("border-", "border-l-")
+      : "border-l-line";
   return (
     <MenuRoot>
-      <MenuTrigger className="flex w-full items-center justify-between rounded-md border border-line bg-well-850 px-3 py-2 text-[0.875rem] font-semibold text-ink-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent">
+      <MenuTrigger
+        className={cn(
+          "flex w-full items-center justify-between rounded-md border border-l-2 border-line bg-well-850 px-3 py-2 text-[0.875rem] font-semibold text-ink-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent",
+          accent,
+        )}
+      >
         <span className="flex items-center gap-2">
           {activeDot !== undefined && <StatusDot status={activeDot} />}
           {active.label}
@@ -309,27 +323,30 @@ function MobileColumnSwitcher({
               >
                 {tab.label}
               </span>
-              <span className="ml-auto font-mono text-[0.8125rem] text-ink-dim tabular-nums">
-                {tabCount(tab)}
+              {/* right cluster: check sits LEFT of the count, so the count's right edge is constant across rows */}
+              <span className="ml-auto flex items-center gap-2">
+                {isCurrent && (
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    className="text-accent"
+                  >
+                    <path
+                      d="m5 13 4 4L19 7"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+                <span className="font-mono text-[0.8125rem] text-ink-dim tabular-nums">
+                  {tabCount(tab)}
+                </span>
               </span>
-              {isCurrent && (
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                  className="text-accent"
-                >
-                  <path
-                    d="m5 13 4 4L19 7"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
             </MenuItem>
           );
         })}
