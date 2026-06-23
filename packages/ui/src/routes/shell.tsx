@@ -41,7 +41,7 @@ export function Shell() {
           <MenuRoot>
             <MenuTrigger
               aria-label="More"
-              className="rounded p-1.5 text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:hidden"
+              className="flex h-9 w-9 items-center justify-center rounded text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:hidden"
             >
               <svg
                 width="16"

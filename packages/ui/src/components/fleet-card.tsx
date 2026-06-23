@@ -1,4 +1,6 @@
 import type { WireNode } from "../api/types";
+import { cn } from "../lib/cn";
+import { STATUS_META } from "../lib/status";
 import { Card, CardContent, CardHeader } from "./ui/card";
 import { DistributionBar } from "./distribution-bar";
 import { StatusBadge } from "./status-badge";
@@ -20,7 +22,12 @@ export function FleetCard({
   onOpen: (key: string) => void;
 }) {
   return (
-    <Card className="transition-colors hover:border-line-bright">
+    <Card
+      className={cn(
+        "border-l-2 transition-colors hover:border-line-bright",
+        STATUS_META[project.status].border,
+      )}
+    >
       <button
         type="button"
         onClick={() => {
@@ -31,10 +38,10 @@ export function FleetCard({
         <CardHeader className="flex-row items-center justify-between">
           <div className="flex min-w-0 flex-col gap-0.5">
             <div className="flex items-baseline gap-2.5">
-              <span className="font-mono text-lg font-bold tracking-tight text-ink-bright">
+              <span className="font-mono text-base font-bold tracking-tight text-ink-bright">
                 {project.id}
               </span>
-              <span className="truncate text-[0.75rem] text-ink-dim">{project.title}</span>
+              <span className="truncate text-[0.8125rem] text-ink">{project.title}</span>
             </div>
             {project.description != null && project.description !== "" && (
               <p className="truncate text-[0.71875rem] text-ink-dim">{project.description}</p>
@@ -45,7 +52,7 @@ export function FleetCard({
         <CardContent className="flex flex-col gap-2.5">
           <DistributionBar distribution={project.distribution ?? {}} />
           <div className="flex items-baseline gap-1.5">
-            <span className="font-mono text-lg font-semibold text-status-ready tabular-nums">
+            <span className="font-mono text-2xl font-bold text-ink-bright tabular-nums">
               {ready}
             </span>
             <span className="microlabel text-ink-dim">ready</span>

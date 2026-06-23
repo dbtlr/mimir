@@ -20,7 +20,7 @@ export function ProjectPicker() {
 
   return (
     <MenuRoot>
-      <MenuTrigger className="flex items-center gap-1 rounded px-2 py-1 font-mono text-[0.8125rem] font-semibold text-ink-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent">
+      <MenuTrigger className="flex items-center gap-1 rounded px-2 py-2 font-mono text-[0.8125rem] font-semibold text-ink-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent md:py-1">
         {key ?? "Projects"}
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path
@@ -40,9 +40,11 @@ export function ProjectPicker() {
             onClick={() => void navigate({ to: "/p/$key", params: { key: p.id } })}
           >
             <StatusDot status={p.status} />
-            <span className="font-mono text-[0.75rem] font-semibold text-ink-bright">{p.id}</span>
-            <span className="truncate text-[0.6875rem] text-ink-dim">{p.title}</span>
-            <span className="ml-auto font-mono text-[0.6875rem] text-status-ready tabular-nums">
+            <span className="font-mono text-[0.8125rem] font-semibold text-ink-bright">{p.id}</span>
+            <span className="truncate text-[0.8125rem] text-ink md:text-[0.6875rem]">
+              {p.title}
+            </span>
+            <span className="ml-auto font-mono text-[0.75rem] text-ink-dim tabular-nums md:text-[0.6875rem]">
               {readyByKey.get(p.id) ?? 0} ready
             </span>
           </MenuItem>

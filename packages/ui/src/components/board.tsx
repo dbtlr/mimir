@@ -273,10 +273,7 @@ function MobileColumnSwitcher({
   if (active === undefined) return null;
   const activeDot = active.columns.length === 1 ? active.columns[0] : undefined;
   // The signature control carries the active column's status color on its left edge (like the cards).
-  const accent =
-    activeDot !== undefined
-      ? STATUS_META[activeDot].border.replace("border-", "border-l-")
-      : "border-l-line";
+  const accent = activeDot !== undefined ? STATUS_META[activeDot].border : "border-l-line";
   return (
     <MenuRoot>
       <MenuTrigger
