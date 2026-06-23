@@ -226,10 +226,10 @@ function ColumnCards({
 
 const MOBILE_TABS = [
   { id: "held", label: "Held", columns: ["parked", "blocked"] },
-  { id: "awaiting", label: "Await", columns: ["awaiting"] },
+  { id: "awaiting", label: "Awaiting", columns: ["awaiting"] },
   { id: "ready", label: "Ready", columns: ["ready"] },
-  { id: "in_progress", label: "In prog", columns: ["in_progress"] },
-  { id: "under_review", label: "Review", columns: ["under_review"] },
+  { id: "in_progress", label: "In progress", columns: ["in_progress"] },
+  { id: "under_review", label: "Under review", columns: ["under_review"] },
   { id: "done", label: "Done", columns: ["done"] },
 ] as const satisfies readonly { id: string; label: string; columns: readonly BoardColumn[] }[];
 
@@ -295,7 +295,7 @@ function MobileColumnSwitcher({
           return (
             <MenuItem
               key={tab.id}
-              className={cn("gap-2", isCurrent && "bg-well-800")}
+              className={cn("min-h-11 gap-2 py-2.5", isCurrent && "bg-well-800")}
               onClick={() => {
                 onSelect(tab.id);
               }}
@@ -312,7 +312,24 @@ function MobileColumnSwitcher({
               <span className="ml-auto font-mono text-[0.8125rem] text-ink-dim tabular-nums">
                 {tabCount(tab)}
               </span>
-              {isCurrent && <span className="text-accent">✓</span>}
+              {isCurrent && (
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                  className="text-accent"
+                >
+                  <path
+                    d="m5 13 4 4L19 7"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
             </MenuItem>
           );
         })}

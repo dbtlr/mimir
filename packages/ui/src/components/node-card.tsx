@@ -80,7 +80,7 @@ export function NodeCard({
         }}
         className="mt-0.5 block w-full text-left focus-visible:outline-2 focus-visible:outline-accent"
       >
-        <p className="line-clamp-2 text-[0.8125rem] font-semibold leading-snug text-ink group-hover:text-ink-bright md:text-[0.78125rem] md:font-normal">
+        <p className="line-clamp-2 text-[0.8125rem] font-semibold leading-snug text-ink group-hover:text-ink-bright md:text-[0.78125rem] md:font-medium">
           {node.title}
         </p>
       </button>
