@@ -21,6 +21,14 @@ release. When a release is cut, this section is promoted to
   Review board column. Approval reuses `done`; `stale` chases a review left too
   long. Migration 0006 widens the lifecycle CHECK. (MMR-84)
 
+### Changed
+
+- **Mobile board legibility pass** — the per-status tab row becomes a
+  column-header dropdown that shows the current column and jumps to any other; the
+  card title wins by weight; the drag-grip is desktop-only; `+ New task` is an
+  icon button and the secondary nav folds into an overflow menu on mobile; and the
+  header, toolbar, switcher, and cards share one consistent margin. (MMR-86)
+
 ## v0.10.0 - 2026-06-21
 
 The ergonomics & orientation release: responses that orient you and point

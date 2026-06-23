@@ -76,30 +76,34 @@ export function ProjectPage() {
       >
         <div className="flex flex-wrap items-start gap-3">
           <div className="flex flex-col gap-0.5">
-            <h1 className="flex items-baseline gap-2.5">
-              <span className="font-mono text-lg font-bold tracking-tight text-ink-bright">
-                {key}
-              </span>
-              <span className="hidden truncate text-[0.75rem] text-ink-dim sm:inline">
-                {project.data?.title}
-              </span>
-            </h1>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="flex items-baseline gap-2.5">
+                <span className="font-mono text-lg font-bold tracking-tight text-ink-bright">
+                  {key}
+                </span>
+                <span className="hidden truncate text-[0.75rem] text-ink-dim sm:inline">
+                  {project.data?.title}
+                </span>
+              </h1>
+              {project.data !== undefined && <StatusBadge status={project.data.status} />}
+            </div>
             {project.data?.description != null && project.data.description !== "" && (
               <p className="text-[0.75rem] text-ink-dim">{project.data.description}</p>
             )}
           </div>
-          {project.data !== undefined && <StatusBadge status={project.data.status} />}
-          <div className="ml-auto flex items-center gap-3">
+          <div className="flex w-full items-center justify-between gap-3 md:ml-auto md:w-auto md:justify-start">
             {project.data?.distribution !== undefined && (
               <DistributionBar
                 distribution={project.data.distribution}
                 className="hidden w-36 md:flex"
               />
             )}
-            {project.data !== undefined && (
-              <ProjectSettingsButton project={project.data} offline={conn.offline} />
-            )}
-            <NewTaskButton projectKey={key} offline={conn.offline} />
+            <div className="flex items-center gap-3">
+              {project.data !== undefined && (
+                <ProjectSettingsButton project={project.data} offline={conn.offline} />
+              )}
+              <NewTaskButton projectKey={key} offline={conn.offline} />
+            </div>
             <LensToggle view={view} nodeParam={node} />
           </div>
         </div>

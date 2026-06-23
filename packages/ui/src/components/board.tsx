@@ -18,7 +18,8 @@ import { useReorder } from "../api/mutations";
 import type { WireNode } from "../api/types";
 import { NodeCard } from "./node-card";
 import { StatusDot } from "./status-dot";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from "./ui/menu";
+import { Tabs, TabsContent } from "./ui/tabs";
 
 interface BoardViewProps {
   board: Board;
@@ -192,7 +193,7 @@ function ColumnCards({
   }
   const rankable = isRankable(column);
   const list = (
-    <ol className="flex flex-col gap-1.5 p-1.5">
+    <ol className="flex flex-col gap-1.5 py-1.5 md:p-1.5">
       {items.map((node) => (
         <li key={node.id}>
           {rankable ? (
@@ -245,6 +246,79 @@ export function swipeTarget(
 ): string | null {
   if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) return null;
   return ids[ids.indexOf(current) + (dx < 0 ? 1 : -1)] ?? null;
+}
+
+/**
+ * The mobile column switcher (MMR-86): the current column IS a big legible
+ * header that taps open to a jump menu of every column + count — replacing the
+ * crammed tab row, which couldn't show the active column and got worse as the
+ * vocabulary grew. Swipe (MMR-70) still moves between columns.
+ */
+function MobileColumnSwitcher({
+  current,
+  board,
+  onSelect,
+}: {
+  current: string;
+  board: Board;
+  onSelect: (id: string) => void;
+}) {
+  const tabCount = (tab: (typeof MOBILE_TABS)[number]): number =>
+    tab.columns.reduce((n, c) => n + board[c].length, 0);
+  const active = MOBILE_TABS.find((t) => t.id === current);
+  if (active === undefined) return null;
+  const activeDot = active.columns.length === 1 ? active.columns[0] : undefined;
+  return (
+    <MenuRoot>
+      <MenuTrigger className="flex w-full items-center justify-between rounded-md border border-line bg-well-850 px-3 py-2 text-[0.875rem] font-semibold text-ink-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent">
+        <span className="flex items-center gap-2">
+          {activeDot !== undefined && <StatusDot status={activeDot} />}
+          {active.label}
+          <span className="font-mono text-[0.75rem] font-normal text-ink-dim tabular-nums">
+            {tabCount(active)}
+          </span>
+        </span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="m6 9 6 6 6-6"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </MenuTrigger>
+      <MenuContent className="w-[calc(100vw-2rem)] max-w-sm">
+        {MOBILE_TABS.map((tab) => {
+          const dot = tab.columns.length === 1 ? tab.columns[0] : undefined;
+          const isCurrent = tab.id === current;
+          return (
+            <MenuItem
+              key={tab.id}
+              className={cn("gap-2", isCurrent && "bg-well-800")}
+              onClick={() => {
+                onSelect(tab.id);
+              }}
+            >
+              {dot !== undefined && <StatusDot status={dot} />}
+              <span
+                className={cn(
+                  "text-[0.875rem]",
+                  isCurrent ? "font-semibold text-ink-bright" : "text-ink",
+                )}
+              >
+                {tab.label}
+              </span>
+              <span className="ml-auto font-mono text-[0.8125rem] text-ink-dim tabular-nums">
+                {tabCount(tab)}
+              </span>
+              {isCurrent && <span className="text-accent">✓</span>}
+            </MenuItem>
+          );
+        })}
+      </MenuContent>
+    </MenuRoot>
+  );
 }
 
 /**
@@ -361,26 +435,18 @@ export function BoardView({
           })}
         </div>
 
-        {/* mobile — tabs, with swipe to move between them (MMR-70) */}
+        {/* mobile — a column-header dropdown switcher (MMR-86) + swipe (MMR-70) */}
         <div className="md:hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <Tabs
+            className="w-full"
             value={mobileTab}
             onValueChange={(v) => {
               setMobileTab(String(v));
             }}
           >
-            <TabsList>
-              {MOBILE_TABS.map((tab) => (
-                <TabsTrigger key={tab.id} value={tab.id}>
-                  {tab.label}
-                  <span className="font-mono text-[0.5625rem] opacity-70">
-                    {tab.columns.reduce((n, c) => n + board[c].length, 0)}
-                  </span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            <MobileColumnSwitcher current={mobileTab} board={board} onSelect={setMobileTab} />
             {MOBILE_TABS.map((tab) => (
-              <TabsContent key={tab.id} value={tab.id} className="mt-2">
+              <TabsContent key={tab.id} value={tab.id} className="mt-2 w-full">
                 {tab.columns.map((column) => (
                   <section key={column} aria-label={STATUS_META[column].label}>
                     {tab.columns.length > 1 && (

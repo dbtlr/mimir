@@ -139,3 +139,30 @@ is preserved.
   search over title (LIKE; FTS5 deferred on the same trigger as `/artifacts`,
   per ADR 0012). The rich filters already exist server-side; only text search was
   missing. This is the lone backend change in the otherwise frontend-only v0.9 set.
+
+## Refinement (v0.11, MMR-86): the mobile board is a legibility pass, not a scaled-down desktop
+
+The board (§4) was the same dense, multi-column desktop styling rendered in one
+column on a phone — which fails three ways: the per-status tab row can't show which
+column you're viewing (and got worse as the status vocabulary grew, e.g. `under_review`),
+there is no type hierarchy so the card title doesn't win, and controls are below a
+usable touch size. Frontend-only; the contract and the desktop board are unchanged.
+
+- **The mobile column switcher is a column-header dropdown, not a tab row.** The
+  current column is a single legible header (status dot + label + count) that _is_ the
+  answer to "which column," and taps open to a jump menu of every column with its dot
+  and count (the current one checked). It scales to any number of columns where a tab
+  row cannot. Swipe-between (MMR-70) is retained. Replaces the per-status `TabsList`.
+- **Hierarchy is carried by weight and recession, not size.** A first attempt that
+  scaled type/padding/targets up wholesale read as oversized and was rejected — the
+  correct fix is the card **title wins by weight** (semibold) against dimmed metadata,
+  at near-original sizes. Mobile is not "desktop bigger."
+- **Touch + chrome:** the drag-grip (rank reorder) is **desktop-only** — reordering by
+  dragging a tiny handle on a phone is the worst target _and_ an unwanted gesture; mobile
+  is read + act-via-kebab. `+ New task` collapses to an icon-only `+`, and the secondary
+  nav (Tasks/Artifacts) folds into a top-bar overflow menu.
+- **Alignment is load-bearing and was verified by measuring, not eyeballing.** On mobile
+  the column-box's internal card padding (a desktop affordance with no box on mobile)
+  and a right-aligned toolbar broke the shared left margin; the board now aligns the
+  header, title, status badge, toolbar, switcher, and cards to one left edge, with the
+  lens toggle pinned right (`justify-between`).
