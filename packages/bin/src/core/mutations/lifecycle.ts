@@ -44,7 +44,9 @@ export async function submitTask(db: Db, id: number): Promise<Node> {
   return db.transaction().execute(async (tx) => {
     const task = await requireTask(tx, id);
     if (task.lifecycle !== "in_progress") {
-      throw validation(`only an in_progress task can be submitted for review (is ${String(task.lifecycle)})`);
+      throw validation(
+        `only an in_progress task can be submitted for review (is ${String(task.lifecycle)})`,
+      );
     }
     await tx
       .updateTable("node")
