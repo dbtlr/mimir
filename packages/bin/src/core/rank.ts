@@ -16,8 +16,12 @@ export const RANK_STEP = 65536;
 /** Where to place a task relative to the rankable set. */
 export type RankPosition = "top" | "bottom" | "before" | "after";
 
-/** A task is in the rankable set iff it is non-terminal and un-held. */
-export function isRankable(lifecycle: Lifecycle, hold: Hold): boolean {
+/**
+ * A task is in the rankable set iff it is non-terminal, un-held, and actionable.
+ * `under_review` is non-terminal but *not* actionable (the verdict is the human's,
+ * not the agent's), so it is excluded. Tolerates `null` (a container) → false.
+ */
+export function isRankable(lifecycle: Lifecycle | null, hold: Hold | null): boolean {
   return (lifecycle === "todo" || lifecycle === "in_progress") && hold === "none";
 }
 

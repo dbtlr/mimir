@@ -2,7 +2,7 @@ import type { Hold } from "@mimir/contract";
 import type { Node } from "../../db/schema";
 import type { Db } from "../context";
 import { validation } from "../errors";
-import { appendRank } from "../rank";
+import { appendRank, isRankable } from "../rank";
 import { logTransition, reloadNode, requireTask, stamp } from "./common";
 
 /**
@@ -10,7 +10,9 @@ import { logTransition, reloadNode, requireTask, stamp } from "./common";
  * task keeps its lifecycle position while held. Entering a hold (`park`/`block`)
  * leaves the rankable set → clears `rank`; releasing it (`unpark`/`unblock`)
  * re-enters → appends to the bottom (no remembered position; a re-entry is a
- * natural re-triage point).
+ * natural re-triage point) — but only if the underlying lifecycle is rankable.
+ * A held `under_review` task stays non-rankable on release (it's not actionable
+ * until the human verdict lands), so it gets no rank back.
  */
 
 function assertHoldable(task: Node): void {
@@ -54,8 +56,10 @@ async function releaseHold(db: Db, id: number, from: Exclude<Hold, "none">): Pro
     if (task.hold !== from) {
       throw validation(`task is not ${from} (is ${String(task.hold)})`);
     }
-    // re-enter the rankable set at the bottom (lifecycle is non-terminal — a held task can't be terminal)
-    const rank = await appendRank(tx, task.project_id);
+    // Re-enter the rankable set at the bottom — but only if the lifecycle is
+    // rankable once un-held (todo/in_progress). A held `under_review` task
+    // stays non-rankable on release (not actionable until the verdict lands).
+    const rank = isRankable(task.lifecycle, "none") ? await appendRank(tx, task.project_id) : null;
     await tx
       .updateTable("node")
       .set({ hold: "none", hold_reason: null, rank })

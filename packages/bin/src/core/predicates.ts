@@ -61,10 +61,11 @@ export interface StaleOptions {
 }
 
 /**
- * `stale` — a task whose Status word is `in_progress`, `ready`, or `blocked` and
- * whose `updated_at` is older than the threshold (glossary). Mutes `parked` and
- * `awaiting` (auto-clearing / deliberately set aside — don't nag); chases
- * `blocked` (untouched-for-weeks is exactly the nudge).
+ * `stale` — a task whose Status word is `in_progress`, `ready`, `blocked`, or
+ * `under_review` and whose `updated_at` is older than the threshold (glossary).
+ * Mutes `parked` and `awaiting` (auto-clearing / deliberately set aside — don't
+ * nag); chases `blocked` (untouched-for-weeks is exactly the nudge) and
+ * `under_review` (a submission the human never got to is the same rot).
  */
 export async function isStale(
   tx: Executor,
@@ -75,7 +76,12 @@ export async function isStale(
     return false;
   }
   const word = await nodeStatusWord(tx, task);
-  if (word !== "in_progress" && word !== "ready" && word !== "blocked") {
+  if (
+    word !== "in_progress" &&
+    word !== "ready" &&
+    word !== "blocked" &&
+    word !== "under_review"
+  ) {
     return false;
   }
   const asOf = options.asOf ?? now();
