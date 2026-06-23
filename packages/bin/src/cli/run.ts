@@ -63,7 +63,9 @@ import {
   cmdMove,
   cmdPark,
   cmdReorder,
+  cmdReturn,
   cmdStart,
+  cmdSubmit,
   cmdTag,
   cmdUnblock,
   cmdUndepend,
@@ -331,6 +333,10 @@ export async function runCli(
       }
       case "start":
         return await cmdStart(await mkCtx());
+      case "submit":
+        return await cmdSubmit(await mkCtx());
+      case "return":
+        return await cmdReturn(await mkCtx());
       case "done":
         return await cmdDone(await mkCtx());
       case "abandon":

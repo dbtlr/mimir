@@ -24,7 +24,9 @@ import {
   parkTask,
   reorder,
   resolveEntityToken,
+  returnTask,
   startTask,
+  submitTask,
   tagEntities,
   unblockTask,
   undepend,
@@ -99,6 +101,29 @@ export async function cmdAbandon(c: Ctx): Promise<number> {
   const reason = reasonTail(c);
   await abandonTask(c.db, id, reason);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => withReason(`abandoned ${rid}`, reason));
+  return 0;
+}
+
+export async function cmdSubmit(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "submit"), "task");
+  await submitTask(c.db, id);
+  await echoNodeWith(
+    c.db,
+    id,
+    c.format,
+    c.io,
+    (rid) => `submitted ${rid} · in_progress → under_review`,
+  );
+  return 0;
+}
+
+export async function cmdReturn(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "return"), "task");
+  const reason = reasonTail(c);
+  await returnTask(c.db, id, reason);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) =>
+    withReason(`returned ${rid} · under_review → in_progress`, reason),
+  );
   return 0;
 }
 

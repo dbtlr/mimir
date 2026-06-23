@@ -33,6 +33,7 @@ const STATUS_STYLE: Record<StatusWord, StatusStyle> = {
   ready: { icon: "●", ascii: "*", color: 32 },
   awaiting: { icon: "◔", ascii: "~", color: 33 },
   in_progress: { icon: "▶", ascii: ">", color: 36 },
+  under_review: { icon: "◎", ascii: "?", color: 35 },
   blocked: { icon: "■", ascii: "x", color: 31 },
   parked: { icon: "⏸", ascii: "=", color: 90 },
   done: { icon: "✓", ascii: "v", color: 32 },

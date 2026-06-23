@@ -44,7 +44,9 @@ import {
   parseIdentity,
   projectTree,
   reorder,
+  returnTask,
   startTask,
+  submitTask,
   tagEntities,
   treeToWire,
   unblockTask,
@@ -450,6 +452,29 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           guarded(req, async () => {
             await readBody(req, []);
             return echoNode(db, req, await startTask(db, await nodeRef(db, req.params.id, "task")));
+          }),
+      },
+      "/api/nodes/:id/submit": {
+        POST: (req) =>
+          guarded(req, async () => {
+            await readBody(req, []);
+            return echoNode(
+              db,
+              req,
+              await submitTask(db, await nodeRef(db, req.params.id, "task")),
+            );
+          }),
+      },
+      "/api/nodes/:id/return": {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ["reason"]);
+            const node = await returnTask(
+              db,
+              await nodeRef(db, req.params.id, "task"),
+              strField(body, "reason"),
+            );
+            return echoNode(db, req, node);
           }),
       },
       "/api/nodes/:id/done": {
