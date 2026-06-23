@@ -19,7 +19,13 @@ export type NodeType = (typeof NODE_TYPE_VALUES)[number];
  * `done` (MMR-84): the doer submits, a human approves (→done) or returns
  * (→in_progress). Optional — `in_progress → done` directly stays legal.
  */
-export const LIFECYCLE_VALUES = ["todo", "in_progress", "under_review", "done", "abandoned"] as const;
+export const LIFECYCLE_VALUES = [
+  "todo",
+  "in_progress",
+  "under_review",
+  "done",
+  "abandoned",
+] as const;
 export type Lifecycle = (typeof LIFECYCLE_VALUES)[number];
 
 /** Hold overlay (ADR 0001) — why a task is set aside, orthogonal to lifecycle. */

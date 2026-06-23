@@ -13,6 +13,14 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Added
+
+- **`under_review` status** — an optional ship-readiness gate between
+  `in_progress` and `done`. New `submit` and `return` verbs (CLI, MCP, and
+  `POST /api/nodes/:id/submit|return`) drive it; the web console gains an Under
+  Review board column. Approval reuses `done`; `stale` chases a review left too
+  long. Migration 0006 widens the lifecycle CHECK. (MMR-84)
+
 ## v0.10.0 - 2026-06-21
 
 The ergonomics & orientation release: responses that orient you and point

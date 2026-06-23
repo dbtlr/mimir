@@ -76,12 +76,7 @@ export async function isStale(
     return false;
   }
   const word = await nodeStatusWord(tx, task);
-  if (
-    word !== "in_progress" &&
-    word !== "ready" &&
-    word !== "blocked" &&
-    word !== "under_review"
-  ) {
+  if (word !== "in_progress" && word !== "ready" && word !== "blocked" && word !== "under_review") {
     return false;
   }
   const asOf = options.asOf ?? now();

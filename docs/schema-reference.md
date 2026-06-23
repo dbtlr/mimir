@@ -51,7 +51,7 @@ CREATE TABLE node (
   description  TEXT,
 
   -- task-only (NULL for initiative/phase) ------------------------------------
-  lifecycle    TEXT CHECK (lifecycle IN ('todo','in_progress','done','abandoned')),
+  lifecycle    TEXT CHECK (lifecycle IN ('todo','in_progress','under_review','done','abandoned')),
   hold         TEXT CHECK (hold IN ('none','blocked','parked')),
   hold_reason  TEXT,            -- optional context for the current hold (park/block reason is optional, not enforced)
   priority     TEXT CHECK (priority IN ('p0','p1','p2','p3')),  -- SIGNAL, not sort (ADR 0007); NULL = untriaged

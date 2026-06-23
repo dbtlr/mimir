@@ -39,9 +39,9 @@ the gate below BEFORE other work. These thoughts mean STOP — you are rationali
 These hold for every Mimir interaction. The references add detail; nothing in them
 relaxes these.
 
-**1. Statuses move only through verbs.** `start` · `done` · `abandon` · `park`/`unpark` ·
-`block`/`unblock`. There is no editable status field, and `update` cannot touch
-status — that is by design, not an omission.
+**1. Statuses move only through verbs.** `start` · `submit` · `return` · `done` ·
+`abandon` · `park`/`unpark` · `block`/`unblock`. There is no editable status field, and
+`update` cannot touch status — that is by design, not an omission.
 
 **2. The transition contract — transition at the moment, not later:**
 
@@ -49,6 +49,11 @@ status — that is by design, not an omission.
   no retroactive starts. Keep one task `in_progress` per working session.
 - `done <id>` **only after verification, and before telling the user it's finished.**
   About to report completion? If you haven't run `done`, stop and run it.
+- `submit <id>` **when the work is shippable but wants a human review first** (the
+  optional `under_review` gate). Use it instead of `done` when a human must sign off
+  before it counts as finished; the reviewer then `done`s it (approve) or
+  `return <id> "what to change"`s it (back to `in_progress` for you to pick up).
+  Skip it and go straight to `done` when no review is wanted.
 - `block <id> "reason"` / `park <id> "reason"` **the moment you stall** — external
   obstruction → block; deliberate deferral → park. Always give the reason; it is the
   next agent's context. `unblock`/`unpark` on resume.
