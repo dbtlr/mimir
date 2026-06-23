@@ -1,9 +1,27 @@
+import type { StatusWord } from "@mimir/contract";
 import { STATUS_META } from "../lib/status";
 import { cn } from "../lib/cn";
 import type { WireTreeNode } from "../api/types";
 import { DistributionBar } from "./distribution-bar";
 import { PriorityBadge, SizeBadge, StaleBadge } from "./signal-badges";
 import { StatusDot } from "./status-dot";
+
+/**
+ * One-letter status marker for the mobile tree scan, where the full status word
+ * is hidden for space and the 7px dot alone is hard to read on the dark well.
+ * Distinct letters (no two collide), redundant with the dot's color.
+ */
+const STATUS_LETTER: Record<StatusWord, string> = {
+  ready: "R",
+  awaiting: "A",
+  in_progress: "P",
+  under_review: "V",
+  blocked: "B",
+  parked: "K",
+  done: "D",
+  abandoned: "X",
+  new: "N",
+};
 
 /**
  * The tree lens: initiative → phase → task nesting, status words on every
@@ -52,23 +70,34 @@ function TreeNode({
       )}
     >
       <StatusDot status={node.status} />
-      <span className="font-mono text-[0.625rem] text-ink-dim">{node.id}</span>
+      <span
+        className={cn("shrink-0 font-mono text-[0.8125rem] font-semibold sm:hidden", meta.text)}
+      >
+        {STATUS_LETTER[node.status]}
+      </span>
+      <span className="shrink-0 font-mono text-[0.75rem] whitespace-nowrap text-ink-dim md:text-[0.625rem]">
+        {node.id}
+      </span>
       <span
         className={cn(
-          "truncate text-[0.78125rem]",
-          container ? "font-semibold text-ink-bright" : "text-ink",
+          "min-w-0 line-clamp-2 md:truncate md:text-[0.78125rem]",
+          container
+            ? "text-[1rem] font-semibold text-ink-bright"
+            : "text-[0.9375rem] text-ink-bright md:font-normal md:text-ink",
         )}
       >
         {node.title}
       </span>
       <span className={cn("microlabel hidden sm:inline", meta.text)}>{meta.label}</span>
-      {node.verdicts?.stale === true && <StaleBadge />}
-      {node.priority != null && <PriorityBadge priority={node.priority} />}
-      {node.size != null && <SizeBadge size={node.size} />}
+      <span className="ml-auto flex shrink-0 items-center gap-1 md:ml-0">
+        {node.verdicts?.stale === true && <StaleBadge />}
+        {node.priority != null && <PriorityBadge priority={node.priority} />}
+        {node.size != null && <SizeBadge size={node.size} />}
+      </span>
       {container && (
         <DistributionBar
           distribution={node.distribution ?? {}}
-          className="ml-auto w-24 shrink-0 sm:w-36"
+          className="ml-auto hidden shrink-0 sm:flex sm:w-36"
         />
       )}
     </button>
@@ -79,16 +108,24 @@ function TreeNode({
   }
   return (
     <details open className="group">
-      <summary className="flex cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden">
         <span
           aria-hidden
-          className="w-3 shrink-0 text-center text-[0.5625rem] text-ink-faint transition-transform group-open:rotate-90"
+          className="flex h-7 w-7 shrink-0 items-center justify-center text-ink-dim transition-transform group-open:rotate-90 md:h-5 md:w-5"
         >
-          ▶
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path
+              d="m9 6 6 6-6 6"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </span>
         <span className="min-w-0 flex-1">{row}</span>
       </summary>
-      <div className="mt-1 ml-[13px] flex flex-col gap-1 border-l border-line pl-3">
+      <div className="mt-1 ml-[14px] flex flex-col gap-1 border-l border-line-bright pl-3 md:ml-[10px] md:border-line">
         {node.children.map((child) => (
           <TreeNode key={child.id} node={child} depth={depth + 1} onOpenNode={onOpenNode} />
         ))}

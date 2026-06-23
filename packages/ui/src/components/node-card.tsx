@@ -54,22 +54,22 @@ export function NodeCard({
       ref={sortable?.setNodeRef}
       style={sortable?.style}
       className={cn(
-        "group relative rounded-[4px] border border-line border-l-2 bg-well-850 p-2 transition-colors",
+        "group relative rounded-[4px] border border-line border-l-[3px] bg-well-850 p-2 transition-colors md:border-l-2",
         "hover:border-line-bright hover:bg-well-800",
-        STATUS_META[node.status].border.replace("border-", "border-l-"),
+        STATUS_META[node.status].border,
         sortable?.isDragging === true && "opacity-50",
       )}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-[0.625rem] text-ink-dim">{node.id}</span>
-        <div className="flex items-center gap-0.5">
+        <span className="font-mono text-[0.75rem] text-ink-dim md:text-[0.625rem]">{node.id}</span>
+        <div className="flex items-center gap-1">
           {node.verdicts?.stale === true && <StaleBadge />}
           {grip}
           <TransitionMenu node={node} disabled={offline} />
         </div>
       </div>
       {ancestry !== undefined && ancestry !== "" && (
-        <p className="truncate text-[0.625rem] text-ink-faint" title={ancestry}>
+        <p className="truncate text-[0.6875rem] text-ink-faint md:text-[0.625rem]" title={ancestry}>
           {ancestry}
         </p>
       )}
@@ -80,12 +80,12 @@ export function NodeCard({
         }}
         className="mt-0.5 block w-full text-left focus-visible:outline-2 focus-visible:outline-accent"
       >
-        <p className="line-clamp-2 text-[0.8125rem] font-semibold leading-snug text-ink group-hover:text-ink-bright md:text-[0.78125rem] md:font-medium">
+        <p className="line-clamp-2 text-[0.9375rem] font-semibold leading-snug text-ink-bright group-hover:text-ink-bright md:text-[0.78125rem] md:font-medium md:text-ink">
           {node.title}
         </p>
       </button>
       {(node.priority != null || node.size != null || tags.length > 0) && (
-        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        <div className="mt-2 flex flex-wrap items-center gap-1 md:mt-1.5">
           {node.priority != null && <PriorityBadge priority={node.priority} />}
           {node.size != null && <SizeBadge size={node.size} />}
           {tags.slice(0, SHOWN_TAGS).map((t) => (

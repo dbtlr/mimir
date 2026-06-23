@@ -14,7 +14,7 @@ export interface StatusMeta {
   text: string;
   /** Subtle tinted chip (badge background + text). */
   chip: string;
-  /** Card accent border. */
+  /** Card/control left-accent border — a literal `border-l-status-*` class so Tailwind extracts it. */
   border: string;
 }
 
@@ -24,63 +24,63 @@ export const STATUS_META: Record<StatusWord, StatusMeta> = {
     dot: "bg-status-in-progress",
     text: "text-status-in-progress",
     chip: "bg-status-in-progress/15 text-status-in-progress",
-    border: "border-status-in-progress",
+    border: "border-l-status-in-progress",
   },
   under_review: {
     label: "Under review",
     dot: "bg-status-under-review",
     text: "text-status-under-review",
     chip: "bg-status-under-review/15 text-status-under-review",
-    border: "border-status-under-review",
+    border: "border-l-status-under-review",
   },
   ready: {
     label: "Ready",
     dot: "bg-status-ready",
     text: "text-status-ready",
     chip: "bg-status-ready/15 text-status-ready",
-    border: "border-status-ready",
+    border: "border-l-status-ready",
   },
   awaiting: {
     label: "Awaiting",
     dot: "bg-status-awaiting",
     text: "text-status-awaiting",
     chip: "bg-status-awaiting/15 text-status-awaiting",
-    border: "border-status-awaiting",
+    border: "border-l-status-awaiting",
   },
   blocked: {
     label: "Blocked",
     dot: "bg-status-blocked",
     text: "text-status-blocked",
     chip: "bg-status-blocked/15 text-status-blocked",
-    border: "border-status-blocked",
+    border: "border-l-status-blocked",
   },
   parked: {
     label: "Parked",
     dot: "bg-status-parked",
     text: "text-status-parked",
     chip: "bg-status-parked/15 text-status-parked",
-    border: "border-status-parked",
+    border: "border-l-status-parked",
   },
   done: {
     label: "Done",
     dot: "bg-status-done",
     text: "text-status-done",
     chip: "bg-status-done/15 text-status-done",
-    border: "border-status-done",
+    border: "border-l-status-done",
   },
   abandoned: {
     label: "Abandoned",
     dot: "bg-status-abandoned",
     text: "text-status-abandoned",
     chip: "bg-status-abandoned/15 text-status-abandoned",
-    border: "border-status-abandoned",
+    border: "border-l-status-abandoned",
   },
   new: {
     label: "New",
     dot: "bg-status-new",
     text: "text-status-new",
     chip: "bg-status-new/15 text-ink-dim",
-    border: "border-status-new",
+    border: "border-l-status-new",
   },
 };
 

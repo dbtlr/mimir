@@ -13,6 +13,24 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Fixed
+
+- **The card status-colored left edge rendered grey on every card** — a runtime
+  `.replace()` built a `border-l-status-*` class Tailwind never compiled, so the
+  board cards (and the switcher trigger accent) lost their status color signal.
+  Now driven by literal classes. (MMR-99)
+
+### Changed
+
+- **Mobile legibility pass — board, tree, fleet, and top-nav menus** (MMR-99). A
+  mobile-only type scale (desktop's dense scale is unchanged): board card and
+  tree titles win at a readable size; the tree gains visible hierarchy connectors,
+  a container/task size step, an SVG expand caret with a real tap target, two-line
+  task titles, and per-row status letters; fleet cards get a status-colored left
+  rule and a single ready-count hero; the project-picker and attention menus move
+  to 44px touch rows with higher-contrast popups, the attention rows surface the
+  block reason, and the top-bar triggers grow to a comfortable tap size.
+
 ## v0.11.0 - 2026-06-22
 
 The review & mobile release: an optional `under_review` ship-readiness gate

@@ -24,7 +24,7 @@ export function AttentionAlert() {
     <MenuRoot>
       <MenuTrigger
         aria-label={count === 0 ? "Attention: nothing stuck" : `Attention: ${count} stuck`}
-        className="relative rounded p-1.5 text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+        className="relative flex h-9 w-9 items-center justify-center rounded text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:h-auto md:w-auto md:p-1.5"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path
@@ -59,8 +59,21 @@ export function AttentionAlert() {
               }
             >
               <StatusDot status={reason} />
-              <span className="font-mono text-[0.625rem] text-ink-dim">{node.id}</span>
-              <span className="truncate text-[0.75rem] text-ink">{node.title}</span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex items-baseline gap-2">
+                  <span className="shrink-0 font-mono text-[0.6875rem] text-ink-dim md:text-[0.625rem]">
+                    {node.id}
+                  </span>
+                  <span className="truncate text-[0.8125rem] text-ink md:text-[0.75rem]">
+                    {node.title}
+                  </span>
+                </span>
+                {node.hold_reason != null && node.hold_reason !== "" && (
+                  <span className="truncate text-[0.6875rem] text-ink-faint">
+                    {node.hold_reason}
+                  </span>
+                )}
+              </span>
               {isStale && <StaleBadge />}
             </MenuItem>
           ))
