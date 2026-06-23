@@ -42,7 +42,7 @@ export function NodeCard({
       <button
         type="button"
         aria-label="Reorder"
-        className="cursor-grab touch-none rounded px-1 text-[0.75rem] leading-none text-ink-faint hover:text-ink active:cursor-grabbing"
+        className="hidden cursor-grab touch-none rounded px-1 text-[0.75rem] leading-none text-ink-faint hover:text-ink active:cursor-grabbing md:inline-block"
         {...sortable.handleProps}
       >
         ⠿
@@ -80,7 +80,7 @@ export function NodeCard({
         }}
         className="mt-0.5 block w-full text-left focus-visible:outline-2 focus-visible:outline-accent"
       >
-        <p className="line-clamp-2 text-[0.78125rem] leading-snug text-ink group-hover:text-ink-bright">
+        <p className="line-clamp-2 text-[0.8125rem] font-semibold leading-snug text-ink group-hover:text-ink-bright md:text-[0.78125rem] md:font-normal">
           {node.title}
         </p>
       </button>

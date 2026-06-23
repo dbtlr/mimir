@@ -35,9 +35,9 @@ export function NewTaskButton({ projectKey, offline }: { projectKey: string; off
         aria-label="New task"
         disabled={offline === true}
         onClick={() => setOpen(true)}
-        className="rounded border border-line bg-well-850 px-3 py-1.5 text-[0.75rem] font-medium text-ink transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded border border-line bg-well-850 px-3 py-1.5 text-[0.75rem] font-medium whitespace-nowrap text-ink transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
       >
-        + New task
+        +<span className="hidden sm:inline"> New task</span>
       </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
