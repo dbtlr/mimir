@@ -13,6 +13,11 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+## v0.11.0 - 2026-06-22
+
+The review & mobile release: an optional `under_review` ship-readiness gate
+between `in_progress` and `done`, and a mobile board legibility pass.
+
 ### Added
 
 - **`under_review` status** — an optional ship-readiness gate between
