@@ -205,7 +205,9 @@ export async function reorder(
   return db.transaction().execute(async (tx) => {
     const task = await requireTask(tx, id);
     if (task.rank === null) {
-      throw validation("cannot reorder a task outside the rankable set (terminal or held)");
+      throw validation(
+        "cannot reorder a task outside the rankable set (terminal, held, or under review)",
+      );
     }
     await reorderTask(tx, task.project_id, id, position, refId);
     return reloadNode(tx, id);

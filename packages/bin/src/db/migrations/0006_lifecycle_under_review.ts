@@ -18,6 +18,12 @@ import { type Kysely, type Migration, sql } from "kysely";
  */
 export const migration: Migration = {
   up: async (db: Kysely<unknown>): Promise<void> => {
+    // Autocommit (no wrapping transaction) is what makes this PRAGMA effective —
+    // but it also means a throw between here and the `= ON` below leaves the
+    // connection with FK enforcement off and `node_new` orphaned. Acceptable: a
+    // failed startup migration aborts the process (the connection dies and the
+    // next open re-applies the connection PRAGMAs), and this widening swap does
+    // no data transform, so a mid-flight failure is near-impossible.
     await sql`PRAGMA foreign_keys = OFF`.execute(db);
 
     await sql`
