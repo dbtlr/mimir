@@ -25,8 +25,10 @@ import {
   toolNext,
   toolPark,
   toolReorder,
+  toolReturn,
   toolStart,
   toolStatus,
+  toolSubmit,
   toolTag,
   toolUnblock,
   toolUndepend,
@@ -134,7 +136,7 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
   register(
     server,
     "list",
-    "Broad selection: status picks the universe (ready|awaiting|in_progress|blocked|parked|done|abandoned or live|terminal|all; default live), verdicts (is/notIs) and field operators (FIELD:VALUE tokens) filter within it — all AND-composed. Value faults return an empty set plus a warnings array.",
+    "Broad selection: status picks the universe (ready|awaiting|in_progress|under_review|blocked|parked|done|abandoned or live|terminal|all; default live), verdicts (is/notIs) and field operators (FIELD:VALUE tokens) filter within it — all AND-composed. Value faults return an empty set plus a warnings array.",
     {
       scope: z.string().optional(),
       status: STATUS.optional(),
@@ -177,8 +179,24 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
 
   register(
     server,
+    "submit",
+    "Submit an in_progress task for review (in_progress → under_review) — the optional ship-readiness gate: you believe it's done and shippable, awaiting a human verdict. Echoes the updated node.",
+    { id: z.string() },
+    (args: { id: string }) => toolSubmit(db, args),
+  );
+
+  register(
+    server,
+    "return",
+    "Return an under_review task to in_progress with an optional reason (the changes requested). The reviewer's 'request changes'. Echoes the updated node.",
+    { id: z.string(), reason: z.string().optional() },
+    (args: { id: string; reason?: string }) => toolReturn(db, args),
+  );
+
+  register(
+    server,
     "done",
-    "Mark an in_progress (or todo) task as done. Terminal — removes from rankable set. Echoes the updated node.",
+    "Mark a task as done — from in_progress, under_review (approving the review), or todo. Terminal — removes from rankable set. Echoes the updated node.",
     { id: z.string() },
     (args: { id: string }) => toolDone(db, args),
   );

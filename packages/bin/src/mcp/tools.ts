@@ -42,7 +42,9 @@ import {
   parkTask,
   reorder,
   resolveEntityToken,
+  returnTask,
   startTask,
+  submitTask,
   statusOfNode,
   tagEntities,
   unblockTask,
@@ -241,6 +243,22 @@ export function toolStart(db: Db, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
     const id = await nodeId(db, args.id, "task");
     const node = await startTask(db, id);
+    return echoNode(db, node);
+  });
+}
+
+export function toolSubmit(db: Db, args: { id: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id, "task");
+    const node = await submitTask(db, id);
+    return echoNode(db, node);
+  });
+}
+
+export function toolReturn(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id, "task");
+    const node = await returnTask(db, id, args.reason);
     return echoNode(db, node);
   });
 }

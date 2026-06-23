@@ -130,6 +130,28 @@ test("done completes a started task", async () => {
   expect(code).toBe(0);
   expect(JSON.parse(io.out[0] ?? "{}").status).toBe("done");
 });
+test("submit moves a started task to under_review (MMR-84)", async () => {
+  await runCli(["start", taskRef], () => db, fakeIo(false));
+  const io = fakeIo(false);
+  const code = await runCli(["submit", taskRef, "-f", "json"], () => db, io);
+  expect(code).toBe(0);
+  expect(JSON.parse(io.out[0] ?? "{}").status).toBe("under_review");
+});
+test("return sends an under_review task back to in_progress with a reason", async () => {
+  await runCli(["start", taskRef], () => db, fakeIo(false));
+  await runCli(["submit", taskRef], () => db, fakeIo(false));
+  const io = fakeIo(false);
+  const code = await runCli(["return", taskRef, "fix", "the", "tests", "-f", "json"], () => db, io);
+  expect(code).toBe(0);
+  expect(JSON.parse(io.out[0] ?? "{}").status).toBe("in_progress");
+});
+test("done approves an under_review task", async () => {
+  await runCli(["start", taskRef], () => db, fakeIo(false));
+  await runCli(["submit", taskRef], () => db, fakeIo(false));
+  const io = fakeIo(false);
+  expect(await runCli(["done", taskRef, "-f", "json"], () => db, io)).toBe(0);
+  expect(JSON.parse(io.out[0] ?? "{}").status).toBe("done");
+});
 test("abandon records a reason from the positional tail", async () => {
   const code = await runCli(
     ["abandon", taskRef, "superseded", "by", "nine"],

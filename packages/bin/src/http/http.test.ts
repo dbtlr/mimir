@@ -317,6 +317,27 @@ test("lifecycle actions echo the full updated record; an illegal transition is r
   expect(abandoned.status).toBe("abandoned");
 });
 
+test("submit/return drive the under_review gate; approval is done (MMR-84)", async () => {
+  await send("POST", `/api/nodes/${task1}/start`);
+  const submitted = await parse(await send("POST", `/api/nodes/${task1}/submit`));
+  expect(submitted.lifecycle).toBe("under_review");
+  expect(submitted.status).toBe("under_review");
+
+  // submit is legal only from in_progress.
+  const reSubmit = await send("POST", `/api/nodes/${task1}/submit`);
+  expect(reSubmit.status).toBe(400);
+
+  const returned = await parse(
+    await send("POST", `/api/nodes/${task1}/return`, { reason: "tweak the copy" }),
+  );
+  expect(returned.lifecycle).toBe("in_progress");
+
+  // resubmit then approve via done.
+  await send("POST", `/api/nodes/${task1}/submit`);
+  const approved = await parse(await send("POST", `/api/nodes/${task1}/done`));
+  expect(approved.lifecycle).toBe("done");
+});
+
 test("hold actions set and clear the overlay", async () => {
   const parked = await parse(await send("POST", `/api/nodes/${task1}/park`, { reason: "later" }));
   expect(parked.status).toBe("parked");

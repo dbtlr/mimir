@@ -16,7 +16,9 @@ read commands:
 manage commands:
   lifecycle:
     start <id>              begin a task (todo → in_progress)
-    done <id>               complete a task
+    submit <id>             submit for review (in_progress → under_review)
+    return <id> [reason]    send back for changes (under_review → in_progress)
+    done <id>               complete a task (approves a review)
     abandon <id> [reason]   abandon a task (kept, not deleted)
 
   holds:
@@ -57,8 +59,8 @@ options:
 
   selection (list/next — AND-composed):
       --status <word>     list: the universe — ready|awaiting|in_progress|
-                          blocked|parked|done|abandoned, or unions
-                          live (default) | terminal | all
+                          under_review|blocked|parked|done|abandoned, or
+                          unions live (default) | terminal | all
       --is <verdict>      verdicts: stale|blocking|orphaned (repeatable)
       --not-is <verdict>  negated verdict (repeatable)
       --eq F:V            field equals (also --not-eq); --in F:V1,V2 any-of
