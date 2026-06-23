@@ -15,6 +15,7 @@ test("migrateToLatest applies the bundled migrations on a fresh db", async () =>
       "0003_artifact_title",
       "0004_drop_repo_path",
       "0005_project_description",
+      "0006_lifecycle_under_review",
     ]);
     expect(results?.every((r) => r.status === "Success")).toBe(true);
   } finally {
@@ -34,6 +35,7 @@ test("migrationStatus reports applied migrations after migrating", async () => {
       "0003_artifact_title",
       "0004_drop_repo_path",
       "0005_project_description",
+      "0006_lifecycle_under_review",
     ]);
     expect(all.every((m) => m.executedAt !== undefined)).toBe(true);
   } finally {

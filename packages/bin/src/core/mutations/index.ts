@@ -1,5 +1,5 @@
 /** The mutation surface — high-level verbs, each a single transaction (ADR 0003). */
-export { abandonTask, completeTask, startTask } from "./lifecycle";
+export { abandonTask, completeTask, returnTask, startTask, submitTask } from "./lifecycle";
 export { blockTask, parkTask, unblockTask, unparkTask } from "./hold";
 export { depend, undepend } from "./dependency";
 export { moveNode } from "./structure";

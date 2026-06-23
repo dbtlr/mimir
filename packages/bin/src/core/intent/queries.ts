@@ -212,7 +212,8 @@ export async function listNodes(db: Db, opts: ListOptions = {}): Promise<SetResu
     if (universe === "terminal" || universe === "done" || universe === "abandoned") {
       query = query.where("lifecycle", "in", ["done", "abandoned"]);
     } else if (universe !== "all") {
-      query = query.where("lifecycle", "in", ["todo", "in_progress"]);
+      // Non-terminal lifecycle (incl. the under_review gate) — the live universe.
+      query = query.where("lifecycle", "in", ["todo", "in_progress", "under_review"]);
     }
   }
   if (opts.scope !== undefined) {

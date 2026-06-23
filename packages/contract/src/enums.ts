@@ -13,8 +13,13 @@
 export const NODE_TYPE_VALUES = ["initiative", "phase", "task"] as const;
 export type NodeType = (typeof NODE_TYPE_VALUES)[number];
 
-/** Lifecycle axis (ADR 0001) — pure progress, mutually exclusive, verb-driven. */
-export const LIFECYCLE_VALUES = ["todo", "in_progress", "done", "abandoned"] as const;
+/**
+ * Lifecycle axis (ADR 0001) — pure progress, mutually exclusive, verb-driven.
+ * `under_review` is an optional ship-readiness gate between `in_progress` and
+ * `done` (MMR-84): the doer submits, a human approves (→done) or returns
+ * (→in_progress). Optional — `in_progress → done` directly stays legal.
+ */
+export const LIFECYCLE_VALUES = ["todo", "in_progress", "under_review", "done", "abandoned"] as const;
 export type Lifecycle = (typeof LIFECYCLE_VALUES)[number];
 
 /** Hold overlay (ADR 0001) — why a task is set aside, orthogonal to lifecycle. */
@@ -42,6 +47,7 @@ export const STATUS_WORD_VALUES = [
   "blocked",
   "parked",
   "in_progress",
+  "under_review",
   "done",
   "abandoned",
   "new",
@@ -55,6 +61,7 @@ export const TASK_STATUS_WORD_VALUES = [
   "blocked",
   "parked",
   "in_progress",
+  "under_review",
   "done",
   "abandoned",
 ] as const;
