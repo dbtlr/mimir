@@ -24,7 +24,7 @@ function useInvalidateOnWrite(): () => void {
   };
 }
 
-/** park/block/abandon carry a trimmed reason; plain verbs send no body. */
+/** park/block/abandon/return carry a trimmed reason; plain verbs send no body. */
 function reasonBody(reason?: string): { reason: string } | undefined {
   const trimmed = reason?.trim();
   return trimmed !== undefined && trimmed !== "" ? { reason: trimmed } : undefined;

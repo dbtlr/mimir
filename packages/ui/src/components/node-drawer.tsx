@@ -134,8 +134,10 @@ function buildFeed(
 function describeTransition(e: WireHistoryEntry): { label: string; detail?: string } {
   switch (e.kind) {
     case "lifecycle":
+      if (e.to === "under_review") return { label: "Submitted for review" };
+      if (e.from === "under_review" && e.to === "in_progress") return { label: "Changes requested" };
       if (e.to === "in_progress") return { label: "Started" };
-      if (e.to === "done") return { label: "Completed" };
+      if (e.to === "done") return { label: e.from === "under_review" ? "Approved" : "Completed" };
       if (e.to === "abandoned") return { label: "Abandoned" };
       return { label: `→ ${e.to ?? "?"}` };
     case "hold":

@@ -26,6 +26,13 @@ export const STATUS_META: Record<StatusWord, StatusMeta> = {
     chip: "bg-status-in-progress/15 text-status-in-progress",
     border: "border-status-in-progress",
   },
+  under_review: {
+    label: "Under review",
+    dot: "bg-status-under-review",
+    text: "text-status-under-review",
+    chip: "bg-status-under-review/15 text-status-under-review",
+    border: "border-status-under-review",
+  },
   ready: {
     label: "Ready",
     dot: "bg-status-ready",
@@ -80,6 +87,7 @@ export const STATUS_META: Record<StatusWord, StatusMeta> = {
 /** Canonical display order for distribution bars and legends. */
 export const STATUS_ORDER: readonly StatusWord[] = [
   "in_progress",
+  "under_review",
   "ready",
   "awaiting",
   "blocked",

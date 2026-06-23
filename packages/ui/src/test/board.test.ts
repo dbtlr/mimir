@@ -10,6 +10,7 @@ describe("BOARD_COLUMNS", () => {
       "awaiting",
       "ready",
       "in_progress",
+      "under_review",
       "done",
     ]);
   });

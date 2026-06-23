@@ -228,6 +228,7 @@ const MOBILE_TABS = [
   { id: "awaiting", label: "Await", columns: ["awaiting"] },
   { id: "ready", label: "Ready", columns: ["ready"] },
   { id: "in_progress", label: "In prog", columns: ["in_progress"] },
+  { id: "under_review", label: "Review", columns: ["under_review"] },
   { id: "done", label: "Done", columns: ["done"] },
 ] as const satisfies readonly { id: string; label: string; columns: readonly BoardColumn[] }[];
 

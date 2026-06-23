@@ -17,13 +17,21 @@ describe("availableTransitions", () => {
     );
   });
 
-  test("in_progress offers done instead of start", () => {
+  test("in_progress offers submit + done instead of start", () => {
     expect(availableTransitions("in_progress").map((v) => v.verb)).toEqual([
+      "submit",
       "done",
       "park",
       "block",
       "abandon",
     ]);
+  });
+
+  test("under_review offers approve (done) + request-changes (return) + holds (MMR-84)", () => {
+    const specs = availableTransitions("under_review");
+    expect(specs.map((v) => v.verb)).toEqual(["done", "return", "park", "block", "abandon"]);
+    expect(specs.find((s) => s.verb === "return")?.needsReason).toBe(true);
+    expect(specs.find((s) => s.verb === "done")?.needsReason).toBe(false);
   });
 
   test("held columns offer only their release + abandon", () => {

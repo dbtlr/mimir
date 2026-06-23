@@ -12,6 +12,7 @@ export const BOARD_COLUMNS = [
   "awaiting",
   "ready",
   "in_progress",
+  "under_review",
   "done",
 ] as const;
 export type BoardColumn = (typeof BOARD_COLUMNS)[number];
@@ -45,6 +46,7 @@ export function buildBoard(live: WireNode[], done: WireNode[], now = Date.now())
     awaiting: [],
     ready: [],
     in_progress: [],
+    under_review: [],
     done: [],
   };
   for (const node of live) {

@@ -1,7 +1,16 @@
 import type { StatusWord } from "@mimir/contract";
 
 /** The mutation verbs a human can drive from the console (lifecycle + hold). */
-export type TransitionVerb = "start" | "done" | "abandon" | "park" | "unpark" | "block" | "unblock";
+export type TransitionVerb =
+  | "start"
+  | "submit"
+  | "return"
+  | "done"
+  | "abandon"
+  | "park"
+  | "unpark"
+  | "block"
+  | "unblock";
 
 export interface VerbSpec {
   verb: TransitionVerb;
@@ -12,6 +21,8 @@ export interface VerbSpec {
 
 const LABEL: Record<TransitionVerb, string> = {
   start: "Start",
+  submit: "Submit for review",
+  return: "Request changes",
   done: "Done",
   abandon: "Abandon",
   park: "Park",
@@ -20,7 +31,7 @@ const LABEL: Record<TransitionVerb, string> = {
   unblock: "Unblock",
 };
 
-const NEEDS_REASON = new Set<TransitionVerb>(["park", "block", "abandon"]);
+const NEEDS_REASON = new Set<TransitionVerb>(["park", "block", "abandon", "return"]);
 
 /**
  * The verbs offered for each displayed status word — keyed on what the operator
@@ -30,7 +41,8 @@ const NEEDS_REASON = new Set<TransitionVerb>(["park", "block", "abandon"]);
  * hold). The core stays the authority and rejects anything illegal.
  */
 const VERBS: Partial<Record<StatusWord, TransitionVerb[]>> = {
-  in_progress: ["done", "park", "block", "abandon"],
+  in_progress: ["submit", "done", "park", "block", "abandon"],
+  under_review: ["done", "return", "park", "block", "abandon"],
   ready: ["start", "park", "block", "abandon"],
   awaiting: ["start", "park", "block", "abandon"],
   blocked: ["unblock", "abandon"],
