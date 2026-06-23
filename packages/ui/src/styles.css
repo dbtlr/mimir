@@ -40,7 +40,7 @@
 
   /* the status vocabulary — the one color system */
   --color-status-in-progress: #fdb45c;
-  --color-status-under-review: #e98bd6;
+  --color-status-under-review: #c89bc6;
   --color-status-ready: #5da2ff;
   --color-status-awaiting: #9a8cf5;
   --color-status-blocked: #f4586c;
@@ -163,7 +163,7 @@ body {
 
   /* the status vocabulary — same hues, deepened for a light ground */
   --color-status-in-progress: #b9700c;
-  --color-status-under-review: #a83ba0;
+  --color-status-under-review: #8f4f8a;
   --color-status-ready: #2563c4;
   --color-status-awaiting: #6249cf;
   --color-status-blocked: #cc2f44;
