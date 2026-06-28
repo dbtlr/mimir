@@ -41,35 +41,50 @@ export function BandSection({
     </div>
   );
 
+  const pip = <span className={cn("h-[3px] w-5 shrink-0 rounded-sm", BAND_PIP[band.band])} />;
+  const label = <h2 className="microlabel text-ink">{band.label}</h2>;
+  const countChip = (
+    <span className="rounded-full border border-line px-2 py-px font-mono text-[0.6875rem] text-ink-dim tabular-nums">
+      {count}
+    </span>
+  );
+  const rule = <span className="h-px flex-1 bg-gradient-to-r from-line to-transparent" />;
+
+  // The At-rest band folds its projects away by default — the header itself is
+  // the disclosure (no separate repeating strip), keeping the band-header idiom.
+  if (collapsible) {
+    return (
+      <section aria-label={band.label} className="flex flex-col gap-2.5">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => {
+            setExpanded((e) => !e);
+          }}
+          className="group flex items-center gap-3 text-left focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          {pip}
+          {label}
+          {countChip}
+          {rule}
+          <span className="text-[0.6875rem] text-ink-faint transition-colors group-hover:text-ink">
+            {expanded ? "Hide ↑" : "Show ↓"}
+          </span>
+        </button>
+        {expanded && cards}
+      </section>
+    );
+  }
+
   return (
     <section aria-label={band.label} className="flex flex-col gap-2.5">
       <div className="flex items-center gap-3">
-        <span className={cn("h-[3px] w-5 shrink-0 rounded-sm", BAND_PIP[band.band])} />
-        <h2 className="microlabel text-ink">{band.label}</h2>
-        <span className="rounded-full border border-line px-2 py-px font-mono text-[0.6875rem] text-ink-dim tabular-nums">
-          {count}
-        </span>
-        <span className="h-px flex-1 bg-gradient-to-r from-line to-transparent" />
+        {pip}
+        {label}
+        {countChip}
+        {rule}
       </div>
-      {collapsible ? (
-        <>
-          <button
-            type="button"
-            aria-expanded={expanded}
-            onClick={() => {
-              setExpanded((e) => !e);
-            }}
-            className="flex w-full items-center gap-2 rounded-md border border-line bg-well-900/50 px-3 py-2.5 text-left text-[0.75rem] text-ink-dim transition-colors hover:border-line-bright hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
-          >
-            <span className="font-mono text-ink tabular-nums">{count}</span>{" "}
-            {band.label.toLowerCase()}
-            <span className="ml-auto text-ink-faint">{expanded ? "hide ↑" : "view all →"}</span>
-          </button>
-          {expanded && cards}
-        </>
-      ) : (
-        cards
-      )}
+      {cards}
     </section>
   );
 }

@@ -34,23 +34,24 @@ export function CardVitals({ counts }: { counts: Distribution | undefined }) {
           ))}
         </div>
       ) : (
-        <div className="h-1.5 rounded-full bg-well-700" />
+        <div className="h-1.5 rounded-full bg-line" />
       )}
-      {/* five-count legend in fixed band-mirroring order; zeros recede */}
-      <ul className="flex flex-wrap gap-x-3 gap-y-1.5">
+      {/* five-count legend, fixed band-mirroring order; a 5-col grid so counts
+          column-align and wrapping is predictable; zeros recede */}
+      <ul className="grid grid-cols-5 gap-x-1.5">
         {vitals.map((v) => (
           <li
             key={v.word}
             className={cn(
-              "flex items-center gap-1.5 text-[0.6875rem] text-ink-dim",
+              "flex items-center gap-1 text-[0.625rem] whitespace-nowrap text-ink-dim",
               v.count === 0 && "opacity-45",
             )}
           >
             <span
-              className={cn("h-[7px] w-[7px] shrink-0 rounded-full", STATUS_META[v.word].dot)}
+              className={cn("h-[6px] w-[6px] shrink-0 rounded-full", STATUS_META[v.word].dot)}
             />
             <span className="font-mono font-bold text-ink-bright tabular-nums">{v.count}</span>
-            <span>{v.label}</span>
+            <span className="truncate">{v.label}</span>
           </li>
         ))}
       </ul>

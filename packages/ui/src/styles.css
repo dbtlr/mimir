@@ -39,8 +39,9 @@
   --color-accent: #62d6e8;
 
   /* going-cold (MMR-106): a temperature cue, deliberately *outside* the status
-     vocabulary so a stale project never reads as a status word. */
-  --color-cold: #86b8d6;
+     vocabulary so a stale project never reads as a status word — and pulled
+     greyer than `ready`-blue so the two never blur. */
+  --color-cold: #93a8b4;
 
   /* the status vocabulary — the one color system */
   --color-status-in-progress: #fdb45c;
@@ -165,8 +166,8 @@ body {
   --color-line-bright: #bcc6d6;
   --color-accent: #0e8aa0;
 
-  /* going-cold (MMR-106) — deepened for a light ground */
-  --color-cold: #3f7a9c;
+  /* going-cold (MMR-106) — greyer than ready-blue, deepened for a light ground */
+  --color-cold: #4f6675;
 
   /* the status vocabulary — same hues, deepened for a light ground */
   --color-status-in-progress: #b9700c;
