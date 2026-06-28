@@ -61,6 +61,17 @@ test("tallies every leaf task's derived status word across the whole project", a
   });
 });
 
+test("tallies the held and terminal buckets too (parked / done / abandoned)", async () => {
+  const { p, phase } = await fixture();
+  const parked = await createTask(db, { parentId: phase.id, title: "parked" });
+  await patch(parked.id, { hold: "parked" });
+  const done = await createTask(db, { parentId: phase.id, title: "done" });
+  await patch(done.id, { lifecycle: "done" });
+  const gone = await createTask(db, { parentId: phase.id, title: "gone" });
+  await patch(gone.id, { lifecycle: "abandoned" });
+  expect(await leafDistribution(db, p.id)).toEqual({ parked: 1, done: 1, abandoned: 1 });
+});
+
 test("counts the derived awaiting word (todo with an unsettled prerequisite)", async () => {
   const { p, phase } = await fixture();
   const a = await createTask(db, { parentId: phase.id, title: "a" });
