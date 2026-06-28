@@ -21,7 +21,7 @@
     "@tanstack/react-form": "^1.33.0",
     "@tanstack/react-query": "^5.90.5",
     "@tanstack/react-query-persist-client": "^5.90.5",
-    "@tanstack/react-router": "^1.132.0",
+    "@tanstack/react-router": "^1.170.16",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "idb-keyval": "^6.2.2",
