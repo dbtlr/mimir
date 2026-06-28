@@ -23,10 +23,10 @@ export const projectsQuery = queryOptions({
   queryFn: () => apiGet<Collection<WireNode>>("/api/projects"),
 });
 
-/** Attention strip: every in-flight task, portfolio-wide. */
-export const inFlightQuery = queryOptions({
-  queryKey: ["nodes", "attention", "in_progress"],
-  queryFn: () => apiGet<Collection<WireNode>>("/api/nodes?type=task&status=in_progress"),
+/** Attention: tasks awaiting the operator's review, portfolio-wide (MMR-103). */
+export const underReviewQuery = queryOptions({
+  queryKey: ["nodes", "attention", "under_review"],
+  queryFn: () => apiGet<Collection<WireNode>>("/api/nodes?type=task&status=under_review"),
 });
 
 /** Attention strip: externally blocked tasks, portfolio-wide. */

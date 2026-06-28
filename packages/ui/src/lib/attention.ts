@@ -9,12 +9,18 @@ export interface AttentionItem {
 }
 
 /**
- * The cross-project intervention set (MMR-80): things needing the operator to
- * unstick them — **blocked first, then stale-only**, deduped by id. In-flight is
- * deliberately excluded: active work is healthy, not an alert (the grilled
- * definition of "attention"; see the glossary).
+ * The cross-project set that needs the operator (MMR-80, reconciled MMR-103):
+ * **under_review first, then blocked, then stale-only**, deduped by id — ordered
+ * by "how much your action moves it" (the fleet-band principle). `under_review`
+ * (Awaiting you) is the strongest such signal, so it leads. `in_progress`/`ready`
+ * stay excluded: active, un-awaited work is healthy, not an alert (the refined
+ * "attention" definition; see the glossary).
  */
-export function attentionItems(blocked: WireNode[], stale: WireNode[]): AttentionItem[] {
+export function attentionItems(
+  underReview: WireNode[],
+  blocked: WireNode[],
+  stale: WireNode[],
+): AttentionItem[] {
   const staleIds = new Set(stale.map((n) => n.id));
   const seen = new Set<string>();
   const items: AttentionItem[] = [];
@@ -23,6 +29,7 @@ export function attentionItems(blocked: WireNode[], stale: WireNode[]): Attentio
     seen.add(node.id);
     items.push({ node, reason, stale: staleIds.has(node.id) || node.verdicts?.stale === true });
   };
+  for (const node of underReview) push(node, "under_review");
   for (const node of blocked) push(node, "blocked");
   for (const node of stale) push(node, node.status);
   return items;
