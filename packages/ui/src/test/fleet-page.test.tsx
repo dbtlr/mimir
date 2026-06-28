@@ -71,4 +71,14 @@ describe("FleetPage attention-router (MMR-102)", () => {
     expect(screen.getByText("OLDCACHE")).toBeDefined();
     expect(screen.queryByText("Awaiting you")).toBeNull();
   });
+
+  test("shows an empty state when there are no projects", async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === "/api/projects") return Promise.resolve({ total: 0, items: [] });
+      return Promise.resolve({ total: 0, items: [] });
+    });
+    renderFleet();
+
+    expect(await screen.findByText(/no projects yet/i)).toBeDefined();
+  });
 });

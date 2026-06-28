@@ -57,6 +57,13 @@ export function FleetPage() {
         {projects.data !== undefined &&
           (() => {
             const onOpen = (key: string) => void navigate({ to: "/p/$key", params: { key } });
+            if (projects.data.items.length === 0) {
+              return (
+                <p className="text-[0.75rem] text-ink-dim">
+                  No projects yet — create one with `mimir create project`.
+                </p>
+              );
+            }
             const grouping = groupIntoBands(projects.data.items);
             if (grouping.mode === "flat") {
               return (
