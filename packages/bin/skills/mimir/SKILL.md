@@ -40,8 +40,8 @@ These hold for every Mimir interaction. The references add detail; nothing in th
 relaxes these.
 
 **1. Statuses move only through verbs.** `start` · `submit` · `return` · `done` ·
-`abandon` · `park`/`unpark` · `block`/`unblock`. There is no editable status field, and
-`update` cannot touch status — that is by design, not an omission.
+`abandon` · `reopen` · `park`/`unpark` · `block`/`unblock`. There is no editable status
+field, and `update` cannot touch status — that is by design, not an omission.
 
 **2. The transition contract — transition at the moment, not later:**
 
@@ -59,6 +59,10 @@ relaxes these.
   next agent's context. `unblock`/`unpark` on resume.
 - `abandon <id> "reason"` when an approach or task dies. Never delete, never leave a
   zombie `todo`.
+- `reopen <id> ["reason"]` when a `done` or `abandoned` task needs to re-enter
+  work — the deliberate *correction* path. The reversal is recorded, not erased; the
+  task re-enters `in_progress` at the bottom of the rankable set and must go through
+  the normal gate flow again.
 - **Discovered work = a new task** (`create task` + `depend` if it gates something),
   never a silent widening of the current one. `annotate` the current task with what
   you found.

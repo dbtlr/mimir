@@ -11,9 +11,9 @@ A **task** stores exactly two orthogonal things; nothing else stores status at a
   `blocked` = involuntary/external; `parked` = deliberate deferral. A hold coexists
   with `in_progress` — releasing it resumes in place.
 
-There is no editable status field. Verbs: `start` `submit` `return` `done` `abandon` ·
-`block`/`unblock` · `park`/`unpark`. Every transition is logged (same transaction)
-with its reason — `get <id> --col history` shows the trail.
+There is no editable status field. Verbs: `start` `submit` `return` `done` `abandon`
+`reopen` · `block`/`unblock` · `park`/`unpark`. Every transition is logged (same
+transaction) with its reason — `get <id> --col history` shows the trail.
 
 ### The `under_review` gate (optional)
 
@@ -30,6 +30,24 @@ It is **optional** — `in_progress → done` directly is still legal when no re
 wanted. An `under_review` task is non-actionable (waiting on the human), so it leaves
 the rankable set and `next` won't surface it — but `stale` _will_ chase it if the
 review sits too long.
+
+### Reopening a terminal task (the correction path)
+
+When a `done` or `abandoned` task needs to re-enter work, `reopen` it:
+
+- `reopen <id> [reason]` — terminal (`done`/`abandoned`) → `in_progress`: the deliberate
+  *correction* path (e.g. a `done` declared before verification passed). The task
+  re-enters the rankable set at the bottom (`completed_at` is cleared); the optional
+  reason rides the transition-log row.
+
+The reversal is **recorded, not erased** — the original terminal transition is preserved
+(append-only log), so the full trail (`… → done → in_progress → …`) survives.
+
+`reopen` is the *correction* path; `submit`/`return` (`under_review`) is the
+*prevention* path — use `under_review` to guard against premature completion in the
+first place. Reopening a task lands in `in_progress`, not `under_review`, so the doer
+re-runs the normal gate flow rather than routing around it. No new lifecycle value and
+no migration — `reopen` only adds a legal transition edge.
 
 ## The status word — derived, never stored
 
@@ -69,7 +87,7 @@ What `list`/`get` show as `status` is computed:
 
 ## Containers aren't lifecycle-managed
 
-Lifecycle verbs (`start`, `submit`, `return`, `done`, `abandon`, `park`, `block`)
+Lifecycle verbs (`start`, `submit`, `return`, `done`, `abandon`, `reopen`, `park`, `block`)
 only act on **tasks**. Trying to `start` a phase or initiative is an error — the response
 names a ready child task to start instead. Complete the leaf tasks and the
 container's rollup follows automatically; there is nothing to do at the

@@ -55,3 +55,19 @@ Consequences, each following from "non-terminal but not agent-actionable":
 - **Status word + rollup:** `under_review` joins the closed vocabulary, ranked **just under `in_progress`** in both the task projection and the `interpret` cascade (both are live-progress; it is _past_ `in_progress`) — above the not-yet-started and stuck/shelved words. See [ADR 0008](0008-state-word-projection-and-interpret-cascade.md).
 - **Hygiene:** `stale` **chases** `under_review` (a submission the human never got to is the rot the nudge exists to surface). The `Attention` set (`blocked` + `stale`) is unchanged — a fresh review is healthy, not stuck.
 - **Storage:** lifecycle is row-local CHECK-enforced, so admitting the value is a `node` table rebuild (migration 0006), done with `foreign_keys` off (the SQLite adapter is non-transactional-DDL) so no child table is disturbed.
+
+## Refinement — terminal states are reversible via `reopen` (2026-06-27, MMR-104)
+
+`done` and `abandoned` are terminal but not irreversible. A single `reopen`
+verb moves either back to `in_progress`, re-entering the rankable set at the
+bottom (a reopen is a re-triage point) and clearing `completed_at`; an optional
+reason rides the transition-log row. The reversal is **recorded, not erased** —
+the original terminal transition is kept (append-only, ADR 0003), so the full
+trail (`… → done → in_progress → …`) survives.
+
+`reopen` is the deliberate *correction* path (e.g. a `done` declared before
+verification). It does not weaken `done` as a trust signal: preventing
+premature completion is the optional `under_review` gate (`submit`/`return`),
+not a casual toggle. Reopen lands in `in_progress`, not `under_review`, so the
+doer re-runs the normal gate flow rather than routing around it. No new
+lifecycle value and no migration — the verb only adds a legal transition edge.
