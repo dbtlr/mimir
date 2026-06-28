@@ -78,7 +78,10 @@ function TreeNode({
       </span>
       <span
         className={cn(
-          "min-w-0 line-clamp-2 md:truncate md:text-xs",
+          // leading-tight pins a consistent rhythm across the container (text-base,
+          // which carries Tailwind's looser default leading) and leaf branches when
+          // the title wraps to two lines on mobile (MMR-107).
+          "min-w-0 line-clamp-2 leading-tight md:truncate md:text-xs",
           container
             ? "text-base font-semibold text-ink-bright"
             : "text-md text-ink-bright md:font-normal md:text-ink",
