@@ -44,6 +44,7 @@ import {
   parseIdentity,
   projectTree,
   reorder,
+  reopenTask,
   returnTask,
   startTask,
   submitTask,
@@ -493,6 +494,18 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           guarded(req, async () => {
             const body = await readBody(req, ["reason"]);
             const node = await abandonTask(
+              db,
+              await nodeRef(db, req.params.id, "task"),
+              strField(body, "reason"),
+            );
+            return echoNode(db, req, node);
+          }),
+      },
+      "/api/nodes/:id/reopen": {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ["reason"]);
+            const node = await reopenTask(
               db,
               await nodeRef(db, req.params.id, "task"),
               strField(body, "reason"),
