@@ -482,7 +482,9 @@ test("POST /api/nodes/:id/reopen sends a done task back to in_progress (MMR-104)
   await send("POST", `/api/nodes/${task1}/done`);
   const res = await send("POST", `/api/nodes/${task1}/reopen`, { reason: "unverified" });
   expect(res.status).toBe(200);
-  expect((await parse(res)).lifecycle).toBe("in_progress");
+  const record = await parse(res);
+  expect(record.lifecycle).toBe("in_progress");
+  expect(record.status).toBe("in_progress");
 });
 
 test("POST /api/nodes/:id/reopen on a live task returns 400 (MMR-104)", async () => {
