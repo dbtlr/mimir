@@ -13,6 +13,10 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Changed
+
+- **[TEST]** throwaway entry to verify changelog-guard's entry path.
+
 ## v0.12.0 - 2026-06-28
 
 The attention-router release. The `/` page (renamed from "fleet" to **Overview**)
