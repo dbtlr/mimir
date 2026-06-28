@@ -3,9 +3,9 @@ import { useState } from "react";
 import type { VerbSpec } from "../lib/transitions";
 
 /**
- * Optional-reason modal for park/block/abandon. The reason is genuine
- * next-agent context; for the irreversible `abandon` it doubles as the
- * confirmation gate. Empty is allowed — the operator may skip it.
+ * Optional-reason modal for the reason-carrying verbs (park/block/abandon/
+ * return/reopen). The reason is genuine next-agent context; for `abandon` it
+ * doubles as the confirmation gate. Empty is allowed — the operator may skip it.
  */
 export function ReasonDialog({
   verb,
