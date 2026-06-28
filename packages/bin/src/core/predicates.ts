@@ -1,9 +1,10 @@
-import type { Verdicts } from "@mimir/contract";
-import type { Node } from "../db/schema";
-import type { Db, Tx } from "./context";
-import { hasUnsettledPrereq, isNodeSettled, isTerminalWord, nodeStatusWord } from "./derive";
-import { loadNode } from "./lookup";
-import { now } from "./time";
+import type { Verdicts } from '@mimir/contract';
+
+import type { Node } from '../db/schema';
+import type { Db, Tx } from './context';
+import { hasUnsettledPrereq, isNodeSettled, isTerminalWord, nodeStatusWord } from './derive';
+import { loadNode } from './lookup';
+import { now } from './time';
 
 /**
  * The derived predicate vocabulary (design spec §4, glossary). Each is computed
@@ -16,7 +17,7 @@ type Executor = Db | Tx;
 
 /** `ready` — the headline: a todo, un-held task with every prerequisite settled. */
 export async function isReady(tx: Executor, task: Node): Promise<boolean> {
-  if (task.type !== "task" || task.lifecycle !== "todo" || task.hold !== "none") {
+  if (task.type !== 'task' || task.lifecycle !== 'todo' || task.hold !== 'none') {
     return false;
   }
   return !(await hasUnsettledPrereq(tx, task.id));
@@ -24,7 +25,7 @@ export async function isReady(tx: Executor, task: Node): Promise<boolean> {
 
 /** `awaiting` — `ready`'s involuntary sibling: todo + un-held but with ≥1 unsettled prerequisite. */
 export async function isAwaiting(tx: Executor, task: Node): Promise<boolean> {
-  if (task.type !== "task" || task.lifecycle !== "todo" || task.hold !== "none") {
+  if (task.type !== 'task' || task.lifecycle !== 'todo' || task.hold !== 'none') {
     return false;
   }
   return hasUnsettledPrereq(tx, task.id);
@@ -32,16 +33,16 @@ export async function isAwaiting(tx: Executor, task: Node): Promise<boolean> {
 
 /** `blocked` — the manual hold overlay (distinct from the derived `awaiting`). */
 export function isBlocked(task: Node): boolean {
-  return task.type === "task" && task.hold === "blocked";
+  return task.type === 'task' && task.hold === 'blocked';
 }
 
 /** `blocking` — this node is a prerequisite of ≥1 still-unsettled dependent. */
 export async function isBlocking(tx: Executor, node: Node): Promise<boolean> {
   const dependents = await tx
-    .selectFrom("dependency")
-    .innerJoin("node", "node.id", "dependency.node_id")
-    .where("dependency.depends_on_node_id", "=", node.id)
-    .select(["node.id", "node.type", "node.lifecycle"])
+    .selectFrom('dependency')
+    .innerJoin('node', 'node.id', 'dependency.node_id')
+    .where('dependency.depends_on_node_id', '=', node.id)
+    .select(['node.id', 'node.type', 'node.lifecycle'])
     .execute();
   for (const dependent of dependents) {
     if (!(await isNodeSettled(tx, dependent))) {
@@ -72,11 +73,11 @@ export async function isStale(
   task: Node,
   options: StaleOptions = {},
 ): Promise<boolean> {
-  if (task.type !== "task") {
+  if (task.type !== 'task') {
     return false;
   }
   const word = await nodeStatusWord(tx, task);
-  if (word !== "in_progress" && word !== "ready" && word !== "blocked" && word !== "under_review") {
+  if (word !== 'in_progress' && word !== 'ready' && word !== 'blocked' && word !== 'under_review') {
     return false;
   }
   const asOf = options.asOf ?? now();
@@ -97,21 +98,21 @@ export async function isStale(
  * is terminal (a sole live child is not orphaned).
  */
 export async function isOrphaned(tx: Executor, task: Node): Promise<boolean> {
-  if (task.type !== "task" || task.parent_id === null) {
+  if (task.type !== 'task' || task.parent_id === null) {
     return false;
   }
-  if (task.lifecycle === "done" || task.lifecycle === "abandoned") {
+  if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
     return false;
   }
   const parent = await loadNode(tx, task.parent_id);
-  if (parent === undefined || parent.type === "task") {
+  if (parent === undefined || parent.type === 'task') {
     return false;
   }
   const siblings = await tx
-    .selectFrom("node")
+    .selectFrom('node')
     .selectAll()
-    .where("parent_id", "=", parent.id)
-    .where("id", "!=", task.id)
+    .where('parent_id', '=', parent.id)
+    .where('id', '!=', task.id)
     .execute();
   if (siblings.length === 0) {
     return false;

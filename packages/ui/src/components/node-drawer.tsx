@@ -1,37 +1,38 @@
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import type { NodeRef } from "@mimir/contract";
-import { useState } from "react";
-import type { ReactNode } from "react";
-import { annotationsQuery, nodeQuery, treeQuery } from "../api/queries";
-import { useMoveNode, useUpdateNode } from "../api/mutations";
-import { projectKeyOf } from "../api/types";
-import type { WireAnnotation, WireHistoryEntry, WireNode } from "../api/types";
-import { AnnotationComposer } from "./annotation-composer";
-import { TagEditor } from "./tag-editor";
-import { parentOptions } from "../lib/parent-options";
-import type { TaskFormValues } from "../lib/schemas";
-import { absoluteTime, ago } from "../lib/time";
-import { Badge } from "./ui/badge";
-import { ScrollArea } from "./ui/scroll-area";
-import { Separator } from "./ui/separator";
-import { Sheet, SheetClose, SheetContent, SheetTitle } from "./ui/sheet";
-import { Skeleton } from "./ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { PriorityBadge, SizeBadge, StaleBadge } from "./signal-badges";
-import { StatusBadge } from "./status-badge";
-import { StatusDot } from "./status-dot";
-import { TaskForm } from "./task-form";
-import type { TaskFormSubmit } from "./task-form";
-import { TransitionMenu } from "./transition-menu";
+import type { NodeRef } from '@mimir/contract';
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
+
+import { useMoveNode, useUpdateNode } from '../api/mutations';
+import { annotationsQuery, nodeQuery, treeQuery } from '../api/queries';
+import { projectKeyOf } from '../api/types';
+import type { WireAnnotation, WireHistoryEntry, WireNode } from '../api/types';
+import { parentOptions } from '../lib/parent-options';
+import type { TaskFormValues } from '../lib/schemas';
+import { absoluteTime, ago } from '../lib/time';
+import { AnnotationComposer } from './annotation-composer';
+import { PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
+import { StatusBadge } from './status-badge';
+import { StatusDot } from './status-dot';
+import { TagEditor } from './tag-editor';
+import { TaskForm } from './task-form';
+import type { TaskFormSubmit } from './task-form';
+import { TransitionMenu } from './transition-menu';
+import { Badge } from './ui/badge';
+import { ScrollArea } from './ui/scroll-area';
+import { Separator } from './ui/separator';
+import { Sheet, SheetClose, SheetContent, SheetTitle } from './ui/sheet';
+import { Skeleton } from './ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 function fromNode(n: WireNode): TaskFormValues {
   return {
     title: n.title,
-    description: n.description ?? "",
-    priority: n.priority ?? "",
-    size: n.size ?? "",
-    external_ref: n.external_ref ?? "",
+    description: n.description ?? '',
+    priority: n.priority ?? '',
+    size: n.size ?? '',
+    external_ref: n.external_ref ?? '',
     // Edit mode hides the tags input and useUpdateNode doesn't send tags; tags are managed separately via TagEditor.
     tags: [],
   };
@@ -105,9 +106,9 @@ function RefRow({ refNode, onOpenNode }: { refNode: NodeRef; onOpenNode: (id: st
 
 /** One merged feed entry — the node's birth, a transition, or an annotation. */
 type FeedItem =
-  | { variant: "created"; at: string; sort: number }
-  | { variant: "transition"; at: string; sort: number; entry: WireHistoryEntry }
-  | { variant: "annotation"; at: string; sort: number; content: string };
+  | { variant: 'created'; at: string; sort: number }
+  | { variant: 'transition'; at: string; sort: number; entry: WireHistoryEntry }
+  | { variant: 'annotation'; at: string; sort: number; content: string };
 
 /** Merge transitions + annotations + the creation anchor into one oldest-first feed. */
 function buildFeed(
@@ -115,49 +116,53 @@ function buildFeed(
   history: readonly WireHistoryEntry[] | undefined,
   annotations: readonly WireAnnotation[] | undefined,
 ): FeedItem[] {
-  const items: FeedItem[] = [{ variant: "created", at: createdAt, sort: Date.parse(createdAt) }];
+  const items: FeedItem[] = [{ variant: 'created', at: createdAt, sort: Date.parse(createdAt) }];
   for (const e of history ?? []) {
-    items.push({ variant: "transition", at: e.at, sort: Date.parse(e.at), entry: e });
+    items.push({ variant: 'transition', at: e.at, sort: Date.parse(e.at), entry: e });
   }
   for (const a of annotations ?? []) {
     items.push({
-      variant: "annotation",
+      variant: 'annotation',
       at: a.created_at,
       sort: Date.parse(a.created_at),
       content: a.content,
     });
   }
-  return items.sort((a, b) => a.sort - b.sort);
+  return items.toSorted((a, b) => a.sort - b.sort);
 }
 
 /** Human label + optional detail for a transition_log entry (mirrors the verbs that wrote it). */
 function describeTransition(e: WireHistoryEntry): { label: string; detail?: string } {
   switch (e.kind) {
-    case "lifecycle":
-      if (e.to === "under_review") return { label: "Submitted for review" };
-      if (e.from === "under_review" && e.to === "in_progress")
-        return { label: "Changes requested" };
-      if (e.to === "in_progress") return { label: "Started" };
-      if (e.to === "done") return { label: e.from === "under_review" ? "Approved" : "Completed" };
-      if (e.to === "abandoned") return { label: "Abandoned" };
-      return { label: `→ ${e.to ?? "?"}` };
-    case "hold":
-      if (e.to === "parked") return { label: "Parked" };
-      if (e.to === "blocked") return { label: "Blocked" };
-      if (e.from === "parked") return { label: "Unparked" };
-      if (e.from === "blocked") return { label: "Unblocked" };
-      return { label: "Resumed" };
-    case "dependency":
+    case 'lifecycle': {
+      if (e.to === 'under_review') return { label: 'Submitted for review' };
+      if (e.from === 'under_review' && e.to === 'in_progress')
+        return { label: 'Changes requested' };
+      if (e.to === 'in_progress') return { label: 'Started' };
+      if (e.to === 'done') return { label: e.from === 'under_review' ? 'Approved' : 'Completed' };
+      if (e.to === 'abandoned') return { label: 'Abandoned' };
+      return { label: `→ ${e.to ?? '?'}` };
+    }
+    case 'hold': {
+      if (e.to === 'parked') return { label: 'Parked' };
+      if (e.to === 'blocked') return { label: 'Blocked' };
+      if (e.from === 'parked') return { label: 'Unparked' };
+      if (e.from === 'blocked') return { label: 'Unblocked' };
+      return { label: 'Resumed' };
+    }
+    case 'dependency': {
       return e.from === null
-        ? { label: "Dependency added", detail: e.to ?? undefined }
-        : { label: "Dependency removed", detail: e.from ?? undefined };
-    case "move":
-      return { label: "Reparented", detail: `${e.from ?? "—"} → ${e.to ?? "—"}` };
+        ? { label: 'Dependency added', detail: e.to ?? undefined }
+        : { label: 'Dependency removed', detail: e.from ?? undefined };
+    }
+    case 'move': {
+      return { label: 'Reparented', detail: `${e.from ?? '—'} → ${e.to ?? '—'}` };
+    }
   }
 }
 
 function FeedRow({ item }: { item: FeedItem }) {
-  const glyph = item.variant === "annotation" ? "✎" : item.variant === "created" ? "○" : "◆";
+  const glyph = item.variant === 'annotation' ? '✎' : item.variant === 'created' ? '○' : '◆';
   return (
     <li className="flex gap-2.5">
       <span aria-hidden className="mt-0.5 text-2xs text-ink-faint select-none">
@@ -167,9 +172,9 @@ function FeedRow({ item }: { item: FeedItem }) {
         <time className="font-mono text-3xs text-ink-faint">
           {absoluteTime(item.at)} · {ago(item.at)}
         </time>
-        {item.variant === "created" && <span className="text-xs text-ink-dim">Created</span>}
-        {item.variant === "transition" && <TransitionLine entry={item.entry} />}
-        {item.variant === "annotation" && (
+        {item.variant === 'created' && <span className="text-xs text-ink-dim">Created</span>}
+        {item.variant === 'transition' && <TransitionLine entry={item.entry} />}
+        {item.variant === 'annotation' && (
           <p className="text-xs leading-relaxed whitespace-pre-wrap text-ink">{item.content}</p>
         )}
       </div>
@@ -203,8 +208,8 @@ function Timeline({
   composer?: ReactNode;
 }) {
   const feed = buildFeed(createdAt, history, annotations);
-  const activity = feed.filter((i) => i.variant !== "annotation");
-  const notes = feed.filter((i) => i.variant === "annotation");
+  const activity = feed.filter((i) => i.variant !== 'annotation');
+  const notes = feed.filter((i) => i.variant === 'annotation');
 
   const panel = (items: FeedItem[], empty: string) => {
     if (pending && items.length === 0) return <Skeleton className="h-12 w-full" />;
@@ -227,9 +232,9 @@ function Timeline({
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>
         </TabsList>
-        <TabsContent value="all">{panel(feed, "Nothing yet.")}</TabsContent>
-        <TabsContent value="activity">{panel(activity, "No activity yet.")}</TabsContent>
-        <TabsContent value="notes">{panel(notes, "No notes yet.")}</TabsContent>
+        <TabsContent value="all">{panel(feed, 'Nothing yet.')}</TabsContent>
+        <TabsContent value="activity">{panel(activity, 'No activity yet.')}</TabsContent>
+        <TabsContent value="notes">{panel(notes, 'No notes yet.')}</TabsContent>
       </Tabs>
     </Section>
   );
@@ -286,7 +291,7 @@ function DrawerBody({
         <div className="flex items-center gap-1">
           {node.data !== undefined && (
             <>
-              {!offline && node.data.type === "task" && (
+              {!offline && node.data.type === 'task' && (
                 <button
                   type="button"
                   aria-label="Edit"
@@ -327,11 +332,11 @@ function DrawerBody({
                 </label>
                 <select
                   id="drawer-parent"
-                  value={node.data.parent ?? ""}
+                  value={node.data.parent ?? ''}
                   disabled={tree.data === undefined || move.isPending}
                   onChange={(e) => {
                     const to = e.target.value;
-                    if (to !== "" && to !== node.data?.parent) move.mutate(to);
+                    if (to !== '' && to !== node.data?.parent) move.mutate(to);
                   }}
                   className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs text-ink outline-none focus-visible:border-accent disabled:opacity-50"
                 >
@@ -366,7 +371,7 @@ function DrawerBody({
                 </Section>
               )}
 
-              {node.data.hold_reason != null && node.data.hold !== "none" && (
+              {node.data.hold_reason != null && node.data.hold !== 'none' && (
                 <div className="rounded border border-status-blocked/40 bg-status-blocked/10 p-2.5 text-xs text-ink">
                   <span className="microlabel mr-2 text-status-blocked">{node.data.hold}</span>
                   {node.data.hold_reason}
@@ -425,7 +430,7 @@ function DrawerBody({
                         <button
                           type="button"
                           onClick={() => {
-                            void navigate({ to: "/artifacts", search: { a: a.id, from: nodeId } });
+                            void navigate({ to: '/artifacts', search: { a: a.id, from: nodeId } });
                           }}
                           className="flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-left text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
                         >

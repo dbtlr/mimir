@@ -1,8 +1,10 @@
-import type { AttentionBand, AttentionState, StatusWord } from "@mimir/contract";
-import type { Project } from "../db/schema";
-import type { Db, Tx } from "./context";
-import { nodeStatusWord } from "./derive";
-import { isStale, type StaleOptions } from "./predicates";
+import type { AttentionBand, AttentionState, StatusWord } from '@mimir/contract';
+
+import type { Project } from '../db/schema';
+import type { Db, Tx } from './context';
+import { nodeStatusWord } from './derive';
+import { isStale } from './predicates';
+import type { StaleOptions } from './predicates';
 
 /**
  * The project attention-state (MMR-101) — a derived facet that lets the overview
@@ -18,22 +20,26 @@ type Executor = Db | Tx;
  * operator. A leaf task's Status word maps to the band whose membership it
  * satisfies; `at_rest` is the floor (parked / terminal / nothing actionable).
  */
-const BANDS: readonly AttentionBand[] = ["awaiting_you", "live", "needs_unsticking", "at_rest"];
+const BANDS: readonly AttentionBand[] = ['awaiting_you', 'live', 'needs_unsticking', 'at_rest'];
 const AT_REST = BANDS.length - 1;
 
 /** A leaf task's Status word → its band index (lower = higher attention). */
 function bandIndex(word: StatusWord): number {
   switch (word) {
-    case "under_review":
-      return 0; // awaiting_you — only your review clears it
-    case "in_progress":
-    case "ready":
-      return 1; // live — work in motion
-    case "blocked":
-    case "awaiting":
-      return 2; // needs_unsticking — stuck, often on something external
-    default:
-      return AT_REST; // parked / done / abandoned / new
+    case 'under_review': {
+      return 0;
+    } // awaiting_you — only your review clears it
+    case 'in_progress':
+    case 'ready': {
+      return 1;
+    } // live — work in motion
+    case 'blocked':
+    case 'awaiting': {
+      return 2;
+    } // needs_unsticking — stuck, often on something external
+    default: {
+      return AT_REST;
+    } // parked / done / abandoned / new
   }
 }
 
@@ -53,10 +59,10 @@ export async function attentionOf(
   options: StaleOptions = {},
 ): Promise<AttentionState> {
   const tasks = await tx
-    .selectFrom("node")
+    .selectFrom('node')
     .selectAll()
-    .where("project_id", "=", project.id)
-    .where("type", "=", "task")
+    .where('project_id', '=', project.id)
+    .where('type', '=', 'task')
     .execute();
 
   let best = AT_REST;
@@ -73,7 +79,7 @@ export async function attentionOf(
   }
 
   return {
-    band: BANDS[best] ?? "at_rest",
+    band: BANDS[best] ?? 'at_rest',
     lastActivity: lastActivity ?? project.updated_at,
     stale,
   };

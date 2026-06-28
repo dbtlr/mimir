@@ -1,5 +1,5 @@
 ---
-title: "ADR 0008: State word projection and the interpret() rollup cascade"
+title: 'ADR 0008: State word projection and the interpret() rollup cascade'
 status: accepted
 date: 2026-06-04
 ---

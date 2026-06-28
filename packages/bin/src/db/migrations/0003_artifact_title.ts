@@ -1,4 +1,5 @@
-import { type Kysely, type Migration, sql } from "kysely";
+import { sql } from 'kysely';
+import type { Kysely, Migration } from 'kysely';
 
 /**
  * Required artifact `title` (MMR-34): classification-by-tag isn't enforced,
@@ -10,7 +11,7 @@ import { type Kysely, type Migration, sql } from "kysely";
 function titleFrom(content: string): string {
   const heading = /^#{1,6}\s+(.+)$/m.exec(content);
   const title = heading?.[1]?.trim();
-  return title !== undefined && title !== "" ? title : "untitled";
+  return title !== undefined && title !== '' ? title : 'untitled';
 }
 
 export const migration: Migration = {

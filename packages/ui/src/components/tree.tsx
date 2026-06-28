@@ -1,10 +1,11 @@
-import type { StatusWord } from "@mimir/contract";
-import { STATUS_META } from "../lib/status";
-import { cn } from "../lib/cn";
-import type { WireTreeNode } from "../api/types";
-import { DistributionBar } from "./distribution-bar";
-import { PriorityBadge, SizeBadge, StaleBadge } from "./signal-badges";
-import { StatusDot } from "./status-dot";
+import type { StatusWord } from '@mimir/contract';
+
+import type { WireTreeNode } from '../api/types';
+import { cn } from '../lib/cn';
+import { STATUS_META } from '../lib/status';
+import { DistributionBar } from './distribution-bar';
+import { PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
+import { StatusDot } from './status-dot';
 
 /**
  * One-letter status marker for the mobile tree scan, where the full status word
@@ -12,15 +13,15 @@ import { StatusDot } from "./status-dot";
  * Distinct letters (no two collide), redundant with the dot's color.
  */
 const STATUS_LETTER: Record<StatusWord, string> = {
-  ready: "R",
-  awaiting: "A",
-  in_progress: "P",
-  under_review: "V",
-  blocked: "B",
-  parked: "K",
-  done: "D",
-  abandoned: "X",
-  new: "N",
+  ready: 'R',
+  awaiting: 'A',
+  in_progress: 'P',
+  under_review: 'V',
+  blocked: 'B',
+  parked: 'K',
+  done: 'D',
+  abandoned: 'X',
+  new: 'N',
 };
 
 /**
@@ -56,7 +57,7 @@ function TreeNode({
   depth: number;
   onOpenNode: (id: string) => void;
 }) {
-  const container = node.type !== "task";
+  const container = node.type !== 'task';
   const meta = STATUS_META[node.status];
   const row = (
     <button
@@ -65,12 +66,12 @@ function TreeNode({
         onOpenNode(node.id);
       }}
       className={cn(
-        "flex w-full items-center gap-2 rounded-sm border border-transparent px-2 py-1.5 text-left",
-        "transition-colors hover:border-line hover:bg-well-850 focus-visible:outline-2 focus-visible:outline-accent",
+        'flex w-full items-center gap-2 rounded-sm border border-transparent px-2 py-1.5 text-left',
+        'transition-colors hover:border-line hover:bg-well-850 focus-visible:outline-2 focus-visible:outline-accent',
       )}
     >
       <StatusDot status={node.status} />
-      <span className={cn("shrink-0 font-mono text-sm font-semibold sm:hidden", meta.text)}>
+      <span className={cn('shrink-0 font-mono text-sm font-semibold sm:hidden', meta.text)}>
         {STATUS_LETTER[node.status]}
       </span>
       <span className="shrink-0 font-mono text-xs whitespace-nowrap text-ink-dim md:text-3xs">
@@ -81,15 +82,15 @@ function TreeNode({
           // leading-tight pins a consistent rhythm across the container (text-base,
           // which carries Tailwind's looser default leading) and leaf branches when
           // the title wraps to two lines on mobile (MMR-107).
-          "min-w-0 line-clamp-2 leading-tight md:truncate md:text-xs",
+          'min-w-0 line-clamp-2 leading-tight md:truncate md:text-xs',
           container
-            ? "text-base font-semibold text-ink-bright"
-            : "text-md text-ink-bright md:font-normal md:text-ink",
+            ? 'text-base font-semibold text-ink-bright'
+            : 'text-md text-ink-bright md:font-normal md:text-ink',
         )}
       >
         {node.title}
       </span>
-      <span className={cn("microlabel hidden sm:inline", meta.text)}>{meta.label}</span>
+      <span className={cn('microlabel hidden sm:inline', meta.text)}>{meta.label}</span>
       <span className="ml-auto flex shrink-0 items-center gap-1 md:ml-0">
         {node.verdicts?.stale === true && <StaleBadge />}
         {node.priority != null && <PriorityBadge priority={node.priority} />}

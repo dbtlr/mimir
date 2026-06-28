@@ -1,4 +1,5 @@
-import { type Kysely, type Migration, sql } from "kysely";
+import { sql } from 'kysely';
+import type { Kysely, Migration } from 'kysely';
 
 /**
  * Add `description TEXT NULL` to the `project` table (MMR-88). Projects are

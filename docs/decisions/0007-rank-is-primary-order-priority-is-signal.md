@@ -1,5 +1,5 @@
 ---
-title: "ADR 0007: Rank is the primary order; priority is a signal"
+title: 'ADR 0007: Rank is the primary order; priority is a signal'
 status: accepted
 date: 2026-06-04
 ---

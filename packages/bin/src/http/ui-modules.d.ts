@@ -4,39 +4,39 @@
  * resolves to a path string `Bun.file` can open — embedded in the binary
  * after `bun build --compile`, on disk otherwise.
  */
-declare module "*.html" {
+declare module '*.html' {
   const path: string;
   export default path;
 }
-declare module "*.js" {
+declare module '*.js' {
   const path: string;
   export default path;
 }
-declare module "*.css" {
+declare module '*.css' {
   const path: string;
   export default path;
 }
-declare module "*.svg" {
+declare module '*.svg' {
   const path: string;
   export default path;
 }
-declare module "*.webmanifest" {
+declare module '*.webmanifest' {
   const path: string;
   export default path;
 }
-declare module "*.woff2" {
+declare module '*.woff2' {
   const path: string;
   export default path;
 }
-declare module "*.png" {
+declare module '*.png' {
   const path: string;
   export default path;
 }
-declare module "*.ico" {
+declare module '*.ico' {
   const path: string;
   export default path;
 }
-declare module "*.txt" {
+declare module '*.txt' {
   const path: string;
   export default path;
 }

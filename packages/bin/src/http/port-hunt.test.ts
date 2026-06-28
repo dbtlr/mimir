@@ -1,8 +1,10 @@
-import { afterEach, expect, test } from "bun:test";
-import type { Server } from "bun";
-import type { Db } from "../core";
-import { createTestDb } from "../db/testing";
-import { PORT_HUNT_SPAN, createServer } from "./server";
+import { afterEach, expect, test } from 'bun:test';
+
+import type { Server } from 'bun';
+
+import type { Db } from '../core';
+import { createTestDb } from '../db/testing';
+import { PORT_HUNT_SPAN, createServer } from './server';
 
 /**
  * The port hunt (MMR-53): a taken port walks upward to the next free one; the
@@ -28,11 +30,11 @@ afterEach(async () => {
  */
 function occupy(port: number): Server<undefined> | undefined {
   try {
-    const s = Bun.serve({ hostname: "127.0.0.1", port, fetch: () => new Response("squat") });
+    const s = Bun.serve({ hostname: '127.0.0.1', port, fetch: () => new Response('squat') });
     squatters.push(s);
     return s;
   } catch (err) {
-    if (err instanceof Error && "code" in err && err.code === "EADDRINUSE") {
+    if (err instanceof Error && 'code' in err && err.code === 'EADDRINUSE') {
       return undefined;
     }
     throw err;
@@ -41,7 +43,7 @@ function occupy(port: number): Server<undefined> | undefined {
 
 /** The bound TCP port; Bun types it optional (unix sockets have none). */
 function portOf(s: Server<undefined>): number {
-  if (s.port === undefined) throw new Error("server has no port");
+  if (s.port === undefined) throw new Error('server has no port');
   return s.port;
 }
 
@@ -55,24 +57,24 @@ function squatWithHeadroom(): Server<undefined> {
   }
 }
 
-test("a free requested port binds exactly", async () => {
+test('a free requested port binds exactly', async () => {
   db = await createTestDb();
   const probe = occupy(0);
-  if (probe === undefined) throw new Error("port 0 must bind");
+  if (probe === undefined) throw new Error('port 0 must bind');
   const port = portOf(probe);
   await probe.stop(true);
   squatters.splice(squatters.indexOf(probe), 1);
 
-  const server = createServer(db, { port, version: "0.0.0-test" });
+  const server = createServer(db, { port, version: '0.0.0-test' });
   squatters.push(server);
   expect(server.port).toBe(port);
 });
 
-test("a taken port hunts upward to the next free one", async () => {
+test('a taken port hunts upward to the next free one', async () => {
   db = await createTestDb();
   const taken = portOf(squatWithHeadroom());
 
-  const server = createServer(db, { port: taken, version: "0.0.0-test" });
+  const server = createServer(db, { port: taken, version: '0.0.0-test' });
   squatters.push(server);
   expect(portOf(server)).toBeGreaterThan(taken);
   expect(portOf(server)).toBeLessThanOrEqual(taken + PORT_HUNT_SPAN);
@@ -81,7 +83,7 @@ test("a taken port hunts upward to the next free one", async () => {
   expect(res.status).toBe(200);
 });
 
-test("exhausting the hunt span fails with EADDRINUSE naming the range", async () => {
+test('exhausting the hunt span fails with EADDRINUSE naming the range', async () => {
   db = await createTestDb();
   const base = portOf(squatWithHeadroom());
   for (let p = base + 1; p <= base + PORT_HUNT_SPAN; p++) {
@@ -90,26 +92,26 @@ test("exhausting the hunt span fails with EADDRINUSE naming the range", async ()
 
   let thrown: unknown;
   try {
-    createServer(db, { port: base, version: "0.0.0-test" });
+    createServer(db, { port: base, version: '0.0.0-test' });
   } catch (err) {
     thrown = err;
   }
   expect(thrown).toBeInstanceOf(Error);
-  expect((thrown as { code?: string }).code).toBe("EADDRINUSE");
+  expect((thrown as { code?: string }).code).toBe('EADDRINUSE');
   expect((thrown as Error).message).toContain(String(base));
   expect((thrown as Error).message).toContain(String(base + PORT_HUNT_SPAN));
 });
 
-test("hunt: false fails loudly on a taken port instead of walking", async () => {
+test('hunt: false fails loudly on a taken port instead of walking', async () => {
   db = await createTestDb();
   const taken = portOf(squatWithHeadroom());
   let thrown: unknown;
   try {
-    const server = createServer(db, { port: taken, version: "0.0.0-test", hunt: false });
+    const server = createServer(db, { port: taken, version: '0.0.0-test', hunt: false });
     squatters.push(server);
   } catch (err) {
     thrown = err;
   }
   expect(thrown).toBeInstanceOf(Error);
-  expect((thrown as { code?: string }).code).toBe("EADDRINUSE");
+  expect((thrown as { code?: string }).code).toBe('EADDRINUSE');
 });

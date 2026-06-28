@@ -1,5 +1,5 @@
 ---
-title: "ADR 0005: The grouping (horizontal) axis is tags"
+title: 'ADR 0005: The grouping (horizontal) axis is tags'
 status: accepted
 date: 2026-06-03
 ---

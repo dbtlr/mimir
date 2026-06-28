@@ -7,5 +7,5 @@ export {
   listNodes,
   nextTasks,
   statusOfNode,
-} from "./queries";
-export { buildArtifactDetail, buildNodeView, buildProjectView } from "./view";
+} from './queries';
+export { buildArtifactDetail, buildNodeView, buildProjectView } from './view';

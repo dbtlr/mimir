@@ -1,7 +1,7 @@
-import { cn } from "../lib/cn";
-import { ago } from "../lib/time";
-import type { WireArtifactSummary } from "../api/types";
-import { Badge } from "./ui/badge";
+import type { WireArtifactSummary } from '../api/types';
+import { cn } from '../lib/cn';
+import { ago } from '../lib/time';
+import { Badge } from './ui/badge';
 
 /** The artifact-search results column — title · project · tags · age; one row selects. */
 export function ArtifactList({
@@ -26,9 +26,9 @@ export function ArtifactList({
               onSelect(a.id);
             }}
             className={cn(
-              "flex w-full flex-col gap-1 rounded-sm border border-line p-2 text-left transition-colors",
-              "hover:border-line-bright hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent",
-              a.id === selectedId ? "border-accent bg-well-800" : "bg-well-850",
+              'flex w-full flex-col gap-1 rounded-sm border border-line p-2 text-left transition-colors',
+              'hover:border-line-bright hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent',
+              a.id === selectedId ? 'border-accent bg-well-800' : 'bg-well-850',
             )}
           >
             <div className="flex items-baseline justify-between gap-2">

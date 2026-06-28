@@ -1,12 +1,13 @@
-import { sql } from "kysely";
-import type { NodeView, TransitionsResult, TreeView } from "@mimir/contract";
-import type { FacetName } from "@mimir/contract";
-import type { Node } from "../db/schema";
-import type { Db } from "./context";
-import { notFound, projectNotFound, validation } from "./errors";
-import { parseIdentity } from "./ids";
-import { findNodeByRef, renderNodeId } from "./lookup";
-import { buildNodeView, buildProjectView } from "./intent/view";
+import type { NodeView, TransitionsResult, TreeView } from '@mimir/contract';
+import type { FacetName } from '@mimir/contract';
+import { sql } from 'kysely';
+
+import type { Node } from '../db/schema';
+import type { Db } from './context';
+import { notFound, projectNotFound, validation } from './errors';
+import { parseIdentity } from './ids';
+import { buildNodeView, buildProjectView } from './intent/view';
+import { findNodeByRef, renderNodeId } from './lookup';
 
 /**
  * The resource-envelope reads (ADR 0012) — whole-portfolio and whole-project
@@ -18,9 +19,9 @@ import { buildNodeView, buildProjectView } from "./intent/view";
 /** Every project, key-ordered, through the shared projection (rollup riding as `distribution`). */
 export async function listProjects(
   db: Db,
-  facets: readonly FacetName[] = ["distribution", "tags"],
+  facets: readonly FacetName[] = ['distribution', 'tags'],
 ): Promise<NodeView[]> {
-  const projects = await db.selectFrom("project").selectAll().orderBy("key", "asc").execute();
+  const projects = await db.selectFrom('project').selectAll().orderBy('key', 'asc').execute();
   return Promise.all(projects.map((p) => buildProjectView(db, p, new Set(facets))));
 }
 
@@ -30,15 +31,15 @@ export async function listProjects(
  * as array order, never a field (ADR 0007).
  */
 async function childRows(db: Db, projectId: number, parentId: number | null): Promise<Node[]> {
-  let query = db.selectFrom("node").selectAll().where("project_id", "=", projectId);
+  let query = db.selectFrom('node').selectAll().where('project_id', '=', projectId);
   query =
     parentId === null
-      ? query.where("parent_id", "is", null)
-      : query.where("parent_id", "=", parentId);
+      ? query.where('parent_id', 'is', null)
+      : query.where('parent_id', '=', parentId);
   return query
     .orderBy(sql`rank is null`)
-    .orderBy("rank", "asc")
-    .orderBy("seq", "asc")
+    .orderBy('rank', 'asc')
+    .orderBy('seq', 'asc')
     .execute();
 }
 
@@ -50,12 +51,12 @@ async function childRows(db: Db, projectId: number, parentId: number | null): Pr
 export async function projectTree(
   db: Db,
   key: string,
-  facets: readonly FacetName[] = ["deps", "tags", "distribution", "verdicts"],
+  facets: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts'],
 ): Promise<TreeView> {
   const project = await db
-    .selectFrom("project")
+    .selectFrom('project')
     .selectAll()
-    .where("key", "=", key)
+    .where('key', '=', key)
     .executeTakeFirst();
   if (project === undefined) {
     throw projectNotFound(key);
@@ -84,17 +85,17 @@ export async function projectTree(
 export async function nodeTree(
   db: Db,
   id: string,
-  facets: readonly FacetName[] = ["deps", "tags", "distribution", "verdicts"],
+  facets: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts'],
 ): Promise<TreeView> {
   const identity = parseIdentity(id);
   if (identity === null) {
     throw notFound(`${id} is not a valid id`);
   }
   // Project root — delegate to the existing builder.
-  if (identity.kind === "project") {
+  if (identity.kind === 'project') {
     return projectTree(db, identity.key, facets);
   }
-  if (identity.kind === "artifact") {
+  if (identity.kind === 'artifact') {
     throw notFound(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
   // Node id — resolve it and recurse down.
@@ -133,14 +134,14 @@ export async function listTransitions(
   if (opts.since !== undefined) {
     after = Number(opts.since);
     if (!Number.isInteger(after) || after < 0) {
-      throw validation(`invalid cursor ${opts.since}`, "pass back a next_cursor you were given");
+      throw validation(`invalid cursor ${opts.since}`, 'pass back a next_cursor you were given');
     }
   }
   let query = db
-    .selectFrom("transition_log")
+    .selectFrom('transition_log')
     .selectAll()
-    .where("id", ">", after)
-    .orderBy("id", "asc");
+    .where('id', '>', after)
+    .orderBy('id', 'asc');
   if (opts.limit !== undefined) {
     if (!Number.isInteger(opts.limit) || opts.limit < 1) {
       throw validation(`invalid limit ${String(opts.limit)}`);
@@ -150,7 +151,7 @@ export async function listTransitions(
   const rows = await query.execute();
   const items = await Promise.all(
     rows.map(async (row) => ({
-      node: (await renderNodeId(db, row.node_id)) ?? "unknown",
+      node: (await renderNodeId(db, row.node_id)) ?? 'unknown',
       kind: row.kind,
       from: row.from_value,
       to: row.to_value,

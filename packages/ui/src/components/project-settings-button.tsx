@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { useForm } from "@tanstack/react-form";
-import { useUpdateProject } from "../api/mutations";
-import { Sheet, SheetContent, SheetTitle } from "./ui/sheet";
-import type { WireNode } from "../api/types";
+import { useForm } from '@tanstack/react-form';
+import { useState } from 'react';
+
+import { useUpdateProject } from '../api/mutations';
+import type { WireNode } from '../api/types';
+import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
 
 export interface ProjectFormValues {
   title: string;
@@ -72,11 +73,11 @@ function ProjectSettingsForm({
   const form = useForm({
     defaultValues: {
       title: project.title,
-      description: project.description ?? "",
+      description: project.description ?? '',
     } satisfies ProjectFormValues,
     onSubmit: ({ value }) => {
       const title = value.title.trim();
-      if (title === "") return;
+      if (title === '') return;
       onSubmit({
         title,
         description: value.description.trim(),
@@ -146,7 +147,7 @@ function ProjectSettingsForm({
           {(title) => (
             <button
               type="submit"
-              disabled={submitting === true || title.trim() === ""}
+              disabled={submitting === true || title.trim() === ''}
               className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Save

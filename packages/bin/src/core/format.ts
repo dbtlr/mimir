@@ -5,7 +5,7 @@ import type {
   SetResult,
   StatusView,
   TreeView,
-} from "@mimir/contract";
+} from '@mimir/contract';
 
 /**
  * The **structural** output formats — `ids` / `json` / `jsonl` — a versioned
@@ -96,7 +96,7 @@ export function emitWire(wire: Record<string, unknown>, pretty: boolean): string
 
 /** `ids` — one `KEY-seq` per line (the pipe default). */
 export function formatIds(items: readonly NodeView[]): string {
-  return items.map((n) => n.id).join("\n");
+  return items.map((n) => n.id).join('\n');
 }
 
 /**
@@ -106,7 +106,7 @@ export function formatIds(items: readonly NodeView[]): string {
  */
 export function formatSetJson(
   result: SetResult<NodeView>,
-  unit = "tasks",
+  unit = 'tasks',
   opts: { includeWarnings?: boolean } = {},
 ): string {
   const wrapper: Record<string, unknown> = {
@@ -127,7 +127,7 @@ export function formatSetJson(
 
 /** `jsonl` for a set — one wire object per line, no wrapper (streaming). */
 export function formatSetJsonl(items: readonly NodeView[]): string {
-  return items.map((n) => emitWire(nodeToWire(n), false)).join("\n");
+  return items.map((n) => emitWire(nodeToWire(n), false)).join('\n');
 }
 
 /** `json` for a single node — the bare wire object (no set wrapper; `get` / mutation echo). */

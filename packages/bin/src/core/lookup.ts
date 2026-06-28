@@ -1,12 +1,13 @@
-import type { TagEntityType } from "@mimir/contract";
-import type { Artifact, Node } from "../db/schema";
-import type { Db, Tx } from "./context";
-import { notFound, projectNotFound, validation } from "./errors";
-import { parseId, parseIdentity, renderArtifactRef, renderId } from "./ids";
+import type { TagEntityType } from '@mimir/contract';
+
+import type { Artifact, Node } from '../db/schema';
+import type { Db, Tx } from './context';
+import { notFound, projectNotFound, validation } from './errors';
+import { parseId, parseIdentity, renderArtifactRef, renderId } from './ids';
 
 /** Load a node row by surrogate id, or `undefined` if absent. */
 export async function loadNode(tx: Db | Tx, id: number): Promise<Node | undefined> {
-  return tx.selectFrom("node").selectAll().where("id", "=", id).executeTakeFirst();
+  return tx.selectFrom('node').selectAll().where('id', '=', id).executeTakeFirst();
 }
 
 /**
@@ -20,28 +21,28 @@ export async function findNodeByRef(tx: Db | Tx, id: string): Promise<Node | und
     return undefined;
   }
   const project = await tx
-    .selectFrom("project")
-    .select("id")
-    .where("key", "=", ref.key)
+    .selectFrom('project')
+    .select('id')
+    .where('key', '=', ref.key)
     .executeTakeFirst();
   if (project === undefined) {
     return undefined;
   }
   return tx
-    .selectFrom("node")
+    .selectFrom('node')
     .selectAll()
-    .where("project_id", "=", project.id)
-    .where("seq", "=", ref.seq)
+    .where('project_id', '=', project.id)
+    .where('seq', '=', ref.seq)
     .executeTakeFirst();
 }
 
 /** Render a node's external `KEY-seq` id from its surrogate id (joins the project key). */
 export async function renderNodeId(tx: Db | Tx, nodeId: number): Promise<string | null> {
   const row = await tx
-    .selectFrom("node")
-    .innerJoin("project", "project.id", "node.project_id")
-    .select(["project.key as key", "node.seq as seq"])
-    .where("node.id", "=", nodeId)
+    .selectFrom('node')
+    .innerJoin('project', 'project.id', 'node.project_id')
+    .select(['project.key as key', 'node.seq as seq'])
+    .where('node.id', '=', nodeId)
     .executeTakeFirst();
   return row === undefined ? null : renderId(row);
 }
@@ -52,18 +53,18 @@ export async function findArtifactByRef(
   ref: { key: string; seq: number },
 ): Promise<Artifact | undefined> {
   const project = await tx
-    .selectFrom("project")
-    .select("id")
-    .where("key", "=", ref.key)
+    .selectFrom('project')
+    .select('id')
+    .where('key', '=', ref.key)
     .executeTakeFirst();
   if (project === undefined) {
     return undefined;
   }
   return tx
-    .selectFrom("artifact")
+    .selectFrom('artifact')
     .selectAll()
-    .where("project_id", "=", project.id)
-    .where("seq", "=", ref.seq)
+    .where('project_id', '=', project.id)
+    .where('seq', '=', ref.seq)
     .executeTakeFirst();
 }
 
@@ -80,26 +81,26 @@ export async function resolveEntityToken(
   if (identity === null) {
     throw notFound(
       `${token} is not a valid id`,
-      "ids: KEY (project) · KEY-seq (task/phase/initiative) · KEY-aN (artifact)",
+      'ids: KEY (project) · KEY-seq (task/phase/initiative) · KEY-aN (artifact)',
     );
   }
-  if (identity.kind === "project") {
+  if (identity.kind === 'project') {
     const project = await tx
-      .selectFrom("project")
-      .select("id")
-      .where("key", "=", identity.key)
+      .selectFrom('project')
+      .select('id')
+      .where('key', '=', identity.key)
       .executeTakeFirst();
     if (project === undefined) throw projectNotFound(identity.key);
-    return { entityType: "project", entityId: project.id };
+    return { entityType: 'project', entityId: project.id };
   }
-  if (identity.kind === "artifact") {
+  if (identity.kind === 'artifact') {
     const artifact = await findArtifactByRef(tx, identity);
     if (artifact === undefined) throw notFound(`no artifact ${token}`);
-    return { entityType: "artifact", entityId: artifact.id };
+    return { entityType: 'artifact', entityId: artifact.id };
   }
   const node = await findNodeByRef(tx, token);
   if (node === undefined) throw notFound(`${token} doesn't exist`);
-  return { entityType: "node", entityId: node.id };
+  return { entityType: 'node', entityId: node.id };
 }
 
 /**
@@ -112,14 +113,14 @@ export async function resolveEntityToken(
 export async function resolveNodeToken(
   tx: Db | Tx,
   token: string,
-  expected = "task, phase, or initiative",
+  expected = 'task, phase, or initiative',
   hints: { project?: string; artifact?: string; notFound?: string } = {},
 ): Promise<number> {
   const identity = parseIdentity(token);
-  if (identity?.kind === "project") {
+  if (identity?.kind === 'project') {
     throw validation(`${token} is a project, not a ${expected}`, hints.project);
   }
-  if (identity?.kind === "artifact") {
+  if (identity?.kind === 'artifact') {
     throw validation(`${token} is an artifact, not a ${expected}`, hints.artifact);
   }
   const node = await findNodeByRef(tx, token);
@@ -132,10 +133,10 @@ export async function resolveNodeToken(
 /** Render an artifact's external `KEY-aN` id from its surrogate id (joins the project key). */
 export async function renderArtifactId(tx: Db | Tx, artifactId: number): Promise<string | null> {
   const row = await tx
-    .selectFrom("artifact")
-    .innerJoin("project", "project.id", "artifact.project_id")
-    .select(["project.key as key", "artifact.seq as seq"])
-    .where("artifact.id", "=", artifactId)
+    .selectFrom('artifact')
+    .innerJoin('project', 'project.id', 'artifact.project_id')
+    .select(['project.key as key', 'artifact.seq as seq'])
+    .where('artifact.id', '=', artifactId)
     .executeTakeFirst();
   return row === undefined ? null : renderArtifactRef(row);
 }

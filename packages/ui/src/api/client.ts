@@ -3,17 +3,17 @@
  * `mimir serve` itself); `VITE_API_BASE` exists for the dev loop — `vite dev`
  * against a running `mimir serve`, which already reflects localhost CORS.
  */
-const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
+const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined) ?? '';
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { headers: { accept: "application/json" } });
+  const res = await fetch(`${API_BASE}${path}`, { headers: { accept: 'application/json' } });
   if (!res.ok) {
     throw new Error(`GET ${path} → ${String(res.status)}`);
   }
   return (await res.json()) as T;
 }
 
-type WriteMethod = "POST" | "PUT" | "PATCH" | "DELETE";
+type WriteMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 /**
  * The write seam — mirrors {@link apiGet} for mutations. Sends JSON, and on a
@@ -23,14 +23,14 @@ type WriteMethod = "POST" | "PUT" | "PATCH" | "DELETE";
 export async function apiSend<T>(method: WriteMethod, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method,
-    headers: { accept: "application/json", "content-type": "application/json" },
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {
     let message = `${method} ${path} → ${String(res.status)}`;
     try {
       const data = (await res.json()) as { error?: { message?: string } };
-      if (data.error?.message != null && data.error.message !== "") {
+      if (data.error?.message != null && data.error.message !== '') {
         message = data.error.message;
       }
     } catch {

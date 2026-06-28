@@ -13,9 +13,10 @@ import {
   parseIdentity,
   resolveNodeToken,
   validation,
-} from "../core";
-import type { Db } from "../core";
-import { type Format, type Io, renderNodeView, signpost } from "./render";
+} from '../core';
+import type { Db } from '../core';
+import { renderNodeView, signpost } from './render';
+import type { Format, Io } from './render';
 
 export type { Format };
 
@@ -28,9 +29,9 @@ export type { Format };
 export async function resolveNode(
   db: Db,
   token: string,
-  expected = "task, phase, or initiative",
+  expected = 'task, phase, or initiative',
 ): Promise<number> {
-  return resolveNodeToken(db, token, expected, { notFound: "see what exists: mimir list -f ids" });
+  return resolveNodeToken(db, token, expected, { notFound: 'see what exists: mimir list -f ids' });
 }
 
 /**
@@ -38,7 +39,7 @@ export async function resolveNode(
  * (MimirError) if no project with that key exists.
  */
 export async function resolveProject(db: Db, key: string): Promise<number> {
-  const row = await db.selectFrom("project").select("id").where("key", "=", key).executeTakeFirst();
+  const row = await db.selectFrom('project').select('id').where('key', '=', key).executeTakeFirst();
   if (row === undefined) {
     throw projectNotFound(key);
   }
@@ -52,17 +53,17 @@ export async function resolveProject(db: Db, key: string): Promise<number> {
 export async function resolveParent(
   db: Db,
   token: string,
-): Promise<{ kind: "project"; id: number } | { kind: "node"; id: number }> {
+): Promise<{ kind: 'project'; id: number } | { kind: 'node'; id: number }> {
   const identity = parseIdentity(token);
-  if (identity?.kind === "artifact") {
+  if (identity?.kind === 'artifact') {
     throw validation(
       `${token} is an artifact — a parent must be a project (KEY) or a task/phase/initiative (KEY-seq)`,
     );
   }
-  if (identity?.kind === "node") {
-    return { kind: "node", id: await resolveNode(db, token) };
+  if (identity?.kind === 'node') {
+    return { kind: 'node', id: await resolveNode(db, token) };
   }
-  return { kind: "project", id: await resolveProject(db, token) };
+  return { kind: 'project', id: await resolveProject(db, token) };
 }
 
 /**
@@ -74,7 +75,7 @@ export async function resolveParent(
 export async function echoNode(db: Db, nodeId: number, format: Format, io: Io): Promise<void> {
   const node = await loadNode(db, nodeId);
   if (node === undefined) {
-    throw notFound("the record vanished before echo");
+    throw notFound('the record vanished before echo');
   }
   const view = await buildNodeView(db, node);
   renderNodeView(view, format, io);
@@ -96,7 +97,7 @@ export async function echoNodeWith(
 ): Promise<void> {
   const node = await loadNode(db, nodeId);
   if (node === undefined) {
-    throw notFound("the record vanished before echo");
+    throw notFound('the record vanished before echo');
   }
   const view = await buildNodeView(db, node);
   signpost(io, format, makeSignpost(view.id));
@@ -110,9 +111,9 @@ export async function echoNodeWith(
  */
 export async function echoProject(db: Db, key: string, format: Format, io: Io): Promise<void> {
   const project = await db
-    .selectFrom("project")
+    .selectFrom('project')
     .selectAll()
-    .where("key", "=", key)
+    .where('key', '=', key)
     .executeTakeFirst();
   if (project === undefined) {
     throw notFound(`project ${key} vanished before echo`);
@@ -127,7 +128,7 @@ export async function echoProject(db: Db, key: string, format: Format, io: Io): 
  * TTY with no tail args — callers decide how to handle the gap).
  */
 export async function readContent(tail: string[], io: Io): Promise<string> {
-  if (tail.length > 0) return tail.join(" ");
+  if (tail.length > 0) return tail.join(' ');
   if (!io.isTTY) return (await Bun.stdin.text()).trim();
-  return "";
+  return '';
 }

@@ -1,29 +1,31 @@
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { projectsQuery, tasksQuery, type TaskFilters } from "../api/queries";
-import { connectivity } from "../lib/connectivity";
-import { cn } from "../lib/cn";
-import { NodeDrawer } from "../components/node-drawer";
-import { OfflineBanner } from "../components/offline-banner";
-import { StaleBadge } from "../components/signal-badges";
-import { StatusDot } from "../components/status-dot";
-import { Skeleton } from "../components/ui/skeleton";
-import { tasksRoute } from "../router";
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
+import { useEffect, useRef, useState } from 'react';
+
+import { projectsQuery, tasksQuery } from '../api/queries';
+import type { TaskFilters } from '../api/queries';
+import { NodeDrawer } from '../components/node-drawer';
+import { OfflineBanner } from '../components/offline-banner';
+import { StaleBadge } from '../components/signal-badges';
+import { StatusDot } from '../components/status-dot';
+import { Skeleton } from '../components/ui/skeleton';
+import { cn } from '../lib/cn';
+import { connectivity } from '../lib/connectivity';
+import { tasksRoute } from '../router';
 
 const STATUS_OPTIONS = [
-  "live",
-  "ready",
-  "in_progress",
-  "awaiting",
-  "blocked",
-  "parked",
-  "done",
-  "all",
+  'live',
+  'ready',
+  'in_progress',
+  'awaiting',
+  'blocked',
+  'parked',
+  'done',
+  'all',
 ] as const;
 const SEARCH_DEBOUNCE_MS = 250;
 const FIELD =
-  "rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent";
+  'rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent';
 
 /**
  * `/tasks` — the portfolio task browser (MMR-78), sibling of `/artifacts`.
@@ -45,32 +47,32 @@ export function TasksPage() {
 
   const setFilter = (partial: Partial<TaskFilters>) =>
     void navigate({
-      to: "/tasks",
+      to: '/tasks',
       replace: true,
       search: (prev) => {
         const next = { ...prev, ...partial };
         for (const [k, v] of Object.entries(partial)) {
-          if (v === "" || v === undefined) delete (next as Record<string, unknown>)[k];
+          if (v === '' || v === undefined) delete (next as Record<string, unknown>)[k];
         }
         return next;
       },
     });
 
   const openNode = (id: string) =>
-    void navigate({ to: "/tasks", search: (prev) => ({ ...prev, node: id }) });
+    void navigate({ to: '/tasks', search: (prev) => ({ ...prev, node: id }) });
   const closeNode = () =>
-    void navigate({ to: "/tasks", search: (prev) => ({ ...prev, node: undefined }) });
+    void navigate({ to: '/tasks', search: (prev) => ({ ...prev, node: undefined }) });
 
   // Controlled + debounced search (the MMR-63 pattern): the box updates now, the
   // URL/query trails by the debounce; an external q change (Back/clear) re-syncs.
-  const [q, setQ] = useState(search.q ?? "");
+  const [q, setQ] = useState(search.q ?? '');
   useEffect(() => {
-    setQ(search.q ?? "");
+    setQ(search.q ?? '');
   }, [search.q]);
   const setFilterRef = useRef(setFilter);
   setFilterRef.current = setFilter;
   useEffect(() => {
-    if (q === (search.q ?? "")) return;
+    if (q === (search.q ?? '')) return;
     const t = setTimeout(() => setFilterRef.current({ q }), SEARCH_DEBOUNCE_MS);
     return () => {
       clearTimeout(t);
@@ -84,8 +86,8 @@ export function TasksPage() {
       <OfflineBanner {...conn} />
       <main
         className={cn(
-          "mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col overflow-hidden",
-          conn.offline && "offline-demoted",
+          'mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col overflow-hidden',
+          conn.offline && 'offline-demoted',
         )}
       >
         <h1 className="flex items-baseline gap-2 px-4 pt-3">
@@ -99,7 +101,7 @@ export function TasksPage() {
           <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
             Project
             <select
-              value={search.project ?? ""}
+              value={search.project ?? ''}
               onChange={(e) => {
                 setFilter({ project: e.target.value });
               }}
@@ -116,9 +118,9 @@ export function TasksPage() {
           <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
             Status
             <select
-              value={search.status ?? "live"}
+              value={search.status ?? 'live'}
               onChange={(e) => {
-                setFilter({ status: e.target.value === "live" ? "" : e.target.value });
+                setFilter({ status: e.target.value === 'live' ? '' : e.target.value });
               }}
               className={FIELD}
             >
@@ -163,9 +165,9 @@ export function TasksPage() {
                       openNode(node.id);
                     }}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded border border-line bg-well-850 px-2.5 py-2 text-left transition-colors",
-                      "hover:border-line-bright hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent",
-                      search.node === node.id && "border-line-bright bg-well-800",
+                      'flex w-full items-center gap-2 rounded border border-line bg-well-850 px-2.5 py-2 text-left transition-colors',
+                      'hover:border-line-bright hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent',
+                      search.node === node.id && 'border-line-bright bg-well-800',
                     )}
                   >
                     <StatusDot status={node.status} />

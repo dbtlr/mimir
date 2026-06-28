@@ -10,7 +10,7 @@ import type {
   TransitionKind,
   Verdicts,
   ViewType,
-} from "@mimir/contract";
+} from '@mimir/contract';
 
 /**
  * The wire shapes the resource envelope serves (`nodeToWire` in the binary):
@@ -114,7 +114,7 @@ export interface WireNode {
 }
 
 /** The nested whole-project tree (`/api/projects/:key/tree`) — children rank-ordered. */
-export interface WireTreeNode extends Omit<WireNode, "children"> {
+export interface WireTreeNode extends Omit<WireNode, 'children'> {
   children: WireTreeNode[];
 }
 
@@ -126,6 +126,6 @@ export interface Collection<T> {
 
 /** The project key a rendered id belongs to (`MMR-16` → `MMR`, `MMR` → `MMR`). */
 export function projectKeyOf(id: string): string {
-  const dash = id.indexOf("-");
+  const dash = id.indexOf('-');
   return dash === -1 ? id : id.slice(0, dash);
 }

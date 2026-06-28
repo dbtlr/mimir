@@ -1,5 +1,5 @@
-import type { Connectivity } from "../lib/connectivity";
-import { ago } from "../lib/time";
+import type { Connectivity } from '../lib/connectivity';
+import { ago } from '../lib/time';
 
 /**
  * The offline read, loudly marked (ADR 0013 §5): a persistent banner naming
@@ -16,8 +16,8 @@ export function OfflineBanner({ offline, lastSync }: Connectivity) {
       className="sticky top-0 z-30 flex items-center justify-center gap-2 border-b border-status-blocked/40 bg-status-blocked/15 px-3 py-1.5 text-xs font-semibold text-status-blocked backdrop-blur"
     >
       <span aria-hidden className="inline-block size-[7px] rounded-full bg-status-blocked" />
-      Offline — last synced{" "}
-      <span className="font-mono">{lastSync === null ? "never" : ago(lastSync)}</span>
+      Offline — last synced{' '}
+      <span className="font-mono">{lastSync === null ? 'never' : ago(lastSync)}</span>
     </div>
   );
 }

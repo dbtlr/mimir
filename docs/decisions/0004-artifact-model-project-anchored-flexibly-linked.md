@@ -1,5 +1,5 @@
 ---
-title: "ADR 0004: Artifact model — project-anchored, flexibly linked"
+title: 'ADR 0004: Artifact model — project-anchored, flexibly linked'
 status: accepted
 date: 2026-06-03
 ---

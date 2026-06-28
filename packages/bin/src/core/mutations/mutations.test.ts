@@ -1,10 +1,11 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
-import { createTestDb } from "../../db/testing";
-import type { Db } from "../context";
-import { createInitiative, createPhase, createProject, createTask } from "../create";
-import { loadNode } from "../lookup";
-import { RANK_STEP } from "../rank";
-import { expectMimirError } from "../testing";
+import { afterEach, beforeEach, expect, test } from 'bun:test';
+
+import { createTestDb } from '../../db/testing';
+import type { Db } from '../context';
+import { createInitiative, createPhase, createProject, createTask } from '../create';
+import { loadNode } from '../lookup';
+import { RANK_STEP } from '../rank';
+import { expectMimirError } from '../testing';
 import {
   abandonTask,
   annotate,
@@ -22,7 +23,7 @@ import {
   updateArtifact,
   updateNode,
   updateProject,
-} from "./index";
+} from './index';
 
 let db: Db;
 let projectId: number;
@@ -30,18 +31,18 @@ let initId: number;
 let phaseId: number;
 beforeEach(async () => {
   db = await createTestDb();
-  const p = await createProject(db, { key: "MMR", name: "m" });
+  const p = await createProject(db, { key: 'MMR', name: 'm' });
   projectId = p.id;
-  const init = await createInitiative(db, { projectId, title: "i" });
+  const init = await createInitiative(db, { projectId, title: 'i' });
   initId = init.id;
-  const phase = await createPhase(db, { parentId: init.id, title: "ph" });
+  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
   phaseId = phase.id;
 });
 afterEach(async () => {
   await db.destroy();
 });
 
-async function task(title = "t"): Promise<number> {
+async function task(title = 't'): Promise<number> {
   const t = await createTask(db, { parentId: phaseId, title });
   return t.id;
 }
@@ -52,202 +53,202 @@ async function reload(id: number) {
 }
 async function logs(nodeId: number) {
   return db
-    .selectFrom("transition_log")
-    .select(["kind", "from_value", "to_value", "reason"])
-    .where("node_id", "=", nodeId)
-    .orderBy("id", "asc")
+    .selectFrom('transition_log')
+    .select(['kind', 'from_value', 'to_value', 'reason'])
+    .where('node_id', '=', nodeId)
+    .orderBy('id', 'asc')
     .execute();
 }
 
-test("start keeps rank and logs a lifecycle transition", async () => {
+test('start keeps rank and logs a lifecycle transition', async () => {
   const id = await task();
   const before = await reload(id);
   expect(before.rank).toBe(RANK_STEP);
   const echoed = await startTask(db, id);
-  expect(echoed.lifecycle).toBe("in_progress");
+  expect(echoed.lifecycle).toBe('in_progress');
   expect(echoed.rank).toBe(RANK_STEP); // todo->in_progress stays in the rankable set
   expect(await logs(id)).toEqual([
-    { kind: "lifecycle", from_value: "todo", to_value: "in_progress", reason: null },
+    { kind: 'lifecycle', from_value: 'todo', to_value: 'in_progress', reason: null },
   ]);
-  await expectMimirError("validation", () => startTask(db, id)); // not a todo anymore
+  await expectMimirError('validation', () => startTask(db, id)); // not a todo anymore
 });
 
-test("complete is terminal: stamps completed_at and clears rank", async () => {
+test('complete is terminal: stamps completed_at and clears rank', async () => {
   const id = await task();
   await startTask(db, id);
   const done = await completeTask(db, id);
-  expect(done.lifecycle).toBe("done");
+  expect(done.lifecycle).toBe('done');
   expect(done.completed_at).not.toBeNull();
   expect(done.rank).toBeNull();
-  await expectMimirError("validation", () => completeTask(db, id)); // already terminal
+  await expectMimirError('validation', () => completeTask(db, id)); // already terminal
 });
 
-test("abandon clears rank and records its reason on the log row", async () => {
+test('abandon clears rank and records its reason on the log row', async () => {
   const id = await task();
-  const gone = await abandonTask(db, id, "scope cut");
-  expect(gone.lifecycle).toBe("abandoned");
+  const gone = await abandonTask(db, id, 'scope cut');
+  expect(gone.lifecycle).toBe('abandoned');
   expect(gone.rank).toBeNull();
   expect(gone.completed_at).toBeNull(); // only complete stamps it
   expect((await logs(id)).at(-1)).toEqual({
-    kind: "lifecycle",
-    from_value: "todo",
-    to_value: "abandoned",
-    reason: "scope cut",
+    kind: 'lifecycle',
+    from_value: 'todo',
+    to_value: 'abandoned',
+    reason: 'scope cut',
   });
 });
 
-test("park/unpark and block/unblock leave and re-enter the rankable set", async () => {
+test('park/unpark and block/unblock leave and re-enter the rankable set', async () => {
   const id = await task();
-  const parked = await parkTask(db, id, "later");
-  expect(parked.hold).toBe("parked");
-  expect(parked.hold_reason).toBe("later");
+  const parked = await parkTask(db, id, 'later');
+  expect(parked.hold).toBe('parked');
+  expect(parked.hold_reason).toBe('later');
   expect(parked.rank).toBeNull();
-  await expectMimirError("validation", () => parkTask(db, id)); // already held
+  await expectMimirError('validation', () => parkTask(db, id)); // already held
 
   const unparked = await unparkTask(db, id);
-  expect(unparked.hold).toBe("none");
+  expect(unparked.hold).toBe('none');
   expect(unparked.hold_reason).toBeNull();
   expect(unparked.rank).toBe(RANK_STEP); // re-appended to bottom (only task)
 
-  const blocked = await blockTask(db, id, "waiting on API");
-  expect(blocked.hold).toBe("blocked");
+  const blocked = await blockTask(db, id, 'waiting on API');
+  expect(blocked.hold).toBe('blocked');
   expect(blocked.rank).toBeNull();
   const unblocked = await unblockTask(db, id);
-  expect(unblocked.hold).toBe("none");
+  expect(unblocked.hold).toBe('none');
   expect(unblocked.rank).toBe(RANK_STEP);
 
   expect((await logs(id)).map((l) => `${String(l.from_value)}>${String(l.to_value)}`)).toEqual([
-    "none>parked",
-    "parked>none",
-    "none>blocked",
-    "blocked>none",
+    'none>parked',
+    'parked>none',
+    'none>blocked',
+    'blocked>none',
   ]);
 });
 
-test("depend builds acyclic edges and rejects cycles and self-deps", async () => {
-  const a = await task("a");
-  const b = await task("b");
-  const c = await task("c");
+test('depend builds acyclic edges and rejects cycles and self-deps', async () => {
+  const a = await task('a');
+  const b = await task('b');
+  const c = await task('c');
   await depend(db, b, [a]); // b depends on a
   await depend(db, c, [b]); // c depends on b
-  await expectMimirError("validation", () => depend(db, a, [c])); // a->c would close a->c->b->a
-  await expectMimirError("validation", () => depend(db, a, [a])); // self
+  await expectMimirError('validation', () => depend(db, a, [c])); // a->c would close a->c->b->a
+  await expectMimirError('validation', () => depend(db, a, [a])); // self
 
-  const edges = await db.selectFrom("dependency").selectAll().where("node_id", "=", b).execute();
+  const edges = await db.selectFrom('dependency').selectAll().where('node_id', '=', b).execute();
   expect(edges).toHaveLength(1);
-  expect((await logs(b)).at(-1)?.kind).toBe("dependency");
+  expect((await logs(b)).at(-1)?.kind).toBe('dependency');
 
   await undepend(db, b, [a]);
   expect(
-    await db.selectFrom("dependency").selectAll().where("node_id", "=", b).execute(),
+    await db.selectFrom('dependency').selectAll().where('node_id', '=', b).execute(),
   ).toHaveLength(0);
 });
 
-test("move re-parents with type + cycle validation", async () => {
-  const phase2 = await createPhase(db, { parentId: initId, title: "ph2" });
-  const t = await task("t");
+test('move re-parents with type + cycle validation', async () => {
+  const phase2 = await createPhase(db, { parentId: initId, title: 'ph2' });
+  const t = await task('t');
   const moved = await moveNode(db, t, phase2.id);
   expect(moved.parent_id).toBe(phase2.id);
-  expect((await logs(t)).at(-1)?.kind).toBe("move");
+  expect((await logs(t)).at(-1)?.kind).toBe('move');
 
   // a task cannot parent to another task
-  const other = await task("other");
-  await expectMimirError("validation", () => moveNode(db, t, other));
+  const other = await task('other');
+  await expectMimirError('validation', () => moveNode(db, t, other));
   // a phase cannot move under its own descendant task... use node cycle: move init under its phase
-  await expectMimirError("validation", () => moveNode(db, initId, phaseId));
+  await expectMimirError('validation', () => moveNode(db, initId, phaseId));
   // an initiative may go top-level
   const reparented = await moveNode(db, initId, null);
   expect(reparented.parent_id).toBeNull();
 });
 
-test("update is a dumb scalar patch with type-applicability checks", async () => {
+test('update is a dumb scalar patch with type-applicability checks', async () => {
   const id = await task();
-  const patched = await updateNode(db, id, { title: "renamed", priority: "p0" });
-  expect(patched.title).toBe("renamed");
-  expect(patched.priority).toBe("p0");
+  const patched = await updateNode(db, id, { title: 'renamed', priority: 'p0' });
+  expect(patched.title).toBe('renamed');
+  expect(patched.priority).toBe('p0');
 
   // target is phase-only; priority is task-only
-  await expectMimirError("validation", () => updateNode(db, id, { target: "x" }));
-  await expectMimirError("validation", () => updateNode(db, phaseId, { priority: "p1" }));
+  await expectMimirError('validation', () => updateNode(db, id, { target: 'x' }));
+  await expectMimirError('validation', () => updateNode(db, phaseId, { priority: 'p1' }));
 
   // status is not reachable through update (lifecycle unchanged)
-  expect((await reload(id)).lifecycle).toBe("todo");
+  expect((await reload(id)).lifecycle).toBe('todo');
 });
 
-test("annotate and attachArtifact persist and link", async () => {
+test('annotate and attachArtifact persist and link', async () => {
   const id = await task();
-  await annotate(db, id, "realized X");
-  const notes = await db.selectFrom("annotation").selectAll().where("node_id", "=", id).execute();
-  expect(notes.map((n) => n.content)).toEqual(["realized X"]);
+  await annotate(db, id, 'realized X');
+  const notes = await db.selectFrom('annotation').selectAll().where('node_id', '=', id).execute();
+  expect(notes.map((n) => n.content)).toEqual(['realized X']);
 
   const { id: artifactId } = await attachArtifact(db, {
     projectId,
-    title: "session log",
-    content: "# session log",
+    title: 'session log',
+    content: '# session log',
     linkNodeIds: [id],
   });
   const links = await db
-    .selectFrom("artifact_link")
+    .selectFrom('artifact_link')
     .selectAll()
-    .where("artifact_id", "=", artifactId)
+    .where('artifact_id', '=', artifactId)
     .execute();
   expect(links.map((l) => l.node_id)).toEqual([id]);
 });
 
-test("updateArtifact retitles; content frozen; blank title and unknown id refused (MMR-40)", async () => {
+test('updateArtifact retitles; content frozen; blank title and unknown id refused (MMR-40)', async () => {
   const id = await task();
   const { id: artifactId } = await attachArtifact(db, {
     projectId,
-    title: "first title",
-    content: "# body",
+    title: 'first title',
+    content: '# body',
     linkNodeIds: [id],
   });
-  await updateArtifact(db, artifactId, { title: "fixed title" });
+  await updateArtifact(db, artifactId, { title: 'fixed title' });
   const row = await db
-    .selectFrom("artifact")
-    .select(["title", "content"])
-    .where("id", "=", artifactId)
+    .selectFrom('artifact')
+    .select(['title', 'content'])
+    .where('id', '=', artifactId)
     .executeTakeFirstOrThrow();
-  expect(row.title).toBe("fixed title");
-  expect(row.content).toBe("# body"); // content is never touched
-  await expectMimirError("validation", () => updateArtifact(db, artifactId, { title: "  " }));
-  await expectMimirError("not_found", () => updateArtifact(db, 9999, { title: "x" }));
+  expect(row.title).toBe('fixed title');
+  expect(row.content).toBe('# body'); // content is never touched
+  await expectMimirError('validation', () => updateArtifact(db, artifactId, { title: '  ' }));
+  await expectMimirError('not_found', () => updateArtifact(db, 9999, { title: 'x' }));
 });
 
-test("updateProject patches name and description; key is immutable (MMR-88)", async () => {
-  const updated = await updateProject(db, projectId, { name: "New Name", description: "details" });
-  expect(updated.name).toBe("New Name");
-  expect(updated.description).toBe("details");
+test('updateProject patches name and description; key is immutable (MMR-88)', async () => {
+  const updated = await updateProject(db, projectId, { name: 'New Name', description: 'details' });
+  expect(updated.name).toBe('New Name');
+  expect(updated.description).toBe('details');
 
   // Patch only description — name untouched
-  const again = await updateProject(db, projectId, { description: "updated desc" });
-  expect(again.name).toBe("New Name");
-  expect(again.description).toBe("updated desc");
+  const again = await updateProject(db, projectId, { description: 'updated desc' });
+  expect(again.name).toBe('New Name');
+  expect(again.description).toBe('updated desc');
 
   // Clear description with explicit null
   const cleared = await updateProject(db, projectId, { description: null });
   expect(cleared.description).toBeNull();
 
   // Blank name is rejected
-  await expectMimirError("validation", () => updateProject(db, projectId, { name: "  " }));
+  await expectMimirError('validation', () => updateProject(db, projectId, { name: '  ' }));
 
   // Missing project
-  await expectMimirError("not_found", () => updateProject(db, 9999, { name: "x" }));
+  await expectMimirError('not_found', () => updateProject(db, 9999, { name: 'x' }));
 });
 
-test("reorder moves within the rankable set and refuses terminal/held tasks", async () => {
-  const a = await task("a");
-  const b = await task("b");
-  await reorder(db, b, "top");
+test('reorder moves within the rankable set and refuses terminal/held tasks', async () => {
+  const a = await task('a');
+  const b = await task('b');
+  await reorder(db, b, 'top');
   const ranked = await db
-    .selectFrom("node")
-    .select("id")
-    .where("project_id", "=", projectId)
-    .where("rank", "is not", null)
-    .orderBy("rank", "asc")
+    .selectFrom('node')
+    .select('id')
+    .where('project_id', '=', projectId)
+    .where('rank', 'is not', null)
+    .orderBy('rank', 'asc')
     .execute();
   expect(ranked.map((r) => r.id)).toEqual([b, a]);
 
   await completeTask(db, a);
-  await expectMimirError("validation", () => reorder(db, a, "top")); // terminal -> no rank
+  await expectMimirError('validation', () => reorder(db, a, 'top')); // terminal -> no rank
 });

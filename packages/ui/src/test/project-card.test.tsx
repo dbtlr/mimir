@@ -1,15 +1,16 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
-import { ProjectCard } from "../components/project-card";
-import { project } from "./fixtures";
+import { render, screen } from '@testing-library/react';
+import { describe, expect, test, vi } from 'vitest';
 
-describe("ProjectCard going-cold marker", () => {
-  test("a stale project shows a going-cold marker", () => {
+import { ProjectCard } from '../components/project-card';
+import { project } from './fixtures';
+
+describe('projectCard going-cold marker', () => {
+  it('a stale project shows a going-cold marker', () => {
     render(
       <ProjectCard
         project={project({
-          id: "COLD",
-          attention: { band: "live", last_activity: "2026-01-01T00:00:00.000Z", stale: true },
+          id: 'COLD',
+          attention: { band: 'live', last_activity: '2026-01-01T00:00:00.000Z', stale: true },
         })}
         onOpen={vi.fn()}
       />,
@@ -17,12 +18,12 @@ describe("ProjectCard going-cold marker", () => {
     expect(screen.getByText(/going cold/i)).toBeDefined();
   });
 
-  test("a fresh project shows no going-cold marker", () => {
+  it('a fresh project shows no going-cold marker', () => {
     render(
       <ProjectCard
         project={project({
-          id: "WARM",
-          attention: { band: "live", last_activity: "2026-06-20T00:00:00.000Z", stale: false },
+          id: 'WARM',
+          attention: { band: 'live', last_activity: '2026-06-20T00:00:00.000Z', stale: false },
         })}
         onOpen={vi.fn()}
       />,
@@ -31,23 +32,23 @@ describe("ProjectCard going-cold marker", () => {
   });
 });
 
-describe("ProjectCard vitals panel (MMR-106)", () => {
-  test("renders the five-count legend from leaf_counts", () => {
+describe('projectCard vitals panel (MMR-106)', () => {
+  it('renders the five-count legend from leaf_counts', () => {
     render(
       <ProjectCard
-        project={project({ id: "VIT", leaf_counts: { under_review: 2, ready: 4, blocked: 1 } })}
+        project={project({ id: 'VIT', leaf_counts: { under_review: 2, ready: 4, blocked: 1 } })}
         onOpen={vi.fn()}
       />,
     );
-    for (const label of ["review", "in prog", "ready", "await", "blocked"]) {
+    for (const label of ['review', 'in prog', 'ready', 'await', 'blocked']) {
       expect(screen.getByText(label)).toBeDefined();
     }
-    expect(screen.getByText("2")).toBeDefined(); // under_review count
-    expect(screen.getByText("4")).toBeDefined(); // ready count
+    expect(screen.getByText('2')).toBeDefined(); // under_review count
+    expect(screen.getByText('4')).toBeDefined(); // ready count
   });
 
-  test("omits the vitals panel entirely when leaf_counts is absent (degraded payload)", () => {
-    render(<ProjectCard project={project({ id: "BARE" })} onOpen={vi.fn()} />, {});
-    expect(screen.queryByText("ready")).toBeNull();
+  it('omits the vitals panel entirely when leaf_counts is absent (degraded payload)', () => {
+    render(<ProjectCard project={project({ id: 'BARE' })} onOpen={vi.fn()} />, {});
+    expect(screen.queryByText('ready')).toBeNull();
   });
 });

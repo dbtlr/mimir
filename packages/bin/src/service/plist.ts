@@ -5,14 +5,15 @@
  * --no-hunt failure means launchd retries (~10s) while a squatter holds the
  * port and the daemon self-heals the moment it frees.
  */
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { SERVE_LOG_FILE } from "./events";
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
-export const LABEL = "com.dbtlr.mimir.serve";
+import { SERVE_LOG_FILE } from './events';
+
+export const LABEL = 'com.dbtlr.mimir.serve';
 
 export function plistPath(): string {
-  return join(homedir(), "Library", "LaunchAgents", `${LABEL}.plist`);
+  return join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
 }
 
 export interface PlistOptions {
@@ -24,13 +25,13 @@ export interface PlistOptions {
  * launchctl rejects a malformed plist loudly at install time, but the error
  * doesn't point at the character — escaping here makes the root cause obvious. */
 function xmlEscape(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 export function plistFor(binPath: string, opts: PlistOptions): string {
   const env =
     opts.dbPath === undefined
-      ? ""
+      ? ''
       : `
   <key>EnvironmentVariables</key>
   <dict>

@@ -6,7 +6,7 @@
  */
 
 /** Stable category carried by every rendered error (output-contract reference). */
-export type ErrorCode = "not_found" | "validation" | "conflict" | "invariant";
+export type ErrorCode = 'not_found' | 'validation' | 'conflict' | 'invariant';
 
 /**
  * The error envelope: `{"error":{code,message,hint?}}` on stderr (CLI) or as
@@ -15,7 +15,7 @@ export type ErrorCode = "not_found" | "validation" | "conflict" | "invariant";
  */
 export interface ErrorEnvelope {
   error: {
-    code: ErrorCode | "usage";
+    code: ErrorCode | 'usage';
     message: string;
     hint?: string;
   };

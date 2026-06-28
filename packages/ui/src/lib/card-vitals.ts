@@ -1,4 +1,4 @@
-import type { Distribution, StatusWord } from "@mimir/contract";
+import type { Distribution, StatusWord } from '@mimir/contract';
 
 /**
  * The project card's vitals (MMR-106) — the five actionable-state leaf counts
@@ -15,11 +15,11 @@ export interface Vital {
 }
 
 const VITAL_ORDER: readonly { word: StatusWord; label: string }[] = [
-  { word: "under_review", label: "review" },
-  { word: "in_progress", label: "in prog" },
-  { word: "ready", label: "ready" },
-  { word: "awaiting", label: "await" },
-  { word: "blocked", label: "blocked" },
+  { word: 'under_review', label: 'review' },
+  { word: 'in_progress', label: 'in prog' },
+  { word: 'ready', label: 'ready' },
+  { word: 'awaiting', label: 'await' },
+  { word: 'blocked', label: 'blocked' },
 ];
 
 export function cardVitals(counts: Distribution | undefined): Vital[] {

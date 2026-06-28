@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { treeQuery } from "../api/queries";
-import { useCreateTask } from "../api/mutations";
-import { parentOptions } from "../lib/parent-options";
-import { TaskForm } from "./task-form";
-import type { TaskFormSubmit } from "./task-form";
-import { Sheet, SheetContent, SheetTitle } from "./ui/sheet";
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+
+import { useCreateTask } from '../api/mutations';
+import { treeQuery } from '../api/queries';
+import { parentOptions } from '../lib/parent-options';
+import { TaskForm } from './task-form';
+import type { TaskFormSubmit } from './task-form';
+import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
 
 export function NewTaskButton({ projectKey, offline }: { projectKey: string; offline?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -16,7 +17,7 @@ export function NewTaskButton({ projectKey, offline }: { projectKey: string; off
     const { parent, title, description, priority, size, external_ref, tags } = values;
     create.mutate(
       {
-        parent: parent ?? "",
+        parent: parent ?? '',
         title,
         description: description ?? undefined,
         priority: priority ?? undefined,

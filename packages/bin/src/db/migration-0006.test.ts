@@ -1,8 +1,11 @@
-import { expect, test } from "bun:test";
-import { Migrator, type Migration, type MigrationProvider, sql } from "kysely";
-import { createDb } from "./client";
-import { migrations } from "./migrations";
-import { expectReject } from "./testing";
+import { expect, test } from 'bun:test';
+
+import { Migrator, sql } from 'kysely';
+import type { Migration, MigrationProvider } from 'kysely';
+
+import { createDb } from './client';
+import { migrations } from './migrations';
+import { expectReject } from './testing';
 
 /**
  * MMR-84 migration 0006 — widening the `node.lifecycle` CHECK is a full table
@@ -21,9 +24,9 @@ class MapProvider implements MigrationProvider {
 
 /** Apply every migration strictly before 0006 — the pre-rebuild baseline. */
 async function dbAt0005() {
-  const db = createDb(":memory:");
+  const db = createDb(':memory:');
   const migrator = new Migrator({ db, provider: new MapProvider(migrations) });
-  const { error } = await migrator.migrateTo("0005_project_description");
+  const { error } = await migrator.migrateTo('0005_project_description');
   if (error !== undefined) throw error;
   return db;
 }
@@ -33,7 +36,7 @@ function apply0006(db: ReturnType<typeof createDb>) {
   return migrator.migrateToLatest();
 }
 
-test("0006 preserves rows and FK integrity across every node-referencing table", async () => {
+test('0006 preserves rows and FK integrity across every node-referencing table', async () => {
   const db = await dbAt0005();
   try {
     // Seed a representative graph at 0005 (pre-rebuild).
@@ -58,16 +61,16 @@ test("0006 preserves rows and FK integrity across every node-referencing table",
     expect(error).toBeUndefined();
 
     // Every row survived, verbatim.
-    const node = await db.selectFrom("node").selectAll().where("id", "=", 11).executeTakeFirst();
-    expect(node?.title).toBe("prereq");
-    expect(node?.lifecycle).toBe("in_progress");
+    const node = await db.selectFrom('node').selectAll().where('id', '=', 11).executeTakeFirst();
+    expect(node?.title).toBe('prereq');
+    expect(node?.lifecycle).toBe('in_progress');
     expect(node?.rank).toBe(65536); // rank preserved exactly
     const counts = {
-      node: (await db.selectFrom("node").selectAll().execute()).length,
-      dependency: (await db.selectFrom("dependency").selectAll().execute()).length,
-      annotation: (await db.selectFrom("annotation").selectAll().execute()).length,
-      transition: (await db.selectFrom("transition_log").selectAll().execute()).length,
-      link: (await db.selectFrom("artifact_link").selectAll().execute()).length,
+      node: (await db.selectFrom('node').selectAll().execute()).length,
+      dependency: (await db.selectFrom('dependency').selectAll().execute()).length,
+      annotation: (await db.selectFrom('annotation').selectAll().execute()).length,
+      transition: (await db.selectFrom('transition_log').selectAll().execute()).length,
+      link: (await db.selectFrom('artifact_link').selectAll().execute()).length,
     };
     expect(counts).toEqual({ node: 3, dependency: 1, annotation: 1, transition: 1, link: 1 });
 
@@ -80,7 +83,7 @@ test("0006 preserves rows and FK integrity across every node-referencing table",
   }
 });
 
-test("0006 widens the CHECK: under_review accepted, garbage and bad structure rejected", async () => {
+test('0006 widens the CHECK: under_review accepted, garbage and bad structure rejected', async () => {
   const db = await dbAt0005();
   try {
     await sql`INSERT INTO project (id, key, name) VALUES (1, 'MMR', 'm')`.execute(db);
@@ -94,9 +97,9 @@ test("0006 widens the CHECK: under_review accepted, garbage and bad structure re
     await sql`INSERT INTO node (id, project_id, type, parent_id, seq, title, lifecycle, hold)
               VALUES (11, 1, 'task', 10, 2, 't', 'under_review', 'none')`.execute(db);
     expect(
-      (await db.selectFrom("node").select("lifecycle").where("id", "=", 11).executeTakeFirst())
+      (await db.selectFrom('node').select('lifecycle').where('id', '=', 11).executeTakeFirst())
         ?.lifecycle,
-    ).toBe("under_review");
+    ).toBe('under_review');
 
     // A bogus lifecycle is still rejected.
     await expectReject(() =>

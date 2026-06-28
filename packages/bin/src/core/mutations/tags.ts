@@ -1,5 +1,6 @@
-import type { TagEntityType } from "@mimir/contract";
-import type { Db } from "../context";
+import type { TagEntityType } from '@mimir/contract';
+
+import type { Db } from '../context';
 
 /**
  * The tag write surface (MMR-31). Tags are a general-purpose primitive
@@ -31,7 +32,7 @@ export async function tagEntities(
     for (const target of targets) {
       for (const tag of tags) {
         await tx
-          .insertInto("tag")
+          .insertInto('tag')
           .values({
             entity_type: target.entityType,
             entity_id: target.entityId,
@@ -40,8 +41,8 @@ export async function tagEntities(
           })
           .onConflict((oc) =>
             note === undefined
-              ? oc.columns(["entity_type", "entity_id", "tag"]).doNothing()
-              : oc.columns(["entity_type", "entity_id", "tag"]).doUpdateSet({ note }),
+              ? oc.columns(['entity_type', 'entity_id', 'tag']).doNothing()
+              : oc.columns(['entity_type', 'entity_id', 'tag']).doUpdateSet({ note }),
           )
           .execute();
       }
@@ -55,10 +56,10 @@ export async function untagEntities(db: Db, targets: EntityRef[], tags: string[]
     let removed = 0;
     for (const target of targets) {
       const result = await tx
-        .deleteFrom("tag")
-        .where("entity_type", "=", target.entityType)
-        .where("entity_id", "=", target.entityId)
-        .where("tag", "in", tags)
+        .deleteFrom('tag')
+        .where('entity_type', '=', target.entityType)
+        .where('entity_id', '=', target.entityId)
+        .where('tag', 'in', tags)
         .executeTakeFirst();
       removed += Number(result.numDeletedRows);
     }

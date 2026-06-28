@@ -1,5 +1,6 @@
-import type { StatusWord } from "@mimir/contract";
-import type { WireNode } from "../api/types";
+import type { StatusWord } from '@mimir/contract';
+
+import type { WireNode } from '../api/types';
 
 export interface AttentionItem {
   node: WireNode;
@@ -29,8 +30,8 @@ export function attentionItems(
     seen.add(node.id);
     items.push({ node, reason, stale: staleIds.has(node.id) || node.verdicts?.stale === true });
   };
-  for (const node of underReview) push(node, "under_review");
-  for (const node of blocked) push(node, "blocked");
+  for (const node of underReview) push(node, 'under_review');
+  for (const node of blocked) push(node, 'blocked');
   for (const node of stale) push(node, node.status);
   return items;
 }

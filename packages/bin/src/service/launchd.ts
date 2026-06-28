@@ -5,8 +5,8 @@
  * KeepAlive restarts a killed process, so honest stop is bootout (plist stays
  * on disk); restart is kickstart -k; a nonzero `print` means not loaded.
  */
-import { MimirError } from "../core";
-import { LABEL } from "./plist";
+import { MimirError } from '../core';
+import { LABEL } from './plist';
 
 export interface ExecResult {
   code: number;
@@ -32,7 +32,7 @@ export interface Supervisor {
 
 /** Run an argv via Bun, capturing exit code and output. The one impure edge. */
 export const bunExec: Exec = async (argv) => {
-  const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe" });
+  const proc = Bun.spawn(argv, { stdout: 'pipe', stderr: 'pipe' });
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
@@ -51,12 +51,12 @@ export class LaunchdSupervisor implements Supervisor {
   }
 
   private async run(argv: string[], failure: string, tolerate = false): Promise<void> {
-    const result = await this.exec(["launchctl", ...argv]);
+    const result = await this.exec(['launchctl', ...argv]);
     if (result.code !== 0 && !tolerate) {
       throw new MimirError(
-        "validation",
-        `launchctl ${argv[0] ?? ""} failed (${String(result.code)}): ${failure}`,
-        result.stderr.trim() === "" ? undefined : result.stderr.trim(),
+        'validation',
+        `launchctl ${argv[0] ?? ''} failed (${String(result.code)}): ${failure}`,
+        result.stderr.trim() === '' ? undefined : result.stderr.trim(),
       );
     }
   }
@@ -64,28 +64,28 @@ export class LaunchdSupervisor implements Supervisor {
   async install(plistFile: string): Promise<void> {
     // Idempotent refresh: clear any loaded copy first; bootout of an
     // unloaded service is the expected no-op, so its failure is tolerated.
-    await this.run(["bootout", `${this.target}/${LABEL}`], "", true);
-    await this.run(["bootstrap", this.target, plistFile], "could not load the service");
+    await this.run(['bootout', `${this.target}/${LABEL}`], '', true);
+    await this.run(['bootstrap', this.target, plistFile], 'could not load the service');
   }
 
   async uninstall(): Promise<void> {
-    await this.run(["bootout", `${this.target}/${LABEL}`], "", true);
+    await this.run(['bootout', `${this.target}/${LABEL}`], '', true);
   }
 
   async start(plistFile: string): Promise<void> {
-    await this.run(["bootstrap", this.target, plistFile], "could not load the service");
+    await this.run(['bootstrap', this.target, plistFile], 'could not load the service');
   }
 
   async stop(): Promise<void> {
-    await this.run(["bootout", `${this.target}/${LABEL}`], "could not unload the service");
+    await this.run(['bootout', `${this.target}/${LABEL}`], 'could not unload the service');
   }
 
   async restart(): Promise<void> {
-    await this.run(["kickstart", "-k", `${this.target}/${LABEL}`], "is the service installed?");
+    await this.run(['kickstart', '-k', `${this.target}/${LABEL}`], 'is the service installed?');
   }
 
   async info(): Promise<ServiceInfo> {
-    const result = await this.exec(["launchctl", "print", `${this.target}/${LABEL}`]);
+    const result = await this.exec(['launchctl', 'print', `${this.target}/${LABEL}`]);
     if (result.code !== 0) return { loaded: false, running: false };
     const pidMatch = /\bpid = (\d+)/.exec(result.stdout);
     const running = /\bstate = running/.test(result.stdout) || pidMatch !== null;

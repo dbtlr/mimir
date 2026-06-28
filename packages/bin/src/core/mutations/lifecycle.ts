@@ -1,9 +1,9 @@
-import type { Node } from "../../db/schema";
-import type { Db } from "../context";
-import { validation } from "../errors";
-import { appendRank } from "../rank";
-import { now } from "../time";
-import { logTransition, reloadNode, requireTask, stamp } from "./common";
+import type { Node } from '../../db/schema';
+import type { Db } from '../context';
+import { validation } from '../errors';
+import { appendRank } from '../rank';
+import { now } from '../time';
+import { logTransition, reloadNode, requireTask, stamp } from './common';
 
 /**
  * Lifecycle verbs (ADR 0001/0003/0007). `start` keeps the task in the rankable
@@ -25,15 +25,15 @@ import { logTransition, reloadNode, requireTask, stamp } from "./common";
 export async function startTask(db: Db, id: number): Promise<Node> {
   return db.transaction().execute(async (tx) => {
     const task = await requireTask(tx, id);
-    if (task.lifecycle !== "todo") {
+    if (task.lifecycle !== 'todo') {
       throw validation(`only a todo task can be started (is ${String(task.lifecycle)})`);
     }
-    await tx.updateTable("node").set({ lifecycle: "in_progress" }).where("id", "=", id).execute();
+    await tx.updateTable('node').set({ lifecycle: 'in_progress' }).where('id', '=', id).execute();
     await logTransition(tx, {
       node_id: id,
-      kind: "lifecycle",
-      from_value: "todo",
-      to_value: "in_progress",
+      kind: 'lifecycle',
+      from_value: 'todo',
+      to_value: 'in_progress',
     });
     await stamp(tx, id);
     return reloadNode(tx, id);
@@ -43,21 +43,21 @@ export async function startTask(db: Db, id: number): Promise<Node> {
 export async function submitTask(db: Db, id: number): Promise<Node> {
   return db.transaction().execute(async (tx) => {
     const task = await requireTask(tx, id);
-    if (task.lifecycle !== "in_progress") {
+    if (task.lifecycle !== 'in_progress') {
       throw validation(
         `only an in_progress task can be submitted for review (is ${String(task.lifecycle)})`,
       );
     }
     await tx
-      .updateTable("node")
-      .set({ lifecycle: "under_review", rank: null })
-      .where("id", "=", id)
+      .updateTable('node')
+      .set({ lifecycle: 'under_review', rank: null })
+      .where('id', '=', id)
       .execute();
     await logTransition(tx, {
       node_id: id,
-      kind: "lifecycle",
-      from_value: "in_progress",
-      to_value: "under_review",
+      kind: 'lifecycle',
+      from_value: 'in_progress',
+      to_value: 'under_review',
     });
     await stamp(tx, id);
     return reloadNode(tx, id);
@@ -67,21 +67,21 @@ export async function submitTask(db: Db, id: number): Promise<Node> {
 export async function returnTask(db: Db, id: number, reason?: string): Promise<Node> {
   return db.transaction().execute(async (tx) => {
     const task = await requireTask(tx, id);
-    if (task.lifecycle !== "under_review") {
+    if (task.lifecycle !== 'under_review') {
       throw validation(`only an under_review task can be returned (is ${String(task.lifecycle)})`);
     }
     // re-enter the rankable set at the bottom (a return is a natural re-triage point)
     const rank = await appendRank(tx, task.project_id);
     await tx
-      .updateTable("node")
-      .set({ lifecycle: "in_progress", rank })
-      .where("id", "=", id)
+      .updateTable('node')
+      .set({ lifecycle: 'in_progress', rank })
+      .where('id', '=', id)
       .execute();
     await logTransition(tx, {
       node_id: id,
-      kind: "lifecycle",
-      from_value: "under_review",
-      to_value: "in_progress",
+      kind: 'lifecycle',
+      from_value: 'under_review',
+      to_value: 'in_progress',
       reason: reason ?? null,
     });
     await stamp(tx, id);
@@ -92,19 +92,19 @@ export async function returnTask(db: Db, id: number, reason?: string): Promise<N
 export async function completeTask(db: Db, id: number): Promise<Node> {
   return db.transaction().execute(async (tx) => {
     const task = await requireTask(tx, id);
-    if (task.lifecycle === "done" || task.lifecycle === "abandoned") {
+    if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
     await tx
-      .updateTable("node")
-      .set({ lifecycle: "done", completed_at: now(), rank: null })
-      .where("id", "=", id)
+      .updateTable('node')
+      .set({ lifecycle: 'done', completed_at: now(), rank: null })
+      .where('id', '=', id)
       .execute();
     await logTransition(tx, {
       node_id: id,
-      kind: "lifecycle",
+      kind: 'lifecycle',
       from_value: task.lifecycle,
-      to_value: "done",
+      to_value: 'done',
     });
     await stamp(tx, id);
     return reloadNode(tx, id);
@@ -114,19 +114,19 @@ export async function completeTask(db: Db, id: number): Promise<Node> {
 export async function abandonTask(db: Db, id: number, reason?: string): Promise<Node> {
   return db.transaction().execute(async (tx) => {
     const task = await requireTask(tx, id);
-    if (task.lifecycle === "done" || task.lifecycle === "abandoned") {
+    if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
     await tx
-      .updateTable("node")
-      .set({ lifecycle: "abandoned", rank: null })
-      .where("id", "=", id)
+      .updateTable('node')
+      .set({ lifecycle: 'abandoned', rank: null })
+      .where('id', '=', id)
       .execute();
     await logTransition(tx, {
       node_id: id,
-      kind: "lifecycle",
+      kind: 'lifecycle',
       from_value: task.lifecycle,
-      to_value: "abandoned",
+      to_value: 'abandoned',
       reason: reason ?? null,
     });
     await stamp(tx, id);
@@ -146,7 +146,7 @@ export async function abandonTask(db: Db, id: number, reason?: string): Promise<
 export async function reopenTask(db: Db, id: number, reason?: string): Promise<Node> {
   return db.transaction().execute(async (tx) => {
     const task = await requireTask(tx, id);
-    if (task.lifecycle !== "done" && task.lifecycle !== "abandoned") {
+    if (task.lifecycle !== 'done' && task.lifecycle !== 'abandoned') {
       throw validation(
         `only a done or abandoned task can be reopened (is ${String(task.lifecycle)})`,
       );
@@ -154,15 +154,15 @@ export async function reopenTask(db: Db, id: number, reason?: string): Promise<N
     // re-enter the rankable set at the bottom (a reopen is a natural re-triage point)
     const rank = await appendRank(tx, task.project_id);
     await tx
-      .updateTable("node")
-      .set({ lifecycle: "in_progress", rank, completed_at: null })
-      .where("id", "=", id)
+      .updateTable('node')
+      .set({ lifecycle: 'in_progress', rank, completed_at: null })
+      .where('id', '=', id)
       .execute();
     await logTransition(tx, {
       node_id: id,
-      kind: "lifecycle",
+      kind: 'lifecycle',
       from_value: task.lifecycle,
-      to_value: "in_progress",
+      to_value: 'in_progress',
       reason: reason ?? null,
     });
     await stamp(tx, id);

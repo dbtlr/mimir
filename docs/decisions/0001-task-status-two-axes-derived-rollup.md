@@ -1,5 +1,5 @@
 ---
-title: "ADR 0001: Task status — two axes, derived readiness, distribution rollup"
+title: 'ADR 0001: Task status — two axes, derived readiness, distribution rollup'
 status: accepted
 date: 2026-06-03
 ---

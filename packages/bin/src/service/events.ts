@@ -5,32 +5,32 @@
  * assumption: the file is append-only with no rotation — event rate is
  * human-frequency (verbs + self-updates), so the whole-file read stays cheap.
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
 
 export type ServiceEventName =
-  | "install"
-  | "start"
-  | "stop"
-  | "restart"
-  | "uninstall"
-  | "self-update";
+  | 'install'
+  | 'start'
+  | 'stop'
+  | 'restart'
+  | 'uninstall'
+  | 'self-update';
 
 export interface ServiceEvent {
   at: string;
   event: ServiceEventName;
-  source: "cli" | "self-update";
+  source: 'cli' | 'self-update';
   version: string;
   ok: boolean;
   detail?: string;
 }
 
-export const LOG_DIR = join(homedir(), "Library", "Logs", "mimir");
-export const EVENTS_FILE = join(LOG_DIR, "service-events.jsonl");
-export const SERVE_LOG_FILE = join(LOG_DIR, "serve.log");
+export const LOG_DIR = join(homedir(), 'Library', 'Logs', 'mimir');
+export const EVENTS_FILE = join(LOG_DIR, 'service-events.jsonl');
+export const SERVE_LOG_FILE = join(LOG_DIR, 'serve.log');
 
-export function appendEvent(file: string, event: Omit<ServiceEvent, "at">): void {
+export function appendEvent(file: string, event: Omit<ServiceEvent, 'at'>): void {
   mkdirSync(dirname(file), { recursive: true });
   appendFileSync(file, `${JSON.stringify({ at: new Date().toISOString(), ...event })}\n`);
 }
@@ -40,8 +40,8 @@ export function recentEvents(file: string, n: number): ServiceEvent[] {
   if (n <= 0) return [];
   if (!existsSync(file)) return [];
   const events: ServiceEvent[] = [];
-  for (const line of readFileSync(file, "utf8").split("\n")) {
-    if (line.trim() === "") continue;
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    if (line.trim() === '') continue;
     try {
       events.push(JSON.parse(line) as ServiceEvent);
     } catch {

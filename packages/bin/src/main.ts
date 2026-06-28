@@ -8,29 +8,29 @@
  *   migrate [status] apply / inspect migrations
  *   --help, -h      help (handled by the CLI)
  */
-import { mkdirSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
-import { findBinding, runCli } from "./cli";
-import type { Io } from "./cli";
-import { VERSION } from "./version";
-import { createDb } from "./db/client";
-import { migrateToLatest, migrationStatus } from "./db/migrator";
-import type { Db } from "./core";
-import { createServer } from "./http";
-import { serveStdio } from "./mcp";
+import { mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+
+import { findBinding, runCli } from './cli';
+import type { Io } from './cli';
+import type { Db } from './core';
+import { createDb } from './db/client';
+import { migrateToLatest, migrationStatus } from './db/migrator';
+import { createServer } from './http';
+import { serveStdio } from './mcp';
 import {
   DEFAULT_PORT,
   EVENTS_FILE,
   LaunchdSupervisor,
-  type Health,
-  type ServiceDeps,
   bunExec,
   configPath,
   manualFetch,
   plistPath,
   readServeConfig,
-} from "./service";
+} from './service';
+import type { Health, ServiceDeps } from './service';
+import { VERSION } from './version';
 
 /**
  * The database path. `MIMIR_DB` overrides; otherwise a single user-global store
@@ -43,8 +43,8 @@ function dbPath(): string {
   if (override !== undefined) {
     return override;
   }
-  const dataHome = process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
-  return join(dataHome, "mimir", "mimir.db");
+  const dataHome = process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share');
+  return join(dataHome, 'mimir', 'mimir.db');
 }
 
 /**
@@ -63,20 +63,20 @@ async function openMigrated(path: string): Promise<Db> {
 }
 
 function stdoutIo(): Io {
-  const isTTY = process.stdout.isTTY === true;
+  const isTTY = process.stdout.isTTY;
   // A downstream reader that closes early (`mimir … | head`) breaks the pipe;
   // the stream then emits EPIPE asynchronously, which is fatal if unhandled.
   // Exit quietly like a well-behaved Unix filter instead of surfacing a stack
   // trace — matters for any verb that writes line-by-line (e.g. `service
   // status`) rather than in one shot.
   for (const stream of [process.stdout, process.stderr]) {
-    stream.on("error", (err: NodeJS.ErrnoException) => {
-      if (err.code === "EPIPE") process.exit(0);
+    stream.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EPIPE') process.exit(0);
       throw err;
     });
   }
   const line = (stream: NodeJS.WriteStream) => (text: string) => {
-    stream.write(text.endsWith("\n") ? text : `${text}\n`);
+    stream.write(text.endsWith('\n') ? text : `${text}\n`);
   };
   return {
     write: line(process.stdout),
@@ -92,15 +92,15 @@ async function runMigrate(sub: string | undefined): Promise<number> {
   mkdirSync(dirname(path), { recursive: true });
   const db = createDb(path);
   try {
-    if (sub === "status") {
+    if (sub === 'status') {
       for (const m of await migrationStatus(db)) {
-        console.log(`${m.executedAt === undefined ? "pending " : "applied "} ${m.name}`);
+        console.log(`${m.executedAt === undefined ? 'pending ' : 'applied '} ${m.name}`);
       }
       return 0;
     }
     const { results, error } = await migrateToLatest(db);
     for (const r of results ?? []) {
-      console.log(`${r.status === "Success" ? "applied" : "failed "}  ${r.migrationName}`);
+      console.log(`${r.status === 'Success' ? 'applied' : 'failed '}  ${r.migrationName}`);
     }
     if (error !== undefined) {
       const message = error instanceof Error ? error.message : JSON.stringify(error);
@@ -108,7 +108,7 @@ async function runMigrate(sub: string | undefined): Promise<number> {
       return 1;
     }
     if ((results ?? []).length === 0) {
-      console.log("already up to date");
+      console.log('already up to date');
     }
     return 0;
   } finally {
@@ -123,7 +123,7 @@ async function runMigrate(sub: string | undefined): Promise<number> {
  * - `number`: the parsed port.
  */
 function servePort(args: string[]): number | null | undefined {
-  const at = args.indexOf("--port");
+  const at = args.indexOf('--port');
   if (at === -1) {
     return undefined;
   }
@@ -163,23 +163,23 @@ function realServiceDeps(): ServiceDeps {
 async function main(argv: string[]): Promise<number> {
   const command = argv[0];
 
-  if (command === "--version" || command === "version") {
+  if (command === '--version' || command === 'version') {
     console.log(VERSION);
     return 0;
   }
 
-  if (command === "migrate") {
+  if (command === 'migrate') {
     return runMigrate(argv[1]);
   }
 
-  if (command === "serve") {
+  if (command === 'serve') {
     const args = argv.slice(1);
     const flagPort = servePort(args);
     if (flagPort === null) {
-      console.error("✗ serve: --port expects an integer in 1–65535");
+      console.error('✗ serve: --port expects an integer in 1–65535');
       return 2;
     }
-    const noHunt = args.includes("--no-hunt");
+    const noHunt = args.includes('--no-hunt');
     // Declared port wins: flag > global config > built-in default (MMR-47).
     const config = readServeConfig();
     if (config.problem !== undefined) {
@@ -194,12 +194,12 @@ async function main(argv: string[]): Promise<number> {
       server = createServer(db, { port, version: VERSION, hunt: !noHunt });
     } catch (err) {
       await db.destroy();
-      if (err instanceof Error && "code" in err && err.code === "EADDRINUSE") {
+      if (err instanceof Error && 'code' in err && err.code === 'EADDRINUSE') {
         console.error(`✗ serve: ${err.message}`);
         console.error(
           noHunt
-            ? "note: --no-hunt is set — free the port, pass a different --port, or change [serve] port in the config"
-            : "note: pass --port to start the hunt elsewhere",
+            ? 'note: --no-hunt is set — free the port, pass a different --port, or change [serve] port in the config'
+            : 'note: pass --port to start the hunt elsewhere',
         );
         return 1;
       }
@@ -214,12 +214,12 @@ async function main(argv: string[]): Promise<number> {
       await db.destroy();
       process.exit(0);
     };
-    process.on("SIGINT", () => void stop());
-    process.on("SIGTERM", () => void stop());
+    process.on('SIGINT', () => void stop());
+    process.on('SIGTERM', () => void stop());
     return 0;
   }
 
-  if (command === "mcp") {
+  if (command === 'mcp') {
     // Long-running: connect and let the stdio transport keep the process alive.
     // The MCP rendering honors the same Project Binding (ADR 0011), resolved
     // from the server's spawn cwd.

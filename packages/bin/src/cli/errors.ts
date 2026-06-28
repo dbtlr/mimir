@@ -7,16 +7,17 @@
  * Machine formats (json/jsonl) emit a structured envelope; human formats
  * (records/table/ids) emit a Norn-style glyph line + optional note line.
  */
-import type { ValueWarning } from "@mimir/contract";
-import { MimirError } from "../core";
-import type { Io } from "./render";
+import type { ValueWarning } from '@mimir/contract';
+
+import { MimirError } from '../core';
+import type { Io } from './render';
 
 /** A bad invocation (parse failure, unknown verb, invalid flag value). Exit 2. */
 export class UsageError extends Error {
   readonly hint?: string;
   constructor(message: string, hint?: string) {
     super(message);
-    this.name = "UsageError";
+    this.name = 'UsageError';
     this.hint = hint;
   }
 }
@@ -35,12 +36,12 @@ export function exitCodeFor(err: RenderableError): number {
 }
 
 function codeOf(err: RenderableError): string {
-  return err instanceof UsageError ? "usage" : err.code;
+  return err instanceof UsageError ? 'usage' : err.code;
 }
 
 /** Render a renderable error to stderr in the requested format. Never touches stdout. */
 export function renderError(err: RenderableError, format: string, io: Io): void {
-  if (format === "json" || format === "jsonl") {
+  if (format === 'json' || format === 'jsonl') {
     const error: { code: string; message: string; hint?: string } = {
       code: codeOf(err),
       message: err.message,
@@ -49,10 +50,10 @@ export function renderError(err: RenderableError, format: string, io: Io): void 
     io.error(JSON.stringify({ error }));
     return;
   }
-  const glyph = io.plain ? "[err]" : "\x1b[31m✗\x1b[0m";
+  const glyph = io.plain ? '[err]' : '\x1b[31m✗\x1b[0m';
   io.error(`${glyph} ${err.message}`);
   if (err.hint !== undefined) {
-    const label = io.plain ? "note:" : "\x1b[36mnote:\x1b[0m";
+    const label = io.plain ? 'note:' : '\x1b[36mnote:\x1b[0m';
     io.error(`${label} ${err.hint}`);
   }
 }
@@ -64,13 +65,13 @@ export function renderError(err: RenderableError, format: string, io: Io): void 
  */
 export function renderWarnings(warnings: readonly ValueWarning[], format: string, io: Io): void {
   for (const warning of warnings) {
-    if (format === "json" || format === "jsonl") {
+    if (format === 'json' || format === 'jsonl') {
       io.error(JSON.stringify({ warning }));
       continue;
     }
-    const glyph = io.plain ? "[warn]" : "\x1b[33m⚠\x1b[0m";
+    const glyph = io.plain ? '[warn]' : '\x1b[33m⚠\x1b[0m';
     io.error(`${glyph} ${warning.message}`);
-    const label = io.plain ? "note:" : "\x1b[36mnote:\x1b[0m";
-    io.error(`${label} expected ${warning.expected.join(", ")}`);
+    const label = io.plain ? 'note:' : '\x1b[36mnote:\x1b[0m';
+    io.error(`${label} expected ${warning.expected.join(', ')}`);
   }
 }

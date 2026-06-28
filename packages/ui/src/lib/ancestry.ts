@@ -1,4 +1,4 @@
-import type { WireTreeNode } from "../api/types";
+import type { WireTreeNode } from '../api/types';
 
 /**
  * Map every node id → a breadcrumb of its ancestor titles within the project,
@@ -9,7 +9,7 @@ import type { WireTreeNode } from "../api/types";
 export function buildAncestry(root: WireTreeNode): Map<string, string> {
   const labels = new Map<string, string>();
   const walk = (node: WireTreeNode, chain: readonly string[]): void => {
-    labels.set(node.id, chain.join(" › "));
+    labels.set(node.id, chain.join(' › '));
     for (const child of node.children) {
       walk(child, [...chain, node.title]);
     }

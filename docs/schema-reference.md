@@ -1,5 +1,5 @@
 ---
-title: "mimir Schema Reference"
+title: 'mimir Schema Reference'
 status: accepted
 date: 2026-06-04
 ---

@@ -1,4 +1,5 @@
-import { type Kysely, type Migration, sql } from "kysely";
+import { sql } from 'kysely';
+import type { Kysely, Migration } from 'kysely';
 
 /**
  * Widen the `node.lifecycle` CHECK to admit `under_review` (MMR-84) — the

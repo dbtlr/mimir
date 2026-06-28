@@ -1,4 +1,3 @@
-import type { ColumnType, Generated, Insertable, Selectable, Updateable } from "kysely";
 import type {
   Hold,
   Lifecycle,
@@ -7,7 +6,8 @@ import type {
   Size,
   TagEntityType,
   TransitionKind,
-} from "@mimir/contract";
+} from '@mimir/contract';
+import type { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysely';
 
 /**
  * The Kysely database interface — the typed shape of every table, realizing

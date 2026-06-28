@@ -1,5 +1,5 @@
 ---
-title: "ADR 0012: The HTTP API is a true resource envelope; boundary concerns live at the proxy"
+title: 'ADR 0012: The HTTP API is a true resource envelope; boundary concerns live at the proxy'
 status: accepted
 date: 2026-06-11
 ---

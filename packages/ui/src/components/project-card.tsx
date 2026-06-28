@@ -1,9 +1,9 @@
-import type { WireNode } from "../api/types";
-import { cn } from "../lib/cn";
-import { STATUS_META } from "../lib/status";
-import { Card, CardContent, CardHeader } from "./ui/card";
-import { CardVitals } from "./card-vitals";
-import { StatusBadge } from "./status-badge";
+import type { WireNode } from '../api/types';
+import { cn } from '../lib/cn';
+import { STATUS_META } from '../lib/status';
+import { CardVitals } from './card-vitals';
+import { StatusBadge } from './status-badge';
+import { Card, CardContent, CardHeader } from './ui/card';
 
 /**
  * One project on the overview (MMR-106): key, title, status, an optional going-cold
@@ -21,7 +21,7 @@ export function ProjectCard({
   return (
     <Card
       className={cn(
-        "border-l-2 transition-colors hover:border-line-bright",
+        'border-l-2 transition-colors hover:border-line-bright',
         STATUS_META[project.status].border,
       )}
     >
@@ -40,7 +40,7 @@ export function ProjectCard({
               </span>
               <span className="truncate text-sm text-ink">{project.title}</span>
             </div>
-            {project.description != null && project.description !== "" && (
+            {project.description != null && project.description !== '' && (
               <p className="truncate text-2xs text-ink-dim">{project.description}</p>
             )}
             {project.attention?.stale === true && (

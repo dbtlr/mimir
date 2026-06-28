@@ -1,5 +1,5 @@
 ---
-title: "ADR 0006: Human-readable node IDs (project key + per-project sequence)"
+title: 'ADR 0006: Human-readable node IDs (project key + per-project sequence)'
 status: accepted
 date: 2026-06-03
 ---

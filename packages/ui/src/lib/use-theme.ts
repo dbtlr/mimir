@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
-import { apply, resolve, setTheme, storedChoice, systemTheme, type Theme } from "./theme";
+import { useCallback, useEffect, useState } from 'react';
+
+import { apply, resolve, setTheme, storedChoice, systemTheme } from './theme';
+import type { Theme } from './theme';
 
 /**
  * The live theme + a toggle. Seeded from {@link resolve} (which the inline
@@ -21,7 +23,7 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
   }, [theme]);
 
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
     const onChange = () => {
       if (storedChoice() === null) {
         const next = systemTheme();
@@ -29,15 +31,15 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
         setThemeState(next);
       }
     };
-    mq.addEventListener("change", onChange);
+    mq.addEventListener('change', onChange);
     return () => {
-      mq.removeEventListener("change", onChange);
+      mq.removeEventListener('change', onChange);
     };
   }, []);
 
   const toggle = useCallback(() => {
     setThemeState((prev) => {
-      const next: Theme = prev === "dark" ? "light" : "dark";
+      const next: Theme = prev === 'dark' ? 'light' : 'dark';
       setTheme(next);
       return next;
     });
