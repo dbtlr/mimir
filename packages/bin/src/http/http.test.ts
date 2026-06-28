@@ -477,6 +477,20 @@ test("PATCH /api/artifacts/:id retitles; content frozen; unknown fields and blan
   expect((await send("PATCH", `/api/artifacts/${task1}`, { title: "x" })).status).toBe(404);
 });
 
+test("POST /api/nodes/:id/reopen sends a done task back to in_progress (MMR-104)", async () => {
+  await send("POST", `/api/nodes/${task1}/start`);
+  await send("POST", `/api/nodes/${task1}/done`);
+  const res = await send("POST", `/api/nodes/${task1}/reopen`, { reason: "unverified" });
+  expect(res.status).toBe(200);
+  expect((await parse(res)).lifecycle).toBe("in_progress");
+});
+
+test("POST /api/nodes/:id/reopen on a live task returns 400 (MMR-104)", async () => {
+  await send("POST", `/api/nodes/${task1}/start`);
+  const res = await send("POST", `/api/nodes/${task1}/reopen`);
+  expect(res.status).toBe(400);
+});
+
 // ---------------------------------------------------------------------------
 // Transitions feed
 // ---------------------------------------------------------------------------
