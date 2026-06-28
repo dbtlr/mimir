@@ -43,8 +43,8 @@ workflows) that adds no `[Unreleased]` line and has no label. The label is the
 **only** legitimate way past a missing entry.
 
 **The escape hatch** — `skip-changelog` — is for a genuinely behavior-preserving
-change (an internal refactor, a test-only or build-meta edit). Apply it with a
-one-line reason; it stays visible on the PR at merge:
+change (an internal refactor, a test-only or build-meta edit). Once the PR exists
+(gate 5), apply it with a one-line reason; it stays visible on the PR at merge:
 
 ```bash
 gh pr edit --add-label skip-changelog   # then say why in a PR comment
