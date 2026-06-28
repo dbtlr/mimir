@@ -16,7 +16,7 @@ export type TransitionVerb =
 export interface VerbSpec {
   verb: TransitionVerb;
   label: string;
-  /** park/block/abandon carry an optional reason → open the reason dialog first. */
+  /** park/block/abandon/return/reopen carry an optional reason → open the reason dialog first. */
   needsReason: boolean;
 }
 
