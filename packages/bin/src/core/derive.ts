@@ -95,6 +95,26 @@ export async function statusOf(
   return { status: interpret(distribution), distribution };
 }
 
+/**
+ * The status tally over a project's **leaf tasks** — every `type = "task"` node
+ * in the project (any depth), its derived status word counted (MMR-105). The
+ * leaf-level sibling of {@link childDistribution} (direct children) and
+ * {@link rootDistribution} (project roots); backs the fleet card's vitals panel.
+ */
+export async function leafDistribution(tx: Executor, projectId: number): Promise<Distribution> {
+  const tasks = await tx
+    .selectFrom("node")
+    .selectAll()
+    .where("project_id", "=", projectId)
+    .where("type", "=", "task")
+    .execute();
+  const words: StatusWord[] = [];
+  for (const task of tasks) {
+    words.push(await nodeStatusWord(tx, task));
+  }
+  return tally(words);
+}
+
 /** The rollup distribution over a project's **root** nodes (the cascade's top step, MMR-32). */
 export async function rootDistribution(tx: Executor, projectId: number): Promise<Distribution> {
   const roots = await tx

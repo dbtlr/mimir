@@ -105,6 +105,14 @@ test("GET /api/projects carries the attention facet in snake_case (MMR-101)", as
   expect(attention.stale).toBe(false);
 });
 
+test("GET /api/projects carries the leaf_counts facet for the card vitals (MMR-105)", async () => {
+  const res = await get("/api/projects");
+  const items = (await parse(res)).items as Rec[];
+  // MMR's two seeded leaf tasks are both fresh → ready: 2 (snake_case wire key)
+  expect(items[0]?.id).toBe("MMR");
+  expect(items[0]?.leaf_counts).toEqual({ ready: 2 });
+});
+
 test("POST /api/projects creates and echoes the project record; duplicate keys conflict", async () => {
   const created = await send("POST", "/api/projects", { key: "ZZZ", name: "zed" });
   expect(created.status).toBe(201);

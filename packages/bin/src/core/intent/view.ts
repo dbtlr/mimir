@@ -12,7 +12,7 @@ import type {
 import type { Artifact, Node, Project } from "../../db/schema";
 import { attentionOf } from "../attention";
 import type { Db, Tx } from "../context";
-import { childDistribution, nodeStatusWord, rootDistribution } from "../derive";
+import { childDistribution, leafDistribution, nodeStatusWord, rootDistribution } from "../derive";
 import { renderArtifactRef } from "../ids";
 import { loadNode, renderNodeId } from "../lookup";
 import { verdictsOf } from "../predicates";
@@ -234,6 +234,9 @@ export async function buildProjectView(
   }
   if (facets.has("distribution")) {
     view.distribution = distribution;
+  }
+  if (facets.has("leafCounts")) {
+    view.leafCounts = await leafDistribution(tx, project.id);
   }
   if (facets.has("attention")) {
     view.attention = await attentionOf(tx, project);

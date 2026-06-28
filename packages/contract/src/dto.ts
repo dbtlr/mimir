@@ -182,6 +182,8 @@ export interface NodeView {
   tags?: TagView[];
   children?: NodeRef[];
   distribution?: Distribution;
+  /** Per-project leaf-task status tally (MMR-105) — the fleet card's vitals panel. */
+  leafCounts?: Distribution;
   verdicts?: Verdicts;
   attention?: AttentionState;
 }
@@ -214,6 +216,7 @@ export const FACET_NAMES = [
   "tags",
   "children",
   "distribution",
+  "leafCounts",
   "verdicts",
   "attention",
 ] as const;
