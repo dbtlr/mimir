@@ -125,7 +125,7 @@ test("toolReopen sends a done task back to in_progress (MMR-104)", async () => {
   const res = await toolReopen(db, { id: taskRef, reason: "unverified" });
   expect(res.isError).toBeUndefined();
   const node = JSON.parse(textOf(res));
-  expect(node.lifecycle).toBe("in_progress");
+  expect(node.status).toBe("in_progress");
 });
 
 test("a not_found mutation returns the structured envelope as isError", async () => {
