@@ -95,3 +95,5 @@ case ":$PATH:" in
 esac
 
 info "done — run: mimir --help"
+
+# changelog-guard live test — throwaway, will be reverted
