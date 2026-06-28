@@ -17,7 +17,7 @@ import type {
  */
 export const POLL_MS = 10_000;
 
-/** Fleet: every project with its rollup distribution riding along. */
+/** Overview: every project with its rollup distribution riding along. */
 export const projectsQuery = queryOptions({
   queryKey: ["projects"],
   queryFn: () => apiGet<Collection<WireNode>>("/api/projects"),
@@ -42,7 +42,7 @@ export const staleQuery = queryOptions({
 });
 
 /**
- * Ready leaf tasks, portfolio-wide — the actionable count behind a fleet card
+ * Ready leaf tasks, portfolio-wide — the actionable count behind a project card
  * and a picker row (MMR-82). Leaf tasks, not the project rollup's `ready`
  * bucket, which counts direct children and skews with tree depth.
  */

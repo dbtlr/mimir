@@ -2,7 +2,7 @@ import type { StatusWord } from "@mimir/contract";
 
 /**
  * The status color system — one lookup, used identically everywhere a status
- * word shows (fleet distribution bars, board column headers, tree badges, the
+ * word shows (overview distribution bars, board column headers, tree badges, the
  * drawer). Class strings are literal so Tailwind extracts them.
  */
 export interface StatusMeta {

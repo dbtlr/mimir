@@ -108,7 +108,7 @@ Serve the HTTP API and the operator console:
 mimir serve   # loopback-only, default port 64647
 ```
 
-`http://127.0.0.1:64647/` is the console (the screenshot above): a fleet view
+`http://127.0.0.1:64647/` is the console (the screenshot above): an Overview
 of every project with an attention strip of in-flight and stuck work, and a
 per-project kanban board / tree with a detail drawer on every node. It is an
 installable PWA — usable from a phone behind your own reverse proxy — that

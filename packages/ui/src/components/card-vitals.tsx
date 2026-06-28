@@ -4,7 +4,7 @@ import { cn } from "../lib/cn";
 import { STATUS_META } from "../lib/status";
 
 /**
- * The fleet card's vitals panel (MMR-106) — a proportion bar over the active
+ * The project card's vitals panel (MMR-106) — a proportion bar over the active
  * states plus a five-count legend (review · in prog · ready · await · blocked),
  * from MMR-105's leaf-counts facet. Reuses the one status-color system; zero
  * counts recede so the live signals carry. Replaces the old single ready hero

@@ -73,7 +73,7 @@ export interface WireArtifactDetail {
   content?: string;
 }
 
-/** A project's derived attention-state (MMR-101) — the fleet-list facet, snake_case on the wire. */
+/** A project's derived attention-state (MMR-101) — the project-list facet, snake_case on the wire. */
 export interface WireAttention {
   band: AttentionBand;
   last_activity: string;
@@ -103,7 +103,7 @@ export interface WireNode {
   deps?: WireDeps;
   children?: NodeRef[];
   distribution?: Distribution;
-  /** Per-project leaf-task status tally (MMR-105) — the fleet card's vitals panel. */
+  /** Per-project leaf-task status tally (MMR-105) — the project card's vitals panel. */
   leaf_counts?: Distribution;
   tags?: WireTag[];
   annotations?: WireAnnotation[];

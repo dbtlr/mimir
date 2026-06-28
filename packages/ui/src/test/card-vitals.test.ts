@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { cardVitals } from "../lib/card-vitals";
 
 /**
- * MMR-106 — the fleet card's five vitals, derived from the leaf-counts facet
+ * MMR-106 — the project card's five vitals, derived from the leaf-counts facet
  * (MMR-105) in a fixed order that mirrors the page's bands:
  * review → in prog → ready → await → blocked.
  */

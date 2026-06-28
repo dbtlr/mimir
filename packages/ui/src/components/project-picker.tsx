@@ -7,8 +7,8 @@ import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from "./ui/menu";
 
 /**
  * Top-bar project switcher (MMR-79). Shows the current project key (or
- * "Projects" off the fleet); the menu lists every project with its status and
- * ready count so you can jump between boards without returning to the fleet.
+ * "Projects" off the overview); the menu lists every project with its status and
+ * ready count so you can jump between boards without returning to the overview.
  */
 export function ProjectPicker() {
   const navigate = useNavigate();

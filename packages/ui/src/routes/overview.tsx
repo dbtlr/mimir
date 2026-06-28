@@ -2,26 +2,26 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { projectsQuery } from "../api/queries";
 import { connectivity } from "../lib/connectivity";
-import { groupIntoBands } from "../lib/fleet-bands";
+import { groupIntoBands } from "../lib/attention-bands";
 import { cn } from "../lib/cn";
 import { BandSection } from "../components/band-section";
-import { FleetCard } from "../components/fleet-card";
+import { ProjectCard } from "../components/project-card";
 import { NodeDrawer } from "../components/node-drawer";
 import { OfflineBanner } from "../components/offline-banner";
 import { Skeleton } from "../components/ui/skeleton";
-import { fleetRoute } from "../router";
+import { overviewRoute } from "../router";
 
 /**
- * `/` — the fleet as an attention-router (MMR-102): projects grouped into the
+ * `/` — the overview as an attention-router (MMR-102): projects grouped into the
  * four attention-bands (MMR-101) in highest-wins order, recency-ordered within
  * each, At-rest folded to a count strip. It is `mimir next` lifted to the
  * project level. When the facet is absent (offline / pre-feature cache) it
  * degrades to a flat key-ordered grid — attention is an overlay, like the ready
- * count, so a miss costs the ordering, not the cached fleet.
+ * count, so a miss costs the ordering, not the cached overview.
  */
-export function FleetPage() {
+export function OverviewPage() {
   const navigate = useNavigate();
-  const { node } = fleetRoute.useSearch();
+  const { node } = overviewRoute.useSearch();
 
   const projects = useQuery(projectsQuery);
   const conn = connectivity([projects]);
@@ -63,10 +63,10 @@ export function FleetPage() {
             if (grouping.mode === "flat") {
               return (
                 <section aria-label="Projects" className="flex flex-col gap-2">
-                  <h2 className="microlabel text-ink-faint">Fleet</h2>
+                  <h2 className="microlabel text-ink-faint">Overview</h2>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {grouping.projects.map((project) => (
-                      <FleetCard key={project.id} project={project} onOpen={onOpen} />
+                      <ProjectCard key={project.id} project={project} onOpen={onOpen} />
                     ))}
                   </div>
                 </section>

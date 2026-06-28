@@ -99,7 +99,7 @@ export async function statusOf(
  * The status tally over a project's **leaf tasks** — every `type = "task"` node
  * in the project (any depth), its derived status word counted (MMR-105). The
  * leaf-level sibling of {@link childDistribution} (direct children) and
- * {@link rootDistribution} (project roots); backs the fleet card's vitals panel.
+ * {@link rootDistribution} (project roots); backs the project card's vitals panel.
  */
 export async function leafDistribution(tx: Executor, projectId: number): Promise<Distribution> {
   const tasks = await tx

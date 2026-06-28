@@ -9,7 +9,7 @@ import { leafDistribution } from "./derive";
  * MMR-105 — the per-project leaf-status tally. The leaf-level sibling of
  * `childDistribution` (direct children) / `rootDistribution` (project roots):
  * every leaf task in the project, its derived status word tallied. Backs the
- * fleet card's vitals panel (MMR-106).
+ * project card's vitals panel (MMR-106).
  */
 
 let db: Db;
