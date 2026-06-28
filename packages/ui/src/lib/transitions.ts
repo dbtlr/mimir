@@ -7,6 +7,7 @@ export type TransitionVerb =
   | "return"
   | "done"
   | "abandon"
+  | "reopen"
   | "park"
   | "unpark"
   | "block"
@@ -25,13 +26,14 @@ const LABEL: Record<TransitionVerb, string> = {
   return: "Request changes",
   done: "Done",
   abandon: "Abandon",
+  reopen: "Reopen",
   park: "Park",
   unpark: "Unpark",
   block: "Block",
   unblock: "Unblock",
 };
 
-const NEEDS_REASON = new Set<TransitionVerb>(["park", "block", "abandon", "return"]);
+const NEEDS_REASON = new Set<TransitionVerb>(["park", "block", "abandon", "return", "reopen"]);
 
 /**
  * The verbs offered for each displayed status word — keyed on what the operator
@@ -47,6 +49,8 @@ const VERBS: Partial<Record<StatusWord, TransitionVerb[]>> = {
   awaiting: ["start", "park", "block", "abandon"],
   blocked: ["unblock", "abandon"],
   parked: ["unpark", "abandon"],
+  done: ["reopen"],
+  abandoned: ["reopen"],
 };
 
 export function availableTransitions(status: StatusWord): VerbSpec[] {
