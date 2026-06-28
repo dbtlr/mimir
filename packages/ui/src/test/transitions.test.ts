@@ -43,6 +43,9 @@ describe("availableTransitions", () => {
     expect(availableTransitions("done").map((v) => v.verb)).toEqual(["reopen"]);
     expect(availableTransitions("abandoned").map((v) => v.verb)).toEqual(["reopen"]);
     expect(availableTransitions("done").find((s) => s.verb === "reopen")?.needsReason).toBe(true);
+    expect(availableTransitions("abandoned").find((s) => s.verb === "reopen")?.needsReason).toBe(
+      true,
+    );
     expect(availableTransitions("new")).toEqual([]);
   });
 
