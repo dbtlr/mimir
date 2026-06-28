@@ -133,3 +133,39 @@ export async function abandonTask(db: Db, id: number, reason?: string): Promise<
     return reloadNode(tx, id);
   });
 }
+
+/**
+ * Reopen a terminal task (MMR-104) — the deliberate correction path. `done` or
+ * `abandoned` → `in_progress`, re-entering the rankable set at the bottom (a
+ * reopen is a natural re-triage point, like `return`) and clearing
+ * `completed_at`. The reason rides the transition-log row. Append-only: the
+ * original done/abandon transition is preserved, so the full trail survives.
+ * `done` stays a trusted terminal — prevention of premature-done is the
+ * `submit`/`under_review` gate, not a casual reopen.
+ */
+export async function reopenTask(db: Db, id: number, reason?: string): Promise<Node> {
+  return db.transaction().execute(async (tx) => {
+    const task = await requireTask(tx, id);
+    if (task.lifecycle !== "done" && task.lifecycle !== "abandoned") {
+      throw validation(
+        `only a done or abandoned task can be reopened (is ${String(task.lifecycle)})`,
+      );
+    }
+    // re-enter the rankable set at the bottom (a reopen is a natural re-triage point)
+    const rank = await appendRank(tx, task.project_id);
+    await tx
+      .updateTable("node")
+      .set({ lifecycle: "in_progress", rank, completed_at: null })
+      .where("id", "=", id)
+      .execute();
+    await logTransition(tx, {
+      node_id: id,
+      kind: "lifecycle",
+      from_value: task.lifecycle,
+      to_value: "in_progress",
+      reason: reason ?? null,
+    });
+    await stamp(tx, id);
+    return reloadNode(tx, id);
+  });
+}
