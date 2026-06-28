@@ -1,9 +1,10 @@
-import { useForm } from "@tanstack/react-form";
-import { PRIORITY_VALUES, SIZE_VALUES } from "@mimir/contract";
-import type { Priority, Size } from "@mimir/contract";
-import { emptyTaskForm, taskFormSchema } from "../lib/schemas";
-import type { TaskFormValues } from "../lib/schemas";
-import type { ParentOption } from "../lib/parent-options";
+import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
+import type { Priority, Size } from '@mimir/contract';
+import { useForm } from '@tanstack/react-form';
+
+import type { ParentOption } from '../lib/parent-options';
+import { emptyTaskForm, taskFormSchema } from '../lib/schemas';
+import type { TaskFormValues } from '../lib/schemas';
 
 export interface TaskFormSubmit {
   parent?: string;
@@ -16,7 +17,7 @@ export interface TaskFormSubmit {
 }
 
 export interface TaskFormProps {
-  mode: "create" | "edit";
+  mode: 'create' | 'edit';
   parents?: ParentOption[];
   initial?: Partial<TaskFormValues> & { parent?: string };
   submitting?: boolean;
@@ -32,7 +33,7 @@ export function TaskForm({
   onSubmit,
   onCancel,
 }: TaskFormProps) {
-  const defaultParent = initial?.parent ?? parents?.[0]?.id ?? "";
+  const defaultParent = initial?.parent ?? parents?.[0]?.id ?? '';
 
   const form = useForm({
     defaultValues: {
@@ -51,7 +52,7 @@ export function TaskForm({
       });
       if (!result.success) return;
       const parsed = result.data;
-      if (mode === "create") {
+      if (mode === 'create') {
         onSubmit({ parent: value.parent, ...parsed });
       } else {
         onSubmit(parsed);
@@ -68,7 +69,7 @@ export function TaskForm({
       className="flex flex-col gap-3"
     >
       {/* Parent picker — create mode only */}
-      {mode === "create" && (
+      {mode === 'create' && (
         <div className="flex flex-col gap-1">
           <label htmlFor="task-form-parent" className="text-xs font-medium text-ink-dim">
             Parent
@@ -136,7 +137,7 @@ export function TaskForm({
       </div>
 
       {/* More details disclosure */}
-      <details open={mode === "edit"} className="flex flex-col gap-1">
+      <details open={mode === 'edit'} className="flex flex-col gap-1">
         <summary className="cursor-pointer text-xs text-ink-dim hover:text-ink">
           More details
         </summary>
@@ -215,7 +216,7 @@ export function TaskForm({
           </div>
 
           {/* Tags input — create mode only */}
-          {mode === "create" && (
+          {mode === 'create' && (
             <div className="flex flex-col gap-1">
               <label htmlFor="task-form-tags" className="text-xs font-medium text-ink-dim">
                 Tags
@@ -226,11 +227,11 @@ export function TaskForm({
                     id="task-form-tags"
                     type="text"
                     placeholder="Comma-separated tags"
-                    value={field.state.value.join(", ")}
+                    value={field.state.value.join(', ')}
                     onChange={(e) => {
                       const raw = e.target.value;
                       const tags = raw
-                        .split(",")
+                        .split(',')
                         .map((t) => t.trim())
                         .filter((t) => t.length > 0);
                       field.handleChange(tags);
@@ -262,12 +263,12 @@ export function TaskForm({
               type="submit"
               disabled={
                 submitting === true ||
-                title.trim() === "" ||
-                (mode === "create" && (parent ?? "").trim() === "")
+                title.trim() === '' ||
+                (mode === 'create' && (parent ?? '').trim() === '')
               }
               className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {mode === "create" ? "Create" : "Save"}
+              {mode === 'create' ? 'Create' : 'Save'}
             </button>
           )}
         </form.Subscribe>

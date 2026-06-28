@@ -1,4 +1,5 @@
-import { type Kysely, type Migration, sql } from "kysely";
+import { sql } from 'kysely';
+import type { Kysely, Migration } from 'kysely';
 
 /**
  * Drop `project.repo` / `project.path` (MMR-44, ADR 0011). A stored filesystem

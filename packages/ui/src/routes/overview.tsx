@@ -1,15 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { projectsQuery } from "../api/queries";
-import { connectivity } from "../lib/connectivity";
-import { groupIntoBands } from "../lib/attention-bands";
-import { cn } from "../lib/cn";
-import { BandSection } from "../components/band-section";
-import { ProjectCard } from "../components/project-card";
-import { NodeDrawer } from "../components/node-drawer";
-import { OfflineBanner } from "../components/offline-banner";
-import { Skeleton } from "../components/ui/skeleton";
-import { overviewRoute } from "../router";
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
+
+import { projectsQuery } from '../api/queries';
+import { BandSection } from '../components/band-section';
+import { NodeDrawer } from '../components/node-drawer';
+import { OfflineBanner } from '../components/offline-banner';
+import { ProjectCard } from '../components/project-card';
+import { Skeleton } from '../components/ui/skeleton';
+import { groupIntoBands } from '../lib/attention-bands';
+import { cn } from '../lib/cn';
+import { connectivity } from '../lib/connectivity';
+import { overviewRoute } from '../router';
 
 /**
  * `/` — the overview as an attention-router (MMR-102): projects grouped into the
@@ -25,16 +26,16 @@ export function OverviewPage() {
 
   const projects = useQuery(projectsQuery);
   const conn = connectivity([projects]);
-  const openNode = (id: string) => void navigate({ to: ".", search: { node: id } });
-  const closeNode = () => void navigate({ to: ".", search: {} });
+  const openNode = (id: string) => void navigate({ to: '.', search: { node: id } });
+  const closeNode = () => void navigate({ to: '.', search: {} });
 
   return (
     <>
       <OfflineBanner {...conn} />
       <main
         className={cn(
-          "mx-auto flex w-full max-w-7xl min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4",
-          conn.offline && "offline-demoted",
+          'mx-auto flex w-full max-w-7xl min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4',
+          conn.offline && 'offline-demoted',
         )}
       >
         {projects.isPending && (
@@ -51,7 +52,7 @@ export function OverviewPage() {
         )}
         {projects.data !== undefined &&
           (() => {
-            const onOpen = (key: string) => void navigate({ to: "/p/$key", params: { key } });
+            const onOpen = (key: string) => void navigate({ to: '/p/$key', params: { key } });
             if (projects.data.items.length === 0) {
               return (
                 <p className="text-xs text-ink-dim">
@@ -60,7 +61,7 @@ export function OverviewPage() {
               );
             }
             const grouping = groupIntoBands(projects.data.items);
-            if (grouping.mode === "flat") {
+            if (grouping.mode === 'flat') {
               return (
                 <section aria-label="Projects" className="flex flex-col gap-2">
                   <h2 className="microlabel text-ink-faint">Overview</h2>
@@ -77,7 +78,7 @@ export function OverviewPage() {
                 key={band.band}
                 band={band}
                 onOpen={onOpen}
-                collapsible={band.band === "at_rest"}
+                collapsible={band.band === 'at_rest'}
               />
             ));
           })()}

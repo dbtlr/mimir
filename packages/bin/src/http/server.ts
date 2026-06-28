@@ -1,15 +1,14 @@
-import type { Server } from "bun";
-import type { FacetName, FieldFilter, NodeView, Priority, Size } from "@mimir/contract";
+import type { FacetName, FieldFilter, NodeView, Priority, Size } from '@mimir/contract';
 import {
   NODE_TYPE_VALUES,
   QUERY_OP_VALUES,
   STATUS_SELECTOR_VALUES,
-  type StatusSelector,
   VERDICT_VALUES,
-  type Verdict,
-  type VerdictSelector,
-} from "@mimir/contract";
-import type { Db, ListOptions, RankPosition, UpdateFields } from "../core";
+} from '@mimir/contract';
+import type { StatusSelector, Verdict, VerdictSelector } from '@mimir/contract';
+import type { Server } from 'bun';
+
+import type { Db, ListOptions, RankPosition, UpdateFields } from '../core';
 import {
   abandonTask,
   annotate,
@@ -58,15 +57,16 @@ import {
   updateNode,
   updateProject,
   validation,
-} from "../core";
-import { guarded, json, preflight, readBody, requiredStr, strField, strList } from "./respond";
-import { uiResponse, type UiAssetMap } from "./static";
-import { UI_ASSETS } from "./ui-assets.generated";
+} from '../core';
+import { guarded, json, preflight, readBody, requiredStr, strField, strList } from './respond';
+import { uiResponse } from './static';
+import type { UiAssetMap } from './static';
+import { UI_ASSETS } from './ui-assets.generated';
 
 /** A bare `YYYY-MM-DD` filter date → an ISO-ms bound; full timestamps pass through. */
-function normalizeDate(value: string, edge: "start" | "end"): string {
+function normalizeDate(value: string, edge: 'start' | 'end'): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return edge === "start" ? `${value}T00:00:00.000Z` : `${value}T23:59:59.999Z`;
+    return edge === 'start' ? `${value}T00:00:00.000Z` : `${value}T23:59:59.999Z`;
   }
   return value;
 }
@@ -83,24 +83,24 @@ function normalizeDate(value: string, edge: "start" | "end"): string {
  */
 
 /** The set-read projection — one record shape on every collection (boundary at selection). */
-const SET_FACETS: readonly FacetName[] = ["deps", "tags", "distribution", "verdicts"];
+const SET_FACETS: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts'];
 /** Detail/echo add the artifact inventory (id + title — content stays a sub-resource) and the per-node transition history. */
-const DETAIL_FACETS: readonly FacetName[] = [...SET_FACETS, "artifacts", "history"];
+const DETAIL_FACETS: readonly FacetName[] = [...SET_FACETS, 'artifacts', 'history'];
 /** The project-record projection (verdicts/deps don't apply to a project). */
-const PROJECT_FACETS: readonly FacetName[] = ["children", "distribution", "tags", "artifacts"];
+const PROJECT_FACETS: readonly FacetName[] = ['children', 'distribution', 'tags', 'artifacts'];
 /** The project-list projection — the attention facet (MMR-101) + per-project leaf counts (MMR-105) for the project card vitals (MMR-106). */
 const PROJECT_LIST_FACETS: readonly FacetName[] = [
-  "distribution",
-  "tags",
-  "attention",
-  "leafCounts",
+  'distribution',
+  'tags',
+  'attention',
+  'leafCounts',
 ];
 
 /** Resolve a node token for a verb — the HTTP binding of the core guard, with route pointers. */
-async function nodeRef(db: Db, token: string, expected = "node"): Promise<number> {
+async function nodeRef(db: Db, token: string, expected = 'node'): Promise<number> {
   return resolveNodeToken(db, token, expected, {
-    project: "projects live at /api/projects",
-    artifact: "artifacts live at /api/artifacts",
+    project: 'projects live at /api/projects',
+    artifact: 'artifacts live at /api/artifacts',
   });
 }
 
@@ -133,34 +133,34 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
       filters.push(parseFilterToken(op, token));
     }
   }
-  const type = q.get("type");
+  const type = q.get('type');
   if (type !== null) {
-    filters.push(parseFilterToken("in", `type:${type}`));
-  } else if (!filters.some((f) => f.field === "type")) {
+    filters.push(parseFilterToken('in', `type:${type}`));
+  } else if (!filters.some((f) => f.field === 'type')) {
     // No type selection → the whole tree, not the intent layer's tasks-only default.
-    filters.push({ op: "in", field: "type", value: NODE_TYPE_VALUES.join(",") });
+    filters.push({ op: 'in', field: 'type', value: NODE_TYPE_VALUES.join(',') });
   }
-  const priority = q.get("priority");
+  const priority = q.get('priority');
   if (priority !== null) {
-    filters.push(parseFilterToken("eq", `priority:${priority}`));
+    filters.push(parseFilterToken('eq', `priority:${priority}`));
   }
-  const size = q.get("size");
+  const size = q.get('size');
   if (size !== null) {
-    filters.push(parseFilterToken("eq", `size:${size}`));
+    filters.push(parseFilterToken('eq', `size:${size}`));
   }
 
   const verdicts: VerdictSelector[] = [];
   for (const [param, negate] of [
-    ["is", false],
-    ["not-is", true],
+    ['is', false],
+    ['not-is', true],
   ] as const) {
     for (const raw of q.getAll(param)) {
       for (const token of raw
-        .split(",")
+        .split(',')
         .map((v) => v.trim())
         .filter(Boolean)) {
         if (!(VERDICT_VALUES as readonly string[]).includes(token)) {
-          throw validation(`unknown verdict ${token}`, `verdicts: ${VERDICT_VALUES.join(", ")}`);
+          throw validation(`unknown verdict ${token}`, `verdicts: ${VERDICT_VALUES.join(', ')}`);
         }
         verdicts.push({ verdict: token as Verdict, negate });
       }
@@ -168,19 +168,19 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
   }
 
   const opts: ListOptions = { filters, verdicts, facets: SET_FACETS };
-  const scope = q.get("project");
+  const scope = q.get('project');
   if (scope !== null) {
     opts.scope = scope;
   }
-  const tag = q.get("tag");
+  const tag = q.get('tag');
   if (tag !== null) {
     opts.tag = tag;
   }
-  const qText = q.get("q");
-  if (qText !== null && qText !== "") {
+  const qText = q.get('q');
+  if (qText !== null && qText !== '') {
     opts.q = qText;
   }
-  const limit = q.get("limit");
+  const limit = q.get('limit');
   if (limit !== null) {
     const n = Number(limit);
     if (!Number.isInteger(n) || n < 1) {
@@ -188,7 +188,7 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
     }
     opts.limit = n;
   }
-  const status = q.get("status");
+  const status = q.get('status');
   if (status !== null) {
     if (!(STATUS_SELECTOR_VALUES as readonly string[]).includes(status)) {
       return { opts, badStatus: status };
@@ -213,7 +213,7 @@ export const PORT_HUNT_SPAN = 20;
 
 /** Bun's bind-collision error — the only one the hunt may swallow. */
 function isPortTaken(err: unknown): boolean {
-  return err instanceof Error && "code" in err && err.code === "EADDRINUSE";
+  return err instanceof Error && 'code' in err && err.code === 'EADDRINUSE';
 }
 
 /**
@@ -236,7 +236,7 @@ export function createServer(db: Db, opts: ServeOptions): Server<undefined> {
         throw Object.assign(
           new Error(`ports ${String(opts.port)}–${String(last)} are all in use`),
           {
-            code: "EADDRINUSE",
+            code: 'EADDRINUSE',
           },
         );
       }
@@ -246,14 +246,14 @@ export function createServer(db: Db, opts: ServeOptions): Server<undefined> {
 
 function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined> {
   return Bun.serve({
-    hostname: "127.0.0.1",
+    hostname: '127.0.0.1',
     port,
     routes: {
-      "/api/health": {
-        GET: (req) => json(req, { status: "ok", version: opts.version }),
+      '/api/health': {
+        GET: (req) => json(req, { status: 'ok', version: opts.version }),
       },
 
-      "/api/projects": {
+      '/api/projects': {
         GET: (req) =>
           guarded(req, async () => {
             const items = await listProjects(db, PROJECT_LIST_FACETS);
@@ -261,24 +261,24 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           }),
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["key", "name", "description", "tags"]);
+            const body = await readBody(req, ['key', 'name', 'description', 'tags']);
             const project = await createProject(db, {
-              key: requiredStr(body, "key", "create project"),
-              name: requiredStr(body, "name", "create project"),
-              description: strField(body, "description"),
-              tags: strList(body, "tags"),
+              key: requiredStr(body, 'key', 'create project'),
+              name: requiredStr(body, 'name', 'create project'),
+              description: strField(body, 'description'),
+              tags: strList(body, 'tags'),
             });
             const view = await getNode(db, project.key, { facets: PROJECT_FACETS });
             return json(req, nodeToWire(view), 201);
           }),
       },
 
-      "/api/projects/:key": {
+      '/api/projects/:key': {
         GET: (req) =>
           guarded(req, async () => {
             const key = req.params.key;
-            if (parseIdentity(key)?.kind !== "project") {
-              throw validation(`${key} is not a project key`, "nodes live at /api/nodes/:id");
+            if (parseIdentity(key)?.kind !== 'project') {
+              throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
             }
             const view = await getNode(db, key, { facets: PROJECT_FACETS });
             return json(req, nodeToWire(view));
@@ -286,43 +286,43 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
         PATCH: (req) =>
           guarded(req, async () => {
             const key = req.params.key;
-            if (parseIdentity(key)?.kind !== "project") {
-              throw validation(`${key} is not a project key`, "nodes live at /api/nodes/:id");
+            if (parseIdentity(key)?.kind !== 'project') {
+              throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
             }
-            const body = await readBody(req, ["name", "title", "description"]);
+            const body = await readBody(req, ['name', 'title', 'description']);
             // Accept both `name` and `title` as the project name field
             // (`title` follows the NodeView wire name; `name` is the native field).
-            const name = strField(body, "name") ?? strField(body, "title");
-            const description = strField(body, "description");
+            const name = strField(body, 'name') ?? strField(body, 'title');
+            const description = strField(body, 'description');
             const project = await db
-              .selectFrom("project")
-              .select("id")
-              .where("key", "=", key)
+              .selectFrom('project')
+              .select('id')
+              .where('key', '=', key)
               .executeTakeFirst();
             if (project === undefined) throw projectNotFound(key);
             await updateProject(db, project.id, { name, description });
             const updated = await db
-              .selectFrom("project")
+              .selectFrom('project')
               .selectAll()
-              .where("id", "=", project.id)
+              .where('id', '=', project.id)
               .executeTakeFirstOrThrow();
             const view = await buildProjectView(db, updated, new Set(PROJECT_FACETS));
             return json(req, nodeToWire(view));
           }),
       },
 
-      "/api/projects/:key/tree": {
+      '/api/projects/:key/tree': {
         GET: (req) =>
           guarded(req, async () => {
             const key = req.params.key;
-            if (parseIdentity(key)?.kind !== "project") {
+            if (parseIdentity(key)?.kind !== 'project') {
               throw validation(`${key} is not a project key`);
             }
             return json(req, treeToWire(await projectTree(db, key)));
           }),
       },
 
-      "/api/nodes": {
+      '/api/nodes': {
         GET: (req) =>
           guarded(req, async () => {
             const { opts, badStatus } = parseNodesQuery(new URL(req.url));
@@ -332,8 +332,8 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
                 items: [],
                 warnings: [
                   {
-                    code: "no_match_value",
-                    field: "status",
+                    code: 'no_match_value',
+                    field: 'status',
                     value: badStatus,
                     message: `${badStatus} is not a status`,
                     expected: [...STATUS_SELECTOR_VALUES],
@@ -347,29 +347,29 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
         POST: (req) =>
           guarded(req, async () => {
             const body = await readBody(req, [
-              "type",
-              "parent",
-              "title",
-              "description",
-              "target",
-              "priority",
-              "size",
-              "external_ref",
-              "tags",
+              'type',
+              'parent',
+              'title',
+              'description',
+              'target',
+              'priority',
+              'size',
+              'external_ref',
+              'tags',
             ]);
-            const type = requiredStr(body, "type", "create");
-            const parent = requiredStr(body, "parent", "create");
-            const title = requiredStr(body, "title", "create");
-            const description = strField(body, "description");
-            const tags = strList(body, "tags");
-            if (type === "initiative") {
+            const type = requiredStr(body, 'type', 'create');
+            const parent = requiredStr(body, 'parent', 'create');
+            const title = requiredStr(body, 'title', 'create');
+            const description = strField(body, 'description');
+            const tags = strList(body, 'tags');
+            if (type === 'initiative') {
               if (parseId(parent) !== null) {
                 throw validation("an initiative's parent must be a project (KEY)");
               }
               const project = await db
-                .selectFrom("project")
-                .select("id")
-                .where("key", "=", parent)
+                .selectFrom('project')
+                .select('id')
+                .where('key', '=', parent)
                 .executeTakeFirst();
               if (project === undefined) {
                 throw projectNotFound(parent);
@@ -382,46 +382,46 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
               });
               return echoNode(db, req, node, 201);
             }
-            if (type === "phase") {
+            if (type === 'phase') {
               const node = await createPhase(db, {
-                parentId: await nodeRef(db, parent, "initiative"),
+                parentId: await nodeRef(db, parent, 'initiative'),
                 title,
                 description,
-                target: strField(body, "target"),
+                target: strField(body, 'target'),
                 tags,
               });
               return echoNode(db, req, node, 201);
             }
-            if (type === "task") {
-              const priority = strField(body, "priority");
-              const size = strField(body, "size");
+            if (type === 'task') {
+              const priority = strField(body, 'priority');
+              const size = strField(body, 'size');
               const node = await createTask(db, {
-                parentId: await nodeRef(db, parent, "phase or initiative"),
+                parentId: await nodeRef(db, parent, 'phase or initiative'),
                 title,
                 description,
                 priority: priority !== undefined ? (priority as Priority) : undefined,
                 size: size !== undefined ? (size as Size) : undefined,
-                externalRef: strField(body, "external_ref"),
+                externalRef: strField(body, 'external_ref'),
                 tags,
               });
               return echoNode(db, req, node, 201);
             }
             throw validation(
               `create: unknown type ${type}`,
-              "types: initiative, phase, task — projects via POST /api/projects",
+              'types: initiative, phase, task — projects via POST /api/projects',
             );
           }),
       },
 
-      "/api/nodes/:id": {
+      '/api/nodes/:id': {
         GET: (req) =>
           guarded(req, async () => {
             const id = req.params.id;
             const identity = parseIdentity(id);
-            if (identity?.kind === "project") {
+            if (identity?.kind === 'project') {
               throw validation(`${id} is a project`, `use /api/projects/${id}`);
             }
-            if (identity?.kind === "artifact") {
+            if (identity?.kind === 'artifact') {
               throw validation(`${id} is an artifact`, `use /api/artifacts/${id}`);
             }
             const view = await getNode(db, id, { facets: DETAIL_FACETS });
@@ -430,163 +430,163 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
         PATCH: (req) =>
           guarded(req, async () => {
             const body = await readBody(req, [
-              "title",
-              "description",
-              "priority",
-              "size",
-              "target",
-              "external_ref",
+              'title',
+              'description',
+              'priority',
+              'size',
+              'target',
+              'external_ref',
             ]);
             const fields: UpdateFields = {};
-            const title = strField(body, "title");
+            const title = strField(body, 'title');
             if (title !== undefined) fields.title = title;
-            const description = strField(body, "description");
+            const description = strField(body, 'description');
             if (description !== undefined) fields.description = description;
-            const priority = strField(body, "priority");
+            const priority = strField(body, 'priority');
             if (priority !== undefined) fields.priority = priority as Priority;
-            const size = strField(body, "size");
+            const size = strField(body, 'size');
             if (size !== undefined) fields.size = size as Size;
-            const target = strField(body, "target");
+            const target = strField(body, 'target');
             if (target !== undefined) fields.target = target;
-            const externalRef = strField(body, "external_ref");
+            const externalRef = strField(body, 'external_ref');
             if (externalRef !== undefined) fields.externalRef = externalRef;
             const node = await updateNode(db, await nodeRef(db, req.params.id), fields);
             return echoNode(db, req, node);
           }),
       },
 
-      "/api/nodes/:id/start": {
+      '/api/nodes/:id/start': {
         POST: (req) =>
           guarded(req, async () => {
             await readBody(req, []);
-            return echoNode(db, req, await startTask(db, await nodeRef(db, req.params.id, "task")));
+            return echoNode(db, req, await startTask(db, await nodeRef(db, req.params.id, 'task')));
           }),
       },
-      "/api/nodes/:id/submit": {
+      '/api/nodes/:id/submit': {
         POST: (req) =>
           guarded(req, async () => {
             await readBody(req, []);
             return echoNode(
               db,
               req,
-              await submitTask(db, await nodeRef(db, req.params.id, "task")),
+              await submitTask(db, await nodeRef(db, req.params.id, 'task')),
             );
           }),
       },
-      "/api/nodes/:id/return": {
+      '/api/nodes/:id/return': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["reason"]);
+            const body = await readBody(req, ['reason']);
             const node = await returnTask(
               db,
-              await nodeRef(db, req.params.id, "task"),
-              strField(body, "reason"),
+              await nodeRef(db, req.params.id, 'task'),
+              strField(body, 'reason'),
             );
             return echoNode(db, req, node);
           }),
       },
-      "/api/nodes/:id/done": {
+      '/api/nodes/:id/done': {
         POST: (req) =>
           guarded(req, async () => {
             await readBody(req, []);
             return echoNode(
               db,
               req,
-              await completeTask(db, await nodeRef(db, req.params.id, "task")),
+              await completeTask(db, await nodeRef(db, req.params.id, 'task')),
             );
           }),
       },
-      "/api/nodes/:id/abandon": {
+      '/api/nodes/:id/abandon': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["reason"]);
+            const body = await readBody(req, ['reason']);
             const node = await abandonTask(
               db,
-              await nodeRef(db, req.params.id, "task"),
-              strField(body, "reason"),
+              await nodeRef(db, req.params.id, 'task'),
+              strField(body, 'reason'),
             );
             return echoNode(db, req, node);
           }),
       },
-      "/api/nodes/:id/reopen": {
+      '/api/nodes/:id/reopen': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["reason"]);
+            const body = await readBody(req, ['reason']);
             const node = await reopenTask(
               db,
-              await nodeRef(db, req.params.id, "task"),
-              strField(body, "reason"),
+              await nodeRef(db, req.params.id, 'task'),
+              strField(body, 'reason'),
             );
             return echoNode(db, req, node);
           }),
       },
-      "/api/nodes/:id/park": {
+      '/api/nodes/:id/park': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["reason"]);
+            const body = await readBody(req, ['reason']);
             const node = await parkTask(
               db,
-              await nodeRef(db, req.params.id, "task"),
-              strField(body, "reason"),
+              await nodeRef(db, req.params.id, 'task'),
+              strField(body, 'reason'),
             );
             return echoNode(db, req, node);
           }),
       },
-      "/api/nodes/:id/unpark": {
+      '/api/nodes/:id/unpark': {
         POST: (req) =>
           guarded(req, async () => {
             await readBody(req, []);
             return echoNode(
               db,
               req,
-              await unparkTask(db, await nodeRef(db, req.params.id, "task")),
+              await unparkTask(db, await nodeRef(db, req.params.id, 'task')),
             );
           }),
       },
-      "/api/nodes/:id/block": {
+      '/api/nodes/:id/block': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["reason"]);
+            const body = await readBody(req, ['reason']);
             const node = await blockTask(
               db,
-              await nodeRef(db, req.params.id, "task"),
-              strField(body, "reason"),
+              await nodeRef(db, req.params.id, 'task'),
+              strField(body, 'reason'),
             );
             return echoNode(db, req, node);
           }),
       },
-      "/api/nodes/:id/unblock": {
+      '/api/nodes/:id/unblock': {
         POST: (req) =>
           guarded(req, async () => {
             await readBody(req, []);
             return echoNode(
               db,
               req,
-              await unblockTask(db, await nodeRef(db, req.params.id, "task")),
+              await unblockTask(db, await nodeRef(db, req.params.id, 'task')),
             );
           }),
       },
 
-      "/api/nodes/:id/depend": {
+      '/api/nodes/:id/depend': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["on"]);
-            const on = strList(body, "on");
+            const body = await readBody(req, ['on']);
+            const on = strList(body, 'on');
             if (on === undefined || on.length === 0) {
-              throw validation("depend requires on");
+              throw validation('depend requires on');
             }
             const id = await nodeRef(db, req.params.id);
             const onIds = await Promise.all(on.map((t) => nodeRef(db, t)));
             return echoNode(db, req, await depend(db, id, onIds));
           }),
       },
-      "/api/nodes/:id/undepend": {
+      '/api/nodes/:id/undepend': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["on"]);
-            const on = strList(body, "on");
+            const body = await readBody(req, ['on']);
+            const on = strList(body, 'on');
             if (on === undefined || on.length === 0) {
-              throw validation("undepend requires on");
+              throw validation('undepend requires on');
             }
             const id = await nodeRef(db, req.params.id);
             const onIds = await Promise.all(on.map((t) => nodeRef(db, t)));
@@ -594,11 +594,11 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           }),
       },
 
-      "/api/nodes/:id/move": {
+      '/api/nodes/:id/move': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["to"]);
-            const to = requiredStr(body, "to", "move");
+            const body = await readBody(req, ['to']);
+            const to = requiredStr(body, 'to', 'move');
             const node = await moveNode(
               db,
               await nodeRef(db, req.params.id),
@@ -607,42 +607,42 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             return echoNode(db, req, node);
           }),
       },
-      "/api/nodes/:id/reorder": {
+      '/api/nodes/:id/reorder': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["position", "ref", "before", "after"]);
-            const before = strField(body, "before");
-            const after = strField(body, "after");
-            let position = strField(body, "position");
-            let ref = strField(body, "ref");
+            const body = await readBody(req, ['position', 'ref', 'before', 'after']);
+            const before = strField(body, 'before');
+            const after = strField(body, 'after');
+            let position = strField(body, 'position');
+            let ref = strField(body, 'ref');
             if (before !== undefined) {
-              position = "before";
+              position = 'before';
               ref = before;
             } else if (after !== undefined) {
-              position = "after";
+              position = 'after';
               ref = after;
             }
             if (
-              position !== "top" &&
-              position !== "bottom" &&
-              position !== "before" &&
-              position !== "after"
+              position !== 'top' &&
+              position !== 'bottom' &&
+              position !== 'before' &&
+              position !== 'after'
             ) {
               throw validation(
-                "reorder requires a position",
+                'reorder requires a position',
                 'pass {"position":"top"|"bottom"} or {"before":id} / {"after":id}',
               );
             }
             let refId: number | null = null;
-            if (position === "before" || position === "after") {
+            if (position === 'before' || position === 'after') {
               if (ref === undefined) {
-                throw validation("reorder before/after requires ref");
+                throw validation('reorder before/after requires ref');
               }
               refId = await nodeRef(db, ref);
             }
             const node = await reorder(
               db,
-              await nodeRef(db, req.params.id, "task"),
+              await nodeRef(db, req.params.id, 'task'),
               position as RankPosition,
               refId,
             );
@@ -650,10 +650,10 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           }),
       },
 
-      "/api/nodes/:id/annotations": {
+      '/api/nodes/:id/annotations': {
         GET: (req) =>
           guarded(req, async () => {
-            const view = await getNode(db, req.params.id, { facets: ["annotations"] });
+            const view = await getNode(db, req.params.id, { facets: ['annotations'] });
             const items = (view.annotations ?? []).map((a) => ({
               content: a.content,
               created_at: a.createdAt,
@@ -662,26 +662,26 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           }),
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["content"]);
+            const body = await readBody(req, ['content']);
             const node = await annotate(
               db,
               await nodeRef(db, req.params.id),
-              requiredStr(body, "content", "annotate"),
+              requiredStr(body, 'content', 'annotate'),
             );
             return echoNode(db, req, node, 201);
           }),
       },
 
-      "/api/nodes/:id/tags/:tag": {
+      '/api/nodes/:id/tags/:tag': {
         PUT: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["note"]);
+            const body = await readBody(req, ['note']);
             const id = await nodeRef(db, req.params.id);
             await tagEntities(
               db,
-              [{ entityType: "node", entityId: id }],
+              [{ entityType: 'node', entityId: id }],
               [req.params.tag],
-              strField(body, "note"),
+              strField(body, 'note'),
             );
             const node = await findNodeByRef(db, req.params.id);
             if (node === undefined) {
@@ -692,7 +692,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
         DELETE: (req) =>
           guarded(req, async () => {
             const id = await nodeRef(db, req.params.id);
-            await untagEntities(db, [{ entityType: "node", entityId: id }], [req.params.tag]);
+            await untagEntities(db, [{ entityType: 'node', entityId: id }], [req.params.tag]);
             const node = await findNodeByRef(db, req.params.id);
             if (node === undefined) {
               throw notFound(`${req.params.id} doesn't exist`);
@@ -701,22 +701,22 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           }),
       },
 
-      "/api/nodes/:id/artifacts": {
+      '/api/nodes/:id/artifacts': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["title", "content", "links", "tags"]);
+            const body = await readBody(req, ['title', 'content', 'links', 'tags']);
             const anchor = await findNodeByRef(db, req.params.id);
             if (anchor === undefined) {
               throw notFound(`${req.params.id} doesn't exist`);
             }
             const linkNodeIds = [anchor.id];
-            for (const token of strList(body, "links") ?? []) {
+            for (const token of strList(body, 'links') ?? []) {
               const linked = await findNodeByRef(db, token);
               if (linked === undefined) {
                 throw notFound(`${token} doesn't exist`);
               }
               if (linked.project_id !== anchor.project_id) {
-                throw validation("all the links must be in one project");
+                throw validation('all the links must be in one project');
               }
               if (!linkNodeIds.includes(linked.id)) {
                 linkNodeIds.push(linked.id);
@@ -724,32 +724,32 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             }
             const { renderedId } = await attachArtifact(db, {
               projectId: anchor.project_id,
-              title: requiredStr(body, "title", "attach"),
-              content: requiredStr(body, "content", "attach"),
+              title: requiredStr(body, 'title', 'attach'),
+              content: requiredStr(body, 'content', 'attach'),
               linkNodeIds,
-              tags: strList(body, "tags"),
+              tags: strList(body, 'tags'),
             });
             const detail = await getArtifact(db, renderedId, { content: true });
             return json(req, artifactToWire(detail), 201);
           }),
       },
 
-      "/api/artifacts": {
+      '/api/artifacts': {
         GET: (req) =>
           guarded(req, async () => {
             const q = new URL(req.url).searchParams;
             const opts: Parameters<typeof listArtifacts>[1] = {};
-            const project = q.get("project");
+            const project = q.get('project');
             if (project !== null) opts.project = project;
-            const tag = q.get("tag");
+            const tag = q.get('tag');
             if (tag !== null) opts.tag = tag;
-            const text = q.get("q");
+            const text = q.get('q');
             if (text !== null) opts.q = text;
-            const since = q.get("since");
-            if (since !== null) opts.since = normalizeDate(since, "start");
-            const before = q.get("before");
-            if (before !== null) opts.before = normalizeDate(before, "end");
-            const limit = q.get("limit");
+            const since = q.get('since');
+            if (since !== null) opts.since = normalizeDate(since, 'start');
+            const before = q.get('before');
+            if (before !== null) opts.before = normalizeDate(before, 'end');
+            const limit = q.get('limit');
             if (limit !== null) {
               const n = Number(limit);
               if (!Number.isInteger(n) || n < 1) {
@@ -765,7 +765,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           }),
       },
 
-      "/api/artifacts/:id": {
+      '/api/artifacts/:id': {
         GET: (req) =>
           guarded(req, async () => {
             const detail = await getArtifact(db, req.params.id, { content: true });
@@ -775,14 +775,14 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
         // frozen (ADR 0004) and never patchable.
         PATCH: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ["title"]);
+            const body = await readBody(req, ['title']);
             const identity = parseIdentity(req.params.id);
-            if (identity?.kind !== "artifact") {
+            if (identity?.kind !== 'artifact') {
               throw notFound(`no artifact with id ${req.params.id}`);
             }
             const artifact = await findArtifactByRef(db, identity);
             if (artifact === undefined) throw notFound(`no artifact ${req.params.id}`);
-            const title = strField(body, "title");
+            const title = strField(body, 'title');
             if (title !== undefined) {
               await updateArtifact(db, artifact.id, { title });
             }
@@ -791,13 +791,13 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           }),
       },
 
-      "/api/transitions": {
+      '/api/transitions': {
         GET: (req) =>
           guarded(req, async () => {
             const q = new URL(req.url).searchParams;
-            const since = q.get("since") ?? undefined;
+            const since = q.get('since') ?? undefined;
             let limit: number | undefined;
-            const rawLimit = q.get("limit");
+            const rawLimit = q.get('limit');
             if (rawLimit !== null) {
               limit = Number(rawLimit);
             }
@@ -812,19 +812,19 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
     },
 
     fetch(req) {
-      if (req.method === "OPTIONS") {
+      if (req.method === 'OPTIONS') {
         return preflight(req);
       }
       const { pathname } = new URL(req.url);
       // Everything outside /api/* is the console's: exact asset, else the
       // SPA fallback (ADR 0013). With no UI built, misses stay 404s.
-      if (req.method === "GET" && pathname !== "/api" && !pathname.startsWith("/api/")) {
+      if (req.method === 'GET' && pathname !== '/api' && !pathname.startsWith('/api/')) {
         const ui = uiResponse(pathname, opts.assets ?? UI_ASSETS);
         if (ui !== null) {
           return ui;
         }
       }
-      return json(req, { error: { code: "not_found", message: `no route ${pathname}` } }, 404);
+      return json(req, { error: { code: 'not_found', message: `no route ${pathname}` } }, 404);
     },
   });
 }

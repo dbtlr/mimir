@@ -1,4 +1,5 @@
-import { type Kysely, type Migration, sql } from "kysely";
+import { sql } from 'kysely';
+import type { Kysely, Migration } from 'kysely';
 
 /**
  * Artifact addressability (MMR-32): artifacts get a per-project `seq` so they

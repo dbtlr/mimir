@@ -1,7 +1,9 @@
-import { Database } from "bun:sqlite";
-import { Kysely } from "kysely";
-import { BunSqliteDialect } from "@meck93/kysely-bun-sqlite";
-import type { DB } from "./schema";
+import { Database } from 'bun:sqlite';
+
+import { BunSqliteDialect } from '@meck93/kysely-bun-sqlite';
+import { Kysely } from 'kysely';
+
+import type { DB } from './schema';
 
 /**
  * Connection pragmas applied to every database we open.
@@ -13,9 +15,9 @@ import type { DB } from "./schema";
  * - `foreign_keys = ON` — SQLite defaults this off per-connection.
  */
 const PRAGMAS = [
-  "PRAGMA journal_mode = WAL;",
-  "PRAGMA busy_timeout = 5000;",
-  "PRAGMA foreign_keys = ON;",
+  'PRAGMA journal_mode = WAL;',
+  'PRAGMA busy_timeout = 5000;',
+  'PRAGMA foreign_keys = ON;',
 ] as const;
 
 /**

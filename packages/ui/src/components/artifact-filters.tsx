@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import type { ArtifactFilters as Filters } from "../api/queries";
+import { useEffect, useRef, useState } from 'react';
+
+import type { ArtifactFilters as Filters } from '../api/queries';
 
 /** Delay before a paused search push reaches the URL/query (one round-trip per pause, not per keystroke). */
 const SEARCH_DEBOUNCE_MS = 250;
@@ -25,12 +26,12 @@ export function ArtifactFilters({
   onChange: (partial: Partial<Filters>) => void;
 }) {
   // Local, immediate value for the search box; the URL trails it by the debounce.
-  const [q, setQ] = useState(filters.q ?? "");
+  const [q, setQ] = useState(filters.q ?? '');
 
   // Re-sync when `q` changes from outside (Back/Forward, clear-filters). When our
   // own debounced push lands, filters.q already equals q, so this is a no-op.
   useEffect(() => {
-    setQ(filters.q ?? "");
+    setQ(filters.q ?? '');
   }, [filters.q]);
 
   // Keep the latest onChange without re-arming the timer on every parent render.
@@ -39,7 +40,7 @@ export function ArtifactFilters({
 
   // Push the paused value up once, after the debounce window.
   useEffect(() => {
-    if (q === (filters.q ?? "")) return;
+    if (q === (filters.q ?? '')) return;
     const t = setTimeout(() => onChangeRef.current({ q }), SEARCH_DEBOUNCE_MS);
     return () => {
       clearTimeout(t);
@@ -51,7 +52,7 @@ export function ArtifactFilters({
       <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
         Project
         <select
-          value={filters.project ?? ""}
+          value={filters.project ?? ''}
           onChange={(e) => {
             onChange({ project: e.target.value });
           }}
@@ -68,7 +69,7 @@ export function ArtifactFilters({
       <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
         Tag
         <input
-          value={filters.tag ?? ""}
+          value={filters.tag ?? ''}
           onChange={(e) => {
             onChange({ tag: e.target.value });
           }}
@@ -80,7 +81,7 @@ export function ArtifactFilters({
         Since
         <input
           type="date"
-          value={filters.since ?? ""}
+          value={filters.since ?? ''}
           onChange={(e) => {
             onChange({ since: e.target.value });
           }}
@@ -91,7 +92,7 @@ export function ArtifactFilters({
         Before
         <input
           type="date"
-          value={filters.before ?? ""}
+          value={filters.before ?? ''}
           onChange={(e) => {
             onChange({ before: e.target.value });
           }}

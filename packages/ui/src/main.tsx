@@ -1,13 +1,14 @@
-import "./styles.css";
-import { QueryClient } from "@tanstack/react-query";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { RouterProvider } from "@tanstack/react-router";
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { registerSW } from "virtual:pwa-register";
-import { POLL_MS } from "./api/queries";
-import { persister, shouldPersistQuery } from "./lib/persist";
-import { router } from "./router";
+import './styles.css';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { RouterProvider } from '@tanstack/react-router';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { registerSW } from 'virtual:pwa-register';
+
+import { POLL_MS } from './api/queries';
+import { persister, shouldPersistQuery } from './lib/persist';
+import { router } from './router';
 
 // App-shell service worker (ADR 0013 §5) — the installed app always opens.
 registerSW({ immediate: true });
@@ -29,9 +30,9 @@ const queryClient = new QueryClient({
   },
 });
 
-const root = document.getElementById("root");
+const root = document.getElementById('root');
 if (root === null) {
-  throw new Error("no #root element");
+  throw new Error('no #root element');
 }
 
 createRoot(root).render(
@@ -41,7 +42,7 @@ createRoot(root).render(
       persistOptions={{
         persister,
         maxAge: 7 * DAY_MS,
-        buster: "mimir-ui-v1",
+        buster: 'mimir-ui-v1',
         // see shouldPersistQuery — the default would erase the offline
         // cache exactly as the server dies
         dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },

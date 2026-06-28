@@ -1,18 +1,19 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { apiSend } from "./client";
-import type { WireNode } from "./types";
-import type { ReorderArgs } from "../lib/reorder";
-import type { TransitionVerb } from "../lib/transitions";
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+
+import type { ReorderArgs } from '../lib/reorder';
+import type { TransitionVerb } from '../lib/transitions';
+import { apiSend } from './client';
+import type { WireNode } from './types';
 
 /** Every read key a write can stale. Broad invalidation is fine — the server is loopback. */
 const WRITE_KEYS: readonly (readonly string[])[] = [
-  ["board"],
-  ["node"],
-  ["nodes"],
-  ["projects"],
-  ["project"],
-  ["tree"],
+  ['board'],
+  ['node'],
+  ['nodes'],
+  ['projects'],
+  ['project'],
+  ['tree'],
 ];
 
 function useInvalidateOnWrite(): () => void {
@@ -27,7 +28,7 @@ function useInvalidateOnWrite(): () => void {
 /** park/block/abandon/return/reopen carry a trimmed reason; plain verbs send no body. */
 function reasonBody(reason?: string): { reason: string } | undefined {
   const trimmed = reason?.trim();
-  return trimmed !== undefined && trimmed !== "" ? { reason: trimmed } : undefined;
+  return trimmed !== undefined && trimmed !== '' ? { reason: trimmed } : undefined;
 }
 
 export interface TransitionInput {
@@ -39,7 +40,7 @@ export function useTransition(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: ({ verb, reason }: TransitionInput) =>
-      apiSend<WireNode>("POST", `/api/nodes/${encodeURIComponent(id)}/${verb}`, reasonBody(reason)),
+      apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/${verb}`, reasonBody(reason)),
     onError: (err: Error) => {
       toast.error(err.message);
     },
@@ -56,7 +57,7 @@ export function useReorder() {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: ({ id, ...args }: ReorderInput) =>
-      apiSend<WireNode>("POST", `/api/nodes/${encodeURIComponent(id)}/reorder`, args),
+      apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/reorder`, args),
     onError: (err: Error) => {
       toast.error(err.message);
     },
@@ -78,7 +79,7 @@ export function useCreateTask() {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: (input: CreateTaskInput) =>
-      apiSend<WireNode>("POST", "/api/nodes", { type: "task", ...input }),
+      apiSend<WireNode>('POST', '/api/nodes', { type: 'task', ...input }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: invalidate,
   });
@@ -96,7 +97,7 @@ export function useUpdateNode(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: (fields: UpdateNodeInput) =>
-      apiSend<WireNode>("PATCH", `/api/nodes/${encodeURIComponent(id)}`, fields),
+      apiSend<WireNode>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, fields),
     onError: (err: Error) => toast.error(err.message),
     onSettled: invalidate,
   });
@@ -111,7 +112,7 @@ export function useMoveNode(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: (to: string) =>
-      apiSend<WireNode>("POST", `/api/nodes/${encodeURIComponent(id)}/move`, { to }),
+      apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/move`, { to }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: invalidate,
   });
@@ -126,7 +127,7 @@ export function useUpdateProject(key: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: (fields: UpdateProjectInput) =>
-      apiSend<WireNode>("PATCH", `/api/projects/${encodeURIComponent(key)}`, fields),
+      apiSend<WireNode>('PATCH', `/api/projects/${encodeURIComponent(key)}`, fields),
     onError: (err: Error) => toast.error(err.message),
     onSettled: invalidate,
   });
@@ -136,7 +137,7 @@ export function useAnnotate(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: (content: string) =>
-      apiSend<WireNode>("POST", `/api/nodes/${encodeURIComponent(id)}/annotations`, { content }),
+      apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/annotations`, { content }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: invalidate,
   });
@@ -147,7 +148,7 @@ export function useTag(id: string) {
   return useMutation({
     mutationFn: (tag: string) =>
       apiSend<WireNode>(
-        "PUT",
+        'PUT',
         `/api/nodes/${encodeURIComponent(id)}/tags/${encodeURIComponent(tag)}`,
         undefined,
       ),
@@ -161,7 +162,7 @@ export function useUntag(id: string) {
   return useMutation({
     mutationFn: (tag: string) =>
       apiSend<WireNode>(
-        "DELETE",
+        'DELETE',
         `/api/nodes/${encodeURIComponent(id)}/tags/${encodeURIComponent(tag)}`,
         undefined,
       ),

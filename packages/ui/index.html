@@ -9,13 +9,13 @@
       // an explicit pick wins, else the OS preference.
       (function () {
         try {
-          var s = localStorage.getItem("mimir-theme");
+          var s = localStorage.getItem('mimir-theme');
           var t =
-            s === "light" || s === "dark"
+            s === 'light' || s === 'dark'
               ? s
-              : window.matchMedia("(prefers-color-scheme: light)").matches
-                ? "light"
-                : "dark";
+              : window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark';
           document.documentElement.dataset.theme = t;
         } catch (e) {}
       })();

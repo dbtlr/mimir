@@ -1,6 +1,6 @@
-@import "@fontsource-variable/archivo";
-@import "@fontsource-variable/jetbrains-mono";
-@import "tailwindcss";
+@import '@fontsource-variable/archivo';
+@import '@fontsource-variable/jetbrains-mono';
+@import 'tailwindcss';
 @plugin "@tailwindcss/typography";
 
 /*
@@ -17,8 +17,8 @@
  * headers, tree badges, and the drawer (the spec's consistency rule).
  */
 @theme {
-  --font-sans: "Archivo Variable", "Archivo", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: 'Archivo Variable', 'Archivo', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
 
   /*
    * The dense type scale (MMR-107). The console packs more granularity below
@@ -125,7 +125,7 @@ body {
  */
 @layer base {
   button:not(:disabled),
-  [role="button"]:not([aria-disabled="true"]) {
+  [role='button']:not([aria-disabled='true']) {
     cursor: pointer;
   }
 }
@@ -158,7 +158,7 @@ body {
  * number = more raised = lighter, same as dark), ink goes near-black → light;
  * accent + status hues are kept but deepened for contrast on a light ground.
  */
-:root[data-theme="light"] {
+:root[data-theme='light'] {
   /* the well — page/panel depths (deepest → most raised) */
   --color-well-950: #d3dae6;
   --color-well-900: #e7ebf2;
@@ -193,7 +193,7 @@ body {
 }
 
 /* The atmosphere gradient bakes in one dark color; give light its own vignette. */
-:root[data-theme="light"] body {
+:root[data-theme='light'] body {
   background-image:
     radial-gradient(ellipse 120% 90% at 50% -20%, #dbe4f1 0%, transparent 60%),
     linear-gradient(

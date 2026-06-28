@@ -1,10 +1,12 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
-import type { Server } from "bun";
-import { createTestDb } from "../db/testing";
-import type { Db } from "../core/context";
-import { createInitiative, createPhase, createProject, createTask } from "../core/create";
-import { attachArtifact } from "../core/mutations";
-import { createServer } from "./server";
+import { afterAll, beforeAll, expect, test } from 'bun:test';
+
+import type { Server } from 'bun';
+
+import type { Db } from '../core/context';
+import { createInitiative, createPhase, createProject, createTask } from '../core/create';
+import { attachArtifact } from '../core/mutations';
+import { createTestDb } from '../db/testing';
+import { createServer } from './server';
 
 let db: Db;
 let server: Server<undefined>;
@@ -12,18 +14,18 @@ let base: string;
 
 beforeAll(async () => {
   db = await createTestDb();
-  const p = await createProject(db, { key: "MMR", name: "Mimir" });
-  const init = await createInitiative(db, { projectId: p.id, title: "i" });
-  const phase = await createPhase(db, { parentId: init.id, title: "ph" });
-  const t = await createTask(db, { parentId: phase.id, title: "t" });
+  const p = await createProject(db, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
+  const t = await createTask(db, { parentId: phase.id, title: 't' });
   await attachArtifact(db, {
     projectId: p.id,
-    title: "Auth gate design",
-    content: "loopback and Caddy",
+    title: 'Auth gate design',
+    content: 'loopback and Caddy',
     linkNodeIds: [t.id],
-    tags: ["kind:spec"],
+    tags: ['kind:spec'],
   });
-  server = createServer(db, { port: 0, version: "test", hunt: false });
+  server = createServer(db, { port: 0, version: 'test', hunt: false });
   base = `http://127.0.0.1:${String(server.port)}`;
 });
 
@@ -32,17 +34,17 @@ afterAll(async () => {
   await db.destroy();
 });
 
-test("GET /api/artifacts returns the envelope of summaries", async () => {
+test('GET /api/artifacts returns the envelope of summaries', async () => {
   const res = await fetch(`${base}/api/artifacts`);
   expect(res.status).toBe(200);
   const body = (await res.json()) as { total: number; items: { id: string; project: string }[] };
   expect(body.total).toBe(1);
-  expect(body.items[0]).toMatchObject({ title: "Auth gate design", project: "MMR" });
+  expect(body.items[0]).toMatchObject({ title: 'Auth gate design', project: 'MMR' });
   expect(body.items[0]?.id).toMatch(/^MMR-a\d+$/);
-  expect(body.items[0]).not.toHaveProperty("content");
+  expect(body.items[0]).not.toHaveProperty('content');
 });
 
-test("q filter is honored over the wire", async () => {
+test('q filter is honored over the wire', async () => {
   const hit = (await (await fetch(`${base}/api/artifacts?q=caddy`)).json()) as { total: number };
   expect(hit.total).toBe(1);
   const miss = (await (await fetch(`${base}/api/artifacts?q=nonexistent`)).json()) as {
@@ -62,7 +64,7 @@ test("a bare-date before still includes the same day's artifacts", async () => {
   expect(body.total).toBe(1);
 });
 
-test("invalid limit is a 4xx, not a crash", async () => {
+test('invalid limit is a 4xx, not a crash', async () => {
   const res = await fetch(`${base}/api/artifacts?limit=0`);
   expect(res.status).toBeGreaterThanOrEqual(400);
 });

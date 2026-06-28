@@ -1,5 +1,5 @@
 ---
-title: "mimir Output Contract Reference"
+title: 'mimir Output Contract Reference'
 status: accepted
 date: 2026-06-04
 last-updated: 2026-06-10

@@ -7,7 +7,7 @@ name: Release
 # path is validated before a tag is ever cut.
 on:
   push:
-    tags: ["v*"]
+    tags: ['v*']
   # The prerelease tagger pushes vX.Y.Z-next.N tags with GITHUB_TOKEN, which
   # GitHub's anti-recursion guard blocks from triggering the `push: tags` event
   # above. It dispatches this workflow at the new tag instead (workflow_dispatch
@@ -17,11 +17,11 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - "packages/**"
-      - "package.json"
-      - "bun.lock"
-      - ".github/workflows/release.yml"
-      - "install.sh"
+      - 'packages/**'
+      - 'package.json'
+      - 'bun.lock'
+      - '.github/workflows/release.yml'
+      - 'install.sh'
 
 permissions:
   contents: write

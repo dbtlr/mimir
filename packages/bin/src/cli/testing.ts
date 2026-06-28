@@ -2,7 +2,7 @@
  * Shared test utilities for CLI tests. Not bundled in production output.
  */
 
-import type { Io } from "./render";
+import type { Io } from './render';
 
 export interface CapturingIo extends Io {
   out: string[];

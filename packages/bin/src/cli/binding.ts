@@ -5,14 +5,14 @@
  * (nearest file wins) as the default `-s` scope. The store knows no
  * filesystem paths — binding direction is repo → project, never the reverse.
  */
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
-export const BINDING_FILE = ".mimir.toml";
+export const BINDING_FILE = '.mimir.toml';
 
 /** Extract the bound project key from binding-file text, if present. */
 export function parseBinding(text: string): string | undefined {
-  for (const line of text.split("\n")) {
+  for (const line of text.split('\n')) {
     const m = /^\s*project\s*=\s*"([A-Z]{2,4})"\s*(?:#.*)?$/.exec(line);
     if (m !== null) return m[1];
   }
@@ -30,7 +30,7 @@ export function findBinding(startDir: string): string | undefined {
   for (;;) {
     const file = join(dir, BINDING_FILE);
     if (existsSync(file)) {
-      return parseBinding(readFileSync(file, "utf8"));
+      return parseBinding(readFileSync(file, 'utf8'));
     }
     const parent = dirname(dir);
     if (parent === dir) return undefined;

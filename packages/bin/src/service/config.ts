@@ -4,20 +4,20 @@
  * reads this file at startup, so retargeting is edit-config + restart.
  * Serve's port precedence: --port flag > config > built-in default.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
 
 export interface ServeConfig {
   port?: number;
   /** Set when a config file exists but contributed nothing — callers may warn. */
-  problem?: "malformed" | "invalid-port";
+  problem?: 'malformed' | 'invalid-port';
 }
 
 /** `$XDG_CONFIG_HOME/mimir/config.toml`, defaulting to `~/.config`. */
 export function configPath(xdgConfigHome = process.env.XDG_CONFIG_HOME): string {
-  const base = xdgConfigHome ?? join(homedir(), ".config");
-  return join(base, "mimir", "config.toml");
+  const base = xdgConfigHome ?? join(homedir(), '.config');
+  return join(base, 'mimir', 'config.toml');
 }
 
 /**
@@ -36,19 +36,19 @@ export function readServeConfig(file = configPath()): ServeConfig {
   if (!existsSync(file)) return {};
   let parsed: { serve?: { port?: unknown } };
   try {
-    parsed = Bun.TOML.parse(readFileSync(file, "utf8")) as {
+    parsed = Bun.TOML.parse(readFileSync(file, 'utf8')) as {
       serve?: { port?: unknown };
     };
   } catch {
-    return { problem: "malformed" };
+    return { problem: 'malformed' };
   }
   const port = parsed.serve?.port;
   // No port key at all — not a problem, caller uses the default.
   if (port === undefined) return {};
-  if (typeof port === "number" && Number.isInteger(port) && port >= 1 && port <= 65535) {
+  if (typeof port === 'number' && Number.isInteger(port) && port >= 1 && port <= 65535) {
     return { port };
   }
-  return { problem: "invalid-port" };
+  return { problem: 'invalid-port' };
 }
 
 /**

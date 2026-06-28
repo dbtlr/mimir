@@ -1,9 +1,11 @@
-import type { StatusWord } from "@mimir/contract";
-import type { Node } from "../db/schema";
-import type { Db, Tx } from "./context";
-import { invariant } from "./errors";
-import { renderNodeId } from "./lookup";
-import { type Distribution, interpret, tally, taskStatus } from "./status";
+import type { StatusWord } from '@mimir/contract';
+
+import type { Node } from '../db/schema';
+import type { Db, Tx } from './context';
+import { invariant } from './errors';
+import { renderNodeId } from './lookup';
+import { interpret, tally, taskStatus } from './status';
+import type { Distribution } from './status';
 
 /**
  * The live-derivation layer: a node's Status word, the rollup distribution, and
@@ -15,7 +17,7 @@ type Executor = Db | Tx;
 
 /** Terminal = a decided end state. `abandoned` counts as terminal (and never freezes a parent). */
 export function isTerminalWord(word: StatusWord): boolean {
-  return word === "done" || word === "abandoned";
+  return word === 'done' || word === 'abandoned';
 }
 
 /**
@@ -32,10 +34,10 @@ export function isTerminalWord(word: StatusWord): boolean {
  */
 export async function isNodeSettled(
   tx: Executor,
-  node: Pick<Node, "id" | "type" | "lifecycle">,
+  node: Pick<Node, 'id' | 'type' | 'lifecycle'>,
 ): Promise<boolean> {
-  if (node.type === "task") {
-    return node.lifecycle === "done" || node.lifecycle === "abandoned";
+  if (node.type === 'task') {
+    return node.lifecycle === 'done' || node.lifecycle === 'abandoned';
   }
   return isTerminalWord(interpret(await childDistribution(tx, node.id)));
 }
@@ -43,10 +45,10 @@ export async function isNodeSettled(
 /** Does this task have ≥1 unsettled prerequisite? (The derived `awaiting` condition.) */
 export async function hasUnsettledPrereq(tx: Executor, taskId: number): Promise<boolean> {
   const prereqs = await tx
-    .selectFrom("dependency")
-    .innerJoin("node", "node.id", "dependency.depends_on_node_id")
-    .where("dependency.node_id", "=", taskId)
-    .select(["node.id", "node.type", "node.lifecycle"])
+    .selectFrom('dependency')
+    .innerJoin('node', 'node.id', 'dependency.depends_on_node_id')
+    .where('dependency.node_id', '=', taskId)
+    .select(['node.id', 'node.type', 'node.lifecycle'])
     .execute();
   for (const prereq of prereqs) {
     if (!(await isNodeSettled(tx, prereq))) {
@@ -58,9 +60,9 @@ export async function hasUnsettledPrereq(tx: Executor, taskId: number): Promise<
 
 /** Project any node to its Status word (ADR 0008): a task via its axes + readiness, a non-leaf via `interpret`. */
 export async function nodeStatusWord(tx: Executor, node: Node): Promise<StatusWord> {
-  if (node.type === "task") {
+  if (node.type === 'task') {
     if (node.lifecycle === null || node.hold === null) {
-      const rendered = (await renderNodeId(tx, node.id)) ?? "task";
+      const rendered = (await renderNodeId(tx, node.id)) ?? 'task';
       throw invariant(`${rendered} is missing a status axis`);
     }
     const awaiting = await hasUnsettledPrereq(tx, node.id);
@@ -72,9 +74,9 @@ export async function nodeStatusWord(tx: Executor, node: Node): Promise<StatusWo
 /** The rollup distribution over a node's **direct** children (their Status words tallied). */
 export async function childDistribution(tx: Executor, nodeId: number): Promise<Distribution> {
   const children = await tx
-    .selectFrom("node")
+    .selectFrom('node')
     .selectAll()
-    .where("parent_id", "=", nodeId)
+    .where('parent_id', '=', nodeId)
     .execute();
   const words: StatusWord[] = [];
   for (const child of children) {
@@ -88,7 +90,7 @@ export async function statusOf(
   tx: Executor,
   node: Node,
 ): Promise<{ status: StatusWord; distribution: Distribution }> {
-  if (node.type === "task") {
+  if (node.type === 'task') {
     return { status: await nodeStatusWord(tx, node), distribution: {} };
   }
   const distribution = await childDistribution(tx, node.id);
@@ -103,10 +105,10 @@ export async function statusOf(
  */
 export async function leafDistribution(tx: Executor, projectId: number): Promise<Distribution> {
   const tasks = await tx
-    .selectFrom("node")
+    .selectFrom('node')
     .selectAll()
-    .where("project_id", "=", projectId)
-    .where("type", "=", "task")
+    .where('project_id', '=', projectId)
+    .where('type', '=', 'task')
     .execute();
   const words: StatusWord[] = [];
   for (const task of tasks) {
@@ -118,10 +120,10 @@ export async function leafDistribution(tx: Executor, projectId: number): Promise
 /** The rollup distribution over a project's **root** nodes (the cascade's top step, MMR-32). */
 export async function rootDistribution(tx: Executor, projectId: number): Promise<Distribution> {
   const roots = await tx
-    .selectFrom("node")
+    .selectFrom('node')
     .selectAll()
-    .where("project_id", "=", projectId)
-    .where("parent_id", "is", null)
+    .where('project_id', '=', projectId)
+    .where('parent_id', 'is', null)
     .execute();
   const words: StatusWord[] = [];
   for (const root of roots) {

@@ -5,9 +5,10 @@ import {
   PRIORITY_VALUES,
   SIZE_VALUES,
   STATUS_WORD_VALUES,
-} from "@mimir/contract";
-import type { FieldFilter, QueryOp, ValueWarning } from "@mimir/contract";
-import { validation } from "./errors";
+} from '@mimir/contract';
+import type { FieldFilter, QueryOp, ValueWarning } from '@mimir/contract';
+
+import { validation } from './errors';
 
 /**
  * The field-operator compiler (MMR-33). Structural faults — unknown field,
@@ -20,7 +21,7 @@ import { validation } from "./errors";
  * names — no second vocabulary), plus the multi-valued `tag` pseudo-field.
  */
 
-type FieldKind = "enum" | "string" | "date" | "tag";
+type FieldKind = 'enum' | 'string' | 'date' | 'tag';
 
 interface FieldSpec {
   kind: FieldKind;
@@ -28,27 +29,27 @@ interface FieldSpec {
 }
 
 export const QUERY_FIELDS: Record<string, FieldSpec> = {
-  id: { kind: "string" },
-  type: { kind: "enum", values: NODE_TYPE_VALUES },
-  title: { kind: "string" },
-  status: { kind: "enum", values: STATUS_WORD_VALUES },
-  parent: { kind: "string" },
-  description: { kind: "string" },
-  priority: { kind: "enum", values: PRIORITY_VALUES },
-  size: { kind: "enum", values: SIZE_VALUES },
-  lifecycle: { kind: "enum", values: LIFECYCLE_VALUES },
-  hold: { kind: "enum", values: HOLD_VALUES },
-  hold_reason: { kind: "string" },
-  target: { kind: "string" },
-  external_ref: { kind: "string" },
-  created_at: { kind: "date" },
-  updated_at: { kind: "date" },
-  completed_at: { kind: "date" },
-  tag: { kind: "tag" },
+  id: { kind: 'string' },
+  type: { kind: 'enum', values: NODE_TYPE_VALUES },
+  title: { kind: 'string' },
+  status: { kind: 'enum', values: STATUS_WORD_VALUES },
+  parent: { kind: 'string' },
+  description: { kind: 'string' },
+  priority: { kind: 'enum', values: PRIORITY_VALUES },
+  size: { kind: 'enum', values: SIZE_VALUES },
+  lifecycle: { kind: 'enum', values: LIFECYCLE_VALUES },
+  hold: { kind: 'enum', values: HOLD_VALUES },
+  hold_reason: { kind: 'string' },
+  target: { kind: 'string' },
+  external_ref: { kind: 'string' },
+  created_at: { kind: 'date' },
+  updated_at: { kind: 'date' },
+  completed_at: { kind: 'date' },
+  tag: { kind: 'tag' },
 };
 
-const DATE_OPS: readonly QueryOp[] = ["before", "on", "after", "not-before", "not-after"];
-const EQUALITY_OPS: readonly QueryOp[] = ["eq", "not-eq", "in", "not-in"];
+const DATE_OPS: readonly QueryOp[] = ['before', 'on', 'after', 'not-before', 'not-after'];
+const EQUALITY_OPS: readonly QueryOp[] = ['eq', 'not-eq', 'in', 'not-in'];
 
 /**
  * Parse one `FIELD:VALUE` token (bare `FIELD` for has/missing) into a
@@ -56,11 +57,11 @@ const EQUALITY_OPS: readonly QueryOp[] = ["eq", "not-eq", "in", "not-in"];
  * operator must fit its type. Throws `validation` — the CLI rethrows as usage.
  */
 export function parseFilterToken(op: QueryOp, token: string): FieldFilter {
-  const bare = op === "has" || op === "missing";
+  const bare = op === 'has' || op === 'missing';
   let field = token;
   let value: string | null = null;
   if (!bare) {
-    const split = token.indexOf(":");
+    const split = token.indexOf(':');
     if (split <= 0) {
       throw validation(`--${op} expects FIELD:VALUE, got "${token}"`);
     }
@@ -69,15 +70,15 @@ export function parseFilterToken(op: QueryOp, token: string): FieldFilter {
   }
   const spec = QUERY_FIELDS[field];
   if (spec === undefined) {
-    throw validation(`unknown field ${field}`, `fields: ${Object.keys(QUERY_FIELDS).join(", ")}`);
+    throw validation(`unknown field ${field}`, `fields: ${Object.keys(QUERY_FIELDS).join(', ')}`);
   }
-  if (DATE_OPS.includes(op) && spec.kind !== "date") {
+  if (DATE_OPS.includes(op) && spec.kind !== 'date') {
     throw validation(`--${op} applies to date fields, and ${field} is not one`);
   }
-  if (EQUALITY_OPS.includes(op) && spec.kind === "date") {
+  if (EQUALITY_OPS.includes(op) && spec.kind === 'date') {
     throw validation(
       `--${op} does not apply to date field ${field}`,
-      "use --on / --before / --after",
+      'use --on / --before / --after',
     );
   }
   return { op, field, value };
@@ -117,12 +118,12 @@ function parseDateValue(value: string): DateBounds | null {
 }
 
 function warn(field: string, value: string, message: string, expected: string[]): ValueWarning {
-  return { code: "no_match_value", field, value, message, expected };
+  return { code: 'no_match_value', field, value, message, expected };
 }
 
 const splitCsv = (csv: string): string[] =>
   csv
-    .split(",")
+    .split(',')
     .map((v) => v.trim())
     .filter(Boolean);
 
@@ -134,21 +135,21 @@ function compileOne(filter: FieldFilter, warnings: ValueWarning[]): RowTest {
     throw validation(`unknown field ${filter.field}`);
   }
   const { op, field } = filter;
-  const value = filter.value ?? "";
+  const value = filter.value ?? '';
 
-  if (op === "has" || op === "missing") {
+  if (op === 'has' || op === 'missing') {
     const has: RowTest =
-      spec.kind === "tag"
+      spec.kind === 'tag'
         ? (row) => row.tags.length > 0
-        : (row) => row.values[field] != null && row.values[field] !== "";
-    return op === "has" ? has : (row) => !has(row);
+        : (row) => row.values[field] != null && row.values[field] !== '';
+    return op === 'has' ? has : (row) => !has(row);
   }
 
-  if (spec.kind === "date") {
+  if (spec.kind === 'date') {
     const bounds = parseDateValue(value);
     if (bounds === null) {
       warnings.push(
-        warn(field, value, `${value} is not a date`, ["YYYY-MM-DD", "ISO-8601 timestamp"]),
+        warn(field, value, `${value} is not a date`, ['YYYY-MM-DD', 'ISO-8601 timestamp']),
       );
       return () => false;
     }
@@ -162,8 +163,8 @@ function compileOne(filter: FieldFilter, warnings: ValueWarning[]): RowTest {
       before: (ms) => ms < bounds.start,
       after: (ms) => ms >= bounds.end,
       on: (ms) => ms >= bounds.start && ms < bounds.end,
-      "not-before": (ms) => ms >= bounds.start,
-      "not-after": (ms) => ms < bounds.end,
+      'not-before': (ms) => ms >= bounds.start,
+      'not-after': (ms) => ms < bounds.end,
     };
     const test = tests[op];
     if (test === undefined) {
@@ -176,8 +177,8 @@ function compileOne(filter: FieldFilter, warnings: ValueWarning[]): RowTest {
   }
 
   // Equality family over enum / string / tag.
-  const candidates = op === "in" || op === "not-in" ? splitCsv(value) : [value];
-  if (spec.kind === "enum") {
+  const candidates = op === 'in' || op === 'not-in' ? splitCsv(value) : [value];
+  if (spec.kind === 'enum') {
     const allowed = spec.values ?? [];
     for (const candidate of candidates) {
       if (!allowed.includes(candidate)) {
@@ -188,13 +189,13 @@ function compileOne(filter: FieldFilter, warnings: ValueWarning[]): RowTest {
   }
   const wanted = new Set(candidates);
   const matches: RowTest =
-    spec.kind === "tag"
+    spec.kind === 'tag'
       ? (row) => row.tags.some((t) => wanted.has(t))
       : (row) => {
           const raw = row.values[field];
           return raw != null && wanted.has(raw);
         };
-  return op === "eq" || op === "in" ? matches : (row) => !matches(row);
+  return op === 'eq' || op === 'in' ? matches : (row) => !matches(row);
 }
 
 /** Compile filters to a conjunctive row test + any value warnings (which force an empty set). */

@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
-import { projectsQuery, readyQuery } from "../api/queries";
-import { countByProject } from "../lib/counts";
-import { StatusDot } from "./status-dot";
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from "./ui/menu";
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate, useParams } from '@tanstack/react-router';
+
+import { projectsQuery, readyQuery } from '../api/queries';
+import { countByProject } from '../lib/counts';
+import { StatusDot } from './status-dot';
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
 
 /**
  * Top-bar project switcher (MMR-79). Shows the current project key (or
@@ -21,7 +22,7 @@ export function ProjectPicker() {
   return (
     <MenuRoot>
       <MenuTrigger className="flex items-center gap-1 rounded px-2 py-2 font-mono text-sm font-semibold text-ink-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent md:py-1">
-        {key ?? "Projects"}
+        {key ?? 'Projects'}
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path
             d="m6 9 6 6 6-6"
@@ -36,8 +37,8 @@ export function ProjectPicker() {
         {(projects.data?.items ?? []).map((p) => (
           <MenuItem
             key={p.id}
-            className={p.id === key ? "bg-well-800" : undefined}
-            onClick={() => void navigate({ to: "/p/$key", params: { key: p.id } })}
+            className={p.id === key ? 'bg-well-800' : undefined}
+            onClick={() => void navigate({ to: '/p/$key', params: { key: p.id } })}
           >
             <StatusDot status={p.status} />
             <span className="font-mono text-sm font-semibold text-ink-bright">{p.id}</span>

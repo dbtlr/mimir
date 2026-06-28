@@ -1,5 +1,5 @@
-import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { del, get, set } from "idb-keyval";
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { del, get, set } from 'idb-keyval';
 
 /**
  * The query cache persisted to IndexedDB (ADR 0013 §5) — the substrate of the
@@ -18,7 +18,7 @@ export function shouldPersistQuery(query: { state: { data: unknown } }): boolean
 }
 
 export const persister = createAsyncStoragePersister({
-  key: "mimir-query-cache",
+  key: 'mimir-query-cache',
   storage: {
     getItem: async (key: string) => ((await get<string>(key)) ?? null) as string | null,
     setItem: (key: string, value: string) => set(key, value),

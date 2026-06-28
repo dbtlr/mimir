@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { useTag, useUntag } from "../api/mutations";
-import type { WireTag } from "../api/types";
+import { useState } from 'react';
+
+import { useTag, useUntag } from '../api/mutations';
+import type { WireTag } from '../api/types';
 
 export function TagEditor({
   nodeId,
@@ -11,15 +12,15 @@ export function TagEditor({
   tags: WireTag[];
   offline?: boolean;
 }) {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState('');
   const tag = useTag(nodeId);
   const untag = useUntag(nodeId);
 
   const trimmed = value.trim();
-  const addDisabled = trimmed === "" || tag.isPending || untag.isPending;
+  const addDisabled = trimmed === '' || tag.isPending || untag.isPending;
 
   function handleAdd() {
-    tag.mutate(trimmed, { onSuccess: () => setValue("") });
+    tag.mutate(trimmed, { onSuccess: () => setValue('') });
   }
 
   return (
@@ -53,7 +54,7 @@ export function TagEditor({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !addDisabled) handleAdd();
+              if (e.key === 'Enter' && !addDisabled) handleAdd();
             }}
             placeholder="Add tag…"
             className="min-w-0 flex-1 rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent"

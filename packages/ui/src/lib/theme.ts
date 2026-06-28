@@ -8,23 +8,23 @@
  * mirrors `resolve()` + `apply()` so the first paint is already themed (no
  * flash); this module owns runtime toggling and system-change following.
  */
-export type Theme = "light" | "dark";
+export type Theme = 'light' | 'dark';
 
-const STORAGE_KEY = "mimir-theme";
-const LIGHT_QUERY = "(prefers-color-scheme: light)";
+const STORAGE_KEY = 'mimir-theme';
+const LIGHT_QUERY = '(prefers-color-scheme: light)';
 
 /** The page background per theme — kept in sync with `<meta name=theme-color>`. */
-const THEME_COLOR: Record<Theme, string> = { light: "#e9edf3", dark: "#0a0e16" };
+const THEME_COLOR: Record<Theme, string> = { light: '#e9edf3', dark: '#0a0e16' };
 
 export function systemTheme(): Theme {
-  return window.matchMedia(LIGHT_QUERY).matches ? "light" : "dark";
+  return window.matchMedia(LIGHT_QUERY).matches ? 'light' : 'dark';
 }
 
 /** The remembered explicit pick, or null when the user has never chosen. */
 export function storedChoice(): Theme | null {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
-    return v === "light" || v === "dark" ? v : null;
+    return v === 'light' || v === 'dark' ? v : null;
   } catch {
     return null;
   }
@@ -38,7 +38,7 @@ export function resolve(): Theme {
 /** Reflect a theme onto the document (the `<html data-theme>` the CSS keys on). */
 export function apply(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLOR[theme]);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[theme]);
 }
 
 /** Record an explicit pick (so it outlives reloads) and apply it. */

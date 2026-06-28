@@ -1,4 +1,4 @@
-import type { WireNode } from "../api/types";
+import type { WireNode } from '../api/types';
 
 /**
  * The board's column model — the status lens (ADR 0013 §4). Columns ARE the
@@ -7,13 +7,13 @@ import type { WireNode } from "../api/types";
  * that order IS rank for Ready, and completion recency for Done.
  */
 export const BOARD_COLUMNS = [
-  "parked",
-  "blocked",
-  "awaiting",
-  "ready",
-  "in_progress",
-  "under_review",
-  "done",
+  'parked',
+  'blocked',
+  'awaiting',
+  'ready',
+  'in_progress',
+  'under_review',
+  'done',
 ] as const;
 export type BoardColumn = (typeof BOARD_COLUMNS)[number];
 
@@ -23,7 +23,7 @@ export type BoardColumn = (typeof BOARD_COLUMNS)[number];
  * these collapse to count strips that expand on demand. Done is its own tier —
  * windowed, not collapsed.
  */
-export const COLLAPSIBLE_COLUMNS = ["parked", "blocked", "awaiting"] as const;
+export const COLLAPSIBLE_COLUMNS = ['parked', 'blocked', 'awaiting'] as const;
 
 export function isCollapsible(column: BoardColumn): boolean {
   return (COLLAPSIBLE_COLUMNS as readonly string[]).includes(column);
@@ -50,7 +50,7 @@ export function buildBoard(live: WireNode[], done: WireNode[], now = Date.now())
     done: [],
   };
   for (const node of live) {
-    if (node.status !== "done" && node.status in board) {
+    if (node.status !== 'done' && node.status in board) {
       board[node.status as BoardColumn].push(node);
     }
   }

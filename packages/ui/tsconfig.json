@@ -1,23 +1,9 @@
 {
+  "extends": "@dbtlr/tooling/tsconfig/react.json",
   "compilerOptions": {
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "moduleDetection": "force",
-    "jsx": "react-jsx",
-    "types": ["vite/client", "vite-plugin-pwa/client"],
-
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "resolveJsonModule": true,
-    "noEmit": true,
-
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "noFallthroughCasesInSwitch": true,
-    "skipLibCheck": true
+    "types": ["vite/client", "vite-plugin-pwa/client", "vitest/globals"],
+    "noImplicitOverride": true
   },
   "include": ["src", "vite.config.ts"]
 }

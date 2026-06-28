@@ -1,21 +1,19 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { parseArgs } from "node:util";
-import { cmdSelfUpdate, cmdService, type ServiceDeps } from "../service";
-import {
-  CHEAP_FACETS,
-  FACET_NAMES,
-  type FacetName,
-  type FieldFilter,
-  type NodeView,
-  type QueryOp,
-  STATUS_SELECTOR_VALUES,
-  type SetResult,
-  type StatusSelector,
-  VERDICT_VALUES,
-  type Verdict,
-  type VerdictSelector,
-} from "@mimir/contract";
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { parseArgs } from 'node:util';
+
+import { CHEAP_FACETS, FACET_NAMES, STATUS_SELECTOR_VALUES, VERDICT_VALUES } from '@mimir/contract';
+import type {
+  FacetName,
+  FieldFilter,
+  NodeView,
+  QueryOp,
+  SetResult,
+  StatusSelector,
+  Verdict,
+  VerdictSelector,
+} from '@mimir/contract';
+
 import {
   MimirError,
   emitWire,
@@ -32,27 +30,14 @@ import {
   parseIdentity,
   statusOfNode,
   treeToWire,
-} from "../core";
-import type { Db } from "../core";
-import { FULL_HELP, TERSE_HELP } from "./help";
+} from '../core';
+import type { Db } from '../core';
+import { cmdSelfUpdate, cmdService } from '../service';
+import type { ServiceDeps } from '../service';
+import { BINDING_FILE, writeBinding } from './binding';
+import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from './errors';
+import { FULL_HELP, TERSE_HELP } from './help';
 import {
-  FORMATS,
-  type Format,
-  type Io,
-  renderArtifactDetail,
-  renderNodeView,
-  renderRecords,
-  renderStatus,
-  renderTable,
-  renderTree,
-} from "./render";
-import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from "./errors";
-import { BINDING_FILE, writeBinding } from "./binding";
-import { SKILL_AGENTS, SKILL_FILES, type SkillAgent, skillDirFor } from "./skill-assets";
-import { resolveProject } from "./resolve";
-import { parsePriority, parseSize } from "./parse";
-import {
-  type Ctx,
   cmdAbandon,
   cmdAnnotate,
   cmdAttach,
@@ -73,58 +58,73 @@ import {
   cmdUnpark,
   cmdUntag,
   cmdUpdate,
-} from "./mutations";
+} from './mutations';
+import type { Ctx } from './mutations';
+import { parsePriority, parseSize } from './parse';
+import {
+  FORMATS,
+  renderArtifactDetail,
+  renderNodeView,
+  renderRecords,
+  renderStatus,
+  renderTable,
+  renderTree,
+} from './render';
+import type { Format, Io } from './render';
+import { resolveProject } from './resolve';
+import { SKILL_AGENTS, SKILL_FILES, skillDirFor } from './skill-assets';
+import type { SkillAgent } from './skill-assets';
 
 const OPTIONS = {
-  scope: { type: "string", short: "s" },
-  priority: { type: "string", short: "p" },
-  size: { type: "string" },
-  status: { type: "string" },
-  is: { type: "string", multiple: true },
-  "not-is": { type: "string", multiple: true },
-  eq: { type: "string", multiple: true },
-  "not-eq": { type: "string", multiple: true },
-  in: { type: "string", multiple: true },
-  "not-in": { type: "string", multiple: true },
-  has: { type: "string", multiple: true },
-  missing: { type: "string", multiple: true },
-  before: { type: "string", multiple: true },
-  on: { type: "string", multiple: true },
-  after: { type: "string", multiple: true },
-  "not-before": { type: "string", multiple: true },
-  "not-after": { type: "string", multiple: true },
-  tag: { type: "string", short: "t", multiple: true },
-  note: { type: "string" },
-  limit: { type: "string", short: "n" },
-  col: { type: "string", multiple: true },
-  format: { type: "string", short: "f" },
-  ascii: { type: "boolean" },
-  help: { type: "boolean", short: "h" },
+  scope: { type: 'string', short: 's' },
+  priority: { type: 'string', short: 'p' },
+  size: { type: 'string' },
+  status: { type: 'string' },
+  is: { type: 'string', multiple: true },
+  'not-is': { type: 'string', multiple: true },
+  eq: { type: 'string', multiple: true },
+  'not-eq': { type: 'string', multiple: true },
+  in: { type: 'string', multiple: true },
+  'not-in': { type: 'string', multiple: true },
+  has: { type: 'string', multiple: true },
+  missing: { type: 'string', multiple: true },
+  before: { type: 'string', multiple: true },
+  on: { type: 'string', multiple: true },
+  after: { type: 'string', multiple: true },
+  'not-before': { type: 'string', multiple: true },
+  'not-after': { type: 'string', multiple: true },
+  tag: { type: 'string', short: 't', multiple: true },
+  note: { type: 'string' },
+  limit: { type: 'string', short: 'n' },
+  col: { type: 'string', multiple: true },
+  format: { type: 'string', short: 'f' },
+  ascii: { type: 'boolean' },
+  help: { type: 'boolean', short: 'h' },
   // Write-surface flags — `--on` / `--before` / `--after` are shared with the
   // query date-ops above (multiple); the write verbs read the last value.
-  to: { type: "string" },
-  parent: { type: "string" },
-  key: { type: "string" },
-  name: { type: "string" },
-  desc: { type: "string" },
-  target: { type: "string" },
-  ref: { type: "string" },
-  file: { type: "string" },
-  link: { type: "string" },
-  project: { type: "string" },
-  top: { type: "boolean" },
-  bottom: { type: "boolean" },
-  title: { type: "string" },
-  yes: { type: "boolean", short: "y" },
+  to: { type: 'string' },
+  parent: { type: 'string' },
+  key: { type: 'string' },
+  name: { type: 'string' },
+  desc: { type: 'string' },
+  target: { type: 'string' },
+  ref: { type: 'string' },
+  file: { type: 'string' },
+  link: { type: 'string' },
+  project: { type: 'string' },
+  top: { type: 'boolean' },
+  bottom: { type: 'boolean' },
+  title: { type: 'string' },
+  yes: { type: 'boolean', short: 'y' },
   // skill install
-  global: { type: "boolean" },
-  local: { type: "boolean" },
-  agent: { type: "string" },
+  global: { type: 'boolean' },
+  local: { type: 'boolean' },
+  agent: { type: 'string' },
   // service flag
-  port: { type: "string" },
+  port: { type: 'string' },
   // self-update selectors (--tag reuses the multiple `tag` flag above,
   // last-wins like the other shared write-surface flags)
-  next: { type: "boolean" },
+  next: { type: 'boolean' },
 } as const;
 
 /**
@@ -148,7 +148,7 @@ function effectiveScope(
   explicit: string | undefined,
   bound: string | undefined,
 ): string | undefined {
-  if (explicit === "all") return undefined;
+  if (explicit === 'all') return undefined;
   return explicit ?? bound;
 }
 
@@ -171,18 +171,18 @@ export async function runCli(
     size?: string;
     status?: string;
     is?: string[];
-    "not-is"?: string[];
+    'not-is'?: string[];
     eq?: string[];
-    "not-eq"?: string[];
+    'not-eq'?: string[];
     in?: string[];
-    "not-in"?: string[];
+    'not-in'?: string[];
     has?: string[];
     missing?: string[];
     before?: string[];
     on?: string[];
     after?: string[];
-    "not-before"?: string[];
-    "not-after"?: string[];
+    'not-before'?: string[];
+    'not-after'?: string[];
     tag?: string[];
     note?: string;
     limit?: string;
@@ -220,13 +220,13 @@ export async function runCli(
     const msg = error instanceof Error ? error.message : String(error);
     const fmt = errorFormat(argv);
     renderError(usage(msg), fmt, io);
-    if (fmt !== "json" && fmt !== "jsonl") io.error(TERSE_HELP);
+    if (fmt !== 'json' && fmt !== 'jsonl') io.error(TERSE_HELP);
     return 2;
   }
 
   const command = positionals[0];
   if (command === undefined || values.help === true) {
-    io.write(argv.includes("--help") ? FULL_HELP : TERSE_HELP);
+    io.write(argv.includes('--help') ? FULL_HELP : TERSE_HELP);
     return 0;
   }
 
@@ -235,7 +235,7 @@ export async function runCli(
   try {
     // The write echo's format, picked inside the try block so a bad --format
     // value is caught and rendered.
-    const singleFormat = pickFormat(values.format, "single", ctx);
+    const singleFormat = pickFormat(values.format, 'single', ctx);
     // Mutation context shared across all write-verb handlers — built lazily so
     // the store is acquired only by verbs that actually touch data (MMR-39):
     // help, usage errors, and `skill install` never open or create it.
@@ -248,7 +248,7 @@ export async function runCli(
     });
 
     switch (command) {
-      case "next": {
+      case 'next': {
         const nextScope = effectiveScope(values.scope, defaults.scope);
         const nextEmptyMsg =
           nextScope !== undefined
@@ -259,7 +259,7 @@ export async function runCli(
             scope: nextScope,
             priority: parsePriority(values.priority),
             size: parseSize(values.size),
-            verdicts: parseVerdicts(values.is, values["not-is"]),
+            verdicts: parseVerdicts(values.is, values['not-is']),
             filters: parseFilters(values),
             limit: parseLimit(values.limit),
             facets: parseFacets(values.col),
@@ -269,12 +269,12 @@ export async function runCli(
           nextEmptyMsg,
         );
       }
-      case "list":
+      case 'list': {
         return runSet(
           await listNodes(await getDb(), {
             scope: effectiveScope(values.scope, defaults.scope),
             status: parseStatus(values.status),
-            verdicts: parseVerdicts(values.is, values["not-is"]),
+            verdicts: parseVerdicts(values.is, values['not-is']),
             filters: parseFilters(values),
             priority: parsePriority(values.priority),
             size: parseSize(values.size),
@@ -284,16 +284,17 @@ export async function runCli(
           }),
           values.format,
           ctx,
-          "No tasks match — try --status all, or drop a filter",
+          'No tasks match — try --status all, or drop a filter',
         );
-      case "get": {
-        const id = requireId(positionals[1], "get");
+      }
+      case 'get': {
+        const id = requireId(positionals[1], 'get');
         const db = await getDb();
-        if (parseIdentity(id)?.kind === "artifact") {
-          const content = (values.col ?? []).includes("content");
+        if (parseIdentity(id)?.kind === 'artifact') {
+          const content = (values.col ?? []).includes('content');
           renderArtifactDetail(
             await getArtifact(db, id, { content }),
-            pickFormat(values.format, "single", ctx),
+            pickFormat(values.format, 'single', ctx),
             ctx,
           );
           return 0;
@@ -304,130 +305,154 @@ export async function runCli(
         });
         return renderSingle(node, values.format, ctx);
       }
-      case "status": {
-        const id = requireId(positionals[1], "status");
+      case 'status': {
+        const id = requireId(positionals[1], 'status');
         const status = await statusOfNode(await getDb(), id);
-        const format = pickFormat(values.format, "status", ctx);
-        ctx.write(format === "json" ? formatStatusJson(status) : renderStatus(status, ctx));
+        const format = pickFormat(values.format, 'status', ctx);
+        ctx.write(format === 'json' ? formatStatusJson(status) : renderStatus(status, ctx));
         return 0;
       }
-      case "tree": {
-        const id = requireId(positionals[1], "tree");
+      case 'tree': {
+        const id = requireId(positionals[1], 'tree');
         const tree = await nodeTree(await getDb(), id);
-        const format = pickFormat(values.format, "single", ctx);
+        const format = pickFormat(values.format, 'single', ctx);
         switch (format) {
-          case "json":
+          case 'json': {
             ctx.write(emitWire(treeToWire(tree), true));
             break;
-          case "jsonl":
+          }
+          case 'jsonl': {
             ctx.write(emitWire(treeToWire(tree), false));
             break;
-          case "ids":
+          }
+          case 'ids': {
             ctx.write(tree.id);
             break;
-          case "records":
-          case "table":
+          }
+          case 'records':
+          case 'table': {
             ctx.write(renderTree(tree, ctx));
             break;
+          }
         }
         return 0;
       }
-      case "start":
+      case 'start': {
         return await cmdStart(await mkCtx());
-      case "submit":
+      }
+      case 'submit': {
         return await cmdSubmit(await mkCtx());
-      case "return":
+      }
+      case 'return': {
         return await cmdReturn(await mkCtx());
-      case "done":
+      }
+      case 'done': {
         return await cmdDone(await mkCtx());
-      case "abandon":
+      }
+      case 'abandon': {
         return await cmdAbandon(await mkCtx());
-      case "reopen":
+      }
+      case 'reopen': {
         return await cmdReopen(await mkCtx());
-      case "park":
+      }
+      case 'park': {
         return await cmdPark(await mkCtx());
-      case "unpark":
+      }
+      case 'unpark': {
         return await cmdUnpark(await mkCtx());
-      case "block":
+      }
+      case 'block': {
         return await cmdBlock(await mkCtx());
-      case "unblock":
+      }
+      case 'unblock': {
         return await cmdUnblock(await mkCtx());
-      case "depend":
+      }
+      case 'depend': {
         return await cmdDepend(await mkCtx());
-      case "undepend":
+      }
+      case 'undepend': {
         return await cmdUndepend(await mkCtx());
-      case "move":
+      }
+      case 'move': {
         return await cmdMove(await mkCtx());
-      case "reorder":
+      }
+      case 'reorder': {
         return await cmdReorder(await mkCtx());
-      case "update":
+      }
+      case 'update': {
         return await cmdUpdate(await mkCtx());
-      case "annotate":
+      }
+      case 'annotate': {
         return await cmdAnnotate(await mkCtx());
-      case "attach":
+      }
+      case 'attach': {
         return await cmdAttach(await mkCtx());
-      case "create":
+      }
+      case 'create': {
         return await cmdCreate(await mkCtx());
-      case "tag":
+      }
+      case 'tag': {
         return await cmdTag(await mkCtx());
-      case "untag":
+      }
+      case 'untag': {
         return await cmdUntag(await mkCtx());
-      case "skill": {
+      }
+      case 'skill': {
         const sub = positionals[1];
-        if (sub !== "install") {
-          throw usage("skill: unknown subcommand (expected: skill install)");
+        if (sub !== 'install') {
+          throw usage('skill: unknown subcommand (expected: skill install)');
         }
         if (values.global === true && values.local === true) {
-          throw usage("skill install takes --global or --local, not both");
+          throw usage('skill install takes --global or --local, not both');
         }
-        const agent = values.agent ?? "claude";
+        const agent = values.agent ?? 'claude';
         if (!(SKILL_AGENTS as readonly string[]).includes(agent)) {
-          throw usage(`unknown agent: ${agent} (expected ${SKILL_AGENTS.join("|")})`);
+          throw usage(`unknown agent: ${agent} (expected ${SKILL_AGENTS.join('|')})`);
         }
         const base = values.local === true ? (defaults.cwd ?? process.cwd()) : homedir();
         const dir = skillDirFor(agent as SkillAgent, base);
         for (const f of SKILL_FILES) {
           const target = `${dir}/${f.path}`;
-          mkdirSync(target.slice(0, target.lastIndexOf("/")), { recursive: true });
+          mkdirSync(target.slice(0, target.lastIndexOf('/')), { recursive: true });
           writeFileSync(target, f.content);
         }
-        if (singleFormat === "json" || singleFormat === "jsonl") {
+        if (singleFormat === 'json' || singleFormat === 'jsonl') {
           ctx.write(JSON.stringify({ installed: { path: dir, files: SKILL_FILES.length, agent } }));
-        } else if (singleFormat === "ids") {
+        } else if (singleFormat === 'ids') {
           ctx.write(dir);
         } else {
-          const glyph = ctx.plain ? "[ok]" : "\x1b[32m✓\x1b[0m";
+          const glyph = ctx.plain ? '[ok]' : '\x1b[32m✓\x1b[0m';
           ctx.write(`${glyph} installed the mimir skill → ${dir} (${SKILL_FILES.length} files)`);
         }
         return 0;
       }
-      case "bind": {
+      case 'bind': {
         const key = positionals[1];
-        if (key === undefined) throw usage("bind requires a project KEY");
+        if (key === undefined) throw usage('bind requires a project KEY');
         await resolveProject(await getDb(), key); // validates the project exists (not_found otherwise)
         writeBinding(defaults.cwd ?? process.cwd(), key);
-        if (singleFormat === "json" || singleFormat === "jsonl") {
+        if (singleFormat === 'json' || singleFormat === 'jsonl') {
           ctx.write(JSON.stringify({ bound: { project: key, file: BINDING_FILE } }));
-        } else if (singleFormat === "ids") {
+        } else if (singleFormat === 'ids') {
           ctx.write(key);
         } else {
-          const glyph = ctx.plain ? "[ok]" : "\x1b[32m✓\x1b[0m";
+          const glyph = ctx.plain ? '[ok]' : '\x1b[32m✓\x1b[0m';
           ctx.write(`${glyph} bound to ${key} (${BINDING_FILE})`);
         }
         return 0;
       }
-      case "service": {
+      case 'service': {
         if (defaults.service === undefined) {
-          throw usage("service is unavailable in this context");
+          throw usage('service is unavailable in this context');
         }
-        const format = pickFormat(values.format, "report", ctx);
+        const format = pickFormat(values.format, 'report', ctx);
         return await cmdService(positionals, { port: values.port }, ctx, defaults.service, format);
       }
-      case "self-update": {
+      case 'self-update': {
         if (defaults.service === undefined) {
-          throw usage("self-update is unavailable in this context");
+          throw usage('self-update is unavailable in this context');
         }
-        const format = pickFormat(values.format, "report", ctx);
+        const format = pickFormat(values.format, 'report', ctx);
         return await cmdSelfUpdate(
           ctx,
           defaults.service,
@@ -435,8 +460,9 @@ export async function runCli(
           format,
         );
       }
-      default:
+      default: {
         throw usage(`unknown command: ${command}`);
+      }
     }
   } catch (error) {
     if (isRenderable(error)) {
@@ -458,21 +484,21 @@ export async function runCli(
  */
 function errorFormat(argv: string[]): string {
   for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i] ?? "";
+    const arg = argv[i] ?? '';
     // Equals form: --format=json or -f=json
     const eqMatch = /^(?:--format|-f)=(.+)$/.exec(arg);
     if (eqMatch) {
       const val = eqMatch[1];
-      if (val === "json" || val === "jsonl") return val;
+      if (val === 'json' || val === 'jsonl') return val;
       continue;
     }
     // Separate-token form: --format json or -f json
-    if ((arg === "-f" || arg === "--format") && i < argv.length - 1) {
-      const val = argv[i + 1] ?? "";
-      if (val === "json" || val === "jsonl") return val;
+    if ((arg === '-f' || arg === '--format') && i < argv.length - 1) {
+      const val = argv[i + 1] ?? '';
+      if (val === 'json' || val === 'jsonl') return val;
     }
   }
-  return "records";
+  return 'records';
 }
 
 function runSet(
@@ -481,62 +507,67 @@ function runSet(
   io: Io,
   emptyMsg?: string,
 ): number {
-  const format = pickFormat(explicit, "set", io);
+  const format = pickFormat(explicit, 'set', io);
   if (result.warnings !== undefined && result.warnings.length > 0) {
     renderWarnings(result.warnings, format, io);
   }
   switch (format) {
-    case "ids":
+    case 'ids': {
       io.write(formatIds(result.items));
       break;
-    case "json":
+    }
+    case 'json': {
       io.write(formatSetJson(result));
       break;
-    case "jsonl":
+    }
+    case 'jsonl': {
       io.write(formatSetJsonl(result.items));
       break;
-    case "records":
+    }
+    case 'records': {
       if (result.items.length === 0 && io.isTTY && emptyMsg !== undefined) {
         io.write(emptyMsg);
       } else {
-        io.write(result.items.map((n) => renderRecords(n, io)).join("\n\n"));
+        io.write(result.items.map((n) => renderRecords(n, io)).join('\n\n'));
       }
       break;
-    case "table":
+    }
+    case 'table': {
       io.write(renderTable(result, io, emptyMsg));
       break;
+    }
   }
   return 0;
 }
 
 function renderSingle(node: NodeView, explicit: string | undefined, io: Io): number {
-  renderNodeView(node, pickFormat(explicit, "single", io), io);
+  renderNodeView(node, pickFormat(explicit, 'single', io), io);
   return 0;
 }
 
 function pickFormat(
   explicit: string | undefined,
-  kind: "set" | "single" | "status" | "report",
+  kind: 'set' | 'single' | 'status' | 'report',
   io: Io,
 ): Format {
   if (explicit !== undefined) {
     if (!(FORMATS as readonly string[]).includes(explicit)) {
-      throw usage(`unknown format: ${explicit} (expected ${FORMATS.join("|")})`);
+      throw usage(`unknown format: ${explicit} (expected ${FORMATS.join('|')})`);
     }
     return explicit as Format;
   }
   // `status` is structured data — json on every destination.
-  if (kind === "status") return "json";
+  if (kind === 'status') return 'json';
   // `report` (service status / self-update) keeps its MMR-59 split: json when
   // piped, human prose in a terminal.
-  if (kind === "report") return io.isTTY ? "records" : "json";
+  if (kind === 'report') return io.isTTY ? 'records' : 'json';
   // `set`/`single` (MMR-87): `isTTY` governs *decoration* only, never
   // *information*. The piped default carries the same fields as the interactive
   // one — color is already stripped via `io.plain` (`NO_COLOR || !isTTY`).
   // `ids`/`json`/`jsonl` stay explicit `-f` opt-ins: the non-TTY consumer is an
   // agent reading to decide (for whom bare ids are useless), not a `| xargs`
   // pipeline.
-  return kind === "set" ? "table" : "records";
+  return kind === 'set' ? 'table' : 'records';
 }
 
 function requireId(id: string | undefined, command: string): string {
@@ -554,12 +585,12 @@ function requireId(id: string | undefined, command: string): string {
 function parseFacets(cols: string[] | undefined): FacetName[] {
   const facets: FacetName[] = [];
   for (const col of cols ?? []) {
-    if (col.startsWith(".")) {
+    if (col.startsWith('.')) {
       throw usage(`columns are flat now: --col ${col.slice(1)} (the dot prefix was dropped)`);
     }
-    if (col === "content") continue; // artifact-only; a node simply has no body
+    if (col === 'content') continue; // artifact-only; a node simply has no body
     if (!(FACET_NAMES as readonly string[]).includes(col)) {
-      throw usage(`unknown column: ${col}`, `columns: ${[...FACET_NAMES, "content"].join(", ")}`);
+      throw usage(`unknown column: ${col}`, `columns: ${[...FACET_NAMES, 'content'].join(', ')}`);
     }
     facets.push(col as FacetName);
   }
@@ -569,7 +600,7 @@ function parseFacets(cols: string[] | undefined): FacetName[] {
 function parseStatus(value: string | undefined): StatusSelector | undefined {
   if (value === undefined) return undefined;
   if (!(STATUS_SELECTOR_VALUES as readonly string[]).includes(value)) {
-    throw usage(`invalid status: ${value} (expected ${STATUS_SELECTOR_VALUES.join("|")})`);
+    throw usage(`invalid status: ${value} (expected ${STATUS_SELECTOR_VALUES.join('|')})`);
   }
   return value as StatusSelector;
 }
@@ -579,7 +610,7 @@ function parseVerdicts(is: string[] | undefined, notIs: string[] | undefined): V
   const take = (tokens: string[] | undefined, negate: boolean): void => {
     for (const token of tokens ?? []) {
       if (!(VERDICT_VALUES as readonly string[]).includes(token)) {
-        throw usage(`invalid verdict: ${token} (expected ${VERDICT_VALUES.join("|")})`);
+        throw usage(`invalid verdict: ${token} (expected ${VERDICT_VALUES.join('|')})`);
       }
       out.push({ verdict: token as Verdict, negate });
     }
@@ -591,17 +622,17 @@ function parseVerdicts(is: string[] | undefined, notIs: string[] | undefined): V
 
 /** The query-op flags, in declaration order. */
 const OP_FLAGS = [
-  "eq",
-  "not-eq",
-  "in",
-  "not-in",
-  "has",
-  "missing",
-  "before",
-  "on",
-  "after",
-  "not-before",
-  "not-after",
+  'eq',
+  'not-eq',
+  'in',
+  'not-in',
+  'has',
+  'missing',
+  'before',
+  'on',
+  'after',
+  'not-before',
+  'not-after',
 ] as const;
 
 /**

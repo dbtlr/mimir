@@ -1,5 +1,5 @@
-import type { Hold, Lifecycle, StatusWord, TaskStatusWord } from "@mimir/contract";
-import type { Distribution } from "@mimir/contract";
+import type { Hold, Lifecycle, StatusWord, TaskStatusWord } from '@mimir/contract';
+import type { Distribution } from '@mimir/contract';
 
 export type { Distribution };
 
@@ -34,14 +34,14 @@ export interface TaskStatusInput {
  * in_progress position survives in the stored axis underneath.
  */
 export function taskStatus({ lifecycle, hold, awaiting }: TaskStatusInput): TaskStatusWord {
-  if (lifecycle === "abandoned") return "abandoned";
-  if (lifecycle === "done") return "done";
-  if (hold === "blocked") return "blocked";
-  if (hold === "parked") return "parked";
-  if (lifecycle === "in_progress") return "in_progress";
-  if (lifecycle === "under_review") return "under_review";
+  if (lifecycle === 'abandoned') return 'abandoned';
+  if (lifecycle === 'done') return 'done';
+  if (hold === 'blocked') return 'blocked';
+  if (hold === 'parked') return 'parked';
+  if (lifecycle === 'in_progress') return 'in_progress';
+  if (lifecycle === 'under_review') return 'under_review';
   // lifecycle === "todo", hold === "none"
-  return awaiting ? "awaiting" : "ready";
+  return awaiting ? 'awaiting' : 'ready';
 }
 
 /** Tally an iterable of Status words into a {@link Distribution}. */
@@ -82,17 +82,17 @@ export function distributionTotal(dist: Distribution): number {
  * not-yet-started and stuck/shelved states.
  */
 export function interpret(dist: Distribution): StatusWord {
-  if (distributionTotal(dist) === 0) return "new";
+  if (distributionTotal(dist) === 0) return 'new';
 
   const has = (word: StatusWord): boolean => (dist[word] ?? 0) > 0;
 
-  if (has("in_progress")) return "in_progress";
-  if (has("under_review")) return "under_review";
-  if (has("ready")) return "ready";
-  if (has("awaiting")) return "awaiting";
-  if (has("blocked")) return "blocked";
-  if (has("parked")) return "parked";
-  if (has("new")) return "new";
+  if (has('in_progress')) return 'in_progress';
+  if (has('under_review')) return 'under_review';
+  if (has('ready')) return 'ready';
+  if (has('awaiting')) return 'awaiting';
+  if (has('blocked')) return 'blocked';
+  if (has('parked')) return 'parked';
+  if (has('new')) return 'new';
   // Only terminal words remain.
-  return has("done") ? "done" : "abandoned";
+  return has('done') ? 'done' : 'abandoned';
 }

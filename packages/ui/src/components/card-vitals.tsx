@@ -1,7 +1,8 @@
-import type { Distribution } from "@mimir/contract";
-import { cardVitals } from "../lib/card-vitals";
-import { cn } from "../lib/cn";
-import { STATUS_META } from "../lib/status";
+import type { Distribution } from '@mimir/contract';
+
+import { cardVitals } from '../lib/card-vitals';
+import { cn } from '../lib/cn';
+import { STATUS_META } from '../lib/status';
 
 /**
  * The project card's vitals panel (MMR-106) — a proportion bar over the active
@@ -13,7 +14,7 @@ import { STATUS_META } from "../lib/status";
 export function CardVitals({ counts }: { counts: Distribution | undefined }) {
   const vitals = cardVitals(counts);
   const active = vitals.filter((v) => v.count > 0);
-  const title = active.map((v) => `${STATUS_META[v.word].label} ${String(v.count)}`).join(" · ");
+  const title = active.map((v) => `${STATUS_META[v.word].label} ${String(v.count)}`).join(' · ');
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -28,7 +29,7 @@ export function CardVitals({ counts }: { counts: Distribution | undefined }) {
           {active.map((v) => (
             <span
               key={v.word}
-              className={cn("h-full", STATUS_META[v.word].dot)}
+              className={cn('h-full', STATUS_META[v.word].dot)}
               style={{ flexGrow: v.count, flexBasis: 0 }}
             />
           ))}
@@ -43,12 +44,12 @@ export function CardVitals({ counts }: { counts: Distribution | undefined }) {
           <li
             key={v.word}
             className={cn(
-              "flex items-center gap-1 text-3xs whitespace-nowrap text-ink-dim",
-              v.count === 0 && "opacity-45",
+              'flex items-center gap-1 text-3xs whitespace-nowrap text-ink-dim',
+              v.count === 0 && 'opacity-45',
             )}
           >
             <span
-              className={cn("h-[6px] w-[6px] shrink-0 rounded-full", STATUS_META[v.word].dot)}
+              className={cn('h-[6px] w-[6px] shrink-0 rounded-full', STATUS_META[v.word].dot)}
             />
             <span className="font-mono font-bold text-ink-bright tabular-nums">{v.count}</span>
             <span className="truncate">{v.label}</span>

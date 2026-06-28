@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { artifactQuery } from "../api/queries";
-import { absoluteTime } from "../lib/time";
-import { Badge } from "./ui/badge";
-import { Skeleton } from "./ui/skeleton";
+import { useQuery } from '@tanstack/react-query';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
+import { artifactQuery } from '../api/queries';
+import { absoluteTime } from '../lib/time';
+import { Badge } from './ui/badge';
+import { Skeleton } from './ui/skeleton';
 
 /**
  * The shared artifact reader — renders a frozen markdown body plus metadata and
@@ -35,7 +36,7 @@ export function ArtifactReader({
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="font-mono text-2xs text-ink-dim">{id}</span>
-            <Badge variant="outline">{artifact.data?.project ?? "…"}</Badge>
+            <Badge variant="outline">{artifact.data?.project ?? '…'}</Badge>
           </div>
           <h1 className="text-md leading-snug font-semibold text-ink-bright">
             {artifact.data?.title ?? id}

@@ -1,7 +1,8 @@
-import { sql } from "kysely";
-import type { ArtifactSummary } from "@mimir/contract";
-import type { Db } from "./context";
-import { renderArtifactRef } from "./ids";
+import type { ArtifactSummary } from '@mimir/contract';
+import { sql } from 'kysely';
+
+import type { Db } from './context';
+import { renderArtifactRef } from './ids';
 
 /** Portfolio artifact search (MMR-52). All filters compose with AND. */
 export interface ArtifactQuery {
@@ -24,15 +25,15 @@ export async function listArtifacts(
   db: Db,
   opts: ArtifactQuery = {},
 ): Promise<{ total: number; items: ArtifactSummary[] }> {
-  let base = db.selectFrom("artifact").innerJoin("project", "project.id", "artifact.project_id");
+  let base = db.selectFrom('artifact').innerJoin('project', 'project.id', 'artifact.project_id');
   if (opts.project !== undefined) {
-    base = base.where("project.key", "=", opts.project);
+    base = base.where('project.key', '=', opts.project);
   }
   if (opts.since !== undefined) {
-    base = base.where("artifact.created_at", ">=", opts.since);
+    base = base.where('artifact.created_at', '>=', opts.since);
   }
   if (opts.before !== undefined) {
-    base = base.where("artifact.created_at", "<=", opts.before);
+    base = base.where('artifact.created_at', '<=', opts.before);
   }
   if (opts.q !== undefined) {
     const like = `%${opts.q.toLowerCase()}%`;
@@ -42,40 +43,40 @@ export async function listArtifacts(
   }
   if (opts.tag !== undefined) {
     const tag = opts.tag;
-    base = base.where("artifact.id", "in", (qb) =>
+    base = base.where('artifact.id', 'in', (qb) =>
       qb
-        .selectFrom("tag")
-        .select("entity_id")
-        .where("entity_type", "=", "artifact")
-        .where("tag", "=", tag),
+        .selectFrom('tag')
+        .select('entity_id')
+        .where('entity_type', '=', 'artifact')
+        .where('tag', '=', tag),
     );
   }
 
   const { c } = await base
-    .select((eb) => eb.fn.countAll<number>().as("c"))
+    .select((eb) => eb.fn.countAll<number>().as('c'))
     .executeTakeFirstOrThrow();
 
   const rows = await base
     .select([
-      "artifact.id as id",
-      "artifact.seq as seq",
-      "project.key as key",
-      "artifact.title as title",
-      "artifact.created_at as createdAt",
+      'artifact.id as id',
+      'artifact.seq as seq',
+      'project.key as key',
+      'artifact.title as title',
+      'artifact.created_at as createdAt',
     ])
-    .orderBy("artifact.created_at", "desc")
-    .orderBy("artifact.id", "desc")
+    .orderBy('artifact.created_at', 'desc')
+    .orderBy('artifact.id', 'desc')
     .limit(opts.limit ?? DEFAULT_LIMIT)
     .execute();
 
   const items: ArtifactSummary[] = [];
   for (const row of rows) {
     const tagRows = await db
-      .selectFrom("tag")
-      .select("tag")
-      .where("entity_type", "=", "artifact")
-      .where("entity_id", "=", row.id)
-      .orderBy("created_at", "asc")
+      .selectFrom('tag')
+      .select('tag')
+      .where('entity_type', '=', 'artifact')
+      .where('entity_id', '=', row.id)
+      .orderBy('created_at', 'asc')
       .execute();
     items.push({
       id: renderArtifactRef({ key: row.key, seq: row.seq }),

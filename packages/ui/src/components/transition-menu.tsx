@@ -1,9 +1,11 @@
-import { useState } from "react";
-import type { WireNode } from "../api/types";
-import { useTransition } from "../api/mutations";
-import { availableTransitions, type VerbSpec } from "../lib/transitions";
-import { MenuContent, MenuItem, MenuLabel, MenuRoot, MenuTrigger } from "./ui/menu";
-import { ReasonDialog } from "./reason-dialog";
+import { useState } from 'react';
+
+import { useTransition } from '../api/mutations';
+import type { WireNode } from '../api/types';
+import { availableTransitions } from '../lib/transitions';
+import type { VerbSpec } from '../lib/transitions';
+import { ReasonDialog } from './reason-dialog';
+import { MenuContent, MenuItem, MenuLabel, MenuRoot, MenuTrigger } from './ui/menu';
 
 /**
  * The intervention affordance shared by the card and the drawer: a kebab (⋯)
@@ -15,7 +17,7 @@ export function TransitionMenu({
   node,
   disabled,
 }: {
-  node: Pick<WireNode, "id" | "status">;
+  node: Pick<WireNode, 'id' | 'status'>;
   disabled?: boolean;
 }) {
   const verbs = availableTransitions(node.status);
@@ -60,7 +62,7 @@ export function TransitionMenu({
         }}
         onConfirm={(reason) => {
           if (reasonVerb !== null) {
-            mutate(reason === "" ? { verb: reasonVerb.verb } : { verb: reasonVerb.verb, reason });
+            mutate(reason === '' ? { verb: reasonVerb.verb } : { verb: reasonVerb.verb, reason });
           }
           setReasonVerb(null);
         }}

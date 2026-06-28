@@ -1,10 +1,11 @@
-import type { CSSProperties, ReactNode } from "react";
-import { cn } from "../lib/cn";
-import { STATUS_META } from "../lib/status";
-import type { WireNode } from "../api/types";
-import { Badge } from "./ui/badge";
-import { PriorityBadge, SizeBadge, StaleBadge } from "./signal-badges";
-import { TransitionMenu } from "./transition-menu";
+import type { CSSProperties, ReactNode } from 'react';
+
+import type { WireNode } from '../api/types';
+import { cn } from '../lib/cn';
+import { STATUS_META } from '../lib/status';
+import { PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
+import { TransitionMenu } from './transition-menu';
+import { Badge } from './ui/badge';
 
 const SHOWN_TAGS = 3;
 
@@ -54,10 +55,10 @@ export function NodeCard({
       ref={sortable?.setNodeRef}
       style={sortable?.style}
       className={cn(
-        "group relative rounded-sm border border-line border-l-[3px] bg-well-850 p-2 transition-colors md:border-l-2",
-        "hover:border-line-bright hover:bg-well-800",
+        'group relative rounded-sm border border-line border-l-[3px] bg-well-850 p-2 transition-colors md:border-l-2',
+        'hover:border-line-bright hover:bg-well-800',
         STATUS_META[node.status].border,
-        sortable?.isDragging === true && "opacity-50",
+        sortable?.isDragging === true && 'opacity-50',
       )}
     >
       <div className="flex items-baseline justify-between gap-2">
@@ -68,7 +69,7 @@ export function NodeCard({
           <TransitionMenu node={node} disabled={offline} />
         </div>
       </div>
-      {ancestry !== undefined && ancestry !== "" && (
+      {ancestry !== undefined && ancestry !== '' && (
         <p className="truncate text-2xs text-ink-faint md:text-3xs" title={ancestry}>
           {ancestry}
         </p>

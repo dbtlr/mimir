@@ -1,7 +1,10 @@
-import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
-import { VitePWA } from "vite-plugin-pwa";
-import { defineConfig } from "vitest/config";
+import { vitestReact } from '@dbtlr/tooling/vitest';
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
+// `vitest/config` (not vite-plus) — it types nested plugin arrays (Plugin[][])
+// and the `test` block; vite-plus's defineConfig hits TS2321 excessive-depth here.
+import { defineConfig } from 'vitest/config';
 
 /**
  * The console build (ADR 0013): a static SPA whose `dist/` output is embedded
@@ -14,34 +17,33 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: "autoUpdate",
-      includeAssets: ["icons/mimir.svg", "icons/mimir-maskable.svg"],
+      includeAssets: ['icons/mimir.svg', 'icons/mimir-maskable.svg'],
       manifest: {
-        name: "Mimir",
-        short_name: "Mimir",
-        description: "Operator console — work state across every project",
-        theme_color: "#0a0e16",
-        background_color: "#0a0e16",
-        display: "standalone",
+        background_color: '#0a0e16',
+        description: 'Operator console — work state across every project',
+        display: 'standalone',
         icons: [
-          { src: "/icons/mimir.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+          { purpose: 'any', sizes: 'any', src: '/icons/mimir.svg', type: 'image/svg+xml' },
           {
-            src: "/icons/mimir-maskable.svg",
-            sizes: "any",
-            type: "image/svg+xml",
-            purpose: "maskable",
+            purpose: 'maskable',
+            sizes: 'any',
+            src: '/icons/mimir-maskable.svg',
+            type: 'image/svg+xml',
           },
         ],
+        name: 'Mimir',
+        short_name: 'Mimir',
+        theme_color: '#0a0e16',
       },
+      registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,woff2,webmanifest}"],
+        globPatterns: ['**/*.{js,css,html,svg,woff2,webmanifest}'],
         // The API is never the app shell — let /api/* hit the network/server.
         navigateFallbackDenylist: [/^\/api\//],
       },
     }),
   ],
-  test: {
-    environment: "jsdom",
-    setupFiles: ["./src/test/setup.ts"],
-  },
+  // Lint/fmt are centralized in the root vite.config; this member carries only
+  // build + test. The jsdom test env comes from @dbtlr/tooling's vitestReact().
+  ...vitestReact({ setupFiles: ['./src/test/setup.ts'] }),
 });

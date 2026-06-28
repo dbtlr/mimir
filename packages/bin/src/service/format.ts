@@ -5,8 +5,8 @@
  * the command layer computes. Human (`table`/`records`) rendering lives here
  * too so commands.ts returns data, not prose.
  */
-import { emitWire } from "../core";
-import type { ServiceEvent } from "./events";
+import { emitWire } from '../core';
+import type { ServiceEvent } from './events';
 
 export interface ServiceHealth {
   runningVersion: string;
@@ -31,7 +31,7 @@ export interface ServiceStatus {
   paths: ServicePaths;
 }
 
-export type ServiceAction = "install" | "uninstall" | "start" | "stop" | "restart";
+export type ServiceAction = 'install' | 'uninstall' | 'start' | 'stop' | 'restart';
 
 export interface ServiceActionResult {
   action: ServiceAction;

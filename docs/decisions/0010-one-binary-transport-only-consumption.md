@@ -1,5 +1,5 @@
 ---
-title: "ADR 0010: One binary, transport-only consumption, monorepo deferred to the UI"
+title: 'ADR 0010: One binary, transport-only consumption, monorepo deferred to the UI'
 status: accepted
 date: 2026-06-04
 ---

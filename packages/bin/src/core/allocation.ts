@@ -1,5 +1,5 @@
-import type { Tx } from "./context";
-import { notFound } from "./errors";
+import type { Tx } from './context';
+import { notFound } from './errors';
 
 /**
  * Allocation (ADR 0006). `project.key` is the consumer-supplied scope prefix;
@@ -26,13 +26,13 @@ export function isValidKey(key: string): boolean {
  */
 export async function allocateSeq(tx: Tx, projectId: number): Promise<number> {
   const row = await tx
-    .updateTable("project")
-    .set((eb) => ({ last_seq: eb("last_seq", "+", 1) }))
-    .where("id", "=", projectId)
-    .returning("last_seq")
+    .updateTable('project')
+    .set((eb) => ({ last_seq: eb('last_seq', '+', 1) }))
+    .where('id', '=', projectId)
+    .returning('last_seq')
     .executeTakeFirst();
   if (row === undefined) {
-    throw notFound("the project was not found");
+    throw notFound('the project was not found');
   }
   return row.last_seq;
 }
@@ -40,13 +40,13 @@ export async function allocateSeq(tx: Tx, projectId: number): Promise<number> {
 /** Atomically bump a project's `last_artifact_seq` — the `KEY-aN` counter (MMR-32). */
 export async function allocateArtifactSeq(tx: Tx, projectId: number): Promise<number> {
   const row = await tx
-    .updateTable("project")
-    .set((eb) => ({ last_artifact_seq: eb("last_artifact_seq", "+", 1) }))
-    .where("id", "=", projectId)
-    .returning("last_artifact_seq")
+    .updateTable('project')
+    .set((eb) => ({ last_artifact_seq: eb('last_artifact_seq', '+', 1) }))
+    .where('id', '=', projectId)
+    .returning('last_artifact_seq')
     .executeTakeFirst();
   if (row === undefined) {
-    throw notFound("the project was not found");
+    throw notFound('the project was not found');
   }
   return row.last_artifact_seq;
 }

@@ -5,9 +5,9 @@
  * (MMR-57). Local/dev builds leave it undefined and fall back to package.json.
  * `typeof` on the (possibly undeclared) identifier is the one safe read.
  */
-import pkg from "../package.json";
+import pkg from '../package.json';
 
 declare const MIMIR_BUILD_VERSION: string | undefined;
 
 export const VERSION: string =
-  typeof MIMIR_BUILD_VERSION !== "undefined" ? MIMIR_BUILD_VERSION : pkg.version;
+  typeof MIMIR_BUILD_VERSION !== 'undefined' ? MIMIR_BUILD_VERSION : pkg.version;

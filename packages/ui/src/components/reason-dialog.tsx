@@ -1,6 +1,7 @@
-import { Dialog } from "@base-ui-components/react/dialog";
-import { useState } from "react";
-import type { VerbSpec } from "../lib/transitions";
+import { Dialog } from '@base-ui-components/react/dialog';
+import { useState } from 'react';
+
+import type { VerbSpec } from '../lib/transitions';
 
 /**
  * Optional-reason modal for the reason-carrying verbs (park/block/abandon/
@@ -13,18 +14,18 @@ export function ReasonDialog({
   onClose,
   onConfirm,
 }: {
-  verb: VerbSpec["verb"] | null;
+  verb: VerbSpec['verb'] | null;
   open: boolean;
   onClose: () => void;
   onConfirm: (reason: string) => void;
 }) {
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState('');
   return (
     <Dialog.Root
       open={open}
       onOpenChange={(next) => {
         if (!next) {
-          setReason("");
+          setReason('');
           onClose();
         }
       }}
@@ -52,7 +53,7 @@ export function ReasonDialog({
               type="button"
               onClick={() => {
                 onConfirm(reason.trim());
-                setReason("");
+                setReason('');
               }}
               className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-well-950 hover:opacity-90"
             >

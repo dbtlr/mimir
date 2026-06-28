@@ -1,9 +1,10 @@
-import { useState } from "react";
-import type { AttentionBand } from "@mimir/contract";
-import type { BandGroup } from "../lib/attention-bands";
-import { cn } from "../lib/cn";
-import { STATUS_META } from "../lib/status";
-import { ProjectCard } from "./project-card";
+import type { AttentionBand } from '@mimir/contract';
+import { useState } from 'react';
+
+import type { BandGroup } from '../lib/attention-bands';
+import { cn } from '../lib/cn';
+import { STATUS_META } from '../lib/status';
+import { ProjectCard } from './project-card';
 
 /**
  * One attention-band on the overview (MMR-102/106): a header keyed by a status-hue
@@ -41,7 +42,7 @@ export function BandSection({
     </div>
   );
 
-  const pip = <span className={cn("h-[3px] w-5 shrink-0 rounded-sm", BAND_PIP[band.band])} />;
+  const pip = <span className={cn('h-[3px] w-5 shrink-0 rounded-sm', BAND_PIP[band.band])} />;
   const label = <h2 className="microlabel text-ink">{band.label}</h2>;
   const countChip = (
     <span className="rounded-full border border-line px-2 py-px font-mono text-2xs text-ink-dim tabular-nums">
@@ -68,7 +69,7 @@ export function BandSection({
           {countChip}
           {rule}
           <span className="text-2xs text-ink-faint transition-colors group-hover:text-ink">
-            {expanded ? "Hide ↑" : "Show ↓"}
+            {expanded ? 'Hide ↑' : 'Show ↓'}
           </span>
         </button>
         {expanded && cards}

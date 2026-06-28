@@ -1,10 +1,11 @@
-import { Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { Toaster } from "sonner";
-import { AttentionAlert } from "../components/attention-alert";
-import { ProjectPicker } from "../components/project-picker";
-import { ThemeToggle } from "../components/theme-toggle";
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from "../components/ui/menu";
-import { useTheme } from "../lib/use-theme";
+import { Link, Outlet, useNavigate } from '@tanstack/react-router';
+import { Toaster } from 'sonner';
+
+import { AttentionAlert } from '../components/attention-alert';
+import { ProjectPicker } from '../components/project-picker';
+import { ThemeToggle } from '../components/theme-toggle';
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/menu';
+import { useTheme } from '../lib/use-theme';
 
 /** The app shell: brand + project picker, the routed surface, and the global
  * top-bar controls (artifacts, attention, theme). */
@@ -56,12 +57,12 @@ export function Shell() {
               </svg>
             </MenuTrigger>
             <MenuContent className="w-44">
-              <MenuItem className="py-2.5 text-sm" onClick={() => void navigate({ to: "/tasks" })}>
+              <MenuItem className="py-2.5 text-sm" onClick={() => void navigate({ to: '/tasks' })}>
                 Tasks
               </MenuItem>
               <MenuItem
                 className="py-2.5 text-sm"
-                onClick={() => void navigate({ to: "/artifacts" })}
+                onClick={() => void navigate({ to: '/artifacts' })}
               >
                 Artifacts
               </MenuItem>

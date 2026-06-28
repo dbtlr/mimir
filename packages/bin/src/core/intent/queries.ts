@@ -1,23 +1,19 @@
-import { sql } from "kysely";
-import {
-  type ArtifactDetail,
-  CHEAP_FACETS,
-  type FacetName,
-  type NodeView,
-  type SetResult,
-  type StatusView,
-} from "@mimir/contract";
-import type { Priority, Size, StatusWord } from "@mimir/contract";
-import type { FieldFilter, StatusSelector, ValueWarning, VerdictSelector } from "@mimir/contract";
-import type { Node } from "../../db/schema";
-import type { Db } from "../context";
-import { isTerminalWord, nodeStatusWord, statusOf, statusOfProject } from "../derive";
-import { notFound, projectNotFound, validation } from "../errors";
-import { parseIdentity } from "../ids";
-import { findArtifactByRef, findNodeByRef, renderNodeId } from "../lookup";
-import { isBlocking, isOrphaned, isReady, isStale } from "../predicates";
-import { type QueryRow, compileFilters } from "../query";
-import { buildArtifactDetail, buildNodeView, buildProjectView } from "./view";
+import { CHEAP_FACETS } from '@mimir/contract';
+import type { ArtifactDetail, FacetName, NodeView, SetResult, StatusView } from '@mimir/contract';
+import type { Priority, Size, StatusWord } from '@mimir/contract';
+import type { FieldFilter, StatusSelector, ValueWarning, VerdictSelector } from '@mimir/contract';
+import { sql } from 'kysely';
+
+import type { Node } from '../../db/schema';
+import type { Db } from '../context';
+import { isTerminalWord, nodeStatusWord, statusOf, statusOfProject } from '../derive';
+import { notFound, projectNotFound, validation } from '../errors';
+import { parseIdentity } from '../ids';
+import { findArtifactByRef, findNodeByRef, renderNodeId } from '../lookup';
+import { isBlocking, isOrphaned, isReady, isStale } from '../predicates';
+import { compileFilters } from '../query';
+import type { QueryRow } from '../query';
+import { buildArtifactDetail, buildNodeView, buildProjectView } from './view';
 
 /**
  * The intent layer — the read surface both the CLI and MCP render. Commands
@@ -27,9 +23,9 @@ import { buildArtifactDetail, buildNodeView, buildProjectView } from "./view";
 
 async function resolveScope(db: Db, key: string): Promise<number> {
   const project = await db
-    .selectFrom("project")
-    .select("id")
-    .where("key", "=", key)
+    .selectFrom('project')
+    .select('id')
+    .where('key', '=', key)
     .executeTakeFirst();
   if (project === undefined) {
     throw projectNotFound(key);
@@ -43,9 +39,9 @@ function setResult(items: NodeView[], total: number, startsAt = 0): SetResult<No
 
 /** Does this Status word fall inside the selected universe? */
 function inUniverse(word: StatusWord, selector: StatusSelector): boolean {
-  if (selector === "all") return true;
-  if (selector === "live") return !isTerminalWord(word);
-  if (selector === "terminal") return isTerminalWord(word);
+  if (selector === 'all') return true;
+  if (selector === 'live') return !isTerminalWord(word);
+  if (selector === 'terminal') return isTerminalWord(word);
   return word === selector;
 }
 
@@ -57,9 +53,9 @@ async function passesVerdicts(
 ): Promise<boolean> {
   for (const { verdict, negate } of verdicts) {
     const holds =
-      verdict === "stale"
+      verdict === 'stale'
         ? await isStale(db, node)
-        : verdict === "blocking"
+        : verdict === 'blocking'
           ? await isBlocking(db, node)
           : await isOrphaned(db, node);
     if (holds === negate) return false;
@@ -94,19 +90,19 @@ async function toQueryRow(
     updated_at: node.updated_at,
     completed_at: node.completed_at,
   };
-  if (needed.has("id")) {
+  if (needed.has('id')) {
     values.id = await renderNodeId(db, node.id);
   }
-  if (needed.has("parent")) {
+  if (needed.has('parent')) {
     values.parent = node.parent_id === null ? null : await renderNodeId(db, node.parent_id);
   }
   let tags: string[] = [];
-  if (needed.has("tag")) {
+  if (needed.has('tag')) {
     const rows = await db
-      .selectFrom("tag")
-      .select("tag")
-      .where("entity_type", "=", "node")
-      .where("entity_id", "=", node.id)
+      .selectFrom('tag')
+      .select('tag')
+      .where('entity_type', '=', 'node')
+      .where('entity_id', '=', node.id)
       .execute();
     tags = rows.map((r) => r.tag);
   }
@@ -143,29 +139,29 @@ export async function nextTasks(db: Db, opts: NextOptions = {}): Promise<SetResu
     return emptyResult(compiled.warnings);
   }
   let query = db
-    .selectFrom("node")
+    .selectFrom('node')
     .selectAll()
-    .where("type", "=", "task")
-    .where("lifecycle", "=", "todo")
-    .where("hold", "=", "none")
-    .where("rank", "is not", null);
+    .where('type', '=', 'task')
+    .where('lifecycle', '=', 'todo')
+    .where('hold', '=', 'none')
+    .where('rank', 'is not', null);
   if (opts.scope !== undefined) {
-    query = query.where("project_id", "=", await resolveScope(db, opts.scope));
+    query = query.where('project_id', '=', await resolveScope(db, opts.scope));
   }
   if (opts.priority !== undefined) {
-    query = query.where("priority", "=", opts.priority);
+    query = query.where('priority', '=', opts.priority);
   }
   if (opts.size !== undefined) {
-    query = query.where("size", "=", opts.size);
+    query = query.where('size', '=', opts.size);
   }
-  const candidates = await query.orderBy("project_id", "asc").orderBy("rank", "asc").execute();
+  const candidates = await query.orderBy('project_id', 'asc').orderBy('rank', 'asc').execute();
 
   const verdicts = opts.verdicts ?? [];
   const ready: Node[] = [];
   for (const row of candidates) {
     if (!(await isReady(db, row))) continue;
     if (!(await passesVerdicts(db, row, verdicts))) continue;
-    if (!compiled.test(await toQueryRow(db, row, "ready", compiled.needed))) continue;
+    if (!compiled.test(await toQueryRow(db, row, 'ready', compiled.needed))) continue;
     ready.push(row);
   }
   const limited = opts.limit !== undefined ? ready.slice(0, opts.limit) : ready;
@@ -202,54 +198,54 @@ export async function listNodes(db: Db, opts: ListOptions = {}): Promise<SetResu
   if (compiled.warnings.length > 0) {
     return emptyResult(compiled.warnings);
   }
-  const universe = opts.status ?? "live";
-  const widened = (opts.filters ?? []).some((f) => f.field === "type");
+  const universe = opts.status ?? 'live';
+  const widened = (opts.filters ?? []).some((f) => f.field === 'type');
 
-  let query = db.selectFrom("node").selectAll();
+  let query = db.selectFrom('node').selectAll();
   if (!widened) {
-    query = query.where("type", "=", "task");
+    query = query.where('type', '=', 'task');
     // Task words map 1:1 onto lifecycle terminality — push the coarse cut to SQL.
-    if (universe === "terminal" || universe === "done" || universe === "abandoned") {
-      query = query.where("lifecycle", "in", ["done", "abandoned"]);
-    } else if (universe !== "all") {
+    if (universe === 'terminal' || universe === 'done' || universe === 'abandoned') {
+      query = query.where('lifecycle', 'in', ['done', 'abandoned']);
+    } else if (universe !== 'all') {
       // Non-terminal lifecycle (incl. the under_review gate) — the live universe.
-      query = query.where("lifecycle", "in", ["todo", "in_progress", "under_review"]);
+      query = query.where('lifecycle', 'in', ['todo', 'in_progress', 'under_review']);
     }
   }
   if (opts.scope !== undefined) {
-    query = query.where("project_id", "=", await resolveScope(db, opts.scope));
+    query = query.where('project_id', '=', await resolveScope(db, opts.scope));
   }
   if (opts.priority !== undefined) {
-    query = query.where("priority", "=", opts.priority);
+    query = query.where('priority', '=', opts.priority);
   }
   if (opts.size !== undefined) {
-    query = query.where("size", "=", opts.size);
+    query = query.where('size', '=', opts.size);
   }
   if (opts.tag !== undefined) {
     const tag = opts.tag;
-    query = query.where("id", "in", (eb) =>
+    query = query.where('id', 'in', (eb) =>
       eb
-        .selectFrom("tag")
-        .select("entity_id")
-        .where("entity_type", "=", "node")
-        .where("tag", "=", tag),
+        .selectFrom('tag')
+        .select('entity_id')
+        .where('entity_type', '=', 'node')
+        .where('tag', '=', tag),
     );
   }
-  if (opts.q !== undefined && opts.q !== "") {
+  if (opts.q !== undefined && opts.q !== '') {
     const like = `%${opts.q.toLowerCase()}%`;
     query = query.where(sql<boolean>`lower(node.title) LIKE ${like}`);
   }
-  const terminalOrder = universe === "terminal" || universe === "done" || universe === "abandoned";
+  const terminalOrder = universe === 'terminal' || universe === 'done' || universe === 'abandoned';
   const rows = terminalOrder
     ? await query
         .orderBy(sql`completed_at is null`)
-        .orderBy("completed_at", "desc")
-        .orderBy("seq", "asc")
+        .orderBy('completed_at', 'desc')
+        .orderBy('seq', 'asc')
         .execute()
     : await query
         .orderBy(sql`rank is null`)
-        .orderBy("rank", "asc")
-        .orderBy("seq", "asc")
+        .orderBy('rank', 'asc')
+        .orderBy('seq', 'asc')
         .execute();
 
   const verdicts = opts.verdicts ?? [];
@@ -281,18 +277,18 @@ export interface GetOptions {
 export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promise<NodeView> {
   const facets = new Set<FacetName>(opts.facets ?? CHEAP_FACETS);
   const identity = parseIdentity(id);
-  if (identity?.kind === "project") {
+  if (identity?.kind === 'project') {
     const project = await db
-      .selectFrom("project")
+      .selectFrom('project')
       .selectAll()
-      .where("key", "=", identity.key)
+      .where('key', '=', identity.key)
       .executeTakeFirst();
     if (project === undefined) {
       throw projectNotFound(identity.key);
     }
     return buildProjectView(db, project, facets);
   }
-  if (identity?.kind === "artifact") {
+  if (identity?.kind === 'artifact') {
     throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
   const node = await findNodeByRef(db, id);
@@ -312,8 +308,8 @@ export async function getArtifact(
   opts: { content?: boolean } = {},
 ): Promise<ArtifactDetail> {
   const identity = parseIdentity(id);
-  if (identity?.kind !== "artifact") {
-    throw notFound(`${id} is not an artifact id`, "artifact ids look like KEY-aN");
+  if (identity?.kind !== 'artifact') {
+    throw notFound(`${id} is not an artifact id`, 'artifact ids look like KEY-aN');
   }
   const artifact = await findArtifactByRef(db, identity);
   if (artifact === undefined) {
@@ -328,19 +324,19 @@ export async function getArtifact(
  */
 export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
   const identity = parseIdentity(id);
-  if (identity?.kind === "project") {
+  if (identity?.kind === 'project') {
     const project = await db
-      .selectFrom("project")
-      .select("id")
-      .where("key", "=", identity.key)
+      .selectFrom('project')
+      .select('id')
+      .where('key', '=', identity.key)
       .executeTakeFirst();
     if (project === undefined) {
       throw projectNotFound(identity.key);
     }
     const { status, distribution } = await statusOfProject(db, project.id);
-    return { id: identity.key, type: "project", status, distribution };
+    return { id: identity.key, type: 'project', status, distribution };
   }
-  if (identity?.kind === "artifact") {
+  if (identity?.kind === 'artifact') {
     throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
   const node = await findNodeByRef(db, id);

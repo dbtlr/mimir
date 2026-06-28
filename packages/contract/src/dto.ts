@@ -6,8 +6,8 @@ import type {
   Size,
   StatusWord,
   TransitionKind,
-} from "./enums";
-import type { ValueWarning } from "./query";
+} from './enums';
+import type { ValueWarning } from './query';
 
 /**
  * The projection DTOs — the shape the intent layer produces and the CLI/MCP/UI
@@ -24,7 +24,7 @@ import type { ValueWarning } from "./query";
 export type Distribution = Partial<Record<StatusWord, number>>;
 
 /** The projected `type` vocabulary — the three tree-node types plus the project itself (MMR-32). */
-export type ViewType = NodeType | "project";
+export type ViewType = NodeType | 'project';
 
 /** A light reference to another node — its id, title, and optionally its Status word. */
 export interface NodeRef {
@@ -114,7 +114,7 @@ export interface Verdicts {
  * motion) over `needs_unsticking` (blocked/awaiting, often on something external)
  * over `at_rest` (nothing actionable).
  */
-export type AttentionBand = "awaiting_you" | "live" | "needs_unsticking" | "at_rest";
+export type AttentionBand = 'awaiting_you' | 'live' | 'needs_unsticking' | 'at_rest';
 
 /**
  * `attention` — a project's derived attention-state (MMR-101): its highest-wins
@@ -194,7 +194,7 @@ export interface NodeView {
  * instead of light refs. Children arrive rank-ordered (rank carries as array
  * order, never a field — ADR 0007), containers by seq.
  */
-export interface TreeView extends Omit<NodeView, "children"> {
+export interface TreeView extends Omit<NodeView, 'children'> {
   children: TreeView[];
 }
 
@@ -209,31 +209,31 @@ export interface StatusView {
 
 /** The set-valued column names (flat, MMR-38), for `--col` parsing and the cheap-vs-heavy default sets. */
 export const FACET_NAMES = [
-  "deps",
-  "annotations",
-  "artifacts",
-  "history",
-  "tags",
-  "children",
-  "distribution",
-  "leafCounts",
-  "verdicts",
-  "attention",
+  'deps',
+  'annotations',
+  'artifacts',
+  'history',
+  'tags',
+  'children',
+  'distribution',
+  'leafCounts',
+  'verdicts',
+  'attention',
 ] as const;
 export type FacetName = (typeof FACET_NAMES)[number];
 
 /** Cheap facets included by default on a targeted `get`; `history` stays opt-in. */
 export const CHEAP_FACETS: readonly FacetName[] = [
-  "deps",
-  "tags",
-  "children",
-  "distribution",
-  "annotations",
-  "artifacts",
+  'deps',
+  'tags',
+  'children',
+  'distribution',
+  'annotations',
+  'artifacts',
 ];
 
 /** The lean bare-field set for broad selection (`next`/`list`); `parent` is the row's hierarchy anchor (MMR-87). */
-export const LEAN_COLS = ["id", "title", "status", "priority", "size", "parent"] as const;
+export const LEAN_COLS = ['id', 'title', 'status', 'priority', 'size', 'parent'] as const;
 
 /**
  * A count-led set result. The JSON format renders `items` under a unit key

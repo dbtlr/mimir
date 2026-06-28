@@ -1,10 +1,11 @@
-import type { Priority, Size, TagEntityType } from "@mimir/contract";
-import type { Node, Project } from "../db/schema";
-import { allocateSeq, isValidKey } from "./allocation";
-import type { Db, Tx } from "./context";
-import { conflict, notFound, validation } from "./errors";
-import { loadNode } from "./lookup";
-import { appendRank } from "./rank";
+import type { Priority, Size, TagEntityType } from '@mimir/contract';
+
+import type { Node, Project } from '../db/schema';
+import { allocateSeq, isValidKey } from './allocation';
+import type { Db, Tx } from './context';
+import { conflict, notFound, validation } from './errors';
+import { loadNode } from './lookup';
+import { appendRank } from './rank';
 
 /**
  * Create verbs. Each opens one transaction: validate the behavioral invariants
@@ -25,9 +26,9 @@ async function insertTags(
 ): Promise<void> {
   for (const tag of tags ?? []) {
     await tx
-      .insertInto("tag")
+      .insertInto('tag')
       .values({ entity_type: entityType, entity_id: entityId, tag, note: null })
-      .onConflict((oc) => oc.columns(["entity_type", "entity_id", "tag"]).doNothing())
+      .onConflict((oc) => oc.columns(['entity_type', 'entity_id', 'tag']).doNothing())
       .execute();
   }
 }
@@ -45,15 +46,15 @@ export async function createProject(db: Db, input: CreateProjectInput): Promise<
   }
   return db.transaction().execute(async (tx) => {
     const existing = await tx
-      .selectFrom("project")
-      .select("id")
-      .where("key", "=", input.key)
+      .selectFrom('project')
+      .select('id')
+      .where('key', '=', input.key)
       .executeTakeFirst();
     if (existing !== undefined) {
       throw conflict(`project key already exists: ${input.key}`);
     }
     const project = await tx
-      .insertInto("project")
+      .insertInto('project')
       .values({
         key: input.key,
         name: input.name,
@@ -61,7 +62,7 @@ export async function createProject(db: Db, input: CreateProjectInput): Promise<
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    await insertTags(tx, "project", project.id, input.tags);
+    await insertTags(tx, 'project', project.id, input.tags);
     return project;
   });
 }
@@ -76,19 +77,19 @@ export interface CreateInitiativeInput {
 export async function createInitiative(db: Db, input: CreateInitiativeInput): Promise<Node> {
   return db.transaction().execute(async (tx) => {
     const project = await tx
-      .selectFrom("project")
-      .select("id")
-      .where("id", "=", input.projectId)
+      .selectFrom('project')
+      .select('id')
+      .where('id', '=', input.projectId)
       .executeTakeFirst();
     if (project === undefined) {
-      throw notFound("the project was not found");
+      throw notFound('the project was not found');
     }
     const seq = await allocateSeq(tx, input.projectId);
     const node = await tx
-      .insertInto("node")
+      .insertInto('node')
       .values({
         project_id: input.projectId,
-        type: "initiative",
+        type: 'initiative',
         parent_id: null,
         seq,
         title: input.title,
@@ -96,7 +97,7 @@ export async function createInitiative(db: Db, input: CreateInitiativeInput): Pr
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    await insertTags(tx, "node", node.id, input.tags);
+    await insertTags(tx, 'node', node.id, input.tags);
     return node;
   });
 }
@@ -113,17 +114,17 @@ export async function createPhase(db: Db, input: CreatePhaseInput): Promise<Node
   return db.transaction().execute(async (tx) => {
     const parent = await loadNode(tx, input.parentId);
     if (parent === undefined) {
-      throw notFound("the parent was not found");
+      throw notFound('the parent was not found');
     }
-    if (parent.type !== "initiative") {
+    if (parent.type !== 'initiative') {
       throw validation(`a phase's parent must be an initiative, not a ${parent.type}`);
     }
     const seq = await allocateSeq(tx, parent.project_id);
     const node = await tx
-      .insertInto("node")
+      .insertInto('node')
       .values({
         project_id: parent.project_id,
-        type: "phase",
+        type: 'phase',
         parent_id: parent.id,
         seq,
         title: input.title,
@@ -132,7 +133,7 @@ export async function createPhase(db: Db, input: CreatePhaseInput): Promise<Node
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    await insertTags(tx, "node", node.id, input.tags);
+    await insertTags(tx, 'node', node.id, input.tags);
     return node;
   });
 }
@@ -151,25 +152,25 @@ export async function createTask(db: Db, input: CreateTaskInput): Promise<Node> 
   return db.transaction().execute(async (tx) => {
     const parent = await loadNode(tx, input.parentId);
     if (parent === undefined) {
-      throw notFound("the parent was not found");
+      throw notFound('the parent was not found');
     }
-    if (parent.type !== "phase" && parent.type !== "initiative") {
+    if (parent.type !== 'phase' && parent.type !== 'initiative') {
       throw validation(`a task's parent must be a phase or initiative, not a ${parent.type}`);
     }
     const seq = await allocateSeq(tx, parent.project_id);
     // A fresh task is todo + none → in the rankable set → append to bottom.
     const rank = await appendRank(tx, parent.project_id);
     const node = await tx
-      .insertInto("node")
+      .insertInto('node')
       .values({
         project_id: parent.project_id,
-        type: "task",
+        type: 'task',
         parent_id: parent.id,
         seq,
         title: input.title,
         description: input.description ?? null,
-        lifecycle: "todo",
-        hold: "none",
+        lifecycle: 'todo',
+        hold: 'none',
         priority: input.priority ?? null,
         size: input.size ?? null,
         rank,
@@ -177,7 +178,7 @@ export async function createTask(db: Db, input: CreateTaskInput): Promise<Node> 
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    await insertTags(tx, "node", node.id, input.tags);
+    await insertTags(tx, 'node', node.id, input.tags);
     return node;
   });
 }

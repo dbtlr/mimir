@@ -1,5 +1,5 @@
 ---
-title: "ADR 0014: Work artifacts are authored into Mimir, not the vault filesystem"
+title: 'ADR 0014: Work artifacts are authored into Mimir, not the vault filesystem'
 status: accepted
 date: 2026-06-16
 ---

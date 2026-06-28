@@ -7,7 +7,7 @@
  * `ErrorCode` itself is wire vocabulary and lives in `@mimir/contract`;
  * re-exported here for the core's own raisers.
  */
-import type { ErrorCode } from "@mimir/contract";
+import type { ErrorCode } from '@mimir/contract';
 
 export type { ErrorCode };
 
@@ -24,14 +24,14 @@ export class MimirError extends Error {
 }
 
 export const notFound = (message: string, hint?: string): MimirError =>
-  new MimirError("not_found", message, hint);
+  new MimirError('not_found', message, hint);
 
 /** Canonical "no project KEY" error — all transports emit the same hint. */
 export const projectNotFound = (key: string): MimirError =>
   notFound(`no project ${key}`, `create it: mimir create project "Name" --key ${key} -y`);
 export const validation = (message: string, hint?: string): MimirError =>
-  new MimirError("validation", message, hint);
+  new MimirError('validation', message, hint);
 export const conflict = (message: string, hint?: string): MimirError =>
-  new MimirError("conflict", message, hint);
+  new MimirError('conflict', message, hint);
 export const invariant = (message: string, hint?: string): MimirError =>
-  new MimirError("invariant", message, hint);
+  new MimirError('invariant', message, hint);

@@ -16,20 +16,20 @@ export interface UiAsset {
 
 export type UiAssetMap = Readonly<Record<string, UiAsset>>;
 
-const INDEX = "/index.html";
+const INDEX = '/index.html';
 
 function assetResponse(asset: UiAsset): Response {
   return new Response(Bun.file(asset.file), {
     headers: {
-      "content-type": asset.type,
-      "cache-control": asset.immutable ? "public, max-age=31536000, immutable" : "no-cache",
+      'content-type': asset.type,
+      'cache-control': asset.immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
     },
   });
 }
 
 /** The embedded-UI read: exact asset, or the SPA fallback; null = nothing to serve. */
 export function uiResponse(pathname: string, assets: UiAssetMap): Response | null {
-  const exact = assets[pathname === "/" ? INDEX : pathname];
+  const exact = assets[pathname === '/' ? INDEX : pathname];
   if (exact !== undefined) {
     return assetResponse(exact);
   }

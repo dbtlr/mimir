@@ -1,16 +1,17 @@
-import { useState } from "react";
-import { useAnnotate } from "../api/mutations";
+import { useState } from 'react';
+
+import { useAnnotate } from '../api/mutations';
 
 export function AnnotationComposer({ nodeId, offline }: { nodeId: string; offline?: boolean }) {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState('');
   const annotate = useAnnotate(nodeId);
 
   const trimmed = value.trim();
-  const disabled = offline === true || annotate.isPending || trimmed === "";
+  const disabled = offline === true || annotate.isPending || trimmed === '';
 
   function handleClick() {
     annotate.mutate(trimmed, {
-      onSuccess: () => setValue(""),
+      onSuccess: () => setValue(''),
     });
   }
 

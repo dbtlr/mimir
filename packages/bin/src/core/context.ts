@@ -1,5 +1,6 @@
-import type { Kysely, Transaction } from "kysely";
-import type { DB } from "../db/schema";
+import type { Kysely, Transaction } from 'kysely';
+
+import type { DB } from '../db/schema';
 
 /**
  * Executor aliases. Public verbs take a `Db` and open their own transaction;

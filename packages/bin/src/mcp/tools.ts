@@ -1,18 +1,17 @@
-import {
-  CHEAP_FACETS,
-  type FacetName,
-  type FieldFilter,
-  type Priority,
-  type QueryOp,
-  type Size,
-  type StatusSelector,
-  type Verdict,
-  type VerdictSelector,
-} from "@mimir/contract";
+import { CHEAP_FACETS } from '@mimir/contract';
+import type {
+  FacetName,
+  FieldFilter,
+  Priority,
+  QueryOp,
+  Size,
+  StatusSelector,
+  Verdict,
+  VerdictSelector,
+} from '@mimir/contract';
+
 import {
   MimirError,
-  type UpdateFields,
-  type UpdateProjectFields,
   abandonTask,
   annotate,
   attachArtifact,
@@ -56,10 +55,11 @@ import {
   updateNode,
   updateProject,
   validation,
-} from "../core";
-import type { Db } from "../core";
-import { parseFilterToken, parseId, parseIdentity } from "../core";
-import type { RankPosition } from "../core";
+} from '../core';
+import type { UpdateFields, UpdateProjectFields } from '../core';
+import type { Db } from '../core';
+import { parseFilterToken, parseId, parseIdentity } from '../core';
+import type { RankPosition } from '../core';
 
 /**
  * The MCP tool handlers — the agent envelope over the shared intent layer.
@@ -69,19 +69,19 @@ import type { RankPosition } from "../core";
  */
 
 export interface ToolResult {
-  content: { type: "text"; text: string }[];
+  content: { type: 'text'; text: string }[];
   isError?: boolean;
   // The SDK's CallToolResult carries an open index signature; matching it keeps
   // these handlers assignable as tool callbacks.
   [key: string]: unknown;
 }
 
-const ok = (text: string): ToolResult => ({ content: [{ type: "text", text }] });
+const ok = (text: string): ToolResult => ({ content: [{ type: 'text', text }] });
 
 const fail = (code: string, message: string, hint?: string): ToolResult => ({
   content: [
     {
-      type: "text",
+      type: 'text',
       text: JSON.stringify(
         hint === undefined ? { error: { code, message } } : { error: { code, message, hint } },
       ),
@@ -101,7 +101,7 @@ async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {
 }
 
 /** Resolve a node token to its surrogate id — the MCP binding of the core guard. */
-async function nodeId(db: Db, id: string, expected = "node"): Promise<number> {
+async function nodeId(db: Db, id: string, expected = 'node'): Promise<number> {
   return resolveNodeToken(db, id, expected);
 }
 
@@ -110,7 +110,7 @@ async function nodeId(db: Db, id: string, expected = "node"): Promise<number> {
  * Throws not_found if no project with that key exists.
  */
 async function projectId(db: Db, key: string): Promise<number> {
-  const row = await db.selectFrom("project").select("id").where("key", "=", key).executeTakeFirst();
+  const row = await db.selectFrom('project').select('id').where('key', '=', key).executeTakeFirst();
   if (row === undefined) throw projectNotFound(key);
   return row.id;
 }
@@ -152,17 +152,17 @@ export interface SetQueryArgs {
 }
 
 const OP_ARGS: [QueryOp, keyof SetQueryArgs][] = [
-  ["eq", "eq"],
-  ["not-eq", "notEq"],
-  ["in", "in"],
-  ["not-in", "notIn"],
-  ["has", "has"],
-  ["missing", "missing"],
-  ["before", "before"],
-  ["on", "on"],
-  ["after", "after"],
-  ["not-before", "notBefore"],
-  ["not-after", "notAfter"],
+  ['eq', 'eq'],
+  ['not-eq', 'notEq'],
+  ['in', 'in'],
+  ['not-in', 'notIn'],
+  ['has', 'has'],
+  ['missing', 'missing'],
+  ['before', 'before'],
+  ['on', 'on'],
+  ['after', 'after'],
+  ['not-before', 'notBefore'],
+  ['not-after', 'notAfter'],
 ];
 
 function collectFilters(args: SetQueryArgs): FieldFilter[] {
@@ -194,7 +194,7 @@ export function toolNext(db: Db, args: SetQueryArgs): Promise<ToolResult> {
       filters: collectFilters(args),
       limit: args.limit,
     });
-    return ok(formatSetJson(result, "tasks", { includeWarnings: true }));
+    return ok(formatSetJson(result, 'tasks', { includeWarnings: true }));
   });
 }
 
@@ -210,22 +210,22 @@ export function toolList(db: Db, args: SetQueryArgs): Promise<ToolResult> {
       tag: args.tag,
       limit: args.limit,
     });
-    return ok(formatSetJson(result, "tasks", { includeWarnings: true }));
+    return ok(formatSetJson(result, 'tasks', { includeWarnings: true }));
   });
 }
 
 export function toolGet(
   db: Db,
-  args: { id: string; facets?: (FacetName | "content")[] },
+  args: { id: string; facets?: (FacetName | 'content')[] },
 ): Promise<ToolResult> {
   return guard(async () => {
     const requested = args.facets ?? [];
-    if (parseIdentity(args.id)?.kind === "artifact") {
-      const content = requested.includes("content");
+    if (parseIdentity(args.id)?.kind === 'artifact') {
+      const content = requested.includes('content');
       return ok(formatArtifactJson(await getArtifact(db, args.id, { content })));
     }
     // `content` is artifact-only; ignore it for nodes/projects.
-    const nodeFacets = requested.filter((f): f is FacetName => f !== "content");
+    const nodeFacets = requested.filter((f): f is FacetName => f !== 'content');
     const facets =
       nodeFacets.length > 0 ? [...new Set<FacetName>([...CHEAP_FACETS, ...nodeFacets])] : undefined;
     return ok(formatNodeJson(await getNode(db, args.id, { facets })));
@@ -242,7 +242,7 @@ export function toolStatus(db: Db, args: { id: string }): Promise<ToolResult> {
 
 export function toolStart(db: Db, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, "task");
+    const id = await nodeId(db, args.id, 'task');
     const node = await startTask(db, id);
     return echoNode(db, node);
   });
@@ -250,7 +250,7 @@ export function toolStart(db: Db, args: { id: string }): Promise<ToolResult> {
 
 export function toolSubmit(db: Db, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, "task");
+    const id = await nodeId(db, args.id, 'task');
     const node = await submitTask(db, id);
     return echoNode(db, node);
   });
@@ -258,7 +258,7 @@ export function toolSubmit(db: Db, args: { id: string }): Promise<ToolResult> {
 
 export function toolReturn(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, "task");
+    const id = await nodeId(db, args.id, 'task');
     const node = await returnTask(db, id, args.reason);
     return echoNode(db, node);
   });
@@ -266,7 +266,7 @@ export function toolReturn(db: Db, args: { id: string; reason?: string }): Promi
 
 export function toolReopen(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, "task");
+    const id = await nodeId(db, args.id, 'task');
     const node = await reopenTask(db, id, args.reason);
     return echoNode(db, node);
   });
@@ -274,7 +274,7 @@ export function toolReopen(db: Db, args: { id: string; reason?: string }): Promi
 
 export function toolDone(db: Db, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, "task");
+    const id = await nodeId(db, args.id, 'task');
     const node = await completeTask(db, id);
     return echoNode(db, node);
   });
@@ -282,7 +282,7 @@ export function toolDone(db: Db, args: { id: string }): Promise<ToolResult> {
 
 export function toolAbandon(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, "task");
+    const id = await nodeId(db, args.id, 'task');
     const node = await abandonTask(db, id, args.reason);
     return echoNode(db, node);
   });
@@ -294,7 +294,7 @@ export function toolAbandon(db: Db, args: { id: string; reason?: string }): Prom
 
 export function toolPark(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, "task");
+    const id = await nodeId(db, args.id, 'task');
     const node = await parkTask(db, id, args.reason);
     return echoNode(db, node);
   });
@@ -302,7 +302,7 @@ export function toolPark(db: Db, args: { id: string; reason?: string }): Promise
 
 export function toolUnpark(db: Db, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, "task");
+    const id = await nodeId(db, args.id, 'task');
     const node = await unparkTask(db, id);
     return echoNode(db, node);
   });
@@ -310,7 +310,7 @@ export function toolUnpark(db: Db, args: { id: string }): Promise<ToolResult> {
 
 export function toolBlock(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, "task");
+    const id = await nodeId(db, args.id, 'task');
     const node = await blockTask(db, id, args.reason);
     return echoNode(db, node);
   });
@@ -318,7 +318,7 @@ export function toolBlock(db: Db, args: { id: string; reason?: string }): Promis
 
 export function toolUnblock(db: Db, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, "task");
+    const id = await nodeId(db, args.id, 'task');
     const node = await unblockTask(db, id);
     return echoNode(db, node);
   });
@@ -361,15 +361,15 @@ export function toolMove(db: Db, args: { id: string; to: string }): Promise<Tool
 
 export function toolReorder(
   db: Db,
-  args: { id: string; position: "top" | "bottom" | "before" | "after"; ref?: string },
+  args: { id: string; position: 'top' | 'bottom' | 'before' | 'after'; ref?: string },
 ): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, "task");
+    const id = await nodeId(db, args.id, 'task');
     const position: RankPosition = args.position;
     let refId: number | null = null;
-    if (position === "before" || position === "after") {
+    if (position === 'before' || position === 'after') {
       if (args.ref === undefined) {
-        throw validation("reorder before/after requires ref");
+        throw validation('reorder before/after requires ref');
       }
       refId = await nodeId(db, args.ref);
     }
@@ -396,10 +396,10 @@ export function toolUpdate(
   },
 ): Promise<ToolResult> {
   return guard(async () => {
-    if (parseIdentity(args.id)?.kind === "artifact") {
+    if (parseIdentity(args.id)?.kind === 'artifact') {
       return updateArtifactTool(db, args);
     }
-    if (parseIdentity(args.id)?.kind === "project") {
+    if (parseIdentity(args.id)?.kind === 'project') {
       return updateProjectTool(db, args);
     }
     const id = await nodeId(db, args.id);
@@ -429,12 +429,12 @@ async function updateProjectTool(
     externalRef?: string;
   },
 ): Promise<ToolResult> {
-  const nodeOnly = (["title", "priority", "size", "target", "externalRef"] as const).filter(
+  const nodeOnly = (['title', 'priority', 'size', 'target', 'externalRef'] as const).filter(
     (k) => args[k] !== undefined,
   );
   if (nodeOnly.length > 0) {
     throw validation(
-      `${nodeOnly.join(", ")} appl${nodeOnly.length === 1 ? "ies" : "y"} only to nodes — use name to rename a project`,
+      `${nodeOnly.join(', ')} appl${nodeOnly.length === 1 ? 'ies' : 'y'} only to nodes — use name to rename a project`,
     );
   }
   const key = args.id;
@@ -445,9 +445,9 @@ async function updateProjectTool(
   await updateProject(db, pid, fields);
   // Echo the updated project through the same projection as getNode/get KEY
   const project = await db
-    .selectFrom("project")
+    .selectFrom('project')
     .selectAll()
-    .where("id", "=", pid)
+    .where('id', '=', pid)
     .executeTakeFirst();
   if (project === undefined) throw projectNotFound(key);
   return ok(formatNodeJson(await buildProjectView(db, project)));
@@ -466,16 +466,16 @@ async function updateArtifactTool(
     externalRef?: string;
   },
 ): Promise<ToolResult> {
-  const nodeOnly = (["description", "priority", "size", "target", "externalRef"] as const).filter(
+  const nodeOnly = (['description', 'priority', 'size', 'target', 'externalRef'] as const).filter(
     (k) => args[k] !== undefined,
   );
   if (nodeOnly.length > 0) {
     throw validation(
-      `${nodeOnly.join(", ")} appl${nodeOnly.length === 1 ? "ies" : "y"} only to nodes — title is an artifact's one mutable field`,
+      `${nodeOnly.join(', ')} appl${nodeOnly.length === 1 ? 'ies' : 'y'} only to nodes — title is an artifact's one mutable field`,
     );
   }
   const identity = parseIdentity(args.id);
-  if (identity?.kind !== "artifact") throw notFound(`no artifact with id ${args.id}`);
+  if (identity?.kind !== 'artifact') throw notFound(`no artifact with id ${args.id}`);
   const artifact = await findArtifactByRef(db, identity);
   if (artifact === undefined) throw notFound(`no artifact ${args.id}`);
   if (args.title !== undefined) {
@@ -501,8 +501,8 @@ export function toolTag(
   args: { ids: string[]; tags: string[]; note?: string },
 ): Promise<ToolResult> {
   return guard(async () => {
-    if (args.ids.length === 0) throw validation("tag requires at least one id");
-    if (args.tags.length === 0) throw validation("tag requires at least one tag");
+    if (args.ids.length === 0) throw validation('tag requires at least one id');
+    if (args.tags.length === 0) throw validation('tag requires at least one tag');
     const targets = await Promise.all(args.ids.map((t) => resolveEntityToken(db, t)));
     await tagEntities(db, targets, args.tags, args.note);
     return ok(JSON.stringify({ tagged: { ids: args.ids, tags: args.tags } }));
@@ -511,8 +511,8 @@ export function toolTag(
 
 export function toolUntag(db: Db, args: { ids: string[]; tags: string[] }): Promise<ToolResult> {
   return guard(async () => {
-    if (args.ids.length === 0) throw validation("untag requires at least one id");
-    if (args.tags.length === 0) throw validation("untag requires at least one tag");
+    if (args.ids.length === 0) throw validation('untag requires at least one id');
+    if (args.tags.length === 0) throw validation('untag requires at least one tag');
     const targets = await Promise.all(args.ids.map((t) => resolveEntityToken(db, t)));
     await untagEntities(db, targets, args.tags);
     return ok(JSON.stringify({ untagged: { ids: args.ids, tags: args.tags } }));
@@ -526,7 +526,7 @@ export function toolUntag(db: Db, args: { ids: string[]; tags: string[] }): Prom
 export function toolCreate(
   db: Db,
   args: {
-    type: "project" | "initiative" | "phase" | "task";
+    type: 'project' | 'initiative' | 'phase' | 'task';
     key?: string;
     name?: string;
     parent?: string;
@@ -541,9 +541,9 @@ export function toolCreate(
 ): Promise<ToolResult> {
   return guard(async () => {
     switch (args.type) {
-      case "project": {
-        if (args.key === undefined) throw validation("create project requires key");
-        if (args.name === undefined) throw validation("create project requires name");
+      case 'project': {
+        if (args.key === undefined) throw validation('create project requires key');
+        if (args.name === undefined) throw validation('create project requires name');
         const project = await createProject(db, {
           key: args.key,
           name: args.name,
@@ -552,9 +552,9 @@ export function toolCreate(
         });
         return ok(JSON.stringify({ project: { key: project.key, name: project.name } }));
       }
-      case "initiative": {
-        if (args.title === undefined) throw validation("create initiative requires title");
-        if (args.parent === undefined) throw validation("create initiative requires parent");
+      case 'initiative': {
+        if (args.title === undefined) throw validation('create initiative requires title');
+        if (args.parent === undefined) throw validation('create initiative requires parent');
         // Initiative parent must be a bare project KEY (not a node ref)
         if (parseId(args.parent) !== null) {
           throw validation("an initiative's parent must be a project (KEY)");
@@ -568,9 +568,9 @@ export function toolCreate(
         });
         return echoNode(db, node);
       }
-      case "phase": {
-        if (args.title === undefined) throw validation("create phase requires title");
-        if (args.parent === undefined) throw validation("create phase requires parent");
+      case 'phase': {
+        if (args.title === undefined) throw validation('create phase requires title');
+        if (args.parent === undefined) throw validation('create phase requires parent');
         // Phase parent must be a node ref (initiative)
         if (parseId(args.parent) === null) {
           throw validation("a phase's parent must be an initiative (KEY-seq)");
@@ -585,9 +585,9 @@ export function toolCreate(
         });
         return echoNode(db, node);
       }
-      case "task": {
-        if (args.title === undefined) throw validation("create task requires title");
-        if (args.parent === undefined) throw validation("create task requires parent");
+      case 'task': {
+        if (args.title === undefined) throw validation('create task requires title');
+        if (args.parent === undefined) throw validation('create task requires parent');
         // Task parent must be a node ref (phase or initiative)
         if (parseId(args.parent) === null) {
           throw validation("a task's parent must be a phase or initiative (KEY-seq)");
@@ -604,8 +604,9 @@ export function toolCreate(
         });
         return echoNode(db, node);
       }
-      default:
+      default: {
         throw validation(`create: unknown type ${String((args as { type: string }).type)}`);
+      }
     }
   });
 }
@@ -649,10 +650,10 @@ export function toolAttach(
         }),
       );
       const projects = new Set(nodes.map((n) => n.project_id));
-      if (projects.size > 1) throw validation("all the links must be in one project");
+      if (projects.size > 1) throw validation('all the links must be in one project');
       const [resolvedProjectId] = projects;
       if (resolvedProjectId === undefined)
-        throw validation("internal: links resolved but project is missing");
+        throw validation('internal: links resolved but project is missing');
       pid = resolvedProjectId;
       linkNodeIds.push(...nodes.map((n) => n.id));
       // If --project is also provided, it must agree
@@ -663,7 +664,7 @@ export function toolAttach(
     } else {
       // No links — project is required
       if (args.project === undefined)
-        throw validation("attach requires a link (KEY-seq) or a project key");
+        throw validation('attach requires a link (KEY-seq) or a project key');
       pid = await projectId(db, args.project);
     }
 

@@ -1,5 +1,5 @@
 ---
-title: "ADR 0002: General-purpose primitives, not baked-in semantics"
+title: 'ADR 0002: General-purpose primitives, not baked-in semantics'
 status: accepted
 date: 2026-06-03
 ---

@@ -1,13 +1,14 @@
-import {
-  Migrator,
-  type Kysely,
-  type Migration,
-  type MigrationProvider,
-  type MigrationResultSet,
-  type MigrationInfo,
-} from "kysely";
-import type { DB } from "./schema";
-import { migrations } from "./migrations";
+import { Migrator } from 'kysely';
+import type {
+  Kysely,
+  Migration,
+  MigrationProvider,
+  MigrationResultSet,
+  MigrationInfo,
+} from 'kysely';
+
+import { migrations } from './migrations';
+import type { DB } from './schema';
 
 /**
  * Serves the statically-bundled migration set to Kysely's Migrator. No

@@ -1,11 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { blockedQuery, staleQuery, underReviewQuery } from "../api/queries";
-import { projectKeyOf } from "../api/types";
-import { attentionItems } from "../lib/attention";
-import { StaleBadge } from "./signal-badges";
-import { StatusDot } from "./status-dot";
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from "./ui/menu";
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
+
+import { blockedQuery, staleQuery, underReviewQuery } from '../api/queries';
+import { projectKeyOf } from '../api/types';
+import { attentionItems } from '../lib/attention';
+import { StaleBadge } from './signal-badges';
+import { StatusDot } from './status-dot';
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
 
 /**
  * The global attention control (MMR-80, reconciled MMR-103): the cross-project
@@ -30,9 +31,9 @@ export function AttentionAlert() {
       <MenuTrigger
         aria-label={
           count === 0
-            ? "Attention: nothing needs you"
+            ? 'Attention: nothing needs you'
             : count === 1
-              ? "Attention: 1 needs you"
+              ? 'Attention: 1 needs you'
               : `Attention: ${count} need you`
         }
         className="relative flex h-9 w-9 items-center justify-center rounded text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:h-auto md:w-auto md:p-1.5"
@@ -61,9 +62,9 @@ export function AttentionAlert() {
               key={node.id}
               onClick={() =>
                 void navigate({
-                  to: "/p/$key",
+                  to: '/p/$key',
                   params: { key: projectKeyOf(node.id) },
-                  search: { view: "board", node: node.id },
+                  search: { view: 'board', node: node.id },
                 })
               }
             >
@@ -75,7 +76,7 @@ export function AttentionAlert() {
                   </span>
                   <span className="truncate text-sm text-ink md:text-xs">{node.title}</span>
                 </span>
-                {node.hold_reason != null && node.hold_reason !== "" && (
+                {node.hold_reason != null && node.hold_reason !== '' && (
                   <span className="truncate text-2xs text-ink-faint">{node.hold_reason}</span>
                 )}
               </span>

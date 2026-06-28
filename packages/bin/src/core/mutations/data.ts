@@ -1,13 +1,15 @@
-import type { Priority, Size } from "@mimir/contract";
-import type { Node, NodeUpdate, Project } from "../../db/schema";
-import { allocateArtifactSeq } from "../allocation";
-import type { Db } from "../context";
-import { notFound, validation } from "../errors";
-import { renderArtifactRef } from "../ids";
-import { renderNodeId } from "../lookup";
-import { type RankPosition, reorderTask } from "../rank";
-import { now } from "../time";
-import { reloadNode, requireNode, requireTask, stamp } from "./common";
+import type { Priority, Size } from '@mimir/contract';
+
+import type { Node, NodeUpdate, Project } from '../../db/schema';
+import { allocateArtifactSeq } from '../allocation';
+import type { Db } from '../context';
+import { notFound, validation } from '../errors';
+import { renderArtifactRef } from '../ids';
+import { renderNodeId } from '../lookup';
+import { reorderTask } from '../rank';
+import type { RankPosition } from '../rank';
+import { now } from '../time';
+import { reloadNode, requireNode, requireTask, stamp } from './common';
 
 /**
  * Data + structural-order verbs that aren't status-bearing: the dumb `update`
@@ -34,11 +36,11 @@ export async function updateNode(db: Db, id: number, fields: UpdateFields): Prom
       fields.priority !== undefined ||
       fields.size !== undefined ||
       fields.externalRef !== undefined;
-    if (wantsTaskField && node.type !== "task") {
-      throw validation("priority, size, and external_ref apply only to tasks");
+    if (wantsTaskField && node.type !== 'task') {
+      throw validation('priority, size, and external_ref apply only to tasks');
     }
-    if (fields.target !== undefined && node.type !== "phase") {
-      throw validation("target applies only to phases");
+    if (fields.target !== undefined && node.type !== 'phase') {
+      throw validation('target applies only to phases');
     }
 
     const patch: NodeUpdate = {};
@@ -51,7 +53,7 @@ export async function updateNode(db: Db, id: number, fields: UpdateFields): Prom
 
     if (Object.keys(patch).length > 0) {
       patch.updated_at = now();
-      await tx.updateTable("node").set(patch).where("id", "=", id).execute();
+      await tx.updateTable('node').set(patch).where('id', '=', id).execute();
     }
     return reloadNode(tx, id);
   });
@@ -74,15 +76,15 @@ export async function updateProject(
 ): Promise<Project> {
   return db.transaction().execute(async (tx) => {
     const project = await tx
-      .selectFrom("project")
+      .selectFrom('project')
       .selectAll()
-      .where("id", "=", id)
+      .where('id', '=', id)
       .executeTakeFirst();
     if (project === undefined) {
-      throw notFound("the project was not found");
+      throw notFound('the project was not found');
     }
-    if (fields.name !== undefined && fields.name.trim() === "") {
-      throw validation("project name cannot be blank");
+    if (fields.name !== undefined && fields.name.trim() === '') {
+      throw validation('project name cannot be blank');
     }
     const patch: Record<string, unknown> = {};
     if (fields.name !== undefined) patch.name = fields.name;
@@ -90,12 +92,12 @@ export async function updateProject(
 
     if (Object.keys(patch).length > 0) {
       patch.updated_at = now();
-      await tx.updateTable("project").set(patch).where("id", "=", id).execute();
+      await tx.updateTable('project').set(patch).where('id', '=', id).execute();
     }
     return (await tx
-      .selectFrom("project")
+      .selectFrom('project')
       .selectAll()
-      .where("id", "=", id)
+      .where('id', '=', id)
       .executeTakeFirst()) as Project;
   });
 }
@@ -103,7 +105,7 @@ export async function updateProject(
 export async function annotate(db: Db, id: number, content: string): Promise<Node> {
   return db.transaction().execute(async (tx) => {
     await requireNode(tx, id);
-    await tx.insertInto("annotation").values({ node_id: id, content }).execute();
+    await tx.insertInto('annotation').values({ node_id: id, content }).execute();
     await stamp(tx, id); // in-flight activity moves the task (affects stale)
     return reloadNode(tx, id);
   });
@@ -124,20 +126,20 @@ export async function updateArtifact(
   id: number,
   fields: ArtifactUpdateFields,
 ): Promise<void> {
-  if (fields.title !== undefined && fields.title.trim() === "") {
-    throw validation("an artifact title cannot be blank");
+  if (fields.title !== undefined && fields.title.trim() === '') {
+    throw validation('an artifact title cannot be blank');
   }
   await db.transaction().execute(async (tx) => {
     const artifact = await tx
-      .selectFrom("artifact")
-      .select("id")
-      .where("id", "=", id)
+      .selectFrom('artifact')
+      .select('id')
+      .where('id', '=', id)
       .executeTakeFirst();
     if (artifact === undefined) {
-      throw notFound("the artifact was not found");
+      throw notFound('the artifact was not found');
     }
     if (fields.title !== undefined) {
-      await tx.updateTable("artifact").set({ title: fields.title }).where("id", "=", id).execute();
+      await tx.updateTable('artifact').set({ title: fields.title }).where('id', '=', id).execute();
     }
   });
 }
@@ -156,39 +158,39 @@ export async function attachArtifact(
   db: Db,
   input: AttachArtifactInput,
 ): Promise<{ id: number; renderedId: string }> {
-  if (input.title.trim() === "") {
-    throw validation("attach requires a title");
+  if (input.title.trim() === '') {
+    throw validation('attach requires a title');
   }
   return db.transaction().execute(async (tx) => {
     const project = await tx
-      .selectFrom("project")
-      .select("key")
-      .where("id", "=", input.projectId)
+      .selectFrom('project')
+      .select('key')
+      .where('id', '=', input.projectId)
       .executeTakeFirst();
     if (project === undefined) {
-      throw notFound("the project was not found");
+      throw notFound('the project was not found');
     }
     const seq = await allocateArtifactSeq(tx, input.projectId);
     const artifact = await tx
-      .insertInto("artifact")
+      .insertInto('artifact')
       .values({ project_id: input.projectId, seq, title: input.title, content: input.content })
-      .returning("id")
+      .returning('id')
       .executeTakeFirstOrThrow();
     for (const tag of input.tags ?? []) {
       await tx
-        .insertInto("tag")
-        .values({ entity_type: "artifact", entity_id: artifact.id, tag, note: null })
-        .onConflict((oc) => oc.columns(["entity_type", "entity_id", "tag"]).doNothing())
+        .insertInto('tag')
+        .values({ entity_type: 'artifact', entity_id: artifact.id, tag, note: null })
+        .onConflict((oc) => oc.columns(['entity_type', 'entity_id', 'tag']).doNothing())
         .execute();
     }
     for (const nodeId of input.linkNodeIds ?? []) {
       const node = await requireNode(tx, nodeId);
       if (node.project_id !== input.projectId) {
-        const rendered = (await renderNodeId(tx, nodeId)) ?? "it";
+        const rendered = (await renderNodeId(tx, nodeId)) ?? 'it';
         throw validation(`${rendered} is in a different project — links stay within one project`);
       }
       await tx
-        .insertInto("artifact_link")
+        .insertInto('artifact_link')
         .values({ artifact_id: artifact.id, node_id: nodeId })
         .execute();
     }
@@ -206,7 +208,7 @@ export async function reorder(
     const task = await requireTask(tx, id);
     if (task.rank === null) {
       throw validation(
-        "cannot reorder a task outside the rankable set (terminal, held, or under review)",
+        'cannot reorder a task outside the rankable set (terminal, held, or under review)',
       );
     }
     await reorderTask(tx, task.project_id, id, position, refId);

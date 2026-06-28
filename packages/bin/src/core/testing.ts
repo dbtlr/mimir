@@ -1,5 +1,7 @@
-import { expect } from "bun:test";
-import { type ErrorCode, MimirError } from "./errors";
+import { expect } from 'bun:test';
+
+import { MimirError } from './errors';
+import type { ErrorCode } from './errors';
 
 /** Assert that `run` rejects with a {@link MimirError} of the given code. */
 export async function expectMimirError(

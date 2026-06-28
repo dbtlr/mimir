@@ -1,4 +1,5 @@
-import { projectKeyOf, type WireNode } from "../api/types";
+import { projectKeyOf } from '../api/types';
+import type { WireNode } from '../api/types';
 
 /** Tally a flat portfolio-wide node list into per-project-key counts. */
 export function countByProject(nodes: WireNode[]): Map<string, number> {

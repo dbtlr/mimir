@@ -1,5 +1,5 @@
 ---
-title: "ADR 0003: Append-only transition log"
+title: 'ADR 0003: Append-only transition log'
 status: accepted
 date: 2026-06-03
 ---

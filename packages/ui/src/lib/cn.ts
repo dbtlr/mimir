@@ -1,5 +1,6 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { clsx } from 'clsx';
+import type { ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 /** The shadcn class combinator — clsx then tailwind-merge. */
 export function cn(...inputs: ClassValue[]): string {

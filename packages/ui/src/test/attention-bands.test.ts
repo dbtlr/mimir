@@ -1,7 +1,8 @@
-import { describe, expect, test } from "vitest";
-import type { WireAttention } from "../api/types";
-import { groupIntoBands } from "../lib/attention-bands";
-import { project } from "./fixtures";
+import { describe, expect, test } from 'vitest';
+
+import type { WireAttention } from '../api/types';
+import { groupIntoBands } from '../lib/attention-bands';
+import { project } from './fixtures';
 
 /**
  * MMR-102 — the overview's attention-band grouping. A pure transform from the
@@ -10,77 +11,77 @@ import { project } from "./fixtures";
  * facet is absent (offline / pre-feature cache).
  */
 
-function attn(band: WireAttention["band"], lastActivity: string, stale = false): WireAttention {
+function attn(band: WireAttention['band'], lastActivity: string, stale = false): WireAttention {
   return { band, last_activity: lastActivity, stale };
 }
 
-describe("groupIntoBands", () => {
-  test("groups projects into the four bands in fixed highest-wins order", () => {
+describe('groupIntoBands', () => {
+  it('groups projects into the four bands in fixed highest-wins order', () => {
     const result = groupIntoBands([
-      project({ id: "REST", attention: attn("at_rest", "2026-06-01T00:00:00.000Z") }),
-      project({ id: "STUCK", attention: attn("needs_unsticking", "2026-06-01T00:00:00.000Z") }),
-      project({ id: "REVIEW", attention: attn("awaiting_you", "2026-06-01T00:00:00.000Z") }),
-      project({ id: "LIVE", attention: attn("live", "2026-06-01T00:00:00.000Z") }),
+      project({ id: 'REST', attention: attn('at_rest', '2026-06-01T00:00:00.000Z') }),
+      project({ id: 'STUCK', attention: attn('needs_unsticking', '2026-06-01T00:00:00.000Z') }),
+      project({ id: 'REVIEW', attention: attn('awaiting_you', '2026-06-01T00:00:00.000Z') }),
+      project({ id: 'LIVE', attention: attn('live', '2026-06-01T00:00:00.000Z') }),
     ]);
-    expect(result.mode).toBe("banded");
-    if (result.mode !== "banded") return;
-    expect(result.bands.map((b) => b.band)).toEqual([
-      "awaiting_you",
-      "live",
-      "needs_unsticking",
-      "at_rest",
+    expect(result.mode).toBe('banded');
+    if (result.mode !== 'banded') return;
+    expect(result.bands.map((b) => b.band)).toStrictEqual([
+      'awaiting_you',
+      'live',
+      'needs_unsticking',
+      'at_rest',
     ]);
-    expect(result.bands.map((b) => b.label)).toEqual([
-      "Awaiting you",
-      "Live",
-      "Needs unsticking",
-      "At rest",
+    expect(result.bands.map((b) => b.label)).toStrictEqual([
+      'Awaiting you',
+      'Live',
+      'Needs unsticking',
+      'At rest',
     ]);
   });
 
-  test("omits empty bands — no orphan headers", () => {
+  it('omits empty bands — no orphan headers', () => {
     const result = groupIntoBands([
-      project({ id: "A", attention: attn("live", "2026-06-01T00:00:00.000Z") }),
-      project({ id: "B", attention: attn("live", "2026-06-02T00:00:00.000Z") }),
+      project({ id: 'A', attention: attn('live', '2026-06-01T00:00:00.000Z') }),
+      project({ id: 'B', attention: attn('live', '2026-06-02T00:00:00.000Z') }),
     ]);
-    expect(result.mode).toBe("banded");
-    if (result.mode !== "banded") return;
+    expect(result.mode).toBe('banded');
+    if (result.mode !== 'banded') return;
     expect(result.bands).toHaveLength(1);
-    expect(result.bands[0]?.band).toBe("live");
+    expect(result.bands[0]?.band).toBe('live');
   });
 
-  test("sorts within a band by last_activity descending (most recent first)", () => {
+  it('sorts within a band by last_activity descending (most recent first)', () => {
     const result = groupIntoBands([
-      project({ id: "OLD", attention: attn("live", "2026-06-01T00:00:00.000Z") }),
-      project({ id: "NEW", attention: attn("live", "2026-06-20T00:00:00.000Z") }),
-      project({ id: "MID", attention: attn("live", "2026-06-10T00:00:00.000Z") }),
+      project({ id: 'OLD', attention: attn('live', '2026-06-01T00:00:00.000Z') }),
+      project({ id: 'NEW', attention: attn('live', '2026-06-20T00:00:00.000Z') }),
+      project({ id: 'MID', attention: attn('live', '2026-06-10T00:00:00.000Z') }),
     ]);
-    if (result.mode !== "banded") throw new Error("expected banded");
-    expect(result.bands[0]?.projects.map((p) => p.id)).toEqual(["NEW", "MID", "OLD"]);
+    if (result.mode !== 'banded') throw new Error('expected banded');
+    expect(result.bands[0]?.projects.map((p) => p.id)).toStrictEqual(['NEW', 'MID', 'OLD']);
   });
 
-  test("carries the going-cold (stale) flag through on the project's attention", () => {
+  it("carries the going-cold (stale) flag through on the project's attention", () => {
     const result = groupIntoBands([
-      project({ id: "COLD", attention: attn("live", "2026-06-01T00:00:00.000Z", true) }),
+      project({ id: 'COLD', attention: attn('live', '2026-06-01T00:00:00.000Z', true) }),
     ]);
-    if (result.mode !== "banded") throw new Error("expected banded");
+    if (result.mode !== 'banded') throw new Error('expected banded');
     expect(result.bands[0]?.projects[0]?.attention?.stale).toBe(true);
   });
 
-  test("falls back to a flat list (input order) when any project lacks the facet", () => {
+  it('falls back to a flat list (input order) when any project lacks the facet', () => {
     const result = groupIntoBands([
-      project({ id: "AAA", attention: attn("live", "2026-06-01T00:00:00.000Z") }),
-      project({ id: "BBB" }), // no attention — degraded payload
+      project({ id: 'AAA', attention: attn('live', '2026-06-01T00:00:00.000Z') }),
+      project({ id: 'BBB' }), // no attention — degraded payload
     ]);
-    expect(result.mode).toBe("flat");
-    if (result.mode !== "flat") return;
-    expect(result.projects.map((p) => p.id)).toEqual(["AAA", "BBB"]);
+    expect(result.mode).toBe('flat');
+    if (result.mode !== 'flat') return;
+    expect(result.projects.map((p) => p.id)).toStrictEqual(['AAA', 'BBB']);
   });
 
-  test("an empty overview yields banded mode with no bands", () => {
+  it('an empty overview yields banded mode with no bands', () => {
     const result = groupIntoBands([]);
-    expect(result.mode).toBe("banded");
-    if (result.mode !== "banded") return;
+    expect(result.mode).toBe('banded');
+    if (result.mode !== 'banded') return;
     expect(result.bands).toHaveLength(0);
   });
 });

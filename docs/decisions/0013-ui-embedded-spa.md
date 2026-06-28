@@ -1,5 +1,5 @@
 ---
-title: "ADR 0013: The UI is an embedded SPA — board-first console, PWA, offline reads only"
+title: 'ADR 0013: The UI is an embedded SPA — board-first console, PWA, offline reads only'
 status: accepted
 date: 2026-06-11
 ---

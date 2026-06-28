@@ -1,8 +1,10 @@
-import { expect } from "bun:test";
-import type { Kysely } from "kysely";
-import type { DB } from "./schema";
-import { createDb } from "./client";
-import { migrateToLatest } from "./migrator";
+import { expect } from 'bun:test';
+
+import type { Kysely } from 'kysely';
+
+import { createDb } from './client';
+import { migrateToLatest } from './migrator';
+import type { DB } from './schema';
 
 /**
  * A fresh in-memory database with all migrations applied — the substrate every
@@ -10,7 +12,7 @@ import { migrateToLatest } from "./migrator";
  * exercised; never a mock (ADR 0010 / storage-committed core).
  */
 export async function createTestDb(): Promise<Kysely<DB>> {
-  const db = createDb(":memory:");
+  const db = createDb(':memory:');
   const { error } = await migrateToLatest(db);
   if (error !== undefined) {
     throw error instanceof Error ? error : new Error(JSON.stringify(error));

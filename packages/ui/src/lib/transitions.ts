@@ -1,17 +1,17 @@
-import type { StatusWord } from "@mimir/contract";
+import type { StatusWord } from '@mimir/contract';
 
 /** The mutation verbs a human can drive from the console (lifecycle + hold). */
 export type TransitionVerb =
-  | "start"
-  | "submit"
-  | "return"
-  | "done"
-  | "abandon"
-  | "reopen"
-  | "park"
-  | "unpark"
-  | "block"
-  | "unblock";
+  | 'start'
+  | 'submit'
+  | 'return'
+  | 'done'
+  | 'abandon'
+  | 'reopen'
+  | 'park'
+  | 'unpark'
+  | 'block'
+  | 'unblock';
 
 export interface VerbSpec {
   verb: TransitionVerb;
@@ -21,19 +21,19 @@ export interface VerbSpec {
 }
 
 const LABEL: Record<TransitionVerb, string> = {
-  start: "Start",
-  submit: "Submit for review",
-  return: "Request changes",
-  done: "Done",
-  abandon: "Abandon",
-  reopen: "Reopen",
-  park: "Park",
-  unpark: "Unpark",
-  block: "Block",
-  unblock: "Unblock",
+  start: 'Start',
+  submit: 'Submit for review',
+  return: 'Request changes',
+  done: 'Done',
+  abandon: 'Abandon',
+  reopen: 'Reopen',
+  park: 'Park',
+  unpark: 'Unpark',
+  block: 'Block',
+  unblock: 'Unblock',
 };
 
-const NEEDS_REASON = new Set<TransitionVerb>(["park", "block", "abandon", "return", "reopen"]);
+const NEEDS_REASON = new Set<TransitionVerb>(['park', 'block', 'abandon', 'return', 'reopen']);
 
 /**
  * The verbs offered for each displayed status word — keyed on what the operator
@@ -43,14 +43,14 @@ const NEEDS_REASON = new Set<TransitionVerb>(["park", "block", "abandon", "retur
  * hold). The core stays the authority and rejects anything illegal.
  */
 const VERBS: Partial<Record<StatusWord, TransitionVerb[]>> = {
-  in_progress: ["submit", "done", "park", "block", "abandon"],
-  under_review: ["done", "return", "park", "block", "abandon"],
-  ready: ["start", "park", "block", "abandon"],
-  awaiting: ["start", "park", "block", "abandon"],
-  blocked: ["unblock", "abandon"],
-  parked: ["unpark", "abandon"],
-  done: ["reopen"],
-  abandoned: ["reopen"],
+  in_progress: ['submit', 'done', 'park', 'block', 'abandon'],
+  under_review: ['done', 'return', 'park', 'block', 'abandon'],
+  ready: ['start', 'park', 'block', 'abandon'],
+  awaiting: ['start', 'park', 'block', 'abandon'],
+  blocked: ['unblock', 'abandon'],
+  parked: ['unpark', 'abandon'],
+  done: ['reopen'],
+  abandoned: ['reopen'],
 };
 
 export function availableTransitions(status: StatusWord): VerbSpec[] {

@@ -5,21 +5,24 @@ import {
   closestCenter,
   useSensor,
   useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { useRef, useState } from "react";
-import { cn } from "../lib/cn";
-import { BOARD_COLUMNS, isCollapsible, type Board, type BoardColumn } from "../lib/board";
-import { reorderArgs, type ReorderArgs } from "../lib/reorder";
-import { STATUS_META } from "../lib/status";
-import { useReorder } from "../api/mutations";
-import type { WireNode } from "../api/types";
-import { NodeCard } from "./node-card";
-import { StatusDot } from "./status-dot";
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from "./ui/menu";
-import { Tabs, TabsContent } from "./ui/tabs";
+} from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { useRef, useState } from 'react';
+
+import { useReorder } from '../api/mutations';
+import type { WireNode } from '../api/types';
+import { BOARD_COLUMNS, isCollapsible } from '../lib/board';
+import type { Board, BoardColumn } from '../lib/board';
+import { cn } from '../lib/cn';
+import { reorderArgs } from '../lib/reorder';
+import type { ReorderArgs } from '../lib/reorder';
+import { STATUS_META } from '../lib/status';
+import { NodeCard } from './node-card';
+import { StatusDot } from './status-dot';
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
+import { Tabs, TabsContent } from './ui/tabs';
 
 interface BoardViewProps {
   board: Board;
@@ -34,7 +37,7 @@ interface BoardViewProps {
 }
 
 /** The rankable set (ADR 0007) as board columns — drag-to-reorder lives here only. */
-export const RANKABLE_COLUMNS = ["in_progress", "ready", "awaiting"] as const;
+export const RANKABLE_COLUMNS = ['in_progress', 'ready', 'awaiting'] as const;
 type RankableColumn = (typeof RANKABLE_COLUMNS)[number];
 
 function isRankable(column: BoardColumn): column is RankableColumn {
@@ -68,7 +71,7 @@ function ColumnHeader({
   return (
     <header className="flex items-center gap-2 border-b border-line px-2 py-1.5">
       <StatusDot status={column} />
-      <h2 className={cn("microlabel", meta.text)}>{meta.label}</h2>
+      <h2 className={cn('microlabel', meta.text)}>{meta.label}</h2>
       <span className="ml-auto font-mono text-3xs text-ink-dim">{count}</span>
       {onCollapse !== undefined && (
         <button
@@ -112,7 +115,7 @@ function CollapsedColumn({
     >
       <StatusDot status={column} />
       <span className="font-mono text-2xs font-semibold text-ink-dim tabular-nums">{count}</span>
-      <span className={cn("microlabel [writing-mode:vertical-rl] rotate-180", meta.text)}>
+      <span className={cn('microlabel [writing-mode:vertical-rl] rotate-180', meta.text)}>
         {meta.label}
       </span>
     </button>
@@ -227,12 +230,12 @@ function ColumnCards({
 }
 
 const MOBILE_TABS = [
-  { id: "held", label: "Held", columns: ["parked", "blocked"] },
-  { id: "awaiting", label: "Awaiting", columns: ["awaiting"] },
-  { id: "ready", label: "Ready", columns: ["ready"] },
-  { id: "in_progress", label: "In progress", columns: ["in_progress"] },
-  { id: "under_review", label: "Under review", columns: ["under_review"] },
-  { id: "done", label: "Done", columns: ["done"] },
+  { id: 'held', label: 'Held', columns: ['parked', 'blocked'] },
+  { id: 'awaiting', label: 'Awaiting', columns: ['awaiting'] },
+  { id: 'ready', label: 'Ready', columns: ['ready'] },
+  { id: 'in_progress', label: 'In progress', columns: ['in_progress'] },
+  { id: 'under_review', label: 'Under review', columns: ['under_review'] },
+  { id: 'done', label: 'Done', columns: ['done'] },
 ] as const satisfies readonly { id: string; label: string; columns: readonly BoardColumn[] }[];
 
 /**
@@ -271,12 +274,12 @@ function MobileColumnSwitcher({
   if (active === undefined) return null;
   const activeDot = active.columns.length === 1 ? active.columns[0] : undefined;
   // The signature control carries the active column's status color on its left edge (like the cards).
-  const accent = activeDot !== undefined ? STATUS_META[activeDot].border : "border-l-line";
+  const accent = activeDot !== undefined ? STATUS_META[activeDot].border : 'border-l-line';
   return (
     <MenuRoot>
       <MenuTrigger
         className={cn(
-          "flex w-full items-center justify-between rounded-md border border-l-2 border-line bg-well-850 px-3 py-2 text-sm font-semibold text-ink-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent",
+          'flex w-full items-center justify-between rounded-md border border-l-2 border-line bg-well-850 px-3 py-2 text-sm font-semibold text-ink-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent',
           accent,
         )}
       >
@@ -304,14 +307,14 @@ function MobileColumnSwitcher({
           return (
             <MenuItem
               key={tab.id}
-              className={cn("min-h-11 gap-2 py-2.5", isCurrent && "bg-well-800")}
+              className={cn('min-h-11 gap-2 py-2.5', isCurrent && 'bg-well-800')}
               onClick={() => {
                 onSelect(tab.id);
               }}
             >
               {dot !== undefined && <StatusDot status={dot} />}
               <span
-                className={cn("text-sm", isCurrent ? "font-semibold text-ink-bright" : "text-ink")}
+                className={cn('text-sm', isCurrent ? 'font-semibold text-ink-bright' : 'text-ink')}
               >
                 {tab.label}
               </span>
@@ -371,7 +374,7 @@ export function BoardView({
     });
 
   // Mobile: swipe left/right to move between the column tabs (MMR-70).
-  const [mobileTab, setMobileTab] = useState<string>("in_progress");
+  const [mobileTab, setMobileTab] = useState<string>('in_progress');
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   function onTouchStart(e: React.TouchEvent) {
     const t = e.touches[0];
@@ -451,7 +454,7 @@ export function BoardView({
                   offline={offline}
                   ancestry={ancestry}
                 />
-                {column === "done" && (
+                {column === 'done' && (
                   <DoneFooter shown={count} total={doneTotal} onViewDone={onViewDone} />
                 )}
               </section>

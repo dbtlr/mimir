@@ -1,4 +1,5 @@
-import { type ErrorCode, MimirError, validation } from "../core";
+import { MimirError, validation } from '../core';
+import type { ErrorCode } from '../core';
 
 /**
  * Response plumbing for the resource envelope: JSON rendering, the error
@@ -14,15 +15,15 @@ const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 /** Reflect localhost dev origins only; any other origin gets no CORS grant. */
 export function corsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get("origin");
+  const origin = req.headers.get('origin');
   if (origin === null || !LOCAL_ORIGIN.test(origin)) {
     return {};
   }
   return {
-    "access-control-allow-origin": origin,
-    "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    "access-control-allow-headers": "content-type",
-    vary: "origin",
+    'access-control-allow-origin': origin,
+    'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    'access-control-allow-headers': 'content-type',
+    vary: 'origin',
   };
 }
 
@@ -30,7 +31,7 @@ export function corsHeaders(req: Request): Record<string, string> {
 export function json(req: Request, data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data, null, 2), {
     status,
-    headers: { "content-type": "application/json", ...corsHeaders(req) },
+    headers: { 'content-type': 'application/json', ...corsHeaders(req) },
   });
 }
 
@@ -60,7 +61,7 @@ export function errorResponse(req: Request, error: unknown): Response {
     return json(req, body, STATUS_BY_CODE[error.code]);
   }
   const message = error instanceof Error ? error.message : String(error);
-  return json(req, { error: { code: "internal", message } }, 500);
+  return json(req, { error: { code: 'internal', message } }, 500);
 }
 
 /** Run a handler, rendering any thrown error through the envelope. */
@@ -82,22 +83,22 @@ export async function readBody(
   allowed: readonly string[],
 ): Promise<Record<string, unknown>> {
   const text = await req.text();
-  if (text.trim() === "") {
+  if (text.trim() === '') {
     return {};
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw validation("request body is not valid JSON");
+    throw validation('request body is not valid JSON');
   }
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw validation("request body must be a JSON object");
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw validation('request body must be a JSON object');
   }
   const body = parsed as Record<string, unknown>;
   for (const key of Object.keys(body)) {
     if (!allowed.includes(key)) {
-      throw validation(`unknown body field ${key}`, `fields: ${allowed.join(", ")}`);
+      throw validation(`unknown body field ${key}`, `fields: ${allowed.join(', ')}`);
     }
   }
   return body;
@@ -109,7 +110,7 @@ export function strField(body: Record<string, unknown>, key: string): string | u
   if (value === undefined) {
     return undefined;
   }
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     throw validation(`${key} must be a string`);
   }
   return value;
@@ -130,10 +131,10 @@ export function strList(body: Record<string, unknown>, key: string): string[] | 
   if (value === undefined) {
     return undefined;
   }
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     return [value];
   }
-  if (Array.isArray(value) && value.every((v): v is string => typeof v === "string")) {
+  if (Array.isArray(value) && value.every((v): v is string => typeof v === 'string')) {
     return value;
   }
   throw validation(`${key} must be a string or an array of strings`);

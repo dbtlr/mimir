@@ -1,8 +1,8 @@
-import type { Node } from "../../db/schema";
-import type { Db, Tx } from "../context";
-import { validation } from "../errors";
-import { renderNodeId } from "../lookup";
-import { logTransition, reloadNode, requireNode, stamp } from "./common";
+import type { Node } from '../../db/schema';
+import type { Db, Tx } from '../context';
+import { validation } from '../errors';
+import { renderNodeId } from '../lookup';
+import { logTransition, reloadNode, requireNode, stamp } from './common';
 
 /**
  * Dependency-edge verbs (output contract). Edges produce the derived
@@ -22,9 +22,9 @@ async function reaches(tx: Tx, startId: number, targetId: number): Promise<boole
     }
     seen.add(current);
     const edges = await tx
-      .selectFrom("dependency")
-      .select("depends_on_node_id")
-      .where("node_id", "=", current)
+      .selectFrom('dependency')
+      .select('depends_on_node_id')
+      .where('node_id', '=', current)
       .execute();
     for (const edge of edges) {
       if (edge.depends_on_node_id === targetId) {
@@ -41,29 +41,29 @@ export async function depend(db: Db, id: number, onIds: number[]): Promise<Node>
     await requireNode(tx, id);
     for (const onId of onIds) {
       if (onId === id) {
-        throw validation("a task cannot depend on itself");
+        throw validation('a task cannot depend on itself');
       }
       await requireNode(tx, onId);
       // adding id → onId closes a cycle iff onId already reaches id
       if (await reaches(tx, onId, id)) {
-        const from = (await renderNodeId(tx, id)) ?? "it";
-        const to = (await renderNodeId(tx, onId)) ?? "it";
+        const from = (await renderNodeId(tx, id)) ?? 'it';
+        const to = (await renderNodeId(tx, onId)) ?? 'it';
         throw validation(`dependency would create a cycle (${from} → ${to})`);
       }
       const existing = await tx
-        .selectFrom("dependency")
-        .select("node_id")
-        .where("node_id", "=", id)
-        .where("depends_on_node_id", "=", onId)
+        .selectFrom('dependency')
+        .select('node_id')
+        .where('node_id', '=', id)
+        .where('depends_on_node_id', '=', onId)
         .executeTakeFirst();
       if (existing === undefined) {
         await tx
-          .insertInto("dependency")
+          .insertInto('dependency')
           .values({ node_id: id, depends_on_node_id: onId })
           .execute();
         await logTransition(tx, {
           node_id: id,
-          kind: "dependency",
+          kind: 'dependency',
           from_value: null,
           to_value: await renderNodeId(tx, onId),
         });
@@ -79,14 +79,14 @@ export async function undepend(db: Db, id: number, onIds: number[]): Promise<Nod
     await requireNode(tx, id);
     for (const onId of onIds) {
       const deleted = await tx
-        .deleteFrom("dependency")
-        .where("node_id", "=", id)
-        .where("depends_on_node_id", "=", onId)
+        .deleteFrom('dependency')
+        .where('node_id', '=', id)
+        .where('depends_on_node_id', '=', onId)
         .executeTakeFirst();
       if (deleted.numDeletedRows > 0n) {
         await logTransition(tx, {
           node_id: id,
-          kind: "dependency",
+          kind: 'dependency',
           from_value: await renderNodeId(tx, onId),
           to_value: null,
         });
