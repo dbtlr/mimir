@@ -138,7 +138,7 @@ body {
 
 /* micro-label: the control-room caption idiom */
 .microlabel {
-  @apply font-sans text-[0.625rem] font-semibold tracking-[0.18em] uppercase;
+  @apply font-sans text-3xs font-semibold tracking-[0.18em] uppercase;
 }
 
 ::selection {
