@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 import type { WireAttention } from "../api/types";
-import { groupIntoBands } from "../lib/fleet-bands";
+import { groupIntoBands } from "../lib/attention-bands";
 import { project } from "./fixtures";
 
 /**
- * MMR-102 — the fleet's attention-band grouping. A pure transform from the
+ * MMR-102 — the overview's attention-band grouping. A pure transform from the
  * projects list (each carrying MMR-101's `attention` facet) to ordered,
  * non-empty bands, recency-sorted within each; degrades to a flat list when the
  * facet is absent (offline / pre-feature cache).
@@ -77,7 +77,7 @@ describe("groupIntoBands", () => {
     expect(result.projects.map((p) => p.id)).toEqual(["AAA", "BBB"]);
   });
 
-  test("an empty fleet yields banded mode with no bands", () => {
+  test("an empty overview yields banded mode with no bands", () => {
     const result = groupIntoBands([]);
     expect(result.mode).toBe("banded");
     if (result.mode !== "banded") return;

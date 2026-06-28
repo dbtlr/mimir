@@ -88,7 +88,7 @@ const SET_FACETS: readonly FacetName[] = ["deps", "tags", "distribution", "verdi
 const DETAIL_FACETS: readonly FacetName[] = [...SET_FACETS, "artifacts", "history"];
 /** The project-record projection (verdicts/deps don't apply to a project). */
 const PROJECT_FACETS: readonly FacetName[] = ["children", "distribution", "tags", "artifacts"];
-/** The fleet-list projection — the attention facet (MMR-101) + per-project leaf counts (MMR-105) for the fleet card vitals (MMR-106). */
+/** The project-list projection — the attention facet (MMR-101) + per-project leaf counts (MMR-105) for the project card vitals (MMR-106). */
 const PROJECT_LIST_FACETS: readonly FacetName[] = [
   "distribution",
   "tags",

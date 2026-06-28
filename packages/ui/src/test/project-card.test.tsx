@@ -1,12 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
-import { FleetCard } from "../components/fleet-card";
+import { ProjectCard } from "../components/project-card";
 import { project } from "./fixtures";
 
-describe("FleetCard going-cold marker", () => {
+describe("ProjectCard going-cold marker", () => {
   test("a stale project shows a going-cold marker", () => {
     render(
-      <FleetCard
+      <ProjectCard
         project={project({
           id: "COLD",
           attention: { band: "live", last_activity: "2026-01-01T00:00:00.000Z", stale: true },
@@ -19,7 +19,7 @@ describe("FleetCard going-cold marker", () => {
 
   test("a fresh project shows no going-cold marker", () => {
     render(
-      <FleetCard
+      <ProjectCard
         project={project({
           id: "WARM",
           attention: { band: "live", last_activity: "2026-06-20T00:00:00.000Z", stale: false },
@@ -31,10 +31,10 @@ describe("FleetCard going-cold marker", () => {
   });
 });
 
-describe("FleetCard vitals panel (MMR-106)", () => {
+describe("ProjectCard vitals panel (MMR-106)", () => {
   test("renders the five-count legend from leaf_counts", () => {
     render(
-      <FleetCard
+      <ProjectCard
         project={project({ id: "VIT", leaf_counts: { under_review: 2, ready: 4, blocked: 1 } })}
         onOpen={vi.fn()}
       />,
@@ -47,7 +47,7 @@ describe("FleetCard vitals panel (MMR-106)", () => {
   });
 
   test("omits the vitals panel entirely when leaf_counts is absent (degraded payload)", () => {
-    render(<FleetCard project={project({ id: "BARE" })} onOpen={vi.fn()} />, {});
+    render(<ProjectCard project={project({ id: "BARE" })} onOpen={vi.fn()} />, {});
     expect(screen.queryByText("ready")).toBeNull();
   });
 });

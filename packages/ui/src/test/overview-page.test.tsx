@@ -18,7 +18,7 @@ function proj(id: string, attention?: WireAttention) {
   return { id, title: `${id} project`, status: "in_progress", distribution: {}, attention };
 }
 
-function renderFleet() {
+function renderOverview() {
   const testRouter = createRouter({
     routeTree: router.routeTree,
     history: createMemoryHistory({ initialEntries: ["/"] }),
@@ -30,7 +30,7 @@ function renderFleet() {
   );
 }
 
-describe("FleetPage attention-router (MMR-102)", () => {
+describe("OverviewPage attention-router (MMR-102)", () => {
   test("renders the populated bands in highest-wins order, At rest collapsed", async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === "/api/projects") {
@@ -45,7 +45,7 @@ describe("FleetPage attention-router (MMR-102)", () => {
       }
       return Promise.resolve({ total: 0, items: [] }); // ready + attention strips
     });
-    renderFleet();
+    renderOverview();
 
     expect(await screen.findByText("Awaiting you")).toBeDefined();
     expect(screen.getByText("Live")).toBeDefined();
@@ -58,16 +58,16 @@ describe("FleetPage attention-router (MMR-102)", () => {
     expect(screen.getByText("RESTED")).toBeDefined();
   });
 
-  test("degrades to a flat Fleet grid when the attention facet is absent", async () => {
+  test("degrades to a flat Overview grid when the attention facet is absent", async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === "/api/projects") {
         return Promise.resolve({ total: 1, items: [proj("OLDCACHE")] }); // no attention
       }
       return Promise.resolve({ total: 0, items: [] });
     });
-    renderFleet();
+    renderOverview();
 
-    expect(await screen.findByText("Fleet")).toBeDefined();
+    expect(await screen.findByText("Overview")).toBeDefined();
     expect(screen.getByText("OLDCACHE")).toBeDefined();
     expect(screen.queryByText("Awaiting you")).toBeNull();
   });
@@ -77,7 +77,7 @@ describe("FleetPage attention-router (MMR-102)", () => {
       if (path === "/api/projects") return Promise.resolve({ total: 0, items: [] });
       return Promise.resolve({ total: 0, items: [] });
     });
-    renderFleet();
+    renderOverview();
 
     expect(await screen.findByText(/no projects yet/i)).toBeDefined();
   });

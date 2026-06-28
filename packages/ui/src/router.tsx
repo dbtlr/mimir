@@ -6,20 +6,20 @@ import {
   stripSearchParams,
 } from "@tanstack/react-router";
 import { ArtifactsPage } from "./routes/artifacts";
-import { FleetPage } from "./routes/fleet";
+import { OverviewPage } from "./routes/overview";
 import { ProjectPage } from "./routes/project";
 import { Shell } from "./routes/shell";
 import { TasksPage } from "./routes/tasks";
 
 /**
- * Navigation (ADR 0013 §3): URLs name scopes — `/` the fleet, `/p/KEY` a
+ * Navigation (ADR 0013 §3): URLs name scopes — `/` the overview, `/p/KEY` a
  * project; everything else is a lens parameter. `view` picks the project
  * lens (board is primary); `node` addresses the detail drawer on either
  * scope. Typed search params carry that contract in the type system.
  */
 export type ProjectLens = "board" | "tree";
 
-export interface FleetSearch {
+export interface OverviewSearch {
   node?: string;
 }
 
@@ -30,12 +30,12 @@ export interface ProjectSearch {
 
 const rootRoute = createRootRoute({ component: Shell });
 
-export const fleetRoute = createRoute({
+export const overviewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  validateSearch: (search: Record<string, unknown>): FleetSearch =>
+  validateSearch: (search: Record<string, unknown>): OverviewSearch =>
     typeof search.node === "string" ? { node: search.node } : {},
-  component: FleetPage,
+  component: OverviewPage,
 });
 
 export const projectRoute = createRoute({
@@ -98,7 +98,7 @@ export const tasksRoute = createRoute({
   component: TasksPage,
 });
 
-const routeTree = rootRoute.addChildren([fleetRoute, projectRoute, artifactsRoute, tasksRoute]);
+const routeTree = rootRoute.addChildren([overviewRoute, projectRoute, artifactsRoute, tasksRoute]);
 
 export const router = createRouter({ routeTree });
 

@@ -6,12 +6,12 @@ import { CardVitals } from "./card-vitals";
 import { StatusBadge } from "./status-badge";
 
 /**
- * One project on the fleet (MMR-106): key, title, status, an optional going-cold
+ * One project on the overview (MMR-106): key, title, status, an optional going-cold
  * temperature pill, and the **vitals panel** — the five actionable-state leaf
  * counts (review · in prog · ready · await · blocked) from the leaf-counts facet
  * (MMR-105). Replaces the old single ready hero + full distribution bar.
  */
-export function FleetCard({
+export function ProjectCard({
   project,
   onOpen,
 }: {

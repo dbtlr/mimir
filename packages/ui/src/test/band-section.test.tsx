@@ -2,10 +2,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { BandSection } from "../components/band-section";
-import type { FleetBand } from "../lib/fleet-bands";
+import type { BandGroup } from "../lib/attention-bands";
 import { project } from "./fixtures";
 
-function band(over: Partial<FleetBand> & Pick<FleetBand, "band" | "label">): FleetBand {
+function band(over: Partial<BandGroup> & Pick<BandGroup, "band" | "label">): BandGroup {
   return { projects: [project({ id: "ONE" }), project({ id: "TWO" })], ...over };
 }
 

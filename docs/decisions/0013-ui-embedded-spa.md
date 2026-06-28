@@ -37,7 +37,7 @@ hard-to-reverse shape.
      produces most reliably in this codebase.
 
 3. **Navigation: URLs name scopes; everything else is a lens parameter.**
-   `/` is the fleet (all projects); `/p/KEY` is a project; node detail is a
+   `/` is the Overview (all projects); `/p/KEY` is a project; node detail is a
    URL-addressable drawer parameter. Views (board/tree) are lens params, not
    routes. The console never invents a navigation concept the data model
    doesn't have.

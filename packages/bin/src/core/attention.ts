@@ -5,7 +5,7 @@ import { nodeStatusWord } from "./derive";
 import { isStale, type StaleOptions } from "./predicates";
 
 /**
- * The project attention-state (MMR-101) — a derived facet that lets the fleet
+ * The project attention-state (MMR-101) — a derived facet that lets the overview
  * page (MMR-102) order projects by "what deserves the operator's attention,"
  * not alphabetically. Lives in core so every transport consumes it and the UI
  * stays a pure renderer.

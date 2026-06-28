@@ -1,16 +1,16 @@
 import { useState } from "react";
 import type { AttentionBand } from "@mimir/contract";
-import type { FleetBand } from "../lib/fleet-bands";
+import type { BandGroup } from "../lib/attention-bands";
 import { cn } from "../lib/cn";
 import { STATUS_META } from "../lib/status";
-import { FleetCard } from "./fleet-card";
+import { ProjectCard } from "./project-card";
 
 /**
- * One attention-band on the fleet (MMR-102/106): a header keyed by a status-hue
+ * One attention-band on the overview (MMR-102/106): a header keyed by a status-hue
  * pip + a rule that fades right (the calm priority gradient), then the project
  * cards. The `At rest` band is `collapsible` — a proper disclosure (re-collapsible,
  * `aria-expanded`) folding resting projects to a count strip so they don't
- * dominate, the fleet equivalent of the board's done-windowing (ADR 0013 §4).
+ * dominate, the overview equivalent of the board's done-windowing (ADR 0013 §4).
  */
 
 /** The status hue that keys each band's header pip — the priority gradient. */
@@ -26,7 +26,7 @@ export function BandSection({
   onOpen,
   collapsible = false,
 }: {
-  band: FleetBand;
+  band: BandGroup;
   onOpen: (key: string) => void;
   collapsible?: boolean;
 }) {
@@ -36,7 +36,7 @@ export function BandSection({
   const cards = (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {band.projects.map((project) => (
-        <FleetCard key={project.id} project={project} onOpen={onOpen} />
+        <ProjectCard key={project.id} project={project} onOpen={onOpen} />
       ))}
     </div>
   );

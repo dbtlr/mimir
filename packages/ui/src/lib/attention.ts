@@ -11,7 +11,7 @@ export interface AttentionItem {
 /**
  * The cross-project set that needs the operator (MMR-80, reconciled MMR-103):
  * **under_review first, then blocked, then stale-only**, deduped by id — ordered
- * by "how much your action moves it" (the fleet-band principle). `under_review`
+ * by "how much your action moves it" (the overview-band principle). `under_review`
  * (Awaiting you) is the strongest such signal, so it leads. `in_progress`/`ready`
  * stay excluded: active, un-awaited work is healthy, not an alert (the refined
  * "attention" definition; see the glossary).
