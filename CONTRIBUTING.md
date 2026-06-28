@@ -40,7 +40,12 @@ import `core`, transports may not import each other or `db`.
 - If the change affects CLI/MCP behavior, output format, the schema, or
   configuration, add a `CHANGELOG.md` entry under `[Unreleased]` in the
   appropriate `Added` / `Changed` / `Removed` / `Fixed` heading
-  ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/)).
+  ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/)). The
+  `changelog-guard` check enforces this: a PR touching build-affecting paths
+  (`packages/**`, `package.json`, `bun.lock`, `install.sh`, the release
+  workflows) fails CI unless it adds an `[Unreleased]` entry. For a genuinely
+  behavior-preserving change (internal refactor, test- or build-meta only),
+  apply the `skip-changelog` label with a one-line reason instead.
 
 ## Commit messages
 
