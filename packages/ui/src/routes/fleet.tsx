@@ -45,7 +45,7 @@ export function FleetPage() {
           </div>
         )}
         {projects.isError && projects.data === undefined && (
-          <p className="text-[0.75rem] text-status-blocked">
+          <p className="text-xs text-status-blocked">
             Unreachable, and nothing cached yet — is `mimir serve` running?
           </p>
         )}
@@ -54,7 +54,7 @@ export function FleetPage() {
             const onOpen = (key: string) => void navigate({ to: "/p/$key", params: { key } });
             if (projects.data.items.length === 0) {
               return (
-                <p className="text-[0.75rem] text-ink-dim">
+                <p className="text-xs text-ink-dim">
                   No projects yet — create one with `mimir create project`.
                 </p>
               );

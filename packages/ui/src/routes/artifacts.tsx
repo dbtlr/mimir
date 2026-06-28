@@ -78,7 +78,7 @@ export function ArtifactsPage() {
             Artifacts
           </span>
           {artifacts.data !== undefined && (
-            <span className="text-[0.75rem] text-ink-dim">{artifacts.data.total}</span>
+            <span className="text-xs text-ink-dim">{artifacts.data.total}</span>
           )}
         </h1>
 
@@ -100,7 +100,7 @@ export function ArtifactsPage() {
               <ArtifactList items={artifacts.data.items} selectedId={selected} onSelect={select} />
             )}
             {artifacts.isError && artifacts.data === undefined && (
-              <p className="p-4 text-[0.75rem] text-status-blocked">
+              <p className="p-4 text-xs text-status-blocked">
                 Unreachable — is `mimir serve` running?
               </p>
             )}
@@ -114,7 +114,7 @@ export function ArtifactsPage() {
             {selected !== undefined ? (
               <ArtifactReader id={selected} onBack={back} onOpenNode={openNode} />
             ) : (
-              <p className="hidden w-full items-center justify-center p-8 text-[0.75rem] text-ink-faint md:flex">
+              <p className="hidden w-full items-center justify-center p-8 text-xs text-ink-faint md:flex">
                 Select an artifact to read.
               </p>
             )}

@@ -69,7 +69,7 @@ function ColumnHeader({
     <header className="flex items-center gap-2 border-b border-line px-2 py-1.5">
       <StatusDot status={column} />
       <h2 className={cn("microlabel", meta.text)}>{meta.label}</h2>
-      <span className="ml-auto font-mono text-[0.625rem] text-ink-dim">{count}</span>
+      <span className="ml-auto font-mono text-3xs text-ink-dim">{count}</span>
       {onCollapse !== undefined && (
         <button
           type="button"
@@ -111,9 +111,7 @@ function CollapsedColumn({
       className="flex w-9 shrink-0 flex-col items-center gap-2 rounded-md border border-line bg-well-900/40 py-2 transition-colors hover:border-line-bright hover:bg-well-900/70 focus-visible:outline-2 focus-visible:outline-accent"
     >
       <StatusDot status={column} />
-      <span className="font-mono text-[0.6875rem] font-semibold text-ink-dim tabular-nums">
-        {count}
-      </span>
+      <span className="font-mono text-2xs font-semibold text-ink-dim tabular-nums">{count}</span>
       <span className={cn("microlabel [writing-mode:vertical-rl] rotate-180", meta.text)}>
         {meta.label}
       </span>
@@ -135,7 +133,7 @@ function DoneFooter({
     <button
       type="button"
       onClick={onViewDone}
-      className="border-t border-line px-2 py-1.5 text-left text-[0.625rem] text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+      className="border-t border-line px-2 py-1.5 text-left text-3xs text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
     >
       {total > shown ? `${shown} of ${total} recent · all →` : `${total} done · view all →`}
     </button>
@@ -190,7 +188,7 @@ function ColumnCards({
   const items = board[column];
   if (items.length === 0) {
     return (
-      <p className="px-2 py-4 text-center text-[0.6875rem] text-ink-faint">
+      <p className="px-2 py-4 text-center text-2xs text-ink-faint">
         Nothing {STATUS_META[column].label.toLowerCase()}
       </p>
     );
@@ -278,14 +276,14 @@ function MobileColumnSwitcher({
     <MenuRoot>
       <MenuTrigger
         className={cn(
-          "flex w-full items-center justify-between rounded-md border border-l-2 border-line bg-well-850 px-3 py-2 text-[0.875rem] font-semibold text-ink-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent",
+          "flex w-full items-center justify-between rounded-md border border-l-2 border-line bg-well-850 px-3 py-2 text-sm font-semibold text-ink-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent",
           accent,
         )}
       >
         <span className="flex items-center gap-2">
           {activeDot !== undefined && <StatusDot status={activeDot} />}
           {active.label}
-          <span className="font-mono text-[0.75rem] font-normal text-ink-dim tabular-nums">
+          <span className="font-mono text-xs font-normal text-ink-dim tabular-nums">
             {tabCount(active)}
           </span>
         </span>
@@ -313,10 +311,7 @@ function MobileColumnSwitcher({
             >
               {dot !== undefined && <StatusDot status={dot} />}
               <span
-                className={cn(
-                  "text-[0.875rem]",
-                  isCurrent ? "font-semibold text-ink-bright" : "text-ink",
-                )}
+                className={cn("text-sm", isCurrent ? "font-semibold text-ink-bright" : "text-ink")}
               >
                 {tab.label}
               </span>
@@ -340,9 +335,7 @@ function MobileColumnSwitcher({
                     />
                   </svg>
                 )}
-                <span className="font-mono text-[0.8125rem] text-ink-dim tabular-nums">
-                  {tabCount(tab)}
-                </span>
+                <span className="font-mono text-sm text-ink-dim tabular-nums">{tabCount(tab)}</span>
               </span>
             </MenuItem>
           );

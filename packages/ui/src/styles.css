@@ -20,6 +20,17 @@
   --font-sans: "Archivo Variable", "Archivo", system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 
+  /*
+   * The dense type scale (MMR-107). The console packs more granularity below
+   * Tailwind's `text-xs` than the defaults cover; these name the steps that were
+   * scattered as bespoke `text-[…rem]` magic numbers. Font-size only (no paired
+   * line-height) so explicit `leading-*` keeps governing vertical rhythm.
+   * `text-xs`/`sm`/`base`/`lg` (Tailwind) carry the 0.75/0.875/1/1.125 steps.
+   */
+  --text-3xs: 0.625rem; /* 10px — captions / the microlabel idiom */
+  --text-2xs: 0.6875rem; /* 11px — small labels, legends */
+  --text-md: 0.9375rem; /* 15px — card titles / headings (sits above sm, below base) */
+
   /* the well — page/panel depths */
   --color-well-950: #070a10;
   --color-well-900: #0a0e16;
@@ -30,7 +41,7 @@
   /* ink — text depths */
   --color-ink-bright: #eef3fa;
   --color-ink: #c3cfdf;
-  --color-ink-dim: #6b7a90;
+  --color-ink-dim: #7d8da3; /* MMR-107: nudged up from #6b7a90 (4.25:1) to clear WCAG AA on cards */
   --color-ink-faint: #586780; /* MMR-77: nudged up — #44506a was illegible on dark cards */
 
   /* hairlines + accent */
