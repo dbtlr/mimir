@@ -13,6 +13,47 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+## v0.12.0 - 2026-06-28
+
+The attention-router release. The `/` page (renamed from "fleet" to **Overview**)
+becomes a cross-project attention-router, project cards show per-state vitals, and
+the global alert surfaces work awaiting you — plus the **`reopen`** verb for
+exiting a terminal state.
+
+### Added
+
+- **`reopen` — exit a terminal state (`done`/`abandoned`) → `in_progress`**
+  (MMR-104). The deliberate correction path for a task closed too early: re-ranks
+  at the bottom, clears `completed_at`, optional reason, append-only (the original
+  terminal transition survives). Across the CLI (`mimir reopen`), MCP, HTTP
+  (`POST /api/nodes/:id/reopen`), and the console (a **Reopen** action on the
+  previously dead-end terminal cards).
+- **The Overview page is a cross-project attention-router** (MMR-100/101/102).
+  The `/` page groups every project into four highest-wins attention-bands —
+  **Awaiting you** (a review awaits) → **Live** (work in motion) → **Needs
+  unsticking** (blocked/awaiting) → **At rest** — recency-ordered within each,
+  At-rest folded to an expandable strip. Ordered by how much your action moves
+  each project. Backed by a derived `attention` facet on the projects read.
+- **Project card vitals** (MMR-105/106). Each card shows the five actionable-state
+  leaf counts — review · in prog · ready · await · blocked — as a proportion bar
+  plus a count legend, with a **going cold** marker for stale projects. Backed by
+  a new per-project `leafCounts` facet on the projects read.
+- **`under_review` joins the global attention alert** (MMR-103). The top-bar
+  alert now surfaces "Awaiting you" reviews alongside blocked + stale, ordered by
+  how much your action moves it.
+
+### Changed
+
+- **The `/` page is renamed "fleet" → "Overview"** and the project card component
+  `FleetCard` → `ProjectCard` (MMR-108) — the nautical metaphor never told you
+  what the page was.
+- **Console design-system consolidation** (MMR-107): a named type scale replaces
+  scattered bespoke sizes, dark secondary-text contrast now clears WCAG AA, chip
+  radii are unified, and cards are crisp opaque panels (the prior blur and
+  translucency dropped).
+- **The project card replaces its single ready-count hero and full distribution
+  bar with the vitals panel** (MMR-106).
+
 ## v0.11.1 - 2026-06-23
 
 A mobile legibility fast-follow to v0.11.0 (board, tree, fleet, and top-nav
