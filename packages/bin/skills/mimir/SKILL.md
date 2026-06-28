@@ -60,7 +60,7 @@ field, and `update` cannot touch status — that is by design, not an omission.
 - `abandon <id> "reason"` when an approach or task dies. Never delete, never leave a
   zombie `todo`.
 - `reopen <id> "reason"` when a `done` or `abandoned` task needs to re-enter
-  work — the deliberate *correction* path. The reversal is recorded, not erased; the
+  work — the deliberate _correction_ path. The reversal is recorded, not erased; the
   task re-enters `in_progress` at the bottom of the rankable set and must go through
   the normal gate flow again.
 - **Discovered work = a new task** (`create task` + `depend` if it gates something),

@@ -36,15 +36,15 @@ review sits too long.
 When a `done` or `abandoned` task needs to re-enter work, `reopen` it:
 
 - `reopen <id> [reason]` — terminal (`done`/`abandoned`) → `in_progress`: the deliberate
-  *correction* path (e.g. a `done` declared before verification passed). The task
+  _correction_ path (e.g. a `done` declared before verification passed). The task
   re-enters the rankable set at the bottom (`completed_at` is cleared); the optional
   reason rides the transition-log row.
 
 The reversal is **recorded, not erased** — the original terminal transition is preserved
 (append-only log), so the full trail (`… → done → in_progress → …`) survives.
 
-`reopen` is the *correction* path; `submit`/`return` (`under_review`) is the
-*prevention* path — use `under_review` to guard against premature completion in the
+`reopen` is the _correction_ path; `submit`/`return` (`under_review`) is the
+_prevention_ path — use `under_review` to guard against premature completion in the
 first place. Reopening a task lands in `in_progress`, not `under_review`, so the doer
 re-runs the normal gate flow rather than routing around it. No new lifecycle value and
 no migration — `reopen` only adds a legal transition edge.

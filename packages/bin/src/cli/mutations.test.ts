@@ -149,7 +149,11 @@ test("reopen sends a done task back to in_progress with a reason (MMR-104)", asy
   await runCli(["start", taskRef], () => db, fakeIo(false));
   await runCli(["done", taskRef], () => db, fakeIo(false));
   const io = fakeIo(false);
-  const code = await runCli(["reopen", taskRef, "needs", "verification", "-f", "json"], () => db, io);
+  const code = await runCli(
+    ["reopen", taskRef, "needs", "verification", "-f", "json"],
+    () => db,
+    io,
+  );
   expect(code).toBe(0);
   expect(JSON.parse(io.out[0] ?? "{}").status).toBe("in_progress");
 });
