@@ -151,8 +151,7 @@ test("reopen sends a done task back to in_progress with a reason (MMR-104)", asy
   const io = fakeIo(false);
   const code = await runCli(["reopen", taskRef, "needs", "verification", "-f", "json"], () => db, io);
   expect(code).toBe(0);
-  const node = JSON.parse(io.out[0] ?? "{}");
-  expect(node.lifecycle).toBe("in_progress");
+  expect(JSON.parse(io.out[0] ?? "{}").status).toBe("in_progress");
 });
 test("done approves an under_review task", async () => {
   await runCli(["start", taskRef], () => db, fakeIo(false));
