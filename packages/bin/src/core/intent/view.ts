@@ -10,6 +10,7 @@ import type {
   TagView,
 } from "@mimir/contract";
 import type { Artifact, Node, Project } from "../../db/schema";
+import { attentionOf } from "../attention";
 import type { Db, Tx } from "../context";
 import { childDistribution, nodeStatusWord, rootDistribution } from "../derive";
 import { renderArtifactRef } from "../ids";
@@ -233,6 +234,9 @@ export async function buildProjectView(
   }
   if (facets.has("distribution")) {
     view.distribution = distribution;
+  }
+  if (facets.has("attention")) {
+    view.attention = await attentionOf(tx, project);
   }
   if (facets.has("tags")) {
     const rows = await tx

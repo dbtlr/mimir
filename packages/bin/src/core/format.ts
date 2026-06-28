@@ -68,6 +68,13 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
     }));
   }
   if (node.verdicts !== undefined) wire.verdicts = node.verdicts;
+  if (node.attention !== undefined) {
+    wire.attention = {
+      band: node.attention.band,
+      last_activity: node.attention.lastActivity,
+      stale: node.attention.stale,
+    };
+  }
   return wire;
 }
 

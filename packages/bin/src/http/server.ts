@@ -88,6 +88,8 @@ const SET_FACETS: readonly FacetName[] = ["deps", "tags", "distribution", "verdi
 const DETAIL_FACETS: readonly FacetName[] = [...SET_FACETS, "artifacts", "history"];
 /** The project-record projection (verdicts/deps don't apply to a project). */
 const PROJECT_FACETS: readonly FacetName[] = ["children", "distribution", "tags", "artifacts"];
+/** The fleet-list projection — carries the attention facet (MMR-101) for the work-centric fleet page (MMR-102). */
+const PROJECT_LIST_FACETS: readonly FacetName[] = ["distribution", "tags", "attention"];
 
 /** Resolve a node token for a verb — the HTTP binding of the core guard, with route pointers. */
 async function nodeRef(db: Db, token: string, expected = "node"): Promise<number> {
@@ -249,7 +251,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
       "/api/projects": {
         GET: (req) =>
           guarded(req, async () => {
-            const items = await listProjects(db);
+            const items = await listProjects(db, PROJECT_LIST_FACETS);
             return json(req, setBody(items.length, items));
           }),
         POST: (req) =>

@@ -107,6 +107,28 @@ export interface Verdicts {
   orphaned: boolean;
 }
 
+/**
+ * The attention bands (MMR-101) — four exclusive, highest-wins states a project
+ * resolves to from its leaf tasks, ordered by *how much the operator's action
+ * moves it*: `awaiting_you` (a review only you can clear) over `live` (work in
+ * motion) over `needs_unsticking` (blocked/awaiting, often on something external)
+ * over `at_rest` (nothing actionable).
+ */
+export type AttentionBand = "awaiting_you" | "live" | "needs_unsticking" | "at_rest";
+
+/**
+ * `attention` — a project's derived attention-state (MMR-101): its highest-wins
+ * {@link AttentionBand}, the recency of its most-recent task touch (`lastActivity`
+ * = `max(updated_at)` over leaf tasks; the project's own `updatedAt` when empty),
+ * and the `going cold` modifier (`stale` = ≥1 leaf task is stale). Project-only;
+ * intra-band recency ordering is the consumer's (MMR-102), never cross-band.
+ */
+export interface AttentionState {
+  band: AttentionBand;
+  lastActivity: string;
+  stale: boolean;
+}
+
 /** A cross-cutting transition-log read (`/api/transitions`) — `node` is the rendered id. */
 export interface TransitionView {
   node: string;
@@ -161,6 +183,7 @@ export interface NodeView {
   children?: NodeRef[];
   distribution?: Distribution;
   verdicts?: Verdicts;
+  attention?: AttentionState;
 }
 
 /**
@@ -192,6 +215,7 @@ export const FACET_NAMES = [
   "children",
   "distribution",
   "verdicts",
+  "attention",
 ] as const;
 export type FacetName = (typeof FACET_NAMES)[number];
 

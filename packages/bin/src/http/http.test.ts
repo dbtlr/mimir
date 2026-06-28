@@ -94,6 +94,17 @@ test("GET /api/projects lists every project with its rollup", async () => {
   expect(items[0]?.distribution).toBeDefined();
 });
 
+test("GET /api/projects carries the attention facet in snake_case (MMR-101)", async () => {
+  const res = await get("/api/projects");
+  const items = (await parse(res)).items as Rec[];
+  // both seeded projects have only fresh (ready) leaf tasks → the live band
+  const attention = items[0]?.attention as Rec;
+  expect(attention).toBeDefined();
+  expect(attention.band).toBe("live");
+  expect(typeof attention.last_activity).toBe("string");
+  expect(attention.stale).toBe(false);
+});
+
 test("POST /api/projects creates and echoes the project record; duplicate keys conflict", async () => {
   const created = await send("POST", "/api/projects", { key: "ZZZ", name: "zed" });
   expect(created.status).toBe(201);
