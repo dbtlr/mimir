@@ -15,11 +15,10 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe("TransitionMenu", () => {
-  test("renders nothing for a terminal status", () => {
-    const { container } = render(<TransitionMenu node={{ id: "MMR-9", status: "done" }} />, {
-      wrapper,
-    });
-    expect(container.querySelector("[aria-label='Actions']")).toBeNull();
+  test("a terminal status offers reopen (MMR-104)", async () => {
+    render(<TransitionMenu node={{ id: "MMR-9", status: "done" }} />, { wrapper });
+    await userEvent.click(screen.getByLabelText("Actions"));
+    expect(await screen.findByRole("menuitem", { name: "Reopen" })).toBeDefined();
   });
 
   test("immediate verb fires the mutation directly", async () => {
