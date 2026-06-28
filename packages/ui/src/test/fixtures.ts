@@ -1,6 +1,26 @@
-import type { WireNode } from "../api/types";
+import type { WireAttention, WireNode } from "../api/types";
 
 let seq = 100;
+
+/** A project record as the fleet list serves it; pass `attention` for band tests. */
+export function project(
+  overrides: Partial<WireNode> & { attention?: WireAttention } = {},
+): WireNode {
+  seq += 1;
+  const id = overrides.id ?? `P${String(seq)}`;
+  return {
+    id,
+    type: "project",
+    title: `project ${id}`,
+    status: "in_progress",
+    parent: null,
+    description: null,
+    created_at: "2026-06-01T10:00:00.000Z",
+    updated_at: "2026-06-01T10:00:00.000Z",
+    distribution: {},
+    ...overrides,
+  };
+}
 
 /** A task record as the wire serves it; override what the case needs. */
 export function task(overrides: Partial<WireNode> & { status: WireNode["status"] }): WireNode {

@@ -3,7 +3,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { projectsQuery, readyQuery } from "../api/queries";
 import { connectivity } from "../lib/connectivity";
 import { countByProject } from "../lib/counts";
+import { groupIntoBands } from "../lib/fleet-bands";
 import { cn } from "../lib/cn";
+import { BandSection } from "../components/band-section";
 import { FleetCard } from "../components/fleet-card";
 import { NodeDrawer } from "../components/node-drawer";
 import { OfflineBanner } from "../components/offline-banner";
@@ -11,9 +13,12 @@ import { Skeleton } from "../components/ui/skeleton";
 import { fleetRoute } from "../router";
 
 /**
- * `/` — the fleet: one card per project, each leading with its ready count.
- * Stuck work (blocked + stale) lives in the global attention alert in the top
- * bar now, not a fleet-only strip.
+ * `/` — the fleet as an attention-router (MMR-102): projects grouped into the
+ * four attention-bands (MMR-101) in highest-wins order, recency-ordered within
+ * each, At-rest folded to a count strip. It is `mimir next` lifted to the
+ * project level. When the facet is absent (offline / pre-feature cache) it
+ * degrades to a flat key-ordered grid — attention is an overlay, like the ready
+ * count, so a miss costs the ordering, not the cached fleet.
  */
 export function FleetPage() {
   const navigate = useNavigate();
@@ -37,33 +42,49 @@ export function FleetPage() {
           conn.offline && "offline-demoted",
         )}
       >
-        <section aria-label="Projects" className="flex flex-col gap-2">
-          <h2 className="microlabel text-ink-faint">Fleet</h2>
-          {projects.isPending && (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <Skeleton className="h-28" />
-              <Skeleton className="h-28" />
-              <Skeleton className="h-28" />
-            </div>
-          )}
-          {projects.isError && projects.data === undefined && (
-            <p className="text-[0.75rem] text-status-blocked">
-              Unreachable, and nothing cached yet — is `mimir serve` running?
-            </p>
-          )}
-          {projects.data !== undefined && (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {projects.data.items.map((project) => (
-                <FleetCard
-                  key={project.id}
-                  project={project}
-                  ready={readyByKey.get(project.id) ?? 0}
-                  onOpen={(key) => void navigate({ to: "/p/$key", params: { key } })}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+        {projects.isPending && (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <Skeleton className="h-28" />
+            <Skeleton className="h-28" />
+            <Skeleton className="h-28" />
+          </div>
+        )}
+        {projects.isError && projects.data === undefined && (
+          <p className="text-[0.75rem] text-status-blocked">
+            Unreachable, and nothing cached yet — is `mimir serve` running?
+          </p>
+        )}
+        {projects.data !== undefined &&
+          (() => {
+            const onOpen = (key: string) => void navigate({ to: "/p/$key", params: { key } });
+            const grouping = groupIntoBands(projects.data.items);
+            if (grouping.mode === "flat") {
+              return (
+                <section aria-label="Projects" className="flex flex-col gap-2">
+                  <h2 className="microlabel text-ink-faint">Fleet</h2>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {grouping.projects.map((project) => (
+                      <FleetCard
+                        key={project.id}
+                        project={project}
+                        ready={readyByKey.get(project.id) ?? 0}
+                        onOpen={onOpen}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            }
+            return grouping.bands.map((band) => (
+              <BandSection
+                key={band.band}
+                band={band}
+                readyByKey={readyByKey}
+                onOpen={onOpen}
+                collapsible={band.band === "at_rest"}
+              />
+            ));
+          })()}
       </main>
       <NodeDrawer nodeId={node} onClose={closeNode} onOpenNode={openNode} />
     </>

@@ -46,6 +46,10 @@ export function FleetCard({
             {project.description != null && project.description !== "" && (
               <p className="truncate text-[0.71875rem] text-ink-dim">{project.description}</p>
             )}
+            {project.attention?.stale === true && (
+              // Placeholder going-cold marker (MMR-102) — final treatment lands in the design pass.
+              <span className="microlabel text-ink-faint">◴ going cold</span>
+            )}
           </div>
           <StatusBadge status={project.status} />
         </CardHeader>

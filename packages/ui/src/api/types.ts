@@ -1,4 +1,5 @@
 import type {
+  AttentionBand,
   Distribution,
   Hold,
   Lifecycle,
@@ -72,6 +73,13 @@ export interface WireArtifactDetail {
   content?: string;
 }
 
+/** A project's derived attention-state (MMR-101) — the fleet-list facet, snake_case on the wire. */
+export interface WireAttention {
+  band: AttentionBand;
+  last_activity: string;
+  stale: boolean;
+}
+
 /** A rendered node record — bare fields always, facets when the route includes them. */
 export interface WireNode {
   id: string;
@@ -100,6 +108,7 @@ export interface WireNode {
   artifacts?: WireArtifact[];
   history?: WireHistoryEntry[];
   verdicts?: Verdicts;
+  attention?: WireAttention;
 }
 
 /** The nested whole-project tree (`/api/projects/:key/tree`) — children rank-ordered. */
