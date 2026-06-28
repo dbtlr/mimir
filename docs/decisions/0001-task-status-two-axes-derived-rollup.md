@@ -65,7 +65,7 @@ reason rides the transition-log row. The reversal is **recorded, not erased** �
 the original terminal transition is kept (append-only, ADR 0003), so the full
 trail (`… → done → in_progress → …`) survives.
 
-`reopen` is the deliberate *correction* path (e.g. a `done` declared before
+`reopen` is the deliberate _correction_ path (e.g. a `done` declared before
 verification). It does not weaken `done` as a trust signal: preventing
 premature completion is the optional `under_review` gate (`submit`/`return`),
 not a casual toggle. Reopen lands in `in_progress`, not `under_review`, so the
