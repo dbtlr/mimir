@@ -1,6 +1,6 @@
 {
   "name": "@mimir/bin",
-  "version": "0.12.0",
+  "version": "0.13.0-next",
   "private": true,
   "description": "The mimir binary — db, core, and the three transports (CLI, MCP, HTTP) over one SQLite store.",
   "bin": {
