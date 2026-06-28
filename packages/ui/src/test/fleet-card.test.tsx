@@ -11,7 +11,6 @@ describe("FleetCard going-cold marker", () => {
           id: "COLD",
           attention: { band: "live", last_activity: "2026-01-01T00:00:00.000Z", stale: true },
         })}
-        ready={1}
         onOpen={vi.fn()}
       />,
     );
@@ -25,10 +24,30 @@ describe("FleetCard going-cold marker", () => {
           id: "WARM",
           attention: { band: "live", last_activity: "2026-06-20T00:00:00.000Z", stale: false },
         })}
-        ready={1}
         onOpen={vi.fn()}
       />,
     );
     expect(screen.queryByText(/going cold/i)).toBeNull();
+  });
+});
+
+describe("FleetCard vitals panel (MMR-106)", () => {
+  test("renders the five-count legend from leaf_counts", () => {
+    render(
+      <FleetCard
+        project={project({ id: "VIT", leaf_counts: { under_review: 2, ready: 4, blocked: 1 } })}
+        onOpen={vi.fn()}
+      />,
+    );
+    for (const label of ["review", "in prog", "ready", "await", "blocked"]) {
+      expect(screen.getByText(label)).toBeDefined();
+    }
+    expect(screen.getByText("2")).toBeDefined(); // under_review count
+    expect(screen.getByText("4")).toBeDefined(); // ready count
+  });
+
+  test("omits the vitals panel entirely when leaf_counts is absent (degraded payload)", () => {
+    render(<FleetCard project={project({ id: "BARE" })} onOpen={vi.fn()} />, {});
+    expect(screen.queryByText("ready")).toBeNull();
   });
 });

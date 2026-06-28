@@ -11,25 +11,13 @@ function band(over: Partial<FleetBand> & Pick<FleetBand, "band" | "label">): Fle
 
 describe("BandSection", () => {
   test("renders the band label and its project count", () => {
-    render(
-      <BandSection
-        band={band({ band: "live", label: "Live" })}
-        readyByKey={new Map()}
-        onOpen={vi.fn()}
-      />,
-    );
+    render(<BandSection band={band({ band: "live", label: "Live" })} onOpen={vi.fn()} />);
     expect(screen.getByText("Live")).toBeDefined();
     expect(screen.getByText("2")).toBeDefined();
   });
 
   test("a non-collapsible band shows its cards directly", () => {
-    render(
-      <BandSection
-        band={band({ band: "live", label: "Live" })}
-        readyByKey={new Map()}
-        onOpen={vi.fn()}
-      />,
-    );
+    render(<BandSection band={band({ band: "live", label: "Live" })} onOpen={vi.fn()} />);
     expect(screen.getByText("ONE")).toBeDefined();
     expect(screen.getByText("TWO")).toBeDefined();
   });
@@ -38,7 +26,6 @@ describe("BandSection", () => {
     render(
       <BandSection
         band={band({ band: "at_rest", label: "At rest" })}
-        readyByKey={new Map()}
         onOpen={vi.fn()}
         collapsible
       />,
