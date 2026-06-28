@@ -74,7 +74,7 @@ binaries and publishes a non-prerelease GitHub Release with notes pulled from th
 changelog. A _next-cycle commit_ then bumps to the next `-next` to resume the
 prerelease stream; the version guard makes a forgotten next-cycle bump loud, not
 silent. An official cut also prunes old prereleases lag-by-one, keeping the
-just-shipped cycle's trail one more release.
+previous official's cycle trail one release longer.
 
 The full operational runbook — exact commands and the post-publish verify gate —
 lives in the `release-cut` skill (`.claude/skills/release-cut/`).
