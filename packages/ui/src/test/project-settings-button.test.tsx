@@ -84,14 +84,14 @@ describe("FleetCard description display", () => {
   test("project description appears on the fleet card when present", async () => {
     // Import FleetCard here to keep the test co-located with the feature
     const { FleetCard } = await import("../components/fleet-card");
-    render(<FleetCard project={baseProject} ready={3} onOpen={() => {}} />);
+    render(<FleetCard project={baseProject} onOpen={() => {}} />);
     expect(screen.getByText("A handy description")).toBeInTheDocument();
   });
 
   test("no description slot rendered when description is null", async () => {
     const { FleetCard } = await import("../components/fleet-card");
     const project = { ...baseProject, description: null };
-    render(<FleetCard project={project} ready={0} onOpen={() => {}} />);
+    render(<FleetCard project={project} onOpen={() => {}} />);
     expect(screen.queryByText(/description/i)).toBeNull();
   });
 });

@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { projectsQuery, readyQuery } from "../api/queries";
+import { projectsQuery } from "../api/queries";
 import { connectivity } from "../lib/connectivity";
-import { countByProject } from "../lib/counts";
 import { groupIntoBands } from "../lib/fleet-bands";
 import { cn } from "../lib/cn";
 import { BandSection } from "../components/band-section";
@@ -25,10 +24,6 @@ export function FleetPage() {
   const { node } = fleetRoute.useSearch();
 
   const projects = useQuery(projectsQuery);
-  // Ready counts are an overlay — excluded from connectivity so a miss degrades
-  // a card to "0 ready" rather than demoting the whole cached fleet.
-  const ready = useQuery(readyQuery);
-  const readyByKey = countByProject(ready.data?.items ?? []);
   const conn = connectivity([projects]);
   const openNode = (id: string) => void navigate({ to: ".", search: { node: id } });
   const closeNode = () => void navigate({ to: ".", search: {} });
@@ -71,12 +66,7 @@ export function FleetPage() {
                   <h2 className="microlabel text-ink-faint">Fleet</h2>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {grouping.projects.map((project) => (
-                      <FleetCard
-                        key={project.id}
-                        project={project}
-                        ready={readyByKey.get(project.id) ?? 0}
-                        onOpen={onOpen}
-                      />
+                      <FleetCard key={project.id} project={project} onOpen={onOpen} />
                     ))}
                   </div>
                 </section>
@@ -86,7 +76,6 @@ export function FleetPage() {
               <BandSection
                 key={band.band}
                 band={band}
-                readyByKey={readyByKey}
                 onOpen={onOpen}
                 collapsible={band.band === "at_rest"}
               />

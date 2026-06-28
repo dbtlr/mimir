@@ -103,6 +103,8 @@ export interface WireNode {
   deps?: WireDeps;
   children?: NodeRef[];
   distribution?: Distribution;
+  /** Per-project leaf-task status tally (MMR-105) — the fleet card's vitals panel. */
+  leaf_counts?: Distribution;
   tags?: WireTag[];
   annotations?: WireAnnotation[];
   artifacts?: WireArtifact[];

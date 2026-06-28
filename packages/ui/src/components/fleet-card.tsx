@@ -2,23 +2,20 @@ import type { WireNode } from "../api/types";
 import { cn } from "../lib/cn";
 import { STATUS_META } from "../lib/status";
 import { Card, CardContent, CardHeader } from "./ui/card";
-import { DistributionBar } from "./distribution-bar";
+import { CardVitals } from "./card-vitals";
 import { StatusBadge } from "./status-badge";
 
 /**
- * One project on the fleet: key, title, status, the rollup bar, and the **ready**
- * count — the one actionable number (MMR-82). The old in-flight/stale/blocked
- * triplet is gone: the bar already shows the distribution, and stuck work now
- * lives in the global attention alert.
+ * One project on the fleet (MMR-106): key, title, status, an optional going-cold
+ * temperature pill, and the **vitals panel** — the five actionable-state leaf
+ * counts (review · in prog · ready · await · blocked) from the leaf-counts facet
+ * (MMR-105). Replaces the old single ready hero + full distribution bar.
  */
 export function FleetCard({
   project,
-  ready,
   onOpen,
 }: {
   project: WireNode;
-  /** Leaf ready-task count (from the portfolio ready read), not the rollup bucket. */
-  ready: number;
   onOpen: (key: string) => void;
 }) {
   return (
@@ -35,7 +32,7 @@ export function FleetCard({
         }}
         className="block w-full text-left focus-visible:outline-2 focus-visible:outline-accent"
       >
-        <CardHeader className="flex-row items-center justify-between">
+        <CardHeader className="flex-row items-start justify-between">
           <div className="flex min-w-0 flex-col gap-0.5">
             <div className="flex items-baseline gap-2.5">
               <span className="font-mono text-base font-bold tracking-tight text-ink-bright">
@@ -47,21 +44,18 @@ export function FleetCard({
               <p className="truncate text-[0.71875rem] text-ink-dim">{project.description}</p>
             )}
             {project.attention?.stale === true && (
-              // Placeholder going-cold marker (MMR-102) — final treatment lands in the design pass.
-              <span className="microlabel text-ink-faint">◴ going cold</span>
+              <span className="mt-1 inline-flex items-center gap-1 self-start rounded bg-cold/15 px-1.5 py-0.5 text-[0.5625rem] font-semibold tracking-wider text-cold uppercase">
+                ◴ going cold
+              </span>
             )}
           </div>
           <StatusBadge status={project.status} />
         </CardHeader>
-        <CardContent className="flex flex-col gap-2.5">
-          <DistributionBar distribution={project.distribution ?? {}} />
-          <div className="flex items-baseline gap-1.5">
-            <span className="font-mono text-2xl font-bold text-ink-bright tabular-nums">
-              {ready}
-            </span>
-            <span className="microlabel text-ink-dim">ready</span>
-          </div>
-        </CardContent>
+        {project.leaf_counts !== undefined && (
+          <CardContent>
+            <CardVitals counts={project.leaf_counts} />
+          </CardContent>
+        )}
       </button>
     </Card>
   );
