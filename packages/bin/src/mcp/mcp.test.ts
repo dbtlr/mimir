@@ -16,6 +16,7 @@ import {
   toolMove,
   toolNext,
   toolPark,
+  toolReopen,
   toolReorder,
   toolStart,
   toolStatus,
@@ -116,6 +117,15 @@ test("abandon echoes the node with status abandoned", async () => {
   const res = await toolAbandon(db, { id: taskRef, reason: "superseded" });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).status).toBe("abandoned");
+});
+
+test("toolReopen sends a done task back to in_progress (MMR-104)", async () => {
+  await toolStart(db, { id: taskRef });
+  await toolDone(db, { id: taskRef });
+  const res = await toolReopen(db, { id: taskRef, reason: "unverified" });
+  expect(res.isError).toBeUndefined();
+  const node = JSON.parse(textOf(res));
+  expect(node.lifecycle).toBe("in_progress");
 });
 
 test("a not_found mutation returns the structured envelope as isError", async () => {

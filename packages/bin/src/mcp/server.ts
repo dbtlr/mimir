@@ -24,6 +24,7 @@ import {
   toolMove,
   toolNext,
   toolPark,
+  toolReopen,
   toolReorder,
   toolReturn,
   toolStart,
@@ -207,6 +208,14 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
     "Mark a task as abandoned with an optional reason. Terminal — removes from rankable set. Echoes the updated node.",
     { id: z.string(), reason: z.string().optional() },
     (args: { id: string; reason?: string }) => toolAbandon(db, args),
+  );
+
+  register(
+    server,
+    "reopen",
+    "Reopen a terminal task (done or abandoned → in_progress) with an optional reason — the deliberate correction path for a premature done. Re-enters the rankable set at the bottom. Echoes the updated node.",
+    { id: z.string(), reason: z.string().optional() },
+    (args: { id: string; reason?: string }) => toolReopen(db, args),
   );
 
   // ---------------------------------------------------------------------------
