@@ -39,9 +39,10 @@ describe("availableTransitions", () => {
     expect(availableTransitions("blocked").map((v) => v.verb)).toEqual(["unblock", "abandon"]);
   });
 
-  test("terminal/non-board statuses offer nothing", () => {
-    expect(availableTransitions("done")).toEqual([]);
-    expect(availableTransitions("abandoned")).toEqual([]);
+  test("terminal statuses offer reopen; new offers nothing (MMR-104)", () => {
+    expect(availableTransitions("done").map((v) => v.verb)).toEqual(["reopen"]);
+    expect(availableTransitions("abandoned").map((v) => v.verb)).toEqual(["reopen"]);
+    expect(availableTransitions("done").find((s) => s.verb === "reopen")?.needsReason).toBe(true);
     expect(availableTransitions("new")).toEqual([]);
   });
 
