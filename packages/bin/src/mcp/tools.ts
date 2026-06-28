@@ -42,6 +42,7 @@ import {
   parkTask,
   reorder,
   resolveEntityToken,
+  reopenTask,
   returnTask,
   startTask,
   submitTask,
@@ -259,6 +260,14 @@ export function toolReturn(db: Db, args: { id: string; reason?: string }): Promi
   return guard(async () => {
     const id = await nodeId(db, args.id, "task");
     const node = await returnTask(db, id, args.reason);
+    return echoNode(db, node);
+  });
+}
+
+export function toolReopen(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const id = await nodeId(db, args.id, "task");
+    const node = await reopenTask(db, id, args.reason);
     return echoNode(db, node);
   });
 }
