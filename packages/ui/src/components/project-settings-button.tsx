@@ -30,7 +30,7 @@ export function ProjectSettingsButton({
         aria-label="Project settings"
         disabled={offline === true}
         onClick={() => setOpen(true)}
-        className="rounded border border-line bg-well-850 px-2 py-1.5 text-[0.75rem] font-medium text-ink-dim transition-colors hover:bg-well-800 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs font-medium text-ink-dim transition-colors hover:bg-well-800 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
       >
         ⚙
       </button>
@@ -39,7 +39,7 @@ export function ProjectSettingsButton({
         {open && (
           <SheetContent aria-describedby={undefined}>
             <div className="flex flex-col gap-4 p-4">
-              <SheetTitle className="text-[0.9375rem] font-semibold text-ink-bright">
+              <SheetTitle className="text-md font-semibold text-ink-bright">
                 Project settings
               </SheetTitle>
               <ProjectSettingsForm
@@ -94,7 +94,7 @@ function ProjectSettingsForm({
     >
       {/* Name */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="project-form-title" className="text-[0.75rem] font-medium text-ink-dim">
+        <label htmlFor="project-form-title" className="text-xs font-medium text-ink-dim">
           Name
         </label>
         <form.Field name="title">
@@ -107,7 +107,7 @@ function ProjectSettingsForm({
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
               placeholder="Project name"
-              className="rounded border border-line bg-well-850 px-2 py-1.5 text-[0.78125rem] text-ink outline-none focus-visible:border-accent"
+              className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs text-ink outline-none focus-visible:border-accent"
             />
           )}
         </form.Field>
@@ -115,10 +115,7 @@ function ProjectSettingsForm({
 
       {/* Description */}
       <div className="flex flex-col gap-1">
-        <label
-          htmlFor="project-form-description"
-          className="text-[0.75rem] font-medium text-ink-dim"
-        >
+        <label htmlFor="project-form-description" className="text-xs font-medium text-ink-dim">
           Description
         </label>
         <form.Field name="description">
@@ -130,7 +127,7 @@ function ProjectSettingsForm({
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
               placeholder="Optional description"
-              className="min-h-20 resize-y rounded border border-line bg-well-850 p-2 text-[0.78125rem] text-ink outline-none focus-visible:border-accent"
+              className="min-h-20 resize-y rounded border border-line bg-well-850 p-2 text-xs text-ink outline-none focus-visible:border-accent"
             />
           )}
         </form.Field>
@@ -141,7 +138,7 @@ function ProjectSettingsForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded px-3 py-1.5 text-[0.75rem] text-ink-dim hover:text-ink"
+          className="rounded px-3 py-1.5 text-xs text-ink-dim hover:text-ink"
         >
           Cancel
         </button>
@@ -150,7 +147,7 @@ function ProjectSettingsForm({
             <button
               type="submit"
               disabled={submitting === true || title.trim() === ""}
-              className="rounded bg-accent px-3 py-1.5 text-[0.75rem] font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Save
             </button>

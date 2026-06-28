@@ -23,7 +23,7 @@ const STATUS_OPTIONS = [
 ] as const;
 const SEARCH_DEBOUNCE_MS = 250;
 const FIELD =
-  "rounded border border-line bg-well-850 px-2 py-1 text-[0.75rem] text-ink outline-none focus-visible:border-accent";
+  "rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent";
 
 /**
  * `/tasks` — the portfolio task browser (MMR-78), sibling of `/artifacts`.
@@ -91,12 +91,12 @@ export function TasksPage() {
         <h1 className="flex items-baseline gap-2 px-4 pt-3">
           <span className="font-mono text-lg font-bold tracking-tight text-ink-bright">Tasks</span>
           {tasks.data !== undefined && (
-            <span className="text-[0.75rem] text-ink-dim">{tasks.data.total}</span>
+            <span className="text-xs text-ink-dim">{tasks.data.total}</span>
           )}
         </h1>
 
         <div className="flex flex-wrap items-end gap-2 border-b border-line p-3">
-          <label className="flex flex-col gap-0.5 text-[0.6875rem] text-ink-dim">
+          <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
             Project
             <select
               value={search.project ?? ""}
@@ -113,7 +113,7 @@ export function TasksPage() {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-0.5 text-[0.6875rem] text-ink-dim">
+          <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
             Status
             <select
               value={search.status ?? "live"}
@@ -129,7 +129,7 @@ export function TasksPage() {
               ))}
             </select>
           </label>
-          <label className="flex flex-1 flex-col gap-0.5 text-[0.6875rem] text-ink-dim">
+          <label className="flex flex-1 flex-col gap-0.5 text-2xs text-ink-dim">
             Search
             <input
               type="search"
@@ -146,12 +146,12 @@ export function TasksPage() {
         <div className="min-h-0 flex-1 overflow-auto">
           {tasks.isPending && <Skeleton className="m-2 h-40" />}
           {tasks.isError && tasks.data === undefined && (
-            <p className="p-4 text-[0.75rem] text-status-blocked">
+            <p className="p-4 text-xs text-status-blocked">
               Unreachable — is `mimir serve` running?
             </p>
           )}
           {tasks.data !== undefined && items.length === 0 && (
-            <p className="px-4 py-6 text-center text-[0.75rem] text-ink-faint">No tasks match.</p>
+            <p className="px-4 py-6 text-center text-xs text-ink-faint">No tasks match.</p>
           )}
           {items.length > 0 && (
             <ol className="flex flex-col gap-1 p-1.5">
@@ -169,8 +169,8 @@ export function TasksPage() {
                     )}
                   >
                     <StatusDot status={node.status} />
-                    <span className="font-mono text-[0.625rem] text-ink-dim">{node.id}</span>
-                    <span className="truncate text-[0.78125rem] text-ink">{node.title}</span>
+                    <span className="font-mono text-3xs text-ink-dim">{node.id}</span>
+                    <span className="truncate text-xs text-ink">{node.title}</span>
                     {node.verdicts?.stale === true && <StaleBadge />}
                   </button>
                 </li>

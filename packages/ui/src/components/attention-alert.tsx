@@ -36,16 +36,14 @@ export function AttentionAlert() {
           <path d="M12 9v4m0 4h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
         {count > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-status-blocked px-1 font-mono text-[0.5625rem] font-bold text-well-950 tabular-nums">
+          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-status-blocked px-1 font-mono text-3xs font-bold text-well-950 tabular-nums">
             {count}
           </span>
         )}
       </MenuTrigger>
       <MenuContent className="max-h-[70vh] w-80 overflow-auto">
         {count === 0 ? (
-          <p className="px-2 py-3 text-center text-[0.75rem] text-ink-faint">
-            Nothing needs attention.
-          </p>
+          <p className="px-2 py-3 text-center text-xs text-ink-faint">Nothing needs attention.</p>
         ) : (
           items.map(({ node, reason, stale: isStale }) => (
             <MenuItem
@@ -61,17 +59,13 @@ export function AttentionAlert() {
               <StatusDot status={reason} />
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex items-baseline gap-2">
-                  <span className="shrink-0 font-mono text-[0.6875rem] text-ink-dim md:text-[0.625rem]">
+                  <span className="shrink-0 font-mono text-2xs text-ink-dim md:text-3xs">
                     {node.id}
                   </span>
-                  <span className="truncate text-[0.8125rem] text-ink md:text-[0.75rem]">
-                    {node.title}
-                  </span>
+                  <span className="truncate text-sm text-ink md:text-xs">{node.title}</span>
                 </span>
                 {node.hold_reason != null && node.hold_reason !== "" && (
-                  <span className="truncate text-[0.6875rem] text-ink-faint">
-                    {node.hold_reason}
-                  </span>
+                  <span className="truncate text-2xs text-ink-faint">{node.hold_reason}</span>
                 )}
               </span>
               {isStale && <StaleBadge />}

@@ -28,16 +28,16 @@ export function ArtifactReader({
         <button
           type="button"
           onClick={onBack}
-          className="rounded px-2 py-1 text-[0.75rem] text-ink-dim transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+          className="rounded px-2 py-1 text-xs text-ink-dim transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
         >
           ← Back
         </button>
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[0.6875rem] text-ink-dim">{id}</span>
+            <span className="font-mono text-2xs text-ink-dim">{id}</span>
             <Badge variant="outline">{artifact.data?.project ?? "…"}</Badge>
           </div>
-          <h1 className="text-[0.9375rem] leading-snug font-semibold text-ink-bright">
+          <h1 className="text-md leading-snug font-semibold text-ink-bright">
             {artifact.data?.title ?? id}
           </h1>
           {artifact.data !== undefined && (
@@ -47,7 +47,7 @@ export function ArtifactReader({
                   {t}
                 </Badge>
               ))}
-              <time className="font-mono text-[0.625rem] text-ink-faint">
+              <time className="font-mono text-3xs text-ink-faint">
                 {absoluteTime(artifact.data.created_at)}
               </time>
             </div>
@@ -57,9 +57,7 @@ export function ArtifactReader({
 
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {artifact.isPending && <Skeleton className="h-40 w-full" />}
-        {artifact.isError && (
-          <p className="text-[0.75rem] text-status-blocked">Couldn't load {id}.</p>
-        )}
+        {artifact.isError && <p className="text-xs text-status-blocked">Couldn't load {id}.</p>}
         {artifact.data?.content !== undefined && (
           <article className="prose prose-sm max-w-none dark:prose-invert">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{artifact.data.content}</ReactMarkdown>
@@ -76,7 +74,7 @@ export function ArtifactReader({
                   onClick={() => {
                     onOpenNode(nodeId);
                   }}
-                  className="rounded-[3px] px-1.5 py-0.5 font-mono text-[0.6875rem] text-accent transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+                  className="rounded-sm px-1.5 py-0.5 font-mono text-2xs text-accent transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
                 >
                   {nodeId}
                 </button>

@@ -36,7 +36,7 @@ export function TreeView({
   onOpenNode: (id: string) => void;
 }) {
   if (root.children.length === 0) {
-    return <p className="px-3 py-6 text-center text-[0.75rem] text-ink-faint">An empty project.</p>;
+    return <p className="px-3 py-6 text-center text-xs text-ink-faint">An empty project.</p>;
   }
   return (
     <div data-testid="tree" className="flex flex-col gap-1">
@@ -65,25 +65,23 @@ function TreeNode({
         onOpenNode(node.id);
       }}
       className={cn(
-        "flex w-full items-center gap-2 rounded-[4px] border border-transparent px-2 py-1.5 text-left",
+        "flex w-full items-center gap-2 rounded-sm border border-transparent px-2 py-1.5 text-left",
         "transition-colors hover:border-line hover:bg-well-850 focus-visible:outline-2 focus-visible:outline-accent",
       )}
     >
       <StatusDot status={node.status} />
-      <span
-        className={cn("shrink-0 font-mono text-[0.8125rem] font-semibold sm:hidden", meta.text)}
-      >
+      <span className={cn("shrink-0 font-mono text-sm font-semibold sm:hidden", meta.text)}>
         {STATUS_LETTER[node.status]}
       </span>
-      <span className="shrink-0 font-mono text-[0.75rem] whitespace-nowrap text-ink-dim md:text-[0.625rem]">
+      <span className="shrink-0 font-mono text-xs whitespace-nowrap text-ink-dim md:text-3xs">
         {node.id}
       </span>
       <span
         className={cn(
-          "min-w-0 line-clamp-2 md:truncate md:text-[0.78125rem]",
+          "min-w-0 line-clamp-2 md:truncate md:text-xs",
           container
-            ? "text-[1rem] font-semibold text-ink-bright"
-            : "text-[0.9375rem] text-ink-bright md:font-normal md:text-ink",
+            ? "text-base font-semibold text-ink-bright"
+            : "text-md text-ink-bright md:font-normal md:text-ink",
         )}
       >
         {node.title}

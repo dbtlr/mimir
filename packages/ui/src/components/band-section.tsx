@@ -44,7 +44,7 @@ export function BandSection({
   const pip = <span className={cn("h-[3px] w-5 shrink-0 rounded-sm", BAND_PIP[band.band])} />;
   const label = <h2 className="microlabel text-ink">{band.label}</h2>;
   const countChip = (
-    <span className="rounded-full border border-line px-2 py-px font-mono text-[0.6875rem] text-ink-dim tabular-nums">
+    <span className="rounded-full border border-line px-2 py-px font-mono text-2xs text-ink-dim tabular-nums">
       {count}
     </span>
   );
@@ -67,7 +67,7 @@ export function BandSection({
           {label}
           {countChip}
           {rule}
-          <span className="text-[0.6875rem] text-ink-faint transition-colors group-hover:text-ink">
+          <span className="text-2xs text-ink-faint transition-colors group-hover:text-ink">
             {expanded ? "Hide ↑" : "Show ↓"}
           </span>
         </button>

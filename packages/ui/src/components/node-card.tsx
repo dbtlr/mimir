@@ -42,7 +42,7 @@ export function NodeCard({
       <button
         type="button"
         aria-label="Reorder"
-        className="hidden cursor-grab touch-none rounded px-1 text-[0.75rem] leading-none text-ink-faint hover:text-ink active:cursor-grabbing md:inline-block"
+        className="hidden cursor-grab touch-none rounded px-1 text-xs leading-none text-ink-faint hover:text-ink active:cursor-grabbing md:inline-block"
         {...sortable.handleProps}
       >
         ⠿
@@ -54,14 +54,14 @@ export function NodeCard({
       ref={sortable?.setNodeRef}
       style={sortable?.style}
       className={cn(
-        "group relative rounded-[4px] border border-line border-l-[3px] bg-well-850 p-2 transition-colors md:border-l-2",
+        "group relative rounded-sm border border-line border-l-[3px] bg-well-850 p-2 transition-colors md:border-l-2",
         "hover:border-line-bright hover:bg-well-800",
         STATUS_META[node.status].border,
         sortable?.isDragging === true && "opacity-50",
       )}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-[0.75rem] text-ink-dim md:text-[0.625rem]">{node.id}</span>
+        <span className="font-mono text-xs text-ink-dim md:text-3xs">{node.id}</span>
         <div className="flex items-center gap-1">
           {node.verdicts?.stale === true && <StaleBadge />}
           {grip}
@@ -69,7 +69,7 @@ export function NodeCard({
         </div>
       </div>
       {ancestry !== undefined && ancestry !== "" && (
-        <p className="truncate text-[0.6875rem] text-ink-faint md:text-[0.625rem]" title={ancestry}>
+        <p className="truncate text-2xs text-ink-faint md:text-3xs" title={ancestry}>
           {ancestry}
         </p>
       )}
@@ -80,7 +80,7 @@ export function NodeCard({
         }}
         className="mt-0.5 block w-full text-left focus-visible:outline-2 focus-visible:outline-accent"
       >
-        <p className="line-clamp-2 text-[0.9375rem] font-semibold leading-snug text-ink-bright group-hover:text-ink-bright md:text-[0.78125rem] md:font-medium md:text-ink">
+        <p className="line-clamp-2 text-md font-semibold leading-snug text-ink-bright group-hover:text-ink-bright md:text-xs md:font-medium md:text-ink">
           {node.title}
         </p>
       </button>

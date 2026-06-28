@@ -22,7 +22,7 @@ function LensToggle({ view, nodeParam }: { view: ProjectLens; nodeParam: string 
       from={projectRoute.fullPath}
       search={nodeParam === undefined ? { view: target } : { view: target, node: nodeParam }}
       className={cn(
-        "microlabel rounded-[5px] px-2.5 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-accent",
+        "microlabel rounded-md px-2.5 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-accent",
         view === target ? "bg-well-700 text-ink-bright" : "text-ink-dim hover:text-ink",
       )}
     >
@@ -81,14 +81,14 @@ export function ProjectPage() {
                 <span className="font-mono text-lg font-bold tracking-tight text-ink-bright">
                   {key}
                 </span>
-                <span className="hidden truncate text-[0.75rem] text-ink-dim sm:inline">
+                <span className="hidden truncate text-xs text-ink-dim sm:inline">
                   {project.data?.title}
                 </span>
               </h1>
               {project.data !== undefined && <StatusBadge status={project.data.status} />}
             </div>
             {project.data?.description != null && project.data.description !== "" && (
-              <p className="text-[0.75rem] text-ink-dim">{project.data.description}</p>
+              <p className="text-xs text-ink-dim">{project.data.description}</p>
             )}
           </div>
           <div className="flex w-full items-center justify-between gap-3 md:ml-auto md:w-auto md:justify-start">
@@ -135,7 +135,7 @@ export function ProjectPage() {
 
         {((view === "board" && live.isError && live.data === undefined) ||
           (view === "tree" && tree.isError && tree.data === undefined)) && (
-          <p className="text-[0.75rem] text-status-blocked">
+          <p className="text-xs text-status-blocked">
             Unreachable, and nothing cached yet — is `mimir serve` running?
           </p>
         )}

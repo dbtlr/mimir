@@ -32,7 +32,7 @@ export function ReasonDialog({
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-well-950/70 backdrop-blur-[2px]" />
         <Dialog.Popup className="fixed top-1/2 left-1/2 z-50 flex w-[min(92vw,380px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-lg border border-line bg-well-900 p-4 shadow-2xl outline-none">
-          <Dialog.Title className="text-[0.875rem] font-semibold text-ink-bright capitalize">
+          <Dialog.Title className="text-sm font-semibold text-ink-bright capitalize">
             {verb}
           </Dialog.Title>
           <textarea
@@ -42,10 +42,10 @@ export function ReasonDialog({
               setReason(e.target.value);
             }}
             placeholder="Reason (optional) — context for the next agent"
-            className="min-h-20 resize-y rounded border border-line bg-well-850 p-2 text-[0.78125rem] text-ink outline-none focus-visible:border-accent"
+            className="min-h-20 resize-y rounded border border-line bg-well-850 p-2 text-xs text-ink outline-none focus-visible:border-accent"
           />
           <div className="flex justify-end gap-2">
-            <Dialog.Close className="rounded px-3 py-1.5 text-[0.75rem] text-ink-dim hover:text-ink">
+            <Dialog.Close className="rounded px-3 py-1.5 text-xs text-ink-dim hover:text-ink">
               Cancel
             </Dialog.Close>
             <button
@@ -54,7 +54,7 @@ export function ReasonDialog({
                 onConfirm(reason.trim());
                 setReason("");
               }}
-              className="rounded bg-accent px-3 py-1.5 text-[0.75rem] font-medium text-well-950 hover:opacity-90"
+              className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-well-950 hover:opacity-90"
             >
               Confirm
             </button>

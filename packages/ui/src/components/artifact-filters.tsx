@@ -48,14 +48,14 @@ export function ArtifactFilters({
 
   return (
     <div className="flex flex-wrap items-end gap-2 border-b border-line p-3">
-      <label className="flex flex-col gap-0.5 text-[0.6875rem] text-ink-dim">
+      <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
         Project
         <select
           value={filters.project ?? ""}
           onChange={(e) => {
             onChange({ project: e.target.value });
           }}
-          className="rounded border border-line bg-well-850 px-2 py-1 text-[0.75rem] text-ink outline-none focus-visible:border-accent"
+          className="rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent"
         >
           <option value="">All</option>
           {projects.map((p) => (
@@ -65,7 +65,7 @@ export function ArtifactFilters({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-0.5 text-[0.6875rem] text-ink-dim">
+      <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
         Tag
         <input
           value={filters.tag ?? ""}
@@ -73,10 +73,10 @@ export function ArtifactFilters({
             onChange({ tag: e.target.value });
           }}
           placeholder="kind:spec"
-          className="rounded border border-line bg-well-850 px-2 py-1 text-[0.75rem] text-ink outline-none focus-visible:border-accent"
+          className="rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent"
         />
       </label>
-      <label className="flex flex-col gap-0.5 text-[0.6875rem] text-ink-dim">
+      <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
         Since
         <input
           type="date"
@@ -84,10 +84,10 @@ export function ArtifactFilters({
           onChange={(e) => {
             onChange({ since: e.target.value });
           }}
-          className="rounded border border-line bg-well-850 px-2 py-1 text-[0.75rem] text-ink outline-none focus-visible:border-accent"
+          className="rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent"
         />
       </label>
-      <label className="flex flex-col gap-0.5 text-[0.6875rem] text-ink-dim">
+      <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
         Before
         <input
           type="date"
@@ -95,10 +95,10 @@ export function ArtifactFilters({
           onChange={(e) => {
             onChange({ before: e.target.value });
           }}
-          className="rounded border border-line bg-well-850 px-2 py-1 text-[0.75rem] text-ink outline-none focus-visible:border-accent"
+          className="rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent"
         />
       </label>
-      <label className="flex flex-1 flex-col gap-0.5 text-[0.6875rem] text-ink-dim">
+      <label className="flex flex-1 flex-col gap-0.5 text-2xs text-ink-dim">
         Search
         <input
           value={q}
@@ -106,7 +106,7 @@ export function ArtifactFilters({
             setQ(e.target.value);
           }}
           placeholder="Search title and body…"
-          className="min-w-40 rounded border border-line bg-well-850 px-2 py-1 text-[0.75rem] text-ink outline-none focus-visible:border-accent"
+          className="min-w-40 rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent"
         />
       </label>
     </div>

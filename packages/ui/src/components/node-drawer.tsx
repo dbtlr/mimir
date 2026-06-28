@@ -81,7 +81,7 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
 
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-3 text-[0.71875rem]">
+    <div className="flex justify-between gap-3 text-2xs">
       <dt className="text-ink-dim">{label}</dt>
       <dd className="text-right font-mono text-ink">{value}</dd>
     </div>
@@ -95,10 +95,10 @@ function RefRow({ refNode, onOpenNode }: { refNode: NodeRef; onOpenNode: (id: st
       onClick={() => {
         onOpenNode(refNode.id);
       }}
-      className="flex items-center gap-2 rounded-[3px] px-1 py-0.5 text-left text-[0.75rem] text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+      className="flex items-center gap-2 rounded-sm px-1 py-0.5 text-left text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
     >
       {refNode.status !== undefined && <StatusDot status={refNode.status} />}
-      <span className="font-mono text-[0.6875rem] text-accent">{refNode.id}</span>
+      <span className="font-mono text-2xs text-accent">{refNode.id}</span>
     </button>
   );
 }
@@ -160,19 +160,17 @@ function FeedRow({ item }: { item: FeedItem }) {
   const glyph = item.variant === "annotation" ? "✎" : item.variant === "created" ? "○" : "◆";
   return (
     <li className="flex gap-2.5">
-      <span aria-hidden className="mt-0.5 text-[0.6875rem] text-ink-faint select-none">
+      <span aria-hidden className="mt-0.5 text-2xs text-ink-faint select-none">
         {glyph}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <time className="font-mono text-[0.625rem] text-ink-faint">
+        <time className="font-mono text-3xs text-ink-faint">
           {absoluteTime(item.at)} · {ago(item.at)}
         </time>
-        {item.variant === "created" && <span className="text-[0.75rem] text-ink-dim">Created</span>}
+        {item.variant === "created" && <span className="text-xs text-ink-dim">Created</span>}
         {item.variant === "transition" && <TransitionLine entry={item.entry} />}
         {item.variant === "annotation" && (
-          <p className="text-[0.75rem] leading-relaxed whitespace-pre-wrap text-ink">
-            {item.content}
-          </p>
+          <p className="text-xs leading-relaxed whitespace-pre-wrap text-ink">{item.content}</p>
         )}
       </div>
     </li>
@@ -182,11 +180,9 @@ function FeedRow({ item }: { item: FeedItem }) {
 function TransitionLine({ entry }: { entry: WireHistoryEntry }) {
   const { label, detail } = describeTransition(entry);
   return (
-    <p className="text-[0.75rem] text-ink">
+    <p className="text-xs text-ink">
       <span className="font-medium">{label}</span>
-      {detail != null && (
-        <span className="ml-1.5 font-mono text-[0.6875rem] text-ink-dim">{detail}</span>
-      )}
+      {detail != null && <span className="ml-1.5 font-mono text-2xs text-ink-dim">{detail}</span>}
       {entry.reason != null && <span className="text-ink-dim"> — {entry.reason}</span>}
     </p>
   );
@@ -212,7 +208,7 @@ function Timeline({
 
   const panel = (items: FeedItem[], empty: string) => {
     if (pending && items.length === 0) return <Skeleton className="h-12 w-full" />;
-    if (items.length === 0) return <p className="text-[0.75rem] text-ink-faint">{empty}</p>;
+    if (items.length === 0) return <p className="text-xs text-ink-faint">{empty}</p>;
     return (
       <ol className="flex flex-col gap-3">
         {items.map((i) => (
@@ -275,7 +271,7 @@ function DrawerBody({
       <header className="flex items-start justify-between gap-3 border-b border-line p-4 pb-3">
         <div className="flex min-w-0 flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[0.75rem] font-semibold text-ink-dim">{nodeId}</span>
+            <span className="font-mono text-xs font-semibold text-ink-dim">{nodeId}</span>
             {node.data !== undefined && (
               <>
                 <Badge variant="outline">{node.data.type}</Badge>
@@ -283,7 +279,7 @@ function DrawerBody({
               </>
             )}
           </div>
-          <SheetTitle className="text-[0.9375rem] leading-snug font-semibold text-ink-bright">
+          <SheetTitle className="text-md leading-snug font-semibold text-ink-bright">
             {node.data?.title ?? nodeId}
           </SheetTitle>
         </div>
@@ -295,7 +291,7 @@ function DrawerBody({
                   type="button"
                   aria-label="Edit"
                   onClick={() => setEditing(true)}
-                  className="rounded px-2 py-1 text-[0.75rem] text-ink-dim transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+                  className="rounded px-2 py-1 text-xs text-ink-dim transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
                 >
                   Edit
                 </button>
@@ -319,14 +315,14 @@ function DrawerBody({
             </div>
           )}
           {node.isError && node.data === undefined && (
-            <p className="text-[0.75rem] text-status-blocked">Couldn't load {nodeId}.</p>
+            <p className="text-xs text-status-blocked">Couldn't load {nodeId}.</p>
           )}
 
           {node.data !== undefined && editing && (
             <div className="flex flex-col gap-3">
               {/* Parent is a move (verb), not part of the dumb update submit (MMR-73). */}
               <div className="flex flex-col gap-1">
-                <label htmlFor="drawer-parent" className="text-[0.75rem] font-medium text-ink-dim">
+                <label htmlFor="drawer-parent" className="text-xs font-medium text-ink-dim">
                   Parent
                 </label>
                 <select
@@ -337,7 +333,7 @@ function DrawerBody({
                     const to = e.target.value;
                     if (to !== "" && to !== node.data?.parent) move.mutate(to);
                   }}
-                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-[0.78125rem] text-ink outline-none focus-visible:border-accent disabled:opacity-50"
+                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs text-ink outline-none focus-visible:border-accent disabled:opacity-50"
                 >
                   {(tree.data ? parentOptions(tree.data) : []).map((o) => (
                     <option key={o.id} value={o.id}>
@@ -371,7 +367,7 @@ function DrawerBody({
               )}
 
               {node.data.hold_reason != null && node.data.hold !== "none" && (
-                <div className="rounded border border-status-blocked/40 bg-status-blocked/10 p-2.5 text-[0.75rem] text-ink">
+                <div className="rounded border border-status-blocked/40 bg-status-blocked/10 p-2.5 text-xs text-ink">
                   <span className="microlabel mr-2 text-status-blocked">{node.data.hold}</span>
                   {node.data.hold_reason}
                 </div>
@@ -379,7 +375,7 @@ function DrawerBody({
 
               {node.data.description !== null && (
                 <Section label="Description">
-                  <p className="text-[0.78125rem] leading-relaxed whitespace-pre-wrap text-ink">
+                  <p className="text-xs leading-relaxed whitespace-pre-wrap text-ink">
                     {node.data.description}
                   </p>
                 </Section>
@@ -390,7 +386,7 @@ function DrawerBody({
                   <Section label="Dependencies">
                     {node.data.deps.depends_on.length > 0 && (
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-[0.6875rem] text-ink-dim">depends on</span>
+                        <span className="text-2xs text-ink-dim">depends on</span>
                         {node.data.deps.depends_on.map((r) => (
                           <RefRow key={r.id} refNode={r} onOpenNode={onOpenNode} />
                         ))}
@@ -398,7 +394,7 @@ function DrawerBody({
                     )}
                     {node.data.deps.blocking.length > 0 && (
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-[0.6875rem] text-ink-dim">blocking</span>
+                        <span className="text-2xs text-ink-dim">blocking</span>
                         {node.data.deps.blocking.map((r) => (
                           <RefRow key={r.id} refNode={r} onOpenNode={onOpenNode} />
                         ))}
@@ -431,9 +427,9 @@ function DrawerBody({
                           onClick={() => {
                             void navigate({ to: "/artifacts", search: { a: a.id, from: nodeId } });
                           }}
-                          className="flex w-full items-center gap-2 rounded-[3px] px-1 py-0.5 text-left text-[0.75rem] text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+                          className="flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-left text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
                         >
-                          <span className="font-mono text-[0.625rem] text-ink-dim">{a.id}</span>
+                          <span className="font-mono text-3xs text-ink-dim">{a.id}</span>
                           <span className="truncate">{a.title}</span>
                         </button>
                       </li>

@@ -14,9 +14,7 @@ export function ArtifactList({
   onSelect: (id: string) => void;
 }) {
   if (items.length === 0) {
-    return (
-      <p className="px-2 py-6 text-center text-[0.75rem] text-ink-faint">No artifacts match.</p>
-    );
+    return <p className="px-2 py-6 text-center text-xs text-ink-faint">No artifacts match.</p>;
   }
   return (
     <ol className="flex flex-col gap-1 p-1.5">
@@ -28,16 +26,16 @@ export function ArtifactList({
               onSelect(a.id);
             }}
             className={cn(
-              "flex w-full flex-col gap-1 rounded-[4px] border border-line p-2 text-left transition-colors",
+              "flex w-full flex-col gap-1 rounded-sm border border-line p-2 text-left transition-colors",
               "hover:border-line-bright hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent",
               a.id === selectedId ? "border-accent bg-well-800" : "bg-well-850",
             )}
           >
             <div className="flex items-baseline justify-between gap-2">
-              <span className="font-mono text-[0.625rem] text-ink-dim">{a.id}</span>
-              <time className="font-mono text-[0.625rem] text-ink-faint">{ago(a.created_at)}</time>
+              <span className="font-mono text-3xs text-ink-dim">{a.id}</span>
+              <time className="font-mono text-3xs text-ink-faint">{ago(a.created_at)}</time>
             </div>
-            <p className="line-clamp-2 text-[0.78125rem] leading-snug text-ink">{a.title}</p>
+            <p className="line-clamp-2 text-xs leading-snug text-ink">{a.title}</p>
             <div className="flex flex-wrap items-center gap-1">
               <Badge variant="outline">{a.project}</Badge>
               {a.tags.map((t) => (
