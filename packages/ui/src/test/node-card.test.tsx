@@ -34,9 +34,9 @@ describe("NodeCard", () => {
     expect(screen.getByLabelText("Actions")).toHaveProperty("disabled", true);
   });
 
-  test("a done card has no kebab", () => {
+  test("a done card shows the kebab — terminal cards offer Reopen (MMR-104)", () => {
     render(<NodeCard node={task({ id: "MMR-9", status: "done" })} onOpen={vi.fn()} />, { wrapper });
-    expect(screen.queryByLabelText("Actions")).toBeNull();
+    expect(screen.queryByLabelText("Actions")).not.toBeNull();
   });
 
   test("shows the ancestry breadcrumb when provided", () => {
