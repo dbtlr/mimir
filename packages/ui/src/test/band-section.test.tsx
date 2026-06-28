@@ -22,7 +22,7 @@ describe("BandSection", () => {
     expect(screen.getByText("TWO")).toBeDefined();
   });
 
-  test("a collapsible band hides its cards behind an expandable count strip", async () => {
+  test("a collapsible band is a re-collapsible disclosure (aria-expanded toggles)", async () => {
     render(
       <BandSection
         band={band({ band: "at_rest", label: "At rest" })}
@@ -30,12 +30,20 @@ describe("BandSection", () => {
         collapsible
       />,
     );
-    // collapsed: cards absent, strip present
+    const toggle = screen.getByRole("button", { name: /at rest/i });
+    // collapsed by default: cards absent, aria-expanded false
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByText("ONE")).toBeNull();
-    const strip = screen.getByRole("button", { name: /at rest/i });
-    await userEvent.click(strip);
-    // expanded: cards now visible
+
+    await userEvent.click(toggle);
+    // expanded: cards visible, aria-expanded true
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText("ONE")).toBeDefined();
     expect(screen.getByText("TWO")).toBeDefined();
+
+    await userEvent.click(toggle);
+    // re-collapsed: cards hidden again (the old one-way expand would keep them)
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText("ONE")).toBeNull();
   });
 });
