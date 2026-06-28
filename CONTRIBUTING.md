@@ -66,21 +66,18 @@ build-affecting merge to `main` auto-publishes a `vX.Y.Z-next.N` prerelease
 or update one with `MIMIR_NEXT=1 sh install.sh`, `mimir self-update --next`, or
 pin a build with `mimir self-update --tag v0.6.0-next.5`.
 
-**Cutting an official release** is a two-commit dance:
+**Cutting an official release** is a two-commit procedure. A _cut commit_ bumps
+`packages/bin/package.json` `X.Y.Z-next` → `X.Y.Z`, promotes `[Unreleased]` in
+`CHANGELOG.md` to `## vX.Y.Z - YYYY-MM-DD` (a fresh `[Unreleased]` added above),
+and pushes the `vX.Y.Z` tag — the release workflow then builds the per-platform
+binaries and publishes a non-prerelease GitHub Release with notes pulled from the
+changelog. A _next-cycle commit_ then bumps to the next `-next` to resume the
+prerelease stream; the version guard makes a forgotten next-cycle bump loud, not
+silent. An official cut also prunes old prereleases lag-by-one, keeping the
+just-shipped cycle's trail one more release.
 
-1. **Cut commit:** bump `packages/bin/package.json` from `X.Y.Z-next` to
-   `X.Y.Z`, promote `[Unreleased]` in `CHANGELOG.md` to `## vX.Y.Z - YYYY-MM-DD`,
-   add a fresh `[Unreleased]`. Merge, then push the tag `vX.Y.Z`. The release
-   workflow builds the per-platform binaries and publishes a GitHub Release
-   (non-prerelease) with notes pulled from the changelog.
-2. **Open the next cycle (required):** bump `packages/bin/package.json` to the
-   next `-next` (e.g. `X.(Y+1).0-next`, or a major bump if that's the call) and
-   merge. This resumes the prerelease stream. The version guard fails any
-   build-affecting change that lands while a released clean version has no
-   next-cycle bump, so forgetting this step is loud, not silent.
-
-> Retention/pruning of old prereleases is tracked separately (a future cut
-> step); for now prereleases accumulate.
+The full operational runbook — exact commands and the post-publish verify gate —
+lives in the `release-cut` skill (`.claude/skills/release-cut/`).
 
 ## Code of conduct
 
