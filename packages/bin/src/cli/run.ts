@@ -62,6 +62,7 @@ import {
   cmdDone,
   cmdMove,
   cmdPark,
+  cmdReopen,
   cmdReorder,
   cmdReturn,
   cmdStart,
@@ -341,6 +342,8 @@ export async function runCli(
         return await cmdDone(await mkCtx());
       case "abandon":
         return await cmdAbandon(await mkCtx());
+      case "reopen":
+        return await cmdReopen(await mkCtx());
       case "park":
         return await cmdPark(await mkCtx());
       case "unpark":

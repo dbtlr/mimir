@@ -23,6 +23,7 @@ import {
   notFound,
   parkTask,
   reorder,
+  reopenTask,
   resolveEntityToken,
   returnTask,
   startTask,
@@ -123,6 +124,16 @@ export async function cmdReturn(c: Ctx): Promise<number> {
   await returnTask(c.db, id, reason);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) =>
     withReason(`returned ${rid} · under_review → in_progress`, reason),
+  );
+  return 0;
+}
+
+export async function cmdReopen(c: Ctx): Promise<number> {
+  const id = await resolveNode(c.db, requirePos(c, 1, "reopen"), "task");
+  const reason = reasonTail(c);
+  await reopenTask(c.db, id, reason);
+  await echoNodeWith(c.db, id, c.format, c.io, (rid) =>
+    withReason(`reopened ${rid} → in_progress`, reason),
   );
   return 0;
 }

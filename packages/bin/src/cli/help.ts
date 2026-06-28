@@ -20,6 +20,7 @@ manage commands:
     return <id> [reason]    send back for changes (under_review → in_progress)
     done <id>               complete a task (approves a review)
     abandon <id> [reason]   abandon a task (kept, not deleted)
+    reopen <id> [reason]    reopen a terminal task (done/abandoned → in_progress)
 
   holds:
     park <id> [reason]      put a task on hold
