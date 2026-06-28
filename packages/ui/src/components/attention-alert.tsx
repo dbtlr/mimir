@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { blockedQuery, staleQuery } from "../api/queries";
+import { blockedQuery, staleQuery, underReviewQuery } from "../api/queries";
 import { projectKeyOf } from "../api/types";
 import { attentionItems } from "../lib/attention";
 import { StaleBadge } from "./signal-badges";
@@ -8,22 +8,27 @@ import { StatusDot } from "./status-dot";
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from "./ui/menu";
 
 /**
- * The global attention control (MMR-80): the cross-project intervention set
- * (blocked + stale) as a count badge + a menu. Lives in the top bar on every
- * route — promoted from the fleet-only strip. Selecting an item opens it on its
- * project board.
+ * The global attention control (MMR-80, reconciled MMR-103): the cross-project
+ * set that needs the operator — **under_review (Awaiting you) + blocked + stale**
+ * — as a count badge + a menu. Lives in the top bar on every route. Selecting an
+ * item opens it on its project board.
  */
 export function AttentionAlert() {
   const navigate = useNavigate();
+  const underReview = useQuery(underReviewQuery);
   const blocked = useQuery(blockedQuery);
   const stale = useQuery(staleQuery);
-  const items = attentionItems(blocked.data?.items ?? [], stale.data?.items ?? []);
+  const items = attentionItems(
+    underReview.data?.items ?? [],
+    blocked.data?.items ?? [],
+    stale.data?.items ?? [],
+  );
   const count = items.length;
 
   return (
     <MenuRoot>
       <MenuTrigger
-        aria-label={count === 0 ? "Attention: nothing stuck" : `Attention: ${count} stuck`}
+        aria-label={count === 0 ? "Attention: nothing needs you" : `Attention: ${count} need you`}
         className="relative flex h-9 w-9 items-center justify-center rounded text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:h-auto md:w-auto md:p-1.5"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
