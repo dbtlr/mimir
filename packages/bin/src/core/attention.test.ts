@@ -109,6 +109,17 @@ test("the highest band wins when leaves span several bands", async () => {
   expect((await attentionOf(db, p)).band).toBe("live");
 });
 
+test("highest-wins is independent of scan order — the winning leaf created last still wins", async () => {
+  const { p, phase } = await fixture();
+  // lower bands first, the awaiting_you leaf created last (so it scans last)
+  const blocked = await createTask(db, { parentId: phase.id, title: "blocked" });
+  await patch(blocked.id, { hold: "blocked" }); // needs_unsticking
+  await createTask(db, { parentId: phase.id, title: "ready" }); // live
+  const review = await createTask(db, { parentId: phase.id, title: "review" });
+  await patch(review.id, { lifecycle: "under_review" }); // awaiting_you, created last
+  expect((await attentionOf(db, p)).band).toBe("awaiting_you");
+});
+
 test("stale is a modifier that decorates the live band, not a band of its own", async () => {
   const { p, phase } = await fixture();
   const t = await createTask(db, { parentId: phase.id, title: "t" });
