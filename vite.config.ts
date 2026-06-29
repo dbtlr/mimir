@@ -74,7 +74,6 @@ const quarantinedRules: Record<string, 'off'> = {
   'typescript/consistent-return': 'off', // 4
   'typescript/method-signature-style': 'off', // 6
   'typescript/no-unsafe-type-assertion': 'off', // 146 — biggest; mostly test JSON.parse casts
-  'typescript/parameter-properties': 'off', // 2
   // — import —
   'import/first': 'off', // 5
   'import/no-duplicates': 'off', // 8

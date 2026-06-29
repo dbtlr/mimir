@@ -16,7 +16,10 @@ import { expectReject } from './testing';
  */
 
 class MapProvider implements MigrationProvider {
-  constructor(private readonly set: Record<string, Migration>) {}
+  private readonly set: Record<string, Migration>;
+  constructor(set: Record<string, Migration>) {
+    this.set = set;
+  }
   getMigrations(): Promise<Record<string, Migration>> {
     return Promise.resolve(this.set);
   }

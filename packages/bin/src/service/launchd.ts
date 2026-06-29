@@ -43,10 +43,9 @@ export const bunExec: Exec = async (argv) => {
 
 export class LaunchdSupervisor implements Supervisor {
   private readonly target: string;
-  constructor(
-    private readonly exec: Exec,
-    uid: number,
-  ) {
+  private readonly exec: Exec;
+  constructor(exec: Exec, uid: number) {
+    this.exec = exec;
     this.target = `gui/${String(uid)}`;
   }
 
