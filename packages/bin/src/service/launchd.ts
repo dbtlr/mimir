@@ -22,12 +22,12 @@ export type ServiceInfo = {
 };
 
 export type Supervisor = {
-  install(serviceFile: string): Promise<void>;
-  uninstall(): Promise<void>;
-  start(serviceFile: string): Promise<void>;
-  stop(): Promise<void>;
-  restart(): Promise<void>;
-  info(): Promise<ServiceInfo>;
+  install: (serviceFile: string) => Promise<void>;
+  uninstall: () => Promise<void>;
+  start: (serviceFile: string) => Promise<void>;
+  stop: () => Promise<void>;
+  restart: () => Promise<void>;
+  info: () => Promise<ServiceInfo>;
 };
 
 /** Run an argv via Bun, capturing exit code and output. The one impure edge. */
