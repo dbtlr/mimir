@@ -2,6 +2,9 @@ import { describe, expect } from 'vitest';
 
 import { availableTransitions } from '../lib/transitions';
 
+const inProgressNeedsReason = (v: string): boolean | undefined =>
+  availableTransitions('in_progress').find((s) => s.verb === v)?.needsReason;
+
 describe('availableTransitions', () => {
   it('ready offers start + holds + abandon', () => {
     expect(availableTransitions('ready').map((v) => v.verb)).toStrictEqual([
@@ -54,11 +57,9 @@ describe('availableTransitions', () => {
   });
 
   it('only park/block/abandon need a reason', () => {
-    const reason = (v: string) =>
-      availableTransitions('in_progress').find((s) => s.verb === v)?.needsReason;
-    expect(reason('park')).toBe(true);
-    expect(reason('block')).toBe(true);
-    expect(reason('abandon')).toBe(true);
-    expect(reason('done')).toBe(false);
+    expect(inProgressNeedsReason('park')).toBe(true);
+    expect(inProgressNeedsReason('block')).toBe(true);
+    expect(inProgressNeedsReason('abandon')).toBe(true);
+    expect(inProgressNeedsReason('done')).toBe(false);
   });
 });

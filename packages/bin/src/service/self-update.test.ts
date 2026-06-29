@@ -74,21 +74,22 @@ test('replaceBinary atomically swaps and preserves executability', () => {
   expect(statSync(target).mode & 0o111).not.toBe(0);
 });
 
+const redirectingFetcher = (url: string): Promise<Response> => {
+  if (url.endsWith('/SHA256SUMS')) {
+    return Promise.resolve(new Response('abc  mimir-darwin-arm64\n', { status: 200 }));
+  }
+  if (url.includes('cdn.example')) {
+    return Promise.resolve(new Response('BINARY', { status: 200 }));
+  }
+  return Promise.resolve(
+    new Response(null, { headers: { location: 'https://cdn.example/blob' }, status: 302 }),
+  );
+};
+
 test('downloadAsset follows download redirects and downloadSums returns text', async () => {
-  const fetcher = (url: string): Promise<Response> => {
-    if (url.endsWith('/SHA256SUMS')) {
-      return Promise.resolve(new Response('abc  mimir-darwin-arm64\n', { status: 200 }));
-    }
-    if (url.includes('cdn.example')) {
-      return Promise.resolve(new Response('BINARY', { status: 200 }));
-    }
-    return Promise.resolve(
-      new Response(null, { headers: { location: 'https://cdn.example/blob' }, status: 302 }),
-    );
-  };
-  const body = await downloadAsset('v0.6.0', fetcher);
+  const body = await downloadAsset('v0.6.0', redirectingFetcher);
   expect(new TextDecoder().decode(body)).toBe('BINARY');
-  expect(await downloadSums('v0.6.0', fetcher)).toBe('abc  mimir-darwin-arm64\n');
+  expect(await downloadSums('v0.6.0', redirectingFetcher)).toBe('abc  mimir-darwin-arm64\n');
 });
 
 test('resolveLatestPrereleaseTag returns the first entry tag from the atom feed', async () => {

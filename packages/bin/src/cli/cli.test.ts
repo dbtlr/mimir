@@ -35,11 +35,12 @@ test('unknown command exits 2 with an error', async () => {
   expect(io.out).toHaveLength(0);
 });
 
+// The provider throws if asked: data-free paths must complete without it.
+const neverDb = (): Db => {
+  throw new Error('store acquired on a data-free path');
+};
+
 test('help, usage errors, and unknown commands never acquire the store (MMR-39)', async () => {
-  // The provider throws if asked: these paths must complete without it.
-  const neverDb = (): Db => {
-    throw new Error('store acquired on a data-free path');
-  };
   expect(await runCli([], neverDb, fakeIo(true))).toBe(0);
   expect(await runCli(['--help'], neverDb, fakeIo(true))).toBe(0);
   expect(await runCli(['frobnicate'], neverDb, fakeIo(true))).toBe(2);
