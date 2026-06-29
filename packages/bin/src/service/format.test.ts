@@ -4,12 +4,12 @@ import { formatSelfUpdateJson, formatServiceActionJson, formatServiceStatusJson 
 import type { SelfUpdateResult, ServiceActionResult, ServiceStatus } from './format';
 
 const runningStatus = (over: Partial<ServiceStatus> = {}): ServiceStatus => ({
+  configProblem: null,
+  health: { onDiskVersion: '0.6.0', restartPending: true, runningVersion: '0.5.0' },
   loaded: true,
-  running: true,
+  paths: { config: '/p/config', log: '/p/log', plist: '/p/plist' },
   pid: 4242,
   port: 64647,
-  configProblem: null,
-  health: { runningVersion: '0.5.0', onDiskVersion: '0.6.0', restartPending: true },
   recentEvents: [
     {
       at: '2026-06-14T00:00:00.000Z',
@@ -20,7 +20,7 @@ const runningStatus = (over: Partial<ServiceStatus> = {}): ServiceStatus => ({
       detail: 'port 64647',
     },
   ],
-  paths: { plist: '/p/plist', config: '/p/config', log: '/p/log' },
+  running: true,
   ...over,
 });
 
@@ -28,12 +28,12 @@ describe('formatServiceStatusJson', () => {
   test('running status maps to the snake_case envelope', () => {
     const parsed = JSON.parse(formatServiceStatusJson(runningStatus(), true));
     expect(parsed).toEqual({
+      config_problem: null,
+      health: { on_disk_version: '0.6.0', restart_pending: true, running_version: '0.5.0' },
       loaded: true,
-      running: true,
+      paths: { config: '/p/config', log: '/p/log', plist: '/p/plist' },
       pid: 4242,
       port: 64647,
-      config_problem: null,
-      health: { running_version: '0.5.0', on_disk_version: '0.6.0', restart_pending: true },
       recent_events: [
         {
           at: '2026-06-14T00:00:00.000Z',
@@ -44,7 +44,7 @@ describe('formatServiceStatusJson', () => {
           detail: 'port 64647',
         },
       ],
-      paths: { plist: '/p/plist', config: '/p/config', log: '/p/log' },
+      running: true,
     });
   });
 
@@ -52,12 +52,12 @@ describe('formatServiceStatusJson', () => {
     const parsed = JSON.parse(
       formatServiceStatusJson(
         runningStatus({
-          loaded: false,
-          running: false,
-          pid: null,
-          health: null,
           configProblem: 'invalid-port',
+          health: null,
+          loaded: false,
+          pid: null,
           recentEvents: [],
+          running: false,
         }),
         true,
       ),
@@ -80,14 +80,14 @@ describe('formatServiceActionJson', () => {
     const r: ServiceActionResult = {
       action: 'install',
       ok: true,
+      paths: { config: '/p/config', log: '/p/log', plist: '/p/plist' },
       port: 55440,
-      paths: { plist: '/p/plist', config: '/p/config', log: '/p/log' },
     };
     expect(JSON.parse(formatServiceActionJson(r, true))).toEqual({
       action: 'install',
       ok: true,
+      paths: { config: '/p/config', log: '/p/log', plist: '/p/plist' },
       port: 55440,
-      paths: { plist: '/p/plist', config: '/p/config', log: '/p/log' },
     });
   });
 
@@ -100,31 +100,31 @@ describe('formatServiceActionJson', () => {
 describe('formatSelfUpdateJson', () => {
   test('an applied update', () => {
     const r: SelfUpdateResult = {
+      asset: 'mimir-darwin-arm64',
       from: '0.6.0',
+      restartFailed: false,
+      restarted: true,
       to: '0.7.0',
       updated: true,
-      restarted: true,
-      restartFailed: false,
-      asset: 'mimir-darwin-arm64',
     };
     expect(JSON.parse(formatSelfUpdateJson(r, true))).toEqual({
+      asset: 'mimir-darwin-arm64',
       from: '0.6.0',
+      restart_failed: false,
+      restarted: true,
       to: '0.7.0',
       updated: true,
-      restarted: true,
-      restart_failed: false,
-      asset: 'mimir-darwin-arm64',
     });
   });
 
   test('already current → updated false, to equals from', () => {
     const r: SelfUpdateResult = {
+      asset: 'mimir-darwin-arm64',
       from: '0.6.0',
+      restartFailed: false,
+      restarted: false,
       to: '0.6.0',
       updated: false,
-      restarted: false,
-      restartFailed: false,
-      asset: 'mimir-darwin-arm64',
     };
     const parsed = JSON.parse(formatSelfUpdateJson(r, true));
     expect(parsed.updated).toBe(false);

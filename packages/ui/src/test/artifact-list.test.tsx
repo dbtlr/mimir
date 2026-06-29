@@ -7,18 +7,18 @@ import { ArtifactList } from '../components/artifact-list';
 
 const items: WireArtifactSummary[] = [
   {
+    created_at: '2026-06-16T00:00:00.000Z',
     id: 'MMR-a8',
-    title: 'Artifacts browser',
     project: 'MMR',
     tags: ['kind:spec'],
-    created_at: '2026-06-16T00:00:00.000Z',
+    title: 'Artifacts browser',
   },
   {
+    created_at: '2026-06-10T00:00:00.000Z',
     id: 'NOVA-a1',
-    title: 'Nova kickoff',
     project: 'NOVA',
     tags: [],
-    created_at: '2026-06-10T00:00:00.000Z',
+    title: 'Nova kickoff',
   },
 ];
 

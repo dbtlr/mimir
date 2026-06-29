@@ -12,12 +12,12 @@ import skillRoot from '../../skills/mimir/SKILL.md' with { type: 'text' };
 
 /** Relative path inside the installed skill directory → file content. */
 export const SKILL_FILES: readonly { path: string; content: string }[] = [
-  { path: 'SKILL.md', content: skillRoot },
-  { path: 'references/setup.md', content: refSetup },
-  { path: 'references/authoring.md', content: refAuthoring },
-  { path: 'references/querying.md', content: refQuerying },
-  { path: 'references/status-model.md', content: refStatusModel },
-  { path: 'references/tags.md', content: refTags },
+  { content: skillRoot, path: 'SKILL.md' },
+  { content: refSetup, path: 'references/setup.md' },
+  { content: refAuthoring, path: 'references/authoring.md' },
+  { content: refQuerying, path: 'references/querying.md' },
+  { content: refStatusModel, path: 'references/status-model.md' },
+  { content: refTags, path: 'references/tags.md' },
 ];
 
 export const SKILL_AGENTS = ['claude', 'codex'] as const;

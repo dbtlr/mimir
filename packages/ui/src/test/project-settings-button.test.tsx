@@ -20,13 +20,13 @@ function wrap(ui: ReactNode) {
 }
 
 const baseProject: WireNode = {
-  id: 'MMR',
-  type: 'project',
-  title: 'My Project',
-  status: 'in_progress',
-  parent: null,
-  description: 'A handy description',
   created_at: '2024-01-01T00:00:00Z',
+  description: 'A handy description',
+  id: 'MMR',
+  parent: null,
+  status: 'in_progress',
+  title: 'My Project',
+  type: 'project',
   updated_at: '2024-01-01T00:00:00Z',
 };
 
@@ -64,7 +64,7 @@ describe('projectSettingsButton', () => {
   });
 
   it('submitting calls PATCH /api/projects/:key with title and description', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR', title: 'Renamed', description: 'New desc' });
+    apiSend.mockResolvedValue({ description: 'New desc', id: 'MMR', title: 'Renamed' });
     wrap(<ProjectSettingsButton project={baseProject} />);
     fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
 
@@ -74,8 +74,8 @@ describe('projectSettingsButton', () => {
 
     await vi.waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', {
-        title: 'Renamed',
         description: 'New desc',
+        title: 'Renamed',
       });
     });
   });

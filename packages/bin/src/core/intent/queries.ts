@@ -34,14 +34,20 @@ async function resolveScope(db: Db, key: string): Promise<number> {
 }
 
 function setResult(items: NodeView[], total: number, startsAt = 0): SetResult<NodeView> {
-  return { total, returned: items.length, startsAt, items };
+  return { items, returned: items.length, startsAt, total };
 }
 
 /** Does this Status word fall inside the selected universe? */
 function inUniverse(word: StatusWord, selector: StatusSelector): boolean {
-  if (selector === 'all') return true;
-  if (selector === 'live') return !isTerminalWord(word);
-  if (selector === 'terminal') return isTerminalWord(word);
+  if (selector === 'all') {
+    return true;
+  }
+  if (selector === 'live') {
+    return !isTerminalWord(word);
+  }
+  if (selector === 'terminal') {
+    return isTerminalWord(word);
+  }
   return word === selector;
 }
 
@@ -58,7 +64,9 @@ async function passesVerdicts(
         : verdict === 'blocking'
           ? await isBlocking(db, node)
           : await isOrphaned(db, node);
-    if (holds === negate) return false;
+    if (holds === negate) {
+      return false;
+    }
   }
   return true;
 }
@@ -75,20 +83,20 @@ async function toQueryRow(
   needed: ReadonlySet<string>,
 ): Promise<QueryRow> {
   const values: Record<string, string | null> = {
-    type: node.type,
-    title: node.title,
-    status: word,
+    completed_at: node.completed_at,
+    created_at: node.created_at,
     description: node.description,
-    priority: node.priority,
-    size: node.size,
-    lifecycle: node.lifecycle,
+    external_ref: node.external_ref,
     hold: node.hold,
     hold_reason: node.hold_reason,
+    lifecycle: node.lifecycle,
+    priority: node.priority,
+    size: node.size,
+    status: word,
     target: node.target,
-    external_ref: node.external_ref,
-    created_at: node.created_at,
+    title: node.title,
+    type: node.type,
     updated_at: node.updated_at,
-    completed_at: node.completed_at,
   };
   if (needed.has('id')) {
     values.id = await renderNodeId(db, node.id);
@@ -106,18 +114,18 @@ async function toQueryRow(
       .execute();
     tags = rows.map((r) => r.tag);
   }
-  return { values, tags };
+  return { tags, values };
 }
 
 const emptyResult = (warnings: ValueWarning[]): SetResult<NodeView> => ({
-  total: 0,
+  items: [],
   returned: 0,
   startsAt: 0,
-  items: [],
+  total: 0,
   warnings,
 });
 
-export interface NextOptions {
+export type NextOptions = {
   scope?: string;
   priority?: Priority;
   size?: Size;
@@ -125,7 +133,7 @@ export interface NextOptions {
   filters?: FieldFilter[];
   limit?: number;
   facets?: readonly FacetName[];
-}
+};
 
 /**
  * `next` — the headline "what's next": **ready** tasks (todo, un-held, every
@@ -159,9 +167,15 @@ export async function nextTasks(db: Db, opts: NextOptions = {}): Promise<SetResu
   const verdicts = opts.verdicts ?? [];
   const ready: Node[] = [];
   for (const row of candidates) {
-    if (!(await isReady(db, row))) continue;
-    if (!(await passesVerdicts(db, row, verdicts))) continue;
-    if (!compiled.test(await toQueryRow(db, row, 'ready', compiled.needed))) continue;
+    if (!(await isReady(db, row))) {
+      continue;
+    }
+    if (!(await passesVerdicts(db, row, verdicts))) {
+      continue;
+    }
+    if (!compiled.test(await toQueryRow(db, row, 'ready', compiled.needed))) {
+      continue;
+    }
     ready.push(row);
   }
   const limited = opts.limit !== undefined ? ready.slice(0, opts.limit) : ready;
@@ -170,7 +184,7 @@ export async function nextTasks(db: Db, opts: NextOptions = {}): Promise<SetResu
   return setResult(items, ready.length);
 }
 
-export interface ListOptions {
+export type ListOptions = {
   scope?: string;
   /** The selection universe (MMR-33). Default `live`. */
   status?: StatusSelector;
@@ -183,7 +197,7 @@ export interface ListOptions {
   q?: string;
   limit?: number;
   facets?: readonly FacetName[];
-}
+};
 
 /**
  * `list` — broad selection (MMR-33): `--status` picks the universe (the
@@ -252,9 +266,15 @@ export async function listNodes(db: Db, opts: ListOptions = {}): Promise<SetResu
   const matched: { node: Node; word: StatusWord }[] = [];
   for (const row of rows) {
     const word = await nodeStatusWord(db, row);
-    if (!inUniverse(word, universe)) continue;
-    if (!(await passesVerdicts(db, row, verdicts))) continue;
-    if (!compiled.test(await toQueryRow(db, row, word, compiled.needed))) continue;
+    if (!inUniverse(word, universe)) {
+      continue;
+    }
+    if (!(await passesVerdicts(db, row, verdicts))) {
+      continue;
+    }
+    if (!compiled.test(await toQueryRow(db, row, word, compiled.needed))) {
+      continue;
+    }
     matched.push({ node: row, word });
   }
   const limited = opts.limit !== undefined ? matched.slice(0, opts.limit) : matched;
@@ -263,9 +283,9 @@ export async function listNodes(db: Db, opts: ListOptions = {}): Promise<SetResu
   return setResult(items, matched.length);
 }
 
-export interface GetOptions {
+export type GetOptions = {
   facets?: readonly FacetName[];
-}
+};
 
 /**
  * `get <id>` — identity selection by the full grammar (MMR-32): a node
@@ -334,7 +354,7 @@ export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
       throw projectNotFound(identity.key);
     }
     const { status, distribution } = await statusOfProject(db, project.id);
-    return { id: identity.key, type: 'project', status, distribution };
+    return { distribution, id: identity.key, status, type: 'project' };
   }
   if (identity?.kind === 'artifact') {
     throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
@@ -344,5 +364,5 @@ export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
     throw notFound(`${id} doesn't exist`);
   }
   const { status, distribution } = await statusOf(db, node);
-  return { id: (await renderNodeId(db, node.id)) ?? id, type: node.type, status, distribution };
+  return { distribution, id: (await renderNodeId(db, node.id)) ?? id, status, type: node.type };
 }

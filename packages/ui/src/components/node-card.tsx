@@ -10,12 +10,12 @@ import { Badge } from './ui/badge';
 const SHOWN_TAGS = 3;
 
 /** Drag wiring injected by the board's SortableCard (absent in non-rankable columns). */
-export interface CardSortable {
+export type CardSortable = {
   setNodeRef: (el: HTMLElement | null) => void;
   handleProps: Record<string, unknown>;
   style?: CSSProperties;
   isDragging?: boolean;
-}
+};
 
 /**
  * One board card. The title region opens the drawer; the kebab runs the legal

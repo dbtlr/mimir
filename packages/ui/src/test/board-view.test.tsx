@@ -8,8 +8,8 @@ import { buildBoard } from '../lib/board';
 import { NOW, daysAgo, task } from './fixtures';
 
 vi.mock('../api/mutations', () => ({
-  useTransition: () => ({ mutate: vi.fn() }),
   useReorder: () => ({ mutate: vi.fn() }),
+  useTransition: () => ({ mutate: vi.fn() }),
 }));
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -25,7 +25,7 @@ describe('boardView', () => {
         task({ id: 'MMR-7', status: 'ready', title: 'queued second' }),
         task({ id: 'MMR-4', status: 'blocked', title: 'stuck on review' }),
       ],
-      [task({ id: 'MMR-50', status: 'done', title: 'shipped', completed_at: daysAgo(2) })],
+      [task({ completed_at: daysAgo(2), id: 'MMR-50', status: 'done', title: 'shipped' })],
       NOW,
     );
     render(<BoardView board={board} onOpenNode={vi.fn()} doneTotal={1} onViewDone={vi.fn()} />, {
@@ -54,7 +54,7 @@ describe('boardView', () => {
         task({
           id: 'MMR-3',
           status: 'in_progress',
-          verdicts: { stale: true, blocking: false, orphaned: false },
+          verdicts: { blocking: false, orphaned: false, stale: true },
         }),
       ],
       [],

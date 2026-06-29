@@ -11,8 +11,8 @@ import { router } from '../router';
 /** MMR-103 — the top-bar alert counts under_review + blocked + stale ("needs you"). */
 function renderApp() {
   const testRouter = createRouter({
-    routeTree: router.routeTree,
     history: createMemoryHistory({ initialEntries: ['/'] }),
+    routeTree: router.routeTree,
   });
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -24,13 +24,16 @@ function renderApp() {
 describe('attentionAlert (MMR-103)', () => {
   it("counts under_review + blocked + stale in the 'needs you' badge", async () => {
     apiGet.mockImplementation((path: string) => {
-      if (path.includes('status=under_review'))
+      if (path.includes('status=under_review')) {
         return Promise.resolve({ total: 2, items: [{ id: 'MMR-2' }, { id: 'MMR-3' }] });
-      if (path.includes('status=blocked'))
+      }
+      if (path.includes('status=blocked')) {
         return Promise.resolve({ total: 1, items: [{ id: 'MMR-5' }] });
-      if (path.includes('is=stale'))
+      }
+      if (path.includes('is=stale')) {
         return Promise.resolve({ total: 1, items: [{ id: 'MMR-9', status: 'ready' }] });
-      return Promise.resolve({ total: 0, items: [] }); // projects, ready, etc.
+      }
+      return Promise.resolve({ items: [], total: 0 }); // projects, ready, etc.
     });
     renderApp();
     // 2 + 1 + 1 = 4 distinct items
@@ -41,8 +44,8 @@ describe('attentionAlert (MMR-103)', () => {
 
   it("reads 'nothing needs you' when the set is empty", async () => {
     apiGet.mockResolvedValue({
-      total: 0,
       items: [],
+      total: 0,
     });
     renderApp();
     await expect(
@@ -52,9 +55,10 @@ describe('attentionAlert (MMR-103)', () => {
 
   it("uses the singular 'needs' at a count of one", async () => {
     apiGet.mockImplementation((path: string) => {
-      if (path.includes('status=under_review'))
+      if (path.includes('status=under_review')) {
         return Promise.resolve({ total: 1, items: [{ id: 'MMR-2' }] });
-      return Promise.resolve({ total: 0, items: [] });
+      }
+      return Promise.resolve({ items: [], total: 0 });
     });
     renderApp();
     await expect(

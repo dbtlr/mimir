@@ -32,26 +32,26 @@ afterEach(async () => {
   await server?.stop(true);
   server = undefined;
   await db.destroy();
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(dir, { force: true, recursive: true });
 });
 
 function fixtureAssets(): UiAssetMap {
   return {
-    '/index.html': {
-      file: join(dir, 'index.html'),
-      type: 'text/html; charset=utf-8',
-      immutable: false,
-    },
     '/assets/app-abc123.js': {
       file: join(dir, 'app-abc123.js'),
-      type: 'text/javascript; charset=utf-8',
       immutable: true,
+      type: 'text/javascript; charset=utf-8',
+    },
+    '/index.html': {
+      file: join(dir, 'index.html'),
+      immutable: false,
+      type: 'text/html; charset=utf-8',
     },
   };
 }
 
 function start(assets: UiAssetMap): string {
-  server = createServer(db, { port: 0, version: '0.0.0-test', assets });
+  server = createServer(db, { assets, port: 0, version: '0.0.0-test' });
   return `http://127.0.0.1:${String(server.port)}`;
 }
 

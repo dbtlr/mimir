@@ -34,14 +34,14 @@ const tagsOf = async (entityType: 'project' | 'node' | 'artifact', entityId: num
     .execute();
 
 test('tag reaches all three entity types via the identity grammar', async () => {
-  const { renderedId } = await attachArtifact(db, { projectId, title: 'x', content: 'x' });
+  const { renderedId } = await attachArtifact(db, { content: 'x', projectId, title: 'x' });
   const targets = await Promise.all(
     ['MMR', 'MMR-3', renderedId].map((t) => resolveEntityToken(db, t)),
   );
   await tagEntities(db, targets, ['spec']);
 
-  expect(await tagsOf('project', projectId)).toEqual([{ tag: 'spec', note: null }]);
-  expect(await tagsOf('node', taskId)).toEqual([{ tag: 'spec', note: null }]);
+  expect(await tagsOf('project', projectId)).toEqual([{ note: null, tag: 'spec' }]);
+  expect(await tagsOf('node', taskId)).toEqual([{ note: null, tag: 'spec' }]);
   expect((await tagsOf('artifact', 1)).map((r) => r.tag)).toEqual(['spec']);
 });
 
@@ -49,10 +49,10 @@ test('re-tagging is idempotent; a provided note overwrites', async () => {
   const target = await resolveEntityToken(db, 'MMR-3');
   await tagEntities(db, [target], ['spec'], 'first');
   await tagEntities(db, [target], ['spec']); // no note → row kept as-is
-  expect(await tagsOf('node', taskId)).toEqual([{ tag: 'spec', note: 'first' }]);
+  expect(await tagsOf('node', taskId)).toEqual([{ note: 'first', tag: 'spec' }]);
 
   await tagEntities(db, [target], ['spec'], 'second');
-  expect(await tagsOf('node', taskId)).toEqual([{ tag: 'spec', note: 'second' }]);
+  expect(await tagsOf('node', taskId)).toEqual([{ note: 'second', tag: 'spec' }]);
 });
 
 test('untag removes only the named tags and reports the count', async () => {
@@ -85,7 +85,7 @@ test('create verbs apply creation-time tags', async () => {
     .select('id')
     .where('type', '=', 'phase')
     .executeTakeFirstOrThrow();
-  const t = await createTask(db, { parentId: phase2.id, title: 'tt', tags: ['spec', 'v2'] });
+  const t = await createTask(db, { parentId: phase2.id, tags: ['spec', 'v2'], title: 'tt' });
   expect((await tagsOf('node', t.id)).map((r) => r.tag)).toEqual(['spec', 'v2']);
 
   const p = await createProject(db, { key: 'OTH', name: 'o', tags: ['ws'] });

@@ -16,10 +16,10 @@ export function plistPath(): string {
   return join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
 }
 
-export interface PlistOptions {
+export type PlistOptions = {
   /** Baked in iff MIMIR_DB is set when `service install` runs. */
   dbPath?: string;
-}
+};
 
 /** Escape XML special characters in element content (ampersand must go first).
  * launchctl rejects a malformed plist loudly at install time, but the error

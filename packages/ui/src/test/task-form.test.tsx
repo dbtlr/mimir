@@ -4,8 +4,8 @@ import { describe, expect, test, vi } from 'vitest';
 import { TaskForm } from '../components/task-form';
 
 const parents = [
-  { id: 'MMR-1', label: 'build', depth: 0, type: 'initiative' as const },
-  { id: 'MMR-7', label: 'Phase 5', depth: 1, type: 'phase' as const },
+  { depth: 0, id: 'MMR-1', label: 'build', type: 'initiative' as const },
+  { depth: 1, id: 'MMR-7', label: 'Phase 5', type: 'phase' as const },
 ];
 
 describe('taskForm (create)', () => {
@@ -24,7 +24,7 @@ describe('taskForm (create)', () => {
     fireEvent.click(screen.getByRole('button', { name: /create/i }));
     await vi.waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(
-        expect.objectContaining({ parent: 'MMR-7', title: 'hello', priority: null, size: null }),
+        expect.objectContaining({ parent: 'MMR-7', priority: null, size: null, title: 'hello' }),
       ),
     );
   });
@@ -48,7 +48,7 @@ describe('taskForm (create)', () => {
     fireEvent.click(screen.getByRole('button', { name: /create/i }));
     await vi.waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'My task', priority: 'p2' }),
+        expect.objectContaining({ priority: 'p2', title: 'My task' }),
       ),
     );
   });
@@ -117,7 +117,7 @@ describe('taskForm (edit)', () => {
     render(
       <TaskForm
         mode="edit"
-        initial={{ title: 'existing', priority: 'p1' }}
+        initial={{ priority: 'p1', title: 'existing' }}
         onSubmit={() => {}}
         onCancel={() => {}}
       />,

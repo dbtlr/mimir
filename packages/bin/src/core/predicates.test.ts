@@ -21,13 +21,15 @@ async function patch(id: number, fields: { lifecycle?: Lifecycle; hold?: Hold })
 }
 async function reload(id: number) {
   const node = await loadNode(db, id);
-  if (node === undefined) throw new Error(`node ${id} vanished`);
+  if (node === undefined) {
+    throw new Error(`node ${id} vanished`);
+  }
   return node;
 }
 async function dep(nodeId: number, dependsOn: number): Promise<void> {
   await db
     .insertInto('dependency')
-    .values({ node_id: nodeId, depends_on_node_id: dependsOn })
+    .values({ depends_on_node_id: dependsOn, node_id: nodeId })
     .execute();
 }
 
@@ -35,7 +37,7 @@ async function fixture(key = 'MMR') {
   const p = await createProject(db, { key, name: 'm' });
   const init = await createInitiative(db, { projectId: p.id, title: 'i' });
   const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
-  return { p, init, phase };
+  return { init, p, phase };
 }
 
 test('ready vs awaiting hinge on prerequisite settledness', async () => {

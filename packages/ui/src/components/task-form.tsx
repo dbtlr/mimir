@@ -6,7 +6,7 @@ import type { ParentOption } from '../lib/parent-options';
 import { emptyTaskForm, taskFormSchema } from '../lib/schemas';
 import type { TaskFormValues } from '../lib/schemas';
 
-export interface TaskFormSubmit {
+export type TaskFormSubmit = {
   parent?: string;
   title: string;
   description: string | null;
@@ -14,16 +14,16 @@ export interface TaskFormSubmit {
   size: Size | null;
   external_ref: string | null;
   tags: string[];
-}
+};
 
-export interface TaskFormProps {
+export type TaskFormProps = {
   mode: 'create' | 'edit';
   parents?: ParentOption[];
   initial?: Partial<TaskFormValues> & { parent?: string };
   submitting?: boolean;
   onSubmit: (values: TaskFormSubmit) => void;
   onCancel: () => void;
-}
+};
 
 export function TaskForm({
   mode,
@@ -43,14 +43,16 @@ export function TaskForm({
     } satisfies TaskFormValues & { parent: string },
     onSubmit: ({ value }) => {
       const result = taskFormSchema.safeParse({
-        title: value.title,
         description: value.description,
+        external_ref: value.external_ref,
         priority: value.priority,
         size: value.size,
-        external_ref: value.external_ref,
         tags: value.tags,
+        title: value.title,
       });
-      if (!result.success) return;
+      if (!result.success) {
+        return;
+      }
       const parsed = result.data;
       if (mode === 'create') {
         onSubmit({ parent: value.parent, ...parsed });
@@ -256,7 +258,7 @@ export function TaskForm({
           Cancel
         </button>
         <form.Subscribe
-          selector={(state) => ({ title: state.values.title, parent: state.values.parent })}
+          selector={(state) => ({ parent: state.values.parent, title: state.values.title })}
         >
           {({ title, parent }) => (
             <button

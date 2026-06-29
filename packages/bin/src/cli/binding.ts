@@ -14,7 +14,9 @@ export const BINDING_FILE = '.mimir.toml';
 export function parseBinding(text: string): string | undefined {
   for (const line of text.split('\n')) {
     const m = /^\s*project\s*=\s*"([A-Z]{2,4})"\s*(?:#.*)?$/.exec(line);
-    if (m !== null) return m[1];
+    if (m !== null) {
+      return m[1];
+    }
   }
   return undefined;
 }
@@ -33,7 +35,9 @@ export function findBinding(startDir: string): string | undefined {
       return parseBinding(readFileSync(file, 'utf8'));
     }
     const parent = dirname(dir);
-    if (parent === dir) return undefined;
+    if (parent === dir) {
+      return undefined;
+    }
     dir = parent;
   }
 }

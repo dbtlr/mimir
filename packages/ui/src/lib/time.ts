@@ -5,13 +5,21 @@ export function relativeTime(iso: string | number, now = Date.now()): string {
     return '—';
   }
   const s = Math.max(0, Math.floor((now - at) / 1000));
-  if (s < 60) return 'now';
+  if (s < 60) {
+    return 'now';
+  }
   const m = Math.floor(s / 60);
-  if (m < 60) return `${String(m)}m`;
+  if (m < 60) {
+    return `${String(m)}m`;
+  }
   const h = Math.floor(m / 60);
-  if (h < 24) return `${String(h)}h`;
+  if (h < 24) {
+    return `${String(h)}h`;
+  }
   const d = Math.floor(h / 24);
-  if (d < 14) return `${String(d)}d`;
+  if (d < 14) {
+    return `${String(d)}d`;
+  }
   return `${String(Math.floor(d / 7))}w`;
 }
 

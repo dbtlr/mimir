@@ -20,8 +20,8 @@ export function shouldPersistQuery(query: { state: { data: unknown } }): boolean
 export const persister = createAsyncStoragePersister({
   key: 'mimir-query-cache',
   storage: {
-    getItem: async (key: string) => ((await get<string>(key)) ?? null) as string | null,
-    setItem: (key: string, value: string) => set(key, value),
+    getItem: async (key: string) => (await get<string>(key)) ?? null,
     removeItem: (key: string) => del(key),
+    setItem: (key: string, value: string) => set(key, value),
   },
 });

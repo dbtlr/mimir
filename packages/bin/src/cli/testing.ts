@@ -4,20 +4,20 @@
 
 import type { Io } from './render';
 
-export interface CapturingIo extends Io {
+export type CapturingIo = {
   out: string[];
   err: string[];
-}
+} & Io;
 
 export function fakeIo(isTTY = false): CapturingIo {
   const out: string[] = [];
   const err: string[] = [];
   return {
-    out,
     err,
+    error: (s) => err.push(s),
     isTTY,
+    out,
     plain: true,
     write: (s) => out.push(s),
-    error: (s) => err.push(s),
   };
 }

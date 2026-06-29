@@ -12,19 +12,19 @@ describe('tasksPage (MMR-78)', () => {
   it('renders the filter/search bar and the task rows', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path.startsWith('/api/projects')) {
-        return Promise.resolve({ total: 1, items: [{ id: 'MMR', status: 'ready' }] });
+        return Promise.resolve({ items: [{ id: 'MMR', status: 'ready' }], total: 1 });
       }
       if (path.startsWith('/api/nodes?')) {
         return Promise.resolve({
-          total: 1,
           items: [{ id: 'MMR-78', title: 'Task browser', status: 'ready', verdicts: {} }],
+          total: 1,
         });
       }
       return Promise.reject(new Error(`unexpected ${path}`));
     });
     const testRouter = createRouter({
-      routeTree: router.routeTree,
       history: createMemoryHistory({ initialEntries: ['/tasks'] }),
+      routeTree: router.routeTree,
     });
     render(
       <QueryClientProvider client={new QueryClient()}>

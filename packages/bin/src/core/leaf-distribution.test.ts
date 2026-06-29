@@ -28,7 +28,7 @@ async function patch(id: number, fields: { lifecycle?: Lifecycle; hold?: Hold })
 async function dep(nodeId: number, dependsOn: number): Promise<void> {
   await db
     .insertInto('dependency')
-    .values({ node_id: nodeId, depends_on_node_id: dependsOn })
+    .values({ depends_on_node_id: dependsOn, node_id: nodeId })
     .execute();
 }
 
@@ -36,7 +36,7 @@ async function fixture(key = 'MMR') {
   const p = await createProject(db, { key, name: 'm' });
   const init = await createInitiative(db, { projectId: p.id, title: 'i' });
   const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
-  return { p, init, phase };
+  return { init, p, phase };
 }
 
 test('an empty project tallies to {}', async () => {
@@ -56,10 +56,10 @@ test("tallies every leaf task's derived status word across the whole project", a
   await patch(blocked.id, { hold: 'blocked' });
 
   expect(await leafDistribution(db, p.id)).toEqual({
-    ready: 1,
-    in_progress: 1,
-    under_review: 1,
     blocked: 1,
+    in_progress: 1,
+    ready: 1,
+    under_review: 1,
   });
 });
 
@@ -71,7 +71,7 @@ test('tallies the held and terminal buckets too (parked / done / abandoned)', as
   await patch(done.id, { lifecycle: 'done' });
   const gone = await createTask(db, { parentId: phase.id, title: 'gone' });
   await patch(gone.id, { lifecycle: 'abandoned' });
-  expect(await leafDistribution(db, p.id)).toEqual({ parked: 1, done: 1, abandoned: 1 });
+  expect(await leafDistribution(db, p.id)).toEqual({ abandoned: 1, done: 1, parked: 1 });
 });
 
 test('counts the derived awaiting word (todo with an unsettled prerequisite)', async () => {
@@ -79,7 +79,7 @@ test('counts the derived awaiting word (todo with an unsettled prerequisite)', a
   const a = await createTask(db, { parentId: phase.id, title: 'a' });
   const b = await createTask(db, { parentId: phase.id, title: 'b' });
   await dep(b.id, a.id); // b awaits a; a is ready
-  expect(await leafDistribution(db, p.id)).toEqual({ ready: 1, awaiting: 1 });
+  expect(await leafDistribution(db, p.id)).toEqual({ awaiting: 1, ready: 1 });
 });
 
 test('tallies leaves across multiple phases, excluding the containers themselves', async () => {
@@ -101,5 +101,5 @@ test('scopes to the project — no cross-project leak', async () => {
   await patch(stuck.id, { hold: 'blocked' });
 
   expect(await leafDistribution(db, p.id)).toEqual({ ready: 1 });
-  expect(await leafDistribution(db, other.p.id)).toEqual({ ready: 1, blocked: 1 });
+  expect(await leafDistribution(db, other.p.id)).toEqual({ blocked: 1, ready: 1 });
 });

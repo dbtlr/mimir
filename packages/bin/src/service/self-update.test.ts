@@ -19,7 +19,7 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'mimir-selfupdate-'));
 });
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(dir, { force: true, recursive: true });
 });
 
 test('compareSemver orders triples numerically', () => {
@@ -33,8 +33,8 @@ test('resolveLatestTag follows the releases/latest redirect', async () => {
   const tag = await resolveLatestTag(() =>
     Promise.resolve(
       new Response(null, {
-        status: 302,
         headers: { location: 'https://github.com/dbtlr/mimir/releases/tag/v0.6.0' },
+        status: 302,
       }),
     ),
   );
@@ -83,7 +83,7 @@ test('downloadAsset follows download redirects and downloadSums returns text', a
       return Promise.resolve(new Response('BINARY', { status: 200 }));
     }
     return Promise.resolve(
-      new Response(null, { status: 302, headers: { location: 'https://cdn.example/blob' } }),
+      new Response(null, { headers: { location: 'https://cdn.example/blob' }, status: 302 }),
     );
   };
   const body = await downloadAsset('v0.6.0', fetcher);

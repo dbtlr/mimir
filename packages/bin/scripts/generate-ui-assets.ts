@@ -17,18 +17,18 @@ const outFile = join(here, '..', 'src', 'http', 'ui-assets.generated.ts');
 
 /** content-type by extension — only what a Vite/PWA build actually emits. */
 const TYPES: Record<string, string> = {
-  html: 'text/html; charset=utf-8',
-  js: 'text/javascript; charset=utf-8',
   css: 'text/css; charset=utf-8',
-  svg: 'image/svg+xml',
-  webmanifest: 'application/manifest+json',
-  json: 'application/json',
-  png: 'image/png',
+  html: 'text/html; charset=utf-8',
   ico: 'image/x-icon',
-  txt: 'text/plain; charset=utf-8',
-  woff2: 'font/woff2',
-  woff: 'font/woff',
+  js: 'text/javascript; charset=utf-8',
+  json: 'application/json',
   map: 'application/json',
+  png: 'image/png',
+  svg: 'image/svg+xml',
+  txt: 'text/plain; charset=utf-8',
+  webmanifest: 'application/manifest+json',
+  woff: 'font/woff',
+  woff2: 'font/woff2',
 };
 
 function contentType(file: string): string {

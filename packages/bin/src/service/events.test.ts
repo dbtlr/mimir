@@ -10,18 +10,18 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'mimir-events-'));
 });
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(dir, { force: true, recursive: true });
 });
 
 test('append creates the file and recentEvents returns newest-last', () => {
   const file = join(dir, 'logs', 'service-events.jsonl');
-  appendEvent(file, { event: 'install', source: 'cli', version: '0.5.0', ok: true });
+  appendEvent(file, { event: 'install', ok: true, source: 'cli', version: '0.5.0' });
   appendEvent(file, {
+    detail: '0.5.0 → 0.6.0',
     event: 'restart',
+    ok: true,
     source: 'self-update',
     version: '0.6.0',
-    ok: true,
-    detail: '0.5.0 → 0.6.0',
   });
   const events = recentEvents(file, 5);
   expect(events).toHaveLength(2);
@@ -34,7 +34,7 @@ test('recentEvents caps at n, skips corrupt lines, empty when missing', () => {
   const file = join(dir, 'e.jsonl');
   expect(recentEvents(file, 3)).toEqual([]);
   for (let i = 0; i < 5; i++) {
-    appendEvent(file, { event: 'start', source: 'cli', version: '0.5.0', ok: true });
+    appendEvent(file, { event: 'start', ok: true, source: 'cli', version: '0.5.0' });
   }
   appendFileSync(file, 'not json\n');
   expect(recentEvents(file, 3)).toHaveLength(3);

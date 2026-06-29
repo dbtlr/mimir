@@ -12,10 +12,10 @@ import type { Db } from '../context';
  */
 
 /** A tag target — any of the three entity kinds the identity grammar reaches. */
-export interface EntityRef {
+export type EntityRef = {
   entityType: TagEntityType;
   entityId: number;
-}
+};
 
 /**
  * Apply every tag to every target, idempotently: an existing (entity, tag)
@@ -34,10 +34,10 @@ export async function tagEntities(
         await tx
           .insertInto('tag')
           .values({
-            entity_type: target.entityType,
             entity_id: target.entityId,
-            tag,
+            entity_type: target.entityType,
             note: note ?? null,
+            tag,
           })
           .onConflict((oc) =>
             note === undefined

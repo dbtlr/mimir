@@ -46,7 +46,9 @@ export function renderError(err: RenderableError, format: string, io: Io): void 
       code: codeOf(err),
       message: err.message,
     };
-    if (err.hint !== undefined) error.hint = err.hint;
+    if (err.hint !== undefined) {
+      error.hint = err.hint;
+    }
     io.error(JSON.stringify({ error }));
     return;
   }

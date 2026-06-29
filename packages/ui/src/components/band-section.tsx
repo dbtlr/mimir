@@ -16,10 +16,10 @@ import { ProjectCard } from './project-card';
 
 /** The status hue that keys each band's header pip — the priority gradient. */
 const BAND_PIP: Record<AttentionBand, string> = {
+  at_rest: STATUS_META.abandoned.dot,
   awaiting_you: STATUS_META.under_review.dot,
   live: STATUS_META.in_progress.dot,
   needs_unsticking: STATUS_META.blocked.dot,
-  at_rest: STATUS_META.abandoned.dot,
 };
 
 export function BandSection({

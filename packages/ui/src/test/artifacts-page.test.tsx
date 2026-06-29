@@ -12,11 +12,10 @@ describe('artifactsPage', () => {
   it('renders the filter search box and the result rows', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path.startsWith('/api/projects')) {
-        return Promise.resolve({ total: 1, items: [{ id: 'MMR', status: 'ready' }] });
+        return Promise.resolve({ items: [{ id: 'MMR', status: 'ready' }], total: 1 });
       }
       if (path === '/api/artifacts' || path.startsWith('/api/artifacts?')) {
         return Promise.resolve({
-          total: 1,
           items: [
             {
               id: 'MMR-a8',
@@ -26,13 +25,14 @@ describe('artifactsPage', () => {
               created_at: '2026-06-16T00:00:00.000Z',
             },
           ],
+          total: 1,
         });
       }
       return Promise.reject(new Error(`unexpected ${path}`));
     });
     const testRouter = createRouter({
-      routeTree: router.routeTree,
       history: createMemoryHistory({ initialEntries: ['/artifacts'] }),
+      routeTree: router.routeTree,
     });
     render(
       <QueryClientProvider client={new QueryClient()}>

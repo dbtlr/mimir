@@ -40,7 +40,9 @@ export function ArtifactFilters({
 
   // Push the paused value up once, after the debounce window.
   useEffect(() => {
-    if (q === (filters.q ?? '')) return;
+    if (q === (filters.q ?? '')) {
+      return;
+    }
     const t = setTimeout(() => onChangeRef.current({ q }), SEARCH_DEBOUNCE_MS);
     return () => {
       clearTimeout(t);

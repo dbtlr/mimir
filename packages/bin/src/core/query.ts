@@ -23,29 +23,29 @@ import { validation } from './errors';
 
 type FieldKind = 'enum' | 'string' | 'date' | 'tag';
 
-interface FieldSpec {
+type FieldSpec = {
   kind: FieldKind;
   values?: readonly string[];
-}
+};
 
 export const QUERY_FIELDS: Record<string, FieldSpec> = {
-  id: { kind: 'string' },
-  type: { kind: 'enum', values: NODE_TYPE_VALUES },
-  title: { kind: 'string' },
-  status: { kind: 'enum', values: STATUS_WORD_VALUES },
-  parent: { kind: 'string' },
+  completed_at: { kind: 'date' },
+  created_at: { kind: 'date' },
   description: { kind: 'string' },
-  priority: { kind: 'enum', values: PRIORITY_VALUES },
-  size: { kind: 'enum', values: SIZE_VALUES },
-  lifecycle: { kind: 'enum', values: LIFECYCLE_VALUES },
+  external_ref: { kind: 'string' },
   hold: { kind: 'enum', values: HOLD_VALUES },
   hold_reason: { kind: 'string' },
-  target: { kind: 'string' },
-  external_ref: { kind: 'string' },
-  created_at: { kind: 'date' },
-  updated_at: { kind: 'date' },
-  completed_at: { kind: 'date' },
+  id: { kind: 'string' },
+  lifecycle: { kind: 'enum', values: LIFECYCLE_VALUES },
+  parent: { kind: 'string' },
+  priority: { kind: 'enum', values: PRIORITY_VALUES },
+  size: { kind: 'enum', values: SIZE_VALUES },
+  status: { kind: 'enum', values: STATUS_WORD_VALUES },
   tag: { kind: 'tag' },
+  target: { kind: 'string' },
+  title: { kind: 'string' },
+  type: { kind: 'enum', values: NODE_TYPE_VALUES },
+  updated_at: { kind: 'date' },
 };
 
 const DATE_OPS: readonly QueryOp[] = ['before', 'on', 'after', 'not-before', 'not-after'];
@@ -81,44 +81,48 @@ export function parseFilterToken(op: QueryOp, token: string): FieldFilter {
       'use --on / --before / --after',
     );
   }
-  return { op, field, value };
+  return { field, op, value };
 }
 
 /** A row under filter evaluation — external-name scalar values + the tag set. */
-export interface QueryRow {
+export type QueryRow = {
   values: Record<string, string | null>;
   tags: readonly string[];
-}
+};
 
-export interface CompiledFilters {
+export type CompiledFilters = {
   /** Value faults — when non-empty the whole selection is an empty set. */
   warnings: ValueWarning[];
   /** Field names the evaluator reads — lets callers skip costly extraction (id/parent rendering, tag loads). */
   needed: ReadonlySet<string>;
   test: (row: QueryRow) => boolean;
-}
+};
 
-interface DateBounds {
+type DateBounds = {
   /** Inclusive lower bound (ms). */
   start: number;
   /** Exclusive upper bound (ms). */
   end: number;
-}
+};
 
 /** A date value: `YYYY-MM-DD` (a day window) or a full ISO timestamp (an instant). */
 function parseDateValue(value: string): DateBounds | null {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const start = Date.parse(`${value}T00:00:00.000Z`);
-    if (Number.isNaN(start)) return null;
-    return { start, end: start + 24 * 60 * 60 * 1000 };
+    if (Number.isNaN(start)) {
+      return null;
+    }
+    return { end: start + 24 * 60 * 60 * 1000, start };
   }
   const instant = Date.parse(value);
-  if (Number.isNaN(instant)) return null;
-  return { start: instant, end: instant + 1 };
+  if (Number.isNaN(instant)) {
+    return null;
+  }
+  return { end: instant + 1, start: instant };
 }
 
 function warn(field: string, value: string, message: string, expected: string[]): ValueWarning {
-  return { code: 'no_match_value', field, value, message, expected };
+  return { code: 'no_match_value', expected, field, message, value };
 }
 
 const splitCsv = (csv: string): string[] =>
@@ -155,16 +159,18 @@ function compileOne(filter: FieldFilter, warnings: ValueWarning[]): RowTest {
     }
     const at = (row: QueryRow): number | null => {
       const raw = row.values[field];
-      if (raw == null) return null;
+      if (raw == null) {
+        return null;
+      }
       const ms = Date.parse(raw);
       return Number.isNaN(ms) ? null : ms;
     };
     const tests: Record<string, (ms: number) => boolean> = {
-      before: (ms) => ms < bounds.start,
       after: (ms) => ms >= bounds.end,
-      on: (ms) => ms >= bounds.start && ms < bounds.end,
-      'not-before': (ms) => ms >= bounds.start,
+      before: (ms) => ms < bounds.start,
       'not-after': (ms) => ms < bounds.end,
+      'not-before': (ms) => ms >= bounds.start,
+      on: (ms) => ms >= bounds.start && ms < bounds.end,
     };
     const test = tests[op];
     if (test === undefined) {
@@ -204,8 +210,8 @@ export function compileFilters(filters: readonly FieldFilter[]): CompiledFilters
   const tests = filters.map((f) => compileOne(f, warnings));
   const needed = new Set(filters.map((f) => f.field));
   return {
-    warnings,
     needed,
     test: (row) => tests.every((t) => t(row)),
+    warnings,
   };
 }

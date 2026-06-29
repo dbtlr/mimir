@@ -22,9 +22,9 @@ test('createProject inserts and defaults last_seq to 0', async () => {
 
 test('createProject stores optional description (MMR-88)', async () => {
   const withDesc = await createProject(db, {
+    description: 'tracks work',
     key: 'MMR',
     name: 'Mimir',
-    description: 'tracks work',
   });
   expect(withDesc.description).toBe('tracks work');
 
@@ -64,7 +64,7 @@ test('createInitiative is top-level (null parent) and requires a real project', 
 test('createPhase requires an initiative parent and inherits project_id', async () => {
   const p = await createProject(db, { key: 'MMR', name: 'Mimir' });
   const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph', target: 'ship it' });
+  const phase = await createPhase(db, { parentId: init.id, target: 'ship it', title: 'ph' });
   expect(phase.type).toBe('phase');
   expect(phase.project_id).toBe(p.id);
   expect(phase.parent_id).toBe(init.id);
@@ -82,9 +82,9 @@ test('createTask sets both axes, ranks at append step, and accepts phase or init
 
   const t1 = await createTask(db, {
     parentId: phase.id,
-    title: 't1',
     priority: 'p1',
     size: 'small',
+    title: 't1',
   });
   expect(t1.type).toBe('task');
   expect(t1.lifecycle).toBe('todo');

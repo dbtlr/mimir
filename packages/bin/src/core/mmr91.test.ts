@@ -48,7 +48,9 @@ async function caught(run: () => Promise<unknown>): Promise<MimirError> {
   try {
     await run();
   } catch (e) {
-    if (e instanceof MimirError) return e;
+    if (e instanceof MimirError) {
+      return e;
+    }
     throw e;
   }
   throw new Error('expected a MimirError, but nothing was thrown');
@@ -59,10 +61,10 @@ function renderBoth(err: RenderableError): { human: string; machine: string } {
   const lines = (format: string): string => {
     const out: string[] = [];
     const io: Io = {
-      write: () => {},
       error: (s) => out.push(s),
       isTTY: false,
       plain: true,
+      write: () => {},
     };
     renderError(err, format, io);
     return out.join('\n');

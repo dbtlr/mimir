@@ -19,14 +19,14 @@ import { reloadNode, requireNode, requireTask, stamp } from './common';
  * not stamp `updated_at`).
  */
 
-export interface UpdateFields {
+export type UpdateFields = {
   title?: string;
   description?: string | null;
   priority?: Priority | null;
   size?: Size | null;
   target?: string | null;
   externalRef?: string | null;
-}
+};
 
 export async function updateNode(db: Db, id: number, fields: UpdateFields): Promise<Node> {
   return db.transaction().execute(async (tx) => {
@@ -44,12 +44,24 @@ export async function updateNode(db: Db, id: number, fields: UpdateFields): Prom
     }
 
     const patch: NodeUpdate = {};
-    if (fields.title !== undefined) patch.title = fields.title;
-    if (fields.description !== undefined) patch.description = fields.description;
-    if (fields.priority !== undefined) patch.priority = fields.priority;
-    if (fields.size !== undefined) patch.size = fields.size;
-    if (fields.target !== undefined) patch.target = fields.target;
-    if (fields.externalRef !== undefined) patch.external_ref = fields.externalRef;
+    if (fields.title !== undefined) {
+      patch.title = fields.title;
+    }
+    if (fields.description !== undefined) {
+      patch.description = fields.description;
+    }
+    if (fields.priority !== undefined) {
+      patch.priority = fields.priority;
+    }
+    if (fields.size !== undefined) {
+      patch.size = fields.size;
+    }
+    if (fields.target !== undefined) {
+      patch.target = fields.target;
+    }
+    if (fields.externalRef !== undefined) {
+      patch.external_ref = fields.externalRef;
+    }
 
     if (Object.keys(patch).length > 0) {
       patch.updated_at = now();
@@ -59,10 +71,10 @@ export async function updateNode(db: Db, id: number, fields: UpdateFields): Prom
   });
 }
 
-export interface UpdateProjectFields {
+export type UpdateProjectFields = {
   name?: string;
   description?: string | null;
-}
+};
 
 /**
  * The dumb scalar patcher for a project row (MMR-88): `name` and `description`
@@ -87,8 +99,12 @@ export async function updateProject(
       throw validation('project name cannot be blank');
     }
     const patch: Record<string, unknown> = {};
-    if (fields.name !== undefined) patch.name = fields.name;
-    if (fields.description !== undefined) patch.description = fields.description;
+    if (fields.name !== undefined) {
+      patch.name = fields.name;
+    }
+    if (fields.description !== undefined) {
+      patch.description = fields.description;
+    }
 
     if (Object.keys(patch).length > 0) {
       patch.updated_at = now();
@@ -105,15 +121,15 @@ export async function updateProject(
 export async function annotate(db: Db, id: number, content: string): Promise<Node> {
   return db.transaction().execute(async (tx) => {
     await requireNode(tx, id);
-    await tx.insertInto('annotation').values({ node_id: id, content }).execute();
+    await tx.insertInto('annotation').values({ content, node_id: id }).execute();
     await stamp(tx, id); // in-flight activity moves the task (affects stale)
     return reloadNode(tx, id);
   });
 }
 
-export interface ArtifactUpdateFields {
+export type ArtifactUpdateFields = {
   title?: string;
-}
+};
 
 /**
  * The dumb `update` for an artifact (MMR-40): `title` is the only mutable
@@ -144,7 +160,7 @@ export async function updateArtifact(
   });
 }
 
-export interface AttachArtifactInput {
+export type AttachArtifactInput = {
   projectId: number;
   /** Required (MMR-34): the human handle every artifact carries. */
   title: string;
@@ -152,7 +168,7 @@ export interface AttachArtifactInput {
   linkNodeIds?: number[];
   /** Attach-and-classify is one intent — creation-time tags on the artifact. */
   tags?: string[];
-}
+};
 
 export async function attachArtifact(
   db: Db,
@@ -173,13 +189,13 @@ export async function attachArtifact(
     const seq = await allocateArtifactSeq(tx, input.projectId);
     const artifact = await tx
       .insertInto('artifact')
-      .values({ project_id: input.projectId, seq, title: input.title, content: input.content })
+      .values({ content: input.content, project_id: input.projectId, seq, title: input.title })
       .returning('id')
       .executeTakeFirstOrThrow();
     for (const tag of input.tags ?? []) {
       await tx
         .insertInto('tag')
-        .values({ entity_type: 'artifact', entity_id: artifact.id, tag, note: null })
+        .values({ entity_id: artifact.id, entity_type: 'artifact', note: null, tag })
         .onConflict((oc) => oc.columns(['entity_type', 'entity_id', 'tag']).doNothing())
         .execute();
     }

@@ -26,8 +26,8 @@ export function OverviewPage() {
 
   const projects = useQuery(projectsQuery);
   const conn = connectivity([projects]);
-  const openNode = (id: string) => void navigate({ to: '.', search: { node: id } });
-  const closeNode = () => void navigate({ to: '.', search: {} });
+  const openNode = (id: string) => void navigate({ search: { node: id }, to: '.' });
+  const closeNode = () => void navigate({ search: {}, to: '.' });
 
   return (
     <>
@@ -52,7 +52,7 @@ export function OverviewPage() {
         )}
         {projects.data !== undefined &&
           (() => {
-            const onOpen = (key: string) => void navigate({ to: '/p/$key', params: { key } });
+            const onOpen = (key: string) => void navigate({ params: { key }, to: '/p/$key' });
             if (projects.data.items.length === 0) {
               return (
                 <p className="text-xs text-ink-dim">

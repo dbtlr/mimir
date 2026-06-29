@@ -34,19 +34,19 @@ import {
 } from './self-update';
 import type { Fetcher } from './self-update';
 
-export interface Health {
+export type Health = {
   status: string;
   version: string;
-}
+};
 
-export interface UpdateSelection {
+export type UpdateSelection = {
   /** Include prereleases — resolve the newest build on the next-version line (--next). */
   next?: boolean;
   /** Install this exact tag (official or prerelease); wins over `next` (--tag). */
   tag?: string;
-}
+};
 
-export interface ServiceDeps {
+export type ServiceDeps = {
   supervisor: Supervisor;
   platform: NodeJS.Platform;
   /** The binary the plist points at / self-update replaces (process.execPath). */
@@ -61,7 +61,7 @@ export interface ServiceDeps {
   fetcher: Fetcher;
   /** MIMIR_DB at invocation time, baked into the plist iff set. */
   dbPath: string | undefined;
-}
+};
 
 /** Default `serve` port — MIMIR on a phone keypad. */
 export const DEFAULT_PORT = 64647;
@@ -81,8 +81,11 @@ function requireDarwin(deps: ServiceDeps): void {
 
 /** Render a service/self-update result: structured envelope, else human prose. */
 function report(io: Io, format: Format, json: () => string, human: () => void): void {
-  if (format === 'json' || format === 'jsonl') io.write(json());
-  else human();
+  if (format === 'json' || format === 'jsonl') {
+    io.write(json());
+  } else {
+    human();
+  }
 }
 
 export async function cmdService(
@@ -101,14 +104,14 @@ export async function cmdService(
   const log = (event: ServiceEventName, okFlag: boolean, detail?: string): void => {
     appendEvent(deps.eventsFile, {
       event,
+      ok: okFlag,
       source: 'cli',
       version: deps.version,
-      ok: okFlag,
       ...(detail === undefined ? {} : { detail }),
     });
   };
 
-  const paths = { plist: deps.plistFile, config: deps.configFile, log: SERVE_LOG_FILE };
+  const paths = { config: deps.configFile, log: SERVE_LOG_FILE, plist: deps.plistFile };
   const action = (result: ServiceActionResult, human: () => void): void => {
     report(io, format, () => formatServiceActionJson(result, format === 'json'), human);
   };
@@ -127,7 +130,7 @@ export async function cmdService(
       await deps.supervisor.install(deps.plistFile);
       const effective = port ?? readServeConfig(deps.configFile).port ?? DEFAULT_PORT;
       log('install', true, `port ${String(effective)}`);
-      action({ action: 'install', ok: true, port: effective, paths }, () => {
+      action({ action: 'install', ok: true, paths, port: effective }, () => {
         ok(io, `service installed — serving on http://127.0.0.1:${String(effective)}`);
         io.write(`  plist:  ${deps.plistFile}`);
         io.write(
@@ -139,7 +142,9 @@ export async function cmdService(
     }
     case 'uninstall': {
       await deps.supervisor.uninstall();
-      if (existsSync(deps.plistFile)) rmSync(deps.plistFile);
+      if (existsSync(deps.plistFile)) {
+        rmSync(deps.plistFile);
+      }
       log('uninstall', true);
       action({ action: 'uninstall', ok: true }, () =>
         ok(io, 'service uninstalled (config and logs kept)'),
@@ -186,19 +191,19 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
     healthRaw === undefined
       ? null
       : {
-          runningVersion: healthRaw.version,
           onDiskVersion: deps.version,
           restartPending: compareSemver(healthRaw.version, deps.version) !== 0,
+          runningVersion: healthRaw.version,
         };
   const status: ServiceStatus = {
-    loaded: info.loaded,
-    running: info.running,
-    pid: info.pid ?? null,
-    port,
     configProblem: config.problem ?? null,
     health,
+    loaded: info.loaded,
+    paths: { config: deps.configFile, log: SERVE_LOG_FILE, plist: deps.plistFile },
+    pid: info.pid ?? null,
+    port,
     recentEvents: recentEvents(deps.eventsFile, 5),
-    paths: { plist: deps.plistFile, config: deps.configFile, log: SERVE_LOG_FILE },
+    running: info.running,
   };
   report(
     io,
@@ -266,12 +271,12 @@ export async function cmdSelfUpdate(
   const target = stripV(targetTag);
   if (alreadyCurrent) {
     const result: SelfUpdateResult = {
+      asset,
       from: deps.version,
+      restartFailed: false,
+      restarted: false,
       to: target,
       updated: false,
-      restarted: false,
-      restartFailed: false,
-      asset,
     };
     report(
       io,
@@ -281,7 +286,9 @@ export async function cmdSelfUpdate(
     );
     return 0;
   }
-  if (!structured) io.write(`updating ${deps.version} → ${target} (${asset})`);
+  if (!structured) {
+    io.write(`updating ${deps.version} → ${target} (${asset})`);
+  }
   const [body, sums] = await Promise.all([
     downloadAsset(targetTag, deps.fetcher),
     downloadSums(targetTag, deps.fetcher),
@@ -291,11 +298,11 @@ export async function cmdSelfUpdate(
   const detail = `${deps.version} → ${target}`;
   // Log the replacement immediately — it already happened, regardless of what follows.
   appendEvent(deps.eventsFile, {
+    detail,
     event: 'self-update',
+    ok: true,
     source: 'self-update',
     version: target,
-    ok: true,
-    detail,
   });
   let restarted = false;
   let restartFailed = false;
@@ -304,21 +311,21 @@ export async function cmdSelfUpdate(
       await deps.supervisor.restart();
       restarted = true;
       appendEvent(deps.eventsFile, {
+        detail,
         event: 'restart',
+        ok: true,
         source: 'self-update',
         version: target,
-        ok: true,
-        detail,
       });
     } catch (err) {
       restartFailed = true;
       const msg = err instanceof Error ? err.message : String(err);
       appendEvent(deps.eventsFile, {
+        detail: `restart failed: ${msg}`,
         event: 'restart',
+        ok: false,
         source: 'self-update',
         version: target,
-        ok: false,
-        detail: `restart failed: ${msg}`,
       });
     }
   }
@@ -327,12 +334,12 @@ export async function cmdSelfUpdate(
     warn(io, 'service did not restart — run `mimir service restart` (binary is updated)');
   }
   const result: SelfUpdateResult = {
+    asset,
     from: deps.version,
+    restartFailed,
+    restarted,
     to: target,
     updated: true,
-    restarted,
-    restartFailed,
-    asset,
   };
   report(
     io,

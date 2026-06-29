@@ -68,23 +68,23 @@ import type { RankPosition } from '../core';
  * against a real DB without standing up a transport.
  */
 
-export interface ToolResult {
+export type ToolResult = {
   content: { type: 'text'; text: string }[];
   isError?: boolean;
   // The SDK's CallToolResult carries an open index signature; matching it keeps
   // these handlers assignable as tool callbacks.
   [key: string]: unknown;
-}
+};
 
-const ok = (text: string): ToolResult => ({ content: [{ type: 'text', text }] });
+const ok = (text: string): ToolResult => ({ content: [{ text, type: 'text' }] });
 
 const fail = (code: string, message: string, hint?: string): ToolResult => ({
   content: [
     {
-      type: 'text',
       text: JSON.stringify(
         hint === undefined ? { error: { code, message } } : { error: { code, message, hint } },
       ),
+      type: 'text',
     },
   ],
   isError: true,
@@ -95,7 +95,9 @@ async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {
   try {
     return await run();
   } catch (error) {
-    if (error instanceof MimirError) return fail(error.code, error.message, error.hint);
+    if (error instanceof MimirError) {
+      return fail(error.code, error.message, error.hint);
+    }
     throw error;
   }
 }
@@ -111,7 +113,9 @@ async function nodeId(db: Db, id: string, expected = 'node'): Promise<number> {
  */
 async function projectId(db: Db, key: string): Promise<number> {
   const row = await db.selectFrom('project').select('id').where('key', '=', key).executeTakeFirst();
-  if (row === undefined) throw projectNotFound(key);
+  if (row === undefined) {
+    throw projectNotFound(key);
+  }
   return row.id;
 }
 
@@ -129,7 +133,7 @@ async function echoNode(db: Db, node: Parameters<typeof buildNodeView>[1]): Prom
 // ---------------------------------------------------------------------------
 
 /** The set-selection args shared by `next` and `list` (MMR-33) — named arrays per operator. */
-export interface SetQueryArgs {
+export type SetQueryArgs = {
   scope?: string;
   status?: StatusSelector;
   is?: Verdict[];
@@ -149,7 +153,7 @@ export interface SetQueryArgs {
   size?: Size;
   tag?: string;
   limit?: number;
-}
+};
 
 const OP_ARGS: [QueryOp, keyof SetQueryArgs][] = [
   ['eq', 'eq'],
@@ -169,7 +173,9 @@ function collectFilters(args: SetQueryArgs): FieldFilter[] {
   const filters: FieldFilter[] = [];
   for (const [op, key] of OP_ARGS) {
     const tokens = args[key];
-    if (!Array.isArray(tokens)) continue;
+    if (!Array.isArray(tokens)) {
+      continue;
+    }
     for (const token of tokens) {
       filters.push(parseFilterToken(op, token));
     }
@@ -179,20 +185,20 @@ function collectFilters(args: SetQueryArgs): FieldFilter[] {
 
 function collectVerdicts(args: SetQueryArgs): VerdictSelector[] {
   return [
-    ...(args.is ?? []).map((verdict) => ({ verdict, negate: false })),
-    ...(args.notIs ?? []).map((verdict) => ({ verdict, negate: true })),
+    ...(args.is ?? []).map((verdict) => ({ negate: false, verdict })),
+    ...(args.notIs ?? []).map((verdict) => ({ negate: true, verdict })),
   ];
 }
 
 export function toolNext(db: Db, args: SetQueryArgs): Promise<ToolResult> {
   return guard(async () => {
     const result = await nextTasks(db, {
-      scope: args.scope,
-      priority: args.priority,
-      size: args.size,
-      verdicts: collectVerdicts(args),
       filters: collectFilters(args),
       limit: args.limit,
+      priority: args.priority,
+      scope: args.scope,
+      size: args.size,
+      verdicts: collectVerdicts(args),
     });
     return ok(formatSetJson(result, 'tasks', { includeWarnings: true }));
   });
@@ -201,14 +207,14 @@ export function toolNext(db: Db, args: SetQueryArgs): Promise<ToolResult> {
 export function toolList(db: Db, args: SetQueryArgs): Promise<ToolResult> {
   return guard(async () => {
     const result = await listNodes(db, {
-      scope: args.scope,
-      status: args.status,
-      verdicts: collectVerdicts(args),
       filters: collectFilters(args),
-      priority: args.priority,
-      size: args.size,
-      tag: args.tag,
       limit: args.limit,
+      priority: args.priority,
+      scope: args.scope,
+      size: args.size,
+      status: args.status,
+      tag: args.tag,
+      verdicts: collectVerdicts(args),
     });
     return ok(formatSetJson(result, 'tasks', { includeWarnings: true }));
   });
@@ -404,12 +410,24 @@ export function toolUpdate(
     }
     const id = await nodeId(db, args.id);
     const fields: UpdateFields = {};
-    if (args.title !== undefined) fields.title = args.title;
-    if (args.description !== undefined) fields.description = args.description;
-    if (args.priority !== undefined) fields.priority = args.priority as Priority;
-    if (args.size !== undefined) fields.size = args.size as Size;
-    if (args.target !== undefined) fields.target = args.target;
-    if (args.externalRef !== undefined) fields.externalRef = args.externalRef;
+    if (args.title !== undefined) {
+      fields.title = args.title;
+    }
+    if (args.description !== undefined) {
+      fields.description = args.description;
+    }
+    if (args.priority !== undefined) {
+      fields.priority = args.priority as Priority;
+    }
+    if (args.size !== undefined) {
+      fields.size = args.size as Size;
+    }
+    if (args.target !== undefined) {
+      fields.target = args.target;
+    }
+    if (args.externalRef !== undefined) {
+      fields.externalRef = args.externalRef;
+    }
     const node = await updateNode(db, id, fields);
     return echoNode(db, node);
   });
@@ -440,8 +458,12 @@ async function updateProjectTool(
   const key = args.id;
   const pid = await projectId(db, key);
   const fields: UpdateProjectFields = {};
-  if (args.name !== undefined) fields.name = args.name;
-  if (args.description !== undefined) fields.description = args.description;
+  if (args.name !== undefined) {
+    fields.name = args.name;
+  }
+  if (args.description !== undefined) {
+    fields.description = args.description;
+  }
   await updateProject(db, pid, fields);
   // Echo the updated project through the same projection as getNode/get KEY
   const project = await db
@@ -449,7 +471,9 @@ async function updateProjectTool(
     .selectAll()
     .where('id', '=', pid)
     .executeTakeFirst();
-  if (project === undefined) throw projectNotFound(key);
+  if (project === undefined) {
+    throw projectNotFound(key);
+  }
   return ok(formatNodeJson(await buildProjectView(db, project)));
 }
 
@@ -475,9 +499,13 @@ async function updateArtifactTool(
     );
   }
   const identity = parseIdentity(args.id);
-  if (identity?.kind !== 'artifact') throw notFound(`no artifact with id ${args.id}`);
+  if (identity?.kind !== 'artifact') {
+    throw notFound(`no artifact with id ${args.id}`);
+  }
   const artifact = await findArtifactByRef(db, identity);
-  if (artifact === undefined) throw notFound(`no artifact ${args.id}`);
+  if (artifact === undefined) {
+    throw notFound(`no artifact ${args.id}`);
+  }
   if (args.title !== undefined) {
     await updateArtifact(db, artifact.id, { title: args.title });
   }
@@ -501,8 +529,12 @@ export function toolTag(
   args: { ids: string[]; tags: string[]; note?: string },
 ): Promise<ToolResult> {
   return guard(async () => {
-    if (args.ids.length === 0) throw validation('tag requires at least one id');
-    if (args.tags.length === 0) throw validation('tag requires at least one tag');
+    if (args.ids.length === 0) {
+      throw validation('tag requires at least one id');
+    }
+    if (args.tags.length === 0) {
+      throw validation('tag requires at least one tag');
+    }
     const targets = await Promise.all(args.ids.map((t) => resolveEntityToken(db, t)));
     await tagEntities(db, targets, args.tags, args.note);
     return ok(JSON.stringify({ tagged: { ids: args.ids, tags: args.tags } }));
@@ -511,8 +543,12 @@ export function toolTag(
 
 export function toolUntag(db: Db, args: { ids: string[]; tags: string[] }): Promise<ToolResult> {
   return guard(async () => {
-    if (args.ids.length === 0) throw validation('untag requires at least one id');
-    if (args.tags.length === 0) throw validation('untag requires at least one tag');
+    if (args.ids.length === 0) {
+      throw validation('untag requires at least one id');
+    }
+    if (args.tags.length === 0) {
+      throw validation('untag requires at least one tag');
+    }
     const targets = await Promise.all(args.ids.map((t) => resolveEntityToken(db, t)));
     await untagEntities(db, targets, args.tags);
     return ok(JSON.stringify({ untagged: { ids: args.ids, tags: args.tags } }));
@@ -542,65 +578,81 @@ export function toolCreate(
   return guard(async () => {
     switch (args.type) {
       case 'project': {
-        if (args.key === undefined) throw validation('create project requires key');
-        if (args.name === undefined) throw validation('create project requires name');
+        if (args.key === undefined) {
+          throw validation('create project requires key');
+        }
+        if (args.name === undefined) {
+          throw validation('create project requires name');
+        }
         const project = await createProject(db, {
+          description: args.description,
           key: args.key,
           name: args.name,
-          description: args.description,
           tags: args.tags,
         });
         return ok(JSON.stringify({ project: { key: project.key, name: project.name } }));
       }
       case 'initiative': {
-        if (args.title === undefined) throw validation('create initiative requires title');
-        if (args.parent === undefined) throw validation('create initiative requires parent');
+        if (args.title === undefined) {
+          throw validation('create initiative requires title');
+        }
+        if (args.parent === undefined) {
+          throw validation('create initiative requires parent');
+        }
         // Initiative parent must be a bare project KEY (not a node ref)
         if (parseId(args.parent) !== null) {
           throw validation("an initiative's parent must be a project (KEY)");
         }
         const pid = await projectId(db, args.parent);
         const node = await createInitiative(db, {
-          projectId: pid,
-          title: args.title,
           description: args.description,
+          projectId: pid,
           tags: args.tags,
+          title: args.title,
         });
         return echoNode(db, node);
       }
       case 'phase': {
-        if (args.title === undefined) throw validation('create phase requires title');
-        if (args.parent === undefined) throw validation('create phase requires parent');
+        if (args.title === undefined) {
+          throw validation('create phase requires title');
+        }
+        if (args.parent === undefined) {
+          throw validation('create phase requires parent');
+        }
         // Phase parent must be a node ref (initiative)
         if (parseId(args.parent) === null) {
           throw validation("a phase's parent must be an initiative (KEY-seq)");
         }
         const parentNodeId = await nodeId(db, args.parent);
         const node = await createPhase(db, {
-          parentId: parentNodeId,
-          title: args.title,
           description: args.description,
-          target: args.target,
+          parentId: parentNodeId,
           tags: args.tags,
+          target: args.target,
+          title: args.title,
         });
         return echoNode(db, node);
       }
       case 'task': {
-        if (args.title === undefined) throw validation('create task requires title');
-        if (args.parent === undefined) throw validation('create task requires parent');
+        if (args.title === undefined) {
+          throw validation('create task requires title');
+        }
+        if (args.parent === undefined) {
+          throw validation('create task requires parent');
+        }
         // Task parent must be a node ref (phase or initiative)
         if (parseId(args.parent) === null) {
           throw validation("a task's parent must be a phase or initiative (KEY-seq)");
         }
         const parentNodeId = await nodeId(db, args.parent);
         const node = await createTask(db, {
-          parentId: parentNodeId,
-          title: args.title,
           description: args.description,
+          externalRef: args.externalRef,
+          parentId: parentNodeId,
           priority: args.priority !== undefined ? (args.priority as Priority) : undefined,
           size: args.size !== undefined ? (args.size as Size) : undefined,
-          externalRef: args.externalRef,
           tags: args.tags,
+          title: args.title,
         });
         return echoNode(db, node);
       }
@@ -629,11 +681,15 @@ export function toolAttach(
   return guard(async () => {
     // Gather all node ref tokens: primary node (if any) + links
     const linkTokens: string[] = [];
-    if (args.node !== undefined) linkTokens.push(args.node);
+    if (args.node !== undefined) {
+      linkTokens.push(args.node);
+    }
     if (args.links !== undefined) {
       for (const t of args.links) {
         const trimmed = t.trim();
-        if (trimmed.length > 0) linkTokens.push(trimmed);
+        if (trimmed.length > 0) {
+          linkTokens.push(trimmed);
+        }
       }
     }
 
@@ -645,35 +701,43 @@ export function toolAttach(
       const nodes = await Promise.all(
         linkTokens.map(async (t) => {
           const n = await findNodeByRef(db, t);
-          if (n === undefined) throw notFound(`${t} doesn't exist`);
+          if (n === undefined) {
+            throw notFound(`${t} doesn't exist`);
+          }
           return n;
         }),
       );
       const projects = new Set(nodes.map((n) => n.project_id));
-      if (projects.size > 1) throw validation('all the links must be in one project');
+      if (projects.size > 1) {
+        throw validation('all the links must be in one project');
+      }
       const [resolvedProjectId] = projects;
-      if (resolvedProjectId === undefined)
+      if (resolvedProjectId === undefined) {
         throw validation('internal: links resolved but project is missing');
+      }
       pid = resolvedProjectId;
       linkNodeIds.push(...nodes.map((n) => n.id));
       // If --project is also provided, it must agree
       if (args.project !== undefined) {
         const explicitId = await projectId(db, args.project);
-        if (explicitId !== pid) throw validation("project disagrees with the links' project");
+        if (explicitId !== pid) {
+          throw validation("project disagrees with the links' project");
+        }
       }
     } else {
       // No links — project is required
-      if (args.project === undefined)
+      if (args.project === undefined) {
         throw validation('attach requires a link (KEY-seq) or a project key');
+      }
       pid = await projectId(db, args.project);
     }
 
     const { renderedId } = await attachArtifact(db, {
-      projectId: pid,
-      title: args.title,
       content: args.content,
       linkNodeIds,
+      projectId: pid,
       tags: args.tags,
+      title: args.title,
     });
     return ok(JSON.stringify({ artifact: { id: renderedId } }));
   });

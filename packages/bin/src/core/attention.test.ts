@@ -30,7 +30,7 @@ async function touch(id: number, at: string): Promise<void> {
 async function dep(nodeId: number, dependsOn: number): Promise<void> {
   await db
     .insertInto('dependency')
-    .values({ node_id: nodeId, depends_on_node_id: dependsOn })
+    .values({ depends_on_node_id: dependsOn, node_id: nodeId })
     .execute();
 }
 

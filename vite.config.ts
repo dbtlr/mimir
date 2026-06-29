@@ -55,70 +55,53 @@ const forbid = (files: string[], layers: string[]): Override => ({
 });
 
 /**
- * Quarantined rules — @dbtlr/tooling's strict default flags these against the
- * existing codebase, none are safely auto-fixable, and most are stylistic
- * preference rather than correctness. Disabled wholesale to land a green
- * `vp check`; we re-enable them ONE AT A TIME (fix the code or keep it off,
- * deliberately) rather than accept a 1.4k-violation wall. Grouped by the triage
- * buckets so each line is an informed re-enable decision.
- *
- * Tracking: the cleaner fix for the preference rules is upstream in the strict
- * preset; this list is Mimir's interim shim.
+ * Conformance backlog — @dbtlr/tooling's rules are best practices we adopt.
+ * Everything auto-fixable has already been conformed (`vp lint --fix`); these
+ * are the non-auto-fixable residual, disabled to keep `vp check` green while we
+ * WALK THEM DOWN ONE AT A TIME: remove a line, fix the code (inline-disable only
+ * the true exceptions), commit, repeat. Counts are at the time of capture.
  */
 const quarantinedRules: Record<string, 'off'> = {
-  // — Style / preference, not safe-autofixable, fights Mimir's conventions —
-  // (func-style, import/exports-last et al. are now off in @dbtlr/tooling 0.3.0
-  // defaults — dropped from this list.)
-  curly: 'off',
-  'import/first': 'off',
-  'new-cap': 'off',
-  'no-await-in-loop': 'off', // intentional sequential SQLite ops (57)
-  'no-nested-ternary': 'off',
-  'sort-keys': 'off',
-  'typescript/consistent-return': 'off',
-  // its autofix converts `interface`→`type`, which breaks module augmentation
-  // (TanStack Router's `interface Register` → TS2300 duplicate + lost inference).
-  'typescript/consistent-type-definitions': 'off',
-  'typescript/consistent-type-imports': 'off',
-  'typescript/method-signature-style': 'off',
-  'typescript/parameter-properties': 'off',
-  'unicorn/consistent-function-scoping': 'off',
-  'unicorn/custom-error-definition': 'off',
-  'unicorn/filename-case': 'off',
-  'unicorn/no-nested-ternary': 'off',
-  'unicorn/no-useless-collection-argument': 'off',
-  'unicorn/prefer-export-from': 'off',
-  'unicorn/prefer-global-this': 'off',
-  'unicorn/prefer-response-static-json': 'off',
-  'unicorn/prefer-set-has': 'off',
-
-  // (React/react-perf/jsx-a11y rules are quarantined in `uiLintOverride`, not
-  // here — they need the ui-scoped override to win, see the header comment.)
-
-  // — Test style (vitest) — opinionated. NOTE: @dbtlr/tooling 0.3.0 now disables
-  // most of these in test files itself — including the three buggy-autofix rules
-  // (prefer-called-with, prefer-describe-function-title, prefer-import-in-mock).
-  // These remain because 0.3.0's disables are scoped to `*.test.*`/`*.spec.*`
-  // globs, but the vitest plugin lints ALL files — so they still fire on test
-  // helpers (test/fixtures.ts, test/setup.ts) and app files (main.tsx).
-  'vitest/no-conditional-expect': 'off',
-  'vitest/prefer-called-times': 'off',
-  'vitest/require-hook': 'off',
-  'vitest/require-top-level-describe': 'off',
-  'vitest/valid-title': 'off',
-
-  // — Genuine correctness — re-enable + fix in code FIRST when we triage —
-  'typescript/no-unsafe-type-assertion': 'off', // risky `as` (149, mostly test JSON.parse)
-  'typescript/no-unnecessary-type-assertion': 'off',
-  'typescript/no-unnecessary-type-conversion': 'off',
-  'typescript/no-unnecessary-type-parameters': 'off',
-  'no-shadow': 'off',
-  'no-unused-vars': 'off', // partly autofix residue
-  'no-duplicate-imports': 'off',
-  'import/no-duplicates': 'off',
-  'import/no-unassigned-import': 'off',
-  'promise/avoid-new': 'off',
-  'promise/param-names': 'off',
+  // — eslint core —
+  curly: 'off', // 21 (autofix residual)
+  'new-cap': 'off', // 1
+  'no-await-in-loop': 'off', // 57 — many are intentional sequential I/O
+  'no-duplicate-imports': 'off', // 10
+  'no-nested-ternary': 'off', // 4
+  'no-shadow': 'off', // 4
+  'no-unused-vars': 'off', // 35
+  'sort-keys': 'off', // 52 (autofix residual — spread/comment objects)
+  // — typescript —
+  'typescript/consistent-return': 'off', // 4
+  'typescript/consistent-type-imports': 'off', // 1
+  'typescript/method-signature-style': 'off', // 6
+  'typescript/no-unnecessary-type-assertion': 'off', // 1
+  'typescript/no-unnecessary-type-conversion': 'off', // 2
+  'typescript/no-unnecessary-type-parameters': 'off', // 1
+  'typescript/no-unsafe-type-assertion': 'off', // 146 — biggest; mostly test JSON.parse casts
+  'typescript/parameter-properties': 'off', // 2
+  // — import —
+  'import/first': 'off', // 5
+  'import/no-duplicates': 'off', // 8
+  'import/no-unassigned-import': 'off', // 2
+  // — unicorn —
+  'unicorn/consistent-function-scoping': 'off', // 7
+  'unicorn/custom-error-definition': 'off', // 1
+  'unicorn/filename-case': 'off', // 6
+  'unicorn/no-nested-ternary': 'off', // 4
+  'unicorn/no-useless-collection-argument': 'off', // 2
+  'unicorn/prefer-export-from': 'off', // 3
+  'unicorn/prefer-global-this': 'off', // 5
+  'unicorn/prefer-response-static-json': 'off', // 2
+  'unicorn/prefer-set-has': 'off', // 1 — autofix is unsound here (array→Set vs array type)
+  // — vitest (lints all files, not just *.test.*) —
+  'vitest/no-conditional-expect': 'off', // 4
+  'vitest/prefer-called-once': 'off', // 1
+  'vitest/require-hook': 'off', // 6 (fires on test helpers + app files)
+  'vitest/require-top-level-describe': 'off', // 1
+  // — promise —
+  'promise/avoid-new': 'off', // 1
+  'promise/param-names': 'off', // 1
 };
 
 /**
@@ -136,14 +119,15 @@ const uiLintOverride: Override = {
     'react/jsx-props-no-spreading': 'off',
     'react/react-in-jsx-scope': 'off', // React 19 jsx-runtime — no import needed
     'unicorn/filename-case': 'off',
-    // quarantined — re-enable individually
-    'jsx-a11y/no-autofocus': 'off',
-    'jsx-a11y/prefer-tag-over-role': 'off',
-    'react-perf/jsx-no-jsx-as-prop': 'off',
-    'react-perf/jsx-no-new-array-as-prop': 'off',
-    'react-perf/jsx-no-new-function-as-prop': 'off',
-    'react-perf/jsx-no-new-object-as-prop': 'off',
-    'react/hook-use-state': 'off',
+    // conformance backlog (walk down one at a time) — react plugins enable these
+    // via the ui override, so they must be disabled at the same scope to win.
+    'jsx-a11y/no-autofocus': 'off', // 1
+    'jsx-a11y/prefer-tag-over-role': 'off', // 3
+    'react-perf/jsx-no-jsx-as-prop': 'off', // 1
+    'react-perf/jsx-no-new-array-as-prop': 'off', // 13
+    'react-perf/jsx-no-new-function-as-prop': 'off', // 95
+    'react-perf/jsx-no-new-object-as-prop': 'off', // 21
+    'react/hook-use-state': 'off', // 1
   },
 };
 

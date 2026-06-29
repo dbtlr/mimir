@@ -40,7 +40,7 @@ beforeEach(async () => {
   phaseRef = `MMR-${String(phase.seq)}`;
   const t1 = await createTask(db, { parentId: phase.id, title: 'first' });
   task1 = `MMR-${String(t1.seq)}`;
-  const t2 = await createTask(db, { parentId: phase.id, title: 'second', priority: 'p1' });
+  const t2 = await createTask(db, { parentId: phase.id, priority: 'p1', title: 'second' });
   task2 = `MMR-${String(t2.seq)}`;
 
   const other = await createProject(db, { key: 'NRN', name: 'Norn' });
@@ -63,9 +63,9 @@ const get = (path: string, headers: Record<string, string> = {}) =>
 
 const send = (method: string, path: string, body?: unknown) =>
   fetch(`${base}${path}`, {
-    method,
-    headers: { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+    headers: { 'content-type': 'application/json' },
+    method,
   });
 
 const parse = async (res: Response): Promise<Rec> => JSON.parse(await res.text()) as Rec;
@@ -126,9 +126,9 @@ test('POST /api/projects creates and echoes the project record; duplicate keys c
 
 test('POST /api/projects with description stores and echoes it (MMR-88)', async () => {
   const res = await send('POST', '/api/projects', {
+    description: 'stores desc',
     key: 'DSC',
     name: 'Described',
-    description: 'stores desc',
   });
   expect(res.status).toBe(201);
   const body = await parse(res);
@@ -148,8 +148,8 @@ test('GET /api/projects/:key returns the project record; a node ref is rejected'
 
 test('PATCH /api/projects/:key patches name and description, echoes updated record (MMR-88)', async () => {
   const res = await send('PATCH', '/api/projects/MMR', {
-    name: 'Mimir Renamed',
     description: 'work tracker',
+    name: 'Mimir Renamed',
   });
   expect(res.status).toBe(200);
   const body = await parse(res);
@@ -192,7 +192,7 @@ test('GET /api/projects/:key/tree nests the full hierarchy in board order', asyn
   expect(tasks.map((n) => n.id)).toEqual([task2, task1]);
   // Rank is array order, never a field; verdicts ride every record.
   expect(tasks[0]).not.toContainKey('rank');
-  expect(tasks[0]?.verdicts).toEqual({ stale: false, blocking: false, orphaned: false });
+  expect(tasks[0]?.verdicts).toEqual({ blocking: false, orphaned: false, stale: false });
 });
 
 test('GET /api/projects/:key/tree 404s on an unknown project', async () => {
@@ -285,7 +285,7 @@ test('an unknown verdict and a bad limit are structural 400s; limit truncates', 
 test('GET /api/nodes/:id returns the full record: verdicts on, artifacts listed, no rank field', async () => {
   const body = await parse(await get(`/api/nodes/${task1}`));
   expect(body.id).toBe(task1);
-  expect(body.verdicts).toEqual({ stale: false, blocking: false, orphaned: false });
+  expect(body.verdicts).toEqual({ blocking: false, orphaned: false, stale: false });
   expect(body.tags).toEqual([]);
   expect(body.artifacts).toEqual([]);
   expect(body.history).toEqual([]);
@@ -399,7 +399,7 @@ test('move reparents; reorder accepts both spellings and requires a position', a
 // ---------------------------------------------------------------------------
 
 test('PATCH /api/nodes/:id is exactly the dumb update; lifecycle through it is structural', async () => {
-  const res = await send('PATCH', `/api/nodes/${task1}`, { title: 'renamed', priority: 'p0' });
+  const res = await send('PATCH', `/api/nodes/${task1}`, { priority: 'p0', title: 'renamed' });
   expect(res.status).toBe(200);
   const body = await parse(res);
   expect(body.title).toBe('renamed');
@@ -431,18 +431,18 @@ test('tags: PUT applies (idempotently, with a note), DELETE removes', async () =
 
 test('POST /api/nodes creates initiatives, phases, and tasks; bad types and parents are rejected', async () => {
   const init = await send('POST', '/api/nodes', {
-    type: 'initiative',
     parent: 'NRN',
     title: 'grow',
+    type: 'initiative',
   });
   expect(init.status).toBe(201);
 
   const task = await send('POST', '/api/nodes', {
-    type: 'task',
     parent: phaseRef,
-    title: 'new work',
     priority: 'p2',
     tags: ['api'],
+    title: 'new work',
+    type: 'task',
   });
   expect(task.status).toBe(201);
   const record = await parse(task);
@@ -450,18 +450,18 @@ test('POST /api/nodes creates initiatives, phases, and tasks; bad types and pare
   expect((record.tags as { tag: string }[]).map((t) => t.tag)).toEqual(['api']);
 
   expect(
-    (await send('POST', '/api/nodes', { type: 'project', parent: 'x', title: 't' })).status,
+    (await send('POST', '/api/nodes', { parent: 'x', title: 't', type: 'project' })).status,
   ).toBe(400);
   expect(
-    (await send('POST', '/api/nodes', { type: 'task', parent: 'MMR', title: 't' })).status,
+    (await send('POST', '/api/nodes', { parent: 'MMR', title: 't', type: 'task' })).status,
   ).toBe(400);
 });
 
 test('artifacts: POST freezes onto the node (201), GET returns content; cross-project links refused', async () => {
   const created = await send('POST', `/api/nodes/${task1}/artifacts`, {
-    title: 'spec',
     content: '# Spec\nbody',
     links: [task2],
+    title: 'spec',
   });
   expect(created.status).toBe(201);
   const artifact = await parse(created);
@@ -473,15 +473,15 @@ test('artifacts: POST freezes onto the node (201), GET returns content; cross-pr
   expect((await get('/api/artifacts/MMR-a9')).status).toBe(404);
 
   const crossed = await send('POST', `/api/nodes/${task1}/artifacts`, {
-    title: 'x',
     content: 'y',
     links: [otherTask],
+    title: 'x',
   });
   expect(crossed.status).toBe(400);
 });
 
 test('PATCH /api/artifacts/:id retitles; content frozen; unknown fields and blank titles 400 (MMR-40)', async () => {
-  await send('POST', `/api/nodes/${task1}/artifacts`, { title: 'wrong', content: '# body' });
+  await send('POST', `/api/nodes/${task1}/artifacts`, { content: '# body', title: 'wrong' });
 
   const patched = await send('PATCH', '/api/artifacts/MMR-a1', { title: 'right' });
   expect(patched.status).toBe(200);
@@ -557,9 +557,9 @@ test('unknown body fields and malformed JSON are structural 400s', async () => {
   expect(unknown.status).toBe(400);
 
   const malformed = await fetch(`${base}/api/nodes/${task1}/park`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
     body: '{not json',
+    headers: { 'content-type': 'application/json' },
+    method: 'POST',
   });
   expect(malformed.status).toBe(400);
 });
@@ -572,8 +572,8 @@ test('unmatched routes get the 404 envelope', async () => {
 
 test('CORS: localhost dev origins are reflected, others get no grant', async () => {
   const preflight = await fetch(`${base}/api/nodes`, {
-    method: 'OPTIONS',
     headers: { origin: 'http://localhost:5173' },
+    method: 'OPTIONS',
   });
   expect(preflight.status).toBe(204);
   expect(preflight.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
@@ -593,7 +593,9 @@ test('CORS: localhost dev origins are reflected, others get no grant', async () 
 test("a prerequisite's terminal state frees the dependent through the API view", async () => {
   await send('POST', `/api/nodes/${task2}/depend`, { on: task1 });
   const prereq = await findNodeByRef(db, task1);
-  if (prereq === undefined) throw new Error(`fixture: no node ${task1}`);
+  if (prereq === undefined) {
+    throw new Error(`fixture: no node ${task1}`);
+  }
   await completeTask(db, prereq.id);
 
   const body = await parse(await get(`/api/nodes/${task2}`));

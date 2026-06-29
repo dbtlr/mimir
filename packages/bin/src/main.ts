@@ -71,7 +71,9 @@ function stdoutIo(): Io {
   // status`) rather than in one shot.
   for (const stream of [process.stdout, process.stderr]) {
     stream.on('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === 'EPIPE') process.exit(0);
+      if (err.code === 'EPIPE') {
+        process.exit(0);
+      }
       throw err;
     });
   }
@@ -79,10 +81,10 @@ function stdoutIo(): Io {
     stream.write(text.endsWith('\n') ? text : `${text}\n`);
   };
   return {
-    write: line(process.stdout),
     error: line(process.stderr),
     isTTY,
     plain: process.env.NO_COLOR !== undefined || !isTTY,
+    write: line(process.stdout),
   };
 }
 
@@ -137,13 +139,11 @@ function servePort(args: string[]): number | null | undefined {
 
 function realServiceDeps(): ServiceDeps {
   return {
-    supervisor: new LaunchdSupervisor(bunExec, process.getuid?.() ?? 501),
-    platform: process.platform,
     binPath: process.execPath,
-    version: VERSION,
     configFile: configPath(),
-    plistFile: plistPath(),
+    dbPath: process.env.MIMIR_DB,
     eventsFile: EVENTS_FILE,
+    fetcher: manualFetch,
     health: async (port: number): Promise<Health | undefined> => {
       try {
         const res = await fetch(`http://127.0.0.1:${String(port)}/api/health`, {
@@ -155,8 +155,10 @@ function realServiceDeps(): ServiceDeps {
         return undefined;
       }
     },
-    fetcher: manualFetch,
-    dbPath: process.env.MIMIR_DB,
+    platform: process.platform,
+    plistFile: plistPath(),
+    supervisor: new LaunchdSupervisor(bunExec, process.getuid?.() ?? 501),
+    version: VERSION,
   };
 }
 
@@ -191,7 +193,7 @@ async function main(argv: string[]): Promise<number> {
     const db = await openMigrated(dbPath());
     let server: ReturnType<typeof createServer>;
     try {
-      server = createServer(db, { port, version: VERSION, hunt: !noHunt });
+      server = createServer(db, { hunt: !noHunt, port, version: VERSION });
     } catch (err) {
       await db.destroy();
       if (err instanceof Error && 'code' in err && err.code === 'EADDRINUSE') {
@@ -238,8 +240,8 @@ async function main(argv: string[]): Promise<number> {
     // Project Binding (ADR 0011): the nearest .mimir.toml supplies the
     // default -s scope; resolved here so the CLI itself never reads cwd.
     return await runCli(argv, getDb, stdoutIo(), {
-      scope: findBinding(process.cwd()),
       cwd: process.cwd(),
+      scope: findBinding(process.cwd()),
       service: realServiceDeps(),
     });
   } finally {

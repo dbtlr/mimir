@@ -33,7 +33,7 @@ async function toRef(tx: Executor, nodeId: number): Promise<NodeRef> {
   const id = (await renderNodeId(tx, nodeId)) ?? 'unknown';
   return node === undefined
     ? { id }
-    : { id, title: node.title, status: await nodeStatusWord(tx, node) };
+    : { id, status: await nodeStatusWord(tx, node), title: node.title };
 }
 
 export async function buildNodeView(
@@ -42,13 +42,13 @@ export async function buildNodeView(
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView> {
   const view: NodeView = {
-    id: (await renderNodeId(tx, node.id)) ?? 'unknown',
-    type: node.type,
-    title: node.title,
-    status: await nodeStatusWord(tx, node),
-    parent: node.parent_id === null ? null : await renderNodeId(tx, node.parent_id),
-    description: node.description,
     createdAt: node.created_at,
+    description: node.description,
+    id: (await renderNodeId(tx, node.id)) ?? 'unknown',
+    parent: node.parent_id === null ? null : await renderNodeId(tx, node.parent_id),
+    status: await nodeStatusWord(tx, node),
+    title: node.title,
+    type: node.type,
     updatedAt: node.updated_at,
   };
 
@@ -103,8 +103,8 @@ async function buildDeps(tx: Executor, nodeId: number): Promise<DepsFacet> {
     .where('depends_on_node_id', '=', nodeId)
     .execute();
   return {
-    dependsOn: await Promise.all(prereqs.map((r) => toRef(tx, r.depends_on_node_id))),
     blocking: await Promise.all(dependents.map((r) => toRef(tx, r.node_id))),
+    dependsOn: await Promise.all(prereqs.map((r) => toRef(tx, r.depends_on_node_id))),
   };
 }
 
@@ -126,7 +126,7 @@ async function buildTags(tx: Executor, nodeId: number): Promise<TagView[]> {
     .where('entity_id', '=', nodeId)
     .orderBy('created_at', 'asc')
     .execute();
-  return rows.map((r) => ({ tag: r.tag, note: r.note, createdAt: r.created_at }));
+  return rows.map((r) => ({ createdAt: r.created_at, note: r.note, tag: r.tag }));
 }
 
 async function buildAnnotations(tx: Executor, nodeId: number): Promise<AnnotationView[]> {
@@ -157,10 +157,10 @@ async function buildArtifacts(tx: Executor, nodeId: number): Promise<ArtifactVie
   const out: ArtifactView[] = [];
   for (const row of rows) {
     out.push({
-      id: renderArtifactRef(row),
-      title: row.title,
       createdAt: row.createdAt,
+      id: renderArtifactRef(row),
       tags: await tagsOf(tx, 'artifact', row.id),
+      title: row.title,
     });
   }
   return out;
@@ -192,10 +192,10 @@ async function buildProjectArtifacts(tx: Executor, project: Project): Promise<Ar
   const out: ArtifactView[] = [];
   for (const row of rows) {
     out.push({
-      id: renderArtifactRef({ key: project.key, seq: row.seq }),
-      title: row.title,
       createdAt: row.createdAt,
+      id: renderArtifactRef({ key: project.key, seq: row.seq }),
       tags: await tagsOf(tx, 'artifact', row.id),
+      title: row.title,
     });
   }
   return out;
@@ -214,13 +214,13 @@ export async function buildProjectView(
 ): Promise<NodeView> {
   const distribution = await rootDistribution(tx, project.id);
   const view: NodeView = {
-    id: project.key,
-    type: 'project',
-    title: project.name,
-    status: interpret(distribution),
-    parent: null,
-    description: project.description,
     createdAt: project.created_at,
+    description: project.description,
+    id: project.key,
+    parent: null,
+    status: interpret(distribution),
+    title: project.name,
+    type: 'project',
     updatedAt: project.updated_at,
   };
   if (facets.has('children')) {
@@ -250,7 +250,7 @@ export async function buildProjectView(
       .where('entity_id', '=', project.id)
       .orderBy('created_at', 'asc')
       .execute();
-    view.tags = rows.map((r) => ({ tag: r.tag, note: r.note, createdAt: r.created_at }));
+    view.tags = rows.map((r) => ({ createdAt: r.created_at, note: r.note, tag: r.tag }));
   }
   if (facets.has('artifacts')) {
     view.artifacts = await buildProjectArtifacts(tx, project);
@@ -279,12 +279,12 @@ export async function buildArtifactDetail(
     linkIds.push((await renderNodeId(tx, link.node_id)) ?? 'unknown');
   }
   const detail: ArtifactDetail = {
-    id: renderArtifactRef({ key: projectKey, seq: artifact.seq }),
-    title: artifact.title,
-    project: projectKey,
-    links: linkIds,
-    tags: await tagsOf(tx, 'artifact', artifact.id),
     createdAt: artifact.created_at,
+    id: renderArtifactRef({ key: projectKey, seq: artifact.seq }),
+    links: linkIds,
+    project: projectKey,
+    tags: await tagsOf(tx, 'artifact', artifact.id),
+    title: artifact.title,
   };
   if (opts.content === true) {
     detail.content = artifact.content;
@@ -300,10 +300,10 @@ async function buildHistory(tx: Executor, nodeId: number): Promise<HistoryEntry[
     .orderBy('id', 'asc')
     .execute();
   return rows.map((r) => ({
-    kind: r.kind,
-    from: r.from_value,
-    to: r.to_value,
     at: r.at,
+    from: r.from_value,
+    kind: r.kind,
     reason: r.reason,
+    to: r.to_value,
   }));
 }

@@ -21,7 +21,9 @@ export function ArtifactsPage() {
   const search = artifactsRoute.useSearch();
   const filters: Filters = {};
   for (const k of FILTER_KEYS) {
-    if (search[k] !== undefined) filters[k] = search[k];
+    if (search[k] !== undefined) {
+      filters[k] = search[k];
+    }
   }
 
   const projects = useQuery(projectsQuery);
@@ -32,7 +34,6 @@ export function ArtifactsPage() {
   // pushing one per keystroke (Back should leave the browser, not unwind typing).
   const setFilter = (partial: Partial<Filters>) =>
     void navigate({
-      to: '/artifacts',
       replace: true,
       search: (prev) => {
         const next = { ...prev, ...partial };
@@ -41,32 +42,33 @@ export function ArtifactsPage() {
         }
         return next;
       },
+      to: '/artifacts',
     });
 
   const select = (id: string) =>
-    void navigate({ to: '/artifacts', search: (prev) => ({ ...prev, a: id }) });
+    void navigate({ search: (prev) => ({ ...prev, a: id }), to: '/artifacts' });
 
   const back = () => {
     if (search.from !== undefined) {
       const from = search.from;
       void navigate({
-        to: '/p/$key',
         params: { key: projectKeyOf(from) },
-        search: { view: 'board', node: from },
+        search: { node: from, view: 'board' },
+        to: '/p/$key',
       });
     } else {
       void navigate({
-        to: '/artifacts',
         search: (prev) => ({ ...prev, a: undefined, from: undefined }),
+        to: '/artifacts',
       });
     }
   };
 
   const openNode = (nodeId: string) =>
     void navigate({
-      to: '/p/$key',
       params: { key: projectKeyOf(nodeId) },
-      search: { view: 'board', node: nodeId },
+      search: { node: nodeId, view: 'board' },
+      to: '/p/$key',
     });
 
   const selected = search.a;

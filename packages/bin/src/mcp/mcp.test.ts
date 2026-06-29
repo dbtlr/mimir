@@ -216,9 +216,9 @@ test('reorder before/after without ref returns structured validation error', asy
 test('update patches scalar fields and echoes them', async () => {
   const res = await toolUpdate(db, {
     id: taskRef,
-    title: 'renamed',
     priority: 'p1',
     size: 'large',
+    title: 'renamed',
   });
   expect(res.isError).toBeUndefined();
   const v = JSON.parse(textOf(res)) as { title: string; priority: string };
@@ -227,7 +227,7 @@ test('update patches scalar fields and echoes them', async () => {
 });
 
 test('annotate echoes the node', async () => {
-  const res = await toolAnnotate(db, { id: taskRef, content: 'looked into this' });
+  const res = await toolAnnotate(db, { content: 'looked into this', id: taskRef });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).id).toBe(taskRef);
 });
@@ -237,7 +237,7 @@ test('annotate echoes the node', async () => {
 // ---------------------------------------------------------------------------
 
 test('create project echoes {project:{key,name}}', async () => {
-  const res = await toolCreate(db, { type: 'project', key: 'NEW', name: 'New Proj' });
+  const res = await toolCreate(db, { key: 'NEW', name: 'New Proj', type: 'project' });
   expect(res.isError).toBeUndefined();
   const v = JSON.parse(textOf(res)) as { project: { key: string; name: string } };
   expect(v.project.key).toBe('NEW');
@@ -245,7 +245,7 @@ test('create project echoes {project:{key,name}}', async () => {
 });
 
 test('create task echoes a task node', async () => {
-  const res = await toolCreate(db, { type: 'task', title: 'x', parent: phaseRef });
+  const res = await toolCreate(db, { parent: phaseRef, title: 'x', type: 'task' });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).type).toBe('task');
 });
@@ -253,25 +253,25 @@ test('create task echoes a task node', async () => {
 test('create phase echoes a phase node', async () => {
   const initNode = await findNodeByRef(db, 'MMR-1');
   const initRef = initNode !== undefined ? `MMR-${String(initNode.seq)}` : 'MMR-1';
-  const res = await toolCreate(db, { type: 'phase', title: 'p2', parent: initRef });
+  const res = await toolCreate(db, { parent: initRef, title: 'p2', type: 'phase' });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).type).toBe('phase');
 });
 
 test('create initiative under a bare project KEY', async () => {
-  const res = await toolCreate(db, { type: 'initiative', title: 'Big bet', parent: 'MMR' });
+  const res = await toolCreate(db, { parent: 'MMR', title: 'Big bet', type: 'initiative' });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).type).toBe('initiative');
 });
 
 test('create initiative with a node ref as parent returns structured validation error', async () => {
-  const res = await toolCreate(db, { type: 'initiative', title: 'x', parent: taskRef });
+  const res = await toolCreate(db, { parent: taskRef, title: 'x', type: 'initiative' });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('validation');
 });
 
 test('create project without key returns validation error', async () => {
-  const res = await toolCreate(db, { type: 'project', name: 'Missing Key' });
+  const res = await toolCreate(db, { name: 'Missing Key', type: 'project' });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('validation');
 });
@@ -281,7 +281,7 @@ test('create project without key returns validation error', async () => {
 // ---------------------------------------------------------------------------
 
 test('attach to a node infers the project and echoes an artifact id', async () => {
-  const res = await toolAttach(db, { node: taskRef, title: 'plan', content: '# plan\n' });
+  const res = await toolAttach(db, { content: '# plan\n', node: taskRef, title: 'plan' });
   expect(res.isError).toBeUndefined();
   const v = JSON.parse(textOf(res)) as { artifact: { id: string } };
   expect(v.artifact.id).toMatch(/^[A-Z]{2,4}-a\d+$/);
@@ -295,23 +295,23 @@ test('attach cross-project link returns structured validation error', async () =
   const otRef = `OTH-${String(ot.seq)}`;
 
   const res = await toolAttach(db, {
-    node: taskRef,
-    title: 'x',
     content: 'x',
     links: [otRef],
+    node: taskRef,
+    title: 'x',
   });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('validation');
 });
 
 test('attach with no node refs and no project returns structured validation error', async () => {
-  const res = await toolAttach(db, { title: 'plan', content: '# plan\n' });
+  const res = await toolAttach(db, { content: '# plan\n', title: 'plan' });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('validation');
 });
 
 test('attach to a missing node is not_found', async () => {
-  const res = await toolAttach(db, { node: 'MMR-9999', title: 'x', content: 'x' });
+  const res = await toolAttach(db, { content: 'x', node: 'MMR-9999', title: 'x' });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('not_found');
 });
@@ -325,10 +325,10 @@ test('attach with project disagreement returns structured validation error', asy
 
   // node is in MMR but --project says OTH
   const res = await toolAttach(db, {
-    node: taskRef,
-    title: 'x',
     content: 'x',
+    node: taskRef,
     project: 'OTH',
+    title: 'x',
   });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('validation');
@@ -339,14 +339,14 @@ test('attach with project disagreement returns structured validation error', asy
 // ---------------------------------------------------------------------------
 
 test('tag and untag round-trip over MCP, reaching project and node', async () => {
-  const res = await toolTag(db, { ids: [taskRef, 'MMR'], tags: ['spec'], note: 'why' });
+  const res = await toolTag(db, { ids: [taskRef, 'MMR'], note: 'why', tags: ['spec'] });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res))).toEqual({ tagged: { ids: [taskRef, 'MMR'], tags: ['spec'] } });
 
   const view = await toolGet(db, { id: taskRef });
   const parsed = JSON.parse(textOf(view)) as { tags: { tag: string; note: string | null }[] };
-  expect(parsed.tags.map((t) => ({ tag: t.tag, note: t.note }))).toEqual([
-    { tag: 'spec', note: 'why' },
+  expect(parsed.tags.map((t) => ({ note: t.note, tag: t.tag }))).toEqual([
+    { note: 'why', tag: 'spec' },
   ]);
 
   const off = await toolUntag(db, { ids: [taskRef], tags: ['spec'] });
@@ -362,7 +362,7 @@ test('tag on an unknown id returns a structured not_found', async () => {
 });
 
 test('create task with tags applies them', async () => {
-  const res = await toolCreate(db, { type: 'task', title: 'tt', parent: phaseRef, tags: ['v2'] });
+  const res = await toolCreate(db, { parent: phaseRef, tags: ['v2'], title: 'tt', type: 'task' });
   expect(res.isError).toBeUndefined();
   const node = JSON.parse(textOf(res)) as { id: string };
   const view = JSON.parse(textOf(await toolGet(db, { id: node.id }))) as {
@@ -376,7 +376,7 @@ test('create task with tags applies them', async () => {
 // ---------------------------------------------------------------------------
 
 test('toolUpdate on a bare project KEY renames and patches description', async () => {
-  const res = await toolUpdate(db, { id: 'MMR', name: 'Renamed', description: 'details' });
+  const res = await toolUpdate(db, { description: 'details', id: 'MMR', name: 'Renamed' });
   expect(res.isError).toBeUndefined();
   const v = JSON.parse(textOf(res)) as { type: string; title: string; description: string };
   expect(v.type).toBe('project');
@@ -398,10 +398,10 @@ test('toolUpdate project with missing key returns not_found', async () => {
 
 test('toolCreate project with description stores it', async () => {
   const res = await toolCreate(db, {
-    type: 'project',
+    description: 'a project',
     key: 'DSC',
     name: 'Described',
-    description: 'a project',
+    type: 'project',
   });
   expect(res.isError).toBeUndefined();
   const get = await toolGet(db, { id: 'DSC' });

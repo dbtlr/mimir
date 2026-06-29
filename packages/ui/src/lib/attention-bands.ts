@@ -12,11 +12,11 @@ import type { WireNode } from '../api/types';
  */
 
 /** A non-empty band: its key, its display label, and its projects (recency-desc). */
-export interface BandGroup {
+export type BandGroup = {
   band: AttentionBand;
   label: string;
   projects: WireNode[];
-}
+};
 
 /** Banded when every project carries the facet; flat (input order) otherwise. */
 export type BandGrouping =
@@ -49,5 +49,5 @@ export function groupIntoBands(projects: WireNode[]): BandGrouping {
       bands.push({ band, label, projects: members });
     }
   }
-  return { mode: 'banded', bands };
+  return { bands, mode: 'banded' };
 }

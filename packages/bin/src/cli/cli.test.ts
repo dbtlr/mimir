@@ -44,7 +44,7 @@ test('help, usage errors, and unknown commands never acquire the store (MMR-39)'
 });
 
 test('next --format json lists ready tasks (count-led envelope)', async () => {
-  await createTask(db, { parentId: phaseId, title: 'first', priority: 'p1' });
+  await createTask(db, { parentId: phaseId, priority: 'p1', title: 'first' });
   const io = fakeIo();
   expect(await runCli(['next', '--scope', 'MMR', '--format', 'json'], () => db, io)).toBe(0);
   const parsed = JSON.parse(io.out.join('')) as { total: number; tasks: { title: string }[] };
@@ -310,7 +310,7 @@ test('create task --tag applies creation-time tags', async () => {
 // query surface v2 (MMR-33)
 
 test('a value miss warns on stderr and exits 0 with an empty set', async () => {
-  await createTask(db, { parentId: phaseId, title: 'a', priority: 'p1' });
+  await createTask(db, { parentId: phaseId, priority: 'p1', title: 'a' });
   const io = fakeIo(true);
   const code = await runCli(
     ['list', '--scope', 'MMR', '--eq', 'priority:p9', '--ascii'],

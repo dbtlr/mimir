@@ -48,7 +48,9 @@ async function task(title = 't'): Promise<number> {
 }
 async function reload(id: number) {
   const node = await loadNode(db, id);
-  if (node === undefined) throw new Error(`node ${id} vanished`);
+  if (node === undefined) {
+    throw new Error(`node ${id} vanished`);
+  }
   return node;
 }
 async function logs(nodeId: number) {
@@ -68,7 +70,7 @@ test('start keeps rank and logs a lifecycle transition', async () => {
   expect(echoed.lifecycle).toBe('in_progress');
   expect(echoed.rank).toBe(RANK_STEP); // todo->in_progress stays in the rankable set
   expect(await logs(id)).toEqual([
-    { kind: 'lifecycle', from_value: 'todo', to_value: 'in_progress', reason: null },
+    { from_value: 'todo', kind: 'lifecycle', reason: null, to_value: 'in_progress' },
   ]);
   await expectMimirError('validation', () => startTask(db, id)); // not a todo anymore
 });
@@ -90,10 +92,10 @@ test('abandon clears rank and records its reason on the log row', async () => {
   expect(gone.rank).toBeNull();
   expect(gone.completed_at).toBeNull(); // only complete stamps it
   expect((await logs(id)).at(-1)).toEqual({
-    kind: 'lifecycle',
     from_value: 'todo',
-    to_value: 'abandoned',
+    kind: 'lifecycle',
     reason: 'scope cut',
+    to_value: 'abandoned',
   });
 });
 
@@ -163,7 +165,7 @@ test('move re-parents with type + cycle validation', async () => {
 
 test('update is a dumb scalar patch with type-applicability checks', async () => {
   const id = await task();
-  const patched = await updateNode(db, id, { title: 'renamed', priority: 'p0' });
+  const patched = await updateNode(db, id, { priority: 'p0', title: 'renamed' });
   expect(patched.title).toBe('renamed');
   expect(patched.priority).toBe('p0');
 
@@ -182,10 +184,10 @@ test('annotate and attachArtifact persist and link', async () => {
   expect(notes.map((n) => n.content)).toEqual(['realized X']);
 
   const { id: artifactId } = await attachArtifact(db, {
-    projectId,
-    title: 'session log',
     content: '# session log',
     linkNodeIds: [id],
+    projectId,
+    title: 'session log',
   });
   const links = await db
     .selectFrom('artifact_link')
@@ -198,10 +200,10 @@ test('annotate and attachArtifact persist and link', async () => {
 test('updateArtifact retitles; content frozen; blank title and unknown id refused (MMR-40)', async () => {
   const id = await task();
   const { id: artifactId } = await attachArtifact(db, {
-    projectId,
-    title: 'first title',
     content: '# body',
     linkNodeIds: [id],
+    projectId,
+    title: 'first title',
   });
   await updateArtifact(db, artifactId, { title: 'fixed title' });
   const row = await db
@@ -216,7 +218,7 @@ test('updateArtifact retitles; content frozen; blank title and unknown id refuse
 });
 
 test('updateProject patches name and description; key is immutable (MMR-88)', async () => {
-  const updated = await updateProject(db, projectId, { name: 'New Name', description: 'details' });
+  const updated = await updateProject(db, projectId, { description: 'details', name: 'New Name' });
   expect(updated.name).toBe('New Name');
   expect(updated.description).toBe('details');
 

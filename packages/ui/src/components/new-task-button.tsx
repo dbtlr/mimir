@@ -17,13 +17,13 @@ export function NewTaskButton({ projectKey, offline }: { projectKey: string; off
     const { parent, title, description, priority, size, external_ref, tags } = values;
     create.mutate(
       {
-        parent: parent ?? '',
-        title,
         description: description ?? undefined,
+        external_ref: external_ref ?? undefined,
+        parent: parent ?? '',
         priority: priority ?? undefined,
         size: size ?? undefined,
-        external_ref: external_ref ?? undefined,
         tags,
+        title,
       },
       { onSuccess: () => setOpen(false) },
     );

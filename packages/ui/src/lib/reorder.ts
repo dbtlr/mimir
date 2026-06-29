@@ -1,8 +1,8 @@
 /** The body the `/reorder` route accepts (the before/after grammar). */
-export interface ReorderArgs {
+export type ReorderArgs = {
   before?: string;
   after?: string;
-}
+};
 
 /**
  * Translate a sortable drop into a `reorder` call. `over` is the item currently
@@ -14,9 +14,13 @@ export function reorderArgs(
   overId: string,
   orderedIds: readonly string[],
 ): ReorderArgs | null {
-  if (activeId === overId) return null;
+  if (activeId === overId) {
+    return null;
+  }
   const from = orderedIds.indexOf(activeId);
   const to = orderedIds.indexOf(overId);
-  if (from === -1 || to === -1) return null;
+  if (from === -1 || to === -1) {
+    return null;
+  }
   return from < to ? { after: overId } : { before: overId };
 }

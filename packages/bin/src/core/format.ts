@@ -18,32 +18,54 @@ import type {
 /** Map a NodeView to its wire object — only defined fields, contract field names. */
 export function nodeToWire(node: NodeView): Record<string, unknown> {
   const wire: Record<string, unknown> = {
-    id: node.id,
-    type: node.type,
-    title: node.title,
-    status: node.status,
-    parent: node.parent,
     description: node.description,
+    id: node.id,
+    parent: node.parent,
+    status: node.status,
+    title: node.title,
+    type: node.type,
   };
-  if (node.priority !== undefined) wire.priority = node.priority;
-  if (node.size !== undefined) wire.size = node.size;
-  if (node.lifecycle !== undefined) wire.lifecycle = node.lifecycle;
-  if (node.hold !== undefined) wire.hold = node.hold;
-  if (node.holdReason !== undefined) wire.hold_reason = node.holdReason;
-  if (node.externalRef !== undefined) wire.external_ref = node.externalRef;
-  if (node.target !== undefined) wire.target = node.target;
-  if (node.completedAt !== undefined) wire.completed_at = node.completedAt;
+  if (node.priority !== undefined) {
+    wire.priority = node.priority;
+  }
+  if (node.size !== undefined) {
+    wire.size = node.size;
+  }
+  if (node.lifecycle !== undefined) {
+    wire.lifecycle = node.lifecycle;
+  }
+  if (node.hold !== undefined) {
+    wire.hold = node.hold;
+  }
+  if (node.holdReason !== undefined) {
+    wire.hold_reason = node.holdReason;
+  }
+  if (node.externalRef !== undefined) {
+    wire.external_ref = node.externalRef;
+  }
+  if (node.target !== undefined) {
+    wire.target = node.target;
+  }
+  if (node.completedAt !== undefined) {
+    wire.completed_at = node.completedAt;
+  }
   wire.created_at = node.createdAt;
   wire.updated_at = node.updatedAt;
 
   if (node.deps !== undefined) {
-    wire.deps = { depends_on: node.deps.dependsOn, blocking: node.deps.blocking };
+    wire.deps = { blocking: node.deps.blocking, depends_on: node.deps.dependsOn };
   }
-  if (node.children !== undefined) wire.children = node.children;
-  if (node.distribution !== undefined) wire.distribution = node.distribution;
-  if (node.leafCounts !== undefined) wire.leaf_counts = node.leafCounts;
+  if (node.children !== undefined) {
+    wire.children = node.children;
+  }
+  if (node.distribution !== undefined) {
+    wire.distribution = node.distribution;
+  }
+  if (node.leafCounts !== undefined) {
+    wire.leaf_counts = node.leafCounts;
+  }
   if (node.tags !== undefined) {
-    wire.tags = node.tags.map((t) => ({ tag: t.tag, note: t.note, created_at: t.createdAt }));
+    wire.tags = node.tags.map((t) => ({ created_at: t.createdAt, note: t.note, tag: t.tag }));
   }
   if (node.annotations !== undefined) {
     wire.annotations = node.annotations.map((a) => ({
@@ -53,22 +75,24 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   }
   if (node.artifacts !== undefined) {
     wire.artifacts = node.artifacts.map((a) => ({
-      id: a.id,
-      title: a.title,
-      tags: a.tags,
       created_at: a.createdAt,
+      id: a.id,
+      tags: a.tags,
+      title: a.title,
     }));
   }
   if (node.history !== undefined) {
     wire.history = node.history.map((h) => ({
-      kind: h.kind,
-      from: h.from,
-      to: h.to,
       at: h.at,
+      from: h.from,
+      kind: h.kind,
       reason: h.reason,
+      to: h.to,
     }));
   }
-  if (node.verdicts !== undefined) wire.verdicts = node.verdicts;
+  if (node.verdicts !== undefined) {
+    wire.verdicts = node.verdicts;
+  }
   if (node.attention !== undefined) {
     wire.attention = {
       band: node.attention.band,
@@ -138,7 +162,7 @@ export function formatNodeJson(node: NodeView): string {
 /** `json` for `status_of` — id, label, and distribution together. */
 export function formatStatusJson(status: StatusView): string {
   return emitWire(
-    { id: status.id, status: status.status, distribution: status.distribution },
+    { distribution: status.distribution, id: status.id, status: status.status },
     true,
   );
 }
@@ -146,14 +170,16 @@ export function formatStatusJson(status: StatusView): string {
 /** Map a standalone artifact to its wire object — metadata + links, contract field names. */
 export function artifactToWire(artifact: ArtifactDetail): Record<string, unknown> {
   const wire: Record<string, unknown> = {
-    id: artifact.id,
-    title: artifact.title,
-    project: artifact.project,
-    links: artifact.links,
-    tags: artifact.tags,
     created_at: artifact.createdAt,
+    id: artifact.id,
+    links: artifact.links,
+    project: artifact.project,
+    tags: artifact.tags,
+    title: artifact.title,
   };
-  if (artifact.content !== undefined) wire.content = artifact.content;
+  if (artifact.content !== undefined) {
+    wire.content = artifact.content;
+  }
   return wire;
 }
 
@@ -165,10 +191,10 @@ export function formatArtifactJson(artifact: ArtifactDetail): string {
 /** Map an {@link ArtifactSummary} to its wire object — metadata only, no content. */
 export function artifactSummaryToWire(a: ArtifactSummary): Record<string, unknown> {
   return {
+    created_at: a.createdAt,
     id: a.id,
-    title: a.title,
     project: a.project,
     tags: a.tags,
-    created_at: a.createdAt,
+    title: a.title,
   };
 }

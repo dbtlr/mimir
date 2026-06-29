@@ -6,14 +6,14 @@ import { cleanup } from '@testing-library/react';
 if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
   window.matchMedia = (query: string) =>
     ({
+      addEventListener: () => {},
+      addListener: () => {},
+      dispatchEvent: () => false,
       matches: false,
       media: query,
       onchange: null,
-      addEventListener: () => {},
       removeEventListener: () => {},
-      addListener: () => {},
       removeListener: () => {},
-      dispatchEvent: () => false,
     }) as MediaQueryList;
 }
 

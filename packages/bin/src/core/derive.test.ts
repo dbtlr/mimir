@@ -22,7 +22,9 @@ async function setLifecycle(id: number, lifecycle: Lifecycle): Promise<void> {
 
 async function reload(id: number) {
   const node = await loadNode(db, id);
-  if (node === undefined) throw new Error(`node ${id} vanished`);
+  if (node === undefined) {
+    throw new Error(`node ${id} vanished`);
+  }
   return node;
 }
 
@@ -74,7 +76,7 @@ test('a task awaits an unsettled prerequisite and becomes ready once it settles'
   const dependent = await createTask(db, { parentId: phase.id, title: 'dependent' });
   await db
     .insertInto('dependency')
-    .values({ node_id: dependent.id, depends_on_node_id: prereq.id })
+    .values({ depends_on_node_id: prereq.id, node_id: dependent.id })
     .execute();
 
   expect(await nodeStatusWord(db, await reload(dependent.id))).toBe('awaiting');
@@ -86,7 +88,7 @@ test('a task awaits an unsettled prerequisite and becomes ready once it settles'
   const prereq2 = await createTask(db, { parentId: phase.id, title: 'prereq2' });
   await db
     .insertInto('dependency')
-    .values({ node_id: dependent.id, depends_on_node_id: prereq2.id })
+    .values({ depends_on_node_id: prereq2.id, node_id: dependent.id })
     .execute();
   expect(await nodeStatusWord(db, await reload(dependent.id))).toBe('awaiting');
   await setLifecycle(prereq2.id, 'abandoned');

@@ -15,7 +15,7 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'mimir-svc-'));
 });
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(dir, { force: true, recursive: true });
 });
 
 class FakeSupervisor implements Supervisor {
@@ -48,16 +48,16 @@ class FakeSupervisor implements Supervisor {
 
 function deps(sup: FakeSupervisor, extra: Partial<ServiceDeps> = {}): ServiceDeps {
   return {
-    supervisor: sup,
-    platform: 'darwin',
     binPath: join(dir, 'mimir'),
-    version: '0.5.0',
     configFile: join(dir, 'config.toml'),
-    plistFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
-    eventsFile: join(dir, 'service-events.jsonl'),
-    health: () => Promise.resolve(undefined),
-    fetcher: () => Promise.reject(new Error('no network in tests')),
     dbPath: undefined,
+    eventsFile: join(dir, 'service-events.jsonl'),
+    fetcher: () => Promise.reject(new Error('no network in tests')),
+    health: () => Promise.resolve(undefined),
+    platform: 'darwin',
+    plistFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
+    supervisor: sup,
+    version: '0.5.0',
     ...extra,
   };
 }
@@ -165,11 +165,11 @@ test('unknown subcommand is usage; non-darwin is a loud operational error', asyn
 // 6. status reports running vs on-disk version and restart pending
 test('status reports running vs on-disk version and restart pending', async () => {
   const sup = new FakeSupervisor();
-  sup.state = { loaded: true, running: true, pid: 4242 };
+  sup.state = { loaded: true, pid: 4242, running: true };
   const io = fakeIo();
   const d = deps(sup, {
-    version: '0.6.0',
     health: () => Promise.resolve({ status: 'ok', version: '0.5.0' }),
+    version: '0.6.0',
   });
 
   const code = await cmdService(['service', 'status'], {}, io, d);
@@ -223,8 +223,8 @@ test('self-update: already up to date is a clean no-op', async () => {
       if (url.includes('/releases/latest')) {
         return Promise.resolve(
           new Response(null, {
-            status: 302,
             headers: { location: 'https://github.com/dbtlr/mimir/releases/tag/v0.5.0' },
+            status: 302,
           }),
         );
       }
@@ -270,7 +270,7 @@ test('self-update logs the update even when restart fails', async () => {
   // Supervisor that marks itself loaded so restart is attempted, but restart throws
   class FailingRestartSupervisor extends FakeSupervisor {
     override info(): Promise<ServiceInfo> {
-      return Promise.resolve({ loaded: true, running: true, pid: 1234 });
+      return Promise.resolve({ loaded: true, pid: 1234, running: true });
     }
     override restart(): Promise<void> {
       this.calls.push('restart');
@@ -288,8 +288,8 @@ test('self-update logs the update even when restart fails', async () => {
       if (url.includes('/releases/latest')) {
         return Promise.resolve(
           new Response(null, {
-            status: 302,
             headers: { location: `https://github.com/dbtlr/mimir/releases/tag/${newTag}` },
+            status: 302,
           }),
         );
       }
@@ -332,7 +332,7 @@ test('self-update logs the update even when restart fails', async () => {
 
 test('self-update --tag is a no-op when already on that exact tag', async () => {
   const io = fakeIo();
-  const d = deps(new FakeSupervisor(), { version: '0.6.0-next.5', binPath: join(dir, 'mimir') });
+  const d = deps(new FakeSupervisor(), { binPath: join(dir, 'mimir'), version: '0.6.0-next.5' });
   expect(await cmdSelfUpdate(io, d, { tag: 'v0.6.0-next.5' })).toBe(0);
   expect(io.out.join('\n')).toMatch(/already/i);
 });
@@ -340,9 +340,9 @@ test('self-update --tag is a no-op when already on that exact tag', async () => 
 test('self-update --next reports up to date when running the latest prerelease', async () => {
   const atom = `<entry><link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.6.0-next.5"/></entry>`;
   const d = deps(new FakeSupervisor(), {
-    version: '0.6.0-next.5',
     binPath: join(dir, 'mimir'),
     fetcher: () => Promise.resolve(new Response(atom)),
+    version: '0.6.0-next.5',
   });
   const io = fakeIo();
   expect(await cmdSelfUpdate(io, d, { next: true })).toBe(0);
@@ -353,11 +353,11 @@ test('self-update --next reports up to date when running the latest prerelease',
 
 test('service status emits the json envelope when format is json', async () => {
   const sup = new FakeSupervisor();
-  sup.state = { loaded: true, running: true, pid: 4242 };
+  sup.state = { loaded: true, pid: 4242, running: true };
   const io = fakeIo();
   const d = deps(sup, {
-    version: '0.6.0',
     health: () => Promise.resolve({ status: 'ok', version: '0.5.0' }),
+    version: '0.6.0',
   });
 
   const code = await cmdService(['service', 'status'], {}, io, d, 'json');
@@ -365,11 +365,11 @@ test('service status emits the json envelope when format is json', async () => {
   expect(code).toBe(0);
   const parsed = JSON.parse(io.out.join('\n'));
   expect(parsed).toMatchObject({
+    health: { on_disk_version: '0.6.0', restart_pending: true, running_version: '0.5.0' },
     loaded: true,
-    running: true,
     pid: 4242,
     port: 64647,
-    health: { running_version: '0.5.0', on_disk_version: '0.6.0', restart_pending: true },
+    running: true,
   });
   expect(parsed.paths.plist).toBe(d.plistFile);
 });
@@ -393,7 +393,6 @@ test('self-update emits the json result envelope when format is json', async () 
   const sup = new FakeSupervisor();
   const io = fakeIo();
   const d = deps(sup, {
-    version: '0.5.0',
     fetcher: (url: string) =>
       url.includes('/releases/latest')
         ? Promise.resolve(
@@ -403,18 +402,18 @@ test('self-update emits the json result envelope when format is json', async () 
             }),
           )
         : Promise.reject(new Error('unexpected fetch in test')),
+    version: '0.5.0',
   });
 
   const code = await cmdSelfUpdate(io, d, {}, 'json');
 
   expect(code).toBe(0);
   const parsed = JSON.parse(io.out.join('\n'));
-  expect(parsed).toMatchObject({ from: '0.5.0', updated: false, restarted: false });
+  expect(parsed).toMatchObject({ from: '0.5.0', restarted: false, updated: false });
 });
 
 test('self-update (default selection {}) still uses official latest + semver compare', async () => {
   const d = deps(new FakeSupervisor(), {
-    version: '0.6.0',
     binPath: join(dir, 'mimir'),
     fetcher: () =>
       Promise.resolve(
@@ -423,6 +422,7 @@ test('self-update (default selection {}) still uses official latest + semver com
           headers: { location: 'https://github.com/dbtlr/mimir/releases/tag/v0.6.0' },
         }),
       ),
+    version: '0.6.0',
   });
   const io = fakeIo();
   expect(await cmdSelfUpdate(io, d, {})).toBe(0);

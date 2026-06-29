@@ -20,7 +20,7 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
   );
 }
 
-const SIZE_GLYPH: Record<Size, string> = { small: 's', medium: 'm', large: 'l' };
+const SIZE_GLYPH: Record<Size, string> = { large: 'l', medium: 'm', small: 's' };
 
 /** Size signal chip. */
 export function SizeBadge({ size }: { size: Size }) {

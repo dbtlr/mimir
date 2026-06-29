@@ -54,7 +54,9 @@ export function TagEditor({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !addDisabled) handleAdd();
+              if (e.key === 'Enter' && !addDisabled) {
+                handleAdd();
+              }
             }}
             placeholder="Add tag…"
             className="min-w-0 flex-1 rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent"

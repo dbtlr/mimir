@@ -24,7 +24,9 @@ export function TransitionMenu({
   const { mutate } = useTransition(node.id);
   const [reasonVerb, setReasonVerb] = useState<VerbSpec | null>(null);
 
-  if (verbs.length === 0) return null;
+  if (verbs.length === 0) {
+    return null;
+  }
 
   return (
     <>
@@ -62,7 +64,7 @@ export function TransitionMenu({
         }}
         onConfirm={(reason) => {
           if (reasonVerb !== null) {
-            mutate(reason === '' ? { verb: reasonVerb.verb } : { verb: reasonVerb.verb, reason });
+            mutate(reason === '' ? { verb: reasonVerb.verb } : { reason, verb: reasonVerb.verb });
           }
           setReasonVerb(null);
         }}

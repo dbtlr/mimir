@@ -60,7 +60,7 @@ test('node type-integrity CHECKs make illegal rows unrepresentable', async () =>
     await expectReject(() =>
       db
         .insertInto('node')
-        .values({ project_id: p.id, type: 'initiative', seq: 1, title: 'i', lifecycle: 'todo' })
+        .values({ lifecycle: 'todo', project_id: p.id, seq: 1, title: 'i', type: 'initiative' })
         .execute(),
     );
 
@@ -68,7 +68,7 @@ test('node type-integrity CHECKs make illegal rows unrepresentable', async () =>
     await expectReject(() =>
       db
         .insertInto('node')
-        .values({ project_id: p.id, type: 'task', seq: 2, title: 't', lifecycle: 'todo' })
+        .values({ lifecycle: 'todo', project_id: p.id, seq: 2, title: 't', type: 'task' })
         .execute(),
     );
 
@@ -76,7 +76,7 @@ test('node type-integrity CHECKs make illegal rows unrepresentable', async () =>
     await expectReject(() =>
       db
         .insertInto('node')
-        .values({ project_id: p.id, type: 'initiative', seq: 3, title: 'i', target: 'x' })
+        .values({ project_id: p.id, seq: 3, target: 'x', title: 'i', type: 'initiative' })
         .execute(),
     );
 
@@ -84,12 +84,12 @@ test('node type-integrity CHECKs make illegal rows unrepresentable', async () =>
     await db
       .insertInto('node')
       .values({
+        hold: 'none',
+        lifecycle: 'todo',
         project_id: p.id,
-        type: 'task',
         seq: 4,
         title: 'ok',
-        lifecycle: 'todo',
-        hold: 'none',
+        type: 'task',
       })
       .execute();
     const count = await db
@@ -112,12 +112,12 @@ test('(project_id, seq) is unique', async () => {
       .executeTakeFirstOrThrow();
     await db
       .insertInto('node')
-      .values({ project_id: p.id, type: 'phase', seq: 1, title: 'p1' })
+      .values({ project_id: p.id, seq: 1, title: 'p1', type: 'phase' })
       .execute();
     await expectReject(() =>
       db
         .insertInto('node')
-        .values({ project_id: p.id, type: 'phase', seq: 1, title: 'dup' })
+        .values({ project_id: p.id, seq: 1, title: 'dup', type: 'phase' })
         .execute(),
     );
   } finally {

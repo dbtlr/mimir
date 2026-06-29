@@ -38,7 +38,7 @@ export function ProjectPicker() {
           <MenuItem
             key={p.id}
             className={p.id === key ? 'bg-well-800' : undefined}
-            onClick={() => void navigate({ to: '/p/$key', params: { key: p.id } })}
+            onClick={() => void navigate({ params: { key: p.id }, to: '/p/$key' })}
           >
             <StatusDot status={p.status} />
             <span className="font-mono text-sm font-semibold text-ink-bright">{p.id}</span>

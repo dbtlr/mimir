@@ -55,11 +55,11 @@ export async function isBlocking(tx: Executor, node: Node): Promise<boolean> {
 /** Default `stale` threshold — fixed (the Brief defers per-size refinement). 14 days. */
 export const STALE_THRESHOLD_MS = 14 * 24 * 60 * 60 * 1000;
 
-export interface StaleOptions {
+export type StaleOptions = {
   /** Reference time (ISO-ms-Z). Defaults to now — injectable for tests. */
   asOf?: string;
   thresholdMs?: number;
-}
+};
 
 /**
  * `stale` — a task whose Status word is `in_progress`, `ready`, `blocked`, or
@@ -135,8 +135,8 @@ export async function verdictsOf(
   options: StaleOptions = {},
 ): Promise<Verdicts> {
   return {
-    stale: await isStale(tx, node, options),
     blocking: await isBlocking(tx, node),
     orphaned: await isOrphaned(tx, node),
+    stale: await isStale(tx, node, options),
   };
 }
