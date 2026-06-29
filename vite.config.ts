@@ -66,7 +66,6 @@ const quarantinedRules: Record<string, 'off'> = {
   'no-nested-ternary': 'off', // 4
   'typescript/no-unsafe-type-assertion': 'off', // JSON sites migrated to parseJson; ~83 non-JSON casts remain
   'unicorn/consistent-function-scoping': 'off', // 7
-  'unicorn/custom-error-definition': 'off', // 1
   'unicorn/no-nested-ternary': 'off', // 4
   // contradicts vitest/prefer-called-once (which we keep) — opposite preferences,
   // both on by default; can't satisfy both, so this twin stays off.

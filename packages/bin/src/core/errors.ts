@@ -19,7 +19,7 @@ export class MimirError extends Error {
 
   constructor(code: ErrorCode, message: string, hint?: string) {
     super(message);
-    this.name = `MimirError(${code})`;
+    this.name = 'MimirError';
     this.code = code;
     this.hint = hint;
   }
