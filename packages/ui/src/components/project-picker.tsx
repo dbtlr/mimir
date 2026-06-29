@@ -14,7 +14,7 @@ import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
 export function ProjectPicker() {
   const navigate = useNavigate();
   // Loose read — the key only exists on the /p/$key route.
-  const { key } = useParams({ strict: false }) as { key?: string };
+  const { key } = useParams({ strict: false });
   const projects = useQuery(projectsQuery);
   const ready = useQuery(readyQuery);
   const readyByKey = countByProject(ready.data?.items ?? []);
