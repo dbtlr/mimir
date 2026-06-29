@@ -68,7 +68,6 @@ const quarantinedRules: Record<string, 'off'> = {
   'typescript/no-unsafe-type-assertion': 'off', // JSON sites migrated to parseJson; ~83 non-JSON casts remain
   'unicorn/consistent-function-scoping': 'off', // 7
   'unicorn/custom-error-definition': 'off', // 1
-  'unicorn/filename-case': 'off', // 6
   'unicorn/no-nested-ternary': 'off', // 4
   'vitest/no-conditional-expect': 'off', // 4
   // contradicts vitest/prefer-called-once (which we keep) — opposite preferences,
@@ -114,6 +113,9 @@ const layerOverrides: Override[] = [
   // Tests legitimately wire layers together (fixtures from `db/testing`,
   // cross-layer assertions); the boundary constrains shipped code, not tests.
   { files: ['**/*.test.ts'], rules: { 'no-restricted-imports': 'off' } },
+  // Kysely migrations use an ordered `NNNN_name` filename convention, not
+  // kebab/pascal — exempt the whole directory from filename-case.
+  { files: ['packages/bin/src/db/migrations/**'], rules: { 'unicorn/filename-case': 'off' } },
   uiLintOverride,
 ];
 
