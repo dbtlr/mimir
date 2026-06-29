@@ -48,8 +48,14 @@ export const QUERY_FIELDS: Record<string, FieldSpec> = {
   updated_at: { kind: 'date' },
 };
 
-const DATE_OPS: readonly QueryOp[] = ['before', 'on', 'after', 'not-before', 'not-after'];
-const EQUALITY_OPS: readonly QueryOp[] = ['eq', 'not-eq', 'in', 'not-in'];
+const DATE_OPS: ReadonlySet<QueryOp> = new Set([
+  'before',
+  'on',
+  'after',
+  'not-before',
+  'not-after',
+]);
+const EQUALITY_OPS: ReadonlySet<QueryOp> = new Set(['eq', 'not-eq', 'in', 'not-in']);
 
 /**
  * Parse one `FIELD:VALUE` token (bare `FIELD` for has/missing) into a
@@ -72,10 +78,10 @@ export function parseFilterToken(op: QueryOp, token: string): FieldFilter {
   if (spec === undefined) {
     throw validation(`unknown field ${field}`, `fields: ${Object.keys(QUERY_FIELDS).join(', ')}`);
   }
-  if (DATE_OPS.includes(op) && spec.kind !== 'date') {
+  if (DATE_OPS.has(op) && spec.kind !== 'date') {
     throw validation(`--${op} applies to date fields, and ${field} is not one`);
   }
-  if (EQUALITY_OPS.includes(op) && spec.kind === 'date') {
+  if (EQUALITY_OPS.has(op) && spec.kind === 'date') {
     throw validation(
       `--${op} does not apply to date field ${field}`,
       'use --on / --before / --after',
