@@ -23,7 +23,7 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
   }, [theme]);
 
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    const mq = globalThis.matchMedia('(prefers-color-scheme: light)');
     const onChange = () => {
       if (storedChoice() === null) {
         const next = systemTheme();

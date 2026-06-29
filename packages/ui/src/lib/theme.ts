@@ -17,7 +17,7 @@ const LIGHT_QUERY = '(prefers-color-scheme: light)';
 const THEME_COLOR: Record<Theme, string> = { dark: '#0a0e16', light: '#e9edf3' };
 
 export function systemTheme(): Theme {
-  return window.matchMedia(LIGHT_QUERY).matches ? 'light' : 'dark';
+  return globalThis.matchMedia(LIGHT_QUERY).matches ? 'light' : 'dark';
 }
 
 /** The remembered explicit pick, or null when the user has never chosen. */
