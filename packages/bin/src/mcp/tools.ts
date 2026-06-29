@@ -657,7 +657,7 @@ export function toolCreate(
         return echoNode(db, node);
       }
       default: {
-        throw validation(`create: unknown type ${String((args as { type: string }).type)}`);
+        throw validation(`create: unknown type ${(args as { type: string }).type}`);
       }
     }
   });
