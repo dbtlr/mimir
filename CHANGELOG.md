@@ -13,6 +13,17 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Changed
+
+- **HTTP and MCP now validate `priority`/`size` against the allowed values**
+  instead of casting raw request input — an invalid value returns a graceful
+  validation error rather than reaching the store.
+- **Adopted `@dbtlr/tooling`** (shared Vite+ lint/format/type config) and added a
+  dependency-free **`@mimir/helpers`** package (typed `parseJson` + `isMember`).
+  The strict ruleset is enabled; conformance is largely complete, with a few
+  rules still disabled pending follow-up (react-perf, `no-await-in-loop`, and
+  per-response API-client schema validation).
+
 ## v0.12.0 - 2026-06-28
 
 The attention-router release. The `/` page (renamed from "fleet" to **Overview**)
