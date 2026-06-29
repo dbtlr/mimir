@@ -73,7 +73,6 @@ const quarantinedRules: Record<string, 'off'> = {
   'sort-keys': 'off', // 52 (autofix residual — spread/comment objects)
   // — typescript —
   'typescript/consistent-return': 'off', // 4
-  'typescript/consistent-type-imports': 'off', // 1
   'typescript/method-signature-style': 'off', // 6
   'typescript/no-unnecessary-type-conversion': 'off', // 2
   'typescript/no-unnecessary-type-parameters': 'off', // 1
