@@ -1,3 +1,5 @@
+// Global test setup (matchers + afterEach cleanup), not a test body.
+// oxlint-disable vitest/require-top-level-describe
 // side-effect import: registers jest-dom matchers on vitest's expect
 // oxlint-disable-next-line import/no-unassigned-import
 import '@testing-library/jest-dom/vitest';
