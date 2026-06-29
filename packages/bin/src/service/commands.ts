@@ -174,6 +174,10 @@ export async function cmdService(
     case 'status': {
       return await statusReport(io, deps, format);
     }
+    default: {
+      // Unreachable — `sub` is validated against SUBCOMMANDS above.
+      throw usage(`service: unknown subcommand ${sub}`);
+    }
   }
 }
 

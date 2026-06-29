@@ -177,6 +177,9 @@ function describeTransition(e: WireHistoryEntry): { label: string; detail?: stri
     case 'move': {
       return { detail: `${e.from ?? '—'} → ${e.to ?? '—'}`, label: 'Reparented' };
     }
+    default: {
+      return { label: 'Unknown' };
+    }
   }
 }
 
