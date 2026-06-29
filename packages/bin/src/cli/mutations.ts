@@ -368,8 +368,14 @@ export async function cmdAnnotate(c: Ctx): Promise<number> {
 export async function cmdAttach(c: Ctx): Promise<number> {
   const file = optStr(c, 'file');
   // Content from --file, else stdin — but never block on an interactive TTY.
-  const content =
-    file !== undefined ? await Bun.file(file).text() : c.io.isTTY ? '' : await Bun.stdin.text();
+  let content: string;
+  if (file !== undefined) {
+    content = await Bun.file(file).text();
+  } else if (c.io.isTTY) {
+    content = '';
+  } else {
+    content = await Bun.stdin.text();
+  }
   if (content.trim() === '') {
     throw usage('attach requires content (--file <path> or piped stdin)');
   }

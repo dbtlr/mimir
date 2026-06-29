@@ -63,10 +63,8 @@ const forbid = (files: string[], layers: string[]): Override => ({
  */
 const quarantinedRules: Record<string, 'off'> = {
   'no-await-in-loop': 'off', // 57 — many are intentional sequential I/O
-  'no-nested-ternary': 'off', // 4
   'typescript/no-unsafe-type-assertion': 'off', // JSON sites migrated to parseJson; ~83 non-JSON casts remain
   'unicorn/consistent-function-scoping': 'off', // 7
-  'unicorn/no-nested-ternary': 'off', // 4
   // contradicts vitest/prefer-called-once (which we keep) — opposite preferences,
   // both on by default; can't satisfy both, so this twin stays off.
   'vitest/prefer-called-times': 'off',
