@@ -91,6 +91,9 @@ type RegisterFn = (
   cb: (args: unknown) => Promise<ToolResult>,
 ) => void;
 
+// <A> is inferred from `handler` so each call site gets typed args; dropping it
+// would push `unknown` casts to every registration. Deliberate API ergonomics.
+// oxlint-disable-next-line typescript/no-unnecessary-type-parameters
 function register<A>(
   server: McpServer,
   name: string,
