@@ -73,7 +73,9 @@ const quarantinedRules: Record<string, 'off'> = {
   'unicorn/filename-case': 'off', // 6
   'unicorn/no-nested-ternary': 'off', // 4
   'vitest/no-conditional-expect': 'off', // 4
-  'vitest/prefer-called-once': 'off', // 1
+  // contradicts vitest/prefer-called-once (which we keep) — opposite preferences,
+  // both on by default; can't satisfy both, so this twin stays off.
+  'vitest/prefer-called-times': 'off',
   'vitest/require-hook': 'off', // 6 (fires on test helpers + app files)
   'vitest/require-top-level-describe': 'off', // 1
 };
