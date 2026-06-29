@@ -1,3 +1,5 @@
+// side-effect import: registers jest-dom matchers on vitest's expect
+// oxlint-disable-next-line import/no-unassigned-import
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 

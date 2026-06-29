@@ -62,7 +62,6 @@ const forbid = (files: string[], layers: string[]): Override => ({
  * the true exceptions), commit, repeat. Counts are at the time of capture.
  */
 const quarantinedRules: Record<string, 'off'> = {
-  'import/no-unassigned-import': 'off', // 2
   'no-await-in-loop': 'off', // 57 — many are intentional sequential I/O
   'no-nested-ternary': 'off', // 4
   'no-shadow': 'off', // 4
