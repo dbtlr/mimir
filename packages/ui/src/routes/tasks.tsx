@@ -57,7 +57,9 @@ export function TasksPage() {
       search: (prev) => {
         const next = { ...prev, ...partial };
         for (const [k, v] of Object.entries(partial)) {
-          if (v === '' || v === undefined) delete (next as Record<string, unknown>)[k];
+          if (v === '' || v === undefined) {
+            delete (next as Record<string, unknown>)[k];
+          }
         }
         return next;
       },

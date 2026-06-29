@@ -149,7 +149,9 @@ function realServiceDeps(): ServiceDeps {
         const res = await fetch(`http://127.0.0.1:${String(port)}/api/health`, {
           signal: AbortSignal.timeout(1500),
         });
-        if (!res.ok) return undefined;
+        if (!res.ok) {
+          return undefined;
+        }
         return (await res.json()) as Health;
       } catch {
         return undefined;

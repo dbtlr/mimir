@@ -71,7 +71,9 @@ export const artifactsRoute = createRoute({
     const out: ArtifactsSearch = {};
     for (const k of ['project', 'tag', 'q', 'since', 'before', 'a', 'from'] as const) {
       const v = search[k];
-      if (typeof v === 'string' && v !== '') out[k] = v;
+      if (typeof v === 'string' && v !== '') {
+        out[k] = v;
+      }
     }
     return out;
   },
@@ -93,7 +95,9 @@ export const tasksRoute = createRoute({
     const out: TasksSearch = {};
     for (const k of ['project', 'status', 'q', 'node'] as const) {
       const v = search[k];
-      if (typeof v === 'string' && v !== '') out[k] = v;
+      if (typeof v === 'string' && v !== '') {
+        out[k] = v;
+      }
     }
     return out;
   },
