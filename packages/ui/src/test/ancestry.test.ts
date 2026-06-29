@@ -6,18 +6,18 @@ import { buildAncestry } from '../lib/ancestry';
 const tree = {
   children: [
     {
-      id: 'MMR-1',
-      type: 'initiative',
-      title: 'Build',
       children: [
         {
+          children: [{ children: [], id: 'MMR-16', title: 'read-only', type: 'task' }],
           id: 'MMR-7',
-          type: 'phase',
           title: 'Phase 5',
-          children: [{ id: 'MMR-16', type: 'task', title: 'read-only', children: [] }],
+          type: 'phase',
         },
-        { id: 'MMR-99', type: 'task', title: 'phaseless task', children: [] },
+        { children: [], id: 'MMR-99', title: 'phaseless task', type: 'task' },
       ],
+      id: 'MMR-1',
+      title: 'Build',
+      type: 'initiative',
     },
   ],
   id: 'MMR',

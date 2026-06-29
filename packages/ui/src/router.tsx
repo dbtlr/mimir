@@ -49,7 +49,7 @@ export const projectRoute = createRoute({
   },
   validateSearch: (search: Record<string, unknown> & SearchSchemaInput): ProjectSearch => {
     const view: ProjectLens = search.view === 'tree' ? 'tree' : 'board';
-    return typeof search.node === 'string' ? { view, node: search.node } : { view };
+    return typeof search.node === 'string' ? { node: search.node, view } : { view };
   },
 });
 

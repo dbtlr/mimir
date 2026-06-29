@@ -75,7 +75,7 @@ describe('overviewPage attention-router (MMR-102)', () => {
   it('shows an empty state when there are no projects', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/projects') {
-        return Promise.resolve({ total: 0, items: [] });
+        return Promise.resolve({ items: [], total: 0 });
       }
       return Promise.resolve({ items: [], total: 0 });
     });

@@ -16,7 +16,7 @@ describe('tasksPage (MMR-78)', () => {
       }
       if (path.startsWith('/api/nodes?')) {
         return Promise.resolve({
-          items: [{ id: 'MMR-78', title: 'Task browser', status: 'ready', verdicts: {} }],
+          items: [{ id: 'MMR-78', status: 'ready', title: 'Task browser', verdicts: {} }],
           total: 1,
         });
       }

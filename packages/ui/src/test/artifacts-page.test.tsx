@@ -18,11 +18,11 @@ describe('artifactsPage', () => {
         return Promise.resolve({
           items: [
             {
+              created_at: '2026-06-16T00:00:00.000Z',
               id: 'MMR-a8',
-              title: 'Artifacts browser',
               project: 'MMR',
               tags: ['kind:spec'],
-              created_at: '2026-06-16T00:00:00.000Z',
+              title: 'Artifacts browser',
             },
           ],
           total: 1,

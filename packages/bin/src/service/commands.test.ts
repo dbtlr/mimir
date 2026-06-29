@@ -281,9 +281,6 @@ test('self-update logs the update even when restart fails', async () => {
   const sup = new FailingRestartSupervisor();
   const io = fakeIo();
   const d = deps(sup, {
-    // binPath must not start with "bun" — use the shared temp dir/mimir path
-    platform: 'darwin',
-    version: '0.5.0',
     fetcher: (url: string) => {
       if (url.includes('/releases/latest')) {
         return Promise.resolve(
@@ -301,6 +298,9 @@ test('self-update logs the update even when restart fails', async () => {
       }
       return Promise.reject(new Error(`unexpected fetch: ${url}`));
     },
+    // binPath must not start with "bun" — use the shared temp dir/mimir path
+    platform: 'darwin',
+    version: '0.5.0',
   });
 
   // Must NOT throw — restart failure is non-fatal
@@ -397,8 +397,8 @@ test('self-update emits the json result envelope when format is json', async () 
       url.includes('/releases/latest')
         ? Promise.resolve(
             new Response(null, {
-              status: 302,
               headers: { location: 'https://github.com/dbtlr/mimir/releases/tag/v0.5.0' },
+              status: 302,
             }),
           )
         : Promise.reject(new Error('unexpected fetch in test')),
@@ -418,8 +418,8 @@ test('self-update (default selection {}) still uses official latest + semver com
     fetcher: () =>
       Promise.resolve(
         new Response(null, {
-          status: 302,
           headers: { location: 'https://github.com/dbtlr/mimir/releases/tag/v0.6.0' },
+          status: 302,
         }),
       ),
     version: '0.6.0',

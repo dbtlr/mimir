@@ -307,8 +307,8 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             }
             const result = await listArtifacts(db, opts);
             return json(req, {
-              total: result.total,
               items: result.items.map(artifactSummaryToWire),
+              total: result.total,
             });
           }),
       },
@@ -351,15 +351,15 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             const { opts, badStatus } = parseNodesQuery(new URL(req.url));
             if (badStatus !== undefined) {
               return json(req, {
-                total: 0,
                 items: [],
+                total: 0,
                 warnings: [
                   {
                     code: 'no_match_value',
-                    field: 'status',
-                    value: badStatus,
-                    message: `${badStatus} is not a status`,
                     expected: [...STATUS_SELECTOR_VALUES],
+                    field: 'status',
+                    message: `${badStatus} is not a status`,
+                    value: badStatus,
                   },
                 ],
               });
@@ -398,20 +398,20 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
                 throw projectNotFound(parent);
               }
               const node = await createInitiative(db, {
-                projectId: project.id,
-                title,
                 description,
+                projectId: project.id,
                 tags,
+                title,
               });
               return echoNode(db, req, node, 201);
             }
             if (type === 'phase') {
               const node = await createPhase(db, {
-                parentId: await nodeRef(db, parent, 'initiative'),
-                title,
                 description,
-                target: strField(body, 'target'),
+                parentId: await nodeRef(db, parent, 'initiative'),
                 tags,
+                target: strField(body, 'target'),
+                title,
               });
               return echoNode(db, req, node, 201);
             }
@@ -419,13 +419,13 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
               const priority = strField(body, 'priority');
               const size = strField(body, 'size');
               const node = await createTask(db, {
-                parentId: await nodeRef(db, parent, 'phase or initiative'),
-                title,
                 description,
+                externalRef: strField(body, 'external_ref'),
+                parentId: await nodeRef(db, parent, 'phase or initiative'),
                 priority: priority !== undefined ? (priority as Priority) : undefined,
                 size: size !== undefined ? (size as Size) : undefined,
-                externalRef: strField(body, 'external_ref'),
                 tags,
+                title,
               });
               return echoNode(db, req, node, 201);
             }
@@ -511,7 +511,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
               content: a.content,
               created_at: a.createdAt,
             }));
-            return json(req, { total: items.length, items });
+            return json(req, { items, total: items.length });
           }),
         POST: (req) =>
           guarded(req, async () => {
@@ -547,11 +547,11 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
               }
             }
             const { renderedId } = await attachArtifact(db, {
-              projectId: anchor.project_id,
-              title: requiredStr(body, 'title', 'attach'),
               content: requiredStr(body, 'content', 'attach'),
               linkNodeIds,
+              projectId: anchor.project_id,
               tags: strList(body, 'tags'),
+              title: requiredStr(body, 'title', 'attach'),
             });
             const detail = await getArtifact(db, renderedId, { content: true });
             return json(req, artifactToWire(detail), 201);
@@ -717,7 +717,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
         DELETE: (req) =>
           guarded(req, async () => {
             const id = await nodeRef(db, req.params.id);
-            await untagEntities(db, [{ entityType: 'node', entityId: id }], [req.params.tag]);
+            await untagEntities(db, [{ entityId: id, entityType: 'node' }], [req.params.tag]);
             const node = await findNodeByRef(db, req.params.id);
             if (node === undefined) {
               throw notFound(`${req.params.id} doesn't exist`);
@@ -730,7 +730,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             const id = await nodeRef(db, req.params.id);
             await tagEntities(
               db,
-              [{ entityType: 'node', entityId: id }],
+              [{ entityId: id, entityType: 'node' }],
               [req.params.tag],
               strField(body, 'note'),
             );
@@ -790,9 +790,9 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           guarded(req, async () => {
             const body = await readBody(req, ['key', 'name', 'description', 'tags']);
             const project = await createProject(db, {
+              description: strField(body, 'description'),
               key: requiredStr(body, 'key', 'create project'),
               name: requiredStr(body, 'name', 'create project'),
-              description: strField(body, 'description'),
               tags: strList(body, 'tags'),
             });
             const view = await getNode(db, project.key, { facets: PROJECT_FACETS });
@@ -829,7 +829,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             if (project === undefined) {
               throw projectNotFound(key);
             }
-            await updateProject(db, project.id, { name, description });
+            await updateProject(db, project.id, { description, name });
             const updated = await db
               .selectFrom('project')
               .selectAll()
@@ -861,7 +861,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             if (rawLimit !== null) {
               limit = Number(rawLimit);
             }
-            const result = await listTransitions(db, { since, limit });
+            const result = await listTransitions(db, { limit, since });
             const body: Record<string, unknown> = { items: result.items };
             if (result.nextCursor !== undefined) {
               body.next_cursor = result.nextCursor;

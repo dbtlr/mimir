@@ -28,13 +28,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 function fromNode(n: WireNode): TaskFormValues {
   return {
-    title: n.title,
     description: n.description ?? '',
+    external_ref: n.external_ref ?? '',
     priority: n.priority ?? '',
     size: n.size ?? '',
-    external_ref: n.external_ref ?? '',
     // Edit mode hides the tags input and useUpdateNode doesn't send tags; tags are managed separately via TagEditor.
     tags: [],
+    title: n.title,
   };
 }
 

@@ -6,13 +6,13 @@ import { parentOptions } from '../lib/parent-options';
 const tree = {
   children: [
     {
-      id: 'MMR-1',
-      type: 'initiative',
-      title: 'build',
       children: [
-        { id: 'MMR-7', type: 'phase', title: 'Phase 5 — UI', children: [] },
-        { id: 'MMR-2', type: 'phase', title: 'Phase 0', children: [] },
+        { children: [], id: 'MMR-7', title: 'Phase 5 — UI', type: 'phase' },
+        { children: [], id: 'MMR-2', title: 'Phase 0', type: 'phase' },
       ],
+      id: 'MMR-1',
+      title: 'build',
+      type: 'initiative',
     },
   ],
   id: 'MMR',

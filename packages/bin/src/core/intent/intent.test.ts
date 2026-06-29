@@ -201,7 +201,7 @@ test('list applies verdicts and field operators within the universe', async () =
   expect(notBlocking.items.map((n) => n.id)).toEqual([idOf(b)]);
 
   const p2 = await listNodes(db, {
-    filters: [{ op: 'eq', field: 'priority', value: 'p2' }],
+    filters: [{ field: 'priority', op: 'eq', value: 'p2' }],
     scope: key,
   });
   expect(p2.items.map((n) => n.id)).toEqual([idOf(b)]);
@@ -210,7 +210,7 @@ test('list applies verdicts and field operators within the universe', async () =
 test('a value fault returns an empty set with warnings, not an error', async () => {
   await createTask(db, { parentId: phaseId, priority: 'p1', title: 'a' });
   const res = await listNodes(db, {
-    filters: [{ op: 'eq', field: 'priority', value: 'p9' }],
+    filters: [{ field: 'priority', op: 'eq', value: 'p9' }],
     scope: key,
   });
   expect(res.total).toBe(0);
@@ -222,7 +222,7 @@ test('a value fault returns an empty set with warnings, not an error', async () 
 test('a type filter widens list beyond tasks', async () => {
   await createTask(db, { parentId: phaseId, title: 'a' });
   const phases = await listNodes(db, {
-    filters: [{ op: 'eq', field: 'type', value: 'phase' }],
+    filters: [{ field: 'type', op: 'eq', value: 'phase' }],
     scope: key,
   });
   expect(phases.items.map((n) => n.type)).toEqual(['phase']);
@@ -252,12 +252,12 @@ test("the tag pseudo-field filters via the node's tag set", async () => {
   const a = await createTask(db, { parentId: phaseId, tags: ['spec'], title: 'a' });
   await createTask(db, { parentId: phaseId, title: 'b' });
   const tagged = await listNodes(db, {
-    filters: [{ op: 'eq', field: 'tag', value: 'spec' }],
+    filters: [{ field: 'tag', op: 'eq', value: 'spec' }],
     scope: key,
   });
   expect(tagged.items.map((n) => n.id)).toEqual([idOf(a)]);
   const untagged = await listNodes(db, {
-    filters: [{ op: 'missing', field: 'tag', value: null }],
+    filters: [{ field: 'tag', op: 'missing', value: null }],
     scope: key,
   });
   expect(untagged.items.map((n) => n.title)).toEqual(['b']);

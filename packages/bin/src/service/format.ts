@@ -73,9 +73,9 @@ export function formatServiceStatusJson(status: ServiceStatus, pretty: boolean):
         status.health === null
           ? null
           : {
-              running_version: status.health.runningVersion,
               on_disk_version: status.health.onDiskVersion,
               restart_pending: status.health.restartPending,
+              running_version: status.health.runningVersion,
             },
       loaded: status.loaded,
       paths: status.paths,
