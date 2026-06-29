@@ -12,6 +12,8 @@ vi.mock('../api/client', () => ({ apiGet, apiSend }));
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
 vi.mock('@tanstack/react-router', async (orig) => ({
+  // import() type captures the whole module for orig<>(); no clean type-import equiv
+  // oxlint-disable-next-line typescript/consistent-type-imports
   ...(await orig<typeof import('@tanstack/react-router')>()),
   useNavigate: () => navigate,
 }));
