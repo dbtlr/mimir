@@ -1,5 +1,4 @@
-import type { NodeView, TransitionsResult, TreeView } from '@mimir/contract';
-import type { FacetName } from '@mimir/contract';
+import type { FacetName, NodeView, TransitionsResult, TreeView } from '@mimir/contract';
 import { sql } from 'kysely';
 
 import type { Node } from '../db/schema';

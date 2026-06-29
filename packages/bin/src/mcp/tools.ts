@@ -53,13 +53,13 @@ import {
   untagEntities,
   updateArtifact,
   updateNode,
+  parseFilterToken,
+  parseId,
+  parseIdentity,
   updateProject,
   validation,
 } from '../core';
-import type { UpdateFields, UpdateProjectFields } from '../core';
-import type { Db } from '../core';
-import { parseFilterToken, parseId, parseIdentity } from '../core';
-import type { RankPosition } from '../core';
+import type { Db, RankPosition, UpdateFields, UpdateProjectFields } from '../core';
 
 /**
  * The MCP tool handlers — the agent envelope over the shared intent layer.
