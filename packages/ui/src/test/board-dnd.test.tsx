@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect } from 'vitest';
 
 import { RANKABLE_COLUMNS, columnIds, dropToReorder } from '../components/board';
 import { buildBoard } from '../lib/board';

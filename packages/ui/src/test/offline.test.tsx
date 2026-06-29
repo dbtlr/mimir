@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, test } from 'vitest';
+import { describe, expect } from 'vitest';
 
 import { OfflineBanner } from '../components/offline-banner';
 import { connectivity } from '../lib/connectivity';
