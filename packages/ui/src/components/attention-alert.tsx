@@ -14,6 +14,16 @@ import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
  * — as a count badge + a menu. Lives in the top bar on every route. Selecting an
  * item opens it on its project board.
  */
+function attentionLabel(count: number): string {
+  if (count === 0) {
+    return 'Attention: nothing needs you';
+  }
+  if (count === 1) {
+    return 'Attention: 1 needs you';
+  }
+  return `Attention: ${count} need you`;
+}
+
 export function AttentionAlert() {
   const navigate = useNavigate();
   const underReview = useQuery(underReviewQuery);
@@ -29,13 +39,7 @@ export function AttentionAlert() {
   return (
     <MenuRoot>
       <MenuTrigger
-        aria-label={
-          count === 0
-            ? 'Attention: nothing needs you'
-            : count === 1
-              ? 'Attention: 1 needs you'
-              : `Attention: ${count} need you`
-        }
+        aria-label={attentionLabel(count)}
         className="relative flex h-9 w-9 items-center justify-center rounded text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:h-auto md:w-auto md:p-1.5"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">

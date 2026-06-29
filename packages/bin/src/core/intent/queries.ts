@@ -69,12 +69,14 @@ async function passesVerdicts(
   verdicts: readonly VerdictSelector[],
 ): Promise<boolean> {
   for (const { verdict, negate } of verdicts) {
-    const holds =
-      verdict === 'stale'
-        ? await isStale(db, node)
-        : verdict === 'blocking'
-          ? await isBlocking(db, node)
-          : await isOrphaned(db, node);
+    let holds: boolean;
+    if (verdict === 'stale') {
+      holds = await isStale(db, node);
+    } else if (verdict === 'blocking') {
+      holds = await isBlocking(db, node);
+    } else {
+      holds = await isOrphaned(db, node);
+    }
     if (holds === negate) {
       return false;
     }

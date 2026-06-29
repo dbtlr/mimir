@@ -183,8 +183,10 @@ function describeTransition(e: WireHistoryEntry): { label: string; detail?: stri
   }
 }
 
+const FEED_GLYPH: Record<string, string> = { annotation: '✎', created: '○' };
+
 function FeedRow({ item }: { item: FeedItem }) {
-  const glyph = item.variant === 'annotation' ? '✎' : item.variant === 'created' ? '○' : '◆';
+  const glyph = FEED_GLYPH[item.variant] ?? '◆';
   return (
     <li className="flex gap-2.5">
       <span aria-hidden className="mt-0.5 text-2xs text-ink-faint select-none">
