@@ -1,0 +1,11 @@
+{
+  "name": "@mimir/helpers",
+  "version": "0.13.0-next",
+  "private": true,
+  "description": "Dependency-free shared logic — small, transport- and domain-agnostic utilities (e.g. typed JSON parsing) importable by every package. Imports nothing; the runtime sibling of @mimir/contract's type leaf.",
+  "type": "module",
+  "module": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

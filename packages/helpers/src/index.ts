@@ -11,7 +11,7 @@
  * be parsed safely without coupling this util to a specific validation library.
  */
 
-/** Minimal Standard Schema v1 surface — inlined to keep this util dependency-free. */
+/** Minimal Standard Schema v1 surface — inlined to keep this package dependency-free. */
 export type StandardSchemaV1<Output = unknown> = {
   readonly '~standard': {
     readonly version: 1;

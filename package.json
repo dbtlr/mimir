@@ -13,7 +13,7 @@
     "build:ui": "bun run --cwd packages/ui build",
     "dev:ui": "bun run --cwd packages/ui dev",
     "check": "bun run assets && vp check",
-    "test": "bun run assets && bun test packages/bin",
+    "test": "bun run assets && bun test packages/bin packages/helpers",
     "test:ui": "bun run --cwd packages/ui test",
     "verify": "bun run check && bun run test && bun run test:ui",
     "build": "bun run build:ui && bun run assets && bun build packages/bin/src/main.ts --compile --outfile dist/mimir"

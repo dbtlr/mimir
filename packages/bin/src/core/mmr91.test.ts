@@ -7,6 +7,8 @@
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
+import { parseJson } from '@mimir/helpers';
+
 import { renderError } from '../cli/errors';
 import type { RenderableError } from '../cli/errors';
 import type { Io } from '../cli/render';
@@ -85,7 +87,7 @@ describe('Site A — container lifecycle hint', () => {
     const { human, machine } = renderBoth(err);
     expect(human).toContain('note:');
     expect(human).toContain(`MMR-${String(taskSeq)}`);
-    const parsed = JSON.parse(machine) as { error: { hint?: string } };
+    const parsed = parseJson<{ error: { hint?: string } }>(machine);
     expect(parsed.error.hint).toContain(`MMR-${String(taskSeq)}`);
   });
 
@@ -101,7 +103,7 @@ describe('Site A — container lifecycle hint', () => {
     const { human, machine } = renderBoth(err);
     expect(human).toContain('note:');
     expect(human).toContain('mimir tree');
-    const parsed = JSON.parse(machine) as { error: { hint?: string } };
+    const parsed = parseJson<{ error: { hint?: string } }>(machine);
     expect(parsed.error.hint).toContain('mimir tree');
   });
 
@@ -137,7 +139,7 @@ describe('Site B — missing project hint', () => {
     const { human, machine } = renderBoth(err);
     expect(human).toContain('note:');
     expect(human).toContain('mimir create project');
-    const parsed = JSON.parse(machine) as { error: { hint?: string } };
+    const parsed = parseJson<{ error: { hint?: string } }>(machine);
     expect(parsed.error.hint).toContain('mimir create project');
     expect(parsed.error.hint).toContain('--key NOPE');
   });
@@ -150,7 +152,7 @@ describe('Site B — missing project hint', () => {
     const { human, machine } = renderBoth(err);
     expect(human).toContain('note:');
     expect(human).toContain('mimir create project');
-    const parsed = JSON.parse(machine) as { error: { hint?: string } };
+    const parsed = parseJson<{ error: { hint?: string } }>(machine);
     expect(parsed.error.hint).toContain('mimir create project');
     expect(parsed.error.hint).toContain('--key NOPE');
   });

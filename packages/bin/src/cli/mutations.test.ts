@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
+import { parseJson } from '@mimir/helpers';
+
 import { createInitiative, createPhase, createProject, createTask, findNodeByRef } from '../core';
 import type { Db } from '../core';
 import { createTestDb } from '../db/testing';
@@ -77,7 +79,7 @@ test("echoNode writes bare-node JSON to io.out for format 'json'", async () => {
   }
   const io = fakeIo();
   await echoNode(db, node.id, 'json', io);
-  const parsed = JSON.parse(io.out.join('')) as { id: string };
+  const parsed = parseJson<{ id: string }>(io.out.join(''));
   expect(parsed.id).toBe(taskRef);
 });
 test("echoNode writes rendered records text to io.out for format 'records'", async () => {
@@ -356,11 +358,11 @@ test('update KEY-aN retitles the artifact; node-only flags refused (MMR-40)', as
       io,
     ),
   ).toBe(0);
-  const aId = (JSON.parse(io.out.join('')) as { artifact: { id: string } }).artifact.id;
+  const aId = parseJson<{ artifact: { id: string } }>(io.out.join('')).artifact.id;
 
   const echo = fakeIo(false);
   expect(await runCli(['update', aId, '--title', 'right', '-f', 'json'], () => db, echo)).toBe(0);
-  const detail = JSON.parse(echo.out.join('')) as { id: string; title: string };
+  const detail = parseJson<{ id: string; title: string }>(echo.out.join(''));
   expect(detail.id).toBe(aId);
   expect(detail.title).toBe('right');
 
@@ -377,7 +379,7 @@ test('update KEY renames a project with --name and echoes the updated record', a
   const io = fakeIo(false);
   const code = await runCli(['update', 'MMR', '--name', 'Renamed', '-f', 'json'], () => db, io);
   expect(code).toBe(0);
-  const v = JSON.parse(io.out[0] ?? '{}') as { type: string; title: string; id: string };
+  const v = parseJson<{ type: string; title: string; id: string }>(io.out[0] ?? '{}');
   expect(v.type).toBe('project');
   expect(v.id).toBe('MMR');
   expect(v.title).toBe('Renamed');
@@ -391,7 +393,7 @@ test('update KEY sets description with --desc and echoes it', async () => {
     io,
   );
   expect(code).toBe(0);
-  const v = JSON.parse(io.out[0] ?? '{}') as { description: string };
+  const v = parseJson<{ description: string }>(io.out[0] ?? '{}');
   expect(v.description).toBe('work state manager');
 });
 
@@ -423,6 +425,6 @@ test('create project with --desc stores the description', async () => {
   // Verify description was stored via get
   const getIo = fakeIo(false);
   await runCli(['get', 'DSC', '-f', 'json'], () => db, getIo);
-  const v = JSON.parse(getIo.out[0] ?? '{}') as { description: string };
+  const v = parseJson<{ description: string }>(getIo.out[0] ?? '{}');
   expect(v.description).toBe('some desc');
 });

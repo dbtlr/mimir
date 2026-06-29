@@ -4,6 +4,8 @@
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
+import { parseJson } from '@mimir/helpers';
+
 import { createInitiative, createPhase, createProject, createTask, nodeTree } from '../core';
 import type { Db } from '../core';
 import { createTestDb } from '../db/testing';
@@ -35,9 +37,9 @@ describe('NodeRef titles (deliverable 1)', () => {
     await createTask(db, { parentId: phaseId, title: 'First task' });
     const io = fakeIo(false);
     await runCli(['get', `MMR-${String(phaseSeq)}`, '-f', 'json'], () => db, io);
-    const view = JSON.parse(io.out.join('')) as {
+    const view = parseJson<{
       children: { id: string; status: string; title: string }[];
-    };
+    }>(io.out.join(''));
     expect(view.children).toHaveLength(1);
     expect(view.children[0]?.title).toBe('First task');
   });
@@ -51,16 +53,16 @@ describe('NodeRef titles (deliverable 1)', () => {
 
     const ioA = fakeIo(false);
     await runCli(['get', aRef, '-f', 'json'], () => db, ioA);
-    const viewA = JSON.parse(ioA.out.join('')) as {
+    const viewA = parseJson<{
       deps: { blocking: { id: string; title: string }[] };
-    };
+    }>(ioA.out.join(''));
     expect(viewA.deps.blocking[0]?.title).toBe('Beta');
 
     const ioB = fakeIo(false);
     await runCli(['get', bRef, '-f', 'json'], () => db, ioB);
-    const viewB = JSON.parse(ioB.out.join('')) as {
+    const viewB = parseJson<{
       deps: { depends_on: { id: string; title: string }[] };
-    };
+    }>(ioB.out.join(''));
     expect(viewB.deps.depends_on[0]?.title).toBe('Alpha');
   });
 
@@ -102,7 +104,7 @@ describe('Rollup signpost and TTY hint (deliverable 2)', () => {
     // Must not contain prose hint in JSON
     expect(text).not.toContain('mimir tree');
     // But must still contain the distribution data
-    const view = JSON.parse(text) as { distribution: Record<string, number> };
+    const view = parseJson<{ distribution: Record<string, number> }>(text);
     expect(view.distribution).toBeDefined();
   });
 
@@ -164,11 +166,11 @@ describe('status -f records signpost (MMR-90 review fix 1)', () => {
     const text = io.out.join('');
     expect(text).not.toContain('mimir tree');
     expect(text).not.toContain('hint');
-    const parsed = JSON.parse(text) as {
+    const parsed = parseJson<{
       id: string;
       status: string;
       distribution: Record<string, number>;
-    };
+    }>(text);
     expect(parsed.id).toBeDefined();
     expect(parsed.status).toBeDefined();
     expect(parsed.distribution).toBeDefined();
@@ -198,7 +200,7 @@ describe('status -f records signpost (MMR-90 review fix 1)', () => {
     await createTask(db, { parentId: phaseId, title: 't1' });
     const io = fakeIo(false);
     await runCli(['status', `MMR-${String(phaseSeq)}`], () => db, io);
-    const parsed = JSON.parse(io.out.join('')) as Record<string, unknown>;
+    const parsed = parseJson<Record<string, unknown>>(io.out.join(''));
     // The json wire format must stay prose-free and must NOT expose the internal type field
     expect(parsed.type).toBeUndefined();
     expect(parsed.id).toBeDefined();
@@ -262,10 +264,10 @@ describe('mimir tree (deliverable 3)', () => {
     const io = fakeIo(false);
     const code = await runCli(['tree', 'MMR', '-f', 'json'], () => db, io);
     expect(code).toBe(0);
-    const parsed = JSON.parse(io.out.join('')) as {
+    const parsed = parseJson<{
       id: string;
       children: { id: string; children: unknown[] }[];
-    };
+    }>(io.out.join(''));
     expect(parsed.id).toBe('MMR');
     expect(Array.isArray(parsed.children)).toBe(true);
   });

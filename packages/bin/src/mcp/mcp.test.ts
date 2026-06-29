@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
+import { parseJson } from '@mimir/helpers';
+
 import { createInitiative, createPhase, createProject, createTask, findNodeByRef } from '../core';
 import type { Db } from '../core';
 import { createTestDb } from '../db/testing';
@@ -69,7 +71,7 @@ test('next tool returns the structured envelope', async () => {
   await createTask(db, { parentId: phaseId, title: 'first' });
   const result = await toolNext(db, { scope: 'MMR' });
   expect(result.isError).toBeUndefined();
-  const parsed = JSON.parse(textOf(result)) as { total: number; tasks: { title: string }[] };
+  const parsed = parseJson<{ total: number; tasks: { title: string }[] }>(textOf(result));
   // +1 because beforeEach creates a task too
   expect(parsed.total).toBeGreaterThanOrEqual(1);
   expect(parsed.tasks.some((t) => t.title === 'first')).toBe(true);
@@ -78,21 +80,21 @@ test('next tool returns the structured envelope', async () => {
 test('get tool returns a bare node; a missing id returns the structured error envelope', async () => {
   const ok = await toolGet(db, { id: taskRef });
   expect(ok.isError).toBeUndefined();
-  expect((JSON.parse(textOf(ok)) as { title: string }).title).toBe('t');
+  expect(parseJson<{ title: string }>(textOf(ok)).title).toBe('t');
 
   const missing = await toolGet(db, { id: 'MMR-999' });
   expect(missing.isError).toBe(true);
-  const parsed = JSON.parse(textOf(missing)) as { error: { code: string; message: string } };
+  const parsed = parseJson<{ error: { code: string; message: string } }>(textOf(missing));
   expect(parsed.error.code).toBe('not_found');
   expect(typeof parsed.error.message).toBe('string');
 });
 
 test('status tool returns the rollup', async () => {
   const result = await toolStatus(db, { id: phaseRef });
-  const parsed = JSON.parse(textOf(result)) as {
+  const parsed = parseJson<{
     status: string;
     distribution: Record<string, number>;
-  };
+  }>(textOf(result));
   expect(parsed.status).toBe('ready');
   expect(parsed.distribution).toEqual({ ready: 1 });
 });
@@ -132,7 +134,7 @@ test('toolReopen sends a done task back to in_progress (MMR-104)', async () => {
 test('a not_found mutation returns the structured envelope as isError', async () => {
   const res = await toolDone(db, { id: 'MMR-9999' });
   expect(res.isError).toBe(true);
-  const parsed = JSON.parse(textOf(res)) as { error: { code: string } };
+  const parsed = parseJson<{ error: { code: string } }>(textOf(res));
   expect(parsed.error.code).toBe('not_found');
 });
 
@@ -193,7 +195,7 @@ test('move re-parents a task under a new phase', async () => {
   const ref2 = `MMR-${String(phase2.seq)}`;
   const res = await toolMove(db, { id: taskRef, to: ref2 });
   expect(res.isError).toBeUndefined();
-  const parsed = JSON.parse(textOf(res)) as { parent: string };
+  const parsed = parseJson<{ parent: string }>(textOf(res));
   expect(parsed.parent).toBe(ref2);
 });
 
@@ -221,7 +223,7 @@ test('update patches scalar fields and echoes them', async () => {
     title: 'renamed',
   });
   expect(res.isError).toBeUndefined();
-  const v = JSON.parse(textOf(res)) as { title: string; priority: string };
+  const v = parseJson<{ title: string; priority: string }>(textOf(res));
   expect(v.title).toBe('renamed');
   expect(v.priority).toBe('p1');
 });
@@ -239,7 +241,7 @@ test('annotate echoes the node', async () => {
 test('create project echoes {project:{key,name}}', async () => {
   const res = await toolCreate(db, { key: 'NEW', name: 'New Proj', type: 'project' });
   expect(res.isError).toBeUndefined();
-  const v = JSON.parse(textOf(res)) as { project: { key: string; name: string } };
+  const v = parseJson<{ project: { key: string; name: string } }>(textOf(res));
   expect(v.project.key).toBe('NEW');
   expect(v.project.name).toBe('New Proj');
 });
@@ -283,7 +285,7 @@ test('create project without key returns validation error', async () => {
 test('attach to a node infers the project and echoes an artifact id', async () => {
   const res = await toolAttach(db, { content: '# plan\n', node: taskRef, title: 'plan' });
   expect(res.isError).toBeUndefined();
-  const v = JSON.parse(textOf(res)) as { artifact: { id: string } };
+  const v = parseJson<{ artifact: { id: string } }>(textOf(res));
   expect(v.artifact.id).toMatch(/^[A-Z]{2,4}-a\d+$/);
 });
 
@@ -344,14 +346,14 @@ test('tag and untag round-trip over MCP, reaching project and node', async () =>
   expect(JSON.parse(textOf(res))).toEqual({ tagged: { ids: [taskRef, 'MMR'], tags: ['spec'] } });
 
   const view = await toolGet(db, { id: taskRef });
-  const parsed = JSON.parse(textOf(view)) as { tags: { tag: string; note: string | null }[] };
+  const parsed = parseJson<{ tags: { tag: string; note: string | null }[] }>(textOf(view));
   expect(parsed.tags.map((t) => ({ note: t.note, tag: t.tag }))).toEqual([
     { note: 'why', tag: 'spec' },
   ]);
 
   const off = await toolUntag(db, { ids: [taskRef], tags: ['spec'] });
   expect(off.isError).toBeUndefined();
-  const reread = JSON.parse(textOf(await toolGet(db, { id: taskRef }))) as { tags: unknown[] };
+  const reread = parseJson<{ tags: unknown[] }>(textOf(await toolGet(db, { id: taskRef })));
   expect(reread.tags).toEqual([]);
 });
 
@@ -364,10 +366,10 @@ test('tag on an unknown id returns a structured not_found', async () => {
 test('create task with tags applies them', async () => {
   const res = await toolCreate(db, { parent: phaseRef, tags: ['v2'], title: 'tt', type: 'task' });
   expect(res.isError).toBeUndefined();
-  const node = JSON.parse(textOf(res)) as { id: string };
-  const view = JSON.parse(textOf(await toolGet(db, { id: node.id }))) as {
+  const node = parseJson<{ id: string }>(textOf(res));
+  const view = parseJson<{
     tags: { tag: string }[];
-  };
+  }>(textOf(await toolGet(db, { id: node.id })));
   expect(view.tags.map((t) => t.tag)).toEqual(['v2']);
 });
 
@@ -378,7 +380,7 @@ test('create task with tags applies them', async () => {
 test('toolUpdate on a bare project KEY renames and patches description', async () => {
   const res = await toolUpdate(db, { description: 'details', id: 'MMR', name: 'Renamed' });
   expect(res.isError).toBeUndefined();
-  const v = JSON.parse(textOf(res)) as { type: string; title: string; description: string };
+  const v = parseJson<{ type: string; title: string; description: string }>(textOf(res));
   expect(v.type).toBe('project');
   expect(v.title).toBe('Renamed');
   expect(v.description).toBe('details');
@@ -405,7 +407,7 @@ test('toolCreate project with description stores it', async () => {
   });
   expect(res.isError).toBeUndefined();
   const get = await toolGet(db, { id: 'DSC' });
-  const v = JSON.parse(textOf(get)) as { description: string };
+  const v = parseJson<{ description: string }>(textOf(get));
   expect(v.description).toBe('a project');
 });
 
@@ -416,10 +418,10 @@ test('toolCreate project with description stores it', async () => {
 test('list folds value warnings into the payload (no stderr over MCP)', async () => {
   const res = await toolList(db, { eq: ['priority:p9'] });
   expect(res.isError).toBeUndefined();
-  const parsed = JSON.parse(textOf(res)) as {
+  const parsed = parseJson<{
     total: number;
     warnings: { code: string; expected: string[] }[];
-  };
+  }>(textOf(res));
   expect(parsed.total).toBe(0);
   expect(parsed.warnings[0]?.code).toBe('no_match_value');
   expect(parsed.warnings[0]?.expected).toEqual(['p0', 'p1', 'p2', 'p3']);
@@ -434,13 +436,13 @@ test('a structural fault over MCP is a validation error', async () => {
 test('list selects by status universe and operators', async () => {
   const start = await toolStart(db, { id: taskRef });
   expect(start.isError).toBeUndefined();
-  const inProgress = JSON.parse(textOf(await toolList(db, { status: 'in_progress' }))) as {
+  const inProgress = parseJson<{
     tasks: { id: string }[];
-  };
+  }>(textOf(await toolList(db, { status: 'in_progress' })));
   expect(inProgress.tasks.map((t) => t.id)).toEqual([taskRef]);
 
-  const byStatus = JSON.parse(textOf(await toolList(db, { eq: ['status:in_progress'] }))) as {
+  const byStatus = parseJson<{
     tasks: { id: string }[];
-  };
+  }>(textOf(await toolList(db, { eq: ['status:in_progress'] })));
   expect(byStatus.tasks.map((t) => t.id)).toEqual([taskRef]);
 });
