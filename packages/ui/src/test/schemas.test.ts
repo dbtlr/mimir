@@ -11,12 +11,13 @@ describe('taskFormSchema', () => {
   it('accepts a title-only task and normalizes empty optionals to null', () => {
     const r = taskFormSchema.safeParse({ ...emptyTaskForm, title: 'do the thing' });
     expect(r.success).toBe(true);
-    if (r.success) {
-      expect(r.data.priority).toBeNull();
-      expect(r.data.size).toBeNull();
-      expect(r.data.description).toBeNull();
-      expect(r.data.external_ref).toBeNull();
+    if (!r.success) {
+      return;
     }
+    expect(r.data.priority).toBeNull();
+    expect(r.data.size).toBeNull();
+    expect(r.data.description).toBeNull();
+    expect(r.data.external_ref).toBeNull();
   });
 
   it('rejects an out-of-enum priority', () => {
