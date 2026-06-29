@@ -33,10 +33,10 @@ describe('nodeDrawer', () => {
           task({
             artifacts: [
               {
-                id: 'MMR-a3',
-                title: 'console design notes',
-                tags: [],
                 created_at: '2026-06-10T00:00:00.000Z',
+                id: 'MMR-a3',
+                tags: [],
+                title: 'console design notes',
               },
             ],
             deps: {
@@ -47,7 +47,7 @@ describe('nodeDrawer', () => {
             priority: 'p1',
             size: 'large',
             status: 'in_progress',
-            tags: [{ tag: 'release:v0.5', note: null, created_at: '2026-06-10T00:00:00.000Z' }],
+            tags: [{ created_at: '2026-06-10T00:00:00.000Z', note: null, tag: 'release:v0.5' }],
             title: 'Web UI chunk 1',
           }),
         );
@@ -86,18 +86,18 @@ describe('nodeDrawer', () => {
             created_at: '2026-06-01T10:00:00.000Z',
             history: [
               {
-                kind: 'lifecycle',
-                from: 'todo',
-                to: 'in_progress',
                 at: '2026-06-02T09:00:00.000Z',
+                from: 'todo',
+                kind: 'lifecycle',
                 reason: null,
+                to: 'in_progress',
               },
               {
-                kind: 'hold',
-                from: 'none',
-                to: 'parked',
                 at: '2026-06-04T09:00:00.000Z',
+                from: 'none',
+                kind: 'hold',
                 reason: 'waiting on Saga',
+                to: 'parked',
               },
             ],
             id: 'MMR-60',
@@ -139,11 +139,11 @@ describe('nodeDrawer', () => {
           task({
             history: [
               {
-                kind: 'lifecycle',
-                from: 'todo',
-                to: 'in_progress',
                 at: '2026-06-02T09:00:00.000Z',
+                from: 'todo',
+                kind: 'lifecycle',
                 reason: null,
+                to: 'in_progress',
               },
             ],
             id: 'MMR-60',
@@ -301,10 +301,10 @@ describe('nodeDrawer', () => {
           task({
             artifacts: [
               {
-                id: 'MMR-a3',
-                title: 'console notes',
-                tags: [],
                 created_at: '2026-06-10T00:00:00.000Z',
+                id: 'MMR-a3',
+                tags: [],
+                title: 'console notes',
               },
             ],
             id: 'MMR-16',
@@ -314,7 +314,7 @@ describe('nodeDrawer', () => {
         );
       }
       if (path === '/api/nodes/MMR-16/annotations') {
-        return Promise.resolve({ total: 0, items: [] });
+        return Promise.resolve({ items: [], total: 0 });
       }
       return Promise.reject(new Error(`unexpected ${path}`));
     });

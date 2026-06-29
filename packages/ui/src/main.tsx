@@ -18,14 +18,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      // must outlive the persister's maxAge so restored cache isn't GC'd
+      gcTime: 7 * DAY_MS,
       // Polling is the liveness model; intervals pause while the tab is
       // hidden (refetchIntervalInBackground stays false) and refetch fires
       // on focus/reconnect — the auto-heal after an offline stretch.
       refetchInterval: POLL_MS,
-      staleTime: 5_000,
       retry: 1,
-      // must outlive the persister's maxAge so restored cache isn't GC'd
-      gcTime: 7 * DAY_MS,
+      staleTime: 5_000,
     },
   },
 });
@@ -40,12 +40,12 @@ createRoot(root).render(
     <PersistQueryClientProvider
       client={queryClient}
       persistOptions={{
-        persister,
-        maxAge: 7 * DAY_MS,
         buster: 'mimir-ui-v1',
         // see shouldPersistQuery — the default would erase the offline
         // cache exactly as the server dies
         dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+        maxAge: 7 * DAY_MS,
+        persister,
       }}
     >
       <RouterProvider router={router} />

@@ -62,28 +62,21 @@ const forbid = (files: string[], layers: string[]): Override => ({
  * the true exceptions), commit, repeat. Counts are at the time of capture.
  */
 const quarantinedRules: Record<string, 'off'> = {
-  // — eslint core —
+  'import/no-unassigned-import': 'off', // 2
   'no-await-in-loop': 'off', // 57 — many are intentional sequential I/O
   'no-nested-ternary': 'off', // 4
   'no-shadow': 'off', // 4
+  'promise/avoid-new': 'off', // 1
+  'promise/param-names': 'off', // 1
   'typescript/no-unsafe-type-assertion': 'off', // JSON sites migrated to parseJson; ~83 non-JSON casts remain
-  'sort-keys': 'off', // 52 (autofix residual — spread/comment objects)
-  // — typescript —
-  // — import —
-  'import/no-unassigned-import': 'off', // 2
-  // — unicorn —
   'unicorn/consistent-function-scoping': 'off', // 7
   'unicorn/custom-error-definition': 'off', // 1
   'unicorn/filename-case': 'off', // 6
   'unicorn/no-nested-ternary': 'off', // 4
-  // — vitest (lints all files, not just *.test.*) —
   'vitest/no-conditional-expect': 'off', // 4
   'vitest/prefer-called-once': 'off', // 1
   'vitest/require-hook': 'off', // 6 (fires on test helpers + app files)
   'vitest/require-top-level-describe': 'off', // 1
-  // — promise —
-  'promise/avoid-new': 'off', // 1
-  'promise/param-names': 'off', // 1
 };
 
 /**
@@ -95,14 +88,10 @@ const quarantinedRules: Record<string, 'off'> = {
 const uiLintOverride: Override = {
   files: ['packages/ui/**'],
   plugins: ['react', 'react-perf', 'jsx-a11y'],
+  // react plugins are enabled here (the ui override), so these must be disabled at
+  // the same scope to win. No-count entries are the react-target defaults we keep;
+  // counted entries are conformance backlog (walk down one at a time).
   rules: {
-    // toolingConfig's react-target defaults (replicated verbatim)
-    'react/jsx-max-depth': 'off',
-    'react/jsx-props-no-spreading': 'off',
-    'react/react-in-jsx-scope': 'off', // React 19 jsx-runtime — no import needed
-    'unicorn/filename-case': 'off',
-    // conformance backlog (walk down one at a time) — react plugins enable these
-    // via the ui override, so they must be disabled at the same scope to win.
     'jsx-a11y/no-autofocus': 'off', // 1
     'jsx-a11y/prefer-tag-over-role': 'off', // 3
     'react-perf/jsx-no-jsx-as-prop': 'off', // 1
@@ -110,6 +99,10 @@ const uiLintOverride: Override = {
     'react-perf/jsx-no-new-function-as-prop': 'off', // 95
     'react-perf/jsx-no-new-object-as-prop': 'off', // 21
     'react/hook-use-state': 'off', // 1
+    'react/jsx-max-depth': 'off',
+    'react/jsx-props-no-spreading': 'off',
+    'react/react-in-jsx-scope': 'off', // React 19 jsx-runtime — no import needed
+    'unicorn/filename-case': 'off',
   },
 };
 

@@ -82,7 +82,7 @@ const fail = (code: string, message: string, hint?: string): ToolResult => ({
   content: [
     {
       text: JSON.stringify(
-        hint === undefined ? { error: { code, message } } : { error: { code, message, hint } },
+        hint === undefined ? { error: { code, message } } : { error: { code, hint, message } },
       ),
       type: 'text',
     },

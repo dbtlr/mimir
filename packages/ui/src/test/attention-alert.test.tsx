@@ -25,13 +25,13 @@ describe('attentionAlert (MMR-103)', () => {
   it("counts under_review + blocked + stale in the 'needs you' badge", async () => {
     apiGet.mockImplementation((path: string) => {
       if (path.includes('status=under_review')) {
-        return Promise.resolve({ total: 2, items: [{ id: 'MMR-2' }, { id: 'MMR-3' }] });
+        return Promise.resolve({ items: [{ id: 'MMR-2' }, { id: 'MMR-3' }], total: 2 });
       }
       if (path.includes('status=blocked')) {
-        return Promise.resolve({ total: 1, items: [{ id: 'MMR-5' }] });
+        return Promise.resolve({ items: [{ id: 'MMR-5' }], total: 1 });
       }
       if (path.includes('is=stale')) {
-        return Promise.resolve({ total: 1, items: [{ id: 'MMR-9', status: 'ready' }] });
+        return Promise.resolve({ items: [{ id: 'MMR-9', status: 'ready' }], total: 1 });
       }
       return Promise.resolve({ items: [], total: 0 }); // projects, ready, etc.
     });
@@ -56,7 +56,7 @@ describe('attentionAlert (MMR-103)', () => {
   it("uses the singular 'needs' at a count of one", async () => {
     apiGet.mockImplementation((path: string) => {
       if (path.includes('status=under_review')) {
-        return Promise.resolve({ total: 1, items: [{ id: 'MMR-2' }] });
+        return Promise.resolve({ items: [{ id: 'MMR-2' }], total: 1 });
       }
       return Promise.resolve({ items: [], total: 0 });
     });

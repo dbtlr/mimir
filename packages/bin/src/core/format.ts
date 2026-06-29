@@ -134,9 +134,9 @@ export function formatSetJson(
   opts: { includeWarnings?: boolean } = {},
 ): string {
   const wrapper: Record<string, unknown> = {
-    total: result.total,
     returned: result.returned,
     starts_at: result.startsAt,
+    total: result.total,
     [unit]: result.items.map(nodeToWire),
   };
   if (

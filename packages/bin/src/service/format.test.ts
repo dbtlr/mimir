@@ -13,11 +13,11 @@ const runningStatus = (over: Partial<ServiceStatus> = {}): ServiceStatus => ({
   recentEvents: [
     {
       at: '2026-06-14T00:00:00.000Z',
+      detail: 'port 64647',
       event: 'install',
+      ok: true,
       source: 'cli',
       version: '0.6.0',
-      ok: true,
-      detail: 'port 64647',
     },
   ],
   running: true,
@@ -37,11 +37,11 @@ describe('formatServiceStatusJson', () => {
       recent_events: [
         {
           at: '2026-06-14T00:00:00.000Z',
+          detail: 'port 64647',
           event: 'install',
+          ok: true,
           source: 'cli',
           version: '0.6.0',
-          ok: true,
-          detail: 'port 64647',
         },
       ],
       running: true,

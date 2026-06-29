@@ -74,6 +74,9 @@ import { resolveProject } from './resolve';
 import { SKILL_AGENTS, SKILL_FILES, skillDirFor } from './skill-assets';
 import type { SkillAgent } from './skill-assets';
 
+// Deliberately grouped query-flags-then-write-flags (see the divider comment),
+// not alphabetical — the operator cluster reads as a unit.
+/* oxlint-disable sort-keys */
 const OPTIONS = {
   scope: { short: 's', type: 'string' },
   priority: { short: 'p', type: 'string' },
@@ -125,6 +128,7 @@ const OPTIONS = {
   // last-wins like the other shared write-surface flags)
   next: { type: 'boolean' },
 } as const;
+/* oxlint-enable sort-keys */
 
 /**
  * Per-invocation environment defaults resolved by the composition root —
