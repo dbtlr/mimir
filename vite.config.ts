@@ -65,8 +65,6 @@ const quarantinedRules: Record<string, 'off'> = {
   'no-await-in-loop': 'off', // 57 — many are intentional sequential I/O
   'no-nested-ternary': 'off', // 4
   'no-shadow': 'off', // 4
-  'promise/avoid-new': 'off', // 1
-  'promise/param-names': 'off', // 1
   'typescript/no-unsafe-type-assertion': 'off', // JSON sites migrated to parseJson; ~83 non-JSON casts remain
   'unicorn/consistent-function-scoping': 'off', // 7
   'unicorn/custom-error-definition': 'off', // 1

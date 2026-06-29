@@ -35,8 +35,9 @@ describe('taskForm (create)', () => {
     // Title is empty by default; submit the form directly
     const form = screen.getByRole('button', { name: /create/i }).closest('form')!;
     fireEvent.submit(form);
-    // Give async handlers a chance to run
-    await new Promise((r) => setTimeout(r, 50));
+    // Give async handlers a chance to run (node:timers/promises is off-limits in ui)
+    // oxlint-disable-next-line promise/avoid-new
+    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
