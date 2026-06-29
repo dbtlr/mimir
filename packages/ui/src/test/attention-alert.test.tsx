@@ -3,10 +3,10 @@ import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/rea
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
+import { router } from '../router';
+
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
-
-import { router } from '../router';
 
 /** MMR-103 — the top-bar alert counts under_review + blocked + stale ("needs you"). */
 function renderApp() {
