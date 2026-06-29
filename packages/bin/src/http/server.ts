@@ -278,15 +278,25 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             const q = new URL(req.url).searchParams;
             const opts: Parameters<typeof listArtifacts>[1] = {};
             const project = q.get('project');
-            if (project !== null) opts.project = project;
+            if (project !== null) {
+              opts.project = project;
+            }
             const tag = q.get('tag');
-            if (tag !== null) opts.tag = tag;
+            if (tag !== null) {
+              opts.tag = tag;
+            }
             const text = q.get('q');
-            if (text !== null) opts.q = text;
+            if (text !== null) {
+              opts.q = text;
+            }
             const since = q.get('since');
-            if (since !== null) opts.since = normalizeDate(since, 'start');
+            if (since !== null) {
+              opts.since = normalizeDate(since, 'start');
+            }
             const before = q.get('before');
-            if (before !== null) opts.before = normalizeDate(before, 'end');
+            if (before !== null) {
+              opts.before = normalizeDate(before, 'end');
+            }
             const limit = q.get('limit');
             if (limit !== null) {
               const n = Number(limit);
@@ -319,7 +329,9 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
               throw notFound(`no artifact with id ${req.params.id}`);
             }
             const artifact = await findArtifactByRef(db, identity);
-            if (artifact === undefined) throw notFound(`no artifact ${req.params.id}`);
+            if (artifact === undefined) {
+              throw notFound(`no artifact ${req.params.id}`);
+            }
             const title = strField(body, 'title');
             if (title !== undefined) {
               await updateArtifact(db, artifact.id, { title });
@@ -450,17 +462,29 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             ]);
             const fields: UpdateFields = {};
             const title = strField(body, 'title');
-            if (title !== undefined) fields.title = title;
+            if (title !== undefined) {
+              fields.title = title;
+            }
             const description = strField(body, 'description');
-            if (description !== undefined) fields.description = description;
+            if (description !== undefined) {
+              fields.description = description;
+            }
             const priority = strField(body, 'priority');
-            if (priority !== undefined) fields.priority = priority as Priority;
+            if (priority !== undefined) {
+              fields.priority = priority as Priority;
+            }
             const size = strField(body, 'size');
-            if (size !== undefined) fields.size = size as Size;
+            if (size !== undefined) {
+              fields.size = size as Size;
+            }
             const target = strField(body, 'target');
-            if (target !== undefined) fields.target = target;
+            if (target !== undefined) {
+              fields.target = target;
+            }
             const externalRef = strField(body, 'external_ref');
-            if (externalRef !== undefined) fields.externalRef = externalRef;
+            if (externalRef !== undefined) {
+              fields.externalRef = externalRef;
+            }
             const node = await updateNode(db, await nodeRef(db, req.params.id), fields);
             return echoNode(db, req, node);
           }),
@@ -802,7 +826,9 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
               .select('id')
               .where('key', '=', key)
               .executeTakeFirst();
-            if (project === undefined) throw projectNotFound(key);
+            if (project === undefined) {
+              throw projectNotFound(key);
+            }
             await updateProject(db, project.id, { name, description });
             const updated = await db
               .selectFrom('project')

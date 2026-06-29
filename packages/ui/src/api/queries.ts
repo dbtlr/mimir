@@ -63,9 +63,15 @@ export const tasksQuery = (f: TaskFilters) =>
   queryOptions({
     queryFn: () => {
       const p = new URLSearchParams({ type: 'task' });
-      if (f.project !== undefined && f.project !== '') p.set('project', f.project);
-      if (f.status !== undefined && f.status !== '') p.set('status', f.status);
-      if (f.q !== undefined && f.q !== '') p.set('q', f.q);
+      if (f.project !== undefined && f.project !== '') {
+        p.set('project', f.project);
+      }
+      if (f.status !== undefined && f.status !== '') {
+        p.set('status', f.status);
+      }
+      if (f.q !== undefined && f.q !== '') {
+        p.set('q', f.q);
+      }
       return apiGet<Collection<WireNode>>(`/api/nodes?${p.toString()}`);
     },
     queryKey: ['nodes', 'tasks', f],
