@@ -116,13 +116,13 @@ describe('Site A — container lifecycle hint', () => {
 
 // ─── Site B: Missing project hint ───────────────────────────────────────────
 
-describe('Site B — missing project hint', () => {
-  const assertCreateHint = (err: MimirError): void => {
-    expect(err.code).toBe('not_found');
-    expect(err.hint).toContain('mimir create project');
-    expect(err.hint).toContain('--key NOPE');
-  };
+const assertCreateHint = (err: MimirError): void => {
+  expect(err.code).toBe('not_found');
+  expect(err.hint).toContain('mimir create project');
+  expect(err.hint).toContain('--key NOPE');
+};
 
+describe('Site B — missing project hint', () => {
   test('resolveEntityToken for an unknown project key carries the create hint (core/lookup)', async () => {
     assertCreateHint(await caught(() => resolveEntityToken(db, 'NOPE')));
   });

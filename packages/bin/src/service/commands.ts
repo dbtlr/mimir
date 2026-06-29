@@ -244,6 +244,8 @@ function renderStatusHuman(s: ServiceStatus, io: Io): void {
   io.write(`paths: plist ${s.paths.plist} · config ${s.paths.config} · log ${SERVE_LOG_FILE}`);
 }
 
+const stripV = (t: string): string => t.replace(/^v/, '');
+
 export async function cmdSelfUpdate(
   io: Io,
   deps: ServiceDeps,
@@ -259,7 +261,6 @@ export async function cmdSelfUpdate(
   }
   const structured = format === 'json' || format === 'jsonl';
   const asset = assetName();
-  const stripV = (t: string): string => t.replace(/^v/, '');
   let targetTag: string;
   let alreadyCurrent: boolean;
   if (sel.tag !== undefined) {

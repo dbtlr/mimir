@@ -16,15 +16,16 @@ export const RELEASE_BASE = 'https://github.com/dbtlr/mimir/releases';
 /** Default fetcher: never auto-follow — the redirect Location IS the answer. */
 export const manualFetch: Fetcher = (url) => fetch(url, { redirect: 'manual' });
 
+const parseSemverParts = (v: string): number[] =>
+  v
+    .replace(/^v/, '')
+    .split('.')
+    .map((part) => Number.parseInt(part, 10) || 0);
+
 /** Numeric triple compare; tolerates a leading `v`. <0 means a older than b. */
 export function compareSemver(a: string, b: string): number {
-  const parse = (v: string): number[] =>
-    v
-      .replace(/^v/, '')
-      .split('.')
-      .map((part) => Number.parseInt(part, 10) || 0);
-  const [a0 = 0, a1 = 0, a2 = 0] = parse(a);
-  const [b0 = 0, b1 = 0, b2 = 0] = parse(b);
+  const [a0 = 0, a1 = 0, a2 = 0] = parseSemverParts(a);
+  const [b0 = 0, b1 = 0, b2 = 0] = parseSemverParts(b);
   return a0 - b0 || a1 - b1 || a2 - b2;
 }
 

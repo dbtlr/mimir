@@ -62,6 +62,10 @@ async function openMigrated(path: string): Promise<Db> {
   return db;
 }
 
+const line = (stream: NodeJS.WriteStream) => (text: string) => {
+  stream.write(text.endsWith('\n') ? text : `${text}\n`);
+};
+
 function stdoutIo(): Io {
   const isTTY = process.stdout.isTTY;
   // A downstream reader that closes early (`mimir … | head`) breaks the pipe;
@@ -77,9 +81,6 @@ function stdoutIo(): Io {
       throw err;
     });
   }
-  const line = (stream: NodeJS.WriteStream) => (text: string) => {
-    stream.write(text.endsWith('\n') ? text : `${text}\n`);
-  };
   return {
     error: line(process.stderr),
     isTTY,
