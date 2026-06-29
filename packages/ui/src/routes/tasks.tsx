@@ -79,7 +79,7 @@ export function TasksPage() {
   setFilterRef.current = setFilter;
   useEffect(() => {
     if (q === (search.q ?? '')) {
-      return;
+      return undefined;
     }
     const t = setTimeout(() => setFilterRef.current({ q }), SEARCH_DEBOUNCE_MS);
     return () => {

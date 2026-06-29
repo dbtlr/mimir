@@ -71,7 +71,6 @@ const quarantinedRules: Record<string, 'off'> = {
   'no-unused-vars': 'off', // 35
   'sort-keys': 'off', // 52 (autofix residual — spread/comment objects)
   // — typescript —
-  'typescript/consistent-return': 'off', // 4
   'typescript/method-signature-style': 'off', // 6
   'typescript/no-unsafe-type-assertion': 'off', // 146 — biggest; mostly test JSON.parse casts
   // — import —
