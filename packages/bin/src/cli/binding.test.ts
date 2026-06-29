@@ -42,7 +42,7 @@ test('findBinding walks up and the nearest file wins; malformed nearest stops th
     writeFileSync(join(leaf, BINDING_FILE), 'project = broken\n');
     expect(findBinding(leaf)).toBeUndefined();
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmSync(root, { force: true, recursive: true });
   }
 });
 
@@ -53,7 +53,7 @@ test('writeBinding round-trips through findBinding', () => {
     expect(readFileSync(file, 'utf8')).toBe('project = "MMR"\n');
     expect(findBinding(dir)).toBe('MMR');
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { force: true, recursive: true });
   }
 });
 
@@ -83,7 +83,7 @@ test('bind writes .mimir.toml into the injected cwd and echoes the key', async (
     expect(io.out.join('')).toBe('MMR');
     expect(findBinding(dir)).toBe('MMR');
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { force: true, recursive: true });
   }
 });
 
@@ -95,7 +95,7 @@ test('bind validates the project exists (not_found, exit 1) and requires a key (
     expect(findBinding(dir)).toBeUndefined();
     expect(await runCli(['bind'], () => db, fakeIo(), { cwd: dir })).toBe(2);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { force: true, recursive: true });
   }
 });
 

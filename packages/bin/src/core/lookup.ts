@@ -90,17 +90,23 @@ export async function resolveEntityToken(
       .select('id')
       .where('key', '=', identity.key)
       .executeTakeFirst();
-    if (project === undefined) throw projectNotFound(identity.key);
-    return { entityType: 'project', entityId: project.id };
+    if (project === undefined) {
+      throw projectNotFound(identity.key);
+    }
+    return { entityId: project.id, entityType: 'project' };
   }
   if (identity.kind === 'artifact') {
     const artifact = await findArtifactByRef(tx, identity);
-    if (artifact === undefined) throw notFound(`no artifact ${token}`);
-    return { entityType: 'artifact', entityId: artifact.id };
+    if (artifact === undefined) {
+      throw notFound(`no artifact ${token}`);
+    }
+    return { entityId: artifact.id, entityType: 'artifact' };
   }
   const node = await findNodeByRef(tx, token);
-  if (node === undefined) throw notFound(`${token} doesn't exist`);
-  return { entityType: 'node', entityId: node.id };
+  if (node === undefined) {
+    throw notFound(`${token} doesn't exist`);
+  }
+  return { entityId: node.id, entityType: 'node' };
 }
 
 /**

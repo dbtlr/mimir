@@ -53,19 +53,21 @@ import {
 } from './resolve';
 
 /** Shared dispatch context built once in `run.ts` for every write verb. */
-export interface Ctx {
+export type Ctx = {
   db: Db;
   /** Full positionals including the verb at [0]. */
   positionals: string[];
   values: Record<string, unknown>;
   format: Format;
   io: Io;
-}
+};
 
 /** Assert that positional at index `i` is present and non-blank, else throw a usage error. */
 export function requirePos(c: Ctx, i: number, verb: string, noun = 'an id (KEY-seq)'): string {
   const v = c.positionals[i];
-  if (v === undefined || v.trim() === '') throw usage(`${verb} requires ${noun}`);
+  if (v === undefined || v.trim() === '') {
+    throw usage(`${verb} requires ${noun}`);
+  }
   return v;
 }
 
@@ -75,7 +77,9 @@ export function requirePos(c: Ctx, i: number, verb: string, noun = 'an id (KEY-s
  * (MMR-41: `--to ''` is usage/exit 2, never not_found/exit 1).
  */
 function requireToken(value: string, verb: string, flag: string): string {
-  if (value.trim() === '') throw usage(`${verb} --${flag} expects an id (KEY-seq)`);
+  if (value.trim() === '') {
+    throw usage(`${verb} --${flag} expects an id (KEY-seq)`);
+  }
   return value;
 }
 
@@ -186,7 +190,9 @@ const idList = (csv: string): string =>
 export async function cmdDepend(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'depend'));
   const on = lastFlag(c, 'on');
-  if (on === undefined) throw usage('depend requires --on <ids>');
+  if (on === undefined) {
+    throw usage('depend requires --on <ids>');
+  }
   await depend(c.db, id, await resolveIds(c.db, on, 'depend', 'on'));
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => `${rid} now depends on ${idList(on)}`);
   return 0;
@@ -195,7 +201,9 @@ export async function cmdDepend(c: Ctx): Promise<number> {
 export async function cmdUndepend(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'undepend'));
   const on = lastFlag(c, 'on');
-  if (on === undefined) throw usage('undepend requires --on <ids>');
+  if (on === undefined) {
+    throw usage('undepend requires --on <ids>');
+  }
   await undepend(c.db, id, await resolveIds(c.db, on, 'undepend', 'on'));
   await echoNodeWith(
     c.db,
@@ -209,7 +217,9 @@ export async function cmdUndepend(c: Ctx): Promise<number> {
 
 export async function cmdMove(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'move'));
-  if (typeof c.values.to !== 'string') throw usage('move requires --to <parent>');
+  if (typeof c.values.to !== 'string') {
+    throw usage('move requires --to <parent>');
+  }
   const to = requireToken(c.values.to, 'move', 'to');
   const parentId = await resolveNode(c.db, to);
   await moveNode(c.db, id, parentId);
@@ -305,8 +315,12 @@ async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
   }
   const projectId = await resolveProject(c.db, token);
   const fields: UpdateProjectFields = {};
-  if (typeof c.values.name === 'string') fields.name = c.values.name;
-  if (typeof c.values.desc === 'string') fields.description = c.values.desc;
+  if (typeof c.values.name === 'string') {
+    fields.name = c.values.name;
+  }
+  if (typeof c.values.desc === 'string') {
+    fields.description = c.values.desc;
+  }
   await updateProject(c.db, projectId, fields);
   await echoProject(c.db, token, c.format, c.io);
   return 0;
@@ -326,9 +340,13 @@ async function cmdUpdateArtifact(c: Ctx, token: string): Promise<number> {
     }
   }
   const identity = parseIdentity(token);
-  if (identity?.kind !== 'artifact') throw notFound(`no artifact with id ${token}`);
+  if (identity?.kind !== 'artifact') {
+    throw notFound(`no artifact with id ${token}`);
+  }
   const artifact = await findArtifactByRef(c.db, identity);
-  if (artifact === undefined) throw notFound(`no artifact ${token}`);
+  if (artifact === undefined) {
+    throw notFound(`no artifact ${token}`);
+  }
   if (typeof c.values.title === 'string') {
     await updateArtifact(c.db, artifact.id, { title: c.values.title });
   }
@@ -339,7 +357,9 @@ async function cmdUpdateArtifact(c: Ctx, token: string): Promise<number> {
 export async function cmdAnnotate(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'annotate'));
   const content = await readContent(c.positionals.slice(2), c.io);
-  if (content === '') throw usage('annotate requires content (positional or stdin)');
+  if (content === '') {
+    throw usage('annotate requires content (positional or stdin)');
+  }
   await annotate(c.db, id, content);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => `annotated ${rid}`);
   return 0;
@@ -350,12 +370,16 @@ export async function cmdAttach(c: Ctx): Promise<number> {
   // Content from --file, else stdin — but never block on an interactive TTY.
   const content =
     file !== undefined ? await Bun.file(file).text() : c.io.isTTY ? '' : await Bun.stdin.text();
-  if (content.trim() === '') throw usage('attach requires content (--file <path> or piped stdin)');
+  if (content.trim() === '') {
+    throw usage('attach requires content (--file <path> or piped stdin)');
+  }
 
   // Node references: the positional primary (if any) + --link csv.
   const linkTokens: string[] = [];
   const primary = c.positionals[1];
-  if (primary !== undefined) linkTokens.push(primary);
+  if (primary !== undefined) {
+    linkTokens.push(primary);
+  }
   if (typeof c.values.link === 'string') {
     linkTokens.push(
       ...c.values.link
@@ -371,20 +395,27 @@ export async function cmdAttach(c: Ctx): Promise<number> {
     const nodes = await Promise.all(
       linkTokens.map(async (t) => {
         const n = await findNodeByRef(c.db, t);
-        if (n === undefined) throw notFound(`${t} doesn't exist`);
+        if (n === undefined) {
+          throw notFound(`${t} doesn't exist`);
+        }
         return n;
       }),
     );
     const projects = new Set(nodes.map((n) => n.project_id));
-    if (projects.size > 1) throw validation('all the links must be in one project');
+    if (projects.size > 1) {
+      throw validation('all the links must be in one project');
+    }
     const [projectIdFromNodes] = projects; // number | undefined under noUncheckedIndexedAccess
-    if (projectIdFromNodes === undefined)
+    if (projectIdFromNodes === undefined) {
       throw validation('internal: links resolved but project is missing');
+    }
     projectId = projectIdFromNodes;
     linkNodeIds.push(...nodes.map((n) => n.id));
     if (typeof c.values.project === 'string') {
       const explicit = await resolveProject(c.db, c.values.project);
-      if (explicit !== projectId) throw validation("--project disagrees with the links' project");
+      if (explicit !== projectId) {
+        throw validation("--project disagrees with the links' project");
+      }
     }
   } else {
     projectId = await resolveProject(
@@ -400,22 +431,27 @@ export async function cmdAttach(c: Ctx): Promise<number> {
     throw usage('attach from stdin requires --title <text>');
   }
   const { renderedId } = await attachArtifact(c.db, {
-    projectId,
-    title,
     content,
     linkNodeIds,
+    projectId,
     tags: tagFlags(c),
+    title,
   });
-  if (c.format === 'json' || c.format === 'jsonl')
+  if (c.format === 'json' || c.format === 'jsonl') {
     c.io.write(JSON.stringify({ artifact: { id: renderedId } }));
-  else if (c.format === 'ids') c.io.write(renderedId);
-  else c.io.write(`${c.io.plain ? '[ok]' : '\x1b[32m✓\x1b[0m'} attached artifact ${renderedId}`);
+  } else if (c.format === 'ids') {
+    c.io.write(renderedId);
+  } else {
+    c.io.write(`${c.io.plain ? '[ok]' : '\x1b[32m✓\x1b[0m'} attached artifact ${renderedId}`);
+  }
   return 0;
 }
 
 function strFlag(c: Ctx, name: string, msg: string): string {
   const v = c.values[name];
-  if (typeof v !== 'string') throw usage(msg);
+  if (typeof v !== 'string') {
+    throw usage(msg);
+  }
   return v;
 }
 
@@ -425,7 +461,9 @@ function strFlag(c: Ctx, name: string, msg: string): string {
  */
 function lastFlag(c: Ctx, name: string): string | undefined {
   const v = c.values[name];
-  if (typeof v === 'string') return v;
+  if (typeof v === 'string') {
+    return v;
+  }
   if (Array.isArray(v) && v.length > 0) {
     const last: unknown = v[v.length - 1];
     return typeof last === 'string' ? last : undefined;
@@ -464,9 +502,13 @@ function echoTagOp(c: Ctx, verb: 'tagged' | 'untagged', ids: string[], tags: str
 
 export async function cmdTag(c: Ctx): Promise<number> {
   const ids = splitCsv(requirePos(c, 1, 'tag', 'ids (comma-separated)'));
-  if (ids.length === 0) throw usage('tag requires ids (comma-separated)');
+  if (ids.length === 0) {
+    throw usage('tag requires ids (comma-separated)');
+  }
   const tags = c.positionals.slice(2);
-  if (tags.length === 0) throw usage('tag requires at least one tag');
+  if (tags.length === 0) {
+    throw usage('tag requires at least one tag');
+  }
   const targets = await Promise.all(ids.map((t) => resolveEntityToken(c.db, t)));
   await tagEntities(c.db, targets, tags, optStr(c, 'note'));
   echoTagOp(c, 'tagged', ids, tags);
@@ -475,9 +517,13 @@ export async function cmdTag(c: Ctx): Promise<number> {
 
 export async function cmdUntag(c: Ctx): Promise<number> {
   const ids = splitCsv(requirePos(c, 1, 'untag', 'ids (comma-separated)'));
-  if (ids.length === 0) throw usage('untag requires ids (comma-separated)');
+  if (ids.length === 0) {
+    throw usage('untag requires ids (comma-separated)');
+  }
   const tags = c.positionals.slice(2);
-  if (tags.length === 0) throw usage('untag requires at least one tag');
+  if (tags.length === 0) {
+    throw usage('untag requires at least one tag');
+  }
   const targets = await Promise.all(ids.map((t) => resolveEntityToken(c.db, t)));
   await untagEntities(c.db, targets, tags);
   echoTagOp(c, 'untagged', ids, tags);
@@ -512,9 +558,9 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         }
       }
       const project = await createProject(c.db, {
+        description: optStr(c, 'desc'),
         key,
         name,
-        description: optStr(c, 'desc'),
         tags: tagFlags(c),
       });
       if (c.format === 'json' || c.format === 'jsonl') {
@@ -532,12 +578,14 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         c.db,
         strFlag(c, 'parent', 'create initiative requires --parent <KEY>'),
       );
-      if (parent.kind !== 'project') throw usage("an initiative's parent must be a project (KEY)");
+      if (parent.kind !== 'project') {
+        throw usage("an initiative's parent must be a project (KEY)");
+      }
       const node = await createInitiative(c.db, {
-        projectId: parent.id,
-        title,
         description: optStr(c, 'desc'),
+        projectId: parent.id,
         tags: tagFlags(c),
+        title,
       });
       await echoNodeWith(c.db, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;
@@ -548,13 +596,15 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         c.db,
         strFlag(c, 'parent', 'create phase requires --parent <id>'),
       );
-      if (parent.kind !== 'node') throw usage("a phase's parent must be an initiative (KEY-seq)");
+      if (parent.kind !== 'node') {
+        throw usage("a phase's parent must be an initiative (KEY-seq)");
+      }
       const node = await createPhase(c.db, {
-        parentId: parent.id,
-        title,
         description: optStr(c, 'desc'),
-        target: optStr(c, 'target'),
+        parentId: parent.id,
         tags: tagFlags(c),
+        target: optStr(c, 'target'),
+        title,
       });
       await echoNodeWith(c.db, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;
@@ -565,17 +615,18 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         c.db,
         strFlag(c, 'parent', 'create task requires --parent <id>'),
       );
-      if (parent.kind !== 'node')
+      if (parent.kind !== 'node') {
         throw usage("a task's parent must be a phase or initiative (KEY-seq)");
+      }
       const node = await createTask(c.db, {
-        parentId: parent.id,
-        title,
         description: optStr(c, 'desc'),
+        externalRef: optStr(c, 'ref'),
+        parentId: parent.id,
         priority:
           typeof c.values.priority === 'string' ? parsePriority(c.values.priority) : undefined,
         size: typeof c.values.size === 'string' ? parseSize(c.values.size) : undefined,
-        externalRef: optStr(c, 'ref'),
         tags: tagFlags(c),
+        title,
       });
       await echoNodeWith(c.db, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;

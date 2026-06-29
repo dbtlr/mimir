@@ -27,10 +27,10 @@ export const VERDICT_VALUES = ['stale', 'blocking', 'orphaned'] as const;
 export type Verdict = (typeof VERDICT_VALUES)[number];
 
 /** A verdict selection — `--is stale` / `--not-is blocking`; repeatable, AND-ed. */
-export interface VerdictSelector {
+export type VerdictSelector = {
   verdict: Verdict;
   negate: boolean;
-}
+};
 
 /** The field-operator vocabulary (Norn `find` dialect). */
 export const QUERY_OP_VALUES = [
@@ -49,11 +49,11 @@ export const QUERY_OP_VALUES = [
 export type QueryOp = (typeof QUERY_OP_VALUES)[number];
 
 /** One parsed field filter — `value` is the raw text (csv for `in`), null for has/missing. */
-export interface FieldFilter {
+export type FieldFilter = {
   op: QueryOp;
   field: string;
   value: string | null;
-}
+};
 
 /**
  * A value fault — a well-formed request that can't match anything (enum miss,
@@ -62,10 +62,10 @@ export interface FieldFilter {
  * own drift is an error. Structural faults (unknown field, operator-type
  * mismatch) stay hard errors.
  */
-export interface ValueWarning {
+export type ValueWarning = {
   code: 'no_match_value';
   field: string;
   value: string;
   message: string;
   expected: string[];
-}
+};

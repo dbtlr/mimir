@@ -18,7 +18,7 @@ vi.mock('@tanstack/react-router', async (orig) => ({
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, refetchInterval: false } },
+    defaultOptions: { queries: { refetchInterval: false, retry: false } },
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
@@ -29,16 +29,6 @@ describe('nodeDrawer', () => {
       if (path === '/api/nodes/MMR-16') {
         return Promise.resolve(
           task({
-            id: 'MMR-16',
-            status: 'in_progress',
-            title: 'Web UI chunk 1',
-            priority: 'p1',
-            size: 'large',
-            tags: [{ tag: 'release:v0.5', note: null, created_at: '2026-06-10T00:00:00.000Z' }],
-            deps: {
-              depends_on: [{ id: 'MMR-15', status: 'done' }],
-              blocking: [{ id: 'MMR-51', status: 'awaiting' }],
-            },
             artifacts: [
               {
                 id: 'MMR-a3',
@@ -47,18 +37,28 @@ describe('nodeDrawer', () => {
                 created_at: '2026-06-10T00:00:00.000Z',
               },
             ],
+            deps: {
+              blocking: [{ id: 'MMR-51', status: 'awaiting' }],
+              depends_on: [{ id: 'MMR-15', status: 'done' }],
+            },
+            id: 'MMR-16',
+            priority: 'p1',
+            size: 'large',
+            status: 'in_progress',
+            tags: [{ tag: 'release:v0.5', note: null, created_at: '2026-06-10T00:00:00.000Z' }],
+            title: 'Web UI chunk 1',
           }),
         );
       }
       if (path === '/api/nodes/MMR-16/annotations') {
         return Promise.resolve({
-          total: 1,
           items: [
             {
               content: 'Groomed: read-only console first.',
               created_at: '2026-06-10T01:00:00.000Z',
             },
           ],
+          total: 1,
         });
       }
       return Promise.reject(new Error(`unexpected ${path}`));
@@ -81,9 +81,6 @@ describe('nodeDrawer', () => {
       if (path === '/api/nodes/MMR-60') {
         return Promise.resolve(
           task({
-            id: 'MMR-60',
-            status: 'parked',
-            title: 'task timeline',
             created_at: '2026-06-01T10:00:00.000Z',
             history: [
               {
@@ -101,13 +98,16 @@ describe('nodeDrawer', () => {
                 reason: 'waiting on Saga',
               },
             ],
+            id: 'MMR-60',
+            status: 'parked',
+            title: 'task timeline',
           }),
         );
       }
       if (path === '/api/nodes/MMR-60/annotations') {
         return Promise.resolve({
-          total: 1,
           items: [{ content: 'looked into the facet', created_at: '2026-06-03T09:00:00.000Z' }],
+          total: 1,
         });
       }
       return Promise.reject(new Error(`unexpected ${path}`));
@@ -135,9 +135,6 @@ describe('nodeDrawer', () => {
       if (path === '/api/nodes/MMR-60') {
         return Promise.resolve(
           task({
-            id: 'MMR-60',
-            status: 'in_progress',
-            title: 'task timeline',
             history: [
               {
                 kind: 'lifecycle',
@@ -147,13 +144,16 @@ describe('nodeDrawer', () => {
                 reason: null,
               },
             ],
+            id: 'MMR-60',
+            status: 'in_progress',
+            title: 'task timeline',
           }),
         );
       }
       if (path === '/api/nodes/MMR-60/annotations') {
         return Promise.resolve({
-          total: 1,
           items: [{ content: 'a freeform note', created_at: '2026-06-03T09:00:00.000Z' }],
+          total: 1,
         });
       }
       return Promise.reject(new Error(`unexpected ${path}`));
@@ -181,7 +181,7 @@ describe('nodeDrawer', () => {
         return Promise.resolve(task({ id: 'MMR-51', status: 'ready', title: 'Chunk 2' }));
       }
       if (path === '/api/nodes/MMR-51/annotations') {
-        return Promise.resolve({ total: 0, items: [] });
+        return Promise.resolve({ items: [], total: 0 });
       }
       return Promise.reject(new Error(`unexpected ${path}`));
     });
@@ -195,7 +195,7 @@ describe('nodeDrawer', () => {
         return Promise.resolve(task({ id: 'MMR-51', status: 'ready', title: 'Chunk 2' }));
       }
       if (path === '/api/nodes/MMR-51/annotations') {
-        return Promise.resolve({ total: 0, items: [] });
+        return Promise.resolve({ items: [], total: 0 });
       }
       return Promise.reject(new Error(`unexpected ${path}`));
     });
@@ -211,7 +211,7 @@ describe('nodeDrawer', () => {
         return Promise.resolve(task({ id: 'MMR-51', status: 'ready', title: 'Chunk 2 edit test' }));
       }
       if (path === '/api/nodes/MMR-51/annotations') {
-        return Promise.resolve({ total: 0, items: [] });
+        return Promise.resolve({ items: [], total: 0 });
       }
       return Promise.reject(new Error(`unexpected ${path}`));
     });
@@ -236,16 +236,16 @@ describe('nodeDrawer', () => {
       if (path === '/api/nodes/MMR-65') {
         return Promise.resolve(
           task({
+            description: null,
+            external_ref: null,
             id: 'MMR-65',
             status: 'ready',
             title: 'Regression task',
-            description: null,
-            external_ref: null,
           }),
         );
       }
       if (path === '/api/nodes/MMR-65/annotations') {
-        return Promise.resolve({ total: 0, items: [] });
+        return Promise.resolve({ items: [], total: 0 });
       }
       return Promise.reject(new Error(`unexpected ${path}`));
     });
@@ -280,7 +280,7 @@ describe('nodeDrawer', () => {
         return Promise.resolve(task({ id: 'MMR-51', status: 'ready', title: 'Chunk 2' }));
       }
       if (path === '/api/nodes/MMR-51/annotations') {
-        return Promise.resolve({ total: 0, items: [] });
+        return Promise.resolve({ items: [], total: 0 });
       }
       return Promise.reject(new Error(`unexpected ${path}`));
     });
@@ -297,9 +297,6 @@ describe('nodeDrawer', () => {
       if (path === '/api/nodes/MMR-16') {
         return Promise.resolve(
           task({
-            id: 'MMR-16',
-            status: 'in_progress',
-            title: 'chunk 1',
             artifacts: [
               {
                 id: 'MMR-a3',
@@ -308,17 +305,22 @@ describe('nodeDrawer', () => {
                 created_at: '2026-06-10T00:00:00.000Z',
               },
             ],
+            id: 'MMR-16',
+            status: 'in_progress',
+            title: 'chunk 1',
           }),
         );
       }
-      if (path === '/api/nodes/MMR-16/annotations') return Promise.resolve({ total: 0, items: [] });
+      if (path === '/api/nodes/MMR-16/annotations') {
+        return Promise.resolve({ total: 0, items: [] });
+      }
       return Promise.reject(new Error(`unexpected ${path}`));
     });
     render(<NodeDrawer nodeId="MMR-16" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
     await userEvent.click(await screen.findByText('console notes'));
     expect(navigate).toHaveBeenCalledWith({
-      to: '/artifacts',
       search: { a: 'MMR-a3', from: 'MMR-16' },
+      to: '/artifacts',
     });
   });
 });

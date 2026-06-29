@@ -40,11 +40,11 @@ async function enterHold(
       .where('id', '=', id)
       .execute();
     await logTransition(tx, {
-      node_id: id,
-      kind: 'hold',
       from_value: 'none',
-      to_value: to,
+      kind: 'hold',
+      node_id: id,
       reason: reason ?? null,
+      to_value: to,
     });
     await stamp(tx, id);
     return reloadNode(tx, id);
@@ -66,7 +66,7 @@ async function releaseHold(db: Db, id: number, from: Exclude<Hold, 'none'>): Pro
       .set({ hold: 'none', hold_reason: null, rank })
       .where('id', '=', id)
       .execute();
-    await logTransition(tx, { node_id: id, kind: 'hold', from_value: from, to_value: 'none' });
+    await logTransition(tx, { from_value: from, kind: 'hold', node_id: id, to_value: 'none' });
     await stamp(tx, id);
     return reloadNode(tx, id);
   });

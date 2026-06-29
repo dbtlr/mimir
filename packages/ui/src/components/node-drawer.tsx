@@ -59,7 +59,9 @@ export function NodeDrawer({
     <Sheet
       open={nodeId !== undefined}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) {
+          onClose();
+        }
       }}
     >
       {nodeId !== undefined && (
@@ -116,16 +118,16 @@ function buildFeed(
   history: readonly WireHistoryEntry[] | undefined,
   annotations: readonly WireAnnotation[] | undefined,
 ): FeedItem[] {
-  const items: FeedItem[] = [{ variant: 'created', at: createdAt, sort: Date.parse(createdAt) }];
+  const items: FeedItem[] = [{ at: createdAt, sort: Date.parse(createdAt), variant: 'created' }];
   for (const e of history ?? []) {
-    items.push({ variant: 'transition', at: e.at, sort: Date.parse(e.at), entry: e });
+    items.push({ at: e.at, entry: e, sort: Date.parse(e.at), variant: 'transition' });
   }
   for (const a of annotations ?? []) {
     items.push({
-      variant: 'annotation',
       at: a.created_at,
-      sort: Date.parse(a.created_at),
       content: a.content,
+      sort: Date.parse(a.created_at),
+      variant: 'annotation',
     });
   }
   return items.toSorted((a, b) => a.sort - b.sort);
@@ -135,28 +137,45 @@ function buildFeed(
 function describeTransition(e: WireHistoryEntry): { label: string; detail?: string } {
   switch (e.kind) {
     case 'lifecycle': {
-      if (e.to === 'under_review') return { label: 'Submitted for review' };
-      if (e.from === 'under_review' && e.to === 'in_progress')
+      if (e.to === 'under_review') {
+        return { label: 'Submitted for review' };
+      }
+      if (e.from === 'under_review' && e.to === 'in_progress') {
         return { label: 'Changes requested' };
-      if (e.to === 'in_progress') return { label: 'Started' };
-      if (e.to === 'done') return { label: e.from === 'under_review' ? 'Approved' : 'Completed' };
-      if (e.to === 'abandoned') return { label: 'Abandoned' };
+      }
+      if (e.to === 'in_progress') {
+        return { label: 'Started' };
+      }
+      if (e.to === 'done') {
+        return { label: e.from === 'under_review' ? 'Approved' : 'Completed' };
+      }
+      if (e.to === 'abandoned') {
+        return { label: 'Abandoned' };
+      }
       return { label: `→ ${e.to ?? '?'}` };
     }
     case 'hold': {
-      if (e.to === 'parked') return { label: 'Parked' };
-      if (e.to === 'blocked') return { label: 'Blocked' };
-      if (e.from === 'parked') return { label: 'Unparked' };
-      if (e.from === 'blocked') return { label: 'Unblocked' };
+      if (e.to === 'parked') {
+        return { label: 'Parked' };
+      }
+      if (e.to === 'blocked') {
+        return { label: 'Blocked' };
+      }
+      if (e.from === 'parked') {
+        return { label: 'Unparked' };
+      }
+      if (e.from === 'blocked') {
+        return { label: 'Unblocked' };
+      }
       return { label: 'Resumed' };
     }
     case 'dependency': {
       return e.from === null
-        ? { label: 'Dependency added', detail: e.to ?? undefined }
-        : { label: 'Dependency removed', detail: e.from ?? undefined };
+        ? { detail: e.to ?? undefined, label: 'Dependency added' }
+        : { detail: e.from ?? undefined, label: 'Dependency removed' };
     }
     case 'move': {
-      return { label: 'Reparented', detail: `${e.from ?? '—'} → ${e.to ?? '—'}` };
+      return { detail: `${e.from ?? '—'} → ${e.to ?? '—'}`, label: 'Reparented' };
     }
   }
 }
@@ -212,8 +231,12 @@ function Timeline({
   const notes = feed.filter((i) => i.variant === 'annotation');
 
   const panel = (items: FeedItem[], empty: string) => {
-    if (pending && items.length === 0) return <Skeleton className="h-12 w-full" />;
-    if (items.length === 0) return <p className="text-xs text-ink-faint">{empty}</p>;
+    if (pending && items.length === 0) {
+      return <Skeleton className="h-12 w-full" />;
+    }
+    if (items.length === 0) {
+      return <p className="text-xs text-ink-faint">{empty}</p>;
+    }
     return (
       <ol className="flex flex-col gap-3">
         {items.map((i) => (
@@ -261,11 +284,11 @@ function DrawerBody({
   function handleEditSubmit(values: TaskFormSubmit) {
     update.mutate(
       {
-        title: values.title,
         description: values.description ?? undefined,
+        external_ref: values.external_ref ?? undefined,
         priority: values.priority ?? undefined,
         size: values.size ?? undefined,
-        external_ref: values.external_ref ?? undefined,
+        title: values.title,
       },
       { onSuccess: () => setEditing(false) },
     );
@@ -336,7 +359,9 @@ function DrawerBody({
                   disabled={tree.data === undefined || move.isPending}
                   onChange={(e) => {
                     const to = e.target.value;
-                    if (to !== '' && to !== node.data?.parent) move.mutate(to);
+                    if (to !== '' && to !== node.data?.parent) {
+                      move.mutate(to);
+                    }
                   }}
                   className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs text-ink outline-none focus-visible:border-accent disabled:opacity-50"
                 >
@@ -430,7 +455,7 @@ function DrawerBody({
                         <button
                           type="button"
                           onClick={() => {
-                            void navigate({ to: '/artifacts', search: { a: a.id, from: nodeId } });
+                            void navigate({ search: { a: a.id, from: nodeId }, to: '/artifacts' });
                           }}
                           className="flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-left text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
                         >

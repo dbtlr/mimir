@@ -21,49 +21,49 @@ import type {
  * separate from the rendered wire (see `@mimir/bin` core/format.ts).
  */
 
-export interface WireDeps {
+export type WireDeps = {
   depends_on: NodeRef[];
   blocking: NodeRef[];
-}
+};
 
-export interface WireTag {
+export type WireTag = {
   tag: string;
   note: string | null;
   created_at: string;
-}
+};
 
-export interface WireAnnotation {
+export type WireAnnotation = {
   content: string;
   created_at: string;
-}
+};
 
 /** A single transition_log entry — how the node moved (lifecycle/hold/dependency/move). */
-export interface WireHistoryEntry {
+export type WireHistoryEntry = {
   kind: TransitionKind;
   from: string | null;
   to: string | null;
   at: string;
   reason: string | null;
-}
+};
 
-export interface WireArtifact {
+export type WireArtifact = {
   id: string;
   title: string;
   tags: string[];
   created_at: string;
-}
+};
 
 /** A portfolio artifact-search row (`GET /api/artifacts`). */
-export interface WireArtifactSummary {
+export type WireArtifactSummary = {
   id: string;
   title: string;
   project: string;
   tags: string[];
   created_at: string;
-}
+};
 
 /** A single artifact with its frozen body (`GET /api/artifacts/:id`). */
-export interface WireArtifactDetail {
+export type WireArtifactDetail = {
   id: string;
   title: string;
   project: string;
@@ -71,17 +71,17 @@ export interface WireArtifactDetail {
   tags: string[];
   created_at: string;
   content?: string;
-}
+};
 
 /** A project's derived attention-state (MMR-101) — the project-list facet, snake_case on the wire. */
-export interface WireAttention {
+export type WireAttention = {
   band: AttentionBand;
   last_activity: string;
   stale: boolean;
-}
+};
 
 /** A rendered node record — bare fields always, facets when the route includes them. */
-export interface WireNode {
+export type WireNode = {
   id: string;
   type: ViewType;
   title: string;
@@ -111,18 +111,18 @@ export interface WireNode {
   history?: WireHistoryEntry[];
   verdicts?: Verdicts;
   attention?: WireAttention;
-}
+};
 
 /** The nested whole-project tree (`/api/projects/:key/tree`) — children rank-ordered. */
-export interface WireTreeNode extends Omit<WireNode, 'children'> {
+export type WireTreeNode = {
   children: WireTreeNode[];
-}
+} & Omit<WireNode, 'children'>;
 
 /** The collection envelope with its count (ADR 0012 — never a bare array). */
-export interface Collection<T> {
+export type Collection<T> = {
   total: number;
   items: T[];
-}
+};
 
 /** The project key a rendered id belongs to (`MMR-16` → `MMR`, `MMR` → `MMR`). */
 export function projectKeyOf(id: string): string {

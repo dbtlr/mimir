@@ -18,13 +18,15 @@ function attn(band: WireAttention['band'], lastActivity: string, stale = false):
 describe('groupIntoBands', () => {
   it('groups projects into the four bands in fixed highest-wins order', () => {
     const result = groupIntoBands([
-      project({ id: 'REST', attention: attn('at_rest', '2026-06-01T00:00:00.000Z') }),
-      project({ id: 'STUCK', attention: attn('needs_unsticking', '2026-06-01T00:00:00.000Z') }),
-      project({ id: 'REVIEW', attention: attn('awaiting_you', '2026-06-01T00:00:00.000Z') }),
-      project({ id: 'LIVE', attention: attn('live', '2026-06-01T00:00:00.000Z') }),
+      project({ attention: attn('at_rest', '2026-06-01T00:00:00.000Z'), id: 'REST' }),
+      project({ attention: attn('needs_unsticking', '2026-06-01T00:00:00.000Z'), id: 'STUCK' }),
+      project({ attention: attn('awaiting_you', '2026-06-01T00:00:00.000Z'), id: 'REVIEW' }),
+      project({ attention: attn('live', '2026-06-01T00:00:00.000Z'), id: 'LIVE' }),
     ]);
     expect(result.mode).toBe('banded');
-    if (result.mode !== 'banded') return;
+    if (result.mode !== 'banded') {
+      return;
+    }
     expect(result.bands.map((b) => b.band)).toStrictEqual([
       'awaiting_you',
       'live',
@@ -41,47 +43,57 @@ describe('groupIntoBands', () => {
 
   it('omits empty bands — no orphan headers', () => {
     const result = groupIntoBands([
-      project({ id: 'A', attention: attn('live', '2026-06-01T00:00:00.000Z') }),
-      project({ id: 'B', attention: attn('live', '2026-06-02T00:00:00.000Z') }),
+      project({ attention: attn('live', '2026-06-01T00:00:00.000Z'), id: 'A' }),
+      project({ attention: attn('live', '2026-06-02T00:00:00.000Z'), id: 'B' }),
     ]);
     expect(result.mode).toBe('banded');
-    if (result.mode !== 'banded') return;
+    if (result.mode !== 'banded') {
+      return;
+    }
     expect(result.bands).toHaveLength(1);
     expect(result.bands[0]?.band).toBe('live');
   });
 
   it('sorts within a band by last_activity descending (most recent first)', () => {
     const result = groupIntoBands([
-      project({ id: 'OLD', attention: attn('live', '2026-06-01T00:00:00.000Z') }),
-      project({ id: 'NEW', attention: attn('live', '2026-06-20T00:00:00.000Z') }),
-      project({ id: 'MID', attention: attn('live', '2026-06-10T00:00:00.000Z') }),
+      project({ attention: attn('live', '2026-06-01T00:00:00.000Z'), id: 'OLD' }),
+      project({ attention: attn('live', '2026-06-20T00:00:00.000Z'), id: 'NEW' }),
+      project({ attention: attn('live', '2026-06-10T00:00:00.000Z'), id: 'MID' }),
     ]);
-    if (result.mode !== 'banded') throw new Error('expected banded');
+    if (result.mode !== 'banded') {
+      throw new Error('expected banded');
+    }
     expect(result.bands[0]?.projects.map((p) => p.id)).toStrictEqual(['NEW', 'MID', 'OLD']);
   });
 
   it("carries the going-cold (stale) flag through on the project's attention", () => {
     const result = groupIntoBands([
-      project({ id: 'COLD', attention: attn('live', '2026-06-01T00:00:00.000Z', true) }),
+      project({ attention: attn('live', '2026-06-01T00:00:00.000Z', true), id: 'COLD' }),
     ]);
-    if (result.mode !== 'banded') throw new Error('expected banded');
+    if (result.mode !== 'banded') {
+      throw new Error('expected banded');
+    }
     expect(result.bands[0]?.projects[0]?.attention?.stale).toBe(true);
   });
 
   it('falls back to a flat list (input order) when any project lacks the facet', () => {
     const result = groupIntoBands([
-      project({ id: 'AAA', attention: attn('live', '2026-06-01T00:00:00.000Z') }),
+      project({ attention: attn('live', '2026-06-01T00:00:00.000Z'), id: 'AAA' }),
       project({ id: 'BBB' }), // no attention — degraded payload
     ]);
     expect(result.mode).toBe('flat');
-    if (result.mode !== 'flat') return;
+    if (result.mode !== 'flat') {
+      return;
+    }
     expect(result.projects.map((p) => p.id)).toStrictEqual(['AAA', 'BBB']);
   });
 
   it('an empty overview yields banded mode with no bands', () => {
     const result = groupIntoBands([]);
     expect(result.mode).toBe('banded');
-    if (result.mode !== 'banded') return;
+    if (result.mode !== 'banded') {
+      return;
+    }
     expect(result.bands).toHaveLength(0);
   });
 });

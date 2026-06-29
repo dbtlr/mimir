@@ -43,12 +43,12 @@ test('next returns ready tasks in rank order, excluding awaiting/held', async ()
 });
 
 test('next respects priority filter and the limit', async () => {
-  await createTask(db, { parentId: phaseId, title: 'p2', priority: 'p2' });
-  const hi = await createTask(db, { parentId: phaseId, title: 'p0', priority: 'p0' });
-  const onlyP0 = await nextTasks(db, { scope: key, priority: 'p0' });
+  await createTask(db, { parentId: phaseId, priority: 'p2', title: 'p2' });
+  const hi = await createTask(db, { parentId: phaseId, priority: 'p0', title: 'p0' });
+  const onlyP0 = await nextTasks(db, { priority: 'p0', scope: key });
   expect(onlyP0.items.map((n) => n.id)).toEqual([idOf(hi)]);
 
-  const limited = await nextTasks(db, { scope: key, limit: 1 });
+  const limited = await nextTasks(db, { limit: 1, scope: key });
   expect(limited.returned).toBe(1);
   expect(limited.total).toBe(2); // total reflects the full ready set
 });
@@ -116,10 +116,10 @@ test('get on KEY-aN returns the artifact detail with rendered links', async () =
   const t = await createTask(db, { parentId: phaseId, title: 't' });
   const project = await db.selectFrom('project').select('id').executeTakeFirstOrThrow();
   const { renderedId } = await attachArtifact(db, {
-    projectId: project.id,
-    title: 'frozen plan',
     content: '# frozen\n',
     linkNodeIds: [t.id],
+    projectId: project.id,
+    title: 'frozen plan',
   });
   expect(renderedId).toBe(`${key}-a1`);
 
@@ -137,10 +137,10 @@ test('the node artifacts facet speaks KEY-aN', async () => {
   const t = await createTask(db, { parentId: phaseId, title: 't' });
   const project = await db.selectFrom('project').select('id').executeTakeFirstOrThrow();
   await attachArtifact(db, {
-    projectId: project.id,
-    title: 'x',
     content: 'x',
     linkNodeIds: [t.id],
+    projectId: project.id,
+    title: 'x',
   });
 
   const view = await getNode(db, idOf(t));
@@ -175,43 +175,43 @@ test('list filters by q — case-insensitive substring over title (MMR-78)', asy
   const auth = await createTask(db, { parentId: phaseId, title: 'Wire up AUTH gate' });
   await createTask(db, { parentId: phaseId, title: 'Polish the board' });
 
-  const hit = await listNodes(db, { scope: key, q: 'auth' });
+  const hit = await listNodes(db, { q: 'auth', scope: key });
   expect(hit.items.map((n) => n.id)).toEqual([idOf(auth)]);
 
-  expect((await listNodes(db, { scope: key, q: 'zzz' })).total).toBe(0);
+  expect((await listNodes(db, { q: 'zzz', scope: key })).total).toBe(0);
   // an empty q is a no-op, not a match-nothing
-  expect((await listNodes(db, { scope: key, q: '' })).total).toBe(2);
+  expect((await listNodes(db, { q: '', scope: key })).total).toBe(2);
 });
 
 test('list applies verdicts and field operators within the universe', async () => {
-  const a = await createTask(db, { parentId: phaseId, title: 'a', priority: 'p1' });
-  const b = await createTask(db, { parentId: phaseId, title: 'b', priority: 'p2' });
+  const a = await createTask(db, { parentId: phaseId, priority: 'p1', title: 'a' });
+  const b = await createTask(db, { parentId: phaseId, priority: 'p2', title: 'b' });
   await depend(db, b.id, [a.id]); // a blocks b
 
   const blocking = await listNodes(db, {
     scope: key,
-    verdicts: [{ verdict: 'blocking', negate: false }],
+    verdicts: [{ negate: false, verdict: 'blocking' }],
   });
   expect(blocking.items.map((n) => n.id)).toEqual([idOf(a)]);
 
   const notBlocking = await listNodes(db, {
     scope: key,
-    verdicts: [{ verdict: 'blocking', negate: true }],
+    verdicts: [{ negate: true, verdict: 'blocking' }],
   });
   expect(notBlocking.items.map((n) => n.id)).toEqual([idOf(b)]);
 
   const p2 = await listNodes(db, {
-    scope: key,
     filters: [{ op: 'eq', field: 'priority', value: 'p2' }],
+    scope: key,
   });
   expect(p2.items.map((n) => n.id)).toEqual([idOf(b)]);
 });
 
 test('a value fault returns an empty set with warnings, not an error', async () => {
-  await createTask(db, { parentId: phaseId, title: 'a', priority: 'p1' });
+  await createTask(db, { parentId: phaseId, priority: 'p1', title: 'a' });
   const res = await listNodes(db, {
-    scope: key,
     filters: [{ op: 'eq', field: 'priority', value: 'p9' }],
+    scope: key,
   });
   expect(res.total).toBe(0);
   expect(res.items).toEqual([]);
@@ -222,8 +222,8 @@ test('a value fault returns an empty set with warnings, not an error', async () 
 test('a type filter widens list beyond tasks', async () => {
   await createTask(db, { parentId: phaseId, title: 'a' });
   const phases = await listNodes(db, {
-    scope: key,
     filters: [{ op: 'eq', field: 'type', value: 'phase' }],
+    scope: key,
   });
   expect(phases.items.map((n) => n.type)).toEqual(['phase']);
 });
@@ -249,16 +249,16 @@ test('terminal universe orders by completed_at desc', async () => {
 });
 
 test("the tag pseudo-field filters via the node's tag set", async () => {
-  const a = await createTask(db, { parentId: phaseId, title: 'a', tags: ['spec'] });
+  const a = await createTask(db, { parentId: phaseId, tags: ['spec'], title: 'a' });
   await createTask(db, { parentId: phaseId, title: 'b' });
   const tagged = await listNodes(db, {
-    scope: key,
     filters: [{ op: 'eq', field: 'tag', value: 'spec' }],
+    scope: key,
   });
   expect(tagged.items.map((n) => n.id)).toEqual([idOf(a)]);
   const untagged = await listNodes(db, {
-    scope: key,
     filters: [{ op: 'missing', field: 'tag', value: null }],
+    scope: key,
   });
   expect(untagged.items.map((n) => n.title)).toEqual(['b']);
 });

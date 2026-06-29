@@ -115,7 +115,9 @@ async function followDownload(res: Response, fetcher: Fetcher): Promise<Response
   let current = res;
   for (let hops = 0; current.status >= 300 && current.status < 400 && hops < 5; hops++) {
     const next = current.headers.get('location');
-    if (next === null) break;
+    if (next === null) {
+      break;
+    }
     current = await fetcher(next);
   }
   if (!current.ok) {

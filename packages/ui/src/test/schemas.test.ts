@@ -20,16 +20,16 @@ describe('taskFormSchema', () => {
   });
 
   it('rejects an out-of-enum priority', () => {
-    const r = taskFormSchema.safeParse({ ...emptyTaskForm, title: 'x', priority: 'p9' });
+    const r = taskFormSchema.safeParse({ ...emptyTaskForm, priority: 'p9', title: 'x' });
     expect(r.success).toBe(false);
   });
 
   it('keeps a valid priority/size', () => {
     const r = taskFormSchema.safeParse({
       ...emptyTaskForm,
-      title: 'x',
       priority: 'p1',
       size: 'small',
+      title: 'x',
     });
     expect(r.success && r.data.priority).toBe('p1');
   });

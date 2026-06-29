@@ -13,15 +13,15 @@ import { StatusDot } from './status-dot';
  * Distinct letters (no two collide), redundant with the dot's color.
  */
 const STATUS_LETTER: Record<StatusWord, string> = {
-  ready: 'R',
-  awaiting: 'A',
-  in_progress: 'P',
-  under_review: 'V',
-  blocked: 'B',
-  parked: 'K',
-  done: 'D',
   abandoned: 'X',
+  awaiting: 'A',
+  blocked: 'B',
+  done: 'D',
+  in_progress: 'P',
   new: 'N',
+  parked: 'K',
+  ready: 'R',
+  under_review: 'V',
 };
 
 /**

@@ -13,24 +13,24 @@ export type TransitionVerb =
   | 'block'
   | 'unblock';
 
-export interface VerbSpec {
+export type VerbSpec = {
   verb: TransitionVerb;
   label: string;
   /** park/block/abandon/return/reopen carry an optional reason → open the reason dialog first. */
   needsReason: boolean;
-}
+};
 
 const LABEL: Record<TransitionVerb, string> = {
+  abandon: 'Abandon',
+  block: 'Block',
+  done: 'Done',
+  park: 'Park',
+  reopen: 'Reopen',
+  return: 'Request changes',
   start: 'Start',
   submit: 'Submit for review',
-  return: 'Request changes',
-  done: 'Done',
-  abandon: 'Abandon',
-  reopen: 'Reopen',
-  park: 'Park',
-  unpark: 'Unpark',
-  block: 'Block',
   unblock: 'Unblock',
+  unpark: 'Unpark',
 };
 
 const NEEDS_REASON = new Set<TransitionVerb>(['park', 'block', 'abandon', 'return', 'reopen']);
@@ -43,20 +43,20 @@ const NEEDS_REASON = new Set<TransitionVerb>(['park', 'block', 'abandon', 'retur
  * hold). The core stays the authority and rejects anything illegal.
  */
 const VERBS: Partial<Record<StatusWord, TransitionVerb[]>> = {
-  in_progress: ['submit', 'done', 'park', 'block', 'abandon'],
-  under_review: ['done', 'return', 'park', 'block', 'abandon'],
-  ready: ['start', 'park', 'block', 'abandon'],
+  abandoned: ['reopen'],
   awaiting: ['start', 'park', 'block', 'abandon'],
   blocked: ['unblock', 'abandon'],
-  parked: ['unpark', 'abandon'],
   done: ['reopen'],
-  abandoned: ['reopen'],
+  in_progress: ['submit', 'done', 'park', 'block', 'abandon'],
+  parked: ['unpark', 'abandon'],
+  ready: ['start', 'park', 'block', 'abandon'],
+  under_review: ['done', 'return', 'park', 'block', 'abandon'],
 };
 
 export function availableTransitions(status: StatusWord): VerbSpec[] {
   return (VERBS[status] ?? []).map((verb) => ({
-    verb,
     label: LABEL[verb],
     needsReason: NEEDS_REASON.has(verb),
+    verb,
   }));
 }

@@ -22,9 +22,9 @@ type WriteMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
  */
 export async function apiSend<T>(method: WriteMethod, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: { accept: 'application/json', 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    method,
   });
   if (!res.ok) {
     let message = `${method} ${path} → ${String(res.status)}`;

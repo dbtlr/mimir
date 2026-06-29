@@ -56,7 +56,7 @@ test('skill install --local writes the full tree into the working copy', async (
     }
     expect(readFileSync(join(root, 'SKILL.md'), 'utf8')).toContain('name: mimir');
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { force: true, recursive: true });
   }
 });
 
@@ -76,7 +76,7 @@ test('skill install --local --agent codex uses the .agents layout; reinstall ove
       }),
     ).toBe(0);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { force: true, recursive: true });
   }
 });
 
@@ -93,6 +93,6 @@ test('skill install rejects bad invocations (exit 2)', async () => {
     ).toBe(2);
     expect(io.err.join('')).toContain('unknown agent');
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { force: true, recursive: true });
   }
 });

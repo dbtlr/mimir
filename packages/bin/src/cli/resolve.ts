@@ -61,9 +61,9 @@ export async function resolveParent(
     );
   }
   if (identity?.kind === 'node') {
-    return { kind: 'node', id: await resolveNode(db, token) };
+    return { id: await resolveNode(db, token), kind: 'node' };
   }
-  return { kind: 'project', id: await resolveProject(db, token) };
+  return { id: await resolveProject(db, token), kind: 'project' };
 }
 
 /**
@@ -128,7 +128,11 @@ export async function echoProject(db: Db, key: string, format: Format, io: Io): 
  * TTY with no tail args — callers decide how to handle the gap).
  */
 export async function readContent(tail: string[], io: Io): Promise<string> {
-  if (tail.length > 0) return tail.join(' ');
-  if (!io.isTTY) return (await Bun.stdin.text()).trim();
+  if (tail.length > 0) {
+    return tail.join(' ');
+  }
+  if (!io.isTTY) {
+    return (await Bun.stdin.text()).trim();
+  }
   return '';
 }

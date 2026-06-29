@@ -22,7 +22,7 @@ function LensToggle({ view, nodeParam }: { view: ProjectLens; nodeParam: string 
   const lens = (target: ProjectLens, label: string) => (
     <Link
       from={projectRoute.fullPath}
-      search={nodeParam === undefined ? { view: target } : { view: target, node: nodeParam }}
+      search={nodeParam === undefined ? { view: target } : { node: nodeParam, view: target }}
       className={cn(
         'microlabel rounded-md px-2.5 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-accent',
         view === target ? 'bg-well-700 text-ink-bright' : 'text-ink-dim hover:text-ink',
@@ -62,8 +62,8 @@ export function ProjectPage() {
   const conn = connectivity(view === 'board' ? [project, live, done] : [project, tree]);
 
   const openNode = (id: string) =>
-    void navigate({ to: '.', search: (prev) => ({ ...prev, node: id }) });
-  const closeNode = () => void navigate({ to: '.', search: (prev) => ({ view: prev.view }) });
+    void navigate({ search: (prev) => ({ ...prev, node: id }), to: '.' });
+  const closeNode = () => void navigate({ search: (prev) => ({ view: prev.view }), to: '.' });
 
   const boardReady = live.data !== undefined && done.data !== undefined;
 
@@ -125,7 +125,7 @@ export function ProjectPage() {
             ancestry={ancestry}
             doneTotal={done.data.items.length}
             onViewDone={() =>
-              void navigate({ to: '/tasks', search: { project: key, status: 'done' } })
+              void navigate({ search: { project: key, status: 'done' }, to: '/tasks' })
             }
           />
         )}

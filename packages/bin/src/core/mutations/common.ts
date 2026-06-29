@@ -63,10 +63,16 @@ async function readyDescendantIds(tx: Tx, container: Node): Promise<string[]> {
         .executeTakeFirst();
       cur = row?.parent_id ?? null;
     }
-    if (!isDescendant) continue;
-    if (!(await isReady(tx, task))) continue;
+    if (!isDescendant) {
+      continue;
+    }
+    if (!(await isReady(tx, task))) {
+      continue;
+    }
     const rendered = await renderNodeId(tx, task.id);
-    if (rendered !== null) ids.push(rendered);
+    if (rendered !== null) {
+      ids.push(rendered);
+    }
   }
   return ids;
 }

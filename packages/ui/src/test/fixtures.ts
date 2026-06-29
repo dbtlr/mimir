@@ -9,15 +9,15 @@ export function project(
   seq += 1;
   const id = overrides.id ?? `P${String(seq)}`;
   return {
-    id,
-    type: 'project',
-    title: `project ${id}`,
-    status: 'in_progress',
-    parent: null,
-    description: null,
     created_at: '2026-06-01T10:00:00.000Z',
-    updated_at: '2026-06-01T10:00:00.000Z',
+    description: null,
     distribution: {},
+    id,
+    parent: null,
+    status: 'in_progress',
+    title: `project ${id}`,
+    type: 'project',
+    updated_at: '2026-06-01T10:00:00.000Z',
     ...overrides,
   };
 }
@@ -27,24 +27,24 @@ export function task(overrides: Partial<WireNode> & { status: WireNode['status']
   seq += 1;
   const id = overrides.id ?? `MMR-${String(seq)}`;
   return {
-    id,
-    type: 'task',
-    title: `task ${id}`,
-    parent: 'MMR-1',
-    description: null,
-    priority: null,
-    size: null,
-    lifecycle: 'todo',
-    hold: 'none',
-    hold_reason: null,
-    external_ref: null,
     completed_at: null,
     created_at: '2026-06-01T10:00:00.000Z',
-    updated_at: '2026-06-01T10:00:00.000Z',
-    deps: { depends_on: [], blocking: [] },
-    tags: [],
+    deps: { blocking: [], depends_on: [] },
+    description: null,
     distribution: {},
-    verdicts: { stale: false, blocking: false, orphaned: false },
+    external_ref: null,
+    hold: 'none',
+    hold_reason: null,
+    id,
+    lifecycle: 'todo',
+    parent: 'MMR-1',
+    priority: null,
+    size: null,
+    tags: [],
+    title: `task ${id}`,
+    type: 'task',
+    updated_at: '2026-06-01T10:00:00.000Z',
+    verdicts: { blocking: false, orphaned: false, stale: false },
     ...overrides,
   };
 }

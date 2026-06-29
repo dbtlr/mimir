@@ -15,31 +15,31 @@ export type Format = (typeof FORMATS)[number];
  */
 
 /** Output sink + presentation context, injected so the CLI is testable. */
-export interface Io {
+export type Io = {
   write: (text: string) => void;
   error: (text: string) => void;
   /** Is stdout a TTY? Drives the format default. */
   isTTY: boolean;
   /** Suppress ANSI (NO_COLOR env or `--ascii`). */
   plain: boolean;
-}
+};
 
-interface StatusStyle {
+type StatusStyle = {
   icon: string;
   ascii: string;
   color: number;
-}
+};
 
 const STATUS_STYLE: Record<StatusWord, StatusStyle> = {
-  ready: { icon: '●', ascii: '*', color: 32 },
-  awaiting: { icon: '◔', ascii: '~', color: 33 },
-  in_progress: { icon: '▶', ascii: '>', color: 36 },
-  under_review: { icon: '◎', ascii: '?', color: 35 },
-  blocked: { icon: '■', ascii: 'x', color: 31 },
-  parked: { icon: '⏸', ascii: '=', color: 90 },
-  done: { icon: '✓', ascii: 'v', color: 32 },
-  abandoned: { icon: '✗', ascii: 'X', color: 90 },
-  new: { icon: '○', ascii: 'o', color: 90 },
+  abandoned: { ascii: 'X', color: 90, icon: '✗' },
+  awaiting: { ascii: '~', color: 33, icon: '◔' },
+  blocked: { ascii: 'x', color: 31, icon: '■' },
+  done: { ascii: 'v', color: 32, icon: '✓' },
+  in_progress: { ascii: '>', color: 36, icon: '▶' },
+  new: { ascii: 'o', color: 90, icon: '○' },
+  parked: { ascii: '=', color: 90, icon: '⏸' },
+  ready: { ascii: '*', color: 32, icon: '●' },
+  under_review: { ascii: '?', color: 35, icon: '◎' },
 };
 
 function color(text: string, code: number, plain: boolean): string {
@@ -79,7 +79,9 @@ export const isStyled = (format: Format): boolean => format === 'records' || for
  * that the write landed. Structured formats carry only the record.
  */
 export function signpost(io: Io, format: Format, text: string): void {
-  if (isStyled(format)) ok(io, text);
+  if (isStyled(format)) {
+    ok(io, text);
+  }
 }
 
 /** Warning line on stderr — the shared `⚠`/`[warn]` glyph. */
@@ -129,7 +131,9 @@ function row(label: string, value: string, labelW: number): string {
  * Prefers `children.length` (exact); falls back to summing the distribution.
  */
 function rollupSignpost(node: NodeView): string {
-  if (node.type === 'task') return '';
+  if (node.type === 'task') {
+    return '';
+  }
   let n = 0;
   if (node.children !== undefined) {
     n = node.children.length;
@@ -144,7 +148,9 @@ function rollupSignpost(node: NodeView): string {
  * Same logic as `rollupSignpost` but accepts the leaner `StatusView` shape.
  */
 function statusRollupSignpost(status: StatusView): string {
-  if (status.type === 'task') return '';
+  if (status.type === 'task') {
+    return '';
+  }
   const n = Object.values(status.distribution).reduce((s, c) => s + c, 0);
   return ` (rollup over ${String(n)} direct child${n === 1 ? '' : 'ren'})`;
 }
@@ -156,8 +162,12 @@ function statusRollupSignpost(status: StatusView): string {
  * Points to `mimir tree <id>` and the next leaf action.
  */
 function buildOnwardHint(id: string, isContainer: boolean, io: Io): string {
-  if (!io.isTTY) return '';
-  if (!isContainer) return '';
+  if (!io.isTTY) {
+    return '';
+  }
+  if (!isContainer) {
+    return '';
+  }
   const projectKey = id.includes('-') ? id.split('-')[0] : id;
   const hintLines = [
     '',
@@ -181,16 +191,36 @@ export function renderRecords(node: NodeView, io: Io): string {
     ['status', statusCell(node.status, node.status.length, io.plain) + signpost],
     ['title', node.title],
   ];
-  if (node.parent !== null) pairs.push(['parent', node.parent]);
-  if (node.description != null) pairs.push(['description', node.description]);
-  if (node.priority != null) pairs.push(['priority', node.priority]);
-  if (node.size != null) pairs.push(['size', node.size]);
-  if (node.lifecycle !== undefined) pairs.push(['lifecycle', node.lifecycle]);
-  if (node.hold !== undefined) pairs.push(['hold', node.hold]);
-  if (node.holdReason != null) pairs.push(['hold reason', node.holdReason]);
-  if (node.target != null) pairs.push(['target', node.target]);
-  if (node.externalRef != null) pairs.push(['external ref', node.externalRef]);
-  if (node.completedAt != null) pairs.push(['completed', node.completedAt]);
+  if (node.parent !== null) {
+    pairs.push(['parent', node.parent]);
+  }
+  if (node.description != null) {
+    pairs.push(['description', node.description]);
+  }
+  if (node.priority != null) {
+    pairs.push(['priority', node.priority]);
+  }
+  if (node.size != null) {
+    pairs.push(['size', node.size]);
+  }
+  if (node.lifecycle !== undefined) {
+    pairs.push(['lifecycle', node.lifecycle]);
+  }
+  if (node.hold !== undefined) {
+    pairs.push(['hold', node.hold]);
+  }
+  if (node.holdReason != null) {
+    pairs.push(['hold reason', node.holdReason]);
+  }
+  if (node.target != null) {
+    pairs.push(['target', node.target]);
+  }
+  if (node.externalRef != null) {
+    pairs.push(['external ref', node.externalRef]);
+  }
+  if (node.completedAt != null) {
+    pairs.push(['completed', node.completedAt]);
+  }
 
   if (node.deps !== undefined && node.deps.dependsOn.length > 0) {
     pairs.push([
@@ -249,7 +279,9 @@ export function renderRecords(node: NodeView, io: Io): string {
     lines.push(row(label, value, labelW));
   }
   const hint = onwardHint(node, io);
-  if (hint) lines.push(hint);
+  if (hint) {
+    lines.push(hint);
+  }
   return lines.join('\n');
 }
 
@@ -271,7 +303,7 @@ export function renderNodeView(view: NodeView, format: Format, io: Io): void {
       break;
     }
     case 'table': {
-      io.write(renderTable({ total: 1, returned: 1, startsAt: 0, items: [view] }, io));
+      io.write(renderTable({ items: [view], returned: 1, startsAt: 0, total: 1 }, io));
       break;
     }
     case 'records': {
@@ -309,8 +341,12 @@ export function renderArtifactDetail(artifact: ArtifactDetail, format: Format, i
         ['title', artifact.title],
         ['project', artifact.project],
       ];
-      if (artifact.links.length > 0) pairs.push(['links', artifact.links.join(', ')]);
-      if (artifact.tags.length > 0) pairs.push(['tags', artifact.tags.join(', ')]);
+      if (artifact.links.length > 0) {
+        pairs.push(['links', artifact.links.join(', ')]);
+      }
+      if (artifact.tags.length > 0) {
+        pairs.push(['tags', artifact.tags.join(', ')]);
+      }
       pairs.push(['created', artifact.createdAt]);
       const labelW = Math.max(...pairs.map(([label]) => label.length));
       const lines = [bold(artifact.id, io.plain), ...pairs.map(([l, v]) => row(l, v, labelW))];
@@ -336,7 +372,9 @@ export function renderStatus(status: StatusView, io: Io): string {
     row('distribution', dist === '' ? '(none)' : dist, 12),
   ];
   const hint = buildOnwardHint(status.id, isContainer, io);
-  if (hint) lines.push(hint);
+  if (hint) {
+    lines.push(hint);
+  }
   return lines.join('\n');
 }
 

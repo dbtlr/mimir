@@ -85,9 +85,9 @@ test('0002 backfills per-project artifact seqs and the allocator', async () => {
       .orderBy('id', 'asc')
       .execute();
     expect(artifacts).toEqual([
-      { project_id: 1, seq: 1, content: 'a1' },
-      { project_id: 2, seq: 1, content: 'b1' },
-      { project_id: 1, seq: 2, content: 'a2' },
+      { content: 'a1', project_id: 1, seq: 1 },
+      { content: 'b1', project_id: 2, seq: 1 },
+      { content: 'a2', project_id: 1, seq: 2 },
     ]);
 
     const allocators = await db
@@ -157,7 +157,7 @@ test('0005 adds description column to project (MMR-88)', async () => {
 
     // Existing row backfills to NULL
     const rows = await db.selectFrom('project').select(['key', 'description']).execute();
-    expect(rows).toEqual([{ key: 'AAA', description: null }]);
+    expect(rows).toEqual([{ description: null, key: 'AAA' }]);
   } finally {
     await db.destroy();
   }
@@ -189,7 +189,7 @@ test('0004 drops project repo/path, preserving every other column (ADR 0011)', a
     expect(names).not.toContain('path');
 
     const rows = await db.selectFrom('project').select(['key', 'name', 'last_seq']).execute();
-    expect(rows).toEqual([{ key: 'AAA', name: 'a', last_seq: 7 }]);
+    expect(rows).toEqual([{ key: 'AAA', last_seq: 7, name: 'a' }]);
   } finally {
     await db.destroy();
   }

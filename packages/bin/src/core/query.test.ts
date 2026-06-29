@@ -5,20 +5,20 @@ import { compileFilters, parseFilterToken } from './query';
 import { expectMimirError } from './testing';
 
 const row = (values: Record<string, string | null>, tags: string[] = []): QueryRow => ({
-  values,
   tags,
+  values,
 });
 
 describe('parseFilterToken (structural validation)', () => {
   test('splits FIELD:VALUE and accepts bare FIELD for has/missing', () => {
     expect(parseFilterToken('eq', 'priority:p1')).toEqual({
-      op: 'eq',
       field: 'priority',
+      op: 'eq',
       value: 'p1',
     });
     expect(parseFilterToken('missing', 'size')).toEqual({
-      op: 'missing',
       field: 'size',
+      op: 'missing',
       value: null,
     });
     // a colon in the value survives (timestamps)
@@ -37,21 +37,21 @@ describe('parseFilterToken (structural validation)', () => {
 
 describe('compileFilters (value faults → warnings)', () => {
   test('an enum miss compiles to a warning with expected values', () => {
-    const { warnings, test: run } = compileFilters([{ op: 'eq', field: 'priority', value: 'p9' }]);
+    const { warnings, test: run } = compileFilters([{ field: 'priority', op: 'eq', value: 'p9' }]);
     expect(warnings).toEqual([
       {
         code: 'no_match_value',
-        field: 'priority',
-        value: 'p9',
-        message: 'p9 is not a priority',
         expected: ['p0', 'p1', 'p2', 'p3'],
+        field: 'priority',
+        message: 'p9 is not a priority',
+        value: 'p9',
       },
     ]);
     expect(run(row({ priority: 'p1' }))).toBe(false);
   });
 
   test('an unparseable date compiles to a warning', () => {
-    const { warnings } = compileFilters([{ op: 'before', field: 'created_at', value: 'notadate' }]);
+    const { warnings } = compileFilters([{ field: 'created_at', op: 'before', value: 'notadate' }]);
     expect(warnings[0]?.code).toBe('no_match_value');
     expect(warnings[0]?.expected).toEqual(['YYYY-MM-DD', 'ISO-8601 timestamp']);
   });
@@ -59,42 +59,42 @@ describe('compileFilters (value faults → warnings)', () => {
 
 describe('filter evaluation', () => {
   test('eq / not-eq / in / not-in over scalars', () => {
-    const eq = compileFilters([{ op: 'eq', field: 'priority', value: 'p1' }]).test;
+    const eq = compileFilters([{ field: 'priority', op: 'eq', value: 'p1' }]).test;
     expect(eq(row({ priority: 'p1' }))).toBe(true);
     expect(eq(row({ priority: 'p2' }))).toBe(false);
     expect(eq(row({ priority: null }))).toBe(false);
 
-    const notEq = compileFilters([{ op: 'not-eq', field: 'priority', value: 'p1' }]).test;
+    const notEq = compileFilters([{ field: 'priority', op: 'not-eq', value: 'p1' }]).test;
     expect(notEq(row({ priority: null }))).toBe(true); // null ≠ p1
 
-    const anyOf = compileFilters([{ op: 'in', field: 'priority', value: 'p0,p1' }]).test;
+    const anyOf = compileFilters([{ field: 'priority', op: 'in', value: 'p0,p1' }]).test;
     expect(anyOf(row({ priority: 'p1' }))).toBe(true);
     expect(anyOf(row({ priority: 'p3' }))).toBe(false);
 
-    const noneOf = compileFilters([{ op: 'not-in', field: 'priority', value: 'p0,p1' }]).test;
+    const noneOf = compileFilters([{ field: 'priority', op: 'not-in', value: 'p0,p1' }]).test;
     expect(noneOf(row({ priority: 'p3' }))).toBe(true);
     expect(noneOf(row({ priority: null }))).toBe(true);
   });
 
   test('has / missing over scalars and the tag pseudo-field', () => {
-    const has = compileFilters([{ op: 'has', field: 'size', value: null }]).test;
+    const has = compileFilters([{ field: 'size', op: 'has', value: null }]).test;
     expect(has(row({ size: 'small' }))).toBe(true);
     expect(has(row({ size: null }))).toBe(false);
 
-    const untagged = compileFilters([{ op: 'missing', field: 'tag', value: null }]).test;
+    const untagged = compileFilters([{ field: 'tag', op: 'missing', value: null }]).test;
     expect(untagged(row({}, []))).toBe(true);
     expect(untagged(row({}, ['x']))).toBe(false);
   });
 
   test('tag semantics: eq=contains, in=any, not-in=none', () => {
-    const contains = compileFilters([{ op: 'eq', field: 'tag', value: 'spec' }]).test;
+    const contains = compileFilters([{ field: 'tag', op: 'eq', value: 'spec' }]).test;
     expect(contains(row({}, ['spec', 'v2']))).toBe(true);
     expect(contains(row({}, ['v2']))).toBe(false);
 
-    const any = compileFilters([{ op: 'in', field: 'tag', value: 'spec,plan' }]).test;
+    const any = compileFilters([{ field: 'tag', op: 'in', value: 'spec,plan' }]).test;
     expect(any(row({}, ['plan']))).toBe(true);
 
-    const none = compileFilters([{ op: 'not-in', field: 'tag', value: 'spec,plan' }]).test;
+    const none = compileFilters([{ field: 'tag', op: 'not-in', value: 'spec,plan' }]).test;
     expect(none(row({}, ['other']))).toBe(true);
     expect(none(row({}, ['plan']))).toBe(false);
   });
@@ -106,24 +106,24 @@ describe('filter evaluation', () => {
     const dayBefore = '2026-06-09T23:59:59.999Z';
     const dayAfter = '2026-06-11T00:00:00.000Z';
 
-    const before = compileFilters([{ op: 'before', field: 'created_at', value: day }]).test;
+    const before = compileFilters([{ field: 'created_at', op: 'before', value: day }]).test;
     expect(before(at(dayBefore))).toBe(true);
     expect(before(at(inDay))).toBe(false);
 
-    const on = compileFilters([{ op: 'on', field: 'created_at', value: day }]).test;
+    const on = compileFilters([{ field: 'created_at', op: 'on', value: day }]).test;
     expect(on(at(inDay))).toBe(true);
     expect(on(at(dayBefore))).toBe(false);
     expect(on(at(dayAfter))).toBe(false);
 
-    const after = compileFilters([{ op: 'after', field: 'created_at', value: day }]).test;
+    const after = compileFilters([{ field: 'created_at', op: 'after', value: day }]).test;
     expect(after(at(dayAfter))).toBe(true);
     expect(after(at(inDay))).toBe(false);
 
-    const notBefore = compileFilters([{ op: 'not-before', field: 'created_at', value: day }]).test;
+    const notBefore = compileFilters([{ field: 'created_at', op: 'not-before', value: day }]).test;
     expect(notBefore(at(inDay))).toBe(true); // inclusive lower bound
     expect(notBefore(at(dayBefore))).toBe(false);
 
-    const notAfter = compileFilters([{ op: 'not-after', field: 'created_at', value: day }]).test;
+    const notAfter = compileFilters([{ field: 'created_at', op: 'not-after', value: day }]).test;
     expect(notAfter(at(inDay))).toBe(true); // inclusive upper bound
     expect(notAfter(at(dayAfter))).toBe(false);
 
@@ -133,8 +133,8 @@ describe('filter evaluation', () => {
 
   test('filters AND-compose', () => {
     const both = compileFilters([
-      { op: 'eq', field: 'priority', value: 'p1' },
-      { op: 'has', field: 'size', value: null },
+      { field: 'priority', op: 'eq', value: 'p1' },
+      { field: 'size', op: 'has', value: null },
     ]).test;
     expect(both(row({ priority: 'p1', size: 'small' }))).toBe(true);
     expect(both(row({ priority: 'p1', size: null }))).toBe(false);

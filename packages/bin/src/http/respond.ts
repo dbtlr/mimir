@@ -20,9 +20,9 @@ export function corsHeaders(req: Request): Record<string, string> {
     return {};
   }
   return {
-    'access-control-allow-origin': origin,
-    'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'access-control-allow-headers': 'content-type',
+    'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    'access-control-allow-origin': origin,
     vary: 'origin',
   };
 }
@@ -30,22 +30,22 @@ export function corsHeaders(req: Request): Record<string, string> {
 /** A JSON response with CORS headers when the request carries a dev origin. */
 export function json(req: Request, data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data, null, 2), {
-    status,
     headers: { 'content-type': 'application/json', ...corsHeaders(req) },
+    status,
   });
 }
 
 /** The CORS preflight answer — 204, headers only. */
 export function preflight(req: Request): Response {
-  return new Response(null, { status: 204, headers: corsHeaders(req) });
+  return new Response(null, { headers: corsHeaders(req), status: 204 });
 }
 
 /** Envelope `code` → HTTP status. Invariant refusals are conflicts with current state. */
 const STATUS_BY_CODE: Record<ErrorCode, number> = {
-  not_found: 404,
-  validation: 400,
   conflict: 409,
   invariant: 409,
+  not_found: 404,
+  validation: 400,
 };
 
 /** Render any thrown error as the envelope + its status; non-domain errors are 500s. */

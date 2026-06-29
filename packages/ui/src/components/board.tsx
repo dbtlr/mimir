@@ -24,7 +24,7 @@ import { StatusDot } from './status-dot';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
 import { Tabs, TabsContent } from './ui/tabs';
 
-interface BoardViewProps {
+type BoardViewProps = {
   board: Board;
   onOpenNode: (id: string) => void;
   offline?: boolean;
@@ -34,7 +34,7 @@ interface BoardViewProps {
   doneTotal: number;
   /** Drill from Done into the `/tasks` browser (kept a callback so the board stays router-free). */
   onViewDone: () => void;
-}
+};
 
 /** The rankable set (ADR 0007) as board columns — drag-to-reorder lives here only. */
 export const RANKABLE_COLUMNS = ['in_progress', 'ready', 'awaiting'] as const;
@@ -156,8 +156,8 @@ function SortableCard({
   ancestry?: string;
 }) {
   const { setNodeRef, transform, transition, attributes, listeners, isDragging } = useSortable({
-    id: node.id,
     disabled: offline,
+    id: node.id,
   });
   return (
     <NodeCard
@@ -166,10 +166,10 @@ function SortableCard({
       offline={offline}
       ancestry={ancestry}
       sortable={{
-        setNodeRef,
         handleProps: { ...attributes, ...listeners },
-        style: { transform: CSS.Transform.toString(transform), transition },
         isDragging,
+        setNodeRef,
+        style: { transform: CSS.Transform.toString(transform), transition },
       }}
     />
   );
@@ -230,12 +230,12 @@ function ColumnCards({
 }
 
 const MOBILE_TABS = [
-  { id: 'held', label: 'Held', columns: ['parked', 'blocked'] },
-  { id: 'awaiting', label: 'Awaiting', columns: ['awaiting'] },
-  { id: 'ready', label: 'Ready', columns: ['ready'] },
-  { id: 'in_progress', label: 'In progress', columns: ['in_progress'] },
-  { id: 'under_review', label: 'Under review', columns: ['under_review'] },
-  { id: 'done', label: 'Done', columns: ['done'] },
+  { columns: ['parked', 'blocked'], id: 'held', label: 'Held' },
+  { columns: ['awaiting'], id: 'awaiting', label: 'Awaiting' },
+  { columns: ['ready'], id: 'ready', label: 'Ready' },
+  { columns: ['in_progress'], id: 'in_progress', label: 'In progress' },
+  { columns: ['under_review'], id: 'under_review', label: 'Under review' },
+  { columns: ['done'], id: 'done', label: 'Done' },
 ] as const satisfies readonly { id: string; label: string; columns: readonly BoardColumn[] }[];
 
 /**
@@ -249,7 +249,9 @@ export function swipeTarget(
   dy: number,
   ids: readonly string[],
 ): string | null {
-  if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) return null;
+  if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) {
+    return null;
+  }
   return ids[ids.indexOf(current) + (dx < 0 ? 1 : -1)] ?? null;
 }
 
@@ -271,7 +273,9 @@ function MobileColumnSwitcher({
   const tabCount = (tab: (typeof MOBILE_TABS)[number]): number =>
     tab.columns.reduce((n, c) => n + board[c].length, 0);
   const active = MOBILE_TABS.find((t) => t.id === current);
-  if (active === undefined) return null;
+  if (active === undefined) {
+    return null;
+  }
   const activeDot = active.columns.length === 1 ? active.columns[0] : undefined;
   // The signature control carries the active column's status color on its left edge (like the cards).
   const accent = activeDot !== undefined ? STATUS_META[activeDot].border : 'border-l-line';
@@ -368,8 +372,11 @@ export function BoardView({
   const toggle = (column: BoardColumn) =>
     setExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(column)) next.delete(column);
-      else next.add(column);
+      if (next.has(column)) {
+        next.delete(column);
+      } else {
+        next.add(column);
+      }
       return next;
     });
 
@@ -384,19 +391,25 @@ export function BoardView({
     const start = touchStart.current;
     touchStart.current = null;
     const t = e.changedTouches[0];
-    if (start === null || t === undefined) return;
+    if (start === null || t === undefined) {
+      return;
+    }
     const target = swipeTarget(
       mobileTab,
       t.clientX - start.x,
       t.clientY - start.y,
       MOBILE_TABS.map((tab): string => tab.id),
     );
-    if (target !== null) setMobileTab(target);
+    if (target !== null) {
+      setMobileTab(target);
+    }
   }
 
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-    if (over === null || active.id === over.id) return;
+    if (over === null || active.id === over.id) {
+      return;
+    }
     const activeId = String(active.id);
     const overId = String(over.id);
     for (const column of RANKABLE_COLUMNS) {

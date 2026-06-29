@@ -5,14 +5,14 @@
  * Any non-/api GET miss falls back to `index.html` (the SPA owns its routes);
  * an empty manifest (no UI built) serves nothing and the caller 404s.
  */
-export interface UiAsset {
+export type UiAsset = {
   /** What `import ... with { type: "file" }` resolved to — feed it to `Bun.file`. */
   file: string;
   /** The `content-type` header value. */
   type: string;
   /** Vite content-hashed assets are immutable; the shell files are not. */
   immutable: boolean;
-}
+};
 
 export type UiAssetMap = Readonly<Record<string, UiAsset>>;
 
@@ -21,8 +21,8 @@ const INDEX = '/index.html';
 function assetResponse(asset: UiAsset): Response {
   return new Response(Bun.file(asset.file), {
     headers: {
-      'content-type': asset.type,
       'cache-control': asset.immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
+      'content-type': asset.type,
     },
   });
 }

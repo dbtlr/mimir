@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { attentionItems } from '../lib/attention';
 import { task } from './fixtures';
 
-const staleV = { stale: true, blocking: false, orphaned: false };
+const staleV = { blocking: false, orphaned: false, stale: true };
 
 describe('attentionItems (MMR-103: under_review + blocked + stale)', () => {
   it('under_review leads, then blocked, then stale; ids dedupe across reads', () => {

@@ -37,7 +37,7 @@ describe('mutation hooks', () => {
     apiSend.mockResolvedValue({ id: 'MMR-9' });
     const client = new QueryClient();
     const { result } = renderHook(() => useTransition('MMR-9'), { wrapper: wrapper(client) });
-    result.current.mutate({ verb: 'park', reason: '  waiting  ' });
+    result.current.mutate({ reason: '  waiting  ', verb: 'park' });
     await waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-9/park', { reason: 'waiting' });
     });
@@ -47,7 +47,7 @@ describe('mutation hooks', () => {
     apiSend.mockResolvedValue({ id: 'MMR-9' });
     const client = new QueryClient();
     const { result } = renderHook(() => useReorder(), { wrapper: wrapper(client) });
-    result.current.mutate({ id: 'MMR-9', after: 'MMR-3' });
+    result.current.mutate({ after: 'MMR-3', id: 'MMR-9' });
     await waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-9/reorder', { after: 'MMR-3' });
     });
@@ -90,14 +90,14 @@ describe('authoring mutation hooks', () => {
     apiSend.mockResolvedValue({ id: 'MMR-99' });
     const client = new QueryClient();
     const { result } = renderHook(() => useCreateTask(), { wrapper: wrapper(client) });
-    result.current.mutate({ parent: 'MMR-7', title: 'new', priority: 'p1', tags: ['ui'] });
+    result.current.mutate({ parent: 'MMR-7', priority: 'p1', tags: ['ui'], title: 'new' });
     await waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes', {
-        type: 'task',
         parent: 'MMR-7',
-        title: 'new',
         priority: 'p1',
         tags: ['ui'],
+        title: 'new',
+        type: 'task',
       });
     });
   });
@@ -106,11 +106,11 @@ describe('authoring mutation hooks', () => {
     apiSend.mockResolvedValue({ id: 'MMR-9' });
     const client = new QueryClient();
     const { result } = renderHook(() => useUpdateNode('MMR-9'), { wrapper: wrapper(client) });
-    result.current.mutate({ title: 'renamed', size: 'small' });
+    result.current.mutate({ size: 'small', title: 'renamed' });
     await waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/nodes/MMR-9', {
-        title: 'renamed',
         size: 'small',
+        title: 'renamed',
       });
     });
   });
@@ -131,11 +131,11 @@ describe('authoring mutation hooks', () => {
     apiSend.mockResolvedValue({ id: 'MMR' });
     const client = new QueryClient();
     const { result } = renderHook(() => useUpdateProject('MMR'), { wrapper: wrapper(client) });
-    result.current.mutate({ title: 'Renamed', description: 'A short blurb' });
+    result.current.mutate({ description: 'A short blurb', title: 'Renamed' });
     await waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', {
-        title: 'Renamed',
         description: 'A short blurb',
+        title: 'Renamed',
       });
     });
   });

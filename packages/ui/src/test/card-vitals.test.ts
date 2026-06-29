@@ -12,11 +12,11 @@ import { cardVitals } from '../lib/card-vitals';
 describe('cardVitals', () => {
   it('returns the five vitals in the fixed band-mirroring order', () => {
     const counts: Distribution = {
-      under_review: 2,
-      in_progress: 3,
-      ready: 4,
       awaiting: 1,
       blocked: 5,
+      in_progress: 3,
+      ready: 4,
+      under_review: 2,
     };
     expect(cardVitals(counts).map((v) => [v.word, v.count])).toStrictEqual([
       ['under_review', 2],
@@ -35,7 +35,7 @@ describe('cardVitals', () => {
   });
 
   it("ignores leaf buckets the card doesn't surface (parked/done/abandoned/new)", () => {
-    const vitals = cardVitals({ ready: 2, done: 9, parked: 4, abandoned: 1 });
+    const vitals = cardVitals({ abandoned: 1, done: 9, parked: 4, ready: 2 });
     expect(vitals).toHaveLength(5);
     expect(vitals.map((v) => v.word)).not.toContain('done');
     expect(vitals.map((v) => v.word)).not.toContain('parked');

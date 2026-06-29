@@ -99,8 +99,8 @@ const PROJECT_LIST_FACETS: readonly FacetName[] = [
 /** Resolve a node token for a verb — the HTTP binding of the core guard, with route pointers. */
 async function nodeRef(db: Db, token: string, expected = 'node'): Promise<number> {
   return resolveNodeToken(db, token, expected, {
-    project: 'projects live at /api/projects',
     artifact: 'artifacts live at /api/artifacts',
+    project: 'projects live at /api/projects',
   });
 }
 
@@ -117,7 +117,7 @@ async function echoNode(
 
 /** A collection body: the envelope object, warnings folded in when present. */
 function setBody(total: number, items: NodeView[], warnings?: unknown[]): Record<string, unknown> {
-  const body: Record<string, unknown> = { total, items: items.map(nodeToWire) };
+  const body: Record<string, unknown> = { items: items.map(nodeToWire), total };
   if (warnings !== undefined && warnings.length > 0) {
     body.warnings = warnings;
   }
@@ -138,7 +138,7 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
     filters.push(parseFilterToken('in', `type:${type}`));
   } else if (!filters.some((f) => f.field === 'type')) {
     // No type selection → the whole tree, not the intent layer's tasks-only default.
-    filters.push({ op: 'in', field: 'type', value: NODE_TYPE_VALUES.join(',') });
+    filters.push({ field: 'type', op: 'in', value: NODE_TYPE_VALUES.join(',') });
   }
   const priority = q.get('priority');
   if (priority !== null) {
@@ -162,12 +162,12 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
         if (!(VERDICT_VALUES as readonly string[]).includes(token)) {
           throw validation(`unknown verdict ${token}`, `verdicts: ${VERDICT_VALUES.join(', ')}`);
         }
-        verdicts.push({ verdict: token as Verdict, negate });
+        verdicts.push({ negate, verdict: token as Verdict });
       }
     }
   }
 
-  const opts: ListOptions = { filters, verdicts, facets: SET_FACETS };
+  const opts: ListOptions = { facets: SET_FACETS, filters, verdicts };
   const scope = q.get('project');
   if (scope !== null) {
     opts.scope = scope;
@@ -191,14 +191,14 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
   const status = q.get('status');
   if (status !== null) {
     if (!(STATUS_SELECTOR_VALUES as readonly string[]).includes(status)) {
-      return { opts, badStatus: status };
+      return { badStatus: status, opts };
     }
     opts.status = status as StatusSelector;
   }
   return { opts };
 }
 
-export interface ServeOptions {
+export type ServeOptions = {
   port: number;
   /** Reported by /api/health — how `service status` asks a live process what it is. */
   version: string;
@@ -206,7 +206,7 @@ export interface ServeOptions {
   assets?: UiAssetMap;
   /** The MMR-53 walk-upward convenience; the daemon posture passes false (declared port, loud failure). */
   hunt?: boolean;
-}
+};
 
 /** How far past a taken port the hunt walks before giving up (MMR-53). */
 export const PORT_HUNT_SPAN = 20;
@@ -246,80 +246,83 @@ export function createServer(db: Db, opts: ServeOptions): Server<undefined> {
 
 function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined> {
   return Bun.serve({
+    fetch(req) {
+      if (req.method === 'OPTIONS') {
+        return preflight(req);
+      }
+      const { pathname } = new URL(req.url);
+      // Everything outside /api/* is the console's: exact asset, else the
+      // SPA fallback (ADR 0013). With no UI built, misses stay 404s.
+      if (req.method === 'GET' && pathname !== '/api' && !pathname.startsWith('/api/')) {
+        const ui = uiResponse(pathname, opts.assets ?? UI_ASSETS);
+        if (ui !== null) {
+          return ui;
+        }
+      }
+      return json(req, { error: { code: 'not_found', message: `no route ${pathname}` } }, 404);
+    },
     hostname: '127.0.0.1',
     port,
     routes: {
-      '/api/health': {
-        GET: (req) => json(req, { status: 'ok', version: opts.version }),
-      },
-
-      '/api/projects': {
+      '/api/artifacts': {
         GET: (req) =>
           guarded(req, async () => {
-            const items = await listProjects(db, PROJECT_LIST_FACETS);
-            return json(req, setBody(items.length, items));
-          }),
-        POST: (req) =>
-          guarded(req, async () => {
-            const body = await readBody(req, ['key', 'name', 'description', 'tags']);
-            const project = await createProject(db, {
-              key: requiredStr(body, 'key', 'create project'),
-              name: requiredStr(body, 'name', 'create project'),
-              description: strField(body, 'description'),
-              tags: strList(body, 'tags'),
-            });
-            const view = await getNode(db, project.key, { facets: PROJECT_FACETS });
-            return json(req, nodeToWire(view), 201);
-          }),
-      },
-
-      '/api/projects/:key': {
-        GET: (req) =>
-          guarded(req, async () => {
-            const key = req.params.key;
-            if (parseIdentity(key)?.kind !== 'project') {
-              throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
+            const q = new URL(req.url).searchParams;
+            const opts: Parameters<typeof listArtifacts>[1] = {};
+            const project = q.get('project');
+            if (project !== null) opts.project = project;
+            const tag = q.get('tag');
+            if (tag !== null) opts.tag = tag;
+            const text = q.get('q');
+            if (text !== null) opts.q = text;
+            const since = q.get('since');
+            if (since !== null) opts.since = normalizeDate(since, 'start');
+            const before = q.get('before');
+            if (before !== null) opts.before = normalizeDate(before, 'end');
+            const limit = q.get('limit');
+            if (limit !== null) {
+              const n = Number(limit);
+              if (!Number.isInteger(n) || n < 1) {
+                throw validation(`invalid limit ${limit}`);
+              }
+              opts.limit = n;
             }
-            const view = await getNode(db, key, { facets: PROJECT_FACETS });
-            return json(req, nodeToWire(view));
+            const result = await listArtifacts(db, opts);
+            return json(req, {
+              total: result.total,
+              items: result.items.map(artifactSummaryToWire),
+            });
           }),
+      },
+
+      '/api/artifacts/:id': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const detail = await getArtifact(db, req.params.id, { content: true });
+            return json(req, artifactToWire(detail));
+          }),
+        // The dumb update for an artifact (MMR-40): title only; content is
+        // frozen (ADR 0004) and never patchable.
         PATCH: (req) =>
           guarded(req, async () => {
-            const key = req.params.key;
-            if (parseIdentity(key)?.kind !== 'project') {
-              throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
+            const body = await readBody(req, ['title']);
+            const identity = parseIdentity(req.params.id);
+            if (identity?.kind !== 'artifact') {
+              throw notFound(`no artifact with id ${req.params.id}`);
             }
-            const body = await readBody(req, ['name', 'title', 'description']);
-            // Accept both `name` and `title` as the project name field
-            // (`title` follows the NodeView wire name; `name` is the native field).
-            const name = strField(body, 'name') ?? strField(body, 'title');
-            const description = strField(body, 'description');
-            const project = await db
-              .selectFrom('project')
-              .select('id')
-              .where('key', '=', key)
-              .executeTakeFirst();
-            if (project === undefined) throw projectNotFound(key);
-            await updateProject(db, project.id, { name, description });
-            const updated = await db
-              .selectFrom('project')
-              .selectAll()
-              .where('id', '=', project.id)
-              .executeTakeFirstOrThrow();
-            const view = await buildProjectView(db, updated, new Set(PROJECT_FACETS));
-            return json(req, nodeToWire(view));
+            const artifact = await findArtifactByRef(db, identity);
+            if (artifact === undefined) throw notFound(`no artifact ${req.params.id}`);
+            const title = strField(body, 'title');
+            if (title !== undefined) {
+              await updateArtifact(db, artifact.id, { title });
+            }
+            const detail = await getArtifact(db, req.params.id, { content: true });
+            return json(req, artifactToWire(detail));
           }),
       },
 
-      '/api/projects/:key/tree': {
-        GET: (req) =>
-          guarded(req, async () => {
-            const key = req.params.key;
-            if (parseIdentity(key)?.kind !== 'project') {
-              throw validation(`${key} is not a project key`);
-            }
-            return json(req, treeToWire(await projectTree(db, key)));
-          }),
+      '/api/health': {
+        GET: (req) => json(req, { status: 'ok', version: opts.version }),
       },
 
       '/api/nodes': {
@@ -455,47 +458,6 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           }),
       },
 
-      '/api/nodes/:id/start': {
-        POST: (req) =>
-          guarded(req, async () => {
-            await readBody(req, []);
-            return echoNode(db, req, await startTask(db, await nodeRef(db, req.params.id, 'task')));
-          }),
-      },
-      '/api/nodes/:id/submit': {
-        POST: (req) =>
-          guarded(req, async () => {
-            await readBody(req, []);
-            return echoNode(
-              db,
-              req,
-              await submitTask(db, await nodeRef(db, req.params.id, 'task')),
-            );
-          }),
-      },
-      '/api/nodes/:id/return': {
-        POST: (req) =>
-          guarded(req, async () => {
-            const body = await readBody(req, ['reason']);
-            const node = await returnTask(
-              db,
-              await nodeRef(db, req.params.id, 'task'),
-              strField(body, 'reason'),
-            );
-            return echoNode(db, req, node);
-          }),
-      },
-      '/api/nodes/:id/done': {
-        POST: (req) =>
-          guarded(req, async () => {
-            await readBody(req, []);
-            return echoNode(
-              db,
-              req,
-              await completeTask(db, await nodeRef(db, req.params.id, 'task')),
-            );
-          }),
-      },
       '/api/nodes/:id/abandon': {
         POST: (req) =>
           guarded(req, async () => {
@@ -508,41 +470,62 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             return echoNode(db, req, node);
           }),
       },
-      '/api/nodes/:id/reopen': {
+
+      '/api/nodes/:id/annotations': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const view = await getNode(db, req.params.id, { facets: ['annotations'] });
+            const items = (view.annotations ?? []).map((a) => ({
+              content: a.content,
+              created_at: a.createdAt,
+            }));
+            return json(req, { total: items.length, items });
+          }),
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ['reason']);
-            const node = await reopenTask(
+            const body = await readBody(req, ['content']);
+            const node = await annotate(
               db,
-              await nodeRef(db, req.params.id, 'task'),
-              strField(body, 'reason'),
+              await nodeRef(db, req.params.id),
+              requiredStr(body, 'content', 'annotate'),
             );
-            return echoNode(db, req, node);
+            return echoNode(db, req, node, 201);
           }),
       },
-      '/api/nodes/:id/park': {
+
+      '/api/nodes/:id/artifacts': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ['reason']);
-            const node = await parkTask(
-              db,
-              await nodeRef(db, req.params.id, 'task'),
-              strField(body, 'reason'),
-            );
-            return echoNode(db, req, node);
+            const body = await readBody(req, ['title', 'content', 'links', 'tags']);
+            const anchor = await findNodeByRef(db, req.params.id);
+            if (anchor === undefined) {
+              throw notFound(`${req.params.id} doesn't exist`);
+            }
+            const linkNodeIds = [anchor.id];
+            for (const token of strList(body, 'links') ?? []) {
+              const linked = await findNodeByRef(db, token);
+              if (linked === undefined) {
+                throw notFound(`${token} doesn't exist`);
+              }
+              if (linked.project_id !== anchor.project_id) {
+                throw validation('all the links must be in one project');
+              }
+              if (!linkNodeIds.includes(linked.id)) {
+                linkNodeIds.push(linked.id);
+              }
+            }
+            const { renderedId } = await attachArtifact(db, {
+              projectId: anchor.project_id,
+              title: requiredStr(body, 'title', 'attach'),
+              content: requiredStr(body, 'content', 'attach'),
+              linkNodeIds,
+              tags: strList(body, 'tags'),
+            });
+            const detail = await getArtifact(db, renderedId, { content: true });
+            return json(req, artifactToWire(detail), 201);
           }),
       },
-      '/api/nodes/:id/unpark': {
-        POST: (req) =>
-          guarded(req, async () => {
-            await readBody(req, []);
-            return echoNode(
-              db,
-              req,
-              await unparkTask(db, await nodeRef(db, req.params.id, 'task')),
-            );
-          }),
-      },
+
       '/api/nodes/:id/block': {
         POST: (req) =>
           guarded(req, async () => {
@@ -553,17 +536,6 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
               strField(body, 'reason'),
             );
             return echoNode(db, req, node);
-          }),
-      },
-      '/api/nodes/:id/unblock': {
-        POST: (req) =>
-          guarded(req, async () => {
-            await readBody(req, []);
-            return echoNode(
-              db,
-              req,
-              await unblockTask(db, await nodeRef(db, req.params.id, 'task')),
-            );
           }),
       },
 
@@ -580,17 +552,16 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             return echoNode(db, req, await depend(db, id, onIds));
           }),
       },
-      '/api/nodes/:id/undepend': {
+
+      '/api/nodes/:id/done': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ['on']);
-            const on = strList(body, 'on');
-            if (on === undefined || on.length === 0) {
-              throw validation('undepend requires on');
-            }
-            const id = await nodeRef(db, req.params.id);
-            const onIds = await Promise.all(on.map((t) => nodeRef(db, t)));
-            return echoNode(db, req, await undepend(db, id, onIds));
+            await readBody(req, []);
+            return echoNode(
+              db,
+              req,
+              await completeTask(db, await nodeRef(db, req.params.id, 'task')),
+            );
           }),
       },
 
@@ -607,6 +578,33 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             return echoNode(db, req, node);
           }),
       },
+
+      '/api/nodes/:id/park': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['reason']);
+            const node = await parkTask(
+              db,
+              await nodeRef(db, req.params.id, 'task'),
+              strField(body, 'reason'),
+            );
+            return echoNode(db, req, node);
+          }),
+      },
+
+      '/api/nodes/:id/reopen': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['reason']);
+            const node = await reopenTask(
+              db,
+              await nodeRef(db, req.params.id, 'task'),
+              strField(body, 'reason'),
+            );
+            return echoNode(db, req, node);
+          }),
+      },
+
       '/api/nodes/:id/reorder': {
         POST: (req) =>
           guarded(req, async () => {
@@ -650,29 +648,50 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           }),
       },
 
-      '/api/nodes/:id/annotations': {
-        GET: (req) =>
-          guarded(req, async () => {
-            const view = await getNode(db, req.params.id, { facets: ['annotations'] });
-            const items = (view.annotations ?? []).map((a) => ({
-              content: a.content,
-              created_at: a.createdAt,
-            }));
-            return json(req, { total: items.length, items });
-          }),
+      '/api/nodes/:id/return': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ['content']);
-            const node = await annotate(
+            const body = await readBody(req, ['reason']);
+            const node = await returnTask(
               db,
-              await nodeRef(db, req.params.id),
-              requiredStr(body, 'content', 'annotate'),
+              await nodeRef(db, req.params.id, 'task'),
+              strField(body, 'reason'),
             );
-            return echoNode(db, req, node, 201);
+            return echoNode(db, req, node);
+          }),
+      },
+
+      '/api/nodes/:id/start': {
+        POST: (req) =>
+          guarded(req, async () => {
+            await readBody(req, []);
+            return echoNode(db, req, await startTask(db, await nodeRef(db, req.params.id, 'task')));
+          }),
+      },
+
+      '/api/nodes/:id/submit': {
+        POST: (req) =>
+          guarded(req, async () => {
+            await readBody(req, []);
+            return echoNode(
+              db,
+              req,
+              await submitTask(db, await nodeRef(db, req.params.id, 'task')),
+            );
           }),
       },
 
       '/api/nodes/:id/tags/:tag': {
+        DELETE: (req) =>
+          guarded(req, async () => {
+            const id = await nodeRef(db, req.params.id);
+            await untagEntities(db, [{ entityType: 'node', entityId: id }], [req.params.tag]);
+            const node = await findNodeByRef(db, req.params.id);
+            if (node === undefined) {
+              throw notFound(`${req.params.id} doesn't exist`);
+            }
+            return echoNode(db, req, node);
+          }),
         PUT: (req) =>
           guarded(req, async () => {
             const body = await readBody(req, ['note']);
@@ -689,105 +708,112 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             }
             return echoNode(db, req, node);
           }),
-        DELETE: (req) =>
-          guarded(req, async () => {
-            const id = await nodeRef(db, req.params.id);
-            await untagEntities(db, [{ entityType: 'node', entityId: id }], [req.params.tag]);
-            const node = await findNodeByRef(db, req.params.id);
-            if (node === undefined) {
-              throw notFound(`${req.params.id} doesn't exist`);
-            }
-            return echoNode(db, req, node);
-          }),
       },
 
-      '/api/nodes/:id/artifacts': {
+      '/api/nodes/:id/unblock': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ['title', 'content', 'links', 'tags']);
-            const anchor = await findNodeByRef(db, req.params.id);
-            if (anchor === undefined) {
-              throw notFound(`${req.params.id} doesn't exist`);
+            await readBody(req, []);
+            return echoNode(
+              db,
+              req,
+              await unblockTask(db, await nodeRef(db, req.params.id, 'task')),
+            );
+          }),
+      },
+
+      '/api/nodes/:id/undepend': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['on']);
+            const on = strList(body, 'on');
+            if (on === undefined || on.length === 0) {
+              throw validation('undepend requires on');
             }
-            const linkNodeIds = [anchor.id];
-            for (const token of strList(body, 'links') ?? []) {
-              const linked = await findNodeByRef(db, token);
-              if (linked === undefined) {
-                throw notFound(`${token} doesn't exist`);
-              }
-              if (linked.project_id !== anchor.project_id) {
-                throw validation('all the links must be in one project');
-              }
-              if (!linkNodeIds.includes(linked.id)) {
-                linkNodeIds.push(linked.id);
-              }
-            }
-            const { renderedId } = await attachArtifact(db, {
-              projectId: anchor.project_id,
-              title: requiredStr(body, 'title', 'attach'),
-              content: requiredStr(body, 'content', 'attach'),
-              linkNodeIds,
+            const id = await nodeRef(db, req.params.id);
+            const onIds = await Promise.all(on.map((t) => nodeRef(db, t)));
+            return echoNode(db, req, await undepend(db, id, onIds));
+          }),
+      },
+
+      '/api/nodes/:id/unpark': {
+        POST: (req) =>
+          guarded(req, async () => {
+            await readBody(req, []);
+            return echoNode(
+              db,
+              req,
+              await unparkTask(db, await nodeRef(db, req.params.id, 'task')),
+            );
+          }),
+      },
+
+      '/api/projects': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const items = await listProjects(db, PROJECT_LIST_FACETS);
+            return json(req, setBody(items.length, items));
+          }),
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['key', 'name', 'description', 'tags']);
+            const project = await createProject(db, {
+              key: requiredStr(body, 'key', 'create project'),
+              name: requiredStr(body, 'name', 'create project'),
+              description: strField(body, 'description'),
               tags: strList(body, 'tags'),
             });
-            const detail = await getArtifact(db, renderedId, { content: true });
-            return json(req, artifactToWire(detail), 201);
+            const view = await getNode(db, project.key, { facets: PROJECT_FACETS });
+            return json(req, nodeToWire(view), 201);
           }),
       },
 
-      '/api/artifacts': {
+      '/api/projects/:key': {
         GET: (req) =>
           guarded(req, async () => {
-            const q = new URL(req.url).searchParams;
-            const opts: Parameters<typeof listArtifacts>[1] = {};
-            const project = q.get('project');
-            if (project !== null) opts.project = project;
-            const tag = q.get('tag');
-            if (tag !== null) opts.tag = tag;
-            const text = q.get('q');
-            if (text !== null) opts.q = text;
-            const since = q.get('since');
-            if (since !== null) opts.since = normalizeDate(since, 'start');
-            const before = q.get('before');
-            if (before !== null) opts.before = normalizeDate(before, 'end');
-            const limit = q.get('limit');
-            if (limit !== null) {
-              const n = Number(limit);
-              if (!Number.isInteger(n) || n < 1) {
-                throw validation(`invalid limit ${limit}`);
-              }
-              opts.limit = n;
+            const key = req.params.key;
+            if (parseIdentity(key)?.kind !== 'project') {
+              throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
             }
-            const result = await listArtifacts(db, opts);
-            return json(req, {
-              total: result.total,
-              items: result.items.map(artifactSummaryToWire),
-            });
+            const view = await getNode(db, key, { facets: PROJECT_FACETS });
+            return json(req, nodeToWire(view));
           }),
-      },
-
-      '/api/artifacts/:id': {
-        GET: (req) =>
-          guarded(req, async () => {
-            const detail = await getArtifact(db, req.params.id, { content: true });
-            return json(req, artifactToWire(detail));
-          }),
-        // The dumb update for an artifact (MMR-40): title only; content is
-        // frozen (ADR 0004) and never patchable.
         PATCH: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ['title']);
-            const identity = parseIdentity(req.params.id);
-            if (identity?.kind !== 'artifact') {
-              throw notFound(`no artifact with id ${req.params.id}`);
+            const key = req.params.key;
+            if (parseIdentity(key)?.kind !== 'project') {
+              throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
             }
-            const artifact = await findArtifactByRef(db, identity);
-            if (artifact === undefined) throw notFound(`no artifact ${req.params.id}`);
-            const title = strField(body, 'title');
-            if (title !== undefined) {
-              await updateArtifact(db, artifact.id, { title });
+            const body = await readBody(req, ['name', 'title', 'description']);
+            // Accept both `name` and `title` as the project name field
+            // (`title` follows the NodeView wire name; `name` is the native field).
+            const name = strField(body, 'name') ?? strField(body, 'title');
+            const description = strField(body, 'description');
+            const project = await db
+              .selectFrom('project')
+              .select('id')
+              .where('key', '=', key)
+              .executeTakeFirst();
+            if (project === undefined) throw projectNotFound(key);
+            await updateProject(db, project.id, { name, description });
+            const updated = await db
+              .selectFrom('project')
+              .selectAll()
+              .where('id', '=', project.id)
+              .executeTakeFirstOrThrow();
+            const view = await buildProjectView(db, updated, new Set(PROJECT_FACETS));
+            return json(req, nodeToWire(view));
+          }),
+      },
+
+      '/api/projects/:key/tree': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const key = req.params.key;
+            if (parseIdentity(key)?.kind !== 'project') {
+              throw validation(`${key} is not a project key`);
             }
-            const detail = await getArtifact(db, req.params.id, { content: true });
-            return json(req, artifactToWire(detail));
+            return json(req, treeToWire(await projectTree(db, key)));
           }),
       },
 
@@ -809,22 +835,6 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             return json(req, body);
           }),
       },
-    },
-
-    fetch(req) {
-      if (req.method === 'OPTIONS') {
-        return preflight(req);
-      }
-      const { pathname } = new URL(req.url);
-      // Everything outside /api/* is the console's: exact asset, else the
-      // SPA fallback (ADR 0013). With no UI built, misses stay 404s.
-      if (req.method === 'GET' && pathname !== '/api' && !pathname.startsWith('/api/')) {
-        const ui = uiResponse(pathname, opts.assets ?? UI_ASSETS);
-        if (ui !== null) {
-          return ui;
-        }
-      }
-      return json(req, { error: { code: 'not_found', message: `no route ${pathname}` } }, 404);
     },
   });
 }

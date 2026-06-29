@@ -31,10 +31,10 @@ function reasonBody(reason?: string): { reason: string } | undefined {
   return trimmed !== undefined && trimmed !== '' ? { reason: trimmed } : undefined;
 }
 
-export interface TransitionInput {
+export type TransitionInput = {
   verb: TransitionVerb;
   reason?: string;
-}
+};
 
 export function useTransition(id: string) {
   const invalidate = useInvalidateOnWrite();
@@ -49,9 +49,9 @@ export function useTransition(id: string) {
 }
 
 /** Reorder is board-level: the id isn't known until a drop, so it's given at mutate time. */
-export interface ReorderInput extends ReorderArgs {
+export type ReorderInput = {
   id: string;
-}
+} & ReorderArgs;
 
 export function useReorder() {
   const invalidate = useInvalidateOnWrite();
@@ -65,7 +65,7 @@ export function useReorder() {
   });
 }
 
-export interface CreateTaskInput {
+export type CreateTaskInput = {
   parent: string;
   title: string;
   description?: string;
@@ -73,7 +73,7 @@ export interface CreateTaskInput {
   size?: string;
   external_ref?: string;
   tags?: string[];
-}
+};
 
 export function useCreateTask() {
   const invalidate = useInvalidateOnWrite();
@@ -85,13 +85,13 @@ export function useCreateTask() {
   });
 }
 
-export interface UpdateNodeInput {
+export type UpdateNodeInput = {
   title?: string;
   description?: string;
   priority?: string;
   size?: string;
   external_ref?: string;
-}
+};
 
 export function useUpdateNode(id: string) {
   const invalidate = useInvalidateOnWrite();
@@ -118,10 +118,10 @@ export function useMoveNode(id: string) {
   });
 }
 
-export interface UpdateProjectInput {
+export type UpdateProjectInput = {
   title?: string;
   description?: string;
-}
+};
 
 export function useUpdateProject(key: string) {
   const invalidate = useInvalidateOnWrite();

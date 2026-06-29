@@ -53,19 +53,19 @@ const VERDICT = z.enum(VERDICT_VALUES);
 const TOKENS = z.array(z.string());
 // Field operators (MMR-33): FIELD:VALUE tokens (bare FIELD for has/missing).
 const OPERATOR_SCHEMA = {
-  eq: TOKENS.optional(),
-  notEq: TOKENS.optional(),
-  in: TOKENS.optional(),
-  notIn: TOKENS.optional(),
-  has: TOKENS.optional(),
-  missing: TOKENS.optional(),
-  before: TOKENS.optional(),
-  on: TOKENS.optional(),
   after: TOKENS.optional(),
-  notBefore: TOKENS.optional(),
-  notAfter: TOKENS.optional(),
+  before: TOKENS.optional(),
+  eq: TOKENS.optional(),
+  has: TOKENS.optional(),
+  in: TOKENS.optional(),
   is: z.array(VERDICT).optional(),
+  missing: TOKENS.optional(),
+  notAfter: TOKENS.optional(),
+  notBefore: TOKENS.optional(),
+  notEq: TOKENS.optional(),
+  notIn: TOKENS.optional(),
   notIs: z.array(VERDICT).optional(),
+  on: TOKENS.optional(),
 };
 const FACET = z.enum([
   'deps',
@@ -112,8 +112,12 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
   // default scope, mirroring the CLI exactly — explicit scope wins, the
   // literal "all" escapes to every project (keys are uppercase; no collision).
   const applyScope = <A extends { scope?: string }>(args: A): A => {
-    if (args.scope === 'all') return { ...args, scope: undefined };
-    if (args.scope === undefined && boundScope !== undefined) return { ...args, scope: boundScope };
+    if (args.scope === 'all') {
+      return { ...args, scope: undefined };
+    }
+    if (args.scope === undefined && boundScope !== undefined) {
+      return { ...args, scope: boundScope };
+    }
     return args;
   };
 
@@ -126,10 +130,10 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
     'next',
     'Ready tasks in rank order — what to work on next. Optionally scope to a project key; filter by priority/size, verdicts (is/notIs: stale|blocking|orphaned), and field operators (eq/notEq/in/notIn/has/missing + date ops, FIELD:VALUE tokens). Value faults return an empty set plus a warnings array.',
     {
-      scope: z.string().optional(),
-      priority: PRIORITY.optional(),
-      size: SIZE.optional(),
       limit: LIMIT.optional(),
+      priority: PRIORITY.optional(),
+      scope: z.string().optional(),
+      size: SIZE.optional(),
       ...OPERATOR_SCHEMA,
     },
     (args: SetQueryArgs) => toolNext(db, applyScope(args)),
@@ -140,12 +144,12 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
     'list',
     'Broad selection: status picks the universe (ready|awaiting|in_progress|under_review|blocked|parked|done|abandoned or live|terminal|all; default live), verdicts (is/notIs) and field operators (FIELD:VALUE tokens) filter within it — all AND-composed. Value faults return an empty set plus a warnings array.',
     {
-      scope: z.string().optional(),
-      status: STATUS.optional(),
-      priority: PRIORITY.optional(),
-      size: SIZE.optional(),
-      tag: z.string().optional(),
       limit: LIMIT.optional(),
+      priority: PRIORITY.optional(),
+      scope: z.string().optional(),
+      size: SIZE.optional(),
+      status: STATUS.optional(),
+      tag: z.string().optional(),
       ...OPERATOR_SCHEMA,
     },
     (args: SetQueryArgs) => toolList(db, applyScope(args)),
@@ -155,7 +159,7 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
     server,
     'get',
     "Full record by rendered id: a node (KEY-seq, e.g. MMR-16), a whole project (bare KEY), or an artifact (KEY-aN). Cheap facets are included for nodes/projects; add `history` for the transition log, `content` for an artifact's frozen body.",
-    { id: z.string(), facets: z.array(FACET).optional() },
+    { facets: z.array(FACET).optional(), id: z.string() },
     (args: { id: string; facets?: (FacetName | 'content')[] }) => toolGet(db, args),
   );
 
@@ -309,13 +313,13 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
     'update',
     "Patch a node's scalar fields (title, description, priority, size, target, externalRef), or retitle an artifact (KEY-aN id, title only). Echoes the updated record.",
     {
-      id: z.string(),
-      title: z.string().optional(),
       description: z.string().optional(),
+      externalRef: z.string().optional(),
+      id: z.string(),
       priority: PRIORITY.optional(),
       size: SIZE.optional(),
       target: z.string().optional(),
-      externalRef: z.string().optional(),
+      title: z.string().optional(),
     },
     (args: {
       id: string;
@@ -332,7 +336,7 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
     server,
     'annotate',
     'Append a freeform annotation to a node. Echoes the updated node.',
-    { id: z.string(), content: z.string() },
+    { content: z.string(), id: z.string() },
     (args: { id: string; content: string }) => toolAnnotate(db, args),
   );
 
@@ -346,8 +350,8 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
     'Apply free-text tags to entities by rendered id (project KEY, node KEY-seq, artifact KEY-aN). Idempotent; optional note rides the application. Not transition-logged.',
     {
       ids: z.array(z.string()).min(1),
-      tags: z.array(z.string()).min(1),
       note: z.string().optional(),
+      tags: z.array(z.string()).min(1),
     },
     (args: { ids: string[]; tags: string[]; note?: string }) => toolTag(db, args),
   );
@@ -369,17 +373,17 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
     'create',
     'Create a node of the given type. project: requires key+name, echoes {project:{key,name}}. initiative: requires title+parent (project KEY). phase/task: requires title+parent (KEY-seq node ref). Echoes the created node.',
     {
-      type: z.enum(['project', 'initiative', 'phase', 'task']),
+      description: z.string().optional(),
+      externalRef: z.string().optional(),
       key: z.string().optional(),
       name: z.string().optional(),
       parent: z.string().optional(),
-      title: z.string().optional(),
-      description: z.string().optional(),
-      target: z.string().optional(),
       priority: PRIORITY.optional(),
       size: SIZE.optional(),
-      externalRef: z.string().optional(),
       tags: z.array(z.string()).optional(),
+      target: z.string().optional(),
+      title: z.string().optional(),
+      type: z.enum(['project', 'initiative', 'phase', 'task']),
     },
     (args: {
       type: 'project' | 'initiative' | 'phase' | 'task';
@@ -405,12 +409,12 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
     'attach',
     'Store a frozen artifact (title + content) and optionally link it to nodes and tag it. Infers project from linked nodes. Echoes {artifact:{id}} with the rendered KEY-aN id.',
     {
-      title: z.string(),
       content: z.string(),
+      links: z.array(z.string()).optional(),
       node: z.string().optional(),
       project: z.string().optional(),
-      links: z.array(z.string()).optional(),
       tags: z.array(z.string()).optional(),
+      title: z.string(),
     },
     (args: {
       title: string;

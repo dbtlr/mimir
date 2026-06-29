@@ -19,13 +19,13 @@ beforeAll(async () => {
   const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
   const t = await createTask(db, { parentId: phase.id, title: 't' });
   await attachArtifact(db, {
-    projectId: p.id,
-    title: 'Auth gate design',
     content: 'loopback and Caddy',
     linkNodeIds: [t.id],
+    projectId: p.id,
     tags: ['kind:spec'],
+    title: 'Auth gate design',
   });
-  server = createServer(db, { port: 0, version: 'test', hunt: false });
+  server = createServer(db, { hunt: false, port: 0, version: 'test' });
   base = `http://127.0.0.1:${String(server.port)}`;
 });
 
@@ -39,7 +39,7 @@ test('GET /api/artifacts returns the envelope of summaries', async () => {
   expect(res.status).toBe(200);
   const body = (await res.json()) as { total: number; items: { id: string; project: string }[] };
   expect(body.total).toBe(1);
-  expect(body.items[0]).toMatchObject({ title: 'Auth gate design', project: 'MMR' });
+  expect(body.items[0]).toMatchObject({ project: 'MMR', title: 'Auth gate design' });
   expect(body.items[0]?.id).toMatch(/^MMR-a\d+$/);
   expect(body.items[0]).not.toHaveProperty('content');
 });

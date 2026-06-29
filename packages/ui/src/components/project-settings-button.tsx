@@ -5,10 +5,10 @@ import { useUpdateProject } from '../api/mutations';
 import type { WireNode } from '../api/types';
 import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
 
-export interface ProjectFormValues {
+export type ProjectFormValues = {
   title: string;
   description: string;
-}
+};
 
 /**
  * Modest settings affordance for the active project board header. Opens a
@@ -72,15 +72,17 @@ function ProjectSettingsForm({
 }) {
   const form = useForm({
     defaultValues: {
-      title: project.title,
       description: project.description ?? '',
+      title: project.title,
     } satisfies ProjectFormValues,
     onSubmit: ({ value }) => {
       const title = value.title.trim();
-      if (title === '') return;
+      if (title === '') {
+        return;
+      }
       onSubmit({
-        title,
         description: value.description.trim(),
+        title,
       });
     },
   });

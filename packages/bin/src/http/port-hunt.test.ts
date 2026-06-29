@@ -30,7 +30,7 @@ afterEach(async () => {
  */
 function occupy(port: number): Server<undefined> | undefined {
   try {
-    const s = Bun.serve({ hostname: '127.0.0.1', port, fetch: () => new Response('squat') });
+    const s = Bun.serve({ fetch: () => new Response('squat'), hostname: '127.0.0.1', port });
     squatters.push(s);
     return s;
   } catch (err) {
@@ -43,7 +43,9 @@ function occupy(port: number): Server<undefined> | undefined {
 
 /** The bound TCP port; Bun types it optional (unix sockets have none). */
 function portOf(s: Server<undefined>): number {
-  if (s.port === undefined) throw new Error('server has no port');
+  if (s.port === undefined) {
+    throw new Error('server has no port');
+  }
   return s.port;
 }
 
@@ -60,7 +62,9 @@ function squatWithHeadroom(): Server<undefined> {
 test('a free requested port binds exactly', async () => {
   db = await createTestDb();
   const probe = occupy(0);
-  if (probe === undefined) throw new Error('port 0 must bind');
+  if (probe === undefined) {
+    throw new Error('port 0 must bind');
+  }
   const port = portOf(probe);
   await probe.stop(true);
   squatters.splice(squatters.indexOf(probe), 1);
@@ -107,7 +111,7 @@ test('hunt: false fails loudly on a taken port instead of walking', async () => 
   const taken = portOf(squatWithHeadroom());
   let thrown: unknown;
   try {
-    const server = createServer(db, { port: taken, version: '0.0.0-test', hunt: false });
+    const server = createServer(db, { hunt: false, port: taken, version: '0.0.0-test' });
     squatters.push(server);
   } catch (err) {
     thrown = err;

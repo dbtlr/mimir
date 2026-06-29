@@ -5,14 +5,14 @@ import type { Db } from './context';
 import { renderArtifactRef } from './ids';
 
 /** Portfolio artifact search (MMR-52). All filters compose with AND. */
-export interface ArtifactQuery {
+export type ArtifactQuery = {
   project?: string;
   tag?: string;
   since?: string;
   before?: string;
   q?: string;
   limit?: number;
-}
+};
 
 const DEFAULT_LIMIT = 100;
 
@@ -79,12 +79,12 @@ export async function listArtifacts(
       .orderBy('created_at', 'asc')
       .execute();
     items.push({
+      createdAt: row.createdAt,
       id: renderArtifactRef({ key: row.key, seq: row.seq }),
-      title: row.title,
       project: row.key,
       tags: tagRows.map((t) => t.tag),
-      createdAt: row.createdAt,
+      title: row.title,
     });
   }
-  return { total: Number(c), items };
+  return { items, total: Number(c) };
 }

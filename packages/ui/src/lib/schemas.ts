@@ -18,32 +18,32 @@ const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
     .transform((v) => v as (typeof values)[number] | null);
 
 export const taskFormSchema = z.object({
+  description: optionalText,
+  external_ref: optionalText,
+  priority: optionalEnum(PRIORITY_VALUES),
+  size: optionalEnum(SIZE_VALUES),
+  tags: z.array(z.string()).default([]),
   title: z
     .string()
     .transform((s) => s.trim())
     .refine((s) => s.length > 0, { message: 'Title is required' }),
-  description: optionalText,
-  priority: optionalEnum(PRIORITY_VALUES),
-  size: optionalEnum(SIZE_VALUES),
-  external_ref: optionalText,
-  tags: z.array(z.string()).default([]),
 });
 
 /** The raw (pre-parse) form shape — all strings, as the inputs hold them. */
-export interface TaskFormValues {
+export type TaskFormValues = {
   title: string;
   description: string;
   priority: string;
   size: string;
   external_ref: string;
   tags: string[];
-}
+};
 
 export const emptyTaskForm: TaskFormValues = {
-  title: '',
   description: '',
+  external_ref: '',
   priority: '',
   size: '',
-  external_ref: '',
   tags: [],
+  title: '',
 };

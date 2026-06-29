@@ -76,30 +76,30 @@ import { SKILL_AGENTS, SKILL_FILES, skillDirFor } from './skill-assets';
 import type { SkillAgent } from './skill-assets';
 
 const OPTIONS = {
-  scope: { type: 'string', short: 's' },
-  priority: { type: 'string', short: 'p' },
+  scope: { short: 's', type: 'string' },
+  priority: { short: 'p', type: 'string' },
   size: { type: 'string' },
   status: { type: 'string' },
-  is: { type: 'string', multiple: true },
-  'not-is': { type: 'string', multiple: true },
-  eq: { type: 'string', multiple: true },
-  'not-eq': { type: 'string', multiple: true },
-  in: { type: 'string', multiple: true },
-  'not-in': { type: 'string', multiple: true },
-  has: { type: 'string', multiple: true },
-  missing: { type: 'string', multiple: true },
-  before: { type: 'string', multiple: true },
-  on: { type: 'string', multiple: true },
-  after: { type: 'string', multiple: true },
-  'not-before': { type: 'string', multiple: true },
-  'not-after': { type: 'string', multiple: true },
-  tag: { type: 'string', short: 't', multiple: true },
+  is: { multiple: true, type: 'string' },
+  'not-is': { multiple: true, type: 'string' },
+  eq: { multiple: true, type: 'string' },
+  'not-eq': { multiple: true, type: 'string' },
+  in: { multiple: true, type: 'string' },
+  'not-in': { multiple: true, type: 'string' },
+  has: { multiple: true, type: 'string' },
+  missing: { multiple: true, type: 'string' },
+  before: { multiple: true, type: 'string' },
+  on: { multiple: true, type: 'string' },
+  after: { multiple: true, type: 'string' },
+  'not-before': { multiple: true, type: 'string' },
+  'not-after': { multiple: true, type: 'string' },
+  tag: { multiple: true, short: 't', type: 'string' },
   note: { type: 'string' },
-  limit: { type: 'string', short: 'n' },
-  col: { type: 'string', multiple: true },
-  format: { type: 'string', short: 'f' },
+  limit: { short: 'n', type: 'string' },
+  col: { multiple: true, type: 'string' },
+  format: { short: 'f', type: 'string' },
   ascii: { type: 'boolean' },
-  help: { type: 'boolean', short: 'h' },
+  help: { short: 'h', type: 'boolean' },
   // Write-surface flags — `--on` / `--before` / `--after` are shared with the
   // query date-ops above (multiple); the write verbs read the last value.
   to: { type: 'string' },
@@ -115,7 +115,7 @@ const OPTIONS = {
   top: { type: 'boolean' },
   bottom: { type: 'boolean' },
   title: { type: 'string' },
-  yes: { type: 'boolean', short: 'y' },
+  yes: { short: 'y', type: 'boolean' },
   // skill install
   global: { type: 'boolean' },
   local: { type: 'boolean' },
@@ -132,12 +132,12 @@ const OPTIONS = {
  * the Project Binding scope (ADR 0011) and the directory `bind` writes into.
  * Injected so the CLI stays testable without touching the real cwd.
  */
-export interface Defaults {
+export type Defaults = {
   scope?: string;
   cwd?: string;
   /** Real service/self-update edges; absent where supervision is unavailable (tests). */
   service?: ServiceDeps;
-}
+};
 
 /**
  * The effective `-s` scope: an explicit flag wins; the literal `all` is the
@@ -148,7 +148,9 @@ function effectiveScope(
   explicit: string | undefined,
   bound: string | undefined,
 ): string | undefined {
-  if (explicit === 'all') return undefined;
+  if (explicit === 'all') {
+    return undefined;
+  }
   return explicit ?? bound;
 }
 
@@ -213,14 +215,16 @@ export async function runCli(
   };
   let positionals: string[];
   try {
-    const parsed = parseArgs({ args: argv, options: OPTIONS, allowPositionals: true });
+    const parsed = parseArgs({ allowPositionals: true, args: argv, options: OPTIONS });
     values = parsed.values;
     positionals = parsed.positionals;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     const fmt = errorFormat(argv);
     renderError(usage(msg), fmt, io);
-    if (fmt !== 'json' && fmt !== 'jsonl') io.error(TERSE_HELP);
+    if (fmt !== 'json' && fmt !== 'jsonl') {
+      io.error(TERSE_HELP);
+    }
     return 2;
   }
 
@@ -241,10 +245,10 @@ export async function runCli(
     // help, usage errors, and `skill install` never open or create it.
     const mkCtx = async (): Promise<Ctx> => ({
       db: await getDb(),
-      positionals,
-      values: values as Record<string, unknown>,
       format: singleFormat,
       io: ctx,
+      positionals,
+      values: values as Record<string, unknown>,
     });
 
     switch (command) {
@@ -256,13 +260,13 @@ export async function runCli(
             : "No ready tasks — mimir list --status awaiting shows what's queued";
         return runSet(
           await nextTasks(await getDb(), {
-            scope: nextScope,
-            priority: parsePriority(values.priority),
-            size: parseSize(values.size),
-            verdicts: parseVerdicts(values.is, values['not-is']),
+            facets: parseFacets(values.col),
             filters: parseFilters(values),
             limit: parseLimit(values.limit),
-            facets: parseFacets(values.col),
+            priority: parsePriority(values.priority),
+            scope: nextScope,
+            size: parseSize(values.size),
+            verdicts: parseVerdicts(values.is, values['not-is']),
           }),
           values.format,
           ctx,
@@ -272,15 +276,15 @@ export async function runCli(
       case 'list': {
         return runSet(
           await listNodes(await getDb(), {
-            scope: effectiveScope(values.scope, defaults.scope),
-            status: parseStatus(values.status),
-            verdicts: parseVerdicts(values.is, values['not-is']),
-            filters: parseFilters(values),
-            priority: parsePriority(values.priority),
-            size: parseSize(values.size),
-            tag: values.tag?.[0],
-            limit: parseLimit(values.limit),
             facets: parseFacets(values.col),
+            filters: parseFilters(values),
+            limit: parseLimit(values.limit),
+            priority: parsePriority(values.priority),
+            scope: effectiveScope(values.scope, defaults.scope),
+            size: parseSize(values.size),
+            status: parseStatus(values.status),
+            tag: values.tag?.[0],
+            verdicts: parseVerdicts(values.is, values['not-is']),
           }),
           values.format,
           ctx,
@@ -417,7 +421,7 @@ export async function runCli(
           writeFileSync(target, f.content);
         }
         if (singleFormat === 'json' || singleFormat === 'jsonl') {
-          ctx.write(JSON.stringify({ installed: { path: dir, files: SKILL_FILES.length, agent } }));
+          ctx.write(JSON.stringify({ installed: { agent, files: SKILL_FILES.length, path: dir } }));
         } else if (singleFormat === 'ids') {
           ctx.write(dir);
         } else {
@@ -428,11 +432,13 @@ export async function runCli(
       }
       case 'bind': {
         const key = positionals[1];
-        if (key === undefined) throw usage('bind requires a project KEY');
+        if (key === undefined) {
+          throw usage('bind requires a project KEY');
+        }
         await resolveProject(await getDb(), key); // validates the project exists (not_found otherwise)
         writeBinding(defaults.cwd ?? process.cwd(), key);
         if (singleFormat === 'json' || singleFormat === 'jsonl') {
-          ctx.write(JSON.stringify({ bound: { project: key, file: BINDING_FILE } }));
+          ctx.write(JSON.stringify({ bound: { file: BINDING_FILE, project: key } }));
         } else if (singleFormat === 'ids') {
           ctx.write(key);
         } else {
@@ -489,13 +495,17 @@ function errorFormat(argv: string[]): string {
     const eqMatch = /^(?:--format|-f)=(.+)$/.exec(arg);
     if (eqMatch) {
       const val = eqMatch[1];
-      if (val === 'json' || val === 'jsonl') return val;
+      if (val === 'json' || val === 'jsonl') {
+        return val;
+      }
       continue;
     }
     // Separate-token form: --format json or -f json
     if ((arg === '-f' || arg === '--format') && i < argv.length - 1) {
       const val = argv[i + 1] ?? '';
-      if (val === 'json' || val === 'jsonl') return val;
+      if (val === 'json' || val === 'jsonl') {
+        return val;
+      }
     }
   }
   return 'records';
@@ -557,10 +567,14 @@ function pickFormat(
     return explicit as Format;
   }
   // `status` is structured data — json on every destination.
-  if (kind === 'status') return 'json';
+  if (kind === 'status') {
+    return 'json';
+  }
   // `report` (service status / self-update) keeps its MMR-59 split: json when
   // piped, human prose in a terminal.
-  if (kind === 'report') return io.isTTY ? 'records' : 'json';
+  if (kind === 'report') {
+    return io.isTTY ? 'records' : 'json';
+  }
   // `set`/`single` (MMR-87): `isTTY` governs *decoration* only, never
   // *information*. The piped default carries the same fields as the interactive
   // one — color is already stripped via `io.plain` (`NO_COLOR || !isTTY`).
@@ -588,7 +602,9 @@ function parseFacets(cols: string[] | undefined): FacetName[] {
     if (col.startsWith('.')) {
       throw usage(`columns are flat now: --col ${col.slice(1)} (the dot prefix was dropped)`);
     }
-    if (col === 'content') continue; // artifact-only; a node simply has no body
+    if (col === 'content') {
+      continue;
+    } // artifact-only; a node simply has no body
     if (!(FACET_NAMES as readonly string[]).includes(col)) {
       throw usage(`unknown column: ${col}`, `columns: ${[...FACET_NAMES, 'content'].join(', ')}`);
     }
@@ -598,7 +614,9 @@ function parseFacets(cols: string[] | undefined): FacetName[] {
 }
 
 function parseStatus(value: string | undefined): StatusSelector | undefined {
-  if (value === undefined) return undefined;
+  if (value === undefined) {
+    return undefined;
+  }
   if (!(STATUS_SELECTOR_VALUES as readonly string[]).includes(value)) {
     throw usage(`invalid status: ${value} (expected ${STATUS_SELECTOR_VALUES.join('|')})`);
   }
@@ -612,7 +630,7 @@ function parseVerdicts(is: string[] | undefined, notIs: string[] | undefined): V
       if (!(VERDICT_VALUES as readonly string[]).includes(token)) {
         throw usage(`invalid verdict: ${token} (expected ${VERDICT_VALUES.join('|')})`);
       }
-      out.push({ verdict: token as Verdict, negate });
+      out.push({ negate, verdict: token as Verdict });
     }
   };
   take(is, false);
@@ -644,12 +662,16 @@ function parseFilters(values: Record<string, unknown>): FieldFilter[] {
   const filters: FieldFilter[] = [];
   for (const op of OP_FLAGS) {
     const tokens = values[op];
-    if (!Array.isArray(tokens)) continue;
+    if (!Array.isArray(tokens)) {
+      continue;
+    }
     for (const token of tokens as string[]) {
       try {
-        filters.push(parseFilterToken(op as QueryOp, token));
+        filters.push(parseFilterToken(op, token));
       } catch (error) {
-        if (error instanceof MimirError) throw usage(error.message, error.hint);
+        if (error instanceof MimirError) {
+          throw usage(error.message, error.hint);
+        }
         throw error;
       }
     }
@@ -658,7 +680,9 @@ function parseFilters(values: Record<string, unknown>): FieldFilter[] {
 }
 
 function parseLimit(value: string | undefined): number | undefined {
-  if (value === undefined) return undefined;
+  if (value === undefined) {
+    return undefined;
+  }
   const n = Number.parseInt(value, 10);
   if (Number.isNaN(n) || n < 0) {
     throw usage(`invalid limit: ${value}`);

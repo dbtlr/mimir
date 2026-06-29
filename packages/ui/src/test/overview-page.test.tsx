@@ -15,13 +15,13 @@ function attn(band: WireAttention['band'], lastActivity: string, stale = false):
 }
 
 function proj(id: string, attention?: WireAttention) {
-  return { id, title: `${id} project`, status: 'in_progress', distribution: {}, attention };
+  return { attention, distribution: {}, id, status: 'in_progress', title: `${id} project` };
 }
 
 function renderOverview() {
   const testRouter = createRouter({
-    routeTree: router.routeTree,
     history: createMemoryHistory({ initialEntries: ['/'] }),
+    routeTree: router.routeTree,
   });
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -35,15 +35,15 @@ describe('overviewPage attention-router (MMR-102)', () => {
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/projects') {
         return Promise.resolve({
-          total: 3,
           items: [
             proj('REVIEW', attn('awaiting_you', '2026-06-20T00:00:00.000Z')),
             proj('LIVE', attn('live', '2026-06-19T00:00:00.000Z')),
             proj('RESTED', attn('at_rest', '2026-06-01T00:00:00.000Z')),
           ],
+          total: 3,
         });
       }
-      return Promise.resolve({ total: 0, items: [] }); // ready + attention strips
+      return Promise.resolve({ items: [], total: 0 }); // ready + attention strips
     });
     renderOverview();
 
@@ -61,9 +61,9 @@ describe('overviewPage attention-router (MMR-102)', () => {
   it('degrades to a flat Overview grid when the attention facet is absent', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/projects') {
-        return Promise.resolve({ total: 1, items: [proj('OLDCACHE')] }); // no attention
+        return Promise.resolve({ items: [proj('OLDCACHE')], total: 1 }); // no attention
       }
-      return Promise.resolve({ total: 0, items: [] });
+      return Promise.resolve({ items: [], total: 0 });
     });
     renderOverview();
 
@@ -74,8 +74,10 @@ describe('overviewPage attention-router (MMR-102)', () => {
 
   it('shows an empty state when there are no projects', async () => {
     apiGet.mockImplementation((path: string) => {
-      if (path === '/api/projects') return Promise.resolve({ total: 0, items: [] });
-      return Promise.resolve({ total: 0, items: [] });
+      if (path === '/api/projects') {
+        return Promise.resolve({ total: 0, items: [] });
+      }
+      return Promise.resolve({ items: [], total: 0 });
     });
     renderOverview();
 

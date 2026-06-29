@@ -8,11 +8,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-export interface ServeConfig {
+export type ServeConfig = {
   port?: number;
   /** Set when a config file exists but contributed nothing — callers may warn. */
   problem?: 'malformed' | 'invalid-port';
-}
+};
 
 /** `$XDG_CONFIG_HOME/mimir/config.toml`, defaulting to `~/.config`. */
 export function configPath(xdgConfigHome = process.env.XDG_CONFIG_HOME): string {
@@ -33,7 +33,9 @@ export function configPath(xdgConfigHome = process.env.XDG_CONFIG_HOME): string 
  * - Valid port → `{ port }`
  */
 export function readServeConfig(file = configPath()): ServeConfig {
-  if (!existsSync(file)) return {};
+  if (!existsSync(file)) {
+    return {};
+  }
   let parsed: { serve?: { port?: unknown } };
   try {
     parsed = Bun.TOML.parse(readFileSync(file, 'utf8')) as {
@@ -44,7 +46,9 @@ export function readServeConfig(file = configPath()): ServeConfig {
   }
   const port = parsed.serve?.port;
   // No port key at all — not a problem, caller uses the default.
-  if (port === undefined) return {};
+  if (port === undefined) {
+    return {};
+  }
   if (typeof port === 'number' && Number.isInteger(port) && port >= 1 && port <= 65535) {
     return { port };
   }

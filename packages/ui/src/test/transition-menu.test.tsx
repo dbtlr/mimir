@@ -35,7 +35,7 @@ describe('transitionMenu', () => {
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Park' }));
     await userEvent.type(await screen.findByRole('textbox'), 'later');
     await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
-    expect(mutate).toHaveBeenCalledWith({ verb: 'park', reason: 'later' });
+    expect(mutate).toHaveBeenCalledWith({ reason: 'later', verb: 'park' });
   });
 
   it('disabled hides the trigger action', () => {

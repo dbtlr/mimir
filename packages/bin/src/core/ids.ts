@@ -12,10 +12,10 @@
  * can't act on (a behavioral error, not a parse error).
  */
 
-export interface NodeRef {
+export type NodeRef = {
   key: string;
   seq: number;
-}
+};
 
 /** A parsed rendered id — which entity kind a token names. */
 export type Identity =
@@ -53,18 +53,18 @@ export function parseId(id: string): NodeRef | null {
 /** Parse any rendered identity — `KEY` | `KEY-seq` | `KEY-aN` — or `null` if malformed. */
 export function parseIdentity(token: string): Identity | null {
   if (PROJECT_PATTERN.test(token)) {
-    return { kind: 'project', key: token };
+    return { key: token, kind: 'project' };
   }
   const artifact = ARTIFACT_PATTERN.exec(token);
   if (artifact !== null) {
     const [, key, seqText] = artifact;
     if (key !== undefined && seqText !== undefined) {
-      return { kind: 'artifact', key, seq: Number(seqText) };
+      return { key, kind: 'artifact', seq: Number(seqText) };
     }
   }
   const node = parseId(token);
   if (node !== null) {
-    return { kind: 'node', key: node.key, seq: node.seq };
+    return { key: node.key, kind: 'node', seq: node.seq };
   }
   return null;
 }

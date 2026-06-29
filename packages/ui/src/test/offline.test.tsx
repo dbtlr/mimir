@@ -8,22 +8,22 @@ import { shouldPersistQuery } from '../lib/persist';
 describe('connectivity', () => {
   it('any errored query means offline; lastSync is the freshest read', () => {
     const conn = connectivity([
-      { isError: false, dataUpdatedAt: 1_000 },
-      { isError: true, dataUpdatedAt: 5_000 },
-      { isError: false, dataUpdatedAt: 3_000 },
+      { dataUpdatedAt: 1_000, isError: false },
+      { dataUpdatedAt: 5_000, isError: true },
+      { dataUpdatedAt: 3_000, isError: false },
     ]);
     expect(conn.offline).toBe(true);
     expect(conn.lastSync).toBe(5_000);
   });
 
   it('all queries healthy means online', () => {
-    const conn = connectivity([{ isError: false, dataUpdatedAt: 1_000 }]);
+    const conn = connectivity([{ dataUpdatedAt: 1_000, isError: false }]);
     expect(conn.offline).toBe(false);
   });
 
   it('never-synced has a null lastSync', () => {
-    const conn = connectivity([{ isError: true, dataUpdatedAt: 0 }]);
-    expect(conn).toStrictEqual({ offline: true, lastSync: null });
+    const conn = connectivity([{ dataUpdatedAt: 0, isError: true }]);
+    expect(conn).toStrictEqual({ lastSync: null, offline: true });
   });
 });
 

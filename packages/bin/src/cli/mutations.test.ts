@@ -72,7 +72,9 @@ test("resolveParent returns {kind:'node'} for a KEY-seq token", async () => {
 // echoNode
 test("echoNode writes bare-node JSON to io.out for format 'json'", async () => {
   const node = await findNodeByRef(db, taskRef);
-  if (node === undefined) throw new Error('node not found');
+  if (node === undefined) {
+    throw new Error('node not found');
+  }
   const io = fakeIo();
   await echoNode(db, node.id, 'json', io);
   const parsed = JSON.parse(io.out.join('')) as { id: string };
@@ -80,7 +82,9 @@ test("echoNode writes bare-node JSON to io.out for format 'json'", async () => {
 });
 test("echoNode writes rendered records text to io.out for format 'records'", async () => {
   const node = await findNodeByRef(db, taskRef);
-  if (node === undefined) throw new Error('node not found');
+  if (node === undefined) {
+    throw new Error('node not found');
+  }
   const io = fakeIo(true);
   await echoNode(db, node.id, 'records', io);
   const text = io.out.join('');
@@ -89,7 +93,9 @@ test("echoNode writes rendered records text to io.out for format 'records'", asy
 });
 test("echoNode writes the bare id to io.out for format 'ids'", async () => {
   const node = await findNodeByRef(db, taskRef);
-  if (node === undefined) throw new Error('node not found');
+  if (node === undefined) {
+    throw new Error('node not found');
+  }
   const io = fakeIo();
   await echoNode(db, node.id, 'ids', io);
   const text = io.out.join('');
@@ -97,7 +103,9 @@ test("echoNode writes the bare id to io.out for format 'ids'", async () => {
 });
 test("echoNode writes a count-led table line to io.out for format 'table'", async () => {
   const node = await findNodeByRef(db, taskRef);
-  if (node === undefined) throw new Error('node not found');
+  if (node === undefined) {
+    throw new Error('node not found');
+  }
   const io = fakeIo(true);
   await echoNode(db, node.id, 'table', io);
   const text = io.out.join('');

@@ -27,7 +27,9 @@ async function dbAt0005() {
   const db = createDb(':memory:');
   const migrator = new Migrator({ db, provider: new MapProvider(migrations) });
   const { error } = await migrator.migrateTo('0005_project_description');
-  if (error !== undefined) throw error;
+  if (error !== undefined) {
+    throw error;
+  }
   return db;
 }
 
@@ -66,13 +68,13 @@ test('0006 preserves rows and FK integrity across every node-referencing table',
     expect(node?.lifecycle).toBe('in_progress');
     expect(node?.rank).toBe(65536); // rank preserved exactly
     const counts = {
-      node: (await db.selectFrom('node').selectAll().execute()).length,
-      dependency: (await db.selectFrom('dependency').selectAll().execute()).length,
       annotation: (await db.selectFrom('annotation').selectAll().execute()).length,
-      transition: (await db.selectFrom('transition_log').selectAll().execute()).length,
+      dependency: (await db.selectFrom('dependency').selectAll().execute()).length,
       link: (await db.selectFrom('artifact_link').selectAll().execute()).length,
+      node: (await db.selectFrom('node').selectAll().execute()).length,
+      transition: (await db.selectFrom('transition_log').selectAll().execute()).length,
     };
-    expect(counts).toEqual({ node: 3, dependency: 1, annotation: 1, transition: 1, link: 1 });
+    expect(counts).toEqual({ annotation: 1, dependency: 1, link: 1, node: 3, transition: 1 });
 
     // FK enforcement is back ON: a dependency to a missing node is rejected.
     await expectReject(() =>

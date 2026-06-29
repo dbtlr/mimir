@@ -4,9 +4,6 @@ import type { WireTreeNode } from '../api/types';
 import { buildAncestry } from '../lib/ancestry';
 
 const tree = {
-  id: 'MMR',
-  type: 'project',
-  title: 'Mimir',
   children: [
     {
       id: 'MMR-1',
@@ -23,6 +20,9 @@ const tree = {
       ],
     },
   ],
+  id: 'MMR',
+  title: 'Mimir',
+  type: 'project',
 } as unknown as WireTreeNode;
 
 describe('buildAncestry', () => {

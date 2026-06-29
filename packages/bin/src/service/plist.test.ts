@@ -58,7 +58,7 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'mimir-plist-'));
 });
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(dir, { force: true, recursive: true });
 });
 
 // plutil is macOS-only — the escaping is asserted on the string above for

@@ -9,7 +9,7 @@ function fakeExec(handler: (argv: string[]) => { code: number; stdout: string })
     calls.push(argv);
     return Promise.resolve({ stderr: '', ...handler(argv) });
   };
-  return { exec, calls };
+  return { calls, exec };
 }
 
 const ok = () => ({ code: 0, stdout: '' });
@@ -52,8 +52,8 @@ test('info parses pid and running state from launchctl print', async () => {
   }));
   expect(await new LaunchdSupervisor(exec, 501).info()).toEqual({
     loaded: true,
-    running: true,
     pid: 4242,
+    running: true,
   });
 });
 

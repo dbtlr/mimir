@@ -73,7 +73,7 @@ export async function moveNode(db: Db, id: number, newParentId: number | null): 
       node.parent_id === null ? 'root' : ((await renderNodeId(tx, node.parent_id)) ?? 'root');
     const toRef = newParentId === null ? 'root' : ((await renderNodeId(tx, newParentId)) ?? 'root');
     await tx.updateTable('node').set({ parent_id: newParentId }).where('id', '=', id).execute();
-    await logTransition(tx, { node_id: id, kind: 'move', from_value: fromRef, to_value: toRef });
+    await logTransition(tx, { from_value: fromRef, kind: 'move', node_id: id, to_value: toRef });
     await stamp(tx, id);
     return reloadNode(tx, id);
   });

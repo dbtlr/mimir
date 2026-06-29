@@ -5,9 +5,9 @@ import { apply, resolve, setTheme, storedChoice, systemTheme } from '../lib/them
 /** Stub `matchMedia` so the prefers-color-scheme query resolves deterministically. */
 function mockOS(prefersLight: boolean) {
   vi.stubGlobal('matchMedia', (q: string) => ({
+    addEventListener: () => {},
     matches: q.includes('light') ? prefersLight : !prefersLight,
     media: q,
-    addEventListener: () => {},
     removeEventListener: () => {},
   }));
 }

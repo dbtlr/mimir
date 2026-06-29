@@ -37,19 +37,19 @@ describe('renderArtifactRef', () => {
 
 describe('parseIdentity', () => {
   test('a bare KEY is a project', () => {
-    expect(parseIdentity('MMR')).toEqual({ kind: 'project', key: 'MMR' });
-    expect(parseIdentity('AB')).toEqual({ kind: 'project', key: 'AB' });
+    expect(parseIdentity('MMR')).toEqual({ key: 'MMR', kind: 'project' });
+    expect(parseIdentity('AB')).toEqual({ key: 'AB', kind: 'project' });
   });
 
   test('KEY-seq is a node', () => {
-    expect(parseIdentity('MMR-16')).toEqual({ kind: 'node', key: 'MMR', seq: 16 });
+    expect(parseIdentity('MMR-16')).toEqual({ key: 'MMR', kind: 'node', seq: 16 });
   });
 
   test('KEY-aN is an artifact', () => {
-    expect(parseIdentity('MMR-a1')).toEqual({ kind: 'artifact', key: 'MMR', seq: 1 });
+    expect(parseIdentity('MMR-a1')).toEqual({ key: 'MMR', kind: 'artifact', seq: 1 });
     expect(parseIdentity(renderArtifactRef({ key: 'WXYZ', seq: 42 }))).toEqual({
-      kind: 'artifact',
       key: 'WXYZ',
+      kind: 'artifact',
       seq: 42,
     });
   });

@@ -30,7 +30,7 @@ export function CardVitals({ counts }: { counts: Distribution | undefined }) {
             <span
               key={v.word}
               className={cn('h-full', STATUS_META[v.word].dot)}
-              style={{ flexGrow: v.count, flexBasis: 0 }}
+              style={{ flexBasis: 0, flexGrow: v.count }}
             />
           ))}
         </div>

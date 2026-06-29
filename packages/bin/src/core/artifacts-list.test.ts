@@ -23,25 +23,25 @@ beforeEach(async () => {
   const t1 = await createTask(db, { parentId: await phaseFor(mmr.id), title: 't' });
   const t2 = await createTask(db, { parentId: await phaseFor(nova.id), title: 't' });
   await attachArtifact(db, {
-    projectId: mmr.id,
-    title: 'Auth gate design',
     content: 'we argued about the loopback path and Caddy',
     linkNodeIds: [t1.id],
+    projectId: mmr.id,
     tags: ['kind:spec'],
+    title: 'Auth gate design',
   });
   await attachArtifact(db, {
-    projectId: mmr.id,
-    title: 'Session log 2026-06-14',
     content: 'shipped the output contract',
     linkNodeIds: [t1.id],
+    projectId: mmr.id,
     tags: ['kind:session-log'],
+    title: 'Session log 2026-06-14',
   });
   await attachArtifact(db, {
-    projectId: nova.id,
-    title: 'Nova kickoff',
     content: 'auth shows up here too',
     linkNodeIds: [t2.id],
+    projectId: nova.id,
     tags: ['kind:spec'],
+    title: 'Nova kickoff',
   });
 });
 
@@ -79,7 +79,7 @@ test('q matches title OR content, case-insensitive, across projects', async () =
 });
 
 test('filters compose with AND', async () => {
-  const { items } = await listArtifacts(db, { q: 'auth', project: 'MMR' });
+  const { items } = await listArtifacts(db, { project: 'MMR', q: 'auth' });
   expect(items.map((a) => a.title)).toEqual(['Auth gate design']);
 });
 

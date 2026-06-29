@@ -27,18 +27,18 @@ async function insertTags(
   for (const tag of tags ?? []) {
     await tx
       .insertInto('tag')
-      .values({ entity_type: entityType, entity_id: entityId, tag, note: null })
+      .values({ entity_id: entityId, entity_type: entityType, note: null, tag })
       .onConflict((oc) => oc.columns(['entity_type', 'entity_id', 'tag']).doNothing())
       .execute();
   }
 }
 
-export interface CreateProjectInput {
+export type CreateProjectInput = {
   key: string;
   name: string;
   description?: string | null;
   tags?: string[];
-}
+};
 
 export async function createProject(db: Db, input: CreateProjectInput): Promise<Project> {
   if (!isValidKey(input.key)) {
@@ -56,9 +56,9 @@ export async function createProject(db: Db, input: CreateProjectInput): Promise<
     const project = await tx
       .insertInto('project')
       .values({
+        description: input.description ?? null,
         key: input.key,
         name: input.name,
-        description: input.description ?? null,
       })
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -67,12 +67,12 @@ export async function createProject(db: Db, input: CreateProjectInput): Promise<
   });
 }
 
-export interface CreateInitiativeInput {
+export type CreateInitiativeInput = {
   projectId: number;
   title: string;
   description?: string | null;
   tags?: string[];
-}
+};
 
 export async function createInitiative(db: Db, input: CreateInitiativeInput): Promise<Node> {
   return db.transaction().execute(async (tx) => {
@@ -88,12 +88,12 @@ export async function createInitiative(db: Db, input: CreateInitiativeInput): Pr
     const node = await tx
       .insertInto('node')
       .values({
-        project_id: input.projectId,
-        type: 'initiative',
+        description: input.description ?? null,
         parent_id: null,
+        project_id: input.projectId,
         seq,
         title: input.title,
-        description: input.description ?? null,
+        type: 'initiative',
       })
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -102,13 +102,13 @@ export async function createInitiative(db: Db, input: CreateInitiativeInput): Pr
   });
 }
 
-export interface CreatePhaseInput {
+export type CreatePhaseInput = {
   parentId: number;
   title: string;
   description?: string | null;
   target?: string | null;
   tags?: string[];
-}
+};
 
 export async function createPhase(db: Db, input: CreatePhaseInput): Promise<Node> {
   return db.transaction().execute(async (tx) => {
@@ -123,13 +123,13 @@ export async function createPhase(db: Db, input: CreatePhaseInput): Promise<Node
     const node = await tx
       .insertInto('node')
       .values({
-        project_id: parent.project_id,
-        type: 'phase',
-        parent_id: parent.id,
-        seq,
-        title: input.title,
         description: input.description ?? null,
+        parent_id: parent.id,
+        project_id: parent.project_id,
+        seq,
         target: input.target ?? null,
+        title: input.title,
+        type: 'phase',
       })
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -138,7 +138,7 @@ export async function createPhase(db: Db, input: CreatePhaseInput): Promise<Node
   });
 }
 
-export interface CreateTaskInput {
+export type CreateTaskInput = {
   parentId: number;
   title: string;
   description?: string | null;
@@ -146,7 +146,7 @@ export interface CreateTaskInput {
   size?: Size | null;
   externalRef?: string | null;
   tags?: string[];
-}
+};
 
 export async function createTask(db: Db, input: CreateTaskInput): Promise<Node> {
   return db.transaction().execute(async (tx) => {
@@ -163,18 +163,18 @@ export async function createTask(db: Db, input: CreateTaskInput): Promise<Node> 
     const node = await tx
       .insertInto('node')
       .values({
-        project_id: parent.project_id,
-        type: 'task',
-        parent_id: parent.id,
-        seq,
-        title: input.title,
         description: input.description ?? null,
-        lifecycle: 'todo',
-        hold: 'none',
-        priority: input.priority ?? null,
-        size: input.size ?? null,
-        rank,
         external_ref: input.externalRef ?? null,
+        hold: 'none',
+        lifecycle: 'todo',
+        parent_id: parent.id,
+        priority: input.priority ?? null,
+        project_id: parent.project_id,
+        rank,
+        seq,
+        size: input.size ?? null,
+        title: input.title,
+        type: 'task',
       })
       .returningAll()
       .executeTakeFirstOrThrow();

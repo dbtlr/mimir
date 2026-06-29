@@ -47,10 +47,10 @@ describe('buildBoard', () => {
 
   it('done is windowed to the last 7 days of completions', () => {
     const done = [
-      task({ id: 'MMR-50', status: 'done', completed_at: daysAgo(1) }),
-      task({ id: 'MMR-51', status: 'done', completed_at: daysAgo(6) }),
-      task({ id: 'MMR-52', status: 'done', completed_at: daysAgo(8) }),
-      task({ id: 'MMR-53', status: 'done', completed_at: null }),
+      task({ completed_at: daysAgo(1), id: 'MMR-50', status: 'done' }),
+      task({ completed_at: daysAgo(6), id: 'MMR-51', status: 'done' }),
+      task({ completed_at: daysAgo(8), id: 'MMR-52', status: 'done' }),
+      task({ completed_at: null, id: 'MMR-53', status: 'done' }),
     ];
     const board = buildBoard([], done, NOW);
     expect(board.done.map((n) => n.id)).toStrictEqual(['MMR-50', 'MMR-51']);

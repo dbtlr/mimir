@@ -59,12 +59,12 @@ export async function depend(db: Db, id: number, onIds: number[]): Promise<Node>
       if (existing === undefined) {
         await tx
           .insertInto('dependency')
-          .values({ node_id: id, depends_on_node_id: onId })
+          .values({ depends_on_node_id: onId, node_id: id })
           .execute();
         await logTransition(tx, {
-          node_id: id,
-          kind: 'dependency',
           from_value: null,
+          kind: 'dependency',
+          node_id: id,
           to_value: await renderNodeId(tx, onId),
         });
       }
@@ -85,9 +85,9 @@ export async function undepend(db: Db, id: number, onIds: number[]): Promise<Nod
         .executeTakeFirst();
       if (deleted.numDeletedRows > 0n) {
         await logTransition(tx, {
-          node_id: id,
-          kind: 'dependency',
           from_value: await renderNodeId(tx, onId),
+          kind: 'dependency',
+          node_id: id,
           to_value: null,
         });
       }

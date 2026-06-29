@@ -8,20 +8,20 @@ import type { Distribution, StatusWord } from '@mimir/contract';
  * leaf buckets (parked/done/abandoned/new) are deliberately not surfaced.
  */
 
-export interface Vital {
+export type Vital = {
   word: StatusWord;
   label: string;
   count: number;
-}
+};
 
 const VITAL_ORDER: readonly { word: StatusWord; label: string }[] = [
-  { word: 'under_review', label: 'review' },
-  { word: 'in_progress', label: 'in prog' },
-  { word: 'ready', label: 'ready' },
-  { word: 'awaiting', label: 'await' },
-  { word: 'blocked', label: 'blocked' },
+  { label: 'review', word: 'under_review' },
+  { label: 'in prog', word: 'in_progress' },
+  { label: 'ready', word: 'ready' },
+  { label: 'await', word: 'awaiting' },
+  { label: 'blocked', word: 'blocked' },
 ];
 
 export function cardVitals(counts: Distribution | undefined): Vital[] {
-  return VITAL_ORDER.map(({ word, label }) => ({ word, label, count: counts?.[word] ?? 0 }));
+  return VITAL_ORDER.map(({ word, label }) => ({ count: counts?.[word] ?? 0, label, word }));
 }

@@ -41,13 +41,13 @@ export const DONE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
  */
 export function buildBoard(live: WireNode[], done: WireNode[], now = Date.now()): Board {
   const board: Board = {
-    parked: [],
-    blocked: [],
     awaiting: [],
-    ready: [],
-    in_progress: [],
-    under_review: [],
+    blocked: [],
     done: [],
+    in_progress: [],
+    parked: [],
+    ready: [],
+    under_review: [],
   };
   for (const node of live) {
     if (node.status !== 'done' && node.status in board) {

@@ -14,7 +14,7 @@ const STORAGE_KEY = 'mimir-theme';
 const LIGHT_QUERY = '(prefers-color-scheme: light)';
 
 /** The page background per theme — kept in sync with `<meta name=theme-color>`. */
-const THEME_COLOR: Record<Theme, string> = { light: '#e9edf3', dark: '#0a0e16' };
+const THEME_COLOR: Record<Theme, string> = { dark: '#0a0e16', light: '#e9edf3' };
 
 export function systemTheme(): Theme {
   return window.matchMedia(LIGHT_QUERY).matches ? 'light' : 'dark';

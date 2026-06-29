@@ -17,14 +17,14 @@ export type ServiceEventName =
   | 'uninstall'
   | 'self-update';
 
-export interface ServiceEvent {
+export type ServiceEvent = {
   at: string;
   event: ServiceEventName;
   source: 'cli' | 'self-update';
   version: string;
   ok: boolean;
   detail?: string;
-}
+};
 
 export const LOG_DIR = join(homedir(), 'Library', 'Logs', 'mimir');
 export const EVENTS_FILE = join(LOG_DIR, 'service-events.jsonl');
@@ -37,11 +37,17 @@ export function appendEvent(file: string, event: Omit<ServiceEvent, 'at'>): void
 
 /** The last `n` events, oldest-first; corrupt lines are skipped, not fatal. */
 export function recentEvents(file: string, n: number): ServiceEvent[] {
-  if (n <= 0) return [];
-  if (!existsSync(file)) return [];
+  if (n <= 0) {
+    return [];
+  }
+  if (!existsSync(file)) {
+    return [];
+  }
   const events: ServiceEvent[] = [];
   for (const line of readFileSync(file, 'utf8').split('\n')) {
-    if (line.trim() === '') continue;
+    if (line.trim() === '') {
+      continue;
+    }
     try {
       events.push(JSON.parse(line) as ServiceEvent);
     } catch {

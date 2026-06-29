@@ -11,29 +11,29 @@ import {
 } from './format';
 
 const task = (id: string, over: Partial<NodeView> = {}): NodeView => ({
-  id,
-  type: 'task',
-  title: `title ${id}`,
-  status: 'ready',
-  parent: 'MMR-1',
-  description: null,
+  completedAt: null,
   createdAt: '2026-06-05T00:00:00.000Z',
-  updatedAt: '2026-06-05T00:00:00.000Z',
-  priority: 'p1',
-  size: null,
-  lifecycle: 'todo',
+  description: null,
+  externalRef: null,
   hold: 'none',
   holdReason: null,
-  externalRef: null,
-  completedAt: null,
+  id,
+  lifecycle: 'todo',
+  parent: 'MMR-1',
+  priority: 'p1',
+  size: null,
+  status: 'ready',
+  title: `title ${id}`,
+  type: 'task',
+  updatedAt: '2026-06-05T00:00:00.000Z',
   ...over,
 });
 
 const set = (items: NodeView[]): SetResult<NodeView> => ({
-  total: items.length,
+  items,
   returned: items.length,
   startsAt: 0,
-  items,
+  total: items.length,
 });
 
 describe('formatIds', () => {
@@ -84,15 +84,15 @@ describe('formatNodeJson', () => {
 
   test('phase omits task-only fields, includes target', () => {
     const phase: NodeView = {
-      id: 'MMR-1',
-      type: 'phase',
-      title: 'ph',
-      status: 'ready',
-      parent: null,
-      description: null,
       createdAt: '2026-06-05T00:00:00.000Z',
-      updatedAt: '2026-06-05T00:00:00.000Z',
+      description: null,
+      id: 'MMR-1',
+      parent: null,
+      status: 'ready',
       target: 'ship',
+      title: 'ph',
+      type: 'phase',
+      updatedAt: '2026-06-05T00:00:00.000Z',
     };
     const parsed = JSON.parse(formatNodeJson(phase)) as Record<string, unknown>;
     expect(parsed.target).toBe('ship');
@@ -105,10 +105,10 @@ describe('formatStatusJson', () => {
   test('id, status, and distribution', () => {
     const parsed = JSON.parse(
       formatStatusJson({
-        id: 'MMR-1',
-        type: 'phase',
-        status: 'in_progress',
         distribution: { in_progress: 1, ready: 2 },
+        id: 'MMR-1',
+        status: 'in_progress',
+        type: 'phase',
       }),
     ) as { id: string; status: string; distribution: Record<string, number> };
     expect(parsed.status).toBe('in_progress');

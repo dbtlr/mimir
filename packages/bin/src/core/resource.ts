@@ -115,11 +115,11 @@ export async function nodeTree(
   return subtree(rootNode);
 }
 
-export interface TransitionsOptions {
+export type TransitionsOptions = {
   /** Opaque resume cursor from a prior read — only strictly-newer entries return. */
   since?: string;
   limit?: number;
-}
+};
 
 /**
  * The cross-cutting transition feed — the caller-supplied-cursor read over the
@@ -151,12 +151,12 @@ export async function listTransitions(
   const rows = await query.execute();
   const items = await Promise.all(
     rows.map(async (row) => ({
-      node: (await renderNodeId(db, row.node_id)) ?? 'unknown',
-      kind: row.kind,
-      from: row.from_value,
-      to: row.to_value,
       at: row.at,
+      from: row.from_value,
+      kind: row.kind,
+      node: (await renderNodeId(db, row.node_id)) ?? 'unknown',
       reason: row.reason,
+      to: row.to_value,
     })),
   );
   const last = rows.at(-1);

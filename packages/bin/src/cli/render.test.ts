@@ -7,21 +7,21 @@ import { fakeIo } from './testing';
 
 function task(over: Partial<NodeView> = {}): NodeView {
   return {
-    id: 'MMR-5',
-    type: 'task',
-    title: 'child',
-    status: 'ready',
-    parent: 'MMR-2',
-    description: null,
     createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
+    description: null,
+    id: 'MMR-5',
+    parent: 'MMR-2',
     priority: 'p1',
+    status: 'ready',
+    title: 'child',
+    type: 'task',
+    updatedAt: '2026-01-01T00:00:00.000Z',
     ...over,
   };
 }
 
 test('table set view shows the parent id as a row column (MMR-87)', () => {
-  const text = renderTable({ total: 1, returned: 1, startsAt: 0, items: [task()] }, fakeIo(false));
+  const text = renderTable({ items: [task()], returned: 1, startsAt: 0, total: 1 }, fakeIo(false));
   expect(text).toContain('MMR-5'); // the node id
   expect(text).toContain('MMR-2'); // its parent, the hierarchy anchor
   expect(text).toContain('child'); // the title
@@ -29,7 +29,7 @@ test('table set view shows the parent id as a row column (MMR-87)', () => {
 
 test('a top-level node (no parent) renders an empty parent cell, not a crash (MMR-87)', () => {
   const text = renderTable(
-    { total: 1, returned: 1, startsAt: 0, items: [task({ id: 'MMR-1', parent: null })] },
+    { items: [task({ id: 'MMR-1', parent: null })], returned: 1, startsAt: 0, total: 1 },
     fakeIo(false),
   );
   expect(text).toContain('MMR-1');
@@ -39,7 +39,7 @@ test('a top-level node (no parent) renders an empty parent cell, not a crash (MM
 // MMR-95: empty set views print a clear no-results line on a TTY
 test('renderTable: empty set on a TTY prints a no-results line (MMR-95)', () => {
   const text = renderTable(
-    { total: 0, returned: 0, startsAt: 0, items: [] },
+    { items: [], returned: 0, startsAt: 0, total: 0 },
     fakeIo(true),
     'No tasks match.',
   );
@@ -50,7 +50,7 @@ test('renderTable: empty set on a TTY prints a no-results line (MMR-95)', () => 
 
 test('renderTable: empty set on a non-TTY keeps the bare count line only (MMR-95)', () => {
   const text = renderTable(
-    { total: 0, returned: 0, startsAt: 0, items: [] },
+    { items: [], returned: 0, startsAt: 0, total: 0 },
     fakeIo(false),
     'No tasks match.',
   );

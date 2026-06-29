@@ -37,9 +37,15 @@ export function TasksPage() {
   const navigate = useNavigate();
   const search = tasksRoute.useSearch();
   const filters: TaskFilters = {};
-  if (search.project !== undefined) filters.project = search.project;
-  if (search.status !== undefined) filters.status = search.status;
-  if (search.q !== undefined) filters.q = search.q;
+  if (search.project !== undefined) {
+    filters.project = search.project;
+  }
+  if (search.status !== undefined) {
+    filters.status = search.status;
+  }
+  if (search.q !== undefined) {
+    filters.q = search.q;
+  }
 
   const projects = useQuery(projectsQuery);
   const tasks = useQuery(tasksQuery(filters));
@@ -47,7 +53,6 @@ export function TasksPage() {
 
   const setFilter = (partial: Partial<TaskFilters>) =>
     void navigate({
-      to: '/tasks',
       replace: true,
       search: (prev) => {
         const next = { ...prev, ...partial };
@@ -56,12 +61,13 @@ export function TasksPage() {
         }
         return next;
       },
+      to: '/tasks',
     });
 
   const openNode = (id: string) =>
-    void navigate({ to: '/tasks', search: (prev) => ({ ...prev, node: id }) });
+    void navigate({ search: (prev) => ({ ...prev, node: id }), to: '/tasks' });
   const closeNode = () =>
-    void navigate({ to: '/tasks', search: (prev) => ({ ...prev, node: undefined }) });
+    void navigate({ search: (prev) => ({ ...prev, node: undefined }), to: '/tasks' });
 
   // Controlled + debounced search (the MMR-63 pattern): the box updates now, the
   // URL/query trails by the debounce; an external q change (Back/clear) re-syncs.
@@ -72,7 +78,9 @@ export function TasksPage() {
   const setFilterRef = useRef(setFilter);
   setFilterRef.current = setFilter;
   useEffect(() => {
-    if (q === (search.q ?? '')) return;
+    if (q === (search.q ?? '')) {
+      return;
+    }
     const t = setTimeout(() => setFilterRef.current({ q }), SEARCH_DEBOUNCE_MS);
     return () => {
       clearTimeout(t);

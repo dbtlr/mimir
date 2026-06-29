@@ -20,7 +20,7 @@ describe('tagEditor', () => {
     wrap(
       <TagEditor
         nodeId="MMR-9"
-        tags={[{ tag: 'ui', note: null, created_at: '' }]}
+        tags={[{ created_at: '', note: null, tag: 'ui' }]}
         offline={false}
       />,
     );
@@ -41,7 +41,7 @@ describe('tagEditor', () => {
   });
 
   it('hides controls when offline', () => {
-    wrap(<TagEditor nodeId="MMR-9" tags={[{ tag: 'ui', note: null, created_at: '' }]} offline />);
+    wrap(<TagEditor nodeId="MMR-9" tags={[{ created_at: '', note: null, tag: 'ui' }]} offline />);
     expect(screen.queryByRole('button', { name: /remove ui/i })).toBeNull();
     expect(screen.queryByRole('textbox')).toBeNull();
   });

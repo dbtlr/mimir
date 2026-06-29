@@ -10,7 +10,7 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'mimir-config-'));
 });
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(dir, { force: true, recursive: true });
 });
 
 // Fix 2 — rename existing test to match what it actually tests (explicit param)

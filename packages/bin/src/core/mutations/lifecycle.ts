@@ -30,9 +30,9 @@ export async function startTask(db: Db, id: number): Promise<Node> {
     }
     await tx.updateTable('node').set({ lifecycle: 'in_progress' }).where('id', '=', id).execute();
     await logTransition(tx, {
-      node_id: id,
-      kind: 'lifecycle',
       from_value: 'todo',
+      kind: 'lifecycle',
+      node_id: id,
       to_value: 'in_progress',
     });
     await stamp(tx, id);
@@ -54,9 +54,9 @@ export async function submitTask(db: Db, id: number): Promise<Node> {
       .where('id', '=', id)
       .execute();
     await logTransition(tx, {
-      node_id: id,
-      kind: 'lifecycle',
       from_value: 'in_progress',
+      kind: 'lifecycle',
+      node_id: id,
       to_value: 'under_review',
     });
     await stamp(tx, id);
@@ -78,11 +78,11 @@ export async function returnTask(db: Db, id: number, reason?: string): Promise<N
       .where('id', '=', id)
       .execute();
     await logTransition(tx, {
-      node_id: id,
-      kind: 'lifecycle',
       from_value: 'under_review',
-      to_value: 'in_progress',
+      kind: 'lifecycle',
+      node_id: id,
       reason: reason ?? null,
+      to_value: 'in_progress',
     });
     await stamp(tx, id);
     return reloadNode(tx, id);
@@ -97,13 +97,13 @@ export async function completeTask(db: Db, id: number): Promise<Node> {
     }
     await tx
       .updateTable('node')
-      .set({ lifecycle: 'done', completed_at: now(), rank: null })
+      .set({ completed_at: now(), lifecycle: 'done', rank: null })
       .where('id', '=', id)
       .execute();
     await logTransition(tx, {
-      node_id: id,
-      kind: 'lifecycle',
       from_value: task.lifecycle,
+      kind: 'lifecycle',
+      node_id: id,
       to_value: 'done',
     });
     await stamp(tx, id);
@@ -123,11 +123,11 @@ export async function abandonTask(db: Db, id: number, reason?: string): Promise<
       .where('id', '=', id)
       .execute();
     await logTransition(tx, {
-      node_id: id,
-      kind: 'lifecycle',
       from_value: task.lifecycle,
-      to_value: 'abandoned',
+      kind: 'lifecycle',
+      node_id: id,
       reason: reason ?? null,
+      to_value: 'abandoned',
     });
     await stamp(tx, id);
     return reloadNode(tx, id);
@@ -155,15 +155,15 @@ export async function reopenTask(db: Db, id: number, reason?: string): Promise<N
     const rank = await appendRank(tx, task.project_id);
     await tx
       .updateTable('node')
-      .set({ lifecycle: 'in_progress', rank, completed_at: null })
+      .set({ completed_at: null, lifecycle: 'in_progress', rank })
       .where('id', '=', id)
       .execute();
     await logTransition(tx, {
-      node_id: id,
-      kind: 'lifecycle',
       from_value: task.lifecycle,
-      to_value: 'in_progress',
+      kind: 'lifecycle',
+      node_id: id,
       reason: reason ?? null,
+      to_value: 'in_progress',
     });
     await stamp(tx, id);
     return reloadNode(tx, id);

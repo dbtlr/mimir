@@ -60,7 +60,7 @@ describe('nodeCard', () => {
     expect(screen.queryByText('Build › Phase 5')).toBeNull();
   });
 
-  const sortable = { setNodeRef: () => {}, handleProps: {} };
+  const sortable = { handleProps: {}, setNodeRef: () => {} };
 
   it('renders the grip handle when sortable', () => {
     render(

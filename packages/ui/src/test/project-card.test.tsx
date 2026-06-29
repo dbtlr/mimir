@@ -9,8 +9,8 @@ describe('projectCard going-cold marker', () => {
     render(
       <ProjectCard
         project={project({
-          id: 'COLD',
           attention: { band: 'live', last_activity: '2026-01-01T00:00:00.000Z', stale: true },
+          id: 'COLD',
         })}
         onOpen={vi.fn()}
       />,
@@ -22,8 +22,8 @@ describe('projectCard going-cold marker', () => {
     render(
       <ProjectCard
         project={project({
-          id: 'WARM',
           attention: { band: 'live', last_activity: '2026-06-20T00:00:00.000Z', stale: false },
+          id: 'WARM',
         })}
         onOpen={vi.fn()}
       />,
@@ -36,7 +36,7 @@ describe('projectCard vitals panel (MMR-106)', () => {
   it('renders the five-count legend from leaf_counts', () => {
     render(
       <ProjectCard
-        project={project({ id: 'VIT', leaf_counts: { under_review: 2, ready: 4, blocked: 1 } })}
+        project={project({ id: 'VIT', leaf_counts: { blocked: 1, ready: 4, under_review: 2 } })}
         onOpen={vi.fn()}
       />,
     );

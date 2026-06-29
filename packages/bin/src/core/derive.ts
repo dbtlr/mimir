@@ -66,7 +66,7 @@ export async function nodeStatusWord(tx: Executor, node: Node): Promise<StatusWo
       throw invariant(`${rendered} is missing a status axis`);
     }
     const awaiting = await hasUnsettledPrereq(tx, node.id);
-    return taskStatus({ lifecycle: node.lifecycle, hold: node.hold, awaiting });
+    return taskStatus({ awaiting, hold: node.hold, lifecycle: node.lifecycle });
   }
   return interpret(await childDistribution(tx, node.id));
 }
@@ -91,10 +91,10 @@ export async function statusOf(
   node: Node,
 ): Promise<{ status: StatusWord; distribution: Distribution }> {
   if (node.type === 'task') {
-    return { status: await nodeStatusWord(tx, node), distribution: {} };
+    return { distribution: {}, status: await nodeStatusWord(tx, node) };
   }
   const distribution = await childDistribution(tx, node.id);
-  return { status: interpret(distribution), distribution };
+  return { distribution, status: interpret(distribution) };
 }
 
 /**
@@ -138,5 +138,5 @@ export async function statusOfProject(
   projectId: number,
 ): Promise<{ status: StatusWord; distribution: Distribution }> {
   const distribution = await rootDistribution(tx, projectId);
-  return { status: interpret(distribution), distribution };
+  return { distribution, status: interpret(distribution) };
 }

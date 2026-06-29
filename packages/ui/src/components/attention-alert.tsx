@@ -62,9 +62,9 @@ export function AttentionAlert() {
               key={node.id}
               onClick={() =>
                 void navigate({
-                  to: '/p/$key',
                   params: { key: projectKeyOf(node.id) },
-                  search: { view: 'board', node: node.id },
+                  search: { node: node.id, view: 'board' },
+                  to: '/p/$key',
                 })
               }
             >

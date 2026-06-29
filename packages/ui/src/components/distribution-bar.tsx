@@ -16,8 +16,8 @@ export function DistributionBar({
   className?: string;
 }) {
   const segments = STATUS_ORDER.map((word) => ({
-    word,
     count: distribution[word] ?? 0,
+    word,
   })).filter((s) => s.count > 0);
   const total = segments.reduce((sum, s) => sum + s.count, 0);
   if (total === 0) {
@@ -35,7 +35,7 @@ export function DistributionBar({
         <span
           key={s.word}
           className={cn('h-full', STATUS_META[s.word].dot)}
-          style={{ flexGrow: s.count, flexBasis: 0 }}
+          style={{ flexBasis: 0, flexGrow: s.count }}
         />
       ))}
     </div>

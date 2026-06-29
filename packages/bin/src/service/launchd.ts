@@ -8,37 +8,37 @@
 import { MimirError } from '../core';
 import { LABEL } from './plist';
 
-export interface ExecResult {
+export type ExecResult = {
   code: number;
   stdout: string;
   stderr: string;
-}
+};
 export type Exec = (argv: string[]) => Promise<ExecResult>;
 
-export interface ServiceInfo {
+export type ServiceInfo = {
   loaded: boolean;
   running: boolean;
   pid?: number;
-}
+};
 
-export interface Supervisor {
+export type Supervisor = {
   install(serviceFile: string): Promise<void>;
   uninstall(): Promise<void>;
   start(serviceFile: string): Promise<void>;
   stop(): Promise<void>;
   restart(): Promise<void>;
   info(): Promise<ServiceInfo>;
-}
+};
 
 /** Run an argv via Bun, capturing exit code and output. The one impure edge. */
 export const bunExec: Exec = async (argv) => {
-  const proc = Bun.spawn(argv, { stdout: 'pipe', stderr: 'pipe' });
+  const proc = Bun.spawn(argv, { stderr: 'pipe', stdout: 'pipe' });
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
-  return { code, stdout, stderr };
+  return { code, stderr, stdout };
 };
 
 export class LaunchdSupervisor implements Supervisor {
@@ -86,11 +86,15 @@ export class LaunchdSupervisor implements Supervisor {
 
   async info(): Promise<ServiceInfo> {
     const result = await this.exec(['launchctl', 'print', `${this.target}/${LABEL}`]);
-    if (result.code !== 0) return { loaded: false, running: false };
+    if (result.code !== 0) {
+      return { loaded: false, running: false };
+    }
     const pidMatch = /\bpid = (\d+)/.exec(result.stdout);
     const running = /\bstate = running/.test(result.stdout) || pidMatch !== null;
     const info: ServiceInfo = { loaded: true, running };
-    if (pidMatch?.[1] !== undefined) info.pid = Number(pidMatch[1]);
+    if (pidMatch?.[1] !== undefined) {
+      info.pid = Number(pidMatch[1]);
+    }
     return info;
   }
 }

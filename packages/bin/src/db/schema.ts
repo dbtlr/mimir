@@ -25,7 +25,7 @@ type DefaultedTimestamp = ColumnType<string, string | undefined, string>;
 /** A column with a DB DEFAULT: required on read, optional on insert. */
 type Defaulted<T> = ColumnType<T, T | undefined, T>;
 
-interface ProjectTable {
+type ProjectTable = {
   id: Generated<number>;
   key: string;
   name: string;
@@ -34,9 +34,9 @@ interface ProjectTable {
   last_artifact_seq: Defaulted<number>;
   created_at: DefaultedTimestamp;
   updated_at: DefaultedTimestamp;
-}
+};
 
-interface NodeTable {
+type NodeTable = {
   id: Generated<number>;
   project_id: number;
   type: NodeType;
@@ -60,43 +60,43 @@ interface NodeTable {
 
   created_at: DefaultedTimestamp;
   updated_at: DefaultedTimestamp;
-}
+};
 
-interface DependencyTable {
+type DependencyTable = {
   node_id: number;
   depends_on_node_id: number;
-}
+};
 
-interface AnnotationTable {
+type AnnotationTable = {
   id: Generated<number>;
   node_id: number;
   content: string;
   created_at: DefaultedTimestamp;
-}
+};
 
-interface ArtifactTable {
+type ArtifactTable = {
   id: Generated<number>;
   project_id: number;
   seq: number;
   title: string;
   content: string;
   created_at: DefaultedTimestamp;
-}
+};
 
-interface ArtifactLinkTable {
+type ArtifactLinkTable = {
   artifact_id: number;
   node_id: number;
-}
+};
 
-interface TagTable {
+type TagTable = {
   entity_type: TagEntityType;
   entity_id: number;
   tag: string;
   note: string | null;
   created_at: DefaultedTimestamp;
-}
+};
 
-interface TransitionLogTable {
+type TransitionLogTable = {
   id: Generated<number>;
   node_id: number;
   kind: TransitionKind;
@@ -104,9 +104,9 @@ interface TransitionLogTable {
   to_value: string | null;
   at: DefaultedTimestamp;
   reason: string | null;
-}
+};
 
-export interface DB {
+export type DB = {
   project: ProjectTable;
   node: NodeTable;
   dependency: DependencyTable;
@@ -115,7 +115,7 @@ export interface DB {
   artifact_link: ArtifactLinkTable;
   tag: TagTable;
   transition_log: TransitionLogTable;
-}
+};
 
 // Row helpers (select/insert/update) for the core to lean on.
 export type Project = Selectable<ProjectTable>;

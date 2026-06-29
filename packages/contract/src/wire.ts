@@ -13,19 +13,19 @@ export type ErrorCode = 'not_found' | 'validation' | 'conflict' | 'invariant';
  * the HTTP error body. `usage` appears only on the CLI — a transport code for
  * malformed invocations, never raised by the core.
  */
-export interface ErrorEnvelope {
+export type ErrorEnvelope = {
   error: {
     code: ErrorCode | 'usage';
     message: string;
     hint?: string;
   };
-}
+};
 
 /**
  * The collection envelope: every HTTP collection is `{items: [...]}`, never a
  * bare array, reserving room for cursor/pagination metadata as a non-breaking
  * sibling key (ADR 0012).
  */
-export interface Items<T> {
+export type Items<T> = {
   items: T[];
-}
+};
