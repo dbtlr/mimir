@@ -10,7 +10,7 @@ describe('apiSend', () => {
   it('pOSTs JSON and returns the parsed body', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response(JSON.stringify({ id: 'MMR-9' }), { status: 200 }));
+      .mockResolvedValue(Response.json({ id: 'MMR-9' }, { status: 200 }));
     const out = await apiSend<{ id: string }>('POST', '/api/nodes/MMR-9/start');
     expect(out).toStrictEqual({ id: 'MMR-9' });
     const init = fetchMock.mock.calls[0]?.[1];
@@ -28,9 +28,7 @@ describe('apiSend', () => {
 
   it("throws the error envelope's message on failure", async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ error: { code: 'validation', message: 'already done' } }), {
-        status: 400,
-      }),
+      Response.json({ error: { code: 'validation', message: 'already done' } }, { status: 400 }),
     );
     await expect(apiSend('POST', '/api/nodes/MMR-9/done')).rejects.toThrow('already done');
   });
