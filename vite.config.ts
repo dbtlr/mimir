@@ -67,7 +67,6 @@ const quarantinedRules: Record<string, 'off'> = {
   'no-nested-ternary': 'off', // 4
   'no-shadow': 'off', // 4
   'typescript/no-unsafe-type-assertion': 'off', // JSON sites migrated to parseJson; ~83 non-JSON casts remain
-  'no-unused-vars': 'off', // 35
   'sort-keys': 'off', // 52 (autofix residual — spread/comment objects)
   // — typescript —
   // — import —

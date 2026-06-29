@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect } from 'vitest';
 
 import type { WireTreeNode } from '../api/types';
 import { buildAncestry } from '../lib/ancestry';

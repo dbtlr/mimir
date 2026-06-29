@@ -1,5 +1,5 @@
 import type { Distribution } from '@mimir/contract';
-import { describe, expect, test } from 'vitest';
+import { describe, expect } from 'vitest';
 
 import { cardVitals } from '../lib/card-vitals';
 

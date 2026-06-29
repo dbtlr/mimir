@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect } from 'vitest';
 
 import { attentionItems } from '../lib/attention';
 import { task } from './fixtures';

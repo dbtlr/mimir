@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect } from 'vitest';
 
 import { BOARD_COLUMNS, buildBoard } from '../lib/board';
 import { NOW, daysAgo, task } from './fixtures';

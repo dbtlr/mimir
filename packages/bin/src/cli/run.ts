@@ -7,7 +7,6 @@ import type {
   FacetName,
   FieldFilter,
   NodeView,
-  QueryOp,
   SetResult,
   StatusSelector,
   Verdict,
