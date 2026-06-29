@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
+import { parseJson } from '@mimir/helpers';
+
 import { createInitiative, createPhase, createProject, createTask, notFound } from '../core';
 import type { Db } from '../core';
 import { createTestDb } from '../db/testing';
@@ -47,7 +49,7 @@ test('next --format json lists ready tasks (count-led envelope)', async () => {
   await createTask(db, { parentId: phaseId, priority: 'p1', title: 'first' });
   const io = fakeIo();
   expect(await runCli(['next', '--scope', 'MMR', '--format', 'json'], () => db, io)).toBe(0);
-  const parsed = JSON.parse(io.out.join('')) as { total: number; tasks: { title: string }[] };
+  const parsed = parseJson<{ total: number; tasks: { title: string }[] }>(io.out.join(''));
   expect(parsed.total).toBe(1);
   expect(parsed.tasks[0]?.title).toBe('first');
 });
@@ -93,7 +95,7 @@ test('get returns a record; a missing id exits non-zero', async () => {
   const t = await createTask(db, { parentId: phaseId, title: 'deep' });
   const ok = fakeIo();
   expect(await runCli(['get', `MMR-${String(t.seq)}`, '--format', 'json'], () => db, ok)).toBe(0);
-  expect((JSON.parse(ok.out.join('')) as { title: string }).title).toBe('deep');
+  expect(parseJson<{ title: string }>(ok.out.join('')).title).toBe('deep');
 
   const missing = fakeIo();
   expect(await runCli(['get', 'MMR-999'], () => db, missing)).toBe(1);
@@ -131,7 +133,7 @@ test('status reports the rollup of a non-leaf', async () => {
   expect(
     await runCli(['status', `MMR-${String(phase.seq)}`, '--format', 'json'], () => db, io),
   ).toBe(0);
-  const parsed = JSON.parse(io.out.join('')) as { status: string };
+  const parsed = parseJson<{ status: string }>(io.out.join(''));
   expect(parsed.status).toBe('ready');
 });
 
@@ -163,9 +165,9 @@ test('renderError + exitCodeFor: json format produces structured envelope', () =
   const err = notFound('no node MMR-9', 'hint text');
   const io = fakeIo(true);
   renderError(err, 'json', io);
-  const parsed = JSON.parse(io.err.join('')) as {
+  const parsed = parseJson<{
     error: { code: string; message: string; hint: string };
-  };
+  }>(io.err.join(''));
   expect(parsed.error.code).toBe('not_found');
   expect(parsed.error.message).toBe('no node MMR-9');
   expect(parsed.error.hint).toBe('hint text');
@@ -175,9 +177,9 @@ test('renderError: jsonl format produces same structured envelope as json', () =
   const err = notFound('no node MMR-9', 'hint text');
   const io = fakeIo(true);
   renderError(err, 'jsonl', io);
-  const parsed = JSON.parse(io.err.join('')) as {
+  const parsed = parseJson<{
     error: { code: string; message: string; hint: string };
-  };
+  }>(io.err.join(''));
   expect(parsed.error.code).toBe('not_found');
   expect(parsed.error.message).toBe('no node MMR-9');
   expect(parsed.error.hint).toBe('hint text');
@@ -204,7 +206,7 @@ test('exitCodeFor returns 1 for MimirError and 2 for UsageError', () => {
 test('get on a bare KEY renders the whole-project view', async () => {
   const io = fakeIo(false);
   expect(await runCli(['get', 'MMR', '-f', 'json'], () => db, io)).toBe(0);
-  const parsed = JSON.parse(io.out.join('')) as { id: string; type: string };
+  const parsed = parseJson<{ id: string; type: string }>(io.out.join(''));
   expect(parsed.id).toBe('MMR');
   expect(parsed.type).toBe('project');
 });
@@ -234,7 +236,7 @@ test('attach echoes KEY-aN and get reads the artifact back', async () => {
 
   const read = fakeIo(false);
   expect(await runCli(['get', 'MMR-a1', '-f', 'json'], () => db, read)).toBe(0);
-  const parsed = JSON.parse(read.out.join('')) as { id: string; links: string[] };
+  const parsed = parseJson<{ id: string; links: string[] }>(read.out.join(''));
   expect(parsed.id).toBe('MMR-a1');
   expect(parsed.links).toEqual([`MMR-${String(t.seq)}`]);
 });
@@ -258,14 +260,14 @@ test('tag and untag round-trip through the CLI', async () => {
 
   const read = fakeIo(false);
   await runCli(['get', ref, '-f', 'json'], () => db, read);
-  const view = JSON.parse(read.out.join('')) as { tags: { tag: string }[] };
+  const view = parseJson<{ tags: { tag: string }[] }>(read.out.join(''));
   expect(view.tags.map((x) => x.tag)).toEqual(['spec', 'v2']);
 
   const rm = fakeIo(false);
   expect(await runCli(['untag', ref, 'v2', '-f', 'json'], () => db, rm)).toBe(0);
   const reread = fakeIo(false);
   await runCli(['get', ref, '-f', 'json'], () => db, reread);
-  const after = JSON.parse(reread.out.join('')) as { tags: { tag: string }[] };
+  const after = parseJson<{ tags: { tag: string }[] }>(reread.out.join(''));
   expect(after.tags.map((x) => x.tag)).toEqual(['spec']);
 });
 
@@ -300,10 +302,10 @@ test('create task --tag applies creation-time tags', async () => {
     io,
   );
   expect(code).toBe(0);
-  const echoed = JSON.parse(io.out.join('')) as { id: string };
+  const echoed = parseJson<{ id: string }>(io.out.join(''));
   const read = fakeIo(false);
   await runCli(['get', echoed.id, '-f', 'json'], () => db, read);
-  const view = JSON.parse(read.out.join('')) as { tags: { tag: string }[] };
+  const view = parseJson<{ tags: { tag: string }[] }>(read.out.join(''));
   expect(view.tags.map((x) => x.tag)).toEqual(['spec', 'v2']);
 });
 
@@ -327,14 +329,14 @@ test('a value miss in json format emits the warning envelope on stderr', async (
   const io = fakeIo(false);
   const code = await runCli(['list', '--eq', 'priority:p9', '-f', 'json'], () => db, io);
   expect(code).toBe(0);
-  const warning = JSON.parse(io.err.join('')) as {
+  const warning = parseJson<{
     warning: { code: string; field: string; value: string; expected: string[] };
-  };
+  }>(io.err.join(''));
   expect(warning.warning.code).toBe('no_match_value');
   expect(warning.warning.field).toBe('priority');
   expect(warning.warning.expected).toEqual(['p0', 'p1', 'p2', 'p3']);
   // stdout still carries the (empty) result
-  expect((JSON.parse(io.out.join('')) as { total: number }).total).toBe(0);
+  expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(0);
 });
 
 test('an unknown field is a usage error (exit 2)', async () => {
@@ -379,7 +381,7 @@ test('depend --on still works as a write flag alongside the date op', async () =
     io,
   );
   expect(code).toBe(0);
-  expect((JSON.parse(io.out.join('')) as { status: string }).status).toBe('awaiting');
+  expect(parseJson<{ status: string }>(io.out.join('')).status).toBe('awaiting');
 });
 
 // artifact title + readback (MMR-34)
@@ -394,7 +396,7 @@ test('attach defaults title from the file basename; --title overrides; --tag cla
   await runCli(['attach', ref, '--file', tmp, '--tag', 'spec'], () => db, io);
   const read = fakeIo(false);
   await runCli(['get', 'MMR-a1', '-f', 'json'], () => db, read);
-  const detail = JSON.parse(read.out.join('')) as { title: string; tags: string[] };
+  const detail = parseJson<{ title: string; tags: string[] }>(read.out.join(''));
   expect(detail.title).toBe('dogfood-plan.md');
   expect(detail.tags).toEqual(['spec']);
 
@@ -402,7 +404,7 @@ test('attach defaults title from the file basename; --title overrides; --tag cla
   await runCli(['attach', ref, '--file', tmp, '--title', 'the plan'], () => db, io2);
   const read2 = fakeIo(false);
   await runCli(['get', 'MMR-a2', '-f', 'json'], () => db, read2);
-  expect((JSON.parse(read2.out.join('')) as { title: string }).title).toBe('the plan');
+  expect(parseJson<{ title: string }>(read2.out.join('')).title).toBe('the plan');
 });
 
 test('attach from stdin without --title is a usage error', async () => {
@@ -420,11 +422,11 @@ test('get KEY-aN --col content returns the frozen body', async () => {
 
   const bare = fakeIo(false);
   await runCli(['get', 'MMR-a1', '-f', 'json'], () => db, bare);
-  expect(JSON.parse(bare.out.join('')) as object).not.toHaveProperty('content');
+  expect(parseJson<object>(bare.out.join(''))).not.toHaveProperty('content');
 
   const withContent = fakeIo(false);
   await runCli(['get', 'MMR-a1', '--col', 'content', '-f', 'json'], () => db, withContent);
-  const parsed = JSON.parse(withContent.out.join('')) as { content: string };
+  const parsed = parseJson<{ content: string }>(withContent.out.join(''));
   expect(parsed.content).toBe('# the frozen body\n');
 });
 
@@ -472,7 +474,7 @@ test('--col takes flat column names; the dot form is a usage error', async () =>
   const ref = `MMR-${String(t.seq)}`;
   const io = fakeIo(false);
   await runCli(['get', ref, '--col', 'history', '-f', 'json'], () => db, io);
-  const view = JSON.parse(io.out.join('')) as { history: unknown[] };
+  const view = parseJson<{ history: unknown[] }>(io.out.join(''));
   expect(Array.isArray(view.history)).toBe(true);
 
   const dotted = fakeIo(false);
@@ -540,7 +542,7 @@ test('next empty -f json produces unchanged structured output — no message lea
   const io = fakeIo(true);
   const code = await runCli(['next', '--scope', 'MMR', '-f', 'json'], () => db, io);
   expect(code).toBe(0);
-  const parsed = JSON.parse(io.out.join('')) as { total: number; returned: number };
+  const parsed = parseJson<{ total: number; returned: number }>(io.out.join(''));
   expect(parsed.total).toBe(0);
   expect(parsed.returned).toBe(0);
   // No message text in the JSON output

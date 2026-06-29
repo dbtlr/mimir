@@ -9,6 +9,8 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { parseJson } from '@mimir/helpers';
+
 export type ServiceEventName =
   | 'install'
   | 'start'
@@ -49,7 +51,7 @@ export function recentEvents(file: string, n: number): ServiceEvent[] {
       continue;
     }
     try {
-      events.push(JSON.parse(line) as ServiceEvent);
+      events.push(parseJson<ServiceEvent>(line));
     } catch {
       // a torn or hand-mangled line must not take status down
     }

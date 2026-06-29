@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
+import { parseJson } from '@mimir/helpers';
 import type { Server } from 'bun';
 
 import {
@@ -68,7 +69,7 @@ const send = (method: string, path: string, body?: unknown) =>
     method,
   });
 
-const parse = async (res: Response): Promise<Rec> => JSON.parse(await res.text()) as Rec;
+const parse = async (res: Response): Promise<Rec> => parseJson<Rec>(await res.text());
 
 const errorCode = (body: Rec): string => (body.error as { code: string }).code;
 

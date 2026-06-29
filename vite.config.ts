@@ -67,10 +67,10 @@ const quarantinedRules: Record<string, 'off'> = {
   'no-await-in-loop': 'off', // 57 — many are intentional sequential I/O
   'no-nested-ternary': 'off', // 4
   'no-shadow': 'off', // 4
+  'typescript/no-unsafe-type-assertion': 'off', // JSON sites migrated to parseJson; ~83 non-JSON casts remain
   'no-unused-vars': 'off', // 35
   'sort-keys': 'off', // 52 (autofix residual — spread/comment objects)
   // — typescript —
-  'typescript/no-unsafe-type-assertion': 'off', // 146 — biggest; mostly test JSON.parse casts
   // — import —
   'import/no-unassigned-import': 'off', // 2
   // — unicorn —

@@ -20,6 +20,7 @@
       "dependencies": {
         "@meck93/kysely-bun-sqlite": "0.2.16",
         "@mimir/contract": "workspace:*",
+        "@mimir/helpers": "workspace:*",
         "@modelcontextprotocol/sdk": "1.29.0",
         "kysely": "0.28.17",
         "zod": "4.4.3",
@@ -28,6 +29,10 @@
     "packages/contract": {
       "name": "@mimir/contract",
       "version": "0.5.0",
+    },
+    "packages/helpers": {
+      "name": "@mimir/helpers",
+      "version": "0.13.0-next",
     },
     "packages/ui": {
       "name": "@mimir/ui",
@@ -395,6 +400,8 @@
     "@mimir/bin": ["@mimir/bin@workspace:packages/bin"],
 
     "@mimir/contract": ["@mimir/contract@workspace:packages/contract"],
+
+    "@mimir/helpers": ["@mimir/helpers@workspace:packages/helpers"],
 
     "@mimir/ui": ["@mimir/ui@workspace:packages/ui"],
 
