@@ -276,26 +276,26 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
         GET: (req) =>
           guarded(req, async () => {
             const q = new URL(req.url).searchParams;
-            const opts: Parameters<typeof listArtifacts>[1] = {};
+            const listOpts: Parameters<typeof listArtifacts>[1] = {};
             const project = q.get('project');
             if (project !== null) {
-              opts.project = project;
+              listOpts.project = project;
             }
             const tag = q.get('tag');
             if (tag !== null) {
-              opts.tag = tag;
+              listOpts.tag = tag;
             }
             const text = q.get('q');
             if (text !== null) {
-              opts.q = text;
+              listOpts.q = text;
             }
             const since = q.get('since');
             if (since !== null) {
-              opts.since = normalizeDate(since, 'start');
+              listOpts.since = normalizeDate(since, 'start');
             }
             const before = q.get('before');
             if (before !== null) {
-              opts.before = normalizeDate(before, 'end');
+              listOpts.before = normalizeDate(before, 'end');
             }
             const limit = q.get('limit');
             if (limit !== null) {
@@ -303,9 +303,9 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
               if (!Number.isInteger(n) || n < 1) {
                 throw validation(`invalid limit ${limit}`);
               }
-              opts.limit = n;
+              listOpts.limit = n;
             }
-            const result = await listArtifacts(db, opts);
+            const result = await listArtifacts(db, listOpts);
             return json(req, {
               items: result.items.map(artifactSummaryToWire),
               total: result.total,
@@ -348,7 +348,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
       '/api/nodes': {
         GET: (req) =>
           guarded(req, async () => {
-            const { opts, badStatus } = parseNodesQuery(new URL(req.url));
+            const { opts: nodeOpts, badStatus } = parseNodesQuery(new URL(req.url));
             if (badStatus !== undefined) {
               return json(req, {
                 items: [],
@@ -364,7 +364,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
                 ],
               });
             }
-            const result = await listNodes(db, opts);
+            const result = await listNodes(db, nodeOpts);
             return json(req, setBody(result.total, result.items, result.warnings));
           }),
         POST: (req) =>

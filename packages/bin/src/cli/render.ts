@@ -191,10 +191,10 @@ function onwardHint(node: NodeView, io: Io): string {
 export function renderRecords(node: NodeView, io: Io): string {
   const lines = [bold(node.id, io.plain)];
   const isContainer = node.type !== 'task';
-  const signpost = isContainer ? rollupSignpost(node) : '';
+  const rollupNote = isContainer ? rollupSignpost(node) : '';
   const pairs: [string, string][] = [
     ['type', node.type],
-    ['status', statusCell(node.status, node.status.length, io.plain) + signpost],
+    ['status', statusCell(node.status, node.status.length, io.plain) + rollupNote],
     ['title', node.title],
   ];
   if (node.parent !== null) {
@@ -371,10 +371,10 @@ export function renderStatus(status: StatusView, io: Io): string {
     .map(([word, count]) => `${word}:${String(count)}`)
     .join(', ');
   const isContainer = status.type !== 'task';
-  const signpost = isContainer ? statusRollupSignpost(status) : '';
+  const rollupNote = isContainer ? statusRollupSignpost(status) : '';
   const lines = [
     bold(status.id, io.plain),
-    row('status', statusCell(status.status, status.status.length, io.plain) + signpost, 12),
+    row('status', statusCell(status.status, status.status.length, io.plain) + rollupNote, 12),
     row('distribution', dist === '' ? '(none)' : dist, 12),
   ];
   const hint = buildOnwardHint(status.id, isContainer, io);
