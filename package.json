@@ -19,7 +19,7 @@
     "build": "bun run build:ui && bun run assets && bun build packages/bin/src/main.ts --compile --outfile dist/mimir"
   },
   "devDependencies": {
-    "@dbtlr/tooling": "0.2.0",
+    "@dbtlr/tooling": "0.3.0",
     "@types/bun": "latest",
     "oxlint": "1.70.0",
     "vite-plus": "^0.2.1"

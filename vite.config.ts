@@ -1,8 +1,7 @@
 import { toolingConfig } from '@dbtlr/tooling';
-import type { JsonObject } from '@dbtlr/tooling';
-import type { OxlintConfig } from 'oxlint';
+import type { LintOverride } from '@dbtlr/tooling/vite-plus';
 
-type Override = NonNullable<OxlintConfig['overrides']>[number];
+type Override = LintOverride;
 
 /**
  * Centralized monorepo lint config (@dbtlr/tooling).
@@ -68,9 +67,9 @@ const forbid = (files: string[], layers: string[]): Override => ({
  */
 const quarantinedRules: Record<string, 'off'> = {
   // — Style / preference, not safe-autofixable, fights Mimir's conventions —
+  // (func-style, import/exports-last et al. are now off in @dbtlr/tooling 0.3.0
+  // defaults — dropped from this list.)
   curly: 'off',
-  'func-style': 'off', // Mimir mixes declaration + expression by design (475)
-  'import/exports-last': 'off',
   'import/first': 'off',
   'new-cap': 'off',
   'no-await-in-loop': 'off', // intentional sequential SQLite ops (57)
@@ -96,22 +95,15 @@ const quarantinedRules: Record<string, 'off'> = {
   // (React/react-perf/jsx-a11y rules are quarantined in `uiLintOverride`, not
   // here — they need the ui-scoped override to win, see the header comment.)
 
-  // — Test style (vitest) — opinionated, applies to the UI suite —
-  'vitest/max-expects': 'off',
+  // — Test style (vitest) — opinionated. NOTE: @dbtlr/tooling 0.3.0 now disables
+  // most of these in test files itself — including the three buggy-autofix rules
+  // (prefer-called-with, prefer-describe-function-title, prefer-import-in-mock).
+  // These remain because 0.3.0's disables are scoped to `*.test.*`/`*.spec.*`
+  // globs, but the vitest plugin lints ALL files — so they still fire on test
+  // helpers (test/fixtures.ts, test/setup.ts) and app files (main.tsx).
   'vitest/no-conditional-expect': 'off',
-  'vitest/no-hooks': 'off',
-  // its "safe" autofix rewrites toHaveBeenCalled() → toHaveBeenCalledWith(),
-  // changing "called at all" into "called with zero args" — breaks real tests.
-  'vitest/prefer-called-with': 'off',
-  // its autofix replaces a string title with the first identifier even when it
-  // isn't a function (`describe(SOME_ARRAY)` / `describe(zodSchema)` → TS2769).
-  'vitest/prefer-describe-function-title': 'off',
   'vitest/prefer-called-times': 'off',
-  // its autofix rewrites vi.mock('x') → vi.mock(import('x')), which breaks the
-  // typed-mock overloads (TS2769/TS2300); keep off until that's sound upstream.
-  'vitest/prefer-import-in-mock': 'off',
   'vitest/require-hook': 'off',
-  'vitest/require-mock-type-parameters': 'off',
   'vitest/require-top-level-describe': 'off',
   'vitest/valid-title': 'off',
 
@@ -174,9 +166,7 @@ export default toolingConfig({
   },
   lint: {
     ignores: ['dist/**', '**/*.generated.ts'],
-    // toolingConfig types `overrides` as the opaque `JsonObject[]`; our typed
-    // oxlint fragments don't carry an index signature, so cast at the boundary.
-    overrides: layerOverrides as unknown as JsonObject[],
+    overrides: layerOverrides,
     rules: quarantinedRules,
   },
   node: ['packages/bin/**'],
