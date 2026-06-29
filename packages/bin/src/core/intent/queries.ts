@@ -1,7 +1,18 @@
 import { CHEAP_FACETS } from '@mimir/contract';
-import type { ArtifactDetail, FacetName, NodeView, SetResult, StatusView } from '@mimir/contract';
-import type { Priority, Size, StatusWord } from '@mimir/contract';
-import type { FieldFilter, StatusSelector, ValueWarning, VerdictSelector } from '@mimir/contract';
+import type {
+  ArtifactDetail,
+  FacetName,
+  FieldFilter,
+  NodeView,
+  Priority,
+  SetResult,
+  Size,
+  StatusSelector,
+  StatusView,
+  StatusWord,
+  ValueWarning,
+  VerdictSelector,
+} from '@mimir/contract';
 import { sql } from 'kysely';
 
 import type { Node } from '../../db/schema';

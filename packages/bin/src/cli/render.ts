@@ -1,5 +1,11 @@
-import type { ArtifactDetail, NodeView, SetResult, StatusView, TreeView } from '@mimir/contract';
-import type { StatusWord } from '@mimir/contract';
+import type {
+  ArtifactDetail,
+  NodeView,
+  SetResult,
+  StatusView,
+  StatusWord,
+  TreeView,
+} from '@mimir/contract';
 
 import { formatArtifactJson, formatNodeJson } from '../core';
 

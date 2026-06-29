@@ -1,5 +1,4 @@
-import type { Hold, Lifecycle, StatusWord, TaskStatusWord } from '@mimir/contract';
-import type { Distribution } from '@mimir/contract';
+import type { Distribution, Hold, Lifecycle, StatusWord, TaskStatusWord } from '@mimir/contract';
 
 export type { Distribution };
 

@@ -1,11 +1,19 @@
-import type { FacetName, FieldFilter, NodeView, Priority, Size } from '@mimir/contract';
+import type {
+  FacetName,
+  FieldFilter,
+  NodeView,
+  Priority,
+  Size,
+  StatusSelector,
+  Verdict,
+  VerdictSelector,
+} from '@mimir/contract';
 import {
   NODE_TYPE_VALUES,
   QUERY_OP_VALUES,
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
 } from '@mimir/contract';
-import type { StatusSelector, Verdict, VerdictSelector } from '@mimir/contract';
 import type { Server } from 'bun';
 
 import type { Db, ListOptions, RankPosition, UpdateFields } from '../core';
