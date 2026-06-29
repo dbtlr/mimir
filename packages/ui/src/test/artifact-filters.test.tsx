@@ -16,7 +16,7 @@ describe('artifactFilters', () => {
     await waitFor(() => {
       expect(onChange).toHaveBeenLastCalledWith({ q: 'auth' });
     });
-    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledOnce();
   });
 
   it('search box re-syncs when q changes externally (controlled)', async () => {
