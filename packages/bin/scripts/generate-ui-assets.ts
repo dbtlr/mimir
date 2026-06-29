@@ -1,3 +1,5 @@
+// Build script, not a vitest test body.
+// oxlint-disable vitest/require-hook
 /**
  * Emit `src/http/ui-assets.generated.ts` — the embedded-UI manifest (ADR
  * 0013): one Bun file-type import per file in `packages/ui/dist`, keyed by

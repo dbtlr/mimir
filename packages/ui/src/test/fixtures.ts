@@ -1,3 +1,5 @@
+// Shared test fixtures module, not a test body.
+// oxlint-disable vitest/require-hook
 import type { WireAttention, WireNode } from '../api/types';
 
 let seq = 100;

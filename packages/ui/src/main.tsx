@@ -1,3 +1,5 @@
+// App entry, not a vitest test body.
+// oxlint-disable vitest/require-hook
 // side-effect import: global stylesheet
 // oxlint-disable-next-line import/no-unassigned-import
 import './styles.css';
