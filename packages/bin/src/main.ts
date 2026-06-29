@@ -153,6 +153,8 @@ function realServiceDeps(): ServiceDeps {
         if (!res.ok) {
           return undefined;
         }
+        // Untrusted HTTP boundary (own /api/health) — schema validation is the planned follow-up.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         return (await res.json()) as Health;
       } catch {
         return undefined;

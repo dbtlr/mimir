@@ -11,8 +11,10 @@ export async function expectMimirError(
   try {
     await run();
   } catch (error) {
-    expect(error).toBeInstanceOf(MimirError);
-    expect((error as MimirError).code).toBe(code);
+    if (!(error instanceof MimirError)) {
+      throw new Error(`expected a MimirError(${code}), got ${String(error)}`, { cause: error });
+    }
+    expect(error.code).toBe(code);
     return;
   }
   throw new Error(`expected a MimirError(${code}), but nothing was thrown`);

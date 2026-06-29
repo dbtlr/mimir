@@ -7,6 +7,7 @@
 
 import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
 import type { Priority, Size } from '@mimir/contract';
+import { isMember } from '@mimir/helpers';
 
 import { usage } from './errors';
 
@@ -14,18 +15,18 @@ export function parsePriority(value: string | undefined): Priority | undefined {
   if (value === undefined) {
     return undefined;
   }
-  if (!(PRIORITY_VALUES as readonly string[]).includes(value)) {
+  if (!isMember(value, PRIORITY_VALUES)) {
     throw usage(`invalid priority: ${value} (expected ${PRIORITY_VALUES.join('|')})`);
   }
-  return value as Priority;
+  return value;
 }
 
 export function parseSize(value: string | undefined): Size | undefined {
   if (value === undefined) {
     return undefined;
   }
-  if (!(SIZE_VALUES as readonly string[]).includes(value)) {
+  if (!isMember(value, SIZE_VALUES)) {
     throw usage(`invalid size: ${value} (expected ${SIZE_VALUES.join('|')})`);
   }
-  return value as Size;
+  return value;
 }

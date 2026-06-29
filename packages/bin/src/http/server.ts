@@ -1,19 +1,13 @@
-import type {
-  FacetName,
-  FieldFilter,
-  NodeView,
-  Priority,
-  Size,
-  StatusSelector,
-  Verdict,
-  VerdictSelector,
-} from '@mimir/contract';
+import type { FacetName, FieldFilter, NodeView, VerdictSelector } from '@mimir/contract';
 import {
   NODE_TYPE_VALUES,
+  PRIORITY_VALUES,
   QUERY_OP_VALUES,
+  SIZE_VALUES,
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
 } from '@mimir/contract';
+import { isMember } from '@mimir/helpers';
 import type { Server } from 'bun';
 
 import type { Db, ListOptions, RankPosition, UpdateFields } from '../core';
@@ -167,10 +161,10 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
         .split(',')
         .map((v) => v.trim())
         .filter(Boolean)) {
-        if (!(VERDICT_VALUES as readonly string[]).includes(token)) {
+        if (!isMember(token, VERDICT_VALUES)) {
           throw validation(`unknown verdict ${token}`, `verdicts: ${VERDICT_VALUES.join(', ')}`);
         }
-        verdicts.push({ negate, verdict: token as Verdict });
+        verdicts.push({ negate, verdict: token });
       }
     }
   }
@@ -198,10 +192,10 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
   }
   const status = q.get('status');
   if (status !== null) {
-    if (!(STATUS_SELECTOR_VALUES as readonly string[]).includes(status)) {
+    if (!isMember(status, STATUS_SELECTOR_VALUES)) {
       return { badStatus: status, opts };
     }
-    opts.status = status as StatusSelector;
+    opts.status = status;
   }
   return { opts };
 }
@@ -417,13 +411,22 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             }
             if (type === 'task') {
               const priority = strField(body, 'priority');
+              if (priority !== undefined && !isMember(priority, PRIORITY_VALUES)) {
+                throw validation(
+                  `invalid priority: ${priority}`,
+                  `priorities: ${PRIORITY_VALUES.join(', ')}`,
+                );
+              }
               const size = strField(body, 'size');
+              if (size !== undefined && !isMember(size, SIZE_VALUES)) {
+                throw validation(`invalid size: ${size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
+              }
               const node = await createTask(db, {
                 description,
                 externalRef: strField(body, 'external_ref'),
                 parentId: await nodeRef(db, parent, 'phase or initiative'),
-                priority: priority !== undefined ? (priority as Priority) : undefined,
-                size: size !== undefined ? (size as Size) : undefined,
+                priority,
+                size,
                 tags,
                 title,
               });
@@ -471,11 +474,20 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             }
             const priority = strField(body, 'priority');
             if (priority !== undefined) {
-              fields.priority = priority as Priority;
+              if (!isMember(priority, PRIORITY_VALUES)) {
+                throw validation(
+                  `invalid priority: ${priority}`,
+                  `priorities: ${PRIORITY_VALUES.join(', ')}`,
+                );
+              }
+              fields.priority = priority;
             }
             const size = strField(body, 'size');
             if (size !== undefined) {
-              fields.size = size as Size;
+              if (!isMember(size, SIZE_VALUES)) {
+                throw validation(`invalid size: ${size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
+              }
+              fields.size = size;
             }
             const target = strField(body, 'target');
             if (target !== undefined) {
