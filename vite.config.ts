@@ -73,7 +73,6 @@ const quarantinedRules: Record<string, 'off'> = {
   // contradicts vitest/prefer-called-once (which we keep) — opposite preferences,
   // both on by default; can't satisfy both, so this twin stays off.
   'vitest/prefer-called-times': 'off',
-  'vitest/require-hook': 'off', // 6 (fires on test helpers + app files)
   'vitest/require-top-level-describe': 'off', // 1
 };
 
