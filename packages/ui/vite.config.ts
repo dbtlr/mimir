@@ -16,6 +16,8 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    // VitePWA is a plugin factory, not a constructor (third-party naming)
+    // oxlint-disable-next-line new-cap
     VitePWA({
       includeAssets: ['icons/mimir.svg', 'icons/mimir-maskable.svg'],
       manifest: {
