@@ -11,6 +11,8 @@
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
 
+import { isMember } from '@mimir/helpers';
+
 import { usage } from '../cli/errors';
 import type { Format, Io } from '../cli/render';
 import { ok, warn } from '../cli/render';
@@ -67,7 +69,6 @@ export type ServiceDeps = {
 export const DEFAULT_PORT = 64647;
 
 const SUBCOMMANDS = ['install', 'uninstall', 'start', 'stop', 'restart', 'status'] as const;
-type Sub = (typeof SUBCOMMANDS)[number];
 
 function requireDarwin(deps: ServiceDeps): void {
   if (deps.platform !== 'darwin') {
@@ -96,7 +97,7 @@ export async function cmdService(
   format: Format = 'records',
 ): Promise<number> {
   const sub = positionals[1];
-  if (sub === undefined || !(SUBCOMMANDS as readonly string[]).includes(sub)) {
+  if (sub === undefined || !isMember(sub, SUBCOMMANDS)) {
     throw usage(`service: unknown subcommand (expected: ${SUBCOMMANDS.join(' | ')})`);
   }
   requireDarwin(deps);
@@ -116,7 +117,7 @@ export async function cmdService(
     report(io, format, () => formatServiceActionJson(result, format === 'json'), human);
   };
 
-  switch (sub as Sub) {
+  switch (sub) {
     case 'install': {
       let port: number | undefined;
       if (values.port !== undefined) {
@@ -175,8 +176,8 @@ export async function cmdService(
       return await statusReport(io, deps, format);
     }
     default: {
-      // Unreachable — `sub` is validated against SUBCOMMANDS above.
-      throw usage(`service: unknown subcommand ${sub}`);
+      // Unreachable — `sub` is validated against SUBCOMMANDS above (narrows to never here).
+      throw usage(`service: unknown subcommand (expected: ${SUBCOMMANDS.join(' | ')})`);
     }
   }
 }

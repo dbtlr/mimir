@@ -1,4 +1,4 @@
-import { CHEAP_FACETS } from '@mimir/contract';
+import { CHEAP_FACETS, PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
 import type {
   FacetName,
   FieldFilter,
@@ -9,6 +9,7 @@ import type {
   Verdict,
   VerdictSelector,
 } from '@mimir/contract';
+import { isMember } from '@mimir/helpers';
 
 import {
   MimirError,
@@ -417,10 +418,19 @@ export function toolUpdate(
       fields.description = args.description;
     }
     if (args.priority !== undefined) {
-      fields.priority = args.priority as Priority;
+      if (!isMember(args.priority, PRIORITY_VALUES)) {
+        throw validation(
+          `invalid priority: ${args.priority}`,
+          `priorities: ${PRIORITY_VALUES.join(', ')}`,
+        );
+      }
+      fields.priority = args.priority;
     }
     if (args.size !== undefined) {
-      fields.size = args.size as Size;
+      if (!isMember(args.size, SIZE_VALUES)) {
+        throw validation(`invalid size: ${args.size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
+      }
+      fields.size = args.size;
     }
     if (args.target !== undefined) {
       fields.target = args.target;
@@ -645,12 +655,21 @@ export function toolCreate(
           throw validation("a task's parent must be a phase or initiative (KEY-seq)");
         }
         const parentNodeId = await nodeId(db, args.parent);
+        if (args.priority !== undefined && !isMember(args.priority, PRIORITY_VALUES)) {
+          throw validation(
+            `invalid priority: ${args.priority}`,
+            `priorities: ${PRIORITY_VALUES.join(', ')}`,
+          );
+        }
+        if (args.size !== undefined && !isMember(args.size, SIZE_VALUES)) {
+          throw validation(`invalid size: ${args.size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
+        }
         const node = await createTask(db, {
           description: args.description,
           externalRef: args.externalRef,
           parentId: parentNodeId,
-          priority: args.priority !== undefined ? (args.priority as Priority) : undefined,
-          size: args.size !== undefined ? (args.size as Size) : undefined,
+          priority: args.priority,
+          size: args.size,
           tags: args.tags,
           title: args.title,
         });

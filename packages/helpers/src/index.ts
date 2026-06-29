@@ -28,6 +28,15 @@ type StandardResult<Output> =
 type InferOutput<S extends StandardSchemaV1> =
   S extends StandardSchemaV1<infer Output> ? Output : never;
 
+/**
+ * Type-narrowing membership check — `value` is `T` when it's one of `allowed`.
+ * Lets callers validate-then-narrow untrusted strings into an enum type without
+ * an unsafe `as` cast: `if (!isMember(v, PRIORITY_VALUES)) reject(); // v: Priority`.
+ */
+export function isMember<T extends string>(value: string, allowed: readonly T[]): value is T {
+  return allowed.some((member) => member === value);
+}
+
 // T is the caller-specified return type of the typed-cast form — single-use by design.
 // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
 export function parseJson<T = unknown>(text: string): T;

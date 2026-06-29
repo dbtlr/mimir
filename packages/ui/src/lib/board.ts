@@ -1,3 +1,5 @@
+import { isMember } from '@mimir/helpers';
+
 import type { WireNode } from '../api/types';
 
 /**
@@ -50,8 +52,8 @@ export function buildBoard(live: WireNode[], done: WireNode[], now = Date.now())
     under_review: [],
   };
   for (const node of live) {
-    if (node.status !== 'done' && node.status in board) {
-      board[node.status as BoardColumn].push(node);
+    if (node.status !== 'done' && isMember(node.status, BOARD_COLUMNS)) {
+      board[node.status].push(node);
     }
   }
   board.done = done.filter((node) => {

@@ -9,9 +9,9 @@ import type {
   NodeView,
   SetResult,
   StatusSelector,
-  Verdict,
   VerdictSelector,
 } from '@mimir/contract';
+import { isMember } from '@mimir/helpers';
 
 import {
   MimirError,
@@ -72,7 +72,6 @@ import {
 import type { Format, Io } from './render';
 import { resolveProject } from './resolve';
 import { SKILL_AGENTS, SKILL_FILES, skillDirFor } from './skill-assets';
-import type { SkillAgent } from './skill-assets';
 
 // Deliberately grouped query-flags-then-write-flags (see the divider comment),
 // not alphabetical — the operator cluster reads as a unit.
@@ -413,11 +412,11 @@ export async function runCli(
           throw usage('skill install takes --global or --local, not both');
         }
         const agent = values.agent ?? 'claude';
-        if (!(SKILL_AGENTS as readonly string[]).includes(agent)) {
+        if (!isMember(agent, SKILL_AGENTS)) {
           throw usage(`unknown agent: ${agent} (expected ${SKILL_AGENTS.join('|')})`);
         }
         const base = values.local === true ? (defaults.cwd ?? process.cwd()) : homedir();
-        const dir = skillDirFor(agent as SkillAgent, base);
+        const dir = skillDirFor(agent, base);
         for (const f of SKILL_FILES) {
           const target = `${dir}/${f.path}`;
           mkdirSync(target.slice(0, target.lastIndexOf('/')), { recursive: true });
@@ -564,10 +563,10 @@ function pickFormat(
   io: Io,
 ): Format {
   if (explicit !== undefined) {
-    if (!(FORMATS as readonly string[]).includes(explicit)) {
+    if (!isMember(explicit, FORMATS)) {
       throw usage(`unknown format: ${explicit} (expected ${FORMATS.join('|')})`);
     }
-    return explicit as Format;
+    return explicit;
   }
   // `status` is structured data — json on every destination.
   if (kind === 'status') {
@@ -608,10 +607,10 @@ function parseFacets(cols: string[] | undefined): FacetName[] {
     if (col === 'content') {
       continue;
     } // artifact-only; a node simply has no body
-    if (!(FACET_NAMES as readonly string[]).includes(col)) {
+    if (!isMember(col, FACET_NAMES)) {
       throw usage(`unknown column: ${col}`, `columns: ${[...FACET_NAMES, 'content'].join(', ')}`);
     }
-    facets.push(col as FacetName);
+    facets.push(col);
   }
   return facets;
 }
@@ -620,20 +619,20 @@ function parseStatus(value: string | undefined): StatusSelector | undefined {
   if (value === undefined) {
     return undefined;
   }
-  if (!(STATUS_SELECTOR_VALUES as readonly string[]).includes(value)) {
+  if (!isMember(value, STATUS_SELECTOR_VALUES)) {
     throw usage(`invalid status: ${value} (expected ${STATUS_SELECTOR_VALUES.join('|')})`);
   }
-  return value as StatusSelector;
+  return value;
 }
 
 function parseVerdicts(is: string[] | undefined, notIs: string[] | undefined): VerdictSelector[] {
   const out: VerdictSelector[] = [];
   const take = (tokens: string[] | undefined, negate: boolean): void => {
     for (const token of tokens ?? []) {
-      if (!(VERDICT_VALUES as readonly string[]).includes(token)) {
+      if (!isMember(token, VERDICT_VALUES)) {
         throw usage(`invalid verdict: ${token} (expected ${VERDICT_VALUES.join('|')})`);
       }
-      out.push({ negate, verdict: token as Verdict });
+      out.push({ negate, verdict: token });
     }
   };
   take(is, false);
@@ -668,7 +667,10 @@ function parseFilters(values: Record<string, unknown>): FieldFilter[] {
     if (!Array.isArray(tokens)) {
       continue;
     }
-    for (const token of tokens as string[]) {
+    for (const token of tokens) {
+      if (typeof token !== 'string') {
+        continue;
+      }
       try {
         filters.push(parseFilterToken(op, token));
       } catch (error) {

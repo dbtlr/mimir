@@ -95,6 +95,8 @@ export async function readBody(
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw validation('request body must be a JSON object');
   }
+  // Validated just above: a non-null, non-array object — i.e. a string-keyed record.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const body = parsed as Record<string, unknown>;
   for (const key of Object.keys(body)) {
     if (!allowed.includes(key)) {

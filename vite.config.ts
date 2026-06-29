@@ -63,7 +63,6 @@ const forbid = (files: string[], layers: string[]): Override => ({
  */
 const quarantinedRules: Record<string, 'off'> = {
   'no-await-in-loop': 'off', // 57 — many are intentional sequential I/O
-  'typescript/no-unsafe-type-assertion': 'off', // JSON sites migrated to parseJson; ~83 non-JSON casts remain
   // contradicts vitest/prefer-called-once (which we keep) — opposite preferences,
   // both on by default; can't satisfy both, so this twin stays off.
   'vitest/prefer-called-times': 'off',
@@ -105,6 +104,13 @@ const layerOverrides: Override[] = [
   // Tests legitimately wire layers together (fixtures from `db/testing`,
   // cross-layer assertions); the boundary constrains shipped code, not tests.
   { files: ['**/*.test.ts'], rules: { 'no-restricted-imports': 'off' } },
+  // Tests legitimately force bad/loose types — to drive error paths, assert over
+  // untyped HTTP responses, narrow DOM queries — so unsafe assertions are allowed
+  // in test files (they own both ends; the safety bar is for shipped code).
+  {
+    files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx'],
+    rules: { 'typescript/no-unsafe-type-assertion': 'off' },
+  },
   // Kysely migrations use an ordered `NNNN_name` filename convention, not
   // kebab/pascal — exempt the whole directory from filename-case.
   { files: ['packages/bin/src/db/migrations/**'], rules: { 'unicorn/filename-case': 'off' } },

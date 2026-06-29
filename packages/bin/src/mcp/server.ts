@@ -103,8 +103,12 @@ function register<A>(
 ): void {
   // Bind to a concrete, non-generic signature so the type-checker doesn't
   // instantiate registerTool's deep per-field generics (TS2589); `this` is
-  // preserved by bind, and zod still validates at runtime.
+  // preserved by bind, and zod still validates at runtime. The MCP SDK's types
+  // don't expose a usable narrow signature here, so the seam is cast (case 2).
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const registerTool = server.registerTool.bind(server) as unknown as RegisterFn;
+  // args is zod-validated at runtime; A is the caller's declared shape.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   registerTool(name, { description, inputSchema }, (args) => handler(args as A));
 }
 

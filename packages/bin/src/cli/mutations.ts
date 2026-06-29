@@ -485,7 +485,10 @@ function optStr(c: Ctx, name: string): string | undefined {
 /** The repeatable `--tag` values on create (MMR-31). */
 function tagFlags(c: Ctx): string[] | undefined {
   const v = c.values.tag;
-  return Array.isArray(v) && v.length > 0 ? (v as string[]) : undefined;
+  if (!Array.isArray(v) || v.length === 0 || !v.every((x) => typeof x === 'string')) {
+    return undefined;
+  }
+  return v;
 }
 
 const splitCsv = (csv: string): string[] =>

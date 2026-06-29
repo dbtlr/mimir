@@ -110,11 +110,11 @@ export async function updateProject(
       patch.updated_at = now();
       await tx.updateTable('project').set(patch).where('id', '=', id).execute();
     }
-    return (await tx
+    return await tx
       .selectFrom('project')
       .selectAll()
       .where('id', '=', id)
-      .executeTakeFirst()) as Project;
+      .executeTakeFirstOrThrow();
   });
 }
 
