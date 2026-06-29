@@ -1,3 +1,6 @@
+// Distribution is re-exported AND used locally — a plain `export … from`
+// wouldn't bind it in-file.
+// oxlint-disable-next-line unicorn/prefer-export-from
 import type { Distribution, Hold, Lifecycle, StatusWord, TaskStatusWord } from '@mimir/contract';
 
 export type { Distribution };

@@ -7,6 +7,8 @@
  * `ErrorCode` itself is wire vocabulary and lives in `@mimir/contract`;
  * re-exported here for the core's own raisers.
  */
+// re-exported AND used locally — a plain `export … from` wouldn't bind it here
+// oxlint-disable-next-line unicorn/prefer-export-from
 import type { ErrorCode } from '@mimir/contract';
 
 export type { ErrorCode };

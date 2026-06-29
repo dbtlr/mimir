@@ -16,6 +16,8 @@ import {
 } from '../core';
 import type { Db } from '../core';
 import { renderNodeView, signpost } from './render';
+// Format is re-exported AND used locally — a plain `export … from` wouldn't bind it
+// oxlint-disable-next-line unicorn/prefer-export-from
 import type { Format, Io } from './render';
 
 export type { Format };
