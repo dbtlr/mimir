@@ -4,11 +4,11 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, test, vi } from 'vitest';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
-
 import type { WireAttention } from '../api/types';
 import { router } from '../router';
+
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
 
 function attn(band: WireAttention['band'], lastActivity: string, stale = false): WireAttention {
   return { band, last_activity: lastActivity, stale };

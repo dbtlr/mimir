@@ -3,10 +3,10 @@ import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/rea
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
+import { router } from '../router';
+
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
-
-import { router } from '../router';
 
 describe('artifactsPage', () => {
   it('renders the filter search box and the result rows', async () => {
