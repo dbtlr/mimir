@@ -78,7 +78,6 @@ const quarantinedRules: Record<string, 'off'> = {
   'unicorn/custom-error-definition': 'off', // 1
   'unicorn/filename-case': 'off', // 6
   'unicorn/no-nested-ternary': 'off', // 4
-  'unicorn/prefer-set-has': 'off', // 1 — autofix is unsound here (array→Set vs array type)
   // — vitest (lints all files, not just *.test.*) —
   'vitest/no-conditional-expect': 'off', // 4
   'vitest/prefer-called-once': 'off', // 1
