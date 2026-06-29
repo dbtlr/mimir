@@ -80,7 +80,6 @@ const quarantinedRules: Record<string, 'off'> = {
   'unicorn/no-nested-ternary': 'off', // 4
   'unicorn/prefer-export-from': 'off', // 3
   'unicorn/prefer-global-this': 'off', // 5
-  'unicorn/prefer-response-static-json': 'off', // 2
   'unicorn/prefer-set-has': 'off', // 1 — autofix is unsound here (array→Set vs array type)
   // — vitest (lints all files, not just *.test.*) —
   'vitest/no-conditional-expect': 'off', // 4
