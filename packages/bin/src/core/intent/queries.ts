@@ -190,7 +190,7 @@ export async function nextTasks(db: Db, opts: NextOptions = {}): Promise<SetResu
     ready.push(row);
   }
   const limited = opts.limit !== undefined ? ready.slice(0, opts.limit) : ready;
-  const facets = new Set(opts.facets ?? []);
+  const facets = new Set(opts.facets);
   const items = await Promise.all(limited.map((node) => buildNodeView(db, node, facets)));
   return setResult(items, ready.length);
 }
@@ -289,7 +289,7 @@ export async function listNodes(db: Db, opts: ListOptions = {}): Promise<SetResu
     matched.push({ node: row, word });
   }
   const limited = opts.limit !== undefined ? matched.slice(0, opts.limit) : matched;
-  const facets = new Set(opts.facets ?? []);
+  const facets = new Set(opts.facets);
   const items = await Promise.all(limited.map(({ node }) => buildNodeView(db, node, facets)));
   return setResult(items, matched.length);
 }

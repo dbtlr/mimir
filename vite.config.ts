@@ -78,7 +78,6 @@ const quarantinedRules: Record<string, 'off'> = {
   'unicorn/custom-error-definition': 'off', // 1
   'unicorn/filename-case': 'off', // 6
   'unicorn/no-nested-ternary': 'off', // 4
-  'unicorn/no-useless-collection-argument': 'off', // 2
   'unicorn/prefer-export-from': 'off', // 3
   'unicorn/prefer-global-this': 'off', // 5
   'unicorn/prefer-response-static-json': 'off', // 2
