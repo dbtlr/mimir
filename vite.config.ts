@@ -65,7 +65,6 @@ const quarantinedRules: Record<string, 'off'> = {
   // — eslint core —
   curly: 'off', // 21 (autofix residual)
   'no-await-in-loop': 'off', // 57 — many are intentional sequential I/O
-  'no-duplicate-imports': 'off', // 10
   'no-nested-ternary': 'off', // 4
   'no-shadow': 'off', // 4
   'no-unused-vars': 'off', // 35
