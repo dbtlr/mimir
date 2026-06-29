@@ -86,5 +86,5 @@ export async function listArtifacts(
       title: row.title,
     });
   }
-  return { items, total: Number(c) };
+  return { items, total: c };
 }
