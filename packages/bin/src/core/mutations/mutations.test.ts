@@ -146,6 +146,24 @@ test('depend builds acyclic edges and rejects cycles and self-deps', async () =>
   ).toHaveLength(0);
 });
 
+test('depend rejects same-lineage edges (ancestor/descendant) and allows cross-lineage', async () => {
+  const t = await task('t'); // under phaseId → initId → project
+  // depend on your own descendant: the phase would await a task it contains
+  await expectMimirError('validation', () => depend(db, phaseId, [t]));
+  // depend on your own ancestor (parent phase, and grandparent initiative)
+  await expectMimirError('validation', () => depend(db, t, [phaseId]));
+  await expectMimirError('validation', () => depend(db, t, [initId]));
+
+  // a sibling branch is fine — neither node contains the other
+  const phase2 = await createPhase(db, { parentId: initId, title: 'ph2' });
+  const t2 = await createTask(db, { parentId: phase2.id, title: 't2' });
+  await depend(db, t, [t2.id]); // task → task in another phase
+  await depend(db, phaseId, [phase2.id]); // sibling phase → sibling phase
+  expect(
+    await db.selectFrom('dependency').selectAll().where('node_id', '=', t).execute(),
+  ).toHaveLength(1);
+});
+
 test('move re-parents with type + cycle validation', async () => {
   const phase2 = await createPhase(db, { parentId: initId, title: 'ph2' });
   const t = await task('t');

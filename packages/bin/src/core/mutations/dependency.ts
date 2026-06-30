@@ -1,5 +1,6 @@
 import type { Node } from '../../db/schema';
 import type { Db, Tx } from '../context';
+import { lineageIds } from '../derive';
 import { validation } from '../errors';
 import { renderNodeId } from '../lookup';
 import { logTransition, reloadNode, requireNode, stamp } from './common';
@@ -44,6 +45,21 @@ export async function depend(db: Db, id: number, onIds: number[]): Promise<Node>
         throw validation('a task cannot depend on itself');
       }
       await requireNode(tx, onId);
+      // same-lineage guard: a dependency may not cross the parent/child line —
+      // an inherited dep would make the descendant await its own ancestor (or a
+      // container await a task it contains), a deadlock the raw-cycle check below
+      // can't see (ADR 0001 Refinement — inherited dependencies).
+      const [depLineage, prereqLineage] = await Promise.all([
+        lineageIds(tx, id),
+        lineageIds(tx, onId),
+      ]);
+      if (depLineage.includes(onId) || prereqLineage.includes(id)) {
+        const from = (await renderNodeId(tx, id)) ?? 'it';
+        const to = (await renderNodeId(tx, onId)) ?? 'it';
+        throw validation(
+          `${from} and ${to} are in the same lineage — a dependency can't cross the parent/child line (it would deadlock)`,
+        );
+      }
       // adding id → onId closes a cycle iff onId already reaches id
       if (await reaches(tx, onId, id)) {
         const from = (await renderNodeId(tx, id)) ?? 'it';
