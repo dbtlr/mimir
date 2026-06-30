@@ -87,6 +87,24 @@ test('an inherited prerequisite surfaces in awaitingOn, tagged via the ancestor'
   ]);
 });
 
+test('awaitingOn lists a prereq reachable both directly and via an ancestor only once', async () => {
+  const { parent_id } = await db
+    .selectFrom('node')
+    .select('parent_id')
+    .where('id', '=', phaseId)
+    .executeTakeFirstOrThrow();
+  const initId = parent_id as number;
+  const prereq = await createPhase(db, { parentId: initId, title: 'prereq phase' }); // empty → unsettled
+  const t = await createTask(db, { parentId: phaseId, title: 't' });
+  await depend(db, t.id, [prereq.id]); // direct edge
+  await depend(db, phaseId, [prereq.id]); // same prereq, now also inherited via the phase
+
+  const awaitingOn = (await getNode(db, idOf(t))).deps?.awaitingOn ?? [];
+  expect(awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
+    { id: idOf(prereq), via: undefined }, // listed once, the direct entry wins
+  ]);
+});
+
 test('get returns a full record with cheap facets and resolves KEY-seq', async () => {
   const a = await createTask(db, { parentId: phaseId, title: 'a' });
   const b = await createTask(db, { parentId: phaseId, title: 'b' });
