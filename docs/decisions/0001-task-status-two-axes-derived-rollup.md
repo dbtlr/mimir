@@ -104,8 +104,12 @@ initiative→initiative prerequisites as real work constraints.
 - **Lineage guard.** `depend` rejects an edge whose endpoints are in an
   ancestor/descendant relationship (either direction) — inheritance would make a
   descendant await its own ancestor, or a container await a task it contains, a
-  deadlock the raw-cycle (`reaches`) check structurally cannot see. Cross-lineage
-  edges (sibling phases, task→task across branches) are unaffected.
+  deadlock the raw-cycle (`reaches`) check structurally cannot see. `move`
+  enforces the same invariant from the other side: a re-parent is rejected if it
+  would put any node in the moved subtree on either side of one of its
+  dependency edges (otherwise a legal cross-lineage edge could be turned into a
+  same-lineage one, hanging status evaluation). Cross-lineage edges (sibling
+  phases, task→task across branches) are unaffected.
 - **Surfacing.** The `deps` facet gains `awaitingOn` (wire `awaiting_on`): the
   still-unsettled effective prerequisites, each tagged with the ancestor it is
   inherited `via` (absent for a node's own edge). `dependsOn` still lists only
