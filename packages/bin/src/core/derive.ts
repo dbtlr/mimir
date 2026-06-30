@@ -42,12 +42,36 @@ export async function isNodeSettled(
   return isTerminalWord(interpret(await childDistribution(tx, node.id)));
 }
 
-/** Does this task have ≥1 unsettled prerequisite? (The derived `awaiting` condition.) */
+/** A node and all of its ancestors (walking `parent_id` to the root). */
+export async function lineageIds(tx: Executor, nodeId: number): Promise<number[]> {
+  const ids: number[] = [];
+  const seen = new Set<number>();
+  let cur: number | null = nodeId;
+  while (cur !== null && !seen.has(cur)) {
+    seen.add(cur);
+    ids.push(cur);
+    const row = await tx
+      .selectFrom('node')
+      .select('parent_id')
+      .where('id', '=', cur)
+      .executeTakeFirst();
+    cur = row?.parent_id ?? null;
+  }
+  return ids;
+}
+
+/**
+ * Does this task have ≥1 unsettled **effective** prerequisite — its own edges
+ * *or any inherited from an ancestor* (ADR 0001 Refinement)? A dependency
+ * declared on a container gates every descendant, so the dependent's actionable
+ * set is computed over the lineage's edges, not just the node's own.
+ */
 export async function hasUnsettledPrereq(tx: Executor, taskId: number): Promise<boolean> {
+  const lineage = await lineageIds(tx, taskId);
   const prereqs = await tx
     .selectFrom('dependency')
     .innerJoin('node', 'node.id', 'dependency.depends_on_node_id')
-    .where('dependency.node_id', '=', taskId)
+    .where('dependency.node_id', 'in', lineage)
     .select(['node.id', 'node.type', 'node.lifecycle'])
     .execute();
   for (const prereq of prereqs) {

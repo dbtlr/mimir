@@ -28,6 +28,49 @@ async function reload(id: number) {
   return node;
 }
 
+async function dep(nodeId: number, dependsOn: number): Promise<void> {
+  await db
+    .insertInto('dependency')
+    .values({ depends_on_node_id: dependsOn, node_id: nodeId })
+    .execute();
+}
+
+test('an initiative-level prerequisite gates a deep task and rolls the phase up to awaiting', async () => {
+  const p = await createProject(db, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(db, { projectId: p.id, title: 'dependent init' });
+  const prereqInit = await createInitiative(db, { projectId: p.id, title: 'prereq init' });
+  const prereqTask = await createTask(db, { parentId: prereqInit.id, title: 'prereq work' });
+  await dep(init.id, prereqInit.id); // edge two levels above the leaf
+
+  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
+  const deep = await createTask(db, { parentId: phase.id, title: 'deep' });
+
+  // inherited across two levels (deep → phase → init), and the phase rolls up awaiting
+  expect(await nodeStatusWord(db, await reload(deep.id))).toBe('awaiting');
+  expect(await nodeStatusWord(db, await reload(phase.id))).toBe('awaiting');
+
+  // the prerequisite initiative settles → the gate clears, top to bottom
+  await setLifecycle(prereqTask.id, 'done');
+  expect(await nodeStatusWord(db, await reload(deep.id))).toBe('ready');
+  expect(await nodeStatusWord(db, await reload(phase.id))).toBe('ready');
+});
+
+test('an inherited gate is advisory: a started descendant stays in_progress', async () => {
+  const p = await createProject(db, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
+  const phase1 = await createPhase(db, { parentId: init.id, title: 'phase 1' });
+  await createTask(db, { parentId: phase1.id, title: 'p1 work' }); // keeps phase 1 unsettled
+  const phase2 = await createPhase(db, { parentId: init.id, title: 'phase 2' });
+  await dep(phase2.id, phase1.id);
+  const started = await createTask(db, { parentId: phase2.id, title: 'started early' });
+
+  // gate governs picking up new work, not retroactively un-starting active work
+  await setLifecycle(started.id, 'in_progress');
+  expect(await nodeStatusWord(db, await reload(started.id))).toBe('in_progress');
+  // and the phase reads in_progress (live work beats the gate) — honest
+  expect(await nodeStatusWord(db, await reload(phase2.id))).toBe('in_progress');
+});
+
 test('a fresh phase of todo tasks rolls up to ready', async () => {
   const p = await createProject(db, { key: 'MMR', name: 'm' });
   const init = await createInitiative(db, { projectId: p.id, title: 'i' });

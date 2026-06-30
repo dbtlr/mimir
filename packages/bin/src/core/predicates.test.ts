@@ -56,6 +56,25 @@ test('ready vs awaiting hinge on prerequisite settledness', async () => {
   expect(await isAwaiting(db, await reload(b.id))).toBe(false);
 });
 
+test('a task inherits its ancestor phase prerequisite (reads awaiting, clears to ready)', async () => {
+  const { init, phase } = await fixture();
+  // a sibling "phase 1" with a live task → unsettled prerequisite
+  const phase1 = await createPhase(db, { parentId: init.id, title: 'phase 1' });
+  const p1task = await createTask(db, { parentId: phase1.id, title: 'p1 work' });
+  // "phase 2" (the fixture phase) depends on phase 1, and holds a task
+  await dep(phase.id, phase1.id);
+  const t = await createTask(db, { parentId: phase.id, title: 't' });
+
+  // t declares no edge of its own, yet inherits phase 2's gate
+  expect(await isReady(db, await reload(t.id))).toBe(false);
+  expect(await isAwaiting(db, await reload(t.id))).toBe(true);
+
+  // phase 1 settles (its only task done) → t clears to ready
+  await patch(p1task.id, { lifecycle: 'done' });
+  expect(await isReady(db, await reload(t.id))).toBe(true);
+  expect(await isAwaiting(db, await reload(t.id))).toBe(false);
+});
+
 test('a held task is neither ready nor awaiting', async () => {
   const { phase } = await fixture();
   const t = await createTask(db, { parentId: phase.id, title: 't' });
