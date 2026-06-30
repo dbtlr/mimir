@@ -25,8 +25,9 @@ release. When a release is cut, this section is promoted to
   `deps` facet gains `awaitingOn` (wire `awaiting_on`) — the unsettled effective
   prerequisites, each tagged with the ancestor it is inherited `via` — and the
   CLI record + console drawer show an "awaiting on … (via …)" line. `depend`
-  now rejects an edge between two nodes in an ancestor/descendant relationship
-  (inheritance would otherwise deadlock them). See ADR 0001 (Refinement).
+  and `move` now reject a configuration that would put a dependency edge in an
+  ancestor/descendant lineage (inheritance would otherwise deadlock it). See
+  ADR 0001 (Refinement).
 - **HTTP and MCP now validate `priority`/`size` against the allowed values**
   instead of casting raw request input — an invalid value returns a graceful
   validation error rather than reaching the store.

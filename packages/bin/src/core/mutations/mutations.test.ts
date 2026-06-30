@@ -164,6 +164,31 @@ test('depend rejects same-lineage edges (ancestor/descendant) and allows cross-l
   ).toHaveLength(1);
 });
 
+test('move is rejected when it would create a same-lineage dependency edge', async () => {
+  const phase2 = await createPhase(db, { parentId: initId, title: 'ph2' });
+  const a = await task('a'); // under phaseId
+  await depend(db, a, [phase2.id]); // cross-lineage at depend-time → allowed
+
+  // moving a under phase2 would make a depend on its own (new) ancestor → reject
+  await expectMimirError('validation', () => moveNode(db, a, phase2.id));
+  // the edge and parent are untouched
+  expect((await reload(a)).parent_id).toBe(phaseId);
+
+  // a benign move to a sibling with no conflicting edge still works
+  const phase3 = await createPhase(db, { parentId: initId, title: 'ph3' });
+  await moveNode(db, a, phase3.id);
+  expect((await reload(a)).parent_id).toBe(phase3.id);
+});
+
+test('move lineage guard covers the moved subtree, not just the moved node', async () => {
+  const init2 = await createInitiative(db, { projectId, title: 'i2' });
+  const child = await task('child'); // under phaseId, which is under initId
+  await depend(db, child, [init2.id]); // child depends on init2 (cross-lineage)
+
+  // moving phaseId under init2 makes child a descendant of init2 it depends on → reject
+  await expectMimirError('validation', () => moveNode(db, phaseId, init2.id));
+});
+
 test('move re-parents with type + cycle validation', async () => {
   const phase2 = await createPhase(db, { parentId: initId, title: 'ph2' });
   const t = await task('t');
