@@ -15,6 +15,18 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **A dependency on a container now gates its descendant tasks.** A task's
+  effective prerequisites are its own edges plus any inherited from an ancestor
+  (phase/initiative/project), so a descendant reads `awaiting` — and drops out
+  of `ready`/`next` — until the prerequisite settles. Previously a
+  container-level edge only marked the prerequisite `blocking` and gated nothing
+  on the dependent side. The gate is advisory (a manual `start` is still
+  allowed) and todo-only (an already-started descendant is unaffected). The
+  `deps` facet gains `awaitingOn` (wire `awaiting_on`) — the unsettled effective
+  prerequisites, each tagged with the ancestor it is inherited `via` — and the
+  CLI record + console drawer show an "awaiting on … (via …)" line. `depend`
+  now rejects an edge between two nodes in an ancestor/descendant relationship
+  (inheritance would otherwise deadlock them). See ADR 0001 (Refinement).
 - **HTTP and MCP now validate `priority`/`size` against the allowed values**
   instead of casting raw request input — an invalid value returns a graceful
   validation error rather than reaching the store.
