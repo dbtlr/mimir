@@ -71,3 +71,44 @@ premature completion is the optional `under_review` gate (`submit`/`return`),
 not a casual toggle. Reopen lands in `in_progress`, not `under_review`, so the
 doer re-runs the normal gate flow rather than routing around it. No new
 lifecycle value and no migration — the verb only adds a legal transition edge.
+
+## Refinement — dependencies are inherited down the tree (2026-06-30, MMR-115)
+
+A dependency declared on a **container** (phase/initiative/project) gates every
+task in its subtree, not only the node carrying the edge. A task's **effective
+prerequisites** are its own dependency edges _unioned with every ancestor's_, so
+"Phase 2 depends on Phase 1" makes every task under Phase 2 read `awaiting`
+(dropping out of `ready`/`next`) until Phase 1 settles. The previous behavior —
+where a container-level edge only surfaced on the prerequisite's `blocking`
+verdict and gated nothing on the dependent side — made `depend` silently inert
+when pointed at a container, contradicting the model's treatment of
+initiative→initiative prerequisites as real work constraints.
+
+- **Effective, not direct.** `hasUnsettledPrereq` gathers the edges over the
+  node's whole lineage (`lineageIds` walks `parent_id` to the root). Declaration
+  level no longer changes whether the gate bites. Settledness is unchanged
+  (`isNodeSettled`): a container prerequisite is satisfied when its rollup is
+  terminal, so descendants clear exactly when the prerequisite rolls up
+  `done`/`abandoned`. Transitivity flows through settledness — no extra
+  recursion over an ancestor's own prerequisites is needed.
+- **Leaf-cascade.** The change lives only at the leaf: containers keep deriving
+  status from their children, so a phase reads `awaiting` because its tasks now
+  do (the `interpret` "any `awaiting`" path), while a phase with a
+  manually-started task reads `in_progress` (live work wins — honest). An empty
+  container with its own prerequisite stays `new` (nothing to gate yet; the gate
+  activates when a task is added).
+- **Advisory + todo-only.** The gate governs _picking up_ work: a descendant
+  todo reads `awaiting` instead of `ready`, but `start` is not blocked (edges
+  were never enforced on `start`) and an already-`in_progress` descendant is not
+  retroactively un-started.
+- **Lineage guard.** `depend` rejects an edge whose endpoints are in an
+  ancestor/descendant relationship (either direction) — inheritance would make a
+  descendant await its own ancestor, or a container await a task it contains, a
+  deadlock the raw-cycle (`reaches`) check structurally cannot see. Cross-lineage
+  edges (sibling phases, task→task across branches) are unaffected.
+- **Surfacing.** The `deps` facet gains `awaitingOn` (wire `awaiting_on`): the
+  still-unsettled effective prerequisites, each tagged with the ancestor it is
+  inherited `via` (absent for a node's own edge). `dependsOn` still lists only
+  the declared direct edges (a stored fact). The CLI record and the console
+  drawer render an "awaiting on … (via …)" line; structured formats carry the
+  fields, no prose (self-orienting split).
