@@ -126,6 +126,9 @@ async function buildDeps(tx: Executor, nodeId: number): Promise<DepsFacet> {
  */
 async function buildAwaitingOn(tx: Executor, nodeId: number): Promise<AwaitingRef[]> {
   const out: AwaitingRef[] = [];
+  const seen = new Set<number>();
+  // lineage is node-first, so a prereq reached both directly and via an ancestor
+  // keeps its direct (no-`via`) entry — list each unsettled prerequisite once.
   for (const ancestorId of await lineageIds(tx, nodeId)) {
     const edges = await tx
       .selectFrom('dependency')
@@ -133,10 +136,14 @@ async function buildAwaitingOn(tx: Executor, nodeId: number): Promise<AwaitingRe
       .where('node_id', '=', ancestorId)
       .execute();
     for (const edge of edges) {
+      if (seen.has(edge.depends_on_node_id)) {
+        continue;
+      }
       const prereq = await loadNode(tx, edge.depends_on_node_id);
       if (prereq === undefined || (await isNodeSettled(tx, prereq))) {
         continue;
       }
+      seen.add(edge.depends_on_node_id);
       const ref: AwaitingRef = await toRef(tx, edge.depends_on_node_id);
       if (ancestorId !== nodeId) {
         ref.via = (await renderNodeId(tx, ancestorId)) ?? undefined;
