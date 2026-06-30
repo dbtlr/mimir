@@ -234,6 +234,17 @@ export function renderRecords(node: NodeView, io: Io): string {
       node.deps.dependsOn.map((r) => (r.title ? `${r.id} · ${r.title}` : r.id)).join(', '),
     ]);
   }
+  if (node.deps !== undefined && node.deps.awaitingOn.length > 0) {
+    pairs.push([
+      'awaiting on',
+      node.deps.awaitingOn
+        .map((r) => {
+          const base = r.title ? `${r.id} · ${r.title}` : r.id;
+          return r.via ? `${base} (via ${r.via})` : base;
+        })
+        .join(', '),
+    ]);
+  }
   if (node.deps !== undefined && node.deps.blocking.length > 0) {
     pairs.push([
       'blocking',

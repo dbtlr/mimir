@@ -53,6 +53,40 @@ test('next respects priority filter and the limit', async () => {
   expect(limited.total).toBe(2); // total reflects the full ready set
 });
 
+test('a direct prerequisite surfaces in awaitingOn (no via) and clears when settled', async () => {
+  const x = await createTask(db, { parentId: phaseId, title: 'x' });
+  const y = await createTask(db, { parentId: phaseId, title: 'y' });
+  await depend(db, y.id, [x.id]);
+
+  const view = await getNode(db, idOf(y));
+  expect(view.deps?.dependsOn.map((r) => r.id)).toEqual([idOf(x)]);
+  expect(view.deps?.awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
+    { id: idOf(x), via: undefined },
+  ]);
+
+  await completeTask(db, x.id); // prerequisite terminal → gate clears
+  expect((await getNode(db, idOf(y))).deps?.awaitingOn).toEqual([]);
+});
+
+test('an inherited prerequisite surfaces in awaitingOn, tagged via the ancestor', async () => {
+  const { parent_id } = await db
+    .selectFrom('node')
+    .select('parent_id')
+    .where('id', '=', phaseId)
+    .executeTakeFirstOrThrow();
+  const initId = parent_id as number;
+  const phase1 = await createPhase(db, { parentId: initId, title: 'phase 1' });
+  const phase2 = await createPhase(db, { parentId: initId, title: 'phase 2' });
+  await depend(db, phase2.id, [phase1.id]); // edge on the ancestor phase
+  const t = await createTask(db, { parentId: phase2.id, title: 't' });
+
+  const view = await getNode(db, idOf(t));
+  expect(view.deps?.dependsOn).toEqual([]); // t declares nothing of its own
+  expect(view.deps?.awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
+    { id: idOf(phase1), via: idOf(phase2) }, // inherited from phase 2
+  ]);
+});
+
 test('get returns a full record with cheap facets and resolves KEY-seq', async () => {
   const a = await createTask(db, { parentId: phaseId, title: 'a' });
   const b = await createTask(db, { parentId: phaseId, title: 'b' });

@@ -1,5 +1,6 @@
 import type {
   AttentionBand,
+  AwaitingRef,
   Distribution,
   Hold,
   Lifecycle,
@@ -23,6 +24,7 @@ import type {
 
 export type WireDeps = {
   depends_on: NodeRef[];
+  awaiting_on?: AwaitingRef[];
   blocking: NodeRef[];
 };
 

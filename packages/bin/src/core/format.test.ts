@@ -44,6 +44,25 @@ describe('formatIds', () => {
   });
 });
 
+describe('formatNodeJson deps facet', () => {
+  test('awaiting_on rides the wire with via provenance (snake_case)', () => {
+    const view = task('MMR-5', {
+      deps: {
+        awaitingOn: [{ id: 'MMR-2', status: 'in_progress', title: 'Phase 1', via: 'MMR-3' }],
+        blocking: [],
+        dependsOn: [],
+      },
+      status: 'awaiting',
+    });
+    const parsed = parseJson<{
+      deps: { awaiting_on: { id: string; status?: string; title?: string; via?: string }[] };
+    }>(formatNodeJson(view));
+    expect(parsed.deps.awaiting_on).toEqual([
+      { id: 'MMR-2', status: 'in_progress', title: 'Phase 1', via: 'MMR-3' },
+    ]);
+  });
+});
+
 describe('formatSetJson', () => {
   test('count-led envelope with the unit key and snake_case fields', () => {
     const parsed = parseJson<{
