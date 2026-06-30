@@ -53,7 +53,11 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   wire.updated_at = node.updatedAt;
 
   if (node.deps !== undefined) {
-    wire.deps = { blocking: node.deps.blocking, depends_on: node.deps.dependsOn };
+    wire.deps = {
+      awaiting_on: node.deps.awaitingOn,
+      blocking: node.deps.blocking,
+      depends_on: node.deps.dependsOn,
+    };
   }
   if (node.children !== undefined) {
     wire.children = node.children;

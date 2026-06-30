@@ -33,9 +33,22 @@ export type NodeRef = {
   status?: StatusWord;
 };
 
-/** `deps` — prerequisites of this node plus the derived `blocking` reverse set. */
+/**
+ * An unsettled **effective** prerequisite gating this node — a {@link NodeRef}
+ * plus, when the edge is inherited from an ancestor rather than declared on the
+ * node itself, the ancestor that carries it (`via`).
+ */
+export type AwaitingRef = NodeRef & { via?: string };
+
+/**
+ * `deps` — the node's declared prerequisites (`dependsOn`, direct edges only),
+ * the derived `blocking` reverse set, and `awaitingOn`: the still-unsettled
+ * effective prerequisites (own *or inherited*), each tagged with its `via`
+ * ancestor when inherited (ADR 0001 Refinement).
+ */
 export type DepsFacet = {
   dependsOn: NodeRef[];
+  awaitingOn: AwaitingRef[];
   blocking: NodeRef[];
 };
 

@@ -91,7 +91,13 @@ function MetaRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RefRow({ refNode, onOpenNode }: { refNode: NodeRef; onOpenNode: (id: string) => void }) {
+function RefRow({
+  refNode,
+  onOpenNode,
+}: {
+  refNode: NodeRef & { via?: string };
+  onOpenNode: (id: string) => void;
+}) {
   return (
     <button
       type="button"
@@ -102,6 +108,9 @@ function RefRow({ refNode, onOpenNode }: { refNode: NodeRef; onOpenNode: (id: st
     >
       {refNode.status !== undefined && <StatusDot status={refNode.status} />}
       <span className="font-mono text-2xs text-accent">{refNode.id}</span>
+      {refNode.via !== undefined && (
+        <span className="text-3xs text-ink-dim">via {refNode.via}</span>
+      )}
     </button>
   );
 }
@@ -417,12 +426,22 @@ function DrawerBody({
               )}
 
               {node.data.deps !== undefined &&
-                (node.data.deps.depends_on.length > 0 || node.data.deps.blocking.length > 0) && (
+                (node.data.deps.depends_on.length > 0 ||
+                  (node.data.deps.awaiting_on?.length ?? 0) > 0 ||
+                  node.data.deps.blocking.length > 0) && (
                   <Section label="Dependencies">
                     {node.data.deps.depends_on.length > 0 && (
                       <div className="flex flex-col gap-0.5">
                         <span className="text-2xs text-ink-dim">depends on</span>
                         {node.data.deps.depends_on.map((r) => (
+                          <RefRow key={r.id} refNode={r} onOpenNode={onOpenNode} />
+                        ))}
+                      </div>
+                    )}
+                    {(node.data.deps.awaiting_on?.length ?? 0) > 0 && (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-2xs text-ink-dim">awaiting on</span>
+                        {node.data.deps.awaiting_on?.map((r) => (
                           <RefRow key={r.id} refNode={r} onOpenNode={onOpenNode} />
                         ))}
                       </div>

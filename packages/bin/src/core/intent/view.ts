@@ -2,6 +2,7 @@ import type {
   AnnotationView,
   ArtifactDetail,
   ArtifactView,
+  AwaitingRef,
   DepsFacet,
   FacetName,
   HistoryEntry,
@@ -13,7 +14,14 @@ import type {
 import type { Artifact, Node, Project } from '../../db/schema';
 import { attentionOf } from '../attention';
 import type { Db, Tx } from '../context';
-import { childDistribution, leafDistribution, nodeStatusWord, rootDistribution } from '../derive';
+import {
+  childDistribution,
+  isNodeSettled,
+  leafDistribution,
+  lineageIds,
+  nodeStatusWord,
+  rootDistribution,
+} from '../derive';
 import { renderArtifactRef } from '../ids';
 import { loadNode, renderNodeId } from '../lookup';
 import { verdictsOf } from '../predicates';
@@ -103,9 +111,40 @@ async function buildDeps(tx: Executor, nodeId: number): Promise<DepsFacet> {
     .where('depends_on_node_id', '=', nodeId)
     .execute();
   return {
+    awaitingOn: await buildAwaitingOn(tx, nodeId),
     blocking: await Promise.all(dependents.map((r) => toRef(tx, r.node_id))),
     dependsOn: await Promise.all(prereqs.map((r) => toRef(tx, r.depends_on_node_id))),
   };
+}
+
+/**
+ * The still-unsettled **effective** prerequisites gating this node — its own
+ * edges and any inherited from an ancestor — each tagged with the ancestor it
+ * came `via` when inherited. The self-orienting answer to "what unblocks me?"
+ * (ADR 0001 Refinement). Only unsettled prereqs appear; settled ones no longer
+ * gate.
+ */
+async function buildAwaitingOn(tx: Executor, nodeId: number): Promise<AwaitingRef[]> {
+  const out: AwaitingRef[] = [];
+  for (const ancestorId of await lineageIds(tx, nodeId)) {
+    const edges = await tx
+      .selectFrom('dependency')
+      .select('depends_on_node_id')
+      .where('node_id', '=', ancestorId)
+      .execute();
+    for (const edge of edges) {
+      const prereq = await loadNode(tx, edge.depends_on_node_id);
+      if (prereq === undefined || (await isNodeSettled(tx, prereq))) {
+        continue;
+      }
+      const ref: AwaitingRef = await toRef(tx, edge.depends_on_node_id);
+      if (ancestorId !== nodeId) {
+        ref.via = (await renderNodeId(tx, ancestorId)) ?? undefined;
+      }
+      out.push(ref);
+    }
+  }
+  return out;
 }
 
 async function buildChildren(tx: Executor, nodeId: number): Promise<NodeRef[]> {
