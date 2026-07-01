@@ -6,7 +6,7 @@ import { task } from './fixtures';
 const staleV = { blocking: false, orphaned: false, stale: true };
 
 describe('attentionItems (MMR-103: under_review + blocked + stale)', () => {
-  it('under_review leads, then blocked, then stale; ids dedupe across reads', () => {
+  it('under_review leads, then blocked, then going-cold; ids dedupe across reads', () => {
     const review = task({ id: 'MMR-2', status: 'under_review' });
     const blockedStale = task({ id: 'MMR-4', status: 'blocked', verdicts: staleV });
     const staleReady = task({ id: 'MMR-8', status: 'ready', verdicts: staleV });
@@ -17,12 +17,13 @@ describe('attentionItems (MMR-103: under_review + blocked + stale)', () => {
       [blockedStale, staleReady], // blockedStale also surfaced by the stale read — dedupe
     );
 
-    // ordering by "how much your action moves it": review → blocked → stale
+    // ordering by "how much your action moves it": review → blocked → going-cold
     expect(items.map((i) => i.node.id)).toStrictEqual(['MMR-2', 'MMR-4', 'MMR-8']);
     expect(items[0]?.reason).toBe('under_review');
     expect(items[1]?.reason).toBe('blocked');
     expect(items[1]?.stale).toBe(true); // kept its blocked reason, flagged stale too
-    expect(items[2]?.reason).toBe('ready');
+    // a stale-only healthy task surfaces as going cold, not its (healthy) status word
+    expect(items[2]?.reason).toBe('going_cold');
     expect(items[2]?.stale).toBe(true);
   });
 

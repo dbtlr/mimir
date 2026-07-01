@@ -4,7 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { blockedQuery, staleQuery, underReviewQuery } from '../api/queries';
 import { projectKeyOf } from '../api/types';
 import { attentionItems } from '../lib/attention';
-import { StaleBadge } from './signal-badges';
+import { GoingColdBadge, StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
 
@@ -72,7 +72,14 @@ export function AttentionAlert() {
                 })
               }
             >
-              <StatusDot status={reason} />
+              {reason === 'going_cold' ? (
+                <span
+                  aria-hidden
+                  className="inline-block size-[7px] shrink-0 rounded-full bg-cold"
+                />
+              ) : (
+                <StatusDot status={reason} />
+              )}
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex items-baseline gap-2">
                   <span className="shrink-0 font-mono text-2xs text-ink-dim md:text-3xs">
@@ -84,7 +91,7 @@ export function AttentionAlert() {
                   <span className="truncate text-2xs text-ink-faint">{node.hold_reason}</span>
                 )}
               </span>
-              {isStale && <StaleBadge />}
+              {reason === 'going_cold' ? <GoingColdBadge /> : isStale && <StaleBadge />}
             </MenuItem>
           ))
         )}
