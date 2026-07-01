@@ -7,6 +7,7 @@
 import {
   abandonTask,
   annotate,
+  archiveProject,
   attachArtifact,
   blockTask,
   completeTask,
@@ -29,6 +30,7 @@ import {
   startTask,
   submitTask,
   tagEntities,
+  unarchiveProject,
   unblockTask,
   undepend,
   unparkTask,
@@ -143,6 +145,40 @@ export async function cmdReopen(c: Ctx): Promise<number> {
 }
 
 const reasonTail = (c: Ctx): string | undefined => c.positionals.slice(2).join(' ') || undefined;
+
+/** Echo a project archive/unarchive — a signpost (the project view doesn't surface archived state until Phase 1). */
+function echoArchiveOp(
+  c: Ctx,
+  project: { key: string; archived_at: string | null },
+  verb: 'archived' | 'unarchived',
+  reason?: string,
+): void {
+  if (c.format === 'json' || c.format === 'jsonl') {
+    c.io.write(JSON.stringify({ project: { archived_at: project.archived_at, key: project.key } }));
+  } else if (c.format === 'ids') {
+    c.io.write(project.key);
+  } else {
+    const glyph = c.io.plain ? '[ok]' : '\x1b[32m✓\x1b[0m';
+    c.io.write(`${glyph} ${withReason(`${verb} ${project.key}`, reason)}`);
+  }
+}
+
+export async function cmdArchive(c: Ctx): Promise<number> {
+  const key = requirePos(c, 1, 'archive', 'a project KEY');
+  const reason = reasonTail(c);
+  const projectId = await resolveProject(c.db, key);
+  const project = await archiveProject(c.db, projectId, reason);
+  echoArchiveOp(c, project, 'archived', reason);
+  return 0;
+}
+
+export async function cmdUnarchive(c: Ctx): Promise<number> {
+  const key = requirePos(c, 1, 'unarchive', 'a project KEY');
+  const projectId = await resolveProject(c.db, key);
+  const project = await unarchiveProject(c.db, projectId);
+  echoArchiveOp(c, project, 'unarchived');
+  return 0;
+}
 
 export async function cmdPark(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'park'), 'task');

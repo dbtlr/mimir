@@ -25,6 +25,9 @@ type DefaultedTimestamp = ColumnType<string, string | undefined, string>;
 /** A column with a DB DEFAULT: required on read, optional on insert. */
 type Defaulted<T> = ColumnType<T, T | undefined, T>;
 
+/** A nullable column omittable on insert (defaults to NULL) — e.g. the entity-keyed log's node_id/project_id. */
+type NullableInsert<T> = ColumnType<T | null, T | null | undefined, T | null>;
+
 type ProjectTable = {
   id: Generated<number>;
   key: string;
@@ -32,6 +35,8 @@ type ProjectTable = {
   description: string | null;
   last_seq: Defaulted<number>;
   last_artifact_seq: Defaulted<number>;
+  // The archived operator axis (ADR 0015): NULL = active, set = archived (doubles as "when").
+  archived_at: string | null;
   created_at: DefaultedTimestamp;
   updated_at: DefaultedTimestamp;
 };
@@ -96,9 +101,12 @@ type TagTable = {
   created_at: DefaultedTimestamp;
 };
 
+// Entity-keyed (ADR 0015): exactly one of node_id / project_id is set — node-keyed
+// for lifecycle/hold/dependency/move, project-keyed for archive/unarchive.
 type TransitionLogTable = {
   id: Generated<number>;
-  node_id: number;
+  node_id: NullableInsert<number>;
+  project_id: NullableInsert<number>;
   kind: TransitionKind;
   from_value: string | null;
   to_value: string | null;

@@ -6,7 +6,7 @@ import type { Db } from './context';
 import { notFound, projectNotFound, validation } from './errors';
 import { parseIdentity } from './ids';
 import { buildNodeView, buildProjectView } from './intent/view';
-import { findNodeByRef, renderNodeId } from './lookup';
+import { findNodeByRef, renderNodeId, renderProjectKey } from './lookup';
 
 /**
  * The resource-envelope reads (ADR 0012) — whole-portfolio and whole-project
@@ -125,6 +125,24 @@ export type TransitionsOptions = {
  * append-only log (ADR 0002/0003): entries after `since` in log order, node
  * ids rendered. The cursor is opaque to callers; `nextCursor` resumes exactly.
  */
+/**
+ * Render the entity a transition row belongs to (ADR 0015): a node-keyed row
+ * yields its `KEY-seq`, an archive row its project `KEY` — both valid identity
+ * tokens for the `node` field of the cross-cutting transitions read.
+ */
+async function renderTransitionEntity(
+  db: Db,
+  row: { node_id: number | null; project_id: number | null },
+): Promise<string> {
+  if (row.node_id !== null) {
+    return (await renderNodeId(db, row.node_id)) ?? 'unknown';
+  }
+  if (row.project_id !== null) {
+    return (await renderProjectKey(db, row.project_id)) ?? 'unknown';
+  }
+  return 'unknown';
+}
+
 export async function listTransitions(
   db: Db,
   opts: TransitionsOptions = {},
@@ -153,7 +171,7 @@ export async function listTransitions(
       at: row.at,
       from: row.from_value,
       kind: row.kind,
-      node: (await renderNodeId(db, row.node_id)) ?? 'unknown',
+      node: await renderTransitionEntity(db, row),
       reason: row.reason,
       to: row.to_value,
     })),
