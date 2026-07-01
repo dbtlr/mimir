@@ -13,6 +13,16 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Added
+
+- **Per-command help: `mimir <cmd> -h` / `--help`** (MMR-118). Each verb now
+  prints its own usage, arguments, and flags instead of the generic top-level
+  help — so a forgotten flag is recoverable in-CLI rather than by grepping the
+  source. The two tiers follow the output contract: `-h` is terse (usage +
+  args + flags), `--help` adds worked examples. `create <type> --help` (e.g.
+  `create task --help`) shows that type's own flags; a verb without a dedicated
+  descriptor falls back to the top-level help.
+
 ### Changed
 
 - **A dependency on a container now gates its descendant tasks.** A task's
