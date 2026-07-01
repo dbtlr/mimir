@@ -36,6 +36,16 @@ release. When a release is cut, this section is promoted to
   The strict ruleset is enabled; conformance is largely complete, with a few
   rules still disabled pending follow-up (react-perf, `no-await-in-loop`, and
   per-response API-client schema validation).
+- **Renamed the Overview's project classifier from "attention band" to `Lane`.**
+  The classifier borrowed the top-bar alert's word; the four highest-wins
+  standings a project resolves to are now **Lanes**, and **Attention** names the
+  top-bar alert only. Lane values (`awaiting_you`/`live`/`needs_unsticking`/
+  `at_rest`) and the going-cold modifier are unchanged. The projects read facet's
+  field is renamed on the wire: `attention.band` → `attention.lane`.
+- **The attention alert surfaces stale-only items as "going cold"** instead of
+  their status word. A stale `in_progress`/`ready` task pulled into the alert by
+  the stale arm showed a misleading healthy status dot; it now reads as a
+  going-cold nudge (the alert still keeps it — a rotted started task needs you).
 
 ## v0.12.0 - 2026-06-28
 
