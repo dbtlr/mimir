@@ -1,8 +1,8 @@
 import type {
-  AttentionBand,
   AwaitingRef,
   Distribution,
   Hold,
+  Lane,
   Lifecycle,
   NodeRef,
   Priority,
@@ -77,7 +77,7 @@ export type WireArtifactDetail = {
 
 /** A project's derived attention-state (MMR-101) — the project-list facet, snake_case on the wire. */
 export type WireAttention = {
-  band: AttentionBand;
+  lane: Lane;
   last_activity: string;
   stale: boolean;
 };

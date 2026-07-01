@@ -2,23 +2,23 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 
 import { projectsQuery } from '../api/queries';
-import { BandSection } from '../components/band-section';
+import { LaneSection } from '../components/lane-section';
 import { NodeDrawer } from '../components/node-drawer';
 import { OfflineBanner } from '../components/offline-banner';
 import { ProjectCard } from '../components/project-card';
 import { Skeleton } from '../components/ui/skeleton';
-import { groupIntoBands } from '../lib/attention-bands';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
+import { groupIntoLanes } from '../lib/lanes';
 import { overviewRoute } from '../router';
 
 /**
  * `/` — the overview as an attention-router (MMR-102): projects grouped into the
- * four attention-bands (MMR-101) in highest-wins order, recency-ordered within
- * each, At-rest folded to a count strip. It is `mimir next` lifted to the
- * project level. When the facet is absent (offline / pre-feature cache) it
- * degrades to a flat key-ordered grid — attention is an overlay, like the ready
- * count, so a miss costs the ordering, not the cached overview.
+ * four Lanes (MMR-101) in highest-wins order, recency-ordered within each,
+ * At-rest folded to a count strip. It is `mimir next` lifted to the project
+ * level. When the facet is absent (offline / pre-feature cache) it degrades to a
+ * flat key-ordered grid — the lane is an overlay, like the ready count, so a
+ * miss costs the ordering, not the cached overview.
  */
 export function OverviewPage() {
   const navigate = useNavigate();
@@ -60,7 +60,7 @@ export function OverviewPage() {
                 </p>
               );
             }
-            const grouping = groupIntoBands(projects.data.items);
+            const grouping = groupIntoLanes(projects.data.items);
             if (grouping.mode === 'flat') {
               return (
                 <section aria-label="Projects" className="flex flex-col gap-2">
@@ -73,12 +73,12 @@ export function OverviewPage() {
                 </section>
               );
             }
-            return grouping.bands.map((band) => (
-              <BandSection
-                key={band.band}
-                band={band}
+            return grouping.lanes.map((lane) => (
+              <LaneSection
+                key={lane.lane}
+                lane={lane}
                 onOpen={onOpen}
-                collapsible={band.band === 'at_rest'}
+                collapsible={lane.lane === 'at_rest'}
               />
             ));
           })()}
