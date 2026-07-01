@@ -49,6 +49,9 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.completedAt !== undefined) {
     wire.completed_at = node.completedAt;
   }
+  if (node.archivedAt !== undefined) {
+    wire.archived_at = node.archivedAt;
+  }
   wire.created_at = node.createdAt;
   wire.updated_at = node.updatedAt;
 

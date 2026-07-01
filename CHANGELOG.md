@@ -25,8 +25,12 @@ release. When a release is cut, this section is promoted to
   archived target read as `not_found`). The sole opt-in is **`mimir list
   --status archived`**, which lists the archived projects (the door for
   recovery). `unarchive` reverses both; both transitions are reason-bearing and
-  logged. Schema: `project.archived_at`, and the `transition_log` generalizes
-  from node-keyed to entity-keyed (a nullable `project_id`, XOR with `node_id`,
+  logged. Archive/unarchive and the door are available on every transport — CLI,
+  HTTP (`POST /api/projects/:key/archive`|`/unarchive`,
+  `GET /api/projects?status=archived`), and MCP (`archive`/`unarchive` tools,
+  `list` with `status: "archived"`); the project resource carries `archived_at`.
+  Schema: `project.archived_at`, and the `transition_log` generalizes from
+  node-keyed to entity-keyed (a nullable `project_id`, XOR with `node_id`,
   `kind` gains `archive`).
 
 - **Per-command help: `mimir <cmd> -h` / `--help`** (MMR-118). Each verb now

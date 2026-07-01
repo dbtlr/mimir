@@ -10,6 +10,7 @@ import {
   toolAnnotate,
   toolAttach,
   toolAbandon,
+  toolArchive,
   toolBlock,
   toolCreate,
   toolDepend,
@@ -24,6 +25,7 @@ import {
   toolStart,
   toolStatus,
   toolTag,
+  toolUnarchive,
   toolUnblock,
   toolUndepend,
   toolUnpark,
@@ -445,4 +447,30 @@ test('list selects by status universe and operators', async () => {
     tasks: { id: string }[];
   }>(textOf(await toolList(db, { eq: ['status:in_progress'] })));
   expect(byStatus.tasks.map((t) => t.id)).toEqual([taskRef]);
+});
+
+// --- project archive (ADR 0015, MMR-123) ---
+
+test('MCP archive freezes + hides; the list door and unarchive round-trip', async () => {
+  const arc = await toolArchive(db, { key: 'MMR', reason: 'superseded' });
+  expect(arc.isError).toBeUndefined();
+  expect(parseJson<{ archived_at: string }>(textOf(arc)).archived_at).not.toBeUndefined();
+
+  // frozen: a mutation under it is a conflict
+  const frozen = await toolStart(db, { id: taskRef });
+  expect(frozen.isError).toBe(true);
+  expect(parseJson<{ error: { code: string } }>(textOf(frozen)).error.code).toBe('conflict');
+
+  // hidden: a normal list excludes it; the door lists the archived project
+  const live = await toolList(db, { scope: 'MMR', status: 'all' });
+  expect(parseJson<{ total: number }>(textOf(live)).total).toBe(0);
+  const door = await toolList(db, { status: 'archived' });
+  const shelf = parseJson<{ projects: { id: string }[] }>(textOf(door));
+  expect(shelf.projects.map((p) => p.id)).toEqual(['MMR']);
+
+  // unarchive restores mutation
+  const un = await toolUnarchive(db, { key: 'MMR' });
+  expect(un.isError).toBeUndefined();
+  expect(parseJson<{ archived_at?: string }>(textOf(un)).archived_at).toBeUndefined();
+  expect((await toolStart(db, { id: taskRef })).isError).toBeUndefined();
 });

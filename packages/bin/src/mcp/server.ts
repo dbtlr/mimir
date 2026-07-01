@@ -13,8 +13,10 @@ import type { ZodRawShape } from 'zod';
 import type { Db } from '../core';
 import {
   toolAnnotate,
+  toolArchive,
   toolAttach,
   toolAbandon,
+  toolUnarchive,
   toolBlock,
   toolCreate,
   toolDepend,
@@ -228,6 +230,22 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
     'Reopen a terminal task (done or abandoned → in_progress) with an optional reason — the deliberate correction path for a premature done. Re-enters the rankable set at the bottom. Echoes the updated node.',
     { id: z.string(), reason: z.string().optional() },
     (args: { id: string; reason?: string }) => toolReopen(db, args),
+  );
+
+  register(
+    server,
+    'archive',
+    'Archive a project (bare KEY) with an optional reason — freezes the whole subtree (no mutation) and hides it from default reads. Reversible via unarchive; use list with status "archived" to see archived projects. Echoes the project.',
+    { key: z.string(), reason: z.string().optional() },
+    (args: { key: string; reason?: string }) => toolArchive(db, args),
+  );
+
+  register(
+    server,
+    'unarchive',
+    'Unarchive a project (bare KEY) — restores an archived project to active, unfreezing and unhiding it. Echoes the project.',
+    { key: z.string() },
+    (args: { key: string }) => toolUnarchive(db, args),
   );
 
   // ---------------------------------------------------------------------------
