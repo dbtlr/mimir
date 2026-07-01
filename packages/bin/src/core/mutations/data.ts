@@ -9,7 +9,7 @@ import { renderNodeId } from '../lookup';
 import { reorderTask } from '../rank';
 import type { RankPosition } from '../rank';
 import { now } from '../time';
-import { reloadNode, requireNode, requireTask, stamp } from './common';
+import { assertProjectActive, reloadNode, requireNode, requireTask, stamp } from './common';
 
 /**
  * Data + structural-order verbs that aren't status-bearing: the dumb `update`
@@ -95,6 +95,7 @@ export async function updateProject(
     if (project === undefined) {
       throw notFound('the project was not found');
     }
+    await assertProjectActive(tx, id);
     if (fields.name !== undefined && fields.name.trim() === '') {
       throw validation('project name cannot be blank');
     }
@@ -148,12 +149,13 @@ export async function updateArtifact(
   await db.transaction().execute(async (tx) => {
     const artifact = await tx
       .selectFrom('artifact')
-      .select('id')
+      .select(['id', 'project_id'])
       .where('id', '=', id)
       .executeTakeFirst();
     if (artifact === undefined) {
       throw notFound('the artifact was not found');
     }
+    await assertProjectActive(tx, artifact.project_id);
     if (fields.title !== undefined) {
       await tx.updateTable('artifact').set({ title: fields.title }).where('id', '=', id).execute();
     }
@@ -186,6 +188,7 @@ export async function attachArtifact(
     if (project === undefined) {
       throw notFound('the project was not found');
     }
+    await assertProjectActive(tx, input.projectId);
     const seq = await allocateArtifactSeq(tx, input.projectId);
     const artifact = await tx
       .insertInto('artifact')

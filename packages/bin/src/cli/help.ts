@@ -47,6 +47,11 @@ manage commands:
                                         (repeatable --tag <t> tags at creation)
     attach <id> --file <path>           freeze an artifact onto a task or phase
 
+  project:
+    archive <KEY> [reason]  archive a project — freeze + hide it and its whole
+                            subtree (reversible; --status archived lists them)
+    unarchive <KEY>         restore an archived project
+
   binding:
     bind <KEY>              bind this directory to a project — writes
                             .mimir.toml, the default --scope from then on
@@ -445,6 +450,26 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     summary: 'freeze an artifact onto a task or phase → echoes the new KEY-aN.',
     usage:
       'mimir attach <id> --file <path> [--title <t>] [--tag <t>…] [--link <ids>] [--project <KEY>]',
+  },
+  // ── project ──
+  archive: {
+    usage: 'mimir archive <KEY> [reason]',
+    summary:
+      'archive a project — freeze (no mutation under it) + hide it, its subtree, and its artifacts from default reads. Reversible.',
+    args: [
+      ['<KEY>', 'the project to archive (bare project key)'],
+      ['[reason]', 'optional note recorded on the archive transition'],
+    ],
+    examples: [
+      'mimir archive SAGA "superseded by SAGA2"',
+      'mimir list --status archived        # the archived projects (the one door)',
+    ],
+  },
+  unarchive: {
+    usage: 'mimir unarchive <KEY>',
+    summary: 'restore an archived project (archived → active) — unfreezes and unhides it.',
+    args: [['<KEY>', 'the archived project to restore (bare project key)']],
+    examples: ['mimir unarchive SAGA'],
   },
   // ── binding ──
   bind: {

@@ -5,6 +5,7 @@ import { allocateSeq, isValidKey } from './allocation';
 import type { Db, Tx } from './context';
 import { conflict, notFound, validation } from './errors';
 import { loadNode } from './lookup';
+import { assertProjectActive } from './mutations/common';
 import { appendRank } from './rank';
 
 /**
@@ -84,6 +85,7 @@ export async function createInitiative(db: Db, input: CreateInitiativeInput): Pr
     if (project === undefined) {
       throw notFound('the project was not found');
     }
+    await assertProjectActive(tx, input.projectId);
     const seq = await allocateSeq(tx, input.projectId);
     const node = await tx
       .insertInto('node')
@@ -119,6 +121,7 @@ export async function createPhase(db: Db, input: CreatePhaseInput): Promise<Node
     if (parent.type !== 'initiative') {
       throw validation(`a phase's parent must be an initiative, not a ${parent.type}`);
     }
+    await assertProjectActive(tx, parent.project_id);
     const seq = await allocateSeq(tx, parent.project_id);
     const node = await tx
       .insertInto('node')
@@ -157,6 +160,7 @@ export async function createTask(db: Db, input: CreateTaskInput): Promise<Node> 
     if (parent.type !== 'phase' && parent.type !== 'initiative') {
       throw validation(`a task's parent must be a phase or initiative, not a ${parent.type}`);
     }
+    await assertProjectActive(tx, parent.project_id);
     const seq = await allocateSeq(tx, parent.project_id);
     // A fresh task is todo + none → in the rankable set → append to bottom.
     const rank = await appendRank(tx, parent.project_id);

@@ -1,6 +1,7 @@
 import type { TagEntityType } from '@mimir/contract';
 
-import type { Db } from '../context';
+import type { Db, Tx } from '../context';
+import { assertProjectActive } from './common';
 
 /**
  * The tag write surface (MMR-31). Tags are a general-purpose primitive
@@ -18,6 +19,29 @@ export type EntityRef = {
 };
 
 /**
+ * The archive write-lock for a tag target (ADR 0015): reject when the target's
+ * owning project is archived. Resolves the project of a node/artifact, or the
+ * project itself. A missing entity is left to the insert/delete below (tags
+ * don't validate existence).
+ */
+async function assertTargetActive(tx: Tx, ref: EntityRef): Promise<void> {
+  let projectId: number | undefined;
+  if (ref.entityType === 'project') {
+    projectId = ref.entityId;
+  } else {
+    const row = await tx
+      .selectFrom(ref.entityType)
+      .select('project_id')
+      .where('id', '=', ref.entityId)
+      .executeTakeFirst();
+    projectId = row?.project_id;
+  }
+  if (projectId !== undefined) {
+    await assertProjectActive(tx, projectId);
+  }
+}
+
+/**
  * Apply every tag to every target, idempotently: an existing (entity, tag)
  * row is kept (re-tagging never errors); a provided `note` overwrites the
  * stored one (the note rides the application, not the vocabulary).
@@ -30,6 +54,7 @@ export async function tagEntities(
 ): Promise<void> {
   await db.transaction().execute(async (tx) => {
     for (const target of targets) {
+      await assertTargetActive(tx, target);
       for (const tag of tags) {
         await tx
           .insertInto('tag')
@@ -55,6 +80,7 @@ export async function untagEntities(db: Db, targets: EntityRef[], tags: string[]
   return db.transaction().execute(async (tx) => {
     let removed = 0;
     for (const target of targets) {
+      await assertTargetActive(tx, target);
       const result = await tx
         .deleteFrom('tag')
         .where('entity_type', '=', target.entityType)

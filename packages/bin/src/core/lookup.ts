@@ -47,6 +47,16 @@ export async function renderNodeId(tx: Db | Tx, nodeId: number): Promise<string 
   return row === undefined ? null : renderId(row);
 }
 
+/** Render a project's external `KEY` from its surrogate id (project-keyed transition rows, ADR 0015). */
+export async function renderProjectKey(tx: Db | Tx, projectId: number): Promise<string | null> {
+  const row = await tx
+    .selectFrom('project')
+    .select('key')
+    .where('id', '=', projectId)
+    .executeTakeFirst();
+  return row?.key ?? null;
+}
+
 /** Resolve a parsed `KEY-aN` artifact identity to its row, or `undefined` if absent. */
 export async function findArtifactByRef(
   tx: Db | Tx,

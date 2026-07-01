@@ -39,6 +39,7 @@ import { FULL_HELP, TERSE_HELP, helpForCommand } from './help';
 import {
   cmdAbandon,
   cmdAnnotate,
+  cmdArchive,
   cmdAttach,
   cmdBlock,
   cmdCreate,
@@ -52,6 +53,7 @@ import {
   cmdStart,
   cmdSubmit,
   cmdTag,
+  cmdUnarchive,
   cmdUnblock,
   cmdUndepend,
   cmdUnpark,
@@ -410,6 +412,12 @@ export async function runCli(
       }
       case 'untag': {
         return await cmdUntag(await mkCtx());
+      }
+      case 'archive': {
+        return await cmdArchive(await mkCtx());
+      }
+      case 'unarchive': {
+        return await cmdUnarchive(await mkCtx());
       }
       case 'skill': {
         const sub = positionals[1];

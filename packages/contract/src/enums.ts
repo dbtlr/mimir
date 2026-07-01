@@ -77,6 +77,12 @@ export type TaskStatusWord = (typeof TASK_STATUS_WORD_VALUES)[number];
 export const TAG_ENTITY_TYPE_VALUES = ['project', 'node', 'artifact'] as const;
 export type TagEntityType = (typeof TAG_ENTITY_TYPE_VALUES)[number];
 
-/** Transition-log row kinds (ADR 0003) — which axis/edge changed. */
-export const TRANSITION_KIND_VALUES = ['lifecycle', 'hold', 'dependency', 'move'] as const;
+/** Transition-log row kinds (ADR 0003) — which axis/edge changed. `archive` is project-keyed (ADR 0015); the rest are node-keyed. */
+export const TRANSITION_KIND_VALUES = [
+  'lifecycle',
+  'hold',
+  'dependency',
+  'move',
+  'archive',
+] as const;
 export type TransitionKind = (typeof TRANSITION_KIND_VALUES)[number];

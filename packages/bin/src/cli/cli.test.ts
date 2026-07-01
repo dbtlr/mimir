@@ -87,6 +87,46 @@ test('help for a verb without a descriptor falls back to the top-level help', as
   expect(io.out.join('')).toContain('usage: mimir');
 });
 
+test('archive freezes the project; unarchive restores it (MMR-121)', async () => {
+  const task = await createTask(db, { parentId: phaseId, title: 'x' });
+  const id = `MMR-${String(task.seq)}`;
+
+  // archive echoes a signpost and exits 0
+  const arc = fakeIo(true);
+  expect(await runCli(['archive', 'MMR', 'superseded'], () => db, arc)).toBe(0);
+  expect(arc.out.join('')).toContain('archived MMR');
+  expect(arc.out.join('')).toContain('superseded');
+
+  // a mutation under the archived project is rejected (conflict → exit 1)
+  const froze = fakeIo(true);
+  expect(await runCli(['start', id], () => db, froze)).toBe(1);
+  expect(froze.err.join('')).toContain('archived');
+
+  // unarchive restores; the same mutation now works
+  const un = fakeIo(true);
+  expect(await runCli(['unarchive', 'MMR'], () => db, un)).toBe(0);
+  expect(un.out.join('')).toContain('unarchived MMR');
+  expect(await runCli(['start', id], () => db, fakeIo(true))).toBe(0);
+});
+
+test('archive --format json echoes the project with its archived_at (MMR-121)', async () => {
+  const io = fakeIo();
+  expect(await runCli(['archive', 'MMR', '--format', 'json'], () => db, io)).toBe(0);
+  const parsed = parseJson<{ project: { key: string; archived_at: string | null } }>(
+    io.out.join(''),
+  );
+  expect(parsed.project.key).toBe('MMR');
+  expect(parsed.project.archived_at).not.toBeNull();
+});
+
+test('archive -h prints the archive command help, not the generic dump (MMR-121)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['archive', '-h'], neverDb, io)).toBe(0);
+  const out = io.out.join('');
+  expect(out).toContain('mimir archive <KEY>');
+  expect(out).not.toContain('read commands:');
+});
+
 test('next --format json lists ready tasks (count-led envelope)', async () => {
   await createTask(db, { parentId: phaseId, priority: 'p1', title: 'first' });
   const io = fakeIo();

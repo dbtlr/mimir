@@ -1,6 +1,6 @@
 import type { NewTransitionRow, Node } from '../../db/schema';
 import type { Tx } from '../context';
-import { invariant, notFound, validation } from '../errors';
+import { conflict, invariant, notFound, validation } from '../errors';
 import { renderNodeId } from '../lookup';
 import { isReady } from '../predicates';
 import { now } from '../time';
@@ -21,12 +21,39 @@ export async function reloadNode(tx: Tx, id: number): Promise<Node> {
   return node;
 }
 
-/** Load a node by id, asserting it exists. */
+/**
+ * The archive write-lock (ADR 0015): reject a mutation whose owning project is
+ * archived. This is the core-side guarantee that a frozen project accepts no
+ * changes through *any* transport. `requireNode` bakes it in for every
+ * node-targeting verb; the handful of project-level / create / attach / tag
+ * paths that don't load a node first call it directly with the owning project.
+ */
+export async function assertProjectActive(tx: Tx, projectId: number): Promise<void> {
+  const project = await tx
+    .selectFrom('project')
+    .select(['key', 'archived_at'])
+    .where('id', '=', projectId)
+    .executeTakeFirst();
+  if (project?.archived_at != null) {
+    throw conflict(
+      `project ${project.key} is archived — no changes are allowed`,
+      `unarchive it first: mimir unarchive ${project.key}`,
+    );
+  }
+}
+
+/**
+ * Load a node by id, asserting it exists — and that its owning project is not
+ * archived (the write-lock choke point, ADR 0015). Every node mutation loads
+ * its target (and any reference node) through here, so the freeze can't be
+ * bypassed per-verb.
+ */
 export async function requireNode(tx: Tx, id: number): Promise<Node> {
   const node = await tx.selectFrom('node').selectAll().where('id', '=', id).executeTakeFirst();
   if (node === undefined) {
     throw notFound('the record was not found');
   }
+  await assertProjectActive(tx, node.project_id);
   return node;
 }
 

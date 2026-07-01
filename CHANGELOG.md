@@ -15,6 +15,17 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **`mimir archive <KEY> [reason]` / `unarchive <KEY>`** (MMR-121, ADR 0015) —
+  archive a project to **freeze** it: no mutation is permitted on the project or
+  any descendant (every lifecycle/hold/structure/data/create/tag/attach verb is
+  rejected with a `conflict` while archived). Archiving is reversible
+  (`unarchive`) and reason-bearing — both are logged as project-keyed
+  transitions. This is the first slice of project archive; the accompanying
+  *hiding* (archived projects dropping out of default reads, with a
+  `--status archived` door) lands next. Schema: `project.archived_at`, and the
+  `transition_log` generalizes from node-keyed to entity-keyed (a nullable
+  `project_id`, XOR with `node_id`, `kind` gains `archive`).
+
 - **Per-command help: `mimir <cmd> -h` / `--help`** (MMR-118). Each verb now
   prints its own usage, arguments, and flags instead of the generic top-level
   help — so a forgotten flag is recoverable in-CLI rather than by grepping the
