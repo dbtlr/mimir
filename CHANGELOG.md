@@ -15,7 +15,7 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
-- **`mimir archive <KEY> [reason]` / `unarchive <KEY>`** (MMR-121/122, ADR 0015)
+- **`mimir archive <KEY> [reason]` / `unarchive <KEY>`** (MMR-121/122/123, ADR 0015)
   — archive a project to make it and its whole subtree *go away*, reversibly.
   Archiving both **freezes** (no mutation is permitted on the project or any
   descendant — every lifecycle/hold/structure/data/create/tag/attach verb is
