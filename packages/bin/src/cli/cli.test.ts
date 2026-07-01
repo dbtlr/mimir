@@ -46,6 +46,47 @@ test('help, usage errors, and unknown commands never acquire the store (MMR-39)'
   expect(await runCli(['frobnicate'], neverDb, fakeIo(true))).toBe(2);
 });
 
+test('per-command -h prints that command, not the generic help (MMR-118)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['update', '-h'], neverDb, io)).toBe(0);
+  const out = io.out.join('');
+  expect(out).toContain('mimir update <id>');
+  expect(out).toContain('--desc'); // the flag the dogfood hunt couldn't find
+  expect(out).not.toContain('read commands:'); // not the top-level dump
+});
+
+test('per-command --help adds examples; -h omits them (MMR-118)', async () => {
+  const terse = fakeIo(true);
+  await runCli(['depend', '-h'], neverDb, terse);
+  expect(terse.out.join('')).toContain('--on');
+  expect(terse.out.join('')).not.toContain('examples:');
+
+  const full = fakeIo(true);
+  await runCli(['depend', '--help'], neverDb, full);
+  expect(full.out.join('')).toContain('examples:');
+  expect(full.out.join('')).toContain('mimir depend MMR-4 --on MMR-3');
+});
+
+test('create <type> --help dispatches on the subcommand (MMR-118)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['create', 'task', '--help'], neverDb, io)).toBe(0);
+  const out = io.out.join('');
+  expect(out).toContain('mimir create task');
+  expect(out).toContain('--parent');
+});
+
+test('per-command help never acquires the store (MMR-118, MMR-39)', async () => {
+  for (const verb of ['update', 'create', 'attach', 'move', 'reorder', 'tag', 'annotate']) {
+    expect(await runCli([verb, '-h'], neverDb, fakeIo(true))).toBe(0);
+  }
+});
+
+test('help for a verb without a descriptor falls back to the top-level help', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['frobnicate', '-h'], neverDb, io)).toBe(0);
+  expect(io.out.join('')).toContain('usage: mimir');
+});
+
 test('next --format json lists ready tasks (count-led envelope)', async () => {
   await createTask(db, { parentId: phaseId, priority: 'p1', title: 'first' });
   const io = fakeIo();

@@ -35,7 +35,7 @@ import { cmdSelfUpdate, cmdService } from '../service';
 import type { ServiceDeps } from '../service';
 import { BINDING_FILE, writeBinding } from './binding';
 import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from './errors';
-import { FULL_HELP, TERSE_HELP } from './help';
+import { FULL_HELP, TERSE_HELP, helpForCommand } from './help';
 import {
   cmdAbandon,
   cmdAnnotate,
@@ -231,8 +231,16 @@ export async function runCli(
   }
 
   const command = positionals[0];
-  if (command === undefined || values.help === true) {
-    io.write(argv.includes('--help') ? FULL_HELP : TERSE_HELP);
+  const full = argv.includes('--help');
+  if (command === undefined) {
+    io.write(full ? FULL_HELP : TERSE_HELP);
+    return 0;
+  }
+  // `<cmd> -h` / `<cmd> --help` prints THAT command's help (MMR-118), falling
+  // back to the top-level help for a verb without a descriptor. Returns before
+  // any dispatch, so help never opens the store.
+  if (values.help === true) {
+    io.write(helpForCommand(command, positionals[1], full) ?? (full ? FULL_HELP : TERSE_HELP));
     return 0;
   }
 
