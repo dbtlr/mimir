@@ -602,3 +602,34 @@ test("a prerequisite's terminal state frees the dependent through the API view",
   const body = await parse(await get(`/api/nodes/${task2}`));
   expect(body.status).toBe('ready');
 });
+
+// --- project archive (ADR 0015, MMR-123) ---
+
+test('POST archive freezes + hides a project; the door and unarchive round-trip', async () => {
+  // archive echoes the project with its archived_at
+  const arc = await send('POST', '/api/projects/MMR/archive', { reason: 'superseded' });
+  expect(arc.status).toBe(200);
+  expect((await parse(arc)).archived_at).not.toBeUndefined();
+
+  // hidden from the default project list; visible via the door; a sibling stays
+  const active = await parse(await get('/api/projects'));
+  expect((active.items as Rec[]).map((p) => p.id)).toEqual(['NRN']);
+  const archived = await parse(await get('/api/projects?status=archived'));
+  expect((archived.items as Rec[]).map((p) => p.id)).toEqual(['MMR']);
+  const all = await parse(await get('/api/projects?status=all'));
+  expect((all.items as { id: string }[]).map((p) => p.id).toSorted()).toEqual(['MMR', 'NRN']);
+
+  // direct reads 404; a mutation under it is a conflict
+  expect((await get('/api/projects/MMR')).status).toBe(404);
+  expect((await get(`/api/nodes/${task1}`)).status).toBe(404);
+  const frozen = await send('POST', `/api/nodes/${task1}/start`);
+  expect(frozen.status).toBeGreaterThanOrEqual(400);
+  expect(errorCode(await parse(frozen))).toBe('conflict');
+
+  // unarchive restores everything
+  const un = await send('POST', '/api/projects/MMR/unarchive');
+  expect(un.status).toBe(200);
+  expect((await parse(un)).archived_at).toBeUndefined();
+  expect((await get('/api/projects/MMR')).status).toBe(200);
+  expect((await get(`/api/nodes/${task1}`)).status).toBe(200);
+});

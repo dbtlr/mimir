@@ -15,6 +15,7 @@ import {
   MimirError,
   abandonTask,
   annotate,
+  archiveProject,
   attachArtifact,
   blockTask,
   buildNodeView,
@@ -35,6 +36,7 @@ import {
   getArtifact,
   getNode,
   listNodes,
+  listProjects,
   moveNode,
   nextTasks,
   notFound,
@@ -48,6 +50,7 @@ import {
   submitTask,
   statusOfNode,
   tagEntities,
+  unarchiveProject,
   unblockTask,
   undepend,
   unparkTask,
@@ -207,6 +210,16 @@ export function toolNext(db: Db, args: SetQueryArgs): Promise<ToolResult> {
 
 export function toolList(db: Db, args: SetQueryArgs): Promise<ToolResult> {
   return guard(async () => {
+    // The archived-projects door (ADR 0015) — lists projects, not nodes.
+    if (args.status === 'archived') {
+      const items = await listProjects(db, undefined, 'archived');
+      return ok(
+        formatSetJson(
+          { items, returned: items.length, startsAt: 0, total: items.length },
+          'projects',
+        ),
+      );
+    }
     const result = await listNodes(db, {
       filters: collectFilters(args),
       limit: args.limit,
@@ -276,6 +289,22 @@ export function toolReopen(db: Db, args: { id: string; reason?: string }): Promi
     const id = await nodeId(db, args.id, 'task');
     const node = await reopenTask(db, id, args.reason);
     return echoNode(db, node);
+  });
+}
+
+/** Archive a project — freeze + hide it and its subtree (ADR 0015). Echoes the project. */
+export function toolArchive(db: Db, args: { key: string; reason?: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const project = await archiveProject(db, await projectId(db, args.key), args.reason);
+    return ok(formatNodeJson(await buildProjectView(db, project)));
+  });
+}
+
+/** Unarchive a project (ADR 0015). Echoes the project. */
+export function toolUnarchive(db: Db, args: { key: string }): Promise<ToolResult> {
+  return guard(async () => {
+    const project = await unarchiveProject(db, await projectId(db, args.key));
+    return ok(formatNodeJson(await buildProjectView(db, project)));
   });
 }
 

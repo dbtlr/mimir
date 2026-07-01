@@ -297,6 +297,10 @@ export async function buildProjectView(
     type: 'project',
     updatedAt: project.updated_at,
   };
+  // The archived axis (ADR 0015) — non-null only when archived; the wire omits it otherwise.
+  if (project.archived_at !== null) {
+    view.archivedAt = project.archived_at;
+  }
   if (facets.has('children')) {
     const roots = await tx
       .selectFrom('node')

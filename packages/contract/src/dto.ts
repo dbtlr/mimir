@@ -191,6 +191,10 @@ export type NodeView = {
   // bare — phase-only
   target?: string | null;
 
+  // bare — project-only: the archived operator axis (ADR 0015). Present and
+  // non-null only when the project is archived (surfaced via the archived door).
+  archivedAt?: string | null;
+
   // facets — opt-in
   deps?: DepsFacet;
   annotations?: AnnotationView[];

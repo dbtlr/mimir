@@ -14,6 +14,7 @@ import type { Db, ListOptions, RankPosition, UpdateFields } from '../core';
 import {
   abandonTask,
   annotate,
+  archiveProject,
   artifactSummaryToWire,
   artifactToWire,
   attachArtifact,
@@ -51,6 +52,7 @@ import {
   submitTask,
   tagEntities,
   treeToWire,
+  unarchiveProject,
   unblockTask,
   undepend,
   unparkTask,
@@ -104,6 +106,33 @@ async function nodeRef(db: Db, token: string, expected = 'node'): Promise<number
     artifact: 'artifacts live at /api/artifacts',
     project: 'projects live at /api/projects',
   });
+}
+
+/** Map the `?status` param on the projects list to the listProjects filter (ADR 0015). */
+function projectFilter(status: string | null): 'active' | 'archived' | 'all' {
+  if (status === 'archived') {
+    return 'archived';
+  }
+  if (status === 'all') {
+    return 'all';
+  }
+  return 'active';
+}
+
+/** Resolve a project key to its id for the archive/unarchive routes (ADR 0015). */
+async function projectIdForArchive(db: Db, key: string): Promise<number> {
+  if (parseIdentity(key)?.kind !== 'project') {
+    throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
+  }
+  const project = await db
+    .selectFrom('project')
+    .select('id')
+    .where('key', '=', key)
+    .executeTakeFirst();
+  if (project === undefined) {
+    throw projectNotFound(key);
+  }
+  return project.id;
 }
 
 /** The write echo — the full updated record, same shape as `GET /api/nodes/:id`. */
@@ -795,7 +824,13 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
       '/api/projects': {
         GET: (req) =>
           guarded(req, async () => {
-            const items = await listProjects(db, PROJECT_LIST_FACETS);
+            // Archived projects are hidden by default; ?status=archived is the
+            // door (ADR 0015), ?status=all returns both.
+            const items = await listProjects(
+              db,
+              PROJECT_LIST_FACETS,
+              projectFilter(new URL(req.url).searchParams.get('status')),
+            );
             return json(req, setBody(items.length, items));
           }),
         POST: (req) =>
@@ -852,6 +887,22 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           }),
       },
 
+      // Project archive (ADR 0015). The echo builds the view directly from the
+      // returned row — getNode would 404 on the now-archived project. Route keys
+      // stay alphabetically sorted (archive < tree < unarchive).
+      '/api/projects/:key/archive': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const id = await projectIdForArchive(db, req.params.key);
+            const body = await readBody(req, ['reason']);
+            const project = await archiveProject(db, id, strField(body, 'reason'));
+            return json(
+              req,
+              nodeToWire(await buildProjectView(db, project, new Set(PROJECT_FACETS))),
+            );
+          }),
+      },
+
       '/api/projects/:key/tree': {
         GET: (req) =>
           guarded(req, async () => {
@@ -860,6 +911,18 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
               throw validation(`${key} is not a project key`);
             }
             return json(req, treeToWire(await projectTree(db, key)));
+          }),
+      },
+
+      '/api/projects/:key/unarchive': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const id = await projectIdForArchive(db, req.params.key);
+            const project = await unarchiveProject(db, id);
+            return json(
+              req,
+              nodeToWire(await buildProjectView(db, project, new Set(PROJECT_FACETS))),
+            );
           }),
       },
 
