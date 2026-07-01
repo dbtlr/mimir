@@ -166,3 +166,34 @@ usable touch size. Frontend-only; the contract and the desktop board are unchang
   and a right-aligned toolbar broke the shared left margin; the board now aligns the
   header, title, status badge, toolbar, switcher, and cards to one left edge, with the
   lens toggle pinned right (`justify-between`).
+
+## Refinement (v0.13, MMR-111): the Overview groups projects into Lanes, not "attention bands"
+
+The v0.12 attention-router (MMR-100/101/102) grouped projects into four "attention
+bands," but that name borrowed the top-bar alert's word — the project-level
+classifier and the alert both read as "attention." The classifier is renamed
+**Lane**; **Attention** now names the top-bar alert only. Frontend + facet-field
+rename, behavior-preserving except the alert relabel below; the four standings and
+their ordering are unchanged.
+
+- **A Lane is the operator-facing sibling of the container rollup word.** A project
+  stores no status, so the Overview derives a coarse standing over its **leaf tasks**
+  the way `interpret()` derives a word over a container's direct children — same
+  spine, a four-value vocabulary instead of the eight status words. This is why the
+  Lane vocabulary is small and fixed rather than mirroring the status set.
+- **Four lanes in action-impact order** (how much the operator's action moves it,
+  highest-wins): `awaiting_you` → `live` → `needs_unsticking` → `at_rest`. Recency
+  orders projects within a lane; `at_rest` folds to a count strip (the Overview
+  analog of the board's Done-windowing, §4 / v0.9 refinement).
+- **Going cold is a modifier, not a fifth lane (5 → 4 + modifier).** A stale project
+  is not a distinct standing — staleness is orthogonal to the lane, so it decorates
+  whatever lane a project already holds (a stale `live` project is still `live`,
+  marked _going cold_). Collapsing the would-be fifth band to a modifier keeps the
+  lane axis one-dimensional.
+- **The wire facet field renames** `attention.band` → `attention.lane`; the facet
+  itself stays the `attention` facet on the projects read. No external consumers
+  (embedded UI, versioned with the binary), so the rename is safe.
+- **The attention alert relabels stale-only items as going cold.** The alert's stale
+  arm pulls in stale `in_progress`/`ready` tasks; they were shown with their status
+  word (a misleading healthy dot). They now surface as _going cold_ — kept in the set
+  (a rotted started task needs you), but labeled by the nudge, not the status.
