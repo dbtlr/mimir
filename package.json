@@ -21,7 +21,7 @@
   "devDependencies": {
     "@dbtlr/tooling": "0.3.0",
     "@types/bun": "latest",
-    "oxlint": "1.70.0",
+    "oxlint": "1.72.0",
     "vite-plus": "^0.2.1"
   },
   "overrides": {
