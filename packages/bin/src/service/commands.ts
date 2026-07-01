@@ -17,6 +17,7 @@ import { usage } from '../cli/errors';
 import type { Format, Io } from '../cli/render';
 import { ok, warn } from '../cli/render';
 import { MimirError } from '../core';
+import { PROD_PORT } from '../env';
 import { readServeConfig, writeServePort } from './config';
 import { SERVE_LOG_FILE, appendEvent, recentEvents } from './events';
 import type { ServiceEventName } from './events';
@@ -64,9 +65,6 @@ export type ServiceDeps = {
   /** MIMIR_DB at invocation time, baked into the plist iff set. */
   dbPath: string | undefined;
 };
-
-/** Default `serve` port — MIMIR on a phone keypad. */
-export const DEFAULT_PORT = 64647;
 
 const SUBCOMMANDS = ['install', 'uninstall', 'start', 'stop', 'restart', 'status'] as const;
 
@@ -129,7 +127,7 @@ export async function cmdService(
       }
       writeFileSync(deps.plistFile, plistFor(deps.binPath, { dbPath: deps.dbPath }));
       await deps.supervisor.install(deps.plistFile);
-      const effective = port ?? readServeConfig(deps.configFile).port ?? DEFAULT_PORT;
+      const effective = port ?? readServeConfig(deps.configFile).port ?? PROD_PORT;
       log('install', true, `port ${String(effective)}`);
       action({ action: 'install', ok: true, paths, port: effective }, () => {
         ok(io, `service installed — serving on http://127.0.0.1:${String(effective)}`);
@@ -190,7 +188,10 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
   if (config.problem !== undefined) {
     warn(io, `config ignored (${config.problem}) — ${deps.configFile}`);
   }
-  const port = config.port ?? DEFAULT_PORT;
+  // The service surface manages the installed production daemon regardless of
+  // how this CLI was invoked, so the daemon's own default (PROD_PORT) governs —
+  // not the invoking process's profile default (MMR-117).
+  const port = config.port ?? PROD_PORT;
   const healthRaw = await deps.health(port);
   const health: ServiceHealth | null =
     healthRaw === undefined

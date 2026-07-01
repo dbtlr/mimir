@@ -1,4 +1,5 @@
 /** Two help tiers: `-h` terse (synopsis + flags), `--help` fuller with examples. */
+import { DEFAULT_PORT } from '../env';
 
 export const TERSE_HELP = `mimir — query and manage work state
 
@@ -107,9 +108,9 @@ other:
                           claude → .claude/skills, codex → .agents/skills)
   serve [--port <n>] [--no-hunt]
                           HTTP API + console (loopback-only; port: --port >
-                          config [serve] port > 64647; a taken port hunts
-                          upward unless --no-hunt — the startup line names
-                          the bound URL)
+                          MIMIR_PORT > config [serve] port > ${DEFAULT_PORT}; a
+                          taken port hunts upward unless --no-hunt — the
+                          startup line names the bound URL)
   service <sub>           supervise serve under launchd (macOS):
                           install [--port <n>] · uninstall · start · stop ·
                           restart · status (--port writes the global config,
