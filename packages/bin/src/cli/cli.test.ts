@@ -2,7 +2,14 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { parseJson } from '@mimir/helpers';
 
-import { createInitiative, createPhase, createProject, createTask, notFound } from '../core';
+import {
+  createInitiative,
+  createPhase,
+  createProject,
+  createTask,
+  depend,
+  notFound,
+} from '../core';
 import type { Db } from '../core';
 import { createTestDb } from '../db/testing';
 import { UsageError, exitCodeFor, renderError } from './errors';
@@ -129,6 +136,23 @@ test('archive hides the project from reads; the --status archived door reveals i
   // unarchive restores it
   await runCli(['unarchive', 'MMR'], () => db, fakeIo(true));
   expect(await runCli(['get', 'MMR'], () => db, fakeIo())).toBe(0);
+});
+
+test('archive warns about released cross-project dependents (MMR-124)', async () => {
+  const mmrTask = await createTask(db, { parentId: phaseId, title: 'prereq' });
+  // A task in another project depends on the MMR task (a cross-project edge).
+  const aaa = await createProject(db, { key: 'AAA', name: 'a' });
+  const aInit = await createInitiative(db, { projectId: aaa.id, title: 'i' });
+  const aPhase = await createPhase(db, { parentId: aInit.id, title: 'ph' });
+  const a1 = await createTask(db, { parentId: aPhase.id, title: 'a1' });
+  await depend(db, a1.id, [mmrTask.id]);
+
+  const io = fakeIo(true);
+  expect(await runCli(['archive', 'MMR'], () => db, io)).toBe(0);
+  const out = io.out.join('');
+  expect(out).toContain('archived MMR');
+  expect(out).toContain('released');
+  expect(out).toContain(`AAA-${String(a1.seq)}`);
 });
 
 test('archive --format json echoes the project with its archived_at (MMR-121)', async () => {

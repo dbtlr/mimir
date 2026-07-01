@@ -1,5 +1,5 @@
 /** The mutation surface — high-level verbs, each a single transaction (ADR 0003). */
-export { archiveProject, unarchiveProject } from './archive';
+export { archiveProject, releasedByArchive, unarchiveProject } from './archive';
 export { assertProjectActive } from './common';
 export {
   abandonTask,

@@ -44,3 +44,15 @@ Archive **replaces** any notion of hard-deleting a project. The store's DB file 
 - **Refines [ADR 0003](0003-append-only-transition-log.md):** the transition log keys on an entity (node or project), not a node alone.
 - **Glossary:** adds **Archived**; refines **Project** (no longer "status is not meaningful") and **Transition log** (entity-keyed).
 - No consumer-facing change is required for correctness beyond core: transports inherit the guard and filter.
+
+## Refinement (2026-07-01, MMR-124): an archived prerequisite is settled
+
+Cross-project dependency edges are permitted, so archiving interacts with dependencies: a live task in one project can depend on a node in a project that then gets archived. Because archiving both **freezes** (the prerequisite can never complete) and **hides** (it reads as absent and drops from the dependent's `deps` facet), the dependent would otherwise roll up `awaiting` **forever**, with the cause invisible — a stuck, undiagnosable task.
+
+**Decision:** a node whose owning project is archived counts as **settled** for downstream dependency gating — identical to the release an `abandoned` prerequisite already triggers. Archiving a whole project is a _stronger_ "this is over" statement than abandoning one task, so downstream work stops waiting on it: the dependent leaves `awaiting` and becomes `ready`.
+
+- **No edge mutation** — the dependency edge is preserved; "settled" is derived live from the prerequisite's project state (`hasUnsettledPrereq` skips an archived-project prerequisite). So it is **reversible**: `unarchive` returns the node to non-terminal and the edge gates again. Append-only holds.
+- **Only inbound edges** are affected (live work depending _into_ the archived project). The outbound case (an archived node depending on a live one) is inert — the archived node is frozen and gates nothing live.
+- **Not silent:** archiving surfaces a warning naming the out-of-project dependents it released (`released N dependent(s): …`, via `releasedByArchive`), so the release is visible rather than a silent semantics change.
+
+This extends the settled-prerequisite rule ([ADR 0001](0001-task-status-two-axes-derived-rollup.md)) to a third settling condition (done · abandoned · **archived-project**), consistent with archive being a coarse, reversible "this effort is over."

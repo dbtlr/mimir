@@ -71,10 +71,18 @@ export async function hasUnsettledPrereq(tx: Executor, taskId: number): Promise<
   const prereqs = await tx
     .selectFrom('dependency')
     .innerJoin('node', 'node.id', 'dependency.depends_on_node_id')
+    .innerJoin('project', 'project.id', 'node.project_id')
     .where('dependency.node_id', 'in', lineage)
-    .select(['node.id', 'node.type', 'node.lifecycle'])
+    .select(['node.id', 'node.type', 'node.lifecycle', 'project.archived_at'])
     .execute();
   for (const prereq of prereqs) {
+    // A prereq in an archived project counts as settled — archiving is a
+    // stronger "this is over" than abandoning, so it no longer gates downstream
+    // work (ADR 0015 Refinement). Without this, a live task depending into a
+    // newly-archived project would await a frozen, hidden prerequisite forever.
+    if (prereq.archived_at !== null) {
+      continue;
+    }
     if (!(await isNodeSettled(tx, prereq))) {
       return true;
     }

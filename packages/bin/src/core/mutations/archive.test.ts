@@ -3,12 +3,21 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { createTestDb } from '../../db/testing';
 import type { Db } from '../context';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
+import { loadNode } from '../lookup';
+import { isReady } from '../predicates';
 import { expectMimirError } from '../testing';
-import { archiveProject, unarchiveProject } from './archive';
+import { archiveProject, releasedByArchive, unarchiveProject } from './archive';
 import { annotate, attachArtifact, updateNode, updateProject } from './data';
+import { depend } from './dependency';
 import { startTask } from './lifecycle';
 import { moveNode } from './structure';
 import { tagEntities } from './tags';
+
+/** Readiness of a task by its surrogate id (loads the row first). */
+async function ready(db: Db, id: number): Promise<boolean> {
+  const node = await loadNode(db, id);
+  return node === undefined ? false : isReady(db, node);
+}
 
 /**
  * Project archive (ADR 0015): a reversible, reason-bearing project axis that
@@ -117,4 +126,41 @@ test('archiving one project leaves a sibling project fully mutable', async () =>
   // the sibling is unaffected
   const started = await startTask(db, otherTask.id);
   expect(started.lifecycle).toBe('in_progress');
+});
+
+// --- archived prerequisite settles downstream gating (ADR 0015 Refinement, MMR-124) ---
+
+test('archiving a project settles its nodes as prerequisites — the dependent is released', async () => {
+  // AAA task depends on a task in the MMR project (a cross-project edge).
+  const aaa = await createProject(db, { key: 'AAA', name: 'a' });
+  const aInit = await createInitiative(db, { projectId: aaa.id, title: 'i' });
+  const aPhase = await createPhase(db, { parentId: aInit.id, title: 'ph' });
+  const a1 = await createTask(db, { parentId: aPhase.id, title: 'a1' });
+  await depend(db, a1.id, [taskId]);
+
+  // Gated: the prerequisite (in MMR) is unsettled, so a1 is awaiting, not ready.
+  expect(await ready(db, a1.id)).toBe(false);
+
+  // Archiving MMR settles the prerequisite → a1 is released (ready).
+  await archiveProject(db, projectId);
+  expect(await ready(db, a1.id)).toBe(true);
+
+  // Unarchiving re-gates it — no edge was mutated, so the gate returns.
+  await unarchiveProject(db, projectId);
+  expect(await ready(db, a1.id)).toBe(false);
+});
+
+test('releasedByArchive names out-of-project dependents, not in-project ones', async () => {
+  const aaa = await createProject(db, { key: 'AAA', name: 'a' });
+  const aInit = await createInitiative(db, { projectId: aaa.id, title: 'i' });
+  const aPhase = await createPhase(db, { parentId: aInit.id, title: 'ph' });
+  const a1 = await createTask(db, { parentId: aPhase.id, title: 'a1' });
+  await depend(db, a1.id, [taskId]); // AAA-1 → MMR task (crosses the boundary)
+
+  // An in-project dependent (another MMR task depending on taskId) is NOT reported.
+  const sibling = await createTask(db, { parentId: phaseId, title: 'sib' });
+  await depend(db, sibling.id, [taskId]);
+
+  const released = await releasedByArchive(db, projectId);
+  expect(released).toEqual([`AAA-${String(a1.seq)}`]);
 });
