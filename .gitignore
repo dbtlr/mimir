@@ -19,6 +19,9 @@ dist/
 *.db-wal
 *.db-shm
 
+# From-source dev store — isolated from the production store (MMR-117)
+.dev/
+
 # viteplus cache
 .vite-plus/
 

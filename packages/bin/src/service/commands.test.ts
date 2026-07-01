@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { fakeIo } from '../cli/testing';
+import { PROD_PORT } from '../env';
 import type { ServiceDeps } from './commands';
 import { cmdSelfUpdate, cmdService } from './commands';
 import { readServeConfig } from './config';
@@ -368,7 +369,7 @@ test('service status emits the json envelope when format is json', async () => {
     health: { on_disk_version: '0.6.0', restart_pending: true, running_version: '0.5.0' },
     loaded: true,
     pid: 4242,
-    port: 64647,
+    port: PROD_PORT,
     running: true,
   });
   expect(parsed.paths.plist).toBe(d.plistFile);

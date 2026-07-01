@@ -46,6 +46,18 @@ release. When a release is cut, this section is promoted to
   their status word. A stale `in_progress`/`ready` task pulled into the alert by
   the stale arm showed a misleading healthy status dot; it now reads as a
   going-cold nudge (the alert still keeps it — a rotted started task needs you).
+- **Running from source now targets an isolated dev store and port, never
+  production** (MMR-117). `bun run mimir …` and tests default to a gitignored,
+  repo-local `.dev/mimir.db` on port **64747**, so a from-source run can no
+  longer read or mutate the installed daemon's work-state or collide with its
+  port (both previously resolved the same `~/.local/share/mimir/mimir.db` and
+  64647 — a from-source `serve` alongside the daemon spun on the shared SQLite
+  lock and hung). A build profile drives the default: release binaries bake
+  `MIMIR_BUILD_PROFILE=production` via `bun build --define` (the same idiom as
+  the version stamp) to target the user-global store and port 64647; an
+  uncompiled run stays in dev. Production defaults and the `MIMIR_DB` override
+  are unchanged, and `serve` gains a `MIMIR_PORT` env override (precedence:
+  `--port` > `MIMIR_PORT` > config > default) mirroring `MIMIR_DB`.
 
 ## v0.12.0 - 2026-06-28
 

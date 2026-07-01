@@ -9,18 +9,17 @@
  *   --help, -h      help (handled by the CLI)
  */
 import { mkdirSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 
 import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
 import type { Db } from './core';
 import { createDb } from './db/client';
 import { migrateToLatest, migrationStatus } from './db/migrator';
+import { DEFAULT_PORT, envPort, storePath } from './env';
 import { createServer } from './http';
 import { serveStdio } from './mcp';
 import {
-  DEFAULT_PORT,
   EVENTS_FILE,
   LaunchdSupervisor,
   bunExec,
@@ -31,21 +30,6 @@ import {
 } from './service';
 import type { Health, ServiceDeps } from './service';
 import { VERSION } from './version';
-
-/**
- * The database path. `MIMIR_DB` overrides; otherwise a single user-global store
- * under the XDG data dir (`$XDG_DATA_HOME/mimir/mimir.db`, defaulting to
- * `~/.local/share/mimir/mimir.db`), so a globally-installed `mimir` works from
- * any directory.
- */
-function dbPath(): string {
-  const override = process.env.MIMIR_DB;
-  if (override !== undefined) {
-    return override;
-  }
-  const dataHome = process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share');
-  return join(dataHome, 'mimir', 'mimir.db');
-}
 
 /**
  * Open the database — creating the parent directory if needed — and apply any
@@ -91,7 +75,7 @@ function stdoutIo(): Io {
 
 async function runMigrate(sub: string | undefined): Promise<number> {
   // Opens without auto-migrating — `migrate` inspects/applies them itself.
-  const path = dbPath();
+  const path = storePath();
   mkdirSync(dirname(path), { recursive: true });
   const db = createDb(path);
   try {
@@ -187,15 +171,22 @@ async function main(argv: string[]): Promise<number> {
       return 2;
     }
     const noHunt = args.includes('--no-hunt');
-    // Declared port wins: flag > global config > built-in default (MMR-47).
+    // Declared port wins: flag > MIMIR_PORT env > global config > built-in
+    // default (MMR-47, MMR-117). A malformed MIMIR_PORT is ignored with a warn.
+    const overridePort = envPort();
+    if (overridePort === null) {
+      console.error(
+        `⚠ serve: MIMIR_PORT ignored (not an integer in 1–65535) — ${String(process.env.MIMIR_PORT)}`,
+      );
+    }
     const config = readServeConfig();
     if (config.problem !== undefined) {
       console.error(`⚠ serve: config ignored (${config.problem}) — ${configPath()}`);
     }
-    const port = flagPort ?? config.port ?? DEFAULT_PORT;
+    const port = flagPort ?? overridePort ?? config.port ?? DEFAULT_PORT;
     // Long-running: the server keeps the process alive; loopback-only by
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
-    const db = await openMigrated(dbPath());
+    const db = await openMigrated(storePath());
     let server: ReturnType<typeof createServer>;
     try {
       server = createServer(db, { hunt: !noHunt, port, version: VERSION });
@@ -230,7 +221,7 @@ async function main(argv: string[]): Promise<number> {
     // Long-running: connect and let the stdio transport keep the process alive.
     // The MCP rendering honors the same Project Binding (ADR 0011), resolved
     // from the server's spawn cwd.
-    const db = await openMigrated(dbPath());
+    const db = await openMigrated(storePath());
     await serveStdio(db, VERSION, findBinding(process.cwd()));
     return 0;
   }
@@ -240,7 +231,7 @@ async function main(argv: string[]): Promise<number> {
   // first ask; help, usage errors, and `skill install` never ask, so a bare
   // `mimir` / `mimir --help` never creates a file. main holds no verb list.
   let opened: Db | undefined;
-  const getDb = async (): Promise<Db> => (opened ??= await openMigrated(dbPath()));
+  const getDb = async (): Promise<Db> => (opened ??= await openMigrated(storePath()));
   try {
     // Project Binding (ADR 0011): the nearest .mimir.toml supplies the
     // default -s scope; resolved here so the CLI itself never reads cwd.

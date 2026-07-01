@@ -67,9 +67,11 @@ jobs:
           # binary's version so `--version`/`/api/health` report the exact
           # release (MMR-57). PR build-validation runs on a branch ref and
           # falls back to package.json — fine, those binaries aren't published.
-          define=()
+          # Every compiled artifact is a production binary — target the
+          # user-global store + port, not the from-source dev defaults (MMR-117).
+          define=(--define "MIMIR_BUILD_PROFILE=\"production\"")
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            define=(--define "MIMIR_BUILD_VERSION=\"${GITHUB_REF_NAME#v}\"")
+            define+=(--define "MIMIR_BUILD_VERSION=\"${GITHUB_REF_NAME#v}\"")
           fi
           bun build packages/bin/src/main.ts --compile "${define[@]}" \
             --outfile "dist/${{ matrix.asset }}"
