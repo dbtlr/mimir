@@ -1,5 +1,5 @@
-# Saga project binding — local, not shared
-.saga.toml
+# Atlas project binding — local, not shared
+.atlas.toml
 
 # Claude Code local settings
 .claude/settings.local.json
