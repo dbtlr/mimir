@@ -23,6 +23,7 @@ import {
   parseIdentity,
   notFound,
   parkTask,
+  releasedByArchive,
   reorder,
   reopenTask,
   resolveEntityToken,
@@ -169,6 +170,13 @@ export async function cmdArchive(c: Ctx): Promise<number> {
   const projectId = await resolveProject(c.db, key);
   const project = await archiveProject(c.db, projectId, reason);
   echoArchiveOp(c, project, 'archived', reason);
+  // Name the out-of-project dependents this archive released (ADR 0015
+  // Refinement) — their archived prerequisite no longer gates them.
+  const released = await releasedByArchive(c.db, projectId);
+  if (released.length > 0 && c.format !== 'json' && c.format !== 'jsonl' && c.format !== 'ids') {
+    const glyph = c.io.plain ? '[warn]' : '\x1b[33m⚠\x1b[0m';
+    c.io.write(`${glyph} released ${String(released.length)} dependent(s): ${released.join(', ')}`);
+  }
   return 0;
 }
 

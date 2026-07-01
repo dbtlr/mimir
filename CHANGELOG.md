@@ -33,6 +33,15 @@ release. When a release is cut, this section is promoted to
   node-keyed to entity-keyed (a nullable `project_id`, XOR with `node_id`,
   `kind` gains `archive`).
 
+- **Archiving a project releases the live work that depended on it** (MMR-124,
+  ADR 0015 Refinement). A node in an archived project now counts as *settled*
+  for dependency gating — the same release an `abandoned` prerequisite triggers
+  — so a task in another project that depended into it stops `awaiting` and
+  becomes `ready`, instead of stalling forever on a frozen, hidden prerequisite.
+  The edge is preserved (derived live), so `unarchive` re-gates it. `archive`
+  warns, naming the out-of-project dependents it released
+  (`released N dependent(s): …`).
+
 - **Per-command help: `mimir <cmd> -h` / `--help`** (MMR-118). Each verb now
   prints its own usage, arguments, and flags instead of the generic top-level
   help — so a forgotten flag is recoverable in-CLI rather than by grepping the

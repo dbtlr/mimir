@@ -1,6 +1,7 @@
 import type { Project } from '../../db/schema';
 import type { Db, Tx } from '../context';
 import { conflict, notFound } from '../errors';
+import { renderNodeId } from '../lookup';
 import { now } from '../time';
 import { logTransition } from './common';
 
@@ -45,6 +46,26 @@ export async function archiveProject(db: Db, id: number, reason?: string): Promi
     });
     return loadProject(tx, id);
   });
+}
+
+/**
+ * The out-of-project dependents released by archiving `projectId` (ADR 0015
+ * Refinement) — nodes in *other* projects that hold a dependency edge onto a
+ * node in this project. Archiving settles those prerequisites, so these
+ * dependents stop awaiting; the CLI names them so the release isn't silent.
+ */
+export async function releasedByArchive(db: Db, projectId: number): Promise<string[]> {
+  const rows = await db
+    .selectFrom('dependency')
+    .innerJoin('node as prereq', 'prereq.id', 'dependency.depends_on_node_id')
+    .innerJoin('node as dependent', 'dependent.id', 'dependency.node_id')
+    .where('prereq.project_id', '=', projectId)
+    .where('dependent.project_id', '<>', projectId)
+    .select('dependency.node_id as id')
+    .distinct()
+    .execute();
+  const ids = await Promise.all(rows.map((r) => renderNodeId(db, r.id)));
+  return ids.filter((id): id is string => id !== null).toSorted();
 }
 
 /** Unarchive a project (archived → active). Unarchiving an active project is a conflict. */
