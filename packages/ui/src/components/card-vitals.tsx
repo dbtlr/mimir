@@ -37,7 +37,7 @@ export function CardVitals({ counts }: { counts: Distribution | undefined }) {
       ) : (
         <div className="h-1.5 rounded-full bg-line" />
       )}
-      {/* five-count legend, fixed band-mirroring order; a 5-col grid so counts
+      {/* five-count legend, fixed lane-mirroring order; a 5-col grid so counts
           column-align and wrapping is predictable; zeros recede */}
       <ul className="grid grid-cols-5 gap-x-1.5">
         {vitals.map((v) => (

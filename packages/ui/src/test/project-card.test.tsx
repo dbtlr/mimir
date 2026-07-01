@@ -9,7 +9,7 @@ describe('projectCard going-cold marker', () => {
     render(
       <ProjectCard
         project={project({
-          attention: { band: 'live', last_activity: '2026-01-01T00:00:00.000Z', stale: true },
+          attention: { lane: 'live', last_activity: '2026-01-01T00:00:00.000Z', stale: true },
           id: 'COLD',
         })}
         onOpen={vi.fn()}
@@ -22,7 +22,7 @@ describe('projectCard going-cold marker', () => {
     render(
       <ProjectCard
         project={project({
-          attention: { band: 'live', last_activity: '2026-06-20T00:00:00.000Z', stale: false },
+          attention: { lane: 'live', last_activity: '2026-06-20T00:00:00.000Z', stale: false },
           id: 'WARM',
         })}
         onOpen={vi.fn()}

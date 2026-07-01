@@ -1,4 +1,4 @@
-import type { AttentionBand, AttentionState, StatusWord } from '@mimir/contract';
+import type { AttentionState, Lane, StatusWord } from '@mimir/contract';
 
 import type { Project } from '../db/schema';
 import type { Db, Tx } from './context';
@@ -16,15 +16,15 @@ import type { StaleOptions } from './predicates';
 type Executor = Db | Tx;
 
 /**
- * The bands in highest-wins order — index 0 is the strongest pull on the
- * operator. A leaf task's Status word maps to the band whose membership it
+ * The lanes in highest-wins order — index 0 is the strongest pull on the
+ * operator. A leaf task's Status word maps to the lane whose membership it
  * satisfies; `at_rest` is the floor (parked / terminal / nothing actionable).
  */
-const BANDS: readonly AttentionBand[] = ['awaiting_you', 'live', 'needs_unsticking', 'at_rest'];
-const AT_REST = BANDS.length - 1;
+const LANES: readonly Lane[] = ['awaiting_you', 'live', 'needs_unsticking', 'at_rest'];
+const AT_REST = LANES.length - 1;
 
-/** A leaf task's Status word → its band index (lower = higher attention). */
-function bandIndex(word: StatusWord): number {
+/** A leaf task's Status word → its lane index (lower = higher attention). */
+function laneIndex(word: StatusWord): number {
   switch (word) {
     case 'under_review': {
       return 0;
@@ -47,11 +47,11 @@ function bandIndex(word: StatusWord): number {
  * Derive a project's attention-state from a single scan of its leaf tasks
  * (containers roll up from leaves, so the scan is `type = "task"`):
  *
- * - **band** — the highest band any leaf qualifies for (lowest index wins).
- * - **lastActivity** — `max(updated_at)` across the leaves (intra-band recency
+ * - **lane** — the highest lane any leaf qualifies for (lowest index wins).
+ * - **lastActivity** — `max(updated_at)` across the leaves (intra-lane recency
  *   for MMR-102); the project's own `updated_at` when it has no tasks.
  * - **stale** — the `going cold` modifier: ≥1 leaf is {@link isStale}. Always
- *   rides a higher band (stale only fires on live/blocked/under_review words).
+ *   rides a higher lane (stale only fires on live/blocked/under_review words).
  */
 export async function attentionOf(
   tx: Executor,
@@ -69,7 +69,7 @@ export async function attentionOf(
   let stale = false;
   let lastActivity: string | null = null;
   for (const task of tasks) {
-    best = Math.min(best, bandIndex(await nodeStatusWord(tx, task)));
+    best = Math.min(best, laneIndex(await nodeStatusWord(tx, task)));
     if (!stale && (await isStale(tx, task, options))) {
       stale = true;
     }
@@ -79,7 +79,7 @@ export async function attentionOf(
   }
 
   return {
-    band: BANDS[best] ?? 'at_rest',
+    lane: LANES[best] ?? 'at_rest',
     lastActivity: lastActivity ?? project.updated_at,
     stale,
   };

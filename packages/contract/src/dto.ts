@@ -121,23 +121,27 @@ export type Verdicts = {
 };
 
 /**
- * The attention bands (MMR-101) — four exclusive, highest-wins states a project
- * resolves to from its leaf tasks, ordered by *how much the operator's action
- * moves it*: `awaiting_you` (a review only you can clear) over `live` (work in
- * motion) over `needs_unsticking` (blocked/awaiting, often on something external)
- * over `at_rest` (nothing actionable).
+ * The Lanes (MMR-101) — the four exclusive, highest-wins standings the Overview
+ * groups a project into, ordered by *how much the operator's action moves it*:
+ * `awaiting_you` (a review only you can clear) over `live` (work in motion) over
+ * `needs_unsticking` (blocked/awaiting, often on something external) over
+ * `at_rest` (nothing actionable). The operator-facing sibling of the container
+ * rollup word: projects store no status, so the Overview derives a coarse
+ * standing over their leaves the way `interpret()` derives a word over a
+ * container's children — same spine, a 4-value vocabulary instead of the status
+ * words. `going cold` (stale) is a modifier that rides a lane, not a lane.
  */
-export type AttentionBand = 'awaiting_you' | 'live' | 'needs_unsticking' | 'at_rest';
+export type Lane = 'awaiting_you' | 'live' | 'needs_unsticking' | 'at_rest';
 
 /**
  * `attention` — a project's derived attention-state (MMR-101): its highest-wins
- * {@link AttentionBand}, the recency of its most-recent task touch (`lastActivity`
- * = `max(updated_at)` over leaf tasks; the project's own `updatedAt` when empty),
+ * {@link Lane}, the recency of its most-recent task touch (`lastActivity` =
+ * `max(updated_at)` over leaf tasks; the project's own `updatedAt` when empty),
  * and the `going cold` modifier (`stale` = ≥1 leaf task is stale). Project-only;
- * intra-band recency ordering is the consumer's (MMR-102), never cross-band.
+ * intra-lane recency ordering is the consumer's (MMR-102), never cross-lane.
  */
 export type AttentionState = {
-  band: AttentionBand;
+  lane: Lane;
   lastActivity: string;
   stale: boolean;
 };

@@ -99,7 +99,7 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   }
   if (node.attention !== undefined) {
     wire.attention = {
-      band: node.attention.band,
+      lane: node.attention.lane,
       last_activity: node.attention.lastActivity,
       stale: node.attention.stale,
     };

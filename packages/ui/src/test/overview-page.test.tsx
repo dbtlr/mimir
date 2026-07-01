@@ -10,8 +10,8 @@ import { router } from '../router';
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
 
-function attn(band: WireAttention['band'], lastActivity: string, stale = false): WireAttention {
-  return { band, last_activity: lastActivity, stale };
+function attn(lane: WireAttention['lane'], lastActivity: string, stale = false): WireAttention {
+  return { lane, last_activity: lastActivity, stale };
 }
 
 function proj(id: string, attention?: WireAttention) {
@@ -31,7 +31,7 @@ function renderOverview() {
 }
 
 describe('overviewPage attention-router (MMR-102)', () => {
-  it('renders the populated bands in highest-wins order, At rest collapsed', async () => {
+  it('renders the populated lanes in highest-wins order, At rest collapsed', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/projects') {
         return Promise.resolve({

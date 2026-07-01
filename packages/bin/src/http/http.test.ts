@@ -100,10 +100,10 @@ test('GET /api/projects lists every project with its rollup', async () => {
 test('GET /api/projects carries the attention facet in snake_case (MMR-101)', async () => {
   const res = await get('/api/projects');
   const items = (await parse(res)).items as Rec[];
-  // both seeded projects have only fresh (ready) leaf tasks → the live band
+  // both seeded projects have only fresh (ready) leaf tasks → the live lane
   const attention = items[0]?.attention as Rec;
   expect(attention).toBeDefined();
-  expect(attention.band).toBe('live');
+  expect(attention.lane).toBe('live');
   expect(typeof attention.last_activity).toBe('string');
   expect(attention.stale).toBe(false);
 });

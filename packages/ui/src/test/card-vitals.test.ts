@@ -5,12 +5,12 @@ import { cardVitals } from '../lib/card-vitals';
 
 /**
  * MMR-106 — the project card's five vitals, derived from the leaf-counts facet
- * (MMR-105) in a fixed order that mirrors the page's bands:
+ * (MMR-105) in a fixed order that mirrors the page's lanes:
  * review → in prog → ready → await → blocked.
  */
 
 describe('cardVitals', () => {
-  it('returns the five vitals in the fixed band-mirroring order', () => {
+  it('returns the five vitals in the fixed lane-mirroring order', () => {
     const counts: Distribution = {
       awaiting: 1,
       blocked: 5,

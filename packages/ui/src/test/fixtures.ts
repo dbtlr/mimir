@@ -4,7 +4,7 @@ import type { WireAttention, WireNode } from '../api/types';
 
 let seq = 100;
 
-/** A project record as the overview list serves it; pass `attention` for band tests. */
+/** A project record as the overview list serves it; pass `attention` for lane tests. */
 export function project(
   overrides: Partial<WireNode> & { attention?: WireAttention } = {},
 ): WireNode {
