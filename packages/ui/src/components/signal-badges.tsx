@@ -38,3 +38,17 @@ export function StaleBadge() {
     </Badge>
   );
 }
+
+/**
+ * The going-cold marker — the operator-facing framing of a stale task on the
+ * Overview / attention alert (MMR-106/111): a healthy-status task that has sat
+ * untouched too long and is cooling off. The cold hue (not the amber stale
+ * verdict) matches the Overview's project-card marker.
+ */
+export function GoingColdBadge() {
+  return (
+    <Badge className="bg-cold/20 text-cold" title="going cold — untouched too long">
+      ⧗ going cold
+    </Badge>
+  );
+}
