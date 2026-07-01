@@ -23,7 +23,7 @@ import {
   rootDistribution,
 } from '../derive';
 import { renderArtifactRef } from '../ids';
-import { loadNode, renderNodeId } from '../lookup';
+import { isProjectArchived, loadNode, renderNodeId } from '../lookup';
 import { verdictsOf } from '../predicates';
 import { interpret } from '../status';
 
@@ -99,6 +99,24 @@ export async function buildNodeView(
   return view;
 }
 
+/**
+ * Refs for a set of linked node ids, dropping any whose owning project is
+ * archived — a cross-project edge must not leak an archived node's id/title/
+ * status through the `deps` facet (ADR 0015; the facet is a read side-door that
+ * bypasses the id-level not_found guards).
+ */
+async function visibleRefs(tx: Executor, nodeIds: number[]): Promise<NodeRef[]> {
+  const refs: NodeRef[] = [];
+  for (const id of nodeIds) {
+    const node = await loadNode(tx, id);
+    if (node !== undefined && (await isProjectArchived(tx, node.project_id))) {
+      continue;
+    }
+    refs.push(await toRef(tx, id));
+  }
+  return refs;
+}
+
 async function buildDeps(tx: Executor, nodeId: number): Promise<DepsFacet> {
   const prereqs = await tx
     .selectFrom('dependency')
@@ -112,8 +130,14 @@ async function buildDeps(tx: Executor, nodeId: number): Promise<DepsFacet> {
     .execute();
   return {
     awaitingOn: await buildAwaitingOn(tx, nodeId),
-    blocking: await Promise.all(dependents.map((r) => toRef(tx, r.node_id))),
-    dependsOn: await Promise.all(prereqs.map((r) => toRef(tx, r.depends_on_node_id))),
+    blocking: await visibleRefs(
+      tx,
+      dependents.map((r) => r.node_id),
+    ),
+    dependsOn: await visibleRefs(
+      tx,
+      prereqs.map((r) => r.depends_on_node_id),
+    ),
   };
 }
 
@@ -141,6 +165,10 @@ async function buildAwaitingOn(tx: Executor, nodeId: number): Promise<AwaitingRe
       }
       const prereq = await loadNode(tx, edge.depends_on_node_id);
       if (prereq === undefined || (await isNodeSettled(tx, prereq))) {
+        continue;
+      }
+      // A prereq in an archived project reads as absent — don't surface it (ADR 0015).
+      if (await isProjectArchived(tx, prereq.project_id)) {
         continue;
       }
       seen.add(edge.depends_on_node_id);

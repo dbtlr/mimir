@@ -6,6 +6,7 @@ import { createInitiative, createPhase, createProject, createTask } from './crea
 import {
   archiveProject,
   attachArtifact,
+  depend,
   getArtifact,
   getNode,
   listArtifacts,
@@ -28,6 +29,7 @@ import { expectMimirError } from './testing';
 let db: Db;
 let gonProjectId: number;
 let gonTaskId: string;
+let gonTaskNumId: number;
 let gonArtifactId: string;
 beforeEach(async () => {
   db = await createTestDb();
@@ -43,6 +45,7 @@ beforeEach(async () => {
   const gPhase = await createPhase(db, { parentId: gInit.id, title: 'ph' });
   const gTask = await createTask(db, { parentId: gPhase.id, title: 'gon task' });
   gonTaskId = `GON-${String(gTask.seq)}`;
+  gonTaskNumId = gTask.id;
   const art = await attachArtifact(db, {
     content: 'spec',
     linkNodeIds: [gTask.id],
@@ -100,6 +103,26 @@ test('listArtifacts excludes an archived project’s artifacts', async () => {
   await archiveProject(db, gonProjectId);
   const after = await listArtifacts(db);
   expect(after.total).toBe(0);
+});
+
+test('the deps facet does not leak archived nodes across a cross-project edge', async () => {
+  // Active AAA with two tasks + a cross-project edge each way into the GON task.
+  const aaa = await createProject(db, { key: 'AAA', name: 'a' });
+  const aInit = await createInitiative(db, { projectId: aaa.id, title: 'i' });
+  const aPhase = await createPhase(db, { parentId: aInit.id, title: 'ph' });
+  const a1 = await createTask(db, { parentId: aPhase.id, title: 'a1' });
+  const a2 = await createTask(db, { parentId: aPhase.id, title: 'a2' });
+  await depend(db, a1.id, [gonTaskNumId]); // a1 depends on the GON task (dependsOn/awaitingOn)
+  await depend(db, gonTaskNumId, [a2.id]); // the GON task depends on a2 (a2 blocking)
+
+  await archiveProject(db, gonProjectId);
+
+  const a1View = await getNode(db, `AAA-${String(a1.seq)}`, { facets: ['deps'] });
+  const shown = [...(a1View.deps?.dependsOn ?? []), ...(a1View.deps?.awaitingOn ?? [])];
+  expect(shown.some((r) => r.id.startsWith('GON-'))).toBe(false);
+
+  const a2View = await getNode(db, `AAA-${String(a2.seq)}`, { facets: ['deps'] });
+  expect((a2View.deps?.blocking ?? []).some((r) => r.id.startsWith('GON-'))).toBe(false);
 });
 
 test('unarchive restores full read visibility', async () => {
