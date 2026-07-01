@@ -23,6 +23,7 @@ import {
   getArtifact,
   getNode,
   listNodes,
+  listProjects,
   nextTasks,
   nodeTree,
   parseFilterToken,
@@ -286,6 +287,17 @@ export async function runCli(
         );
       }
       case 'list': {
+        // The archived-projects shelf (ADR 0015) — the sole door to hidden
+        // projects; lists projects, not nodes, so it bypasses listNodes.
+        if (values.status === 'archived') {
+          const projects = await listProjects(await getDb(), ['distribution', 'tags'], 'archived');
+          return runSet(
+            { items: projects, returned: projects.length, startsAt: 0, total: projects.length },
+            values.format,
+            ctx,
+            'No archived projects',
+          );
+        }
         return runSet(
           await listNodes(await getDb(), {
             facets: parseFacets(values.col),

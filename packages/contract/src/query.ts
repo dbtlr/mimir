@@ -13,12 +13,18 @@ import { TASK_STATUS_WORD_VALUES } from './enums';
  *   fields (no second vocabulary); `tag` is a multi-valued pseudo-field.
  */
 
-/** The `--status` universe vocabulary: the closed task-reachable words + the three unions. */
+/**
+ * The `--status` universe vocabulary: the closed task-reachable words + the
+ * three unions, plus `archived` — the door to the hidden shelf (ADR 0015):
+ * `list --status archived` lists the archived *projects*, the sole opt-in that
+ * surfaces what default reads hide.
+ */
 export const STATUS_SELECTOR_VALUES = [
   ...TASK_STATUS_WORD_VALUES,
   'live',
   'terminal',
   'all',
+  'archived',
 ] as const;
 export type StatusSelector = (typeof STATUS_SELECTOR_VALUES)[number];
 
