@@ -32,6 +32,8 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0011](0011-repo-binding-is-repo-side.md)                         | Repo binding is repo-side; the store knows no paths            |
 | [0012](0012-http-api-true-resource-envelope.md)                   | The HTTP API is a true resource envelope                       |
 | [0013](0013-ui-embedded-spa.md)                                   | The UI is an embedded SPA — board-first console, PWA           |
+| [0014](0014-work-artifacts-authored-into-mimir.md)                | Work artifacts are authored into Mimir, not the vault          |
+| [0015](0015-project-archive-frozen-and-hidden.md)                 | Project archive — a frozen, hidden, reversible project state   |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete SQLite
