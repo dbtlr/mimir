@@ -1,7 +1,9 @@
 import type { Project } from '../../db/schema';
 import type { Db, Tx } from '../context';
+import { isNodeSettled, lineageIds } from '../derive';
 import { conflict, notFound } from '../errors';
 import { renderNodeId } from '../lookup';
+import { isReady } from '../predicates';
 import { now } from '../time';
 import { logTransition } from './common';
 
@@ -49,23 +51,64 @@ export async function archiveProject(db: Db, id: number, reason?: string): Promi
 }
 
 /**
- * The out-of-project dependents released by archiving `projectId` (ADR 0015
- * Refinement) — nodes in *other* projects that hold a dependency edge onto a
- * node in this project. Archiving settles those prerequisites, so these
- * dependents stop awaiting; the CLI names them so the release isn't silent.
+ * The out-of-project leaf tasks actually **released** by archiving `projectId`
+ * (ADR 0015 Refinement) — call it *after* the archive has landed. A task counts
+ * as released iff it is now `ready` **and** an effective prerequisite (its own
+ * edge or an ancestor's) is a node in this project that was *not* already
+ * settled — i.e. it was gating (the task was `awaiting`) and the archive is what
+ * freed it. Reporting only genuine flips (not every edge-holder) keeps the
+ * warning honest: no false positives for still-awaiting multi-prereq tasks,
+ * terminal tasks, or tasks already ready for other reasons. Names the leaf, not
+ * the edge-holding container.
  */
 export async function releasedByArchive(db: Db, projectId: number): Promise<string[]> {
-  const rows = await db
-    .selectFrom('dependency')
-    .innerJoin('node as prereq', 'prereq.id', 'dependency.depends_on_node_id')
-    .innerJoin('node as dependent', 'dependent.id', 'dependency.node_id')
-    .where('prereq.project_id', '=', projectId)
-    .where('dependent.project_id', '<>', projectId)
-    .select('dependency.node_id as id')
-    .distinct()
+  // The prerequisites this archive just settled: nodes in the project that were
+  // not already terminal on their own (a done/abandoned prereq gated nothing).
+  const nodes = await db
+    .selectFrom('node')
+    .select(['id', 'type', 'lifecycle'])
+    .where('project_id', '=', projectId)
     .execute();
-  const ids = await Promise.all(rows.map((r) => renderNodeId(db, r.id)));
-  return ids.filter((id): id is string => id !== null).toSorted();
+  const settling = new Set<number>();
+  for (const node of nodes) {
+    if (!(await isNodeSettled(db, node))) {
+      settling.add(node.id);
+    }
+  }
+  if (settling.size === 0) {
+    return [];
+  }
+
+  // Out-of-project actionable tasks whose effective prereqs touch a settling
+  // node and that are now ready → the archive is what released them.
+  const candidates = await db
+    .selectFrom('node')
+    .selectAll()
+    .where('project_id', '<>', projectId)
+    .where('type', '=', 'task')
+    .where('lifecycle', '=', 'todo')
+    .where('hold', '=', 'none')
+    .execute();
+  const released: string[] = [];
+  for (const task of candidates) {
+    const lineage = await lineageIds(db, task.id);
+    const edges = await db
+      .selectFrom('dependency')
+      .select('depends_on_node_id')
+      .where('node_id', 'in', lineage)
+      .execute();
+    if (!edges.some((e) => settling.has(e.depends_on_node_id))) {
+      continue;
+    }
+    if (!(await isReady(db, task))) {
+      continue;
+    }
+    const rendered = await renderNodeId(db, task.id);
+    if (rendered !== null) {
+      released.push(rendered);
+    }
+  }
+  return released.toSorted((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
 /** Unarchive a project (archived → active). Unarchiving an active project is a conflict. */

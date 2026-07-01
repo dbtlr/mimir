@@ -9,7 +9,7 @@ import { expectMimirError } from '../testing';
 import { archiveProject, releasedByArchive, unarchiveProject } from './archive';
 import { annotate, attachArtifact, updateNode, updateProject } from './data';
 import { depend } from './dependency';
-import { startTask } from './lifecycle';
+import { completeTask, startTask } from './lifecycle';
 import { moveNode } from './structure';
 import { tagEntities } from './tags';
 
@@ -150,17 +150,39 @@ test('archiving a project settles its nodes as prerequisites — the dependent i
   expect(await ready(db, a1.id)).toBe(false);
 });
 
-test('releasedByArchive names out-of-project dependents, not in-project ones', async () => {
+test('releasedByArchive reports only genuinely-released out-of-project leaf tasks', async () => {
   const aaa = await createProject(db, { key: 'AAA', name: 'a' });
   const aInit = await createInitiative(db, { projectId: aaa.id, title: 'i' });
   const aPhase = await createPhase(db, { parentId: aInit.id, title: 'ph' });
-  const a1 = await createTask(db, { parentId: aPhase.id, title: 'a1' });
-  await depend(db, a1.id, [taskId]); // AAA-1 → MMR task (crosses the boundary)
 
-  // An in-project dependent (another MMR task depending on taskId) is NOT reported.
+  // (1) released: depends only on the MMR task → becomes ready when MMR archives.
+  const freed = await createTask(db, { parentId: aPhase.id, title: 'freed' });
+  await depend(db, freed.id, [taskId]);
+
+  // (2) NOT released: also depends on a live AAA task → stays awaiting (multi-prereq).
+  const liveDep = await createTask(db, { parentId: aPhase.id, title: 'live prereq' });
+  const stillAwaiting = await createTask(db, { parentId: aPhase.id, title: 'still awaiting' });
+  await depend(db, stillAwaiting.id, [taskId, liveDep.id]);
+
+  // (3) NOT reported: an in-project dependent (another MMR task).
   const sibling = await createTask(db, { parentId: phaseId, title: 'sib' });
   await depend(db, sibling.id, [taskId]);
 
+  await archiveProject(db, projectId);
   const released = await releasedByArchive(db, projectId);
-  expect(released).toEqual([`AAA-${String(a1.seq)}`]);
+  expect(released).toEqual([`AAA-${String(freed.seq)}`]);
+});
+
+test('releasedByArchive is empty when the archived prereqs were already settled', async () => {
+  // A dependent on a DONE prereq is already ready — archiving does not release it.
+  const aaa = await createProject(db, { key: 'AAA', name: 'a' });
+  const aInit = await createInitiative(db, { projectId: aaa.id, title: 'i' });
+  const aPhase = await createPhase(db, { parentId: aInit.id, title: 'ph' });
+  const dep = await createTask(db, { parentId: aPhase.id, title: 'dep' });
+  await depend(db, dep.id, [taskId]);
+  await startTask(db, taskId);
+  await completeTask(db, taskId); // MMR task done → dep already ready
+
+  await archiveProject(db, projectId);
+  expect(await releasedByArchive(db, projectId)).toEqual([]);
 });
