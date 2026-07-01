@@ -20,7 +20,13 @@ import type { Db } from '../context';
 import { isTerminalWord, nodeStatusWord, statusOf, statusOfProject } from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
 import { parseIdentity } from '../ids';
-import { findArtifactByRef, findNodeByRef, renderNodeId } from '../lookup';
+import {
+  archivedProjectIds,
+  findArtifactByRef,
+  findNodeByRef,
+  isProjectArchived,
+  renderNodeId,
+} from '../lookup';
 import { isBlocking, isOrphaned, isReady, isStale } from '../predicates';
 import { compileFilters } from '../query';
 import type { QueryRow } from '../query';
@@ -175,6 +181,11 @@ export async function nextTasks(db: Db, opts: NextOptions = {}): Promise<SetResu
   if (opts.size !== undefined) {
     query = query.where('size', '=', opts.size);
   }
+  // Hide archived projects' subtrees (ADR 0015).
+  const hidden = await archivedProjectIds(db);
+  if (hidden.length > 0) {
+    query = query.where('project_id', 'not in', hidden);
+  }
   const candidates = await query.orderBy('project_id', 'asc').orderBy('rank', 'asc').execute();
 
   const verdicts = opts.verdicts ?? [];
@@ -262,6 +273,12 @@ export async function listNodes(db: Db, opts: ListOptions = {}): Promise<SetResu
     const like = `%${opts.q.toLowerCase()}%`;
     query = query.where(sql<boolean>`lower(node.title) LIKE ${like}`);
   }
+  // Hide archived projects' subtrees (ADR 0015). The `archived` universe is a
+  // project-level door handled by the transport, never reaching listNodes.
+  const hidden = await archivedProjectIds(db);
+  if (hidden.length > 0) {
+    query = query.where('project_id', 'not in', hidden);
+  }
   const terminalOrder = universe === 'terminal' || universe === 'done' || universe === 'abandoned';
   const rows = terminalOrder
     ? await query
@@ -316,7 +333,7 @@ export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promis
       .selectAll()
       .where('key', '=', identity.key)
       .executeTakeFirst();
-    if (project === undefined) {
+    if (project === undefined || project.archived_at !== null) {
       throw projectNotFound(identity.key);
     }
     return buildProjectView(db, project, facets);
@@ -325,7 +342,7 @@ export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promis
     throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
   const node = await findNodeByRef(db, id);
-  if (node === undefined) {
+  if (node === undefined || (await isProjectArchived(db, node.project_id))) {
     throw notFound(`${id} doesn't exist`);
   }
   return buildNodeView(db, node, facets);
@@ -345,7 +362,7 @@ export async function getArtifact(
     throw notFound(`${id} is not an artifact id`, 'artifact ids look like KEY-aN');
   }
   const artifact = await findArtifactByRef(db, identity);
-  if (artifact === undefined) {
+  if (artifact === undefined || (await isProjectArchived(db, artifact.project_id))) {
     throw notFound(`no artifact ${id}`);
   }
   return buildArtifactDetail(db, artifact, identity.key, opts);
@@ -363,7 +380,7 @@ export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
       .select('id')
       .where('key', '=', identity.key)
       .executeTakeFirst();
-    if (project === undefined) {
+    if (project === undefined || (await isProjectArchived(db, project.id))) {
       throw projectNotFound(identity.key);
     }
     const { status, distribution } = await statusOfProject(db, project.id);
@@ -373,7 +390,7 @@ export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
     throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
   const node = await findNodeByRef(db, id);
-  if (node === undefined) {
+  if (node === undefined || (await isProjectArchived(db, node.project_id))) {
     throw notFound(`${id} doesn't exist`);
   }
   const { status, distribution } = await statusOf(db, node);

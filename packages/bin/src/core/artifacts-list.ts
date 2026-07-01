@@ -26,6 +26,8 @@ export async function listArtifacts(
   opts: ArtifactQuery = {},
 ): Promise<{ total: number; items: ArtifactSummary[] }> {
   let base = db.selectFrom('artifact').innerJoin('project', 'project.id', 'artifact.project_id');
+  // Archived projects' artifacts read as absent (ADR 0015).
+  base = base.where('project.archived_at', 'is', null);
   if (opts.project !== undefined) {
     base = base.where('project.key', '=', opts.project);
   }

@@ -47,6 +47,31 @@ export async function renderNodeId(tx: Db | Tx, nodeId: number): Promise<string 
   return row === undefined ? null : renderId(row);
 }
 
+/**
+ * Read-side hiding (ADR 0015 Phase 1): archived projects and their whole
+ * subtree read as absent by default. `archivedProjectIds` backs the set-level
+ * exclusion in `next`/`list` (a small IN-list, cheap at single-operator scale);
+ * `isProjectArchived` backs the per-id guards that turn a `get`/`status`/`tree`
+ * on an archived target into `not_found`.
+ */
+export async function archivedProjectIds(db: Db): Promise<number[]> {
+  const rows = await db
+    .selectFrom('project')
+    .select('id')
+    .where('archived_at', 'is not', null)
+    .execute();
+  return rows.map((r) => r.id);
+}
+
+export async function isProjectArchived(db: Db | Tx, projectId: number): Promise<boolean> {
+  const row = await db
+    .selectFrom('project')
+    .select('archived_at')
+    .where('id', '=', projectId)
+    .executeTakeFirst();
+  return row?.archived_at != null;
+}
+
 /** Render a project's external `KEY` from its surrogate id (project-keyed transition rows, ADR 0015). */
 export async function renderProjectKey(tx: Db | Tx, projectId: number): Promise<string | null> {
   const row = await tx

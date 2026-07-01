@@ -6,7 +6,7 @@ import type { Db } from './context';
 import { notFound, projectNotFound, validation } from './errors';
 import { parseIdentity } from './ids';
 import { buildNodeView, buildProjectView } from './intent/view';
-import { findNodeByRef, renderNodeId, renderProjectKey } from './lookup';
+import { findNodeByRef, isProjectArchived, renderNodeId, renderProjectKey } from './lookup';
 
 /**
  * The resource-envelope reads (ADR 0012) — whole-portfolio and whole-project
@@ -16,11 +16,23 @@ import { findNodeByRef, renderNodeId, renderProjectKey } from './lookup';
  */
 
 /** Every project, key-ordered, through the shared projection (rollup riding as `distribution`). */
+/**
+ * List projects. Archived projects are hidden by default (ADR 0015); `filter`
+ * opts into the shelf — `'archived'` returns only archived projects (the
+ * `list --status archived` door), `'all'` returns everything.
+ */
 export async function listProjects(
   db: Db,
   facets: readonly FacetName[] = ['distribution', 'tags'],
+  filter: 'active' | 'archived' | 'all' = 'active',
 ): Promise<NodeView[]> {
-  const projects = await db.selectFrom('project').selectAll().orderBy('key', 'asc').execute();
+  let query = db.selectFrom('project').selectAll().orderBy('key', 'asc');
+  if (filter === 'active') {
+    query = query.where('archived_at', 'is', null);
+  } else if (filter === 'archived') {
+    query = query.where('archived_at', 'is not', null);
+  }
+  const projects = await query.execute();
   return Promise.all(projects.map((p) => buildProjectView(db, p, new Set(facets))));
 }
 
@@ -57,7 +69,8 @@ export async function projectTree(
     .selectAll()
     .where('key', '=', key)
     .executeTakeFirst();
-  if (project === undefined) {
+  // An archived project reads as absent (ADR 0015).
+  if (project === undefined || project.archived_at !== null) {
     throw projectNotFound(key);
   }
   const facetSet = new Set(facets);
@@ -97,9 +110,9 @@ export async function nodeTree(
   if (identity.kind === 'artifact') {
     throw notFound(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
-  // Node id — resolve it and recurse down.
+  // Node id — resolve it and recurse down. An archived project's subtree reads as absent (ADR 0015).
   const rootNode = await findNodeByRef(db, id);
-  if (rootNode === undefined) {
+  if (rootNode === undefined || (await isProjectArchived(db, rootNode.project_id))) {
     throw notFound(`${id} doesn't exist`);
   }
   const facetSet = new Set(facets);

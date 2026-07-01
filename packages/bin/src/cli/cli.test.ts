@@ -109,6 +109,28 @@ test('archive freezes the project; unarchive restores it (MMR-121)', async () =>
   expect(await runCli(['start', id], () => db, fakeIo(true))).toBe(0);
 });
 
+test('archive hides the project from reads; the --status archived door reveals it (MMR-122)', async () => {
+  const task = await createTask(db, { parentId: phaseId, title: 'x' });
+  const id = `MMR-${String(task.seq)}`;
+  await runCli(['archive', 'MMR'], () => db, fakeIo(true));
+
+  // hidden from list and from direct get (project + node)
+  const list = fakeIo(true);
+  await runCli(['list', '-s', 'all', '--status', 'all', '-f', 'ids'], () => db, list);
+  expect(list.out.join('')).not.toContain(id);
+  expect(await runCli(['get', 'MMR'], () => db, fakeIo(true))).toBe(1);
+  expect(await runCli(['get', id], () => db, fakeIo(true))).toBe(1);
+
+  // the door lists the archived project
+  const door = fakeIo(true);
+  expect(await runCli(['list', '--status', 'archived'], () => db, door)).toBe(0);
+  expect(door.out.join('')).toContain('MMR');
+
+  // unarchive restores it
+  await runCli(['unarchive', 'MMR'], () => db, fakeIo(true));
+  expect(await runCli(['get', 'MMR'], () => db, fakeIo())).toBe(0);
+});
+
 test('archive --format json echoes the project with its archived_at (MMR-121)', async () => {
   const io = fakeIo();
   expect(await runCli(['archive', 'MMR', '--format', 'json'], () => db, io)).toBe(0);
