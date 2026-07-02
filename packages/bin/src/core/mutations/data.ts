@@ -138,25 +138,29 @@ export type ArtifactUpdateFields = {
  * field — content stays frozen (ADR 0004), so a mistitled attach is
  * repairable while the record itself remains immutable. Unlogged, like every
  * metadata patch (the transition log records status transitions).
+ * Keyed by external identity (MMR-143) — the artifact seam has no numeric ids.
  */
 export async function updateArtifact(
   store: Store,
-  id: number,
+  ref: { key: string; seq: number },
   fields: ArtifactUpdateFields,
 ): Promise<void> {
   if (fields.title !== undefined && fields.title.trim() === '') {
     throw validation('an artifact title cannot be blank');
   }
   await store.transact(async (w) => {
-    const artifact = await w.loadArtifact(id);
-    if (artifact === undefined) {
+    const project = await w.loadProjectByKey(ref.key);
+    if (project === undefined) {
       throw notFound('the artifact was not found');
     }
-    await assertProjectActive(w, artifact.project_id);
-    if (fields.title !== undefined) {
-      await w.updateArtifact(id, { title: fields.title });
-    }
+    await assertProjectActive(w, project.id);
   });
+  if (fields.title !== undefined) {
+    const found = await store.artifacts.updateTitle(ref.key, ref.seq, fields.title);
+    if (!found) {
+      throw notFound('the artifact was not found');
+    }
+  }
 }
 
 export type AttachArtifactInput = {
@@ -172,36 +176,41 @@ export type AttachArtifactInput = {
 export async function attachArtifact(
   store: Store,
   input: AttachArtifactInput,
-): Promise<{ id: number; renderedId: string }> {
+): Promise<{ renderedId: string }> {
   if (input.title.trim() === '') {
     throw validation('attach requires a title');
   }
-  return store.transact(async (w) => {
+  // Validate the project and every link against the node backend, and render
+  // the link stems, before the artifact write hits its own (possibly Norn)
+  // backend — the invariants stay verb-side (MMR-143).
+  const { projectKey, linkStems } = await store.transact(async (w) => {
     const project = await w.loadProject(input.projectId);
     if (project === undefined) {
       throw notFound('the project was not found');
     }
     await assertProjectActive(w, input.projectId);
-    const seq = await w.allocateArtifactSeq(input.projectId);
-    const artifact = await w.insertArtifact({
-      content: input.content,
-      project_id: input.projectId,
-      seq,
-      title: input.title,
-    });
-    for (const tag of input.tags ?? []) {
-      await w.insertTag({ entity_id: artifact.id, entity_type: 'artifact', note: null, tag });
-    }
+    const stems: string[] = [];
     for (const nodeId of input.linkNodeIds ?? []) {
       const node = await requireNode(w, nodeId);
       if (node.project_id !== input.projectId) {
         const rendered = (await renderNodeRef(w, nodeId)) ?? 'it';
         throw validation(`${rendered} is in a different project — links stay within one project`);
       }
-      await w.linkArtifact(artifact.id, nodeId);
+      const rendered = await renderNodeRef(w, nodeId);
+      if (rendered !== null) {
+        stems.push(rendered);
+      }
     }
-    return { id: artifact.id, renderedId: renderArtifactRef({ key: project.key, seq }) };
+    return { linkStems: stems, projectKey: project.key };
   });
+  const { key, seq } = await store.artifacts.create({
+    content: input.content,
+    key: projectKey,
+    links: linkStems,
+    tags: input.tags ?? [],
+    title: input.title,
+  });
+  return { renderedId: renderArtifactRef({ key, seq }) };
 }
 
 export async function reorder(

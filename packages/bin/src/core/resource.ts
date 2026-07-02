@@ -8,7 +8,7 @@ import { parseIdentity } from './ids';
 import { buildNodeView, buildProjectView } from './intent/view';
 import { findNodeByRef, isProjectArchived, renderNodeId, renderProjectKey } from './lookup';
 import type { Node } from './model';
-import { loadWorkingSet } from './store-sqlite';
+import type { Store } from './store';
 
 /**
  * The resource-envelope reads (ADR 0012) — whole-portfolio and whole-project
@@ -26,11 +26,11 @@ import { loadWorkingSet } from './store-sqlite';
  * `list --status archived` door), `'all'` returns everything.
  */
 export async function listProjects(
-  db: Db,
+  store: Store,
   facets: readonly FacetName[] = ['distribution', 'tags'],
   filter: 'active' | 'archived' | 'all' = 'active',
 ): Promise<NodeView[]> {
-  const set = deriveSet(await loadWorkingSet(db));
+  const set = deriveSet(await store.loadWorkingSet());
   // ws.projects is key-ordered; the filter picks the shelf.
   const projects = set.ws.projects.filter((p) => {
     if (filter === 'active') {
@@ -41,7 +41,9 @@ export async function listProjects(
     }
     return true;
   });
-  return Promise.all(projects.map((p) => buildProjectView(db, set, p, new Set(facets))));
+  return Promise.all(
+    projects.map((p) => buildProjectView(store.db, store.artifacts, set, p, new Set(facets))),
+  );
 }
 
 /**
@@ -69,11 +71,11 @@ function childRows(set: DerivationSet, projectId: number, parentId: number | nul
  * in rank-then-seq order. One record shape throughout (`TreeView`).
  */
 export async function projectTree(
-  db: Db,
+  store: Store,
   key: string,
   facets: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts'],
 ): Promise<TreeView> {
-  const set = deriveSet(await loadWorkingSet(db));
+  const set = deriveSet(await store.loadWorkingSet());
   const project = set.ws.projects.find((p) => p.key === key);
   // An archived project reads as absent (ADR 0015).
   if (project === undefined || project.archived_at !== null) {
@@ -82,13 +84,13 @@ export async function projectTree(
   const facetSet = new Set(facets);
 
   const subtree = async (node: Node): Promise<TreeView> => {
-    const view = await buildNodeView(db, set, node, facetSet);
+    const view = await buildNodeView(store.db, store.artifacts, set, node, facetSet);
     const children = childRows(set, project.id, node.id);
     const { children: _refs, ...record } = view;
     return { ...record, children: await Promise.all(children.map(subtree)) };
   };
 
-  const rootView = await buildProjectView(db, set, project, facetSet);
+  const rootView = await buildProjectView(store.db, store.artifacts, set, project, facetSet);
   const roots = childRows(set, project.id, null);
   const { children: _refs, ...record } = rootView;
   return { ...record, children: await Promise.all(roots.map(subtree)) };
@@ -101,17 +103,18 @@ export async function projectTree(
  * pipeline — one tree builder, not two (MMR-90).
  */
 export async function nodeTree(
-  db: Db,
+  store: Store,
   id: string,
   facets: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts'],
 ): Promise<TreeView> {
+  const db = store.db;
   const identity = parseIdentity(id);
   if (identity === null) {
     throw notFound(`${id} is not a valid id`);
   }
   // Project root — delegate to the existing builder.
   if (identity.kind === 'project') {
-    return projectTree(db, identity.key, facets);
+    return projectTree(store, identity.key, facets);
   }
   if (identity.kind === 'artifact') {
     throw notFound(`${id} is an artifact, not a project or a task/phase/initiative`);
@@ -121,11 +124,11 @@ export async function nodeTree(
   if (rootNode === undefined || (await isProjectArchived(db, rootNode.project_id))) {
     throw notFound(`${id} doesn't exist`);
   }
-  const set = deriveSet(await loadWorkingSet(db));
+  const set = deriveSet(await store.loadWorkingSet());
   const facetSet = new Set(facets);
 
   const subtree = async (node: Node): Promise<TreeView> => {
-    const view = await buildNodeView(db, set, node, facetSet);
+    const view = await buildNodeView(store.db, store.artifacts, set, node, facetSet);
     const children = childRows(set, node.project_id, node.id);
     const { children: _refs, ...record } = view;
     return { ...record, children: await Promise.all(children.map(subtree)) };

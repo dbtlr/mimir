@@ -223,7 +223,7 @@ describe('status -f records signpost (MMR-90 review fix 1)', () => {
 describe('mimir tree (deliverable 3)', () => {
   test('nodeTree can root at a project key', async () => {
     await createTask(store, { parentId: phaseId, title: 't1' });
-    const tree = await nodeTree(db, 'MMR');
+    const tree = await nodeTree(store, 'MMR');
     expect(tree.id).toBe('MMR');
     expect(tree.type).toBe('project');
     expect(tree.children.length).toBeGreaterThan(0);
@@ -231,7 +231,7 @@ describe('mimir tree (deliverable 3)', () => {
 
   test('nodeTree can root at any node id (mid-tree)', async () => {
     await createTask(store, { parentId: phaseId, title: 't1' });
-    const tree = await nodeTree(db, `MMR-${String(initSeq)}`);
+    const tree = await nodeTree(store, `MMR-${String(initSeq)}`);
     expect(tree.id).toBe(`MMR-${String(initSeq)}`);
     expect(tree.children.length).toBeGreaterThan(0);
     // Should have phase as child, which has tasks under it

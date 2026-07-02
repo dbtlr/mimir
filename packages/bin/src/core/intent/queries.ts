@@ -26,7 +26,7 @@ import {
 } from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
 import { parseIdentity } from '../ids';
-import { findArtifactByRef, findNodeByRef, isProjectArchived } from '../lookup';
+import { findNodeByRef, isProjectArchived } from '../lookup';
 import type { Node } from '../model';
 import { isBlocking, isOrphaned, isReady, isStale } from '../predicates';
 import { compileFilters } from '../query';
@@ -249,7 +249,7 @@ export async function nextTasks(
   const limited = opts.limit !== undefined ? ready.slice(0, opts.limit) : ready;
   const facets = new Set(opts.facets);
   const items = await Promise.all(
-    limited.map((node) => buildNodeView(store.db, set, node, facets)),
+    limited.map((node) => buildNodeView(store.db, store.artifacts, set, node, facets)),
   );
   return setResult(items, ready.length);
 }
@@ -356,7 +356,7 @@ export async function listNodes(
   const limited = opts.limit !== undefined ? matched.slice(0, opts.limit) : matched;
   const facets = new Set(opts.facets);
   const items = await Promise.all(
-    limited.map(({ node }) => buildNodeView(store.db, set, node, facets)),
+    limited.map(({ node }) => buildNodeView(store.db, store.artifacts, set, node, facets)),
   );
   return setResult(items, matched.length);
 }
@@ -372,7 +372,8 @@ export type GetOptions = {
  * A missing target throws (non-zero exit — identity selection). Artifacts
  * (`KEY-aN`) have their own shape — see {@link getArtifact}.
  */
-export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promise<NodeView> {
+export async function getNode(store: Store, id: string, opts: GetOptions = {}): Promise<NodeView> {
+  const db = store.db;
   const facets = new Set<FacetName>(opts.facets ?? CHEAP_FACETS);
   const identity = parseIdentity(id);
   if (identity?.kind === 'project') {
@@ -384,7 +385,13 @@ export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promis
     if (project === undefined || project.archived_at !== null) {
       throw projectNotFound(identity.key);
     }
-    return buildProjectView(db, deriveSet(await loadWorkingSet(db)), project, facets);
+    return buildProjectView(
+      store.db,
+      store.artifacts,
+      deriveSet(await store.loadWorkingSet()),
+      project,
+      facets,
+    );
   }
   if (identity?.kind === 'artifact') {
     throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
@@ -393,7 +400,13 @@ export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promis
   if (node === undefined || (await isProjectArchived(db, node.project_id))) {
     throw notFound(`${id} doesn't exist`);
   }
-  return buildNodeView(db, deriveSet(await loadWorkingSet(db)), node, facets);
+  return buildNodeView(
+    store.db,
+    store.artifacts,
+    deriveSet(await store.loadWorkingSet()),
+    node,
+    facets,
+  );
 }
 
 /**
@@ -401,7 +414,7 @@ export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promis
  * (MMR-32); the frozen body via the opt-in `content` column (MMR-34).
  */
 export async function getArtifact(
-  db: Db,
+  store: Store,
   id: string,
   opts: { content?: boolean } = {},
 ): Promise<ArtifactDetail> {
@@ -409,11 +422,20 @@ export async function getArtifact(
   if (identity?.kind !== 'artifact') {
     throw notFound(`${id} is not an artifact id`, 'artifact ids look like KEY-aN');
   }
-  const artifact = await findArtifactByRef(db, identity);
-  if (artifact === undefined || (await isProjectArchived(db, artifact.project_id))) {
+  // The artifact's owning project must exist and be active (ADR 0015 hiding).
+  const project = await store.db
+    .selectFrom('project')
+    .select('archived_at')
+    .where('key', '=', identity.key)
+    .executeTakeFirst();
+  if (project === undefined || project.archived_at !== null) {
     throw notFound(`no artifact ${id}`);
   }
-  return buildArtifactDetail(db, artifact, identity.key, opts);
+  const record = await store.artifacts.load(identity.key, identity.seq, opts);
+  if (record === undefined) {
+    throw notFound(`no artifact ${id}`);
+  }
+  return buildArtifactDetail(record);
 }
 
 /**

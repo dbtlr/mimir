@@ -62,14 +62,14 @@ test('a direct prerequisite surfaces in awaitingOn (no via) and clears when sett
   const y = await createTask(store, { parentId: phaseId, title: 'y' });
   await depend(store, y.id, [x.id]);
 
-  const view = await getNode(db, idOf(y));
+  const view = await getNode(store, idOf(y));
   expect(view.deps?.dependsOn.map((r) => r.id)).toEqual([idOf(x)]);
   expect(view.deps?.awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
     { id: idOf(x), via: undefined },
   ]);
 
   await completeTask(store, x.id); // prerequisite terminal → gate clears
-  expect((await getNode(db, idOf(y))).deps?.awaitingOn).toEqual([]);
+  expect((await getNode(store, idOf(y))).deps?.awaitingOn).toEqual([]);
 });
 
 test('an inherited prerequisite surfaces in awaitingOn, tagged via the ancestor', async () => {
@@ -84,7 +84,7 @@ test('an inherited prerequisite surfaces in awaitingOn, tagged via the ancestor'
   await depend(store, phase2.id, [phase1.id]); // edge on the ancestor phase
   const t = await createTask(store, { parentId: phase2.id, title: 't' });
 
-  const view = await getNode(db, idOf(t));
+  const view = await getNode(store, idOf(t));
   expect(view.deps?.dependsOn).toEqual([]); // t declares nothing of its own
   expect(view.deps?.awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
     { id: idOf(phase1), via: idOf(phase2) }, // inherited from phase 2
@@ -103,7 +103,7 @@ test('awaitingOn lists a prereq reachable both directly and via an ancestor only
   await depend(store, t.id, [prereq.id]); // direct edge
   await depend(store, phaseId, [prereq.id]); // same prereq, now also inherited via the phase
 
-  const awaitingOn = (await getNode(db, idOf(t))).deps?.awaitingOn ?? [];
+  const awaitingOn = (await getNode(store, idOf(t))).deps?.awaitingOn ?? [];
   expect(awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
     { id: idOf(prereq), via: undefined }, // listed once, the direct entry wins
   ]);
@@ -114,7 +114,7 @@ test('get returns a full record with cheap facets and resolves KEY-seq', async (
   const b = await createTask(store, { parentId: phaseId, title: 'b' });
   await depend(store, b.id, [a.id]);
 
-  const view = await getNode(db, idOf(b));
+  const view = await getNode(store, idOf(b));
   expect(view.id).toBe(idOf(b));
   expect(view.title).toBe('b');
   expect(view.lifecycle).toBe('todo');
@@ -124,8 +124,8 @@ test('get returns a full record with cheap facets and resolves KEY-seq', async (
 });
 
 test('get throws on a missing or malformed id', async () => {
-  await expectReject(() => getNode(db, 'MMR-999'));
-  await expectReject(() => getNode(db, 'not-an-id'));
+  await expectReject(() => getNode(store, 'MMR-999'));
+  await expectReject(() => getNode(store, 'not-an-id'));
 });
 
 test('status_of returns label + distribution for a non-leaf', async () => {
@@ -149,7 +149,7 @@ test('get on a bare KEY returns the whole-project view', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
   await startTask(store, t.id);
 
-  const view = await getNode(db, key);
+  const view = await getNode(store, key);
   expect(view.id).toBe(key);
   expect(view.type).toBe('project');
   expect(view.title).toBe('m');
@@ -179,7 +179,7 @@ test('get on KEY-aN returns the artifact detail with rendered links', async () =
   });
   expect(renderedId).toBe(`${key}-a1`);
 
-  const detail = await getArtifact(db, renderedId);
+  const detail = await getArtifact(store, renderedId);
   expect(detail.id).toBe(`${key}-a1`);
   expect(detail.project).toBe(key);
   expect(detail.links).toEqual([idOf(t)]);
@@ -199,10 +199,10 @@ test('the node artifacts facet speaks KEY-aN', async () => {
     title: 'x',
   });
 
-  const view = await getNode(db, idOf(t));
+  const view = await getNode(store, idOf(t));
   expect(view.artifacts?.map((a) => a.id)).toEqual([`${key}-a1`]);
 
-  const projectView = await getNode(db, key, { facets: ['artifacts'] });
+  const projectView = await getNode(store, key, { facets: ['artifacts'] });
   expect(projectView.artifacts?.map((a) => a.id)).toEqual([`${key}-a1`]);
 });
 
@@ -251,7 +251,7 @@ test('deps facet lists prerequisites in ascending id order regardless of edge in
   // insert edges newest-first — the SQL path read them back id-ascending (PK index)
   await depend(store, dependent.id, [newer.id, older.id]);
 
-  const view = await getNode(db, idOf(dependent), { facets: ['deps'] });
+  const view = await getNode(store, idOf(dependent), { facets: ['deps'] });
   expect(view.deps?.dependsOn.map((r) => r.id)).toEqual([idOf(older), idOf(newer)]);
   expect(view.deps?.awaitingOn.map((r) => r.id)).toEqual([idOf(older), idOf(newer)]);
 });

@@ -27,12 +27,11 @@ import {
   createProject,
   createTask,
   depend,
-  findArtifactByRef,
   findNodeByRef,
+  renderArtifactRef,
   resolveNodeToken,
   getArtifact,
   getNode,
-  listArtifacts,
   listNodes,
   listProjects,
   listTransitions,
@@ -108,6 +107,12 @@ async function nodeRef(db: Db, token: string, expected = 'node'): Promise<number
   });
 }
 
+/** The keys of every archived project — the exclude set for the artifact feed (ADR 0015). */
+async function archivedProjectKeys(store: Store): Promise<string[]> {
+  const ws = await store.loadWorkingSet();
+  return ws.projects.filter((p) => p.archived_at !== null).map((p) => p.key);
+}
+
 /** Map the `?status` param on the projects list to the listProjects filter (ADR 0015). */
 function projectFilter(status: string | null): 'active' | 'archived' | 'all' {
   if (status === 'archived') {
@@ -137,12 +142,12 @@ async function projectIdForArchive(db: Db, key: string): Promise<number> {
 
 /** The write echo — the full updated record, same shape as `GET /api/nodes/:id`. */
 async function echoNode(
-  db: Db,
+  store: Store,
   req: Request,
   node: Parameters<typeof nodeViewOf>[1],
   status = 200,
 ): Promise<Response> {
-  const view = await nodeViewOf(db, node, new Set(DETAIL_FACETS));
+  const view = await nodeViewOf(store, node, new Set(DETAIL_FACETS));
   return json(req, nodeToWire(view), status);
 }
 
@@ -301,7 +306,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         GET: (req) =>
           guarded(req, async () => {
             const q = new URL(req.url).searchParams;
-            const listOpts: Parameters<typeof listArtifacts>[1] = {};
+            const listOpts: Parameters<Store['artifacts']['list']>[0] = {};
             const project = q.get('project');
             if (project !== null) {
               listOpts.project = project;
@@ -330,9 +335,20 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               }
               listOpts.limit = n;
             }
-            const result = await listArtifacts(db, listOpts);
+            // Archived projects' artifacts read as absent (ADR 0015); archived
+            // state lives with the node backend, so the caller supplies the keys.
+            listOpts.excludeProjects = await archivedProjectKeys(store);
+            const result = await store.artifacts.list(listOpts);
             return json(req, {
-              items: result.items.map(artifactSummaryToWire),
+              items: result.items.map((r) =>
+                artifactSummaryToWire({
+                  createdAt: r.created_at,
+                  id: renderArtifactRef({ key: r.key, seq: r.seq }),
+                  project: r.key,
+                  tags: r.tags,
+                  title: r.title,
+                }),
+              ),
               total: result.total,
             });
           }),
@@ -341,7 +357,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       '/api/artifacts/:id': {
         GET: (req) =>
           guarded(req, async () => {
-            const detail = await getArtifact(db, req.params.id, { content: true });
+            const detail = await getArtifact(store, req.params.id, { content: true });
             return json(req, artifactToWire(detail));
           }),
         // The dumb update for an artifact (MMR-40): title only; content is
@@ -353,15 +369,11 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (identity?.kind !== 'artifact') {
               throw notFound(`no artifact with id ${req.params.id}`);
             }
-            const artifact = await findArtifactByRef(db, identity);
-            if (artifact === undefined) {
-              throw notFound(`no artifact ${req.params.id}`);
-            }
             const title = strField(body, 'title');
             if (title !== undefined) {
-              await updateArtifact(store, artifact.id, { title });
+              await updateArtifact(store, { key: identity.key, seq: identity.seq }, { title });
             }
-            const detail = await getArtifact(db, req.params.id, { content: true });
+            const detail = await getArtifact(store, req.params.id, { content: true });
             return json(req, artifactToWire(detail));
           }),
       },
@@ -428,7 +440,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
                 tags,
                 title,
               });
-              return echoNode(db, req, node, 201);
+              return echoNode(store, req, node, 201);
             }
             if (type === 'phase') {
               const node = await createPhase(store, {
@@ -438,7 +450,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
                 target: strField(body, 'target'),
                 title,
               });
-              return echoNode(db, req, node, 201);
+              return echoNode(store, req, node, 201);
             }
             if (type === 'task') {
               const priority = strField(body, 'priority');
@@ -461,7 +473,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
                 tags,
                 title,
               });
-              return echoNode(db, req, node, 201);
+              return echoNode(store, req, node, 201);
             }
             throw validation(
               `create: unknown type ${type}`,
@@ -481,7 +493,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (identity?.kind === 'artifact') {
               throw validation(`${id} is an artifact`, `use /api/artifacts/${id}`);
             }
-            const view = await getNode(db, id, { facets: DETAIL_FACETS });
+            const view = await getNode(store, id, { facets: DETAIL_FACETS });
             return json(req, nodeToWire(view));
           }),
         PATCH: (req) =>
@@ -529,7 +541,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               fields.externalRef = externalRef;
             }
             const node = await updateNode(store, await nodeRef(db, req.params.id), fields);
-            return echoNode(db, req, node);
+            return echoNode(store, req, node);
           }),
       },
 
@@ -542,14 +554,14 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               await nodeRef(db, req.params.id, 'task'),
               strField(body, 'reason'),
             );
-            return echoNode(db, req, node);
+            return echoNode(store, req, node);
           }),
       },
 
       '/api/nodes/:id/annotations': {
         GET: (req) =>
           guarded(req, async () => {
-            const view = await getNode(db, req.params.id, { facets: ['annotations'] });
+            const view = await getNode(store, req.params.id, { facets: ['annotations'] });
             const items = (view.annotations ?? []).map((a) => ({
               content: a.content,
               created_at: a.createdAt,
@@ -564,7 +576,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               await nodeRef(db, req.params.id),
               requiredStr(body, 'content', 'annotate'),
             );
-            return echoNode(db, req, node, 201);
+            return echoNode(store, req, node, 201);
           }),
       },
 
@@ -596,7 +608,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               tags: strList(body, 'tags'),
               title: requiredStr(body, 'title', 'attach'),
             });
-            const detail = await getArtifact(db, renderedId, { content: true });
+            const detail = await getArtifact(store, renderedId, { content: true });
             return json(req, artifactToWire(detail), 201);
           }),
       },
@@ -610,7 +622,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               await nodeRef(db, req.params.id, 'task'),
               strField(body, 'reason'),
             );
-            return echoNode(db, req, node);
+            return echoNode(store, req, node);
           }),
       },
 
@@ -624,7 +636,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             }
             const id = await nodeRef(db, req.params.id);
             const onIds = await Promise.all(on.map((t) => nodeRef(db, t)));
-            return echoNode(db, req, await depend(store, id, onIds));
+            return echoNode(store, req, await depend(store, id, onIds));
           }),
       },
 
@@ -633,7 +645,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             await readBody(req, []);
             return echoNode(
-              db,
+              store,
               req,
               await completeTask(store, await nodeRef(db, req.params.id, 'task')),
             );
@@ -650,7 +662,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               await nodeRef(db, req.params.id),
               await nodeRef(db, to),
             );
-            return echoNode(db, req, node);
+            return echoNode(store, req, node);
           }),
       },
 
@@ -663,7 +675,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               await nodeRef(db, req.params.id, 'task'),
               strField(body, 'reason'),
             );
-            return echoNode(db, req, node);
+            return echoNode(store, req, node);
           }),
       },
 
@@ -676,7 +688,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               await nodeRef(db, req.params.id, 'task'),
               strField(body, 'reason'),
             );
-            return echoNode(db, req, node);
+            return echoNode(store, req, node);
           }),
       },
 
@@ -719,7 +731,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               position as RankPosition,
               refId,
             );
-            return echoNode(db, req, node);
+            return echoNode(store, req, node);
           }),
       },
 
@@ -732,7 +744,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               await nodeRef(db, req.params.id, 'task'),
               strField(body, 'reason'),
             );
-            return echoNode(db, req, node);
+            return echoNode(store, req, node);
           }),
       },
 
@@ -741,7 +753,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             await readBody(req, []);
             return echoNode(
-              db,
+              store,
               req,
               await startTask(store, await nodeRef(db, req.params.id, 'task')),
             );
@@ -753,7 +765,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             await readBody(req, []);
             return echoNode(
-              db,
+              store,
               req,
               await submitTask(store, await nodeRef(db, req.params.id, 'task')),
             );
@@ -769,7 +781,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (node === undefined) {
               throw notFound(`${req.params.id} doesn't exist`);
             }
-            return echoNode(db, req, node);
+            return echoNode(store, req, node);
           }),
         PUT: (req) =>
           guarded(req, async () => {
@@ -785,7 +797,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (node === undefined) {
               throw notFound(`${req.params.id} doesn't exist`);
             }
-            return echoNode(db, req, node);
+            return echoNode(store, req, node);
           }),
       },
 
@@ -794,7 +806,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             await readBody(req, []);
             return echoNode(
-              db,
+              store,
               req,
               await unblockTask(store, await nodeRef(db, req.params.id, 'task')),
             );
@@ -811,7 +823,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             }
             const id = await nodeRef(db, req.params.id);
             const onIds = await Promise.all(on.map((t) => nodeRef(db, t)));
-            return echoNode(db, req, await undepend(store, id, onIds));
+            return echoNode(store, req, await undepend(store, id, onIds));
           }),
       },
 
@@ -820,7 +832,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             await readBody(req, []);
             return echoNode(
-              db,
+              store,
               req,
               await unparkTask(store, await nodeRef(db, req.params.id, 'task')),
             );
@@ -833,7 +845,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             // Archived projects are hidden by default; ?status=archived is the
             // door (ADR 0015), ?status=all returns both.
             const items = await listProjects(
-              db,
+              store,
               PROJECT_LIST_FACETS,
               projectFilter(new URL(req.url).searchParams.get('status')),
             );
@@ -848,7 +860,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               name: requiredStr(body, 'name', 'create project'),
               tags: strList(body, 'tags'),
             });
-            const view = await getNode(db, project.key, { facets: PROJECT_FACETS });
+            const view = await getNode(store, project.key, { facets: PROJECT_FACETS });
             return json(req, nodeToWire(view), 201);
           }),
       },
@@ -860,7 +872,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (parseIdentity(key)?.kind !== 'project') {
               throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
             }
-            const view = await getNode(db, key, { facets: PROJECT_FACETS });
+            const view = await getNode(store, key, { facets: PROJECT_FACETS });
             return json(req, nodeToWire(view));
           }),
         PATCH: (req) =>
@@ -888,7 +900,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               .selectAll()
               .where('id', '=', project.id)
               .executeTakeFirstOrThrow();
-            const view = await projectViewOf(db, updated, new Set(PROJECT_FACETS));
+            const view = await projectViewOf(store, updated, new Set(PROJECT_FACETS));
             return json(req, nodeToWire(view));
           }),
       },
@@ -902,7 +914,10 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const id = await projectIdForArchive(db, req.params.key);
             const body = await readBody(req, ['reason']);
             const project = await archiveProject(store, id, strField(body, 'reason'));
-            return json(req, nodeToWire(await projectViewOf(db, project, new Set(PROJECT_FACETS))));
+            return json(
+              req,
+              nodeToWire(await projectViewOf(store, project, new Set(PROJECT_FACETS))),
+            );
           }),
       },
 
@@ -913,7 +928,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (parseIdentity(key)?.kind !== 'project') {
               throw validation(`${key} is not a project key`);
             }
-            return json(req, treeToWire(await projectTree(db, key)));
+            return json(req, treeToWire(await projectTree(store, key)));
           }),
       },
 
@@ -922,7 +937,10 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             const id = await projectIdForArchive(db, req.params.key);
             const project = await unarchiveProject(store, id);
-            return json(req, nodeToWire(await projectViewOf(db, project, new Set(PROJECT_FACETS))));
+            return json(
+              req,
+              nodeToWire(await projectViewOf(store, project, new Set(PROJECT_FACETS))),
+            );
           }),
       },
 

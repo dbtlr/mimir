@@ -26,7 +26,6 @@ import {
   createProject,
   createTask,
   depend,
-  findArtifactByRef,
   findNodeByRef,
   resolveNodeToken,
   formatArtifactJson,
@@ -133,7 +132,7 @@ async function projectId(store: Store, key: string): Promise<number> {
  * Typed via `Parameters` to avoid importing `Node` from store.db directly.
  */
 async function echoNode(store: Store, node: Parameters<typeof nodeViewOf>[1]): Promise<ToolResult> {
-  return ok(formatNodeJson(await nodeViewOf(store.db, node)));
+  return ok(formatNodeJson(await nodeViewOf(store, node)));
 }
 
 // ---------------------------------------------------------------------------
@@ -216,7 +215,7 @@ export function toolList(store: Store, args: SetQueryArgs): Promise<ToolResult> 
   return guard(async () => {
     // The archived-projects door (ADR 0015) — lists projects, not nodes.
     if (args.status === 'archived') {
-      const items = await listProjects(store.db, undefined, 'archived');
+      const items = await listProjects(store, undefined, 'archived');
       return ok(
         formatSetJson(
           { items, returned: items.length, startsAt: 0, total: items.length },
@@ -246,13 +245,13 @@ export function toolGet(
     const requested = args.facets ?? [];
     if (parseIdentity(args.id)?.kind === 'artifact') {
       const content = requested.includes('content');
-      return ok(formatArtifactJson(await getArtifact(store.db, args.id, { content })));
+      return ok(formatArtifactJson(await getArtifact(store, args.id, { content })));
     }
     // `content` is artifact-only; ignore it for nodes/projects.
     const nodeFacets = requested.filter((f): f is FacetName => f !== 'content');
     const facets =
       nodeFacets.length > 0 ? [...new Set<FacetName>([...CHEAP_FACETS, ...nodeFacets])] : undefined;
-    return ok(formatNodeJson(await getNode(store.db, args.id, { facets })));
+    return ok(formatNodeJson(await getNode(store, args.id, { facets })));
   });
 }
 
@@ -309,7 +308,7 @@ export function toolArchive(
 ): Promise<ToolResult> {
   return guard(async () => {
     const project = await archiveProject(store, await projectId(store, args.key), args.reason);
-    return ok(formatNodeJson(await projectViewOf(store.db, project)));
+    return ok(formatNodeJson(await projectViewOf(store, project)));
   });
 }
 
@@ -317,7 +316,7 @@ export function toolArchive(
 export function toolUnarchive(store: Store, args: { key: string }): Promise<ToolResult> {
   return guard(async () => {
     const project = await unarchiveProject(store, await projectId(store, args.key));
-    return ok(formatNodeJson(await projectViewOf(store.db, project)));
+    return ok(formatNodeJson(await projectViewOf(store, project)));
   });
 }
 
@@ -535,7 +534,7 @@ async function updateProjectTool(
   if (project === undefined) {
     throw projectNotFound(key);
   }
-  return ok(formatNodeJson(await projectViewOf(store.db, project)));
+  return ok(formatNodeJson(await projectViewOf(store, project)));
 }
 
 /** `update` on a `KEY-aN` id — title is an artifact's one mutable field (MMR-40). */
@@ -563,14 +562,10 @@ async function updateArtifactTool(
   if (identity?.kind !== 'artifact') {
     throw notFound(`no artifact with id ${args.id}`);
   }
-  const artifact = await findArtifactByRef(store.db, identity);
-  if (artifact === undefined) {
-    throw notFound(`no artifact ${args.id}`);
-  }
   if (args.title !== undefined) {
-    await updateArtifact(store, artifact.id, { title: args.title });
+    await updateArtifact(store, { key: identity.key, seq: identity.seq }, { title: args.title });
   }
-  return ok(formatArtifactJson(await getArtifact(store.db, args.id)));
+  return ok(formatArtifactJson(await getArtifact(store, args.id)));
 }
 
 export function toolAnnotate(

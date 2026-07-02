@@ -14,7 +14,7 @@ import {
   resolveNodeToken,
   validation,
 } from '../core';
-import type { Db } from '../core';
+import type { Db, Store } from '../core';
 import { renderNodeView, signpost } from './render';
 // Format is re-exported AND used locally — a plain `export … from` wouldn't bind it
 // oxlint-disable-next-line unicorn/prefer-export-from
@@ -74,12 +74,17 @@ export async function resolveParent(
  * projects it to a view. Matches the single-node renderer semantics of
  * `renderSingle` in `run.ts`.
  */
-export async function echoNode(db: Db, nodeId: number, format: Format, io: Io): Promise<void> {
-  const node = await loadNode(db, nodeId);
+export async function echoNode(
+  store: Store,
+  nodeId: number,
+  format: Format,
+  io: Io,
+): Promise<void> {
+  const node = await loadNode(store.db, nodeId);
   if (node === undefined) {
     throw notFound('the record vanished before echo');
   }
-  const view = await nodeViewOf(db, node);
+  const view = await nodeViewOf(store, node);
   renderNodeView(view, format, io);
 }
 
@@ -91,17 +96,17 @@ export async function echoNode(db: Db, nodeId: number, format: Format, io: Io): 
  * record always follows (so a write needs no follow-up `get`).
  */
 export async function echoNodeWith(
-  db: Db,
+  store: Store,
   nodeId: number,
   format: Format,
   io: Io,
   makeSignpost: (renderedId: string) => string,
 ): Promise<void> {
-  const node = await loadNode(db, nodeId);
+  const node = await loadNode(store.db, nodeId);
   if (node === undefined) {
     throw notFound('the record vanished before echo');
   }
-  const view = await nodeViewOf(db, node);
+  const view = await nodeViewOf(store, node);
   signpost(io, format, makeSignpost(view.id));
   renderNodeView(view, format, io);
 }
@@ -111,8 +116,13 @@ export async function echoNodeWith(
  * the project key, loads the row, and projects it to a view through the same
  * path as `get KEY`. Matches the write-echo idiom of every other mutation.
  */
-export async function echoProject(db: Db, key: string, format: Format, io: Io): Promise<void> {
-  const project = await db
+export async function echoProject(
+  store: Store,
+  key: string,
+  format: Format,
+  io: Io,
+): Promise<void> {
+  const project = await store.db
     .selectFrom('project')
     .selectAll()
     .where('key', '=', key)
@@ -120,7 +130,7 @@ export async function echoProject(db: Db, key: string, format: Format, io: Io): 
   if (project === undefined) {
     throw notFound(`project ${key} vanished before echo`);
   }
-  const view = await projectViewOf(db, project);
+  const view = await projectViewOf(store, project);
   renderNodeView(view, format, io);
 }
 

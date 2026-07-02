@@ -3,7 +3,9 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { createTestDb } from '../../db/testing';
 import type { Db } from '../context';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
-import { loadNode } from '../lookup';
+import { parseIdentity } from '../ids';
+import { getArtifact } from '../intent';
+import { loadNode, renderNodeId } from '../lookup';
 import { RANK_STEP } from '../rank';
 import type { Store } from '../store';
 import { createSqliteStore } from '../store-sqlite';
@@ -316,38 +318,44 @@ test('annotate and attachArtifact persist and link', async () => {
   const notes = await db.selectFrom('annotation').selectAll().where('node_id', '=', id).execute();
   expect(notes.map((n) => n.content)).toEqual(['realized X']);
 
-  const { id: artifactId } = await attachArtifact(store, {
+  const { renderedId } = await attachArtifact(store, {
     content: '# session log',
     linkNodeIds: [id],
     projectId,
     title: 'session log',
   });
-  const links = await db
-    .selectFrom('artifact_link')
-    .selectAll()
-    .where('artifact_id', '=', artifactId)
-    .execute();
-  expect(links.map((l) => l.node_id)).toEqual([id]);
+  const detail = await getArtifact(store, renderedId);
+  const stem = await renderNodeId(db, id);
+  expect(detail.links).toEqual(stem === null ? [] : [stem]);
 });
 
 test('updateArtifact retitles; content frozen; blank title and unknown id refused (MMR-40)', async () => {
   const id = await task();
-  const { id: artifactId } = await attachArtifact(store, {
+  const { renderedId } = await attachArtifact(store, {
     content: '# body',
     linkNodeIds: [id],
     projectId,
     title: 'first title',
   });
-  await updateArtifact(store, artifactId, { title: 'fixed title' });
+  const parsed = parseIdentity(renderedId);
+  if (parsed?.kind !== 'artifact') {
+    throw new Error('expected an artifact id');
+  }
+  const ref = { key: parsed.key, seq: parsed.seq };
+  await updateArtifact(store, ref, { title: 'fixed title' });
   const row = await db
     .selectFrom('artifact')
-    .select(['title', 'content'])
-    .where('id', '=', artifactId)
+    .innerJoin('project', 'project.id', 'artifact.project_id')
+    .select(['artifact.title as title', 'artifact.content as content'])
+    .where('project.key', '=', ref.key)
+    .where('artifact.seq', '=', ref.seq)
     .executeTakeFirstOrThrow();
   expect(row.title).toBe('fixed title');
   expect(row.content).toBe('# body'); // content is never touched
-  await expectMimirError('validation', () => updateArtifact(store, artifactId, { title: '  ' }));
-  await expectMimirError('not_found', () => updateArtifact(store, 9999, { title: 'x' }));
+  await expectMimirError('validation', () => updateArtifact(store, ref, { title: '  ' }));
+  await expectMimirError('not_found', () =>
+    updateArtifact(store, { key: 'MMR', seq: 9999 }, { title: 'x' }),
+  );
 });
 
 test('updateProject patches name and description; key is immutable (MMR-88)', async () => {
