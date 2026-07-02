@@ -1,21 +1,25 @@
 import type { FacetName, NodeView, TransitionsResult, TreeView } from '@mimir/contract';
-import { sql } from 'kysely';
 
 import type { Db } from './context';
+import type { DerivationSet } from './derive';
+import { deriveSet } from './derive';
 import { notFound, projectNotFound, validation } from './errors';
 import { parseIdentity } from './ids';
 import { buildNodeView, buildProjectView } from './intent/view';
 import { findNodeByRef, isProjectArchived, renderNodeId, renderProjectKey } from './lookup';
 import type { Node } from './model';
+import { loadWorkingSet } from './store-sqlite';
 
 /**
  * The resource-envelope reads (ADR 0012) — whole-portfolio and whole-project
  * selections the intent layer deliberately doesn't offer: every project at
  * once, a project's full nested tree, and the cross-cutting transition feed.
  * Core capabilities like any other; the HTTP API is just their first renderer.
+ * Each read derives over one working-set snapshot (ADR 0016 Phase 0) — the
+ * portfolio list shares a single memoized set across every project's rollup,
+ * leaf counts, and attention state.
  */
 
-/** Every project, key-ordered, through the shared projection (rollup riding as `distribution`). */
 /**
  * List projects. Archived projects are hidden by default (ADR 0015); `filter`
  * opts into the shelf — `'archived'` returns only archived projects (the
@@ -26,14 +30,18 @@ export async function listProjects(
   facets: readonly FacetName[] = ['distribution', 'tags'],
   filter: 'active' | 'archived' | 'all' = 'active',
 ): Promise<NodeView[]> {
-  let query = db.selectFrom('project').selectAll().orderBy('key', 'asc');
-  if (filter === 'active') {
-    query = query.where('archived_at', 'is', null);
-  } else if (filter === 'archived') {
-    query = query.where('archived_at', 'is not', null);
-  }
-  const projects = await query.execute();
-  return Promise.all(projects.map((p) => buildProjectView(db, p, new Set(facets))));
+  const set = deriveSet(await loadWorkingSet(db));
+  // ws.projects is key-ordered; the filter picks the shelf.
+  const projects = set.ws.projects.filter((p) => {
+    if (filter === 'active') {
+      return p.archived_at === null;
+    }
+    if (filter === 'archived') {
+      return p.archived_at !== null;
+    }
+    return true;
+  });
+  return Promise.all(projects.map((p) => buildProjectView(db, set, p, new Set(facets))));
 }
 
 /**
@@ -41,17 +49,18 @@ export async function listProjects(
  * else (containers, terminal tasks) by seq after it. Rank crosses the surface
  * as array order, never a field (ADR 0007).
  */
-async function childRows(db: Db, projectId: number, parentId: number | null): Promise<Node[]> {
-  let query = db.selectFrom('node').selectAll().where('project_id', '=', projectId);
-  query =
+function boardOrder(a: Node, b: Node): number {
+  const aNull = a.rank === null ? 1 : 0;
+  const bNull = b.rank === null ? 1 : 0;
+  return aNull - bNull || (a.rank ?? 0) - (b.rank ?? 0) || a.seq - b.seq;
+}
+
+function childRows(set: DerivationSet, projectId: number, parentId: number | null): Node[] {
+  const children =
     parentId === null
-      ? query.where('parent_id', 'is', null)
-      : query.where('parent_id', '=', parentId);
-  return query
-    .orderBy(sql`rank is null`)
-    .orderBy('rank', 'asc')
-    .orderBy('seq', 'asc')
-    .execute();
+      ? (set.nodesByProject.get(projectId) ?? []).filter((n) => n.parent_id === null)
+      : (set.childrenByParent.get(parentId) ?? []);
+  return children.toSorted(boardOrder);
 }
 
 /**
@@ -64,11 +73,8 @@ export async function projectTree(
   key: string,
   facets: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts'],
 ): Promise<TreeView> {
-  const project = await db
-    .selectFrom('project')
-    .selectAll()
-    .where('key', '=', key)
-    .executeTakeFirst();
+  const set = deriveSet(await loadWorkingSet(db));
+  const project = set.ws.projects.find((p) => p.key === key);
   // An archived project reads as absent (ADR 0015).
   if (project === undefined || project.archived_at !== null) {
     throw projectNotFound(key);
@@ -76,14 +82,14 @@ export async function projectTree(
   const facetSet = new Set(facets);
 
   const subtree = async (node: Node): Promise<TreeView> => {
-    const view = await buildNodeView(db, node, facetSet);
-    const children = await childRows(db, project.id, node.id);
+    const view = await buildNodeView(db, set, node, facetSet);
+    const children = childRows(set, project.id, node.id);
     const { children: _refs, ...record } = view;
     return { ...record, children: await Promise.all(children.map(subtree)) };
   };
 
-  const rootView = await buildProjectView(db, project, facetSet);
-  const roots = await childRows(db, project.id, null);
+  const rootView = await buildProjectView(db, set, project, facetSet);
+  const roots = childRows(set, project.id, null);
   const { children: _refs, ...record } = rootView;
   return { ...record, children: await Promise.all(roots.map(subtree)) };
 }
@@ -115,11 +121,12 @@ export async function nodeTree(
   if (rootNode === undefined || (await isProjectArchived(db, rootNode.project_id))) {
     throw notFound(`${id} doesn't exist`);
   }
+  const set = deriveSet(await loadWorkingSet(db));
   const facetSet = new Set(facets);
 
   const subtree = async (node: Node): Promise<TreeView> => {
-    const view = await buildNodeView(db, node, facetSet);
-    const children = await childRows(db, node.project_id, node.id);
+    const view = await buildNodeView(db, set, node, facetSet);
+    const children = childRows(set, node.project_id, node.id);
     const { children: _refs, ...record } = view;
     return { ...record, children: await Promise.all(children.map(subtree)) };
   };

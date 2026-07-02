@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { createTestDb } from '../db/testing';
 import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
-import { childDistribution, nodeStatusWord } from './derive';
+import { childDistribution, deriveSet, nodeStatusWord } from './derive';
 import { listNodes } from './intent';
 import { loadNode } from './lookup';
 import {
@@ -17,7 +17,7 @@ import {
 } from './mutations';
 import { isStale } from './predicates';
 import { interpret } from './status';
-import { createSqliteStore } from './store-sqlite';
+import { createSqliteStore, loadWorkingSet } from './store-sqlite';
 import { expectMimirError } from './testing';
 
 /**
@@ -41,6 +41,8 @@ afterEach(async () => {
   await db.destroy();
 });
 
+const setOf = async () => deriveSet(await loadWorkingSet(db));
+
 async function startedTask(title = 't'): Promise<number> {
   const t = await createTask(db, { parentId: phaseId, title });
   await startTask(db, t.id);
@@ -54,7 +56,7 @@ test('submit moves in_progress → under_review and clears rank', async () => {
   const node = await loadNode(db, id);
   expect(node?.lifecycle).toBe('under_review');
   expect(node?.rank).toBeNull();
-  expect(await nodeStatusWord(db, node!)).toBe('under_review');
+  expect(nodeStatusWord(await setOf(), node!)).toBe('under_review');
 });
 
 test('submit is legal only from in_progress', async () => {
@@ -126,7 +128,7 @@ test('stale chases an under_review task left too long', async () => {
   await submitTask(db, id);
   const node = await loadNode(db, id);
   const future = new Date(Date.parse(node!.updated_at) + 30 * 24 * 60 * 60 * 1000).toISOString();
-  expect(await isStale(db, node!, { asOf: future })).toBe(true);
+  expect(isStale(await setOf(), node!, { asOf: future })).toBe(true);
 });
 
 test('under_review tasks appear in the default (live) list and roll up a phase', async () => {
@@ -136,5 +138,5 @@ test('under_review tasks appear in the default (live) list and roll up a phase',
   expect(result.items.some((i) => i.status === 'under_review')).toBe(true);
 
   // the phase containing only this task rolls up to under_review
-  expect(interpret(await childDistribution(db, phaseId))).toBe('under_review');
+  expect(interpret(childDistribution(await setOf(), phaseId))).toBe('under_review');
 });

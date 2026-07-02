@@ -1,10 +1,11 @@
 import type { NodeType } from '@mimir/contract';
 
 import type { Db, Tx } from '../context';
-import { lineageIds } from '../derive';
+import { deriveSet, lineageIds } from '../derive';
 import { validation } from '../errors';
 import { renderNodeId } from '../lookup';
 import type { Node } from '../model';
+import { loadWorkingSet } from '../store-sqlite';
 import { logTransition, reloadNode, requireNode, stamp } from './common';
 
 /**
@@ -64,7 +65,8 @@ async function assertMoveKeepsDepsCrossLineage(
   newParentId: number,
 ): Promise<void> {
   const subtree = new Set(await subtreeIds(tx, id));
-  const newAncestors = new Set(await lineageIds(tx, newParentId)); // includes newParentId
+  const set = deriveSet(await loadWorkingSet(tx));
+  const newAncestors = new Set(lineageIds(set, newParentId)); // includes newParentId
   const edges = await tx
     .selectFrom('dependency')
     .select(['node_id', 'depends_on_node_id'])

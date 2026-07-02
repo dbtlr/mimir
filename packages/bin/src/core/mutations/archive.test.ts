@@ -3,8 +3,10 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { createTestDb } from '../../db/testing';
 import type { Db } from '../context';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
+import { deriveSet } from '../derive';
 import { loadNode } from '../lookup';
 import { isReady } from '../predicates';
+import { loadWorkingSet } from '../store-sqlite';
 import { expectMimirError } from '../testing';
 import { archiveProject, releasedByArchive, unarchiveProject } from './archive';
 import { annotate, attachArtifact, updateNode, updateProject } from './data';
@@ -16,7 +18,7 @@ import { tagEntities } from './tags';
 /** Readiness of a task by its surrogate id (loads the row first). */
 async function ready(db: Db, id: number): Promise<boolean> {
   const node = await loadNode(db, id);
-  return node === undefined ? false : isReady(db, node);
+  return node === undefined ? false : isReady(await setOf(), node);
 }
 
 /**
@@ -43,6 +45,8 @@ beforeEach(async () => {
 afterEach(async () => {
   await db.destroy();
 });
+
+const setOf = async () => deriveSet(await loadWorkingSet(db));
 
 test('archive sets archived_at and logs a project-keyed transition with the reason', async () => {
   const project = await archiveProject(db, projectId, 'superseded by SAGA2');

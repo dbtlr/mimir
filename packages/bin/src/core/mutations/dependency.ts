@@ -1,8 +1,9 @@
 import type { Db, Tx } from '../context';
-import { lineageIds } from '../derive';
+import { deriveSet, lineageIds } from '../derive';
 import { validation } from '../errors';
 import { renderNodeId } from '../lookup';
 import type { Node } from '../model';
+import { loadWorkingSet } from '../store-sqlite';
 import { logTransition, reloadNode, requireNode, stamp } from './common';
 
 /**
@@ -40,6 +41,8 @@ async function reaches(tx: Tx, startId: number, targetId: number): Promise<boole
 export async function depend(db: Db, id: number, onIds: number[]): Promise<Node> {
   return db.transaction().execute(async (tx) => {
     await requireNode(tx, id);
+    // One snapshot serves every lineage guard — depend never rewires parents.
+    const set = deriveSet(await loadWorkingSet(tx));
     for (const onId of onIds) {
       if (onId === id) {
         throw validation('a task cannot depend on itself');
@@ -49,10 +52,8 @@ export async function depend(db: Db, id: number, onIds: number[]): Promise<Node>
       // an inherited dep would make the descendant await its own ancestor (or a
       // container await a task it contains), a deadlock the raw-cycle check below
       // can't see (ADR 0001 Refinement — inherited dependencies).
-      const [depLineage, prereqLineage] = await Promise.all([
-        lineageIds(tx, id),
-        lineageIds(tx, onId),
-      ]);
+      const depLineage = lineageIds(set, id);
+      const prereqLineage = lineageIds(set, onId);
       if (depLineage.includes(onId) || prereqLineage.includes(id)) {
         const from = (await renderNodeId(tx, id)) ?? 'it';
         const to = (await renderNodeId(tx, onId)) ?? 'it';

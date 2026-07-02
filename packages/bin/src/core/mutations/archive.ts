@@ -1,9 +1,9 @@
 import type { Db, Tx } from '../context';
-import { isNodeSettled, lineageIds } from '../derive';
+import { deriveSet, isNodeSettled, lineageIds, renderNodeIdFromSet } from '../derive';
 import { conflict, notFound } from '../errors';
-import { renderNodeId } from '../lookup';
 import type { Project } from '../model';
 import { isReady } from '../predicates';
+import { loadWorkingSet } from '../store-sqlite';
 import { now } from '../time';
 import { logTransition } from './common';
 
@@ -62,16 +62,12 @@ export async function archiveProject(db: Db, id: number, reason?: string): Promi
  * the edge-holding container.
  */
 export async function releasedByArchive(db: Db, projectId: number): Promise<string[]> {
+  const set = deriveSet(await loadWorkingSet(db));
   // The prerequisites this archive just settled: nodes in the project that were
   // not already terminal on their own (a done/abandoned prereq gated nothing).
-  const nodes = await db
-    .selectFrom('node')
-    .select(['id', 'type', 'lifecycle'])
-    .where('project_id', '=', projectId)
-    .execute();
   const settling = new Set<number>();
-  for (const node of nodes) {
-    if (!(await isNodeSettled(db, node))) {
+  for (const node of set.nodesByProject.get(projectId) ?? []) {
+    if (!isNodeSettled(set, node)) {
       settling.add(node.id);
     }
   }
@@ -81,29 +77,25 @@ export async function releasedByArchive(db: Db, projectId: number): Promise<stri
 
   // Out-of-project actionable tasks whose effective prereqs touch a settling
   // node and that are now ready → the archive is what released them.
-  const candidates = await db
-    .selectFrom('node')
-    .selectAll()
-    .where('project_id', '<>', projectId)
-    .where('type', '=', 'task')
-    .where('lifecycle', '=', 'todo')
-    .where('hold', '=', 'none')
-    .execute();
+  const candidates = set.ws.nodes.filter(
+    (n) =>
+      n.project_id !== projectId &&
+      n.type === 'task' &&
+      n.lifecycle === 'todo' &&
+      n.hold === 'none',
+  );
   const released: string[] = [];
   for (const task of candidates) {
-    const lineage = await lineageIds(db, task.id);
-    const edges = await db
-      .selectFrom('dependency')
-      .select('depends_on_node_id')
-      .where('node_id', 'in', lineage)
-      .execute();
-    if (!edges.some((e) => settling.has(e.depends_on_node_id))) {
+    const touches = lineageIds(set, task.id).some((ancestorId) =>
+      (set.prereqsByNode.get(ancestorId) ?? []).some((prereqId) => settling.has(prereqId)),
+    );
+    if (!touches) {
       continue;
     }
-    if (!(await isReady(db, task))) {
+    if (!isReady(set, task)) {
       continue;
     }
-    const rendered = await renderNodeId(db, task.id);
+    const rendered = renderNodeIdFromSet(set, task);
     if (rendered !== null) {
       released.push(rendered);
     }

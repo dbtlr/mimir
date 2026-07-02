@@ -5,7 +5,8 @@ import type { Hold, Lifecycle } from '@mimir/contract';
 import { createTestDb } from '../db/testing';
 import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
-import { leafDistribution } from './derive';
+import { deriveSet, leafDistribution } from './derive';
+import { loadWorkingSet } from './store-sqlite';
 
 /**
  * MMR-105 — the per-project leaf-status tally. The leaf-level sibling of
@@ -21,6 +22,8 @@ beforeEach(async () => {
 afterEach(async () => {
   await db.destroy();
 });
+
+const setOf = async () => deriveSet(await loadWorkingSet(db));
 
 async function patch(id: number, fields: { lifecycle?: Lifecycle; hold?: Hold }): Promise<void> {
   await db.updateTable('node').set(fields).where('id', '=', id).execute();
@@ -41,7 +44,7 @@ async function fixture(key = 'MMR') {
 
 test('an empty project tallies to {}', async () => {
   const { p } = await fixture();
-  expect(await leafDistribution(db, p.id)).toEqual({});
+  expect(leafDistribution(await setOf(), p.id)).toEqual({});
 });
 
 test("tallies every leaf task's derived status word across the whole project", async () => {
@@ -55,7 +58,7 @@ test("tallies every leaf task's derived status word across the whole project", a
   const blocked = await createTask(db, { parentId: phase.id, title: 'blocked' });
   await patch(blocked.id, { hold: 'blocked' });
 
-  expect(await leafDistribution(db, p.id)).toEqual({
+  expect(leafDistribution(await setOf(), p.id)).toEqual({
     blocked: 1,
     in_progress: 1,
     ready: 1,
@@ -71,7 +74,7 @@ test('tallies the held and terminal buckets too (parked / done / abandoned)', as
   await patch(done.id, { lifecycle: 'done' });
   const gone = await createTask(db, { parentId: phase.id, title: 'gone' });
   await patch(gone.id, { lifecycle: 'abandoned' });
-  expect(await leafDistribution(db, p.id)).toEqual({ abandoned: 1, done: 1, parked: 1 });
+  expect(leafDistribution(await setOf(), p.id)).toEqual({ abandoned: 1, done: 1, parked: 1 });
 });
 
 test('counts the derived awaiting word (todo with an unsettled prerequisite)', async () => {
@@ -79,7 +82,7 @@ test('counts the derived awaiting word (todo with an unsettled prerequisite)', a
   const a = await createTask(db, { parentId: phase.id, title: 'a' });
   const b = await createTask(db, { parentId: phase.id, title: 'b' });
   await dep(b.id, a.id); // b awaits a; a is ready
-  expect(await leafDistribution(db, p.id)).toEqual({ awaiting: 1, ready: 1 });
+  expect(leafDistribution(await setOf(), p.id)).toEqual({ awaiting: 1, ready: 1 });
 });
 
 test('tallies leaves across multiple phases, excluding the containers themselves', async () => {
@@ -87,7 +90,7 @@ test('tallies leaves across multiple phases, excluding the containers themselves
   const ph2 = await createPhase(db, { parentId: init.id, title: 'ph2' });
   await createTask(db, { parentId: ph2.id, title: 'x' });
   // first phase has no tasks; second has one ready leaf
-  const dist = await leafDistribution(db, p.id);
+  const dist = leafDistribution(await setOf(), p.id);
   // only the single leaf task is counted — initiatives/phases never appear
   expect(dist).toEqual({ ready: 1 });
 });
@@ -100,6 +103,6 @@ test('scopes to the project — no cross-project leak', async () => {
   const stuck = await createTask(db, { parentId: other.phase.id, title: 'stuck' });
   await patch(stuck.id, { hold: 'blocked' });
 
-  expect(await leafDistribution(db, p.id)).toEqual({ ready: 1 });
-  expect(await leafDistribution(db, other.p.id)).toEqual({ blocked: 1, ready: 1 });
+  expect(leafDistribution(await setOf(), p.id)).toEqual({ ready: 1 });
+  expect(leafDistribution(await setOf(), other.p.id)).toEqual({ blocked: 1, ready: 1 });
 });

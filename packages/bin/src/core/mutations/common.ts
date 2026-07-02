@@ -1,9 +1,11 @@
 import type { NewTransitionRow } from '../../db/schema';
 import type { Tx } from '../context';
+import { deriveSet, lineageIds, renderNodeIdFromSet } from '../derive';
 import { conflict, invariant, notFound, validation } from '../errors';
 import { renderNodeId } from '../lookup';
 import type { Node } from '../model';
 import { isReady } from '../predicates';
+import { loadWorkingSet } from '../store-sqlite';
 import { now } from '../time';
 
 /**
@@ -64,40 +66,20 @@ export async function requireNode(tx: Tx, id: number): Promise<Node> {
  * readiness (dependency settlement). Returns rendered ids like ["MMR-3", "MMR-4"].
  */
 async function readyDescendantIds(tx: Tx, container: Node): Promise<string[]> {
-  const candidates = await tx
-    .selectFrom('node')
-    .selectAll()
-    .where('project_id', '=', container.project_id)
-    .where('type', '=', 'task')
-    .where('lifecycle', '=', 'todo')
-    .where('hold', '=', 'none')
-    .where('rank', 'is not', null)
-    .execute();
-
+  const set = deriveSet(await loadWorkingSet(tx));
+  const candidates = (set.nodesByProject.get(container.project_id) ?? []).filter(
+    (n) => n.type === 'task' && n.lifecycle === 'todo' && n.hold === 'none' && n.rank !== null,
+  );
   const ids: string[] = [];
   for (const task of candidates) {
-    // Walk parent chain to check containment.
-    let cur: number | null = task.parent_id;
-    let isDescendant = false;
-    while (cur !== null) {
-      if (cur === container.id) {
-        isDescendant = true;
-        break;
-      }
-      const row = await tx
-        .selectFrom('node')
-        .select('parent_id')
-        .where('id', '=', cur)
-        .executeTakeFirst();
-      cur = row?.parent_id ?? null;
-    }
-    if (!isDescendant) {
+    // lineage is task-first, so containment = the container appears among ancestors.
+    if (!lineageIds(set, task.id).includes(container.id)) {
       continue;
     }
-    if (!(await isReady(tx, task))) {
+    if (!isReady(set, task)) {
       continue;
     }
-    const rendered = await renderNodeId(tx, task.id);
+    const rendered = renderNodeIdFromSet(set, task);
     if (rendered !== null) {
       ids.push(rendered);
     }
