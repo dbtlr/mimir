@@ -106,9 +106,9 @@ function byCompletedOrder(a: Node, b: Node): number {
   return a.seq - b.seq;
 }
 
-/** `next` order: (project, rank) — rank is non-null inside the rankable set. */
+/** `next` order: (project, rank), seq as the determinism tiebreak — rank is non-null inside the rankable set. */
 function byProjectRank(a: Node, b: Node): number {
-  return a.project_id - b.project_id || (a.rank ?? 0) - (b.rank ?? 0);
+  return a.project_id - b.project_id || (a.rank ?? 0) - (b.rank ?? 0) || a.seq - b.seq;
 }
 
 function setResult(items: NodeView[], total: number, startsAt = 0): SetResult<NodeView> {

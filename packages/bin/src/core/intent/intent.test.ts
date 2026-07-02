@@ -241,6 +241,16 @@ test('list filters by q — case-insensitive substring over title (MMR-78)', asy
   expect((await listNodes(createSqliteStore(db), { q: 'auth.', scope: key })).total).toBe(0);
 });
 
+test('list q matches SQL LIKE for non-ASCII case (SQLite lower() is ASCII-only)', async () => {
+  await createTask(db, { parentId: phaseId, title: 'Über refactor' });
+  await createTask(db, { parentId: phaseId, title: 'über cleanup' });
+
+  // ASCII case folds both ways; non-ASCII stays case-sensitive — LIKE parity.
+  expect((await listNodes(createSqliteStore(db), { q: 'über', scope: key })).total).toBe(1);
+  expect((await listNodes(createSqliteStore(db), { q: 'ÜBER', scope: key })).total).toBe(1);
+  expect((await listNodes(createSqliteStore(db), { q: 'REFACTOR', scope: key })).total).toBe(1);
+});
+
 test('list applies verdicts and field operators within the universe', async () => {
   const a = await createTask(db, { parentId: phaseId, priority: 'p1', title: 'a' });
   const b = await createTask(db, { parentId: phaseId, priority: 'p2', title: 'b' });
