@@ -50,6 +50,22 @@ function asStringArray(value: unknown): string[] {
   return value.filter((v): v is string => typeof v === 'string');
 }
 
+function isStringRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** A tool-result document with an optional body, narrowed from `unknown`. */
+function asDoc(value: unknown): (NornDocument & { body?: unknown }) | null {
+  if (!isStringRecord(value) || typeof value.path !== 'string') {
+    return null;
+  }
+  const frontmatter = value.frontmatter;
+  if (frontmatter !== undefined && !isStringRecord(frontmatter)) {
+    return null;
+  }
+  return { body: value.body, frontmatter, path: value.path };
+}
+
 /** A frontmatter document → the backend-neutral record; null when malformed. */
 function toRecord(doc: NornDocument): ArtifactRecord | null {
   const identity = seqFromPath(doc.path);
@@ -81,25 +97,27 @@ export function createNornArtifactStore(client: NornClient): ArtifactStore {
     seq: number,
     content: boolean,
   ): Promise<(ArtifactRecord & { content?: string }) | undefined> => {
-    const docs = await client.find({
-      eq: ['type:artifact'],
-      no_limit: true,
-      path: pathOf(key, seq),
-    });
-    const record = docs[0] === undefined ? null : toRecord(docs[0]);
+    // Point-read by the deterministic path — `vault.get` resolves one document
+    // and returns its frontmatter (and `.body` when asked). A missing target
+    // yields no records rather than an error.
+    const records = await client.get([pathOf(key, seq)], content ? '.body' : undefined);
+    const doc = asDoc(records[0]);
+    if (doc === null) {
+      return undefined;
+    }
+    const record = toRecord(doc);
     if (record === null) {
       return undefined;
     }
     if (!content) {
       return record;
     }
-    const records = await client.get([pathOf(key, seq)], '.body');
-    const first = records[0];
-    const body =
-      typeof first === 'object' && first !== null && 'body' in first
-        ? (first as { body?: unknown }).body
-        : undefined;
-    return { ...record, content: typeof body === 'string' ? body : '' };
+    // Norn writes markdown with a trailing newline (POSIX convention); strip
+    // one so content round-trips what was attached, matching SQLite's verbatim
+    // storage. (A body deliberately ending in `\n` loses that one newline —
+    // benign for frozen markdown artifacts, and the sole content delta.)
+    const raw = typeof doc.body === 'string' ? doc.body : '';
+    return { ...record, content: raw.endsWith('\n') ? raw.slice(0, -1) : raw };
   };
 
   return {

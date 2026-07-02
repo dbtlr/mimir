@@ -15,7 +15,21 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
-- **`mimir archive <KEY> [reason]` / `unarchive <KEY>`** (MMR-121/122/123, ADR 0015)
+- **Artifacts can be stored in the Norn vault** (MMR-143, ADR 0016 Phase 2a).
+  A backend flag selects where artifacts live — SQLite (default) or the
+  Norn-managed markdown vault — chosen by `MIMIR_ARTIFACT_STORE` >
+  `[store] artifacts` in the global config > `sqlite`. Under the Norn backend
+  an artifact is a real file at `KEY/artifacts/KEY-aN.md`: the stem is the id,
+  frontmatter the queryable record (`title`, `project`, `anchor`, `tags`,
+  `created`), the body the frozen content. All artifact operations —
+  attach/get/update-title, the node and project artifact facets, the
+  cross-project feed — route through a backend-neutral `ArtifactStore` seam
+  keyed by external identity (`KEY-aN`), never a numeric id. Nodes stay in
+  SQLite during Phase 2a, so an artifact's `anchor` is a wikilink that dangles
+  in the vault but resolves cross-store in Mimir. Two intentional, documented
+  deltas under the Norn backend: search (`q`) matches the title only (not
+  content), and a tag carries no note. A backend-parametrized conformance
+  suite holds both implementations to the same contract.
   — archive a project to make it and its whole subtree *go away*, reversibly.
   Archiving both **freezes** (no mutation is permitted on the project or any
   descendant — every lifecycle/hold/structure/data/create/tag/attach verb is
