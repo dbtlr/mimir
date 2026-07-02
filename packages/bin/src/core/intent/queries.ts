@@ -191,7 +191,7 @@ function toQueryRow(
   }
   let tags: readonly string[] = [];
   if (needed.has('tag')) {
-    tags = index.ws.nodeTags.get(node.id) ?? [];
+    tags = (index.ws.nodeTags.get(node.id) ?? []).map((t) => t.tag);
   }
   return { tags, values };
 }
@@ -334,7 +334,10 @@ export async function listNodes(
       if (opts.size !== undefined && n.size !== opts.size) {
         return false;
       }
-      if (opts.tag !== undefined && !(index.ws.nodeTags.get(n.id) ?? []).includes(opts.tag)) {
+      if (
+        opts.tag !== undefined &&
+        !(index.ws.nodeTags.get(n.id) ?? []).some((t) => t.tag === opts.tag)
+      ) {
         return false;
       }
       if (matchesQ !== undefined && !matchesQ(n.title)) {
