@@ -297,7 +297,11 @@ export async function runCli(
         // The archived-projects shelf (ADR 0015) — the sole door to hidden
         // projects; lists projects, not nodes, so it bypasses listNodes.
         if (values.status === 'archived') {
-          const projects = await listProjects(await getDb(), ['distribution', 'tags'], 'archived');
+          const projects = await listProjects(
+            await getStore(),
+            ['distribution', 'tags'],
+            'archived',
+          );
           return runSet(
             { items: projects, returned: projects.length, startsAt: 0, total: projects.length },
             values.format,
@@ -324,18 +328,17 @@ export async function runCli(
       }
       case 'get': {
         const id = requireId(positionals[1], 'get');
-        const db = await getDb();
         if (parseIdentity(id)?.kind === 'artifact') {
           const content = (values.col ?? []).includes('content');
           renderArtifactDetail(
-            await getArtifact(db, id, { content }),
+            await getArtifact(await getStore(), id, { content }),
             pickFormat(values.format, 'single', ctx),
             ctx,
           );
           return 0;
         }
         const facets = parseFacets(values.col);
-        const node = await getNode(db, id, {
+        const node = await getNode(await getStore(), id, {
           facets: facets.length > 0 ? [...new Set([...CHEAP_FACETS, ...facets])] : undefined,
         });
         return renderSingle(node, values.format, ctx);
@@ -349,7 +352,7 @@ export async function runCli(
       }
       case 'tree': {
         const id = requireId(positionals[1], 'tree');
-        const tree = await nodeTree(await getDb(), id);
+        const tree = await nodeTree(await getStore(), id);
         const format = pickFormat(values.format, 'single', ctx);
         switch (format) {
           case 'json': {

@@ -87,7 +87,7 @@ test("echoNode writes bare-node JSON to io.out for format 'json'", async () => {
     throw new Error('node not found');
   }
   const io = fakeIo();
-  await echoNode(db, node.id, 'json', io);
+  await echoNode(store, node.id, 'json', io);
   const parsed = parseJson<{ id: string }>(io.out.join(''));
   expect(parsed.id).toBe(taskRef);
 });
@@ -97,7 +97,7 @@ test("echoNode writes rendered records text to io.out for format 'records'", asy
     throw new Error('node not found');
   }
   const io = fakeIo(true);
-  await echoNode(db, node.id, 'records', io);
+  await echoNode(store, node.id, 'records', io);
   const text = io.out.join('');
   expect(text).toContain(taskRef);
   expect(text).toContain('title');
@@ -108,7 +108,7 @@ test("echoNode writes the bare id to io.out for format 'ids'", async () => {
     throw new Error('node not found');
   }
   const io = fakeIo();
-  await echoNode(db, node.id, 'ids', io);
+  await echoNode(store, node.id, 'ids', io);
   const text = io.out.join('');
   expect(text).toBe(taskRef);
 });
@@ -118,7 +118,7 @@ test("echoNode writes a count-led table line to io.out for format 'table'", asyn
     throw new Error('node not found');
   }
   const io = fakeIo(true);
-  await echoNode(db, node.id, 'table', io);
+  await echoNode(store, node.id, 'table', io);
   const text = io.out.join('');
   expect(text).toMatch(/^1 task/);
   expect(text).toContain(taskRef);

@@ -302,7 +302,9 @@ export class NornClient {
     return this.call('vault.count', args, true);
   }
 
-  async get(targets: string[], col?: string[]): Promise<unknown[]> {
+  /** `col` is comma-separated `norn get --col` syntax — dot-prefixed facets
+   * (`.body`) opt heavy fields in; bare names select frontmatter fields. */
+  async get(targets: string[], col?: string): Promise<unknown[]> {
     const payload = await this.call('vault.get', { col, targets }, true);
     return this.records('vault.get', payload, 'records');
   }

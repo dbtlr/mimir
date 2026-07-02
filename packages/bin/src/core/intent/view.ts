@@ -11,6 +11,7 @@ import type {
   TagView,
 } from '@mimir/contract';
 
+import type { ArtifactRecord, ArtifactStore } from '../artifacts/store';
 import { attentionOf } from '../attention';
 import type { Db, Tx } from '../context';
 import type { DerivationSet } from '../derive';
@@ -25,11 +26,10 @@ import {
   rootDistribution,
 } from '../derive';
 import { renderArtifactRef } from '../ids';
-import { renderNodeId } from '../lookup';
-import type { Artifact, Node, Project } from '../model';
+import type { Node, Project } from '../model';
 import { verdictsOf } from '../predicates';
 import { interpret } from '../status';
-import { loadWorkingSet } from '../store-sqlite';
+import type { Store } from '../store';
 
 /**
  * Projection assembly — build a {@link NodeView} from a node row plus the
@@ -57,6 +57,7 @@ function toRef(set: DerivationSet, nodeId: number): NodeRef {
 
 export async function buildNodeView(
   db: Executor,
+  artifacts: ArtifactStore,
   set: DerivationSet,
   node: Node,
   facets: ReadonlySet<FacetName> = new Set(),
@@ -101,7 +102,7 @@ export async function buildNodeView(
     view.annotations = await buildAnnotations(db, node.id);
   }
   if (facets.has('artifacts')) {
-    view.artifacts = await buildArtifacts(db, node.id);
+    view.artifacts = await buildArtifacts(artifacts, set, node.id);
   }
   if (facets.has('history')) {
     view.history = await buildHistory(db, node.id);
@@ -198,66 +199,37 @@ async function buildAnnotations(tx: Executor, nodeId: number): Promise<Annotatio
   return rows.map((r) => ({ content: r.content, createdAt: r.created_at }));
 }
 
-async function buildArtifacts(tx: Executor, nodeId: number): Promise<ArtifactView[]> {
-  const rows = await tx
-    .selectFrom('artifact_link')
-    .innerJoin('artifact', 'artifact.id', 'artifact_link.artifact_id')
-    .innerJoin('project', 'project.id', 'artifact.project_id')
-    .select([
-      'artifact.id as id',
-      'artifact.seq as seq',
-      'artifact.title as title',
-      'artifact.created_at as createdAt',
-      'project.key as key',
-    ])
-    .where('artifact_link.node_id', '=', nodeId)
-    .orderBy('artifact.seq', 'asc')
-    .execute();
-  const out: ArtifactView[] = [];
-  for (const row of rows) {
-    out.push({
-      createdAt: row.createdAt,
-      id: renderArtifactRef(row),
-      tags: await tagsOf(tx, 'artifact', row.id),
-      title: row.title,
-    });
-  }
-  return out;
+/** Map a seam record to the metadata-only `artifacts` facet view. */
+function toArtifactView(record: ArtifactRecord): ArtifactView {
+  return {
+    createdAt: record.created_at,
+    id: renderArtifactRef({ key: record.key, seq: record.seq }),
+    tags: record.tags,
+    title: record.title,
+  };
 }
 
-async function tagsOf(
-  tx: Executor,
-  entityType: 'project' | 'node' | 'artifact',
-  entityId: number,
-): Promise<string[]> {
-  const rows = await tx
-    .selectFrom('tag')
-    .select('tag')
-    .where('entity_type', '=', entityType)
-    .where('entity_id', '=', entityId)
-    .orderBy('created_at', 'asc')
-    .execute();
-  return rows.map((r) => r.tag);
+async function buildArtifacts(
+  artifacts: ArtifactStore,
+  set: DerivationSet,
+  nodeId: number,
+): Promise<ArtifactView[]> {
+  const node = set.nodeById.get(nodeId);
+  const stem = node === undefined ? undefined : renderNodeIdFromSet(set, node);
+  if (stem === undefined || stem === null) {
+    return [];
+  }
+  const records = await artifacts.listForNode(stem);
+  return records.map(toArtifactView);
 }
 
 /** All of a project's artifacts — the inventory behind `get KEY --col artifacts` (MMR-32/34). */
-async function buildProjectArtifacts(tx: Executor, project: Project): Promise<ArtifactView[]> {
-  const rows = await tx
-    .selectFrom('artifact')
-    .select(['id', 'seq', 'title', 'created_at as createdAt'])
-    .where('project_id', '=', project.id)
-    .orderBy('seq', 'asc')
-    .execute();
-  const out: ArtifactView[] = [];
-  for (const row of rows) {
-    out.push({
-      createdAt: row.createdAt,
-      id: renderArtifactRef({ key: project.key, seq: row.seq }),
-      tags: await tagsOf(tx, 'artifact', row.id),
-      title: row.title,
-    });
-  }
-  return out;
+async function buildProjectArtifacts(
+  artifacts: ArtifactStore,
+  project: Project,
+): Promise<ArtifactView[]> {
+  const records = await artifacts.listForProject(project.key);
+  return records.map(toArtifactView);
 }
 
 /**
@@ -268,6 +240,7 @@ async function buildProjectArtifacts(tx: Executor, project: Project): Promise<Ar
  */
 export async function buildProjectView(
   db: Executor,
+  artifacts: ArtifactStore,
   set: DerivationSet,
   project: Project,
   facets: ReadonlySet<FacetName> = new Set(),
@@ -313,41 +286,28 @@ export async function buildProjectView(
     view.tags = rows.map((r) => ({ createdAt: r.created_at, note: r.note, tag: r.tag }));
   }
   if (facets.has('artifacts')) {
-    view.artifacts = await buildProjectArtifacts(db, project);
+    view.artifacts = await buildProjectArtifacts(artifacts, project);
   }
   return view;
 }
 
 /**
  * A standalone artifact record (`get KEY-aN`, MMR-32/34) — metadata + linked
- * nodes + tags; the frozen body only when opted in (`--col content`).
+ * nodes + tags; the frozen body only when opted in (`--col content`). The seam
+ * record already carries links (node stems) and tags, so this is a pure map
+ * (MMR-143).
  */
-export async function buildArtifactDetail(
-  tx: Executor,
-  artifact: Artifact,
-  projectKey: string,
-  opts: { content?: boolean } = {},
-): Promise<ArtifactDetail> {
-  const links = await tx
-    .selectFrom('artifact_link')
-    .select('node_id')
-    .where('artifact_id', '=', artifact.id)
-    .orderBy('node_id', 'asc')
-    .execute();
-  const linkIds: string[] = [];
-  for (const link of links) {
-    linkIds.push((await renderNodeId(tx, link.node_id)) ?? 'unknown');
-  }
+export function buildArtifactDetail(record: ArtifactRecord & { content?: string }): ArtifactDetail {
   const detail: ArtifactDetail = {
-    createdAt: artifact.created_at,
-    id: renderArtifactRef({ key: projectKey, seq: artifact.seq }),
-    links: linkIds,
-    project: projectKey,
-    tags: await tagsOf(tx, 'artifact', artifact.id),
-    title: artifact.title,
+    createdAt: record.created_at,
+    id: renderArtifactRef({ key: record.key, seq: record.seq }),
+    links: record.links,
+    project: record.key,
+    tags: record.tags,
+    title: record.title,
   };
-  if (opts.content === true) {
-    detail.content = artifact.content;
+  if (record.content !== undefined) {
+    detail.content = record.content;
   }
   return detail;
 }
@@ -370,18 +330,30 @@ async function buildHistory(tx: Executor, nodeId: number): Promise<HistoryEntry[
 
 /** A node view over a fresh snapshot — the one-off echo path (verbs, transports). */
 export async function nodeViewOf(
-  db: Db,
+  store: Store,
   node: Node,
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView> {
-  return buildNodeView(db, deriveSet(await loadWorkingSet(db)), node, facets);
+  return buildNodeView(
+    store.db,
+    store.artifacts,
+    deriveSet(await store.loadWorkingSet()),
+    node,
+    facets,
+  );
 }
 
 /** A project view over a fresh snapshot — the one-off echo path (verbs, transports). */
 export async function projectViewOf(
-  db: Db,
+  store: Store,
   project: Project,
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView> {
-  return buildProjectView(db, deriveSet(await loadWorkingSet(db)), project, facets);
+  return buildProjectView(
+    store.db,
+    store.artifacts,
+    deriveSet(await store.loadWorkingSet()),
+    project,
+    facets,
+  );
 }

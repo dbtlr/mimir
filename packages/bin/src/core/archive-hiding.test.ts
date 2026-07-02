@@ -9,7 +9,6 @@ import {
   depend,
   getArtifact,
   getNode,
-  listArtifacts,
   listNodes,
   listProjects,
   nextTasks,
@@ -78,34 +77,38 @@ test('next and list exclude an archived project’s subtree', async () => {
 
 test('get / status / tree / getArtifact on an archived target read as not_found', async () => {
   await archiveProject(store, gonProjectId);
-  await expectMimirError('not_found', () => getNode(db, 'GON')); // the project
-  await expectMimirError('not_found', () => getNode(db, gonTaskId)); // a node under it
+  await expectMimirError('not_found', () => getNode(store, 'GON')); // the project
+  await expectMimirError('not_found', () => getNode(store, gonTaskId)); // a node under it
   await expectMimirError('not_found', () => statusOfNode(db, 'GON'));
   await expectMimirError('not_found', () => statusOfNode(db, gonTaskId));
-  await expectMimirError('not_found', () => nodeTree(db, gonTaskId));
-  await expectMimirError('not_found', () => projectTree(db, 'GON'));
-  await expectMimirError('not_found', () => getArtifact(db, gonArtifactId));
+  await expectMimirError('not_found', () => nodeTree(store, gonTaskId));
+  await expectMimirError('not_found', () => projectTree(store, 'GON'));
+  await expectMimirError('not_found', () => getArtifact(store, gonArtifactId));
 });
 
 test('listProjects hides archived by default; the door reveals only archived', async () => {
   await archiveProject(store, gonProjectId);
 
-  const active = await listProjects(db);
+  const active = await listProjects(store);
   expect(active.map((p) => p.id).toSorted()).toEqual(['KEP']);
 
-  const archived = await listProjects(db, undefined, 'archived');
+  const archived = await listProjects(store, undefined, 'archived');
   expect(archived.map((p) => p.id)).toEqual(['GON']);
 
-  const all = await listProjects(db, undefined, 'all');
+  const all = await listProjects(store, undefined, 'all');
   expect(all.map((p) => p.id).toSorted()).toEqual(['GON', 'KEP']);
 });
 
-test('listArtifacts excludes an archived project’s artifacts', async () => {
-  const before = await listArtifacts(db);
+test('the artifact feed excludes an archived project’s artifacts', async () => {
+  const archivedKeys = async (): Promise<string[]> => {
+    const ws = await store.loadWorkingSet();
+    return ws.projects.filter((p) => p.archived_at !== null).map((p) => p.key);
+  };
+  const before = await store.artifacts.list({ excludeProjects: await archivedKeys() });
   expect(before.total).toBe(1);
 
   await archiveProject(store, gonProjectId);
-  const after = await listArtifacts(db);
+  const after = await store.artifacts.list({ excludeProjects: await archivedKeys() });
   expect(after.total).toBe(0);
 });
 
@@ -121,11 +124,11 @@ test('the deps facet does not leak archived nodes across a cross-project edge', 
 
   await archiveProject(store, gonProjectId);
 
-  const a1View = await getNode(db, `AAA-${String(a1.seq)}`, { facets: ['deps'] });
+  const a1View = await getNode(store, `AAA-${String(a1.seq)}`, { facets: ['deps'] });
   const shown = [...(a1View.deps?.dependsOn ?? []), ...(a1View.deps?.awaitingOn ?? [])];
   expect(shown.some((r) => r.id.startsWith('GON-'))).toBe(false);
 
-  const a2View = await getNode(db, `AAA-${String(a2.seq)}`, { facets: ['deps'] });
+  const a2View = await getNode(store, `AAA-${String(a2.seq)}`, { facets: ['deps'] });
   expect((a2View.deps?.blocking ?? []).some((r) => r.id.startsWith('GON-'))).toBe(false);
 });
 
@@ -135,6 +138,6 @@ test('unarchive restores full read visibility', async () => {
 
   const list = await listNodes(createSqliteStore(db), { status: 'all' });
   expect(list.items.some((n) => n.id === gonTaskId)).toBe(true);
-  expect((await getNode(db, 'GON')).id).toBe('GON');
-  expect((await listProjects(db)).map((p) => p.id).toSorted()).toEqual(['GON', 'KEP']);
+  expect((await getNode(store, 'GON')).id).toBe('GON');
+  expect((await listProjects(store)).map((p) => p.id).toSorted()).toEqual(['GON', 'KEP']);
 });

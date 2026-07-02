@@ -16,7 +16,6 @@ import {
   createProject,
   createTask,
   depend,
-  findArtifactByRef,
   findNodeByRef,
   getArtifact,
   moveNode,
@@ -95,14 +94,14 @@ const withReason = (text: string, reason?: string): string =>
 export async function cmdStart(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'start'), 'task');
   await startTask(c.store, id);
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `started ${rid} · todo → in_progress`);
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `started ${rid} · todo → in_progress`);
   return 0;
 }
 
 export async function cmdDone(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'done'), 'task');
   await completeTask(c.store, id);
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `completed ${rid}`);
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `completed ${rid}`);
   return 0;
 }
 
@@ -110,7 +109,7 @@ export async function cmdAbandon(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'abandon'), 'task');
   const reason = reasonTail(c);
   await abandonTask(c.store, id, reason);
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) => withReason(`abandoned ${rid}`, reason));
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) => withReason(`abandoned ${rid}`, reason));
   return 0;
 }
 
@@ -118,7 +117,7 @@ export async function cmdSubmit(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'submit'), 'task');
   await submitTask(c.store, id);
   await echoNodeWith(
-    c.db,
+    c.store,
     id,
     c.format,
     c.io,
@@ -131,7 +130,7 @@ export async function cmdReturn(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'return'), 'task');
   const reason = reasonTail(c);
   await returnTask(c.store, id, reason);
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) =>
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) =>
     withReason(`returned ${rid} · under_review → in_progress`, reason),
   );
   return 0;
@@ -141,7 +140,7 @@ export async function cmdReopen(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'reopen'), 'task');
   const reason = reasonTail(c);
   await reopenTask(c.store, id, reason);
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) =>
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) =>
     withReason(`reopened ${rid} → in_progress`, reason),
   );
   return 0;
@@ -194,14 +193,14 @@ export async function cmdPark(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'park'), 'task');
   const reason = reasonTail(c);
   await parkTask(c.store, id, reason);
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) => withReason(`parked ${rid}`, reason));
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) => withReason(`parked ${rid}`, reason));
   return 0;
 }
 
 export async function cmdUnpark(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'unpark'), 'task');
   await unparkTask(c.store, id);
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `unparked ${rid}`);
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `unparked ${rid}`);
   return 0;
 }
 
@@ -209,14 +208,14 @@ export async function cmdBlock(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'block'), 'task');
   const reason = reasonTail(c);
   await blockTask(c.store, id, reason);
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) => withReason(`blocked ${rid}`, reason));
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) => withReason(`blocked ${rid}`, reason));
   return 0;
 }
 
 export async function cmdUnblock(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'unblock'), 'task');
   await unblockTask(c.store, id);
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `unblocked ${rid}`);
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `unblocked ${rid}`);
   return 0;
 }
 
@@ -240,7 +239,7 @@ export async function cmdDepend(c: Ctx): Promise<number> {
     throw usage('depend requires --on <ids>');
   }
   await depend(c.store, id, await resolveIds(c.db, on, 'depend', 'on'));
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `${rid} now depends on ${idList(on)}`);
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `${rid} now depends on ${idList(on)}`);
   return 0;
 }
 
@@ -252,7 +251,7 @@ export async function cmdUndepend(c: Ctx): Promise<number> {
   }
   await undepend(c.store, id, await resolveIds(c.db, on, 'undepend', 'on'));
   await echoNodeWith(
-    c.db,
+    c.store,
     id,
     c.format,
     c.io,
@@ -269,7 +268,7 @@ export async function cmdMove(c: Ctx): Promise<number> {
   const to = requireToken(c.values.to, 'move', 'to');
   const parentId = await resolveNode(c.db, to);
   await moveNode(c.store, id, parentId);
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `moved ${rid} → ${to}`);
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `moved ${rid} → ${to}`);
   return 0;
 }
 
@@ -300,7 +299,7 @@ export async function cmdReorder(c: Ctx): Promise<number> {
     throw usage('reorder requires one of --top | --bottom | --before <id> | --after <id>');
   }
   await reorder(c.store, id, position, refId);
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `reordered ${rid} → ${where}`);
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `reordered ${rid} → ${where}`);
   return 0;
 }
 
@@ -341,7 +340,7 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
   }
   await updateNode(c.store, id, fields);
   const suffix = changed.length > 0 ? ` (${changed.join(', ')})` : '';
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `updated ${rid}${suffix}`);
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `updated ${rid}${suffix}`);
   return 0;
 }
 
@@ -368,7 +367,7 @@ async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
     fields.description = c.values.desc;
   }
   await updateProject(c.store, projectId, fields);
-  await echoProject(c.db, token, c.format, c.io);
+  await echoProject(c.store, token, c.format, c.io);
   return 0;
 }
 
@@ -389,14 +388,14 @@ async function cmdUpdateArtifact(c: Ctx, token: string): Promise<number> {
   if (identity?.kind !== 'artifact') {
     throw notFound(`no artifact with id ${token}`);
   }
-  const artifact = await findArtifactByRef(c.db, identity);
-  if (artifact === undefined) {
-    throw notFound(`no artifact ${token}`);
-  }
   if (typeof c.values.title === 'string') {
-    await updateArtifact(c.store, artifact.id, { title: c.values.title });
+    await updateArtifact(
+      c.store,
+      { key: identity.key, seq: identity.seq },
+      { title: c.values.title },
+    );
   }
-  renderArtifactDetail(await getArtifact(c.db, token), c.format, c.io);
+  renderArtifactDetail(await getArtifact(c.store, token), c.format, c.io);
   return 0;
 }
 
@@ -407,7 +406,7 @@ export async function cmdAnnotate(c: Ctx): Promise<number> {
     throw usage('annotate requires content (positional or stdin)');
   }
   await annotate(c.store, id, content);
-  await echoNodeWith(c.db, id, c.format, c.io, (rid) => `annotated ${rid}`);
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `annotated ${rid}`);
   return 0;
 }
 
@@ -642,7 +641,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         tags: tagFlags(c),
         title,
       });
-      await echoNodeWith(c.db, node.id, c.format, c.io, (rid) => `created ${rid}`);
+      await echoNodeWith(c.store, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;
     }
     case 'phase': {
@@ -661,7 +660,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         target: optStr(c, 'target'),
         title,
       });
-      await echoNodeWith(c.db, node.id, c.format, c.io, (rid) => `created ${rid}`);
+      await echoNodeWith(c.store, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;
     }
     case 'task': {
@@ -683,7 +682,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         tags: tagFlags(c),
         title,
       });
-      await echoNodeWith(c.db, node.id, c.format, c.io, (rid) => `created ${rid}`);
+      await echoNodeWith(c.store, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;
     }
     default: {

@@ -8,6 +8,7 @@ import type {
   TransitionKind,
 } from '@mimir/contract';
 
+import type { ArtifactStore } from './artifacts/store';
 import type { Db } from './context';
 import type { Artifact, Dependency, Node, Project, Tag } from './model';
 
@@ -197,6 +198,14 @@ export type Store = {
    * invariant failure leaves no partial rows.
    */
   transact: <T>(fn: (w: StoreWriter) => Promise<T>) => Promise<T>;
+
+  /**
+   * The artifact slice (MMR-143, ADR 0016 Phase 2a) — the first surface with
+   * two backends. The composition root plugs in SQLite (default) or the
+   * Norn vault; everything artifact-shaped routes through here, keyed by
+   * external identity, never numeric ids.
+   */
+  readonly artifacts: ArtifactStore;
 
   /**
    * Transitional (MMR-133): the raw executor, for core read paths not yet

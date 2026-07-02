@@ -132,7 +132,7 @@ describe('Site B — missing project hint', () => {
   });
 
   test('projectTree for an unknown project key carries the create hint (core/resource)', async () => {
-    assertCreateHint(await caught(() => projectTree(db, 'NOPE')));
+    assertCreateHint(await caught(() => projectTree(store, 'NOPE')));
   });
 
   test('resolveProject for an unknown key carries the create hint (cli/resolve)', async () => {
