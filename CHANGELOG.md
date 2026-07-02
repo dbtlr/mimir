@@ -52,6 +52,17 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Status derivation is computed in-memory over one snapshot** (MMR-133/134,
+  ADR 0016 Phase 0). Every read view — `next`, `list`, `get`, `status`, `tree`,
+  and the Overview — now loads the work state as one bulk projection and
+  derives status words, rollups, and predicates in memory, instead of firing a
+  cascade of per-node queries. A scoped `list --status all` drops from ~1,200
+  queries to 4; a whole project tree is 5; the full Overview is 15. Output is
+  unchanged (verified byte-identical against the previous binary across the
+  read surface). One pathological shape improves: a derivation cycle closed
+  through container dependencies — which previously hung forever — now fails
+  fast with a diagnosable `invariant` error.
+
 - **A dependency on a container now gates its descendant tasks.** A task's
   effective prerequisites are its own edges plus any inherited from an ancestor
   (phase/initiative/project), so a descendant reads `awaiting` — and drops out
