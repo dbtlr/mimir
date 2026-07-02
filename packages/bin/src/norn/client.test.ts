@@ -62,6 +62,9 @@ function fakeNorn(build: (crash: () => Promise<void>) => Record<string, FakeTool
   };
 }
 
+/** A factory whose spawn always fails — the missing/broken norn binary. */
+const brokenSpawn = () => Promise.reject(new Error('spawn norn ENOENT'));
+
 let client: NornClient | null = null;
 beforeEach(() => {
   client = null;
@@ -172,7 +175,7 @@ test('an in-flight death on a mutation fails typed and is never replayed', async
     },
   }));
   client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
-  await expectMimirError('validation', () =>
+  await expectMimirError('invariant', () =>
     (client as NornClient).set({ confirm: true, set: { a: 1 }, target: 'x.md' }),
   );
   expect(applied).toBe(1); // NOT replayed
@@ -191,4 +194,47 @@ test('close shuts the session; the next call lazily reconnects', async () => {
   await client.close();
   await client.find({});
   expect(fake.spawns).toBe(2);
+});
+
+test('a call-level failure closes the still-alive session — no orphaned subprocess', async () => {
+  let transportCloses = 0;
+  const fake = fakeNorn(() => ({
+    'vault.find': async () => {
+      await Bun.sleep(50); // outlives the client timeout below
+      return { structuredContent: { documents: [] } };
+    },
+  }));
+  const spyFactory = async (): Promise<Transport> => {
+    const transport = await fake.factory();
+    const original = transport.close.bind(transport);
+    transport.close = async () => {
+      transportCloses += 1;
+      await original();
+    };
+    return transport;
+  };
+  client = new NornClient({ timeoutMs: 10, transportFactory: spyFactory, vaultPath: '/unused' });
+  await expectMimirError('invariant', () => (client as NornClient).find({}));
+  // each timed-out attempt closed its (still-alive) session — the SDK may
+  // close the transport again on its own path; double-close is idempotent
+  expect(transportCloses).toBeGreaterThanOrEqual(2);
+});
+
+test('close is serialized behind an in-flight call — no subprocess outlives it', async () => {
+  const fake = fakeNorn(() => ({
+    'vault.find': async () => {
+      await Bun.sleep(20);
+      return { structuredContent: { documents: [{ path: 'ok.md' }] } };
+    },
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  const inFlight = client.find({}); // starts the connect + call
+  await client.close(); // must wait for the call, then close its session
+  expect(await inFlight).toEqual([{ path: 'ok.md' }]); // the call completed first
+  expect(fake.spawns).toBe(1); // and close did not strand or respawn anything
+});
+
+test('a read whose retry also fails throws typed, never a raw error', async () => {
+  client = new NornClient({ transportFactory: brokenSpawn, vaultPath: '/unused' });
+  await expectMimirError('invariant', () => (client as NornClient).find({}));
 });

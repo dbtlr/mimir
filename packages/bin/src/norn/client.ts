@@ -17,13 +17,21 @@ import { parseJson } from '@mimir/helpers';
  *   Read wrappers opt into one transparent retry (reads are safe to replay).
  * - **Results are the `structuredContent` payload** (observed against norn
  *   v0.41.0; the text content mirrors it as JSON). `isError` results raise a
- *   `validation` MimirError carrying norn's message.
+ *   `validation` MimirError carrying norn's message; connection-level
+ *   failures raise `invariant` (infra state, not a rejected input).
+ *
+ * Known, accepted window: a mutation issued between a subprocess death and
+ * the SDK's onclose delivery fails with the ambiguous error even though the
+ * send never reached norn. The ambiguity is irreducible in RPC-over-pipe
+ * (the response-lost case is indistinguishable); the error hint tells the
+ * caller to verify before re-issuing a confirm.
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
-import { MimirError, invariant, validation } from '../core/errors';
+import type { MimirError } from '../core/errors';
+import { invariant, validation } from '../core/errors';
 
 /** The subset of the norn tool catalog the artifact path drives. */
 export type NornToolName =
@@ -87,9 +95,15 @@ export type NornClientOptions = {
   vaultPath: string;
   /** The norn executable (default `norn` on PATH). */
   command?: string;
+  /** Per-call timeout (default 5 minutes — the SDK's own 60s default would
+   * doom a long validate/find on a large vault). */
+  timeoutMs?: number;
   /** Test seam: supply the transport instead of spawning a subprocess. */
   transportFactory?: () => Transport | Promise<Transport>;
 };
+
+/** Norn ops are local; five minutes is generous without being unbounded. */
+const DEFAULT_CALL_TIMEOUT_MS = 300_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -121,6 +135,51 @@ export class NornClient {
     this.options = options;
   }
 
+  /**
+   * Run a job with the queue's serialization guarantee (norn's
+   * await-each-response contract): jobs never overlap, each caller sees only
+   * its own failure, and a predecessor's failure never poisons the queue.
+   * `close()` goes through here too, so shutdown can't race an in-flight
+   * call or a connect.
+   */
+  private enqueue<T>(job: () => Promise<T>): Promise<T> {
+    const previous = this.tail;
+    const run = async (): Promise<T> => {
+      try {
+        await previous;
+      } catch {
+        // the predecessor's caller already saw that failure
+      }
+      return job();
+    };
+    const turn = run();
+    this.tail = (async () => {
+      try {
+        await turn;
+      } catch {
+        // swallowed only for the queue; `turn` carries it to this caller
+      }
+    })();
+    return turn;
+  }
+
+  /**
+   * Drop (and best-effort close) a session after a call-level failure. The
+   * error may not be a subprocess death — an SDK timeout or protocol error
+   * leaves the child alive — so closing is what prevents an orphaned `norn
+   * mcp` accumulating per failure.
+   */
+  private async discard(session: Client): Promise<void> {
+    if (this.session === session) {
+      this.session = null;
+    }
+    try {
+      await session.close();
+    } catch {
+      // already dead — that's fine, dropping it was the point
+    }
+  }
+
   private async connect(): Promise<Client> {
     const transport = this.options.transportFactory
       ? await this.options.transportFactory()
@@ -144,55 +203,55 @@ export class NornClient {
     return session;
   }
 
+  /** A connection-level failure, typed: infra state, not a rejected input. */
+  private connectionFailure(name: NornToolName, retry: boolean, error: unknown): MimirError {
+    const detail = error instanceof Error ? error.message : String(error);
+    return invariant(
+      `norn call ${name} failed: ${detail}`,
+      retry
+        ? 'the norn subprocess may have died; the next call reconnects'
+        : // A mutation's failure is ambiguous by construction (the response
+          // was lost, not necessarily the write) — the caller must verify
+          // before re-issuing a confirm.
+          'the write may or may not have applied — verify before retrying; the next call reconnects',
+    );
+  }
+
   /** One serialized tool call. `retry` replays once on a connection-level failure. */
   private async call(
     name: NornToolName,
     args: Record<string, unknown>,
     retry: boolean,
   ): Promise<unknown> {
-    const invoke = async (): Promise<unknown> => {
+    return this.enqueue(async () => {
       const attempt = async (): Promise<unknown> => {
         const session = this.session ?? (await this.connect());
-        return session.callTool({ arguments: args, name });
+        try {
+          return await session.callTool({ arguments: args, name }, undefined, {
+            timeout: this.options.timeoutMs ?? DEFAULT_CALL_TIMEOUT_MS,
+          });
+        } catch (error) {
+          // Not necessarily a death (timeout, protocol error) — close so a
+          // still-alive child never leaks; the next attempt/call respawns.
+          await this.discard(session);
+          throw error;
+        }
       };
       let result: unknown;
       try {
         result = await attempt();
       } catch (error) {
-        if (error instanceof MimirError) {
-          throw error;
-        }
-        this.session = null;
         if (!retry) {
-          throw validation(
-            `norn call ${name} failed: ${error instanceof Error ? error.message : String(error)}`,
-            'the norn subprocess may have died; the next call reconnects',
-          );
+          throw this.connectionFailure(name, retry, error);
         }
-        result = await attempt();
+        try {
+          result = await attempt();
+        } catch (secondError) {
+          throw this.connectionFailure(name, retry, secondError);
+        }
       }
       return this.unwrap(name, result);
-    };
-    // Chain onto the tail so calls can never pipeline (norn's ordering
-    // contract) — each caller still sees only its own failure, and a
-    // predecessor's failure never poisons the queue.
-    const previous = this.tail;
-    const turn = (async () => {
-      try {
-        await previous;
-      } catch {
-        // the predecessor's caller already saw this failure
-      }
-      return invoke();
-    })();
-    this.tail = (async () => {
-      try {
-        await turn;
-      } catch {
-        // swallowed here only for the queue; `turn` carries it to the caller
-      }
-    })();
-    return turn;
+    });
   }
 
   private unwrap(name: NornToolName, result: unknown): unknown {
@@ -270,12 +329,22 @@ export class NornClient {
     return this.call('vault.edit', { confirm, edits, target }, false);
   }
 
-  /** Close the session and its subprocess; the next call reconnects. */
+  /**
+   * Close the session and its subprocess; the next call reconnects.
+   * Serialized through the queue, so an in-flight call (and any connect it
+   * started) completes first — a subprocess can't outlive a resolved close.
+   */
   async close(): Promise<void> {
-    const session = this.session;
-    this.session = null;
-    if (session !== null) {
-      await session.close();
-    }
+    return this.enqueue(async () => {
+      const session = this.session;
+      this.session = null;
+      if (session !== null) {
+        try {
+          await session.close();
+        } catch {
+          // already dead — nothing left to shut down
+        }
+      }
+    });
   }
 }
