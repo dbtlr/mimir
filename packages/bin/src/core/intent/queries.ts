@@ -75,15 +75,18 @@ const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, Str
 const asciiLower = (s: string): string => s.replace(/[A-Z]/g, (c) => c.toLowerCase());
 
 /**
- * Emulates the SQL path's `lower(title) LIKE '%' || q || '%'` exactly —
- * including `%`/`_` acting as wildcards inside `q` (LIKE passthrough).
+ * Compiles the SQL path's `lower(title) LIKE '%' || q || '%'` to an exact
+ * regex equivalent — `%`/`_` act as wildcards inside `q` (LIKE passthrough).
+ * The `u` flag makes `[\s\S]` consume a full code point, matching LIKE's
+ * `_`-is-one-character semantics for astral characters (emoji).
  */
-function likeContains(title: string, loweredQ: string): boolean {
+function likeMatcher(loweredQ: string): (title: string) => boolean {
   // `%`/`_` are not regex specials, so they survive escaping and substitute cleanly.
   const pattern = escapeRegExp(loweredQ)
     .replaceAll('%', String.raw`[\s\S]*`)
     .replaceAll('_', String.raw`[\s\S]`);
-  return new RegExp(pattern).test(asciiLower(title));
+  const re = new RegExp(pattern, 'u');
+  return (title) => re.test(asciiLower(title));
 }
 
 /** Board order: rank (nulls last), then seq — the live-universe sort. */
@@ -299,7 +302,8 @@ export async function listNodes(
 
   const index = indexWorkingSet(await store.loadWorkingSet());
   const scopeId = opts.scope === undefined ? undefined : resolveScope(index, opts.scope);
-  const loweredQ = opts.q === undefined || opts.q === '' ? undefined : opts.q.toLowerCase();
+  const matchesQ =
+    opts.q === undefined || opts.q === '' ? undefined : likeMatcher(opts.q.toLowerCase());
   const rows = index.ws.nodes
     .filter((n) => {
       if (!widened) {
@@ -333,7 +337,7 @@ export async function listNodes(
       if (opts.tag !== undefined && !(index.ws.nodeTags.get(n.id) ?? []).includes(opts.tag)) {
         return false;
       }
-      if (loweredQ !== undefined && !likeContains(n.title, loweredQ)) {
+      if (matchesQ !== undefined && !matchesQ(n.title)) {
         return false;
       }
       // Hide archived projects' subtrees (ADR 0015). The `archived` universe is a
