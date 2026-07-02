@@ -25,8 +25,15 @@ export type ResolvedVault = {
   allowCreate: boolean;
 };
 
-/** Expand a leading `~/` against the home directory (a hand-edited config courtesy). */
+/**
+ * Expand `~` / a leading `~/` against the home directory — a hand-edited
+ * config courtesy, and a real case under launchd, whose EnvironmentVariables
+ * perform no shell expansion. (`~user` is not supported and passes through.)
+ */
 function expandTilde(path: string): string {
+  if (path === '~') {
+    return homedir();
+  }
   return path.startsWith('~/') ? join(homedir(), path.slice(2)) : path;
 }
 

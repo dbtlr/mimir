@@ -32,3 +32,7 @@ test('only the derived default is eligible for auto-create', () => {
   expect(resolveVault({ envPath: '/env/vault' }).allowCreate).toBe(false);
   expect(resolveVault({ configPath: '/cfg/vault' }).allowCreate).toBe(false);
 });
+
+test('a bare ~ expands to the home directory', () => {
+  expect(resolveVault({ envPath: '~' }).path).toBe(homedir());
+});

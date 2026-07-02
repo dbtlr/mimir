@@ -17,11 +17,19 @@
  * swept into a mimir commit; the exception is baseline-committing a fresh
  * `git init` (there is no history to protect yet).
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { conflict, notFound } from '../core/errors';
-import type { Exec } from '../exec';
+import type { Exec, ExecResult } from '../exec';
 import {
   MARKER_FILE,
   NORN_CONFIG_FILE,
@@ -42,6 +50,25 @@ function isEffectivelyEmpty(path: string): boolean {
   return readdirSync(path).every((entry) => IGNORABLE.has(entry));
 }
 
+/**
+ * What sits at the vault path, without letting raw fs errors escape:
+ * `dir` and `absent` are the workable cases; a regular file is a refusal,
+ * and a dangling symlink almost always means an unmounted volume — surface
+ * the mount hint instead of a raw ENOENT from `mkdir` through the link.
+ */
+function classifyPath(path: string): 'absent' | 'dir' | 'file' | 'dangling-symlink' {
+  try {
+    return statSync(path).isDirectory() ? 'dir' : 'file'; // follows symlinks
+  } catch {
+    try {
+      lstatSync(path); // an entry exists but its target doesn't
+      return 'dangling-symlink';
+    } catch {
+      return 'absent';
+    }
+  }
+}
+
 type Git = {
   run: (args: string[], failure: string) => Promise<boolean>;
   /** A probe whose nonzero exit is an answer, not a failure — never warns. */
@@ -52,8 +79,10 @@ type Git = {
 /** Git ops as warnings-not-errors: a failure is recorded and the run continues. */
 function gitAt(path: string, exec: Exec): Git {
   const warnings: string[] = [];
-  // Identity is pinned per-command so commits never depend on (or touch)
-  // the operator's global git config.
+  // Identity, signing, and hooks are pinned per-command so commits never
+  // depend on (or touch) the operator's global git config — a global
+  // commit.gpgsign=true with no key in the daemon context would otherwise
+  // fail every converge commit.
   const argv = (args: string[]) => [
     'git',
     '-C',
@@ -62,14 +91,31 @@ function gitAt(path: string, exec: Exec): Git {
     'user.name=mimir',
     '-c',
     'user.email=mimir@localhost',
+    '-c',
+    'commit.gpgsign=false',
+    '-c',
+    'core.hooksPath=/dev/null',
     ...args,
   ];
+  // A missing git binary rejects the exec itself (spawn ENOENT) — that is a
+  // degraded environment, not a converge failure.
+  const attempt = async (args: string[]): Promise<ExecResult> => {
+    try {
+      return await exec(argv(args));
+    } catch (error) {
+      return {
+        code: 127,
+        stderr: error instanceof Error ? error.message : String(error),
+        stdout: '',
+      };
+    }
+  };
   return {
     async probe(args: string[]): Promise<number> {
-      return (await exec(argv(args))).code;
+      return (await attempt(args)).code;
     },
     async run(args: string[], failure: string): Promise<boolean> {
-      const result = await exec(argv(args));
+      const result = await attempt(args);
       if (result.code !== 0) {
         const detail = result.stderr.trim();
         warnings.push(`git: ${failure}${detail === '' ? '' : ` (${detail})`}`);
@@ -97,8 +143,11 @@ async function commitStaged(git: Git, files: string[], message: string): Promise
 }
 
 async function create(path: string, exec: Exec): Promise<ConvergeResult> {
-  mkdirSync(join(path, dirname(NORN_CONFIG_FILE)), { recursive: true });
+  // Marker first: a crash mid-scaffold then leaves a *recognized* vault the
+  // next converge heals, never a non-empty unmarked directory it refuses.
+  mkdirSync(path, { recursive: true });
   writeFileSync(join(path, MARKER_FILE), renderMarker());
+  mkdirSync(join(path, dirname(NORN_CONFIG_FILE)), { recursive: true });
   writeFileSync(join(path, NORN_CONFIG_FILE), renderNornConfig());
   const git = gitAt(path, exec);
   if (await git.run(['init'], 'init failed — the vault works, but has no history')) {
@@ -115,8 +164,20 @@ export async function converge(
   path: string,
   opts: { allowCreate: boolean; exec: Exec },
 ): Promise<ConvergeResult> {
-  const absent = !existsSync(path);
-  if (absent || isEffectivelyEmpty(path)) {
+  const kind = classifyPath(path);
+  if (kind === 'file') {
+    throw conflict(
+      `${path} is a file, not a directory — refusing to use it as a vault`,
+      'point MIMIR_VAULT / [vault] path at a directory',
+    );
+  }
+  if (kind === 'dangling-symlink') {
+    throw notFound(
+      `the vault path ${path} is a symlink to a missing target`,
+      'is the volume mounted?',
+    );
+  }
+  if (kind === 'absent' || isEffectivelyEmpty(path)) {
     if (!opts.allowCreate) {
       throw notFound(
         `no vault at ${path}`,
