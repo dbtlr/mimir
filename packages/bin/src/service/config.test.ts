@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { configPath, readServeConfig, readVaultConfig, writeServePort } from './config';
+import { configPath, readConfig, readServeConfig, readVaultConfig, writeServePort } from './config';
 
 let dir: string;
 beforeEach(() => {
@@ -96,4 +96,18 @@ test('readVaultConfig: malformed file and wrong-typed path surface as problems',
   expect(readVaultConfig(file)).toEqual({ problem: 'invalid-path' });
   writeFileSync(file, '[vault]\npath = ""\n');
   expect(readVaultConfig(file)).toEqual({ problem: 'invalid-path' });
+});
+
+test('a present-but-wrong-shaped section is malformed, never silence', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, 'vault = "/some/path"\n'); // a string, not a [vault] table
+  expect(readVaultConfig(file)).toEqual({ problem: 'malformed' });
+  writeFileSync(file, 'serve = 5\n');
+  expect(readServeConfig(file)).toEqual({ problem: 'malformed' });
+});
+
+test('readConfig parses once and returns both sections', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[serve]\nport = 50124\n[vault]\npath = "/v"\n');
+  expect(readConfig(file)).toEqual({ serve: { port: 50124 }, vault: { path: '/v' } });
 });

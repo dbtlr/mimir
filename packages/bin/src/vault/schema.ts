@@ -73,7 +73,7 @@ validate:
         - project
         - created
       field_types:
-        title: string
+        title: text
         project: wikilink
         anchor: wikilink_or_list
         tags: list_of_strings

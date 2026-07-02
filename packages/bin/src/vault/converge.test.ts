@@ -24,6 +24,9 @@ afterEach(() => {
 
 const vaultAt = (name: string) => join(root, name);
 
+/** An exec whose spawn itself fails — the missing-git-binary environment. */
+const noGitExec = () => Promise.reject(new Error('Executable not found in $PATH: "git"'));
+
 async function gitLog(path: string): Promise<string[]> {
   const r = await bunExec(['git', '-C', path, 'log', '--format=%s']);
   return r.code === 0 ? r.stdout.trim().split('\n').filter(Boolean) : [];
@@ -161,4 +164,50 @@ test('adopt: a cloned/restored vault missing .git is re-initialized', async () =
   const result = await converge(path, { allowCreate: false, exec: bunExec });
   expect(result.outcome).toBe('converged');
   expect(existsSync(join(path, '.git'))).toBe(true);
+});
+
+test('a regular file at the vault path refuses with a hint, not a raw ENOTDIR', async () => {
+  const path = vaultAt('a-file');
+  writeFileSync(path, 'not a directory\n');
+  await expectMimirError('conflict', () => converge(path, { allowCreate: true, exec: bunExec }));
+});
+
+test('a dangling symlink reads as an unmounted volume, not as absent', async () => {
+  const path = vaultAt('link');
+  const { symlinkSync } = await import('node:fs');
+  symlinkSync(vaultAt('missing-target'), path);
+  // even with allowCreate, never scaffold through a dangling link
+  await expectMimirError('not_found', () => converge(path, { allowCreate: true, exec: bunExec }));
+});
+
+test('self-heal: a crash-window scaffold (marker only) converges instead of refusing', async () => {
+  const path = vaultAt('partial');
+  mkdirSync(path);
+  writeFileSync(join(path, MARKER_FILE), renderMarker()); // create() writes this first
+  const result = await converge(path, { allowCreate: false, exec: bunExec });
+  expect(result.outcome).toBe('converged');
+  expect(readFileSync(join(path, NORN_CONFIG_FILE), 'utf8')).toBe(renderNornConfig());
+});
+
+test('a missing git binary degrades to warnings, never an error', async () => {
+  const path = vaultAt('no-git');
+  const result = await converge(path, { allowCreate: true, exec: noGitExec });
+  expect(result.outcome).toBe('created');
+  expect(result.warnings.length).toBeGreaterThan(0);
+  // the scaffold itself still landed
+  expect(readFileSync(join(path, MARKER_FILE), 'utf8')).toBe(renderMarker());
+});
+
+test('converge commits are immune to global gpgsign/hooks git config', async () => {
+  const path = vaultAt('gpg');
+  const seen: string[][] = [];
+  const spy = (argv: string[]) => {
+    seen.push(argv);
+    return bunExec(argv);
+  };
+  await converge(path, { allowCreate: true, exec: spy });
+  for (const argv of seen) {
+    expect(argv.join(' ')).toContain('commit.gpgsign=false');
+    expect(argv.join(' ')).toContain('core.hooksPath=/dev/null');
+  }
 });

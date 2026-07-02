@@ -41,13 +41,17 @@ export const DEFAULT_PORT = IS_PRODUCTION ? PROD_PORT : DEV_PORT;
  * directory. Dev/from-source resolves an isolated repo-local `.dev/mimir.db`
  * (relative to this source file, not cwd, so it holds from any subdirectory).
  */
-export function defaultStorePath(): string {
+function dataPath(...leaf: string[]): string {
   if (!IS_PRODUCTION) {
     const srcDir = dirname(fileURLToPath(import.meta.url)); // packages/bin/src
-    return join(srcDir, '..', '..', '..', '.dev', 'mimir.db');
+    return join(srcDir, '..', '..', '..', '.dev', ...leaf);
   }
   const dataHome = process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share');
-  return join(dataHome, 'mimir', 'mimir.db');
+  return join(dataHome, 'mimir', ...leaf);
+}
+
+export function defaultStorePath(): string {
+  return dataPath('mimir.db');
 }
 
 /**
@@ -66,12 +70,7 @@ export function storePath(): string {
  * dev/from-source resolves the isolated repo-local `.dev/vault`.
  */
 export function defaultVaultPath(): string {
-  if (!IS_PRODUCTION) {
-    const srcDir = dirname(fileURLToPath(import.meta.url)); // packages/bin/src
-    return join(srcDir, '..', '..', '..', '.dev', 'vault');
-  }
-  const dataHome = process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share');
-  return join(dataHome, 'mimir', 'vault');
+  return dataPath('vault');
 }
 
 /**
