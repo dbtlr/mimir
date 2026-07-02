@@ -22,7 +22,6 @@ import {
   formatStatusJson,
   getArtifact,
   getNode,
-  createSqliteStore,
   listNodes,
   listProjects,
   nextTasks,
@@ -32,7 +31,7 @@ import {
   statusOfNode,
   treeToWire,
 } from '../core';
-import type { Db } from '../core';
+import type { Db, Store } from '../core';
 import { cmdSelfUpdate, cmdService } from '../service';
 import type { ServiceDeps } from '../service';
 import { BINDING_FILE, writeBinding } from './binding';
@@ -161,18 +160,21 @@ function effectiveScope(
 }
 
 /**
- * Run the CLI for one invocation. `argv` is the args after `mimir`; `getDb`
- * lazily supplies an open, migrated database — it must be idempotent (the
- * caller owns the connection's lifecycle) and is called only by verbs that
- * touch data, so help/usage/`skill` paths never open a store (MMR-39); `io`
- * is the injected sink + presentation context. Returns the process exit code.
+ * Run the CLI for one invocation. `argv` is the args after `mimir`; `getStore`
+ * lazily supplies the Store over an open, migrated database — it must be
+ * idempotent (the caller owns the connection's lifecycle) and is called only
+ * by verbs that touch data, so help/usage/`skill` paths never open a store
+ * (MMR-39); `io` is the injected sink + presentation context. Returns the
+ * process exit code.
  */
 export async function runCli(
   argv: string[],
-  getDb: () => Db | Promise<Db>,
+  getStore: () => Store | Promise<Store>,
   io: Io,
   defaults: Defaults = {},
 ): Promise<number> {
+  // Unconverted read paths still want the raw executor (Phase 2a/2b scope).
+  const getDb = async (): Promise<Db> => (await getStore()).db;
   let values: {
     scope?: string;
     priority?: string;
@@ -257,13 +259,17 @@ export async function runCli(
     // Mutation context shared across all write-verb handlers — built lazily so
     // the store is acquired only by verbs that actually touch data (MMR-39):
     // help, usage errors, and `skill install` never open or create it.
-    const mkCtx = async (): Promise<Ctx> => ({
-      db: await getDb(),
-      format: singleFormat,
-      io: ctx,
-      positionals,
-      values: values as Record<string, unknown>,
-    });
+    const mkCtx = async (): Promise<Ctx> => {
+      const store = await getStore();
+      return {
+        db: store.db,
+        format: singleFormat,
+        io: ctx,
+        positionals,
+        store,
+        values: values as Record<string, unknown>,
+      };
+    };
 
     switch (command) {
       case 'next': {
@@ -273,7 +279,7 @@ export async function runCli(
             ? `No ready tasks in ${nextScope} — mimir list --status awaiting -s ${nextScope} shows what's queued`
             : "No ready tasks — mimir list --status awaiting shows what's queued";
         return runSet(
-          await nextTasks(createSqliteStore(await getDb()), {
+          await nextTasks(await getStore(), {
             facets: parseFacets(values.col),
             filters: parseFilters(values),
             limit: parseLimit(values.limit),
@@ -300,7 +306,7 @@ export async function runCli(
           );
         }
         return runSet(
-          await listNodes(createSqliteStore(await getDb()), {
+          await listNodes(await getStore(), {
             facets: parseFacets(values.col),
             filters: parseFilters(values),
             limit: parseLimit(values.limit),

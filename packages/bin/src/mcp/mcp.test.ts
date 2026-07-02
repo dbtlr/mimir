@@ -2,8 +2,15 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { parseJson } from '@mimir/helpers';
 
-import { createInitiative, createPhase, createProject, createTask, findNodeByRef } from '../core';
-import type { Db } from '../core';
+import {
+  createInitiative,
+  createPhase,
+  createProject,
+  createSqliteStore,
+  createTask,
+  findNodeByRef,
+} from '../core';
+import type { Db, Store } from '../core';
 import { createTestDb } from '../db/testing';
 import { buildMcpServer } from './server';
 import {
@@ -34,6 +41,7 @@ import {
 } from './tools';
 
 let db: Db;
+let store: Store;
 let phaseId: number;
 let phaseRef: string;
 let taskRef: string;
@@ -41,6 +49,7 @@ let initiativeId: number;
 
 beforeEach(async () => {
   db = await createTestDb();
+  store = createSqliteStore(db);
   const p = await createProject(db, { key: 'MMR', name: 'm' });
   const init = await createInitiative(db, { projectId: p.id, title: 'i' });
   initiativeId = init.id;
@@ -62,7 +71,7 @@ const textOf = (result: { content: { text: string }[] }) =>
 // ---------------------------------------------------------------------------
 
 test('buildMcpServer registers tools without throwing', () => {
-  expect(() => buildMcpServer(db, '0.0.0')).not.toThrow();
+  expect(() => buildMcpServer(store, '0.0.0')).not.toThrow();
 });
 
 // ---------------------------------------------------------------------------

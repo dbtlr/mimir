@@ -41,7 +41,7 @@ import {
   updateProject,
   validation,
 } from '../core';
-import type { Db, RankPosition, UpdateFields, UpdateProjectFields } from '../core';
+import type { Db, RankPosition, Store, UpdateFields, UpdateProjectFields } from '../core';
 import { usage } from './errors';
 import { parsePriority, parseSize } from './parse';
 import { renderArtifactDetail } from './render';
@@ -57,6 +57,8 @@ import {
 
 /** Shared dispatch context built once in `run.ts` for every write verb. */
 export type Ctx = {
+  /** The verbs' seam; `db` (= `store.db`) serves the unconverted read paths. */
+  store: Store;
   db: Db;
   /** Full positionals including the verb at [0]. */
   positionals: string[];

@@ -13,7 +13,8 @@ import { dirname } from 'node:path';
 
 import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
-import type { Db } from './core';
+import { createSqliteStore } from './core';
+import type { Db, Store } from './core';
 import { createDb } from './db/client';
 import { migrateToLatest, migrationStatus } from './db/migrator';
 import { DEFAULT_PORT, envPort, storePath } from './env';
@@ -189,7 +190,7 @@ async function main(argv: string[]): Promise<number> {
     const db = await openMigrated(storePath());
     let server: ReturnType<typeof createServer>;
     try {
-      server = createServer(db, { hunt: !noHunt, port, version: VERSION });
+      server = createServer(createSqliteStore(db), { hunt: !noHunt, port, version: VERSION });
     } catch (err) {
       await db.destroy();
       if (err instanceof Error && 'code' in err && err.code === 'EADDRINUSE') {
@@ -222,7 +223,7 @@ async function main(argv: string[]): Promise<number> {
     // The MCP rendering honors the same Project Binding (ADR 0011), resolved
     // from the server's spawn cwd.
     const db = await openMigrated(storePath());
-    await serveStdio(db, VERSION, findBinding(process.cwd()));
+    await serveStdio(createSqliteStore(db), VERSION, findBinding(process.cwd()));
     return 0;
   }
 
@@ -230,18 +231,19 @@ async function main(argv: string[]): Promise<number> {
   // (MMR-39): a verb that touches data asks for it, opening + migrating on
   // first ask; help, usage errors, and `skill install` never ask, so a bare
   // `mimir` / `mimir --help` never creates a file. main holds no verb list.
-  let opened: Db | undefined;
-  const getDb = async (): Promise<Db> => (opened ??= await openMigrated(storePath()));
+  let opened: Store | undefined;
+  const getStore = async (): Promise<Store> =>
+    (opened ??= createSqliteStore(await openMigrated(storePath())));
   try {
     // Project Binding (ADR 0011): the nearest .mimir.toml supplies the
     // default -s scope; resolved here so the CLI itself never reads cwd.
-    return await runCli(argv, getDb, stdoutIo(), {
+    return await runCli(argv, getStore, stdoutIo(), {
       cwd: process.cwd(),
       scope: findBinding(process.cwd()),
       service: realServiceDeps(),
     });
   } finally {
-    await opened?.destroy();
+    await opened?.db.destroy();
   }
 }
 

@@ -10,7 +10,7 @@ import {
 import { isMember } from '@mimir/helpers';
 import type { Server } from 'bun';
 
-import type { Db, ListOptions, RankPosition, UpdateFields } from '../core';
+import type { Db, ListOptions, RankPosition, Store, UpdateFields } from '../core';
 import {
   abandonTask,
   annotate,
@@ -33,7 +33,6 @@ import {
   getArtifact,
   getNode,
   listArtifacts,
-  createSqliteStore,
   listNodes,
   listProjects,
   listTransitions,
@@ -255,11 +254,11 @@ function isPortTaken(err: unknown): boolean {
  * convenience; a supervised deployment pins the port and the proxy points at
  * it. Callers must surface the bound port: it may differ from the request.
  */
-export function createServer(db: Db, opts: ServeOptions): Server<undefined> {
+export function createServer(store: Store, opts: ServeOptions): Server<undefined> {
   const last = Math.min(opts.port + PORT_HUNT_SPAN, 65535);
   for (let port = opts.port; ; port++) {
     try {
-      return bindServer(db, opts, port);
+      return bindServer(store, opts, port);
     } catch (err) {
       if (!isPortTaken(err) || opts.port === 0 || opts.hunt === false) {
         throw err;
@@ -276,7 +275,9 @@ export function createServer(db: Db, opts: ServeOptions): Server<undefined> {
   }
 }
 
-function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined> {
+function bindServer(store: Store, opts: ServeOptions, port: number): Server<undefined> {
+  // Unconverted read paths still ride the raw executor (Phase 2a/2b scope).
+  const db = store.db;
   return Bun.serve({
     fetch(req) {
       if (req.method === 'OPTIONS') {
@@ -388,7 +389,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
                 ],
               });
             }
-            const result = await listNodes(createSqliteStore(db), nodeOpts);
+            const result = await listNodes(store, nodeOpts);
             return json(req, setBody(result.total, result.items, result.warnings));
           }),
         POST: (req) =>
