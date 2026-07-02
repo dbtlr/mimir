@@ -1,8 +1,8 @@
 import type { AttentionState, Lane, StatusWord } from '@mimir/contract';
 
-import type { Project } from '../db/schema';
 import type { Db, Tx } from './context';
 import { nodeStatusWord } from './derive';
+import type { Project } from './model';
 import { isStale } from './predicates';
 import type { StaleOptions } from './predicates';
 

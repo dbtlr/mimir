@@ -1,12 +1,12 @@
 import type { FacetName, NodeView, TransitionsResult, TreeView } from '@mimir/contract';
 import { sql } from 'kysely';
 
-import type { Node } from '../db/schema';
 import type { Db } from './context';
 import { notFound, projectNotFound, validation } from './errors';
 import { parseIdentity } from './ids';
 import { buildNodeView, buildProjectView } from './intent/view';
 import { findNodeByRef, isProjectArchived, renderNodeId, renderProjectKey } from './lookup';
+import type { Node } from './model';
 
 /**
  * The resource-envelope reads (ADR 0012) — whole-portfolio and whole-project

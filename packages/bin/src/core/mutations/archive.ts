@@ -1,8 +1,8 @@
-import type { Project } from '../../db/schema';
 import type { Db, Tx } from '../context';
 import { isNodeSettled, lineageIds } from '../derive';
 import { conflict, notFound } from '../errors';
 import { renderNodeId } from '../lookup';
+import type { Project } from '../model';
 import { isReady } from '../predicates';
 import { now } from '../time';
 import { logTransition } from './common';

@@ -1,9 +1,9 @@
 import type { Verdicts } from '@mimir/contract';
 
-import type { Node } from '../db/schema';
 import type { Db, Tx } from './context';
 import { hasUnsettledPrereq, isNodeSettled, isTerminalWord, nodeStatusWord } from './derive';
 import { loadNode } from './lookup';
+import type { Node } from './model';
 import { now } from './time';
 
 /**

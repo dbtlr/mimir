@@ -1,8 +1,8 @@
 import type { Hold } from '@mimir/contract';
 
-import type { Node } from '../../db/schema';
 import type { Db } from '../context';
 import { validation } from '../errors';
+import type { Node } from '../model';
 import { appendRank, isRankable } from '../rank';
 import { logTransition, reloadNode, requireTask, stamp } from './common';
 

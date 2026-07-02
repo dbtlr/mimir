@@ -135,6 +135,7 @@ export type NewNode = Insertable<NodeTable>;
 export type NodeUpdate = Updateable<NodeTable>;
 
 export type Dependency = Selectable<DependencyTable>;
+export type ArtifactLink = Selectable<ArtifactLinkTable>;
 export type Annotation = Selectable<AnnotationTable>;
 export type NewAnnotation = Insertable<AnnotationTable>;
 export type Artifact = Selectable<ArtifactTable>;

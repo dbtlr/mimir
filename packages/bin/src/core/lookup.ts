@@ -1,9 +1,9 @@
 import type { TagEntityType } from '@mimir/contract';
 
-import type { Artifact, Node } from '../db/schema';
 import type { Db, Tx } from './context';
 import { notFound, projectNotFound, validation } from './errors';
 import { parseId, parseIdentity, renderArtifactRef, renderId } from './ids';
+import type { Artifact, Node } from './model';
 
 /** Load a node row by surrogate id, or `undefined` if absent. */
 export async function loadNode(tx: Db | Tx, id: number): Promise<Node | undefined> {

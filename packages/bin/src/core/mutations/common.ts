@@ -1,7 +1,8 @@
-import type { NewTransitionRow, Node } from '../../db/schema';
+import type { NewTransitionRow } from '../../db/schema';
 import type { Tx } from '../context';
 import { conflict, invariant, notFound, validation } from '../errors';
 import { renderNodeId } from '../lookup';
+import type { Node } from '../model';
 import { isReady } from '../predicates';
 import { now } from '../time';
 
