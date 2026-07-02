@@ -251,6 +251,13 @@ test('list q matches SQL LIKE for non-ASCII case (SQLite lower() is ASCII-only)'
   expect((await listNodes(createSqliteStore(db), { q: 'REFACTOR', scope: key })).total).toBe(1);
 });
 
+test('list q: the _ wildcard consumes one full code point, astral included (LIKE parity)', async () => {
+  await createTask(db, { parentId: phaseId, title: 'a😀b' });
+
+  expect((await listNodes(createSqliteStore(db), { q: 'a_b', scope: key })).total).toBe(1);
+  expect((await listNodes(createSqliteStore(db), { q: 'a__b', scope: key })).total).toBe(0);
+});
+
 test('list applies verdicts and field operators within the universe', async () => {
   const a = await createTask(db, { parentId: phaseId, priority: 'p1', title: 'a' });
   const b = await createTask(db, { parentId: phaseId, priority: 'p2', title: 'b' });
