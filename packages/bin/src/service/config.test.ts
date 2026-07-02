@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { configPath, readServeConfig, writeServePort } from './config';
+import { configPath, readServeConfig, readVaultConfig, writeServePort } from './config';
 
 let dir: string;
 beforeEach(() => {
@@ -77,4 +77,23 @@ test('writeServePort creates parents and round-trips', () => {
   writeServePort(file, 50124);
   expect(readFileSync(file, 'utf8')).toBe('[serve]\nport = 50124\n');
   expect(readServeConfig(file)).toEqual({ port: 50124 });
+});
+
+test('readVaultConfig: missing file and missing key are empty; a path round-trips', () => {
+  const file = join(dir, 'config.toml');
+  expect(readVaultConfig(file)).toEqual({});
+  writeFileSync(file, '[serve]\nport = 50124\n');
+  expect(readVaultConfig(file)).toEqual({});
+  writeFileSync(file, '[vault]\npath = "/Volumes/data/vaults/mimir"\n');
+  expect(readVaultConfig(file)).toEqual({ path: '/Volumes/data/vaults/mimir' });
+});
+
+test('readVaultConfig: malformed file and wrong-typed path surface as problems', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, 'not toml [');
+  expect(readVaultConfig(file)).toEqual({ problem: 'malformed' });
+  writeFileSync(file, '[vault]\npath = 7\n');
+  expect(readVaultConfig(file)).toEqual({ problem: 'invalid-path' });
+  writeFileSync(file, '[vault]\npath = ""\n');
+  expect(readVaultConfig(file)).toEqual({ problem: 'invalid-path' });
 });

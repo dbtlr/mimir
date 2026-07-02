@@ -6,14 +6,12 @@
  * on disk); restart is kickstart -k; a nonzero `print` means not loaded.
  */
 import { MimirError } from '../core';
+import type { Exec } from '../exec';
 import { LABEL } from './plist';
 
-export type ExecResult = {
-  code: number;
-  stdout: string;
-  stderr: string;
-};
-export type Exec = (argv: string[]) => Promise<ExecResult>;
+// Re-exported from the shared exec module so existing importers keep working.
+export type { Exec, ExecResult } from '../exec';
+export { bunExec } from '../exec';
 
 export type ServiceInfo = {
   loaded: boolean;
@@ -28,17 +26,6 @@ export type Supervisor = {
   stop: () => Promise<void>;
   restart: () => Promise<void>;
   info: () => Promise<ServiceInfo>;
-};
-
-/** Run an argv via Bun, capturing exit code and output. The one impure edge. */
-export const bunExec: Exec = async (argv) => {
-  const proc = Bun.spawn(argv, { stderr: 'pipe', stdout: 'pipe' });
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  return { code, stderr, stdout };
 };
 
 export class LaunchdSupervisor implements Supervisor {

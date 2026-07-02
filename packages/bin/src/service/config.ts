@@ -55,6 +55,38 @@ export function readServeConfig(file = configPath()): ServeConfig {
   return { problem: 'invalid-port' };
 }
 
+export type VaultConfig = {
+  path?: string;
+  /** Set when a config file exists but contributed nothing — callers may warn. */
+  problem?: 'malformed' | 'invalid-path';
+};
+
+/**
+ * Read the `[vault]` section (MMR-142) — same tolerant posture as
+ * {@link readServeConfig}: parse problems never throw, they surface as
+ * `problem` so the vault-open path can warn that the config was ignored
+ * (and fall through to the built-in default).
+ */
+export function readVaultConfig(file = configPath()): VaultConfig {
+  if (!existsSync(file)) {
+    return {};
+  }
+  let parsed: { vault?: { path?: unknown } };
+  try {
+    parsed = Bun.TOML.parse(readFileSync(file, 'utf8')) as { vault?: { path?: unknown } };
+  } catch {
+    return { problem: 'malformed' };
+  }
+  const path = parsed.vault?.path;
+  if (path === undefined) {
+    return {};
+  }
+  if (typeof path === 'string' && path !== '') {
+    return { path };
+  }
+  return { problem: 'invalid-path' };
+}
+
 /**
  * Write the serve port (the `service install --port` discovery path). The
  * config owns exactly one key today, so a whole-file write is honest; this
