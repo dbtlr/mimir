@@ -3,9 +3,11 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { createTestDb } from '../db/testing';
 import type { Db } from './context';
 import { createInitiative, createProject, createTask } from './create';
+import { validation } from './errors';
 import { archiveProject } from './mutations/archive';
 import { depend } from './mutations/dependency';
 import { createSqliteStore } from './store-sqlite';
+import { expectMimirError } from './testing';
 
 let db: Db;
 beforeEach(async () => {
@@ -90,4 +92,56 @@ test('nodeTags carries node tags in created_at order and omits untagged nodes', 
   });
   expect(ws.nodeTags.has(bare.id)).toBe(false);
   expect([...ws.nodeTags.values()].flat().map((t) => t.tag)).not.toContain('proj');
+});
+
+test('transact rolls the whole scope back on a throw — no partial rows survive', async () => {
+  const store = createSqliteStore(db);
+  const project = await store.transact((w) =>
+    w.insertProject({ description: null, key: 'AA', name: 'a' }),
+  );
+
+  await expectMimirError('validation', () =>
+    store.transact(async (w) => {
+      const seq = await w.allocateSeq(project.id);
+      await w.insertNode({
+        description: null,
+        parent_id: null,
+        project_id: project.id,
+        seq,
+        title: 'orphaned by the rollback',
+        type: 'initiative',
+      });
+      throw validation('mid-verb invariant');
+    }),
+  );
+
+  const ws = await store.loadWorkingSet();
+  expect(ws.nodes).toHaveLength(0);
+  // the seq allocation rolled back with the insert — nothing leaks
+  expect(ws.projects[0]?.last_seq).toBe(0);
+});
+
+test('the writer sees its own in-tx writes — snapshot and point read alike', async () => {
+  const store = createSqliteStore(db);
+  const { nodeId, snapshotIds, reloaded } = await store.transact(async (w) => {
+    const project = await w.insertProject({ description: null, key: 'AA', name: 'a' });
+    const seq = await w.allocateSeq(project.id);
+    const node = await w.insertNode({
+      description: null,
+      parent_id: null,
+      project_id: project.id,
+      seq,
+      title: 'i',
+      type: 'initiative',
+    });
+    const ws = await w.loadWorkingSet();
+    return {
+      nodeId: node.id,
+      reloaded: await w.loadNode(node.id),
+      snapshotIds: ws.nodes.map((n) => n.id),
+    };
+  });
+  expect(reloaded?.title).toBe('i');
+  expect(reloaded?.id).toBe(nodeId);
+  expect(snapshotIds).toEqual([nodeId]);
 });
