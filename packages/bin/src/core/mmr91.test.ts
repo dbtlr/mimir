@@ -21,6 +21,7 @@ import { nextTasks } from './intent/queries';
 import { resolveEntityToken } from './lookup';
 import { completeTask, startTask } from './mutations';
 import { projectTree } from './resource';
+import { createSqliteStore } from './store-sqlite';
 
 let db: Db;
 let phaseId: number;
@@ -145,7 +146,7 @@ describe('Site B — missing project hint', () => {
   });
 
   test('nextTasks with unknown --scope key carries the create hint (core/intent/queries resolveScope)', async () => {
-    const err = await caught(() => nextTasks(db, { scope: 'NOPE' }));
+    const err = await caught(() => nextTasks(createSqliteStore(db), { scope: 'NOPE' }));
     assertCreateHint(err);
 
     // The hint reaches both renderings (previously this path threw a bare error).

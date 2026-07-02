@@ -17,6 +17,7 @@ import {
 } from './mutations';
 import { isStale } from './predicates';
 import { interpret } from './status';
+import { createSqliteStore } from './store-sqlite';
 import { expectMimirError } from './testing';
 
 /**
@@ -131,7 +132,7 @@ test('stale chases an under_review task left too long', async () => {
 test('under_review tasks appear in the default (live) list and roll up a phase', async () => {
   const id = await startedTask();
   await submitTask(db, id);
-  const result = await listNodes(db, { scope: 'MMR' });
+  const result = await listNodes(createSqliteStore(db), { scope: 'MMR' });
   expect(result.items.some((i) => i.status === 'under_review')).toBe(true);
 
   // the phase containing only this task rolls up to under_review

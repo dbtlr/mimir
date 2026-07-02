@@ -18,6 +18,7 @@ import {
   statusOfNode,
   unarchiveProject,
 } from './index';
+import { createSqliteStore } from './store-sqlite';
 import { expectMimirError } from './testing';
 
 /**
@@ -59,16 +60,16 @@ afterEach(async () => {
 });
 
 test('next and list exclude an archived project’s subtree', async () => {
-  const before = await listNodes(db, { status: 'all' });
+  const before = await listNodes(createSqliteStore(db), { status: 'all' });
   expect(before.items.some((n) => n.id === gonTaskId)).toBe(true);
 
   await archiveProject(db, gonProjectId);
 
-  const list = await listNodes(db, { status: 'all' });
+  const list = await listNodes(createSqliteStore(db), { status: 'all' });
   expect(list.items.some((n) => n.id === gonTaskId)).toBe(false);
   expect(list.items.some((n) => n.id.startsWith('KEP-'))).toBe(true); // sibling still visible
 
-  const next = await nextTasks(db, {});
+  const next = await nextTasks(createSqliteStore(db), {});
   expect(next.items.some((n) => n.id.startsWith('GON-'))).toBe(false);
 });
 
@@ -129,7 +130,7 @@ test('unarchive restores full read visibility', async () => {
   await archiveProject(db, gonProjectId);
   await unarchiveProject(db, gonProjectId);
 
-  const list = await listNodes(db, { status: 'all' });
+  const list = await listNodes(createSqliteStore(db), { status: 'all' });
   expect(list.items.some((n) => n.id === gonTaskId)).toBe(true);
   expect((await getNode(db, 'GON')).id).toBe('GON');
   expect((await listProjects(db)).map((p) => p.id).toSorted()).toEqual(['GON', 'KEP']);

@@ -33,6 +33,7 @@ import {
   getArtifact,
   getNode,
   listArtifacts,
+  createSqliteStore,
   listNodes,
   listProjects,
   listTransitions,
@@ -387,7 +388,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
                 ],
               });
             }
-            const result = await listNodes(db, nodeOpts);
+            const result = await listNodes(createSqliteStore(db), nodeOpts);
             return json(req, setBody(result.total, result.items, result.warnings));
           }),
         POST: (req) =>

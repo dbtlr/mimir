@@ -22,6 +22,7 @@ import {
   formatStatusJson,
   getArtifact,
   getNode,
+  createSqliteStore,
   listNodes,
   listProjects,
   nextTasks,
@@ -272,7 +273,7 @@ export async function runCli(
             ? `No ready tasks in ${nextScope} — mimir list --status awaiting -s ${nextScope} shows what's queued`
             : "No ready tasks — mimir list --status awaiting shows what's queued";
         return runSet(
-          await nextTasks(await getDb(), {
+          await nextTasks(createSqliteStore(await getDb()), {
             facets: parseFacets(values.col),
             filters: parseFilters(values),
             limit: parseLimit(values.limit),
@@ -299,7 +300,7 @@ export async function runCli(
           );
         }
         return runSet(
-          await listNodes(await getDb(), {
+          await listNodes(createSqliteStore(await getDb()), {
             facets: parseFacets(values.col),
             filters: parseFilters(values),
             limit: parseLimit(values.limit),

@@ -14,6 +14,8 @@ export * from './rank';
 export * from './ids';
 export * from './lookup';
 export * from './query';
+export type * from './store';
+export * from './store-sqlite';
 export * from './resource';
 export * from './errors';
 export * from './status';
