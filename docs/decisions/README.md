@@ -34,6 +34,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0013](0013-ui-embedded-spa.md)                                   | The UI is an embedded SPA — board-first console, PWA           |
 | [0014](0014-work-artifacts-authored-into-mimir.md)                | Work artifacts are authored into Mimir, not the vault          |
 | [0015](0015-project-archive-frozen-and-hidden.md)                 | Project archive — a frozen, hidden, reversible project state   |
+| [0016](0016-norn-vault-system-of-record.md)                       | A Norn-managed markdown vault is the system of record          |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete SQLite

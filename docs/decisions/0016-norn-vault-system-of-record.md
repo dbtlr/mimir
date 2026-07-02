@@ -1,0 +1,133 @@
+---
+title: 'ADR 0016: A Norn-managed markdown vault is the system of record'
+status: accepted
+date: 2026-07-01
+---
+
+# ADR 0016: A Norn-managed markdown vault is the system of record
+
+Mimir's system of record moves from its own SQLite store to a **Norn-managed
+markdown vault**: markdown files are the durable, git-backed, inspectable
+truth; Norn owns all reads, writes, queries, and integrity (maintaining its
+own SQLite cache as an index); Mimir reduces to a business-logic and
+derivation layer that talks to Norn and never touches files directly. The
+cutover is incremental, behind a coarse `Store` seam, with SQLite remaining
+the default backend until the final phase.
+
+- **One coarse seam, two backends.** All core persistence routes through a
+  `Store` interface (bulk working-set projections + write ops) over a
+  backend-neutral node/edge/artifact model. SQLite is the first
+  implementation; Norn the second. The existing conformance suite is the
+  behavior-preservation oracle, run A/B across backends over the live store.
+- **O(views) queries, never O(nodes).** Mimir issues one bulk projection per
+  view and derives everything else — status words, rollups, predicates,
+  lineage — as pure functions in memory. Derivation never fires per-node
+  follow-up queries.
+- **The stored/derived boundary is unchanged.** `lifecycle` (and the other
+  operator-set facts) are stored in frontmatter; derived status is computed
+  just-in-time and never persisted (ADR 0001/0008). Selection and stored-field
+  aggregation push down into Norn; graph-derived predicates stay in Mimir.
+- **Frontmatter is the typed, queryable record; the body is prose plus
+  append-records.** Anything a query filters or aggregates on lives in
+  frontmatter (`type`, `lifecycle`, `hold`, `project`, `parent`, `depends_on`,
+  `anchor`, `tags`, `rank`, `created`, `lastActivity`). The transition log becomes a
+  `## History` section appended per verb (ADR 0003's append-only record, now
+  human-readable in place); annotations become `## Annotations` records.
+- **Relations denormalize onto the node.** A dependency is a `depends_on`
+  wikilink array, not a join row; the inverse ("who depends on this") is a
+  field-scoped backlink query. Every verb's write reduces to one document —
+  except rank reindex, the one genuine multi-document operation, which the
+  plan surface already applies atomically.
+- **Write path: plan-CAS as the north star.** Norn's plan/apply surface is
+  compare-and-swap over documents — build a plan against the state read,
+  apply atomically, retry on drift. Until the plan surface covers section
+  edits and creates, ordered fallbacks apply (set→edit; create-exclusive
+  retry over derived `max(seq)+1` id allocation). The set→edit fallback
+  temporarily relaxes ADR 0003's same-transaction pairing of state and log:
+  a partial failure leaves correct state with a missing log line — benign
+  and reconcilable, retired when the plan surface lands.
+- **Integrity splits along prevent/detect.** Mimir enforces what requires
+  graph or transition knowledge at its write path (transition legality, the
+  no-dependency-parallel-to-lineage rule, same-lineage move guards). Norn
+  enforces row-local value legality at write (required fields, allowed
+  values) and detects structural drift — schema findings, broken
+  references — via its `validate`/`repair` pass, the backstop for writes
+  that bypass Mimir entirely (hand edits, git merges, other agents).
+  Typed-reference and relational-drift checks are planned additions to that
+  validate pass; write-time graph enforcement stays in Mimir regardless.
+- **Transport: one persistent stdio MCP client per vault.** Mimir holds a
+  single `norn mcp` subprocess and speaks MCP over stdio — warm cache, no
+  per-call spawn. Mimir stays an MCP server to agents while becoming an MCP
+  client to Norn.
+
+## Why
+
+- **It kills the projection problem instead of managing it.** The founding
+  substrate split (work state in SQLite, markdown as projection) made every
+  markdown surface a sync liability. With a Norn-managed vault, markdown _is_
+  the store — inspectable, greppable, diffable, git-historied — and there is
+  nothing to keep in sync.
+- **One query engine.** Norn's north star is a query engine for files; Mimir
+  becomes its first serious API-only consumer. That consolidates two SQLite
+  schemas, two query grammars, and two integrity systems into one engine
+  both tools already share conventions with (ADR 0009 adopted Norn's output
+  and selection contract).
+- **The derivation layer needed the rewrite anyway.** Current derivation is
+  async, DB-coupled, and recursively chatty (O(N×depth) queries per rollup).
+  Bulk-load + pure in-memory derivation is faster on SQLite too, and makes
+  the core trivially testable — the seam phase is independently justified.
+- **Risk is contained by construction.** Incremental phases behind the seam,
+  every step merged behind the unselected backend, a conformance oracle, and
+  a reversible cutover — the irreducibly speculative work is only the
+  Norn-backed `Store` implementation and the one-time migration.
+
+## Considered and rejected
+
+- **Keep SQLite and add a write-through markdown projection** — reintroduces
+  the status-sync surface this decision exists to kill; every projection is
+  a drift liability.
+- **Mimir reads/writes the vault directly** (its own markdown engine) —
+  duplicates Norn's cache, query, integrity, and locking work, and forfeits
+  the one-engine consolidation; the API-only seam is the point.
+- **Store derived status in frontmatter** so aggregation can push down —
+  caching derived state is the decay the architecture forbids (ADR
+  0001/0008); the stored-field fast path plus in-memory overlay covers it.
+- **A parallel rewrite branch** — loses the conformance oracle, the A/B
+  harness, and mergeability; the seam keeps the tool working throughout.
+- **Wait for a Norn network API** — the stdio MCP server is sufficient and
+  local-first; a network surface is Norn's own roadmap and orthogonal here.
+
+## Consequences
+
+- **Phasing:** storage seam (pure core, behavior-preserving) → Norn client
+  with artifacts first → node reads → node writes + one-time migration →
+  cutover and SQLite retirement. Tracked as initiative MMR-126; the
+  Norn-side capability work is tracked in the Norn project (NRN-61).
+- **Norn's contract becomes load-bearing.** The `find`/`count` filter
+  grammar, `--col` projection, rules schema, plan/apply semantics, and MCP
+  tool catalog are now an external dependency contract; breaking changes
+  there break Mimir.
+- **Mimir's vault is its own git repository**, separate from any knowledge
+  vault — work state remains out of the knowledge domain.
+- **Revises [ADR 0014](0014-work-artifacts-authored-into-mimir.md)'s
+  mechanics, preserves its boundary.** Artifacts return to plain files —
+  specs, plans, and session logs regain git history and direct readability
+  without a CLI door, the portability 0014 consciously traded away — but in
+  Mimir's own vault, never a knowledge vault. 0014's decision (work
+  artifacts are authored into Mimir, not the knowledge vault) is unchanged;
+  its "no file is written" mechanics are superseded.
+- **Open items deferred to the phase gates:** how a repo binding names the
+  vault — a checked-in vault path sits in tension with
+  [ADR 0011](0011-repo-binding-is-repo-side.md)'s rejection of environment
+  facts in `.mimir.toml`, to be resolved at the Norn-client phase; and how
+  log-derived timestamps (ADR 0003's computed `became_ready_at`) are
+  derived once the transition log lives in `## History`, resolved at the
+  read-path phase.
+- **The id↔int lookup layer thins:** the file stem is the id; the internal
+  integer mapping disappears with the SQLite schema.
+- **`docs/schema-reference.md` becomes historical at cutover**, replaced by
+  the vault's frontmatter schema (Norn `validate.rules`) as the concrete
+  data reference.
+- **ADR 0010 is reread, not violated:** consumers still consume Mimir
+  through its transports only; Mimir itself now consumes Norn through a
+  transport rather than owning the substrate.

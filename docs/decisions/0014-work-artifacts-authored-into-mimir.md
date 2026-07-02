@@ -67,3 +67,12 @@ copy — the parallel markdown file in the vault is retired.
   have no Mimir project keeps writing files until it binds one.
 - The legacy `Log/` corpus (other tools' Feb–May history, no Mimir-workspace
   logs) is out of scope until those tools bind Mimir projects.
+
+## Revised (2026-07-01, ADR 0016): the no-file mechanics are superseded
+
+[ADR 0016](0016-norn-vault-system-of-record.md) moves Mimir's own store to a
+Norn-managed markdown vault, so artifacts become on-disk files again — in
+Mimir's vault, never a knowledge vault. This record's decision (work
+artifacts are authored into Mimir, not the knowledge vault) is unchanged;
+the "no file is written" mechanics and the portability trade-off recorded
+above are superseded, in artifacts' favor.
