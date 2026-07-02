@@ -61,6 +61,20 @@ export function storePath(): string {
 }
 
 /**
+ * The default Norn-vault path for this build (MMR-142), mirroring
+ * {@link defaultStorePath}: production resolves `$XDG_DATA_HOME/mimir/vault`;
+ * dev/from-source resolves the isolated repo-local `.dev/vault`.
+ */
+export function defaultVaultPath(): string {
+  if (!IS_PRODUCTION) {
+    const srcDir = dirname(fileURLToPath(import.meta.url)); // packages/bin/src
+    return join(srcDir, '..', '..', '..', '.dev', 'vault');
+  }
+  const dataHome = process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share');
+  return join(dataHome, 'mimir', 'vault');
+}
+
+/**
  * The `MIMIR_PORT` override, mirroring `MIMIR_DB` for the port seam. Tolerant
  * like the config reader: an unset var yields `undefined` (use the next source),
  * a malformed one yields `null` so the caller can warn and fall through rather

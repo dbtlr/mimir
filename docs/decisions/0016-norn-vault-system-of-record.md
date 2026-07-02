@@ -119,10 +119,10 @@ the default backend until the final phase.
 - **Open items deferred to the phase gates:** how a repo binding names the
   vault — a checked-in vault path sits in tension with
   [ADR 0011](0011-repo-binding-is-repo-side.md)'s rejection of environment
-  facts in `.mimir.toml`, to be resolved at the Norn-client phase; and how
-  log-derived timestamps (ADR 0003's computed `became_ready_at`) are
-  derived once the transition log lives in `## History`, resolved at the
-  read-path phase.
+  facts in `.mimir.toml`, resolved at the Norn-client phase gate (see the
+  Refinement below); and how log-derived timestamps (ADR 0003's computed
+  `became_ready_at`) are derived once the transition log lives in
+  `## History`, resolved at the read-path phase.
 - **The id↔int lookup layer thins:** the file stem is the id; the internal
   integer mapping disappears with the SQLite schema.
 - **`docs/schema-reference.md` becomes historical at cutover**, replaced by
@@ -131,3 +131,42 @@ the default backend until the final phase.
 - **ADR 0010 is reread, not violated:** consumers still consume Mimir
   through its transports only; Mimir itself now consumes Norn through a
   transport rather than owning the substrate.
+
+## Refinement (2026-07-02, MMR-136/MMR-142): the vault's location, layout, and bootstrap
+
+The Norn-client phase gate resolved the deferred vault-shape items.
+
+- **The vault path is an environment fact** — the same class as the SQLite
+  store path, with the same treatment: `MIMIR_VAULT` env > `[vault] path` in
+  the global config (`~/.config/mimir/config.toml`) > the build-profile
+  default (`$XDG_DATA_HOME/mimir/vault` in production; the repo-local
+  `.dev/vault` from source). `.mimir.toml` never names a vault; the ADR 0011
+  tension dissolves rather than needing an exception.
+- **Per-project directory layout** — `KEY/KEY.md` (the project document),
+  `KEY/KEY-seq.md` (nodes), `KEY/artifacts/KEY-aN.md` (artifacts). Stems
+  remain globally unique, so the layout is browsability, asserted
+  structurally via the generated rules' `allowed_paths`.
+- **Bootstrap is one idempotent convergence**, not create-vs-init modes.
+  `converge(dir)` lands in one of three outcomes: **created** (absent or
+  effectively-empty directory — scaffold, `git init`, initial commit),
+  **converged** (a recognized vault — regenerate drifted rules, bump an
+  older schema, re-init missing git; a no-op when current), **refused**
+  (a non-empty directory without the identity marker, or a marker schema
+  newer than the binary). Refusal is what structurally enforces this ADR's
+  own-repo boundary — Mimir can never move into a knowledge vault.
+- **`.mimir-vault.toml` is the identity marker and migration ratchet.** Its
+  `schema` field is how a future binary that reshapes frontmatter or moves
+  files converges older vaults forward, and how an older binary refuses a
+  newer vault (the downgrade guard). Mimir owns `.norn/config.yaml`
+  wholesale: regenerated on converge, hand edits overwritten.
+- **Mount-safety:** runtime converge auto-creates only at the _derived
+  default_ path. An explicitly configured path (env or config) that is
+  absent is a startup error — `serve` fails fast and exits non-zero so
+  launchd's KeepAlive retries until a late-mounted volume appears; a fresh
+  vault is never silently scaffolded at an unmounted mountpoint. Creation
+  at a custom path belongs to the interactive setup flow.
+- **Commit cadence resolves to periodic snapshots**, not per-write commits:
+  a `vault snapshot` command (commit-if-dirty, optional upstream pull/push)
+  on a scheduled launchd unit, in the `service` family. Converge itself
+  commits only what it owns — the scaffold, schema upgrades, and the
+  baseline of a re-initialized history.

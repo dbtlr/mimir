@@ -50,6 +50,23 @@ release. When a release is cut, this section is promoted to
   `create task --help`) shows that type's own flags; a verb without a dedicated
   descriptor falls back to the top-level help.
 
+- **Vault bootstrap groundwork** (MMR-142, ADR 0016 Phase 2a + Refinement).
+  The Norn-vault foundation, not yet reachable from any command — the Norn
+  backend work wires it in. Vault path resolution mirrors `MIMIR_DB`
+  (`MIMIR_VAULT` env > `[vault] path` in the global config > the
+  build-profile default: `$XDG_DATA_HOME/mimir/vault` in production, the
+  repo-local `.dev/vault` from source). Bootstrap is one idempotent
+  convergence with three outcomes: **created** (empty/absent dir — scaffold
+  the `.mimir-vault.toml` identity marker + generated `.norn/config.yaml`
+  rules, `git init`, initial commit), **converged** (recognized vault —
+  regenerate drifted rules, bump an older schema forward, re-init missing
+  git; no-op when current), **refused** (a non-empty non-vault directory is
+  never adopted; a marker schema newer than the binary is the downgrade
+  guard). Mount-safety: only the derived default path may auto-create — an
+  explicitly configured path that is absent is a fail-fast error, so a
+  daemon on a late-mounted volume retries instead of scaffolding a fresh
+  vault at the mountpoint.
+
 ### Changed
 
 - **Status derivation is computed in-memory over one snapshot** (MMR-133/134,
