@@ -1,16 +1,20 @@
 import type { Priority, Size } from '@mimir/contract';
 
-import type { NodeUpdate } from '../../db/schema';
-import { allocateArtifactSeq } from '../allocation';
-import type { Db } from '../context';
-import { notFound, validation } from '../errors';
+import { invariant, notFound, validation } from '../errors';
 import { renderArtifactRef } from '../ids';
-import { renderNodeId } from '../lookup';
 import type { Node, Project } from '../model';
 import { reorderTask } from '../rank';
 import type { RankPosition } from '../rank';
+import type { NodePatch, ProjectPatch, Store } from '../store';
 import { now } from '../time';
-import { assertProjectActive, reloadNode, requireNode, requireTask, stamp } from './common';
+import {
+  assertProjectActive,
+  reloadNode,
+  renderNodeRef,
+  requireNode,
+  requireTask,
+  stamp,
+} from './common';
 
 /**
  * Data + structural-order verbs that aren't status-bearing: the dumb `update`
@@ -29,9 +33,9 @@ export type UpdateFields = {
   externalRef?: string | null;
 };
 
-export async function updateNode(db: Db, id: number, fields: UpdateFields): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const node = await requireNode(tx, id);
+export async function updateNode(store: Store, id: number, fields: UpdateFields): Promise<Node> {
+  return store.transact(async (w) => {
+    const node = await requireNode(w, id);
 
     const wantsTaskField =
       fields.priority !== undefined ||
@@ -44,7 +48,7 @@ export async function updateNode(db: Db, id: number, fields: UpdateFields): Prom
       throw validation('target applies only to phases');
     }
 
-    const patch: NodeUpdate = {};
+    const patch: NodePatch = {};
     if (fields.title !== undefined) {
       patch.title = fields.title;
     }
@@ -66,9 +70,9 @@ export async function updateNode(db: Db, id: number, fields: UpdateFields): Prom
 
     if (Object.keys(patch).length > 0) {
       patch.updated_at = now();
-      await tx.updateTable('node').set(patch).where('id', '=', id).execute();
+      await w.updateNode(id, patch);
     }
-    return reloadNode(tx, id);
+    return reloadNode(w, id);
   });
 }
 
@@ -83,24 +87,20 @@ export type UpdateProjectFields = {
  * have no status). Returns the updated project row directly.
  */
 export async function updateProject(
-  db: Db,
+  store: Store,
   id: number,
   fields: UpdateProjectFields,
 ): Promise<Project> {
-  return db.transaction().execute(async (tx) => {
-    const project = await tx
-      .selectFrom('project')
-      .selectAll()
-      .where('id', '=', id)
-      .executeTakeFirst();
+  return store.transact(async (w) => {
+    const project = await w.loadProject(id);
     if (project === undefined) {
       throw notFound('the project was not found');
     }
-    await assertProjectActive(tx, id);
+    await assertProjectActive(w, id);
     if (fields.name !== undefined && fields.name.trim() === '') {
       throw validation('project name cannot be blank');
     }
-    const patch: Record<string, unknown> = {};
+    const patch: ProjectPatch = {};
     if (fields.name !== undefined) {
       patch.name = fields.name;
     }
@@ -110,22 +110,22 @@ export async function updateProject(
 
     if (Object.keys(patch).length > 0) {
       patch.updated_at = now();
-      await tx.updateTable('project').set(patch).where('id', '=', id).execute();
+      await w.updateProject(id, patch);
     }
-    return await tx
-      .selectFrom('project')
-      .selectAll()
-      .where('id', '=', id)
-      .executeTakeFirstOrThrow();
+    const updated = await w.loadProject(id);
+    if (updated === undefined) {
+      throw invariant('the record vanished mid-transaction');
+    }
+    return updated;
   });
 }
 
-export async function annotate(db: Db, id: number, content: string): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    await requireNode(tx, id);
-    await tx.insertInto('annotation').values({ content, node_id: id }).execute();
-    await stamp(tx, id); // in-flight activity moves the task (affects stale)
-    return reloadNode(tx, id);
+export async function annotate(store: Store, id: number, content: string): Promise<Node> {
+  return store.transact(async (w) => {
+    await requireNode(w, id);
+    await w.insertAnnotation({ content, node_id: id });
+    await stamp(w, id); // in-flight activity moves the task (affects stale)
+    return reloadNode(w, id);
   });
 }
 
@@ -140,25 +140,21 @@ export type ArtifactUpdateFields = {
  * metadata patch (the transition log records status transitions).
  */
 export async function updateArtifact(
-  db: Db,
+  store: Store,
   id: number,
   fields: ArtifactUpdateFields,
 ): Promise<void> {
   if (fields.title !== undefined && fields.title.trim() === '') {
     throw validation('an artifact title cannot be blank');
   }
-  await db.transaction().execute(async (tx) => {
-    const artifact = await tx
-      .selectFrom('artifact')
-      .select(['id', 'project_id'])
-      .where('id', '=', id)
-      .executeTakeFirst();
+  await store.transact(async (w) => {
+    const artifact = await w.loadArtifact(id);
     if (artifact === undefined) {
       throw notFound('the artifact was not found');
     }
-    await assertProjectActive(tx, artifact.project_id);
+    await assertProjectActive(w, artifact.project_id);
     if (fields.title !== undefined) {
-      await tx.updateTable('artifact').set({ title: fields.title }).where('id', '=', id).execute();
+      await w.updateArtifact(id, { title: fields.title });
     }
   });
 }
@@ -174,64 +170,54 @@ export type AttachArtifactInput = {
 };
 
 export async function attachArtifact(
-  db: Db,
+  store: Store,
   input: AttachArtifactInput,
 ): Promise<{ id: number; renderedId: string }> {
   if (input.title.trim() === '') {
     throw validation('attach requires a title');
   }
-  return db.transaction().execute(async (tx) => {
-    const project = await tx
-      .selectFrom('project')
-      .select('key')
-      .where('id', '=', input.projectId)
-      .executeTakeFirst();
+  return store.transact(async (w) => {
+    const project = await w.loadProject(input.projectId);
     if (project === undefined) {
       throw notFound('the project was not found');
     }
-    await assertProjectActive(tx, input.projectId);
-    const seq = await allocateArtifactSeq(tx, input.projectId);
-    const artifact = await tx
-      .insertInto('artifact')
-      .values({ content: input.content, project_id: input.projectId, seq, title: input.title })
-      .returning('id')
-      .executeTakeFirstOrThrow();
+    await assertProjectActive(w, input.projectId);
+    const seq = await w.allocateArtifactSeq(input.projectId);
+    const artifact = await w.insertArtifact({
+      content: input.content,
+      project_id: input.projectId,
+      seq,
+      title: input.title,
+    });
     for (const tag of input.tags ?? []) {
-      await tx
-        .insertInto('tag')
-        .values({ entity_id: artifact.id, entity_type: 'artifact', note: null, tag })
-        .onConflict((oc) => oc.columns(['entity_type', 'entity_id', 'tag']).doNothing())
-        .execute();
+      await w.insertTag({ entity_id: artifact.id, entity_type: 'artifact', note: null, tag });
     }
     for (const nodeId of input.linkNodeIds ?? []) {
-      const node = await requireNode(tx, nodeId);
+      const node = await requireNode(w, nodeId);
       if (node.project_id !== input.projectId) {
-        const rendered = (await renderNodeId(tx, nodeId)) ?? 'it';
+        const rendered = (await renderNodeRef(w, nodeId)) ?? 'it';
         throw validation(`${rendered} is in a different project — links stay within one project`);
       }
-      await tx
-        .insertInto('artifact_link')
-        .values({ artifact_id: artifact.id, node_id: nodeId })
-        .execute();
+      await w.linkArtifact(artifact.id, nodeId);
     }
     return { id: artifact.id, renderedId: renderArtifactRef({ key: project.key, seq }) };
   });
 }
 
 export async function reorder(
-  db: Db,
+  store: Store,
   id: number,
   position: RankPosition,
   refId: number | null = null,
 ): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const task = await requireTask(tx, id);
+  return store.transact(async (w) => {
+    const task = await requireTask(w, id);
     if (task.rank === null) {
       throw validation(
         'cannot reorder a task outside the rankable set (terminal, held, or under review)',
       );
     }
-    await reorderTask(tx, task.project_id, id, position, refId);
-    return reloadNode(tx, id);
+    await reorderTask(w, task.project_id, id, position, refId);
+    return reloadNode(w, id);
   });
 }

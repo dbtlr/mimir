@@ -5,21 +5,24 @@ import type { Server } from 'bun';
 import type { Db } from '../core/context';
 import { createInitiative, createPhase, createProject, createTask } from '../core/create';
 import { attachArtifact } from '../core/mutations';
+import type { Store } from '../core/store';
 import { createSqliteStore } from '../core/store-sqlite';
 import { createTestDb } from '../db/testing';
 import { createServer } from './server';
 
 let db: Db;
+let store: Store;
 let server: Server<undefined>;
 let base: string;
 
 beforeAll(async () => {
   db = await createTestDb();
-  const p = await createProject(db, { key: 'MMR', name: 'Mimir' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
-  const t = await createTask(db, { parentId: phase.id, title: 't' });
-  await attachArtifact(db, {
+  store = createSqliteStore(db);
+  const p = await createProject(store, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
+  const t = await createTask(store, { parentId: phase.id, title: 't' });
+  await attachArtifact(store, {
     content: 'loopback and Caddy',
     linkNodeIds: [t.id],
     projectId: p.id,

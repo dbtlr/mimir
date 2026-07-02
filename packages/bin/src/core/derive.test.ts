@@ -7,11 +7,14 @@ import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { childDistribution, deriveSet, nodeStatusWord, statusOf } from './derive';
 import { loadNode } from './lookup';
-import { loadWorkingSet } from './store-sqlite';
+import type { Store } from './store';
+import { createSqliteStore, loadWorkingSet } from './store-sqlite';
 
 let db: Db;
+let store: Store;
 beforeEach(async () => {
   db = await createTestDb();
+  store = createSqliteStore(db);
 });
 afterEach(async () => {
   await db.destroy();
@@ -39,14 +42,14 @@ async function dep(nodeId: number, dependsOn: number): Promise<void> {
 }
 
 test('an initiative-level prerequisite gates a deep task and rolls the phase up to awaiting', async () => {
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'dependent init' });
-  const prereqInit = await createInitiative(db, { projectId: p.id, title: 'prereq init' });
-  const prereqTask = await createTask(db, { parentId: prereqInit.id, title: 'prereq work' });
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'dependent init' });
+  const prereqInit = await createInitiative(store, { projectId: p.id, title: 'prereq init' });
+  const prereqTask = await createTask(store, { parentId: prereqInit.id, title: 'prereq work' });
   await dep(init.id, prereqInit.id); // edge two levels above the leaf
 
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
-  const deep = await createTask(db, { parentId: phase.id, title: 'deep' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
+  const deep = await createTask(store, { parentId: phase.id, title: 'deep' });
 
   // inherited across two levels (deep → phase → init), and the phase rolls up awaiting
   expect(nodeStatusWord(await setOf(), await reload(deep.id))).toBe('awaiting');
@@ -59,13 +62,13 @@ test('an initiative-level prerequisite gates a deep task and rolls the phase up 
 });
 
 test('an inherited gate is advisory: a started descendant stays in_progress', async () => {
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const phase1 = await createPhase(db, { parentId: init.id, title: 'phase 1' });
-  await createTask(db, { parentId: phase1.id, title: 'p1 work' }); // keeps phase 1 unsettled
-  const phase2 = await createPhase(db, { parentId: init.id, title: 'phase 2' });
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase1 = await createPhase(store, { parentId: init.id, title: 'phase 1' });
+  await createTask(store, { parentId: phase1.id, title: 'p1 work' }); // keeps phase 1 unsettled
+  const phase2 = await createPhase(store, { parentId: init.id, title: 'phase 2' });
   await dep(phase2.id, phase1.id);
-  const started = await createTask(db, { parentId: phase2.id, title: 'started early' });
+  const started = await createTask(store, { parentId: phase2.id, title: 'started early' });
 
   // gate governs picking up new work, not retroactively un-starting active work
   await setLifecycle(started.id, 'in_progress');
@@ -75,11 +78,11 @@ test('an inherited gate is advisory: a started descendant stays in_progress', as
 });
 
 test('a fresh phase of todo tasks rolls up to ready', async () => {
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
-  await createTask(db, { parentId: phase.id, title: 't1' });
-  await createTask(db, { parentId: phase.id, title: 't2' });
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
+  await createTask(store, { parentId: phase.id, title: 't1' });
+  await createTask(store, { parentId: phase.id, title: 't2' });
 
   expect(childDistribution(await setOf(), phase.id)).toEqual({ ready: 2 });
   expect(statusOf(await setOf(), await reload(phase.id)).status).toBe('ready');
@@ -88,11 +91,11 @@ test('a fresh phase of todo tasks rolls up to ready', async () => {
 });
 
 test('live work beats ready in the rollup', async () => {
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
-  const t1 = await createTask(db, { parentId: phase.id, title: 't1' });
-  await createTask(db, { parentId: phase.id, title: 't2' });
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
+  const t1 = await createTask(store, { parentId: phase.id, title: 't1' });
+  await createTask(store, { parentId: phase.id, title: 't2' });
 
   await setLifecycle(t1.id, 'in_progress');
   expect(childDistribution(await setOf(), phase.id)).toEqual({ in_progress: 1, ready: 1 });
@@ -100,14 +103,14 @@ test('live work beats ready in the rollup', async () => {
 });
 
 test('all-done rolls up to done; an empty phase is new', async () => {
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
-  const t1 = await createTask(db, { parentId: phase.id, title: 't1' });
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
+  const t1 = await createTask(store, { parentId: phase.id, title: 't1' });
   await setLifecycle(t1.id, 'done');
   expect(statusOf(await setOf(), await reload(phase.id)).status).toBe('done');
 
-  const empty = await createPhase(db, { parentId: init.id, title: 'empty' });
+  const empty = await createPhase(store, { parentId: init.id, title: 'empty' });
   expect(statusOf(await setOf(), await reload(empty.id)).status).toBe('new');
 
   // initiative over [done phase, new phase] → new (only undefined chunks remain after terminal)
@@ -115,11 +118,11 @@ test('all-done rolls up to done; an empty phase is new', async () => {
 });
 
 test('a task awaits an unsettled prerequisite and becomes ready once it settles', async () => {
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
-  const prereq = await createTask(db, { parentId: phase.id, title: 'prereq' });
-  const dependent = await createTask(db, { parentId: phase.id, title: 'dependent' });
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
+  const prereq = await createTask(store, { parentId: phase.id, title: 'prereq' });
+  const dependent = await createTask(store, { parentId: phase.id, title: 'dependent' });
   await db
     .insertInto('dependency')
     .values({ depends_on_node_id: prereq.id, node_id: dependent.id })
@@ -131,7 +134,7 @@ test('a task awaits an unsettled prerequisite and becomes ready once it settles'
   expect(nodeStatusWord(await setOf(), await reload(dependent.id))).toBe('ready');
 
   // an abandoned prerequisite also settles the dependent (abandoned never freezes)
-  const prereq2 = await createTask(db, { parentId: phase.id, title: 'prereq2' });
+  const prereq2 = await createTask(store, { parentId: phase.id, title: 'prereq2' });
   await db
     .insertInto('dependency')
     .values({ depends_on_node_id: prereq2.id, node_id: dependent.id })

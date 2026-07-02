@@ -18,6 +18,7 @@ import {
   statusOfNode,
   unarchiveProject,
 } from './index';
+import type { Store } from './store';
 import { createSqliteStore } from './store-sqlite';
 import { expectMimirError } from './testing';
 
@@ -28,26 +29,28 @@ import { expectMimirError } from './testing';
  */
 
 let db: Db;
+let store: Store;
 let gonProjectId: number;
 let gonTaskId: string;
 let gonTaskNumId: number;
 let gonArtifactId: string;
 beforeEach(async () => {
   db = await createTestDb();
+  store = createSqliteStore(db);
   // A project we keep, and one we'll archive.
-  const kep = await createProject(db, { key: 'KEP', name: 'keep' });
-  const kInit = await createInitiative(db, { projectId: kep.id, title: 'i' });
-  const kPhase = await createPhase(db, { parentId: kInit.id, title: 'ph' });
-  await createTask(db, { parentId: kPhase.id, title: 'kep task' });
+  const kep = await createProject(store, { key: 'KEP', name: 'keep' });
+  const kInit = await createInitiative(store, { projectId: kep.id, title: 'i' });
+  const kPhase = await createPhase(store, { parentId: kInit.id, title: 'ph' });
+  await createTask(store, { parentId: kPhase.id, title: 'kep task' });
 
-  const gon = await createProject(db, { key: 'GON', name: 'gone' });
+  const gon = await createProject(store, { key: 'GON', name: 'gone' });
   gonProjectId = gon.id;
-  const gInit = await createInitiative(db, { projectId: gon.id, title: 'i' });
-  const gPhase = await createPhase(db, { parentId: gInit.id, title: 'ph' });
-  const gTask = await createTask(db, { parentId: gPhase.id, title: 'gon task' });
+  const gInit = await createInitiative(store, { projectId: gon.id, title: 'i' });
+  const gPhase = await createPhase(store, { parentId: gInit.id, title: 'ph' });
+  const gTask = await createTask(store, { parentId: gPhase.id, title: 'gon task' });
   gonTaskId = `GON-${String(gTask.seq)}`;
   gonTaskNumId = gTask.id;
-  const art = await attachArtifact(db, {
+  const art = await attachArtifact(store, {
     content: 'spec',
     linkNodeIds: [gTask.id],
     projectId: gon.id,
@@ -63,7 +66,7 @@ test('next and list exclude an archived project’s subtree', async () => {
   const before = await listNodes(createSqliteStore(db), { status: 'all' });
   expect(before.items.some((n) => n.id === gonTaskId)).toBe(true);
 
-  await archiveProject(db, gonProjectId);
+  await archiveProject(store, gonProjectId);
 
   const list = await listNodes(createSqliteStore(db), { status: 'all' });
   expect(list.items.some((n) => n.id === gonTaskId)).toBe(false);
@@ -74,7 +77,7 @@ test('next and list exclude an archived project’s subtree', async () => {
 });
 
 test('get / status / tree / getArtifact on an archived target read as not_found', async () => {
-  await archiveProject(db, gonProjectId);
+  await archiveProject(store, gonProjectId);
   await expectMimirError('not_found', () => getNode(db, 'GON')); // the project
   await expectMimirError('not_found', () => getNode(db, gonTaskId)); // a node under it
   await expectMimirError('not_found', () => statusOfNode(db, 'GON'));
@@ -85,7 +88,7 @@ test('get / status / tree / getArtifact on an archived target read as not_found'
 });
 
 test('listProjects hides archived by default; the door reveals only archived', async () => {
-  await archiveProject(db, gonProjectId);
+  await archiveProject(store, gonProjectId);
 
   const active = await listProjects(db);
   expect(active.map((p) => p.id).toSorted()).toEqual(['KEP']);
@@ -101,22 +104,22 @@ test('listArtifacts excludes an archived project’s artifacts', async () => {
   const before = await listArtifacts(db);
   expect(before.total).toBe(1);
 
-  await archiveProject(db, gonProjectId);
+  await archiveProject(store, gonProjectId);
   const after = await listArtifacts(db);
   expect(after.total).toBe(0);
 });
 
 test('the deps facet does not leak archived nodes across a cross-project edge', async () => {
   // Active AAA with two tasks + a cross-project edge each way into the GON task.
-  const aaa = await createProject(db, { key: 'AAA', name: 'a' });
-  const aInit = await createInitiative(db, { projectId: aaa.id, title: 'i' });
-  const aPhase = await createPhase(db, { parentId: aInit.id, title: 'ph' });
-  const a1 = await createTask(db, { parentId: aPhase.id, title: 'a1' });
-  const a2 = await createTask(db, { parentId: aPhase.id, title: 'a2' });
-  await depend(db, a1.id, [gonTaskNumId]); // a1 depends on the GON task (dependsOn/awaitingOn)
-  await depend(db, gonTaskNumId, [a2.id]); // the GON task depends on a2 (a2 blocking)
+  const aaa = await createProject(store, { key: 'AAA', name: 'a' });
+  const aInit = await createInitiative(store, { projectId: aaa.id, title: 'i' });
+  const aPhase = await createPhase(store, { parentId: aInit.id, title: 'ph' });
+  const a1 = await createTask(store, { parentId: aPhase.id, title: 'a1' });
+  const a2 = await createTask(store, { parentId: aPhase.id, title: 'a2' });
+  await depend(store, a1.id, [gonTaskNumId]); // a1 depends on the GON task (dependsOn/awaitingOn)
+  await depend(store, gonTaskNumId, [a2.id]); // the GON task depends on a2 (a2 blocking)
 
-  await archiveProject(db, gonProjectId);
+  await archiveProject(store, gonProjectId);
 
   const a1View = await getNode(db, `AAA-${String(a1.seq)}`, { facets: ['deps'] });
   const shown = [...(a1View.deps?.dependsOn ?? []), ...(a1View.deps?.awaitingOn ?? [])];
@@ -127,8 +130,8 @@ test('the deps facet does not leak archived nodes across a cross-project edge', 
 });
 
 test('unarchive restores full read visibility', async () => {
-  await archiveProject(db, gonProjectId);
-  await unarchiveProject(db, gonProjectId);
+  await archiveProject(store, gonProjectId);
+  await unarchiveProject(store, gonProjectId);
 
   const list = await listNodes(createSqliteStore(db), { status: 'all' });
   expect(list.items.some((n) => n.id === gonTaskId)).toBe(true);

@@ -35,7 +35,6 @@ import {
   formatStatusJson,
   getArtifact,
   getNode,
-  createSqliteStore,
   listNodes,
   listProjects,
   moveNode,
@@ -64,7 +63,7 @@ import {
   updateProject,
   validation,
 } from '../core';
-import type { Db, RankPosition, UpdateFields, UpdateProjectFields } from '../core';
+import type { RankPosition, Store, UpdateFields, UpdateProjectFields } from '../core';
 
 /**
  * The MCP tool handlers — the agent envelope over the shared intent layer.
@@ -108,16 +107,20 @@ async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {
 }
 
 /** Resolve a node token to its surrogate id — the MCP binding of the core guard. */
-async function nodeId(db: Db, id: string, expected = 'node'): Promise<number> {
-  return resolveNodeToken(db, id, expected);
+async function nodeId(store: Store, id: string, expected = 'node'): Promise<number> {
+  return resolveNodeToken(store.db, id, expected);
 }
 
 /**
  * Resolve a bare project KEY to its surrogate integer id.
  * Throws not_found if no project with that key exists.
  */
-async function projectId(db: Db, key: string): Promise<number> {
-  const row = await db.selectFrom('project').select('id').where('key', '=', key).executeTakeFirst();
+async function projectId(store: Store, key: string): Promise<number> {
+  const row = await store.db
+    .selectFrom('project')
+    .select('id')
+    .where('key', '=', key)
+    .executeTakeFirst();
   if (row === undefined) {
     throw projectNotFound(key);
   }
@@ -127,10 +130,10 @@ async function projectId(db: Db, key: string): Promise<number> {
 /**
  * Echo a returned Node row as bare JSON (the mutation echo contract).
  * Accepts the Node row returned directly by mutation verbs — no reload needed.
- * Typed via `Parameters` to avoid importing `Node` from db directly.
+ * Typed via `Parameters` to avoid importing `Node` from store.db directly.
  */
-async function echoNode(db: Db, node: Parameters<typeof nodeViewOf>[1]): Promise<ToolResult> {
-  return ok(formatNodeJson(await nodeViewOf(db, node)));
+async function echoNode(store: Store, node: Parameters<typeof nodeViewOf>[1]): Promise<ToolResult> {
+  return ok(formatNodeJson(await nodeViewOf(store.db, node)));
 }
 
 // ---------------------------------------------------------------------------
@@ -195,9 +198,9 @@ function collectVerdicts(args: SetQueryArgs): VerdictSelector[] {
   ];
 }
 
-export function toolNext(db: Db, args: SetQueryArgs): Promise<ToolResult> {
+export function toolNext(store: Store, args: SetQueryArgs): Promise<ToolResult> {
   return guard(async () => {
-    const result = await nextTasks(createSqliteStore(db), {
+    const result = await nextTasks(store, {
       filters: collectFilters(args),
       limit: args.limit,
       priority: args.priority,
@@ -209,11 +212,11 @@ export function toolNext(db: Db, args: SetQueryArgs): Promise<ToolResult> {
   });
 }
 
-export function toolList(db: Db, args: SetQueryArgs): Promise<ToolResult> {
+export function toolList(store: Store, args: SetQueryArgs): Promise<ToolResult> {
   return guard(async () => {
     // The archived-projects door (ADR 0015) — lists projects, not nodes.
     if (args.status === 'archived') {
-      const items = await listProjects(db, undefined, 'archived');
+      const items = await listProjects(store.db, undefined, 'archived');
       return ok(
         formatSetJson(
           { items, returned: items.length, startsAt: 0, total: items.length },
@@ -221,7 +224,7 @@ export function toolList(db: Db, args: SetQueryArgs): Promise<ToolResult> {
         ),
       );
     }
-    const result = await listNodes(createSqliteStore(db), {
+    const result = await listNodes(store, {
       filters: collectFilters(args),
       limit: args.limit,
       priority: args.priority,
@@ -236,92 +239,104 @@ export function toolList(db: Db, args: SetQueryArgs): Promise<ToolResult> {
 }
 
 export function toolGet(
-  db: Db,
+  store: Store,
   args: { id: string; facets?: (FacetName | 'content')[] },
 ): Promise<ToolResult> {
   return guard(async () => {
     const requested = args.facets ?? [];
     if (parseIdentity(args.id)?.kind === 'artifact') {
       const content = requested.includes('content');
-      return ok(formatArtifactJson(await getArtifact(db, args.id, { content })));
+      return ok(formatArtifactJson(await getArtifact(store.db, args.id, { content })));
     }
     // `content` is artifact-only; ignore it for nodes/projects.
     const nodeFacets = requested.filter((f): f is FacetName => f !== 'content');
     const facets =
       nodeFacets.length > 0 ? [...new Set<FacetName>([...CHEAP_FACETS, ...nodeFacets])] : undefined;
-    return ok(formatNodeJson(await getNode(db, args.id, { facets })));
+    return ok(formatNodeJson(await getNode(store.db, args.id, { facets })));
   });
 }
 
-export function toolStatus(db: Db, args: { id: string }): Promise<ToolResult> {
-  return guard(async () => ok(formatStatusJson(await statusOfNode(db, args.id))));
+export function toolStatus(store: Store, args: { id: string }): Promise<ToolResult> {
+  return guard(async () => ok(formatStatusJson(await statusOfNode(store.db, args.id))));
 }
 
 // ---------------------------------------------------------------------------
 // Lifecycle mutation tools
 // ---------------------------------------------------------------------------
 
-export function toolStart(db: Db, args: { id: string }): Promise<ToolResult> {
+export function toolStart(store: Store, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, 'task');
-    const node = await startTask(db, id);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id, 'task');
+    const node = await startTask(store, id);
+    return echoNode(store, node);
   });
 }
 
-export function toolSubmit(db: Db, args: { id: string }): Promise<ToolResult> {
+export function toolSubmit(store: Store, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, 'task');
-    const node = await submitTask(db, id);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id, 'task');
+    const node = await submitTask(store, id);
+    return echoNode(store, node);
   });
 }
 
-export function toolReturn(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
+export function toolReturn(
+  store: Store,
+  args: { id: string; reason?: string },
+): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, 'task');
-    const node = await returnTask(db, id, args.reason);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id, 'task');
+    const node = await returnTask(store, id, args.reason);
+    return echoNode(store, node);
   });
 }
 
-export function toolReopen(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
+export function toolReopen(
+  store: Store,
+  args: { id: string; reason?: string },
+): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, 'task');
-    const node = await reopenTask(db, id, args.reason);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id, 'task');
+    const node = await reopenTask(store, id, args.reason);
+    return echoNode(store, node);
   });
 }
 
 /** Archive a project — freeze + hide it and its subtree (ADR 0015). Echoes the project. */
-export function toolArchive(db: Db, args: { key: string; reason?: string }): Promise<ToolResult> {
+export function toolArchive(
+  store: Store,
+  args: { key: string; reason?: string },
+): Promise<ToolResult> {
   return guard(async () => {
-    const project = await archiveProject(db, await projectId(db, args.key), args.reason);
-    return ok(formatNodeJson(await projectViewOf(db, project)));
+    const project = await archiveProject(store, await projectId(store, args.key), args.reason);
+    return ok(formatNodeJson(await projectViewOf(store.db, project)));
   });
 }
 
 /** Unarchive a project (ADR 0015). Echoes the project. */
-export function toolUnarchive(db: Db, args: { key: string }): Promise<ToolResult> {
+export function toolUnarchive(store: Store, args: { key: string }): Promise<ToolResult> {
   return guard(async () => {
-    const project = await unarchiveProject(db, await projectId(db, args.key));
-    return ok(formatNodeJson(await projectViewOf(db, project)));
+    const project = await unarchiveProject(store, await projectId(store, args.key));
+    return ok(formatNodeJson(await projectViewOf(store.db, project)));
   });
 }
 
-export function toolDone(db: Db, args: { id: string }): Promise<ToolResult> {
+export function toolDone(store: Store, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, 'task');
-    const node = await completeTask(db, id);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id, 'task');
+    const node = await completeTask(store, id);
+    return echoNode(store, node);
   });
 }
 
-export function toolAbandon(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
+export function toolAbandon(
+  store: Store,
+  args: { id: string; reason?: string },
+): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, 'task');
-    const node = await abandonTask(db, id, args.reason);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id, 'task');
+    const node = await abandonTask(store, id, args.reason);
+    return echoNode(store, node);
   });
 }
 
@@ -329,35 +344,38 @@ export function toolAbandon(db: Db, args: { id: string; reason?: string }): Prom
 // Hold mutation tools
 // ---------------------------------------------------------------------------
 
-export function toolPark(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
+export function toolPark(store: Store, args: { id: string; reason?: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, 'task');
-    const node = await parkTask(db, id, args.reason);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id, 'task');
+    const node = await parkTask(store, id, args.reason);
+    return echoNode(store, node);
   });
 }
 
-export function toolUnpark(db: Db, args: { id: string }): Promise<ToolResult> {
+export function toolUnpark(store: Store, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, 'task');
-    const node = await unparkTask(db, id);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id, 'task');
+    const node = await unparkTask(store, id);
+    return echoNode(store, node);
   });
 }
 
-export function toolBlock(db: Db, args: { id: string; reason?: string }): Promise<ToolResult> {
+export function toolBlock(
+  store: Store,
+  args: { id: string; reason?: string },
+): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, 'task');
-    const node = await blockTask(db, id, args.reason);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id, 'task');
+    const node = await blockTask(store, id, args.reason);
+    return echoNode(store, node);
   });
 }
 
-export function toolUnblock(db: Db, args: { id: string }): Promise<ToolResult> {
+export function toolUnblock(store: Store, args: { id: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, 'task');
-    const node = await unblockTask(db, id);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id, 'task');
+    const node = await unblockTask(store, id);
+    return echoNode(store, node);
   });
 }
 
@@ -365,21 +383,24 @@ export function toolUnblock(db: Db, args: { id: string }): Promise<ToolResult> {
 // Dependency mutation tools
 // ---------------------------------------------------------------------------
 
-export function toolDepend(db: Db, args: { id: string; on: string[] }): Promise<ToolResult> {
+export function toolDepend(store: Store, args: { id: string; on: string[] }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id);
-    const onIds = await Promise.all(args.on.map((t) => nodeId(db, t)));
-    const node = await depend(db, id, onIds);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id);
+    const onIds = await Promise.all(args.on.map((t) => nodeId(store, t)));
+    const node = await depend(store, id, onIds);
+    return echoNode(store, node);
   });
 }
 
-export function toolUndepend(db: Db, args: { id: string; on: string[] }): Promise<ToolResult> {
+export function toolUndepend(
+  store: Store,
+  args: { id: string; on: string[] },
+): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id);
-    const onIds = await Promise.all(args.on.map((t) => nodeId(db, t)));
-    const node = await undepend(db, id, onIds);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id);
+    const onIds = await Promise.all(args.on.map((t) => nodeId(store, t)));
+    const node = await undepend(store, id, onIds);
+    return echoNode(store, node);
   });
 }
 
@@ -387,31 +408,31 @@ export function toolUndepend(db: Db, args: { id: string; on: string[] }): Promis
 // Structure mutation tools
 // ---------------------------------------------------------------------------
 
-export function toolMove(db: Db, args: { id: string; to: string }): Promise<ToolResult> {
+export function toolMove(store: Store, args: { id: string; to: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id);
-    const toId = await nodeId(db, args.to);
-    const node = await moveNode(db, id, toId);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id);
+    const toId = await nodeId(store, args.to);
+    const node = await moveNode(store, id, toId);
+    return echoNode(store, node);
   });
 }
 
 export function toolReorder(
-  db: Db,
+  store: Store,
   args: { id: string; position: 'top' | 'bottom' | 'before' | 'after'; ref?: string },
 ): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id, 'task');
+    const id = await nodeId(store, args.id, 'task');
     const position: RankPosition = args.position;
     let refId: number | null = null;
     if (position === 'before' || position === 'after') {
       if (args.ref === undefined) {
         throw validation('reorder before/after requires ref');
       }
-      refId = await nodeId(db, args.ref);
+      refId = await nodeId(store, args.ref);
     }
-    const node = await reorder(db, id, position, refId);
-    return echoNode(db, node);
+    const node = await reorder(store, id, position, refId);
+    return echoNode(store, node);
   });
 }
 
@@ -420,7 +441,7 @@ export function toolReorder(
 // ---------------------------------------------------------------------------
 
 export function toolUpdate(
-  db: Db,
+  store: Store,
   args: {
     id: string;
     title?: string;
@@ -434,12 +455,12 @@ export function toolUpdate(
 ): Promise<ToolResult> {
   return guard(async () => {
     if (parseIdentity(args.id)?.kind === 'artifact') {
-      return updateArtifactTool(db, args);
+      return updateArtifactTool(store, args);
     }
     if (parseIdentity(args.id)?.kind === 'project') {
-      return updateProjectTool(db, args);
+      return updateProjectTool(store, args);
     }
-    const id = await nodeId(db, args.id);
+    const id = await nodeId(store, args.id);
     const fields: UpdateFields = {};
     if (args.title !== undefined) {
       fields.title = args.title;
@@ -468,14 +489,14 @@ export function toolUpdate(
     if (args.externalRef !== undefined) {
       fields.externalRef = args.externalRef;
     }
-    const node = await updateNode(db, id, fields);
-    return echoNode(db, node);
+    const node = await updateNode(store, id, fields);
+    return echoNode(store, node);
   });
 }
 
 /** `update KEY` — patch a project's `name` and/or `description` (MMR-88). */
 async function updateProjectTool(
-  db: Db,
+  store: Store,
   args: {
     id: string;
     name?: string;
@@ -496,7 +517,7 @@ async function updateProjectTool(
     );
   }
   const key = args.id;
-  const pid = await projectId(db, key);
+  const pid = await projectId(store, key);
   const fields: UpdateProjectFields = {};
   if (args.name !== undefined) {
     fields.name = args.name;
@@ -504,9 +525,9 @@ async function updateProjectTool(
   if (args.description !== undefined) {
     fields.description = args.description;
   }
-  await updateProject(db, pid, fields);
+  await updateProject(store, pid, fields);
   // Echo the updated project through the same projection as getNode/get KEY
-  const project = await db
+  const project = await store.db
     .selectFrom('project')
     .selectAll()
     .where('id', '=', pid)
@@ -514,12 +535,12 @@ async function updateProjectTool(
   if (project === undefined) {
     throw projectNotFound(key);
   }
-  return ok(formatNodeJson(await projectViewOf(db, project)));
+  return ok(formatNodeJson(await projectViewOf(store.db, project)));
 }
 
 /** `update` on a `KEY-aN` id — title is an artifact's one mutable field (MMR-40). */
 async function updateArtifactTool(
-  db: Db,
+  store: Store,
   args: {
     id: string;
     title?: string;
@@ -542,21 +563,24 @@ async function updateArtifactTool(
   if (identity?.kind !== 'artifact') {
     throw notFound(`no artifact with id ${args.id}`);
   }
-  const artifact = await findArtifactByRef(db, identity);
+  const artifact = await findArtifactByRef(store.db, identity);
   if (artifact === undefined) {
     throw notFound(`no artifact ${args.id}`);
   }
   if (args.title !== undefined) {
-    await updateArtifact(db, artifact.id, { title: args.title });
+    await updateArtifact(store, artifact.id, { title: args.title });
   }
-  return ok(formatArtifactJson(await getArtifact(db, args.id)));
+  return ok(formatArtifactJson(await getArtifact(store.db, args.id)));
 }
 
-export function toolAnnotate(db: Db, args: { id: string; content: string }): Promise<ToolResult> {
+export function toolAnnotate(
+  store: Store,
+  args: { id: string; content: string },
+): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(db, args.id);
-    const node = await annotate(db, id, args.content);
-    return echoNode(db, node);
+    const id = await nodeId(store, args.id);
+    const node = await annotate(store, id, args.content);
+    return echoNode(store, node);
   });
 }
 
@@ -565,7 +589,7 @@ export function toolAnnotate(db: Db, args: { id: string; content: string }): Pro
 // ---------------------------------------------------------------------------
 
 export function toolTag(
-  db: Db,
+  store: Store,
   args: { ids: string[]; tags: string[]; note?: string },
 ): Promise<ToolResult> {
   return guard(async () => {
@@ -575,13 +599,16 @@ export function toolTag(
     if (args.tags.length === 0) {
       throw validation('tag requires at least one tag');
     }
-    const targets = await Promise.all(args.ids.map((t) => resolveEntityToken(db, t)));
-    await tagEntities(db, targets, args.tags, args.note);
+    const targets = await Promise.all(args.ids.map((t) => resolveEntityToken(store.db, t)));
+    await tagEntities(store, targets, args.tags, args.note);
     return ok(JSON.stringify({ tagged: { ids: args.ids, tags: args.tags } }));
   });
 }
 
-export function toolUntag(db: Db, args: { ids: string[]; tags: string[] }): Promise<ToolResult> {
+export function toolUntag(
+  store: Store,
+  args: { ids: string[]; tags: string[] },
+): Promise<ToolResult> {
   return guard(async () => {
     if (args.ids.length === 0) {
       throw validation('untag requires at least one id');
@@ -589,8 +616,8 @@ export function toolUntag(db: Db, args: { ids: string[]; tags: string[] }): Prom
     if (args.tags.length === 0) {
       throw validation('untag requires at least one tag');
     }
-    const targets = await Promise.all(args.ids.map((t) => resolveEntityToken(db, t)));
-    await untagEntities(db, targets, args.tags);
+    const targets = await Promise.all(args.ids.map((t) => resolveEntityToken(store.db, t)));
+    await untagEntities(store, targets, args.tags);
     return ok(JSON.stringify({ untagged: { ids: args.ids, tags: args.tags } }));
   });
 }
@@ -600,7 +627,7 @@ export function toolUntag(db: Db, args: { ids: string[]; tags: string[] }): Prom
 // ---------------------------------------------------------------------------
 
 export function toolCreate(
-  db: Db,
+  store: Store,
   args: {
     type: 'project' | 'initiative' | 'phase' | 'task';
     key?: string;
@@ -624,7 +651,7 @@ export function toolCreate(
         if (args.name === undefined) {
           throw validation('create project requires name');
         }
-        const project = await createProject(db, {
+        const project = await createProject(store, {
           description: args.description,
           key: args.key,
           name: args.name,
@@ -643,14 +670,14 @@ export function toolCreate(
         if (parseId(args.parent) !== null) {
           throw validation("an initiative's parent must be a project (KEY)");
         }
-        const pid = await projectId(db, args.parent);
-        const node = await createInitiative(db, {
+        const pid = await projectId(store, args.parent);
+        const node = await createInitiative(store, {
           description: args.description,
           projectId: pid,
           tags: args.tags,
           title: args.title,
         });
-        return echoNode(db, node);
+        return echoNode(store, node);
       }
       case 'phase': {
         if (args.title === undefined) {
@@ -663,15 +690,15 @@ export function toolCreate(
         if (parseId(args.parent) === null) {
           throw validation("a phase's parent must be an initiative (KEY-seq)");
         }
-        const parentNodeId = await nodeId(db, args.parent);
-        const node = await createPhase(db, {
+        const parentNodeId = await nodeId(store, args.parent);
+        const node = await createPhase(store, {
           description: args.description,
           parentId: parentNodeId,
           tags: args.tags,
           target: args.target,
           title: args.title,
         });
-        return echoNode(db, node);
+        return echoNode(store, node);
       }
       case 'task': {
         if (args.title === undefined) {
@@ -684,7 +711,7 @@ export function toolCreate(
         if (parseId(args.parent) === null) {
           throw validation("a task's parent must be a phase or initiative (KEY-seq)");
         }
-        const parentNodeId = await nodeId(db, args.parent);
+        const parentNodeId = await nodeId(store, args.parent);
         if (args.priority !== undefined && !isMember(args.priority, PRIORITY_VALUES)) {
           throw validation(
             `invalid priority: ${args.priority}`,
@@ -694,7 +721,7 @@ export function toolCreate(
         if (args.size !== undefined && !isMember(args.size, SIZE_VALUES)) {
           throw validation(`invalid size: ${args.size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
         }
-        const node = await createTask(db, {
+        const node = await createTask(store, {
           description: args.description,
           externalRef: args.externalRef,
           parentId: parentNodeId,
@@ -703,7 +730,7 @@ export function toolCreate(
           tags: args.tags,
           title: args.title,
         });
-        return echoNode(db, node);
+        return echoNode(store, node);
       }
       default: {
         throw validation(`create: unknown type ${(args as { type: string }).type}`);
@@ -717,7 +744,7 @@ export function toolCreate(
 // ---------------------------------------------------------------------------
 
 export function toolAttach(
-  db: Db,
+  store: Store,
   args: {
     node?: string;
     project?: string;
@@ -749,7 +776,7 @@ export function toolAttach(
       // Resolve all node refs; require they all belong to one project
       const nodes = await Promise.all(
         linkTokens.map(async (t) => {
-          const n = await findNodeByRef(db, t);
+          const n = await findNodeByRef(store.db, t);
           if (n === undefined) {
             throw notFound(`${t} doesn't exist`);
           }
@@ -768,7 +795,7 @@ export function toolAttach(
       linkNodeIds.push(...nodes.map((n) => n.id));
       // If --project is also provided, it must agree
       if (args.project !== undefined) {
-        const explicitId = await projectId(db, args.project);
+        const explicitId = await projectId(store, args.project);
         if (explicitId !== pid) {
           throw validation("project disagrees with the links' project");
         }
@@ -778,10 +805,10 @@ export function toolAttach(
       if (args.project === undefined) {
         throw validation('attach requires a link (KEY-seq) or a project key');
       }
-      pid = await projectId(db, args.project);
+      pid = await projectId(store, args.project);
     }
 
-    const { renderedId } = await attachArtifact(db, {
+    const { renderedId } = await attachArtifact(store, {
       content: args.content,
       linkNodeIds,
       projectId: pid,

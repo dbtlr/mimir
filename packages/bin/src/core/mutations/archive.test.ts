@@ -6,7 +6,8 @@ import { createInitiative, createPhase, createProject, createTask } from '../cre
 import { deriveSet } from '../derive';
 import { loadNode } from '../lookup';
 import { isReady } from '../predicates';
-import { loadWorkingSet } from '../store-sqlite';
+import type { Store } from '../store';
+import { createSqliteStore, loadWorkingSet } from '../store-sqlite';
 import { expectMimirError } from '../testing';
 import { archiveProject, releasedByArchive, unarchiveProject } from './archive';
 import { annotate, attachArtifact, updateNode, updateProject } from './data';
@@ -29,17 +30,19 @@ async function ready(db: Db, id: number): Promise<boolean> {
  */
 
 let db: Db;
+let store: Store;
 let projectId: number;
 let phaseId: number;
 let taskId: number;
 beforeEach(async () => {
   db = await createTestDb();
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
+  store = createSqliteStore(db);
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
   projectId = p.id;
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
   phaseId = phase.id;
-  const task = await createTask(db, { parentId: phase.id, title: 't' });
+  const task = await createTask(store, { parentId: phase.id, title: 't' });
   taskId = task.id;
 });
 afterEach(async () => {
@@ -49,7 +52,7 @@ afterEach(async () => {
 const setOf = async () => deriveSet(await loadWorkingSet(db));
 
 test('archive sets archived_at and logs a project-keyed transition with the reason', async () => {
-  const project = await archiveProject(db, projectId, 'superseded by SAGA2');
+  const project = await archiveProject(store, projectId, 'superseded by SAGA2');
   expect(project.archived_at).not.toBeNull();
 
   const rows = await db
@@ -66,34 +69,34 @@ test('archive sets archived_at and logs a project-keyed transition with the reas
 });
 
 test('archive freezes every mutation under the project (the write-lock)', async () => {
-  await archiveProject(db, projectId);
+  await archiveProject(store, projectId);
 
   // node-targeting verbs (guarded via requireNode/requireTask)
-  await expectMimirError('conflict', () => startTask(db, taskId));
-  await expectMimirError('conflict', () => updateNode(db, taskId, { priority: 'p1' }));
-  await expectMimirError('conflict', () => annotate(db, taskId, 'note'));
-  await expectMimirError('conflict', () => moveNode(db, taskId, phaseId));
+  await expectMimirError('conflict', () => startTask(store, taskId));
+  await expectMimirError('conflict', () => updateNode(store, taskId, { priority: 'p1' }));
+  await expectMimirError('conflict', () => annotate(store, taskId, 'note'));
+  await expectMimirError('conflict', () => moveNode(store, taskId, phaseId));
 
   // create under the archived project (guarded via assertProjectActive)
-  await expectMimirError('conflict', () => createTask(db, { parentId: phaseId, title: 'x' }));
-  await expectMimirError('conflict', () => createInitiative(db, { projectId, title: 'x' }));
+  await expectMimirError('conflict', () => createTask(store, { parentId: phaseId, title: 'x' }));
+  await expectMimirError('conflict', () => createInitiative(store, { projectId, title: 'x' }));
 
   // project-level + attach + tag paths
-  await expectMimirError('conflict', () => updateProject(db, projectId, { name: 'new' }));
+  await expectMimirError('conflict', () => updateProject(store, projectId, { name: 'new' }));
   await expectMimirError('conflict', () =>
-    attachArtifact(db, { content: 'c', projectId, title: 'a' }),
+    attachArtifact(store, { content: 'c', projectId, title: 'a' }),
   );
   await expectMimirError('conflict', () =>
-    tagEntities(db, [{ entityId: taskId, entityType: 'node' }], ['tag']),
+    tagEntities(store, [{ entityId: taskId, entityType: 'node' }], ['tag']),
   );
   await expectMimirError('conflict', () =>
-    tagEntities(db, [{ entityId: projectId, entityType: 'project' }], ['tag']),
+    tagEntities(store, [{ entityId: projectId, entityType: 'project' }], ['tag']),
   );
 });
 
 test('unarchive clears archived_at, logs the reverse transition, and re-enables mutation', async () => {
-  await archiveProject(db, projectId);
-  const project = await unarchiveProject(db, projectId);
+  await archiveProject(store, projectId);
+  const project = await unarchiveProject(store, projectId);
   expect(project.archived_at).toBeNull();
 
   const rows = await db
@@ -107,28 +110,28 @@ test('unarchive clears archived_at, logs the reverse transition, and re-enables 
   expect(rows[1]?.to_value).toBe('active');
 
   // mutation works again
-  const task = await startTask(db, taskId);
+  const task = await startTask(store, taskId);
   expect(task.lifecycle).toBe('in_progress');
 });
 
 test('archive/unarchive idempotency is a conflict, not a silent no-op', async () => {
-  await archiveProject(db, projectId);
-  await expectMimirError('conflict', () => archiveProject(db, projectId));
+  await archiveProject(store, projectId);
+  await expectMimirError('conflict', () => archiveProject(store, projectId));
 
-  await unarchiveProject(db, projectId);
-  await expectMimirError('conflict', () => unarchiveProject(db, projectId));
+  await unarchiveProject(store, projectId);
+  await expectMimirError('conflict', () => unarchiveProject(store, projectId));
 });
 
 test('archiving one project leaves a sibling project fully mutable', async () => {
-  const other = await createProject(db, { key: 'OTH', name: 'o' });
-  const otherInit = await createInitiative(db, { projectId: other.id, title: 'i' });
-  const otherPhase = await createPhase(db, { parentId: otherInit.id, title: 'ph' });
-  const otherTask = await createTask(db, { parentId: otherPhase.id, title: 't' });
+  const other = await createProject(store, { key: 'OTH', name: 'o' });
+  const otherInit = await createInitiative(store, { projectId: other.id, title: 'i' });
+  const otherPhase = await createPhase(store, { parentId: otherInit.id, title: 'ph' });
+  const otherTask = await createTask(store, { parentId: otherPhase.id, title: 't' });
 
-  await archiveProject(db, projectId);
+  await archiveProject(store, projectId);
 
   // the sibling is unaffected
-  const started = await startTask(db, otherTask.id);
+  const started = await startTask(store, otherTask.id);
   expect(started.lifecycle).toBe('in_progress');
 });
 
@@ -136,57 +139,57 @@ test('archiving one project leaves a sibling project fully mutable', async () =>
 
 test('archiving a project settles its nodes as prerequisites — the dependent is released', async () => {
   // AAA task depends on a task in the MMR project (a cross-project edge).
-  const aaa = await createProject(db, { key: 'AAA', name: 'a' });
-  const aInit = await createInitiative(db, { projectId: aaa.id, title: 'i' });
-  const aPhase = await createPhase(db, { parentId: aInit.id, title: 'ph' });
-  const a1 = await createTask(db, { parentId: aPhase.id, title: 'a1' });
-  await depend(db, a1.id, [taskId]);
+  const aaa = await createProject(store, { key: 'AAA', name: 'a' });
+  const aInit = await createInitiative(store, { projectId: aaa.id, title: 'i' });
+  const aPhase = await createPhase(store, { parentId: aInit.id, title: 'ph' });
+  const a1 = await createTask(store, { parentId: aPhase.id, title: 'a1' });
+  await depend(store, a1.id, [taskId]);
 
   // Gated: the prerequisite (in MMR) is unsettled, so a1 is awaiting, not ready.
   expect(await ready(db, a1.id)).toBe(false);
 
   // Archiving MMR settles the prerequisite → a1 is released (ready).
-  await archiveProject(db, projectId);
+  await archiveProject(store, projectId);
   expect(await ready(db, a1.id)).toBe(true);
 
   // Unarchiving re-gates it — no edge was mutated, so the gate returns.
-  await unarchiveProject(db, projectId);
+  await unarchiveProject(store, projectId);
   expect(await ready(db, a1.id)).toBe(false);
 });
 
 test('releasedByArchive reports only genuinely-released out-of-project leaf tasks', async () => {
-  const aaa = await createProject(db, { key: 'AAA', name: 'a' });
-  const aInit = await createInitiative(db, { projectId: aaa.id, title: 'i' });
-  const aPhase = await createPhase(db, { parentId: aInit.id, title: 'ph' });
+  const aaa = await createProject(store, { key: 'AAA', name: 'a' });
+  const aInit = await createInitiative(store, { projectId: aaa.id, title: 'i' });
+  const aPhase = await createPhase(store, { parentId: aInit.id, title: 'ph' });
 
   // (1) released: depends only on the MMR task → becomes ready when MMR archives.
-  const freed = await createTask(db, { parentId: aPhase.id, title: 'freed' });
-  await depend(db, freed.id, [taskId]);
+  const freed = await createTask(store, { parentId: aPhase.id, title: 'freed' });
+  await depend(store, freed.id, [taskId]);
 
   // (2) NOT released: also depends on a live AAA task → stays awaiting (multi-prereq).
-  const liveDep = await createTask(db, { parentId: aPhase.id, title: 'live prereq' });
-  const stillAwaiting = await createTask(db, { parentId: aPhase.id, title: 'still awaiting' });
-  await depend(db, stillAwaiting.id, [taskId, liveDep.id]);
+  const liveDep = await createTask(store, { parentId: aPhase.id, title: 'live prereq' });
+  const stillAwaiting = await createTask(store, { parentId: aPhase.id, title: 'still awaiting' });
+  await depend(store, stillAwaiting.id, [taskId, liveDep.id]);
 
   // (3) NOT reported: an in-project dependent (another MMR task).
-  const sibling = await createTask(db, { parentId: phaseId, title: 'sib' });
-  await depend(db, sibling.id, [taskId]);
+  const sibling = await createTask(store, { parentId: phaseId, title: 'sib' });
+  await depend(store, sibling.id, [taskId]);
 
-  await archiveProject(db, projectId);
-  const released = await releasedByArchive(db, projectId);
+  await archiveProject(store, projectId);
+  const released = await releasedByArchive(store, projectId);
   expect(released).toEqual([`AAA-${String(freed.seq)}`]);
 });
 
 test('releasedByArchive is empty when the archived prereqs were already settled', async () => {
   // A dependent on a DONE prereq is already ready — archiving does not release it.
-  const aaa = await createProject(db, { key: 'AAA', name: 'a' });
-  const aInit = await createInitiative(db, { projectId: aaa.id, title: 'i' });
-  const aPhase = await createPhase(db, { parentId: aInit.id, title: 'ph' });
-  const dep = await createTask(db, { parentId: aPhase.id, title: 'dep' });
-  await depend(db, dep.id, [taskId]);
-  await startTask(db, taskId);
-  await completeTask(db, taskId); // MMR task done → dep already ready
+  const aaa = await createProject(store, { key: 'AAA', name: 'a' });
+  const aInit = await createInitiative(store, { projectId: aaa.id, title: 'i' });
+  const aPhase = await createPhase(store, { parentId: aInit.id, title: 'ph' });
+  const dep = await createTask(store, { parentId: aPhase.id, title: 'dep' });
+  await depend(store, dep.id, [taskId]);
+  await startTask(store, taskId);
+  await completeTask(store, taskId); // MMR task done → dep already ready
 
-  await archiveProject(db, projectId);
-  expect(await releasedByArchive(db, projectId)).toEqual([]);
+  await archiveProject(store, projectId);
+  expect(await releasedByArchive(store, projectId)).toEqual([]);
 });

@@ -28,10 +28,10 @@ let initSeq: number;
 beforeEach(async () => {
   db = await createTestDb();
   store = createSqliteStore(db);
-  const p = await createProject(db, { key: 'MMR', name: 'Mimir' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'The Initiative' });
+  const p = await createProject(store, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'The Initiative' });
   initSeq = init.seq;
-  const phase = await createPhase(db, { parentId: init.id, title: 'Phase One' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'Phase One' });
   phaseId = phase.id;
   phaseSeq = phase.seq;
 });
@@ -43,7 +43,7 @@ afterEach(async () => {
 
 describe('NodeRef titles (deliverable 1)', () => {
   test('children refs carry the title alongside id+status', async () => {
-    await createTask(db, { parentId: phaseId, title: 'First task' });
+    await createTask(store, { parentId: phaseId, title: 'First task' });
     const io = fakeIo(false);
     await runCli(['get', `MMR-${String(phaseSeq)}`, '-f', 'json'], () => store, io);
     const view = parseJson<{
@@ -54,8 +54,8 @@ describe('NodeRef titles (deliverable 1)', () => {
   });
 
   test('dependsOn/blocking refs carry the title', async () => {
-    const a = await createTask(db, { parentId: phaseId, title: 'Alpha' });
-    const b = await createTask(db, { parentId: phaseId, title: 'Beta' });
+    const a = await createTask(store, { parentId: phaseId, title: 'Alpha' });
+    const b = await createTask(store, { parentId: phaseId, title: 'Beta' });
     const aRef = `MMR-${String(a.seq)}`;
     const bRef = `MMR-${String(b.seq)}`;
     await runCli(['depend', bRef, '--on', aRef], () => store, fakeIo(false));
@@ -76,7 +76,7 @@ describe('NodeRef titles (deliverable 1)', () => {
   });
 
   test('renderRecords shows title in children line', async () => {
-    await createTask(db, { parentId: phaseId, title: 'My Task' });
+    await createTask(store, { parentId: phaseId, title: 'My Task' });
     const io = fakeIo(false);
     await runCli(['get', `MMR-${String(phaseSeq)}`, '-f', 'records'], () => store, io);
     const text = io.out.join('');
@@ -88,8 +88,8 @@ describe('NodeRef titles (deliverable 1)', () => {
 
 describe('Rollup signpost and TTY hint (deliverable 2)', () => {
   test('records for a container shows rollup signpost on TTY', async () => {
-    await createTask(db, { parentId: phaseId, title: 't1' });
-    await createTask(db, { parentId: phaseId, title: 't2' });
+    await createTask(store, { parentId: phaseId, title: 't1' });
+    await createTask(store, { parentId: phaseId, title: 't2' });
     const tty = fakeIo(true); // TTY
     await runCli(['get', `MMR-${String(phaseSeq)}`], () => store, tty);
     const text = tty.out.join('');
@@ -98,7 +98,7 @@ describe('Rollup signpost and TTY hint (deliverable 2)', () => {
   });
 
   test('TTY records for a container includes onward hint pointing to mimir tree', async () => {
-    await createTask(db, { parentId: phaseId, title: 't1' });
+    await createTask(store, { parentId: phaseId, title: 't1' });
     const tty = fakeIo(true);
     await runCli(['get', `MMR-${String(phaseSeq)}`], () => store, tty);
     const text = tty.out.join('');
@@ -106,7 +106,7 @@ describe('Rollup signpost and TTY hint (deliverable 2)', () => {
   });
 
   test('structured json format has NO prose hint (machine contract)', async () => {
-    await createTask(db, { parentId: phaseId, title: 't1' });
+    await createTask(store, { parentId: phaseId, title: 't1' });
     const io = fakeIo(false);
     await runCli(['get', `MMR-${String(phaseSeq)}`, '-f', 'json'], () => store, io);
     const text = io.out.join('');
@@ -118,7 +118,7 @@ describe('Rollup signpost and TTY hint (deliverable 2)', () => {
   });
 
   test('jsonl format has NO prose hint (machine contract)', async () => {
-    await createTask(db, { parentId: phaseId, title: 't1' });
+    await createTask(store, { parentId: phaseId, title: 't1' });
     const io = fakeIo(false);
     await runCli(['get', `MMR-${String(phaseSeq)}`, '-f', 'jsonl'], () => store, io);
     const text = io.out.join('');
@@ -126,7 +126,7 @@ describe('Rollup signpost and TTY hint (deliverable 2)', () => {
   });
 
   test('ids format has NO prose hint (machine contract)', async () => {
-    await createTask(db, { parentId: phaseId, title: 't1' });
+    await createTask(store, { parentId: phaseId, title: 't1' });
     const io = fakeIo(false);
     await runCli(['get', `MMR-${String(phaseSeq)}`, '-f', 'ids'], () => store, io);
     const text = io.out.join('');
@@ -136,7 +136,7 @@ describe('Rollup signpost and TTY hint (deliverable 2)', () => {
   });
 
   test('non-TTY records format has NO onward hint', async () => {
-    await createTask(db, { parentId: phaseId, title: 't1' });
+    await createTask(store, { parentId: phaseId, title: 't1' });
     const piped = fakeIo(false); // non-TTY
     await runCli(['get', `MMR-${String(phaseSeq)}`], () => store, piped);
     const text = piped.out.join('');
@@ -145,7 +145,7 @@ describe('Rollup signpost and TTY hint (deliverable 2)', () => {
   });
 
   test('leaf task records shows no rollup signpost', async () => {
-    const t = await createTask(db, { parentId: phaseId, title: 'leaf' });
+    const t = await createTask(store, { parentId: phaseId, title: 'leaf' });
     const tty = fakeIo(true);
     await runCli(['get', `MMR-${String(t.seq)}`], () => store, tty);
     const text = tty.out.join('');
@@ -158,8 +158,8 @@ describe('Rollup signpost and TTY hint (deliverable 2)', () => {
 
 describe('status -f records signpost (MMR-90 review fix 1)', () => {
   test('status <container> -f records on TTY shows rollup signpost', async () => {
-    await createTask(db, { parentId: phaseId, title: 't1' });
-    await createTask(db, { parentId: phaseId, title: 't2' });
+    await createTask(store, { parentId: phaseId, title: 't1' });
+    await createTask(store, { parentId: phaseId, title: 't2' });
     const tty = fakeIo(true);
     await runCli(['status', `MMR-${String(phaseSeq)}`, '-f', 'records'], () => store, tty);
     const text = tty.out.join('');
@@ -169,7 +169,7 @@ describe('status -f records signpost (MMR-90 review fix 1)', () => {
   });
 
   test('status <container> default (json) has NO prose hint and is structurally unchanged', async () => {
-    await createTask(db, { parentId: phaseId, title: 't1' });
+    await createTask(store, { parentId: phaseId, title: 't1' });
     const io = fakeIo(true); // even TTY: json path must stay clean
     await runCli(['status', `MMR-${String(phaseSeq)}`], () => store, io);
     const text = io.out.join('');
@@ -196,7 +196,7 @@ describe('status -f records signpost (MMR-90 review fix 1)', () => {
   });
 
   test("status with exactly 1 child reads '1 direct child' (singular)", async () => {
-    await createTask(db, { parentId: phaseId, title: 'solo' });
+    await createTask(store, { parentId: phaseId, title: 'solo' });
     const tty = fakeIo(true);
     await runCli(['status', `MMR-${String(phaseSeq)}`, '-f', 'records'], () => store, tty);
     const text = tty.out.join('');
@@ -206,7 +206,7 @@ describe('status -f records signpost (MMR-90 review fix 1)', () => {
   });
 
   test("status default json output does not include 'type' field (machine contract unchanged)", async () => {
-    await createTask(db, { parentId: phaseId, title: 't1' });
+    await createTask(store, { parentId: phaseId, title: 't1' });
     const io = fakeIo(false);
     await runCli(['status', `MMR-${String(phaseSeq)}`], () => store, io);
     const parsed = parseJson<Record<string, unknown>>(io.out.join(''));
@@ -222,7 +222,7 @@ describe('status -f records signpost (MMR-90 review fix 1)', () => {
 
 describe('mimir tree (deliverable 3)', () => {
   test('nodeTree can root at a project key', async () => {
-    await createTask(db, { parentId: phaseId, title: 't1' });
+    await createTask(store, { parentId: phaseId, title: 't1' });
     const tree = await nodeTree(db, 'MMR');
     expect(tree.id).toBe('MMR');
     expect(tree.type).toBe('project');
@@ -230,7 +230,7 @@ describe('mimir tree (deliverable 3)', () => {
   });
 
   test('nodeTree can root at any node id (mid-tree)', async () => {
-    await createTask(db, { parentId: phaseId, title: 't1' });
+    await createTask(store, { parentId: phaseId, title: 't1' });
     const tree = await nodeTree(db, `MMR-${String(initSeq)}`);
     expect(tree.id).toBe(`MMR-${String(initSeq)}`);
     expect(tree.children.length).toBeGreaterThan(0);
@@ -241,7 +241,7 @@ describe('mimir tree (deliverable 3)', () => {
   });
 
   test('mimir tree CLI verb renders an indented hierarchy', async () => {
-    await createTask(db, { parentId: phaseId, title: 'leaf task' });
+    await createTask(store, { parentId: phaseId, title: 'leaf task' });
     const io = fakeIo(true);
     const code = await runCli(['tree', 'MMR'], () => store, io);
     expect(code).toBe(0);
@@ -258,7 +258,7 @@ describe('mimir tree (deliverable 3)', () => {
   });
 
   test('mimir tree CLI verb with a mid-tree node id', async () => {
-    await createTask(db, { parentId: phaseId, title: 'leaf task' });
+    await createTask(store, { parentId: phaseId, title: 'leaf task' });
     const io = fakeIo(true);
     const code = await runCli(['tree', `MMR-${String(initSeq)}`], () => store, io);
     expect(code).toBe(0);
@@ -269,7 +269,7 @@ describe('mimir tree (deliverable 3)', () => {
   });
 
   test('mimir tree -f json emits a tree object', async () => {
-    await createTask(db, { parentId: phaseId, title: 't1' });
+    await createTask(store, { parentId: phaseId, title: 't1' });
     const io = fakeIo(false);
     const code = await runCli(['tree', 'MMR', '-f', 'json'], () => store, io);
     expect(code).toBe(0);

@@ -5,16 +5,20 @@ import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { RANK_STEP, reindexRanks, reorderTask } from './rank';
 import type { RankPosition } from './rank';
+import type { Store } from './store';
+import { createSqliteStore } from './store-sqlite';
 
 let db: Db;
+let store: Store;
 let projectId: number;
 let phaseId: number;
 beforeEach(async () => {
   db = await createTestDb();
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
+  store = createSqliteStore(db);
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
   projectId = p.id;
-  const init = await createInitiative(db, { projectId, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
+  const init = await createInitiative(store, { projectId, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
   phaseId = phase.id;
 });
 afterEach(async () => {
@@ -22,7 +26,7 @@ afterEach(async () => {
 });
 
 async function task(title: string): Promise<number> {
-  const t = await createTask(db, { parentId: phaseId, title });
+  const t = await createTask(store, { parentId: phaseId, title });
   return t.id;
 }
 
@@ -39,7 +43,7 @@ async function rankedIds(): Promise<number[]> {
 }
 
 async function reorder(taskId: number, position: RankPosition, refId: number | null = null) {
-  await db.transaction().execute((tx) => reorderTask(tx, projectId, taskId, position, refId));
+  await store.transact((w) => reorderTask(w, projectId, taskId, position, refId));
 }
 
 async function setRank(taskId: number, rank: number): Promise<void> {
@@ -89,7 +93,7 @@ test('reindex re-spreads to clean multiples, order-preserving and idempotent', a
   await setRank(b, 7);
   await setRank(c, 8);
 
-  await db.transaction().execute((tx) => reindexRanks(tx, projectId));
+  await store.transact((w) => reindexRanks(w, projectId));
   let rows = await db
     .selectFrom('node')
     .select(['id', 'rank'])
@@ -100,7 +104,7 @@ test('reindex re-spreads to clean multiples, order-preserving and idempotent', a
   expect(rows.map((r) => r.rank)).toEqual([RANK_STEP, RANK_STEP * 2, RANK_STEP * 3]);
 
   // running again changes nothing
-  await db.transaction().execute((tx) => reindexRanks(tx, projectId));
+  await store.transact((w) => reindexRanks(w, projectId));
   rows = await db
     .selectFrom('node')
     .select(['id', 'rank'])

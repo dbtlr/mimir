@@ -7,36 +7,40 @@ import { listArtifacts } from './artifacts-list';
 import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { attachArtifact } from './mutations';
+import type { Store } from './store';
+import { createSqliteStore } from './store-sqlite';
 
 let db: Db;
+let store: Store;
 
 async function phaseFor(projectId: number): Promise<number> {
-  const init = await createInitiative(db, { projectId, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
+  const init = await createInitiative(store, { projectId, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
   return phase.id;
 }
 
 beforeEach(async () => {
   db = await createTestDb();
-  const mmr = await createProject(db, { key: 'MMR', name: 'Mimir' });
-  const nova = await createProject(db, { key: 'NOVA', name: 'Nova' });
-  const t1 = await createTask(db, { parentId: await phaseFor(mmr.id), title: 't' });
-  const t2 = await createTask(db, { parentId: await phaseFor(nova.id), title: 't' });
-  await attachArtifact(db, {
+  store = createSqliteStore(db);
+  const mmr = await createProject(store, { key: 'MMR', name: 'Mimir' });
+  const nova = await createProject(store, { key: 'NOVA', name: 'Nova' });
+  const t1 = await createTask(store, { parentId: await phaseFor(mmr.id), title: 't' });
+  const t2 = await createTask(store, { parentId: await phaseFor(nova.id), title: 't' });
+  await attachArtifact(store, {
     content: 'we argued about the loopback path and Caddy',
     linkNodeIds: [t1.id],
     projectId: mmr.id,
     tags: ['kind:spec'],
     title: 'Auth gate design',
   });
-  await attachArtifact(db, {
+  await attachArtifact(store, {
     content: 'shipped the output contract',
     linkNodeIds: [t1.id],
     projectId: mmr.id,
     tags: ['kind:session-log'],
     title: 'Session log 2026-06-14',
   });
-  await attachArtifact(db, {
+  await attachArtifact(store, {
     content: 'auth shows up here too',
     linkNodeIds: [t2.id],
     projectId: nova.id,

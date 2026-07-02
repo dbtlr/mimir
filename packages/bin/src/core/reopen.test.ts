@@ -5,6 +5,8 @@ import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { loadNode } from './lookup';
 import { abandonTask, completeTask, reopenTask, startTask, submitTask } from './mutations';
+import type { Store } from './store';
+import { createSqliteStore } from './store-sqlite';
 import { expectMimirError } from './testing';
 
 /**
@@ -14,12 +16,14 @@ import { expectMimirError } from './testing';
  */
 
 let db: Db;
+let store: Store;
 let phaseId: number;
 beforeEach(async () => {
   db = await createTestDb();
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
+  store = createSqliteStore(db);
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
   phaseId = phase.id;
 });
 afterEach(async () => {
@@ -27,16 +31,16 @@ afterEach(async () => {
 });
 
 async function doneTask(): Promise<number> {
-  const t = await createTask(db, { parentId: phaseId, title: 't' });
-  await startTask(db, t.id);
-  await completeTask(db, t.id);
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  await startTask(store, t.id);
+  await completeTask(store, t.id);
   return t.id;
 }
 
 test('reopen moves done → in_progress, re-ranks, and clears completed_at', async () => {
   const id = await doneTask();
   expect((await loadNode(db, id))?.rank).toBeNull();
-  await reopenTask(db, id);
+  await reopenTask(store, id);
   const node = await loadNode(db, id);
   expect(node?.lifecycle).toBe('in_progress');
   expect(node?.rank).not.toBeNull();
@@ -44,16 +48,16 @@ test('reopen moves done → in_progress, re-ranks, and clears completed_at', asy
 });
 
 test('reopen moves abandoned → in_progress', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 't2' });
-  await startTask(db, t.id);
-  await abandonTask(db, t.id, 'wrong approach');
-  await reopenTask(db, t.id);
+  const t = await createTask(store, { parentId: phaseId, title: 't2' });
+  await startTask(store, t.id);
+  await abandonTask(store, t.id, 'wrong approach');
+  await reopenTask(store, t.id);
   expect((await loadNode(db, t.id))?.lifecycle).toBe('in_progress');
 });
 
 test('reopen carries the reason and preserves the original terminal transition', async () => {
   const id = await doneTask();
-  await reopenTask(db, id, 'verification never ran');
+  await reopenTask(store, id, 'verification never ran');
 
   const reopenRow = await db
     .selectFrom('transition_log')
@@ -75,18 +79,18 @@ test('reopen carries the reason and preserves the original terminal transition',
 });
 
 test('reopen is legal only from a terminal state', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 't3' });
-  await expectMimirError('validation', () => reopenTask(db, t.id)); // todo
-  await startTask(db, t.id);
-  await expectMimirError('validation', () => reopenTask(db, t.id)); // in_progress
-  await submitTask(db, t.id);
-  await expectMimirError('validation', () => reopenTask(db, t.id)); // under_review
+  const t = await createTask(store, { parentId: phaseId, title: 't3' });
+  await expectMimirError('validation', () => reopenTask(store, t.id)); // todo
+  await startTask(store, t.id);
+  await expectMimirError('validation', () => reopenTask(store, t.id)); // in_progress
+  await submitTask(store, t.id);
+  await expectMimirError('validation', () => reopenTask(store, t.id)); // under_review
 });
 
 test('reopened then completed again re-stamps completed_at', async () => {
   const id = await doneTask();
-  await reopenTask(db, id);
-  await completeTask(db, id);
+  await reopenTask(store, id);
+  await completeTask(store, id);
   const node = await loadNode(db, id);
   expect(node?.lifecycle).toBe('done');
   expect(node?.completed_at).not.toBeNull();

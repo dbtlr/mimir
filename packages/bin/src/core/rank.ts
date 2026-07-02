@@ -1,7 +1,7 @@
 import type { Hold, Lifecycle } from '@mimir/contract';
 
-import type { Tx } from './context';
 import { invariant, validation } from './errors';
+import type { StoreWriter } from './store';
 
 /**
  * Rank mechanics (ADR 0007). `rank` is a single relative order, core-owned
@@ -11,6 +11,9 @@ import { invariant, validation } from './errors';
  * neighbours takes their midpoint; when neighbours are adjacent `reindexRanks`
  * re-spreads the set (the rare O(n), amortized off the hot path, with an
  * on-the-spot reindex as the safety valve so correctness never waits).
+ *
+ * The helpers run inside a verb's write scope (`StoreWriter`), reading the
+ * ranked set fresh per step so interleaved updates are always visible.
  */
 export const RANK_STEP = 65536;
 
@@ -32,48 +35,34 @@ function midpoint(lo: number, hi: number): number | null {
   return mid > lo && mid < hi ? mid : null;
 }
 
-async function maxRank(tx: Tx, projectId: number): Promise<number | null> {
-  const row = await tx
-    .selectFrom('node')
-    .select((eb) => eb.fn.max('rank').as('value'))
-    .where('project_id', '=', projectId)
-    .where('rank', 'is not', null)
-    .executeTakeFirst();
-  return row?.value ?? null;
+async function maxRank(w: StoreWriter, projectId: number): Promise<number | null> {
+  const ranked = await w.listRankedTasks(projectId);
+  return ranked.at(-1)?.rank ?? null;
 }
 
-async function minRank(tx: Tx, projectId: number): Promise<number | null> {
-  const row = await tx
-    .selectFrom('node')
-    .select((eb) => eb.fn.min('rank').as('value'))
-    .where('project_id', '=', projectId)
-    .where('rank', 'is not', null)
-    .executeTakeFirst();
-  return row?.value ?? null;
+async function minRank(w: StoreWriter, projectId: number): Promise<number | null> {
+  const ranked = await w.listRankedTasks(projectId);
+  return ranked[0]?.rank ?? null;
 }
 
 /** The rank immediately below (largest `< pivot`) or above (smallest `> pivot`) a pivot, within a project. */
 async function adjacentRank(
-  tx: Tx,
+  w: StoreWriter,
   projectId: number,
   pivot: number,
   direction: 'below' | 'above',
 ): Promise<number | null> {
-  const q = tx
-    .selectFrom('node')
-    .select('rank')
-    .where('project_id', '=', projectId)
-    .where('rank', 'is not', null);
-  const row =
-    direction === 'below'
-      ? await q.where('rank', '<', pivot).orderBy('rank', 'desc').limit(1).executeTakeFirst()
-      : await q.where('rank', '>', pivot).orderBy('rank', 'asc').limit(1).executeTakeFirst();
-  return row?.rank ?? null;
+  const ranks = (await w.listRankedTasks(projectId)).map((r) => r.rank);
+  if (direction === 'below') {
+    const below = ranks.filter((r) => r < pivot);
+    return below.at(-1) ?? null;
+  }
+  return ranks.find((r) => r > pivot) ?? null;
 }
 
 /** The next append-to-bottom rank for a project's rankable set: `MAX(rank) + STEP`, or `STEP` if empty. */
-export async function appendRank(tx: Tx, projectId: number): Promise<number> {
-  return ((await maxRank(tx, projectId)) ?? 0) + RANK_STEP;
+export async function appendRank(w: StoreWriter, projectId: number): Promise<number> {
+  return ((await maxRank(w, projectId)) ?? 0) + RANK_STEP;
 }
 
 /**
@@ -83,18 +72,11 @@ export async function appendRank(tx: Tx, projectId: number): Promise<number> {
  * actionable tasks; rank is invisible to consumers, so this does not touch
  * `updated_at`.
  */
-export async function reindexRanks(tx: Tx, projectId: number): Promise<void> {
-  const ranked = await tx
-    .selectFrom('node')
-    .select('id')
-    .where('project_id', '=', projectId)
-    .where('rank', 'is not', null)
-    .orderBy('rank', 'asc')
-    .orderBy('seq', 'asc')
-    .execute();
+export async function reindexRanks(w: StoreWriter, projectId: number): Promise<void> {
+  const ranked = await w.listRankedTasks(projectId);
   let next = RANK_STEP;
   for (const row of ranked) {
-    await tx.updateTable('node').set({ rank: next }).where('id', '=', row.id).execute();
+    await w.updateNode(row.id, { rank: next });
     next += RANK_STEP;
   }
 }
@@ -107,30 +89,26 @@ export async function reindexRanks(tx: Tx, projectId: number): Promise<void> {
  * for before/after — are in the rankable set (the verb validates).
  */
 export async function reorderTask(
-  tx: Tx,
+  w: StoreWriter,
   projectId: number,
   taskId: number,
   position: RankPosition,
   refId: number | null,
 ): Promise<void> {
-  const rank = await computeTargetRank(tx, projectId, taskId, position, refId, true);
-  await tx.updateTable('node').set({ rank }).where('id', '=', taskId).execute();
+  const rank = await computeTargetRank(w, projectId, taskId, position, refId, true);
+  await w.updateNode(taskId, { rank });
 }
 
-async function rankOf(tx: Tx, taskId: number): Promise<number> {
-  const row = await tx
-    .selectFrom('node')
-    .select('rank')
-    .where('id', '=', taskId)
-    .executeTakeFirst();
-  if (row?.rank == null) {
+async function rankOf(w: StoreWriter, taskId: number): Promise<number> {
+  const node = await w.loadNode(taskId);
+  if (node?.rank == null) {
     throw validation(`task ${String(taskId)} is not in the rankable set`);
   }
-  return row.rank;
+  return node.rank;
 }
 
 async function computeTargetRank(
-  tx: Tx,
+  w: StoreWriter,
   projectId: number,
   taskId: number,
   position: RankPosition,
@@ -138,10 +116,10 @@ async function computeTargetRank(
   allowReindex: boolean,
 ): Promise<number> {
   if (position === 'bottom') {
-    return ((await maxRank(tx, projectId)) ?? 0) + RANK_STEP;
+    return ((await maxRank(w, projectId)) ?? 0) + RANK_STEP;
   }
   if (position === 'top') {
-    const min = await minRank(tx, projectId);
+    const min = await minRank(w, projectId);
     return min === null ? RANK_STEP : min - RANK_STEP;
   }
 
@@ -152,9 +130,9 @@ async function computeTargetRank(
   if (refId === taskId) {
     throw validation('cannot position a task relative to itself');
   }
-  const refRank = await rankOf(tx, refId);
+  const refRank = await rankOf(w, refId);
   const neighbor = await adjacentRank(
-    tx,
+    w,
     projectId,
     refRank,
     position === 'before' ? 'below' : 'above',
@@ -171,6 +149,6 @@ async function computeTargetRank(
     throw invariant('rank exhausted even after reindex');
   }
   // neighbours adjacent → re-spread once and recompute against fresh ranks
-  await reindexRanks(tx, projectId);
-  return computeTargetRank(tx, projectId, taskId, position, refId, false);
+  await reindexRanks(w, projectId);
+  return computeTargetRank(w, projectId, taskId, position, refId, false);
 }

@@ -1,15 +1,14 @@
 import type { Priority, Size, TagEntityType } from '@mimir/contract';
 
-import { allocateSeq, isValidKey } from './allocation';
-import type { Db, Tx } from './context';
+import { isValidKey } from './allocation';
 import { conflict, notFound, validation } from './errors';
-import { loadNode } from './lookup';
 import type { Node, Project } from './model';
 import { assertProjectActive } from './mutations/common';
 import { appendRank } from './rank';
+import type { Store, StoreWriter } from './store';
 
 /**
- * Create verbs. Each opens one transaction: validate the behavioral invariants
+ * Create verbs. Each opens one write scope: validate the behavioral invariants
  * (the DB can't check parent type-correctness), allocate the per-project `seq`,
  * insert, and echo the row. Creation establishes initial state and is *not* a
  * transition — no `transition_log` row (the log records later changes, ADR 0003).
@@ -20,17 +19,13 @@ import { appendRank } from './rank';
 
 /** Insert creation-time tags (MMR-31) — idempotent, note-less, same transaction. */
 async function insertTags(
-  tx: Tx,
+  w: StoreWriter,
   entityType: TagEntityType,
   entityId: number,
   tags?: string[],
 ): Promise<void> {
   for (const tag of tags ?? []) {
-    await tx
-      .insertInto('tag')
-      .values({ entity_id: entityId, entity_type: entityType, note: null, tag })
-      .onConflict((oc) => oc.columns(['entity_type', 'entity_id', 'tag']).doNothing())
-      .execute();
+    await w.insertTag({ entity_id: entityId, entity_type: entityType, note: null, tag });
   }
 }
 
@@ -41,29 +36,21 @@ export type CreateProjectInput = {
   tags?: string[];
 };
 
-export async function createProject(db: Db, input: CreateProjectInput): Promise<Project> {
+export async function createProject(store: Store, input: CreateProjectInput): Promise<Project> {
   if (!isValidKey(input.key)) {
     throw validation(`project key must match [A-Z]{2,4}: ${input.key}`);
   }
-  return db.transaction().execute(async (tx) => {
-    const existing = await tx
-      .selectFrom('project')
-      .select('id')
-      .where('key', '=', input.key)
-      .executeTakeFirst();
+  return store.transact(async (w) => {
+    const existing = await w.loadProjectByKey(input.key);
     if (existing !== undefined) {
       throw conflict(`project key already exists: ${input.key}`);
     }
-    const project = await tx
-      .insertInto('project')
-      .values({
-        description: input.description ?? null,
-        key: input.key,
-        name: input.name,
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    await insertTags(tx, 'project', project.id, input.tags);
+    const project = await w.insertProject({
+      description: input.description ?? null,
+      key: input.key,
+      name: input.name,
+    });
+    await insertTags(w, 'project', project.id, input.tags);
     return project;
   });
 }
@@ -75,31 +62,23 @@ export type CreateInitiativeInput = {
   tags?: string[];
 };
 
-export async function createInitiative(db: Db, input: CreateInitiativeInput): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const project = await tx
-      .selectFrom('project')
-      .select('id')
-      .where('id', '=', input.projectId)
-      .executeTakeFirst();
+export async function createInitiative(store: Store, input: CreateInitiativeInput): Promise<Node> {
+  return store.transact(async (w) => {
+    const project = await w.loadProject(input.projectId);
     if (project === undefined) {
       throw notFound('the project was not found');
     }
-    await assertProjectActive(tx, input.projectId);
-    const seq = await allocateSeq(tx, input.projectId);
-    const node = await tx
-      .insertInto('node')
-      .values({
-        description: input.description ?? null,
-        parent_id: null,
-        project_id: input.projectId,
-        seq,
-        title: input.title,
-        type: 'initiative',
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    await insertTags(tx, 'node', node.id, input.tags);
+    await assertProjectActive(w, input.projectId);
+    const seq = await w.allocateSeq(input.projectId);
+    const node = await w.insertNode({
+      description: input.description ?? null,
+      parent_id: null,
+      project_id: input.projectId,
+      seq,
+      title: input.title,
+      type: 'initiative',
+    });
+    await insertTags(w, 'node', node.id, input.tags);
     return node;
   });
 }
@@ -112,31 +91,27 @@ export type CreatePhaseInput = {
   tags?: string[];
 };
 
-export async function createPhase(db: Db, input: CreatePhaseInput): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const parent = await loadNode(tx, input.parentId);
+export async function createPhase(store: Store, input: CreatePhaseInput): Promise<Node> {
+  return store.transact(async (w) => {
+    const parent = await w.loadNode(input.parentId);
     if (parent === undefined) {
       throw notFound('the parent was not found');
     }
     if (parent.type !== 'initiative') {
       throw validation(`a phase's parent must be an initiative, not a ${parent.type}`);
     }
-    await assertProjectActive(tx, parent.project_id);
-    const seq = await allocateSeq(tx, parent.project_id);
-    const node = await tx
-      .insertInto('node')
-      .values({
-        description: input.description ?? null,
-        parent_id: parent.id,
-        project_id: parent.project_id,
-        seq,
-        target: input.target ?? null,
-        title: input.title,
-        type: 'phase',
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    await insertTags(tx, 'node', node.id, input.tags);
+    await assertProjectActive(w, parent.project_id);
+    const seq = await w.allocateSeq(parent.project_id);
+    const node = await w.insertNode({
+      description: input.description ?? null,
+      parent_id: parent.id,
+      project_id: parent.project_id,
+      seq,
+      target: input.target ?? null,
+      title: input.title,
+      type: 'phase',
+    });
+    await insertTags(w, 'node', node.id, input.tags);
     return node;
   });
 }
@@ -151,38 +126,34 @@ export type CreateTaskInput = {
   tags?: string[];
 };
 
-export async function createTask(db: Db, input: CreateTaskInput): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const parent = await loadNode(tx, input.parentId);
+export async function createTask(store: Store, input: CreateTaskInput): Promise<Node> {
+  return store.transact(async (w) => {
+    const parent = await w.loadNode(input.parentId);
     if (parent === undefined) {
       throw notFound('the parent was not found');
     }
     if (parent.type !== 'phase' && parent.type !== 'initiative') {
       throw validation(`a task's parent must be a phase or initiative, not a ${parent.type}`);
     }
-    await assertProjectActive(tx, parent.project_id);
-    const seq = await allocateSeq(tx, parent.project_id);
+    await assertProjectActive(w, parent.project_id);
+    const seq = await w.allocateSeq(parent.project_id);
     // A fresh task is todo + none → in the rankable set → append to bottom.
-    const rank = await appendRank(tx, parent.project_id);
-    const node = await tx
-      .insertInto('node')
-      .values({
-        description: input.description ?? null,
-        external_ref: input.externalRef ?? null,
-        hold: 'none',
-        lifecycle: 'todo',
-        parent_id: parent.id,
-        priority: input.priority ?? null,
-        project_id: parent.project_id,
-        rank,
-        seq,
-        size: input.size ?? null,
-        title: input.title,
-        type: 'task',
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    await insertTags(tx, 'node', node.id, input.tags);
+    const rank = await appendRank(w, parent.project_id);
+    const node = await w.insertNode({
+      description: input.description ?? null,
+      external_ref: input.externalRef ?? null,
+      hold: 'none',
+      lifecycle: 'todo',
+      parent_id: parent.id,
+      priority: input.priority ?? null,
+      project_id: parent.project_id,
+      rank,
+      seq,
+      size: input.size ?? null,
+      title: input.title,
+      type: 'task',
+    });
+    await insertTags(w, 'node', node.id, input.tags);
     return node;
   });
 }

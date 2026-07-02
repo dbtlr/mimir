@@ -17,6 +17,7 @@ import {
 } from './mutations';
 import { isStale } from './predicates';
 import { interpret } from './status';
+import type { Store } from './store';
 import { createSqliteStore, loadWorkingSet } from './store-sqlite';
 import { expectMimirError } from './testing';
 
@@ -27,14 +28,16 @@ import { expectMimirError } from './testing';
  */
 
 let db: Db;
+let store: Store;
 let projectId: number;
 let phaseId: number;
 beforeEach(async () => {
   db = await createTestDb();
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
+  store = createSqliteStore(db);
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
   projectId = p.id;
-  const init = await createInitiative(db, { projectId, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
+  const init = await createInitiative(store, { projectId, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
   phaseId = phase.id;
 });
 afterEach(async () => {
@@ -44,15 +47,15 @@ afterEach(async () => {
 const setOf = async () => deriveSet(await loadWorkingSet(db));
 
 async function startedTask(title = 't'): Promise<number> {
-  const t = await createTask(db, { parentId: phaseId, title });
-  await startTask(db, t.id);
+  const t = await createTask(store, { parentId: phaseId, title });
+  await startTask(store, t.id);
   return t.id;
 }
 
 test('submit moves in_progress → under_review and clears rank', async () => {
   const id = await startedTask();
   expect((await loadNode(db, id))?.rank).not.toBeNull();
-  await submitTask(db, id);
+  await submitTask(store, id);
   const node = await loadNode(db, id);
   expect(node?.lifecycle).toBe('under_review');
   expect(node?.rank).toBeNull();
@@ -60,17 +63,17 @@ test('submit moves in_progress → under_review and clears rank', async () => {
 });
 
 test('submit is legal only from in_progress', async () => {
-  const todo = await createTask(db, { parentId: phaseId, title: 'x' });
-  await expectMimirError('validation', () => submitTask(db, todo.id));
+  const todo = await createTask(store, { parentId: phaseId, title: 'x' });
+  await expectMimirError('validation', () => submitTask(store, todo.id));
   const done = await startedTask();
-  await completeTask(db, done);
-  await expectMimirError('validation', () => submitTask(db, done));
+  await completeTask(store, done);
+  await expectMimirError('validation', () => submitTask(store, done));
 });
 
 test('return moves under_review → in_progress, re-ranks, and carries the reason', async () => {
   const id = await startedTask();
-  await submitTask(db, id);
-  await returnTask(db, id, 'tests are missing');
+  await submitTask(store, id);
+  await returnTask(store, id, 'tests are missing');
   const node = await loadNode(db, id);
   expect(node?.lifecycle).toBe('in_progress');
   expect(node?.rank).not.toBeNull();
@@ -87,13 +90,13 @@ test('return moves under_review → in_progress, re-ranks, and carries the reaso
 
 test('return is legal only from under_review', async () => {
   const id = await startedTask();
-  await expectMimirError('validation', () => returnTask(db, id));
+  await expectMimirError('validation', () => returnTask(store, id));
 });
 
 test('complete approves an under_review task, logging from=under_review', async () => {
   const id = await startedTask();
-  await submitTask(db, id);
-  await completeTask(db, id);
+  await submitTask(store, id);
+  await completeTask(store, id);
   const node = await loadNode(db, id);
   expect(node?.lifecycle).toBe('done');
   const log = await db
@@ -107,16 +110,16 @@ test('complete approves an under_review task, logging from=under_review', async 
 
 test('an under_review task can be abandoned', async () => {
   const id = await startedTask();
-  await submitTask(db, id);
-  await abandonTask(db, id, 'scrapped in review');
+  await submitTask(store, id);
+  await abandonTask(store, id, 'scrapped in review');
   expect((await loadNode(db, id))?.lifecycle).toBe('abandoned');
 });
 
 test('holding an under_review task and releasing it does not make it rankable', async () => {
   const id = await startedTask();
-  await submitTask(db, id);
-  await blockTask(db, id, 'reviewer OOO');
-  await unblockTask(db, id);
+  await submitTask(store, id);
+  await blockTask(store, id, 'reviewer OOO');
+  await unblockTask(store, id);
   const node = await loadNode(db, id);
   expect(node?.lifecycle).toBe('under_review');
   expect(node?.hold).toBe('none');
@@ -125,7 +128,7 @@ test('holding an under_review task and releasing it does not make it rankable', 
 
 test('stale chases an under_review task left too long', async () => {
   const id = await startedTask();
-  await submitTask(db, id);
+  await submitTask(store, id);
   const node = await loadNode(db, id);
   const future = new Date(Date.parse(node!.updated_at) + 30 * 24 * 60 * 60 * 1000).toISOString();
   expect(isStale(await setOf(), node!, { asOf: future })).toBe(true);
@@ -133,7 +136,7 @@ test('stale chases an under_review task left too long', async () => {
 
 test('under_review tasks appear in the default (live) list and roll up a phase', async () => {
   const id = await startedTask();
-  await submitTask(db, id);
+  await submitTask(store, id);
   const result = await listNodes(createSqliteStore(db), { scope: 'MMR' });
   expect(result.items.some((i) => i.status === 'under_review')).toBe(true);
 

@@ -4,18 +4,21 @@ import { createTestDb, expectReject } from '../../db/testing';
 import type { Db } from '../context';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { attachArtifact, blockTask, completeTask, depend, startTask } from '../mutations';
+import type { Store } from '../store';
 import { createSqliteStore } from '../store-sqlite';
 import { getArtifact, getNode, listNodes, nextTasks, statusOfNode } from './index';
 
 let db: Db;
+let store: Store;
 let phaseId: number;
 let key: string;
 beforeEach(async () => {
   db = await createTestDb();
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
+  store = createSqliteStore(db);
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
   key = p.key;
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
   phaseId = phase.id;
 });
 afterEach(async () => {
@@ -25,12 +28,12 @@ afterEach(async () => {
 const idOf = (n: { seq: number }) => `${key}-${n.seq}`;
 
 test('next returns ready tasks in rank order, excluding awaiting/held', async () => {
-  const a = await createTask(db, { parentId: phaseId, title: 'a' });
-  const b = await createTask(db, { parentId: phaseId, title: 'b' });
-  const c = await createTask(db, { parentId: phaseId, title: 'c' });
+  const a = await createTask(store, { parentId: phaseId, title: 'a' });
+  const b = await createTask(store, { parentId: phaseId, title: 'b' });
+  const c = await createTask(store, { parentId: phaseId, title: 'c' });
   // b awaits a; c is blocked → only a and (later) others are ready
-  await depend(db, b.id, [a.id]);
-  await blockTask(db, c.id, 'later');
+  await depend(store, b.id, [a.id]);
+  await blockTask(store, c.id, 'later');
 
   const res = await nextTasks(createSqliteStore(db), { scope: key });
   expect(res.items.map((n) => n.id)).toEqual([idOf(a)]);
@@ -38,14 +41,14 @@ test('next returns ready tasks in rank order, excluding awaiting/held', async ()
   expect(res.items[0]?.status).toBe('ready');
 
   // completing a unblocks b
-  await completeTask(db, a.id);
+  await completeTask(store, a.id);
   const res2 = await nextTasks(createSqliteStore(db), { scope: key });
   expect(res2.items.map((n) => n.id)).toEqual([idOf(b)]);
 });
 
 test('next respects priority filter and the limit', async () => {
-  await createTask(db, { parentId: phaseId, priority: 'p2', title: 'p2' });
-  const hi = await createTask(db, { parentId: phaseId, priority: 'p0', title: 'p0' });
+  await createTask(store, { parentId: phaseId, priority: 'p2', title: 'p2' });
+  const hi = await createTask(store, { parentId: phaseId, priority: 'p0', title: 'p0' });
   const onlyP0 = await nextTasks(createSqliteStore(db), { priority: 'p0', scope: key });
   expect(onlyP0.items.map((n) => n.id)).toEqual([idOf(hi)]);
 
@@ -55,9 +58,9 @@ test('next respects priority filter and the limit', async () => {
 });
 
 test('a direct prerequisite surfaces in awaitingOn (no via) and clears when settled', async () => {
-  const x = await createTask(db, { parentId: phaseId, title: 'x' });
-  const y = await createTask(db, { parentId: phaseId, title: 'y' });
-  await depend(db, y.id, [x.id]);
+  const x = await createTask(store, { parentId: phaseId, title: 'x' });
+  const y = await createTask(store, { parentId: phaseId, title: 'y' });
+  await depend(store, y.id, [x.id]);
 
   const view = await getNode(db, idOf(y));
   expect(view.deps?.dependsOn.map((r) => r.id)).toEqual([idOf(x)]);
@@ -65,7 +68,7 @@ test('a direct prerequisite surfaces in awaitingOn (no via) and clears when sett
     { id: idOf(x), via: undefined },
   ]);
 
-  await completeTask(db, x.id); // prerequisite terminal → gate clears
+  await completeTask(store, x.id); // prerequisite terminal → gate clears
   expect((await getNode(db, idOf(y))).deps?.awaitingOn).toEqual([]);
 });
 
@@ -76,10 +79,10 @@ test('an inherited prerequisite surfaces in awaitingOn, tagged via the ancestor'
     .where('id', '=', phaseId)
     .executeTakeFirstOrThrow();
   const initId = parent_id as number;
-  const phase1 = await createPhase(db, { parentId: initId, title: 'phase 1' });
-  const phase2 = await createPhase(db, { parentId: initId, title: 'phase 2' });
-  await depend(db, phase2.id, [phase1.id]); // edge on the ancestor phase
-  const t = await createTask(db, { parentId: phase2.id, title: 't' });
+  const phase1 = await createPhase(store, { parentId: initId, title: 'phase 1' });
+  const phase2 = await createPhase(store, { parentId: initId, title: 'phase 2' });
+  await depend(store, phase2.id, [phase1.id]); // edge on the ancestor phase
+  const t = await createTask(store, { parentId: phase2.id, title: 't' });
 
   const view = await getNode(db, idOf(t));
   expect(view.deps?.dependsOn).toEqual([]); // t declares nothing of its own
@@ -95,10 +98,10 @@ test('awaitingOn lists a prereq reachable both directly and via an ancestor only
     .where('id', '=', phaseId)
     .executeTakeFirstOrThrow();
   const initId = parent_id as number;
-  const prereq = await createPhase(db, { parentId: initId, title: 'prereq phase' }); // empty → unsettled
-  const t = await createTask(db, { parentId: phaseId, title: 't' });
-  await depend(db, t.id, [prereq.id]); // direct edge
-  await depend(db, phaseId, [prereq.id]); // same prereq, now also inherited via the phase
+  const prereq = await createPhase(store, { parentId: initId, title: 'prereq phase' }); // empty → unsettled
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  await depend(store, t.id, [prereq.id]); // direct edge
+  await depend(store, phaseId, [prereq.id]); // same prereq, now also inherited via the phase
 
   const awaitingOn = (await getNode(db, idOf(t))).deps?.awaitingOn ?? [];
   expect(awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
@@ -107,9 +110,9 @@ test('awaitingOn lists a prereq reachable both directly and via an ancestor only
 });
 
 test('get returns a full record with cheap facets and resolves KEY-seq', async () => {
-  const a = await createTask(db, { parentId: phaseId, title: 'a' });
-  const b = await createTask(db, { parentId: phaseId, title: 'b' });
-  await depend(db, b.id, [a.id]);
+  const a = await createTask(store, { parentId: phaseId, title: 'a' });
+  const b = await createTask(store, { parentId: phaseId, title: 'b' });
+  await depend(store, b.id, [a.id]);
 
   const view = await getNode(db, idOf(b));
   expect(view.id).toBe(idOf(b));
@@ -126,9 +129,9 @@ test('get throws on a missing or malformed id', async () => {
 });
 
 test('status_of returns label + distribution for a non-leaf', async () => {
-  const t1 = await createTask(db, { parentId: phaseId, title: 't1' });
-  await createTask(db, { parentId: phaseId, title: 't2' });
-  await startTask(db, t1.id);
+  const t1 = await createTask(store, { parentId: phaseId, title: 't1' });
+  await createTask(store, { parentId: phaseId, title: 't2' });
+  await startTask(store, t1.id);
 
   const phase = await db
     .selectFrom('node')
@@ -143,8 +146,8 @@ test('status_of returns label + distribution for a non-leaf', async () => {
 // addressability (MMR-32): the full grammar on get/status
 
 test('get on a bare KEY returns the whole-project view', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 't' });
-  await startTask(db, t.id);
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  await startTask(store, t.id);
 
   const view = await getNode(db, key);
   expect(view.id).toBe(key);
@@ -156,8 +159,8 @@ test('get on a bare KEY returns the whole-project view', async () => {
 });
 
 test("status_of on a bare KEY rolls up the project's roots", async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 't' });
-  await startTask(db, t.id);
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  await startTask(store, t.id);
 
   const status = await statusOfNode(db, key);
   expect(status.id).toBe(key);
@@ -166,9 +169,9 @@ test("status_of on a bare KEY rolls up the project's roots", async () => {
 });
 
 test('get on KEY-aN returns the artifact detail with rendered links', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 't' });
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
   const project = await db.selectFrom('project').select('id').executeTakeFirstOrThrow();
-  const { renderedId } = await attachArtifact(db, {
+  const { renderedId } = await attachArtifact(store, {
     content: '# frozen\n',
     linkNodeIds: [t.id],
     projectId: project.id,
@@ -187,9 +190,9 @@ test('status_of rejects an artifact id as a behavioral error', async () => {
 });
 
 test('the node artifacts facet speaks KEY-aN', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 't' });
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
   const project = await db.selectFrom('project').select('id').executeTakeFirstOrThrow();
-  await attachArtifact(db, {
+  await attachArtifact(store, {
     content: 'x',
     linkNodeIds: [t.id],
     projectId: project.id,
@@ -204,9 +207,9 @@ test('the node artifacts facet speaks KEY-aN', async () => {
 });
 
 test('list selects by status universe (MMR-33)', async () => {
-  const a = await createTask(db, { parentId: phaseId, title: 'a' });
-  const b = await createTask(db, { parentId: phaseId, title: 'b' });
-  await blockTask(db, b.id, 'x');
+  const a = await createTask(store, { parentId: phaseId, title: 'a' });
+  const b = await createTask(store, { parentId: phaseId, title: 'b' });
+  await blockTask(store, b.id, 'x');
 
   const blocked = await listNodes(createSqliteStore(db), { scope: key, status: 'blocked' });
   expect(blocked.items.map((n) => n.id)).toEqual([idOf(b)]);
@@ -217,7 +220,7 @@ test('list selects by status universe (MMR-33)', async () => {
   const live = await listNodes(createSqliteStore(db), { scope: key });
   expect(live.total).toBe(2); // live is the default universe
 
-  await completeTask(db, a.id);
+  await completeTask(store, a.id);
   const terminal = await listNodes(createSqliteStore(db), { scope: key, status: 'terminal' });
   expect(terminal.items.map((n) => n.id)).toEqual([idOf(a)]);
   const all = await listNodes(createSqliteStore(db), { scope: key, status: 'all' });
@@ -225,8 +228,8 @@ test('list selects by status universe (MMR-33)', async () => {
 });
 
 test('list filters by q — case-insensitive substring over title (MMR-78)', async () => {
-  const auth = await createTask(db, { parentId: phaseId, title: 'Wire up AUTH gate' });
-  await createTask(db, { parentId: phaseId, title: 'Polish the board' });
+  const auth = await createTask(store, { parentId: phaseId, title: 'Wire up AUTH gate' });
+  await createTask(store, { parentId: phaseId, title: 'Polish the board' });
 
   const hit = await listNodes(createSqliteStore(db), { q: 'auth', scope: key });
   expect(hit.items.map((n) => n.id)).toEqual([idOf(auth)]);
@@ -242,11 +245,11 @@ test('list filters by q — case-insensitive substring over title (MMR-78)', asy
 });
 
 test('deps facet lists prerequisites in ascending id order regardless of edge insertion order', async () => {
-  const older = await createTask(db, { parentId: phaseId, title: 'older prereq' });
-  const newer = await createTask(db, { parentId: phaseId, title: 'newer prereq' });
-  const dependent = await createTask(db, { parentId: phaseId, title: 'dependent' });
+  const older = await createTask(store, { parentId: phaseId, title: 'older prereq' });
+  const newer = await createTask(store, { parentId: phaseId, title: 'newer prereq' });
+  const dependent = await createTask(store, { parentId: phaseId, title: 'dependent' });
   // insert edges newest-first — the SQL path read them back id-ascending (PK index)
-  await depend(db, dependent.id, [newer.id, older.id]);
+  await depend(store, dependent.id, [newer.id, older.id]);
 
   const view = await getNode(db, idOf(dependent), { facets: ['deps'] });
   expect(view.deps?.dependsOn.map((r) => r.id)).toEqual([idOf(older), idOf(newer)]);
@@ -254,8 +257,8 @@ test('deps facet lists prerequisites in ascending id order regardless of edge in
 });
 
 test('list q matches SQL LIKE for non-ASCII case (SQLite lower() is ASCII-only)', async () => {
-  await createTask(db, { parentId: phaseId, title: 'Über refactor' });
-  await createTask(db, { parentId: phaseId, title: 'über cleanup' });
+  await createTask(store, { parentId: phaseId, title: 'Über refactor' });
+  await createTask(store, { parentId: phaseId, title: 'über cleanup' });
 
   // ASCII case folds both ways; non-ASCII stays case-sensitive — LIKE parity.
   expect((await listNodes(createSqliteStore(db), { q: 'über', scope: key })).total).toBe(1);
@@ -264,16 +267,16 @@ test('list q matches SQL LIKE for non-ASCII case (SQLite lower() is ASCII-only)'
 });
 
 test('list q: the _ wildcard consumes one full code point, astral included (LIKE parity)', async () => {
-  await createTask(db, { parentId: phaseId, title: 'a😀b' });
+  await createTask(store, { parentId: phaseId, title: 'a😀b' });
 
   expect((await listNodes(createSqliteStore(db), { q: 'a_b', scope: key })).total).toBe(1);
   expect((await listNodes(createSqliteStore(db), { q: 'a__b', scope: key })).total).toBe(0);
 });
 
 test('list applies verdicts and field operators within the universe', async () => {
-  const a = await createTask(db, { parentId: phaseId, priority: 'p1', title: 'a' });
-  const b = await createTask(db, { parentId: phaseId, priority: 'p2', title: 'b' });
-  await depend(db, b.id, [a.id]); // a blocks b
+  const a = await createTask(store, { parentId: phaseId, priority: 'p1', title: 'a' });
+  const b = await createTask(store, { parentId: phaseId, priority: 'p2', title: 'b' });
+  await depend(store, b.id, [a.id]); // a blocks b
 
   const blocking = await listNodes(createSqliteStore(db), {
     scope: key,
@@ -295,7 +298,7 @@ test('list applies verdicts and field operators within the universe', async () =
 });
 
 test('a value fault returns an empty set with warnings, not an error', async () => {
-  await createTask(db, { parentId: phaseId, priority: 'p1', title: 'a' });
+  await createTask(store, { parentId: phaseId, priority: 'p1', title: 'a' });
   const res = await listNodes(createSqliteStore(db), {
     filters: [{ field: 'priority', op: 'eq', value: 'p9' }],
     scope: key,
@@ -307,7 +310,7 @@ test('a value fault returns an empty set with warnings, not an error', async () 
 });
 
 test('a type filter widens list beyond tasks', async () => {
-  await createTask(db, { parentId: phaseId, title: 'a' });
+  await createTask(store, { parentId: phaseId, title: 'a' });
   const phases = await listNodes(createSqliteStore(db), {
     filters: [{ field: 'type', op: 'eq', value: 'phase' }],
     scope: key,
@@ -316,10 +319,10 @@ test('a type filter widens list beyond tasks', async () => {
 });
 
 test('terminal universe orders by completed_at desc', async () => {
-  const a = await createTask(db, { parentId: phaseId, title: 'a' });
-  const b = await createTask(db, { parentId: phaseId, title: 'b' });
-  await completeTask(db, a.id);
-  await completeTask(db, b.id);
+  const a = await createTask(store, { parentId: phaseId, title: 'a' });
+  const b = await createTask(store, { parentId: phaseId, title: 'b' });
+  await completeTask(store, a.id);
+  await completeTask(store, b.id);
   // pin distinct completion instants (same-ms completions would tie)
   await db
     .updateTable('node')
@@ -336,8 +339,8 @@ test('terminal universe orders by completed_at desc', async () => {
 });
 
 test("the tag pseudo-field filters via the node's tag set", async () => {
-  const a = await createTask(db, { parentId: phaseId, tags: ['spec'], title: 'a' });
-  await createTask(db, { parentId: phaseId, title: 'b' });
+  const a = await createTask(store, { parentId: phaseId, tags: ['spec'], title: 'a' });
+  await createTask(store, { parentId: phaseId, title: 'b' });
   const tagged = await listNodes(createSqliteStore(db), {
     filters: [{ field: 'tag', op: 'eq', value: 'spec' }],
     scope: key,

@@ -1,7 +1,7 @@
-import type { Db } from '../context';
 import { validation } from '../errors';
 import type { Node } from '../model';
 import { appendRank } from '../rank';
+import type { Store } from '../store';
 import { now } from '../time';
 import { logTransition, reloadNode, requireTask, stamp } from './common';
 
@@ -22,115 +22,99 @@ import { logTransition, reloadNode, requireTask, stamp } from './common';
  * Approval is plain `complete_task` (the log's `from=under_review` marks it).
  */
 
-export async function startTask(db: Db, id: number): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const task = await requireTask(tx, id);
+export async function startTask(store: Store, id: number): Promise<Node> {
+  return store.transact(async (w) => {
+    const task = await requireTask(w, id);
     if (task.lifecycle !== 'todo') {
       throw validation(`only a todo task can be started (is ${String(task.lifecycle)})`);
     }
-    await tx.updateTable('node').set({ lifecycle: 'in_progress' }).where('id', '=', id).execute();
-    await logTransition(tx, {
+    await w.updateNode(id, { lifecycle: 'in_progress' });
+    await logTransition(w, {
       from_value: 'todo',
       kind: 'lifecycle',
       node_id: id,
       to_value: 'in_progress',
     });
-    await stamp(tx, id);
-    return reloadNode(tx, id);
+    await stamp(w, id);
+    return reloadNode(w, id);
   });
 }
 
-export async function submitTask(db: Db, id: number): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const task = await requireTask(tx, id);
+export async function submitTask(store: Store, id: number): Promise<Node> {
+  return store.transact(async (w) => {
+    const task = await requireTask(w, id);
     if (task.lifecycle !== 'in_progress') {
       throw validation(
         `only an in_progress task can be submitted for review (is ${String(task.lifecycle)})`,
       );
     }
-    await tx
-      .updateTable('node')
-      .set({ lifecycle: 'under_review', rank: null })
-      .where('id', '=', id)
-      .execute();
-    await logTransition(tx, {
+    await w.updateNode(id, { lifecycle: 'under_review', rank: null });
+    await logTransition(w, {
       from_value: 'in_progress',
       kind: 'lifecycle',
       node_id: id,
       to_value: 'under_review',
     });
-    await stamp(tx, id);
-    return reloadNode(tx, id);
+    await stamp(w, id);
+    return reloadNode(w, id);
   });
 }
 
-export async function returnTask(db: Db, id: number, reason?: string): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const task = await requireTask(tx, id);
+export async function returnTask(store: Store, id: number, reason?: string): Promise<Node> {
+  return store.transact(async (w) => {
+    const task = await requireTask(w, id);
     if (task.lifecycle !== 'under_review') {
       throw validation(`only an under_review task can be returned (is ${String(task.lifecycle)})`);
     }
     // re-enter the rankable set at the bottom (a return is a natural re-triage point)
-    const rank = await appendRank(tx, task.project_id);
-    await tx
-      .updateTable('node')
-      .set({ lifecycle: 'in_progress', rank })
-      .where('id', '=', id)
-      .execute();
-    await logTransition(tx, {
+    const rank = await appendRank(w, task.project_id);
+    await w.updateNode(id, { lifecycle: 'in_progress', rank });
+    await logTransition(w, {
       from_value: 'under_review',
       kind: 'lifecycle',
       node_id: id,
       reason: reason ?? null,
       to_value: 'in_progress',
     });
-    await stamp(tx, id);
-    return reloadNode(tx, id);
+    await stamp(w, id);
+    return reloadNode(w, id);
   });
 }
 
-export async function completeTask(db: Db, id: number): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const task = await requireTask(tx, id);
+export async function completeTask(store: Store, id: number): Promise<Node> {
+  return store.transact(async (w) => {
+    const task = await requireTask(w, id);
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
-    await tx
-      .updateTable('node')
-      .set({ completed_at: now(), lifecycle: 'done', rank: null })
-      .where('id', '=', id)
-      .execute();
-    await logTransition(tx, {
+    await w.updateNode(id, { completed_at: now(), lifecycle: 'done', rank: null });
+    await logTransition(w, {
       from_value: task.lifecycle,
       kind: 'lifecycle',
       node_id: id,
       to_value: 'done',
     });
-    await stamp(tx, id);
-    return reloadNode(tx, id);
+    await stamp(w, id);
+    return reloadNode(w, id);
   });
 }
 
-export async function abandonTask(db: Db, id: number, reason?: string): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const task = await requireTask(tx, id);
+export async function abandonTask(store: Store, id: number, reason?: string): Promise<Node> {
+  return store.transact(async (w) => {
+    const task = await requireTask(w, id);
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
-    await tx
-      .updateTable('node')
-      .set({ lifecycle: 'abandoned', rank: null })
-      .where('id', '=', id)
-      .execute();
-    await logTransition(tx, {
+    await w.updateNode(id, { lifecycle: 'abandoned', rank: null });
+    await logTransition(w, {
       from_value: task.lifecycle,
       kind: 'lifecycle',
       node_id: id,
       reason: reason ?? null,
       to_value: 'abandoned',
     });
-    await stamp(tx, id);
-    return reloadNode(tx, id);
+    await stamp(w, id);
+    return reloadNode(w, id);
   });
 }
 
@@ -143,29 +127,25 @@ export async function abandonTask(db: Db, id: number, reason?: string): Promise<
  * `done` stays a trusted terminal — prevention of premature-done is the
  * `submit`/`under_review` gate, not a casual reopen.
  */
-export async function reopenTask(db: Db, id: number, reason?: string): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const task = await requireTask(tx, id);
+export async function reopenTask(store: Store, id: number, reason?: string): Promise<Node> {
+  return store.transact(async (w) => {
+    const task = await requireTask(w, id);
     if (task.lifecycle !== 'done' && task.lifecycle !== 'abandoned') {
       throw validation(
         `only a done or abandoned task can be reopened (is ${String(task.lifecycle)})`,
       );
     }
     // re-enter the rankable set at the bottom (a reopen is a natural re-triage point)
-    const rank = await appendRank(tx, task.project_id);
-    await tx
-      .updateTable('node')
-      .set({ completed_at: null, lifecycle: 'in_progress', rank })
-      .where('id', '=', id)
-      .execute();
-    await logTransition(tx, {
+    const rank = await appendRank(w, task.project_id);
+    await w.updateNode(id, { completed_at: null, lifecycle: 'in_progress', rank });
+    await logTransition(w, {
       from_value: task.lifecycle,
       kind: 'lifecycle',
       node_id: id,
       reason: reason ?? null,
       to_value: 'in_progress',
     });
-    await stamp(tx, id);
-    return reloadNode(tx, id);
+    await stamp(w, id);
+    return reloadNode(w, id);
   });
 }

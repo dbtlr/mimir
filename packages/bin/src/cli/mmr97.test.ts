@@ -26,12 +26,12 @@ let phaseRef: string;
 beforeEach(async () => {
   db = await createTestDb();
   store = createSqliteStore(db);
-  const p = await createProject(db, { key: 'MMR', name: 'Mimir' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'Init' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'Phase' });
+  const p = await createProject(store, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'Init' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'Phase' });
   phaseRef = `MMR-${String(phase.seq)}`;
-  const t1 = await createTask(db, { parentId: phase.id, title: 'One' });
-  const t2 = await createTask(db, { parentId: phase.id, title: 'Two' });
+  const t1 = await createTask(store, { parentId: phase.id, title: 'One' });
+  const t2 = await createTask(store, { parentId: phase.id, title: 'Two' });
   taskRef = `MMR-${String(t1.seq)}`;
   task2Ref = `MMR-${String(t2.seq)}`;
 });

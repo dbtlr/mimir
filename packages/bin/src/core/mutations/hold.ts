@@ -1,9 +1,9 @@
 import type { Hold } from '@mimir/contract';
 
-import type { Db } from '../context';
 import { validation } from '../errors';
 import type { Node } from '../model';
 import { appendRank, isRankable } from '../rank';
+import type { Store } from '../store';
 import { logTransition, reloadNode, requireTask, stamp } from './common';
 
 /**
@@ -23,61 +23,55 @@ function assertHoldable(task: Node): void {
 }
 
 async function enterHold(
-  db: Db,
+  store: Store,
   id: number,
   to: Exclude<Hold, 'none'>,
   reason?: string,
 ): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const task = await requireTask(tx, id);
+  return store.transact(async (w) => {
+    const task = await requireTask(w, id);
     assertHoldable(task);
     if (task.hold !== 'none') {
       throw validation(`task is already ${task.hold}`);
     }
-    await tx
-      .updateTable('node')
-      .set({ hold: to, hold_reason: reason ?? null, rank: null })
-      .where('id', '=', id)
-      .execute();
-    await logTransition(tx, {
+    await w.updateNode(id, { hold: to, hold_reason: reason ?? null, rank: null });
+    await logTransition(w, {
       from_value: 'none',
       kind: 'hold',
       node_id: id,
       reason: reason ?? null,
       to_value: to,
     });
-    await stamp(tx, id);
-    return reloadNode(tx, id);
+    await stamp(w, id);
+    return reloadNode(w, id);
   });
 }
 
-async function releaseHold(db: Db, id: number, from: Exclude<Hold, 'none'>): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const task = await requireTask(tx, id);
+async function releaseHold(store: Store, id: number, from: Exclude<Hold, 'none'>): Promise<Node> {
+  return store.transact(async (w) => {
+    const task = await requireTask(w, id);
     if (task.hold !== from) {
       throw validation(`task is not ${from} (is ${String(task.hold)})`);
     }
     // Re-enter the rankable set at the bottom — but only if the lifecycle is
     // rankable once un-held (todo/in_progress). A held `under_review` task
     // stays non-rankable on release (not actionable until the verdict lands).
-    const rank = isRankable(task.lifecycle, 'none') ? await appendRank(tx, task.project_id) : null;
-    await tx
-      .updateTable('node')
-      .set({ hold: 'none', hold_reason: null, rank })
-      .where('id', '=', id)
-      .execute();
-    await logTransition(tx, { from_value: from, kind: 'hold', node_id: id, to_value: 'none' });
-    await stamp(tx, id);
-    return reloadNode(tx, id);
+    const rank = isRankable(task.lifecycle, 'none') ? await appendRank(w, task.project_id) : null;
+    await w.updateNode(id, { hold: 'none', hold_reason: null, rank });
+    await logTransition(w, { from_value: from, kind: 'hold', node_id: id, to_value: 'none' });
+    await stamp(w, id);
+    return reloadNode(w, id);
   });
 }
 
-export const parkTask = (db: Db, id: number, reason?: string): Promise<Node> =>
-  enterHold(db, id, 'parked', reason);
+export const parkTask = (store: Store, id: number, reason?: string): Promise<Node> =>
+  enterHold(store, id, 'parked', reason);
 
-export const unparkTask = (db: Db, id: number): Promise<Node> => releaseHold(db, id, 'parked');
+export const unparkTask = (store: Store, id: number): Promise<Node> =>
+  releaseHold(store, id, 'parked');
 
-export const blockTask = (db: Db, id: number, reason?: string): Promise<Node> =>
-  enterHold(db, id, 'blocked', reason);
+export const blockTask = (store: Store, id: number, reason?: string): Promise<Node> =>
+  enterHold(store, id, 'blocked', reason);
 
-export const unblockTask = (db: Db, id: number): Promise<Node> => releaseHold(db, id, 'blocked');
+export const unblockTask = (store: Store, id: number): Promise<Node> =>
+  releaseHold(store, id, 'blocked');

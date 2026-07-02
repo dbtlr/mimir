@@ -1,6 +1,6 @@
 import type { TagEntityType } from '@mimir/contract';
 
-import type { Db, Tx } from '../context';
+import type { Store, StoreWriter } from '../store';
 import { assertProjectActive } from './common';
 
 /**
@@ -24,20 +24,17 @@ export type EntityRef = {
  * project itself. A missing entity is left to the insert/delete below (tags
  * don't validate existence).
  */
-async function assertTargetActive(tx: Tx, ref: EntityRef): Promise<void> {
+async function assertTargetActive(w: StoreWriter, ref: EntityRef): Promise<void> {
   let projectId: number | undefined;
   if (ref.entityType === 'project') {
     projectId = ref.entityId;
+  } else if (ref.entityType === 'node') {
+    projectId = (await w.loadNode(ref.entityId))?.project_id;
   } else {
-    const row = await tx
-      .selectFrom(ref.entityType)
-      .select('project_id')
-      .where('id', '=', ref.entityId)
-      .executeTakeFirst();
-    projectId = row?.project_id;
+    projectId = (await w.loadArtifact(ref.entityId))?.project_id;
   }
   if (projectId !== undefined) {
-    await assertProjectActive(tx, projectId);
+    await assertProjectActive(w, projectId);
   }
 }
 
@@ -47,47 +44,35 @@ async function assertTargetActive(tx: Tx, ref: EntityRef): Promise<void> {
  * stored one (the note rides the application, not the vocabulary).
  */
 export async function tagEntities(
-  db: Db,
+  store: Store,
   targets: EntityRef[],
   tags: string[],
   note?: string,
 ): Promise<void> {
-  await db.transaction().execute(async (tx) => {
+  await store.transact(async (w) => {
     for (const target of targets) {
-      await assertTargetActive(tx, target);
+      await assertTargetActive(w, target);
       for (const tag of tags) {
-        await tx
-          .insertInto('tag')
-          .values({
-            entity_id: target.entityId,
-            entity_type: target.entityType,
-            note: note ?? null,
-            tag,
-          })
-          .onConflict((oc) =>
-            note === undefined
-              ? oc.columns(['entity_type', 'entity_id', 'tag']).doNothing()
-              : oc.columns(['entity_type', 'entity_id', 'tag']).doUpdateSet({ note }),
-          )
-          .execute();
+        const row = { entity_id: target.entityId, entity_type: target.entityType, tag };
+        await (note === undefined
+          ? w.insertTag({ ...row, note: null })
+          : w.upsertTagNote({ ...row, note }));
       }
     }
   });
 }
 
 /** Remove every tag from every target — a plain row delete, deliberately unlogged. */
-export async function untagEntities(db: Db, targets: EntityRef[], tags: string[]): Promise<number> {
-  return db.transaction().execute(async (tx) => {
+export async function untagEntities(
+  store: Store,
+  targets: EntityRef[],
+  tags: string[],
+): Promise<number> {
+  return store.transact(async (w) => {
     let removed = 0;
     for (const target of targets) {
-      await assertTargetActive(tx, target);
-      const result = await tx
-        .deleteFrom('tag')
-        .where('entity_type', '=', target.entityType)
-        .where('entity_id', '=', target.entityId)
-        .where('tag', 'in', tags)
-        .executeTakeFirst();
-      removed += Number(result.numDeletedRows);
+      await assertTargetActive(w, target);
+      removed += await w.deleteTags(target.entityType, target.entityId, tags);
     }
     return removed;
   });

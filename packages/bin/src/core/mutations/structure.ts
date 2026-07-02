@@ -1,12 +1,10 @@
 import type { NodeType } from '@mimir/contract';
 
-import type { Db, Tx } from '../context';
 import { deriveSet, lineageIds } from '../derive';
 import { validation } from '../errors';
-import { renderNodeId } from '../lookup';
 import type { Node } from '../model';
-import { loadWorkingSet } from '../store-sqlite';
-import { logTransition, reloadNode, requireNode, stamp } from './common';
+import type { Store, StoreWriter } from '../store';
+import { logTransition, reloadNode, renderNodeRef, requireNode, stamp } from './common';
 
 /**
  * Structural move (output contract / glossary). Re-parents a node, validating
@@ -28,7 +26,7 @@ function assertParentType(child: NodeType, parent: NodeType): void {
 }
 
 /** Every node in the subtree rooted at `rootId` (inclusive), walking children down. */
-async function subtreeIds(tx: Tx, rootId: number): Promise<number[]> {
+async function subtreeIds(w: StoreWriter, rootId: number): Promise<number[]> {
   const ids: number[] = [];
   const seen = new Set<number>();
   const stack: number[] = [rootId];
@@ -39,13 +37,8 @@ async function subtreeIds(tx: Tx, rootId: number): Promise<number[]> {
     }
     seen.add(cur);
     ids.push(cur);
-    const children = await tx
-      .selectFrom('node')
-      .select('id')
-      .where('parent_id', '=', cur)
-      .execute();
-    for (const child of children) {
-      stack.push(child.id);
+    for (const child of await w.listChildren(cur)) {
+      stack.push(child);
     }
   }
   return ids;
@@ -60,27 +53,23 @@ async function subtreeIds(tx: Tx, rootId: number): Promise<number[]> {
  * unbounded. Mirrors the same-lineage guard in `depend`.
  */
 async function assertMoveKeepsDepsCrossLineage(
-  tx: Tx,
+  w: StoreWriter,
   id: number,
   newParentId: number,
 ): Promise<void> {
-  const subtree = new Set(await subtreeIds(tx, id));
-  const set = deriveSet(await loadWorkingSet(tx));
+  const subtree = new Set(await subtreeIds(w, id));
+  const set = deriveSet(await w.loadWorkingSet());
   const newAncestors = new Set(lineageIds(set, newParentId)); // includes newParentId
-  const edges = await tx
-    .selectFrom('dependency')
-    .select(['node_id', 'depends_on_node_id'])
-    .where((eb) =>
-      eb.or([eb('node_id', 'in', [...subtree]), eb('depends_on_node_id', 'in', [...subtree])]),
-    )
-    .execute();
+  const edges = set.ws.edges.filter(
+    (edge) => subtree.has(edge.node_id) || subtree.has(edge.depends_on_node_id),
+  );
   for (const edge of edges) {
     const crosses =
       (subtree.has(edge.node_id) && newAncestors.has(edge.depends_on_node_id)) ||
       (subtree.has(edge.depends_on_node_id) && newAncestors.has(edge.node_id));
     if (crosses) {
-      const from = (await renderNodeId(tx, edge.node_id)) ?? 'it';
-      const to = (await renderNodeId(tx, edge.depends_on_node_id)) ?? 'it';
+      const from = (await renderNodeRef(w, edge.node_id)) ?? 'it';
+      const to = (await renderNodeRef(w, edge.depends_on_node_id)) ?? 'it';
       throw validation(
         `move would put a dependency in the same lineage (${from} depends on ${to}) — a dependency can't cross the parent/child line (it would deadlock)`,
       );
@@ -89,7 +78,11 @@ async function assertMoveKeepsDepsCrossLineage(
 }
 
 /** Is `candidateId` within the subtree rooted at `ancestorId` (walking up parents)? */
-async function isDescendantOf(tx: Tx, candidateId: number, ancestorId: number): Promise<boolean> {
+async function isDescendantOf(
+  w: StoreWriter,
+  candidateId: number,
+  ancestorId: number,
+): Promise<boolean> {
   let current: number | null = candidateId;
   const seen = new Set<number>();
   while (current !== null) {
@@ -100,19 +93,19 @@ async function isDescendantOf(tx: Tx, candidateId: number, ancestorId: number): 
       break;
     }
     seen.add(current);
-    const row: { parent_id: number | null } | undefined = await tx
-      .selectFrom('node')
-      .select('parent_id')
-      .where('id', '=', current)
-      .executeTakeFirst();
+    const row: Node | undefined = await w.loadNode(current);
     current = row?.parent_id ?? null;
   }
   return false;
 }
 
-export async function moveNode(db: Db, id: number, newParentId: number | null): Promise<Node> {
-  return db.transaction().execute(async (tx) => {
-    const node = await requireNode(tx, id);
+export async function moveNode(
+  store: Store,
+  id: number,
+  newParentId: number | null,
+): Promise<Node> {
+  return store.transact(async (w) => {
+    const node = await requireNode(w, id);
 
     if (newParentId === null) {
       if (node.type !== 'initiative') {
@@ -122,23 +115,23 @@ export async function moveNode(db: Db, id: number, newParentId: number | null): 
       if (newParentId === id) {
         throw validation('cannot move it under itself');
       }
-      const parent = await requireNode(tx, newParentId);
+      const parent = await requireNode(w, newParentId);
       if (parent.project_id !== node.project_id) {
         throw validation('cross-project move is not supported');
       }
       assertParentType(node.type, parent.type);
-      if (await isDescendantOf(tx, newParentId, id)) {
+      if (await isDescendantOf(w, newParentId, id)) {
         throw validation('cannot move it under its own descendant');
       }
-      await assertMoveKeepsDepsCrossLineage(tx, id, newParentId);
+      await assertMoveKeepsDepsCrossLineage(w, id, newParentId);
     }
 
     const fromRef =
-      node.parent_id === null ? 'root' : ((await renderNodeId(tx, node.parent_id)) ?? 'root');
-    const toRef = newParentId === null ? 'root' : ((await renderNodeId(tx, newParentId)) ?? 'root');
-    await tx.updateTable('node').set({ parent_id: newParentId }).where('id', '=', id).execute();
-    await logTransition(tx, { from_value: fromRef, kind: 'move', node_id: id, to_value: toRef });
-    await stamp(tx, id);
-    return reloadNode(tx, id);
+      node.parent_id === null ? 'root' : ((await renderNodeRef(w, node.parent_id)) ?? 'root');
+    const toRef = newParentId === null ? 'root' : ((await renderNodeRef(w, newParentId)) ?? 'root');
+    await w.updateNode(id, { parent_id: newParentId });
+    await logTransition(w, { from_value: fromRef, kind: 'move', node_id: id, to_value: toRef });
+    await stamp(w, id);
+    return reloadNode(w, id);
   });
 }

@@ -73,10 +73,10 @@ beforeEach(async () => {
   db = await createTestDb();
   store = createSqliteStore(db);
   for (const key of ['MMR', 'XX'] as const) {
-    const p = await createProject(db, { key, name: key.toLowerCase() });
-    const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-    const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
-    await createTask(db, { parentId: phase.id, title: `${key} work` });
+    const p = await createProject(store, { key, name: key.toLowerCase() });
+    const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+    const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
+    await createTask(store, { parentId: phase.id, title: `${key} work` });
   }
 });
 afterEach(async () => {

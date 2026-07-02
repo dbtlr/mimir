@@ -21,9 +21,11 @@ import { nextTasks } from './intent/queries';
 import { resolveEntityToken } from './lookup';
 import { completeTask, startTask } from './mutations';
 import { projectTree } from './resource';
+import type { Store } from './store';
 import { createSqliteStore } from './store-sqlite';
 
 let db: Db;
+let store: Store;
 let phaseId: number;
 let phaseSeq: number;
 let initId: number;
@@ -32,13 +34,14 @@ let taskSeq: number;
 
 beforeEach(async () => {
   db = await createTestDb();
-  const p = await createProject(db, { key: 'MMR', name: 'Mimir' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'Initiative' });
+  store = createSqliteStore(db);
+  const p = await createProject(store, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'Initiative' });
   initId = init.id;
-  const phase = await createPhase(db, { parentId: init.id, title: 'Phase' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'Phase' });
   phaseId = phase.id;
   phaseSeq = phase.seq;
-  const task = await createTask(db, { parentId: phase.id, title: 'Ready Task' });
+  const task = await createTask(store, { parentId: phase.id, title: 'Ready Task' });
   taskId = task.id;
   taskSeq = task.seq;
 });
@@ -79,7 +82,7 @@ function renderBoth(err: RenderableError): { human: string; machine: string } {
 
 describe('Site A — container lifecycle hint', () => {
   test('starting a phase with ready descendants names their ids in the hint', async () => {
-    const err = await caught(() => startTask(db, phaseId));
+    const err = await caught(() => startTask(store, phaseId));
     expect(err.code).toBe('validation');
     expect(err.hint).toContain(`MMR-${String(taskSeq)}`);
     expect(err.hint).toContain("containers aren't started directly");
@@ -93,10 +96,10 @@ describe('Site A — container lifecycle hint', () => {
   });
 
   test('starting a phase with no ready descendants gets the mimir tree fallback hint', async () => {
-    await startTask(db, taskId);
-    await completeTask(db, taskId);
+    await startTask(store, taskId);
+    await completeTask(store, taskId);
 
-    const err = await caught(() => startTask(db, phaseId));
+    const err = await caught(() => startTask(store, phaseId));
     expect(err.code).toBe('validation');
     expect(err.hint).toContain('no ready tasks under it');
     expect(err.hint).toContain(`mimir tree MMR-${String(phaseSeq)}`);
@@ -109,7 +112,7 @@ describe('Site A — container lifecycle hint', () => {
   });
 
   test('starting an initiative with ready tasks under it names their ids', async () => {
-    const err = await caught(() => startTask(db, initId));
+    const err = await caught(() => startTask(store, initId));
     expect(err.code).toBe('validation');
     expect(err.hint).toContain(`MMR-${String(taskSeq)}`);
   });

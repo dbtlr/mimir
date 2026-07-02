@@ -25,13 +25,13 @@ let initiativeId: number;
 beforeEach(async () => {
   db = await createTestDb();
   store = createSqliteStore(db);
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
   initiativeId = init.id;
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
   phaseId = phase.id;
   phaseRef = `MMR-${String(phase.seq)}`;
-  const task = await createTask(db, { parentId: phase.id, title: 't' });
+  const task = await createTask(store, { parentId: phase.id, title: 't' });
   taskRef = `MMR-${String(task.seq)}`;
 });
 afterEach(async () => {
@@ -224,7 +224,7 @@ test('block then unblock', async () => {
 
 // dependency verbs: depend / undepend
 test('depend --on adds edges; undepend removes them', async () => {
-  const t2 = await createTask(db, { parentId: phaseId, title: 't2' });
+  const t2 = await createTask(store, { parentId: phaseId, title: 't2' });
   const ref2 = `MMR-${String(t2.seq)}`;
   expect(await runCli(['depend', taskRef, '--on', ref2], () => store, fakeIo(false))).toBe(0);
   expect(await runCli(['undepend', taskRef, '--on', ref2], () => store, fakeIo(false))).toBe(0);
@@ -235,14 +235,14 @@ test('depend without --on is a usage error → exit 2', async () => {
 
 // structure verb: move
 test('move re-parents under --to', async () => {
-  const phase2 = await createPhase(db, { parentId: initiativeId, title: 'ph2' });
+  const phase2 = await createPhase(store, { parentId: initiativeId, title: 'ph2' });
   const phase2Ref = `MMR-${String(phase2.seq)}`;
   expect(await runCli(['move', taskRef, '--to', phase2Ref], () => store, fakeIo(false))).toBe(0);
 });
 
 // structure verb: reorder
 test('reorder --before and --top', async () => {
-  const t2 = await createTask(db, { parentId: phaseId, title: 't2' });
+  const t2 = await createTask(store, { parentId: phaseId, title: 't2' });
   const ref2 = `MMR-${String(t2.seq)}`;
   expect(await runCli(['reorder', taskRef, '--before', ref2], () => store, fakeIo(false))).toBe(0);
   expect(await runCli(['reorder', taskRef, '--top'], () => store, fakeIo(false))).toBe(0);
@@ -327,10 +327,10 @@ test('attach to a node infers the project and echoes an artifact id', async () =
   expect(JSON.parse(io.out[0] ?? '{}').artifact.id).toMatch(/^[A-Z]{2,4}-a\d+$/);
 });
 test('attach rejects a --link in a different project (validation → exit 1)', async () => {
-  const other = await createProject(db, { key: 'OTH', name: 'o' });
-  const oi = await createInitiative(db, { projectId: other.id, title: 'i' });
-  const op = await createPhase(db, { parentId: oi.id, title: 'p' });
-  const ot = await createTask(db, { parentId: op.id, title: 't' });
+  const other = await createProject(store, { key: 'OTH', name: 'o' });
+  const oi = await createInitiative(store, { projectId: other.id, title: 'i' });
+  const op = await createPhase(store, { parentId: oi.id, title: 'p' });
+  const ot = await createTask(store, { parentId: op.id, title: 't' });
   const tmp = `${process.env.TMPDIR ?? '/tmp'}/mimir-attach-x.md`;
   await Bun.write(tmp, 'x');
   const io = fakeIo(false);

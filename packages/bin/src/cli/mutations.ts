@@ -94,14 +94,14 @@ const withReason = (text: string, reason?: string): string =>
 
 export async function cmdStart(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'start'), 'task');
-  await startTask(c.db, id);
+  await startTask(c.store, id);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => `started ${rid} · todo → in_progress`);
   return 0;
 }
 
 export async function cmdDone(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'done'), 'task');
-  await completeTask(c.db, id);
+  await completeTask(c.store, id);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => `completed ${rid}`);
   return 0;
 }
@@ -109,14 +109,14 @@ export async function cmdDone(c: Ctx): Promise<number> {
 export async function cmdAbandon(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'abandon'), 'task');
   const reason = reasonTail(c);
-  await abandonTask(c.db, id, reason);
+  await abandonTask(c.store, id, reason);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => withReason(`abandoned ${rid}`, reason));
   return 0;
 }
 
 export async function cmdSubmit(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'submit'), 'task');
-  await submitTask(c.db, id);
+  await submitTask(c.store, id);
   await echoNodeWith(
     c.db,
     id,
@@ -130,7 +130,7 @@ export async function cmdSubmit(c: Ctx): Promise<number> {
 export async function cmdReturn(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'return'), 'task');
   const reason = reasonTail(c);
-  await returnTask(c.db, id, reason);
+  await returnTask(c.store, id, reason);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) =>
     withReason(`returned ${rid} · under_review → in_progress`, reason),
   );
@@ -140,7 +140,7 @@ export async function cmdReturn(c: Ctx): Promise<number> {
 export async function cmdReopen(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'reopen'), 'task');
   const reason = reasonTail(c);
-  await reopenTask(c.db, id, reason);
+  await reopenTask(c.store, id, reason);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) =>
     withReason(`reopened ${rid} → in_progress`, reason),
   );
@@ -170,11 +170,11 @@ export async function cmdArchive(c: Ctx): Promise<number> {
   const key = requirePos(c, 1, 'archive', 'a project KEY');
   const reason = reasonTail(c);
   const projectId = await resolveProject(c.db, key);
-  const project = await archiveProject(c.db, projectId, reason);
+  const project = await archiveProject(c.store, projectId, reason);
   echoArchiveOp(c, project, 'archived', reason);
   // Name the out-of-project dependents this archive released (ADR 0015
   // Refinement) — their archived prerequisite no longer gates them.
-  const released = await releasedByArchive(c.db, projectId);
+  const released = await releasedByArchive(c.store, projectId);
   if (released.length > 0 && c.format !== 'json' && c.format !== 'jsonl' && c.format !== 'ids') {
     const glyph = c.io.plain ? '[warn]' : '\x1b[33m⚠\x1b[0m';
     c.io.write(`${glyph} released ${String(released.length)} dependent(s): ${released.join(', ')}`);
@@ -185,7 +185,7 @@ export async function cmdArchive(c: Ctx): Promise<number> {
 export async function cmdUnarchive(c: Ctx): Promise<number> {
   const key = requirePos(c, 1, 'unarchive', 'a project KEY');
   const projectId = await resolveProject(c.db, key);
-  const project = await unarchiveProject(c.db, projectId);
+  const project = await unarchiveProject(c.store, projectId);
   echoArchiveOp(c, project, 'unarchived');
   return 0;
 }
@@ -193,14 +193,14 @@ export async function cmdUnarchive(c: Ctx): Promise<number> {
 export async function cmdPark(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'park'), 'task');
   const reason = reasonTail(c);
-  await parkTask(c.db, id, reason);
+  await parkTask(c.store, id, reason);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => withReason(`parked ${rid}`, reason));
   return 0;
 }
 
 export async function cmdUnpark(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'unpark'), 'task');
-  await unparkTask(c.db, id);
+  await unparkTask(c.store, id);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => `unparked ${rid}`);
   return 0;
 }
@@ -208,14 +208,14 @@ export async function cmdUnpark(c: Ctx): Promise<number> {
 export async function cmdBlock(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'block'), 'task');
   const reason = reasonTail(c);
-  await blockTask(c.db, id, reason);
+  await blockTask(c.store, id, reason);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => withReason(`blocked ${rid}`, reason));
   return 0;
 }
 
 export async function cmdUnblock(c: Ctx): Promise<number> {
   const id = await resolveNode(c.db, requirePos(c, 1, 'unblock'), 'task');
-  await unblockTask(c.db, id);
+  await unblockTask(c.store, id);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => `unblocked ${rid}`);
   return 0;
 }
@@ -239,7 +239,7 @@ export async function cmdDepend(c: Ctx): Promise<number> {
   if (on === undefined) {
     throw usage('depend requires --on <ids>');
   }
-  await depend(c.db, id, await resolveIds(c.db, on, 'depend', 'on'));
+  await depend(c.store, id, await resolveIds(c.db, on, 'depend', 'on'));
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => `${rid} now depends on ${idList(on)}`);
   return 0;
 }
@@ -250,7 +250,7 @@ export async function cmdUndepend(c: Ctx): Promise<number> {
   if (on === undefined) {
     throw usage('undepend requires --on <ids>');
   }
-  await undepend(c.db, id, await resolveIds(c.db, on, 'undepend', 'on'));
+  await undepend(c.store, id, await resolveIds(c.db, on, 'undepend', 'on'));
   await echoNodeWith(
     c.db,
     id,
@@ -268,7 +268,7 @@ export async function cmdMove(c: Ctx): Promise<number> {
   }
   const to = requireToken(c.values.to, 'move', 'to');
   const parentId = await resolveNode(c.db, to);
-  await moveNode(c.db, id, parentId);
+  await moveNode(c.store, id, parentId);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => `moved ${rid} → ${to}`);
   return 0;
 }
@@ -299,7 +299,7 @@ export async function cmdReorder(c: Ctx): Promise<number> {
   } else {
     throw usage('reorder requires one of --top | --bottom | --before <id> | --after <id>');
   }
-  await reorder(c.db, id, position, refId);
+  await reorder(c.store, id, position, refId);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => `reordered ${rid} → ${where}`);
   return 0;
 }
@@ -339,7 +339,7 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
     fields.externalRef = c.values.ref;
     changed.push('ref');
   }
-  await updateNode(c.db, id, fields);
+  await updateNode(c.store, id, fields);
   const suffix = changed.length > 0 ? ` (${changed.join(', ')})` : '';
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => `updated ${rid}${suffix}`);
   return 0;
@@ -367,7 +367,7 @@ async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
   if (typeof c.values.desc === 'string') {
     fields.description = c.values.desc;
   }
-  await updateProject(c.db, projectId, fields);
+  await updateProject(c.store, projectId, fields);
   await echoProject(c.db, token, c.format, c.io);
   return 0;
 }
@@ -394,7 +394,7 @@ async function cmdUpdateArtifact(c: Ctx, token: string): Promise<number> {
     throw notFound(`no artifact ${token}`);
   }
   if (typeof c.values.title === 'string') {
-    await updateArtifact(c.db, artifact.id, { title: c.values.title });
+    await updateArtifact(c.store, artifact.id, { title: c.values.title });
   }
   renderArtifactDetail(await getArtifact(c.db, token), c.format, c.io);
   return 0;
@@ -406,7 +406,7 @@ export async function cmdAnnotate(c: Ctx): Promise<number> {
   if (content === '') {
     throw usage('annotate requires content (positional or stdin)');
   }
-  await annotate(c.db, id, content);
+  await annotate(c.store, id, content);
   await echoNodeWith(c.db, id, c.format, c.io, (rid) => `annotated ${rid}`);
   return 0;
 }
@@ -482,7 +482,7 @@ export async function cmdAttach(c: Ctx): Promise<number> {
   if (title === undefined || title.trim() === '') {
     throw usage('attach from stdin requires --title <text>');
   }
-  const { renderedId } = await attachArtifact(c.db, {
+  const { renderedId } = await attachArtifact(c.store, {
     content,
     linkNodeIds,
     projectId,
@@ -565,7 +565,7 @@ export async function cmdTag(c: Ctx): Promise<number> {
     throw usage('tag requires at least one tag');
   }
   const targets = await Promise.all(ids.map((t) => resolveEntityToken(c.db, t)));
-  await tagEntities(c.db, targets, tags, optStr(c, 'note'));
+  await tagEntities(c.store, targets, tags, optStr(c, 'note'));
   echoTagOp(c, 'tagged', ids, tags);
   return 0;
 }
@@ -580,7 +580,7 @@ export async function cmdUntag(c: Ctx): Promise<number> {
     throw usage('untag requires at least one tag');
   }
   const targets = await Promise.all(ids.map((t) => resolveEntityToken(c.db, t)));
-  await untagEntities(c.db, targets, tags);
+  await untagEntities(c.store, targets, tags);
   echoTagOp(c, 'untagged', ids, tags);
   return 0;
 }
@@ -612,7 +612,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
           return 1;
         }
       }
-      const project = await createProject(c.db, {
+      const project = await createProject(c.store, {
         description: optStr(c, 'desc'),
         key,
         name,
@@ -636,7 +636,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       if (parent.kind !== 'project') {
         throw usage("an initiative's parent must be a project (KEY)");
       }
-      const node = await createInitiative(c.db, {
+      const node = await createInitiative(c.store, {
         description: optStr(c, 'desc'),
         projectId: parent.id,
         tags: tagFlags(c),
@@ -654,7 +654,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       if (parent.kind !== 'node') {
         throw usage("a phase's parent must be an initiative (KEY-seq)");
       }
-      const node = await createPhase(c.db, {
+      const node = await createPhase(c.store, {
         description: optStr(c, 'desc'),
         parentId: parent.id,
         tags: tagFlags(c),
@@ -673,7 +673,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       if (parent.kind !== 'node') {
         throw usage("a task's parent must be a phase or initiative (KEY-seq)");
       }
-      const node = await createTask(c.db, {
+      const node = await createTask(c.store, {
         description: optStr(c, 'desc'),
         externalRef: optStr(c, 'ref'),
         parentId: parent.id,
