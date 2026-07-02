@@ -11,6 +11,7 @@ import { expectMimirError } from '../testing';
 import {
   abandonTask,
   annotate,
+  archiveProject,
   attachArtifact,
   blockTask,
   completeTask,
@@ -211,6 +212,46 @@ test('move is rejected when re-parenting closes a derivation cycle', async () =>
   const initN = await createInitiative(store, { projectId, title: 'N' });
   const moved = await moveNode(store, d.id, initN.id);
   expect(moved.parent_id).toBe(initN.id);
+});
+
+test('a pre-existing derivation cycle in legacy data does not reject unrelated writes', async () => {
+  // raw-write a container cycle the guards would now refuse (pre-guard data)
+  const initX = await createInitiative(store, { projectId, title: 'X' });
+  const x = await createTask(store, { parentId: initX.id, title: 'x' });
+  const initY = await createInitiative(store, { projectId, title: 'Y' });
+  const y = await createTask(store, { parentId: initY.id, title: 'y' });
+  await db
+    .insertInto('dependency')
+    .values([
+      { depends_on_node_id: initY.id, node_id: x.id },
+      { depends_on_node_id: initX.id, node_id: y.id },
+    ])
+    .execute();
+
+  // an unrelated depend-on-container and an unrelated move both still work
+  const initP = await createInitiative(store, { projectId, title: 'P' });
+  const p = await createTask(store, { parentId: initP.id, title: 'p' });
+  const initQ = await createInitiative(store, { projectId, title: 'Q' });
+  await depend(store, p.id, [initQ.id]);
+  const moved = await moveNode(store, p.id, initX.id);
+  expect(moved.parent_id).toBe(initX.id);
+});
+
+test('move rejects a loop threaded through an archived project (dormant until unarchive)', async () => {
+  // live shape, acyclic: b under N awaits C (project P2); d under C awaits A
+  const initN = await createInitiative(store, { projectId, title: 'N' });
+  const b = await createTask(store, { parentId: initN.id, title: 'b' });
+  const p2 = await createProject(store, { key: 'PTW', name: 'p2' });
+  const initC = await createInitiative(store, { projectId: p2.id, title: 'C' });
+  const d = await createTask(store, { parentId: initC.id, title: 'd' });
+  await depend(store, b.id, [initC.id]);
+  await depend(store, d.id, [initId]);
+
+  // archived, C reads as settled at runtime — but moving b under A would close
+  // the loop the moment P2 is unarchived, so the guard counts it as real
+  await archiveProject(store, p2.id);
+  await expectMimirError('validation', () => moveNode(store, b.id, initId));
+  expect((await reload(b.id)).parent_id).toBe(initN.id);
 });
 
 test('move is rejected when it would create a same-lineage dependency edge', async () => {

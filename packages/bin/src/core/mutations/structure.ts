@@ -1,6 +1,6 @@
 import type { NodeType } from '@mimir/contract';
 
-import { deriveSet, hasDerivationCycle, lineageIds } from '../derive';
+import { deriveSet, lineageIds, writeIntroducesDerivationCycle } from '../derive';
 import type { DerivationSet } from '../derive';
 import { validation } from '../errors';
 import type { Node } from '../model';
@@ -26,8 +26,8 @@ function assertParentType(child: NodeType, parent: NodeType): void {
   }
 }
 
-/** Every node in the subtree rooted at `rootId` (inclusive), walking children down. */
-async function subtreeIds(w: StoreWriter, rootId: number): Promise<number[]> {
+/** Every node in the subtree rooted at `rootId` (inclusive), walked in-memory over the set. */
+function subtreeIds(set: DerivationSet, rootId: number): number[] {
   const ids: number[] = [];
   const seen = new Set<number>();
   const stack: number[] = [rootId];
@@ -38,8 +38,8 @@ async function subtreeIds(w: StoreWriter, rootId: number): Promise<number[]> {
     }
     seen.add(cur);
     ids.push(cur);
-    for (const child of await w.listChildren(cur)) {
-      stack.push(child);
+    for (const child of set.childrenByParent.get(cur) ?? []) {
+      stack.push(child.id);
     }
   }
   return ids;
@@ -59,7 +59,7 @@ async function assertMoveKeepsDepsCrossLineage(
   newParentId: number,
   set: DerivationSet,
 ): Promise<void> {
-  const subtree = new Set(await subtreeIds(w, id));
+  const subtree = new Set(subtreeIds(set, id));
   const newAncestors = new Set(lineageIds(set, newParentId)); // includes newParentId
   const edges = set.ws.edges.filter(
     (edge) => subtree.has(edge.node_id) || subtree.has(edge.depends_on_node_id),
@@ -130,7 +130,7 @@ export async function moveNode(
       // a rollup loop between containers that were acyclic apart (MMR-140).
       // Simulate the move over the snapshot and reuse the runtime detection.
       const moved = ws.nodes.map((n) => (n.id === id ? { ...n, parent_id: newParentId } : n));
-      if (hasDerivationCycle(deriveSet({ ...ws, nodes: moved }))) {
+      if (writeIntroducesDerivationCycle(ws, { ...ws, nodes: moved }, id)) {
         const from = (await renderNodeRef(w, id)) ?? 'it';
         const to = (await renderNodeRef(w, newParentId)) ?? 'it';
         throw validation(

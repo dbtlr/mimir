@@ -98,16 +98,23 @@ export class DerivationCycleError extends MimirError {
 }
 
 /**
- * Would deriving every node's word over this set hit a container-dependency
- * cycle? The write guards run this over a *simulated* working set — the
- * candidate edge or re-parent applied — so prevention reuses the exact runtime
- * detection in {@link nodeStatusWord}, with no parallel graph walk to drift.
+ * Does deriving `nodeId`'s word over this snapshot hit a container-dependency
+ * cycle? Archived projects are treated as **live** here: the read path skips an
+ * archived prerequisite (ADR 0015 Refinement), so a loop threaded through an
+ * archived container would lie dormant and detonate on unarchive — prevention
+ * counts it as real.
  */
-export function hasDerivationCycle(set: DerivationSet): boolean {
+function nodeHitsDerivationCycle(ws: WorkingSet, nodeId: number): boolean {
+  const set = deriveSet({
+    ...ws,
+    projects: ws.projects.map((p) => (p.archived_at === null ? p : { ...p, archived_at: null })),
+  });
+  const node = set.nodeById.get(nodeId);
+  if (node === undefined) {
+    return false;
+  }
   try {
-    for (const node of set.ws.nodes) {
-      nodeStatusWord(set, node);
-    }
+    nodeStatusWord(set, node);
     return false;
   } catch (error) {
     if (error instanceof DerivationCycleError) {
@@ -115,6 +122,27 @@ export function hasDerivationCycle(set: DerivationSet): boolean {
     }
     throw error;
   }
+}
+
+/**
+ * Would applying a write turn `nodeId`'s word underivable with a
+ * container-dependency cycle? The depend/move guards call this with the
+ * snapshot as loaded (`before`) and with the candidate edge or re-parent
+ * applied (`after`), so prevention reuses the exact runtime detection in
+ * {@link nodeStatusWord} — no parallel graph walk to drift.
+ *
+ * Only the written node's word is derived: any cycle the write introduces
+ * passes through it (a new edge gates the dependent's own subtree; a re-parent
+ * rewires only the moved subtree's lineage), so the traversal stays local to
+ * the affected subgraph. The `before` baseline keeps a pre-existing cycle in
+ * legacy data from rejecting writes that don't make anything worse.
+ */
+export function writeIntroducesDerivationCycle(
+  before: WorkingSet,
+  after: WorkingSet,
+  nodeId: number,
+): boolean {
+  return nodeHitsDerivationCycle(after, nodeId) && !nodeHitsDerivationCycle(before, nodeId);
 }
 
 /** Render a node's external `KEY-seq` id from the set (error messages, refs). */

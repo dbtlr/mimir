@@ -117,7 +117,11 @@ release. When a release is cut, this section is promoted to
   the in-memory derivation, recursed forever). The verbs now simulate the
   candidate edge or re-parent over the working-set snapshot and reuse the
   runtime cycle detection to reject it up front (`validation`), so the broken
-  shape can no longer be written.
+  shape can no longer be written. The guard checks only the written node
+  against a before/after baseline — a cycle already present in legacy data
+  never rejects an unrelated write — and treats archived projects as live, so
+  a loop threaded through an archived container (dormant at read time, live
+  again on unarchive) is refused at the write that would create it.
 
 ## v0.12.0 - 2026-06-28
 
