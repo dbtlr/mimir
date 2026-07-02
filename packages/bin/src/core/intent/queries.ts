@@ -42,8 +42,10 @@ import { buildArtifactDetail, buildNodeView, buildProjectView } from './view';
  *
  * Set selections (`next`, `list`) read through the coarse `Store` seam (ADR
  * 0016 Phase 0): one working-set projection, selection and ordering in
- * memory. Identity selections (`get`, `status_of`) stay point reads — loading
- * the whole store to fetch one row would invert the O(views) rule.
+ * memory. Identity selections (`get`, `status_of`) resolve their target via
+ * point reads, then derive over one working-set snapshot of their own —
+ * derivation needs arbitrary graph reach (rollups, cross-project prereqs), so
+ * the set IS the right input even for one row; O(views) counts this as one view.
  */
 
 /** Resolve a scope `KEY` against the working set (an archived project resolves — its rows are hidden downstream). */
