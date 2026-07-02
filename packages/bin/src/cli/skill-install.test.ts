@@ -3,15 +3,18 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { Db } from '../core';
+import { createSqliteStore } from '../core';
+import type { Db, Store } from '../core';
 import { createTestDb } from '../db/testing';
 import { runCli } from './run';
 import { SKILL_FILES, skillDirFor } from './skill-assets';
 import { fakeIo } from './testing';
 
 let db: Db;
+let store: Store;
 beforeEach(async () => {
   db = await createTestDb();
+  store = createSqliteStore(db);
 });
 afterEach(async () => {
   await db.destroy();
@@ -47,7 +50,7 @@ test('skill install --local writes the full tree into the working copy', async (
   try {
     const io = fakeIo();
     expect(
-      await runCli(['skill', 'install', '--local', '-f', 'ids'], () => db, io, { cwd: dir }),
+      await runCli(['skill', 'install', '--local', '-f', 'ids'], () => store, io, { cwd: dir }),
     ).toBe(0);
     const root = join(dir, '.claude', 'skills', 'mimir');
     expect(io.out.join('')).toBe(root);
@@ -64,14 +67,14 @@ test('skill install --local --agent codex uses the .agents layout; reinstall ove
   const dir = mkdtempSync(join(tmpdir(), 'mimir-skill-'));
   try {
     expect(
-      await runCli(['skill', 'install', '--local', '--agent', 'codex'], () => db, fakeIo(), {
+      await runCli(['skill', 'install', '--local', '--agent', 'codex'], () => store, fakeIo(), {
         cwd: dir,
       }),
     ).toBe(0);
     expect(existsSync(join(dir, '.agents', 'skills', 'mimir', 'SKILL.md'))).toBe(true);
     // Refresh-on-upgrade: a second install over the same target succeeds.
     expect(
-      await runCli(['skill', 'install', '--local', '--agent', 'codex'], () => db, fakeIo(), {
+      await runCli(['skill', 'install', '--local', '--agent', 'codex'], () => store, fakeIo(), {
         cwd: dir,
       }),
     ).toBe(0);
@@ -83,13 +86,17 @@ test('skill install --local --agent codex uses the .agents layout; reinstall ove
 test('skill install rejects bad invocations (exit 2)', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'mimir-skill-'));
   try {
-    expect(await runCli(['skill'], () => db, fakeIo(), { cwd: dir })).toBe(2);
+    expect(await runCli(['skill'], () => store, fakeIo(), { cwd: dir })).toBe(2);
     expect(
-      await runCli(['skill', 'install', '--global', '--local'], () => db, fakeIo(), { cwd: dir }),
+      await runCli(['skill', 'install', '--global', '--local'], () => store, fakeIo(), {
+        cwd: dir,
+      }),
     ).toBe(2);
     const io = fakeIo();
     expect(
-      await runCli(['skill', 'install', '--local', '--agent', 'vim'], () => db, io, { cwd: dir }),
+      await runCli(['skill', 'install', '--local', '--agent', 'vim'], () => store, io, {
+        cwd: dir,
+      }),
     ).toBe(2);
     expect(io.err.join('')).toContain('unknown agent');
   } finally {

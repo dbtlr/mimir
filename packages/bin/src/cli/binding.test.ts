@@ -3,8 +3,14 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createInitiative, createPhase, createProject, createTask } from '../core';
-import type { Db } from '../core';
+import {
+  createInitiative,
+  createPhase,
+  createProject,
+  createSqliteStore,
+  createTask,
+} from '../core';
+import type { Db, Store } from '../core';
 import { createTestDb } from '../db/testing';
 import { BINDING_FILE, findBinding, parseBinding, writeBinding } from './binding';
 import { runCli } from './run';
@@ -62,8 +68,10 @@ test('writeBinding round-trips through findBinding', () => {
 // ---------------------------------------------------------------------------
 
 let db: Db;
+let store: Store;
 beforeEach(async () => {
   db = await createTestDb();
+  store = createSqliteStore(db);
   for (const key of ['MMR', 'XX'] as const) {
     const p = await createProject(db, { key, name: key.toLowerCase() });
     const init = await createInitiative(db, { projectId: p.id, title: 'i' });
@@ -79,7 +87,7 @@ test('bind writes .mimir.toml into the injected cwd and echoes the key', async (
   const dir = mkdtempSync(join(tmpdir(), 'mimir-bind-'));
   try {
     const io = fakeIo();
-    expect(await runCli(['bind', 'MMR', '-f', 'ids'], () => db, io, { cwd: dir })).toBe(0);
+    expect(await runCli(['bind', 'MMR', '-f', 'ids'], () => store, io, { cwd: dir })).toBe(0);
     expect(io.out.join('')).toBe('MMR');
     expect(findBinding(dir)).toBe('MMR');
   } finally {
@@ -91,9 +99,9 @@ test('bind validates the project exists (not_found, exit 1) and requires a key (
   const dir = mkdtempSync(join(tmpdir(), 'mimir-bind-'));
   try {
     const io = fakeIo();
-    expect(await runCli(['bind', 'NOPE'], () => db, io, { cwd: dir })).toBe(1);
+    expect(await runCli(['bind', 'NOPE'], () => store, io, { cwd: dir })).toBe(1);
     expect(findBinding(dir)).toBeUndefined();
-    expect(await runCli(['bind'], () => db, fakeIo(), { cwd: dir })).toBe(2);
+    expect(await runCli(['bind'], () => store, fakeIo(), { cwd: dir })).toBe(2);
   } finally {
     rmSync(dir, { force: true, recursive: true });
   }
@@ -102,7 +110,7 @@ test('bind validates the project exists (not_found, exit 1) and requires a key (
 test('the bound scope is the default for next/list; explicit -s wins; -s all escapes', async () => {
   const bound = async (argv: string[]): Promise<string[]> => {
     const io = fakeIo();
-    expect(await runCli(argv, () => db, io, { scope: 'MMR' })).toBe(0);
+    expect(await runCli(argv, () => store, io, { scope: 'MMR' })).toBe(0);
     return io.out.join('\n').split('\n').filter(Boolean);
   };
 
@@ -125,7 +133,7 @@ test('the bound scope is the default for next/list; explicit -s wins; -s all esc
 
 test('create project without --yes fails non-interactively (usage, exit 2)', async () => {
   const io = fakeIo(); // isTTY: false
-  expect(await runCli(['create', 'project', 'New', '--key', 'NEW'], () => db, io)).toBe(2);
+  expect(await runCli(['create', 'project', 'New', '--key', 'NEW'], () => store, io)).toBe(2);
   expect(io.err.join('')).toContain('immutable');
   expect(io.err.join('')).toContain('--yes');
 });
@@ -133,7 +141,7 @@ test('create project without --yes fails non-interactively (usage, exit 2)', asy
 test('create project --yes succeeds non-interactively', async () => {
   const io = fakeIo();
   expect(
-    await runCli(['create', 'project', 'New', '--key', 'NEW', '-y', '-f', 'ids'], () => db, io),
+    await runCli(['create', 'project', 'New', '--key', 'NEW', '-y', '-f', 'ids'], () => store, io),
   ).toBe(0);
   expect(io.out.join('')).toBe('NEW');
 });
@@ -144,12 +152,12 @@ test('create project at a TTY prompts; declining aborts with exit 1', async () =
     globalThis.confirm = () => true;
     const io = fakeIo(true);
     expect(
-      await runCli(['create', 'project', 'Yep', '--key', 'YEP', '-f', 'ids'], () => db, io),
+      await runCli(['create', 'project', 'Yep', '--key', 'YEP', '-f', 'ids'], () => store, io),
     ).toBe(0);
 
     globalThis.confirm = () => false;
     const no = fakeIo(true);
-    expect(await runCli(['create', 'project', 'Nope', '--key', 'NOPE'], () => db, no)).toBe(1);
+    expect(await runCli(['create', 'project', 'Nope', '--key', 'NOPE'], () => store, no)).toBe(1);
     expect(no.err.join('')).toContain('aborted');
   } finally {
     globalThis.confirm = realConfirm;

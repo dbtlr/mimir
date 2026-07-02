@@ -10,7 +10,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import type { ZodRawShape } from 'zod';
 
-import type { Db } from '../core';
+import type { Store } from '../core';
 import {
   toolAnnotate,
   toolArchive,
@@ -114,8 +114,10 @@ function register<A>(
   registerTool(name, { description, inputSchema }, (args) => handler(args as A));
 }
 
-export function buildMcpServer(db: Db, version: string, boundScope?: string): McpServer {
+export function buildMcpServer(store: Store, version: string, boundScope?: string): McpServer {
   const server = new McpServer({ name: 'mimir', version });
+  // Unconverted read paths still ride the raw executor (Phase 2a/2b scope).
+  const db = store.db;
 
   // Project Binding (ADR 0011): the spawn cwd's .mimir.toml supplies the
   // default scope, mirroring the CLI exactly — explicit scope wins, the
@@ -455,6 +457,10 @@ export function buildMcpServer(db: Db, version: string, boundScope?: string): Mc
 }
 
 /** Serve over stdio — the entry for `mimir mcp`. */
-export async function serveStdio(db: Db, version: string, boundScope?: string): Promise<void> {
-  await buildMcpServer(db, version, boundScope).connect(new StdioServerTransport());
+export async function serveStdio(
+  store: Store,
+  version: string,
+  boundScope?: string,
+): Promise<void> {
+  await buildMcpServer(store, version, boundScope).connect(new StdioServerTransport());
 }

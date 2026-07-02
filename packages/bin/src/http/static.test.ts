@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import type { Server } from 'bun';
 
+import { createSqliteStore } from '../core';
 import type { Db } from '../core';
 import { createTestDb } from '../db/testing';
 import { createServer } from './server';
@@ -51,7 +52,7 @@ function fixtureAssets(): UiAssetMap {
 }
 
 function start(assets: UiAssetMap): string {
-  server = createServer(db, { assets, port: 0, version: '0.0.0-test' });
+  server = createServer(createSqliteStore(db), { assets, port: 0, version: '0.0.0-test' });
   return `http://127.0.0.1:${String(server.port)}`;
 }
 

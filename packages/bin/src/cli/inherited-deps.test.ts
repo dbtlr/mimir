@@ -5,17 +5,25 @@
  */
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import { createInitiative, createPhase, createProject, createTask } from '../core';
-import type { Db } from '../core';
+import {
+  createInitiative,
+  createPhase,
+  createProject,
+  createSqliteStore,
+  createTask,
+} from '../core';
+import type { Db, Store } from '../core';
 import { depend } from '../core/mutations';
 import { createTestDb } from '../db/testing';
 import { runCli } from './run';
 import { fakeIo } from './testing';
 
 let db: Db;
+let store: Store;
 let initId: number;
 beforeEach(async () => {
   db = await createTestDb();
+  store = createSqliteStore(db);
   const p = await createProject(db, { key: 'MMR', name: 'Mimir' });
   const init = await createInitiative(db, { projectId: p.id, title: 'Init' });
   initId = init.id;
@@ -31,7 +39,7 @@ test('get renders an inherited prerequisite as an "awaiting on … (via …)" li
   const t = await createTask(db, { parentId: phase2.id, title: 'work' });
 
   const io = fakeIo(true); // TTY → human record render
-  await runCli(['get', `MMR-${String(t.seq)}`], () => db, io);
+  await runCli(['get', `MMR-${String(t.seq)}`], () => store, io);
   const out = io.out.join('');
 
   expect(out).toContain('awaiting on');

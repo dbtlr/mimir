@@ -8,6 +8,7 @@ import {
   createInitiative,
   createPhase,
   createProject,
+  createSqliteStore,
   createTask,
   findNodeByRef,
 } from '../core';
@@ -50,7 +51,7 @@ beforeEach(async () => {
   const ot = await createTask(db, { parentId: otherPhase.id, title: 'elsewhere' });
   otherTask = `NRN-${String(ot.seq)}`;
 
-  server = createServer(db, { port: 0, version: '0.0.0-test' });
+  server = createServer(createSqliteStore(db), { port: 0, version: '0.0.0-test' });
   base = `http://127.0.0.1:${String(server.port)}`;
 });
 

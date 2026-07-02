@@ -5,6 +5,7 @@ import type { Server } from 'bun';
 import type { Db } from '../core/context';
 import { createInitiative, createPhase, createProject, createTask } from '../core/create';
 import { attachArtifact } from '../core/mutations';
+import { createSqliteStore } from '../core/store-sqlite';
 import { createTestDb } from '../db/testing';
 import { createServer } from './server';
 
@@ -25,7 +26,7 @@ beforeAll(async () => {
     tags: ['kind:spec'],
     title: 'Auth gate design',
   });
-  server = createServer(db, { hunt: false, port: 0, version: 'test' });
+  server = createServer(createSqliteStore(db), { hunt: false, port: 0, version: 'test' });
   base = `http://127.0.0.1:${String(server.port)}`;
 });
 
