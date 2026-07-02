@@ -241,6 +241,18 @@ test('list filters by q — case-insensitive substring over title (MMR-78)', asy
   expect((await listNodes(createSqliteStore(db), { q: 'auth.', scope: key })).total).toBe(0);
 });
 
+test('deps facet lists prerequisites in ascending id order regardless of edge insertion order', async () => {
+  const older = await createTask(db, { parentId: phaseId, title: 'older prereq' });
+  const newer = await createTask(db, { parentId: phaseId, title: 'newer prereq' });
+  const dependent = await createTask(db, { parentId: phaseId, title: 'dependent' });
+  // insert edges newest-first — the SQL path read them back id-ascending (PK index)
+  await depend(db, dependent.id, [newer.id, older.id]);
+
+  const view = await getNode(db, idOf(dependent), { facets: ['deps'] });
+  expect(view.deps?.dependsOn.map((r) => r.id)).toEqual([idOf(older), idOf(newer)]);
+  expect(view.deps?.awaitingOn.map((r) => r.id)).toEqual([idOf(older), idOf(newer)]);
+});
+
 test('list q matches SQL LIKE for non-ASCII case (SQLite lower() is ASCII-only)', async () => {
   await createTask(db, { parentId: phaseId, title: 'Über refactor' });
   await createTask(db, { parentId: phaseId, title: 'über cleanup' });

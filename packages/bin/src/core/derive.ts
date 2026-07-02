@@ -63,6 +63,12 @@ export function deriveSet(ws: WorkingSet): DerivationSet {
     push(prereqsByNode, edge.node_id, edge.depends_on_node_id);
     push(dependentsByNode, edge.depends_on_node_id, edge.node_id);
   }
+  // Prereq lists ascend by id — parity with the SQL path, whose per-node reads
+  // came off the (node_id, depends_on_node_id) primary-key index. Dependents
+  // stay in scan (rowid) order, matching the non-unique reverse index.
+  for (const list of prereqsByNode.values()) {
+    list.sort((a, b) => a - b);
+  }
   return {
     archivedProjects: new Set(ws.projects.filter((p) => p.archived_at !== null).map((p) => p.id)),
     childrenByParent,
@@ -158,9 +164,12 @@ export function nodeStatusWord(set: DerivationSet, node: Node): StatusWord {
     return cached;
   }
   if (set.inFlight.has(node.id)) {
-    // Unreachable in valid data (the move guard forbids lineage cycles); the
-    // guard turns a corrupt tree into a diagnosable error, not a stack overflow.
-    throw invariant(`parent cycle detected at node ${String(node.id)}`);
+    // A derivation cycle: container dependencies can close a loop the lineage
+    // and dependency-cycle guards don't see (a task awaiting a container whose
+    // rollup depends back on the task's own container). The old per-node query
+    // path recursed forever on this shape; the guard makes it a diagnosable
+    // error instead.
+    throw invariant(`derivation cycle through container dependencies at node ${String(node.id)}`);
   }
   set.inFlight.add(node.id);
   try {
