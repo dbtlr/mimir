@@ -26,7 +26,13 @@ export type VaultConfig = {
   problem?: 'malformed' | 'invalid-path';
 };
 
-export type GlobalConfig = { serve: ServeConfig; vault: VaultConfig };
+export type StoreConfig = {
+  /** Which backend serves artifacts — SQLite (default) or the Norn vault (MMR-143). */
+  artifacts?: 'sqlite' | 'norn';
+  problem?: 'malformed' | 'invalid-artifacts';
+};
+
+export type GlobalConfig = { serve: ServeConfig; vault: VaultConfig; store: StoreConfig };
 
 function isTable(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -78,17 +84,46 @@ function vaultSection(raw: unknown): VaultConfig {
  * the consumer can warn that the config was ignored rather than silently
  * falling through to a default.
  */
+function storeSection(raw: unknown): StoreConfig {
+  if (raw === undefined) {
+    return {};
+  }
+  if (!isTable(raw)) {
+    return { problem: 'malformed' };
+  }
+  const artifacts = raw.artifacts;
+  if (artifacts === undefined) {
+    return {};
+  }
+  if (artifacts === 'sqlite' || artifacts === 'norn') {
+    return { artifacts };
+  }
+  return { problem: 'invalid-artifacts' };
+}
+
 export function readConfig(file = configPath()): GlobalConfig {
   if (!existsSync(file)) {
-    return { serve: {}, vault: {} };
+    return { serve: {}, store: {}, vault: {} };
   }
-  let parsed: { serve?: unknown; vault?: unknown };
+  let parsed: { serve?: unknown; vault?: unknown; store?: unknown };
   try {
-    parsed = Bun.TOML.parse(readFileSync(file, 'utf8')) as { serve?: unknown; vault?: unknown };
+    parsed = Bun.TOML.parse(readFileSync(file, 'utf8')) as {
+      serve?: unknown;
+      vault?: unknown;
+      store?: unknown;
+    };
   } catch {
-    return { serve: { problem: 'malformed' }, vault: { problem: 'malformed' } };
+    return {
+      serve: { problem: 'malformed' },
+      store: { problem: 'malformed' },
+      vault: { problem: 'malformed' },
+    };
   }
-  return { serve: serveSection(parsed.serve), vault: vaultSection(parsed.vault) };
+  return {
+    serve: serveSection(parsed.serve),
+    store: storeSection(parsed.store),
+    vault: vaultSection(parsed.vault),
+  };
 }
 
 /** The `[serve]` section — see {@link readConfig} for the tolerance contract. */

@@ -13,7 +13,6 @@ import { dirname } from 'node:path';
 
 import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
-import { createSqliteStore } from './core';
 import type { Db, Store } from './core';
 import { createDb } from './db/client';
 import { migrateToLatest, migrationStatus } from './db/migrator';
@@ -30,6 +29,8 @@ import {
   readServeConfig,
 } from './service';
 import type { Health, ServiceDeps } from './service';
+import { buildStore } from './store-backend';
+import type { BuiltStore } from './store-backend';
 import { VERSION } from './version';
 
 /**
@@ -188,10 +189,12 @@ async function main(argv: string[]): Promise<number> {
     // Long-running: the server keeps the process alive; loopback-only by
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
     const db = await openMigrated(storePath());
+    const built = await buildStore(db);
     let server: ReturnType<typeof createServer>;
     try {
-      server = createServer(createSqliteStore(db), { hunt: !noHunt, port, version: VERSION });
+      server = createServer(built.store, { hunt: !noHunt, port, version: VERSION });
     } catch (err) {
+      await built.close();
       await db.destroy();
       if (err instanceof Error && 'code' in err && err.code === 'EADDRINUSE') {
         console.error(`✗ serve: ${err.message}`);
@@ -210,6 +213,7 @@ async function main(argv: string[]): Promise<number> {
     }
     const stop = async (): Promise<void> => {
       await server.stop();
+      await built.close();
       await db.destroy();
       process.exit(0);
     };
@@ -223,7 +227,8 @@ async function main(argv: string[]): Promise<number> {
     // The MCP rendering honors the same Project Binding (ADR 0011), resolved
     // from the server's spawn cwd.
     const db = await openMigrated(storePath());
-    await serveStdio(createSqliteStore(db), VERSION, findBinding(process.cwd()));
+    const built = await buildStore(db);
+    await serveStdio(built.store, VERSION, findBinding(process.cwd()));
     return 0;
   }
 
@@ -231,9 +236,11 @@ async function main(argv: string[]): Promise<number> {
   // (MMR-39): a verb that touches data asks for it, opening + migrating on
   // first ask; help, usage errors, and `skill install` never ask, so a bare
   // `mimir` / `mimir --help` never creates a file. main holds no verb list.
-  let opened: Store | undefined;
-  const getStore = async (): Promise<Store> =>
-    (opened ??= createSqliteStore(await openMigrated(storePath())));
+  let built: BuiltStore | undefined;
+  const getStore = async (): Promise<Store> => {
+    built ??= await buildStore(await openMigrated(storePath()));
+    return built.store;
+  };
   try {
     // Project Binding (ADR 0011): the nearest .mimir.toml supplies the
     // default -s scope; resolved here so the CLI itself never reads cwd.
@@ -243,7 +250,10 @@ async function main(argv: string[]): Promise<number> {
       service: realServiceDeps(),
     });
   } finally {
-    await opened?.db.destroy();
+    // Release the artifact backend (a Norn subprocess would otherwise keep the
+    // process alive) before closing the database.
+    await built?.close();
+    await built?.store.db.destroy();
   }
 }
 
