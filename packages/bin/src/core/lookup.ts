@@ -1,9 +1,8 @@
-import type { TagEntityType } from '@mimir/contract';
-
 import type { Db, Tx } from './context';
 import { notFound, projectNotFound, validation } from './errors';
 import { parseId, parseIdentity, renderArtifactRef, renderId } from './ids';
 import type { Artifact, Node } from './model';
+import type { EntityRef } from './mutations/tags';
 
 /** Load a node row by surrogate id, or `undefined` if absent. */
 export async function loadNode(tx: Db | Tx, id: number): Promise<Node | undefined> {
@@ -99,10 +98,7 @@ export async function findArtifactByRef(
  * target (entity kind + surrogate id). Throws `not_found` naming the token;
  * the caller decides which kinds it acts on.
  */
-export async function resolveEntityToken(
-  tx: Db | Tx,
-  token: string,
-): Promise<{ entityType: TagEntityType; entityId: number }> {
+export async function resolveEntityToken(tx: Db | Tx, token: string): Promise<EntityRef> {
   const identity = parseIdentity(token);
   if (identity === null) {
     throw notFound(
@@ -122,11 +118,10 @@ export async function resolveEntityToken(
     return { entityId: project.id, entityType: 'project' };
   }
   if (identity.kind === 'artifact') {
-    const artifact = await findArtifactByRef(tx, identity);
-    if (artifact === undefined) {
-      throw notFound(`no artifact ${token}`);
-    }
-    return { entityId: artifact.id, entityType: 'artifact' };
+    // Artifact tags route through the seam by external identity (MMR-143) — a
+    // vault-backed artifact has no SQLite row to resolve. Existence is the
+    // seam's concern (an unknown artifact is a silent no-op, like tags always).
+    return { entityType: 'artifact', key: identity.key, seq: identity.seq };
   }
   const node = await findNodeByRef(tx, token);
   if (node === undefined) {

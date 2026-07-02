@@ -76,11 +76,21 @@ test('neither tag nor untag writes the transition log', async () => {
   expect(after.length).toBe(before.length);
 });
 
-test('resolveEntityToken rejects unknown and malformed tokens', async () => {
+test('resolveEntityToken rejects unknown project/node and malformed tokens', async () => {
   await expectMimirError('not_found', () => resolveEntityToken(db, 'ZZZ'));
   await expectMimirError('not_found', () => resolveEntityToken(db, 'MMR-99'));
-  await expectMimirError('not_found', () => resolveEntityToken(db, 'MMR-a9'));
   await expectMimirError('not_found', () => resolveEntityToken(db, 'not-an-id'));
+});
+
+test('an artifact token resolves by external identity, existence is the seam’s concern (MMR-143)', async () => {
+  // Unlike node/project, an artifact token parses to (key, seq) without a DB
+  // hit — a vault-backed artifact has no SQLite row, and tags never validate
+  // existence (the seam applies to a missing artifact as a silent no-op).
+  expect(await resolveEntityToken(db, 'MMR-a9')).toEqual({
+    entityType: 'artifact',
+    key: 'MMR',
+    seq: 9,
+  });
 });
 
 test('create verbs apply creation-time tags', async () => {

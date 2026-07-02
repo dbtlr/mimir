@@ -5,7 +5,7 @@ import type { Db } from '../context';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { parseIdentity } from '../ids';
 import { getArtifact } from '../intent';
-import { loadNode, renderNodeId } from '../lookup';
+import { loadNode, renderNodeId, resolveEntityToken } from '../lookup';
 import { RANK_STEP } from '../rank';
 import type { Store } from '../store';
 import { createSqliteStore } from '../store-sqlite';
@@ -22,9 +22,11 @@ import {
   parkTask,
   reorder,
   startTask,
+  tagEntities,
   unblockTask,
   unparkTask,
   undepend,
+  untagEntities,
   updateArtifact,
   updateNode,
   updateProject,
@@ -327,6 +329,24 @@ test('annotate and attachArtifact persist and link', async () => {
   const detail = await getArtifact(store, renderedId);
   const stem = await renderNodeId(db, id);
   expect(detail.links).toEqual(stem === null ? [] : [stem]);
+});
+
+test('tag/untag an artifact route through the seam by external identity (MMR-143)', async () => {
+  const { renderedId } = await attachArtifact(store, {
+    content: 'x',
+    projectId,
+    title: 'doc',
+  });
+  // The verb path: resolve the token, then tag — an artifact target carries
+  // (key, seq), not a numeric id, so it survives a backend with no SQLite row.
+  const target = await resolveEntityToken(db, renderedId);
+  expect(target.entityType).toBe('artifact');
+  await tagEntities(store, [target], ['urgent']);
+  expect((await getArtifact(store, renderedId)).tags).toEqual(['urgent']);
+
+  const removed = await untagEntities(store, [target], ['urgent', 'absent']);
+  expect(removed).toBe(1);
+  expect((await getArtifact(store, renderedId)).tags).toEqual([]);
 });
 
 test('updateArtifact retitles; content frozen; blank title and unknown id refused (MMR-40)', async () => {

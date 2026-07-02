@@ -212,10 +212,15 @@ async function main(argv: string[]): Promise<number> {
       console.log(`note: port ${String(port)} was taken — hunted up to ${String(server.port)}`);
     }
     const stop = async (): Promise<void> => {
-      await server.stop();
-      await built.close();
-      await db.destroy();
-      process.exit(0);
+      // Release resources even if a teardown step throws — a stuck stop must
+      // still kill the Norn subprocess and exit for a supervisor to restart.
+      try {
+        await server.stop();
+      } finally {
+        await built.close();
+        await db.destroy();
+        process.exit(0);
+      }
     };
     process.on('SIGINT', () => void stop());
     process.on('SIGTERM', () => void stop());
@@ -228,7 +233,14 @@ async function main(argv: string[]): Promise<number> {
     // from the server's spawn cwd.
     const db = await openMigrated(storePath());
     const built = await buildStore(db);
-    await serveStdio(built.store, VERSION, findBinding(process.cwd()));
+    try {
+      await serveStdio(built.store, VERSION, findBinding(process.cwd()));
+    } finally {
+      // serveStdio resolves when the stdio transport closes; release the Norn
+      // subprocess (its open pipes would otherwise keep the process alive).
+      await built.close();
+      await db.destroy();
+    }
     return 0;
   }
 
