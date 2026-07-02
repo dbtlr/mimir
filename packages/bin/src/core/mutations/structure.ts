@@ -1,6 +1,7 @@
 import type { NodeType } from '@mimir/contract';
 
-import { deriveSet, lineageIds } from '../derive';
+import { deriveSet, hasDerivationCycle, lineageIds } from '../derive';
+import type { DerivationSet } from '../derive';
 import { validation } from '../errors';
 import type { Node } from '../model';
 import type { Store, StoreWriter } from '../store';
@@ -56,9 +57,9 @@ async function assertMoveKeepsDepsCrossLineage(
   w: StoreWriter,
   id: number,
   newParentId: number,
+  set: DerivationSet,
 ): Promise<void> {
   const subtree = new Set(await subtreeIds(w, id));
-  const set = deriveSet(await w.loadWorkingSet());
   const newAncestors = new Set(lineageIds(set, newParentId)); // includes newParentId
   const edges = set.ws.edges.filter(
     (edge) => subtree.has(edge.node_id) || subtree.has(edge.depends_on_node_id),
@@ -123,7 +124,19 @@ export async function moveNode(
       if (await isDescendantOf(w, newParentId, id)) {
         throw validation('cannot move it under its own descendant');
       }
-      await assertMoveKeepsDepsCrossLineage(w, id, newParentId);
+      const ws = await w.loadWorkingSet();
+      await assertMoveKeepsDepsCrossLineage(w, id, newParentId, deriveSet(ws));
+      // Re-parenting rewires inherited container dependencies, which can close
+      // a rollup loop between containers that were acyclic apart (MMR-140).
+      // Simulate the move over the snapshot and reuse the runtime detection.
+      const moved = ws.nodes.map((n) => (n.id === id ? { ...n, parent_id: newParentId } : n));
+      if (hasDerivationCycle(deriveSet({ ...ws, nodes: moved }))) {
+        const from = (await renderNodeRef(w, id)) ?? 'it';
+        const to = (await renderNodeRef(w, newParentId)) ?? 'it';
+        throw validation(
+          `move would close a derivation cycle through container rollups (${from} under ${to})`,
+        );
+      }
     }
 
     const fromRef =

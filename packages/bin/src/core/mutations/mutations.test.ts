@@ -168,6 +168,51 @@ test('depend rejects same-lineage edges (ancestor/descendant) and allows cross-l
   ).toHaveLength(1);
 });
 
+test('depend rejects an edge that closes a derivation cycle through container rollups', async () => {
+  // task b under initiative A (via phaseId); initiative C with task d
+  const b = await task('b');
+  const initC = await createInitiative(store, { projectId, title: 'C' });
+  const d = await createTask(store, { parentId: initC.id, title: 'd' });
+  await depend(store, b, [initC.id]); // b awaits C's rollup — fine on its own
+
+  // d → A closes the loop: word(b) ← settled(C) ← word(d) ← settled(A) ← word(b)
+  await expectMimirError('validation', () => depend(store, d.id, [initId]));
+  expect(
+    await db.selectFrom('dependency').selectAll().where('node_id', '=', d.id).execute(),
+  ).toHaveLength(0);
+});
+
+test('depend rejects a multi-hop derivation cycle across three containers', async () => {
+  const b = await task('b'); // under A (initId)
+  const initC = await createInitiative(store, { projectId, title: 'C' });
+  const d = await createTask(store, { parentId: initC.id, title: 'd' });
+  const initE = await createInitiative(store, { projectId, title: 'E' });
+  const f = await createTask(store, { parentId: initE.id, title: 'f' });
+  await depend(store, b, [initC.id]); // A's task awaits C
+  await depend(store, d.id, [initE.id]); // C's task awaits E
+
+  // E's task awaiting A closes the three-container loop
+  await expectMimirError('validation', () => depend(store, f.id, [initId]));
+});
+
+test('move is rejected when re-parenting closes a derivation cycle', async () => {
+  const b = await task('b'); // under A (initId)
+  const initC = await createInitiative(store, { projectId, title: 'C' });
+  const initE = await createInitiative(store, { projectId, title: 'E' });
+  const d = await createTask(store, { parentId: initE.id, title: 'd' });
+  await depend(store, b, [initC.id]); // b awaits C
+  await depend(store, d.id, [initId]); // d awaits A — acyclic while d lives in E
+
+  // moving d into C makes C's rollup depend on d → the loop closes
+  await expectMimirError('validation', () => moveNode(store, d.id, initC.id));
+  expect((await reload(d.id)).parent_id).toBe(initE.id);
+
+  // a neutral destination still works
+  const initN = await createInitiative(store, { projectId, title: 'N' });
+  const moved = await moveNode(store, d.id, initN.id);
+  expect(moved.parent_id).toBe(initN.id);
+});
+
 test('move is rejected when it would create a same-lineage dependency edge', async () => {
   const phase2 = await createPhase(store, { parentId: initId, title: 'ph2' });
   const a = await task('a'); // under phaseId
