@@ -4,6 +4,7 @@ import { createTestDb, expectReject } from '../../db/testing';
 import type { Db } from '../context';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { attachArtifact, blockTask, completeTask, depend, startTask } from '../mutations';
+import { createSqliteStore } from '../store-sqlite';
 import { getArtifact, getNode, listNodes, nextTasks, statusOfNode } from './index';
 
 let db: Db;
@@ -31,24 +32,24 @@ test('next returns ready tasks in rank order, excluding awaiting/held', async ()
   await depend(db, b.id, [a.id]);
   await blockTask(db, c.id, 'later');
 
-  const res = await nextTasks(db, { scope: key });
+  const res = await nextTasks(createSqliteStore(db), { scope: key });
   expect(res.items.map((n) => n.id)).toEqual([idOf(a)]);
   expect(res.total).toBe(1);
   expect(res.items[0]?.status).toBe('ready');
 
   // completing a unblocks b
   await completeTask(db, a.id);
-  const res2 = await nextTasks(db, { scope: key });
+  const res2 = await nextTasks(createSqliteStore(db), { scope: key });
   expect(res2.items.map((n) => n.id)).toEqual([idOf(b)]);
 });
 
 test('next respects priority filter and the limit', async () => {
   await createTask(db, { parentId: phaseId, priority: 'p2', title: 'p2' });
   const hi = await createTask(db, { parentId: phaseId, priority: 'p0', title: 'p0' });
-  const onlyP0 = await nextTasks(db, { priority: 'p0', scope: key });
+  const onlyP0 = await nextTasks(createSqliteStore(db), { priority: 'p0', scope: key });
   expect(onlyP0.items.map((n) => n.id)).toEqual([idOf(hi)]);
 
-  const limited = await nextTasks(db, { limit: 1, scope: key });
+  const limited = await nextTasks(createSqliteStore(db), { limit: 1, scope: key });
   expect(limited.returned).toBe(1);
   expect(limited.total).toBe(2); // total reflects the full ready set
 });
@@ -207,19 +208,19 @@ test('list selects by status universe (MMR-33)', async () => {
   const b = await createTask(db, { parentId: phaseId, title: 'b' });
   await blockTask(db, b.id, 'x');
 
-  const blocked = await listNodes(db, { scope: key, status: 'blocked' });
+  const blocked = await listNodes(createSqliteStore(db), { scope: key, status: 'blocked' });
   expect(blocked.items.map((n) => n.id)).toEqual([idOf(b)]);
 
-  const ready = await listNodes(db, { scope: key, status: 'ready' });
+  const ready = await listNodes(createSqliteStore(db), { scope: key, status: 'ready' });
   expect(ready.items.map((n) => n.id)).toEqual([idOf(a)]);
 
-  const live = await listNodes(db, { scope: key });
+  const live = await listNodes(createSqliteStore(db), { scope: key });
   expect(live.total).toBe(2); // live is the default universe
 
   await completeTask(db, a.id);
-  const terminal = await listNodes(db, { scope: key, status: 'terminal' });
+  const terminal = await listNodes(createSqliteStore(db), { scope: key, status: 'terminal' });
   expect(terminal.items.map((n) => n.id)).toEqual([idOf(a)]);
-  const all = await listNodes(db, { scope: key, status: 'all' });
+  const all = await listNodes(createSqliteStore(db), { scope: key, status: 'all' });
   expect(all.total).toBe(2);
 });
 
@@ -227,12 +228,17 @@ test('list filters by q — case-insensitive substring over title (MMR-78)', asy
   const auth = await createTask(db, { parentId: phaseId, title: 'Wire up AUTH gate' });
   await createTask(db, { parentId: phaseId, title: 'Polish the board' });
 
-  const hit = await listNodes(db, { q: 'auth', scope: key });
+  const hit = await listNodes(createSqliteStore(db), { q: 'auth', scope: key });
   expect(hit.items.map((n) => n.id)).toEqual([idOf(auth)]);
 
-  expect((await listNodes(db, { q: 'zzz', scope: key })).total).toBe(0);
+  expect((await listNodes(createSqliteStore(db), { q: 'zzz', scope: key })).total).toBe(0);
   // an empty q is a no-op, not a match-nothing
-  expect((await listNodes(db, { q: '', scope: key })).total).toBe(2);
+  expect((await listNodes(createSqliteStore(db), { q: '', scope: key })).total).toBe(2);
+
+  // LIKE parity: %/_ inside q act as wildcards, and a regex special is literal
+  expect((await listNodes(createSqliteStore(db), { q: 'a_th', scope: key })).total).toBe(1);
+  expect((await listNodes(createSqliteStore(db), { q: 'wire%gate', scope: key })).total).toBe(1);
+  expect((await listNodes(createSqliteStore(db), { q: 'auth.', scope: key })).total).toBe(0);
 });
 
 test('list applies verdicts and field operators within the universe', async () => {
@@ -240,19 +246,19 @@ test('list applies verdicts and field operators within the universe', async () =
   const b = await createTask(db, { parentId: phaseId, priority: 'p2', title: 'b' });
   await depend(db, b.id, [a.id]); // a blocks b
 
-  const blocking = await listNodes(db, {
+  const blocking = await listNodes(createSqliteStore(db), {
     scope: key,
     verdicts: [{ negate: false, verdict: 'blocking' }],
   });
   expect(blocking.items.map((n) => n.id)).toEqual([idOf(a)]);
 
-  const notBlocking = await listNodes(db, {
+  const notBlocking = await listNodes(createSqliteStore(db), {
     scope: key,
     verdicts: [{ negate: true, verdict: 'blocking' }],
   });
   expect(notBlocking.items.map((n) => n.id)).toEqual([idOf(b)]);
 
-  const p2 = await listNodes(db, {
+  const p2 = await listNodes(createSqliteStore(db), {
     filters: [{ field: 'priority', op: 'eq', value: 'p2' }],
     scope: key,
   });
@@ -261,7 +267,7 @@ test('list applies verdicts and field operators within the universe', async () =
 
 test('a value fault returns an empty set with warnings, not an error', async () => {
   await createTask(db, { parentId: phaseId, priority: 'p1', title: 'a' });
-  const res = await listNodes(db, {
+  const res = await listNodes(createSqliteStore(db), {
     filters: [{ field: 'priority', op: 'eq', value: 'p9' }],
     scope: key,
   });
@@ -273,7 +279,7 @@ test('a value fault returns an empty set with warnings, not an error', async () 
 
 test('a type filter widens list beyond tasks', async () => {
   await createTask(db, { parentId: phaseId, title: 'a' });
-  const phases = await listNodes(db, {
+  const phases = await listNodes(createSqliteStore(db), {
     filters: [{ field: 'type', op: 'eq', value: 'phase' }],
     scope: key,
   });
@@ -296,19 +302,19 @@ test('terminal universe orders by completed_at desc', async () => {
     .set({ completed_at: '2026-06-02T00:00:00.000Z' })
     .where('id', '=', b.id)
     .execute();
-  const done = await listNodes(db, { scope: key, status: 'done' });
+  const done = await listNodes(createSqliteStore(db), { scope: key, status: 'done' });
   expect(done.items.map((n) => n.id)).toEqual([idOf(b), idOf(a)]);
 });
 
 test("the tag pseudo-field filters via the node's tag set", async () => {
   const a = await createTask(db, { parentId: phaseId, tags: ['spec'], title: 'a' });
   await createTask(db, { parentId: phaseId, title: 'b' });
-  const tagged = await listNodes(db, {
+  const tagged = await listNodes(createSqliteStore(db), {
     filters: [{ field: 'tag', op: 'eq', value: 'spec' }],
     scope: key,
   });
   expect(tagged.items.map((n) => n.id)).toEqual([idOf(a)]);
-  const untagged = await listNodes(db, {
+  const untagged = await listNodes(createSqliteStore(db), {
     filters: [{ field: 'tag', op: 'missing', value: null }],
     scope: key,
   });

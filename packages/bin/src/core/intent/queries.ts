@@ -13,41 +13,102 @@ import type {
   ValueWarning,
   VerdictSelector,
 } from '@mimir/contract';
-import { sql } from 'kysely';
 
 import type { Db } from '../context';
 import { isTerminalWord, nodeStatusWord, statusOf, statusOfProject } from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
-import { parseIdentity } from '../ids';
-import {
-  archivedProjectIds,
-  findArtifactByRef,
-  findNodeByRef,
-  isProjectArchived,
-  renderNodeId,
-} from '../lookup';
+import { parseIdentity, renderId } from '../ids';
+import { findArtifactByRef, findNodeByRef, isProjectArchived, renderNodeId } from '../lookup';
 import type { Node } from '../model';
 import { isBlocking, isOrphaned, isReady, isStale } from '../predicates';
 import { compileFilters } from '../query';
 import type { QueryRow } from '../query';
+import type { Store, WorkingSet } from '../store';
 import { buildArtifactDetail, buildNodeView, buildProjectView } from './view';
 
 /**
  * The intent layer — the read surface both the CLI and MCP render. Commands
  * differ only in *how they identify rows* (predicate vs. identity); everything
  * downstream is one projection contract (output-contract reference).
+ *
+ * Set selections (`next`, `list`) read through the coarse `Store` seam (ADR
+ * 0016 Phase 0): one working-set projection, selection and ordering in
+ * memory. Identity selections (`get`, `status_of`) stay point reads — loading
+ * the whole store to fetch one row would invert the O(views) rule.
  */
 
-async function resolveScope(db: Db, key: string): Promise<number> {
-  const project = await db
-    .selectFrom('project')
-    .select('id')
-    .where('key', '=', key)
-    .executeTakeFirst();
+/** The working set plus the lookup indexes selection needs. */
+type WsIndex = {
+  ws: WorkingSet;
+  nodeById: ReadonlyMap<number, Node>;
+  keyByProjectId: ReadonlyMap<number, string>;
+  /** Archived project ids — their subtrees read as absent (ADR 0015). */
+  archived: ReadonlySet<number>;
+};
+
+function indexWorkingSet(ws: WorkingSet): WsIndex {
+  return {
+    archived: new Set(ws.projects.filter((p) => p.archived_at !== null).map((p) => p.id)),
+    keyByProjectId: new Map(ws.projects.map((p) => [p.id, p.key])),
+    nodeById: new Map(ws.nodes.map((n) => [n.id, n])),
+    ws,
+  };
+}
+
+/** Resolve a scope `KEY` against the working set (an archived project resolves — its rows are hidden downstream). */
+function resolveScope(index: WsIndex, key: string): number {
+  const project = index.ws.projects.find((p) => p.key === key);
   if (project === undefined) {
     throw projectNotFound(key);
   }
   return project.id;
+}
+
+function renderNodeIdWs(index: WsIndex, node: Node): string | null {
+  const key = index.keyByProjectId.get(node.project_id);
+  return key === undefined ? null : renderId({ key, seq: node.seq });
+}
+
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+
+/** ASCII-only lowering — parity with SQLite `lower()`, which leaves non-ASCII untouched. */
+const asciiLower = (s: string): string => s.replace(/[A-Z]/g, (c) => c.toLowerCase());
+
+/**
+ * Emulates the SQL path's `lower(title) LIKE '%' || q || '%'` exactly —
+ * including `%`/`_` acting as wildcards inside `q` (LIKE passthrough).
+ */
+function likeContains(title: string, loweredQ: string): boolean {
+  // `%`/`_` are not regex specials, so they survive escaping and substitute cleanly.
+  const pattern = escapeRegExp(loweredQ)
+    .replaceAll('%', String.raw`[\s\S]*`)
+    .replaceAll('_', String.raw`[\s\S]`);
+  return new RegExp(pattern).test(asciiLower(title));
+}
+
+/** Board order: rank (nulls last), then seq — the live-universe sort. */
+function byRankOrder(a: Node, b: Node): number {
+  const aNull = a.rank === null ? 1 : 0;
+  const bNull = b.rank === null ? 1 : 0;
+  return aNull - bNull || (a.rank ?? 0) - (b.rank ?? 0) || a.seq - b.seq;
+}
+
+/** Terminal order: completed_at (nulls last) descending, then seq. */
+function byCompletedOrder(a: Node, b: Node): number {
+  const aNull = a.completed_at === null ? 1 : 0;
+  const bNull = b.completed_at === null ? 1 : 0;
+  if (aNull !== bNull) {
+    return aNull - bNull;
+  }
+  if (a.completed_at !== null && b.completed_at !== null && a.completed_at !== b.completed_at) {
+    return a.completed_at < b.completed_at ? 1 : -1;
+  }
+  return a.seq - b.seq;
+}
+
+/** `next` order: (project, rank) — rank is non-null inside the rankable set. */
+function byProjectRank(a: Node, b: Node): number {
+  return a.project_id - b.project_id || (a.rank ?? 0) - (b.rank ?? 0);
 }
 
 function setResult(items: NodeView[], total: number, startsAt = 0): SetResult<NodeView> {
@@ -92,15 +153,16 @@ async function passesVerdicts(
 
 /**
  * Assemble a node's filter-evaluation row — the projection's bare values
- * under their external names. `needed` keeps the costly pieces (id/parent
- * rendering, the tag set) off rows no filter reads.
+ * under their external names, all served from the working set. `needed`
+ * keeps unread values off the row (parity with the filter compiler's
+ * contract; every source is in memory now, so it is thrift, not necessity).
  */
-async function toQueryRow(
-  db: Db,
+function toQueryRow(
+  index: WsIndex,
   node: Node,
   word: StatusWord,
   needed: ReadonlySet<string>,
-): Promise<QueryRow> {
+): QueryRow {
   const values: Record<string, string | null> = {
     completed_at: node.completed_at,
     created_at: node.created_at,
@@ -118,20 +180,15 @@ async function toQueryRow(
     updated_at: node.updated_at,
   };
   if (needed.has('id')) {
-    values.id = await renderNodeId(db, node.id);
+    values.id = renderNodeIdWs(index, node);
   }
   if (needed.has('parent')) {
-    values.parent = node.parent_id === null ? null : await renderNodeId(db, node.parent_id);
+    const parent = node.parent_id === null ? undefined : index.nodeById.get(node.parent_id);
+    values.parent = parent === undefined ? null : renderNodeIdWs(index, parent);
   }
-  let tags: string[] = [];
+  let tags: readonly string[] = [];
   if (needed.has('tag')) {
-    const rows = await db
-      .selectFrom('tag')
-      .select('tag')
-      .where('entity_type', '=', 'node')
-      .where('entity_id', '=', node.id)
-      .execute();
-    tags = rows.map((r) => r.tag);
+    tags = index.ws.nodeTags.get(node.id) ?? [];
   }
   return { tags, values };
 }
@@ -160,34 +217,31 @@ export type NextOptions = {
  * (project, rank) otherwise. `priority`/`size`/operators filter, never sort
  * (ADR 0007); the universe is fixed (ready *is* next's selection).
  */
-export async function nextTasks(db: Db, opts: NextOptions = {}): Promise<SetResult<NodeView>> {
+export async function nextTasks(
+  store: Store,
+  opts: NextOptions = {},
+): Promise<SetResult<NodeView>> {
   const compiled = compileFilters(opts.filters ?? []);
   if (compiled.warnings.length > 0) {
     return emptyResult(compiled.warnings);
   }
-  let query = db
-    .selectFrom('node')
-    .selectAll()
-    .where('type', '=', 'task')
-    .where('lifecycle', '=', 'todo')
-    .where('hold', '=', 'none')
-    .where('rank', 'is not', null);
-  if (opts.scope !== undefined) {
-    query = query.where('project_id', '=', await resolveScope(db, opts.scope));
-  }
-  if (opts.priority !== undefined) {
-    query = query.where('priority', '=', opts.priority);
-  }
-  if (opts.size !== undefined) {
-    query = query.where('size', '=', opts.size);
-  }
-  // Hide archived projects' subtrees (ADR 0015).
-  const hidden = await archivedProjectIds(db);
-  if (hidden.length > 0) {
-    query = query.where('project_id', 'not in', hidden);
-  }
-  const candidates = await query.orderBy('project_id', 'asc').orderBy('rank', 'asc').execute();
+  const index = indexWorkingSet(await store.loadWorkingSet());
+  const scopeId = opts.scope === undefined ? undefined : resolveScope(index, opts.scope);
+  const candidates = index.ws.nodes
+    .filter(
+      (n) =>
+        n.type === 'task' &&
+        n.lifecycle === 'todo' &&
+        n.hold === 'none' &&
+        n.rank !== null &&
+        !index.archived.has(n.project_id) &&
+        (scopeId === undefined || n.project_id === scopeId) &&
+        (opts.priority === undefined || n.priority === opts.priority) &&
+        (opts.size === undefined || n.size === opts.size),
+    )
+    .toSorted(byProjectRank);
 
+  const db = store.db;
   const verdicts = opts.verdicts ?? [];
   const ready: Node[] = [];
   for (const row of candidates) {
@@ -197,7 +251,7 @@ export async function nextTasks(db: Db, opts: NextOptions = {}): Promise<SetResu
     if (!(await passesVerdicts(db, row, verdicts))) {
       continue;
     }
-    if (!compiled.test(await toQueryRow(db, row, 'ready', compiled.needed))) {
+    if (!compiled.test(toQueryRow(index, row, 'ready', compiled.needed))) {
       continue;
     }
     ready.push(row);
@@ -231,67 +285,64 @@ export type ListOptions = {
  * universes order by rank (nulls last); `terminal` orders by `completed_at`
  * descending (no rank outside the rankable set).
  */
-export async function listNodes(db: Db, opts: ListOptions = {}): Promise<SetResult<NodeView>> {
+export async function listNodes(
+  store: Store,
+  opts: ListOptions = {},
+): Promise<SetResult<NodeView>> {
   const compiled = compileFilters(opts.filters ?? []);
   if (compiled.warnings.length > 0) {
     return emptyResult(compiled.warnings);
   }
   const universe = opts.status ?? 'live';
   const widened = (opts.filters ?? []).some((f) => f.field === 'type');
-
-  let query = db.selectFrom('node').selectAll();
-  if (!widened) {
-    query = query.where('type', '=', 'task');
-    // Task words map 1:1 onto lifecycle terminality — push the coarse cut to SQL.
-    if (universe === 'terminal' || universe === 'done' || universe === 'abandoned') {
-      query = query.where('lifecycle', 'in', ['done', 'abandoned']);
-    } else if (universe !== 'all') {
-      // Non-terminal lifecycle (incl. the under_review gate) — the live universe.
-      query = query.where('lifecycle', 'in', ['todo', 'in_progress', 'under_review']);
-    }
-  }
-  if (opts.scope !== undefined) {
-    query = query.where('project_id', '=', await resolveScope(db, opts.scope));
-  }
-  if (opts.priority !== undefined) {
-    query = query.where('priority', '=', opts.priority);
-  }
-  if (opts.size !== undefined) {
-    query = query.where('size', '=', opts.size);
-  }
-  if (opts.tag !== undefined) {
-    const tag = opts.tag;
-    query = query.where('id', 'in', (eb) =>
-      eb
-        .selectFrom('tag')
-        .select('entity_id')
-        .where('entity_type', '=', 'node')
-        .where('tag', '=', tag),
-    );
-  }
-  if (opts.q !== undefined && opts.q !== '') {
-    const like = `%${opts.q.toLowerCase()}%`;
-    query = query.where(sql<boolean>`lower(node.title) LIKE ${like}`);
-  }
-  // Hide archived projects' subtrees (ADR 0015). The `archived` universe is a
-  // project-level door handled by the transport, never reaching listNodes.
-  const hidden = await archivedProjectIds(db);
-  if (hidden.length > 0) {
-    query = query.where('project_id', 'not in', hidden);
-  }
   const terminalOrder = universe === 'terminal' || universe === 'done' || universe === 'abandoned';
-  const rows = terminalOrder
-    ? await query
-        .orderBy(sql`completed_at is null`)
-        .orderBy('completed_at', 'desc')
-        .orderBy('seq', 'asc')
-        .execute()
-    : await query
-        .orderBy(sql`rank is null`)
-        .orderBy('rank', 'asc')
-        .orderBy('seq', 'asc')
-        .execute();
 
+  const index = indexWorkingSet(await store.loadWorkingSet());
+  const scopeId = opts.scope === undefined ? undefined : resolveScope(index, opts.scope);
+  const loweredQ = opts.q === undefined || opts.q === '' ? undefined : opts.q.toLowerCase();
+  const rows = index.ws.nodes
+    .filter((n) => {
+      if (!widened) {
+        if (n.type !== 'task') {
+          return false;
+        }
+        // Task words map 1:1 onto lifecycle terminality — the coarse universe cut.
+        if (terminalOrder) {
+          if (n.lifecycle !== 'done' && n.lifecycle !== 'abandoned') {
+            return false;
+          }
+        } else if (
+          universe !== 'all' &&
+          n.lifecycle !== 'todo' &&
+          n.lifecycle !== 'in_progress' &&
+          n.lifecycle !== 'under_review'
+        ) {
+          // Non-terminal lifecycle (incl. the under_review gate) — the live universe.
+          return false;
+        }
+      }
+      if (scopeId !== undefined && n.project_id !== scopeId) {
+        return false;
+      }
+      if (opts.priority !== undefined && n.priority !== opts.priority) {
+        return false;
+      }
+      if (opts.size !== undefined && n.size !== opts.size) {
+        return false;
+      }
+      if (opts.tag !== undefined && !(index.ws.nodeTags.get(n.id) ?? []).includes(opts.tag)) {
+        return false;
+      }
+      if (loweredQ !== undefined && !likeContains(n.title, loweredQ)) {
+        return false;
+      }
+      // Hide archived projects' subtrees (ADR 0015). The `archived` universe is a
+      // project-level door handled by the transport, never reaching listNodes.
+      return !index.archived.has(n.project_id);
+    })
+    .toSorted(terminalOrder ? byCompletedOrder : byRankOrder);
+
+  const db = store.db;
   const verdicts = opts.verdicts ?? [];
   const matched: { node: Node; word: StatusWord }[] = [];
   for (const row of rows) {
@@ -302,7 +353,7 @@ export async function listNodes(db: Db, opts: ListOptions = {}): Promise<SetResu
     if (!(await passesVerdicts(db, row, verdicts))) {
       continue;
     }
-    if (!compiled.test(await toQueryRow(db, row, word, compiled.needed))) {
+    if (!compiled.test(toQueryRow(index, row, word, compiled.needed))) {
       continue;
     }
     matched.push({ node: row, word });

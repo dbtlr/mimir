@@ -35,6 +35,7 @@ import {
   formatStatusJson,
   getArtifact,
   getNode,
+  createSqliteStore,
   listNodes,
   listProjects,
   moveNode,
@@ -196,7 +197,7 @@ function collectVerdicts(args: SetQueryArgs): VerdictSelector[] {
 
 export function toolNext(db: Db, args: SetQueryArgs): Promise<ToolResult> {
   return guard(async () => {
-    const result = await nextTasks(db, {
+    const result = await nextTasks(createSqliteStore(db), {
       filters: collectFilters(args),
       limit: args.limit,
       priority: args.priority,
@@ -220,7 +221,7 @@ export function toolList(db: Db, args: SetQueryArgs): Promise<ToolResult> {
         ),
       );
     }
-    const result = await listNodes(db, {
+    const result = await listNodes(createSqliteStore(db), {
       filters: collectFilters(args),
       limit: args.limit,
       priority: args.priority,
