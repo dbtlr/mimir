@@ -23,9 +23,9 @@ let phaseId: number;
 beforeEach(async () => {
   db = await createTestDb();
   store = createSqliteStore(db);
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
   phaseId = phase.id;
 });
 afterEach(async () => {
@@ -98,7 +98,7 @@ test('help for a verb without a descriptor falls back to the top-level help', as
 });
 
 test('archive freezes the project; unarchive restores it (MMR-121)', async () => {
-  const task = await createTask(db, { parentId: phaseId, title: 'x' });
+  const task = await createTask(store, { parentId: phaseId, title: 'x' });
   const id = `MMR-${String(task.seq)}`;
 
   // archive echoes a signpost and exits 0
@@ -120,7 +120,7 @@ test('archive freezes the project; unarchive restores it (MMR-121)', async () =>
 });
 
 test('archive hides the project from reads; the --status archived door reveals it (MMR-122)', async () => {
-  const task = await createTask(db, { parentId: phaseId, title: 'x' });
+  const task = await createTask(store, { parentId: phaseId, title: 'x' });
   const id = `MMR-${String(task.seq)}`;
   await runCli(['archive', 'MMR'], () => store, fakeIo(true));
 
@@ -142,13 +142,13 @@ test('archive hides the project from reads; the --status archived door reveals i
 });
 
 test('archive warns about released cross-project dependents (MMR-124)', async () => {
-  const mmrTask = await createTask(db, { parentId: phaseId, title: 'prereq' });
+  const mmrTask = await createTask(store, { parentId: phaseId, title: 'prereq' });
   // A task in another project depends on the MMR task (a cross-project edge).
-  const aaa = await createProject(db, { key: 'AAA', name: 'a' });
-  const aInit = await createInitiative(db, { projectId: aaa.id, title: 'i' });
-  const aPhase = await createPhase(db, { parentId: aInit.id, title: 'ph' });
-  const a1 = await createTask(db, { parentId: aPhase.id, title: 'a1' });
-  await depend(db, a1.id, [mmrTask.id]);
+  const aaa = await createProject(store, { key: 'AAA', name: 'a' });
+  const aInit = await createInitiative(store, { projectId: aaa.id, title: 'i' });
+  const aPhase = await createPhase(store, { parentId: aInit.id, title: 'ph' });
+  const a1 = await createTask(store, { parentId: aPhase.id, title: 'a1' });
+  await depend(store, a1.id, [mmrTask.id]);
 
   const io = fakeIo(true);
   expect(await runCli(['archive', 'MMR'], () => store, io)).toBe(0);
@@ -177,7 +177,7 @@ test('archive -h prints the archive command help, not the generic dump (MMR-121)
 });
 
 test('next --format json lists ready tasks (count-led envelope)', async () => {
-  await createTask(db, { parentId: phaseId, priority: 'p1', title: 'first' });
+  await createTask(store, { parentId: phaseId, priority: 'p1', title: 'first' });
   const io = fakeIo();
   expect(await runCli(['next', '--scope', 'MMR', '--format', 'json'], () => store, io)).toBe(0);
   const parsed = parseJson<{ total: number; tasks: { title: string }[] }>(io.out.join(''));
@@ -186,7 +186,7 @@ test('next --format json lists ready tasks (count-led envelope)', async () => {
 });
 
 test('next default is the informative table view whether piped or TTY (MMR-87)', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 'x' });
+  const t = await createTask(store, { parentId: phaseId, title: 'x' });
   const id = `MMR-${String(t.seq)}`;
 
   // Piped (non-TTY): the same informative table content, not a bare id.
@@ -213,7 +213,7 @@ test('next default is the informative table view whether piped or TTY (MMR-87)',
 });
 
 test('list piped default is the table view, not bare ids (MMR-87)', async () => {
-  await createTask(db, { parentId: phaseId, title: 'alpha' });
+  await createTask(store, { parentId: phaseId, title: 'alpha' });
   const piped = fakeIo(false);
   await runCli(['list', '--scope', 'MMR', '--status', 'ready'], () => store, piped);
   const text = piped.out.join('');
@@ -223,7 +223,7 @@ test('list piped default is the table view, not bare ids (MMR-87)', async () => 
 });
 
 test('get returns a record; a missing id exits non-zero', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 'deep' });
+  const t = await createTask(store, { parentId: phaseId, title: 'deep' });
   const ok = fakeIo();
   expect(await runCli(['get', `MMR-${String(t.seq)}`, '--format', 'json'], () => store, ok)).toBe(
     0,
@@ -237,7 +237,7 @@ test('get returns a record; a missing id exits non-zero', async () => {
 });
 
 test('get piped default is the records view, not a bare id (MMR-87)', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 'deep' });
+  const t = await createTask(store, { parentId: phaseId, title: 'deep' });
   const id = `MMR-${String(t.seq)}`;
 
   const piped = fakeIo(false);
@@ -256,7 +256,7 @@ test('get piped default is the records view, not a bare id (MMR-87)', async () =
 });
 
 test('status reports the rollup of a non-leaf', async () => {
-  await createTask(db, { parentId: phaseId, title: 't1' });
+  await createTask(store, { parentId: phaseId, title: 't1' });
   const phase = await db
     .selectFrom('node')
     .select('seq')
@@ -277,7 +277,7 @@ test('an invalid flag value is a usage error → exit 2', async () => {
 });
 
 test('list --status selects the matching universe', async () => {
-  await createTask(db, { parentId: phaseId, title: 'a' });
+  await createTask(store, { parentId: phaseId, title: 'a' });
   const io = fakeIo();
   await runCli(['list', '--scope', 'MMR', '--status', 'ready', '--format', 'ids'], () => store, io);
   expect(io.out.join('')).toContain('MMR-');
@@ -352,7 +352,7 @@ test('a task verb on a project KEY is a behavioral error (validation → exit 1)
 });
 
 test('attach echoes KEY-aN and get reads the artifact back', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 't' });
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
   const tmp = `${process.env.TMPDIR ?? '/tmp'}/mimir-aid.md`;
   await Bun.write(tmp, '# body\n');
   // -f ids is the composable id-capture form the skill teaches (ID=$(… -f ids)).
@@ -383,7 +383,7 @@ test('a task verb on an artifact id is a behavioral error', async () => {
 // tag write surface (MMR-31)
 
 test('tag and untag round-trip through the CLI', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 't' });
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
   const ref = `MMR-${String(t.seq)}`;
   const io = fakeIo(false);
   expect(await runCli(['tag', `${ref},MMR`, 'spec', 'v2', '-f', 'json'], () => store, io)).toBe(0);
@@ -445,7 +445,7 @@ test('create task --tag applies creation-time tags', async () => {
 // query surface v2 (MMR-33)
 
 test('a value miss warns on stderr and exits 0 with an empty set', async () => {
-  await createTask(db, { parentId: phaseId, priority: 'p1', title: 'a' });
+  await createTask(store, { parentId: phaseId, priority: 'p1', title: 'a' });
   const io = fakeIo(true);
   const code = await runCli(
     ['list', '--scope', 'MMR', '--eq', 'priority:p9', '--ascii'],
@@ -484,8 +484,8 @@ test('a date op on a non-date field is a usage error (exit 2)', async () => {
 });
 
 test('--is/--not-is select verdicts; --status picks the universe', async () => {
-  const a = await createTask(db, { parentId: phaseId, title: 'a' });
-  const b = await createTask(db, { parentId: phaseId, title: 'b' });
+  const a = await createTask(store, { parentId: phaseId, title: 'a' });
+  const b = await createTask(store, { parentId: phaseId, title: 'b' });
   const aRef = `MMR-${String(a.seq)}`;
   const bRef = `MMR-${String(b.seq)}`;
   await runCli(['depend', bRef, '--on', aRef], () => store, fakeIo(false));
@@ -505,8 +505,8 @@ test('--is/--not-is select verdicts; --status picks the universe', async () => {
 });
 
 test('depend --on still works as a write flag alongside the date op', async () => {
-  const a = await createTask(db, { parentId: phaseId, title: 'a' });
-  const b = await createTask(db, { parentId: phaseId, title: 'b' });
+  const a = await createTask(store, { parentId: phaseId, title: 'a' });
+  const b = await createTask(store, { parentId: phaseId, title: 'b' });
   const io = fakeIo(false);
   const code = await runCli(
     ['depend', `MMR-${String(b.seq)}`, '--on', `MMR-${String(a.seq)}`, '-f', 'json'],
@@ -520,7 +520,7 @@ test('depend --on still works as a write flag alongside the date op', async () =
 // artifact title + readback (MMR-34)
 
 test('attach defaults title from the file basename; --title overrides; --tag classifies', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 't' });
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
   const ref = `MMR-${String(t.seq)}`;
   const tmp = `${process.env.TMPDIR ?? '/tmp'}/dogfood-plan.md`;
   await Bun.write(tmp, '# body\n');
@@ -541,14 +541,14 @@ test('attach defaults title from the file basename; --title overrides; --tag cla
 });
 
 test('attach from stdin without --title is a usage error', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 't' });
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
   const io = fakeIo(true); // TTY → no stdin content either, but flag check comes after content
   const code = await runCli(['attach', `MMR-${String(t.seq)}`], () => store, io);
   expect(code).toBe(2);
 });
 
 test('get KEY-aN --col content returns the frozen body', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 't' });
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
   const tmp = `${process.env.TMPDIR ?? '/tmp'}/body.md`;
   await Bun.write(tmp, '# the frozen body\n');
   await runCli(['attach', `MMR-${String(t.seq)}`, '--file', tmp], () => store, fakeIo(false));
@@ -603,7 +603,7 @@ test('self-update --tag requires a value (usage error, exit 2)', async () => {
 });
 
 test('--col takes flat column names; the dot form is a usage error', async () => {
-  const t = await createTask(db, { parentId: phaseId, title: 't' });
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
   const ref = `MMR-${String(t.seq)}`;
   const io = fakeIo(false);
   await runCli(['get', ref, '--col', 'history', '-f', 'json'], () => store, io);
@@ -623,7 +623,7 @@ test('--col takes flat column names; the dot form is a usage error', async () =>
 
 test('list --eq type:phase filters to phases only', async () => {
   // The db has one phase (phaseId) and a task; ensure --eq type:phase returns phase but not tasks.
-  const t = await createTask(db, { parentId: phaseId, title: 'a task' });
+  const t = await createTask(store, { parentId: phaseId, title: 'a task' });
   const io = fakeIo(false);
   const code = await runCli(
     ['list', '--scope', 'MMR', '--status', 'all', '--eq', 'type:phase', '-f', 'ids'],

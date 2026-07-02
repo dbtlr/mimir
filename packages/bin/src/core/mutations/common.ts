@@ -1,23 +1,22 @@
-import type { NewTransitionRow } from '../../db/schema';
-import type { Tx } from '../context';
 import { deriveSet, lineageIds, renderNodeIdFromSet } from '../derive';
 import { conflict, invariant, notFound, validation } from '../errors';
-import { renderNodeId } from '../lookup';
+import { renderId } from '../ids';
 import type { Node } from '../model';
 import { isReady } from '../predicates';
-import { loadWorkingSet } from '../store-sqlite';
+import type { NewTransitionRecord, StoreWriter } from '../store';
 import { now } from '../time';
 
 /**
  * Shared machinery for the mutation verbs. Every status-bearing verb is one
- * transaction: load → validate the behavioral invariant → write the column(s)
- * → append a `transition_log` row → adjust rank → stamp `updated_at` → echo the
- * affected node (ADR 0003). These helpers are the reusable steps.
+ * `transact` scope: load → validate the behavioral invariant → write the
+ * column(s) → append a `transition_log` row → adjust rank → stamp `updated_at`
+ * → echo the affected node (ADR 0003). These helpers are the reusable steps,
+ * composed over the writer so they see in-tx state.
  */
 
 /** Reload a node that must exist (post-write echo / mid-verb refresh). */
-export async function reloadNode(tx: Tx, id: number): Promise<Node> {
-  const node = await tx.selectFrom('node').selectAll().where('id', '=', id).executeTakeFirst();
+export async function reloadNode(w: StoreWriter, id: number): Promise<Node> {
+  const node = await w.loadNode(id);
   if (node === undefined) {
     throw invariant('the record vanished mid-transaction');
   }
@@ -31,12 +30,8 @@ export async function reloadNode(tx: Tx, id: number): Promise<Node> {
  * node-targeting verb; the handful of project-level / create / attach / tag
  * paths that don't load a node first call it directly with the owning project.
  */
-export async function assertProjectActive(tx: Tx, projectId: number): Promise<void> {
-  const project = await tx
-    .selectFrom('project')
-    .select(['key', 'archived_at'])
-    .where('id', '=', projectId)
-    .executeTakeFirst();
+export async function assertProjectActive(w: StoreWriter, projectId: number): Promise<void> {
+  const project = await w.loadProject(projectId);
   if (project?.archived_at != null) {
     throw conflict(
       `project ${project.key} is archived — no changes are allowed`,
@@ -46,17 +41,30 @@ export async function assertProjectActive(tx: Tx, projectId: number): Promise<vo
 }
 
 /**
+ * Render a node's external `KEY-seq` id from two writer point reads — the
+ * in-scope equivalent of `lookup.renderNodeId` for verb hints and log values.
+ */
+export async function renderNodeRef(w: StoreWriter, nodeId: number): Promise<string | null> {
+  const node = await w.loadNode(nodeId);
+  if (node === undefined) {
+    return null;
+  }
+  const project = await w.loadProject(node.project_id);
+  return project === undefined ? null : renderId({ key: project.key, seq: node.seq });
+}
+
+/**
  * Load a node by id, asserting it exists — and that its owning project is not
  * archived (the write-lock choke point, ADR 0015). Every node mutation loads
  * its target (and any reference node) through here, so the freeze can't be
  * bypassed per-verb.
  */
-export async function requireNode(tx: Tx, id: number): Promise<Node> {
-  const node = await tx.selectFrom('node').selectAll().where('id', '=', id).executeTakeFirst();
+export async function requireNode(w: StoreWriter, id: number): Promise<Node> {
+  const node = await w.loadNode(id);
   if (node === undefined) {
     throw notFound('the record was not found');
   }
-  await assertProjectActive(tx, node.project_id);
+  await assertProjectActive(w, node.project_id);
   return node;
 }
 
@@ -65,8 +73,8 @@ export async function requireNode(tx: Tx, id: number): Promise<Node> {
  * Walks all tasks in the same project, checks parent chain for containment, then
  * readiness (dependency settlement). Returns rendered ids like ["MMR-3", "MMR-4"].
  */
-async function readyDescendantIds(tx: Tx, container: Node): Promise<string[]> {
-  const set = deriveSet(await loadWorkingSet(tx));
+async function readyDescendantIds(w: StoreWriter, container: Node): Promise<string[]> {
+  const set = deriveSet(await w.loadWorkingSet());
   const candidates = (set.nodesByProject.get(container.project_id) ?? []).filter(
     (n) => n.type === 'task' && n.lifecycle === 'todo' && n.hold === 'none' && n.rank !== null,
   );
@@ -88,12 +96,12 @@ async function readyDescendantIds(tx: Tx, container: Node): Promise<string[]> {
 }
 
 /** Load a node, asserting it is a task (verbs that touch lifecycle/hold/rank). */
-export async function requireTask(tx: Tx, id: number): Promise<Node> {
-  const node = await requireNode(tx, id);
+export async function requireTask(w: StoreWriter, id: number): Promise<Node> {
+  const node = await requireNode(w, id);
   if (node.type !== 'task') {
-    const rendered = (await renderNodeId(tx, id)) ?? 'it';
+    const rendered = (await renderNodeRef(w, id)) ?? 'it';
     const article = node.type === 'initiative' ? 'an' : 'a';
-    const readyIds = await readyDescendantIds(tx, node);
+    const readyIds = await readyDescendantIds(w, node);
     const hint =
       readyIds.length > 0
         ? `containers aren't started directly — start a ready task under it: ${readyIds.join(', ')}`
@@ -104,11 +112,11 @@ export async function requireTask(tx: Tx, id: number): Promise<Node> {
 }
 
 /** Stamp `updated_at` on a node — the core is the sole time-maintainer (not a trigger). */
-export async function stamp(tx: Tx, id: number): Promise<void> {
-  await tx.updateTable('node').set({ updated_at: now() }).where('id', '=', id).execute();
+export async function stamp(w: StoreWriter, id: number): Promise<void> {
+  await w.updateNode(id, { updated_at: now() });
 }
 
-/** Append a transition-log row in the verb's own transaction (so columns + log can't drift). */
-export async function logTransition(tx: Tx, row: NewTransitionRow): Promise<void> {
-  await tx.insertInto('transition_log').values(row).execute();
+/** Append a transition-log row in the verb's own write scope (so columns + log can't drift). */
+export async function logTransition(w: StoreWriter, row: NewTransitionRecord): Promise<void> {
+  await w.appendTransition(row);
 }

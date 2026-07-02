@@ -359,7 +359,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             }
             const title = strField(body, 'title');
             if (title !== undefined) {
-              await updateArtifact(db, artifact.id, { title });
+              await updateArtifact(store, artifact.id, { title });
             }
             const detail = await getArtifact(db, req.params.id, { content: true });
             return json(req, artifactToWire(detail));
@@ -422,7 +422,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               if (project === undefined) {
                 throw projectNotFound(parent);
               }
-              const node = await createInitiative(db, {
+              const node = await createInitiative(store, {
                 description,
                 projectId: project.id,
                 tags,
@@ -431,7 +431,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               return echoNode(db, req, node, 201);
             }
             if (type === 'phase') {
-              const node = await createPhase(db, {
+              const node = await createPhase(store, {
                 description,
                 parentId: await nodeRef(db, parent, 'initiative'),
                 tags,
@@ -452,7 +452,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               if (size !== undefined && !isMember(size, SIZE_VALUES)) {
                 throw validation(`invalid size: ${size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
               }
-              const node = await createTask(db, {
+              const node = await createTask(store, {
                 description,
                 externalRef: strField(body, 'external_ref'),
                 parentId: await nodeRef(db, parent, 'phase or initiative'),
@@ -528,7 +528,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (externalRef !== undefined) {
               fields.externalRef = externalRef;
             }
-            const node = await updateNode(db, await nodeRef(db, req.params.id), fields);
+            const node = await updateNode(store, await nodeRef(db, req.params.id), fields);
             return echoNode(db, req, node);
           }),
       },
@@ -538,7 +538,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             const body = await readBody(req, ['reason']);
             const node = await abandonTask(
-              db,
+              store,
               await nodeRef(db, req.params.id, 'task'),
               strField(body, 'reason'),
             );
@@ -560,7 +560,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             const body = await readBody(req, ['content']);
             const node = await annotate(
-              db,
+              store,
               await nodeRef(db, req.params.id),
               requiredStr(body, 'content', 'annotate'),
             );
@@ -589,7 +589,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
                 linkNodeIds.push(linked.id);
               }
             }
-            const { renderedId } = await attachArtifact(db, {
+            const { renderedId } = await attachArtifact(store, {
               content: requiredStr(body, 'content', 'attach'),
               linkNodeIds,
               projectId: anchor.project_id,
@@ -606,7 +606,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             const body = await readBody(req, ['reason']);
             const node = await blockTask(
-              db,
+              store,
               await nodeRef(db, req.params.id, 'task'),
               strField(body, 'reason'),
             );
@@ -624,7 +624,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             }
             const id = await nodeRef(db, req.params.id);
             const onIds = await Promise.all(on.map((t) => nodeRef(db, t)));
-            return echoNode(db, req, await depend(db, id, onIds));
+            return echoNode(db, req, await depend(store, id, onIds));
           }),
       },
 
@@ -635,7 +635,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             return echoNode(
               db,
               req,
-              await completeTask(db, await nodeRef(db, req.params.id, 'task')),
+              await completeTask(store, await nodeRef(db, req.params.id, 'task')),
             );
           }),
       },
@@ -646,7 +646,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const body = await readBody(req, ['to']);
             const to = requiredStr(body, 'to', 'move');
             const node = await moveNode(
-              db,
+              store,
               await nodeRef(db, req.params.id),
               await nodeRef(db, to),
             );
@@ -659,7 +659,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             const body = await readBody(req, ['reason']);
             const node = await parkTask(
-              db,
+              store,
               await nodeRef(db, req.params.id, 'task'),
               strField(body, 'reason'),
             );
@@ -672,7 +672,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             const body = await readBody(req, ['reason']);
             const node = await reopenTask(
-              db,
+              store,
               await nodeRef(db, req.params.id, 'task'),
               strField(body, 'reason'),
             );
@@ -714,7 +714,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               refId = await nodeRef(db, ref);
             }
             const node = await reorder(
-              db,
+              store,
               await nodeRef(db, req.params.id, 'task'),
               position as RankPosition,
               refId,
@@ -728,7 +728,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             const body = await readBody(req, ['reason']);
             const node = await returnTask(
-              db,
+              store,
               await nodeRef(db, req.params.id, 'task'),
               strField(body, 'reason'),
             );
@@ -740,7 +740,11 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         POST: (req) =>
           guarded(req, async () => {
             await readBody(req, []);
-            return echoNode(db, req, await startTask(db, await nodeRef(db, req.params.id, 'task')));
+            return echoNode(
+              db,
+              req,
+              await startTask(store, await nodeRef(db, req.params.id, 'task')),
+            );
           }),
       },
 
@@ -751,7 +755,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             return echoNode(
               db,
               req,
-              await submitTask(db, await nodeRef(db, req.params.id, 'task')),
+              await submitTask(store, await nodeRef(db, req.params.id, 'task')),
             );
           }),
       },
@@ -760,7 +764,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         DELETE: (req) =>
           guarded(req, async () => {
             const id = await nodeRef(db, req.params.id);
-            await untagEntities(db, [{ entityId: id, entityType: 'node' }], [req.params.tag]);
+            await untagEntities(store, [{ entityId: id, entityType: 'node' }], [req.params.tag]);
             const node = await findNodeByRef(db, req.params.id);
             if (node === undefined) {
               throw notFound(`${req.params.id} doesn't exist`);
@@ -772,7 +776,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const body = await readBody(req, ['note']);
             const id = await nodeRef(db, req.params.id);
             await tagEntities(
-              db,
+              store,
               [{ entityId: id, entityType: 'node' }],
               [req.params.tag],
               strField(body, 'note'),
@@ -792,7 +796,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             return echoNode(
               db,
               req,
-              await unblockTask(db, await nodeRef(db, req.params.id, 'task')),
+              await unblockTask(store, await nodeRef(db, req.params.id, 'task')),
             );
           }),
       },
@@ -807,7 +811,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             }
             const id = await nodeRef(db, req.params.id);
             const onIds = await Promise.all(on.map((t) => nodeRef(db, t)));
-            return echoNode(db, req, await undepend(db, id, onIds));
+            return echoNode(db, req, await undepend(store, id, onIds));
           }),
       },
 
@@ -818,7 +822,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             return echoNode(
               db,
               req,
-              await unparkTask(db, await nodeRef(db, req.params.id, 'task')),
+              await unparkTask(store, await nodeRef(db, req.params.id, 'task')),
             );
           }),
       },
@@ -838,7 +842,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         POST: (req) =>
           guarded(req, async () => {
             const body = await readBody(req, ['key', 'name', 'description', 'tags']);
-            const project = await createProject(db, {
+            const project = await createProject(store, {
               description: strField(body, 'description'),
               key: requiredStr(body, 'key', 'create project'),
               name: requiredStr(body, 'name', 'create project'),
@@ -878,7 +882,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (project === undefined) {
               throw projectNotFound(key);
             }
-            await updateProject(db, project.id, { description, name });
+            await updateProject(store, project.id, { description, name });
             const updated = await db
               .selectFrom('project')
               .selectAll()
@@ -897,7 +901,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             const id = await projectIdForArchive(db, req.params.key);
             const body = await readBody(req, ['reason']);
-            const project = await archiveProject(db, id, strField(body, 'reason'));
+            const project = await archiveProject(store, id, strField(body, 'reason'));
             return json(req, nodeToWire(await projectViewOf(db, project, new Set(PROJECT_FACETS))));
           }),
       },
@@ -917,7 +921,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         POST: (req) =>
           guarded(req, async () => {
             const id = await projectIdForArchive(db, req.params.key);
-            const project = await unarchiveProject(db, id);
+            const project = await unarchiveProject(store, id);
             return json(req, nodeToWire(await projectViewOf(db, project, new Set(PROJECT_FACETS))));
           }),
       },

@@ -8,11 +8,14 @@ import { createInitiative, createPhase, createProject, createTask } from './crea
 import { deriveSet } from './derive';
 import { loadNode } from './lookup';
 import { isAwaiting, isBlocked, isBlocking, isOrphaned, isReady, isStale } from './predicates';
-import { loadWorkingSet } from './store-sqlite';
+import type { Store } from './store';
+import { createSqliteStore, loadWorkingSet } from './store-sqlite';
 
 let db: Db;
+let store: Store;
 beforeEach(async () => {
   db = await createTestDb();
+  store = createSqliteStore(db);
 });
 afterEach(async () => {
   await db.destroy();
@@ -38,16 +41,16 @@ async function dep(nodeId: number, dependsOn: number): Promise<void> {
 }
 
 async function fixture(key = 'MMR') {
-  const p = await createProject(db, { key, name: 'm' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
+  const p = await createProject(store, { key, name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
   return { init, p, phase };
 }
 
 test('ready vs awaiting hinge on prerequisite settledness', async () => {
   const { phase } = await fixture();
-  const a = await createTask(db, { parentId: phase.id, title: 'a' });
-  const b = await createTask(db, { parentId: phase.id, title: 'b' });
+  const a = await createTask(store, { parentId: phase.id, title: 'a' });
+  const b = await createTask(store, { parentId: phase.id, title: 'b' });
   expect(isReady(await setOf(), a)).toBe(true);
   expect(isAwaiting(await setOf(), a)).toBe(false);
 
@@ -63,11 +66,11 @@ test('ready vs awaiting hinge on prerequisite settledness', async () => {
 test('a task inherits its ancestor phase prerequisite (reads awaiting, clears to ready)', async () => {
   const { init, phase } = await fixture();
   // a sibling "phase 1" with a live task → unsettled prerequisite
-  const phase1 = await createPhase(db, { parentId: init.id, title: 'phase 1' });
-  const p1task = await createTask(db, { parentId: phase1.id, title: 'p1 work' });
+  const phase1 = await createPhase(store, { parentId: init.id, title: 'phase 1' });
+  const p1task = await createTask(store, { parentId: phase1.id, title: 'p1 work' });
   // "phase 2" (the fixture phase) depends on phase 1, and holds a task
   await dep(phase.id, phase1.id);
-  const t = await createTask(db, { parentId: phase.id, title: 't' });
+  const t = await createTask(store, { parentId: phase.id, title: 't' });
 
   // t declares no edge of its own, yet inherits phase 2's gate
   expect(isReady(await setOf(), await reload(t.id))).toBe(false);
@@ -81,7 +84,7 @@ test('a task inherits its ancestor phase prerequisite (reads awaiting, clears to
 
 test('a held task is neither ready nor awaiting', async () => {
   const { phase } = await fixture();
-  const t = await createTask(db, { parentId: phase.id, title: 't' });
+  const t = await createTask(store, { parentId: phase.id, title: 't' });
   await patch(t.id, { hold: 'blocked' });
   expect(isReady(await setOf(), await reload(t.id))).toBe(false);
   expect(isAwaiting(await setOf(), await reload(t.id))).toBe(false);
@@ -90,8 +93,8 @@ test('a held task is neither ready nor awaiting', async () => {
 
 test('blocking is true while an unsettled dependent exists', async () => {
   const { phase } = await fixture();
-  const prereq = await createTask(db, { parentId: phase.id, title: 'prereq' });
-  const dependent = await createTask(db, { parentId: phase.id, title: 'dependent' });
+  const prereq = await createTask(store, { parentId: phase.id, title: 'prereq' });
+  const dependent = await createTask(store, { parentId: phase.id, title: 'dependent' });
   await dep(dependent.id, prereq.id);
 
   expect(isBlocking(await setOf(), await reload(prereq.id))).toBe(true);
@@ -101,7 +104,7 @@ test('blocking is true while an unsettled dependent exists', async () => {
 
 test('stale chases in_progress/blocked, mutes parked/awaiting, respects the threshold', async () => {
   const { phase } = await fixture();
-  const t = await createTask(db, { parentId: phase.id, title: 't' });
+  const t = await createTask(store, { parentId: phase.id, title: 't' });
   await patch(t.id, { lifecycle: 'in_progress' });
   // backdate updated_at well past the threshold
   await db
@@ -125,8 +128,8 @@ test('stale chases in_progress/blocked, mutes parked/awaiting, respects the thre
 
 test('orphaned: a live task stranded among all-terminal siblings', async () => {
   const { phase } = await fixture();
-  const live = await createTask(db, { parentId: phase.id, title: 'live' });
-  const sib = await createTask(db, { parentId: phase.id, title: 'sib' });
+  const live = await createTask(store, { parentId: phase.id, title: 'live' });
+  const sib = await createTask(store, { parentId: phase.id, title: 'sib' });
 
   // two live siblings → not orphaned
   expect(isOrphaned(await setOf(), await reload(live.id))).toBe(false);
@@ -137,6 +140,6 @@ test('orphaned: a live task stranded among all-terminal siblings', async () => {
 
   // a sole child is never orphaned
   const { phase: solo } = await fixture('SOL');
-  const only = await createTask(db, { parentId: solo.id, title: 'only' });
+  const only = await createTask(store, { parentId: solo.id, title: 'only' });
   expect(isOrphaned(await setOf(), await reload(only.id))).toBe(false);
 });

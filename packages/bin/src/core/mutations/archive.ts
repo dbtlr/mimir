@@ -1,9 +1,8 @@
-import type { Db, Tx } from '../context';
 import { deriveSet, isNodeSettled, lineageIds, renderNodeIdFromSet } from '../derive';
 import { conflict, notFound } from '../errors';
 import type { Project } from '../model';
 import { isReady } from '../predicates';
-import { loadWorkingSet } from '../store-sqlite';
+import type { Store, StoreWriter } from '../store';
 import { now } from '../time';
 import { logTransition } from './common';
 
@@ -15,12 +14,8 @@ import { logTransition } from './common';
  * `transition_log`) — never a delete, so append-only holds.
  */
 
-async function loadProject(tx: Tx, id: number): Promise<Project> {
-  const project = await tx
-    .selectFrom('project')
-    .selectAll()
-    .where('id', '=', id)
-    .executeTakeFirst();
+async function loadProject(w: StoreWriter, id: number): Promise<Project> {
+  const project = await w.loadProject(id);
   if (project === undefined) {
     throw notFound('the project was not found');
   }
@@ -28,25 +23,21 @@ async function loadProject(tx: Tx, id: number): Promise<Project> {
 }
 
 /** Archive a project (active → archived). Idempotency is a conflict, not a no-op. */
-export async function archiveProject(db: Db, id: number, reason?: string): Promise<Project> {
-  return db.transaction().execute(async (tx) => {
-    const project = await loadProject(tx, id);
+export async function archiveProject(store: Store, id: number, reason?: string): Promise<Project> {
+  return store.transact(async (w) => {
+    const project = await loadProject(w, id);
     if (project.archived_at !== null) {
       throw conflict(`project ${project.key} is already archived`);
     }
-    await tx
-      .updateTable('project')
-      .set({ archived_at: now(), updated_at: now() })
-      .where('id', '=', id)
-      .execute();
-    await logTransition(tx, {
+    await w.updateProject(id, { archived_at: now(), updated_at: now() });
+    await logTransition(w, {
       from_value: 'active',
       kind: 'archive',
       project_id: id,
       reason: reason ?? null,
       to_value: 'archived',
     });
-    return loadProject(tx, id);
+    return loadProject(w, id);
   });
 }
 
@@ -61,8 +52,8 @@ export async function archiveProject(db: Db, id: number, reason?: string): Promi
  * terminal tasks, or tasks already ready for other reasons. Names the leaf, not
  * the edge-holding container.
  */
-export async function releasedByArchive(db: Db, projectId: number): Promise<string[]> {
-  const set = deriveSet(await loadWorkingSet(db));
+export async function releasedByArchive(store: Store, projectId: number): Promise<string[]> {
+  const set = deriveSet(await store.loadWorkingSet());
   // The prerequisites this archive just settled: nodes in the project that were
   // not already terminal on their own (a done/abandoned prereq gated nothing).
   const settling = new Set<number>();
@@ -104,24 +95,20 @@ export async function releasedByArchive(db: Db, projectId: number): Promise<stri
 }
 
 /** Unarchive a project (archived → active). Unarchiving an active project is a conflict. */
-export async function unarchiveProject(db: Db, id: number): Promise<Project> {
-  return db.transaction().execute(async (tx) => {
-    const project = await loadProject(tx, id);
+export async function unarchiveProject(store: Store, id: number): Promise<Project> {
+  return store.transact(async (w) => {
+    const project = await loadProject(w, id);
     if (project.archived_at === null) {
       throw conflict(`project ${project.key} is not archived`);
     }
-    await tx
-      .updateTable('project')
-      .set({ archived_at: null, updated_at: now() })
-      .where('id', '=', id)
-      .execute();
-    await logTransition(tx, {
+    await w.updateProject(id, { archived_at: null, updated_at: now() });
+    await logTransition(w, {
       from_value: 'archived',
       kind: 'archive',
       project_id: id,
       reason: null,
       to_value: 'active',
     });
-    return loadProject(tx, id);
+    return loadProject(w, id);
   });
 }

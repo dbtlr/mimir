@@ -6,12 +6,15 @@ import { createInitiative, createProject, createTask } from './create';
 import { validation } from './errors';
 import { archiveProject } from './mutations/archive';
 import { depend } from './mutations/dependency';
+import type { Store } from './store';
 import { createSqliteStore } from './store-sqlite';
 import { expectMimirError } from './testing';
 
 let db: Db;
+let store: Store;
 beforeEach(async () => {
   db = await createTestDb();
+  store = createSqliteStore(db);
 });
 afterEach(async () => {
   await db.destroy();
@@ -20,13 +23,13 @@ afterEach(async () => {
 const byId = (x: number, y: number): number => x - y;
 
 test('loadWorkingSet returns the whole store: nodes and cross-project edges in one projection', async () => {
-  const a = await createProject(db, { key: 'AA', name: 'a' });
-  const b = await createProject(db, { key: 'BB', name: 'b' });
-  const initA = await createInitiative(db, { projectId: a.id, title: 'ia' });
-  const initB = await createInitiative(db, { projectId: b.id, title: 'ib' });
-  const upstream = await createTask(db, { parentId: initA.id, title: 'upstream' });
-  const downstream = await createTask(db, { parentId: initB.id, title: 'downstream' });
-  await depend(db, downstream.id, [upstream.id]);
+  const a = await createProject(store, { key: 'AA', name: 'a' });
+  const b = await createProject(store, { key: 'BB', name: 'b' });
+  const initA = await createInitiative(store, { projectId: a.id, title: 'ia' });
+  const initB = await createInitiative(store, { projectId: b.id, title: 'ib' });
+  const upstream = await createTask(store, { parentId: initA.id, title: 'upstream' });
+  const downstream = await createTask(store, { parentId: initB.id, title: 'downstream' });
+  await depend(store, downstream.id, [upstream.id]);
 
   const ws = await createSqliteStore(db).loadWorkingSet();
 
@@ -38,11 +41,11 @@ test('loadWorkingSet returns the whole store: nodes and cross-project edges in o
 });
 
 test('archived projects stay in the working set with the archived axis readable', async () => {
-  const live = await createProject(db, { key: 'AA', name: 'live' });
-  const dead = await createProject(db, { key: 'BB', name: 'dead' });
-  const deadInit = await createInitiative(db, { projectId: dead.id, title: 'di' });
-  await createTask(db, { parentId: deadInit.id, title: 'frozen' });
-  await archiveProject(db, dead.id, 'superseded');
+  const live = await createProject(store, { key: 'AA', name: 'live' });
+  const dead = await createProject(store, { key: 'BB', name: 'dead' });
+  const deadInit = await createInitiative(store, { projectId: dead.id, title: 'di' });
+  await createTask(store, { parentId: deadInit.id, title: 'frozen' });
+  await archiveProject(store, dead.id, 'superseded');
 
   const ws = await createSqliteStore(db).loadWorkingSet();
 
@@ -55,10 +58,10 @@ test('archived projects stay in the working set with the archived axis readable'
 });
 
 test('nodeTags carries node tags in created_at order and omits untagged nodes', async () => {
-  const p = await createProject(db, { key: 'AA', name: 'a' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'i' });
-  const tagged = await createTask(db, { parentId: init.id, title: 'tagged' });
-  const bare = await createTask(db, { parentId: init.id, title: 'bare' });
+  const p = await createProject(store, { key: 'AA', name: 'a' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const tagged = await createTask(store, { parentId: init.id, title: 'tagged' });
+  const bare = await createTask(store, { parentId: init.id, title: 'bare' });
   await db
     .insertInto('tag')
     .values([
@@ -95,7 +98,6 @@ test('nodeTags carries node tags in created_at order and omits untagged nodes', 
 });
 
 test('transact rolls the whole scope back on a throw — no partial rows survive', async () => {
-  const store = createSqliteStore(db);
   const project = await store.transact((w) =>
     w.insertProject({ description: null, key: 'AA', name: 'a' }),
   );
@@ -122,7 +124,6 @@ test('transact rolls the whole scope back on a throw — no partial rows survive
 });
 
 test('the writer sees its own in-tx writes — snapshot and point read alike', async () => {
-  const store = createSqliteStore(db);
   const { nodeId, snapshotIds, reloaded } = await store.transact(async (w) => {
     const project = await w.insertProject({ description: null, key: 'AA', name: 'a' });
     const seq = await w.allocateSeq(project.id);

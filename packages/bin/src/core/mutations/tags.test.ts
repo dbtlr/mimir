@@ -4,20 +4,24 @@ import { createTestDb } from '../../db/testing';
 import type { Db } from '../context';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { resolveEntityToken } from '../lookup';
+import type { Store } from '../store';
+import { createSqliteStore } from '../store-sqlite';
 import { expectMimirError } from '../testing';
 import { attachArtifact } from './data';
 import { tagEntities, untagEntities } from './tags';
 
 let db: Db;
+let store: Store;
 let projectId: number;
 let taskId: number;
 beforeEach(async () => {
   db = await createTestDb();
-  const p = await createProject(db, { key: 'MMR', name: 'm' });
+  store = createSqliteStore(db);
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
   projectId = p.id;
-  const init = await createInitiative(db, { projectId, title: 'i' });
-  const phase = await createPhase(db, { parentId: init.id, title: 'ph' });
-  const task = await createTask(db, { parentId: phase.id, title: 't' });
+  const init = await createInitiative(store, { projectId, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
+  const task = await createTask(store, { parentId: phase.id, title: 't' });
   taskId = task.id;
 });
 afterEach(async () => {
@@ -34,11 +38,11 @@ const tagsOf = async (entityType: 'project' | 'node' | 'artifact', entityId: num
     .execute();
 
 test('tag reaches all three entity types via the identity grammar', async () => {
-  const { renderedId } = await attachArtifact(db, { content: 'x', projectId, title: 'x' });
+  const { renderedId } = await attachArtifact(store, { content: 'x', projectId, title: 'x' });
   const targets = await Promise.all(
     ['MMR', 'MMR-3', renderedId].map((t) => resolveEntityToken(db, t)),
   );
-  await tagEntities(db, targets, ['spec']);
+  await tagEntities(store, targets, ['spec']);
 
   expect(await tagsOf('project', projectId)).toEqual([{ note: null, tag: 'spec' }]);
   expect(await tagsOf('node', taskId)).toEqual([{ note: null, tag: 'spec' }]);
@@ -47,18 +51,18 @@ test('tag reaches all three entity types via the identity grammar', async () => 
 
 test('re-tagging is idempotent; a provided note overwrites', async () => {
   const target = await resolveEntityToken(db, 'MMR-3');
-  await tagEntities(db, [target], ['spec'], 'first');
-  await tagEntities(db, [target], ['spec']); // no note → row kept as-is
+  await tagEntities(store, [target], ['spec'], 'first');
+  await tagEntities(store, [target], ['spec']); // no note → row kept as-is
   expect(await tagsOf('node', taskId)).toEqual([{ note: 'first', tag: 'spec' }]);
 
-  await tagEntities(db, [target], ['spec'], 'second');
+  await tagEntities(store, [target], ['spec'], 'second');
   expect(await tagsOf('node', taskId)).toEqual([{ note: 'second', tag: 'spec' }]);
 });
 
 test('untag removes only the named tags and reports the count', async () => {
   const target = await resolveEntityToken(db, 'MMR-3');
-  await tagEntities(db, [target], ['spec', 'v2', 'keep']);
-  const removed = await untagEntities(db, [target], ['spec', 'v2', 'absent']);
+  await tagEntities(store, [target], ['spec', 'v2', 'keep']);
+  const removed = await untagEntities(store, [target], ['spec', 'v2', 'absent']);
   expect(removed).toBe(2);
   expect((await tagsOf('node', taskId)).map((r) => r.tag)).toEqual(['keep']);
 });
@@ -66,8 +70,8 @@ test('untag removes only the named tags and reports the count', async () => {
 test('neither tag nor untag writes the transition log', async () => {
   const target = await resolveEntityToken(db, 'MMR-3');
   const before = await db.selectFrom('transition_log').selectAll().execute();
-  await tagEntities(db, [target], ['spec']);
-  await untagEntities(db, [target], ['spec']);
+  await tagEntities(store, [target], ['spec']);
+  await untagEntities(store, [target], ['spec']);
   const after = await db.selectFrom('transition_log').selectAll().execute();
   expect(after.length).toBe(before.length);
 });
@@ -85,9 +89,9 @@ test('create verbs apply creation-time tags', async () => {
     .select('id')
     .where('type', '=', 'phase')
     .executeTakeFirstOrThrow();
-  const t = await createTask(db, { parentId: phase2.id, tags: ['spec', 'v2'], title: 'tt' });
+  const t = await createTask(store, { parentId: phase2.id, tags: ['spec', 'v2'], title: 'tt' });
   expect((await tagsOf('node', t.id)).map((r) => r.tag)).toEqual(['spec', 'v2']);
 
-  const p = await createProject(db, { key: 'OTH', name: 'o', tags: ['ws'] });
+  const p = await createProject(store, { key: 'OTH', name: 'o', tags: ['ws'] });
   expect((await tagsOf('project', p.id)).map((r) => r.tag)).toEqual(['ws']);
 });

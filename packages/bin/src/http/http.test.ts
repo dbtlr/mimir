@@ -12,7 +12,7 @@ import {
   createTask,
   findNodeByRef,
 } from '../core';
-import type { Db } from '../core';
+import type { Db, Store } from '../core';
 import { createTestDb } from '../db/testing';
 import { createServer } from './server';
 
@@ -23,6 +23,7 @@ import { createServer } from './server';
  */
 
 let db: Db;
+let store: Store;
 let server: Server<undefined>;
 let base: string;
 let phaseRef: string;
@@ -35,20 +36,21 @@ type Rec = Record<string, unknown>;
 
 beforeEach(async () => {
   db = await createTestDb();
-  const p = await createProject(db, { key: 'MMR', name: 'Mimir' });
-  const init = await createInitiative(db, { projectId: p.id, title: 'build' });
+  store = createSqliteStore(db);
+  const p = await createProject(store, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'build' });
   initiativeRef = `MMR-${String(init.seq)}`;
-  const phase = await createPhase(db, { parentId: init.id, title: 'phase 4' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'phase 4' });
   phaseRef = `MMR-${String(phase.seq)}`;
-  const t1 = await createTask(db, { parentId: phase.id, title: 'first' });
+  const t1 = await createTask(store, { parentId: phase.id, title: 'first' });
   task1 = `MMR-${String(t1.seq)}`;
-  const t2 = await createTask(db, { parentId: phase.id, priority: 'p1', title: 'second' });
+  const t2 = await createTask(store, { parentId: phase.id, priority: 'p1', title: 'second' });
   task2 = `MMR-${String(t2.seq)}`;
 
-  const other = await createProject(db, { key: 'NRN', name: 'Norn' });
-  const otherInit = await createInitiative(db, { projectId: other.id, title: 'other' });
-  const otherPhase = await createPhase(db, { parentId: otherInit.id, title: 'op' });
-  const ot = await createTask(db, { parentId: otherPhase.id, title: 'elsewhere' });
+  const other = await createProject(store, { key: 'NRN', name: 'Norn' });
+  const otherInit = await createInitiative(store, { projectId: other.id, title: 'other' });
+  const otherPhase = await createPhase(store, { parentId: otherInit.id, title: 'op' });
+  const ot = await createTask(store, { parentId: otherPhase.id, title: 'elsewhere' });
   otherTask = `NRN-${String(ot.seq)}`;
 
   server = createServer(createSqliteStore(db), { port: 0, version: '0.0.0-test' });
@@ -598,7 +600,7 @@ test("a prerequisite's terminal state frees the dependent through the API view",
   if (prereq === undefined) {
     throw new Error(`fixture: no node ${task1}`);
   }
-  await completeTask(db, prereq.id);
+  await completeTask(store, prereq.id);
 
   const body = await parse(await get(`/api/nodes/${task2}`));
   expect(body.status).toBe('ready');

@@ -116,8 +116,6 @@ function register<A>(
 
 export function buildMcpServer(store: Store, version: string, boundScope?: string): McpServer {
   const server = new McpServer({ name: 'mimir', version });
-  // Unconverted read paths still ride the raw executor (Phase 2a/2b scope).
-  const db = store.db;
 
   // Project Binding (ADR 0011): the spawn cwd's .mimir.toml supplies the
   // default scope, mirroring the CLI exactly — explicit scope wins, the
@@ -147,7 +145,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       size: SIZE.optional(),
       ...OPERATOR_SCHEMA,
     },
-    (args: SetQueryArgs) => toolNext(db, applyScope(args)),
+    (args: SetQueryArgs) => toolNext(store, applyScope(args)),
   );
 
   register(
@@ -163,7 +161,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       tag: z.string().optional(),
       ...OPERATOR_SCHEMA,
     },
-    (args: SetQueryArgs) => toolList(db, applyScope(args)),
+    (args: SetQueryArgs) => toolList(store, applyScope(args)),
   );
 
   register(
@@ -171,7 +169,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'get',
     "Full record by rendered id: a node (KEY-seq, e.g. MMR-16), a whole project (bare KEY), or an artifact (KEY-aN). Cheap facets are included for nodes/projects; add `history` for the transition log, `content` for an artifact's frozen body.",
     { facets: z.array(FACET).optional(), id: z.string() },
-    (args: { id: string; facets?: (FacetName | 'content')[] }) => toolGet(db, args),
+    (args: { id: string; facets?: (FacetName | 'content')[] }) => toolGet(store, args),
   );
 
   register(
@@ -179,7 +177,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'status',
     'A rollup distribution and single status word, for a node (KEY-seq) or a whole project (bare KEY).',
     { id: z.string() },
-    (args: { id: string }) => toolStatus(db, args),
+    (args: { id: string }) => toolStatus(store, args),
   );
 
   // ---------------------------------------------------------------------------
@@ -191,7 +189,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'start',
     'Move a todo task to in_progress. Echoes the updated node. Use before beginning active work.',
     { id: z.string() },
-    (args: { id: string }) => toolStart(db, args),
+    (args: { id: string }) => toolStart(store, args),
   );
 
   register(
@@ -199,7 +197,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'submit',
     "Submit an in_progress task for review (in_progress → under_review) — the optional ship-readiness gate: you believe it's done and shippable, awaiting a human verdict. Echoes the updated node.",
     { id: z.string() },
-    (args: { id: string }) => toolSubmit(db, args),
+    (args: { id: string }) => toolSubmit(store, args),
   );
 
   register(
@@ -207,7 +205,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'return',
     "Return an under_review task to in_progress with an optional reason (the changes requested). The reviewer's 'request changes'. Echoes the updated node.",
     { id: z.string(), reason: z.string().optional() },
-    (args: { id: string; reason?: string }) => toolReturn(db, args),
+    (args: { id: string; reason?: string }) => toolReturn(store, args),
   );
 
   register(
@@ -215,7 +213,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'done',
     'Mark a task as done — from in_progress, under_review (approving the review), or todo. Terminal — removes from rankable set. Echoes the updated node.',
     { id: z.string() },
-    (args: { id: string }) => toolDone(db, args),
+    (args: { id: string }) => toolDone(store, args),
   );
 
   register(
@@ -223,7 +221,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'abandon',
     'Mark a task as abandoned with an optional reason. Terminal — removes from rankable set. Echoes the updated node.',
     { id: z.string(), reason: z.string().optional() },
-    (args: { id: string; reason?: string }) => toolAbandon(db, args),
+    (args: { id: string; reason?: string }) => toolAbandon(store, args),
   );
 
   register(
@@ -231,7 +229,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'reopen',
     'Reopen a terminal task (done or abandoned → in_progress) with an optional reason — the deliberate correction path for a premature done. Re-enters the rankable set at the bottom. Echoes the updated node.',
     { id: z.string(), reason: z.string().optional() },
-    (args: { id: string; reason?: string }) => toolReopen(db, args),
+    (args: { id: string; reason?: string }) => toolReopen(store, args),
   );
 
   register(
@@ -239,7 +237,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'archive',
     'Archive a project (bare KEY) with an optional reason — freezes the whole subtree (no mutation) and hides it from default reads. Reversible via unarchive; use list with status "archived" to see archived projects. Echoes the project.',
     { key: z.string(), reason: z.string().optional() },
-    (args: { key: string; reason?: string }) => toolArchive(db, args),
+    (args: { key: string; reason?: string }) => toolArchive(store, args),
   );
 
   register(
@@ -247,7 +245,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'unarchive',
     'Unarchive a project (bare KEY) — restores an archived project to active, unfreezing and unhiding it. Echoes the project.',
     { key: z.string() },
-    (args: { key: string }) => toolUnarchive(db, args),
+    (args: { key: string }) => toolUnarchive(store, args),
   );
 
   // ---------------------------------------------------------------------------
@@ -259,7 +257,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'park',
     "Apply a 'parked' hold to a task (voluntary deprioritisation) with an optional reason. Echoes the updated node.",
     { id: z.string(), reason: z.string().optional() },
-    (args: { id: string; reason?: string }) => toolPark(db, args),
+    (args: { id: string; reason?: string }) => toolPark(store, args),
   );
 
   register(
@@ -267,7 +265,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'unpark',
     'Release a parked hold, re-entering the task at the bottom of the rankable set. Echoes the updated node.',
     { id: z.string() },
-    (args: { id: string }) => toolUnpark(db, args),
+    (args: { id: string }) => toolUnpark(store, args),
   );
 
   register(
@@ -275,7 +273,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'block',
     "Apply a 'blocked' hold to a task (external impediment) with an optional reason. Echoes the updated node.",
     { id: z.string(), reason: z.string().optional() },
-    (args: { id: string; reason?: string }) => toolBlock(db, args),
+    (args: { id: string; reason?: string }) => toolBlock(store, args),
   );
 
   register(
@@ -283,7 +281,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'unblock',
     'Release a blocked hold, re-entering the task at the bottom of the rankable set. Echoes the updated node.',
     { id: z.string() },
-    (args: { id: string }) => toolUnblock(db, args),
+    (args: { id: string }) => toolUnblock(store, args),
   );
 
   // ---------------------------------------------------------------------------
@@ -295,7 +293,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'depend',
     'Add dependency edges: id depends on each node in `on`. Acyclic — cycle attempts error. Echoes the subject node.',
     { id: z.string(), on: z.array(z.string()) },
-    (args: { id: string; on: string[] }) => toolDepend(db, args),
+    (args: { id: string; on: string[] }) => toolDepend(store, args),
   );
 
   register(
@@ -303,7 +301,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'undepend',
     'Remove dependency edges from id to each node in `on`. Echoes the subject node.',
     { id: z.string(), on: z.array(z.string()) },
-    (args: { id: string; on: string[] }) => toolUndepend(db, args),
+    (args: { id: string; on: string[] }) => toolUndepend(store, args),
   );
 
   // ---------------------------------------------------------------------------
@@ -315,7 +313,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'move',
     'Re-parent a node under a new parent (within the same project). Echoes the moved node.',
     { id: z.string(), to: z.string() },
-    (args: { id: string; to: string }) => toolMove(db, args),
+    (args: { id: string; to: string }) => toolMove(store, args),
   );
 
   register(
@@ -328,7 +326,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       ref: z.string().optional(),
     },
     (args: { id: string; position: 'top' | 'bottom' | 'before' | 'after'; ref?: string }) =>
-      toolReorder(db, args),
+      toolReorder(store, args),
   );
 
   // ---------------------------------------------------------------------------
@@ -356,7 +354,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       size?: string;
       target?: string;
       externalRef?: string;
-    }) => toolUpdate(db, args),
+    }) => toolUpdate(store, args),
   );
 
   register(
@@ -364,7 +362,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'annotate',
     'Append a freeform annotation to a node. Echoes the updated node.',
     { content: z.string(), id: z.string() },
-    (args: { id: string; content: string }) => toolAnnotate(db, args),
+    (args: { id: string; content: string }) => toolAnnotate(store, args),
   );
 
   // ---------------------------------------------------------------------------
@@ -380,7 +378,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       note: z.string().optional(),
       tags: z.array(z.string()).min(1),
     },
-    (args: { ids: string[]; tags: string[]; note?: string }) => toolTag(db, args),
+    (args: { ids: string[]; tags: string[]; note?: string }) => toolTag(store, args),
   );
 
   register(
@@ -388,7 +386,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'untag',
     'Remove tags from entities by rendered id. A plain row delete — not transition-logged.',
     { ids: z.array(z.string()).min(1), tags: z.array(z.string()).min(1) },
-    (args: { ids: string[]; tags: string[] }) => toolUntag(db, args),
+    (args: { ids: string[]; tags: string[] }) => toolUntag(store, args),
   );
 
   // ---------------------------------------------------------------------------
@@ -424,7 +422,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       size?: string;
       externalRef?: string;
       tags?: string[];
-    }) => toolCreate(db, args),
+    }) => toolCreate(store, args),
   );
 
   // ---------------------------------------------------------------------------
@@ -450,7 +448,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       project?: string;
       links?: string[];
       tags?: string[];
-    }) => toolAttach(db, args),
+    }) => toolAttach(store, args),
   );
 
   return server;
