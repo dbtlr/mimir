@@ -1,5 +1,5 @@
 import type { Db } from './context';
-import type { Dependency, Node, Project } from './model';
+import type { Dependency, Node, Project, Tag } from './model';
 
 /**
  * The coarse storage seam (ADR 0016 Phase 0). The core reads work state as
@@ -20,13 +20,16 @@ import type { Dependency, Node, Project } from './model';
  * to derive correctly. At single-operator scale the whole store is a handful
  * of cheap queries; scope filtering happens in memory.
  */
+/** A node's tag record inside the working set — the tag facet's full shape. */
+export type NodeTag = Pick<Tag, 'tag' | 'note' | 'created_at'>;
+
 export type WorkingSet = {
   /** Every project, key-ordered, archived included. */
   projects: readonly Project[];
   nodes: readonly Node[];
   edges: readonly Dependency[];
-  /** Node id → its tags in `created_at` order. Absent = untagged. */
-  nodeTags: ReadonlyMap<number, readonly string[]>;
+  /** Node id → its tag records in `created_at` order. Absent = untagged. */
+  nodeTags: ReadonlyMap<number, readonly NodeTag[]>;
 };
 
 export type Store = {

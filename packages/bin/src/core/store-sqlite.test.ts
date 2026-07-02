@@ -82,7 +82,12 @@ test('nodeTags carries node tags in created_at order and omits untagged nodes', 
 
   const ws = await createSqliteStore(db).loadWorkingSet();
 
-  expect(ws.nodeTags.get(tagged.id)).toEqual(['earlier', 'later']);
+  expect((ws.nodeTags.get(tagged.id) ?? []).map((t) => t.tag)).toEqual(['earlier', 'later']);
+  expect(ws.nodeTags.get(tagged.id)?.[0]).toEqual({
+    created_at: '2025-01-01T00:00:00.000Z',
+    note: null,
+    tag: 'earlier',
+  });
   expect(ws.nodeTags.has(bare.id)).toBe(false);
-  expect([...ws.nodeTags.values()].flat()).not.toContain('proj');
+  expect([...ws.nodeTags.values()].flat().map((t) => t.tag)).not.toContain('proj');
 });
