@@ -15,7 +15,6 @@ import type {
 } from '@mimir/contract';
 import { sql } from 'kysely';
 
-import type { Node } from '../../db/schema';
 import type { Db } from '../context';
 import { isTerminalWord, nodeStatusWord, statusOf, statusOfProject } from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
@@ -27,6 +26,7 @@ import {
   isProjectArchived,
   renderNodeId,
 } from '../lookup';
+import type { Node } from '../model';
 import { isBlocking, isOrphaned, isReady, isStale } from '../predicates';
 import { compileFilters } from '../query';
 import type { QueryRow } from '../query';

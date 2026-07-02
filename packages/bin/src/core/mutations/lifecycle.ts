@@ -1,6 +1,6 @@
-import type { Node } from '../../db/schema';
 import type { Db } from '../context';
 import { validation } from '../errors';
+import type { Node } from '../model';
 import { appendRank } from '../rank';
 import { now } from '../time';
 import { logTransition, reloadNode, requireTask, stamp } from './common';

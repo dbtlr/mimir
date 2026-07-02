@@ -11,7 +11,6 @@ import type {
   TagView,
 } from '@mimir/contract';
 
-import type { Artifact, Node, Project } from '../../db/schema';
 import { attentionOf } from '../attention';
 import type { Db, Tx } from '../context';
 import {
@@ -24,6 +23,7 @@ import {
 } from '../derive';
 import { renderArtifactRef } from '../ids';
 import { isProjectArchived, loadNode, renderNodeId } from '../lookup';
+import type { Artifact, Node, Project } from '../model';
 import { verdictsOf } from '../predicates';
 import { interpret } from '../status';
 

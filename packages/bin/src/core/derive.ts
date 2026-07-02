@@ -1,9 +1,9 @@
 import type { StatusWord } from '@mimir/contract';
 
-import type { Node } from '../db/schema';
 import type { Db, Tx } from './context';
 import { invariant } from './errors';
 import { renderNodeId } from './lookup';
+import type { Node } from './model';
 import { interpret, tally, taskStatus } from './status';
 import type { Distribution } from './status';
 

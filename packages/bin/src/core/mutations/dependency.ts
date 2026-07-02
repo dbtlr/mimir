@@ -1,8 +1,8 @@
-import type { Node } from '../../db/schema';
 import type { Db, Tx } from '../context';
 import { lineageIds } from '../derive';
 import { validation } from '../errors';
 import { renderNodeId } from '../lookup';
+import type { Node } from '../model';
 import { logTransition, reloadNode, requireNode, stamp } from './common';
 
 /**

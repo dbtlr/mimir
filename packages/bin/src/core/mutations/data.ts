@@ -1,11 +1,12 @@
 import type { Priority, Size } from '@mimir/contract';
 
-import type { Node, NodeUpdate, Project } from '../../db/schema';
+import type { NodeUpdate } from '../../db/schema';
 import { allocateArtifactSeq } from '../allocation';
 import type { Db } from '../context';
 import { notFound, validation } from '../errors';
 import { renderArtifactRef } from '../ids';
 import { renderNodeId } from '../lookup';
+import type { Node, Project } from '../model';
 import { reorderTask } from '../rank';
 import type { RankPosition } from '../rank';
 import { now } from '../time';

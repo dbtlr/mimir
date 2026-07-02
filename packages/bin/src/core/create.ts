@@ -1,10 +1,10 @@
 import type { Priority, Size, TagEntityType } from '@mimir/contract';
 
-import type { Node, Project } from '../db/schema';
 import { allocateSeq, isValidKey } from './allocation';
 import type { Db, Tx } from './context';
 import { conflict, notFound, validation } from './errors';
 import { loadNode } from './lookup';
+import type { Node, Project } from './model';
 import { assertProjectActive } from './mutations/common';
 import { appendRank } from './rank';
 
