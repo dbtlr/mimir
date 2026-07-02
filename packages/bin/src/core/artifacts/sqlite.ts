@@ -56,13 +56,17 @@ async function rowByRef(tx: Executor, key: string, seq: number) {
 }
 
 export function createSqliteArtifactStore(db: Db): ArtifactStore {
+  // Only `load` (the artifact detail) surfaces links; the list/facet paths
+  // drop them (they render title/tags/id only), so the link join is fetched
+  // on demand, not per row — parity with the pre-seam queries.
   const record = async (
     tx: Executor,
     row: { id: number; key: string; seq: number; title: string; created_at: string },
+    withLinks = false,
   ): Promise<ArtifactRecord> => ({
     created_at: row.created_at,
     key: row.key,
-    links: await linksOf(tx, row.id),
+    links: withLinks ? await linksOf(tx, row.id) : [],
     seq: row.seq,
     tags: await tagsOf(tx, row.id),
     title: row.title,
@@ -245,7 +249,7 @@ export function createSqliteArtifactStore(db: Db): ArtifactStore {
       if (row === undefined) {
         return undefined;
       }
-      const base = await record(db, row);
+      const base = await record(db, row, true); // load surfaces links
       return opts?.content === true ? { ...base, content: row.content } : base;
     },
 

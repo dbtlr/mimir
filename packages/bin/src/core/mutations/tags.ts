@@ -1,5 +1,3 @@
-import type { TagEntityType } from '@mimir/contract';
-
 import type { Store, StoreWriter } from '../store';
 import { assertProjectActive } from './common';
 
@@ -12,36 +10,35 @@ import { assertProjectActive } from './common';
  * plain row delete.
  */
 
-/** A tag target — any of the three entity kinds the identity grammar reaches. */
-export type EntityRef = {
-  entityType: TagEntityType;
-  entityId: number;
-};
-
 /**
- * The archive write-lock for a tag target (ADR 0015): reject when the target's
- * owning project is archived. Resolves the project of a node/artifact, or the
- * project itself. A missing entity is left to the insert/delete below (tags
- * don't validate existence).
+ * A tag target. Node/project targets carry the surrogate id and use the
+ * SQLite tag table; an **artifact** target carries its external identity
+ * (`key`, `seq`) and routes through the artifact seam (MMR-143), so a
+ * vault-backed artifact — which has no SQLite row — can still be tagged.
  */
-async function assertTargetActive(w: StoreWriter, ref: EntityRef): Promise<void> {
-  let projectId: number | undefined;
+export type EntityRef =
+  | { entityType: 'project' | 'node'; entityId: number }
+  | { entityType: 'artifact'; key: string; seq: number };
+
+/** The node/project projects, for the archive write-lock check. */
+async function projectOfTarget(w: StoreWriter, ref: EntityRef): Promise<number | undefined> {
+  if (ref.entityType === 'artifact') {
+    return (await w.loadProjectByKey(ref.key))?.id;
+  }
   if (ref.entityType === 'project') {
-    projectId = ref.entityId;
-  } else if (ref.entityType === 'node') {
-    projectId = (await w.loadNode(ref.entityId))?.project_id;
-  } else {
-    projectId = (await w.loadArtifact(ref.entityId))?.project_id;
+    return ref.entityId;
   }
-  if (projectId !== undefined) {
-    await assertProjectActive(w, projectId);
-  }
+  return (await w.loadNode(ref.entityId))?.project_id;
 }
 
 /**
  * Apply every tag to every target, idempotently: an existing (entity, tag)
  * row is kept (re-tagging never errors); a provided `note` overwrites the
  * stored one (the note rides the application, not the vocabulary).
+ *
+ * Node/project tags write the SQLite tag table under one transaction; an
+ * artifact's tags route through the seam (the backend owns where they live).
+ * The archive write-lock (ADR 0015) is asserted for every target either way.
  */
 export async function tagEntities(
   store: Store,
@@ -51,7 +48,13 @@ export async function tagEntities(
 ): Promise<void> {
   await store.transact(async (w) => {
     for (const target of targets) {
-      await assertTargetActive(w, target);
+      const projectId = await projectOfTarget(w, target);
+      if (projectId !== undefined) {
+        await assertProjectActive(w, projectId);
+      }
+      if (target.entityType === 'artifact') {
+        continue; // written through the seam below, outside the SQLite tx
+      }
       for (const tag of tags) {
         const row = { entity_id: target.entityId, entity_type: target.entityType, tag };
         await (note === undefined
@@ -60,6 +63,13 @@ export async function tagEntities(
       }
     }
   });
+  for (const target of targets) {
+    if (target.entityType === 'artifact') {
+      for (const tag of tags) {
+        await store.artifacts.applyTag(target.key, target.seq, tag, note ?? null);
+      }
+    }
+  }
 }
 
 /** Remove every tag from every target — a plain row delete, deliberately unlogged. */
@@ -68,12 +78,23 @@ export async function untagEntities(
   targets: EntityRef[],
   tags: string[],
 ): Promise<number> {
-  return store.transact(async (w) => {
-    let removed = 0;
+  let removed = await store.transact(async (w) => {
+    let count = 0;
     for (const target of targets) {
-      await assertTargetActive(w, target);
-      removed += await w.deleteTags(target.entityType, target.entityId, tags);
+      const projectId = await projectOfTarget(w, target);
+      if (projectId !== undefined) {
+        await assertProjectActive(w, projectId);
+      }
+      if (target.entityType !== 'artifact') {
+        count += await w.deleteTags(target.entityType, target.entityId, tags);
+      }
     }
-    return removed;
+    return count;
   });
+  for (const target of targets) {
+    if (target.entityType === 'artifact') {
+      removed += await store.artifacts.removeTags(target.key, target.seq, tags);
+    }
+  }
+  return removed;
 }

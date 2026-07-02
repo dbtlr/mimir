@@ -173,6 +173,17 @@ export type AttachArtifactInput = {
   tags?: string[];
 };
 
+/**
+ * Attach an artifact (MMR-34). Node-side validation (project active, links
+ * in-project) runs in one transaction; the artifact write is a separate call
+ * because it may target a different backend (ADR 0016 Phase 2a) that can't
+ * join the SQLite transaction.
+ *
+ * Transitional non-atomicity: an `archive` that commits between the two would
+ * let the artifact land against a now-archived project, where reads hide it —
+ * but the artifact is *hidden, not lost* (`unarchive` restores it), and full
+ * atomicity returns at Phase 3 when nodes and artifacts share one backend.
+ */
 export async function attachArtifact(
   store: Store,
   input: AttachArtifactInput,

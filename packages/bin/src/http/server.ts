@@ -109,8 +109,12 @@ async function nodeRef(db: Db, token: string, expected = 'node'): Promise<number
 
 /** The keys of every archived project — the exclude set for the artifact feed (ADR 0015). */
 async function archivedProjectKeys(store: Store): Promise<string[]> {
-  const ws = await store.loadWorkingSet();
-  return ws.projects.filter((p) => p.archived_at !== null).map((p) => p.key);
+  const rows = await store.db
+    .selectFrom('project')
+    .select('key')
+    .where('archived_at', 'is not', null)
+    .execute();
+  return rows.map((r) => r.key);
 }
 
 /** Map the `?status` param on the projects list to the listProjects filter (ADR 0015). */

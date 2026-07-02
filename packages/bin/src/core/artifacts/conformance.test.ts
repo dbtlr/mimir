@@ -221,6 +221,26 @@ for (const backend of backends) {
       expect(all.total).toBe(2);
     });
 
+    test.skipIf(backend.skip)('list is newest-first and honors since/before + limit', async () => {
+      for (const t of ['a1', 'a2', 'a3']) {
+        await h.artifacts.create({ content: '', key: 'MMR', links: [], tags: [], title: t });
+      }
+      const all = await h.artifacts.list({});
+      expect(all.items.map((r) => r.seq)).toEqual([3, 2, 1]); // newest-first, seq tiebreak
+
+      const mid = all.items[1]?.created_at ?? '';
+      expect((await h.artifacts.list({ since: mid })).items.every((r) => r.created_at >= mid)).toBe(
+        true,
+      );
+      expect(
+        (await h.artifacts.list({ before: mid })).items.every((r) => r.created_at <= mid),
+      ).toBe(true);
+
+      const limited = await h.artifacts.list({ limit: 2 });
+      expect(limited.items).toHaveLength(2);
+      expect(limited.total).toBe(3); // pre-limit total
+    });
+
     test.skipIf(backend.skip)('applyTag adds; removeTags removes and counts', async () => {
       await h.artifacts.create({ content: '', key: 'MMR', links: [], tags: ['a'], title: 't' });
       await h.artifacts.applyTag('MMR', 1, 'b', null);

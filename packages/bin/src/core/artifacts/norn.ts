@@ -12,7 +12,11 @@ import type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore }
  *
  * - **Seq allocation is derived**: `max(seq)+1` over the project's artifact
  *   stems, with create-exclusive retry — `vault.new` refuses an existing path,
- *   so a concurrent-create collision re-derives and retries (bounded).
+ *   so a concurrent-create collision re-derives and retries (bounded). Unlike
+ *   SQLite's monotonic `last_artifact_seq`, a derived max *reuses* a seq if the
+ *   highest artifact file is removed — harmless here because artifacts are
+ *   append-only and never deleted (ADR 0004; a hand-deletion is out of
+ *   contract), and the id↔int layer thins to the stem regardless (ADR 0016).
  * - **Anchors may dangle during the split** (nodes still in SQLite until
  *   Phase 3): links are written as real wikilinks and queried as stored text
  *   (Norn collapses brackets in field matching) — ADR 0016 Refinement.
@@ -24,6 +28,16 @@ import type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore }
  */
 
 const CREATE_RETRIES = 5;
+
+/**
+ * Is this the create-exclusive path collision — the only error `create` may
+ * safely retry? Norn's `vault.new` on an existing path fails with "destination
+ * already exists" (verified against v0.41.0); the NornClient wraps it, so we
+ * match the message text.
+ */
+function isPathCollision(error: unknown): boolean {
+  return error instanceof Error && /already exists/i.test(error.message);
+}
 
 const stemOf = (key: string, seq: number): string => renderArtifactRef({ key, seq });
 const pathOf = (key: string, seq: number): string => `${key}/artifacts/${stemOf(key, seq)}.md`;
@@ -176,8 +190,13 @@ export function createNornArtifactStore(client: NornClient): ArtifactStore {
           });
           return { key: input.key, seq };
         } catch (error) {
-          // create-exclusive: an existing path means a concurrent create won
-          // the seq — re-derive and retry (ADR 0016 fork #1's fallback).
+          // ONLY a create-exclusive path collision means a concurrent create
+          // won this seq — re-derive and retry (ADR 0016 fork #1). Any other
+          // failure (incl. an ambiguous post-write RPC loss) rethrows: retrying
+          // there would re-derive a *higher* seq and write a duplicate.
+          if (!isPathCollision(error)) {
+            throw error;
+          }
           lastError = error;
         }
       }
