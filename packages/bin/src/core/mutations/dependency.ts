@@ -1,4 +1,4 @@
-import { deriveSet, hasDerivationCycle, lineageIds } from '../derive';
+import { deriveSet, lineageIds, writeIntroducesDerivationCycle } from '../derive';
 import { validation } from '../errors';
 import type { Node } from '../model';
 import type { Store, StoreWriter } from '../store';
@@ -70,7 +70,11 @@ export async function depend(store: Store, id: number, onIds: number[]): Promise
       // A task prerequisite is settled by its lifecycle alone and can't recurse.
       if (
         prereq.type !== 'task' &&
-        hasDerivationCycle(deriveSet({ ...set.ws, edges: [...edges, candidate] }))
+        writeIntroducesDerivationCycle(
+          { ...set.ws, edges },
+          { ...set.ws, edges: [...edges, candidate] },
+          id,
+        )
       ) {
         const from = (await renderNodeRef(w, id)) ?? 'it';
         const to = (await renderNodeRef(w, onId)) ?? 'it';
