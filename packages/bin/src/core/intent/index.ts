@@ -8,4 +8,10 @@ export {
   nextTasks,
   statusOfNode,
 } from './queries';
-export { buildArtifactDetail, buildNodeView, buildProjectView } from './view';
+export {
+  buildArtifactDetail,
+  buildNodeView,
+  buildProjectView,
+  nodeViewOf,
+  projectViewOf,
+} from './view';

@@ -15,15 +15,24 @@ import type {
 } from '@mimir/contract';
 
 import type { Db } from '../context';
-import { isTerminalWord, nodeStatusWord, statusOf, statusOfProject } from '../derive';
+import type { DerivationSet } from '../derive';
+import {
+  deriveSet,
+  isTerminalWord,
+  nodeStatusWord,
+  renderNodeIdFromSet,
+  statusOf,
+  statusOfProject,
+} from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
-import { parseIdentity, renderId } from '../ids';
-import { findArtifactByRef, findNodeByRef, isProjectArchived, renderNodeId } from '../lookup';
+import { parseIdentity } from '../ids';
+import { findArtifactByRef, findNodeByRef, isProjectArchived } from '../lookup';
 import type { Node } from '../model';
 import { isBlocking, isOrphaned, isReady, isStale } from '../predicates';
 import { compileFilters } from '../query';
 import type { QueryRow } from '../query';
-import type { Store, WorkingSet } from '../store';
+import type { Store } from '../store';
+import { loadWorkingSet } from '../store-sqlite';
 import { buildArtifactDetail, buildNodeView, buildProjectView } from './view';
 
 /**
@@ -37,36 +46,13 @@ import { buildArtifactDetail, buildNodeView, buildProjectView } from './view';
  * the whole store to fetch one row would invert the O(views) rule.
  */
 
-/** The working set plus the lookup indexes selection needs. */
-type WsIndex = {
-  ws: WorkingSet;
-  nodeById: ReadonlyMap<number, Node>;
-  keyByProjectId: ReadonlyMap<number, string>;
-  /** Archived project ids — their subtrees read as absent (ADR 0015). */
-  archived: ReadonlySet<number>;
-};
-
-function indexWorkingSet(ws: WorkingSet): WsIndex {
-  return {
-    archived: new Set(ws.projects.filter((p) => p.archived_at !== null).map((p) => p.id)),
-    keyByProjectId: new Map(ws.projects.map((p) => [p.id, p.key])),
-    nodeById: new Map(ws.nodes.map((n) => [n.id, n])),
-    ws,
-  };
-}
-
 /** Resolve a scope `KEY` against the working set (an archived project resolves — its rows are hidden downstream). */
-function resolveScope(index: WsIndex, key: string): number {
-  const project = index.ws.projects.find((p) => p.key === key);
+function resolveScope(set: DerivationSet, key: string): number {
+  const project = set.ws.projects.find((p) => p.key === key);
   if (project === undefined) {
     throw projectNotFound(key);
   }
   return project.id;
-}
-
-function renderNodeIdWs(index: WsIndex, node: Node): string | null {
-  const key = index.keyByProjectId.get(node.project_id);
-  return key === undefined ? null : renderId({ key, seq: node.seq });
 }
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
@@ -133,19 +119,19 @@ function inUniverse(word: StatusWord, selector: StatusSelector): boolean {
 }
 
 /** AND every `--is` / `--not-is` verdict against a node. */
-async function passesVerdicts(
-  db: Db,
+function passesVerdicts(
+  set: DerivationSet,
   node: Node,
   verdicts: readonly VerdictSelector[],
-): Promise<boolean> {
+): boolean {
   for (const { verdict, negate } of verdicts) {
     let holds: boolean;
     if (verdict === 'stale') {
-      holds = await isStale(db, node);
+      holds = isStale(set, node);
     } else if (verdict === 'blocking') {
-      holds = await isBlocking(db, node);
+      holds = isBlocking(set, node);
     } else {
-      holds = await isOrphaned(db, node);
+      holds = isOrphaned(set, node);
     }
     if (holds === negate) {
       return false;
@@ -161,7 +147,7 @@ async function passesVerdicts(
  * contract; every source is in memory now, so it is thrift, not necessity).
  */
 function toQueryRow(
-  index: WsIndex,
+  set: DerivationSet,
   node: Node,
   word: StatusWord,
   needed: ReadonlySet<string>,
@@ -183,15 +169,15 @@ function toQueryRow(
     updated_at: node.updated_at,
   };
   if (needed.has('id')) {
-    values.id = renderNodeIdWs(index, node);
+    values.id = renderNodeIdFromSet(set, node);
   }
   if (needed.has('parent')) {
-    const parent = node.parent_id === null ? undefined : index.nodeById.get(node.parent_id);
-    values.parent = parent === undefined ? null : renderNodeIdWs(index, parent);
+    const parent = node.parent_id === null ? undefined : set.nodeById.get(node.parent_id);
+    values.parent = parent === undefined ? null : renderNodeIdFromSet(set, parent);
   }
   let tags: readonly string[] = [];
   if (needed.has('tag')) {
-    tags = (index.ws.nodeTags.get(node.id) ?? []).map((t) => t.tag);
+    tags = (set.ws.nodeTags.get(node.id) ?? []).map((t) => t.tag);
   }
   return { tags, values };
 }
@@ -228,40 +214,41 @@ export async function nextTasks(
   if (compiled.warnings.length > 0) {
     return emptyResult(compiled.warnings);
   }
-  const index = indexWorkingSet(await store.loadWorkingSet());
-  const scopeId = opts.scope === undefined ? undefined : resolveScope(index, opts.scope);
-  const candidates = index.ws.nodes
+  const set = deriveSet(await store.loadWorkingSet());
+  const scopeId = opts.scope === undefined ? undefined : resolveScope(set, opts.scope);
+  const candidates = set.ws.nodes
     .filter(
       (n) =>
         n.type === 'task' &&
         n.lifecycle === 'todo' &&
         n.hold === 'none' &&
         n.rank !== null &&
-        !index.archived.has(n.project_id) &&
+        !set.archivedProjects.has(n.project_id) &&
         (scopeId === undefined || n.project_id === scopeId) &&
         (opts.priority === undefined || n.priority === opts.priority) &&
         (opts.size === undefined || n.size === opts.size),
     )
     .toSorted(byProjectRank);
 
-  const db = store.db;
   const verdicts = opts.verdicts ?? [];
   const ready: Node[] = [];
   for (const row of candidates) {
-    if (!(await isReady(db, row))) {
+    if (!isReady(set, row)) {
       continue;
     }
-    if (!(await passesVerdicts(db, row, verdicts))) {
+    if (!passesVerdicts(set, row, verdicts)) {
       continue;
     }
-    if (!compiled.test(toQueryRow(index, row, 'ready', compiled.needed))) {
+    if (!compiled.test(toQueryRow(set, row, 'ready', compiled.needed))) {
       continue;
     }
     ready.push(row);
   }
   const limited = opts.limit !== undefined ? ready.slice(0, opts.limit) : ready;
   const facets = new Set(opts.facets);
-  const items = await Promise.all(limited.map((node) => buildNodeView(db, node, facets)));
+  const items = await Promise.all(
+    limited.map((node) => buildNodeView(store.db, set, node, facets)),
+  );
   return setResult(items, ready.length);
 }
 
@@ -300,11 +287,11 @@ export async function listNodes(
   const widened = (opts.filters ?? []).some((f) => f.field === 'type');
   const terminalOrder = universe === 'terminal' || universe === 'done' || universe === 'abandoned';
 
-  const index = indexWorkingSet(await store.loadWorkingSet());
-  const scopeId = opts.scope === undefined ? undefined : resolveScope(index, opts.scope);
+  const set = deriveSet(await store.loadWorkingSet());
+  const scopeId = opts.scope === undefined ? undefined : resolveScope(set, opts.scope);
   const matchesQ =
     opts.q === undefined || opts.q === '' ? undefined : likeMatcher(opts.q.toLowerCase());
-  const rows = index.ws.nodes
+  const rows = set.ws.nodes
     .filter((n) => {
       if (!widened) {
         if (n.type !== 'task') {
@@ -336,7 +323,7 @@ export async function listNodes(
       }
       if (
         opts.tag !== undefined &&
-        !(index.ws.nodeTags.get(n.id) ?? []).some((t) => t.tag === opts.tag)
+        !(set.ws.nodeTags.get(n.id) ?? []).some((t) => t.tag === opts.tag)
       ) {
         return false;
       }
@@ -345,29 +332,30 @@ export async function listNodes(
       }
       // Hide archived projects' subtrees (ADR 0015). The `archived` universe is a
       // project-level door handled by the transport, never reaching listNodes.
-      return !index.archived.has(n.project_id);
+      return !set.archivedProjects.has(n.project_id);
     })
     .toSorted(terminalOrder ? byCompletedOrder : byRankOrder);
 
-  const db = store.db;
   const verdicts = opts.verdicts ?? [];
   const matched: { node: Node; word: StatusWord }[] = [];
   for (const row of rows) {
-    const word = await nodeStatusWord(db, row);
+    const word = nodeStatusWord(set, row);
     if (!inUniverse(word, universe)) {
       continue;
     }
-    if (!(await passesVerdicts(db, row, verdicts))) {
+    if (!passesVerdicts(set, row, verdicts)) {
       continue;
     }
-    if (!compiled.test(toQueryRow(index, row, word, compiled.needed))) {
+    if (!compiled.test(toQueryRow(set, row, word, compiled.needed))) {
       continue;
     }
     matched.push({ node: row, word });
   }
   const limited = opts.limit !== undefined ? matched.slice(0, opts.limit) : matched;
   const facets = new Set(opts.facets);
-  const items = await Promise.all(limited.map(({ node }) => buildNodeView(db, node, facets)));
+  const items = await Promise.all(
+    limited.map(({ node }) => buildNodeView(store.db, set, node, facets)),
+  );
   return setResult(items, matched.length);
 }
 
@@ -394,7 +382,7 @@ export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promis
     if (project === undefined || project.archived_at !== null) {
       throw projectNotFound(identity.key);
     }
-    return buildProjectView(db, project, facets);
+    return buildProjectView(db, deriveSet(await loadWorkingSet(db)), project, facets);
   }
   if (identity?.kind === 'artifact') {
     throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
@@ -403,7 +391,7 @@ export async function getNode(db: Db, id: string, opts: GetOptions = {}): Promis
   if (node === undefined || (await isProjectArchived(db, node.project_id))) {
     throw notFound(`${id} doesn't exist`);
   }
-  return buildNodeView(db, node, facets);
+  return buildNodeView(db, deriveSet(await loadWorkingSet(db)), node, facets);
 }
 
 /**
@@ -441,7 +429,10 @@ export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
     if (project === undefined || (await isProjectArchived(db, project.id))) {
       throw projectNotFound(identity.key);
     }
-    const { status, distribution } = await statusOfProject(db, project.id);
+    const { status, distribution } = statusOfProject(
+      deriveSet(await loadWorkingSet(db)),
+      project.id,
+    );
     return { distribution, id: identity.key, status, type: 'project' };
   }
   if (identity?.kind === 'artifact') {
@@ -451,6 +442,7 @@ export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
   if (node === undefined || (await isProjectArchived(db, node.project_id))) {
     throw notFound(`${id} doesn't exist`);
   }
-  const { status, distribution } = await statusOf(db, node);
-  return { distribution, id: (await renderNodeId(db, node.id)) ?? id, status, type: node.type };
+  const set = deriveSet(await loadWorkingSet(db));
+  const { status, distribution } = statusOf(set, node);
+  return { distribution, id: renderNodeIdFromSet(set, node) ?? id, status, type: node.type };
 }

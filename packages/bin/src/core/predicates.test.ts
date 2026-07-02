@@ -5,8 +5,10 @@ import type { Hold, Lifecycle } from '@mimir/contract';
 import { createTestDb } from '../db/testing';
 import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
+import { deriveSet } from './derive';
 import { loadNode } from './lookup';
 import { isAwaiting, isBlocked, isBlocking, isOrphaned, isReady, isStale } from './predicates';
+import { loadWorkingSet } from './store-sqlite';
 
 let db: Db;
 beforeEach(async () => {
@@ -15,6 +17,8 @@ beforeEach(async () => {
 afterEach(async () => {
   await db.destroy();
 });
+
+const setOf = async () => deriveSet(await loadWorkingSet(db));
 
 async function patch(id: number, fields: { lifecycle?: Lifecycle; hold?: Hold }): Promise<void> {
   await db.updateTable('node').set(fields).where('id', '=', id).execute();
@@ -44,16 +48,16 @@ test('ready vs awaiting hinge on prerequisite settledness', async () => {
   const { phase } = await fixture();
   const a = await createTask(db, { parentId: phase.id, title: 'a' });
   const b = await createTask(db, { parentId: phase.id, title: 'b' });
-  expect(await isReady(db, a)).toBe(true);
-  expect(await isAwaiting(db, a)).toBe(false);
+  expect(isReady(await setOf(), a)).toBe(true);
+  expect(isAwaiting(await setOf(), a)).toBe(false);
 
   await dep(b.id, a.id);
-  expect(await isReady(db, await reload(b.id))).toBe(false);
-  expect(await isAwaiting(db, await reload(b.id))).toBe(true);
+  expect(isReady(await setOf(), await reload(b.id))).toBe(false);
+  expect(isAwaiting(await setOf(), await reload(b.id))).toBe(true);
 
   await patch(a.id, { lifecycle: 'done' });
-  expect(await isReady(db, await reload(b.id))).toBe(true);
-  expect(await isAwaiting(db, await reload(b.id))).toBe(false);
+  expect(isReady(await setOf(), await reload(b.id))).toBe(true);
+  expect(isAwaiting(await setOf(), await reload(b.id))).toBe(false);
 });
 
 test('a task inherits its ancestor phase prerequisite (reads awaiting, clears to ready)', async () => {
@@ -66,21 +70,21 @@ test('a task inherits its ancestor phase prerequisite (reads awaiting, clears to
   const t = await createTask(db, { parentId: phase.id, title: 't' });
 
   // t declares no edge of its own, yet inherits phase 2's gate
-  expect(await isReady(db, await reload(t.id))).toBe(false);
-  expect(await isAwaiting(db, await reload(t.id))).toBe(true);
+  expect(isReady(await setOf(), await reload(t.id))).toBe(false);
+  expect(isAwaiting(await setOf(), await reload(t.id))).toBe(true);
 
   // phase 1 settles (its only task done) → t clears to ready
   await patch(p1task.id, { lifecycle: 'done' });
-  expect(await isReady(db, await reload(t.id))).toBe(true);
-  expect(await isAwaiting(db, await reload(t.id))).toBe(false);
+  expect(isReady(await setOf(), await reload(t.id))).toBe(true);
+  expect(isAwaiting(await setOf(), await reload(t.id))).toBe(false);
 });
 
 test('a held task is neither ready nor awaiting', async () => {
   const { phase } = await fixture();
   const t = await createTask(db, { parentId: phase.id, title: 't' });
   await patch(t.id, { hold: 'blocked' });
-  expect(await isReady(db, await reload(t.id))).toBe(false);
-  expect(await isAwaiting(db, await reload(t.id))).toBe(false);
+  expect(isReady(await setOf(), await reload(t.id))).toBe(false);
+  expect(isAwaiting(await setOf(), await reload(t.id))).toBe(false);
   expect(isBlocked(await reload(t.id))).toBe(true);
 });
 
@@ -90,9 +94,9 @@ test('blocking is true while an unsettled dependent exists', async () => {
   const dependent = await createTask(db, { parentId: phase.id, title: 'dependent' });
   await dep(dependent.id, prereq.id);
 
-  expect(await isBlocking(db, await reload(prereq.id))).toBe(true);
+  expect(isBlocking(await setOf(), await reload(prereq.id))).toBe(true);
   await patch(dependent.id, { lifecycle: 'done' });
-  expect(await isBlocking(db, await reload(prereq.id))).toBe(false);
+  expect(isBlocking(await setOf(), await reload(prereq.id))).toBe(false);
 });
 
 test('stale chases in_progress/blocked, mutes parked/awaiting, respects the threshold', async () => {
@@ -107,16 +111,16 @@ test('stale chases in_progress/blocked, mutes parked/awaiting, respects the thre
     .execute();
   const asOf = '2026-06-05T00:00:00.000Z';
 
-  expect(await isStale(db, await reload(t.id), { asOf })).toBe(true);
+  expect(isStale(await setOf(), await reload(t.id), { asOf })).toBe(true);
 
   // parked is muted even when ancient
   await patch(t.id, { hold: 'parked' });
-  expect(await isStale(db, await reload(t.id), { asOf })).toBe(false);
+  expect(isStale(await setOf(), await reload(t.id), { asOf })).toBe(false);
 
   // fresh in_progress is not stale
   await patch(t.id, { hold: 'none' });
   await db.updateTable('node').set({ updated_at: asOf }).where('id', '=', t.id).execute();
-  expect(await isStale(db, await reload(t.id), { asOf })).toBe(false);
+  expect(isStale(await setOf(), await reload(t.id), { asOf })).toBe(false);
 });
 
 test('orphaned: a live task stranded among all-terminal siblings', async () => {
@@ -125,14 +129,14 @@ test('orphaned: a live task stranded among all-terminal siblings', async () => {
   const sib = await createTask(db, { parentId: phase.id, title: 'sib' });
 
   // two live siblings → not orphaned
-  expect(await isOrphaned(db, await reload(live.id))).toBe(false);
+  expect(isOrphaned(await setOf(), await reload(live.id))).toBe(false);
 
   // sibling done → the live one is now stranded
   await patch(sib.id, { lifecycle: 'done' });
-  expect(await isOrphaned(db, await reload(live.id))).toBe(true);
+  expect(isOrphaned(await setOf(), await reload(live.id))).toBe(true);
 
   // a sole child is never orphaned
   const { phase: solo } = await fixture('SOL');
   const only = await createTask(db, { parentId: solo.id, title: 'only' });
-  expect(await isOrphaned(db, await reload(only.id))).toBe(false);
+  expect(isOrphaned(await setOf(), await reload(only.id))).toBe(false);
 });

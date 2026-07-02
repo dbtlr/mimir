@@ -1,8 +1,7 @@
 import type { Verdicts } from '@mimir/contract';
 
-import type { Db, Tx } from './context';
+import type { DerivationSet } from './derive';
 import { hasUnsettledPrereq, isNodeSettled, isTerminalWord, nodeStatusWord } from './derive';
-import { loadNode } from './lookup';
 import type { Node } from './model';
 import { now } from './time';
 
@@ -10,25 +9,23 @@ import { now } from './time';
  * The derived predicate vocabulary (design spec §4, glossary). Each is computed
  * live because it depends on dependencies or ancestors and flips silently when
  * *those* change — storing it would reintroduce the sync surface Mimir exists
- * to remove.
+ * to remove. Pure over one {@link DerivationSet} snapshot (ADR 0016 Phase 0).
  */
 
-type Executor = Db | Tx;
-
 /** `ready` — the headline: a todo, un-held task with every prerequisite settled. */
-export async function isReady(tx: Executor, task: Node): Promise<boolean> {
+export function isReady(set: DerivationSet, task: Node): boolean {
   if (task.type !== 'task' || task.lifecycle !== 'todo' || task.hold !== 'none') {
     return false;
   }
-  return !(await hasUnsettledPrereq(tx, task.id));
+  return !hasUnsettledPrereq(set, task.id);
 }
 
 /** `awaiting` — `ready`'s involuntary sibling: todo + un-held but with ≥1 unsettled prerequisite. */
-export async function isAwaiting(tx: Executor, task: Node): Promise<boolean> {
+export function isAwaiting(set: DerivationSet, task: Node): boolean {
   if (task.type !== 'task' || task.lifecycle !== 'todo' || task.hold !== 'none') {
     return false;
   }
-  return hasUnsettledPrereq(tx, task.id);
+  return hasUnsettledPrereq(set, task.id);
 }
 
 /** `blocked` — the manual hold overlay (distinct from the derived `awaiting`). */
@@ -37,15 +34,10 @@ export function isBlocked(task: Node): boolean {
 }
 
 /** `blocking` — this node is a prerequisite of ≥1 still-unsettled dependent. */
-export async function isBlocking(tx: Executor, node: Node): Promise<boolean> {
-  const dependents = await tx
-    .selectFrom('dependency')
-    .innerJoin('node', 'node.id', 'dependency.node_id')
-    .where('dependency.depends_on_node_id', '=', node.id)
-    .select(['node.id', 'node.type', 'node.lifecycle'])
-    .execute();
-  for (const dependent of dependents) {
-    if (!(await isNodeSettled(tx, dependent))) {
+export function isBlocking(set: DerivationSet, node: Node): boolean {
+  for (const dependentId of set.dependentsByNode.get(node.id) ?? []) {
+    const dependent = set.nodeById.get(dependentId);
+    if (dependent !== undefined && !isNodeSettled(set, dependent)) {
       return true;
     }
   }
@@ -68,15 +60,11 @@ export type StaleOptions = {
  * nag); chases `blocked` (untouched-for-weeks is exactly the nudge) and
  * `under_review` (a submission the human never got to is the same rot).
  */
-export async function isStale(
-  tx: Executor,
-  task: Node,
-  options: StaleOptions = {},
-): Promise<boolean> {
+export function isStale(set: DerivationSet, task: Node, options: StaleOptions = {}): boolean {
   if (task.type !== 'task') {
     return false;
   }
-  const word = await nodeStatusWord(tx, task);
+  const word = nodeStatusWord(set, task);
   if (word !== 'in_progress' && word !== 'ready' && word !== 'blocked' && word !== 'under_review') {
     return false;
   }
@@ -97,46 +85,32 @@ export async function isStale(
  * intent, which this computes: a non-terminal task whose every *other* sibling
  * is terminal (a sole live child is not orphaned).
  */
-export async function isOrphaned(tx: Executor, task: Node): Promise<boolean> {
+export function isOrphaned(set: DerivationSet, task: Node): boolean {
   if (task.type !== 'task' || task.parent_id === null) {
     return false;
   }
   if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
     return false;
   }
-  const parent = await loadNode(tx, task.parent_id);
+  const parent = set.nodeById.get(task.parent_id);
   if (parent === undefined || parent.type === 'task') {
     return false;
   }
-  const siblings = await tx
-    .selectFrom('node')
-    .selectAll()
-    .where('parent_id', '=', parent.id)
-    .where('id', '!=', task.id)
-    .execute();
+  const siblings = (set.childrenByParent.get(parent.id) ?? []).filter((n) => n.id !== task.id);
   if (siblings.length === 0) {
     return false;
   }
-  for (const sibling of siblings) {
-    if (!isTerminalWord(await nodeStatusWord(tx, sibling))) {
-      return false;
-    }
-  }
-  return true;
+  return siblings.every((sibling) => isTerminalWord(nodeStatusWord(set, sibling)));
 }
 
 /**
  * All non-status verdicts for one node in one read (the `verdicts` facet —
  * the API record's always-on derivation). Status words carry everything else.
  */
-export async function verdictsOf(
-  tx: Executor,
-  node: Node,
-  options: StaleOptions = {},
-): Promise<Verdicts> {
+export function verdictsOf(set: DerivationSet, node: Node, options: StaleOptions = {}): Verdicts {
   return {
-    blocking: await isBlocking(tx, node),
-    orphaned: await isOrphaned(tx, node),
-    stale: await isStale(tx, node, options),
+    blocking: isBlocking(set, node),
+    orphaned: isOrphaned(set, node),
+    stale: isStale(set, node, options),
   };
 }

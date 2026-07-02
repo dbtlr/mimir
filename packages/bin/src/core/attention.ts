@@ -1,6 +1,6 @@
 import type { AttentionState, Lane, StatusWord } from '@mimir/contract';
 
-import type { Db, Tx } from './context';
+import type { DerivationSet } from './derive';
 import { nodeStatusWord } from './derive';
 import type { Project } from './model';
 import { isStale } from './predicates';
@@ -10,10 +10,10 @@ import type { StaleOptions } from './predicates';
  * The project attention-state (MMR-101) — a derived facet that lets the overview
  * page (MMR-102) order projects by "what deserves the operator's attention,"
  * not alphabetically. Lives in core so every transport consumes it and the UI
- * stays a pure renderer.
+ * stays a pure renderer. Pure over one derivation snapshot (ADR 0016 Phase 0);
+ * the overview derives every project from the same set, so the per-project
+ * leaf scans share one memo.
  */
-
-type Executor = Db | Tx;
 
 /**
  * The lanes in highest-wins order — index 0 is the strongest pull on the
@@ -53,24 +53,19 @@ function laneIndex(word: StatusWord): number {
  * - **stale** — the `going cold` modifier: ≥1 leaf is {@link isStale}. Always
  *   rides a higher lane (stale only fires on live/blocked/under_review words).
  */
-export async function attentionOf(
-  tx: Executor,
+export function attentionOf(
+  set: DerivationSet,
   project: Project,
   options: StaleOptions = {},
-): Promise<AttentionState> {
-  const tasks = await tx
-    .selectFrom('node')
-    .selectAll()
-    .where('project_id', '=', project.id)
-    .where('type', '=', 'task')
-    .execute();
+): AttentionState {
+  const tasks = (set.nodesByProject.get(project.id) ?? []).filter((n) => n.type === 'task');
 
   let best = AT_REST;
   let stale = false;
   let lastActivity: string | null = null;
   for (const task of tasks) {
-    best = Math.min(best, laneIndex(await nodeStatusWord(tx, task)));
-    if (!stale && (await isStale(tx, task, options))) {
+    best = Math.min(best, laneIndex(nodeStatusWord(set, task)));
+    if (!stale && isStale(set, task, options)) {
       stale = true;
     }
     if (lastActivity === null || Date.parse(task.updated_at) > Date.parse(lastActivity)) {

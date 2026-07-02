@@ -18,8 +18,8 @@ import {
   archiveProject,
   attachArtifact,
   blockTask,
-  buildNodeView,
-  buildProjectView,
+  nodeViewOf,
+  projectViewOf,
   completeTask,
   createInitiative,
   createPhase,
@@ -129,8 +129,8 @@ async function projectId(db: Db, key: string): Promise<number> {
  * Accepts the Node row returned directly by mutation verbs — no reload needed.
  * Typed via `Parameters` to avoid importing `Node` from db directly.
  */
-async function echoNode(db: Db, node: Parameters<typeof buildNodeView>[1]): Promise<ToolResult> {
-  return ok(formatNodeJson(await buildNodeView(db, node)));
+async function echoNode(db: Db, node: Parameters<typeof nodeViewOf>[1]): Promise<ToolResult> {
+  return ok(formatNodeJson(await nodeViewOf(db, node)));
 }
 
 // ---------------------------------------------------------------------------
@@ -297,7 +297,7 @@ export function toolReopen(db: Db, args: { id: string; reason?: string }): Promi
 export function toolArchive(db: Db, args: { key: string; reason?: string }): Promise<ToolResult> {
   return guard(async () => {
     const project = await archiveProject(db, await projectId(db, args.key), args.reason);
-    return ok(formatNodeJson(await buildProjectView(db, project)));
+    return ok(formatNodeJson(await projectViewOf(db, project)));
   });
 }
 
@@ -305,7 +305,7 @@ export function toolArchive(db: Db, args: { key: string; reason?: string }): Pro
 export function toolUnarchive(db: Db, args: { key: string }): Promise<ToolResult> {
   return guard(async () => {
     const project = await unarchiveProject(db, await projectId(db, args.key));
-    return ok(formatNodeJson(await buildProjectView(db, project)));
+    return ok(formatNodeJson(await projectViewOf(db, project)));
   });
 }
 
@@ -514,7 +514,7 @@ async function updateProjectTool(
   if (project === undefined) {
     throw projectNotFound(key);
   }
-  return ok(formatNodeJson(await buildProjectView(db, project)));
+  return ok(formatNodeJson(await projectViewOf(db, project)));
 }
 
 /** `update` on a `KEY-aN` id — title is an artifact's one mutable field (MMR-40). */

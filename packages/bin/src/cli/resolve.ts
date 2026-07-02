@@ -5,8 +5,8 @@
  */
 
 import {
-  buildNodeView,
-  buildProjectView,
+  nodeViewOf,
+  projectViewOf,
   loadNode,
   notFound,
   projectNotFound,
@@ -79,7 +79,7 @@ export async function echoNode(db: Db, nodeId: number, format: Format, io: Io): 
   if (node === undefined) {
     throw notFound('the record vanished before echo');
   }
-  const view = await buildNodeView(db, node);
+  const view = await nodeViewOf(db, node);
   renderNodeView(view, format, io);
 }
 
@@ -101,7 +101,7 @@ export async function echoNodeWith(
   if (node === undefined) {
     throw notFound('the record vanished before echo');
   }
-  const view = await buildNodeView(db, node);
+  const view = await nodeViewOf(db, node);
   signpost(io, format, makeSignpost(view.id));
   renderNodeView(view, format, io);
 }
@@ -120,7 +120,7 @@ export async function echoProject(db: Db, key: string, format: Format, io: Io): 
   if (project === undefined) {
     throw notFound(`project ${key} vanished before echo`);
   }
-  const view = await buildProjectView(db, project);
+  const view = await projectViewOf(db, project);
   renderNodeView(view, format, io);
 }
 

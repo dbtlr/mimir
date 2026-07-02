@@ -13,48 +13,61 @@ import type {
 
 import { attentionOf } from '../attention';
 import type { Db, Tx } from '../context';
+import type { DerivationSet } from '../derive';
 import {
   childDistribution,
+  deriveSet,
   isNodeSettled,
   leafDistribution,
   lineageIds,
   nodeStatusWord,
+  renderNodeIdFromSet,
   rootDistribution,
 } from '../derive';
 import { renderArtifactRef } from '../ids';
-import { isProjectArchived, loadNode, renderNodeId } from '../lookup';
+import { renderNodeId } from '../lookup';
 import type { Artifact, Node, Project } from '../model';
 import { verdictsOf } from '../predicates';
 import { interpret } from '../status';
+import { loadWorkingSet } from '../store-sqlite';
 
 /**
  * Projection assembly — build a {@link NodeView} from a node row plus the
  * requested facets. Bare fields are always populated (the row is in hand);
- * task-only / phase-only fields appear only for that type; each opt-in facet
- * costs its own query, so callers request only what they render.
+ * task-only / phase-only fields appear only for that type. Derivation-backed
+ * facets (status, distribution, deps, verdicts, children, tags) serve from the
+ * working-set snapshot (ADR 0016 Phase 0); record-keyed facets (annotations,
+ * history, artifacts, project tags) stay per-identity reads on the executor
+ * until their phase.
  */
 
 type Executor = Db | Tx;
 
-async function toRef(tx: Executor, nodeId: number): Promise<NodeRef> {
-  const node = await loadNode(tx, nodeId);
-  const id = (await renderNodeId(tx, nodeId)) ?? 'unknown';
-  return node === undefined
-    ? { id }
-    : { id, status: await nodeStatusWord(tx, node), title: node.title };
+function toRef(set: DerivationSet, nodeId: number): NodeRef {
+  const node = set.nodeById.get(nodeId);
+  if (node === undefined) {
+    return { id: 'unknown' };
+  }
+  return {
+    id: renderNodeIdFromSet(set, node) ?? 'unknown',
+    status: nodeStatusWord(set, node),
+    title: node.title,
+  };
 }
 
 export async function buildNodeView(
-  tx: Executor,
+  db: Executor,
+  set: DerivationSet,
   node: Node,
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView> {
+  const parent = node.parent_id === null ? undefined : set.nodeById.get(node.parent_id);
   const view: NodeView = {
     createdAt: node.created_at,
     description: node.description,
-    id: (await renderNodeId(tx, node.id)) ?? 'unknown',
-    parent: node.parent_id === null ? null : await renderNodeId(tx, node.parent_id),
-    status: await nodeStatusWord(tx, node),
+    id: renderNodeIdFromSet(set, node) ?? 'unknown',
+    parent: parent === undefined ? null : renderNodeIdFromSet(set, parent),
+    status: nodeStatusWord(set, node),
     title: node.title,
     type: node.type,
     updatedAt: node.updated_at,
@@ -73,28 +86,28 @@ export async function buildNodeView(
   }
 
   if (facets.has('deps')) {
-    view.deps = await buildDeps(tx, node.id);
+    view.deps = buildDeps(set, node.id);
   }
   if (facets.has('children')) {
-    view.children = await buildChildren(tx, node.id);
+    view.children = buildChildren(set, node.id);
   }
   if (facets.has('distribution') && node.type !== 'task') {
-    view.distribution = await childDistribution(tx, node.id);
+    view.distribution = childDistribution(set, node.id);
   }
   if (facets.has('tags')) {
-    view.tags = await buildTags(tx, node.id);
+    view.tags = buildTags(set, node.id);
   }
   if (facets.has('annotations')) {
-    view.annotations = await buildAnnotations(tx, node.id);
+    view.annotations = await buildAnnotations(db, node.id);
   }
   if (facets.has('artifacts')) {
-    view.artifacts = await buildArtifacts(tx, node.id);
+    view.artifacts = await buildArtifacts(db, node.id);
   }
   if (facets.has('history')) {
-    view.history = await buildHistory(tx, node.id);
+    view.history = await buildHistory(db, node.id);
   }
   if (facets.has('verdicts')) {
-    view.verdicts = await verdictsOf(tx, node);
+    view.verdicts = verdictsOf(set, node);
   }
   return view;
 }
@@ -105,39 +118,23 @@ export async function buildNodeView(
  * status through the `deps` facet (ADR 0015; the facet is a read side-door that
  * bypasses the id-level not_found guards).
  */
-async function visibleRefs(tx: Executor, nodeIds: number[]): Promise<NodeRef[]> {
+function visibleRefs(set: DerivationSet, nodeIds: readonly number[]): NodeRef[] {
   const refs: NodeRef[] = [];
   for (const id of nodeIds) {
-    const node = await loadNode(tx, id);
-    if (node !== undefined && (await isProjectArchived(tx, node.project_id))) {
+    const node = set.nodeById.get(id);
+    if (node !== undefined && set.archivedProjects.has(node.project_id)) {
       continue;
     }
-    refs.push(await toRef(tx, id));
+    refs.push(toRef(set, id));
   }
   return refs;
 }
 
-async function buildDeps(tx: Executor, nodeId: number): Promise<DepsFacet> {
-  const prereqs = await tx
-    .selectFrom('dependency')
-    .select('depends_on_node_id')
-    .where('node_id', '=', nodeId)
-    .execute();
-  const dependents = await tx
-    .selectFrom('dependency')
-    .select('node_id')
-    .where('depends_on_node_id', '=', nodeId)
-    .execute();
+function buildDeps(set: DerivationSet, nodeId: number): DepsFacet {
   return {
-    awaitingOn: await buildAwaitingOn(tx, nodeId),
-    blocking: await visibleRefs(
-      tx,
-      dependents.map((r) => r.node_id),
-    ),
-    dependsOn: await visibleRefs(
-      tx,
-      prereqs.map((r) => r.depends_on_node_id),
-    ),
+    awaitingOn: buildAwaitingOn(set, nodeId),
+    blocking: visibleRefs(set, set.dependentsByNode.get(nodeId) ?? []),
+    dependsOn: visibleRefs(set, set.prereqsByNode.get(nodeId) ?? []),
   };
 }
 
@@ -148,33 +145,30 @@ async function buildDeps(tx: Executor, nodeId: number): Promise<DepsFacet> {
  * (ADR 0001 Refinement). Only unsettled prereqs appear; settled ones no longer
  * gate.
  */
-async function buildAwaitingOn(tx: Executor, nodeId: number): Promise<AwaitingRef[]> {
+function buildAwaitingOn(set: DerivationSet, nodeId: number): AwaitingRef[] {
   const out: AwaitingRef[] = [];
   const seen = new Set<number>();
   // lineage is node-first, so a prereq reached both directly and via an ancestor
   // keeps its direct (no-`via`) entry — list each unsettled prerequisite once.
-  for (const ancestorId of await lineageIds(tx, nodeId)) {
-    const edges = await tx
-      .selectFrom('dependency')
-      .select('depends_on_node_id')
-      .where('node_id', '=', ancestorId)
-      .execute();
-    for (const edge of edges) {
-      if (seen.has(edge.depends_on_node_id)) {
+  for (const ancestorId of lineageIds(set, nodeId)) {
+    for (const prereqId of set.prereqsByNode.get(ancestorId) ?? []) {
+      if (seen.has(prereqId)) {
         continue;
       }
-      const prereq = await loadNode(tx, edge.depends_on_node_id);
-      if (prereq === undefined || (await isNodeSettled(tx, prereq))) {
+      const prereq = set.nodeById.get(prereqId);
+      if (prereq === undefined || isNodeSettled(set, prereq)) {
         continue;
       }
       // A prereq in an archived project reads as absent — don't surface it (ADR 0015).
-      if (await isProjectArchived(tx, prereq.project_id)) {
+      if (set.archivedProjects.has(prereq.project_id)) {
         continue;
       }
-      seen.add(edge.depends_on_node_id);
-      const ref: AwaitingRef = await toRef(tx, edge.depends_on_node_id);
+      seen.add(prereqId);
+      const ref: AwaitingRef = toRef(set, prereqId);
       if (ancestorId !== nodeId) {
-        ref.via = (await renderNodeId(tx, ancestorId)) ?? undefined;
+        const ancestor = set.nodeById.get(ancestorId);
+        ref.via =
+          ancestor === undefined ? undefined : (renderNodeIdFromSet(set, ancestor) ?? undefined);
       }
       out.push(ref);
     }
@@ -182,25 +176,16 @@ async function buildAwaitingOn(tx: Executor, nodeId: number): Promise<AwaitingRe
   return out;
 }
 
-async function buildChildren(tx: Executor, nodeId: number): Promise<NodeRef[]> {
-  const rows = await tx
-    .selectFrom('node')
-    .select('id')
-    .where('parent_id', '=', nodeId)
-    .orderBy('seq', 'asc')
-    .execute();
-  return Promise.all(rows.map((r) => toRef(tx, r.id)));
+const bySeq = (a: Node, b: Node): number => a.seq - b.seq;
+
+function buildChildren(set: DerivationSet, nodeId: number): NodeRef[] {
+  const children = (set.childrenByParent.get(nodeId) ?? []).toSorted(bySeq);
+  return children.map((child) => toRef(set, child.id));
 }
 
-async function buildTags(tx: Executor, nodeId: number): Promise<TagView[]> {
-  const rows = await tx
-    .selectFrom('tag')
-    .select(['tag', 'note', 'created_at'])
-    .where('entity_type', '=', 'node')
-    .where('entity_id', '=', nodeId)
-    .orderBy('created_at', 'asc')
-    .execute();
-  return rows.map((r) => ({ createdAt: r.created_at, note: r.note, tag: r.tag }));
+function buildTags(set: DerivationSet, nodeId: number): TagView[] {
+  const records = set.ws.nodeTags.get(nodeId) ?? [];
+  return records.map((r) => ({ createdAt: r.created_at, note: r.note, tag: r.tag }));
 }
 
 async function buildAnnotations(tx: Executor, nodeId: number): Promise<AnnotationView[]> {
@@ -282,11 +267,12 @@ async function buildProjectArtifacts(tx: Executor, project: Project): Promise<Ar
  * annotations, history) are silently absent.
  */
 export async function buildProjectView(
-  tx: Executor,
+  db: Executor,
+  set: DerivationSet,
   project: Project,
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView> {
-  const distribution = await rootDistribution(tx, project.id);
+  const distribution = rootDistribution(set, project.id);
   const view: NodeView = {
     createdAt: project.created_at,
     description: project.description,
@@ -302,26 +288,22 @@ export async function buildProjectView(
     view.archivedAt = project.archived_at;
   }
   if (facets.has('children')) {
-    const roots = await tx
-      .selectFrom('node')
-      .select('id')
-      .where('project_id', '=', project.id)
-      .where('parent_id', 'is', null)
-      .orderBy('seq', 'asc')
-      .execute();
-    view.children = await Promise.all(roots.map((r) => toRef(tx, r.id)));
+    const roots = (set.nodesByProject.get(project.id) ?? [])
+      .filter((n) => n.parent_id === null)
+      .toSorted(bySeq);
+    view.children = roots.map((root) => toRef(set, root.id));
   }
   if (facets.has('distribution')) {
     view.distribution = distribution;
   }
   if (facets.has('leafCounts')) {
-    view.leafCounts = await leafDistribution(tx, project.id);
+    view.leafCounts = leafDistribution(set, project.id);
   }
   if (facets.has('attention')) {
-    view.attention = await attentionOf(tx, project);
+    view.attention = attentionOf(set, project);
   }
   if (facets.has('tags')) {
-    const rows = await tx
+    const rows = await db
       .selectFrom('tag')
       .select(['tag', 'note', 'created_at'])
       .where('entity_type', '=', 'project')
@@ -331,7 +313,7 @@ export async function buildProjectView(
     view.tags = rows.map((r) => ({ createdAt: r.created_at, note: r.note, tag: r.tag }));
   }
   if (facets.has('artifacts')) {
-    view.artifacts = await buildProjectArtifacts(tx, project);
+    view.artifacts = await buildProjectArtifacts(db, project);
   }
   return view;
 }
@@ -384,4 +366,22 @@ async function buildHistory(tx: Executor, nodeId: number): Promise<HistoryEntry[
     reason: r.reason,
     to: r.to_value,
   }));
+}
+
+/** A node view over a fresh snapshot — the one-off echo path (verbs, transports). */
+export async function nodeViewOf(
+  db: Db,
+  node: Node,
+  facets: ReadonlySet<FacetName> = new Set(),
+): Promise<NodeView> {
+  return buildNodeView(db, deriveSet(await loadWorkingSet(db)), node, facets);
+}
+
+/** A project view over a fresh snapshot — the one-off echo path (verbs, transports). */
+export async function projectViewOf(
+  db: Db,
+  project: Project,
+  facets: ReadonlySet<FacetName> = new Set(),
+): Promise<NodeView> {
+  return buildProjectView(db, deriveSet(await loadWorkingSet(db)), project, facets);
 }

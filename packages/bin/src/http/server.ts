@@ -19,8 +19,8 @@ import {
   artifactToWire,
   attachArtifact,
   blockTask,
-  buildNodeView,
-  buildProjectView,
+  nodeViewOf,
+  projectViewOf,
   completeTask,
   createInitiative,
   createPhase,
@@ -140,10 +140,10 @@ async function projectIdForArchive(db: Db, key: string): Promise<number> {
 async function echoNode(
   db: Db,
   req: Request,
-  node: Parameters<typeof buildNodeView>[1],
+  node: Parameters<typeof nodeViewOf>[1],
   status = 200,
 ): Promise<Response> {
-  const view = await buildNodeView(db, node, new Set(DETAIL_FACETS));
+  const view = await nodeViewOf(db, node, new Set(DETAIL_FACETS));
   return json(req, nodeToWire(view), status);
 }
 
@@ -883,7 +883,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
               .selectAll()
               .where('id', '=', project.id)
               .executeTakeFirstOrThrow();
-            const view = await buildProjectView(db, updated, new Set(PROJECT_FACETS));
+            const view = await projectViewOf(db, updated, new Set(PROJECT_FACETS));
             return json(req, nodeToWire(view));
           }),
       },
@@ -897,10 +897,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
             const id = await projectIdForArchive(db, req.params.key);
             const body = await readBody(req, ['reason']);
             const project = await archiveProject(db, id, strField(body, 'reason'));
-            return json(
-              req,
-              nodeToWire(await buildProjectView(db, project, new Set(PROJECT_FACETS))),
-            );
+            return json(req, nodeToWire(await projectViewOf(db, project, new Set(PROJECT_FACETS))));
           }),
       },
 
@@ -920,10 +917,7 @@ function bindServer(db: Db, opts: ServeOptions, port: number): Server<undefined>
           guarded(req, async () => {
             const id = await projectIdForArchive(db, req.params.key);
             const project = await unarchiveProject(db, id);
-            return json(
-              req,
-              nodeToWire(await buildProjectView(db, project, new Set(PROJECT_FACETS))),
-            );
+            return json(req, nodeToWire(await projectViewOf(db, project, new Set(PROJECT_FACETS))));
           }),
       },
 
