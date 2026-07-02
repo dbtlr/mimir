@@ -67,6 +67,20 @@ release. When a release is cut, this section is promoted to
   daemon on a late-mounted volume retries instead of scaffolding a fresh
   vault at the mountpoint.
 
+- **Persistent Norn MCP client** (MMR-141, ADR 0016 Phase 2a). The transport
+  half of the Norn backend, not yet wired to any command: one `norn mcp`
+  subprocess per vault over stdio (lazy spawn, warm cache), with tool calls
+  **serialized structurally** (norn's await-each-response contract enforced
+  by an internal queue, so mutation ordering holds by construction). A died
+  subprocess is respawned lazily on the next call; an in-flight death
+  retries a read once transparently but **never replays a mutation** (an
+  ambiguous `confirm: true` failure must not double-apply). Typed wrappers
+  cover the tools the artifact path drives (`find`/`count`/`get`/`new`/
+  `set`/`edit`/`validate`/`describe`), unwrapping `structuredContent` and
+  raising norn `isError` results as typed validation errors. Verified
+  against a live `norn mcp` (v0.41.0): dry-run-by-default mutations,
+  create→find→get round-trip, and stored-wikilink field matching.
+
 ### Changed
 
 - **Status derivation is computed in-memory over one snapshot** (MMR-133/134,
