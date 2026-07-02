@@ -1,4 +1,4 @@
-import { deriveSet, lineageIds } from '../derive';
+import { deriveSet, hasDerivationCycle, lineageIds } from '../derive';
 import { validation } from '../errors';
 import type { Node } from '../model';
 import type { Store, StoreWriter } from '../store';
@@ -36,11 +36,13 @@ export async function depend(store: Store, id: number, onIds: number[]): Promise
     await requireNode(w, id);
     // One snapshot serves every lineage guard — depend never rewires parents.
     const set = deriveSet(await w.loadWorkingSet());
+    // Edges accepted earlier in this call, so each simulation sees them too.
+    const edges = [...set.ws.edges];
     for (const onId of onIds) {
       if (onId === id) {
         throw validation('a task cannot depend on itself');
       }
-      await requireNode(w, onId);
+      const prereq = await requireNode(w, onId);
       // same-lineage guard: a dependency may not cross the parent/child line —
       // an inherited dep would make the descendant await its own ancestor (or a
       // container await a task it contains), a deadlock the raw-cycle check below
@@ -60,9 +62,26 @@ export async function depend(store: Store, id: number, onIds: number[]): Promise
         const to = (await renderNodeRef(w, onId)) ?? 'it';
         throw validation(`dependency would create a cycle (${from} → ${to})`);
       }
+      const candidate = { depends_on_node_id: onId, node_id: id };
+      // A container prerequisite folds into derivation — settled(container) is
+      // its rollup — so the edge can close a loop across container rollups that
+      // the raw-cycle walk above (dependency edges only) can't see (MMR-140).
+      // Simulate the edge over the snapshot and reuse the runtime detection.
+      // A task prerequisite is settled by its lifecycle alone and can't recurse.
+      if (
+        prereq.type !== 'task' &&
+        hasDerivationCycle(deriveSet({ ...set.ws, edges: [...edges, candidate] }))
+      ) {
+        const from = (await renderNodeRef(w, id)) ?? 'it';
+        const to = (await renderNodeRef(w, onId)) ?? 'it';
+        throw validation(
+          `dependency would close a derivation cycle through container rollups (${from} → ${to})`,
+        );
+      }
       const exists = (await w.listPrereqsOf(id)).includes(onId);
       if (!exists) {
-        await w.insertDependency({ depends_on_node_id: onId, node_id: id });
+        await w.insertDependency(candidate);
+        edges.push(candidate);
         await logTransition(w, {
           from_value: null,
           kind: 'dependency',

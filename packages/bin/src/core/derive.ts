@@ -1,6 +1,6 @@
 import type { StatusWord } from '@mimir/contract';
 
-import { invariant } from './errors';
+import { MimirError, invariant } from './errors';
 import { renderId } from './ids';
 import type { Node } from './model';
 import { interpret, tally, taskStatus } from './status';
@@ -81,6 +81,40 @@ export function deriveSet(ws: WorkingSet): DerivationSet {
     prereqsByNode,
     ws,
   };
+}
+
+/**
+ * The derivation-cycle invariant: container dependencies can close a loop the
+ * same-lineage and dependency-cycle guards don't see (a task awaiting a
+ * container whose rollup depends back on the task's own container). Reads
+ * surface it as a diagnosable `invariant`; the depend/move guards catch it by
+ * type to reject the write that would close the loop (MMR-140).
+ */
+export class DerivationCycleError extends MimirError {
+  constructor(nodeId: number) {
+    super('invariant', `derivation cycle through container dependencies at node ${String(nodeId)}`);
+    this.name = 'DerivationCycleError';
+  }
+}
+
+/**
+ * Would deriving every node's word over this set hit a container-dependency
+ * cycle? The write guards run this over a *simulated* working set — the
+ * candidate edge or re-parent applied — so prevention reuses the exact runtime
+ * detection in {@link nodeStatusWord}, with no parallel graph walk to drift.
+ */
+export function hasDerivationCycle(set: DerivationSet): boolean {
+  try {
+    for (const node of set.ws.nodes) {
+      nodeStatusWord(set, node);
+    }
+    return false;
+  } catch (error) {
+    if (error instanceof DerivationCycleError) {
+      return true;
+    }
+    throw error;
+  }
 }
 
 /** Render a node's external `KEY-seq` id from the set (error messages, refs). */
@@ -164,12 +198,9 @@ export function nodeStatusWord(set: DerivationSet, node: Node): StatusWord {
     return cached;
   }
   if (set.inFlight.has(node.id)) {
-    // A derivation cycle: container dependencies can close a loop the lineage
-    // and dependency-cycle guards don't see (a task awaiting a container whose
-    // rollup depends back on the task's own container). The old per-node query
-    // path recursed forever on this shape; the guard makes it a diagnosable
-    // error instead.
-    throw invariant(`derivation cycle through container dependencies at node ${String(node.id)}`);
+    // The old per-node query path recursed forever on this shape; the guard
+    // makes it a diagnosable error (see DerivationCycleError).
+    throw new DerivationCycleError(node.id);
   }
   set.inFlight.add(node.id);
   try {

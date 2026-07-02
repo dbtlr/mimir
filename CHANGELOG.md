@@ -107,6 +107,18 @@ release. When a release is cut, this section is promoted to
   are unchanged, and `serve` gains a `MIMIR_PORT` env override (precedence:
   `--port` > `MIMIR_PORT` > config > default) mirroring `MIMIR_DB`.
 
+### Fixed
+
+- **`depend` and `move` reject a write that would close a derivation cycle
+  through container rollups** (MMR-140). A verb-constructible shape — a task in
+  initiative A depending on container C, while a task in C depends back on A —
+  closes a loop that the same-lineage and raw dependency-cycle guards cannot
+  see; reads on that shape failed with a diagnosable `invariant` (and, before
+  the in-memory derivation, recursed forever). The verbs now simulate the
+  candidate edge or re-parent over the working-set snapshot and reuse the
+  runtime cycle detection to reject it up front (`validation`), so the broken
+  shape can no longer be written.
+
 ## v0.12.0 - 2026-06-28
 
 The attention-router release. The `/` page (renamed from "fleet" to **Overview**)

@@ -143,3 +143,19 @@ test('a task awaits an unsettled prerequisite and becomes ready once it settles'
   await setLifecycle(prereq2.id, 'abandoned');
   expect(nodeStatusWord(await setOf(), await reload(dependent.id))).toBe('ready');
 });
+
+test('a container-dependency loop written behind the verbs throws the cycle invariant', async () => {
+  // The depend/move guards reject this shape at write time (MMR-140); write the
+  // raw rows to pin the read-side detection for data that predates the guards.
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const initA = await createInitiative(store, { projectId: p.id, title: 'A' });
+  const b = await createTask(store, { parentId: initA.id, title: 'b' });
+  const initC = await createInitiative(store, { projectId: p.id, title: 'C' });
+  const d = await createTask(store, { parentId: initC.id, title: 'd' });
+  await dep(b.id, initC.id); // A's task awaits C's rollup
+  await dep(d.id, initA.id); // C's task awaits A's rollup — the loop
+
+  const set = await setOf();
+  const node = await reload(b.id);
+  expect(() => nodeStatusWord(set, node)).toThrow(/derivation cycle/);
+});
