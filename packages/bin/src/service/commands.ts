@@ -249,18 +249,21 @@ export async function cmdService(
       }
       for (const name of units) {
         const unit = deps.units[name];
-        const wasInstalled = existsSync(unit.plistFile);
-        // Tolerant bootout regardless — cleans up a unit still loaded whose plist
-        // vanished — but only *report* (and log) a teardown that actually happened,
-        // so a not-installed unit never shows a phantom 'uninstall' event.
+        const onDisk = existsSync(unit.plistFile);
+        // "Present" = on disk OR still loaded (a plist can vanish while the unit
+        // runs). The bootout is tolerant either way; we report/log a teardown
+        // exactly when there was something to tear down — no phantom event for a
+        // never-installed unit, no silent teardown of a live one.
+        const present = onDisk || (await unit.supervisor.info()).loaded;
         await unit.supervisor.uninstall();
-        if (wasInstalled) {
+        if (onDisk) {
           rmSync(unit.plistFile);
+        }
+        results.push({ action: 'uninstall', ok: true, unit: name });
+        if (present) {
           log('uninstall', true, name);
-          results.push({ action: 'uninstall', ok: true, unit: name });
           humans.push(() => ok(io, `${name} uninstalled (config and logs kept)`));
         } else {
-          results.push({ action: 'uninstall', ok: true, unit: name });
           humans.push(() => ok(io, `${name}: not installed (nothing to remove)`));
         }
       }
@@ -307,11 +310,13 @@ export async function cmdService(
         return 0;
       }
       emitActions(results, humans);
-      // A bare sweep acts on exactly what's installed → always success. But an
-      // explicitly targeted unit (named, or via `all`) that isn't installed is
-      // a request that couldn't be honored — surface it in the exit code so a
-      // `mimir service start snapshot && …` chain doesn't proceed on a no-op.
-      return sel !== undefined && results.some((r) => !r.ok) ? 1 : 0;
+      // A sweep (bare or `all`) acts on whatever is installed → success even if
+      // the opt-in snapshot unit is absent (the common serve-only host). Only a
+      // single, explicitly-named unit that isn't installed is a request that
+      // couldn't be honored — exit nonzero so a `mimir service start snapshot &&
+      // …` chain doesn't proceed on a no-op.
+      const explicitUnit = sel !== undefined && sel !== 'all';
+      return explicitUnit && results.some((r) => !r.ok) ? 1 : 0;
     }
     default: {
       // Unreachable — `sub` is validated against SUBCOMMANDS above (narrows to never here).

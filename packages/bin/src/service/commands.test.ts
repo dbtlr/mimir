@@ -260,9 +260,10 @@ test('restart all skips a not-installed unit instead of throwing', async () => {
 
   const code = await cmdService(['service', 'restart', 'all'], {}, io, d);
 
-  // `all` names both, but only serve is installed: serve restarts, snapshot is a
-  // reported no-op (never a throw), and the unhonored target makes the exit nonzero.
-  expect(code).toBe(1);
+  // `all` is a sweep like the bare verb: serve restarts, snapshot is a reported
+  // no-op (never a throw), and the sweep still succeeds (exit 0) on the common
+  // serve-only host where snapshot is simply not installed.
+  expect(code).toBe(0);
   expect(serveSup.calls).toContain('restart');
   expect(snapSup.calls).toEqual([]); // never touched despite `all`
   expect(io.err.join('\n')).toContain('snapshot: not installed');
@@ -297,6 +298,23 @@ test('uninstall of a not-installed unit logs nothing and reports honestly', asyn
   expect(io.out.join('\n')).not.toContain('snapshot uninstalled');
   // No phantom 'uninstall' event was logged for a unit that never existed.
   expect(recentEvents(d.eventsFile, 10)).toEqual([]);
+});
+
+// 4g. a unit still loaded whose plist vanished is a REAL teardown — bootout
+// runs and the event is logged, not silently mis-reported as "not installed".
+test('uninstall of a loaded unit with no plist reports and logs a real teardown', async () => {
+  const loadedSnap = new FakeSupervisor();
+  loadedSnap.state = { loaded: true, pid: 999, running: true };
+  const io = fakeIo();
+  const d = deps(new FakeSupervisor(), {}, loadedSnap);
+  // No snapshot plist on disk, but the unit is loaded/running.
+
+  const code = await cmdService(['service', 'uninstall', 'snapshot'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(loadedSnap.calls).toContain('uninstall'); // bootout actually ran
+  expect(io.out.join('\n')).toContain('snapshot uninstalled');
+  expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['uninstall']);
 });
 
 // 4d. a bare `uninstall` sweeps whatever is installed — it must not orphan the
