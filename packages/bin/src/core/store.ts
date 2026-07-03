@@ -42,6 +42,8 @@ export type WorkingSet = {
   edges: readonly Dependency[];
   /** Node id → its tag records in `created_at` order. Absent = untagged. */
   nodeTags: ReadonlyMap<number, readonly NodeTag[]>;
+  /** Project id → its tag records in `created_at` order. Absent = untagged. */
+  projectTags: ReadonlyMap<number, readonly NodeTag[]>;
 };
 
 // ---------------------------------------------------------------------------

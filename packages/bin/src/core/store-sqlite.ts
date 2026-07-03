@@ -18,8 +18,25 @@ import type { NodeTag, Store, StoreWriter, WorkingSet } from './store';
  * load a fresh working set *inside* their transaction (a `Tx` is a
  * `Kysely<DB>`), so guard derivation sees in-tx state.
  */
+/** Group `(entity_id, tag)` rows into an entity-id → tag-record map, in row order. */
+function groupTags(
+  rows: readonly { entity_id: number; tag: string; note: string | null; created_at: string }[],
+): Map<number, NodeTag[]> {
+  const byEntity = new Map<number, NodeTag[]>();
+  for (const row of rows) {
+    const record: NodeTag = { created_at: row.created_at, note: row.note, tag: row.tag };
+    const tags = byEntity.get(row.entity_id);
+    if (tags === undefined) {
+      byEntity.set(row.entity_id, [record]);
+    } else {
+      tags.push(record);
+    }
+  }
+  return byEntity;
+}
+
 export async function loadWorkingSet(executor: Db | Tx): Promise<WorkingSet> {
-  const [projects, nodes, edges, tagRows] = await Promise.all([
+  const [projects, nodes, edges, nodeTagRows, projectTagRows] = await Promise.all([
     executor.selectFrom('project').selectAll().orderBy('key', 'asc').execute(),
     executor.selectFrom('node').selectAll().execute(),
     executor.selectFrom('dependency').selectAll().execute(),
@@ -29,18 +46,20 @@ export async function loadWorkingSet(executor: Db | Tx): Promise<WorkingSet> {
       .where('entity_type', '=', 'node')
       .orderBy('created_at', 'asc')
       .execute(),
+    executor
+      .selectFrom('tag')
+      .select(['entity_id', 'tag', 'note', 'created_at'])
+      .where('entity_type', '=', 'project')
+      .orderBy('created_at', 'asc')
+      .execute(),
   ]);
-  const nodeTags = new Map<number, NodeTag[]>();
-  for (const row of tagRows) {
-    const record: NodeTag = { created_at: row.created_at, note: row.note, tag: row.tag };
-    const tags = nodeTags.get(row.entity_id);
-    if (tags === undefined) {
-      nodeTags.set(row.entity_id, [record]);
-    } else {
-      tags.push(record);
-    }
-  }
-  return { edges, nodeTags, nodes, projects };
+  return {
+    edges,
+    nodeTags: groupTags(nodeTagRows),
+    nodes,
+    projectTags: groupTags(projectTagRows),
+    projects,
+  };
 }
 
 /** The write vocabulary over one transaction — each method one thin Kysely call. */

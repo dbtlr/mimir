@@ -35,10 +35,10 @@ import type { Store } from '../store';
  * Projection assembly — build a {@link NodeView} from a node row plus the
  * requested facets. Bare fields are always populated (the row is in hand);
  * task-only / phase-only fields appear only for that type. Derivation-backed
- * facets (status, distribution, deps, verdicts, children, tags) serve from the
- * working-set snapshot (ADR 0016 Phase 0); record-keyed facets (annotations,
- * history, artifacts, project tags) stay per-identity reads on the executor
- * until their phase.
+ * facets (status, distribution, deps, verdicts, children, node and project tags)
+ * serve from the working-set snapshot (ADR 0016 Phase 0/2b); artifacts route
+ * through the artifact seam; the body-section facets (annotations, history) stay
+ * per-identity reads on the executor until Phase 3.
  */
 
 type Executor = Db | Tx;
@@ -239,7 +239,6 @@ async function buildProjectArtifacts(
  * annotations, history) are silently absent.
  */
 export async function buildProjectView(
-  db: Executor,
   artifacts: ArtifactStore,
   set: DerivationSet,
   project: Project,
@@ -276,14 +275,8 @@ export async function buildProjectView(
     view.attention = attentionOf(set, project);
   }
   if (facets.has('tags')) {
-    const rows = await db
-      .selectFrom('tag')
-      .select(['tag', 'note', 'created_at'])
-      .where('entity_type', '=', 'project')
-      .where('entity_id', '=', project.id)
-      .orderBy('created_at', 'asc')
-      .execute();
-    view.tags = rows.map((r) => ({ createdAt: r.created_at, note: r.note, tag: r.tag }));
+    const records = set.ws.projectTags.get(project.id) ?? [];
+    view.tags = records.map((r) => ({ createdAt: r.created_at, note: r.note, tag: r.tag }));
   }
   if (facets.has('artifacts')) {
     view.artifacts = await buildProjectArtifacts(artifacts, project);
@@ -350,7 +343,6 @@ export async function projectViewOf(
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView> {
   return buildProjectView(
-    store.db,
     store.artifacts,
     deriveSet(await store.loadWorkingSet()),
     project,
