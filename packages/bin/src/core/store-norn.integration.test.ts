@@ -49,6 +49,17 @@ function must<T>(value: T | undefined): T {
   return value;
 }
 
+/** Assert `run` rejects with a message matching `pattern` (all guards share one error code). */
+async function expectThrows(run: () => Promise<unknown>, pattern: RegExp): Promise<void> {
+  try {
+    await run();
+  } catch (error) {
+    expect(error instanceof Error ? error.message : String(error)).toMatch(pattern);
+    return;
+  }
+  throw new Error(`expected a throw matching ${String(pattern)}, but nothing was thrown`);
+}
+
 const jsonField = (key: string, value: unknown): string => `${key}=${JSON.stringify(value)}`;
 const wikilink = (stem: string): string => `[[${stem}]]`;
 
@@ -146,7 +157,11 @@ const projectView = (p: Project) => ({
   updated_at: p.updated_at,
 });
 
-const tagNames = (records: readonly { tag: string }[]): string[] => records.map((t) => t.tag);
+// Tags are a set (ADR 0005): Norn sorts by name, SQLite orders by (created_at,
+// tag) — so compare the sorted name sets, not the raw lists, or a multi-tag
+// entity false-fails on order alone.
+const tagNames = (records: readonly { tag: string }[]): string[] =>
+  records.map((t) => t.tag).toSorted();
 
 /**
  * A backend-independent view of a WorkingSet keyed by `KEY-seq` identity — drops
@@ -282,7 +297,17 @@ test.skipIf(!NORN)('parity: SQLite and Norn WorkingSets agree on the same graph'
   const a = await createTask(store, { parentId: phase.id, priority: 'p1', title: 'Seam' });
   const b = await createTask(store, { parentId: phase.id, size: 'medium', title: 'Backend' });
   await depend(store, b.id, [a.id]);
-  await tagEntities(store, [{ entityId: b.id, entityType: 'node' }], ['workspace:mmr']);
+  // Two tags on b, then backdate one so SQLite's (created_at, tag) order — [zebra,
+  // alpha] — differs from Norn's alphabetical [alpha, zebra]. This exercises the
+  // tag-SET oracle: it false-fails against an ordered compare, passes as a set.
+  await tagEntities(store, [{ entityId: b.id, entityType: 'node' }], ['alpha', 'zebra']);
+  await db
+    .updateTable('tag')
+    .set({ created_at: '2020-01-01T00:00:00.000Z' })
+    .where('entity_type', '=', 'node')
+    .where('entity_id', '=', b.id)
+    .where('tag', '=', 'zebra')
+    .execute();
   await tagEntities(store, [{ entityId: project.id, entityType: 'project' }], ['release:v1']);
 
   const sqliteWs = await store.loadWorkingSet();
@@ -290,4 +315,111 @@ test.skipIf(!NORN)('parity: SQLite and Norn WorkingSets agree on the same graph'
   const nornWs = await loadWorkingSetOverNorn(client);
 
   expect(normalize(nornWs)).toEqual(normalize(sqliteWs));
+});
+
+// ── Referential-integrity guards: a malformed vault fails loud, never silently
+// projects a corrupt WorkingSet (the reader enforces SQLite's CHECK/FK). ──
+
+const TS = '2026-06-01T00:00:00.000Z';
+
+async function writeProjectDoc(key: string): Promise<void> {
+  await writeDoc(`${key}/${key}.md`, [
+    jsonField('type', 'project'),
+    jsonField('key', key),
+    jsonField('name', key),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+}
+
+test.skipIf(!NORN)('throws on a node whose owning project is absent', async () => {
+  await writeDoc('ZZZ/ZZZ-1.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Orphan'),
+    jsonField('parent', wikilink('ZZZ')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  await expectThrows(() => loadWorkingSetOverNorn(client), /project ZZZ/);
+});
+
+test.skipIf(!NORN)('throws on a dangling KEY-seq parent', async () => {
+  await writeProjectDoc('MMR');
+  await writeDoc('MMR/MMR-1.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Lost'),
+    jsonField('parent', wikilink('MMR-99')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  await expectThrows(() => loadWorkingSetOverNorn(client), /parent MMR-99/);
+});
+
+test.skipIf(!NORN)('throws on a task with no lifecycle', async () => {
+  await writeProjectDoc('MMR');
+  await writeDoc('MMR/MMR-1.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'No lifecycle'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  await expectThrows(() => loadWorkingSetOverNorn(client), /lifecycle/);
+});
+
+test.skipIf(!NORN)('throws on a dangling prerequisite', async () => {
+  await writeProjectDoc('MMR');
+  await writeDoc('MMR/MMR-1.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Dependent'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('depends_on', [wikilink('MMR-99')]),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  await expectThrows(() => loadWorkingSetOverNorn(client), /depends on MMR-99/);
+});
+
+test.skipIf(!NORN)('deduplicates repeated depends_on wikilinks into one edge', async () => {
+  await writeProjectDoc('MMR');
+  await writeDoc('MMR/MMR-1.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Prereq'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  await writeDoc('MMR/MMR-2.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Dependent'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('depends_on', [wikilink('MMR-1'), wikilink('MMR-1')]),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  const ws = await loadWorkingSetOverNorn(client);
+  expect(ws.edges).toHaveLength(1);
+});
+
+test.skipIf(!NORN)('ignores task-only fields on a non-task document', async () => {
+  await writeProjectDoc('MMR');
+  await writeDoc('MMR/MMR-1.md', [
+    jsonField('type', 'phase'),
+    jsonField('title', 'Phase with stray fields'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('priority', 'p1'),
+    jsonField('rank', 5),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  const ws = await loadWorkingSetOverNorn(client);
+  const phase = must(ws.nodes[0]);
+  expect(phase.type).toBe('phase');
+  expect(phase.priority).toBeNull();
+  expect(phase.rank).toBeNull();
 });
