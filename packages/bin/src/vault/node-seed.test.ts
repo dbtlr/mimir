@@ -190,7 +190,7 @@ test('seedNodes projects a real store: projects first, then nodes with resolved 
   const rec = recorder();
   const report = await seedNodes(ws, rec.write);
 
-  expect(report).toEqual({ created: 5, nodes: 4, projects: 1, skipped: 0, updated: 0 });
+  expect(report).toEqual({ created: 5, nodes: 4, projects: 1 });
   // Project doc lands before any node doc (parents-on-disk-first).
   expect(rec.docs[0]?.path).toBe('FOO/FOO.md');
   expect(rec.docs.slice(1).every((d) => d.path.startsWith('FOO/FOO-'))).toBe(true);
@@ -232,7 +232,7 @@ test('seedNodes resolves a cross-project dependency to the prerequisite stem', a
   expect(consumerFm?.depends_on).toEqual([`[[BAR-${String(prereq.seq)}]]`]);
 });
 
-// ── The live-Norn upsert write ───────────────────────────────────────────────
+// ── The live-Norn write ─────────────────────────────────────────────────────
 
 test('nornSeedWrite: fresh path -> newDoc(field_json) reports created', async () => {
   const calls: { method: string; args: unknown }[] = [];
@@ -264,23 +264,29 @@ test('nornSeedWrite: fresh path -> newDoc(field_json) reports created', async ()
   expect(args.field_json).toContain('depends_on=["[[FOO-2]]"]');
 });
 
-test('nornSeedWrite: path collision -> set(frontmatter) reports updated (mutable-node upsert)', async () => {
-  const calls: { method: string; args: unknown }[] = [];
+test('nornSeedWrite: a path collision fails loud, never merging onto the occupant', async () => {
+  const calls: { method: string }[] = [];
   const client = {
     newDoc: () => Promise.reject(new Error('destination already exists: FOO/FOO-3.md')),
-    set: (args: unknown) => {
-      calls.push({ args, method: 'set' });
+    set: () => {
+      calls.push({ method: 'set' });
       return Promise.resolve({});
     },
   } as unknown as NornClient;
 
-  const fm = { lifecycle: 'in_progress', type: 'task' };
-  const outcome = await nornSeedWrite(client)({ frontmatter: fm, path: 'FOO/FOO-3.md' });
-
-  expect(outcome).toBe('updated');
-  expect(calls).toHaveLength(1);
-  expect(calls[0]?.method).toBe('set');
-  expect(calls[0]?.args).toEqual({ confirm: true, set: fm, target: 'FOO/FOO-3.md' });
+  let caught: unknown;
+  try {
+    await nornSeedWrite(client)({
+      frontmatter: { lifecycle: 'in_progress', type: 'task' },
+      path: 'FOO/FOO-3.md',
+    });
+  } catch (error) {
+    caught = error;
+  }
+  expect(caught).toBeInstanceOf(Error);
+  expect((caught as Error).message).toMatch(/already has a document at FOO\/FOO-3\.md/);
+  // no fallback merge: it would leave fields cleared in SQLite stale, and could clobber a foreign doc
+  expect(calls).toHaveLength(0);
 });
 
 test('nornSeedWrite: a non-collision newDoc error propagates (no silent skip)', async () => {

@@ -1,3 +1,4 @@
+import { validation } from '../core/errors';
 import { renderId } from '../core/ids';
 import type { Node, Project } from '../core/model';
 import type { NodeTag, WorkingSet } from '../core/store';
@@ -31,17 +32,23 @@ import type { NornClient } from '../norn/client';
 /** One document to write: its vault path and the frontmatter record. */
 export type SeedDoc = { path: string; frontmatter: Record<string, unknown> };
 
-/** The injected write — `created` (fresh), `updated` (overwrote), `skipped` (no-op). */
+/**
+ * The injected write. The seed targets a FRESH vault (the harness converges a
+ * new one per run), so every write creates a document; a pre-existing path is
+ * out of contract and fails loud rather than merging (which would leave fields
+ * that cleared in SQLite stale — a false parity mismatch) or clobbering a doc
+ * whose identity was never checked. Node convergence over a mutated vault would
+ * need field-level removal Norn's `set` doesn't offer; the authoritative,
+ * lossless migration is Phase 3.
+ */
 export type SeedWrite = (doc: SeedDoc) => Promise<SeedOutcome>;
 
-export type SeedOutcome = 'created' | 'updated' | 'skipped';
+export type SeedOutcome = 'created';
 
 export type SeedReport = {
   projects: number;
   nodes: number;
   created: number;
-  updated: number;
-  skipped: number;
 };
 
 const wikilink = (stem: string): string => `[[${stem}]]`;
@@ -141,7 +148,7 @@ export async function seedNodes(ws: WorkingSet, write: SeedWrite): Promise<SeedR
     }
   }
 
-  const report: SeedReport = { created: 0, nodes: 0, projects: 0, skipped: 0, updated: 0 };
+  const report: SeedReport = { created: 0, nodes: 0, projects: 0 };
   const tally = (outcome: SeedOutcome): void => {
     report[outcome] += 1;
   };
@@ -205,11 +212,13 @@ export function nornSeedWrite(client: NornClient): SeedWrite {
       });
       return 'created';
     } catch (error) {
-      if (!isPathCollision(error)) {
-        throw error;
+      if (isPathCollision(error)) {
+        throw validation(
+          `vault already has a document at ${path}`,
+          'the node seed targets a fresh vault — re-converge a new one rather than re-seeding a populated one',
+        );
       }
-      await client.set({ confirm: true, set: frontmatter, target: path });
-      return 'updated';
+      throw error;
     }
   };
 }
