@@ -199,6 +199,8 @@ test('start/stop/restart delegate and log', async () => {
   const sup = new FakeSupervisor();
   const io = fakeIo();
   const d = deps(sup);
+  // A lifecycle verb only acts on an installed unit — set serve up first.
+  await cmdService(['service', 'install', 'serve'], {}, io, d);
 
   const c1 = await cmdService(['service', 'start', 'serve'], {}, io, d);
   const c2 = await cmdService(['service', 'stop', 'serve'], {}, io, d);
@@ -207,8 +209,13 @@ test('start/stop/restart delegate and log', async () => {
   expect(c1).toBe(0);
   expect(c2).toBe(0);
   expect(c3).toBe(0);
-  expect(sup.calls).toEqual(['start', 'stop', 'restart']);
-  expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['start', 'stop', 'restart']);
+  expect(sup.calls).toEqual(['install', 'start', 'stop', 'restart']);
+  expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual([
+    'install',
+    'start',
+    'stop',
+    'restart',
+  ]);
 });
 
 // 4b. a bare lifecycle verb sweeps only INSTALLED units — it must not hard-fail
@@ -234,6 +241,48 @@ test('restart with no selector skips a not-installed unit instead of throwing', 
   expect(code).toBe(0);
   expect(serveSup.calls).toContain('restart');
   expect(snapSup.calls).toEqual([]); // the not-installed unit was never touched
+});
+
+// 4c. an explicit `all` (or a named not-installed unit) must ALSO skip an
+// uninstalled unit — the installed()-guard applies to every selector.
+test('restart all skips a not-installed unit instead of throwing', async () => {
+  const serveSup = new FakeSupervisor();
+  class ThrowingSupervisor extends FakeSupervisor {
+    override restart(): Promise<void> {
+      this.calls.push('restart');
+      return Promise.reject(new Error('kickstart: service not found'));
+    }
+  }
+  const snapSup = new ThrowingSupervisor();
+  const io = fakeIo();
+  const d = deps(serveSup, {}, snapSup);
+  await cmdService(['service', 'install', 'serve'], {}, io, d); // snapshot NOT installed
+
+  const code = await cmdService(['service', 'restart', 'all'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(serveSup.calls).toContain('restart');
+  expect(snapSup.calls).toEqual([]); // never touched despite `all`
+  expect(io.err.join('\n')).toContain('snapshot: not installed');
+});
+
+// 4d. a bare `uninstall` sweeps whatever is installed — it must not orphan the
+// snapshot timer set up via `install all` (regression: uninstall defaulted to
+// serve only, leaving the auto-push timer running).
+test('uninstall with no selector tears down every installed unit', async () => {
+  const serveSup = new FakeSupervisor();
+  const snapSup = new FakeSupervisor();
+  const io = fakeIo();
+  const d = deps(serveSup, {}, snapSup);
+  await cmdService(['service', 'install', 'all'], {}, io, d);
+
+  const code = await cmdService(['service', 'uninstall'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(serveSup.calls).toContain('uninstall');
+  expect(snapSup.calls).toContain('uninstall');
+  expect(existsSync(d.units.serve.plistFile)).toBe(false);
+  expect(existsSync(d.units.snapshot.plistFile)).toBe(false); // no orphan
 });
 
 // 5. unknown subcommand is usage; non-darwin is a loud operational error

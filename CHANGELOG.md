@@ -27,9 +27,11 @@ release. When a release is cut, this section is promoted to
   `[vault.snapshot]` in the global config (`interval` seconds, `upstream`,
   `push`/`pull` toggles). Scheduling rides the `service` family via a unit
   selector — `mimir service <verb> [serve|snapshot|all]`. Snapshot is
-  **opt-in**: `install`/`uninstall` default to serve only, so the timer is set
-  up deliberately with `service install snapshot` (or `install all`); the
-  lifecycle verbs (`start`/`stop`/`restart`) sweep whatever is installed. The
+  **opt-in**: `install` defaults to serve only, so the timer is set up
+  deliberately with `service install snapshot` (or `install all`), while
+  `uninstall` and the lifecycle verbs (`start`/`stop`/`restart`) sweep whatever
+  is installed — a bare `uninstall` never orphans the timer, and a bare
+  lifecycle verb never fails on a unit that was never set up. The
   snapshot unit is a `StartInterval` launchd unit (default 900s, the atlas
   precedent); `service status` reports both units.
 - **Artifacts can be stored in the Norn vault** (MMR-143, ADR 0016 Phase 2a).

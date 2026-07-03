@@ -118,10 +118,10 @@ other:
                           startup line names the bound URL)
   service <sub> [unit]    supervise the launchd units (macOS): install
                           [--port <n>] · uninstall · start · stop · restart ·
-                          status. unit is serve | snapshot | all; install /
-                          uninstall default to serve (snapshot is opt-in), the
-                          lifecycle verbs sweep whatever is installed. --port
-                          writes ~/.config/mimir/config.toml
+                          status. unit is serve | snapshot | all; install
+                          defaults to serve (snapshot is opt-in), uninstall +
+                          the lifecycle verbs sweep whatever is installed.
+                          --port writes ~/.config/mimir/config.toml
   self-update [--next] [--tag <tag>]
                           download + verify a release, replace this binary,
                           restart the service if loaded. default: latest
