@@ -265,6 +265,23 @@ test('writeConfig preserves an unmanaged section with arrays, floats, and inline
   expect(round.extra).toEqual({ ratio: 1.5, rows: [{ a: 1 }, { a: 2 }], tags: ['a', 'b'] });
 });
 
+test('writeConfig emits quoted keys so a space-containing key stays valid TOML', () => {
+  const file = join(dir, 'config.toml');
+  // An array-of-tables element with a key that needs quoting, plus a quoted
+  // top-level section key — the emitter must quote both, not corrupt the file.
+  writeFileSync(file, '["a b"]\nx = 1\n[[m]]\n"src path" = "/a"\ndst = "/b"\n');
+  writeServePort(file, 50131);
+  // The rewritten file must still parse (a bare `src path =` would throw).
+  const round = Bun.TOML.parse(readFileSync(file, 'utf8')) as {
+    serve: { port: number };
+    'a b': { x: number };
+    m: { 'src path': string; dst: string }[];
+  };
+  expect(round.serve.port).toBe(50131);
+  expect(round['a b']).toEqual({ x: 1 });
+  expect(round.m).toEqual([{ dst: '/b', 'src path': '/a' }]);
+});
+
 test('writeServePort no longer clobbers: an existing [vault] path survives', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(file, '[vault]\npath = "/keep"\n');
