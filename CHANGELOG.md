@@ -145,6 +145,14 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Read-path facets derive from the working-set snapshot** (MMR-148, ADR 0016
+  Phase 2b) — `get`/`tree`/`status` facet assembly, project tags, and
+  `KEY-seq` token resolution now project off the same in-memory working set as
+  status derivation instead of firing per-read SQLite queries, and that
+  snapshot loads inside one read transaction for a consistent view. Behavior-
+  preserving, with one visible refinement: tag lists (`--col tags`) now render
+  in a stable order — `created_at`, then tag name — so tags stamped in the same
+  instant no longer sort arbitrarily.
 - **`mimir service status` / lifecycle JSON envelopes are now multi-unit**
   (MMR-146). With serve and snapshot both managed under `service`, the
   structured output carries a unit array rather than a single daemon's fields:
