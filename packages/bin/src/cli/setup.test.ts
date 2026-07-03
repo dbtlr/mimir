@@ -322,6 +322,27 @@ test('a reconfigure preserves operator-set push/pull the wizard never asks about
   expect(readConfig(d.service.configFile).vault.snapshot).toEqual({ interval: 600, push: false });
 });
 
+test('a malformed config is rewritten with a warning (reset is never silent)', async () => {
+  const d = deps(new FakeSupervisor(), new FakeSupervisor());
+  writeFileSync(d.service.configFile, 'this is [not valid toml');
+  const io = fakeIo(false);
+  const code = await cmdSetup({ vault: join(dir, 'vault'), yes: true }, io, d, 'records');
+  expect(code).toBe(0);
+  expect(io.err.join('\n')).toMatch(/was not valid TOML — rewrote it fresh/);
+  expect(readConfig(d.service.configFile).vault.path).toBe(join(dir, 'vault'));
+});
+
+test('a valid but wrong-typed config does NOT trigger the false "not valid TOML" warning', async () => {
+  const d = deps(new FakeSupervisor(), new FakeSupervisor());
+  // Valid TOML whose serve section is wrong-typed — readConfig flags it, but the
+  // file parses fine, so writeConfig merges (no reset) and no warning fires.
+  writeFileSync(d.service.configFile, 'serve = 5\n[vault]\npath = "/keep"\n');
+  const io = fakeIo(false);
+  const code = await cmdSetup({ vault: join(dir, 'vault'), yes: true }, io, d, 'records');
+  expect(code).toBe(0);
+  expect(io.err.join('\n')).not.toMatch(/not valid TOML/);
+});
+
 test('declining an already-installed unit leaves it running and says so (install-only)', async () => {
   const d = deps(new FakeSupervisor(), new FakeSupervisor());
   // Simulate a snapshot unit already installed on disk.

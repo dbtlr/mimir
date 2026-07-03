@@ -194,7 +194,11 @@ export async function cmdService(
         if (!Number.isInteger(port) || port < 1 || port > 65535) {
           throw usage('service install: --port expects an integer in 1–65535');
         }
-        writeServePort(deps.configFile, port);
+        // A reset means the prior file was unparseable and got rewritten fresh
+        // (lossy) — surface it rather than clobbering other sections silently.
+        if (writeServePort(deps.configFile, port).reset) {
+          warn(io, `existing config at ${deps.configFile} was not valid TOML — rewrote it fresh`);
+        }
       }
       const results: ServiceActionResult[] = [];
       const humans: (() => void)[] = [];
