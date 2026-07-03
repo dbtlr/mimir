@@ -107,7 +107,6 @@ async function seedVaultFromWorkingSet(ws: WorkingSet): Promise<void> {
     const scalars: [string, string | number | null][] = [
       ['description', n.description],
       ['lifecycle', n.lifecycle],
-      ['hold', n.hold],
       ['hold_reason', n.hold_reason],
       ['priority', n.priority],
       ['size', n.size],
@@ -120,6 +119,12 @@ async function seedVaultFromWorkingSet(ws: WorkingSet): Promise<void> {
       if (value !== null) {
         fields.push(jsonField(key, value));
       }
+    }
+    // hold: the idiomatic vault representation omits the 'none' default (a task's
+    // no-hold state), matching the shipped MMR-150 seed; only a real hold is
+    // written. The reader must reconstruct 'none' for a task with no hold field.
+    if (n.hold !== null && n.hold !== 'none') {
+      fields.push(jsonField('hold', n.hold));
     }
     const prereqs = prereqStems.get(n.id) ?? [];
     if (prereqs.length > 0) {
