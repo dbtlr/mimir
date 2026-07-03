@@ -26,11 +26,14 @@ import {
   configPath,
   manualFetch,
   plistPath,
+  readConfig,
   readServeConfig,
 } from './service';
 import type { Health, ServiceDeps } from './service';
 import { buildStore } from './store-backend';
 import type { BuiltStore } from './store-backend';
+import { resolveVault } from './vault';
+import type { VaultDeps } from './vault/commands';
 import { VERSION } from './version';
 
 /**
@@ -153,6 +156,16 @@ function realServiceDeps(): ServiceDeps {
   };
 }
 
+function realVaultDeps(): VaultDeps {
+  return {
+    exec: bunExec,
+    resolveVault: () =>
+      resolveVault({ configPath: readConfig().vault.path, envPath: process.env.MIMIR_VAULT }),
+    snapshotConfig: () => readConfig().vault.snapshot ?? {},
+    stamp: () => new Date().toISOString(),
+  };
+}
+
 async function main(argv: string[]): Promise<number> {
   const command = argv[0];
 
@@ -260,6 +273,7 @@ async function main(argv: string[]): Promise<number> {
       cwd: process.cwd(),
       scope: findBinding(process.cwd()),
       service: realServiceDeps(),
+      vault: realVaultDeps(),
     });
   } finally {
     // Release the artifact backend (a Norn subprocess would otherwise keep the

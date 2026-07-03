@@ -128,6 +128,9 @@ other:
   migrate-artifacts [--dry-run]
                           copy SQLite artifacts into the vault backend
                           (cutover, MMR-144): idempotent + non-destructive
+  vault snapshot          commit the vault's working tree (commit-if-dirty),
+                          then push + reconcile when an upstream is configured;
+                          the cadence behind the scheduled snapshot unit
   migrate [status] · mcp
 `;
 
@@ -484,6 +487,15 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     summary:
       'copy SQLite artifacts into the vault backend (cutover) — preserves KEY-aN identity + timestamps; idempotent and non-destructive (SQLite is untouched).',
     usage: 'mimir migrate-artifacts [--dry-run]',
+  },
+  // ── vault cadence (MMR-146) ──
+  vault: {
+    examples: [
+      'mimir vault snapshot                 # commit the vault; push if an upstream is set',
+    ],
+    summary:
+      "snapshot the vault's git working tree (commit-if-dirty), then push and reconcile a diverged upstream (fetch + merge). Quiet on success; the scheduled unit calls it on an interval.",
+    usage: 'mimir vault snapshot',
   },
   // ── binding ──
   bind: {
