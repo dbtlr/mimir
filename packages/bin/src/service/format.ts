@@ -20,21 +20,38 @@ export type ServicePaths = {
   log: string;
 };
 
-export type ServiceStatus = {
+/** Which launchd unit a status/action concerns (MMR-146). */
+export type UnitName = 'serve' | 'snapshot';
+
+/**
+ * One unit's status. `loaded`/`running`/`pid`/`plist`/`log` are common; the
+ * serve-only (`port`, `health`, `configProblem`) and snapshot-only
+ * (`intervalSeconds`) fields are present only for their unit.
+ */
+export type UnitStatus = {
+  unit: UnitName;
   loaded: boolean;
   running: boolean;
   pid: number | null;
-  port: number;
-  configProblem: string | null;
-  health: ServiceHealth | null;
+  plist: string;
+  log: string;
+  port?: number;
+  configProblem?: string | null;
+  health?: ServiceHealth | null;
+  intervalSeconds?: number;
+};
+
+export type ServiceStatusReport = {
+  units: UnitStatus[];
+  config: string;
   recentEvents: ServiceEvent[];
-  paths: ServicePaths;
 };
 
 export type ServiceAction = 'install' | 'uninstall' | 'start' | 'stop' | 'restart';
 
 export type ServiceActionResult = {
   action: ServiceAction;
+  unit: UnitName;
   ok: boolean;
   port?: number;
   paths?: ServicePaths;
@@ -65,38 +82,72 @@ function eventToWire(e: ServiceEvent): Record<string, unknown> {
   return wire;
 }
 
-export function formatServiceStatusJson(status: ServiceStatus, pretty: boolean): string {
+/** One unit's wire object — only the fields relevant to that unit are emitted. */
+function unitToWire(u: UnitStatus): Record<string, unknown> {
+  const wire: Record<string, unknown> = {
+    loaded: u.loaded,
+    log: u.log,
+    pid: u.pid,
+    plist: u.plist,
+    running: u.running,
+    unit: u.unit,
+  };
+  if (u.port !== undefined) {
+    wire.port = u.port;
+  }
+  if (u.configProblem !== undefined) {
+    wire.config_problem = u.configProblem;
+  }
+  if (u.health !== undefined) {
+    wire.health =
+      u.health === null
+        ? null
+        : {
+            on_disk_version: u.health.onDiskVersion,
+            restart_pending: u.health.restartPending,
+            running_version: u.health.runningVersion,
+          };
+  }
+  if (u.intervalSeconds !== undefined) {
+    wire.interval_seconds = u.intervalSeconds;
+  }
+  return wire;
+}
+
+export function formatServiceStatusJson(report: ServiceStatusReport, pretty: boolean): string {
   return emitWire(
     {
-      config_problem: status.configProblem,
-      health:
-        status.health === null
-          ? null
-          : {
-              on_disk_version: status.health.onDiskVersion,
-              restart_pending: status.health.restartPending,
-              running_version: status.health.runningVersion,
-            },
-      loaded: status.loaded,
-      paths: status.paths,
-      pid: status.pid,
-      port: status.port,
-      recent_events: status.recentEvents.map(eventToWire),
-      running: status.running,
+      config: report.config,
+      recent_events: report.recentEvents.map(eventToWire),
+      units: report.units.map(unitToWire),
     },
     pretty,
   );
 }
 
-export function formatServiceActionJson(result: ServiceActionResult, pretty: boolean): string {
-  const wire: Record<string, unknown> = { action: result.action, ok: result.ok };
+function actionToWire(result: ServiceActionResult): Record<string, unknown> {
+  const wire: Record<string, unknown> = { action: result.action, ok: result.ok, unit: result.unit };
   if (result.port !== undefined) {
     wire.port = result.port;
   }
   if (result.paths !== undefined) {
     wire.paths = result.paths;
   }
-  return emitWire(wire, pretty);
+  return wire;
+}
+
+/**
+ * A verb can act on more than one unit (the default selector). `json` wraps the
+ * results in `{ actions: [...] }`; `jsonl` emits one action object per line.
+ */
+export function formatServiceActionsJson(
+  results: ServiceActionResult[],
+  format: 'json' | 'jsonl',
+): string {
+  if (format === 'jsonl') {
+    return results.map((r) => emitWire(actionToWire(r), false)).join('\n');
+  }
+  return emitWire({ actions: results.map(actionToWire) }, true);
 }
 
 export function formatSelfUpdateJson(result: SelfUpdateResult, pretty: boolean): string {

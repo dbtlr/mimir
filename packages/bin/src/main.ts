@@ -20,14 +20,22 @@ import { DEFAULT_PORT, envPort, storePath } from './env';
 import { createServer } from './http';
 import { serveStdio } from './mcp';
 import {
+  DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
   EVENTS_FILE,
   LaunchdSupervisor,
+  SERVE_LABEL,
+  SERVE_LOG_FILE,
+  SNAPSHOT_LABEL,
+  SNAPSHOT_LOG_FILE,
   bunExec,
   configPath,
   manualFetch,
-  plistPath,
+  plistFor,
+  plistForSnapshot,
+  plistPathFor,
   readConfig,
   readServeConfig,
+  readVaultConfig,
 } from './service';
 import type { Health, ServiceDeps } from './service';
 import { buildStore } from './store-backend';
@@ -128,8 +136,10 @@ function servePort(args: string[]): number | null | undefined {
 }
 
 function realServiceDeps(): ServiceDeps {
+  const binPath = process.execPath;
+  const uid = process.getuid?.() ?? 501;
   return {
-    binPath: process.execPath,
+    binPath,
     configFile: configPath(),
     dbPath: process.env.MIMIR_DB,
     eventsFile: EVENTS_FILE,
@@ -150,8 +160,27 @@ function realServiceDeps(): ServiceDeps {
       }
     },
     platform: process.platform,
-    plistFile: plistPath(),
-    supervisor: new LaunchdSupervisor(bunExec, process.getuid?.() ?? 501),
+    units: {
+      serve: {
+        logFile: SERVE_LOG_FILE,
+        plistFile: plistPathFor(SERVE_LABEL),
+        render: () => plistFor(binPath, { dbPath: process.env.MIMIR_DB }),
+        supervisor: new LaunchdSupervisor(bunExec, uid, SERVE_LABEL),
+      },
+      snapshot: {
+        logFile: SNAPSHOT_LOG_FILE,
+        plistFile: plistPathFor(SNAPSHOT_LABEL),
+        // Read the interval + vault at install time so the plist bakes the
+        // operator's current config (launchd does no shell expansion).
+        render: () =>
+          plistForSnapshot(binPath, {
+            intervalSeconds:
+              readVaultConfig().snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+            vaultPath: process.env.MIMIR_VAULT,
+          }),
+        supervisor: new LaunchdSupervisor(bunExec, uid, SNAPSHOT_LABEL),
+      },
+    },
     version: VERSION,
   };
 }
