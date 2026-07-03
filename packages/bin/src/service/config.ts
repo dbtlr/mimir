@@ -226,33 +226,34 @@ function asTable(value: unknown): Table {
   return isTable(value) ? { ...value } : {};
 }
 
-/** A value not in a table position — every scalar kind TOML parses into. */
-function isScalar(value: unknown): value is string | number | boolean | Date | unknown[] {
-  return (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean' ||
-    value instanceof Date ||
-    Array.isArray(value)
-  );
-}
-
 /**
- * Emit one TOML value. Covers every kind `Bun.TOML.parse` produces — including
- * arrays and datetimes a hand-edited config may carry — so a preserved value is
- * never a write-aborting surprise. (Strings ride JSON's escaping, a valid TOML
- * basic string.)
+ * Emit one TOML value, losslessly — every kind `Bun.TOML.parse` produces:
+ * strings (via JSON's escaping, a valid TOML basic string), numbers, booleans,
+ * datetimes, arrays (elements recursed, so an array of inline tables survives),
+ * and inline tables. Nothing is filtered out, so a preserved value is never
+ * silently truncated.
  */
-function emitValue(value: string | number | boolean | Date | unknown[]): string {
+function emitValue(value: unknown): string {
   if (typeof value === 'string') {
     return JSON.stringify(value);
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
   }
   if (value instanceof Date) {
     return value.toISOString();
   }
   if (Array.isArray(value)) {
-    return `[${value.filter(isScalar).map(emitValue).join(', ')}]`;
+    return `[${value.map(emitValue).join(', ')}]`;
   }
+  if (isTable(value)) {
+    const inner = Object.entries(value)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => `${k} = ${emitValue(v)}`)
+      .join(', ');
+    return inner === '' ? '{}' : `{ ${inner} }`;
+  }
+  // Unreachable for TOML-parsed input; a plain coercion keeps it from vanishing.
   return String(value);
 }
 
@@ -269,12 +270,13 @@ function emitTable(prefix: string, table: Table, out: string[]): void {
     if (value === undefined) {
       continue;
     }
-    // Scalars (arrays + Date included) are checked before the table branch,
-    // since a Date is also `typeof 'object'`.
-    if (isScalar(value)) {
-      scalars.push(`${key} = ${emitValue(value)}`);
-    } else if (isTable(value)) {
+    // A nested table becomes a `[section]`; a Date is `typeof 'object'` too, so
+    // it is excluded here and emitted as a scalar. Everything else (primitives,
+    // arrays) is a scalar-position value.
+    if (isTable(value) && !(value instanceof Date)) {
       subTables.push([key, value]);
+    } else {
+      scalars.push(`${key} = ${emitValue(value)}`);
     }
   }
   if (scalars.length > 0) {
@@ -285,24 +287,11 @@ function emitTable(prefix: string, table: Table, out: string[]): void {
   }
 }
 
-/**
- * Parse the existing config for merging. A file that isn't valid TOML can't be
- * merged into, so it is treated as absent — the routine write proceeds and
- * overwrites the unparseable content (the prior whole-file writer clobbered it
- * unconditionally; this is no worse, and it keeps setup — the repair path —
- * from stranding a converged vault behind a hard failure). A *parseable* file's
- * sections all survive verbatim; only genuine garbage is dropped.
- */
-function readRawConfig(file: string): Table {
-  if (!existsSync(file)) {
-    return {};
-  }
-  try {
-    return asTable(Bun.TOML.parse(readFileSync(file, 'utf8')));
-  } catch {
-    return {};
-  }
-}
+/** The outcome of {@link writeConfig}: whether an unparseable file was reset. */
+export type WriteResult = {
+  /** True when the existing file was not valid TOML and was rewritten fresh (lossy). */
+  reset: boolean;
+};
 
 /**
  * Merge a patch into the config and rewrite it whole. Operates on the RAW parsed
@@ -310,11 +299,24 @@ function readRawConfig(file: string): Table {
  * doesn't name survives verbatim — including a reader-rejected value (an invalid
  * `[vault.snapshot]` key is not silently erased when an unrelated `[serve] port`
  * is written). Comments and blank-line grouping are not preserved (the config is
- * tool-managed). An unparseable file is treated as absent (see {@link
- * readRawConfig}).
+ * tool-managed).
+ *
+ * A file that isn't valid TOML can't be merged into, so it is treated as absent
+ * and overwritten (the prior whole-file writer clobbered unconditionally; this
+ * is no worse, and it keeps setup — the repair path — from stranding a converged
+ * vault behind a hard failure). That reset is LOSSY, so it is reported via
+ * `reset: true`; every caller must surface it (it is not silent).
  */
-export function writeConfig(file: string, patch: ConfigPatch): void {
-  const raw = readRawConfig(file);
+export function writeConfig(file: string, patch: ConfigPatch): WriteResult {
+  let raw: Table = {};
+  let reset = false;
+  if (existsSync(file)) {
+    try {
+      raw = asTable(Bun.TOML.parse(readFileSync(file, 'utf8')));
+    } catch {
+      reset = true; // unparseable — can't merge; the write below overwrites it
+    }
+  }
   if (patch.serve?.port !== undefined) {
     raw.serve = { ...asTable(raw.serve), port: patch.serve.port };
   }
@@ -335,13 +337,15 @@ export function writeConfig(file: string, patch: ConfigPatch): void {
   emitTable('', raw, out);
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, out.length === 0 ? '' : `${out.join('\n\n')}\n`);
+  return { reset };
 }
 
 /**
  * Write the serve port (the `service install --port` discovery path), merging
  * so other sections survive — the second key the original whole-file writer
- * anticipated has arrived (setup writes `[vault] path`).
+ * anticipated has arrived (setup writes `[vault] path`). Returns the same
+ * {@link WriteResult} as {@link writeConfig} so the caller can warn on a reset.
  */
-export function writeServePort(file: string, port: number): void {
-  writeConfig(file, { serve: { port } });
+export function writeServePort(file: string, port: number): WriteResult {
+  return writeConfig(file, { serve: { port } });
 }

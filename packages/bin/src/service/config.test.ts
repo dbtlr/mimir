@@ -234,25 +234,35 @@ test('writeConfig preserves a reader-rejected value rather than erasing its sect
   expect(round.vault.snapshot).toEqual({ interval: 900, push: 'no' });
 });
 
-test('writeConfig treats an unparseable file as absent and rewrites it (no hard failure)', () => {
+test('writeConfig treats an unparseable file as absent, rewrites it, and reports reset', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(file, '[vault]\npath = "/keep"\n[serve\nport = ???'); // broken TOML
   // Cannot merge into garbage — the write proceeds and overwrites it (matching
   // the prior whole-file writer), rather than throwing and stranding callers.
-  writeServePort(file, 50129);
+  // The loss is reported (reset) so callers can warn — it is never silent.
+  expect(writeServePort(file, 50129)).toEqual({ reset: true });
   expect(readServeConfig(file)).toEqual({ port: 50129 });
 });
 
-test('writeConfig preserves an unmanaged section with arrays and floats (no write-abort)', () => {
+test('writeConfig reports reset=false for a parseable (even wrong-typed) file', () => {
   const file = join(dir, 'config.toml');
-  writeFileSync(file, '[extra]\ntags = ["a", "b"]\nnums = [1, 2]\nratio = 1.5\n');
+  writeFileSync(file, '[vault]\npath = "/keep"\nserve = 5\n'); // valid TOML, wrong-typed serve
+  expect(writeConfig(file, { serve: { port: 50131 } })).toEqual({ reset: false });
+  // The parseable vault path survives (merge, not clobber).
+  expect(readVaultConfig(file)).toEqual({ path: '/keep' });
+});
+
+test('writeConfig preserves an unmanaged section with arrays, floats, and inline tables', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[extra]\ntags = ["a", "b"]\nratio = 1.5\nrows = [{ a = 1 }, { a = 2 }]\n');
   writeServePort(file, 50130);
   const round = Bun.TOML.parse(readFileSync(file, 'utf8')) as {
     serve: { port: number };
-    extra: { tags: string[]; nums: number[]; ratio: number };
+    extra: { tags: string[]; ratio: number; rows: { a: number }[] };
   };
   expect(round.serve.port).toBe(50130);
-  expect(round.extra).toEqual({ nums: [1, 2], ratio: 1.5, tags: ['a', 'b'] });
+  // The array of inline tables survives verbatim (not flattened to []).
+  expect(round.extra).toEqual({ ratio: 1.5, rows: [{ a: 1 }, { a: 2 }], tags: ['a', 'b'] });
 });
 
 test('writeServePort no longer clobbers: an existing [vault] path survives', () => {

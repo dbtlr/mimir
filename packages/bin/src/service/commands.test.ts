@@ -99,6 +99,20 @@ test('install serve writes the plist, delegates, logs, and --port writes config'
   expect(io.out.join('\n')).toContain('55440');
 });
 
+// 1b. install --port over a malformed config rewrites it, but warns (not silent)
+test('install --port over a malformed config warns about the lossy rewrite', async () => {
+  const sup = new FakeSupervisor();
+  const io = fakeIo();
+  const d = deps(sup);
+  writeFileSync(d.configFile, '[serve\nport = ???'); // broken TOML
+
+  const code = await cmdService(['service', 'install', 'serve'], { port: '55441' }, io, d);
+
+  expect(code).toBe(0);
+  expect(readServeConfig(d.configFile)).toEqual({ port: 55441 });
+  expect(io.err.join('\n')).toMatch(/was not valid TOML — rewrote it fresh/);
+});
+
 // 2. install without --port leaves config untouched
 test('install without --port leaves config untouched', async () => {
   const sup = new FakeSupervisor();

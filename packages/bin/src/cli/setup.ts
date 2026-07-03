@@ -202,13 +202,16 @@ async function applySetup(
   //    the snapshot unit is being set up. Snapshot is written authoritatively —
   //    the table becomes exactly what was gathered. Install below reads the port
   //    back from here rather than being handed it again.
-  writeConfig(deps.service.configFile, {
+  const { reset } = writeConfig(deps.service.configFile, {
     ...(answers.port === undefined ? {} : { serve: { port: answers.port } }),
     vault: {
       path: answers.vaultPath,
       ...(answers.installSnapshot ? { snapshot: answers.snapshot } : {}),
     },
   });
+  if (reset) {
+    warn(io, `existing config at ${deps.service.configFile} was not valid TOML — rewrote it fresh`);
+  }
 
   // 3. Install the opted-in launchd units in one call. Off darwin there are no
   //    launchd units — skip with a note rather than letting service install
@@ -282,11 +285,6 @@ export async function cmdSetup(
       'setup needs a TTY, or flags with -y to run non-interactively',
       'e.g. mimir setup --vault ~/.local/share/mimir/vault --install-service -y',
     );
-  }
-  // An unparseable config can't be merged into — writeConfig rewrites it fresh.
-  // Say so up front rather than dropping the old content silently.
-  if (readConfig(deps.service.configFile).serve.problem === 'malformed') {
-    warn(io, `existing config at ${deps.service.configFile} was not valid TOML — rewriting it`);
   }
   const answers =
     io.isTTY && values.yes !== true ? askInteractive(values, deps, io) : fromFlags(values, deps);
