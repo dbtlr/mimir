@@ -234,19 +234,25 @@ test('writeConfig preserves a reader-rejected value rather than erasing its sect
   expect(round.vault.snapshot).toEqual({ interval: 900, push: 'no' });
 });
 
-test('writeConfig refuses to overwrite a malformed config (never a silent clobber)', () => {
+test('writeConfig treats an unparseable file as absent and rewrites it (no hard failure)', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(file, '[vault]\npath = "/keep"\n[serve\nport = ???'); // broken TOML
-  let threw = false;
-  try {
-    writeServePort(file, 50129);
-  } catch (error) {
-    threw = true;
-    expect(error instanceof Error && /not valid TOML/.test(error.message)).toBe(true);
-  }
-  expect(threw).toBe(true);
-  // The broken file is left as-is, not clobbered.
-  expect(readFileSync(file, 'utf8')).toContain('/keep');
+  // Cannot merge into garbage — the write proceeds and overwrites it (matching
+  // the prior whole-file writer), rather than throwing and stranding callers.
+  writeServePort(file, 50129);
+  expect(readServeConfig(file)).toEqual({ port: 50129 });
+});
+
+test('writeConfig preserves an unmanaged section with arrays and floats (no write-abort)', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[extra]\ntags = ["a", "b"]\nnums = [1, 2]\nratio = 1.5\n');
+  writeServePort(file, 50130);
+  const round = Bun.TOML.parse(readFileSync(file, 'utf8')) as {
+    serve: { port: number };
+    extra: { tags: string[]; nums: number[]; ratio: number };
+  };
+  expect(round.serve.port).toBe(50130);
+  expect(round.extra).toEqual({ nums: [1, 2], ratio: 1.5, tags: ['a', 'b'] });
 });
 
 test('writeServePort no longer clobbers: an existing [vault] path survives', () => {

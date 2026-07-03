@@ -8,8 +8,6 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { conflict } from '../core/errors';
-
 export type ServeConfig = {
   port?: number;
   /** Set when a config file exists but contributed nothing — callers may warn. */
@@ -228,10 +226,34 @@ function asTable(value: unknown): Table {
   return isTable(value) ? { ...value } : {};
 }
 
-/** Emit one TOML scalar — the value kinds the mimir config actually uses. */
-function emitScalar(value: string | number | boolean): string {
-  // JSON's escaping is a valid TOML basic string for our string values.
-  return typeof value === 'string' ? JSON.stringify(value) : String(value);
+/** A value not in a table position — every scalar kind TOML parses into. */
+function isScalar(value: unknown): value is string | number | boolean | Date | unknown[] {
+  return (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    value instanceof Date ||
+    Array.isArray(value)
+  );
+}
+
+/**
+ * Emit one TOML value. Covers every kind `Bun.TOML.parse` produces — including
+ * arrays and datetimes a hand-edited config may carry — so a preserved value is
+ * never a write-aborting surprise. (Strings ride JSON's escaping, a valid TOML
+ * basic string.)
+ */
+function emitValue(value: string | number | boolean | Date | unknown[]): string {
+  if (typeof value === 'string') {
+    return JSON.stringify(value);
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (Array.isArray(value)) {
+    return `[${value.filter(isScalar).map(emitValue).join(', ')}]`;
+  }
+  return String(value);
 }
 
 /**
@@ -247,21 +269,12 @@ function emitTable(prefix: string, table: Table, out: string[]): void {
     if (value === undefined) {
       continue;
     }
-    if (isTable(value)) {
+    // Scalars (arrays + Date included) are checked before the table branch,
+    // since a Date is also `typeof 'object'`.
+    if (isScalar(value)) {
+      scalars.push(`${key} = ${emitValue(value)}`);
+    } else if (isTable(value)) {
       subTables.push([key, value]);
-    } else if (
-      typeof value === 'string' ||
-      typeof value === 'number' ||
-      typeof value === 'boolean'
-    ) {
-      scalars.push(`${key} = ${emitScalar(value)}`);
-    } else {
-      // Arrays/dates are not part of the config schema — refuse rather than
-      // silently corrupt a value we can't faithfully round-trip.
-      throw conflict(
-        `cannot rewrite config: unsupported value at ${prefix === '' ? key : `${prefix}.${key}`}`,
-        'the mimir config holds only strings, numbers, booleans, and tables',
-      );
     }
   }
   if (scalars.length > 0) {
@@ -272,7 +285,14 @@ function emitTable(prefix: string, table: Table, out: string[]): void {
   }
 }
 
-/** Parse the existing config, or refuse to overwrite a file we can't preserve. */
+/**
+ * Parse the existing config for merging. A file that isn't valid TOML can't be
+ * merged into, so it is treated as absent — the routine write proceeds and
+ * overwrites the unparseable content (the prior whole-file writer clobbered it
+ * unconditionally; this is no worse, and it keeps setup — the repair path —
+ * from stranding a converged vault behind a hard failure). A *parseable* file's
+ * sections all survive verbatim; only genuine garbage is dropped.
+ */
 function readRawConfig(file: string): Table {
   if (!existsSync(file)) {
     return {};
@@ -280,10 +300,7 @@ function readRawConfig(file: string): Table {
   try {
     return asTable(Bun.TOML.parse(readFileSync(file, 'utf8')));
   } catch {
-    throw conflict(
-      `the config at ${file} is not valid TOML — refusing to overwrite it`,
-      'fix or remove the file, then re-run',
-    );
+    return {};
   }
 }
 
@@ -292,7 +309,9 @@ function readRawConfig(file: string): Table {
  * TOML, not the tolerant {@link readConfig} projection, so a section the patch
  * doesn't name survives verbatim — including a reader-rejected value (an invalid
  * `[vault.snapshot]` key is not silently erased when an unrelated `[serve] port`
- * is written). A malformed file is never clobbered: it throws instead.
+ * is written). Comments and blank-line grouping are not preserved (the config is
+ * tool-managed). An unparseable file is treated as absent (see {@link
+ * readRawConfig}).
  */
 export function writeConfig(file: string, patch: ConfigPatch): void {
   const raw = readRawConfig(file);
