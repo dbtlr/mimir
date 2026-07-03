@@ -34,7 +34,9 @@ release. When a release is cut, this section is promoted to
   vault (MMR-144, ADR 0016 Phase 2a), the cutover step that makes the vault
   backend usable on real data. Each artifact is written at its existing
   identity, so the `KEY-aN` stem, `created` timestamp, anchor/project links,
-  and tags are all preserved; the frozen content becomes the file body. The
+  and tag values are all preserved; the frozen content becomes the file body.
+  (A tag's *note* is dropped — vault frontmatter tags are plain, as under any
+  Norn-backed tagging.) The
   run is **non-destructive** (SQLite is read-only and stays the default
   backend) and **idempotent** — an already-migrated artifact is skipped via the
   vault's create-exclusive write, so a re-run makes no duplicates. `--dry-run`

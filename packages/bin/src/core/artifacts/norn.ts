@@ -102,7 +102,19 @@ export async function restoreArtifact(
     });
     return 'created';
   } catch (error) {
-    if (isPathCollision(error)) {
+    if (!isPathCollision(error)) {
+      throw error;
+    }
+    // A path already exists — idempotent ONLY if it is *this* artifact (a prior
+    // run of this same migration). Confirm by the preserved identity
+    // fingerprint (`created` + `title`); a mismatch means the stem is occupied
+    // by a different artifact (silent source/dest divergence), and a missing
+    // doc means the loose collision match caught an unrelated error — either
+    // way, rethrow rather than falsely report `skipped`.
+    const existing = await client.get([pathOf(record.key, record.seq)]);
+    const doc = asDoc(existing[0]);
+    const found = doc === null ? null : toRecord(doc);
+    if (found !== null && found.created_at === record.created_at && found.title === record.title) {
       return 'skipped';
     }
     throw error;

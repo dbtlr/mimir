@@ -2,7 +2,6 @@ import { restoreArtifact } from '../core/artifacts/norn';
 import { createSqliteArtifactStore } from '../core/artifacts/sqlite';
 import type { ArtifactRecord, ArtifactStore } from '../core/artifacts/store';
 import type { Db } from '../core/context';
-import { loadWorkingSet } from '../core/store-sqlite';
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
 import { readConfig } from '../service/config';
@@ -20,7 +19,12 @@ import { resolveVault } from '../vault/resolve';
  * Idempotent — a re-run's already-migrated artifacts come back `skipped` via
  * the vault's create-exclusive write. Delete this file, its CLI case, and
  * `restoreArtifact` together once the vault is the sole backend.
+ *
+ * One accepted delta: a SQLite tag's `note` is not carried — vault frontmatter
+ * tags are plain strings (the Norn backend rejects tag notes outright, MMR-143),
+ * so the value migrates and the note is dropped, same as any post-flip tagging.
  */
+import { ok } from './render';
 import type { Io } from './render';
 
 /** Writes one source artifact into the destination; `skipped` = already present. */
@@ -60,15 +64,16 @@ export async function migrateArtifacts(
     // listForProject yields identity + metadata (no content/links); load then
     // fetches the frozen body and the anchor links for a faithful copy.
     const inventory = await source.listForProject(key);
+    if (dryRun) {
+      total += inventory.length; // counting needs no body — don't load content
+      continue;
+    }
     for (const meta of inventory) {
       const full = await source.load(meta.key, meta.seq, { content: true });
       if (full === undefined) {
         continue; // vanished between the list and the load — nothing to copy
       }
       total += 1;
-      if (dryRun) {
-        continue;
-      }
       const outcome = await restore(full, full.content ?? '');
       if (outcome === 'created') {
         created += 1;
@@ -86,25 +91,28 @@ function render(io: Io, report: MigrationReport, json: boolean): void {
     io.write(JSON.stringify(report));
     return;
   }
-  const glyph = io.plain ? '[ok]' : '\x1b[32m✓\x1b[0m';
+  const scope = `${String(report.total)} artifact(s) across ${String(report.projects)} project(s)`;
   if (report.dryRun) {
-    io.write(
-      `[dry-run] ${String(report.total)} artifact(s) across ${String(report.projects)} project(s) ` +
-        `would migrate into the vault (re-run is idempotent)`,
-    );
+    io.write(`[dry-run] ${scope} would migrate into the vault (re-run is idempotent)`);
     return;
   }
-  io.write(
-    `${glyph} migrated ${String(report.total)} artifact(s) across ${String(report.projects)} ` +
-      `project(s): ${String(report.created)} written, ${String(report.skipped)} already present`,
+  ok(
+    io,
+    `migrated ${scope}: ${String(report.created)} written, ${String(report.skipped)} already present`,
   );
 }
 
+/** The distinct project keys — a lone select, not the whole working set. */
+async function projectKeys(db: Db): Promise<string[]> {
+  const rows = await db.selectFrom('project').select('key').orderBy('key', 'asc').execute();
+  return rows.map((r) => r.key);
+}
+
 /**
- * The `mimir migrate-artifacts` command: builds the SQLite source over the
- * open db, converges + opens the vault destination, runs the migration, and
- * renders the report. The Norn client is closed before returning so its
- * subprocess never outlives the command.
+ * The `mimir migrate-artifacts` command. The source is always the SQLite table;
+ * a dry-run reports its inventory and touches nothing else. A real run
+ * converges + opens the vault destination and closes the Norn client before
+ * returning, so its subprocess never outlives the command.
  */
 export async function cmdMigrateArtifacts(
   db: Db,
@@ -112,7 +120,14 @@ export async function cmdMigrateArtifacts(
   opts: { dryRun: boolean; json: boolean },
 ): Promise<number> {
   const source = createSqliteArtifactStore(db);
-  const keys = (await loadWorkingSet(db)).projects.map((p) => p.key);
+  const keys = await projectKeys(db);
+
+  // Dry-run needs no destination: never converge/scaffold the vault or spawn a
+  // Norn subprocess — the whole point is to write (and touch) nothing.
+  if (opts.dryRun) {
+    render(io, await migrateArtifacts(source, keys, restoreNever, { dryRun: true }), opts.json);
+    return 0;
+  }
 
   const vault = resolveVault({
     configPath: readConfig().vault.path,
@@ -125,7 +140,7 @@ export async function cmdMigrateArtifacts(
       source,
       keys,
       (record, content) => restoreArtifact(client, record, content),
-      { dryRun: opts.dryRun },
+      { dryRun: false },
     );
     render(io, report, opts.json);
     return 0;
@@ -133,3 +148,8 @@ export async function cmdMigrateArtifacts(
     await client.close();
   }
 }
+
+/** A restore that is never invoked — the dry-run path counts without writing. */
+const restoreNever: ArtifactRestore = () => {
+  throw new Error('dry-run must not write');
+};
