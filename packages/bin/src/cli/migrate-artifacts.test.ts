@@ -207,4 +207,26 @@ describe.skipIf(!NORN)('migrateArtifacts → vault (end-to-end)', () => {
     const inventory = await createNornArtifactStore(client).listForProject('MMR');
     expect(inventory.map((r) => r.seq)).toEqual([1, 2]);
   });
+
+  test('a stem occupied by a different artifact fails loudly, not silent skip', async () => {
+    // Seed the vault with a foreign artifact at MMR-a1 (its own created/title).
+    await createNornArtifactStore(client).create({
+      content: 'foreign body',
+      key: 'MMR',
+      links: [],
+      tags: [],
+      title: 'foreign',
+    });
+    // A source artifact colliding on the same stem but with a different identity
+    // must not be reported skipped — that would hide a source/dest divergence.
+    const divergent: ArtifactRecord = {
+      created_at: '2020-01-01T00:00:00.000Z',
+      key: 'MMR',
+      links: [],
+      seq: 1,
+      tags: [],
+      title: 'the real MMR-a1',
+    };
+    expect(restoreArtifact(client, divergent, 'real body')).rejects.toThrow(/already exists/i);
+  });
 });
