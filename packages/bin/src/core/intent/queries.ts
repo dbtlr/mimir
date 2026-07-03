@@ -17,6 +17,7 @@ import type {
 import type { DerivationSet } from '../derive';
 import {
   deriveSet,
+  findNodeInSet,
   isTerminalWord,
   nodeStatusWord,
   renderNodeIdFromSet,
@@ -24,8 +25,7 @@ import {
   statusOfProject,
 } from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
-import { parseId, parseIdentity } from '../ids';
-import { findNodeByRef, isProjectArchived } from '../lookup';
+import { parseIdentity } from '../ids';
 import type { Node } from '../model';
 import { isBlocking, isOrphaned, isReady, isStale } from '../predicates';
 import { compileFilters } from '../query';
@@ -53,24 +53,6 @@ function resolveScope(set: DerivationSet, key: string): number {
     throw projectNotFound(key);
   }
   return project.id;
-}
-
-/**
- * Resolve an external `KEY-seq` id to its node against the working-set snapshot —
- * the in-memory twin of {@link findNodeByRef} (ADR 0016 Phase 2b). Returns
- * `undefined` for a malformed id or an unknown key/seq; archived-project nodes
- * still resolve (the caller applies the hiding), matching the SQL path.
- */
-function findNodeInSet(set: DerivationSet, id: string): Node | undefined {
-  const ref = parseId(id);
-  if (ref === null) {
-    return undefined;
-  }
-  const project = set.ws.projects.find((p) => p.key === ref.key);
-  if (project === undefined) {
-    return undefined;
-  }
-  return set.ws.nodes.find((n) => n.project_id === project.id && n.seq === ref.seq);
 }
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
@@ -389,39 +371,26 @@ export type GetOptions = {
  * (`KEY-aN`) have their own shape — see {@link getArtifact}.
  */
 export async function getNode(store: Store, id: string, opts: GetOptions = {}): Promise<NodeView> {
-  const db = store.db;
   const facets = new Set<FacetName>(opts.facets ?? CHEAP_FACETS);
   const identity = parseIdentity(id);
+  const set = deriveSet(await store.loadWorkingSet());
   if (identity?.kind === 'project') {
-    const project = await db
-      .selectFrom('project')
-      .selectAll()
-      .where('key', '=', identity.key)
-      .executeTakeFirst();
+    const project = set.ws.projects.find((p) => p.key === identity.key);
     if (project === undefined || project.archived_at !== null) {
       throw projectNotFound(identity.key);
     }
-    return buildProjectView(
-      store.artifacts,
-      deriveSet(await store.loadWorkingSet()),
-      project,
-      facets,
-    );
+    return buildProjectView(store.artifacts, set, project, facets);
   }
   if (identity?.kind === 'artifact') {
     throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
-  const node = await findNodeByRef(db, id);
-  if (node === undefined || (await isProjectArchived(db, node.project_id))) {
+  const node = findNodeInSet(set, id);
+  if (node === undefined || set.archivedProjects.has(node.project_id)) {
     throw notFound(`${id} doesn't exist`);
   }
-  return buildNodeView(
-    store.db,
-    store.artifacts,
-    deriveSet(await store.loadWorkingSet()),
-    node,
-    facets,
-  );
+  // buildNodeView still takes the executor for the body-section facets
+  // (annotations, history) that move to Norn in Phase 3.
+  return buildNodeView(store.db, store.artifacts, set, node, facets);
 }
 
 /**
@@ -438,11 +407,8 @@ export async function getArtifact(
     throw notFound(`${id} is not an artifact id`, 'artifact ids look like KEY-aN');
   }
   // The artifact's owning project must exist and be active (ADR 0015 hiding).
-  const project = await store.db
-    .selectFrom('project')
-    .select('archived_at')
-    .where('key', '=', identity.key)
-    .executeTakeFirst();
+  const set = deriveSet(await store.loadWorkingSet());
+  const project = set.ws.projects.find((p) => p.key === identity.key);
   if (project === undefined || project.archived_at !== null) {
     throw notFound(`no artifact ${id}`);
   }
