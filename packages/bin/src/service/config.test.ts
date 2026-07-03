@@ -98,6 +98,50 @@ test('readVaultConfig: malformed file and wrong-typed path surface as problems',
   expect(readVaultConfig(file)).toEqual({ problem: 'invalid-path' });
 });
 
+test('readVaultConfig: a full [vault.snapshot] table round-trips alongside path', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(
+    file,
+    '[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 900\nupstream = "git@example.com:me/vault.git"\npush = true\npull = false\n',
+  );
+  expect(readVaultConfig(file)).toEqual({
+    path: '/v',
+    snapshot: { interval: 900, pull: false, push: true, upstream: 'git@example.com:me/vault.git' },
+  });
+});
+
+test('readVaultConfig: a partial [vault.snapshot] keeps only the declared keys', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[vault.snapshot]\ninterval = 300\n');
+  expect(readVaultConfig(file)).toEqual({ snapshot: { interval: 300 } });
+});
+
+test('readVaultConfig: a bad snapshot value surfaces invalid-snapshot', () => {
+  const file = join(dir, 'config.toml');
+  // non-table snapshot
+  writeFileSync(file, '[vault]\nsnapshot = 5\n');
+  expect(readVaultConfig(file)).toEqual({ problem: 'invalid-snapshot' });
+  // non-positive / non-integer interval
+  for (const bad of [0, -60, 1.5, '"900"']) {
+    writeFileSync(file, `[vault.snapshot]\ninterval = ${String(bad)}\n`);
+    expect(readVaultConfig(file)).toEqual({ problem: 'invalid-snapshot' });
+  }
+  // empty / non-string upstream
+  writeFileSync(file, '[vault.snapshot]\nupstream = ""\n');
+  expect(readVaultConfig(file)).toEqual({ problem: 'invalid-snapshot' });
+  writeFileSync(file, '[vault.snapshot]\nupstream = 7\n');
+  expect(readVaultConfig(file)).toEqual({ problem: 'invalid-snapshot' });
+  // non-boolean toggles
+  writeFileSync(file, '[vault.snapshot]\npush = "yes"\n');
+  expect(readVaultConfig(file)).toEqual({ problem: 'invalid-snapshot' });
+});
+
+test('readVaultConfig: a valid path is kept even when snapshot is invalid (warn, do not discard)', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 0\n');
+  expect(readVaultConfig(file)).toEqual({ path: '/v', problem: 'invalid-snapshot' });
+});
+
 test('a present-but-wrong-shaped section is malformed, never silence', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(file, 'vault = "/some/path"\n'); // a string, not a [vault] table

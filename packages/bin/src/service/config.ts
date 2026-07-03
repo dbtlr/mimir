@@ -20,10 +20,27 @@ export function configPath(xdgConfigHome = process.env.XDG_CONFIG_HOME): string 
   return join(base, 'mimir', 'config.toml');
 }
 
+/**
+ * The `[vault.snapshot]` sub-table (MMR-146) — the vault's git commit cadence.
+ * Every key is optional; the snapshot command supplies defaults (interval 900s,
+ * push/pull on) for whatever the operator leaves unset.
+ */
+export type SnapshotConfig = {
+  /** Seconds between scheduled snapshots — baked into the launchd StartInterval. */
+  interval?: number;
+  /** Remote URL to push to / reconcile against when no upstream is configured on the branch. */
+  upstream?: string;
+  /** Push after committing (default on). Off = purely local, durable snapshots. */
+  push?: boolean;
+  /** Reconcile (fetch + merge) when a push is rejected (default on). Off = a rejected push fails loud. */
+  pull?: boolean;
+};
+
 export type VaultConfig = {
   path?: string;
+  snapshot?: SnapshotConfig;
   /** Set when a config file exists but contributed nothing — callers may warn. */
-  problem?: 'malformed' | 'invalid-path';
+  problem?: 'malformed' | 'invalid-path' | 'invalid-snapshot';
 };
 
 export type StoreConfig = {
@@ -67,13 +84,64 @@ function vaultSection(raw: unknown): VaultConfig {
     return { problem: 'malformed' };
   }
   const path = raw.path;
-  if (path === undefined) {
-    return {};
+  // A wrong-typed path is the silent-wrong-vault trap — reject it outright,
+  // ahead of the snapshot sub-table (an operator can't act on the cadence of a
+  // vault that won't open).
+  if (path !== undefined && !(typeof path === 'string' && path !== '')) {
+    return { problem: 'invalid-path' };
   }
-  if (typeof path === 'string' && path !== '') {
-    return { path };
+  const validPath = typeof path === 'string' ? { path } : {};
+  const snapshot = snapshotSection(raw.snapshot);
+  // A bad snapshot warns but never discards a good path: the vault still opens;
+  // only the cadence is ignored (invalid-snapshot).
+  if (snapshot === 'invalid') {
+    return { ...validPath, problem: 'invalid-snapshot' };
   }
-  return { problem: 'invalid-path' };
+  return { ...validPath, ...(snapshot === undefined ? {} : { snapshot }) };
+}
+
+const isPositiveInt = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isInteger(v) && v >= 1;
+
+/**
+ * Validate `[vault.snapshot]`: the whole sub-table is rejected as `'invalid'`
+ * the moment any declared key is wrong-typed or out of range — coarse on
+ * purpose, matching the section-level tolerance contract. Absent → undefined;
+ * a table of only-good declared keys → that config.
+ */
+function snapshotSection(raw: unknown): SnapshotConfig | 'invalid' | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!isTable(raw)) {
+    return 'invalid';
+  }
+  const out: SnapshotConfig = {};
+  if (raw.interval !== undefined) {
+    if (!isPositiveInt(raw.interval)) {
+      return 'invalid';
+    }
+    out.interval = raw.interval;
+  }
+  if (raw.upstream !== undefined) {
+    if (!(typeof raw.upstream === 'string' && raw.upstream !== '')) {
+      return 'invalid';
+    }
+    out.upstream = raw.upstream;
+  }
+  if (raw.push !== undefined) {
+    if (typeof raw.push !== 'boolean') {
+      return 'invalid';
+    }
+    out.push = raw.push;
+  }
+  if (raw.pull !== undefined) {
+    if (typeof raw.pull !== 'boolean') {
+      return 'invalid';
+    }
+    out.pull = raw.pull;
+  }
+  return out;
 }
 
 /**
