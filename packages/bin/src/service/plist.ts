@@ -16,16 +16,9 @@ import { SERVE_LOG_FILE, SNAPSHOT_LOG_FILE } from './events';
 
 export const SERVE_LABEL = 'com.dbtlr.mimir.serve';
 export const SNAPSHOT_LABEL = 'com.dbtlr.mimir.snapshot';
-/** Back-compat alias — a bare `LABEL` has always meant the serve unit. */
-export const LABEL = SERVE_LABEL;
 
 export function plistPathFor(label: string): string {
   return join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`);
-}
-
-/** The serve unit's plist path (kept for existing callers). */
-export function plistPath(): string {
-  return plistPathFor(SERVE_LABEL);
 }
 
 export type PlistOptions = {

@@ -141,7 +141,6 @@ function realServiceDeps(): ServiceDeps {
   return {
     binPath,
     configFile: configPath(),
-    dbPath: process.env.MIMIR_DB,
     eventsFile: EVENTS_FILE,
     fetcher: manualFetch,
     health: async (port: number): Promise<Health | undefined> => {
@@ -170,12 +169,12 @@ function realServiceDeps(): ServiceDeps {
       snapshot: {
         logFile: SNAPSHOT_LOG_FILE,
         plistFile: plistPathFor(SNAPSHOT_LABEL),
-        // Read the interval + vault at install time so the plist bakes the
-        // operator's current config (launchd does no shell expansion).
-        render: () =>
+        // Bake the interval from the SAME config file the command reports from,
+        // and the vault at install time (launchd does no shell expansion).
+        render: (configFile) =>
           plistForSnapshot(binPath, {
             intervalSeconds:
-              readVaultConfig().snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+              readVaultConfig(configFile).snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
             vaultPath: process.env.MIMIR_VAULT,
           }),
         supervisor: new LaunchdSupervisor(bunExec, uid, SNAPSHOT_LABEL),

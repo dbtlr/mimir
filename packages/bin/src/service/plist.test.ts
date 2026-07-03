@@ -3,18 +3,11 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  LABEL,
-  SNAPSHOT_LABEL,
-  plistFor,
-  plistForSnapshot,
-  plistPath,
-  plistPathFor,
-} from './plist';
+import { SERVE_LABEL, SNAPSHOT_LABEL, plistFor, plistForSnapshot, plistPathFor } from './plist';
 
 test('plist runs serve --no-hunt with no port and supervises it', () => {
   const xml = plistFor('/Users/op/.local/bin/mimir', {});
-  expect(xml).toContain(`<string>${LABEL}</string>`);
+  expect(xml).toContain(`<string>${SERVE_LABEL}</string>`);
   expect(xml).toContain('<string>/Users/op/.local/bin/mimir</string>');
   expect(xml).toContain('<string>serve</string>');
   expect(xml).toContain('<string>--no-hunt</string>');
@@ -42,8 +35,10 @@ test('MIMIR_DB present at install time is baked into the environment', () => {
   expect(xml).toContain('<string>/data/mimir.db</string>');
 });
 
-test("plistPath lands in the user's LaunchAgents", () => {
-  expect(plistPath()).toMatch(/Library\/LaunchAgents\/com\.dbtlr\.mimir\.serve\.plist$/);
+test("plistPathFor lands the serve unit in the user's LaunchAgents", () => {
+  expect(plistPathFor(SERVE_LABEL)).toMatch(
+    /Library\/LaunchAgents\/com\.dbtlr\.mimir\.serve\.plist$/,
+  );
 });
 
 test('plistPathFor names the snapshot unit', () => {
