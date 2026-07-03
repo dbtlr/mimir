@@ -269,20 +269,35 @@ test('restart all skips a not-installed unit instead of throwing', async () => {
   expect(io.err.join('\n')).toContain('snapshot: not installed');
 });
 
-// 4e. exit-code contract: a bare sweep succeeds, an explicitly named
-// not-installed unit fails — so `&&`-chaining callers don't proceed on a no-op.
-test('lifecycle exit code: bare sweep is 0, explicit not-installed unit is nonzero', async () => {
-  const io = fakeIo();
-  const d = deps(new FakeSupervisor(), {}, new FakeSupervisor());
+// 4e. exit-code contract: a lifecycle verb succeeds iff it acted on ≥1 unit, so
+// a `&&`-chaining deploy step never proceeds on a no-op.
+test('lifecycle exit code is 0 iff at least one unit was acted on', async () => {
+  const serveSup = new FakeSupervisor();
+  const snapSup = new FakeSupervisor();
+  const d = deps(serveSup, {}, snapSup);
 
-  // Nothing installed: a bare restart is a reported no-op, exit 0.
-  expect(await cmdService(['service', 'restart'], {}, io, d)).toBe(0);
-  expect(io.out.join('\n')).toContain('no units installed');
+  // Nothing installed: a bare restart acted on nothing → nonzero, with guidance.
+  const io1 = fakeIo();
+  expect(await cmdService(['service', 'restart'], {}, io1, d)).toBe(1);
+  expect(io1.out.join('\n')).toContain('no units installed');
 
-  // Explicitly starting a not-installed unit is a failed request, exit nonzero.
+  // `start all` when the serve daemon itself is absent acted on nothing → nonzero
+  // (a deploy chain must not proceed against a daemon that never started).
   const io2 = fakeIo();
-  expect(await cmdService(['service', 'start', 'snapshot'], {}, io2, d)).toBe(1);
-  expect(io2.err.join('\n')).toContain('snapshot: not installed');
+  expect(await cmdService(['service', 'start', 'all'], {}, io2, d)).toBe(1);
+
+  // Explicitly starting a not-installed unit is a failed request → nonzero.
+  const io3 = fakeIo();
+  expect(await cmdService(['service', 'start', 'snapshot'], {}, io3, d)).toBe(1);
+  expect(io3.err.join('\n')).toContain('snapshot: not installed');
+
+  // Install serve, then `restart all`: serve is acted on → success, even though
+  // the opt-in snapshot is absent.
+  const io4 = fakeIo();
+  await cmdService(['service', 'install', 'serve'], {}, io4, d);
+  const io5 = fakeIo();
+  expect(await cmdService(['service', 'restart', 'all'], {}, io5, d)).toBe(0);
+  expect(serveSup.calls).toContain('restart');
 });
 
 // 4f. uninstalling a not-installed unit is idempotent — no phantom teardown

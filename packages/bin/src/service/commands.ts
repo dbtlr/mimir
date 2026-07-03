@@ -299,24 +299,24 @@ export async function cmdService(
         humans.push(() => ok(io, `${name} ${pastTense[sub]}`));
       }
       if (results.length === 0) {
-        // Only a bare sweep reaches here (all/explicit resolve to ≥1 unit); an
-        // empty install set is a reported no-op, not a failure.
+        // Only a bare sweep reaches here (all/explicit resolve to ≥1 unit): a
+        // host with nothing installed. Nothing was acted on → nonzero, with
+        // guidance, so a `mimir service restart && …` chain doesn't proceed.
         report(
           io,
           format,
           () => formatServiceActionsJson([], format === 'json' ? 'json' : 'jsonl'),
           () => ok(io, 'no units installed (install with `mimir service install`)'),
         );
-        return 0;
+        return 1;
       }
       emitActions(results, humans);
-      // A sweep (bare or `all`) acts on whatever is installed → success even if
-      // the opt-in snapshot unit is absent (the common serve-only host). Only a
-      // single, explicitly-named unit that isn't installed is a request that
-      // couldn't be honored — exit nonzero so a `mimir service start snapshot &&
-      // …` chain doesn't proceed on a no-op.
-      const explicitUnit = sel !== undefined && sel !== 'all';
-      return explicitUnit && results.some((r) => !r.ok) ? 1 : 0;
+      // One invariant covers every selector: the verb succeeds iff it actually
+      // acted on at least one unit. A sweep that touched only the opt-in
+      // snapshot's absence still restarted serve (success); `start all` when the
+      // serve daemon itself is absent, or an explicit missing unit, acted on
+      // nothing (failure) — so a deploy chain never proceeds on a no-op.
+      return results.some((r) => r.ok) ? 0 : 1;
     }
     default: {
       // Unreachable — `sub` is validated against SUBCOMMANDS above (narrows to never here).
