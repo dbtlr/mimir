@@ -7,7 +7,7 @@
  */
 import { MimirError } from '../core';
 import type { Exec } from '../exec';
-import { LABEL } from './plist';
+import { SERVE_LABEL } from './plist';
 
 // Re-exported from the shared exec module so existing importers keep working.
 export type { Exec, ExecResult } from '../exec';
@@ -30,10 +30,13 @@ export type Supervisor = {
 
 export class LaunchdSupervisor implements Supervisor {
   private readonly target: string;
+  private readonly service: string;
   private readonly exec: Exec;
-  constructor(exec: Exec, uid: number) {
+  /** `label` selects the unit this supervisor manages; defaults to serve. */
+  constructor(exec: Exec, uid: number, label: string = SERVE_LABEL) {
     this.exec = exec;
     this.target = `gui/${String(uid)}`;
+    this.service = `${this.target}/${label}`;
   }
 
   private async run(argv: string[], failure: string, tolerate = false): Promise<void> {
@@ -50,12 +53,12 @@ export class LaunchdSupervisor implements Supervisor {
   async install(plistFile: string): Promise<void> {
     // Idempotent refresh: clear any loaded copy first; bootout of an
     // unloaded service is the expected no-op, so its failure is tolerated.
-    await this.run(['bootout', `${this.target}/${LABEL}`], '', true);
+    await this.run(['bootout', this.service], '', true);
     await this.run(['bootstrap', this.target, plistFile], 'could not load the service');
   }
 
   async uninstall(): Promise<void> {
-    await this.run(['bootout', `${this.target}/${LABEL}`], '', true);
+    await this.run(['bootout', this.service], '', true);
   }
 
   async start(plistFile: string): Promise<void> {
@@ -63,15 +66,15 @@ export class LaunchdSupervisor implements Supervisor {
   }
 
   async stop(): Promise<void> {
-    await this.run(['bootout', `${this.target}/${LABEL}`], 'could not unload the service');
+    await this.run(['bootout', this.service], 'could not unload the service');
   }
 
   async restart(): Promise<void> {
-    await this.run(['kickstart', '-k', `${this.target}/${LABEL}`], 'is the service installed?');
+    await this.run(['kickstart', '-k', this.service], 'is the service installed?');
   }
 
   async info(): Promise<ServiceInfo> {
-    const result = await this.exec(['launchctl', 'print', `${this.target}/${LABEL}`]);
+    const result = await this.exec(['launchctl', 'print', this.service]);
     if (result.code !== 0) {
       return { loaded: false, running: false };
     }
