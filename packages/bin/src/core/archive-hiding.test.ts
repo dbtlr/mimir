@@ -79,8 +79,8 @@ test('get / status / tree / getArtifact on an archived target read as not_found'
   await archiveProject(store, gonProjectId);
   await expectMimirError('not_found', () => getNode(store, 'GON')); // the project
   await expectMimirError('not_found', () => getNode(store, gonTaskId)); // a node under it
-  await expectMimirError('not_found', () => statusOfNode(db, 'GON'));
-  await expectMimirError('not_found', () => statusOfNode(db, gonTaskId));
+  await expectMimirError('not_found', () => statusOfNode(store, 'GON'));
+  await expectMimirError('not_found', () => statusOfNode(store, gonTaskId));
   await expectMimirError('not_found', () => nodeTree(store, gonTaskId));
   await expectMimirError('not_found', () => projectTree(store, 'GON'));
   await expectMimirError('not_found', () => getArtifact(store, gonArtifactId));
