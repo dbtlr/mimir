@@ -210,10 +210,11 @@ export type Store = {
   readonly artifacts: ArtifactStore;
 
   /**
-   * Transitional (MMR-133): the raw executor, for core read paths not yet
-   * behind the seam — point lookups, facet loads, and per-node derivation.
-   * Shrinks with Phase 2a/2b (reads through the seam), then leaves the
-   * interface.
+   * Transitional (MMR-133): the raw executor. After Phase 2b (MMR-148) every
+   * frontmatter-derived read derives from the working set — what still rides the
+   * executor is the **body-section** surfaces Phase 3 owns (the `annotations`
+   * and `history` facets, the cross-node transitions feed) plus the write verbs'
+   * token resolution. It leaves the interface when Phase 3 moves those to Norn.
    */
   readonly db: Db;
 };

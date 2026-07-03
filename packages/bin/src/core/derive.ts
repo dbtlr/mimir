@@ -1,7 +1,7 @@
 import type { StatusWord } from '@mimir/contract';
 
 import { MimirError, invariant } from './errors';
-import { renderId } from './ids';
+import { parseId, renderId } from './ids';
 import type { Node } from './model';
 import { interpret, tally, taskStatus } from './status';
 import type { Distribution } from './status';
@@ -149,6 +149,24 @@ export function writeIntroducesDerivationCycle(
 export function renderNodeIdFromSet(set: DerivationSet, node: Node): string | null {
   const key = set.keyByProjectId.get(node.project_id);
   return key === undefined ? null : renderId({ key, seq: node.seq });
+}
+
+/**
+ * Resolve an external `KEY-seq` id to its node against the working-set snapshot —
+ * the in-memory twin of the SQL `findNodeByRef` (ADR 0016 Phase 2b). Returns
+ * `undefined` for a malformed id or an unknown key/seq; a node in an archived
+ * project still resolves (the caller applies the hiding), matching the SQL path.
+ */
+export function findNodeInSet(set: DerivationSet, id: string): Node | undefined {
+  const ref = parseId(id);
+  if (ref === null) {
+    return undefined;
+  }
+  const project = set.ws.projects.find((p) => p.key === ref.key);
+  if (project === undefined) {
+    return undefined;
+  }
+  return set.ws.nodes.find((n) => n.project_id === project.id && n.seq === ref.seq);
 }
 
 /** Terminal = a decided end state. `abandoned` counts as terminal (and never freezes a parent). */

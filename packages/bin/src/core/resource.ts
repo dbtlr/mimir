@@ -2,11 +2,11 @@ import type { FacetName, NodeView, TransitionsResult, TreeView } from '@mimir/co
 
 import type { Db } from './context';
 import type { DerivationSet } from './derive';
-import { deriveSet } from './derive';
+import { deriveSet, findNodeInSet } from './derive';
 import { notFound, projectNotFound, validation } from './errors';
 import { parseIdentity } from './ids';
 import { buildNodeView, buildProjectView } from './intent/view';
-import { findNodeByRef, isProjectArchived, renderNodeId, renderProjectKey } from './lookup';
+import { renderNodeId, renderProjectKey } from './lookup';
 import type { Node } from './model';
 import type { Store } from './store';
 
@@ -107,7 +107,6 @@ export async function nodeTree(
   id: string,
   facets: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts'],
 ): Promise<TreeView> {
-  const db = store.db;
   const identity = parseIdentity(id);
   if (identity === null) {
     throw notFound(`${id} is not a valid id`);
@@ -119,12 +118,13 @@ export async function nodeTree(
   if (identity.kind === 'artifact') {
     throw notFound(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
-  // Node id — resolve it and recurse down. An archived project's subtree reads as absent (ADR 0015).
-  const rootNode = await findNodeByRef(db, id);
-  if (rootNode === undefined || (await isProjectArchived(db, rootNode.project_id))) {
+  // Node id — resolve it against the snapshot and recurse down. An archived
+  // project's subtree reads as absent (ADR 0015).
+  const set = deriveSet(await store.loadWorkingSet());
+  const rootNode = findNodeInSet(set, id);
+  if (rootNode === undefined || set.archivedProjects.has(rootNode.project_id)) {
     throw notFound(`${id} doesn't exist`);
   }
-  const set = deriveSet(await store.loadWorkingSet());
   const facetSet = new Set(facets);
 
   const subtree = async (node: Node): Promise<TreeView> => {
