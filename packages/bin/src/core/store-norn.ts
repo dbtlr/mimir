@@ -38,10 +38,30 @@ function num(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
 }
 
-/** A frontmatter value narrowed to one of an enum's members, or null when absent/foreign. */
-function enumField<T extends string>(value: unknown, values: readonly T[]): T | null {
+/**
+ * Narrow a frontmatter value to an enum member. Norn has no enum field_type, so
+ * value legality can't be enforced at the vault layer — the reader is the guard.
+ * An ABSENT field returns null (the caller applies the SQLite default / column
+ * nullability); a PRESENT but out-of-vocabulary value throws, matching the
+ * column CHECK that makes it unrepresentable in the SQLite backend.
+ */
+function enumFieldStrict<T extends string>(
+  value: unknown,
+  values: readonly T[],
+  stem: string,
+  field: string,
+): T | null {
+  if (value === undefined) {
+    return null;
+  }
   const s = str(value);
-  return s !== null && isMember(s, values) ? s : null;
+  if (s !== null && isMember(s, values)) {
+    return s;
+  }
+  throw invariant(
+    `node ${stem} has an invalid ${field} value`,
+    `${field} must be one of: ${values.join(', ')}`,
+  );
 }
 
 /** Collapse `[[STEM]]` (or a bare stem) to the stem text; null when unusable. */
@@ -206,10 +226,12 @@ export async function loadWorkingSetOverNorn(client: NornClient): Promise<Workin
     if (isTask) {
       // A task's lifecycle has no safe default (unlike hold) — derivation depends
       // on it, so an absent/foreign value is a hard read error, not a guess.
-      lifecycle = enumField(n.fm.lifecycle, LIFECYCLE_VALUES);
+      // A foreign value throws inside the helper; an absent one returns null and
+      // is caught here — a task's lifecycle has no safe default (unlike hold).
+      lifecycle = enumFieldStrict(n.fm.lifecycle, LIFECYCLE_VALUES, n.stem, 'lifecycle');
       if (lifecycle === null) {
         throw invariant(
-          `task ${n.stem} is missing a valid lifecycle`,
+          `task ${n.stem} is missing a lifecycle`,
           'a task document must carry a lifecycle frontmatter value',
         );
       }
@@ -223,16 +245,16 @@ export async function loadWorkingSetOverNorn(client: NornClient): Promise<Workin
       // A task always carries a hold (SQLite CHECK: type='task' ⟺ hold NOT NULL,
       // default 'none'); the idiomatic vault omits the 'none' no-hold state, so an
       // absent hold on a task reconstructs to 'none'.
-      hold: isTask ? (enumField(n.fm.hold, HOLD_VALUES) ?? 'none') : null,
+      hold: isTask ? (enumFieldStrict(n.fm.hold, HOLD_VALUES, n.stem, 'hold') ?? 'none') : null,
       hold_reason: isTask ? str(n.fm.hold_reason) : null,
       id: n.id,
       lifecycle,
       parent_id: parentId,
-      priority: isTask ? enumField(n.fm.priority, PRIORITY_VALUES) : null,
+      priority: isTask ? enumFieldStrict(n.fm.priority, PRIORITY_VALUES, n.stem, 'priority') : null,
       project_id: projectId,
       rank: isTask ? num(n.fm.rank) : null,
       seq: n.seq,
-      size: isTask ? enumField(n.fm.size, SIZE_VALUES) : null,
+      size: isTask ? enumFieldStrict(n.fm.size, SIZE_VALUES, n.stem, 'size') : null,
       target: n.type === 'phase' ? str(n.fm.target) : null,
       title: str(n.fm.title) ?? '',
       type: n.type,
@@ -248,6 +270,12 @@ export async function loadWorkingSetOverNorn(client: NornClient): Promise<Workin
         throw invariant(
           `node ${n.stem} depends on ${prereqStem}, which is not in the vault`,
           'a prerequisite must resolve to another node',
+        );
+      }
+      if (prereqId === n.id) {
+        throw invariant(
+          `node ${n.stem} depends on itself`,
+          'a node cannot be its own prerequisite (SQLite dependency CHECK)',
         );
       }
       if (!prereqIds.has(prereqId)) {
