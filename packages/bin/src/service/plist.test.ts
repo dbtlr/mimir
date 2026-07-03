@@ -3,7 +3,14 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { LABEL, plistFor, plistPath } from './plist';
+import {
+  LABEL,
+  SNAPSHOT_LABEL,
+  plistFor,
+  plistForSnapshot,
+  plistPath,
+  plistPathFor,
+} from './plist';
 
 test('plist runs serve --no-hunt with no port and supervises it', () => {
   const xml = plistFor('/Users/op/.local/bin/mimir', {});
@@ -39,6 +46,34 @@ test("plistPath lands in the user's LaunchAgents", () => {
   expect(plistPath()).toMatch(/Library\/LaunchAgents\/com\.dbtlr\.mimir\.serve\.plist$/);
 });
 
+test('plistPathFor names the snapshot unit', () => {
+  expect(plistPathFor(SNAPSHOT_LABEL)).toMatch(
+    /Library\/LaunchAgents\/com\.dbtlr\.mimir\.snapshot\.plist$/,
+  );
+});
+
+test('the snapshot plist runs `vault snapshot` on a StartInterval and does not KeepAlive', () => {
+  const xml = plistForSnapshot('/Users/op/.local/bin/mimir', { intervalSeconds: 900 });
+  expect(xml).toContain(`<string>${SNAPSHOT_LABEL}</string>`);
+  expect(xml).toContain(['    <string>vault</string>', '    <string>snapshot</string>'].join('\n'));
+  expect(xml).toContain('<key>StartInterval</key>');
+  expect(xml).toContain('<integer>900</integer>');
+  // A periodic command is never kept alive, and does not run at load.
+  expect(xml).not.toContain('KeepAlive');
+  expect(xml).not.toContain('RunAtLoad');
+  expect(xml).not.toContain('MIMIR_VAULT');
+  expect(xml.split('snapshot.log').length - 1).toBe(2);
+});
+
+test('MIMIR_VAULT present at install time is baked into the snapshot environment', () => {
+  const xml = plistForSnapshot('/usr/local/bin/mimir', {
+    intervalSeconds: 300,
+    vaultPath: '/Volumes/data/vaults/mimir',
+  });
+  expect(xml).toContain('<key>MIMIR_VAULT</key>');
+  expect(xml).toContain('<string>/Volumes/data/vaults/mimir</string>');
+});
+
 // XML-escape tests — launchctl rejects malformed plists loudly but the error
 // message never points at the offending character, making this class of bug
 // very hard to diagnose after the fact.
@@ -69,6 +104,17 @@ test.skipIf(process.platform !== 'darwin')('escaped plist passes plutil -lint', 
     dbPath: '/data/a<b/m.db',
   });
   const file = join(dir, 'test.plist');
+  writeFileSync(file, xml, 'utf8');
+  const result = Bun.spawnSync(['plutil', '-lint', file]);
+  expect(result.exitCode).toBe(0);
+});
+
+test.skipIf(process.platform !== 'darwin')('snapshot plist passes plutil -lint', () => {
+  const xml = plistForSnapshot('/Users/op/Drew & Co/bin/mimir', {
+    intervalSeconds: 900,
+    vaultPath: '/Volumes/data/a<b',
+  });
+  const file = join(dir, 'snapshot.plist');
   writeFileSync(file, xml, 'utf8');
   const result = Bun.spawnSync(['plutil', '-lint', file]);
   expect(result.exitCode).toBe(0);
