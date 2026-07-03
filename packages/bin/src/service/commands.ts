@@ -232,10 +232,21 @@ export async function cmdService(
       return 0;
     }
     case 'uninstall': {
-      // Symmetric with install: a bare `uninstall` tears down only serve.
-      const units = resolveUnits(sel, () => ['serve']);
+      // A bare `uninstall` tears down whatever is installed — never orphaning
+      // the opt-in snapshot timer (which would keep auto-committing/pushing the
+      // vault). `uninstall <unit>` / `uninstall all` target explicitly.
+      const units = resolveUnits(sel, installed);
       const results: ServiceActionResult[] = [];
       const humans: (() => void)[] = [];
+      if (units.length === 0) {
+        report(
+          io,
+          format,
+          () => formatServiceActionsJson([], format === 'json' ? 'json' : 'jsonl'),
+          () => ok(io, 'nothing installed to uninstall'),
+        );
+        return 0;
+      }
       for (const name of units) {
         const unit = deps.units[name];
         await unit.supervisor.uninstall();
@@ -252,23 +263,20 @@ export async function cmdService(
     case 'start':
     case 'stop':
     case 'restart': {
-      // A bare lifecycle verb sweeps whatever is installed, so it never fails on
-      // a unit that was never set up (e.g. the opt-in snapshot timer).
+      // A lifecycle verb acts only on an INSTALLED unit, whatever the selector:
+      // a bare verb sweeps what's installed, and naming (or `all`-including) a
+      // not-installed unit is a reported no-op, never a launchctl throw.
       const units = resolveUnits(sel, installed);
       const pastTense = { restart: 'restarted', start: 'started', stop: 'stopped' } as const;
       const results: ServiceActionResult[] = [];
       const humans: (() => void)[] = [];
-      if (units.length === 0) {
-        report(
-          io,
-          format,
-          () => formatServiceActionsJson([], format === 'json' ? 'json' : 'jsonl'),
-          () => ok(io, 'no units installed (install with `mimir service install`)'),
-        );
-        return 0;
-      }
       for (const name of units) {
         const unit = deps.units[name];
+        if (!existsSync(unit.plistFile)) {
+          results.push({ action: sub, ok: false, unit: name });
+          humans.push(() => warn(io, `${name}: not installed — nothing to ${sub}`));
+          continue;
+        }
         if (sub === 'start') {
           await unit.supervisor.start(unit.plistFile);
         } else if (sub === 'stop') {
@@ -279,6 +287,15 @@ export async function cmdService(
         log(sub, true, name);
         results.push({ action: sub, ok: true, unit: name });
         humans.push(() => ok(io, `${name} ${pastTense[sub]}`));
+      }
+      if (results.length === 0) {
+        report(
+          io,
+          format,
+          () => formatServiceActionsJson([], format === 'json' ? 'json' : 'jsonl'),
+          () => ok(io, 'no units installed (install with `mimir service install`)'),
+        );
+        return 0;
       }
       emitActions(results, humans);
       return 0;
