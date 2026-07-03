@@ -56,7 +56,6 @@ function deps(
   return {
     binPath: join(dir, 'mimir'),
     configFile: join(dir, 'config.toml'),
-    dbPath: undefined,
     eventsFile: join(dir, 'service-events.jsonl'),
     fetcher: () => Promise.reject(new Error('no network in tests')),
     health: () => Promise.resolve(undefined),
@@ -112,14 +111,31 @@ test('install without --port leaves config untouched', async () => {
   expect(existsSync(d.configFile)).toBe(false);
 });
 
-// 2b. the default selector installs BOTH units
-test('install with no unit installs both serve and snapshot', async () => {
+// 2b. snapshot is opt-in: a bare `install` sets up only serve
+test('install with no unit installs only serve (snapshot is opt-in)', async () => {
   const serveSup = new FakeSupervisor();
   const snapSup = new FakeSupervisor();
   const io = fakeIo();
   const d = deps(serveSup, {}, snapSup);
 
   const code = await cmdService(['service', 'install'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(serveSup.calls).toEqual(['install']);
+  expect(snapSup.calls).toEqual([]);
+  expect(existsSync(d.units.serve.plistFile)).toBe(true);
+  expect(existsSync(d.units.snapshot.plistFile)).toBe(false);
+  expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['install']);
+});
+
+// 2b-all. `install all` opts into both units
+test('install all installs both serve and snapshot', async () => {
+  const serveSup = new FakeSupervisor();
+  const snapSup = new FakeSupervisor();
+  const io = fakeIo();
+  const d = deps(serveSup, {}, snapSup);
+
+  const code = await cmdService(['service', 'install', 'all'], {}, io, d);
 
   expect(code).toBe(0);
   expect(serveSup.calls).toEqual(['install']);
@@ -193,6 +209,31 @@ test('start/stop/restart delegate and log', async () => {
   expect(c3).toBe(0);
   expect(sup.calls).toEqual(['start', 'stop', 'restart']);
   expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['start', 'stop', 'restart']);
+});
+
+// 4b. a bare lifecycle verb sweeps only INSTALLED units — it must not hard-fail
+// on a unit that was never set up (regression: default-all threw on snapshot).
+test('restart with no selector skips a not-installed unit instead of throwing', async () => {
+  const serveSup = new FakeSupervisor();
+  // A supervisor that throws on restart, mirroring launchctl kickstart on a
+  // not-loaded/not-installed service.
+  class ThrowingSupervisor extends FakeSupervisor {
+    override restart(): Promise<void> {
+      this.calls.push('restart');
+      return Promise.reject(new Error('kickstart: service not found'));
+    }
+  }
+  const snapSup = new ThrowingSupervisor();
+  const io = fakeIo();
+  const d = deps(serveSup, {}, snapSup);
+  // serve is installed; snapshot is NOT (no plist on disk).
+  await cmdService(['service', 'install', 'serve'], {}, io, d);
+
+  const code = await cmdService(['service', 'restart'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(serveSup.calls).toContain('restart');
+  expect(snapSup.calls).toEqual([]); // the not-installed unit was never touched
 });
 
 // 5. unknown subcommand is usage; non-darwin is a loud operational error

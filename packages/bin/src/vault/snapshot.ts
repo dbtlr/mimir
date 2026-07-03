@@ -92,11 +92,11 @@ export async function snapshotVault(opts: SnapshotOptions): Promise<SnapshotResu
     ...extra,
   });
 
-  // Preflight — a vault absent at a configured path is the "missing volume"
-  // failure ADR 0016 wants loud; auto-scaffolding here would defeat mount-safety.
-  if (!existsSync(opts.path)) {
-    return alert(`vault not found at ${opts.path}`);
-  }
+  // Preflight through the timeout-bounded git seam first — NOT a bare
+  // existsSync, which would block the event loop unbounded on a hung /Volumes
+  // mount (the exact failure this module guards against). A quick, killable
+  // `rev-parse` distinguishes a hung mount (timeout) from a responsive one; the
+  // subsequent existsSync only ever runs after that returned, so it is safe.
   const inside = await git.capture(['rev-parse', '--is-inside-work-tree'], quick);
   if (inside.code === TIMED_OUT) {
     return alert(
@@ -104,16 +104,29 @@ export async function snapshotVault(opts: SnapshotOptions): Promise<SnapshotResu
     );
   }
   if (inside.code !== 0) {
-    return alert(`${opts.path} is not a git repository`);
+    // The bounded call returned, so the filesystem is responsive: a plain
+    // existsSync now safely tells "missing volume" from "not a git repository".
+    return alert(
+      existsSync(opts.path)
+        ? `${opts.path} is not a git repository`
+        : `vault not found at ${opts.path}`,
+    );
   }
   const branchResult = await git.capture(['branch', '--show-current'], quick);
   const branch = branchResult.stdout.trim();
   if (branchResult.code === TIMED_OUT) {
     return alert(`git timed out reading the branch of ${opts.path}`);
   }
+  // A nonzero (non-timeout) exit is a git error, NOT detached HEAD — both leave
+  // an empty branch, so guard the error case before assuming detached HEAD.
+  if (branchResult.code !== 0) {
+    return alert(`git could not read the branch of ${opts.path}${detail(branchResult.stderr)}`);
+  }
   if (branch === '') {
     return alert(`${opts.path} is in detached HEAD — not snapshotting`);
   }
+  // operationInProgress uses existsSync on .git/*, safe here: the two bounded
+  // git calls above already succeeded, proving the mount is responsive.
   if (operationInProgress(opts.path)) {
     return alert(`an in-progress merge/rebase exists in ${opts.path} — not committing over it`, {
       branch,

@@ -20,6 +20,7 @@ import { MimirError } from '../core';
 import { PROD_PORT } from '../env';
 import {
   DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+  readConfig,
   readServeConfig,
   readVaultConfig,
   writeServePort,
@@ -69,7 +70,8 @@ export type ServiceUnit = {
   supervisor: Supervisor;
   plistFile: string;
   logFile: string;
-  render: () => string;
+  /** Render the plist from the given config file — the same file the command reads for its report. */
+  render: (configFile: string) => string;
 };
 
 export type ServiceDeps = {
@@ -83,27 +85,40 @@ export type ServiceDeps = {
   /** GET /api/health on a port, undefined when nothing answers. */
   health: (port: number) => Promise<Health | undefined>;
   fetcher: Fetcher;
-  /** MIMIR_DB at invocation time, baked into the serve plist iff set. */
-  dbPath: string | undefined;
   /** The launchd units this surface manages, keyed by name. */
   units: Record<UnitName, ServiceUnit>;
 };
 
 const SUBCOMMANDS = ['install', 'uninstall', 'start', 'stop', 'restart', 'status'] as const;
 const UNITS = ['serve', 'snapshot'] as const;
+/** The selector accepts a single unit or the literal `all`; omitted → the verb's default. */
+const SELECTORS = ['serve', 'snapshot', 'all'] as const;
+
+/** Validate the raw unit selector: a unit name, `all`, or undefined (verb default). */
+function parseSelector(arg: string | undefined): 'all' | UnitName | undefined {
+  if (arg === undefined) {
+    return undefined;
+  }
+  if (!isMember(arg, SELECTORS)) {
+    throw usage(`service: unknown unit '${arg}' (expected: ${SELECTORS.join(' | ')})`);
+  }
+  return arg;
+}
 
 /**
- * The units a verb targets: an explicit `serve`/`snapshot` selector, or all
- * units when omitted. `status` ignores the selector and always reports all.
+ * Resolve the selector to concrete units. `all` → both; a named unit → that one;
+ * omitted → `fallback()`. Snapshot is opt-in: install/uninstall fall back to
+ * serve only (a bare `install` never schedules the vault timer), while the
+ * lifecycle verbs fall back to whatever is actually installed.
  */
-function selectUnits(arg: string | undefined): UnitName[] {
-  if (arg === undefined) {
+function resolveUnits(sel: 'all' | UnitName | undefined, fallback: () => UnitName[]): UnitName[] {
+  if (sel === 'all') {
     return [...UNITS];
   }
-  if (!isMember(arg, UNITS)) {
-    throw usage(`service: unknown unit '${arg}' (expected: ${UNITS.join(' | ')})`);
+  if (sel !== undefined) {
+    return [sel];
   }
-  return [arg];
+  return fallback();
 }
 
 function requireDarwin(deps: ServiceDeps): void {
@@ -153,7 +168,8 @@ export async function cmdService(
     return await statusReport(io, deps, format);
   }
 
-  const units = selectUnits(positionals[2]);
+  const sel = parseSelector(positionals[2]);
+  const installed = (): UnitName[] => UNITS.filter((n) => existsSync(deps.units[n].plistFile));
   const emitActions = (results: ServiceActionResult[], humans: (() => void)[]): void => {
     report(
       io,
@@ -169,6 +185,8 @@ export async function cmdService(
 
   switch (sub) {
     case 'install': {
+      // Snapshot is opt-in: a bare `install` sets up only the serve daemon.
+      const units = resolveUnits(sel, () => ['serve']);
       // --port is a serve setting: validate + persist once, before touching units.
       let port: number | undefined;
       if (values.port !== undefined) {
@@ -182,7 +200,7 @@ export async function cmdService(
       const humans: (() => void)[] = [];
       for (const name of units) {
         const unit = deps.units[name];
-        writeFileSync(unit.plistFile, unit.render());
+        writeFileSync(unit.plistFile, unit.render(deps.configFile));
         await unit.supervisor.install(unit.plistFile);
         const paths = { config: deps.configFile, log: unit.logFile, plist: unit.plistFile };
         if (name === 'serve') {
@@ -214,6 +232,8 @@ export async function cmdService(
       return 0;
     }
     case 'uninstall': {
+      // Symmetric with install: a bare `uninstall` tears down only serve.
+      const units = resolveUnits(sel, () => ['serve']);
       const results: ServiceActionResult[] = [];
       const humans: (() => void)[] = [];
       for (const name of units) {
@@ -232,9 +252,21 @@ export async function cmdService(
     case 'start':
     case 'stop':
     case 'restart': {
+      // A bare lifecycle verb sweeps whatever is installed, so it never fails on
+      // a unit that was never set up (e.g. the opt-in snapshot timer).
+      const units = resolveUnits(sel, installed);
       const pastTense = { restart: 'restarted', start: 'started', stop: 'stopped' } as const;
       const results: ServiceActionResult[] = [];
       const humans: (() => void)[] = [];
+      if (units.length === 0) {
+        report(
+          io,
+          format,
+          () => formatServiceActionsJson([], format === 'json' ? 'json' : 'jsonl'),
+          () => ok(io, 'no units installed (install with `mimir service install`)'),
+        );
+        return 0;
+      }
       for (const name of units) {
         const unit = deps.units[name];
         if (sub === 'start') {
@@ -260,7 +292,9 @@ export async function cmdService(
 
 /** Status over every unit: serve carries port + health, snapshot its interval. */
 async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<number> {
-  const config = readServeConfig(deps.configFile);
+  // One parse of the config file, both sections read from it (MMR-146 review).
+  const parsed = readConfig(deps.configFile);
+  const config = parsed.serve;
   // A config that couldn't be honored is always a stderr warning (warnings stay
   // off stdout, per the output contract); the JSON envelope also carries it.
   if (config.problem !== undefined) {
@@ -270,9 +304,11 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
   const serveInfo = await deps.units.serve.supervisor.info();
   // The service surface manages the installed production daemon regardless of
   // how this CLI was invoked, so the daemon's own default (PROD_PORT) governs —
-  // not the invoking process's profile default (MMR-117).
+  // not the invoking process's profile default (MMR-117). Probe health
+  // unconditionally (as before the units refactor): a serve answering the port
+  // outside launchd still surfaces, rather than reading as dead.
   const port = config.port ?? PROD_PORT;
-  const healthRaw = serveInfo.loaded ? await deps.health(port) : undefined;
+  const healthRaw = await deps.health(port);
   const health: ServiceHealth | null =
     healthRaw === undefined
       ? null
@@ -295,8 +331,7 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
 
   const snapInfo = await deps.units.snapshot.supervisor.info();
   const snapshot: UnitStatus = {
-    intervalSeconds:
-      readVaultConfig(deps.configFile).snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+    intervalSeconds: parsed.vault.snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
     loaded: snapInfo.loaded,
     log: deps.units.snapshot.logFile,
     pid: snapInfo.pid ?? null,

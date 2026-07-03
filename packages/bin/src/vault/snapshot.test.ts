@@ -200,17 +200,32 @@ test('a non-git directory alerts', async () => {
 });
 
 test('an absent vault path alerts (missing volume), never scaffolds', async () => {
-  const { exec, calls } = fakeGit();
+  // The bounded `rev-parse` is the preflight (not a bare existsSync); on a truly
+  // absent path git exits nonzero, and existsSync then distinguishes not-found.
+  const { exec, calls } = fakeGit({ 'rev-parse --is-inside-work-tree': { code: 128 } });
   const missing = join(dir, 'does-not-exist');
   const r = await snapshotVault({ exec, path: missing, stamp: STAMP });
   expect(r.alerts[0]).toContain('vault not found');
-  expect(calls).toEqual([]); // never even shelled out to git
+  // Only the bounded inspection ran — nothing that mutates the (absent) vault.
+  expect(calls.some((c) => c[0] === 'add' || c[0] === 'commit')).toBe(false);
 });
 
 test('a hung inspection (timeout) alerts about a possibly-hanging volume', async () => {
   const { exec } = fakeGit({ 'rev-parse --is-inside-work-tree': { code: 124 } });
   const r = await snapshotVault({ exec, path: dir, stamp: STAMP });
   expect(r.alerts[0]).toContain('hanging');
+});
+
+test('a nonzero `git branch --show-current` is a git error, not detached HEAD', async () => {
+  // git < 2.22, or a corrupt/locked repo: nonzero exit with empty stdout. This
+  // must not be misreported as detached HEAD (finding 4).
+  const { exec, calls } = fakeGit({
+    'branch --show-current': { code: 129, stderr: 'unknown option --show-current' },
+  });
+  const r = await snapshotVault({ exec, path: dir, stamp: STAMP });
+  expect(r.alerts[0]).toContain('could not read the branch');
+  expect(r.alerts[0]).not.toContain('detached');
+  expect(calls.some((c) => c[0] === 'add')).toBe(false);
 });
 
 test('a failed commit is a loud alert', async () => {

@@ -25,11 +25,13 @@ release. When a release is cut, this section is promoted to
   failed commit, an unresolved conflict — and every git call is
   timeout-bounded against a hung `/Volumes` mount. Configured under
   `[vault.snapshot]` in the global config (`interval` seconds, `upstream`,
-  `push`/`pull` toggles). Scheduling rides the `service` family: a unit
-  selector — `mimir service <verb> [serve|snapshot]`, defaulting to both —
-  installs/manages a `StartInterval` launchd unit (default 900s, the atlas
-  precedent) alongside the serve daemon; `service status` now reports both
-  units.
+  `push`/`pull` toggles). Scheduling rides the `service` family via a unit
+  selector — `mimir service <verb> [serve|snapshot|all]`. Snapshot is
+  **opt-in**: `install`/`uninstall` default to serve only, so the timer is set
+  up deliberately with `service install snapshot` (or `install all`); the
+  lifecycle verbs (`start`/`stop`/`restart`) sweep whatever is installed. The
+  snapshot unit is a `StartInterval` launchd unit (default 900s, the atlas
+  precedent); `service status` reports both units.
 - **Artifacts can be stored in the Norn vault** (MMR-143, ADR 0016 Phase 2a).
   A backend flag selects where artifacts live — SQLite (default) or the
   Norn-managed markdown vault — chosen by `MIMIR_ARTIFACT_STORE` >
@@ -124,6 +126,15 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **`mimir service status` / lifecycle JSON envelopes are now multi-unit**
+  (MMR-146). With serve and snapshot both managed under `service`, the
+  structured output carries a unit array rather than a single daemon's fields:
+  `service status --format json` emits `{ config, recent_events, units: [...] }`
+  (per-unit `loaded`/`running`/`pid`/`plist`/`log`, plus serve's
+  `port`/`health` and snapshot's `interval_seconds`), and `service <verb>
+  --format json` emits `{ actions: [...] }` (one entry per unit acted on). A
+  script that read the old top-level `service status` fields must reach into
+  `units[]`.
 - **Status derivation is computed in-memory over one snapshot** (MMR-133/134,
   ADR 0016 Phase 0). Every read view — `next`, `list`, `get`, `status`, `tree`,
   and the Overview — now loads the work state as one bulk projection and
