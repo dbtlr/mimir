@@ -30,6 +30,16 @@ release. When a release is cut, this section is promoted to
   deltas under the Norn backend: search (`q`) matches the title only (not
   content), and a tag carries no note. A backend-parametrized conformance
   suite holds both implementations to the same contract.
+- **`mimir migrate-artifacts`** — copy existing SQLite artifacts into the Norn
+  vault (MMR-144, ADR 0016 Phase 2a), the cutover step that makes the vault
+  backend usable on real data. Each artifact is written at its existing
+  identity, so the `KEY-aN` stem, `created` timestamp, anchor/project links,
+  and tags are all preserved; the frozen content becomes the file body. The
+  run is **non-destructive** (SQLite is read-only and stays the default
+  backend) and **idempotent** — an already-migrated artifact is skipped via the
+  vault's create-exclusive write, so a re-run makes no duplicates. `--dry-run`
+  reports what would move without writing. A cutover-only command, removed once
+  the vault is the sole backend.
   — archive a project to make it and its whole subtree *go away*, reversibly.
   Archiving both **freezes** (no mutation is permitted on the project or any
   descendant — every lifecycle/hold/structure/data/create/tag/attach verb is

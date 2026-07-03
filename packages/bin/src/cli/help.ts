@@ -125,6 +125,9 @@ other:
                           restart the service if loaded. default: latest
                           official; --next: latest incl. prereleases; --tag:
                           an exact tag (e.g. v0.6.0-next.5)
+  migrate-artifacts [--dry-run]
+                          copy SQLite artifacts into the vault backend
+                          (cutover, MMR-144): idempotent + non-destructive
   migrate [status] · mcp
 `;
 
@@ -470,6 +473,17 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     summary: 'restore an archived project (archived → active) — unfreezes and unhides it.',
     args: [['<KEY>', 'the archived project to restore (bare project key)']],
     examples: ['mimir unarchive SAGA'],
+  },
+  // ── cutover (MMR-144) ──
+  'migrate-artifacts': {
+    examples: [
+      'mimir migrate-artifacts --dry-run   # count what would move, write nothing',
+      'mimir migrate-artifacts             # copy every artifact into the vault',
+    ],
+    flags: [['--dry-run', 'report the source inventory without writing']],
+    summary:
+      'copy SQLite artifacts into the vault backend (cutover) — preserves KEY-aN identity + timestamps; idempotent and non-destructive (SQLite is untouched).',
+    usage: 'mimir migrate-artifacts [--dry-run]',
   },
   // ── binding ──
   bind: {

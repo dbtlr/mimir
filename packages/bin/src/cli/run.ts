@@ -37,6 +37,7 @@ import type { ServiceDeps } from '../service';
 import { BINDING_FILE, writeBinding } from './binding';
 import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from './errors';
 import { FULL_HELP, TERSE_HELP, helpForCommand } from './help';
+import { cmdMigrateArtifacts } from './migrate-artifacts';
 import {
   cmdAbandon,
   cmdAnnotate,
@@ -126,6 +127,8 @@ const OPTIONS = {
   agent: { type: 'string' },
   // service flag
   port: { type: 'string' },
+  // migrate-artifacts (cutover, MMR-144)
+  'dry-run': { type: 'boolean' },
   // self-update selectors (--tag reuses the multiple `tag` flag above,
   // last-wins like the other shared write-surface flags)
   next: { type: 'boolean' },
@@ -220,6 +223,7 @@ export async function runCli(
     agent?: string;
     port?: string;
     next?: boolean;
+    'dry-run'?: boolean;
   };
   let positionals: string[];
   try {
@@ -486,6 +490,12 @@ export async function runCli(
           ctx.write(`${glyph} bound to ${key} (${BINDING_FILE})`);
         }
         return 0;
+      }
+      case 'migrate-artifacts': {
+        return await cmdMigrateArtifacts(await getDb(), ctx, {
+          dryRun: values['dry-run'] === true,
+          json: values.format === 'json' || values.format === 'jsonl',
+        });
       }
       case 'service': {
         if (defaults.service === undefined) {

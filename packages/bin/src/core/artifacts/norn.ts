@@ -42,6 +42,73 @@ function isPathCollision(error: unknown): boolean {
 const stemOf = (key: string, seq: number): string => renderArtifactRef({ key, seq });
 const pathOf = (key: string, seq: number): string => `${key}/artifacts/${stemOf(key, seq)}.md`;
 
+/**
+ * The artifact frontmatter as `vault.new` `field_json` entries — the single
+ * write shape shared by `create` (which stamps `created=now()`) and the
+ * cutover `restoreArtifact` (which preserves the source `created`). `anchor`
+ * and `tags` are omitted when empty so an artifact carries only the fields it
+ * has, matching the pre-seam markdown.
+ */
+function artifactFieldJson(fields: {
+  key: string;
+  title: string;
+  created: string;
+  links: string[];
+  tags: string[];
+}): string[] {
+  const json: string[] = [
+    `type=${JSON.stringify('artifact')}`,
+    `title=${JSON.stringify(fields.title)}`,
+    `project=${JSON.stringify(`[[${fields.key}]]`)}`,
+    `created=${JSON.stringify(fields.created)}`,
+  ];
+  if (fields.links.length > 0) {
+    json.push(`anchor=${JSON.stringify(fields.links.map((stem) => `[[${stem}]]`))}`);
+  }
+  if (fields.tags.length > 0) {
+    json.push(`tags=${JSON.stringify(fields.tags)}`);
+  }
+  return json;
+}
+
+/**
+ * Cutover-only (MMR-144): write one SQLite-sourced artifact into the vault at
+ * its *existing* identity — the same `KEY-aN` stem and the same `created` — so
+ * ids and timestamps survive the migration and a re-run is idempotent. Unlike
+ * `create`, it never derives a fresh seq or re-stamps `created`; the frozen
+ * `content` becomes the body. An already-migrated path (create-exclusive
+ * `vault.new` refuses it) is the idempotency signal → `skipped`; every other
+ * error propagates so the run fails loudly. Delete alongside the migration
+ * command once the vault is the sole backend.
+ */
+export async function restoreArtifact(
+  client: NornClient,
+  record: ArtifactRecord,
+  content: string,
+): Promise<'created' | 'skipped'> {
+  try {
+    await client.newDoc({
+      body: content,
+      confirm: true,
+      field_json: artifactFieldJson({
+        created: record.created_at,
+        key: record.key,
+        links: record.links,
+        tags: record.tags,
+        title: record.title,
+      }),
+      parents: true,
+      path: pathOf(record.key, record.seq),
+    });
+    return 'created';
+  } catch (error) {
+    if (isPathCollision(error)) {
+      return 'skipped';
+    }
+    throw error;
+  }
+}
+
 /** Parse `KEY-aN` out of a vault path; null for non-artifact paths. */
 function seqFromPath(path: string): { key: string; seq: number } | null {
   const match = /(?:^|\/)([A-Z]{2,4})-a(\d+)\.md$/.exec(path);
@@ -157,21 +224,15 @@ export function createNornArtifactStore(client: NornClient): ArtifactStore {
     },
 
     async create(input: ArtifactCreate) {
-      const fields = (title: string): string[] => {
-        const json: string[] = [
-          `type=${JSON.stringify('artifact')}`,
-          `title=${JSON.stringify(title)}`,
-          `project=${JSON.stringify(`[[${input.key}]]`)}`,
-          `created=${JSON.stringify(now())}`,
-        ];
-        if (input.links.length > 0) {
-          json.push(`anchor=${JSON.stringify(input.links.map((stem) => `[[${stem}]]`))}`);
-        }
-        if (input.tags.length > 0) {
-          json.push(`tags=${JSON.stringify(input.tags)}`);
-        }
-        return json;
-      };
+      // Stamped once, not per retry: a create-exclusive collision re-derives the
+      // seq, but the artifact's `created` should not drift across attempts.
+      const field_json = artifactFieldJson({
+        created: now(),
+        key: input.key,
+        links: input.links,
+        tags: input.tags,
+        title: input.title,
+      });
       let lastError: unknown;
       for (let attempt = 0; attempt < CREATE_RETRIES; attempt += 1) {
         const docs = await projectDocs(input.key);
@@ -184,7 +245,7 @@ export function createNornArtifactStore(client: NornClient): ArtifactStore {
           await client.newDoc({
             body: input.content,
             confirm: true,
-            field_json: fields(input.title),
+            field_json,
             parents: true,
             path: pathOf(input.key, seq),
           });
