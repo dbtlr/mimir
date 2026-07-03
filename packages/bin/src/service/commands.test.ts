@@ -260,10 +260,43 @@ test('restart all skips a not-installed unit instead of throwing', async () => {
 
   const code = await cmdService(['service', 'restart', 'all'], {}, io, d);
 
-  expect(code).toBe(0);
+  // `all` names both, but only serve is installed: serve restarts, snapshot is a
+  // reported no-op (never a throw), and the unhonored target makes the exit nonzero.
+  expect(code).toBe(1);
   expect(serveSup.calls).toContain('restart');
   expect(snapSup.calls).toEqual([]); // never touched despite `all`
   expect(io.err.join('\n')).toContain('snapshot: not installed');
+});
+
+// 4e. exit-code contract: a bare sweep succeeds, an explicitly named
+// not-installed unit fails — so `&&`-chaining callers don't proceed on a no-op.
+test('lifecycle exit code: bare sweep is 0, explicit not-installed unit is nonzero', async () => {
+  const io = fakeIo();
+  const d = deps(new FakeSupervisor(), {}, new FakeSupervisor());
+
+  // Nothing installed: a bare restart is a reported no-op, exit 0.
+  expect(await cmdService(['service', 'restart'], {}, io, d)).toBe(0);
+  expect(io.out.join('\n')).toContain('no units installed');
+
+  // Explicitly starting a not-installed unit is a failed request, exit nonzero.
+  const io2 = fakeIo();
+  expect(await cmdService(['service', 'start', 'snapshot'], {}, io2, d)).toBe(1);
+  expect(io2.err.join('\n')).toContain('snapshot: not installed');
+});
+
+// 4f. uninstalling a not-installed unit is idempotent — no phantom teardown
+// event, no "uninstalled" claim.
+test('uninstall of a not-installed unit logs nothing and reports honestly', async () => {
+  const io = fakeIo();
+  const d = deps(new FakeSupervisor(), {}, new FakeSupervisor());
+
+  const code = await cmdService(['service', 'uninstall', 'snapshot'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(io.out.join('\n')).toContain('not installed (nothing to remove)');
+  expect(io.out.join('\n')).not.toContain('snapshot uninstalled');
+  // No phantom 'uninstall' event was logged for a unit that never existed.
+  expect(recentEvents(d.eventsFile, 10)).toEqual([]);
 });
 
 // 4d. a bare `uninstall` sweeps whatever is installed — it must not orphan the

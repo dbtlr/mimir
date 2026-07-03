@@ -249,13 +249,20 @@ export async function cmdService(
       }
       for (const name of units) {
         const unit = deps.units[name];
+        const wasInstalled = existsSync(unit.plistFile);
+        // Tolerant bootout regardless — cleans up a unit still loaded whose plist
+        // vanished — but only *report* (and log) a teardown that actually happened,
+        // so a not-installed unit never shows a phantom 'uninstall' event.
         await unit.supervisor.uninstall();
-        if (existsSync(unit.plistFile)) {
+        if (wasInstalled) {
           rmSync(unit.plistFile);
+          log('uninstall', true, name);
+          results.push({ action: 'uninstall', ok: true, unit: name });
+          humans.push(() => ok(io, `${name} uninstalled (config and logs kept)`));
+        } else {
+          results.push({ action: 'uninstall', ok: true, unit: name });
+          humans.push(() => ok(io, `${name}: not installed (nothing to remove)`));
         }
-        log('uninstall', true, name);
-        results.push({ action: 'uninstall', ok: true, unit: name });
-        humans.push(() => ok(io, `${name} uninstalled (config and logs kept)`));
       }
       emitActions(results, humans);
       return 0;
@@ -289,6 +296,8 @@ export async function cmdService(
         humans.push(() => ok(io, `${name} ${pastTense[sub]}`));
       }
       if (results.length === 0) {
+        // Only a bare sweep reaches here (all/explicit resolve to ≥1 unit); an
+        // empty install set is a reported no-op, not a failure.
         report(
           io,
           format,
@@ -298,7 +307,11 @@ export async function cmdService(
         return 0;
       }
       emitActions(results, humans);
-      return 0;
+      // A bare sweep acts on exactly what's installed → always success. But an
+      // explicitly targeted unit (named, or via `all`) that isn't installed is
+      // a request that couldn't be honored — surface it in the exit code so a
+      // `mimir service start snapshot && …` chain doesn't proceed on a no-op.
+      return sel !== undefined && results.some((r) => !r.ok) ? 1 : 0;
     }
     default: {
       // Unreachable — `sub` is validated against SUBCOMMANDS above (narrows to never here).
