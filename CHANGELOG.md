@@ -15,6 +15,18 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **`mimir setup` — the configuration wizard** (MMR-145, ADR 0016 Phase 2a) —
+  one command for the first install and every later reconfiguration. It
+  prefills the current answers, converges the vault at the chosen location
+  (creating a fresh path, adopting an existing Mimir vault, or refusing a
+  foreign non-empty directory), writes the global config, and installs the
+  launchd units — all idempotent, so re-running is safe. Interactive at a TTY;
+  non-interactively it takes flags (`--vault`, `--port`, `--install-service`,
+  `--install-snapshot`, `--snapshot-interval`, `--upstream`) and requires `-y`,
+  so a piped `mimir setup` never converges a vault or schedules a daemon
+  silently. Off macOS the launchd questions are skipped (the vault + config
+  still land). The global-config writer is now section-preserving: writing a
+  `[serve] port` no longer clobbers a `[vault] path`.
 - **`mimir vault snapshot` + a scheduled snapshot unit** (MMR-146, ADR 0016
   Phase 2a) — the vault's git commit cadence: periodic snapshots, not
   per-write commits. The command commits the vault's working tree when dirty

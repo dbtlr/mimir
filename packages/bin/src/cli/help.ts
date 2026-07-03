@@ -108,6 +108,12 @@ options:
       --tag <t>           create: tag at creation (repeatable)
 
 other:
+  setup [--vault <path>] [--install-service] [--install-snapshot]
+        [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]
+                          interactive first-install + reconfiguration wizard:
+                          converge the vault, write the config, install the
+                          launchd units. Prefills current values; re-runnable.
+                          Non-interactively takes flags + -y.
   skill install [--global|--local] [--agent claude|codex]
                           install the agent skill (default: --global, claude;
                           claude → .claude/skills, codex → .agents/skills)
@@ -489,6 +495,27 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     summary:
       'copy SQLite artifacts into the vault backend (cutover) — preserves KEY-aN identity + timestamps; idempotent and non-destructive (SQLite is untouched).',
     usage: 'mimir migrate-artifacts [--dry-run]',
+  },
+  // ── setup wizard (MMR-145) ──
+  setup: {
+    examples: [
+      'mimir setup                          # interactive first install / reconfigure',
+      'mimir setup --vault ~/.local/share/mimir/vault --install-service -y',
+      'mimir setup --install-snapshot --snapshot-interval 900 --upstream git@host:me/vault.git -y',
+    ],
+    flags: [
+      ['--vault <path>', 'vault location (default: current config, else the build default)'],
+      ['--install-service', 'install the serve launchd unit (macOS)'],
+      ['--port <n>', 'serve port to persist + install with'],
+      ['--install-snapshot', 'install the auto-snapshot launchd unit (macOS)'],
+      ['--snapshot-interval <s>', 'snapshot cadence in seconds (default 900)'],
+      ['--upstream <url>', 'snapshot upstream remote to push/reconcile against'],
+      ['-y, --yes', 'run non-interactively from flags (required when not a TTY)'],
+    ],
+    summary:
+      'first-install + reconfiguration wizard — converge the vault, write the global config, install the launchd units. Prefills current values; safe to re-run.',
+    usage:
+      'mimir setup [--vault <path>] [--install-service] [--install-snapshot] [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]',
   },
   // ── vault cadence (MMR-146) ──
   vault: {

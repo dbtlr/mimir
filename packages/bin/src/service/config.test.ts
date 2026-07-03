@@ -3,7 +3,14 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { configPath, readConfig, readServeConfig, readVaultConfig, writeServePort } from './config';
+import {
+  configPath,
+  readConfig,
+  readServeConfig,
+  readVaultConfig,
+  writeConfig,
+  writeServePort,
+} from './config';
 
 let dir: string;
 beforeEach(() => {
@@ -168,4 +175,48 @@ test('readVaultConfig missing sections default empty; a wrong-typed store surfac
   expect(readConfig(file).store).toEqual({ problem: 'invalid-artifacts' });
   writeFileSync(file, 'store = "norn"\n');
   expect(readConfig(file).store).toEqual({ problem: 'malformed' });
+});
+
+test('writeConfig creates parents and round-trips a vault path + snapshot', () => {
+  const file = join(dir, 'deep', 'mimir', 'config.toml');
+  writeConfig(file, {
+    vault: { path: '/v', snapshot: { interval: 300, upstream: 'git@host:me/v.git' } },
+  });
+  expect(readConfig(file)).toEqual({
+    serve: {},
+    store: {},
+    vault: { path: '/v', snapshot: { interval: 300, upstream: 'git@host:me/v.git' } },
+  });
+});
+
+test('writeConfig merges: a serve-port write preserves an existing [vault] path', () => {
+  const file = join(dir, 'config.toml');
+  writeConfig(file, { vault: { path: '/v', snapshot: { interval: 900 } } });
+  writeConfig(file, { serve: { port: 50125 } });
+  expect(readConfig(file)).toEqual({
+    serve: { port: 50125 },
+    store: {},
+    vault: { path: '/v', snapshot: { interval: 900 } },
+  });
+});
+
+test('writeConfig merges snapshot sub-keys rather than replacing the table', () => {
+  const file = join(dir, 'config.toml');
+  writeConfig(file, { vault: { path: '/v', snapshot: { interval: 900, push: true } } });
+  writeConfig(file, { vault: { snapshot: { upstream: 'git@host:me/v.git' } } });
+  expect(readVaultConfig(file)).toEqual({
+    path: '/v',
+    snapshot: { interval: 900, push: true, upstream: 'git@host:me/v.git' },
+  });
+});
+
+test('writeServePort no longer clobbers: an existing [vault] path survives', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[vault]\npath = "/keep"\n');
+  writeServePort(file, 50126);
+  expect(readConfig(file)).toEqual({
+    serve: { port: 50126 },
+    store: {},
+    vault: { path: '/keep' },
+  });
 });
