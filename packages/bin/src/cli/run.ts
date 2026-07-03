@@ -366,7 +366,7 @@ export async function runCli(
       }
       case 'status': {
         const id = requireId(positionals[1], 'status');
-        const status = await statusOfNode(await getDb(), id);
+        const status = await statusOfNode(await getStore(), id);
         const format = pickFormat(values.format, 'status', ctx);
         ctx.write(format === 'json' ? formatStatusJson(status) : renderStatus(status, ctx));
         return 0;

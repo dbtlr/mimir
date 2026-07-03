@@ -14,7 +14,6 @@ import type {
   VerdictSelector,
 } from '@mimir/contract';
 
-import type { Db } from '../context';
 import type { DerivationSet } from '../derive';
 import {
   deriveSet,
@@ -25,14 +24,13 @@ import {
   statusOfProject,
 } from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
-import { parseIdentity } from '../ids';
+import { parseId, parseIdentity } from '../ids';
 import { findNodeByRef, isProjectArchived } from '../lookup';
 import type { Node } from '../model';
 import { isBlocking, isOrphaned, isReady, isStale } from '../predicates';
 import { compileFilters } from '../query';
 import type { QueryRow } from '../query';
 import type { Store } from '../store';
-import { loadWorkingSet } from '../store-sqlite';
 import { buildArtifactDetail, buildNodeView, buildProjectView } from './view';
 
 /**
@@ -55,6 +53,24 @@ function resolveScope(set: DerivationSet, key: string): number {
     throw projectNotFound(key);
   }
   return project.id;
+}
+
+/**
+ * Resolve an external `KEY-seq` id to its node against the working-set snapshot —
+ * the in-memory twin of {@link findNodeByRef} (ADR 0016 Phase 2b). Returns
+ * `undefined` for a malformed id or an unknown key/seq; archived-project nodes
+ * still resolve (the caller applies the hiding), matching the SQL path.
+ */
+function findNodeInSet(set: DerivationSet, id: string): Node | undefined {
+  const ref = parseId(id);
+  if (ref === null) {
+    return undefined;
+  }
+  const project = set.ws.projects.find((p) => p.key === ref.key);
+  if (project === undefined) {
+    return undefined;
+  }
+  return set.ws.nodes.find((n) => n.project_id === project.id && n.seq === ref.seq);
 }
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
@@ -442,31 +458,24 @@ export async function getArtifact(
  * `status_of <id>` — a rollup distribution and its single `interpret` label,
  * for a node (`KEY-seq`) or a whole project (bare `KEY`, MMR-32).
  */
-export async function statusOfNode(db: Db, id: string): Promise<StatusView> {
+export async function statusOfNode(store: Store, id: string): Promise<StatusView> {
   const identity = parseIdentity(id);
+  const set = deriveSet(await store.loadWorkingSet());
   if (identity?.kind === 'project') {
-    const project = await db
-      .selectFrom('project')
-      .select('id')
-      .where('key', '=', identity.key)
-      .executeTakeFirst();
-    if (project === undefined || (await isProjectArchived(db, project.id))) {
+    const project = set.ws.projects.find((p) => p.key === identity.key);
+    if (project === undefined || set.archivedProjects.has(project.id)) {
       throw projectNotFound(identity.key);
     }
-    const { status, distribution } = statusOfProject(
-      deriveSet(await loadWorkingSet(db)),
-      project.id,
-    );
+    const { status, distribution } = statusOfProject(set, project.id);
     return { distribution, id: identity.key, status, type: 'project' };
   }
   if (identity?.kind === 'artifact') {
     throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
-  const node = await findNodeByRef(db, id);
-  if (node === undefined || (await isProjectArchived(db, node.project_id))) {
+  const node = findNodeInSet(set, id);
+  if (node === undefined || set.archivedProjects.has(node.project_id)) {
     throw notFound(`${id} doesn't exist`);
   }
-  const set = deriveSet(await loadWorkingSet(db));
   const { status, distribution } = statusOf(set, node);
   return { distribution, id: renderNodeIdFromSet(set, node) ?? id, status, type: node.type };
 }

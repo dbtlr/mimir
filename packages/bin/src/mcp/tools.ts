@@ -256,7 +256,7 @@ export function toolGet(
 }
 
 export function toolStatus(store: Store, args: { id: string }): Promise<ToolResult> {
-  return guard(async () => ok(formatStatusJson(await statusOfNode(store.db, args.id))));
+  return guard(async () => ok(formatStatusJson(await statusOfNode(store, args.id))));
 }
 
 // ---------------------------------------------------------------------------

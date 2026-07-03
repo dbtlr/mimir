@@ -152,7 +152,10 @@ export function createSqliteStore(db: Db): Store {
   return {
     artifacts: createSqliteArtifactStore(db),
     db,
-    loadWorkingSet: () => loadWorkingSet(db),
+    // Run the four bulk selects inside one read transaction so the projection is
+    // a consistent snapshot — a concurrent write can't interleave between them.
+    // The writer's own `loadWorkingSet` already runs inside its `transact` tx.
+    loadWorkingSet: () => db.transaction().execute((tx) => loadWorkingSet(tx)),
     transact: (fn) => db.transaction().execute((tx) => fn(createWriter(tx))),
   };
 }

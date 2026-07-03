@@ -138,7 +138,7 @@ test('status_of returns label + distribution for a non-leaf', async () => {
     .select('seq')
     .where('id', '=', phaseId)
     .executeTakeFirstOrThrow();
-  const status = await statusOfNode(db, `${key}-${String(phase.seq)}`);
+  const status = await statusOfNode(store, `${key}-${String(phase.seq)}`);
   expect(status.status).toBe('in_progress');
   expect(status.distribution).toEqual({ in_progress: 1, ready: 1 });
 });
@@ -162,7 +162,7 @@ test("status_of on a bare KEY rolls up the project's roots", async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
   await startTask(store, t.id);
 
-  const status = await statusOfNode(db, key);
+  const status = await statusOfNode(store, key);
   expect(status.id).toBe(key);
   expect(status.status).toBe('in_progress');
   expect(status.distribution).toEqual({ in_progress: 1 });
@@ -186,7 +186,7 @@ test('get on KEY-aN returns the artifact detail with rendered links', async () =
 });
 
 test('status_of rejects an artifact id as a behavioral error', async () => {
-  await expectReject(() => statusOfNode(db, `${key}-a1`));
+  await expectReject(() => statusOfNode(store, `${key}-a1`));
 });
 
 test('the node artifacts facet speaks KEY-aN', async () => {
