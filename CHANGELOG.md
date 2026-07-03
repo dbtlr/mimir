@@ -145,6 +145,13 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Vault schema bumped to 2 — node/project rules** (MMR-149, ADR 0016 Phase
+  2b). The generated `.norn/config.yaml` now carries validation rules for
+  `project` and the node types (`task`/`phase`/`initiative`) alongside the
+  artifact rule; an existing vault regenerates its rules through the converge
+  upgrade path on next open. Groundwork for reading node work-state from the
+  vault — the Norn node read path (`loadWorkingSetOverNorn`) lands behind the
+  test harness and is not yet wired into any runtime backend selection.
 - **Read-path facets derive from the working-set snapshot** (MMR-148, ADR 0016
   Phase 2b) — `get`/`tree`/`status` facet assembly, project tags, and
   `KEY-seq` token resolution now project off the same in-memory working set as
