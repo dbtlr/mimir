@@ -407,8 +407,8 @@ export async function getArtifact(
     throw notFound(`${id} is not an artifact id`, 'artifact ids look like KEY-aN');
   }
   // The artifact's owning project must exist and be active (ADR 0015 hiding).
-  const set = deriveSet(await store.loadWorkingSet());
-  const project = set.ws.projects.find((p) => p.key === identity.key);
+  const { projects } = await store.loadWorkingSet();
+  const project = projects.find((p) => p.key === identity.key);
   if (project === undefined || project.archived_at !== null) {
     throw notFound(`no artifact ${id}`);
   }

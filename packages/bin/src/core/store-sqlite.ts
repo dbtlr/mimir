@@ -5,7 +5,7 @@ import type { Db, Tx } from './context';
 import type { NodeTag, Store, StoreWriter, WorkingSet } from './store';
 
 /**
- * The SQLite `Store` (ADR 0016 Phase 0) — the seam's first backend: four
+ * The SQLite `Store` (ADR 0016 Phase 0) — the seam's first backend: five
  * bulk selects over the existing Kysely handle, no per-node follow-ups, and
  * a `transact` scope whose writer methods are thin Kysely calls on the
  * transaction. It lives in `core/` (not `db/`) because the layering runs
@@ -45,12 +45,14 @@ export async function loadWorkingSet(executor: Db | Tx): Promise<WorkingSet> {
       .select(['entity_id', 'tag', 'note', 'created_at'])
       .where('entity_type', '=', 'node')
       .orderBy('created_at', 'asc')
+      .orderBy('tag', 'asc')
       .execute(),
     executor
       .selectFrom('tag')
       .select(['entity_id', 'tag', 'note', 'created_at'])
       .where('entity_type', '=', 'project')
       .orderBy('created_at', 'asc')
+      .orderBy('tag', 'asc')
       .execute(),
   ]);
   return {
@@ -171,7 +173,7 @@ export function createSqliteStore(db: Db): Store {
   return {
     artifacts: createSqliteArtifactStore(db),
     db,
-    // Run the four bulk selects inside one read transaction so the projection is
+    // Run the five bulk selects inside one read transaction so the projection is
     // a consistent snapshot — a concurrent write can't interleave between them.
     // The writer's own `loadWorkingSet` already runs inside its `transact` tx.
     loadWorkingSet: () => db.transaction().execute((tx) => loadWorkingSet(tx)),
