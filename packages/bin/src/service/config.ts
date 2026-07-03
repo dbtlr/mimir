@@ -8,6 +8,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { conflict } from '../core/errors';
+
 export type ServeConfig = {
   port?: number;
   /** Set when a config file exists but contributed nothing — callers may warn. */
@@ -210,74 +212,110 @@ export function readVaultConfig(file = configPath()): VaultConfig {
 /** A change to apply over the current config — only the named keys are touched. */
 export type ConfigPatch = {
   serve?: { port?: number };
+  /**
+   * `path` merges into `[vault]`; `snapshot`, when present, REPLACES the whole
+   * `[vault.snapshot]` table (an empty object clears it) — so a reconfiguration
+   * can drop a key like `upstream`, which a per-key merge could never express.
+   */
   vault?: { path?: string; snapshot?: SnapshotConfig };
   store?: { artifacts?: 'sqlite' | 'norn' };
 };
 
-/** A TOML basic string — JSON's escaping is a valid encoding for our values. */
-const tomlString = (value: string): string => JSON.stringify(value);
+type Table = Record<string, unknown>;
 
-/**
- * Render the known config schema. Section order is fixed and `[vault]` scalar
- * keys precede the `[vault.snapshot]` sub-table, as TOML requires. A section
- * with nothing to say is omitted rather than emitted empty.
- */
-function serializeConfig(config: GlobalConfig): string {
-  const sections: string[] = [];
-  if (config.serve.port !== undefined) {
-    sections.push(`[serve]\nport = ${String(config.serve.port)}`);
-  }
-  if (config.vault.path !== undefined) {
-    sections.push(`[vault]\npath = ${tomlString(config.vault.path)}`);
-  }
-  const snap = config.vault.snapshot;
-  if (snap !== undefined) {
-    const keys: string[] = [];
-    if (snap.interval !== undefined) {
-      keys.push(`interval = ${String(snap.interval)}`);
-    }
-    if (snap.upstream !== undefined) {
-      keys.push(`upstream = ${tomlString(snap.upstream)}`);
-    }
-    if (snap.push !== undefined) {
-      keys.push(`push = ${String(snap.push)}`);
-    }
-    if (snap.pull !== undefined) {
-      keys.push(`pull = ${String(snap.pull)}`);
-    }
-    if (keys.length > 0) {
-      sections.push(`[vault.snapshot]\n${keys.join('\n')}`);
-    }
-  }
-  if (config.store.artifacts !== undefined) {
-    sections.push(`[store]\nartifacts = ${tomlString(config.store.artifacts)}`);
-  }
-  return sections.length === 0 ? '' : `${sections.join('\n\n')}\n`;
+/** A shallow copy of a value when it is a table, else a fresh empty table. */
+function asTable(value: unknown): Table {
+  return isTable(value) ? { ...value } : {};
+}
+
+/** Emit one TOML scalar — the value kinds the mimir config actually uses. */
+function emitScalar(value: string | number | boolean): string {
+  // JSON's escaping is a valid TOML basic string for our string values.
+  return typeof value === 'string' ? JSON.stringify(value) : String(value);
 }
 
 /**
- * Merge a patch into the config and rewrite it whole — preserving every section
- * the patch doesn't name (the `service install --port` path must not drop a
- * `[vault] path`, and setup writes both). Reads through {@link readConfig}, so a
- * value the reader rejected as invalid is not carried forward; the write is a
- * clean, normalized config.
+ * Serialize a raw TOML table, recursing into sub-tables. Scalars precede
+ * sub-tables at every level (TOML requires it — bare keys belong to the
+ * enclosing table); an empty table emits no header, so a section cleared to
+ * nothing simply disappears.
+ */
+function emitTable(prefix: string, table: Table, out: string[]): void {
+  const scalars: string[] = [];
+  const subTables: [string, Table][] = [];
+  for (const [key, value] of Object.entries(table)) {
+    if (value === undefined) {
+      continue;
+    }
+    if (isTable(value)) {
+      subTables.push([key, value]);
+    } else if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+    ) {
+      scalars.push(`${key} = ${emitScalar(value)}`);
+    } else {
+      // Arrays/dates are not part of the config schema — refuse rather than
+      // silently corrupt a value we can't faithfully round-trip.
+      throw conflict(
+        `cannot rewrite config: unsupported value at ${prefix === '' ? key : `${prefix}.${key}`}`,
+        'the mimir config holds only strings, numbers, booleans, and tables',
+      );
+    }
+  }
+  if (scalars.length > 0) {
+    out.push(prefix === '' ? scalars.join('\n') : `[${prefix}]\n${scalars.join('\n')}`);
+  }
+  for (const [key, sub] of subTables) {
+    emitTable(prefix === '' ? key : `${prefix}.${key}`, sub, out);
+  }
+}
+
+/** Parse the existing config, or refuse to overwrite a file we can't preserve. */
+function readRawConfig(file: string): Table {
+  if (!existsSync(file)) {
+    return {};
+  }
+  try {
+    return asTable(Bun.TOML.parse(readFileSync(file, 'utf8')));
+  } catch {
+    throw conflict(
+      `the config at ${file} is not valid TOML — refusing to overwrite it`,
+      'fix or remove the file, then re-run',
+    );
+  }
+}
+
+/**
+ * Merge a patch into the config and rewrite it whole. Operates on the RAW parsed
+ * TOML, not the tolerant {@link readConfig} projection, so a section the patch
+ * doesn't name survives verbatim — including a reader-rejected value (an invalid
+ * `[vault.snapshot]` key is not silently erased when an unrelated `[serve] port`
+ * is written). A malformed file is never clobbered: it throws instead.
  */
 export function writeConfig(file: string, patch: ConfigPatch): void {
-  const current = readConfig(file);
-  const mergedSnapshot =
-    patch.vault?.snapshot !== undefined || current.vault.snapshot !== undefined
-      ? { ...current.vault.snapshot, ...patch.vault?.snapshot }
-      : undefined;
-  const merged: GlobalConfig = {
-    serve: { port: patch.serve?.port ?? current.serve.port },
-    store: { artifacts: patch.store?.artifacts ?? current.store.artifacts },
-    vault: {
-      path: patch.vault?.path ?? current.vault.path,
-      ...(mergedSnapshot === undefined ? {} : { snapshot: mergedSnapshot }),
-    },
-  };
+  const raw = readRawConfig(file);
+  if (patch.serve?.port !== undefined) {
+    raw.serve = { ...asTable(raw.serve), port: patch.serve.port };
+  }
+  if (patch.vault !== undefined) {
+    const vault = asTable(raw.vault);
+    if (patch.vault.path !== undefined) {
+      vault.path = patch.vault.path;
+    }
+    if (patch.vault.snapshot !== undefined) {
+      vault.snapshot = { ...patch.vault.snapshot };
+    }
+    raw.vault = vault;
+  }
+  if (patch.store?.artifacts !== undefined) {
+    raw.store = { ...asTable(raw.store), artifacts: patch.store.artifacts };
+  }
+  const out: string[] = [];
+  emitTable('', raw, out);
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, serializeConfig(merged));
+  writeFileSync(file, out.length === 0 ? '' : `${out.join('\n\n')}\n`);
 }
 
 /**

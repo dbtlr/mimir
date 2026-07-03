@@ -200,14 +200,53 @@ test('writeConfig merges: a serve-port write preserves an existing [vault] path'
   });
 });
 
-test('writeConfig merges snapshot sub-keys rather than replacing the table', () => {
+test('writeConfig replaces the snapshot table authoritatively (a key can be dropped)', () => {
   const file = join(dir, 'config.toml');
-  writeConfig(file, { vault: { path: '/v', snapshot: { interval: 900, push: true } } });
-  writeConfig(file, { vault: { snapshot: { upstream: 'git@host:me/v.git' } } });
-  expect(readVaultConfig(file)).toEqual({
-    path: '/v',
-    snapshot: { interval: 900, push: true, upstream: 'git@host:me/v.git' },
+  writeConfig(file, {
+    vault: { path: '/v', snapshot: { interval: 900, upstream: 'git@host:me/v.git' } },
   });
+  // A subsequent snapshot write with no upstream clears it — the table is
+  // replaced, not per-key merged (setup relies on this to drop an upstream).
+  writeConfig(file, { vault: { snapshot: { interval: 1200 } } });
+  expect(readVaultConfig(file)).toEqual({ path: '/v', snapshot: { interval: 1200 } });
+});
+
+test('writeConfig leaves the snapshot table untouched when the patch omits it', () => {
+  const file = join(dir, 'config.toml');
+  writeConfig(file, { vault: { path: '/v', snapshot: { interval: 900 } } });
+  writeConfig(file, { serve: { port: 50127 } });
+  expect(readVaultConfig(file)).toEqual({ path: '/v', snapshot: { interval: 900 } });
+});
+
+test('writeConfig preserves a reader-rejected value rather than erasing its section', () => {
+  const file = join(dir, 'config.toml');
+  // A hand-edited config whose snapshot has one invalid value alongside good
+  // ones. readConfig would collapse the whole sub-table to a problem; the writer
+  // must NOT propagate that loss when an unrelated [serve] port is written.
+  writeFileSync(file, '[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 900\npush = "no"\n');
+  writeServePort(file, 50128);
+  const round = Bun.TOML.parse(readFileSync(file, 'utf8')) as {
+    serve: { port: number };
+    vault: { path: string; snapshot: { interval: number; push: string } };
+  };
+  expect(round.serve.port).toBe(50128);
+  expect(round.vault.path).toBe('/v');
+  expect(round.vault.snapshot).toEqual({ interval: 900, push: 'no' });
+});
+
+test('writeConfig refuses to overwrite a malformed config (never a silent clobber)', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[vault]\npath = "/keep"\n[serve\nport = ???'); // broken TOML
+  let threw = false;
+  try {
+    writeServePort(file, 50129);
+  } catch (error) {
+    threw = true;
+    expect(error instanceof Error && /not valid TOML/.test(error.message)).toBe(true);
+  }
+  expect(threw).toBe(true);
+  // The broken file is left as-is, not clobbered.
+  expect(readFileSync(file, 'utf8')).toContain('/keep');
 });
 
 test('writeServePort no longer clobbers: an existing [vault] path survives', () => {
