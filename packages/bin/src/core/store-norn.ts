@@ -1,8 +1,9 @@
 import { HOLD_VALUES, LIFECYCLE_VALUES, PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
-import type { NodeType } from '@mimir/contract';
+import type { Lifecycle, NodeType } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import type { NornClient } from '../norn/client';
+import { invariant } from './errors';
 import { parseId } from './ids';
 import type { Dependency, Node, Project } from './model';
 import type { NodeTag, WorkingSet } from './store';
@@ -171,46 +172,86 @@ export async function loadWorkingSetOverNorn(client: NornClient): Promise<Workin
   const edges: Dependency[] = [];
   const nodeTags = new Map<number, NodeTag[]>();
   for (const n of nodeDocs) {
+    // Referential integrity is Norn's job (the design seam); this reader enforces
+    // SQLite's CHECK/FK invariants at the boundary and fails loud rather than
+    // silently projecting a corrupt WorkingSet. Each throw below is a violation a
+    // well-formed vault cannot produce.
     const projectId = projectIdByKey.get(n.key);
     if (projectId === undefined) {
-      continue; // a node whose owning project isn't in the vault — an orphan, skip.
+      throw invariant(
+        `node ${n.stem} references project ${n.key}, which is not in the vault`,
+        'every node document must belong to a project document',
+      );
     }
 
-    // parent: a `KEY-seq` stem is a node parent; a bare `KEY` is the project
-    // root, which the int-keyed model represents as parent_id = null.
+    // parent: a `KEY-seq` stem must resolve to another node; a bare project `KEY`
+    // is the root, which the int-keyed model represents as parent_id = null.
     const parentStem = collapse(n.fm.parent);
-    const parentId =
-      parentStem !== null && parseId(parentStem) !== null
-        ? (nodeIdByStem.get(parentStem) ?? null)
-        : null;
+    let parentId: number | null = null;
+    if (parentStem !== null && parseId(parentStem) !== null) {
+      const resolved = nodeIdByStem.get(parentStem);
+      if (resolved === undefined) {
+        throw invariant(
+          `node ${n.stem} has parent ${parentStem}, which is not in the vault`,
+          'a node parent must resolve to another node',
+        );
+      }
+      parentId = resolved;
+    }
+
+    // Task-only columns (SQLite CHECK: NULL for non-task) are read only for a
+    // task; a stray value on another type is ignored, never projected.
+    const isTask = n.type === 'task';
+    let lifecycle: Lifecycle | null = null;
+    if (isTask) {
+      // A task's lifecycle has no safe default (unlike hold) — derivation depends
+      // on it, so an absent/foreign value is a hard read error, not a guess.
+      lifecycle = enumField(n.fm.lifecycle, LIFECYCLE_VALUES);
+      if (lifecycle === null) {
+        throw invariant(
+          `task ${n.stem} is missing a valid lifecycle`,
+          'a task document must carry a lifecycle frontmatter value',
+        );
+      }
+    }
 
     nodes.push({
-      completed_at: str(n.fm.completed_at),
+      completed_at: isTask ? str(n.fm.completed_at) : null,
       created_at: str(n.fm.created) ?? '',
       description: str(n.fm.description),
-      external_ref: str(n.fm.external_ref),
+      external_ref: isTask ? str(n.fm.external_ref) : null,
       // A task always carries a hold (SQLite CHECK: type='task' ⟺ hold NOT NULL,
       // default 'none'); the idiomatic vault omits the 'none' no-hold state, so an
-      // absent hold on a task reconstructs to 'none'. Non-tasks stay null.
-      hold: enumField(n.fm.hold, HOLD_VALUES) ?? (n.type === 'task' ? 'none' : null),
-      hold_reason: str(n.fm.hold_reason),
+      // absent hold on a task reconstructs to 'none'.
+      hold: isTask ? (enumField(n.fm.hold, HOLD_VALUES) ?? 'none') : null,
+      hold_reason: isTask ? str(n.fm.hold_reason) : null,
       id: n.id,
-      lifecycle: enumField(n.fm.lifecycle, LIFECYCLE_VALUES),
+      lifecycle,
       parent_id: parentId,
-      priority: enumField(n.fm.priority, PRIORITY_VALUES),
+      priority: isTask ? enumField(n.fm.priority, PRIORITY_VALUES) : null,
       project_id: projectId,
-      rank: num(n.fm.rank),
+      rank: isTask ? num(n.fm.rank) : null,
       seq: n.seq,
-      size: enumField(n.fm.size, SIZE_VALUES),
-      target: str(n.fm.target),
+      size: isTask ? enumField(n.fm.size, SIZE_VALUES) : null,
+      target: n.type === 'phase' ? str(n.fm.target) : null,
       title: str(n.fm.title) ?? '',
       type: n.type,
       updated_at: str(n.fm.updated_at) ?? '',
     });
 
+    // Dedup to SQLite's (node_id, depends_on_node_id) primary key — a doubled
+    // wikilink is one edge; an unresolvable prerequisite is a referential error.
+    const prereqIds = new Set<number>();
     for (const prereqStem of linkStems(n.fm.depends_on)) {
       const prereqId = nodeIdByStem.get(prereqStem);
-      if (prereqId !== undefined) {
+      if (prereqId === undefined) {
+        throw invariant(
+          `node ${n.stem} depends on ${prereqStem}, which is not in the vault`,
+          'a prerequisite must resolve to another node',
+        );
+      }
+      if (!prereqIds.has(prereqId)) {
+        prereqIds.add(prereqId);
         edges.push({ depends_on_node_id: prereqId, node_id: n.id });
       }
     }
