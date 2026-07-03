@@ -266,7 +266,7 @@ test('--snapshot-interval / --upstream without --install-snapshot is a usage err
   expect(message).toMatch(/require --install-snapshot/);
 });
 
-test('re-running the snapshot without an upstream clears a previously-set one', async () => {
+test('snapshot upstream: omitting --upstream keeps it, --upstream "" clears it', async () => {
   const d = deps(new FakeSupervisor(), new FakeSupervisor());
   await cmdSetup(
     {
@@ -284,13 +284,42 @@ test('re-running the snapshot without an upstream clears a previously-set one', 
     interval: 600,
     upstream: 'git@old:v.git',
   });
+  // Omitting --upstream keeps the current one (a bare re-run isn't a wipe).
+  await cmdSetup(
+    { installSnapshot: true, vault: join(dir, 'vault'), yes: true },
+    fakeIo(false),
+    d,
+    'records',
+  );
+  expect(readConfig(d.service.configFile).vault.snapshot).toEqual({
+    interval: 600,
+    upstream: 'git@old:v.git',
+  });
+  // An explicit empty --upstream clears it.
+  await cmdSetup(
+    { installSnapshot: true, upstream: '', vault: join(dir, 'vault'), yes: true },
+    fakeIo(false),
+    d,
+    'records',
+  );
+  expect(readConfig(d.service.configFile).vault.snapshot).toEqual({ interval: 600 });
+});
+
+test('a reconfigure preserves operator-set push/pull the wizard never asks about', async () => {
+  const d = deps(new FakeSupervisor(), new FakeSupervisor());
+  // Operator deliberately set local-only snapshots (push = false) by hand.
+  writeFileSync(
+    d.service.configFile,
+    '[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 900\npush = false\n',
+  );
   await cmdSetup(
     { installSnapshot: true, snapshotInterval: '600', vault: join(dir, 'vault'), yes: true },
     fakeIo(false),
     d,
     'records',
   );
-  expect(readConfig(d.service.configFile).vault.snapshot).toEqual({ interval: 600 });
+  // interval updated, push = false survives (not silently reverted to push-on).
+  expect(readConfig(d.service.configFile).vault.snapshot).toEqual({ interval: 600, push: false });
 });
 
 test('declining an already-installed unit leaves it running and says so (install-only)', async () => {

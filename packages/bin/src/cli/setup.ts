@@ -104,29 +104,37 @@ function askInteractive(values: SetupValues, deps: SetupDeps, io: Io): SetupAnsw
   const installService = globalThis.confirm('Install the background service (mimir serve)?');
   let port: number | undefined;
   if (installService) {
-    const def = values.port ?? (cfg.serve.port === undefined ? '' : String(cfg.serve.port));
-    const answer = askLine('Service port (blank = default)', def);
+    const current = cfg.serve.port;
+    const def = values.port ?? (current === undefined ? '' : String(current));
+    // Only when no port is set can a blank line mean "the built-in default";
+    // with one already set, the prefill is shown and a blank keeps it.
+    const label =
+      current === undefined ? 'Service port (blank = built-in default)' : 'Service port';
+    const answer = askLine(label, def);
     port = answer === '' ? undefined : parsePort(answer);
   }
 
   const installSnapshot = globalThis.confirm(
     'Install the auto-snapshot timer (commit + push the vault)?',
   );
-  const snapshot: SnapshotConfig = {};
+  // Start from the current snapshot config so keys the wizard doesn't ask about
+  // (push/pull) survive a reconfigure — writeConfig replaces the whole table.
+  const snapshot: SnapshotConfig = { ...cfg.vault.snapshot };
   if (installSnapshot) {
     const defInterval = String(
-      values.snapshotInterval ?? cfg.vault.snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+      values.snapshotInterval ?? snapshot.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
     );
     snapshot.interval = parseInterval(askLine('Snapshot interval (seconds)', defInterval));
-    // The current upstream is shown for reference, but the answer is
-    // authoritative: a blank line clears it (writeConfig replaces the table).
-    const current = cfg.vault.snapshot?.upstream;
-    const upstream = askLine(
-      `Snapshot upstream remote${current === undefined ? '' : ` (current ${current})`} (blank = none)`,
-      values.upstream ?? '',
+    // Prefill the current upstream so Enter keeps it (like every other field);
+    // a literal '-' clears it.
+    const answer = askLine(
+      "Snapshot upstream remote ('-' to clear)",
+      values.upstream ?? snapshot.upstream ?? '',
     );
-    if (upstream !== '') {
-      snapshot.upstream = upstream;
+    if (answer === '-' || answer === '') {
+      delete snapshot.upstream;
+    } else {
+      snapshot.upstream = answer;
     }
   }
   return { installService, installSnapshot, port, snapshot, vaultPath };
@@ -145,16 +153,21 @@ function fromFlags(values: SetupValues, deps: SetupDeps): SetupAnswers {
   ) {
     throw usage('setup: --snapshot-interval / --upstream require --install-snapshot');
   }
-  const snapshot: SnapshotConfig = {};
+  // Preserve push/pull (and any field not re-specified) across a reconfigure.
+  const snapshot: SnapshotConfig = { ...cfg.vault.snapshot };
   if (installSnapshot) {
     snapshot.interval =
       values.snapshotInterval !== undefined
         ? parseInterval(values.snapshotInterval)
-        : (cfg.vault.snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS);
-    // Authoritative like the interactive path: an absent/empty --upstream is a
-    // cleared upstream, not a merge that keeps the old one.
-    if (values.upstream !== undefined && values.upstream !== '') {
-      snapshot.upstream = values.upstream;
+        : (snapshot.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS);
+    // Omitting --upstream keeps the current one (like the interactive Enter);
+    // `--upstream ''` clears it, `--upstream <url>` sets it.
+    if (values.upstream !== undefined) {
+      if (values.upstream === '') {
+        delete snapshot.upstream;
+      } else {
+        snapshot.upstream = values.upstream;
+      }
     }
   }
   return {
@@ -269,6 +282,11 @@ export async function cmdSetup(
       'setup needs a TTY, or flags with -y to run non-interactively',
       'e.g. mimir setup --vault ~/.local/share/mimir/vault --install-service -y',
     );
+  }
+  // An unparseable config can't be merged into — writeConfig rewrites it fresh.
+  // Say so up front rather than dropping the old content silently.
+  if (readConfig(deps.service.configFile).serve.problem === 'malformed') {
+    warn(io, `existing config at ${deps.service.configFile} was not valid TOML — rewriting it`);
   }
   const answers =
     io.isTTY && values.yes !== true ? askInteractive(values, deps, io) : fromFlags(values, deps);
