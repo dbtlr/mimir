@@ -383,6 +383,50 @@ test.skipIf(!NORN)('throws on a dangling prerequisite', async () => {
   await expectThrows(() => loadWorkingSetOverNorn(client), /depends on MMR-99/);
 });
 
+test.skipIf(!NORN)('throws on a self-dependency (SQLite dependency CHECK)', async () => {
+  await writeProjectDoc('MMR');
+  await writeDoc('MMR/MMR-1.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Self'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('depends_on', [wikilink('MMR-1')]),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  await expectThrows(() => loadWorkingSetOverNorn(client), /depends on itself/);
+});
+
+test.skipIf(!NORN)('throws on an out-of-vocabulary enum value (SQLite column CHECK)', async () => {
+  await writeProjectDoc('MMR');
+  // hold: a foreign value must fail loud, not coerce to 'none' — distinct from an
+  // absent hold, which legitimately reconstructs to the 'none' default.
+  await writeDoc('MMR/MMR-1.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Bogus hold'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('hold', 'bogus'),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  await expectThrows(() => loadWorkingSetOverNorn(client), /invalid hold value/);
+});
+
+test.skipIf(!NORN)('throws on a foreign priority value (swept enum class)', async () => {
+  await writeProjectDoc('MMR');
+  await writeDoc('MMR/MMR-1.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Bogus priority'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('priority', 'p9'),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  await expectThrows(() => loadWorkingSetOverNorn(client), /invalid priority value/);
+});
+
 test.skipIf(!NORN)('deduplicates repeated depends_on wikilinks into one edge', async () => {
   await writeProjectDoc('MMR');
   await writeDoc('MMR/MMR-1.md', [
