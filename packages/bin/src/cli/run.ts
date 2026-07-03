@@ -34,6 +34,8 @@ import {
 import type { Db, Store } from '../core';
 import { cmdSelfUpdate, cmdService } from '../service';
 import type { ServiceDeps } from '../service';
+import { cmdVault } from '../vault/commands';
+import type { VaultDeps } from '../vault/commands';
 import { BINDING_FILE, writeBinding } from './binding';
 import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from './errors';
 import { FULL_HELP, TERSE_HELP, helpForCommand } from './help';
@@ -145,6 +147,8 @@ export type Defaults = {
   cwd?: string;
   /** Real service/self-update edges; absent where supervision is unavailable (tests). */
   service?: ServiceDeps;
+  /** Real vault edges (git snapshot); absent where the vault is unavailable (tests). */
+  vault?: VaultDeps;
 };
 
 /**
@@ -503,6 +507,13 @@ export async function runCli(
         }
         const format = pickFormat(values.format, 'report', ctx);
         return await cmdService(positionals, { port: values.port }, ctx, defaults.service, format);
+      }
+      case 'vault': {
+        if (defaults.vault === undefined) {
+          throw usage('vault is unavailable in this context');
+        }
+        const format = pickFormat(values.format, 'report', ctx);
+        return await cmdVault(positionals, ctx, defaults.vault, format);
       }
       case 'self-update': {
         if (defaults.service === undefined) {
