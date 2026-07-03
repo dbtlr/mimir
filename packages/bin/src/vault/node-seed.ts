@@ -19,17 +19,12 @@ import type { NornClient } from '../norn/client';
  * matching). Layout mirrors the artifact seam (`core/artifacts/norn.ts`).
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * FRONTMATTER FIELD CONTRACT (PROVISIONAL — must reconcile with MMR-149).
- * The read backend (MMR-149) owns the vocabulary the schema rules validate and
- * `loadWorkingSet` reads back; this seed must emit exactly that. Built in
- * parallel with 149, so its final choice is unobserved here. This module picks
- * the model's own snake_case names (`created_at`/`updated_at`/`lifecycle`/…),
- * justified by the `model.ts` note that those names ARE the wire bare-field
- * names — a 1:1 frontmatter↔model mapping with the least reader-side work. The
- * one place this diverges from the *artifact* precedent is the timestamp key:
- * artifacts use `created` (design-note shorthand); nodes use `created_at`. If
- * 149 landed `created`/`lastActivity` instead, update ONLY the two mappers
- * below — nothing else in the seed depends on the names.
+ * FRONTMATTER FIELD CONTRACT (reconciled with MMR-149). The read backend owns
+ * the vocabulary the schema rules validate and `loadWorkingSetOverNorn` reads
+ * back; this seed emits exactly that: `created` for the creation timestamp
+ * (matching the artifact precedent and the merged reader), `updated_at`, and the
+ * model's snake_case names for the rest (`lifecycle`/`hold`/`priority`/…). The
+ * mapping lives entirely in the two `*Frontmatter` functions below.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -64,7 +59,7 @@ export function projectFrontmatter(
   tags: readonly NodeTag[],
 ): Record<string, unknown> {
   const fm: Record<string, unknown> = {
-    created_at: project.created_at,
+    created: project.created_at,
     key: project.key,
     name: project.name,
     type: 'project',
@@ -86,7 +81,7 @@ export function nodeFrontmatter(
   rel: { parentStem: string | null; dependsOn: readonly string[]; tags: readonly NodeTag[] },
 ): Record<string, unknown> {
   const fm: Record<string, unknown> = {
-    created_at: node.created_at,
+    created: node.created_at,
     title: node.title,
     type: node.type,
     updated_at: node.updated_at,
