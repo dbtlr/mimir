@@ -189,7 +189,10 @@ export async function loadWorkingSetOverNorn(client: NornClient): Promise<Workin
       created_at: str(n.fm.created) ?? '',
       description: str(n.fm.description),
       external_ref: str(n.fm.external_ref),
-      hold: enumField(n.fm.hold, HOLD_VALUES),
+      // A task always carries a hold (SQLite CHECK: type='task' ⟺ hold NOT NULL,
+      // default 'none'); the idiomatic vault omits the 'none' no-hold state, so an
+      // absent hold on a task reconstructs to 'none'. Non-tasks stay null.
+      hold: enumField(n.fm.hold, HOLD_VALUES) ?? (n.type === 'task' ? 'none' : null),
       hold_reason: str(n.fm.hold_reason),
       id: n.id,
       lifecycle: enumField(n.fm.lifecycle, LIFECYCLE_VALUES),
