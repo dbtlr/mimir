@@ -207,12 +207,84 @@ export function readVaultConfig(file = configPath()): VaultConfig {
   return readConfig(file).vault;
 }
 
+/** A change to apply over the current config — only the named keys are touched. */
+export type ConfigPatch = {
+  serve?: { port?: number };
+  vault?: { path?: string; snapshot?: SnapshotConfig };
+  store?: { artifacts?: 'sqlite' | 'norn' };
+};
+
+/** A TOML basic string — JSON's escaping is a valid encoding for our values. */
+const tomlString = (value: string): string => JSON.stringify(value);
+
 /**
- * Write the serve port (the `service install --port` discovery path). The
- * config owns exactly one key today, so a whole-file write is honest; this
- * writer learns to merge when a second key arrives.
+ * Render the known config schema. Section order is fixed and `[vault]` scalar
+ * keys precede the `[vault.snapshot]` sub-table, as TOML requires. A section
+ * with nothing to say is omitted rather than emitted empty.
+ */
+function serializeConfig(config: GlobalConfig): string {
+  const sections: string[] = [];
+  if (config.serve.port !== undefined) {
+    sections.push(`[serve]\nport = ${String(config.serve.port)}`);
+  }
+  if (config.vault.path !== undefined) {
+    sections.push(`[vault]\npath = ${tomlString(config.vault.path)}`);
+  }
+  const snap = config.vault.snapshot;
+  if (snap !== undefined) {
+    const keys: string[] = [];
+    if (snap.interval !== undefined) {
+      keys.push(`interval = ${String(snap.interval)}`);
+    }
+    if (snap.upstream !== undefined) {
+      keys.push(`upstream = ${tomlString(snap.upstream)}`);
+    }
+    if (snap.push !== undefined) {
+      keys.push(`push = ${String(snap.push)}`);
+    }
+    if (snap.pull !== undefined) {
+      keys.push(`pull = ${String(snap.pull)}`);
+    }
+    if (keys.length > 0) {
+      sections.push(`[vault.snapshot]\n${keys.join('\n')}`);
+    }
+  }
+  if (config.store.artifacts !== undefined) {
+    sections.push(`[store]\nartifacts = ${tomlString(config.store.artifacts)}`);
+  }
+  return sections.length === 0 ? '' : `${sections.join('\n\n')}\n`;
+}
+
+/**
+ * Merge a patch into the config and rewrite it whole — preserving every section
+ * the patch doesn't name (the `service install --port` path must not drop a
+ * `[vault] path`, and setup writes both). Reads through {@link readConfig}, so a
+ * value the reader rejected as invalid is not carried forward; the write is a
+ * clean, normalized config.
+ */
+export function writeConfig(file: string, patch: ConfigPatch): void {
+  const current = readConfig(file);
+  const mergedSnapshot =
+    patch.vault?.snapshot !== undefined || current.vault.snapshot !== undefined
+      ? { ...current.vault.snapshot, ...patch.vault?.snapshot }
+      : undefined;
+  const merged: GlobalConfig = {
+    serve: { port: patch.serve?.port ?? current.serve.port },
+    store: { artifacts: patch.store?.artifacts ?? current.store.artifacts },
+    vault: {
+      path: patch.vault?.path ?? current.vault.path,
+      ...(mergedSnapshot === undefined ? {} : { snapshot: mergedSnapshot }),
+    },
+  };
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, serializeConfig(merged));
+}
+
+/**
+ * Write the serve port (the `service install --port` discovery path), merging
+ * so other sections survive — the second key the original whole-file writer
+ * anticipated has arrived (setup writes `[vault] path`).
  */
 export function writeServePort(file: string, port: number): void {
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, `[serve]\nport = ${String(port)}\n`);
+  writeConfig(file, { serve: { port } });
 }

@@ -32,6 +32,7 @@ import {
   treeToWire,
 } from '../core';
 import type { Db, Store } from '../core';
+import { defaultVaultPath } from '../env';
 import { cmdSelfUpdate, cmdService } from '../service';
 import type { ServiceDeps } from '../service';
 import { cmdVault } from '../vault/commands';
@@ -77,6 +78,7 @@ import {
 } from './render';
 import type { Format, Io } from './render';
 import { resolveProject } from './resolve';
+import { cmdSetup } from './setup';
 import { SKILL_AGENTS, SKILL_FILES, skillDirFor } from './skill-assets';
 
 // Deliberately grouped query-flags-then-write-flags (see the divider comment),
@@ -129,6 +131,12 @@ const OPTIONS = {
   agent: { type: 'string' },
   // service flag
   port: { type: 'string' },
+  // setup wizard (MMR-145)
+  vault: { type: 'string' },
+  'install-service': { type: 'boolean' },
+  'install-snapshot': { type: 'boolean' },
+  'snapshot-interval': { type: 'string' },
+  upstream: { type: 'string' },
   // migrate-artifacts (cutover, MMR-144)
   'dry-run': { type: 'boolean' },
   // self-update selectors (--tag reuses the multiple `tag` flag above,
@@ -226,6 +234,11 @@ export async function runCli(
     local?: boolean;
     agent?: string;
     port?: string;
+    vault?: string;
+    'install-service'?: boolean;
+    'install-snapshot'?: boolean;
+    'snapshot-interval'?: string;
+    upstream?: string;
     next?: boolean;
     'dry-run'?: boolean;
   };
@@ -500,6 +513,30 @@ export async function runCli(
           dryRun: values['dry-run'] === true,
           json: values.format === 'json' || values.format === 'jsonl',
         });
+      }
+      case 'setup': {
+        if (defaults.service === undefined || defaults.vault === undefined) {
+          throw usage('setup is unavailable in this context');
+        }
+        const format = pickFormat(values.format, 'report', ctx);
+        return await cmdSetup(
+          {
+            installService: values['install-service'],
+            installSnapshot: values['install-snapshot'],
+            port: values.port,
+            snapshotInterval: values['snapshot-interval'],
+            upstream: values.upstream,
+            vault: values.vault,
+            yes: values.yes,
+          },
+          ctx,
+          {
+            defaultVaultPath: defaultVaultPath(),
+            service: defaults.service,
+            vault: defaults.vault,
+          },
+          format,
+        );
       }
       case 'service': {
         if (defaults.service === undefined) {

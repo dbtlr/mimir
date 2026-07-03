@@ -1,10 +1,12 @@
 /** Service supervision + self-update (MMR-47). main wires realServiceDeps. */
 export {
   DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+  type ConfigPatch,
   configPath,
   readConfig,
   readServeConfig,
   readVaultConfig,
+  writeConfig,
   writeServePort,
 } from './config';
 export { cmdSelfUpdate, cmdService, type Health, type ServiceDeps } from './commands';
