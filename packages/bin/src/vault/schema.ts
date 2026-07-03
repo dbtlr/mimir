@@ -14,7 +14,7 @@
  */
 
 /** The vault schema this binary produces and can converge older vaults to. */
-export const VAULT_SCHEMA = 1;
+export const VAULT_SCHEMA = 2;
 
 export const MARKER_FILE = '.mimir-vault.toml';
 export const NORN_CONFIG_FILE = '.norn/config.yaml';
@@ -39,10 +39,18 @@ export function parseMarker(content: string): { schema: number } | null {
 }
 
 /**
- * The generated `.norn/config.yaml` for vault schema 1: the artifact rule
- * (Phase 2a is artifacts-first; node rules arrive with the read path). The
- * per-project layout — `KEY/KEY.md`, `KEY/KEY-seq.md`,
- * `KEY/artifacts/KEY-aN.md` — is asserted structurally via `allowed_paths`.
+ * The generated `.norn/config.yaml` for vault schema 2: the artifact rule
+ * (Phase 2a) plus the node/project rules that let the read path (MMR-149,
+ * ADR 0016 Phase 2b) write and query work-state documents. The per-project
+ * layout — `KEY/KEY.md` (project), `KEY/KEY-seq.md` (node),
+ * `KEY/artifacts/KEY-aN.md` (artifact) — is asserted structurally via
+ * `allowed_paths`.
+ *
+ * Field types are drawn from Norn's vocabulary (`datetime`, `wikilink`,
+ * `wikilink_or_list`, `list_of_strings`, `string`, `text`) — there is no
+ * numeric type, so `rank` (a number in frontmatter) is intentionally left
+ * undeclared and rides through as a JSON number. `task`/`phase`/`initiative`
+ * share one rule via a multi-value `type` match.
  */
 export function renderNornConfig(): string {
   return `# Managed by mimir (vault schema ${String(VAULT_SCHEMA)}) — regenerated on vault
@@ -62,6 +70,10 @@ validate:
       allowed_values:
         type:
           - artifact
+          - project
+          - task
+          - phase
+          - initiative
 
     - name: artifact
       match:
@@ -80,5 +92,57 @@ validate:
         created: datetime
       allowed_paths:
         - "*/artifacts/*.md"
+
+    - name: node
+      match:
+        path: "**/*.md"
+        frontmatter:
+          type:
+            - task
+            - phase
+            - initiative
+      required_frontmatter:
+        - title
+        - parent
+        - created
+        - updated_at
+      field_types:
+        title: text
+        description: text
+        parent: wikilink
+        depends_on: wikilink_or_list
+        tags: list_of_strings
+        lifecycle: string
+        hold: string
+        hold_reason: text
+        priority: string
+        size: string
+        external_ref: string
+        target: string
+        created: datetime
+        updated_at: datetime
+        completed_at: datetime
+      allowed_paths:
+        - "*/*.md"
+
+    - name: project
+      match:
+        path: "**/*.md"
+        frontmatter:
+          type: project
+      required_frontmatter:
+        - name
+        - key
+        - created
+        - updated_at
+      field_types:
+        name: text
+        key: string
+        description: text
+        created: datetime
+        updated_at: datetime
+        archived_at: datetime
+      allowed_paths:
+        - "*/*.md"
 `;
 }
