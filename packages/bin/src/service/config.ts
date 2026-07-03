@@ -226,18 +226,39 @@ function asTable(value: unknown): Table {
   return isTable(value) ? { ...value } : {};
 }
 
+/** A TOML bare key needs no quoting; anything else is emitted as a quoted key. */
+const BARE_KEY = /^[A-Za-z0-9_-]+$/;
+function emitKey(key: string): string {
+  return BARE_KEY.test(key) ? key : JSON.stringify(key);
+}
+
+/** A number as TOML — with the `inf`/`nan` spellings TOML uses for non-finites. */
+function emitNumber(value: number): string {
+  if (Number.isFinite(value)) {
+    return String(value);
+  }
+  if (Number.isNaN(value)) {
+    return 'nan';
+  }
+  return value > 0 ? 'inf' : '-inf';
+}
+
 /**
  * Emit one TOML value, losslessly — every kind `Bun.TOML.parse` produces:
- * strings (via JSON's escaping, a valid TOML basic string), numbers, booleans,
- * datetimes, arrays (elements recursed, so an array of inline tables survives),
- * and inline tables. Nothing is filtered out, so a preserved value is never
- * silently truncated.
+ * strings (via JSON's escaping, a valid TOML basic string), numbers (with the
+ * non-finite forms TOML spells `inf`/`nan`), booleans, datetimes, arrays
+ * (elements recursed, so an array of inline tables survives), and inline tables
+ * (keys quoted when they aren't bare). Nothing is filtered or emitted unquoted,
+ * so a rewrite can never turn preserved content into invalid TOML.
  */
 function emitValue(value: unknown): string {
   if (typeof value === 'string') {
     return JSON.stringify(value);
   }
-  if (typeof value === 'number' || typeof value === 'boolean') {
+  if (typeof value === 'number') {
+    return emitNumber(value);
+  }
+  if (typeof value === 'boolean') {
     return String(value);
   }
   if (value instanceof Date) {
@@ -249,7 +270,7 @@ function emitValue(value: unknown): string {
   if (isTable(value)) {
     const inner = Object.entries(value)
       .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => `${k} = ${emitValue(v)}`)
+      .map(([k, v]) => `${emitKey(k)} = ${emitValue(v)}`)
       .join(', ');
     return inner === '' ? '{}' : `{ ${inner} }`;
   }
@@ -261,7 +282,8 @@ function emitValue(value: unknown): string {
  * Serialize a raw TOML table, recursing into sub-tables. Scalars precede
  * sub-tables at every level (TOML requires it — bare keys belong to the
  * enclosing table); an empty table emits no header, so a section cleared to
- * nothing simply disappears.
+ * nothing simply disappears. Keys (scalar keys and each header segment) are
+ * quoted when they aren't bare, so the output is always valid TOML.
  */
 function emitTable(prefix: string, table: Table, out: string[]): void {
   const scalars: string[] = [];
@@ -276,14 +298,14 @@ function emitTable(prefix: string, table: Table, out: string[]): void {
     if (isTable(value) && !(value instanceof Date)) {
       subTables.push([key, value]);
     } else {
-      scalars.push(`${key} = ${emitValue(value)}`);
+      scalars.push(`${emitKey(key)} = ${emitValue(value)}`);
     }
   }
   if (scalars.length > 0) {
     out.push(prefix === '' ? scalars.join('\n') : `[${prefix}]\n${scalars.join('\n')}`);
   }
   for (const [key, sub] of subTables) {
-    emitTable(prefix === '' ? key : `${prefix}.${key}`, sub, out);
+    emitTable(prefix === '' ? emitKey(key) : `${prefix}.${emitKey(key)}`, sub, out);
   }
 }
 
