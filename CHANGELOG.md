@@ -15,6 +15,21 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **`mimir vault snapshot` + a scheduled snapshot unit** (MMR-146, ADR 0016
+  Phase 2a) — the vault's git commit cadence: periodic snapshots, not
+  per-write commits. The command commits the vault's working tree when dirty
+  (a clean tree is a silent no-op), then pushes; a rejected push reconciles
+  with a diverged upstream via fetch + merge (not rebase — both sides
+  preserved), aborting to a clean tree on conflict. It is quiet on success and
+  loud (nonzero exit) only on a state needing a human — a missing vault, a
+  failed commit, an unresolved conflict — and every git call is
+  timeout-bounded against a hung `/Volumes` mount. Configured under
+  `[vault.snapshot]` in the global config (`interval` seconds, `upstream`,
+  `push`/`pull` toggles). Scheduling rides the `service` family: a unit
+  selector — `mimir service <verb> [serve|snapshot]`, defaulting to both —
+  installs/manages a `StartInterval` launchd unit (default 900s, the atlas
+  precedent) alongside the serve daemon; `service status` now reports both
+  units.
 - **Artifacts can be stored in the Norn vault** (MMR-143, ADR 0016 Phase 2a).
   A backend flag selects where artifacts live — SQLite (default) or the
   Norn-managed markdown vault — chosen by `MIMIR_ARTIFACT_STORE` >
