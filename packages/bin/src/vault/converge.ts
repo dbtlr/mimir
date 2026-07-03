@@ -29,7 +29,9 @@ import {
 import { dirname, join } from 'node:path';
 
 import { conflict, notFound } from '../core/errors';
-import type { Exec, ExecResult } from '../exec';
+import type { Exec } from '../exec';
+import { gitAt } from './git';
+import type { Git } from './git';
 import {
   MARKER_FILE,
   NORN_CONFIG_FILE,
@@ -67,64 +69,6 @@ function classifyPath(path: string): 'absent' | 'dir' | 'file' | 'dangling-symli
       return 'absent';
     }
   }
-}
-
-type Git = {
-  run: (args: string[], failure: string) => Promise<boolean>;
-  /** A probe whose nonzero exit is an answer, not a failure — never warns. */
-  probe: (args: string[]) => Promise<number>;
-  warnings: string[];
-};
-
-/** Git ops as warnings-not-errors: a failure is recorded and the run continues. */
-function gitAt(path: string, exec: Exec): Git {
-  const warnings: string[] = [];
-  // Identity, signing, and hooks are pinned per-command so commits never
-  // depend on (or touch) the operator's global git config — a global
-  // commit.gpgsign=true with no key in the daemon context would otherwise
-  // fail every converge commit.
-  const argv = (args: string[]) => [
-    'git',
-    '-C',
-    path,
-    '-c',
-    'user.name=mimir',
-    '-c',
-    'user.email=mimir@localhost',
-    '-c',
-    'commit.gpgsign=false',
-    '-c',
-    'core.hooksPath=/dev/null',
-    ...args,
-  ];
-  // A missing git binary rejects the exec itself (spawn ENOENT) — that is a
-  // degraded environment, not a converge failure.
-  const attempt = async (args: string[]): Promise<ExecResult> => {
-    try {
-      return await exec(argv(args));
-    } catch (error) {
-      return {
-        code: 127,
-        stderr: error instanceof Error ? error.message : String(error),
-        stdout: '',
-      };
-    }
-  };
-  return {
-    async probe(args: string[]): Promise<number> {
-      return (await attempt(args)).code;
-    },
-    async run(args: string[], failure: string): Promise<boolean> {
-      const result = await attempt(args);
-      if (result.code !== 0) {
-        const detail = result.stderr.trim();
-        warnings.push(`git: ${failure}${detail === '' ? '' : ` (${detail})`}`);
-        return false;
-      }
-      return true;
-    },
-    warnings,
-  };
 }
 
 /**
