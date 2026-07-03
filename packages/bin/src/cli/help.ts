@@ -116,10 +116,10 @@ other:
                           MIMIR_PORT > config [serve] port > ${DEFAULT_PORT}; a
                           taken port hunts upward unless --no-hunt — the
                           startup line names the bound URL)
-  service <sub>           supervise serve under launchd (macOS):
-                          install [--port <n>] · uninstall · start · stop ·
-                          restart · status (--port writes the global config,
-                          ~/.config/mimir/config.toml)
+  service <sub> [unit]    supervise the launchd units (macOS): install
+                          [--port <n>] · uninstall · start · stop · restart ·
+                          status. unit is serve | snapshot (default: both);
+                          --port writes ~/.config/mimir/config.toml
   self-update [--next] [--tag <tag>]
                           download + verify a release, replace this binary,
                           restart the service if loaded. default: latest

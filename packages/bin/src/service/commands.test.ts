@@ -10,6 +10,7 @@ import { cmdSelfUpdate, cmdService } from './commands';
 import { readServeConfig } from './config';
 import { recentEvents } from './events';
 import type { ServiceInfo, Supervisor } from './launchd';
+import { plistFor, plistForSnapshot } from './plist';
 
 let dir: string;
 beforeEach(() => {
@@ -47,7 +48,11 @@ class FakeSupervisor implements Supervisor {
   }
 }
 
-function deps(sup: FakeSupervisor, extra: Partial<ServiceDeps> = {}): ServiceDeps {
+function deps(
+  sup: FakeSupervisor,
+  extra: Partial<ServiceDeps> = {},
+  snapSup: FakeSupervisor = new FakeSupervisor(),
+): ServiceDeps {
   return {
     binPath: join(dir, 'mimir'),
     configFile: join(dir, 'config.toml'),
@@ -56,24 +61,36 @@ function deps(sup: FakeSupervisor, extra: Partial<ServiceDeps> = {}): ServiceDep
     fetcher: () => Promise.reject(new Error('no network in tests')),
     health: () => Promise.resolve(undefined),
     platform: 'darwin',
-    plistFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
-    supervisor: sup,
+    units: {
+      serve: {
+        logFile: join(dir, 'serve.log'),
+        plistFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
+        render: () => plistFor(join(dir, 'mimir'), {}),
+        supervisor: sup,
+      },
+      snapshot: {
+        logFile: join(dir, 'snapshot.log'),
+        plistFile: join(dir, 'com.dbtlr.mimir.snapshot.plist'),
+        render: () => plistForSnapshot(join(dir, 'mimir'), { intervalSeconds: 900 }),
+        supervisor: snapSup,
+      },
+    },
     version: '0.5.0',
     ...extra,
   };
 }
 
-// 1. install writes the plist, delegates, logs, and --port writes config
-test('install writes the plist, delegates, logs, and --port writes config', async () => {
+// 1. install serve writes the plist, delegates, logs, and --port writes config
+test('install serve writes the plist, delegates, logs, and --port writes config', async () => {
   const sup = new FakeSupervisor();
   const io = fakeIo();
   const d = deps(sup);
 
-  const code = await cmdService(['service', 'install'], { port: '55440' }, io, d);
+  const code = await cmdService(['service', 'install', 'serve'], { port: '55440' }, io, d);
 
   expect(code).toBe(0);
-  expect(existsSync(d.plistFile)).toBe(true);
-  const plistContent = readFileSync(d.plistFile, 'utf8');
+  expect(existsSync(d.units.serve.plistFile)).toBe(true);
+  const plistContent = readFileSync(d.units.serve.plistFile, 'utf8');
   expect(plistContent).toContain('--no-hunt');
   const config = readServeConfig(d.configFile);
   expect(config).toEqual({ port: 55440 });
@@ -89,10 +106,58 @@ test('install without --port leaves config untouched', async () => {
   const io = fakeIo();
   const d = deps(sup);
 
-  const code = await cmdService(['service', 'install'], {}, io, d);
+  const code = await cmdService(['service', 'install', 'serve'], {}, io, d);
 
   expect(code).toBe(0);
   expect(existsSync(d.configFile)).toBe(false);
+});
+
+// 2b. the default selector installs BOTH units
+test('install with no unit installs both serve and snapshot', async () => {
+  const serveSup = new FakeSupervisor();
+  const snapSup = new FakeSupervisor();
+  const io = fakeIo();
+  const d = deps(serveSup, {}, snapSup);
+
+  const code = await cmdService(['service', 'install'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(serveSup.calls).toEqual(['install']);
+  expect(snapSup.calls).toEqual(['install']);
+  expect(existsSync(d.units.serve.plistFile)).toBe(true);
+  expect(existsSync(d.units.snapshot.plistFile)).toBe(true);
+  expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['install', 'install']);
+});
+
+// 2c. a single-unit selector touches only that unit
+test('install snapshot installs only the snapshot unit', async () => {
+  const serveSup = new FakeSupervisor();
+  const snapSup = new FakeSupervisor();
+  const io = fakeIo();
+  const d = deps(serveSup, {}, snapSup);
+
+  const code = await cmdService(['service', 'install', 'snapshot'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(serveSup.calls).toEqual([]);
+  expect(snapSup.calls).toEqual(['install']);
+  expect(existsSync(d.units.serve.plistFile)).toBe(false);
+  expect(existsSync(d.units.snapshot.plistFile)).toBe(true);
+  const plist = readFileSync(d.units.snapshot.plistFile, 'utf8');
+  expect(plist).toContain('StartInterval');
+});
+
+// 2d. an unknown unit selector is a usage error
+test('an unknown unit is a usage error', async () => {
+  const io = fakeIo();
+  const d = deps(new FakeSupervisor());
+  let thrown: unknown;
+  try {
+    await cmdService(['service', 'install', 'nope'], {}, io, d);
+  } catch (e) {
+    thrown = e;
+  }
+  expect(thrown instanceof Error && thrown.message).toMatch(/unknown unit/);
 });
 
 // 3. a bad --port is a usage error and touches nothing
@@ -110,7 +175,7 @@ test('a bad --port is a usage error and touches nothing', async () => {
   expect(thrown).toBeDefined();
   expect(thrown instanceof Error && thrown.message).toMatch(/--port/);
   expect(sup.calls).toEqual([]);
-  expect(existsSync(d.plistFile)).toBe(false);
+  expect(existsSync(d.units.serve.plistFile)).toBe(false);
 });
 
 // 4. start/stop/restart delegate and log — events accumulate in order in ONE file
@@ -119,9 +184,9 @@ test('start/stop/restart delegate and log', async () => {
   const io = fakeIo();
   const d = deps(sup);
 
-  const c1 = await cmdService(['service', 'start'], {}, io, d);
-  const c2 = await cmdService(['service', 'stop'], {}, io, d);
-  const c3 = await cmdService(['service', 'restart'], {}, io, d);
+  const c1 = await cmdService(['service', 'start', 'serve'], {}, io, d);
+  const c2 = await cmdService(['service', 'stop', 'serve'], {}, io, d);
+  const c3 = await cmdService(['service', 'restart', 'serve'], {}, io, d);
 
   expect(c1).toBe(0);
   expect(c2).toBe(0);
@@ -195,7 +260,7 @@ test('status when not loaded says so and still shows paths', async () => {
   expect(code).toBe(0);
   const out = io.out.join('\n');
   expect(out).toContain('not loaded');
-  expect(out).toContain('paths:');
+  expect(out).toContain('config:');
 });
 
 // 8. status surfaces an ignored config — warning goes to stderr with [warn] glyph (plain mode)
@@ -365,27 +430,37 @@ test('service status emits the json envelope when format is json', async () => {
 
   expect(code).toBe(0);
   const parsed = JSON.parse(io.out.join('\n'));
-  expect(parsed).toMatchObject({
+  const serve = parsed.units.find((u: { unit: string }) => u.unit === 'serve');
+  expect(serve).toMatchObject({
     health: { on_disk_version: '0.6.0', restart_pending: true, running_version: '0.5.0' },
     loaded: true,
     pid: 4242,
     port: PROD_PORT,
     running: true,
   });
-  expect(parsed.paths.plist).toBe(d.plistFile);
+  expect(serve.plist).toBe(d.units.serve.plistFile);
+  // The snapshot unit is reported too, carrying its interval, not a port.
+  const snap = parsed.units.find((u: { unit: string }) => u.unit === 'snapshot');
+  expect(snap).toMatchObject({ interval_seconds: 900, unit: 'snapshot' });
 });
 
-test('service install echoes the action envelope when format is json', async () => {
+test('service install serve echoes the action envelope when format is json', async () => {
   const sup = new FakeSupervisor();
   const io = fakeIo();
   const d = deps(sup);
 
-  const code = await cmdService(['service', 'install'], { port: '55440' }, io, d, 'json');
+  const code = await cmdService(['service', 'install', 'serve'], { port: '55440' }, io, d, 'json');
 
   expect(code).toBe(0);
   const parsed = JSON.parse(io.out.join('\n'));
-  expect(parsed).toMatchObject({ action: 'install', ok: true, port: 55440 });
-  expect(parsed.paths.plist).toBe(d.plistFile);
+  expect(parsed.actions).toHaveLength(1);
+  expect(parsed.actions[0]).toMatchObject({
+    action: 'install',
+    ok: true,
+    port: 55440,
+    unit: 'serve',
+  });
+  expect(parsed.actions[0].paths.plist).toBe(d.units.serve.plistFile);
   // The human path's detail lines must not leak into json mode.
   expect(io.out.join('\n')).not.toContain('plist:');
 });

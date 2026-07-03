@@ -18,13 +18,24 @@ import type { Format, Io } from '../cli/render';
 import { ok, warn } from '../cli/render';
 import { MimirError } from '../core';
 import { PROD_PORT } from '../env';
-import { readServeConfig, writeServePort } from './config';
-import { SERVE_LOG_FILE, appendEvent, recentEvents } from './events';
+import {
+  DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+  readServeConfig,
+  readVaultConfig,
+  writeServePort,
+} from './config';
+import { appendEvent, recentEvents } from './events';
 import type { ServiceEventName } from './events';
-import { formatSelfUpdateJson, formatServiceActionJson, formatServiceStatusJson } from './format';
-import type { SelfUpdateResult, ServiceActionResult, ServiceHealth, ServiceStatus } from './format';
+import { formatSelfUpdateJson, formatServiceActionsJson, formatServiceStatusJson } from './format';
+import type {
+  SelfUpdateResult,
+  ServiceActionResult,
+  ServiceHealth,
+  ServiceStatusReport,
+  UnitName,
+  UnitStatus,
+} from './format';
 import type { Supervisor } from './launchd';
-import { plistFor } from './plist';
 import {
   assetName,
   compareSemver,
@@ -49,24 +60,51 @@ export type UpdateSelection = {
   tag?: string;
 };
 
-export type ServiceDeps = {
+/**
+ * One managed launchd unit (MMR-146). The supervisor is label-bound; `render`
+ * produces the plist at install time (reading live config for port/interval);
+ * `logFile` is the unit's launchd stdout/stderr sink.
+ */
+export type ServiceUnit = {
   supervisor: Supervisor;
+  plistFile: string;
+  logFile: string;
+  render: () => string;
+};
+
+export type ServiceDeps = {
   platform: NodeJS.Platform;
   /** The binary the plist points at / self-update replaces (process.execPath). */
   binPath: string;
   /** This invocation's version (build-injected tag, or package.json) — the on-disk version by definition. */
   version: string;
   configFile: string;
-  plistFile: string;
   eventsFile: string;
   /** GET /api/health on a port, undefined when nothing answers. */
   health: (port: number) => Promise<Health | undefined>;
   fetcher: Fetcher;
-  /** MIMIR_DB at invocation time, baked into the plist iff set. */
+  /** MIMIR_DB at invocation time, baked into the serve plist iff set. */
   dbPath: string | undefined;
+  /** The launchd units this surface manages, keyed by name. */
+  units: Record<UnitName, ServiceUnit>;
 };
 
 const SUBCOMMANDS = ['install', 'uninstall', 'start', 'stop', 'restart', 'status'] as const;
+const UNITS = ['serve', 'snapshot'] as const;
+
+/**
+ * The units a verb targets: an explicit `serve`/`snapshot` selector, or all
+ * units when omitted. `status` ignores the selector and always reports all.
+ */
+function selectUnits(arg: string | undefined): UnitName[] {
+  if (arg === undefined) {
+    return [...UNITS];
+  }
+  if (!isMember(arg, UNITS)) {
+    throw usage(`service: unknown unit '${arg}' (expected: ${UNITS.join(' | ')})`);
+  }
+  return [arg];
+}
 
 function requireDarwin(deps: ServiceDeps): void {
   if (deps.platform !== 'darwin') {
@@ -110,13 +148,28 @@ export async function cmdService(
     });
   };
 
-  const paths = { config: deps.configFile, log: SERVE_LOG_FILE, plist: deps.plistFile };
-  const action = (result: ServiceActionResult, human: () => void): void => {
-    report(io, format, () => formatServiceActionJson(result, format === 'json'), human);
+  // `status` is a read over every unit — the selector does not apply.
+  if (sub === 'status') {
+    return await statusReport(io, deps, format);
+  }
+
+  const units = selectUnits(positionals[2]);
+  const emitActions = (results: ServiceActionResult[], humans: (() => void)[]): void => {
+    report(
+      io,
+      format,
+      () => formatServiceActionsJson(results, format === 'json' ? 'json' : 'jsonl'),
+      () => {
+        for (const h of humans) {
+          h();
+        }
+      },
+    );
   };
 
   switch (sub) {
     case 'install': {
+      // --port is a serve setting: validate + persist once, before touching units.
       let port: number | undefined;
       if (values.port !== undefined) {
         port = Number(values.port);
@@ -125,53 +178,78 @@ export async function cmdService(
         }
         writeServePort(deps.configFile, port);
       }
-      writeFileSync(deps.plistFile, plistFor(deps.binPath, { dbPath: deps.dbPath }));
-      await deps.supervisor.install(deps.plistFile);
-      const effective = port ?? readServeConfig(deps.configFile).port ?? PROD_PORT;
-      log('install', true, `port ${String(effective)}`);
-      action({ action: 'install', ok: true, paths, port: effective }, () => {
-        ok(io, `service installed — serving on http://127.0.0.1:${String(effective)}`);
-        io.write(`  plist:  ${deps.plistFile}`);
-        io.write(
-          `  config: ${deps.configFile}${port === undefined ? ' (defaults; set with service install --port)' : ''}`,
-        );
-        io.write(`  log:    ${SERVE_LOG_FILE}`);
-      });
+      const results: ServiceActionResult[] = [];
+      const humans: (() => void)[] = [];
+      for (const name of units) {
+        const unit = deps.units[name];
+        writeFileSync(unit.plistFile, unit.render());
+        await unit.supervisor.install(unit.plistFile);
+        const paths = { config: deps.configFile, log: unit.logFile, plist: unit.plistFile };
+        if (name === 'serve') {
+          const effective = port ?? readServeConfig(deps.configFile).port ?? PROD_PORT;
+          log('install', true, `serve · port ${String(effective)}`);
+          results.push({ action: 'install', ok: true, paths, port: effective, unit: 'serve' });
+          humans.push(() => {
+            ok(io, `serve installed — serving on http://127.0.0.1:${String(effective)}`);
+            io.write(`  plist:  ${unit.plistFile}`);
+            io.write(
+              `  config: ${deps.configFile}${port === undefined ? ' (defaults; set with service install --port)' : ''}`,
+            );
+            io.write(`  log:    ${unit.logFile}`);
+          });
+        } else {
+          const interval =
+            readVaultConfig(deps.configFile).snapshot?.interval ??
+            DEFAULT_SNAPSHOT_INTERVAL_SECONDS;
+          log('install', true, `snapshot · interval ${String(interval)}s`);
+          results.push({ action: 'install', ok: true, paths, unit: 'snapshot' });
+          humans.push(() => {
+            ok(io, `snapshot installed — every ${String(interval)}s`);
+            io.write(`  plist:  ${unit.plistFile}`);
+            io.write(`  log:    ${unit.logFile}`);
+          });
+        }
+      }
+      emitActions(results, humans);
       return 0;
     }
     case 'uninstall': {
-      await deps.supervisor.uninstall();
-      if (existsSync(deps.plistFile)) {
-        rmSync(deps.plistFile);
+      const results: ServiceActionResult[] = [];
+      const humans: (() => void)[] = [];
+      for (const name of units) {
+        const unit = deps.units[name];
+        await unit.supervisor.uninstall();
+        if (existsSync(unit.plistFile)) {
+          rmSync(unit.plistFile);
+        }
+        log('uninstall', true, name);
+        results.push({ action: 'uninstall', ok: true, unit: name });
+        humans.push(() => ok(io, `${name} uninstalled (config and logs kept)`));
       }
-      log('uninstall', true);
-      action({ action: 'uninstall', ok: true }, () =>
-        ok(io, 'service uninstalled (config and logs kept)'),
-      );
+      emitActions(results, humans);
       return 0;
     }
-    case 'start': {
-      await deps.supervisor.start(deps.plistFile);
-      log('start', true);
-      action({ action: 'start', ok: true }, () => ok(io, 'service started'));
-      return 0;
-    }
-    case 'stop': {
-      await deps.supervisor.stop();
-      log('stop', true);
-      action({ action: 'stop', ok: true }, () =>
-        ok(io, 'service stopped (start again with `mimir service start`)'),
-      );
-      return 0;
-    }
+    case 'start':
+    case 'stop':
     case 'restart': {
-      await deps.supervisor.restart();
-      log('restart', true);
-      action({ action: 'restart', ok: true }, () => ok(io, 'service restarted'));
+      const pastTense = { restart: 'restarted', start: 'started', stop: 'stopped' } as const;
+      const results: ServiceActionResult[] = [];
+      const humans: (() => void)[] = [];
+      for (const name of units) {
+        const unit = deps.units[name];
+        if (sub === 'start') {
+          await unit.supervisor.start(unit.plistFile);
+        } else if (sub === 'stop') {
+          await unit.supervisor.stop();
+        } else {
+          await unit.supervisor.restart();
+        }
+        log(sub, true, name);
+        results.push({ action: sub, ok: true, unit: name });
+        humans.push(() => ok(io, `${name} ${pastTense[sub]}`));
+      }
+      emitActions(results, humans);
       return 0;
-    }
-    case 'status': {
-      return await statusReport(io, deps, format);
     }
     default: {
       // Unreachable — `sub` is validated against SUBCOMMANDS above (narrows to never here).
@@ -180,19 +258,21 @@ export async function cmdService(
   }
 }
 
+/** Status over every unit: serve carries port + health, snapshot its interval. */
 async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<number> {
-  const info = await deps.supervisor.info();
   const config = readServeConfig(deps.configFile);
   // A config that couldn't be honored is always a stderr warning (warnings stay
   // off stdout, per the output contract); the JSON envelope also carries it.
   if (config.problem !== undefined) {
     warn(io, `config ignored (${config.problem}) — ${deps.configFile}`);
   }
+
+  const serveInfo = await deps.units.serve.supervisor.info();
   // The service surface manages the installed production daemon regardless of
   // how this CLI was invoked, so the daemon's own default (PROD_PORT) governs —
   // not the invoking process's profile default (MMR-117).
   const port = config.port ?? PROD_PORT;
-  const healthRaw = await deps.health(port);
+  const healthRaw = serveInfo.loaded ? await deps.health(port) : undefined;
   const health: ServiceHealth | null =
     healthRaw === undefined
       ? null
@@ -201,15 +281,34 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
           restartPending: compareSemver(healthRaw.version, deps.version) !== 0,
           runningVersion: healthRaw.version,
         };
-  const status: ServiceStatus = {
+  const serve: UnitStatus = {
     configProblem: config.problem ?? null,
     health,
-    loaded: info.loaded,
-    paths: { config: deps.configFile, log: SERVE_LOG_FILE, plist: deps.plistFile },
-    pid: info.pid ?? null,
+    loaded: serveInfo.loaded,
+    log: deps.units.serve.logFile,
+    pid: serveInfo.pid ?? null,
+    plist: deps.units.serve.plistFile,
     port,
+    running: serveInfo.running,
+    unit: 'serve',
+  };
+
+  const snapInfo = await deps.units.snapshot.supervisor.info();
+  const snapshot: UnitStatus = {
+    intervalSeconds:
+      readVaultConfig(deps.configFile).snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+    loaded: snapInfo.loaded,
+    log: deps.units.snapshot.logFile,
+    pid: snapInfo.pid ?? null,
+    plist: deps.units.snapshot.plistFile,
+    running: snapInfo.running,
+    unit: 'snapshot',
+  };
+
+  const status: ServiceStatusReport = {
+    config: deps.configFile,
     recentEvents: recentEvents(deps.eventsFile, 5),
-    running: info.running,
+    units: [serve, snapshot],
   };
   report(
     io,
@@ -220,20 +319,28 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
   return 0;
 }
 
-function renderStatusHuman(s: ServiceStatus, io: Io): void {
-  if (!s.loaded) {
-    io.write('service: not loaded (install with `mimir service install`)');
+function renderUnitHuman(u: UnitStatus, io: Io): void {
+  const state = u.loaded
+    ? `loaded, ${u.running ? `running (pid ${String(u.pid ?? '?')})` : 'not running'}`
+    : 'not loaded';
+  io.write(`${u.unit}: ${state}`);
+  if (u.unit === 'serve') {
+    if (u.health === null || u.health === undefined) {
+      io.write(`  port ${String(u.port)}: no answer on /api/health`);
+    } else {
+      io.write(
+        `  port ${String(u.port)}: running ${u.health.runningVersion} · on-disk ${u.health.onDiskVersion}${u.health.restartPending ? ' — restart pending' : ''}`,
+      );
+    }
   } else {
-    io.write(
-      `service: loaded, ${s.running ? `running (pid ${String(s.pid ?? '?')})` : 'not running'}`,
-    );
+    io.write(`  interval: every ${String(u.intervalSeconds ?? 0)}s`);
   }
-  if (s.health === null) {
-    io.write(`port ${String(s.port)}: no answer on /api/health`);
-  } else {
-    io.write(
-      `port ${String(s.port)}: running ${s.health.runningVersion} · on-disk ${s.health.onDiskVersion}${s.health.restartPending ? ' — restart pending' : ''}`,
-    );
+  io.write(`  plist ${u.plist} · log ${u.log}`);
+}
+
+function renderStatusHuman(s: ServiceStatusReport, io: Io): void {
+  for (const u of s.units) {
+    renderUnitHuman(u, io);
   }
   if (s.recentEvents.length > 0) {
     io.write('recent events:');
@@ -243,7 +350,7 @@ function renderStatusHuman(s: ServiceStatus, io: Io): void {
       );
     }
   }
-  io.write(`paths: plist ${s.paths.plist} · config ${s.paths.config} · log ${SERVE_LOG_FILE}`);
+  io.write(`config: ${s.config}`);
 }
 
 const stripV = (t: string): string => t.replace(/^v/, '');
@@ -313,9 +420,11 @@ export async function cmdSelfUpdate(
   });
   let restarted = false;
   let restartFailed = false;
-  if (deps.platform === 'darwin' && (await deps.supervisor.info()).loaded) {
+  // Self-update replaces the binary and restarts the serve daemon; the snapshot
+  // unit is a short-lived timer that always re-execs the new binary next fire.
+  if (deps.platform === 'darwin' && (await deps.units.serve.supervisor.info()).loaded) {
     try {
-      await deps.supervisor.restart();
+      await deps.units.serve.supervisor.restart();
       restarted = true;
       appendEvent(deps.eventsFile, {
         detail,

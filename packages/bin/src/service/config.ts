@@ -43,6 +43,9 @@ export type VaultConfig = {
   problem?: 'malformed' | 'invalid-path' | 'invalid-snapshot';
 };
 
+/** The snapshot cadence when `[vault.snapshot] interval` is unset — the atlas precedent, 15 minutes. */
+export const DEFAULT_SNAPSHOT_INTERVAL_SECONDS = 900;
+
 export type StoreConfig = {
   /** Which backend serves artifacts — SQLite (default) or the Norn vault (MMR-143). */
   artifacts?: 'sqlite' | 'norn';
