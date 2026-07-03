@@ -1,20 +1,26 @@
 /**
- * `mimir setup` (MMR-145) — the replayable configuration wizard. One command
- * for the first install and every later reconfiguration: it prefills the
- * current answers, converges the vault at the chosen location, writes the
- * global config, and installs the launchd units — all idempotent, so re-running
- * is safe.
+ * `mimir setup` (MMR-145) — the configuration wizard. One command for the first
+ * install and every later reconfiguration: it prefills the current answers,
+ * converges the vault at the chosen location, writes the global config, and
+ * installs (or updates) the launchd units you opt into. Re-running is safe —
+ * every action converges to the answered state.
+ *
+ * It installs and updates; it never *removes* a launchd unit. Declining a unit
+ * that is already installed leaves it running and says so, pointing at
+ * `mimir service uninstall` — the deliberate, separate teardown door.
  *
  * Interactive at a TTY; non-interactively it reads flags and requires `-y`
  * (like `create project`) so a piped `mimir setup` never converges a vault or
  * schedules a daemon behind the operator's back. Effects flow through the
  * already-wired service + vault deps; the store is never opened (MMR-39).
  */
+import { existsSync } from 'node:fs';
+
 import { cmdService } from '../service';
 import type { ServiceDeps } from '../service';
 import { DEFAULT_SNAPSHOT_INTERVAL_SECONDS, readConfig, writeConfig } from '../service/config';
 import type { SnapshotConfig } from '../service/config';
-import { converge } from '../vault';
+import { converge, expandTilde } from '../vault';
 import type { VaultDeps } from '../vault/commands';
 import { usage } from './errors';
 import { ok, warn } from './render';
@@ -44,8 +50,14 @@ type SetupAnswers = {
   installService: boolean;
   port?: number;
   installSnapshot: boolean;
+  /** The snapshot cadence to persist — only meaningful when `installSnapshot`. */
   snapshot: SnapshotConfig;
 };
+
+/** launchd (and therefore the service/snapshot units) is macOS-only. */
+function launchdAvailable(deps: SetupDeps): boolean {
+  return deps.service.platform === 'darwin';
+}
 
 /** Parse a port flag/answer, or throw a usage fault. */
 function parsePort(raw: string): number {
@@ -67,22 +79,22 @@ function parseInterval(raw: string): number {
 
 /** Prompt for a line, falling back to `def` on empty input or EOF. */
 function askLine(question: string, def: string): string {
-  const answer = globalThis.prompt(`${question} [${def}]`);
+  const answer = globalThis.prompt(def === '' ? question : `${question} [${def}]`);
   return answer === null || answer.trim() === '' ? def : answer.trim();
 }
 
 /**
- * Gather answers interactively. Service/snapshot questions are macOS-only
- * (launchd); off darwin they are skipped with a note and left uninstalled.
+ * Gather answers interactively. The service/snapshot questions are launchd-only;
+ * off darwin they are skipped with a note and left uninstalled (the vault +
+ * config still land).
  */
 function askInteractive(values: SetupValues, deps: SetupDeps, io: Io): SetupAnswers {
   const cfg = readConfig(deps.service.configFile);
-  const vaultPath = askLine(
-    'Vault location',
-    values.vault ?? cfg.vault.path ?? deps.defaultVaultPath,
+  const vaultPath = expandTilde(
+    askLine('Vault location', values.vault ?? cfg.vault.path ?? deps.defaultVaultPath),
   );
 
-  if (deps.service.platform !== 'darwin') {
+  if (!launchdAvailable(deps)) {
     io.write(
       'Background service (launchd) is macOS-only — skipping; run `mimir serve` under your supervisor.',
     );
@@ -106,9 +118,12 @@ function askInteractive(values: SetupValues, deps: SetupDeps, io: Io): SetupAnsw
       values.snapshotInterval ?? cfg.vault.snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
     );
     snapshot.interval = parseInterval(askLine('Snapshot interval (seconds)', defInterval));
+    // The current upstream is shown for reference, but the answer is
+    // authoritative: a blank line clears it (writeConfig replaces the table).
+    const current = cfg.vault.snapshot?.upstream;
     const upstream = askLine(
-      'Snapshot upstream remote (blank = none)',
-      values.upstream ?? cfg.vault.snapshot?.upstream ?? '',
+      `Snapshot upstream remote${current === undefined ? '' : ` (current ${current})`} (blank = none)`,
+      values.upstream ?? '',
     );
     if (upstream !== '') {
       snapshot.upstream = upstream;
@@ -122,23 +137,36 @@ function fromFlags(values: SetupValues, deps: SetupDeps): SetupAnswers {
   const cfg = readConfig(deps.service.configFile);
   const installService = values.installService === true;
   const installSnapshot = values.installSnapshot === true;
-  const snapshot: SnapshotConfig = {};
-  if (values.snapshotInterval !== undefined) {
-    snapshot.interval = parseInterval(values.snapshotInterval);
+  // Cadence belongs to the snapshot unit — reject it without --install-snapshot
+  // rather than silently persisting a cadence for a timer that isn't set up.
+  if (
+    !installSnapshot &&
+    (values.snapshotInterval !== undefined || values.upstream !== undefined)
+  ) {
+    throw usage('setup: --snapshot-interval / --upstream require --install-snapshot');
   }
-  if (values.upstream !== undefined && values.upstream !== '') {
-    snapshot.upstream = values.upstream;
+  const snapshot: SnapshotConfig = {};
+  if (installSnapshot) {
+    snapshot.interval =
+      values.snapshotInterval !== undefined
+        ? parseInterval(values.snapshotInterval)
+        : (cfg.vault.snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS);
+    // Authoritative like the interactive path: an absent/empty --upstream is a
+    // cleared upstream, not a merge that keeps the old one.
+    if (values.upstream !== undefined && values.upstream !== '') {
+      snapshot.upstream = values.upstream;
+    }
   }
   return {
     installService,
     installSnapshot,
     port: values.port === undefined ? undefined : parsePort(values.port),
     snapshot,
-    vaultPath: values.vault ?? cfg.vault.path ?? deps.defaultVaultPath,
+    vaultPath: expandTilde(values.vault ?? cfg.vault.path ?? deps.defaultVaultPath),
   };
 }
 
-/** Converge the vault, persist config, install units. */
+/** Converge the vault, persist config, install the opted-in units. */
 async function applySetup(
   answers: SetupAnswers,
   io: Io,
@@ -155,24 +183,24 @@ async function applySetup(
     warn(io, `vault: ${w}`);
   }
 
-  // 2. Persist the whole config in one write: the vault location (+ snapshot
-  //    cadence) so serve/snapshot resolve it, and the serve port whenever given
-  //    — it is a `[serve]` setting `mimir serve` reads on its own, so it is
-  //    honored even without installing the launchd unit. Install below reads the
-  //    port back from here rather than being handed it again.
-  const snapshot = answers.snapshot;
+  // 2. Persist the config in one write: the vault location, the serve port
+  //    whenever given (a `[serve]` setting `mimir serve` reads on its own, so
+  //    honored even without the launchd unit), and the snapshot cadence when
+  //    the snapshot unit is being set up. Snapshot is written authoritatively —
+  //    the table becomes exactly what was gathered. Install below reads the port
+  //    back from here rather than being handed it again.
   writeConfig(deps.service.configFile, {
     ...(answers.port === undefined ? {} : { serve: { port: answers.port } }),
     vault: {
       path: answers.vaultPath,
-      ...(Object.keys(snapshot).length > 0 ? { snapshot } : {}),
+      ...(answers.installSnapshot ? { snapshot: answers.snapshot } : {}),
     },
   });
 
-  // 3. Install the selected launchd units in one call. Off darwin there are no
+  // 3. Install the opted-in launchd units in one call. Off darwin there are no
   //    launchd units — skip with a note rather than letting service install
   //    throw; the vault + config above still landed.
-  const darwin = deps.service.platform === 'darwin';
+  const darwin = launchdAvailable(deps);
   const units: string[] = [];
   if (darwin && answers.installService) {
     units.push('serve');
@@ -200,11 +228,19 @@ async function applySetup(
     serviceOk = code === 0;
   }
 
+  // Setup installs and updates; it never removes. A unit left installed because
+  // it wasn't opted into this run is called out, not silently kept.
+  const leftInstalled = darwin
+    ? (['serve', 'snapshot'] as const).filter(
+        (n) => !units.includes(n) && existsSync(deps.service.units[n].plistFile),
+      )
+    : [];
+
   if (structured) {
     io.write(
       JSON.stringify({
         configFile: deps.service.configFile,
-        service: { ok: serviceOk, units },
+        service: { leftInstalled, ok: serviceOk, units },
         vault: { outcome: result.outcome, path: answers.vaultPath },
       }),
     );
@@ -212,8 +248,8 @@ async function applySetup(
     const where = answers.vaultPath;
     ok(io, result.outcome === 'created' ? `vault created at ${where}` : `vault ready at ${where}`);
     ok(io, `config written → ${deps.service.configFile}`);
-    if (units.length === 0) {
-      io.write('no launchd units installed (re-run and opt in, or `mimir service install`)');
+    for (const n of leftInstalled) {
+      warn(io, `${n} is still installed — remove it with \`mimir service uninstall ${n}\``);
     }
     ok(io, 'setup complete');
   }

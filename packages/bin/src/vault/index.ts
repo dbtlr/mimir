@@ -1,6 +1,6 @@
 export { converge } from './converge';
 export type { ConvergeResult } from './converge';
-export { resolveVault } from './resolve';
+export { expandTilde, resolveVault } from './resolve';
 export type { ResolvedVault, VaultSource } from './resolve';
 export {
   MARKER_FILE,

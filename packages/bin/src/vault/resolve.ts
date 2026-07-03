@@ -29,8 +29,11 @@ export type ResolvedVault = {
  * Expand `~` / a leading `~/` against the home directory — a hand-edited
  * config courtesy, and a real case under launchd, whose EnvironmentVariables
  * perform no shell expansion. (`~user` is not supported and passes through.)
+ * Exported so the setup wizard normalizes a chosen path the same way this
+ * resolver does on read — otherwise the vault it creates and the vault a later
+ * `serve` opens would diverge.
  */
-function expandTilde(path: string): string {
+export function expandTilde(path: string): string {
   if (path === '~') {
     return homedir();
   }

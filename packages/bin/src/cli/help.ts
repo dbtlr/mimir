@@ -504,16 +504,22 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir setup --install-snapshot --snapshot-interval 900 --upstream git@host:me/vault.git -y',
     ],
     flags: [
-      ['--vault <path>', 'vault location (default: current config, else the build default)'],
-      ['--install-service', 'install the serve launchd unit (macOS)'],
-      ['--port <n>', 'serve port to persist + install with'],
-      ['--install-snapshot', 'install the auto-snapshot launchd unit (macOS)'],
-      ['--snapshot-interval <s>', 'snapshot cadence in seconds (default 900)'],
-      ['--upstream <url>', 'snapshot upstream remote to push/reconcile against'],
+      [
+        '--vault <path>',
+        'vault location (~ expanded; default: current config, else the build default)',
+      ],
+      ['--install-service', 'install/update the serve launchd unit (macOS)'],
+      ['--port <n>', 'serve port to persist (honored by serve even without the unit)'],
+      ['--install-snapshot', 'install/update the auto-snapshot launchd unit (macOS)'],
+      [
+        '--snapshot-interval <s>',
+        'snapshot cadence in seconds (requires --install-snapshot; default 900)',
+      ],
+      ['--upstream <url>', 'snapshot upstream (requires --install-snapshot; omit to clear)'],
       ['-y, --yes', 'run non-interactively from flags (required when not a TTY)'],
     ],
     summary:
-      'first-install + reconfiguration wizard — converge the vault, write the global config, install the launchd units. Prefills current values; safe to re-run.',
+      'first-install + reconfiguration wizard — converge the vault, write the global config, install/update the launchd units you opt into (removal is `service uninstall`). Prefills current values; safe to re-run.',
     usage:
       'mimir setup [--vault <path>] [--install-service] [--install-snapshot] [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]',
   },

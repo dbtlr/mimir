@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { expectMimirError } from '../core/testing';
@@ -223,11 +223,90 @@ test('json format emits one object and suppresses the service install transcript
   expect(io.out).toHaveLength(1);
   const parsed = JSON.parse(io.out[0] ?? '') as {
     vault: { outcome: string; path: string };
-    service: { ok: boolean; units: string[] };
+    service: { ok: boolean; units: string[]; leftInstalled: string[] };
     configFile: string;
   };
   expect(parsed.vault.outcome).toBe('created');
-  expect(parsed.service).toEqual({ ok: true, units: ['serve'] });
+  expect(parsed.service).toEqual({ leftInstalled: [], ok: true, units: ['serve'] });
+});
+
+test('a ~/ vault path is expanded (converged + persisted) the way resolveVault reads it', async () => {
+  // homedir() is fixed for the process, so the expansion lands in the real home;
+  // a distinctive subdir + finally cleanup keeps the test hermetic.
+  const sub = '.mimir-setup-tilde-test';
+  const expanded = join(homedir(), sub);
+  rmSync(expanded, { force: true, recursive: true });
+  try {
+    const d = deps(new FakeSupervisor(), new FakeSupervisor());
+    const code = await cmdSetup({ vault: `~/${sub}`, yes: true }, fakeIo(false), d, 'records');
+    expect(code).toBe(0);
+    // Persisted absolute (not the literal ~), and the vault was created there —
+    // the same path a later `serve` resolves through resolveVault.
+    expect(readConfig(d.service.configFile).vault.path).toBe(expanded);
+    expect(existsSync(join(expanded, MARKER_FILE))).toBe(true);
+  } finally {
+    rmSync(expanded, { force: true, recursive: true });
+  }
+});
+
+test('--snapshot-interval / --upstream without --install-snapshot is a usage error', async () => {
+  const d = deps(new FakeSupervisor(), new FakeSupervisor());
+  const io = fakeIo(false);
+  let message = '';
+  try {
+    await cmdSetup(
+      { snapshotInterval: '600', vault: join(dir, 'vault'), yes: true },
+      io,
+      d,
+      'records',
+    );
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toMatch(/require --install-snapshot/);
+});
+
+test('re-running the snapshot without an upstream clears a previously-set one', async () => {
+  const d = deps(new FakeSupervisor(), new FakeSupervisor());
+  await cmdSetup(
+    {
+      installSnapshot: true,
+      snapshotInterval: '600',
+      upstream: 'git@old:v.git',
+      vault: join(dir, 'vault'),
+      yes: true,
+    },
+    fakeIo(false),
+    d,
+    'records',
+  );
+  expect(readConfig(d.service.configFile).vault.snapshot).toEqual({
+    interval: 600,
+    upstream: 'git@old:v.git',
+  });
+  await cmdSetup(
+    { installSnapshot: true, snapshotInterval: '600', vault: join(dir, 'vault'), yes: true },
+    fakeIo(false),
+    d,
+    'records',
+  );
+  expect(readConfig(d.service.configFile).vault.snapshot).toEqual({ interval: 600 });
+});
+
+test('declining an already-installed unit leaves it running and says so (install-only)', async () => {
+  const d = deps(new FakeSupervisor(), new FakeSupervisor());
+  // Simulate a snapshot unit already installed on disk.
+  writeFileSync(d.service.units.snapshot.plistFile, '<plist/>');
+  const io = fakeIo(false);
+  const code = await cmdSetup(
+    { installService: true, vault: join(dir, 'vault'), yes: true },
+    io,
+    d,
+    'records',
+  );
+  expect(code).toBe(0);
+  // The snapshot unit is neither reinstalled nor removed — just called out.
+  expect(io.err.join('\n')).toMatch(/snapshot is still installed.*service uninstall snapshot/);
 });
 
 test('off darwin, install flags are ignored (launchd unavailable) but vault + config still land', async () => {
