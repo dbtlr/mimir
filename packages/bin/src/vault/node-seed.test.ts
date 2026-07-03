@@ -53,7 +53,7 @@ test('projectFrontmatter carries key/name/type + timestamps, omits empty, drops 
     [],
   );
   expect(fm).toEqual({
-    created_at: '2026-01-01T00:00:00.000Z',
+    created: '2026-01-01T00:00:00.000Z',
     key: 'FOO',
     name: 'Foo',
     type: 'project',
@@ -111,7 +111,7 @@ const bareNode = {
 
 test('nodeFrontmatter for a bare initiative is type/title/timestamps only', () => {
   const fm = nodeFrontmatter(bareNode, { dependsOn: [], parentStem: null, tags: [] });
-  expect(fm).toEqual({ created_at: 'c', title: 'A node', type: 'initiative', updated_at: 'u' });
+  expect(fm).toEqual({ created: 'c', title: 'A node', type: 'initiative', updated_at: 'u' });
 });
 
 test('nodeFrontmatter writes parent + depends_on as wikilinks and tags as names', () => {
