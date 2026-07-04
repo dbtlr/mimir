@@ -32,8 +32,9 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
 import type { MimirError } from '../core/errors';
 import { invariant, validation } from '../core/errors';
+import type { MigrationPlan } from './plan';
 
-/** The subset of the norn tool catalog the artifact path drives. */
+/** The subset of the norn tool catalog the artifact and node paths drive. */
 export type NornToolName =
   | 'vault.find'
   | 'vault.count'
@@ -42,7 +43,8 @@ export type NornToolName =
   | 'vault.set'
   | 'vault.edit'
   | 'vault.validate'
-  | 'vault.describe';
+  | 'vault.describe'
+  | 'vault.apply_plan';
 
 /** `vault.find` / `vault.count` selection params (probed from the live catalog). */
 export type NornSelection = {
@@ -329,6 +331,17 @@ export class NornClient {
 
   async edit(target: string, edits: unknown[], confirm: boolean): Promise<unknown> {
     return this.call('vault.edit', { confirm, edits, target }, false);
+  }
+
+  /**
+   * Apply a whole {@link MigrationPlan} atomically (MMR-153) — the node write
+   * path's single mutation per `transact`. `confirm: false` is norn's dry-run
+   * (forecast, no write); `confirm: true` acquires the vault mutation lock and
+   * executes every op. Never auto-retried: a confirmed batch must not
+   * double-apply on an ambiguous failure.
+   */
+  async applyPlan(plan: MigrationPlan, confirm: boolean): Promise<unknown> {
+    return this.call('vault.apply_plan', { confirm, plan }, false);
   }
 
   /**
