@@ -23,8 +23,52 @@ import { TRANSITION_KIND_VALUES } from '@mimir/contract';
 /** The `## History` section heading (H2) — the anchor the writer appends under. */
 export const HISTORY_HEADING = 'History';
 
+/** The `## Task Description` section heading (H2) — the node body's prose lede. */
+export const DESCRIPTION_HEADING = 'Task Description';
+
+/**
+ * The document body every work-state node carries (MMR-153): a `## Task
+ * Description` lede (the human prose; `description` also rides frontmatter for
+ * the Phase-2b reader) and the `## History` section the transition log appends
+ * under. The History heading MUST be present at create time — Norn's
+ * `append_to_section` refuses a missing heading — so a create seeds it empty.
+ */
+export function renderNodeBody(description: string | null): string {
+  return `## ${DESCRIPTION_HEADING}\n\n${description ?? ''}\n\n## ${HISTORY_HEADING}\n`;
+}
+
+/** A project/container body: just the `## History` section the log appends under. */
+export function renderHistoryBody(): string {
+  return `## ${HISTORY_HEADING}\n`;
+}
+
 const ARROW = ' → ';
 const HEADING = /^### (.+?) — (.+)$/;
+
+/**
+ * A reason line that is itself a markdown heading (`#`..`######` + space) is a
+ * write-path injection hazard: a `### ` line would be read back as a *new*
+ * transition record by {@link splitRecords}, and a `## `/`# ` line would close
+ * the enclosing `## History` section outright (Norn's `append_to_section`
+ * writes verbatim). The codec escapes such lines with a leading backslash on
+ * render and strips it on parse, so an arbitrary reason round-trips losslessly.
+ */
+const HEADING_LINE = /^#{1,6}\s/;
+const ESCAPED_HEADING_LINE = /^\\#{1,6}\s/;
+
+function escapeReason(reason: string): string {
+  return reason
+    .split('\n')
+    .map((line) => (HEADING_LINE.test(line) ? `\\${line}` : line))
+    .join('\n');
+}
+
+function unescapeReason(reason: string): string {
+  return reason
+    .split('\n')
+    .map((line) => (ESCAPED_HEADING_LINE.test(line) ? line.slice(1) : line))
+    .join('\n');
+}
 
 function isTransitionKind(value: string): value is TransitionKind {
   return (TRANSITION_KIND_VALUES as readonly string[]).includes(value);
@@ -66,7 +110,7 @@ function parseEdge(line: string): { from: string | null; to: string | null } | n
 export function renderHistoryRecord(entry: HistoryEntry): string {
   const lines = [`### ${entry.at} — ${entry.kind}`, renderEdge(entry.from, entry.to)];
   if (entry.reason !== null) {
-    lines.push(entry.reason);
+    lines.push(escapeReason(entry.reason));
   }
   return `${lines.join('\n')}\n`;
 }
@@ -120,7 +164,7 @@ function parseRecord(lines: string[]): HistoryEntry | null {
   while (reasonLines.length > 0 && reasonLines[reasonLines.length - 1] === '') {
     reasonLines.pop();
   }
-  const reason = reasonLines.length > 0 ? reasonLines.join('\n') : null;
+  const reason = reasonLines.length > 0 ? unescapeReason(reasonLines.join('\n')) : null;
 
   return { at, from: edge.from, kind, reason, to: edge.to };
 }

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, setSystemTime, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,24 +6,24 @@ import { join } from 'node:path';
 import { createTestDb } from '../db/testing';
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
+import { createNornWriteStore } from '../norn/writer';
 import { converge } from '../vault/converge';
 import { nornSeedWrite, seedNodes } from '../vault/node-seed';
-import { createNornArtifactStore } from './artifacts';
 import { restoreArtifact } from './artifacts/norn';
 import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
-import { renderArtifactRef, renderId } from './ids';
+import { parseId, renderArtifactRef, renderId } from './ids';
 import { getArtifact, getNode, listNodes, nextTasks, statusOfNode } from './intent/queries';
 import type { Node } from './model';
 import { archiveProject } from './mutations/archive';
 import { reorder } from './mutations/data';
-import { depend } from './mutations/dependency';
+import { depend, undepend } from './mutations/dependency';
 import { blockTask, parkTask } from './mutations/hold';
-import { abandonTask, completeTask } from './mutations/lifecycle';
-import { tagEntities } from './mutations/tags';
+import { abandonTask, completeTask, startTask } from './mutations/lifecycle';
+import { moveNode } from './mutations/structure';
+import { tagEntities, untagEntities } from './mutations/tags';
 import { listProjects, nodeTree } from './resource';
 import type { Store, WorkingSet } from './store';
-import { loadWorkingSetOverNorn } from './store-norn';
 import { createSqliteStore } from './store-sqlite';
 
 /** Test-local invariant — a lookup that must resolve (the strict ruleset bans `!`). */
@@ -66,36 +66,21 @@ beforeEach(async () => {
   sqlite = createSqliteStore(db);
 });
 afterEach(async () => {
+  setSystemTime(); // release any frozen clock a write-verb test installed
   await client.close();
   await db.destroy();
   rmSync(root, { force: true, recursive: true });
 });
 
 /**
- * A read-only Store backed by the Norn vault: reads project off
- * `loadWorkingSetOverNorn`, artifacts off the Norn slice. `db` is a trap — a
- * frontmatter read must never touch it (only annotations/history/transitions
- * do, and those are Phase 3, out of parity scope); `transact` is unsupported.
+ * The Norn-backed Store: reads project state off `loadWorkingSetOverNorn`,
+ * artifacts off the Norn slice, and — the MMR-153 write path — mutates through
+ * the {@link createNornWriteStore} `transact` (the coalesce-to-one-plan writer),
+ * no longer a throwing stub. `db` stays a trap: a frontmatter read must never
+ * touch it, and the write path composes plan ops, never SQL.
  */
 function createNornReadStore(c: NornClient): Store {
-  const dbTrap = new Proxy(
-    {},
-    {
-      get(_t, prop) {
-        throw new Error(
-          `Norn read store: store.db.${String(prop)} touched — a frontmatter read must not read db`,
-        );
-      },
-    },
-  ) as Db;
-  return {
-    artifacts: createNornArtifactStore(c),
-    db: dbTrap,
-    loadWorkingSet: () => loadWorkingSetOverNorn(c),
-    transact: () => {
-      throw new Error('Norn read store is read-only');
-    },
-  };
+  return createNornWriteStore(c, join(root, 'vault'));
 }
 
 /** Seed the current SQLite state into the vault and return the Norn read store. */
@@ -445,4 +430,190 @@ test.skipIf(!NORN)('parity: a large synthetic graph (scale/shape)', async () => 
     }
   }
   await assertParity(await seedAndNorn());
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Write-verb parity (MMR-153): run a verb on BOTH the SQLite store and the Norn
+// write store from one seeded state, then assert the read surfaces agree. The
+// clock is frozen across both runs so a stamped `updated_at`/`completed_at`
+// matches; `created_at` rides the seed (copied from SQLite) for a mutation, and
+// is aligned explicitly for a create (SQLite's default clock ≠ the writer's).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FIXED = '2026-07-03T12:00:00.000Z';
+
+/** Resolve a KEY-seq node stem to a store's current synthetic id — re-resolved
+ * per op, since the Norn reader mints ids per load (never durable across applies). */
+async function nodeIdIn(store: Store, stem: string): Promise<number> {
+  const ref = parseId(stem);
+  if (ref === null) {
+    throw new Error(`not a node stem: ${stem}`);
+  }
+  const ws = await store.loadWorkingSet();
+  const project = ws.projects.find((p) => p.key === ref.key);
+  const node = ws.nodes.find((n) => n.project_id === project?.id && n.seq === ref.seq);
+  if (node === undefined) {
+    throw new Error(`no node for ${stem}`);
+  }
+  return node.id;
+}
+
+async function projectIdIn(store: Store, key: string): Promise<number> {
+  const ws = await store.loadWorkingSet();
+  const project = ws.projects.find((p) => p.key === key);
+  if (project === undefined) {
+    throw new Error(`no project ${key}`);
+  }
+  return project.id;
+}
+
+type Resolve = (stem: string) => Promise<number>;
+
+/** Seed the SQLite base into the vault, freeze the clock, run `mutate` on each
+ * backend (ids resolved by stem per store), and assert full read parity. */
+async function verbParity(mutate: (store: Store, id: Resolve) => Promise<unknown>): Promise<void> {
+  await seedNodes(await sqlite.loadWorkingSet(), nornSeedWrite(client));
+  const norn = createNornReadStore(client);
+  setSystemTime(new Date(FIXED));
+  await mutate(sqlite, (stem) => nodeIdIn(sqlite, stem));
+  await mutate(norn, (stem) => nodeIdIn(norn, stem));
+  await assertParity(norn);
+}
+
+/** As {@link verbParity}, for a create: the new node's identity (seq) must match
+ * across backends; its timestamps are aligned to the writer's frozen clock. */
+async function createParity(
+  parent: (store: Store) => Promise<number>,
+  create: (store: Store, parentId: number) => Promise<Node>,
+): Promise<void> {
+  await seedNodes(await sqlite.loadWorkingSet(), nornSeedWrite(client));
+  const norn = createNornReadStore(client);
+  setSystemTime(new Date(FIXED));
+  const sNode = await create(sqlite, await parent(sqlite));
+  await create(norn, await parent(norn));
+  await db
+    .updateTable('node')
+    .set({ created_at: FIXED, updated_at: FIXED })
+    .where('id', '=', sNode.id)
+    .execute();
+  await assertParity(norn);
+}
+
+/** MMR → initiative → phase, with `count` todo tasks under the phase. */
+async function scaffold(count: number): Promise<void> {
+  const p = await createProject(sqlite, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(sqlite, { projectId: p.id, title: 'Init' });
+  const phase = await createPhase(sqlite, { parentId: init.id, title: 'Phase' });
+  for (let i = 0; i < count; i += 1) {
+    await createTask(sqlite, { parentId: phase.id, title: `Task ${String(i)}` });
+  }
+}
+
+test.skipIf(!NORN)('write parity: start a task', async () => {
+  await scaffold(1);
+  await verbParity(async (store, id) => startTask(store, await id('MMR-3')));
+});
+
+test.skipIf(!NORN)('write parity: park a task with a reason', async () => {
+  await scaffold(2);
+  await verbParity(async (store, id) => parkTask(store, await id('MMR-3'), 'waiting on review'));
+});
+
+test.skipIf(!NORN)('write parity: block a task with a reason', async () => {
+  await scaffold(1);
+  await verbParity(async (store, id) => blockTask(store, await id('MMR-3'), 'external dep'));
+});
+
+test.skipIf(!NORN)('write parity: complete a task', async () => {
+  await scaffold(1);
+  await verbParity(async (store, id) => completeTask(store, await id('MMR-3')));
+});
+
+test.skipIf(!NORN)('write parity: abandon a task with a reason', async () => {
+  await scaffold(1);
+  await verbParity(async (store, id) => abandonTask(store, await id('MMR-3'), 'dropped'));
+});
+
+test.skipIf(!NORN)('write parity: add a dependency edge', async () => {
+  await scaffold(2);
+  await verbParity(async (store, id) => depend(store, await id('MMR-4'), [await id('MMR-3')]));
+});
+
+test.skipIf(!NORN)('write parity: remove a dependency edge', async () => {
+  await scaffold(2);
+  await depend(sqlite, await nodeIdIn(sqlite, 'MMR-4'), [await nodeIdIn(sqlite, 'MMR-3')]);
+  await verbParity(async (store, id) => undepend(store, await id('MMR-4'), [await id('MMR-3')]));
+});
+
+test.skipIf(!NORN)('write parity: tag then untag a task', async () => {
+  await scaffold(1);
+  await verbParity(async (store, id) =>
+    tagEntities(store, [{ entityId: await id('MMR-3'), entityType: 'node' }], ['alpha', 'beta']),
+  );
+});
+
+test.skipIf(!NORN)('write parity: untag removes a seeded tag', async () => {
+  const p = await createProject(sqlite, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(sqlite, { projectId: p.id, title: 'Init' });
+  const phase = await createPhase(sqlite, { parentId: init.id, title: 'Phase' });
+  await createTask(sqlite, { parentId: phase.id, tags: ['keep', 'drop'], title: 'Tagged' });
+  await verbParity(async (store, id) =>
+    untagEntities(store, [{ entityId: await id('MMR-3'), entityType: 'node' }], ['drop']),
+  );
+});
+
+test.skipIf(!NORN)('write parity: reorder a task to the top of the rankable set', async () => {
+  await scaffold(3);
+  await verbParity(async (store, id) => reorder(store, await id('MMR-5'), 'top', null));
+});
+
+test.skipIf(!NORN)('write parity: re-parent a task to another phase', async () => {
+  const p = await createProject(sqlite, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(sqlite, { projectId: p.id, title: 'Init' });
+  const phaseA = await createPhase(sqlite, { parentId: init.id, title: 'Phase A' });
+  await createPhase(sqlite, { parentId: init.id, title: 'Phase B' }); // MMR-3
+  await createTask(sqlite, { parentId: phaseA.id, title: 'Movable' }); // MMR-4
+  await verbParity(async (store, id) => moveNode(store, await id('MMR-4'), await id('MMR-3')));
+});
+
+test.skipIf(!NORN)('write parity: create a task under a phase', async () => {
+  await scaffold(0);
+  await createParity(
+    (store) => nodeIdIn(store, 'MMR-2'),
+    (store, parentId) =>
+      createTask(store, { parentId, priority: 'p1', tags: ['x'], title: 'Created task' }),
+  );
+});
+
+test.skipIf(!NORN)('write parity: create a phase under an initiative', async () => {
+  const p = await createProject(sqlite, { key: 'MMR', name: 'Mimir' });
+  await createInitiative(sqlite, { projectId: p.id, title: 'Init' }); // MMR-1
+  await createParity(
+    (store) => nodeIdIn(store, 'MMR-1'),
+    (store, parentId) => createPhase(store, { parentId, target: 'v2', title: 'Created phase' }),
+  );
+});
+
+test.skipIf(!NORN)('write parity: create an initiative under a project', async () => {
+  await createProject(sqlite, { key: 'MMR', name: 'Mimir' });
+  await createParity(
+    (store) => projectIdIn(store, 'MMR'),
+    (store, projectId) => createInitiative(store, { projectId, title: 'Created initiative' }),
+  );
+});
+
+test.skipIf(!NORN)('write parity: create a project (a new vault directory)', async () => {
+  // No seed: the vault starts empty, so this exercises the new-directory create
+  // path (`apply_plan` runs create_document with parents:false — the writer
+  // ensures the KEY/ folder). Both backends create MMR; timestamps are aligned.
+  const norn = createNornReadStore(client);
+  setSystemTime(new Date(FIXED));
+  const sProject = await createProject(sqlite, { description: 'work', key: 'MMR', name: 'Mimir' });
+  await createProject(norn, { description: 'work', key: 'MMR', name: 'Mimir' });
+  await db
+    .updateTable('project')
+    .set({ created_at: FIXED, updated_at: FIXED })
+    .where('id', '=', sProject.id)
+    .execute();
+  await assertParity(norn);
 });

@@ -1,8 +1,13 @@
 import { validation } from '../core/errors';
+import { renderHistoryBody, renderNodeBody } from '../core/history-codec';
 import { renderId } from '../core/ids';
-import type { Node, Project } from '../core/model';
-import type { NodeTag, WorkingSet } from '../core/store';
+import type { WorkingSet } from '../core/store';
+import { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
 import type { NornClient } from '../norn/client';
+
+// The frontmatter mappers moved to core/ (MMR-153) so the node write path can
+// share them without a norn→vault cycle; re-exported here for the seed's callers.
+export { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
 
 /**
  * Node seed (MMR-150, ADR 0016 Phase 2b) — a **throwaway, non-authoritative**
@@ -29,8 +34,14 @@ import type { NornClient } from '../norn/client';
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-/** One document to write: its vault path and the frontmatter record. */
-export type SeedDoc = { path: string; frontmatter: Record<string, unknown> };
+/**
+ * One document to write: its vault path, frontmatter record, and body. The
+ * body carries the `## History` section every mutation appends under (MMR-153):
+ * a seeded doc is otherwise un-mutable over Norn, since `append_to_section`
+ * refuses a missing heading. Frontmatter stays the sole read surface in Phase
+ * 2b — the body is invisible to `loadWorkingSetOverNorn`.
+ */
+export type SeedDoc = { path: string; frontmatter: Record<string, unknown>; body: string };
 
 /**
  * The injected write. The seed targets a FRESH vault (the harness converges a
@@ -50,72 +61,6 @@ export type SeedReport = {
   nodes: number;
   created: number;
 };
-
-const wikilink = (stem: string): string => `[[${stem}]]`;
-
-/** Set `key` only when `value` is a non-null scalar — mirrors the omit-empty artifact shape. */
-function put(fm: Record<string, unknown>, key: string, value: string | number | null): void {
-  if (value !== null) {
-    fm[key] = value;
-  }
-}
-
-/** Project → frontmatter record. `key`/`name`/`type` always; the rest omit-when-empty. */
-export function projectFrontmatter(
-  project: Project,
-  tags: readonly NodeTag[],
-): Record<string, unknown> {
-  const fm: Record<string, unknown> = {
-    created: project.created_at,
-    key: project.key,
-    name: project.name,
-    type: 'project',
-    updated_at: project.updated_at,
-  };
-  put(fm, 'description', project.description);
-  put(fm, 'archived_at', project.archived_at);
-  if (tags.length > 0) {
-    fm.tags = tags.map((t) => t.tag);
-  }
-  return fm;
-  // last_seq / last_artifact_seq are SQLite allocation counters, deliberately
-  // dropped: Phase 2b derives seq as max(seq)+1 over the vault (ADR 0016 fork #1).
-}
-
-/** Node → frontmatter record. Relations arrive resolved to stems by the caller. */
-export function nodeFrontmatter(
-  node: Node,
-  rel: { parentStem: string | null; dependsOn: readonly string[]; tags: readonly NodeTag[] },
-): Record<string, unknown> {
-  const fm: Record<string, unknown> = {
-    created: node.created_at,
-    title: node.title,
-    type: node.type,
-    updated_at: node.updated_at,
-  };
-  put(fm, 'description', node.description);
-  if (rel.parentStem !== null) {
-    fm.parent = wikilink(rel.parentStem);
-  }
-  if (rel.dependsOn.length > 0) {
-    fm.depends_on = rel.dependsOn.map(wikilink);
-  }
-  if (rel.tags.length > 0) {
-    fm.tags = rel.tags.map((t) => t.tag);
-  }
-  put(fm, 'lifecycle', node.lifecycle);
-  // `hold: 'none'` is the neutral default — omit it (and null) so a task carries
-  // a hold only when actually held; the reader defaults absent → 'none'.
-  put(fm, 'hold', node.hold === 'none' ? null : node.hold);
-  put(fm, 'hold_reason', node.hold_reason);
-  put(fm, 'priority', node.priority);
-  put(fm, 'size', node.size);
-  put(fm, 'rank', node.rank);
-  put(fm, 'external_ref', node.external_ref);
-  put(fm, 'completed_at', node.completed_at);
-  put(fm, 'target', node.target);
-  return fm;
-}
 
 /**
  * Project the whole working set into vault docs through the injected `write`.
@@ -157,6 +102,7 @@ export async function seedNodes(ws: WorkingSet, write: SeedWrite): Promise<SeedR
     const tags = ws.projectTags.get(project.id) ?? [];
     tally(
       await write({
+        body: renderHistoryBody(),
         frontmatter: projectFrontmatter(project, tags),
         path: `${project.key}/${project.key}.md`,
       }),
@@ -174,6 +120,7 @@ export async function seedNodes(ws: WorkingSet, write: SeedWrite): Promise<SeedR
     const tags = ws.nodeTags.get(node.id) ?? [];
     tally(
       await write({
+        body: renderNodeBody(node.description),
         frontmatter: nodeFrontmatter(node, { dependsOn, parentStem, tags }),
         path: `${key}/${stem}.md`,
       }),
@@ -202,9 +149,10 @@ function isPathCollision(error: unknown): boolean {
  * are frontmatter-only in Phase 2b.
  */
 export function nornSeedWrite(client: NornClient): SeedWrite {
-  return async ({ frontmatter, path }) => {
+  return async ({ body, frontmatter, path }) => {
     try {
       await client.newDoc({
+        body,
         confirm: true,
         field_json: toFieldJson(frontmatter),
         parents: true,

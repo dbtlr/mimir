@@ -125,6 +125,23 @@ validate:
       allowed_paths:
         - "*/*.md"
 
+    # Creatable node rule (MMR-153): the incremental target template the node
+    # write path stamps into a create_document op. Norn resolves the trailing
+    # \`{{seq}}\` token to the next free per-project sequence at APPLY time via
+    # filesystem max+1 (src/seq_alloc.rs \`resolve_seq\`, driven from the op path
+    # in src/repair_apply.rs), so \`KEY/KEY-{{seq}}.md\` mints \`KEY-N\` without a
+    # Mimir-computed counter. A creatable rule carries \`target\` (the creation
+    # handle) and no \`match.path\` — the two are mutually exclusive, and the
+    # matcher is derived from the target (src/standards/config.rs post_validate).
+    - name: node-create
+      match:
+        frontmatter:
+          type:
+            - task
+            - phase
+            - initiative
+      target: "{{var.key}}/{{var.key}}-{{seq}}.md"
+
     - name: project
       match:
         path: "**/*.md"

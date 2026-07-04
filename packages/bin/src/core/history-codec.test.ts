@@ -134,3 +134,34 @@ test('skips an H3 whose kind is not a known transition kind', () => {
   const section = '### 2026-07-03T10:00:00.000Z — nonsense\ntodo → done\n';
   expect(parseHistorySection(section)).toEqual([]);
 });
+
+test('a reason whose line is a markdown heading round-trips (write-path injection guard)', () => {
+  // A reason line beginning with `### ` would otherwise be read back as a new
+  // transition record, and a `## ` line would close the enclosing ## History
+  // section — the codec escapes both on render and recovers them on parse.
+  const entry: HistoryEntry = {
+    at: '2026-07-03T10:00:00.000Z',
+    from: 'in_progress',
+    kind: 'lifecycle',
+    reason: '### injected heading\n## also injected\nplain tail',
+    to: 'under_review',
+  };
+  const rendered = renderHistoryRecord(entry);
+  // the escaped form is not a record delimiter and not a section-closing heading
+  expect(rendered).toContain(String.raw`\### injected heading`);
+  expect(rendered).toContain(String.raw`\## also injected`);
+  // a single record parses back with the exact original reason
+  const parsed = parseHistorySection(rendered);
+  expect(parsed).toEqual([entry]);
+});
+
+test('a benign multi-line reason is untouched by the heading escape', () => {
+  const entry: HistoryEntry = {
+    at: '2026-07-03T10:00:00.000Z',
+    from: 'none',
+    kind: 'hold',
+    reason: 'blocked on upstream\nsee thread #42 for context',
+    to: 'blocked',
+  };
+  expect(parseHistorySection(renderHistoryRecord(entry))).toEqual([entry]);
+});
