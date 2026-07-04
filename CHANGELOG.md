@@ -145,6 +145,13 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Migration commands unified under `mimir migrate <sub>`** (MMR-159). The
+  schema migrator moves from `mimir migrate [status]` to `mimir migrate schema
+  [status]`, and the artifact cutover from `mimir migrate-artifacts` to `mimir
+  migrate artifacts` — both behave exactly as before, only the invocation
+  changed. A bare `mimir migrate` now lists the subcommands. This is a namespace
+  for forthcoming migrations (the authoritative node/project migration lands
+  here as `migrate nodes`).
 - **`next` and `list` order across projects by project key, not creation order**
   (MMR-151). Cross-project ordering previously keyed on an internal surrogate id
   (effectively the order projects were created); it now keys on the project key,

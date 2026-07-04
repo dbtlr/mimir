@@ -133,13 +133,13 @@ other:
                           restart the service if loaded. default: latest
                           official; --next: latest incl. prereleases; --tag:
                           an exact tag (e.g. v0.6.0-next.5)
-  migrate-artifacts [--dry-run]
-                          copy SQLite artifacts into the vault backend
-                          (cutover, MMR-144): idempotent + non-destructive
   vault snapshot          commit the vault's working tree (commit-if-dirty),
                           then push + reconcile when an upstream is configured;
                           the cadence behind the scheduled snapshot unit
-  migrate [status] · mcp
+  migrate <sub>           schema [status] (apply/inspect DB migrations) ·
+                          artifacts [--dry-run] (copy SQLite artifacts into the
+                          vault — cutover, idempotent + non-destructive)
+  mcp                     the agent envelope over stdio (MCP transport)
 `;
 
 // ─── Per-command help (MMR-118) ────────────────────────────────────────────
@@ -485,16 +485,22 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     args: [['<KEY>', 'the archived project to restore (bare project key)']],
     examples: ['mimir unarchive SAGA'],
   },
-  // ── cutover (MMR-144) ──
-  'migrate-artifacts': {
-    examples: [
-      'mimir migrate-artifacts --dry-run   # count what would move, write nothing',
-      'mimir migrate-artifacts             # copy every artifact into the vault',
+  // ── migrations (MMR-159) ──
+  migrate: {
+    args: [
+      ['schema [status]', 'apply pending DB migrations; `status` lists applied + pending'],
+      ['artifacts [--dry-run]', 'copy SQLite artifacts into the Norn vault backend'],
     ],
-    flags: [['--dry-run', 'report the source inventory without writing']],
+    examples: [
+      'mimir migrate schema                 # apply pending DB migrations',
+      'mimir migrate schema status          # list applied + pending migrations',
+      'mimir migrate artifacts --dry-run    # count what would move, write nothing',
+      'mimir migrate artifacts              # copy every artifact into the vault',
+    ],
+    flags: [['--dry-run', 'artifacts: report the source inventory without writing']],
     summary:
-      'copy SQLite artifacts into the vault backend (cutover) — preserves KEY-aN identity + timestamps; idempotent and non-destructive (SQLite is untouched).',
-    usage: 'mimir migrate-artifacts [--dry-run]',
+      'run a migration. `schema` applies/inspects the DB migrations; `artifacts` copies SQLite artifacts into the vault (cutover) — preserving KEY-aN identity + timestamps, idempotent and non-destructive (SQLite is untouched).',
+    usage: 'mimir migrate <schema [status] | artifacts [--dry-run]>',
   },
   // ── setup wizard (MMR-145) ──
   setup: {

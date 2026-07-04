@@ -109,7 +109,7 @@ async function projectKeys(db: Db): Promise<string[]> {
 }
 
 /**
- * The `mimir migrate-artifacts` command. The source is always the SQLite table;
+ * The `mimir migrate artifacts` command. The source is always the SQLite table;
  * a dry-run reports its inventory and touches nothing else. A real run
  * converges + opens the vault destination and closes the Norn client before
  * returning, so its subprocess never outlives the command.
