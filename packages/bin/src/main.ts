@@ -5,8 +5,12 @@
  *
  *   <verb> [args]   read/write commands → CLI transport
  *   mcp             the agent envelope over stdio → MCP transport
- *   migrate [status] apply / inspect migrations
+ *   migrate schema [status]  apply / inspect DB migrations
  *   --help, -h      help (handled by the CLI)
+ *
+ * The other `migrate <sub>` commands (`artifacts`, `nodes`) are ordinary data
+ * commands and dispatch through the CLI transport; only `migrate schema` is
+ * intercepted here because it must open the store WITHOUT auto-migrating.
  */
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -86,8 +90,8 @@ function stdoutIo(): Io {
   };
 }
 
-async function runMigrate(sub: string | undefined): Promise<number> {
-  // Opens without auto-migrating — `migrate` inspects/applies them itself.
+async function runMigrateSchema(sub: string | undefined): Promise<number> {
+  // Opens without auto-migrating — `migrate schema` inspects/applies them itself.
   const path = storePath();
   mkdirSync(dirname(path), { recursive: true });
   const db = createDb(path);
@@ -202,8 +206,12 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
-  if (command === 'migrate') {
-    return runMigrate(argv[1]);
+  // `migrate schema` inspects/applies the DB migrations, so it opens the store
+  // WITHOUT the usual auto-migrate — a composition-root concern like serve/mcp.
+  // The other `migrate` subcommands (artifacts, nodes) are ordinary data
+  // commands and run through the CLI over a normally-migrated store.
+  if (command === 'migrate' && argv[1] === 'schema') {
+    return runMigrateSchema(argv[2]);
   }
 
   if (command === 'serve') {

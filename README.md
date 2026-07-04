@@ -46,7 +46,7 @@ bun run build    # compiles dist/mimir; or `bun run mimir <verb>` straight from 
 ```sh
 mimir --version
 mimir --help
-mimir migrate        # create / migrate the database (applied automatically on first run)
+mimir migrate schema # create / migrate the database (applied automatically on first run)
 ```
 
 The database lives at `$XDG_DATA_HOME/mimir/mimir.db` (default

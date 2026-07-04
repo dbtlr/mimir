@@ -137,7 +137,7 @@ const OPTIONS = {
   'install-snapshot': { type: 'boolean' },
   'snapshot-interval': { type: 'string' },
   upstream: { type: 'string' },
-  // migrate-artifacts (cutover, MMR-144)
+  // migrate artifacts (cutover, MMR-144)
   'dry-run': { type: 'boolean' },
   // self-update selectors (--tag reuses the multiple `tag` flag above,
   // last-wins like the other shared write-surface flags)
@@ -508,11 +508,23 @@ export async function runCli(
         }
         return 0;
       }
-      case 'migrate-artifacts': {
-        return await cmdMigrateArtifacts(await getDb(), ctx, {
-          dryRun: values['dry-run'] === true,
-          json: values.format === 'json' || values.format === 'jsonl',
-        });
+      case 'migrate': {
+        // `migrate schema` is intercepted upstream (main.ts) because it opens
+        // the store un-migrated; the data subcommands land here over a normally
+        // migrated store. Bare `migrate` lists the subcommands.
+        const sub = positionals[1];
+        if (sub === 'artifacts') {
+          return await cmdMigrateArtifacts(await getDb(), ctx, {
+            dryRun: values['dry-run'] === true,
+            json: values.format === 'json' || values.format === 'jsonl',
+          });
+        }
+        // `migrate nodes` — authoritative node/project migration (MMR-155).
+        if (sub === undefined) {
+          ctx.write(helpForCommand('migrate', undefined, full) ?? TERSE_HELP);
+          return 0;
+        }
+        throw usage(`unknown migrate subcommand '${sub}' — expected: schema, artifacts`);
       }
       case 'setup': {
         if (defaults.service === undefined || defaults.vault === undefined) {
