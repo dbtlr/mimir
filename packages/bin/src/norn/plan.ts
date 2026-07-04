@@ -92,6 +92,17 @@ export function appendToSection(path: string, heading: string, content: string):
 }
 
 /**
+ * `replace_section` — replace the body under `heading` (the heading itself is
+ * kept), the `norn edit` op applied under whole-doc CAS. The node write path
+ * uses it to keep the `## Task Description` prose in lockstep with the
+ * `description` frontmatter when a description is edited. Fields:
+ * `{path, heading, content}`.
+ */
+export function replaceSection(path: string, heading: string, content: string): MigrationOp {
+  return { fields: { content, heading, path }, kind: 'replace_section' };
+}
+
+/**
  * `create_document` — write a new document with the given frontmatter and body.
  * norn reads the payload from `new_value.{frontmatter, body}`. Fields:
  * `{path, new_value: {frontmatter, body}}`. `path` may carry a single `{{seq}}`

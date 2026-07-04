@@ -165,3 +165,54 @@ test('a benign multi-line reason is untouched by the heading escape', () => {
   };
   expect(parseHistorySection(renderHistoryRecord(entry))).toEqual([entry]);
 });
+
+// F4 — the heading escape must be injective: a reason line that already begins
+// with backslash(es) before a heading must not be mistaken for the escape of a
+// bare heading, so escape/unescape are exact inverses for ANY reason line.
+test.each([
+  ['## bare', '## bare'],
+  ['# h', '# h'],
+  [String.raw`\## note`, String.raw`\## note`],
+  [String.raw`\\### x`, String.raw`\\### x`],
+  ['###### deep', '###### deep'],
+])('round-trips a heading-shaped reason line byte-identically: %j', (_label, reason) => {
+  const entry: HistoryEntry = {
+    at: '2026-07-03T10:00:00.000Z',
+    from: 'todo',
+    kind: 'lifecycle',
+    reason,
+    to: 'done',
+  };
+  const parsed = parseHistorySection(renderHistoryRecord(entry));
+  expect(parsed).toEqual([entry]);
+  expect(parsed[0]?.reason).toBe(reason);
+});
+
+// F5 — an empty (or whitespace-only) reason must round-trip consistently: the
+// parser yields `null` for it, so render must not emit a stray blank reason line.
+test('an empty-string reason renders and parses back as null', () => {
+  const entry: HistoryEntry = {
+    at: '2026-07-03T10:00:00.000Z',
+    from: 'todo',
+    kind: 'lifecycle',
+    reason: '',
+    to: 'done',
+  };
+  const rendered = renderHistoryRecord(entry);
+  // no stray blank reason line — byte-identical to a reasonless record
+  expect(rendered).toBe('### 2026-07-03T10:00:00.000Z — lifecycle\ntodo → done\n');
+  const parsed = parseHistorySection(rendered);
+  expect(parsed).toEqual([{ ...entry, reason: null }]);
+  expect(parsed[0]?.reason).toBeNull();
+});
+
+test('a whitespace-only reason also collapses to null', () => {
+  const entry: HistoryEntry = {
+    at: '2026-07-03T10:00:00.000Z',
+    from: 'todo',
+    kind: 'lifecycle',
+    reason: '   \n  ',
+    to: 'done',
+  };
+  expect(parseHistorySection(renderHistoryRecord(entry))[0]?.reason).toBeNull();
+});
