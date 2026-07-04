@@ -50,6 +50,11 @@ const neverStore = (): Store => {
   throw new Error('store acquired on a data-free path');
 };
 
+// The schema migrator must never run on a help path (MMR-159).
+const neverMigrateSchema = (): Promise<number> => {
+  throw new Error('schema migrator ran on a data-free path');
+};
+
 test('help, usage errors, and unknown commands never acquire the store (MMR-39)', async () => {
   expect(await runCli([], neverStore, fakeIo(true))).toBe(0);
   expect(await runCli(['--help'], neverStore, fakeIo(true))).toBe(0);
@@ -95,6 +100,61 @@ test('help for a verb without a descriptor falls back to the top-level help', as
   const io = fakeIo(true);
   expect(await runCli(['frobnicate', '-h'], neverStore, io)).toBe(0);
   expect(io.out.join('')).toContain('usage: mimir');
+});
+
+// ── migrate namespace (MMR-159) ──────────────────────────────────────────
+
+test('migrate schema dispatches to the injected schema migrator', async () => {
+  const calls: (string | undefined)[] = [];
+  const migrateSchema = (sub: string | undefined): Promise<number> => {
+    calls.push(sub);
+    return Promise.resolve(0);
+  };
+  expect(await runCli(['migrate', 'schema'], neverStore, fakeIo(true), { migrateSchema })).toBe(0);
+  expect(
+    await runCli(['migrate', 'schema', 'status'], neverStore, fakeIo(true), { migrateSchema }),
+  ).toBe(0);
+  expect(calls).toEqual([undefined, 'status']);
+});
+
+test('migrate schema --help prints help without running the migrator or the store (MMR-159)', async () => {
+  const io = fakeIo(true);
+  expect(
+    await runCli(['migrate', 'schema', '--help'], neverStore, io, {
+      migrateSchema: neverMigrateSchema,
+    }),
+  ).toBe(0);
+  expect(io.out.join('')).toContain('mimir migrate');
+});
+
+test('migrate schema survives a global flag before the verb (MMR-159)', async () => {
+  const calls: (string | undefined)[] = [];
+  const migrateSchema = (sub: string | undefined): Promise<number> => {
+    calls.push(sub);
+    return Promise.resolve(0);
+  };
+  expect(
+    await runCli(['--ascii', 'migrate', 'schema'], neverStore, fakeIo(true), { migrateSchema }),
+  ).toBe(0);
+  expect(calls).toEqual([undefined]);
+});
+
+test('bare migrate lists subcommands and never acquires the store (MMR-159)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['migrate'], neverStore, io)).toBe(0);
+  expect(io.out.join('')).toContain('artifacts');
+});
+
+test('unknown migrate subcommand exits 2 without acquiring the store (MMR-159)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['migrate', 'bogus'], neverStore, io)).toBe(2);
+  expect(io.err.join('')).toContain("unknown migrate subcommand 'bogus'");
+});
+
+test('migrate artifacts --dry-run counts the source inventory (MMR-159)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['migrate', 'artifacts', '--dry-run'], () => store, io)).toBe(0);
+  expect(io.out.join('')).toContain('dry-run');
 });
 
 test('archive freezes the project; unarchive restores it (MMR-121)', async () => {

@@ -5,12 +5,12 @@
  *
  *   <verb> [args]   read/write commands → CLI transport
  *   mcp             the agent envelope over stdio → MCP transport
- *   migrate schema [status]  apply / inspect DB migrations
  *   --help, -h      help (handled by the CLI)
  *
- * The other `migrate <sub>` commands (`artifacts`, `nodes`) are ordinary data
- * commands and dispatch through the CLI transport; only `migrate schema` is
- * intercepted here because it must open the store WITHOUT auto-migrating.
+ * The whole `migrate <sub>` namespace dispatches through the CLI transport;
+ * `migrate schema` is wired in as the `migrateSchema` capability because it
+ * must open the store WITHOUT auto-migrating (it inspects/applies migrations
+ * itself), so it can't ride the normal auto-migrating store provider.
  */
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -206,14 +206,6 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
-  // `migrate schema` inspects/applies the DB migrations, so it opens the store
-  // WITHOUT the usual auto-migrate — a composition-root concern like serve/mcp.
-  // The other `migrate` subcommands (artifacts, nodes) are ordinary data
-  // commands and run through the CLI over a normally-migrated store.
-  if (command === 'migrate' && argv[1] === 'schema') {
-    return runMigrateSchema(argv[2]);
-  }
-
   if (command === 'serve') {
     const args = argv.slice(1);
     const flagPort = servePort(args);
@@ -307,6 +299,7 @@ async function main(argv: string[]): Promise<number> {
     // default -s scope; resolved here so the CLI itself never reads cwd.
     return await runCli(argv, getStore, stdoutIo(), {
       cwd: process.cwd(),
+      migrateSchema: runMigrateSchema,
       scope: findBinding(process.cwd()),
       service: realServiceDeps(),
       vault: realVaultDeps(),
