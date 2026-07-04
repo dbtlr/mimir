@@ -1,11 +1,9 @@
 import type {
-  AnnotationView,
   ArtifactDetail,
   ArtifactView,
   AwaitingRef,
   DepsFacet,
   FacetName,
-  HistoryEntry,
   NodeRef,
   NodeView,
   TagView,
@@ -13,7 +11,7 @@ import type {
 
 import type { ArtifactRecord, ArtifactStore } from '../artifacts/store';
 import { attentionOf } from '../attention';
-import type { Db, Tx } from '../context';
+import type { BodySectionStore } from '../body-sections/store';
 import type { DerivationSet } from '../derive';
 import {
   childDistribution,
@@ -37,11 +35,9 @@ import type { Store } from '../store';
  * task-only / phase-only fields appear only for that type. Derivation-backed
  * facets (status, distribution, deps, verdicts, children, node and project tags)
  * serve from the working-set snapshot (ADR 0016 Phase 0/2b); artifacts route
- * through the artifact seam; the body-section facets (annotations, history) stay
- * per-identity reads on the executor until Phase 3.
+ * through the artifact seam; the body-section facets (annotations, history)
+ * read through the {@link BodySectionStore} seam (MMR-154).
  */
-
-type Executor = Db | Tx;
 
 function toRef(set: DerivationSet, nodeId: number): NodeRef {
   const node = set.nodeById.get(nodeId);
@@ -56,7 +52,7 @@ function toRef(set: DerivationSet, nodeId: number): NodeRef {
 }
 
 export async function buildNodeView(
-  db: Executor,
+  bodySections: BodySectionStore,
   artifacts: ArtifactStore,
   set: DerivationSet,
   node: Node,
@@ -99,13 +95,13 @@ export async function buildNodeView(
     view.tags = buildTags(set, node.id);
   }
   if (facets.has('annotations')) {
-    view.annotations = await buildAnnotations(db, node.id);
+    view.annotations = await bodySections.readAnnotations(node.id, view.id);
   }
   if (facets.has('artifacts')) {
     view.artifacts = await buildArtifacts(artifacts, set, node.id);
   }
   if (facets.has('history')) {
-    view.history = await buildHistory(db, node.id);
+    view.history = await bodySections.readHistory(node.id, view.id);
   }
   if (facets.has('verdicts')) {
     view.verdicts = verdictsOf(set, node);
@@ -187,16 +183,6 @@ function buildChildren(set: DerivationSet, nodeId: number): NodeRef[] {
 function buildTags(set: DerivationSet, nodeId: number): TagView[] {
   const records = set.ws.nodeTags.get(nodeId) ?? [];
   return records.map((r) => ({ createdAt: r.created_at, note: r.note, tag: r.tag }));
-}
-
-async function buildAnnotations(tx: Executor, nodeId: number): Promise<AnnotationView[]> {
-  const rows = await tx
-    .selectFrom('annotation')
-    .select(['content', 'created_at'])
-    .where('node_id', '=', nodeId)
-    .orderBy('created_at', 'asc')
-    .execute();
-  return rows.map((r) => ({ content: r.content, createdAt: r.created_at }));
 }
 
 /** Map a seam record to the metadata-only `artifacts` facet view. */
@@ -305,22 +291,6 @@ export function buildArtifactDetail(record: ArtifactRecord & { content?: string 
   return detail;
 }
 
-async function buildHistory(tx: Executor, nodeId: number): Promise<HistoryEntry[]> {
-  const rows = await tx
-    .selectFrom('transition_log')
-    .select(['kind', 'from_value', 'to_value', 'at', 'reason'])
-    .where('node_id', '=', nodeId)
-    .orderBy('id', 'asc')
-    .execute();
-  return rows.map((r) => ({
-    at: r.at,
-    from: r.from_value,
-    kind: r.kind,
-    reason: r.reason,
-    to: r.to_value,
-  }));
-}
-
 /** A node view over a fresh snapshot — the one-off echo path (verbs, transports). */
 export async function nodeViewOf(
   store: Store,
@@ -328,7 +298,7 @@ export async function nodeViewOf(
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView> {
   return buildNodeView(
-    store.db,
+    store.bodySections,
     store.artifacts,
     deriveSet(await store.loadWorkingSet()),
     node,

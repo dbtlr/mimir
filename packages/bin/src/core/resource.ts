@@ -84,7 +84,7 @@ export async function projectTree(
   const facetSet = new Set(facets);
 
   const subtree = async (node: Node): Promise<TreeView> => {
-    const view = await buildNodeView(store.db, store.artifacts, set, node, facetSet);
+    const view = await buildNodeView(store.bodySections, store.artifacts, set, node, facetSet);
     const children = childRows(set, project.id, node.id);
     const { children: _refs, ...record } = view;
     return { ...record, children: await Promise.all(children.map(subtree)) };
@@ -128,7 +128,7 @@ export async function nodeTree(
   const facetSet = new Set(facets);
 
   const subtree = async (node: Node): Promise<TreeView> => {
-    const view = await buildNodeView(store.db, store.artifacts, set, node, facetSet);
+    const view = await buildNodeView(store.bodySections, store.artifacts, set, node, facetSet);
     const children = childRows(set, node.project_id, node.id);
     const { children: _refs, ...record } = view;
     return { ...record, children: await Promise.all(children.map(subtree)) };

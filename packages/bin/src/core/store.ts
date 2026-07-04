@@ -9,6 +9,7 @@ import type {
 } from '@mimir/contract';
 
 import type { ArtifactStore } from './artifacts/store';
+import type { BodySectionStore } from './body-sections/store';
 import type { Db } from './context';
 import type { Artifact, Dependency, Node, Project, Tag } from './model';
 
@@ -210,10 +211,17 @@ export type Store = {
   readonly artifacts: ArtifactStore;
 
   /**
+   * The body-section read slice (MMR-154, ADR 0016 Phase 3) — a node's
+   * `## History` and `## Annotations` facets, backed by the `transition_log` /
+   * `annotation` tables (SQLite) or the markdown sections (Norn).
+   */
+  readonly bodySections: BodySectionStore;
+
+  /**
    * Transitional (MMR-133): the raw executor. After Phase 2b (MMR-148) every
-   * frontmatter-derived read derives from the working set — what still rides the
-   * executor is the **body-section** surfaces Phase 3 owns (the `annotations`
-   * and `history` facets, the cross-node transitions feed) plus the write verbs'
+   * frontmatter-derived read derives from the working set, and the per-node
+   * body-section facets moved to {@link bodySections} (MMR-154) — what still
+   * rides the executor is the cross-node transitions feed plus the write verbs'
    * token resolution. It leaves the interface when Phase 3 moves those to Norn.
    */
   readonly db: Db;

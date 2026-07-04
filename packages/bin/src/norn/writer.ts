@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import type { HistoryEntry } from '@mimir/contract';
 
 import { createNornArtifactStore } from '../core/artifacts';
+import { createNornBodySectionStore } from '../core/body-sections';
 import type { Db } from '../core/context';
 import { invariant } from '../core/errors';
 import {
@@ -107,6 +108,7 @@ export function createNornWriteStore(client: NornClient, vaultRoot: string): Sto
 
   return {
     artifacts: createNornArtifactStore(client),
+    bodySections: createNornBodySectionStore(client),
     db: dbTrap,
     loadWorkingSet: () => loadWorkingSetOverNorn(client),
     transact: (fn) => runTransact(client, vaultRoot, fn),

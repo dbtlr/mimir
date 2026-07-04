@@ -9,6 +9,7 @@ import {
   renderAnnotationsBody,
   renderHistoryRecord,
   renderNodeBody,
+  sliceBodySection,
 } from './history-codec';
 
 /** A representative entry per shape the transition log emits (ADR 0003). */
@@ -296,4 +297,61 @@ test('the node body seeds an empty ## Annotations section alongside ## History',
   // both append anchors exist and parse empty on a fresh node
   expect(parseHistorySection(body)).toEqual([]);
   expect(parseAnnotationsSection(body)).toEqual([]);
+});
+
+// ── sliceBodySection (MMR-154) ───────────────────────────────────────────
+// The H2-boundary slicer the Norn read path uses to isolate one section from a
+// document body (the NRN-102 `.headings` workaround): everything under the
+// named `## Heading` up to the next H2 or EOF. H3 records and escaped `\## `
+// content lines are NOT boundaries, so a section round-trips through it.
+
+test('slices the named section body between H2 boundaries', () => {
+  const body =
+    '## Task Description\n\nprose\n\n## History\n### a\nx\n## Annotations\n### b\nnote\n';
+  expect(sliceBodySection(body, 'History')).toBe('### a\nx');
+  expect(sliceBodySection(body, 'Annotations')).toBe('### b\nnote\n');
+});
+
+test('a missing section slices to the empty string (parses to no records)', () => {
+  expect(sliceBodySection('## History\n### a\nx\n', 'Annotations')).toBe('');
+  expect(parseHistorySection(sliceBodySection('', 'History'))).toEqual([]);
+});
+
+test('the H3 records inside a section are not mistaken for a section boundary', () => {
+  const body =
+    '## History\n### 2026-07-04T00:00:00.000Z — lifecycle\ntodo → done\n## Annotations\n';
+  expect(sliceBodySection(body, 'History')).toContain('### 2026-07-04T00:00:00.000Z — lifecycle');
+  expect(sliceBodySection(body, 'History')).not.toContain('## Annotations');
+});
+
+test('an escaped heading-shaped content line does not close the section', () => {
+  const record = renderAnnotationRecord({
+    content: '## looks like a boundary\ntail',
+    createdAt: '2026-07-04T00:00:00.000Z',
+  });
+  const body = `## Annotations\n${record}## History\n`;
+  // the whole annotation (including its escaped `\## ` line) stays in the slice
+  expect(parseAnnotationsSection(sliceBodySection(body, 'Annotations'))).toEqual([
+    { content: '## looks like a boundary\ntail', createdAt: '2026-07-04T00:00:00.000Z' },
+  ]);
+});
+
+test('a real node body round-trips both sections through slice + parse', () => {
+  const history = renderHistoryRecord({
+    at: '2026-07-04T00:00:00.000Z',
+    from: 'todo',
+    kind: 'lifecycle',
+    reason: null,
+    to: 'in_progress',
+  });
+  const annotation = renderAnnotationRecord({
+    content: 'a note',
+    createdAt: '2026-07-04T00:01:00.000Z',
+  });
+  // a fully-populated node body: seeded shape with records appended under each anchor
+  const body = `## Task Description\n\ndesc\n\n## History\n${history}## Annotations\n${annotation}`;
+  expect(parseHistorySection(sliceBodySection(body, 'History'))).toHaveLength(1);
+  expect(parseAnnotationsSection(sliceBodySection(body, 'Annotations'))).toEqual([
+    { content: 'a note', createdAt: '2026-07-04T00:01:00.000Z' },
+  ]);
 });
