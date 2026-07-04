@@ -145,6 +145,13 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **`next` and `list` order across projects by project key, not creation order**
+  (MMR-151). Cross-project ordering previously keyed on an internal surrogate id
+  (effectively the order projects were created); it now keys on the project key,
+  so ordering is deterministic and stable. Only unscoped, multi-project `next`/
+  `list` output is affected — a single project, or a `--scope`d query, is
+  unchanged. (Surfaced by the Phase 2b read-path parity harness, which requires
+  identical output across storage backends.)
 - **Vault schema bumped to 2 — node/project rules** (MMR-149, ADR 0016 Phase
   2b). The generated `.norn/config.yaml` now carries validation rules for
   `project` and the node types (`task`/`phase`/`initiative`) alongside the
