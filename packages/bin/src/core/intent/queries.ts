@@ -75,29 +75,53 @@ function likeMatcher(loweredQ: string): (title: string) => boolean {
   return (title) => re.test(asciiLower(title));
 }
 
-/** Board order: rank (nulls last), then seq — the live-universe sort. */
-function byRankOrder(a: Node, b: Node): number {
-  const aNull = a.rank === null ? 1 : 0;
-  const bNull = b.rank === null ? 1 : 0;
-  return aNull - bNull || (a.rank ?? 0) - (b.rank ?? 0) || a.seq - b.seq;
+function cmpStr(a: string, b: string): number {
+  if (a < b) {
+    return -1;
+  }
+  return a > b ? 1 : 0;
 }
 
-/** Terminal order: completed_at (nulls last) descending, then seq. */
-function byCompletedOrder(a: Node, b: Node): number {
-  const aNull = a.completed_at === null ? 1 : 0;
-  const bNull = b.completed_at === null ? 1 : 0;
-  if (aNull !== bNull) {
-    return aNull - bNull;
-  }
-  if (a.completed_at !== null && b.completed_at !== null && a.completed_at !== b.completed_at) {
-    return a.completed_at < b.completed_at ? 1 : -1;
-  }
-  return a.seq - b.seq;
+/** A node's portable `KEY-seq` stem — a backend-independent final tiebreak (the
+ * surrogate int id and per-project `seq` are not stable across backends). */
+function stemKey(set: DerivationSet, n: Node): string {
+  return renderNodeIdFromSet(set, n) ?? '';
 }
 
-/** `next` order: (project, rank), seq as the determinism tiebreak — rank is non-null inside the rankable set. */
-function byProjectRank(a: Node, b: Node): number {
-  return a.project_id - b.project_id || (a.rank ?? 0) - (b.rank ?? 0) || a.seq - b.seq;
+/** Board order: rank (nulls last), then the portable stem — the live-universe sort. */
+function byRankOrder(set: DerivationSet) {
+  return (a: Node, b: Node): number =>
+    (a.rank === null ? 1 : 0) - (b.rank === null ? 1 : 0) ||
+    (a.rank ?? 0) - (b.rank ?? 0) ||
+    cmpStr(stemKey(set, a), stemKey(set, b));
+}
+
+/** Terminal order: completed_at (nulls last) descending, then the portable stem. */
+function byCompletedOrder(set: DerivationSet) {
+  return (a: Node, b: Node): number => {
+    const aNull = a.completed_at === null ? 1 : 0;
+    const bNull = b.completed_at === null ? 1 : 0;
+    if (aNull !== bNull) {
+      return aNull - bNull;
+    }
+    if (a.completed_at !== null && b.completed_at !== null && a.completed_at !== b.completed_at) {
+      return a.completed_at < b.completed_at ? 1 : -1;
+    }
+    return cmpStr(stemKey(set, a), stemKey(set, b));
+  };
+}
+
+/** `next` order: project KEY, then rank, then seq — keyed on the portable project
+ * KEY, never the surrogate `project_id` (which differs across backends). Within one
+ * project `seq` is unique, so it stays a valid intra-project tiebreak. */
+function byProjectRank(set: DerivationSet) {
+  return (a: Node, b: Node): number =>
+    cmpStr(
+      set.keyByProjectId.get(a.project_id) ?? '',
+      set.keyByProjectId.get(b.project_id) ?? '',
+    ) ||
+    (a.rank ?? 0) - (b.rank ?? 0) ||
+    a.seq - b.seq;
 }
 
 function setResult(items: NodeView[], total: number, startsAt = 0): SetResult<NodeView> {
@@ -228,7 +252,7 @@ export async function nextTasks(
         (opts.priority === undefined || n.priority === opts.priority) &&
         (opts.size === undefined || n.size === opts.size),
     )
-    .toSorted(byProjectRank);
+    .toSorted(byProjectRank(set));
 
   const verdicts = opts.verdicts ?? [];
   const ready: Node[] = [];
@@ -334,7 +358,7 @@ export async function listNodes(
       // project-level door handled by the transport, never reaching listNodes.
       return !set.archivedProjects.has(n.project_id);
     })
-    .toSorted(terminalOrder ? byCompletedOrder : byRankOrder);
+    .toSorted(terminalOrder ? byCompletedOrder(set) : byRankOrder(set));
 
   const verdicts = opts.verdicts ?? [];
   const matched: { node: Node; word: StatusWord }[] = [];
