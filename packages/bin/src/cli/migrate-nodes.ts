@@ -143,26 +143,38 @@ function isPathCollision(error: unknown): boolean {
   return error instanceof Error && /already exists/i.test(error.message);
 }
 
-/** Whether an existing `vault.get` record is this same doc — the `created` +
- * `title` identity fingerprint, so a re-run skips rather than rewrites. */
-function fingerprintMatches(record: unknown, doc: SeedDoc): boolean {
-  if (typeof record !== 'object' || record === null || !('frontmatter' in record)) {
-    return false;
+/** The `.body` of a `vault.get` record; missing/absent bodies read empty. */
+function bodyOf(record: unknown): string {
+  if (typeof record === 'object' && record !== null && 'body' in record) {
+    const { body } = record;
+    if (typeof body === 'string') {
+      return body;
+    }
   }
-  const { frontmatter } = record;
-  if (typeof frontmatter !== 'object' || frontmatter === null) {
-    return false;
-  }
-  const created = 'created' in frontmatter ? frontmatter.created : undefined;
-  const title = 'title' in frontmatter ? frontmatter.title : undefined;
-  return created === doc.frontmatter.created && title === doc.frontmatter.title;
+  return '';
+}
+
+/**
+ * Whether the document already at `path` is byte-for-byte the one this migration
+ * would write, judged by its BODY — the reconstructed `## History`/
+ * `## Annotations`/description, which is deterministic from SQLite and round-trips
+ * verbatim (unlike frontmatter, which Norn may reformat). Trailing whitespace is
+ * ignored. A frontmatter-only Phase-2b seed doc, a stale doc whose source gained
+ * a transition/annotation, or a foreign doc all differ here and are NOT skipped.
+ */
+async function alreadyMigrated(client: NornClient, doc: SeedDoc): Promise<boolean> {
+  const existing = await client.get([doc.path], '.body');
+  return bodyOf(existing[0]).trimEnd() === doc.body.trimEnd();
 }
 
 /**
  * Write one migrated doc at its literal `KEY-seq` stem — create-exclusive, so a
- * re-run collides. A collision is idempotent ONLY if it is *this* doc (the
- * `created` + `title` fingerprint of a prior run); a different doc at the stem,
- * or a missing one, rethrows rather than falsely reporting `skipped`.
+ * re-run collides. A collision is idempotent (`skipped`) ONLY if the document
+ * already there has this exact reconstructed body — a prior run of THIS
+ * migration. Any other doc at the stem (an empty seed, a diverged source, a
+ * foreign doc) rethrows rather than falsely reporting `skipped` — the migration
+ * is a cutover into a fresh or copied vault, so a body mismatch is a real
+ * conflict the operator must resolve, never silent data loss.
  */
 export function restoreNodeDoc(client: NornClient): NodeRestore {
   return async (doc) => {
@@ -176,11 +188,7 @@ export function restoreNodeDoc(client: NornClient): NodeRestore {
       });
       return 'created';
     } catch (error) {
-      if (!isPathCollision(error)) {
-        throw error;
-      }
-      const existing = await client.get([doc.path]);
-      if (fingerprintMatches(existing[0], doc)) {
+      if (isPathCollision(error) && (await alreadyMigrated(client, doc))) {
         return 'skipped';
       }
       throw error;
@@ -220,15 +228,16 @@ export async function cmdMigrateNodes(
   opts: { dryRun: boolean; json: boolean },
 ): Promise<number> {
   const ws = await createSqliteStore(db).loadWorkingSet();
-  const docs = buildSeedDocs(ws, await reconstructNodeBodies(db));
 
-  // Dry-run needs no destination: never converge/scaffold the vault or spawn a
-  // Norn subprocess — the whole point is to write (and touch) nothing.
+  // Dry-run needs no destination and no bodies: count the inventory off the
+  // working set alone (empty-body docs), never scan the transition/annotation
+  // tables, converge the vault, or spawn a Norn subprocess.
   if (opts.dryRun) {
-    render(io, await migrateNodes(docs, restoreNever, { dryRun: true }), opts.json);
+    render(io, await migrateNodes(buildSeedDocs(ws), restoreNever, { dryRun: true }), opts.json);
     return 0;
   }
 
+  const docs = buildSeedDocs(ws, await reconstructNodeBodies(db));
   const vault = resolveVault({
     configPath: readConfig().vault.path,
     envPath: process.env.MIMIR_VAULT,
