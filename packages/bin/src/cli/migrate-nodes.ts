@@ -1,8 +1,17 @@
 import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
+import { createSqliteStore } from '../core';
 import type { Db } from '../core/context';
 import { renderMigratedNodeBody, renderMigratedProjectBody } from '../core/history-codec';
+import { bunExec } from '../exec';
+import { NornClient } from '../norn/client';
+import { readConfig } from '../service/config';
+import { converge } from '../vault/converge';
+import { buildSeedDocs } from '../vault/node-seed';
 import type { NodeBodies, SeedDoc } from '../vault/node-seed';
+import { resolveVault } from '../vault/resolve';
+import { ok } from './render';
+import type { Io } from './render';
 
 /**
  * Authoritative node/project migration (MMR-155, ADR 0016 Phase 3) — the
@@ -123,4 +132,113 @@ export async function migrateNodes(
     report.nodes += 1;
   }
   return report;
+}
+
+/** `field=<json>` entries for `vault.new` — the newDoc shape of a frontmatter record. */
+function toFieldJson(frontmatter: Record<string, unknown>): string[] {
+  return Object.entries(frontmatter).map(([key, value]) => `${key}=${JSON.stringify(value)}`);
+}
+
+function isPathCollision(error: unknown): boolean {
+  return error instanceof Error && /already exists/i.test(error.message);
+}
+
+/** Whether an existing `vault.get` record is this same doc — the `created` +
+ * `title` identity fingerprint, so a re-run skips rather than rewrites. */
+function fingerprintMatches(record: unknown, doc: SeedDoc): boolean {
+  if (typeof record !== 'object' || record === null || !('frontmatter' in record)) {
+    return false;
+  }
+  const { frontmatter } = record;
+  if (typeof frontmatter !== 'object' || frontmatter === null) {
+    return false;
+  }
+  const created = 'created' in frontmatter ? frontmatter.created : undefined;
+  const title = 'title' in frontmatter ? frontmatter.title : undefined;
+  return created === doc.frontmatter.created && title === doc.frontmatter.title;
+}
+
+/**
+ * Write one migrated doc at its literal `KEY-seq` stem — create-exclusive, so a
+ * re-run collides. A collision is idempotent ONLY if it is *this* doc (the
+ * `created` + `title` fingerprint of a prior run); a different doc at the stem,
+ * or a missing one, rethrows rather than falsely reporting `skipped`.
+ */
+export function restoreNodeDoc(client: NornClient): NodeRestore {
+  return async (doc) => {
+    try {
+      await client.newDoc({
+        body: doc.body,
+        confirm: true,
+        field_json: toFieldJson(doc.frontmatter),
+        parents: true,
+        path: doc.path,
+      });
+      return 'created';
+    } catch (error) {
+      if (!isPathCollision(error)) {
+        throw error;
+      }
+      const existing = await client.get([doc.path]);
+      if (fingerprintMatches(existing[0], doc)) {
+        return 'skipped';
+      }
+      throw error;
+    }
+  };
+}
+
+/** Render the report: a structured envelope for machines, one line for humans. */
+function render(io: Io, report: NodeMigrationReport, json: boolean): void {
+  if (json) {
+    io.write(JSON.stringify(report));
+    return;
+  }
+  const scope = `${String(report.nodes)} node(s) + ${String(report.projects)} project(s)`;
+  if (report.dryRun) {
+    io.write(`[dry-run] ${scope} would migrate into the vault (re-run is idempotent)`);
+    return;
+  }
+  ok(io, `migrated ${scope}: ${String(report.created)} written, ${String(report.skipped)} present`);
+}
+
+/** A restore that is never invoked — the dry-run path counts without writing. */
+const restoreNever: NodeRestore = () => {
+  throw new Error('dry-run must not write');
+};
+
+/**
+ * The `mimir migrate nodes` command. The source is always the SQLite store; a
+ * dry-run reports the inventory and touches nothing. A real run reconstructs
+ * every document, converges + opens the vault, writes idempotently, and closes
+ * the Norn client before returning. Re-runnable against a copy: point
+ * `MIMIR_VAULT` at a copied vault.
+ */
+export async function cmdMigrateNodes(
+  db: Db,
+  io: Io,
+  opts: { dryRun: boolean; json: boolean },
+): Promise<number> {
+  const ws = await createSqliteStore(db).loadWorkingSet();
+  const docs = buildSeedDocs(ws, await reconstructNodeBodies(db));
+
+  // Dry-run needs no destination: never converge/scaffold the vault or spawn a
+  // Norn subprocess — the whole point is to write (and touch) nothing.
+  if (opts.dryRun) {
+    render(io, await migrateNodes(docs, restoreNever, { dryRun: true }), opts.json);
+    return 0;
+  }
+
+  const vault = resolveVault({
+    configPath: readConfig().vault.path,
+    envPath: process.env.MIMIR_VAULT,
+  });
+  await converge(vault.path, { allowCreate: vault.allowCreate, exec: bunExec });
+  const client = new NornClient({ vaultPath: vault.path });
+  try {
+    render(io, await migrateNodes(docs, restoreNodeDoc(client), { dryRun: false }), opts.json);
+    return 0;
+  } finally {
+    await client.close();
+  }
 }
