@@ -10,6 +10,8 @@ import {
   renderAnnotationsBody,
   renderDescriptionSection,
   renderHistoryRecord,
+  renderMigratedNodeBody,
+  renderMigratedProjectBody,
   renderNodeBody,
   sliceBodySection,
 } from './history-codec';
@@ -373,4 +375,35 @@ test('a real node body round-trips both sections through slice + parse', () => {
   expect(parseAnnotationsSection(sliceBodySection(body, 'Annotations'))).toEqual([
     { content: 'a note', createdAt: '2026-07-04T00:01:00.000Z' },
   ]);
+});
+
+// ── Migration body reconstruction (MMR-155) ──────────────────────────────
+// The authoritative migration rebuilds a document body from SQLite rows: the
+// reconstructed body must read back — through the same slice + parse path the
+// Norn reader uses — to the exact records, in order.
+
+test('renderMigratedNodeBody round-trips its history + annotations through the read path', () => {
+  const history = Object.values(SAMPLES);
+  const annotations = Object.values(ANNOTATIONS);
+  const body = renderMigratedNodeBody('the description', history, annotations);
+  expect(parseHistorySection(sliceBodySection(body, 'History'))).toEqual(history);
+  expect(parseAnnotationsSection(sliceBodySection(body, 'Annotations'))).toEqual(annotations);
+});
+
+test('renderMigratedNodeBody with no records equals the empty-seeded node body', () => {
+  expect(renderMigratedNodeBody('a task', [], [])).toBe(renderNodeBody('a task'));
+});
+
+test('renderMigratedNodeBody escapes a heading-shaped description (no slicer hijack)', () => {
+  const body = renderMigratedNodeBody('intro\n## History\ntail', [SAMPLES.lifecycle], []);
+  expect(sliceBodySection(body, 'History')).not.toContain('tail');
+  expect(parseHistorySection(sliceBodySection(body, 'History'))).toEqual([SAMPLES.lifecycle]);
+});
+
+test('renderMigratedProjectBody round-trips a project history (archive transitions)', () => {
+  const history = [SAMPLES.archive];
+  const body = renderMigratedProjectBody(history);
+  expect(parseHistorySection(sliceBodySection(body, 'History'))).toEqual(history);
+  // a project body carries History only — no Annotations section
+  expect(body).not.toContain(`## Annotations`);
 });

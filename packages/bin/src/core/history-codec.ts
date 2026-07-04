@@ -62,6 +62,31 @@ export function renderHistoryBody(): string {
   return `## ${HISTORY_HEADING}\n`;
 }
 
+/**
+ * A node body with its `## History` and `## Annotations` sections *populated* —
+ * the authoritative migration's reconstruction (MMR-155) from a node's
+ * transition/annotation rows. Same shape as {@link renderNodeBody} (identical
+ * when both are empty), so the Norn read path slices and parses it back to the
+ * exact records. History and annotations arrive already in their intended order.
+ */
+export function renderMigratedNodeBody(
+  description: string | null,
+  history: readonly HistoryEntry[],
+  annotations: readonly AnnotationView[],
+): string {
+  return (
+    `## ${DESCRIPTION_HEADING}\n${renderDescriptionSection(description)}` +
+    `${renderHistoryBody()}${history.map(renderHistoryRecord).join('')}` +
+    `${renderAnnotationsBody()}${annotations.map(renderAnnotationRecord).join('')}`
+  );
+}
+
+/** A project body with its `## History` reconstructed (archive transitions are
+ * project-keyed); projects carry no `## Annotations` section. */
+export function renderMigratedProjectBody(history: readonly HistoryEntry[]): string {
+  return `${renderHistoryBody()}${history.map(renderHistoryRecord).join('')}`;
+}
+
 /** An empty `## Annotations` section — the append anchor a fresh node seeds. */
 export function renderAnnotationsBody(): string {
   return `## ${ANNOTATIONS_HEADING}\n`;
