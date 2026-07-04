@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { expectMimirError } from '../core/testing';
 import { NornClient } from './client';
+import { migrationPlan, setFrontmatter } from './plan';
 
 /**
  * A fake norn: an in-process MCP server over a linked in-memory transport
@@ -21,6 +22,10 @@ type FakeTool = (args: Record<string, unknown>) => Promise<{
 }>;
 
 const SHAPES: Record<string, z.ZodRawShape> = {
+  'vault.apply_plan': {
+    confirm: z.boolean().optional(),
+    plan: z.record(z.string(), z.unknown()),
+  },
   'vault.find': { eq: z.array(z.string()).optional() },
   'vault.set': {
     confirm: z.boolean().optional(),
@@ -183,6 +188,41 @@ test('an in-flight death on a mutation fails typed and is never replayed', async
   await client.set({ set: { a: 2 }, target: 'x.md' }); // the next call reconnects
   expect(applied).toBe(2);
   expect(fake.spawns).toBe(2);
+});
+
+test('applyPlan sends vault.apply_plan with {plan, confirm} and unwraps the report', async () => {
+  let received: unknown = null;
+  const fake = fakeNorn(() => ({
+    'vault.apply_plan': (args) => {
+      received = args;
+      return Promise.resolve({ structuredContent: { report: { applied: 1, dry_run: false } } });
+    },
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  const plan = migrationPlan({
+    operations: [setFrontmatter('MMR/MMR-1.md', 'lifecycle', 'done')],
+    vaultRoot: '/vault',
+  });
+  const report = await client.applyPlan(plan, true);
+  expect(report).toEqual({ report: { applied: 1, dry_run: false } });
+  expect(received).toEqual({ confirm: true, plan });
+});
+
+test('an in-flight death on applyPlan fails typed and is never replayed', async () => {
+  let applied = 0;
+  const fake = fakeNorn((crash) => ({
+    'vault.apply_plan': async () => {
+      applied += 1;
+      if (applied === 1) {
+        await crash(); // the batch may or may not have landed — ambiguous
+      }
+      return { structuredContent: { report: {} } };
+    },
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  const plan = migrationPlan({ operations: [], vaultRoot: '/vault' });
+  await expectMimirError('invariant', () => (client as NornClient).applyPlan(plan, true));
+  expect(applied).toBe(1); // NOT replayed
 });
 
 test('close shuts the session; the next call lazily reconnects', async () => {
