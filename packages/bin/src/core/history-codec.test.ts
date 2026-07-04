@@ -1,8 +1,15 @@
 import { expect, test } from 'bun:test';
 
-import type { HistoryEntry } from '@mimir/contract';
+import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
-import { parseHistorySection, renderHistoryRecord } from './history-codec';
+import {
+  parseAnnotationsSection,
+  parseHistorySection,
+  renderAnnotationRecord,
+  renderAnnotationsBody,
+  renderHistoryRecord,
+  renderNodeBody,
+} from './history-codec';
 
 /** A representative entry per shape the transition log emits (ADR 0003). */
 const SAMPLES = {
@@ -215,4 +222,78 @@ test('a whitespace-only reason also collapses to null', () => {
     to: 'done',
   };
   expect(parseHistorySection(renderHistoryRecord(entry))[0]?.reason).toBeNull();
+});
+
+// ── Annotations codec (MMR-154) ──────────────────────────────────────────
+// `## Annotations` shares History's H3-per-record shape, minus the edge line:
+// the heading carries only the created-at ISO (annotations have no durable id
+// and no kind), and the whole body under it is the note content.
+
+const ANNOTATIONS = {
+  multiline: {
+    content: 'first line\n\nthird line (blank preserved)',
+    createdAt: '2026-07-04T09:01:00.000Z',
+  },
+  plain: {
+    content: 'looked into the flake; it is a fixture clock',
+    createdAt: '2026-07-04T09:00:00.000Z',
+  },
+  unicode: {
+    content: 'café ☕ — reproduced on arm64\n  sangría preservada',
+    createdAt: '2026-07-04T09:02:00.000Z',
+  },
+} satisfies Record<string, AnnotationView>;
+
+test('an annotation heading carries only the created-at ISO (no kind, no dash)', () => {
+  expect(
+    renderAnnotationRecord(ANNOTATIONS.plain).startsWith('### 2026-07-04T09:00:00.000Z\n'),
+  ).toBe(true);
+});
+
+test('an annotation renders its content as the body under the heading', () => {
+  expect(renderAnnotationRecord(ANNOTATIONS.plain)).toBe(
+    '### 2026-07-04T09:00:00.000Z\nlooked into the flake; it is a fixture clock\n',
+  );
+});
+
+test.each(Object.entries(ANNOTATIONS))(
+  'round-trips a single %s annotation losslessly',
+  (_n, view) => {
+    expect(parseAnnotationsSection(renderAnnotationRecord(view))).toEqual([view]);
+  },
+);
+
+test('round-trips a whole annotations section in order', () => {
+  const views = Object.values(ANNOTATIONS);
+  expect(parseAnnotationsSection(views.map(renderAnnotationRecord).join(''))).toEqual(views);
+});
+
+test('round-trips annotations separated by blank lines (reader tolerance)', () => {
+  const views = Object.values(ANNOTATIONS);
+  expect(parseAnnotationsSection(views.map(renderAnnotationRecord).join('\n'))).toEqual(views);
+});
+
+test('an empty annotations section parses to no entries', () => {
+  expect(parseAnnotationsSection('')).toEqual([]);
+  expect(parseAnnotationsSection(renderAnnotationsBody())).toEqual([]);
+});
+
+test('annotation content that is itself a markdown heading round-trips (injection guard)', () => {
+  const view: AnnotationView = {
+    content: '### looks like a record\n## looks like a section\nplain tail',
+    createdAt: '2026-07-04T09:03:00.000Z',
+  };
+  const rendered = renderAnnotationRecord(view);
+  expect(rendered).toContain(String.raw`\### looks like a record`);
+  expect(rendered).toContain(String.raw`\## looks like a section`);
+  expect(parseAnnotationsSection(rendered)).toEqual([view]);
+});
+
+test('the node body seeds an empty ## Annotations section alongside ## History', () => {
+  const body = renderNodeBody('a task');
+  expect(body).toContain('## History\n');
+  expect(body).toContain('## Annotations\n');
+  // both append anchors exist and parse empty on a fresh node
+  expect(parseHistorySection(body)).toEqual([]);
+  expect(parseAnnotationsSection(body)).toEqual([]);
 });

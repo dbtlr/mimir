@@ -1,4 +1,4 @@
-import type { HistoryEntry, TransitionKind } from '@mimir/contract';
+import type { AnnotationView, HistoryEntry, TransitionKind } from '@mimir/contract';
 import { TRANSITION_KIND_VALUES } from '@mimir/contract';
 
 /**
@@ -23,18 +23,22 @@ import { TRANSITION_KIND_VALUES } from '@mimir/contract';
 /** The `## History` section heading (H2) — the anchor the writer appends under. */
 export const HISTORY_HEADING = 'History';
 
+/** The `## Annotations` section heading (H2) — the anchor `annotate` appends under. */
+export const ANNOTATIONS_HEADING = 'Annotations';
+
 /** The `## Task Description` section heading (H2) — the node body's prose lede. */
 export const DESCRIPTION_HEADING = 'Task Description';
 
 /**
- * The document body every work-state node carries (MMR-153): a `## Task
- * Description` lede (the human prose; `description` also rides frontmatter for
- * the Phase-2b reader) and the `## History` section the transition log appends
- * under. The History heading MUST be present at create time — Norn's
- * `append_to_section` refuses a missing heading — so a create seeds it empty.
+ * The document body every work-state node carries: a `## Task Description` lede
+ * (the human prose; `description` also rides frontmatter for the Phase-2b
+ * reader), the `## History` section the transition log appends under (MMR-153),
+ * and the `## Annotations` section `annotate` appends under (MMR-154). Both
+ * append anchors MUST be present at create time — Norn's `append_to_section`
+ * refuses a missing heading — so a create seeds them empty.
  */
 export function renderNodeBody(description: string | null): string {
-  return `## ${DESCRIPTION_HEADING}\n${renderDescriptionSection(description)}## ${HISTORY_HEADING}\n`;
+  return `## ${DESCRIPTION_HEADING}\n${renderDescriptionSection(description)}${renderHistoryBody()}${renderAnnotationsBody()}`;
 }
 
 /**
@@ -50,6 +54,11 @@ export function renderDescriptionSection(description: string | null): string {
 /** A project/container body: just the `## History` section the log appends under. */
 export function renderHistoryBody(): string {
   return `## ${HISTORY_HEADING}\n`;
+}
+
+/** An empty `## Annotations` section — the append anchor a fresh node seeds. */
+export function renderAnnotationsBody(): string {
+  return `## ${ANNOTATIONS_HEADING}\n`;
 }
 
 const ARROW = ' → ';
@@ -71,15 +80,15 @@ const HEADING = /^### (.+?) — (.+)$/;
 const HEADING_LINE = /^\\*#{1,6}\s/;
 const ESCAPED_HEADING_LINE = /^\\+#{1,6}\s/;
 
-function escapeReason(reason: string): string {
-  return reason
+function escapeBodyLines(body: string): string {
+  return body
     .split('\n')
     .map((line) => (HEADING_LINE.test(line) ? `\\${line}` : line))
     .join('\n');
 }
 
-function unescapeReason(reason: string): string {
-  return reason
+function unescapeBodyLines(body: string): string {
+  return body
     .split('\n')
     .map((line) => (ESCAPED_HEADING_LINE.test(line) ? line.slice(1) : line))
     .join('\n');
@@ -128,7 +137,7 @@ export function renderHistoryRecord(entry: HistoryEntry): string {
   // round-trip (the parser strips trailing blank lines), so normalize it to
   // "no reason line" here — render and parse then agree on `reason: null`.
   if (entry.reason !== null && entry.reason.trim() !== '') {
-    lines.push(escapeReason(entry.reason));
+    lines.push(escapeBodyLines(entry.reason));
   }
   return `${lines.join('\n')}\n`;
 }
@@ -182,7 +191,7 @@ function parseRecord(lines: string[]): HistoryEntry | null {
   while (reasonLines.length > 0 && reasonLines[reasonLines.length - 1] === '') {
     reasonLines.pop();
   }
-  const reason = reasonLines.length > 0 ? unescapeReason(reasonLines.join('\n')) : null;
+  const reason = reasonLines.length > 0 ? unescapeBodyLines(reasonLines.join('\n')) : null;
 
   return { at, from: edge.from, kind, reason, to: edge.to };
 }
@@ -192,4 +201,45 @@ export function parseHistorySection(body: string): HistoryEntry[] {
   return splitRecords(body)
     .map(parseRecord)
     .filter((entry): entry is HistoryEntry => entry !== null);
+}
+
+// ── Annotations ──────────────────────────────────────────────────────────
+// The same H3-per-record grammar as History, minus the edge line: an
+// annotation has no durable id (the SQLite surrogate is never surfaced) and no
+// kind, so the heading carries only the created-at ISO and the whole body under
+// it is the note content. Trailing blank lines normalize away like a History
+// reason — content is otherwise byte-preserved (heading-shaped lines escaped).
+
+const ANNOTATION_HEADING = /^### (.+)$/;
+
+/** Render one annotation as the `### …` block to hand to `appendToSection`. */
+export function renderAnnotationRecord(view: AnnotationView): string {
+  return `### ${view.createdAt}\n${escapeBodyLines(view.content)}\n`;
+}
+
+/** Parse one H3 block back into an {@link AnnotationView}; null when it isn't one. */
+function parseAnnotationRecord(lines: string[]): AnnotationView | null {
+  const [headingLine, ...rest] = lines;
+  if (headingLine === undefined) {
+    return null;
+  }
+  const heading = ANNOTATION_HEADING.exec(headingLine);
+  const createdAt = heading?.[1];
+  if (createdAt === undefined) {
+    return null;
+  }
+  // The content is the whole body under the heading; drop the trailing blank
+  // lines the record terminator and inter-record spacing introduce, then
+  // recover any escaped heading-shaped lines.
+  while (rest.length > 0 && rest[rest.length - 1] === '') {
+    rest.pop();
+  }
+  return { content: unescapeBodyLines(rest.join('\n')), createdAt };
+}
+
+/** Parse the `## Annotations` section body into its notes, in document order. */
+export function parseAnnotationsSection(body: string): AnnotationView[] {
+  return splitRecords(body)
+    .map(parseAnnotationRecord)
+    .filter((view): view is AnnotationView => view !== null);
 }
