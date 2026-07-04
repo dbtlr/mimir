@@ -413,8 +413,6 @@ export async function getNode(store: Store, id: string, opts: GetOptions = {}): 
   if (node === undefined || set.archivedProjects.has(node.project_id)) {
     throw notFound(`${id} doesn't exist`);
   }
-  // buildNodeView still takes the executor for the body-section facets
-  // (annotations, history) that move to Norn in Phase 3.
   return buildNodeView(store.bodySections, store.artifacts, set, node, facets);
 }
 

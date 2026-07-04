@@ -3,10 +3,12 @@ import { expect, test } from 'bun:test';
 import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import {
+  DESCRIPTION_HEADING,
   parseAnnotationsSection,
   parseHistorySection,
   renderAnnotationRecord,
   renderAnnotationsBody,
+  renderDescriptionSection,
   renderHistoryRecord,
   renderNodeBody,
   sliceBodySection,
@@ -333,6 +335,23 @@ test('an escaped heading-shaped content line does not close the section', () => 
   // the whole annotation (including its escaped `\## ` line) stays in the slice
   expect(parseAnnotationsSection(sliceBodySection(body, 'Annotations'))).toEqual([
     { content: '## looks like a boundary\ntail', createdAt: '2026-07-04T00:00:00.000Z' },
+  ]);
+});
+
+test('a description containing a fake `## History` line does not shadow the real section', () => {
+  // A node description whose prose contains a literal `## History` (or
+  // `## Annotations`) line must not hijack the slicer — the description is
+  // escaped so only the real append anchors are section boundaries.
+  // Built explicitly (not via string replace, which the escaped `\## History`
+  // description line would itself match).
+  const description = renderDescriptionSection(
+    'see the notes below\n## History\nnot a real heading',
+  );
+  const body = `## ${DESCRIPTION_HEADING}\n${description}## History\n${renderHistoryRecord(SAMPLES.lifecycle)}## Annotations\n${renderAnnotationRecord(ANNOTATIONS.plain)}`;
+  expect(sliceBodySection(body, 'History')).not.toContain('not a real heading');
+  expect(parseHistorySection(sliceBodySection(body, 'History'))).toEqual([SAMPLES.lifecycle]);
+  expect(parseAnnotationsSection(sliceBodySection(body, 'Annotations'))).toEqual([
+    ANNOTATIONS.plain,
   ]);
 });
 
