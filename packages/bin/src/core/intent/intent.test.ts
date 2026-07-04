@@ -3,7 +3,15 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { createTestDb, expectReject } from '../../db/testing';
 import type { Db } from '../context';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
-import { attachArtifact, blockTask, completeTask, depend, startTask } from '../mutations';
+import type { Node } from '../model';
+import {
+  abandonTask,
+  attachArtifact,
+  blockTask,
+  completeTask,
+  depend,
+  startTask,
+} from '../mutations';
 import type { Store } from '../store';
 import { createSqliteStore } from '../store-sqlite';
 import { getArtifact, getNode, listNodes, nextTasks, statusOfNode } from './index';
@@ -26,6 +34,29 @@ afterEach(async () => {
 });
 
 const idOf = (n: { seq: number }) => `${key}-${n.seq}`;
+
+test('list orders within a project by numeric seq, not the lexical stem', async () => {
+  // Enough tasks to reach a two-digit seq; abandon a low- and a high-seq one so
+  // both share completed_at=null and fall to the seq tiebreak — the exact path a
+  // lexical KEY-seq compare mis-ordered ("MMR-10" < "MMR-2").
+  const tasks: Node[] = [];
+  for (let i = 0; i < 10; i += 1) {
+    tasks.push(await createTask(store, { parentId: phaseId, title: `t${String(i)}` }));
+  }
+  const bySeq = [...tasks].toSorted((a, b) => a.seq - b.seq);
+  const low = bySeq[0];
+  const high = bySeq[bySeq.length - 1];
+  if (low === undefined || high === undefined) {
+    throw new Error('expected created tasks');
+  }
+  expect(high.seq).toBeGreaterThanOrEqual(10); // ensure the lexical/numeric divergence is in play
+  await abandonTask(store, low.id);
+  await abandonTask(store, high.id);
+
+  const res = await listNodes(store, { facets: [], scope: key, status: 'abandoned' });
+  const ids = res.items.map((v) => v.id);
+  expect(ids.indexOf(idOf(low))).toBeLessThan(ids.indexOf(idOf(high)));
+});
 
 test('next returns ready tasks in rank order, excluding awaiting/held', async () => {
   const a = await createTask(store, { parentId: phaseId, title: 'a' });

@@ -198,9 +198,6 @@ async function diff(a: Promise<unknown>, b: Promise<unknown>): Promise<void> {
 /** Diff every frontmatter read surface across the two backends for the seeded graph. */
 async function assertParity(norn: Store): Promise<void> {
   const ws = await sqlite.loadWorkingSet();
-  const same = async (a: Promise<unknown>, b: Promise<unknown>): Promise<void> => {
-    expect(canon(await a)).toEqual(canon(await b));
-  };
 
   // tripwire: the projection itself
   expect(normalizeWs(await norn.loadWorkingSet())).toEqual(normalizeWs(ws));
@@ -212,32 +209,32 @@ async function assertParity(norn: Store): Promise<void> {
       continue;
     } // an archived subtree reads as absent (ADR 0015)
     const stem = stemOf(ws, n);
-    await same(getNode(norn, stem, { facets: F }), getNode(sqlite, stem, { facets: F }));
-    await same(statusOfNode(norn, stem), statusOfNode(sqlite, stem));
+    await diff(getNode(norn, stem, { facets: F }), getNode(sqlite, stem, { facets: F }));
+    await diff(statusOfNode(norn, stem), statusOfNode(sqlite, stem));
     // mid-tree: the resource.ts node-id branch (findNodeInSet + subtree), not just projectTree
-    await same(nodeTree(norn, stem, F), nodeTree(sqlite, stem, F));
+    await diff(nodeTree(norn, stem, F), nodeTree(sqlite, stem, F));
   }
   for (const p of ws.projects) {
     if (p.archived_at !== null) {
       continue;
     } // archived projects 404 on get/tree (ADR 0015)
-    await same(getNode(norn, p.key, { facets: F }), getNode(sqlite, p.key, { facets: F }));
-    await same(statusOfNode(norn, p.key), statusOfNode(sqlite, p.key));
-    await same(nodeTree(norn, p.key, F), nodeTree(sqlite, p.key, F));
+    await diff(getNode(norn, p.key, { facets: F }), getNode(sqlite, p.key, { facets: F }));
+    await diff(statusOfNode(norn, p.key), statusOfNode(sqlite, p.key));
+    await diff(nodeTree(norn, p.key, F), nodeTree(sqlite, p.key, F));
     // scoped `next` — resolveScope over the Norn working set
-    await same(
+    await diff(
       nextTasks(norn, { facets: F, scope: p.key }),
       nextTasks(sqlite, { facets: F, scope: p.key }),
     );
   }
 
   // collection surfaces, across the status universes (exercises byCompletedOrder for terminals)
-  await same(nextTasks(norn, { facets: F }), nextTasks(sqlite, { facets: F }));
+  await diff(nextTasks(norn, { facets: F }), nextTasks(sqlite, { facets: F }));
   for (const status of ['live', 'all', 'terminal', 'done', 'abandoned'] as const) {
-    await same(listNodes(norn, { facets: F, status }), listNodes(sqlite, { facets: F, status }));
+    await diff(listNodes(norn, { facets: F, status }), listNodes(sqlite, { facets: F, status }));
   }
   for (const filter of ['active', 'archived', 'all'] as const) {
-    await same(listProjects(norn, F, filter), listProjects(sqlite, F, filter));
+    await diff(listProjects(norn, F, filter), listProjects(sqlite, F, filter));
   }
 }
 

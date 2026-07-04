@@ -82,21 +82,24 @@ function cmpStr(a: string, b: string): number {
   return a > b ? 1 : 0;
 }
 
-/** A node's portable `KEY-seq` stem — a backend-independent final tiebreak (the
- * surrogate int id and per-project `seq` are not stable across backends). */
-function stemKey(set: DerivationSet, n: Node): string {
-  return renderNodeIdFromSet(set, n) ?? '';
+/** A node's project KEY — the portable grouping key. Ordering must never key on
+ * the surrogate `project_id` (each backend assigns it differently); the KEY is
+ * stable, and numeric `seq` stays correct within a project. */
+function projectKey(set: DerivationSet, n: Node): string {
+  return set.keyByProjectId.get(n.project_id) ?? '';
 }
 
-/** Board order: rank (nulls last), then the portable stem — the live-universe sort. */
+/** Board order: rank (nulls last), then (project KEY, numeric seq) — a portable,
+ * numerically-correct tiebreak (seq is per-project, so KEY groups first). */
 function byRankOrder(set: DerivationSet) {
   return (a: Node, b: Node): number =>
     (a.rank === null ? 1 : 0) - (b.rank === null ? 1 : 0) ||
     (a.rank ?? 0) - (b.rank ?? 0) ||
-    cmpStr(stemKey(set, a), stemKey(set, b));
+    cmpStr(projectKey(set, a), projectKey(set, b)) ||
+    a.seq - b.seq;
 }
 
-/** Terminal order: completed_at (nulls last) descending, then the portable stem. */
+/** Terminal order: completed_at (nulls last) descending, then (project KEY, seq). */
 function byCompletedOrder(set: DerivationSet) {
   return (a: Node, b: Node): number => {
     const aNull = a.completed_at === null ? 1 : 0;
@@ -107,19 +110,15 @@ function byCompletedOrder(set: DerivationSet) {
     if (a.completed_at !== null && b.completed_at !== null && a.completed_at !== b.completed_at) {
       return a.completed_at < b.completed_at ? 1 : -1;
     }
-    return cmpStr(stemKey(set, a), stemKey(set, b));
+    return cmpStr(projectKey(set, a), projectKey(set, b)) || a.seq - b.seq;
   };
 }
 
-/** `next` order: project KEY, then rank, then seq — keyed on the portable project
- * KEY, never the surrogate `project_id` (which differs across backends). Within one
- * project `seq` is unique, so it stays a valid intra-project tiebreak. */
+/** `next` order: project KEY, then rank, then numeric seq — keyed on the portable
+ * project KEY, never the surrogate `project_id`. `seq` is unique within a project. */
 function byProjectRank(set: DerivationSet) {
   return (a: Node, b: Node): number =>
-    cmpStr(
-      set.keyByProjectId.get(a.project_id) ?? '',
-      set.keyByProjectId.get(b.project_id) ?? '',
-    ) ||
+    cmpStr(projectKey(set, a), projectKey(set, b)) ||
     (a.rank ?? 0) - (b.rank ?? 0) ||
     a.seq - b.seq;
 }
