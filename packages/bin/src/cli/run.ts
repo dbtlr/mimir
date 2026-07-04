@@ -157,6 +157,12 @@ export type Defaults = {
   service?: ServiceDeps;
   /** Real vault edges (git snapshot); absent where the vault is unavailable (tests). */
   vault?: VaultDeps;
+  /**
+   * The DB schema migrator (`migrate schema`). Injected because it opens the
+   * store UN-migrated to inspect/apply migrations, so it can't ride the normal
+   * auto-migrating store provider; absent in tests that don't exercise it.
+   */
+  migrateSchema?: (sub: string | undefined) => Promise<number>;
 };
 
 /**
@@ -509,17 +515,25 @@ export async function runCli(
         return 0;
       }
       case 'migrate': {
-        // `migrate schema` is intercepted upstream (main.ts) because it opens
-        // the store un-migrated; the data subcommands land here over a normally
-        // migrated store. Bare `migrate` lists the subcommands.
+        // One dispatch for the whole `migrate` namespace (`-h`/`--help` on any
+        // of it is already handled above, before the store is ever touched).
+        // `schema` runs the DB migrator through an injected capability — it
+        // opens the store UN-migrated, so it can't ride the auto-migrating
+        // provider; the data subcommands run over a normally-migrated store.
         const sub = positionals[1];
+        if (sub === 'schema') {
+          if (defaults.migrateSchema === undefined) {
+            throw usage('migrate schema is unavailable in this context');
+          }
+          return await defaults.migrateSchema(positionals[2]);
+        }
         if (sub === 'artifacts') {
           return await cmdMigrateArtifacts(await getDb(), ctx, {
             dryRun: values['dry-run'] === true,
             json: values.format === 'json' || values.format === 'jsonl',
           });
         }
-        // `migrate nodes` — authoritative node/project migration (MMR-155).
+        // `migrate nodes` — authoritative node/project migration — lands here (MMR-155).
         if (sub === undefined) {
           ctx.write(helpForCommand('migrate', undefined, full) ?? TERSE_HELP);
           return 0;
