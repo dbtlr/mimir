@@ -15,6 +15,16 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **`mimir migrate nodes` — the authoritative node/project migration** (MMR-155,
+  ADR 0016 Phase 3) — the lossless SQLite→vault projection of work state, the
+  node counterpart to `migrate artifacts`. Each project and node is written at
+  its existing `KEY-seq` stem with its frontmatter preserved (`created_at`
+  included — timestamps are written directly, never re-stamped), and its
+  `## History` / `## Annotations` sections reconstructed from the transition and
+  annotation rows. Idempotent — a re-run skips documents already present by their
+  `created` + `title` fingerprint — and re-runnable against a copy (point
+  `MIMIR_VAULT` at a copied vault); `--dry-run` reports the inventory without
+  writing. SQLite stays the source of truth until the Phase 4 cutover.
 - **`mimir setup` — the configuration wizard** (MMR-145, ADR 0016 Phase 2a) —
   one command for the first install and every later reconfiguration. It
   prefills the current answers, converges the vault at the chosen location
