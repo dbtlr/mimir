@@ -137,8 +137,8 @@ other:
                           then push + reconcile when an upstream is configured;
                           the cadence behind the scheduled snapshot unit
   migrate <sub>           schema [status] (apply/inspect DB migrations) ·
-                          artifacts [--dry-run] (copy SQLite artifacts into the
-                          vault — cutover, idempotent + non-destructive)
+                          artifacts / nodes [--dry-run] (copy SQLite artifacts /
+                          node work-state into the vault — idempotent, lossless)
   mcp                     the agent envelope over stdio (MCP transport)
 `;
 
@@ -490,17 +490,19 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     args: [
       ['schema [status]', 'apply pending DB migrations; `status` lists applied + pending'],
       ['artifacts [--dry-run]', 'copy SQLite artifacts into the Norn vault backend'],
+      ['nodes [--dry-run]', 'copy SQLite node/project work-state into the vault backend'],
     ],
     examples: [
       'mimir migrate schema                 # apply pending DB migrations',
       'mimir migrate schema status          # list applied + pending migrations',
       'mimir migrate artifacts --dry-run    # count what would move, write nothing',
-      'mimir migrate artifacts              # copy every artifact into the vault',
+      'mimir migrate nodes --dry-run        # count what would move, write nothing',
+      'mimir migrate nodes                  # copy every node + project into the vault',
     ],
-    flags: [['--dry-run', 'artifacts: report the source inventory without writing']],
+    flags: [['--dry-run', 'artifacts / nodes: report the source inventory without writing']],
     summary:
-      'run a migration. `schema` applies/inspects the DB migrations; `artifacts` copies SQLite artifacts into the vault (cutover) — preserving KEY-aN identity + timestamps, idempotent and non-destructive (SQLite is untouched).',
-    usage: 'mimir migrate <schema [status] | artifacts [--dry-run]>',
+      'run a migration. `schema` applies/inspects the DB migrations; `artifacts` and `nodes` copy SQLite artifacts / node work-state into the vault — preserving identity + timestamps, idempotent and lossless (SQLite is untouched).',
+    usage: 'mimir migrate <schema [status] | artifacts [--dry-run] | nodes [--dry-run]>',
   },
   // ── setup wizard (MMR-145) ──
   setup: {

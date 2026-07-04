@@ -41,6 +41,7 @@ import { BINDING_FILE, writeBinding } from './binding';
 import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from './errors';
 import { FULL_HELP, TERSE_HELP, helpForCommand } from './help';
 import { cmdMigrateArtifacts } from './migrate-artifacts';
+import { cmdMigrateNodes } from './migrate-nodes';
 import {
   cmdAbandon,
   cmdAnnotate,
@@ -533,12 +534,17 @@ export async function runCli(
             json: values.format === 'json' || values.format === 'jsonl',
           });
         }
-        // `migrate nodes` — authoritative node/project migration — lands here (MMR-155).
+        if (sub === 'nodes') {
+          return await cmdMigrateNodes(await getDb(), ctx, {
+            dryRun: values['dry-run'] === true,
+            json: values.format === 'json' || values.format === 'jsonl',
+          });
+        }
         if (sub === undefined) {
           ctx.write(helpForCommand('migrate', undefined, full) ?? TERSE_HELP);
           return 0;
         }
-        throw usage(`unknown migrate subcommand '${sub}' — expected: schema, artifacts`);
+        throw usage(`unknown migrate subcommand '${sub}' — expected: schema, artifacts, nodes`);
       }
       case 'setup': {
         if (defaults.service === undefined || defaults.vault === undefined) {
