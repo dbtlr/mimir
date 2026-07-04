@@ -1,15 +1,17 @@
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import type { HistoryEntry } from '@mimir/contract';
+import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import { createNornArtifactStore } from '../core/artifacts';
 import { createNornBodySectionStore } from '../core/body-sections';
 import type { Db } from '../core/context';
 import { invariant } from '../core/errors';
 import {
+  ANNOTATIONS_HEADING,
   DESCRIPTION_HEADING,
   HISTORY_HEADING,
+  renderAnnotationRecord,
   renderDescriptionSection,
   renderHistoryBody,
   renderHistoryRecord,
@@ -17,7 +19,14 @@ import {
 } from '../core/history-codec';
 import { parseId, renderId } from '../core/ids';
 import type { Dependency, Node, Project } from '../core/model';
-import type { NewTransitionRecord, NodeTag, Store, StoreWriter, WorkingSet } from '../core/store';
+import type {
+  NewAnnotationRecord,
+  NewTransitionRecord,
+  NodeTag,
+  Store,
+  StoreWriter,
+  WorkingSet,
+} from '../core/store';
 import type { NornSnapshot } from '../core/store-norn';
 import { loadNornSnapshot, loadWorkingSetOverNorn } from '../core/store-norn';
 import { now } from '../core/time';
@@ -69,11 +78,16 @@ type Provisional = number;
 /** A queued append under a document's `## History` section. */
 type HistoryAppend = HistoryEntry;
 
+/** A queued append under a node's `## Annotations` section. */
+type AnnotationAppend = AnnotationView;
+
 /** Accumulated mutation of one EXISTING (snapshot) document. */
 type Mutation = {
   /** Frontmatter field names whose overlay value must be reconciled to disk. */
   dirty: Set<string>;
   history: HistoryAppend[];
+  /** Queued `## Annotations` appends (nodes only; projects carry no annotations). */
+  annotations: AnnotationAppend[];
 };
 
 /** A queued create of one NEW document (provisional id → resolved at apply). */
@@ -225,7 +239,7 @@ class Accumulator {
   private mutationOf(map: Map<number, Mutation>, id: number): Mutation {
     let mutation = map.get(id);
     if (mutation === undefined) {
-      mutation = { dirty: new Set(), history: [] };
+      mutation = { annotations: [], dirty: new Set(), history: [] };
       map.set(id, mutation);
     }
     return mutation;
@@ -238,10 +252,7 @@ class Accumulator {
       appendTransition: (row) => this.appendTransition(row),
       deleteDependency: (edge) => this.deleteDependency(edge),
       deleteTags: (entityType, entityId, tags) => this.deleteTags(entityType, entityId, tags),
-      insertAnnotation: () =>
-        Promise.reject(
-          invariant('annotations are not yet supported over the Norn write path (MMR-154)'),
-        ),
+      insertAnnotation: (row) => this.insertAnnotation(row),
       insertArtifact: () =>
         Promise.reject(invariant('artifact writes route through the artifact seam, not the plan')),
       insertDependency: (edge) => this.insertDependency(edge),
@@ -498,6 +509,24 @@ class Accumulator {
     return Promise.resolve();
   }
 
+  /**
+   * Queue a node's `## Annotations` append (MMR-154) — the created-at is stamped
+   * here (SQLite's column default has no vault equivalent) and the record flushes
+   * as one `append_to_section` op, the same mechanism `## History` uses.
+   * Annotations are node-only; a target absent from the snapshot fails loud
+   * rather than silently dropping the note.
+   */
+  private insertAnnotation(row: NewAnnotationRecord): Promise<void> {
+    if (row.node_id <= 0 || !this.nodes.has(row.node_id)) {
+      throw invariant('an annotation targets a node absent from the snapshot');
+    }
+    this.mutationOf(this.nodeMutations, row.node_id).annotations.push({
+      content: row.content,
+      createdAt: now(),
+    });
+    return Promise.resolve();
+  }
+
   // ── Plan build (coalesce every effect into one op-set per document) ──────
 
   /** A node's canonical stem, resolved through its project's key. A create node
@@ -581,6 +610,7 @@ class Accumulator {
         );
       }
       this.emitHistory(operations, path, mutation.history);
+      this.emitAnnotations(operations, path, mutation.annotations);
     }
 
     for (const [id, mutation] of this.projectMutations) {
@@ -638,6 +668,16 @@ class Accumulator {
   private emitHistory(operations: MigrationOp[], path: string, history: HistoryAppend[]): void {
     for (const entry of history) {
       operations.push(appendToSection(path, HISTORY_HEADING, renderHistoryRecord(entry)));
+    }
+  }
+
+  private emitAnnotations(
+    operations: MigrationOp[],
+    path: string,
+    annotations: AnnotationAppend[],
+  ): void {
+    for (const view of annotations) {
+      operations.push(appendToSection(path, ANNOTATIONS_HEADING, renderAnnotationRecord(view)));
     }
   }
 

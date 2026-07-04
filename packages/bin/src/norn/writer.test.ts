@@ -116,6 +116,56 @@ test('a lifecycle mutation coalesces into per-field set_frontmatter + a History 
   expect(String(history?.fields.content)).toContain('todo → in_progress');
 });
 
+test('an annotation lands as one append under ## Annotations with a stamped created-at', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        rank: 65536,
+        title: 'Task',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ];
+  const { client, plans } = fakeClient(docs);
+  const store = createNornWriteStore(client, ROOT);
+
+  const ws = await store.loadWorkingSet();
+  const taskId = ws.nodes[0]?.id ?? 0;
+  await store.transact((w) =>
+    w.insertAnnotation({ content: 'a load-bearing note', node_id: taskId }),
+  );
+
+  const plan = plans[0];
+  if (plan === undefined) {
+    throw new Error('no plan captured');
+  }
+  const annotation = findOp(plan, 'append_to_section');
+  expect(annotation?.fields).toMatchObject({ heading: 'Annotations', path: 'MMR/MMR-1.md' });
+  const content = String(annotation?.fields.content);
+  expect(content).toContain('a load-bearing note');
+  // the created-at is stamped as an ISO heading (`### <iso>`), not left to the caller
+  expect(content).toMatch(/^### \d{4}-\d{2}-\d{2}T/);
+});
+
+test('an annotation against a node absent from the snapshot fails loud (not dropped)', async () => {
+  const { client } = fakeClient([projectDoc()]);
+  const store = createNornWriteStore(client, ROOT);
+
+  let message = '';
+  try {
+    await store.transact((w) => w.insertAnnotation({ content: 'x', node_id: 999 }));
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain('an annotation targets a node absent from the snapshot');
+});
+
 test('repeated writes to one field coalesce to a single op (last value wins)', async () => {
   const docs: NornDocument[] = [
     projectDoc(),
