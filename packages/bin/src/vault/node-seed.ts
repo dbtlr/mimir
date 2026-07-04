@@ -1,6 +1,7 @@
 import { validation } from '../core/errors';
 import { renderHistoryBody, renderNodeBody } from '../core/history-codec';
 import { renderId } from '../core/ids';
+import type { Node, Project } from '../core/model';
 import type { WorkingSet } from '../core/store';
 import { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
 import type { NornClient } from '../norn/client';
@@ -63,12 +64,33 @@ export type SeedReport = {
 };
 
 /**
- * Project the whole working set into vault docs through the injected `write`.
- * Pure orchestration — no Norn dependency — so the mapping and traversal test
- * without a live vault (the `migrateArtifacts` shape). Projects first, then
- * nodes, so a node's `parent`/`depends_on` targets are already on disk.
+ * The body for each document — injected so the traversal is shared. The 2b seed
+ * uses {@link EMPTY_BODIES} (empty `## History`/`## Annotations` anchors); the
+ * authoritative migration (MMR-155) passes builders that reconstruct the
+ * sections from the transition/annotation rows.
  */
-export async function seedNodes(ws: WorkingSet, write: SeedWrite): Promise<SeedReport> {
+export type NodeBodies = {
+  node: (node: Node) => string;
+  project: (project: Project) => string;
+};
+
+/** The 2b seed's bodies: the append anchors only, no records. */
+export const EMPTY_BODIES: NodeBodies = {
+  node: (node) => renderNodeBody(node.description),
+  project: () => renderHistoryBody(),
+};
+
+/**
+ * Project the whole working set into vault documents — the pure SQLite→vault
+ * traversal shared by the 2b seed and the authoritative migration. Each doc gets
+ * its canonical stem path, frontmatter through the shared mappers, and a body
+ * from `bodies`. No I/O: the write is the caller's, and projects lead nodes so a
+ * relation target is already placed when its dependent is written.
+ */
+export function buildSeedDocs(
+  ws: WorkingSet,
+  bodies: NodeBodies = EMPTY_BODIES,
+): { projects: SeedDoc[]; nodes: SeedDoc[] } {
   const keyByProject = new Map(ws.projects.map((p) => [p.id, p.key] as const));
   // Every node's canonical stem, resolved through its project's key — used for
   // its own path and for any relation (parent, cross-project depends_on) to it.
@@ -93,22 +115,12 @@ export async function seedNodes(ws: WorkingSet, write: SeedWrite): Promise<SeedR
     }
   }
 
-  const report: SeedReport = { created: 0, nodes: 0, projects: 0 };
-  const tally = (outcome: SeedOutcome): void => {
-    report[outcome] += 1;
-  };
-
-  for (const project of ws.projects) {
-    const tags = ws.projectTags.get(project.id) ?? [];
-    tally(
-      await write({
-        body: renderHistoryBody(),
-        frontmatter: projectFrontmatter(project, tags),
-        path: `${project.key}/${project.key}.md`,
-      }),
-    );
-    report.projects += 1;
-  }
+  const projects: SeedDoc[] = ws.projects.map((project) => ({
+    body: bodies.project(project),
+    frontmatter: projectFrontmatter(project, ws.projectTags.get(project.id) ?? []),
+    path: `${project.key}/${project.key}.md`,
+  }));
+  const nodes: SeedDoc[] = [];
   for (const node of ws.nodes) {
     const key = keyByProject.get(node.project_id);
     const stem = stemById.get(node.id);
@@ -118,13 +130,29 @@ export async function seedNodes(ws: WorkingSet, write: SeedWrite): Promise<SeedR
     const parentStem = node.parent_id === null ? null : (stemById.get(node.parent_id) ?? null);
     const dependsOn = (prereqStems.get(node.id) ?? []).toSorted();
     const tags = ws.nodeTags.get(node.id) ?? [];
-    tally(
-      await write({
-        body: renderNodeBody(node.description),
-        frontmatter: nodeFrontmatter(node, { dependsOn, parentStem, tags }),
-        path: `${key}/${stem}.md`,
-      }),
-    );
+    nodes.push({
+      body: bodies.node(node),
+      frontmatter: nodeFrontmatter(node, { dependsOn, parentStem, tags }),
+      path: `${key}/${stem}.md`,
+    });
+  }
+  return { nodes, projects };
+}
+
+/**
+ * Write the whole working set into a fresh vault through the injected `write`
+ * (the 2b seed, frontmatter-only bodies). The authoritative migration reuses
+ * {@link buildSeedDocs} directly with reconstructing bodies + its own write.
+ */
+export async function seedNodes(ws: WorkingSet, write: SeedWrite): Promise<SeedReport> {
+  const { projects, nodes } = buildSeedDocs(ws);
+  const report: SeedReport = { created: 0, nodes: 0, projects: 0 };
+  for (const doc of projects) {
+    report[await write(doc)] += 1;
+    report.projects += 1;
+  }
+  for (const doc of nodes) {
+    report[await write(doc)] += 1;
     report.nodes += 1;
   }
   return report;
