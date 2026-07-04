@@ -248,6 +248,7 @@ test('nornSeedWrite: fresh path -> newDoc(field_json) reports created', async ()
   } as unknown as NornClient;
 
   const outcome = await nornSeedWrite(client)({
+    body: '## History\n',
     frontmatter: { depends_on: ['[[FOO-2]]'], rank: 7, type: 'task' },
     path: 'FOO/FOO-3.md',
   });
@@ -277,6 +278,7 @@ test('nornSeedWrite: a path collision fails loud, never merging onto the occupan
   let caught: unknown;
   try {
     await nornSeedWrite(client)({
+      body: '## History\n',
       frontmatter: { lifecycle: 'in_progress', type: 'task' },
       path: 'FOO/FOO-3.md',
     });
@@ -297,7 +299,11 @@ test('nornSeedWrite: a non-collision newDoc error propagates (no silent skip)', 
 
   let caught: unknown;
   try {
-    await nornSeedWrite(client)({ frontmatter: { type: 'task' }, path: 'FOO/FOO-3.md' });
+    await nornSeedWrite(client)({
+      body: '## History\n',
+      frontmatter: { type: 'task' },
+      path: 'FOO/FOO-3.md',
+    });
   } catch (error) {
     caught = error;
   }

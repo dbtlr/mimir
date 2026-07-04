@@ -119,7 +119,29 @@ type NodeDoc = {
   fm: Record<string, unknown>;
 };
 
+/**
+ * A load-time snapshot of the vault's work-state (MMR-153): the same
+ * {@link WorkingSet} the read path derives over, plus the two by-id side maps
+ * the *write* path needs and the reader discards — the raw frontmatter per
+ * document (the `expected_old_value` CAS precondition set_frontmatter demands)
+ * and the synthetic-int → document identity the writer resolves paths through.
+ * The synthetic ints are the {@link WorkingSet}'s own (stable per load); a
+ * later `transact` reloads and re-mints them, so they are handles WITHIN one
+ * snapshot, never durable across applies.
+ */
+export type NornSnapshot = {
+  workingSet: WorkingSet;
+  /** Node id → its raw frontmatter record (presence + CAS old-value source). */
+  nodeFm: ReadonlyMap<number, Record<string, unknown>>;
+  /** Project id → its raw frontmatter record. */
+  projectFm: ReadonlyMap<number, Record<string, unknown>>;
+};
+
 export async function loadWorkingSetOverNorn(client: NornClient): Promise<WorkingSet> {
+  return (await loadNornSnapshot(client)).workingSet;
+}
+
+export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot> {
   const docs = await client.find({
     in: ['type:project,task,phase,initiative'],
     no_limit: true,
@@ -191,7 +213,11 @@ export async function loadWorkingSetOverNorn(client: NornClient): Promise<Workin
   const nodes: Node[] = [];
   const edges: Dependency[] = [];
   const nodeTags = new Map<number, NodeTag[]>();
+  const nodeFm = new Map<number, Record<string, unknown>>();
+  const projectFm = new Map<number, Record<string, unknown>>();
+  projectDocs.forEach((p, i) => projectFm.set(i + 1, p.fm));
   for (const n of nodeDocs) {
+    nodeFm.set(n.id, n.fm);
     // Referential integrity is Norn's job (the design seam); this reader enforces
     // SQLite's CHECK/FK invariants at the boundary and fails loud rather than
     // silently projecting a corrupt WorkingSet. Each throw below is a violation a
@@ -298,5 +324,9 @@ export async function loadWorkingSetOverNorn(client: NornClient): Promise<Workin
     }
   });
 
-  return { edges, nodeTags, nodes, projectTags, projects };
+  return {
+    nodeFm,
+    projectFm,
+    workingSet: { edges, nodeTags, nodes, projectTags, projects },
+  };
 }

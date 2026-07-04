@@ -1,0 +1,671 @@
+import { mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+import type { HistoryEntry } from '@mimir/contract';
+
+import { createNornArtifactStore } from '../core/artifacts';
+import type { Db } from '../core/context';
+import { invariant } from '../core/errors';
+import { HISTORY_HEADING, renderHistoryRecord, renderNodeBody } from '../core/history-codec';
+import { parseId, renderId } from '../core/ids';
+import type { Dependency, Node, Project } from '../core/model';
+import type { NewTransitionRecord, NodeTag, Store, StoreWriter, WorkingSet } from '../core/store';
+import type { NornSnapshot } from '../core/store-norn';
+import { loadNornSnapshot, loadWorkingSetOverNorn } from '../core/store-norn';
+import { now } from '../core/time';
+import { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
+import type { NornClient } from './client';
+import type { MigrationOp } from './plan';
+import {
+  addFrontmatter,
+  appendToSection,
+  createDocument,
+  migrationPlan,
+  removeFrontmatter,
+  setFrontmatter,
+} from './plan';
+
+/**
+ * The Norn-backed `Store.transact` + `StoreWriter` (MMR-153, ADR 0016 Phase 3
+ * write path). The model is: read one snapshot → run the verb, accumulating
+ * intended effects over an in-memory overlay → collapse every effect into ONE
+ * atomic {@link import('./plan').MigrationPlan} → `apply_plan` → replay on drift.
+ * It is the sibling of {@link import('../core/store-sqlite').createSqliteStore}'s
+ * `transact`, behaviorally identical from the verbs' point of view.
+ *
+ * Every verb reduces to one document (design §95): a node's tags, History, and
+ * parent all live in its own file, so a whole `transact` coalesces per target
+ * document — a create becomes one `create_document`, a mutation becomes one
+ * `set_frontmatter` per changed field (carrying the snapshot value as the
+ * compare-and-set `expected_old_value`) plus one `append_to_section` per logged
+ * transition. Because `apply_plan` refuses on any CAS mismatch, a concurrent
+ * write is caught and the deterministic verb is replayed against a fresh
+ * snapshot.
+ *
+ * Identity: the vault has no surrogate ids (the stem IS the id), so the reader
+ * mints synthetic ints stable per load; this writer resolves those ints to
+ * `KEY/KEY-seq.md` paths through the same snapshot. A new node has no seq until
+ * Norn allocates it — `create_document`'s `{{seq}}` token is resolved to the
+ * next per-project sequence at apply time — so `allocateSeq` hands back a
+ * provisional sentinel used only for intra-`transact` overlay identity; the real
+ * `KEY-seq` comes back in the apply report and is stitched into the echoed node.
+ */
+
+const MAX_ATTEMPTS = 5;
+
+/** A provisional, per-`transact` sentinel id/seq: negative, so it never collides
+ * with a snapshot's 1-based synthetic ints (which the reader mints positive). */
+type Provisional = number;
+
+/** A queued append under a document's `## History` section. */
+type HistoryAppend = HistoryEntry;
+
+/** Accumulated mutation of one EXISTING (snapshot) document. */
+type Mutation = {
+  /** Frontmatter field names whose overlay value must be reconciled to disk. */
+  dirty: Set<string>;
+  history: HistoryAppend[];
+};
+
+/** A queued create of one NEW document (provisional id → resolved at apply). */
+type Create = {
+  targetKind: 'node' | 'project';
+  provisionalId: Provisional;
+  /** The path template handed to `create_document`; a node carries `{{seq}}`. */
+  pathTemplate: string;
+};
+
+/** The frontmatter field a node patch column maps onto (identity but for parent). */
+function nodePatchField(column: string): string {
+  return column === 'parent_id' ? 'parent' : column;
+}
+
+/** norn refuses `append_to_section` / `set_frontmatter` on a missing heading —
+ * a create seeds `## History`; every mutation appends under it. */
+/** A `db` handle that fails loud: the Norn store composes plan ops, never SQL. */
+const dbTrapHandler: ProxyHandler<object> = {
+  get(_t, prop) {
+    throw new Error(
+      `Norn write store: store.db.${String(prop)} touched — the write path composes plan ops, never db`,
+    );
+  },
+};
+
+export function createNornWriteStore(client: NornClient, vaultRoot: string): Store {
+  // The Norn store has no SQLite handle; the trap satisfies the `Db` slot and
+  // fails loud on any stray read.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  const dbTrap = new Proxy({}, dbTrapHandler) as Db;
+
+  return {
+    artifacts: createNornArtifactStore(client),
+    db: dbTrap,
+    loadWorkingSet: () => loadWorkingSetOverNorn(client),
+    transact: (fn) => runTransact(client, vaultRoot, fn),
+  };
+}
+
+async function runTransact<T>(
+  client: NornClient,
+  vaultRoot: string,
+  fn: (w: StoreWriter) => Promise<T>,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+    const snapshot = await loadNornSnapshot(client);
+    const acc = new Accumulator(snapshot);
+    const result = await fn(acc.writer);
+    const operations = acc.buildOperations();
+    if (operations.length === 0) {
+      return result; // a pure-read `transact` (e.g. a guard that threw nothing)
+    }
+    const plan = migrationPlan({ generator: 'mimir', operations, vaultRoot });
+    // `apply_plan` runs `create_document` with `parents: false` — the first doc
+    // in a new project directory (a project create) would fail on a missing
+    // parent. Ensure each create's directory exists on the local vault first;
+    // `{{seq}}` only ever occupies the file name, so the directory is concrete.
+    ensureCreateDirs(vaultRoot, acc.creates);
+    let report: unknown;
+    try {
+      report = await client.applyPlan(plan, true);
+    } catch (error) {
+      if (isDriftError(error) && attempt < MAX_ATTEMPTS - 1) {
+        lastError = error;
+        continue; // the vault moved under the snapshot — replay from a fresh read
+      }
+      throw error;
+    }
+    const resolvedSeqs = extractResolvedSeqs(report, acc.creates);
+    return acc.resolveResult(result, resolvedSeqs);
+  }
+  throw invariant(
+    'the node write path exhausted its drift retries',
+    lastError instanceof Error ? lastError.message : undefined,
+  );
+}
+
+/** Create each queued document's parent directory on the local vault (idempotent),
+ * so `apply_plan`'s `parents: false` create never fails on a missing folder. */
+function ensureCreateDirs(vaultRoot: string, creates: Create[]): void {
+  for (const create of creates) {
+    mkdirSync(join(vaultRoot, dirname(create.pathTemplate)), { recursive: true });
+  }
+}
+
+/** A CAS refusal from `apply_plan` (`ExpectedOldValueMismatch` / `StaleDocumentHash`
+ * both render as "stale repair plan for …") — the signal to reload and replay. */
+function isDriftError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /stale repair plan for/i.test(message);
+}
+
+/**
+ * The accumulating `StoreWriter`: point reads serve from a mutable overlay of
+ * the snapshot (so a read after a write in the same `transact` sees the pending
+ * change, matching SQLite's in-tx view), and write primitives record intended
+ * effects keyed by target document without touching Norn.
+ */
+class Accumulator {
+  readonly writer: StoreWriter;
+  readonly creates: Create[] = [];
+
+  private readonly snapshot: NornSnapshot;
+  private readonly nodes: Map<number, Node>;
+  private readonly projects: Map<number, Project>;
+  private readonly projectByKey: Map<string, Project>;
+  private edges: Dependency[];
+  private readonly nodeTags: Map<number, NodeTag[]>;
+  private readonly projectTags: Map<number, NodeTag[]>;
+  private readonly nodeMutations = new Map<number, Mutation>();
+  private readonly projectMutations = new Map<number, Mutation>();
+  private nextProvisional: Provisional = -1;
+
+  constructor(snapshot: NornSnapshot) {
+    this.snapshot = snapshot;
+    const ws = snapshot.workingSet;
+    this.nodes = new Map(ws.nodes.map((n) => [n.id, { ...n }]));
+    this.projects = new Map(ws.projects.map((p) => [p.id, { ...p }]));
+    this.projectByKey = new Map([...this.projects.values()].map((p) => [p.key, p]));
+    this.edges = ws.edges.map((e) => ({ ...e }));
+    this.nodeTags = new Map(
+      [...ws.nodeTags].map(([id, tags]) => [id, tags.map((t) => ({ ...t }))]),
+    );
+    this.projectTags = new Map(
+      [...ws.projectTags].map(([id, tags]) => [id, tags.map((t) => ({ ...t }))]),
+    );
+    this.writer = this.buildWriter();
+  }
+
+  private overlayWorkingSet(): WorkingSet {
+    return {
+      edges: this.edges.map((e) => ({ ...e })),
+      nodeTags: new Map(this.nodeTags),
+      nodes: [...this.nodes.values()],
+      projectTags: new Map(this.projectTags),
+      projects: [...this.projects.values()],
+    };
+  }
+
+  private mutationOf(map: Map<number, Mutation>, id: number): Mutation {
+    let mutation = map.get(id);
+    if (mutation === undefined) {
+      mutation = { dirty: new Set(), history: [] };
+      map.set(id, mutation);
+    }
+    return mutation;
+  }
+
+  private buildWriter(): StoreWriter {
+    return {
+      allocateArtifactSeq: () => Promise.resolve(this.nextProvisional--),
+      allocateSeq: () => Promise.resolve(this.nextProvisional--),
+      appendTransition: (row) => this.appendTransition(row),
+      deleteDependency: (edge) => this.deleteDependency(edge),
+      deleteTags: (entityType, entityId, tags) => this.deleteTags(entityType, entityId, tags),
+      insertAnnotation: () =>
+        Promise.reject(
+          invariant('annotations are not yet supported over the Norn write path (MMR-154)'),
+        ),
+      insertArtifact: () =>
+        Promise.reject(invariant('artifact writes route through the artifact seam, not the plan')),
+      insertDependency: (edge) => this.insertDependency(edge),
+      insertNode: (row) => this.insertNode(row),
+      insertProject: (row) => this.insertProject(row),
+      insertTag: (row) => this.applyTag(row.entity_type, row.entity_id, row.tag, row.note),
+      linkArtifact: () =>
+        Promise.reject(invariant('artifact links route through the artifact seam, not the plan')),
+      listChildren: (parentId) =>
+        Promise.resolve(
+          [...this.nodes.values()].filter((n) => n.parent_id === parentId).map((n) => n.id),
+        ),
+      listPrereqsOf: (nodeId) =>
+        Promise.resolve(
+          this.edges.filter((e) => e.node_id === nodeId).map((e) => e.depends_on_node_id),
+        ),
+      listRankedTasks: (projectId) =>
+        Promise.resolve(
+          [...this.nodes.values()]
+            .filter((n) => n.project_id === projectId)
+            .flatMap((n) => (n.rank === null ? [] : [{ id: n.id, rank: n.rank, seq: n.seq }]))
+            .toSorted((a, b) => (a.rank === b.rank ? a.seq - b.seq : a.rank - b.rank)),
+        ),
+      loadArtifact: () => Promise.resolve(undefined),
+      loadNode: (id) => Promise.resolve(this.cloneNode(id)),
+      loadProject: (id) => Promise.resolve(this.cloneProject(this.projects.get(id))),
+      loadProjectByKey: (key) => Promise.resolve(this.cloneProject(this.projectByKey.get(key))),
+      loadWorkingSet: () => Promise.resolve(this.overlayWorkingSet()),
+      updateArtifact: () =>
+        Promise.reject(invariant('artifact writes route through the artifact seam, not the plan')),
+      updateNode: (id, patch) => this.updateNode(id, patch),
+      updateProject: (id, patch) => this.updateProject(id, patch),
+      upsertTagNote: (row) => this.applyTag(row.entity_type, row.entity_id, row.tag, row.note),
+    };
+  }
+
+  private cloneNode(id: number): Node | undefined {
+    const node = this.nodes.get(id);
+    return node === undefined ? undefined : { ...node };
+  }
+
+  private cloneProject(project: Project | undefined): Project | undefined {
+    return project === undefined ? undefined : { ...project };
+  }
+
+  // ── Write primitives (record effects + update overlay) ──────────────────
+
+  private insertNode(row: {
+    project_id: number;
+    type: Node['type'];
+    parent_id: number | null;
+    seq: number;
+    title: string;
+    description?: string | null;
+    lifecycle?: Node['lifecycle'];
+    hold?: Node['hold'];
+    priority?: Node['priority'];
+    size?: Node['size'];
+    rank?: number | null;
+    external_ref?: string | null;
+    target?: string | null;
+  }): Promise<Node> {
+    const project = this.projects.get(row.project_id);
+    if (project === undefined) {
+      return Promise.reject(invariant('the project vanished mid-transaction'));
+    }
+    const timestamp = now();
+    const node: Node = {
+      completed_at: null,
+      created_at: timestamp,
+      description: row.description ?? null,
+      external_ref: row.external_ref ?? null,
+      hold: row.hold ?? (row.type === 'task' ? 'none' : null),
+      hold_reason: null,
+      id: this.nextProvisional--,
+      lifecycle: row.lifecycle ?? null,
+      parent_id: row.parent_id,
+      priority: row.priority ?? null,
+      project_id: row.project_id,
+      rank: row.rank ?? null,
+      seq: row.seq,
+      size: row.size ?? null,
+      target: row.target ?? null,
+      title: row.title,
+      type: row.type,
+      updated_at: timestamp,
+    };
+    this.nodes.set(node.id, node);
+    this.creates.push({
+      pathTemplate: `${project.key}/${project.key}-{{seq}}.md`,
+      provisionalId: node.id,
+      targetKind: 'node',
+    });
+    return Promise.resolve({ ...node });
+  }
+
+  private insertProject(row: {
+    key: string;
+    name: string;
+    description: string | null;
+  }): Promise<Project> {
+    const timestamp = now();
+    const project: Project = {
+      archived_at: null,
+      created_at: timestamp,
+      description: row.description,
+      id: this.nextProvisional--,
+      key: row.key,
+      last_artifact_seq: 0,
+      last_seq: 0,
+      name: row.name,
+      updated_at: timestamp,
+    };
+    this.projects.set(project.id, project);
+    this.projectByKey.set(project.key, project);
+    this.creates.push({
+      pathTemplate: `${project.key}/${project.key}.md`,
+      provisionalId: project.id,
+      targetKind: 'project',
+    });
+    return Promise.resolve({ ...project });
+  }
+
+  private updateNode(id: number, patch: Record<string, unknown>): Promise<void> {
+    const node = this.nodes.get(id);
+    if (node === undefined) {
+      return Promise.reject(invariant('the record vanished mid-transaction'));
+    }
+    Object.assign(node, patch);
+    if (id > 0) {
+      const mutation = this.mutationOf(this.nodeMutations, id);
+      for (const column of Object.keys(patch)) {
+        mutation.dirty.add(nodePatchField(column));
+      }
+    }
+    return Promise.resolve();
+  }
+
+  private updateProject(id: number, patch: Record<string, unknown>): Promise<void> {
+    const project = this.projects.get(id);
+    if (project === undefined) {
+      return Promise.reject(invariant('the record vanished mid-transaction'));
+    }
+    Object.assign(project, patch);
+    if (id > 0) {
+      const mutation = this.mutationOf(this.projectMutations, id);
+      for (const column of Object.keys(patch)) {
+        mutation.dirty.add(column);
+      }
+    }
+    return Promise.resolve();
+  }
+
+  private insertDependency(edge: Dependency): Promise<void> {
+    const exists = this.edges.some(
+      (e) => e.node_id === edge.node_id && e.depends_on_node_id === edge.depends_on_node_id,
+    );
+    if (!exists) {
+      this.edges.push({ ...edge });
+    }
+    this.markDependsOnDirty(edge.node_id);
+    return Promise.resolve();
+  }
+
+  private deleteDependency(edge: Dependency): Promise<boolean> {
+    const before = this.edges.length;
+    this.edges = this.edges.filter(
+      (e) => !(e.node_id === edge.node_id && e.depends_on_node_id === edge.depends_on_node_id),
+    );
+    const removed = this.edges.length < before;
+    if (removed) {
+      this.markDependsOnDirty(edge.node_id);
+    }
+    return Promise.resolve(removed);
+  }
+
+  private markDependsOnDirty(nodeId: number): void {
+    if (nodeId > 0) {
+      this.mutationOf(this.nodeMutations, nodeId).dirty.add('depends_on');
+    }
+  }
+
+  private applyTag(
+    entityType: 'node' | 'project' | 'artifact',
+    entityId: number,
+    tag: string,
+    note: string | null,
+  ): Promise<void> {
+    if (entityType === 'artifact') {
+      return Promise.reject(
+        invariant('artifact tags route through the artifact seam, not the plan'),
+      );
+    }
+    const map = entityType === 'node' ? this.nodeTags : this.projectTags;
+    const tags = map.get(entityId) ?? [];
+    if (!tags.some((t) => t.tag === tag)) {
+      tags.push({ created_at: now(), note, tag });
+    }
+    map.set(entityId, tags);
+    if (entityId > 0) {
+      const mutations = entityType === 'node' ? this.nodeMutations : this.projectMutations;
+      this.mutationOf(mutations, entityId).dirty.add('tags');
+    }
+    return Promise.resolve();
+  }
+
+  private deleteTags(
+    entityType: 'node' | 'project' | 'artifact',
+    entityId: number,
+    tags: string[],
+  ): Promise<number> {
+    if (entityType === 'artifact') {
+      return Promise.resolve(0);
+    }
+    const map = entityType === 'node' ? this.nodeTags : this.projectTags;
+    const current = map.get(entityId) ?? [];
+    const remove = new Set(tags);
+    const kept = current.filter((t) => !remove.has(t.tag));
+    const removed = current.length - kept.length;
+    map.set(entityId, kept);
+    if (removed > 0 && entityId > 0) {
+      const mutations = entityType === 'node' ? this.nodeMutations : this.projectMutations;
+      this.mutationOf(mutations, entityId).dirty.add('tags');
+    }
+    return Promise.resolve(removed);
+  }
+
+  private appendTransition(row: NewTransitionRecord): Promise<void> {
+    const entry: HistoryEntry = {
+      at: now(),
+      from: row.from_value,
+      kind: row.kind,
+      reason: row.reason ?? null,
+      to: row.to_value,
+    };
+    if (row.node_id != null && row.node_id > 0) {
+      this.mutationOf(this.nodeMutations, row.node_id).history.push(entry);
+    } else if (row.project_id != null && row.project_id > 0) {
+      this.mutationOf(this.projectMutations, row.project_id).history.push(entry);
+    }
+    return Promise.resolve();
+  }
+
+  // ── Plan build (coalesce every effect into one op-set per document) ──────
+
+  /** A node's canonical stem, resolved through its project's key. A create node
+   * has no real seq yet — a relation to one is unrepresentable pre-apply. */
+  private stemOf(nodeId: number): string {
+    const node = this.nodes.get(nodeId);
+    if (node === undefined) {
+      throw invariant('a relation referenced a node absent from the snapshot');
+    }
+    if (nodeId < 0) {
+      throw invariant('a relation to a node created in the same transact is not yet supported');
+    }
+    const project = this.projects.get(node.project_id);
+    if (project === undefined) {
+      throw invariant('a node referenced a project absent from the snapshot');
+    }
+    return renderId({ key: project.key, seq: node.seq });
+  }
+
+  private nodeRelations(node: Node): {
+    parentStem: string | null;
+    dependsOn: string[];
+    tags: NodeTag[];
+  } {
+    const dependsOn = this.edges
+      .filter((e) => e.node_id === node.id)
+      .map((e) => this.stemOf(e.depends_on_node_id))
+      .toSorted((a, b) => a.localeCompare(b));
+    const tags = (this.nodeTags.get(node.id) ?? []).toSorted((a, b) => a.tag.localeCompare(b.tag));
+    return {
+      dependsOn,
+      parentStem: node.parent_id === null ? null : this.stemOf(node.parent_id),
+      tags,
+    };
+  }
+
+  buildOperations(): MigrationOp[] {
+    const operations: MigrationOp[] = [];
+
+    // Creates first, so a mutation's target already exists on disk.
+    for (const create of this.creates) {
+      if (create.targetKind === 'node') {
+        const node = this.nodes.get(create.provisionalId);
+        if (node === undefined) {
+          throw invariant('a queued node create vanished from the overlay');
+        }
+        const fm = nodeFrontmatter(node, this.nodeRelations(node));
+        operations.push(createDocument(create.pathTemplate, fm, renderNodeBody(node.description)));
+      } else {
+        const project = this.projects.get(create.provisionalId);
+        if (project === undefined) {
+          throw invariant('a queued project create vanished from the overlay');
+        }
+        const tags = (this.projectTags.get(project.id) ?? []).toSorted((a, b) =>
+          a.tag.localeCompare(b.tag),
+        );
+        const fm = projectFrontmatter(project, tags);
+        operations.push(createDocument(create.pathTemplate, fm, `## ${HISTORY_HEADING}\n`));
+      }
+    }
+
+    for (const [id, mutation] of this.nodeMutations) {
+      const node = this.nodes.get(id);
+      if (node === undefined) {
+        throw invariant('a mutated node vanished from the overlay');
+      }
+      const project = this.projects.get(node.project_id);
+      if (project === undefined) {
+        throw invariant('a mutated node references a project absent from the snapshot');
+      }
+      const path = `${project.key}/${renderId({ key: project.key, seq: node.seq })}.md`;
+      const finalFm = nodeFrontmatter(node, this.nodeRelations(node));
+      const rawFm = this.snapshot.nodeFm.get(id) ?? {};
+      this.emitFieldOps(operations, path, mutation.dirty, finalFm, rawFm);
+      this.emitHistory(operations, path, mutation.history);
+    }
+
+    for (const [id, mutation] of this.projectMutations) {
+      const project = this.projects.get(id);
+      if (project === undefined) {
+        throw invariant('a mutated project vanished from the overlay');
+      }
+      const path = `${project.key}/${project.key}.md`;
+      const tags = (this.projectTags.get(id) ?? []).toSorted((a, b) => a.tag.localeCompare(b.tag));
+      const finalFm = projectFrontmatter(project, tags);
+      const rawFm = this.snapshot.projectFm.get(id) ?? {};
+      this.emitFieldOps(operations, path, mutation.dirty, finalFm, rawFm);
+      this.emitHistory(operations, path, mutation.history);
+    }
+
+    return operations;
+  }
+
+  /**
+   * Reconcile each dirty field to its overlay value under compare-and-set. A
+   * present→present change is `set_frontmatter` carrying the snapshot value as
+   * `expected_old_value`; an absent→present change is `add_frontmatter`; a
+   * present→absent change (a cleared column — rank on a terminal task, hold on
+   * release) is `remove_frontmatter` guarded by the old value. Norn omits the
+   * `none`/null defaults exactly as {@link nodeFrontmatter} does, so "absent" is
+   * `finalFm[field] === undefined`.
+   */
+  private emitFieldOps(
+    operations: MigrationOp[],
+    path: string,
+    dirty: Set<string>,
+    finalFm: Record<string, unknown>,
+    rawFm: Record<string, unknown>,
+  ): void {
+    // `type` is immutable and never dirty; guard defensively.
+    for (const field of [...dirty].toSorted()) {
+      if (field === 'type') {
+        continue;
+      }
+      const present = field in rawFm;
+      const finalValue = finalFm[field];
+      const finalPresent = field in finalFm;
+      if (finalPresent) {
+        operations.push(
+          present
+            ? setFrontmatter(path, field, finalValue, rawFm[field])
+            : addFrontmatter(path, field, finalValue),
+        );
+      } else if (present) {
+        operations.push(removeFrontmatter(path, field, rawFm[field]));
+      }
+    }
+  }
+
+  private emitHistory(operations: MigrationOp[], path: string, history: HistoryAppend[]): void {
+    for (const entry of history) {
+      operations.push(appendToSection(path, HISTORY_HEADING, renderHistoryRecord(entry)));
+    }
+  }
+
+  /** Stitch the apply-time-resolved `KEY-seq` back into the verb's echoed value:
+   * a created node returns with its real `seq`, not the negative sentinel. */
+  resolveResult<T>(result: T, resolvedSeqs: Map<Provisional, number>): T {
+    stitchResolvedSeq(result, resolvedSeqs);
+    return result;
+  }
+}
+
+/**
+ * Map each create's provisional id to the sequence Norn allocated. The apply
+ * report lists `create_document` ops in plan order — the same order as
+ * {@link Accumulator.creates} — each summary carrying the resolved path
+ * (`create KEY/KEY-3.md`); parse the node stems back to their seq.
+ */
+function extractResolvedSeqs(report: unknown, creates: Create[]): Map<Provisional, number> {
+  const resolved = new Map<Provisional, number>();
+  const operations = reportOperations(report);
+  const createSummaries = operations
+    .filter((op) => op.kind === 'create_document')
+    .map((op) => op.summary);
+  creates.forEach((create, index) => {
+    if (create.targetKind !== 'node') {
+      return;
+    }
+    const summary = createSummaries[index];
+    if (typeof summary !== 'string') {
+      return;
+    }
+    const path = summary.replace(/^create\s+/, '');
+    const stem = path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/, '');
+    const ref = parseId(stem);
+    if (ref !== null) {
+      resolved.set(create.provisionalId, ref.seq);
+    }
+  });
+  return resolved;
+}
+
+function reportOperations(report: unknown): { kind: string; summary: string }[] {
+  const root = isRecord(report) && isRecord(report.report) ? report.report : report;
+  if (!isRecord(root) || !Array.isArray(root.operations)) {
+    return [];
+  }
+  return root.operations.flatMap((op) => {
+    if (isRecord(op) && typeof op.kind === 'string' && typeof op.summary === 'string') {
+      return [{ kind: op.kind, summary: op.summary }];
+    }
+    return [];
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** In-place: replace a created echo's negative sentinel `seq` with the real one. */
+function stitchResolvedSeq(result: unknown, resolvedSeqs: Map<Provisional, number>): void {
+  if (!isRecord(result)) {
+    return;
+  }
+  const id = result.id;
+  if (typeof id === 'number' && resolvedSeqs.has(id)) {
+    result.seq = resolvedSeqs.get(id);
+  }
+}

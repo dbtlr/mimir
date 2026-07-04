@@ -63,9 +63,23 @@ export function addFrontmatter(path: string, field: string, value: unknown): Mig
   return { fields: { field, new_value: value, path }, kind: 'add_frontmatter' };
 }
 
-/** `remove_frontmatter` — delete a field. Fields: `{path, field}`. */
-export function removeFrontmatter(path: string, field: string): MigrationOp {
-  return { fields: { field, path }, kind: 'remove_frontmatter' };
+/**
+ * `remove_frontmatter` — delete a field. `expectedOldValue`, when supplied, is
+ * norn's compare-and-set precondition: removing a *present* field asserts its
+ * current value (norn refuses the removal otherwise), so the node write path
+ * carries the snapshot value for the same drift protection `set_frontmatter`
+ * gets. Fields: `{path, field, expected_old_value?}`.
+ */
+export function removeFrontmatter(
+  path: string,
+  field: string,
+  expectedOldValue?: unknown,
+): MigrationOp {
+  const fields: Record<string, unknown> = { field, path };
+  if (expectedOldValue !== undefined) {
+    fields.expected_old_value = expectedOldValue;
+  }
+  return { fields, kind: 'remove_frontmatter' };
 }
 
 /**
