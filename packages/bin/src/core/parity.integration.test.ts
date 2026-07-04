@@ -1,14 +1,20 @@
+import { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, expect, setSystemTime, test } from 'bun:test';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import type { FacetName } from '@mimir/contract';
+
+import { migrateNodes, reconstructNodeBodies, restoreNodeDoc } from '../cli/migrate-nodes';
+import { createDb } from '../db/client';
+import { migrateToLatest } from '../db/migrator';
 import { createTestDb } from '../db/testing';
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
 import { createNornWriteStore } from '../norn/writer';
 import { converge } from '../vault/converge';
-import { nornSeedWrite, seedNodes } from '../vault/node-seed';
+import { buildSeedDocs, nornSeedWrite, seedNodes } from '../vault/node-seed';
 import { restoreArtifact } from './artifacts/norn';
 import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
@@ -16,9 +22,9 @@ import { parseId, renderArtifactRef, renderId } from './ids';
 import { getArtifact, getNode, listNodes, nextTasks, statusOfNode } from './intent/queries';
 import type { Node } from './model';
 import { archiveProject } from './mutations/archive';
-import { reorder } from './mutations/data';
+import { annotate, reorder } from './mutations/data';
 import { depend, undepend } from './mutations/dependency';
-import { blockTask, parkTask } from './mutations/hold';
+import { blockTask, parkTask, unblockTask, unparkTask } from './mutations/hold';
 import { abandonTask, completeTask, startTask } from './mutations/lifecycle';
 import { moveNode } from './mutations/structure';
 import { tagEntities, untagEntities } from './mutations/tags';
@@ -43,11 +49,10 @@ function must<T>(v: T | undefined): T {
 const NORN = Bun.which('norn') !== null;
 
 /**
- * Frontmatter facets — this harness's parity scope. The body-section facets
- * (annotations, history) now read through the {@link BodySectionStore} seam
- * (MMR-154), but their end-to-end parity is proven over a *migrated* store
- * (MMR-155 reconstructs the sections, MMR-156 diffs them) — the seed here is
- * frontmatter-only + empty sections, so it has no records to compare.
+ * Frontmatter facets — the parity scope for a *seeded* vault. The seed writes
+ * frontmatter + empty body sections, so the body-section facets (annotations,
+ * history) have no records to compare here; {@link BODY_FACETS} adds them for
+ * the migration-based tests below, where the sections are reconstructed.
  */
 const FACETS = [
   'deps',
@@ -58,7 +63,17 @@ const FACETS = [
   'leafCounts',
   'verdicts',
   'attention',
-] as const;
+] as const satisfies readonly FacetName[];
+
+/**
+ * FACETS plus the body-section facets — the full parity scope over a *migrated*
+ * store (MMR-156). Migration reconstructs `## History` (from `transition_log`)
+ * and `## Annotations` (from `annotation`), so these become diffable; the seed
+ * path leaves them empty. There is no stored `became_ready_at` — dependency
+ * readiness is derived (ADR 0003), so the only record of a transition is its
+ * `## History` entry, which `history` covers.
+ */
+const BODY_FACETS: readonly FacetName[] = [...FACETS, 'history', 'annotations'];
 
 let root: string;
 let client: NornClient;
@@ -93,6 +108,24 @@ function createNornReadStore(c: NornClient): Store {
 async function seedAndNorn(): Promise<Store> {
   await seedNodes(await sqlite.loadWorkingSet(), nornSeedWrite(client));
   return createNornReadStore(client);
+}
+
+/**
+ * Migrate a SQLite store into a fresh vault through the authoritative path
+ * (MMR-155) and return the Norn read store — the counterpart to
+ * {@link seedAndNorn} that reconstructs `## History`/`## Annotations`, so the
+ * {@link BODY_FACETS} become diffable. Defaults to the module SQLite store; the
+ * live-store dogfood passes a store opened over a copy of the real db.
+ */
+async function migrateInto(source: Store, sourceDb: Db): Promise<Store> {
+  const docs = buildSeedDocs(await source.loadWorkingSet(), await reconstructNodeBodies(sourceDb));
+  await migrateNodes(docs, restoreNodeDoc(client));
+  return createNornReadStore(client);
+}
+
+/** Migrate the module SQLite state and return the Norn read store. */
+function migrateAndNorn(): Promise<Store> {
+  return migrateInto(sqlite, db);
 }
 
 const keyOf = (ws: WorkingSet, n: Node): string => {
@@ -186,14 +219,19 @@ async function diff(a: Promise<unknown>, b: Promise<unknown>): Promise<void> {
   expect(canon(await a)).toEqual(canon(await b));
 }
 
-/** Diff every frontmatter read surface across the two backends for the seeded graph. */
-async function assertParity(norn: Store): Promise<void> {
+/**
+ * Diff every read surface across the two backends for the current graph.
+ * `facets` defaults to the frontmatter {@link FACETS} (the seed scope); a
+ * migration-based caller passes {@link BODY_FACETS} to also diff the
+ * reconstructed `## History` / `## Annotations`.
+ */
+async function assertParity(norn: Store, facets: readonly FacetName[] = FACETS): Promise<void> {
   const ws = await sqlite.loadWorkingSet();
 
   // tripwire: the projection itself
   expect(normalizeWs(await norn.loadWorkingSet())).toEqual(normalizeWs(ws));
 
-  const F = [...FACETS];
+  const F = [...facets];
   const archived = new Set(ws.projects.filter((p) => p.archived_at !== null).map((p) => p.id));
   for (const n of ws.nodes) {
     if (archived.has(n.project_id)) {
@@ -439,6 +477,39 @@ test.skipIf(!NORN)('parity: a large synthetic graph (scale/shape)', async () => 
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Migration read parity (MMR-156): the authoritative migration reconstructs
+// `## History`/`## Annotations`, so — unlike the frontmatter-only seed — the
+// body-section facets have records to compare. These diff BODY_FACETS over a
+// *migrated* graph carrying real transitions + annotations.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.skipIf(!NORN)('migrated parity: reconstructed history + annotations match', async () => {
+  const p = await createProject(sqlite, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(sqlite, { projectId: p.id, title: 'Init' });
+  const phase = await createPhase(sqlite, { parentId: init.id, title: 'Phase' });
+  const a = await createTask(sqlite, { parentId: phase.id, title: 'A' });
+  const b = await createTask(sqlite, { parentId: phase.id, title: 'B' });
+  const c = await createTask(sqlite, { parentId: phase.id, title: 'C' });
+  const d = await createTask(sqlite, { parentId: phase.id, title: 'D' });
+
+  // multi-transition lifecycles, a released dependency, multiple annotations per
+  // node and across nodes — everything the `## History`/`## Annotations`
+  // reconstruction has to round-trip.
+  await depend(sqlite, b.id, [a.id]);
+  await startTask(sqlite, a.id);
+  await annotate(sqlite, a.id, 'first look');
+  await annotate(sqlite, a.id, 'second look — still digging');
+  await completeTask(sqlite, a.id); // releases b (readiness is derived, no stored row)
+  await startTask(sqlite, b.id);
+  await annotate(sqlite, b.id, 'note on b');
+  await blockTask(sqlite, c.id, 'external');
+  await unblockTask(sqlite, c.id);
+  await parkTask(sqlite, d.id, 'later');
+
+  await assertParity(await migrateAndNorn(), BODY_FACETS);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Write-verb parity (MMR-153): run a verb on BOTH the SQLite store and the Norn
 // write store from one seeded state, then assert the read surfaces agree. The
 // clock is frozen across both runs so a stamped `updated_at`/`completed_at`
@@ -475,11 +546,23 @@ async function projectIdIn(store: Store, key: string): Promise<number> {
 
 type Resolve = (stem: string) => Promise<number>;
 
-/** Seed the SQLite base into the vault, freeze the clock, run `mutate` on each
- * backend (ids resolved by stem per store), and assert full read parity. */
+/**
+ * Migrate the SQLite base into the vault (MMR-156 — the write stacks onto a
+ * reconstructed snapshot), freeze the clock, run `mutate` on each backend (ids
+ * resolved by stem per store), and assert read parity.
+ *
+ * Scope is {@link FACETS} (frontmatter). Body-section parity *after a write* is
+ * blocked on Norn BUG-1 — `append_to_section` into an empty section collapses
+ * its boundary (see the Norn capability-asks "Bugs Found"), so the first
+ * `## History` append on a fresh node corrupts `## Annotations`. Flip to
+ * {@link BODY_FACETS} once it ships — and then normalize the transition
+ * `at` / annotation `createdAt`, which are independently clock-sourced per
+ * backend (SQLite's DB default vs the Norn writer's `now()`) so a dual write's
+ * timestamps never match byte-for-byte. Body-section *read* parity is already
+ * proven over a migrated store by the migration + live-store tests below.
+ */
 async function verbParity(mutate: (store: Store, id: Resolve) => Promise<unknown>): Promise<void> {
-  await seedNodes(await sqlite.loadWorkingSet(), nornSeedWrite(client));
-  const norn = createNornReadStore(client);
+  const norn = await migrateAndNorn();
   setSystemTime(new Date(FIXED));
   await mutate(sqlite, (stem) => nodeIdIn(sqlite, stem));
   await mutate(norn, (stem) => nodeIdIn(norn, stem));
@@ -492,8 +575,7 @@ async function createParity(
   parent: (store: Store) => Promise<number>,
   create: (store: Store, parentId: number) => Promise<Node>,
 ): Promise<void> {
-  await seedNodes(await sqlite.loadWorkingSet(), nornSeedWrite(client));
-  const norn = createNornReadStore(client);
+  const norn = await migrateAndNorn();
   setSystemTime(new Date(FIXED));
   const sNode = await create(sqlite, await parent(sqlite));
   await create(norn, await parent(norn));
@@ -502,7 +584,7 @@ async function createParity(
     .set({ created_at: FIXED, updated_at: FIXED })
     .where('id', '=', sNode.id)
     .execute();
-  await assertParity(norn);
+  await assertParity(norn); // FACETS — see verbParity on the body-facet deferral (Norn BUG-1)
 }
 
 /** MMR → initiative → phase, with `count` todo tasks under the phase. */
@@ -608,6 +690,22 @@ test.skipIf(!NORN)('write parity: create an initiative under a project', async (
   );
 });
 
+// unblock/unpark append to a *non-empty* `## History` (the migrated base carries
+// the block/park transition), so they exercise the release verbs' frontmatter
+// parity without tripping Norn BUG-1 (which only bites the first append into an
+// empty section).
+test.skipIf(!NORN)('write parity: unblock a migrated blocked task', async () => {
+  await scaffold(1);
+  await blockTask(sqlite, await nodeIdIn(sqlite, 'MMR-3'), 'external');
+  await verbParity(async (store, id) => unblockTask(store, await id('MMR-3')));
+});
+
+test.skipIf(!NORN)('write parity: unpark a migrated parked task', async () => {
+  await scaffold(1);
+  await parkTask(sqlite, await nodeIdIn(sqlite, 'MMR-3'), 'later');
+  await verbParity(async (store, id) => unparkTask(store, await id('MMR-3')));
+});
+
 /** The prose under `## Task Description` (heading excluded), trimmed. */
 function descriptionSection(doc: string): string {
   const lines = doc.split('\n');
@@ -663,3 +761,80 @@ test.skipIf(!NORN)('write parity: create a project (a new vault directory)', asy
     .execute();
   await assertParity(norn);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Live-store dogfood (MMR-156): migrate a snapshot of the REAL store into a
+// fresh vault and prove it round-trips over Norn — the lossless-migration check
+// over the actual ~725-node graph, the first parity run on real accumulated
+// `## History`/`## Annotations`. The snapshot is taken read-only (`VACUUM INTO`
+// off a readonly connection) and migrated into a throwaway temp vault, so the
+// real store and real vault are never touched.
+//
+// Explicit opt-in — never runs in the default suite (it migrates the whole
+// store, ~30s, and needs a real `norn`): set `MIMIR_PARITY_LIVE=1` (uses the XDG
+// store) or point `MIMIR_PARITY_LIVE_DB` at a snapshot. Until MMR-162 lands
+// (full description prose moves to the `## Task Description` body + a capped
+// `summary`), this surfaces exactly one divergence — a node `description` with a
+// blank line, collapsed by Norn's frontmatter YAML folding (Norn BUG-2); the
+// migration is otherwise byte-lossless. MMR-162 updates this assertion (compare
+// `summary` + body description) and the check goes green with no Norn dependency.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The real store to dogfood: an explicit `MIMIR_PARITY_LIVE_DB` snapshot, else
+ *  the production XDG path the installed binary uses (`~/.local/share/mimir`). */
+const LIVE_DB =
+  process.env.MIMIR_PARITY_LIVE_DB ??
+  join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share'), 'mimir', 'mimir.db');
+const LIVE_OPT_IN =
+  process.env.MIMIR_PARITY_LIVE_DB !== undefined || process.env.MIMIR_PARITY_LIVE === '1';
+const HAS_LIVE = NORN && LIVE_OPT_IN && existsSync(LIVE_DB);
+
+/**
+ * A scalable parity assertion for the large real graph: the per-node facet sweep
+ * of {@link assertParity} re-loads the whole working set for every node (fine at
+ * synthetic scale, quadratic over ~725 nodes), so here we load each backend's
+ * working set once and diff the projection, then diff the reconstructed body
+ * sections per node with a single doc read each. The Norn reader keys history /
+ * annotations by stem, not id (its id arg is ignored — pass 0).
+ */
+async function assertLiveParity(liveSqlite: Store, norn: Store): Promise<void> {
+  const ws = await liveSqlite.loadWorkingSet();
+  expect(ws.nodes.length).toBeGreaterThan(0); // the real graph, not an empty store
+  expect(normalizeWs(await norn.loadWorkingSet())).toEqual(normalizeWs(ws));
+  for (const n of ws.nodes) {
+    const stem = stemOf(ws, n);
+    expect(await norn.bodySections.readHistory(0, stem)).toEqual(
+      await liveSqlite.bodySections.readHistory(n.id, stem),
+    );
+    expect(await norn.bodySections.readAnnotations(0, stem)).toEqual(
+      await liveSqlite.bodySections.readAnnotations(n.id, stem),
+    );
+  }
+}
+
+test.skipIf(!HAS_LIVE)(
+  'migrated parity: the live store round-trips losslessly over Norn',
+  async () => {
+    // Snapshot the live db read-only into the temp dir — never open the real file
+    // read-write, and VACUUM INTO folds any WAL into one consistent standalone db.
+    const snapshot = join(root, 'live-snapshot.db');
+    const src = new Database(LIVE_DB, { readonly: true });
+    try {
+      src.run(`VACUUM INTO '${snapshot.replace(/'/g, "''")}'`);
+    } finally {
+      src.close();
+    }
+    const liveDb = createDb(snapshot);
+    try {
+      const { error } = await migrateToLatest(liveDb); // align the copy to the source schema head
+      if (error !== undefined) {
+        throw error instanceof Error ? error : new Error(JSON.stringify(error));
+      }
+      const liveSqlite = createSqliteStore(liveDb);
+      await assertLiveParity(liveSqlite, await migrateInto(liveSqlite, liveDb));
+    } finally {
+      await liveDb.destroy();
+    }
+  },
+  300_000,
+);
