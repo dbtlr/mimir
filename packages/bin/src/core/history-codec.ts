@@ -46,9 +46,15 @@ export function renderNodeBody(description: string | null): string {
  * heading excluded) — the payload a `replace_section` op hands norn when a
  * node's `description` is edited, so the prose section stays in lockstep with the
  * `description` frontmatter {@link renderNodeBody} seeds at create.
+ *
+ * Heading-shaped lines are escaped: a description line like `## History` would
+ * otherwise be an injected section boundary that {@link sliceBodySection}
+ * matches ahead of the real anchor, shadowing the History/Annotations facets.
+ * The `description` frontmatter is the authoritative value, so this display copy
+ * carrying escape backslashes is harmless (nothing parses the section back).
  */
 export function renderDescriptionSection(description: string | null): string {
-  return `\n${description ?? ''}\n\n`;
+  return `\n${escapeBodyLines(description ?? '')}\n\n`;
 }
 
 /** A project/container body: just the `## History` section the log appends under. */

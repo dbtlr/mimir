@@ -53,3 +53,13 @@ test('a missing document (no records returned) reads back empty, not a throw', a
   expect(await store.readHistory(9, 'MMR-9')).toEqual([]);
   expect(await store.readAnnotations(9, 'MMR-9')).toEqual([]);
 });
+
+test('annotations sort by created-at, not document order (parity with SQLite)', async () => {
+  // Two notes appended out of chronological order (a backfill / clock-skew shape)
+  // must read back in created-at order, matching the SQLite `order by created_at`.
+  const later = { content: 'later note', createdAt: '2026-07-04T12:00:00.000Z' };
+  const earlier = { content: 'earlier note', createdAt: '2026-07-04T09:00:00.000Z' };
+  const body = `## Annotations\n${renderAnnotationRecord(later)}${renderAnnotationRecord(earlier)}`;
+  const store = createNornBodySectionStore(clientWithBody(body));
+  expect(await store.readAnnotations(9, 'MMR-9')).toEqual([earlier, later]);
+});
