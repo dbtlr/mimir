@@ -1,6 +1,5 @@
-import { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, expect, setSystemTime, test } from 'bun:test';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -140,28 +139,48 @@ const stemOf = (ws: WorkingSet, n: Node): string => renderId({ key: keyOf(ws, n)
 /**
  * A backend-independent WorkingSet view keyed by KEY-seq — the tripwire that
  * localizes a projection fault vs a downstream derivation fault.
+ *
+ * `omitDescription` drops the `description` field from both node and project
+ * views. The live-store dogfood sets it: `description` is the one field Norn's
+ * frontmatter YAML folding corrupts for blank-line prose (Norn BUG-2), and it is
+ * moving out of frontmatter into the `## Task Description` body (MMR-162) — so
+ * comparing it there would short-circuit the run before the body-section parity
+ * (the dogfood's real point) ever executes. The hermetic tests keep it on.
  */
-function normalizeWs(ws: WorkingSet): unknown {
-  const nodeView = (n: Node) => ({
-    completed_at: n.completed_at,
-    created_at: n.created_at,
-    description: n.description,
-    external_ref: n.external_ref,
-    hold: n.hold,
-    hold_reason: n.hold_reason,
-    lifecycle: n.lifecycle,
-    parent:
-      n.parent_id === null ? null : stemOf(ws, must(ws.nodes.find((x) => x.id === n.parent_id))),
-    priority: n.priority,
-    rank: n.rank,
-    size: n.size,
-    stem: stemOf(ws, n),
-    tags: (ws.nodeTags.get(n.id) ?? []).map((t) => t.tag).toSorted(),
-    target: n.target,
-    title: n.title,
-    type: n.type,
-    updated_at: n.updated_at,
-  });
+function normalizeWs(ws: WorkingSet, omitDescription = false): unknown {
+  const nodeView = (n: Node) => {
+    const view = {
+      completed_at: n.completed_at,
+      created_at: n.created_at,
+      external_ref: n.external_ref,
+      hold: n.hold,
+      hold_reason: n.hold_reason,
+      lifecycle: n.lifecycle,
+      parent:
+        n.parent_id === null ? null : stemOf(ws, must(ws.nodes.find((x) => x.id === n.parent_id))),
+      priority: n.priority,
+      rank: n.rank,
+      size: n.size,
+      stem: stemOf(ws, n),
+      tags: (ws.nodeTags.get(n.id) ?? []).map((t) => t.tag).toSorted(),
+      target: n.target,
+      title: n.title,
+      type: n.type,
+      updated_at: n.updated_at,
+    };
+    return omitDescription ? view : { ...view, description: n.description };
+  };
+  const projectView = (p: WorkingSet['projects'][number]) => {
+    const view = {
+      archived_at: p.archived_at,
+      created_at: p.created_at,
+      key: p.key,
+      name: p.name,
+      tags: (ws.projectTags.get(p.id) ?? []).map((t) => t.tag).toSorted(),
+      updated_at: p.updated_at,
+    };
+    return omitDescription ? view : { ...view, description: p.description };
+  };
   return {
     edges: ws.edges
       .map((e) => {
@@ -171,17 +190,7 @@ function normalizeWs(ws: WorkingSet): unknown {
       })
       .toSorted(),
     nodes: ws.nodes.map(nodeView).toSorted((a, z) => a.stem.localeCompare(z.stem)),
-    projects: ws.projects
-      .map((p) => ({
-        archived_at: p.archived_at,
-        created_at: p.created_at,
-        description: p.description,
-        key: p.key,
-        name: p.name,
-        tags: (ws.projectTags.get(p.id) ?? []).map((t) => t.tag).toSorted(),
-        updated_at: p.updated_at,
-      }))
-      .toSorted((a, z) => a.key.localeCompare(z.key)),
+    projects: ws.projects.map(projectView).toSorted((a, z) => a.key.localeCompare(z.key)),
   };
 }
 
@@ -766,18 +775,24 @@ test.skipIf(!NORN)('write parity: create a project (a new vault directory)', asy
 // Live-store dogfood (MMR-156): migrate a snapshot of the REAL store into a
 // fresh vault and prove it round-trips over Norn — the lossless-migration check
 // over the actual ~725-node graph, the first parity run on real accumulated
-// `## History`/`## Annotations`. The snapshot is taken read-only (`VACUUM INTO`
-// off a readonly connection) and migrated into a throwaway temp vault, so the
-// real store and real vault are never touched.
+// `## History`/`## Annotations`. The snapshot is a file copy of the store (never
+// opening the real db), migrated into a throwaway temp vault, so the real store
+// and vault are never touched.
+//
+// SCOPE: this proves `migrate nodes` losslessness — the node/project frontmatter
+// projection (minus `description`, see below) plus the reconstructed
+// `## History`/`## Annotations` sections. It does NOT re-diff the derived read
+// facets (deps/status/leafCounts/verdicts/attention): those are pure functions
+// of the projection this asserts identical, and the hermetic tests above exercise
+// the derivation exhaustively. Artifacts are out of scope — they migrate via a
+// separate `migrate artifacts` path (covered by the artifact conformance oracle),
+// not `migrate nodes`. `description` is excluded because Norn's frontmatter YAML
+// folding collapses blank-line prose (Norn BUG-2) and it is moving to the body
+// (MMR-162); the migration is otherwise byte-lossless over the real graph.
 //
 // Explicit opt-in — never runs in the default suite (it migrates the whole
 // store, ~30s, and needs a real `norn`): set `MIMIR_PARITY_LIVE=1` (uses the XDG
-// store) or point `MIMIR_PARITY_LIVE_DB` at a snapshot. Until MMR-162 lands
-// (full description prose moves to the `## Task Description` body + a capped
-// `summary`), this surfaces exactly one divergence — a node `description` with a
-// blank line, collapsed by Norn's frontmatter YAML folding (Norn BUG-2); the
-// migration is otherwise byte-lossless. MMR-162 updates this assertion (compare
-// `summary` + body description) and the check goes green with no Norn dependency.
+// store) or point `MIMIR_PARITY_LIVE_DB` at a snapshot.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** The real store to dogfood: an explicit `MIMIR_PARITY_LIVE_DB` snapshot, else
@@ -793,14 +808,17 @@ const HAS_LIVE = NORN && LIVE_OPT_IN && existsSync(LIVE_DB);
  * A scalable parity assertion for the large real graph: the per-node facet sweep
  * of {@link assertParity} re-loads the whole working set for every node (fine at
  * synthetic scale, quadratic over ~725 nodes), so here we load each backend's
- * working set once and diff the projection, then diff the reconstructed body
- * sections per node with a single doc read each. The Norn reader keys history /
- * annotations by stem, not id (its id arg is ignored — pass 0).
+ * working set once and diff the projection (`description` excluded — Norn BUG-2 /
+ * MMR-162, see the block comment above), then diff the reconstructed body
+ * sections per node. Each node costs two Norn body fetches (history + annotations
+ * each read the doc through the {@link BodySectionStore} seam we're validating);
+ * with ~725 nodes that is well inside the test timeout. The Norn reader keys
+ * history / annotations by stem, not id (its id arg is ignored — pass 0).
  */
 async function assertLiveParity(liveSqlite: Store, norn: Store): Promise<void> {
   const ws = await liveSqlite.loadWorkingSet();
   expect(ws.nodes.length).toBeGreaterThan(0); // the real graph, not an empty store
-  expect(normalizeWs(await norn.loadWorkingSet())).toEqual(normalizeWs(ws));
+  expect(normalizeWs(await norn.loadWorkingSet(), true)).toEqual(normalizeWs(ws, true));
   for (const n of ws.nodes) {
     const stem = stemOf(ws, n);
     expect(await norn.bodySections.readHistory(0, stem)).toEqual(
@@ -815,14 +833,18 @@ async function assertLiveParity(liveSqlite: Store, norn: Store): Promise<void> {
 test.skipIf(!HAS_LIVE)(
   'migrated parity: the live store round-trips losslessly over Norn',
   async () => {
-    // Snapshot the live db read-only into the temp dir — never open the real file
-    // read-write, and VACUUM INTO folds any WAL into one consistent standalone db.
+    // Snapshot the live db by copying its files into the temp dir — never open
+    // the real store — then open the COPY read-write. This sidesteps the
+    // readonly-WAL lock (a read-only open of a WAL db can fail needing to create
+    // its -shm); the -wal/-shm sidecars are copied too so any un-checkpointed
+    // frames come along, and opening the copy folds them in. Run when the store
+    // is idle to avoid a torn copy.
     const snapshot = join(root, 'live-snapshot.db');
-    const src = new Database(LIVE_DB, { readonly: true });
-    try {
-      src.run(`VACUUM INTO '${snapshot.replace(/'/g, "''")}'`);
-    } finally {
-      src.close();
+    copyFileSync(LIVE_DB, snapshot);
+    for (const ext of ['-wal', '-shm'] as const) {
+      if (existsSync(LIVE_DB + ext)) {
+        copyFileSync(LIVE_DB + ext, snapshot + ext);
+      }
     }
     const liveDb = createDb(snapshot);
     try {
