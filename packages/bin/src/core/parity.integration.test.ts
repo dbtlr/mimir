@@ -363,19 +363,17 @@ test.skipIf(!NORN)('parity: scoped and filtered selections', async () => {
 });
 
 /**
- * KNOWN DIVERGENCE (reported to the controller — fix in core derivation, not
- * 149/150): unscoped/multi-project `next` orders by `byProjectRank`, which leads
- * with the surrogate `project_id`. SQLite assigns it in creation order; the Norn
- * reader assigns it in KEY order — so when a project's creation order differs
- * from its KEY order, `next` returns ready tasks in a different project order
- * across backends. The stable key is the project KEY (the stem), not the
- * surrogate int. `test.failing` documents this until `byProjectRank` is fixed to
- * order by KEY; it flips RED (alerting) the moment it is. (list/`byRankOrder`
- * has a narrower sibling: its `seq` tiebreak is per-project, not globally
- * unique.) Not normalized away — a real output divergence, surfaced.
+ * Regression guard for the divergence this harness surfaced: unscoped/multi-project
+ * `next` used to order by `byProjectRank`'s leading `project_id` — a surrogate SQLite
+ * assigns in creation order and the Norn reader assigns in KEY order, so a project
+ * whose creation order differed from its KEY order returned ready tasks in a different
+ * project order across backends. `byProjectRank` (and the `byRankOrder`/`byCompletedOrder`
+ * siblings, whose `seq` tiebreak was per-project) now key on the portable project KEY /
+ * KEY-seq stem, so the two backends agree. Built in non-alphabetical creation order to
+ * exercise the exact case that used to diverge.
  */
-test.failing.skipIf(!NORN)(
-  'DIVERGENCE: unscoped next orders by surrogate project_id, not project KEY',
+test.skipIf(!NORN)(
+  'unscoped next orders by portable project KEY — identical across backends',
   async () => {
     // create in non-alphabetical order so creation-order != KEY-order
     const zed = await createProject(sqlite, { key: 'ZED', name: 'Zed' });
