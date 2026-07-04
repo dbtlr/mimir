@@ -270,7 +270,7 @@ export async function nextTasks(
   const limited = opts.limit !== undefined ? ready.slice(0, opts.limit) : ready;
   const facets = new Set(opts.facets);
   const items = await Promise.all(
-    limited.map((node) => buildNodeView(store.db, store.artifacts, set, node, facets)),
+    limited.map((node) => buildNodeView(store.bodySections, store.artifacts, set, node, facets)),
   );
   return setResult(items, ready.length);
 }
@@ -377,7 +377,9 @@ export async function listNodes(
   const limited = opts.limit !== undefined ? matched.slice(0, opts.limit) : matched;
   const facets = new Set(opts.facets);
   const items = await Promise.all(
-    limited.map(({ node }) => buildNodeView(store.db, store.artifacts, set, node, facets)),
+    limited.map(({ node }) =>
+      buildNodeView(store.bodySections, store.artifacts, set, node, facets),
+    ),
   );
   return setResult(items, matched.length);
 }
@@ -413,7 +415,7 @@ export async function getNode(store: Store, id: string, opts: GetOptions = {}): 
   }
   // buildNodeView still takes the executor for the body-section facets
   // (annotations, history) that move to Norn in Phase 3.
-  return buildNodeView(store.db, store.artifacts, set, node, facets);
+  return buildNodeView(store.bodySections, store.artifacts, set, node, facets);
 }
 
 /**

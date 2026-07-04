@@ -42,7 +42,13 @@ function must<T>(v: T | undefined): T {
  */
 const NORN = Bun.which('norn') !== null;
 
-/** Frontmatter facets — the parity scope; annotations/history read `db` (Phase 3). */
+/**
+ * Frontmatter facets — this harness's parity scope. The body-section facets
+ * (annotations, history) now read through the {@link BodySectionStore} seam
+ * (MMR-154), but their end-to-end parity is proven over a *migrated* store
+ * (MMR-155 reconstructs the sections, MMR-156 diffs them) — the seed here is
+ * frontmatter-only + empty sections, so it has no records to compare.
+ */
 const FACETS = [
   'deps',
   'artifacts',

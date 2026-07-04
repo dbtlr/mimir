@@ -1,6 +1,7 @@
 import { allocateArtifactSeq, allocateSeq } from './allocation';
 import { createSqliteArtifactStore } from './artifacts/sqlite';
 import type { ArtifactStore } from './artifacts/store';
+import { createSqliteBodySectionStore } from './body-sections/sqlite';
 import type { Db, Tx } from './context';
 import type { NodeTag, Store, StoreWriter, WorkingSet } from './store';
 
@@ -172,6 +173,7 @@ function createWriter(tx: Tx): StoreWriter {
 export function createSqliteStore(db: Db): Store {
   return {
     artifacts: createSqliteArtifactStore(db),
+    bodySections: createSqliteBodySectionStore(db),
     db,
     // Run the five bulk selects inside one read transaction so the projection is
     // a consistent snapshot — a concurrent write can't interleave between them.

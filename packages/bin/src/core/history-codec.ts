@@ -243,3 +243,23 @@ export function parseAnnotationsSection(body: string): AnnotationView[] {
     .map(parseAnnotationRecord)
     .filter((view): view is AnnotationView => view !== null);
 }
+
+/**
+ * Isolate one `## <heading>` section's body from a whole document body — the
+ * Norn read path's client-side slicer over `.body` (the NRN-102 `.headings`
+ * workaround, since section-scoped reads aren't a Norn capability yet). Returns
+ * the lines under the heading up to the next H2 (`## `) or EOF, heading
+ * excluded; an absent heading yields the empty string. The record grammar keeps
+ * this unambiguous: H3 records (`### `) and escaped `\## ` content lines are not
+ * H2 boundaries, so a section round-trips through slice + parse.
+ */
+export function sliceBodySection(body: string, heading: string): string {
+  const lines = body.split('\n');
+  const start = lines.indexOf(`## ${heading}`);
+  if (start === -1) {
+    return '';
+  }
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((line) => line.startsWith('## '));
+  return (end === -1 ? rest : rest.slice(0, end)).join('\n');
+}
