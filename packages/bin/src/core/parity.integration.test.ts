@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, setSystemTime, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -601,6 +601,46 @@ test.skipIf(!NORN)('write parity: create an initiative under a project', async (
     (store, projectId) => createInitiative(store, { projectId, title: 'Created initiative' }),
   );
 });
+
+/** The prose under `## Task Description` (heading excluded), trimmed. */
+function descriptionSection(doc: string): string {
+  const lines = doc.split('\n');
+  const start = lines.indexOf('## Task Description');
+  if (start === -1) {
+    throw new Error('no ## Task Description section in the document');
+  }
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((l) => l.startsWith('## '));
+  return (end === -1 ? rest : rest.slice(0, end)).join('\n').trim();
+}
+
+// F3 (MMR-153 review): a description edit emits `set_frontmatter description`
+// AND a `replace_section` for `## Task Description`, so the body prose can't
+// drift from the frontmatter value after the edit.
+test.skipIf(!NORN)(
+  'write path: a description edit rewrites the ## Task Description body',
+  async () => {
+    const norn = createNornReadStore(client);
+    await createProject(norn, { key: 'MMR', name: 'Mimir' });
+    await createInitiative(norn, { projectId: await projectIdIn(norn, 'MMR'), title: 'Init' });
+    await createPhase(norn, { parentId: await nodeIdIn(norn, 'MMR-1'), title: 'Phase' });
+    await createTask(norn, {
+      description: 'old body',
+      parentId: await nodeIdIn(norn, 'MMR-2'),
+      title: 'T',
+    });
+
+    const path = join(root, 'vault', 'MMR', 'MMR-3.md');
+    // the freshly created body carries the seeded description
+    expect(descriptionSection(readFileSync(path, 'utf8'))).toBe('old body');
+
+    const taskId = await nodeIdIn(norn, 'MMR-3');
+    await norn.transact((w) => w.updateNode(taskId, { description: 'new body' }));
+
+    // the on-disk section now matches the new description (was stale before the fix)
+    expect(descriptionSection(readFileSync(path, 'utf8'))).toBe('new body');
+  },
+);
 
 test.skipIf(!NORN)('write parity: create a project (a new vault directory)', async () => {
   // No seed: the vault starts empty, so this exercises the new-directory create

@@ -34,7 +34,17 @@ export const DESCRIPTION_HEADING = 'Task Description';
  * `append_to_section` refuses a missing heading — so a create seeds it empty.
  */
 export function renderNodeBody(description: string | null): string {
-  return `## ${DESCRIPTION_HEADING}\n\n${description ?? ''}\n\n## ${HISTORY_HEADING}\n`;
+  return `## ${DESCRIPTION_HEADING}\n${renderDescriptionSection(description)}## ${HISTORY_HEADING}\n`;
+}
+
+/**
+ * The body of the `## Task Description` section (the content *under* the heading,
+ * heading excluded) — the payload a `replace_section` op hands norn when a
+ * node's `description` is edited, so the prose section stays in lockstep with the
+ * `description` frontmatter {@link renderNodeBody} seeds at create.
+ */
+export function renderDescriptionSection(description: string | null): string {
+  return `\n${description ?? ''}\n\n`;
 }
 
 /** A project/container body: just the `## History` section the log appends under. */
@@ -53,8 +63,13 @@ const HEADING = /^### (.+?) — (.+)$/;
  * writes verbatim). The codec escapes such lines with a leading backslash on
  * render and strips it on parse, so an arbitrary reason round-trips losslessly.
  */
-const HEADING_LINE = /^#{1,6}\s/;
-const ESCAPED_HEADING_LINE = /^\\#{1,6}\s/;
+// The escape must be injective: a reason line already carrying leading
+// backslashes (`\## note`) must not collide with the escape of a bare heading.
+// Escape prepends ONE backslash to any `<zero-or-more \>#{1,6} <space>` line;
+// unescape strips ONE from any `<one-or-more \>#{1,6} <space>` line — exact
+// inverses, so every reason line round-trips byte-for-byte.
+const HEADING_LINE = /^\\*#{1,6}\s/;
+const ESCAPED_HEADING_LINE = /^\\+#{1,6}\s/;
 
 function escapeReason(reason: string): string {
   return reason
@@ -109,7 +124,10 @@ function parseEdge(line: string): { from: string | null; to: string | null } | n
 /** Render one transition as the `### …` block to hand to `appendToSection`. */
 export function renderHistoryRecord(entry: HistoryEntry): string {
   const lines = [`### ${entry.at} — ${entry.kind}`, renderEdge(entry.from, entry.to)];
-  if (entry.reason !== null) {
+  // An empty or whitespace-only reason is indistinguishable from `null` after a
+  // round-trip (the parser strips trailing blank lines), so normalize it to
+  // "no reason line" here — render and parse then agree on `reason: null`.
+  if (entry.reason !== null && entry.reason.trim() !== '') {
     lines.push(escapeReason(entry.reason));
   }
   return `${lines.join('\n')}\n`;

@@ -26,11 +26,14 @@ afterAll(() => rmSync(ROOT, { force: true, recursive: true }));
 
 type ApplyOutcome = { report: unknown } | { throws: Error };
 
-/** A fake `NornClient`: `find` returns `docs`; each `applyPlan` call captures the
- * plan and yields the next scripted outcome (default: a bare success report). */
+/** A fake `NornClient`: `find` returns `docs` for the snapshot read and, once at
+ * least one `applyPlan` has run, `reloadDocs` (the post-apply reload a create's
+ * seq/id resolution issues) when supplied. Each `applyPlan` captures the plan and
+ * yields the next scripted outcome (default: a bare success report). */
 function fakeClient(
   docs: NornDocument[],
   outcomes: ApplyOutcome[] = [],
+  reloadDocs?: NornDocument[],
 ): {
   client: NornClient;
   plans: MigrationPlan[];
@@ -53,7 +56,7 @@ function fakeClient(
     },
     find: (): Promise<NornDocument[]> => {
       finds += 1;
-      return Promise.resolve(docs);
+      return Promise.resolve(applies > 0 ? (reloadDocs ?? docs) : docs);
     },
   } as unknown as NornClient;
   return { client, findCount: () => finds, plans };
@@ -157,25 +160,48 @@ test('a create emits one create_document with {{seq}} and stitches the resolved 
       path: 'MMR/MMR-1.md',
     },
   ];
-  // apply resolves {{seq}} to MMR-2 (the report summary carries the real path)
-  const { client, plans } = fakeClient(docs, [
+  // apply resolves {{seq}} to MMR-2 (the report summary carries the real path);
+  // the post-apply reload then surfaces the persisted MMR-2 with a real id/seq.
+  const reloadDocs: NornDocument[] = [
+    ...docs,
     {
-      report: {
+      frontmatter: {
+        created: TS,
+        lifecycle: 'todo',
+        parent: '[[MMR-1]]',
+        priority: 'p1',
+        rank: 65536,
+        title: 'New',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-2.md',
+    },
+  ];
+  const { client, plans } = fakeClient(
+    docs,
+    [
+      {
         report: {
-          failed: 0,
-          operations: [{ kind: 'create_document', summary: 'create MMR/MMR-2.md' }],
+          report: {
+            failed: 0,
+            operations: [{ kind: 'create_document', summary: 'create MMR/MMR-2.md' }],
+          },
         },
       },
-    },
-  ]);
+    ],
+    reloadDocs,
+  );
   const store = createNornWriteStore(client, ROOT);
   const ws = await store.loadWorkingSet();
   const initiativeId = ws.nodes[0]?.id ?? 0;
 
   const task = await createTask(store, { parentId: initiativeId, priority: 'p1', title: 'New' });
 
-  // the created node echoes the apply-time-resolved seq, not the sentinel
+  // the created node echoes the apply-time-resolved seq and a real positive id,
+  // never the negative provisional sentinel
   expect(task.seq).toBe(2);
+  expect(task.id).toBeGreaterThan(0);
 
   const plan = plans[0];
   const create = plan?.operations.find((op) => op.kind === 'create_document');
@@ -261,4 +287,97 @@ test('a non-drift apply failure propagates without a replay', async () => {
   }
   expect(message).toContain('some other failure');
   expect(plans).toHaveLength(1); // no replay
+});
+
+// F1+F2 — a create must resolve a real seq/id from the apply report, or throw.
+test('a create whose apply report omits the create summary throws (no leaked provisional)', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        parent: '[[MMR]]',
+        title: 'Init',
+        type: 'initiative',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ];
+  // the apply "succeeds" but the report carries no create_document summary
+  const { client, plans } = fakeClient(docs, [
+    { report: { report: { failed: 0, operations: [] } } },
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  const ws = await store.loadWorkingSet();
+  const initiativeId = ws.nodes[0]?.id ?? 0;
+
+  let message = '';
+  try {
+    await createTask(store, { parentId: initiativeId, priority: 'p1', title: 'New' });
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain('missing its create summary');
+  expect(plans).toHaveLength(1); // the write applied; only the echo resolution failed
+});
+
+// F6 — exhausting the drift retries throws a clear exhaustion error, never the raw drift.
+test('repeated drift across every attempt throws the exhaustion error after MAX_ATTEMPTS applies', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        title: 'Task',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ];
+  // more drift outcomes than attempts — the loop must stop itself, not run out of script
+  const driftOutcomes: ApplyOutcome[] = Array.from({ length: 6 }, () => ({
+    throws: new Error(
+      'norn vault.apply_plan: stale repair plan for MMR/MMR-1.md field lifecycle: expected "todo", found "done"; regenerate',
+    ),
+  }));
+  const { client, plans } = fakeClient(docs, driftOutcomes);
+  const store = createNornWriteStore(client, ROOT);
+  const ws = await store.loadWorkingSet();
+  const id = ws.nodes[0]?.id ?? 0;
+
+  let message = '';
+  try {
+    await startTask(store, id);
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain('exhausted its drift retries');
+  expect(plans).toHaveLength(5); // exactly MAX_ATTEMPTS applies, then it gives up
+});
+
+// F10 — a transition against a non-positive (same-transact create) id fails loud, not silently dropped.
+test('appendTransition against a negative provisional node id throws (History not dropped)', async () => {
+  const docs: NornDocument[] = [projectDoc()];
+  const { client } = fakeClient(docs);
+  const store = createNornWriteStore(client, ROOT);
+
+  let message = '';
+  try {
+    await store.transact((w) =>
+      w.appendTransition({
+        from_value: 'todo',
+        kind: 'lifecycle',
+        node_id: -1,
+        reason: null,
+        to_value: 'in_progress',
+      }),
+    );
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain('a transition targets a node absent from the snapshot');
 });

@@ -6,7 +6,14 @@ import type { HistoryEntry } from '@mimir/contract';
 import { createNornArtifactStore } from '../core/artifacts';
 import type { Db } from '../core/context';
 import { invariant } from '../core/errors';
-import { HISTORY_HEADING, renderHistoryRecord, renderNodeBody } from '../core/history-codec';
+import {
+  DESCRIPTION_HEADING,
+  HISTORY_HEADING,
+  renderDescriptionSection,
+  renderHistoryBody,
+  renderHistoryRecord,
+  renderNodeBody,
+} from '../core/history-codec';
 import { parseId, renderId } from '../core/ids';
 import type { Dependency, Node, Project } from '../core/model';
 import type { NewTransitionRecord, NodeTag, Store, StoreWriter, WorkingSet } from '../core/store';
@@ -22,6 +29,7 @@ import {
   createDocument,
   migrationPlan,
   removeFrontmatter,
+  replaceSection,
   setFrontmatter,
 } from './plan';
 
@@ -129,14 +137,20 @@ async function runTransact<T>(
     try {
       report = await client.applyPlan(plan, true);
     } catch (error) {
-      if (isDriftError(error) && attempt < MAX_ATTEMPTS - 1) {
+      if (isDriftError(error)) {
+        // The vault moved under the snapshot — record it and replay from a
+        // fresh read. On the FINAL attempt the loop falls through to the
+        // exhaustion throw below, never leaking the raw drift error.
         lastError = error;
-        continue; // the vault moved under the snapshot — replay from a fresh read
+        continue;
       }
-      throw error;
+      throw error; // a non-drift failure is terminal — propagate as-is
     }
     const resolvedSeqs = extractResolvedSeqs(report, acc.creates);
-    return acc.resolveResult(result, resolvedSeqs);
+    // A create resolves its real KEY-seq/id from a post-apply reload; a pure
+    // mutation has nothing to stitch, so skip the extra read.
+    const reloaded = resolvedSeqs.size > 0 ? await loadNornSnapshot(client) : undefined;
+    return acc.resolveResult(result, resolvedSeqs, reloaded);
   }
   throw invariant(
     'the node write path exhausted its drift retries',
@@ -461,10 +475,23 @@ class Accumulator {
       reason: row.reason ?? null,
       to: row.to_value,
     };
-    if (row.node_id != null && row.node_id > 0) {
+    // Fail loud on an unresolvable target, mirroring `stemOf`'s contract: a
+    // transition against a same-transact create (negative provisional id) or a
+    // node/project absent from the snapshot must not be silently dropped —
+    // that would lose History. A create is not a transition (ADR 0003), so no
+    // legitimate flow reaches here with a non-positive id.
+    if (row.node_id != null) {
+      if (row.node_id <= 0 || !this.nodes.has(row.node_id)) {
+        throw invariant('a transition targets a node absent from the snapshot');
+      }
       this.mutationOf(this.nodeMutations, row.node_id).history.push(entry);
-    } else if (row.project_id != null && row.project_id > 0) {
+    } else if (row.project_id != null) {
+      if (row.project_id <= 0 || !this.projects.has(row.project_id)) {
+        throw invariant('a transition targets a project absent from the snapshot');
+      }
       this.mutationOf(this.projectMutations, row.project_id).history.push(entry);
+    } else {
+      throw invariant('a transition targets neither a node nor a project');
     }
     return Promise.resolve();
   }
@@ -526,7 +553,7 @@ class Accumulator {
           a.tag.localeCompare(b.tag),
         );
         const fm = projectFrontmatter(project, tags);
-        operations.push(createDocument(create.pathTemplate, fm, `## ${HISTORY_HEADING}\n`));
+        operations.push(createDocument(create.pathTemplate, fm, renderHistoryBody()));
       }
     }
 
@@ -543,6 +570,14 @@ class Accumulator {
       const finalFm = nodeFrontmatter(node, this.nodeRelations(node));
       const rawFm = this.snapshot.nodeFm.get(id) ?? {};
       this.emitFieldOps(operations, path, mutation.dirty, finalFm, rawFm);
+      // A `description` edit touches frontmatter AND the `## Task Description`
+      // body section `renderNodeBody` seeded at create — reconcile both so the
+      // prose never drifts from the frontmatter value.
+      if (mutation.dirty.has('description')) {
+        operations.push(
+          replaceSection(path, DESCRIPTION_HEADING, renderDescriptionSection(node.description)),
+        );
+      }
       this.emitHistory(operations, path, mutation.history);
     }
 
@@ -604,10 +639,44 @@ class Accumulator {
     }
   }
 
-  /** Stitch the apply-time-resolved `KEY-seq` back into the verb's echoed value:
-   * a created node returns with its real `seq`, not the negative sentinel. */
-  resolveResult<T>(result: T, resolvedSeqs: Map<Provisional, number>): T {
-    stitchResolvedSeq(result, resolvedSeqs);
+  /**
+   * Replace a created node's provisional echo with the ACTUAL persisted Node,
+   * re-resolved from a post-apply reload by its now-real `KEY-seq` stem. The
+   * SQLite invariant a create must uphold — a real positive `id` AND `seq`, or
+   * the transact throws — holds here too: a stem that never resolved (the
+   * report lacked/mismatched its create summary) already threw in
+   * {@link extractResolvedSeqs}, and a node missing from the reload throws
+   * below. The provisional sentinel is never returned.
+   */
+  resolveResult<T>(
+    result: T,
+    resolvedSeqs: Map<Provisional, number>,
+    reloaded: NornSnapshot | undefined,
+  ): T {
+    if (reloaded === undefined || !isRecord(result)) {
+      return result;
+    }
+    const id = result.id;
+    if (typeof id !== 'number' || !resolvedSeqs.has(id)) {
+      return result;
+    }
+    const seq = resolvedSeqs.get(id);
+    const provisional = this.nodes.get(id);
+    const project =
+      provisional === undefined ? undefined : this.projects.get(provisional.project_id);
+    if (seq === undefined || project === undefined) {
+      throw invariant('a created node could not be resolved to its project');
+    }
+    const stem = renderId({ key: project.key, seq });
+    const real = reloaded.workingSet.nodes.find((n) => {
+      const p = reloaded.workingSet.projects.find((x) => x.id === n.project_id);
+      return p !== undefined && p.key === project.key && n.seq === seq;
+    });
+    if (real === undefined) {
+      throw invariant(`a created node ${stem} was not found in the vault after apply`);
+    }
+    // Return the real, persisted node — positive `id`, allocated `seq`.
+    Object.assign(result, real);
     return result;
   }
 }
@@ -628,16 +697,20 @@ function extractResolvedSeqs(report: unknown, creates: Create[]): Map<Provisiona
     if (create.targetKind !== 'node') {
       return;
     }
+    // Fail loud rather than leak the negative provisional seq (which would
+    // render `KEY--1`): a create MUST resolve its real allocated seq, or the
+    // whole transact throws.
     const summary = createSummaries[index];
     if (typeof summary !== 'string') {
-      return;
+      throw invariant('a created node is missing its create summary in the apply report');
     }
     const path = summary.replace(/^create\s+/, '');
     const stem = path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/, '');
     const ref = parseId(stem);
-    if (ref !== null) {
-      resolved.set(create.provisionalId, ref.seq);
+    if (ref === null) {
+      throw invariant(`a created node's apply-report summary is not a KEY-seq stem: ${summary}`);
     }
+    resolved.set(create.provisionalId, ref.seq);
   });
   return resolved;
 }
@@ -657,15 +730,4 @@ function reportOperations(report: unknown): { kind: string; summary: string }[] 
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/** In-place: replace a created echo's negative sentinel `seq` with the real one. */
-function stitchResolvedSeq(result: unknown, resolvedSeqs: Map<Provisional, number>): void {
-  if (!isRecord(result)) {
-    return;
-  }
-  const id = result.id;
-  if (typeof id === 'number' && resolvedSeqs.has(id)) {
-    result.seq = resolvedSeqs.get(id);
-  }
 }
