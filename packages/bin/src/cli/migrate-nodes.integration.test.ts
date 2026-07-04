@@ -80,4 +80,16 @@ test.skipIf(!NORN)('migrates node state losslessly and re-runs idempotently', as
   // a second migration over the same vault writes nothing
   const second = await migrate();
   expect(second).toMatchObject({ created: 0, skipped: 3 });
+
+  // but a doc whose SOURCE diverged (a new annotation) has a different
+  // reconstructed body — it must surface as a conflict, never be silently
+  // skipped as "already present" (the fingerprint-blindness the review caught)
+  await annotate(sqlite, task.id, 'added after the first migration');
+  let conflicted = false;
+  try {
+    await migrate();
+  } catch {
+    conflicted = true;
+  }
+  expect(conflicted).toBe(true);
 });
