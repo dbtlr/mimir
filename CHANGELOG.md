@@ -145,6 +145,14 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Per-node body-section facets read through a backend-neutral seam** (MMR-154,
+  ADR 0016 Phase 3). A node's `## History` and `## Annotations` facets now route
+  through a `BodySectionStore` seam — the SQLite backend reads the
+  `transition_log` / `annotation` tables (unchanged behavior), the Norn backend
+  slices the sections out of the document body and parses them through the shared
+  record codec. `annotate` gains a real Norn write path (`append_to_section`),
+  and the codec is extended to the `## Annotations` record grammar. Groundwork
+  for the vault backend; the production SQLite path is unchanged.
 - **Migration commands unified under `mimir migrate <sub>`** (MMR-159). The
   schema migrator moves from `mimir migrate [status]` to `mimir migrate schema
   [status]`, and the artifact cutover from `mimir migrate-artifacts` to `mimir
