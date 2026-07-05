@@ -152,10 +152,10 @@ export function renderNodeIdFromSet(set: DerivationSet, node: Node): string | nu
 }
 
 /**
- * Resolve an external `KEY-seq` id to its node against the working-set snapshot —
- * the in-memory twin of the SQL `findNodeByRef` (ADR 0016 Phase 2b). Returns
- * `undefined` for a malformed id or an unknown key/seq; a node in an archived
- * project still resolves (the caller applies the hiding), matching the SQL path.
+ * Resolve an external `KEY-seq` id to its node against the working-set
+ * snapshot (ADR 0016 Phase 2b). Returns `undefined` for a malformed id or an
+ * unknown key/seq; a node in an archived project still resolves (the caller
+ * applies the hiding).
  */
 export function findNodeInSet(set: DerivationSet, id: string): Node | undefined {
   const ref = parseId(id);

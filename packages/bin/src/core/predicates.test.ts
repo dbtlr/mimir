@@ -6,7 +6,6 @@ import { createTestDb } from '../db/testing';
 import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { deriveSet } from './derive';
-import { loadNode } from './lookup';
 import { isAwaiting, isBlocked, isBlocking, isOrphaned, isReady, isStale } from './predicates';
 import type { Store } from './store';
 import { createSqliteStore, loadWorkingSet } from './store-sqlite';
@@ -27,7 +26,7 @@ async function patch(id: number, fields: { lifecycle?: Lifecycle; hold?: Hold })
   await db.updateTable('node').set(fields).where('id', '=', id).execute();
 }
 async function reload(id: number) {
-  const node = await loadNode(db, id);
+  const node = await store.transact((w) => w.loadNode(id));
   if (node === undefined) {
     throw new Error(`node ${id} vanished`);
   }

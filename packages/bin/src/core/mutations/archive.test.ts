@@ -4,7 +4,6 @@ import { createTestDb } from '../../db/testing';
 import type { Db } from '../context';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { deriveSet } from '../derive';
-import { loadNode } from '../lookup';
 import { isReady } from '../predicates';
 import type { Store } from '../store';
 import { createSqliteStore, loadWorkingSet } from '../store-sqlite';
@@ -18,7 +17,7 @@ import { tagEntities } from './tags';
 
 /** Readiness of a task by its surrogate id (loads the row first). */
 async function ready(db: Db, id: number): Promise<boolean> {
-  const node = await loadNode(db, id);
+  const node = await store.transact((w) => w.loadNode(id));
   return node === undefined ? false : isReady(await setOf(), node);
 }
 

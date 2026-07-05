@@ -8,7 +8,8 @@ import {
   createProject,
   createSqliteStore,
   createTask,
-  findNodeByRef,
+  deriveSet,
+  findNodeInSet,
   updateNode,
 } from '../core';
 import type { Db, Store } from '../core';
@@ -83,7 +84,7 @@ test("resolveParent returns {kind:'node'} for a KEY-seq token", async () => {
 
 // echoNode
 test("echoNode writes bare-node JSON to io.out for format 'json'", async () => {
-  const node = await findNodeByRef(db, taskRef);
+  const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), taskRef);
   if (node === undefined) {
     throw new Error('node not found');
   }
@@ -93,7 +94,7 @@ test("echoNode writes bare-node JSON to io.out for format 'json'", async () => {
   expect(parsed.id).toBe(taskRef);
 });
 test('echoNode echoes the description a write just set (MMR-162 — facet-gated)', async () => {
-  const node = await findNodeByRef(db, taskRef);
+  const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), taskRef);
   if (node === undefined) {
     throw new Error('node not found');
   }
@@ -106,7 +107,7 @@ test('echoNode echoes the description a write just set (MMR-162 — facet-gated)
   expect(parsed.description).toBe('the prose body');
 });
 test("echoNode writes rendered records text to io.out for format 'records'", async () => {
-  const node = await findNodeByRef(db, taskRef);
+  const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), taskRef);
   if (node === undefined) {
     throw new Error('node not found');
   }
@@ -117,7 +118,7 @@ test("echoNode writes rendered records text to io.out for format 'records'", asy
   expect(text).toContain('title');
 });
 test("echoNode writes the bare id to io.out for format 'ids'", async () => {
-  const node = await findNodeByRef(db, taskRef);
+  const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), taskRef);
   if (node === undefined) {
     throw new Error('node not found');
   }
@@ -127,7 +128,7 @@ test("echoNode writes the bare id to io.out for format 'ids'", async () => {
   expect(text).toBe(taskRef);
 });
 test("echoNode writes a count-led table line to io.out for format 'table'", async () => {
-  const node = await findNodeByRef(db, taskRef);
+  const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), taskRef);
   if (node === undefined) {
     throw new Error('node not found');
   }

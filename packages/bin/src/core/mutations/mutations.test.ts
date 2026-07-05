@@ -3,10 +3,12 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { createTestDb } from '../../db/testing';
 import type { Db } from '../context';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
+import { deriveSet } from '../derive';
 import { parseIdentity } from '../ids';
 import { getArtifact } from '../intent';
-import { loadNode, renderNodeId, resolveEntityToken } from '../lookup';
+import { renderNodeId } from '../lookup';
 import { RANK_STEP } from '../rank';
+import { resolveEntityTokenInSet } from '../resolve-set';
 import type { Store } from '../store';
 import { createSqliteStore } from '../store-sqlite';
 import { expectMimirError } from '../testing';
@@ -56,7 +58,7 @@ async function task(title = 't'): Promise<number> {
   return t.id;
 }
 async function reload(id: number) {
-  const node = await loadNode(db, id);
+  const node = await store.transact((w) => w.loadNode(id));
   if (node === undefined) {
     throw new Error(`node ${id} vanished`);
   }
@@ -358,7 +360,7 @@ test('tag/untag an artifact route through the seam by external identity (MMR-143
   });
   // The verb path: resolve the token, then tag — an artifact target carries
   // (key, seq), not a numeric id, so it survives a backend with no SQLite row.
-  const target = await resolveEntityToken(db, renderedId);
+  const target = resolveEntityTokenInSet(deriveSet(await store.loadWorkingSet()), renderedId);
   expect(target.entityType).toBe('artifact');
   await tagEntities(store, [target], ['urgent']);
   expect((await getArtifact(store, renderedId)).tags).toEqual(['urgent']);

@@ -16,10 +16,11 @@ import { resolveProject } from '../cli/resolve';
 import { createTestDb } from '../db/testing';
 import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
+import { deriveSet } from './derive';
 import { MimirError } from './errors';
 import { nextTasks } from './intent/queries';
-import { resolveEntityToken } from './lookup';
 import { completeTask, startTask } from './mutations';
+import { resolveEntityTokenInSet } from './resolve-set';
 import { projectTree } from './resource';
 import type { Store } from './store';
 import { createSqliteStore } from './store-sqlite';
@@ -128,7 +129,8 @@ const assertCreateHint = (err: MimirError): void => {
 
 describe('Site B — missing project hint', () => {
   test('resolveEntityToken for an unknown project key carries the create hint (core/lookup)', async () => {
-    assertCreateHint(await caught(() => resolveEntityToken(db, 'NOPE')));
+    const set = deriveSet(await store.loadWorkingSet());
+    assertCreateHint(await caught(async () => resolveEntityTokenInSet(set, 'NOPE')));
   });
 
   test('projectTree for an unknown project key carries the create hint (core/resource)', async () => {

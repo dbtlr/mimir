@@ -3,7 +3,8 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { createTestDb } from '../../db/testing';
 import type { Db } from '../context';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
-import { resolveEntityToken } from '../lookup';
+import { deriveSet } from '../derive';
+import { resolveEntityTokenInSet } from '../resolve-set';
 import type { Store } from '../store';
 import { createSqliteStore } from '../store-sqlite';
 import { expectMimirError } from '../testing';
@@ -39,9 +40,8 @@ const tagsOf = async (entityType: 'project' | 'node' | 'artifact', entityId: num
 
 test('tag reaches all three entity types via the identity grammar', async () => {
   const { renderedId } = await attachArtifact(store, { content: 'x', projectId, title: 'x' });
-  const targets = await Promise.all(
-    ['MMR', 'MMR-3', renderedId].map((t) => resolveEntityToken(db, t)),
-  );
+  const set = deriveSet(await store.loadWorkingSet());
+  const targets = ['MMR', 'MMR-3', renderedId].map((t) => resolveEntityTokenInSet(set, t));
   await tagEntities(store, targets, ['spec']);
 
   expect(await tagsOf('project', projectId)).toEqual([{ note: null, tag: 'spec' }]);
@@ -50,7 +50,7 @@ test('tag reaches all three entity types via the identity grammar', async () => 
 });
 
 test('re-tagging is idempotent; a provided note overwrites', async () => {
-  const target = await resolveEntityToken(db, 'MMR-3');
+  const target = resolveEntityTokenInSet(deriveSet(await store.loadWorkingSet()), 'MMR-3');
   await tagEntities(store, [target], ['spec'], 'first');
   await tagEntities(store, [target], ['spec']); // no note → row kept as-is
   expect(await tagsOf('node', taskId)).toEqual([{ note: 'first', tag: 'spec' }]);
@@ -60,7 +60,7 @@ test('re-tagging is idempotent; a provided note overwrites', async () => {
 });
 
 test('untag removes only the named tags and reports the count', async () => {
-  const target = await resolveEntityToken(db, 'MMR-3');
+  const target = resolveEntityTokenInSet(deriveSet(await store.loadWorkingSet()), 'MMR-3');
   await tagEntities(store, [target], ['spec', 'v2', 'keep']);
   const removed = await untagEntities(store, [target], ['spec', 'v2', 'absent']);
   expect(removed).toBe(2);
@@ -68,7 +68,7 @@ test('untag removes only the named tags and reports the count', async () => {
 });
 
 test('neither tag nor untag writes the transition log', async () => {
-  const target = await resolveEntityToken(db, 'MMR-3');
+  const target = resolveEntityTokenInSet(deriveSet(await store.loadWorkingSet()), 'MMR-3');
   const before = await db.selectFrom('transition_log').selectAll().execute();
   await tagEntities(store, [target], ['spec']);
   await untagEntities(store, [target], ['spec']);
@@ -77,16 +77,18 @@ test('neither tag nor untag writes the transition log', async () => {
 });
 
 test('resolveEntityToken rejects unknown project/node and malformed tokens', async () => {
-  await expectMimirError('not_found', () => resolveEntityToken(db, 'ZZZ'));
-  await expectMimirError('not_found', () => resolveEntityToken(db, 'MMR-99'));
-  await expectMimirError('not_found', () => resolveEntityToken(db, 'not-an-id'));
+  const set = deriveSet(await store.loadWorkingSet());
+  await expectMimirError('not_found', async () => resolveEntityTokenInSet(set, 'ZZZ'));
+  await expectMimirError('not_found', async () => resolveEntityTokenInSet(set, 'MMR-99'));
+  await expectMimirError('not_found', async () => resolveEntityTokenInSet(set, 'not-an-id'));
 });
 
 test('an artifact token resolves by external identity, existence is the seam’s concern (MMR-143)', async () => {
   // Unlike node/project, an artifact token parses to (key, seq) without a DB
   // hit — a vault-backed artifact has no SQLite row, and tags never validate
   // existence (the seam applies to a missing artifact as a silent no-op).
-  expect(await resolveEntityToken(db, 'MMR-a9')).toEqual({
+  const set = deriveSet(await store.loadWorkingSet());
+  expect(resolveEntityTokenInSet(set, 'MMR-a9')).toEqual({
     entityType: 'artifact',
     key: 'MMR',
     seq: 9,

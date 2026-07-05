@@ -6,7 +6,6 @@ import { createTestDb } from '../db/testing';
 import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { childDistribution, deriveSet, nodeStatusWord, statusOf } from './derive';
-import { loadNode } from './lookup';
 import type { Store } from './store';
 import { createSqliteStore, loadWorkingSet } from './store-sqlite';
 
@@ -27,7 +26,7 @@ async function setLifecycle(id: number, lifecycle: Lifecycle): Promise<void> {
 }
 
 async function reload(id: number) {
-  const node = await loadNode(db, id);
+  const node = await store.transact((w) => w.loadNode(id));
   if (node === undefined) {
     throw new Error(`node ${id} vanished`);
   }

@@ -3,7 +3,6 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { createTestDb } from '../db/testing';
 import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
-import { loadNode } from './lookup';
 import { abandonTask, completeTask, reopenTask, startTask, submitTask } from './mutations';
 import type { Store } from './store';
 import { createSqliteStore } from './store-sqlite';
@@ -39,9 +38,9 @@ async function doneTask(): Promise<number> {
 
 test('reopen moves done → in_progress, re-ranks, and clears completed_at', async () => {
   const id = await doneTask();
-  expect((await loadNode(db, id))?.rank).toBeNull();
+  expect((await store.transact((w) => w.loadNode(id)))?.rank).toBeNull();
   await reopenTask(store, id);
-  const node = await loadNode(db, id);
+  const node = await store.transact((w) => w.loadNode(id));
   expect(node?.lifecycle).toBe('in_progress');
   expect(node?.rank).not.toBeNull();
   expect(node?.completed_at).toBeNull();
@@ -52,7 +51,7 @@ test('reopen moves abandoned → in_progress', async () => {
   await startTask(store, t.id);
   await abandonTask(store, t.id, 'wrong approach');
   await reopenTask(store, t.id);
-  expect((await loadNode(db, t.id))?.lifecycle).toBe('in_progress');
+  expect((await store.transact((w) => w.loadNode(t.id)))?.lifecycle).toBe('in_progress');
 });
 
 test('reopen carries the reason and preserves the original terminal transition', async () => {
@@ -91,7 +90,7 @@ test('reopened then completed again re-stamps completed_at', async () => {
   const id = await doneTask();
   await reopenTask(store, id);
   await completeTask(store, id);
-  const node = await loadNode(db, id);
+  const node = await store.transact((w) => w.loadNode(id));
   expect(node?.lifecycle).toBe('done');
   expect(node?.completed_at).not.toBeNull();
 });

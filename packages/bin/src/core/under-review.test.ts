@@ -5,7 +5,6 @@ import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { childDistribution, deriveSet, nodeStatusWord } from './derive';
 import { listNodes } from './intent';
-import { loadNode } from './lookup';
 import {
   abandonTask,
   blockTask,
@@ -54,9 +53,9 @@ async function startedTask(title = 't'): Promise<number> {
 
 test('submit moves in_progress → under_review and clears rank', async () => {
   const id = await startedTask();
-  expect((await loadNode(db, id))?.rank).not.toBeNull();
+  expect((await store.transact((w) => w.loadNode(id)))?.rank).not.toBeNull();
   await submitTask(store, id);
-  const node = await loadNode(db, id);
+  const node = await store.transact((w) => w.loadNode(id));
   expect(node?.lifecycle).toBe('under_review');
   expect(node?.rank).toBeNull();
   expect(nodeStatusWord(await setOf(), node!)).toBe('under_review');
@@ -74,7 +73,7 @@ test('return moves under_review → in_progress, re-ranks, and carries the reaso
   const id = await startedTask();
   await submitTask(store, id);
   await returnTask(store, id, 'tests are missing');
-  const node = await loadNode(db, id);
+  const node = await store.transact((w) => w.loadNode(id));
   expect(node?.lifecycle).toBe('in_progress');
   expect(node?.rank).not.toBeNull();
 
@@ -97,7 +96,7 @@ test('complete approves an under_review task, logging from=under_review', async 
   const id = await startedTask();
   await submitTask(store, id);
   await completeTask(store, id);
-  const node = await loadNode(db, id);
+  const node = await store.transact((w) => w.loadNode(id));
   expect(node?.lifecycle).toBe('done');
   const log = await db
     .selectFrom('transition_log')
@@ -112,7 +111,7 @@ test('an under_review task can be abandoned', async () => {
   const id = await startedTask();
   await submitTask(store, id);
   await abandonTask(store, id, 'scrapped in review');
-  expect((await loadNode(db, id))?.lifecycle).toBe('abandoned');
+  expect((await store.transact((w) => w.loadNode(id)))?.lifecycle).toBe('abandoned');
 });
 
 test('holding an under_review task and releasing it does not make it rankable', async () => {
@@ -120,7 +119,7 @@ test('holding an under_review task and releasing it does not make it rankable', 
   await submitTask(store, id);
   await blockTask(store, id, 'reviewer OOO');
   await unblockTask(store, id);
-  const node = await loadNode(db, id);
+  const node = await store.transact((w) => w.loadNode(id));
   expect(node?.lifecycle).toBe('under_review');
   expect(node?.hold).toBe('none');
   expect(node?.rank).toBeNull(); // still non-rankable — not actionable until the verdict
@@ -129,7 +128,7 @@ test('holding an under_review task and releasing it does not make it rankable', 
 test('stale chases an under_review task left too long', async () => {
   const id = await startedTask();
   await submitTask(store, id);
-  const node = await loadNode(db, id);
+  const node = await store.transact((w) => w.loadNode(id));
   const future = new Date(Date.parse(node!.updated_at) + 30 * 24 * 60 * 60 * 1000).toISOString();
   expect(isStale(await setOf(), node!, { asOf: future })).toBe(true);
 });

@@ -10,7 +10,8 @@ import {
   createProject,
   createSqliteStore,
   createTask,
-  findNodeByRef,
+  deriveSet,
+  findNodeInSet,
 } from '../core';
 import type { Db, Store } from '../core';
 import { createTestDb } from '../db/testing';
@@ -596,7 +597,7 @@ test('CORS: localhost dev origins are reflected, others get no grant', async () 
 
 test("a prerequisite's terminal state frees the dependent through the API view", async () => {
   await send('POST', `/api/nodes/${task2}/depend`, { on: task1 });
-  const prereq = await findNodeByRef(db, task1);
+  const prereq = findNodeInSet(deriveSet(await store.loadWorkingSet()), task1);
   if (prereq === undefined) {
     throw new Error(`fixture: no node ${task1}`);
   }

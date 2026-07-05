@@ -8,7 +8,8 @@ import {
   createProject,
   createSqliteStore,
   createTask,
-  findNodeByRef,
+  deriveSet,
+  findNodeInSet,
 } from '../core';
 import type { Db, Store } from '../core';
 import { createTestDb } from '../db/testing';
@@ -278,7 +279,7 @@ test('create task echoes a task node', async () => {
 });
 
 test('create phase echoes a phase node', async () => {
-  const initNode = await findNodeByRef(db, 'MMR-1');
+  const initNode = findNodeInSet(deriveSet(await store.loadWorkingSet()), 'MMR-1');
   const initRef = initNode !== undefined ? `MMR-${String(initNode.seq)}` : 'MMR-1';
   const res = await toolCreate(store, { parent: initRef, title: 'p2', type: 'phase' });
   expect(res.isError).toBeUndefined();
