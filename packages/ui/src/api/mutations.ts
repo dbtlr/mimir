@@ -69,6 +69,7 @@ export type CreateTaskInput = {
   parent: string;
   title: string;
   description?: string;
+  summary?: string;
   priority?: string;
   size?: string;
   external_ref?: string;
@@ -88,6 +89,7 @@ export function useCreateTask() {
 export type UpdateNodeInput = {
   title?: string;
   description?: string;
+  summary?: string;
   priority?: string;
   size?: string;
   external_ref?: string;

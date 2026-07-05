@@ -32,6 +32,7 @@ function fromNode(n: WireNode): TaskFormValues {
     external_ref: n.external_ref ?? '',
     priority: n.priority ?? '',
     size: n.size ?? '',
+    summary: n.summary ?? '',
     // Edit mode hides the tags input and useUpdateNode doesn't send tags; tags are managed separately via TagEditor.
     tags: [],
     title: n.title,
@@ -302,6 +303,7 @@ function DrawerBody({
         external_ref: values.external_ref ?? undefined,
         priority: values.priority ?? undefined,
         size: values.size ?? undefined,
+        summary: values.summary ?? undefined,
         title: values.title,
       },
       { onSuccess: () => setEditing(false) },
@@ -417,7 +419,7 @@ function DrawerBody({
                 </div>
               )}
 
-              {node.data.description !== null && (
+              {node.data.description != null && (
                 <Section label="Description">
                   <p className="text-xs leading-relaxed whitespace-pre-wrap text-ink">
                     {node.data.description}

@@ -89,7 +89,11 @@ export type WireNode = {
   title: string;
   status: StatusWord;
   parent: string | null;
-  description: string | null;
+
+  /** Facet — only present on the detail fetch, not list/board responses. */
+  description?: string | null;
+  /** Short single-line lede for list/board views (all-node, optional). */
+  summary?: string | null;
 
   priority?: Priority | null;
   size?: Size | null;

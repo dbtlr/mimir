@@ -7,6 +7,13 @@ const optionalText = z
   .transform((s) => s.trim())
   .transform((s) => (s === '' ? null : s));
 
+/** "" → null; otherwise the trimmed, single-line string, capped at 256 chars (mirrors the backend's summary validation, lenient — the backend is the hard gate). */
+const optionalSummary = z
+  .string()
+  .max(256, { message: 'Summary must be 256 characters or fewer' })
+  .transform((s) => s.trim())
+  .transform((s) => (s === '' ? null : s));
+
 /** "" → null; otherwise must be one of the enum values. */
 const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
   z
@@ -22,6 +29,7 @@ export const taskFormSchema = z.object({
   external_ref: optionalText,
   priority: optionalEnum(PRIORITY_VALUES),
   size: optionalEnum(SIZE_VALUES),
+  summary: optionalSummary,
   tags: z.array(z.string()).default([]),
   title: z
     .string()
@@ -33,6 +41,7 @@ export const taskFormSchema = z.object({
 export type TaskFormValues = {
   title: string;
   description: string;
+  summary: string;
   priority: string;
   size: string;
   external_ref: string;
@@ -44,6 +53,7 @@ export const emptyTaskForm: TaskFormValues = {
   external_ref: '',
   priority: '',
   size: '',
+  summary: '',
   tags: [],
   title: '',
 };

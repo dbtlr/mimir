@@ -10,6 +10,7 @@ export type TaskFormSubmit = {
   parent?: string;
   title: string;
   description: string | null;
+  summary: string | null;
   priority: Priority | null;
   size: Size | null;
   external_ref: string | null;
@@ -47,6 +48,7 @@ export function TaskForm({
         external_ref: value.external_ref,
         priority: value.priority,
         size: value.size,
+        summary: value.summary,
         tags: value.tags,
         title: value.title,
       });
@@ -116,6 +118,29 @@ export function TaskForm({
             />
           )}
         </form.Field>
+      </div>
+
+      {/* Summary — short one-line lede for list/board views */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="task-form-summary" className="text-xs font-medium text-ink-dim">
+          Summary
+        </label>
+        <form.Field name="summary">
+          {(field) => (
+            <input
+              id="task-form-summary"
+              type="text"
+              name={field.name}
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onBlur={field.handleBlur}
+              maxLength={256}
+              placeholder="Optional summary"
+              className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs text-ink outline-none focus-visible:border-accent"
+            />
+          )}
+        </form.Field>
+        <p className="text-3xs text-ink-faint">Short one-line lede for list views (optional)</p>
       </div>
 
       {/* Description — always visible, not behind disclosure (MMR-75) */}
