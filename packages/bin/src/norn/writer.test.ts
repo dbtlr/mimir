@@ -138,7 +138,11 @@ test('an annotation lands as one append under ## Annotations with a stamped crea
   const ws = await store.loadWorkingSet();
   const taskId = ws.nodes[0]?.id ?? 0;
   await store.transact((w) =>
-    w.insertAnnotation({ content: 'a load-bearing note', node_id: taskId }),
+    w.insertAnnotation({
+      content: 'a load-bearing note',
+      created_at: '2026-01-02T03:04:05.678Z',
+      node_id: taskId,
+    }),
   );
 
   const plan = plans[0];
@@ -149,8 +153,8 @@ test('an annotation lands as one append under ## Annotations with a stamped crea
   expect(annotation?.fields).toMatchObject({ heading: 'Annotations', path: 'MMR/MMR-1.md' });
   const content = String(annotation?.fields.content);
   expect(content).toContain('a load-bearing note');
-  // the created-at is stamped as an ISO heading (`### <iso>`), not left to the caller
-  expect(content).toMatch(/^### \d{4}-\d{2}-\d{2}T/);
+  // the core-supplied created-at renders as the record's ISO heading (`### <iso>`)
+  expect(content).toContain('### 2026-01-02T03:04:05.678Z');
 });
 
 test('an annotation against a node absent from the snapshot fails loud (not dropped)', async () => {
@@ -159,7 +163,9 @@ test('an annotation against a node absent from the snapshot fails loud (not drop
 
   let message = '';
   try {
-    await store.transact((w) => w.insertAnnotation({ content: 'x', node_id: 999 }));
+    await store.transact((w) =>
+      w.insertAnnotation({ content: 'x', created_at: '2026-01-02T03:04:05.678Z', node_id: 999 }),
+    );
   } catch (error) {
     message = error instanceof Error ? error.message : String(error);
   }
@@ -419,6 +425,7 @@ test('appendTransition against a negative provisional node id throws (History no
   try {
     await store.transact((w) =>
       w.appendTransition({
+        at: '2026-01-02T03:04:05.678Z',
         from_value: 'todo',
         kind: 'lifecycle',
         node_id: -1,

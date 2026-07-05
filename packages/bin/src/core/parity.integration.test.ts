@@ -605,22 +605,19 @@ type Resolve = (stem: string) => Promise<number>;
  * reconstructed snapshot), freeze the clock, run `mutate` on each backend (ids
  * resolved by stem per store), and assert read parity.
  *
- * Scope is {@link FACETS} (frontmatter). Body-section parity *after a write* is
- * blocked on Norn BUG-1 — `append_to_section` into an empty section collapses
- * its boundary (see the Norn capability-asks "Bugs Found"), so the first
- * `## History` append on a fresh node corrupts `## Annotations`. Flip to
- * {@link BODY_FACETS} once it ships — and then normalize the transition
- * `at` / annotation `createdAt`, which are independently clock-sourced per
- * backend (SQLite's DB default vs the Norn writer's `now()`) so a dual write's
- * timestamps never match byte-for-byte. Body-section *read* parity is already
- * proven over a migrated store by the migration + live-store tests below.
+ * Scope is {@link BODY_FACETS} — frontmatter plus `## History` / `## Annotations`
+ * / `## Task Description` after the write. This exercises the first `## History`
+ * append into an empty section (Norn BUG-1, fixed in norn 0.43 / NRN-137) end to
+ * end. No timestamp normalization is needed: the transition `at` and annotation
+ * `createdAt` are core-stamped (MMR-173), so both backends stamp the frozen
+ * clock and their records match byte-for-byte.
  */
 async function verbParity(mutate: (store: Store, id: Resolve) => Promise<unknown>): Promise<void> {
   const norn = await migrateAndNorn();
   setSystemTime(new Date(FIXED));
   await mutate(sqlite, (stem) => nodeIdIn(sqlite, stem));
   await mutate(norn, (stem) => nodeIdIn(norn, stem));
-  await assertParity(norn);
+  await assertParity(norn, BODY_FACETS);
 }
 
 /** As {@link verbParity}, for a create: the new node's identity (seq) must match
@@ -638,7 +635,7 @@ async function createParity(
     .set({ created_at: FIXED, updated_at: FIXED })
     .where('id', '=', sNode.id)
     .execute();
-  await assertParity(norn); // FACETS — see verbParity on the body-facet deferral (Norn BUG-1)
+  await assertParity(norn, BODY_FACETS); // a create seeds a description + empty History/Annotations
 }
 
 /** MMR → initiative → phase, with `count` todo tasks under the phase. */
@@ -745,9 +742,9 @@ test.skipIf(!NORN)('write parity: create an initiative under a project', async (
 });
 
 // unblock/unpark append to a *non-empty* `## History` (the migrated base carries
-// the block/park transition), so they exercise the release verbs' frontmatter
-// parity without tripping Norn BUG-1 (which only bites the first append into an
-// empty section).
+// the block/park transition), so they exercise the release verbs on top of an
+// existing record. (The empty-section first append — Norn BUG-1, fixed in norn
+// 0.43 / NRN-137 — is now covered directly by the start/park/block cases above.)
 test.skipIf(!NORN)('write parity: unblock a migrated blocked task', async () => {
   await scaffold(1);
   await blockTask(sqlite, await nodeIdIn(sqlite, 'MMR-3'), 'external');

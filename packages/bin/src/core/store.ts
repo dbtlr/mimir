@@ -110,6 +110,10 @@ export type NodePatch = {
 export type NewAnnotationRecord = {
   node_id: number;
   content: string;
+  // Core-supplied (MMR-173): the mutation layer stamps this, not the DB default,
+  // so both backends persist the identical value — the `stamp` invariant (the
+  // core is the sole time-maintainer) now holds for annotations too.
+  created_at: string;
 };
 
 export type NewArtifactRecord = {
@@ -139,6 +143,10 @@ export type NewTransitionRecord = {
   from_value: string | null;
   to_value: string | null;
   reason?: string | null;
+  // Core-supplied (MMR-173): stamped by `logTransition`, not the DB column
+  // default, so the SQLite and Norn backends persist the same transition time —
+  // upholding the `stamp` invariant (the core is the sole time-maintainer).
+  at: string;
 };
 
 /** A ranked task's ordering row — `rank` asc, `seq` asc (the stable tiebreak). */
