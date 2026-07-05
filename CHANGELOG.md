@@ -15,6 +15,14 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **`mimir doctor` node → missing-project check** (MMR-178, ADR 0016 Phase 3). A
+  third diagnostic: it reports any node whose owning project — the `KEY` of its
+  `KEY-seq` stem — has no document in the vault. Like a dangling reference, the
+  Norn loader throws on it, so one such node breaks the whole vault load; the
+  check is `error`, whole-vault, and vault-only (SQLite's `project_id` FK
+  precludes it). Both referential checks now resolve against one raw
+  `readVaultGraph` read of the vault below the loader (a single `find`), rather
+  than a scan each.
 - **`mimir doctor` dangling-reference check** (MMR-169, ADR 0016 Phase 3). A
   second diagnostic: it reports any node whose `parent` (a `KEY-seq`) or
   `depends_on` stem resolves to no node in the vault. A dangling reference is one

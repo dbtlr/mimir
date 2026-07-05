@@ -14,7 +14,7 @@
  */
 import type { Format, Io } from '../cli/render';
 import { ok } from '../cli/render';
-import type { NodeRefs } from '../core/store-norn';
+import type { VaultGraph } from '../core/store-norn';
 import type { DoctorContext, DoctorFinding } from './checks';
 import { CHECKS } from './checks';
 
@@ -22,9 +22,9 @@ export type DoctorDeps = {
   /** Read every work-state document's raw markdown, or `null` when no vault
    * backend is active (doctor then no-ops). */
   readNodeDocs: (() => Promise<{ stem: string; body: string }[]>) | null;
-  /** Read every node's raw, unresolved parent/depends_on stems, or `null` on the
-   * SQLite backend. Wired with {@link readNodeDocs}: both present, or both null. */
-  readNodeRefs: (() => Promise<NodeRefs[]>) | null;
+  /** Read the vault's raw, unresolved relational graph, or `null` on the SQLite
+   * backend. Wired with {@link readNodeDocs}: both present, or both null. */
+  readVaultGraph: (() => Promise<VaultGraph>) | null;
 };
 
 /** Keep only docs in the `-s` scope: the project itself (`KEY`) or its nodes
@@ -39,9 +39,9 @@ export async function cmdDoctor(
   format: Format,
   scope: string | undefined,
 ): Promise<number> {
-  if (deps.readNodeDocs === null || deps.readNodeRefs === null) {
+  if (deps.readNodeDocs === null || deps.readVaultGraph === null) {
     // No vault backend: node state lives in typed SQLite rows — nothing here can
-    // be malformed (body sections) or dangle (the parent_id FK holds).
+    // be malformed (body sections) or dangle (the parent_id/project_id FKs hold).
     if (format === 'json') {
       io.write('[]');
     } else if (format !== 'jsonl') {
@@ -54,12 +54,12 @@ export async function cmdDoctor(
   // here, not per check) — the registry is built to grow, so a per-check read
   // would be one whole-vault scan per check.
   const docs = (await deps.readNodeDocs()).filter((d) => inScope(d.stem, scope));
-  // Refs stay whole-vault (unscoped): a dangling parent/prerequisite anywhere
-  // breaks the entire vault load, so `-s` must not hide it.
-  const refs = await deps.readNodeRefs();
+  // The graph stays whole-vault (unscoped): a referential break anywhere breaks
+  // the entire vault load, so `-s` must not hide it.
+  const graph = await deps.readVaultGraph();
   const ctx: DoctorContext = {
     readNodeDocs: () => Promise.resolve(docs),
-    readNodeRefs: () => Promise.resolve(refs),
+    readVaultGraph: () => Promise.resolve(graph),
   };
   const findings: DoctorFinding[] = [];
   for (const check of CHECKS) {

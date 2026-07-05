@@ -18,8 +18,8 @@ import {
   withArtifactStore,
 } from './core';
 import type { Db, Store } from './core';
-import { readAllNodeRefs } from './core/store-norn';
-import type { NodeRefs } from './core/store-norn';
+import { readVaultGraph } from './core/store-norn';
+import type { VaultGraph } from './core/store-norn';
 import { bunExec } from './exec';
 import { NornClient } from './norn/client';
 import { readConfig } from './service/config';
@@ -54,12 +54,12 @@ export type BuiltStore = {
    */
   readNodeDocs?: () => Promise<{ stem: string; body: string }[]>;
   /**
-   * Read every node's raw, unresolved parent/depends_on stems — the input for
-   * `mimir doctor`'s dangling-reference check (MMR-169). Present only on the
-   * Norn backend; `undefined` on SQLite, where the `parent_id` FK precludes a
-   * dangling parent.
+   * Read the vault's raw, unresolved relational graph — the input for
+   * `mimir doctor`'s referential checks (MMR-169 dangling refs, MMR-178 missing
+   * project). Present only on the Norn backend; `undefined` on SQLite, where the
+   * `parent_id`/`project_id` FKs preclude these failures.
    */
-  readNodeRefs?: () => Promise<NodeRefs[]>;
+  readVaultGraph?: () => Promise<VaultGraph>;
 };
 
 /**
@@ -85,7 +85,7 @@ export async function buildStore(db: Db, backend = artifactBackend()): Promise<B
       await db.destroy();
     },
     readNodeDocs: () => readAllNodeDocs(client),
-    readNodeRefs: () => readAllNodeRefs(client),
+    readVaultGraph: () => readVaultGraph(client),
     store: withArtifactStore(base, createNornArtifactStore(client)),
   };
 }
