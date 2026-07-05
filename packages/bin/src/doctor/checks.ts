@@ -100,6 +100,35 @@ export const bodySectionCheck: Diagnostic = {
 };
 
 /**
+ * CRLF hygiene (MMR-176): a document body whose lines end in CRLF (`\r\n`). Since
+ * MMR-167 the codec reads canonical-LF (`splitLines` tolerates `\r\n`), so CRLF
+ * is cosmetic — it reads fine — but non-canonical: a Windows editor or git
+ * `autocrlf` left it, and the render path writes LF, so the next mutation
+ * rewrites the whole file. A `warn` (surfaced, never gating). Per-document, so it
+ * honors `-s`, like the body-section check.
+ */
+export const crlfCheck: Diagnostic = {
+  name: 'crlf',
+  run: async (ctx) => {
+    const findings: DoctorFinding[] = [];
+    for (const { stem, body } of await ctx.readNodeDocs()) {
+      const count = (body.match(/\r\n/g) ?? []).length;
+      if (count > 0) {
+        findings.push({
+          check: 'crlf',
+          message: `body uses CRLF line endings (${String(count)}) — tolerated on read (MMR-167) but non-canonical`,
+          node: stem,
+          severity: 'warn',
+          where: 'body',
+        });
+      }
+    }
+    return findings;
+  },
+  title: 'CRLF line endings',
+};
+
+/**
  * Dangling relational references (MMR-169): a node whose `parent` (a `KEY-seq`)
  * or `depends_on` stem resolves to no node in the vault. A dangling ref is one
  * cause of a vault that will not load — the Norn working-set loader throws on
@@ -194,6 +223,7 @@ export const missingProjectCheck: Diagnostic = {
 /** The registered checks `mimir doctor` runs, in report order. */
 export const CHECKS: readonly Diagnostic[] = [
   bodySectionCheck,
+  crlfCheck,
   danglingRefCheck,
   missingProjectCheck,
 ];
