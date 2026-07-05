@@ -127,7 +127,13 @@ export type NodeRefs = { stem: string; parent: string | null; dependsOn: string[
  * (MMR-169). The resolving loader ({@link loadNornSnapshot}) throws on the first
  * dangling ref, so it can never enumerate them — `mimir doctor` reads below it
  * here and reports every node whose parent/prerequisite points at a stem absent
- * from the vault. Frontmatter-less docs drop, mirroring the loader's partition.
+ * from the vault.
+ *
+ * Emits refs only for the docs the loader actually resolves refs for — its
+ * `rawNodes` partition: a `task`/`phase`/`initiative` with a valid `KEY-seq`
+ * stem. A project resolves no parent/depends_on and a non-`KEY-seq` stem is
+ * dropped, so surfacing either's stray ref would flag a vault the loader loads
+ * fine. Matching the partition keeps the check aligned to what actually throws.
  */
 export async function readAllNodeRefs(client: NornClient): Promise<NodeRefs[]> {
   const docs = await client.find({
@@ -140,11 +146,12 @@ export async function readAllNodeRefs(client: NornClient): Promise<NodeRefs[]> {
     if (fm === undefined) {
       continue;
     }
-    out.push({
-      dependsOn: linkStems(fm.depends_on),
-      parent: collapse(fm.parent),
-      stem: stemOf(doc.path),
-    });
+    const type = str(fm.type);
+    const stem = stemOf(doc.path);
+    if ((type !== 'task' && type !== 'phase' && type !== 'initiative') || parseId(stem) === null) {
+      continue;
+    }
+    out.push({ dependsOn: linkStems(fm.depends_on), parent: collapse(fm.parent), stem });
   }
   return out;
 }

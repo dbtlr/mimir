@@ -101,23 +101,26 @@ export const bodySectionCheck: Diagnostic = {
 
 /**
  * Dangling relational references (MMR-169): a node whose `parent` (a `KEY-seq`)
- * or `depends_on` stem resolves to no node in the vault. This is the diagnostic
- * for a vault that will not load — the Norn working-set loader throws on the
- * *first* such ref (`store-norn.ts`), so it names only one; doctor reads the raw
- * refs below it and enumerates them all. Always an `error` (the vault is
+ * or `depends_on` stem resolves to no node in the vault. A dangling ref is one
+ * cause of a vault that will not load — the Norn working-set loader throws on
+ * the *first* such ref (`store-norn.ts`), so it names only one; doctor reads the
+ * raw refs below it and enumerates them all. Always an `error` (the vault is
  * unreadable until fixed), and whole-vault: a single dangler breaks *every*
  * command regardless of `-s`, so the check ignores scope. A bare project `KEY`
  * parent is a root, not a reference — skipped, exactly as the loader treats it.
- * A self-dependency is a degenerate cycle (its target resolves), left to the
- * acyclicity check (MMR-174).
+ * This check covers only unresolved parent/prerequisite stems; the loader's
+ * other load-breakers are other checks' domains — a cycle (self-dependency
+ * included) is the acyclicity check (MMR-174), a missing project or malformed
+ * field is a structural check (MMR-177). It does not claim to catch them all.
  */
 export const danglingRefCheck: Diagnostic = {
   name: 'dangling-refs',
   run: async (ctx) => {
     const refs = await ctx.readNodeRefs();
-    // Resolvable targets are the valid `KEY-seq` node stems — exactly the
-    // loader's `nodeIdByStem` (a bare project `KEY` is never a ref target).
-    const nodeStems = new Set(refs.map((r) => r.stem).filter((s) => parseId(s) !== null));
+    // `readNodeRefs` already yields only valid `KEY-seq` nodes (the loader's
+    // `rawNodes` partition), so their stems ARE the loader's `nodeIdByStem` —
+    // the exact set a parent/prerequisite must resolve into.
+    const nodeStems = new Set(refs.map((r) => r.stem));
     const findings: DoctorFinding[] = [];
     for (const { stem, parent, dependsOn } of refs) {
       if (parent !== null && parseId(parent) !== null && !nodeStems.has(parent)) {
