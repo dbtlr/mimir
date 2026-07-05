@@ -254,13 +254,18 @@ export function parseDescriptionSection(body: string): string | null {
 }
 
 /**
- * A `## History` record opens on an H3 heading of the record shape
- * `### <at> — <kind>` ({@link HEADING}). Anchoring the split here (MMR-161) means
- * a hand-typed `### …` line inside a reason — one lacking the ` — <kind>` tail —
- * stays part of that reason rather than splitting the record.
+ * A `## History` record opens on an H3 heading of the full record grammar —
+ * `### <at> — <kind>` ({@link HEADING}) where `<kind>` is a known
+ * {@link TransitionKind}, the same constraint {@link parseRecord} enforces.
+ * Anchoring the split on the whole grammar (MMR-161) means a hand-typed `### …`
+ * line inside a reason stays part of that reason rather than splitting the
+ * record — whether it lacks the ` — <kind>` tail entirely or carries an
+ * unrecognized kind (e.g. `### follow-up — see comments`). It mirrors the
+ * annotation boundary, which likewise anchors on its full `### <ISO>` grammar.
  */
 function isHistoryBoundary(line: string): boolean {
-  return HEADING.test(line);
+  const heading = HEADING.exec(line);
+  return heading?.[2] !== undefined && isTransitionKind(heading[2]);
 }
 
 /** Parse the `## History` section body into its transitions, in document order. */
