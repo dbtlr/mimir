@@ -42,7 +42,7 @@ import {
   readVaultConfig,
 } from './service';
 import type { Health, ServiceDeps } from './service';
-import { buildStore } from './store-backend';
+import { artifactBackend, buildStore } from './store-backend';
 import type { BuiltStore } from './store-backend';
 import { resolveVault } from './vault';
 import type { VaultDeps } from './vault/commands';
@@ -307,6 +307,18 @@ async function main(argv: string[]): Promise<number> {
           throw new Error('internal: store opened without a db handle');
         }
         return dbHandle;
+      },
+      doctor: {
+        // A vault diagnostic: on the SQLite backend there is no vault to read,
+        // so doctor no-ops (null). On Norn, open the store (building the client)
+        // and read every node document's raw body.
+        readNodeDocs:
+          artifactBackend() === 'norn'
+            ? async () => {
+                await getStore();
+                return (await built?.readNodeDocs?.()) ?? [];
+              }
+            : null,
       },
       migrateSchema: runMigrateSchema,
       scope: findBinding(process.cwd()),

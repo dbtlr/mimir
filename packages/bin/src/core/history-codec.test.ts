@@ -3,7 +3,10 @@ import { expect, test } from 'bun:test';
 import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import {
+  ANNOTATIONS_HEADING,
   DESCRIPTION_HEADING,
+  HISTORY_HEADING,
+  lintBodySections,
   parseAnnotationsSection,
   parseHistorySection,
   renderAnnotationRecord,
@@ -461,4 +464,121 @@ test('renderMigratedProjectBody round-trips a project history (archive transitio
   expect(parseHistorySection(sliceBodySection(body, 'History'))).toEqual(history);
   // a project body carries History only — no Annotations section
   expect(body).not.toContain(`## Annotations`);
+});
+
+// ── Body-section lint (MMR-166) ──────────────────────────────────────────
+// The `mimir doctor` body-section check: the inverse of the read path. It
+// reports the malformed records the reader (MMR-161) tolerate-and-skips, and —
+// the load-bearing property — must NEVER flag anything the writer emits.
+
+test('a clean seeded node body lints with no findings', () => {
+  expect(lintBodySections(renderNodeBody('a task'))).toEqual([]);
+});
+
+test('a fully-populated migrated body lints clean (every writer shape, incl. escaped headings)', () => {
+  const body = renderMigratedNodeBody(
+    'intro\n## History\ntail',
+    Object.values(SAMPLES),
+    Object.values(ANNOTATIONS),
+  );
+  expect(lintBodySections(body)).toEqual([]);
+});
+
+test('flags a History heading whose kind is not a known transition kind', () => {
+  const body = `## ${HISTORY_HEADING}\n### 2026-07-03T10:00:00.000Z — frobnicate\nfrom → to\n## ${ANNOTATIONS_HEADING}\n`;
+  expect(lintBodySections(body)).toEqual([
+    {
+      heading: '### 2026-07-03T10:00:00.000Z — frobnicate',
+      line: 2,
+      problem: 'unknown-transition-kind',
+      section: HISTORY_HEADING,
+    },
+  ]);
+});
+
+test('flags a record-shaped History heading with no em-dash kind tail', () => {
+  const body = `## ${HISTORY_HEADING}\n### not a real record\n## ${ANNOTATIONS_HEADING}\n`;
+  expect(lintBodySections(body)).toEqual([
+    {
+      heading: '### not a real record',
+      line: 2,
+      problem: 'malformed-history-heading',
+      section: HISTORY_HEADING,
+    },
+  ]);
+});
+
+test('flags a valid History heading whose edge line is missing', () => {
+  const body = `## ${HISTORY_HEADING}\n### 2026-07-03T10:00:00.000Z — lifecycle\n## ${ANNOTATIONS_HEADING}\n`;
+  expect(lintBodySections(body)).toEqual([
+    {
+      heading: '### 2026-07-03T10:00:00.000Z — lifecycle',
+      line: 2,
+      problem: 'unparseable-history-record',
+      section: HISTORY_HEADING,
+    },
+  ]);
+});
+
+test('flags an Annotations heading whose text is not an ISO createdAt', () => {
+  const body = `## ${HISTORY_HEADING}\n## ${ANNOTATIONS_HEADING}\n### not-a-timestamp\nsome note\n`;
+  expect(lintBodySections(body)).toEqual([
+    {
+      heading: '### not-a-timestamp',
+      line: 3,
+      problem: 'non-iso-annotation-heading',
+      section: ANNOTATIONS_HEADING,
+    },
+  ]);
+});
+
+test('does not flag an escaped heading-shaped content line in a reason', () => {
+  // The writer escapes a reason line like `### note`; escaped headings are legit.
+  const body = renderMigratedNodeBody(
+    null,
+    [
+      {
+        at: '2026-07-03T10:00:00.000Z',
+        from: 'a',
+        kind: 'lifecycle',
+        reason: '### heads up',
+        to: 'b',
+      },
+    ],
+    [],
+  );
+  expect(body).toContain(String.raw`\### heads up`); // guard: the fixture is actually escaped
+  expect(lintBodySections(body)).toEqual([]);
+});
+
+test('reports absolute body line numbers across both sections, in document order', () => {
+  const body = [
+    `## ${DESCRIPTION_HEADING}`, // 1
+    '', // 2
+    'a description', // 3
+    '', // 4
+    `## ${HISTORY_HEADING}`, // 5
+    '### 2026-07-03T10:00:00.000Z — bogus', // 6  (unknown kind)
+    `## ${ANNOTATIONS_HEADING}`, // 7
+    '### nope', // 8  (non-ISO)
+    'note body', // 9
+  ].join('\n');
+  expect(lintBodySections(body)).toEqual([
+    {
+      heading: '### 2026-07-03T10:00:00.000Z — bogus',
+      line: 6,
+      problem: 'unknown-transition-kind',
+      section: HISTORY_HEADING,
+    },
+    {
+      heading: '### nope',
+      line: 8,
+      problem: 'non-iso-annotation-heading',
+      section: ANNOTATIONS_HEADING,
+    },
+  ]);
+});
+
+test('a body with no History/Annotations sections yields no findings', () => {
+  expect(lintBodySections(`## ${DESCRIPTION_HEADING}\n\njust prose\n`)).toEqual([]);
 });

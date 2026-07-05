@@ -347,3 +347,123 @@ export function sliceBodySection(body: string, heading: string): string {
   const end = rest.findIndex((line) => line.startsWith('## '));
   return (end === -1 ? rest : rest.slice(0, end)).join('\n');
 }
+
+// ── Body-section lint (MMR-166) ──────────────────────────────────────────
+// The `mimir doctor` body-section check. The read path (MMR-161) is grammar-
+// anchored, so it tolerate-and-skips a malformed `## History`/`## Annotations`
+// record — silently dropping it or absorbing it into a neighbour, with no
+// channel to warn. This is the additive counterpart: the INVERSE of the reader.
+// It reports the records the reader can't cleanly read, for a human to fix.
+//
+// The writer always escapes heading-shaped body content (`escapeBodyLines`), so
+// an UNescaped `### ` line inside a section only ever arrives via a hand edit.
+// Every such line that is not a valid record boundary — or that opens a record
+// whose body fails to parse — is a deviation from the write contract and is
+// surfaced. Escaped `\### ` content lines are legitimate and never flagged, so
+// anything the writer emits (including heading-ful reasons/annotations) lints
+// clean — the round-trip guarantee, in reverse.
+
+/** The classes of malformed body-section record `mimir doctor` reports. */
+export type BodyRecordProblem =
+  | 'unknown-transition-kind' // `### <at> — <kind>` whose kind is not a TransitionKind
+  | 'malformed-history-heading' // an unescaped `### ` line that isn't record-shaped at all
+  | 'unparseable-history-record' // a valid heading whose edge line is missing/unparseable
+  | 'non-iso-annotation-heading'; // an unescaped `### ` line whose text isn't an ISO createdAt
+
+/** One malformed record found in a node body, anchored to its line for a human to fix. */
+export type BodyRecordFinding = {
+  /** {@link HISTORY_HEADING} or {@link ANNOTATIONS_HEADING}. */
+  section: string;
+  /** 1-based line number within the node body. */
+  line: number;
+  /** The offending `### …` line, verbatim. */
+  heading: string;
+  problem: BodyRecordProblem;
+};
+
+/** The absolute `[start, end)` line span of a `## <heading>` section body. */
+function sectionRange(lines: string[], heading: string): { start: number; end: number } | null {
+  const anchor = lines.indexOf(`## ${heading}`);
+  if (anchor === -1) {
+    return null;
+  }
+  let end = anchor + 1;
+  while (end < lines.length && !lines[end]?.startsWith('## ')) {
+    end++;
+  }
+  return { end, start: anchor + 1 };
+}
+
+/**
+ * Scan a node's raw markdown body for malformed `## History` / `## Annotations`
+ * records — the pure detector behind `mimir doctor` (MMR-166). Returns one
+ * finding per offending unescaped `### ` line, in document order; a clean body
+ * (or one with no such sections — e.g. a project body has no Annotations) yields
+ * no findings. Transport-agnostic: the caller reads the raw body from whichever
+ * backend and hands it here.
+ */
+export function lintBodySections(body: string): BodyRecordFinding[] {
+  const lines = body.split('\n');
+  const findings: BodyRecordFinding[] = [];
+
+  const history = sectionRange(lines, HISTORY_HEADING);
+  if (history !== null) {
+    for (let i = history.start; i < history.end; i++) {
+      const line = lines[i] ?? '';
+      if (ESCAPED_HEADING_LINE.test(line) || !line.startsWith('### ')) {
+        continue;
+      }
+      const heading = HEADING.exec(line);
+      if (heading?.[2] === undefined) {
+        findings.push(finding(HISTORY_HEADING, i, line, 'malformed-history-heading'));
+      } else if (!isTransitionKind(heading[2])) {
+        findings.push(finding(HISTORY_HEADING, i, line, 'unknown-transition-kind'));
+      } else if (parseRecord(recordBlock(lines, i, history.end, isHistoryBoundary)) === null) {
+        // A valid boundary whose edge line is missing/unparseable — the reader
+        // drops the whole record, losing the transition.
+        findings.push(finding(HISTORY_HEADING, i, line, 'unparseable-history-record'));
+      }
+    }
+  }
+
+  const annotations = sectionRange(lines, ANNOTATIONS_HEADING);
+  if (annotations !== null) {
+    for (let i = annotations.start; i < annotations.end; i++) {
+      const line = lines[i] ?? '';
+      if (ESCAPED_HEADING_LINE.test(line) || !line.startsWith('### ')) {
+        continue;
+      }
+      // An annotation boundary carries only an ISO createdAt; content always
+      // parses, so a valid heading is the only well-formed shape.
+      if (!isAnnotationBoundary(line)) {
+        findings.push(finding(ANNOTATIONS_HEADING, i, line, 'non-iso-annotation-heading'));
+      }
+    }
+  }
+
+  return findings;
+}
+
+function finding(
+  section: string,
+  index: number,
+  heading: string,
+  problem: BodyRecordProblem,
+): BodyRecordFinding {
+  return { heading, line: index + 1, problem, section };
+}
+
+/** The record block a boundary opens: its heading through to the next boundary
+ * (or section end) — the same span {@link splitRecords} would hand the parser. */
+function recordBlock(
+  lines: string[],
+  start: number,
+  end: number,
+  isBoundary: (line: string) => boolean,
+): string[] {
+  const block = [lines[start] ?? ''];
+  for (let j = start + 1; j < end && !isBoundary(lines[j] ?? ''); j++) {
+    block.push(lines[j] ?? '');
+  }
+  return block;
+}
