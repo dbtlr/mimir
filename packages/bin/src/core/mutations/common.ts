@@ -116,7 +116,15 @@ export async function stamp(w: StoreWriter, id: number): Promise<void> {
   await w.updateNode(id, { updated_at: now() });
 }
 
-/** Append a transition-log row in the verb's own write scope (so columns + log can't drift). */
-export async function logTransition(w: StoreWriter, row: NewTransitionRecord): Promise<void> {
-  await w.appendTransition(row);
+/**
+ * Append a transition-log row in the verb's own write scope (so columns + log
+ * can't drift). The transition `at` is stamped here — the single choke point
+ * every status-bearing verb funnels through — so the core, not a per-backend DB
+ * default, owns the time (MMR-173); both stores persist the value verbatim.
+ */
+export async function logTransition(
+  w: StoreWriter,
+  row: Omit<NewTransitionRecord, 'at'>,
+): Promise<void> {
+  await w.appendTransition({ ...row, at: now() });
 }

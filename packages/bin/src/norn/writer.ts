@@ -468,7 +468,7 @@ class Accumulator {
 
   private appendTransition(row: NewTransitionRecord): Promise<void> {
     const entry: HistoryEntry = {
-      at: now(),
+      at: row.at, // core-stamped by `logTransition` (MMR-173); persisted verbatim
       from: row.from_value,
       kind: row.kind,
       reason: row.reason ?? null,
@@ -496,11 +496,12 @@ class Accumulator {
   }
 
   /**
-   * Queue a node's `## Annotations` append (MMR-154) — the created-at is stamped
-   * here (SQLite's column default has no vault equivalent) and the record flushes
-   * as one `append_to_section` op, the same mechanism `## History` uses.
-   * Annotations are node-only; a target absent from the snapshot fails loud
-   * rather than silently dropping the note.
+   * Queue a node's `## Annotations` append (MMR-154). The created-at is
+   * core-supplied (MMR-173) — the mutation layer stamps it so SQLite and Norn
+   * persist the same value — and the record flushes as one `append_to_section`
+   * op, the same mechanism `## History` uses. Annotations are node-only; a
+   * target absent from the snapshot fails loud rather than silently dropping the
+   * note.
    */
   private insertAnnotation(row: NewAnnotationRecord): Promise<void> {
     if (row.node_id <= 0 || !this.nodes.has(row.node_id)) {
@@ -508,7 +509,7 @@ class Accumulator {
     }
     this.mutationOf(this.nodeMutations, row.node_id).annotations.push({
       content: row.content,
-      createdAt: now(),
+      createdAt: row.created_at,
     });
     return Promise.resolve();
   }

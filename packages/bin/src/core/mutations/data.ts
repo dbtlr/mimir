@@ -151,7 +151,9 @@ export async function updateProject(
 export async function annotate(store: Store, id: number, content: string): Promise<Node> {
   return store.transact(async (w) => {
     await requireNode(w, id);
-    await w.insertAnnotation({ content, node_id: id });
+    // Core-stamp the created-at (MMR-173) rather than lean on the DB default, so
+    // the SQLite and Norn backends persist the same value.
+    await w.insertAnnotation({ content, created_at: now(), node_id: id });
     await stamp(w, id); // in-flight activity moves the task (affects stale)
     return reloadNode(w, id);
   });
