@@ -314,6 +314,25 @@ test('update is a dumb scalar patch with type-applicability checks', async () =>
   expect((await reload(id)).lifecycle).toBe('todo');
 });
 
+test('update stores summary (all-node), strips newlines, and hard-rejects over 256 chars (MMR-162)', async () => {
+  const id = await task();
+  const patched = await updateNode(store, id, { summary: 'short lede' });
+  expect(patched.summary).toBe('short lede');
+  expect((await reload(id)).summary).toBe('short lede');
+
+  const stripped = await updateNode(store, id, { summary: 'line one\nline two\r\nline three' });
+  expect(stripped.summary).toBe('line one line two line three');
+
+  const cleared = await updateNode(store, id, { summary: '   ' });
+  expect(cleared.summary).toBeNull();
+
+  await expectMimirError('validation', () => updateNode(store, id, { summary: 'x'.repeat(257) }));
+
+  // all-node (unlike external_ref, which is task-only): an initiative accepts it too
+  const initPatched = await updateNode(store, initId, { summary: 'initiative lede' });
+  expect(initPatched.summary).toBe('initiative lede');
+});
+
 test('annotate and attachArtifact persist and link', async () => {
   const id = await task();
   await annotate(store, id, 'realized X');

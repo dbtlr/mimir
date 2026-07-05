@@ -18,6 +18,7 @@ test('migrateToLatest applies the bundled migrations on a fresh db', async () =>
       '0005_project_description',
       '0006_lifecycle_under_review',
       '0007_project_archive',
+      '0008_node_summary',
     ]);
     expect(results?.every((r) => r.status === 'Success')).toBe(true);
   } finally {
@@ -39,6 +40,7 @@ test('migrationStatus reports applied migrations after migrating', async () => {
       '0005_project_description',
       '0006_lifecycle_under_review',
       '0007_project_archive',
+      '0008_node_summary',
     ]);
     expect(all.every((m) => m.executedAt !== undefined)).toBe(true);
   } finally {

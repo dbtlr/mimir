@@ -25,6 +25,9 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
     title: node.title,
     type: node.type,
   };
+  if (node.summary !== undefined) {
+    wire.summary = node.summary;
+  }
   if (node.priority !== undefined) {
     wire.priority = node.priority;
   }

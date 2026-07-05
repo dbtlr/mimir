@@ -24,9 +24,34 @@ import {
  * not stamp `updated_at`).
  */
 
+const SUMMARY_MAX_LENGTH = 256;
+
+/**
+ * Normalize a `summary` value (MMR-162): newlines collapse to a single space,
+ * then the result is trimmed. An empty/whitespace-only result stores as
+ * `null`. A `null` input is passed through untouched — a `null`/undefined
+ * summary carries no validation. Over-length input is a hard reject (never
+ * silently truncated) — the caller decides whether to skip the call for an
+ * `undefined` value (no change).
+ */
+export function normalizeSummary(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+  const stripped = value.replace(/[\r\n]+/g, ' ').trim();
+  if (stripped.length > SUMMARY_MAX_LENGTH) {
+    throw validation(
+      `summary must be ${SUMMARY_MAX_LENGTH} characters or fewer (got ${stripped.length})`,
+    );
+  }
+  return stripped === '' ? null : stripped;
+}
+
 export type UpdateFields = {
   title?: string;
   description?: string | null;
+  /** The short list lede (MMR-162) — all-node, never type-gated. */
+  summary?: string | null;
   priority?: Priority | null;
   size?: Size | null;
   target?: string | null;
@@ -54,6 +79,9 @@ export async function updateNode(store: Store, id: number, fields: UpdateFields)
     }
     if (fields.description !== undefined) {
       patch.description = fields.description;
+    }
+    if (fields.summary !== undefined) {
+      patch.summary = normalizeSummary(fields.summary);
     }
     if (fields.priority !== undefined) {
       patch.priority = fields.priority;

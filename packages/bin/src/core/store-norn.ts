@@ -281,6 +281,7 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       rank: isTask ? num(n.fm.rank) : null,
       seq: n.seq,
       size: isTask ? enumFieldStrict(n.fm.size, SIZE_VALUES, n.stem, 'size') : null,
+      summary: str(n.fm.summary),
       target: n.type === 'phase' ? str(n.fm.target) : null,
       title: str(n.fm.title) ?? '',
       type: n.type,

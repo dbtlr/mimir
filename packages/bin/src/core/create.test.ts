@@ -83,6 +83,32 @@ test('createPhase requires an initiative parent and inherits project_id', async 
   await expectMimirError('not_found', () => createPhase(store, { parentId: 999, title: 'no' }));
 });
 
+test('createTask stores optional summary, reloads over SQLite, and strips newlines (MMR-162)', async () => {
+  const p = await createProject(store, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
+
+  const t = await createTask(store, {
+    parentId: phase.id,
+    summary: 'line one\r\nline two',
+    title: 't',
+  });
+  expect(t.summary).toBe('line one line two');
+  const reloaded = await db
+    .selectFrom('node')
+    .select('summary')
+    .where('id', '=', t.id)
+    .executeTakeFirstOrThrow();
+  expect(reloaded.summary).toBe('line one line two');
+
+  const noSummary = await createTask(store, { parentId: phase.id, title: 't2' });
+  expect(noSummary.summary).toBeNull();
+
+  await expectMimirError('validation', () =>
+    createTask(store, { parentId: phase.id, summary: 'x'.repeat(257), title: 't3' }),
+  );
+});
+
 test('createTask sets both axes, ranks at append step, and accepts phase or initiative parents', async () => {
   const p = await createProject(store, { key: 'MMR', name: 'Mimir' });
   const init = await createInitiative(store, { projectId: p.id, title: 'i' });

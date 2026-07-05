@@ -307,6 +307,7 @@ class Accumulator {
     seq: number;
     title: string;
     description?: string | null;
+    summary?: string | null;
     lifecycle?: Node['lifecycle'];
     hold?: Node['hold'];
     priority?: Node['priority'];
@@ -335,6 +336,7 @@ class Accumulator {
       rank: row.rank ?? null,
       seq: row.seq,
       size: row.size ?? null,
+      summary: row.summary ?? null,
       target: row.target ?? null,
       title: row.title,
       type: row.type,

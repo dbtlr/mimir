@@ -322,6 +322,10 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
     fields.description = c.values.desc;
     changed.push('description');
   }
+  if (typeof c.values.summary === 'string') {
+    fields.summary = c.values.summary;
+    changed.push('summary');
+  }
   if (typeof c.values.priority === 'string') {
     fields.priority = parsePriority(c.values.priority);
     changed.push('priority');
@@ -353,6 +357,7 @@ async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
     ['size', '--size'],
     ['target', '--target'],
     ['ref', '--ref'],
+    ['summary', '--summary'],
   ] as const) {
     if (c.values[key] !== undefined) {
       throw validation(`${flag} doesn't apply to a project — use --name to rename it`);
@@ -379,6 +384,7 @@ async function cmdUpdateArtifact(c: Ctx, token: string): Promise<number> {
     ['size', '--size'],
     ['target', '--target'],
     ['ref', '--ref'],
+    ['summary', '--summary'],
   ] as const) {
     if (c.values[key] !== undefined) {
       throw validation(`${flag} doesn't apply to an artifact — title is its one mutable field`);
@@ -638,6 +644,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       const node = await createInitiative(c.store, {
         description: optStr(c, 'desc'),
         projectId: parent.id,
+        summary: optStr(c, 'summary'),
         tags: tagFlags(c),
         title,
       });
@@ -656,6 +663,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       const node = await createPhase(c.store, {
         description: optStr(c, 'desc'),
         parentId: parent.id,
+        summary: optStr(c, 'summary'),
         tags: tagFlags(c),
         target: optStr(c, 'target'),
         title,
@@ -679,6 +687,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         priority:
           typeof c.values.priority === 'string' ? parsePriority(c.values.priority) : undefined,
         size: typeof c.values.size === 'string' ? parseSize(c.values.size) : undefined,
+        summary: optStr(c, 'summary'),
         tags: tagFlags(c),
         title,
       });

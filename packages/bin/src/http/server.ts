@@ -411,6 +411,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               'parent',
               'title',
               'description',
+              'summary',
               'target',
               'priority',
               'size',
@@ -421,6 +422,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const parent = requiredStr(body, 'parent', 'create');
             const title = requiredStr(body, 'title', 'create');
             const description = strField(body, 'description');
+            const summary = strField(body, 'summary');
             const tags = strList(body, 'tags');
             if (type === 'initiative') {
               if (parseId(parent) !== null) {
@@ -437,6 +439,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               const node = await createInitiative(store, {
                 description,
                 projectId: project.id,
+                summary,
                 tags,
                 title,
               });
@@ -446,6 +449,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               const node = await createPhase(store, {
                 description,
                 parentId: await nodeRef(db, parent, 'initiative'),
+                summary,
                 tags,
                 target: strField(body, 'target'),
                 title,
@@ -470,6 +474,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
                 parentId: await nodeRef(db, parent, 'phase or initiative'),
                 priority,
                 size,
+                summary,
                 tags,
                 title,
               });
@@ -501,6 +506,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const body = await readBody(req, [
               'title',
               'description',
+              'summary',
               'priority',
               'size',
               'target',
@@ -514,6 +520,10 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const description = strField(body, 'description');
             if (description !== undefined) {
               fields.description = description;
+            }
+            const summary = strField(body, 'summary');
+            if (summary !== undefined) {
+              fields.summary = summary;
             }
             const priority = strField(body, 'priority');
             if (priority !== undefined) {
