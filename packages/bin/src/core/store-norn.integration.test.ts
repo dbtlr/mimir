@@ -14,7 +14,7 @@ import type { Node, Project } from './model';
 import { depend } from './mutations/dependency';
 import { tagEntities } from './mutations/tags';
 import type { Store, WorkingSet } from './store';
-import { loadWorkingSetOverNorn } from './store-norn';
+import { loadWorkingSetOverNorn, readAllNodeRefs } from './store-norn';
 import { createSqliteStore } from './store-sqlite';
 
 /**
@@ -467,3 +467,45 @@ test.skipIf(!NORN)('ignores task-only fields on a non-task document', async () =
   expect(phase.priority).toBeNull();
   expect(phase.rank).toBeNull();
 });
+
+// MMR-169: readAllNodeRefs reads raw parent/depends_on stems below the resolving
+// loader — which throws on the first dangling ref — so `mimir doctor` can
+// enumerate every orphan the loader can't even get past.
+test.skipIf(!NORN)(
+  'readAllNodeRefs reads raw refs; the loader throws on a dangling parent',
+  async () => {
+    const at = '2026-07-05T00:00:00.000Z';
+    await writeDoc('MMR/MMR.md', [
+      jsonField('type', 'project'),
+      jsonField('key', 'MMR'),
+      jsonField('name', 'Mimir'),
+      jsonField('created', at),
+      jsonField('updated_at', at),
+    ]);
+    await writeDoc('MMR/MMR-1.md', [
+      jsonField('type', 'initiative'),
+      jsonField('title', 'Init'),
+      jsonField('parent', wikilink('MMR')),
+      jsonField('created', at),
+      jsonField('updated_at', at),
+    ]);
+    // MMR-2's parent points at MMR-99, which does not exist — an orphan.
+    await writeDoc('MMR/MMR-2.md', [
+      jsonField('type', 'task'),
+      jsonField('title', 'Orphan'),
+      jsonField('parent', wikilink('MMR-99')),
+      jsonField('depends_on', [wikilink('MMR-1')]),
+      jsonField('created', at),
+      jsonField('updated_at', at),
+    ]);
+
+    // Reading the raw refs never throws and surfaces the dangling parent verbatim.
+    const refs = await readAllNodeRefs(client);
+    const orphan = must(refs.find((r) => r.stem === 'MMR-2'));
+    expect(orphan.parent).toBe('MMR-99');
+    expect(orphan.dependsOn).toEqual(['MMR-1']); // a resolvable prereq decodes too
+
+    // The premise doctor exists for: the resolving loader can't get past it.
+    await expectThrows(() => loadWorkingSetOverNorn(client), /MMR-99.*not in the vault/);
+  },
+);

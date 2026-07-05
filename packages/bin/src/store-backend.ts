@@ -18,6 +18,8 @@ import {
   withArtifactStore,
 } from './core';
 import type { Db, Store } from './core';
+import { readAllNodeRefs } from './core/store-norn';
+import type { NodeRefs } from './core/store-norn';
 import { bunExec } from './exec';
 import { NornClient } from './norn/client';
 import { readConfig } from './service/config';
@@ -51,6 +53,13 @@ export type BuiltStore = {
    * since typed rows carry no malformable body sections.
    */
   readNodeDocs?: () => Promise<{ stem: string; body: string }[]>;
+  /**
+   * Read every node's raw, unresolved parent/depends_on stems — the input for
+   * `mimir doctor`'s dangling-reference check (MMR-169). Present only on the
+   * Norn backend; `undefined` on SQLite, where the `parent_id` FK precludes a
+   * dangling parent.
+   */
+  readNodeRefs?: () => Promise<NodeRefs[]>;
 };
 
 /**
@@ -76,6 +85,7 @@ export async function buildStore(db: Db, backend = artifactBackend()): Promise<B
       await db.destroy();
     },
     readNodeDocs: () => readAllNodeDocs(client),
+    readNodeRefs: () => readAllNodeRefs(client),
     store: withArtifactStore(base, createNornArtifactStore(client)),
   };
 }

@@ -15,6 +15,15 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **`mimir doctor` dangling-reference check** (MMR-169, ADR 0016 Phase 3). A
+  second diagnostic: it reports any node whose `parent` (a `KEY-seq`) or
+  `depends_on` stem resolves to no node in the vault. This is the check for a
+  vault that will not load — the Norn working-set loader throws on the *first*
+  such reference, so a single orphan breaks every command and the loader names
+  only one; doctor reads the raw references below the loader and enumerates them
+  all. Always an `error` (the vault is unreadable until fixed), and whole-vault
+  regardless of `-s` (the failure is global). Vault-only, like the body-section
+  check — SQLite's `parent_id` foreign key precludes a dangling parent.
 - **`mimir doctor` — vault diagnostics** (MMR-166, ADR 0016 Phase 3). A new
   command that runs a check registry over the vault and reports problems for a
   human to fix. Findings are severity-tiered: an **error** is a record the reader

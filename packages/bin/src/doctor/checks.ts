@@ -8,11 +8,16 @@
  */
 import type { BodyRecordProblem } from '../core/history-codec';
 import { lintBodySections } from '../core/history-codec';
+import { parseId } from '../core/ids';
+import type { NodeRefs } from '../core/store-norn';
 
 /** What a check reads: the raw vault documents to diagnose. */
 export type DoctorContext = {
-  /** Every work-state document's raw markdown, as `{ stem, body }`. */
+  /** Every work-state document's raw markdown, as `{ stem, body }` — scoped by `-s`. */
   readNodeDocs: () => Promise<{ stem: string; body: string }[]>;
+  /** Every node's raw, unresolved parent/depends_on stems — always whole-vault
+   * (the dangling-ref failure is global, not scoped). */
+  readNodeRefs: () => Promise<NodeRefs[]>;
 };
 
 /** One problem a check found, anchored for a human to locate and fix. */
@@ -94,5 +99,52 @@ export const bodySectionCheck: Diagnostic = {
   title: 'Body-section record integrity',
 };
 
+/**
+ * Dangling relational references (MMR-169): a node whose `parent` (a `KEY-seq`)
+ * or `depends_on` stem resolves to no node in the vault. This is the diagnostic
+ * for a vault that will not load — the Norn working-set loader throws on the
+ * *first* such ref (`store-norn.ts`), so it names only one; doctor reads the raw
+ * refs below it and enumerates them all. Always an `error` (the vault is
+ * unreadable until fixed), and whole-vault: a single dangler breaks *every*
+ * command regardless of `-s`, so the check ignores scope. A bare project `KEY`
+ * parent is a root, not a reference — skipped, exactly as the loader treats it.
+ * A self-dependency is a degenerate cycle (its target resolves), left to the
+ * acyclicity check (MMR-174).
+ */
+export const danglingRefCheck: Diagnostic = {
+  name: 'dangling-refs',
+  run: async (ctx) => {
+    const refs = await ctx.readNodeRefs();
+    // Resolvable targets are the valid `KEY-seq` node stems — exactly the
+    // loader's `nodeIdByStem` (a bare project `KEY` is never a ref target).
+    const nodeStems = new Set(refs.map((r) => r.stem).filter((s) => parseId(s) !== null));
+    const findings: DoctorFinding[] = [];
+    for (const { stem, parent, dependsOn } of refs) {
+      if (parent !== null && parseId(parent) !== null && !nodeStems.has(parent)) {
+        findings.push({
+          check: 'dangling-refs',
+          message: `parent ${parent} resolves to no node in the vault — the vault will not load`,
+          node: stem,
+          severity: 'error',
+          where: 'frontmatter · parent',
+        });
+      }
+      for (const dep of dependsOn) {
+        if (!nodeStems.has(dep)) {
+          findings.push({
+            check: 'dangling-refs',
+            message: `depends_on ${dep} resolves to no node in the vault — the vault will not load`,
+            node: stem,
+            severity: 'error',
+            where: 'frontmatter · depends_on',
+          });
+        }
+      }
+    }
+    return findings;
+  },
+  title: 'Dangling relational references',
+};
+
 /** The registered checks `mimir doctor` runs, in report order. */
-export const CHECKS: readonly Diagnostic[] = [bodySectionCheck];
+export const CHECKS: readonly Diagnostic[] = [bodySectionCheck, danglingRefCheck];

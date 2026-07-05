@@ -119,6 +119,36 @@ export type NornSnapshot = {
   projectFm: ReadonlyMap<number, Record<string, unknown>>;
 };
 
+/** One node's raw relational refs — parent + prerequisite stems, unresolved. */
+export type NodeRefs = { stem: string; parent: string | null; dependsOn: string[] };
+
+/**
+ * Read every node's raw `parent` / `depends_on` stems WITHOUT resolving them
+ * (MMR-169). The resolving loader ({@link loadNornSnapshot}) throws on the first
+ * dangling ref, so it can never enumerate them — `mimir doctor` reads below it
+ * here and reports every node whose parent/prerequisite points at a stem absent
+ * from the vault. Frontmatter-less docs drop, mirroring the loader's partition.
+ */
+export async function readAllNodeRefs(client: NornClient): Promise<NodeRefs[]> {
+  const docs = await client.find({
+    in: ['type:project,task,phase,initiative'],
+    no_limit: true,
+  });
+  const out: NodeRefs[] = [];
+  for (const doc of docs) {
+    const fm = doc.frontmatter;
+    if (fm === undefined) {
+      continue;
+    }
+    out.push({
+      dependsOn: linkStems(fm.depends_on),
+      parent: collapse(fm.parent),
+      stem: stemOf(doc.path),
+    });
+  }
+  return out;
+}
+
 export async function loadWorkingSetOverNorn(client: NornClient): Promise<WorkingSet> {
   return (await loadNornSnapshot(client)).workingSet;
 }
