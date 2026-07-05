@@ -138,8 +138,8 @@ other:
                           then push + reconcile when an upstream is configured;
                           the cadence behind the scheduled snapshot unit
   doctor                  run vault diagnostics and report problems for a human
-                          to fix (nonzero exit on findings). scoped by -s; a
-                          no-op on the SQLite backend
+                          to fix (nonzero exit on error findings). scoped by -s;
+                          a no-op on the SQLite backend
   migrate <sub>           schema [status] (apply/inspect DB migrations) ·
                           artifacts / nodes [--dry-run] (copy SQLite artifacts /
                           node work-state into the vault — idempotent, lossless)
@@ -552,7 +552,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   // ── vault diagnostics (MMR-166) ──
   doctor: {
     examples: [
-      'mimir doctor                         # check the bound scope; nonzero exit on findings',
+      'mimir doctor                         # check the bound scope; nonzero exit on an error',
       'mimir doctor -s all --format json    # every project, machine-readable findings',
     ],
     flags: [
@@ -562,11 +562,11 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ],
       [
         '--format <fmt>',
-        'json | jsonl emits the findings array; table/records render a human report',
+        'json (pretty array) | jsonl (one finding per line); table/records render a human report',
       ],
     ],
     summary:
-      'run the vault diagnostics registry and report problems for a human to fix — findings go to stderr with a nonzero exit so it can gate a cutover. Checks body-section record integrity (the ## History / ## Annotations records the read path tolerate-and-skips). A no-op on the SQLite backend (typed rows carry no malformable body sections).',
+      'run the vault diagnostics registry and report problems for a human to fix. Findings are tiered: an error (a record the reader drops) exits nonzero so it can gate a cutover; a warn (a heading-shaped line the reader still reads as content) is non-gating. Checks body-section record integrity (the ## History / ## Annotations records the read path tolerate-and-skips). A no-op on the SQLite backend (typed rows carry no malformable body sections).',
     usage: 'mimir doctor [-s <KEY>] [--format <fmt>]',
   },
   // ── binding ──
