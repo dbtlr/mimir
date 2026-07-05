@@ -19,6 +19,15 @@ export function createSqliteBodySectionStore(db: Db): BodySectionStore {
         .execute();
       return rows.map((r) => ({ content: r.content, createdAt: r.created_at }));
     },
+    readDescription: async (nodeId) => {
+      const row = await db
+        .selectFrom('node')
+        .select('description')
+        .where('id', '=', nodeId)
+        .executeTakeFirst();
+      const text = row?.description?.trim() ?? '';
+      return text === '' ? null : text;
+    },
     readHistory: async (nodeId) => {
       const rows = await db
         .selectFrom('transition_log')

@@ -603,9 +603,10 @@ class Accumulator {
       const finalFm = nodeFrontmatter(node, this.nodeRelations(node));
       const rawFm = this.snapshot.nodeFm.get(id) ?? {};
       this.emitFieldOps(operations, path, mutation.dirty, finalFm, rawFm);
-      // A `description` edit touches frontmatter AND the `## Task Description`
-      // body section `renderNodeBody` seeded at create — reconcile both so the
-      // prose never drifts from the frontmatter value.
+      // A `description` edit rewrites the `## Task Description` body section
+      // `renderNodeBody` seeded at create — the authoritative home for the prose
+      // (MMR-162; description is no longer frontmatter, so `emitFieldOps` emits no
+      // frontmatter op for it — the body write below is the whole edit).
       if (mutation.dirty.has('description')) {
         operations.push(
           replaceSection(path, DESCRIPTION_HEADING, renderDescriptionSection(node.description)),
