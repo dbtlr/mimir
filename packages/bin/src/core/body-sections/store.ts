@@ -13,6 +13,21 @@ import type { AnnotationView, HistoryEntry } from '@mimir/contract';
  * the SQLite backend reads by the surrogate `nodeId`, the Norn backend by the
  * `KEY-seq` stem — so the caller passes what it already has from the view set.
  */
+/** Which body-section facets a batched {@link BodySectionStore.readSections}
+ * pass should populate. */
+export type BodySectionFacets = {
+  description?: boolean;
+  annotations?: boolean;
+  history?: boolean;
+};
+
+/** A batched body-section read — only the facets named in the request are set. */
+export type BodySections = {
+  description?: string | null;
+  annotations?: AnnotationView[];
+  history?: HistoryEntry[];
+};
+
 export type BodySectionStore = {
   readHistory: (nodeId: number, stem: string) => Promise<HistoryEntry[]>;
   readAnnotations: (nodeId: number, stem: string) => Promise<AnnotationView[]>;
@@ -24,4 +39,14 @@ export type BodySectionStore = {
    * backends agree byte-for-byte on the read surface.
    */
   readDescription: (nodeId: number, stem: string) => Promise<string | null>;
+  /**
+   * Read several body-section facets in one backend round-trip (MMR-164, F6).
+   * A detail `get` assembling `description` + `annotations` + `history` reads
+   * one node document; the Norn backend fetches its `.body` **once** and slices
+   * each requested section, versus one fetch per facet. Only the facets named in
+   * `want` are populated; the single-facet `read*` methods are wrappers over
+   * this. SQLite reads its per-facet sources (no shared body to batch), so it
+   * gains nothing here but honors the same seam.
+   */
+  readSections: (nodeId: number, stem: string, want: BodySectionFacets) => Promise<BodySections>;
 };
