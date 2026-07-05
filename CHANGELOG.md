@@ -161,7 +161,16 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
-- **Node `description` is body-authoritative** (MMR-162, ADR 0016 Refinement).
+- **The cross-node transition feed is a backend-neutral seam; the last SQLite
+  read-path dependency is gone** (MMR-160, ADR 0016 Phase 3). `GET
+  /api/transitions` now routes through a `TransitionsFeed` seam — the SQLite
+  backend reads the append-only `transition_log` (unchanged behavior), the Norn
+  backend fans every node/project `## History` section out of the vault and
+  merges them into one chronologically ordered stream. Every transport's token
+  resolution and write-echo moves off the raw `db` executor onto the working-set
+  snapshot both backends produce, and the transitional `store.db` member leaves
+  the `Store` interface entirely. The production SQLite path is unchanged; this
+  is the groundwork that lets the Norn backend become selectable at cutover.
   The full prose now lives only in the `## Task Description` body section — read
   on a detail `get` (as the `description` facet) and no longer carried in bulk
   `list`/`next` rows, and no longer a frontmatter field. This preserves
