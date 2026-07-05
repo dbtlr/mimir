@@ -31,7 +31,9 @@ type FieldSpec = {
 export const QUERY_FIELDS: Record<string, FieldSpec> = {
   completed_at: { kind: 'date' },
   created_at: { kind: 'date' },
-  description: { kind: 'string' },
+  // `description` is not queryable (MMR-162): it is body prose read per node, not
+  // a bulk-cheap frontmatter field — filtering it would force a body read of
+  // every candidate. The short `summary` lede is the queryable stand-in.
   external_ref: { kind: 'string' },
   hold: { kind: 'enum', values: HOLD_VALUES },
   hold_reason: { kind: 'string' },
@@ -41,6 +43,7 @@ export const QUERY_FIELDS: Record<string, FieldSpec> = {
   priority: { kind: 'enum', values: PRIORITY_VALUES },
   size: { kind: 'enum', values: SIZE_VALUES },
   status: { kind: 'enum', values: STATUS_WORD_VALUES },
+  summary: { kind: 'string' },
   tag: { kind: 'tag' },
   target: { kind: 'string' },
   title: { kind: 'string' },

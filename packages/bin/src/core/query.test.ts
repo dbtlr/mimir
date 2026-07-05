@@ -33,6 +33,21 @@ describe('parseFilterToken (structural validation)', () => {
     await expectMimirError('validation', async () => parseFilterToken('eq', 'created_at:x'));
     await expectMimirError('validation', async () => parseFilterToken('eq', ':novalue'));
   });
+
+  test('summary is queryable; description is not (MMR-162)', async () => {
+    // `summary` (the frontmatter lede) is a valid string field and filters
+    expect(parseFilterToken('eq', 'summary:the lede')).toEqual({
+      field: 'summary',
+      op: 'eq',
+      value: 'the lede',
+    });
+    const { test: run } = compileFilters([{ field: 'summary', op: 'eq', value: 'the lede' }]);
+    expect(run(row({ summary: 'the lede' }))).toBe(true);
+    expect(run(row({ summary: 'something else' }))).toBe(false);
+    // `description` left the query surface — it is body prose (null on the Norn
+    // working set), so filtering it would silently diverge across backends.
+    await expectMimirError('validation', async () => parseFilterToken('eq', 'description:prose'));
+  });
 });
 
 describe('compileFilters (value faults → warnings)', () => {

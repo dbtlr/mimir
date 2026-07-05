@@ -9,6 +9,7 @@ import {
   createSqliteStore,
   createTask,
   findNodeByRef,
+  updateNode,
 } from '../core';
 import type { Db, Store } from '../core';
 import { createTestDb } from '../db/testing';
@@ -90,6 +91,19 @@ test("echoNode writes bare-node JSON to io.out for format 'json'", async () => {
   await echoNode(store, node.id, 'json', io);
   const parsed = parseJson<{ id: string }>(io.out.join(''));
   expect(parsed.id).toBe(taskRef);
+});
+test('echoNode echoes the description a write just set (MMR-162 — facet-gated)', async () => {
+  const node = await findNodeByRef(db, taskRef);
+  if (node === undefined) {
+    throw new Error('node not found');
+  }
+  // description is facet-gated now; the write-echo must still return it, else a
+  // `create`/`update --desc` prints a record missing the field it just wrote.
+  await updateNode(store, node.id, { description: 'the prose body' });
+  const io = fakeIo();
+  await echoNode(store, node.id, 'json', io);
+  const parsed = parseJson<{ description?: string }>(io.out.join(''));
+  expect(parsed.description).toBe('the prose body');
 });
 test("echoNode writes rendered records text to io.out for format 'records'", async () => {
   const node = await findNodeByRef(db, taskRef);

@@ -178,7 +178,9 @@ function toQueryRow(
   const values: Record<string, string | null> = {
     completed_at: node.completed_at,
     created_at: node.created_at,
-    description: node.description,
+    // No `description`: it left the query surface (MMR-162) — it is body prose,
+    // and `node.description` is null on the Norn working set, so filtering it
+    // would silently diverge. `summary` (frontmatter) is the queryable field.
     external_ref: node.external_ref,
     hold: node.hold,
     hold_reason: node.hold_reason,
@@ -186,6 +188,7 @@ function toQueryRow(
     priority: node.priority,
     size: node.size,
     status: word,
+    summary: node.summary,
     target: node.target,
     title: node.title,
     type: node.type,
