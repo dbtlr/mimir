@@ -319,6 +319,13 @@ async function main(argv: string[]): Promise<number> {
                 return (await built?.readNodeDocs?.()) ?? [];
               }
             : null,
+        readNodeRefs:
+          artifactBackend() === 'norn'
+            ? async () => {
+                await getStore();
+                return (await built?.readNodeRefs?.()) ?? [];
+              }
+            : null,
       },
       migrateSchema: runMigrateSchema,
       scope: findBinding(process.cwd()),
