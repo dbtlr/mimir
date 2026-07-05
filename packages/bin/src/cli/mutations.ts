@@ -220,7 +220,12 @@ export async function cmdUnblock(c: Ctx): Promise<number> {
   return 0;
 }
 
-async function resolveIds(store: Store, csv: string, verb: string, flag: string): Promise<number[]> {
+async function resolveIds(
+  store: Store,
+  csv: string,
+  verb: string,
+  flag: string,
+): Promise<number[]> {
   const tokens = csv.split(',').map((t) => requireToken(t, verb, flag).trim());
   const set = deriveSet(await store.loadWorkingSet());
   return tokens.map((t) =>
