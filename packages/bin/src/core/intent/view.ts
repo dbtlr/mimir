@@ -61,7 +61,6 @@ export async function buildNodeView(
   const parent = node.parent_id === null ? undefined : set.nodeById.get(node.parent_id);
   const view: NodeView = {
     createdAt: node.created_at,
-    description: node.description,
     id: renderNodeIdFromSet(set, node) ?? 'unknown',
     parent: parent === undefined ? null : renderNodeIdFromSet(set, parent),
     status: nodeStatusWord(set, node),
@@ -94,6 +93,9 @@ export async function buildNodeView(
   }
   if (facets.has('tags')) {
     view.tags = buildTags(set, node.id);
+  }
+  if (facets.has('description')) {
+    view.description = await bodySections.readDescription(node.id, view.id);
   }
   if (facets.has('annotations')) {
     view.annotations = await bodySections.readAnnotations(node.id, view.id);

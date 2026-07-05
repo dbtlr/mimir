@@ -175,8 +175,7 @@ export type NodeView = {
   title: string;
   status: StatusWord;
   parent: string | null;
-  description: string | null;
-  /** The short list lede (MMR-162) — all-node, never type-gated. */
+  /** The short list lede (MMR-162) — all-node, never type-gated, bulk-cheap. */
   summary?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -198,6 +197,14 @@ export type NodeView = {
   archivedAt?: string | null;
 
   // facets — opt-in
+  /**
+   * Full description prose — the `## Task Description` body section,
+   * authoritative since MMR-162 (ADR 0016 Refinement). A facet, not a bare
+   * field: read per node on a detail `get` (in {@link CHEAP_FACETS}), absent
+   * from bulk `list`/`next` rows. For a project view it carries the project's
+   * (still frontmatter) description.
+   */
+  description?: string | null;
   deps?: DepsFacet;
   annotations?: AnnotationView[];
   artifacts?: ArtifactView[];
@@ -233,6 +240,7 @@ export type StatusView = {
 /** The set-valued column names (flat, MMR-38), for `--col` parsing and the cheap-vs-heavy default sets. */
 export const FACET_NAMES = [
   'deps',
+  'description',
   'annotations',
   'artifacts',
   'history',
@@ -245,9 +253,13 @@ export const FACET_NAMES = [
 ] as const;
 export type FacetName = (typeof FACET_NAMES)[number];
 
-/** Cheap facets included by default on a targeted `get`; `history` stays opt-in. */
+/** Cheap facets included by default on a targeted `get`; `history` stays opt-in.
+ * `description` (the body prose, MMR-162) is here — a detail `get` shows it, but
+ * bulk `list`/`next` (which pass no facets) omit it, so they never pay the
+ * per-node body read. */
 export const CHEAP_FACETS: readonly FacetName[] = [
   'deps',
+  'description',
   'tags',
   'children',
   'distribution',

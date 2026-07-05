@@ -3,8 +3,10 @@ import type { AnnotationView } from '@mimir/contract';
 import type { NornClient } from '../../norn/client';
 import {
   ANNOTATIONS_HEADING,
+  DESCRIPTION_HEADING,
   HISTORY_HEADING,
   parseAnnotationsSection,
+  parseDescriptionSection,
   parseHistorySection,
   sliceBodySection,
 } from '../history-codec';
@@ -34,8 +36,9 @@ function byCreatedAt(a: AnnotationView, b: AnnotationView): number {
 }
 
 /**
- * The Norn body-section backend — a node's `## History` / `## Annotations`
- * sections read out of its document `.body` and parsed through the shared codec.
+ * The Norn body-section backend — a node's `## Task Description` / `## History` /
+ * `## Annotations` sections read out of its document `.body` and parsed through
+ * the shared codec.
  * Section isolation is client-side ({@link sliceBodySection}), the NRN-102
  * `.headings` workaround: Norn has no section-scoped body read yet, so the whole
  * body is fetched and the named section sliced from it. A missing document or
@@ -49,6 +52,8 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
       parseAnnotationsSection(
         sliceBodySection(await readBody(client, stem), ANNOTATIONS_HEADING),
       ).toSorted(byCreatedAt),
+    readDescription: async (_nodeId, stem) =>
+      parseDescriptionSection(sliceBodySection(await readBody(client, stem), DESCRIPTION_HEADING)),
     readHistory: async (_nodeId, stem) =>
       parseHistorySection(sliceBodySection(await readBody(client, stem), HISTORY_HEADING)),
   };

@@ -57,7 +57,9 @@ export function nodeFrontmatter(
     type: node.type,
     updated_at: node.updated_at,
   };
-  put(fm, 'description', node.description);
+  // `description` is NOT frontmatter (MMR-162, ADR 0016 Refinement): the full
+  // prose is authoritative in the `## Task Description` body section. Only the
+  // short `summary` lede rides frontmatter.
   put(fm, 'summary', node.summary);
   if (rel.parentStem !== null) {
     fm.parent = wikilink(rel.parentStem);

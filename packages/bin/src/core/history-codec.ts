@@ -31,11 +31,12 @@ export const DESCRIPTION_HEADING = 'Task Description';
 
 /**
  * The document body every work-state node carries: a `## Task Description` lede
- * (the human prose; `description` also rides frontmatter for the Phase-2b
- * reader), the `## History` section the transition log appends under (MMR-153),
- * and the `## Annotations` section `annotate` appends under (MMR-154). Both
- * append anchors MUST be present at create time — Norn's `append_to_section`
- * refuses a missing heading — so a create seeds them empty.
+ * (the authoritative home for the prose since MMR-162 — read back through
+ * {@link parseDescriptionSection}, no longer a frontmatter field), the
+ * `## History` section the transition log appends under (MMR-153), and the
+ * `## Annotations` section `annotate` appends under (MMR-154). Both append
+ * anchors MUST be present at create time — Norn's `append_to_section` refuses a
+ * missing heading — so a create seeds them empty.
  */
 export function renderNodeBody(description: string | null): string {
   return `## ${DESCRIPTION_HEADING}\n${renderDescriptionSection(description)}${renderHistoryBody()}${renderAnnotationsBody()}`;
@@ -44,14 +45,15 @@ export function renderNodeBody(description: string | null): string {
 /**
  * The body of the `## Task Description` section (the content *under* the heading,
  * heading excluded) — the payload a `replace_section` op hands norn when a
- * node's `description` is edited, so the prose section stays in lockstep with the
- * `description` frontmatter {@link renderNodeBody} seeds at create.
+ * node's `description` is edited, and what a create seeds. Since MMR-162 this
+ * section is **authoritative** for the prose (the frontmatter copy is gone), so
+ * it round-trips through {@link parseDescriptionSection}.
  *
  * Heading-shaped lines are escaped: a description line like `## History` would
  * otherwise be an injected section boundary that {@link sliceBodySection}
- * matches ahead of the real anchor, shadowing the History/Annotations facets.
- * The `description` frontmatter is the authoritative value, so this display copy
- * carrying escape backslashes is harmless (nothing parses the section back).
+ * matches ahead of the real anchor, shadowing the History/Annotations facets —
+ * and, now that the section is parsed back, it would also corrupt the recovered
+ * description. `parseDescriptionSection` unescapes them, so the prose is exact.
  */
 export function renderDescriptionSection(description: string | null): string {
   return `\n${escapeBodyLines(description ?? '')}\n\n`;
@@ -225,6 +227,18 @@ function parseRecord(lines: string[]): HistoryEntry | null {
   const reason = reasonLines.length > 0 ? unescapeBodyLines(reasonLines.join('\n')) : null;
 
   return { at, from: edge.from, kind, reason, to: edge.to };
+}
+
+/**
+ * Parse the `## Task Description` section body back to the description string —
+ * the inverse of {@link renderDescriptionSection}: recover heading-escaped lines
+ * and drop the section's leading/trailing blank-line framing. Internal blank
+ * lines (paragraph breaks) survive; an empty section reads as null. Body-
+ * authoritative since MMR-162 (ADR 0016 Refinement).
+ */
+export function parseDescriptionSection(body: string): string | null {
+  const text = unescapeBodyLines(body).trim();
+  return text === '' ? null : text;
 }
 
 /** Parse the `## History` section body into its transitions, in document order. */

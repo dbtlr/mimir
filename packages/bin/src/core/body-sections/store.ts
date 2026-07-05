@@ -16,4 +16,12 @@ import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 export type BodySectionStore = {
   readHistory: (nodeId: number, stem: string) => Promise<HistoryEntry[]>;
   readAnnotations: (nodeId: number, stem: string) => Promise<AnnotationView[]>;
+  /**
+   * A node's full description prose — the `## Task Description` body section,
+   * authoritative since MMR-162 (ADR 0016 Refinement). The SQLite backend reads
+   * the transitional `node.description` column; the Norn backend slices the
+   * section from the document body. Trimmed; empty → null. Both trim so the two
+   * backends agree byte-for-byte on the read surface.
+   */
+  readDescription: (nodeId: number, stem: string) => Promise<string | null>;
 };

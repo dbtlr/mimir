@@ -266,7 +266,10 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     nodes.push({
       completed_at: isTask ? str(n.fm.completed_at) : null,
       created_at: str(n.fm.created) ?? '',
-      description: str(n.fm.description),
+      // `description` is not frontmatter (MMR-162): the WorkingSet leaves it null;
+      // the prose is read on demand from the `## Task Description` body via the
+      // BodySectionStore seam (`readDescription`), not carried in the bulk load.
+      description: null,
       external_ref: isTask ? str(n.fm.external_ref) : null,
       // A task always carries a hold (SQLite CHECK: type='task' ⟺ hold NOT NULL,
       // default 'none'); the idiomatic vault omits the 'none' no-hold state, so an

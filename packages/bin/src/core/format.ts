@@ -18,13 +18,17 @@ import type {
 /** Map a NodeView to its wire object — only defined fields, contract field names. */
 export function nodeToWire(node: NodeView): Record<string, unknown> {
   const wire: Record<string, unknown> = {
-    description: node.description,
     id: node.id,
     parent: node.parent,
     status: node.status,
     title: node.title,
     type: node.type,
   };
+  // `description` is a facet now (MMR-162) — present only when read (detail get),
+  // like the other opt-in fields; absent from bulk list/next rows.
+  if (node.description !== undefined) {
+    wire.description = node.description;
+  }
   if (node.summary !== undefined) {
     wire.summary = node.summary;
   }
