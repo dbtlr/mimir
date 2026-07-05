@@ -170,3 +170,40 @@ The Norn-client phase gate resolved the deferred vault-shape items.
   on a scheduled launchd unit, in the `service` family. Converge itself
   commits only what it owns — the scaffold, schema upgrades, and the
   baseline of a re-initialized history.
+
+## Refinement (2026-07-04, MMR-162): node description is body-authoritative; a `summary` field carries the list lede
+
+A node's full `description` prose was written to **both** the
+`## Task Description` body section and a frontmatter `description` string, with
+the frontmatter copy chosen as the read surface. Frontmatter is for short,
+scannable, progressive-disclosure values; multi-line prose in a frontmatter
+string misuses it, and Norn's YAML serialization is not round-trip-safe for such
+values — a blank line in a multi-line scalar folds away on read. Markdown's body
+is the correct home for prose.
+
+- **The `## Task Description` body is the sole authoritative source of a node's
+  description.** Frontmatter no longer carries `description` at all; the
+  redundant, lossy copy is removed. The read path sources description through the
+  `BodySectionStore` seam (the same seam that reads `## History` /
+  `## Annotations`): the SQLite backend returns the column, the Norn backend
+  slices the section from the document body.
+- **Description leaves the bulk projection and the base view.** It is no longer
+  part of the frontmatter working set every read bulk-loads; it is read per node
+  on a detail `get`, not carried in `list` / `next` rows. This trades a
+  cheap-everywhere frontmatter field for a per-node body read scoped to detail
+  reads — accepted because bulk views want a short lede, not full prose.
+- **A new `summary` frontmatter field carries the list lede.** Optional,
+  node-scoped, a short single-line string (≤256 characters, hard-validated;
+  embedded newlines stripped on write). It is **authored, never derived** — a
+  truncation of the body would be a stored cache of derived content,
+  reintroducing the sync burden this ADR's "derive, don't store" stance exists to
+  avoid. `summary` rides the cheap frontmatter bulk load and is surfaced in
+  `list` / `next`. `title` remains the primary identifier; `summary` is an
+  independent optional line, absent (null) until authored — there is no title
+  fallback.
+- **Migration sets `summary` to null** for existing nodes (no derived
+  truncation); the authoritative migration already writes the full description
+  into `## Task Description`, so it stays lossless with the frontmatter copy gone.
+- **Scope: nodes only.** Projects retain their (short) frontmatter `description`;
+  they carry no `## Task Description` body section, and a project description body
+  is out of scope until it is shown to be needed.
