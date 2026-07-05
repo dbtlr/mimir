@@ -16,18 +16,24 @@ import type { DoctorDeps } from './commands';
  */
 function vaultOf(
   docs: { stem: string; body: string }[],
-  nodes?: NodeRefs[],
+  nodes?: Omit<NodeRefs, 'key'>[],
   projectKeys?: string[],
 ): DoctorDeps {
-  const graphNodes = nodes ?? docs.map((d) => ({ dependsOn: [], parent: null, stem: d.stem }));
+  const raw = nodes ?? docs.map((d) => ({ dependsOn: [], parent: null, stem: d.stem }));
+  // Mirror production readVaultGraph: only valid KEY-seq stems are nodes, each
+  // carrying its parsed project key (a non-KEY-seq stem is not a node).
+  const graphNodes: NodeRefs[] = raw.flatMap((n) => {
+    const key = parseId(n.stem)?.key;
+    return key === undefined
+      ? []
+      : [{ dependsOn: n.dependsOn, key, parent: n.parent, stem: n.stem }];
+  });
   return {
     readNodeDocs: () => Promise.resolve(docs),
     readVaultGraph: () =>
       Promise.resolve({
         nodes: graphNodes,
-        projectKeys: projectKeys ?? [
-          ...new Set(graphNodes.map((n) => parseId(n.stem)?.key).filter((k) => k !== undefined)),
-        ],
+        projectKeys: projectKeys ?? [...new Set(graphNodes.map((n) => n.key))],
       }),
   };
 }
@@ -333,4 +339,27 @@ test('missing-project reports whole-vault, ignoring -s (a broken load is global)
   const findings = JSON.parse(io.out.join('')) as { node: string; check: string }[];
   expect(findings).toHaveLength(1);
   expect(findings[0]).toMatchObject({ check: 'missing-project', node: 'OTH-3' });
+});
+
+test('many nodes under one missing project collapse to a single finding with a count', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf(
+      [],
+      [
+        { dependsOn: [], parent: null, stem: 'MMR-2' },
+        { dependsOn: [], parent: null, stem: 'MMR-3' },
+        { dependsOn: [], parent: null, stem: 'MMR-4' },
+      ],
+      [], // project MMR absent — one root cause shared by all three
+    ),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(1);
+  const findings = JSON.parse(io.out.join('')) as { check: string; message: string }[];
+  expect(findings).toHaveLength(1); // not one per node
+  expect(findings[0]?.check).toBe('missing-project');
+  expect(findings[0]?.message).toContain('3 nodes');
 });
