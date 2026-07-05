@@ -6,6 +6,7 @@ import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 import { createNornArtifactStore } from '../core/artifacts';
 import { createNornBodySectionStore } from '../core/body-sections';
 import type { Db } from '../core/context';
+import { createNornTransitionsFeed } from '../core/transitions';
 import { invariant } from '../core/errors';
 import {
   ANNOTATIONS_HEADING,
@@ -124,6 +125,7 @@ export function createNornWriteStore(client: NornClient, vaultRoot: string): Sto
     artifacts: createNornArtifactStore(client),
     bodySections: createNornBodySectionStore(client),
     db: dbTrap,
+    transitions: createNornTransitionsFeed(client),
     loadWorkingSet: () => loadWorkingSetOverNorn(client),
     transact: (fn) => runTransact(client, vaultRoot, fn),
   };
