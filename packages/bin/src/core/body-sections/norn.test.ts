@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 
 import type { NornClient } from '../../norn/client';
 import { renderAnnotationRecord, renderHistoryRecord, renderNodeBody } from '../history-codec';
-import { createNornBodySectionStore } from './norn';
+import { createNornBodySectionStore, readAllNodeDocs } from './norn';
 
 /** A fake client whose `get` returns one document with the given `.body`. */
 function clientWithBody(body: string | undefined): NornClient {
@@ -94,4 +94,40 @@ test('annotations sort by created-at, not document order (parity with SQLite)', 
   const body = `## Annotations\n${renderAnnotationRecord(later)}${renderAnnotationRecord(earlier)}`;
   const store = createNornBodySectionStore(clientWithBody(body));
   expect(await store.readAnnotations(9, 'MMR-9')).toEqual([earlier, later]);
+});
+
+// ── readAllNodeDocs (MMR-166): the `mimir doctor` raw-body reader ─────────
+
+/** A fake client whose `find` yields the doc paths and `get` their `.body`. */
+function fakeVault(docs: { path: string; body: string }[]): NornClient {
+  return {
+    find: () => Promise.resolve(docs.map((d) => ({ path: d.path }))),
+    get: (targets: string[], col?: string) => {
+      expect(col).toBe('.body');
+      return Promise.resolve(docs.filter((d) => targets.includes(d.path)));
+    },
+  } as unknown as NornClient;
+}
+
+test('readAllNodeDocs returns every doc as { stem, body }, stem stripped of dir + .md', async () => {
+  const docs = await readAllNodeDocs(
+    fakeVault([
+      { body: nodeBody(), path: 'MMR/MMR-9.md' },
+      { body: renderNodeBody('a project'), path: 'MMR/MMR.md' },
+    ]),
+  );
+  expect(docs).toEqual([
+    { body: nodeBody(), stem: 'MMR-9' },
+    { body: renderNodeBody('a project'), stem: 'MMR' },
+  ]);
+});
+
+test('readAllNodeDocs short-circuits an empty vault without calling get', async () => {
+  const client = {
+    find: () => Promise.resolve([]),
+    get: () => {
+      throw new Error('get must not be called for an empty vault');
+    },
+  } as unknown as NornClient;
+  expect(await readAllNodeDocs(client)).toEqual([]);
 });

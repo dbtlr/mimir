@@ -32,6 +32,8 @@ import {
   treeToWire,
 } from '../core';
 import type { Db, Store } from '../core';
+import { cmdDoctor } from '../doctor/commands';
+import type { DoctorDeps } from '../doctor/commands';
 import { defaultVaultPath } from '../env';
 import { cmdSelfUpdate, cmdService } from '../service';
 import type { ServiceDeps } from '../service';
@@ -159,6 +161,9 @@ export type Defaults = {
   service?: ServiceDeps;
   /** Real vault edges (git snapshot); absent where the vault is unavailable (tests). */
   vault?: VaultDeps;
+  /** The `doctor` vault diagnostics read handle; absent where doctor is
+   * unavailable (tests). Its `readNodeDocs` is `null` on the SQLite backend. */
+  doctor?: DoctorDeps;
   /**
    * The DB schema migrator (`migrate schema`). Injected because it opens the
    * store UN-migrated to inspect/apply migrations, so it can't ride the normal
@@ -597,6 +602,18 @@ export async function runCli(
         }
         const format = pickFormat(values.format, 'report', ctx);
         return await cmdVault(positionals, ctx, defaults.vault, format);
+      }
+      case 'doctor': {
+        if (defaults.doctor === undefined) {
+          throw usage('doctor is unavailable in this context');
+        }
+        const format = pickFormat(values.format, 'report', ctx);
+        return await cmdDoctor(
+          ctx,
+          defaults.doctor,
+          format,
+          effectiveScope(values.scope, defaults.scope),
+        );
       }
       case 'self-update': {
         if (defaults.service === undefined) {

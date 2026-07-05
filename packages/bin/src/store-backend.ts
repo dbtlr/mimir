@@ -11,7 +11,12 @@
  * one persistent `norn mcp` client for the process lifetime. `closeStore`
  * shuts that client down; for the SQLite backend it is a no-op.
  */
-import { createNornArtifactStore, createSqliteStore, withArtifactStore } from './core';
+import {
+  createNornArtifactStore,
+  createSqliteStore,
+  readAllNodeDocs,
+  withArtifactStore,
+} from './core';
 import type { Db, Store } from './core';
 import { bunExec } from './exec';
 import { NornClient } from './norn/client';
@@ -39,6 +44,13 @@ export type BuiltStore = {
    * the built store and nothing else.
    */
   close: () => Promise<void>;
+  /**
+   * Read every work-state document's raw markdown from the vault — the input for
+   * `mimir doctor`'s body-section check (MMR-166). Present only on the Norn
+   * backend (a vault diagnostic); `undefined` on SQLite signals doctor to no-op,
+   * since typed rows carry no malformable body sections.
+   */
+  readNodeDocs?: () => Promise<{ stem: string; body: string }[]>;
 };
 
 /**
@@ -63,6 +75,7 @@ export async function buildStore(db: Db, backend = artifactBackend()): Promise<B
       await client.close();
       await db.destroy();
     },
+    readNodeDocs: () => readAllNodeDocs(client),
     store: withArtifactStore(base, createNornArtifactStore(client)),
   };
 }

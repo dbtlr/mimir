@@ -26,6 +26,55 @@ async function readBody(client: NornClient, stem: string): Promise<string> {
   return records.length > 0 ? bodyOf(records[0]) : '';
 }
 
+// NOTE (MMR-152): `stemOf`/`pathAndBody` are the same path helpers duplicated in
+// transitions/norn.ts and store-norn.ts — consolidate into shared Norn decode
+// helpers there.
+/** The document stem (basename without `.md`) — the node's `KEY-seq` identity. */
+function stemOf(path: string): string {
+  const base = path.slice(path.lastIndexOf('/') + 1);
+  return base.endsWith('.md') ? base.slice(0, -3) : base;
+}
+
+/** A `vault.get` record's `path` + `.body`; a record without a string path is dropped. */
+function pathAndBody(record: unknown): { path: string; body: string } | null {
+  if (typeof record !== 'object' || record === null || !('path' in record)) {
+    return null;
+  }
+  const { path } = record as { path: unknown };
+  return typeof path === 'string' ? { body: bodyOf(record), path } : null;
+}
+
+/**
+ * Every work-state document in the vault as `{ stem, body }` — the raw input for
+ * `mimir doctor`'s body-section check (MMR-166). Enumerates the node/project
+ * docs (`vault.find`), then batch-reads their bodies (`vault.get … .body`) and
+ * keys each back by path. A vault diagnostic reads the disk directly, so it is
+ * independent of the node read path (still SQLite until the Phase 4 cutover).
+ */
+export async function readAllNodeDocs(
+  client: NornClient,
+): Promise<{ stem: string; body: string }[]> {
+  const docs = await client.find({
+    in: ['type:project,task,phase,initiative'],
+    no_limit: true,
+  });
+  const paths = docs.map((doc) => doc.path);
+  // `vault.get` with an empty target list is unverified behavior (transitions
+  // feed makes the same guard) — short-circuit an empty/all-foreign vault.
+  if (paths.length === 0) {
+    return [];
+  }
+  const records = await client.get(paths, '.body');
+  const out: { stem: string; body: string }[] = [];
+  for (const record of records) {
+    const pb = pathAndBody(record);
+    if (pb !== null) {
+      out.push({ body: pb.body, stem: stemOf(pb.path) });
+    }
+  }
+  return out;
+}
+
 /** Ascending compare on the created-at ISO — annotations sort chronologically to
  * match the SQLite backend's `order by created_at`, ties keep document order. */
 function byCreatedAt(a: AnnotationView, b: AnnotationView): number {

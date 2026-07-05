@@ -15,6 +15,18 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **`mimir doctor` — vault diagnostics** (MMR-166, ADR 0016 Phase 3). A new
+  command that runs a check registry over the vault and reports problems for a
+  human to fix; findings go to stderr with a nonzero exit so it can gate a
+  cutover, and `--format json`/`jsonl` emits the findings array. The first check
+  is **body-section record integrity**: it scans each node/project body for the
+  malformed `## History` / `## Annotations` records the read path
+  tolerate-and-skips (MMR-161) — an unknown transition kind, a missing or
+  unparseable edge line, or a non-ISO annotation heading — which the writer's
+  escaping never produces, so a hand edit is the only source. Scoped by `-s`
+  (default: the `.mimir.toml` binding; `all` = every project). A no-op on the
+  SQLite backend, where typed rows carry no malformable body sections — so it
+  lights up at the Norn cutover.
 - **Node `summary` — a short list lede** (MMR-162, ADR 0016 Refinement). A new
   optional, all-node field: a single-line summary (≤256 characters, embedded
   newlines stripped) surfaced in `list`/`next` rows and on the console board,
