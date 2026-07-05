@@ -53,11 +53,20 @@ function encodeCursor(p: Positioned): string {
   return `${p.at}${SEP}${p.stem}${SEP}${String(p.idx)}`;
 }
 
-/** Decode a resume cursor; throws a validation error on a malformed token. */
+/** Decode a resume cursor; throws a validation error on a malformed token.
+ * `rawIdx === ''` is rejected explicitly — `Number('')` is `0`, so a
+ * trailing-separator cursor (`at|stem|`) would otherwise decode as `idx: 0`. */
 function decodeCursor(since: string): { at: string; stem: string; idx: number } {
   const [at, stem, rawIdx, ...rest] = since.split(SEP);
   const idx = Number(rawIdx);
-  if (at === undefined || stem === undefined || rest.length > 0 || !Number.isInteger(idx)) {
+  if (
+    at === undefined ||
+    stem === undefined ||
+    rawIdx === undefined ||
+    rawIdx === '' ||
+    rest.length > 0 ||
+    !Number.isInteger(idx)
+  ) {
     throw validation(`invalid cursor ${since}`, 'pass back a next_cursor you were given');
   }
   return { at, idx, stem };
@@ -78,15 +87,20 @@ function cmp(a: Positioned, b: { at: string; stem: string; idx: number }): numbe
  * The Norn transition feed — there is no global log, so every node/project
  * `## History` section is fanned out of the vault (one `find` for the doc set,
  * one bulk `.body` `get`), sliced, parsed, and merged into one chronologically
- * ordered stream. The append-only SQLite `transition_log`'s integer id cursor
- * becomes an `(at, stem, index)` composite: entries sort by transition time,
- * then by owning document, then by their order within that document's section.
+ * ordered stream keyed by `(at, stem, index)`.
  *
- * Cross-node ties on `at` order by stem here (the SQLite sibling orders by
- * insertion id) — the accepted parity edge under identical timestamps (the
- * per-backend transition clock-source, ADR 0016 Phase 3 open question). Within
- * one document, section order is preserved, matching SQLite's per-node insertion
- * order.
+ * A markdown vault carries no global insertion sequence, so this `at`-primary
+ * order is a best-effort *approximation* of the SQLite feed's `transition_log.id`
+ * (true insertion) order — not a byte-for-byte match. They agree whenever `at`
+ * is monotonic in insertion order (the normal case); they diverge when it is
+ * not (a clock step-back, a backfilled/imported transition, a hand-edited
+ * `## History`), both across nodes on an equal `at` and within one node on a
+ * non-monotonic `at`. For the same reason the `(at, stem, index)` resume cursor
+ * is not a true monotonic sequence: a transition appended after a cursor was
+ * issued but stamped with an earlier `at` sorts before it and is skipped, where
+ * SQLite's `id > since` would still deliver it. These are inherent limits of the
+ * markdown backend, tracked for the Phase-4 cutover (MMR-160 follow-up); the A/B
+ * parity harness therefore compares the two feeds as a *set*, not by page order.
  */
 export function createNornTransitionsFeed(client: NornClient): TransitionsFeed {
   return {
@@ -94,7 +108,10 @@ export function createNornTransitionsFeed(client: NornClient): TransitionsFeed {
       if (opts.limit !== undefined && (!Number.isInteger(opts.limit) || opts.limit < 1)) {
         throw validation(`invalid limit ${String(opts.limit)}`);
       }
-      const after = opts.since === undefined ? undefined : decodeCursor(opts.since);
+      // An absent OR empty `since` reads from the start — the SQLite feed accepts
+      // `''` (its `Number('') === 0`), so both backends agree on an empty cursor.
+      const after =
+        opts.since === undefined || opts.since === '' ? undefined : decodeCursor(opts.since);
 
       const docs = await client.find({
         in: ['type:project,task,phase,initiative'],
@@ -106,6 +123,11 @@ export function createNornTransitionsFeed(client: NornClient): TransitionsFeed {
         if (token !== null) {
           tokenByPath.set(doc.path, token);
         }
+      }
+      // `vault.get` is never called with an empty target list (an empty or
+      // all-malformed vault) — its behavior there is unverified, so short-circuit.
+      if (tokenByPath.size === 0) {
+        return { items: [] };
       }
 
       const records = await client.get([...tokenByPath.keys()], '.body');

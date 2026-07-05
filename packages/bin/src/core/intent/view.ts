@@ -16,6 +16,7 @@ import type { DerivationSet } from '../derive';
 import {
   childDistribution,
   deriveSet,
+  findProjectInSet,
   isNodeSettled,
   leafDistribution,
   lineageIds,
@@ -335,7 +336,7 @@ export async function projectViewByKey(
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView | undefined> {
   const set = deriveSet(await store.loadWorkingSet());
-  const project = set.ws.projects.find((p) => p.key === key);
+  const project = findProjectInSet(set, key);
   return project === undefined
     ? undefined
     : buildProjectView(store.artifacts, set, project, facets);

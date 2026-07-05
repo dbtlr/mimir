@@ -60,7 +60,14 @@ test('a project doc renders its KEY as the transition entity', async () => {
   );
   const { items } = await feed.list();
   expect(items).toEqual([
-    { at: '2026-07-04T08:00:00.000Z', from: null, kind: 'lifecycle', node: 'MMR', reason: null, to: 'archived' },
+    {
+      at: '2026-07-04T08:00:00.000Z',
+      from: null,
+      kind: 'lifecycle',
+      node: 'MMR',
+      reason: null,
+      to: 'archived',
+    },
   ]);
 });
 
@@ -94,4 +101,32 @@ test('a bad cursor and a bad limit are rejected', async () => {
   const feed = createNornTransitionsFeed(fakeClient([]));
   expect(feed.list({ since: 'not-a-cursor' })).rejects.toThrow(/cursor/);
   expect(feed.list({ limit: 0 })).rejects.toThrow(/limit/);
+});
+
+test('a trailing-separator cursor (empty idx) is rejected, not decoded as idx 0', async () => {
+  const feed = createNornTransitionsFeed(fakeClient([]));
+  // `2026-07-04T10:00:00.000Z|MMR-3|`.split('|') → [..., ''] and Number('') === 0,
+  // which would silently resume from position 0 without the explicit reject.
+  expect(feed.list({ since: '2026-07-04T10:00:00.000Z|MMR-3|' })).rejects.toThrow(/cursor/);
+});
+
+test("an empty `since` reads from the start (parity with SQLite's Number('') === 0)", async () => {
+  const feed = createNornTransitionsFeed(
+    fakeClient([{ history: [entry('2026-07-04T10:00:00.000Z', 'a')], path: 'MMR/MMR-3.md' }]),
+  );
+  expect((await feed.list({ since: '' })).items.map((i) => i.to)).toEqual(['a']);
+});
+
+test('an empty vault returns no items without calling get([]) with empty targets', async () => {
+  let getCalledWith: string[] | undefined;
+  const client = {
+    find: () => Promise.resolve([]),
+    get: (targets: string[]) => {
+      getCalledWith = targets;
+      return Promise.resolve([]);
+    },
+  } as unknown as NornClient;
+  const feed = createNornTransitionsFeed(client);
+  expect(await feed.list()).toEqual({ items: [] });
+  expect(getCalledWith).toBeUndefined(); // guarded — get is never called with []
 });

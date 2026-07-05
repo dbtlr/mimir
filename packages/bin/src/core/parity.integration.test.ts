@@ -539,10 +539,12 @@ const cmpTransition = (x: TransitionView, y: TransitionView): number =>
 
 // The cross-node transitions feed (MMR-160): SQLite reads the append-only
 // `transition_log`; Norn fans out every `## History` section and merges them.
-// Both must surface the same set of transitions — including a project-keyed
-// archive row. Compared under a total sort (at, node, kind, to, from) so an
-// intra-`at` cross-node tie (SQLite orders by insertion id, Norn by stem — the
-// documented Phase-3 clock-source edge) can't flake the diff.
+// Both must surface the same SET of transitions — including a project-keyed
+// archive row. This asserts set equality, NOT page order: a markdown vault has
+// no global insertion sequence, so the Norn feed's `at`-order only approximates
+// SQLite's `id`-order (they diverge under a non-monotonic `at` — see
+// transitions/norn.ts) and exact page-order parity is inherently unachievable.
+// The total sort (at, node, kind, to, from) canonicalizes both before the diff.
 test.skipIf(!NORN)('migrated parity: the cross-node transitions feed matches', async () => {
   const p = await createProject(sqlite, { key: 'MMR', name: 'Mimir' });
   const init = await createInitiative(sqlite, { projectId: p.id, title: 'Init' });
