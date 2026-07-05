@@ -65,7 +65,13 @@ import {
   updateProject,
   validation,
 } from '../core';
-import type { RankPosition, Store, UpdateFields, UpdateProjectFields } from '../core';
+import type {
+  DerivationSet,
+  RankPosition,
+  Store,
+  UpdateFields,
+  UpdateProjectFields,
+} from '../core';
 
 /**
  * The MCP tool handlers — the agent envelope over the shared intent layer.
@@ -108,10 +114,16 @@ async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {
   }
 }
 
-/** Resolve a node token to its surrogate id — the MCP binding of the core guard,
- * over the working-set snapshot (MMR-160, no raw db). */
+/** Resolve a node token against an already-derived set — the multi-token twin
+ * `nodeId` uses when a handler resolves several tokens over ONE snapshot. */
+function nodeIdIn(set: DerivationSet, id: string, expected = 'node'): number {
+  return resolveNodeTokenInSet(set, id, expected);
+}
+
+/** Resolve a node token over its own fresh working-set snapshot (MMR-160, no raw
+ * db). Handlers resolving multiple tokens derive one set + `nodeIdIn`. */
 async function nodeId(store: Store, id: string, expected = 'node'): Promise<number> {
-  return resolveNodeTokenInSet(deriveSet(await store.loadWorkingSet()), id, expected);
+  return nodeIdIn(deriveSet(await store.loadWorkingSet()), id, expected);
 }
 
 /**
@@ -382,8 +394,9 @@ export function toolUnblock(store: Store, args: { id: string }): Promise<ToolRes
 
 export function toolDepend(store: Store, args: { id: string; on: string[] }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(store, args.id);
-    const onIds = await Promise.all(args.on.map((t) => nodeId(store, t)));
+    const set = deriveSet(await store.loadWorkingSet());
+    const id = nodeIdIn(set, args.id);
+    const onIds = args.on.map((t) => nodeIdIn(set, t));
     const node = await depend(store, id, onIds);
     return echoNode(store, node);
   });
@@ -394,8 +407,9 @@ export function toolUndepend(
   args: { id: string; on: string[] },
 ): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(store, args.id);
-    const onIds = await Promise.all(args.on.map((t) => nodeId(store, t)));
+    const set = deriveSet(await store.loadWorkingSet());
+    const id = nodeIdIn(set, args.id);
+    const onIds = args.on.map((t) => nodeIdIn(set, t));
     const node = await undepend(store, id, onIds);
     return echoNode(store, node);
   });
@@ -407,9 +421,8 @@ export function toolUndepend(
 
 export function toolMove(store: Store, args: { id: string; to: string }): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(store, args.id);
-    const toId = await nodeId(store, args.to);
-    const node = await moveNode(store, id, toId);
+    const set = deriveSet(await store.loadWorkingSet());
+    const node = await moveNode(store, nodeIdIn(set, args.id), nodeIdIn(set, args.to));
     return echoNode(store, node);
   });
 }

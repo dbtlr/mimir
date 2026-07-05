@@ -10,7 +10,7 @@ import {
 import { isMember } from '@mimir/helpers';
 import type { Server } from 'bun';
 
-import type { ListOptions, RankPosition, Store, UpdateFields } from '../core';
+import type { DerivationSet, ListOptions, RankPosition, Store, UpdateFields } from '../core';
 import {
   abandonTask,
   annotate,
@@ -101,13 +101,20 @@ const PROJECT_LIST_FACETS: readonly FacetName[] = [
   'leafCounts',
 ];
 
-/** Resolve a node token for a verb — the HTTP binding of the core guard, over
- * the working-set snapshot (MMR-160, no raw db), with route pointers. */
-async function nodeRef(store: Store, token: string, expected = 'node'): Promise<number> {
-  return resolveNodeTokenInSet(deriveSet(await store.loadWorkingSet()), token, expected, {
+/** Resolve a node token against an already-derived set — the HTTP binding of the
+ * core guard, with route pointers. The multi-token twin `nodeRef` uses when a
+ * handler resolves several tokens over ONE snapshot (depend/undepend/move). */
+function nodeRefIn(set: DerivationSet, token: string, expected = 'node'): number {
+  return resolveNodeTokenInSet(set, token, expected, {
     artifact: 'artifacts live at /api/artifacts',
     project: 'projects live at /api/projects',
   });
+}
+
+/** Resolve a single node token over its own fresh working-set snapshot (MMR-160,
+ * no raw db). Handlers resolving multiple tokens derive one set + `nodeRefIn`. */
+async function nodeRef(store: Store, token: string, expected = 'node'): Promise<number> {
+  return nodeRefIn(deriveSet(await store.loadWorkingSet()), token, expected);
 }
 
 /** The keys of every archived project — the exclude set for the artifact feed (ADR 0015). */
@@ -630,8 +637,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (on === undefined || on.length === 0) {
               throw validation('depend requires on');
             }
-            const id = await nodeRef(store, req.params.id);
-            const onIds = await Promise.all(on.map((t) => nodeRef(store, t)));
+            const set = deriveSet(await store.loadWorkingSet());
+            const id = nodeRefIn(set, req.params.id);
+            const onIds = on.map((t) => nodeRefIn(set, t));
             return echoNode(store, req, await depend(store, id, onIds));
           }),
       },
@@ -653,11 +661,8 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             const body = await readBody(req, ['to']);
             const to = requiredStr(body, 'to', 'move');
-            const node = await moveNode(
-              store,
-              await nodeRef(store, req.params.id),
-              await nodeRef(store, to),
-            );
+            const set = deriveSet(await store.loadWorkingSet());
+            const node = await moveNode(store, nodeRefIn(set, req.params.id), nodeRefIn(set, to));
             return echoNode(store, req, node);
           }),
       },
@@ -817,8 +822,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (on === undefined || on.length === 0) {
               throw validation('undepend requires on');
             }
-            const id = await nodeRef(store, req.params.id);
-            const onIds = await Promise.all(on.map((t) => nodeRef(store, t)));
+            const set = deriveSet(await store.loadWorkingSet());
+            const id = nodeRefIn(set, req.params.id);
+            const onIds = on.map((t) => nodeRefIn(set, t));
             return echoNode(store, req, await undepend(store, id, onIds));
           }),
       },
@@ -935,7 +941,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         GET: (req) =>
           guarded(req, async () => {
             const q = new URL(req.url).searchParams;
-            const since = q.get('since') ?? undefined;
+            // An empty `?since=` is an absent cursor, not the cursor `''` — the
+            // two backends decode `''` divergently (SQLite from-start, Norn throws).
+            const since = q.get('since') || undefined;
             let limit: number | undefined;
             const rawLimit = q.get('limit');
             if (rawLimit !== null) {

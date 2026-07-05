@@ -9,7 +9,7 @@
  */
 
 import type { DerivationSet } from './derive';
-import { findNodeInSet } from './derive';
+import { findNodeInSet, findProjectInSet } from './derive';
 import { notFound, projectNotFound, validation } from './errors';
 import { parseIdentity } from './ids';
 import type { EntityRef } from './mutations/tags';
@@ -37,7 +37,7 @@ export function resolveNodeTokenInSet(
 
 /** Set-based project-key resolution — throws `not_found` for an unknown key. */
 export function resolveProjectKeyInSet(set: DerivationSet, key: string): number {
-  const project = set.ws.projects.find((p) => p.key === key);
+  const project = findProjectInSet(set, key);
   if (project === undefined) {
     throw projectNotFound(key);
   }

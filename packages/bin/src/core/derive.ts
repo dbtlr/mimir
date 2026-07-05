@@ -2,7 +2,7 @@ import type { StatusWord } from '@mimir/contract';
 
 import { MimirError, invariant } from './errors';
 import { parseId, renderId } from './ids';
-import type { Node } from './model';
+import type { Node, Project } from './model';
 import { interpret, tally, taskStatus } from './status';
 import type { Distribution } from './status';
 import type { WorkingSet } from './store';
@@ -162,11 +162,18 @@ export function findNodeInSet(set: DerivationSet, id: string): Node | undefined 
   if (ref === null) {
     return undefined;
   }
-  const project = set.ws.projects.find((p) => p.key === ref.key);
+  const project = findProjectInSet(set, ref.key);
   if (project === undefined) {
     return undefined;
   }
   return set.ws.nodes.find((n) => n.project_id === project.id && n.seq === ref.seq);
+}
+
+/** Resolve a project `KEY` to its Project against the working-set snapshot — the
+ * in-memory twin of a `project`-by-key row read; `undefined` for an unknown key.
+ * The by-key sibling of {@link findNodeInSet}. */
+export function findProjectInSet(set: DerivationSet, key: string): Project | undefined {
+  return set.ws.projects.find((p) => p.key === key);
 }
 
 /** Terminal = a decided end state. `abandoned` counts as terminal (and never freezes a parent). */
