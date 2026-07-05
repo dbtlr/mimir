@@ -95,17 +95,29 @@ export async function buildNodeView(
   if (facets.has('tags')) {
     view.tags = buildTags(set, node.id);
   }
-  if (facets.has('description')) {
-    view.description = await bodySections.readDescription(node.id, view.id);
-  }
-  if (facets.has('annotations')) {
-    view.annotations = await bodySections.readAnnotations(node.id, view.id);
+  // The three body-section facets read one node document — fetch its body once
+  // and slice all requested sections in a single backend round-trip (MMR-164, F6).
+  const wantDescription = facets.has('description');
+  const wantAnnotations = facets.has('annotations');
+  const wantHistory = facets.has('history');
+  if (wantDescription || wantAnnotations || wantHistory) {
+    const sections = await bodySections.readSections(node.id, view.id, {
+      annotations: wantAnnotations,
+      description: wantDescription,
+      history: wantHistory,
+    });
+    if (wantDescription) {
+      view.description = sections.description ?? null;
+    }
+    if (wantAnnotations) {
+      view.annotations = sections.annotations ?? [];
+    }
+    if (wantHistory) {
+      view.history = sections.history ?? [];
+    }
   }
   if (facets.has('artifacts')) {
     view.artifacts = await buildArtifacts(artifacts, set, node.id);
-  }
-  if (facets.has('history')) {
-    view.history = await bodySections.readHistory(node.id, view.id);
   }
   if (facets.has('verdicts')) {
     view.verdicts = verdictsOf(set, node);

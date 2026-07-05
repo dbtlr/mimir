@@ -249,3 +249,44 @@ unescaped `### ` line inside a record body (F4).
   - To include a heading-shaped line (`#`..`######` + space) inside a reason or
     annotation body, prefix it with a backslash (`\### like this`) — the same
     escape the write path applies; it is stripped on read.
+
+## Refinement (2026-07-05, MMR-164): the cross-node transitions feed is at-ordered best-effort, not byte-parity
+
+The whole-portfolio transition feed (`/api/transitions`, ADR 0002/0003) is a
+two-backend seam like history/annotations, but unlike them it **cannot** be made
+byte-parity across backends. SQLite reads the append-only `transition_log` in
+insertion (`id`) order; the Norn backend has no global log — it fans every
+node/project `## History` section out of the vault and merges them, keyed by
+`(at, stem, index)`. A markdown vault carries no global insertion sequence, so
+this is the root constraint, not an implementation gap.
+
+- **The feed's contract is `at`-ordered best-effort, and that is accepted.**
+  Three divergences from the SQLite feed follow from the missing global sequence,
+  all documented and accepted: (1) page **order** diverges under a non-monotonic
+  `at` — a clock step-back, a backfilled/imported transition, a hand-edited
+  `## History` — both across nodes on an equal `at` and within one node; (2) the
+  `(at, stem, index)` resume **cursor** is not truly monotonic — a transition
+  appended after a cursor was issued but stamped with an earlier `at` sorts
+  before it and is skipped, where SQLite's `id > since` still delivers it; (3)
+  each `list` **re-fans and parses the whole vault** — `since`/`limit` cannot
+  push down, because `at` lives per-transition in the body, which Norn's `find`
+  (a frontmatter query) cannot filter.
+- **No durable per-transition sequence is added.** Fixing any of the three at the
+  root requires a monotonic global sequence persisted in the vault (a
+  per-transition `seq`, or an append-only transition-index document) — which
+  reintroduces exactly the cross-doc coordination point ("allocate the next
+  global number under concurrent writers") that this ADR's "markdown = truth, no
+  global insertion sequence" premise exists to avoid. That cost is not paid for a
+  surface **with no live consumer**: the UI's timeline is per-node (built from
+  the node-detail history/annotations facets), the `/api/transitions` route is
+  served but no client reads it, and the agent (MCP) envelope does not expose it.
+- **A strict feed is a consumer-driven follow-up (MMR-168).** If a portfolio
+  activity-stream consumer that needs exactly-once / insertion-order semantics
+  ever lands, the durable-sequence design is revisited against that consumer's
+  actual requirements — not speculatively now. Until then the A/B parity harness
+  compares the two feeds as a **set**, not by page order.
+- **Efficiency (F6):** the node-detail body-section reads are batched — a `get`
+  assembling `description` + `annotations` + `history` fetches the node
+  document's `.body` **once** and slices each section (`BodySectionStore`'s
+  `readSections`), instead of one `.body` fetch per facet. This is orthogonal to
+  the feed contract but was folded in with it.

@@ -10,7 +10,7 @@ import {
   parseHistorySection,
   sliceBodySection,
 } from '../history-codec';
-import type { BodySectionStore } from './store';
+import type { BodySections, BodySectionStore } from './store';
 
 /** The `.body` string of a `vault.get` record; missing/absent bodies read empty. */
 function bodyOf(record: unknown): string {
@@ -47,14 +47,33 @@ function byCreatedAt(a: AnnotationView, b: AnnotationView): number {
  * document order (its SQLite sibling orders by insertion, which is the same).
  */
 export function createNornBodySectionStore(client: NornClient): BodySectionStore {
+  // The single body fetch every read routes through: one `.body` per node
+  // document, sliced into each requested section (MMR-164, F6). The single-facet
+  // methods are `want`-of-one wrappers, so a multi-facet detail `get` costs one
+  // Norn round-trip instead of three.
+  const readSections: BodySectionStore['readSections'] = async (_nodeId, stem, want) => {
+    const body = await readBody(client, stem);
+    const sections: BodySections = {};
+    if (want.description === true) {
+      sections.description = parseDescriptionSection(sliceBodySection(body, DESCRIPTION_HEADING));
+    }
+    if (want.annotations === true) {
+      sections.annotations = parseAnnotationsSection(
+        sliceBodySection(body, ANNOTATIONS_HEADING),
+      ).toSorted(byCreatedAt);
+    }
+    if (want.history === true) {
+      sections.history = parseHistorySection(sliceBodySection(body, HISTORY_HEADING));
+    }
+    return sections;
+  };
   return {
-    readAnnotations: async (_nodeId, stem) =>
-      parseAnnotationsSection(
-        sliceBodySection(await readBody(client, stem), ANNOTATIONS_HEADING),
-      ).toSorted(byCreatedAt),
-    readDescription: async (_nodeId, stem) =>
-      parseDescriptionSection(sliceBodySection(await readBody(client, stem), DESCRIPTION_HEADING)),
-    readHistory: async (_nodeId, stem) =>
-      parseHistorySection(sliceBodySection(await readBody(client, stem), HISTORY_HEADING)),
+    readAnnotations: async (nodeId, stem) =>
+      (await readSections(nodeId, stem, { annotations: true })).annotations ?? [],
+    readDescription: async (nodeId, stem) =>
+      (await readSections(nodeId, stem, { description: true })).description ?? null,
+    readHistory: async (nodeId, stem) =>
+      (await readSections(nodeId, stem, { history: true })).history ?? [],
+    readSections,
   };
 }

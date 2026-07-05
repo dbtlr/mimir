@@ -54,6 +54,38 @@ test('a missing document (no records returned) reads back empty, not a throw', a
   expect(await store.readAnnotations(9, 'MMR-9')).toEqual([]);
 });
 
+test('readSections fetches the document body once for all requested facets (MMR-164 F6)', async () => {
+  // A detail `get` wanting description + annotations + history must cost ONE
+  // `.body` fetch, not three — the whole point of the batched read.
+  let gets = 0;
+  const client = {
+    get: (targets: string[], col?: string) => {
+      gets += 1;
+      expect(col).toBe('.body');
+      expect(targets).toEqual(['MMR-9']);
+      return Promise.resolve([{ body: nodeBody(), path: 'MMR/MMR-9.md' }]);
+    },
+  } as unknown as NornClient;
+  const store = createNornBodySectionStore(client);
+  const sections = await store.readSections(9, 'MMR-9', {
+    annotations: true,
+    description: true,
+    history: true,
+  });
+  expect(gets).toBe(1);
+  expect(sections.description).toBe('a task');
+  expect(sections.annotations).toEqual([ANNOTATION]);
+  expect(sections.history).toEqual([HISTORY]);
+});
+
+test('readSections populates only the requested facets (MMR-164)', async () => {
+  const store = createNornBodySectionStore(clientWithBody(nodeBody()));
+  const sections = await store.readSections(9, 'MMR-9', { history: true });
+  expect(sections.history).toEqual([HISTORY]);
+  expect(sections.annotations).toBeUndefined();
+  expect(sections.description).toBeUndefined();
+});
+
 test('annotations sort by created-at, not document order (parity with SQLite)', async () => {
   // Two notes appended out of chronological order (a backfill / clock-skew shape)
   // must read back in created-at order, matching the SQLite `order by created_at`.
