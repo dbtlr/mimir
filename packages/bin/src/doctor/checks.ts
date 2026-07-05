@@ -36,18 +36,42 @@ export type Diagnostic = {
   run: (ctx: DoctorContext) => Promise<DoctorFinding[]>;
 };
 
-const PROBLEM_MESSAGE: Record<BodyRecordProblem, string> = {
-  'malformed-history-heading': 'history heading is not a valid record',
-  'non-iso-annotation-heading': 'annotation heading is not an ISO-8601 timestamp',
-  'unknown-transition-kind': 'history record has an unknown transition kind',
-  'unparseable-history-record': 'history record is missing or has an unparseable edge line',
-};
+/**
+ * Per-problem severity + message. The read path (MMR-161) is deliberately
+ * tolerant: an unescaped `### ` line that isn't a valid record boundary stays as
+ * the enclosing record's content — preserved, not lost. So only a genuinely
+ * *dropped* record is an `error` (a valid heading whose record the reader filters
+ * out, losing the transition); a heading-shaped line the reader keeps as text is
+ * a `warn` — it reads fine, but it looks like a record a hand edit may have meant.
+ * Only `error` findings gate (nonzero exit), so a warn never blocks a cutover.
+ */
+const PROBLEM: Record<BodyRecordProblem, { severity: DoctorFinding['severity']; message: string }> =
+  {
+    'malformed-history-heading': {
+      message:
+        'looks like a history record heading but is not one — read as text, not a transition',
+      severity: 'warn',
+    },
+    'non-iso-annotation-heading': {
+      message: 'looks like an annotation heading but is not an ISO-8601 timestamp — read as text',
+      severity: 'warn',
+    },
+    'unknown-transition-kind': {
+      message: 'history heading has an unknown transition kind — read as text, not a transition',
+      severity: 'warn',
+    },
+    'unparseable-history-record': {
+      message: 'history record dropped on read — missing or unparseable edge line',
+      severity: 'error',
+    },
+  };
 
 /**
  * Body-section record integrity: scan each node/project body for malformed
- * `## History` / `## Annotations` records — the ones the read path (MMR-161)
- * tolerate-and-skips with no channel to warn. Every finding is an `error`: a
- * malformed record is silently dropped or mis-absorbed on read.
+ * `## History` / `## Annotations` records. An `error` is a record the reader
+ * drops (a lost transition); a `warn` is a heading-shaped line the reader keeps
+ * as content but that looks like an intended record — surfaced for a human, not
+ * a gate.
  */
 export const bodySectionCheck: Diagnostic = {
   name: 'body-sections',
@@ -55,11 +79,12 @@ export const bodySectionCheck: Diagnostic = {
     const findings: DoctorFinding[] = [];
     for (const { stem, body } of await ctx.readNodeDocs()) {
       for (const f of lintBodySections(body)) {
+        const { message, severity } = PROBLEM[f.problem];
         findings.push({
           check: 'body-sections',
-          message: `${PROBLEM_MESSAGE[f.problem]} — ${f.heading}`,
+          message: `${message} — ${f.heading}`,
           node: stem,
-          severity: 'error',
+          severity,
           where: `${f.section} · line ${String(f.line)}`,
         });
       }
