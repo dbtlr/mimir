@@ -171,6 +171,7 @@ release. When a release is cut, this section is promoted to
   snapshot both backends produce, and the transitional `store.db` member leaves
   the `Store` interface entirely. The production SQLite path is unchanged; this
   is the groundwork that lets the Norn backend become selectable at cutover.
+- **Node `description` is body-authoritative** (MMR-162, ADR 0016 Refinement).
   The full prose now lives only in the `## Task Description` body section — read
   on a detail `get` (as the `description` facet) and no longer carried in bulk
   `list`/`next` rows, and no longer a frontmatter field. This preserves
