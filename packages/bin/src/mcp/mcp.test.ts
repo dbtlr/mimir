@@ -239,6 +239,20 @@ test('update patches scalar fields and echoes them', async () => {
   expect(v.priority).toBe('p1');
 });
 
+test('update echoes the description and summary it set (MMR-162)', async () => {
+  // description is facet-gated now; the tool echo must still return it (and the
+  // bulk-cheap summary), else an MCP client cannot confirm the write.
+  const res = await toolUpdate(store, {
+    description: 'the full prose body',
+    id: taskRef,
+    summary: 'the lede',
+  });
+  expect(res.isError).toBeUndefined();
+  const v = parseJson<{ description?: string; summary?: string }>(textOf(res));
+  expect(v.description).toBe('the full prose body');
+  expect(v.summary).toBe('the lede');
+});
+
 test('annotate echoes the node', async () => {
   const res = await toolAnnotate(store, { content: 'looked into this', id: taskRef });
   expect(res.isError).toBeUndefined();

@@ -4,6 +4,8 @@
  * affected node back to stdout in the requested format.
  */
 
+import type { FacetName } from '@mimir/contract';
+
 import {
   nodeViewOf,
   projectViewOf,
@@ -21,6 +23,14 @@ import { renderNodeView, signpost } from './render';
 import type { Format, Io } from './render';
 
 export type { Format };
+
+/**
+ * The write-echo facet set. `description` is facet-gated (MMR-162), so a mutation
+ * that set it must request the facet to echo the value back — otherwise the
+ * record a `create`/`update` prints omits the field it just wrote. Kept to
+ * `description` alone to match the pre-MMR-162 bare-field echo shape.
+ */
+const WRITE_ECHO_FACETS = new Set<FacetName>(['description']);
 
 /**
  * Resolve a node token to its surrogate integer id — the CLI's binding of the
@@ -84,7 +94,7 @@ export async function echoNode(
   if (node === undefined) {
     throw notFound('the record vanished before echo');
   }
-  const view = await nodeViewOf(store, node);
+  const view = await nodeViewOf(store, node, WRITE_ECHO_FACETS);
   renderNodeView(view, format, io);
 }
 
@@ -106,7 +116,7 @@ export async function echoNodeWith(
   if (node === undefined) {
     throw notFound('the record vanished before echo');
   }
-  const view = await nodeViewOf(store, node);
+  const view = await nodeViewOf(store, node, WRITE_ECHO_FACETS);
   signpost(io, format, makeSignpost(view.id));
   renderNodeView(view, format, io);
 }
