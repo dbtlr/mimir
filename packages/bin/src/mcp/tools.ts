@@ -125,7 +125,7 @@ async function projectId(store: Store, key: string): Promise<number> {
 /**
  * Echo a returned Node row as bare JSON (the mutation echo contract).
  * Accepts the Node row returned directly by mutation verbs — no reload needed.
- * Typed via `Parameters` to avoid importing `Node` from store.db directly.
+ * Typed via `Parameters` to avoid importing the `Node` row type directly.
  * Requests the `description` facet (facet-gated since MMR-162) so a mutation that
  * set it echoes the value back rather than dropping the field it just wrote.
  */

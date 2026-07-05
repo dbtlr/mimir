@@ -19,8 +19,9 @@ export { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
  * `## History` reconstruction, exact id continuity) is Phase 3. SQLite stays the
  * source of truth here; the seed only writes into the vault.
  *
- * Frontmatter only — no `## History`, no `## Annotations` (those surfaces read
- * on `store.db` until Phase 3). The filename stem is the canonical id
+ * Frontmatter only — no `## History`, no `## Annotations` (the seed predates the
+ * Phase-3 body-section reconstruction; the authoritative migration writes them).
+ * The filename stem is the canonical id
  * (`KEY/KEY.md` for a project, `KEY/KEY-seq.md` for a node); `parent`/
  * `depends_on` are written as real wikilinks (Norn collapses brackets in field
  * matching). Layout mirrors the artifact seam (`core/artifacts/norn.ts`).

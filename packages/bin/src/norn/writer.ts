@@ -5,8 +5,6 @@ import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import { createNornArtifactStore } from '../core/artifacts';
 import { createNornBodySectionStore } from '../core/body-sections';
-import type { Db } from '../core/context';
-import { createNornTransitionsFeed } from '../core/transitions';
 import { invariant } from '../core/errors';
 import {
   ANNOTATIONS_HEADING,
@@ -31,6 +29,7 @@ import type {
 import type { NornSnapshot } from '../core/store-norn';
 import { loadNornSnapshot, loadWorkingSetOverNorn } from '../core/store-norn';
 import { now } from '../core/time';
+import { createNornTransitionsFeed } from '../core/transitions';
 import { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
 import type { NornClient } from './client';
 import type { MigrationOp } from './plan';
@@ -104,30 +103,13 @@ function nodePatchField(column: string): string {
   return column === 'parent_id' ? 'parent' : column;
 }
 
-/** norn refuses `append_to_section` / `set_frontmatter` on a missing heading —
- * a create seeds `## History`; every mutation appends under it. */
-/** A `db` handle that fails loud: the Norn store composes plan ops, never SQL. */
-const dbTrapHandler: ProxyHandler<object> = {
-  get(_t, prop) {
-    throw new Error(
-      `Norn write store: store.db.${String(prop)} touched — the write path composes plan ops, never db`,
-    );
-  },
-};
-
 export function createNornWriteStore(client: NornClient, vaultRoot: string): Store {
-  // The Norn store has no SQLite handle; the trap satisfies the `Db` slot and
-  // fails loud on any stray read.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  const dbTrap = new Proxy({}, dbTrapHandler) as Db;
-
   return {
     artifacts: createNornArtifactStore(client),
     bodySections: createNornBodySectionStore(client),
-    db: dbTrap,
-    transitions: createNornTransitionsFeed(client),
     loadWorkingSet: () => loadWorkingSetOverNorn(client),
     transact: (fn) => runTransact(client, vaultRoot, fn),
+    transitions: createNornTransitionsFeed(client),
   };
 }
 
