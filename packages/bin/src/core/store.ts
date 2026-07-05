@@ -10,7 +10,6 @@ import type {
 
 import type { ArtifactStore } from './artifacts/store';
 import type { BodySectionStore } from './body-sections/store';
-import type { Db } from './context';
 import type { Artifact, Dependency, Node, Project, Tag } from './model';
 import type { TransitionsFeed } from './transitions/store';
 
@@ -228,14 +227,4 @@ export type Store = {
    * (SQLite) or the fanned-out `## History` sections (Norn).
    */
   readonly transitions: TransitionsFeed;
-
-  /**
-   * Transitional (MMR-133): the raw executor. After Phase 2b (MMR-148) every
-   * frontmatter-derived read derives from the working set, the per-node
-   * body-section facets moved to {@link bodySections} (MMR-154), and the
-   * cross-node transitions feed to {@link transitions} (MMR-160). What still
-   * rides the executor is the write verbs' token resolution; it leaves the
-   * interface when MMR-160 routes that through the working set.
-   */
-  readonly db: Db;
 };

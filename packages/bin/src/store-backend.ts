@@ -32,7 +32,12 @@ export function artifactBackend(config = readConfig()): ArtifactBackend {
 
 export type BuiltStore = {
   store: Store;
-  /** Release backend resources (the Norn subprocess); a no-op for SQLite. */
+  /**
+   * Release every backend resource: the source SQLite handle always, plus the
+   * Norn subprocess when that artifact backend is active. Owns the db lifecycle
+   * now that the raw handle no longer rides the Store (MMR-160) — callers close
+   * the built store and nothing else.
+   */
   close: () => Promise<void>;
 };
 
@@ -45,7 +50,7 @@ export type BuiltStore = {
 export async function buildStore(db: Db, backend = artifactBackend()): Promise<BuiltStore> {
   const base = createSqliteStore(db);
   if (backend === 'sqlite') {
-    return { close: () => Promise.resolve(), store: base };
+    return { close: () => db.destroy(), store: base };
   }
   const vault = resolveVault({
     configPath: readConfig().vault.path,
@@ -54,7 +59,10 @@ export async function buildStore(db: Db, backend = artifactBackend()): Promise<B
   await converge(vault.path, { allowCreate: vault.allowCreate, exec: bunExec });
   const client = new NornClient({ vaultPath: vault.path });
   return {
-    close: () => client.close(),
+    close: async () => {
+      await client.close();
+      await db.destroy();
+    },
     store: withArtifactStore(base, createNornArtifactStore(client)),
   };
 }

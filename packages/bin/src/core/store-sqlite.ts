@@ -3,8 +3,8 @@ import { createSqliteArtifactStore } from './artifacts/sqlite';
 import type { ArtifactStore } from './artifacts/store';
 import { createSqliteBodySectionStore } from './body-sections/sqlite';
 import type { Db, Tx } from './context';
-import { createSqliteTransitionsFeed } from './transitions/sqlite';
 import type { NodeTag, Store, StoreWriter, WorkingSet } from './store';
+import { createSqliteTransitionsFeed } from './transitions/sqlite';
 
 /**
  * The SQLite `Store` (ADR 0016 Phase 0) — the seam's first backend: five
@@ -175,13 +175,12 @@ export function createSqliteStore(db: Db): Store {
   return {
     artifacts: createSqliteArtifactStore(db),
     bodySections: createSqliteBodySectionStore(db),
-    db,
-    transitions: createSqliteTransitionsFeed(db),
     // Run the five bulk selects inside one read transaction so the projection is
     // a consistent snapshot — a concurrent write can't interleave between them.
     // The writer's own `loadWorkingSet` already runs inside its `transact` tx.
     loadWorkingSet: () => db.transaction().execute((tx) => loadWorkingSet(tx)),
     transact: (fn) => db.transaction().execute((tx) => fn(createWriter(tx))),
+    transitions: createSqliteTransitionsFeed(db),
   };
 }
 

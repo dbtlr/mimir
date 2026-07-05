@@ -236,7 +236,6 @@ async function main(argv: string[]): Promise<number> {
       server = createServer(built.store, { hunt: !noHunt, port, version: VERSION });
     } catch (err) {
       await built.close();
-      await db.destroy();
       if (err instanceof Error && 'code' in err && err.code === 'EADDRINUSE') {
         console.error(`✗ serve: ${err.message}`);
         console.error(
@@ -259,7 +258,6 @@ async function main(argv: string[]): Promise<number> {
         await server.stop();
       } finally {
         await built.close();
-        await db.destroy();
         process.exit(0);
       }
     };
@@ -277,10 +275,10 @@ async function main(argv: string[]): Promise<number> {
     try {
       await serveStdio(built.store, VERSION, findBinding(process.cwd()));
     } finally {
-      // serveStdio resolves when the stdio transport closes; release the Norn
-      // subprocess (its open pipes would otherwise keep the process alive).
+      // serveStdio resolves when the stdio transport closes; close releases the
+      // Norn subprocess (its open pipes would otherwise keep the process alive)
+      // and the db handle.
       await built.close();
-      await db.destroy();
     }
     return 0;
   }
@@ -316,10 +314,9 @@ async function main(argv: string[]): Promise<number> {
       vault: realVaultDeps(),
     });
   } finally {
-    // Release the artifact backend (a Norn subprocess would otherwise keep the
-    // process alive) before closing the database.
+    // close() releases the artifact backend (a Norn subprocess would otherwise
+    // keep the process alive) and the db handle (MMR-160).
     await built?.close();
-    await built?.store.db.destroy();
   }
 }
 

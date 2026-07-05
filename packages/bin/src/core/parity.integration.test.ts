@@ -98,8 +98,8 @@ afterEach(async () => {
  * The Norn-backed Store: reads project state off `loadWorkingSetOverNorn`,
  * artifacts off the Norn slice, and — the MMR-153 write path — mutates through
  * the {@link createNornWriteStore} `transact` (the coalesce-to-one-plan writer),
- * no longer a throwing stub. `db` stays a trap: a frontmatter read must never
- * touch it, and the write path composes plan ops, never SQL.
+ * no longer a throwing stub. No raw db handle exists (MMR-160): every read
+ * derives from the working set, every write composes plan ops, never SQL.
  */
 function createNornReadStore(c: NornClient): Store {
   return createNornWriteStore(c, join(root, 'vault'));
@@ -530,6 +530,13 @@ test.skipIf(!NORN)(
   },
 );
 
+/** A total order over a transition (at, node, kind, to, from) — normalizes both
+ * feeds before the diff so an intra-`at` cross-node tie can't flake it. */
+const cmpTransition = (x: TransitionView, y: TransitionView): number =>
+  `${x.at}|${x.node}|${x.kind}|${x.to ?? ''}|${x.from ?? ''}`.localeCompare(
+    `${y.at}|${y.node}|${y.kind}|${y.to ?? ''}|${y.from ?? ''}`,
+  );
+
 // The cross-node transitions feed (MMR-160): SQLite reads the append-only
 // `transition_log`; Norn fans out every `## History` section and merges them.
 // Both must surface the same set of transitions — including a project-keyed
@@ -548,11 +555,7 @@ test.skipIf(!NORN)('migrated parity: the cross-node transitions feed matches', a
   await archiveProject(sqlite, p.id, 'wrapped'); // a project-keyed transition row
 
   const norn = await migrateAndNorn();
-  const cmp = (x: TransitionView, y: TransitionView): number =>
-    `${x.at}|${x.node}|${x.kind}|${x.to ?? ''}|${x.from ?? ''}`.localeCompare(
-      `${y.at}|${y.node}|${y.kind}|${y.to ?? ''}|${y.from ?? ''}`,
-    );
-  const sorted = (r: { items: TransitionView[] }) => r.items.toSorted(cmp);
+  const sorted = (r: { items: TransitionView[] }) => r.items.toSorted(cmpTransition);
   const fromNorn = sorted(await norn.transitions.list());
   expect(fromNorn).toEqual(sorted(await sqlite.transitions.list()));
   expect(fromNorn.some((i) => i.node === 'MMR')).toBe(true); // the archive row survived
