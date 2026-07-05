@@ -582,3 +582,44 @@ test('reports absolute body line numbers across both sections, in document order
 test('a body with no History/Annotations sections yields no findings', () => {
   expect(lintBodySections(`## ${DESCRIPTION_HEADING}\n\njust prose\n`)).toEqual([]);
 });
+
+// ── MMR-167: CRLF line endings ───────────────────────────────────────────
+// A vault file saved with CRLF (a Windows editor / git autocrlf) leaves a
+// trailing `\r` on every line. The heading regexes are `$`-anchored and the
+// splitters split on `\n`, so without normalization a `## History\r` /
+// `### …\r` line matches nothing and every record silently vanishes on read.
+
+test('a CRLF-saved body reads its records back identically to LF (MMR-167)', () => {
+  const history = Object.values(SAMPLES);
+  const annotations = Object.values(ANNOTATIONS);
+  const crlf = renderMigratedNodeBody('a task', history, annotations).replaceAll('\n', '\r\n');
+  expect(parseHistorySection(sliceBodySection(crlf, 'History'))).toEqual(history);
+  expect(parseAnnotationsSection(sliceBodySection(crlf, 'Annotations'))).toEqual(annotations);
+});
+
+test('content authored with embedded CRLF normalizes to LF symmetrically (render+parse agree)', () => {
+  // A line ending is structural, not content: the render/escape path and the
+  // read path both normalize CRLF, so a reason authored with `\r\n` is stored
+  // and read back as LF — write and read agree (no dead CR left in the file).
+  const entry: HistoryEntry = {
+    at: '2026-07-03T10:00:00.000Z',
+    from: 'todo',
+    kind: 'lifecycle',
+    reason: 'line one\r\nline two',
+    to: 'done',
+  };
+  const rendered = renderHistoryRecord(entry);
+  expect(rendered).not.toContain('\r'); // the write path emits LF
+  expect(parseHistorySection(rendered)).toEqual([{ ...entry, reason: 'line one\nline two' }]);
+});
+
+test('lintBodySections finds a malformed record in a CRLF-saved body (no false-clean)', () => {
+  const crlf =
+    `## ${HISTORY_HEADING}\n### 2026-07-03T10:00:00.000Z — frobnicate\nfrom → to\n## ${ANNOTATIONS_HEADING}\n`.replaceAll(
+      '\n',
+      '\r\n',
+    );
+  const findings = lintBodySections(crlf);
+  expect(findings).toHaveLength(1);
+  expect(findings[0]?.problem).toBe('unknown-transition-kind');
+});

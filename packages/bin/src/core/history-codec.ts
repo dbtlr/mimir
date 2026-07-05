@@ -113,16 +113,30 @@ const HEADING = /^### (.+?) — (.+)$/;
 const HEADING_LINE = /^\\*#{1,6}\s/;
 const ESCAPED_HEADING_LINE = /^\\+#{1,6}\s/;
 
+/**
+ * Split a body into lines, tolerating CRLF (MMR-167). The codec's canonical line
+ * ending is LF: a vault file saved with `\r\n` — a Windows editor, or git
+ * `autocrlf` — leaves a trailing `\r` that the `$`-anchored heading regexes never
+ * match, so without this every record would silently vanish on read. Both the
+ * read splitters and the render/escape path route through here, so line endings
+ * normalize to LF uniformly and a read and write agree: a CRLF-saved file reads
+ * identically to its LF twin, and content authored with embedded CRLF is stored
+ * and read back as LF (a line ending is structural, not content — the per-line
+ * *content* still round-trips byte-for-byte through the escape). For LF input
+ * this splits identically to `split('\n')`.
+ */
+function splitLines(body: string): string[] {
+  return body.split(/\r?\n/);
+}
+
 function escapeBodyLines(body: string): string {
-  return body
-    .split('\n')
+  return splitLines(body)
     .map((line) => (HEADING_LINE.test(line) ? `\\${line}` : line))
     .join('\n');
 }
 
 function unescapeBodyLines(body: string): string {
-  return body
-    .split('\n')
+  return splitLines(body)
     .map((line) => (ESCAPED_HEADING_LINE.test(line) ? line.slice(1) : line))
     .join('\n');
 }
@@ -191,7 +205,7 @@ export function renderHistoryRecord(entry: HistoryEntry): string {
 function splitRecords(body: string, isBoundary: (line: string) => boolean): string[][] {
   const blocks: string[][] = [];
   let current: string[] | null = null;
-  for (const line of body.split('\n')) {
+  for (const line of splitLines(body)) {
     if (isBoundary(line)) {
       if (current !== null) {
         blocks.push(current);
@@ -338,7 +352,7 @@ export function parseAnnotationsSection(body: string): AnnotationView[] {
  * H2 boundaries, so a section round-trips through slice + parse.
  */
 export function sliceBodySection(body: string, heading: string): string {
-  const lines = body.split('\n');
+  const lines = splitLines(body);
   const start = lines.indexOf(`## ${heading}`);
   if (start === -1) {
     return '';
@@ -403,7 +417,7 @@ function sectionRange(lines: string[], heading: string): { start: number; end: n
  * backend and hands it here.
  */
 export function lintBodySections(body: string): BodyRecordFinding[] {
-  const lines = body.split('\n');
+  const lines = splitLines(body);
   const findings: BodyRecordFinding[] = [];
 
   const history = sectionRange(lines, HISTORY_HEADING);

@@ -296,6 +296,13 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **CRLF line endings in body-section reads** (MMR-167, ADR 0016 Phase 3). A
+  vault file saved with `\r\n` — a Windows editor, or git `autocrlf` — left a
+  trailing `\r` on every line that the `$`-anchored `## History` / `## Annotations`
+  record grammar never matched, so every record in that section silently vanished
+  on read (and `mimir doctor` reported a false clean). Body reads now normalize
+  line endings, so CRLF-saved records read back identically to LF. Pre-existing
+  (not an MMR-161 regression); surfaced by the MMR-161 review.
 - **Body-section reads are hardened against hand-edited vault content**
   (MMR-161, ADR 0016 Refinement). The `## History` / `## Annotations` record
   split now anchors on the record grammar — `### <at> — <kind>` for history,
