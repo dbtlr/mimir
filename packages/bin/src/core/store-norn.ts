@@ -3,6 +3,7 @@ import type { Lifecycle, NodeType } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import type { NornClient } from '../norn/client';
+import { collapse, stemOf, stringList } from '../norn/decode';
 import { invariant } from './errors';
 import { parseId } from './ids';
 import type { Dependency, Node, Project } from './model';
@@ -64,15 +65,6 @@ function enumFieldStrict<T extends string>(
   );
 }
 
-/** Collapse `[[STEM]]` (or a bare stem) to the stem text; null when unusable. */
-function collapse(link: unknown): string | null {
-  if (typeof link !== 'string') {
-    return null;
-  }
-  const inner = link.startsWith('[[') && link.endsWith(']]') ? link.slice(2, -2) : link;
-  return inner === '' ? null : inner;
-}
-
 /** Ascending string compare without a nested ternary (deterministic tiebreaks). */
 function cmpStr(a: string, b: string): number {
   if (a < b) {
@@ -85,16 +77,6 @@ function cmpStr(a: string, b: string): number {
 function linkStems(value: unknown): string[] {
   const raw = Array.isArray(value) ? value : [value];
   return raw.map(collapse).filter((s): s is string => s !== null);
-}
-
-function stringList(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
-}
-
-/** The document stem — the canonical id. `MMR/MMR-2.md` → `MMR-2`, `MMR/MMR.md` → `MMR`. */
-function stemOf(path: string): string {
-  const base = path.slice(path.lastIndexOf('/') + 1);
-  return base.endsWith('.md') ? base.slice(0, -3) : base;
 }
 
 /**
