@@ -309,6 +309,38 @@ export async function nodeViewOf(
   );
 }
 
+/**
+ * A node view resolved by surrogate id over a fresh snapshot (MMR-160) — the
+ * write-echo path when the caller holds only the id (the verb was invoked for
+ * effect, not its return). Loads the working set once, finds the node in it,
+ * and derives — no raw db read. `undefined` if the id is absent from the set.
+ */
+export async function nodeViewById(
+  store: Store,
+  id: number,
+  facets: ReadonlySet<FacetName> = new Set(),
+): Promise<NodeView | undefined> {
+  const set = deriveSet(await store.loadWorkingSet());
+  const node = set.nodeById.get(id);
+  return node === undefined
+    ? undefined
+    : buildNodeView(store.bodySections, store.artifacts, set, node, facets);
+}
+
+/** A project view resolved by `KEY` over a fresh snapshot (MMR-160) — the
+ * project write-echo path; `undefined` if no project has that key. */
+export async function projectViewByKey(
+  store: Store,
+  key: string,
+  facets: ReadonlySet<FacetName> = new Set(),
+): Promise<NodeView | undefined> {
+  const set = deriveSet(await store.loadWorkingSet());
+  const project = set.ws.projects.find((p) => p.key === key);
+  return project === undefined
+    ? undefined
+    : buildProjectView(store.artifacts, set, project, facets);
+}
+
 /** A project view over a fresh snapshot — the one-off echo path (verbs, transports). */
 export async function projectViewOf(
   store: Store,

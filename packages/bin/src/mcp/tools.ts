@@ -18,7 +18,10 @@ import {
   archiveProject,
   attachArtifact,
   blockTask,
+  deriveSet,
+  findNodeInSet,
   nodeViewOf,
+  projectViewByKey,
   projectViewOf,
   completeTask,
   createInitiative,
@@ -26,8 +29,8 @@ import {
   createProject,
   createTask,
   depend,
-  findNodeByRef,
-  resolveNodeToken,
+  resolveNodeTokenInSet,
+  resolveProjectKeyInSet,
   formatArtifactJson,
   formatNodeJson,
   formatSetJson,
@@ -42,7 +45,7 @@ import {
   projectNotFound,
   parkTask,
   reorder,
-  resolveEntityToken,
+  resolveEntityTokenInSet,
   reopenTask,
   returnTask,
   startTask,
@@ -105,25 +108,18 @@ async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {
   }
 }
 
-/** Resolve a node token to its surrogate id — the MCP binding of the core guard. */
+/** Resolve a node token to its surrogate id — the MCP binding of the core guard,
+ * over the working-set snapshot (MMR-160, no raw db). */
 async function nodeId(store: Store, id: string, expected = 'node'): Promise<number> {
-  return resolveNodeToken(store.db, id, expected);
+  return resolveNodeTokenInSet(deriveSet(await store.loadWorkingSet()), id, expected);
 }
 
 /**
- * Resolve a bare project KEY to its surrogate integer id.
+ * Resolve a bare project KEY to its surrogate integer id over the working set.
  * Throws not_found if no project with that key exists.
  */
 async function projectId(store: Store, key: string): Promise<number> {
-  const row = await store.db
-    .selectFrom('project')
-    .select('id')
-    .where('key', '=', key)
-    .executeTakeFirst();
-  if (row === undefined) {
-    throw projectNotFound(key);
-  }
-  return row.id;
+  return resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
 }
 
 /**
@@ -533,15 +529,11 @@ async function updateProjectTool(
   }
   await updateProject(store, pid, fields);
   // Echo the updated project through the same projection as getNode/get KEY
-  const project = await store.db
-    .selectFrom('project')
-    .selectAll()
-    .where('id', '=', pid)
-    .executeTakeFirst();
-  if (project === undefined) {
+  const view = await projectViewByKey(store, key);
+  if (view === undefined) {
     throw projectNotFound(key);
   }
-  return ok(formatNodeJson(await projectViewOf(store, project)));
+  return ok(formatNodeJson(view));
 }
 
 /** `update` on a `KEY-aN` id — title is an artifact's one mutable field (MMR-40). */
@@ -602,7 +594,8 @@ export function toolTag(
     if (args.tags.length === 0) {
       throw validation('tag requires at least one tag');
     }
-    const targets = await Promise.all(args.ids.map((t) => resolveEntityToken(store.db, t)));
+    const tagSet = deriveSet(await store.loadWorkingSet());
+    const targets = args.ids.map((t) => resolveEntityTokenInSet(tagSet, t));
     await tagEntities(store, targets, args.tags, args.note);
     return ok(JSON.stringify({ tagged: { ids: args.ids, tags: args.tags } }));
   });
@@ -619,7 +612,8 @@ export function toolUntag(
     if (args.tags.length === 0) {
       throw validation('untag requires at least one tag');
     }
-    const targets = await Promise.all(args.ids.map((t) => resolveEntityToken(store.db, t)));
+    const untagSet = deriveSet(await store.loadWorkingSet());
+    const targets = args.ids.map((t) => resolveEntityTokenInSet(untagSet, t));
     await untagEntities(store, targets, args.tags);
     return ok(JSON.stringify({ untagged: { ids: args.ids, tags: args.tags } }));
   });
@@ -781,15 +775,14 @@ export function toolAttach(
 
     if (linkTokens.length > 0) {
       // Resolve all node refs; require they all belong to one project
-      const nodes = await Promise.all(
-        linkTokens.map(async (t) => {
-          const n = await findNodeByRef(store.db, t);
-          if (n === undefined) {
-            throw notFound(`${t} doesn't exist`);
-          }
-          return n;
-        }),
-      );
+      const linkSet = deriveSet(await store.loadWorkingSet());
+      const nodes = linkTokens.map((t) => {
+        const n = findNodeInSet(linkSet, t);
+        if (n === undefined) {
+          throw notFound(`${t} doesn't exist`);
+        }
+        return n;
+      });
       const projects = new Set(nodes.map((n) => n.project_id));
       if (projects.size > 1) {
         throw validation('all the links must be in one project');

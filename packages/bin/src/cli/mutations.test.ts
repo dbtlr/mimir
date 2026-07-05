@@ -41,13 +41,13 @@ afterEach(async () => {
 
 // resolveNode
 test('resolveNode returns the surrogate id for a valid KEY-seq', async () => {
-  const id = await resolveNode(db, taskRef);
+  const id = await resolveNode(store, taskRef);
   expect(typeof id).toBe('number');
 });
 test('resolveNode throws not_found (code) for a missing id', async () => {
   let threw: unknown;
   try {
-    await resolveNode(db, 'MMR-9999');
+    await resolveNode(store, 'MMR-9999');
   } catch (e) {
     threw = e;
   }
@@ -56,13 +56,13 @@ test('resolveNode throws not_found (code) for a missing id', async () => {
 
 // resolveProject
 test('resolveProject returns the surrogate id for a valid project key', async () => {
-  const id = await resolveProject(db, 'MMR');
+  const id = await resolveProject(store, 'MMR');
   expect(typeof id).toBe('number');
 });
 test('resolveProject throws not_found (code) for a missing project key', async () => {
   let threw: unknown;
   try {
-    await resolveProject(db, 'ZZZ');
+    await resolveProject(store, 'ZZZ');
   } catch (e) {
     threw = e;
   }
@@ -71,12 +71,12 @@ test('resolveProject throws not_found (code) for a missing project key', async (
 
 // resolveParent
 test("resolveParent returns {kind:'project'} for a bare project key", async () => {
-  const result = await resolveParent(db, 'MMR');
+  const result = await resolveParent(store, 'MMR');
   expect(result).toMatchObject({ kind: 'project' });
   expect(typeof result.id).toBe('number');
 });
 test("resolveParent returns {kind:'node'} for a KEY-seq token", async () => {
-  const result = await resolveParent(db, taskRef);
+  const result = await resolveParent(store, taskRef);
   expect(result).toMatchObject({ kind: 'node' });
   expect(typeof result.id).toBe('number');
 });

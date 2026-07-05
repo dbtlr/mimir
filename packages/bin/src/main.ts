@@ -290,8 +290,12 @@ async function main(argv: string[]): Promise<number> {
   // first ask; help, usage errors, and `skill install` never ask, so a bare
   // `mimir` / `mimir --help` never creates a file. main holds no verb list.
   let built: BuiltStore | undefined;
+  let dbHandle: Db | undefined;
   const getStore = async (): Promise<Store> => {
-    built ??= await buildStore(await openMigrated(storePath()));
+    if (built === undefined) {
+      dbHandle = await openMigrated(storePath());
+      built = await buildStore(dbHandle);
+    }
     return built.store;
   };
   try {
@@ -299,6 +303,13 @@ async function main(argv: string[]): Promise<number> {
     // default -s scope; resolved here so the CLI itself never reads cwd.
     return await runCli(argv, getStore, stdoutIo(), {
       cwd: process.cwd(),
+      db: async () => {
+        await getStore(); // ensure the handle is open
+        if (dbHandle === undefined) {
+          throw new Error('internal: store opened without a db handle');
+        }
+        return dbHandle;
+      },
       migrateSchema: runMigrateSchema,
       scope: findBinding(process.cwd()),
       service: realServiceDeps(),

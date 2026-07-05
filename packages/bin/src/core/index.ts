@@ -13,6 +13,7 @@ export * from './predicates';
 export * from './rank';
 export * from './ids';
 export * from './lookup';
+export * from './resolve-set';
 export * from './query';
 export type * from './store';
 export * from './store-sqlite';

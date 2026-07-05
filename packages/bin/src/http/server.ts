@@ -10,7 +10,7 @@ import {
 import { isMember } from '@mimir/helpers';
 import type { Server } from 'bun';
 
-import type { Db, ListOptions, RankPosition, Store, UpdateFields } from '../core';
+import type { ListOptions, RankPosition, Store, UpdateFields } from '../core';
 import {
   abandonTask,
   annotate,
@@ -19,7 +19,10 @@ import {
   artifactToWire,
   attachArtifact,
   blockTask,
+  deriveSet,
+  findNodeInSet,
   nodeViewOf,
+  projectViewByKey,
   projectViewOf,
   completeTask,
   createInitiative,
@@ -27,9 +30,9 @@ import {
   createProject,
   createTask,
   depend,
-  findNodeByRef,
   renderArtifactRef,
-  resolveNodeToken,
+  resolveNodeTokenInSet,
+  resolveProjectKeyInSet,
   getArtifact,
   getNode,
   listNodes,
@@ -98,9 +101,10 @@ const PROJECT_LIST_FACETS: readonly FacetName[] = [
   'leafCounts',
 ];
 
-/** Resolve a node token for a verb — the HTTP binding of the core guard, with route pointers. */
-async function nodeRef(db: Db, token: string, expected = 'node'): Promise<number> {
-  return resolveNodeToken(db, token, expected, {
+/** Resolve a node token for a verb — the HTTP binding of the core guard, over
+ * the working-set snapshot (MMR-160, no raw db), with route pointers. */
+async function nodeRef(store: Store, token: string, expected = 'node'): Promise<number> {
+  return resolveNodeTokenInSet(deriveSet(await store.loadWorkingSet()), token, expected, {
     artifact: 'artifacts live at /api/artifacts',
     project: 'projects live at /api/projects',
   });
@@ -124,19 +128,11 @@ function projectFilter(status: string | null): 'active' | 'archived' | 'all' {
 }
 
 /** Resolve a project key to its id for the archive/unarchive routes (ADR 0015). */
-async function projectIdForArchive(db: Db, key: string): Promise<number> {
+async function projectIdForArchive(store: Store, key: string): Promise<number> {
   if (parseIdentity(key)?.kind !== 'project') {
     throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
   }
-  const project = await db
-    .selectFrom('project')
-    .select('id')
-    .where('key', '=', key)
-    .executeTakeFirst();
-  if (project === undefined) {
-    throw projectNotFound(key);
-  }
-  return project.id;
+  return resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
 }
 
 /** The write echo — the full updated record, same shape as `GET /api/nodes/:id`. */
@@ -280,8 +276,6 @@ export function createServer(store: Store, opts: ServeOptions): Server<undefined
 }
 
 function bindServer(store: Store, opts: ServeOptions, port: number): Server<undefined> {
-  // Unconverted read paths still ride the raw executor (Phase 2a/2b scope).
-  const db = store.db;
   return Bun.serve({
     fetch(req) {
       if (req.method === 'OPTIONS') {
@@ -427,17 +421,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               if (parseId(parent) !== null) {
                 throw validation("an initiative's parent must be a project (KEY)");
               }
-              const project = await db
-                .selectFrom('project')
-                .select('id')
-                .where('key', '=', parent)
-                .executeTakeFirst();
-              if (project === undefined) {
-                throw projectNotFound(parent);
-              }
               const node = await createInitiative(store, {
                 description,
-                projectId: project.id,
+                projectId: resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), parent),
                 summary,
                 tags,
                 title,
@@ -447,7 +433,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (type === 'phase') {
               const node = await createPhase(store, {
                 description,
-                parentId: await nodeRef(db, parent, 'initiative'),
+                parentId: await nodeRef(store, parent, 'initiative'),
                 summary,
                 tags,
                 target: strField(body, 'target'),
@@ -470,7 +456,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               const node = await createTask(store, {
                 description,
                 externalRef: strField(body, 'external_ref'),
-                parentId: await nodeRef(db, parent, 'phase or initiative'),
+                parentId: await nodeRef(store, parent, 'phase or initiative'),
                 priority,
                 size,
                 summary,
@@ -549,7 +535,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (externalRef !== undefined) {
               fields.externalRef = externalRef;
             }
-            const node = await updateNode(store, await nodeRef(db, req.params.id), fields);
+            const node = await updateNode(store, await nodeRef(store, req.params.id), fields);
             return echoNode(store, req, node);
           }),
       },
@@ -560,7 +546,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const body = await readBody(req, ['reason']);
             const node = await abandonTask(
               store,
-              await nodeRef(db, req.params.id, 'task'),
+              await nodeRef(store, req.params.id, 'task'),
               strField(body, 'reason'),
             );
             return echoNode(store, req, node);
@@ -582,7 +568,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const body = await readBody(req, ['content']);
             const node = await annotate(
               store,
-              await nodeRef(db, req.params.id),
+              await nodeRef(store, req.params.id),
               requiredStr(body, 'content', 'annotate'),
             );
             return echoNode(store, req, node, 201);
@@ -593,13 +579,14 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         POST: (req) =>
           guarded(req, async () => {
             const body = await readBody(req, ['title', 'content', 'links', 'tags']);
-            const anchor = await findNodeByRef(db, req.params.id);
+            const set = deriveSet(await store.loadWorkingSet());
+            const anchor = findNodeInSet(set, req.params.id);
             if (anchor === undefined) {
               throw notFound(`${req.params.id} doesn't exist`);
             }
             const linkNodeIds = [anchor.id];
             for (const token of strList(body, 'links') ?? []) {
-              const linked = await findNodeByRef(db, token);
+              const linked = findNodeInSet(set, token);
               if (linked === undefined) {
                 throw notFound(`${token} doesn't exist`);
               }
@@ -628,7 +615,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const body = await readBody(req, ['reason']);
             const node = await blockTask(
               store,
-              await nodeRef(db, req.params.id, 'task'),
+              await nodeRef(store, req.params.id, 'task'),
               strField(body, 'reason'),
             );
             return echoNode(store, req, node);
@@ -643,8 +630,8 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (on === undefined || on.length === 0) {
               throw validation('depend requires on');
             }
-            const id = await nodeRef(db, req.params.id);
-            const onIds = await Promise.all(on.map((t) => nodeRef(db, t)));
+            const id = await nodeRef(store, req.params.id);
+            const onIds = await Promise.all(on.map((t) => nodeRef(store, t)));
             return echoNode(store, req, await depend(store, id, onIds));
           }),
       },
@@ -656,7 +643,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             return echoNode(
               store,
               req,
-              await completeTask(store, await nodeRef(db, req.params.id, 'task')),
+              await completeTask(store, await nodeRef(store, req.params.id, 'task')),
             );
           }),
       },
@@ -668,8 +655,8 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const to = requiredStr(body, 'to', 'move');
             const node = await moveNode(
               store,
-              await nodeRef(db, req.params.id),
-              await nodeRef(db, to),
+              await nodeRef(store, req.params.id),
+              await nodeRef(store, to),
             );
             return echoNode(store, req, node);
           }),
@@ -681,7 +668,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const body = await readBody(req, ['reason']);
             const node = await parkTask(
               store,
-              await nodeRef(db, req.params.id, 'task'),
+              await nodeRef(store, req.params.id, 'task'),
               strField(body, 'reason'),
             );
             return echoNode(store, req, node);
@@ -694,7 +681,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const body = await readBody(req, ['reason']);
             const node = await reopenTask(
               store,
-              await nodeRef(db, req.params.id, 'task'),
+              await nodeRef(store, req.params.id, 'task'),
               strField(body, 'reason'),
             );
             return echoNode(store, req, node);
@@ -732,11 +719,11 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               if (ref === undefined) {
                 throw validation('reorder before/after requires ref');
               }
-              refId = await nodeRef(db, ref);
+              refId = await nodeRef(store, ref);
             }
             const node = await reorder(
               store,
-              await nodeRef(db, req.params.id, 'task'),
+              await nodeRef(store, req.params.id, 'task'),
               position as RankPosition,
               refId,
             );
@@ -750,7 +737,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const body = await readBody(req, ['reason']);
             const node = await returnTask(
               store,
-              await nodeRef(db, req.params.id, 'task'),
+              await nodeRef(store, req.params.id, 'task'),
               strField(body, 'reason'),
             );
             return echoNode(store, req, node);
@@ -764,7 +751,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             return echoNode(
               store,
               req,
-              await startTask(store, await nodeRef(db, req.params.id, 'task')),
+              await startTask(store, await nodeRef(store, req.params.id, 'task')),
             );
           }),
       },
@@ -776,7 +763,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             return echoNode(
               store,
               req,
-              await submitTask(store, await nodeRef(db, req.params.id, 'task')),
+              await submitTask(store, await nodeRef(store, req.params.id, 'task')),
             );
           }),
       },
@@ -784,9 +771,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       '/api/nodes/:id/tags/:tag': {
         DELETE: (req) =>
           guarded(req, async () => {
-            const id = await nodeRef(db, req.params.id);
+            const id = await nodeRef(store, req.params.id);
             await untagEntities(store, [{ entityId: id, entityType: 'node' }], [req.params.tag]);
-            const node = await findNodeByRef(db, req.params.id);
+            const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), req.params.id);
             if (node === undefined) {
               throw notFound(`${req.params.id} doesn't exist`);
             }
@@ -795,14 +782,14 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         PUT: (req) =>
           guarded(req, async () => {
             const body = await readBody(req, ['note']);
-            const id = await nodeRef(db, req.params.id);
+            const id = await nodeRef(store, req.params.id);
             await tagEntities(
               store,
               [{ entityId: id, entityType: 'node' }],
               [req.params.tag],
               strField(body, 'note'),
             );
-            const node = await findNodeByRef(db, req.params.id);
+            const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), req.params.id);
             if (node === undefined) {
               throw notFound(`${req.params.id} doesn't exist`);
             }
@@ -817,7 +804,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             return echoNode(
               store,
               req,
-              await unblockTask(store, await nodeRef(db, req.params.id, 'task')),
+              await unblockTask(store, await nodeRef(store, req.params.id, 'task')),
             );
           }),
       },
@@ -830,8 +817,8 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (on === undefined || on.length === 0) {
               throw validation('undepend requires on');
             }
-            const id = await nodeRef(db, req.params.id);
-            const onIds = await Promise.all(on.map((t) => nodeRef(db, t)));
+            const id = await nodeRef(store, req.params.id);
+            const onIds = await Promise.all(on.map((t) => nodeRef(store, t)));
             return echoNode(store, req, await undepend(store, id, onIds));
           }),
       },
@@ -843,7 +830,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             return echoNode(
               store,
               req,
-              await unparkTask(store, await nodeRef(db, req.params.id, 'task')),
+              await unparkTask(store, await nodeRef(store, req.params.id, 'task')),
             );
           }),
       },
@@ -895,21 +882,12 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             // (`title` follows the NodeView wire name; `name` is the native field).
             const name = strField(body, 'name') ?? strField(body, 'title');
             const description = strField(body, 'description');
-            const project = await db
-              .selectFrom('project')
-              .select('id')
-              .where('key', '=', key)
-              .executeTakeFirst();
-            if (project === undefined) {
+            const projectId = resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
+            await updateProject(store, projectId, { description, name });
+            const view = await projectViewByKey(store, key, new Set(PROJECT_FACETS));
+            if (view === undefined) {
               throw projectNotFound(key);
             }
-            await updateProject(store, project.id, { description, name });
-            const updated = await db
-              .selectFrom('project')
-              .selectAll()
-              .where('id', '=', project.id)
-              .executeTakeFirstOrThrow();
-            const view = await projectViewOf(store, updated, new Set(PROJECT_FACETS));
             return json(req, nodeToWire(view));
           }),
       },
@@ -920,7 +898,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       '/api/projects/:key/archive': {
         POST: (req) =>
           guarded(req, async () => {
-            const id = await projectIdForArchive(db, req.params.key);
+            const id = await projectIdForArchive(store, req.params.key);
             const body = await readBody(req, ['reason']);
             const project = await archiveProject(store, id, strField(body, 'reason'));
             return json(
@@ -944,7 +922,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       '/api/projects/:key/unarchive': {
         POST: (req) =>
           guarded(req, async () => {
-            const id = await projectIdForArchive(db, req.params.key);
+            const id = await projectIdForArchive(store, req.params.key);
             const project = await unarchiveProject(store, id);
             return json(
               req,

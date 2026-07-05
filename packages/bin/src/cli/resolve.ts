@@ -7,16 +7,16 @@
 import type { FacetName } from '@mimir/contract';
 
 import {
-  nodeViewOf,
-  projectViewOf,
-  loadNode,
+  deriveSet,
+  nodeViewById,
+  projectViewByKey,
   notFound,
-  projectNotFound,
   parseIdentity,
-  resolveNodeToken,
+  resolveNodeTokenInSet,
+  resolveProjectKeyInSet,
   validation,
 } from '../core';
-import type { Db, Store } from '../core';
+import type { Store } from '../core';
 import { renderNodeView, signpost } from './render';
 // Format is re-exported AND used locally — a plain `export … from` wouldn't bind it
 // oxlint-disable-next-line unicorn/prefer-export-from
@@ -34,28 +34,27 @@ const WRITE_ECHO_FACETS = new Set<FacetName>(['description']);
 
 /**
  * Resolve a node token to its surrogate integer id — the CLI's binding of the
- * core `resolveNodeToken` guard, contributing the CLI-shaped not-found hint.
+ * core resolution guard, over the working-set snapshot (MMR-160, no raw db).
  * `expected` names what the verb acts on; the default enumerates the work
  * types rather than leaking the internal "node" word into the message.
  */
 export async function resolveNode(
-  db: Db,
+  store: Store,
   token: string,
   expected = 'task, phase, or initiative',
 ): Promise<number> {
-  return resolveNodeToken(db, token, expected, { notFound: 'see what exists: mimir list -f ids' });
+  const set = deriveSet(await store.loadWorkingSet());
+  return resolveNodeTokenInSet(set, token, expected, {
+    notFound: 'see what exists: mimir list -f ids',
+  });
 }
 
 /**
- * Resolve a bare project KEY to its surrogate integer id. Throws `not_found`
- * (MimirError) if no project with that key exists.
+ * Resolve a bare project KEY to its surrogate integer id over the working set.
+ * Throws `not_found` (MimirError) if no project with that key exists.
  */
-export async function resolveProject(db: Db, key: string): Promise<number> {
-  const row = await db.selectFrom('project').select('id').where('key', '=', key).executeTakeFirst();
-  if (row === undefined) {
-    throw projectNotFound(key);
-  }
-  return row.id;
+export async function resolveProject(store: Store, key: string): Promise<number> {
+  return resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
 }
 
 /**
@@ -63,7 +62,7 @@ export async function resolveProject(db: Db, key: string): Promise<number> {
  * reference — returning a tagged id so the caller knows which table to target.
  */
 export async function resolveParent(
-  db: Db,
+  store: Store,
   token: string,
 ): Promise<{ kind: 'project'; id: number } | { kind: 'node'; id: number }> {
   const identity = parseIdentity(token);
@@ -72,10 +71,16 @@ export async function resolveParent(
       `${token} is an artifact — a parent must be a project (KEY) or a task/phase/initiative (KEY-seq)`,
     );
   }
+  const set = deriveSet(await store.loadWorkingSet());
   if (identity?.kind === 'node') {
-    return { id: await resolveNode(db, token), kind: 'node' };
+    return {
+      id: resolveNodeTokenInSet(set, token, 'task, phase, or initiative', {
+        notFound: 'see what exists: mimir list -f ids',
+      }),
+      kind: 'node',
+    };
   }
-  return { id: await resolveProject(db, token), kind: 'project' };
+  return { id: resolveProjectKeyInSet(set, token), kind: 'project' };
 }
 
 /**
@@ -90,11 +95,10 @@ export async function echoNode(
   format: Format,
   io: Io,
 ): Promise<void> {
-  const node = await loadNode(store.db, nodeId);
-  if (node === undefined) {
+  const view = await nodeViewById(store, nodeId, WRITE_ECHO_FACETS);
+  if (view === undefined) {
     throw notFound('the record vanished before echo');
   }
-  const view = await nodeViewOf(store, node, WRITE_ECHO_FACETS);
   renderNodeView(view, format, io);
 }
 
@@ -112,11 +116,10 @@ export async function echoNodeWith(
   io: Io,
   makeSignpost: (renderedId: string) => string,
 ): Promise<void> {
-  const node = await loadNode(store.db, nodeId);
-  if (node === undefined) {
+  const view = await nodeViewById(store, nodeId, WRITE_ECHO_FACETS);
+  if (view === undefined) {
     throw notFound('the record vanished before echo');
   }
-  const view = await nodeViewOf(store, node, WRITE_ECHO_FACETS);
   signpost(io, format, makeSignpost(view.id));
   renderNodeView(view, format, io);
 }
@@ -132,15 +135,10 @@ export async function echoProject(
   format: Format,
   io: Io,
 ): Promise<void> {
-  const project = await store.db
-    .selectFrom('project')
-    .selectAll()
-    .where('key', '=', key)
-    .executeTakeFirst();
-  if (project === undefined) {
+  const view = await projectViewByKey(store, key);
+  if (view === undefined) {
     throw notFound(`project ${key} vanished before echo`);
   }
-  const view = await projectViewOf(store, project);
   renderNodeView(view, format, io);
 }
 

@@ -12,6 +12,8 @@ export {
   buildArtifactDetail,
   buildNodeView,
   buildProjectView,
+  nodeViewById,
   nodeViewOf,
+  projectViewByKey,
   projectViewOf,
 } from './view';
