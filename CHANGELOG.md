@@ -15,6 +15,11 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **`mimir doctor` CRLF hygiene check** (MMR-176, ADR 0016 Phase 3). A fourth
+  diagnostic: it reports a document body whose lines end in CRLF (`\r\n`). Since
+  the codec reads canonical-LF (MMR-167), CRLF is cosmetic — it reads fine — so
+  this is a `warn` (surfaced, never gating), carrying the count of CRLF endings.
+  Per-document, so it honors `-s`, like the body-section check.
 - **`mimir doctor` node → missing-project check** (MMR-178, ADR 0016 Phase 3). A
   third diagnostic: it reports any node whose owning project — the `KEY` of its
   `KEY-seq` stem — has no document in the vault. Like a dangling reference, the

@@ -198,6 +198,46 @@ test('the -s scope keeps the project and its nodes, dropping other projects', as
   expect(findings.map((f) => f.node).toSorted()).toEqual(['MMR', 'MMR-9']);
 });
 
+// ── CRLF hygiene (MMR-176) ────────────────────────────────────────────────────
+
+test('a body with CRLF line endings is a non-gating warn (exit 0) with a count', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf([{ body: 'line one\r\nline two\r\n', stem: 'MMR-2' }]),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(0); // CRLF is tolerated on read — a warn never gates
+  const findings = JSON.parse(io.out.join('')) as {
+    check: string;
+    node: string;
+    severity: string;
+    where: string;
+    message: string;
+  }[];
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'crlf',
+    node: 'MMR-2',
+    severity: 'warn',
+    where: 'body',
+  });
+  expect(findings[0]?.message).toContain('(2)'); // both lines counted
+});
+
+test('an all-LF body raises no CRLF finding', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf([{ body: 'line one\nline two\n', stem: 'MMR-2' }]),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(0);
+  expect(JSON.parse(io.out.join('')) as unknown[]).toHaveLength(0);
+});
+
 // ── Dangling relational references (MMR-169) ──────────────────────────────────
 
 test('a dangling parent is an error that gates (exit 1)', async () => {
