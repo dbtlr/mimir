@@ -157,27 +157,36 @@ export const danglingRefCheck: Diagnostic = {
  * like a dangling ref, one such node breaks the whole vault load. The companion
  * to {@link danglingRefCheck} over the same {@link VaultGraph} read: `error`,
  * whole-vault, vault-only (SQLite's `project_id` FK precludes it).
+ *
+ * Reports one finding per *missing project*, not per orphaned node: every node
+ * under an absent key shares the one fix (add that project doc), so collapsing
+ * them keeps the count honest and avoids burying other findings.
  */
 export const missingProjectCheck: Diagnostic = {
   name: 'missing-project',
   run: async (ctx) => {
     const { nodes, projectKeys } = await ctx.readVaultGraph();
     const present = new Set(projectKeys);
-    const findings: DoctorFinding[] = [];
-    for (const { stem } of nodes) {
-      // Non-null by construction: readVaultGraph yields only valid KEY-seq nodes.
-      const key = parseId(stem)?.key;
-      if (key !== undefined && !present.has(key)) {
-        findings.push({
-          check: 'missing-project',
-          message: `project ${key} has no document in the vault — the vault will not load`,
-          node: stem,
-          severity: 'error',
-          where: 'project',
-        });
+    // Absent key → a representative orphaned node + the total under it.
+    const missing = new Map<string, { node: string; count: number }>();
+    for (const { key, stem } of nodes) {
+      if (present.has(key)) {
+        continue;
+      }
+      const seen = missing.get(key);
+      if (seen === undefined) {
+        missing.set(key, { count: 1, node: stem });
+      } else {
+        seen.count += 1;
       }
     }
-    return findings;
+    return Array.from(missing, ([key, { node, count }]) => ({
+      check: 'missing-project',
+      message: `project ${key} has no document in the vault (referenced by ${String(count)} node${count === 1 ? '' : 's'}) — the vault will not load`,
+      node,
+      severity: 'error',
+      where: 'project',
+    }));
   },
   title: 'Node → project references',
 };

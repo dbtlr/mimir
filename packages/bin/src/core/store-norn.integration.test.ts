@@ -468,11 +468,11 @@ test.skipIf(!NORN)('ignores task-only fields on a non-task document', async () =
   expect(phase.rank).toBeNull();
 });
 
-// MMR-169: readAllNodeRefs reads raw parent/depends_on stems below the resolving
+// MMR-169: readVaultGraph reads raw parent/depends_on stems below the resolving
 // loader — which throws on the first dangling ref — so `mimir doctor` can
 // enumerate every orphan the loader can't even get past.
 test.skipIf(!NORN)(
-  'readAllNodeRefs reads raw refs; the loader throws on a dangling parent',
+  'readVaultGraph reads raw refs; the loader throws on a dangling parent',
   async () => {
     const at = '2026-07-05T00:00:00.000Z';
     await writeDoc('MMR/MMR.md', [

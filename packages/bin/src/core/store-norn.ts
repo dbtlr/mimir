@@ -119,8 +119,10 @@ export type NornSnapshot = {
   projectFm: ReadonlyMap<number, Record<string, unknown>>;
 };
 
-/** One node's raw relational refs — parent + prerequisite stems, unresolved. */
-export type NodeRefs = { stem: string; parent: string | null; dependsOn: string[] };
+/** One node's raw relational refs — its stem, project `key`, and unresolved
+ * parent + prerequisite stems. `key` is the parsed KEY-seq key, carried so no
+ * consumer re-parses the stem (mirrors the loader's `rawNodes`). */
+export type NodeRefs = { stem: string; key: string; parent: string | null; dependsOn: string[] };
 
 /**
  * The vault's relational graph, read raw and unresolved: the valid nodes' refs
@@ -164,10 +166,16 @@ export async function readVaultGraph(client: NornClient): Promise<VaultGraph> {
       continue;
     }
     const stem = stemOf(doc.path);
-    if ((type !== 'task' && type !== 'phase' && type !== 'initiative') || parseId(stem) === null) {
+    const ref = parseId(stem);
+    if ((type !== 'task' && type !== 'phase' && type !== 'initiative') || ref === null) {
       continue;
     }
-    nodes.push({ dependsOn: linkStems(fm.depends_on), parent: collapse(fm.parent), stem });
+    nodes.push({
+      dependsOn: linkStems(fm.depends_on),
+      key: ref.key,
+      parent: collapse(fm.parent),
+      stem,
+    });
   }
   return { nodes, projectKeys };
 }
