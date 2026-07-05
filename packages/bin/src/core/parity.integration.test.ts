@@ -67,12 +67,14 @@ const FACETS = [
 /**
  * FACETS plus the body-section facets — the full parity scope over a *migrated*
  * store (MMR-156). Migration reconstructs `## History` (from `transition_log`)
- * and `## Annotations` (from `annotation`), so these become diffable; the seed
- * path leaves them empty. There is no stored `became_ready_at` — dependency
- * readiness is derived (ADR 0003), so the only record of a transition is its
- * `## History` entry, which `history` covers.
+ * and `## Annotations` (from `annotation`) and writes the `## Task Description`
+ * body, so all three become diffable; the seed path leaves history/annotations
+ * empty. `description` is body-authoritative (MMR-162) — read through the same
+ * seam — so its facet is diffed here too. There is no stored `became_ready_at` —
+ * dependency readiness is derived (ADR 0003), so the only record of a transition
+ * is its `## History` entry, which `history` covers.
  */
-const BODY_FACETS: readonly FacetName[] = [...FACETS, 'history', 'annotations'];
+const BODY_FACETS: readonly FacetName[] = [...FACETS, 'history', 'annotations', 'description'];
 
 let root: string;
 let client: NornClient;
@@ -140,47 +142,43 @@ const stemOf = (ws: WorkingSet, n: Node): string => renderId({ key: keyOf(ws, n)
  * A backend-independent WorkingSet view keyed by KEY-seq — the tripwire that
  * localizes a projection fault vs a downstream derivation fault.
  *
- * `omitDescription` drops the `description` field from both node and project
- * views. The live-store dogfood sets it: `description` is the one field Norn's
- * frontmatter YAML folding corrupts for blank-line prose (Norn BUG-2), and it is
- * moving out of frontmatter into the `## Task Description` body (MMR-162) — so
- * comparing it there would short-circuit the run before the body-section parity
- * (the dogfood's real point) ever executes. The hermetic tests keep it on.
+ * Node `description` is deliberately absent: it is no longer a frontmatter field
+ * (MMR-162) — the SQLite WorkingSet still carries the column while Norn's is
+ * null — so the raw field is asymmetric by design. Its parity is proven through
+ * the read seam instead (the `description` facet / `readDescription`). `summary`
+ * (the frontmatter lede that replaced it) IS compared here. Project description
+ * stays a frontmatter field (projects are out of MMR-162's scope) and is compared.
  */
-function normalizeWs(ws: WorkingSet, omitDescription = false): unknown {
-  const nodeView = (n: Node) => {
-    const view = {
-      completed_at: n.completed_at,
-      created_at: n.created_at,
-      external_ref: n.external_ref,
-      hold: n.hold,
-      hold_reason: n.hold_reason,
-      lifecycle: n.lifecycle,
-      parent:
-        n.parent_id === null ? null : stemOf(ws, must(ws.nodes.find((x) => x.id === n.parent_id))),
-      priority: n.priority,
-      rank: n.rank,
-      size: n.size,
-      stem: stemOf(ws, n),
-      tags: (ws.nodeTags.get(n.id) ?? []).map((t) => t.tag).toSorted(),
-      target: n.target,
-      title: n.title,
-      type: n.type,
-      updated_at: n.updated_at,
-    };
-    return omitDescription ? view : { ...view, description: n.description };
-  };
-  const projectView = (p: WorkingSet['projects'][number]) => {
-    const view = {
-      archived_at: p.archived_at,
-      created_at: p.created_at,
-      key: p.key,
-      name: p.name,
-      tags: (ws.projectTags.get(p.id) ?? []).map((t) => t.tag).toSorted(),
-      updated_at: p.updated_at,
-    };
-    return omitDescription ? view : { ...view, description: p.description };
-  };
+function normalizeWs(ws: WorkingSet): unknown {
+  const nodeView = (n: Node) => ({
+    completed_at: n.completed_at,
+    created_at: n.created_at,
+    external_ref: n.external_ref,
+    hold: n.hold,
+    hold_reason: n.hold_reason,
+    lifecycle: n.lifecycle,
+    parent:
+      n.parent_id === null ? null : stemOf(ws, must(ws.nodes.find((x) => x.id === n.parent_id))),
+    priority: n.priority,
+    rank: n.rank,
+    size: n.size,
+    stem: stemOf(ws, n),
+    summary: n.summary,
+    tags: (ws.nodeTags.get(n.id) ?? []).map((t) => t.tag).toSorted(),
+    target: n.target,
+    title: n.title,
+    type: n.type,
+    updated_at: n.updated_at,
+  });
+  const projectView = (p: WorkingSet['projects'][number]) => ({
+    archived_at: p.archived_at,
+    created_at: p.created_at,
+    description: p.description,
+    key: p.key,
+    name: p.name,
+    tags: (ws.projectTags.get(p.id) ?? []).map((t) => t.tag).toSorted(),
+    updated_at: p.updated_at,
+  });
   return {
     edges: ws.edges
       .map((e) => {
@@ -492,31 +490,45 @@ test.skipIf(!NORN)('parity: a large synthetic graph (scale/shape)', async () => 
 // *migrated* graph carrying real transitions + annotations.
 // ─────────────────────────────────────────────────────────────────────────────
 
-test.skipIf(!NORN)('migrated parity: reconstructed history + annotations match', async () => {
-  const p = await createProject(sqlite, { key: 'MMR', name: 'Mimir' });
-  const init = await createInitiative(sqlite, { projectId: p.id, title: 'Init' });
-  const phase = await createPhase(sqlite, { parentId: init.id, title: 'Phase' });
-  const a = await createTask(sqlite, { parentId: phase.id, title: 'A' });
-  const b = await createTask(sqlite, { parentId: phase.id, title: 'B' });
-  const c = await createTask(sqlite, { parentId: phase.id, title: 'C' });
-  const d = await createTask(sqlite, { parentId: phase.id, title: 'D' });
+test.skipIf(!NORN)(
+  'migrated parity: reconstructed history, annotations, and body description match',
+  async () => {
+    const p = await createProject(sqlite, { key: 'MMR', name: 'Mimir' });
+    const init = await createInitiative(sqlite, { projectId: p.id, title: 'Init' });
+    const phase = await createPhase(sqlite, { parentId: init.id, title: 'Phase' });
+    // A carries a blank-line paragraph break (the exact case Norn's frontmatter
+    // YAML folding lost — Norn BUG-2 — now body-authoritative, MMR-162); B a
+    // heading-shaped line (exercises the `## `-escape round-trip through the body).
+    const a = await createTask(sqlite, {
+      description: 'First paragraph.\n\nSecond, after a blank line.',
+      parentId: phase.id,
+      title: 'A',
+    });
+    const b = await createTask(sqlite, {
+      description: 'A note:\n## looks like a heading\nbut is prose',
+      parentId: phase.id,
+      title: 'B',
+    });
+    const c = await createTask(sqlite, { parentId: phase.id, title: 'C' });
+    const d = await createTask(sqlite, { parentId: phase.id, title: 'D' });
 
-  // multi-transition lifecycles, a released dependency, multiple annotations per
-  // node and across nodes — everything the `## History`/`## Annotations`
-  // reconstruction has to round-trip.
-  await depend(sqlite, b.id, [a.id]);
-  await startTask(sqlite, a.id);
-  await annotate(sqlite, a.id, 'first look');
-  await annotate(sqlite, a.id, 'second look — still digging');
-  await completeTask(sqlite, a.id); // releases b (readiness is derived, no stored row)
-  await startTask(sqlite, b.id);
-  await annotate(sqlite, b.id, 'note on b');
-  await blockTask(sqlite, c.id, 'external');
-  await unblockTask(sqlite, c.id);
-  await parkTask(sqlite, d.id, 'later');
+    // multi-transition lifecycles, a released dependency, multiple annotations per
+    // node and across nodes — everything the `## History`/`## Annotations`
+    // reconstruction has to round-trip.
+    await depend(sqlite, b.id, [a.id]);
+    await startTask(sqlite, a.id);
+    await annotate(sqlite, a.id, 'first look');
+    await annotate(sqlite, a.id, 'second look — still digging');
+    await completeTask(sqlite, a.id); // releases b (readiness is derived, no stored row)
+    await startTask(sqlite, b.id);
+    await annotate(sqlite, b.id, 'note on b');
+    await blockTask(sqlite, c.id, 'external');
+    await unblockTask(sqlite, c.id);
+    await parkTask(sqlite, d.id, 'later');
 
-  await assertParity(await migrateAndNorn(), BODY_FACETS);
-});
+    await assertParity(await migrateAndNorn(), BODY_FACETS);
+  },
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Write-verb parity (MMR-153): run a verb on BOTH the SQLite store and the Norn
@@ -780,15 +792,16 @@ test.skipIf(!NORN)('write parity: create a project (a new vault directory)', asy
 // and vault are never touched.
 //
 // SCOPE: this proves `migrate nodes` losslessness — the node/project frontmatter
-// projection (minus `description`, see below) plus the reconstructed
-// `## History`/`## Annotations` sections. It does NOT re-diff the derived read
-// facets (deps/status/leafCounts/verdicts/attention): those are pure functions
-// of the projection this asserts identical, and the hermetic tests above exercise
-// the derivation exhaustively. Artifacts are out of scope — they migrate via a
-// separate `migrate artifacts` path (covered by the artifact conformance oracle),
-// not `migrate nodes`. `description` is excluded because Norn's frontmatter YAML
-// folding collapses blank-line prose (Norn BUG-2) and it is moving to the body
-// (MMR-162); the migration is otherwise byte-lossless over the real graph.
+// projection plus the body sections: `## Task Description` (body-authoritative
+// `description`, MMR-162), `## History`, and `## Annotations`. It does NOT re-diff
+// the derived read facets (deps/status/leafCounts/verdicts/attention): those are
+// pure functions of the projection this asserts identical, and the hermetic tests
+// above exercise the derivation exhaustively. Artifacts are out of scope — they
+// migrate via a separate `migrate artifacts` path (covered by the artifact
+// conformance oracle), not `migrate nodes`. `description` now round-trips
+// losslessly through the body (the blank-line prose Norn's frontmatter YAML
+// folding once lost — Norn BUG-2 — survives), so the check is byte-lossless over
+// the real graph.
 //
 // Explicit opt-in — never runs in the default suite (it migrates the whole
 // store, ~30s, and needs a real `norn`): set `MIMIR_PARITY_LIVE=1` (uses the XDG
@@ -808,19 +821,25 @@ const HAS_LIVE = NORN && LIVE_OPT_IN && existsSync(LIVE_DB);
  * A scalable parity assertion for the large real graph: the per-node facet sweep
  * of {@link assertParity} re-loads the whole working set for every node (fine at
  * synthetic scale, quadratic over ~725 nodes), so here we load each backend's
- * working set once and diff the projection (`description` excluded — Norn BUG-2 /
- * MMR-162, see the block comment above), then diff the reconstructed body
- * sections per node. Each node costs two Norn body fetches (history + annotations
- * each read the doc through the {@link BodySectionStore} seam we're validating);
- * with ~725 nodes that is well inside the test timeout. The Norn reader keys
- * history / annotations by stem, not id (its id arg is ignored — pass 0).
+ * working set once and diff the projection, then diff the body sections per node.
+ * Each node costs three Norn body fetches — `## Task Description` / `## History` /
+ * `## Annotations`, each read through the {@link BodySectionStore} seam we're
+ * validating; with ~725 nodes that is well inside the test timeout. The Norn
+ * reader keys the sections by stem, not id (its id arg is ignored — pass 0).
+ *
+ * `description` is now diffed here (not excluded): body-authoritative (MMR-162),
+ * it round-trips losslessly through `## Task Description`, so the blank-line prose
+ * Norn's frontmatter YAML folding once lost (Norn BUG-2) now survives.
  */
 async function assertLiveParity(liveSqlite: Store, norn: Store): Promise<void> {
   const ws = await liveSqlite.loadWorkingSet();
   expect(ws.nodes.length).toBeGreaterThan(0); // the real graph, not an empty store
-  expect(normalizeWs(await norn.loadWorkingSet(), true)).toEqual(normalizeWs(ws, true));
+  expect(normalizeWs(await norn.loadWorkingSet())).toEqual(normalizeWs(ws));
   for (const n of ws.nodes) {
     const stem = stemOf(ws, n);
+    expect(await norn.bodySections.readDescription(0, stem)).toEqual(
+      await liveSqlite.bodySections.readDescription(n.id, stem),
+    );
     expect(await norn.bodySections.readHistory(0, stem)).toEqual(
       await liveSqlite.bodySections.readHistory(n.id, stem),
     );
