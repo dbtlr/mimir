@@ -9,15 +9,15 @@
 import type { BodyRecordProblem } from '../core/history-codec';
 import { lintBodySections } from '../core/history-codec';
 import { parseId } from '../core/ids';
-import type { NodeRefs } from '../core/store-norn';
+import type { VaultGraph } from '../core/store-norn';
 
 /** What a check reads: the raw vault documents to diagnose. */
 export type DoctorContext = {
   /** Every work-state document's raw markdown, as `{ stem, body }` — scoped by `-s`. */
   readNodeDocs: () => Promise<{ stem: string; body: string }[]>;
-  /** Every node's raw, unresolved parent/depends_on stems — always whole-vault
-   * (the dangling-ref failure is global, not scoped). */
-  readNodeRefs: () => Promise<NodeRefs[]>;
+  /** The vault's raw, unresolved relational graph — always whole-vault (a
+   * referential failure breaks the whole load, so it is global, not scoped). */
+  readVaultGraph: () => Promise<VaultGraph>;
 };
 
 /** One problem a check found, anchored for a human to locate and fix. */
@@ -110,19 +110,20 @@ export const bodySectionCheck: Diagnostic = {
  * parent is a root, not a reference — skipped, exactly as the loader treats it.
  * This check covers only unresolved parent/prerequisite stems; the loader's
  * other load-breakers are other checks' domains — a cycle (self-dependency
- * included) is the acyclicity check (MMR-174), a missing project or malformed
- * field is a structural check (MMR-177). It does not claim to catch them all.
+ * included) is the acyclicity check (MMR-174), a missing project is
+ * {@link missingProjectCheck}, a malformed field a structural check (MMR-177).
+ * It does not claim to catch them all.
  */
 export const danglingRefCheck: Diagnostic = {
   name: 'dangling-refs',
   run: async (ctx) => {
-    const refs = await ctx.readNodeRefs();
-    // `readNodeRefs` already yields only valid `KEY-seq` nodes (the loader's
-    // `rawNodes` partition), so their stems ARE the loader's `nodeIdByStem` —
-    // the exact set a parent/prerequisite must resolve into.
-    const nodeStems = new Set(refs.map((r) => r.stem));
+    const { nodes } = await ctx.readVaultGraph();
+    // `nodes` is the loader's `rawNodes` partition (valid `KEY-seq` docs), so
+    // their stems ARE the loader's `nodeIdByStem` — the exact set a
+    // parent/prerequisite must resolve into.
+    const nodeStems = new Set(nodes.map((n) => n.stem));
     const findings: DoctorFinding[] = [];
-    for (const { stem, parent, dependsOn } of refs) {
+    for (const { stem, parent, dependsOn } of nodes) {
       if (parent !== null && parseId(parent) !== null && !nodeStems.has(parent)) {
         findings.push({
           check: 'dangling-refs',
@@ -149,5 +150,41 @@ export const danglingRefCheck: Diagnostic = {
   title: 'Dangling relational references',
 };
 
+/**
+ * Node → project references (MMR-178): a node whose owning project has no
+ * document. Every node belongs to the project named by its `KEY-seq` stem's key,
+ * and the loader throws when that project doc is absent (`store-norn.ts`) — so,
+ * like a dangling ref, one such node breaks the whole vault load. The companion
+ * to {@link danglingRefCheck} over the same {@link VaultGraph} read: `error`,
+ * whole-vault, vault-only (SQLite's `project_id` FK precludes it).
+ */
+export const missingProjectCheck: Diagnostic = {
+  name: 'missing-project',
+  run: async (ctx) => {
+    const { nodes, projectKeys } = await ctx.readVaultGraph();
+    const present = new Set(projectKeys);
+    const findings: DoctorFinding[] = [];
+    for (const { stem } of nodes) {
+      // Non-null by construction: readVaultGraph yields only valid KEY-seq nodes.
+      const key = parseId(stem)?.key;
+      if (key !== undefined && !present.has(key)) {
+        findings.push({
+          check: 'missing-project',
+          message: `project ${key} has no document in the vault — the vault will not load`,
+          node: stem,
+          severity: 'error',
+          where: 'project',
+        });
+      }
+    }
+    return findings;
+  },
+  title: 'Node → project references',
+};
+
 /** The registered checks `mimir doctor` runs, in report order. */
-export const CHECKS: readonly Diagnostic[] = [bodySectionCheck, danglingRefCheck];
+export const CHECKS: readonly Diagnostic[] = [
+  bodySectionCheck,
+  danglingRefCheck,
+  missingProjectCheck,
+];

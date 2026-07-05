@@ -319,11 +319,11 @@ async function main(argv: string[]): Promise<number> {
                 return (await built?.readNodeDocs?.()) ?? [];
               }
             : null,
-        readNodeRefs:
+        readVaultGraph:
           artifactBackend() === 'norn'
             ? async () => {
                 await getStore();
-                return (await built?.readNodeRefs?.()) ?? [];
+                return (await built?.readVaultGraph?.()) ?? { nodes: [], projectKeys: [] };
               }
             : null,
       },

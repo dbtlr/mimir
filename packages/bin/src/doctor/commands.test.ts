@@ -2,20 +2,33 @@ import { expect, test } from 'bun:test';
 
 import { fakeIo } from '../cli/testing';
 import { renderMigratedNodeBody, renderNodeBody } from '../core/history-codec';
+import { parseId } from '../core/ids';
 import type { NodeRefs } from '../core/store-norn';
 import { cmdDoctor } from './commands';
 import type { DoctorDeps } from './commands';
 
 /**
  * A doctor deps whose vault holds exactly these `{ stem, body }` documents.
- * `refs` drives the dangling-reference check; it defaults to each doc as a
- * root with no prerequisites, so body-section tests see no dangling findings.
+ * `nodes` drives the referential checks; it defaults to each doc as a root with
+ * no prerequisites, so body-section tests see no relational findings.
+ * `projectKeys` defaults to every key present among the nodes' stems, so the
+ * missing-project check stays silent unless a test deliberately omits one.
  */
-function vaultOf(docs: { stem: string; body: string }[], refs?: NodeRefs[]): DoctorDeps {
+function vaultOf(
+  docs: { stem: string; body: string }[],
+  nodes?: NodeRefs[],
+  projectKeys?: string[],
+): DoctorDeps {
+  const graphNodes = nodes ?? docs.map((d) => ({ dependsOn: [], parent: null, stem: d.stem }));
   return {
     readNodeDocs: () => Promise.resolve(docs),
-    readNodeRefs: () =>
-      Promise.resolve(refs ?? docs.map((d) => ({ dependsOn: [], parent: null, stem: d.stem }))),
+    readVaultGraph: () =>
+      Promise.resolve({
+        nodes: graphNodes,
+        projectKeys: projectKeys ?? [
+          ...new Set(graphNodes.map((n) => parseId(n.stem)?.key).filter((k) => k !== undefined)),
+        ],
+      }),
   };
 }
 
@@ -48,7 +61,12 @@ const TOLERATED_HASH_DOC = `## History\n### 2026-07-03T10:00:00.000Z — lifecyc
 
 test('no-op with a clean stdout line and exit 0 when no vault backend is active', async () => {
   const io = fakeIo();
-  const code = await cmdDoctor(io, { readNodeDocs: null, readNodeRefs: null }, 'table', undefined);
+  const code = await cmdDoctor(
+    io,
+    { readNodeDocs: null, readVaultGraph: null },
+    'table',
+    undefined,
+  );
   expect(code).toBe(0);
   expect(io.out.join('')).toContain('vault backend not active');
   expect(io.err.join('')).toBe('');
@@ -152,7 +170,7 @@ test('jsonl format emits one finding per line (NDJSON), not a single array', asy
 
 test('json no-op emits an empty array and exits 0', async () => {
   const io = fakeIo();
-  const code = await cmdDoctor(io, { readNodeDocs: null, readNodeRefs: null }, 'json', undefined);
+  const code = await cmdDoctor(io, { readNodeDocs: null, readVaultGraph: null }, 'json', undefined);
   expect(code).toBe(0);
   expect(io.out.join('')).toBe('[]');
 });
@@ -252,11 +270,67 @@ test('dangling refs report whole-vault, ignoring -s (a broken load is global)', 
     io,
     // The dangler is under OTH, out of the MMR scope — but it breaks the whole
     // vault load, so doctor must still surface it.
-    vaultOf([], [{ dependsOn: [], parent: 'OTH-99', stem: 'OTH-3' }]),
+    vaultOf([], [{ dependsOn: [], parent: 'OTH-99', stem: 'OTH-3' }], ['OTH']),
     'json',
     'MMR',
   );
   expect(code).toBe(1);
   const findings = JSON.parse(io.out.join('')) as { node: string }[];
   expect(findings.map((f) => f.node)).toEqual(['OTH-3']);
+});
+
+// ── Node → project references (MMR-178) ───────────────────────────────────────
+
+test('a node whose project has no document is an error that gates (exit 1)', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    // MMR-2 is a well-formed node with no dangling ref, but project MMR is absent.
+    vaultOf([], [{ dependsOn: [], parent: null, stem: 'MMR-2' }], []),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(1);
+  const findings = JSON.parse(io.out.join('')) as {
+    node: string;
+    check: string;
+    severity: string;
+    where: string;
+    message: string;
+  }[];
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'missing-project',
+    node: 'MMR-2',
+    severity: 'error',
+    where: 'project',
+  });
+  expect(findings[0]?.message).toContain('MMR');
+});
+
+test('a node whose project document is present is clean', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf([], [{ dependsOn: [], parent: null, stem: 'MMR-2' }], ['MMR']),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(0);
+  expect(JSON.parse(io.out.join('')) as unknown[]).toHaveLength(0);
+});
+
+test('missing-project reports whole-vault, ignoring -s (a broken load is global)', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    // The orphaned node is under OTH, out of the MMR scope — still surfaced.
+    vaultOf([], [{ dependsOn: [], parent: null, stem: 'OTH-3' }], []),
+    'json',
+    'MMR',
+  );
+  expect(code).toBe(1);
+  const findings = JSON.parse(io.out.join('')) as { node: string; check: string }[];
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ check: 'missing-project', node: 'OTH-3' });
 });

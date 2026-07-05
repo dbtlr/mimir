@@ -123,37 +123,53 @@ export type NornSnapshot = {
 export type NodeRefs = { stem: string; parent: string | null; dependsOn: string[] };
 
 /**
- * Read every node's raw `parent` / `depends_on` stems WITHOUT resolving them
- * (MMR-169). The resolving loader ({@link loadNornSnapshot}) throws on the first
- * dangling ref, so it can never enumerate them — `mimir doctor` reads below it
- * here and reports every node whose parent/prerequisite points at a stem absent
- * from the vault.
- *
- * Emits refs only for the docs the loader actually resolves refs for — its
- * `rawNodes` partition: a `task`/`phase`/`initiative` with a valid `KEY-seq`
- * stem. A project resolves no parent/depends_on and a non-`KEY-seq` stem is
- * dropped, so surfacing either's stray ref would flag a vault the loader loads
- * fine. Matching the partition keeps the check aligned to what actually throws.
+ * The vault's relational graph, read raw and unresolved: the valid nodes' refs
+ * plus the set of project `key`s present. Both `mimir doctor` referential checks
+ * resolve against this one read.
  */
-export async function readAllNodeRefs(client: NornClient): Promise<NodeRefs[]> {
+export type VaultGraph = { nodes: NodeRefs[]; projectKeys: string[] };
+
+/**
+ * Read the vault's relational graph WITHOUT resolving it (MMR-169, MMR-178). The
+ * resolving loader ({@link loadNornSnapshot}) throws on the first dangling ref or
+ * missing project, so it can never enumerate them — `mimir doctor` reads below it
+ * here and reports every node whose parent/prerequisite points at an absent stem,
+ * or whose owning project has no document.
+ *
+ * Partitions exactly as the loader does: `nodes` holds only the docs whose refs
+ * the loader resolves — its `rawNodes` partition (a `task`/`phase`/`initiative`
+ * with a valid `KEY-seq` stem) — and `projectKeys` holds the `key` of every
+ * `type: project` doc that carries one (its `projectDocs` partition). A project
+ * resolves no parent/depends_on and a non-`KEY-seq` stem is dropped, so surfacing
+ * either's stray ref would flag a vault the loader loads fine.
+ */
+export async function readVaultGraph(client: NornClient): Promise<VaultGraph> {
   const docs = await client.find({
     in: ['type:project,task,phase,initiative'],
     no_limit: true,
   });
-  const out: NodeRefs[] = [];
+  const nodes: NodeRefs[] = [];
+  const projectKeys: string[] = [];
   for (const doc of docs) {
     const fm = doc.frontmatter;
     if (fm === undefined) {
       continue;
     }
     const type = str(fm.type);
+    if (type === 'project') {
+      const key = str(fm.key);
+      if (key !== null && key !== '') {
+        projectKeys.push(key);
+      }
+      continue;
+    }
     const stem = stemOf(doc.path);
     if ((type !== 'task' && type !== 'phase' && type !== 'initiative') || parseId(stem) === null) {
       continue;
     }
-    out.push({ dependsOn: linkStems(fm.depends_on), parent: collapse(fm.parent), stem });
+    nodes.push({ dependsOn: linkStems(fm.depends_on), parent: collapse(fm.parent), stem });
   }
-  return out;
+  return { nodes, projectKeys };
 }
 
 export async function loadWorkingSetOverNorn(client: NornClient): Promise<WorkingSet> {

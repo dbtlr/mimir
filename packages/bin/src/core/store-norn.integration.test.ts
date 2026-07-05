@@ -14,7 +14,7 @@ import type { Node, Project } from './model';
 import { depend } from './mutations/dependency';
 import { tagEntities } from './mutations/tags';
 import type { Store, WorkingSet } from './store';
-import { loadWorkingSetOverNorn, readAllNodeRefs } from './store-norn';
+import { loadWorkingSetOverNorn, readVaultGraph } from './store-norn';
 import { createSqliteStore } from './store-sqlite';
 
 /**
@@ -499,23 +499,24 @@ test.skipIf(!NORN)(
       jsonField('updated_at', at),
     ]);
 
-    // Reading the raw refs never throws and surfaces the dangling parent verbatim.
-    const refs = await readAllNodeRefs(client);
-    const orphan = must(refs.find((r) => r.stem === 'MMR-2'));
+    // Reading the raw graph never throws and surfaces the dangling parent verbatim.
+    const graph = await readVaultGraph(client);
+    const orphan = must(graph.nodes.find((n) => n.stem === 'MMR-2'));
     expect(orphan.parent).toBe('MMR-99');
     expect(orphan.dependsOn).toEqual(['MMR-1']); // a resolvable prereq decodes too
+    expect(graph.projectKeys).toEqual(['MMR']); // the project partition, by `key`
 
     // The premise doctor exists for: the resolving loader can't get past it.
     await expectThrows(() => loadWorkingSetOverNorn(client), /MMR-99.*not in the vault/);
   },
 );
 
-// readAllNodeRefs must emit refs only for the docs the loader actually resolves
-// — its `rawNodes` partition (task/phase/initiative with a KEY-seq stem). A
+// readVaultGraph.nodes must hold only the docs the loader actually resolves refs
+// for — its `rawNodes` partition (task/phase/initiative with a KEY-seq stem). A
 // project's stray ref and an invalid-stem node's ref are NEVER resolved by the
 // loader, so surfacing them would make doctor false-positive a vault that loads.
 test.skipIf(!NORN)(
-  'readAllNodeRefs skips projects and invalid-stem docs (no false positives)',
+  'readVaultGraph skips projects and invalid-stem docs from nodes (no false positives)',
   async () => {
     const at = '2026-07-05T00:00:00.000Z';
     // A project carrying a stray depends_on the loader never resolves...
@@ -539,7 +540,37 @@ test.skipIf(!NORN)(
     // Neither breaks the load: the project isn't a node, 'notes' is dropped.
     const ws = await loadWorkingSetOverNorn(client);
     expect(ws.nodes).toHaveLength(0);
-    // So readAllNodeRefs must surface neither — else doctor flags a readable vault.
-    expect(await readAllNodeRefs(client)).toHaveLength(0);
+    // So readVaultGraph.nodes must surface neither — else doctor flags a readable
+    // vault. The project's `key` is still captured (its own partition).
+    const graph = await readVaultGraph(client);
+    expect(graph.nodes).toHaveLength(0);
+    expect(graph.projectKeys).toEqual(['MMR']);
+  },
+);
+
+// MMR-178: a node whose owning project has no document. readVaultGraph surfaces
+// the node with an empty projectKeys set, and the resolving loader throws — the
+// premise the missing-project check exists for.
+test.skipIf(!NORN)(
+  'readVaultGraph surfaces a node with no project; the loader throws',
+  async () => {
+    const at = '2026-07-05T00:00:00.000Z';
+    // A well-formed task MMR-2 (root under project MMR) but NO project MMR doc.
+    await writeDoc('MMR/MMR-2.md', [
+      jsonField('type', 'task'),
+      jsonField('title', 'Homeless'),
+      jsonField('parent', wikilink('MMR')),
+      jsonField('created', at),
+      jsonField('updated_at', at),
+    ]);
+
+    const graph = await readVaultGraph(client);
+    expect(graph.nodes.map((n) => n.stem)).toEqual(['MMR-2']);
+    expect(graph.projectKeys).toEqual([]); // no project doc → the missing-project case
+
+    await expectThrows(
+      () => loadWorkingSetOverNorn(client),
+      /references project MMR.*not in the vault/,
+    );
   },
 );
