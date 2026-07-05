@@ -15,6 +15,12 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Node `summary` — a short list lede** (MMR-162, ADR 0016 Refinement). A new
+  optional, all-node field: a single-line summary (≤256 characters, embedded
+  newlines stripped) surfaced in `list`/`next` rows and on the console board,
+  distinct from the full `description` prose and authored rather than derived.
+  `mimir create` / `mimir update` accept `--summary`; it is on the JSON/HTTP
+  node contract and editable in the web UI.
 - **`mimir migrate nodes` — the authoritative node/project migration** (MMR-155,
   ADR 0016 Phase 3) — the lossless SQLite→vault projection of work state, the
   node counterpart to `migrate artifacts`. Each project and node is written at
@@ -155,6 +161,13 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Node `description` is body-authoritative** (MMR-162, ADR 0016 Refinement).
+  The full prose now lives only in the `## Task Description` body section — read
+  on a detail `get` (as the `description` facet) and no longer carried in bulk
+  `list`/`next` rows, and no longer a frontmatter field. This preserves
+  paragraph breaks that frontmatter YAML serialization dropped and spares bulk
+  views the cost of reading prose; the short `summary` (above) is the new list
+  lede. Existing stores migrate losslessly via `mimir migrate nodes`.
 - **Per-node body-section facets read through a backend-neutral seam** (MMR-154,
   ADR 0016 Phase 3). A node's `## History` and `## Annotations` facets now route
   through a `BodySectionStore` seam — the SQLite backend reads the

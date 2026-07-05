@@ -84,6 +84,9 @@ export function NodeCard({
         <p className="line-clamp-2 text-md font-semibold leading-snug text-ink-bright group-hover:text-ink-bright md:text-xs md:font-medium md:text-ink">
           {node.title}
         </p>
+        {node.summary != null && node.summary !== '' && (
+          <p className="truncate text-2xs text-ink-dim md:text-3xs">{node.summary}</p>
+        )}
       </button>
       {(node.priority != null || node.size != null || tags.length > 0) && (
         <div className="mt-2 flex flex-wrap items-center gap-1 md:mt-1.5">

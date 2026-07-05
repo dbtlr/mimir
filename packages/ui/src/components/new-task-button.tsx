@@ -14,7 +14,7 @@ export function NewTaskButton({ projectKey, offline }: { projectKey: string; off
   const create = useCreateTask();
 
   function handleSubmit(values: TaskFormSubmit) {
-    const { parent, title, description, priority, size, external_ref, tags } = values;
+    const { parent, title, description, summary, priority, size, external_ref, tags } = values;
     create.mutate(
       {
         description: description ?? undefined,
@@ -22,6 +22,7 @@ export function NewTaskButton({ projectKey, offline }: { projectKey: string; off
         parent: parent ?? '',
         priority: priority ?? undefined,
         size: size ?? undefined,
+        summary: summary ?? undefined,
         tags,
         title,
       },
