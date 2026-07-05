@@ -189,6 +189,24 @@ test('a hand-typed `### ` line inside a reason stays in the reason (MMR-161 F4)'
   ]);
 });
 
+test('a hand-typed `### x — y` line with an unknown kind stays in the reason (MMR-161 F4)', () => {
+  // A hand edit leaves a heading-SHAPED line (space + em-dash + space) whose
+  // kind is not a transition kind. The boundary anchors on the full grammar
+  // (shape AND a known kind), so this line must not open a new record and shed
+  // the reason tail — it is not a real transition heading.
+  const section =
+    '### 2026-07-04T00:00:00.000Z — lifecycle\ntodo → done\nstarted\n### follow-up — see comments\ntail\n';
+  expect(parseHistorySection(section)).toEqual([
+    {
+      at: '2026-07-04T00:00:00.000Z',
+      from: 'todo',
+      kind: 'lifecycle',
+      reason: 'started\n### follow-up — see comments\ntail',
+      to: 'done',
+    },
+  ]);
+});
+
 test('a hand-typed `### ` line inside an annotation stays in its content (MMR-161 F4)', () => {
   const section = '### 2026-07-04T00:00:00.000Z\nmy note\n### a hand heading\nmore\n';
   expect(parseAnnotationsSection(section)).toEqual([

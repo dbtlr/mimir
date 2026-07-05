@@ -227,21 +227,25 @@ unescaped `### ` line inside a record body (F4).
   channel to warn _into_ regardless.) Actively reporting corruption is a separate,
   additive concern (a future vault-lint/`check` surface, MMR-166), not a read-path
   behavior.
-- **Record boundaries anchor on the grammar, not a bare `### `.** A `## History`
-  record opens on `### <at> — <kind>`; a `## Annotations` record opens on
-  `### <ISO createdAt>`. A heading-shaped line that does not match — the common
-  hand-edit shape, e.g. a `### notes` line typed into a reason — stays _content of
-  its enclosing record_ instead of splitting one record into two and silently
-  shedding the orphaned tail (F4). A hand edit that reproduces the full heading
-  grammar is still read as a new record; that is inherent, since it is
-  indistinguishable from a genuine one.
+- **Record boundaries anchor on the full grammar, not a bare `### `.** A
+  `## History` record opens on `### <at> — <kind>` where `<kind>` is a known
+  transition kind; a `## Annotations` record opens on `### <ISO createdAt>`. A
+  heading-shaped line that does not match the whole grammar — a `### notes` line
+  typed into a reason, or a `### follow-up — see comments` line whose kind is not
+  a transition kind — stays _content of its enclosing record_ instead of
+  splitting one record into two and silently shedding the orphaned tail (F4).
+  Both boundaries anchor at the same strictness: the annotation's ISO shape and
+  the history record's known-kind constraint are each part of what opens a
+  record. A hand edit that reproduces the full grammar is still read as a new
+  record; that is inherent, since it is indistinguishable from a genuine one.
 - **Vault-editing rules** (for a human or agent editing a node's markdown directly):
   - These sections are an **append-only log** — edit to correct, don't rewrite
     history; a dropped or reshaped record is a silent omission on read.
   - A record is one H3 block: `### <ISO> — <kind>` then a `<from> → <to>` edge
     line then an optional reason (History), or `### <ISO>` then free content
-    (Annotations). `<kind>` must be a known transition kind or the record is
-    skipped.
+    (Annotations). `<kind>` must be a known transition kind; a heading whose kind
+    is unrecognized (or whose timestamp is not ISO, for an annotation) is not a
+    record boundary at all and reads as content of the preceding record.
   - To include a heading-shaped line (`#`..`######` + space) inside a reason or
     annotation body, prefix it with a backslash (`\### like this`) — the same
     escape the write path applies; it is stripped on read.
