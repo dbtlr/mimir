@@ -3,7 +3,7 @@ import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'nod
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { FacetName } from '@mimir/contract';
+import type { FacetName, TransitionView } from '@mimir/contract';
 
 import { migrateNodes, reconstructNodeBodies, restoreNodeDoc } from '../cli/migrate-nodes';
 import { createDb } from '../db/client';
@@ -529,6 +529,34 @@ test.skipIf(!NORN)(
     await assertParity(await migrateAndNorn(), BODY_FACETS);
   },
 );
+
+// The cross-node transitions feed (MMR-160): SQLite reads the append-only
+// `transition_log`; Norn fans out every `## History` section and merges them.
+// Both must surface the same set of transitions — including a project-keyed
+// archive row. Compared under a total sort (at, node, kind, to, from) so an
+// intra-`at` cross-node tie (SQLite orders by insertion id, Norn by stem — the
+// documented Phase-3 clock-source edge) can't flake the diff.
+test.skipIf(!NORN)('migrated parity: the cross-node transitions feed matches', async () => {
+  const p = await createProject(sqlite, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(sqlite, { projectId: p.id, title: 'Init' });
+  const a = await createTask(sqlite, { parentId: init.id, title: 'A' });
+  const b = await createTask(sqlite, { parentId: init.id, title: 'B' });
+  await startTask(sqlite, a.id);
+  await completeTask(sqlite, a.id);
+  await blockTask(sqlite, b.id, 'external');
+  await unblockTask(sqlite, b.id);
+  await archiveProject(sqlite, p.id, 'wrapped'); // a project-keyed transition row
+
+  const norn = await migrateAndNorn();
+  const cmp = (x: TransitionView, y: TransitionView): number =>
+    `${x.at}|${x.node}|${x.kind}|${x.to ?? ''}|${x.from ?? ''}`.localeCompare(
+      `${y.at}|${y.node}|${y.kind}|${y.to ?? ''}|${y.from ?? ''}`,
+    );
+  const sorted = (r: { items: TransitionView[] }) => r.items.toSorted(cmp);
+  const fromNorn = sorted(await norn.transitions.list());
+  expect(fromNorn).toEqual(sorted(await sqlite.transitions.list()));
+  expect(fromNorn.some((i) => i.node === 'MMR')).toBe(true); // the archive row survived
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Write-verb parity (MMR-153): run a verb on BOTH the SQLite store and the Norn

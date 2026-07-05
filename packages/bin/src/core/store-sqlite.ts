@@ -3,6 +3,7 @@ import { createSqliteArtifactStore } from './artifacts/sqlite';
 import type { ArtifactStore } from './artifacts/store';
 import { createSqliteBodySectionStore } from './body-sections/sqlite';
 import type { Db, Tx } from './context';
+import { createSqliteTransitionsFeed } from './transitions/sqlite';
 import type { NodeTag, Store, StoreWriter, WorkingSet } from './store';
 
 /**
@@ -175,6 +176,7 @@ export function createSqliteStore(db: Db): Store {
     artifacts: createSqliteArtifactStore(db),
     bodySections: createSqliteBodySectionStore(db),
     db,
+    transitions: createSqliteTransitionsFeed(db),
     // Run the five bulk selects inside one read transaction so the projection is
     // a consistent snapshot — a concurrent write can't interleave between them.
     // The writer's own `loadWorkingSet` already runs inside its `transact` tx.

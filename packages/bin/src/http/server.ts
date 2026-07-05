@@ -34,7 +34,6 @@ import {
   getNode,
   listNodes,
   listProjects,
-  listTransitions,
   moveNode,
   nodeToWire,
   notFound,
@@ -964,7 +963,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (rawLimit !== null) {
               limit = Number(rawLimit);
             }
-            const result = await listTransitions(db, { limit, since });
+            const result = await store.transitions.list({ limit, since });
             const body: Record<string, unknown> = { items: result.items };
             if (result.nextCursor !== undefined) {
               body.next_cursor = result.nextCursor;

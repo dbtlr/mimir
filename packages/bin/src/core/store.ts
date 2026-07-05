@@ -12,6 +12,7 @@ import type { ArtifactStore } from './artifacts/store';
 import type { BodySectionStore } from './body-sections/store';
 import type { Db } from './context';
 import type { Artifact, Dependency, Node, Project, Tag } from './model';
+import type { TransitionsFeed } from './transitions/store';
 
 /**
  * The coarse storage seam (ADR 0016 Phase 0). The core reads work state as
@@ -222,11 +223,19 @@ export type Store = {
   readonly bodySections: BodySectionStore;
 
   /**
+   * The cross-node transition feed slice (MMR-160, ADR 0016 Phase 3) — the
+   * whole-portfolio transition log, backed by the `transition_log` table
+   * (SQLite) or the fanned-out `## History` sections (Norn).
+   */
+  readonly transitions: TransitionsFeed;
+
+  /**
    * Transitional (MMR-133): the raw executor. After Phase 2b (MMR-148) every
-   * frontmatter-derived read derives from the working set, and the per-node
-   * body-section facets moved to {@link bodySections} (MMR-154) — what still
-   * rides the executor is the cross-node transitions feed plus the write verbs'
-   * token resolution. It leaves the interface when Phase 3 moves those to Norn.
+   * frontmatter-derived read derives from the working set, the per-node
+   * body-section facets moved to {@link bodySections} (MMR-154), and the
+   * cross-node transitions feed to {@link transitions} (MMR-160). What still
+   * rides the executor is the write verbs' token resolution; it leaves the
+   * interface when MMR-160 routes that through the working set.
    */
   readonly db: Db;
 };
