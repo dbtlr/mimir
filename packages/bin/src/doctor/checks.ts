@@ -8,8 +8,8 @@
  */
 import type { BodyRecordProblem } from '../core/history-codec';
 import { lintBodySections } from '../core/history-codec';
-import { parseId } from '../core/ids';
 import type { VaultGraph } from '../core/store-norn';
+import { validate } from '../core/validate';
 
 /** What a check reads: the raw vault documents to diagnose. */
 export type DoctorContext = {
@@ -130,49 +130,36 @@ export const crlfCheck: Diagnostic = {
 
 /**
  * Dangling relational references (MMR-169): a node whose `parent` (a `KEY-seq`)
- * or `depends_on` stem resolves to no node in the vault. A dangling ref is one
- * cause of a vault that will not load — the Norn working-set loader throws on
- * the *first* such ref (`store-norn.ts`), so it names only one; doctor reads the
- * raw refs below it and enumerates them all. Always an `error` (the vault is
- * unreadable until fixed), and whole-vault: a single dangler breaks *every*
- * command regardless of `-s`, so the check ignores scope. A bare project `KEY`
- * parent is a root, not a reference — skipped, exactly as the loader treats it.
- * This check covers only unresolved parent/prerequisite stems; the loader's
- * other load-breakers are other checks' domains — a cycle (self-dependency
- * included) is the acyclicity check (MMR-174), a missing project is
- * {@link missingProjectCheck}, a malformed field a structural check (MMR-177).
- * It does not claim to catch them all.
+ * or `depends_on` resolves to no surviving node in the vault. A dangling ref is
+ * one cause of a vault that will not load today — the resolving loader throws on
+ * the *first* such ref (`store-norn.ts`); doctor renders every dangling *edge*
+ * the {@link validate} shared validator (MMR-180) drops, so it enumerates them
+ * all. Always an `error`, and whole-vault: a single dangler affects the load
+ * regardless of `-s`, so the check ignores scope. A bare project `KEY` parent is
+ * a root, not a reference — the validator preserves it; a self-dependency
+ * resolves and is the acyclicity check's domain (MMR-174).
+ *
+ * A thin adapter over the validator: it renders `dropped[]` entries whose `rule`
+ * is `dangling-parent`/`dangling-depends-on`. There is exactly one detector —
+ * the reader drops the same edges this reports — so they cannot drift.
  */
 export const danglingRefCheck: Diagnostic = {
   name: 'dangling-refs',
   run: async (ctx) => {
-    const { nodes } = await ctx.readVaultGraph();
-    // `nodes` is the loader's `rawNodes` partition (valid `KEY-seq` docs), so
-    // their stems ARE the loader's `nodeIdByStem` — the exact set a
-    // parent/prerequisite must resolve into.
-    const nodeStems = new Set(nodes.map((n) => n.stem));
+    const { dropped } = validate(await ctx.readVaultGraph());
     const findings: DoctorFinding[] = [];
-    for (const { stem, parent, dependsOn } of nodes) {
-      if (parent !== null && parseId(parent) !== null && !nodeStems.has(parent)) {
-        findings.push({
-          check: 'dangling-refs',
-          message: `parent ${parent} resolves to no node in the vault — the vault will not load`,
-          node: stem,
-          severity: 'error',
-          where: 'frontmatter · parent',
-        });
+    for (const drop of dropped) {
+      if (drop.kind !== 'edge') {
+        continue;
       }
-      for (const dep of dependsOn) {
-        if (!nodeStems.has(dep)) {
-          findings.push({
-            check: 'dangling-refs',
-            message: `depends_on ${dep} resolves to no node in the vault — the vault will not load`,
-            node: stem,
-            severity: 'error',
-            where: 'frontmatter · depends_on',
-          });
-        }
-      }
+      const field = drop.rule === 'dangling-parent' ? 'parent' : 'depends_on';
+      findings.push({
+        check: 'dangling-refs',
+        message: `${field} ${drop.ref} resolves to no node in the vault — the vault will not load`,
+        node: drop.stem,
+        severity: 'error',
+        where: `frontmatter · ${field}`,
+      });
     }
     return findings;
   },
@@ -184,27 +171,29 @@ export const danglingRefCheck: Diagnostic = {
  * document. Every node belongs to the project named by its `KEY-seq` stem's key,
  * and the loader throws when that project doc is absent (`store-norn.ts`) — so,
  * like a dangling ref, one such node breaks the whole vault load. The companion
- * to {@link danglingRefCheck} over the same {@link VaultGraph} read: `error`,
+ * to {@link danglingRefCheck} over the same {@link validate} pass: `error`,
  * whole-vault, vault-only (SQLite's `project_id` FK precludes it).
  *
  * Reports one finding per *missing project*, not per orphaned node: every node
  * under an absent key shares the one fix (add that project doc), so collapsing
- * them keeps the count honest and avoids burying other findings.
+ * the validator's per-node `missing-project` drops keeps the count honest and
+ * avoids burying other findings.
  */
 export const missingProjectCheck: Diagnostic = {
   name: 'missing-project',
   run: async (ctx) => {
-    const { nodes, projectKeys } = await ctx.readVaultGraph();
-    const present = new Set(projectKeys);
-    // Absent key → a representative orphaned node + the total under it.
+    const { dropped } = validate(await ctx.readVaultGraph());
+    // Collapse the validator's per-node missing-project drops by key → a
+    // representative orphaned node + the total under it. Insertion order over the
+    // (input-ordered) drops preserves the first-seen node as representative.
     const missing = new Map<string, { node: string; count: number }>();
-    for (const { key, stem } of nodes) {
-      if (present.has(key)) {
+    for (const drop of dropped) {
+      if (drop.kind !== 'node' || drop.rule !== 'missing-project') {
         continue;
       }
-      const seen = missing.get(key);
+      const seen = missing.get(drop.key);
       if (seen === undefined) {
-        missing.set(key, { count: 1, node: stem });
+        missing.set(drop.key, { count: 1, node: drop.stem });
       } else {
         seen.count += 1;
       }

@@ -200,6 +200,18 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **`mimir doctor`'s referential checks derive from one shared validator**
+  (MMR-180, ADR 0017). A new `validate(rawGraph) → { valid subgraph, dropped[] }`
+  module is the single source of truth for what is invalid in a Norn-backed
+  vault: it drops nodes whose owning project is absent (missing container) and
+  edges whose `parent`/`depends_on` resolves to no *surviving* node (dangling).
+  The dangling-reference (MMR-169) and missing-project (MMR-178) checks are now
+  thin adapters that render its drops, so there is exactly one detector — the
+  tolerant reader (forthcoming) will drop the same edges doctor reports, with no
+  risk of drift. Resolving edges against the *surviving* set (not the raw set)
+  makes the cascade correct: a `depends_on`/`parent` pointing at a node hidden by
+  a missing project is now itself reported as dangling — a case the two separate
+  detectors could not see. No change on the SQLite backend (doctor no-ops there).
 - **The core is the sole stamper of a transition's `at` and an annotation's
   `created_at`** (MMR-173, ADR 0016 Phase 3). These two timestamps were the last
   the SQLite backend left to its column default (its own DB clock) while the Norn
