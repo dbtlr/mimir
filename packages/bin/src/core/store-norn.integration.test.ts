@@ -509,3 +509,37 @@ test.skipIf(!NORN)(
     await expectThrows(() => loadWorkingSetOverNorn(client), /MMR-99.*not in the vault/);
   },
 );
+
+// readAllNodeRefs must emit refs only for the docs the loader actually resolves
+// — its `rawNodes` partition (task/phase/initiative with a KEY-seq stem). A
+// project's stray ref and an invalid-stem node's ref are NEVER resolved by the
+// loader, so surfacing them would make doctor false-positive a vault that loads.
+test.skipIf(!NORN)(
+  'readAllNodeRefs skips projects and invalid-stem docs (no false positives)',
+  async () => {
+    const at = '2026-07-05T00:00:00.000Z';
+    // A project carrying a stray depends_on the loader never resolves...
+    await writeDoc('MMR/MMR.md', [
+      jsonField('type', 'project'),
+      jsonField('key', 'MMR'),
+      jsonField('name', 'Mimir'),
+      jsonField('depends_on', [wikilink('MMR-99')]),
+      jsonField('created', at),
+      jsonField('updated_at', at),
+    ]);
+    // ...and a task at a non-KEY-seq stem the loader drops.
+    await writeDoc('MMR/notes.md', [
+      jsonField('type', 'task'),
+      jsonField('title', 'Loose'),
+      jsonField('parent', wikilink('MMR-99')),
+      jsonField('created', at),
+      jsonField('updated_at', at),
+    ]);
+
+    // Neither breaks the load: the project isn't a node, 'notes' is dropped.
+    const ws = await loadWorkingSetOverNorn(client);
+    expect(ws.nodes).toHaveLength(0);
+    // So readAllNodeRefs must surface neither — else doctor flags a readable vault.
+    expect(await readAllNodeRefs(client)).toHaveLength(0);
+  },
+);
