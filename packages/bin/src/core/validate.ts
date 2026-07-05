@@ -8,11 +8,17 @@
  * `mimir doctor` (MMR-182) renders its {@link Drop}s. One validator, two views —
  * never two parallel detectors that can drift.
  *
- * This validator owns the *referential* rules — the corruptions the resolving
- * loader ({@link loadNornSnapshot}) throws on today: a node whose owning project
- * has no document (missing container), and a `parent`/`depends_on` that resolves
- * to no surviving node (dangling edge). Acyclicity (MMR-174) and node-field
- * validity (MMR-177) slot in later as further rules over the same seam.
+ * This validator owns the *referential* rules — a subset of the corruptions the
+ * resolving loader ({@link loadNornSnapshot}) throws on today: a node whose
+ * owning project has no document (missing container), and a `parent`/`depends_on`
+ * that resolves to no surviving node (dangling edge). Two throw classes are NOT
+ * yet covered and slot in later as further rules over the same seam: a
+ * self-dependency / cycle (MMR-174, acyclicity — the loader throws at
+ * `store-norn.ts` on `prereqId === n.id`) and a field-malformed node (MMR-177 — a
+ * task missing its `lifecycle`, or a foreign enum value). Until those land the
+ * valid subgraph can still contain such a node, so the tolerant reader (MMR-181)
+ * must account for those throw classes itself (or depend on MMR-174/MMR-177) —
+ * this validator alone does not yet make the read throw-free.
  */
 import { parseId } from './ids';
 import type { NodeRefs, VaultGraph } from './store-norn';
@@ -86,8 +92,17 @@ export function validate(graph: VaultGraph): ValidatedGraph {
       parent = null;
     }
 
+    // Dedup by stem, mirroring the loader's collapse to SQLite's
+    // (node_id, depends_on_node_id) primary key — a doubled wikilink is one edge.
+    // Deduping here (not in the reader) keeps the valid subgraph the single truth:
+    // a doubled prereq yields one output edge and, when dangling, one drop.
     const dependsOn: string[] = [];
+    const seen = new Set<string>();
     for (const ref of node.dependsOn) {
+      if (seen.has(ref)) {
+        continue;
+      }
+      seen.add(ref);
       if (survivors.has(ref)) {
         dependsOn.push(ref);
       } else {
