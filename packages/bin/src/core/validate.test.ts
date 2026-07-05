@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 
+import { parseId } from './ids';
 import type { NodeRefs, VaultGraph } from './store-norn';
 import { validate } from './validate';
 
@@ -14,7 +15,7 @@ function graphOf(nodes: Omit<NodeRefs, 'key'>[], projectKeys?: string[]): VaultG
 }
 
 function parseKey(stem: string): string {
-  const key = /^([A-Z]{2,4})-\d+$/.exec(stem)?.[1];
+  const key = parseId(stem)?.key;
   if (key === undefined) {
     throw new Error(`test stem is not a KEY-seq: ${stem}`);
   }
@@ -60,6 +61,27 @@ test('a dangling depends_on drops the edge; the prereq is pruned, node survives'
     { kind: 'edge', ref: 'MMR-99', rule: 'dangling-depends-on', stem: 'MMR-2' },
   ]);
   expect(subgraph(g)['MMR-2']).toEqual({ dependsOn: [], parent: null });
+});
+
+test('a doubled depends_on is collapsed to one edge — matching the loader (SQLite PK)', () => {
+  const g = graphOf(
+    [
+      { dependsOn: ['MMR-1', 'MMR-1'], parent: null, stem: 'MMR-2' }, // resolved, doubled
+      { dependsOn: [], parent: null, stem: 'MMR-1' },
+    ],
+    ['MMR'],
+  );
+  const result = validate(g);
+  expect(result.dropped).toEqual([]);
+  expect(subgraph(g)['MMR-2']).toEqual({ dependsOn: ['MMR-1'], parent: null }); // one edge, not two
+});
+
+test('a doubled *dangling* depends_on yields exactly one drop, not two', () => {
+  const g = graphOf([{ dependsOn: ['MMR-99', 'MMR-99'], parent: null, stem: 'MMR-2' }], ['MMR']);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { kind: 'edge', ref: 'MMR-99', rule: 'dangling-depends-on', stem: 'MMR-2' },
+  ]);
 });
 
 test('a self-dependency resolves — it is NOT a dangling drop (acyclicity, MMR-174, owns it)', () => {
