@@ -175,12 +175,24 @@ export function renderHistoryRecord(entry: HistoryEntry): string {
   return `${lines.join('\n')}\n`;
 }
 
-/** Group the section body into H3 blocks — each starts at a `### ` line. */
-function splitRecords(body: string): string[][] {
+/**
+ * Group the section body into H3 blocks — each opens on a line the caller's
+ * `isBoundary` predicate accepts as a record heading, and runs to the next such
+ * line (its own body absorbs everything between).
+ *
+ * The boundary is the record *grammar*, not a bare `### ` (MMR-161, hazard F4).
+ * Mimir-written records escape heading-shaped body lines, so a `### ` inside a
+ * reason or annotation only ever appears in a *hand edit* — and anchoring the
+ * split on the grammar keeps such a line as content of its enclosing record
+ * instead of splitting one record into two (and silently shedding the orphaned
+ * tail). A hand edit that reproduces the full heading grammar is still read as a
+ * record boundary; that is inherent (it is indistinguishable from a real one).
+ */
+function splitRecords(body: string, isBoundary: (line: string) => boolean): string[][] {
   const blocks: string[][] = [];
   let current: string[] | null = null;
   for (const line of body.split('\n')) {
-    if (line.startsWith('### ')) {
+    if (isBoundary(line)) {
       if (current !== null) {
         blocks.push(current);
       }
@@ -241,9 +253,19 @@ export function parseDescriptionSection(body: string): string | null {
   return text === '' ? null : text;
 }
 
+/**
+ * A `## History` record opens on an H3 heading of the record shape
+ * `### <at> — <kind>` ({@link HEADING}). Anchoring the split here (MMR-161) means
+ * a hand-typed `### …` line inside a reason — one lacking the ` — <kind>` tail —
+ * stays part of that reason rather than splitting the record.
+ */
+function isHistoryBoundary(line: string): boolean {
+  return HEADING.test(line);
+}
+
 /** Parse the `## History` section body into its transitions, in document order. */
 export function parseHistorySection(body: string): HistoryEntry[] {
-  return splitRecords(body)
+  return splitRecords(body, isHistoryBoundary)
     .map(parseRecord)
     .filter((entry): entry is HistoryEntry => entry !== null);
 }
@@ -255,7 +277,13 @@ export function parseHistorySection(body: string): HistoryEntry[] {
 // it is the note content. Trailing blank lines normalize away like a History
 // reason — content is otherwise byte-preserved (heading-shaped lines escaped).
 
-const ANNOTATION_HEADING = /^### (.+)$/;
+// An annotation record opens on `### <createdAt>`, where the created-at is the
+// ISO-8601 instant both backends stamp (`strftime('%Y-%m-%dT%H:%M:%fZ')` /
+// JS `toISOString`). Anchoring the heading to that shape — rather than any
+// `### ` line — keeps a hand-typed `### some heading` inside annotation prose
+// from being read as a new record boundary (MMR-161, hazard F4).
+const ANNOTATION_HEADING =
+  /^### (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)$/;
 
 /** Render one annotation as the `### …` block to hand to `appendToSection`. */
 export function renderAnnotationRecord(view: AnnotationView): string {
@@ -282,9 +310,15 @@ function parseAnnotationRecord(lines: string[]): AnnotationView | null {
   return { content: unescapeBodyLines(rest.join('\n')), createdAt };
 }
 
+/** A `## Annotations` record opens on an H3 `### <ISO createdAt>` heading — the
+ * boundary and the parse extractor share {@link ANNOTATION_HEADING}. */
+function isAnnotationBoundary(line: string): boolean {
+  return ANNOTATION_HEADING.test(line);
+}
+
 /** Parse the `## Annotations` section body into its notes, in document order. */
 export function parseAnnotationsSection(body: string): AnnotationView[] {
-  return splitRecords(body)
+  return splitRecords(body, isAnnotationBoundary)
     .map(parseAnnotationRecord)
     .filter((view): view is AnnotationView => view !== null);
 }

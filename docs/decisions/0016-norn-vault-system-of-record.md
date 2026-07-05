@@ -207,3 +207,41 @@ is the correct home for prose.
 - **Scope: nodes only.** Projects retain their (short) frontmatter `description`;
   they carry no `## Task Description` body section, and a project description body
   is out of scope until it is shown to be needed.
+
+## Refinement (2026-07-05, MMR-161): the read contract for hand-edited body sections
+
+The `## History` / `## Annotations` record grammar was designed for lossless
+round-trips of _Mimir-written_ content — the write path escapes heading-shaped
+body lines, so a record always parses back exactly. But this ADR makes markdown
+the human-editable source of truth, so a hand edit (or a git merge, or another
+agent) can leave content the write path never would. Two such hazards surfaced in
+the MMR-154 review: a record whose body fails the strict H3 grammar (F2), and an
+unescaped `### ` line inside a record body (F4).
+
+- **Reads tolerate; they never throw.** A malformed record is skipped, not
+  surfaced as an error — consistent with the frontmatter read path, which already
+  drops a malformed document rather than failing the query. A single hand-edit
+  typo must not brick a node's `get`, and the markdown on disk is never destroyed
+  by a read, so the content remains recoverable by opening the file. (The core is
+  transport-agnostic — shared by the CLI, MCP, and HTTP envelopes — so it has no
+  channel to warn _into_ regardless.) Actively reporting corruption is a separate,
+  additive concern (a future vault-lint/`check` surface, MMR-166), not a read-path
+  behavior.
+- **Record boundaries anchor on the grammar, not a bare `### `.** A `## History`
+  record opens on `### <at> — <kind>`; a `## Annotations` record opens on
+  `### <ISO createdAt>`. A heading-shaped line that does not match — the common
+  hand-edit shape, e.g. a `### notes` line typed into a reason — stays _content of
+  its enclosing record_ instead of splitting one record into two and silently
+  shedding the orphaned tail (F4). A hand edit that reproduces the full heading
+  grammar is still read as a new record; that is inherent, since it is
+  indistinguishable from a genuine one.
+- **Vault-editing rules** (for a human or agent editing a node's markdown directly):
+  - These sections are an **append-only log** — edit to correct, don't rewrite
+    history; a dropped or reshaped record is a silent omission on read.
+  - A record is one H3 block: `### <ISO> — <kind>` then a `<from> → <to>` edge
+    line then an optional reason (History), or `### <ISO>` then free content
+    (Annotations). `<kind>` must be a known transition kind or the record is
+    skipped.
+  - To include a heading-shaped line (`#`..`######` + space) inside a reason or
+    annotation body, prefix it with a backslash (`\### like this`) — the same
+    escape the write path applies; it is stripped on read.

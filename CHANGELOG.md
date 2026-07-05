@@ -281,6 +281,17 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **Body-section reads are hardened against hand-edited vault content**
+  (MMR-161, ADR 0016 Refinement). The `## History` / `## Annotations` record
+  split now anchors on the record grammar — `### <at> — <kind>` for history,
+  `### <ISO createdAt>` for annotations — rather than any `### ` line. A
+  heading-shaped line a hand edit leaves inside a reason or annotation (Mimir's
+  own writes escape these) no longer splits one record into two and silently
+  sheds the orphaned tail; it stays content of its record. Reads stay tolerant
+  and never throw — a malformed record is skipped, consistent with the
+  frontmatter read path — and the vault-editing rules are documented in ADR
+  0016. Actively reporting malformed records is deferred to a vault-lint surface
+  (MMR-166).
 - **`depend` and `move` reject a write that would close a derivation cycle
   through container rollups** (MMR-140). A verb-constructible shape — a task in
   initiative A depending on container C, while a task in C depends back on A —

@@ -167,6 +167,43 @@ test('a reason whose line is a markdown heading round-trips (write-path injectio
   expect(parsed).toEqual([entry]);
 });
 
+// ── MMR-161: hand-edit hardening (F4 — grammar-anchored record boundaries) ──
+// A hand edit can leave an UNESCAPED heading-shaped line inside a record body
+// (Mimir's own writes escape these). The split anchors on the record grammar,
+// not a bare `### `, so such a line stays content of its record instead of
+// splitting one record into two — and shedding the orphaned tail with no error.
+
+test('a hand-typed `### ` line inside a reason stays in the reason (MMR-161 F4)', () => {
+  // Raw section text as a hand edit leaves it: the reason carries a bare
+  // `### a hand note` line, which lacks the ` — <kind>` tail of a real heading.
+  const section =
+    '### 2026-07-04T00:00:00.000Z — lifecycle\ntodo → done\nfirst line\n### a hand note\nlast line\n';
+  expect(parseHistorySection(section)).toEqual([
+    {
+      at: '2026-07-04T00:00:00.000Z',
+      from: 'todo',
+      kind: 'lifecycle',
+      reason: 'first line\n### a hand note\nlast line',
+      to: 'done',
+    },
+  ]);
+});
+
+test('a hand-typed `### ` line inside an annotation stays in its content (MMR-161 F4)', () => {
+  const section = '### 2026-07-04T00:00:00.000Z\nmy note\n### a hand heading\nmore\n';
+  expect(parseAnnotationsSection(section)).toEqual([
+    { content: 'my note\n### a hand heading\nmore', createdAt: '2026-07-04T00:00:00.000Z' },
+  ]);
+});
+
+test('two ISO-headed annotations still split into separate records (MMR-161)', () => {
+  const section = '### 2026-07-04T00:00:00.000Z\nfirst\n### 2026-07-04T00:01:00.000Z\nsecond\n';
+  expect(parseAnnotationsSection(section)).toEqual([
+    { content: 'first', createdAt: '2026-07-04T00:00:00.000Z' },
+    { content: 'second', createdAt: '2026-07-04T00:01:00.000Z' },
+  ]);
+});
+
 test('a benign multi-line reason is untouched by the heading escape', () => {
   const entry: HistoryEntry = {
     at: '2026-07-03T10:00:00.000Z',
