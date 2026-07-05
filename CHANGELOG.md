@@ -181,10 +181,11 @@ release. When a release is cut, this section is promoted to
   the SQLite backend left to its column default (its own DB clock) while the Norn
   backend stamped them in the write path; the mutation layer now stamps both
   through the single `now()` clock, so the two backends persist an identical
-  value and the "core is the sole time-maintainer" invariant holds for every
-  timestamp. Format and precision are unchanged (ISO-8601, UTC, millisecond); the
-  column defaults remain only as a backstop for a direct-SQL write outside the
-  core. This closes the last divergence blocking body-section **write** parity, so
+  value for a transition's `at` and an annotation's `created_at`. (Node/project
+  creation timestamps still take the SQLite column default — a separate, known
+  backend divergence the conformance harness normalizes.) Format and precision
+  are unchanged (ISO-8601, UTC, millisecond). This closes the last divergence
+  blocking body-section **write** parity, so
   the A/B conformance harness now diffs `## History` / `## Annotations` /
   `## Task Description` after every write verb across both backends.
 - **The cross-node transition feed is a backend-neutral seam; the last SQLite

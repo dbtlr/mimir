@@ -5,8 +5,10 @@ import type { BodySections, BodySectionStore } from './store';
  * The SQLite body-section backend — the `transition_log` / `annotation` tables
  * read by surrogate `node_id`. Both facets project straight to the output
  * contract; the Norn backend produces the same views from the markdown sections
- * (see `./norn`). History orders by insertion (`id`), annotations by
- * `created_at` — the same order the vault's append log preserves.
+ * (see `./norn`). History orders by insertion (`id`); annotations by
+ * `created_at` then `id` — the `id` tiebreak keeps a same-millisecond pair in
+ * append order, matching the vault's append log (and Norn's stable tie-order),
+ * so the two backends stay byte-identical even when core-stamped times collide.
  */
 export function createSqliteBodySectionStore(db: Db): BodySectionStore {
   const readAnnotations: BodySectionStore['readAnnotations'] = async (nodeId) => {
@@ -15,6 +17,7 @@ export function createSqliteBodySectionStore(db: Db): BodySectionStore {
       .select(['content', 'created_at'])
       .where('node_id', '=', nodeId)
       .orderBy('created_at', 'asc')
+      .orderBy('id', 'asc')
       .execute();
     return rows.map((r) => ({ content: r.content, createdAt: r.created_at }));
   };

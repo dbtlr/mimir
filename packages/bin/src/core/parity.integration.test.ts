@@ -673,6 +673,21 @@ test.skipIf(!NORN)('write parity: abandon a task with a reason', async () => {
   await verbParity(async (store, id) => abandonTask(store, await id('MMR-3'), 'dropped'));
 });
 
+// Two annotations under the frozen clock share an identical core-stamped
+// `created_at` (MMR-173), so this guards both halves the review flagged: the
+// annotation created_at core-stamp itself (no test covered `annotate` under the
+// frozen clock), and the `## Annotations` order tiebreak — a same-millisecond
+// pair must read back in append order on both backends (SQLite `created_at, id`
+// vs Norn's stable append-order tie).
+test.skipIf(!NORN)('write parity: annotate a task twice (same-ms created_at)', async () => {
+  await scaffold(1);
+  await verbParity(async (store, id) => {
+    const task = await id('MMR-3');
+    await annotate(store, task, 'first note');
+    await annotate(store, task, 'second note');
+  });
+});
+
 test.skipIf(!NORN)('write parity: add a dependency edge', async () => {
   await scaffold(2);
   await verbParity(async (store, id) => depend(store, await id('MMR-4'), [await id('MMR-3')]));
