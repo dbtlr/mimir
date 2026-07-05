@@ -136,7 +136,7 @@ describe('Site B — missing project hint', () => {
   });
 
   test('resolveProject for an unknown key carries the create hint (cli/resolve)', async () => {
-    const err = await caught(() => resolveProject(db, 'NOPE'));
+    const err = await caught(() => resolveProject(store, 'NOPE'));
     assertCreateHint(err);
 
     // The same hint reaches both renderings.

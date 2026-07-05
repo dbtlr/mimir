@@ -165,6 +165,13 @@ export type Defaults = {
    * auto-migrating store provider; absent in tests that don't exercise it.
    */
   migrateSchema?: (sub: string | undefined) => Promise<number>;
+  /**
+   * A raw SQLite handle for the one-time `migrate artifacts`/`migrate nodes`
+   * commands (MMR-160) — they read the legacy tables (`transition_log`,
+   * `annotation`) directly to reconstruct bodies, a source-backend operation
+   * outside the Store seam. Absent where migration isn't available (tests).
+   */
+  db?: () => Db | Promise<Db>;
 };
 
 /**
@@ -196,8 +203,14 @@ export async function runCli(
   io: Io,
   defaults: Defaults = {},
 ): Promise<number> {
-  // Unconverted read paths still want the raw executor (Phase 2a/2b scope).
-  const getDb = async (): Promise<Db> => (await getStore()).db;
+  // The one-time SQLite→vault migration reads the legacy tables directly (MMR-160);
+  // the raw handle is injected, no longer reached through the Store.
+  const getDb = async (): Promise<Db> => {
+    if (defaults.db === undefined) {
+      throw usage('migrate is unavailable in this context');
+    }
+    return defaults.db();
+  };
   let values: {
     scope?: string;
     priority?: string;
@@ -292,7 +305,6 @@ export async function runCli(
     const mkCtx = async (): Promise<Ctx> => {
       const store = await getStore();
       return {
-        db: store.db,
         format: singleFormat,
         io: ctx,
         positionals,
@@ -505,7 +517,7 @@ export async function runCli(
         if (key === undefined) {
           throw usage('bind requires a project KEY');
         }
-        await resolveProject(await getDb(), key); // validates the project exists (not_found otherwise)
+        await resolveProject(await getStore(), key); // validates the project exists (not_found otherwise)
         writeBinding(defaults.cwd ?? process.cwd(), key);
         if (singleFormat === 'json' || singleFormat === 'jsonl') {
           ctx.write(JSON.stringify({ bound: { file: BINDING_FILE, project: key } }));

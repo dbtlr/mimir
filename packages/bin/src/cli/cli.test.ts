@@ -153,7 +153,9 @@ test('unknown migrate subcommand exits 2 without acquiring the store (MMR-159)',
 
 test('migrate artifacts --dry-run counts the source inventory (MMR-159)', async () => {
   const io = fakeIo(true);
-  expect(await runCli(['migrate', 'artifacts', '--dry-run'], () => store, io)).toBe(0);
+  expect(await runCli(['migrate', 'artifacts', '--dry-run'], () => store, io, { db: () => db })).toBe(
+    0,
+  );
   expect(io.out.join('')).toContain('dry-run');
 });
 
