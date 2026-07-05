@@ -1,32 +1,14 @@
 import type { TransitionView } from '@mimir/contract';
 
 import type { NornClient } from '../../norn/client';
+import { pathAndBody, stemOf } from '../../norn/decode';
 import { validation } from '../errors';
 import { HISTORY_HEADING, parseHistorySection, sliceBodySection } from '../history-codec';
 import { parseId } from '../ids';
 import type { TransitionsFeed } from './store';
 
-/** The document stem (basename without `.md`) — the node's `KEY-seq` identity. */
-function stemOf(path: string): string {
-  const base = path.slice(path.lastIndexOf('/') + 1);
-  return base.endsWith('.md') ? base.slice(0, -3) : base;
-}
-
 function str(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
-}
-
-/** A `vault.get` record's `path` + `.body`; either absent reads empty. */
-function pathAndBody(record: unknown): { path: string; body: string } | null {
-  if (typeof record !== 'object' || record === null || !('path' in record)) {
-    return null;
-  }
-  const path = str((record as { path: unknown }).path);
-  if (path === null) {
-    return null;
-  }
-  const body = 'body' in record ? str((record as { body: unknown }).body) : null;
-  return { body: body ?? '', path };
 }
 
 /**

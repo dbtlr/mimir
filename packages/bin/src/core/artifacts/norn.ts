@@ -1,4 +1,5 @@
 import type { NornClient, NornDocument } from '../../norn/client';
+import { collapse, stringList } from '../../norn/decode';
 import { validation } from '../errors';
 import { renderArtifactRef } from '../ids';
 import { now } from '../time';
@@ -127,22 +128,6 @@ function seqFromPath(path: string): { key: string; seq: number } | null {
   return match ? { key: String(match[1]), seq: Number(match[2]) } : null;
 }
 
-/** Collapse `[[STEM]]` (or a bare stem) to the stem text. */
-function collapse(link: unknown): string | null {
-  if (typeof link !== 'string') {
-    return null;
-  }
-  const inner = link.startsWith('[[') && link.endsWith(']]') ? link.slice(2, -2) : link;
-  return inner === '' ? null : inner;
-}
-
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter((v): v is string => typeof v === 'string');
-}
-
 function isStringRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -175,7 +160,7 @@ function toRecord(doc: NornDocument): ArtifactRecord | null {
     key: identity.key,
     links: links.toSorted(),
     seq: identity.seq,
-    tags: asStringArray(fm.tags),
+    tags: stringList(fm.tags),
     title,
   };
 }

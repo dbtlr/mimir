@@ -1,6 +1,7 @@
 import type { AnnotationView } from '@mimir/contract';
 
 import type { NornClient } from '../../norn/client';
+import { pathAndBody, stemOf } from '../../norn/decode';
 import {
   ANNOTATIONS_HEADING,
   DESCRIPTION_HEADING,
@@ -24,24 +25,6 @@ function bodyOf(record: unknown): string {
 async function readBody(client: NornClient, stem: string): Promise<string> {
   const records = await client.get([stem], '.body');
   return records.length > 0 ? bodyOf(records[0]) : '';
-}
-
-// NOTE (MMR-152): `stemOf`/`pathAndBody` are the same path helpers duplicated in
-// transitions/norn.ts and store-norn.ts — consolidate into shared Norn decode
-// helpers there.
-/** The document stem (basename without `.md`) — the node's `KEY-seq` identity. */
-function stemOf(path: string): string {
-  const base = path.slice(path.lastIndexOf('/') + 1);
-  return base.endsWith('.md') ? base.slice(0, -3) : base;
-}
-
-/** A `vault.get` record's `path` + `.body`; a record without a string path is dropped. */
-function pathAndBody(record: unknown): { path: string; body: string } | null {
-  if (typeof record !== 'object' || record === null || !('path' in record)) {
-    return null;
-  }
-  const { path } = record as { path: unknown };
-  return typeof path === 'string' ? { body: bodyOf(record), path } : null;
 }
 
 /**
