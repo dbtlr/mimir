@@ -117,6 +117,7 @@ const OPTIONS = {
   key: { type: 'string' },
   name: { type: 'string' },
   desc: { type: 'string' },
+  summary: { type: 'string' },
   target: { type: 'string' },
   ref: { type: 'string' },
   file: { type: 'string' },
@@ -228,6 +229,7 @@ export async function runCli(
     key?: string;
     name?: string;
     desc?: string;
+    summary?: string;
     target?: string;
     ref?: string;
     file?: string;

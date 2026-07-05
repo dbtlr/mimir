@@ -4,6 +4,7 @@ import { isValidKey } from './allocation';
 import { conflict, notFound, validation } from './errors';
 import type { Node, Project } from './model';
 import { assertProjectActive } from './mutations/common';
+import { normalizeSummary } from './mutations/data';
 import { appendRank } from './rank';
 import type { Store, StoreWriter } from './store';
 
@@ -59,6 +60,8 @@ export type CreateInitiativeInput = {
   projectId: number;
   title: string;
   description?: string | null;
+  /** The short list lede (MMR-162) — all-node, never type-gated. */
+  summary?: string | null;
   tags?: string[];
 };
 
@@ -75,6 +78,7 @@ export async function createInitiative(store: Store, input: CreateInitiativeInpu
       parent_id: null,
       project_id: input.projectId,
       seq,
+      summary: normalizeSummary(input.summary ?? null),
       title: input.title,
       type: 'initiative',
     });
@@ -87,6 +91,8 @@ export type CreatePhaseInput = {
   parentId: number;
   title: string;
   description?: string | null;
+  /** The short list lede (MMR-162) — all-node, never type-gated. */
+  summary?: string | null;
   target?: string | null;
   tags?: string[];
 };
@@ -107,6 +113,7 @@ export async function createPhase(store: Store, input: CreatePhaseInput): Promis
       parent_id: parent.id,
       project_id: parent.project_id,
       seq,
+      summary: normalizeSummary(input.summary ?? null),
       target: input.target ?? null,
       title: input.title,
       type: 'phase',
@@ -120,6 +127,8 @@ export type CreateTaskInput = {
   parentId: number;
   title: string;
   description?: string | null;
+  /** The short list lede (MMR-162) — all-node, never type-gated. */
+  summary?: string | null;
   priority?: Priority | null;
   size?: Size | null;
   externalRef?: string | null;
@@ -150,6 +159,7 @@ export async function createTask(store: Store, input: CreateTaskInput): Promise<
       rank,
       seq,
       size: input.size ?? null,
+      summary: normalizeSummary(input.summary ?? null),
       title: input.title,
       type: 'task',
     });

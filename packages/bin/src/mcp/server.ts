@@ -336,13 +336,14 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'update',
-    "Patch a node's scalar fields (title, description, priority, size, target, externalRef), or retitle an artifact (KEY-aN id, title only). Echoes the updated record.",
+    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef), or retitle an artifact (KEY-aN id, title only). Echoes the updated record.",
     {
       description: z.string().optional(),
       externalRef: z.string().optional(),
       id: z.string(),
       priority: PRIORITY.optional(),
       size: SIZE.optional(),
+      summary: z.string().optional(),
       target: z.string().optional(),
       title: z.string().optional(),
     },
@@ -350,6 +351,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       id: string;
       title?: string;
       description?: string;
+      summary?: string;
       priority?: string;
       size?: string;
       target?: string;
@@ -405,6 +407,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       parent: z.string().optional(),
       priority: PRIORITY.optional(),
       size: SIZE.optional(),
+      summary: z.string().optional(),
       tags: z.array(z.string()).optional(),
       target: z.string().optional(),
       title: z.string().optional(),
@@ -417,6 +420,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       parent?: string;
       title?: string;
       description?: string;
+      summary?: string;
       target?: string;
       priority?: string;
       size?: string;

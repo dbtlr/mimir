@@ -203,6 +203,9 @@ export function renderRecords(node: NodeView, io: Io): string {
   if (node.description != null) {
     pairs.push(['description', node.description]);
   }
+  if (node.summary != null) {
+    pairs.push(['summary', node.summary]);
+  }
   if (node.priority != null) {
     pairs.push(['priority', node.priority]);
   }

@@ -99,6 +99,7 @@ options:
       --name <name>       create project: display name (or positional)
       --title <text>      create/update: title text
       --desc <text>       create/update: description
+      --summary <text>    create/update: summary (all-node; 256 chars max)
       --target <text>     create/update: target date or milestone
       --ref <ref>         create/update: external reference
       --file <path>       attach: path to artifact file
@@ -352,6 +353,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     flags: [
       ['--title <text>', 'title text'],
       ['--desc <text>', 'description'],
+      ['--summary <text>', 'summary (all-node; 256 chars max)'],
       ['--priority <p0..p3>', 'priority signal'],
       ['--size <s|m|l>', 'size'],
       ['--target <text>', 'target date or milestone'],
@@ -360,7 +362,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     summary: 'patch scalar fields (a dumb patch — status is excluded; use the lifecycle verbs).',
     usage:
-      'mimir update <id> [--title …] [--desc …] [--priority …] [--size …] [--target …] [--ref …]',
+      'mimir update <id> [--title …] [--desc …] [--summary …] [--priority …] [--size …] [--target …] [--ref …]',
   },
   annotate: {
     args: [A_ID, ['<text>', 'note body (or stdin when omitted)']],
@@ -418,10 +420,12 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     flags: [
       ['--parent <KEY>', 'the owning project (required)'],
       ['--desc <text>', 'description'],
+      ['--summary <text>', 'summary (256 chars max)'],
       ['--tag <t>', 'tag at creation (repeatable)'],
     ],
     summary: 'create an initiative under a project.',
-    usage: 'mimir create initiative <title> --parent <KEY> [--desc <text>] [--tag <t>…]',
+    usage:
+      'mimir create initiative <title> --parent <KEY> [--desc <text>] [--summary <text>] [--tag <t>…]',
   },
   'create phase': {
     args: [['<title>', 'phase title']],
@@ -429,12 +433,13 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     flags: [
       ['--parent <KEY-seq>', 'the owning initiative (required)'],
       ['--desc <text>', 'description'],
+      ['--summary <text>', 'summary (256 chars max)'],
       ['--target <text>', 'target date or milestone'],
       ['--tag <t>', 'tag at creation (repeatable)'],
     ],
     summary: 'create a phase under an initiative.',
     usage:
-      'mimir create phase <title> --parent <KEY-seq> [--desc <text>] [--target <text>] [--tag <t>…]',
+      'mimir create phase <title> --parent <KEY-seq> [--desc <text>] [--summary <text>] [--target <text>] [--tag <t>…]',
   },
   'create task': {
     args: [['<title>', 'task title']],
@@ -444,12 +449,13 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--priority <p0..p3>', 'priority signal'],
       ['--size <s|m|l>', 'size'],
       ['--desc <text>', 'description'],
+      ['--summary <text>', 'summary (256 chars max)'],
       ['--ref <ref>', 'external reference'],
       ['--tag <t>', 'tag at creation (repeatable)'],
     ],
     summary: 'create a task under a phase or initiative.',
     usage:
-      'mimir create task <title> --parent <id> [--priority …] [--size …] [--desc …] [--ref …] [--tag <t>…]',
+      'mimir create task <title> --parent <id> [--priority …] [--size …] [--desc …] [--summary …] [--ref …] [--tag <t>…]',
   },
   attach: {
     args: [['<id>', 'the primary node (KEY-seq) the artifact attaches to']],

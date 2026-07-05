@@ -103,6 +103,7 @@ const bareNode = {
   rank: null,
   seq: 5,
   size: null,
+  summary: null,
   target: null,
   title: 'A node',
   type: 'initiative' as const,

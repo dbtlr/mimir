@@ -65,6 +65,7 @@ export async function buildNodeView(
     id: renderNodeIdFromSet(set, node) ?? 'unknown',
     parent: parent === undefined ? null : renderNodeIdFromSet(set, parent),
     status: nodeStatusWord(set, node),
+    summary: node.summary,
     title: node.title,
     type: node.type,
     updatedAt: node.updated_at,

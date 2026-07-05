@@ -446,6 +446,7 @@ export function toolUpdate(
     title?: string;
     name?: string;
     description?: string;
+    summary?: string;
     priority?: string;
     size?: string;
     target?: string;
@@ -466,6 +467,9 @@ export function toolUpdate(
     }
     if (args.description !== undefined) {
       fields.description = args.description;
+    }
+    if (args.summary !== undefined) {
+      fields.summary = args.summary;
     }
     if (args.priority !== undefined) {
       if (!isMember(args.priority, PRIORITY_VALUES)) {
@@ -500,6 +504,7 @@ async function updateProjectTool(
     id: string;
     name?: string;
     description?: string;
+    summary?: string;
     title?: string;
     priority?: string;
     size?: string;
@@ -507,9 +512,9 @@ async function updateProjectTool(
     externalRef?: string;
   },
 ): Promise<ToolResult> {
-  const nodeOnly = (['title', 'priority', 'size', 'target', 'externalRef'] as const).filter(
-    (k) => args[k] !== undefined,
-  );
+  const nodeOnly = (
+    ['title', 'priority', 'size', 'target', 'externalRef', 'summary'] as const
+  ).filter((k) => args[k] !== undefined);
   if (nodeOnly.length > 0) {
     throw validation(
       `${nodeOnly.join(', ')} appl${nodeOnly.length === 1 ? 'ies' : 'y'} only to nodes — use name to rename a project`,
@@ -544,15 +549,16 @@ async function updateArtifactTool(
     id: string;
     title?: string;
     description?: string;
+    summary?: string;
     priority?: string;
     size?: string;
     target?: string;
     externalRef?: string;
   },
 ): Promise<ToolResult> {
-  const nodeOnly = (['description', 'priority', 'size', 'target', 'externalRef'] as const).filter(
-    (k) => args[k] !== undefined,
-  );
+  const nodeOnly = (
+    ['description', 'priority', 'size', 'target', 'externalRef', 'summary'] as const
+  ).filter((k) => args[k] !== undefined);
   if (nodeOnly.length > 0) {
     throw validation(
       `${nodeOnly.join(', ')} appl${nodeOnly.length === 1 ? 'ies' : 'y'} only to nodes — title is an artifact's one mutable field`,
@@ -630,6 +636,7 @@ export function toolCreate(
     parent?: string;
     title?: string;
     description?: string;
+    summary?: string;
     target?: string;
     priority?: string;
     size?: string;
@@ -669,6 +676,7 @@ export function toolCreate(
         const node = await createInitiative(store, {
           description: args.description,
           projectId: pid,
+          summary: args.summary,
           tags: args.tags,
           title: args.title,
         });
@@ -689,6 +697,7 @@ export function toolCreate(
         const node = await createPhase(store, {
           description: args.description,
           parentId: parentNodeId,
+          summary: args.summary,
           tags: args.tags,
           target: args.target,
           title: args.title,
@@ -722,6 +731,7 @@ export function toolCreate(
           parentId: parentNodeId,
           priority: args.priority,
           size: args.size,
+          summary: args.summary,
           tags: args.tags,
           title: args.title,
         });

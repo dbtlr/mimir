@@ -58,6 +58,7 @@ export function nodeFrontmatter(
     updated_at: node.updated_at,
   };
   put(fm, 'description', node.description);
+  put(fm, 'summary', node.summary);
   if (rel.parentStem !== null) {
     fm.parent = wikilink(rel.parentStem);
   }

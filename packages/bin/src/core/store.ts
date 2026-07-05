@@ -75,6 +75,8 @@ export type NewNodeRecord = {
   seq: number;
   title: string;
   description: string | null;
+  /** The short list lede (MMR-162) — all-node, never type-gated. */
+  summary?: string | null;
   // task-only
   lifecycle?: Lifecycle;
   hold?: Hold;
@@ -90,6 +92,8 @@ export type NewNodeRecord = {
 export type NodePatch = {
   title?: string;
   description?: string | null;
+  /** The short list lede (MMR-162) — all-node, never type-gated. */
+  summary?: string | null;
   parent_id?: number | null;
   lifecycle?: Lifecycle;
   hold?: Hold;

@@ -176,6 +176,8 @@ export type NodeView = {
   status: StatusWord;
   parent: string | null;
   description: string | null;
+  /** The short list lede (MMR-162) — all-node, never type-gated. */
+  summary?: string | null;
   createdAt: string;
   updatedAt: string;
 

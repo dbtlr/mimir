@@ -41,6 +41,8 @@ export type Node = {
   seq: number;
   title: string;
   description: string | null;
+  /** The short list lede (MMR-162) — all-node, never type-gated (unlike `external_ref`). */
+  summary: string | null;
 
   // task-only (NULL for initiative/phase)
   lifecycle: Lifecycle | null;

@@ -7,6 +7,7 @@ import { migration as dropRepoPath0004 } from './0004_drop_repo_path';
 import { migration as projectDescription0005 } from './0005_project_description';
 import { migration as lifecycleUnderReview0006 } from './0006_lifecycle_under_review';
 import { migration as projectArchive0007 } from './0007_project_archive';
+import { migration as nodeSummary0008 } from './0008_node_summary';
 
 /**
  * The static migration set, keyed by name. Keys sort lexicographically and
@@ -22,4 +23,5 @@ export const migrations: Record<string, Migration> = {
   '0005_project_description': projectDescription0005,
   '0006_lifecycle_under_review': lifecycleUnderReview0006,
   '0007_project_archive': projectArchive0007,
+  '0008_node_summary': nodeSummary0008,
 };
