@@ -1,11 +1,9 @@
 /**
- * Working-set token resolution (MMR-160, ADR 0016 Phase 3) — the in-memory
- * twins of the db-backed guards in `lookup.ts`. Every transport resolves a
+ * Working-set token resolution (MMR-160, ADR 0016 Phase 3) — resolves a
  * human `KEY`/`KEY-seq`/`KEY-aN` token against the {@link DerivationSet}
- * snapshot it already derives its views over, so no read path touches the raw
- * SQLite executor. Identical error vocabulary to the db path (a project token
- * where a node is expected, an unknown key) — the guards are the same, only the
- * lookup substrate differs.
+ * snapshot a transport already derives its views over, so no read path
+ * touches the raw SQLite executor. Identical error vocabulary throughout (a
+ * project token where a node is expected, an unknown key).
  */
 
 import type { DerivationSet } from './derive';
@@ -14,7 +12,12 @@ import { notFound, projectNotFound, validation } from './errors';
 import { parseIdentity } from './ids';
 import type { EntityRef } from './mutations/tags';
 
-/** Set-based twin of {@link import('./lookup').resolveNodeToken}. */
+/**
+ * Resolve a node token (`KEY-seq`) to its surrogate id for a verb that acts
+ * on nodes. A token naming a project or artifact is rejected as a behavioral
+ * error — `expected` names what the verb acts on, and `hints` lets each
+ * transport point at its own surface.
+ */
 export function resolveNodeTokenInSet(
   set: DerivationSet,
   token: string,
@@ -44,7 +47,11 @@ export function resolveProjectKeyInSet(set: DerivationSet, key: string): number 
   return project.id;
 }
 
-/** Set-based twin of {@link import('./lookup').resolveEntityToken} (tag targets). */
+/**
+ * Resolve any rendered identity — `KEY` | `KEY-seq` | `KEY-aN` — to its tag
+ * target (entity kind + surrogate id). Throws `not_found` naming the token;
+ * the caller decides which kinds it acts on.
+ */
 export function resolveEntityTokenInSet(set: DerivationSet, token: string): EntityRef {
   const identity = parseIdentity(token);
   if (identity === null) {
