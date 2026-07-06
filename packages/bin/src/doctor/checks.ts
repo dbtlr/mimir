@@ -17,7 +17,7 @@ export type DoctorContext = {
   /** The shared validator's `dropped[]` over the whole-vault graph — computed
    * once by the runner and fed to every referential check, so the four checks
    * that render `dropped[]` (dangling / missing-project / acyclicity / field
-   * validity) share one {@link validate} pass instead of recomputing it each
+   * validity) share one `validate` pass instead of recomputing it each
    * (MMR-182). Always whole-vault: a referential failure breaks the whole load,
    * so it is global, not scoped. */
   dropped: readonly Drop[];
@@ -141,7 +141,7 @@ export const crlfCheck: Diagnostic = {
  * or `depends_on` resolves to no surviving node in the vault. Since MMR-181 the
  * resolving reader tolerates this — it drops the edge and loads a valid subgraph
  * (`store-norn.ts`) — so it is data loss on read, not a failed load: doctor
- * renders every dangling *edge* the {@link validate} shared validator (MMR-180)
+ * renders every dangling *edge* the `validate` shared validator (MMR-180)
  * drops, so it enumerates them all. Always an `error`, and whole-vault: a single
  * dangler affects the read regardless of `-s`, so the check ignores scope. A bare
  * project `KEY` parent is
@@ -185,7 +185,7 @@ export const danglingRefCheck: Diagnostic = {
  * since MMR-181 the reader tolerates an absent project doc by hiding the node
  * (and its project siblings) from the read (`store-norn.ts`) — so, like a
  * dangling ref, it is data hidden on read, not a failed load. The companion to
- * {@link danglingRefCheck} over the same {@link validate} pass: `error`,
+ * {@link danglingRefCheck} over the same `validate` pass: `error`,
  * whole-vault, vault-only (SQLite's `project_id` FK precludes it).
  *
  * Reports one finding per *missing project*, not per orphaned node: every node
@@ -226,7 +226,7 @@ export const missingProjectCheck: Diagnostic = {
  * Relational acyclicity (MMR-174): a `parent` or `depends_on` edge that closes a
  * cycle in the vault's relational graph. The resolving loader once threw on the
  * degenerate self-dependency and silently accepted longer cycles (then derived
- * wrongly over them); since MMR-174 acyclicity is a {@link validate} rule, so the
+ * wrongly over them); since MMR-174 acyclicity is a `validate` rule, so the
  * reader drops each cycle-closing (back) edge and loads a valid DAG
  * (`store-norn.ts`) — data loss on read, not a failed load. The sibling of
  * {@link danglingRefCheck} over the same validator pass: it renders `dropped[]`
@@ -262,7 +262,7 @@ export const acyclicityCheck: Diagnostic = {
 /**
  * Node field validity (MMR-177): a task whose `lifecycle`/`hold`/`priority`/`size`
  * frontmatter is missing or foreign. The reader tolerates it (the tiering rule
- * lives in {@link validate} pass 0): a bad load-bearing field (`lifecycle`/`hold`)
+ * lives in `validate` pass 0): a bad load-bearing field (`lifecycle`/`hold`)
  * drops the whole node, a bad optional field (`priority`/`size`) nulls just the
  * field and the node loads — data hidden/lost on read, not a failed load. A thin
  * adapter over the same validator pass as {@link danglingRefCheck}, rendering the
