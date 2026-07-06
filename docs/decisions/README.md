@@ -35,6 +35,8 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0014](0014-work-artifacts-authored-into-mimir.md)                | Work artifacts are authored into Mimir, not the vault          |
 | [0015](0015-project-archive-frozen-and-hidden.md)                 | Project archive — a frozen, hidden, reversible project state   |
 | [0016](0016-norn-vault-system-of-record.md)                       | A Norn-managed markdown vault is the system of record          |
+| [0017](0017-runtime-data-tolerance.md)                            | Runtime data-tolerance; doctor is a non-gating diagnostic      |
+| [0018](0018-vault-access-is-norn-only.md)                         | Vault access is Norn-only; fs-need signals a Norn ask          |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete SQLite
