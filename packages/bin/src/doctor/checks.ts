@@ -8,7 +8,7 @@
  */
 import type { BodyRecordProblem } from '../core/history-codec';
 import { lintBodySections } from '../core/history-codec';
-import { parseId, parseIdentity } from '../core/ids';
+import { parseIdentity } from '../core/ids';
 import type { Drop } from '../core/validate';
 import type { ValidateFinding } from '../norn/decode';
 import { stemOf } from '../norn/decode';
@@ -27,7 +27,8 @@ export type DoctorContext = {
   /** norn's own `vault.validate` findings, decoded (MMR-191). The one source for
    * documents that never reach {@link dropped}: a doc whose frontmatter fails to
    * parse or carries no `type` is absent from the graph the reader enumerates,
-   * so only norn's schema pass sees it. Whole-vault, like `dropped`. */
+   * so only norn's schema pass sees it. Pre-scoped by `-s` in the runner (a
+   * per-document check, unlike the whole-vault `dropped`). */
   validateFindings: readonly ValidateFinding[];
 };
 
@@ -319,35 +320,51 @@ export const fieldValidityCheck: Diagnostic = {
 };
 
 /**
- * A finding's `path` names a work-state document iff its stem is a `KEY-seq`
- * node id, or the path is a project doc at `KEY/KEY.md`. Every reader (and every
- * other doctor check) enumerates the vault by `type:` — so a doc whose
- * frontmatter won't parse or has no `type` is invisible to them and reported by
- * norn's schema pass by *path* only. The vault may hold unrelated docs (loose
- * notes), so the frontmatter check must scope to work-state paths by convention,
- * not surface every stray finding.
+ * A finding's `path` names a work-state document — and its stem — iff the path
+ * matches one of the vault's three parent-dir-anchored layouts (the
+ * `allowed_paths` in `vault/schema.ts`): a node `KEY/KEY-seq.md`, a project
+ * `KEY/KEY.md`, or an artifact `KEY/artifacts/KEY-aN.md`. Every reader (and every
+ * other doctor check) enumerates the vault by `type:`, so a doc whose frontmatter
+ * won't parse or has no `type` is invisible to them and reported by norn's schema
+ * pass by *path* only. The vault may hold unrelated docs (loose notes, a stray
+ * `refs/AB-1.md`), so the anchoring is what keeps the check to real work-state
+ * docs — a matching stem in the wrong directory is not one.
  */
 function workStateStem(path: string): string | null {
   const stem = stemOf(path);
-  // A `KEY-seq` node — the reader's node naming, same grammar `parseId` accepts.
-  if (parseId(stem) !== null) {
+  const parts = path.split('/');
+  const parent = parts.at(-2);
+  const grandparent = parts.at(-3);
+  const identity = parseIdentity(stem);
+  // A node `KEY/KEY-seq.md`: the parent dir is the node's own project key.
+  if (identity?.kind === 'node' && parent === identity.key) {
     return stem;
   }
-  // A project doc lives at `KEY/KEY.md`: the stem is a bare project key AND its
-  // parent directory is that same key. A stray `KEY.md` elsewhere is not it.
-  if (parseIdentity(stem)?.kind === 'project') {
-    const parts = path.split('/');
-    if (parts.length >= 2 && parts[parts.length - 2] === stem) {
-      return stem;
-    }
+  // A project `KEY/KEY.md`: the parent dir is that same key.
+  if (identity?.kind === 'project' && parent === stem) {
+    return stem;
+  }
+  // An artifact `KEY/artifacts/KEY-aN.md`: parent dir `artifacts`, grandparent
+  // the artifact's project key. Artifacts are work-state docs too — a corrupt one
+  // is invisible on read, so it belongs here (the finding's node is the KEY-aN).
+  if (identity?.kind === 'artifact' && parent === 'artifacts' && grandparent === identity.key) {
+    return stem;
   }
   return null;
 }
 
-/** The frontmatter codes this check renders, and how to describe each. The two
- * field-scoped codes fire for many fields (a missing `title`, a foreign
- * `lifecycle`, …); only `field === "type"` makes the whole doc invisible, so
- * `field` gates those two. `parse-failed` has no field — it always qualifies. */
+/**
+ * The frontmatter codes this check renders, and how to describe each. These three
+ * code strings and the `field === "type"` gate on the two field-scoped ones are
+ * the empirically-verified norn 0.44 `vault.validate` contract (mimir's generated
+ * `.norn/config.yaml` carries the `document-type` rule): a corrupt work-state doc
+ * emits `frontmatter-parse-failed` (no field — always qualifies) and, for a
+ * missing/foreign type, `frontmatter-required-field-missing`/
+ * `frontmatter-disallowed-value` with `field: "type"`. The two field-scoped codes
+ * also fire for other fields (a missing `title`, a foreign `lifecycle`, …), which
+ * leave the doc visible — hence the `field` gate. A future norn code rename lands
+ * here.
+ */
 const FRONTMATTER: Record<string, { field: string | null; where: string; message: string }> = {
   'frontmatter-disallowed-value': {
     field: 'type',
@@ -357,8 +374,7 @@ const FRONTMATTER: Record<string, { field: string | null; where: string; message
   },
   'frontmatter-parse-failed': {
     field: null,
-    message:
-      'frontmatter failed to parse (YAML error, conflict marker, or truncation) — the document is invisible to the reader',
+    message: 'frontmatter failed to parse — the document is invisible to the reader',
     where: 'frontmatter',
   },
   'frontmatter-required-field-missing': {
@@ -371,19 +387,25 @@ const FRONTMATTER: Record<string, { field: string | null; where: string; message
 
 /**
  * Frontmatter parse-failed + untyped documents (MMR-191): a work-state document
- * whose frontmatter (a) fails to parse or (b) has a missing/foreign `type`. Such
- * a doc is absent from the `type:`-filtered enumeration every reader and every
- * other check runs on — so it is invisible on read AND to {@link dropped}. Only
- * norn's `vault.validate` (which enumerates by *path*) sees it; this check is the
- * sole surface for that corruption class (ADR 0017). Always an `error` (the doc
- * is dropped from the read), and whole-vault — a `type` corruption breaks the
- * enumeration regardless of `-s`. Scoped to work-state paths ({@link
- * workStateStem}) so unrelated vault docs never surface.
+ * (node, project, or artifact) whose frontmatter (a) fails to parse or (b) has a
+ * missing/foreign `type`. Such a doc is absent from the `type:`-filtered
+ * enumeration every reader and every other check runs on — so it is invisible on
+ * read AND to {@link dropped}. Only norn's `vault.validate` (which enumerates by
+ * *path*) sees it (ADR 0017). Always an `error` (the doc is dropped from the
+ * read); honors `-s` like the per-document checks — an isolated parse failure
+ * does not break the whole load, so the runner pre-scopes the findings.
+ *
+ * A parse-failed doc also emits `required-field-missing(type)` (the missing type
+ * is a *consequence* of the unparseable frontmatter), so the check dedups by stem
+ * and keeps the parse-failed finding — its message subsumes the type consequence.
  */
 export const frontmatterCheck: Diagnostic = {
   name: 'frontmatter',
   run: (ctx) => {
-    const findings: DoctorFinding[] = [];
+    // Dedup by stem: a parse-failed doc emits BOTH parse-failed and
+    // required-missing(type). Keep the parse-failed (the root cause) when a stem
+    // has both; first-parse-failed-wins, else first-seen.
+    const byStem = new Map<string, DoctorFinding>();
     for (const finding of ctx.validateFindings) {
       const spec = FRONTMATTER[finding.code];
       // Not a code this check renders, or a field-scoped code on a field other
@@ -395,15 +417,27 @@ export const frontmatterCheck: Diagnostic = {
       if (stem === null) {
         continue; // a non-work-state path (a stray vault doc) — not this check's domain
       }
-      findings.push({
+      const existing = byStem.get(stem);
+      const isParseFailed = finding.code === 'frontmatter-parse-failed';
+      // Skip unless this is the first finding for the stem, or a parse-failed
+      // upgrade over an already-recorded type finding.
+      if (existing !== undefined && !(isParseFailed && existing.where !== 'frontmatter')) {
+        continue;
+      }
+      // Parse-failed: append norn's own detail (line/column/conflict-marker).
+      const message =
+        isParseFailed && finding.message !== undefined && finding.message !== ''
+          ? `${spec.message} — ${finding.message}`
+          : spec.message;
+      byStem.set(stem, {
         check: 'frontmatter',
-        message: spec.message,
+        message,
         node: stem,
         severity: 'error',
         where: spec.where,
       });
     }
-    return findings;
+    return [...byStem.values()];
   },
   title: 'Frontmatter parse-failed + untyped documents',
 };

@@ -17,7 +17,7 @@ import type { Format, Io } from '../cli/render';
 import { ok } from '../cli/render';
 import type { VaultGraph } from '../core/store-norn';
 import { validate } from '../core/validate';
-import { decodeValidateFindings } from '../norn/decode';
+import { decodeValidateFindings, stemOf } from '../norn/decode';
 import type { DoctorContext, DoctorFinding } from './checks';
 import { CHECKS } from './checks';
 
@@ -69,8 +69,13 @@ export async function cmdDoctor(
   const { dropped } = validate(await deps.readVaultGraph());
   // The frontmatter check (MMR-191) reads norn's own schema validation, decoded
   // defensively — a doc whose frontmatter fails to parse (or lacks a `type`) is
-  // absent from the graph above, so only `vault.validate` sees it.
-  const validateFindings = decodeValidateFindings(await deps.validate());
+  // absent from the graph above, so only `vault.validate` sees it. Scope it by
+  // `-s` like `docs` (a per-document check): an isolated parse failure does not
+  // break the whole load, so — unlike the referential `dropped[]` — it honors
+  // scope. Filter here so the check receives pre-scoped findings.
+  const validateFindings = decodeValidateFindings(await deps.validate()).filter((f) =>
+    inScope(stemOf(f.path), scope),
+  );
   const ctx: DoctorContext = {
     dropped,
     readNodeDocs: () => Promise.resolve(docs),

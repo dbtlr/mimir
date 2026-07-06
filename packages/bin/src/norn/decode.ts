@@ -39,12 +39,14 @@ export function stemOf(path: string): string {
 /** One finding from norn's `vault.validate` payload, narrowed to the fields
  * `mimir doctor` reads. `code` classifies the corruption; `path` locates the
  * document; `field` (present on field-scoped codes) names the offending
- * frontmatter key. Extra payload fields (`severity`, `message`) are dropped —
- * doctor renders its own informational severity + message (MMR-191). */
+ * frontmatter key; `message` is norn's own detail (line/column/conflict-marker
+ * for a parse failure), carried through so doctor can pinpoint it (MMR-191). The
+ * `severity` field is dropped — doctor renders its own informational label. */
 export type ValidateFinding = {
   code: string;
   path: string;
   field?: string;
+  message?: string;
 };
 
 /** Decode the untyped `vault.validate` payload (`{ findings: [...] }`) into the
@@ -64,11 +66,23 @@ export function decodeValidateFindings(payload: unknown): ValidateFinding[] {
     if (typeof entry !== 'object' || entry === null) {
       return [];
     }
-    const { code, field, path } = entry as { code?: unknown; field?: unknown; path?: unknown };
+    const { code, field, message, path } = entry as {
+      code?: unknown;
+      field?: unknown;
+      message?: unknown;
+      path?: unknown;
+    };
     if (typeof code !== 'string' || typeof path !== 'string') {
       return [];
     }
-    return [{ code, path, ...(typeof field === 'string' ? { field } : {}) }];
+    return [
+      {
+        code,
+        path,
+        ...(typeof field === 'string' ? { field } : {}),
+        ...(typeof message === 'string' ? { message } : {}),
+      },
+    ];
   });
 }
 
