@@ -332,7 +332,20 @@ async function writeProjectDoc(key: string): Promise<void> {
   ]);
 }
 
-test.skipIf(!NORN)('throws on a node whose owning project is absent', async () => {
+// ADR 0017 / MMR-181: the reader is data-tolerant of referential corruption —
+// it drops the invalid node/edge and emits a valid closed subgraph instead of
+// throwing, so one bad record can't take the whole load down.
+test.skipIf(!NORN)('drops a node whose owning project is absent (no throw)', async () => {
+  await writeProjectDoc('MMR');
+  await writeDoc('MMR/MMR-1.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Kept'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  // ZZZ-1 has no ZZZ project document → hidden, and its siblings would be too.
   await writeDoc('ZZZ/ZZZ-1.md', [
     jsonField('type', 'task'),
     jsonField('title', 'Orphan'),
@@ -341,20 +354,24 @@ test.skipIf(!NORN)('throws on a node whose owning project is absent', async () =
     jsonField('created', TS),
     jsonField('updated_at', TS),
   ]);
-  await expectThrows(() => loadWorkingSetOverNorn(client), /project ZZZ/);
+  const ws = await loadWorkingSetOverNorn(client);
+  // ZZZ-1 dropped (no ZZZ project); MMR-1 the lone survivor, all under MMR.
+  expect(ws.nodes.map((n) => renderId({ key: 'MMR', seq: n.seq }))).toEqual(['MMR-1']);
 });
 
-test.skipIf(!NORN)('throws on a dangling KEY-seq parent', async () => {
+test.skipIf(!NORN)('drops a dangling KEY-seq parent edge; the node floats to root', async () => {
   await writeProjectDoc('MMR');
   await writeDoc('MMR/MMR-1.md', [
     jsonField('type', 'task'),
     jsonField('title', 'Lost'),
-    jsonField('parent', wikilink('MMR-99')),
+    jsonField('parent', wikilink('MMR-99')), // no such node
     jsonField('lifecycle', 'todo'),
     jsonField('created', TS),
     jsonField('updated_at', TS),
   ]);
-  await expectThrows(() => loadWorkingSetOverNorn(client), /parent MMR-99/);
+  const ws = await loadWorkingSetOverNorn(client);
+  const node = must(ws.nodes.find((n) => n.seq === 1));
+  expect(node.parent_id).toBeNull(); // dangling parent dropped → floats to project root
 });
 
 test.skipIf(!NORN)('throws on a task with no lifecycle', async () => {
@@ -369,18 +386,20 @@ test.skipIf(!NORN)('throws on a task with no lifecycle', async () => {
   await expectThrows(() => loadWorkingSetOverNorn(client), /lifecycle/);
 });
 
-test.skipIf(!NORN)('throws on a dangling prerequisite', async () => {
+test.skipIf(!NORN)('drops a dangling prerequisite edge; the node stays (no throw)', async () => {
   await writeProjectDoc('MMR');
   await writeDoc('MMR/MMR-1.md', [
     jsonField('type', 'task'),
     jsonField('title', 'Dependent'),
     jsonField('parent', wikilink('MMR')),
     jsonField('lifecycle', 'todo'),
-    jsonField('depends_on', [wikilink('MMR-99')]),
+    jsonField('depends_on', [wikilink('MMR-99')]), // no such node
     jsonField('created', TS),
     jsonField('updated_at', TS),
   ]);
-  await expectThrows(() => loadWorkingSetOverNorn(client), /depends on MMR-99/);
+  const ws = await loadWorkingSetOverNorn(client);
+  expect(ws.nodes.map((n) => renderId({ key: 'MMR', seq: n.seq }))).toEqual(['MMR-1']); // kept
+  expect(ws.edges).toEqual([]); // dangling prerequisite dropped
 });
 
 test.skipIf(!NORN)('throws on a self-dependency (SQLite dependency CHECK)', async () => {
@@ -468,11 +487,11 @@ test.skipIf(!NORN)('ignores task-only fields on a non-task document', async () =
   expect(phase.rank).toBeNull();
 });
 
-// MMR-169: readVaultGraph reads raw parent/depends_on stems below the resolving
-// loader — which throws on the first dangling ref — so `mimir doctor` can
-// enumerate every orphan the loader can't even get past.
+// MMR-169: readVaultGraph reads raw parent/depends_on stems for doctor to
+// enumerate; the tolerant loader (MMR-181) drops the same dangling edge and
+// keeps loading. Both read the vault's referential truth — one raw, one dropped.
 test.skipIf(!NORN)(
-  'readVaultGraph reads raw refs; the loader throws on a dangling parent',
+  'readVaultGraph reads raw refs; the loader tolerates a dangling parent',
   async () => {
     const at = '2026-07-05T00:00:00.000Z';
     await writeDoc('MMR/MMR.md', [
@@ -494,6 +513,7 @@ test.skipIf(!NORN)(
       jsonField('type', 'task'),
       jsonField('title', 'Orphan'),
       jsonField('parent', wikilink('MMR-99')),
+      jsonField('lifecycle', 'todo'),
       jsonField('depends_on', [wikilink('MMR-1')]),
       jsonField('created', at),
       jsonField('updated_at', at),
@@ -506,8 +526,12 @@ test.skipIf(!NORN)(
     expect(orphan.dependsOn).toEqual(['MMR-1']); // a resolvable prereq decodes too
     expect(graph.projectKeys).toEqual(['MMR']); // the project partition, by `key`
 
-    // The premise doctor exists for: the resolving loader can't get past it.
-    await expectThrows(() => loadWorkingSetOverNorn(client), /MMR-99.*not in the vault/);
+    // The tolerant loader (MMR-181) no longer throws: MMR-2 loads with its
+    // dangling parent dropped (floated to root), its resolvable prereq intact.
+    const ws = await loadWorkingSetOverNorn(client);
+    const loaded = must(ws.nodes.find((n) => n.seq === 2));
+    expect(loaded.parent_id).toBeNull(); // MMR-99 edge dropped
+    expect(ws.edges).toHaveLength(1); // MMR-2 → MMR-1 survives
   },
 );
 
@@ -549,10 +573,10 @@ test.skipIf(!NORN)(
 );
 
 // MMR-178: a node whose owning project has no document. readVaultGraph surfaces
-// the node with an empty projectKeys set, and the resolving loader throws — the
-// premise the missing-project check exists for.
+// the node with an empty projectKeys set; the tolerant loader (MMR-181) hides
+// it — the premise the missing-project check exists for.
 test.skipIf(!NORN)(
-  'readVaultGraph surfaces a node with no project; the loader throws',
+  'readVaultGraph surfaces a node with no project; the loader hides it',
   async () => {
     const at = '2026-07-05T00:00:00.000Z';
     // A well-formed task MMR-2 (root under project MMR) but NO project MMR doc.
@@ -568,9 +592,9 @@ test.skipIf(!NORN)(
     expect(graph.nodes.map((n) => n.stem)).toEqual(['MMR-2']);
     expect(graph.projectKeys).toEqual([]); // no project doc → the missing-project case
 
-    await expectThrows(
-      () => loadWorkingSetOverNorn(client),
-      /references project MMR.*not in the vault/,
-    );
+    // The tolerant loader (MMR-181) hides the node instead of throwing — a
+    // missing container has no valid place for its nodes to live.
+    const ws = await loadWorkingSetOverNorn(client);
+    expect(ws.nodes).toEqual([]);
   },
 );

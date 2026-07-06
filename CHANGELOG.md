@@ -200,6 +200,18 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **The Norn vault reader is data-tolerant of referential corruption** (MMR-181,
+  ADR 0017). `loadNornSnapshot` now routes the raw relational graph through the
+  shared validator and builds only over the valid subgraph, so a dangling
+  `parent`/`depends_on` or a node whose project has no document degrades the read
+  to a valid closed subgraph — the edge is dropped (a dangling parent floats the
+  node to its project root) or the node is hidden — instead of throwing and taking
+  the whole load down. A clean vault drops nothing and stays byte-identical to
+  SQLite (proven by the backend-parity harness). Field-level corruption (a task
+  missing its `lifecycle`, a foreign enum value) and a self-dependency still throw
+  loud, pending their own validator rules (MMR-177, MMR-174); until those land the
+  reader is tolerant of referential corruption only. No effect on the SQLite
+  backend, which remains the active read path until the Phase-4 cutover.
 - **`mimir doctor`'s referential checks derive from one shared validator**
   (MMR-180, ADR 0017). A new `validate(rawGraph) → { valid subgraph, dropped[] }`
   module is the single source of truth for what is invalid in a Norn-backed
