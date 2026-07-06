@@ -27,6 +27,7 @@ import { blockTask, parkTask, unblockTask, unparkTask } from './mutations/hold';
 import { abandonTask, completeTask, startTask } from './mutations/lifecycle';
 import { moveNode } from './mutations/structure';
 import { tagEntities, untagEntities } from './mutations/tags';
+import { RANK_STEP } from './rank';
 import { listProjects, nodeTree } from './resource';
 import type { Store, WorkingSet } from './store';
 import { createSqliteStore } from './store-sqlite';
@@ -720,6 +721,73 @@ test.skipIf(!NORN)('write parity: reorder a task to the top of the rankable set'
   await scaffold(3);
   await verbParity(async (store, id) => reorder(store, await id('MMR-5'), 'top', null));
 });
+
+/** Stems of the rankable set in rank order — the order a consumer sees. */
+async function rankOrder(store: Store): Promise<string[]> {
+  const ws = await store.loadWorkingSet();
+  return ws.nodes
+    .filter((n) => n.rank !== null)
+    .toSorted((x, y) => (x.rank ?? 0) - (y.rank ?? 0))
+    .map((n) => stemOf(ws, n));
+}
+
+/** The current rank of one stem, resolved within a single working-set load. */
+async function rankOf(store: Store, stem: string): Promise<number | null> {
+  const ws = await store.loadWorkingSet();
+  const ref = parseId(stem);
+  const project = ws.projects.find((p) => p.key === ref?.key);
+  const node = ws.nodes.find((n) => n.project_id === project?.id && n.seq === ref?.seq);
+  return node?.rank ?? null;
+}
+
+// The single genuine multi-document write in the arc (ADR 0016). `createTask`
+// appends at clean RANK_STEP multiples, which always leave an integer midpoint,
+// so the reorder-to-top test above never reaches the respread branch. Squeeze
+// two neighbours flush against each other (ranks 1 and 2 — no midpoint) so the
+// insert exhausts the gap and `reindexRanks` must re-spread the whole set over
+// the real Norn backend, then assert A/B rank-order parity on the result.
+test.skipIf(!NORN)(
+  'write parity: an adjacent-neighbour reorder respreads the rank set (reindexRanks)',
+  async () => {
+    await scaffold(3); // MMR-3/4/5 appended at clean RANK_STEP multiples
+    for (const [stem, rank] of [
+      ['MMR-3', 1],
+      ['MMR-4', 2],
+      ['MMR-5', 100],
+    ] as const) {
+      await db
+        .updateTable('node')
+        .set({ rank })
+        .where('id', '=', await nodeIdIn(sqlite, stem))
+        .execute();
+    }
+
+    const norn = await migrateAndNorn();
+    setSystemTime(new Date(FIXED));
+    // before MMR-4: the neighbour below is MMR-3 and {1,2} are adjacent, so
+    // computeTargetRank re-spreads the whole set (reindexRanks) then recomputes.
+    await reorder(
+      sqlite,
+      await nodeIdIn(sqlite, 'MMR-5'),
+      'before',
+      await nodeIdIn(sqlite, 'MMR-4'),
+    );
+    await reorder(norn, await nodeIdIn(norn, 'MMR-5'), 'before', await nodeIdIn(norn, 'MMR-4'));
+
+    // Proof the respread branch fired: `reorderTask` alone rewrites only the
+    // moved node's rank, yet MMR-3 — untouched by the move — went from 1 to a
+    // fresh RANK_STEP multiple. Only `reindexRanks` rewrites the whole set that
+    // way; the top/midpoint paths would leave MMR-3 at 1. Holds on both backends.
+    expect(await rankOf(sqlite, 'MMR-3')).toBe(RANK_STEP);
+    expect(await rankOf(norn, 'MMR-3')).toBe(RANK_STEP);
+
+    // A/B rank-order parity over the respread result, and the concrete order.
+    expect(await rankOrder(norn)).toEqual(await rankOrder(sqlite));
+    expect(await rankOrder(sqlite)).toEqual(['MMR-3', 'MMR-5', 'MMR-4']);
+
+    await assertParity(norn, BODY_FACETS);
+  },
+);
 
 test.skipIf(!NORN)('write parity: re-parent a task to another phase', async () => {
   const p = await createProject(sqlite, { key: 'MMR', name: 'Mimir' });
