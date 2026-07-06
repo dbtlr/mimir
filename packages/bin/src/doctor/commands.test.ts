@@ -18,6 +18,7 @@ function vaultOf(
   docs: { stem: string; body: string }[],
   nodes?: Omit<NodeRefs, 'key'>[],
   projectKeys?: string[],
+  validateFindings?: unknown,
 ): DoctorDeps {
   const raw = nodes ?? docs.map((d) => ({ dependsOn: [], parent: null, stem: d.stem }));
   // Mirror production readVaultGraph: only valid KEY-seq stems are nodes, each
@@ -29,12 +30,15 @@ function vaultOf(
     return key === undefined ? [] : [{ ...n, key }];
   });
   return {
+    // The frontmatter check (MMR-191) reads norn's raw `vault.validate` payload;
+    // default to an empty finding set so unrelated checks' tests stay silent.
     readNodeDocs: () => Promise.resolve(docs),
     readVaultGraph: () =>
       Promise.resolve({
         nodes: graphNodes,
         projectKeys: projectKeys ?? [...new Set(graphNodes.map((n) => n.key))],
       }),
+    validate: () => Promise.resolve(validateFindings ?? { findings: [] }),
   };
 }
 
@@ -70,7 +74,7 @@ test('no-op with a clean stdout line and exit 0 when no vault backend is active'
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
-    { readNodeDocs: null, readVaultGraph: null },
+    { readNodeDocs: null, readVaultGraph: null, validate: null },
     'table',
     undefined,
   );
@@ -177,7 +181,12 @@ test('jsonl format emits one finding per line (NDJSON), not a single array', asy
 
 test('json no-op emits an empty array and exits 0', async () => {
   const io = fakeIo();
-  const code = await cmdDoctor(io, { readNodeDocs: null, readVaultGraph: null }, 'json', undefined);
+  const code = await cmdDoctor(
+    io,
+    { readNodeDocs: null, readVaultGraph: null, validate: null },
+    'json',
+    undefined,
+  );
   expect(code).toBe(0);
   expect(io.out.join('')).toBe('[]');
 });
@@ -625,6 +634,128 @@ test('distinct corruption classes each surface from the one shared validator pas
   ]);
 });
 
+// ── Frontmatter parse-failed + untyped documents (MMR-191) ────────────────────
+
+// A representative `vault.validate` payload: a broken-YAML doc (no field), a
+// missing-`type` doc, a foreign-`type` doc, a missing non-`type` field (must be
+// EXCLUDED — the doc is still visible), and a non-work-state path (must be
+// EXCLUDED — the vault may hold other docs).
+const FRONTMATTER_FINDINGS = {
+  findings: [
+    { code: 'frontmatter-parse-failed', message: 'broken YAML', path: 'MMR/MMR-1.md' },
+    {
+      code: 'frontmatter-required-field-missing',
+      field: 'type',
+      message: 'missing type',
+      path: 'MMR/MMR-2.md',
+    },
+    {
+      code: 'frontmatter-disallowed-value',
+      field: 'type',
+      message: 'foreign type',
+      path: 'MMR/MMR-3.md',
+    },
+    // Missing `title` on an otherwise-typed doc — same code, different field:
+    // the reader still sees the doc, so this check must NOT surface it.
+    {
+      code: 'frontmatter-required-field-missing',
+      field: 'title',
+      message: 'missing title',
+      path: 'MMR/MMR-4.md',
+    },
+    // A non-work-state path (a stray vault note) — excluded regardless of code.
+    { code: 'frontmatter-parse-failed', message: 'broken YAML', path: 'Notes/scratch.md' },
+  ],
+};
+
+test('surfaces parse-failed + untyped work-state docs, excluding non-type fields and non-work-state paths', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf([], [], undefined, FRONTMATTER_FINDINGS),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(0); // the doc is invisible on read, but doctor never gates
+  const findings = JSON.parse(io.out.join('')) as {
+    check: string;
+    node: string;
+    severity: string;
+    where: string;
+    message: string;
+  }[];
+  // Exactly the three work-state, type-scoped findings — MMR-4 (title) and the
+  // Notes/ stray are excluded.
+  expect(findings.map((f) => f.node).toSorted()).toEqual(['MMR-1', 'MMR-2', 'MMR-3']);
+  expect(findings.every((f) => f.check === 'frontmatter')).toBe(true);
+  expect(findings.every((f) => f.severity === 'error')).toBe(true);
+  const byNode = new Map(findings.map((f) => [f.node, f]));
+  expect(byNode.get('MMR-1')?.message).toContain('parse');
+  expect(byNode.get('MMR-1')?.where).toBe('frontmatter');
+  expect(byNode.get('MMR-2')?.message).toContain('type');
+  expect(byNode.get('MMR-2')?.where).toBe('frontmatter · type');
+  expect(byNode.get('MMR-3')?.where).toBe('frontmatter · type');
+});
+
+test('a project doc (KEY/KEY.md) with a parse failure is surfaced by its project stem', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf([], [], undefined, {
+      findings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR.md' }],
+    }),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(0);
+  const findings = JSON.parse(io.out.join('')) as { check: string; node: string }[];
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ check: 'frontmatter', node: 'MMR' });
+});
+
+test('a stray KEY.md not in KEY/KEY.md form is not treated as a work-state project doc', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf([], [], undefined, {
+      findings: [{ code: 'frontmatter-parse-failed', path: 'MMR.md' }],
+    }),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(0);
+  expect(JSON.parse(io.out.join('')) as unknown[]).toHaveLength(0);
+});
+
+test('the frontmatter check no-ops on the SQLite backend (validate handle null)', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    { readNodeDocs: null, readVaultGraph: null, validate: null },
+    'json',
+    undefined,
+  );
+  expect(code).toBe(0);
+  expect(io.out.join('')).toBe('[]');
+});
+
+test('a malformed / empty validate payload does not crash doctor', async () => {
+  for (const payload of [
+    undefined,
+    null,
+    42,
+    'oops',
+    {},
+    { findings: 'nope' },
+    { findings: [7] },
+  ]) {
+    const io = fakeIo();
+    const code = await cmdDoctor(io, vaultOf([], [], undefined, payload), 'json', undefined);
+    expect(code).toBe(0);
+    expect(JSON.parse(io.out.join('')) as unknown[]).toHaveLength(0);
+  }
+});
+
 test('doctor ITSELF failing (the vault read throws) propagates, not a swallowed exit 0', async () => {
   // The reserved nonzero case (ADR 0017): a successful run always exits 0, but a
   // doctor failure — the vault being unreachable — must surface as a rejection the
@@ -634,6 +765,7 @@ test('doctor ITSELF failing (the vault read throws) propagates, not a swallowed 
   const unreachable: DoctorDeps = {
     readNodeDocs: () => Promise.resolve([]),
     readVaultGraph: () => Promise.reject(new Error('vault unreachable')),
+    validate: () => Promise.resolve({ findings: [] }),
   };
   let threw = false;
   try {

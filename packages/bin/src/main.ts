@@ -326,6 +326,13 @@ async function main(argv: string[]): Promise<number> {
                 return (await built?.readVaultGraph?.()) ?? { nodes: [], projectKeys: [] };
               }
             : null,
+        validate:
+          artifactBackend() === 'norn'
+            ? async () => {
+                await getStore();
+                return (await built?.validate?.()) ?? { findings: [] };
+              }
+            : null,
       },
       migrateSchema: runMigrateSchema,
       scope: findBinding(process.cwd()),

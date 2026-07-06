@@ -60,6 +60,14 @@ export type BuiltStore = {
    * `parent_id`/`project_id` FKs preclude these failures.
    */
   readVaultGraph?: () => Promise<VaultGraph>;
+  /**
+   * Run norn's `vault.validate` and return its raw payload — the input for
+   * `mimir doctor`'s frontmatter check (MMR-191), which surfaces documents whose
+   * frontmatter fails to parse or has no `type` (invisible to every graph-based
+   * check). Present only on the Norn backend; `undefined` on SQLite (typed rows
+   * always have a valid type).
+   */
+  validate?: () => Promise<unknown>;
 };
 
 /**
@@ -87,5 +95,6 @@ export async function buildStore(db: Db, backend = artifactBackend()): Promise<B
     readNodeDocs: () => readAllNodeDocs(client),
     readVaultGraph: () => readVaultGraph(client),
     store: withArtifactStore(base, createNornArtifactStore(client)),
+    validate: () => client.validate(),
   };
 }
