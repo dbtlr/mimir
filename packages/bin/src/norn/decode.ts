@@ -9,12 +9,18 @@
  * home, one behavior.
  */
 
-/** Collapse `[[STEM]]` (or a bare stem) to the stem text; null when unusable. */
+/** Collapse `[[STEM]]` or `[[STEM|alias]]` (or a bare stem) to the stem text;
+ * null when unusable. Inside `[[ ]]`, an optional `|alias` display segment is
+ * dropped and the stem trimmed (MMR-190): `[[MMR-2|Some Title]]` → `MMR-2`, so an
+ * aliased ref resolves through the normal valid/dangling path. A bare (non-`[[ ]]`)
+ * string is preserved verbatim — a pipe or surrounding space only matters inside
+ * a wikilink. */
 export function collapse(link: unknown): string | null {
   if (typeof link !== 'string') {
     return null;
   }
-  const inner = link.startsWith('[[') && link.endsWith(']]') ? link.slice(2, -2) : link;
+  const wikilink = link.startsWith('[[') && link.endsWith(']]');
+  const inner = wikilink ? (link.slice(2, -2).split('|')[0] ?? '').trim() : link;
   return inner === '' ? null : inner;
 }
 
