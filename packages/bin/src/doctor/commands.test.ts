@@ -24,9 +24,9 @@ function vaultOf(
   // carrying its parsed project key (a non-KEY-seq stem is not a node).
   const graphNodes: NodeRefs[] = raw.flatMap((n) => {
     const key = parseId(n.stem)?.key;
-    return key === undefined
-      ? []
-      : [{ dependsOn: n.dependsOn, key, parent: n.parent, stem: n.stem }];
+    // Spread so an optional `type`/`raw` (field validity, MMR-177) flows through
+    // unchanged; a referential-only node carries neither and skips the field pass.
+    return key === undefined ? [] : [{ ...n, key }];
   });
   return {
     readNodeDocs: () => Promise.resolve(docs),
@@ -436,6 +436,132 @@ test('a parent cycle is an acyclicity error anchored on the parent field', async
   const findings = JSON.parse(io.out.join('')) as { node: string; where: string }[];
   expect(findings).toHaveLength(1);
   expect(findings[0]).toMatchObject({ node: 'MMR-2', where: 'frontmatter · parent' });
+});
+
+// ── Node field validity (MMR-177) ─────────────────────────────────────────────
+
+test('a task missing lifecycle is a field-validity error naming the missing field', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf(
+      [],
+      [
+        {
+          dependsOn: [],
+          parent: null,
+          raw: { hold: undefined, lifecycle: undefined, priority: undefined, size: undefined },
+          stem: 'MMR-1',
+          type: 'task',
+        },
+      ],
+    ),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(1);
+  const findings = JSON.parse(io.out.join('')) as {
+    node: string;
+    check: string;
+    severity: string;
+    where: string;
+    message: string;
+  }[];
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'field-validity',
+    node: 'MMR-1',
+    severity: 'error',
+    where: 'frontmatter · lifecycle',
+  });
+  expect(findings[0]?.message).toContain('missing lifecycle');
+});
+
+test('a task with a foreign hold is a field-validity error naming the value', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf(
+      [],
+      [
+        {
+          dependsOn: [],
+          parent: null,
+          raw: { hold: 'bogus', lifecycle: 'todo', priority: undefined, size: undefined },
+          stem: 'MMR-1',
+          type: 'task',
+        },
+      ],
+    ),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(1);
+  const findings = JSON.parse(io.out.join('')) as { where: string; message: string }[];
+  expect(findings).toHaveLength(1);
+  expect(findings[0]?.where).toBe('frontmatter · hold');
+  expect(findings[0]?.message).toContain('invalid hold "bogus"');
+});
+
+test('a task with a foreign priority is a field-validity error (node kept, field nulled)', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf(
+      [],
+      [
+        {
+          dependsOn: [],
+          parent: null,
+          raw: { hold: undefined, lifecycle: 'todo', priority: 'p9', size: undefined },
+          stem: 'MMR-1',
+          type: 'task',
+        },
+      ],
+    ),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(1);
+  const findings = JSON.parse(io.out.join('')) as {
+    check: string;
+    severity: string;
+    where: string;
+    message: string;
+  }[];
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'field-validity',
+    severity: 'error',
+    where: 'frontmatter · priority',
+  });
+  expect(findings[0]?.message).toContain('invalid priority "p9"');
+});
+
+test('a task with a foreign size is a field-validity error naming the value', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf(
+      [],
+      [
+        {
+          dependsOn: [],
+          parent: null,
+          raw: { hold: undefined, lifecycle: 'todo', priority: undefined, size: 'huge' },
+          stem: 'MMR-1',
+          type: 'task',
+        },
+      ],
+    ),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(1);
+  const findings = JSON.parse(io.out.join('')) as { where: string; message: string }[];
+  expect(findings).toHaveLength(1);
+  expect(findings[0]?.where).toBe('frontmatter · size');
+  expect(findings[0]?.message).toContain('invalid size "huge"');
 });
 
 test('many nodes under one missing project collapse to a single finding with a count', async () => {

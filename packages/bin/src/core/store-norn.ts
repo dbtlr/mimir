@@ -66,6 +66,22 @@ function enumFieldStrict<T extends string>(
   );
 }
 
+/**
+ * The non-throwing enum narrow for the OPTIONAL task fields (`priority`/`size`,
+ * MMR-177): absent → null, a valid member → the value, and a PRESENT foreign
+ * value → null (no throw). Field validity keeps a node with a foreign
+ * priority/size (null is a truthful "unset"), so a surviving node can still carry
+ * one — this reads it as null rather than crashing the never-throw read path. The
+ * tiering decision (null-the-field vs drop-the-node) lives only in {@link validate};
+ * this is the mechanical "don't crash" over the SAME vocabulary. NOT used for
+ * `lifecycle`/`hold`, whose bad nodes the validator already drops — those stay on
+ * {@link enumFieldStrict} as a seam backstop.
+ */
+function enumFieldOrNull<T extends string>(value: unknown, values: readonly T[]): T | null {
+  const s = str(value);
+  return s !== null && isMember(s, values) ? s : null;
+}
+
 /** Ascending string compare without a nested ternary (deterministic tiebreaks). */
 function cmpStr(a: string, b: string): number {
   if (a < b) {
@@ -122,8 +138,21 @@ export type NornSnapshot = {
 
 /** One node's raw relational refs — its stem, project `key`, and unresolved
  * parent + prerequisite stems. `key` is the parsed KEY-seq key, carried so no
- * consumer re-parses the stem (mirrors the loader's `rawNodes`). */
-export type NodeRefs = { stem: string; key: string; parent: string | null; dependsOn: string[] };
+ * consumer re-parses the stem (mirrors the loader's `rawNodes`).
+ *
+ * `type` and `raw` are the OPTIONAL field-validity inputs (MMR-177): the node's
+ * type (field checks are task-only) and its raw enum frontmatter. Both are
+ * omitted by referential-only callers (e.g. validate.test's `graphOf`), and
+ * {@link validate} skips its field pass when `raw` is absent — so a caller that
+ * cares only about referential rules is unaffected. */
+export type NodeRefs = {
+  stem: string;
+  key: string;
+  parent: string | null;
+  dependsOn: string[];
+  type?: NodeType;
+  raw?: { lifecycle: unknown; hold: unknown; priority: unknown; size: unknown };
+};
 
 /**
  * The vault's relational graph, read raw and unresolved: the valid nodes' refs
@@ -139,8 +168,22 @@ export type VaultGraph = { nodes: NodeRefs[]; projectKeys: string[] };
  * doctor's findings must resolve over a byte-identical graph; one helper is what
  * makes that "one truth" a fact rather than a comment (MMR-181).
  */
-function nodeRefsOf(fm: Record<string, unknown>, key: string, stem: string): NodeRefs {
-  return { dependsOn: linkStems(fm.depends_on), key, parent: collapse(fm.parent), stem };
+function nodeRefsOf(
+  fm: Record<string, unknown>,
+  key: string,
+  stem: string,
+  type: NodeType,
+): NodeRefs {
+  return {
+    dependsOn: linkStems(fm.depends_on),
+    key,
+    parent: collapse(fm.parent),
+    // Field-validity inputs (MMR-177): the raw enum frontmatter, vetted in
+    // validate's pass 0. Carried verbatim (unknown) — validate owns legality.
+    raw: { hold: fm.hold, lifecycle: fm.lifecycle, priority: fm.priority, size: fm.size },
+    stem,
+    type,
+  };
 }
 
 /**
@@ -182,7 +225,7 @@ export async function readVaultGraph(client: NornClient): Promise<VaultGraph> {
     if ((type !== 'task' && type !== 'phase' && type !== 'initiative') || ref === null) {
       continue;
     }
-    nodes.push(nodeRefsOf(fm, ref.key, stem));
+    nodes.push(nodeRefsOf(fm, ref.key, stem, type));
   }
   return { nodes, projectKeys };
 }
@@ -229,11 +272,13 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   // whole load down. Deriving the graph exactly as {@link readVaultGraph} does
   // (collapse + linkStems) keeps the reader's and doctor's validity one truth.
   // The validator now covers every referential corruption — missing projects,
-  // dangling edges, and cycles (acyclicity, MMR-174, including self-dependencies).
-  // The remaining loud throws are field-level only — a task's lifecycle and
-  // foreign enum values — pending their own validator rule (MMR-177).
+  // dangling edges, and cycles (acyclicity, MMR-174, including self-dependencies)
+  // — AND field validity (MMR-177): it drops a task whose lifecycle/hold is
+  // missing or foreign and nulls a foreign priority/size, so the build below can no
+  // longer throw on vault data. Every SURVIVING node has a usable lifecycle/hold;
+  // a foreign priority/size is nulled by {@link enumFieldOrNull} (the node stays).
   const validRefs = validate({
-    nodes: rawNodes.map((n) => nodeRefsOf(n.fm, n.key, n.stem)),
+    nodes: rawNodes.map((n) => nodeRefsOf(n.fm, n.key, n.stem, n.type)),
     projectKeys: projectDocs.map((p) => p.key),
   }).nodes;
   const validByStem = new Map(validRefs.map((r) => [r.stem, r]));
@@ -293,9 +338,10 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     // present, parent/depends_on resolve to survivors), so the lookups below
     // cannot miss on vault data. A miss here would mean the validator and this
     // build disagree — an internal contract break, not vault corruption — so the
-    // remaining invariants guard the seam, never the record. Field-level throws
-    // (lifecycle, foreign enums) still enforce SQLite's CHECK constraints loud,
-    // pending their own validator rule (MMR-177).
+    // remaining invariants guard the seam, never the record. Field validity is now
+    // the validator's too (MMR-177): the lifecycle/hold `enumFieldStrict` calls
+    // never throw for a survivor (their bad nodes are dropped) — they stay strict
+    // as a seam backstop — and a foreign priority/size is nulled, not thrown.
     const refs = validByStem.get(n.stem);
     const projectId = projectIdByKey.get(n.key);
     if (refs === undefined || projectId === undefined) {
@@ -325,15 +371,16 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     const isTask = n.type === 'task';
     let lifecycle: Lifecycle | null = null;
     if (isTask) {
-      // A task's lifecycle has no safe default (unlike hold) — derivation depends
-      // on it, so an absent/foreign value is a hard read error, not a guess.
-      // A foreign value throws inside the helper; an absent one returns null and
-      // is caught here — a task's lifecycle has no safe default (unlike hold).
+      // Field validity (MMR-177) drops any task whose lifecycle is missing or
+      // foreign, so a surviving task always carries a valid one. `enumFieldStrict`
+      // returns it (never throws here) and the null branch is a seam invariant, not
+      // a record error — a null would mean the validator failed to drop a
+      // lifecycle-less task, an internal contract break.
       lifecycle = enumFieldStrict(n.fm.lifecycle, LIFECYCLE_VALUES, n.stem, 'lifecycle');
       if (lifecycle === null) {
         throw invariant(
-          `task ${n.stem} is missing a lifecycle`,
-          'a task document must carry a lifecycle frontmatter value',
+          `task ${n.stem} survived validation without a lifecycle`,
+          'field validity (MMR-177) must drop a task with a missing or foreign lifecycle before the reader',
         );
       }
     }
@@ -354,11 +401,13 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       id: n.id,
       lifecycle,
       parent_id: parentId,
-      priority: isTask ? enumFieldStrict(n.fm.priority, PRIORITY_VALUES, n.stem, 'priority') : null,
+      // priority/size are optional (MMR-177): a foreign value nulls the field (the
+      // node stays), so read them non-throwing — the validator keeps such a node.
+      priority: isTask ? enumFieldOrNull(n.fm.priority, PRIORITY_VALUES) : null,
       project_id: projectId,
       rank: isTask ? num(n.fm.rank) : null,
       seq: n.seq,
-      size: isTask ? enumFieldStrict(n.fm.size, SIZE_VALUES, n.stem, 'size') : null,
+      size: isTask ? enumFieldOrNull(n.fm.size, SIZE_VALUES) : null,
       summary: str(n.fm.summary),
       target: n.type === 'phase' ? str(n.fm.target) : null,
       title: str(n.fm.title) ?? '',
