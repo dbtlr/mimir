@@ -4,17 +4,24 @@
  * (`core/store-norn.ts`, plus the body-section and transitions readers) — decode
  * the same two shapes out of `vault.get`/`vault.find` records: frontmatter
  * values (a wikilink or string list) and a record's path/body. These lived as
- * byte-for-byte copies in each reader, so a future decode fix (e.g. `[[stem|alias]]`
- * display text, or a path convention change) could silently diverge them. One
- * home, one behavior.
+ * byte-for-byte copies in each reader, so a decode fix could silently diverge
+ * them — e.g. the `[[stem|alias]]` display-text de-alias (MMR-190) landed here
+ * once and so applies to every reader (node refs and artifact anchors alike).
+ * One home, one behavior.
  */
 
-/** Collapse `[[STEM]]` (or a bare stem) to the stem text; null when unusable. */
+/** Collapse `[[STEM]]` or `[[STEM|alias]]` (or a bare stem) to the stem text;
+ * null when unusable. Inside `[[ ]]`, an optional `|alias` display segment is
+ * dropped and the stem trimmed (MMR-190): `[[MMR-2|Some Title]]` → `MMR-2`, so an
+ * aliased ref resolves through the normal valid/dangling path. A bare (non-`[[ ]]`)
+ * string is preserved verbatim — a pipe or surrounding space only matters inside
+ * a wikilink. */
 export function collapse(link: unknown): string | null {
   if (typeof link !== 'string') {
     return null;
   }
-  const inner = link.startsWith('[[') && link.endsWith(']]') ? link.slice(2, -2) : link;
+  const wikilink = link.startsWith('[[') && link.endsWith(']]');
+  const inner = wikilink ? (link.slice(2, -2).split('|')[0] ?? '').trim() : link;
   return inner === '' ? null : inner;
 }
 
