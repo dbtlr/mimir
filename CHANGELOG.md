@@ -200,6 +200,16 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **The Norn transitions feed excludes validator-dropped nodes** (MMR-189, ADR
+  0017). The cross-node feed fanned `## History` out of every parseable-stem
+  document, so a node the working-set reader drops (missing project, invalid
+  `lifecycle`/`hold`, absent/unparseable frontmatter) still surfaced its
+  transitions — diverging from the FK-backed SQLite feed and violating the
+  show-correctly-or-drop bar. The feed now classifies a document against the
+  shared validator's survivor set (`validate(vaultGraphFromDocs(docs))`), derived
+  from the feed's own single vault read, so a node's transitions appear iff the
+  reader shows the node. A cycle drop is edge-only — the node survives, so its
+  transitions still appear. No effect on the SQLite backend.
 - **`mimir doctor` is a non-gating diagnostic; the referential checks share one
   validator pass** (MMR-182, ADR 0017). Doctor now always exits `0` on a
   successful run regardless of findings — surfacing issues _is_ its job — so a
