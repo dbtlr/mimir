@@ -307,6 +307,25 @@ test('a diamond depends_on DAG is not a cycle — a shared descendant drops noth
   expect(subgraph(g)['MMR-4']).toEqual({ dependsOn: [], parent: null });
 });
 
+test('a deep acyclic chain does not overflow the stack (iterative DFS, ADR 0017)', () => {
+  // A linear depends_on chain far deeper than the JS recursion limit: MMR-1 →
+  // MMR-2 → … → MMR-N. A recursive DFS would throw RangeError here and crash the
+  // never-throw read path; the iterative traversal must handle it and, since the
+  // chain is acyclic, drop nothing.
+  const N = 100_000;
+  const nodes: Omit<NodeRefs, 'key'>[] = [];
+  for (let i = 1; i <= N; i += 1) {
+    nodes.push({
+      dependsOn: i < N ? [`MMR-${String(i + 1)}`] : [],
+      parent: null,
+      stem: `MMR-${String(i)}`,
+    });
+  }
+  const result = validate(graphOf(nodes));
+  expect(result.dropped).toEqual([]);
+  expect(result.nodes).toHaveLength(N);
+});
+
 test('the dropped back edge is canonical — chosen by (key, seq), not input order', () => {
   // Same 2-cycle as above but with the nodes supplied in REVERSED input order.
   // The DFS visits in canonical (key, seq) order, so the SAME edge is dropped —
