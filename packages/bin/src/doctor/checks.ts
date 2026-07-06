@@ -256,13 +256,12 @@ export const acyclicityCheck: Diagnostic = {
 
 /**
  * Node field validity (MMR-177): a task whose `lifecycle`/`hold`/`priority`/`size`
- * frontmatter is missing or foreign. Since MMR-177 field validity is a
- * {@link validate} rule (pass 0), so the resolving reader tolerates it — a bad
- * load-bearing field (`lifecycle`/`hold`) drops the whole node, a bad optional
- * field (`priority`/`size`) nulls just the field and the node loads
- * (`store-norn.ts`) — data hidden/lost on read, not a failed load. A thin adapter
- * over the same validator pass as {@link danglingRefCheck}, rendering the four
- * field rules; every {@link Drop} rule renders in exactly one check, so the
+ * frontmatter is missing or foreign. The reader tolerates it (the tiering rule
+ * lives in {@link validate} pass 0): a bad load-bearing field (`lifecycle`/`hold`)
+ * drops the whole node, a bad optional field (`priority`/`size`) nulls just the
+ * field and the node loads — data hidden/lost on read, not a failed load. A thin
+ * adapter over the same validator pass as {@link danglingRefCheck}, rendering the
+ * four field rules; every {@link Drop} rule renders in exactly one check, so the
  * referential checks above skip these and this skips theirs — no leak, no gap.
  * Always an `error`, and whole-vault (the graph is unscoped, like its siblings).
  */
@@ -285,10 +284,10 @@ export const fieldValidityCheck: Diagnostic = {
         message = `task dropped — invalid hold "${drop.value ?? ''}"`;
       } else if (drop.kind === 'field' && drop.rule === 'invalid-priority') {
         field = 'priority';
-        message = `invalid priority "${drop.value}" — dropped on read`;
+        message = `invalid priority "${drop.value}" — field nulled on read (node kept)`;
       } else if (drop.kind === 'field' && drop.rule === 'invalid-size') {
         field = 'size';
-        message = `invalid size "${drop.value}" — dropped on read`;
+        message = `invalid size "${drop.value}" — field nulled on read (node kept)`;
       } else {
         // A referential drop (missing-project / dangling / cycle) — reported by the
         // referential checks, not here. Exactly one check renders each rule.

@@ -433,6 +433,63 @@ test('a task with a foreign size keeps the node — only the field is dropped', 
   expect(subgraph(g)).toEqual({ 'MMR-1': { dependsOn: [], parent: null } });
 });
 
+test('a null (or absent) priority/size is a truthful unset — not foreign, no drop', () => {
+  // A hand edit can write `priority: null`. The reader maps null and absent
+  // identically to a null field, so validate must NOT flag it — else doctor
+  // reports a drop the reader never made (the "one validator, two views" drift).
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { hold: undefined, lifecycle: 'todo', priority: null, size: null },
+      stem: 'MMR-1',
+      type: 'task',
+    },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([]);
+  expect(subgraph(g)).toEqual({ 'MMR-1': { dependsOn: [], parent: null } });
+});
+
+test('a foreign priority on a node whose project is missing yields only the node-drop', () => {
+  // The node is container-dropped (pass 1), so it never loads — its optional field
+  // is never read, and must not raise a second, misleading field finding.
+  const g = graphOf(
+    [
+      {
+        dependsOn: [],
+        parent: null,
+        raw: { ...validRaw, priority: 'p9' },
+        stem: 'MMR-1',
+        type: 'task',
+      },
+    ],
+    [], // project MMR absent
+  );
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { key: 'MMR', kind: 'node', rule: 'missing-project', stem: 'MMR-1' },
+  ]);
+  expect(result.nodes).toEqual([]);
+});
+
+test('a non-string foreign field value renders cleanly (no [object Object])', () => {
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { ...validRaw, priority: 3, size: { nested: true } },
+      stem: 'MMR-1',
+      type: 'task',
+    },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { kind: 'field', rule: 'invalid-priority', stem: 'MMR-1', value: '3' },
+    { kind: 'field', rule: 'invalid-size', stem: 'MMR-1', value: '{"nested":true}' },
+  ]);
+});
+
 test('a task with all valid fields drops nothing', () => {
   const g = graphOf([
     {
