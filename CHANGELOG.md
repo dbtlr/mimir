@@ -209,6 +209,15 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Dependency bumps** (dependabot reconcile). `vite` 8.0.16→8.1.3, `tailwindcss`
+  and `@tailwindcss/vite` 4.3.0→4.3.2, `@tanstack/react-router` 1.170.15→1.170.17,
+  and the `actions/checkout` CI action v6→v7. The `vite` bump moved the root
+  `dependencies` pin and the workspace `overrides` pin together (both were pinning
+  the resolution), so the whole workspace still resolves a single vite. Lint,
+  format, and type check, the bin/helpers and UI test suites, and the UI production
+  build all pass on the new versions. (The `oxlint` 1.70→1.72 bump is held back — it
+  enables new `node/no-sync` and `unicorn/max-nested-calls` rules that fire 235× on
+  the existing tree; that is a lint-policy decision, tracked separately.)
 - **The Norn transitions feed excludes validator-dropped nodes** (MMR-189, ADR
   0017). The cross-node feed fanned `## History` out of every parseable-stem
   document, so a node the working-set reader drops (missing project, invalid
