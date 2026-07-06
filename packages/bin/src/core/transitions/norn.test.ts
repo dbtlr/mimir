@@ -34,11 +34,28 @@ const entry = (at: string, to: string): HistoryEntry => ({
   to,
 });
 
+/** A surviving project doc (present `key`) so its node children clear the
+ * missing-project drop; empty history contributes no feed entries of its own. */
+const projectDoc = (key: string): Doc => ({
+  fm: { key, type: 'project' },
+  history: [],
+  path: `${key}/${key}.md`,
+});
+
+/** A valid node doc (a `task` with a legal `lifecycle`) — the validator keeps it,
+ * so its `## History` surfaces. Override `fm` to model a node the validator drops. */
+const nodeDoc = (
+  stem: string,
+  history: HistoryEntry[],
+  fm: Record<string, unknown> = { lifecycle: 'todo', type: 'task' },
+): Doc => ({ fm, history, path: `MMR/${stem}.md` });
+
 test('merges every node/project ## History into one at-ordered stream', async () => {
   const feed = createNornTransitionsFeed(
     fakeClient([
-      { history: [entry('2026-07-04T10:00:00.000Z', 'a')], path: 'MMR/MMR-3.md' },
-      { history: [entry('2026-07-04T09:00:00.000Z', 'b')], path: 'MMR/MMR-4.md' },
+      projectDoc('MMR'),
+      nodeDoc('MMR-3', [entry('2026-07-04T10:00:00.000Z', 'a')]),
+      nodeDoc('MMR-4', [entry('2026-07-04T09:00:00.000Z', 'b')]),
     ]),
   );
   const { items } = await feed.list();
@@ -74,10 +91,11 @@ test('a project doc renders its KEY as the transition entity', async () => {
 test('the cursor resumes strictly after the last returned entry', async () => {
   const feed = createNornTransitionsFeed(
     fakeClient([
-      {
-        history: [entry('2026-07-04T09:00:00.000Z', 'a'), entry('2026-07-04T10:00:00.000Z', 'b')],
-        path: 'MMR/MMR-3.md',
-      },
+      projectDoc('MMR'),
+      nodeDoc('MMR-3', [
+        entry('2026-07-04T09:00:00.000Z', 'a'),
+        entry('2026-07-04T10:00:00.000Z', 'b'),
+      ]),
     ]),
   );
   const first = await feed.list({ limit: 1 });
@@ -97,6 +115,55 @@ test('a malformed (non-KEY-seq, non-project) doc is dropped', async () => {
   expect((await feed.list()).items).toEqual([]);
 });
 
+test('a node whose project is absent surfaces no transitions (validator drop)', async () => {
+  // No `projectDoc('MMR')` → the node is dropped by the missing-project rule, so
+  // its `## History` must not appear (parity with the reader's dropped node).
+  const feed = createNornTransitionsFeed(
+    fakeClient([nodeDoc('MMR-3', [entry('2026-07-04T10:00:00.000Z', 'a')])]),
+  );
+  expect((await feed.list()).items).toEqual([]);
+});
+
+test('a node with an invalid lifecycle surfaces no transitions (validator drop)', async () => {
+  // Project present, but the task's `lifecycle` is foreign → an invalid-lifecycle
+  // node drop, so the feed excludes it exactly as the reader hides it.
+  const feed = createNornTransitionsFeed(
+    fakeClient([
+      projectDoc('MMR'),
+      nodeDoc('MMR-3', [entry('2026-07-04T10:00:00.000Z', 'a')], {
+        lifecycle: 'bogus',
+        type: 'task',
+      }),
+    ]),
+  );
+  expect((await feed.list()).items).toEqual([]);
+});
+
+test('a cycle-affected node (edge drop, node survives) still surfaces its transitions', async () => {
+  // MMR-3 ⇄ MMR-4 is a depends_on cycle: the validator drops a back EDGE but keeps
+  // both NODES, so both nodes' transitions must still appear.
+  const feed = createNornTransitionsFeed(
+    fakeClient([
+      projectDoc('MMR'),
+      nodeDoc('MMR-3', [entry('2026-07-04T10:00:00.000Z', 'a')], {
+        depends_on: ['MMR-4'],
+        lifecycle: 'todo',
+        type: 'task',
+      }),
+      nodeDoc('MMR-4', [entry('2026-07-04T09:00:00.000Z', 'b')], {
+        depends_on: ['MMR-3'],
+        lifecycle: 'todo',
+        type: 'task',
+      }),
+    ]),
+  );
+  const { items } = await feed.list();
+  expect(items.map((i) => [i.node, i.to])).toEqual([
+    ['MMR-4', 'b'],
+    ['MMR-3', 'a'],
+  ]);
+});
+
 test('a bad cursor and a bad limit are rejected', async () => {
   const feed = createNornTransitionsFeed(fakeClient([]));
   expect(feed.list({ since: 'not-a-cursor' })).rejects.toThrow(/cursor/);
@@ -112,7 +179,7 @@ test('a trailing-separator cursor (empty idx) is rejected, not decoded as idx 0'
 
 test("an empty `since` reads from the start (parity with SQLite's Number('') === 0)", async () => {
   const feed = createNornTransitionsFeed(
-    fakeClient([{ history: [entry('2026-07-04T10:00:00.000Z', 'a')], path: 'MMR/MMR-3.md' }]),
+    fakeClient([projectDoc('MMR'), nodeDoc('MMR-3', [entry('2026-07-04T10:00:00.000Z', 'a')])]),
   );
   expect((await feed.list({ since: '' })).items.map((i) => i.to)).toEqual(['a']);
 });
