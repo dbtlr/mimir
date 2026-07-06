@@ -254,6 +254,59 @@ export const acyclicityCheck: Diagnostic = {
   title: 'Relational acyclicity',
 };
 
+/**
+ * Node field validity (MMR-177): a task whose `lifecycle`/`hold`/`priority`/`size`
+ * frontmatter is missing or foreign. Since MMR-177 field validity is a
+ * {@link validate} rule (pass 0), so the resolving reader tolerates it — a bad
+ * load-bearing field (`lifecycle`/`hold`) drops the whole node, a bad optional
+ * field (`priority`/`size`) nulls just the field and the node loads
+ * (`store-norn.ts`) — data hidden/lost on read, not a failed load. A thin adapter
+ * over the same validator pass as {@link danglingRefCheck}, rendering the four
+ * field rules; every {@link Drop} rule renders in exactly one check, so the
+ * referential checks above skip these and this skips theirs — no leak, no gap.
+ * Always an `error`, and whole-vault (the graph is unscoped, like its siblings).
+ */
+export const fieldValidityCheck: Diagnostic = {
+  name: 'field-validity',
+  run: async (ctx) => {
+    const { dropped } = validate(await ctx.readVaultGraph());
+    const findings: DoctorFinding[] = [];
+    for (const drop of dropped) {
+      let field: string;
+      let message: string;
+      if (drop.kind === 'node' && drop.rule === 'invalid-lifecycle') {
+        field = 'lifecycle';
+        message =
+          drop.value === null
+            ? 'task dropped — missing lifecycle'
+            : `task dropped — invalid lifecycle "${drop.value}"`;
+      } else if (drop.kind === 'node' && drop.rule === 'invalid-hold') {
+        field = 'hold';
+        message = `task dropped — invalid hold "${drop.value ?? ''}"`;
+      } else if (drop.kind === 'field' && drop.rule === 'invalid-priority') {
+        field = 'priority';
+        message = `invalid priority "${drop.value}" — dropped on read`;
+      } else if (drop.kind === 'field' && drop.rule === 'invalid-size') {
+        field = 'size';
+        message = `invalid size "${drop.value}" — dropped on read`;
+      } else {
+        // A referential drop (missing-project / dangling / cycle) — reported by the
+        // referential checks, not here. Exactly one check renders each rule.
+        continue;
+      }
+      findings.push({
+        check: 'field-validity',
+        message,
+        node: drop.stem,
+        severity: 'error',
+        where: `frontmatter · ${field}`,
+      });
+    }
+    return findings;
+  },
+  title: 'Node field validity',
+};
+
 /** The registered checks `mimir doctor` runs, in report order. */
 export const CHECKS: readonly Diagnostic[] = [
   bodySectionCheck,
@@ -261,4 +314,5 @@ export const CHECKS: readonly Diagnostic[] = [
   danglingRefCheck,
   missingProjectCheck,
   acyclicityCheck,
+  fieldValidityCheck,
 ];

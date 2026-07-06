@@ -49,17 +49,6 @@ function must<T>(value: T | undefined): T {
   return value;
 }
 
-/** Assert `run` rejects with a message matching `pattern` (all guards share one error code). */
-async function expectThrows(run: () => Promise<unknown>, pattern: RegExp): Promise<void> {
-  try {
-    await run();
-  } catch (error) {
-    expect(error instanceof Error ? error.message : String(error)).toMatch(pattern);
-    return;
-  }
-  throw new Error(`expected a throw matching ${String(pattern)}, but nothing was thrown`);
-}
-
 const jsonField = (key: string, value: unknown): string => `${key}=${JSON.stringify(value)}`;
 const wikilink = (stem: string): string => `[[${stem}]]`;
 
@@ -379,7 +368,11 @@ test.skipIf(!NORN)('drops a dangling KEY-seq parent edge; the node floats to roo
   expect(node.parent_id).toBeNull(); // dangling parent dropped → floats to project root
 });
 
-test.skipIf(!NORN)('throws on a task with no lifecycle', async () => {
+// ADR 0017 / MMR-177: field-level corruption is tolerated too. A load-bearing
+// field — lifecycle (drives status) or hold (drives blocked/parked) — missing or
+// foreign drops the NODE (no safe absent value); an optional field — priority or
+// size — foreign nulls just the FIELD and the node loads. Was a loud throw.
+test.skipIf(!NORN)('drops a task with no lifecycle (no throw)', async () => {
   await writeProjectDoc('MMR');
   await writeDoc('MMR/MMR-1.md', [
     jsonField('type', 'task'),
@@ -388,7 +381,8 @@ test.skipIf(!NORN)('throws on a task with no lifecycle', async () => {
     jsonField('created', TS),
     jsonField('updated_at', TS),
   ]);
-  await expectThrows(() => loadWorkingSetOverNorn(client), /lifecycle/);
+  const ws = await loadWorkingSetOverNorn(client);
+  expect(ws.nodes).toEqual([]); // dropped for the missing load-bearing field
 });
 
 test.skipIf(!NORN)('drops a dangling prerequisite edge; the node stays (no throw)', async () => {
@@ -464,10 +458,11 @@ test.skipIf(!NORN)('drops one edge of a 2-node depends_on cycle; both nodes load
   expect(must(byId.get(edge.depends_on_node_id)).seq).toBe(2); // ...MMR-2
 });
 
-test.skipIf(!NORN)('throws on an out-of-vocabulary enum value (SQLite column CHECK)', async () => {
+test.skipIf(!NORN)('drops a task with a foreign hold value (no throw)', async () => {
   await writeProjectDoc('MMR');
-  // hold: a foreign value must fail loud, not coerce to 'none' — distinct from an
-  // absent hold, which legitimately reconstructs to the 'none' default.
+  // hold drives blocked/parked, so a foreign value has no safe coercion (unlike an
+  // absent hold, which legitimately reconstructs to the 'none' default) — the node
+  // is dropped rather than silently coerced.
   await writeDoc('MMR/MMR-1.md', [
     jsonField('type', 'task'),
     jsonField('title', 'Bogus hold'),
@@ -477,11 +472,14 @@ test.skipIf(!NORN)('throws on an out-of-vocabulary enum value (SQLite column CHE
     jsonField('created', TS),
     jsonField('updated_at', TS),
   ]);
-  await expectThrows(() => loadWorkingSetOverNorn(client), /invalid hold value/);
+  const ws = await loadWorkingSetOverNorn(client);
+  expect(ws.nodes).toEqual([]); // dropped for the foreign load-bearing field
 });
 
-test.skipIf(!NORN)('throws on a foreign priority value (swept enum class)', async () => {
+test.skipIf(!NORN)('loads a task with a foreign priority as null (no throw)', async () => {
   await writeProjectDoc('MMR');
+  // priority is optional (null is a truthful "unset"), so a foreign value nulls the
+  // field and the node survives — no throw, no drop.
   await writeDoc('MMR/MMR-1.md', [
     jsonField('type', 'task'),
     jsonField('title', 'Bogus priority'),
@@ -491,7 +489,25 @@ test.skipIf(!NORN)('throws on a foreign priority value (swept enum class)', asyn
     jsonField('created', TS),
     jsonField('updated_at', TS),
   ]);
-  await expectThrows(() => loadWorkingSetOverNorn(client), /invalid priority value/);
+  const ws = await loadWorkingSetOverNorn(client);
+  const node = must(ws.nodes.find((n) => n.seq === 1));
+  expect(node.priority).toBeNull();
+});
+
+test.skipIf(!NORN)('loads a task with a foreign size as null (no throw)', async () => {
+  await writeProjectDoc('MMR');
+  await writeDoc('MMR/MMR-1.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Bogus size'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('size', 'huge'),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  const ws = await loadWorkingSetOverNorn(client);
+  const node = must(ws.nodes.find((n) => n.seq === 1));
+  expect(node.size).toBeNull();
 });
 
 test.skipIf(!NORN)('deduplicates repeated depends_on wikilinks into one edge', async () => {

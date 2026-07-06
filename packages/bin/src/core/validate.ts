@@ -13,28 +13,39 @@
  * project has no document (missing container), a `parent`/`depends_on` that
  * resolves to no surviving node (dangling edge), and a `parent`/`depends_on` cycle
  * (acyclicity, MMR-174 — including the degenerate self-dependency the loader once
- * threw on at `prereqId === n.id`). One throw class remains NOT yet covered and
- * slots in later as a further rule over the same seam: a field-malformed node
- * (MMR-177 — a task missing its `lifecycle`, or a foreign enum value). Until that
- * lands the valid subgraph can still contain such a node, so the tolerant reader
- * (MMR-181) must account for that throw class itself (or depend on MMR-177) — this
- * validator alone does not yet make the read throw-free.
+ * threw on at `prereqId === n.id`). It also owns the *field-validity* rules
+ * (MMR-177) — a task's `lifecycle`/`hold`/`priority`/`size` frontmatter — run as
+ * pass 0 before the referential passes so a field node-drop cascades through them.
+ * With that pass the valid subgraph is fully throw-free: every referential and
+ * field corruption the loader once threw on is now a {@link Drop}, so the tolerant
+ * reader (MMR-181) builds only over survivors and never fails loud on vault data.
  */
+import { HOLD_VALUES, LIFECYCLE_VALUES, PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
+import { isMember } from '@mimir/helpers';
+
 import { parseId } from './ids';
 import type { NodeRefs, VaultGraph } from './store-norn';
 
 /**
  * One dropped element, with the reason it was dropped — doctor's source of
- * truth. A `node` drop hides the node entirely (its container is missing); an
- * `edge` drop loosens one relation (the node stays, floated to root for a
- * `parent`, or minus one prereq for a `depends_on`).
+ * truth. A `node` drop hides the node entirely (its container is missing, or a
+ * load-bearing field is unusable); an `edge` drop loosens one relation (the node
+ * stays, floated to root for a `parent`, or minus one prereq for a `depends_on`);
+ * a `field` drop nulls one optional field but keeps the node (MMR-177). A node
+ * drop for a bad `lifecycle`/`hold` carries the offending `value` (or `null` when
+ * the field is absent) so doctor can name it; a `field` drop always names its
+ * offending value.
  */
 export type Drop =
   | { kind: 'node'; rule: 'missing-project'; stem: string; key: string }
+  | { kind: 'node'; rule: 'invalid-lifecycle'; stem: string; key: string; value: string | null }
+  | { kind: 'node'; rule: 'invalid-hold'; stem: string; key: string; value: string | null }
   | { kind: 'edge'; rule: 'dangling-parent'; stem: string; ref: string }
   | { kind: 'edge'; rule: 'dangling-depends-on'; stem: string; ref: string }
   | { kind: 'edge'; rule: 'cycle-parent'; stem: string; ref: string }
-  | { kind: 'edge'; rule: 'cycle-depends-on'; stem: string; ref: string };
+  | { kind: 'edge'; rule: 'cycle-depends-on'; stem: string; ref: string }
+  | { kind: 'field'; rule: 'invalid-priority'; stem: string; value: string }
+  | { kind: 'field'; rule: 'invalid-size'; stem: string; value: string };
 
 /**
  * The result of validation: the valid, self-consistent subgraph the reader
@@ -52,8 +63,19 @@ export type ValidatedGraph = {
 
 /**
  * Validate the raw relational graph into a valid subgraph + the drops that got
- * it there. Two passes over the nodes, in input order:
+ * it there. Passes over the nodes, in input order:
  *
+ * 0. **Field validity (MMR-177).** Task-only, and skipped for a node with no
+ *    `raw` (a referential-only caller). Runs FIRST so a node dropped here is gone
+ *    before the referential passes and its drop cascades exactly like a missing
+ *    container. Tiered by whether the field is load-bearing for correctness: a
+ *    task whose `lifecycle` is missing or foreign (it drives status derivation,
+ *    with no safe absent value) or whose `hold` is foreign (it drives
+ *    blocked/parked, and coercing to the `none` default would be silently wrong)
+ *    drops the NODE; a foreign `priority`/`size` (optional — null is a truthful
+ *    "unset") drops only the FIELD (a `field` {@link Drop}) and the node survives.
+ *    The reader nulls the field over the same vocabulary; the tiering RULE lives
+ *    only here.
  * 1. **Missing container.** A node whose project `key` is absent from
  *    `projectKeys` has no valid place to live — it is dropped (a `node` drop) and
  *    excluded from the surviving set. This subsumes the standalone missing-project
@@ -82,10 +104,71 @@ export function validate(graph: VaultGraph): ValidatedGraph {
   const survivors = new Set<string>();
   const dropped: Drop[] = [];
 
+  // Pass 0: field validity (MMR-177). Task-only; skipped when a node carries no
+  // `raw` (referential-only callers). A load-bearing field (lifecycle/hold) drops
+  // the NODE — recorded here and collected so the referential passes below exclude
+  // it, exactly as a missing-project node is excluded; an optional field
+  // (priority/size) drops only the FIELD and the node stays.
+  const fieldDropped = new Set<string>();
+  for (const node of graph.nodes) {
+    const raw = node.raw;
+    if (node.type !== 'task' || raw === undefined) {
+      continue;
+    }
+    // lifecycle: missing (absent) OR foreign → node-drop. `member` is false for
+    // both, so one check covers the tier; `value` is null when absent.
+    if (!member(raw.lifecycle, LIFECYCLE_VALUES)) {
+      const value = raw.lifecycle === undefined ? null : show(raw.lifecycle);
+      dropped.push({
+        key: node.key,
+        kind: 'node',
+        rule: 'invalid-lifecycle',
+        stem: node.stem,
+        value,
+      });
+      fieldDropped.add(node.stem);
+      continue;
+    }
+    // hold: absent is valid (reconstructs to 'none'); only a PRESENT foreign value
+    // drops the node — coercing it to the default would be silently wrong.
+    if (raw.hold !== undefined && !member(raw.hold, HOLD_VALUES)) {
+      dropped.push({
+        key: node.key,
+        kind: 'node',
+        rule: 'invalid-hold',
+        stem: node.stem,
+        value: show(raw.hold),
+      });
+      fieldDropped.add(node.stem);
+      continue;
+    }
+    // priority/size: optional. A present foreign value nulls just the field.
+    if (raw.priority !== undefined && !member(raw.priority, PRIORITY_VALUES)) {
+      dropped.push({
+        kind: 'field',
+        rule: 'invalid-priority',
+        stem: node.stem,
+        value: show(raw.priority),
+      });
+    }
+    if (raw.size !== undefined && !member(raw.size, SIZE_VALUES)) {
+      dropped.push({
+        kind: 'field',
+        rule: 'invalid-size',
+        stem: node.stem,
+        value: show(raw.size),
+      });
+    }
+  }
+
   // Pass 1: partition nodes by container presence. A missing project hides the
-  // node; the rest are the surviving set every edge resolves against.
+  // node; the rest are the surviving set every edge resolves against. A node
+  // already dropped in pass 0 is gone — it emits no further (referential) drop.
   const kept: NodeRefs[] = [];
   for (const node of graph.nodes) {
+    if (fieldDropped.has(node.stem)) {
+      continue;
+    }
     if (present.has(node.key)) {
       survivors.add(node.stem);
       kept.push(node);
@@ -131,6 +214,25 @@ export function validate(graph: VaultGraph): ValidatedGraph {
   breakCycles(nodes, 'depends-on', dropped);
 
   return { dropped, nodes, projectKeys: graph.projectKeys };
+}
+
+/**
+ * True when `value` is a string in the closed vocabulary `values`. Field validity
+ * (MMR-177) reads raw frontmatter (`unknown`), so a non-string or an
+ * out-of-vocabulary value is not a member — the single test both the "missing OR
+ * foreign" lifecycle tier and the "present foreign" hold/priority/size tiers share.
+ */
+function member(value: unknown, values: readonly string[]): boolean {
+  return typeof value === 'string' && isMember(value, values);
+}
+
+/**
+ * Render a raw (`unknown`) frontmatter value as the offending `value` doctor
+ * names — a string verbatim, else its JSON form (so a number/bool/object reads
+ * legibly, never `[object Object]`). Only reached for a PRESENT foreign value.
+ */
+function show(value: unknown): string {
+  return typeof value === 'string' ? value : (JSON.stringify(value) ?? '');
 }
 
 /**

@@ -340,6 +340,150 @@ test('the dropped back edge is canonical — chosen by (key, seq), not input ord
   ]);
 });
 
+// ── Field validity (MMR-177) ──────────────────────────────────────────────────
+// Pass 0, run BEFORE the referential passes so node-drops cascade. Task-only, and
+// skipped when a node carries no `raw` (referential-only callers), so every test
+// above stays green. A load-bearing field (lifecycle/hold) missing or foreign
+// drops the NODE; an optional field (priority/size) foreign drops just the FIELD.
+
+const validRaw = { hold: undefined, lifecycle: 'todo', priority: undefined, size: undefined };
+
+test('a task missing its lifecycle is dropped — the node is hidden (invalid-lifecycle)', () => {
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { ...validRaw, lifecycle: undefined },
+      stem: 'MMR-1',
+      type: 'task',
+    },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { key: 'MMR', kind: 'node', rule: 'invalid-lifecycle', stem: 'MMR-1', value: null },
+  ]);
+  expect(result.nodes).toEqual([]); // hidden, like a missing-project node
+});
+
+test('a task with a foreign lifecycle is dropped — the offending value is carried', () => {
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { ...validRaw, lifecycle: 'bogus' },
+      stem: 'MMR-1',
+      type: 'task',
+    },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { key: 'MMR', kind: 'node', rule: 'invalid-lifecycle', stem: 'MMR-1', value: 'bogus' },
+  ]);
+  expect(result.nodes).toEqual([]);
+});
+
+test('a task with a foreign hold is dropped (hold drives blocked/parked — no safe coercion)', () => {
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { ...validRaw, hold: 'bogus' },
+      stem: 'MMR-1',
+      type: 'task',
+    },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { key: 'MMR', kind: 'node', rule: 'invalid-hold', stem: 'MMR-1', value: 'bogus' },
+  ]);
+  expect(result.nodes).toEqual([]);
+});
+
+test('a task with a foreign priority keeps the node — only the field is dropped', () => {
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { ...validRaw, priority: 'p9' },
+      stem: 'MMR-1',
+      type: 'task',
+    },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { kind: 'field', rule: 'invalid-priority', stem: 'MMR-1', value: 'p9' },
+  ]);
+  expect(subgraph(g)).toEqual({ 'MMR-1': { dependsOn: [], parent: null } }); // node survives
+});
+
+test('a task with a foreign size keeps the node — only the field is dropped', () => {
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { ...validRaw, size: 'huge' },
+      stem: 'MMR-1',
+      type: 'task',
+    },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { kind: 'field', rule: 'invalid-size', stem: 'MMR-1', value: 'huge' },
+  ]);
+  expect(subgraph(g)).toEqual({ 'MMR-1': { dependsOn: [], parent: null } });
+});
+
+test('a task with all valid fields drops nothing', () => {
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { hold: 'blocked', lifecycle: 'in_progress', priority: 'p1', size: 'medium' },
+      stem: 'MMR-1',
+      type: 'task',
+    },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([]);
+  expect(result.nodes).toHaveLength(1);
+});
+
+test('field validity is task-only — a non-task node with foreign enums is not checked', () => {
+  // A phase carries frontmatter that would be foreign FOR A TASK, but none of the
+  // four is a task-only column here, so the field pass skips it and it survives.
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { hold: 'bogus', lifecycle: 'bogus', priority: 'bogus', size: 'bogus' },
+      stem: 'MMR-1',
+      type: 'phase',
+    },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([]);
+  expect(result.nodes).toHaveLength(1);
+});
+
+test('a node dropped for lifecycle cascades — a dependent edge dangles (like missing-project)', () => {
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { ...validRaw, lifecycle: undefined },
+      stem: 'MMR-1',
+      type: 'task',
+    }, // dropped
+    { dependsOn: ['MMR-1'], parent: null, raw: validRaw, stem: 'MMR-2', type: 'task' }, // depends on the dropped node
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { key: 'MMR', kind: 'node', rule: 'invalid-lifecycle', stem: 'MMR-1', value: null },
+    { kind: 'edge', ref: 'MMR-1', rule: 'dangling-depends-on', stem: 'MMR-2' },
+  ]);
+  expect(subgraph(g)).toEqual({ 'MMR-2': { dependsOn: [], parent: null } });
+});
+
 test('cycle drops are appended AFTER the pass-1/pass-2 drops', () => {
   // A missing-project node-drop, a dangling depends_on edge-drop, and a cycle: the
   // dropped[] order is node-drops, then dangling edges, then cycle back edges.

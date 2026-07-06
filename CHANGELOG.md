@@ -200,6 +200,18 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **The shared validator vets node fields; the reader tolerates malformed ones**
+  (MMR-177, ADR 0017). `validate()` gains a field-validity pass, tiered by whether
+  a field is load-bearing: a task whose `lifecycle` is missing or foreign, or whose
+  `hold` is a foreign value, is **dropped** (the field drives status derivation, so
+  there is no truthful way to show the node) — like a missing container, it hides
+  and its inbound edges cascade; a foreign `priority`/`size` drops only the
+  **field** (null is a truthful "unset") and the node survives. So `loadNornSnapshot`
+  no longer throws on any field-level corruption — the last reader throw class is
+  retired — and `mimir doctor` reports every dropped node and field. The tiering
+  rule lives only in the validator; the reader nulls a foreign `priority`/`size`
+  over the same `@mimir/contract` vocabulary. A field-clean vault is unaffected
+  (byte-identical to SQLite). No effect on the SQLite backend.
 - **The shared validator breaks relational cycles; the reader tolerates them**
   (MMR-174, ADR 0017). `validate()` gains an acyclicity rule: it detects `parent`
   and `depends_on` cycles (the two relations independently) over the surviving
