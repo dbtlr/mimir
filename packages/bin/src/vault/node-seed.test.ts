@@ -97,6 +97,7 @@ const bareNode = {
   hold_reason: null,
   id: 10,
   lifecycle: null,
+  open_ended: null,
   parent_id: null,
   priority: null,
   project_id: 1,
@@ -170,6 +171,18 @@ test('nodeFrontmatter carries task signals and a phase target, rank as a number'
     { dependsOn: [], parentStem: null, tags: [] },
   );
   expect(phase.target).toBe('v2');
+});
+
+test('nodeFrontmatter serializes open_ended as the strings true/false, omits when null (MMR-204)', () => {
+  const rel = { dependsOn: [], parentStem: null, tags: [] };
+  expect(nodeFrontmatter({ ...bareNode, open_ended: true, type: 'phase' }, rel).open_ended).toBe(
+    'true',
+  );
+  expect(
+    nodeFrontmatter({ ...bareNode, open_ended: false, type: 'initiative' }, rel).open_ended,
+  ).toBe('false');
+  // null (unset) is omitted — the reader defaults an absent field to null
+  expect(nodeFrontmatter({ ...bareNode, type: 'phase' }, rel)).not.toHaveProperty('open_ended');
 });
 
 // ── Orchestration over a real working set ────────────────────────────────────

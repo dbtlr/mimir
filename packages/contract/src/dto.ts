@@ -192,6 +192,10 @@ export type NodeView = {
   // bare — phase-only
   target?: string | null;
 
+  // bare — container-only (phase/initiative): purposefully open-ended, opts out
+  // of done-rollup (MMR-204). Reflects the stored value (true/false/null).
+  open_ended?: boolean | null;
+
   // bare — project-only: the archived operator axis (ADR 0015). Present and
   // non-null only when the project is archived (surfaced via the archived door).
   archivedAt?: string | null;

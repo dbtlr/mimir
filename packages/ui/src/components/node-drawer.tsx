@@ -12,7 +12,7 @@ import { parentOptions } from '../lib/parent-options';
 import type { TaskFormValues } from '../lib/schemas';
 import { absoluteTime, ago } from '../lib/time';
 import { AnnotationComposer } from './annotation-composer';
-import { PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
+import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
 import { StatusBadge } from './status-badge';
 import { StatusDot } from './status-dot';
 import { TagEditor } from './tag-editor';
@@ -402,9 +402,11 @@ function DrawerBody({
             <>
               {(node.data.priority != null ||
                 node.data.size != null ||
+                node.data.open_ended === true ||
                 node.data.verdicts?.stale === true) && (
                 <Section label="Signals">
                   <div className="flex items-center gap-1.5">
+                    {node.data.open_ended === true && <OpenEndedBadge />}
                     {node.data.priority != null && <PriorityBadge priority={node.data.priority} />}
                     {node.data.size != null && <SizeBadge size={node.data.size} />}
                     {node.data.verdicts?.stale === true && <StaleBadge />}

@@ -158,6 +158,7 @@ function normalizeWs(ws: WorkingSet): unknown {
     hold: n.hold,
     hold_reason: n.hold_reason,
     lifecycle: n.lifecycle,
+    open_ended: n.open_ended,
     parent:
       n.parent_id === null ? null : stemOf(ws, must(ws.nodes.find((x) => x.id === n.parent_id))),
     priority: n.priority,
@@ -319,7 +320,9 @@ test.skipIf(!NORN)('parity: cross-project dependency + an archived project', asy
 test.skipIf(!NORN)('parity: stale/going-cold, an empty container, multi-tag', async () => {
   const p = await createProject(sqlite, { key: 'MMR', name: 'Mimir' });
   const init = await createInitiative(sqlite, { projectId: p.id, title: 'Init' });
-  await createPhase(sqlite, { parentId: init.id, title: 'Empty phase' }); // no children
+  // Empty + open-ended (MMR-204): exercises the 'true' frontmatter round-trip and
+  // the idle-transparency/ready-coercion identically across both backends.
+  await createPhase(sqlite, { openEnded: true, parentId: init.id, title: 'Empty phase' });
   const phase = await createPhase(sqlite, { parentId: init.id, title: 'Live phase' });
   const t = await createTask(sqlite, { parentId: phase.id, tags: ['a', 'b', 'c'], title: 'Cold' });
   // backdate updated_at well past the stale threshold so `stale`/going-cold fire

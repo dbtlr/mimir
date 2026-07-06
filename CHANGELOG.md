@@ -15,6 +15,19 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Open-ended containers** (MMR-204, ADR 0001/0008 refinement). A stored
+  container-only boolean `open_ended` (phase/initiative) marks a purposefully
+  standing home (Bugs, Polish, Ideas) that is filed against continuously and
+  never rolls up to done. A derivation change, not a transition: an open-ended
+  container never reduces to `done`/`abandoned` — idle or empty it reads `ready`
+  ("open for filing"); when idle it drops out of its parent's rollup entirely, so
+  a standing phase never strands a normal ancestor from auto-closing; the
+  `orphaned` verdict is muted for tasks inside it. Authored with `create
+  --open-ended` and toggled with `update --open-ended` / `--not-open-ended`
+  (container-only; MCP `openEnded` and HTTP `open_ended` mirror it). Surfaced on
+  reads (`open_ended` bare field) and as an "∞ open-ended" badge in the console.
+  A foreign frontmatter value nulls the field on read and is reported by `mimir
+  doctor` (MMR-177 tiering).
 - **`mimir doctor` frontmatter parse-failed + untyped check** (MMR-191, ADR
   0017). A work-state document whose frontmatter fails to parse (YAML error,
   merge-conflict marker, truncation) or has a missing/foreign `type` is invisible

@@ -82,6 +82,25 @@ function enumFieldOrNull<T extends string>(value: unknown, values: readonly T[])
   return s !== null && isMember(s, values) ? s : null;
 }
 
+/**
+ * The non-throwing boolean narrow for the container-only OPTIONAL field
+ * `open_ended` (MMR-204). Norn has no boolean field_type, so the field rides
+ * undeclared and round-trips as the strings `'true'`/`'false'` (see
+ * `vault-frontmatter.ts`); a hand-authored YAML boolean is accepted too. Absent
+ * or any foreign value → null — the foreign-nulls-the-field tiering that mirrors
+ * {@link enumFieldOrNull} (the validator owns the null-vs-drop decision).
+ */
+function boolFieldOrNull(value: unknown): boolean | null {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  const s = str(value);
+  if (s === 'true') {
+    return true;
+  }
+  return s === 'false' ? false : null;
+}
+
 /** Ascending string compare without a nested ternary (deterministic tiebreaks). */
 function cmpStr(a: string, b: string): number {
   if (a < b) {
@@ -151,7 +170,14 @@ export type NodeRefs = {
   parent: string | null;
   dependsOn: string[];
   type?: NodeType;
-  raw?: { lifecycle: unknown; hold: unknown; priority: unknown; size: unknown };
+  raw?: {
+    lifecycle: unknown;
+    hold: unknown;
+    priority: unknown;
+    size: unknown;
+    /** Container-only (MMR-204); optional so referential-only fixtures needn't set it. */
+    open_ended?: unknown;
+  };
 };
 
 /**
@@ -180,7 +206,13 @@ function nodeRefsOf(
     parent: collapse(fm.parent),
     // Field-validity inputs (MMR-177): the raw enum frontmatter, vetted in
     // validate's pass 0. Carried verbatim (unknown) — validate owns legality.
-    raw: { hold: fm.hold, lifecycle: fm.lifecycle, priority: fm.priority, size: fm.size },
+    raw: {
+      hold: fm.hold,
+      lifecycle: fm.lifecycle,
+      open_ended: fm.open_ended,
+      priority: fm.priority,
+      size: fm.size,
+    },
     stem,
     type,
   };
@@ -409,6 +441,8 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       hold_reason: isTask ? str(n.fm.hold_reason) : null,
       id: n.id,
       lifecycle,
+      // Container-only (MMR-204): a foreign value nulls the field like priority/size.
+      open_ended: isTask ? null : boolFieldOrNull(n.fm.open_ended),
       parent_id: parentId,
       // priority/size are optional (MMR-177): a foreign value nulls the field (the
       // node stays), so read them non-throwing — the validator keeps such a node.

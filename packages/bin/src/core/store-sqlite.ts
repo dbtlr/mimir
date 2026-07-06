@@ -37,6 +37,19 @@ function groupTags(
   return byEntity;
 }
 
+/**
+ * SQLite has no boolean type, so `open_ended` comes back off `selectAll` as
+ * 0/1/NULL. Coerce it to a real boolean (preserving NULL) at every node-read
+ * boundary, so the model (`boolean | null`) and the Norn backend — which decodes
+ * a real boolean — agree, and the SQLite↔Norn parity harness stays green (MMR-204).
+ */
+function coerceBool(value: unknown): boolean | null {
+  return value === null || value === undefined ? null : Boolean(value);
+}
+function coerceNodeRow<T extends { open_ended: boolean | null }>(row: T): T {
+  return { ...row, open_ended: coerceBool(row.open_ended) };
+}
+
 export async function loadWorkingSet(executor: Db | Tx): Promise<WorkingSet> {
   const [projects, nodes, edges, nodeTagRows, projectTagRows] = await Promise.all([
     executor.selectFrom('project').selectAll().orderBy('key', 'asc').execute(),
@@ -60,7 +73,7 @@ export async function loadWorkingSet(executor: Db | Tx): Promise<WorkingSet> {
   return {
     edges,
     nodeTags: groupTags(nodeTagRows),
-    nodes,
+    nodes: nodes.map(coerceNodeRow),
     projectTags: groupTags(projectTagRows),
     projects,
   };
@@ -99,7 +112,10 @@ function createWriter(tx: Tx): StoreWriter {
     insertDependency: async (edge) => {
       await tx.insertInto('dependency').values(edge).execute();
     },
-    insertNode: (row) => tx.insertInto('node').values(row).returningAll().executeTakeFirstOrThrow(),
+    insertNode: async (row) =>
+      coerceNodeRow(
+        await tx.insertInto('node').values(row).returningAll().executeTakeFirstOrThrow(),
+      ),
     insertProject: (row) =>
       tx.insertInto('project').values(row).returningAll().executeTakeFirstOrThrow(),
     insertTag: async (row) => {
@@ -144,7 +160,10 @@ function createWriter(tx: Tx): StoreWriter {
     },
     loadArtifact: (id) =>
       tx.selectFrom('artifact').selectAll().where('id', '=', id).executeTakeFirst(),
-    loadNode: (id) => tx.selectFrom('node').selectAll().where('id', '=', id).executeTakeFirst(),
+    loadNode: async (id) => {
+      const row = await tx.selectFrom('node').selectAll().where('id', '=', id).executeTakeFirst();
+      return row === undefined ? undefined : coerceNodeRow(row);
+    },
     loadProject: (id) =>
       tx.selectFrom('project').selectAll().where('id', '=', id).executeTakeFirst(),
     loadProjectByKey: (key) =>

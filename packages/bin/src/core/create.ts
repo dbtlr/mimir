@@ -62,6 +62,8 @@ export type CreateInitiativeInput = {
   description?: string | null;
   /** The short list lede (MMR-162) — all-node, never type-gated. */
   summary?: string | null;
+  /** Purposefully open-ended: opt out of done-rollup (MMR-204). */
+  openEnded?: boolean;
   tags?: string[];
 };
 
@@ -75,6 +77,7 @@ export async function createInitiative(store: Store, input: CreateInitiativeInpu
     const seq = await w.allocateSeq(input.projectId);
     const node = await w.insertNode({
       description: input.description ?? null,
+      open_ended: input.openEnded ?? null,
       parent_id: null,
       project_id: input.projectId,
       seq,
@@ -94,6 +97,8 @@ export type CreatePhaseInput = {
   /** The short list lede (MMR-162) — all-node, never type-gated. */
   summary?: string | null;
   target?: string | null;
+  /** Purposefully open-ended: opt out of done-rollup (MMR-204). */
+  openEnded?: boolean;
   tags?: string[];
 };
 
@@ -110,6 +115,7 @@ export async function createPhase(store: Store, input: CreatePhaseInput): Promis
     const seq = await w.allocateSeq(parent.project_id);
     const node = await w.insertNode({
       description: input.description ?? null,
+      open_ended: input.openEnded ?? null,
       parent_id: parent.id,
       project_id: parent.project_id,
       seq,

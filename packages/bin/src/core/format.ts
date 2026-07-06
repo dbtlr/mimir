@@ -53,6 +53,9 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.target !== undefined) {
     wire.target = node.target;
   }
+  if (node.open_ended !== undefined) {
+    wire.open_ended = node.open_ended;
+  }
   if (node.completedAt !== undefined) {
     wire.completed_at = node.completedAt;
   }

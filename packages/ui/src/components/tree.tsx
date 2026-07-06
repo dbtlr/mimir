@@ -4,7 +4,7 @@ import type { WireTreeNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { STATUS_META } from '../lib/status';
 import { DistributionBar } from './distribution-bar';
-import { PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
+import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
 
 /**
@@ -92,6 +92,7 @@ function TreeNode({
       </span>
       <span className={cn('microlabel hidden sm:inline', meta.text)}>{meta.label}</span>
       <span className="ml-auto flex shrink-0 items-center gap-1 md:ml-0">
+        {node.open_ended === true && <OpenEndedBadge />}
         {node.verdicts?.stale === true && <StaleBadge />}
         {node.priority != null && <PriorityBadge priority={node.priority} />}
         {node.size != null && <SizeBadge size={node.size} />}

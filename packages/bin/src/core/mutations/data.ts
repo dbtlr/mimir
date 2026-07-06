@@ -56,6 +56,8 @@ export type UpdateFields = {
   size?: Size | null;
   target?: string | null;
   externalRef?: string | null;
+  /** Container-only (phase/initiative) — opt in/out of open-ended (MMR-204). */
+  openEnded?: boolean;
 };
 
 export async function updateNode(store: Store, id: number, fields: UpdateFields): Promise<Node> {
@@ -71,6 +73,9 @@ export async function updateNode(store: Store, id: number, fields: UpdateFields)
     }
     if (fields.target !== undefined && node.type !== 'phase') {
       throw validation('target applies only to phases');
+    }
+    if (fields.openEnded !== undefined && node.type === 'task') {
+      throw validation('open_ended applies only to phases and initiatives');
     }
 
     const patch: NodePatch = {};
@@ -94,6 +99,9 @@ export async function updateNode(store: Store, id: number, fields: UpdateFields)
     }
     if (fields.externalRef !== undefined) {
       patch.external_ref = fields.externalRef;
+    }
+    if (fields.openEnded !== undefined) {
+      patch.open_ended = fields.openEnded;
     }
 
     if (Object.keys(patch).length > 0) {

@@ -35,6 +35,9 @@ export type DerivationSet = {
   readonly archivedProjects: ReadonlySet<number>;
   /** Per-snapshot memo + recursion guard — internal to this module. */
   readonly memo: Map<number, StatusWord>;
+  /** Per-snapshot memo for the *raw* container word (pre open-ended coercion) —
+   * feeds the transparency test without paying the child walk twice (MMR-204). */
+  readonly rawMemo: Map<number, StatusWord>;
   readonly inFlight: Set<number>;
 };
 
@@ -79,6 +82,7 @@ export function deriveSet(ws: WorkingSet): DerivationSet {
     nodeById: new Map(ws.nodes.map((n) => [n.id, n])),
     nodesByProject,
     prereqsByNode,
+    rawMemo: new Map(),
     ws,
   };
 }
@@ -181,10 +185,45 @@ export function isTerminalWord(word: StatusWord): boolean {
   return word === 'done' || word === 'abandoned';
 }
 
+/** Idle = no live work under the node: an all-terminal rollup, or empty (`new`). */
+function isIdleWord(word: StatusWord): boolean {
+  return isTerminalWord(word) || word === 'new';
+}
+
+/**
+ * A container's *raw* rollup word — `interpret` over its contributing children,
+ * **before** the open-ended coercion {@link nodeStatusWord} applies. The
+ * transparency test needs the uncoerced word (an idle open-ended container reads
+ * `ready`, which would otherwise look live), so it is memoized separately. Tasks
+ * have no rollup — callers only pass containers. (MMR-204)
+ */
+function rawContainerWord(set: DerivationSet, node: Node): StatusWord {
+  const cached = set.rawMemo.get(node.id);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const raw = interpret(childDistribution(set, node.id));
+  set.rawMemo.set(node.id, raw);
+  return raw;
+}
+
+/**
+ * A "transparent" container (MMR-204): an open-ended phase/initiative with no
+ * live children (idle rollup or empty). It drops out of its parent's rollup
+ * distribution entirely, so a standing home (Bugs, Polish, Ideas) never strands
+ * a normal ancestor from auto-closing. With live children it is not transparent
+ * and tallies its word normally.
+ */
+function isTransparentOpenEnded(set: DerivationSet, node: Node): boolean {
+  return (
+    node.type !== 'task' && node.open_ended === true && isIdleWord(rawContainerWord(set, node))
+  );
+}
+
 /**
  * Is a node "settled" for dependency purposes — i.e. it no longer holds up work
  * that depends on it? A task is settled iff its lifecycle is terminal; a
- * non-leaf iff its rollup is terminal.
+ * non-leaf iff its **derived word** is terminal.
  *
  * A dependency is satisfied when its prerequisite is **terminal**, so an
  * *abandoned* prerequisite satisfies (it no longer blocks), consistent with
@@ -192,6 +231,13 @@ export function isTerminalWord(word: StatusWord): boolean {
  * refined (2026-06-05) to "all deps settled" so an abandoned prerequisite does
  * not strand its dependent forever — see ADR 0001 § "Refinement — dependency
  * satisfaction is terminal, not done."
+ *
+ * The container branch routes through {@link nodeStatusWord} (not the raw
+ * `interpret`) so settledness tracks the *displayed* word: an **open-ended**
+ * container's word is never terminal (MMR-204), so a standing home never
+ * satisfies a dependency — the honest reading, matching the non-terminal `ready`
+ * it shows rather than the all-terminal rollup underneath. For a normal container
+ * the two are identical.
  */
 export function isNodeSettled(
   set: DerivationSet,
@@ -200,7 +246,8 @@ export function isNodeSettled(
   if (node.type === 'task') {
     return node.lifecycle === 'done' || node.lifecycle === 'abandoned';
   }
-  return isTerminalWord(interpret(childDistribution(set, node.id)));
+  const full = set.nodeById.get(node.id);
+  return full !== undefined && isTerminalWord(nodeStatusWord(set, full));
 }
 
 /** A node and all of its ancestors (walking `parent_id` to the root). */
@@ -266,7 +313,11 @@ export function nodeStatusWord(set: DerivationSet, node: Node): StatusWord {
       const awaiting = hasUnsettledPrereq(set, node.id);
       word = taskStatus({ awaiting, hold: node.hold, lifecycle: node.lifecycle });
     } else {
-      word = interpret(childDistribution(set, node.id));
+      // Open-ended (MMR-204): a *transparent* container (idle open-ended) reads
+      // `ready` ("open for filing") — the very condition that also drops it from a
+      // parent's rollup, single-sourced through `isTransparentOpenEnded`. A live or
+      // normal container passes its raw rollup word through unchanged.
+      word = isTransparentOpenEnded(set, node) ? 'ready' : rawContainerWord(set, node);
     }
     set.memo.set(node.id, word);
     return word;
@@ -275,10 +326,15 @@ export function nodeStatusWord(set: DerivationSet, node: Node): StatusWord {
   }
 }
 
-/** The rollup distribution over a node's **direct** children (their Status words tallied). */
+/**
+ * The rollup distribution over a node's **direct** children (their Status words
+ * tallied). A transparent open-ended child (idle standing container) is excluded
+ * entirely, so it can't keep its parent from auto-closing (MMR-204).
+ */
 export function childDistribution(set: DerivationSet, nodeId: number): Distribution {
   const children = set.childrenByParent.get(nodeId) ?? [];
-  return tally(children.map((child) => nodeStatusWord(set, child)));
+  const contributing = children.filter((child) => !isTransparentOpenEnded(set, child));
+  return tally(contributing.map((child) => nodeStatusWord(set, child)));
 }
 
 /**
@@ -292,9 +348,13 @@ export function leafDistribution(set: DerivationSet, projectId: number): Distrib
   return tally(tasks.map((task) => nodeStatusWord(set, task)));
 }
 
-/** The rollup distribution over a project's **root** nodes (the cascade's top step, MMR-32). */
+/** The rollup distribution over a project's **root** nodes (the cascade's top
+ * step, MMR-32). A transparent open-ended root is excluded, mirroring
+ * {@link childDistribution} — a standing root never strands the project (MMR-204). */
 export function rootDistribution(set: DerivationSet, projectId: number): Distribution {
-  const roots = (set.nodesByProject.get(projectId) ?? []).filter((n) => n.parent_id === null);
+  const roots = (set.nodesByProject.get(projectId) ?? []).filter(
+    (n) => n.parent_id === null && !isTransparentOpenEnded(set, n),
+  );
   return tally(roots.map((root) => nodeStatusWord(set, root)));
 }
 
@@ -306,8 +366,9 @@ export function statusOf(
   if (node.type === 'task') {
     return { distribution: {}, status: nodeStatusWord(set, node) };
   }
-  const distribution = childDistribution(set, node.id);
-  return { distribution, status: interpret(distribution) };
+  // `status` routes through nodeStatusWord so the open-ended coercion (MMR-204)
+  // applies; `distribution` is the contributing-children tally (the "why").
+  return { distribution: childDistribution(set, node.id), status: nodeStatusWord(set, node) };
 }
 
 /** `status_of` for a whole project — `interpret` over its root nodes. */

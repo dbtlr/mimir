@@ -462,6 +462,7 @@ export function toolUpdate(
     size?: string;
     target?: string;
     externalRef?: string;
+    openEnded?: boolean;
   },
 ): Promise<ToolResult> {
   return guard(async () => {
@@ -503,6 +504,9 @@ export function toolUpdate(
     if (args.externalRef !== undefined) {
       fields.externalRef = args.externalRef;
     }
+    if (args.openEnded !== undefined) {
+      fields.openEnded = args.openEnded;
+    }
     const node = await updateNode(store, id, fields);
     return echoNode(store, node);
   });
@@ -521,10 +525,11 @@ async function updateProjectTool(
     size?: string;
     target?: string;
     externalRef?: string;
+    openEnded?: boolean;
   },
 ): Promise<ToolResult> {
   const nodeOnly = (
-    ['title', 'priority', 'size', 'target', 'externalRef', 'summary'] as const
+    ['title', 'priority', 'size', 'target', 'externalRef', 'summary', 'openEnded'] as const
   ).filter((k) => args[k] !== undefined);
   if (nodeOnly.length > 0) {
     throw validation(
@@ -561,10 +566,11 @@ async function updateArtifactTool(
     size?: string;
     target?: string;
     externalRef?: string;
+    openEnded?: boolean;
   },
 ): Promise<ToolResult> {
   const nodeOnly = (
-    ['description', 'priority', 'size', 'target', 'externalRef', 'summary'] as const
+    ['description', 'priority', 'size', 'target', 'externalRef', 'summary', 'openEnded'] as const
   ).filter((k) => args[k] !== undefined);
   if (nodeOnly.length > 0) {
     throw validation(
@@ -650,10 +656,16 @@ export function toolCreate(
     priority?: string;
     size?: string;
     externalRef?: string;
+    openEnded?: boolean;
     tags?: string[];
   },
 ): Promise<ToolResult> {
   return guard(async () => {
+    // open_ended is container-only — reject it on task/project (symmetry with
+    // `update`; MMR-204). Only initiative/phase consume it below.
+    if (args.openEnded !== undefined && (args.type === 'task' || args.type === 'project')) {
+      throw validation('open_ended applies only to phases and initiatives');
+    }
     switch (args.type) {
       case 'project': {
         if (args.key === undefined) {
@@ -684,6 +696,7 @@ export function toolCreate(
         const pid = await projectId(store, args.parent);
         const node = await createInitiative(store, {
           description: args.description,
+          openEnded: args.openEnded,
           projectId: pid,
           summary: args.summary,
           tags: args.tags,
@@ -705,6 +718,7 @@ export function toolCreate(
         const parentNodeId = await nodeId(store, args.parent);
         const node = await createPhase(store, {
           description: args.description,
+          openEnded: args.openEnded,
           parentId: parentNodeId,
           summary: args.summary,
           tags: args.tags,

@@ -86,6 +86,8 @@ export type NewNodeRecord = {
   external_ref?: string | null;
   // phase-only
   target?: string | null;
+  // container-only (phase/initiative) — MMR-204
+  open_ended?: boolean | null;
 };
 
 /** The columns node mutations patch — identity (`project_id`, `type`, `seq`) is immutable. */
@@ -104,6 +106,8 @@ export type NodePatch = {
   external_ref?: string | null;
   completed_at?: string | null;
   target?: string | null;
+  // container-only (phase/initiative) — MMR-204
+  open_ended?: boolean | null;
   updated_at?: string;
 };
 

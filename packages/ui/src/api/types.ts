@@ -102,6 +102,8 @@ export type WireNode = {
   hold_reason?: string | null;
   external_ref?: string | null;
   target?: string | null;
+  /** Container-only (MMR-204): purposefully open-ended, opts out of done-rollup. */
+  open_ended?: boolean | null;
   completed_at?: string | null;
   created_at: string;
   updated_at: string;

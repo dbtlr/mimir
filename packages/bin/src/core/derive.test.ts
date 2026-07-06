@@ -158,3 +158,89 @@ test('a container-dependency loop written behind the verbs throws the cycle inva
   const node = await reload(b.id);
   expect(() => nodeStatusWord(set, node)).toThrow(/derivation cycle/);
 });
+
+// ── Open-ended containers (MMR-204) ──────────────────────────────────────────
+
+async function setOpenEnded(id: number, value: boolean): Promise<void> {
+  await db.updateTable('node').set({ open_ended: value }).where('id', '=', id).execute();
+}
+
+test('open-ended: a container with all children terminal reads ready, not done', async () => {
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'bugs' });
+  const t = await createTask(store, { parentId: phase.id, title: 't' });
+  await setLifecycle(t.id, 'done');
+  await setOpenEnded(phase.id, true);
+
+  // a normal phase would read `done` here; open-ended stays open for filing
+  expect(nodeStatusWord(await setOf(), await reload(phase.id))).toBe('ready');
+});
+
+test('open-ended: an empty container reads ready, not new', async () => {
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'standing' });
+  await setOpenEnded(phase.id, true);
+
+  expect(nodeStatusWord(await setOf(), await reload(phase.id))).toBe('ready');
+});
+
+test('open-ended: a container with live children derives its normal word', async () => {
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const phase = await createPhase(store, { parentId: init.id, title: 'bugs' });
+  const t = await createTask(store, { parentId: phase.id, title: 't' });
+  await setLifecycle(t.id, 'in_progress');
+  await setOpenEnded(phase.id, true);
+
+  expect(nodeStatusWord(await setOf(), await reload(phase.id))).toBe('in_progress');
+});
+
+test('open-ended: an idle container is excluded from its parent rollup so the parent can close', async () => {
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const donePhase = await createPhase(store, { parentId: init.id, title: 'done work' });
+  const dt = await createTask(store, { parentId: donePhase.id, title: 'dt' });
+  await setLifecycle(dt.id, 'done');
+  const standing = await createPhase(store, { parentId: init.id, title: 'bugs' });
+  await setOpenEnded(standing.id, true); // empty + open-ended → idle
+
+  // the idle open-ended phase drops out of the tally; only the done phase remains
+  expect(childDistribution(await setOf(), init.id)).toEqual({ done: 1 });
+  expect(nodeStatusWord(await setOf(), await reload(init.id))).toBe('done');
+});
+
+test('open-ended: a container with live children contributes its word to the parent', async () => {
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  const donePhase = await createPhase(store, { parentId: init.id, title: 'done work' });
+  const dt = await createTask(store, { parentId: donePhase.id, title: 'dt' });
+  await setLifecycle(dt.id, 'done');
+  const standing = await createPhase(store, { parentId: init.id, title: 'bugs' });
+  const live = await createTask(store, { parentId: standing.id, title: 'bug' });
+  await setLifecycle(live.id, 'in_progress');
+  await setOpenEnded(standing.id, true);
+
+  // live children → contributes in_progress; parent stays open
+  expect(childDistribution(await setOf(), init.id)).toEqual({ done: 1, in_progress: 1 });
+  expect(nodeStatusWord(await setOf(), await reload(init.id))).toBe('in_progress');
+});
+
+test('open-ended: a container never satisfies a dependency, even when it displays ready (MMR-204)', async () => {
+  const p = await createProject(store, { key: 'MMR', name: 'm' });
+  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
+  // prerequisite: an idle open-ended phase (one done child → displays ready)
+  const prereq = await createPhase(store, { parentId: init.id, title: 'bugs' });
+  const bug = await createTask(store, { parentId: prereq.id, title: 'bug' });
+  await setLifecycle(bug.id, 'done');
+  await setOpenEnded(prereq.id, true);
+  // a dependent in a sibling phase depends on the standing container
+  const work = await createPhase(store, { parentId: init.id, title: 'work' });
+  const after = await createTask(store, { parentId: work.id, title: 'after bugs' });
+  await dep(after.id, prereq.id);
+
+  // the prereq shows `ready`, but a standing home never settles → the dependent awaits
+  expect(nodeStatusWord(await setOf(), await reload(prereq.id))).toBe('ready');
+  expect(nodeStatusWord(await setOf(), await reload(after.id))).toBe('awaiting');
+});
