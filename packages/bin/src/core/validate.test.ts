@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 
+import { collapse } from '../norn/decode';
 import { parseId } from './ids';
 import type { NodeRefs, VaultGraph } from './store-norn';
 import { validate } from './validate';
@@ -58,6 +59,43 @@ test('a dangling depends_on drops the edge; the prereq is pruned, node survives'
   const result = validate(g);
   expect(result.dropped).toEqual([
     { kind: 'edge', ref: 'MMR-1', rule: 'dangling-depends-on', stem: 'MMR-2' },
+    { kind: 'edge', ref: 'MMR-99', rule: 'dangling-depends-on', stem: 'MMR-2' },
+  ]);
+  expect(subgraph(g)['MMR-2']).toEqual({ dependsOn: [], parent: null });
+});
+
+// ── Aliased wikilink decode (MMR-190) ─────────────────────────────────────────
+// `collapse` de-aliases `[[STEM|display]]` to `STEM` before the graph reaches the
+// validator, so an aliased ref resolves through the SAME valid/dangling path as a
+// bare wikilink — a valid target resolves; a dangling one drops with the STEM ref,
+// never the `|`-laden literal (which used to slip the parseId gate and float to root).
+
+test('an aliased parent resolves cleanly to its real target (MMR-190)', () => {
+  const g = graphOf([
+    { dependsOn: [], parent: 'MMR', stem: 'MMR-1' },
+    { dependsOn: [], parent: collapse('[[MMR-1|Some Title]]'), stem: 'MMR-2' },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([]);
+  expect(subgraph(g)['MMR-2']).toEqual({ dependsOn: [], parent: 'MMR-1' });
+});
+
+test('a dangling aliased parent drops with the de-aliased ref, not the |-literal (MMR-190)', () => {
+  const g = graphOf([{ dependsOn: [], parent: collapse('[[MMR-99|Some Title]]'), stem: 'MMR-2' }]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { kind: 'edge', ref: 'MMR-99', rule: 'dangling-parent', stem: 'MMR-2' },
+  ]);
+  expect(subgraph(g)).toEqual({ 'MMR-2': { dependsOn: [], parent: null } });
+});
+
+test('a dangling aliased depends_on drops with the de-aliased ref (MMR-190)', () => {
+  const g = graphOf(
+    [{ dependsOn: [collapse('[[MMR-99|Some Title]]') ?? ''], parent: null, stem: 'MMR-2' }],
+    ['MMR'],
+  );
+  const result = validate(g);
+  expect(result.dropped).toEqual([
     { kind: 'edge', ref: 'MMR-99', rule: 'dangling-depends-on', stem: 'MMR-2' },
   ]);
   expect(subgraph(g)['MMR-2']).toEqual({ dependsOn: [], parent: null });

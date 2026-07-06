@@ -51,6 +51,7 @@ function must<T>(value: T | undefined): T {
 
 const jsonField = (key: string, value: unknown): string => `${key}=${JSON.stringify(value)}`;
 const wikilink = (stem: string): string => `[[${stem}]]`;
+const aliasedWikilink = (stem: string, alias: string): string => `[[${stem}|${alias}]]`;
 
 async function writeDoc(path: string, fields: string[]): Promise<void> {
   await client.newDoc({ confirm: true, field_json: fields, parents: true, path });
@@ -367,6 +368,58 @@ test.skipIf(!NORN)('drops a dangling KEY-seq parent edge; the node floats to roo
   const node = must(ws.nodes.find((n) => n.seq === 1));
   expect(node.parent_id).toBeNull(); // dangling parent dropped → floats to project root
 });
+
+// MMR-190: a relational ref written as an ALIASED wikilink `[[STEM|display]]`.
+// `collapse` must keep the STEM so the ref resolves through the normal
+// valid/dangling path — a dangling aliased parent floats to root with a proper
+// drop (not a silent float on the `|`-laden literal that used to slip parseId),
+// and readVaultGraph surfaces the de-aliased stem for doctor's finding.
+test.skipIf(!NORN)(
+  'drops a dangling aliased parent; readVaultGraph de-aliases the ref',
+  async () => {
+    await writeProjectDoc('MMR');
+    await writeDoc('MMR/MMR-1.md', [
+      jsonField('type', 'task'),
+      jsonField('title', 'Aliased orphan'),
+      jsonField('parent', aliasedWikilink('MMR-99', 'Some Title')), // no such node
+      jsonField('lifecycle', 'todo'),
+      jsonField('created', TS),
+      jsonField('updated_at', TS),
+    ]);
+    // The raw graph surfaces the STEM, not the `|`-laden literal.
+    const graph = await readVaultGraph(client);
+    const orphan = must(graph.nodes.find((n) => n.stem === 'MMR-1'));
+    expect(orphan.parent).toBe('MMR-99');
+    // The loader drops the dangling edge and floats the node to root — no silent skip.
+    const ws = await loadWorkingSetOverNorn(client);
+    const node = must(ws.nodes.find((n) => n.seq === 1));
+    expect(node.parent_id).toBeNull();
+  },
+);
+
+test.skipIf(!NORN)(
+  'drops a dangling aliased depends_on; readVaultGraph de-aliases the ref',
+  async () => {
+    await writeProjectDoc('MMR');
+    await writeDoc('MMR/MMR-1.md', [
+      jsonField('type', 'task'),
+      jsonField('title', 'Dependent'),
+      jsonField('parent', wikilink('MMR')),
+      jsonField('lifecycle', 'todo'),
+      jsonField('depends_on', [aliasedWikilink('MMR-99', 'Some Title')]), // no such node
+      jsonField('created', TS),
+      jsonField('updated_at', TS),
+    ]);
+    // The raw graph surfaces the STEM, not the `|`-laden literal.
+    const graph = await readVaultGraph(client);
+    const dependent = must(graph.nodes.find((n) => n.stem === 'MMR-1'));
+    expect(dependent.dependsOn).toEqual(['MMR-99']);
+    // The loader keeps the node and drops only the dangling prerequisite edge.
+    const ws = await loadWorkingSetOverNorn(client);
+    expect(ws.nodes.map((n) => renderId({ key: 'MMR', seq: n.seq }))).toEqual(['MMR-1']);
+    expect(ws.edges).toEqual([]);
+  },
+);
 
 // ADR 0017 / MMR-177: field-level corruption is tolerated too. A load-bearing
 // field — lifecycle (drives status) or hold (drives blocked/parked) — missing or
