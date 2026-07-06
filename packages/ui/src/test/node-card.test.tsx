@@ -60,6 +60,16 @@ describe('nodeCard', () => {
     expect(screen.queryByText('Build › Phase 5')).toBeNull();
   });
 
+  it('shows the open-ended badge when the node is open-ended (MMR-204)', () => {
+    const { rerender } = render(
+      <NodeCard node={task({ id: 'MMR-9', open_ended: true, status: 'ready' })} onOpen={vi.fn()} />,
+      { wrapper },
+    );
+    expect(screen.getByText('∞ open-ended')).toBeDefined();
+    rerender(<NodeCard node={task({ id: 'MMR-9', status: 'ready' })} onOpen={vi.fn()} />);
+    expect(screen.queryByText('∞ open-ended')).toBeNull();
+  });
+
   const sortable = { handleProps: {}, setNodeRef: () => {} };
 
   it('renders the grip handle when sortable', () => {

@@ -27,6 +27,19 @@ export function SizeBadge({ size }: { size: Size }) {
   return <Badge variant="mono">{SIZE_GLYPH[size]}</Badge>;
 }
 
+/**
+ * The open-ended marker (MMR-204) — a container purposefully kept open for
+ * filing (Bugs, Polish, Ideas): it never rolls up to done and drops out of its
+ * parent's rollup when idle.
+ */
+export function OpenEndedBadge() {
+  return (
+    <Badge variant="mono" title="open-ended — a standing home, never rolls up to done">
+      ∞ open-ended
+    </Badge>
+  );
+}
+
 /** The stale verdict marker — work sitting in flight too long. */
 export function StaleBadge() {
   return (

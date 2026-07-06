@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { WireNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { STATUS_META } from '../lib/status';
-import { PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
+import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
 import { TransitionMenu } from './transition-menu';
 import { Badge } from './ui/badge';
 
@@ -88,8 +88,12 @@ export function NodeCard({
           <p className="truncate text-2xs text-ink-dim md:text-3xs">{node.summary}</p>
         )}
       </button>
-      {(node.priority != null || node.size != null || tags.length > 0) && (
+      {(node.priority != null ||
+        node.size != null ||
+        node.open_ended === true ||
+        tags.length > 0) && (
         <div className="mt-2 flex flex-wrap items-center gap-1 md:mt-1.5">
+          {node.open_ended === true && <OpenEndedBadge />}
           {node.priority != null && <PriorityBadge priority={node.priority} />}
           {node.size != null && <SizeBadge size={node.size} />}
           {tags.slice(0, SHOWN_TAGS).map((t) => (
