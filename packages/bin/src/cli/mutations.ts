@@ -630,6 +630,11 @@ export async function cmdUntag(c: Ctx): Promise<number> {
 
 export async function cmdCreate(c: Ctx): Promise<number> {
   const type = c.positionals[1];
+  // open_ended is container-only — reject it on task/project create (symmetry with
+  // `update`, which throws for the same; MMR-204). Only initiative/phase consume it.
+  if ((type === 'task' || type === 'project') && openEndedFlag(c) !== undefined) {
+    throw validation('open_ended applies only to phases and initiatives');
+  }
   switch (type) {
     case 'project': {
       // Positional name like every other create type (MMR-35); --name still works.

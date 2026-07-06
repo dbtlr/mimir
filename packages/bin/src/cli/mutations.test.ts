@@ -515,3 +515,30 @@ test('both --open-ended and --not-open-ended is a usage error', async () => {
     ),
   ).toBe(2);
 });
+
+test('create --open-ended on a task is a validation error (container-only, MMR-204)', async () => {
+  expect(
+    await runCli(
+      ['create', 'task', 'x', '--parent', phaseRef, '--open-ended'],
+      () => store,
+      fakeIo(false),
+    ),
+  ).toBe(1);
+});
+
+test('create --open-ended on a project is a validation error (MMR-204)', async () => {
+  expect(
+    await runCli(
+      ['create', 'project', 'P', '--key', 'PPP', '-y', '--open-ended'],
+      () => store,
+      fakeIo(false),
+    ),
+  ).toBe(1);
+});
+
+test('records view surfaces open-ended for a standing container (MMR-204)', async () => {
+  await runCli(['update', phaseRef, '--open-ended'], () => store, fakeIo(false));
+  const io = fakeIo(true);
+  await runCli(['get', phaseRef], () => store, io); // default format = records
+  expect(io.out.join('')).toContain('open-ended');
+});

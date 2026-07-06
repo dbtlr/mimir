@@ -223,7 +223,7 @@ function isTransparentOpenEnded(set: DerivationSet, node: Node): boolean {
 /**
  * Is a node "settled" for dependency purposes — i.e. it no longer holds up work
  * that depends on it? A task is settled iff its lifecycle is terminal; a
- * non-leaf iff its rollup is terminal.
+ * non-leaf iff its **derived word** is terminal.
  *
  * A dependency is satisfied when its prerequisite is **terminal**, so an
  * *abandoned* prerequisite satisfies (it no longer blocks), consistent with
@@ -231,6 +231,13 @@ function isTransparentOpenEnded(set: DerivationSet, node: Node): boolean {
  * refined (2026-06-05) to "all deps settled" so an abandoned prerequisite does
  * not strand its dependent forever — see ADR 0001 § "Refinement — dependency
  * satisfaction is terminal, not done."
+ *
+ * The container branch routes through {@link nodeStatusWord} (not the raw
+ * `interpret`) so settledness tracks the *displayed* word: an **open-ended**
+ * container's word is never terminal (MMR-204), so a standing home never
+ * satisfies a dependency — the honest reading, matching the non-terminal `ready`
+ * it shows rather than the all-terminal rollup underneath. For a normal container
+ * the two are identical.
  */
 export function isNodeSettled(
   set: DerivationSet,
@@ -239,7 +246,8 @@ export function isNodeSettled(
   if (node.type === 'task') {
     return node.lifecycle === 'done' || node.lifecycle === 'abandoned';
   }
-  return isTerminalWord(interpret(childDistribution(set, node.id)));
+  const full = set.nodeById.get(node.id);
+  return full !== undefined && isTerminalWord(nodeStatusWord(set, full));
 }
 
 /** A node and all of its ancestors (walking `parent_id` to the root). */
@@ -305,11 +313,11 @@ export function nodeStatusWord(set: DerivationSet, node: Node): StatusWord {
       const awaiting = hasUnsettledPrereq(set, node.id);
       word = taskStatus({ awaiting, hold: node.hold, lifecycle: node.lifecycle });
     } else {
-      const raw = rawContainerWord(set, node);
-      // Open-ended (MMR-204): an idle rollup never reads done/abandoned/new —
-      // it reads `ready` ("open for filing"). With live children `raw` is already
-      // a live word and passes through unchanged.
-      word = node.open_ended === true && isIdleWord(raw) ? 'ready' : raw;
+      // Open-ended (MMR-204): a *transparent* container (idle open-ended) reads
+      // `ready` ("open for filing") — the very condition that also drops it from a
+      // parent's rollup, single-sourced through `isTransparentOpenEnded`. A live or
+      // normal container passes its raw rollup word through unchanged.
+      word = isTransparentOpenEnded(set, node) ? 'ready' : rawContainerWord(set, node);
     }
     set.memo.set(node.id, word);
     return word;

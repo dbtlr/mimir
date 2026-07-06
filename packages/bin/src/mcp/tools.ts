@@ -661,6 +661,11 @@ export function toolCreate(
   },
 ): Promise<ToolResult> {
   return guard(async () => {
+    // open_ended is container-only — reject it on task/project (symmetry with
+    // `update`; MMR-204). Only initiative/phase consume it below.
+    if (args.openEnded !== undefined && (args.type === 'task' || args.type === 'project')) {
+      throw validation('open_ended applies only to phases and initiatives');
+    }
     switch (args.type) {
       case 'project': {
         if (args.key === undefined) {

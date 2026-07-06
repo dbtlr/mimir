@@ -224,6 +224,11 @@ export function renderRecords(node: NodeView, io: Io): string {
   if (node.target != null) {
     pairs.push(['target', node.target]);
   }
+  // Container-only (MMR-204) — shown only when set, so a standing home is legible
+  // in the default `get` view (not just `-f json`), like the console badge.
+  if (node.open_ended === true) {
+    pairs.push(['open-ended', 'yes']);
+  }
   if (node.externalRef != null) {
     pairs.push(['external ref', node.externalRef]);
   }

@@ -434,6 +434,11 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const description = strField(body, 'description');
             const summary = strField(body, 'summary');
             const tags = strList(body, 'tags');
+            // open_ended is container-only — reject it on task create (symmetry with
+            // PATCH, which rejects it on a task; MMR-204). initiative/phase consume it.
+            if (type === 'task' && boolField(body, 'open_ended') !== undefined) {
+              throw validation('open_ended applies only to phases and initiatives');
+            }
             if (type === 'initiative') {
               if (parseId(parent) !== null) {
                 throw validation("an initiative's parent must be a project (KEY)");
