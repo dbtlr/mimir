@@ -36,6 +36,56 @@ export function stemOf(path: string): string {
   return base.endsWith('.md') ? base.slice(0, -3) : base;
 }
 
+/** One finding from norn's `vault.validate` payload, narrowed to the fields
+ * `mimir doctor` reads. `code` classifies the corruption; `path` locates the
+ * document; `field` (present on field-scoped codes) names the offending
+ * frontmatter key; `message` is norn's own detail (line/column/conflict-marker
+ * for a parse failure), carried through so doctor can pinpoint it (MMR-191). The
+ * `severity` field is dropped — doctor renders its own informational label. */
+export type ValidateFinding = {
+  code: string;
+  path: string;
+  field?: string;
+  message?: string;
+};
+
+/** Decode the untyped `vault.validate` payload (`{ findings: [...] }`) into the
+ * findings doctor reads. Defensive by contract: a non-object payload, a missing
+ * or non-array `findings`, or an entry lacking a string `code`/`path` yields no
+ * finding — doctor is non-gating (ADR 0017), so a malformed payload must degrade
+ * to "nothing to report", never crash. */
+export function decodeValidateFindings(payload: unknown): ValidateFinding[] {
+  if (typeof payload !== 'object' || payload === null) {
+    return [];
+  }
+  const findings = (payload as { findings?: unknown }).findings;
+  if (!Array.isArray(findings)) {
+    return [];
+  }
+  return findings.flatMap((entry: unknown) => {
+    if (typeof entry !== 'object' || entry === null) {
+      return [];
+    }
+    const { code, field, message, path } = entry as {
+      code?: unknown;
+      field?: unknown;
+      message?: unknown;
+      path?: unknown;
+    };
+    if (typeof code !== 'string' || typeof path !== 'string') {
+      return [];
+    }
+    return [
+      {
+        code,
+        path,
+        ...(typeof field === 'string' ? { field } : {}),
+        ...(typeof message === 'string' ? { message } : {}),
+      },
+    ];
+  });
+}
+
 /** A `vault.get` record's `path` + `.body`; a non-string path drops the record,
  * an absent/non-string body reads as the empty string. */
 export function pathAndBody(record: unknown): { path: string; body: string } | null {

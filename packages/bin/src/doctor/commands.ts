@@ -17,6 +17,7 @@ import type { Format, Io } from '../cli/render';
 import { ok } from '../cli/render';
 import type { VaultGraph } from '../core/store-norn';
 import { validate } from '../core/validate';
+import { decodeValidateFindings, stemOf } from '../norn/decode';
 import type { DoctorContext, DoctorFinding } from './checks';
 import { CHECKS } from './checks';
 
@@ -27,6 +28,11 @@ export type DoctorDeps = {
   /** Read the vault's raw, unresolved relational graph, or `null` on the SQLite
    * backend. Wired with {@link readNodeDocs}: both present, or both null. */
   readVaultGraph: (() => Promise<VaultGraph>) | null;
+  /** Run norn's `vault.validate` and return its raw (untyped) payload, or `null`
+   * on the SQLite backend. Surfaces the frontmatter corruptions (parse-failed,
+   * untyped) that make a doc invisible to the reader AND to every graph-based
+   * check (MMR-191). Wired with {@link readNodeDocs}: all present, or all null. */
+  validate: (() => Promise<unknown>) | null;
 };
 
 /** Keep only docs in the `-s` scope: the project itself (`KEY`) or its nodes
@@ -41,7 +47,7 @@ export async function cmdDoctor(
   format: Format,
   scope: string | undefined,
 ): Promise<number> {
-  if (deps.readNodeDocs === null || deps.readVaultGraph === null) {
+  if (deps.readNodeDocs === null || deps.readVaultGraph === null || deps.validate === null) {
     // No vault backend: node state lives in typed SQLite rows — nothing here can
     // be malformed (body sections) or dangle (the parent_id/project_id FKs hold).
     if (format === 'json') {
@@ -61,9 +67,19 @@ export async function cmdDoctor(
   // share the `dropped[]` across every referential check (MMR-182) — the four
   // that render it would otherwise each recompute a whole validator pass.
   const { dropped } = validate(await deps.readVaultGraph());
+  // The frontmatter check (MMR-191) reads norn's own schema validation, decoded
+  // defensively — a doc whose frontmatter fails to parse (or lacks a `type`) is
+  // absent from the graph above, so only `vault.validate` sees it. Scope it by
+  // `-s` like `docs` (a per-document check): an isolated parse failure does not
+  // break the whole load, so — unlike the referential `dropped[]` — it honors
+  // scope. Filter here so the check receives pre-scoped findings.
+  const validateFindings = decodeValidateFindings(await deps.validate()).filter((f) =>
+    inScope(stemOf(f.path), scope),
+  );
   const ctx: DoctorContext = {
     dropped,
     readNodeDocs: () => Promise.resolve(docs),
+    validateFindings,
   };
   const findings: DoctorFinding[] = [];
   for (const check of CHECKS) {

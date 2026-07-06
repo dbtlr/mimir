@@ -15,6 +15,15 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **`mimir doctor` frontmatter parse-failed + untyped check** (MMR-191, ADR
+  0017). A work-state document whose frontmatter fails to parse (YAML error,
+  merge-conflict marker, truncation) or has a missing/foreign `type` is invisible
+  to every reader and every other check — they all enumerate the vault by `type:`,
+  so such a doc never appears. The new check reads norn's own `vault.validate`
+  (the only pass that sees a doc by path, not type) and surfaces those documents,
+  scoped to the three work-state path layouts (node `KEY/KEY-seq.md`, project
+  `KEY/KEY.md`, artifact `KEY/artifacts/KEY-aN.md`). Informational severity,
+  non-gating (doctor still exits 0); honors `-s`; a no-op on the SQLite backend.
 - **`mimir doctor` CRLF hygiene check** (MMR-176, ADR 0016 Phase 3). A fourth
   diagnostic: it reports a document body whose lines end in CRLF (`\r\n`). Since
   the codec reads canonical-LF (MMR-167), CRLF is cosmetic — it reads fine — so
