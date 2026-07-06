@@ -200,6 +200,17 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **The shared validator breaks relational cycles; the reader tolerates them**
+  (MMR-174, ADR 0017). `validate()` gains an acyclicity rule: it detects `parent`
+  and `depends_on` cycles (the two relations independently) over the surviving
+  subgraph and drops each cycle's closing (back) edge — the one found by a DFS in
+  the loader's canonical `(key, seq)` order — yielding a DAG. A dropped
+  `cycle-parent` edge floats the node to its project root; a dropped
+  `cycle-depends-on` edge is pruned. A self-dependency is the degenerate length-1
+  cycle, so the Norn reader no longer throws on it (`loadNornSnapshot`): a cyclic
+  hand edit degrades the read to a valid acyclic subgraph instead of a wrong or
+  failed load. `mimir doctor` reports every dropped cycle edge. A cycle-free vault
+  is unaffected (byte-identical to SQLite). No effect on the SQLite backend.
 - **The Norn vault reader is data-tolerant of referential corruption** (MMR-181,
   ADR 0017). `loadNornSnapshot` now routes the raw relational graph through the
   shared validator and builds only over the valid subgraph, so a dangling

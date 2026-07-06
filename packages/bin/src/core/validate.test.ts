@@ -84,11 +84,13 @@ test('a doubled *dangling* depends_on yields exactly one drop, not two', () => {
   ]);
 });
 
-test('a self-dependency resolves — it is NOT a dangling drop (acyclicity, MMR-174, owns it)', () => {
+test('a self-dependency is the degenerate cycle — dropped by acyclicity (MMR-174)', () => {
   const g = graphOf([{ dependsOn: ['MMR-2'], parent: null, stem: 'MMR-2' }]);
   const result = validate(g);
-  expect(result.dropped).toEqual([]);
-  expect(subgraph(g)['MMR-2']).toEqual({ dependsOn: ['MMR-2'], parent: null });
+  expect(result.dropped).toEqual([
+    { kind: 'edge', ref: 'MMR-2', rule: 'cycle-depends-on', stem: 'MMR-2' },
+  ]);
+  expect(subgraph(g)['MMR-2']).toEqual({ dependsOn: [], parent: null });
 });
 
 test('a bare-project-KEY parent is a root marker, never a dropped edge', () => {
@@ -166,4 +168,174 @@ test('a missing-project node with its own dangling parent yields only the node-d
     { key: 'MMR', kind: 'node', rule: 'missing-project', stem: 'MMR-2' },
   ]);
   expect(result.nodes).toEqual([]);
+});
+
+// ── Acyclicity (MMR-174) ──────────────────────────────────────────────────────
+// The cycle pass runs over the surviving subgraph, breaking every `parent` and
+// `depends_on` cycle by dropping its back edge (the edge that closes the cycle in
+// a canonical `(key, seq)` DFS). The two relations are broken independently.
+
+test('a 2-node depends_on cycle drops the back edge; the forward edge survives', () => {
+  const g = graphOf([
+    { dependsOn: ['MMR-2'], parent: null, stem: 'MMR-1' },
+    { dependsOn: ['MMR-1'], parent: null, stem: 'MMR-2' },
+  ]);
+  const result = validate(g);
+  // Canonical order MMR-1, MMR-2: the DFS reaches MMR-1 (on the stack) via MMR-2.
+  expect(result.dropped).toEqual([
+    { kind: 'edge', ref: 'MMR-1', rule: 'cycle-depends-on', stem: 'MMR-2' },
+  ]);
+  expect(subgraph(g)).toEqual({
+    'MMR-1': { dependsOn: ['MMR-2'], parent: null },
+    'MMR-2': { dependsOn: [], parent: null },
+  });
+});
+
+test('a 3-node depends_on cycle drops exactly the cycle-closing edge', () => {
+  const g = graphOf([
+    { dependsOn: ['MMR-2'], parent: null, stem: 'MMR-1' },
+    { dependsOn: ['MMR-3'], parent: null, stem: 'MMR-2' },
+    { dependsOn: ['MMR-1'], parent: null, stem: 'MMR-3' },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { kind: 'edge', ref: 'MMR-1', rule: 'cycle-depends-on', stem: 'MMR-3' },
+  ]);
+  expect(subgraph(g)).toEqual({
+    'MMR-1': { dependsOn: ['MMR-2'], parent: null },
+    'MMR-2': { dependsOn: ['MMR-3'], parent: null },
+    'MMR-3': { dependsOn: [], parent: null },
+  });
+});
+
+test('a 2-node parent cycle drops the back edge; the node floats to root', () => {
+  const g = graphOf([
+    { dependsOn: [], parent: 'MMR-2', stem: 'MMR-1' },
+    { dependsOn: [], parent: 'MMR-1', stem: 'MMR-2' },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { kind: 'edge', ref: 'MMR-1', rule: 'cycle-parent', stem: 'MMR-2' },
+  ]);
+  expect(subgraph(g)).toEqual({
+    'MMR-1': { dependsOn: [], parent: 'MMR-2' },
+    'MMR-2': { dependsOn: [], parent: null }, // dropped parent → floats to root
+  });
+});
+
+test('a 3-node parent cycle drops exactly the cycle-closing parent edge', () => {
+  const g = graphOf([
+    { dependsOn: [], parent: 'MMR-2', stem: 'MMR-1' },
+    { dependsOn: [], parent: 'MMR-3', stem: 'MMR-2' },
+    { dependsOn: [], parent: 'MMR-1', stem: 'MMR-3' },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { kind: 'edge', ref: 'MMR-1', rule: 'cycle-parent', stem: 'MMR-3' },
+  ]);
+  expect(subgraph(g)).toEqual({
+    'MMR-1': { dependsOn: [], parent: 'MMR-2' },
+    'MMR-2': { dependsOn: [], parent: 'MMR-3' },
+    'MMR-3': { dependsOn: [], parent: null },
+  });
+});
+
+test('parent and depends_on cycles are broken independently (both drop)', () => {
+  // A parent cycle over MMR-1/MMR-2 AND a depends_on cycle over the same pair —
+  // two relations, two independent back-edge drops. Parent pass runs first.
+  const g = graphOf([
+    { dependsOn: ['MMR-2'], parent: 'MMR-2', stem: 'MMR-1' },
+    { dependsOn: ['MMR-1'], parent: 'MMR-1', stem: 'MMR-2' },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { kind: 'edge', ref: 'MMR-1', rule: 'cycle-parent', stem: 'MMR-2' },
+    { kind: 'edge', ref: 'MMR-1', rule: 'cycle-depends-on', stem: 'MMR-2' },
+  ]);
+  expect(subgraph(g)).toEqual({
+    'MMR-1': { dependsOn: ['MMR-2'], parent: 'MMR-2' },
+    'MMR-2': { dependsOn: [], parent: null },
+  });
+});
+
+test('a mixed parent+depends_on path is NOT a cycle — nothing is dropped', () => {
+  // MMR-1 --depends_on--> MMR-2 --parent--> MMR-1 traverses two DIFFERENT
+  // relations, so neither the parent DFS nor the depends_on DFS sees a cycle.
+  const g = graphOf([
+    { dependsOn: ['MMR-2'], parent: null, stem: 'MMR-1' },
+    { dependsOn: [], parent: 'MMR-1', stem: 'MMR-2' },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([]);
+  expect(subgraph(g)).toEqual({
+    'MMR-1': { dependsOn: ['MMR-2'], parent: null },
+    'MMR-2': { dependsOn: [], parent: 'MMR-1' },
+  });
+});
+
+test('two interlocking depends_on cycles sharing a node — both broken, minimally', () => {
+  // Cycles MMR-1↔MMR-2 and MMR-2↔MMR-3 share node MMR-2 but no edge. A minimal
+  // feedback set is 2 edges; the canonical DFS drops exactly the two back edges.
+  const g = graphOf([
+    { dependsOn: ['MMR-2'], parent: null, stem: 'MMR-1' },
+    { dependsOn: ['MMR-1', 'MMR-3'], parent: null, stem: 'MMR-2' },
+    { dependsOn: ['MMR-2'], parent: null, stem: 'MMR-3' },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { kind: 'edge', ref: 'MMR-1', rule: 'cycle-depends-on', stem: 'MMR-2' },
+    { kind: 'edge', ref: 'MMR-2', rule: 'cycle-depends-on', stem: 'MMR-3' },
+  ]);
+  expect(subgraph(g)).toEqual({
+    'MMR-1': { dependsOn: ['MMR-2'], parent: null },
+    'MMR-2': { dependsOn: ['MMR-3'], parent: null }, // MMR-1 back edge pruned
+    'MMR-3': { dependsOn: [], parent: null }, // MMR-2 back edge pruned
+  });
+});
+
+test('a diamond depends_on DAG is not a cycle — a shared descendant drops nothing', () => {
+  // MMR-1 → {MMR-2, MMR-3} → MMR-4. MMR-4 is reached twice but is never on the
+  // DFS stack when re-reached (a cross edge, not a back edge) — no drop.
+  const g = graphOf([
+    { dependsOn: ['MMR-2', 'MMR-3'], parent: null, stem: 'MMR-1' },
+    { dependsOn: ['MMR-4'], parent: null, stem: 'MMR-2' },
+    { dependsOn: ['MMR-4'], parent: null, stem: 'MMR-3' },
+    { dependsOn: [], parent: null, stem: 'MMR-4' },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([]);
+  expect(subgraph(g)['MMR-4']).toEqual({ dependsOn: [], parent: null });
+});
+
+test('the dropped back edge is canonical — chosen by (key, seq), not input order', () => {
+  // Same 2-cycle as above but with the nodes supplied in REVERSED input order.
+  // The DFS visits in canonical (key, seq) order, so the SAME edge is dropped —
+  // determinism is a property of the graph, not of how the nodes arrived.
+  const g = graphOf([
+    { dependsOn: ['MMR-1'], parent: null, stem: 'MMR-2' },
+    { dependsOn: ['MMR-2'], parent: null, stem: 'MMR-1' },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { kind: 'edge', ref: 'MMR-1', rule: 'cycle-depends-on', stem: 'MMR-2' },
+  ]);
+});
+
+test('cycle drops are appended AFTER the pass-1/pass-2 drops', () => {
+  // A missing-project node-drop, a dangling depends_on edge-drop, and a cycle: the
+  // dropped[] order is node-drops, then dangling edges, then cycle back edges.
+  const g = graphOf(
+    [
+      { dependsOn: ['MMR-2', 'MMR-99'], parent: null, stem: 'MMR-1' }, // MMR-99 dangles
+      { dependsOn: ['MMR-1'], parent: null, stem: 'MMR-2' }, // closes a cycle with MMR-1
+      { dependsOn: [], parent: null, stem: 'ZZZ-1' }, // project ZZZ absent
+    ],
+    ['MMR'], // ZZZ omitted
+  );
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { key: 'ZZZ', kind: 'node', rule: 'missing-project', stem: 'ZZZ-1' },
+    { kind: 'edge', ref: 'MMR-99', rule: 'dangling-depends-on', stem: 'MMR-1' },
+    { kind: 'edge', ref: 'MMR-1', rule: 'cycle-depends-on', stem: 'MMR-2' },
+  ]);
 });

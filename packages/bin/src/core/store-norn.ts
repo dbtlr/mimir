@@ -228,9 +228,10 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   // record degrades the read to a valid closed subgraph instead of taking the
   // whole load down. Deriving the graph exactly as {@link readVaultGraph} does
   // (collapse + linkStems) keeps the reader's and doctor's validity one truth.
-  // The remaining loud throws — a task's lifecycle, foreign enum values, a
-  // self-dependency — stay until their validator rules land (MMR-177, MMR-174);
-  // until then the reader is tolerant of referential corruption only.
+  // The validator now covers every referential corruption — missing projects,
+  // dangling edges, and cycles (acyclicity, MMR-174, including self-dependencies).
+  // The remaining loud throws are field-level only — a task's lifecycle and
+  // foreign enum values — pending their own validator rule (MMR-177).
   const validRefs = validate({
     nodes: rawNodes.map((n) => nodeRefsOf(n.fm, n.key, n.stem)),
     projectKeys: projectDocs.map((p) => p.key),
@@ -293,8 +294,8 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     // cannot miss on vault data. A miss here would mean the validator and this
     // build disagree — an internal contract break, not vault corruption — so the
     // remaining invariants guard the seam, never the record. Field-level throws
-    // (lifecycle, foreign enums, self-dependency) still enforce SQLite's CHECK
-    // constraints loud, pending their own validator rules (MMR-177, MMR-174).
+    // (lifecycle, foreign enums) still enforce SQLite's CHECK constraints loud,
+    // pending their own validator rule (MMR-177).
     const refs = validByStem.get(n.stem);
     const projectId = projectIdByKey.get(n.key);
     if (refs === undefined || projectId === undefined) {
@@ -365,11 +366,13 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       updated_at: str(n.fm.updated_at) ?? '',
     });
 
-    // The validator already dropped dangling prerequisites and deduped the list,
-    // so every stem here resolves to a survivor. A self-dependency is NOT dropped
-    // (it resolves to the node itself) — it stays a loud throw until acyclicity
-    // becomes a validator rule (MMR-174). The prereqIds set keeps the reader's
-    // own idempotence against the SQLite (node_id, depends_on_node_id) key.
+    // The validator already dropped dangling prerequisites, self-dependencies, and
+    // cycle-closing edges (acyclicity, MMR-174), and deduped the list, so every
+    // stem here resolves to a *distinct* survivor. Both lookups below are seam
+    // invariants, never record throws: a miss or a self-edge on validated data
+    // would mean the validator and this build disagree, not that the vault is bad.
+    // The prereqIds set keeps the reader's own idempotence against the SQLite
+    // (node_id, depends_on_node_id) key.
     const prereqIds = new Set<number>();
     for (const prereqStem of refs.dependsOn) {
       const prereqId = nodeIdByStem.get(prereqStem);
@@ -381,8 +384,8 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       }
       if (prereqId === n.id) {
         throw invariant(
-          `node ${n.stem} depends on itself`,
-          'a node cannot be its own prerequisite (SQLite dependency CHECK)',
+          `node ${n.stem} has a validated self-dependency`,
+          'acyclicity validation (MMR-174) must drop a self-dependency before the reader',
         );
       }
       if (!prereqIds.has(prereqId)) {

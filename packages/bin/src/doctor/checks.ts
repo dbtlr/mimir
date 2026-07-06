@@ -138,7 +138,7 @@ export const crlfCheck: Diagnostic = {
  * dangler affects the read regardless of `-s`, so the check ignores scope. A bare
  * project `KEY` parent is
  * a root, not a reference — the validator preserves it; a self-dependency
- * resolves and is the acyclicity check's domain (MMR-174).
+ * resolves and is {@link acyclicityCheck}'s domain (MMR-174).
  *
  * A thin adapter over the validator: it renders `dropped[]` entries whose `rule`
  * is `dangling-parent`/`dangling-depends-on`. There is exactly one detector —
@@ -150,7 +150,12 @@ export const danglingRefCheck: Diagnostic = {
     const { dropped } = validate(await ctx.readVaultGraph());
     const findings: DoctorFinding[] = [];
     for (const drop of dropped) {
-      if (drop.kind !== 'edge') {
+      // Only the dangling-* edge rules — a cycle edge (MMR-174) is a distinct rule
+      // reported by {@link acyclicityCheck}, not a dangling reference.
+      if (
+        drop.kind !== 'edge' ||
+        (drop.rule !== 'dangling-parent' && drop.rule !== 'dangling-depends-on')
+      ) {
         continue;
       }
       const field = drop.rule === 'dangling-parent' ? 'parent' : 'depends_on';
@@ -211,10 +216,49 @@ export const missingProjectCheck: Diagnostic = {
   title: 'Node → project references',
 };
 
+/**
+ * Relational acyclicity (MMR-174): a `parent` or `depends_on` edge that closes a
+ * cycle in the vault's relational graph. The resolving loader once threw on the
+ * degenerate self-dependency and silently accepted longer cycles (then derived
+ * wrongly over them); since MMR-174 acyclicity is a {@link validate} rule, so the
+ * reader drops each cycle-closing (back) edge and loads a valid DAG
+ * (`store-norn.ts`) — data loss on read, not a failed load. The sibling of
+ * {@link danglingRefCheck} over the same validator pass: it renders `dropped[]`
+ * entries whose `rule` is `cycle-parent`/`cycle-depends-on`, so it reports exactly
+ * the edges the reader drops — one detector, no drift. Always an `error`, and
+ * whole-vault: a cycle corrupts derivation regardless of `-s`, so scope is ignored.
+ */
+export const acyclicityCheck: Diagnostic = {
+  name: 'acyclicity',
+  run: async (ctx) => {
+    const { dropped } = validate(await ctx.readVaultGraph());
+    const findings: DoctorFinding[] = [];
+    for (const drop of dropped) {
+      if (
+        drop.kind !== 'edge' ||
+        (drop.rule !== 'cycle-parent' && drop.rule !== 'cycle-depends-on')
+      ) {
+        continue;
+      }
+      const field = drop.rule === 'cycle-parent' ? 'parent' : 'depends_on';
+      findings.push({
+        check: 'acyclicity',
+        message: `${field} ${drop.ref} closes a cycle — the edge is dropped on read`,
+        node: drop.stem,
+        severity: 'error',
+        where: `frontmatter · ${field}`,
+      });
+    }
+    return findings;
+  },
+  title: 'Relational acyclicity',
+};
+
 /** The registered checks `mimir doctor` runs, in report order. */
 export const CHECKS: readonly Diagnostic[] = [
   bodySectionCheck,
   crlfCheck,
   danglingRefCheck,
   missingProjectCheck,
+  acyclicityCheck,
 ];
