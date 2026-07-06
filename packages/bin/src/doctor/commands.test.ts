@@ -624,3 +624,23 @@ test('distinct corruption classes each surface from the one shared validator pas
     'field-validity',
   ]);
 });
+
+test('doctor ITSELF failing (the vault read throws) propagates, not a swallowed exit 0', async () => {
+  // The reserved nonzero case (ADR 0017): a successful run always exits 0, but a
+  // doctor failure — the vault being unreachable — must surface as a rejection the
+  // CLI turns into a nonzero exit, never get swallowed to 0. Guards against a
+  // future try/catch that would silently gate-off this half of the contract.
+  const io = fakeIo();
+  const unreachable: DoctorDeps = {
+    readNodeDocs: () => Promise.resolve([]),
+    readVaultGraph: () => Promise.reject(new Error('vault unreachable')),
+  };
+  let threw = false;
+  try {
+    await cmdDoctor(io, unreachable, 'json', undefined);
+  } catch (e) {
+    threw = true;
+    expect((e as Error).message).toContain('vault unreachable');
+  }
+  expect(threw).toBe(true); // propagated, not swallowed to a 0 exit
+});
