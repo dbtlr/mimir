@@ -355,8 +355,13 @@ test.skipIf(!NORN)('drops a node whose owning project is absent (no throw)', asy
     jsonField('updated_at', TS),
   ]);
   const ws = await loadWorkingSetOverNorn(client);
-  // ZZZ-1 dropped (no ZZZ project); MMR-1 the lone survivor, all under MMR.
-  expect(ws.nodes.map((n) => renderId({ key: 'MMR', seq: n.seq }))).toEqual(['MMR-1']);
+  // ZZZ-1 dropped (no ZZZ project); MMR-1 the lone survivor. Resolve each
+  // survivor's REAL project key (not a hardcoded 'MMR') so an inverted regression
+  // — keep ZZZ-1, drop MMR-1 — can't render as 'MMR-1' and pass green.
+  const keyById = new Map(ws.projects.map((p) => [p.id, p.key]));
+  expect(
+    ws.nodes.map((n) => renderId({ key: must(keyById.get(n.project_id)), seq: n.seq })),
+  ).toEqual(['MMR-1']);
 });
 
 test.skipIf(!NORN)('drops a dangling KEY-seq parent edge; the node floats to root', async () => {
@@ -579,11 +584,15 @@ test.skipIf(!NORN)(
   'readVaultGraph surfaces a node with no project; the loader hides it',
   async () => {
     const at = '2026-07-05T00:00:00.000Z';
-    // A well-formed task MMR-2 (root under project MMR) but NO project MMR doc.
+    // A well-formed task MMR-2 (root under project MMR, with a lifecycle so a
+    // failure to drop it would surface the node rather than throw on a missing
+    // field — the drop is then the sole reason the load returns []) but NO
+    // project MMR doc.
     await writeDoc('MMR/MMR-2.md', [
       jsonField('type', 'task'),
       jsonField('title', 'Homeless'),
       jsonField('parent', wikilink('MMR')),
+      jsonField('lifecycle', 'todo'),
       jsonField('created', at),
       jsonField('updated_at', at),
     ]);

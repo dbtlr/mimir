@@ -130,12 +130,13 @@ export const crlfCheck: Diagnostic = {
 
 /**
  * Dangling relational references (MMR-169): a node whose `parent` (a `KEY-seq`)
- * or `depends_on` resolves to no surviving node in the vault. A dangling ref is
- * one cause of a vault that will not load today — the resolving loader throws on
- * the *first* such ref (`store-norn.ts`); doctor renders every dangling *edge*
- * the {@link validate} shared validator (MMR-180) drops, so it enumerates them
- * all. Always an `error`, and whole-vault: a single dangler affects the load
- * regardless of `-s`, so the check ignores scope. A bare project `KEY` parent is
+ * or `depends_on` resolves to no surviving node in the vault. Since MMR-181 the
+ * resolving reader tolerates this — it drops the edge and loads a valid subgraph
+ * (`store-norn.ts`) — so it is data loss on read, not a failed load: doctor
+ * renders every dangling *edge* the {@link validate} shared validator (MMR-180)
+ * drops, so it enumerates them all. Always an `error`, and whole-vault: a single
+ * dangler affects the read regardless of `-s`, so the check ignores scope. A bare
+ * project `KEY` parent is
  * a root, not a reference — the validator preserves it; a self-dependency
  * resolves and is the acyclicity check's domain (MMR-174).
  *
@@ -155,7 +156,7 @@ export const danglingRefCheck: Diagnostic = {
       const field = drop.rule === 'dangling-parent' ? 'parent' : 'depends_on';
       findings.push({
         check: 'dangling-refs',
-        message: `${field} ${drop.ref} resolves to no node in the vault — the vault will not load`,
+        message: `${field} ${drop.ref} resolves to no node in the vault — the reference is dropped on read`,
         node: drop.stem,
         severity: 'error',
         where: `frontmatter · ${field}`,
@@ -168,10 +169,11 @@ export const danglingRefCheck: Diagnostic = {
 
 /**
  * Node → project references (MMR-178): a node whose owning project has no
- * document. Every node belongs to the project named by its `KEY-seq` stem's key,
- * and the loader throws when that project doc is absent (`store-norn.ts`) — so,
- * like a dangling ref, one such node breaks the whole vault load. The companion
- * to {@link danglingRefCheck} over the same {@link validate} pass: `error`,
+ * document. Every node belongs to the project named by its `KEY-seq` stem's key;
+ * since MMR-181 the reader tolerates an absent project doc by hiding the node
+ * (and its project siblings) from the read (`store-norn.ts`) — so, like a
+ * dangling ref, it is data hidden on read, not a failed load. The companion to
+ * {@link danglingRefCheck} over the same {@link validate} pass: `error`,
  * whole-vault, vault-only (SQLite's `project_id` FK precludes it).
  *
  * Reports one finding per *missing project*, not per orphaned node: every node
@@ -200,7 +202,7 @@ export const missingProjectCheck: Diagnostic = {
     }
     return Array.from(missing, ([key, { node, count }]) => ({
       check: 'missing-project',
-      message: `project ${key} has no document in the vault (referenced by ${String(count)} node${count === 1 ? '' : 's'}) — the vault will not load`,
+      message: `project ${key} has no document in the vault (referenced by ${String(count)} node${count === 1 ? '' : 's'}) — its nodes are hidden on read`,
       node,
       severity: 'error',
       where: 'project',
