@@ -4,7 +4,7 @@ import type { NornClient } from '../../norn/client';
 import { pathAndBody, stemOf } from '../../norn/decode';
 import { validation } from '../errors';
 import { HISTORY_HEADING, parseHistorySection, sliceBodySection } from '../history-codec';
-import { readVaultGraph } from '../store-norn';
+import { vaultGraphFromDocs } from '../store-norn';
 import { validate } from '../validate';
 import type { TransitionsFeed } from './store';
 
@@ -12,29 +12,28 @@ function str(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-/** The stems/keys the validator keeps — a document not in these is dropped. */
-type Survivors = { nodeStems: ReadonlySet<string>; projectKeys: ReadonlySet<string> };
-
 /**
  * The transition entity token a document's `## History` entries belong to — a
  * project doc yields its `KEY` (from frontmatter), a node doc its `KEY-seq`
- * stem. `null` for any document the shared validator DROPS, so the feed shows a
+ * stem. A project is never dropped by the validator, so its `KEY` always
+ * surfaces (parity with the reader, which shows every project doc). A node's
+ * stem yields `null` unless it is a validator SURVIVOR, so the feed shows a
  * node's transitions iff the working-set reader shows the node (ADR 0017,
  * MMR-189): a NODE drop (missing project, invalid `lifecycle`/`hold`, absent/
  * unparseable frontmatter) yields `null`; a CYCLE drop is edge-only — the node
- * survives, so its stem is in `nodeStems` and its transitions still surface.
+ * survives, so its stem is in `surviving` and its transitions still surface.
  */
 function entityToken(
   fm: Record<string, unknown> | undefined,
   path: string,
-  survivors: Survivors,
+  surviving: ReadonlySet<string>,
 ): string | null {
   if (fm !== undefined && str(fm.type) === 'project') {
     const key = str(fm.key);
-    return key !== null && key !== '' && survivors.projectKeys.has(key) ? key : null;
+    return key !== null && key !== '' ? key : null;
   }
   const stem = stemOf(path);
-  return survivors.nodeStems.has(stem) ? stem : null;
+  return surviving.has(stem) ? stem : null;
 }
 
 /** One entry positioned in the merged feed: its view plus the sort key. */
@@ -107,25 +106,19 @@ export function createNornTransitionsFeed(client: NornClient): TransitionsFeed {
       const after =
         opts.since === undefined || opts.since === '' ? undefined : decodeCursor(opts.since);
 
-      // Source the survivor set from the SAME shared validator the working-set
-      // reader uses (`validate(readVaultGraph(...))`, store-norn.ts) rather than
-      // re-partitioning the drop rules here — one truth, no drift (ADR 0017,
-      // MMR-189). `validate().nodes` are the surviving NODE stems (NODE drops
-      // already excluded; a cycle-affected node survives with a pruned edge);
-      // `projectKeys` is the surviving project set.
-      const validated = validate(await readVaultGraph(client));
-      const survivors: Survivors = {
-        nodeStems: new Set(validated.nodes.map((n) => n.stem)),
-        projectKeys: new Set(validated.projectKeys),
-      };
-
       const docs = await client.find({
         in: ['type:project,task,phase,initiative'],
         no_limit: true,
       });
+      // Derive the surviving node stems from this SAME snapshot via the shared
+      // validator the working-set reader uses (`vaultGraphFromDocs` is the pure
+      // core of `readVaultGraph`) — one find, no second scan and no A/B snapshot
+      // skew, no drop rules re-implemented here (ADR 0017, MMR-189). A cycle
+      // drop is edge-only, so its node stays in `nodes` and still surfaces.
+      const surviving = new Set(validate(vaultGraphFromDocs(docs)).nodes.map((n) => n.stem));
       const tokenByPath = new Map<string, string>();
       for (const doc of docs) {
-        const token = entityToken(doc.frontmatter, doc.path, survivors);
+        const token = entityToken(doc.frontmatter, doc.path, surviving);
         if (token !== null) {
           tokenByPath.set(doc.path, token);
         }

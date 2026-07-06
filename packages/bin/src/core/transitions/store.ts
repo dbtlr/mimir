@@ -27,9 +27,10 @@ export type TransitionsOptions = {
  * `## History`) the page order diverges, and the `(at, stem, index)` cursor is
  * not truly monotonic — a transition appended after a cursor was issued but
  * stamped with an earlier `at` sorts before it and is skipped, where SQLite's
- * `id > since` still delivers it. Each Norn `list` also re-fans and parses the
- * whole vault (no `since`/`limit` push-down — `at` lives per-transition in the
- * body, which `find` cannot filter). These limits are **accepted**: the feed has
+ * `id > since` still delivers it. Each Norn `list` also re-fans, validates, and
+ * parses the whole vault (no `since`/`limit` push-down — `at` lives
+ * per-transition in the body, which `find` cannot filter; the validator pass
+ * excludes dropped nodes, MMR-189). These limits are **accepted**: the feed has
  * no live consumer today (the UI timeline is per-node; the `/api/transitions`
  * route is served but no client reads it), and a durable per-transition sequence
  * would reintroduce the

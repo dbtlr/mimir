@@ -2,7 +2,7 @@ import { HOLD_VALUES, LIFECYCLE_VALUES, PRIORITY_VALUES, SIZE_VALUES } from '@mi
 import type { Lifecycle, NodeType } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
-import type { NornClient } from '../norn/client';
+import type { NornClient, NornDocument } from '../norn/client';
 import { collapse, stemOf, stringList } from '../norn/decode';
 import { invariant } from './errors';
 import { parseId } from './ids';
@@ -201,10 +201,19 @@ function nodeRefsOf(
  * either's stray ref would flag a vault the loader loads fine.
  */
 export async function readVaultGraph(client: NornClient): Promise<VaultGraph> {
-  const docs = await client.find({
-    in: ['type:project,task,phase,initiative'],
-    no_limit: true,
-  });
+  return vaultGraphFromDocs(
+    await client.find({ in: ['type:project,task,phase,initiative'], no_limit: true }),
+  );
+}
+
+/**
+ * The pure core of {@link readVaultGraph} over an already-fetched document set —
+ * split out (MMR-189) so a caller that has already run the `find` (the
+ * transitions feed) derives the same graph from its one snapshot rather than
+ * issuing a second identical query. Partitions exactly as the resolving loader
+ * does; see {@link readVaultGraph}.
+ */
+export function vaultGraphFromDocs(docs: NornDocument[]): VaultGraph {
   const nodes: NodeRefs[] = [];
   const projectKeys: string[] = [];
   for (const doc of docs) {
