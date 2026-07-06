@@ -96,6 +96,12 @@ export function isOrphaned(set: DerivationSet, task: Node): boolean {
   if (parent === undefined || parent.type === 'task') {
     return false;
   }
+  // Muted inside an open-ended container (MMR-204): a standing home is *meant* to
+  // outlive its filed work, so "every sibling terminal" carries no stranding
+  // signal there — it's the normal resting state, not an orphan.
+  if (parent.open_ended === true) {
+    return false;
+  }
   const siblings = (set.childrenByParent.get(parent.id) ?? []).filter((n) => n.id !== task.id);
   if (siblings.length === 0) {
     return false;

@@ -81,5 +81,11 @@ export function nodeFrontmatter(
   put(fm, 'external_ref', node.external_ref);
   put(fm, 'completed_at', node.completed_at);
   put(fm, 'target', node.target);
+  // Container-only (MMR-204). Norn has no boolean field_type, so it rides
+  // undeclared and serializes as the strings 'true'/'false' (the reader's
+  // `boolFieldOrNull` decodes them back). Emit both states explicitly — a
+  // deliberate `false` must round-trip as `false`, not collapse to absent/null,
+  // so the SQLite↔Norn parity harness agrees.
+  put(fm, 'open_ended', node.open_ended === null ? null : String(node.open_ended));
   return fm;
 }

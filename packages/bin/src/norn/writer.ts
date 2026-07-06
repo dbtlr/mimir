@@ -299,6 +299,7 @@ class Accumulator {
     rank?: number | null;
     external_ref?: string | null;
     target?: string | null;
+    open_ended?: boolean | null;
   }): Promise<Node> {
     const project = this.projects.get(row.project_id);
     if (project === undefined) {
@@ -314,6 +315,7 @@ class Accumulator {
       hold_reason: null,
       id: this.nextProvisional--,
       lifecycle: row.lifecycle ?? null,
+      open_ended: row.open_ended ?? null,
       parent_id: row.parent_id,
       priority: row.priority ?? null,
       project_id: row.project_id,

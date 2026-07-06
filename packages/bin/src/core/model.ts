@@ -57,6 +57,10 @@ export type Node = {
   // phase-only
   target: string | null;
 
+  // container-only (phase/initiative) — purposefully open-ended: opt out of
+  // done-rollup, never reduces to done/abandoned (MMR-204).
+  open_ended: boolean | null;
+
   created_at: string;
   updated_at: string;
 };

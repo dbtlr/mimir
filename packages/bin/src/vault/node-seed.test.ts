@@ -97,6 +97,7 @@ const bareNode = {
   hold_reason: null,
   id: 10,
   lifecycle: null,
+  open_ended: null,
   parent_id: null,
   priority: null,
   project_id: 1,

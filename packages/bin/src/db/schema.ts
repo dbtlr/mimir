@@ -65,6 +65,9 @@ type NodeTable = {
   // phase-only
   target: string | null;
 
+  // container-only (phase/initiative) — opt out of done-rollup (MMR-204).
+  open_ended: boolean | null;
+
   created_at: DefaultedTimestamp;
   updated_at: DefaultedTimestamp;
 };

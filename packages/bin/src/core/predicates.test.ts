@@ -142,3 +142,17 @@ test('orphaned: a live task stranded among all-terminal siblings', async () => {
   const only = await createTask(store, { parentId: solo.id, title: 'only' });
   expect(isOrphaned(await setOf(), await reload(only.id))).toBe(false);
 });
+
+test('orphaned: muted for a live task inside an open-ended container', async () => {
+  const { phase } = await fixture();
+  const live = await createTask(store, { parentId: phase.id, title: 'live' });
+  const sib = await createTask(store, { parentId: phase.id, title: 'sib' });
+  await patch(sib.id, { lifecycle: 'done' });
+
+  // normal container: every-other-sibling-terminal → orphaned
+  expect(isOrphaned(await setOf(), await reload(live.id))).toBe(true);
+
+  // open-ended container: every-sibling-terminal is structurally meaningless → muted
+  await db.updateTable('node').set({ open_ended: true }).where('id', '=', phase.id).execute();
+  expect(isOrphaned(await setOf(), await reload(live.id))).toBe(false);
+});
