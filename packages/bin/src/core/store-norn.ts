@@ -133,6 +133,17 @@ export type NodeRefs = { stem: string; key: string; parent: string | null; depen
 export type VaultGraph = { nodes: NodeRefs[]; projectKeys: string[] };
 
 /**
+ * Derive a node's referential refs from its frontmatter — the single derivation
+ * the resolving reader ({@link loadNornSnapshot}) and {@link readVaultGraph}
+ * share. Both feed the same {@link validate} pass, so the reader's drops and
+ * doctor's findings must resolve over a byte-identical graph; one helper is what
+ * makes that "one truth" a fact rather than a comment (MMR-181).
+ */
+function nodeRefsOf(fm: Record<string, unknown>, key: string, stem: string): NodeRefs {
+  return { dependsOn: linkStems(fm.depends_on), key, parent: collapse(fm.parent), stem };
+}
+
+/**
  * Read the vault's relational graph WITHOUT resolving it (MMR-169, MMR-178). The
  * resolving loader ({@link loadNornSnapshot}) throws on the first dangling ref or
  * missing project, so it can never enumerate them — `mimir doctor` reads below it
@@ -171,12 +182,7 @@ export async function readVaultGraph(client: NornClient): Promise<VaultGraph> {
     if ((type !== 'task' && type !== 'phase' && type !== 'initiative') || ref === null) {
       continue;
     }
-    nodes.push({
-      dependsOn: linkStems(fm.depends_on),
-      key: ref.key,
-      parent: collapse(fm.parent),
-      stem,
-    });
+    nodes.push(nodeRefsOf(fm, ref.key, stem));
   }
   return { nodes, projectKeys };
 }
@@ -226,12 +232,7 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   // self-dependency — stay until their validator rules land (MMR-177, MMR-174);
   // until then the reader is tolerant of referential corruption only.
   const validRefs = validate({
-    nodes: rawNodes.map((n) => ({
-      dependsOn: linkStems(n.fm.depends_on),
-      key: n.key,
-      parent: collapse(n.fm.parent),
-      stem: n.stem,
-    })),
+    nodes: rawNodes.map((n) => nodeRefsOf(n.fm, n.key, n.stem)),
     projectKeys: projectDocs.map((p) => p.key),
   }).nodes;
   const validByStem = new Map(validRefs.map((r) => [r.stem, r]));
