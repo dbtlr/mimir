@@ -4,9 +4,10 @@
  * (`core/store-norn.ts`, plus the body-section and transitions readers) — decode
  * the same two shapes out of `vault.get`/`vault.find` records: frontmatter
  * values (a wikilink or string list) and a record's path/body. These lived as
- * byte-for-byte copies in each reader, so a future decode fix (e.g. `[[stem|alias]]`
- * display text, or a path convention change) could silently diverge them. One
- * home, one behavior.
+ * byte-for-byte copies in each reader, so a decode fix could silently diverge
+ * them — e.g. the `[[stem|alias]]` display-text de-alias (MMR-190) landed here
+ * once and so applies to every reader (node refs and artifact anchors alike).
+ * One home, one behavior.
  */
 
 /** Collapse `[[STEM]]` or `[[STEM|alias]]` (or a bare stem) to the stem text;
