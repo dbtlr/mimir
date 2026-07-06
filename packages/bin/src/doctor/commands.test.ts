@@ -57,7 +57,8 @@ const CLEAN_HISTORY = renderMigratedNodeBody(
 const WARN_DOC = `## History\n### 2026-07-03T10:00:00.000Z — frobnicate\nactive → done\n## Annotations\n`;
 
 // A valid record heading with no edge line: the reader DROPS the record, losing
-// the transition — a genuine `error` that gates (nonzero exit).
+// the transition — a genuine `error`-severity finding (informational label;
+// doctor stays non-gating and exits 0 per ADR 0017).
 const ERROR_DOC = `## History\n### 2026-07-03T10:00:00.000Z — lifecycle\n## Annotations\n`;
 
 // A hand edit leaving an unescaped `### ` line inside a valid record's reason:
@@ -94,7 +95,7 @@ test('reports no problems and exits 0 over a clean vault', async () => {
   expect(io.err.join('')).toBe('');
 });
 
-test('a dropped record (missing edge) is an error alert on stderr and exits 1', async () => {
+test('a dropped record (missing edge) is an error alert on stderr, exit 0 (non-gating)', async () => {
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
@@ -102,7 +103,7 @@ test('a dropped record (missing edge) is an error alert on stderr and exits 1', 
     'table',
     undefined,
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   expect(io.out.join('')).toBe(''); // errors are the loud channel: stderr only
   const err = io.err.join('');
   expect(err).toContain('[error]');
@@ -140,7 +141,7 @@ test('an unescaped heading inside a valid reason is a warn, not an error (MMR-16
   expect(findings[0]?.severity).toBe('warn');
 });
 
-test('json format emits a pretty findings array on stdout and exits 1 on an error', async () => {
+test('json format emits a pretty findings array on stdout, exit 0 on an error', async () => {
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
@@ -148,7 +149,7 @@ test('json format emits a pretty findings array on stdout and exits 1 on an erro
     'json',
     undefined,
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const out = io.out.join('');
   expect(out).toContain('\n  '); // 2-space pretty-printed, not compact
   const findings = JSON.parse(out) as { node: string; check: string; severity: string }[];
@@ -167,7 +168,7 @@ test('jsonl format emits one finding per line (NDJSON), not a single array', asy
     'jsonl',
     undefined,
   );
-  expect(code).toBe(1); // one of the two is an error
+  expect(code).toBe(0); // one is error-severity, but doctor never gates
   const lines = io.out.join('').split('\n');
   expect(lines).toHaveLength(2);
   const parsed = lines.map((l) => JSON.parse(l) as { node: string });
@@ -193,7 +194,7 @@ test('the -s scope keeps the project and its nodes, dropping other projects', as
     'json',
     'MMR',
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as { node: string }[];
   expect(findings.map((f) => f.node).toSorted()).toEqual(['MMR', 'MMR-9']);
 });
@@ -240,7 +241,7 @@ test('an all-LF body raises no CRLF finding', async () => {
 
 // ── Dangling relational references (MMR-169) ──────────────────────────────────
 
-test('a dangling parent is an error that gates (exit 1)', async () => {
+test('a dangling parent is an error-severity finding (non-gating, exit 0)', async () => {
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
@@ -248,7 +249,7 @@ test('a dangling parent is an error that gates (exit 1)', async () => {
     'json',
     undefined,
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as {
     node: string;
     check: string;
@@ -266,7 +267,7 @@ test('a dangling parent is an error that gates (exit 1)', async () => {
   expect(findings[0]?.message).toContain('MMR-99');
 });
 
-test('a dangling depends_on is an error that gates (exit 1)', async () => {
+test('a dangling depends_on is an error-severity finding (non-gating, exit 0)', async () => {
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
@@ -274,7 +275,7 @@ test('a dangling depends_on is an error that gates (exit 1)', async () => {
     'json',
     undefined,
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as { node: string; where: string }[];
   expect(findings).toHaveLength(1);
   expect(findings[0]?.where).toBe('frontmatter · depends_on');
@@ -306,7 +307,7 @@ test('a self-dependency is not a dangling ref (its target resolves) — an acycl
     'json',
     undefined,
   );
-  expect(code).toBe(1); // the degenerate cycle is an acyclicity error
+  expect(code).toBe(0); // the degenerate cycle is an acyclicity error (non-gating)
   const findings = JSON.parse(io.out.join('')) as { check: string }[];
   expect(findings).toHaveLength(1);
   expect(findings[0]?.check).toBe('acyclicity'); // not dangling-refs
@@ -322,14 +323,14 @@ test('dangling refs report whole-vault, ignoring -s (a broken load is global)', 
     'json',
     'MMR',
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as { node: string }[];
   expect(findings.map((f) => f.node)).toEqual(['OTH-3']);
 });
 
 // ── Node → project references (MMR-178) ───────────────────────────────────────
 
-test('a node whose project has no document is an error that gates (exit 1)', async () => {
+test('a node whose project has no document is an error-severity finding (non-gating, exit 0)', async () => {
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
@@ -338,7 +339,7 @@ test('a node whose project has no document is an error that gates (exit 1)', asy
     'json',
     undefined,
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as {
     node: string;
     check: string;
@@ -377,7 +378,7 @@ test('missing-project reports whole-vault, ignoring -s (a broken load is global)
     'json',
     'MMR',
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as { node: string; check: string }[];
   expect(findings).toHaveLength(1);
   expect(findings[0]).toMatchObject({ check: 'missing-project', node: 'OTH-3' });
@@ -385,7 +386,7 @@ test('missing-project reports whole-vault, ignoring -s (a broken load is global)
 
 // ── Relational acyclicity (MMR-174) ───────────────────────────────────────────
 
-test('a depends_on cycle is an acyclicity error that gates (exit 1)', async () => {
+test('a depends_on cycle is an acyclicity error-severity finding (non-gating, exit 0)', async () => {
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
@@ -399,7 +400,7 @@ test('a depends_on cycle is an acyclicity error that gates (exit 1)', async () =
     'json',
     undefined,
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as {
     node: string;
     check: string;
@@ -432,7 +433,7 @@ test('a parent cycle is an acyclicity error anchored on the parent field', async
     'json',
     undefined,
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as { node: string; where: string }[];
   expect(findings).toHaveLength(1);
   expect(findings[0]).toMatchObject({ node: 'MMR-2', where: 'frontmatter · parent' });
@@ -459,7 +460,7 @@ test('a task missing lifecycle is a field-validity error naming the missing fiel
     'json',
     undefined,
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as {
     node: string;
     check: string;
@@ -496,7 +497,7 @@ test('a task with a foreign hold is a field-validity error naming the value', as
     'json',
     undefined,
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as { where: string; message: string }[];
   expect(findings).toHaveLength(1);
   expect(findings[0]?.where).toBe('frontmatter · hold');
@@ -522,7 +523,7 @@ test('a task with a foreign priority is a field-validity error (node kept, field
     'json',
     undefined,
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as {
     check: string;
     severity: string;
@@ -557,7 +558,7 @@ test('a task with a foreign size is a field-validity error naming the value', as
     'json',
     undefined,
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as { where: string; message: string }[];
   expect(findings).toHaveLength(1);
   expect(findings[0]?.where).toBe('frontmatter · size');
@@ -580,9 +581,46 @@ test('many nodes under one missing project collapse to a single finding with a c
     'json',
     undefined,
   );
-  expect(code).toBe(1);
+  expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as { check: string; message: string }[];
   expect(findings).toHaveLength(1); // not one per node
   expect(findings[0]?.check).toBe('missing-project');
   expect(findings[0]?.message).toContain('3 nodes');
+});
+
+// ── Shared validator pass (MMR-182) ───────────────────────────────────────────
+
+test('distinct corruption classes each surface from the one shared validator pass, exit 0', async () => {
+  // A dangling edge (dangling-refs), a cycle (acyclicity), and a foreign field
+  // (field-validity) — three different rules from a single validate() the runner
+  // computes once and every referential check reads. All report; nothing gates.
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf(
+      [],
+      [
+        { dependsOn: [], parent: 'MMR-404', stem: 'MMR-1' }, // dangling parent
+        { dependsOn: ['MMR-3'], parent: null, stem: 'MMR-2' },
+        { dependsOn: ['MMR-2'], parent: null, stem: 'MMR-3' }, // MMR-2 ↔ MMR-3 cycle
+        {
+          dependsOn: [],
+          parent: null,
+          raw: { hold: undefined, lifecycle: 'todo', priority: 'p9', size: undefined },
+          stem: 'MMR-4',
+          type: 'task',
+        }, // foreign priority
+      ],
+      ['MMR'],
+    ),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(0); // three error-severity classes, still non-gating
+  const findings = JSON.parse(io.out.join('')) as { check: string }[];
+  expect(findings.map((f) => f.check).toSorted()).toEqual([
+    'acyclicity',
+    'dangling-refs',
+    'field-validity',
+  ]);
 });

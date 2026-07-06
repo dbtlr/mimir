@@ -200,6 +200,16 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **`mimir doctor` is a non-gating diagnostic; the referential checks share one
+  validator pass** (MMR-182, ADR 0017). Doctor now always exits `0` on a
+  successful run regardless of findings — surfacing issues _is_ its job — so a
+  nonzero exit is reserved for doctor itself failing (the vault read throws). The
+  per-finding `error`/`warn` severity becomes an informational triage label, no
+  longer an exit gate (superseding the MMR-166 behavior where an `error` gated
+  with exit 1). Internally, the four checks that render the validator's `dropped[]`
+  (dangling references, missing project, acyclicity, field validity) now read one
+  shared `validate()` result the command computes once, instead of each recomputing
+  a whole validator pass. No effect on the SQLite backend (doctor no-ops there).
 - **The shared validator vets node fields; the reader tolerates malformed ones**
   (MMR-177, ADR 0017). `validate()` gains a field-validity pass, tiered by whether
   a field is load-bearing: a task whose `lifecycle` is missing or foreign, or whose

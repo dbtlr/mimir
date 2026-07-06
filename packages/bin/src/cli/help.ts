@@ -552,7 +552,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   // ── vault diagnostics (MMR-166) ──
   doctor: {
     examples: [
-      'mimir doctor                         # check the bound scope; nonzero exit on an error',
+      'mimir doctor                         # check the bound scope; always exits 0 (findings are output)',
       'mimir doctor -s all --format json    # every project, machine-readable findings',
     ],
     flags: [
@@ -566,7 +566,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ],
     ],
     summary:
-      'run the vault diagnostics registry and report problems for a human to fix. Findings are tiered: an error (a record the reader drops) exits nonzero so it can gate a cutover; a warn (a heading-shaped line the reader still reads as content) is non-gating. Checks body-section record integrity (the ## History / ## Annotations records the read path tolerate-and-skips). A no-op on the SQLite backend (typed rows carry no malformable body sections).',
+      'run the vault diagnostics registry and report problems for a human to fix. Non-gating (ADR 0017): a successful run always exits 0 — findings are output, not status — and each finding carries an informational severity label (error = a record the reader drops; warn = a heading-shaped line the reader still reads as content). Checks body-section record integrity plus referential validity (dangling refs, missing projects, cycles, node fields). A no-op on the SQLite backend (typed rows carry no malformable body sections).',
     usage: 'mimir doctor [-s <KEY>] [--format <fmt>]',
   },
   // ── binding ──
