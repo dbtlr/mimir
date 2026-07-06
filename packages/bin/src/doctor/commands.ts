@@ -88,6 +88,7 @@ export async function cmdDoctor(
 
   // Non-gating (ADR 0017): a successful run always exits 0 — findings are the
   // output, not the status. A doctor-itself failure (the vault read above throws)
-  // propagates to the CLI's nonzero exit path instead.
+  // is never caught here, so the rejection propagates out and the process exits
+  // nonzero — the reserved failure signal.
   return 0;
 }
