@@ -70,3 +70,24 @@ Steps 1–3 and 8 are inherited from the design spec's §5.2 single-enum rule (a
 ## Refinement (2026-06-10 — external term renamed `status`)
 
 The projection and cascade are unchanged; the _external word_ for the single derived label is now **status** — DTO field `status` (was `state`), CLI selection flag `--status`, glossary entry **Status**. Rationale: it is the lingua franca of every task tool (Jira/Linear/Asana/GitHub), and a `--status` flag filtering a field called `state` would be a two-dialect surface. "State word" wording in this ADR's body predates the rename; read it as _status word_. Selection of the verdict-style derived predicates (`stale`, `blocking`, `orphaned`) is a separate surface (`--is`) and not this ADR's concern. Groomed during the 2026-06-10 dogfood session; implementation `MMR-37`/`MMR-33`.
+
+## Refinement (2026-07-06 — open-ended containers, MMR-204)
+
+`interpret` and `taskStatus` are unchanged. A stored container flag `open_ended`
+(phase/initiative; ADR 0001 Refinement) adjusts the derivation at the `derive.ts`
+call sites, not the pure cascade:
+
+- **Own word.** An open-ended container's _raw_ `interpret` word is coerced when
+  it is **idle** — an all-terminal rollup (`done`/`abandoned`) or empty (`new`) —
+  to `ready` ("open for filing"). It never reads `done`/`abandoned` (a standing
+  home is never "finished") nor `new` (which would claim nothing was ever done).
+  With live children the raw word passes through unchanged.
+- **Parent transparency.** An idle open-ended container is a _transparent_ node:
+  it is excluded from its parent's `childDistribution`/`rootDistribution`
+  entirely, so a standing phase never strands a normal ancestor from
+  auto-closing. Transparency is decided on the raw (pre-coercion) word, memoized
+  per snapshot so the child walk isn't paid twice. With live children it tallies
+  its word normally.
+
+The `orphaned` verdict is muted for a task whose parent is open-ended (ADR 0001
+Refinement); `stale`/`blocking` are unchanged.

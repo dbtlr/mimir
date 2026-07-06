@@ -116,3 +116,28 @@ initiative→initiative prerequisites as real work constraints.
   the declared direct edges (a stored fact). The CLI record and the console
   drawer render an "awaiting on … (via …)" line; structured formats carry the
   fields, no prose (self-orienting split).
+
+## Refinement (2026-07-06 — open-ended containers, MMR-204)
+
+The derived-rollup spine gains one stored, opt-in escape: a boolean `open_ended`
+on a **container** (phase/initiative only — a project is never a container in
+this sense, a task is lifecycle-owned) marks it a purposefully standing home
+(Bugs, Polish, Ideas) that is filed against continuously and should never be
+"done". It is a **dumb field, no invariants** — it changes _derivation_, not any
+transition (there is no stored auto-close to opt out of; all-terminal containers
+merely _reduce_ to `done` today). The derivation mechanics live in ADR 0008
+Refinement; the operator-visible contract:
+
+- An open-ended container never reduces to `done`/`abandoned`; all-terminal or
+  empty it reads `ready`.
+- When idle (no live children) it is **transparent** to its parent's rollup —
+  excluded entirely, so it can't strand a normal ancestor from auto-closing. With
+  live children it contributes its word normally.
+- The `orphaned` verdict is muted for tasks directly inside it (every-sibling-
+  terminal is the standing container's normal resting state, not a stranding
+  signal). `stale` and `blocking` are unchanged.
+
+Authored via `create --open-ended` and toggled via `update --open-ended` /
+`--not-open-ended` (container-only; rejected on a task/project/artifact). Stored
+backend-neutral (SQLite column; Norn frontmatter as the strings `'true'`/`'false'`
+on an undeclared field); a foreign value nulls the field on read (MMR-177 tiering).
