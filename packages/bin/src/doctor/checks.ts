@@ -8,23 +8,29 @@
  */
 import type { BodyRecordProblem } from '../core/history-codec';
 import { lintBodySections } from '../core/history-codec';
-import type { VaultGraph } from '../core/store-norn';
-import { validate } from '../core/validate';
+import type { Drop } from '../core/validate';
 
 /** What a check reads: the raw vault documents to diagnose. */
 export type DoctorContext = {
   /** Every work-state document's raw markdown, as `{ stem, body }` — scoped by `-s`. */
   readNodeDocs: () => Promise<{ stem: string; body: string }[]>;
-  /** The vault's raw, unresolved relational graph — always whole-vault (a
-   * referential failure breaks the whole load, so it is global, not scoped). */
-  readVaultGraph: () => Promise<VaultGraph>;
+  /** The shared validator's `dropped[]` over the whole-vault graph — computed
+   * once by the runner and fed to every referential check, so the four checks
+   * that render `dropped[]` (dangling / missing-project / acyclicity / field
+   * validity) share one {@link validate} pass instead of recomputing it each
+   * (MMR-182). Always whole-vault: a referential failure breaks the whole load,
+   * so it is global, not scoped. */
+  dropped: readonly Drop[];
 };
 
 /** One problem a check found, anchored for a human to locate and fix. */
 export type DoctorFinding = {
   /** The reporting check's {@link Diagnostic.name}. */
   check: string;
-  /** `error` fails the run (nonzero exit); `warn` is advisory. */
+  /** An informational triage label, never a gate (ADR 0017): `error` = a record
+   * the reader drops (data lost/hidden on read); `warn` = content the reader
+   * tolerates but that looks like an intended record. Doctor always exits 0 on a
+   * successful run regardless of severity. */
   severity: 'error' | 'warn';
   /** The offending node's `KEY-seq` stem. */
   node: string;
@@ -34,11 +40,13 @@ export type DoctorFinding = {
   message: string;
 };
 
-/** A registered diagnostic: a named check over the vault. */
+/** A registered diagnostic: a named check over the vault. A check is sync when it
+ * reads only the pre-computed {@link DoctorContext.dropped}, async when it reads
+ * raw docs; the runner awaits either. */
 export type Diagnostic = {
   name: string;
   title: string;
-  run: (ctx: DoctorContext) => Promise<DoctorFinding[]>;
+  run: (ctx: DoctorContext) => DoctorFinding[] | Promise<DoctorFinding[]>;
 };
 
 /**
@@ -48,7 +56,7 @@ export type Diagnostic = {
  * *dropped* record is an `error` (a valid heading whose record the reader filters
  * out, losing the transition); a heading-shaped line the reader keeps as text is
  * a `warn` — it reads fine, but it looks like a record a hand edit may have meant.
- * Only `error` findings gate (nonzero exit), so a warn never blocks a cutover.
+ * The label is informational triage only — neither severity gates (ADR 0017).
  */
 const PROBLEM: Record<BodyRecordProblem, { severity: DoctorFinding['severity']; message: string }> =
   {
@@ -146,10 +154,9 @@ export const crlfCheck: Diagnostic = {
  */
 export const danglingRefCheck: Diagnostic = {
   name: 'dangling-refs',
-  run: async (ctx) => {
-    const { dropped } = validate(await ctx.readVaultGraph());
+  run: (ctx) => {
     const findings: DoctorFinding[] = [];
-    for (const drop of dropped) {
+    for (const drop of ctx.dropped) {
       // Only the dangling-* edge rules — a cycle edge (MMR-174) is a distinct rule
       // reported by {@link acyclicityCheck}, not a dangling reference.
       if (
@@ -188,13 +195,12 @@ export const danglingRefCheck: Diagnostic = {
  */
 export const missingProjectCheck: Diagnostic = {
   name: 'missing-project',
-  run: async (ctx) => {
-    const { dropped } = validate(await ctx.readVaultGraph());
+  run: (ctx) => {
     // Collapse the validator's per-node missing-project drops by key → a
     // representative orphaned node + the total under it. Insertion order over the
     // (input-ordered) drops preserves the first-seen node as representative.
     const missing = new Map<string, { node: string; count: number }>();
-    for (const drop of dropped) {
+    for (const drop of ctx.dropped) {
       if (drop.kind !== 'node' || drop.rule !== 'missing-project') {
         continue;
       }
@@ -230,10 +236,9 @@ export const missingProjectCheck: Diagnostic = {
  */
 export const acyclicityCheck: Diagnostic = {
   name: 'acyclicity',
-  run: async (ctx) => {
-    const { dropped } = validate(await ctx.readVaultGraph());
+  run: (ctx) => {
     const findings: DoctorFinding[] = [];
-    for (const drop of dropped) {
+    for (const drop of ctx.dropped) {
       if (
         drop.kind !== 'edge' ||
         (drop.rule !== 'cycle-parent' && drop.rule !== 'cycle-depends-on')
@@ -267,10 +272,9 @@ export const acyclicityCheck: Diagnostic = {
  */
 export const fieldValidityCheck: Diagnostic = {
   name: 'field-validity',
-  run: async (ctx) => {
-    const { dropped } = validate(await ctx.readVaultGraph());
+  run: (ctx) => {
     const findings: DoctorFinding[] = [];
-    for (const drop of dropped) {
+    for (const drop of ctx.dropped) {
       let field: string;
       let message: string;
       if (drop.kind === 'node' && drop.rule === 'invalid-lifecycle') {

@@ -6,15 +6,17 @@
  * `null` when no vault backend is active.
  *
  * Output honors the CLI contract: findings print to stderr and a clean run
- * prints one line on stdout. Only an `error` finding (a record the reader drops)
- * gates with a nonzero exit — so doctor can gate a cutover; a `warn` (a
- * heading-shaped line the reader still reads as content) is surfaced but
- * non-gating. The `json` (pretty array) / `jsonl` (one finding per line) formats
- * emit findings on stdout, still exiting nonzero when any `error` is present.
+ * prints one line on stdout. Doctor is a **non-gating diagnostic** (ADR 0017):
+ * it always exits `0` on a successful run regardless of findings — surfacing
+ * issues _is_ its job — so a nonzero exit is reserved for doctor itself failing
+ * (the vault read throws). Per-finding `error`/`warn` is an informational triage
+ * label, not an exit gate. The `json` (pretty array) / `jsonl` (one finding per
+ * line) formats emit findings on stdout, same exit-0 contract.
  */
 import type { Format, Io } from '../cli/render';
 import { ok } from '../cli/render';
 import type { VaultGraph } from '../core/store-norn';
+import { validate } from '../core/validate';
 import type { DoctorContext, DoctorFinding } from './checks';
 import { CHECKS } from './checks';
 
@@ -55,11 +57,13 @@ export async function cmdDoctor(
   // would be one whole-vault scan per check.
   const docs = (await deps.readNodeDocs()).filter((d) => inScope(d.stem, scope));
   // The graph stays whole-vault (unscoped): a referential break anywhere breaks
-  // the entire vault load, so `-s` must not hide it.
-  const graph = await deps.readVaultGraph();
+  // the entire vault load, so `-s` must not hide it. Validate it ONCE here and
+  // share the `dropped[]` across every referential check (MMR-182) — the four
+  // that render it would otherwise each recompute a whole validator pass.
+  const { dropped } = validate(await deps.readVaultGraph());
   const ctx: DoctorContext = {
+    dropped,
     readNodeDocs: () => Promise.resolve(docs),
-    readVaultGraph: () => Promise.resolve(graph),
   };
   const findings: DoctorFinding[] = [];
   for (const check of CHECKS) {
@@ -74,12 +78,16 @@ export async function cmdDoctor(
   } else if (findings.length === 0) {
     ok(io, 'doctor: no problems found');
   } else {
-    // Findings are the loud channel: each on stderr, tagged by severity (there
-    // is no per-severity render glyph, and `error` must not read as a `warn`).
+    // Findings are the loud channel: each on stderr, tagged by its informational
+    // severity label (there is no per-severity render glyph, and `error` must not
+    // read as a `warn`).
     for (const f of findings) {
       io.error(`[${f.severity}] ${f.node}: ${f.message} (${f.where})`);
     }
   }
 
-  return findings.some((f) => f.severity === 'error') ? 1 : 0;
+  // Non-gating (ADR 0017): a successful run always exits 0 — findings are the
+  // output, not the status. A doctor-itself failure (the vault read above throws)
+  // propagates to the CLI's nonzero exit path instead.
+  return 0;
 }
