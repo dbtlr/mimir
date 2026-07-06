@@ -298,7 +298,7 @@ test('resolved parent + depends_on and a bare-project-KEY root are all clean', a
   expect(JSON.parse(io.out.join('')) as unknown[]).toHaveLength(0);
 });
 
-test('a self-dependency is not a dangling ref (its target resolves) — left to acyclicity', async () => {
+test('a self-dependency is not a dangling ref (its target resolves) — an acyclicity finding', async () => {
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
@@ -306,8 +306,10 @@ test('a self-dependency is not a dangling ref (its target resolves) — left to 
     'json',
     undefined,
   );
-  expect(code).toBe(0);
-  expect(JSON.parse(io.out.join('')) as unknown[]).toHaveLength(0);
+  expect(code).toBe(1); // the degenerate cycle is an acyclicity error
+  const findings = JSON.parse(io.out.join('')) as { check: string }[];
+  expect(findings).toHaveLength(1);
+  expect(findings[0]?.check).toBe('acyclicity'); // not dangling-refs
 });
 
 test('dangling refs report whole-vault, ignoring -s (a broken load is global)', async () => {
@@ -379,6 +381,61 @@ test('missing-project reports whole-vault, ignoring -s (a broken load is global)
   const findings = JSON.parse(io.out.join('')) as { node: string; check: string }[];
   expect(findings).toHaveLength(1);
   expect(findings[0]).toMatchObject({ check: 'missing-project', node: 'OTH-3' });
+});
+
+// ── Relational acyclicity (MMR-174) ───────────────────────────────────────────
+
+test('a depends_on cycle is an acyclicity error that gates (exit 1)', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf(
+      [],
+      [
+        { dependsOn: ['MMR-2'], parent: null, stem: 'MMR-1' },
+        { dependsOn: ['MMR-1'], parent: null, stem: 'MMR-2' }, // closes the cycle
+      ],
+    ),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(1);
+  const findings = JSON.parse(io.out.join('')) as {
+    node: string;
+    check: string;
+    severity: string;
+    where: string;
+    message: string;
+  }[];
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'acyclicity',
+    node: 'MMR-2', // the canonical back edge is MMR-2 → MMR-1
+    severity: 'error',
+    where: 'frontmatter · depends_on',
+  });
+  expect(findings[0]?.message).toContain('MMR-1'); // names the cycle-closing ref
+  expect(findings[0]?.message).toContain('closes a cycle');
+});
+
+test('a parent cycle is an acyclicity error anchored on the parent field', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf(
+      [],
+      [
+        { dependsOn: [], parent: 'MMR-2', stem: 'MMR-1' },
+        { dependsOn: [], parent: 'MMR-1', stem: 'MMR-2' }, // closes the cycle
+      ],
+    ),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(1);
+  const findings = JSON.parse(io.out.join('')) as { node: string; where: string }[];
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ node: 'MMR-2', where: 'frontmatter · parent' });
 });
 
 test('many nodes under one missing project collapse to a single finding with a count', async () => {

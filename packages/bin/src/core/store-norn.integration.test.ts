@@ -407,18 +407,61 @@ test.skipIf(!NORN)('drops a dangling prerequisite edge; the node stays (no throw
   expect(ws.edges).toEqual([]); // dangling prerequisite dropped
 });
 
-test.skipIf(!NORN)('throws on a self-dependency (SQLite dependency CHECK)', async () => {
+// ADR 0017 / MMR-174: a self-dependency is the degenerate cycle — the validator
+// drops the self-edge and the node loads cleanly, no throw (was a loud throw).
+test.skipIf(!NORN)(
+  'drops a self-dependency; the node stays with no self-edge (no throw)',
+  async () => {
+    await writeProjectDoc('MMR');
+    await writeDoc('MMR/MMR-1.md', [
+      jsonField('type', 'task'),
+      jsonField('title', 'Self'),
+      jsonField('parent', wikilink('MMR')),
+      jsonField('lifecycle', 'todo'),
+      jsonField('depends_on', [wikilink('MMR-1')]),
+      jsonField('created', TS),
+      jsonField('updated_at', TS),
+    ]);
+    const ws = await loadWorkingSetOverNorn(client);
+    expect(ws.nodes.map((n) => renderId({ key: 'MMR', seq: n.seq }))).toEqual(['MMR-1']); // kept
+    expect(ws.edges).toEqual([]); // the self-dependency dropped — no edge
+  },
+);
+
+// A longer depends_on cycle: both nodes load, only the cycle-closing back edge is
+// dropped — the loader once silently accepted this and then derived wrongly.
+test.skipIf(!NORN)('drops one edge of a 2-node depends_on cycle; both nodes load', async () => {
   await writeProjectDoc('MMR');
   await writeDoc('MMR/MMR-1.md', [
     jsonField('type', 'task'),
-    jsonField('title', 'Self'),
+    jsonField('title', 'One'),
     jsonField('parent', wikilink('MMR')),
     jsonField('lifecycle', 'todo'),
-    jsonField('depends_on', [wikilink('MMR-1')]),
+    jsonField('depends_on', [wikilink('MMR-2')]),
     jsonField('created', TS),
     jsonField('updated_at', TS),
   ]);
-  await expectThrows(() => loadWorkingSetOverNorn(client), /depends on itself/);
+  await writeDoc('MMR/MMR-2.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Two'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('depends_on', [wikilink('MMR-1')]), // closes the cycle
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  const ws = await loadWorkingSetOverNorn(client);
+  const byId = new Map(ws.nodes.map((n) => [n.id, n]));
+  expect(ws.nodes.map((n) => renderId({ key: 'MMR', seq: n.seq })).toSorted()).toEqual([
+    'MMR-1',
+    'MMR-2',
+  ]);
+  // The canonical back edge MMR-2 → MMR-1 is dropped; the forward edge MMR-1 →
+  // MMR-2 survives. Assert the one surviving edge resolves that way.
+  expect(ws.edges).toHaveLength(1);
+  const edge = must(ws.edges[0]);
+  expect(must(byId.get(edge.node_id)).seq).toBe(1); // MMR-1 depends on...
+  expect(must(byId.get(edge.depends_on_node_id)).seq).toBe(2); // ...MMR-2
 });
 
 test.skipIf(!NORN)('throws on an out-of-vocabulary enum value (SQLite column CHECK)', async () => {
