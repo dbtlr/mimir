@@ -210,6 +210,16 @@ release. When a release is cut, this section is promoted to
   from the feed's own single vault read, so a node's transitions appear iff the
   reader shows the node. A cycle drop is edge-only — the node survives, so its
   transitions still appear. No effect on the SQLite backend.
+- **`mimir doctor` is a non-gating diagnostic; the referential checks share one
+  validator pass** (MMR-182, ADR 0017). Doctor now always exits `0` on a
+  successful run regardless of findings — surfacing issues _is_ its job — so a
+  nonzero exit is reserved for doctor itself failing (the vault read throws). The
+  per-finding `error`/`warn` severity becomes an informational triage label, no
+  longer an exit gate (superseding the MMR-166 behavior where an `error` gated
+  with exit 1). Internally, the four checks that render the validator's `dropped[]`
+  (dangling references, missing project, acyclicity, field validity) now read one
+  shared `validate()` result the command computes once, instead of each recomputing
+  a whole validator pass. No effect on the SQLite backend (doctor no-ops there).
 - **The shared validator vets node fields; the reader tolerates malformed ones**
   (MMR-177, ADR 0017). `validate()` gains a field-validity pass, tiered by whether
   a field is load-bearing: a task whose `lifecycle` is missing or foreign, or whose
@@ -389,6 +399,16 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **Aliased wikilinks in relational frontmatter** (MMR-190, ADR 0017). The
+  `collapse` decoder stripped a wikilink's `[[ ]]` brackets but not its `|alias`
+  display segment, so `[[MMR-2|Some Title]]` decoded to the literal
+  `MMR-2|Some Title`. An aliased `parent` then failed to parse and floated the
+  node silently to root with no drop and no doctor finding (the "silently wrong"
+  class); an aliased `depends_on` dangled with a misleading ref string. `collapse`
+  now drops the alias segment and trims, so an aliased ref resolves through the
+  normal valid/dangling path. Because `collapse` is the single shared decode seam,
+  the fix applies uniformly to node `parent`/`depends_on` refs and artifact
+  anchors. No effect on the SQLite backend.
 - **CRLF line endings in body-section reads** (MMR-167, ADR 0016 Phase 3). A
   vault file saved with `\r\n` — a Windows editor, or git `autocrlf` — left a
   trailing `\r` on every line that the `$`-anchored `## History` / `## Annotations`
