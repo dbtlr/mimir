@@ -8,6 +8,7 @@ import { invariant } from './errors';
 import { parseId } from './ids';
 import type { Dependency, Node, Project } from './model';
 import type { NodeTag, WorkingSet } from './store';
+import { validate } from './validate';
 
 /**
  * The Norn-vault node read path (MMR-149, ADR 0016 Phase 2b) — the second
@@ -213,15 +214,40 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     }
   }
 
+  // Referential tolerance (ADR 0017, MMR-181): route the raw relational graph
+  // through the shared validator and build only over the valid subgraph it
+  // returns. The validator drops nodes whose project is absent and parent/
+  // depends_on edges that resolve to no surviving node, so the referential
+  // resolution below can no longer throw on vault corruption — a single bad
+  // record degrades the read to a valid closed subgraph instead of taking the
+  // whole load down. Deriving the graph exactly as {@link readVaultGraph} does
+  // (collapse + linkStems) keeps the reader's and doctor's validity one truth.
+  // The remaining loud throws — a task's lifecycle, foreign enum values, a
+  // self-dependency — stay until their validator rules land (MMR-177, MMR-174);
+  // until then the reader is tolerant of referential corruption only.
+  const validRefs = validate({
+    nodes: rawNodes.map((n) => ({
+      dependsOn: linkStems(n.fm.depends_on),
+      key: n.key,
+      parent: collapse(n.fm.parent),
+      stem: n.stem,
+    })),
+    projectKeys: projectDocs.map((p) => p.key),
+  }).nodes;
+  const validByStem = new Map(validRefs.map((r) => [r.stem, r]));
+  const survivingNodes = rawNodes.filter((n) => validByStem.has(n.stem));
+
   // Synthetic-int allocation — stable and deterministic. Projects key-ordered,
   // nodes (key, seq)-ordered; independent int spaces mirroring SQLite's separate
-  // project/node tables. Identity across the seam is always the stem.
+  // project/node tables. Identity across the seam is always the stem. Allocated
+  // over the survivors only — a clean vault drops nothing, so the allocation
+  // (and thus the whole WorkingSet) stays byte-identical to SQLite.
   projectDocs.sort((a, b) => cmpStr(a.key, b.key));
-  rawNodes.sort((a, b) => (a.key === b.key ? a.seq - b.seq : cmpStr(a.key, b.key)));
+  survivingNodes.sort((a, b) => (a.key === b.key ? a.seq - b.seq : cmpStr(a.key, b.key)));
 
   const projectIdByKey = new Map<string, number>();
   projectDocs.forEach((p, i) => projectIdByKey.set(p.key, i + 1));
-  const nodeDocs: NodeDoc[] = rawNodes.map((n, i) => ({
+  const nodeDocs: NodeDoc[] = survivingNodes.map((n, i) => ({
     fm: n.fm,
     id: i + 1,
     key: n.key,
@@ -261,28 +287,32 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   projectDocs.forEach((p, i) => projectFm.set(i + 1, p.fm));
   for (const n of nodeDocs) {
     nodeFm.set(n.id, n.fm);
-    // Referential integrity is Norn's job (the design seam); this reader enforces
-    // SQLite's CHECK/FK invariants at the boundary and fails loud rather than
-    // silently projecting a corrupt WorkingSet. Each throw below is a violation a
-    // well-formed vault cannot produce.
+    // The validator already vetted this node's referential edges (its project is
+    // present, parent/depends_on resolve to survivors), so the lookups below
+    // cannot miss on vault data. A miss here would mean the validator and this
+    // build disagree — an internal contract break, not vault corruption — so the
+    // remaining invariants guard the seam, never the record. Field-level throws
+    // (lifecycle, foreign enums, self-dependency) still enforce SQLite's CHECK
+    // constraints loud, pending their own validator rules (MMR-177, MMR-174).
+    const refs = validByStem.get(n.stem);
     const projectId = projectIdByKey.get(n.key);
-    if (projectId === undefined) {
+    if (refs === undefined || projectId === undefined) {
       throw invariant(
-        `node ${n.stem} references project ${n.key}, which is not in the vault`,
-        'every node document must belong to a project document',
+        `node ${n.stem} survived validation but is unresolvable (project ${n.key})`,
+        'the validator must only return nodes whose project and edges resolve',
       );
     }
 
-    // parent: a `KEY-seq` stem must resolve to another node; a bare project `KEY`
-    // is the root, which the int-keyed model represents as parent_id = null.
-    const parentStem = collapse(n.fm.parent);
+    // parent: the validator's parent is null (a root, or a dropped edge floated to
+    // root) or a surviving `KEY-seq` — so it always resolves to another node.
+    const parentStem = refs.parent;
     let parentId: number | null = null;
     if (parentStem !== null && parseId(parentStem) !== null) {
       const resolved = nodeIdByStem.get(parentStem);
       if (resolved === undefined) {
         throw invariant(
-          `node ${n.stem} has parent ${parentStem}, which is not in the vault`,
-          'a node parent must resolve to another node',
+          `node ${n.stem} has validated parent ${parentStem}, which is not in the subgraph`,
+          'a validated parent must resolve to a surviving node',
         );
       }
       parentId = resolved;
@@ -334,15 +364,18 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       updated_at: str(n.fm.updated_at) ?? '',
     });
 
-    // Dedup to SQLite's (node_id, depends_on_node_id) primary key — a doubled
-    // wikilink is one edge; an unresolvable prerequisite is a referential error.
+    // The validator already dropped dangling prerequisites and deduped the list,
+    // so every stem here resolves to a survivor. A self-dependency is NOT dropped
+    // (it resolves to the node itself) — it stays a loud throw until acyclicity
+    // becomes a validator rule (MMR-174). The prereqIds set keeps the reader's
+    // own idempotence against the SQLite (node_id, depends_on_node_id) key.
     const prereqIds = new Set<number>();
-    for (const prereqStem of linkStems(n.fm.depends_on)) {
+    for (const prereqStem of refs.dependsOn) {
       const prereqId = nodeIdByStem.get(prereqStem);
       if (prereqId === undefined) {
         throw invariant(
-          `node ${n.stem} depends on ${prereqStem}, which is not in the vault`,
-          'a prerequisite must resolve to another node',
+          `node ${n.stem} has validated prerequisite ${prereqStem}, which is not in the subgraph`,
+          'a validated prerequisite must resolve to a surviving node',
         );
       }
       if (prereqId === n.id) {
