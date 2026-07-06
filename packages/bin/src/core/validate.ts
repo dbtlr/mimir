@@ -145,8 +145,10 @@ export function validate(graph: VaultGraph): ValidatedGraph {
  * already on the DFS stack, the edge that reached it *closes a cycle* → it is the
  * back edge and is dropped; an edge into an already-finished node is a
  * forward/cross edge and is kept. Removing every back edge yields a DAG — this
- * breaks every cycle (nested and interlocking included) with a minimal edge set,
- * deterministic given the fixed visit + out-edge order. A self-dependency (A → A)
+ * breaks every cycle (nested and interlocking included) with a deterministic
+ * feedback-edge set (one back edge per cycle in DFS order — not a minimum feedback
+ * arc set, which is NP-hard), fixed by the visit + out-edge order. A
+ * self-dependency (A → A)
  * is the degenerate length-1 cycle: A is on the stack when its own out-edge is
  * examined, so the self-edge is a back edge, dropped the same way. The relations
  * are detected SEPARATELY — a path mixing `parent` and `depends_on` is not a cycle.
@@ -156,7 +158,11 @@ function breakCycles(nodes: NodeRefs[], relation: 'parent' | 'depends-on', dropp
   // Canonical visit order: `(key, seq)`, matching the loader's node allocation, so
   // the chosen back edge — and thus the surviving subgraph — is deterministic
   // regardless of the raw document order the graph arrived in.
-  const order = [...nodes].toSorted((a, b) => {
+  // `toSorted` returns a fresh array (no in-place mutation of `nodes`). Stems are
+  // guaranteed `KEY-seq` here (the loader/readVaultGraph only admit parseable
+  // stems), so the seq parse always succeeds — the `?? 0` is a type guard, not a
+  // reachable fallback.
+  const order = nodes.toSorted((a, b) => {
     if (a.key !== b.key) {
       return a.key < b.key ? -1 : 1;
     }
@@ -173,27 +179,48 @@ function breakCycles(nodes: NodeRefs[], relation: 'parent' | 'depends-on', dropp
   };
 
   // Three-color DFS: white = unvisited, gray = on the current stack, black = done.
+  // Iterative with an explicit frame stack — NOT recursion — so a deep but valid
+  // chain (a long linear `depends_on`/`parent` graph) can never overflow the JS
+  // call stack and crash the never-throw read path (ADR 0017). Frames process
+  // out-edges in frontmatter order via a cursor, so the traversal — and thus the
+  // chosen back edge — is byte-for-byte identical to the recursive form.
   const color = new Map<string, 'gray' | 'black'>();
   const backEdges: { from: string; to: string }[] = [];
-  const visit = (stem: string): void => {
-    color.set(stem, 'gray');
+  const edgesOf = (stem: string): string[] => {
     const node = byStem.get(stem);
-    if (node !== undefined) {
-      for (const to of outEdges(node)) {
-        const seen = color.get(to);
-        if (seen === 'gray') {
-          backEdges.push({ from: stem, to }); // closes a cycle
-        } else if (seen === undefined) {
-          visit(to);
-        }
-        // 'black': a forward/cross edge into a finished node — not a cycle.
-      }
-    }
-    color.set(stem, 'black');
+    return node === undefined ? [] : outEdges(node);
   };
-  for (const node of order) {
-    if (color.get(node.stem) === undefined) {
-      visit(node.stem);
+  for (const root of order) {
+    if (color.get(root.stem) !== undefined) {
+      continue;
+    }
+    color.set(root.stem, 'gray');
+    const stack: { stem: string; edges: string[]; cursor: number }[] = [
+      { cursor: 0, edges: edgesOf(root.stem), stem: root.stem },
+    ];
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1];
+      if (frame === undefined) {
+        break;
+      }
+      if (frame.cursor >= frame.edges.length) {
+        color.set(frame.stem, 'black'); // out-edges exhausted → finished
+        stack.pop();
+        continue;
+      }
+      const to = frame.edges[frame.cursor];
+      frame.cursor += 1;
+      if (to === undefined) {
+        continue;
+      }
+      const seen = color.get(to);
+      if (seen === 'gray') {
+        backEdges.push({ from: frame.stem, to }); // closes a cycle
+      } else if (seen === undefined) {
+        color.set(to, 'gray');
+        stack.push({ cursor: 0, edges: edgesOf(to), stem: to });
+      }
+      // 'black': a forward/cross edge into a finished node — not a cycle.
     }
   }
 
