@@ -36,8 +36,13 @@ the default backend until the final phase.
 - **Relations denormalize onto the node.** A dependency is a `depends_on`
   wikilink array, not a join row; the inverse ("who depends on this") is a
   field-scoped backlink query. Every verb's write reduces to one document —
-  except rank reindex, the one genuine multi-document operation, which the
-  plan surface already applies atomically.
+  except rank reindex, the one genuine multi-document operation. The plan
+  surface applies it with **per-document** atomicity, not across documents: a
+  rejected content batch leaves the vault byte-identical (NRN-139's
+  content-validation phase) and each document's write is crash-atomic, but a
+  crash mid-apply _across_ documents can still leave the set partially
+  respread — a rank-order inversion, not merely non-clean multiples. That
+  residual cross-document rollback gap is tracked as NRN-107.
 - **Write path: plan-CAS as the north star.** Norn's plan/apply surface is
   compare-and-swap over documents — build a plan against the state read,
   apply atomically, retry on drift. Until the plan surface covers section
