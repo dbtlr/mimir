@@ -372,18 +372,31 @@ test.skipIf(!NORN)('drops a dangling KEY-seq parent edge; the node floats to roo
 // field — lifecycle (drives status) or hold (drives blocked/parked) — missing or
 // foreign drops the NODE (no safe absent value); an optional field — priority or
 // size — foreign nulls just the FIELD and the node loads. Was a loud throw.
-test.skipIf(!NORN)('drops a task with no lifecycle (no throw)', async () => {
-  await writeProjectDoc('MMR');
-  await writeDoc('MMR/MMR-1.md', [
-    jsonField('type', 'task'),
-    jsonField('title', 'No lifecycle'),
-    jsonField('parent', wikilink('MMR')),
-    jsonField('created', TS),
-    jsonField('updated_at', TS),
-  ]);
-  const ws = await loadWorkingSetOverNorn(client);
-  expect(ws.nodes).toEqual([]); // dropped for the missing load-bearing field
-});
+test.skipIf(!NORN)(
+  'drops a task with no lifecycle but keeps a healthy sibling (no throw)',
+  async () => {
+    await writeProjectDoc('MMR');
+    await writeDoc('MMR/MMR-1.md', [
+      jsonField('type', 'task'),
+      jsonField('title', 'No lifecycle'),
+      jsonField('parent', wikilink('MMR')),
+      jsonField('created', TS),
+      jsonField('updated_at', TS),
+    ]);
+    // A healthy sibling proves the drop is SURGICAL — only the corrupt node goes.
+    await writeDoc('MMR/MMR-2.md', [
+      jsonField('type', 'task'),
+      jsonField('title', 'Healthy'),
+      jsonField('parent', wikilink('MMR')),
+      jsonField('lifecycle', 'todo'),
+      jsonField('created', TS),
+      jsonField('updated_at', TS),
+    ]);
+    const ws = await loadWorkingSetOverNorn(client);
+    // MMR-1 dropped for the missing load-bearing field; MMR-2 survives.
+    expect(ws.nodes.map((n) => renderId({ key: 'MMR', seq: n.seq }))).toEqual(['MMR-2']);
+  },
+);
 
 test.skipIf(!NORN)('drops a dangling prerequisite edge; the node stays (no throw)', async () => {
   await writeProjectDoc('MMR');
@@ -472,8 +485,18 @@ test.skipIf(!NORN)('drops a task with a foreign hold value (no throw)', async ()
     jsonField('created', TS),
     jsonField('updated_at', TS),
   ]);
+  // A healthy sibling proves the drop is surgical — only the corrupt node goes.
+  await writeDoc('MMR/MMR-2.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Healthy'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
   const ws = await loadWorkingSetOverNorn(client);
-  expect(ws.nodes).toEqual([]); // dropped for the foreign load-bearing field
+  // MMR-1 dropped for the foreign load-bearing field; MMR-2 survives.
+  expect(ws.nodes.map((n) => renderId({ key: 'MMR', seq: n.seq }))).toEqual(['MMR-2']);
 });
 
 test.skipIf(!NORN)('loads a task with a foreign priority as null (no throw)', async () => {

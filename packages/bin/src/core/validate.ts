@@ -142,22 +142,29 @@ export function validate(graph: VaultGraph): ValidatedGraph {
       fieldDropped.add(node.stem);
       continue;
     }
-    // priority/size: optional. A present foreign value nulls just the field.
-    if (raw.priority !== undefined && !member(raw.priority, PRIORITY_VALUES)) {
-      dropped.push({
-        kind: 'field',
-        rule: 'invalid-priority',
-        stem: node.stem,
-        value: show(raw.priority),
-      });
-    }
-    if (raw.size !== undefined && !member(raw.size, SIZE_VALUES)) {
-      dropped.push({
-        kind: 'field',
-        rule: 'invalid-size',
-        stem: node.stem,
-        value: show(raw.size),
-      });
+    // priority/size: optional. Only a would-be-SURVIVING node (present project)
+    // emits a field-drop — a node headed for a container drop in pass 1 is gone,
+    // so it must not also raise field noise (its field is never read). And a null
+    // or absent value is a truthful "unset" the reader keeps identically (its
+    // `enumFieldOrNull` maps both to null), so it is NOT foreign — only a present,
+    // non-null value that fails the vocabulary nulls the field.
+    if (present.has(node.key)) {
+      if (raw.priority != null && !member(raw.priority, PRIORITY_VALUES)) {
+        dropped.push({
+          kind: 'field',
+          rule: 'invalid-priority',
+          stem: node.stem,
+          value: show(raw.priority),
+        });
+      }
+      if (raw.size != null && !member(raw.size, SIZE_VALUES)) {
+        dropped.push({
+          kind: 'field',
+          rule: 'invalid-size',
+          stem: node.stem,
+          value: show(raw.size),
+        });
+      }
     }
   }
 
