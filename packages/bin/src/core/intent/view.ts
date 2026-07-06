@@ -82,6 +82,10 @@ export async function buildNodeView(
   } else if (node.type === 'phase') {
     view.target = node.target;
   }
+  if (node.type !== 'task') {
+    // Container-only (MMR-204) — surfaced for phase and initiative alike.
+    view.open_ended = node.open_ended;
+  }
 
   if (facets.has('deps')) {
     view.deps = buildDeps(set, node.id);

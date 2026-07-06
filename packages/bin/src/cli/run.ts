@@ -127,6 +127,9 @@ const OPTIONS = {
   project: { type: 'string' },
   top: { type: 'boolean' },
   bottom: { type: 'boolean' },
+  // Container open-ended converse pair (MMR-204) — like top/bottom.
+  'open-ended': { type: 'boolean' },
+  'not-open-ended': { type: 'boolean' },
   title: { type: 'string' },
   yes: { short: 'y', type: 'boolean' },
   // skill install

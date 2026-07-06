@@ -118,6 +118,18 @@ export function strField(body: Record<string, unknown>, key: string): string | u
   return value;
 }
 
+/** An optional boolean field — present means a boolean, anything else is structural. */
+export function boolField(body: Record<string, unknown>, key: string): boolean | undefined {
+  const value = body[key];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== 'boolean') {
+    throw validation(`${key} must be a boolean`);
+  }
+  return value;
+}
+
 /** A required string field. */
 export function requiredStr(body: Record<string, unknown>, key: string, verb: string): string {
   const value = strField(body, key);

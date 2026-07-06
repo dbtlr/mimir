@@ -63,7 +63,16 @@ import {
   updateProject,
   validation,
 } from '../core';
-import { guarded, json, preflight, readBody, requiredStr, strField, strList } from './respond';
+import {
+  boolField,
+  guarded,
+  json,
+  preflight,
+  readBody,
+  requiredStr,
+  strField,
+  strList,
+} from './respond';
 import { uiResponse } from './static';
 import type { UiAssetMap } from './static';
 import { UI_ASSETS } from './ui-assets.generated';
@@ -416,6 +425,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               'priority',
               'size',
               'external_ref',
+              'open_ended',
               'tags',
             ]);
             const type = requiredStr(body, 'type', 'create');
@@ -430,6 +440,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               }
               const node = await createInitiative(store, {
                 description,
+                openEnded: boolField(body, 'open_ended'),
                 projectId: resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), parent),
                 summary,
                 tags,
@@ -440,6 +451,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (type === 'phase') {
               const node = await createPhase(store, {
                 description,
+                openEnded: boolField(body, 'open_ended'),
                 parentId: await nodeRef(store, parent, 'initiative'),
                 summary,
                 tags,
@@ -503,6 +515,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               'size',
               'target',
               'external_ref',
+              'open_ended',
             ]);
             const fields: UpdateFields = {};
             const title = strField(body, 'title');
@@ -541,6 +554,10 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const externalRef = strField(body, 'external_ref');
             if (externalRef !== undefined) {
               fields.externalRef = externalRef;
+            }
+            const openEnded = boolField(body, 'open_ended');
+            if (openEnded !== undefined) {
+              fields.openEnded = openEnded;
             }
             const node = await updateNode(store, await nodeRef(store, req.params.id), fields);
             return echoNode(store, req, node);

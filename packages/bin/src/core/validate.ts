@@ -45,7 +45,8 @@ export type Drop =
   | { kind: 'edge'; rule: 'cycle-parent'; stem: string; ref: string }
   | { kind: 'edge'; rule: 'cycle-depends-on'; stem: string; ref: string }
   | { kind: 'field'; rule: 'invalid-priority'; stem: string; value: string }
-  | { kind: 'field'; rule: 'invalid-size'; stem: string; value: string };
+  | { kind: 'field'; rule: 'invalid-size'; stem: string; value: string }
+  | { kind: 'field'; rule: 'invalid-open-ended'; stem: string; value: string };
 
 /**
  * The result of validation: the valid, self-consistent subgraph the reader
@@ -112,7 +113,23 @@ export function validate(graph: VaultGraph): ValidatedGraph {
   const fieldDropped = new Set<string>();
   for (const node of graph.nodes) {
     const raw = node.raw;
-    if (node.type !== 'task' || raw === undefined) {
+    if (raw === undefined) {
+      continue;
+    }
+    if (node.type !== 'task') {
+      // open_ended: container-only optional field (MMR-204), same tiering as
+      // priority/size — a surviving container with a present, non-null, non-boolean
+      // value nulls the FIELD (the node stays). Absent/null is a truthful unset, and
+      // the reader's `boolFieldOrNull` accepts a real boolean or the strings
+      // 'true'/'false' (Norn's undeclared-field serialization).
+      if (present.has(node.key) && raw.open_ended != null && !isBoolish(raw.open_ended)) {
+        dropped.push({
+          kind: 'field',
+          rule: 'invalid-open-ended',
+          stem: node.stem,
+          value: show(raw.open_ended),
+        });
+      }
       continue;
     }
     // lifecycle: missing (absent) OR foreign → node-drop. `member` is false for
@@ -231,6 +248,15 @@ export function validate(graph: VaultGraph): ValidatedGraph {
  */
 function member(value: unknown, values: readonly string[]): boolean {
   return typeof value === 'string' && isMember(value, values);
+}
+
+/**
+ * True when `value` is a valid `open_ended` (MMR-204): a real boolean or the
+ * strings `'true'`/`'false'` (Norn serializes the undeclared field as a string).
+ * Anything else present is foreign — the field-validity pass nulls it.
+ */
+function isBoolish(value: unknown): boolean {
+  return typeof value === 'boolean' || value === 'true' || value === 'false';
 }
 
 /**

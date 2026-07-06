@@ -353,6 +353,11 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
     fields.externalRef = c.values.ref;
     changed.push('ref');
   }
+  const openEnded = openEndedFlag(c);
+  if (openEnded !== undefined) {
+    fields.openEnded = openEnded;
+    changed.push('open_ended');
+  }
   await updateNode(c.store, id, fields);
   const suffix = changed.length > 0 ? ` (${changed.join(', ')})` : '';
   await echoNodeWith(c.store, id, c.format, c.io, (rid) => `updated ${rid}${suffix}`);
@@ -369,6 +374,8 @@ async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
     ['target', '--target'],
     ['ref', '--ref'],
     ['summary', '--summary'],
+    ['open-ended', '--open-ended'],
+    ['not-open-ended', '--not-open-ended'],
   ] as const) {
     if (c.values[key] !== undefined) {
       throw validation(`${flag} doesn't apply to a project — use --name to rename it`);
@@ -396,6 +403,8 @@ async function cmdUpdateArtifact(c: Ctx, token: string): Promise<number> {
     ['target', '--target'],
     ['ref', '--ref'],
     ['summary', '--summary'],
+    ['open-ended', '--open-ended'],
+    ['not-open-ended', '--not-open-ended'],
   ] as const) {
     if (c.values[key] !== undefined) {
       throw validation(`${flag} doesn't apply to an artifact — title is its one mutable field`);
@@ -543,6 +552,23 @@ function optStr(c: Ctx, name: string): string | undefined {
   return typeof v === 'string' ? v : undefined;
 }
 
+/**
+ * Resolve the `--open-ended` / `--not-open-ended` converse pair to a tri-state
+ * (MMR-204): `true`, `false`, or `undefined` (neither flag). Passing both is a
+ * usage error, mirroring `--top`/`--bottom`.
+ */
+function openEndedFlag(c: Ctx): boolean | undefined {
+  const on = c.values['open-ended'] === true;
+  const off = c.values['not-open-ended'] === true;
+  if (on && off) {
+    throw usage('at most one of --open-ended | --not-open-ended');
+  }
+  if (on) {
+    return true;
+  }
+  return off ? false : undefined;
+}
+
 /** The repeatable `--tag` values on create (MMR-31). */
 function tagFlags(c: Ctx): string[] | undefined {
   const v = c.values.tag;
@@ -655,6 +681,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       }
       const node = await createInitiative(c.store, {
         description: optStr(c, 'desc'),
+        openEnded: openEndedFlag(c),
         projectId: parent.id,
         summary: optStr(c, 'summary'),
         tags: tagFlags(c),
@@ -674,6 +701,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       }
       const node = await createPhase(c.store, {
         description: optStr(c, 'desc'),
+        openEnded: openEndedFlag(c),
         parentId: parent.id,
         summary: optStr(c, 'summary'),
         tags: tagFlags(c),

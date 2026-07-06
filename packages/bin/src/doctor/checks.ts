@@ -301,6 +301,9 @@ export const fieldValidityCheck: Diagnostic = {
       } else if (drop.kind === 'field' && drop.rule === 'invalid-size') {
         field = 'size';
         message = `invalid size "${drop.value}" — field nulled on read (node kept)`;
+      } else if (drop.kind === 'field' && drop.rule === 'invalid-open-ended') {
+        field = 'open_ended';
+        message = `invalid open_ended "${drop.value}" — field nulled on read (node kept)`;
       } else {
         // A referential drop (missing-project / dangling / cycle) — reported by the
         // referential checks, not here. Exactly one check renders each rule.

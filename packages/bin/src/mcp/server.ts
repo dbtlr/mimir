@@ -336,11 +336,12 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'update',
-    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef), or retitle an artifact (KEY-aN id, title only). Echoes the updated record.",
+    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, openEnded), or retitle an artifact (KEY-aN id, title only). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers. Echoes the updated record.",
     {
       description: z.string().optional(),
       externalRef: z.string().optional(),
       id: z.string(),
+      openEnded: z.boolean().optional(),
       priority: PRIORITY.optional(),
       size: SIZE.optional(),
       summary: z.string().optional(),
@@ -356,6 +357,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       size?: string;
       target?: string;
       externalRef?: string;
+      openEnded?: boolean;
     }) => toolUpdate(store, args),
   );
 
@@ -404,6 +406,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       externalRef: z.string().optional(),
       key: z.string().optional(),
       name: z.string().optional(),
+      openEnded: z.boolean().optional(),
       parent: z.string().optional(),
       priority: PRIORITY.optional(),
       size: SIZE.optional(),
@@ -425,6 +428,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       priority?: string;
       size?: string;
       externalRef?: string;
+      openEnded?: boolean;
       tags?: string[];
     }) => toolCreate(store, args),
   );

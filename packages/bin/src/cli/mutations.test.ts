@@ -24,12 +24,14 @@ let taskRef: string;
 let phaseId: number;
 let phaseRef: string;
 let initiativeId: number;
+let initiativeRef: string;
 beforeEach(async () => {
   db = await createTestDb();
   store = createSqliteStore(db);
   const p = await createProject(store, { key: 'MMR', name: 'm' });
   const init = await createInitiative(store, { projectId: p.id, title: 'i' });
   initiativeId = init.id;
+  initiativeRef = `MMR-${String(init.seq)}`;
   const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
   phaseId = phase.id;
   phaseRef = `MMR-${String(phase.seq)}`;
@@ -463,4 +465,53 @@ test('create project with --desc stores the description', async () => {
   await runCli(['get', 'DSC', '-f', 'json'], () => store, getIo);
   const v = parseJson<{ description: string }>(getIo.out[0] ?? '{}');
   expect(v.description).toBe('some desc');
+});
+
+// open_ended container flag (MMR-204)
+test('create phase --open-ended sets the flag; get surfaces it', async () => {
+  const echo = fakeIo(true);
+  expect(
+    await runCli(
+      ['create', 'phase', 'bugs', '--parent', initiativeRef, '--open-ended', '-f', 'json'],
+      () => store,
+      echo,
+    ),
+  ).toBe(0);
+  const created = parseJson<{ id: string; open_ended?: boolean | null }>(echo.out.join(''));
+  const got = fakeIo(true);
+  await runCli(['get', created.id, '-f', 'json'], () => store, got);
+  expect(parseJson<{ open_ended?: boolean | null }>(got.out.join('')).open_ended).toBe(true);
+});
+
+test('update --open-ended / --not-open-ended toggles a container flag', async () => {
+  const on = fakeIo(true);
+  expect(await runCli(['update', phaseRef, '--open-ended', '-f', 'json'], () => store, on)).toBe(0);
+  const readBack = async (): Promise<boolean | null | undefined> => {
+    const io = fakeIo(true);
+    await runCli(['get', phaseRef, '-f', 'json'], () => store, io);
+    return parseJson<{ open_ended?: boolean | null }>(io.out.join('')).open_ended;
+  };
+  expect(await readBack()).toBe(true);
+  expect(await runCli(['update', phaseRef, '--not-open-ended'], () => store, fakeIo(false))).toBe(
+    0,
+  );
+  expect(await readBack()).toBe(false);
+});
+
+test('--open-ended on a task is a validation error (container-only)', async () => {
+  expect(await runCli(['update', taskRef, '--open-ended'], () => store, fakeIo(false))).toBe(1);
+});
+
+test('--open-ended on a project is a validation error', async () => {
+  expect(await runCli(['update', 'MMR', '--open-ended'], () => store, fakeIo(false))).toBe(1);
+});
+
+test('both --open-ended and --not-open-ended is a usage error', async () => {
+  expect(
+    await runCli(
+      ['update', phaseRef, '--open-ended', '--not-open-ended'],
+      () => store,
+      fakeIo(false),
+    ),
+  ).toBe(2);
 });

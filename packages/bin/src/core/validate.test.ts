@@ -597,3 +597,54 @@ test('cycle drops are appended AFTER the pass-1/pass-2 drops', () => {
     { kind: 'edge', ref: 'MMR-1', rule: 'cycle-depends-on', stem: 'MMR-2' },
   ]);
 });
+
+test('a container with a foreign open_ended keeps the node — only the field is dropped', () => {
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { ...validRaw, open_ended: 'yes' },
+      stem: 'MMR-1',
+      type: 'phase',
+    },
+  ]);
+  const result = validate(g);
+  expect(result.dropped).toEqual([
+    { kind: 'field', rule: 'invalid-open-ended', stem: 'MMR-1', value: 'yes' },
+  ]);
+  expect(subgraph(g)).toEqual({ 'MMR-1': { dependsOn: [], parent: null } }); // node survives
+});
+
+test("a container's 'true'/'false' open_ended is valid — no drop", () => {
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { ...validRaw, open_ended: 'true' },
+      stem: 'MMR-1',
+      type: 'initiative',
+    },
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { ...validRaw, open_ended: 'false' },
+      stem: 'MMR-2',
+      type: 'phase',
+    },
+  ]);
+  expect(validate(g).dropped).toEqual([]);
+});
+
+test('an absent/null open_ended is a truthful unset — not foreign, no drop', () => {
+  const g = graphOf([
+    {
+      dependsOn: [],
+      parent: null,
+      raw: { ...validRaw, open_ended: null },
+      stem: 'MMR-1',
+      type: 'phase',
+    },
+    { dependsOn: [], parent: null, raw: validRaw, stem: 'MMR-2', type: 'initiative' },
+  ]);
+  expect(validate(g).dropped).toEqual([]);
+});

@@ -170,7 +170,14 @@ export type NodeRefs = {
   parent: string | null;
   dependsOn: string[];
   type?: NodeType;
-  raw?: { lifecycle: unknown; hold: unknown; priority: unknown; size: unknown };
+  raw?: {
+    lifecycle: unknown;
+    hold: unknown;
+    priority: unknown;
+    size: unknown;
+    /** Container-only (MMR-204); optional so referential-only fixtures needn't set it. */
+    open_ended?: unknown;
+  };
 };
 
 /**
@@ -199,7 +206,13 @@ function nodeRefsOf(
     parent: collapse(fm.parent),
     // Field-validity inputs (MMR-177): the raw enum frontmatter, vetted in
     // validate's pass 0. Carried verbatim (unknown) — validate owns legality.
-    raw: { hold: fm.hold, lifecycle: fm.lifecycle, priority: fm.priority, size: fm.size },
+    raw: {
+      hold: fm.hold,
+      lifecycle: fm.lifecycle,
+      open_ended: fm.open_ended,
+      priority: fm.priority,
+      size: fm.size,
+    },
     stem,
     type,
   };
