@@ -129,6 +129,16 @@ function splitLines(body: string): string[] {
   return body.split(/\r?\n/);
 }
 
+/**
+ * Normalize a body to the codec's canonical LF line ending (MMR-167) — the same
+ * rule {@link splitLines} applies on read. Use it before comparing two bodies
+ * for equality so a CRLF-re-saved file (Windows editor / git `autocrlf`) reads
+ * as identical to its LF twin (MMR-172).
+ */
+export function toCanonicalLf(body: string): string {
+  return splitLines(body).join('\n');
+}
+
 function escapeBodyLines(body: string): string {
   return splitLines(body)
     .map((line) => (HEADING_LINE.test(line) ? `\\${line}` : line))
