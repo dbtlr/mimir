@@ -173,6 +173,9 @@ test('readVaultConfig missing sections default empty; a wrong-typed store surfac
   expect(readConfig(file).store).toEqual({});
   writeFileSync(file, '[store]\nbackend = "postgres"\n');
   expect(readConfig(file).store).toEqual({ problem: 'invalid-backend' });
+  // the pre-MMR-235 `artifacts` key is honored as a deprecated alias (no silent fallback)
+  writeFileSync(file, '[store]\nartifacts = "norn"\n');
+  expect(readConfig(file).store).toEqual({ backend: 'norn' });
   writeFileSync(file, 'store = "norn"\n');
   expect(readConfig(file).store).toEqual({ problem: 'malformed' });
 });

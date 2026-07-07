@@ -145,8 +145,9 @@ release. When a release is cut, this section is promoted to
   precedent); `service status` reports both units.
 - **Artifacts can be stored in the Norn vault** (MMR-143, ADR 0016 Phase 2a).
   A backend flag selects where artifacts live — SQLite (default) or the
-  Norn-managed markdown vault — chosen by `MIMIR_ARTIFACT_STORE` >
-  `[store] artifacts` in the global config > `sqlite`. Under the Norn backend
+  Norn-managed markdown vault. (MMR-235 later unified this into the whole-store
+  selector `[store] backend` / `MIMIR_STORE_BACKEND`, keeping `[store] artifacts` /
+  `MIMIR_ARTIFACT_STORE` as deprecated aliases.) Under the Norn backend
   an artifact is a real file at `KEY/artifacts/KEY-aN.md`: the stem is the id,
   frontmatter the queryable record (`title`, `project`, `anchor`, `tags`,
   `created`), the body the frozen content. All artifact operations —
@@ -245,8 +246,9 @@ release. When a release is cut, this section is promoted to
   sections, transitions), so the node backend is no longer pinned to SQLite; the retired
   artifact-only `withArtifactStore` shim is removed. **The default is unchanged (`sqlite`)** —
   this only makes the Norn node backend selectable; the cutover flip is a separate step
-  (MMR-232). Config carrying the old `[store] artifacts` key now falls through to the sqlite
-  default (pre-release, no external consumers).
+  (MMR-232). The old `[store] artifacts` key and `MIMIR_ARTIFACT_STORE` env are honored as
+  deprecated aliases for one release, so an existing config never silently falls back to the
+  sqlite default; both are removed at the cutover.
 - **Adopt norn 0.45: the `vault.apply` tool rename and its in-band refusal signal**
   (MMR-207, subsumes MMR-202). norn 0.45 renames the MCP plan-apply tool
   `vault.apply_plan` → `vault.apply` (NRN-185) and, more consequentially, reports a

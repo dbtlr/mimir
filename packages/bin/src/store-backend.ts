@@ -28,9 +28,10 @@ import { resolveVault } from './vault/resolve';
 
 export type StoreBackend = 'sqlite' | 'norn';
 
-/** The resolved store backend, env over config over default. */
+/** The resolved store backend, env over config over default. `MIMIR_ARTIFACT_STORE`
+ * is the pre-MMR-235 name, honored as a deprecated alias for one release. */
 export function storeBackend(config = readConfig()): StoreBackend {
-  const env = process.env.MIMIR_STORE_BACKEND;
+  const env = process.env.MIMIR_STORE_BACKEND ?? process.env.MIMIR_ARTIFACT_STORE;
   if (env === 'sqlite' || env === 'norn') {
     return env;
   }

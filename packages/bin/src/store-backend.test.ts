@@ -23,20 +23,35 @@ const NORN = Bun.which('norn') !== null;
 
 const config = (store: GlobalConfig['store']): GlobalConfig => ({ serve: {}, store, vault: {} });
 
+/** Restore an env var to a captured prior value (undefined = unset). */
+const restoreEnv = (key: string, value: string | undefined): void => {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+};
+
 test('storeBackend resolves env over config over the sqlite default', () => {
   const prev = process.env.MIMIR_STORE_BACKEND;
+  const prevAlias = process.env.MIMIR_ARTIFACT_STORE;
   try {
     delete process.env.MIMIR_STORE_BACKEND;
+    delete process.env.MIMIR_ARTIFACT_STORE;
     expect(storeBackend(config({}))).toBe('sqlite'); // built-in default
     expect(storeBackend(config({ backend: 'norn' }))).toBe('norn'); // config
     process.env.MIMIR_STORE_BACKEND = 'sqlite';
     expect(storeBackend(config({ backend: 'norn' }))).toBe('sqlite'); // env wins over config
+    // an unrecognized env value is ignored, not forced — config wins through it
+    process.env.MIMIR_STORE_BACKEND = 'postgres';
+    expect(storeBackend(config({ backend: 'norn' }))).toBe('norn');
+    // the pre-MMR-235 `MIMIR_ARTIFACT_STORE` name is honored as a deprecated alias
+    delete process.env.MIMIR_STORE_BACKEND;
+    process.env.MIMIR_ARTIFACT_STORE = 'norn';
+    expect(storeBackend(config({}))).toBe('norn');
   } finally {
-    if (prev === undefined) {
-      delete process.env.MIMIR_STORE_BACKEND;
-    } else {
-      process.env.MIMIR_STORE_BACKEND = prev;
-    }
+    restoreEnv('MIMIR_STORE_BACKEND', prev);
+    restoreEnv('MIMIR_ARTIFACT_STORE', prevAlias);
   }
 });
 

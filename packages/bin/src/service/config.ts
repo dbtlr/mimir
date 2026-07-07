@@ -163,7 +163,10 @@ function storeSection(raw: unknown): StoreConfig {
   if (!isTable(raw)) {
     return { problem: 'malformed' };
   }
-  const backend = raw.backend;
+  // `artifacts` is the pre-MMR-235 name for this key, honored as a deprecated alias
+  // for one release so an old config never SILENTLY falls back to the sqlite default
+  // (store `problem` is not surfaced); removed at the cutover.
+  const backend = raw.backend ?? raw.artifacts;
   if (backend === undefined) {
     return {};
   }
