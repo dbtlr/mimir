@@ -36,6 +36,11 @@ export function projectFrontmatter(
     type: 'project',
     updated_at: project.updated_at,
   };
+  // The project-scope key every work-state doc carries (self-referential on the
+  // project doc), so `vault.find --eq project:KEY` scopes the whole subtree —
+  // project + all its nodes — in one query (MMR-170). A wikilink like the
+  // artifact `project` field and `parent`: Norn collapses brackets in matching.
+  fm.project = wikilink(project.key);
   put(fm, 'description', project.description);
   put(fm, 'archived_at', project.archived_at);
   if (tags.length > 0) {
@@ -49,7 +54,12 @@ export function projectFrontmatter(
 /** Node → frontmatter record. Relations arrive resolved to stems by the caller. */
 export function nodeFrontmatter(
   node: Node,
-  rel: { parentStem: string | null; dependsOn: readonly string[]; tags: readonly NodeTag[] },
+  rel: {
+    projectKey: string;
+    parentStem: string | null;
+    dependsOn: readonly string[];
+    tags: readonly NodeTag[];
+  },
 ): Record<string, unknown> {
   const fm: Record<string, unknown> = {
     created: node.created_at,
@@ -57,6 +67,12 @@ export function nodeFrontmatter(
     type: node.type,
     updated_at: node.updated_at,
   };
+  // The owning project's key, so `vault.find --eq project:KEY` can scope nodes
+  // (MMR-170). A node's project is authoritatively its `KEY-seq` stem — the
+  // reader derives it from the path and ignores this field; it exists purely to
+  // make Norn's frontmatter-only `find` able to scope by project. A wikilink to
+  // the project doc, mirroring `parent` (Norn collapses brackets in matching).
+  fm.project = wikilink(rel.projectKey);
   // `description` is NOT frontmatter (MMR-162, ADR 0016 Refinement): the full
   // prose is authoritative in the `## Task Description` body section. Only the
   // short `summary` lede rides frontmatter.

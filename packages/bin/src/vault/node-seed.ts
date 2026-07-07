@@ -133,7 +133,7 @@ export function buildSeedDocs(
     const tags = ws.nodeTags.get(node.id) ?? [];
     nodes.push({
       body: bodies.node(node),
-      frontmatter: nodeFrontmatter(node, { dependsOn, parentStem, tags }),
+      frontmatter: nodeFrontmatter(node, { dependsOn, parentStem, projectKey: key, tags }),
       path: `${key}/${stem}.md`,
     });
   }

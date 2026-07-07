@@ -14,7 +14,7 @@
  */
 
 /** The vault schema this binary produces and can converge older vaults to. */
-export const VAULT_SCHEMA = 2;
+export const VAULT_SCHEMA = 3;
 
 export const MARKER_FILE = '.mimir-vault.toml';
 export const NORN_CONFIG_FILE = '.norn/config.yaml';
@@ -104,12 +104,14 @@ validate:
       required_frontmatter:
         - title
         - parent
+        - project
         - created
         - updated_at
       field_types:
         title: text
         description: text
         parent: wikilink
+        project: wikilink
         depends_on: wikilink_or_list
         tags: list_of_strings
         lifecycle: string
@@ -150,11 +152,13 @@ validate:
       required_frontmatter:
         - name
         - key
+        - project
         - created
         - updated_at
       field_types:
         name: text
         key: string
+        project: wikilink
         description: text
         created: datetime
         updated_at: datetime
