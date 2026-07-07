@@ -37,6 +37,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0016](0016-norn-vault-system-of-record.md)                       | A Norn-managed markdown vault is the system of record          |
 | [0017](0017-runtime-data-tolerance.md)                            | Runtime data-tolerance; doctor is a non-gating diagnostic      |
 | [0018](0018-vault-access-is-norn-only.md)                         | Vault access is Norn-only; fs-need signals a Norn ask          |
+| [0019](0019-meridian-console-design-system.md)                    | Meridian — the console design system; attention model          |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete SQLite
