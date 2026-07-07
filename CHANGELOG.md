@@ -430,6 +430,17 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **Unknown verbs and flags hard-error instead of dumping help** (MMR-211). An
+  unknown verb (`mimir add`, `mimir edit`) — even with `-h`/`--help` — printed the
+  full top-level help and exited `0`, which an agent could read as task data and
+  then act on stale context. An unknown flag exited `2` but dumped the entire
+  144-line help body to stderr. Both are now a hard usage error: exit `2`, a
+  concise one-line message, and a `did-you-mean` suggestion (nearest verb / flag
+  by edit distance) plus a pointer to the relevant help — never the help body.
+  Real verbs without a help descriptor (`service`, `skill`, `self-update`) still
+  fall back to the top-level help on `-h`. `-f`/`--format` already behave
+  identically (verified); a `COMMANDS` set is the single authority for what counts
+  as a real verb.
 - **Aliased wikilinks in relational frontmatter** (MMR-190, ADR 0017). The
   `collapse` decoder stripped a wikilink's `[[ ]]` brackets but not its `|alias`
   display segment, so `[[MMR-2|Some Title]]` decoded to the literal
