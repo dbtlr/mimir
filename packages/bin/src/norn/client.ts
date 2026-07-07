@@ -219,11 +219,14 @@ export class NornClient {
     );
   }
 
-  /** One serialized tool call. `retry` replays once on a connection-level failure. */
+  /** One serialized tool call. `retry` replays once on a connection-level failure.
+   * `tolerateStructuredError` returns an `isError` result's structured payload
+   * instead of throwing, for a caller that classifies it itself (see {@link unwrap}). */
   private async call(
     name: NornToolName,
     args: Record<string, unknown>,
     retry: boolean,
+    tolerateStructuredError = false,
   ): Promise<unknown> {
     return this.enqueue(async () => {
       const attempt = async (): Promise<unknown> => {
@@ -252,15 +255,27 @@ export class NornClient {
           throw this.connectionFailure(name, retry, secondError);
         }
       }
-      return this.unwrap(name, result);
+      return this.unwrap(name, result, tolerateStructuredError);
     });
   }
 
-  private unwrap(name: NornToolName, result: unknown): unknown {
+  private unwrap(name: NornToolName, result: unknown, tolerateStructuredError = false): unknown {
     if (!isRecord(result)) {
       throw invariant(`norn ${name} returned a non-object tool result`);
     }
     if (result.isError === true) {
+      // norn 0.45.1 (NRN-219): a mutation that doesn't fully apply sets
+      // `isError: true` but PRESERVES the `{ report }` payload. A caller that
+      // classifies that report itself (applyPlan) takes it from here — but ONLY a
+      // genuine apply report. A non-report error envelope (or none) still throws, so
+      // norn's diagnostic text is never swallowed into a generic classification.
+      if (
+        tolerateStructuredError &&
+        isRecord(result.structuredContent) &&
+        'report' in result.structuredContent
+      ) {
+        return result.structuredContent;
+      }
       const message = firstText(result.content) ?? 'norn returned an error with no message';
       throw validation(`norn ${name}: ${message}`);
     }
@@ -340,15 +355,17 @@ export class NornClient {
    * executes every op. Never auto-retried: a confirmed batch must not
    * double-apply on an ambiguous failure.
    *
-   * Returns norn's raw `ApplyReport` payload. As of norn 0.45 a precondition
-   * refusal (CAS drift) comes back **in-band** — `isError: false`, a report
-   * whose `outcome` is `refused`/`failed` and whose failed ops carry a
-   * structured `error.code` — not as a thrown MCP error; the write path
-   * ({@link runTransact}) classifies that report rather than catching a throw.
-   * (A genuine tool/connection error still throws.)
+   * Returns norn's raw `ApplyReport` payload for the write path
+   * ({@link runTransact}) to classify by `outcome`. A precondition refusal (CAS
+   * drift) or partial failure carries a report whose `outcome` is
+   * `refused`/`failed` and whose failed ops carry a structured `error.code`. norn
+   * **0.45.1 (NRN-219)** sets `isError: true` on that not-applied result while
+   * preserving the report, so this call passes `tolerateStructuredError` to take
+   * the report from the `isError` path rather than throwing. (A genuine tool or
+   * connection error, which carries no structured report, still throws.)
    */
   async applyPlan(plan: MigrationPlan, confirm: boolean): Promise<unknown> {
-    return this.call('vault.apply', { confirm, plan }, false);
+    return this.call('vault.apply', { confirm, plan }, false, true);
   }
 
   /**

@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, expect, setSystemTime, test } from 'bun:test';
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -11,6 +19,7 @@ import { migrateToLatest } from '../db/migrator';
 import { createTestDb } from '../db/testing';
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
+import { migrationPlan, setFrontmatter } from '../norn/plan';
 import { createNornWriteStore } from '../norn/writer';
 import { converge } from '../vault/converge';
 import { buildSeedDocs, nornSeedWrite, seedNodes } from '../vault/node-seed';
@@ -47,6 +56,23 @@ function must<T>(v: T | undefined): T {
  * a real `norn` on PATH (CI); the seed + reader are exercised as one pipeline.
  */
 const NORN = Bun.which('norn') !== null;
+
+/** True iff the installed norn is >= 0.45.1 — the release (NRN-219) that reports a
+ * refused apply as `isError: true`. The refusal-tolerance guard below is meaningful
+ * only there; on older norn a refusal is `isError: false` and the test would pass
+ * trivially regardless of the fix, giving false confidence. */
+const NORN_ISERROR_REFUSAL = ((): boolean => {
+  if (!NORN) {
+    return false;
+  }
+  const out = Bun.spawnSync(['norn', '--version']).stdout.toString();
+  const m = /(\d+)\.(\d+)\.(\d+)/.exec(out);
+  if (m === null) {
+    return false;
+  }
+  const [major, minor, patch] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  return major > 0 || minor > 45 || (minor === 45 && patch >= 1);
+})();
 
 /**
  * Frontmatter facets — the parity scope for a *seeded* vault. The seed writes
@@ -994,4 +1020,33 @@ test.skipIf(!HAS_LIVE)(
     }
   },
   300_000,
+);
+
+// The regression guard MMR-207 lacked: exercise a REAL CAS refusal end-to-end, so a
+// future norn change to the failure signal can't slip past a happy-path-only suite.
+// Gated on norn >= 0.45.1, where the refusal is `isError: true` — the shape the
+// tolerate path exists for; on older norn (isError: false) this would pass trivially.
+test.skipIf(!NORN_ISERROR_REFUSAL)(
+  'a CAS-drift apply returns a refused report, not a throw (norn 0.45.1 isError:true)',
+  async () => {
+    const vaultRoot = join(root, 'vault');
+    mkdirSync(join(vaultRoot, 'MMR'), { recursive: true });
+    writeFileSync(
+      join(vaultRoot, 'MMR', 'MMR-1.md'),
+      '---\ntitle: probe\nstatus: todo\n---\n\n## History\n',
+    );
+    const stale = migrationPlan({
+      operations: [setFrontmatter('MMR/MMR-1.md', 'status', 'done', 'WRONG')],
+      vaultRoot,
+    });
+    // norn 0.45.1 sets isError:true on the refusal; applyPlan must tolerate it and
+    // return the structured report (the pre-fix bug threw it away → no drift replay).
+    const payload = (await client.applyPlan(stale, true)) as { report?: Record<string, unknown> };
+    const report = (payload.report ?? payload) as {
+      outcome?: string;
+      operations?: { error?: { code?: string } }[];
+    };
+    expect(report.outcome).toBe('refused');
+    expect(report.operations?.[0]?.error?.code).toBe('expected-old-value-mismatch');
+  },
 );

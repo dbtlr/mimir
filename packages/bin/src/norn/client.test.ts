@@ -208,6 +208,68 @@ test('applyPlan sends vault.apply with {plan, confirm} and unwraps the report', 
   expect(received).toEqual({ confirm: true, plan });
 });
 
+test('applyPlan returns the structured report even when isError is set (norn 0.45.1 refusal)', async () => {
+  // NRN-219: a not-applied apply sets isError:true but PRESERVES the report, so
+  // applyPlan must hand it back for runTransact to classify — never throw it away.
+  const refused = {
+    report: {
+      applied: 0,
+      failed: 1,
+      operations: [
+        {
+          error: {
+            code: 'expected-old-value-mismatch',
+            message: 'stale repair plan for MMR/MMR-1.md',
+            path: 'MMR/MMR-1.md',
+          },
+          kind: 'set_frontmatter',
+          status: 'failed',
+        },
+      ],
+      outcome: 'refused',
+    },
+  };
+  const fake = fakeNorn(() => ({
+    'vault.apply': () =>
+      Promise.resolve({
+        content: [{ text: 'stale repair plan for MMR/MMR-1.md', type: 'text' as const }],
+        isError: true,
+        structuredContent: refused,
+      }),
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  const plan = migrationPlan({
+    operations: [setFrontmatter('MMR/MMR-1.md', 'status', 'done')],
+    vaultRoot: '/vault',
+  });
+  expect(await client.applyPlan(plan, true)).toEqual(refused);
+});
+
+test('applyPlan throws with norn message on an isError result that is not an apply report', async () => {
+  // a genuine tool error may carry NO structuredContent, or a non-report envelope;
+  // either way applyPlan must surface norn's diagnostic text, never swallow it into a
+  // generic "unrecognized" classification (tolerate is scoped to a real `{ report }`).
+  for (const structuredContent of [undefined, { detail: 'not a report', error: 'internal' }]) {
+    const fake = fakeNorn(() => ({
+      'vault.apply': () =>
+        Promise.resolve({
+          content: [{ text: 'plan schema invalid', type: 'text' as const }],
+          isError: true,
+          ...(structuredContent === undefined ? {} : { structuredContent }),
+        }),
+    }));
+    client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+    const plan = migrationPlan({ operations: [], vaultRoot: '/vault' });
+    let message = '';
+    try {
+      await client.applyPlan(plan, true);
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).toContain('plan schema invalid');
+  }
+});
+
 test('an in-flight death on applyPlan fails typed and is never replayed', async () => {
   let applied = 0;
   const fake = fakeNorn((crash) => ({
