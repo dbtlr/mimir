@@ -245,18 +245,29 @@ test('applyPlan returns the structured report even when isError is set (norn 0.4
   expect(await client.applyPlan(plan, true)).toEqual(refused);
 });
 
-test('applyPlan still throws on an isError result with no structured report', async () => {
-  // a genuine tool error (e.g. an unparseable plan) carries no report → terminal throw
-  const fake = fakeNorn(() => ({
-    'vault.apply': () =>
-      Promise.resolve({
-        content: [{ text: 'plan schema invalid', type: 'text' as const }],
-        isError: true,
-      }),
-  }));
-  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
-  const plan = migrationPlan({ operations: [], vaultRoot: '/vault' });
-  await expectMimirError('validation', () => (client as NornClient).applyPlan(plan, true));
+test('applyPlan throws with norn message on an isError result that is not an apply report', async () => {
+  // a genuine tool error may carry NO structuredContent, or a non-report envelope;
+  // either way applyPlan must surface norn's diagnostic text, never swallow it into a
+  // generic "unrecognized" classification (tolerate is scoped to a real `{ report }`).
+  for (const structuredContent of [undefined, { detail: 'not a report', error: 'internal' }]) {
+    const fake = fakeNorn(() => ({
+      'vault.apply': () =>
+        Promise.resolve({
+          content: [{ text: 'plan schema invalid', type: 'text' as const }],
+          isError: true,
+          ...(structuredContent === undefined ? {} : { structuredContent }),
+        }),
+    }));
+    client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+    const plan = migrationPlan({ operations: [], vaultRoot: '/vault' });
+    let message = '';
+    try {
+      await client.applyPlan(plan, true);
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).toContain('plan schema invalid');
+  }
 });
 
 test('an in-flight death on applyPlan fails typed and is never replayed', async () => {

@@ -57,6 +57,23 @@ function must<T>(v: T | undefined): T {
  */
 const NORN = Bun.which('norn') !== null;
 
+/** True iff the installed norn is >= 0.45.1 — the release (NRN-219) that reports a
+ * refused apply as `isError: true`. The refusal-tolerance guard below is meaningful
+ * only there; on older norn a refusal is `isError: false` and the test would pass
+ * trivially regardless of the fix, giving false confidence. */
+const NORN_ISERROR_REFUSAL = ((): boolean => {
+  if (!NORN) {
+    return false;
+  }
+  const out = Bun.spawnSync(['norn', '--version']).stdout.toString();
+  const m = /(\d+)\.(\d+)\.(\d+)/.exec(out);
+  if (m === null) {
+    return false;
+  }
+  const [major, minor, patch] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  return major > 0 || minor > 45 || (minor === 45 && patch >= 1);
+})();
+
 /**
  * Frontmatter facets — the parity scope for a *seeded* vault. The seed writes
  * frontmatter + empty body sections, so the body-section facets (annotations,
@@ -1007,7 +1024,9 @@ test.skipIf(!HAS_LIVE)(
 
 // The regression guard MMR-207 lacked: exercise a REAL CAS refusal end-to-end, so a
 // future norn change to the failure signal can't slip past a happy-path-only suite.
-test.skipIf(!NORN)(
+// Gated on norn >= 0.45.1, where the refusal is `isError: true` — the shape the
+// tolerate path exists for; on older norn (isError: false) this would pass trivially.
+test.skipIf(!NORN_ISERROR_REFUSAL)(
   'a CAS-drift apply returns a refused report, not a throw (norn 0.45.1 isError:true)',
   async () => {
     const vaultRoot = join(root, 'vault');

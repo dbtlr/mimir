@@ -265,10 +265,15 @@ export class NornClient {
     }
     if (result.isError === true) {
       // norn 0.45.1 (NRN-219): a mutation that doesn't fully apply sets
-      // `isError: true` but PRESERVES `structuredContent.report`. A caller that
-      // classifies that report itself (applyPlan) takes it from here; every other
-      // caller — and a genuine tool error carrying no structured payload — throws.
-      if (tolerateStructuredError && result.structuredContent !== undefined) {
+      // `isError: true` but PRESERVES the `{ report }` payload. A caller that
+      // classifies that report itself (applyPlan) takes it from here — but ONLY a
+      // genuine apply report. A non-report error envelope (or none) still throws, so
+      // norn's diagnostic text is never swallowed into a generic classification.
+      if (
+        tolerateStructuredError &&
+        isRecord(result.structuredContent) &&
+        'report' in result.structuredContent
+      ) {
         return result.structuredContent;
       }
       const message = firstText(result.content) ?? 'norn returned an error with no message';
