@@ -473,6 +473,16 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **Node write path replays a concurrent-write drift again under norn 0.45.1**
+  (MMR-237). norn 0.45.1 (NRN-219) flipped a not-applied `vault.apply` to
+  `isError: true` while preserving the structured report — but MMR-207's drift
+  handling was written for 0.45.0's `isError: false`, so the client threw the report
+  away on `isError` and a CAS drift became a hard failure instead of a transparent
+  reload-and-replay (invisible to the suite, which only exercised the happy path).
+  `applyPlan` now tolerates the `isError` signal and returns the structured report for
+  the write path to classify by `outcome` (a genuine tool error carrying no report
+  still throws), restoring the optimistic-concurrency retry. Guarded by a live
+  integration test that drives a real CAS refusal against the installed norn.
 - **Node migration re-run stays idempotent across CRLF line endings** (MMR-172,
   ADR 0016 Phase 3). `migrate nodes` judged whether a doc was already migrated by
   a raw byte compare of the on-disk body against the freshly reconstructed one,

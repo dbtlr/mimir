@@ -133,9 +133,10 @@ async function runTransact<T>(
     // parent. Ensure each create's directory exists on the local vault first;
     // `{{seq}}` only ever occupies the file name, so the directory is concrete.
     ensureCreateDirs(vaultRoot, acc.creates);
-    // norn 0.45: a precondition refusal is reported IN-BAND (isError: false), so
-    // `applyPlan` returns a report rather than throwing on drift — classify it.
-    // A genuine tool/connection error still throws and is terminal (propagates).
+    // norn 0.45.1 (NRN-219): a precondition refusal sets `isError: true` but
+    // PRESERVES the structured report, which `applyPlan` returns (tolerating the
+    // error signal) rather than throwing — so classify the outcome. A genuine
+    // tool/connection error (no report) still throws and is terminal (propagates).
     const report = await client.applyPlan(plan, true);
     const verdict = classifyApply(report);
     if (verdict.kind === 'drift') {

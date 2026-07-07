@@ -208,6 +208,57 @@ test('applyPlan sends vault.apply with {plan, confirm} and unwraps the report', 
   expect(received).toEqual({ confirm: true, plan });
 });
 
+test('applyPlan returns the structured report even when isError is set (norn 0.45.1 refusal)', async () => {
+  // NRN-219: a not-applied apply sets isError:true but PRESERVES the report, so
+  // applyPlan must hand it back for runTransact to classify — never throw it away.
+  const refused = {
+    report: {
+      applied: 0,
+      failed: 1,
+      operations: [
+        {
+          error: {
+            code: 'expected-old-value-mismatch',
+            message: 'stale repair plan for MMR/MMR-1.md',
+            path: 'MMR/MMR-1.md',
+          },
+          kind: 'set_frontmatter',
+          status: 'failed',
+        },
+      ],
+      outcome: 'refused',
+    },
+  };
+  const fake = fakeNorn(() => ({
+    'vault.apply': () =>
+      Promise.resolve({
+        content: [{ text: 'stale repair plan for MMR/MMR-1.md', type: 'text' as const }],
+        isError: true,
+        structuredContent: refused,
+      }),
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  const plan = migrationPlan({
+    operations: [setFrontmatter('MMR/MMR-1.md', 'status', 'done')],
+    vaultRoot: '/vault',
+  });
+  expect(await client.applyPlan(plan, true)).toEqual(refused);
+});
+
+test('applyPlan still throws on an isError result with no structured report', async () => {
+  // a genuine tool error (e.g. an unparseable plan) carries no report → terminal throw
+  const fake = fakeNorn(() => ({
+    'vault.apply': () =>
+      Promise.resolve({
+        content: [{ text: 'plan schema invalid', type: 'text' as const }],
+        isError: true,
+      }),
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  const plan = migrationPlan({ operations: [], vaultRoot: '/vault' });
+  await expectMimirError('validation', () => (client as NornClient).applyPlan(plan, true));
+});
+
 test('an in-flight death on applyPlan fails typed and is never replayed', async () => {
   let applied = 0;
   const fake = fakeNorn((crash) => ({

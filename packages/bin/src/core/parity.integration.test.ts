@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, expect, setSystemTime, test } from 'bun:test';
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -11,6 +19,7 @@ import { migrateToLatest } from '../db/migrator';
 import { createTestDb } from '../db/testing';
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
+import { migrationPlan, setFrontmatter } from '../norn/plan';
 import { createNornWriteStore } from '../norn/writer';
 import { converge } from '../vault/converge';
 import { buildSeedDocs, nornSeedWrite, seedNodes } from '../vault/node-seed';
@@ -994,4 +1003,31 @@ test.skipIf(!HAS_LIVE)(
     }
   },
   300_000,
+);
+
+// The regression guard MMR-207 lacked: exercise a REAL CAS refusal end-to-end, so a
+// future norn change to the failure signal can't slip past a happy-path-only suite.
+test.skipIf(!NORN)(
+  'a CAS-drift apply returns a refused report, not a throw (norn 0.45.1 isError:true)',
+  async () => {
+    const vaultRoot = join(root, 'vault');
+    mkdirSync(join(vaultRoot, 'MMR'), { recursive: true });
+    writeFileSync(
+      join(vaultRoot, 'MMR', 'MMR-1.md'),
+      '---\ntitle: probe\nstatus: todo\n---\n\n## History\n',
+    );
+    const stale = migrationPlan({
+      operations: [setFrontmatter('MMR/MMR-1.md', 'status', 'done', 'WRONG')],
+      vaultRoot,
+    });
+    // norn 0.45.1 sets isError:true on the refusal; applyPlan must tolerate it and
+    // return the structured report (the pre-fix bug threw it away → no drift replay).
+    const payload = (await client.applyPlan(stale, true)) as { report?: Record<string, unknown> };
+    const report = (payload.report ?? payload) as {
+      outcome?: string;
+      operations?: { error?: { code?: string } }[];
+    };
+    expect(report.outcome).toBe('refused');
+    expect(report.operations?.[0]?.error?.code).toBe('expected-old-value-mismatch');
+  },
 );
