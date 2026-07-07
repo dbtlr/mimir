@@ -10,6 +10,7 @@ import {
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
 import { readConfig } from '../service/config';
+import { backfillVaultData } from '../vault/backfill';
 import { converge } from '../vault/converge';
 import { buildSeedDocs } from '../vault/node-seed';
 import type { NodeBodies, SeedDoc } from '../vault/node-seed';
@@ -249,7 +250,11 @@ export async function cmdMigrateNodes(
     configPath: readConfig().vault.path,
     envPath: process.env.MIMIR_VAULT,
   });
-  await converge(vault.path, { allowCreate: vault.allowCreate, exec: bunExec });
+  await converge(vault.path, {
+    allowCreate: vault.allowCreate,
+    exec: bunExec,
+    migrateData: backfillVaultData,
+  });
   const client = new NornClient({ vaultPath: vault.path });
   try {
     render(io, await migrateNodes(docs, restoreNodeDoc(client), { dryRun: false }), opts.json);

@@ -21,6 +21,7 @@ import type { ServiceDeps } from '../service';
 import { DEFAULT_SNAPSHOT_INTERVAL_SECONDS, readConfig, writeConfig } from '../service/config';
 import type { SnapshotConfig } from '../service/config';
 import { converge, expandTilde } from '../vault';
+import { backfillVaultData } from '../vault/backfill';
 import type { VaultDeps } from '../vault/commands';
 import { usage } from './errors';
 import { ok, warn } from './render';
@@ -191,7 +192,11 @@ async function applySetup(
   // 1. Converge the vault at the chosen path. Setup is the explicit, interactive
   //    door where creating at a custom path is intended (resolve.ts), so
   //    allowCreate holds; a foreign non-empty dir still refuses (converge).
-  const result = await converge(answers.vaultPath, { allowCreate: true, exec: deps.vault.exec });
+  const result = await converge(answers.vaultPath, {
+    allowCreate: true,
+    exec: deps.vault.exec,
+    migrateData: backfillVaultData,
+  });
   for (const w of result.warnings) {
     warn(io, `vault: ${w}`);
   }

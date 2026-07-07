@@ -56,6 +56,7 @@ test('projectFrontmatter carries key/name/type + timestamps, omits empty, drops 
     created: '2026-01-01T00:00:00.000Z',
     key: 'FOO',
     name: 'Foo',
+    project: '[[FOO]]',
     type: 'project',
     updated_at: '2026-01-02T00:00:00.000Z',
   });
@@ -112,8 +113,19 @@ const bareNode = {
 };
 
 test('nodeFrontmatter for a bare initiative is type/title/timestamps only', () => {
-  const fm = nodeFrontmatter(bareNode, { dependsOn: [], parentStem: null, tags: [] });
-  expect(fm).toEqual({ created: 'c', title: 'A node', type: 'initiative', updated_at: 'u' });
+  const fm = nodeFrontmatter(bareNode, {
+    dependsOn: [],
+    parentStem: null,
+    projectKey: 'FOO',
+    tags: [],
+  });
+  expect(fm).toEqual({
+    created: 'c',
+    project: '[[FOO]]',
+    title: 'A node',
+    type: 'initiative',
+    updated_at: 'u',
+  });
 });
 
 test('nodeFrontmatter writes parent + depends_on as wikilinks and tags as names', () => {
@@ -122,6 +134,7 @@ test('nodeFrontmatter writes parent + depends_on as wikilinks and tags as names'
     {
       dependsOn: ['FOO-2', 'BAR-7'],
       parentStem: 'FOO-1',
+      projectKey: 'FOO',
       tags: [{ created_at: 'c', note: null, tag: 'urgent' }],
     },
   );
@@ -134,12 +147,12 @@ test('nodeFrontmatter writes parent + depends_on as wikilinks and tags as names'
 test("nodeFrontmatter omits hold when 'none', keeps a real hold + reason", () => {
   const none = nodeFrontmatter(
     { ...bareNode, hold: 'none', type: 'task' },
-    { dependsOn: [], parentStem: null, tags: [] },
+    { dependsOn: [], parentStem: null, projectKey: 'FOO', tags: [] },
   );
   expect(none).not.toHaveProperty('hold');
   const held = nodeFrontmatter(
     { ...bareNode, hold: 'parked', hold_reason: 'waiting upstream', type: 'task' },
-    { dependsOn: [], parentStem: null, tags: [] },
+    { dependsOn: [], parentStem: null, projectKey: 'FOO', tags: [] },
   );
   expect(held.hold).toBe('parked');
   expect(held.hold_reason).toBe('waiting upstream');
@@ -156,7 +169,7 @@ test('nodeFrontmatter carries task signals and a phase target, rank as a number'
       size: 'large',
       type: 'task',
     },
-    { dependsOn: [], parentStem: null, tags: [] },
+    { dependsOn: [], parentStem: null, projectKey: 'FOO', tags: [] },
   );
   expect(task).toMatchObject({
     completed_at: 'done-at',
@@ -168,13 +181,13 @@ test('nodeFrontmatter carries task signals and a phase target, rank as a number'
   expect(typeof task.rank).toBe('number');
   const phase = nodeFrontmatter(
     { ...bareNode, target: 'v2', type: 'phase' },
-    { dependsOn: [], parentStem: null, tags: [] },
+    { dependsOn: [], parentStem: null, projectKey: 'FOO', tags: [] },
   );
   expect(phase.target).toBe('v2');
 });
 
 test('nodeFrontmatter serializes open_ended as the strings true/false, omits when null (MMR-204)', () => {
-  const rel = { dependsOn: [], parentStem: null, tags: [] };
+  const rel = { dependsOn: [], parentStem: null, projectKey: 'FOO', tags: [] };
   expect(nodeFrontmatter({ ...bareNode, open_ended: true, type: 'phase' }, rel).open_ended).toBe(
     'true',
   );
@@ -215,6 +228,10 @@ test('seedNodes projects a real store: projects first, then nodes with resolved 
   const t2Stem = `FOO-${String(t2.seq)}`;
 
   expect(byPath(rec.docs, 'FOO/FOO.md')?.frontmatter.tags).toEqual(['release:v1']);
+  // every work-state doc carries its project-scope key: the project doc
+  // self-referentially, each node pointing at its owning project (MMR-170).
+  expect(byPath(rec.docs, 'FOO/FOO.md')?.frontmatter.project).toBe('[[FOO]]');
+  expect(byPath(rec.docs, `FOO/${phaseStem}.md`)?.frontmatter.project).toBe('[[FOO]]');
   // phase.parent -> initiative wikilink
   expect(byPath(rec.docs, `FOO/${phaseStem}.md`)?.frontmatter.parent).toBe(`[[${initStem}]]`);
   // t1: parent phase, tag, priority; hold 'none' omitted

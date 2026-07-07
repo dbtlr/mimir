@@ -131,3 +131,21 @@ test('readAllNodeDocs short-circuits an empty vault without calling get', async 
   } as unknown as NornClient;
   expect(await readAllNodeDocs(client)).toEqual([]);
 });
+
+test('readAllNodeDocs pushes a scope into the find as project:KEY, omits it when unscoped (MMR-170)', async () => {
+  const seen: { eq?: string[]; in?: string[] }[] = [];
+  const client = {
+    find: (args: { eq?: string[]; in?: string[] }) => {
+      seen.push(args);
+      return Promise.resolve([]);
+    },
+    get: () => Promise.resolve([]),
+  } as unknown as NornClient;
+
+  await readAllNodeDocs(client, 'MMR');
+  expect(seen[0]?.eq).toEqual(['project:MMR']);
+  expect(seen[0]?.in).toEqual(['type:project,task,phase,initiative']);
+
+  await readAllNodeDocs(client);
+  expect(seen[1]).not.toHaveProperty('eq');
+});

@@ -106,7 +106,19 @@ async function create(path: string, exec: Exec): Promise<ConvergeResult> {
 
 export async function converge(
   path: string,
-  opts: { allowCreate: boolean; exec: Exec },
+  opts: {
+    allowCreate: boolean;
+    exec: Exec;
+    /**
+     * Data migrations for a schema-version upgrade: rewrite existing documents
+     * forward (the content counterpart to the structural marker/rules bump),
+     * returning the changed paths to stage. Run once, BEFORE the marker bumps,
+     * so a crash leaves the old schema and the next converge retries. Omitted by
+     * fs/git-only callers (tests); production callers pass {@link ./backfill}'s
+     * `backfillVaultData`.
+     */
+    migrateData?: (path: string, fromSchema: number) => Promise<string[]>;
+  },
 ): Promise<ConvergeResult> {
   const kind = classifyPath(path);
   if (kind === 'file') {
@@ -153,13 +165,32 @@ export async function converge(
   }
 
   const changed: string[] = [];
-  if (marker.schema < VAULT_SCHEMA) {
-    // Future schema migrations hook in here, stepping marker.schema → VAULT_SCHEMA.
-    writeFileSync(markerPath, renderMarker());
-    changed.push(MARKER_FILE);
-  }
   const rulesPath = join(path, NORN_CONFIG_FILE);
-  if (!existsSync(rulesPath) || readFileSync(rulesPath, 'utf8') !== renderNornConfig()) {
+  if (marker.schema < VAULT_SCHEMA) {
+    if (opts.migrateData === undefined) {
+      // A version upgrade must rewrite existing documents to the new shape; a
+      // caller that omits the migrator would advance the marker with every
+      // pre-existing doc left in the old shape and no way to retry (the bumped
+      // marker gates the upgrade out). Fail loud rather than strand them.
+      throw conflict(
+        `converge cannot upgrade the vault at ${path} without a data migrator`,
+        'this is an internal contract error — a schema-upgrade converge must pass migrateData',
+      );
+    }
+    // The data migration (a throw-prone Norn side-effect on documents) runs FIRST,
+    // under the still-current rules — writing an as-yet-undeclared field is fine.
+    // Only once it succeeds are the structural files written ADJACENTLY and
+    // committed together: a crash during the backfill leaves the rules unwritten
+    // and the marker at the old schema (the backfill is idempotent, so the retry
+    // completes it), and the marker and rules can never land in separate commits.
+    const migrated = await opts.migrateData(path, marker.schema);
+    mkdirSync(dirname(rulesPath), { recursive: true });
+    writeFileSync(rulesPath, renderNornConfig());
+    writeFileSync(markerPath, renderMarker());
+    changed.push(NORN_CONFIG_FILE, MARKER_FILE, ...migrated);
+  } else if (!existsSync(rulesPath) || readFileSync(rulesPath, 'utf8') !== renderNornConfig()) {
+    // No version bump, but the generated rules drifted from this binary's — a
+    // rules-only regeneration within the same schema.
     mkdirSync(dirname(rulesPath), { recursive: true });
     writeFileSync(rulesPath, renderNornConfig());
     changed.push(NORN_CONFIG_FILE);

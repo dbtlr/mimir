@@ -15,6 +15,21 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Work-state documents carry a required `project` frontmatter field** (MMR-170,
+  ADR 0016 refinement). Every node and project document now records its owning
+  project as a `project` wikilink (`[[KEY]]`, self-referential on the project
+  doc), mirroring the artifact seam — so Norn's frontmatter-only `vault.find` can
+  scope work-state docs by project (`--eq project:KEY`), which the stem alone
+  could not. Declared `project: wikilink` and **required** in the node/project
+  schema rules (`VAULT_SCHEMA` 2 → 3): a scope query is only trustworthy if every
+  in-scope document answers it, and the self-referential value is what makes the
+  project document itself findable. The schema upgrade **backfills** the field
+  onto existing documents (the value derived from each document's stem, never its
+  path) before the marker advances, so a crash mid-upgrade retries; the reader
+  still derives a node's project from its stem and ignores the field for
+  correctness, so it is not a second source of truth. `mimir doctor -s <KEY>` now
+  pushes the scope into the vault query instead of reading the whole vault and
+  filtering in memory.
 - **Open-ended containers** (MMR-204, ADR 0001/0008 refinement). A stored
   container-only boolean `open_ended` (phase/initiative) marks a purposefully
   standing home (Bugs, Polish, Ideas) that is filed against continuously and

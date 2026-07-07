@@ -536,6 +536,7 @@ class Accumulator {
   }
 
   private nodeRelations(node: Node): {
+    projectKey: string;
     parentStem: string | null;
     dependsOn: string[];
     tags: NodeTag[];
@@ -545,9 +546,14 @@ class Accumulator {
       .map((e) => this.stemOf(e.depends_on_node_id))
       .toSorted((a, b) => a.localeCompare(b));
     const tags = (this.nodeTags.get(node.id) ?? []).toSorted((a, b) => a.tag.localeCompare(b.tag));
+    const project = this.projects.get(node.project_id);
+    if (project === undefined) {
+      throw invariant('a node referenced a project absent from the snapshot');
+    }
     return {
       dependsOn,
       parentStem: node.parent_id === null ? null : this.stemOf(node.parent_id),
+      projectKey: project.key,
       tags,
     };
   }

@@ -314,9 +314,9 @@ async function main(argv: string[]): Promise<number> {
         // and read every node document's raw body.
         readNodeDocs:
           artifactBackend() === 'norn'
-            ? async () => {
+            ? async (scope) => {
                 await getStore();
-                return (await built?.readNodeDocs?.()) ?? [];
+                return (await built?.readNodeDocs?.(scope)) ?? [];
               }
             : null,
         readVaultGraph:

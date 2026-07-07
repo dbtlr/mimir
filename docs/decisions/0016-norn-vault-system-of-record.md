@@ -295,3 +295,56 @@ this is the root constraint, not an implementation gap.
   document's `.body` **once** and slices each section (`BodySectionStore`'s
   `readSections`), instead of one `.body` fetch per facet. This is orthogonal to
   the feed contract but was folded in with it.
+
+## Refinement (2026-07-07, MMR-170): a `project` frontmatter field makes work-state docs scopable by `vault.find`
+
+Norn's `vault.find` filters on **frontmatter fields and full-text**, not on the
+document path. A node's owning project lived only in its `KEY-seq` stem (the file
+path), so no `find` selector could scope work-state docs by project — the pattern
+artifacts already use (`--eq project:KEY`) had no node equivalent. A scoped
+`mimir doctor` therefore read the whole vault and filtered in memory.
+
+- **Every work-state document carries a `project` frontmatter field, and it is
+  required.** A wikilink to the owning project (`[[KEY]]`), self-referential on
+  the project document, mirroring the artifact rule and `parent`. Declared
+  `project: wikilink` and `required` in the node and project schema rules;
+  `VAULT_SCHEMA` bumps `2 → 3`. Required is deliberate, not incidental: a scope
+  query is only trustworthy if _every_ in-scope document answers it, and the
+  self-referential value is what makes the **project document itself** findable
+  by `--eq project:KEY`. This lets `find --in type:… --eq project:KEY` return a
+  project and all its nodes in one query — the scope push-down `mimir doctor -s`
+  now uses instead of reading the whole vault and filtering in memory.
+- **The schema bump backfills existing documents; it does not merely declare the
+  new shape.** A structural bump alone (regenerated rules + marker) would leave
+  every pre-existing document missing a now-required field — invisible to the
+  scoped query the field exists to serve. So the `2 → 3` converge runs a data
+  migration ([`vault/backfill.ts`](../../packages/bin/src/vault/backfill.ts)):
+  it finds documents `--missing project` and writes each one's value. The
+  migration runs **first** — a throw-prone Norn side-effect under the still-current
+  rules — and only once it succeeds are the regenerated rules and the bumped
+  marker written **adjacently and committed together**. So a crash mid-backfill
+  leaves the rules unwritten and the marker at the old schema (the backfill is
+  idempotent, so the retry completes it), and a bumped marker can never land in a
+  commit beside stale rules. converge gained a `migrateData` injection point so
+  the fs/git-structural function stays client-free for its unit tests while every
+  production caller performs the Norn-side rewrite (ADR 0018); an upgrade converge
+  with no migrator **refuses** rather than advancing the marker over un-migrated
+  documents.
+- **The value comes from the stem, never the path.** The `KEY/…` directory layout
+  is deliberately irrelevant to identity — only document _creation_ (`norn new`)
+  constructs a path; everywhere else the stem resolves cleanly. The backfill
+  derives a document's project key from its stem (`parseIdentity`), addresses the
+  write by that stem, and never reads the directory. Deriving the key from the
+  `KEY/` directory prefix would couple identity to the layout the vault is built
+  to keep incidental.
+- **The stem stays authoritative; `project` is a materialized query projection.**
+  This does not add a second source of truth: the reader still derives a node's
+  project from its stem and **ignores** the frontmatter field for correctness.
+  The field exists solely so Norn's frontmatter-only query engine can scope — the
+  same reason `parent`/`depends_on` are materialized as stems rather than
+  recomputed. "Derive, don't store" governs _truth_ (the rollups and predicates
+  that would drift); a queryable projection of a stem-derived identity is not
+  that. A document whose `project` is present but hand-corrupted to a different
+  key falls out of a _scoped_ `find` — a diagnostic-only, bounded edge (the
+  reader is unaffected; `-s all` catches it). A stem-vs-`project` divergence
+  check is a deferred follow-up (MMR-231), not load-bearing for correctness.

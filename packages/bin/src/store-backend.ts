@@ -23,6 +23,7 @@ import type { VaultGraph } from './core/store-norn';
 import { bunExec } from './exec';
 import { NornClient } from './norn/client';
 import { readConfig } from './service/config';
+import { backfillVaultData } from './vault/backfill';
 import { converge } from './vault/converge';
 import { resolveVault } from './vault/resolve';
 
@@ -52,7 +53,7 @@ export type BuiltStore = {
    * backend (a vault diagnostic); `undefined` on SQLite signals doctor to no-op,
    * since typed rows carry no malformable body sections.
    */
-  readNodeDocs?: () => Promise<{ stem: string; body: string }[]>;
+  readNodeDocs?: (scope?: string) => Promise<{ stem: string; body: string }[]>;
   /**
    * Read the vault's raw, unresolved relational graph — the input for
    * `mimir doctor`'s referential checks (MMR-169 dangling refs, MMR-178 missing
@@ -85,14 +86,18 @@ export async function buildStore(db: Db, backend = artifactBackend()): Promise<B
     configPath: readConfig().vault.path,
     envPath: process.env.MIMIR_VAULT,
   });
-  await converge(vault.path, { allowCreate: vault.allowCreate, exec: bunExec });
+  await converge(vault.path, {
+    allowCreate: vault.allowCreate,
+    exec: bunExec,
+    migrateData: backfillVaultData,
+  });
   const client = new NornClient({ vaultPath: vault.path });
   return {
     close: async () => {
       await client.close();
       await db.destroy();
     },
-    readNodeDocs: () => readAllNodeDocs(client),
+    readNodeDocs: (scope) => readAllNodeDocs(client, scope),
     readVaultGraph: () => readVaultGraph(client),
     store: withArtifactStore(base, createNornArtifactStore(client)),
     validate: () => client.validate(),

@@ -33,12 +33,24 @@ async function readBody(client: NornClient, stem: string): Promise<string> {
  * docs (`vault.find`), then batch-reads their bodies (`vault.get … .body`) and
  * keys each back by path. A vault diagnostic reads the disk directly, so it is
  * independent of the node read path (still SQLite until the Phase 4 cutover).
+ *
+ * A `scope` (a project KEY) pushes into the find as `project:KEY`, so a scoped
+ * doctor fetches only its project's docs instead of the whole vault (MMR-170) —
+ * matching the artifact seam's `project:KEY` selector. This relies on the
+ * `project` frontmatter field every work-state doc now carries (nodes point at
+ * their project; the project doc is self-referential). The field is a query
+ * projection of the authoritative `KEY-seq` stem; a doc whose `project` is
+ * missing or hand-corrupted falls out of the scoped read, but norn's
+ * `required_frontmatter` surfaces a missing one as a validate finding (MMR-191),
+ * and the caller re-applies an authoritative stem filter as a backstop.
  */
 export async function readAllNodeDocs(
   client: NornClient,
+  scope?: string,
 ): Promise<{ stem: string; body: string }[]> {
   const docs = await client.find({
     in: ['type:project,task,phase,initiative'],
+    ...(scope === undefined ? {} : { eq: [`project:${scope}`] }),
     no_limit: true,
   });
   const paths = docs.map((doc) => doc.path);
