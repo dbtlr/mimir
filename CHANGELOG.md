@@ -430,6 +430,16 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **Node migration re-run stays idempotent across CRLF line endings** (MMR-172,
+  ADR 0016 Phase 3). `migrate nodes` judged whether a doc was already migrated by
+  a raw byte compare of the on-disk body against the freshly reconstructed one,
+  trimming only the trailing edge. A prior migration's doc re-saved with CRLF (a
+  Windows editor, git `autocrlf`) kept interior `\r`, so the compare diverged and
+  the create-exclusive re-run rethrew a path-collision instead of reporting
+  `skipped` — breaking the documented "re-run is idempotent" guarantee. Both
+  sides are now normalized to the codec's canonical LF before comparison (the
+  same MMR-167 line-ending rule the read path applies), exported as a single
+  shared `toCanonicalLf` so the two can't drift.
 - **Unknown verbs and flags hard-error instead of dumping help** (MMR-211). An
   unknown verb (`mimir add`, `mimir edit`) — even with `-h`/`--help` — printed the
   full top-level help and exited `0`, which an agent could read as task data and

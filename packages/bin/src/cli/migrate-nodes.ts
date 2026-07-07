@@ -2,7 +2,11 @@ import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import { createSqliteStore } from '../core';
 import type { Db } from '../core/context';
-import { renderMigratedNodeBody, renderMigratedProjectBody } from '../core/history-codec';
+import {
+  renderMigratedNodeBody,
+  renderMigratedProjectBody,
+  toCanonicalLf,
+} from '../core/history-codec';
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
 import { readConfig } from '../service/config';
@@ -159,12 +163,15 @@ function bodyOf(record: unknown): string {
  * would write, judged by its BODY — the reconstructed `## History`/
  * `## Annotations`/description, which is deterministic from SQLite and round-trips
  * verbatim (unlike frontmatter, which Norn may reformat). Trailing whitespace is
- * ignored. A frontmatter-only Phase-2b seed doc, a stale doc whose source gained
- * a transition/annotation, or a foreign doc all differ here and are NOT skipped.
+ * ignored, and line endings are normalized to the codec's canonical LF so a doc
+ * re-saved with CRLF (Windows editor / git `autocrlf`) still reads as identical
+ * (MMR-172). A frontmatter-only Phase-2b seed doc, a stale doc whose source
+ * gained a transition/annotation, or a foreign doc all differ here and are NOT
+ * skipped.
  */
 async function alreadyMigrated(client: NornClient, doc: SeedDoc): Promise<boolean> {
   const existing = await client.get([doc.path], '.body');
-  return bodyOf(existing[0]).trimEnd() === doc.body.trimEnd();
+  return toCanonicalLf(bodyOf(existing[0])).trimEnd() === toCanonicalLf(doc.body).trimEnd();
 }
 
 /**
