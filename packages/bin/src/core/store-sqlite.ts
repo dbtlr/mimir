@@ -1,6 +1,5 @@
 import { allocateArtifactSeq, allocateSeq } from './allocation';
 import { createSqliteArtifactStore } from './artifacts/sqlite';
-import type { ArtifactStore } from './artifacts/store';
 import { createSqliteBodySectionStore } from './body-sections/sqlite';
 import type { Db, Tx } from './context';
 import type { NodeTag, Store, StoreWriter, WorkingSet } from './store';
@@ -201,13 +200,4 @@ export function createSqliteStore(db: Db): Store {
     transact: (fn) => db.transaction().execute((tx) => fn(createWriter(tx))),
     transitions: createSqliteTransitionsFeed(db),
   };
-}
-
-/**
- * The store with its artifact slice swapped for another backend (MMR-143,
- * behind the backend flag): nodes, projects, and every verb stay put;
- * artifacts read and write through the given slice.
- */
-export function withArtifactStore(base: Store, artifacts: ArtifactStore): Store {
-  return { ...base, artifacts };
 }

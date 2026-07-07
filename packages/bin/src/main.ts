@@ -42,7 +42,7 @@ import {
   readVaultConfig,
 } from './service';
 import type { Health, ServiceDeps } from './service';
-import { artifactBackend, buildStore } from './store-backend';
+import { buildStore, storeBackend } from './store-backend';
 import type { BuiltStore } from './store-backend';
 import { resolveVault } from './vault';
 import type { VaultDeps } from './vault/commands';
@@ -313,21 +313,21 @@ async function main(argv: string[]): Promise<number> {
         // so doctor no-ops (null). On Norn, open the store (building the client)
         // and read every node document's raw body.
         readNodeDocs:
-          artifactBackend() === 'norn'
+          storeBackend() === 'norn'
             ? async (scope) => {
                 await getStore();
                 return (await built?.readNodeDocs?.(scope)) ?? [];
               }
             : null,
         readVaultGraph:
-          artifactBackend() === 'norn'
+          storeBackend() === 'norn'
             ? async () => {
                 await getStore();
                 return (await built?.readVaultGraph?.()) ?? { nodes: [], projectKeys: [] };
               }
             : null,
         validate:
-          artifactBackend() === 'norn'
+          storeBackend() === 'norn'
             ? async () => {
                 await getStore();
                 return (await built?.validate?.()) ?? { findings: [] };
