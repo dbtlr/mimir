@@ -44,7 +44,7 @@ export type NornToolName =
   | 'vault.edit'
   | 'vault.validate'
   | 'vault.describe'
-  | 'vault.apply_plan';
+  | 'vault.apply';
 
 /** `vault.find` / `vault.count` selection params (probed from the live catalog). */
 export type NornSelection = {
@@ -339,9 +339,16 @@ export class NornClient {
    * (forecast, no write); `confirm: true` acquires the vault mutation lock and
    * executes every op. Never auto-retried: a confirmed batch must not
    * double-apply on an ambiguous failure.
+   *
+   * Returns norn's raw `ApplyReport` payload. As of norn 0.45 a precondition
+   * refusal (CAS drift) comes back **in-band** — `isError: false`, a report
+   * whose `outcome` is `refused`/`failed` and whose failed ops carry a
+   * structured `error.code` — not as a thrown MCP error; the write path
+   * ({@link runTransact}) classifies that report rather than catching a throw.
+   * (A genuine tool/connection error still throws.)
    */
   async applyPlan(plan: MigrationPlan, confirm: boolean): Promise<unknown> {
-    return this.call('vault.apply_plan', { confirm, plan }, false);
+    return this.call('vault.apply', { confirm, plan }, false);
   }
 
   /**

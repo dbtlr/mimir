@@ -22,7 +22,7 @@ type FakeTool = (args: Record<string, unknown>) => Promise<{
 }>;
 
 const SHAPES: Record<string, z.ZodRawShape> = {
-  'vault.apply_plan': {
+  'vault.apply': {
     confirm: z.boolean().optional(),
     plan: z.record(z.string(), z.unknown()),
   },
@@ -190,10 +190,10 @@ test('an in-flight death on a mutation fails typed and is never replayed', async
   expect(fake.spawns).toBe(2);
 });
 
-test('applyPlan sends vault.apply_plan with {plan, confirm} and unwraps the report', async () => {
+test('applyPlan sends vault.apply with {plan, confirm} and unwraps the report', async () => {
   let received: unknown = null;
   const fake = fakeNorn(() => ({
-    'vault.apply_plan': (args) => {
+    'vault.apply': (args) => {
       received = args;
       return Promise.resolve({ structuredContent: { report: { applied: 1, dry_run: false } } });
     },
@@ -211,7 +211,7 @@ test('applyPlan sends vault.apply_plan with {plan, confirm} and unwraps the repo
 test('an in-flight death on applyPlan fails typed and is never replayed', async () => {
   let applied = 0;
   const fake = fakeNorn((crash) => ({
-    'vault.apply_plan': async () => {
+    'vault.apply': async () => {
       applied += 1;
       if (applied === 1) {
         await crash(); // the batch may or may not have landed — ambiguous

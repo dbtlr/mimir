@@ -237,6 +237,22 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Adopt norn 0.45: the `vault.apply` tool rename and its in-band refusal signal**
+  (MMR-207, subsumes MMR-202). norn 0.45 renames the MCP plan-apply tool
+  `vault.apply_plan` → `vault.apply` (NRN-185) and, more consequentially, reports a
+  precondition refusal (a CAS drift) **in-band** — `isError: false`, a report whose
+  `outcome` is `refused`/`failed` with a structured `error.code` — instead of the
+  pre-0.45 thrown MCP error. The node write path's optimistic-concurrency retry
+  therefore no longer detects drift by catching a throw and prose-matching
+  `stale repair plan for`; it classifies the returned report by `outcome`, replaying
+  only a `refused` whose failed ops all carry a CAS-drift code
+  (`expected-old-value-mismatch` / `stale-document-hash`), and treating any other
+  refusal or a partial `failed` apply as terminal (never a blind replay). Without
+  this, a lost update under 0.45 would be silently swallowed as success with nothing
+  written. Same-commit with the binary adoption; live parity verified against norn
+  0.45. Restart any persistent `norn mcp` client after upgrading (tool contract +
+  cache schema change). A norn-side follow-up to also set `isError` on a not-applied
+  outcome is tracked upstream.
 - **Dependency bumps** (dependabot reconcile). `vite` 8.0.16→8.1.3, `tailwindcss`
   and `@tailwindcss/vite` 4.3.0→4.3.2, `@tanstack/react-router` 1.170.15→1.170.17,
   and the `actions/checkout` CI action v6→v7. The `vite` bump moved the root

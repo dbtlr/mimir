@@ -12,9 +12,10 @@ import { createNornWriteStore } from './writer';
 /**
  * Writer unit coverage without a live `norn` (MMR-153): a fake client serves a
  * scripted snapshot for `find` and captures the `MigrationPlan` handed to
- * `apply_plan`, so the coalescing, CAS old-value, provisional-seq resolution,
- * and drift-retry logic are exercised in isolation. The live end-to-end parity
- * lives in `core/parity.integration.test.ts`.
+ * `vault.apply`, so the coalescing, CAS old-value, provisional-seq resolution,
+ * and drift-retry logic are exercised in isolation. Drift is a norn 0.45 in-band
+ * `outcome: 'refused'` report (isError: false), not a thrown error. The live
+ * end-to-end parity lives in `core/parity.integration.test.ts`.
  */
 
 const TS = '2026-06-01T00:00:00.000Z';
@@ -25,6 +26,30 @@ const ROOT = mkdtempSync(join(tmpdir(), 'writer-unit-'));
 afterAll(() => rmSync(ROOT, { force: true, recursive: true }));
 
 type ApplyOutcome = { report: unknown } | { throws: Error };
+
+/** A norn 0.45 CAS-drift refusal report (in-band, isError: false): outcome
+ * 'refused' with a structured `error.code` on the failed op — the signal the
+ * write path reloads and replays on. */
+const driftRefusal = (field = 'lifecycle'): ApplyOutcome => ({
+  report: {
+    report: {
+      applied: 0,
+      failed: 1,
+      operations: [
+        {
+          error: {
+            code: 'expected-old-value-mismatch',
+            message: `stale repair plan for MMR/MMR-1.md field ${field}: expected "todo", found "done"`,
+            path: 'MMR/MMR-1.md',
+          },
+          kind: 'set_frontmatter',
+          status: 'failed',
+        },
+      ],
+      outcome: 'refused',
+    },
+  },
+});
 
 /** A fake `NornClient`: `find` returns `docs` for the snapshot read and, once at
  * least one `applyPlan` has run, `reloadDocs` (the post-apply reload a create's
@@ -46,7 +71,7 @@ function fakeClient(
     applyPlan: (plan: MigrationPlan): Promise<unknown> => {
       plans.push(plan);
       const outcome = outcomes[applies] ?? {
-        report: { failed: 0, operations: [] },
+        report: { report: { failed: 0, operations: [], outcome: 'applied' } },
       };
       applies += 1;
       if ('throws' in outcome) {
@@ -238,10 +263,22 @@ test('a create emits one create_document with {{seq}} and stitches the resolved 
     docs,
     [
       {
+        // a real norn 0.45 applied create report: outcome + the create op's
+        // resolved path/stem alongside the summary the writer parses today.
         report: {
           report: {
+            applied: 1,
             failed: 0,
-            operations: [{ kind: 'create_document', summary: 'create MMR/MMR-2.md' }],
+            operations: [
+              {
+                kind: 'create_document',
+                path: 'MMR/MMR-2.md',
+                status: 'applied',
+                stem: 'MMR-2',
+                summary: 'create MMR/MMR-2.md',
+              },
+            ],
+            outcome: 'applied',
           },
         },
       },
@@ -294,12 +331,8 @@ test('a drift refusal reloads the snapshot and replays the verb', async () => {
     },
   ];
   const { client, plans, findCount } = fakeClient(docs, [
-    {
-      throws: new Error(
-        'norn vault.apply_plan: stale repair plan for MMR/MMR-1.md field lifecycle: expected "todo", found "done"; regenerate',
-      ),
-    },
-    { report: { failed: 0, operations: [] } },
+    driftRefusal('lifecycle'),
+    { report: { report: { failed: 0, operations: [], outcome: 'applied' } } },
   ]);
   const store = createNornWriteStore(client, ROOT);
   const ws = await store.loadWorkingSet();
@@ -313,7 +346,7 @@ test('a drift refusal reloads the snapshot and replays the verb', async () => {
   expect(findCount() - findsBefore).toBe(2);
 });
 
-test('a non-drift apply failure propagates without a replay', async () => {
+test('a thrown tool/connection error propagates without a replay', async () => {
   const docs: NornDocument[] = [
     projectDoc(),
     {
@@ -329,7 +362,7 @@ test('a non-drift apply failure propagates without a replay', async () => {
     },
   ];
   const { client, plans } = fakeClient(docs, [
-    { throws: new Error('norn vault.apply_plan: some other failure') },
+    { throws: new Error('norn vault.apply: some other failure') },
   ]);
   const store = createNornWriteStore(client, ROOT);
   const ws = await store.loadWorkingSet();
@@ -343,6 +376,150 @@ test('a non-drift apply failure propagates without a replay', async () => {
   }
   expect(message).toContain('some other failure');
   expect(plans).toHaveLength(1); // no replay
+});
+
+test('an in-band non-drift refusal (deterministic code) propagates without a replay', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        title: 'Task',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ];
+  // outcome: 'refused' but the code is NOT a CAS drift → deterministic, a blind
+  // retry can't change it, so it must terminate (not replay).
+  const { client, plans } = fakeClient(docs, [
+    {
+      report: {
+        report: {
+          applied: 0,
+          failed: 1,
+          operations: [
+            {
+              error: {
+                code: 'post-image-verification-failed',
+                message: 'refused: MMR/MMR-1.md would not round-trip',
+                path: 'MMR/MMR-1.md',
+              },
+              kind: 'set_frontmatter',
+              status: 'failed',
+            },
+          ],
+          outcome: 'refused',
+        },
+      },
+    },
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  const ws = await store.loadWorkingSet();
+  const id = ws.nodes[0]?.id ?? 0;
+
+  let message = '';
+  try {
+    await startTask(store, id);
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain('apply did not complete');
+  expect(plans).toHaveLength(1); // deterministic refusal — no replay
+});
+
+test('a mixed refusal (a CAS op plus a code-less failed op) is terminal, not replayed', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        title: 'Task',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ];
+  // outcome 'refused' with ONE CAS-drift op AND one code-less failed op. A blind
+  // replay can't clear the second failure, so the whole refusal is terminal — the
+  // CAS op must not let the code-less op ride along into the replay path.
+  const { client, plans } = fakeClient(docs, [
+    {
+      report: {
+        report: {
+          applied: 0,
+          failed: 2,
+          operations: [
+            {
+              error: {
+                code: 'expected-old-value-mismatch',
+                message: 'stale repair plan for MMR/MMR-1.md field lifecycle',
+                path: 'MMR/MMR-1.md',
+              },
+              kind: 'set_frontmatter',
+              status: 'failed',
+            },
+            {
+              error: { message: 'section edit refused', path: 'MMR/MMR-1.md' },
+              kind: 'append_to_section',
+              status: 'failed',
+            },
+          ],
+          outcome: 'refused',
+        },
+      },
+    },
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  const ws = await store.loadWorkingSet();
+  const id = ws.nodes[0]?.id ?? 0;
+
+  let message = '';
+  try {
+    await startTask(store, id);
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain('apply did not complete');
+  expect(plans).toHaveLength(1); // NOT blind-replayed on the CAS op alone
+});
+
+test('an unrecognized apply report (no outcome) is terminal, never a silent success', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        title: 'Task',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ];
+  // A degraded/shape-changed report with no `outcome`: a write we cannot confirm
+  // as applied must fail loud, never be swallowed as success.
+  const { client, plans } = fakeClient(docs, [{ report: { report: { operations: [] } } }]);
+  const store = createNornWriteStore(client, ROOT);
+  const ws = await store.loadWorkingSet();
+  const id = ws.nodes[0]?.id ?? 0;
+
+  let message = '';
+  try {
+    await startTask(store, id);
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain('apply did not complete');
+  expect(plans).toHaveLength(1);
 });
 
 // F1+F2 — a create must resolve a real seq/id from the apply report, or throw.
@@ -362,7 +539,7 @@ test('a create whose apply report omits the create summary throws (no leaked pro
   ];
   // the apply "succeeds" but the report carries no create_document summary
   const { client, plans } = fakeClient(docs, [
-    { report: { report: { failed: 0, operations: [] } } },
+    { report: { report: { applied: 1, failed: 0, operations: [], outcome: 'applied' } } },
   ]);
   const store = createNornWriteStore(client, ROOT);
   const ws = await store.loadWorkingSet();
@@ -395,11 +572,7 @@ test('repeated drift across every attempt throws the exhaustion error after MAX_
     },
   ];
   // more drift outcomes than attempts — the loop must stop itself, not run out of script
-  const driftOutcomes: ApplyOutcome[] = Array.from({ length: 6 }, () => ({
-    throws: new Error(
-      'norn vault.apply_plan: stale repair plan for MMR/MMR-1.md field lifecycle: expected "todo", found "done"; regenerate',
-    ),
-  }));
+  const driftOutcomes: ApplyOutcome[] = Array.from({ length: 6 }, () => driftRefusal('lifecycle'));
   const { client, plans } = fakeClient(docs, driftOutcomes);
   const store = createNornWriteStore(client, ROOT);
   const ws = await store.loadWorkingSet();
