@@ -96,10 +96,65 @@ test('per-command help never acquires the store (MMR-118, MMR-39)', async () => 
   }
 });
 
-test('help for a verb without a descriptor falls back to the top-level help', async () => {
+test('a real verb without a descriptor still falls back to the top-level help', async () => {
+  // `service`/`skill`/`self-update` have no COMMAND_HELP descriptor; `-h` shows
+  // the top-level help (exit 0) — the behavior an unknown verb must NOT get.
   const io = fakeIo(true);
-  expect(await runCli(['frobnicate', '-h'], neverStore, io)).toBe(0);
+  expect(await runCli(['service', '-h'], neverStore, io)).toBe(0);
   expect(io.out.join('')).toContain('usage: mimir');
+});
+
+test('an unknown verb hard-errors (exit 2) even with -h/--help — never the help fallthrough (MMR-211)', async () => {
+  for (const argv of [['frobnicate'], ['frobnicate', '-h'], ['frobnicate', '--help']]) {
+    const io = fakeIo(true);
+    expect(await runCli(argv, neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('unknown command: frobnicate');
+    // No top-level help body leaks to stdout — that dump is the mined defect.
+    expect(io.out.join('')).toBe('');
+  }
+});
+
+test('the mined verbs add/edit error even with --help (MMR-211)', async () => {
+  for (const verb of ['add', 'edit']) {
+    const io = fakeIo(true);
+    expect(await runCli([verb, '--help'], neverStore, io)).toBe(2);
+    expect(io.out.join('')).toBe('');
+    expect(io.err.join('')).toContain(`unknown command: ${verb}`);
+  }
+});
+
+test('an unknown verb suggests the nearest command (MMR-211)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['statuss'], neverStore, io)).toBe(2);
+  expect(io.err.join('')).toContain("did you mean 'status'");
+});
+
+test('an unknown flag errors (exit 2) with a pointer, not the full help body (MMR-211)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['get', 'MMR-1', '--bogus'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain('Unknown option');
+  expect(err).toContain('mimir get -h'); // concise pointer to the verb's flags
+  expect(io.out.join('')).toBe('');
+  // The 144-line top-level help body is gone — no command listing dumped.
+  expect(err).not.toContain('read commands:');
+});
+
+test('deps-gated verbs are recognized, not "unknown command" — guards COMMANDS/switch drift (MMR-211)', async () => {
+  for (const verb of [
+    'setup',
+    'service',
+    'vault',
+    'doctor',
+    'self-update',
+    'skill',
+    'bind',
+    'migrate',
+  ]) {
+    const io = fakeIo(true);
+    await runCli([verb], neverStore, io);
+    expect(`${io.err.join('')}${io.out.join('')}`).not.toContain('unknown command');
+  }
 });
 
 // ── migrate namespace (MMR-159) ──────────────────────────────────────────

@@ -153,6 +153,57 @@ const OPTIONS = {
 /* oxlint-enable sort-keys */
 
 /**
+ * Every dispatch verb — the authority for "is this a real command?" (MMR-211).
+ * An unknown verb is a hard usage error (exit 2) even with `-h`/`--help`; it
+ * must never fall through to the top-level help, which an agent can misread as
+ * task data and then act on stale context. Keep in lock-step with the switch in
+ * `runCli` (its `default:` is a defensive backstop). `serve`/`mcp`/`version` are
+ * intercepted upstream in `main` and never reach here.
+ */
+const COMMANDS: ReadonlySet<string> = new Set([
+  'next',
+  'list',
+  'get',
+  'status',
+  'tree',
+  'start',
+  'submit',
+  'return',
+  'done',
+  'abandon',
+  'reopen',
+  'park',
+  'unpark',
+  'block',
+  'unblock',
+  'depend',
+  'undepend',
+  'move',
+  'reorder',
+  'update',
+  'annotate',
+  'attach',
+  'create',
+  'tag',
+  'untag',
+  'archive',
+  'unarchive',
+  'skill',
+  'bind',
+  'migrate',
+  'setup',
+  'service',
+  'vault',
+  'doctor',
+  'self-update',
+]);
+
+/** Every valid flag spelling — long `--name` plus any short `-x` alias. */
+const FLAG_SPELLINGS: readonly string[] = Object.entries(OPTIONS).flatMap(([name, spec]) =>
+  'short' in spec ? [`--${name}`, `-${spec.short}`] : [`--${name}`],
+);
+
+/**
  * Per-invocation environment defaults resolved by the composition root —
  * the Project Binding scope (ADR 0011) and the directory `bind` writes into.
  * Injected so the CLI stays testable without touching the real cwd.
@@ -279,11 +330,10 @@ export async function runCli(
     positionals = parsed.positionals;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    const fmt = errorFormat(argv);
-    renderError(usage(msg), fmt, io);
-    if (fmt !== 'json' && fmt !== 'jsonl') {
-      io.error(TERSE_HELP);
-    }
+    // A bad/unknown flag is a hard usage error — a concise pointer (plus a
+    // did-you-mean when one is close), never the full help body dumped as
+    // output that an agent could read as data (MMR-211).
+    renderError(usage(msg, unknownFlagHint(argv, msg)), errorFormat(argv), io);
     return 2;
   }
 
@@ -292,6 +342,18 @@ export async function runCli(
   if (command === undefined) {
     io.write(full ? FULL_HELP : TERSE_HELP);
     return 0;
+  }
+  // An unknown verb is a hard usage error (exit 2) — even with `-h`/`--help`,
+  // which must never fall through to the top-level help. A silent help dump
+  // (worse, at exit 0) reads as data to an agent that then proceeds on stale
+  // context (MMR-211). Real verbs continue to the help/dispatch paths below.
+  if (!COMMANDS.has(command)) {
+    renderError(
+      usage(`unknown command: ${command}`, unknownCommandHint(command)),
+      errorFormat(argv),
+      io,
+    );
+    return 2;
   }
   // `<cmd> -h` / `<cmd> --help` prints THAT command's help (MMR-118), falling
   // back to the top-level help for a verb without a descriptor. Returns before
@@ -673,6 +735,63 @@ function errorFormat(argv: string[]): string {
     }
   }
   return 'records';
+}
+
+/** Levenshtein edit distance — small inputs (verb/flag names), one-row DP. */
+function editDistance(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = row[0] ?? 0;
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const above = row[j] ?? 0;
+      row[j] = Math.min(above + 1, (row[j - 1] ?? 0) + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diag = above;
+    }
+  }
+  return row[b.length] ?? 0;
+}
+
+/**
+ * The closest candidate to `input`, but only when it's a genuinely near miss:
+ * within 2 edits and strictly shorter distance than the input's own length, so
+ * a short typo can't "match" everything. Undefined when nothing is close.
+ */
+function nearest(input: string, candidates: Iterable<string>): string | undefined {
+  let best: string | undefined;
+  let bestD = Number.POSITIVE_INFINITY;
+  for (const candidate of candidates) {
+    const d = editDistance(input, candidate);
+    if (d < bestD) {
+      bestD = d;
+      best = candidate;
+    }
+  }
+  return best !== undefined && bestD <= 2 && bestD < input.length ? best : undefined;
+}
+
+/** Hint for an unknown verb: a did-you-mean when close, else a pointer to help. */
+function unknownCommandHint(command: string): string {
+  const near = nearest(command, COMMANDS);
+  return near !== undefined
+    ? `did you mean '${near}'? (or run 'mimir --help' to see the commands)`
+    : "run 'mimir --help' to see the commands";
+}
+
+/**
+ * Hint for a parse failure — typically an unknown flag. A did-you-mean on the
+ * offending flag when one is close, plus a pointer to the relevant command's
+ * own help (its flags), falling back to the top-level help.
+ */
+function unknownFlagHint(argv: string[], message: string): string {
+  const flag = /Unknown option '(--?[^']+)'/.exec(message)?.[1];
+  const near = flag === undefined ? undefined : nearest(flag, FLAG_SPELLINGS);
+  const verb = argv.find((arg) => !arg.startsWith('-'));
+  const help =
+    verb !== undefined && COMMANDS.has(verb)
+      ? `run 'mimir ${verb} -h' for its flags`
+      : "run 'mimir --help' for usage";
+  return near !== undefined ? `did you mean '${near}'? (or ${help})` : help;
 }
 
 function runSet(
