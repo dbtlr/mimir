@@ -5,7 +5,7 @@ import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import { createNornArtifactStore } from '../core/artifacts';
 import { createNornBodySectionStore } from '../core/body-sections';
-import { invariant } from '../core/errors';
+import { invariant, validation } from '../core/errors';
 import {
   ANNOTATIONS_HEADING,
   DESCRIPTION_HEADING,
@@ -148,7 +148,10 @@ async function runTransact<T>(
     if (verdict.kind === 'failed') {
       // A non-drift refusal (deterministic — blind retry won't change it) or a
       // partial apply (some ops wrote — NOT byte-identical, not safe to replay).
-      throw invariant('the node write path apply did not complete', verdict.detail);
+      // A norn-side refusal (bad input / precondition / conflict), not a mimir
+      // invariant breach — surface it as a `validation` error, as the pre-0.45
+      // `isError` path did, so it doesn't read as an internal mimir bug.
+      throw validation('the node write path apply did not complete', verdict.detail);
     }
     const resolvedSeqs = extractResolvedSeqs(report, acc.creates);
     // A create resolves its real KEY-seq/id from a post-apply reload; a pure
@@ -191,16 +194,14 @@ type ApplyVerdict =
  * Classify a `vault.apply` report by its `outcome` (norn 0.45, NRN-150/NRN-183).
  * Replaces the pre-0.45 `isDriftError` prose match: drift now surfaces as a
  * structured `error.code`, so we branch on the code, never on human-facing text.
- * A report with no `outcome` (a minimal/legacy report) is treated as applied
- * unless it reports `failed > 0`.
+ * Only an explicit `outcome: 'applied'` is success — any outcome we cannot
+ * positively confirm as applied (a `failed` partial, a non-drift refusal, or an
+ * unrecognized/degraded report) is terminal, so a write we can't confirm is never
+ * reported as success.
  */
 function classifyApply(report: unknown): ApplyVerdict {
   const root = isRecord(report) && isRecord(report.report) ? report.report : report;
   const outcome = isRecord(root) && typeof root.outcome === 'string' ? root.outcome : undefined;
-  if (outcome === undefined) {
-    const failed = isRecord(root) ? Number(root.failed ?? 0) : 0;
-    return failed > 0 ? { detail: 'apply reported failures', kind: 'failed' } : { kind: 'applied' };
-  }
   if (outcome === 'applied') {
     return { kind: 'applied' };
   }
@@ -209,11 +210,16 @@ function classifyApply(report: unknown): ApplyVerdict {
     errors
       .map((e) => e.message)
       .filter(Boolean)
-      .join('; ') || `apply outcome: ${outcome}`;
-  const codes = errors.flatMap((e) => (e.code === null ? [] : [e.code]));
-  // A refusal is safe to replay only when it is byte-identical (nothing written)
-  // AND every failed op is a CAS drift — not a mixed or partial (`failed`) outcome.
-  if (outcome === 'refused' && codes.length > 0 && codes.every((c) => DRIFT_CODES.has(c))) {
+      .join('; ') || `apply outcome: ${outcome ?? 'unrecognized'}`;
+  // Replay ONLY a pure CAS-drift refusal (byte-identical, nothing written): there
+  // must be a failed op and EVERY failed op must carry a CAS code. A mixed refusal
+  // (a CAS op alongside a code-less or non-CAS failure) is NOT pure drift — a blind
+  // replay can't clear the other failure — so it falls through to terminal.
+  if (
+    outcome === 'refused' &&
+    errors.length > 0 &&
+    errors.every((e) => e.code !== null && DRIFT_CODES.has(e.code))
+  ) {
     return { detail, kind: 'drift' };
   }
   return { detail, kind: 'failed' };

@@ -263,10 +263,22 @@ test('a create emits one create_document with {{seq}} and stitches the resolved 
     docs,
     [
       {
+        // a real norn 0.45 applied create report: outcome + the create op's
+        // resolved path/stem alongside the summary the writer parses today.
         report: {
           report: {
+            applied: 1,
             failed: 0,
-            operations: [{ kind: 'create_document', summary: 'create MMR/MMR-2.md' }],
+            operations: [
+              {
+                kind: 'create_document',
+                path: 'MMR/MMR-2.md',
+                status: 'applied',
+                stem: 'MMR-2',
+                summary: 'create MMR/MMR-2.md',
+              },
+            ],
+            outcome: 'applied',
           },
         },
       },
@@ -419,6 +431,97 @@ test('an in-band non-drift refusal (deterministic code) propagates without a rep
   expect(plans).toHaveLength(1); // deterministic refusal — no replay
 });
 
+test('a mixed refusal (a CAS op plus a code-less failed op) is terminal, not replayed', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        title: 'Task',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ];
+  // outcome 'refused' with ONE CAS-drift op AND one code-less failed op. A blind
+  // replay can't clear the second failure, so the whole refusal is terminal — the
+  // CAS op must not let the code-less op ride along into the replay path.
+  const { client, plans } = fakeClient(docs, [
+    {
+      report: {
+        report: {
+          applied: 0,
+          failed: 2,
+          operations: [
+            {
+              error: {
+                code: 'expected-old-value-mismatch',
+                message: 'stale repair plan for MMR/MMR-1.md field lifecycle',
+                path: 'MMR/MMR-1.md',
+              },
+              kind: 'set_frontmatter',
+              status: 'failed',
+            },
+            {
+              error: { message: 'section edit refused', path: 'MMR/MMR-1.md' },
+              kind: 'append_to_section',
+              status: 'failed',
+            },
+          ],
+          outcome: 'refused',
+        },
+      },
+    },
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  const ws = await store.loadWorkingSet();
+  const id = ws.nodes[0]?.id ?? 0;
+
+  let message = '';
+  try {
+    await startTask(store, id);
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain('apply did not complete');
+  expect(plans).toHaveLength(1); // NOT blind-replayed on the CAS op alone
+});
+
+test('an unrecognized apply report (no outcome) is terminal, never a silent success', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        title: 'Task',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ];
+  // A degraded/shape-changed report with no `outcome`: a write we cannot confirm
+  // as applied must fail loud, never be swallowed as success.
+  const { client, plans } = fakeClient(docs, [{ report: { report: { operations: [] } } }]);
+  const store = createNornWriteStore(client, ROOT);
+  const ws = await store.loadWorkingSet();
+  const id = ws.nodes[0]?.id ?? 0;
+
+  let message = '';
+  try {
+    await startTask(store, id);
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain('apply did not complete');
+  expect(plans).toHaveLength(1);
+});
+
 // F1+F2 — a create must resolve a real seq/id from the apply report, or throw.
 test('a create whose apply report omits the create summary throws (no leaked provisional)', async () => {
   const docs: NornDocument[] = [
@@ -436,7 +539,7 @@ test('a create whose apply report omits the create summary throws (no leaked pro
   ];
   // the apply "succeeds" but the report carries no create_document summary
   const { client, plans } = fakeClient(docs, [
-    { report: { report: { failed: 0, operations: [] } } },
+    { report: { report: { applied: 1, failed: 0, operations: [], outcome: 'applied' } } },
   ]);
   const store = createNornWriteStore(client, ROOT);
   const ws = await store.loadWorkingSet();
