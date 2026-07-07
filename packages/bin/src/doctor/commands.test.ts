@@ -208,6 +208,22 @@ test('the -s scope keeps the project and its nodes, dropping other projects', as
   expect(findings.map((f) => f.node).toSorted()).toEqual(['MMR', 'MMR-9']);
 });
 
+test('the -s scope is pushed into the vault read (not just filtered after) (MMR-170)', async () => {
+  const seen: (string | undefined)[] = [];
+  const deps: DoctorDeps = {
+    readNodeDocs: (scope) => {
+      seen.push(scope);
+      return Promise.resolve([]);
+    },
+    readVaultGraph: () => Promise.resolve({ nodes: [], projectKeys: [] }),
+    validate: () => Promise.resolve({ findings: [] }),
+  };
+  await cmdDoctor(fakeIo(), deps, 'json', 'MMR');
+  // an unscoped run passes undefined through — the whole vault is read
+  await cmdDoctor(fakeIo(), deps, 'json', undefined);
+  expect(seen).toEqual(['MMR', undefined]);
+});
+
 // ── CRLF hygiene (MMR-176) ────────────────────────────────────────────────────
 
 test('a body with CRLF line endings is a non-gating warn (exit 0) with a count', async () => {

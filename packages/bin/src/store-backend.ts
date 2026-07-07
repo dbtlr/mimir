@@ -52,7 +52,7 @@ export type BuiltStore = {
    * backend (a vault diagnostic); `undefined` on SQLite signals doctor to no-op,
    * since typed rows carry no malformable body sections.
    */
-  readNodeDocs?: () => Promise<{ stem: string; body: string }[]>;
+  readNodeDocs?: (scope?: string) => Promise<{ stem: string; body: string }[]>;
   /**
    * Read the vault's raw, unresolved relational graph — the input for
    * `mimir doctor`'s referential checks (MMR-169 dangling refs, MMR-178 missing
@@ -92,7 +92,7 @@ export async function buildStore(db: Db, backend = artifactBackend()): Promise<B
       await client.close();
       await db.destroy();
     },
-    readNodeDocs: () => readAllNodeDocs(client),
+    readNodeDocs: (scope) => readAllNodeDocs(client, scope),
     readVaultGraph: () => readVaultGraph(client),
     store: withArtifactStore(base, createNornArtifactStore(client)),
     validate: () => client.validate(),

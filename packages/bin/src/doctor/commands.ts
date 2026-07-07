@@ -23,8 +23,9 @@ import { CHECKS } from './checks';
 
 export type DoctorDeps = {
   /** Read every work-state document's raw markdown, or `null` when no vault
-   * backend is active (doctor then no-ops). */
-  readNodeDocs: (() => Promise<{ stem: string; body: string }[]>) | null;
+   * backend is active (doctor then no-ops). A `scope` (project KEY) pushes into
+   * the vault query so a scoped run fetches only that project's docs (MMR-170). */
+  readNodeDocs: ((scope: string | undefined) => Promise<{ stem: string; body: string }[]>) | null;
   /** Read the vault's raw, unresolved relational graph, or `null` on the SQLite
    * backend. Wired with {@link readNodeDocs}: both present, or both null. */
   readVaultGraph: (() => Promise<VaultGraph>) | null;
@@ -58,10 +59,14 @@ export async function cmdDoctor(
     return 0;
   }
 
-  // Read the vault once and share it across every check (and apply the -s scope
-  // here, not per check) — the registry is built to grow, so a per-check read
-  // would be one whole-vault scan per check.
-  const docs = (await deps.readNodeDocs()).filter((d) => inScope(d.stem, scope));
+  // Read the vault once and share it across every check — the registry is built
+  // to grow, so a per-check read would be one scan per check. The `-s` scope is
+  // pushed into the vault query (MMR-170) so a scoped run fetches only its
+  // project's docs; the stem-based `inScope` filter stays as the authoritative
+  // backstop (the query scopes on the `project` frontmatter field, a projection
+  // of the stem — the stem is the truth, so a filter here can never widen the
+  // set, only guarantee it).
+  const docs = (await deps.readNodeDocs(scope)).filter((d) => inScope(d.stem, scope));
   // The graph stays whole-vault (unscoped): a referential break anywhere breaks
   // the entire vault load, so `-s` must not hide it. Validate it ONCE here and
   // share the `dropped[]` across every referential check (MMR-182) — the four
