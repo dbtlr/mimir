@@ -23,6 +23,7 @@ import type { VaultGraph } from './core/store-norn';
 import { bunExec } from './exec';
 import { NornClient } from './norn/client';
 import { readConfig } from './service/config';
+import { backfillVaultData } from './vault/backfill';
 import { converge } from './vault/converge';
 import { resolveVault } from './vault/resolve';
 
@@ -85,7 +86,11 @@ export async function buildStore(db: Db, backend = artifactBackend()): Promise<B
     configPath: readConfig().vault.path,
     envPath: process.env.MIMIR_VAULT,
   });
-  await converge(vault.path, { allowCreate: vault.allowCreate, exec: bunExec });
+  await converge(vault.path, {
+    allowCreate: vault.allowCreate,
+    exec: bunExec,
+    migrateData: backfillVaultData,
+  });
   const client = new NornClient({ vaultPath: vault.path });
   return {
     close: async () => {

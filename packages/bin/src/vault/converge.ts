@@ -106,7 +106,19 @@ async function create(path: string, exec: Exec): Promise<ConvergeResult> {
 
 export async function converge(
   path: string,
-  opts: { allowCreate: boolean; exec: Exec },
+  opts: {
+    allowCreate: boolean;
+    exec: Exec;
+    /**
+     * Data migrations for a schema-version upgrade: rewrite existing documents
+     * forward (the content counterpart to the structural marker/rules bump),
+     * returning the changed paths to stage. Run once, BEFORE the marker bumps,
+     * so a crash leaves the old schema and the next converge retries. Omitted by
+     * fs/git-only callers (tests); production callers pass {@link ./backfill}'s
+     * `backfillVaultData`.
+     */
+    migrateData?: (path: string, fromSchema: number) => Promise<string[]>;
+  },
 ): Promise<ConvergeResult> {
   const kind = classifyPath(path);
   if (kind === 'file') {
@@ -153,16 +165,22 @@ export async function converge(
   }
 
   const changed: string[] = [];
-  if (marker.schema < VAULT_SCHEMA) {
-    // Future schema migrations hook in here, stepping marker.schema → VAULT_SCHEMA.
-    writeFileSync(markerPath, renderMarker());
-    changed.push(MARKER_FILE);
-  }
+  // Rules first: a data migration's client reads the vault under the new schema,
+  // so the regenerated config must already be on disk before it runs.
   const rulesPath = join(path, NORN_CONFIG_FILE);
   if (!existsSync(rulesPath) || readFileSync(rulesPath, 'utf8') !== renderNornConfig()) {
     mkdirSync(dirname(rulesPath), { recursive: true });
     writeFileSync(rulesPath, renderNornConfig());
     changed.push(NORN_CONFIG_FILE);
+  }
+  if (marker.schema < VAULT_SCHEMA) {
+    // Data migrations run BEFORE the marker bump: a crash mid-backfill leaves the
+    // marker at the old schema so the next converge retries (each backfill is
+    // idempotent). The marker bump is the last, atomic "upgrade complete" step.
+    const migrated = (await opts.migrateData?.(path, marker.schema)) ?? [];
+    changed.push(...migrated);
+    writeFileSync(markerPath, renderMarker());
+    changed.push(MARKER_FILE);
   }
 
   const git = gitAt(path, opts.exec);
