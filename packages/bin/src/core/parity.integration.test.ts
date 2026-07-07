@@ -885,7 +885,7 @@ test.skipIf(!NORN)(
 
 test.skipIf(!NORN)('write parity: create a project (a new vault directory)', async () => {
   // No seed: the vault starts empty, so this exercises the new-directory create
-  // path (`apply_plan` runs create_document with parents:false — the writer
+  // path (`vault.apply` runs create_document with parents:false — the writer
   // ensures the KEY/ folder). Both backends create MMR; timestamps are aligned.
   const norn = createNornReadStore(client);
   setSystemTime(new Date(FIXED));

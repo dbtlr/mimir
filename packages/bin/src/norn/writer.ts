@@ -47,7 +47,7 @@ import {
  * The Norn-backed `Store.transact` + `StoreWriter` (MMR-153, ADR 0016 Phase 3
  * write path). The model is: read one snapshot → run the verb, accumulating
  * intended effects over an in-memory overlay → collapse every effect into ONE
- * atomic {@link import('./plan').MigrationPlan} → `apply_plan` → replay on drift.
+ * atomic {@link import('./plan').MigrationPlan} → `vault.apply` → replay on drift.
  * It is the sibling of {@link import('../core/store-sqlite').createSqliteStore}'s
  * `transact`, behaviorally identical from the verbs' point of view.
  *
@@ -56,7 +56,7 @@ import {
  * document — a create becomes one `create_document`, a mutation becomes one
  * `set_frontmatter` per changed field (carrying the snapshot value as the
  * compare-and-set `expected_old_value`) plus one `append_to_section` per logged
- * transition. Because `apply_plan` refuses on any CAS mismatch, a concurrent
+ * transition. Because `vault.apply` refuses on any CAS mismatch, a concurrent
  * write is caught and the deterministic verb is replayed against a fresh
  * snapshot.
  *
@@ -128,23 +128,27 @@ async function runTransact<T>(
       return result; // a pure-read `transact` (e.g. a guard that threw nothing)
     }
     const plan = migrationPlan({ generator: 'mimir', operations, vaultRoot });
-    // `apply_plan` runs `create_document` with `parents: false` — the first doc
+    // `vault.apply` runs `create_document` with `parents: false` — the first doc
     // in a new project directory (a project create) would fail on a missing
     // parent. Ensure each create's directory exists on the local vault first;
     // `{{seq}}` only ever occupies the file name, so the directory is concrete.
     ensureCreateDirs(vaultRoot, acc.creates);
-    let report: unknown;
-    try {
-      report = await client.applyPlan(plan, true);
-    } catch (error) {
-      if (isDriftError(error)) {
-        // The vault moved under the snapshot — record it and replay from a
-        // fresh read. On the FINAL attempt the loop falls through to the
-        // exhaustion throw below, never leaking the raw drift error.
-        lastError = error;
-        continue;
-      }
-      throw error; // a non-drift failure is terminal — propagate as-is
+    // norn 0.45: a precondition refusal is reported IN-BAND (isError: false), so
+    // `applyPlan` returns a report rather than throwing on drift — classify it.
+    // A genuine tool/connection error still throws and is terminal (propagates).
+    const report = await client.applyPlan(plan, true);
+    const verdict = classifyApply(report);
+    if (verdict.kind === 'drift') {
+      // The vault moved under the snapshot — record it and replay from a fresh
+      // read. On the FINAL attempt the loop falls through to the exhaustion
+      // throw below, never leaking the raw drift detail.
+      lastError = new Error(verdict.detail);
+      continue;
+    }
+    if (verdict.kind === 'failed') {
+      // A non-drift refusal (deterministic — blind retry won't change it) or a
+      // partial apply (some ops wrote — NOT byte-identical, not safe to replay).
+      throw invariant('the node write path apply did not complete', verdict.detail);
     }
     const resolvedSeqs = extractResolvedSeqs(report, acc.creates);
     // A create resolves its real KEY-seq/id from a post-apply reload; a pure
@@ -159,18 +163,83 @@ async function runTransact<T>(
 }
 
 /** Create each queued document's parent directory on the local vault (idempotent),
- * so `apply_plan`'s `parents: false` create never fails on a missing folder. */
+ * so `vault.apply`'s `parents: false` create never fails on a missing folder. */
 function ensureCreateDirs(vaultRoot: string, creates: Create[]): void {
   for (const create of creates) {
     mkdirSync(join(vaultRoot, dirname(create.pathTemplate)), { recursive: true });
   }
 }
 
-/** A CAS refusal from `apply_plan` (`ExpectedOldValueMismatch` / `StaleDocumentHash`
- * both render as "stale repair plan for …") — the signal to reload and replay. */
-function isDriftError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return /stale repair plan for/i.test(message);
+/** norn's stable CAS-refusal error codes (kebab-case, NRN-150) — the machine
+ * signal a concurrent write drifted the snapshot. A `refused` apply whose failed
+ * ops all carry one of these is safe to reload-and-replay (byte-identical, nothing
+ * written); any other refusal reason is deterministic and must not be replayed. */
+const DRIFT_CODES: ReadonlySet<string> = new Set([
+  'expected-old-value-mismatch',
+  'stale-document-hash',
+]);
+
+/** The verdict on a `vault.apply` report (norn 0.45 in-band outcome). `drift` =
+ * a CAS refusal → reload and replay; `failed` = a deterministic refusal or a
+ * partial write → terminal (propagate); `applied` = proceed. */
+type ApplyVerdict =
+  | { kind: 'applied' }
+  | { kind: 'drift'; detail: string }
+  | { kind: 'failed'; detail: string };
+
+/**
+ * Classify a `vault.apply` report by its `outcome` (norn 0.45, NRN-150/NRN-183).
+ * Replaces the pre-0.45 `isDriftError` prose match: drift now surfaces as a
+ * structured `error.code`, so we branch on the code, never on human-facing text.
+ * A report with no `outcome` (a minimal/legacy report) is treated as applied
+ * unless it reports `failed > 0`.
+ */
+function classifyApply(report: unknown): ApplyVerdict {
+  const root = isRecord(report) && isRecord(report.report) ? report.report : report;
+  const outcome = isRecord(root) && typeof root.outcome === 'string' ? root.outcome : undefined;
+  if (outcome === undefined) {
+    const failed = isRecord(root) ? Number(root.failed ?? 0) : 0;
+    return failed > 0 ? { detail: 'apply reported failures', kind: 'failed' } : { kind: 'applied' };
+  }
+  if (outcome === 'applied') {
+    return { kind: 'applied' };
+  }
+  const errors = failedOpErrors(root);
+  const detail =
+    errors
+      .map((e) => e.message)
+      .filter(Boolean)
+      .join('; ') || `apply outcome: ${outcome}`;
+  const codes = errors.flatMap((e) => (e.code === null ? [] : [e.code]));
+  // A refusal is safe to replay only when it is byte-identical (nothing written)
+  // AND every failed op is a CAS drift — not a mixed or partial (`failed`) outcome.
+  if (outcome === 'refused' && codes.length > 0 && codes.every((c) => DRIFT_CODES.has(c))) {
+    return { detail, kind: 'drift' };
+  }
+  return { detail, kind: 'failed' };
+}
+
+/** The `{ code, message }` of each failed op in an apply report (`status: 'failed'`
+ * or a present `error`), for {@link classifyApply}'s drift-vs-terminal decision. */
+function failedOpErrors(root: unknown): { code: string | null; message: string | null }[] {
+  if (!isRecord(root) || !Array.isArray(root.operations)) {
+    return [];
+  }
+  return root.operations.flatMap((op) => {
+    if (!isRecord(op)) {
+      return [];
+    }
+    const error = isRecord(op.error) ? op.error : undefined;
+    if (op.status !== 'failed' && error === undefined) {
+      return [];
+    }
+    return [
+      {
+        code: error !== undefined && typeof error.code === 'string' ? error.code : null,
+        message: error !== undefined && typeof error.message === 'string' ? error.message : null,
+      },
+    ];
+  });
 }
 
 /**

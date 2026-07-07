@@ -1,6 +1,7 @@
 /**
  * `MigrationPlan` — the atomic write artifact the node path hands to norn's
- * `vault.apply_plan` (MMR-153, ADR 0016). One plan per `transact`: every
+ * `vault.apply` (MMR-153, ADR 0016; renamed from `vault.apply_plan` in norn 0.45,
+ * MMR-207). One plan per `transact`: every
  * frontmatter set, section append, and document create the verbs compose lands
  * as one all-or-nothing batch, mirroring the SQLite transaction it replaces.
  *
