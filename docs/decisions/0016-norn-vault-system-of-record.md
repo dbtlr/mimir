@@ -348,3 +348,52 @@ artifacts already use (`--eq project:KEY`) had no node equivalent. A scoped
   key falls out of a _scoped_ `find` — a diagnostic-only, bounded edge (the
   reader is unaffected; `-s all` catches it). A stem-vs-`project` divergence
   check is a deferred follow-up (MMR-231), not load-bearing for correctness.
+
+## Refinement (2026-07-07, MMR-232): the cutover — Norn is the default backend, SQLite is fenced
+
+The final phase landed. The default `[store] backend` is now `norn`, so every
+consumer reads and writes the markdown vault unless it explicitly opts out. The
+body's "SQLite remaining the default backend until the final phase" is now
+historical.
+
+- **Non-destructive, idempotent migration.** `mimir migrate nodes` +
+  `mimir migrate artifacts` reconstruct the whole live store into the vault (994
+  nodes/projects = 983 + 11, plus 66 artifacts) at literal `KEY-seq` stems,
+  without writing to SQLite. The vault is a new artifact built alongside the
+  source store, so a re-run converges rather than duplicating.
+- **The migration is proven lossless two ways.** (1) The A/B harness
+  (`parity.integration.test.ts`, `MIMIR_PARITY_LIVE=1`) proves migration
+  losslessness _in principle_: it re-migrates a snapshot copy into a throwaway
+  vault and asserts a byte-lossless round-trip of the **node graph** — the
+  working set plus every node's `## Task Description` / `## History` /
+  `## Annotations` body section (the cross-node transitions feed is set-equal,
+  not byte-order — MMR-164). Artifact **content** losslessness rides its own
+  oracle (`core/artifacts/conformance.test.ts`, both backends), not this run.
+  (2) The **live vault actually flipped to** was verified directly: identical
+  `list --status all` id-sets between the Norn and SQLite backends across all 11
+  projects, per-project file counts reconciling exactly (1060 files = 994 + 66),
+  and a clean `mimir doctor` (which surfaces any ADR-0017 `dropped[]` node, so a
+  silent drop would show). A silent lossy migration is the only real hazard the
+  non-destructive design carries; these two checks are the go/no-go for the flip.
+- **SQLite is fenced, not deleted — but "untouched" is imprecise.** It stays
+  reachable via an explicit `[store] backend = "sqlite"` (or
+  `MIMIR_STORE_BACKEND=sqlite`), and its **data** is frozen: a write on the Norn
+  backend does not reach it (verified — post-flip Norn writes are absent from the
+  SQLite store). It is not literally untouched, though: `main.ts` still opens and
+  `migrateToLatest`-migrates the SQLite db on every command regardless of backend
+  (the schema advances; the data does not), because the store must stay openable
+  as the rollback. Eliminating that needless open on the Norn path is tracked
+  (MMR-236). Rollback is a one-line flip back to `sqlite`, clean **up to the
+  cutover point** — any work done on the Norn vault after the flip is not
+  mirrored into SQLite, so a rollback forfeits it. Deleting the store and
+  removing the fence is deferred to a soak-gated follow-up (MMR-234).
+- **The flip is environment configuration, not a binary-default change.** The
+  built-in fallback in `storeBackend()` remains `sqlite`
+  (`config.store.backend ?? 'sqlite'`); only this host's
+  `~/.config/mimir/config.toml` selects Norn. A consumer that does not read that
+  config (a fresh install, a clean-env agent, CI) still defaults to SQLite —
+  acceptable while the vault is single-host, and the built-in default flips with
+  SQLite retirement (MMR-234). The `[vault] path` is set explicitly (fail-loud):
+  an absent configured path errors rather than silently scaffolding a fresh empty
+  vault — the mount-safety rule (`resolveVault`) that only the derived default
+  path may be auto-created at runtime.
