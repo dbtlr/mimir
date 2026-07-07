@@ -122,13 +122,69 @@ test("upgrade: an older binary's committed state is regenerated, bumped, and com
     'old binary state',
   ]);
 
-  const result = await converge(path, { allowCreate: false, exec: bunExec });
+  // A schema upgrade requires a data migrator; this vault has no work-state docs,
+  // so a no-op migrator stands in (the backfill itself is covered in backfill.test).
+  const result = await converge(path, {
+    allowCreate: false,
+    exec: bunExec,
+    migrateData: () => Promise.resolve([]),
+  });
   expect(result.outcome).toBe('converged');
   expect(result.outcome === 'converged' && result.upgraded).toBe(true);
   expect(result.warnings).toEqual([]);
   expect(readFileSync(join(path, NORN_CONFIG_FILE), 'utf8')).toBe(renderNornConfig());
   expect(readFileSync(join(path, MARKER_FILE), 'utf8')).toBe(renderMarker());
   expect((await gitLog(path))[0]).toBe(`mimir: converge vault to schema ${String(VAULT_SCHEMA)}`);
+  expect(await gitStatus(path)).toBe('');
+});
+
+test('upgrade without a data migrator refuses rather than stranding docs (MMR-170)', async () => {
+  const path = vaultAt('no-migrator');
+  await converge(path, { allowCreate: true, exec: bunExec });
+  writeFileSync(join(path, MARKER_FILE), 'schema = 2\n'); // an older-schema vault
+  // Omitting migrateData on a version upgrade would bump the marker and leave
+  // every pre-existing doc in the old shape with no retry — refuse loudly.
+  await expectMimirError('conflict', () => converge(path, { allowCreate: false, exec: bunExec }));
+});
+
+test('a failed data migration writes nothing structural, leaving a clean retryable state (MMR-170)', async () => {
+  const path = vaultAt('crash');
+  await converge(path, { allowCreate: true, exec: bunExec });
+  // Commit an older-schema state (distinct rules) so a stray rules rewrite would
+  // dirty the tree — the signal this test guards.
+  writeFileSync(join(path, NORN_CONFIG_FILE), '# old binary rules\n');
+  writeFileSync(join(path, MARKER_FILE), 'schema = 2\n');
+  await bunExec(['git', '-C', path, 'add', '-A']);
+  await bunExec([
+    'git',
+    '-C',
+    path,
+    '-c',
+    'user.name=t',
+    '-c',
+    'user.email=t@t',
+    'commit',
+    '-m',
+    'schema 2 state',
+  ]);
+
+  let caught: unknown;
+  try {
+    await converge(path, {
+      allowCreate: false,
+      exec: bunExec,
+      migrateData: () => Promise.reject(new Error('backfill exploded')),
+    });
+  } catch (error) {
+    caught = error;
+  }
+  expect((caught as Error | undefined)?.message).toBe('backfill exploded');
+
+  // The backfill runs before any structural write, so the throw leaves the marker
+  // at the old schema and the rules untouched — the next converge retries cleanly,
+  // never a committed schema-3 marker beside stale schema-2 rules.
+  expect(readFileSync(join(path, MARKER_FILE), 'utf8')).toBe('schema = 2\n');
+  expect(readFileSync(join(path, NORN_CONFIG_FILE), 'utf8')).toBe('# old binary rules\n');
   expect(await gitStatus(path)).toBe('');
 });
 

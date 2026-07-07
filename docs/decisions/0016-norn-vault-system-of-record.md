@@ -319,12 +319,17 @@ artifacts already use (`--eq project:KEY`) had no node equivalent. A scoped
   every pre-existing document missing a now-required field — invisible to the
   scoped query the field exists to serve. So the `2 → 3` converge runs a data
   migration ([`vault/backfill.ts`](../../packages/bin/src/vault/backfill.ts)):
-  it finds documents `--missing project` and writes each one's value, **before**
-  the marker advances, so a crash mid-backfill leaves the vault at schema 2 and
-  the next converge retries (the backfill is idempotent). converge gained a
-  `migrateData` injection point so the fs/git-structural function stays
-  client-free for its unit tests while every production caller performs the
-  Norn-side rewrite (ADR 0018).
+  it finds documents `--missing project` and writes each one's value. The
+  migration runs **first** — a throw-prone Norn side-effect under the still-current
+  rules — and only once it succeeds are the regenerated rules and the bumped
+  marker written **adjacently and committed together**. So a crash mid-backfill
+  leaves the rules unwritten and the marker at the old schema (the backfill is
+  idempotent, so the retry completes it), and a bumped marker can never land in a
+  commit beside stale rules. converge gained a `migrateData` injection point so
+  the fs/git-structural function stays client-free for its unit tests while every
+  production caller performs the Norn-side rewrite (ADR 0018); an upgrade converge
+  with no migrator **refuses** rather than advancing the marker over un-migrated
+  documents.
 - **The value comes from the stem, never the path.** The `KEY/…` directory layout
   is deliberately irrelevant to identity — only document _creation_ (`norn new`)
   constructs a path; everywhere else the stem resolves cleanly. The backfill
