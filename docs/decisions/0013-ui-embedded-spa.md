@@ -197,3 +197,15 @@ their ordering are unchanged.
   arm pulls in stale `in_progress`/`ready` tasks; they were shown with their status
   word (a misleading healthy dot). They now surface as _going cold_ — kept in the set
   (a rotted started task needs you), but labeled by the nudge, not the status.
+
+## Refinement (2026-07-07): the attention model is recorded in ADR 0019
+
+The Overview/attention model this ADR accumulated as refinements (the v0.12
+attention-router, the v0.13 Lane rename, going-cold-as-modifier, the attention
+set and its ordering) is extracted into
+[ADR 0019](0019-meridian-console-design-system.md) §9, which is now the
+decision of record for it — together with the Meridian design system (color
+roles, violet attention, verdict-first review). The refinement sections above
+remain as historical narrative. This ADR remains the decision of record for
+the SPA shape, navigation grammar, the board as primary lens, and the offline
+posture.
