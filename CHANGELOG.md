@@ -237,6 +237,16 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Unified `[store] backend` selects the whole work-state store** (MMR-235, ADR 0016).
+  The store composition root now switches nodes *and* artifacts together behind a single
+  `[store] backend = "sqlite" | "norn"` key (env override `MIMIR_STORE_BACKEND`), replacing
+  the transitional artifact-only `[store] artifacts` key / `MIMIR_ARTIFACT_STORE`. The Norn
+  branch returns the complete Norn store (`createNornWriteStore` — nodes, artifacts, body
+  sections, transitions), so the node backend is no longer pinned to SQLite; the retired
+  artifact-only `withArtifactStore` shim is removed. **The default is unchanged (`sqlite`)** —
+  this only makes the Norn node backend selectable; the cutover flip is a separate step
+  (MMR-232). Config carrying the old `[store] artifacts` key now falls through to the sqlite
+  default (pre-release, no external consumers).
 - **Adopt norn 0.45: the `vault.apply` tool rename and its in-band refusal signal**
   (MMR-207, subsumes MMR-202). norn 0.45 renames the MCP plan-apply tool
   `vault.apply_plan` → `vault.apply` (NRN-185) and, more consequentially, reports a

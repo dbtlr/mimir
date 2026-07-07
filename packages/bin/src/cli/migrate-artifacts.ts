@@ -16,7 +16,7 @@ import { resolveVault } from '../vault/resolve';
  * to make the vault backend usable on real data before the flag is flipped.
  *
  * Flag-independent by construction: the source is always the SQLite table and
- * the destination is always the vault, regardless of `MIMIR_ARTIFACT_STORE`.
+ * the destination is always the vault, regardless of `[store] backend`.
  * Idempotent — a re-run's already-migrated artifacts come back `skipped` via
  * the vault's create-exclusive write. Delete this file, its CLI case, and
  * `restoreArtifact` together once the vault is the sole backend.

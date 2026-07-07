@@ -47,9 +47,10 @@ export type VaultConfig = {
 export const DEFAULT_SNAPSHOT_INTERVAL_SECONDS = 900;
 
 export type StoreConfig = {
-  /** Which backend serves artifacts — SQLite (default) or the Norn vault (MMR-143). */
-  artifacts?: 'sqlite' | 'norn';
-  problem?: 'malformed' | 'invalid-artifacts';
+  /** Which backend serves the whole work-state store — SQLite (default) or the
+   * Norn vault (MMR-143/MMR-235). */
+  backend?: 'sqlite' | 'norn';
+  problem?: 'malformed' | 'invalid-backend';
 };
 
 export type GlobalConfig = { serve: ServeConfig; vault: VaultConfig; store: StoreConfig };
@@ -162,14 +163,14 @@ function storeSection(raw: unknown): StoreConfig {
   if (!isTable(raw)) {
     return { problem: 'malformed' };
   }
-  const artifacts = raw.artifacts;
-  if (artifacts === undefined) {
+  const backend = raw.backend;
+  if (backend === undefined) {
     return {};
   }
-  if (artifacts === 'sqlite' || artifacts === 'norn') {
-    return { artifacts };
+  if (backend === 'sqlite' || backend === 'norn') {
+    return { backend };
   }
-  return { problem: 'invalid-artifacts' };
+  return { problem: 'invalid-backend' };
 }
 
 export function readConfig(file = configPath()): GlobalConfig {
@@ -216,7 +217,7 @@ export type ConfigPatch = {
    * can drop a key like `upstream`, which a per-key merge could never express.
    */
   vault?: { path?: string; snapshot?: SnapshotConfig };
-  store?: { artifacts?: 'sqlite' | 'norn' };
+  store?: { backend?: 'sqlite' | 'norn' };
 };
 
 type Table = Record<string, unknown>;
@@ -352,8 +353,8 @@ export function writeConfig(file: string, patch: ConfigPatch): WriteResult {
     }
     raw.vault = vault;
   }
-  if (patch.store?.artifacts !== undefined) {
-    raw.store = { ...asTable(raw.store), artifacts: patch.store.artifacts };
+  if (patch.store?.backend !== undefined) {
+    raw.store = { ...asTable(raw.store), backend: patch.store.backend };
   }
   const out: string[] = [];
   emitTable('', raw, out);

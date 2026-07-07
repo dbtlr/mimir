@@ -159,10 +159,10 @@ test('a present-but-wrong-shaped section is malformed, never silence', () => {
 
 test('readConfig parses once and returns every section', () => {
   const file = join(dir, 'config.toml');
-  writeFileSync(file, '[serve]\nport = 50124\n[vault]\npath = "/v"\n[store]\nartifacts = "norn"\n');
+  writeFileSync(file, '[serve]\nport = 50124\n[vault]\npath = "/v"\n[store]\nbackend = "norn"\n');
   expect(readConfig(file)).toEqual({
     serve: { port: 50124 },
-    store: { artifacts: 'norn' },
+    store: { backend: 'norn' },
     vault: { path: '/v' },
   });
 });
@@ -171,8 +171,8 @@ test('readVaultConfig missing sections default empty; a wrong-typed store surfac
   const file = join(dir, 'config.toml');
   writeFileSync(file, '[serve]\nport = 50124\n');
   expect(readConfig(file).store).toEqual({});
-  writeFileSync(file, '[store]\nartifacts = "postgres"\n');
-  expect(readConfig(file).store).toEqual({ problem: 'invalid-artifacts' });
+  writeFileSync(file, '[store]\nbackend = "postgres"\n');
+  expect(readConfig(file).store).toEqual({ problem: 'invalid-backend' });
   writeFileSync(file, 'store = "norn"\n');
   expect(readConfig(file).store).toEqual({ problem: 'malformed' });
 });
