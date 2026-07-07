@@ -41,7 +41,7 @@ import { cmdVault } from '../vault/commands';
 import type { VaultDeps } from '../vault/commands';
 import { BINDING_FILE, writeBinding } from './binding';
 import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from './errors';
-import { FULL_HELP, TERSE_HELP, helpForCommand } from './help';
+import { COMMAND_HELP, FULL_HELP, TERSE_HELP, helpForCommand } from './help';
 import { cmdMigrateArtifacts } from './migrate-artifacts';
 import { cmdMigrateNodes } from './migrate-nodes';
 import {
@@ -156,45 +156,19 @@ const OPTIONS = {
  * Every dispatch verb — the authority for "is this a real command?" (MMR-211).
  * An unknown verb is a hard usage error (exit 2) even with `-h`/`--help`; it
  * must never fall through to the top-level help, which an agent can misread as
- * task data and then act on stale context. Keep in lock-step with the switch in
- * `runCli` (its `default:` is a defensive backstop). `serve`/`mcp`/`version` are
- * intercepted upstream in `main` and never reach here.
+ * task data and then act on stale context.
+ *
+ * Derived from the `COMMAND_HELP` descriptor registry (single source) rather
+ * than re-listed: the documented verbs, dropping the space-keyed `create <type>`
+ * subcommand descriptors, plus the three real verbs with no descriptor
+ * (`skill`/`service`/`self-update`, which fall back to the top-level help on
+ * `-h`). `serve`/`mcp`/`version` are intercepted upstream in `main` and never
+ * reach here. The switch in `runCli` keeps a defensive `default:` for any drift.
  */
 const COMMANDS: ReadonlySet<string> = new Set([
-  'next',
-  'list',
-  'get',
-  'status',
-  'tree',
-  'start',
-  'submit',
-  'return',
-  'done',
-  'abandon',
-  'reopen',
-  'park',
-  'unpark',
-  'block',
-  'unblock',
-  'depend',
-  'undepend',
-  'move',
-  'reorder',
-  'update',
-  'annotate',
-  'attach',
-  'create',
-  'tag',
-  'untag',
-  'archive',
-  'unarchive',
+  ...Object.keys(COMMAND_HELP).filter((key) => !key.includes(' ')),
   'skill',
-  'bind',
-  'migrate',
-  'setup',
   'service',
-  'vault',
-  'doctor',
   'self-update',
 ]);
 
@@ -330,17 +304,24 @@ export async function runCli(
     positionals = parsed.positionals;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    // A bad/unknown flag is a hard usage error — a concise pointer (plus a
-    // did-you-mean when one is close), never the full help body dumped as
-    // output that an agent could read as data (MMR-211).
-    renderError(usage(msg, unknownFlagHint(argv, msg)), errorFormat(argv), io);
+    // A strict parse fails on a bad/unknown flag. Recover the verb leniently
+    // (an unknown flag can't be the command) and route: an unknown verb is the
+    // primary fault — surface its typo hint — otherwise it's a genuine flag
+    // error on a known verb, so point at THAT verb's help (MMR-211).
+    const command = lenientCommand(argv);
+    if (command !== undefined && !COMMANDS.has(command)) {
+      return renderUnknownCommand(command, argv, io);
+    }
+    renderError(usage(msg, unknownFlagHint(command, msg)), errorFormat(argv), io);
     return 2;
   }
+
+  const ctx: Io = { ...io, plain: io.plain || values.ascii === true };
 
   const command = positionals[0];
   const full = argv.includes('--help');
   if (command === undefined) {
-    io.write(full ? FULL_HELP : TERSE_HELP);
+    ctx.write(full ? FULL_HELP : TERSE_HELP);
     return 0;
   }
   // An unknown verb is a hard usage error (exit 2) — even with `-h`/`--help`,
@@ -348,22 +329,15 @@ export async function runCli(
   // (worse, at exit 0) reads as data to an agent that then proceeds on stale
   // context (MMR-211). Real verbs continue to the help/dispatch paths below.
   if (!COMMANDS.has(command)) {
-    renderError(
-      usage(`unknown command: ${command}`, unknownCommandHint(command)),
-      errorFormat(argv),
-      io,
-    );
-    return 2;
+    return renderUnknownCommand(command, argv, ctx);
   }
   // `<cmd> -h` / `<cmd> --help` prints THAT command's help (MMR-118), falling
   // back to the top-level help for a verb without a descriptor. Returns before
   // any dispatch, so help never opens the store.
   if (values.help === true) {
-    io.write(helpForCommand(command, positionals[1], full) ?? (full ? FULL_HELP : TERSE_HELP));
+    ctx.write(helpForCommand(command, positionals[1], full) ?? (full ? FULL_HELP : TERSE_HELP));
     return 0;
   }
-
-  const ctx: Io = { ...io, plain: io.plain || values.ascii === true };
 
   try {
     // The write echo's format, picked inside the try block so a bad --format
@@ -754,42 +728,66 @@ function editDistance(a: string, b: string): number {
 
 /**
  * The closest candidate to `input`, but only when it's a genuinely near miss:
- * within 2 edits and strictly shorter distance than the input's own length, so
- * a short typo can't "match" everything. Undefined when nothing is close.
+ * within 2 edits, strictly shorter distance than the input's own length, and
+ * UNAMBIGUOUS — a tie at the minimum (e.g. an unknown short flag `-x`, one edit
+ * from every `-<char>`) yields no suggestion rather than an arbitrary one.
  */
 function nearest(input: string, candidates: Iterable<string>): string | undefined {
   let best: string | undefined;
   let bestD = Number.POSITIVE_INFINITY;
+  let tied = false;
   for (const candidate of candidates) {
     const d = editDistance(input, candidate);
     if (d < bestD) {
       bestD = d;
       best = candidate;
+      tied = false;
+    } else if (d === bestD) {
+      tied = true;
     }
   }
-  return best !== undefined && bestD <= 2 && bestD < input.length ? best : undefined;
-}
-
-/** Hint for an unknown verb: a did-you-mean when close, else a pointer to help. */
-function unknownCommandHint(command: string): string {
-  const near = nearest(command, COMMANDS);
-  return near !== undefined
-    ? `did you mean '${near}'? (or run 'mimir --help' to see the commands)`
-    : "run 'mimir --help' to see the commands";
+  return best !== undefined && !tied && bestD <= 2 && bestD < input.length ? best : undefined;
 }
 
 /**
- * Hint for a parse failure — typically an unknown flag. A did-you-mean on the
- * offending flag when one is close, plus a pointer to the relevant command's
- * own help (its flags), falling back to the top-level help.
+ * Recover the command (first positional) without throwing on unknown flags — a
+ * lenient parse for the error paths, where the strict parse has already failed
+ * and we still need to know which verb was invoked (MMR-211). Lenient parsing
+ * still honors known value-taking flags, so a flag's value is never mistaken for
+ * the verb (`mimir -s alpha get --bad` → `get`, not `alpha`).
  */
-function unknownFlagHint(argv: string[], message: string): string {
+function lenientCommand(argv: string[]): string | undefined {
+  try {
+    return parseArgs({ allowPositionals: true, args: argv, options: OPTIONS, strict: false })
+      .positionals[0];
+  } catch {
+    return argv.find((arg) => !arg.startsWith('-'));
+  }
+}
+
+/** Render the unknown-command usage error (exit 2) with a did-you-mean hint. */
+function renderUnknownCommand(command: string, argv: string[], io: Io): number {
+  const near = nearest(command, COMMANDS);
+  const hint =
+    near !== undefined
+      ? `did you mean '${near}'? (or run 'mimir --help' to see the commands)`
+      : "run 'mimir --help' to see the commands";
+  renderError(usage(`unknown command: ${command}`, hint), errorFormat(argv), io);
+  return 2;
+}
+
+/**
+ * Hint for a parse failure on a known verb — typically an unknown flag. A
+ * did-you-mean on the offending flag when one is unambiguously close, plus a
+ * pointer to that verb's own help (its flags), falling back to the top-level
+ * help when the verb is absent.
+ */
+function unknownFlagHint(command: string | undefined, message: string): string {
   const flag = /Unknown option '(--?[^']+)'/.exec(message)?.[1];
   const near = flag === undefined ? undefined : nearest(flag, FLAG_SPELLINGS);
-  const verb = argv.find((arg) => !arg.startsWith('-'));
   const help =
-    verb !== undefined && COMMANDS.has(verb)
-      ? `run 'mimir ${verb} -h' for its flags`
+    command !== undefined && COMMANDS.has(command)
+      ? `run 'mimir ${command} -h' for its flags`
       : "run 'mimir --help' for usage";
   return near !== undefined ? `did you mean '${near}'? (or ${help})` : help;
 }

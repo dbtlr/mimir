@@ -140,6 +140,30 @@ test('an unknown flag errors (exit 2) with a pointer, not the full help body (MM
   expect(err).not.toContain('read commands:');
 });
 
+test('an unknown flag after a value-taking global flag points at the right verb (MMR-211)', async () => {
+  // `-s alpha` must not be mistaken for the verb: the flag hint targets `get`.
+  const io = fakeIo(true);
+  expect(await runCli(['-s', 'alpha', 'get', '--bogus'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain('mimir get -h');
+  expect(err).not.toContain('for usage'); // not the generic top-level fallback
+});
+
+test('an unknown verb + an unknown flag surfaces the verb typo, not the flag error (MMR-211)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['statuss', '--bogus'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain('unknown command: statuss');
+  expect(err).toContain("did you mean 'status'");
+});
+
+test('an ambiguous unknown short flag suggests nothing, not an arbitrary one (MMR-211)', async () => {
+  // `-x` is one edit from -s/-t/-n/-f/-h/-y/-p — a tie, so no did-you-mean.
+  const io = fakeIo(true);
+  expect(await runCli(['list', '-x'], neverStore, io)).toBe(2);
+  expect(io.err.join('')).not.toContain('did you mean');
+});
+
 test('deps-gated verbs are recognized, not "unknown command" — guards COMMANDS/switch drift (MMR-211)', async () => {
   for (const verb of [
     'setup',
