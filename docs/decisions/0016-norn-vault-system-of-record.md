@@ -348,3 +348,32 @@ artifacts already use (`--eq project:KEY`) had no node equivalent. A scoped
   key falls out of a _scoped_ `find` — a diagnostic-only, bounded edge (the
   reader is unaffected; `-s all` catches it). A stem-vs-`project` divergence
   check is a deferred follow-up (MMR-231), not load-bearing for correctness.
+
+## Refinement (2026-07-07, MMR-232): the cutover — Norn is the default backend, SQLite is fenced
+
+The final phase landed. The default `[store] backend` is now `norn`, so every
+consumer reads and writes the markdown vault unless it explicitly opts out. The
+body's "SQLite remaining the default backend until the final phase" is now
+historical.
+
+- **Non-destructive, idempotent migration.** `mimir migrate nodes` +
+  `mimir migrate artifacts` reconstruct the whole live store into the vault (994
+  nodes/projects + 66 artifacts) at literal `KEY-seq` stems, never mutating
+  SQLite. The vault is a new artifact built alongside the untouched store, so a
+  re-run converges rather than duplicating.
+- **A go/no-go parity gate precedes the flip.** The live-store A/B harness
+  (`parity.integration.test.ts`, `MIMIR_PARITY_LIVE=1`) proves a byte-lossless
+  round-trip over the real graph — the working set plus every node's
+  `## Task Description` / `## History` / `## Annotations` body section — and
+  `mimir doctor` reports the migrated vault clean. A silent lossy migration is
+  the only real hazard the non-destructive design carries; this gate is what
+  closes it, and it is the go/no-go for the flip.
+- **SQLite is fenced, not deleted.** It stays reachable via an explicit
+  `[store] backend = "sqlite"` (or `MIMIR_STORE_BACKEND=sqlite`). Rollback is a
+  one-line flip back; the untouched live store _is_ the rollback. Retiring the
+  SQLite path — deleting the store and removing the fence — is deferred to a
+  soak-gated follow-up (MMR-234).
+- **The `[vault] path` is configured explicitly (fail-loud).** An absent
+  configured path errors rather than silently scaffolding a fresh empty vault —
+  the mount-safety rule (`resolveVault`) that only the derived default path may
+  be auto-created at runtime.
