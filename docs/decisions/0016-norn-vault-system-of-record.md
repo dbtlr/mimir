@@ -295,3 +295,35 @@ this is the root constraint, not an implementation gap.
   document's `.body` **once** and slices each section (`BodySectionStore`'s
   `readSections`), instead of one `.body` fetch per facet. This is orthogonal to
   the feed contract but was folded in with it.
+
+## Refinement (2026-07-07, MMR-170): a `project` frontmatter field makes work-state docs scopable by `vault.find`
+
+Norn's `vault.find` filters on **frontmatter fields and full-text**, not on the
+document path. A node's owning project lived only in its `KEY-seq` stem (the file
+path), so no `find` selector could scope work-state docs by project — the pattern
+artifacts already use (`--eq project:KEY`) had no node equivalent. A scoped
+`mimir doctor` therefore read the whole vault and filtered in memory.
+
+- **Every work-state document carries a `project` frontmatter field.** A wikilink
+  to the owning project (`[[KEY]]`), self-referential on the project document,
+  mirroring the artifact rule and `parent`. It is declared `project: wikilink`
+  and **required** in the node and project schema rules; `VAULT_SCHEMA` bumps
+  `2 → 3`, so converge regenerates `.norn/config.yaml`. This lets
+  `find --in type:… --eq project:KEY` return a project and all its nodes in one
+  query — the scope push-down `mimir doctor -s` now uses.
+- **The stem stays authoritative; `project` is a materialized query projection.**
+  This does not add a second source of truth: the reader still derives a node's
+  project from its `KEY-seq` stem and **ignores** the frontmatter field for
+  correctness. The field exists solely so Norn's frontmatter-only query engine
+  can scope — the same reason `parent`/`depends_on` are materialized as stems
+  rather than recomputed. "Derive, don't store" governs _truth_ (the rollups and
+  predicates that would drift); a queryable projection of a path-derived identity
+  is not that.
+- **Required degrades to a warning, never a read exclusion.** A document missing
+  `project` (a hand-authored or pre-schema doc) still loads and reads normally;
+  Norn surfaces the gap as a `frontmatter-required-field-missing` **validate
+  warning** (doctor's MMR-191 check), not by hiding the doc. A doc whose
+  `project` is present but hand-corrupted to a different key falls out of a
+  _scoped_ `find` — a diagnostic-only, bounded edge (the reader is unaffected;
+  `-s all` and a stem-vs-`project` divergence check catch it). The divergence
+  check is a deferred follow-up, not load-bearing for correctness.

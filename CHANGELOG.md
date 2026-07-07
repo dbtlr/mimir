@@ -15,6 +15,19 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Work-state documents carry a `project` frontmatter field** (MMR-170, ADR
+  0016 refinement). Every node and project document now records its owning
+  project as a `project` wikilink (`[[KEY]]`, self-referential on the project
+  doc), mirroring the artifact seam — so Norn's frontmatter-only `vault.find` can
+  scope work-state docs by project (`--eq project:KEY`), which the `KEY-seq`
+  stem/path alone could not. The field is a query projection of the authoritative
+  stem: the reader still derives a node's project from its stem and ignores the
+  field for correctness, so it is not a second source of truth. Declared
+  `project: wikilink` and required in the node/project schema rules (`VAULT_SCHEMA`
+  2 → 3; converge regenerates the norn config); a missing value degrades to a
+  `mimir doctor` validate warning, never a read exclusion. `mimir doctor -s <KEY>`
+  now pushes the scope into the vault query instead of reading the whole vault and
+  filtering in memory.
 - **Open-ended containers** (MMR-204, ADR 0001/0008 refinement). A stored
   container-only boolean `open_ended` (phase/initiative) marks a purposefully
   standing home (Bugs, Polish, Ideas) that is filed against continuously and
