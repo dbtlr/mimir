@@ -13,8 +13,17 @@
  * overwritten — the header says so.
  */
 
-/** The vault schema this binary produces and can converge older vaults to. */
-export const VAULT_SCHEMA = 3;
+/**
+ * The vault schema this binary produces and can converge older vaults to.
+ *
+ * INVARIANT: any change to {@link renderNornConfig}'s output — a new rule, a new
+ * field type, a changed `allowed_paths` — MUST bump this constant. The marker
+ * `schema` is the downgrade guard: an older binary (lower `VAULT_SCHEMA`) refuses a
+ * vault marked newer rather than silently regenerating its `.norn/config.yaml`
+ * without the newer rule. Schema 4 added the `seed` rule (MMR-244); a schema-3
+ * binary must refuse a schema-4 vault, not regenerate a seed-less config.
+ */
+export const VAULT_SCHEMA = 4;
 
 export const MARKER_FILE = '.mimir-vault.toml';
 export const NORN_CONFIG_FILE = '.norn/config.yaml';
