@@ -4,13 +4,7 @@ import { isMember } from '@mimir/helpers';
 
 import type { NornClient, NornDocument } from '../../norn/client';
 import { isPathCollision } from '../../norn/client';
-import {
-  collapse,
-  isStringRecord,
-  linkStems,
-  pathAndSections,
-  stemOf as stemFromPath,
-} from '../../norn/decode';
+import { collapse, isStringRecord, linkStems, stemOf as stemFromPath } from '../../norn/decode';
 import type { MigrationOp } from '../../norn/plan';
 import {
   addFrontmatter,
@@ -28,6 +22,7 @@ import {
   renderSeedBody,
   SEED_DESCRIPTION_HEADING,
   sectionBody,
+  sliceSection,
 } from '../history-codec';
 import { parseSeedRef, renderSeedRef, wikilink } from '../ids';
 import { now } from '../time';
@@ -162,13 +157,31 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
   const loadRecord = async (key: string, seq: number): Promise<SeedRecord | undefined> =>
     (await loadDoc(key, seq))?.record;
 
-  /** Read the `## Seed Description` prose natively, exactly as the body-section
-   * reader does (`vault.get { section }` → strip heading → parse). */
-  const loadDescription = async (key: string, seq: number): Promise<string | null> => {
-    const records = await client.getSections([pathOf(key, seq)], [SEED_DESCRIPTION_HEADING]);
-    const record = records.length > 0 ? pathAndSections(records[0]) : null;
-    const raw = record?.sections[SEED_DESCRIPTION_HEADING] ?? '';
-    return parseDescriptionSection(sectionBody(raw));
+  /** The record PLUS its `## Seed Description` prose in ONE `vault.get` (matching
+   * the artifact store's `.body` read): read the doc with its body, build the record
+   * from the frontmatter, and slice + parse the description locally. A single body
+   * read (not a frontmatter get + a section get) also returns the record even when
+   * the description heading is ambiguous — the seed still loads, and `mimir doctor`
+   * surfaces the duplicate (MMR-239). */
+  const loadWithContent = async (
+    key: string,
+    seq: number,
+  ): Promise<(SeedRecord & { description: string | null }) | undefined> => {
+    const records = await client.get([pathOf(key, seq)], '.body');
+    const doc = records[0];
+    if (!isStringRecord(doc) || typeof doc.path !== 'string') {
+      return undefined;
+    }
+    const fm = isStringRecord(doc.frontmatter) ? doc.frontmatter : {};
+    const record = toRecord({ frontmatter: fm, path: doc.path });
+    if (record === null) {
+      return undefined;
+    }
+    const body = typeof doc.body === 'string' ? doc.body : '';
+    const description = parseDescriptionSection(
+      sectionBody(sliceSection(body, SEED_DESCRIPTION_HEADING)),
+    );
+    return { ...record, description };
   };
 
   /** Apply a one-plan batch of ops, failing loud if norn did not fully apply it.
@@ -272,14 +285,9 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
     },
 
     async load(key, seq, opts) {
-      const record = await loadRecord(key, seq);
-      if (record === undefined) {
-        return undefined;
-      }
-      if (opts?.content !== true) {
-        return record;
-      }
-      return { ...record, description: await loadDescription(key, seq) };
+      // Metadata-only stays a frontmatter get; content opts into one body read that
+      // carries both the record and the `## Seed Description` prose (one RPC, not two).
+      return opts?.content === true ? loadWithContent(key, seq) : loadRecord(key, seq);
     },
 
     async patch(key, seq, patch: SeedPatch) {

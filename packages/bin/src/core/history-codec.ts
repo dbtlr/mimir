@@ -404,6 +404,29 @@ export function sectionBody(section: string): string {
   return nl === -1 ? '' : section.slice(nl + 1);
 }
 
+/**
+ * Slice one `## <heading>` section out of a WHOLE document body — the heading line
+ * INCLUDED, through the line before the next H2 (`## `) or EOF; an absent heading
+ * yields the empty string. Reproduces norn's `vault.get { section }` slice shape
+ * (NRN-102/NRN-173) locally, so a caller already holding the `.body` (the seed
+ * content read) can feed {@link sectionBody} exactly as a native section read would
+ * — one fewer round-trip, and the record is returned even when the section is
+ * ambiguous (a duplicate heading resolves to the FIRST here; native `getSections`
+ * would warn-omit it and drop the whole doc from `records`). `mimir doctor`
+ * surfaces the duplicate either way (MMR-239). norn is LF-canonical, so this
+ * splits on `\n`.
+ */
+export function sliceSection(body: string, heading: string): string {
+  const lines = body.split('\n');
+  const start = lines.indexOf(`## ${heading}`);
+  if (start === -1) {
+    return '';
+  }
+  const relEnd = lines.slice(start + 1).findIndex((line) => line.startsWith('## '));
+  const through = relEnd === -1 ? lines.length : start + 1 + relEnd;
+  return lines.slice(start, through).join('\n');
+}
+
 // ── Body-section lint (MMR-166) ──────────────────────────────────────────
 // The `mimir doctor` body-section check. The read path (MMR-161) is grammar-
 // anchored, so it tolerate-and-skips a malformed `## History`/`## Annotations`

@@ -91,6 +91,21 @@ describe.skipIf(!NORN)('norn seed store', () => {
     expect(parseHistorySection(sectionBody(raw))).toEqual([]);
   });
 
+  test('load content reads the record + description in one body read (multi-paragraph, escaped heading)', async () => {
+    // The description carries a paragraph break AND a heading-shaped line; the
+    // content load slices the `## Seed Description` section from the whole body
+    // locally, so it must round-trip exactly (the escaped heading stays prose, the
+    // slice stops before `## History`) — the one-RPC path (MMR-244 review).
+    const description = 'first paragraph\n\nsecond paragraph\n## Heading-shaped line';
+    await seeds.create({ description, key: 'MMR', kind: 'feature', requester: null, title: 't' });
+    const loaded = await seeds.load('MMR', 1, { content: true });
+    expect(loaded?.description).toBe(description);
+    // Metadata-only omits the description entirely (no body read).
+    const meta = await seeds.load('MMR', 1);
+    expect(meta).toBeDefined();
+    expect('description' in (meta ?? {})).toBe(false);
+  });
+
   test('listForProject returns the inventory seq-ascending', async () => {
     await seeds.create({
       description: null,
