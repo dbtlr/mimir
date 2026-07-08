@@ -531,6 +531,27 @@ test('flags a record-shaped History heading with no em-dash kind tail', () => {
   ]);
 });
 
+test('scans a History section whose heading has trailing whitespace — no false clean (MMR-171)', () => {
+  // norn resolves `## History ` and reads the section, so doctor must scan the same
+  // span; an exact-match anchor would skip it and report clean while a record drops.
+  const body = `## ${HISTORY_HEADING} \n### not a real record\n## ${ANNOTATIONS_HEADING}\t\n`;
+  expect(lintBodySections(body)).toEqual([
+    {
+      heading: '### not a real record',
+      line: 2,
+      problem: 'malformed-history-heading',
+      section: HISTORY_HEADING,
+    },
+  ]);
+});
+
+test('does not treat a `## History Extra` heading as the History section (MMR-171)', () => {
+  // Trailing-whitespace tolerance must not widen into a prefix match: a different
+  // heading that merely starts with the target is not the section.
+  const body = `## ${HISTORY_HEADING} Extra\n### not a real record\n`;
+  expect(lintBodySections(body)).toEqual([]);
+});
+
 test('flags a valid History heading whose edge line is missing', () => {
   const body = `## ${HISTORY_HEADING}\n### 2026-07-03T10:00:00.000Z — lifecycle\n## ${ANNOTATIONS_HEADING}\n`;
   expect(lintBodySections(body)).toEqual([
