@@ -19,6 +19,7 @@ function vaultOf(
   nodes?: Omit<NodeRefs, 'key'>[],
   projectKeys?: string[],
   validateFindings?: unknown,
+  sectionFailures?: { stem: string; section: string }[],
 ): DoctorDeps {
   const raw = nodes ?? docs.map((d) => ({ dependsOn: [], parent: null, stem: d.stem }));
   // Mirror production readVaultGraph: only valid KEY-seq stems are nodes, each
@@ -33,6 +34,7 @@ function vaultOf(
     // The frontmatter check (MMR-191) reads norn's raw `vault.validate` payload;
     // default to an empty finding set so unrelated checks' tests stay silent.
     readNodeDocs: () => Promise.resolve(docs),
+    readSectionFailures: () => Promise.resolve(sectionFailures ?? []),
     readVaultGraph: () =>
       Promise.resolve({
         nodes: graphNodes,
@@ -74,7 +76,7 @@ test('no-op with a clean stdout line and exit 0 when no vault backend is active'
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
-    { readNodeDocs: null, readVaultGraph: null, validate: null },
+    { readNodeDocs: null, readSectionFailures: null, readVaultGraph: null, validate: null },
     'table',
     undefined,
   );
@@ -183,7 +185,7 @@ test('json no-op emits an empty array and exits 0', async () => {
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
-    { readNodeDocs: null, readVaultGraph: null, validate: null },
+    { readNodeDocs: null, readSectionFailures: null, readVaultGraph: null, validate: null },
     'json',
     undefined,
   );
@@ -215,6 +217,7 @@ test('the -s scope is pushed into the vault read (not just filtered after) (MMR-
       seen.push(scope);
       return Promise.resolve([]);
     },
+    readSectionFailures: () => Promise.resolve([]),
     readVaultGraph: () => Promise.resolve({ nodes: [], projectKeys: [] }),
     validate: () => Promise.resolve({ findings: [] }),
   };
@@ -222,6 +225,34 @@ test('the -s scope is pushed into the vault read (not just filtered after) (MMR-
   // an unscoped run passes undefined through — the whole vault is read
   await cmdDoctor(fakeIo(), deps, 'json', undefined);
   expect(seen).toEqual(['MMR', undefined]);
+});
+
+test('a section-resolution failure is an error alert, exit 0 non-gating (MMR-239)', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    // A clean body, but norn could not resolve the History section (a duplicate or
+    // missing heading) — the read degrades to empty, surfaced as an error.
+    vaultOf([{ body: renderNodeBody('a task'), stem: 'MMR-9' }], undefined, undefined, undefined, [
+      { section: 'History', stem: 'MMR-9' },
+    ]),
+    'json',
+    undefined,
+  );
+  expect(code).toBe(0);
+  const findings = JSON.parse(io.out.join('')) as {
+    check: string;
+    node: string;
+    severity: string;
+    where: string;
+  }[];
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'section-resolution',
+    node: 'MMR-9',
+    severity: 'error',
+    where: 'body · History',
+  });
 });
 
 // ── CRLF hygiene (MMR-176) ────────────────────────────────────────────────────
@@ -861,7 +892,7 @@ test('the frontmatter check no-ops on the SQLite backend (validate handle null)'
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
-    { readNodeDocs: null, readVaultGraph: null, validate: null },
+    { readNodeDocs: null, readSectionFailures: null, readVaultGraph: null, validate: null },
     'json',
     undefined,
   );
@@ -894,6 +925,7 @@ test('a null validate handle alone (others present) trips the no-op guard, exit 
     io,
     {
       readNodeDocs: () => Promise.resolve([]),
+      readSectionFailures: () => Promise.resolve([]),
       readVaultGraph: () => Promise.reject(new Error('unused')),
       validate: null,
     },
@@ -910,6 +942,7 @@ test('deps.validate() rejecting (unreachable vault) propagates, not a swallowed 
   const io = fakeIo();
   const unreachable: DoctorDeps = {
     readNodeDocs: () => Promise.resolve([]),
+    readSectionFailures: () => Promise.resolve([]),
     readVaultGraph: () => Promise.resolve({ nodes: [], projectKeys: [] }),
     validate: () => Promise.reject(new Error('validate unreachable')),
   };
@@ -931,6 +964,7 @@ test('doctor ITSELF failing (the vault read throws) propagates, not a swallowed 
   const io = fakeIo();
   const unreachable: DoctorDeps = {
     readNodeDocs: () => Promise.resolve([]),
+    readSectionFailures: () => Promise.resolve([]),
     readVaultGraph: () => Promise.reject(new Error('vault unreachable')),
     validate: () => Promise.resolve({ findings: [] }),
   };

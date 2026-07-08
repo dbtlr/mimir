@@ -37,6 +37,11 @@ export type DoctorContext = {
    * drop exactly the docs this must catch (a divergent doc falls out of `-s <real
    * KEY>` and into `-s <wrong KEY>`). */
   projectRefs: readonly ProjectDeclaration[];
+  /** Documents whose `## History`/`## Annotations` heading norn cannot resolve —
+   * a hand-edited duplicate (ambiguous) or a missing heading — so the section reads
+   * as EMPTY (ADR 0017). The input for the section-resolution check (MMR-239); each
+   * is `{ stem, section }`. Pre-scoped by `-s` in the runner. */
+  sectionFailures: readonly { stem: string; section: string }[];
 };
 
 /** One problem a check found, anchored for a human to locate and fix. */
@@ -525,6 +530,30 @@ export const stemProjectCheck: Diagnostic = {
   title: 'Stem vs declared project',
 };
 
+/**
+ * Section resolution (MMR-239): a document whose `## History` or `## Annotations`
+ * heading norn cannot resolve — a hand-edited DUPLICATE (ambiguous — norn refuses
+ * to arbitrarily pick one of two, ADR 0017) or a MISSING heading. Native section
+ * reads (`vault.get { section }`) then degrade the section to EMPTY: the
+ * transitions feed and the history/annotations facets read nothing, silently. An
+ * `error` — records are lost on read; the detector is norn's own resolver (its
+ * `section_failures` channel), so it can't drift from what the reader actually
+ * sees. A per-document corruption, so it honors `-s` (unlike the whole-vault
+ * referential checks).
+ */
+export const sectionResolutionCheck: Diagnostic = {
+  name: 'section-resolution',
+  run: (ctx) =>
+    ctx.sectionFailures.map(({ section, stem }) => ({
+      check: 'section-resolution',
+      message: `${section} section is unreadable — a duplicate (ambiguous) or missing heading resolves to no section, so its records read empty`,
+      node: stem,
+      severity: 'error',
+      where: `body · ${section}`,
+    })),
+  title: 'Body-section resolution',
+};
+
 /** The registered checks `mimir doctor` runs, in report order. */
 export const CHECKS: readonly Diagnostic[] = [
   bodySectionCheck,
@@ -535,4 +564,5 @@ export const CHECKS: readonly Diagnostic[] = [
   fieldValidityCheck,
   frontmatterCheck,
   stemProjectCheck,
+  sectionResolutionCheck,
 ];

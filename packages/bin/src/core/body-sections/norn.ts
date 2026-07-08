@@ -11,6 +11,7 @@ import {
   parseHistorySection,
   sectionBody,
 } from '../history-codec';
+import { parseIdentity } from '../ids';
 import type { BodySections, BodySectionStore } from './store';
 
 /** Read one node's named `## <heading>` sections natively (`vault.get { section }`),
@@ -67,6 +68,45 @@ export async function readAllNodeDocs(
       out.push({ body: pb.body, stem: stemOf(pb.path) });
     }
   }
+  return out;
+}
+
+/**
+ * Every work-state document whose `## History` or `## Annotations` heading norn
+ * cannot resolve — a hand-edited duplicate (ambiguous) or a missing heading — so
+ * the native section read degrades to EMPTY (ADR 0017): the transitions feed and
+ * the history/annotations facets read nothing, silently. `mimir doctor` surfaces
+ * these so the loss is diagnosable (MMR-239). Each heading is queried on its OWN,
+ * so a failure isolates to it — norn reports a doc in `section_failures` only when
+ * NONE of a call's headings resolve. `## History` is on every work-state doc;
+ * `## Annotations` only on nodes (a project has none), so it is queried over node
+ * stems alone — requesting it on a project would false-positive as "missing". A
+ * `scope` pushes into the find exactly like {@link readAllNodeDocs}.
+ */
+export async function readSectionFailures(
+  client: NornClient,
+  scope?: string,
+): Promise<{ stem: string; section: string }[]> {
+  const docs = await client.find({
+    in: ['type:project,task,phase,initiative'],
+    ...(scope === undefined ? {} : { eq: [`project:${scope}`] }),
+    no_limit: true,
+  });
+  const allPaths = docs.map((doc) => doc.path);
+  const nodePaths = allPaths.filter((p) => parseIdentity(stemOf(p))?.kind === 'node');
+  const out: { stem: string; section: string }[] = [];
+  const collect = async (paths: string[], heading: string): Promise<void> => {
+    // An empty target list to vault.get is unverified behavior (readAllNodeDocs
+    // makes the same guard) — skip the query for an empty/all-foreign set.
+    if (paths.length === 0) {
+      return;
+    }
+    for (const path of await client.sectionFailures(paths, [heading])) {
+      out.push({ section: heading, stem: stemOf(path) });
+    }
+  };
+  await collect(allPaths, HISTORY_HEADING);
+  await collect(nodePaths, ANNOTATIONS_HEADING);
   return out;
 }
 

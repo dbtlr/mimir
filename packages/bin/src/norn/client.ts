@@ -350,6 +350,31 @@ export class NornClient {
     return this.records('vault.get', payload, 'records');
   }
 
+  /**
+   * The `section_failures` channel {@link getSections} drops (MMR-239): the paths
+   * of documents where NONE of the requested headings resolved — a hand-edited
+   * duplicate (ambiguous) or a missing heading — so the section read degrades to
+   * empty (ADR 0017). `mimir doctor` surfaces these so the silent loss is
+   * diagnosable. Each entry is decoded to a bare path string, tolerating either a
+   * raw path or a `{ path }` object; an absent/empty channel yields `[]`.
+   */
+  async sectionFailures(targets: string[], sections: string[]): Promise<string[]> {
+    const payload = await this.call('vault.get', { section: sections, targets }, true);
+    const failures = isRecord(payload) ? payload.section_failures : undefined;
+    if (!Array.isArray(failures)) {
+      return [];
+    }
+    const paths: string[] = [];
+    for (const entry of failures) {
+      if (typeof entry === 'string') {
+        paths.push(entry);
+      } else if (isRecord(entry) && typeof entry.path === 'string') {
+        paths.push(entry.path);
+      }
+    }
+    return paths;
+  }
+
   async validate(): Promise<unknown> {
     return this.call('vault.validate', {}, true);
   }

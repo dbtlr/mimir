@@ -70,6 +70,42 @@ test.skipIf(!NORN)('create → find → get round-trips an artifact through real
   expect(records).toHaveLength(1);
 });
 
+test.skipIf(!NORN)(
+  'sectionFailures returns docs whose requested heading is ambiguous (MMR-239)',
+  async () => {
+    // A hand-edited node with two `## History` headings: norn resolves NEITHER and
+    // reports the doc in section_failures with no record — the read degrades to empty.
+    await client.newDoc({
+      body: '## History\n### a\nx\n## History\n### b\ny\n',
+      confirm: true,
+      field_json: [
+        'type="task"',
+        'title="Dup"',
+        'project="[[MMR]]"',
+        'created="2026-07-02T12:00:00"',
+      ],
+      parents: true,
+      path: 'MMR/MMR-1.md',
+    });
+    // A healthy sibling — single History — must NOT be reported.
+    await client.newDoc({
+      body: '## History\n### 2026-07-02T12:00:00 — lifecycle\ntodo → done\n',
+      confirm: true,
+      field_json: [
+        'type="task"',
+        'title="Good"',
+        'project="[[MMR]]"',
+        'created="2026-07-02T12:00:00"',
+      ],
+      parents: true,
+      path: 'MMR/MMR-2.md',
+    });
+
+    const failures = await client.sectionFailures(['MMR/MMR-1.md', 'MMR/MMR-2.md'], ['History']);
+    expect(failures).toEqual(['MMR/MMR-1.md']);
+  },
+);
+
 test.skipIf(!NORN)('set updates frontmatter through the mutation contract', async () => {
   await client.newDoc({
     confirm: true,

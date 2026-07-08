@@ -14,7 +14,7 @@
  * one persistent `norn mcp` client for the process lifetime. `close` shuts that
  * client down; for the SQLite backend it is a no-op beyond the db handle.
  */
-import { createSqliteStore, readAllNodeDocs } from './core';
+import { createSqliteStore, readAllNodeDocs, readSectionFailures } from './core';
 import type { Db, Store } from './core';
 import { readVaultGraph } from './core/store-norn';
 import type { VaultGraph } from './core/store-norn';
@@ -54,6 +54,14 @@ export type BuiltStore = {
    * since typed rows carry no malformable body sections.
    */
   readNodeDocs?: (scope?: string) => Promise<{ stem: string; body: string }[]>;
+  /**
+   * Read every work-state document whose `## History`/`## Annotations` heading
+   * norn cannot resolve (ambiguous duplicate or missing) — the input for
+   * `mimir doctor`'s section-resolution check (MMR-239), so the silent read-empty
+   * degradation is diagnosable. Present only on the Norn backend; `undefined` on
+   * SQLite (typed rows have no markdown body sections).
+   */
+  readSectionFailures?: (scope?: string) => Promise<{ stem: string; section: string }[]>;
   /**
    * Read the vault's raw, unresolved relational graph — the input for
    * `mimir doctor`'s referential checks (MMR-169 dangling refs, MMR-178 missing
@@ -99,6 +107,7 @@ export async function buildStore(db: Db, backend = storeBackend()): Promise<Buil
       await db.destroy();
     },
     readNodeDocs: (scope) => readAllNodeDocs(client, scope),
+    readSectionFailures: (scope) => readSectionFailures(client, scope),
     readVaultGraph: () => readVaultGraph(client),
     store: createNornWriteStore(client, vault.path),
     validate: () => client.validate(),

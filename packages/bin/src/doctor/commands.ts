@@ -26,6 +26,13 @@ export type DoctorDeps = {
    * backend is active (doctor then no-ops). A `scope` (project KEY) pushes into
    * the vault query so a scoped run fetches only that project's docs (MMR-170). */
   readNodeDocs: ((scope: string | undefined) => Promise<{ stem: string; body: string }[]>) | null;
+  /** Read every work-state doc whose `## History`/`## Annotations` heading norn
+   * cannot resolve (ambiguous duplicate or missing) — the input for the
+   * section-resolution check (MMR-239), or `null` on SQLite. Wired with
+   * {@link readNodeDocs}: all present, or all null. */
+  readSectionFailures:
+    | ((scope: string | undefined) => Promise<{ stem: string; section: string }[]>)
+    | null;
   /** Read the vault's raw, unresolved relational graph, or `null` on the SQLite
    * backend. Wired with {@link readNodeDocs}: both present, or both null. */
   readVaultGraph: (() => Promise<VaultGraph>) | null;
@@ -48,7 +55,12 @@ export async function cmdDoctor(
   format: Format,
   scope: string | undefined,
 ): Promise<number> {
-  if (deps.readNodeDocs === null || deps.readVaultGraph === null || deps.validate === null) {
+  if (
+    deps.readNodeDocs === null ||
+    deps.readSectionFailures === null ||
+    deps.readVaultGraph === null ||
+    deps.validate === null
+  ) {
     // No vault backend: node state lives in typed SQLite rows — nothing here can
     // be malformed (body sections) or dangle (the parent_id/project_id FKs hold).
     if (format === 'json') {
@@ -82,12 +94,16 @@ export async function cmdDoctor(
   const validateFindings = decodeValidateFindings(await deps.validate()).filter((f) =>
     inScope(stemOf(f.path), scope),
   );
+  // Section-resolution failures are per-document (a duplicate/missing heading), so —
+  // like the body-section and frontmatter checks — they honor `-s` (MMR-239).
+  const sectionFailures = await deps.readSectionFailures(scope);
   const ctx: DoctorContext = {
     dropped,
     // Whole-vault (graph is unscoped): the stem-vs-project check must see docs a
     // scoped read would misfile out of view (MMR-231).
     projectRefs: graph.declarations ?? [],
     readNodeDocs: () => Promise.resolve(docs),
+    sectionFailures,
     validateFindings,
   };
   const findings: DoctorFinding[] = [];

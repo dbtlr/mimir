@@ -7,8 +7,10 @@ import { createTestDb } from '../db/testing';
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
 import { converge } from '../vault/converge';
+import { readSectionFailures } from './body-sections';
 import type { Db } from './context';
 import { createInitiative, createPhase, createProject, createTask } from './create';
+import { renderHistoryBody, renderNodeBody } from './history-codec';
 import { renderId } from './ids';
 import type { Node, Project } from './model';
 import { depend } from './mutations/dependency';
@@ -446,6 +448,68 @@ test.skipIf(!NORN)('readVaultGraph carries collapsed project declarations (MMR-2
   // field, so it collapses to null — the real self-referential value is MMR-170's).
   expect(declarations).toContainEqual({ project: null, stem: 'MMR' });
 });
+
+// MMR-239: readSectionFailures surfaces docs whose History/Annotations heading
+// norn cannot resolve (a hand-edited duplicate → ambiguous → read empty).
+test.skipIf(!NORN)(
+  'readSectionFailures reports ambiguous History/Annotations headings',
+  async () => {
+    const fm = (title: string): string[] => [
+      jsonField('type', 'task'),
+      jsonField('title', title),
+      jsonField('parent', wikilink('MMR')),
+      jsonField('lifecycle', 'todo'),
+      jsonField('project', wikilink('MMR')),
+      jsonField('created', TS),
+      jsonField('updated_at', TS),
+    ];
+    // The project doc carries a real ## History (as production creates it), so it is
+    // not itself a failure.
+    await client.newDoc({
+      body: renderHistoryBody(),
+      confirm: true,
+      field_json: [
+        jsonField('type', 'project'),
+        jsonField('key', 'MMR'),
+        jsonField('name', 'MMR'),
+        jsonField('created', TS),
+        jsonField('updated_at', TS),
+      ],
+      parents: true,
+      path: 'MMR/MMR.md',
+    });
+    // Duplicate ## History → History unresolvable (Annotations is fine).
+    await client.newDoc({
+      body: '## Task Description\n\n## History\n### a\nx\n## History\n### b\ny\n## Annotations\n',
+      confirm: true,
+      field_json: fm('DupHistory'),
+      parents: true,
+      path: 'MMR/MMR-1.md',
+    });
+    // Duplicate ## Annotations → Annotations unresolvable (History is fine).
+    await client.newDoc({
+      body: '## Task Description\n\n## History\n## Annotations\n### a\n## Annotations\n### b\n',
+      confirm: true,
+      field_json: fm('DupAnnotations'),
+      parents: true,
+      path: 'MMR/MMR-2.md',
+    });
+    // A healthy node — neither section is ambiguous.
+    await client.newDoc({
+      body: renderNodeBody(null),
+      confirm: true,
+      field_json: fm('Healthy'),
+      parents: true,
+      path: 'MMR/MMR-3.md',
+    });
+
+    const failures = await readSectionFailures(client);
+    expect(failures).toContainEqual({ section: 'History', stem: 'MMR-1' });
+    expect(failures).toContainEqual({ section: 'Annotations', stem: 'MMR-2' });
+    // The healthy node and the project doc are reported for neither section.
+    expect(failures.some((f) => f.stem === 'MMR-3' || f.stem === 'MMR')).toBe(false);
+  },
+);
 
 // ADR 0017 / MMR-177: field-level corruption is tolerated too. A load-bearing
 // field — lifecycle (drives status) or hold (drives blocked/parked) — missing or

@@ -37,6 +37,7 @@ const ctxWith = (drop: Drop): DoctorContext => ({
   dropped: [drop],
   projectRefs: [],
   readNodeDocs: () => Promise.resolve([]),
+  sectionFailures: [],
   validateFindings: [],
 });
 
@@ -61,6 +62,7 @@ const stemProjectCtx = (projectRefs: ProjectDeclaration[]): DoctorContext => ({
   dropped: [],
   projectRefs,
   readNodeDocs: () => Promise.resolve([]),
+  sectionFailures: [],
   validateFindings: [],
 });
 
