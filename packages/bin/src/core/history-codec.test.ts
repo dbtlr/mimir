@@ -545,6 +545,22 @@ test('scans a History section whose heading has trailing whitespace — no false
   ]);
 });
 
+test('prefers an exact heading over an earlier whitespace-suffixed duplicate (MMR-171)', () => {
+  // A trailing-space empty `## History ` before an exact `## History` holding a
+  // malformed record: the exact heading must win, so the bad record is still
+  // flagged — a bare trailing-whitespace tolerance would anchor on the empty first
+  // span and false-clean the real section.
+  const body = `## ${HISTORY_HEADING} \n## ${HISTORY_HEADING}\n### not a real record\n## ${ANNOTATIONS_HEADING}\n`;
+  expect(lintBodySections(body)).toEqual([
+    {
+      heading: '### not a real record',
+      line: 3,
+      problem: 'malformed-history-heading',
+      section: HISTORY_HEADING,
+    },
+  ]);
+});
+
 test('does not treat a `## History Extra` heading as the History section (MMR-171)', () => {
   // Trailing-whitespace tolerance must not widen into a prefix match: a different
   // heading that merely starts with the target is not the section.

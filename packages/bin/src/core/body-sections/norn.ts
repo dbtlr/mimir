@@ -105,8 +105,8 @@ export async function readSectionFailures(
       out.push({ section: heading, stem: stemOf(path) });
     }
   };
-  await collect(allPaths, HISTORY_HEADING);
-  await collect(nodePaths, ANNOTATIONS_HEADING);
+  // The two reads are independent round-trips — run them concurrently.
+  await Promise.all([collect(allPaths, HISTORY_HEADING), collect(nodePaths, ANNOTATIONS_HEADING)]);
   return out;
 }
 

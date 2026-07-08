@@ -255,6 +255,26 @@ test('a section-resolution failure is an error alert, exit 0 non-gating (MMR-239
   });
 });
 
+test('a section-failure whose stem is out of the -s scope is filtered out (MMR-239)', async () => {
+  // The scoped section read selects on the corruptible `project` field, so a doc
+  // whose field diverges into scope could carry an out-of-scope stem; the stem
+  // backstop must exclude it, matching the body-section/frontmatter checks.
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf([{ body: renderNodeBody('a task'), stem: 'MMR-9' }], undefined, undefined, undefined, [
+      { section: 'History', stem: 'MMR-9' }, // in scope
+      { section: 'Annotations', stem: 'OTH-5' }, // out of scope — its field says MMR, stem says OTH
+    ]),
+    'json',
+    'MMR',
+  );
+  expect(code).toBe(0);
+  const findings = JSON.parse(io.out.join('')) as { check: string; node: string }[];
+  const sectionNodes = findings.filter((f) => f.check === 'section-resolution').map((f) => f.node);
+  expect(sectionNodes).toEqual(['MMR-9']); // OTH-5 excluded by the stem backstop
+});
+
 // ── CRLF hygiene (MMR-176) ────────────────────────────────────────────────────
 
 test('a body with CRLF line endings is a non-gating warn (exit 0) with a count', async () => {

@@ -95,8 +95,14 @@ export async function cmdDoctor(
     inScope(stemOf(f.path), scope),
   );
   // Section-resolution failures are per-document (a duplicate/missing heading), so —
-  // like the body-section and frontmatter checks — they honor `-s` (MMR-239).
-  const sectionFailures = await deps.readSectionFailures(scope);
+  // like the body-section and frontmatter checks — they honor `-s` (MMR-239). The
+  // scoped find selects on the `project` frontmatter field; re-apply the same
+  // authoritative stem backstop `readNodeDocs`/`validateFindings` use, so a doc
+  // whose `project` field diverges from its stem can't enter a scoped report under
+  // an out-of-scope stem (its divergence is caught whole-vault by stem-project).
+  const sectionFailures = (await deps.readSectionFailures(scope)).filter((f) =>
+    inScope(f.stem, scope),
+  );
   const ctx: DoctorContext = {
     dropped,
     // Whole-vault (graph is unscoped): the stem-vs-project check must see docs a
