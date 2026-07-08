@@ -47,6 +47,14 @@ manage commands:
                                         (repeatable --tag <t> tags at creation)
     attach <id> --file <path>           freeze an artifact onto a task or phase
 
+  seeds (grooming queue):
+    seed "<title>" -k <kind> [-p KEY]   file a seed (idea|bug|feature)
+    seeds [--grouped] [--status …]      the queue — live, oldest-first
+    promote <KEY-sN> --parent <node>    germinate into work (or --link existing)
+    reject <KEY-sN> "<reason>"          terminal — reason required
+    resolve <KEY-sN> "<resolution>"     terminal — resolution required
+    update <KEY-sN> [--title/--kind/--desc]   patch a live seed
+
   project:
     archive <KEY> [reason]  archive a project — freeze + hide it and its whole
                             subtree (reversible; --status archived lists them)
@@ -107,6 +115,12 @@ options:
       --project <KEY>     attach: associate artifact with a project key
       --note <text>       tag: note stored with each tag application
       --tag <t>           create: tag at creation (repeatable)
+      -k, --kind <kind>   seed: idea|bug|feature (required)
+      --requester <KEY>   seeds: filter to a requesting board
+      --status <s>        seeds: new|promoted|resolved|rejected|live|all
+      --sort <asc|desc>   seeds: age order (default asc)
+      --grouped           seeds: lane view (untriaged/ready/settled)
+      --upstream <KEY-sN> create/update task: requester-side seed pointer
 
 other:
   setup [--vault <path>] [--install-service] [--install-snapshot]
@@ -457,11 +471,12 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--desc <text>', 'description'],
       ['--summary <text>', 'summary (256 chars max)'],
       ['--ref <ref>', 'external reference'],
+      ['--upstream <KEY-sN>', 'requester-side seed pointer (reference-only)'],
       ['--tag <t>', 'tag at creation (repeatable)'],
     ],
     summary: 'create a task under a phase or initiative.',
     usage:
-      'mimir create task <title> --parent <id> [--priority …] [--size …] [--desc …] [--summary …] [--ref …] [--tag <t>…]',
+      'mimir create task <title> --parent <id> [--priority …] [--size …] [--desc …] [--summary …] [--ref …] [--upstream <KEY-sN>] [--tag <t>…]',
   },
   attach: {
     args: [['<id>', 'the primary node (KEY-seq) the artifact attaches to']],
@@ -476,6 +491,77 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     summary: 'freeze an artifact onto a task or phase → echoes the new KEY-aN.',
     usage:
       'mimir attach <id> --file <path> [--title <t>] [--tag <t>…] [--link <ids>] [--project <KEY>]',
+  },
+  // ── seeds (MMR-245) ──
+  seed: {
+    args: [['<title>', 'the seed title (the capture field)']],
+    examples: [
+      'mimir seed "flaky login test" -k bug',
+      'mimir seed "dark mode" -k feature --desc "requested by two users"',
+      'mimir seed "audit deps" -k idea -p OTHER      # file into another board (requester = your board)',
+    ],
+    flags: [
+      ['-k, --kind <k>', 'idea | bug | feature (required)'],
+      ['-p, --project <KEY>', 'target board (default: the bound board)'],
+      ['--desc <text>', 'description → the ## Seed Description body section'],
+    ],
+    summary: 'file a seed against a board — a grooming record that implies triage, not work.',
+    usage: 'mimir seed "<title>" -k <kind> [-p KEY] [--desc <text>]',
+  },
+  seeds: {
+    examples: [
+      "mimir seeds                          # the bound board's live queue, oldest-first",
+      'mimir seeds --grouped                # the lane view (untriaged / ready to resolve / settled)',
+      'mimir seeds --status all --sort desc # every seed, newest-first',
+      'mimir seeds --requester MMR          # seeds MMR filed on other boards',
+    ],
+    flags: [
+      ['-p, --project <KEY>', 'the board whose queue (default: the bound board)'],
+      ['--requester <KEY>', 'filter to seeds a board requested'],
+      ['--status <s>', 'new|promoted|resolved|rejected, or live (default) | all'],
+      ['--sort <asc|desc>', 'age order (default asc = oldest-first)'],
+      ['--grouped', 'render the lane view with counts'],
+      F_FORMAT,
+    ],
+    summary: 'the grooming queue — live seeds oldest-first (FIFO triage priority).',
+    usage: 'mimir seeds [-p KEY] [--requester KEY] [--status <s>] [--sort asc|desc] [--grouped]',
+  },
+  promote: {
+    args: [['<KEY-sN>', 'the seed to promote']],
+    examples: [
+      'mimir promote MMR-s1 --parent MMR-2 --priority p1   # spawn a task from the seed',
+      'mimir promote MMR-s1 --link MMR-7                    # record existing work as spawned',
+    ],
+    flags: [
+      ['--parent <id>', 'create a task under this phase/initiative (KEY-seq)'],
+      ['--link <KEY-seq>', 'record an EXISTING node as spawned (no create); excludes --parent'],
+      ['--priority <p0..p3>', 'created task: priority'],
+      ['--size <s|m|l>', 'created task: size'],
+      ['--desc <text>', "created task: description (defaults to the seed's)"],
+      ['--title <text>', "created task: title (defaults to the seed's)"],
+      ['--tag <t>', 'created task: tag at creation (repeatable)'],
+    ],
+    summary:
+      'germinate a seed into work — creates a task (or records existing work), appends the spawned link, and moves new → promoted (repeatable).',
+    usage: 'mimir promote <KEY-sN> --parent <node> [task args] | --link <KEY-seq>',
+  },
+  reject: {
+    args: [
+      ['<KEY-sN>', 'the seed to reject'],
+      ['<reason>', 'why (required)'],
+    ],
+    examples: ['mimir reject MMR-s1 "out of scope"'],
+    summary: 'reject a seed (terminal) — reachable from new or promoted; reason required.',
+    usage: 'mimir reject <KEY-sN> "<reason>"',
+  },
+  resolve: {
+    args: [
+      ['<KEY-sN>', 'the seed to resolve'],
+      ['<resolution>', 'how (required)'],
+    ],
+    examples: ['mimir resolve MMR-s1 "shipped in MMR-9"', 'mimir resolve MMR-s2 "already fixed"'],
+    summary: 'resolve a seed (terminal) — reachable from new or promoted; resolution required.',
+    usage: 'mimir resolve <KEY-sN> "<resolution>"',
   },
   // ── project ──
   archive: {

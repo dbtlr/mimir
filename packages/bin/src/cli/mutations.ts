@@ -4,6 +4,10 @@
  * write verbs. Tasks 4–8 will add more handlers here and cases to `run.ts`.
  */
 
+import { SEED_KIND_VALUES, SEED_LIFECYCLE_VALUES } from '@mimir/contract';
+import type { SeedKind } from '@mimir/contract';
+import { isMember } from '@mimir/helpers';
+
 import {
   abandonTask,
   annotate,
@@ -17,12 +21,16 @@ import {
   createTask,
   depend,
   deriveSet,
+  fileSeed,
   findNodeInSet,
   getArtifact,
+  listSeeds,
   moveNode,
   parseIdentity,
+  parseSeedRef,
   notFound,
   parkTask,
+  promoteSeed,
   releasedByArchive,
   reorder,
   reopenTask,
@@ -32,6 +40,7 @@ import {
   startTask,
   submitTask,
   tagEntities,
+  transitionSeed,
   unarchiveProject,
   unblockTask,
   undepend,
@@ -40,12 +49,20 @@ import {
   updateArtifact,
   updateNode,
   updateProject,
+  updateSeed,
   validation,
 } from '../core';
-import type { RankPosition, Store, UpdateFields, UpdateProjectFields } from '../core';
+import type {
+  RankPosition,
+  SeedStatusSelector,
+  Store,
+  UpdateFields,
+  UpdateProjectFields,
+  UpdateSeedFields,
+} from '../core';
 import { usage } from './errors';
 import { parsePriority, parseSize } from './parse';
-import { renderArtifactDetail } from './render';
+import { renderArtifactDetail, renderSeedView, renderSeeds, signpost } from './render';
 import type { Format, Io } from './render';
 import {
   echoNodeWith,
@@ -65,6 +82,9 @@ export type Ctx = {
   values: Record<string, unknown>;
   format: Format;
   io: Io;
+  /** The effective bound board (`effectiveScope`) — the seed verbs' default
+   * target + requester (`null`/self-filed when unbound). */
+  boundScope?: string;
 };
 
 /** Assert that positional at index `i` is present and non-blank, else throw a usage error. */
@@ -322,6 +342,9 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
   if (parseIdentity(token)?.kind === 'project') {
     return await cmdUpdateProject(c, token);
   }
+  if (parseIdentity(token)?.kind === 'seed') {
+    return await cmdUpdateSeed(c, token);
+  }
   const id = await resolveNode(c.store, token);
   const fields: UpdateFields = {};
   const changed: string[] = [];
@@ -357,6 +380,11 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
   if (openEnded !== undefined) {
     fields.openEnded = openEnded;
     changed.push('open_ended');
+  }
+  const upstream = seedUpstream(c);
+  if (upstream !== undefined) {
+    fields.upstream = upstream;
+    changed.push('upstream');
   }
   await updateNode(c.store, id, fields);
   const suffix = changed.length > 0 ? ` (${changed.join(', ')})` : '';
@@ -569,6 +597,22 @@ function openEndedFlag(c: Ctx): boolean | undefined {
   return off ? false : undefined;
 }
 
+/**
+ * The `--upstream KEY-sN` requester-side seed pointer (MMR-244/245) on task
+ * create/update. Grammar-validated at the verb layer (the core plumbing accepts
+ * it; the doctor/read tiers vet dangling/malformed refs later).
+ */
+function seedUpstream(c: Ctx): string | undefined {
+  const upstream = optStr(c, 'upstream');
+  if (upstream === undefined) {
+    return undefined;
+  }
+  if (parseSeedRef(upstream) === null) {
+    throw usage(`--upstream expects a seed id (KEY-sN), got ${upstream}`);
+  }
+  return upstream;
+}
+
 /** The repeatable `--tag` values on create (MMR-31). */
 function tagFlags(c: Ctx): string[] | undefined {
   const v = c.values.tag;
@@ -735,6 +779,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         summary: optStr(c, 'summary'),
         tags: tagFlags(c),
         title,
+        upstream: seedUpstream(c),
       });
       await echoNodeWith(c.store, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;
@@ -745,4 +790,193 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       );
     }
   }
+}
+
+// ─── Seeds (MMR-245) ────────────────────────────────────────────────────────
+
+/**
+ * The seed target/scope project for `seed`/`seeds` — `--project` or the `-p`
+ * short (which parseArgs collects on the `priority` slot; seeds carry no
+ * priority, so the slot names the board). Absent → the caller falls back to the
+ * bound board.
+ */
+function seedProject(c: Ctx): string | undefined {
+  const explicit = optStr(c, 'project');
+  if (explicit !== undefined) {
+    return explicit;
+  }
+  const short = c.values.priority;
+  return typeof short === 'string' ? short : undefined;
+}
+
+/** The required `-k`/`--kind`, narrowed to the closed seed-kind enum. */
+function requireKind(c: Ctx): SeedKind {
+  const kind = optStr(c, 'kind');
+  if (kind === undefined) {
+    throw usage(`seed requires -k <${SEED_KIND_VALUES.join('|')}>`);
+  }
+  if (!isMember(kind, SEED_KIND_VALUES)) {
+    throw usage(`invalid kind: ${kind} (expected ${SEED_KIND_VALUES.join('|')})`);
+  }
+  return kind;
+}
+
+/** Parse the seed queue `--status` (a lifecycle word, or `live`/`all`). */
+function parseSeedStatus(c: Ctx): SeedStatusSelector | undefined {
+  const status = optStr(c, 'status');
+  if (status === undefined) {
+    return undefined; // listSeeds defaults to `live`
+  }
+  const valid = [...SEED_LIFECYCLE_VALUES, 'live', 'all'] as const;
+  if (!isMember(status, valid)) {
+    throw usage(`invalid status: ${status} (expected ${valid.join('|')})`);
+  }
+  return status;
+}
+
+/** Parse `--sort` (age order; `asc` = oldest-first). */
+function parseSeedSort(c: Ctx): 'asc' | 'desc' | undefined {
+  const sort = optStr(c, 'sort');
+  if (sort === undefined) {
+    return undefined;
+  }
+  if (sort !== 'asc' && sort !== 'desc') {
+    throw usage(`invalid sort: ${sort} (expected asc|desc)`);
+  }
+  return sort;
+}
+
+/** Require a positional that parses as a seed id (`KEY-sN`) — the s-id grammar. */
+function requireSeedId(c: Ctx, verb: string): string {
+  const token = requirePos(c, 1, verb, 'a seed id (KEY-sN)');
+  if (parseSeedRef(token) === null) {
+    throw usage(`${verb} takes a seed id (KEY-sN), got ${token}`);
+  }
+  return token;
+}
+
+export async function cmdSeed(c: Ctx): Promise<number> {
+  const title = requirePos(c, 1, 'seed', 'a title');
+  const kind = requireKind(c);
+  const target = seedProject(c) ?? c.boundScope;
+  if (target === undefined) {
+    throw usage(
+      'seed requires a target project',
+      'pass -p KEY or bind a board first (mimir bind KEY)',
+    );
+  }
+  // requester = the bound board only when filing INTO a different board; a seed
+  // filed at its own board (or unbound) is self-filed → requester null (no noise).
+  const requester = c.boundScope !== undefined && c.boundScope !== target ? c.boundScope : null;
+  const seed = await fileSeed(c.store, {
+    description: optStr(c, 'desc'),
+    kind,
+    project: target,
+    requester,
+    title,
+  });
+  signpost(c.io, c.format, `filed ${seed.id} · ${seed.kind}`);
+  renderSeedView(seed, c.format, c.io);
+  return 0;
+}
+
+export async function cmdSeeds(c: Ctx): Promise<number> {
+  // Scope: -p/--project, else the bound board, else (unbound / -s all) every project.
+  const project = seedProject(c) ?? c.boundScope;
+  const seeds = await listSeeds(c.store, {
+    project,
+    requester: optStr(c, 'requester'),
+    sort: parseSeedSort(c),
+    status: parseSeedStatus(c),
+  });
+  renderSeeds(seeds, c.format, c.io, {
+    emptyMsg: 'No seeds — file one with mimir seed "…" -k <kind>',
+    grouped: c.values.grouped === true,
+  });
+  return 0;
+}
+
+export async function cmdPromote(c: Ctx): Promise<number> {
+  const id = requireSeedId(c, 'promote');
+  const { seed, created } = await promoteSeed(c.store, id, {
+    description: optStr(c, 'desc'),
+    link: optStr(c, 'link'),
+    parent: optStr(c, 'parent'),
+    priority: typeof c.values.priority === 'string' ? parsePriority(c.values.priority) : undefined,
+    size: typeof c.values.size === 'string' ? parseSize(c.values.size) : undefined,
+    tags: tagFlags(c),
+    title: optStr(c, 'title'),
+  });
+  signpost(
+    c.io,
+    c.format,
+    created !== undefined
+      ? `promoted ${seed.id} · spawned ${created}`
+      : `promoted ${seed.id} · recorded existing work`,
+  );
+  renderSeedView(seed, c.format, c.io);
+  return 0;
+}
+
+async function seedTerminal(
+  c: Ctx,
+  verb: 'reject' | 'resolve',
+  to: 'rejected' | 'resolved',
+): Promise<number> {
+  const id = requireSeedId(c, verb);
+  const reason = c.positionals.slice(2).join(' ');
+  if (reason.trim() === '') {
+    throw usage(`${verb} requires a reason`);
+  }
+  const seed = await transitionSeed(c.store, id, to, reason);
+  signpost(c.io, c.format, `${to} ${seed.id} · ${reason}`);
+  renderSeedView(seed, c.format, c.io);
+  return 0;
+}
+
+export async function cmdReject(c: Ctx): Promise<number> {
+  return seedTerminal(c, 'reject', 'rejected');
+}
+
+export async function cmdResolve(c: Ctx): Promise<number> {
+  return seedTerminal(c, 'resolve', 'resolved');
+}
+
+/** `update KEY-sN` — patch a live seed's title/kind/description (MMR-245). */
+async function cmdUpdateSeed(c: Ctx, token: string): Promise<number> {
+  for (const [key, flag] of [
+    ['size', '--size'],
+    ['target', '--target'],
+    ['ref', '--ref'],
+    ['summary', '--summary'],
+    ['open-ended', '--open-ended'],
+    ['not-open-ended', '--not-open-ended'],
+    ['upstream', '--upstream'],
+  ] as const) {
+    if (c.values[key] !== undefined) {
+      throw validation(`${flag} doesn't apply to a seed — patch --title, --kind, or --desc`);
+    }
+  }
+  const fields: UpdateSeedFields = {};
+  const changed: string[] = [];
+  if (typeof c.values.title === 'string') {
+    fields.title = c.values.title;
+    changed.push('title');
+  }
+  if (typeof c.values.desc === 'string') {
+    fields.description = c.values.desc;
+    changed.push('description');
+  }
+  if (typeof c.values.kind === 'string') {
+    if (!isMember(c.values.kind, SEED_KIND_VALUES)) {
+      throw usage(`invalid kind: ${c.values.kind} (expected ${SEED_KIND_VALUES.join('|')})`);
+    }
+    fields.kind = c.values.kind;
+    changed.push('kind');
+  }
+  const seed = await updateSeed(c.store, token, fields);
+  const suffix = changed.length > 0 ? ` (${changed.join(', ')})` : '';
+  signpost(c.io, c.format, `updated ${seed.id}${suffix}`);
+  renderSeedView(seed, c.format, c.io);
+  return 0;
 }
