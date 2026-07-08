@@ -520,7 +520,10 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir seeds --requester MMR          # seeds MMR filed on other boards',
     ],
     flags: [
-      ['-p, --project <KEY>', 'the board whose queue (default: the bound board; "all" = every board)'],
+      [
+        '-p, --project <KEY>',
+        'the board whose queue (default: the bound board; "all" = every board)',
+      ],
       ['--requester <KEY>', 'filter to seeds a board requested'],
       ['--status <s>', 'new|promoted|resolved|rejected, or live (default) | all'],
       ['--sort <asc|desc>', 'age order (default asc = oldest-first)'],

@@ -89,8 +89,9 @@ resolved | rejected`). Terminal states are set **only by explicit triager
   retiring SQLite backend throws — seeds are never stored there, MMR-234).
 - The store owns the lifecycle machine and terminal-freeze: `patch` (title / kind
   / description) refuses a terminal seed; `transition` refuses an illegal edge
-  and records the move in `## History`; `create` / `appendSpawned` complete the
-  mutation primitives. `requester` and `spawned` are verb-owned, never
+  and records the move in `## History`; `create` and `germinate` (the promote path's
+  single atomic plan — spawned link + `new → promoted` + `## History` in one write)
+  complete the mutation primitives. `requester` and `spawned` are verb-owned, never
   hand-patched.
 - Tasks gain a nullable `upstream` column (`KEY-sN`), round-tripping like
   `external_ref`.
@@ -131,7 +132,7 @@ seeds, consistently on both the write and read sides:
   never mutates and `promote` never orphans a task.
 - **Archived spawned work is hidden from the facet but counts as settled.** A
   `spawned` ref whose board is since-archived reads as absent (dropped from the
-  displayed `spawned[]`), yet `readyToResolve` is derived over the *unpruned*
+  displayed `spawned[]`), yet `readyToResolve` is derived over the _unpruned_
   survivors treating an archived-board node as settled (archiving is a stronger
   "over" than done — the ADR 0015 refinement on prerequisites). So the attention
   signal survives archiving and reverts on unarchive.
