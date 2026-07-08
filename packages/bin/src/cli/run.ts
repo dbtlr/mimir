@@ -873,11 +873,6 @@ function requireId(id: string | undefined, command: string): string {
 }
 
 /**
- * The flat `--col` vocabulary (MMR-38) — the dot prefix is gone (it fenced a
- * dynamic namespace Mimir doesn't have). One closed list; `content` is
- * artifact-only and handled by the `get KEY-aN` path.
- */
-/**
  * The always-shown `NodeView` bare columns (dto.ts). `--col` only *adds* optional
  * facet columns, so a user naming one of these is treating it as a projection —
  * the 21-occurrence `--col id,type,status` miss (MMR-212). Best-effort: a name
@@ -900,6 +895,11 @@ const BASE_COLUMN_NAMES = [
   'completed',
 ] as const;
 
+/**
+ * The flat `--col` vocabulary (MMR-38) — the dot prefix is gone (it fenced a
+ * dynamic namespace Mimir doesn't have). One closed list; `content` is
+ * artifact-only and handled by the `get KEY-aN` path.
+ */
 function parseFacets(cols: string[] | undefined): FacetName[] {
   const facets: FacetName[] = [];
   // Accept a comma-separated list (`--col history,annotations`) as well as the
