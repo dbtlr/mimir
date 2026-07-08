@@ -96,6 +96,26 @@ export type SeedKind = (typeof SEED_KIND_VALUES)[number];
 export const SEED_LIFECYCLE_VALUES = ['new', 'promoted', 'resolved', 'rejected'] as const;
 export type SeedLifecycle = (typeof SEED_LIFECYCLE_VALUES)[number];
 
+/**
+ * Seed lane (MMR-245) — the exclusive, highest-wins standing a seed view groups
+ * into, the seed sibling of the node attention {@link Lane}. `untriaged` (new,
+ * awaiting a decision), `ready` (promoted + all spawned work settled — ready to
+ * resolve), `promoted` (in flight, work outstanding), `settled` (resolved/rejected).
+ * `ready` wins over `promoted` so the attention signal is never buried. Exposed on
+ * the wire so consumers derive nothing.
+ */
+export const SEED_LANE_VALUES = ['untriaged', 'ready', 'promoted', 'settled'] as const;
+export type SeedLane = (typeof SEED_LANE_VALUES)[number];
+
+/**
+ * The seed queue `--status` universe (MMR-245): a lifecycle word, or the `live`
+ * (new + promoted, the default) / `all` unions — the seed sibling of
+ * {@link STATUS_SELECTOR_VALUES}. Single-sourced here so all three transports and
+ * the {@link SeedStatusSelector} type derive from one vocabulary.
+ */
+export const SEED_STATUS_SELECTOR_VALUES = [...SEED_LIFECYCLE_VALUES, 'live', 'all'] as const;
+export type SeedStatusSelector = (typeof SEED_STATUS_SELECTOR_VALUES)[number];
+
 /** Transition-log row kinds (ADR 0003) — which axis/edge changed. `archive` is project-keyed (ADR 0015); the rest are node-keyed. */
 export const TRANSITION_KIND_VALUES = [
   'lifecycle',

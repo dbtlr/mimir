@@ -63,6 +63,13 @@ export function parseSeedRef(id: string): NodeRef | null {
   return { key, seq: Number(seqText) };
 }
 
+/** Does `value` parse as a seed id (`KEY-sN`)? The grammar the transport `upstream`
+ * boundaries (CLI/MCP/HTTP) share (MMR-245/M5); the throw stays per-transport (CLI
+ * usage/exit-2, MCP/HTTP validation) and core create/update stay tolerant-write. */
+export function isSeedRef(value: string): boolean {
+  return parseSeedRef(value) !== null;
+}
+
 /** Parse a `KEY-seq` node id back into its parts, or `null` if it isn't one. */
 export function parseId(id: string): NodeRef | null {
   const match = NODE_PATTERN.exec(id);

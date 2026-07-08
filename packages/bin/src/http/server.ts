@@ -4,7 +4,7 @@ import {
   PRIORITY_VALUES,
   QUERY_OP_VALUES,
   SEED_KIND_VALUES,
-  SEED_LIFECYCLE_VALUES,
+  SEED_STATUS_SELECTOR_VALUES,
   SIZE_VALUES,
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
@@ -12,14 +12,7 @@ import {
 import { isMember } from '@mimir/helpers';
 import type { Server } from 'bun';
 
-import type {
-  DerivationSet,
-  ListOptions,
-  RankPosition,
-  SeedStatusSelector,
-  Store,
-  UpdateFields,
-} from '../core';
+import type { DerivationSet, ListOptions, SeedStatusSelector, Store, UpdateFields } from '../core';
 import {
   abandonTask,
   annotate,
@@ -31,9 +24,10 @@ import {
   deriveSet,
   fileSeed,
   findNodeInSet,
+  asSeedKind,
   getSeed,
+  isSeedRef,
   listSeeds,
-  parseSeedRef,
   promoteSeed,
   promoteToWire,
   seedToWire,
@@ -164,19 +158,21 @@ function projectFilter(status: string | null): 'active' | 'archived' | 'all' {
 /** Validate an optional `upstream` body field as a seed id (`KEY-sN`), MMR-245. */
 function upstreamField(body: Record<string, unknown>): string | undefined {
   const upstream = strField(body, 'upstream');
-  if (upstream !== undefined && parseSeedRef(upstream) === null) {
+  if (upstream !== undefined && !isSeedRef(upstream)) {
     throw validation(`upstream must be a seed id (KEY-sN), got ${upstream}`);
   }
   return upstream;
 }
 
-/** Narrow the required `kind` body field to the closed seed-kind enum (MMR-245). */
+/** Narrow the required `kind` body field to the closed seed-kind enum (MMR-245),
+ * via the core narrowing helper shared with the CLI/MCP boundaries (M4). */
 function requireSeedKind(body: Record<string, unknown>): SeedKind {
   const kind = requiredStr(body, 'kind', 'file seed');
-  if (!isMember(kind, SEED_KIND_VALUES)) {
+  const narrowed = asSeedKind(kind);
+  if (narrowed === null) {
     throw validation(`invalid kind: ${kind}`, `kinds: ${SEED_KIND_VALUES.join(', ')}`);
   }
-  return kind;
+  return narrowed;
 }
 
 /** Optional `kind` (a seed PATCH), narrowed to the seed-kind enum when present. */
@@ -185,10 +181,11 @@ function optSeedKind(body: Record<string, unknown>): SeedKind | undefined {
   if (kind === undefined) {
     return undefined;
   }
-  if (!isMember(kind, SEED_KIND_VALUES)) {
+  const narrowed = asSeedKind(kind);
+  if (narrowed === null) {
     throw validation(`invalid kind: ${kind}`, `kinds: ${SEED_KIND_VALUES.join(', ')}`);
   }
-  return kind;
+  return narrowed;
 }
 
 /** Map the `?status` param on the seed queue to the selector (MMR-245). */
@@ -196,9 +193,11 @@ function seedStatusParam(status: string | null): SeedStatusSelector | undefined 
   if (status === null) {
     return undefined;
   }
-  const valid = [...SEED_LIFECYCLE_VALUES, 'live', 'all'] as const;
-  if (!isMember(status, valid)) {
-    throw validation(`invalid status: ${status}`, `statuses: ${valid.join(', ')}`);
+  if (!isMember(status, SEED_STATUS_SELECTOR_VALUES)) {
+    throw validation(
+      `invalid status: ${status}`,
+      `statuses: ${SEED_STATUS_SELECTOR_VALUES.join(', ')}`,
+    );
   }
   return status;
 }
@@ -818,7 +817,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const node = await reorder(
               store,
               await nodeRef(store, req.params.id, 'task'),
-              position as RankPosition,
+              position,
               refId,
             );
             return echoNode(store, req, node);

@@ -182,11 +182,7 @@ export function readConfig(file = configPath()): GlobalConfig {
   }
   let parsed: { serve?: unknown; vault?: unknown; store?: unknown };
   try {
-    parsed = Bun.TOML.parse(readFileSync(file, 'utf8')) as {
-      serve?: unknown;
-      vault?: unknown;
-      store?: unknown;
-    };
+    parsed = Bun.TOML.parse(readFileSync(file, 'utf8'));
   } catch {
     return {
       serve: { problem: 'malformed' },

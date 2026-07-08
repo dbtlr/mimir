@@ -14,6 +14,7 @@ import {
   formatSeedJson,
   formatSeedsJson,
   formatSeedsJsonl,
+  seedLane,
 } from '../core';
 
 export const FORMATS = ['table', 'records', 'ids', 'json', 'jsonl'] as const;
@@ -450,15 +451,14 @@ function renderSeedTable(seeds: readonly SeedView[], io: Io, emptyMsg?: string):
  * each with a count. A promoted seed whose spawned work is not all settled is
  * shown in a PROMOTED lane (only when populated) so no seed is dropped. */
 function renderSeedGrouped(seeds: readonly SeedView[], io: Io): string {
-  const untriaged = seeds.filter((s) => s.lifecycle === 'new');
-  const ready = seeds.filter((s) => s.readyToResolve);
-  const promoted = seeds.filter((s) => s.lifecycle === 'promoted' && !s.readyToResolve);
-  const settled = seeds.filter((s) => s.lifecycle === 'resolved' || s.lifecycle === 'rejected');
+  // Bucket by the shared classifier (M1) so the lane view can't drift from the wire
+  // `lane` field — one source of the untriaged/ready/promoted/settled partition.
+  const inLane = (lane: string): SeedView[] => seeds.filter((s) => seedLane(s) === lane);
   const lanes: [string, SeedView[]][] = [
-    ['UNTRIAGED', untriaged],
-    ['READY TO RESOLVE', ready],
-    ['PROMOTED', promoted],
-    ['SETTLED', settled],
+    ['UNTRIAGED', inLane('untriaged')],
+    ['READY TO RESOLVE', inLane('ready')],
+    ['PROMOTED', inLane('promoted')],
+    ['SETTLED', inLane('settled')],
   ];
   const out: string[] = [countLine(seeds.length, 'seed')];
   for (const [label, lane] of lanes) {

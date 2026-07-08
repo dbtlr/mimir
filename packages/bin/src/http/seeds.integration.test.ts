@@ -148,7 +148,7 @@ describe.skipIf(!NORN)('/api/seeds', () => {
       items: Rec[];
       total: number;
     };
-    expect(all.items.map((s) => s.id).toSorted()).toEqual(['MMR-s1', 'OTH-s1']);
+    expect(all.items.map((s) => String(s.id)).toSorted()).toEqual(['MMR-s1', 'OTH-s1']);
     // An empty requester filter is absent, not a filter for '' → the whole queue.
     const q = (await (await fetch(`${base}/api/seeds?requester=`)).json()) as { total: number };
     expect(q.total).toBe(2);

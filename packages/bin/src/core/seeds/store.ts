@@ -66,6 +66,10 @@ export type SeedStore = {
   ) => Promise<(SeedRecord & { description?: string | null }) | undefined>;
   /** A project's whole seed inventory, seq ascending. */
   listForProject: (key: string) => Promise<SeedRecord[]>;
+  /** Every seed in the vault in ONE `type:seed` find — the whole-queue read (the
+   * unbound `seeds` listing filters it to active boards), instead of a per-project
+   * loop of `listForProject` (MMR-245/E1). */
+  listAll: () => Promise<SeedRecord[]>;
   /** Edit a LIVE seed's title/kind/description; refuses when the seed is terminal
    * or absent — a terminal seed is frozen (the reason string carries the nuance). */
   patch: (key: string, seq: number, patch: SeedPatch) => Promise<void>;

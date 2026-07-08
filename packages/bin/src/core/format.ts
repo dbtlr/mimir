@@ -8,6 +8,8 @@ import type {
   TreeView,
 } from '@mimir/contract';
 
+import { seedLane } from './seeds/lane';
+
 /**
  * The **structural** output formats — `ids` / `json` / `jsonl` — a versioned
  * promise, shared by every transport and never styled (no ANSI). The wire shape
@@ -213,6 +215,8 @@ export function seedToWire(seed: SeedView): Record<string, unknown> {
     created_at: seed.createdAt,
     id: seed.id,
     kind: seed.kind,
+    // The exclusive lane (MMR-245), single-sourced so consumers derive nothing.
+    lane: seedLane(seed),
     lifecycle: seed.lifecycle,
     project: seed.project,
     ready_to_resolve: seed.readyToResolve,

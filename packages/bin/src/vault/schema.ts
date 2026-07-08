@@ -36,7 +36,7 @@ export function renderMarker(): string {
 export function parseMarker(content: string): { schema: number } | null {
   let parsed: { schema?: unknown };
   try {
-    parsed = Bun.TOML.parse(content) as { schema?: unknown };
+    parsed = Bun.TOML.parse(content);
   } catch {
     return null;
   }

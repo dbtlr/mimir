@@ -20,6 +20,7 @@ export function createSqliteSeedStore(): SeedStore {
   return {
     create: () => refuse(),
     germinate: () => refuse(),
+    listAll: () => refuse(),
     listForProject: () => refuse(),
     load: () => refuse(),
     patch: () => refuse(),

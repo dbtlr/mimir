@@ -370,7 +370,7 @@ export async function runCli(
         io: ctx,
         positionals,
         store,
-        values: values as Record<string, unknown>,
+        values,
       };
     };
 

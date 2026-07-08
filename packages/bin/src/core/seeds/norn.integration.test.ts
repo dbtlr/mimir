@@ -276,6 +276,30 @@ describe.skipIf(!NORN)('norn seed store', () => {
     });
   });
 
+  test('listAll returns every seed in one find, across projects (E1)', async () => {
+    await seeds.create({
+      description: null,
+      key: 'MMR',
+      kind: 'idea',
+      requester: null,
+      title: 'a',
+    });
+    await client.newDoc({
+      body: '## Seed Description\n\n\n## History\n## Annotations\n',
+      confirm: true,
+      field_json: [
+        `type=${JSON.stringify('project')}`,
+        `key=${JSON.stringify('OTH')}`,
+        `name=${JSON.stringify('Other')}`,
+      ],
+      parents: true,
+      path: 'OTH/OTH.md',
+    });
+    await seeds.create({ description: null, key: 'OTH', kind: 'bug', requester: null, title: 'b' });
+    const all = await seeds.listAll();
+    expect(all.map((s) => `${s.key}-s${String(s.seq)}`).toSorted()).toEqual(['MMR-s1', 'OTH-s1']);
+  });
+
   test('mutations on an absent seed fail loud', async () => {
     expect(await rejectMessage(() => seeds.patch('MMR', 99, { title: 'x' }))).toMatch(/no seed/);
     expect(await rejectMessage(() => seeds.transition('MMR', 99, 'promoted', 'x'))).toMatch(

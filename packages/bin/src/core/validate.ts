@@ -136,7 +136,7 @@ export function validate(graph: VaultGraph): ValidatedGraph {
   // active, so a requester naming it is nulled on read (MMR-245/B1d). Every other
   // pass (node containers included) resolves against `present`, so archived
   // projects' nodes are never dropped.
-  const archived = new Set(graph.archivedProjectKeys ?? []);
+  const archived = new Set(graph.archivedProjectKeys);
   const survivors = new Set<string>();
   const dropped: Drop[] = [];
 

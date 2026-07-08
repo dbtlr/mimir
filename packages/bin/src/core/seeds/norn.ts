@@ -66,6 +66,26 @@ function narrowEnum<T extends string>(value: unknown, values: readonly T[]): T |
   return typeof value === 'string' && isMember(value, values) ? value : null;
 }
 
+/** Choose add vs set for the `spawned` field on the RAW field PRESENCE, not the
+ * decoded length (matching writer.ts's `field in rawFm`): an absent field is ADDed;
+ * a present one — including a hand-written empty `spawned: []` — is SET, carrying the
+ * raw stored value as the CAS precondition. norn refuses to add a present field, so
+ * keying on the decoded (empty) length would wrongly ADD and be refused. */
+function spawnedFieldOp(path: string, fm: Record<string, unknown>, spawned: string[]): MigrationOp {
+  const links = spawned.map(wikilink);
+  return 'spawned' in fm
+    ? setFrontmatter(path, 'spawned', links, fm.spawned)
+    : addFrontmatter(path, 'spawned', links);
+}
+
+/** Order seed records by `(key, seq)` — the deterministic whole-vault listing order. */
+function byKeyThenSeq(a: SeedRecord, b: SeedRecord): number {
+  if (a.key !== b.key) {
+    return a.key < b.key ? -1 : 1;
+  }
+  return a.seq - b.seq;
+}
+
 /**
  * A seed document → the backend-neutral record; null when malformed (no seed
  * stem, no frontmatter, or a foreign kind/lifecycle). The read path is tolerant
@@ -208,21 +228,54 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
     }
   };
 
-  /** Choose add vs set on the RAW field PRESENCE, not the decoded length (matching
-   * writer.ts's `field in rawFm`): an absent field is ADDed; a present one —
-   * including a hand-written empty `spawned: []` — is SET, carrying the raw stored
-   * value as the CAS precondition. norn refuses to add a present field, so keying on
-   * the decoded (empty) length would wrongly ADD and be refused. */
-  const spawnedFieldOp = (
-    path: string,
-    fm: Record<string, unknown>,
-    spawned: string[],
-  ): MigrationOp =>
-    'spawned' in fm
-      ? setFrontmatter(path, 'spawned', spawned.map(wikilink), fm.spawned)
-      : addFrontmatter(path, 'spawned', spawned.map(wikilink));
-
   return {
+    async create(input: SeedCreate) {
+      const timestamp = now();
+      // Stamped once, not per retry: a create-exclusive collision re-derives the
+      // seq, but `created`/`updated_at` should not drift across attempts.
+      const field_json = seedFieldJson({
+        created: timestamp,
+        key: input.key,
+        kind: input.kind,
+        lifecycle: 'new',
+        requester: input.requester,
+        spawned: [],
+        title: input.title,
+        updated_at: timestamp,
+      });
+      const body = renderSeedBody(input.description);
+      let lastError: unknown;
+      for (let attempt = 0; attempt < CREATE_RETRIES; attempt += 1) {
+        const docs = await projectDocs(input.key);
+        const seqs = docs
+          .map((d) => seqFromPath(d.path))
+          .filter((s): s is { key: string; seq: number } => s !== null)
+          .map((s) => s.seq);
+        const seq = (seqs.length === 0 ? 0 : Math.max(...seqs)) + 1;
+        try {
+          await client.newDoc({
+            body,
+            confirm: true,
+            field_json,
+            parents: true,
+            path: pathOf(input.key, seq),
+          });
+          return { key: input.key, seq };
+        } catch (error) {
+          // ONLY a create-exclusive path collision means a concurrent create won
+          // this seq — re-derive and retry (mirrors the artifact store). Any other
+          // failure rethrows: a higher-seq retry would write a duplicate.
+          if (!isPathCollision(error)) {
+            throw error;
+          }
+          lastError = error;
+        }
+      }
+      throw lastError instanceof Error
+        ? lastError
+        : validation(`seed create kept colliding after ${String(CREATE_RETRIES)} attempts`);
+    },
+
     async germinate(key, seq, nodeStem) {
       // Up to two attempts: on a compare-and-set refusal (a concurrent write moved
       // the doc) re-read once and retry against the now-current frontmatter (the
@@ -282,51 +335,14 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
       }
     },
 
-    async create(input: SeedCreate) {
-      const timestamp = now();
-      // Stamped once, not per retry: a create-exclusive collision re-derives the
-      // seq, but `created`/`updated_at` should not drift across attempts.
-      const field_json = seedFieldJson({
-        created: timestamp,
-        key: input.key,
-        kind: input.kind,
-        lifecycle: 'new',
-        requester: input.requester,
-        spawned: [],
-        title: input.title,
-        updated_at: timestamp,
-      });
-      const body = renderSeedBody(input.description);
-      let lastError: unknown;
-      for (let attempt = 0; attempt < CREATE_RETRIES; attempt += 1) {
-        const docs = await projectDocs(input.key);
-        const seqs = docs
-          .map((d) => seqFromPath(d.path))
-          .filter((s): s is { key: string; seq: number } => s !== null)
-          .map((s) => s.seq);
-        const seq = (seqs.length === 0 ? 0 : Math.max(...seqs)) + 1;
-        try {
-          await client.newDoc({
-            body,
-            confirm: true,
-            field_json,
-            parents: true,
-            path: pathOf(input.key, seq),
-          });
-          return { key: input.key, seq };
-        } catch (error) {
-          // ONLY a create-exclusive path collision means a concurrent create won
-          // this seq — re-derive and retry (mirrors the artifact store). Any other
-          // failure rethrows: a higher-seq retry would write a duplicate.
-          if (!isPathCollision(error)) {
-            throw error;
-          }
-          lastError = error;
-        }
-      }
-      throw lastError instanceof Error
-        ? lastError
-        : validation(`seed create kept colliding after ${String(CREATE_RETRIES)} attempts`);
+    async listAll() {
+      // One `type:seed` find over the whole vault (E1) — the caller filters to the
+      // boards it wants. Ordered by (key, seq) for determinism; the listing re-sorts.
+      const docs = await client.find({ eq: ['type:seed'], no_limit: true });
+      return docs
+        .map(toRecord)
+        .filter((r): r is SeedRecord => r !== null)
+        .toSorted(byKeyThenSeq);
     },
 
     async listForProject(key: string) {

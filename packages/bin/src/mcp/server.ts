@@ -1,7 +1,7 @@
 import {
   PRIORITY_VALUES,
   SEED_KIND_VALUES,
-  SEED_LIFECYCLE_VALUES,
+  SEED_STATUS_SELECTOR_VALUES,
   SIZE_VALUES,
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
@@ -61,7 +61,7 @@ const SIZE = z.enum(SIZE_VALUES);
 const STATUS = z.enum(STATUS_SELECTOR_VALUES);
 const VERDICT = z.enum(VERDICT_VALUES);
 const SEED_KIND = z.enum(SEED_KIND_VALUES);
-const SEED_STATUS = z.enum([...SEED_LIFECYCLE_VALUES, 'live', 'all']);
+const SEED_STATUS = z.enum(SEED_STATUS_SELECTOR_VALUES);
 const SEED_SORT = z.enum(['asc', 'desc']);
 const TOKENS = z.array(z.string());
 // Field operators (MMR-33): FIELD:VALUE tokens (bare FIELD for has/missing).

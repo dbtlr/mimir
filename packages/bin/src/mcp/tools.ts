@@ -17,6 +17,7 @@ import {
   abandonTask,
   annotate,
   archiveProject,
+  asSeedKind,
   attachArtifact,
   blockTask,
   deriveSet,
@@ -33,7 +34,7 @@ import {
   fileSeed,
   getSeed,
   listSeeds,
-  parseSeedRef,
+  isSeedRef,
   promoteSeed,
   transitionSeed,
   updateSeed,
@@ -535,7 +536,7 @@ export function toolUpdate(
 
 /** Validate an `--upstream KEY-sN` seed pointer at the tool layer (MMR-245). */
 function validateUpstream(upstream: string): string {
-  if (parseSeedRef(upstream) === null) {
+  if (!isSeedRef(upstream)) {
     throw validation(`upstream must be a seed id (KEY-sN), got ${upstream}`);
   }
   return upstream;
@@ -881,12 +882,14 @@ export function toolAttach(
 // Seed tools (MMR-245)
 // ---------------------------------------------------------------------------
 
-/** Narrow a raw `kind` arg to the closed seed-kind enum, or throw. */
+/** Narrow a raw `kind` arg to the closed seed-kind enum, or throw. Shares the core
+ * narrowing helper with the CLI/HTTP boundaries (M4). */
 function requireSeedKind(kind: string): SeedKind {
-  if (!isMember(kind, SEED_KIND_VALUES)) {
+  const narrowed = asSeedKind(kind);
+  if (narrowed === null) {
     throw validation(`invalid kind: ${kind}`, `kinds: ${SEED_KIND_VALUES.join(', ')}`);
   }
-  return kind;
+  return narrowed;
 }
 
 export function toolSeed(

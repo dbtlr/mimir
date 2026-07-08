@@ -1,4 +1,13 @@
-import type { Priority, SeedKind, SeedLifecycle, Size, SeedView } from '@mimir/contract';
+import { SEED_KIND_VALUES } from '@mimir/contract';
+import type {
+  Priority,
+  SeedKind,
+  SeedLifecycle,
+  SeedStatusSelector,
+  Size,
+  SeedView,
+} from '@mimir/contract';
+import { isMember } from '@mimir/helpers';
 
 import { createTask } from '../create';
 import type { DerivationSet } from '../derive';
@@ -29,12 +38,21 @@ import type { SeedRecord } from './store';
  * house rule: derive, never store).
  */
 
-/** The seed queue universe (MMR-245): a lifecycle word, or the `live`/`all` unions. */
-export type SeedStatusSelector = SeedLifecycle | 'live' | 'all';
+/** The seed queue universe (MMR-245): a lifecycle word, or the `live`/`all` unions.
+ * Single-sourced in `@mimir/contract`; re-exported so `core` consumers (the three
+ * transports) import it from one place. */
+export type { SeedStatusSelector } from '@mimir/contract';
 
-/** The live universe — the untriaged + in-flight seeds (`new` + `promoted`). */
-const isLive = (lifecycle: SeedLifecycle): boolean =>
-  lifecycle === 'new' || lifecycle === 'promoted';
+/** The live universe — the untriaged + in-flight seeds (the non-terminal states),
+ * derived from the lifecycle machine rather than a hand-spelled union (M2). */
+const isLive = (lifecycle: SeedLifecycle): boolean => !isTerminalSeed(lifecycle);
+
+/** Narrow a raw `kind` value to the closed seed-kind enum, or `null` when it is
+ * absent/non-string/foreign — the ONE narrowing every transport boundary shares
+ * (CLI/MCP/HTTP), each throwing its own error type on `null` (M4). */
+export function asSeedKind(value: unknown): SeedKind | null {
+  return typeof value === 'string' && isMember(value, SEED_KIND_VALUES) ? value : null;
+}
 
 /**
  * The shared read context: the active project keys (an unknown `requester`
@@ -148,11 +166,12 @@ export async function listSeeds(store: Store, opts: ListSeedsOptions = {}): Prom
   if (project !== undefined && !r.projectKeys.has(project)) {
     throw projectNotFound(project);
   }
-  const keys = project !== undefined ? [project] : [...r.projectKeys];
-  const records: SeedRecord[] = [];
-  for (const key of keys) {
-    records.push(...(await store.seeds.listForProject(key)));
-  }
+  // Bound: one project's inventory. Unbound: ONE whole-vault find (E1), filtered to
+  // ACTIVE boards (archived-parity — an archived board's seeds read as absent, ADR 0015).
+  const records: SeedRecord[] =
+    project !== undefined
+      ? await store.seeds.listForProject(project)
+      : (await store.seeds.listAll()).filter((rec) => r.projectKeys.has(rec.key));
   const status = opts.status ?? 'live';
   let views = records.map((rec) => resolveSeedView(rec, r));
   if (opts.requester !== undefined) {
@@ -253,7 +272,14 @@ export async function fileSeed(store: Store, input: FileSeedInput): Promise<Seed
     requester,
     title: input.title,
   });
-  return getSeed(store, renderSeedRef({ key, seq }), { content: true });
+  // Reuse the resolver already built for the guards (E2): creating a seed adds no
+  // work node and changes no project, so `r` still resolves the echo — no second
+  // whole-vault read via getSeed.
+  const created = await store.seeds.load(key, seq, { content: true });
+  if (created === undefined) {
+    throw notFound(`no seed ${renderSeedRef({ key, seq })}`);
+  }
+  return resolveSeedView(created, r);
 }
 
 export type PromoteSeedInput = {

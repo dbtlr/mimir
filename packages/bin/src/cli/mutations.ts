@@ -4,7 +4,7 @@
  * write verbs. Tasks 4–8 will add more handlers here and cases to `run.ts`.
  */
 
-import { SEED_KIND_VALUES, SEED_LIFECYCLE_VALUES } from '@mimir/contract';
+import { SEED_KIND_VALUES, SEED_STATUS_SELECTOR_VALUES } from '@mimir/contract';
 import type { SeedKind } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
@@ -17,6 +17,7 @@ import {
   completeTask,
   createInitiative,
   createPhase,
+  asSeedKind,
   createProject,
   createTask,
   depend,
@@ -24,6 +25,7 @@ import {
   fileSeed,
   findNodeInSet,
   getArtifact,
+  isSeedRef,
   listSeeds,
   moveNode,
   parseIdentity,
@@ -607,7 +609,7 @@ function seedUpstream(c: Ctx): string | undefined {
   if (upstream === undefined) {
     return undefined;
   }
-  if (parseSeedRef(upstream) === null) {
+  if (!isSeedRef(upstream)) {
     throw usage(`--upstream expects a seed id (KEY-sN), got ${upstream}`);
   }
   return upstream;
@@ -815,10 +817,11 @@ function requireKind(c: Ctx): SeedKind {
   if (kind === undefined) {
     throw usage(`seed requires -k <${SEED_KIND_VALUES.join('|')}>`);
   }
-  if (!isMember(kind, SEED_KIND_VALUES)) {
+  const narrowed = asSeedKind(kind);
+  if (narrowed === null) {
     throw usage(`invalid kind: ${kind} (expected ${SEED_KIND_VALUES.join('|')})`);
   }
-  return kind;
+  return narrowed;
 }
 
 /** Parse the seed queue `--status` (a lifecycle word, or `live`/`all`). */
@@ -827,9 +830,8 @@ function parseSeedStatus(c: Ctx): SeedStatusSelector | undefined {
   if (status === undefined) {
     return undefined; // listSeeds defaults to `live`
   }
-  const valid = [...SEED_LIFECYCLE_VALUES, 'live', 'all'] as const;
-  if (!isMember(status, valid)) {
-    throw usage(`invalid status: ${status} (expected ${valid.join('|')})`);
+  if (!isMember(status, SEED_STATUS_SELECTOR_VALUES)) {
+    throw usage(`invalid status: ${status} (expected ${SEED_STATUS_SELECTOR_VALUES.join('|')})`);
   }
   return status;
 }
@@ -971,10 +973,11 @@ async function cmdUpdateSeed(c: Ctx, token: string): Promise<number> {
     changed.push('description');
   }
   if (typeof c.values.kind === 'string') {
-    if (!isMember(c.values.kind, SEED_KIND_VALUES)) {
+    const narrowed = asSeedKind(c.values.kind);
+    if (narrowed === null) {
       throw usage(`invalid kind: ${c.values.kind} (expected ${SEED_KIND_VALUES.join('|')})`);
     }
-    fields.kind = c.values.kind;
+    fields.kind = narrowed;
     changed.push('kind');
   }
   const seed = await updateSeed(c.store, token, fields);
