@@ -74,6 +74,7 @@ validate:
           - task
           - phase
           - initiative
+          - seed
 
     - name: artifact
       match:
@@ -92,6 +93,30 @@ validate:
         created: datetime
       allowed_paths:
         - "*/artifacts/*.md"
+
+    - name: seed
+      match:
+        path: "**/*.md"
+        frontmatter:
+          type: seed
+      required_frontmatter:
+        - title
+        - project
+        - kind
+        - lifecycle
+        - created
+        - updated_at
+      field_types:
+        title: text
+        project: wikilink
+        kind: string
+        lifecycle: string
+        requester: wikilink
+        spawned: wikilink_or_list
+        created: datetime
+        updated_at: datetime
+      allowed_paths:
+        - "*/seeds/*.md"
 
     - name: node
       match:
@@ -120,6 +145,7 @@ validate:
         priority: string
         size: string
         external_ref: string
+        upstream: string
         target: string
         created: datetime
         updated_at: datetime

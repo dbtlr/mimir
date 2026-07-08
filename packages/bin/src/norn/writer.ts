@@ -2,6 +2,7 @@ import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import { createNornArtifactStore } from '../core/artifacts';
 import { createNornBodySectionStore } from '../core/body-sections';
+import { createNornSeedStore } from '../core/seeds';
 import { invariant, validation } from '../core/errors';
 import {
   ANNOTATIONS_HEADING,
@@ -114,6 +115,7 @@ export function createNornWriteStore(client: NornClient, vaultRoot: string): Sto
     artifacts: createNornArtifactStore(client),
     bodySections: createNornBodySectionStore(client),
     loadWorkingSet: () => loadWorkingSetOverNorn(client),
+    seeds: createNornSeedStore(client, vaultRoot),
     transact: (fn) => runTransact(client, vaultRoot, fn),
     transitions: createNornTransitionsFeed(client),
   };

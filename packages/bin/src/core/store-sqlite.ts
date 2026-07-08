@@ -2,6 +2,7 @@ import { allocateArtifactSeq, allocateSeq } from './allocation';
 import { createSqliteArtifactStore } from './artifacts/sqlite';
 import { createSqliteBodySectionStore } from './body-sections/sqlite';
 import type { Db, Tx } from './context';
+import { createSqliteSeedStore } from './seeds/sqlite';
 import type { NodeTag, Store, StoreWriter, WorkingSet } from './store';
 import { createSqliteTransitionsFeed } from './transitions/sqlite';
 
@@ -197,6 +198,8 @@ export function createSqliteStore(db: Db): Store {
     // a consistent snapshot — a concurrent write can't interleave between them.
     // The writer's own `loadWorkingSet` already runs inside its `transact` tx.
     loadWorkingSet: () => db.transaction().execute((tx) => loadWorkingSet(tx)),
+    // Seeds are Norn-only (MMR-234): the SQLite arm throws on use.
+    seeds: createSqliteSeedStore(),
     transact: (fn) => db.transaction().execute((tx) => fn(createWriter(tx))),
     transitions: createSqliteTransitionsFeed(db),
   };

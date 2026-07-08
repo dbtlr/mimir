@@ -11,6 +11,7 @@ import type {
 import type { ArtifactStore } from './artifacts/store';
 import type { BodySectionStore } from './body-sections/store';
 import type { Artifact, Dependency, Node, Project, Tag } from './model';
+import type { SeedStore } from './seeds/store';
 import type { TransitionsFeed } from './transitions/store';
 
 /**
@@ -225,6 +226,14 @@ export type Store = {
    * external identity, never numeric ids.
    */
   readonly artifacts: ArtifactStore;
+
+  /**
+   * The seed slice (MMR-244) — the grooming-queue entity, project-anchored like
+   * artifacts (ADR 0004 precedent), keyed by the `KEY-sN` external identity.
+   * **Norn-backed only**: the SQLite arm throws (seeds are not stored in the
+   * retiring SQLite backend, MMR-234).
+   */
+  readonly seeds: SeedStore;
 
   /**
    * The body-section read slice (MMR-154, ADR 0016 Phase 3) — a node's
