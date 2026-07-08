@@ -7,9 +7,9 @@ import { bunExec } from '../../exec';
 import { NornClient } from '../../norn/client';
 import { pathAndSections } from '../../norn/decode';
 import { converge } from '../../vault/converge';
+import { HISTORY_HEADING, parseHistorySection, sectionBody } from '../history-codec';
 import { readVaultGraph } from '../store-norn';
 import { validate } from '../validate';
-import { HISTORY_HEADING, parseHistorySection, sectionBody } from '../history-codec';
 import { createNornSeedStore } from './norn';
 import type { SeedStore } from './store';
 
@@ -198,7 +198,13 @@ describe.skipIf(!NORN)('norn seed store', () => {
   test('readVaultGraph surfaces seeds so validate/doctor drops a foreign-kind seed', async () => {
     // A valid seed via the store, plus a hand-corrupt one written raw (the store's
     // typed API can't produce a foreign kind) — readVaultGraph must load both.
-    await seeds.create({ description: null, key: 'MMR', kind: 'idea', requester: null, title: 'ok' });
+    await seeds.create({
+      description: null,
+      key: 'MMR',
+      kind: 'idea',
+      requester: null,
+      title: 'ok',
+    });
     await client.newDoc({
       body: '## Seed Description\n\n\n## History\n## Annotations\n',
       confirm: true,

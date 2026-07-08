@@ -15,6 +15,22 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Seeds — the grooming-queue entity** (MMR-244, ADR 0020). A seed is a record
+  filed against a project that implies no work, only triage (`idea`/`bug`/
+  `feature`), with its own `KEY-sN` id grammar and a small lifecycle
+  (`new → promoted | resolved | rejected`; `promoted → resolved | rejected`,
+  terminal states set only by explicit verbs). It is the artifact model's sibling
+  — project-anchored, **not** a tree node — living at `KEY/seeds/KEY-sN.md` as a
+  markdown doc (`## Seed Description` + `## History` + `## Annotations`) the Norn
+  vault owns; a `Store.seeds` seam parallels `Store.artifacts` (**Norn-backed
+  only** — the retiring SQLite backend throws). Tasks gain a nullable `upstream`
+  field holding a seed id (the requester-side pointer). The shared validator
+  covers all of it — a foreign seed `kind`/`lifecycle` drops the record, an
+  unknown `requester` nulls the field, a dangling `spawned` prunes the edge, and a
+  malformed or dangling task `upstream` nulls the field — and `mimir doctor`
+  surfaces each. The verb surface (CLI/MCP/HTTP) and triage pass follow in
+  MMR-245/246.
+
 - **Dev builds refuse to manage the real launchd** (MMR-147). Every
   supervisor-mutating verb — `service install/uninstall/start/stop/restart`,
   `setup --install-service/--install-snapshot`, and self-update's daemon

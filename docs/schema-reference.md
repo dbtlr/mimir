@@ -17,6 +17,7 @@ The concrete SQLite shape of the model decided across ADRs [0001](decisions/0001
 - **`dependency`** — node→node edges; `blocked`/`ready`/`blocking` are _derived_ from these, never stored.
 - **`annotation`** — freeform in-flight notes on a task.
 - **`artifact`** + **`artifact_link`** — frozen blobs, anchored to one project, linked to 0..N nodes ([ADR 0004](decisions/0004-artifact-model-project-anchored-flexibly-linked.md)).
+- **seed** — the grooming-queue entity ([ADR 0020](decisions/0020-seeds-grooming-queue-entity.md)): project-anchored, its own `KEY-sN` id, **not** a node. **Vault-only** (a markdown doc at `KEY/seeds/KEY-sN.md`); it has **no SQLite table** — the SQLite backend is retiring (MMR-234), so seeds landed Norn-only. See the ADR for its frontmatter/lifecycle shape.
 - **`tag`** — opaque strings on any project/node/artifact; the whole grouping axis ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)) and classification layer ([ADR 0002](decisions/0002-general-purpose-primitives-not-baked-in-semantics.md)).
 - **`transition_log`** — append-only history written beside every status-bearing change ([ADR 0003](decisions/0003-append-only-transition-log.md)).
 
@@ -58,6 +59,7 @@ CREATE TABLE node (
   size         TEXT CHECK (size IN ('small','medium','large')), -- medium ~ one session; NULL = unsized; feeds stale policy
   rank         INTEGER,         -- relative order, core-owned, nullable; integer-with-gaps (see note); rankable set only (ADR 0007)
   external_ref TEXT,            -- outward GitHub issue/PR linkage (future-proofing)
+  upstream     TEXT,            -- requester-side pointer at a seed (KEY-sN), reference-only (ADR 0020); added via migration 0010, unconstrained by CHECK
   completed_at TEXT,            -- stamped only by complete_task
 
   -- phase-only ---------------------------------------------------------------
