@@ -93,6 +93,15 @@ type Create = {
   provisionalId: Provisional;
   /** The path template handed to `create_document`; a node carries `{{seq}}`. */
   pathTemplate: string;
+  /**
+   * The plan-operations index this create's `create_document` op occupies —
+   * stamped by {@link Accumulator.buildOperations} at emit time. norn reports
+   * each op's `op_id` as its plan position, so this is the correlation key
+   * {@link extractResolvedSeqs} reads the resolved seq back on. Captured at emit
+   * rather than reconstructed from the creates-array index, so it stays correct
+   * if the emit order or op-per-create count ever changes.
+   */
+  opId?: number;
 };
 
 /** The frontmatter field a node patch column maps onto (identity but for parent). */
@@ -621,8 +630,11 @@ class Accumulator {
   buildOperations(): MigrationOp[] {
     const operations: MigrationOp[] = [];
 
-    // Creates first, so a mutation's target already exists on disk.
+    // Creates first, so a mutation's target already exists on disk. Stamp each
+    // create with the op index it lands at — the `op_id` norn echoes on its
+    // report op, the key the seq resolution reads back on.
     for (const create of this.creates) {
+      create.opId = operations.length;
       if (create.targetKind === 'node') {
         const node = this.nodes.get(create.provisionalId);
         if (node === undefined) {
@@ -785,26 +797,30 @@ class Accumulator {
 type ReportOp = { kind: string; status?: string; stem?: string };
 
 /**
- * Map each create's provisional id to the sequence Norn allocated. norn stamps
- * every report op with its plan position as `op_id` (the global operations
- * index), and {@link Accumulator.buildOperations} emits every create first, in
- * {@link Accumulator.creates} order — so the create at index `i` owns
- * `op_id` `String(i)`. Read the resolved `stem` straight from that op
- * (NRN-175's structured field) rather than parsing norn's human summary text.
+ * Map each create's provisional id to the sequence Norn allocated. norn reports
+ * every op's `op_id` as its plan position; {@link Accumulator.buildOperations}
+ * stamps each create with the op index it emitted at ({@link Create.opId}), so
+ * the correlation is that captured index — not a re-derivation from the
+ * creates-array position, which would silently desync if the emit order or
+ * op-per-create count ever changed. Read the resolved `stem` straight from the
+ * correlated op (NRN-175's structured field), not norn's human summary text.
  */
 function extractResolvedSeqs(report: unknown, creates: Create[]): Map<Provisional, number> {
   const resolved = new Map<Provisional, number>();
   const byOpId = reportOperations(report);
-  creates.forEach((create, index) => {
+  for (const create of creates) {
     if (create.targetKind !== 'node') {
-      return;
+      continue;
     }
     // Fail loud rather than leak the negative provisional seq (which would
     // render `KEY--1`): a create MUST resolve its real allocated seq from an
     // applied, structured report op, or the whole transact throws.
-    const op = byOpId.get(String(index));
+    if (create.opId === undefined) {
+      throw invariant('a created node was not stamped with its plan op_id before apply');
+    }
+    const op = byOpId.get(String(create.opId));
     if (op === undefined || op.kind !== 'create_document') {
-      throw invariant(`a created node has no create_document report op at op_id ${index}`);
+      throw invariant(`a created node has no create_document report op at op_id ${create.opId}`);
     }
     if (op.stem === undefined) {
       throw invariant(
@@ -816,7 +832,7 @@ function extractResolvedSeqs(report: unknown, creates: Create[]): Map<Provisiona
       throw invariant(`a created node's resolved stem is not a KEY-seq: ${op.stem}`);
     }
     resolved.set(create.provisionalId, ref.seq);
-  });
+  }
   return resolved;
 }
 

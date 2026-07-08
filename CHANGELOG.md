@@ -248,7 +248,9 @@ release. When a release is cut, this section is promoted to
   resolved `stem` fields (NRN-175) instead of regex-parsing norn's human summary
   text, so a reworded summary can no longer break id allocation; a create that
   cannot resolve an applied stem still fails the whole transact rather than
-  leaking a provisional id. Behavior-preserving; no change to observable output.
+  leaking a provisional id. Create semantics are unchanged; the one behavioral
+  difference is that a create whose plan fails validation no longer leaves an
+  empty `KEY/` directory behind.
 - **CLI guess-tolerance: `--col` CSV, `--size` prefixes, clearer column errors**
   (MMR-212, mined from a real-session corpus). `--col` now accepts a
   comma-separated list (`--col history,annotations`) in addition to the repeated
