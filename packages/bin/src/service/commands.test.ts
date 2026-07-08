@@ -759,20 +759,18 @@ test('status stays available without real-supervisor trust', async () => {
 });
 
 // 12c. self-update without trust still replaces the binary but never kicks the
-// real daemon (the restart is a supervisor mutation like any other).
-test('self-update without real-supervisor trust skips the daemon restart', async () => {
+// real daemon (the restart is a supervisor mutation like any other) — and says
+// so: a loaded daemon silently left on stale code would break the "restarted
+// or surfaced" invariant.
+test('self-update without real-supervisor trust skips the daemon restart, loudly', async () => {
   const newTag = 'v0.6.0';
   const fakeBody = new TextEncoder().encode('fake-binary-content');
   const sha256 = new Bun.CryptoHasher('sha256').update(fakeBody).digest('hex');
   const { assetName } = await import('./self-update');
   const asset = assetName();
 
-  class LoadedSupervisor extends FakeSupervisor {
-    override info(): Promise<ServiceInfo> {
-      return Promise.resolve({ loaded: true, pid: 1234, running: true });
-    }
-  }
-  const sup = new LoadedSupervisor();
+  const sup = new FakeSupervisor();
+  sup.state = { loaded: true, pid: 1234, running: true };
   const io = fakeIo();
   const d = deps(sup, {
     allowRealSupervisor: false,
@@ -805,4 +803,6 @@ test('self-update without real-supervisor trust skips the daemon restart', async
   expect(parsed).toMatchObject({ restarted: false, updated: true });
   // The update itself is logged; no restart event was ever attempted.
   expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['self-update']);
+  // The skip is surfaced, not silent — the loaded daemon is running stale code.
+  expect(io.err.join('\n')).toContain('service not restarted');
 });

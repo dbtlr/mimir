@@ -527,32 +527,37 @@ export async function cmdSelfUpdate(
   // Self-update replaces the binary and restarts the serve daemon; the snapshot
   // unit is a short-lived timer that always re-execs the new binary next fire.
   // The restart is a real-supervisor mutation, so it honors the same dev-build
-  // fence as the service verbs (the binary itself is already replaced).
-  if (
-    deps.platform === 'darwin' &&
-    deps.allowRealSupervisor &&
-    (await deps.units.serve.supervisor.info()).loaded
-  ) {
-    try {
-      await deps.units.serve.supervisor.restart();
-      restarted = true;
-      appendEvent(deps.eventsFile, {
-        detail,
-        event: 'restart',
-        ok: true,
-        source: 'self-update',
-        version: target,
-      });
-    } catch (err) {
-      restartFailed = true;
-      const msg = err instanceof Error ? err.message : String(err);
-      appendEvent(deps.eventsFile, {
-        detail: `restart failed: ${msg}`,
-        event: 'restart',
-        ok: false,
-        source: 'self-update',
-        version: target,
-      });
+  // fence as the service verbs (the binary itself is already replaced) — but a
+  // loaded daemon left on stale code is never silent: restarted-or-surfaced is
+  // the invariant, and the trust skip surfaces like a failed restart would.
+  if (deps.platform === 'darwin' && (await deps.units.serve.supervisor.info()).loaded) {
+    if (!deps.allowRealSupervisor) {
+      warn(
+        io,
+        'service not restarted (untrusted build leaves the real daemon alone) — run `mimir service restart` (binary is updated)',
+      );
+    } else {
+      try {
+        await deps.units.serve.supervisor.restart();
+        restarted = true;
+        appendEvent(deps.eventsFile, {
+          detail,
+          event: 'restart',
+          ok: true,
+          source: 'self-update',
+          version: target,
+        });
+      } catch (err) {
+        restartFailed = true;
+        const msg = err instanceof Error ? err.message : String(err);
+        appendEvent(deps.eventsFile, {
+          detail: `restart failed: ${msg}`,
+          event: 'restart',
+          ok: false,
+          source: 'self-update',
+          version: target,
+        });
+      }
     }
   }
   // A failed restart is always a stderr warning (the binary IS updated).

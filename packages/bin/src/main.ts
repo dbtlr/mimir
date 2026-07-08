@@ -20,7 +20,7 @@ import type { Io } from './cli';
 import type { Db, Store } from './core';
 import { createDb } from './db/client';
 import { migrateToLatest, migrationStatus } from './db/migrator';
-import { DEFAULT_PORT, IS_PRODUCTION, envPort, storePath } from './env';
+import { DEFAULT_PORT, IS_PRODUCTION, envFlag, envPort, storePath } from './env';
 import { createServer } from './http';
 import { serveStdio } from './mcp';
 import {
@@ -146,7 +146,7 @@ function realServiceDeps(): ServiceDeps {
   return {
     // Only a production build manages the host launchd by default; a dev/
     // from-source run must opt in explicitly (the MMR-147 fence).
-    allowRealSupervisor: IS_PRODUCTION || (process.env.MIMIR_ALLOW_REAL_SERVICE ?? '') !== '',
+    allowRealSupervisor: IS_PRODUCTION || envFlag(process.env.MIMIR_ALLOW_REAL_SERVICE),
     binPath,
     configFile: configPath(),
     eventsFile: EVENTS_FILE,

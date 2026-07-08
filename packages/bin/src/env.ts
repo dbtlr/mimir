@@ -74,6 +74,20 @@ export function defaultVaultPath(): string {
 }
 
 /**
+ * A boolean env flag, value-based like a proper switch: only an explicit
+ * affirmative (`1`/`true`/`yes`/`on`, case-insensitive) enables it. `0`,
+ * `false`, `no`, `off`, empty, unset, or noise stay disabled — so exporting
+ * the var with a falsy value can never read as an accidental opt-in. Used for
+ * `MIMIR_ALLOW_REAL_SERVICE`, the MMR-147 real-supervisor escape hatch.
+ */
+export function envFlag(raw: string | undefined): boolean {
+  if (raw === undefined) {
+    return false;
+  }
+  return ['1', 'true', 'yes', 'on'].includes(raw.trim().toLowerCase());
+}
+
+/**
  * The `MIMIR_PORT` override, mirroring `MIMIR_DB` for the port seam. Tolerant
  * like the config reader: an unset var yields `undefined` (use the next source),
  * a malformed one yields `null` so the caller can warn and fall through rather
