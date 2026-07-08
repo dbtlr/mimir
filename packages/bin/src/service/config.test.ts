@@ -91,8 +91,8 @@ test('readVaultConfig: missing file and missing key are empty; a path round-trip
   expect(readVaultConfig(file)).toEqual({});
   writeFileSync(file, '[serve]\nport = 50124\n');
   expect(readVaultConfig(file)).toEqual({});
-  writeFileSync(file, '[vault]\npath = "/Volumes/data/vaults/mimir"\n');
-  expect(readVaultConfig(file)).toEqual({ path: '/Volumes/data/vaults/mimir' });
+  writeFileSync(file, '[vault]\npath = "~/vaults/mimir"\n');
+  expect(readVaultConfig(file)).toEqual({ path: '~/vaults/mimir' });
 });
 
 test('readVaultConfig: malformed file and wrong-typed path surface as problems', () => {

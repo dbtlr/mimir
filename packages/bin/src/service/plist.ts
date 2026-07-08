@@ -22,8 +22,23 @@ export function plistPathFor(label: string): string {
 }
 
 export type PlistOptions = {
-  /** Baked in iff MIMIR_DB is set when `service install` runs. */
+  /** Baked in iff MIMIR_DB is set when `service install` runs (SQLite backend). */
   dbPath?: string;
+  /**
+   * `MIMIR_NORN` — the absolute path to the `norn` binary, resolved and existence-
+   * checked at install time (the Norn backend shells out to it, ADR 0018). Baked
+   * directly rather than relying on `PATH`: launchd gives the daemon only a
+   * minimal default `PATH` (no `$HOME/.cargo/bin`) and does no `~`/`$VAR`
+   * expansion, so a bare `norn` is unresolvable. Present only on the Norn backend.
+   */
+  nornPath?: string;
+  /**
+   * `MIMIR_VAULT` — the absolute vault directory, existence-checked at install
+   * time. Baked so the daemon targets the migrated vault via the highest-
+   * precedence source (env over config) and cannot drift with a later config
+   * edit. Present only on the Norn backend.
+   */
+  vaultPath?: string;
 };
 
 export type SnapshotPlistOptions = {
@@ -40,21 +55,31 @@ function xmlEscape(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/** An `EnvironmentVariables` dict with a single baked key, or '' when unset. */
-function envDict(key: string, value: string | undefined): string {
-  if (value === undefined) {
+/** An `EnvironmentVariables` dict of every defined key, in the given order, or
+ * '' when none are set. */
+function envDict(vars: Record<string, string | undefined>): string {
+  const entries = Object.entries(vars).filter(
+    (entry): entry is [string, string] => entry[1] !== undefined,
+  );
+  if (entries.length === 0) {
     return '';
   }
+  const body = entries
+    .map(([key, value]) => `    <key>${key}</key>\n    <string>${xmlEscape(value)}</string>`)
+    .join('\n');
   return `
   <key>EnvironmentVariables</key>
   <dict>
-    <key>${key}</key>
-    <string>${xmlEscape(value)}</string>
+${body}
   </dict>`;
 }
 
 export function plistFor(binPath: string, opts: PlistOptions): string {
-  const env = envDict('MIMIR_DB', opts.dbPath);
+  const env = envDict({
+    MIMIR_DB: opts.dbPath,
+    MIMIR_NORN: opts.nornPath,
+    MIMIR_VAULT: opts.vaultPath,
+  });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -81,7 +106,7 @@ export function plistFor(binPath: string, opts: PlistOptions): string {
 }
 
 export function plistForSnapshot(binPath: string, opts: SnapshotPlistOptions): string {
-  const env = envDict('MIMIR_VAULT', opts.vaultPath);
+  const env = envDict({ MIMIR_VAULT: opts.vaultPath });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">

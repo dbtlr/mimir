@@ -28,13 +28,28 @@ export type Supervisor = {
   info: () => Promise<ServiceInfo>;
 };
 
+/** `bootout` is asynchronous — it returns before launchd has fully torn the old
+ *  unit down, so an immediate `bootstrap` can lose the race and fail with error
+ *  5 ("Input/output error"), leaving nothing loaded. Retry the bootstrap a few
+ *  times, waiting for the teardown to settle between attempts. */
+const BOOTSTRAP_ATTEMPTS = 5;
+const BOOTSTRAP_SETTLE_MS = 250;
+
 export class LaunchdSupervisor implements Supervisor {
   private readonly target: string;
   private readonly service: string;
   private readonly exec: Exec;
-  /** `label` selects the unit this supervisor manages; defaults to serve. */
-  constructor(exec: Exec, uid: number, label: string = SERVE_LABEL) {
+  private readonly sleep: (ms: number) => Promise<void>;
+  /** `label` selects the unit this supervisor manages; defaults to serve.
+   *  `sleep` is injectable so tests exercise the retry without real delay. */
+  constructor(
+    exec: Exec,
+    uid: number,
+    label: string = SERVE_LABEL,
+    sleep: (ms: number) => Promise<void> = Bun.sleep,
+  ) {
     this.exec = exec;
+    this.sleep = sleep;
     this.target = `gui/${String(uid)}`;
     this.service = `${this.target}/${label}`;
   }
@@ -54,7 +69,26 @@ export class LaunchdSupervisor implements Supervisor {
     // Idempotent refresh: clear any loaded copy first; bootout of an
     // unloaded service is the expected no-op, so its failure is tolerated.
     await this.run(['bootout', this.service], '', true);
-    await this.run(['bootstrap', this.target, plistFile], 'could not load the service');
+    await this.bootstrapWithRetry(plistFile);
+  }
+
+  /** Bootstrap, retrying past the async-teardown race (see BOOTSTRAP_ATTEMPTS).
+   *  A last-attempt failure surfaces as the usual load error. */
+  private async bootstrapWithRetry(plistFile: string): Promise<void> {
+    for (let attempt = 1; attempt <= BOOTSTRAP_ATTEMPTS; attempt += 1) {
+      const result = await this.exec(['launchctl', 'bootstrap', this.target, plistFile]);
+      if (result.code === 0) {
+        return;
+      }
+      if (attempt === BOOTSTRAP_ATTEMPTS) {
+        throw new MimirError(
+          'validation',
+          `launchctl bootstrap failed (${String(result.code)}): could not load the service`,
+          result.stderr.trim() === '' ? undefined : result.stderr.trim(),
+        );
+      }
+      await this.sleep(BOOTSTRAP_SETTLE_MS);
+    }
   }
 
   async uninstall(): Promise<void> {

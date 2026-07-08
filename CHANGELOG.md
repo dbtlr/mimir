@@ -473,6 +473,26 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **Web UI restored on the Norn backend** (MMR-233, ADR 0016/0018). Post-cutover,
+  the pinned SQLite-era `serve` binary busy-spun at 100% CPU on the live store and
+  the UI was down by choice (MMR-147 occurrence). The `serve` launchd unit now
+  bakes the resolved `norn` binary and vault directory as **absolute**
+  `MIMIR_NORN`/`MIMIR_VAULT` environment variables at `service install` time, with
+  an install-time preflight that fails loudly when `norn` is not on `PATH` or the
+  configured vault does not exist. launchd hands the daemon only a minimal `PATH`
+  with no `~`/`$VAR` expansion, and the daemon shells out to `norn` (ADR 0018), so
+  a bare `norn` or a config-relative vault would install a unit that boots green
+  and then fails every request; baking absolutes makes the daemon hermetic and
+  proof against a later config edit. The SQLite backend still carries only
+  `MIMIR_DB`. Verified end-to-end: the console loads, reads live work-state from
+  the Norn vault, and idles at 0% CPU.
+- **`service install` no longer loses the launchd bootstrap race** (MMR-233).
+  `install` boots out any loaded unit before bootstrapping the refreshed plist,
+  but `launchctl bootout` returns before launchd has finished the teardown, so the
+  immediate `bootstrap` intermittently failed with error 5 ("Input/output error")
+  and left nothing loaded. Bootstrap now retries a bounded number of times, waiting
+  for the teardown to settle between attempts; a persistent failure still surfaces
+  as the usual load error.
 - **Node write path replays a concurrent-write drift again under norn 0.45.1**
   (MMR-237). norn 0.45.1 (NRN-219) flipped a not-applied `vault.apply` to
   `isError: true` while preserving the structured report — but MMR-207's drift

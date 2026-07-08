@@ -35,6 +35,26 @@ test('MIMIR_DB present at install time is baked into the environment', () => {
   expect(xml).toContain('<string>/data/mimir.db</string>');
 });
 
+test('the Norn backend bakes MIMIR_NORN + MIMIR_VAULT as absolute paths', () => {
+  // launchd gives the daemon a minimal PATH and does no `~`/`$VAR` expansion, so
+  // the norn binary and vault are baked as resolved absolutes (ADR 0018).
+  const xml = plistFor('/Users/op/.local/bin/mimir', {
+    nornPath: '/Users/op/.cargo/bin/norn',
+    vaultPath: '/Users/op/.local/share/mimir/vault',
+  });
+  expect(xml).toContain('<key>MIMIR_NORN</key>');
+  expect(xml).toContain('<string>/Users/op/.cargo/bin/norn</string>');
+  expect(xml).toContain('<key>MIMIR_VAULT</key>');
+  expect(xml).toContain('<string>/Users/op/.local/share/mimir/vault</string>');
+  // absolute entries only — a literal `~` would be dead (launchd does not expand it)
+  expect(xml).not.toContain('~/');
+});
+
+test('with no env baked, the serve unit carries no EnvironmentVariables', () => {
+  const xml = plistFor('/Users/op/.local/bin/mimir', {});
+  expect(xml).not.toContain('EnvironmentVariables');
+});
+
 test("plistPathFor lands the serve unit in the user's LaunchAgents", () => {
   expect(plistPathFor(SERVE_LABEL)).toMatch(
     /Library\/LaunchAgents\/com\.dbtlr\.mimir\.serve\.plist$/,
@@ -63,10 +83,10 @@ test('the snapshot plist runs `vault snapshot` on a StartInterval and does not K
 test('MIMIR_VAULT present at install time is baked into the snapshot environment', () => {
   const xml = plistForSnapshot('/usr/local/bin/mimir', {
     intervalSeconds: 300,
-    vaultPath: '/Volumes/data/vaults/mimir',
+    vaultPath: '~/vaults/mimir',
   });
   expect(xml).toContain('<key>MIMIR_VAULT</key>');
-  expect(xml).toContain('<string>/Volumes/data/vaults/mimir</string>');
+  expect(xml).toContain('<string>~/vaults/mimir</string>');
 });
 
 // XML-escape tests — launchctl rejects malformed plists loudly but the error
@@ -107,7 +127,7 @@ test.skipIf(process.platform !== 'darwin')('escaped plist passes plutil -lint', 
 test.skipIf(process.platform !== 'darwin')('snapshot plist passes plutil -lint', () => {
   const xml = plistForSnapshot('/Users/op/Drew & Co/bin/mimir', {
     intervalSeconds: 900,
-    vaultPath: '/Volumes/data/a<b',
+    vaultPath: '~/a<b',
   });
   const file = join(dir, 'snapshot.plist');
   writeFileSync(file, xml, 'utf8');

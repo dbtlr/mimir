@@ -40,6 +40,7 @@ import {
   readConfig,
   readServeConfig,
   readVaultConfig,
+  serveInstallEnv,
 } from './service';
 import type { Health, ServiceDeps } from './service';
 import { buildStore, storeBackend } from './store-backend';
@@ -167,7 +168,19 @@ function realServiceDeps(): ServiceDeps {
       serve: {
         logFile: SERVE_LOG_FILE,
         plistFile: plistPathFor(SERVE_LABEL),
-        render: () => plistFor(binPath, { dbPath: process.env.MIMIR_DB }),
+        render: () =>
+          plistFor(
+            binPath,
+            serveInstallEnv({
+              backend: storeBackend(),
+              dbPath: process.env.MIMIR_DB,
+              nornPath: Bun.which('norn') ?? undefined,
+              vault: resolveVault({
+                configPath: readConfig().vault.path,
+                envPath: process.env.MIMIR_VAULT,
+              }).path,
+            }),
+          ),
         supervisor: new LaunchdSupervisor(bunExec, uid, SERVE_LABEL),
       },
       snapshot: {
