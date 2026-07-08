@@ -29,6 +29,10 @@ export const ANNOTATIONS_HEADING = 'Annotations';
 /** The `## Task Description` section heading (H2) — the node body's prose lede. */
 export const DESCRIPTION_HEADING = 'Task Description';
 
+/** The `## Seed Description` section heading (H2) — a seed's prose lede (MMR-244).
+ * A seed's description is BODY prose, never frontmatter, exactly as a task's is. */
+export const SEED_DESCRIPTION_HEADING = 'Seed Description';
+
 /**
  * The document body every work-state node carries: a `## Task Description` lede
  * (the authoritative home for the prose since MMR-162 — read back through
@@ -40,6 +44,20 @@ export const DESCRIPTION_HEADING = 'Task Description';
  */
 export function renderNodeBody(description: string | null): string {
   return `## ${DESCRIPTION_HEADING}\n${renderDescriptionSection(description)}${renderHistoryBody()}${renderAnnotationsBody()}`;
+}
+
+/**
+ * A seed's document body (MMR-244): a `## Seed Description` prose lede, the
+ * `## History` section its lifecycle transitions append under, and the
+ * `## Annotations` section triage notes append under — the same full sectioned
+ * shape a task carries, only the description heading differs (`Seed Description`
+ * vs `Task Description`). Both append anchors are seeded empty so norn's
+ * `append_to_section` has a heading to write under. Round-trips through the same
+ * codec: {@link parseDescriptionSection}, {@link parseHistorySection}, and
+ * {@link parseAnnotationsSection} over {@link sectionBody}.
+ */
+export function renderSeedBody(description: string | null): string {
+  return `## ${SEED_DESCRIPTION_HEADING}\n${renderDescriptionSection(description)}${renderHistoryBody()}${renderAnnotationsBody()}`;
 }
 
 /**

@@ -77,6 +77,25 @@ export type TaskStatusWord = (typeof TASK_STATUS_WORD_VALUES)[number];
 export const TAG_ENTITY_TYPE_VALUES = ['project', 'node', 'artifact'] as const;
 export type TagEntityType = (typeof TAG_ENTITY_TYPE_VALUES)[number];
 
+/**
+ * Seed kind (MMR-244) — the grooming-queue record's intrinsic classification, a
+ * REQUIRED closed field, not a tag. The feature interprets it (capture pills,
+ * promote home-suggestion, queue chips), so it is intrinsic, not a cross-cutting
+ * grouping — ADR 0005 does not apply. Closed enum gives the validator real coverage.
+ */
+export const SEED_KIND_VALUES = ['idea', 'bug', 'feature'] as const;
+export type SeedKind = (typeof SEED_KIND_VALUES)[number];
+
+/**
+ * Seed lifecycle (MMR-244) — triage progress: `new → promoted | resolved | rejected`
+ * and `promoted → resolved | rejected`. The terminal states (`resolved`/`rejected`)
+ * are set only by explicit triager verbs, never derived from spawned work (all
+ * spawned tasks can be abandoned without satisfying the request). "Later" is
+ * staying `new`; `resolved` is honest across all three kinds.
+ */
+export const SEED_LIFECYCLE_VALUES = ['new', 'promoted', 'resolved', 'rejected'] as const;
+export type SeedLifecycle = (typeof SEED_LIFECYCLE_VALUES)[number];
+
 /** Transition-log row kinds (ADR 0003) — which axis/edge changed. `archive` is project-keyed (ADR 0015); the rest are node-keyed. */
 export const TRANSITION_KIND_VALUES = [
   'lifecycle',

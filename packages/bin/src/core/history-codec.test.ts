@@ -8,6 +8,7 @@ import {
   HISTORY_HEADING,
   lintBodySections,
   parseAnnotationsSection,
+  parseDescriptionSection,
   parseHistorySection,
   renderAnnotationRecord,
   renderAnnotationsBody,
@@ -16,6 +17,8 @@ import {
   renderMigratedNodeBody,
   renderMigratedProjectBody,
   renderNodeBody,
+  renderSeedBody,
+  SEED_DESCRIPTION_HEADING,
   sectionBody,
 } from './history-codec';
 import { sliceSection } from './testing';
@@ -369,6 +372,21 @@ test('the node body seeds an empty ## Annotations section alongside ## History',
   // both append anchors exist and parse empty on a fresh node
   expect(parseHistorySection(body)).toEqual([]);
   expect(parseAnnotationsSection(body)).toEqual([]);
+});
+
+test('the seed body seeds Seed Description + empty History and Annotations (MMR-244)', () => {
+  const body = renderSeedBody('a rough idea');
+  expect(body).toContain(`## ${SEED_DESCRIPTION_HEADING}\n`);
+  expect(body).toContain('## History\n');
+  expect(body).toContain('## Annotations\n');
+  // the description round-trips through the shared codec, sections start empty
+  expect(parseDescriptionSection(readSection(body, SEED_DESCRIPTION_HEADING))).toBe('a rough idea');
+  expect(parseHistorySection(readSection(body, HISTORY_HEADING))).toEqual([]);
+  expect(parseAnnotationsSection(readSection(body, ANNOTATIONS_HEADING))).toEqual([]);
+  // a fresh seed with no description parses back to null
+  expect(parseDescriptionSection(readSection(renderSeedBody(null), SEED_DESCRIPTION_HEADING))).toBe(
+    null,
+  );
 });
 
 // ── sectionBody (MMR-187) ────────────────────────────────────────────────
