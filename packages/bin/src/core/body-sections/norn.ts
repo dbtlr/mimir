@@ -30,10 +30,11 @@ async function readNodeSections(
 
 /**
  * Every work-state document in the vault as `{ stem, body }` — the raw input for
- * `mimir doctor`'s body-section check (MMR-166). Enumerates the node/project
- * docs (`vault.find`), then batch-reads their bodies (`vault.get … .body`) and
- * keys each back by path. A vault diagnostic reads the disk directly, so it is
- * independent of the node read path (still SQLite until the Phase 4 cutover).
+ * `mimir doctor`'s body-section check (MMR-166). Enumerates the node/project/seed
+ * docs (`vault.find`; seeds carry `## History`/`## Annotations` too, MMR-244), then
+ * batch-reads their bodies (`vault.get … .body`) and keys each back by path. A
+ * vault diagnostic reads the disk directly, so it is independent of the node read
+ * path (still SQLite until the Phase 4 cutover).
  *
  * A `scope` (a project KEY) pushes into the find as `project:KEY`, so a scoped
  * doctor fetches only its project's docs instead of the whole vault (MMR-170) —
@@ -50,7 +51,7 @@ export async function readAllNodeDocs(
   scope?: string,
 ): Promise<{ stem: string; body: string }[]> {
   const docs = await client.find({
-    in: ['type:project,task,phase,initiative'],
+    in: ['type:project,task,phase,initiative,seed'],
     ...(scope === undefined ? {} : { eq: [`project:${scope}`] }),
     no_limit: true,
   });
@@ -79,21 +80,25 @@ export async function readAllNodeDocs(
  * these so the loss is diagnosable (MMR-239). Each heading is queried on its OWN,
  * so a failure isolates to it — norn reports a doc in `section_failures` only when
  * NONE of a call's headings resolve. `## History` is on every work-state doc;
- * `## Annotations` only on nodes (a project has none), so it is queried over node
- * stems alone — requesting it on a project would false-positive as "missing". A
- * `scope` pushes into the find exactly like {@link readAllNodeDocs}.
+ * `## Annotations` only on nodes and seeds (MMR-244; a project has none), so it is
+ * queried over those stems alone — requesting it on a project would false-positive
+ * as "missing". A `scope` pushes into the find exactly like {@link readAllNodeDocs}.
  */
 export async function readSectionFailures(
   client: NornClient,
   scope?: string,
 ): Promise<{ stem: string; section: string }[]> {
   const docs = await client.find({
-    in: ['type:project,task,phase,initiative'],
+    in: ['type:project,task,phase,initiative,seed'],
     ...(scope === undefined ? {} : { eq: [`project:${scope}`] }),
     no_limit: true,
   });
   const allPaths = docs.map((doc) => doc.path);
-  const nodePaths = allPaths.filter((p) => parseIdentity(stemOf(p))?.kind === 'node');
+  // Nodes and seeds carry `## Annotations`; a project does not (MMR-244).
+  const annotatablePaths = allPaths.filter((p) => {
+    const kind = parseIdentity(stemOf(p))?.kind;
+    return kind === 'node' || kind === 'seed';
+  });
   const out: { stem: string; section: string }[] = [];
   const collect = async (paths: string[], heading: string): Promise<void> => {
     // An empty target list to vault.get is unverified behavior (readAllNodeDocs
@@ -106,7 +111,10 @@ export async function readSectionFailures(
     }
   };
   // The two reads are independent round-trips — run them concurrently.
-  await Promise.all([collect(allPaths, HISTORY_HEADING), collect(nodePaths, ANNOTATIONS_HEADING)]);
+  await Promise.all([
+    collect(allPaths, HISTORY_HEADING),
+    collect(annotatablePaths, ANNOTATIONS_HEADING),
+  ]);
   return out;
 }
 

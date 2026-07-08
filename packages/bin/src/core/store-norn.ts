@@ -101,6 +101,22 @@ function boolFieldOrNull(value: unknown): boolean | null {
   return s === 'false' ? false : null;
 }
 
+/**
+ * The non-throwing decode for a task's `upstream` seed pointer (MMR-244), mirroring
+ * {@link validate}'s view WHERE THE READER CAN ACT LOCALLY: collapse the wikilink
+ * form ({@link collapse}), then null unless the grammar is a `KEY-sN` seed id — the
+ * grammar tier nulled here exactly as {@link enumFieldOrNull} nulls a foreign
+ * priority/size. A DANGLING but well-formed ref (valid grammar, no such seed) is
+ * NOT decided here: the hot read path loads no seeds, so it stays the collapsed
+ * stem and the resolving read seam (MMR-245) resolves it; the validator/`mimir
+ * doctor` surface the dangle. The tiering decision lives in {@link validate}; this
+ * is the mechanical "collapse + grammar guard".
+ */
+function seedRefOrNull(value: unknown): string | null {
+  const stem = collapse(value);
+  return stem !== null && parseSeedRef(stem) !== null ? stem : null;
+}
+
 /** Ascending string compare without a nested ternary (deterministic tiebreaks). */
 function cmpStr(a: string, b: string): number {
   if (a < b) {
@@ -565,10 +581,12 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       title: str(n.fm.title) ?? '',
       type: n.type,
       updated_at: str(n.fm.updated_at) ?? '',
-      // The requester-side seed pointer (MMR-244), task-only like `external_ref`;
-      // read tolerantly (a foreign/malformed value the validator flags reads as the
-      // string, or null when absent). The validator owns malformed/dangling drops.
-      upstream: isTask ? str(n.fm.upstream) : null,
+      // The requester-side seed pointer (MMR-244), task-only like `external_ref`.
+      // Decoded to mirror the validator locally: collapse the wikilink form, then
+      // null a non-`KEY-sN` grammar (like a foreign priority/size). A dangling but
+      // well-formed ref stays for the resolving seam (MMR-245); the validator owns
+      // the malformed/dangling drops `mimir doctor` renders.
+      upstream: isTask ? seedRefOrNull(n.fm.upstream) : null,
     });
 
     // The validator already dropped dangling prerequisites, self-dependencies, and

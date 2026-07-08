@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test';
 import type { ProjectDeclaration } from '../core/store-norn';
 import type { Drop } from '../core/validate';
 import type { DoctorContext } from './checks';
-import { CHECKS, RULE_OWNER, stemProjectCheck } from './checks';
+import { CHECKS, frontmatterCheck, RULE_OWNER, stemProjectCheck } from './checks';
 
 /**
  * MMR-209: the drop→check partition is total and non-overlapping — every
@@ -18,7 +18,7 @@ import { CHECKS, RULE_OWNER, stemProjectCheck } from './checks';
  * to render a finding. */
 function dropOf(rule: Drop['rule']): Drop {
   const stem = 'MMR-1';
-  if (rule === 'missing-project') {
+  if (rule === 'missing-project' || rule === 'orphaned-seed') {
     return { key: 'MMR', kind: 'node', rule, stem };
   }
   if (
@@ -102,4 +102,37 @@ test('stem-project is silent on a matching project, a missing one, and an unpars
     ]),
   );
   expect(findings).toEqual([]);
+});
+
+// MMR-244: a seed doc (KEY/seeds/KEY-sN.md) is a work-state document too, so a
+// parse-failed / untyped one must reach frontmatterCheck via workStateStem.
+const frontmatterCtx = (validateFindings: DoctorContext['validateFindings']): DoctorContext => ({
+  dropped: [],
+  projectRefs: [],
+  readNodeDocs: () => Promise.resolve([]),
+  sectionFailures: [],
+  validateFindings,
+});
+
+test('frontmatter renders a parse-failed seed doc under KEY/seeds/KEY-sN.md (MMR-244)', async () => {
+  const findings = await frontmatterCheck.run(
+    frontmatterCtx([{ code: 'frontmatter-parse-failed', path: 'MMR/seeds/MMR-s1.md' }]),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ check: 'frontmatter', node: 'MMR-s1', severity: 'error' });
+});
+
+test('frontmatter renders an untyped seed doc; a seed stem outside /seeds/ is not one (MMR-244)', async () => {
+  const typed = await frontmatterCheck.run(
+    frontmatterCtx([
+      { code: 'frontmatter-required-field-missing', field: 'type', path: 'MMR/seeds/MMR-s2.md' },
+    ]),
+  );
+  expect(typed).toHaveLength(1);
+  expect(typed[0]).toMatchObject({ node: 'MMR-s2', where: 'frontmatter · type' });
+  // A seed stem in the wrong directory (not KEY/seeds/) is not a work-state doc.
+  const misplaced = await frontmatterCheck.run(
+    frontmatterCtx([{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-s3.md' }]),
+  );
+  expect(misplaced).toEqual([]);
 });

@@ -54,10 +54,12 @@ export type Drop =
   | { kind: 'field'; rule: 'invalid-priority'; stem: string; value: string }
   | { kind: 'field'; rule: 'invalid-size'; stem: string; value: string }
   | { kind: 'field'; rule: 'invalid-open-ended'; stem: string; value: string }
-  // Seeds (MMR-244). kind/lifecycle are load-bearing → the seed record drops
-  // (hidden on read); requester nulls the FIELD (seed survives); a dangling
+  // Seeds (MMR-244). A missing own-project drops the seed RECORD (hidden on read,
+  // mirroring a node's missing-container); kind/lifecycle are load-bearing → the
+  // seed record drops too; requester nulls the FIELD (seed survives); a dangling
   // `spawned` edge is pruned (seed survives); a task `upstream` that is malformed
   // grammar or dangles nulls that FIELD (task survives).
+  | { kind: 'node'; rule: 'orphaned-seed'; stem: string; key: string }
   | { kind: 'node'; rule: 'invalid-seed-kind'; stem: string; key: string; value: string | null }
   | {
       kind: 'node';
@@ -263,8 +265,9 @@ export function validate(graph: VaultGraph): ValidatedGraph {
   // Pass 4: seeds + task upstream (MMR-244). Runs ONLY when the caller loaded
   // seeds (`graph.seeds` present) — the node-only resolving loader and the
   // transitions feed pass none, so their validate is unchanged. Tiered like the
-  // node field pass: kind/lifecycle are load-bearing (a foreign/missing value
-  // drops the seed RECORD, hidden on read); `requester` nulls the FIELD (seed
+  // node passes: a missing own-project drops the seed RECORD (the container rule,
+  // mirroring pass 1 for nodes); kind/lifecycle are load-bearing (a foreign/missing
+  // value drops the record too, hidden on read); `requester` nulls the FIELD (seed
   // survives); a dangling `spawned` prunes that EDGE; a task `upstream` that is
   // malformed grammar or resolves to no surviving seed nulls the FIELD.
   if (graph.seeds !== undefined) {
@@ -290,6 +293,13 @@ export function validate(graph: VaultGraph): ValidatedGraph {
         });
         continue;
       }
+      // container (record): a seed whose own project has no document has no valid
+      // place to live — drop the record and exclude it from the survivors, so an
+      // inbound task `upstream` correctly dangles (mirrors pass 1 for nodes).
+      if (!present.has(seed.key)) {
+        dropped.push({ key: seed.key, kind: 'node', rule: 'orphaned-seed', stem: seed.stem });
+        continue;
+      }
       // requester (field): a present, non-empty value must name a known project.
       if (seed.requester !== null && seed.requester !== '' && !present.has(seed.requester)) {
         dropped.push({
@@ -307,9 +317,15 @@ export function validate(graph: VaultGraph): ValidatedGraph {
       }
       seedSurvivors.add(seed.stem);
     }
-    // task upstream (field): only a would-be-surviving task emits noise; a
-    // malformed grammar or a dangling (no surviving seed) upstream nulls the field.
+    // task upstream (field): only a would-be-surviving TASK emits noise — the
+    // reader reads `upstream` only for a task (like `external_ref`), so the pass is
+    // task-gated exactly like pass 0, or doctor would flag a non-task drop the
+    // reader never made. A malformed grammar or a dangling (no surviving seed)
+    // upstream nulls the field.
     for (const node of kept) {
+      if (node.type !== 'task') {
+        continue;
+      }
       const up = node.upstream;
       if (up == null || up === '') {
         continue;

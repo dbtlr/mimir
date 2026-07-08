@@ -195,6 +195,32 @@ describe.skipIf(!NORN)('norn seed store', () => {
     expect(loaded?.spawned).toEqual(['MMR-42', 'MMR-43']);
   });
 
+  test('appendSpawned adds onto a present-but-empty spawned list (raw presence, not decoded)', async () => {
+    // A hand-written seed carrying `spawned: []` (present but empty). The decoded
+    // record's list is empty, but the FIELD is present — so the first append must
+    // SET it (carrying the CAS old value), not ADD it: norn refuses to add a field
+    // that already exists, so the decoded-length check would throw.
+    await client.newDoc({
+      body: '## Seed Description\n\n\n## History\n## Annotations\n',
+      confirm: true,
+      field_json: [
+        `type=${JSON.stringify('seed')}`,
+        `title=${JSON.stringify('hand')}`,
+        `project=${JSON.stringify('[[MMR]]')}`,
+        `kind=${JSON.stringify('idea')}`,
+        `lifecycle=${JSON.stringify('new')}`,
+        `spawned=${JSON.stringify([])}`,
+        `created=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
+        `updated_at=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
+      ],
+      parents: true,
+      path: 'MMR/seeds/MMR-s1.md',
+    });
+    await seeds.appendSpawned('MMR', 1, 'MMR-42');
+    const loaded = await seeds.load('MMR', 1);
+    expect(loaded?.spawned).toEqual(['MMR-42']);
+  });
+
   test('readVaultGraph surfaces seeds so validate/doctor drops a foreign-kind seed', async () => {
     // A valid seed via the store, plus a hand-corrupt one written raw (the store's
     // typed API can't produce a foreign kind) — readVaultGraph must load both.

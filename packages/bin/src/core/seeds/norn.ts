@@ -219,12 +219,15 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
       const path = pathOf(key, seq);
       const spawned = [...record.spawned, nodeStem].map(wikilink);
       const timestamp = now();
-      // First link ADDs the field (absent under the omit-empty shape); later links
-      // SET it, carrying the raw stored list as the CAS precondition.
+      // Choose add vs set on the RAW field PRESENCE, not the decoded length
+      // (matching writer.ts's `field in rawFm`): an absent field is ADDed; a present
+      // one — including a hand-written empty `spawned: []` — is SET, carrying the raw
+      // stored value as the CAS precondition. norn refuses to add a present field, so
+      // keying on the decoded (empty) length would wrongly ADD and be refused.
       const spawnedOp =
-        record.spawned.length === 0
-          ? addFrontmatter(path, 'spawned', spawned)
-          : setFrontmatter(path, 'spawned', spawned, fm.spawned);
+        'spawned' in fm
+          ? setFrontmatter(path, 'spawned', spawned, fm.spawned)
+          : addFrontmatter(path, 'spawned', spawned);
       await apply([spawnedOp, setFrontmatter(path, 'updated_at', timestamp, fm.updated_at)]);
     },
 

@@ -195,6 +195,7 @@ export const RULE_OWNER: Record<Drop['rule'], DropCheckName> = {
   'invalid-size': 'field-validity',
   'malformed-upstream': 'upstream-refs',
   'missing-project': 'missing-project',
+  'orphaned-seed': 'seed-validity',
   'unknown-requester': 'seed-validity',
 };
 
@@ -383,14 +384,14 @@ export const fieldValidityCheck: Diagnostic = {
 
 /**
  * A finding's `path` names a work-state document — and its stem — iff the path
- * matches one of the vault's three parent-dir-anchored layouts (the
- * `allowed_paths` in `vault/schema.ts`): a node `KEY/KEY-seq.md`, a project
- * `KEY/KEY.md`, or an artifact `KEY/artifacts/KEY-aN.md`. Every reader (and every
- * other doctor check) enumerates the vault by `type:`, so a doc whose frontmatter
- * won't parse or has no `type` is invisible to them and reported by norn's schema
- * pass by *path* only. The vault may hold unrelated docs (loose notes, a stray
- * `refs/AB-1.md`), so the anchoring is what keeps the check to real work-state
- * docs — a matching stem in the wrong directory is not one.
+ * matches one of the vault's parent-dir-anchored layouts (the `allowed_paths` in
+ * `vault/schema.ts`): a node `KEY/KEY-seq.md`, a project `KEY/KEY.md`, an artifact
+ * `KEY/artifacts/KEY-aN.md`, or a seed `KEY/seeds/KEY-sN.md`. Every reader (and
+ * every other doctor check) enumerates the vault by `type:`, so a doc whose
+ * frontmatter won't parse or has no `type` is invisible to them and reported by
+ * norn's schema pass by *path* only. The vault may hold unrelated docs (loose
+ * notes, a stray `refs/AB-1.md`), so the anchoring is what keeps the check to real
+ * work-state docs — a matching stem in the wrong directory is not one.
  */
 function workStateStem(path: string): string | null {
   const stem = stemOf(path);
@@ -410,6 +411,12 @@ function workStateStem(path: string): string | null {
   // the artifact's project key. Artifacts are work-state docs too — a corrupt one
   // is invisible on read, so it belongs here (the finding's node is the KEY-aN).
   if (identity?.kind === 'artifact' && parent === 'artifacts' && grandparent === identity.key) {
+    return stem;
+  }
+  // A seed `KEY/seeds/KEY-sN.md` (MMR-244): parent dir `seeds`, grandparent the
+  // seed's project key. Seeds are work-state docs too — a parse-failed/untyped one
+  // is invisible on read, so it belongs here (the finding's node is the KEY-sN).
+  if (identity?.kind === 'seed' && parent === 'seeds' && grandparent === identity.key) {
     return stem;
   }
   return null;
@@ -568,15 +575,15 @@ export const sectionResolutionCheck: Diagnostic = {
 };
 
 /**
- * Seed validity (MMR-244): a seed document's `kind`/`lifecycle`/`requester`/
- * `spawned`. The reader tolerates all four (the tiering lives in `validate`): a
- * foreign/missing `kind` or `lifecycle` is load-bearing and drops the whole seed
- * RECORD (hidden on read); an unknown `requester` nulls just that field; a
- * `spawned` ref that resolves to no surviving work node prunes that edge. A thin
- * adapter over the shared validator, rendering the four seed-doc rules — one
- * detector, so it can't drift from the read. `error` for a dropped record or
- * pruned edge, `warn` for a nulled requester field; whole-vault (the graph is
- * unscoped, like its referential siblings).
+ * Seed validity (MMR-244): a seed document's own-project / `kind` / `lifecycle` /
+ * `requester` / `spawned`. The reader tolerates all of them (the tiering lives in
+ * `validate`): a missing own-project or a foreign/missing `kind`/`lifecycle` is
+ * load-bearing and drops the whole seed RECORD (hidden on read); an unknown
+ * `requester` nulls just that field; a `spawned` ref that resolves to no surviving
+ * work node prunes that edge. A thin adapter over the shared validator, rendering
+ * the seed-doc rules — one detector, so it can't drift from the read. `error` for
+ * a dropped record or pruned edge, `warn` for a nulled requester field; whole-vault
+ * (the graph is unscoped, like its referential siblings).
  */
 export const seedValidityCheck: Diagnostic = {
   name: 'seed-validity',
@@ -586,7 +593,15 @@ export const seedValidityCheck: Diagnostic = {
       if (!ownsDrop(drop, 'seed-validity')) {
         continue;
       }
-      if (drop.kind === 'node' && drop.rule === 'invalid-seed-kind') {
+      if (drop.kind === 'node' && drop.rule === 'orphaned-seed') {
+        findings.push({
+          check: 'seed-validity',
+          message: `project ${drop.key} has no document in the vault — the seed is hidden on read`,
+          node: drop.stem,
+          severity: 'error',
+          where: 'project',
+        });
+      } else if (drop.kind === 'node' && drop.rule === 'invalid-seed-kind') {
         findings.push({
           check: 'seed-validity',
           message:
