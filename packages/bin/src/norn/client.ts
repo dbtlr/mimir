@@ -332,9 +332,18 @@ export class NornClient {
    * section read mirrors a section write. Returns the `records` array; each record
    * carries a `sections` map (heading → the section's raw markdown, heading line
    * included — decode with {@link import('./decode').pathAndSections}). A heading
-   * missing/ambiguous in a document is warn-and-omitted for that document (the
-   * record still returns, just without that key); the call never fails as a whole,
-   * so it replaces the whole-`.body`-fetch-then-client-slice workaround (MMR-187).
+   * missing or *ambiguous* (a hand-edited duplicate) in a document is
+   * warn-and-omitted — absent from that record's `sections` map; if NONE of the
+   * requested headings resolve for a document, that document is reported in the
+   * response's `section_failures` and does not appear in `records` at all.
+   *
+   * This returns only `records`, so a warn-and-omitted section reads as empty
+   * downstream — deliberate graceful degradation (ADR 0017): an ambiguous
+   * `## History` reads empty rather than the retired slicer's arbitrary
+   * first-of-two pick. The `section_failures` channel is dropped here; surfacing
+   * it as a `mimir doctor` diagnostic (so the drop isn't silent) is MMR-239. The
+   * call never fails as a whole, replacing the whole-`.body`-then-client-slice
+   * workaround (MMR-187).
    */
   async getSections(targets: string[], sections: string[]): Promise<unknown[]> {
     const payload = await this.call('vault.get', { section: sections, targets }, true);

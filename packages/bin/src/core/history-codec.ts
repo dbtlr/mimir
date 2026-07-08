@@ -361,8 +361,17 @@ export function parseAnnotationsSection(body: string): AnnotationView[] {
  * An absent or empty section (the empty string) yields the empty string. The
  * parsers are grammar-anchored on `### ` records, so norn's trailing section
  * whitespace is absorbed on parse.
+ *
+ * The heading is only stripped when the first line is an actual `## ` heading — a
+ * body content line is always escaped (`\## `), so an unescaped `## ` opener is
+ * norn's heading and nothing else. Guarding on it means a section that ever
+ * arrives heading-excluded (norn contract drift) is passed through intact rather
+ * than losing its first real line.
  */
 export function sectionBody(section: string): string {
+  if (!section.startsWith('## ')) {
+    return section;
+  }
   const nl = section.indexOf('\n');
   return nl === -1 ? '' : section.slice(nl + 1);
 }

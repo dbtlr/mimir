@@ -66,6 +66,22 @@ test('a missing document (no records returned) reads back empty, not a throw', a
   expect(await store.readAnnotations(9, 'MMR-9')).toEqual([]);
 });
 
+test('an ambiguous (duplicate) heading reads back empty, not the first section (MMR-239)', async () => {
+  // A hand-edited node with two `## History` headings is ambiguous, so norn
+  // warn-and-omits the section; with no requested heading resolving, the doc
+  // lands in `section_failures` with no record — the read degrades to empty
+  // (ADR 0017: no arbitrary first-of-two pick), not a throw. Diagnostic: MMR-239.
+  const ambiguous = {
+    getSections: (targets: string[]) => {
+      expect(targets).toEqual(['MMR-9']);
+      return Promise.resolve([]); // doc reported in section_failures, absent from records
+    },
+  } as unknown as NornClient;
+  const store = createNornBodySectionStore(ambiguous);
+  expect(await store.readHistory(9, 'MMR-9')).toEqual([]);
+  expect(await store.readAnnotations(9, 'MMR-9')).toEqual([]);
+});
+
 test('readSections reads all requested facets in one getSections round-trip (MMR-164 F6)', async () => {
   // A detail `get` wanting description + annotations + history must cost ONE
   // `vault.get { section }` call requesting all three headings — not three.

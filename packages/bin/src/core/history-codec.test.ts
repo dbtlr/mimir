@@ -389,6 +389,16 @@ test('sectionBody yields the empty string for an empty or heading-only section',
   expect(sectionBody('## History\n')).toBe('');
 });
 
+test('sectionBody strips only a real `## ` heading, passing other content through intact', () => {
+  // An escaped content line (`\## `) is not a heading, so it is never stripped.
+  expect(sectionBody('\\## looks like a heading\ntail')).toBe('\\## looks like a heading\ntail');
+  // Defense against norn contract drift: a section that ever arrives already
+  // heading-excluded keeps its first record line rather than losing it.
+  expect(sectionBody('### 2026-07-01T00:00:00.000Z — lifecycle\ntodo → done')).toBe(
+    '### 2026-07-01T00:00:00.000Z — lifecycle\ntodo → done',
+  );
+});
+
 test('a missing section reads to the empty string (parses to no records)', () => {
   // norn warn-and-omits an absent heading, so the read path passes `''`.
   expect(readSection('## History\n### a\nx\n', 'Annotations')).toBe('');
