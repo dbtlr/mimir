@@ -238,7 +238,17 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
-- **Unified `[store] backend` selects the whole work-state store** (MMR-235, ADR 0016).
+- **CLI guess-tolerance: `--col` CSV, `--size` prefixes, clearer column errors**
+  (MMR-212, mined from a real-session corpus). `--col` now accepts a
+  comma-separated list (`--col history,annotations`) in addition to the repeated
+  form — previously the whole `"history,annotations"` string was tested as one
+  column and rejected. `--size` now accepts any unambiguous prefix
+  (`--size m` → `medium`, `s`/`l` likewise), honoring the `--size <s|m|l>` the
+  help already advertised. And naming a base (always-shown) column — the
+  21-occurrence `--col id,type,status` miss, which treats `--col` as a projection
+  — now gets a tailored hint (`--col adds optional columns; 'id' is always shown`)
+  instead of a bare `unknown column`. (Per-command help — the third item mined —
+  already shipped in MMR-211.)
   The store composition root now switches nodes *and* artifacts together behind a single
   `[store] backend = "sqlite" | "norn"` key (env override `MIMIR_STORE_BACKEND`), replacing
   the transitional artifact-only `[store] artifacts` key / `MIMIR_ARTIFACT_STORE`. The Norn

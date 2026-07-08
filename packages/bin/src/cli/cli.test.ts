@@ -760,6 +760,27 @@ test('--col takes flat column names; the dot form is a usage error', async () =>
   expect(unknown.err.join('')).toContain('unknown column: bogus');
 });
 
+test('--col accepts a comma-separated list, not just repeats (MMR-212)', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const ref = `MMR-${String(t.seq)}`;
+  const io = fakeIo(false);
+  await runCli(['get', ref, '--col', 'history,annotations', '-f', 'json'], () => store, io);
+  const view = parseJson<{ history: unknown[]; annotations: unknown[] }>(io.out.join(''));
+  expect(Array.isArray(view.history)).toBe(true);
+  expect(Array.isArray(view.annotations)).toBe(true);
+});
+
+test('--col naming a base column hints that it is always shown, not an addable column (MMR-212)', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const ref = `MMR-${String(t.seq)}`;
+  const io = fakeIo(false);
+  // the 21-occurrence miss: `--col id,type,status` treats --col as a projection
+  expect(await runCli(['get', ref, '--col', 'id,type,status'], () => store, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain('always shown');
+  expect(err).not.toContain('unknown column'); // the tailored hint, not the generic one
+});
+
 // --type removal (MMR-94)
 
 test('list --eq type:phase filters to phases only', async () => {
