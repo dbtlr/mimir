@@ -576,14 +576,15 @@ export const sectionResolutionCheck: Diagnostic = {
 
 /**
  * Seed validity (MMR-244): a seed document's own-project / `kind` / `lifecycle` /
- * `requester` / `spawned`. The reader tolerates all of them (the tiering lives in
- * `validate`): a missing own-project or a foreign/missing `kind`/`lifecycle` is
- * load-bearing and drops the whole seed RECORD (hidden on read); an unknown
- * `requester` nulls just that field; a `spawned` ref that resolves to no surviving
- * work node prunes that edge. A thin adapter over the shared validator, rendering
- * the seed-doc rules — one detector, so it can't drift from the read. `error` for
- * a dropped record or pruned edge, `warn` for a nulled requester field; whole-vault
- * (the graph is unscoped, like its referential siblings).
+ * `requester` / `spawned`. The seed STORE reads verbatim (like the artifact store):
+ * only a foreign/missing `kind`/`lifecycle` drops the record there (its `toRecord`
+ * returns null). A missing own-project, an unknown `requester`, and a dangling
+ * `spawned` are surfaced HERE for repair — the store returns them verbatim, and the
+ * referential resolution that acts on them lands at the read seam (MMR-245). A thin
+ * adapter over the shared validator's seed rules — one detector, so it can't drift
+ * from the validator. `error` for a dropped record or an unresolved reference,
+ * `warn` for an unresolved requester; whole-vault (the graph is unscoped, like its
+ * referential siblings).
  */
 export const seedValidityCheck: Diagnostic = {
   name: 'seed-validity',
@@ -596,7 +597,7 @@ export const seedValidityCheck: Diagnostic = {
       if (drop.kind === 'node' && drop.rule === 'orphaned-seed') {
         findings.push({
           check: 'seed-validity',
-          message: `project ${drop.key} has no document in the vault — the seed is hidden on read`,
+          message: `project ${drop.key} has no document in the vault — surfaced for repair; the seed's project does not resolve`,
           node: drop.stem,
           severity: 'error',
           where: 'project',
@@ -626,7 +627,7 @@ export const seedValidityCheck: Diagnostic = {
       } else if (drop.kind === 'field' && drop.rule === 'unknown-requester') {
         findings.push({
           check: 'seed-validity',
-          message: `requester ${drop.value} is not a known project — field nulled on read (seed kept)`,
+          message: `requester ${drop.value} is not a known project — surfaced for repair; the reference does not resolve`,
           node: drop.stem,
           severity: 'warn',
           where: 'frontmatter · requester',
@@ -634,7 +635,7 @@ export const seedValidityCheck: Diagnostic = {
       } else if (drop.kind === 'edge' && drop.rule === 'dangling-spawned') {
         findings.push({
           check: 'seed-validity',
-          message: `spawned ${drop.ref} resolves to no node in the vault — the reference is dropped on read`,
+          message: `spawned ${drop.ref} resolves to no node in the vault — surfaced for repair; the reference does not resolve`,
           node: drop.stem,
           severity: 'error',
           where: 'frontmatter · spawned',
@@ -649,9 +650,12 @@ export const seedValidityCheck: Diagnostic = {
 /**
  * Task `upstream` references (MMR-244): a task whose `upstream` seed pointer is
  * malformed grammar (not a `KEY-sN`) or dangles (resolves to no surviving seed).
- * The reader tolerates both — a bad `upstream` nulls just that field, the task
- * loads — so it is data lost on read, not a failed load. A thin adapter over the
- * shared validator's two `*-upstream` rules; always an `error`, whole-vault.
+ * The two differ in what the reader can decide locally: a MALFORMED grammar is
+ * nulled on read (the reader's local decode drops it, like a foreign priority),
+ * while a DANGLING but well-formed ref is NOT nulled on the hot path — the reader
+ * loads no seeds, so it can't know the ref dangles; it is surfaced here for repair
+ * and resolved at the read seam (MMR-245). A thin adapter over the shared
+ * validator's two `*-upstream` rules; always an `error`, whole-vault.
  */
 export const upstreamRefCheck: Diagnostic = {
   name: 'upstream-refs',
@@ -664,7 +668,7 @@ export const upstreamRefCheck: Diagnostic = {
       const message =
         drop.rule === 'malformed-upstream'
           ? `upstream "${drop.value}" is not a seed id (KEY-sN) — field nulled on read`
-          : `upstream ${drop.value} resolves to no seed in the vault — field nulled on read`;
+          : `upstream ${drop.value} resolves to no seed in the vault — surfaced for repair; the reference does not resolve`;
       findings.push({
         check: 'upstream-refs',
         message,

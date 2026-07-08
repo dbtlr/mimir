@@ -95,10 +95,15 @@ resolved | rejected`). Terminal states are set **only by explicit triager
 - Tasks gain a nullable `upstream` column (`KEY-sN`), round-tripping like
   `external_ref`.
 - The shared validator ([ADR 0017](0017-runtime-data-tolerance.md)) gains seed
-  coverage — kind/lifecycle drop the seed record (load-bearing), an unknown
-  `requester` nulls the field, a dangling `spawned` prunes the edge, and a
-  malformed or dangling task `upstream` nulls that field — all surfaced by `mimir
-doctor` with no doctor-specific logic.
+  coverage, all surfaced by `mimir doctor` with no doctor-specific logic. Only
+  `kind`/`lifecycle` are acted on at read time — a foreign/missing value drops the
+  seed **record** (the store's `toRecord` reads it as absent). The referential
+  rules — a missing own-project (record), an unknown `requester` (field), a
+  dangling `spawned` (edge), a dangling task `upstream` (field) — are **validator/
+  doctor-only**: the seed store reads them verbatim, and the resolution that acts
+  on them lands at the consumer's read seam (MMR-245). The one thing the reader
+  nulls **locally**, with no seeds loaded, is a malformed (non-`KEY-sN`) task
+  `upstream` — the grammar tier, exactly as a foreign priority/size nulls.
 - The verb surface (CLI/MCP/HTTP: `seed` / `seeds` / `promote` / `reject` /
   `resolve` / `triage`) and the triage reconciliation pass ride on top in
   follow-up work (MMR-245 / MMR-246); this ADR settles the entity + schema.

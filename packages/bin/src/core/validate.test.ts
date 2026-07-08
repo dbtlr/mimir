@@ -790,8 +790,8 @@ test('upstream is task-only — a non-task node carrying one is never flagged (M
 
 test('an orphaned seed (its own project absent) is dropped, not a survivor (MMR-244)', () => {
   // Mirrors pass 1's missing-container rule for nodes: a seed whose own project
-  // has no document has no valid place to live — it drops (hidden on read) and is
-  // excluded from the seed survivors.
+  // has no document has no valid place to live — the validator drops it and
+  // excludes it from the seed survivors (the resolving read seam acts on it, MMR-245).
   const g: VaultGraph = {
     nodes: [],
     projectKeys: [], // the seed's own project MMR has no document

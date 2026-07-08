@@ -74,7 +74,11 @@ export type SeedStore = {
    * absent seed. */
   transition: (key: string, seq: number, to: SeedLifecycle, reason: string) => Promise<void>;
   /** Append one work-node stem (`KEY-seq`) to `spawned` — the promote provenance
-   * link; idempotent (an already-linked stem is a no-op). */
+   * link. Idempotent under SEQUENTIAL use: a re-append of an already-linked stem is
+   * a no-op. Concurrency is deliberately not smoothed over — two racing appends
+   * read the same `spawned`, and the loser's compare-and-set precondition is refused
+   * (the seed store has no drift-replay, unlike the node write path); the caller
+   * retries against the now-updated list. */
   appendSpawned: (key: string, seq: number, nodeStem: string) => Promise<void>;
 };
 
