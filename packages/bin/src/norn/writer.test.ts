@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTask } from '../core/create';
+import { depend, undepend } from '../core/mutations/dependency';
 import { startTask } from '../core/mutations/lifecycle';
 import type { NornClient, NornDocument } from './client';
 import type { MigrationOp, MigrationPlan } from './plan';
@@ -657,4 +658,212 @@ test('appendTransition against a negative provisional node id throws (History no
     message = error instanceof Error ? error.message : String(error);
   }
   expect(message).toContain('a transition targets a node absent from the snapshot');
+});
+
+/**
+ * MMR-186: the validator prunes a dangling/cycle-broken `depends_on` edge on load,
+ * so the working set omits it. A later `transact` that rewrites `depends_on` must
+ * re-merge the pruned ref rather than silently erasing corruption `mimir doctor`
+ * surfaces — repair stays the deliberate `doctor --fix` decision (ADR 0017 / MMR-183).
+ */
+
+test('adding a dep preserves a validator-pruned dangling depends_on ref (MMR-186)', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        rank: 65536,
+        title: 'Prereq',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+    {
+      frontmatter: {
+        created: TS,
+        depends_on: ['[[MMR-999]]'],
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        rank: 131072,
+        title: 'Dependent',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-2.md',
+    },
+  ];
+  const { client, plans } = fakeClient(docs);
+  const store = createNornWriteStore(client, ROOT);
+  const ws = await store.loadWorkingSet();
+  const prereqId = ws.nodes.find((n) => n.title === 'Prereq')?.id ?? 0;
+  const dependentId = ws.nodes.find((n) => n.title === 'Dependent')?.id ?? 0;
+
+  // The working set omits [[MMR-999]] (pruned as dangling); adding a real dep
+  // rewrites depends_on from survivors — the dangling ref must survive the write.
+  await depend(store, dependentId, [prereqId]);
+
+  const plan = plans[0];
+  if (plan === undefined) {
+    throw new Error('no plan captured');
+  }
+  const op = findOp(plan, 'set_frontmatter', 'depends_on');
+  expect(op?.fields.path).toBe('MMR/MMR-2.md');
+  // CAS baseline is the raw on-disk value (dangler present); the new value keeps it.
+  expect(op?.fields.expected_old_value).toEqual(['[[MMR-999]]']);
+  expect(op?.fields.new_value).toEqual(['[[MMR-1]]', '[[MMR-999]]']);
+});
+
+test('removing the only visible dep still preserves a pruned dangling ref (MMR-186)', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        rank: 65536,
+        title: 'Prereq',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+    {
+      frontmatter: {
+        created: TS,
+        depends_on: ['[[MMR-1]]', '[[MMR-999]]'],
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        rank: 131072,
+        title: 'Dependent',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-2.md',
+    },
+  ];
+  const { client, plans } = fakeClient(docs);
+  const store = createNornWriteStore(client, ROOT);
+  const ws = await store.loadWorkingSet();
+  const prereqId = ws.nodes.find((n) => n.title === 'Prereq')?.id ?? 0;
+  const dependentId = ws.nodes.find((n) => n.title === 'Dependent')?.id ?? 0;
+
+  await undepend(store, dependentId, [prereqId]);
+
+  const plan = plans[0];
+  if (plan === undefined) {
+    throw new Error('no plan captured');
+  }
+  // The dangler is preserved as a set_frontmatter — NOT erased to a remove_frontmatter.
+  expect(findOp(plan, 'remove_frontmatter', 'depends_on')).toBeUndefined();
+  const op = findOp(plan, 'set_frontmatter', 'depends_on');
+  expect(op?.fields.expected_old_value).toEqual(['[[MMR-1]]', '[[MMR-999]]']);
+  expect(op?.fields.new_value).toEqual(['[[MMR-999]]']);
+});
+
+test('a dangling depends_on is left untouched when a different field is edited (MMR-186)', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        depends_on: ['[[MMR-999]]'],
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        rank: 65536,
+        title: 'Task',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ];
+  const { client, plans } = fakeClient(docs);
+  const store = createNornWriteStore(client, ROOT);
+  const ws = await store.loadWorkingSet();
+  const id = ws.nodes[0]?.id ?? 0;
+
+  // Only lifecycle/updated_at are dirtied — depends_on is never rewritten, so the
+  // dangler is neither preserved nor erased: it is left entirely alone (blast radius).
+  await startTask(store, id);
+
+  const plan = plans[0];
+  if (plan === undefined) {
+    throw new Error('no plan captured');
+  }
+  expect(findOp(plan, 'set_frontmatter', 'depends_on')).toBeUndefined();
+  expect(findOp(plan, 'remove_frontmatter', 'depends_on')).toBeUndefined();
+});
+
+test('editing a node preserves its cycle-broken depends_on edge (MMR-186)', async () => {
+  // MMR-1 ⇄ MMR-2 form a depends_on cycle; the validator cuts one edge to keep a
+  // valid acyclic subgraph. Adding an unrelated dep to the cut node must preserve
+  // the cut edge so doctor keeps reporting the cycle.
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        depends_on: ['[[MMR-2]]'],
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        rank: 65536,
+        title: 'A',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+    {
+      frontmatter: {
+        created: TS,
+        depends_on: ['[[MMR-1]]'],
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        rank: 131072,
+        title: 'B',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-2.md',
+    },
+    {
+      frontmatter: {
+        created: TS,
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        rank: 196608,
+        title: 'C',
+        type: 'task',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-3.md',
+    },
+  ];
+  const { client, plans } = fakeClient(docs);
+  const store = createNornWriteStore(client, ROOT);
+  const ws = await store.loadWorkingSet();
+
+  const cycleNodes = ws.nodes.filter((n) => n.title === 'A' || n.title === 'B');
+  const cutNode = cycleNodes.find((n) => !ws.edges.some((e) => e.node_id === n.id));
+  const partner = cycleNodes.find((n) => n.id !== cutNode?.id);
+  const cId = ws.nodes.find((n) => n.title === 'C')?.id ?? 0;
+  if (cutNode === undefined || partner === undefined) {
+    throw new Error('expected exactly one cut edge in the 2-cycle');
+  }
+
+  await depend(store, cutNode.id, [cId]);
+
+  const plan = plans[0];
+  if (plan === undefined) {
+    throw new Error('no plan captured');
+  }
+  const op = findOp(plan, 'set_frontmatter', 'depends_on');
+  // The cut partner survives alongside the newly added dep (MMR-3).
+  expect(op?.fields.new_value).toContain(`[[MMR-${partner.seq}]]`);
+  expect(op?.fields.new_value).toContain('[[MMR-3]]');
 });

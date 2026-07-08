@@ -521,6 +521,18 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **The write path no longer silently erases a pruned dangling `depends_on`**
+  (MMR-186, ADR 0017). The data-tolerant reader drops a dangling or cycle-broken
+  `depends_on` edge on load, so the in-memory working set omits it; a later
+  `transact` that rewrote `depends_on` regenerated the field from survivors alone
+  and, because the compare-and-set baseline was taken from the raw on-disk value,
+  quietly deleted the ref from the document — auto-repairing corruption that
+  `mimir doctor` is meant to keep surfacing, with no `## History` audit. The
+  write path now re-merges the validator's pruned `depends_on` refs into the
+  rewritten field, so the reference survives the write and `doctor` keeps
+  reporting it. Preservation only — repair stays the deliberate `doctor --fix`
+  decision (MMR-183). A `parent` edge is unaffected: it is single-valued and only
+  a `move_node` rewrites it, so the overwrite is the operator's explicit intent.
 - **`mimir doctor` no longer false-cleans a section whose heading has trailing
   whitespace** (MMR-171). The body-section scan located a `## History`/
   `## Annotations` section with an exact match, missing a heading carrying trailing

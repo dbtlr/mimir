@@ -610,10 +610,17 @@ class Accumulator {
     dependsOn: string[];
     tags: NodeTag[];
   } {
-    const dependsOn = this.edges
+    // Re-merge any `depends_on` refs the validator pruned on load (a dangling or
+    // cycle-broken edge the working set omits) so rewriting the field preserves
+    // them on disk instead of silently erasing corruption `mimir doctor` surfaces
+    // (MMR-186). Empty for a created node (no snapshot entry) and for a clean
+    // vault. Sorted with the live edges for stable, idempotent output; a pruned
+    // ref can never collide with a surviving edge (it is, by definition, not one).
+    const preserved = this.snapshot.prunedDependsOn.get(node.id) ?? [];
+    const liveDeps = this.edges
       .filter((e) => e.node_id === node.id)
-      .map((e) => this.stemOf(e.depends_on_node_id))
-      .toSorted((a, b) => a.localeCompare(b));
+      .map((e) => this.stemOf(e.depends_on_node_id));
+    const dependsOn = [...liveDeps, ...preserved].toSorted((a, b) => a.localeCompare(b));
     const tags = (this.nodeTags.get(node.id) ?? []).toSorted((a, b) => a.tag.localeCompare(b.tag));
     const project = this.projects.get(node.project_id);
     if (project === undefined) {

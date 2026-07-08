@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { createTestDb } from '../db/testing';
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
+import { createNornWriteStore } from '../norn/writer';
 import { converge } from '../vault/converge';
 import { readSectionFailures } from './body-sections';
 import type { Db } from './context';
@@ -13,11 +14,12 @@ import { createInitiative, createPhase, createProject, createTask } from './crea
 import { renderHistoryBody, renderNodeBody } from './history-codec';
 import { renderId } from './ids';
 import type { Node, Project } from './model';
-import { depend } from './mutations/dependency';
+import { depend, undepend } from './mutations/dependency';
 import { tagEntities } from './mutations/tags';
 import type { Store, WorkingSet } from './store';
 import { loadWorkingSetOverNorn, readVaultGraph } from './store-norn';
 import { createSqliteStore } from './store-sqlite';
+import { validate } from './validate';
 
 /**
  * The Norn node read path over a real `norn` subprocess (MMR-149). Skipped when
@@ -508,6 +510,66 @@ test.skipIf(!NORN)(
     expect(failures).toContainEqual({ section: 'Annotations', stem: 'MMR-2' });
     // The healthy node and the project doc are reported for neither section.
     expect(failures.some((f) => f.stem === 'MMR-3' || f.stem === 'MMR')).toBe(false);
+  },
+);
+
+/** MMR-186: does the validator report MMR-2's hand-injected dangling MMR-999 dep? */
+const mmr2DanglerReported = (d: { rule: string; stem: string; ref?: string }): boolean =>
+  d.rule === 'dangling-depends-on' && d.stem === 'MMR-2' && d.ref === 'MMR-999';
+
+// MMR-186: the write path must PRESERVE a validator-pruned dangling depends_on
+// rather than silently erasing it. The reader drops it and doctor reports it (ADR
+// 0017); a later edit that rewrites depends_on regenerates the field from
+// survivors, so without the re-merge the CAS write would match disk and quietly
+// delete the corruption doctor is meant to surface. Repair stays doctor --fix
+// (MMR-183). Proven end-to-end against a real `norn` apply.
+test.skipIf(!NORN)(
+  'preserves a validator-pruned dangling depends_on across a real edit; doctor still reports it',
+  async () => {
+    await writeProjectDoc('MMR');
+    await writeDoc('MMR/MMR-1.md', [
+      jsonField('type', 'task'),
+      jsonField('title', 'Prereq'),
+      jsonField('parent', wikilink('MMR')),
+      jsonField('lifecycle', 'todo'),
+      jsonField('created', TS),
+      jsonField('updated_at', TS),
+    ]);
+    // A real node body (## History / ## Annotations) so the edit's transition
+    // append lands — a hand-injected dangling depends_on on an otherwise valid doc.
+    await client.newDoc({
+      body: renderNodeBody(null),
+      confirm: true,
+      field_json: [
+        jsonField('type', 'task'),
+        jsonField('title', 'Dependent'),
+        jsonField('parent', wikilink('MMR')),
+        jsonField('lifecycle', 'todo'),
+        jsonField('depends_on', [wikilink('MMR-1'), wikilink('MMR-999')]), // MMR-999 dangles
+        jsonField('created', TS),
+        jsonField('updated_at', TS),
+      ],
+      parents: true,
+      path: 'MMR/MMR-2.md',
+    });
+
+    // Baseline: the reader drops MMR-999 and doctor's validator reports it.
+    expect(validate(await readVaultGraph(client)).dropped.some(mmr2DanglerReported)).toBe(true);
+
+    // A real edit to depends_on (remove the one visible edge) applied by norn.
+    const writeStore = createNornWriteStore(client, join(root, 'vault'));
+    const ws = await writeStore.loadWorkingSet();
+    const prereq = must(ws.nodes.find((n) => n.seq === 1));
+    const dependent = must(ws.nodes.find((n) => n.seq === 2));
+    await undepend(writeStore, dependent.id, [prereq.id]);
+
+    // On disk after the apply: the visible edge is gone, the dangler survives.
+    const graph = await readVaultGraph(client);
+    const doc2 = must(graph.nodes.find((n) => n.stem === 'MMR-2'));
+    expect(doc2.dependsOn).toContain('MMR-999');
+    expect(doc2.dependsOn).not.toContain('MMR-1');
+    // And doctor's validator still reports the corruption (it was not erased).
+    expect(validate(graph).dropped.some(mmr2DanglerReported)).toBe(true);
   },
 );
 
