@@ -1,9 +1,9 @@
 import type { TransitionView } from '@mimir/contract';
 
 import type { NornClient } from '../../norn/client';
-import { pathAndBody, stemOf } from '../../norn/decode';
+import { pathAndSections, stemOf } from '../../norn/decode';
 import { validation } from '../errors';
-import { HISTORY_HEADING, parseHistorySection, sliceBodySection } from '../history-codec';
+import { HISTORY_HEADING, parseHistorySection, sectionBody } from '../history-codec';
 import { vaultGraphFromDocs } from '../store-norn';
 import { validate } from '../validate';
 import type { TransitionsFeed } from './store';
@@ -79,8 +79,8 @@ function cmp(a: Positioned, b: { at: string; stem: string; idx: number }): numbe
 /**
  * The Norn transition feed — there is no global log, so every node/project
  * `## History` section is fanned out of the vault (one `find` for the doc set,
- * one bulk `.body` `get`), sliced, parsed, and merged into one chronologically
- * ordered stream keyed by `(at, stem, index)`.
+ * one bulk `vault.get { section: ['History'] }`), parsed, and merged into one
+ * chronologically ordered stream keyed by `(at, stem, index)`.
  *
  * A markdown vault carries no global insertion sequence, so this `at`-primary
  * order is a best-effort *approximation* of the SQLite feed's `transition_log.id`
@@ -129,20 +129,20 @@ export function createNornTransitionsFeed(client: NornClient): TransitionsFeed {
         return { items: [] };
       }
 
-      const records = await client.get([...tokenByPath.keys()], '.body');
+      const records = await client.getSections([...tokenByPath.keys()], [HISTORY_HEADING]);
       const positioned: Positioned[] = [];
       for (const record of records) {
-        const pb = pathAndBody(record);
-        const token = pb === null ? undefined : tokenByPath.get(pb.path);
-        if (pb === null || token === undefined) {
+        const ps = pathAndSections(record);
+        const token = ps === null ? undefined : tokenByPath.get(ps.path);
+        if (ps === null || token === undefined) {
           continue;
         }
-        const history = parseHistorySection(sliceBodySection(pb.body, HISTORY_HEADING));
+        const history = parseHistorySection(sectionBody(ps.sections[HISTORY_HEADING] ?? ''));
         history.forEach((e, idx) => {
           positioned.push({
             at: e.at,
             idx,
-            stem: stemOf(pb.path),
+            stem: stemOf(ps.path),
             view: { at: e.at, from: e.from, kind: e.kind, node: token, reason: e.reason, to: e.to },
           });
         });

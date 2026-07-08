@@ -326,6 +326,21 @@ export class NornClient {
     return this.records('vault.get', payload, 'records');
   }
 
+  /**
+   * Read named body sections natively (`vault.get { section }`, NRN-102/NRN-173) —
+   * norn slices each `## <heading>` with `edit`'s exact boundary semantics, so a
+   * section read mirrors a section write. Returns the `records` array; each record
+   * carries a `sections` map (heading → the section's raw markdown, heading line
+   * included — decode with {@link import('./decode').pathAndSections}). A heading
+   * missing/ambiguous in a document is warn-and-omitted for that document (the
+   * record still returns, just without that key); the call never fails as a whole,
+   * so it replaces the whole-`.body`-fetch-then-client-slice workaround (MMR-187).
+   */
+  async getSections(targets: string[], sections: string[]): Promise<unknown[]> {
+    const payload = await this.call('vault.get', { section: sections, targets }, true);
+    return this.records('vault.get', payload, 'records');
+  }
+
   async validate(): Promise<unknown> {
     return this.call('vault.validate', {}, true);
   }

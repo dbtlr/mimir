@@ -99,3 +99,31 @@ export function pathAndBody(record: unknown): { path: string; body: string } | n
   const body = 'body' in record ? (record as { body: unknown }).body : '';
   return { body: typeof body === 'string' ? body : '', path };
 }
+
+/** A `vault.get --section` record's `path` + its `sections` map — heading text →
+ * that section's raw markdown, the `## <heading>` line INCLUDED (norn's shape;
+ * strip it with {@link import('../core/history-codec').sectionBody} before
+ * parsing). A non-string path drops the record; a missing/foreign `sections`
+ * object or a non-string section value reads as empty. A heading absent from the
+ * document is warn-and-omitted by norn, so it simply never appears in the map. */
+export function pathAndSections(
+  record: unknown,
+): { path: string; sections: Record<string, string> } | null {
+  if (typeof record !== 'object' || record === null || !('path' in record)) {
+    return null;
+  }
+  const path = (record as { path: unknown }).path;
+  if (typeof path !== 'string') {
+    return null;
+  }
+  const raw = 'sections' in record ? (record as { sections: unknown }).sections : undefined;
+  const sections: Record<string, string> = {};
+  if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
+    for (const [heading, value] of Object.entries(raw)) {
+      if (typeof value === 'string') {
+        sections[heading] = value;
+      }
+    }
+  }
+  return { path, sections };
+}
