@@ -1,9 +1,10 @@
-import { CHEAP_FACETS, PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
+import { CHEAP_FACETS, PRIORITY_VALUES, SEED_KIND_VALUES, SIZE_VALUES } from '@mimir/contract';
 import type {
   FacetName,
   FieldFilter,
   Priority,
   QueryOp,
+  SeedKind,
   Size,
   StatusSelector,
   Verdict,
@@ -29,10 +30,19 @@ import {
   createProject,
   createTask,
   depend,
+  fileSeed,
+  getSeed,
+  listSeeds,
+  parseSeedRef,
+  promoteSeed,
+  transitionSeed,
+  updateSeed,
   resolveNodeTokenInSet,
   resolveProjectKeyInSet,
   formatArtifactJson,
   formatNodeJson,
+  formatSeedJson,
+  formatSeedsJson,
   formatSetJson,
   formatStatusJson,
   getArtifact,
@@ -68,9 +78,11 @@ import {
 import type {
   DerivationSet,
   RankPosition,
+  SeedStatusSelector,
   Store,
   UpdateFields,
   UpdateProjectFields,
+  UpdateSeedFields,
 } from '../core';
 
 /**
@@ -462,6 +474,8 @@ export function toolUpdate(
     size?: string;
     target?: string;
     externalRef?: string;
+    upstream?: string;
+    kind?: string;
     openEnded?: boolean;
   },
 ): Promise<ToolResult> {
@@ -471,6 +485,9 @@ export function toolUpdate(
     }
     if (parseIdentity(args.id)?.kind === 'project') {
       return updateProjectTool(store, args);
+    }
+    if (parseIdentity(args.id)?.kind === 'seed') {
+      return updateSeedTool(store, args);
     }
     const id = await nodeId(store, args.id);
     const fields: UpdateFields = {};
@@ -504,12 +521,23 @@ export function toolUpdate(
     if (args.externalRef !== undefined) {
       fields.externalRef = args.externalRef;
     }
+    if (args.upstream !== undefined) {
+      fields.upstream = validateUpstream(args.upstream);
+    }
     if (args.openEnded !== undefined) {
       fields.openEnded = args.openEnded;
     }
     const node = await updateNode(store, id, fields);
     return echoNode(store, node);
   });
+}
+
+/** Validate an `--upstream KEY-sN` seed pointer at the tool layer (MMR-245). */
+function validateUpstream(upstream: string): string {
+  if (parseSeedRef(upstream) === null) {
+    throw validation(`upstream must be a seed id (KEY-sN), got ${upstream}`);
+  }
+  return upstream;
 }
 
 /** `update KEY` — patch a project's `name` and/or `description` (MMR-88). */
@@ -656,6 +684,7 @@ export function toolCreate(
     priority?: string;
     size?: string;
     externalRef?: string;
+    upstream?: string;
     openEnded?: boolean;
     tags?: string[];
   },
@@ -757,6 +786,7 @@ export function toolCreate(
           summary: args.summary,
           tags: args.tags,
           title: args.title,
+          upstream: args.upstream === undefined ? undefined : validateUpstream(args.upstream),
         });
         return echoNode(store, node);
       }
@@ -844,4 +874,163 @@ export function toolAttach(
     });
     return ok(JSON.stringify({ artifact: { id: renderedId } }));
   });
+}
+
+// ---------------------------------------------------------------------------
+// Seed tools (MMR-245)
+// ---------------------------------------------------------------------------
+
+/** Narrow a raw `kind` arg to the closed seed-kind enum, or throw. */
+function requireSeedKind(kind: string): SeedKind {
+  if (!isMember(kind, SEED_KIND_VALUES)) {
+    throw validation(`invalid kind: ${kind}`, `kinds: ${SEED_KIND_VALUES.join(', ')}`);
+  }
+  return kind;
+}
+
+export function toolSeed(
+  store: Store,
+  args: { title: string; kind: string; project?: string; description?: string },
+  boundScope?: string,
+): Promise<ToolResult> {
+  return guard(async () => {
+    const target = args.project ?? boundScope;
+    if (target === undefined) {
+      throw validation('seed requires a target project', 'pass project or bind a board');
+    }
+    // requester = the bound board only when filing into a DIFFERENT board (else self-filed).
+    const requester = boundScope !== undefined && boundScope !== target ? boundScope : null;
+    const seed = await fileSeed(store, {
+      description: args.description,
+      kind: requireSeedKind(args.kind),
+      project: target,
+      requester,
+      title: args.title,
+    });
+    return ok(formatSeedJson(seed));
+  });
+}
+
+export function toolSeeds(
+  store: Store,
+  args: {
+    project?: string;
+    requester?: string;
+    status?: SeedStatusSelector;
+    sort?: 'asc' | 'desc';
+  },
+  boundScope?: string,
+): Promise<ToolResult> {
+  return guard(async () => {
+    // `project: "all"` (or the unbound default) reads every active board's queue.
+    const project = args.project === 'all' ? undefined : (args.project ?? boundScope);
+    const seeds = await listSeeds(store, {
+      project,
+      requester: args.requester,
+      sort: args.sort,
+      status: args.status,
+    });
+    return ok(formatSeedsJson(seeds));
+  });
+}
+
+export function toolGetSeed(
+  store: Store,
+  args: { id: string; content?: boolean },
+): Promise<ToolResult> {
+  return guard(async () =>
+    ok(formatSeedJson(await getSeed(store, args.id, { content: args.content ?? true }))),
+  );
+}
+
+export function toolPromote(
+  store: Store,
+  args: {
+    id: string;
+    parent?: string;
+    link?: string;
+    title?: string;
+    description?: string;
+    priority?: string;
+    size?: string;
+    tags?: string[];
+  },
+): Promise<ToolResult> {
+  return guard(async () => {
+    if (args.priority !== undefined && !isMember(args.priority, PRIORITY_VALUES)) {
+      throw validation(
+        `invalid priority: ${args.priority}`,
+        `priorities: ${PRIORITY_VALUES.join(', ')}`,
+      );
+    }
+    if (args.size !== undefined && !isMember(args.size, SIZE_VALUES)) {
+      throw validation(`invalid size: ${args.size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
+    }
+    const { seed } = await promoteSeed(store, args.id, {
+      description: args.description,
+      link: args.link,
+      parent: args.parent,
+      priority: args.priority,
+      size: args.size,
+      tags: args.tags,
+      title: args.title,
+    });
+    return ok(formatSeedJson(seed));
+  });
+}
+
+export function toolReject(
+  store: Store,
+  args: { id: string; reason: string },
+): Promise<ToolResult> {
+  return guard(async () =>
+    ok(formatSeedJson(await transitionSeed(store, args.id, 'rejected', args.reason))),
+  );
+}
+
+export function toolResolve(
+  store: Store,
+  args: { id: string; reason: string },
+): Promise<ToolResult> {
+  return guard(async () =>
+    ok(formatSeedJson(await transitionSeed(store, args.id, 'resolved', args.reason))),
+  );
+}
+
+/** `update KEY-sN` — patch a live seed's title/kind/description (MMR-245). */
+async function updateSeedTool(
+  store: Store,
+  args: {
+    id: string;
+    title?: string;
+    description?: string;
+    kind?: string;
+    priority?: string;
+    size?: string;
+    target?: string;
+    externalRef?: string;
+    upstream?: string;
+    summary?: string;
+    openEnded?: boolean;
+  },
+): Promise<ToolResult> {
+  const seedOnly = (
+    ['priority', 'size', 'target', 'externalRef', 'upstream', 'summary', 'openEnded'] as const
+  ).filter((k) => args[k] !== undefined);
+  if (seedOnly.length > 0) {
+    throw validation(
+      `${seedOnly.join(', ')} do not apply to a seed — patch title, kind, or description`,
+    );
+  }
+  const fields: UpdateSeedFields = {};
+  if (args.title !== undefined) {
+    fields.title = args.title;
+  }
+  if (args.description !== undefined) {
+    fields.description = args.description;
+  }
+  if (args.kind !== undefined) {
+    fields.kind = requireSeedKind(args.kind);
+  }
+  return ok(formatSeedJson(await updateSeed(store, args.id, fields)));
 }

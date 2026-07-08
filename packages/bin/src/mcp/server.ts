@@ -1,5 +1,7 @@
 import {
   PRIORITY_VALUES,
+  SEED_KIND_VALUES,
+  SEED_LIFECYCLE_VALUES,
   SIZE_VALUES,
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
@@ -10,7 +12,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import type { ZodRawShape } from 'zod';
 
-import type { Store } from '../core';
+import type { SeedStatusSelector, Store } from '../core';
 import {
   toolAnnotate,
   toolArchive,
@@ -24,11 +26,17 @@ import {
   toolGet,
   toolList,
   toolMove,
+  toolGetSeed,
   toolNext,
   toolPark,
+  toolPromote,
+  toolReject,
   toolReopen,
   toolReorder,
+  toolResolve,
   toolReturn,
+  toolSeed,
+  toolSeeds,
   toolStart,
   toolStatus,
   toolSubmit,
@@ -52,6 +60,9 @@ const PRIORITY = z.enum(PRIORITY_VALUES);
 const SIZE = z.enum(SIZE_VALUES);
 const STATUS = z.enum(STATUS_SELECTOR_VALUES);
 const VERDICT = z.enum(VERDICT_VALUES);
+const SEED_KIND = z.enum(SEED_KIND_VALUES);
+const SEED_STATUS = z.enum([...SEED_LIFECYCLE_VALUES, 'live', 'all']);
+const SEED_SORT = z.enum(['asc', 'desc']);
 const TOKENS = z.array(z.string());
 // Field operators (MMR-33): FIELD:VALUE tokens (bare FIELD for has/missing).
 const OPERATOR_SCHEMA = {
@@ -336,17 +347,19 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'update',
-    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, openEnded), or retitle an artifact (KEY-aN id, title only). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers. Echoes the updated record.",
+    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, upstream, openEnded), retitle an artifact (KEY-aN, title only), or patch a live seed (KEY-sN: title, kind, description). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers; upstream (a KEY-sN seed pointer) only to tasks. Echoes the updated record.",
     {
       description: z.string().optional(),
       externalRef: z.string().optional(),
       id: z.string(),
+      kind: SEED_KIND.optional(),
       openEnded: z.boolean().optional(),
       priority: PRIORITY.optional(),
       size: SIZE.optional(),
       summary: z.string().optional(),
       target: z.string().optional(),
       title: z.string().optional(),
+      upstream: z.string().optional(),
     },
     (args: {
       id: string;
@@ -357,6 +370,8 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       size?: string;
       target?: string;
       externalRef?: string;
+      upstream?: string;
+      kind?: string;
       openEnded?: boolean;
     }) => toolUpdate(store, args),
   );
@@ -415,6 +430,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       target: z.string().optional(),
       title: z.string().optional(),
       type: z.enum(['project', 'initiative', 'phase', 'task']),
+      upstream: z.string().optional(),
     },
     (args: {
       type: 'project' | 'initiative' | 'phase' | 'task';
@@ -428,6 +444,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       priority?: string;
       size?: string;
       externalRef?: string;
+      upstream?: string;
       openEnded?: boolean;
       tags?: string[];
     }) => toolCreate(store, args),
@@ -457,6 +474,92 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       links?: string[];
       tags?: string[];
     }) => toolAttach(store, args),
+  );
+
+  // ---------------------------------------------------------------------------
+  // Seed tools (MMR-245) — the grooming queue
+  // ---------------------------------------------------------------------------
+
+  register(
+    server,
+    'seed',
+    'File a seed against a board — a grooming record that implies triage, not work. kind is idea|bug|feature. project defaults to the bound board; a seed filed into a DIFFERENT board records the bound board as its requester (else self-filed). description is body prose. Echoes the created seed.',
+    {
+      description: z.string().optional(),
+      kind: SEED_KIND,
+      project: z.string().optional(),
+      title: z.string(),
+    },
+    (args: { title: string; kind: string; project?: string; description?: string }) =>
+      toolSeed(store, args, boundScope),
+  );
+
+  register(
+    server,
+    'seeds',
+    'The grooming queue — live seeds (new + promoted) oldest-first by default. project scopes to one board (default the bound board; "all" = every board); requester filters to a requesting board; status is new|promoted|resolved|rejected or live|all; sort is asc|desc (age).',
+    {
+      project: z.string().optional(),
+      requester: z.string().optional(),
+      sort: SEED_SORT.optional(),
+      status: SEED_STATUS.optional(),
+    },
+    (args: {
+      project?: string;
+      requester?: string;
+      status?: SeedStatusSelector;
+      sort?: 'asc' | 'desc';
+    }) => toolSeeds(store, args, boundScope),
+  );
+
+  register(
+    server,
+    'get_seed',
+    'Full seed record by KEY-sN id — the resolved view (unknown requester nulled, dangling spawned pruned) plus the ## Seed Description prose. Distinct from `get`, which reads nodes/projects/artifacts.',
+    { content: z.boolean().optional(), id: z.string() },
+    (args: { id: string; content?: boolean }) => toolGetSeed(store, args),
+  );
+
+  register(
+    server,
+    'promote',
+    'Germinate a seed (KEY-sN) into work. --parent creates a task under a phase/initiative (title/description default from the seed); --link records an EXISTING node (KEY-seq) as spawned without creating (mutually exclusive with parent). Appends the spawned link and moves new → promoted on the first promote (repeatable). Echoes the updated seed.',
+    {
+      description: z.string().optional(),
+      id: z.string(),
+      link: z.string().optional(),
+      parent: z.string().optional(),
+      priority: PRIORITY.optional(),
+      size: SIZE.optional(),
+      tags: z.array(z.string()).optional(),
+      title: z.string().optional(),
+    },
+    (args: {
+      id: string;
+      parent?: string;
+      link?: string;
+      title?: string;
+      description?: string;
+      priority?: string;
+      size?: string;
+      tags?: string[];
+    }) => toolPromote(store, args),
+  );
+
+  register(
+    server,
+    'reject',
+    'Reject a seed (KEY-sN) — a terminal transition reachable from new or promoted; reason required. Echoes the updated seed.',
+    { id: z.string(), reason: z.string() },
+    (args: { id: string; reason: string }) => toolReject(store, args),
+  );
+
+  register(
+    server,
+    'resolve',
+    'Resolve a seed (KEY-sN) — a terminal transition reachable from new or promoted; resolution reason required. Echoes the updated seed.',
+    { id: z.string(), reason: z.string() },
+    (args: { id: string; reason: string }) => toolResolve(store, args),
   );
 
   return server;
