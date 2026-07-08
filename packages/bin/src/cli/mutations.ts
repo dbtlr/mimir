@@ -916,7 +916,7 @@ export async function cmdPromote(c: Ctx): Promise<number> {
       ? `promoted ${seed.id} · spawned ${created}`
       : `promoted ${seed.id} · recorded existing work`,
   );
-  renderSeedView(seed, c.format, c.io);
+  renderSeedView(seed, c.format, c.io, created);
   return 0;
 }
 

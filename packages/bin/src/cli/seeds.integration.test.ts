@@ -115,9 +115,14 @@ describe.skipIf(!NORN)('seed CLI verbs', () => {
     await cli(['seed', 's', '-k', 'feature']);
     const { code, io } = await cli(['promote', 'MMR-s1', '--parent', phaseRef, '-f', 'json']);
     expect(code).toBe(0);
-    const rec = parseJson<{ lifecycle: string; spawned: string[] }>(io.out.join(''));
+    const rec = parseJson<{ created: string; lifecycle: string; spawned: string[] }>(
+      io.out.join(''),
+    );
     expect(rec.lifecycle).toBe('promoted');
     expect(rec.spawned).toHaveLength(1);
+    // The echo carries the spawned task id as a sibling `created` field (MMR-245),
+    // matching the MCP/HTTP promote echo (promoteToWire/formatPromoteJson).
+    expect(rec.spawned).toEqual([rec.created]);
   });
 
   test('update KEY-sN routes to the seed patch; a node-only flag is refused', async () => {

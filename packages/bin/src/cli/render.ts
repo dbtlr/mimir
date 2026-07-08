@@ -11,7 +11,7 @@ import type {
 import {
   formatArtifactJson,
   formatNodeJson,
-  formatSeedJson,
+  formatPromoteJson,
   formatSeedsJson,
   formatSeedsJsonl,
   seedLane,
@@ -506,12 +506,14 @@ export function renderSeeds(
   }
 }
 
-/** Render one seed (a `get`/write echo) in any format. */
-export function renderSeedView(seed: SeedView, format: Format, io: Io): void {
+/** Render one seed (a `get`/write echo) in any format. `created` is the promote
+ * echo's sibling task id (MMR-245) — undefined everywhere but `promote` create
+ * mode, where {@link formatPromoteJson} folds it in identically to MCP/HTTP. */
+export function renderSeedView(seed: SeedView, format: Format, io: Io, created?: string): void {
   switch (format) {
     case 'json':
     case 'jsonl': {
-      io.write(formatSeedJson(seed));
+      io.write(formatPromoteJson(seed, created));
       break;
     }
     case 'ids': {
