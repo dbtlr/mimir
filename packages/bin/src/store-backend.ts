@@ -90,7 +90,9 @@ export async function buildStore(db: Db, backend = storeBackend()): Promise<Buil
     exec: bunExec,
     migrateData: backfillVaultData,
   });
-  const client = new NornClient({ vaultPath: vault.path });
+  // `MIMIR_NORN` (baked into the serve launchd unit at install time) pins the
+  // absolute norn binary — launchd's minimal PATH can't resolve a bare `norn`.
+  const client = new NornClient({ command: process.env.MIMIR_NORN, vaultPath: vault.path });
   return {
     close: async () => {
       await client.close();

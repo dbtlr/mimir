@@ -14,6 +14,9 @@ function fakeExec(handler: (argv: string[]) => { code: number; stdout: string })
 
 const ok = () => ({ code: 0, stdout: '' });
 
+/** Retry without the real settle delay so the race tests run instantly. */
+const noSleep = () => Promise.resolve();
+
 test('install bootouts stale state then bootstraps the plist', async () => {
   const { exec, calls } = fakeExec(ok);
   const sup = new LaunchdSupervisor(exec, 501);
@@ -28,6 +31,70 @@ test('install tolerates bootout failure (nothing loaded) but not bootstrap failu
   );
   await new LaunchdSupervisor(exec, 501).install('/tmp/x.plist'); // must not throw
   expect(calls[1]?.[1]).toBe('bootstrap');
+});
+
+test('install retries a racing bootstrap failure (bootout is async, error 5)', async () => {
+  // launchctl bootout returns before the old unit is fully unloaded, so the
+  // first bootstrap can race it and fail with error 5; a settle-and-retry wins.
+  let bootstraps = 0;
+  const { exec, calls } = fakeExec((argv) => {
+    if (argv[1] !== 'bootstrap') {
+      return { code: 0, stdout: '' };
+    }
+    bootstraps += 1;
+    return bootstraps === 1 ? { code: 5, stdout: '' } : { code: 0, stdout: '' };
+  });
+  await new LaunchdSupervisor(exec, 501, undefined, noSleep).install('/tmp/x.plist'); // must not throw
+  expect(bootstraps).toBe(2);
+  expect(calls.filter((c) => c[1] === 'bootstrap')).toHaveLength(2);
+});
+
+test('install fails fast on a non-race bootstrap error (no retry, no settle wait)', async () => {
+  // A genuine, non-transient failure (e.g. a malformed plist) must surface at
+  // once — only the async-teardown race (code 5) is worth retrying.
+  let bootstraps = 0;
+  const { exec } = fakeExec((argv) => {
+    if (argv[1] !== 'bootstrap') {
+      return { code: 0, stdout: '' };
+    }
+    bootstraps += 1;
+    return { code: 3, stdout: '' };
+  });
+  let err: unknown;
+  try {
+    await new LaunchdSupervisor(exec, 501, undefined, noSleep).install('/tmp/x.plist');
+  } catch (e) {
+    err = e;
+  }
+  expect(err).toBeInstanceOf(Error);
+  expect(bootstraps).toBe(1); // one shot, then surfaced — not retried 5x
+});
+
+test('start also retries the async-teardown race (a stop→start can hit it too)', async () => {
+  let bootstraps = 0;
+  const { exec } = fakeExec((argv) => {
+    if (argv[1] !== 'bootstrap') {
+      return { code: 0, stdout: '' };
+    }
+    bootstraps += 1;
+    return bootstraps === 1 ? { code: 5, stdout: '' } : { code: 0, stdout: '' };
+  });
+  await new LaunchdSupervisor(exec, 501, undefined, noSleep).start('/tmp/x.plist'); // must not throw
+  expect(bootstraps).toBe(2);
+});
+
+test('install gives up and throws when bootstrap keeps failing past the retry budget', async () => {
+  const { exec } = fakeExec((argv) =>
+    argv[1] === 'bootstrap' ? { code: 5, stdout: '' } : { code: 0, stdout: '' },
+  );
+  let err: unknown;
+  try {
+    await new LaunchdSupervisor(exec, 501, undefined, noSleep).install('/tmp/x.plist');
+  } catch (e) {
+    err = e;
+  }
+  expect(err).toBeInstanceOf(Error);
+  expect((err as Error).message).toMatch(/bootstrap/);
 });
 
 test('stop = bootout (KeepAlive would defeat a plain kill); start = bootstrap', async () => {
@@ -66,8 +133,10 @@ test('info: nonzero print means not loaded', async () => {
 });
 
 test('a failing bootstrap surfaces as an error with the stderr hint', async () => {
+  // A non-race exit (code 3) surfaces immediately — no retry, so the default
+  // real sleep is never hit.
   const { exec } = fakeExec((argv) =>
-    argv[1] === 'bootstrap' ? { code: 5, stdout: '' } : { code: 0, stdout: '' },
+    argv[1] === 'bootstrap' ? { code: 3, stdout: '' } : { code: 0, stdout: '' },
   );
   // Use try/catch to avoid the await-thenable lint on .rejects.toThrow
   let err: unknown;

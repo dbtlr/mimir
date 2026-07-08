@@ -208,6 +208,46 @@ test('a bad --port is a usage error and touches nothing', async () => {
   expect(existsSync(d.units.serve.plistFile)).toBe(false);
 });
 
+/** A serve render that fails the serve-env preflight (e.g. missing vault). */
+const boomRender = (): string => {
+  throw new Error('service install: the configured vault does not exist');
+};
+
+// 3b. a render that throws (bad Norn env preflight) aborts before mutating config
+test('a failing render aborts install before --port is persisted or the unit installs', async () => {
+  const sup = new FakeSupervisor();
+  const io = fakeIo();
+  const d = deps(sup, {
+    units: {
+      serve: {
+        logFile: join(dir, 'serve.log'),
+        plistFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
+        render: boomRender,
+        supervisor: sup,
+      },
+      snapshot: {
+        logFile: join(dir, 'snapshot.log'),
+        plistFile: join(dir, 'com.dbtlr.mimir.snapshot.plist'),
+        render: () => plistForSnapshot(join(dir, 'mimir'), { intervalSeconds: 900 }),
+        supervisor: new FakeSupervisor(),
+      },
+    },
+  });
+
+  let thrown: unknown;
+  try {
+    await cmdService(['service', 'install', 'serve'], { port: '55442' }, io, d);
+  } catch (e) {
+    thrown = e;
+  }
+  expect(thrown).toBeInstanceOf(Error);
+  // The --port write must NOT survive the aborted install (config never created)…
+  expect(existsSync(d.configFile)).toBe(false);
+  // …and nothing was installed or written.
+  expect(sup.calls).toEqual([]);
+  expect(existsSync(d.units.serve.plistFile)).toBe(false);
+});
+
 // 4. start/stop/restart delegate and log — events accumulate in order in ONE file
 test('start/stop/restart delegate and log', async () => {
   const sup = new FakeSupervisor();

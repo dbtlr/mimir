@@ -40,6 +40,7 @@ import {
   readConfig,
   readServeConfig,
   readVaultConfig,
+  serveInstallEnv,
 } from './service';
 import type { Health, ServiceDeps } from './service';
 import { buildStore, storeBackend } from './store-backend';
@@ -167,7 +168,24 @@ function realServiceDeps(): ServiceDeps {
       serve: {
         logFile: SERVE_LOG_FILE,
         plistFile: plistPathFor(SERVE_LABEL),
-        render: () => plistFor(binPath, { dbPath: process.env.MIMIR_DB }),
+        render: () => {
+          // Read config once and feed both backend + vault resolution. On
+          // SQLite the norn binary and vault are irrelevant, so don't resolve
+          // them (a wasted PATH search + config-derived vault).
+          const config = readConfig();
+          const backend = storeBackend(config);
+          if (backend === 'sqlite') {
+            return plistFor(binPath, serveInstallEnv({ backend, dbPath: process.env.MIMIR_DB }));
+          }
+          const vault = resolveVault({
+            configPath: config.vault.path,
+            envPath: process.env.MIMIR_VAULT,
+          });
+          return plistFor(
+            binPath,
+            serveInstallEnv({ backend, nornPath: Bun.which('norn') ?? undefined, vault }),
+          );
+        },
         supervisor: new LaunchdSupervisor(bunExec, uid, SERVE_LABEL),
       },
       snapshot: {

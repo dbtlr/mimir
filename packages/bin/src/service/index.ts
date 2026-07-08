@@ -13,4 +13,6 @@ export { cmdSelfUpdate, cmdService, type Health, type ServiceDeps } from './comm
 export { EVENTS_FILE, SERVE_LOG_FILE, SNAPSHOT_LOG_FILE } from './events';
 export { LaunchdSupervisor, bunExec } from './launchd';
 export { SERVE_LABEL, SNAPSHOT_LABEL, plistFor, plistForSnapshot, plistPathFor } from './plist';
+export type { PlistOptions } from './plist';
+export { serveInstallEnv, type ServeInstallInputs } from './serve-env';
 export { manualFetch } from './self-update';
