@@ -238,6 +238,19 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Node write path adopts norn 0.45 structured-apply capabilities** (MMR-199,
+  MMR-201; ADR 0016/0018). `vault.apply { parents: true }` (NRN-174) now mints a
+  new project's `KEY/` directory during the create, retiring the pre-apply local
+  `mkdirSync` — Mimir issues **no direct filesystem writes**, so the ADR 0018
+  invariant (Mimir talks only to Norn) holds with no exception, and the stray
+  empty directory a failed-validation plan used to leave behind is gone. The
+  create-sequence resolution now reads each report op's structured `op_id` and
+  resolved `stem` fields (NRN-175) instead of regex-parsing norn's human summary
+  text, so a reworded summary can no longer break id allocation; a create that
+  cannot resolve an applied stem still fails the whole transact rather than
+  leaking a provisional id. Create semantics are unchanged; the one behavioral
+  difference is that a create whose plan fails validation no longer leaves an
+  empty `KEY/` directory behind.
 - **CLI guess-tolerance: `--col` CSV, `--size` prefixes, clearer column errors**
   (MMR-212, mined from a real-session corpus). `--col` now accepts a
   comma-separated list (`--col history,annotations`) in addition to the repeated
