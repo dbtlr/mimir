@@ -128,7 +128,10 @@ other:
                           status. unit is serve | snapshot | all; install
                           defaults to serve (snapshot is opt-in), uninstall +
                           the lifecycle verbs sweep whatever is installed.
-                          --port writes ~/.config/mimir/config.toml
+                          --port writes ~/.config/mimir/config.toml.
+                          dev/from-source runs refuse the mutating verbs
+                          (status stays open); MIMIR_ALLOW_REAL_SERVICE=1
+                          opts in to managing the real launchd
   self-update [--next] [--tag <tag>]
                           download + verify a release, replace this binary,
                           restart the service if loaded. default: latest

@@ -1,6 +1,14 @@
 import { expect, test } from 'bun:test';
 
-import { DEFAULT_PORT, DEV_PORT, IS_PRODUCTION, defaultStorePath, envPort, storePath } from './env';
+import {
+  DEFAULT_PORT,
+  DEV_PORT,
+  IS_PRODUCTION,
+  defaultStorePath,
+  envFlag,
+  envPort,
+  storePath,
+} from './env';
 
 // Unit/dev runs are not compiled with `--define MIMIR_BUILD_PROFILE`, so the
 // build profile is dev — the same reasoning as version.test.ts (MMR-117/MMR-57).
@@ -56,4 +64,23 @@ test('envPort parses a valid port, rejects malformed, and passes through unset',
   expect(envPort('70000')).toBeNull();
   expect(envPort('nope')).toBeNull();
   expect(envPort('64.5')).toBeNull();
+});
+
+// MMR-147 review finding: presence-based parsing read =0/=false as opt-IN —
+// the exact inversion a safety flag must never have. envFlag is value-based.
+test('envFlag enables only on an explicit affirmative', () => {
+  expect(envFlag('1')).toBe(true);
+  expect(envFlag('true')).toBe(true);
+  expect(envFlag('TRUE')).toBe(true);
+  expect(envFlag('yes')).toBe(true);
+  expect(envFlag('on')).toBe(true);
+  // Falsy intents and noise stay DISABLED — never an accidental opt-in.
+  expect(envFlag('0')).toBe(false);
+  expect(envFlag('false')).toBe(false);
+  expect(envFlag('no')).toBe(false);
+  expect(envFlag('off')).toBe(false);
+  expect(envFlag('')).toBe(false);
+  expect(envFlag(' ')).toBe(false);
+  expect(envFlag('maybe')).toBe(false);
+  expect(envFlag(undefined)).toBe(false);
 });

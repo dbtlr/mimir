@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { fakeIo } from '../cli/testing';
+import { MimirError } from '../core';
 import { PROD_PORT } from '../env';
 import type { ServiceDeps } from './commands';
 import { cmdSelfUpdate, cmdService } from './commands';
@@ -54,6 +55,7 @@ function deps(
   snapSup: FakeSupervisor = new FakeSupervisor(),
 ): ServiceDeps {
   return {
+    allowRealSupervisor: true,
     binPath: join(dir, 'mimir'),
     configFile: join(dir, 'config.toml'),
     eventsFile: join(dir, 'service-events.jsonl'),
@@ -713,4 +715,94 @@ test('self-update (default selection {}) still uses official latest + semver com
   const io = fakeIo();
   expect(await cmdSelfUpdate(io, d, {})).toBe(0);
   expect(io.out.join('\n')).toMatch(/up to date/i);
+});
+
+// --- the dev-build fence (MMR-147): only a trusted process mutates real launchd ---
+
+// 12. every mutating verb refuses without real-supervisor trust — loudly, before
+// any effect: no supervisor call, no plist write, no logged event.
+test('every mutating verb refuses without real-supervisor trust', async () => {
+  for (const verb of ['install', 'uninstall', 'start', 'stop', 'restart']) {
+    const sup = new FakeSupervisor();
+    const snapSup = new FakeSupervisor();
+    const io = fakeIo();
+    const d = deps(sup, { allowRealSupervisor: false }, snapSup);
+
+    let thrown: unknown;
+    try {
+      await cmdService(['service', verb], {}, io, d);
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(MimirError);
+    expect(thrown instanceof Error && thrown.message).toMatch(/dev\/from-source/);
+    expect(thrown instanceof Error && thrown.message).toContain(verb);
+    expect(thrown instanceof MimirError && thrown.hint).toContain('MIMIR_ALLOW_REAL_SERVICE');
+    expect(sup.calls).toEqual([]);
+    expect(snapSup.calls).toEqual([]);
+    expect(existsSync(d.units.serve.plistFile)).toBe(false);
+    expect(existsSync(d.eventsFile)).toBe(false);
+  }
+});
+
+// 12b. status is a read — it stays available without trust.
+test('status stays available without real-supervisor trust', async () => {
+  const sup = new FakeSupervisor();
+  const io = fakeIo();
+  const d = deps(sup, { allowRealSupervisor: false });
+
+  const code = await cmdService(['service', 'status'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(io.out.join('\n')).toContain('not loaded');
+});
+
+// 12c. self-update without trust still replaces the binary but never kicks the
+// real daemon (the restart is a supervisor mutation like any other) — and says
+// so: a loaded daemon silently left on stale code would break the "restarted
+// or surfaced" invariant.
+test('self-update without real-supervisor trust skips the daemon restart, loudly', async () => {
+  const newTag = 'v0.6.0';
+  const fakeBody = new TextEncoder().encode('fake-binary-content');
+  const sha256 = new Bun.CryptoHasher('sha256').update(fakeBody).digest('hex');
+  const { assetName } = await import('./self-update');
+  const asset = assetName();
+
+  const sup = new FakeSupervisor();
+  sup.state = { loaded: true, pid: 1234, running: true };
+  const io = fakeIo();
+  const d = deps(sup, {
+    allowRealSupervisor: false,
+    fetcher: (url: string) => {
+      if (url.includes('/releases/latest')) {
+        return Promise.resolve(
+          new Response(null, {
+            headers: { location: `https://github.com/dbtlr/mimir/releases/tag/${newTag}` },
+            status: 302,
+          }),
+        );
+      }
+      if (url.includes(`/download/${newTag}/SHA256SUMS`)) {
+        return Promise.resolve(new Response(`${sha256}  ${asset}\n`, { status: 200 }));
+      }
+      if (url.includes(`/download/${newTag}/${asset}`)) {
+        return Promise.resolve(new Response(fakeBody, { status: 200 }));
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`));
+    },
+    version: '0.5.0',
+  });
+
+  const code = await cmdSelfUpdate(io, d, {}, 'json');
+
+  expect(code).toBe(0);
+  expect(sup.calls).not.toContain('restart');
+  expect(readFileSync(d.binPath)).toEqual(Buffer.from(fakeBody));
+  const parsed = JSON.parse(io.out.join('\n'));
+  expect(parsed).toMatchObject({ restarted: false, updated: true });
+  // The update itself is logged; no restart event was ever attempted.
+  expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['self-update']);
+  // The skip is surfaced, not silent — the loaded daemon is running stale code.
+  expect(io.err.join('\n')).toContain('service not restarted');
 });
