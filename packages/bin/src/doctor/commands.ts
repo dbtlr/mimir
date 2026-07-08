@@ -71,7 +71,8 @@ export async function cmdDoctor(
   // the entire vault load, so `-s` must not hide it. Validate it ONCE here and
   // share the `dropped[]` across every referential check (MMR-182) — the four
   // that render it would otherwise each recompute a whole validator pass.
-  const { dropped } = validate(await deps.readVaultGraph());
+  const graph = await deps.readVaultGraph();
+  const { dropped } = validate(graph);
   // The frontmatter check (MMR-191) reads norn's own schema validation, decoded
   // defensively — a doc whose frontmatter fails to parse (or lacks a `type`) is
   // absent from the graph above, so only `vault.validate` sees it. Scope it by
@@ -83,6 +84,9 @@ export async function cmdDoctor(
   );
   const ctx: DoctorContext = {
     dropped,
+    // Whole-vault (graph is unscoped): the stem-vs-project check must see docs a
+    // scoped read would misfile out of view (MMR-231).
+    projectRefs: graph.declarations ?? [],
     readNodeDocs: () => Promise.resolve(docs),
     validateFindings,
   };

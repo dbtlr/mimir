@@ -9,6 +9,7 @@
 import type { BodyRecordProblem } from '../core/history-codec';
 import { lintBodySections } from '../core/history-codec';
 import { parseIdentity } from '../core/ids';
+import type { ProjectDeclaration } from '../core/store-norn';
 import type { Drop } from '../core/validate';
 import type { ValidateFinding } from '../norn/decode';
 import { stemOf } from '../norn/decode';
@@ -30,6 +31,12 @@ export type DoctorContext = {
    * so only norn's schema pass sees it. Pre-scoped by `-s` in the runner (a
    * per-document check, unlike the whole-vault `dropped`). */
   validateFindings: readonly ValidateFinding[];
+  /** Every parsed doc's declared `project` frontmatter vs its stem — the input for
+   * the stem-vs-project divergence check (MMR-231). Always WHOLE-VAULT: a scoped
+   * read filters on the very `project` field a divergence corrupts, so it would
+   * drop exactly the docs this must catch (a divergent doc falls out of `-s <real
+   * KEY>` and into `-s <wrong KEY>`). */
+  projectRefs: readonly ProjectDeclaration[];
 };
 
 /** One problem a check found, anchored for a human to locate and fix. */
@@ -479,6 +486,45 @@ export const frontmatterCheck: Diagnostic = {
   title: 'Frontmatter parse-failed + untyped documents',
 };
 
+/**
+ * Stem vs declared project (MMR-231): a doc whose `project` frontmatter is PRESENT
+ * but points at a different valid key than its own `KEY-seq` stem. The stem is the
+ * authoritative identity; `project` is a query projection of it (MMR-170) that
+ * scopes `find --eq project:KEY`. A hand-edit diverging the two is diagnostic-only
+ * — the reader derives project from the stem and ignores the field, and `-s all`
+ * reads every doc — but it silently MISFILES the doc under scope: it falls OUT of
+ * `mimir doctor -s <its real key>` (the scoped read filters on the corrupt field)
+ * and INTO `-s <the wrong key>`. Norn's required-field validate (MMR-191) catches a
+ * MISSING project, never a present-but-wrong one — so this is the only surface that
+ * would. A `warn` (nothing is lost on read); whole-vault, because a scoped read
+ * structurally cannot see the misfiled doc (see {@link DoctorContext.projectRefs}).
+ */
+export const stemProjectCheck: Diagnostic = {
+  name: 'stem-project',
+  run: (ctx) => {
+    const findings: DoctorFinding[] = [];
+    for (const { project, stem } of ctx.projectRefs) {
+      // A missing/malformed `project` is norn's required-field concern (MMR-191).
+      if (project === null) {
+        continue;
+      }
+      const identity = parseIdentity(stem);
+      if (identity === null || identity.key === project) {
+        continue;
+      }
+      findings.push({
+        check: 'stem-project',
+        message: `project ${project} diverges from the stem's key ${identity.key} — the doc misfiles under a scoped 'find --eq project:KEY' (the stem is the true owner)`,
+        node: stem,
+        severity: 'warn',
+        where: 'frontmatter · project',
+      });
+    }
+    return findings;
+  },
+  title: 'Stem vs declared project',
+};
+
 /** The registered checks `mimir doctor` runs, in report order. */
 export const CHECKS: readonly Diagnostic[] = [
   bodySectionCheck,
@@ -488,4 +534,5 @@ export const CHECKS: readonly Diagnostic[] = [
   acyclicityCheck,
   fieldValidityCheck,
   frontmatterCheck,
+  stemProjectCheck,
 ];

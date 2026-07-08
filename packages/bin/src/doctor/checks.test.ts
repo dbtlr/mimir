@@ -1,8 +1,9 @@
 import { expect, test } from 'bun:test';
 
+import type { ProjectDeclaration } from '../core/store-norn';
 import type { Drop } from '../core/validate';
 import type { DoctorContext } from './checks';
-import { CHECKS, RULE_OWNER } from './checks';
+import { CHECKS, RULE_OWNER, stemProjectCheck } from './checks';
 
 /**
  * MMR-209: the drop→check partition is total and non-overlapping — every
@@ -17,26 +18,24 @@ import { CHECKS, RULE_OWNER } from './checks';
  * to render a finding. */
 function dropOf(rule: Drop['rule']): Drop {
   const stem = 'MMR-1';
-  switch (rule) {
-    case 'dangling-parent':
-    case 'dangling-depends-on':
-    case 'cycle-parent':
-    case 'cycle-depends-on':
-      return { kind: 'edge', ref: 'MMR-9', rule, stem };
-    case 'missing-project':
-      return { key: 'MMR', kind: 'node', rule, stem };
-    case 'invalid-lifecycle':
-    case 'invalid-hold':
-      return { key: 'MMR', kind: 'node', rule, stem, value: 'bogus' };
-    case 'invalid-priority':
-    case 'invalid-size':
-    case 'invalid-open-ended':
-      return { kind: 'field', rule, stem, value: 'bogus' };
+  if (rule === 'missing-project') {
+    return { key: 'MMR', kind: 'node', rule, stem };
   }
+  if (rule === 'invalid-lifecycle' || rule === 'invalid-hold') {
+    return { key: 'MMR', kind: 'node', rule, stem, value: 'bogus' };
+  }
+  if (rule === 'invalid-priority' || rule === 'invalid-size' || rule === 'invalid-open-ended') {
+    return { kind: 'field', rule, stem, value: 'bogus' };
+  }
+  // The four edge rules: dangling / cycle × parent / depends-on. A new non-edge
+  // rule that reaches here is a compile error (not an edge variant) — the nudge
+  // to extend this factory.
+  return { kind: 'edge', ref: 'MMR-9', rule, stem };
 }
 
 const ctxWith = (drop: Drop): DoctorContext => ({
   dropped: [drop],
+  projectRefs: [],
   readNodeDocs: () => Promise.resolve([]),
   validateFindings: [],
 });
@@ -55,4 +54,38 @@ test('every Drop rule renders in exactly one check — the one RULE_OWNER names 
     // … and it is the check RULE_OWNER routes the rule to (no drift).
     expect(firing[0]).toBe(RULE_OWNER[rule]);
   }
+});
+
+// MMR-231: stem-vs-declared-project divergence.
+const stemProjectCtx = (projectRefs: ProjectDeclaration[]): DoctorContext => ({
+  dropped: [],
+  projectRefs,
+  readNodeDocs: () => Promise.resolve([]),
+  validateFindings: [],
+});
+
+test('stem-project flags a node whose project diverges from its stem key (MMR-231)', async () => {
+  const findings = await stemProjectCheck.run(stemProjectCtx([{ project: 'OTH', stem: 'MMR-2' }]));
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ node: 'MMR-2', severity: 'warn' });
+  expect(findings[0]?.message).toContain('OTH');
+  expect(findings[0]?.message).toContain('MMR');
+});
+
+test('stem-project flags a project doc whose project is not self-referential (MMR-231)', async () => {
+  const findings = await stemProjectCheck.run(stemProjectCtx([{ project: 'OTH', stem: 'MMR' }]));
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ node: 'MMR', severity: 'warn' });
+});
+
+test('stem-project is silent on a matching project, a missing one, and an unparseable stem (MMR-231)', async () => {
+  const findings = await stemProjectCheck.run(
+    stemProjectCtx([
+      { project: 'MMR', stem: 'MMR-2' }, // matches → fine
+      { project: 'MMR', stem: 'MMR' }, // self-referential project doc → fine
+      { project: null, stem: 'MMR-3' }, // missing → norn's required-field concern (MMR-191)
+      { project: 'MMR', stem: 'loose-note' }, // no work-state identity → skipped
+    ]),
+  );
+  expect(findings).toEqual([]);
 });

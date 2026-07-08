@@ -421,6 +421,32 @@ test.skipIf(!NORN)(
   },
 );
 
+// MMR-231: readVaultGraph carries each parsed doc's declared `project` (collapsed
+// from the wikilink) so doctor's stem-vs-project divergence check can compare it to
+// the stem — a present-but-wrong project resolves fine and is invisible to norn's
+// required-field validate, so this read is the only surface that sees it.
+test.skipIf(!NORN)('readVaultGraph carries collapsed project declarations (MMR-231)', async () => {
+  await writeProjectDoc('MMR');
+  await writeProjectDoc('OTH');
+  // A node whose stem says MMR but whose project frontmatter points at OTH (valid).
+  await writeDoc('MMR/MMR-1.md', [
+    jsonField('type', 'task'),
+    jsonField('title', 'Misfiled'),
+    jsonField('parent', wikilink('MMR')),
+    jsonField('lifecycle', 'todo'),
+    jsonField('project', wikilink('OTH')), // diverges from the stem's key
+    jsonField('created', TS),
+    jsonField('updated_at', TS),
+  ]);
+  const declarations = (await readVaultGraph(client)).declarations ?? [];
+  // The node's project wikilink is collapsed to a bare key, paired with its stem —
+  // the divergence input (stem key MMR ≠ declared OTH).
+  expect(declarations).toContainEqual({ project: 'OTH', stem: 'MMR-1' });
+  // Project docs produce a declaration entry too (this helper writes no `project`
+  // field, so it collapses to null — the real self-referential value is MMR-170's).
+  expect(declarations).toContainEqual({ project: null, stem: 'MMR' });
+});
+
 // ADR 0017 / MMR-177: field-level corruption is tolerated too. A load-bearing
 // field — lifecycle (drives status) or hold (drives blocked/parked) — missing or
 // foreign drops the NODE (no safe absent value); an optional field — priority or
