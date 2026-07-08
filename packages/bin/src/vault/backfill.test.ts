@@ -8,7 +8,7 @@ import { NornClient } from '../norn/client';
 import type { NornSetArgs } from '../norn/client';
 import { backfillProjectField, backfillVaultData } from './backfill';
 import { converge } from './converge';
-import { MARKER_FILE, NORN_CONFIG_FILE, renderNornConfig } from './schema';
+import { MARKER_FILE, NORN_CONFIG_FILE, renderNornConfig, VAULT_SCHEMA } from './schema';
 
 // ── Unit: the field derivation + write shape (fake client) ───────────────────
 
@@ -98,8 +98,12 @@ test.skipIf(!NORN)(
     // Both documents now carry the self-referential / owning-project wikilink…
     expect(readFileSync(join(vault, 'MMR', 'MMR.md'), 'utf8')).toContain('project:');
     expect(readFileSync(join(vault, 'MMR', 'MMR-1.md'), 'utf8')).toContain('project:');
-    // …the marker advanced only after the backfill (crash-safe ordering)…
-    expect(readFileSync(join(vault, MARKER_FILE), 'utf8')).toContain('schema = 3');
+    // …the marker advanced only after the backfill (crash-safe ordering), to
+    // whatever schema this binary produces — derived, so a later bump doesn't
+    // break this (converge.test.ts derives the same way)…
+    expect(readFileSync(join(vault, MARKER_FILE), 'utf8')).toContain(
+      `schema = ${String(VAULT_SCHEMA)}`,
+    );
 
     // …and the whole point: they are now scopable by the declared field.
     const client = new NornClient({ vaultPath: vault });

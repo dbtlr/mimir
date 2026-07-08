@@ -648,3 +648,187 @@ test('an absent/null open_ended is a truthful unset — not foreign, no drop', (
   ]);
   expect(validate(g).dropped).toEqual([]);
 });
+
+// ── Seeds + task upstream (MMR-244) ───────────────────────────────────────────
+// The seed passes run ONLY when the graph carries `seeds` (present, possibly
+// empty). kind/lifecycle are load-bearing (drop the seed record); requester nulls
+// the field; a dangling spawned prunes the edge; a task upstream that is malformed
+// or dangling nulls the field. `SeedRefs` are built inline (production
+// `vaultGraphFromDocs` derives them the same way).
+
+const validSeed = {
+  key: 'MMR',
+  kind: 'idea',
+  lifecycle: 'new',
+  requester: null,
+  spawned: [] as string[],
+  stem: 'MMR-s1',
+};
+
+test('a clean seed with a valid requester and resolving spawned drops nothing (MMR-244)', () => {
+  const g: VaultGraph = {
+    nodes: [{ dependsOn: [], key: 'MMR', parent: null, stem: 'MMR-2' }],
+    projectKeys: ['MMR', 'AB'],
+    seeds: [{ ...validSeed, requester: 'AB', spawned: ['MMR-2'] }],
+  };
+  expect(validate(g).dropped).toEqual([]);
+});
+
+test('a foreign or missing seed kind drops the seed record (MMR-244)', () => {
+  const foreign: VaultGraph = {
+    nodes: [],
+    projectKeys: ['MMR'],
+    seeds: [{ ...validSeed, kind: 'chore' }],
+  };
+  expect(validate(foreign).dropped).toEqual([
+    { key: 'MMR', kind: 'node', rule: 'invalid-seed-kind', stem: 'MMR-s1', value: 'chore' },
+  ]);
+  const missing: VaultGraph = {
+    nodes: [],
+    projectKeys: ['MMR'],
+    seeds: [{ ...validSeed, kind: undefined }],
+  };
+  expect(validate(missing).dropped).toEqual([
+    { key: 'MMR', kind: 'node', rule: 'invalid-seed-kind', stem: 'MMR-s1', value: null },
+  ]);
+});
+
+test('a foreign seed lifecycle drops the seed record (MMR-244)', () => {
+  const g: VaultGraph = {
+    nodes: [],
+    projectKeys: ['MMR'],
+    seeds: [{ ...validSeed, lifecycle: 'disposed' }],
+  };
+  expect(validate(g).dropped).toEqual([
+    { key: 'MMR', kind: 'node', rule: 'invalid-seed-lifecycle', stem: 'MMR-s1', value: 'disposed' },
+  ]);
+});
+
+test('an unknown requester nulls the field; the seed survives (MMR-244)', () => {
+  const g: VaultGraph = {
+    nodes: [],
+    projectKeys: ['MMR'],
+    seeds: [{ ...validSeed, requester: 'GONE' }],
+  };
+  expect(validate(g).dropped).toEqual([
+    { kind: 'field', rule: 'unknown-requester', stem: 'MMR-s1', value: 'GONE' },
+  ]);
+});
+
+test('a dangling spawned ref prunes the edge; the seed survives (MMR-244)', () => {
+  const g: VaultGraph = {
+    nodes: [],
+    projectKeys: ['MMR'],
+    seeds: [{ ...validSeed, spawned: ['MMR-99'] }],
+  };
+  expect(validate(g).dropped).toEqual([
+    { kind: 'edge', ref: 'MMR-99', rule: 'dangling-spawned', stem: 'MMR-s1' },
+  ]);
+});
+
+test('a malformed task upstream nulls the field (MMR-244)', () => {
+  const g: VaultGraph = {
+    nodes: [
+      {
+        dependsOn: [],
+        key: 'MMR',
+        parent: null,
+        stem: 'MMR-2',
+        type: 'task',
+        upstream: 'not-a-seed',
+      },
+    ],
+    projectKeys: ['MMR'],
+    seeds: [],
+  };
+  expect(validate(g).dropped).toEqual([
+    { kind: 'field', rule: 'malformed-upstream', stem: 'MMR-2', value: 'not-a-seed' },
+  ]);
+});
+
+test('a dangling task upstream (no such seed) nulls the field; a resolving one is clean (MMR-244)', () => {
+  const dangling: VaultGraph = {
+    nodes: [
+      { dependsOn: [], key: 'MMR', parent: null, stem: 'MMR-2', type: 'task', upstream: 'MMR-s9' },
+    ],
+    projectKeys: ['MMR'],
+    seeds: [],
+  };
+  expect(validate(dangling).dropped).toEqual([
+    { kind: 'field', rule: 'dangling-upstream', stem: 'MMR-2', value: 'MMR-s9' },
+  ]);
+  const resolving: VaultGraph = {
+    nodes: [
+      { dependsOn: [], key: 'MMR', parent: null, stem: 'MMR-2', type: 'task', upstream: 'MMR-s1' },
+    ],
+    projectKeys: ['MMR'],
+    seeds: [validSeed],
+  };
+  expect(validate(resolving).dropped).toEqual([]);
+});
+
+test('upstream is task-only — a non-task node carrying one is never flagged (MMR-244)', () => {
+  // The reader reads `upstream` only for a task (like `external_ref`); the
+  // validator's upstream pass mirrors that gate, so a phase with a garbage
+  // upstream drops NOTHING — else doctor would report a drop the reader never made.
+  const g: VaultGraph = {
+    nodes: [
+      {
+        dependsOn: [],
+        key: 'MMR',
+        parent: null,
+        stem: 'MMR-1',
+        type: 'phase',
+        upstream: 'garbage',
+      },
+    ],
+    projectKeys: ['MMR'],
+    seeds: [],
+  };
+  expect(validate(g).dropped).toEqual([]);
+});
+
+test('an orphaned seed (its own project absent) is dropped, not a survivor (MMR-244)', () => {
+  // Mirrors pass 1's missing-container rule for nodes: a seed whose own project
+  // has no document has no valid place to live — the validator drops it and
+  // excludes it from the seed survivors (the resolving read seam acts on it, MMR-245).
+  const g: VaultGraph = {
+    nodes: [],
+    projectKeys: [], // the seed's own project MMR has no document
+    seeds: [validSeed],
+  };
+  expect(validate(g).dropped).toEqual([
+    { key: 'MMR', kind: 'node', rule: 'orphaned-seed', stem: 'MMR-s1' },
+  ]);
+});
+
+test('a task upstream at an orphaned seed dangles — the orphan is not a survivor (MMR-244)', () => {
+  // A cross-board task points at a seed whose OWN project (GON) is absent, so the
+  // seed is orphaned. It must not enter the survivors, so the inbound upstream
+  // correctly dangles rather than resolving to a hidden seed.
+  const g: VaultGraph = {
+    nodes: [
+      { dependsOn: [], key: 'MMR', parent: null, stem: 'MMR-2', type: 'task', upstream: 'GON-s1' },
+    ],
+    projectKeys: ['MMR'], // the task's project exists; the seed's project GON does not
+    seeds: [
+      { key: 'GON', kind: 'idea', lifecycle: 'new', requester: null, spawned: [], stem: 'GON-s1' },
+    ],
+  };
+  expect(validate(g).dropped).toEqual([
+    { key: 'GON', kind: 'node', rule: 'orphaned-seed', stem: 'GON-s1' },
+    { kind: 'field', rule: 'dangling-upstream', stem: 'MMR-2', value: 'GON-s1' },
+  ]);
+});
+
+test('with no seeds loaded, the seed + upstream passes do not run (MMR-244)', () => {
+  // graph.seeds undefined — a task with an upstream must NOT be flagged (the
+  // node-only loader and transitions feed pass no seeds).
+  const g: VaultGraph = {
+    nodes: [
+      { dependsOn: [], key: 'MMR', parent: null, stem: 'MMR-2', type: 'task', upstream: 'MMR-s9' },
+    ],
+    projectKeys: ['MMR'],
+  };
+  expect(validate(g).dropped).toEqual([]);
+});

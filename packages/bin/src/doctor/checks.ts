@@ -158,7 +158,13 @@ export const crlfCheck: Diagnostic = {
 };
 
 /** The referential/field checks that render {@link Drop} entries. */
-type DropCheckName = 'dangling-refs' | 'missing-project' | 'acyclicity' | 'field-validity';
+type DropCheckName =
+  | 'dangling-refs'
+  | 'missing-project'
+  | 'acyclicity'
+  | 'field-validity'
+  | 'seed-validity'
+  | 'upstream-refs';
 
 /**
  * The check that renders each {@link Drop} rule — the drop→check partition made
@@ -177,12 +183,20 @@ export const RULE_OWNER: Record<Drop['rule'], DropCheckName> = {
   'cycle-parent': 'acyclicity',
   'dangling-depends-on': 'dangling-refs',
   'dangling-parent': 'dangling-refs',
+  // Seeds (MMR-244): seed-doc rules → seed-validity, task upstream → upstream-refs.
+  'dangling-spawned': 'seed-validity',
+  'dangling-upstream': 'upstream-refs',
   'invalid-hold': 'field-validity',
   'invalid-lifecycle': 'field-validity',
   'invalid-open-ended': 'field-validity',
   'invalid-priority': 'field-validity',
+  'invalid-seed-kind': 'seed-validity',
+  'invalid-seed-lifecycle': 'seed-validity',
   'invalid-size': 'field-validity',
+  'malformed-upstream': 'upstream-refs',
   'missing-project': 'missing-project',
+  'orphaned-seed': 'seed-validity',
+  'unknown-requester': 'seed-validity',
 };
 
 /** Does `drop` belong to the named check? The single routing authority the
@@ -370,14 +384,14 @@ export const fieldValidityCheck: Diagnostic = {
 
 /**
  * A finding's `path` names a work-state document — and its stem — iff the path
- * matches one of the vault's three parent-dir-anchored layouts (the
- * `allowed_paths` in `vault/schema.ts`): a node `KEY/KEY-seq.md`, a project
- * `KEY/KEY.md`, or an artifact `KEY/artifacts/KEY-aN.md`. Every reader (and every
- * other doctor check) enumerates the vault by `type:`, so a doc whose frontmatter
- * won't parse or has no `type` is invisible to them and reported by norn's schema
- * pass by *path* only. The vault may hold unrelated docs (loose notes, a stray
- * `refs/AB-1.md`), so the anchoring is what keeps the check to real work-state
- * docs — a matching stem in the wrong directory is not one.
+ * matches one of the vault's parent-dir-anchored layouts (the `allowed_paths` in
+ * `vault/schema.ts`): a node `KEY/KEY-seq.md`, a project `KEY/KEY.md`, an artifact
+ * `KEY/artifacts/KEY-aN.md`, or a seed `KEY/seeds/KEY-sN.md`. Every reader (and
+ * every other doctor check) enumerates the vault by `type:`, so a doc whose
+ * frontmatter won't parse or has no `type` is invisible to them and reported by
+ * norn's schema pass by *path* only. The vault may hold unrelated docs (loose
+ * notes, a stray `refs/AB-1.md`), so the anchoring is what keeps the check to real
+ * work-state docs — a matching stem in the wrong directory is not one.
  */
 function workStateStem(path: string): string | null {
   const stem = stemOf(path);
@@ -397,6 +411,12 @@ function workStateStem(path: string): string | null {
   // the artifact's project key. Artifacts are work-state docs too — a corrupt one
   // is invisible on read, so it belongs here (the finding's node is the KEY-aN).
   if (identity?.kind === 'artifact' && parent === 'artifacts' && grandparent === identity.key) {
+    return stem;
+  }
+  // A seed `KEY/seeds/KEY-sN.md` (MMR-244): parent dir `seeds`, grandparent the
+  // seed's project key. Seeds are work-state docs too — a parse-failed/untyped one
+  // is invisible on read, so it belongs here (the finding's node is the KEY-sN).
+  if (identity?.kind === 'seed' && parent === 'seeds' && grandparent === identity.key) {
     return stem;
   }
   return null;
@@ -554,6 +574,114 @@ export const sectionResolutionCheck: Diagnostic = {
   title: 'Body-section resolution',
 };
 
+/**
+ * Seed validity (MMR-244): a seed document's own-project / `kind` / `lifecycle` /
+ * `requester` / `spawned`. The seed STORE reads verbatim (like the artifact store):
+ * only a foreign/missing `kind`/`lifecycle` drops the record there (its `toRecord`
+ * returns null). A missing own-project, an unknown `requester`, and a dangling
+ * `spawned` are surfaced HERE for repair — the store returns them verbatim, and the
+ * referential resolution that acts on them lands at the read seam (MMR-245). A thin
+ * adapter over the shared validator's seed rules — one detector, so it can't drift
+ * from the validator. `error` for a dropped record or an unresolved reference,
+ * `warn` for an unresolved requester; whole-vault (the graph is unscoped, like its
+ * referential siblings).
+ */
+export const seedValidityCheck: Diagnostic = {
+  name: 'seed-validity',
+  run: (ctx) => {
+    const findings: DoctorFinding[] = [];
+    for (const drop of ctx.dropped) {
+      if (!ownsDrop(drop, 'seed-validity')) {
+        continue;
+      }
+      if (drop.kind === 'node' && drop.rule === 'orphaned-seed') {
+        findings.push({
+          check: 'seed-validity',
+          message: `project ${drop.key} has no document in the vault — surfaced for repair; the seed's project does not resolve`,
+          node: drop.stem,
+          severity: 'error',
+          where: 'project',
+        });
+      } else if (drop.kind === 'node' && drop.rule === 'invalid-seed-kind') {
+        findings.push({
+          check: 'seed-validity',
+          message:
+            drop.value === null
+              ? 'seed dropped — missing kind'
+              : `seed dropped — invalid kind "${drop.value}"`,
+          node: drop.stem,
+          severity: 'error',
+          where: 'frontmatter · kind',
+        });
+      } else if (drop.kind === 'node' && drop.rule === 'invalid-seed-lifecycle') {
+        findings.push({
+          check: 'seed-validity',
+          message:
+            drop.value === null
+              ? 'seed dropped — missing lifecycle'
+              : `seed dropped — invalid lifecycle "${drop.value}"`,
+          node: drop.stem,
+          severity: 'error',
+          where: 'frontmatter · lifecycle',
+        });
+      } else if (drop.kind === 'field' && drop.rule === 'unknown-requester') {
+        findings.push({
+          check: 'seed-validity',
+          message: `requester ${drop.value} is not a known project — surfaced for repair; the reference does not resolve`,
+          node: drop.stem,
+          severity: 'warn',
+          where: 'frontmatter · requester',
+        });
+      } else if (drop.kind === 'edge' && drop.rule === 'dangling-spawned') {
+        findings.push({
+          check: 'seed-validity',
+          message: `spawned ${drop.ref} resolves to no node in the vault — surfaced for repair; the reference does not resolve`,
+          node: drop.stem,
+          severity: 'error',
+          where: 'frontmatter · spawned',
+        });
+      }
+    }
+    return findings;
+  },
+  title: 'Seed field + reference validity',
+};
+
+/**
+ * Task `upstream` references (MMR-244): a task whose `upstream` seed pointer is
+ * malformed grammar (not a `KEY-sN`) or dangles (resolves to no surviving seed).
+ * The two differ in what the reader can decide locally: a MALFORMED grammar is
+ * nulled on read (the reader's local decode drops it, like a foreign priority),
+ * while a DANGLING but well-formed ref is NOT nulled on the hot path — the reader
+ * loads no seeds, so it can't know the ref dangles; it is surfaced here for repair
+ * and resolved at the read seam (MMR-245). A thin adapter over the shared
+ * validator's two `*-upstream` rules; always an `error`, whole-vault.
+ */
+export const upstreamRefCheck: Diagnostic = {
+  name: 'upstream-refs',
+  run: (ctx) => {
+    const findings: DoctorFinding[] = [];
+    for (const drop of ctx.dropped) {
+      if (!ownsDrop(drop, 'upstream-refs') || drop.kind !== 'field') {
+        continue;
+      }
+      const message =
+        drop.rule === 'malformed-upstream'
+          ? `upstream "${drop.value}" is not a seed id (KEY-sN) — field nulled on read`
+          : `upstream ${drop.value} resolves to no seed in the vault — surfaced for repair; the reference does not resolve`;
+      findings.push({
+        check: 'upstream-refs',
+        message,
+        node: drop.stem,
+        severity: 'error',
+        where: 'frontmatter · upstream',
+      });
+    }
+    return findings;
+  },
+  title: 'Task → seed (upstream) references',
+};
+
 /** The registered checks `mimir doctor` runs, in report order. */
 export const CHECKS: readonly Diagnostic[] = [
   bodySectionCheck,
@@ -562,6 +690,8 @@ export const CHECKS: readonly Diagnostic[] = [
   missingProjectCheck,
   acyclicityCheck,
   fieldValidityCheck,
+  seedValidityCheck,
+  upstreamRefCheck,
   frontmatterCheck,
   stemProjectCheck,
   sectionResolutionCheck,

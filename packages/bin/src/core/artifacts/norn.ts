@@ -1,5 +1,6 @@
 import type { NornClient, NornDocument } from '../../norn/client';
-import { collapse, stringList } from '../../norn/decode';
+import { isPathCollision } from '../../norn/client';
+import { collapse, isStringRecord, stringList } from '../../norn/decode';
 import { validation } from '../errors';
 import { renderArtifactRef } from '../ids';
 import { now } from '../time';
@@ -29,16 +30,6 @@ import type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore }
  */
 
 const CREATE_RETRIES = 5;
-
-/**
- * Is this the create-exclusive path collision — the only error `create` may
- * safely retry? Norn's `vault.new` on an existing path fails with "destination
- * already exists" (verified against v0.41.0); the NornClient wraps it, so we
- * match the message text.
- */
-function isPathCollision(error: unknown): boolean {
-  return error instanceof Error && /already exists/i.test(error.message);
-}
 
 const stemOf = (key: string, seq: number): string => renderArtifactRef({ key, seq });
 const pathOf = (key: string, seq: number): string => `${key}/artifacts/${stemOf(key, seq)}.md`;
@@ -126,10 +117,6 @@ export async function restoreArtifact(
 function seqFromPath(path: string): { key: string; seq: number } | null {
   const match = /(?:^|\/)([A-Z]{2,4})-a(\d+)\.md$/.exec(path);
   return match ? { key: String(match[1]), seq: Number(match[2]) } : null;
-}
-
-function isStringRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** A tool-result document with an optional body, narrowed from `unknown`. */

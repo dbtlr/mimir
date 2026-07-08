@@ -8,7 +8,7 @@ import {
   toCanonicalLf,
 } from '../core/history-codec';
 import { bunExec } from '../exec';
-import { NornClient } from '../norn/client';
+import { isPathCollision, NornClient } from '../norn/client';
 import { readConfig } from '../service/config';
 import { backfillVaultData } from '../vault/backfill';
 import { converge } from '../vault/converge';
@@ -142,10 +142,6 @@ export async function migrateNodes(
 /** `field=<json>` entries for `vault.new` — the newDoc shape of a frontmatter record. */
 function toFieldJson(frontmatter: Record<string, unknown>): string[] {
   return Object.entries(frontmatter).map(([key, value]) => `${key}=${JSON.stringify(value)}`);
-}
-
-function isPathCollision(error: unknown): boolean {
-  return error instanceof Error && /already exists/i.test(error.message);
 }
 
 /** The `.body` of a `vault.get` record; missing/absent bodies read empty. */

@@ -138,6 +138,8 @@ export type CreateTaskInput = {
   priority?: Priority | null;
   size?: Size | null;
   externalRef?: string | null;
+  /** The requester-side seed pointer (`KEY-sN`), nullable (MMR-244). */
+  upstream?: string | null;
   tags?: string[];
 };
 
@@ -168,6 +170,7 @@ export async function createTask(store: Store, input: CreateTaskInput): Promise<
       summary: normalizeSummary(input.summary ?? null),
       title: input.title,
       type: 'task',
+      upstream: input.upstream ?? null,
     });
     await insertTags(w, 'node', node.id, input.tags);
     return node;

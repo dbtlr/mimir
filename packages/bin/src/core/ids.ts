@@ -7,6 +7,7 @@
  *   project   bare `KEY`     (MMR)
  *   node      `KEY-seq`      (MMR-22)
  *   artifact  `KEY-aN`       (MMR-a1) — project-scoped, like tasks
+ *   seed      `KEY-sN`       (MMR-s1) — project-anchored grooming record (MMR-244)
  *
  * Any id-position accepts the full grammar; the *verb* rejects types it
  * can't act on (a behavioral error, not a parse error).
@@ -21,11 +22,13 @@ export type NodeRef = {
 export type Identity =
   | { kind: 'project'; key: string }
   | { kind: 'node'; key: string; seq: number }
-  | { kind: 'artifact'; key: string; seq: number };
+  | { kind: 'artifact'; key: string; seq: number }
+  | { kind: 'seed'; key: string; seq: number };
 
 const PROJECT_PATTERN = /^[A-Z]{2,4}$/;
 const NODE_PATTERN = /^([A-Z]{2,4})-(\d+)$/;
 const ARTIFACT_PATTERN = /^([A-Z]{2,4})-a(\d+)$/;
+const SEED_PATTERN = /^([A-Z]{2,4})-s(\d+)$/;
 
 /** Render a project key + sequence as the external `KEY-seq` node id. */
 export function renderId(ref: NodeRef): string {
@@ -40,6 +43,24 @@ export function wikilink(stem: string): string {
 /** Render a project key + artifact sequence as the external `KEY-aN` artifact id. */
 export function renderArtifactRef(ref: NodeRef): string {
   return `${ref.key}-a${String(ref.seq)}`;
+}
+
+/** Render a project key + seed sequence as the external `KEY-sN` seed id (MMR-244). */
+export function renderSeedRef(ref: NodeRef): string {
+  return `${ref.key}-s${String(ref.seq)}`;
+}
+
+/** Parse a `KEY-sN` seed id back into its parts, or `null` if it isn't one (MMR-244). */
+export function parseSeedRef(id: string): NodeRef | null {
+  const match = SEED_PATTERN.exec(id);
+  if (match === null) {
+    return null;
+  }
+  const [, key, seqText] = match;
+  if (key === undefined || seqText === undefined) {
+    return null;
+  }
+  return { key, seq: Number(seqText) };
 }
 
 /** Parse a `KEY-seq` node id back into its parts, or `null` if it isn't one. */
@@ -65,6 +86,13 @@ export function parseIdentity(token: string): Identity | null {
     const [, key, seqText] = artifact;
     if (key !== undefined && seqText !== undefined) {
       return { key, kind: 'artifact', seq: Number(seqText) };
+    }
+  }
+  const seed = SEED_PATTERN.exec(token);
+  if (seed !== null) {
+    const [, key, seqText] = seed;
+    if (key !== undefined && seqText !== undefined) {
+      return { key, kind: 'seed', seq: Number(seqText) };
     }
   }
   const node = parseId(token);

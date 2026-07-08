@@ -738,6 +738,39 @@ test.skipIf(!NORN)('loads a task with a foreign size as null (no throw)', async 
   expect(node.size).toBeNull();
 });
 
+test.skipIf(!NORN)(
+  'reads a task upstream: a wikilink KEY-sN collapses; a non-seed grammar nulls (MMR-244)',
+  async () => {
+    await writeProjectDoc('MMR');
+    // A well-formed seed pointer (in wikilink form) collapses to its bare stem,
+    // mirroring the validator's local view.
+    await writeDoc('MMR/MMR-1.md', [
+      jsonField('type', 'task'),
+      jsonField('title', 'from a seed'),
+      jsonField('parent', wikilink('MMR')),
+      jsonField('lifecycle', 'todo'),
+      jsonField('upstream', wikilink('MMR-s1')),
+      jsonField('created', TS),
+      jsonField('updated_at', TS),
+    ]);
+    // A value that is not a `KEY-sN` nulls the field (the grammar tier, like a
+    // foreign priority/size). A DANGLING but well-formed ref would stay for the
+    // resolving read seam (MMR-245) — the hot path loads no seeds.
+    await writeDoc('MMR/MMR-2.md', [
+      jsonField('type', 'task'),
+      jsonField('title', 'bad upstream'),
+      jsonField('parent', wikilink('MMR')),
+      jsonField('lifecycle', 'todo'),
+      jsonField('upstream', 'not-a-seed-id'),
+      jsonField('created', TS),
+      jsonField('updated_at', TS),
+    ]);
+    const ws = await loadWorkingSetOverNorn(client);
+    expect(must(ws.nodes.find((n) => n.seq === 1)).upstream).toBe('MMR-s1');
+    expect(must(ws.nodes.find((n) => n.seq === 2)).upstream).toBeNull();
+  },
+);
+
 test.skipIf(!NORN)('deduplicates repeated depends_on wikilinks into one edge', async () => {
   await writeProjectDoc('MMR');
   await writeDoc('MMR/MMR-1.md', [

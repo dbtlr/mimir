@@ -110,6 +110,7 @@ const bareNode = {
   title: 'A node',
   type: 'initiative' as const,
   updated_at: 'u',
+  upstream: null,
 };
 
 test('nodeFrontmatter for a bare initiative is type/title/timestamps only', () => {

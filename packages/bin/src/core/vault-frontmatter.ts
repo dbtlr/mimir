@@ -95,6 +95,9 @@ export function nodeFrontmatter(
   put(fm, 'size', node.size);
   put(fm, 'rank', node.rank);
   put(fm, 'external_ref', node.external_ref);
+  // The requester-side pointer at a seed (`KEY-sN`), nullable (MMR-244) — a plain
+  // scalar like `external_ref`, omitted when null.
+  put(fm, 'upstream', node.upstream);
   put(fm, 'completed_at', node.completed_at);
   put(fm, 'target', node.target);
   // Container-only (MMR-204). Type-gated to non-task to match the reader

@@ -60,6 +60,10 @@ type NodeTable = {
   size: Size | null;
   rank: number | null;
   external_ref: string | null;
+  /** The requester-side pointer at a seed (`KEY-sN`), nullable (MMR-244) —
+   * round-trips like `external_ref`. Norn-only in practice; the column exists for
+   * model parity (the SQLite backend is retiring, MMR-234). */
+  upstream: string | null;
   completed_at: string | null;
 
   // phase-only

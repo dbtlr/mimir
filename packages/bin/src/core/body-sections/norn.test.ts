@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test';
 import type { NornClient } from '../../norn/client';
 import { renderAnnotationRecord, renderHistoryRecord, renderNodeBody } from '../history-codec';
 import { sliceSection } from '../testing';
-import { createNornBodySectionStore, readAllNodeDocs } from './norn';
+import { createNornBodySectionStore, readAllNodeDocs, readSectionFailures } from './norn';
 
 /** A fake client whose `getSections` serves one document's named sections, sliced
  * from the given `.body` the way norn does (heading line included; an absent
@@ -182,8 +182,40 @@ test('readAllNodeDocs pushes a scope into the find as project:KEY, omits it when
 
   await readAllNodeDocs(client, 'MMR');
   expect(seen[0]?.eq).toEqual(['project:MMR']);
-  expect(seen[0]?.in).toEqual(['type:project,task,phase,initiative']);
+  expect(seen[0]?.in).toEqual(['type:project,task,phase,initiative,seed']);
 
   await readAllNodeDocs(client);
   expect(seen[1]).not.toHaveProperty('eq');
+});
+
+test('readSectionFailures enumerates seeds — History over all, Annotations over nodes + seeds (MMR-244)', async () => {
+  // A seed doc carries `## History` + `## Annotations` (like a node), so a corrupt
+  // one must be enumerated: it belongs in the find `in` filter AND in the
+  // Annotations-bearing set (unlike a project, which has no Annotations).
+  const findArgs: { in?: string[] }[] = [];
+  const sectionCalls: { paths: string[]; heading: string }[] = [];
+  const client = {
+    find: (args: { in?: string[] }) => {
+      findArgs.push(args);
+      return Promise.resolve([
+        { path: 'MMR/MMR.md' }, // project — ## History only
+        { path: 'MMR/MMR-1.md' }, // node — ## History + ## Annotations
+        { path: 'MMR/seeds/MMR-s1.md' }, // seed — ## History + ## Annotations
+      ]);
+    },
+    sectionFailures: (paths: string[], sections: string[]) => {
+      sectionCalls.push({ heading: sections[0] ?? '', paths });
+      return Promise.resolve([]);
+    },
+  } as unknown as NornClient;
+
+  await readSectionFailures(client);
+
+  expect(findArgs[0]?.in).toEqual(['type:project,task,phase,initiative,seed']);
+  const history = sectionCalls.find((c) => c.heading === 'History');
+  const annotations = sectionCalls.find((c) => c.heading === 'Annotations');
+  // History rides every work-state doc; Annotations only the nodes + seeds — the
+  // seed appears in BOTH, the project only in History.
+  expect(history?.paths).toEqual(['MMR/MMR.md', 'MMR/MMR-1.md', 'MMR/seeds/MMR-s1.md']);
+  expect(annotations?.paths).toEqual(['MMR/MMR-1.md', 'MMR/seeds/MMR-s1.md']);
 });

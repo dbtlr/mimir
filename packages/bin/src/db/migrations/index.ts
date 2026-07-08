@@ -9,6 +9,7 @@ import { migration as lifecycleUnderReview0006 } from './0006_lifecycle_under_re
 import { migration as projectArchive0007 } from './0007_project_archive';
 import { migration as nodeSummary0008 } from './0008_node_summary';
 import { migration as nodeOpenEnded0009 } from './0009_node_open_ended';
+import { migration as nodeUpstream0010 } from './0010_node_upstream';
 
 /**
  * The static migration set, keyed by name. Keys sort lexicographically and
@@ -26,4 +27,5 @@ export const migrations: Record<string, Migration> = {
   '0007_project_archive': projectArchive0007,
   '0008_node_summary': nodeSummary0008,
   '0009_node_open_ended': nodeOpenEnded0009,
+  '0010_node_upstream': nodeUpstream0010,
 };

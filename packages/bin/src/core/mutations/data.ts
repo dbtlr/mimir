@@ -56,6 +56,8 @@ export type UpdateFields = {
   size?: Size | null;
   target?: string | null;
   externalRef?: string | null;
+  /** The requester-side seed pointer (`KEY-sN`), task-only, nullable (MMR-244). */
+  upstream?: string | null;
   /** Container-only (phase/initiative) — opt in/out of open-ended (MMR-204). */
   openEnded?: boolean;
 };
@@ -67,9 +69,10 @@ export async function updateNode(store: Store, id: number, fields: UpdateFields)
     const wantsTaskField =
       fields.priority !== undefined ||
       fields.size !== undefined ||
-      fields.externalRef !== undefined;
+      fields.externalRef !== undefined ||
+      fields.upstream !== undefined;
     if (wantsTaskField && node.type !== 'task') {
-      throw validation('priority, size, and external_ref apply only to tasks');
+      throw validation('priority, size, external_ref, and upstream apply only to tasks');
     }
     if (fields.target !== undefined && node.type !== 'phase') {
       throw validation('target applies only to phases');
@@ -99,6 +102,9 @@ export async function updateNode(store: Store, id: number, fields: UpdateFields)
     }
     if (fields.externalRef !== undefined) {
       patch.external_ref = fields.externalRef;
+    }
+    if (fields.upstream !== undefined) {
+      patch.upstream = fields.upstream;
     }
     if (fields.openEnded !== undefined) {
       patch.open_ended = fields.openEnded;
