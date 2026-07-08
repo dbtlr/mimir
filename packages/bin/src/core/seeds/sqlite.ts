@@ -18,8 +18,9 @@ const refuse = (): never => {
 
 export function createSqliteSeedStore(): SeedStore {
   return {
-    appendSpawned: () => refuse(),
     create: () => refuse(),
+    germinate: () => refuse(),
+    listAll: () => refuse(),
     listForProject: () => refuse(),
     load: () => refuse(),
     patch: () => refuse(),

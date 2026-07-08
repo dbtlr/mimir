@@ -15,6 +15,39 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Seed verbs across CLI, MCP, and HTTP** (MMR-245). The grooming-queue entity
+  (MMR-244) gains its verb surface. `mimir seed "<title>" -k <kind> [-p KEY]
+  [--desc …]` files a seed (target board and requester default from the bound
+  board; filing into another board via `-p` records the bound board as the
+  requester, else self-filed). `mimir seeds [-p KEY] [--requester KEY]
+  [--status …] [--sort asc|desc] [--grouped]` reads the queue — live seeds
+  oldest-first by default, a lane view (UNTRIAGED / READY TO RESOLVE / SETTLED)
+  under `--grouped`. `mimir promote KEY-sN --parent <node> [task args]`
+  germinates a seed into work via the existing create path (or `--link KEY-seq`
+  records existing work), appends the spawned provenance link, and moves
+  `new → promoted` on the first promote (repeatable). `mimir reject`/`resolve
+  KEY-sN "<reason>"` are the terminal transitions (reason required); `mimir
+  update KEY-sN` patches a live seed's title/kind/description. Tasks gain an
+  `--upstream KEY-sN` flag on create/update exposing the requester-side seed
+  pointer. MCP maps these 1:1 (`seed`, `seeds`, `get_seed`, `promote`, `reject`,
+  `resolve`, plus `upstream` on the task tools); HTTP mirrors the artifacts
+  resource — `GET`/`POST /api/seeds`, `GET`/`PATCH /api/seeds/:id`, and
+  `POST /api/seeds/:id/{promote,reject,resolve}` — echoing full records. Every
+  verb-facing read runs through one resolving seam that nulls an unknown
+  requester and prunes a dangling `spawned` ref (and derives ready-to-resolve
+  live), so a read never surfaces what the validator would drop; the `mimir
+  doctor` seed/upstream severities are now truthful to that seam — dangling
+  `spawned` and unknown `requester` are `error` (dropped/nulled on read), while
+  a dangling `upstream` is `warn` (reference-only, surfaced for repair).
+  - The seed wire carries a single-sourced `lane` (untriaged/ready/promoted/
+    settled) so consumers derive nothing; `get KEY-sN` reads a seed on every
+    surface; `seeds -p all` / `?project=all` reads every active board; and the
+    `promote` echo carries a sibling `created` (the spawned task id) on MCP + HTTP.
+    Archived-board consistency is enforced: a seed on an archived board refuses
+    every mutation (no orphan task), an archived spawned board is hidden from the
+    facet but counts as settled for ready-to-resolve, and an archived `requester`
+    is nulled on read with a distinct `mimir doctor` `archived-requester` warn.
+
 - **Seeds — the grooming-queue entity** (MMR-244, ADR 0020). A seed is a record
   filed against a project that implies no work, only triage (`idea`/`bug`/
   `feature`), with its own `KEY-sN` id grammar and a small lifecycle

@@ -22,6 +22,7 @@ import {
   formatStatusJson,
   getArtifact,
   getNode,
+  getSeed,
   listNodes,
   listProjects,
   nextTasks,
@@ -67,6 +68,11 @@ import {
   cmdUnpark,
   cmdUntag,
   cmdUpdate,
+  cmdPromote,
+  cmdReject,
+  cmdResolve,
+  cmdSeed,
+  cmdSeeds,
 } from './mutations';
 import type { Ctx } from './mutations';
 import { parsePriority, parseSize } from './parse';
@@ -75,6 +81,7 @@ import {
   renderArtifactDetail,
   renderNodeView,
   renderRecords,
+  renderSeedView,
   renderStatus,
   renderTable,
   renderTree,
@@ -144,6 +151,11 @@ const OPTIONS = {
   'install-snapshot': { type: 'boolean' },
   'snapshot-interval': { type: 'string' },
   upstream: { type: 'string' },
+  // seed verbs (MMR-245)
+  kind: { short: 'k', type: 'string' },
+  requester: { type: 'string' },
+  sort: { type: 'string' },
+  grouped: { type: 'boolean' },
   // migrate artifacts (cutover, MMR-144)
   'dry-run': { type: 'boolean' },
   // self-update selectors (--tag reuses the multiple `tag` flag above,
@@ -294,6 +306,10 @@ export async function runCli(
     'install-snapshot'?: boolean;
     'snapshot-interval'?: string;
     upstream?: string;
+    kind?: string;
+    requester?: string;
+    sort?: string;
+    grouped?: boolean;
     next?: boolean;
     'dry-run'?: boolean;
   };
@@ -349,11 +365,12 @@ export async function runCli(
     const mkCtx = async (): Promise<Ctx> => {
       const store = await getStore();
       return {
+        boundScope: effectiveScope(values.scope, defaults.scope),
         format: singleFormat,
         io: ctx,
         positionals,
         store,
-        values: values as Record<string, unknown>,
+        values,
       };
     };
 
@@ -418,6 +435,18 @@ export async function runCli(
           const content = (values.col ?? []).includes('content');
           renderArtifactDetail(
             await getArtifact(await getStore(), id, { content }),
+            pickFormat(values.format, 'single', ctx),
+            ctx,
+          );
+          return 0;
+        }
+        if (parseIdentity(id)?.kind === 'seed') {
+          // `get KEY-sN` routes to the single-seed reader + renderer, matching MCP
+          // (`get_seed`) and HTTP (`GET /api/seeds/:id`) — the ADR 0020 amendment
+          // promises `get KEY-sN` works on every surface (MMR-245/B3). Content is
+          // opted in for the `## Seed Description` prose, as those transports do.
+          renderSeedView(
+            await getSeed(await getStore(), id, { content: true }),
             pickFormat(values.format, 'single', ctx),
             ctx,
           );
@@ -514,6 +543,21 @@ export async function runCli(
       }
       case 'create': {
         return await cmdCreate(await mkCtx());
+      }
+      case 'seed': {
+        return await cmdSeed(await mkCtx());
+      }
+      case 'seeds': {
+        return await cmdSeeds(await mkCtx());
+      }
+      case 'promote': {
+        return await cmdPromote(await mkCtx());
+      }
+      case 'reject': {
+        return await cmdReject(await mkCtx());
+      }
+      case 'resolve': {
+        return await cmdResolve(await mkCtx());
       }
       case 'tag': {
         return await cmdTag(await mkCtx());

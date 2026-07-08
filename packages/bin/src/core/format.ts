@@ -2,10 +2,13 @@ import type {
   ArtifactDetail,
   ArtifactSummary,
   NodeView,
+  SeedView,
   SetResult,
   StatusView,
   TreeView,
 } from '@mimir/contract';
+
+import { seedLane } from './seeds/lane';
 
 /**
  * The **structural** output formats — `ids` / `json` / `jsonl` — a versioned
@@ -203,6 +206,61 @@ export function artifactToWire(artifact: ArtifactDetail): Record<string, unknown
 /** `json` for a standalone artifact (`get KEY-aN`). */
 export function formatArtifactJson(artifact: ArtifactDetail): string {
   return emitWire(artifactToWire(artifact), true);
+}
+
+/** Map a {@link SeedView} to its wire object — contract field names (snake_case),
+ * `description` only when the content read populated it. */
+export function seedToWire(seed: SeedView): Record<string, unknown> {
+  const wire: Record<string, unknown> = {
+    created_at: seed.createdAt,
+    id: seed.id,
+    kind: seed.kind,
+    // The exclusive lane (MMR-245), single-sourced so consumers derive nothing.
+    lane: seedLane(seed),
+    lifecycle: seed.lifecycle,
+    project: seed.project,
+    ready_to_resolve: seed.readyToResolve,
+    requester: seed.requester,
+    spawned: seed.spawned,
+    title: seed.title,
+    updated_at: seed.updatedAt,
+  };
+  if (seed.description !== undefined) {
+    wire.description = seed.description;
+  }
+  return wire;
+}
+
+/** `json` for a single seed (`get KEY-sN` / a write echo) — the bare wire object. */
+export function formatSeedJson(seed: SeedView): string {
+  return emitWire(seedToWire(seed), true);
+}
+
+/** The promote echo wire (MMR-245): the seed wire plus a SIBLING `created` field —
+ * the created task id in create mode, omitted in link mode. Kept a sibling (not a
+ * re-wrap) so the top-level seed shape stays identical to get/update/reject/resolve;
+ * the single source both MCP and HTTP render, so the two can't drift (B7). */
+export function promoteToWire(seed: SeedView, created?: string): Record<string, unknown> {
+  const wire = seedToWire(seed);
+  if (created !== undefined) {
+    wire.created = created;
+  }
+  return wire;
+}
+
+/** `json` string for the promote echo — {@link promoteToWire} emitted (MCP). */
+export function formatPromoteJson(seed: SeedView, created?: string): string {
+  return emitWire(promoteToWire(seed, created), true);
+}
+
+/** `json` for the seed queue — the count-led `{ total, seeds: [...] }` envelope. */
+export function formatSeedsJson(seeds: readonly SeedView[]): string {
+  return emitWire({ seeds: seeds.map(seedToWire), total: seeds.length }, true);
+}
+
+/** `jsonl` for the seed queue — one wire object per line, no wrapper (streaming). */
+export function formatSeedsJsonl(seeds: readonly SeedView[]): string {
+  return seeds.map((s) => emitWire(seedToWire(s), false)).join('\n');
 }
 
 /** Map an {@link ArtifactSummary} to its wire object — metadata only, no content. */

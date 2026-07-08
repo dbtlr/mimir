@@ -69,6 +69,10 @@ export type Drop =
       value: string | null;
     }
   | { kind: 'field'; rule: 'unknown-requester'; stem: string; value: string }
+  // An archived requester is a KNOWN project that the reader still nulls (the seam's
+  // active-only visibility), so it is a WARN distinct from unknown-requester's error —
+  // the value reverts on unarchive, it is not corruption (MMR-245/B1d).
+  | { kind: 'field'; rule: 'archived-requester'; stem: string; value: string }
   | { kind: 'edge'; rule: 'dangling-spawned'; stem: string; ref: string }
   | { kind: 'field'; rule: 'malformed-upstream'; stem: string; value: string }
   | { kind: 'field'; rule: 'dangling-upstream'; stem: string; value: string };
@@ -127,6 +131,12 @@ export type ValidatedGraph = {
  */
 export function validate(graph: VaultGraph): ValidatedGraph {
   const present = new Set(graph.projectKeys);
+  // The reader's ACTIVE-only visibility, for the seed `requester` check ONLY — an
+  // archived project is present (its nodes survive, hidden) but its key is NOT
+  // active, so a requester naming it is nulled on read (MMR-245/B1d). Every other
+  // pass (node containers included) resolves against `present`, so archived
+  // projects' nodes are never dropped.
+  const archived = new Set(graph.archivedProjectKeys);
   const survivors = new Set<string>();
   const dropped: Drop[] = [];
 
@@ -300,14 +310,27 @@ export function validate(graph: VaultGraph): ValidatedGraph {
         dropped.push({ key: seed.key, kind: 'node', rule: 'orphaned-seed', stem: seed.stem });
         continue;
       }
-      // requester (field): a present, non-empty value must name a known project.
-      if (seed.requester !== null && seed.requester !== '' && !present.has(seed.requester)) {
-        dropped.push({
-          kind: 'field',
-          rule: 'unknown-requester',
-          stem: seed.stem,
-          value: seed.requester,
-        });
+      // requester (field): a present, non-empty value the reader keeps only when it
+      // names an ACTIVE project. Two honest dispositions, matching the seam:
+      //  - names no project at all → unknown-requester (error; corruption, nulled on read)
+      //  - names an ARCHIVED project → archived-requester (warn; nulled on read, reverts
+      //    on unarchive) — NOT flagged before B1d, so doctor under-reported.
+      if (seed.requester !== null && seed.requester !== '') {
+        if (!present.has(seed.requester)) {
+          dropped.push({
+            kind: 'field',
+            rule: 'unknown-requester',
+            stem: seed.stem,
+            value: seed.requester,
+          });
+        } else if (archived.has(seed.requester)) {
+          dropped.push({
+            kind: 'field',
+            rule: 'archived-requester',
+            stem: seed.stem,
+            value: seed.requester,
+          });
+        }
       }
       // spawned (edge): each ref must resolve to a surviving work node.
       for (const ref of seed.spawned) {

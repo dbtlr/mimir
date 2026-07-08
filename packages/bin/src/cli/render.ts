@@ -1,13 +1,21 @@
 import type {
   ArtifactDetail,
   NodeView,
+  SeedView,
   SetResult,
   StatusView,
   StatusWord,
   TreeView,
 } from '@mimir/contract';
 
-import { formatArtifactJson, formatNodeJson } from '../core';
+import {
+  formatArtifactJson,
+  formatNodeJson,
+  formatPromoteJson,
+  formatSeedsJson,
+  formatSeedsJsonl,
+  seedLane,
+} from '../core';
 
 export const FORMATS = ['table', 'records', 'ids', 'json', 'jsonl'] as const;
 export type Format = (typeof FORMATS)[number];
@@ -379,6 +387,142 @@ export function renderArtifactDetail(artifact: ArtifactDetail, format: Format, i
         lines.push('', artifact.content);
       }
       io.write(lines.join('\n'));
+      break;
+    }
+  }
+}
+
+// ─── Seeds (MMR-245) ────────────────────────────────────────────────────────
+
+/** A seed's `records` detail — bold id header + aligned rows (verb-owned
+ * relations shown only when present). */
+export function renderSeedRecords(seed: SeedView, io: Io): string {
+  const pairs: [string, string][] = [
+    ['project', seed.project],
+    ['title', seed.title],
+    ['kind', seed.kind],
+    ['lifecycle', seed.lifecycle],
+  ];
+  if (seed.requester !== null) {
+    pairs.push(['requester', seed.requester]);
+  }
+  if (seed.spawned.length > 0) {
+    pairs.push(['spawned', seed.spawned.join(', ')]);
+  }
+  if (seed.readyToResolve) {
+    pairs.push(['ready', 'ready to resolve']);
+  }
+  if (seed.description != null && seed.description !== '') {
+    pairs.push(['description', seed.description]);
+  }
+  pairs.push(['created', seed.createdAt]);
+  const labelW = Math.max(...pairs.map(([label]) => label.length));
+  return [bold(seed.id, io.plain), ...pairs.map(([l, v]) => row(l, v, labelW))].join('\n');
+}
+
+/** One queue row: kind · lifecycle · requester · age · id · title (aligned). */
+function seedRows(seeds: readonly SeedView[], io: Io): string[] {
+  const kindW = Math.max(...seeds.map((s) => s.kind.length));
+  const lifeW = Math.max(...seeds.map((s) => s.lifecycle.length));
+  const reqW = Math.max(...seeds.map((s) => (s.requester ?? '-').length));
+  const idW = Math.max(...seeds.map((s) => s.id.length));
+  const ageW = Math.max(...seeds.map((s) => s.createdAt.length));
+  const readyGlyph = io.plain ? ' *' : ' \x1b[32m●\x1b[0m';
+  return seeds.map((s) => {
+    const ready = s.readyToResolve ? readyGlyph : '';
+    return `${pad(s.kind, kindW)}   ${pad(s.lifecycle, lifeW)}   ${pad(s.requester ?? '-', reqW)}   ${pad(s.createdAt, ageW)}   ${pad(s.id, idW)}   ${s.title}${ready}`;
+  });
+}
+
+/** `table` — the flat queue, count-led, oldest-first (the caller ordered it). */
+function renderSeedTable(seeds: readonly SeedView[], io: Io, emptyMsg?: string): string {
+  const lines = [countLine(seeds.length, 'seed')];
+  if (seeds.length === 0) {
+    if (io.isTTY && emptyMsg !== undefined) {
+      lines.push('', emptyMsg);
+    }
+    return lines.join('\n');
+  }
+  lines.push('', ...seedRows(seeds, io));
+  return lines.join('\n');
+}
+
+/** The `--grouped` lane view (MMR-245): UNTRIAGED / READY TO RESOLVE / SETTLED,
+ * each with a count. A promoted seed whose spawned work is not all settled is
+ * shown in a PROMOTED lane (only when populated) so no seed is dropped. */
+function renderSeedGrouped(seeds: readonly SeedView[], io: Io): string {
+  // Bucket by the shared classifier (M1) so the lane view can't drift from the wire
+  // `lane` field — one source of the untriaged/ready/promoted/settled partition.
+  const inLane = (lane: string): SeedView[] => seeds.filter((s) => seedLane(s) === lane);
+  const lanes: [string, SeedView[]][] = [
+    ['UNTRIAGED', inLane('untriaged')],
+    ['READY TO RESOLVE', inLane('ready')],
+    ['PROMOTED', inLane('promoted')],
+    ['SETTLED', inLane('settled')],
+  ];
+  const out: string[] = [countLine(seeds.length, 'seed')];
+  for (const [label, lane] of lanes) {
+    // The three headline lanes always show (with a count); PROMOTED only when populated.
+    if (label === 'PROMOTED' && lane.length === 0) {
+      continue;
+    }
+    out.push('', bold(`${label} (${String(lane.length)})`, io.plain));
+    if (lane.length > 0) {
+      out.push(...seedRows(lane, io));
+    }
+  }
+  return out.join('\n');
+}
+
+/** Render the seed queue in any format; `grouped` selects the lane view (styled only). */
+export function renderSeeds(
+  seeds: readonly SeedView[],
+  format: Format,
+  io: Io,
+  opts: { grouped?: boolean; emptyMsg?: string } = {},
+): void {
+  switch (format) {
+    case 'json': {
+      io.write(formatSeedsJson(seeds));
+      break;
+    }
+    case 'jsonl': {
+      io.write(formatSeedsJsonl(seeds));
+      break;
+    }
+    case 'ids': {
+      io.write(seeds.map((s) => s.id).join('\n'));
+      break;
+    }
+    case 'records':
+    case 'table': {
+      io.write(
+        opts.grouped === true
+          ? renderSeedGrouped(seeds, io)
+          : renderSeedTable(seeds, io, opts.emptyMsg),
+      );
+      break;
+    }
+  }
+}
+
+/** Render one seed (a `get`/write echo) in any format. `created` is the promote
+ * echo's sibling task id (MMR-245) — undefined everywhere but `promote` create
+ * mode, where {@link formatPromoteJson} folds it in identically to MCP/HTTP. */
+export function renderSeedView(seed: SeedView, format: Format, io: Io, created?: string): void {
+  switch (format) {
+    case 'json':
+    case 'jsonl': {
+      io.write(formatPromoteJson(seed, created));
+      break;
+    }
+    case 'ids': {
+      io.write(seed.id);
+      break;
+    }
+    case 'table':
+    case 'records': {
+      io.write(renderSeedRecords(seed, io));
       break;
     }
   }

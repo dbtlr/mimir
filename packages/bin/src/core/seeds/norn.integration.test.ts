@@ -195,7 +195,7 @@ describe.skipIf(!NORN)('norn seed store', () => {
     );
   });
 
-  test('appendSpawned links work nodes idempotently and bumps nothing twice', async () => {
+  test('germinate links work nodes idempotently, promotes once, and bumps nothing twice', async () => {
     await seeds.create({
       description: null,
       key: 'MMR',
@@ -203,14 +203,15 @@ describe.skipIf(!NORN)('norn seed store', () => {
       requester: null,
       title: 's',
     });
-    await seeds.appendSpawned('MMR', 1, 'MMR-42');
-    await seeds.appendSpawned('MMR', 1, 'MMR-42'); // idempotent
-    await seeds.appendSpawned('MMR', 1, 'MMR-43');
+    await seeds.germinate('MMR', 1, 'MMR-42'); // links + crosses new → promoted
+    await seeds.germinate('MMR', 1, 'MMR-42'); // idempotent — already linked + promoted
+    await seeds.germinate('MMR', 1, 'MMR-43'); // appends a second link (stays promoted)
     const loaded = await seeds.load('MMR', 1);
     expect(loaded?.spawned).toEqual(['MMR-42', 'MMR-43']);
+    expect(loaded?.lifecycle).toBe('promoted');
   });
 
-  test('appendSpawned adds onto a present-but-empty spawned list (raw presence, not decoded)', async () => {
+  test('germinate adds onto a present-but-empty spawned list (raw presence, not decoded)', async () => {
     // A hand-written seed carrying `spawned: []` (present but empty). The decoded
     // record's list is empty, but the FIELD is present — so the first append must
     // SET it (carrying the CAS old value), not ADD it: norn refuses to add a field
@@ -231,9 +232,10 @@ describe.skipIf(!NORN)('norn seed store', () => {
       parents: true,
       path: 'MMR/seeds/MMR-s1.md',
     });
-    await seeds.appendSpawned('MMR', 1, 'MMR-42');
+    await seeds.germinate('MMR', 1, 'MMR-42');
     const loaded = await seeds.load('MMR', 1);
     expect(loaded?.spawned).toEqual(['MMR-42']);
+    expect(loaded?.lifecycle).toBe('promoted');
   });
 
   test('readVaultGraph surfaces seeds so validate/doctor drops a foreign-kind seed', async () => {
@@ -274,12 +276,36 @@ describe.skipIf(!NORN)('norn seed store', () => {
     });
   });
 
+  test('listAll returns every seed in one find, across projects (E1)', async () => {
+    await seeds.create({
+      description: null,
+      key: 'MMR',
+      kind: 'idea',
+      requester: null,
+      title: 'a',
+    });
+    await client.newDoc({
+      body: '## Seed Description\n\n\n## History\n## Annotations\n',
+      confirm: true,
+      field_json: [
+        `type=${JSON.stringify('project')}`,
+        `key=${JSON.stringify('OTH')}`,
+        `name=${JSON.stringify('Other')}`,
+      ],
+      parents: true,
+      path: 'OTH/OTH.md',
+    });
+    await seeds.create({ description: null, key: 'OTH', kind: 'bug', requester: null, title: 'b' });
+    const all = await seeds.listAll();
+    expect(all.map((s) => `${s.key}-s${String(s.seq)}`).toSorted()).toEqual(['MMR-s1', 'OTH-s1']);
+  });
+
   test('mutations on an absent seed fail loud', async () => {
     expect(await rejectMessage(() => seeds.patch('MMR', 99, { title: 'x' }))).toMatch(/no seed/);
     expect(await rejectMessage(() => seeds.transition('MMR', 99, 'promoted', 'x'))).toMatch(
       /no seed/,
     );
-    expect(await rejectMessage(() => seeds.appendSpawned('MMR', 99, 'MMR-1'))).toMatch(/no seed/);
+    expect(await rejectMessage(() => seeds.germinate('MMR', 99, 'MMR-1'))).toMatch(/no seed/);
     expect(await seeds.load('MMR', 99)).toBeUndefined();
   });
 });

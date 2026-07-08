@@ -108,7 +108,7 @@ export function pathAndBody(record: unknown): { path: string; body: string } | n
   if (typeof record !== 'object' || record === null || !('path' in record)) {
     return null;
   }
-  const path = (record as { path: unknown }).path;
+  const path = record.path;
   if (typeof path !== 'string') {
     return null;
   }
@@ -128,7 +128,7 @@ export function pathAndSections(
   if (typeof record !== 'object' || record === null || !('path' in record)) {
     return null;
   }
-  const path = (record as { path: unknown }).path;
+  const path = record.path;
   if (typeof path !== 'string') {
     return null;
   }

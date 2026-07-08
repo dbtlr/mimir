@@ -24,5 +24,6 @@ export * from './intent';
 export * from './format';
 export { now } from './time';
 export * from './artifacts';
+export * from './seeds';
 export * from './body-sections';
 export * from './transitions';

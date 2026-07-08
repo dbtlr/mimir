@@ -22,7 +22,7 @@ export function resolveNodeTokenInSet(
   set: DerivationSet,
   token: string,
   expected = 'task, phase, or initiative',
-  hints: { project?: string; artifact?: string; notFound?: string } = {},
+  hints: { project?: string; artifact?: string; seed?: string; notFound?: string } = {},
 ): number {
   const identity = parseIdentity(token);
   if (identity?.kind === 'project') {
@@ -30,6 +30,14 @@ export function resolveNodeTokenInSet(
   }
   if (identity?.kind === 'artifact') {
     throw validation(`${token} is an artifact, not a ${expected}`, hints.artifact);
+  }
+  if (identity?.kind === 'seed') {
+    // A seed id names a grooming record, not work — reject it as a behavioral
+    // kind-error (like project/artifact), never a fake `doesn't exist` (MMR-245/B4).
+    throw validation(
+      `${token} is a seed, not a ${expected}`,
+      hints.seed ?? 'act on a seed with promote / reject / resolve',
+    );
   }
   const node = findNodeInSet(set, token);
   if (node === undefined) {
@@ -67,6 +75,10 @@ export function resolveEntityTokenInSet(set: DerivationSet, token: string): Enti
     // Artifact tags route through the seam by external identity (MMR-143) — no
     // node/project row to resolve; existence is the seam's concern.
     return { entityType: 'artifact', key: identity.key, seq: identity.seq };
+  }
+  if (identity.kind === 'seed') {
+    // A seed is not a taggable entity — a behavioral kind-error, not `doesn't exist`.
+    throw validation(`${token} is a seed, not a task, project, or artifact`);
   }
   const node = findNodeInSet(set, token);
   if (node === undefined) {

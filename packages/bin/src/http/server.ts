@@ -1,8 +1,10 @@
-import type { FacetName, FieldFilter, NodeView, VerdictSelector } from '@mimir/contract';
+import type { FacetName, FieldFilter, NodeView, SeedKind, VerdictSelector } from '@mimir/contract';
 import {
   NODE_TYPE_VALUES,
   PRIORITY_VALUES,
   QUERY_OP_VALUES,
+  SEED_KIND_VALUES,
+  SEED_STATUS_SELECTOR_VALUES,
   SIZE_VALUES,
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
@@ -10,7 +12,7 @@ import {
 import { isMember } from '@mimir/helpers';
 import type { Server } from 'bun';
 
-import type { DerivationSet, ListOptions, RankPosition, Store, UpdateFields } from '../core';
+import type { DerivationSet, ListOptions, SeedStatusSelector, Store, UpdateFields } from '../core';
 import {
   abandonTask,
   annotate,
@@ -20,7 +22,17 @@ import {
   attachArtifact,
   blockTask,
   deriveSet,
+  fileSeed,
   findNodeInSet,
+  asSeedKind,
+  getSeed,
+  isSeedRef,
+  listSeeds,
+  promoteSeed,
+  promoteToWire,
+  seedToWire,
+  transitionSeed,
+  updateSeed,
   nodeViewOf,
   projectViewByKey,
   projectViewOf,
@@ -141,6 +153,53 @@ function projectFilter(status: string | null): 'active' | 'archived' | 'all' {
     return 'all';
   }
   return 'active';
+}
+
+/** Validate an optional `upstream` body field as a seed id (`KEY-sN`), MMR-245. */
+function upstreamField(body: Record<string, unknown>): string | undefined {
+  const upstream = strField(body, 'upstream');
+  if (upstream !== undefined && !isSeedRef(upstream)) {
+    throw validation(`upstream must be a seed id (KEY-sN), got ${upstream}`);
+  }
+  return upstream;
+}
+
+/** Narrow the required `kind` body field to the closed seed-kind enum (MMR-245),
+ * via the core narrowing helper shared with the CLI/MCP boundaries (M4). */
+function requireSeedKind(body: Record<string, unknown>): SeedKind {
+  const kind = requiredStr(body, 'kind', 'file seed');
+  const narrowed = asSeedKind(kind);
+  if (narrowed === null) {
+    throw validation(`invalid kind: ${kind}`, `kinds: ${SEED_KIND_VALUES.join(', ')}`);
+  }
+  return narrowed;
+}
+
+/** Optional `kind` (a seed PATCH), narrowed to the seed-kind enum when present. */
+function optSeedKind(body: Record<string, unknown>): SeedKind | undefined {
+  const kind = strField(body, 'kind');
+  if (kind === undefined) {
+    return undefined;
+  }
+  const narrowed = asSeedKind(kind);
+  if (narrowed === null) {
+    throw validation(`invalid kind: ${kind}`, `kinds: ${SEED_KIND_VALUES.join(', ')}`);
+  }
+  return narrowed;
+}
+
+/** Map the `?status` param on the seed queue to the selector (MMR-245). */
+function seedStatusParam(status: string | null): SeedStatusSelector | undefined {
+  if (status === null) {
+    return undefined;
+  }
+  if (!isMember(status, SEED_STATUS_SELECTOR_VALUES)) {
+    throw validation(
+      `invalid status: ${status}`,
+      `statuses: ${SEED_STATUS_SELECTOR_VALUES.join(', ')}`,
+    );
+  }
+  return status;
 }
 
 /** Resolve a project key to its id for the archive/unarchive routes (ADR 0015). */
@@ -425,6 +484,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               'priority',
               'size',
               'external_ref',
+              'upstream',
               'open_ended',
               'tags',
             ]);
@@ -486,6 +546,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
                 summary,
                 tags,
                 title,
+                upstream: upstreamField(body),
               });
               return echoNode(store, req, node, 201);
             }
@@ -520,6 +581,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               'size',
               'target',
               'external_ref',
+              'upstream',
               'open_ended',
             ]);
             const fields: UpdateFields = {};
@@ -559,6 +621,10 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const externalRef = strField(body, 'external_ref');
             if (externalRef !== undefined) {
               fields.externalRef = externalRef;
+            }
+            const upstream = upstreamField(body);
+            if (upstream !== undefined) {
+              fields.upstream = upstream;
             }
             const openEnded = boolField(body, 'open_ended');
             if (openEnded !== undefined) {
@@ -751,7 +817,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const node = await reorder(
               store,
               await nodeRef(store, req.params.id, 'task'),
-              position as RankPosition,
+              position,
               refId,
             );
             return echoNode(store, req, node);
@@ -956,6 +1022,149 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               req,
               nodeToWire(await projectViewOf(store, project, new Set(PROJECT_FACETS))),
             );
+          }),
+      },
+
+      '/api/seeds': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const q = new URL(req.url).searchParams;
+            const listOpts: Parameters<typeof listSeeds>[1] = {};
+            const project = q.get('project');
+            if (project !== null) {
+              listOpts.project = project;
+            }
+            // An empty `?requester=` is an absent filter, not a filter for the
+            // empty string — the whole queue, not zero rows (B5c).
+            const requester = q.get('requester');
+            if (requester !== null && requester !== '') {
+              listOpts.requester = requester;
+            }
+            const status = seedStatusParam(q.get('status'));
+            if (status !== undefined) {
+              listOpts.status = status;
+            }
+            const sort = q.get('sort');
+            if (sort !== null) {
+              if (sort !== 'asc' && sort !== 'desc') {
+                throw validation(`invalid sort: ${sort}`, 'sort is asc or desc');
+              }
+              listOpts.sort = sort;
+            }
+            const seeds = await listSeeds(store, listOpts);
+            return json(req, { items: seeds.map(seedToWire), total: seeds.length });
+          }),
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, [
+              'project',
+              'title',
+              'kind',
+              'description',
+              'requester',
+            ]);
+            const seed = await fileSeed(store, {
+              description: strField(body, 'description'),
+              kind: requireSeedKind(body),
+              project: requiredStr(body, 'project', 'file seed'),
+              requester: strField(body, 'requester') ?? null,
+              title: requiredStr(body, 'title', 'file seed'),
+            });
+            return json(req, seedToWire(seed), 201);
+          }),
+      },
+
+      '/api/seeds/:id': {
+        GET: (req) =>
+          guarded(req, async () =>
+            json(req, seedToWire(await getSeed(store, req.params.id, { content: true }))),
+          ),
+        // The dumb seed patch (MMR-245): title/kind/description on a LIVE seed;
+        // the store refuses a terminal (frozen) seed. requester/spawned are
+        // verb-owned and never patched here.
+        PATCH: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['title', 'kind', 'description']);
+            const fields: Parameters<typeof updateSeed>[2] = {};
+            const title = strField(body, 'title');
+            if (title !== undefined) {
+              fields.title = title;
+            }
+            const description = strField(body, 'description');
+            if (description !== undefined) {
+              fields.description = description;
+            }
+            const kind = optSeedKind(body);
+            if (kind !== undefined) {
+              fields.kind = kind;
+            }
+            return json(req, seedToWire(await updateSeed(store, req.params.id, fields)));
+          }),
+      },
+
+      '/api/seeds/:id/promote': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, [
+              'parent',
+              'link',
+              'title',
+              'description',
+              'priority',
+              'size',
+              'tags',
+            ]);
+            const priority = strField(body, 'priority');
+            if (priority !== undefined && !isMember(priority, PRIORITY_VALUES)) {
+              throw validation(
+                `invalid priority: ${priority}`,
+                `priorities: ${PRIORITY_VALUES.join(', ')}`,
+              );
+            }
+            const size = strField(body, 'size');
+            if (size !== undefined && !isMember(size, SIZE_VALUES)) {
+              throw validation(`invalid size: ${size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
+            }
+            const { created, seed } = await promoteSeed(store, req.params.id, {
+              description: strField(body, 'description'),
+              link: strField(body, 'link'),
+              parent: strField(body, 'parent'),
+              priority,
+              size,
+              tags: strList(body, 'tags'),
+              title: strField(body, 'title'),
+            });
+            // `created` rides as a sibling of the seed wire (not a re-wrap), so the
+            // response surfaces the spawned task id in create mode (B7).
+            return json(req, promoteToWire(seed, created));
+          }),
+      },
+
+      '/api/seeds/:id/reject': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['reason']);
+            const seed = await transitionSeed(
+              store,
+              req.params.id,
+              'rejected',
+              requiredStr(body, 'reason', 'reject'),
+            );
+            return json(req, seedToWire(seed));
+          }),
+      },
+
+      '/api/seeds/:id/resolve': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['reason']);
+            const seed = await transitionSeed(
+              store,
+              req.params.id,
+              'resolved',
+              requiredStr(body, 'reason', 'resolve'),
+            );
+            return json(req, seedToWire(seed));
           }),
       },
 

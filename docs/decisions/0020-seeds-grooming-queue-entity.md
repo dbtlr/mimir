@@ -89,8 +89,9 @@ resolved | rejected`). Terminal states are set **only by explicit triager
   retiring SQLite backend throws — seeds are never stored there, MMR-234).
 - The store owns the lifecycle machine and terminal-freeze: `patch` (title / kind
   / description) refuses a terminal seed; `transition` refuses an illegal edge
-  and records the move in `## History`; `create` / `appendSpawned` complete the
-  mutation primitives. `requester` and `spawned` are verb-owned, never
+  and records the move in `## History`; `create` and `germinate` (the promote path's
+  single atomic plan — spawned link + `new → promoted` + `## History` in one write)
+  complete the mutation primitives. `requester` and `spawned` are verb-owned, never
   hand-patched.
 - Tasks gain a nullable `upstream` column (`KEY-sN`), round-tripping like
   `external_ref`.
@@ -107,3 +108,41 @@ resolved | rejected`). Terminal states are set **only by explicit triager
 - The verb surface (CLI/MCP/HTTP: `seed` / `seeds` / `promote` / `reject` /
   `resolve` / `triage`) and the triage reconciliation pass ride on top in
   follow-up work (MMR-245 / MMR-246); this ADR settles the entity + schema.
+
+## Refinement (2026-07-08, MMR-245): the resolving read seam + verb surface landed
+
+The verb surface reads seeds through one shared resolving seam
+(`listSeeds`/`getSeed`), mirroring how the node reader consumes `validate`'s valid
+subgraph. That seam is now the second reader that the referential rules act on: it
+**nulls an unknown `requester`** and **prunes a dangling `spawned`** ref (and hides
+an orphaned seed), and it derives `readyToResolve` live. With a real reader
+dropping/nulling those, the `mimir doctor` severities were made truthful — dangling
+`spawned` and unknown `requester` are `error` (the reader drops/nulls them), a
+malformed task `upstream` stays `error` (nulled locally), and a **dangling** task
+`upstream` became `warn`: it is reference-only (ADR's block/unblock is the
+requester's explicit act), no reader drops it, so it is surfaced for repair, not lost.
+
+**Archived-visibility semantics (this round).** The seam extends ADR 0015 hiding to
+seeds, consistently on both the write and read sides:
+
+- **Mutations are refused on an archived board.** `update`/`reject`/`resolve`/
+  `promote` assert the seed's own board is active before any write (and, for
+  `promote`, before `createTask`), reusing the node write-lock's
+  `conflict('project X is archived — no changes are allowed')` — so a frozen board
+  never mutates and `promote` never orphans a task.
+- **Archived spawned work is hidden from the facet but counts as settled.** A
+  `spawned` ref whose board is since-archived reads as absent (dropped from the
+  displayed `spawned[]`), yet `readyToResolve` is derived over the _unpruned_
+  survivors treating an archived-board node as settled (archiving is a stronger
+  "over" than done — the ADR 0015 refinement on prerequisites). So the attention
+  signal survives archiving and reverts on unarchive.
+- **An archived `requester` is nulled on read** (the seam's active-only visibility),
+  and `mimir doctor` reports it as a distinct `archived-requester` **warn**
+  ("requester X is archived — nulled on read (reverts on unarchive)"), separate from
+  the unknown-requester `error` — the value reverts on unarchive, it is not corruption.
+
+The seam also single-sources the seed **lane** (untriaged/ready/promoted/settled,
+`ready` winning over `promoted`), exposed on the wire so the web UI and MMR-246
+derive nothing; `get KEY-sN`, the queue's `project=all` selector, and the promote
+echo's sibling `created` (the spawned task id) are honored identically on CLI, MCP,
+and HTTP.

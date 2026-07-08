@@ -235,6 +235,14 @@ export type SeedRefs = {
 export type VaultGraph = {
   nodes: NodeRefs[];
   projectKeys: string[];
+  /** The subset of `projectKeys` whose project is ARCHIVED (`archived_at` set).
+   * Carried so the validator can give the seed `requester` check the reader's
+   * ACTIVE-only visibility (an archived requester is nulled on read, MMR-245/B1d),
+   * distinct from a truly unknown one — WITHOUT the node missing-project pass ever
+   * dropping an archived project's nodes (they exist, just hidden). Optional: only
+   * {@link readVaultGraph}/{@link vaultGraphFromDocs} populate it; referential-only
+   * callers (test fixtures) omit it and every project reads as active. */
+  archivedProjectKeys?: readonly string[];
   /** Every parsed doc's declared project membership (MMR-231). Optional because
    * the referential-only producers (the resolving loader's `validate` input, test
    * fixtures) don't need it; {@link readVaultGraph}/{@link vaultGraphFromDocs}
@@ -317,6 +325,7 @@ export function vaultGraphFromDocs(
 ): VaultGraph {
   const nodes: NodeRefs[] = [];
   const projectKeys: string[] = [];
+  const archivedProjectKeys: string[] = [];
   const declarations: ProjectDeclaration[] = [];
   // Only populated (and only made present on the graph) when the caller asked —
   // the node-only resolving loader and the transitions feed pass no seeds, so the
@@ -334,6 +343,9 @@ export function vaultGraphFromDocs(
       const key = str(fm.key);
       if (key !== null && key !== '') {
         projectKeys.push(key);
+        if (str(fm.archived_at) !== null) {
+          archivedProjectKeys.push(key);
+        }
       }
       // A project doc's `project` is self-referential (`[[KEY]]`); a divergence
       // means it points at a different project than its own stem (MMR-231).
@@ -362,7 +374,13 @@ export function vaultGraphFromDocs(
     nodes.push(nodeRefsOf(fm, ref.key, stem, type));
     declarations.push({ project: collapse(fm.project), stem });
   }
-  return { declarations, nodes, projectKeys, ...(withSeeds ? { seeds } : {}) };
+  return {
+    archivedProjectKeys,
+    declarations,
+    nodes,
+    projectKeys,
+    ...(withSeeds ? { seeds } : {}),
+  };
 }
 
 export async function loadWorkingSetOverNorn(client: NornClient): Promise<WorkingSet> {
