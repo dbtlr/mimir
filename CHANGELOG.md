@@ -39,6 +39,14 @@ release. When a release is cut, this section is promoted to
   doctor` seed/upstream severities are now truthful to that seam — dangling
   `spawned` and unknown `requester` are `error` (dropped/nulled on read), while
   a dangling `upstream` is `warn` (reference-only, surfaced for repair).
+  - The seed wire carries a single-sourced `lane` (untriaged/ready/promoted/
+    settled) so consumers derive nothing; `get KEY-sN` reads a seed on every
+    surface; `seeds -p all` / `?project=all` reads every active board; and the
+    `promote` echo carries a sibling `created` (the spawned task id) on MCP + HTTP.
+    Archived-board consistency is enforced: a seed on an archived board refuses
+    every mutation (no orphan task), an archived spawned board is hidden from the
+    facet but counts as settled for ready-to-resolve, and an archived `requester`
+    is nulled on read with a distinct `mimir doctor` `archived-requester` warn.
 
 - **Seeds — the grooming-queue entity** (MMR-244, ADR 0020). A seed is a record
   filed against a project that implies no work, only triage (`idea`/`bug`/

@@ -8,7 +8,7 @@ usage: mimir <command> [options]
 read commands:
   next            ready tasks in rank order ("what's next")
   list            broad selection by predicate/scope/tag
-  get <id>        full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN)
+  get <id>        full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN), seed (KEY-sN)
   status <id>     rollup distribution + status (KEY-seq or project KEY)
   tree <id>       full subtree rooted at any KEY-seq or project (KEY)
                   compact indented view: id · status · title; use after get/status
@@ -49,8 +49,9 @@ manage commands:
 
   seeds (grooming queue):
     seed "<title>" -k <kind> [-p KEY]   file a seed (idea|bug|feature)
-    seeds [--grouped] [--status …]      the queue — live, oldest-first
-    promote <KEY-sN> --parent <node>    germinate into work (or --link existing)
+    seeds [--grouped] [-p all] [--status …]   the queue — live, oldest-first (-p all = every board)
+    get <KEY-sN>                        read one seed (resolved view + description)
+    promote <KEY-sN> --parent <node>    germinate into work (or --link existing); echoes created task id
     reject <KEY-sN> "<reason>"          terminal — reason required
     resolve <KEY-sN> "<resolution>"     terminal — resolution required
     update <KEY-sN> [--title/--kind/--desc]   patch a live seed
@@ -244,9 +245,11 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir get MMR-16               # full record (cheap facets included)',
       'mimir get MMR-16 --col history # add the transition log',
       "mimir get MMR-a1 --col content # an artifact's frozen body",
+      'mimir get MMR-s1               # a seed (resolved view + description)',
     ],
     flags: [F_COL, F_FORMAT],
-    summary: 'full record: task/phase/initiative (KEY-seq), project (KEY), or artifact (KEY-aN).',
+    summary:
+      'full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN), or seed (KEY-sN).',
     usage: 'mimir get <id>',
   },
   status: {
@@ -512,11 +515,12 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     examples: [
       "mimir seeds                          # the bound board's live queue, oldest-first",
       'mimir seeds --grouped                # the lane view (untriaged / ready to resolve / settled)',
+      'mimir seeds -p all                   # every active board',
       'mimir seeds --status all --sort desc # every seed, newest-first',
       'mimir seeds --requester MMR          # seeds MMR filed on other boards',
     ],
     flags: [
-      ['-p, --project <KEY>', 'the board whose queue (default: the bound board)'],
+      ['-p, --project <KEY>', 'the board whose queue (default: the bound board; "all" = every board)'],
       ['--requester <KEY>', 'filter to seeds a board requested'],
       ['--status <s>', 'new|promoted|resolved|rejected, or live (default) | all'],
       ['--sort <asc|desc>', 'age order (default asc = oldest-first)'],
@@ -542,7 +546,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--tag <t>', 'created task: tag at creation (repeatable)'],
     ],
     summary:
-      'germinate a seed into work — creates a task (or records existing work), appends the spawned link, and moves new → promoted (repeatable).',
+      'germinate a seed into work — creates a task (or records existing work), appends the spawned link, and moves new → promoted (repeatable). Echoes the seed plus the created task id.',
     usage: 'mimir promote <KEY-sN> --parent <node> [task args] | --link <KEY-seq>',
   },
   reject: {
