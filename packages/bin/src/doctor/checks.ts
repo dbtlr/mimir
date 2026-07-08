@@ -575,16 +575,17 @@ export const sectionResolutionCheck: Diagnostic = {
 };
 
 /**
- * Seed validity (MMR-244): a seed document's own-project / `kind` / `lifecycle` /
- * `requester` / `spawned`. The seed STORE reads verbatim (like the artifact store):
- * only a foreign/missing `kind`/`lifecycle` drops the record there (its `toRecord`
- * returns null). A missing own-project, an unknown `requester`, and a dangling
- * `spawned` are surfaced HERE for repair — the store returns them verbatim, and the
- * referential resolution that acts on them lands at the read seam (MMR-245). A thin
- * adapter over the shared validator's seed rules — one detector, so it can't drift
- * from the validator. `error` for a dropped record or an unresolved reference,
- * `warn` for an unresolved requester; whole-vault (the graph is unscoped, like its
- * referential siblings).
+ * Seed validity (MMR-244, severities revised MMR-245): a seed document's
+ * own-project / `kind` / `lifecycle` / `requester` / `spawned`. The seed STORE
+ * reads verbatim (like the artifact store): only a foreign/missing
+ * `kind`/`lifecycle` drops the record there (its `toRecord` returns null). Since
+ * MMR-245 the verb-facing read seam (`listSeeds`/`getSeed`) is the second reader:
+ * it hides an orphaned seed, nulls an unknown `requester`, and prunes a dangling
+ * `spawned` — so all four are now data lost/hidden on read. A thin adapter over
+ * the shared validator's seed rules — one detector, so it can't drift from the
+ * validator. All `error` (the reader drops/nulls the record or reference — the
+ * severity means exactly "the reader drops it"); whole-vault (the graph is
+ * unscoped, like its referential siblings).
  */
 export const seedValidityCheck: Diagnostic = {
   name: 'seed-validity',
@@ -597,7 +598,7 @@ export const seedValidityCheck: Diagnostic = {
       if (drop.kind === 'node' && drop.rule === 'orphaned-seed') {
         findings.push({
           check: 'seed-validity',
-          message: `project ${drop.key} has no document in the vault — surfaced for repair; the seed's project does not resolve`,
+          message: `project ${drop.key} has no document in the vault — the seed is hidden on read`,
           node: drop.stem,
           severity: 'error',
           where: 'project',
@@ -627,15 +628,15 @@ export const seedValidityCheck: Diagnostic = {
       } else if (drop.kind === 'field' && drop.rule === 'unknown-requester') {
         findings.push({
           check: 'seed-validity',
-          message: `requester ${drop.value} is not a known project — surfaced for repair; the reference does not resolve`,
+          message: `requester ${drop.value} is not a known project — nulled on read (self-filed)`,
           node: drop.stem,
-          severity: 'warn',
+          severity: 'error',
           where: 'frontmatter · requester',
         });
       } else if (drop.kind === 'edge' && drop.rule === 'dangling-spawned') {
         findings.push({
           check: 'seed-validity',
-          message: `spawned ${drop.ref} resolves to no node in the vault — surfaced for repair; the reference does not resolve`,
+          message: `spawned ${drop.ref} resolves to no node in the vault — pruned on read`,
           node: drop.stem,
           severity: 'error',
           where: 'frontmatter · spawned',
@@ -648,14 +649,17 @@ export const seedValidityCheck: Diagnostic = {
 };
 
 /**
- * Task `upstream` references (MMR-244): a task whose `upstream` seed pointer is
- * malformed grammar (not a `KEY-sN`) or dangles (resolves to no surviving seed).
- * The two differ in what the reader can decide locally: a MALFORMED grammar is
- * nulled on read (the reader's local decode drops it, like a foreign priority),
- * while a DANGLING but well-formed ref is NOT nulled on the hot path — the reader
- * loads no seeds, so it can't know the ref dangles; it is surfaced here for repair
- * and resolved at the read seam (MMR-245). A thin adapter over the shared
- * validator's two `*-upstream` rules; always an `error`, whole-vault.
+ * Task `upstream` references (MMR-244, severities revised MMR-245): a task whose
+ * `upstream` seed pointer is malformed grammar (not a `KEY-sN`) or dangles
+ * (resolves to no surviving seed). The two differ in what a reader drops, so the
+ * severity now tracks that truthfully (annotation #2):
+ * - MALFORMED is nulled on read — the reader's local decode drops it, like a
+ *   foreign priority — so it is an `error` (the reader drops it).
+ * - DANGLING but well-formed is NOT dropped by any reader: the hot path loads no
+ *   seeds, and the verb surface only grammar-validates `--upstream` (a task→seed
+ *   reference is intentionally reference-only, ADR 0020) — so it is a `warn`,
+ *   surfaced for repair, not lost.
+ * A thin adapter over the shared validator's two `*-upstream` rules; whole-vault.
  */
 export const upstreamRefCheck: Diagnostic = {
   name: 'upstream-refs',
@@ -665,15 +669,14 @@ export const upstreamRefCheck: Diagnostic = {
       if (!ownsDrop(drop, 'upstream-refs') || drop.kind !== 'field') {
         continue;
       }
-      const message =
-        drop.rule === 'malformed-upstream'
-          ? `upstream "${drop.value}" is not a seed id (KEY-sN) — field nulled on read`
-          : `upstream ${drop.value} resolves to no seed in the vault — surfaced for repair; the reference does not resolve`;
+      const malformed = drop.rule === 'malformed-upstream';
       findings.push({
         check: 'upstream-refs',
-        message,
+        message: malformed
+          ? `upstream "${drop.value}" is not a seed id (KEY-sN) — field nulled on read`
+          : `upstream ${drop.value} resolves to no seed in the vault — surfaced for repair; the reference is reference-only (not dropped on read)`,
         node: drop.stem,
-        severity: 'error',
+        severity: malformed ? 'error' : 'warn',
         where: 'frontmatter · upstream',
       });
     }
