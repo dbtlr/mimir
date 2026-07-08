@@ -179,6 +179,7 @@ type DropCheckName =
  * checks by an exhaustiveness test (`checks.test.ts`).
  */
 export const RULE_OWNER: Record<Drop['rule'], DropCheckName> = {
+  'archived-requester': 'seed-validity',
   'cycle-depends-on': 'acyclicity',
   'cycle-parent': 'acyclicity',
   'dangling-depends-on': 'dangling-refs',
@@ -583,9 +584,11 @@ export const sectionResolutionCheck: Diagnostic = {
  * it hides an orphaned seed, nulls an unknown `requester`, and prunes a dangling
  * `spawned` — so all four are now data lost/hidden on read. A thin adapter over
  * the shared validator's seed rules — one detector, so it can't drift from the
- * validator. All `error` (the reader drops/nulls the record or reference — the
- * severity means exactly "the reader drops it"); whole-vault (the graph is
- * unscoped, like its referential siblings).
+ * validator. Mostly `error` (the reader drops/nulls the record or reference — the
+ * severity means exactly "the reader drops it"), except `archived-requester`,
+ * which is a `warn`: the requester names a known-but-archived board, nulled on read
+ * but reverting on unarchive (MMR-245/B1d). Whole-vault (the graph is unscoped,
+ * like its referential siblings).
  */
 export const seedValidityCheck: Diagnostic = {
   name: 'seed-validity',
@@ -631,6 +634,17 @@ export const seedValidityCheck: Diagnostic = {
           message: `requester ${drop.value} is not a known project — nulled on read (self-filed)`,
           node: drop.stem,
           severity: 'error',
+          where: 'frontmatter · requester',
+        });
+      } else if (drop.kind === 'field' && drop.rule === 'archived-requester') {
+        // A KNOWN but archived requester: the reader nulls it (active-only
+        // visibility), yet it reverts on unarchive — surfaced for awareness, not
+        // corruption, so `warn` (matches the `dangling-upstream` warn precedent).
+        findings.push({
+          check: 'seed-validity',
+          message: `requester ${drop.value} is archived — nulled on read (reverts on unarchive)`,
+          node: drop.stem,
+          severity: 'warn',
           where: 'frontmatter · requester',
         });
       } else if (drop.kind === 'edge' && drop.rule === 'dangling-spawned') {

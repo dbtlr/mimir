@@ -34,6 +34,7 @@ function dropOf(rule: Drop['rule']): Drop {
     rule === 'invalid-size' ||
     rule === 'invalid-open-ended' ||
     rule === 'unknown-requester' ||
+    rule === 'archived-requester' ||
     rule === 'malformed-upstream' ||
     rule === 'dangling-upstream'
   ) {

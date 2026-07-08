@@ -2,8 +2,14 @@ import type { Priority, SeedKind, SeedLifecycle, Size, SeedView } from '@mimir/c
 
 import { createTask } from '../create';
 import type { DerivationSet } from '../derive';
-import { deriveSet, findNodeInSet, isNodeSettled, renderNodeIdFromSet } from '../derive';
-import { notFound, projectNotFound, validation } from '../errors';
+import {
+  deriveSet,
+  findNodeInSet,
+  findProjectInSet,
+  isNodeSettled,
+  renderNodeIdFromSet,
+} from '../derive';
+import { conflict, notFound, projectNotFound, validation } from '../errors';
 import { parseSeedRef, renderId, renderSeedRef } from '../ids';
 import type { Store } from '../store';
 import { isTerminalSeed } from './store';
@@ -47,6 +53,24 @@ async function seedResolver(store: Store): Promise<SeedResolver> {
 }
 
 /**
+ * The seed write-lock (ADR 0015, MMR-245): a seed whose OWN board is archived
+ * refuses every mutation, mirroring the node write-lock
+ * (`mutations/common.ts#assertProjectActive`) with the same `conflict` vocabulary.
+ * Asserted BEFORE any store write — and, for promote, before `createTask` — so a
+ * frozen board is never mutated and never orphans a task. A board that is merely
+ * absent falls through to the store's `no seed` not_found (an orphaned seed).
+ */
+function assertSeedBoardActive(set: DerivationSet, key: string): void {
+  const project = findProjectInSet(set, key);
+  if (project !== undefined && project.archived_at !== null) {
+    throw conflict(
+      `project ${key} is archived — no changes are allowed`,
+      `unarchive it first: mimir unarchive ${key}`,
+    );
+  }
+}
+
+/**
  * A stored seed record → its resolved verb-facing view. The one seam where the
  * verbs null/prune what the validator would drop: an unknown `requester` → null,
  * a dangling `spawned` ref → pruned. `readyToResolve` is derived from the pruned
@@ -58,14 +82,26 @@ function resolveSeedView(
 ): SeedView {
   const requester =
     rec.requester !== null && !r.projectKeys.has(rec.requester) ? null : rec.requester;
-  const spawned = rec.spawned.filter((stem) => findNodeInSet(r.set, stem) !== undefined);
+  // Each spawned ref → its work node, keeping only those that resolve. A ref whose
+  // node was deleted (truly dangling) drops from both display and readiness.
+  const resolved = rec.spawned
+    .map((stem) => ({ node: findNodeInSet(r.set, stem), stem }))
+    .filter((x): x is { node: NonNullable<typeof x.node>; stem: string } => x.node !== undefined);
+  // DISPLAY facet: a ref whose board is since-archived reads as absent (ADR 0015),
+  // so it is hidden from `spawned[]` — but it still counts for readiness below.
+  const spawned = resolved
+    .filter((x) => !r.set.archivedProjects.has(x.node.project_id))
+    .map((x) => x.stem);
+  // READINESS is derived over the UNPRUNED survivors: an archived-board node is
+  // settled (archiving is a stronger "this is over" than done — ADR 0015
+  // Refinement, mirroring hasUnsettledPrereq), so spawned work in a since-archived
+  // board never pins readyToResolve false forever, and readiness reverts on unarchive.
   const readyToResolve =
     rec.lifecycle === 'promoted' &&
-    spawned.length > 0 &&
-    spawned.every((stem) => {
-      const node = findNodeInSet(r.set, stem);
-      return node !== undefined && isNodeSettled(r.set, node);
-    });
+    resolved.length > 0 &&
+    resolved.every(
+      (x) => r.set.archivedProjects.has(x.node.project_id) || isNodeSettled(r.set, x.node),
+    );
   const view: SeedView = {
     createdAt: rec.created_at,
     id: renderSeedRef({ key: rec.key, seq: rec.seq }),
@@ -126,8 +162,15 @@ export async function listSeeds(store: Store, opts: ListSeedsOptions = {}): Prom
     }
     return v.lifecycle === status;
   });
-  // Oldest-first FIFO by created_at, id the stable tiebreak; desc reverses it.
-  views.sort((a, b) => cmp(a.createdAt, b.createdAt) || cmp(a.id, b.id));
+  // Oldest-first FIFO by created_at; the tiebreak is project key then NUMERIC seq
+  // (matching the node queues' `cmpStr(projectKey) || a.seq - b.seq` shape) so a
+  // same-timestamp KEY-s10 sorts after KEY-s2, not before it lexically. desc reverses.
+  views.sort(
+    (a, b) =>
+      cmp(a.createdAt, b.createdAt) ||
+      cmp(a.project, b.project) ||
+      (parseSeedRef(a.id)?.seq ?? 0) - (parseSeedRef(b.id)?.seq ?? 0),
+  );
   if (opts.sort === 'desc') {
     views.reverse();
   }
@@ -251,6 +294,9 @@ export async function promoteSeed(
   }
 
   const set = deriveSet(await store.loadWorkingSet());
+  // Assert the seed's OWN board is active BEFORE createTask — a promote on an
+  // archived board must create nothing and mutate nothing (ADR 0015, B1a).
+  assertSeedBoardActive(set, ref.key);
   let createdStem: string;
   let created: string | undefined;
   if (input.link !== undefined) {
@@ -288,11 +334,14 @@ export async function promoteSeed(
     );
   }
 
-  await store.seeds.appendSpawned(ref.key, ref.seq, createdStem);
-  // First promote crosses new → promoted; further germination just appends links.
-  if (rec.lifecycle === 'new') {
-    await store.seeds.transition(ref.key, ref.seq, 'promoted', `promoted — spawned ${createdStem}`);
-  }
+  // ONE atomic seed write from ONE load: append the spawned link, cross
+  // new → promoted (first promote only), stamp updated_at, append the History
+  // record — a single norn plan, so the task can never be created without the
+  // seed reflecting it (cross-DOCUMENT atomicity with createTask is impossible
+  // per the norn per-document limit; ADR 0016/NRN-107). Idempotent: a re-run with
+  // the stem already linked and the seed already promoted is a no-op, so a retried
+  // `--parent`/`--link` cannot double-record (B2).
+  await store.seeds.germinate(ref.key, ref.seq, createdStem);
   return { created, seed: await getSeed(store, id, { content: true }) };
 }
 
@@ -315,6 +364,7 @@ export async function transitionSeed(
   if (reason.trim() === '') {
     throw validation(`${to === 'rejected' ? 'reject' : 'resolve'} requires a reason`);
   }
+  assertSeedBoardActive((await seedResolver(store)).set, ref.key);
   await store.seeds.transition(ref.key, ref.seq, to, reason);
   return getSeed(store, id, { content: true });
 }
@@ -340,6 +390,7 @@ export async function updateSeed(
   if (ref === null) {
     throw notFound(`${id} is not a seed id`, 'seed ids look like KEY-sN');
   }
+  assertSeedBoardActive((await seedResolver(store)).set, ref.key);
   await store.seeds.patch(ref.key, ref.seq, fields);
   return getSeed(store, id, { content: true });
 }

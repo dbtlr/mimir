@@ -12,7 +12,7 @@ import type { SeedKind, SeedLifecycle } from '@mimir/contract';
  *
  * The seam owns the lifecycle machine (`new → promoted | resolved | rejected`;
  * `promoted → resolved | rejected`) and the store-level mutation primitives
- * ({@link SeedStore.patch}/{@link SeedStore.transition}/{@link SeedStore.appendSpawned}).
+ * ({@link SeedStore.patch}/{@link SeedStore.transition}/{@link SeedStore.germinate}).
  * The verb surface (CLI/MCP/HTTP) rides on top in MMR-245; `requester`/`spawned`
  * are verb-owned relations, never patched directly.
  *
@@ -73,13 +73,15 @@ export type SeedStore = {
    * `## History` with the (required) reason. Refuses an illegal edge or an
    * absent seed. */
   transition: (key: string, seq: number, to: SeedLifecycle, reason: string) => Promise<void>;
-  /** Append one work-node stem (`KEY-seq`) to `spawned` — the promote provenance
-   * link. Idempotent under SEQUENTIAL use: a re-append of an already-linked stem is
-   * a no-op. Concurrency is deliberately not smoothed over — two racing appends
-   * read the same `spawned`, and the loser's compare-and-set precondition is refused
-   * (the seed store has no drift-replay, unlike the node write path); the caller
-   * retries against the now-updated list. */
-  appendSpawned: (key: string, seq: number, nodeStem: string) => Promise<void>;
+  /** Germinate the seed for promote (MMR-245): from ONE load, apply ONE atomic
+   * plan that appends the work-node stem (`KEY-seq`) to `spawned`, crosses
+   * `new → promoted` on the first promote (with its `## History` record), and
+   * stamps `updated_at` — so the seed can never reflect a spawned task without the
+   * lifecycle move, nor vice versa. Idempotent: a re-run whose stem is already
+   * linked AND whose seed is already promoted is a no-op (a retried promote cannot
+   * double-record). Refuses a terminal (frozen) or absent seed. On a compare-and-set
+   * refusal (a concurrent write moved the doc) it re-reads once and retries. */
+  germinate: (key: string, seq: number, nodeStem: string) => Promise<void>;
 };
 
 /**

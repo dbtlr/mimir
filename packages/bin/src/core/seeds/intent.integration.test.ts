@@ -10,11 +10,13 @@ import { converge } from '../../vault/converge';
 import { deriveSet, findNodeInSet } from '../derive';
 import {
   abandonTask,
+  archiveProject,
   completeTask,
   createInitiative,
   createPhase,
   createProject,
   createTask,
+  unarchiveProject,
 } from '../index';
 import { resolveProjectKeyInSet } from '../resolve-set';
 import type { Store } from '../store';
@@ -214,6 +216,119 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
       title: 'renamed',
     });
     expect(patched).toMatchObject({ description: 'new prose', kind: 'bug', title: 'renamed' });
+  });
+
+  test('an archived board refuses seed mutations — nothing written, no task created (B1a)', async () => {
+    const { phaseRef: parent } = await seedbed();
+    await fileSeed(store, { kind: 'feature', project: 'MMR', requester: null, title: 's' });
+    const before = deriveSet(await store.loadWorkingSet());
+    const tasksBefore = before.ws.nodes.filter((n) => n.type === 'task').length;
+    await archiveProject(store, await pidOf('MMR'), 'shelved');
+
+    expect(await rejectMessage(() => transitionSeed(store, 'MMR-s1', 'rejected', 'x'))).toMatch(
+      /archived/,
+    );
+    expect(await rejectMessage(() => updateSeed(store, 'MMR-s1', { title: 'x' }))).toMatch(
+      /archived/,
+    );
+    expect(await rejectMessage(() => promoteSeed(store, 'MMR-s1', { parent }))).toMatch(/archived/);
+
+    // Nothing written: the seed record is untouched, and no orphan task was created.
+    const rec = await store.seeds.load('MMR', 1);
+    expect(rec?.lifecycle).toBe('new');
+    expect(rec?.spawned).toEqual([]);
+    const after = deriveSet(await store.loadWorkingSet());
+    expect(after.ws.nodes.filter((n) => n.type === 'task').length).toBe(tasksBefore);
+  });
+
+  test('spawned in a since-archived board is hidden but settled for readiness (B1b/c)', async () => {
+    await seedbed('MMR');
+    const { phaseRef: othParent } = await seedbed('OTH');
+    await fileSeed(store, { kind: 'feature', project: 'MMR', requester: null, title: 's' });
+    // Spawn the work into OTH — a DIFFERENT board than the seed's own (MMR).
+    const promoted = await promoteSeed(store, 'MMR-s1', { parent: othParent });
+    const spawnedId = promoted.created ?? '';
+    expect(spawnedId).not.toBe('');
+    let seed = await getSeed(store, 'MMR-s1');
+    expect(seed.spawned).toEqual([spawnedId]);
+    expect(seed.readyToResolve).toBe(false); // live spawned work → not ready
+
+    // Archive OTH: the spawned ref reads as absent (hidden from the facet), but
+    // counts settled — so readyToResolve flips true, the attention signal surviving.
+    await archiveProject(store, await pidOf('OTH'), 'shelved');
+    seed = await getSeed(store, 'MMR-s1');
+    expect(seed.spawned).toEqual([]); // (c) archived-board ref hidden from display
+    expect(seed.readyToResolve).toBe(true); // (b) archived spawned is settled
+
+    // Reverts on unarchive.
+    await unarchiveProject(store, await pidOf('OTH'));
+    seed = await getSeed(store, 'MMR-s1');
+    expect(seed.spawned).toEqual([spawnedId]);
+    expect(seed.readyToResolve).toBe(false);
+  });
+
+  test('promote is idempotent — a repeated --link is a no-op (B2)', async () => {
+    const { phaseRef: parent } = await seedbed();
+    const existing = await createTask(store, { parentId: await idOf(parent), title: 'existing' });
+    const existingRef = `MMR-${String(existing.seq)}`;
+    await fileSeed(store, { kind: 'bug', project: 'MMR', requester: null, title: 's' });
+    const first = await promoteSeed(store, 'MMR-s1', { link: existingRef });
+    expect(first.seed.spawned).toEqual([existingRef]);
+    expect(first.seed.lifecycle).toBe('promoted');
+    // Re-run the same link: no duplicate ref, still one spawned, still promoted.
+    const again = await promoteSeed(store, 'MMR-s1', { link: existingRef });
+    expect(again.seed.spawned).toEqual([existingRef]);
+    expect(again.seed.lifecycle).toBe('promoted');
+  });
+
+  test('queue tiebreak on equal created_at orders by numeric seq, not lexical id (B6)', async () => {
+    await seedbed();
+    const at = '2026-07-08T00:00:00.000Z';
+    // Two same-timestamp seeds whose seqs sort differently lexically vs numerically.
+    for (const seq of [2, 10]) {
+      await client.newDoc({
+        body: '## Seed Description\n\n\n## History\n## Annotations\n',
+        confirm: true,
+        field_json: [
+          `type=${JSON.stringify('seed')}`,
+          `title=${JSON.stringify(`s${String(seq)}`)}`,
+          `project=${JSON.stringify('[[MMR]]')}`,
+          `kind=${JSON.stringify('idea')}`,
+          `lifecycle=${JSON.stringify('new')}`,
+          `created=${JSON.stringify(at)}`,
+          `updated_at=${JSON.stringify(at)}`,
+        ],
+        parents: true,
+        path: `MMR/seeds/MMR-s${String(seq)}.md`,
+      });
+    }
+    const live = await listSeeds(store, { project: 'MMR' });
+    expect(live.map((s) => s.id)).toEqual(['MMR-s2', 'MMR-s10']);
+  });
+
+  test('an archived requester is nulled on read; doctor warns rather than under-reports (B1d)', async () => {
+    await seedbed('MMR');
+    await seedbed('REQ');
+    await fileSeed(store, { kind: 'bug', project: 'MMR', requester: 'REQ', title: 's' });
+    let seed = await getSeed(store, 'MMR-s1');
+    expect(seed.requester).toBe('REQ');
+
+    await archiveProject(store, await pidOf('REQ'), 'shelved');
+    seed = await getSeed(store, 'MMR-s1');
+    expect(seed.requester).toBeNull(); // active-only visibility: archived → nulled on read
+
+    // Doctor must surface this as a distinct WARN — before B1d it read as a known
+    // project and reported nothing, a silent under-report of a value the reader nulls.
+    const { dropped } = validate(await readVaultGraph(client));
+    expect(dropped).toContainEqual({
+      kind: 'field',
+      rule: 'archived-requester',
+      stem: 'MMR-s1',
+      value: 'REQ',
+    });
+    expect(dropped).not.toContainEqual(
+      expect.objectContaining({ rule: 'unknown-requester', stem: 'MMR-s1' }),
+    );
   });
 
   test('the resolving seam nulls an unknown requester and prunes a dangling spawned ref', async () => {

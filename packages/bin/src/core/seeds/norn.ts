@@ -184,49 +184,102 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
     return { ...record, description };
   };
 
+  /** Apply a one-plan batch of ops, returning norn's `outcome` — `'applied'` on
+   * success, `'refused'` on a compare-and-set precondition miss (a concurrent
+   * write moved the doc), else `'failed'`/`'unrecognized'`. The caller decides
+   * whether an outcome is retryable ({@link germinate}) or terminal ({@link apply}). */
+  const applyOutcome = async (operations: MigrationOp[]): Promise<string> => {
+    const plan = migrationPlan({ generator: 'mimir', operations, vaultRoot });
+    const report = await client.applyPlan(plan, true);
+    const root = isStringRecord(report) && isStringRecord(report.report) ? report.report : report;
+    return isStringRecord(root) && typeof root.outcome === 'string' ? root.outcome : 'unrecognized';
+  };
+
   /** Apply a one-plan batch of ops, failing loud if norn did not fully apply it.
-   * Seed mutations are single-document and low-contention, so — unlike the node
-   * write path — there is no CAS drift replay: an unconfirmed apply is terminal. */
+   * The single-shot path (create/patch/transition): an unconfirmed apply is
+   * terminal, with no drift replay. */
   const apply = async (operations: MigrationOp[]): Promise<void> => {
     if (operations.length === 0) {
       return;
     }
-    const plan = migrationPlan({ generator: 'mimir', operations, vaultRoot });
-    const report = await client.applyPlan(plan, true);
-    const root = isStringRecord(report) && isStringRecord(report.report) ? report.report : report;
-    const outcome =
-      isStringRecord(root) && typeof root.outcome === 'string' ? root.outcome : undefined;
+    const outcome = await applyOutcome(operations);
     if (outcome !== 'applied') {
-      throw validation(
-        'the seed write did not complete',
-        `apply outcome: ${outcome ?? 'unrecognized'}`,
-      );
+      throw validation('the seed write did not complete', `apply outcome: ${outcome}`);
     }
   };
 
+  /** Choose add vs set on the RAW field PRESENCE, not the decoded length (matching
+   * writer.ts's `field in rawFm`): an absent field is ADDed; a present one —
+   * including a hand-written empty `spawned: []` — is SET, carrying the raw stored
+   * value as the CAS precondition. norn refuses to add a present field, so keying on
+   * the decoded (empty) length would wrongly ADD and be refused. */
+  const spawnedFieldOp = (
+    path: string,
+    fm: Record<string, unknown>,
+    spawned: string[],
+  ): MigrationOp =>
+    'spawned' in fm
+      ? setFrontmatter(path, 'spawned', spawned.map(wikilink), fm.spawned)
+      : addFrontmatter(path, 'spawned', spawned.map(wikilink));
+
   return {
-    async appendSpawned(key, seq, nodeStem) {
-      const doc = await loadDoc(key, seq);
-      if (doc === undefined) {
-        throw validation(`no seed ${stemOf(key, seq)}`);
+    async germinate(key, seq, nodeStem) {
+      // Up to two attempts: on a compare-and-set refusal (a concurrent write moved
+      // the doc) re-read once and retry against the now-current frontmatter (the
+      // store contract prescribes caller retry). A second refusal rethrows.
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const doc = await loadDoc(key, seq);
+        if (doc === undefined) {
+          throw validation(`no seed ${stemOf(key, seq)}`);
+        }
+        const { fm, record } = doc;
+        if (isTerminalSeed(record.lifecycle)) {
+          throw validation(
+            `seed ${stemOf(key, seq)} is ${record.lifecycle} — a terminal seed is frozen`,
+            'promote applies only to a new or promoted seed',
+          );
+        }
+        const alreadyLinked = record.spawned.includes(nodeStem);
+        const needsPromote = record.lifecycle === 'new';
+        // Idempotent: the stem is already linked AND the seed is already promoted →
+        // nothing to do (a retried promote cannot double-record).
+        if (alreadyLinked && !needsPromote) {
+          return;
+        }
+        const path = pathOf(key, seq);
+        const at = now();
+        // ONE plan: the (conditional) spawned append + the (conditional) lifecycle
+        // set with its History record + one updated_at — so the link and the
+        // lifecycle move can never diverge.
+        const operations: MigrationOp[] = [];
+        if (!alreadyLinked) {
+          operations.push(spawnedFieldOp(path, fm, [...record.spawned, nodeStem]));
+        }
+        if (needsPromote) {
+          operations.push(
+            setFrontmatter(path, 'lifecycle', 'promoted', fm.lifecycle),
+            appendToSection(
+              path,
+              HISTORY_HEADING,
+              renderHistoryRecord({
+                at,
+                from: record.lifecycle,
+                kind: 'lifecycle',
+                reason: `promoted — spawned ${nodeStem}`,
+                to: 'promoted',
+              }),
+            ),
+          );
+        }
+        operations.push(setFrontmatter(path, 'updated_at', at, fm.updated_at));
+        const outcome = await applyOutcome(operations);
+        if (outcome === 'applied') {
+          return;
+        }
+        if (outcome !== 'refused' || attempt === 1) {
+          throw validation('the seed write did not complete', `apply outcome: ${outcome}`);
+        }
       }
-      const { fm, record } = doc;
-      if (record.spawned.includes(nodeStem)) {
-        return; // idempotent — already linked
-      }
-      const path = pathOf(key, seq);
-      const spawned = [...record.spawned, nodeStem].map(wikilink);
-      const timestamp = now();
-      // Choose add vs set on the RAW field PRESENCE, not the decoded length
-      // (matching writer.ts's `field in rawFm`): an absent field is ADDed; a present
-      // one — including a hand-written empty `spawned: []` — is SET, carrying the raw
-      // stored value as the CAS precondition. norn refuses to add a present field, so
-      // keying on the decoded (empty) length would wrongly ADD and be refused.
-      const spawnedOp =
-        'spawned' in fm
-          ? setFrontmatter(path, 'spawned', spawned, fm.spawned)
-          : addFrontmatter(path, 'spawned', spawned);
-      await apply([spawnedOp, setFrontmatter(path, 'updated_at', timestamp, fm.updated_at)]);
     },
 
     async create(input: SeedCreate) {
