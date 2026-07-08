@@ -153,6 +153,18 @@ export type NornSnapshot = {
   nodeFm: ReadonlyMap<number, Record<string, unknown>>;
   /** Project id → its raw frontmatter record. */
   projectFm: ReadonlyMap<number, Record<string, unknown>>;
+  /**
+   * Node id → the `depends_on` refs the validator PRUNED on load — a dangling
+   * edge (points at no surviving node) or a cycle-closing edge broken by the
+   * acyclicity pass. The working set omits them, so a later `transact` that
+   * rewrites `depends_on` would regenerate the field from survivors alone and
+   * silently erase them from disk (MMR-186). The write path re-merges these so
+   * the pruned ref survives the write and `mimir doctor` keeps surfacing the
+   * corruption — repair stays the deliberate `doctor --fix` decision (MMR-183),
+   * per ADR 0017 (the reader drops, doctor reports, the write path does neither).
+   * Bare `KEY-seq` stems, as {@link nodeRelations} produces for a live edge.
+   */
+  prunedDependsOn: ReadonlyMap<number, readonly string[]>;
 };
 
 /** One node's raw relational refs — its stem, project `key`, and unresolved
@@ -339,11 +351,31 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   // missing or foreign and nulls a foreign priority/size, so the build below can no
   // longer throw on vault data. Every SURVIVING node has a usable lifecycle/hold;
   // a foreign priority/size is nulled by {@link enumFieldOrNull} (the node stays).
-  const validRefs = validate({
+  const validated = validate({
     nodes: rawNodes.map((n) => nodeRefsOf(n.fm, n.key, n.stem, n.type)),
     projectKeys: projectDocs.map((p) => p.key),
-  }).nodes;
+  });
+  const validRefs = validated.nodes;
   const validByStem = new Map(validRefs.map((r) => [r.stem, r]));
+
+  // Index the pruned `depends_on` refs by stem so the write path can re-merge
+  // them (MMR-186). Both drop rules point away from a surviving edge — a
+  // dangling ref (no target) or a cycle-closing edge the acyclicity pass cut —
+  // and both are corruption doctor surfaces; a field rewrite must preserve
+  // either rather than silently erasing it. `parent` drops are deliberately NOT
+  // carried: `parent` is single-valued and only a `move_node` dirties it, so the
+  // overwrite is the operator's explicit intent, recorded by the move's History.
+  const prunedDependsOnByStem = new Map<string, string[]>();
+  for (const drop of validated.dropped) {
+    if (drop.rule === 'dangling-depends-on' || drop.rule === 'cycle-depends-on') {
+      const refs = prunedDependsOnByStem.get(drop.stem);
+      if (refs === undefined) {
+        prunedDependsOnByStem.set(drop.stem, [drop.ref]);
+      } else {
+        refs.push(drop.ref);
+      }
+    }
+  }
   const survivingNodes = rawNodes.filter((n) => validByStem.has(n.stem));
 
   // Synthetic-int allocation — stable and deterministic. Projects key-ordered,
@@ -393,9 +425,14 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   const nodeTags = new Map<number, NodeTag[]>();
   const nodeFm = new Map<number, Record<string, unknown>>();
   const projectFm = new Map<number, Record<string, unknown>>();
+  const prunedDependsOn = new Map<number, readonly string[]>();
   projectDocs.forEach((p, i) => projectFm.set(i + 1, p.fm));
   for (const n of nodeDocs) {
     nodeFm.set(n.id, n.fm);
+    const pruned = prunedDependsOnByStem.get(n.stem);
+    if (pruned !== undefined) {
+      prunedDependsOn.set(n.id, pruned);
+    }
     // The validator already vetted this node's referential edges (its project is
     // present, parent/depends_on resolve to survivors), so the lookups below
     // cannot miss on vault data. A miss here would mean the validator and this
@@ -524,6 +561,7 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   return {
     nodeFm,
     projectFm,
+    prunedDependsOn,
     workingSet: { edges, nodeTags, nodes, projectTags, projects },
   };
 }
