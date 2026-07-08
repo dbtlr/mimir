@@ -3,15 +3,15 @@ import type { SeedKind, SeedLifecycle } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import type { NornClient, NornDocument } from '../../norn/client';
-import { migrationPlan } from '../../norn/plan';
+import { collapse, pathAndSections } from '../../norn/decode';
 import type { MigrationOp } from '../../norn/plan';
 import {
   addFrontmatter,
   appendToSection,
+  migrationPlan,
   replaceSection,
   setFrontmatter,
 } from '../../norn/plan';
-import { collapse, pathAndSections } from '../../norn/decode';
 import { validation } from '../errors';
 import {
   HISTORY_HEADING,
@@ -195,8 +195,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
     }
     const plan = migrationPlan({ generator: 'mimir', operations, vaultRoot });
     const report = await client.applyPlan(plan, true);
-    const root =
-      isStringRecord(report) && isStringRecord(report.report) ? report.report : report;
+    const root = isStringRecord(report) && isStringRecord(report.report) ? report.report : report;
     const outcome =
       isStringRecord(root) && typeof root.outcome === 'string' ? root.outcome : undefined;
     if (outcome !== 'applied') {
@@ -317,7 +316,11 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
       }
       if (patch.description !== undefined) {
         operations.push(
-          replaceSection(path, SEED_DESCRIPTION_HEADING, renderDescriptionSection(patch.description)),
+          replaceSection(
+            path,
+            SEED_DESCRIPTION_HEADING,
+            renderDescriptionSection(patch.description),
+          ),
         );
       }
       if (operations.length === 0) {

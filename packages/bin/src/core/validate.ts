@@ -20,10 +20,17 @@
  * field corruption the loader once threw on is now a {@link Drop}, so the tolerant
  * reader (MMR-181) builds only over survivors and never fails loud on vault data.
  */
-import { HOLD_VALUES, LIFECYCLE_VALUES, PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
+import {
+  HOLD_VALUES,
+  LIFECYCLE_VALUES,
+  PRIORITY_VALUES,
+  SEED_KIND_VALUES,
+  SEED_LIFECYCLE_VALUES,
+  SIZE_VALUES,
+} from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
-import { parseId } from './ids';
+import { parseId, parseSeedRef } from './ids';
 import type { NodeRefs, VaultGraph } from './store-norn';
 
 /**
@@ -46,7 +53,23 @@ export type Drop =
   | { kind: 'edge'; rule: 'cycle-depends-on'; stem: string; ref: string }
   | { kind: 'field'; rule: 'invalid-priority'; stem: string; value: string }
   | { kind: 'field'; rule: 'invalid-size'; stem: string; value: string }
-  | { kind: 'field'; rule: 'invalid-open-ended'; stem: string; value: string };
+  | { kind: 'field'; rule: 'invalid-open-ended'; stem: string; value: string }
+  // Seeds (MMR-244). kind/lifecycle are load-bearing → the seed record drops
+  // (hidden on read); requester nulls the FIELD (seed survives); a dangling
+  // `spawned` edge is pruned (seed survives); a task `upstream` that is malformed
+  // grammar or dangles nulls that FIELD (task survives).
+  | { kind: 'node'; rule: 'invalid-seed-kind'; stem: string; key: string; value: string | null }
+  | {
+      kind: 'node';
+      rule: 'invalid-seed-lifecycle';
+      stem: string;
+      key: string;
+      value: string | null;
+    }
+  | { kind: 'field'; rule: 'unknown-requester'; stem: string; value: string }
+  | { kind: 'edge'; rule: 'dangling-spawned'; stem: string; ref: string }
+  | { kind: 'field'; rule: 'malformed-upstream'; stem: string; value: string }
+  | { kind: 'field'; rule: 'dangling-upstream'; stem: string; value: string };
 
 /**
  * The result of validation: the valid, self-consistent subgraph the reader
@@ -236,6 +259,68 @@ export function validate(graph: VaultGraph): ValidatedGraph {
   // are independent, parent first — the drop order within the cycle pass.
   breakCycles(nodes, 'parent', dropped);
   breakCycles(nodes, 'depends-on', dropped);
+
+  // Pass 4: seeds + task upstream (MMR-244). Runs ONLY when the caller loaded
+  // seeds (`graph.seeds` present) — the node-only resolving loader and the
+  // transitions feed pass none, so their validate is unchanged. Tiered like the
+  // node field pass: kind/lifecycle are load-bearing (a foreign/missing value
+  // drops the seed RECORD, hidden on read); `requester` nulls the FIELD (seed
+  // survives); a dangling `spawned` prunes that EDGE; a task `upstream` that is
+  // malformed grammar or resolves to no surviving seed nulls the FIELD.
+  if (graph.seeds !== undefined) {
+    const seedSurvivors = new Set<string>();
+    for (const seed of graph.seeds) {
+      if (!member(seed.kind, SEED_KIND_VALUES)) {
+        dropped.push({
+          key: seed.key,
+          kind: 'node',
+          rule: 'invalid-seed-kind',
+          stem: seed.stem,
+          value: seed.kind === undefined ? null : show(seed.kind),
+        });
+        continue;
+      }
+      if (!member(seed.lifecycle, SEED_LIFECYCLE_VALUES)) {
+        dropped.push({
+          key: seed.key,
+          kind: 'node',
+          rule: 'invalid-seed-lifecycle',
+          stem: seed.stem,
+          value: seed.lifecycle === undefined ? null : show(seed.lifecycle),
+        });
+        continue;
+      }
+      // requester (field): a present, non-empty value must name a known project.
+      if (seed.requester !== null && seed.requester !== '' && !present.has(seed.requester)) {
+        dropped.push({
+          kind: 'field',
+          rule: 'unknown-requester',
+          stem: seed.stem,
+          value: seed.requester,
+        });
+      }
+      // spawned (edge): each ref must resolve to a surviving work node.
+      for (const ref of seed.spawned) {
+        if (!survivors.has(ref)) {
+          dropped.push({ kind: 'edge', ref, rule: 'dangling-spawned', stem: seed.stem });
+        }
+      }
+      seedSurvivors.add(seed.stem);
+    }
+    // task upstream (field): only a would-be-surviving task emits noise; a
+    // malformed grammar or a dangling (no surviving seed) upstream nulls the field.
+    for (const node of kept) {
+      const up = node.upstream;
+      if (up == null || up === '') {
+        continue;
+      }
+      if (parseSeedRef(up) === null) {
+        dropped.push({ kind: 'field', rule: 'malformed-upstream', stem: node.stem, value: up });
+      } else if (!seedSurvivors.has(up)) {
+        dropped.push({ kind: 'field', rule: 'dangling-upstream', stem: node.stem, value: up });
+      }
+    }
+  }
 
   return { dropped, nodes, projectKeys: graph.projectKeys };
 }

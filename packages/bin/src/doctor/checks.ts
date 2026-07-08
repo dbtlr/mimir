@@ -158,7 +158,13 @@ export const crlfCheck: Diagnostic = {
 };
 
 /** The referential/field checks that render {@link Drop} entries. */
-type DropCheckName = 'dangling-refs' | 'missing-project' | 'acyclicity' | 'field-validity';
+type DropCheckName =
+  | 'dangling-refs'
+  | 'missing-project'
+  | 'acyclicity'
+  | 'field-validity'
+  | 'seed-validity'
+  | 'upstream-refs';
 
 /**
  * The check that renders each {@link Drop} rule — the drop→check partition made
@@ -177,12 +183,19 @@ export const RULE_OWNER: Record<Drop['rule'], DropCheckName> = {
   'cycle-parent': 'acyclicity',
   'dangling-depends-on': 'dangling-refs',
   'dangling-parent': 'dangling-refs',
+  // Seeds (MMR-244): seed-doc rules → seed-validity, task upstream → upstream-refs.
+  'dangling-spawned': 'seed-validity',
+  'dangling-upstream': 'upstream-refs',
   'invalid-hold': 'field-validity',
   'invalid-lifecycle': 'field-validity',
   'invalid-open-ended': 'field-validity',
   'invalid-priority': 'field-validity',
+  'invalid-seed-kind': 'seed-validity',
+  'invalid-seed-lifecycle': 'seed-validity',
   'invalid-size': 'field-validity',
+  'malformed-upstream': 'upstream-refs',
   'missing-project': 'missing-project',
+  'unknown-requester': 'seed-validity',
 };
 
 /** Does `drop` belong to the named check? The single routing authority the
@@ -554,6 +567,102 @@ export const sectionResolutionCheck: Diagnostic = {
   title: 'Body-section resolution',
 };
 
+/**
+ * Seed validity (MMR-244): a seed document's `kind`/`lifecycle`/`requester`/
+ * `spawned`. The reader tolerates all four (the tiering lives in `validate`): a
+ * foreign/missing `kind` or `lifecycle` is load-bearing and drops the whole seed
+ * RECORD (hidden on read); an unknown `requester` nulls just that field; a
+ * `spawned` ref that resolves to no surviving work node prunes that edge. A thin
+ * adapter over the shared validator, rendering the four seed-doc rules — one
+ * detector, so it can't drift from the read. `error` for a dropped record or
+ * pruned edge, `warn` for a nulled requester field; whole-vault (the graph is
+ * unscoped, like its referential siblings).
+ */
+export const seedValidityCheck: Diagnostic = {
+  name: 'seed-validity',
+  run: (ctx) => {
+    const findings: DoctorFinding[] = [];
+    for (const drop of ctx.dropped) {
+      if (!ownsDrop(drop, 'seed-validity')) {
+        continue;
+      }
+      if (drop.kind === 'node' && drop.rule === 'invalid-seed-kind') {
+        findings.push({
+          check: 'seed-validity',
+          message:
+            drop.value === null
+              ? 'seed dropped — missing kind'
+              : `seed dropped — invalid kind "${drop.value}"`,
+          node: drop.stem,
+          severity: 'error',
+          where: 'frontmatter · kind',
+        });
+      } else if (drop.kind === 'node' && drop.rule === 'invalid-seed-lifecycle') {
+        findings.push({
+          check: 'seed-validity',
+          message:
+            drop.value === null
+              ? 'seed dropped — missing lifecycle'
+              : `seed dropped — invalid lifecycle "${drop.value}"`,
+          node: drop.stem,
+          severity: 'error',
+          where: 'frontmatter · lifecycle',
+        });
+      } else if (drop.kind === 'field' && drop.rule === 'unknown-requester') {
+        findings.push({
+          check: 'seed-validity',
+          message: `requester ${drop.value} is not a known project — field nulled on read (seed kept)`,
+          node: drop.stem,
+          severity: 'warn',
+          where: 'frontmatter · requester',
+        });
+      } else if (drop.kind === 'edge' && drop.rule === 'dangling-spawned') {
+        findings.push({
+          check: 'seed-validity',
+          message: `spawned ${drop.ref} resolves to no node in the vault — the reference is dropped on read`,
+          node: drop.stem,
+          severity: 'error',
+          where: 'frontmatter · spawned',
+        });
+      }
+    }
+    return findings;
+  },
+  title: 'Seed field + reference validity',
+};
+
+/**
+ * Task `upstream` references (MMR-244): a task whose `upstream` seed pointer is
+ * malformed grammar (not a `KEY-sN`) or dangles (resolves to no surviving seed).
+ * The reader tolerates both — a bad `upstream` nulls just that field, the task
+ * loads — so it is data lost on read, not a failed load. A thin adapter over the
+ * shared validator's two `*-upstream` rules; always an `error`, whole-vault.
+ */
+export const upstreamRefCheck: Diagnostic = {
+  name: 'upstream-refs',
+  run: (ctx) => {
+    const findings: DoctorFinding[] = [];
+    for (const drop of ctx.dropped) {
+      if (!ownsDrop(drop, 'upstream-refs') || drop.kind !== 'field') {
+        continue;
+      }
+      const message =
+        drop.rule === 'malformed-upstream'
+          ? `upstream "${drop.value}" is not a seed id (KEY-sN) — field nulled on read`
+          : `upstream ${drop.value} resolves to no seed in the vault — field nulled on read`;
+      findings.push({
+        check: 'upstream-refs',
+        message,
+        node: drop.stem,
+        severity: 'error',
+        where: 'frontmatter · upstream',
+      });
+    }
+    return findings;
+  },
+  title: 'Task → seed (upstream) references',
+};
+
 /** The registered checks `mimir doctor` runs, in report order. */
 export const CHECKS: readonly Diagnostic[] = [
   bodySectionCheck,
@@ -562,6 +671,8 @@ export const CHECKS: readonly Diagnostic[] = [
   missingProjectCheck,
   acyclicityCheck,
   fieldValidityCheck,
+  seedValidityCheck,
+  upstreamRefCheck,
   frontmatterCheck,
   stemProjectCheck,
   sectionResolutionCheck,

@@ -7,11 +7,9 @@ import { bunExec } from '../../exec';
 import { NornClient } from '../../norn/client';
 import { pathAndSections } from '../../norn/decode';
 import { converge } from '../../vault/converge';
-import {
-  HISTORY_HEADING,
-  parseHistorySection,
-  sectionBody,
-} from '../history-codec';
+import { readVaultGraph } from '../store-norn';
+import { validate } from '../validate';
+import { HISTORY_HEADING, parseHistorySection, sectionBody } from '../history-codec';
 import { createNornSeedStore } from './norn';
 import type { SeedStore } from './store';
 
@@ -21,6 +19,16 @@ import type { SeedStore } from './store';
  * `KEY/seeds/KEY-sN.md`, sibling of `KEY/artifacts/`.
  */
 const NORN = Bun.which('norn') !== null;
+
+/** Run `fn`, returning the rejection's message; throws if it did not reject. */
+async function rejectMessage(fn: () => Promise<unknown>): Promise<string> {
+  try {
+    await fn();
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  throw new Error('expected a rejection, but the call resolved');
+}
 
 let root: string;
 let client: NornClient;
@@ -84,25 +92,49 @@ describe.skipIf(!NORN)('norn seed store', () => {
   });
 
   test('listForProject returns the inventory seq-ascending', async () => {
-    await seeds.create({ description: null, key: 'MMR', kind: 'idea', requester: null, title: 'a' });
-    await seeds.create({ description: null, key: 'MMR', kind: 'idea', requester: null, title: 'b' });
+    await seeds.create({
+      description: null,
+      key: 'MMR',
+      kind: 'idea',
+      requester: null,
+      title: 'a',
+    });
+    await seeds.create({
+      description: null,
+      key: 'MMR',
+      kind: 'idea',
+      requester: null,
+      title: 'b',
+    });
     const list = await seeds.listForProject('MMR');
     expect(list.map((s) => s.seq)).toEqual([1, 2]);
     expect(list.map((s) => s.title)).toEqual(['a', 'b']);
   });
 
   test('patch edits a live seed and refuses a terminal one', async () => {
-    await seeds.create({ description: 'old', key: 'MMR', kind: 'idea', requester: null, title: 'x' });
+    await seeds.create({
+      description: 'old',
+      key: 'MMR',
+      kind: 'idea',
+      requester: null,
+      title: 'x',
+    });
     await seeds.patch('MMR', 1, { description: 'new prose', kind: 'bug', title: 'renamed' });
     const patched = await seeds.load('MMR', 1, { content: true });
     expect(patched).toMatchObject({ description: 'new prose', kind: 'bug', title: 'renamed' });
 
     await seeds.transition('MMR', 1, 'resolved', 'already fixed');
-    await expect(seeds.patch('MMR', 1, { title: 'nope' })).rejects.toThrow(/frozen/);
+    expect(await rejectMessage(() => seeds.patch('MMR', 1, { title: 'nope' }))).toMatch(/frozen/);
   });
 
   test('transition records History and enforces the lifecycle machine', async () => {
-    await seeds.create({ description: null, key: 'MMR', kind: 'feature', requester: null, title: 't' });
+    await seeds.create({
+      description: null,
+      key: 'MMR',
+      kind: 'feature',
+      requester: null,
+      title: 't',
+    });
     await seeds.transition('MMR', 1, 'promoted', 'worth cultivating');
     await seeds.transition('MMR', 1, 'resolved', 'shipped');
 
@@ -113,21 +145,49 @@ describe.skipIf(!NORN)('norn seed store', () => {
     const raw = pathAndSections(records[0])?.sections[HISTORY_HEADING] ?? '';
     const history = parseHistorySection(sectionBody(raw));
     expect(history).toEqual([
-      { at: expect.any(String), from: 'new', kind: 'lifecycle', reason: 'worth cultivating', to: 'promoted' },
-      { at: expect.any(String), from: 'promoted', kind: 'lifecycle', reason: 'shipped', to: 'resolved' },
+      {
+        at: expect.any(String),
+        from: 'new',
+        kind: 'lifecycle',
+        reason: 'worth cultivating',
+        to: 'promoted',
+      },
+      {
+        at: expect.any(String),
+        from: 'promoted',
+        kind: 'lifecycle',
+        reason: 'shipped',
+        to: 'resolved',
+      },
     ]);
 
     // A terminal seed refuses further transitions; an illegal edge is refused too.
-    await expect(seeds.transition('MMR', 1, 'rejected', 'x')).rejects.toThrow(/cannot move/);
+    expect(await rejectMessage(() => seeds.transition('MMR', 1, 'rejected', 'x'))).toMatch(
+      /cannot move/,
+    );
   });
 
   test('an illegal edge from new is refused (new → new)', async () => {
-    await seeds.create({ description: null, key: 'MMR', kind: 'idea', requester: null, title: 'q' });
-    await expect(seeds.transition('MMR', 1, 'new', 'x')).rejects.toThrow(/cannot move/);
+    await seeds.create({
+      description: null,
+      key: 'MMR',
+      kind: 'idea',
+      requester: null,
+      title: 'q',
+    });
+    expect(await rejectMessage(() => seeds.transition('MMR', 1, 'new', 'x'))).toMatch(
+      /cannot move/,
+    );
   });
 
   test('appendSpawned links work nodes idempotently and bumps nothing twice', async () => {
-    await seeds.create({ description: null, key: 'MMR', kind: 'feature', requester: null, title: 's' });
+    await seeds.create({
+      description: null,
+      key: 'MMR',
+      kind: 'feature',
+      requester: null,
+      title: 's',
+    });
     await seeds.appendSpawned('MMR', 1, 'MMR-42');
     await seeds.appendSpawned('MMR', 1, 'MMR-42'); // idempotent
     await seeds.appendSpawned('MMR', 1, 'MMR-43');
@@ -135,10 +195,44 @@ describe.skipIf(!NORN)('norn seed store', () => {
     expect(loaded?.spawned).toEqual(['MMR-42', 'MMR-43']);
   });
 
+  test('readVaultGraph surfaces seeds so validate/doctor drops a foreign-kind seed', async () => {
+    // A valid seed via the store, plus a hand-corrupt one written raw (the store's
+    // typed API can't produce a foreign kind) — readVaultGraph must load both.
+    await seeds.create({ description: null, key: 'MMR', kind: 'idea', requester: null, title: 'ok' });
+    await client.newDoc({
+      body: '## Seed Description\n\n\n## History\n## Annotations\n',
+      confirm: true,
+      field_json: [
+        `type=${JSON.stringify('seed')}`,
+        `title=${JSON.stringify('bad')}`,
+        `project=${JSON.stringify('[[MMR]]')}`,
+        `kind=${JSON.stringify('chore')}`,
+        `lifecycle=${JSON.stringify('new')}`,
+        `created=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
+        `updated_at=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
+      ],
+      parents: true,
+      path: 'MMR/seeds/MMR-s2.md',
+    });
+
+    const graph = await readVaultGraph(client);
+    expect(graph.seeds?.map((s) => s.stem).toSorted()).toEqual(['MMR-s1', 'MMR-s2']);
+    const { dropped } = validate(graph);
+    expect(dropped).toContainEqual({
+      key: 'MMR',
+      kind: 'node',
+      rule: 'invalid-seed-kind',
+      stem: 'MMR-s2',
+      value: 'chore',
+    });
+  });
+
   test('mutations on an absent seed fail loud', async () => {
-    await expect(seeds.patch('MMR', 99, { title: 'x' })).rejects.toThrow(/no seed/);
-    await expect(seeds.transition('MMR', 99, 'promoted', 'x')).rejects.toThrow(/no seed/);
-    await expect(seeds.appendSpawned('MMR', 99, 'MMR-1')).rejects.toThrow(/no seed/);
+    expect(await rejectMessage(() => seeds.patch('MMR', 99, { title: 'x' }))).toMatch(/no seed/);
+    expect(await rejectMessage(() => seeds.transition('MMR', 99, 'promoted', 'x'))).toMatch(
+      /no seed/,
+    );
+    expect(await rejectMessage(() => seeds.appendSpawned('MMR', 99, 'MMR-1'))).toMatch(/no seed/);
     expect(await seeds.load('MMR', 99)).toBeUndefined();
   });
 });

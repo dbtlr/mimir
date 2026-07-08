@@ -85,6 +85,8 @@ export type NewNodeRecord = {
   size?: Size | null;
   rank?: number | null;
   external_ref?: string | null;
+  /** The requester-side seed pointer (`KEY-sN`), nullable (MMR-244). */
+  upstream?: string | null;
   // phase-only
   target?: string | null;
   // container-only (phase/initiative) — MMR-204
@@ -105,6 +107,8 @@ export type NodePatch = {
   size?: Size | null;
   rank?: number | null;
   external_ref?: string | null;
+  /** The requester-side seed pointer (`KEY-sN`), nullable (MMR-244). */
+  upstream?: string | null;
   completed_at?: string | null;
   target?: string | null;
   // container-only (phase/initiative) — MMR-204

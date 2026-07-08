@@ -5,7 +5,7 @@ import { isMember } from '@mimir/helpers';
 import type { NornClient, NornDocument } from '../norn/client';
 import { collapse, stemOf, stringList } from '../norn/decode';
 import { invariant } from './errors';
-import { parseId } from './ids';
+import { parseId, parseSeedRef } from './ids';
 import type { Dependency, Node, Project } from './model';
 import type { NodeTag, WorkingSet } from './store';
 import { validate } from './validate';
@@ -181,6 +181,10 @@ export type NodeRefs = {
   key: string;
   parent: string | null;
   dependsOn: string[];
+  /** A task's `upstream` seed pointer, collapsed (MMR-244) — null when absent.
+   * Optional so referential-only fixtures needn't set it; validated only when the
+   * graph carries {@link VaultGraph.seeds}. */
+  upstream?: string | null;
   type?: NodeType;
   raw?: {
     lifecycle: unknown;
@@ -200,6 +204,19 @@ export type NodeRefs = {
  * ignore it. */
 export type ProjectDeclaration = { stem: string; project: string | null };
 
+/** One seed's raw referential inputs (MMR-244): its `KEY-sN` stem + project key,
+ * the raw `kind`/`lifecycle` frontmatter ({@link validate} owns legality), the
+ * collapsed `requester` project key (null when absent), and the collapsed
+ * `spawned` work-node stems. The validator vets these for `mimir doctor`. */
+export type SeedRefs = {
+  stem: string;
+  key: string;
+  kind: unknown;
+  lifecycle: unknown;
+  requester: string | null;
+  spawned: string[];
+};
+
 /**
  * The vault's relational graph, read raw and unresolved: the valid nodes' refs
  * plus the set of project `key`s present. Both `mimir doctor` referential checks
@@ -213,6 +230,11 @@ export type VaultGraph = {
    * fixtures) don't need it; {@link readVaultGraph}/{@link vaultGraphFromDocs}
    * always populate it, off the same read the referential passes use. */
   declarations?: readonly ProjectDeclaration[];
+  /** The vault's seeds (MMR-244), when the caller loaded them. Present (possibly
+   * empty) enables the seed passes in {@link validate} — seed kind/lifecycle,
+   * `requester`, `spawned`, and task `upstream` — and its absence skips them
+   * entirely (the node-only resolving loader and the transitions feed pass none). */
+  seeds?: readonly SeedRefs[];
 };
 
 /**
@@ -243,6 +265,9 @@ function nodeRefsOf(
     },
     stem,
     type,
+    // The `upstream` seed pointer (MMR-244), collapsed so an accidental wikilink
+    // form still resolves; validated only when the graph carries `seeds`.
+    upstream: collapse(fm.upstream),
   };
 }
 
@@ -261,8 +286,11 @@ function nodeRefsOf(
  * either's stray ref would flag a vault the loader loads fine.
  */
 export async function readVaultGraph(client: NornClient): Promise<VaultGraph> {
+  // Includes seeds (MMR-244) so the seed passes run: `mimir doctor` reports seed
+  // kind/lifecycle, unknown `requester`, dangling `spawned`, and task `upstream`.
   return vaultGraphFromDocs(
-    await client.find({ in: ['type:project,task,phase,initiative'], no_limit: true }),
+    await client.find({ in: ['type:project,task,phase,initiative,seed'], no_limit: true }),
+    { withSeeds: true },
   );
 }
 
@@ -273,10 +301,18 @@ export async function readVaultGraph(client: NornClient): Promise<VaultGraph> {
  * issuing a second identical query. Partitions exactly as the resolving loader
  * does; see {@link readVaultGraph}.
  */
-export function vaultGraphFromDocs(docs: NornDocument[]): VaultGraph {
+export function vaultGraphFromDocs(
+  docs: NornDocument[],
+  opts?: { withSeeds?: boolean },
+): VaultGraph {
   const nodes: NodeRefs[] = [];
   const projectKeys: string[] = [];
   const declarations: ProjectDeclaration[] = [];
+  // Only populated (and only made present on the graph) when the caller asked —
+  // the node-only resolving loader and the transitions feed pass no seeds, so the
+  // seed/upstream passes in `validate` stay off for them (MMR-244).
+  const seeds: SeedRefs[] = [];
+  const withSeeds = opts?.withSeeds === true;
   for (const doc of docs) {
     const fm = doc.frontmatter;
     if (fm === undefined) {
@@ -294,6 +330,21 @@ export function vaultGraphFromDocs(docs: NornDocument[]): VaultGraph {
       declarations.push({ project: collapse(fm.project), stem });
       continue;
     }
+    if (withSeeds && type === 'seed') {
+      const seedRef = parseSeedRef(stem);
+      if (seedRef !== null) {
+        seeds.push({
+          key: seedRef.key,
+          kind: fm.kind,
+          lifecycle: fm.lifecycle,
+          requester: collapse(fm.requester),
+          spawned: linkStems(fm.spawned),
+          stem,
+        });
+        declarations.push({ project: collapse(fm.project), stem });
+      }
+      continue;
+    }
     const ref = parseId(stem);
     if ((type !== 'task' && type !== 'phase' && type !== 'initiative') || ref === null) {
       continue;
@@ -301,7 +352,7 @@ export function vaultGraphFromDocs(docs: NornDocument[]): VaultGraph {
     nodes.push(nodeRefsOf(fm, ref.key, stem, type));
     declarations.push({ project: collapse(fm.project), stem });
   }
-  return { declarations, nodes, projectKeys };
+  return { declarations, nodes, projectKeys, ...(withSeeds ? { seeds } : {}) };
 }
 
 export async function loadWorkingSetOverNorn(client: NornClient): Promise<WorkingSet> {
@@ -514,6 +565,10 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       title: str(n.fm.title) ?? '',
       type: n.type,
       updated_at: str(n.fm.updated_at) ?? '',
+      // The requester-side seed pointer (MMR-244), task-only like `external_ref`;
+      // read tolerantly (a foreign/malformed value the validator flags reads as the
+      // string, or null when absent). The validator owns malformed/dangling drops.
+      upstream: isTask ? str(n.fm.upstream) : null,
     });
 
     // The validator already dropped dangling prerequisites, self-dependencies, and

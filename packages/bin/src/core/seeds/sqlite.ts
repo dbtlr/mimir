@@ -9,13 +9,14 @@ import type { SeedStore } from './store';
  * dropping seed state on the floor. The `Store.seeds` seam still requires an
  * implementation on both backends; this satisfies the type while refusing use.
  */
+const refuse = (): never => {
+  throw validation(
+    'seeds require the norn backend',
+    'the SQLite backend does not store seeds (MMR-234); run against the vault',
+  );
+};
+
 export function createSqliteSeedStore(): SeedStore {
-  const refuse = (): never => {
-    throw validation(
-      'seeds require the norn backend',
-      'the SQLite backend does not store seeds (MMR-234); run against the vault',
-    );
-  };
   return {
     appendSpawned: () => refuse(),
     create: () => refuse(),

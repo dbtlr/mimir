@@ -2,7 +2,6 @@ import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import { createNornArtifactStore } from '../core/artifacts';
 import { createNornBodySectionStore } from '../core/body-sections';
-import { createNornSeedStore } from '../core/seeds';
 import { invariant, validation } from '../core/errors';
 import {
   ANNOTATIONS_HEADING,
@@ -16,6 +15,7 @@ import {
 } from '../core/history-codec';
 import { parseId, renderId } from '../core/ids';
 import type { Dependency, Node, Project } from '../core/model';
+import { createNornSeedStore } from '../core/seeds';
 import type {
   NewAnnotationRecord,
   NewTransitionRecord,
@@ -369,6 +369,7 @@ class Accumulator {
     size?: Node['size'];
     rank?: number | null;
     external_ref?: string | null;
+    upstream?: string | null;
     target?: string | null;
     open_ended?: boolean | null;
   }): Promise<Node> {
@@ -398,6 +399,7 @@ class Accumulator {
       title: row.title,
       type: row.type,
       updated_at: timestamp,
+      upstream: row.upstream ?? null,
     };
     this.nodes.set(node.id, node);
     this.creates.push({

@@ -21,10 +21,22 @@ function dropOf(rule: Drop['rule']): Drop {
   if (rule === 'missing-project') {
     return { key: 'MMR', kind: 'node', rule, stem };
   }
-  if (rule === 'invalid-lifecycle' || rule === 'invalid-hold') {
+  if (
+    rule === 'invalid-lifecycle' ||
+    rule === 'invalid-hold' ||
+    rule === 'invalid-seed-kind' ||
+    rule === 'invalid-seed-lifecycle'
+  ) {
     return { key: 'MMR', kind: 'node', rule, stem, value: 'bogus' };
   }
-  if (rule === 'invalid-priority' || rule === 'invalid-size' || rule === 'invalid-open-ended') {
+  if (
+    rule === 'invalid-priority' ||
+    rule === 'invalid-size' ||
+    rule === 'invalid-open-ended' ||
+    rule === 'unknown-requester' ||
+    rule === 'malformed-upstream' ||
+    rule === 'dangling-upstream'
+  ) {
     return { kind: 'field', rule, stem, value: 'bogus' };
   }
   // The four edge rules: dangling / cycle × parent / depends-on. A new non-edge

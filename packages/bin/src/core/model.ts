@@ -52,6 +52,10 @@ export type Node = {
   size: Size | null;
   rank: number | null;
   external_ref: string | null;
+  /** The requester-side pointer at a seed (`KEY-sN`), nullable (MMR-244). Reference
+   * only in v1 (explicit block/unblock on the requester task); a gating cross-project
+   * dependency is deferred. Round-trips through the vault like `external_ref`. */
+  upstream: string | null;
   completed_at: string | null;
 
   // phase-only
