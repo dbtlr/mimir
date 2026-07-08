@@ -2,15 +2,27 @@ import { expect, test } from 'bun:test';
 
 import type { NornClient } from '../../norn/client';
 import { renderAnnotationRecord, renderHistoryRecord, renderNodeBody } from '../history-codec';
+import { sliceSection } from '../testing';
 import { createNornBodySectionStore, readAllNodeDocs } from './norn';
 
-/** A fake client whose `get` returns one document with the given `.body`. */
+/** A fake client whose `getSections` serves one document's named sections, sliced
+ * from the given `.body` the way norn does (heading line included; an absent
+ * heading warn-and-omitted). `undefined` models a missing document (no record). */
 function clientWithBody(body: string | undefined): NornClient {
   return {
-    get: (targets: string[], col?: string) => {
-      expect(col).toBe('.body');
+    getSections: (targets: string[], headings: string[]) => {
       expect(targets).toEqual(['MMR-9']);
-      return Promise.resolve(body === undefined ? [] : [{ body, path: 'MMR/MMR-9.md' }]);
+      if (body === undefined) {
+        return Promise.resolve([]);
+      }
+      const sections: Record<string, string> = {};
+      for (const heading of headings) {
+        const section = sliceSection(body, heading);
+        if (section !== '') {
+          sections[heading] = section;
+        }
+      }
+      return Promise.resolve([{ path: 'MMR/MMR-9.md', sections }]);
     },
   } as unknown as NornClient;
 }
@@ -32,12 +44,12 @@ function nodeBody(): string {
     .replace('## Annotations\n', `## Annotations\n${renderAnnotationRecord(ANNOTATION)}`);
 }
 
-test('readHistory slices + parses the ## History section from the document body', async () => {
+test('readHistory reads + parses the ## History section natively', async () => {
   const store = createNornBodySectionStore(clientWithBody(nodeBody()));
   expect(await store.readHistory(9, 'MMR-9')).toEqual([HISTORY]);
 });
 
-test('readAnnotations slices + parses the ## Annotations section from the document body', async () => {
+test('readAnnotations reads + parses the ## Annotations section natively', async () => {
   const store = createNornBodySectionStore(clientWithBody(nodeBody()));
   expect(await store.readAnnotations(9, 'MMR-9')).toEqual([ANNOTATION]);
 });
@@ -54,16 +66,41 @@ test('a missing document (no records returned) reads back empty, not a throw', a
   expect(await store.readAnnotations(9, 'MMR-9')).toEqual([]);
 });
 
-test('readSections fetches the document body once for all requested facets (MMR-164 F6)', async () => {
-  // A detail `get` wanting description + annotations + history must cost ONE
-  // `.body` fetch, not three — the whole point of the batched read.
-  let gets = 0;
-  const client = {
-    get: (targets: string[], col?: string) => {
-      gets += 1;
-      expect(col).toBe('.body');
+test('an ambiguous (duplicate) heading reads back empty, not the first section (MMR-239)', async () => {
+  // A hand-edited node with two `## History` headings is ambiguous, so norn
+  // warn-and-omits the section; with no requested heading resolving, the doc
+  // lands in `section_failures` with no record — the read degrades to empty
+  // (ADR 0017: no arbitrary first-of-two pick), not a throw. Diagnostic: MMR-239.
+  const ambiguous = {
+    getSections: (targets: string[]) => {
       expect(targets).toEqual(['MMR-9']);
-      return Promise.resolve([{ body: nodeBody(), path: 'MMR/MMR-9.md' }]);
+      return Promise.resolve([]); // doc reported in section_failures, absent from records
+    },
+  } as unknown as NornClient;
+  const store = createNornBodySectionStore(ambiguous);
+  expect(await store.readHistory(9, 'MMR-9')).toEqual([]);
+  expect(await store.readAnnotations(9, 'MMR-9')).toEqual([]);
+});
+
+test('readSections reads all requested facets in one getSections round-trip (MMR-164 F6)', async () => {
+  // A detail `get` wanting description + annotations + history must cost ONE
+  // `vault.get { section }` call requesting all three headings — not three.
+  let calls = 0;
+  let requested: string[] = [];
+  const body = nodeBody();
+  const client = {
+    getSections: (targets: string[], headings: string[]) => {
+      calls += 1;
+      requested = headings;
+      expect(targets).toEqual(['MMR-9']);
+      const sections: Record<string, string> = {};
+      for (const heading of headings) {
+        const section = sliceSection(body, heading);
+        if (section !== '') {
+          sections[heading] = section;
+        }
+      }
+      return Promise.resolve([{ path: 'MMR/MMR-9.md', sections }]);
     },
   } as unknown as NornClient;
   const store = createNornBodySectionStore(client);
@@ -72,7 +109,8 @@ test('readSections fetches the document body once for all requested facets (MMR-
     description: true,
     history: true,
   });
-  expect(gets).toBe(1);
+  expect(calls).toBe(1);
+  expect(requested).toEqual(['Task Description', 'Annotations', 'History']);
   expect(sections.description).toBe('a task');
   expect(sections.annotations).toEqual([ANNOTATION]);
   expect(sections.history).toEqual([HISTORY]);

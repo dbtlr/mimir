@@ -238,6 +238,15 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Body-section reads go through native `norn get --section`** (MMR-187, NRN-102/
+  NRN-173). The Norn read path — a node's `## Task Description` / `## History` /
+  `## Annotations` facets and the cross-node transitions feed — now asks norn for
+  the exact sections via `vault.get { section }`, instead of fetching the whole
+  `.body` and slicing it client-side. Section boundaries are norn's (the same
+  semantics a section *write* uses), so a read mirrors a write by construction and
+  the client-side slicer is retired. Behavior-preserving; no change to facet
+  output. (The `mimir doctor` body-section lint still reads the whole body — it
+  reports whole-document line numbers across sections.)
 - **Node write path adopts norn 0.45 structured-apply capabilities** (MMR-199,
   MMR-201; ADR 0016/0018). `vault.apply { parents: true }` (NRN-174) now mints a
   new project's `KEY/` directory during the create, retiring the pre-apply local

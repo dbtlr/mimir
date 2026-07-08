@@ -1,7 +1,7 @@
 import type { AnnotationView } from '@mimir/contract';
 
 import type { NornClient } from '../../norn/client';
-import { pathAndBody, stemOf } from '../../norn/decode';
+import { pathAndBody, pathAndSections, stemOf } from '../../norn/decode';
 import {
   ANNOTATIONS_HEADING,
   DESCRIPTION_HEADING,
@@ -9,22 +9,22 @@ import {
   parseAnnotationsSection,
   parseDescriptionSection,
   parseHistorySection,
-  sliceBodySection,
+  sectionBody,
 } from '../history-codec';
 import type { BodySections, BodySectionStore } from './store';
 
-/** The `.body` string of a `vault.get` record; missing/absent bodies read empty. */
-function bodyOf(record: unknown): string {
-  if (typeof record === 'object' && record !== null && 'body' in record) {
-    const { body } = record;
-    return typeof body === 'string' ? body : '';
-  }
-  return '';
-}
-
-async function readBody(client: NornClient, stem: string): Promise<string> {
-  const records = await client.get([stem], '.body');
-  return records.length > 0 ? bodyOf(records[0]) : '';
+/** Read one node's named `## <heading>` sections natively (`vault.get { section }`),
+ * returning the heading → raw-section-markdown map (heading line still included —
+ * strip with {@link sectionBody}). A heading absent from the document is simply
+ * missing from the map; an absent document (no record) yields an empty map. */
+async function readNodeSections(
+  client: NornClient,
+  stem: string,
+  headings: string[],
+): Promise<Record<string, string>> {
+  const records = await client.getSections([stem], headings);
+  const record = records.length > 0 ? pathAndSections(records[0]) : null;
+  return record?.sections ?? {};
 }
 
 /**
@@ -81,33 +81,41 @@ function byCreatedAt(a: AnnotationView, b: AnnotationView): number {
 
 /**
  * The Norn body-section backend — a node's `## Task Description` / `## History` /
- * `## Annotations` sections read out of its document `.body` and parsed through
- * the shared codec.
- * Section isolation is client-side ({@link sliceBodySection}), the NRN-102
- * `.headings` workaround: Norn has no section-scoped body read yet, so the whole
- * body is fetched and the named section sliced from it. A missing document or
- * absent section yields no records. Annotations are re-sorted by created-at so
- * both backends agree even under non-monotonic timestamps; History keeps
- * document order (its SQLite sibling orders by insertion, which is the same).
+ * `## Annotations` sections read natively via `vault.get { section }` (NRN-102/
+ * NRN-173) and parsed through the shared codec. norn slices each section with
+ * `edit`'s exact boundary semantics, so a read mirrors a write; a heading absent
+ * from the document is warn-and-omitted (an empty section). Annotations are
+ * re-sorted by created-at so both backends agree even under non-monotonic
+ * timestamps; History keeps document order (its SQLite sibling orders by
+ * insertion, which is the same).
  */
 export function createNornBodySectionStore(client: NornClient): BodySectionStore {
-  // The single body fetch every read routes through: one `.body` per node
-  // document, sliced into each requested section (MMR-164, F6). The single-facet
-  // methods are `want`-of-one wrappers, so a multi-facet detail `get` costs one
-  // Norn round-trip instead of three.
+  // One `vault.get { section }` per read, requesting exactly the wanted headings
+  // (MMR-164, F6 / MMR-187). The single-facet methods are `want`-of-one wrappers,
+  // so a multi-facet detail `get` costs one Norn round-trip instead of three.
   const readSections: BodySectionStore['readSections'] = async (_nodeId, stem, want) => {
-    const body = await readBody(client, stem);
+    const headings: string[] = [];
+    if (want.description === true) {
+      headings.push(DESCRIPTION_HEADING);
+    }
+    if (want.annotations === true) {
+      headings.push(ANNOTATIONS_HEADING);
+    }
+    if (want.history === true) {
+      headings.push(HISTORY_HEADING);
+    }
+    const raw = await readNodeSections(client, stem, headings);
     const sections: BodySections = {};
     if (want.description === true) {
-      sections.description = parseDescriptionSection(sliceBodySection(body, DESCRIPTION_HEADING));
+      sections.description = parseDescriptionSection(sectionBody(raw[DESCRIPTION_HEADING] ?? ''));
     }
     if (want.annotations === true) {
       sections.annotations = parseAnnotationsSection(
-        sliceBodySection(body, ANNOTATIONS_HEADING),
+        sectionBody(raw[ANNOTATIONS_HEADING] ?? ''),
       ).toSorted(byCreatedAt);
     }
     if (want.history === true) {
-      sections.history = parseHistorySection(sliceBodySection(body, HISTORY_HEADING));
+      sections.history = parseHistorySection(sectionBody(raw[HISTORY_HEADING] ?? ''));
     }
     return sections;
   };

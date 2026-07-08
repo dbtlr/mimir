@@ -8,18 +8,21 @@ import { createNornTransitionsFeed } from './norn';
 
 type Doc = { path: string; fm?: Record<string, unknown>; history: HistoryEntry[] };
 
-/** A fake client backing the feed: `find` yields the doc set, `get` their bodies. */
+/** A fake client backing the feed: `find` yields the doc set, `getSections` their
+ * `## History` sections (the heading line included, as norn returns it). */
 function fakeClient(docs: Doc[]): NornClient {
   return {
     find: () => Promise.resolve(docs.map((d) => ({ frontmatter: d.fm, path: d.path }))),
-    get: (targets: string[], col?: string) => {
-      expect(col).toBe('.body');
+    getSections: (targets: string[], headings: string[]) => {
+      expect(headings).toEqual(['History']);
       return Promise.resolve(
         docs
           .filter((d) => targets.includes(d.path))
           .map((d) => ({
-            body: `## History\n${d.history.map((h) => renderHistoryRecord(h)).join('')}`,
             path: d.path,
+            sections: {
+              History: `## History\n${d.history.map((h) => renderHistoryRecord(h)).join('')}`,
+            },
           })),
       );
     },

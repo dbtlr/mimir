@@ -28,6 +28,11 @@ const SHAPES: Record<string, z.ZodRawShape> = {
     plan: z.record(z.string(), z.unknown()),
   },
   'vault.find': { eq: z.array(z.string()).optional() },
+  'vault.get': {
+    col: z.string().optional(),
+    section: z.array(z.string()).optional(),
+    targets: z.array(z.string()),
+  },
   'vault.set': {
     confirm: z.boolean().optional(),
     set: z.record(z.string(), z.unknown()).optional(),
@@ -207,6 +212,25 @@ test('applyPlan sends vault.apply with {plan, confirm, parents} and unwraps the 
   const report = await client.applyPlan(plan, true);
   expect(report).toEqual({ report: { applied: 1, dry_run: false } });
   expect(received).toEqual({ confirm: true, parents: true, plan });
+});
+
+test('getSections sends vault.get with {targets, section} and returns the records array', async () => {
+  let received: unknown = null;
+  const fake = fakeNorn(() => ({
+    'vault.get': (args) => {
+      received = args;
+      return Promise.resolve({
+        structuredContent: {
+          records: [{ path: 'MMR/MMR-1.md', sections: { History: '## History\n### x\n' } }],
+          section_failures: [],
+        },
+      });
+    },
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  const records = await client.getSections(['MMR-1'], ['History']);
+  expect(received).toEqual({ section: ['History'], targets: ['MMR-1'] });
+  expect(records).toEqual([{ path: 'MMR/MMR-1.md', sections: { History: '## History\n### x\n' } }]);
 });
 
 test('applyPlan returns the structured report even when isError is set (norn 0.45.1 refusal)', async () => {

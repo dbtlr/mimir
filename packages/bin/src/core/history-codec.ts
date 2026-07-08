@@ -50,9 +50,9 @@ export function renderNodeBody(description: string | null): string {
  * it round-trips through {@link parseDescriptionSection}.
  *
  * Heading-shaped lines are escaped: a description line like `## History` would
- * otherwise be an injected section boundary that {@link sliceBodySection}
- * matches ahead of the real anchor, shadowing the History/Annotations facets —
- * and, now that the section is parsed back, it would also corrupt the recovered
+ * otherwise be an injected section boundary that norn's section read matches
+ * ahead of the real anchor, shadowing the History/Annotations facets — and, now
+ * that the section is parsed back, it would also corrupt the recovered
  * description. `parseDescriptionSection` unescapes them, so the prose is exact.
  */
 export function renderDescriptionSection(description: string | null): string {
@@ -353,23 +353,27 @@ export function parseAnnotationsSection(body: string): AnnotationView[] {
 }
 
 /**
- * Isolate one `## <heading>` section's body from a whole document body — the
- * Norn read path's client-side slicer over `.body` (the NRN-102 `.headings`
- * workaround, since section-scoped reads aren't a Norn capability yet). Returns
- * the lines under the heading up to the next H2 (`## `) or EOF, heading
- * excluded; an absent heading yields the empty string. The record grammar keeps
- * this unambiguous: H3 records (`### `) and escaped `\## ` content lines are not
- * H2 boundaries, so a section round-trips through slice + parse.
+ * The body of a `## <heading>` section as the section parsers expect it — the
+ * content *under* the heading, heading line excluded. norn's native section read
+ * (`vault.get { section }`, NRN-102/NRN-173) returns each section with its `##
+ * <heading>` line INCLUDED; this drops that first line so a native section read
+ * feeds the codec identically to the retired whole-`.body` client slice (MMR-187).
+ * An absent or empty section (the empty string) yields the empty string. The
+ * parsers are grammar-anchored on `### ` records, so norn's trailing section
+ * whitespace is absorbed on parse.
+ *
+ * The heading is only stripped when the first line is an actual `## ` heading — a
+ * body content line is always escaped (`\## `), so an unescaped `## ` opener is
+ * norn's heading and nothing else. Guarding on it means a section that ever
+ * arrives heading-excluded (norn contract drift) is passed through intact rather
+ * than losing its first real line.
  */
-export function sliceBodySection(body: string, heading: string): string {
-  const lines = splitLines(body);
-  const start = lines.indexOf(`## ${heading}`);
-  if (start === -1) {
-    return '';
+export function sectionBody(section: string): string {
+  if (!section.startsWith('## ')) {
+    return section;
   }
-  const rest = lines.slice(start + 1);
-  const end = rest.findIndex((line) => line.startsWith('## '));
-  return (end === -1 ? rest : rest.slice(0, end)).join('\n');
+  const nl = section.indexOf('\n');
+  return nl === -1 ? '' : section.slice(nl + 1);
 }
 
 // ── Body-section lint (MMR-166) ──────────────────────────────────────────

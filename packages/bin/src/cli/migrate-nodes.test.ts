@@ -2,13 +2,10 @@ import { beforeEach, expect, test } from 'bun:test';
 
 import { createInitiative, createProject, createSqliteStore, createTask } from '../core';
 import type { Db, Store } from '../core';
-import {
-  parseAnnotationsSection,
-  parseHistorySection,
-  sliceBodySection,
-} from '../core/history-codec';
+import { parseAnnotationsSection, parseHistorySection, sectionBody } from '../core/history-codec';
 import { annotate } from '../core/mutations/data';
 import { startTask } from '../core/mutations/lifecycle';
+import { sliceSection } from '../core/testing';
 import { createTestDb } from '../db/testing';
 import type { NornClient } from '../norn/client';
 import { buildSeedDocs } from '../vault/node-seed';
@@ -38,10 +35,12 @@ test('reconstructs a node body with its history + annotations from SQLite rows',
     throw new Error('migrated task doc not found');
   }
   // the reconstructed body reads back to the exact records through the read path
-  const history = parseHistorySection(sliceBodySection(doc.body, 'History'));
+  const history = parseHistorySection(sectionBody(sliceSection(doc.body, 'History')));
   expect(history.map((h) => `${h.from} → ${h.to}`)).toEqual(['todo → in_progress']);
   expect(
-    parseAnnotationsSection(sliceBodySection(doc.body, 'Annotations')).map((a) => a.content),
+    parseAnnotationsSection(sectionBody(sliceSection(doc.body, 'Annotations'))).map(
+      (a) => a.content,
+    ),
   ).toEqual(['first note', 'second note']);
 });
 
@@ -52,10 +51,12 @@ test('a node with no history/annotations reconstructs the empty-seeded body', as
 
   const ws = await store.loadWorkingSet();
   const { nodes } = buildSeedDocs(ws, await reconstructNodeBodies(db));
-  expect(parseHistorySection(sliceBodySection(nodes[0]?.body ?? '', 'History'))).toEqual([]);
-  expect(parseAnnotationsSection(sliceBodySection(nodes[0]?.body ?? '', 'Annotations'))).toEqual(
+  expect(parseHistorySection(sectionBody(sliceSection(nodes[0]?.body ?? '', 'History')))).toEqual(
     [],
   );
+  expect(
+    parseAnnotationsSection(sectionBody(sliceSection(nodes[0]?.body ?? '', 'Annotations'))),
+  ).toEqual([]);
 });
 
 const doc = (path: string): SeedDoc => ({ body: '', frontmatter: {}, path });

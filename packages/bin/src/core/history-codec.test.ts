@@ -16,8 +16,18 @@ import {
   renderMigratedNodeBody,
   renderMigratedProjectBody,
   renderNodeBody,
-  sliceBodySection,
+  sectionBody,
 } from './history-codec';
+import { sliceSection } from './testing';
+
+/**
+ * Read a `## <heading>` section from a whole body the way the Norn read path
+ * does: {@link sliceSection} reproduces norn's `vault.get { section }` shape
+ * (heading line included) and {@link sectionBody} strips the heading — so a
+ * hand-built body round-trips through the exact production parse path (MMR-187).
+ */
+const readSection = (body: string, heading: string): string =>
+  sectionBody(sliceSection(body, heading));
 
 /** A representative entry per shape the transition log emits (ADR 0003). */
 const SAMPLES = {
@@ -361,61 +371,74 @@ test('the node body seeds an empty ## Annotations section alongside ## History',
   expect(parseAnnotationsSection(body)).toEqual([]);
 });
 
-// ── sliceBodySection (MMR-154) ───────────────────────────────────────────
-// The H2-boundary slicer the Norn read path uses to isolate one section from a
-// document body (the NRN-102 `.headings` workaround): everything under the
-// named `## Heading` up to the next H2 or EOF. H3 records and escaped `\## `
-// content lines are NOT boundaries, so a section round-trips through it.
+// ── sectionBody (MMR-187) ────────────────────────────────────────────────
+// The Norn read path reads each `## <heading>` section natively (`vault.get
+// { section }`) — norn returns the section with its heading line included, and
+// `sectionBody` drops that line so the content feeds the parsers exactly as the
+// retired client-side slice did. norn owns the boundary detection; these cover
+// the heading strip and the parse round-trip over norn's shape (via readSection).
 
-test('slices the named section body between H2 boundaries', () => {
-  const body =
-    '## Task Description\n\nprose\n\n## History\n### a\nx\n## Annotations\n### b\nnote\n';
-  expect(sliceBodySection(body, 'History')).toBe('### a\nx');
-  expect(sliceBodySection(body, 'Annotations')).toBe('### b\nnote\n');
+test('sectionBody drops the leading `## <heading>` line, keeping the content', () => {
+  expect(sectionBody('## History\n### a\nx\n')).toBe('### a\nx\n');
+  expect(sectionBody('## Task Description\n\nprose\n\n')).toBe('\nprose\n\n');
 });
 
-test('a missing section slices to the empty string (parses to no records)', () => {
-  expect(sliceBodySection('## History\n### a\nx\n', 'Annotations')).toBe('');
-  expect(parseHistorySection(sliceBodySection('', 'History'))).toEqual([]);
+test('sectionBody yields the empty string for an empty or heading-only section', () => {
+  expect(sectionBody('')).toBe('');
+  expect(sectionBody('## History')).toBe(''); // no newline → nothing under the heading
+  expect(sectionBody('## History\n')).toBe('');
 });
 
-test('the H3 records inside a section are not mistaken for a section boundary', () => {
+test('sectionBody strips only a real `## ` heading, passing other content through intact', () => {
+  // An escaped content line (`\## `) is not a heading, so it is never stripped.
+  expect(sectionBody('\\## looks like a heading\ntail')).toBe('\\## looks like a heading\ntail');
+  // Defense against norn contract drift: a section that ever arrives already
+  // heading-excluded keeps its first record line rather than losing it.
+  expect(sectionBody('### 2026-07-01T00:00:00.000Z — lifecycle\ntodo → done')).toBe(
+    '### 2026-07-01T00:00:00.000Z — lifecycle\ntodo → done',
+  );
+});
+
+test('a missing section reads to the empty string (parses to no records)', () => {
+  // norn warn-and-omits an absent heading, so the read path passes `''`.
+  expect(readSection('## History\n### a\nx\n', 'Annotations')).toBe('');
+  expect(parseHistorySection(readSection('', 'History'))).toEqual([]);
+});
+
+test('the H3 records inside a section survive the heading strip', () => {
   const body =
     '## History\n### 2026-07-04T00:00:00.000Z — lifecycle\ntodo → done\n## Annotations\n';
-  expect(sliceBodySection(body, 'History')).toContain('### 2026-07-04T00:00:00.000Z — lifecycle');
-  expect(sliceBodySection(body, 'History')).not.toContain('## Annotations');
+  expect(readSection(body, 'History')).toContain('### 2026-07-04T00:00:00.000Z — lifecycle');
+  expect(readSection(body, 'History')).not.toContain('## Annotations');
 });
 
-test('an escaped heading-shaped content line does not close the section', () => {
+test('an escaped heading-shaped content line stays inside its record', () => {
   const record = renderAnnotationRecord({
     content: '## looks like a boundary\ntail',
     createdAt: '2026-07-04T00:00:00.000Z',
   });
   const body = `## Annotations\n${record}## History\n`;
-  // the whole annotation (including its escaped `\## ` line) stays in the slice
-  expect(parseAnnotationsSection(sliceBodySection(body, 'Annotations'))).toEqual([
+  // the whole annotation (including its escaped `\## ` line) parses back intact
+  expect(parseAnnotationsSection(readSection(body, 'Annotations'))).toEqual([
     { content: '## looks like a boundary\ntail', createdAt: '2026-07-04T00:00:00.000Z' },
   ]);
 });
 
-test('a description containing a fake `## History` line does not shadow the real section', () => {
+test('an escaped `## History` line in a description does not shadow the real section', () => {
   // A node description whose prose contains a literal `## History` (or
-  // `## Annotations`) line must not hijack the slicer — the description is
-  // escaped so only the real append anchors are section boundaries.
-  // Built explicitly (not via string replace, which the escaped `\## History`
-  // description line would itself match).
+  // `## Annotations`) line must not become a section boundary — the description
+  // is escaped so only the real append anchors are boundaries. (Built explicitly,
+  // not via string replace, which the escaped `\## History` line would match.)
   const description = renderDescriptionSection(
     'see the notes below\n## History\nnot a real heading',
   );
   const body = `## ${DESCRIPTION_HEADING}\n${description}## History\n${renderHistoryRecord(SAMPLES.lifecycle)}## Annotations\n${renderAnnotationRecord(ANNOTATIONS.plain)}`;
-  expect(sliceBodySection(body, 'History')).not.toContain('not a real heading');
-  expect(parseHistorySection(sliceBodySection(body, 'History'))).toEqual([SAMPLES.lifecycle]);
-  expect(parseAnnotationsSection(sliceBodySection(body, 'Annotations'))).toEqual([
-    ANNOTATIONS.plain,
-  ]);
+  expect(readSection(body, 'History')).not.toContain('not a real heading');
+  expect(parseHistorySection(readSection(body, 'History'))).toEqual([SAMPLES.lifecycle]);
+  expect(parseAnnotationsSection(readSection(body, 'Annotations'))).toEqual([ANNOTATIONS.plain]);
 });
 
-test('a real node body round-trips both sections through slice + parse', () => {
+test('a real node body round-trips both sections through the read path', () => {
   const history = renderHistoryRecord({
     at: '2026-07-04T00:00:00.000Z',
     from: 'todo',
@@ -429,39 +452,39 @@ test('a real node body round-trips both sections through slice + parse', () => {
   });
   // a fully-populated node body: seeded shape with records appended under each anchor
   const body = `## Task Description\n\ndesc\n\n## History\n${history}## Annotations\n${annotation}`;
-  expect(parseHistorySection(sliceBodySection(body, 'History'))).toHaveLength(1);
-  expect(parseAnnotationsSection(sliceBodySection(body, 'Annotations'))).toEqual([
+  expect(parseHistorySection(readSection(body, 'History'))).toHaveLength(1);
+  expect(parseAnnotationsSection(readSection(body, 'Annotations'))).toEqual([
     { content: 'a note', createdAt: '2026-07-04T00:01:00.000Z' },
   ]);
 });
 
 // ── Migration body reconstruction (MMR-155) ──────────────────────────────
 // The authoritative migration rebuilds a document body from SQLite rows: the
-// reconstructed body must read back — through the same slice + parse path the
-// Norn reader uses — to the exact records, in order.
+// reconstructed body must read back — through the same read path the Norn reader
+// uses — to the exact records, in order.
 
 test('renderMigratedNodeBody round-trips its history + annotations through the read path', () => {
   const history = Object.values(SAMPLES);
   const annotations = Object.values(ANNOTATIONS);
   const body = renderMigratedNodeBody('the description', history, annotations);
-  expect(parseHistorySection(sliceBodySection(body, 'History'))).toEqual(history);
-  expect(parseAnnotationsSection(sliceBodySection(body, 'Annotations'))).toEqual(annotations);
+  expect(parseHistorySection(readSection(body, 'History'))).toEqual(history);
+  expect(parseAnnotationsSection(readSection(body, 'Annotations'))).toEqual(annotations);
 });
 
 test('renderMigratedNodeBody with no records equals the empty-seeded node body', () => {
   expect(renderMigratedNodeBody('a task', [], [])).toBe(renderNodeBody('a task'));
 });
 
-test('renderMigratedNodeBody escapes a heading-shaped description (no slicer hijack)', () => {
+test('renderMigratedNodeBody escapes a heading-shaped description (no boundary hijack)', () => {
   const body = renderMigratedNodeBody('intro\n## History\ntail', [SAMPLES.lifecycle], []);
-  expect(sliceBodySection(body, 'History')).not.toContain('tail');
-  expect(parseHistorySection(sliceBodySection(body, 'History'))).toEqual([SAMPLES.lifecycle]);
+  expect(readSection(body, 'History')).not.toContain('tail');
+  expect(parseHistorySection(readSection(body, 'History'))).toEqual([SAMPLES.lifecycle]);
 });
 
 test('renderMigratedProjectBody round-trips a project history (archive transitions)', () => {
   const history = [SAMPLES.archive];
   const body = renderMigratedProjectBody(history);
-  expect(parseHistorySection(sliceBodySection(body, 'History'))).toEqual(history);
+  expect(parseHistorySection(readSection(body, 'History'))).toEqual(history);
   // a project body carries History only — no Annotations section
   expect(body).not.toContain(`## Annotations`);
 });
@@ -588,13 +611,17 @@ test('a body with no History/Annotations sections yields no findings', () => {
 // trailing `\r` on every line. The heading regexes are `$`-anchored and the
 // splitters split on `\n`, so without normalization a `## History\r` /
 // `### …\r` line matches nothing and every record silently vanishes on read.
+// norn normalizes CRLF → LF in its canonical-LF codec before a section is
+// returned (MMR-172), so the read path sees LF; the parsers keep their own CRLF
+// tolerance as a backstop, covered directly here (no client-side slice).
 
-test('a CRLF-saved body reads its records back identically to LF (MMR-167)', () => {
+test('the section parsers tolerate a CRLF-line-ending section body (MMR-167)', () => {
   const history = Object.values(SAMPLES);
   const annotations = Object.values(ANNOTATIONS);
-  const crlf = renderMigratedNodeBody('a task', history, annotations).replaceAll('\n', '\r\n');
-  expect(parseHistorySection(sliceBodySection(crlf, 'History'))).toEqual(history);
-  expect(parseAnnotationsSection(sliceBodySection(crlf, 'Annotations'))).toEqual(annotations);
+  const historyBody = history.map(renderHistoryRecord).join('').replaceAll('\n', '\r\n');
+  const annotationsBody = annotations.map(renderAnnotationRecord).join('').replaceAll('\n', '\r\n');
+  expect(parseHistorySection(historyBody)).toEqual(history);
+  expect(parseAnnotationsSection(annotationsBody)).toEqual(annotations);
 });
 
 test('content authored with embedded CRLF normalizes to LF symmetrically (render+parse agree)', () => {
