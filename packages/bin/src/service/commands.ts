@@ -187,24 +187,31 @@ export async function cmdService(
     case 'install': {
       // Snapshot is opt-in: a bare `install` sets up only the serve daemon.
       const units = resolveUnits(sel, () => ['serve']);
-      // --port is a serve setting: validate + persist once, before touching units.
+      // --port is a serve setting. Validate the value up front (pure), but defer
+      // persisting it until render has proven the install can proceed: serve-env's
+      // preflight throws inside render(), and a mutated config must not survive an
+      // aborted install.
       let port: number | undefined;
       if (values.port !== undefined) {
         port = Number(values.port);
         if (!Number.isInteger(port) || port < 1 || port > 65535) {
           throw usage('service install: --port expects an integer in 1–65535');
         }
-        // A reset means the prior file was unparseable and got rewritten fresh
-        // (lossy) — surface it rather than clobbering other sections silently.
-        if (writeServePort(deps.configFile, port).reset) {
-          warn(io, `existing config at ${deps.configFile} was not valid TOML — rewrote it fresh`);
-        }
+      }
+      // Render every plist before any mutation — this is where a bad Norn env aborts.
+      const rendered = units.map((name) => {
+        const unit = deps.units[name];
+        return { name, plist: unit.render(deps.configFile), unit };
+      });
+      // A reset means the prior file was unparseable and got rewritten fresh
+      // (lossy) — surface it rather than clobbering other sections silently.
+      if (port !== undefined && writeServePort(deps.configFile, port).reset) {
+        warn(io, `existing config at ${deps.configFile} was not valid TOML — rewrote it fresh`);
       }
       const results: ServiceActionResult[] = [];
       const humans: (() => void)[] = [];
-      for (const name of units) {
-        const unit = deps.units[name];
-        writeFileSync(unit.plistFile, unit.render(deps.configFile));
+      for (const { name, plist, unit } of rendered) {
+        writeFileSync(unit.plistFile, plist);
         await unit.supervisor.install(unit.plistFile);
         const paths = { config: deps.configFile, log: unit.logFile, plist: unit.plistFile };
         if (name === 'serve') {

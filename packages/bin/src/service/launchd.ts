@@ -6,7 +6,7 @@
  * on disk); restart is kickstart -k; a nonzero `print` means not loaded.
  */
 import { MimirError } from '../core';
-import type { Exec } from '../exec';
+import type { Exec, ExecResult } from '../exec';
 import { SERVE_LABEL } from './plist';
 
 // Re-exported from the shared exec module so existing importers keep working.
@@ -31,9 +31,11 @@ export type Supervisor = {
 /** `bootout` is asynchronous — it returns before launchd has fully torn the old
  *  unit down, so an immediate `bootstrap` can lose the race and fail with error
  *  5 ("Input/output error"), leaving nothing loaded. Retry the bootstrap a few
- *  times, waiting for the teardown to settle between attempts. */
+ *  times on exactly that code, waiting for the teardown to settle between
+ *  attempts; any other exit is a genuine failure and surfaces at once. */
 const BOOTSTRAP_ATTEMPTS = 5;
 const BOOTSTRAP_SETTLE_MS = 250;
+const BOOTSTRAP_RACE_CODE = 5;
 
 export class LaunchdSupervisor implements Supervisor {
   private readonly target: string;
@@ -54,14 +56,20 @@ export class LaunchdSupervisor implements Supervisor {
     this.service = `${this.target}/${label}`;
   }
 
+  /** The `validation` error a nonzero launchctl exit raises, built once so the
+   *  message/category can't drift between `run` and `bootstrapWithRetry`. */
+  private launchctlError(verb: string, failure: string, result: ExecResult): MimirError {
+    return new MimirError(
+      'validation',
+      `launchctl ${verb} failed (${String(result.code)}): ${failure}`,
+      result.stderr.trim() === '' ? undefined : result.stderr.trim(),
+    );
+  }
+
   private async run(argv: string[], failure: string, tolerate = false): Promise<void> {
     const result = await this.exec(['launchctl', ...argv]);
     if (result.code !== 0 && !tolerate) {
-      throw new MimirError(
-        'validation',
-        `launchctl ${argv[0] ?? ''} failed (${String(result.code)}): ${failure}`,
-        result.stderr.trim() === '' ? undefined : result.stderr.trim(),
-      );
+      throw this.launchctlError(argv[0] ?? '', failure, result);
     }
   }
 
@@ -72,20 +80,17 @@ export class LaunchdSupervisor implements Supervisor {
     await this.bootstrapWithRetry(plistFile);
   }
 
-  /** Bootstrap, retrying past the async-teardown race (see BOOTSTRAP_ATTEMPTS).
-   *  A last-attempt failure surfaces as the usual load error. */
+  /** Bootstrap, retrying ONLY the async-teardown race (BOOTSTRAP_RACE_CODE) so a
+   *  genuine, non-transient failure still surfaces immediately. A race that
+   *  outlives the retry budget surfaces as the usual load error. */
   private async bootstrapWithRetry(plistFile: string): Promise<void> {
-    for (let attempt = 1; attempt <= BOOTSTRAP_ATTEMPTS; attempt += 1) {
+    for (let attempt = 1; ; attempt += 1) {
       const result = await this.exec(['launchctl', 'bootstrap', this.target, plistFile]);
       if (result.code === 0) {
         return;
       }
-      if (attempt === BOOTSTRAP_ATTEMPTS) {
-        throw new MimirError(
-          'validation',
-          `launchctl bootstrap failed (${String(result.code)}): could not load the service`,
-          result.stderr.trim() === '' ? undefined : result.stderr.trim(),
-        );
+      if (result.code !== BOOTSTRAP_RACE_CODE || attempt >= BOOTSTRAP_ATTEMPTS) {
+        throw this.launchctlError('bootstrap', 'could not load the service', result);
       }
       await this.sleep(BOOTSTRAP_SETTLE_MS);
     }
@@ -96,7 +101,9 @@ export class LaunchdSupervisor implements Supervisor {
   }
 
   async start(plistFile: string): Promise<void> {
-    await this.run(['bootstrap', this.target, plistFile], 'could not load the service');
+    // A stop→start sequence hits the same async-teardown race as a reinstall
+    // (the prior `stop`'s bootout may still be settling), so share the retry.
+    await this.bootstrapWithRetry(plistFile);
   }
 
   async stop(): Promise<void> {
