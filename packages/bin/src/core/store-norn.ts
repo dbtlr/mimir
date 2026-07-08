@@ -180,12 +180,28 @@ export type NodeRefs = {
   };
 };
 
+/** One work-state doc's declared project membership: its stem paired with the
+ * collapsed `project` frontmatter (`[[KEY]]` → `KEY`, aliased forms too — MMR-190),
+ * or null when the field is absent/malformed. The `project` field is a query
+ * projection of the authoritative `KEY-seq` stem (MMR-170); comparing the two is
+ * doctor's stem-vs-project divergence check (MMR-231). The referential passes
+ * ignore it. */
+export type ProjectDeclaration = { stem: string; project: string | null };
+
 /**
  * The vault's relational graph, read raw and unresolved: the valid nodes' refs
  * plus the set of project `key`s present. Both `mimir doctor` referential checks
  * resolve against this one read.
  */
-export type VaultGraph = { nodes: NodeRefs[]; projectKeys: string[] };
+export type VaultGraph = {
+  nodes: NodeRefs[];
+  projectKeys: string[];
+  /** Every parsed doc's declared project membership (MMR-231). Optional because
+   * the referential-only producers (the resolving loader's `validate` input, test
+   * fixtures) don't need it; {@link readVaultGraph}/{@link vaultGraphFromDocs}
+   * always populate it, off the same read the referential passes use. */
+  declarations?: readonly ProjectDeclaration[];
+};
 
 /**
  * Derive a node's referential refs from its frontmatter — the single derivation
@@ -248,27 +264,32 @@ export async function readVaultGraph(client: NornClient): Promise<VaultGraph> {
 export function vaultGraphFromDocs(docs: NornDocument[]): VaultGraph {
   const nodes: NodeRefs[] = [];
   const projectKeys: string[] = [];
+  const declarations: ProjectDeclaration[] = [];
   for (const doc of docs) {
     const fm = doc.frontmatter;
     if (fm === undefined) {
       continue;
     }
     const type = str(fm.type);
+    const stem = stemOf(doc.path);
     if (type === 'project') {
       const key = str(fm.key);
       if (key !== null && key !== '') {
         projectKeys.push(key);
       }
+      // A project doc's `project` is self-referential (`[[KEY]]`); a divergence
+      // means it points at a different project than its own stem (MMR-231).
+      declarations.push({ project: collapse(fm.project), stem });
       continue;
     }
-    const stem = stemOf(doc.path);
     const ref = parseId(stem);
     if ((type !== 'task' && type !== 'phase' && type !== 'initiative') || ref === null) {
       continue;
     }
     nodes.push(nodeRefsOf(fm, ref.key, stem, type));
+    declarations.push({ project: collapse(fm.project), stem });
   }
-  return { nodes, projectKeys };
+  return { declarations, nodes, projectKeys };
 }
 
 export async function loadWorkingSetOverNorn(client: NornClient): Promise<WorkingSet> {

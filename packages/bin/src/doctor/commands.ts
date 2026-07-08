@@ -26,6 +26,13 @@ export type DoctorDeps = {
    * backend is active (doctor then no-ops). A `scope` (project KEY) pushes into
    * the vault query so a scoped run fetches only that project's docs (MMR-170). */
   readNodeDocs: ((scope: string | undefined) => Promise<{ stem: string; body: string }[]>) | null;
+  /** Read every work-state doc whose `## History`/`## Annotations` heading norn
+   * cannot resolve (ambiguous duplicate or missing) — the input for the
+   * section-resolution check (MMR-239), or `null` on SQLite. Wired with
+   * {@link readNodeDocs}: all present, or all null. */
+  readSectionFailures:
+    | ((scope: string | undefined) => Promise<{ stem: string; section: string }[]>)
+    | null;
   /** Read the vault's raw, unresolved relational graph, or `null` on the SQLite
    * backend. Wired with {@link readNodeDocs}: both present, or both null. */
   readVaultGraph: (() => Promise<VaultGraph>) | null;
@@ -48,7 +55,12 @@ export async function cmdDoctor(
   format: Format,
   scope: string | undefined,
 ): Promise<number> {
-  if (deps.readNodeDocs === null || deps.readVaultGraph === null || deps.validate === null) {
+  if (
+    deps.readNodeDocs === null ||
+    deps.readSectionFailures === null ||
+    deps.readVaultGraph === null ||
+    deps.validate === null
+  ) {
     // No vault backend: node state lives in typed SQLite rows — nothing here can
     // be malformed (body sections) or dangle (the parent_id/project_id FKs hold).
     if (format === 'json') {
@@ -71,7 +83,8 @@ export async function cmdDoctor(
   // the entire vault load, so `-s` must not hide it. Validate it ONCE here and
   // share the `dropped[]` across every referential check (MMR-182) — the four
   // that render it would otherwise each recompute a whole validator pass.
-  const { dropped } = validate(await deps.readVaultGraph());
+  const graph = await deps.readVaultGraph();
+  const { dropped } = validate(graph);
   // The frontmatter check (MMR-191) reads norn's own schema validation, decoded
   // defensively — a doc whose frontmatter fails to parse (or lacks a `type`) is
   // absent from the graph above, so only `vault.validate` sees it. Scope it by
@@ -81,9 +94,22 @@ export async function cmdDoctor(
   const validateFindings = decodeValidateFindings(await deps.validate()).filter((f) =>
     inScope(stemOf(f.path), scope),
   );
+  // Section-resolution failures are per-document (a duplicate/missing heading), so —
+  // like the body-section and frontmatter checks — they honor `-s` (MMR-239). The
+  // scoped find selects on the `project` frontmatter field; re-apply the same
+  // authoritative stem backstop `readNodeDocs`/`validateFindings` use, so a doc
+  // whose `project` field diverges from its stem can't enter a scoped report under
+  // an out-of-scope stem (its divergence is caught whole-vault by stem-project).
+  const sectionFailures = (await deps.readSectionFailures(scope)).filter((f) =>
+    inScope(f.stem, scope),
+  );
   const ctx: DoctorContext = {
     dropped,
+    // Whole-vault (graph is unscoped): the stem-vs-project check must see docs a
+    // scoped read would misfile out of view (MMR-231).
+    projectRefs: graph.declarations ?? [],
     readNodeDocs: () => Promise.resolve(docs),
+    sectionFailures,
     validateFindings,
   };
   const findings: DoctorFinding[] = [];

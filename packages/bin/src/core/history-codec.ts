@@ -411,7 +411,18 @@ export type BodyRecordFinding = {
 
 /** The absolute `[start, end)` line span of a `## <heading>` section body. */
 function sectionRange(lines: string[], heading: string): { start: number; end: number } | null {
-  const anchor = lines.indexOf(`## ${heading}`);
+  // Tolerate trailing whitespace on the H2 anchor (MMR-171): norn's native
+  // resolver matches a `## History ` heading and reads the section, so doctor must
+  // scan the same span — an exact match alone would miss it and silently skip the
+  // section, a FALSE CLEAN (the worst failure for a diagnostic). MMR-167 already
+  // normalized CRLF at the split; this covers trailing spaces/tabs. Prefer an EXACT
+  // heading and fall back to a trailing-whitespace one only when none exists, so a
+  // clean `## History` is never shadowed by an earlier whitespace-suffixed duplicate
+  // (which would move the scan to the wrong span). A duplicate/shadowed heading is
+  // norn's `section_failures` to report (MMR-239); the first-match here is deliberate.
+  const target = `## ${heading}`;
+  const exact = lines.indexOf(target);
+  const anchor = exact !== -1 ? exact : lines.findIndex((l) => l.replace(/[ \t]+$/, '') === target);
   if (anchor === -1) {
     return null;
   }

@@ -337,6 +337,13 @@ async function main(argv: string[]): Promise<number> {
                 return (await built?.readNodeDocs?.(scope)) ?? [];
               }
             : null,
+        readSectionFailures:
+          storeBackend() === 'norn'
+            ? async (scope) => {
+                await getStore();
+                return (await built?.readSectionFailures?.(scope)) ?? [];
+              }
+            : null,
         readVaultGraph:
           storeBackend() === 'norn'
             ? async () => {

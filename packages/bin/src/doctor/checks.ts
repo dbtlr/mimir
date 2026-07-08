@@ -9,6 +9,7 @@
 import type { BodyRecordProblem } from '../core/history-codec';
 import { lintBodySections } from '../core/history-codec';
 import { parseIdentity } from '../core/ids';
+import type { ProjectDeclaration } from '../core/store-norn';
 import type { Drop } from '../core/validate';
 import type { ValidateFinding } from '../norn/decode';
 import { stemOf } from '../norn/decode';
@@ -30,6 +31,17 @@ export type DoctorContext = {
    * so only norn's schema pass sees it. Pre-scoped by `-s` in the runner (a
    * per-document check, unlike the whole-vault `dropped`). */
   validateFindings: readonly ValidateFinding[];
+  /** Every parsed doc's declared `project` frontmatter vs its stem — the input for
+   * the stem-vs-project divergence check (MMR-231). Always WHOLE-VAULT: a scoped
+   * read filters on the very `project` field a divergence corrupts, so it would
+   * drop exactly the docs this must catch (a divergent doc falls out of `-s <real
+   * KEY>` and into `-s <wrong KEY>`). */
+  projectRefs: readonly ProjectDeclaration[];
+  /** Documents whose `## History`/`## Annotations` heading norn cannot resolve —
+   * a hand-edited duplicate (ambiguous) or a missing heading — so the section reads
+   * as EMPTY (ADR 0017). The input for the section-resolution check (MMR-239); each
+   * is `{ stem, section }`. Pre-scoped by `-s` in the runner. */
+  sectionFailures: readonly { stem: string; section: string }[];
 };
 
 /** One problem a check found, anchored for a human to locate and fix. */
@@ -145,6 +157,39 @@ export const crlfCheck: Diagnostic = {
   title: 'CRLF line endings',
 };
 
+/** The referential/field checks that render {@link Drop} entries. */
+type DropCheckName = 'dangling-refs' | 'missing-project' | 'acyclicity' | 'field-validity';
+
+/**
+ * The check that renders each {@link Drop} rule — the drop→check partition made
+ * total and explicit (MMR-209). Keyed by `Drop['rule']`, so a new rule added to
+ * the Drop union (`core/validate.ts`) is a COMPILE error here until it is routed
+ * to a check. That closes the silent gap the four referential/field checks left:
+ * each hand-filtered `dropped` by rule literal and `fieldValidityCheck`'s else
+ * silently continued, so a new rule would render in NO check and vanish from
+ * every finding. Those checks now derive their slice from this map (via
+ * {@link ownsDrop}) instead of re-listing rules, so routing lives in one place;
+ * the companion "rendered by exactly one check" half is enforced against the live
+ * checks by an exhaustiveness test (`checks.test.ts`).
+ */
+export const RULE_OWNER: Record<Drop['rule'], DropCheckName> = {
+  'cycle-depends-on': 'acyclicity',
+  'cycle-parent': 'acyclicity',
+  'dangling-depends-on': 'dangling-refs',
+  'dangling-parent': 'dangling-refs',
+  'invalid-hold': 'field-validity',
+  'invalid-lifecycle': 'field-validity',
+  'invalid-open-ended': 'field-validity',
+  'invalid-priority': 'field-validity',
+  'invalid-size': 'field-validity',
+  'missing-project': 'missing-project',
+};
+
+/** Does `drop` belong to the named check? The single routing authority the
+ * referential/field checks filter on, so the {@link RULE_OWNER} partition and the
+ * checks cannot drift (MMR-209). */
+const ownsDrop = (drop: Drop, name: DropCheckName): boolean => RULE_OWNER[drop.rule] === name;
+
 /**
  * Dangling relational references (MMR-169): a node whose `parent` (a `KEY-seq`)
  * or `depends_on` resolves to no surviving node in the vault. Since MMR-181 the
@@ -166,12 +211,9 @@ export const danglingRefCheck: Diagnostic = {
   run: (ctx) => {
     const findings: DoctorFinding[] = [];
     for (const drop of ctx.dropped) {
-      // Only the dangling-* edge rules — a cycle edge (MMR-174) is a distinct rule
-      // reported by {@link acyclicityCheck}, not a dangling reference.
-      if (
-        drop.kind !== 'edge' ||
-        (drop.rule !== 'dangling-parent' && drop.rule !== 'dangling-depends-on')
-      ) {
+      // Routing lives in RULE_OWNER; the `kind` guard narrows for `ref` (only edge
+      // variants carry it — the two dangling-* rules this check owns are both edges).
+      if (!ownsDrop(drop, 'dangling-refs') || drop.kind !== 'edge') {
         continue;
       }
       const field = drop.rule === 'dangling-parent' ? 'parent' : 'depends_on';
@@ -210,7 +252,8 @@ export const missingProjectCheck: Diagnostic = {
     // (input-ordered) drops preserves the first-seen node as representative.
     const missing = new Map<string, { node: string; count: number }>();
     for (const drop of ctx.dropped) {
-      if (drop.kind !== 'node' || drop.rule !== 'missing-project') {
+      // `key` is on the missing-project node variant; the guard narrows to it.
+      if (!ownsDrop(drop, 'missing-project') || drop.kind !== 'node') {
         continue;
       }
       const seen = missing.get(drop.key);
@@ -248,10 +291,8 @@ export const acyclicityCheck: Diagnostic = {
   run: (ctx) => {
     const findings: DoctorFinding[] = [];
     for (const drop of ctx.dropped) {
-      if (
-        drop.kind !== 'edge' ||
-        (drop.rule !== 'cycle-parent' && drop.rule !== 'cycle-depends-on')
-      ) {
+      // Routing lives in RULE_OWNER; the `kind` guard narrows for `ref`.
+      if (!ownsDrop(drop, 'acyclicity') || drop.kind !== 'edge') {
         continue;
       }
       const field = drop.rule === 'cycle-parent' ? 'parent' : 'depends_on';
@@ -284,6 +325,10 @@ export const fieldValidityCheck: Diagnostic = {
   run: (ctx) => {
     const findings: DoctorFinding[] = [];
     for (const drop of ctx.dropped) {
+      // Routing lives in RULE_OWNER; the branches below narrow for `value`.
+      if (!ownsDrop(drop, 'field-validity')) {
+        continue;
+      }
       let field: string;
       let message: string;
       if (drop.kind === 'node' && drop.rule === 'invalid-lifecycle') {
@@ -305,8 +350,9 @@ export const fieldValidityCheck: Diagnostic = {
         field = 'open_ended';
         message = `invalid open_ended "${drop.value}" — field nulled on read (node kept)`;
       } else {
-        // A referential drop (missing-project / dangling / cycle) — reported by the
-        // referential checks, not here. Exactly one check renders each rule.
+        // Unreachable: RULE_OWNER routes only the five field rules here, all
+        // handled above. A newly routed-but-unrendered rule is caught by the
+        // exhaustiveness test rather than silently continuing (MMR-209).
         continue;
       }
       findings.push({
@@ -445,6 +491,69 @@ export const frontmatterCheck: Diagnostic = {
   title: 'Frontmatter parse-failed + untyped documents',
 };
 
+/**
+ * Stem vs declared project (MMR-231): a doc whose `project` frontmatter is PRESENT
+ * but points at a different valid key than its own `KEY-seq` stem. The stem is the
+ * authoritative identity; `project` is a query projection of it (MMR-170) that
+ * scopes `find --eq project:KEY`. A hand-edit diverging the two is diagnostic-only
+ * — the reader derives project from the stem and ignores the field, and `-s all`
+ * reads every doc — but it silently MISFILES the doc under scope: it falls OUT of
+ * `mimir doctor -s <its real key>` (the scoped read filters on the corrupt field)
+ * and INTO `-s <the wrong key>`. Norn's required-field validate (MMR-191) catches a
+ * MISSING project, never a present-but-wrong one — so this is the only surface that
+ * would. A `warn` (nothing is lost on read); whole-vault, because a scoped read
+ * structurally cannot see the misfiled doc (see {@link DoctorContext.projectRefs}).
+ */
+export const stemProjectCheck: Diagnostic = {
+  name: 'stem-project',
+  run: (ctx) => {
+    const findings: DoctorFinding[] = [];
+    for (const { project, stem } of ctx.projectRefs) {
+      // A missing/malformed `project` is norn's required-field concern (MMR-191).
+      if (project === null) {
+        continue;
+      }
+      const identity = parseIdentity(stem);
+      if (identity === null || identity.key === project) {
+        continue;
+      }
+      findings.push({
+        check: 'stem-project',
+        message: `project ${project} diverges from the stem's key ${identity.key} — the doc misfiles under a scoped 'find --eq project:KEY' (the stem is the true owner)`,
+        node: stem,
+        severity: 'warn',
+        where: 'frontmatter · project',
+      });
+    }
+    return findings;
+  },
+  title: 'Stem vs declared project',
+};
+
+/**
+ * Section resolution (MMR-239): a document whose `## History` or `## Annotations`
+ * heading norn cannot resolve — a hand-edited DUPLICATE (ambiguous — norn refuses
+ * to arbitrarily pick one of two, ADR 0017) or a MISSING heading. Native section
+ * reads (`vault.get { section }`) then degrade the section to EMPTY: the
+ * transitions feed and the history/annotations facets read nothing, silently. An
+ * `error` — records are lost on read; the detector is norn's own resolver (its
+ * `section_failures` channel), so it can't drift from what the reader actually
+ * sees. A per-document corruption, so it honors `-s` (unlike the whole-vault
+ * referential checks).
+ */
+export const sectionResolutionCheck: Diagnostic = {
+  name: 'section-resolution',
+  run: (ctx) =>
+    ctx.sectionFailures.map(({ section, stem }) => ({
+      check: 'section-resolution',
+      message: `${section} section is unreadable — a duplicate (ambiguous) or missing heading resolves to no section, so its records read empty`,
+      node: stem,
+      severity: 'error',
+      where: `body · ${section}`,
+    })),
+  title: 'Body-section resolution',
+};
+
 /** The registered checks `mimir doctor` runs, in report order. */
 export const CHECKS: readonly Diagnostic[] = [
   bodySectionCheck,
@@ -454,4 +563,6 @@ export const CHECKS: readonly Diagnostic[] = [
   acyclicityCheck,
   fieldValidityCheck,
   frontmatterCheck,
+  stemProjectCheck,
+  sectionResolutionCheck,
 ];

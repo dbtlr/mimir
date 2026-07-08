@@ -15,6 +15,22 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **`mimir doctor` surfaces unreadable body sections** (MMR-239). Native section
+  reads (`vault.get { section }`) warn-and-omit a `## History`/`## Annotations`
+  heading norn cannot resolve — a hand-edited duplicate (ambiguous) or a missing
+  heading — so the transitions feed and the history/annotations facets read that
+  section as empty, silently (ADR 0017 graceful degradation). Doctor now reports
+  each such document (`error`), reading norn's own `section_failures` channel so
+  the check cannot drift from what the reader actually sees. Each record-bearing
+  heading is queried on its own so a failure isolates to one section; a
+  per-document corruption, so it honors `-s`.
+- **`mimir doctor` flags a stem-vs-`project` divergence** (MMR-231). A document
+  whose `project` frontmatter is present but points at a different valid key than
+  its own `KEY-seq` stem misfiles under scope — it falls out of
+  `mimir doctor -s <its real key>` and into `-s <the wrong key>`. The reader
+  ignores the field (it derives project from the stem) and norn's required-field
+  validate catches only a *missing* project, so nothing surfaced a present-but-wrong
+  one. A whole-vault `warn` (a scoped read structurally cannot see the misfiled doc).
 - **Work-state documents carry a required `project` frontmatter field** (MMR-170,
   ADR 0016 refinement). Every node and project document now records its owning
   project as a `project` wikilink (`[[KEY]]`, self-referential on the project
@@ -505,6 +521,16 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **`mimir doctor` no longer false-cleans a section whose heading has trailing
+  whitespace** (MMR-171). The body-section scan located a `## History`/
+  `## Annotations` section with an exact match, missing a heading carrying trailing
+  spaces or tabs (`## History `) — silently skipping the malformed-record scan for a
+  section norn's native resolver reads fine. The anchor now tolerates trailing
+  whitespace (exact-equality, so `## History Extra` is still a different section);
+  CRLF was already handled (MMR-167), and duplicate/shadowed headings are reported
+  by the new section-resolution check (MMR-239). A guard (MMR-209) also makes the
+  doctor drop→check partition total, so a new validator drop rule is a compile error
+  until it is routed to a check rather than silently rendering in none.
 - **Web UI restored on the Norn backend** (MMR-233, ADR 0016/0018). Post-cutover,
   the pinned SQLite-era `serve` binary busy-spun at 100% CPU on the live store and
   the UI was down by choice (MMR-147 occurrence). The `serve` launchd unit now
