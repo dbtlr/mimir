@@ -107,3 +107,15 @@ resolved | rejected`). Terminal states are set **only by explicit triager
 - The verb surface (CLI/MCP/HTTP: `seed` / `seeds` / `promote` / `reject` /
   `resolve` / `triage`) and the triage reconciliation pass ride on top in
   follow-up work (MMR-245 / MMR-246); this ADR settles the entity + schema.
+
+**Update (MMR-245) — the resolving read seam landed.** The verb surface reads
+seeds through one shared resolving seam (`listSeeds`/`getSeed`), mirroring how
+the node reader consumes `validate`'s valid subgraph. That seam is now the second
+reader that the referential rules act on: it **nulls an unknown `requester`** and
+**prunes a dangling `spawned`** ref (and hides an orphaned seed), and it derives
+`readyToResolve` live. With a real reader dropping/nulling those, the `mimir
+doctor` severities were made truthful — dangling `spawned` and unknown
+`requester` are `error` (the reader drops/nulls them), a malformed task
+`upstream` stays `error` (nulled locally), and a **dangling** task `upstream`
+became `warn`: it is reference-only (ADR's block/unblock is the requester's
+explicit act), no reader drops it, so it is surfaced for repair, not lost.
