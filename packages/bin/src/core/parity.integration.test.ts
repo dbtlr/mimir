@@ -853,6 +853,24 @@ test.skipIf(!NORN)('write parity: create an initiative under a project', async (
   );
 });
 
+// MMR-199: the project document of a NEW project is the first file in its `KEY/`
+// directory, which does not exist yet in a freshly converged vault. `vault.apply
+// { parents: true }` (NRN-174) must mint that directory — the write path no longer
+// pre-creates it with a local `mkdirSync`. Without the parents flag this create
+// throws "parent directory does not exist", so a clean readback of the persisted
+// doc guards the ADR 0018 fs-free invariant. (The provisional id a bare project
+// create returns is a separate, pre-existing resolution gap — see MMR follow-up.)
+test.skipIf(!NORN)('write path: creating a project mints its missing KEY/ directory', async () => {
+  const norn = createNornReadStore(client);
+  await createProject(norn, { key: 'NEW', name: 'Newborn' });
+  // read it back off disk through a fresh working set — proves NEW/NEW.md landed,
+  // i.e. `parents: true` created the missing NEW/ directory rather than throwing.
+  const ws = await norn.loadWorkingSet();
+  const persisted = ws.projects.find((p) => p.key === 'NEW');
+  expect(persisted?.name).toBe('Newborn');
+  expect(persisted?.id).toBeGreaterThan(0); // resolves to a real synthetic id on reload
+});
+
 // unblock/unpark append to a *non-empty* `## History` (the migrated base carries
 // the block/park transition), so they exercise the release verbs on top of an
 // existing record. (The empty-section first append — Norn BUG-1, fixed in norn

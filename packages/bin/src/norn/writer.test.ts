@@ -20,8 +20,9 @@ import { createNornWriteStore } from './writer';
 
 const TS = '2026-06-01T00:00:00.000Z';
 
-// A real (empty) vault root: the writer ensures a create's directory on disk
-// before apply, so the fake-client path still touches the filesystem there.
+// A real (empty) vault root, threaded into the plan's `vault_root`. The writer
+// issues no direct filesystem writes (create parents come from `vault.apply`'s
+// `parents: true`, NRN-174), so nothing is written under it on the fake path.
 const ROOT = mkdtempSync(join(tmpdir(), 'writer-unit-'));
 afterAll(() => rmSync(ROOT, { force: true, recursive: true }));
 
@@ -264,7 +265,8 @@ test('a create emits one create_document with {{seq}} and stitches the resolved 
     [
       {
         // a real norn 0.45 applied create report: outcome + the create op's
-        // resolved path/stem alongside the summary the writer parses today.
+        // `op_id` (its plan position) and resolved `stem`, which the writer
+        // correlates and reads structurally (NRN-175).
         report: {
           report: {
             applied: 1,
@@ -272,6 +274,7 @@ test('a create emits one create_document with {{seq}} and stitches the resolved 
             operations: [
               {
                 kind: 'create_document',
+                op_id: '0',
                 path: 'MMR/MMR-2.md',
                 status: 'applied',
                 stem: 'MMR-2',
@@ -523,7 +526,7 @@ test('an unrecognized apply report (no outcome) is terminal, never a silent succ
 });
 
 // F1+F2 — a create must resolve a real seq/id from the apply report, or throw.
-test('a create whose apply report omits the create summary throws (no leaked provisional)', async () => {
+test('a create whose apply report omits the create op throws (no leaked provisional)', async () => {
   const docs: NornDocument[] = [
     projectDoc(),
     {
@@ -537,7 +540,7 @@ test('a create whose apply report omits the create summary throws (no leaked pro
       path: 'MMR/MMR-1.md',
     },
   ];
-  // the apply "succeeds" but the report carries no create_document summary
+  // the apply "succeeds" but the report carries no create_document op
   const { client, plans } = fakeClient(docs, [
     { report: { report: { applied: 1, failed: 0, operations: [], outcome: 'applied' } } },
   ]);
@@ -551,8 +554,52 @@ test('a create whose apply report omits the create summary throws (no leaked pro
   } catch (error) {
     message = error instanceof Error ? error.message : String(error);
   }
-  expect(message).toContain('missing its create summary');
+  expect(message).toContain('no create_document report op at op_id 0');
   expect(plans).toHaveLength(1); // the write applied; only the echo resolution failed
+});
+
+// F1+F2 — a create op present but carrying no resolved stem (norn reports a
+// `skipped` op with no `stem`, e.g. two same-`{{seq}}`-template creates in one
+// plan) still fails loud rather than leaking the negative provisional seq.
+test('a create op with no resolved stem throws (no leaked provisional)', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        parent: '[[MMR]]',
+        title: 'Init',
+        type: 'initiative',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ];
+  const { client } = fakeClient(docs, [
+    {
+      report: {
+        report: {
+          applied: 0,
+          failed: 0,
+          operations: [{ kind: 'create_document', op_id: '0', status: 'skipped' }],
+          outcome: 'applied',
+          skipped: 1,
+        },
+      },
+    },
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  const ws = await store.loadWorkingSet();
+  const initiativeId = ws.nodes[0]?.id ?? 0;
+
+  let message = '';
+  try {
+    await createTask(store, { parentId: initiativeId, priority: 'p1', title: 'New' });
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain('no resolved stem');
+  expect(message).toContain('status: skipped');
 });
 
 // F6 — exhausting the drift retries throws a clear exhaustion error, never the raw drift.

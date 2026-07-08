@@ -24,6 +24,7 @@ type FakeTool = (args: Record<string, unknown>) => Promise<{
 const SHAPES: Record<string, z.ZodRawShape> = {
   'vault.apply': {
     confirm: z.boolean().optional(),
+    parents: z.boolean().optional(),
     plan: z.record(z.string(), z.unknown()),
   },
   'vault.find': { eq: z.array(z.string()).optional() },
@@ -190,7 +191,7 @@ test('an in-flight death on a mutation fails typed and is never replayed', async
   expect(fake.spawns).toBe(2);
 });
 
-test('applyPlan sends vault.apply with {plan, confirm} and unwraps the report', async () => {
+test('applyPlan sends vault.apply with {plan, confirm, parents} and unwraps the report', async () => {
   let received: unknown = null;
   const fake = fakeNorn(() => ({
     'vault.apply': (args) => {
@@ -205,7 +206,7 @@ test('applyPlan sends vault.apply with {plan, confirm} and unwraps the report', 
   });
   const report = await client.applyPlan(plan, true);
   expect(report).toEqual({ report: { applied: 1, dry_run: false } });
-  expect(received).toEqual({ confirm: true, plan });
+  expect(received).toEqual({ confirm: true, parents: true, plan });
 });
 
 test('applyPlan returns the structured report even when isError is set (norn 0.45.1 refusal)', async () => {

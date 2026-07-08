@@ -1,6 +1,3 @@
-import { mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-
 import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import { createNornArtifactStore } from '../core/artifacts';
@@ -128,11 +125,6 @@ async function runTransact<T>(
       return result; // a pure-read `transact` (e.g. a guard that threw nothing)
     }
     const plan = migrationPlan({ generator: 'mimir', operations, vaultRoot });
-    // `vault.apply` runs `create_document` with `parents: false` — the first doc
-    // in a new project directory (a project create) would fail on a missing
-    // parent. Ensure each create's directory exists on the local vault first;
-    // `{{seq}}` only ever occupies the file name, so the directory is concrete.
-    ensureCreateDirs(vaultRoot, acc.creates);
     // norn 0.45.1 (NRN-219): a precondition refusal sets `isError: true` but
     // PRESERVES the structured report, which `applyPlan` returns (tolerating the
     // error signal) rather than throwing — so classify the outcome. A genuine
@@ -164,14 +156,6 @@ async function runTransact<T>(
     'the node write path exhausted its drift retries',
     lastError instanceof Error ? lastError.message : undefined,
   );
-}
-
-/** Create each queued document's parent directory on the local vault (idempotent),
- * so `vault.apply`'s `parents: false` create never fails on a missing folder. */
-function ensureCreateDirs(vaultRoot: string, creates: Create[]): void {
-  for (const create of creates) {
-    mkdirSync(join(vaultRoot, dirname(create.pathTemplate)), { recursive: true });
-  }
 }
 
 /** norn's stable CAS-refusal error codes (kebab-case, NRN-150) — the machine
@@ -795,51 +779,67 @@ class Accumulator {
   }
 }
 
+/** One `create_document` line of a `vault.apply` report, keyed by its `op_id`
+ * (norn 0.45 / NRN-175): `stem` is the resolved `KEY-seq` on an applied create;
+ * `status` distinguishes `applied` from a `skipped`/not-written op (no stem). */
+type ReportOp = { kind: string; status?: string; stem?: string };
+
 /**
- * Map each create's provisional id to the sequence Norn allocated. The apply
- * report lists `create_document` ops in plan order — the same order as
- * {@link Accumulator.creates} — each summary carrying the resolved path
- * (`create KEY/KEY-3.md`); parse the node stems back to their seq.
+ * Map each create's provisional id to the sequence Norn allocated. norn stamps
+ * every report op with its plan position as `op_id` (the global operations
+ * index), and {@link Accumulator.buildOperations} emits every create first, in
+ * {@link Accumulator.creates} order — so the create at index `i` owns
+ * `op_id` `String(i)`. Read the resolved `stem` straight from that op
+ * (NRN-175's structured field) rather than parsing norn's human summary text.
  */
 function extractResolvedSeqs(report: unknown, creates: Create[]): Map<Provisional, number> {
   const resolved = new Map<Provisional, number>();
-  const operations = reportOperations(report);
-  const createSummaries = operations
-    .filter((op) => op.kind === 'create_document')
-    .map((op) => op.summary);
+  const byOpId = reportOperations(report);
   creates.forEach((create, index) => {
     if (create.targetKind !== 'node') {
       return;
     }
     // Fail loud rather than leak the negative provisional seq (which would
-    // render `KEY--1`): a create MUST resolve its real allocated seq, or the
-    // whole transact throws.
-    const summary = createSummaries[index];
-    if (typeof summary !== 'string') {
-      throw invariant('a created node is missing its create summary in the apply report');
+    // render `KEY--1`): a create MUST resolve its real allocated seq from an
+    // applied, structured report op, or the whole transact throws.
+    const op = byOpId.get(String(index));
+    if (op === undefined || op.kind !== 'create_document') {
+      throw invariant(`a created node has no create_document report op at op_id ${index}`);
     }
-    const path = summary.replace(/^create\s+/, '');
-    const stem = path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/, '');
-    const ref = parseId(stem);
+    if (op.stem === undefined) {
+      throw invariant(
+        `a created node's apply-report op carries no resolved stem (status: ${op.status ?? 'unknown'})`,
+      );
+    }
+    const ref = parseId(op.stem);
     if (ref === null) {
-      throw invariant(`a created node's apply-report summary is not a KEY-seq stem: ${summary}`);
+      throw invariant(`a created node's resolved stem is not a KEY-seq: ${op.stem}`);
     }
     resolved.set(create.provisionalId, ref.seq);
   });
   return resolved;
 }
 
-function reportOperations(report: unknown): { kind: string; summary: string }[] {
+function reportOperations(report: unknown): Map<string, ReportOp> {
   const root = isRecord(report) && isRecord(report.report) ? report.report : report;
+  const byOpId = new Map<string, ReportOp>();
   if (!isRecord(root) || !Array.isArray(root.operations)) {
-    return [];
+    return byOpId;
   }
-  return root.operations.flatMap((op) => {
-    if (isRecord(op) && typeof op.kind === 'string' && typeof op.summary === 'string') {
-      return [{ kind: op.kind, summary: op.summary }];
+  for (const op of root.operations) {
+    if (!isRecord(op) || typeof op.op_id !== 'string' || typeof op.kind !== 'string') {
+      continue;
     }
-    return [];
-  });
+    const entry: ReportOp = { kind: op.kind };
+    if (typeof op.status === 'string') {
+      entry.status = op.status;
+    }
+    if (typeof op.stem === 'string') {
+      entry.stem = op.stem;
+    }
+    byOpId.set(op.op_id, entry);
+  }
+  return byOpId;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

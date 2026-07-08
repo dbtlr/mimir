@@ -363,9 +363,14 @@ export class NornClient {
    * preserving the report, so this call passes `tolerateStructuredError` to take
    * the report from the `isError` path rather than throwing. (A genuine tool or
    * connection error, which carries no structured report, still throws.)
+   *
+   * `parents: true` (norn 0.45 / NRN-174) makes `create_document` auto-create a
+   * missing parent directory — the first node of a new project no longer needs a
+   * local `mkdirSync`, so the write path issues no direct filesystem writes (the
+   * ADR 0018 invariant: Mimir talks to Norn, never touches the vault directly).
    */
   async applyPlan(plan: MigrationPlan, confirm: boolean): Promise<unknown> {
-    return this.call('vault.apply', { confirm, plan }, false, true);
+    return this.call('vault.apply', { confirm, parents: true, plan }, false, true);
   }
 
   /**
