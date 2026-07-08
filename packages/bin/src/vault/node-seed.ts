@@ -5,6 +5,7 @@ import type { Node, Project } from '../core/model';
 import type { WorkingSet } from '../core/store';
 import { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
 import type { NornClient } from '../norn/client';
+import { isPathCollision } from '../norn/client';
 
 // The frontmatter mappers moved to core/ (MMR-153) so the node write path can
 // share them without a norn→vault cycle; re-exported here for the seed's callers.
@@ -162,10 +163,6 @@ export async function seedNodes(ws: WorkingSet, write: SeedWrite): Promise<SeedR
 /** `field=<json>` entries for `vault.new` — the newDoc shape of a frontmatter record. */
 function toFieldJson(frontmatter: Record<string, unknown>): string[] {
   return Object.entries(frontmatter).map(([key, value]) => `${key}=${JSON.stringify(value)}`);
-}
-
-function isPathCollision(error: unknown): boolean {
-  return error instanceof Error && /already exists/i.test(error.message);
 }
 
 /**

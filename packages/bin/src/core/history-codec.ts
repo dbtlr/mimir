@@ -43,7 +43,17 @@ export const SEED_DESCRIPTION_HEADING = 'Seed Description';
  * missing heading — so a create seeds them empty.
  */
 export function renderNodeBody(description: string | null): string {
-  return `## ${DESCRIPTION_HEADING}\n${renderDescriptionSection(description)}${renderHistoryBody()}${renderAnnotationsBody()}`;
+  return renderSectionedBody(DESCRIPTION_HEADING, description);
+}
+
+/**
+ * The full sectioned body a node/seed carries: a `## <heading>` prose lede followed
+ * by the empty `## History` and `## Annotations` append anchors. The one shape
+ * {@link renderNodeBody} and {@link renderSeedBody} share — only the description
+ * heading differs (`Task Description` vs `Seed Description`).
+ */
+function renderSectionedBody(heading: string, description: string | null): string {
+  return `## ${heading}\n${renderDescriptionSection(description)}${renderHistoryBody()}${renderAnnotationsBody()}`;
 }
 
 /**
@@ -57,7 +67,7 @@ export function renderNodeBody(description: string | null): string {
  * {@link parseAnnotationsSection} over {@link sectionBody}.
  */
 export function renderSeedBody(description: string | null): string {
-  return `## ${SEED_DESCRIPTION_HEADING}\n${renderDescriptionSection(description)}${renderHistoryBody()}${renderAnnotationsBody()}`;
+  return renderSectionedBody(SEED_DESCRIPTION_HEADING, description);
 }
 
 /**

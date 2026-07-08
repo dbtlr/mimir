@@ -3,7 +3,7 @@ import type { Lifecycle, NodeType } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import type { NornClient, NornDocument } from '../norn/client';
-import { collapse, stemOf, stringList } from '../norn/decode';
+import { collapse, linkStems, stemOf, stringList } from '../norn/decode';
 import { invariant } from './errors';
 import { parseId, parseSeedRef } from './ids';
 import type { Dependency, Node, Project } from './model';
@@ -123,12 +123,6 @@ function cmpStr(a: string, b: string): number {
     return -1;
   }
   return a > b ? 1 : 0;
-}
-
-/** A wikilink field (scalar or list) → its collapsed stems, in frontmatter order. */
-function linkStems(value: unknown): string[] {
-  const raw = Array.isArray(value) ? value : [value];
-  return raw.map(collapse).filter((s): s is string => s !== null);
 }
 
 /**

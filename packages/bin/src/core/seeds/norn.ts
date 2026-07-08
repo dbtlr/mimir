@@ -3,7 +3,14 @@ import type { SeedKind, SeedLifecycle } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import type { NornClient, NornDocument } from '../../norn/client';
-import { collapse, pathAndSections } from '../../norn/decode';
+import { isPathCollision } from '../../norn/client';
+import {
+  collapse,
+  isStringRecord,
+  linkStems,
+  pathAndSections,
+  stemOf as stemFromPath,
+} from '../../norn/decode';
 import type { MigrationOp } from '../../norn/plan';
 import {
   addFrontmatter,
@@ -22,7 +29,7 @@ import {
   SEED_DESCRIPTION_HEADING,
   sectionBody,
 } from '../history-codec';
-import { renderSeedRef, wikilink } from '../ids';
+import { parseSeedRef, renderSeedRef, wikilink } from '../ids';
 import { now } from '../time';
 import type { SeedCreate, SeedPatch, SeedRecord, SeedStore } from './store';
 import { canTransitionSeed, isTerminalSeed } from './store';
@@ -49,41 +56,19 @@ import { canTransitionSeed, isTerminalSeed } from './store';
 
 const CREATE_RETRIES = 5;
 
-/**
- * Is this the create-exclusive path collision — the only error `create` may
- * safely retry? Norn's `vault.new` on an existing path fails with "already
- * exists"; the NornClient wraps it, so we match the message text (the artifact
- * store makes the same match).
- */
-function isPathCollision(error: unknown): boolean {
-  return error instanceof Error && /already exists/i.test(error.message);
-}
-
 const stemOf = (key: string, seq: number): string => renderSeedRef({ key, seq });
 const pathOf = (key: string, seq: number): string => `${key}/seeds/${stemOf(key, seq)}.md`;
 
-/** Parse `KEY-sN` out of a vault seed path; null for non-seed paths. */
+/** Parse `KEY-sN` out of a vault seed path; null for non-seed paths — the canonical
+ * grammar parser over the document stem (store-norn's seed read does the same). */
 function seqFromPath(path: string): { key: string; seq: number } | null {
-  const match = /(?:^|\/)([A-Z]{2,4})-s(\d+)\.md$/.exec(path);
-  return match ? { key: String(match[1]), seq: Number(match[2]) } : null;
+  return parseSeedRef(stemFromPath(path));
 }
 
-function isStringRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function narrowKind(value: unknown): SeedKind | null {
-  return typeof value === 'string' && isMember(value, SEED_KIND_VALUES) ? value : null;
-}
-
-function narrowLifecycle(value: unknown): SeedLifecycle | null {
-  return typeof value === 'string' && isMember(value, SEED_LIFECYCLE_VALUES) ? value : null;
-}
-
-/** A wikilink list (scalar or array) → its collapsed stems, in frontmatter order. */
-function linkStems(value: unknown): string[] {
-  const raw = Array.isArray(value) ? value : [value];
-  return raw.map(collapse).filter((s): s is string => s !== null);
+/** Narrow a raw frontmatter value to a member of a closed seed enum; null when it is
+ * absent, non-string, or foreign — kind and lifecycle share the one guard. */
+function narrowEnum<T extends string>(value: unknown, values: readonly T[]): T | null {
+  return typeof value === 'string' && isMember(value, values) ? value : null;
 }
 
 /**
@@ -98,8 +83,8 @@ function toRecord(doc: NornDocument): SeedRecord | null {
   if (identity === null || fm === undefined) {
     return null;
   }
-  const kind = narrowKind(fm.kind);
-  const lifecycle = narrowLifecycle(fm.lifecycle);
+  const kind = narrowEnum(fm.kind, SEED_KIND_VALUES);
+  const lifecycle = narrowEnum(fm.lifecycle, SEED_LIFECYCLE_VALUES);
   if (kind === null || lifecycle === null) {
     return null;
   }

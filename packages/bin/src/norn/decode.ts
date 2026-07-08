@@ -30,6 +30,22 @@ export function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
 
+/** A wikilink field (scalar or array) → its collapsed stems, in frontmatter order —
+ * the shared decode for link lists (`depends_on`, `spawned`). A non-array value is a
+ * single-element list; entries {@link collapse} can't use ({@link collapse} → null)
+ * drop. One home, so the node reader and the seed store decode links identically. */
+export function linkStems(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value : [value];
+  return raw.map(collapse).filter((s): s is string => s !== null);
+}
+
+/** A non-null, non-array object narrowed to `Record<string, unknown>` — the shared
+ * guard for probing an untyped `vault.get`/`vault.new` result record before reading
+ * its fields. (The norn client keeps its own module-private `isRecord`.) */
+export function isStringRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 /** The document stem — the canonical id. `MMR/MMR-2.md` → `MMR-2`, `MMR/MMR.md` → `MMR`. */
 export function stemOf(path: string): string {
   const base = path.slice(path.lastIndexOf('/') + 1);
