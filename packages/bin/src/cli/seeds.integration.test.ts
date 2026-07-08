@@ -126,9 +126,54 @@ describe.skipIf(!NORN)('seed CLI verbs', () => {
     expect(ok.code).toBe(0);
     const rec = parseJson<{ title: string; kind: string }>(ok.io.out.join(''));
     expect(rec).toMatchObject({ kind: 'bug', title: 'renamed' });
+    // A node-only flag is a bad invocation → usage/exit-2 (B5a), not a value fault.
     const bad = await cli(['update', 'MMR-s1', '--size', 'm']);
-    expect(bad.code).toBe(1);
+    expect(bad.code).toBe(2);
     expect(bad.io.err.join('')).toMatch(/doesn't apply to a seed/);
+  });
+
+  test('update KEY-sN --priority is a usage error (exit 2) — priority is inapplicable (B5a)', async () => {
+    await cli(['seed', 's', '-k', 'idea']);
+    const bad = await cli(['update', 'MMR-s1', '--priority', 'p1']);
+    expect(bad.code).toBe(2);
+    expect(bad.io.err.join('')).toMatch(/doesn't apply to a seed/);
+  });
+
+  test('get KEY-sN routes to the seed reader — records + json (B3)', async () => {
+    await cli(['seed', 'a seed', '-k', 'bug', '--desc', 'the prose']);
+    const recs = await cli(['get', 'MMR-s1']);
+    expect(recs.code).toBe(0);
+    expect(recs.io.out.join('')).toMatch(/MMR-s1/);
+    expect(recs.io.out.join('')).toMatch(/the prose/);
+    const asJson = await cli(['get', 'MMR-s1', '-f', 'json']);
+    const rec = parseJson<Record<string, unknown>>(asJson.io.out.join(''));
+    expect(rec).toMatchObject({ id: 'MMR-s1', kind: 'bug', lifecycle: 'new', project: 'MMR' });
+  });
+
+  test('node verbs reject a seed id as a kind-error, not a fake not_found (B4)', async () => {
+    await cli(['seed', 's', '-k', 'idea']); // MMR-s1
+    for (const argv of [
+      ['done', 'MMR-s1'],
+      ['start', 'MMR-s1'],
+      ['status', 'MMR-s1'],
+      ['tree', 'MMR-s1'],
+      ['tag', 'MMR-s1', 'x'],
+    ]) {
+      const { code, io } = await cli(argv);
+      expect(code).not.toBe(0);
+      expect(io.err.join('')).toMatch(/is a seed/);
+      expect(io.err.join('')).not.toMatch(/doesn't exist/);
+    }
+  });
+
+  test('seeds -p all reads every active board (B5b)', async () => {
+    await createProject(store, { key: 'OTH', name: 'Other' });
+    await cli(['seed', 'here', '-k', 'idea']); // MMR-s1
+    await cli(['seed', 'there', '-k', 'bug', '-p', 'OTH']); // OTH-s1
+    const all = await cli(['seeds', '-p', 'all', '-f', 'json']);
+    expect(all.code).toBe(0);
+    const rec = parseJson<{ seeds: { id: string }[] }>(all.io.out.join(''));
+    expect(rec.seeds.map((s) => s.id).toSorted()).toEqual(['MMR-s1', 'OTH-s1']);
   });
 
   test('reject requires a reason (usage, exit 2)', async () => {

@@ -41,6 +41,7 @@ import {
   resolveProjectKeyInSet,
   formatArtifactJson,
   formatNodeJson,
+  formatPromoteJson,
   formatSeedJson,
   formatSeedsJson,
   formatSetJson,
@@ -922,8 +923,10 @@ export function toolSeeds(
   boundScope?: string,
 ): Promise<ToolResult> {
   return guard(async () => {
-    // `project: "all"` (or the unbound default) reads every active board's queue.
-    const project = args.project === 'all' ? undefined : (args.project ?? boundScope);
+    // `project: "all"` (or the unbound default) reads every active board's queue —
+    // `'all'` is honored at the intent seam (`listSeeds`), so all three transports
+    // converge on one mapping instead of each special-casing it (B5b).
+    const project = args.project ?? boundScope;
     const seeds = await listSeeds(store, {
       project,
       requester: args.requester,
@@ -966,7 +969,7 @@ export function toolPromote(
     if (args.size !== undefined && !isMember(args.size, SIZE_VALUES)) {
       throw validation(`invalid size: ${args.size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
     }
-    const { seed } = await promoteSeed(store, args.id, {
+    const { created, seed } = await promoteSeed(store, args.id, {
       description: args.description,
       link: args.link,
       parent: args.parent,
@@ -975,7 +978,9 @@ export function toolPromote(
       tags: args.tags,
       title: args.title,
     });
-    return ok(formatSeedJson(seed));
+    // Surface the created task id as a sibling field so an agent can act on the
+    // spawned work without a second lookup (B7).
+    return ok(formatPromoteJson(seed, created));
   });
 }
 

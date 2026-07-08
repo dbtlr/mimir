@@ -22,6 +22,7 @@ import {
   formatStatusJson,
   getArtifact,
   getNode,
+  getSeed,
   listNodes,
   listProjects,
   nextTasks,
@@ -80,6 +81,7 @@ import {
   renderArtifactDetail,
   renderNodeView,
   renderRecords,
+  renderSeedView,
   renderStatus,
   renderTable,
   renderTree,
@@ -433,6 +435,18 @@ export async function runCli(
           const content = (values.col ?? []).includes('content');
           renderArtifactDetail(
             await getArtifact(await getStore(), id, { content }),
+            pickFormat(values.format, 'single', ctx),
+            ctx,
+          );
+          return 0;
+        }
+        if (parseIdentity(id)?.kind === 'seed') {
+          // `get KEY-sN` routes to the single-seed reader + renderer, matching MCP
+          // (`get_seed`) and HTTP (`GET /api/seeds/:id`) — the ADR 0020 amendment
+          // promises `get KEY-sN` works on every surface (MMR-245/B3). Content is
+          // opted in for the `## Seed Description` prose, as those transports do.
+          renderSeedView(
+            await getSeed(await getStore(), id, { content: true }),
             pickFormat(values.format, 'single', ctx),
             ctx,
           );

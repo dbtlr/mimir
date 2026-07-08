@@ -116,6 +116,10 @@ export async function nodeTree(
   if (identity.kind === 'artifact') {
     throw notFound(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
+  if (identity.kind === 'seed') {
+    // A seed has no tree — reject the kind, never a fake `doesn't exist` (MMR-245/B4).
+    throw notFound(`${id} is a seed, not a project or a task/phase/initiative`);
+  }
   // Node id — resolve it against the snapshot and recurse down. An archived
   // project's subtree reads as absent (ADR 0015).
   const set = deriveSet(await store.loadWorkingSet());

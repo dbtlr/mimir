@@ -945,6 +945,7 @@ export async function cmdResolve(c: Ctx): Promise<number> {
 /** `update KEY-sN` — patch a live seed's title/kind/description (MMR-245). */
 async function cmdUpdateSeed(c: Ctx, token: string): Promise<number> {
   for (const [key, flag] of [
+    ['priority', '--priority'],
     ['size', '--size'],
     ['target', '--target'],
     ['ref', '--ref'],
@@ -954,7 +955,9 @@ async function cmdUpdateSeed(c: Ctx, token: string): Promise<number> {
     ['upstream', '--upstream'],
   ] as const) {
     if (c.values[key] !== undefined) {
-      throw validation(`${flag} doesn't apply to a seed — patch --title, --kind, or --desc`);
+      // A node-only flag on a seed update is a bad INVOCATION, not a value fault —
+      // usage/exit-2, mirroring the sibling --kind guard and the output contract (B5a).
+      throw usage(`${flag} doesn't apply to a seed — patch --title, --kind, or --desc`);
     }
   }
   const fields: UpdateSeedFields = {};

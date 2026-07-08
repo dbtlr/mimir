@@ -232,6 +232,23 @@ export function formatSeedJson(seed: SeedView): string {
   return emitWire(seedToWire(seed), true);
 }
 
+/** The promote echo wire (MMR-245): the seed wire plus a SIBLING `created` field —
+ * the created task id in create mode, omitted in link mode. Kept a sibling (not a
+ * re-wrap) so the top-level seed shape stays identical to get/update/reject/resolve;
+ * the single source both MCP and HTTP render, so the two can't drift (B7). */
+export function promoteToWire(seed: SeedView, created?: string): Record<string, unknown> {
+  const wire = seedToWire(seed);
+  if (created !== undefined) {
+    wire.created = created;
+  }
+  return wire;
+}
+
+/** `json` string for the promote echo — {@link promoteToWire} emitted (MCP). */
+export function formatPromoteJson(seed: SeedView, created?: string): string {
+  return emitWire(promoteToWire(seed, created), true);
+}
+
 /** `json` for the seed queue — the count-led `{ total, seeds: [...] }` envelope. */
 export function formatSeedsJson(seeds: readonly SeedView[]): string {
   return emitWire({ seeds: seeds.map(seedToWire), total: seeds.length }, true);

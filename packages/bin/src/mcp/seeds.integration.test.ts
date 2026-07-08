@@ -74,9 +74,12 @@ describe.skipIf(!NORN)('seed MCP tools', () => {
     const promoted = body(await toolPromote(store, { id: 'MMR-s1', parent: phaseRef })) as {
       lifecycle: string;
       spawned: string[];
+      created?: string;
     };
     expect(promoted.lifecycle).toBe('promoted');
     expect(promoted.spawned).toHaveLength(1);
+    // The created task id rides as a sibling of the seed wire (B7).
+    expect(promoted.created).toMatch(/^MMR-\d+$/);
 
     await toolSeed(store, { kind: 'idea', title: 't' }, 'MMR');
     const rejected = body(await toolReject(store, { id: 'MMR-s2', reason: 'out of scope' }));

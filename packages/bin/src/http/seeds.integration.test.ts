@@ -5,7 +5,14 @@ import { join } from 'node:path';
 
 import type { Server } from 'bun';
 
-import { createProject } from '../core';
+import {
+  createInitiative,
+  createPhase,
+  createProject,
+  deriveSet,
+  findNodeInSet,
+  resolveProjectKeyInSet,
+} from '../core';
 import type { Store } from '../core';
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
@@ -101,6 +108,60 @@ describe.skipIf(!NORN)('/api/seeds', () => {
       })
     ).json()) as Rec;
     expect(resolved).toMatchObject({ id: 'MMR-s1', lifecycle: 'resolved' });
+  });
+
+  test('promote echoes the created task id as a sibling field (B7)', async () => {
+    // A phase to promote under.
+    const pid = resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), 'MMR');
+    const init = await createInitiative(store, { projectId: pid, title: 'init' });
+    const afterInit = deriveSet(await store.loadWorkingSet());
+    const initNode = findNodeInSet(afterInit, `MMR-${String(init.seq)}`);
+    if (initNode === undefined) {
+      throw new Error('init not found');
+    }
+    const phase = await createPhase(store, { parentId: initNode.id, title: 'phase' });
+    await fetch(`${base}/api/seeds`, {
+      body: JSON.stringify({ kind: 'feature', project: 'MMR', title: 's' }),
+      method: 'POST',
+    });
+    const res = await fetch(`${base}/api/seeds/MMR-s1/promote`, {
+      body: JSON.stringify({ parent: `MMR-${String(phase.seq)}` }),
+      method: 'POST',
+    });
+    expect(res.status).toBe(200);
+    const rec = (await res.json()) as Rec;
+    expect(rec).toMatchObject({ id: 'MMR-s1', lifecycle: 'promoted' });
+    expect(rec.created).toMatch(/^MMR-\d+$/); // the spawned task id, sibling of the seed wire
+  });
+
+  test('?project=all lists every active board; empty ?requester= is no filter (B5b/c)', async () => {
+    await createProject(store, { key: 'OTH', name: 'Other' });
+    await fetch(`${base}/api/seeds`, {
+      body: JSON.stringify({ kind: 'idea', project: 'MMR', title: 'a' }),
+      method: 'POST',
+    });
+    await fetch(`${base}/api/seeds`, {
+      body: JSON.stringify({ kind: 'bug', project: 'OTH', title: 'b' }),
+      method: 'POST',
+    });
+    const all = (await (await fetch(`${base}/api/seeds?project=all`)).json()) as {
+      items: Rec[];
+      total: number;
+    };
+    expect(all.items.map((s) => s.id).toSorted()).toEqual(['MMR-s1', 'OTH-s1']);
+    // An empty requester filter is absent, not a filter for '' → the whole queue.
+    const q = (await (await fetch(`${base}/api/seeds?requester=`)).json()) as { total: number };
+    expect(q.total).toBe(2);
+  });
+
+  test('POST requester:"" stores null (frontmatter-absent), never [[]] (B5c)', async () => {
+    const rec = (await (
+      await fetch(`${base}/api/seeds`, {
+        body: JSON.stringify({ kind: 'idea', project: 'MMR', requester: '', title: 'x' }),
+        method: 'POST',
+      })
+    ).json()) as Rec;
+    expect(rec.requester).toBeNull();
   });
 
   test('POST with an invalid kind is a validation error (400)', async () => {

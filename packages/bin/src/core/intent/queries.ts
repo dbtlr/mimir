@@ -412,6 +412,11 @@ export async function getNode(store: Store, id: string, opts: GetOptions = {}): 
   if (identity?.kind === 'artifact') {
     throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
   }
+  if (identity?.kind === 'seed') {
+    // A seed id is a grooming record — reject it as a kind-error, not a fake
+    // `doesn't exist`. `get KEY-sN` is served by the seed reader (MMR-245/B4).
+    throw validation(`${id} is a seed, not a task, phase, or initiative`, 'read it: mimir get (seed)');
+  }
   const node = findNodeInSet(set, id);
   if (node === undefined || set.archivedProjects.has(node.project_id)) {
     throw notFound(`${id} doesn't exist`);
@@ -462,6 +467,11 @@ export async function statusOfNode(store: Store, id: string): Promise<StatusView
   }
   if (identity?.kind === 'artifact') {
     throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);
+  }
+  if (identity?.kind === 'seed') {
+    // A seed id is a grooming record — reject it as a kind-error, not a fake
+    // `doesn't exist`. `get KEY-sN` is served by the seed reader (MMR-245/B4).
+    throw validation(`${id} is a seed, not a task, phase, or initiative`, 'read it: mimir get (seed)');
   }
   const node = findNodeInSet(set, id);
   if (node === undefined || set.archivedProjects.has(node.project_id)) {

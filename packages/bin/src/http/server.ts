@@ -35,6 +35,7 @@ import {
   listSeeds,
   parseSeedRef,
   promoteSeed,
+  promoteToWire,
   seedToWire,
   transitionSeed,
   updateSeed,
@@ -1034,8 +1035,10 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (project !== null) {
               listOpts.project = project;
             }
+            // An empty `?requester=` is an absent filter, not a filter for the
+            // empty string — the whole queue, not zero rows (B5c).
             const requester = q.get('requester');
-            if (requester !== null) {
+            if (requester !== null && requester !== '') {
               listOpts.requester = requester;
             }
             const status = seedStatusParam(q.get('status'));
@@ -1123,7 +1126,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (size !== undefined && !isMember(size, SIZE_VALUES)) {
               throw validation(`invalid size: ${size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
             }
-            const { seed } = await promoteSeed(store, req.params.id, {
+            const { created, seed } = await promoteSeed(store, req.params.id, {
               description: strField(body, 'description'),
               link: strField(body, 'link'),
               parent: strField(body, 'parent'),
@@ -1132,7 +1135,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               tags: strList(body, 'tags'),
               title: strField(body, 'title'),
             });
-            return json(req, seedToWire(seed));
+            // `created` rides as a sibling of the seed wire (not a re-wrap), so the
+            // response surfaces the spawned task id in create mode (B7).
+            return json(req, promoteToWire(seed, created));
           }),
       },
 

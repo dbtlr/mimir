@@ -121,7 +121,9 @@ function resolveSeedView(
 }
 
 export type ListSeedsOptions = {
-  /** The target board whose queue to read; absent = every active project. */
+  /** The target board whose queue to read; absent (or the literal `'all'`) = every
+   * active project. Honoring `'all'` at the seam is what lets all three transports
+   * converge on one mapping (MMR-245/B5b). */
   project?: string;
   /** Requester-side filter — seeds whose (resolved) requester is this project key. */
   requester?: string;
@@ -140,10 +142,13 @@ export type ListSeedsOptions = {
  */
 export async function listSeeds(store: Store, opts: ListSeedsOptions = {}): Promise<SeedView[]> {
   const r = await seedResolver(store);
-  if (opts.project !== undefined && !r.projectKeys.has(opts.project)) {
-    throw projectNotFound(opts.project);
+  // `'all'` is the every-active-board selector, equivalent to omitting `project` —
+  // handled HERE so CLI `-p all`, HTTP `?project=all`, and MCP converge (B5b).
+  const project = opts.project === 'all' ? undefined : opts.project;
+  if (project !== undefined && !r.projectKeys.has(project)) {
+    throw projectNotFound(project);
   }
-  const keys = opts.project !== undefined ? [opts.project] : [...r.projectKeys];
+  const keys = project !== undefined ? [project] : [...r.projectKeys];
   const records: SeedRecord[] = [];
   for (const key of keys) {
     records.push(...(await store.seeds.listForProject(key)));
@@ -232,9 +237,12 @@ export async function fileSeed(store: Store, input: FileSeedInput): Promise<Seed
   if (!r.projectKeys.has(input.project)) {
     throw projectNotFound(input.project);
   }
-  if (input.requester != null && input.requester !== '' && !r.projectKeys.has(input.requester)) {
+  // Coerce '' → null up front so an empty requester can NEVER bypass the
+  // known-project guard nor write an empty `[[]]` wikilink (B5c); it self-files.
+  const requester = input.requester == null || input.requester === '' ? null : input.requester;
+  if (requester !== null && !r.projectKeys.has(requester)) {
     throw validation(
-      `requester ${input.requester} is not a known project`,
+      `requester ${requester} is not a known project`,
       'the requester is a board key (KEY); omit it to self-file',
     );
   }
@@ -242,7 +250,7 @@ export async function fileSeed(store: Store, input: FileSeedInput): Promise<Seed
     description: input.description ?? null,
     key: input.project,
     kind: input.kind,
-    requester: input.requester ?? null,
+    requester,
     title: input.title,
   });
   return getSeed(store, renderSeedRef({ key, seq }), { content: true });
