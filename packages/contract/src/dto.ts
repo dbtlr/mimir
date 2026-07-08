@@ -3,6 +3,8 @@ import type {
   Lifecycle,
   NodeType,
   Priority,
+  SeedKind,
+  SeedLifecycle,
   Size,
   StatusWord,
   TransitionKind,
@@ -98,6 +100,35 @@ export type ArtifactDetail = {
   createdAt: string;
   /** The frozen body — the one deliberately heavy column, opt-in always (MMR-34). */
   content?: string;
+};
+
+/**
+ * A resolved seed record (MMR-245) — the verb-facing projection of a
+ * `KEY-sN` grooming-queue seed. Read through the shared resolving seam
+ * (`listSeeds`/`getSeed`), so `requester` and `spawned` are already what a
+ * validated read keeps: an unknown `requester` reads as `null` (self-filed) and
+ * a `spawned` list is pruned to the work nodes that still resolve.
+ * `readyToResolve` is derived live (never stored, house rule): a `promoted`
+ * seed whose surviving spawned work is all settled.
+ */
+export type SeedView = {
+  /** Rendered `KEY-sN` id (MMR-244). */
+  id: string;
+  /** The owning (target) project key. */
+  project: string;
+  title: string;
+  kind: SeedKind;
+  lifecycle: SeedLifecycle;
+  /** Requester-side project key; `null` = self-filed (or an unknown project, nulled on read). */
+  requester: string | null;
+  /** Surviving spawned work-node stems (`KEY-seq`) — dangling refs pruned on read. */
+  spawned: string[];
+  /** Derived: a promoted seed whose (surviving) spawned work is all settled. */
+  readyToResolve: boolean;
+  createdAt: string;
+  updatedAt: string;
+  /** The `## Seed Description` prose — opt-in (content read); `null` when empty. */
+  description?: string | null;
 };
 
 /** `history` — a transition-log entry (heavy; opt-in even on `get`). */
