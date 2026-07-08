@@ -26,9 +26,10 @@ release. When a release is cut, this section is promoted to
   only** — the retiring SQLite backend throws). Tasks gain a nullable `upstream`
   field holding a seed id (the requester-side pointer). The shared validator
   covers all of it — a foreign seed `kind`/`lifecycle` drops the record, an
-  unknown `requester` nulls the field, a dangling `spawned` prunes the edge, and a
-  malformed or dangling task `upstream` nulls the field — and `mimir doctor`
-  surfaces each. The verb surface (CLI/MCP/HTTP) and triage pass follow in
+  orphaned seed is dropped, a malformed task `upstream` is nulled on read, and
+  an unknown `requester`, dangling `spawned`, or dangling `upstream` is
+  surfaced for repair by `mimir doctor` (referential resolution lands with the
+  verb surface). The verb surface (CLI/MCP/HTTP) and triage pass follow in
   MMR-245/246.
 
 - **Dev builds refuse to manage the real launchd** (MMR-147). Every
