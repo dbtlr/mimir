@@ -145,6 +145,39 @@ export const crlfCheck: Diagnostic = {
   title: 'CRLF line endings',
 };
 
+/** The referential/field checks that render {@link Drop} entries. */
+type DropCheckName = 'dangling-refs' | 'missing-project' | 'acyclicity' | 'field-validity';
+
+/**
+ * The check that renders each {@link Drop} rule — the drop→check partition made
+ * total and explicit (MMR-209). Keyed by `Drop['rule']`, so a new rule added to
+ * the Drop union (`core/validate.ts`) is a COMPILE error here until it is routed
+ * to a check. That closes the silent gap the four referential/field checks left:
+ * each hand-filtered `dropped` by rule literal and `fieldValidityCheck`'s else
+ * silently continued, so a new rule would render in NO check and vanish from
+ * every finding. Those checks now derive their slice from this map (via
+ * {@link ownsDrop}) instead of re-listing rules, so routing lives in one place;
+ * the companion "rendered by exactly one check" half is enforced against the live
+ * checks by an exhaustiveness test (`checks.test.ts`).
+ */
+export const RULE_OWNER: Record<Drop['rule'], DropCheckName> = {
+  'cycle-depends-on': 'acyclicity',
+  'cycle-parent': 'acyclicity',
+  'dangling-depends-on': 'dangling-refs',
+  'dangling-parent': 'dangling-refs',
+  'invalid-hold': 'field-validity',
+  'invalid-lifecycle': 'field-validity',
+  'invalid-open-ended': 'field-validity',
+  'invalid-priority': 'field-validity',
+  'invalid-size': 'field-validity',
+  'missing-project': 'missing-project',
+};
+
+/** Does `drop` belong to the named check? The single routing authority the
+ * referential/field checks filter on, so the {@link RULE_OWNER} partition and the
+ * checks cannot drift (MMR-209). */
+const ownsDrop = (drop: Drop, name: DropCheckName): boolean => RULE_OWNER[drop.rule] === name;
+
 /**
  * Dangling relational references (MMR-169): a node whose `parent` (a `KEY-seq`)
  * or `depends_on` resolves to no surviving node in the vault. Since MMR-181 the
@@ -166,12 +199,9 @@ export const danglingRefCheck: Diagnostic = {
   run: (ctx) => {
     const findings: DoctorFinding[] = [];
     for (const drop of ctx.dropped) {
-      // Only the dangling-* edge rules — a cycle edge (MMR-174) is a distinct rule
-      // reported by {@link acyclicityCheck}, not a dangling reference.
-      if (
-        drop.kind !== 'edge' ||
-        (drop.rule !== 'dangling-parent' && drop.rule !== 'dangling-depends-on')
-      ) {
+      // Routing lives in RULE_OWNER; the `kind` guard narrows for `ref` (only edge
+      // variants carry it — the two dangling-* rules this check owns are both edges).
+      if (!ownsDrop(drop, 'dangling-refs') || drop.kind !== 'edge') {
         continue;
       }
       const field = drop.rule === 'dangling-parent' ? 'parent' : 'depends_on';
@@ -210,7 +240,8 @@ export const missingProjectCheck: Diagnostic = {
     // (input-ordered) drops preserves the first-seen node as representative.
     const missing = new Map<string, { node: string; count: number }>();
     for (const drop of ctx.dropped) {
-      if (drop.kind !== 'node' || drop.rule !== 'missing-project') {
+      // `key` is on the missing-project node variant; the guard narrows to it.
+      if (!ownsDrop(drop, 'missing-project') || drop.kind !== 'node') {
         continue;
       }
       const seen = missing.get(drop.key);
@@ -248,10 +279,8 @@ export const acyclicityCheck: Diagnostic = {
   run: (ctx) => {
     const findings: DoctorFinding[] = [];
     for (const drop of ctx.dropped) {
-      if (
-        drop.kind !== 'edge' ||
-        (drop.rule !== 'cycle-parent' && drop.rule !== 'cycle-depends-on')
-      ) {
+      // Routing lives in RULE_OWNER; the `kind` guard narrows for `ref`.
+      if (!ownsDrop(drop, 'acyclicity') || drop.kind !== 'edge') {
         continue;
       }
       const field = drop.rule === 'cycle-parent' ? 'parent' : 'depends_on';
@@ -284,6 +313,10 @@ export const fieldValidityCheck: Diagnostic = {
   run: (ctx) => {
     const findings: DoctorFinding[] = [];
     for (const drop of ctx.dropped) {
+      // Routing lives in RULE_OWNER; the branches below narrow for `value`.
+      if (!ownsDrop(drop, 'field-validity')) {
+        continue;
+      }
       let field: string;
       let message: string;
       if (drop.kind === 'node' && drop.rule === 'invalid-lifecycle') {
@@ -305,8 +338,9 @@ export const fieldValidityCheck: Diagnostic = {
         field = 'open_ended';
         message = `invalid open_ended "${drop.value}" — field nulled on read (node kept)`;
       } else {
-        // A referential drop (missing-project / dangling / cycle) — reported by the
-        // referential checks, not here. Exactly one check renders each rule.
+        // Unreachable: RULE_OWNER routes only the five field rules here, all
+        // handled above. A newly routed-but-unrendered rule is caught by the
+        // exhaustiveness test rather than silently continuing (MMR-209).
         continue;
       }
       findings.push({
