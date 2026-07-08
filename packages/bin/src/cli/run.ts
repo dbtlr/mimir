@@ -877,9 +877,38 @@ function requireId(id: string | undefined, command: string): string {
  * dynamic namespace Mimir doesn't have). One closed list; `content` is
  * artifact-only and handled by the `get KEY-aN` path.
  */
+/**
+ * The always-shown `NodeView` bare columns (dto.ts). `--col` only *adds* optional
+ * facet columns, so a user naming one of these is treating it as a projection —
+ * the 21-occurrence `--col id,type,status` miss (MMR-212). Best-effort: a name
+ * missing here just falls through to the generic unknown-column error.
+ */
+const BASE_COLUMN_NAMES = [
+  'id',
+  'type',
+  'title',
+  'status',
+  'parent',
+  'summary',
+  'priority',
+  'size',
+  'lifecycle',
+  'hold',
+  'target',
+  'created',
+  'updated',
+  'completed',
+] as const;
+
 function parseFacets(cols: string[] | undefined): FacetName[] {
   const facets: FacetName[] = [];
-  for (const col of cols ?? []) {
+  // Accept a comma-separated list (`--col history,annotations`) as well as the
+  // repeated `--col` form (MMR-212); tolerate surrounding spaces and empties.
+  for (const raw of (cols ?? []).flatMap((c) => c.split(','))) {
+    const col = raw.trim();
+    if (col === '') {
+      continue;
+    }
     if (col.startsWith('.')) {
       throw usage(`columns are flat now: --col ${col.slice(1)} (the dot prefix was dropped)`);
     }
@@ -887,6 +916,12 @@ function parseFacets(cols: string[] | undefined): FacetName[] {
       continue;
     } // artifact-only; a node simply has no body
     if (!isMember(col, FACET_NAMES)) {
+      if (isMember(col, BASE_COLUMN_NAMES)) {
+        throw usage(
+          `--col adds optional columns; '${col}' is always shown`,
+          `optional columns: ${[...FACET_NAMES, 'content'].join(', ')}`,
+        );
+      }
       throw usage(`unknown column: ${col}`, `columns: ${[...FACET_NAMES, 'content'].join(', ')}`);
     }
     facets.push(col);
