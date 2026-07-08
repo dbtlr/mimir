@@ -57,6 +57,7 @@ function deps(
   platform: NodeJS.Platform = 'darwin',
 ): SetupDeps {
   const service: ServiceDeps = {
+    allowRealSupervisor: true,
     binPath: join(dir, 'mimir'),
     configFile: join(dir, 'config.toml'),
     eventsFile: join(dir, 'service-events.jsonl'),
@@ -137,6 +138,34 @@ test('--install-service --port installs the serve unit and persists the port', a
     store: {},
     vault: { path: join(dir, 'vault') },
   });
+});
+
+// The dev-build fence (MMR-147): the setup install path routes through the same
+// cmdService gate, so a from-source `setup --install-snapshot` (the smoke that
+// polluted real launchd) fails loudly instead of writing a real unit.
+test('--install-snapshot refuses without real-supervisor trust', async () => {
+  const serve = new FakeSupervisor();
+  const snap = new FakeSupervisor();
+  const d = deps(serve, snap);
+  d.service.allowRealSupervisor = false;
+  const io = fakeIo(false);
+
+  let thrown: unknown;
+  try {
+    await cmdSetup(
+      { installSnapshot: true, vault: join(dir, 'vault'), yes: true },
+      io,
+      d,
+      'records',
+    );
+  } catch (e) {
+    thrown = e;
+  }
+
+  expect(thrown instanceof Error && thrown.message).toMatch(/dev\/from-source/);
+  expect(serve.calls).toEqual([]);
+  expect(snap.calls).toEqual([]);
+  expect(existsSync(d.service.units.snapshot.plistFile)).toBe(false);
 });
 
 test('--port persists to [serve] even without --install-service (serve reads it)', async () => {

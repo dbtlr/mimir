@@ -15,6 +15,16 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Dev builds refuse to manage the real launchd** (MMR-147). Every
+  supervisor-mutating verb — `service install/uninstall/start/stop/restart`,
+  `setup --install-service/--install-snapshot`, and self-update's daemon
+  restart — now requires a production build; a dev/from-source invocation
+  fails loudly instead of writing `~/Library/LaunchAgents` or driving
+  `launchctl`, so a smoke or dev run can never clobber the installed daemon's
+  unit by accident (it had, three times). `service status` stays open
+  (read-only), and `MIMIR_ALLOW_REAL_SERVICE=1` is the explicit opt-in for
+  deliberately managing the real supervisor from source.
+
 - **`mimir doctor` surfaces unreadable body sections** (MMR-239). Native section
   reads (`vault.get { section }`) warn-and-omit a `## History`/`## Annotations`
   heading norn cannot resolve — a hand-edited duplicate (ambiguous) or a missing

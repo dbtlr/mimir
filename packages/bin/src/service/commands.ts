@@ -76,6 +76,12 @@ export type ServiceUnit = {
 
 export type ServiceDeps = {
   platform: NodeJS.Platform;
+  /** Whether this process may mutate the host supervisor (launchd). Production
+   *  builds are trusted; dev/from-source runs are refused unless the operator
+   *  opts in via `MIMIR_ALLOW_REAL_SERVICE=1`, so a smoke or dev invocation
+   *  can never pollute the real launchd by accident (MMR-147). Main wires the
+   *  real value; tests with fake supervisors set it freely. */
+  allowRealSupervisor: boolean;
   /** The binary the plist points at / self-update replaces (process.execPath). */
   binPath: string;
   /** This invocation's version (build-injected tag, or package.json) — the on-disk version by definition. */
@@ -131,6 +137,21 @@ function requireDarwin(deps: ServiceDeps): void {
   }
 }
 
+/** The dev-build fence (MMR-147): every supervisor-mutating verb refuses unless
+ *  this process is trusted with the host launchd. Loud by design — a smoke that
+ *  reaches for the real supervisor should fail its run, not silently pollute
+ *  `~/Library/LaunchAgents` (it has, three times). Reads stay open: `status`
+ *  never mutates. */
+function requireRealSupervisor(deps: ServiceDeps, verb: string): void {
+  if (!deps.allowRealSupervisor) {
+    throw new MimirError(
+      'validation',
+      `service ${verb} manages the host launchd — refused from a dev/from-source build`,
+      'set MIMIR_ALLOW_REAL_SERVICE=1 to manage the real supervisor deliberately',
+    );
+  }
+}
+
 /** Render a service/self-update result: structured envelope, else human prose. */
 function report(io: Io, format: Format, json: () => string, human: () => void): void {
   if (format === 'json' || format === 'jsonl') {
@@ -167,6 +188,8 @@ export async function cmdService(
   if (sub === 'status') {
     return await statusReport(io, deps, format);
   }
+  // Everything past this point mutates the host supervisor.
+  requireRealSupervisor(deps, sub);
 
   const sel = parseSelector(positionals[2]);
   const installed = (): UnitName[] => UNITS.filter((n) => existsSync(deps.units[n].plistFile));
@@ -503,7 +526,13 @@ export async function cmdSelfUpdate(
   let restartFailed = false;
   // Self-update replaces the binary and restarts the serve daemon; the snapshot
   // unit is a short-lived timer that always re-execs the new binary next fire.
-  if (deps.platform === 'darwin' && (await deps.units.serve.supervisor.info()).loaded) {
+  // The restart is a real-supervisor mutation, so it honors the same dev-build
+  // fence as the service verbs (the binary itself is already replaced).
+  if (
+    deps.platform === 'darwin' &&
+    deps.allowRealSupervisor &&
+    (await deps.units.serve.supervisor.info()).loaded
+  ) {
     try {
       await deps.units.serve.supervisor.restart();
       restarted = true;
