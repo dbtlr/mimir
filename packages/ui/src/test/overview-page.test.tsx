@@ -47,15 +47,36 @@ describe('overviewPage attention-router (MMR-102)', () => {
     });
     renderOverview();
 
-    await expect(screen.findByText('Awaiting you')).resolves.toBeDefined();
-    expect(screen.getByText('Live')).toBeDefined();
+    await expect(screen.findByText('Awaiting you · 1')).resolves.toBeDefined();
+    expect(screen.getByText('Live · 1')).toBeDefined();
     // needs_unsticking has no members → its header is omitted
-    expect(screen.queryByText('Needs unsticking')).toBeNull();
-    // At rest is collapsed: a "view all" strip, its card hidden until expanded
-    expect(screen.queryByText('RESTED')).toBeNull();
+    expect(screen.queryByText(/Needs unsticking/)).toBeNull();
+    // At rest is folded: its key chip shows, but the full card is hidden until unfold
+    expect(screen.getByText('RESTED')).toBeDefined(); // key chip
+    expect(screen.queryByText('RESTED project')).toBeNull(); // card hidden
     const strip = screen.getByRole('button', { name: /at rest/i });
     await userEvent.click(strip);
-    expect(screen.getByText('RESTED')).toBeDefined();
+    expect(screen.getByText('RESTED project')).toBeDefined();
+  });
+
+  it('renders the page header with the project count and the new-project action', async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/projects') {
+        return Promise.resolve({
+          items: [
+            proj('REVIEW', attn('awaiting_you', '2026-06-20T00:00:00.000Z')),
+            proj('LIVE', attn('live', '2026-06-19T00:00:00.000Z')),
+          ],
+          total: 2,
+        });
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    renderOverview();
+
+    await expect(screen.findByRole('heading', { name: 'Projects' })).resolves.toBeDefined();
+    expect(screen.getByText('2')).toBeDefined(); // project count meta
+    expect(screen.getByRole('button', { name: /new project/i })).toBeDefined();
   });
 
   it('degrades to a flat Overview grid when the attention facet is absent', async () => {
