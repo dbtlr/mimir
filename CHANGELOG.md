@@ -43,6 +43,21 @@ release. When a release is cut, this section is promoted to
   with a faint violet row wash; offline inerts them. The route, `?view=tree`
   search param, `TreeView` contract, and tree data fetch are unchanged.
 
+- **Overview rebuilt to the Meridian console surface** (MMR-226). The `/`
+  attention router is restyled to pixel-fidelity against the settled 3a mock: a
+  desktop page header ("Projects" + count and the one solid "+ New project"
+  action, disabled offline); four hue-keyed lanes (Awaiting you / Live / Needs
+  unsticking / At rest) each led by a mono microlabel and a hairline rule that
+  fades right, empty lanes omitted; project cards carrying a key/title/signal
+  row, a distribution bar, and a grouped `live / ready / review / held`
+  leaf-count row with per-lane treatment (violet border + glow and a
+  "verdict waiting" count on Awaiting you, a red border and a blocked count on
+  Needs unsticking, a live pip and a "moved …" recency tail on Live); the At-rest
+  lane folds to a recessed strip of mono key chips, unfolding to the same card
+  grid. The top-bar attention control becomes a calm "N for you" wash+ring pill
+  (hidden at zero, never red or solid) opening a "Needs you" menu whose rows now
+  render a `{status} · {ID} · {age}` meta line. Data flow, deep-links, polling,
+  and offline demotion are unchanged.
 - **Seed verbs across CLI, MCP, and HTTP** (MMR-245). The grooming-queue entity
   (MMR-244) gains its verb surface. `mimir seed "<title>" -k <kind> [-p KEY]
   [--desc …]` files a seed (target board and requester default from the bound
