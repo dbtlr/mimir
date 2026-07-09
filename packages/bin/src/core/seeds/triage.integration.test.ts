@@ -303,6 +303,27 @@ describe.skipIf(!NORN)('triage pass', () => {
     expect(await annotationsOf(goodRef)).toContain('upstream MMR-s2 resolved: shipped too');
   });
 
+  test('a corrupt anchor on a task with a LIVE (non-terminal) upstream is NOT quarantined — nothing to reconcile', async () => {
+    const { phaseRef } = await seedbed();
+    await fileSeed(store, { kind: 'bug', project: 'MMR', requester: null, title: 'ask1' });
+    const task = await createTask(store, {
+      parentId: await idOf(phaseRef),
+      title: 'still waiting',
+      upstream: 'MMR-s1',
+    });
+    const taskRef = `MMR-${String(task.seq)}`;
+    // Corrupt the anchor, but the upstream seed never goes terminal — no annotation
+    // would ever be written for this task, so the corruption is irrelevant to triage.
+    const taskPath = join(root, 'vault', 'MMR', `${taskRef}.md`);
+    appendFileSync(taskPath, '\n## Annotations\n');
+
+    const report = await triage(store, { board: 'MMR' });
+
+    // Nothing to reconcile here — the corrupt anchor must NOT surface as a failure.
+    expect(report.failures).toHaveLength(0);
+    expect(report.upstreamResolutions).toHaveLength(0);
+  });
+
   test('a task with a dangling upstream ref is skipped gracefully', async () => {
     const { phaseRef } = await seedbed();
     const task = await createTask(store, {

@@ -190,14 +190,6 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
     if (upstream === null || taskStem === undefined) {
       continue;
     }
-    if (corruptAnchors.has(taskStem)) {
-      failures.push({
-        message:
-          'its `## Annotations` heading is missing or duplicated (ambiguous) — run `mimir doctor`',
-        task: taskStem,
-      });
-      continue;
-    }
     // Per-task isolation: a fault reconciling ONE task (e.g. a flaky cross-board
     // seed read) is recorded and skipped — never an abort of the board pass. The
     // pass's own setup (listSeeds / working-set) stays outside this, so a genuine
@@ -226,6 +218,21 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
       const alreadyRecorded = existing.some((note) =>
         annotationRecordsResolution(note.content, upstream, terminal),
       );
+
+      // Corrupt-anchor quarantine (MMR-239), checked ONLY now that the task has
+      // actually reached the point of needing a write — a live upstream or an
+      // already-recorded resolution never gets here, so a corrupt anchor on THOSE
+      // tasks is irrelevant to this pass (nothing to reconcile, doctor's job).
+      // `readAnnotations` already degraded to `[]` above on a corrupt anchor, so
+      // `alreadyRecorded` is false here — this correctly intercepts before the write.
+      if (!alreadyRecorded && corruptAnchors.has(taskStem)) {
+        failures.push({
+          message:
+            'its `## Annotations` heading is missing or duplicated (ambiguous) — run `mimir doctor`',
+          task: taskStem,
+        });
+        continue;
+      }
 
       let annotated = false;
       if (!alreadyRecorded && !dryRun) {
