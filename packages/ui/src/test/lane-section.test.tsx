@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { LaneSection } from '../components/lane-section';
 import type { LaneGroup } from '../lib/lanes';
@@ -11,19 +11,18 @@ function lane(over: Partial<LaneGroup> & Pick<LaneGroup, 'lane' | 'label'>): Lan
 }
 
 describe('laneSection', () => {
-  it('renders the lane label and its project count', () => {
+  it('renders the lane label with its project count', () => {
     render(<LaneSection lane={lane({ label: 'Live', lane: 'live' })} onOpen={vi.fn()} />);
-    expect(screen.getByText('Live')).toBeDefined();
-    expect(screen.getByText('2')).toBeDefined();
+    expect(screen.getByText('Live · 2')).toBeDefined();
   });
 
   it('a non-collapsible lane shows its cards directly', () => {
     render(<LaneSection lane={lane({ label: 'Live', lane: 'live' })} onOpen={vi.fn()} />);
-    expect(screen.getByText('ONE')).toBeDefined();
-    expect(screen.getByText('TWO')).toBeDefined();
+    expect(screen.getByText('project ONE')).toBeDefined();
+    expect(screen.getByText('project TWO')).toBeDefined();
   });
 
-  it('a collapsible lane is a re-collapsible disclosure (aria-expanded toggles)', async () => {
+  it('a collapsible lane folds to a key-chip strip, unfolding to the cards', async () => {
     render(
       <LaneSection
         lane={lane({ label: 'At rest', lane: 'at_rest' })}
@@ -32,19 +31,20 @@ describe('laneSection', () => {
       />,
     );
     const toggle = screen.getByRole('button', { name: /at rest/i });
-    // collapsed by default: cards absent, aria-expanded false
+    // folded: key chips present, cards (their titles) absent, aria-expanded false
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByText('ONE')).toBeNull();
+    expect(screen.getByText('ONE')).toBeDefined(); // key chip
+    expect(screen.queryByText('project ONE')).toBeNull(); // card hidden
 
     await userEvent.click(toggle);
-    // expanded: cards visible, aria-expanded true
+    // unfolded: cards visible, aria-expanded true
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByText('ONE')).toBeDefined();
-    expect(screen.getByText('TWO')).toBeDefined();
+    expect(screen.getByText('project ONE')).toBeDefined();
+    expect(screen.getByText('project TWO')).toBeDefined();
 
     await userEvent.click(toggle);
-    // re-collapsed: cards hidden again (the old one-way expand would keep them)
+    // re-folded: cards hidden again (the old one-way expand would keep them)
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByText('ONE')).toBeNull();
+    expect(screen.queryByText('project ONE')).toBeNull();
   });
 });
