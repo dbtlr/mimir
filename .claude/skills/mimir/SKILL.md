@@ -29,7 +29,9 @@ the gate below BEFORE other work. These thoughts mean STOP — you are rationali
 2. Is there a `.mimir.toml` here (this directory or any ancestor)? It binds the repo
    to its project and becomes the default scope.
    - **Bound** → orient now: `mimir status <KEY>` then `mimir list` then `mimir next`
-     (that order — see `references/querying.md`).
+     (that order — see `references/querying.md`). On a board you own, follow with
+     `mimir triage` — untriaged seeds and ready-to-resolve flags are part of "what
+     needs attention" (idempotent, safe every session; `references/seeds.md`).
    - **Not bound** → this repo isn't Mimir-tracked. **Exit quietly and proceed
      normally.** Route to `references/setup.md` only if the user explicitly wants
      this project tracked.
@@ -41,7 +43,9 @@ relaxes these.
 
 **1. Statuses move only through verbs.** `start` · `submit` · `return` · `done` ·
 `abandon` · `park`/`unpark` · `block`/`unblock`. There is no editable status field, and
-`update` cannot touch status — that is by design, not an omission.
+`update` cannot touch status — that is by design, not an omission. Seeds
+(grooming-queue records) move through their own verbs — `promote` · `reject` ·
+`resolve` (`references/seeds.md`).
 
 **2. The transition contract — transition at the moment, not later:**
 
@@ -62,6 +66,11 @@ relaxes these.
 - **Discovered work = a new task** (`create task` + `depend` if it gates something),
   never a silent widening of the current one. `annotate` the current task with what
   you found.
+- **Discovered *non-work* = a seed.** A bug you noticed, an idea, a capability ask —
+  especially against **another** board — implies no committed work, only triage:
+  `mimir seed "…" -k <kind> [-p KEY]`, never a prose note that decays. If it blocks
+  you: `block` your task **and** set `--upstream KEY-sN` — never a prose-only hold
+  (`references/seeds.md`).
 - `annotate <id> "note"` when something lands mid-flight — a decision, a surprise, a
   scope change.
 - **The end-of-session sweep (the catch-all):** before ending, run
@@ -77,8 +86,8 @@ relaxes these.
 | "The user saw me do it"             | Mimir is the record, not the chat scroll.        |
 
 **3. Ids: one grammar.** Project = bare `KEY` (e.g. `MMR`) · work node = `KEY-seq`
-(`MMR-16`) · artifact = `KEY-a3`. Any id slot takes the full grammar; a verb rejects
-what it can't act on.
+(`MMR-16`) · artifact = `KEY-a3` · seed = `KEY-s3`. Any id slot takes the full
+grammar; a verb rejects what it can't act on.
 
 **4. Compose with the echoed id — never guess the next number.** Every create/mutation
 echoes the affected id. Capture it (`ID=$(mimir create task "…" --parent MMR-2 -f ids)`);
@@ -102,6 +111,7 @@ queries every project.
 | Ask the board questions: queues, triage, drill-down, reports, scripting | `references/querying.md`     |
 | Understand a status word, group, or rollup                              | `references/status-model.md` |
 | Classify with tags                                                      | `references/tags.md`         |
+| File or triage grooming-queue records: ideas, bugs, cross-board asks    | `references/seeds.md`        |
 
 (If your host can't shell out but has the Mimir MCP server configured, the verbs map
 1:1 — same names, same arguments, same binding-derived default scope.)
