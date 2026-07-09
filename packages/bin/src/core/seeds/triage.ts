@@ -76,6 +76,26 @@ function terminalReason(history: readonly HistoryEntry[], terminal: SeedLifecycl
   return null;
 }
 
+/**
+ * Resolve the board a triage run targets from a raw argument and the bound scope,
+ * trimming and rejecting an empty/blank value with ONE friendly error (MMR-246).
+ * Shared by the CLI and MCP fronts so `''`/`'   '` reads the same as a missing
+ * board (the friendly "triage requires a board"), never falling through to a
+ * generic `projectNotFound`. Each front keeps its own error semantics by passing
+ * its factory: the CLI's `usage` (exit 2), the MCP's `validation`.
+ */
+export function resolveBoard(
+  raw: string | undefined,
+  boundScope: string | undefined,
+  makeError: (message: string, hint?: string) => Error,
+): string {
+  const board = (raw ?? boundScope)?.trim();
+  if (board === undefined || board === '') {
+    throw makeError('triage requires a board', 'pass a KEY or bind a board first (mimir bind KEY)');
+  }
+  return board;
+}
+
 export type TriageOptions = {
   /** The board to reconcile (a project KEY). */
   board: string;

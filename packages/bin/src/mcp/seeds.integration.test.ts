@@ -130,4 +130,12 @@ describe.skipIf(!NORN)('seed MCP tools', () => {
       annotated: false,
     });
   });
+
+  test('triage with a blank board is the friendly board error (not projectNotFound)', async () => {
+    for (const board of ['', '   ']) {
+      const res = await toolTriage(store, { board }, undefined);
+      expect(res.isError).toBe(true);
+      expect(res.content[0]?.text).toMatch(/triage requires a board/);
+    }
+  });
 });

@@ -37,6 +37,7 @@ import {
   isSeedRef,
   promoteSeed,
   transitionSeed,
+  resolveBoard,
   triage,
   updateSeed,
   resolveNodeTokenInSet,
@@ -1016,10 +1017,7 @@ export function toolTriage(
   boundScope?: string,
 ): Promise<ToolResult> {
   return guard(async () => {
-    const board = args.board ?? boundScope;
-    if (board === undefined) {
-      throw validation('triage requires a board', 'pass board or bind a board');
-    }
+    const board = resolveBoard(args.board, boundScope, validation);
     return ok(formatTriageJson(await triage(store, { board, dryRun: args.dryRun ?? false })));
   });
 }

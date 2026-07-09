@@ -41,6 +41,7 @@ import {
   returnTask,
   startTask,
   submitTask,
+  resolveBoard,
   tagEntities,
   transitionSeed,
   triage,
@@ -959,10 +960,7 @@ export async function cmdResolve(c: Ctx): Promise<number> {
  * format the dispatcher picked (human in a terminal, json when piped).
  */
 export async function cmdTriage(c: Ctx): Promise<number> {
-  const board = c.positionals[1] ?? c.boundScope;
-  if (board === undefined || board.trim() === '') {
-    throw usage('triage requires a board', 'pass a KEY or bind a board first (mimir bind KEY)');
-  }
+  const board = resolveBoard(c.positionals[1], c.boundScope, usage);
   const report = await triage(c.store, { board, dryRun: c.values['dry-run'] === true });
   renderTriage(report, c.format, c.io);
   return 0;
