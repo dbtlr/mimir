@@ -51,7 +51,7 @@ mimir update  NRN-s2 --title "…" --kind idea      # patch a LIVE seed; termina
 - `promote` is **repeatable** while promoted — further germination appends
   `spawned` links. `--link` records work that already exists.
 - **Terminal states are set only by these explicit verbs.** All spawned work
-  settling never auto-closes a seed — it only flags it *ready to resolve*; the
+  settling never auto-closes a seed — it only flags it _ready to resolve_; the
   triager disposes (the spawned tasks could all have been abandoned without
   satisfying the ask).
 
@@ -79,7 +79,7 @@ mimir triage --dry-run  # preview; writes nothing
 
 One board per run, self-contained. Three checks: **(a)** surfaces untriaged
 seeds; **(b)** flags promoted seeds whose spawned work has all settled —
-*ready to resolve*; **(c)** for the board's **own** tasks whose `upstream` seed
+_ready to resolve_; **(c)** for the board's **own** tasks whose `upstream` seed
 went terminal, appends the resolution annotation
 (`upstream KEY-sN resolved: <reason>`) and suggests unblock.
 

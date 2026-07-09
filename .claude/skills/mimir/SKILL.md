@@ -66,7 +66,7 @@ relaxes these.
 - **Discovered work = a new task** (`create task` + `depend` if it gates something),
   never a silent widening of the current one. `annotate` the current task with what
   you found.
-- **Discovered *non-work* = a seed.** A bug you noticed, an idea, a capability ask —
+- **Discovered _non-work_ = a seed.** A bug you noticed, an idea, a capability ask —
   especially against **another** board — implies no committed work, only triage:
   `mimir seed "…" -k <kind> [-p KEY]`, never a prose note that decays. If it blocks
   you: `block` your task **and** set `--upstream KEY-sN` — never a prose-only hold
