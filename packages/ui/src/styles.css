@@ -1,4 +1,4 @@
-@import '@fontsource-variable/archivo';
+@import '@fontsource-variable/instrument-sans';
 @import '@fontsource-variable/jetbrains-mono';
 @import 'tailwindcss';
 @plugin "@tailwindcss/typography";
@@ -18,7 +18,7 @@
  * distribution bars, board column headers, tree badges, and the drawer.
  */
 @theme {
-  --font-sans: 'Archivo Variable', 'Archivo', system-ui, sans-serif;
+  --font-sans: 'Instrument Sans Variable', 'Instrument Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
 
   /*
