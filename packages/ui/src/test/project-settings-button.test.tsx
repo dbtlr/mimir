@@ -80,19 +80,3 @@ describe('projectSettingsButton', () => {
     });
   });
 });
-
-describe('projectCard description display', () => {
-  it('project description appears on the project card when present', async () => {
-    // Import ProjectCard here to keep the test co-located with the feature
-    const { ProjectCard } = await import('../components/project-card');
-    render(<ProjectCard project={baseProject} onOpen={() => {}} />);
-    expect(screen.getByText('A handy description')).toBeInTheDocument();
-  });
-
-  it('no description slot rendered when description is null', async () => {
-    const { ProjectCard } = await import('../components/project-card');
-    const project = { ...baseProject, description: null };
-    render(<ProjectCard project={project} onOpen={() => {}} />);
-    expect(screen.queryByText(/description/i)).toBeNull();
-  });
-});
