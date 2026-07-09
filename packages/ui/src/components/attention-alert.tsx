@@ -3,26 +3,28 @@ import { useNavigate } from '@tanstack/react-router';
 
 import { blockedQuery, staleQuery, underReviewQuery } from '../api/queries';
 import { projectKeyOf } from '../api/types';
+import type { AttentionReason } from '../lib/attention';
 import { attentionItems } from '../lib/attention';
-import { GoingColdBadge, StaleBadge } from './signal-badges';
+import { cn } from '../lib/cn';
+import { ago } from '../lib/time';
 import { StatusDot } from './status-dot';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
 
 /**
- * The global attention control (MMR-80, reconciled MMR-103): the cross-project
- * set that needs the operator — **under_review (Awaiting you) + blocked + stale**
- * — as a count badge + a menu. Lives in the top bar on every route. Selecting an
- * item opens it on its project board.
+ * The global attention control (MMR-80/103, restyled MMR-226): the cross-project
+ * set that needs the operator — **under_review (Awaiting you) → blocked →
+ * going_cold** — as a calm violet "N for you" pill + a menu. The pill uses the
+ * canonical wash+ring ratio (12% fill under a 24% inset ring), never a red hue
+ * or a solid fill even when the set is blocked-heavy, and hides entirely at zero
+ * ("N for you" is never "0 for you"). Selecting an item opens it on its board.
  */
-function attentionLabel(count: number): string {
-  if (count === 0) {
-    return 'Attention: nothing needs you';
-  }
-  if (count === 1) {
-    return 'Attention: 1 needs you';
-  }
-  return `Attention: ${count} need you`;
-}
+
+/** Per-reason label + its status-foreground meta tone. */
+const REASON_META: Record<AttentionReason, { label: string; meta: string }> = {
+  blocked: { label: 'Blocked', meta: 'text-status-blocked-foreground' },
+  going_cold: { label: 'Going cold', meta: 'text-cold' },
+  under_review: { label: 'Under review', meta: 'text-status-under-review-foreground' },
+};
 
 export function AttentionAlert() {
   const navigate = useNavigate();
@@ -36,34 +38,27 @@ export function AttentionAlert() {
   );
   const count = items.length;
 
+  // "N for you" is never "0 for you" — nothing needs you, nothing to show.
+  if (count === 0) {
+    return null;
+  }
+
   return (
     <MenuRoot>
-      <MenuTrigger
-        aria-label={attentionLabel(count)}
-        className="relative flex h-9 w-9 items-center justify-center rounded text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:h-auto md:w-auto md:p-1.5"
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.42 0Z"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinejoin="round"
-          />
-          <path d="M12 9v4m0 4h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-        {count > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-status-blocked px-1 font-mono text-micro font-bold text-well-950 tabular-nums">
-            {count}
-          </span>
-        )}
+      <MenuTrigger className="inline-flex items-center gap-1.5 rounded-full bg-attention/12 px-[11px] py-[5px] text-tag font-semibold text-attention-foreground inset-ring inset-ring-attention/24 transition-colors hover:bg-attention/16 focus-visible:outline-2 focus-visible:outline-accent">
+        <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-attention" />
+        {count} for you
       </MenuTrigger>
-      <MenuContent className="max-h-[70vh] w-80 overflow-auto">
-        {count === 0 ? (
-          <p className="px-2 py-3 text-center text-xs text-ink-faint">Nothing needs attention.</p>
-        ) : (
-          items.map(({ node, reason, stale: isStale }) => (
+      <MenuContent className="max-h-[70vh] w-[340px] overflow-auto">
+        <div className="border-b border-line px-2 py-1.5 font-mono text-micro font-semibold tracking-[0.13em] text-ink-faint uppercase">
+          Needs you · {count}
+        </div>
+        {items.map(({ node, reason }) => {
+          const rm = REASON_META[reason];
+          return (
             <MenuItem
               key={node.id}
+              className="items-start"
               onClick={() =>
                 void navigate({
                   params: { key: projectKeyOf(node.id) },
@@ -75,26 +70,23 @@ export function AttentionAlert() {
               {reason === 'going_cold' ? (
                 <span
                   aria-hidden
-                  className="inline-block size-[7px] shrink-0 rounded-full bg-cold"
+                  className="mt-1 inline-block size-[7px] shrink-0 rounded-full bg-cold"
                 />
               ) : (
-                <StatusDot status={reason} />
+                <StatusDot status={reason} className="mt-1" />
               )}
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="flex items-baseline gap-2">
-                  <span className="shrink-0 font-mono text-tag text-ink-dim md:text-micro">
-                    {node.id}
-                  </span>
-                  <span className="truncate text-sm text-ink md:text-xs">{node.title}</span>
+                <span className="truncate text-xs font-medium text-ink-bright">{node.title}</span>
+                <span className={cn('text-micro', rm.meta)}>
+                  {rm.label} <span className="text-ink-faint">·</span>{' '}
+                  <span className="font-mono text-ink-faint">{node.id}</span>{' '}
+                  <span className="text-ink-faint">·</span> {ago(node.updated_at)}
                 </span>
-                {node.hold_reason != null && node.hold_reason !== '' && (
-                  <span className="truncate text-tag text-ink-faint">{node.hold_reason}</span>
-                )}
               </span>
-              {reason === 'going_cold' ? <GoingColdBadge /> : isStale && <StaleBadge />}
             </MenuItem>
-          ))
-        )}
+          );
+        })}
+        {/* Record-damage line rides the doctor facet (MMR-140 line); no query here. */}
       </MenuContent>
     </MenuRoot>
   );
