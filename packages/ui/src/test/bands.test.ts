@@ -117,6 +117,12 @@ describe('buildBands — release mode', () => {
     expect(bands[0]?.distribution).toStrictEqual({ in_progress: 1, ready: 1 });
   });
 
+  it('mutes only the trailing untagged bucket, not the tagged bands', () => {
+    const bands = buildBands(buildBoard(relLive, [], NOW), 'release', tree);
+    expect(bands.find((b) => b.name === 'v0.13')?.muted).toBeUndefined();
+    expect(bands.find((b) => b.name === 'No release')?.muted).toBe(true);
+  });
+
   it('omits the untagged bucket when every leaf is tagged', () => {
     const tagged = [
       task({

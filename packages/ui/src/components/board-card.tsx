@@ -87,7 +87,10 @@ export function BoardCard({
       className={cn(
         cardVariants({ variant: isDone ? 'recessed' : 'default' }),
         'group flex flex-col gap-1.5 rounded-[9px] px-[13px] py-[11px] transition-colors',
-        !isDone && `border-l-2 ${STATUS_META[node.status].border} hover:border-line-bright`,
+        !isDone && `border-l-2 ${STATUS_META[node.status].border}`,
+        // The neutral hover border must not win over the verdict card's violet
+        // emphasis border (tailwind-merge keeps both; `hover:` outranks it on hover).
+        !isDone && !isUnderReview && 'hover:border-line-bright',
         isUnderReview &&
           'border-attention/40 dark:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-attention)_10%,transparent)]',
         isDone && 'opacity-80',

@@ -13,7 +13,7 @@ import { useRef, useState } from 'react';
 
 import { useReorder } from '../api/mutations';
 import type { WireNode, WireTreeNode } from '../api/types';
-import { SWIMLANE_COLUMNS, buildBands } from '../lib/bands';
+import { SWIMLANE_COLUMNS, SWIMLANE_RANKABLE, buildBands } from '../lib/bands';
 import type { Band, BandMode, SwimlaneColumn } from '../lib/bands';
 import type { Board, BoardColumn } from '../lib/board';
 import { cn } from '../lib/cn';
@@ -182,7 +182,12 @@ function BandSpine({ band }: { band: Band }) {
   const kind = band.openEnded ? 'standing' : (node?.type ?? '');
   return (
     <div className="flex flex-col gap-1.5 pt-0.5">
-      <div className="text-meta leading-[1.3] font-semibold text-ink-bright">
+      <div
+        className={cn(
+          'text-meta leading-[1.3] font-semibold',
+          band.muted === true ? 'text-ink-faint' : 'text-ink-bright',
+        )}
+      >
         {band.name}
         {band.openEnded && <span className="font-normal text-ink-faint"> ∞</span>}
       </div>
@@ -319,7 +324,7 @@ function SwimlaneColumnCell({
   if (items.length === 0) {
     return <div />;
   }
-  const rankable = column === 'ready' || column === 'in_progress';
+  const rankable = SWIMLANE_RANKABLE.includes(column);
   const list = (
     <ol aria-label={STATUS_META[column].label} className="flex flex-col gap-1.5">
       {items.map((node) => (
@@ -373,6 +378,9 @@ function SwimlaneGrid({
           <StatusColumnHeader key={column} column={column} count={headerCount[column]} />
         ))}
       </div>
+      {bands.length === 0 && (
+        <p className="py-6 text-center text-tag text-ink-faint">Nothing on the board yet</p>
+      )}
       {bands.map((band, i) => (
         <div
           key={band.key}
@@ -594,7 +602,9 @@ export function BoardView({
   const reorder = useReorder();
 
   const bandList = buildBands(board, bands, tree);
-  const spine = bands !== 'off';
+  // Off mode has no spine; phase mode without a tree degrades to the same flat,
+  // spineless grid rather than rendering a nameless 170px spine gutter (§4).
+  const spine = bands !== 'off' && !(bands === 'phase' && tree === undefined);
   const headerCount: Record<SwimlaneColumn, number> = {
     done: board.done.length,
     in_progress: board.in_progress.length,
@@ -646,10 +656,15 @@ export function BoardView({
     }
   }
 
+  // The desktop swimlane and mobile board are both permanently mounted (md:
+  // toggles visibility, not rendering), so a rankable card registers useSortable
+  // under the same id in both. One DndContext spanning both would collide those
+  // ids in its registry; give each surface its own context (drop resolution is
+  // otherwise identical) so the hidden twin never captures a drop.
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-      <div data-testid="board">
-        {/* desktop — the swimlane grid: HELD ledge, band × status columns, Done drill-through */}
+    <div data-testid="board">
+      {/* desktop — the swimlane grid: HELD ledge, band × status columns, Done drill-through */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <div data-testid="swimlane" className="hidden px-5 md:block">
           <HeldLedge board={board} />
           <SwimlaneGrid
@@ -666,8 +681,10 @@ export function BoardView({
             spine={spine}
           />
         </div>
+      </DndContext>
 
-        {/* mobile — a column-header dropdown switcher (MMR-86) + swipe (MMR-70) */}
+      {/* mobile — a column-header dropdown switcher (MMR-86) + swipe (MMR-70) */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <div className="px-4 pb-4 md:hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <Tabs
             className="w-full"
@@ -697,7 +714,7 @@ export function BoardView({
             ))}
           </Tabs>
         </div>
-      </div>
-    </DndContext>
+      </DndContext>
+    </div>
   );
 }

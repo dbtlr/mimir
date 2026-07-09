@@ -37,6 +37,8 @@ export type Band = {
   node?: WireTreeNode;
   /** Open-ended container: append `∞`, kind reads `standing`, caption replaces the bar. */
   openEnded: boolean;
+  /** De-emphasize the spine name to `--color-ink-faint` — the `No release` bucket (§8.3). */
+  muted?: boolean;
   /** The mini-bar source — the container rollup (phase) or computed over the band's leaves. */
   distribution: Distribution;
   columns: BandColumns;
@@ -188,6 +190,7 @@ function releaseBands(board: Board): Band[] {
       columns: untagged,
       distribution: distributionOf(bandLeaves(untagged)),
       key: '__no_release__',
+      muted: true,
       name: 'No release',
       openEnded: false,
     });
