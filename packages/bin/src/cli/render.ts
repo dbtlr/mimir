@@ -6,6 +6,7 @@ import type {
   StatusView,
   StatusWord,
   TreeView,
+  TriageReport,
 } from '@mimir/contract';
 
 import {
@@ -14,6 +15,8 @@ import {
   formatPromoteJson,
   formatSeedsJson,
   formatSeedsJsonl,
+  formatTriageJson,
+  formatTriageJsonl,
   seedLane,
 } from '../core';
 
@@ -421,7 +424,7 @@ export function renderSeedRecords(seed: SeedView, io: Io): string {
 }
 
 /** One queue row: kind · lifecycle · requester · age · id · title (aligned). */
-function seedRows(seeds: readonly SeedView[], io: Io): string[] {
+export function seedRows(seeds: readonly SeedView[], io: Io): string[] {
   const kindW = Math.max(...seeds.map((s) => s.kind.length));
   const lifeW = Math.max(...seeds.map((s) => s.lifecycle.length));
   const reqW = Math.max(...seeds.map((s) => (s.requester ?? '-').length));
@@ -523,6 +526,96 @@ export function renderSeedView(seed: SeedView, format: Format, io: Io, created?:
     case 'table':
     case 'records': {
       io.write(renderSeedRecords(seed, io));
+      break;
+    }
+  }
+}
+
+/** The check-(c) per-row state word: what happened (or would happen) to the task. */
+function resolutionState(alreadyRecorded: boolean, dryRun: boolean): string {
+  if (alreadyRecorded) {
+    return 'already recorded';
+  }
+  return dryRun ? 'would annotate' : 'annotated';
+}
+
+/** The human triage report (MMR-246): a lede line with per-check counts, then the
+ * three sections — UNTRIAGED / READY TO RESOLVE / UPSTREAM RESOLUTIONS. A report,
+ * never a gate: this always renders (exit 0), even when everything is clean. */
+export function renderTriageReport(report: TriageReport, io: Io): string {
+  const res = report.upstreamResolutions;
+  const wrote = res.filter((r) => r.annotated).length;
+  const already = res.filter((r) => r.alreadyRecorded).length;
+  const wouldAnnotate = res.filter((r) => !r.alreadyRecorded && !r.annotated).length;
+  // The check-(c) tally: annotated in a normal run, "would annotate" under --dry-run.
+  const cParts = [
+    report.dryRun ? `${String(wouldAnnotate)} would annotate` : `${String(wrote)} annotated`,
+    `${String(already)} already recorded`,
+  ];
+  const counts = `${countLine(report.untriaged.length, 'untriaged seed')} · ${String(report.readyToResolve.length)} ready to resolve · ${countLine(res.length, 'upstream resolution')} (${cParts.join(', ')})`;
+  const lede = [
+    bold(`triage ${report.board}`, io.plain),
+    report.failures.length > 0
+      ? `${counts} · ${countLine(report.failures.length, 'skipped')}`
+      : counts,
+  ];
+  if (report.dryRun) {
+    lede.push(
+      io.plain
+        ? '[dry run — no annotations written]'
+        : '\x1b[90m(dry run — no annotations written)\x1b[0m',
+    );
+  }
+  const out: string[] = [lede.join('\n')];
+
+  out.push('', bold(`UNTRIAGED (${String(report.untriaged.length)})`, io.plain));
+  if (report.untriaged.length > 0) {
+    out.push(...seedRows(report.untriaged, io));
+  }
+  out.push('', bold(`READY TO RESOLVE (${String(report.readyToResolve.length)})`, io.plain));
+  if (report.readyToResolve.length > 0) {
+    out.push(...seedRows(report.readyToResolve, io));
+  }
+  out.push('', bold(`UPSTREAM RESOLUTIONS (${String(res.length)})`, io.plain));
+  for (const r of res) {
+    const arrow = io.plain ? '<-' : '←';
+    const head = `${r.task} ${arrow} ${r.upstream} ${r.lifecycle}`;
+    const reason = r.reason !== null && r.reason !== '' ? `: ${r.reason}` : '';
+    const state = resolutionState(r.alreadyRecorded, report.dryRun);
+    const unblock = r.blocked ? ` · blocked → suggest: mimir unblock ${r.task}` : '';
+    out.push(`${head}${reason}   ${state}${unblock}`);
+  }
+
+  // Skipped check-(c) tasks (corrupt anchor / read fault) — surfaced so the loss is
+  // visible; the pass itself still succeeds (exit 0), like `doctor` findings.
+  if (report.failures.length > 0) {
+    out.push('', bold(`SKIPPED (${String(report.failures.length)})`, io.plain));
+    for (const f of report.failures) {
+      out.push(`${f.task}: ${f.message}`);
+    }
+  }
+  return out.join('\n');
+}
+
+/** Render the triage report in any format; `report` mode picks human vs json upstream. */
+export function renderTriage(report: TriageReport, format: Format, io: Io): void {
+  switch (format) {
+    case 'json': {
+      io.write(formatTriageJson(report));
+      break;
+    }
+    case 'jsonl': {
+      io.write(formatTriageJsonl(report));
+      break;
+    }
+    case 'ids': {
+      // The actionable ids: the tasks with a settled upstream (check c).
+      io.write(report.upstreamResolutions.map((r) => r.task).join('\n'));
+      break;
+    }
+    case 'records':
+    case 'table': {
+      io.write(renderTriageReport(report, io));
       break;
     }
   }

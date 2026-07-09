@@ -168,6 +168,16 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
     return sections;
   };
   return {
+    annotationSectionFailures: async (stems) => {
+      // One MMR-239 `section_failures` probe over the given stems (norn resolves a
+      // `KEY-seq` stem as a target directly, as `getSections` does); an empty set
+      // short-circuits (an empty target list to vault.get is unverified behavior).
+      if (stems.length === 0) {
+        return new Set();
+      }
+      const paths = await client.sectionFailures(stems, [ANNOTATIONS_HEADING]);
+      return new Set(paths.map(stemOf));
+    },
     readAnnotations: async (nodeId, stem) =>
       (await readSections(nodeId, stem, { annotations: true })).annotations ?? [],
     readDescription: async (nodeId, stem) =>

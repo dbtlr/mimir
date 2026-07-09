@@ -146,3 +146,60 @@ The seam also single-sources the seed **lane** (untriaged/ready/promoted/settled
 derive nothing; `get KEY-sN`, the queue's `project=all` selector, and the promote
 echo's sibling `created` (the spawned task id) are honored identically on CLI, MCP,
 and HTTP.
+
+## Refinement (2026-07-08, MMR-246): the triage pass + its idempotent annotation marker
+
+`mimir triage [KEY]` is the explicit-run reconciliation over one board — checks
+(a) untriaged seeds, (b) ready-to-resolve seeds (both read through the MMR-245
+seam + lane classifier — no re-derivation), and (c) the board's OWN tasks whose
+`upstream` seed went terminal. It **writes check-(c) annotations by default** but
+**never transitions** anything (unblock/resolve stay operator suggestions);
+`--dry-run` previews. It is a report, not a gate (always exit 0, like `doctor`),
+self-contained per board (timer/eventual-consistency mode deferred), and reads a
+cross-board upstream seed by its `KEY-sN` stem on any board.
+
+- **The check-(c) annotation marker is a durable contract.** The annotation
+  content is `upstream <KEY-sN> <resolved|rejected>[: <reason>]`, and the head
+  `upstream <KEY-sN> <resolved|rejected>` (the seed id + terminal, reason
+  excluded) is the **machine-recognizable idempotency key**: a re-run recognizes
+  its own prior annotation and skips, so a triage pass is a no-op the second time.
+  Keying on `(seed, terminal)` rather than the reason text means a hand-edited
+  reason never causes a duplicate. This grammar is what makes triage safe to run
+  repeatedly (and, later, on a timer) — it is a promise, not an implementation
+  detail. **Idempotency is scoped to SERIAL re-runs**: the check reads the task's
+  annotations then appends with no content compare-and-set, so two _concurrent_
+  passes over one board can both miss the marker and each append — the pass is
+  single-writer per board (the eventual timer mode must serialize per board).
+- **A single bad task never aborts the board pass.** Each check-(c) task is
+  reconciled in isolation: a per-task read fault is recorded in the report's
+  `failures[]` and the pass continues (exit 0), matching `doctor`'s non-gating
+  contract. The pass's OWN setup (the `listSeeds` / working-set reads) stays an
+  operational error that exits non-zero — the isolation is per-task, not blanket.
+  Before appending, the pass probes each task's `## Annotations` anchor through the
+  MMR-239 `section_failures` seam; a task whose heading is missing or duplicated
+  (ambiguous) is quarantined into `failures[]` pointing at `mimir doctor` rather
+  than blind-appended onto (an append would refuse — the old abort).
+- **Settled requester tasks are excluded from check (c).** A `done`/`abandoned`
+  task is skipped: annotating it would bump its `updated_at` (annotate's `stamp`),
+  re-activating its `lastActivity` recency on finished work and polluting the
+  attention rollups. A resolution on already-settled work carries no action.
+- **The reason is pulled from the seed's `## History` terminal record** — the
+  last `lifecycle` transition into `resolved`/`rejected`. A seed with no terminal
+  reason (hand-edited/legacy) degrades to the bare marker head (no dangling
+  colon), still recognized on re-run.
+- **A new read-only `SeedStore.loadHistory` seam method** exposes a seed's
+  `## History` (Norn: one native `vault.get { section }`; the retiring SQLite arm
+  throws, as with every seed method). Check-(c) annotations ride the **existing
+  task annotation write path** (`annotate`), inheriting its guarantees — never a
+  raw store write.
+- **Check (c) reads the upstream seed via the RAW store (`seeds.load`), not the
+  resolving seam** — deliberately bypassing the seam's archived-absent rule. A
+  seed's terminal transition is a historical fact, so an upstream seed on a
+  _since-archived_ board still resolves and still annotates: this is information
+  delivery to the requester ("the thing you asked for was resolved/rejected"), not
+  a live dependency. Cross-board linkage here stays reference-only (triage never
+  transitions across boards), so surfacing the terminal is safe regardless of the
+  upstream board's archive state. Recorded so this is a decision, not an accident.
+- **Surfaces: CLI + MCP (`triage`, 1:1); HTTP is out of scope** for the pass
+  itself — the report is operator/agent-facing, and the console's triage surface
+  is the seeds queue UI (MMR-247).

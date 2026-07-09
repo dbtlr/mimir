@@ -37,6 +37,8 @@ import {
   isSeedRef,
   promoteSeed,
   transitionSeed,
+  resolveBoard,
+  triage,
   updateSeed,
   resolveNodeTokenInSet,
   resolveProjectKeyInSet,
@@ -47,6 +49,7 @@ import {
   formatSeedsJson,
   formatSetJson,
   formatStatusJson,
+  formatTriageJson,
   getArtifact,
   getNode,
   listNodes,
@@ -1003,6 +1006,20 @@ export function toolResolve(
   return guard(async () =>
     ok(formatSeedJson(await transitionSeed(store, args.id, 'resolved', args.reason))),
   );
+}
+
+/** `triage [board]` — the reconciliation pass (MMR-246), 1:1 with the CLI. Writes
+ * the check-(c) annotations by default; `dryRun` previews. `board` defaults to the
+ * bound board. Returns the three-check report; NEVER transitions anything. */
+export function toolTriage(
+  store: Store,
+  args: { board?: string; dryRun?: boolean },
+  boundScope?: string,
+): Promise<ToolResult> {
+  return guard(async () => {
+    const board = resolveBoard(args.board, boundScope, validation);
+    return ok(formatTriageJson(await triage(store, { board, dryRun: args.dryRun ?? false })));
+  });
 }
 
 /** `update KEY-sN` — patch a live seed's title/kind/description (MMR-245). */

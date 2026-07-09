@@ -6,6 +6,8 @@ import type {
   SetResult,
   StatusView,
   TreeView,
+  TriageReport,
+  UpstreamResolution,
 } from '@mimir/contract';
 
 import { seedLane } from './seeds/lane';
@@ -261,6 +263,45 @@ export function formatSeedsJson(seeds: readonly SeedView[]): string {
 /** `jsonl` for the seed queue — one wire object per line, no wrapper (streaming). */
 export function formatSeedsJsonl(seeds: readonly SeedView[]): string {
   return seeds.map((s) => emitWire(seedToWire(s), false)).join('\n');
+}
+
+/** Map an {@link UpstreamResolution} (MMR-246, triage check c) to its wire object. */
+export function upstreamResolutionToWire(r: UpstreamResolution): Record<string, unknown> {
+  return {
+    already_recorded: r.alreadyRecorded,
+    annotated: r.annotated,
+    blocked: r.blocked,
+    lifecycle: r.lifecycle,
+    reason: r.reason,
+    task: r.task,
+    upstream: r.upstream,
+  };
+}
+
+/** Map a {@link TriageReport} (MMR-246) to its wire object — the three checks as
+ * sibling arrays, seeds through {@link seedToWire} so they carry the same shape as
+ * the queue read. The single source both the CLI json render and the MCP tool emit. */
+export function triageToWire(report: TriageReport): Record<string, unknown> {
+  return {
+    board: report.board,
+    dry_run: report.dryRun,
+    failures: report.failures.map((f) => ({ message: f.message, task: f.task })),
+    ready_to_resolve: report.readyToResolve.map(seedToWire),
+    untriaged: report.untriaged.map(seedToWire),
+    upstream_resolutions: report.upstreamResolutions.map(upstreamResolutionToWire),
+  };
+}
+
+/** `json` for the triage report — the pretty composite object. */
+export function formatTriageJson(report: TriageReport): string {
+  return emitWire(triageToWire(report), true);
+}
+
+/** `jsonl` for the triage report — the composite report as ONE compact line. The
+ * report is a single heterogeneous object (not a flat set), so there is no
+ * per-line record to stream; jsonl is json without the pretty-print. */
+export function formatTriageJsonl(report: TriageReport): string {
+  return emitWire(triageToWire(report), false);
 }
 
 /** Map an {@link ArtifactSummary} to its wire object — metadata only, no content. */

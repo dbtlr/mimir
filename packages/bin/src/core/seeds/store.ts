@@ -1,4 +1,4 @@
-import type { SeedKind, SeedLifecycle } from '@mimir/contract';
+import type { HistoryEntry, SeedKind, SeedLifecycle } from '@mimir/contract';
 
 /**
  * The seed storage seam (MMR-244) — a grooming-queue record filed against a
@@ -66,6 +66,10 @@ export type SeedStore = {
   ) => Promise<(SeedRecord & { description?: string | null }) | undefined>;
   /** A project's whole seed inventory, seq ascending. */
   listForProject: (key: string) => Promise<SeedRecord[]>;
+  /** A seed's `## History` transitions in document order (MMR-246) — the source
+   * the triage pass reads the terminal resolution reason from; `undefined` when
+   * the seed doc is absent, `[]` when its History is empty. */
+  loadHistory: (key: string, seq: number) => Promise<HistoryEntry[] | undefined>;
   /** Every seed in the vault in ONE `type:seed` find — the whole-queue read (the
    * unbound `seeds` listing filters it to active boards), instead of a per-project
    * loop of `listForProject` (MMR-245/E1). */
@@ -102,8 +106,13 @@ export const SEED_TRANSITIONS: Readonly<Record<SeedLifecycle, readonly SeedLifec
   resolved: [],
 };
 
-/** Is `lifecycle` a terminal (frozen) state — no outgoing transitions, no patches? */
-export function isTerminalSeed(lifecycle: SeedLifecycle): boolean {
+/** The terminal (frozen) seed lifecycles — no outgoing transitions, no patches. */
+export type TerminalSeedLifecycle = 'resolved' | 'rejected';
+
+/** Is `lifecycle` a terminal (frozen) state — no outgoing transitions, no patches?
+ * A type guard so a terminal branch narrows to {@link TerminalSeedLifecycle}
+ * (the triage pass records `resolved`/`rejected` without a cast, MMR-246). */
+export function isTerminalSeed(lifecycle: SeedLifecycle): lifecycle is TerminalSeedLifecycle {
   return SEED_TRANSITIONS[lifecycle].length === 0;
 }
 

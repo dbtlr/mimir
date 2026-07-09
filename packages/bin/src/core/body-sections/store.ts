@@ -49,4 +49,15 @@ export type BodySectionStore = {
    * gains nothing here but honors the same seam.
    */
   readSections: (nodeId: number, stem: string, want: BodySectionFacets) => Promise<BodySections>;
+  /**
+   * Of the given stems, those whose `## Annotations` heading the backend cannot
+   * resolve — a hand-edited duplicate (ambiguous) or a missing heading — so a
+   * native section read/append degrades silently (ADR 0017, the MMR-239 channel).
+   * The triage pass consults this before appending a check-(c) annotation, so a
+   * corrupt anchor is quarantined into its `failures[]` (→ `mimir doctor`) rather
+   * than blind-appended onto (which would refuse and abort the pass). The Norn
+   * backend queries norn's `section_failures`; SQLite (typed `annotation` rows,
+   * nothing malformable) always returns an empty set.
+   */
+  annotationSectionFailures: (stems: string[]) => Promise<Set<string>>;
 };

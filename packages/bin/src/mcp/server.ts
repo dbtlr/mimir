@@ -41,6 +41,7 @@ import {
   toolStatus,
   toolSubmit,
   toolTag,
+  toolTriage,
   toolUnblock,
   toolUndepend,
   toolUnpark,
@@ -560,6 +561,14 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'Resolve a seed (KEY-sN) — a terminal transition reachable from new or promoted; resolution reason required. Echoes the updated seed.',
     { id: z.string(), reason: z.string() },
     (args: { id: string; reason: string }) => toolResolve(store, args),
+  );
+
+  register(
+    server,
+    'triage',
+    "Reconcile ONE board's grooming queue (MMR-246): (a) surface new/untriaged seeds, (b) flag promoted seeds whose spawned work has all settled (ready to resolve — never auto-closed), and (c) over the board's OWN tasks whose upstream seed went terminal, append an idempotent annotation recording the resolution and suggest unblock. WRITES the check-(c) annotations by default; NEVER transitions anything (unblock/resolve stay suggestions). dryRun previews with no writes. board defaults to the bound board. Idempotent — a re-run is a no-op. Returns the three-check report.",
+    { board: z.string().optional(), dryRun: z.boolean().optional() },
+    (args: { board?: string; dryRun?: boolean }) => toolTriage(store, args, boundScope),
   );
 
   return server;

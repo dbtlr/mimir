@@ -4,3 +4,4 @@ export { createNornSeedStore } from './norn';
 export { createSqliteSeedStore } from './sqlite';
 export { seedLane } from './lane';
 export * from './intent';
+export * from './triage';

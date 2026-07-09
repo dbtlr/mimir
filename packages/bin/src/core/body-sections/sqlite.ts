@@ -46,6 +46,8 @@ export function createSqliteBodySectionStore(db: Db): BodySectionStore {
     }));
   };
   return {
+    // Typed `annotation` rows can't carry a malformed heading — nothing to fail.
+    annotationSectionFailures: async () => new Set<string>(),
     readAnnotations,
     readDescription,
     readHistory,

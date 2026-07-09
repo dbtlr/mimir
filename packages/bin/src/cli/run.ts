@@ -73,6 +73,7 @@ import {
   cmdResolve,
   cmdSeed,
   cmdSeeds,
+  cmdTriage,
 } from './mutations';
 import type { Ctx } from './mutations';
 import { parsePriority, parseSize } from './parse';
@@ -558,6 +559,11 @@ export async function runCli(
       }
       case 'resolve': {
         return await cmdResolve(await mkCtx());
+      }
+      case 'triage': {
+        // `report` format (MMR-59 split): human prose in a terminal, json when piped.
+        const c = await mkCtx();
+        return await cmdTriage({ ...c, format: pickFormat(values.format, 'report', ctx) });
       }
       case 'tag': {
         return await cmdTag(await mkCtx());

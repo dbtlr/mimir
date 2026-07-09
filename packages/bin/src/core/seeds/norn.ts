@@ -4,7 +4,13 @@ import { isMember } from '@mimir/helpers';
 
 import type { NornClient, NornDocument } from '../../norn/client';
 import { isPathCollision } from '../../norn/client';
-import { collapse, isStringRecord, linkStems, stemOf as stemFromPath } from '../../norn/decode';
+import {
+  collapse,
+  isStringRecord,
+  linkStems,
+  pathAndSections,
+  stemOf as stemFromPath,
+} from '../../norn/decode';
 import type { MigrationOp } from '../../norn/plan';
 import {
   addFrontmatter,
@@ -17,6 +23,7 @@ import { validation } from '../errors';
 import {
   HISTORY_HEADING,
   parseDescriptionSection,
+  parseHistorySection,
   renderDescriptionSection,
   renderHistoryRecord,
   renderSeedBody,
@@ -357,6 +364,20 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
       // Metadata-only stays a frontmatter get; content opts into one body read that
       // carries both the record and the `## Seed Description` prose (one RPC, not two).
       return opts?.content === true ? loadWithContent(key, seq) : loadRecord(key, seq);
+    },
+
+    async loadHistory(key, seq) {
+      // Read the seed's `## History` natively (`vault.get { section }`), exactly as
+      // the node body-section store does — one round-trip, sliced with norn's edit
+      // boundary semantics. Target the full path (the seed store's read convention),
+      // not the bare stem: a seed lives under `KEY/seeds/`, not the vault root. An
+      // absent doc yields no record → undefined; a warn-omitted/empty section → [].
+      const records = await client.getSections([pathOf(key, seq)], [HISTORY_HEADING]);
+      const record = records.length > 0 ? pathAndSections(records[0]) : null;
+      if (record === null) {
+        return undefined;
+      }
+      return parseHistorySection(sectionBody(record.sections[HISTORY_HEADING] ?? ''));
     },
 
     async patch(key, seq, patch: SeedPatch) {

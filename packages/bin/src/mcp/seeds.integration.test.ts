@@ -9,6 +9,7 @@ import {
   createInitiative,
   createPhase,
   createProject,
+  createTask,
   deriveSet,
   findNodeInSet,
   resolveProjectKeyInSet,
@@ -18,7 +19,7 @@ import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
 import { createNornWriteStore } from '../norn/writer';
 import { converge } from '../vault/converge';
-import { toolPromote, toolReject, toolSeed, toolSeeds } from './tools';
+import { toolPromote, toolReject, toolResolve, toolSeed, toolSeeds, toolTriage } from './tools';
 import type { ToolResult } from './tools';
 
 /** The seed MCP tools (MMR-245) over a real Norn store. Needs `norn`. */
@@ -90,5 +91,51 @@ describe.skipIf(!NORN)('seed MCP tools', () => {
     const res = await toolSeed(store, { kind: 'chore', title: 'x' }, 'MMR');
     expect(res.isError).toBe(true);
     expect(res.content[0]?.text).toMatch(/invalid kind/);
+  });
+
+  test('triage reports the three checks and idempotently annotates upstream resolutions', async () => {
+    // An untriaged seed, plus a resolved seed a requester-side task answers.
+    await toolSeed(store, { kind: 'idea', title: 'rough' }, 'MMR');
+    await toolSeed(store, { kind: 'bug', title: 'the ask' }, 'MMR');
+    const task = await createTask(store, {
+      parentId: await idOf(phaseRef),
+      title: 'answers',
+      upstream: 'MMR-s2',
+    });
+    await toolResolve(store, { id: 'MMR-s2', reason: 'shipped' });
+
+    const first = body(await toolTriage(store, {}, 'MMR')) as {
+      board: string;
+      dry_run: boolean;
+      untriaged: { id: string }[];
+      upstream_resolutions: { task: string; upstream: string; annotated: boolean }[];
+    };
+    expect(first.board).toBe('MMR');
+    expect(first.dry_run).toBe(false);
+    expect(first.untriaged.map((s) => s.id)).toEqual(['MMR-s1']);
+    expect(first.upstream_resolutions).toEqual([
+      expect.objectContaining({
+        annotated: true,
+        task: `MMR-${String(task.seq)}`,
+        upstream: 'MMR-s2',
+      }),
+    ]);
+
+    // A re-run recognizes its own annotation — a no-op.
+    const second = body(await toolTriage(store, {}, 'MMR')) as {
+      upstream_resolutions: { annotated: boolean; already_recorded: boolean }[];
+    };
+    expect(second.upstream_resolutions[0]).toMatchObject({
+      already_recorded: true,
+      annotated: false,
+    });
+  });
+
+  test('triage with a blank board is the friendly board error (not projectNotFound)', async () => {
+    for (const board of ['', '   ']) {
+      const res = await toolTriage(store, { board }, undefined);
+      expect(res.isError).toBe(true);
+      expect(res.content[0]?.text).toMatch(/triage requires a board/);
+    }
   });
 });
