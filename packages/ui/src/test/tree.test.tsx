@@ -203,4 +203,46 @@ describe('treeView', () => {
     render(<TreeView root={root} onOpenNode={vi.fn()} />, { wrapper });
     expect(screen.getByText('2 parked · expand')).toBeDefined();
   });
+
+  it('the parked fold row flips its label and chevron state when expanded', async () => {
+    const root = project([
+      branch({ id: 'MMR-2', status: 'in_progress', title: 'I', type: 'initiative' }, [
+        branch({ id: 'MMR-3', status: 'in_progress', title: 'P', type: 'phase' }, [
+          leaf({ id: 'MMR-10', status: 'ready', title: 'live one' }),
+          leaf({ id: 'MMR-11', status: 'parked', title: 'p1' }),
+        ]),
+      ]),
+    ]);
+    render(<TreeView root={root} onOpenNode={vi.fn()} />, { wrapper });
+    const toggle = screen.getByText('1 parked · expand');
+    expect(toggle.closest('button')).toHaveProperty('ariaExpanded', 'false');
+    await userEvent.click(toggle);
+    expect(screen.getByText('1 parked · collapse')).toBeDefined();
+    expect(screen.getByText('1 parked · collapse').closest('button')).toHaveProperty(
+      'ariaExpanded',
+      'true',
+    );
+  });
+
+  it('marks disclosure headers with aria-expanded', () => {
+    const root = project([
+      branch({ id: 'MMR-2', status: 'in_progress', title: 'Init', type: 'initiative' }, [
+        branch({ id: 'MMR-3', status: 'in_progress', title: 'Phase', type: 'phase' }, [
+          leaf({ id: 'MMR-10', status: 'ready', title: 'a' }),
+        ]),
+      ]),
+    ]);
+    render(<TreeView root={root} onOpenNode={vi.fn()} />, { wrapper });
+    // both the initiative header and the (default-open) phase header expose state
+    for (const name of ['Init', 'Phase']) {
+      expect(screen.getByText(name).closest('button')).toHaveProperty('ariaExpanded', 'true');
+    }
+  });
+
+  it('opens the node when the trailing status word of an under-review row is clicked', async () => {
+    const onOpen = vi.fn();
+    render(<TreeView root={underReviewTree()} onOpenNode={onOpen} />, { wrapper });
+    await userEvent.click(screen.getByText('Under review'));
+    expect(onOpen).toHaveBeenCalledWith('MMR-10');
+  });
 });
