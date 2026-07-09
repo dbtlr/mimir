@@ -59,6 +59,26 @@ describe('overviewPage attention-router (MMR-102)', () => {
     expect(screen.getByText('RESTED project')).toBeDefined();
   });
 
+  it('renders the page header with the project count and the new-project action', async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/projects') {
+        return Promise.resolve({
+          items: [
+            proj('REVIEW', attn('awaiting_you', '2026-06-20T00:00:00.000Z')),
+            proj('LIVE', attn('live', '2026-06-19T00:00:00.000Z')),
+          ],
+          total: 2,
+        });
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    renderOverview();
+
+    await expect(screen.findByRole('heading', { name: 'Projects' })).resolves.toBeDefined();
+    expect(screen.getByText('2')).toBeDefined(); // project count meta
+    expect(screen.getByRole('button', { name: /new project/i })).toBeDefined();
+  });
+
   it('degrades to a flat Overview grid when the attention facet is absent', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/projects') {

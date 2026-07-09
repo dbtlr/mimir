@@ -6,6 +6,7 @@ import { LaneSection } from '../components/lane-section';
 import { NodeDrawer } from '../components/node-drawer';
 import { OfflineBanner } from '../components/offline-banner';
 import { ProjectCard } from '../components/project-card';
+import { ActionButton } from '../components/ui/action-button';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
@@ -61,8 +62,8 @@ export function OverviewPage() {
               );
             }
             const grouping = groupIntoLanes(projects.data.items);
-            if (grouping.mode === 'flat') {
-              return (
+            const lanes =
+              grouping.mode === 'flat' ? (
                 <section aria-label="Projects" className="flex flex-col gap-2">
                   <h2 className="microlabel text-ink-faint">Overview</h2>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -71,16 +72,39 @@ export function OverviewPage() {
                     ))}
                   </div>
                 </section>
+              ) : (
+                grouping.lanes.map((lane) => (
+                  <LaneSection
+                    key={lane.lane}
+                    lane={lane}
+                    onOpen={onOpen}
+                    collapsible={lane.lane === 'at_rest'}
+                  />
+                ))
               );
-            }
-            return grouping.lanes.map((lane) => (
-              <LaneSection
-                key={lane.lane}
-                lane={lane}
-                onOpen={onOpen}
-                collapsible={lane.lane === 'at_rest'}
-              />
-            ));
+            return (
+              <>
+                {/* The one solid action per surface; desktop-only header row. The
+                    archived clause is omitted — /api/projects exposes no archived
+                    count. The button rides MMR-227's new-project sheet. */}
+                <header className="hidden items-baseline gap-2.5 md:flex">
+                  <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
+                    Projects
+                  </h1>
+                  <span className="text-tag text-ink-faint">{projects.data.items.length}</span>
+                  <ActionButton
+                    className="ml-auto px-3.5 py-1.5 text-tag"
+                    disabled={conn.offline}
+                    onClick={() => {
+                      // TODO(MMR-227): open the new-project sheet (21a) once landed.
+                    }}
+                  >
+                    + New project
+                  </ActionButton>
+                </header>
+                {lanes}
+              </>
+            );
           })()}
       </main>
       <NodeDrawer nodeId={node} onClose={closeNode} onOpenNode={openNode} />
