@@ -6,6 +6,8 @@ import {
 } from '@tanstack/react-router';
 import type { SearchSchemaInput } from '@tanstack/react-router';
 
+import { BAND_MODES } from './lib/bands';
+import type { BandMode } from './lib/bands';
 import { ArtifactsPage } from './routes/artifacts';
 import { OverviewPage } from './routes/overview';
 import { ProjectPage } from './routes/project';
@@ -20,12 +22,17 @@ import { TasksPage } from './routes/tasks';
  */
 export type ProjectLens = 'board' | 'tree';
 
+const isBandMode = (value: unknown): value is BandMode =>
+  typeof value === 'string' && (BAND_MODES as readonly string[]).includes(value);
+
 export type OverviewSearch = {
   node?: string;
 };
 
 export type ProjectSearch = {
   view: ProjectLens;
+  /** The board's swimlane grouping (MMR-221) — addressable, `phase` defaulted-out. */
+  bands: BandMode;
   node?: string;
 };
 
@@ -44,12 +51,14 @@ export const projectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/p/$key',
   search: {
-    // board is the primary lens — keep the default out of the URL
-    middlewares: [stripSearchParams<ProjectSearch>({ view: 'board' })],
+    // board is the primary lens and phase the primary grouping — keep both defaults
+    // out of the URL, so a clean `/p/KEY` is the canonical board.
+    middlewares: [stripSearchParams<ProjectSearch>({ bands: 'phase', view: 'board' })],
   },
   validateSearch: (search: Record<string, unknown> & SearchSchemaInput): ProjectSearch => {
     const view: ProjectLens = search.view === 'tree' ? 'tree' : 'board';
-    return typeof search.node === 'string' ? { node: search.node, view } : { view };
+    const bands: BandMode = isBandMode(search.bands) ? search.bands : 'phase';
+    return typeof search.node === 'string' ? { bands, node: search.node, view } : { bands, view };
   },
 });
 

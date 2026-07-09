@@ -15,6 +15,20 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Board swimlanes** (MMR-221). The project board (`/p/:key?view=board`) is
+  rebuilt on the Meridian design system as a band-spine × status-column grid.
+  The header restyles to spec (title, key chip, status pill, rollup bar) and
+  gains a **Bands** control that groups the board client-side — **Phase** (by
+  nearest phase/initiative ancestor, the default), **Release** (by `release:*`
+  tag, untagged trailing in *No release*), or **Off** (a flat grid) — as a new
+  URL-addressable `?bands=` search param, default-stripped like `?view=`. A
+  **HELD** ledge surfaces project-wide Parked / Blocked / Awaiting counts, and
+  each swimlane cell carries the new card anatomy: the default live card, the
+  under-review verdict card with inline **Approve** / **Return…** (the existing
+  `done`/`return` verbs), the recessed Done card, and a lightweight cold marker
+  on stale work. Data flow, drag-to-reorder, offline demotion, and the Done
+  drill-through to `/tasks` are preserved.
+
 - **Seed verbs across CLI, MCP, and HTTP** (MMR-245). The grooming-queue entity
   (MMR-244) gains its verb surface. `mimir seed "<title>" -k <kind> [-p KEY]
   [--desc …]` files a seed (target board and requester default from the bound

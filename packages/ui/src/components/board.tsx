@@ -12,13 +12,16 @@ import { CSS } from '@dnd-kit/utilities';
 import { useRef, useState } from 'react';
 
 import { useReorder } from '../api/mutations';
-import type { WireNode } from '../api/types';
-import { BOARD_COLUMNS, isCollapsible } from '../lib/board';
+import type { WireNode, WireTreeNode } from '../api/types';
+import { SWIMLANE_COLUMNS, SWIMLANE_RANKABLE, buildBands } from '../lib/bands';
+import type { Band, BandMode, SwimlaneColumn } from '../lib/bands';
 import type { Board, BoardColumn } from '../lib/board';
 import { cn } from '../lib/cn';
 import { reorderArgs } from '../lib/reorder';
 import type { ReorderArgs } from '../lib/reorder';
 import { STATUS_META } from '../lib/status';
+import { BoardCard } from './board-card';
+import { DistributionBar } from './distribution-bar';
 import { NodeCard } from './node-card';
 import { StatusDot } from './status-dot';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
@@ -26,9 +29,13 @@ import { Tabs, TabsContent } from './ui/tabs';
 
 type BoardViewProps = {
   board: Board;
+  /** The swimlane grouping (`?bands=`); `off` drops the spine to a flat grid. */
+  bands: BandMode;
+  /** The whole-project tree — feeds phase-mode ancestry; absent degrades to flat. */
+  tree?: WireTreeNode;
   onOpenNode: (id: string) => void;
   offline?: boolean;
-  /** node id → `initiative › phase` breadcrumb, for the card's tree context. */
+  /** node id → `initiative › phase` breadcrumb, for the mobile card's tree context. */
   ancestry?: Map<string, string>;
   /** Total completed tasks fetched (before the Done window) — the `m` in "n of m". */
   doneTotal: number;
@@ -95,52 +102,141 @@ function ColumnHeader({
   );
 }
 
-/** A non-actionable column folded to a narrow count strip (MMR-76); click expands. */
-function CollapsedColumn({
-  column,
-  count,
-  onExpand,
-}: {
-  column: BoardColumn;
-  count: number;
-  onExpand: () => void;
-}) {
-  const meta = STATUS_META[column];
+/** The held set (parked/blocked/awaiting) as the HELD-ledge order (MMR-221 §2.2). */
+const HELD_PILLS = ['parked', 'blocked', 'awaiting'] as const;
+
+/**
+ * One HELD-ledge counter. Three states: the default outlined pill; a "ghost"
+ * pill when the count is zero (label + count both drop to ghost ink); and — for
+ * Blocked with work in it only — the red blocked wash (the canonical `/12` +
+ * `/24` idiom). Parked never turns red; a zero Blocked is a plain ghost.
+ */
+function HeldPill({ column, count }: { column: (typeof HELD_PILLS)[number]; count: number }) {
+  const zero = count === 0;
+  const blockedHot = column === 'blocked' && count > 0;
   return (
-    <button
-      type="button"
-      onClick={onExpand}
-      aria-label={`Expand ${meta.label} (${count})`}
-      className="flex w-9 shrink-0 flex-col items-center gap-2 rounded-md border border-line bg-well-900/40 py-2 transition-colors hover:border-line-bright hover:bg-well-900/70 focus-visible:outline-2 focus-visible:outline-accent"
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-tag',
+        !blockedHot && 'inset-ring inset-ring-line',
+        blockedHot &&
+          'bg-status-blocked/12 text-status-blocked-foreground inset-ring inset-ring-status-blocked/24',
+      )}
     >
-      <StatusDot status={column} />
-      <span className="font-mono text-tag font-semibold text-ink-dim tabular-nums">{count}</span>
-      <span className={cn('microlabel [writing-mode:vertical-rl] rotate-180', meta.text)}>
-        {meta.label}
+      <span
+        className={cn(
+          zero && !blockedHot ? 'text-ink-ghost' : 'text-ink-dim',
+          blockedHot && 'text-status-blocked-foreground',
+        )}
+      >
+        {STATUS_META[column].label}
       </span>
-    </button>
+      <span
+        className={cn(
+          'font-semibold tabular-nums',
+          zero && !blockedHot && 'font-normal text-ink-ghost',
+          !zero && !blockedHot && 'text-ink-bright',
+          blockedHot && 'text-status-blocked-foreground',
+        )}
+      >
+        {count}
+      </span>
+    </span>
   );
 }
 
-/** Done's drill-through: the window shows recent completions; the rest is in `/tasks`. */
-function DoneFooter({
+/** The HELD ledge — project-wide parked/blocked/awaiting counters (never band-filtered). */
+function HeldLedge({ board }: { board: Board }) {
+  return (
+    <div className="flex items-center gap-2.5 pb-3">
+      <span className="microlabel text-ink-ghost">HELD</span>
+      {HELD_PILLS.map((column) => (
+        <HeldPill key={column} column={column} count={board[column].length} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * A status column header: `● <Label> · <count>` in the status color. Ready /
+ * In progress / Under review carry the live column count; Done carries the
+ * fixed `7d` window tag (its real N-of-M lives in the drill-through footer).
+ */
+function StatusColumnHeader({ column, count }: { column: SwimlaneColumn; count: number }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <StatusDot status={column} />
+      <span className={cn('microlabel', STATUS_META[column].text)}>
+        {STATUS_META[column].label}
+      </span>
+      <span className="text-micro text-ink-faint tabular-nums">
+        · {column === 'done' ? '7d' : count}
+      </span>
+    </div>
+  );
+}
+
+/** The band spine (leftmost 170px cell) — name, mono id + kind, and the mini bar. */
+function BandSpine({ band }: { band: Band }) {
+  const node = band.node;
+  const kind = band.openEnded ? 'standing' : (node?.type ?? '');
+  return (
+    <div className="flex flex-col gap-1.5 pt-0.5">
+      <div
+        className={cn(
+          'text-meta leading-[1.3] font-semibold',
+          band.muted === true ? 'text-ink-faint' : 'text-ink-bright',
+        )}
+      >
+        {band.name}
+        {band.openEnded && <span className="font-normal text-ink-faint"> ∞</span>}
+      </div>
+      {node !== undefined && (
+        <div className="font-mono text-mono-id text-ink-faint">
+          {node.id} · {kind}
+        </div>
+      )}
+      {band.openEnded ? (
+        <p className="text-micro text-ink-ghost">open for filing</p>
+      ) : (
+        <DistributionBar distribution={band.distribution} className="h-1 w-[110px]" />
+      )}
+    </div>
+  );
+}
+
+/** Done's drill-through — one slim row under the whole grid, right-aligned to Done. */
+function SwimlaneDoneFooter({
   shown,
   total,
   onViewDone,
+  spine,
 }: {
   shown: number;
   total: number;
   onViewDone: () => void;
+  spine: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onViewDone}
-      className="border-t border-line px-2 py-1.5 text-left text-micro text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
-    >
-      {total > shown ? `${shown} of ${total} recent · all →` : `${total} done · view all →`}
-    </button>
+    <div className="grid gap-3 pt-2" style={{ gridTemplateColumns: gridTemplate(spine) }}>
+      <div className="text-right" style={{ gridColumn: '-2 / -1' }}>
+        <button
+          type="button"
+          onClick={onViewDone}
+          className="text-micro text-ink-ghost transition-colors hover:text-ink-dim focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          {total > shown ? `${shown} of ${total} recent · all →` : `${total} done · all →`}
+        </button>
+      </div>
+    </div>
   );
+}
+
+const SPINE_TRACK = '170px';
+
+/** The swimlane grid template — a leading 170px spine unless the spine is dropped (off mode). */
+function gridTemplate(spine: boolean): string {
+  return spine ? `${SPINE_TRACK} repeat(4, minmax(0, 1fr))` : 'repeat(4, minmax(0, 1fr))';
 }
 
 /** A draggable card: useSortable feeds the grip + ref into NodeCard. */
@@ -172,6 +268,141 @@ function SortableCard({
         style: { transform: CSS.Transform.toString(transform), transition },
       }}
     />
+  );
+}
+
+/** The swimlane draggable: useSortable feeds the grip + ref into BoardCard. */
+function SortableBoardCard({
+  node,
+  column,
+  onOpenNode,
+  offline,
+}: {
+  node: WireNode;
+  column: SwimlaneColumn;
+  onOpenNode: (id: string) => void;
+  offline?: boolean;
+}) {
+  const { setNodeRef, transform, transition, attributes, listeners, isDragging } = useSortable({
+    disabled: offline,
+    id: node.id,
+  });
+  return (
+    <BoardCard
+      node={node}
+      column={column}
+      onOpen={onOpenNode}
+      offline={offline}
+      sortable={{
+        handleProps: { ...attributes, ...listeners },
+        isDragging,
+        setNodeRef,
+        style: { transform: CSS.Transform.toString(transform), transition },
+      }}
+    />
+  );
+}
+
+/**
+ * One band × status cell. Ready / In progress are rankable: their cards wrap in
+ * a SortableContext so drag-to-reorder works; the DndContext resolves the drop
+ * project-wide (rank is per status word, not per band — §6), so a card can move
+ * across bands within the same column. Under review / Done are static.
+ */
+function SwimlaneColumnCell({
+  band,
+  column,
+  onOpenNode,
+  offline,
+}: {
+  band: Band;
+  column: SwimlaneColumn;
+  onOpenNode: (id: string) => void;
+  offline?: boolean;
+}) {
+  const items = band.columns[column];
+  if (items.length === 0) {
+    return <div />;
+  }
+  const rankable = SWIMLANE_RANKABLE.includes(column);
+  const list = (
+    <ol aria-label={STATUS_META[column].label} className="flex flex-col gap-1.5">
+      {items.map((node) => (
+        <li key={node.id}>
+          {rankable ? (
+            <SortableBoardCard
+              node={node}
+              column={column}
+              onOpenNode={onOpenNode}
+              offline={offline}
+            />
+          ) : (
+            <BoardCard node={node} column={column} onOpen={onOpenNode} offline={offline} />
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+  return rankable ? (
+    <SortableContext items={items.map((n) => n.id)} strategy={verticalListSortingStrategy}>
+      {list}
+    </SortableContext>
+  ) : (
+    list
+  );
+}
+
+/** The desktop swimlane: a column-header row, then one grid row per band. */
+function SwimlaneGrid({
+  bands,
+  spine,
+  onOpenNode,
+  offline,
+  headerCount,
+}: {
+  bands: Band[];
+  spine: boolean;
+  onOpenNode: (id: string) => void;
+  offline?: boolean;
+  headerCount: Record<SwimlaneColumn, number>;
+}) {
+  const template = gridTemplate(spine);
+  return (
+    <div>
+      <div
+        className="grid gap-3 border-b border-line py-2"
+        style={{ gridTemplateColumns: template }}
+      >
+        {spine && <div />}
+        {SWIMLANE_COLUMNS.map((column) => (
+          <StatusColumnHeader key={column} column={column} count={headerCount[column]} />
+        ))}
+      </div>
+      {bands.length === 0 && (
+        <p className="py-6 text-center text-tag text-ink-faint">Nothing on the board yet</p>
+      )}
+      {bands.map((band, i) => (
+        <div
+          key={band.key}
+          className={cn(
+            'grid items-start gap-3 py-3.5',
+            i < bands.length - 1 && 'border-b border-line',
+          )}
+          style={{ gridTemplateColumns: template }}
+        >
+          {spine && <BandSpine band={band} />}
+          {SWIMLANE_COLUMNS.map((column) => (
+            <SwimlaneColumnCell
+              key={column}
+              band={band}
+              column={column}
+              onOpenNode={onOpenNode}
+              offline={offline}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -359,6 +590,8 @@ function MobileColumnSwitcher({
  */
 export function BoardView({
   board,
+  bands,
+  tree,
   onOpenNode,
   offline,
   ancestry,
@@ -367,18 +600,17 @@ export function BoardView({
 }: BoardViewProps) {
   const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor));
   const reorder = useReorder();
-  // Which collapsed (non-actionable) columns the operator has expanded inline.
-  const [expanded, setExpanded] = useState<ReadonlySet<BoardColumn>>(new Set());
-  const toggle = (column: BoardColumn) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(column)) {
-        next.delete(column);
-      } else {
-        next.add(column);
-      }
-      return next;
-    });
+
+  const bandList = buildBands(board, bands, tree);
+  // Off mode has no spine; phase mode without a tree degrades to the same flat,
+  // spineless grid rather than rendering a nameless 170px spine gutter (§4).
+  const spine = bands !== 'off' && !(bands === 'phase' && tree === undefined);
+  const headerCount: Record<SwimlaneColumn, number> = {
+    done: board.done.length,
+    in_progress: board.in_progress.length,
+    ready: board.ready.length,
+    under_review: board.under_review.length,
+  };
 
   // Mobile: swipe left/right to move between the column tabs (MMR-70).
   const [mobileTab, setMobileTab] = useState<string>('in_progress');
@@ -424,59 +656,36 @@ export function BoardView({
     }
   }
 
+  // The desktop swimlane and mobile board are both permanently mounted (md:
+  // toggles visibility, not rendering), so a rankable card registers useSortable
+  // under the same id in both. One DndContext spanning both would collide those
+  // ids in its registry; give each surface its own context (drop resolution is
+  // otherwise identical) so the hidden twin never captures a drop.
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-      <div data-testid="board">
-        {/* desktop — three tiers: full actionable columns, windowed Done, collapsed strips */}
-        <div className="hidden min-h-0 gap-1.5 md:flex">
-          {BOARD_COLUMNS.map((column) => {
-            const count = board[column].length;
-            if (isCollapsible(column) && !expanded.has(column)) {
-              return (
-                <CollapsedColumn
-                  key={column}
-                  column={column}
-                  count={count}
-                  onExpand={() => {
-                    toggle(column);
-                  }}
-                />
-              );
-            }
-            return (
-              <section
-                key={column}
-                aria-label={STATUS_META[column].label}
-                className="flex min-w-0 flex-1 flex-col rounded-md border border-line bg-well-900/60"
-              >
-                <ColumnHeader
-                  column={column}
-                  count={count}
-                  onCollapse={
-                    isCollapsible(column)
-                      ? () => {
-                          toggle(column);
-                        }
-                      : undefined
-                  }
-                />
-                <ColumnCards
-                  board={board}
-                  column={column}
-                  onOpenNode={onOpenNode}
-                  offline={offline}
-                  ancestry={ancestry}
-                />
-                {column === 'done' && (
-                  <DoneFooter shown={count} total={doneTotal} onViewDone={onViewDone} />
-                )}
-              </section>
-            );
-          })}
+    <div data-testid="board">
+      {/* desktop — the swimlane grid: HELD ledge, band × status columns, Done drill-through */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <div data-testid="swimlane" className="hidden px-5 md:block">
+          <HeldLedge board={board} />
+          <SwimlaneGrid
+            bands={bandList}
+            spine={spine}
+            onOpenNode={onOpenNode}
+            offline={offline}
+            headerCount={headerCount}
+          />
+          <SwimlaneDoneFooter
+            shown={board.done.length}
+            total={doneTotal}
+            onViewDone={onViewDone}
+            spine={spine}
+          />
         </div>
+      </DndContext>
 
-        {/* mobile — a column-header dropdown switcher (MMR-86) + swipe (MMR-70) */}
-        <div className="md:hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      {/* mobile — a column-header dropdown switcher (MMR-86) + swipe (MMR-70) */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <div className="px-4 pb-4 md:hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <Tabs
             className="w-full"
             value={mobileTab}
@@ -505,7 +714,7 @@ export function BoardView({
             ))}
           </Tabs>
         </div>
-      </div>
-    </DndContext>
+      </DndContext>
+    </div>
   );
 }
