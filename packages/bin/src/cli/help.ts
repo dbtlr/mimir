@@ -55,6 +55,7 @@ manage commands:
     reject <KEY-sN> "<reason>"          terminal — reason required
     resolve <KEY-sN> "<resolution>"     terminal — resolution required
     update <KEY-sN> [--title/--kind/--desc]   patch a live seed
+    triage [KEY] [--dry-run]            reconcile a board — untriaged / ready-to-resolve / upstream resolutions
 
   project:
     archive <KEY> [reason]  archive a project — freeze + hide it and its whole
@@ -569,6 +570,22 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     examples: ['mimir resolve MMR-s1 "shipped in MMR-9"', 'mimir resolve MMR-s2 "already fixed"'],
     summary: 'resolve a seed (terminal) — reachable from new or promoted; resolution required.',
     usage: 'mimir resolve <KEY-sN> "<resolution>"',
+  },
+  triage: {
+    args: [['[KEY]', 'the board to reconcile (default: the bound board)']],
+    examples: [
+      "mimir triage                 # reconcile the bound board's queue",
+      'mimir triage MMR             # reconcile a specific board',
+      'mimir triage --dry-run       # preview; write no annotations',
+      'mimir triage -f json | jq    # machine-readable report',
+    ],
+    flags: [
+      ['--dry-run', 'preview only — report what WOULD be annotated, write nothing'],
+      ['--format <fmt>', 'json (pretty) | jsonl (one-line); table/records render a human report'],
+    ],
+    summary:
+      "an explicit-run reconciliation pass over ONE board (MMR-246): (a) surfaces new/untriaged seeds, (b) flags promoted seeds whose spawned work has all settled (ready to resolve — never auto-closed), and (c) over the board's own tasks whose upstream seed went terminal, appends an idempotent annotation recording the resolution and suggests unblock. WRITES the check-(c) annotations by default (running it is the intent); NEVER transitions anything (unblock/resolve stay suggestions); --dry-run previews. A report, never a gate — always exits 0. Idempotent: a re-run recognizes its own annotations and is a no-op. Self-contained per board (timer/eventual-consistency mode deferred).",
+    usage: 'mimir triage [KEY] [--dry-run] [--format <fmt>]',
   },
   // ── project ──
   archive: {

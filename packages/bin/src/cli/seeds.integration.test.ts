@@ -9,6 +9,7 @@ import {
   createInitiative,
   createPhase,
   createProject,
+  createTask,
   deriveSet,
   findNodeInSet,
   resolveProjectKeyInSet,
@@ -192,5 +193,73 @@ describe.skipIf(!NORN)('seed CLI verbs', () => {
     const { code, io } = await cli(['promote', 'MMR-1', '--parent', phaseRef]);
     expect(code).toBe(2);
     expect(io.err.join('')).toMatch(/seed id \(KEY-sN\)/);
+  });
+
+  test('triage reconciles the bound board — json report + idempotent annotation', async () => {
+    await cli(['seed', 'rough', '-k', 'idea']); // MMR-s1 (untriaged)
+    await cli(['seed', 'the ask', '-k', 'bug']); // MMR-s2
+    const task = await createTask(store, {
+      parentId: await idOf(phaseRef),
+      title: 'answers',
+      upstream: 'MMR-s2',
+    });
+    await cli(['resolve', 'MMR-s2', 'shipped']);
+
+    const first = await cli(['triage', '-f', 'json']);
+    expect(first.code).toBe(0);
+    const rep = parseJson<{
+      board: string;
+      dry_run: boolean;
+      untriaged: { id: string }[];
+      upstream_resolutions: { task: string; upstream: string; annotated: boolean }[];
+    }>(first.io.out.join(''));
+    expect(rep.board).toBe('MMR');
+    expect(rep.untriaged.map((s) => s.id)).toEqual(['MMR-s1']);
+    expect(rep.upstream_resolutions).toEqual([
+      expect.objectContaining({
+        annotated: true,
+        task: `MMR-${String(task.seq)}`,
+        upstream: 'MMR-s2',
+      }),
+    ]);
+
+    // Re-run: recognized, no-op.
+    const second = await cli(['triage', '-f', 'json']);
+    const rep2 = parseJson<{ upstream_resolutions: { already_recorded: boolean }[] }>(
+      second.io.out.join(''),
+    );
+    expect(rep2.upstream_resolutions[0]?.already_recorded).toBe(true);
+  });
+
+  test('triage --dry-run previews without writing, and renders a human report', async () => {
+    await cli(['seed', 'the ask', '-k', 'bug']); // MMR-s1
+    const task = await createTask(store, {
+      parentId: await idOf(phaseRef),
+      title: 'answers',
+      upstream: 'MMR-s1',
+    });
+    await cli(['resolve', 'MMR-s1', 'done']);
+
+    // `-f records` forces the human report (non-TTY report mode defaults to json).
+    const dry = await cli(['triage', '--dry-run', '-f', 'records']);
+    expect(dry.code).toBe(0);
+    const out = dry.io.out.join('');
+    expect(out).toMatch(/triage MMR/);
+    expect(out).toMatch(/UPSTREAM RESOLUTIONS \(1\)/);
+    expect(out).toMatch(/would annotate/);
+
+    // Nothing was written — a real run still annotates.
+    const notes = await store.bodySections.readAnnotations(
+      await idOf(`MMR-${String(task.seq)}`),
+      `MMR-${String(task.seq)}`,
+    );
+    expect(notes).toHaveLength(0);
+  });
+
+  test('bare triage without a bound board is a usage error (exit 2)', async () => {
+    const io = fakeIo();
+    const code = await runCli(['triage'], () => store, io, {}); // unbound
+    expect(code).toBe(2);
+    expect(io.err.join('')).toMatch(/triage requires a board/);
   });
 });

@@ -43,6 +43,7 @@ import {
   submitTask,
   tagEntities,
   transitionSeed,
+  triage,
   unarchiveProject,
   unblockTask,
   undepend,
@@ -64,7 +65,13 @@ import type {
 } from '../core';
 import { usage } from './errors';
 import { parsePriority, parseSize } from './parse';
-import { renderArtifactDetail, renderSeedView, renderSeeds, signpost } from './render';
+import {
+  renderArtifactDetail,
+  renderSeedView,
+  renderSeeds,
+  renderTriage,
+  signpost,
+} from './render';
 import type { Format, Io } from './render';
 import {
   echoNodeWith,
@@ -942,6 +949,23 @@ export async function cmdReject(c: Ctx): Promise<number> {
 
 export async function cmdResolve(c: Ctx): Promise<number> {
   return seedTerminal(c, 'resolve', 'resolved');
+}
+
+/**
+ * `triage [KEY]` — the explicit-run reconciliation pass (MMR-246). Bare `triage`
+ * targets the bound board; `triage KEY` another. Writes the check-(c)
+ * annotations by default (running it IS the intent); `--dry-run` previews with no
+ * writes. A report, never a gate — it always exits 0. `c.format` is the `report`
+ * format the dispatcher picked (human in a terminal, json when piped).
+ */
+export async function cmdTriage(c: Ctx): Promise<number> {
+  const board = c.positionals[1] ?? c.boundScope;
+  if (board === undefined || board.trim() === '') {
+    throw usage('triage requires a board', 'pass a KEY or bind a board first (mimir bind KEY)');
+  }
+  const report = await triage(c.store, { board, dryRun: c.values['dry-run'] === true });
+  renderTriage(report, c.format, c.io);
+  return 0;
 }
 
 /** `update KEY-sN` — patch a live seed's title/kind/description (MMR-245). */
