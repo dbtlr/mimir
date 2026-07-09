@@ -40,22 +40,12 @@
   --text-tag: 0.6875rem; /* 11px — tags */
   --text-micro: 0.65625rem; /* 10.5px — the all-caps microlabel idiom */
 
-  /*
-   * Legacy dense scale (retired in the Meridian sweep). Kept transiently so
-   * consumers keep rendering until they are remapped onto the tokens above.
-   */
-  --text-3xs: 0.625rem;
-  --text-2xs: 0.6875rem;
-  --text-md: 0.9375rem;
-
   /* the well — page/panel depths (flat; tone carries elevation) */
   --color-well-950: #0b0f14; /* top bar, list spines */
   --color-well-900: #0d1219; /* page */
   --color-well-850: #111823; /* card, panel, menu */
   --color-well-800: #141c28; /* nested block */
   --color-well-recessed: #101620; /* done / demoted */
-  /* transient alias — no Meridian step; retired once call sites are re-classed */
-  --color-well-700: #1a2433;
 
   /* ink — text depths */
   --color-ink-bright: #e6edf2; /* titles, card text */
@@ -160,9 +150,9 @@ body {
   transition: filter 400ms ease;
 }
 
-/* micro-label: the control-room caption idiom — Meridian micro spec */
+/* micro-label: the control-room caption idiom — Meridian micro spec (10.5/600) */
 .microlabel {
-  @apply font-sans text-3xs font-semibold tracking-[0.18em] uppercase;
+  @apply font-sans text-micro font-semibold tracking-[0.13em] uppercase;
 }
 
 ::selection {
@@ -187,8 +177,6 @@ body {
   --color-well-850: #ffffff; /* card */
   --color-well-800: #f4f7fa; /* derived — spec gap: nested block on white */
   --color-well-recessed: #f2f6f9;
-  /* transient alias — retired once call sites are re-classed */
-  --color-well-700: #e2e9ef;
 
   /* ink — text depths (brightest → faintest) */
   --color-ink-bright: #17242f;

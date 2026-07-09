@@ -25,7 +25,7 @@ export function TabsTrigger({ className, ...props }: ComponentProps<typeof BaseT
     <BaseTabs.Tab
       className={cn(
         'microlabel flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-2 text-ink-dim transition-colors',
-        'data-[selected]:bg-well-700 data-[selected]:text-ink-bright',
+        'data-[selected]:bg-well-800 data-[selected]:text-ink-bright',
         className,
       )}
       {...props}

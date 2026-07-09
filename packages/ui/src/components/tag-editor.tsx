@@ -29,7 +29,7 @@ export function TagEditor({
         {tags.map((t) => (
           <span
             key={t.tag}
-            className="inline-flex items-center gap-1 rounded-sm border border-line-bright px-1.5 py-px text-3xs font-medium text-ink-dim whitespace-nowrap"
+            className="inline-flex items-center gap-1 rounded-sm border border-line-bright px-1.5 py-px text-micro font-medium text-ink-dim whitespace-nowrap"
           >
             {t.tag}
             {!offline && (

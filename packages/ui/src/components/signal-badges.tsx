@@ -11,7 +11,7 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
       className={cn(
         priority === 'p0' && 'bg-status-blocked/20 text-status-blocked',
         priority === 'p1' && 'bg-status-in-progress/20 text-status-in-progress',
-        priority === 'p2' && 'bg-well-700 text-ink',
+        priority === 'p2' && 'bg-well-800 text-ink',
         priority === 'p3' && 'bg-well-800 text-ink-dim',
       )}
     >

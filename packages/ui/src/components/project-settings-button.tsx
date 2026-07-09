@@ -40,7 +40,7 @@ export function ProjectSettingsButton({
         {open && (
           <SheetContent aria-describedby={undefined}>
             <div className="flex flex-col gap-4 p-4">
-              <SheetTitle className="text-md font-semibold text-ink-bright">
+              <SheetTitle className="text-card-mobile font-semibold text-ink-bright">
                 Project settings
               </SheetTitle>
               <ProjectSettingsForm

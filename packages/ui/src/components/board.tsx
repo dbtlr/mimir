@@ -72,7 +72,7 @@ function ColumnHeader({
     <header className="flex items-center gap-2 border-b border-line px-2 py-1.5">
       <StatusDot status={column} />
       <h2 className={cn('microlabel', meta.text)}>{meta.label}</h2>
-      <span className="ml-auto font-mono text-3xs text-ink-dim">{count}</span>
+      <span className="ml-auto font-mono text-micro text-ink-dim">{count}</span>
       {onCollapse !== undefined && (
         <button
           type="button"
@@ -114,7 +114,7 @@ function CollapsedColumn({
       className="flex w-9 shrink-0 flex-col items-center gap-2 rounded-md border border-line bg-well-900/40 py-2 transition-colors hover:border-line-bright hover:bg-well-900/70 focus-visible:outline-2 focus-visible:outline-accent"
     >
       <StatusDot status={column} />
-      <span className="font-mono text-2xs font-semibold text-ink-dim tabular-nums">{count}</span>
+      <span className="font-mono text-tag font-semibold text-ink-dim tabular-nums">{count}</span>
       <span className={cn('microlabel [writing-mode:vertical-rl] rotate-180', meta.text)}>
         {meta.label}
       </span>
@@ -136,7 +136,7 @@ function DoneFooter({
     <button
       type="button"
       onClick={onViewDone}
-      className="border-t border-line px-2 py-1.5 text-left text-3xs text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+      className="border-t border-line px-2 py-1.5 text-left text-micro text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
     >
       {total > shown ? `${shown} of ${total} recent · all →` : `${total} done · view all →`}
     </button>
@@ -191,7 +191,7 @@ function ColumnCards({
   const items = board[column];
   if (items.length === 0) {
     return (
-      <p className="px-2 py-4 text-center text-2xs text-ink-faint">
+      <p className="px-2 py-4 text-center text-tag text-ink-faint">
         Nothing {STATUS_META[column].label.toLowerCase()}
       </p>
     );

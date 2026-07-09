@@ -32,8 +32,8 @@ export function ArtifactList({
             )}
           >
             <div className="flex items-baseline justify-between gap-2">
-              <span className="font-mono text-3xs text-ink-dim">{a.id}</span>
-              <time className="font-mono text-3xs text-ink-faint">{ago(a.created_at)}</time>
+              <span className="font-mono text-micro text-ink-dim">{a.id}</span>
+              <time className="font-mono text-micro text-ink-faint">{ago(a.created_at)}</time>
             </div>
             <p className="line-clamp-2 text-xs leading-snug text-ink">{a.title}</p>
             <div className="flex flex-wrap items-center gap-1">

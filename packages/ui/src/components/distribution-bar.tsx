@@ -21,7 +21,7 @@ export function DistributionBar({
   })).filter((s) => s.count > 0);
   const total = segments.reduce((sum, s) => sum + s.count, 0);
   if (total === 0) {
-    return <div className={cn('h-1 rounded-full bg-well-700', className)} />;
+    return <div className={cn('h-1 rounded-full bg-well-800', className)} />;
   }
   const title = segments.map((s) => `${STATUS_META[s.word].label} ${String(s.count)}`).join(' · ');
   return (

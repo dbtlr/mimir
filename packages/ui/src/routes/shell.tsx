@@ -17,7 +17,7 @@ export function Shell() {
       <header className="z-20 flex items-center gap-2 border-b border-line bg-well-900/85 px-4 py-2 backdrop-blur">
         <Link
           to="/"
-          className="rounded font-mono text-md font-bold tracking-tight text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+          className="rounded font-mono text-card-mobile font-bold tracking-tight text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
         >
           Mimir
         </Link>

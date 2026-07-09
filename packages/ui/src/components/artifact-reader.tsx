@@ -35,10 +35,10 @@ export function ArtifactReader({
         </button>
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-2xs text-ink-dim">{id}</span>
+            <span className="font-mono text-tag text-ink-dim">{id}</span>
             <Badge variant="outline">{artifact.data?.project ?? '…'}</Badge>
           </div>
-          <h1 className="text-md leading-snug font-semibold text-ink-bright">
+          <h1 className="text-card-mobile leading-snug font-semibold text-ink-bright">
             {artifact.data?.title ?? id}
           </h1>
           {artifact.data !== undefined && (
@@ -48,7 +48,7 @@ export function ArtifactReader({
                   {t}
                 </Badge>
               ))}
-              <time className="font-mono text-3xs text-ink-faint">
+              <time className="font-mono text-micro text-ink-faint">
                 {absoluteTime(artifact.data.created_at)}
               </time>
             </div>
@@ -75,7 +75,7 @@ export function ArtifactReader({
                   onClick={() => {
                     onOpenNode(nodeId);
                   }}
-                  className="rounded-sm px-1.5 py-0.5 font-mono text-2xs text-accent transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+                  className="rounded-sm px-1.5 py-0.5 font-mono text-tag text-accent transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
                 >
                   {nodeId}
                 </button>

@@ -52,7 +52,7 @@ export function AttentionAlert() {
           <path d="M12 9v4m0 4h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
         {count > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-status-blocked px-1 font-mono text-3xs font-bold text-well-950 tabular-nums">
+          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-status-blocked px-1 font-mono text-micro font-bold text-well-950 tabular-nums">
             {count}
           </span>
         )}
@@ -82,13 +82,13 @@ export function AttentionAlert() {
               )}
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex items-baseline gap-2">
-                  <span className="shrink-0 font-mono text-2xs text-ink-dim md:text-3xs">
+                  <span className="shrink-0 font-mono text-tag text-ink-dim md:text-micro">
                     {node.id}
                   </span>
                   <span className="truncate text-sm text-ink md:text-xs">{node.title}</span>
                 </span>
                 {node.hold_reason != null && node.hold_reason !== '' && (
-                  <span className="truncate text-2xs text-ink-faint">{node.hold_reason}</span>
+                  <span className="truncate text-tag text-ink-faint">{node.hold_reason}</span>
                 )}
               </span>
               {reason === 'going_cold' ? <GoingColdBadge /> : isStale && <StaleBadge />}

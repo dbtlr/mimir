@@ -41,10 +41,10 @@ export function ProjectCard({
               <span className="truncate text-sm text-ink">{project.title}</span>
             </div>
             {project.description != null && project.description !== '' && (
-              <p className="truncate text-2xs text-ink-dim">{project.description}</p>
+              <p className="truncate text-tag text-ink-dim">{project.description}</p>
             )}
             {project.attention?.stale === true && (
-              <span className="mt-1 inline-flex items-center gap-1 self-start rounded-sm bg-cold/15 px-1.5 py-0.5 text-3xs font-semibold tracking-wider text-cold uppercase">
+              <span className="mt-1 inline-flex items-center gap-1 self-start rounded-sm bg-cold/15 px-1.5 py-0.5 text-micro font-semibold tracking-wider text-cold uppercase">
                 <svg
                   viewBox="0 0 16 16"
                   className="h-2.5 w-2.5"
