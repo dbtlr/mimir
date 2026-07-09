@@ -146,7 +146,7 @@ export function ProjectPage() {
         {view === 'tree' && tree.isPending && <Skeleton className="mx-5 h-64" />}
         {view === 'tree' && tree.data !== undefined && (
           <div className="px-5">
-            <TreeView root={tree.data} onOpenNode={openNode} />
+            <TreeView root={tree.data} onOpenNode={openNode} offline={conn.offline} />
           </div>
         )}
 
