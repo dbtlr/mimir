@@ -59,6 +59,19 @@ describe('triage annotation grammar', () => {
     ).toBe(false);
   });
 
+  test('a prose first line is not mistaken for the machine marker', () => {
+    // A hand-written note that happens to open `upstream <seed> resolved <prose>`
+    // must NOT read as the machine marker — only the bare head or `head: reason`
+    // forms are the idempotency key (the trailing prose disqualifies it).
+    expect(
+      annotationRecordsResolution(
+        'upstream MMR-s1 resolved by the other team',
+        'MMR-s1',
+        'resolved',
+      ),
+    ).toBe(false);
+  });
+
   test('render → recognize round-trips for both terminals', () => {
     for (const terminal of ['resolved', 'rejected'] as const) {
       const content = renderUpstreamAnnotation('MMR-s7', terminal, 'because');
