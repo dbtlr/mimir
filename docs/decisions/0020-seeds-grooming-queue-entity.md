@@ -166,7 +166,23 @@ cross-board upstream seed by its `KEY-sN` stem on any board.
   Keying on `(seed, terminal)` rather than the reason text means a hand-edited
   reason never causes a duplicate. This grammar is what makes triage safe to run
   repeatedly (and, later, on a timer) — it is a promise, not an implementation
-  detail.
+  detail. **Idempotency is scoped to SERIAL re-runs**: the check reads the task's
+  annotations then appends with no content compare-and-set, so two _concurrent_
+  passes over one board can both miss the marker and each append — the pass is
+  single-writer per board (the eventual timer mode must serialize per board).
+- **A single bad task never aborts the board pass.** Each check-(c) task is
+  reconciled in isolation: a per-task read fault is recorded in the report's
+  `failures[]` and the pass continues (exit 0), matching `doctor`'s non-gating
+  contract. The pass's OWN setup (the `listSeeds` / working-set reads) stays an
+  operational error that exits non-zero — the isolation is per-task, not blanket.
+  Before appending, the pass probes each task's `## Annotations` anchor through the
+  MMR-239 `section_failures` seam; a task whose heading is missing or duplicated
+  (ambiguous) is quarantined into `failures[]` pointing at `mimir doctor` rather
+  than blind-appended onto (an append would refuse — the old abort).
+- **Settled requester tasks are excluded from check (c).** A `done`/`abandoned`
+  task is skipped: annotating it would bump its `updated_at` (annotate's `stamp`),
+  re-activating its `lastActivity` recency on finished work and polluting the
+  attention rollups. A resolution on already-settled work carries no action.
 - **The reason is pulled from the seed's `## History` terminal record** — the
   last `lifecycle` transition into `resolved`/`rejected`. A seed with no terminal
   reason (hand-edited/legacy) degrades to the bare marker head (no dangling
@@ -176,6 +192,14 @@ cross-board upstream seed by its `KEY-sN` stem on any board.
   throws, as with every seed method). Check-(c) annotations ride the **existing
   task annotation write path** (`annotate`), inheriting its guarantees — never a
   raw store write.
+- **Check (c) reads the upstream seed via the RAW store (`seeds.load`), not the
+  resolving seam** — deliberately bypassing the seam's archived-absent rule. A
+  seed's terminal transition is a historical fact, so an upstream seed on a
+  _since-archived_ board still resolves and still annotates: this is information
+  delivery to the requester ("the thing you asked for was resolved/rejected"), not
+  a live dependency. Cross-board linkage here stays reference-only (triage never
+  transitions across boards), so surfacing the terminal is safe regardless of the
+  upstream board's archive state. Recorded so this is a decision, not an accident.
 - **Surfaces: CLI + MCP (`triage`, 1:1); HTTP is out of scope** for the pass
   itself — the report is operator/agent-facing, and the console's triage surface
   is the seeds queue UI (MMR-247).

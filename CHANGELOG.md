@@ -61,10 +61,16 @@ release. When a release is cut, this section is promoted to
   default** (running it is the intent) but **never transitions anything** —
   unblock/resolve stay operator suggestions; `--dry-run` previews with no writes.
   The annotation marker is machine-recognizable, so a re-run recognizes its own
-  work and is a no-op (idempotent). A report, never a gate — it always exits 0.
-  Surfaced on the CLI and MCP (`triage`, 1:1); the report is operator/agent-facing
-  (the console's triage surface is the seeds queue UI, MMR-247), so HTTP is out of
-  scope for the pass itself.
+  work and is a no-op (idempotent for serial re-runs; concurrent passes over one
+  board can duplicate, so the pass is single-writer per board). Check (c) skips
+  already-settled (`done`/`abandoned`) requester tasks (annotating them would
+  re-activate their attention recency), and isolates each task: a per-task read
+  fault or a corrupt `## Annotations` anchor (surfaced via the MMR-239
+  section-resolution seam, pointing at `mimir doctor`) is recorded in the report's
+  `failures` section and skipped rather than aborting the whole pass. A report,
+  never a gate — it always exits 0. Surfaced on the CLI and MCP (`triage`, 1:1);
+  the report is operator/agent-facing (the console's triage surface is the seeds
+  queue UI, MMR-247), so HTTP is out of scope for the pass itself.
 
 - **Seeds — the grooming-queue entity** (MMR-244, ADR 0020). A seed is a record
   filed against a project that implies no work, only triage (`idea`/`bug`/

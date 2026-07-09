@@ -33,12 +33,15 @@ import { isTerminalSeed } from './store';
  */
 
 /** The machine-recognizable marker grammar (MMR-246) — the durable contract that
- * makes the pass idempotent. The head `upstream <KEY-sN> <resolved|rejected>`
- * carries the seed id + terminal so a re-run recognizes its own prior annotation
- * and skips; the optional `: <reason>` is human-facing detail, not part of the key.
- * The terminal word must be followed by `:` (a reason rides) or end-of-line
- * (`\s*$`, the bare head) — trailing prose (`… resolved by the team`) is a
- * hand-written note, NOT the machine marker, so it never false-positives. */
+ * makes the pass idempotent for SERIAL re-runs. The head
+ * `upstream <KEY-sN> <resolved|rejected>` carries the seed id + terminal so a
+ * re-run recognizes its own prior annotation and skips; the optional `: <reason>`
+ * is human-facing detail, not part of the key. The terminal word must be followed
+ * by `:` (a reason rides) or end-of-line (`\s*$`, the bare head) — trailing prose
+ * (`… resolved by the team`) is a hand-written note, NOT the machine marker, so it
+ * never false-positives. Note the idempotency is serial-only: the read-then-append
+ * has no content compare-and-set, so concurrent passes over one board can each
+ * append (the pass is single-writer per board). */
 const UPSTREAM_MARKER = /^upstream (\S+) (resolved|rejected)(?::|\s*$)/;
 
 /** Render the check-(c) annotation content — the marker head plus the seed's
