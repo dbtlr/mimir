@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -149,6 +149,7 @@ describe.skipIf(!NORN)('triage pass', () => {
 
     const first = await triage(store, { board: 'MMR' });
     expect(first.upstreamResolutions[0]).toMatchObject({ alreadyRecorded: false, annotated: true });
+    expect(first.failures).toHaveLength(0);
     expect(await annotationsOf(taskRef)).toHaveLength(1);
 
     const second = await triage(store, { board: 'MMR' });
@@ -156,7 +157,8 @@ describe.skipIf(!NORN)('triage pass', () => {
       alreadyRecorded: true,
       annotated: false,
     });
-    // No duplicate annotation — the re-run wrote nothing.
+    // A healthy re-run stays no-op-clean — no duplicate annotation, no failures.
+    expect(second.failures).toHaveLength(0);
     expect(await annotationsOf(taskRef)).toHaveLength(1);
   });
 
@@ -265,6 +267,40 @@ describe.skipIf(!NORN)('triage pass', () => {
       message = error instanceof Error ? error.message : String(error);
     }
     expect(message).toMatch(/no project NOPE/);
+  });
+
+  test('a corrupt ## Annotations anchor is quarantined into failures[] — the pass never aborts', async () => {
+    const { phaseRef } = await seedbed();
+    await fileSeed(store, { kind: 'bug', project: 'MMR', requester: null, title: 'ask1' });
+    await fileSeed(store, { kind: 'bug', project: 'MMR', requester: null, title: 'ask2' });
+    const bad = await createTask(store, {
+      parentId: await idOf(phaseRef),
+      title: 'bad',
+      upstream: 'MMR-s1',
+    });
+    const good = await createTask(store, {
+      parentId: await idOf(phaseRef),
+      title: 'good',
+      upstream: 'MMR-s2',
+    });
+    const badRef = `MMR-${String(bad.seq)}`;
+    const goodRef = `MMR-${String(good.seq)}`;
+    await transitionSeed(store, 'MMR-s1', 'resolved', 'shipped');
+    await transitionSeed(store, 'MMR-s2', 'resolved', 'shipped too');
+    // Corrupt the bad task's anchor: a duplicate `## Annotations` heading → norn
+    // can't resolve it (ambiguous), so an append would refuse (the old abort).
+    const badPath = join(root, 'vault', 'MMR', `${badRef}.md`);
+    appendFileSync(badPath, '\n## Annotations\n');
+
+    const report = await triage(store, { board: 'MMR' });
+
+    // The corrupt task is quarantined (→ doctor), not annotated; nothing was written.
+    expect(report.failures.map((f) => f.task)).toContain(badRef);
+    expect(report.failures.find((f) => f.task === badRef)?.message).toMatch(/doctor/);
+    expect(readFileSync(badPath, 'utf8')).not.toContain('upstream MMR-s1 resolved');
+    // The healthy task alongside it is still reconciled — one bad task never aborts.
+    expect(report.upstreamResolutions.map((r) => r.task)).toEqual([goodRef]);
+    expect(await annotationsOf(goodRef)).toContain('upstream MMR-s2 resolved: shipped too');
   });
 
   test('a task with a dangling upstream ref is skipped gracefully', async () => {

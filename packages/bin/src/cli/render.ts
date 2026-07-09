@@ -552,9 +552,12 @@ export function renderTriageReport(report: TriageReport, io: Io): string {
     report.dryRun ? `${String(wouldAnnotate)} would annotate` : `${String(wrote)} annotated`,
     `${String(already)} already recorded`,
   ];
+  const counts = `${countLine(report.untriaged.length, 'untriaged seed')} · ${String(report.readyToResolve.length)} ready to resolve · ${countLine(res.length, 'upstream resolution')} (${cParts.join(', ')})`;
   const lede = [
     bold(`triage ${report.board}`, io.plain),
-    `${countLine(report.untriaged.length, 'untriaged seed')} · ${countLine(report.readyToResolve.length, 'ready to resolve')} · ${countLine(res.length, 'upstream resolution')} (${cParts.join(', ')})`,
+    report.failures.length > 0
+      ? `${counts} · ${countLine(report.failures.length, 'skipped')}`
+      : counts,
   ];
   if (report.dryRun) {
     lede.push(
@@ -581,6 +584,15 @@ export function renderTriageReport(report: TriageReport, io: Io): string {
     const state = resolutionState(r.alreadyRecorded, report.dryRun);
     const unblock = r.blocked ? ` · blocked → suggest: mimir unblock ${r.task}` : '';
     out.push(`${head}${reason}   ${state}${unblock}`);
+  }
+
+  // Skipped check-(c) tasks (corrupt anchor / read fault) — surfaced so the loss is
+  // visible; the pass itself still succeeds (exit 0), like `doctor` findings.
+  if (report.failures.length > 0) {
+    out.push('', bold(`SKIPPED (${String(report.failures.length)})`, io.plain));
+    for (const f of report.failures) {
+      out.push(`${f.task}: ${f.message}`);
+    }
   }
   return out.join('\n');
 }

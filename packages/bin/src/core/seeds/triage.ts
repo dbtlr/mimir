@@ -1,6 +1,7 @@
 import type {
   HistoryEntry,
   SeedLifecycle,
+  TriageFailure,
   TriageReport,
   UpstreamResolution,
 } from '@mimir/contract';
@@ -129,54 +130,92 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
         );
 
   const upstreamResolutions: UpstreamResolution[] = [];
+  const failures: TriageFailure[] = [];
+
+  // Render each task's stem ONCE (pure). A task whose id can't render is a
+  // derivation gap — skip it silently, as before. The surviving stems key both
+  // the annotation reads and the batched anchor-health probe below.
+  const taskStems = new Map<number, string>();
   for (const task of tasks) {
-    const upstream = task.upstream;
-    if (upstream === null) {
-      continue;
+    const stem = renderNodeIdFromSet(set, task);
+    if (stem !== null) {
+      taskStems.set(task.id, stem);
     }
-    const ref = parseSeedRef(upstream);
-    if (ref === null) {
-      continue;
-    }
-    // Cross-board: the upstream seed's store read resolves by KEY-sN on ANY board.
-    const seedRec = await store.seeds.load(ref.key, ref.seq);
-    if (seedRec === undefined || !isTerminalSeed(seedRec.lifecycle)) {
-      continue;
-    }
-    // `isTerminalSeed` narrows the lifecycle to `resolved | rejected` (the guard).
-    const terminal = seedRec.lifecycle;
-    const taskStem = renderNodeIdFromSet(set, task);
-    if (taskStem === null) {
-      continue;
-    }
-    const reason = terminalReason(
-      (await store.seeds.loadHistory(ref.key, ref.seq)) ?? [],
-      terminal,
-    );
-
-    // Idempotency: skip a task whose annotations already record THIS terminal for
-    // THIS seed. The existing annotations read through the task's annotation seam.
-    const existing = await store.bodySections.readAnnotations(task.id, taskStem);
-    const alreadyRecorded = existing.some((note) =>
-      annotationRecordsResolution(note.content, upstream, terminal),
-    );
-
-    let annotated = false;
-    if (!alreadyRecorded && !dryRun) {
-      await annotate(store, task.id, renderUpstreamAnnotation(upstream, terminal, reason));
-      annotated = true;
-    }
-
-    upstreamResolutions.push({
-      alreadyRecorded,
-      annotated,
-      blocked: task.hold === 'blocked',
-      lifecycle: terminal,
-      reason,
-      task: taskStem,
-      upstream,
-    });
   }
 
-  return { board: opts.board, dryRun, readyToResolve, untriaged, upstreamResolutions };
+  // One batched MMR-239 probe: which of these tasks carry a `## Annotations` anchor
+  // norn can't resolve (duplicate/missing heading). Appending onto one would refuse
+  // and abort the whole pass, so they are quarantined into `failures[]` below —
+  // never blind-appended onto (the doctor-class corruption channel, ADR 0017).
+  const corruptAnchors = await store.bodySections.annotationSectionFailures([
+    ...taskStems.values(),
+  ]);
+
+  for (const task of tasks) {
+    const upstream = task.upstream;
+    const taskStem = taskStems.get(task.id);
+    if (upstream === null || taskStem === undefined) {
+      continue;
+    }
+    if (corruptAnchors.has(taskStem)) {
+      failures.push({
+        message:
+          'its `## Annotations` heading is missing or duplicated (ambiguous) — run `mimir doctor`',
+        task: taskStem,
+      });
+      continue;
+    }
+    // Per-task isolation: a fault reconciling ONE task (e.g. a flaky cross-board
+    // seed read) is recorded and skipped — never an abort of the board pass. The
+    // pass's own setup (listSeeds / working-set) stays outside this, so a genuine
+    // operational failure still exits non-zero (the doctor precedent).
+    try {
+      const ref = parseSeedRef(upstream);
+      if (ref === null) {
+        continue;
+      }
+      // Cross-board: the upstream seed's store read resolves by KEY-sN on ANY board.
+      const seedRec = await store.seeds.load(ref.key, ref.seq);
+      if (seedRec === undefined || !isTerminalSeed(seedRec.lifecycle)) {
+        continue;
+      }
+      // `isTerminalSeed` narrows the lifecycle to `resolved | rejected` (the guard).
+      const terminal = seedRec.lifecycle;
+      const reason = terminalReason(
+        (await store.seeds.loadHistory(ref.key, ref.seq)) ?? [],
+        terminal,
+      );
+
+      // Idempotency (SERIAL re-runs): skip a task whose annotations already record
+      // THIS terminal for THIS seed. Concurrent runs can still duplicate — the
+      // read-then-append has no content CAS, so the pass is single-writer per board.
+      const existing = await store.bodySections.readAnnotations(task.id, taskStem);
+      const alreadyRecorded = existing.some((note) =>
+        annotationRecordsResolution(note.content, upstream, terminal),
+      );
+
+      let annotated = false;
+      if (!alreadyRecorded && !dryRun) {
+        await annotate(store, task.id, renderUpstreamAnnotation(upstream, terminal, reason));
+        annotated = true;
+      }
+
+      upstreamResolutions.push({
+        alreadyRecorded,
+        annotated,
+        blocked: task.hold === 'blocked',
+        lifecycle: terminal,
+        reason,
+        task: taskStem,
+        upstream,
+      });
+    } catch (error) {
+      failures.push({
+        message: error instanceof Error ? error.message : String(error),
+        task: taskStem,
+      });
+    }
+  }
+
+  return { board: opts.board, dryRun, failures, readyToResolve, untriaged, upstreamResolutions };
 }

@@ -159,12 +159,31 @@ export type UpstreamResolution = {
 };
 
 /**
+ * One check-(c) task the triage pass could NOT reconcile (MMR-246) — skipped so a
+ * single bad task never aborts the board pass. Two causes: a corrupt
+ * `## Annotations` anchor (a duplicate/missing heading norn cannot resolve —
+ * appending would refuse), or a per-task read fault (e.g. a flaky cross-board
+ * seed read). The pass records it here and continues; `mimir doctor` diagnoses
+ * the corruption class.
+ */
+export type TriageFailure = {
+  /** The requester-side task stem (`KEY-seq`) that was skipped. */
+  task: string;
+  /** Why it was skipped — human-facing; a corrupt-anchor message points at `mimir doctor`. */
+  message: string;
+};
+
+/**
  * The `mimir triage [KEY]` report (MMR-246) — one board's explicit-run
  * reconciliation pass over three checks: (a) `untriaged` new seeds, (b)
  * `readyToResolve` promoted seeds whose spawned work has all settled, and (c)
  * `upstreamResolutions` over the board's OWN tasks whose `upstream` seed went
  * terminal. Writes the check-(c) annotations by default; `dryRun` previews with
  * no writes. A report, never a gate — it always succeeds (exit 0).
+ *
+ * Idempotency is scoped to SERIAL re-runs: a re-run recognizes its own marker and
+ * is a no-op. Concurrent runs can duplicate a check-(c) annotation (read-then-
+ * append with no content CAS), so the pass is single-writer per board.
  */
 export type TriageReport = {
   /** The board this pass reconciled. */
@@ -177,6 +196,8 @@ export type TriageReport = {
   readyToResolve: SeedView[];
   /** Check (c): the board's tasks whose `upstream` seed went terminal. */
   upstreamResolutions: UpstreamResolution[];
+  /** Check (c) tasks skipped (corrupt anchor / read fault) — the pass never aborts. */
+  failures: TriageFailure[];
 };
 
 /** `history` — a transition-log entry (heavy; opt-in even on `get`). */

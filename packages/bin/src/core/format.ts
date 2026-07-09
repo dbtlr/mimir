@@ -285,6 +285,7 @@ export function triageToWire(report: TriageReport): Record<string, unknown> {
   return {
     board: report.board,
     dry_run: report.dryRun,
+    failures: report.failures.map((f) => ({ message: f.message, task: f.task })),
     ready_to_resolve: report.readyToResolve.map(seedToWire),
     untriaged: report.untriaged.map(seedToWire),
     upstream_resolutions: report.upstreamResolutions.map(upstreamResolutionToWire),
