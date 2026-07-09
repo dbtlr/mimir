@@ -28,6 +28,20 @@ release. When a release is cut, this section is promoted to
   `done`/`return` verbs), the recessed Done card, and a lightweight cold marker
   on stale work. Data flow, drag-to-reorder, offline demotion, and the Done
   drill-through to `/tasks` are preserved.
+- **Tree lens rebuilt as Meridian grouped panels** (MMR-225). The project tree
+  lens (`/p/KEY?view=tree`) is re-cut into three flat visual levels: initiative
+  (and standing-home) section headers, phase panels, and leaf rows — replacing
+  the uniform nested-disclosure tree. Initiative headers carry an `INITIATIVE`
+  microlabel, a derived `N done · M live · K review` leaf-count summary, and a
+  rollup distribution bar over a teal child spine; standing homes read
+  `STANDING` / `∞` / `OPEN FOR FILING` over a neutral spine. Phase panels always
+  show a distribution bar plus an interpreted word (`in_progress` reads
+  `IN MOTION`), never a bare status. Consecutive done phases fold to one recessed
+  `Phases N–M` / `DONE · count` row, and a panel's parked leaves fold to a
+  trailing `N parked · expand` row, both expandable in place. Under-review leaves
+  gain inline Approve (`done`) / Return… (`return`, via the shared reason dialog)
+  with a faint violet row wash; offline inerts them. The route, `?view=tree`
+  search param, `TreeView` contract, and tree data fetch are unchanged.
 
 - **Seed verbs across CLI, MCP, and HTTP** (MMR-245). The grooming-queue entity
   (MMR-244) gains its verb surface. `mimir seed "<title>" -k <kind> [-p KEY]
