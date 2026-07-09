@@ -5,7 +5,7 @@ import type {
   UpstreamResolution,
 } from '@mimir/contract';
 
-import { deriveSet, findProjectInSet, renderNodeIdFromSet } from '../derive';
+import { deriveSet, findProjectInSet, isNodeSettled, renderNodeIdFromSet } from '../derive';
 import { parseSeedRef } from '../ids';
 import { annotate } from '../mutations';
 import type { Store } from '../store';
@@ -117,11 +117,15 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
   // nulled at the reader's grammar tier, so any non-null `upstream` is valid s-grammar.
   const set = deriveSet(await store.loadWorkingSet());
   const project = findProjectInSet(set, opts.board);
+  // Settled (done/abandoned) requester tasks are excluded: annotating one bumps
+  // its `updated_at` (annotate's `stamp()`), re-activating its `lastActivity`
+  // recency on work that is over — polluting the attention rollups. A resolution
+  // on already-finished work carries no action, so there is nothing to surface.
   const tasks =
     project === undefined
       ? []
       : (set.nodesByProject.get(project.id) ?? []).filter(
-          (node) => node.type === 'task' && node.upstream !== null,
+          (node) => node.type === 'task' && node.upstream !== null && !isNodeSettled(set, node),
         );
 
   const upstreamResolutions: UpstreamResolution[] = [];

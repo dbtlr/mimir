@@ -232,6 +232,30 @@ describe.skipIf(!NORN)('triage pass', () => {
     expect(stillBlocked?.hold).toBe('blocked');
   });
 
+  test('a settled (done) requester task is left untouched — no re-activation', async () => {
+    const { phaseRef } = await seedbed();
+    await fileSeed(store, { kind: 'bug', project: 'MMR', requester: null, title: 'ask' });
+    const task = await createTask(store, {
+      parentId: await idOf(phaseRef),
+      title: 't',
+      upstream: 'MMR-s1',
+    });
+    const taskRef = `MMR-${String(task.seq)}`;
+    // The requester task is already DONE; only then does the upstream go terminal.
+    await completeTask(store, await idOf(taskRef));
+    await transitionSeed(store, 'MMR-s1', 'resolved', 'shipped');
+    const before = findNodeInSet(deriveSet(await store.loadWorkingSet()), taskRef);
+
+    const report = await triage(store, { board: 'MMR' });
+
+    // A settled task is out of check (c): no annotation, no `stamp()` bump that would
+    // re-activate its lastActivity recency on settled work (attention rollups).
+    expect(report.upstreamResolutions).toHaveLength(0);
+    expect(await annotationsOf(taskRef)).toHaveLength(0);
+    const after = findNodeInSet(deriveSet(await store.loadWorkingSet()), taskRef);
+    expect(after?.updated_at).toBe(before?.updated_at);
+  });
+
   test('an unknown board is refused (self-contained per active board)', async () => {
     await seedbed();
     let message = '';
