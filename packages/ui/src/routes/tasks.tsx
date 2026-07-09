@@ -108,7 +108,7 @@ export function TasksPage() {
         </h1>
 
         <div className="flex flex-wrap items-end gap-2 border-b border-line p-3">
-          <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
+          <label className="flex flex-col gap-0.5 text-tag text-ink-dim">
             Project
             <select
               value={search.project ?? ''}
@@ -125,7 +125,7 @@ export function TasksPage() {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
+          <label className="flex flex-col gap-0.5 text-tag text-ink-dim">
             Status
             <select
               value={search.status ?? 'live'}
@@ -141,7 +141,7 @@ export function TasksPage() {
               ))}
             </select>
           </label>
-          <label className="flex flex-1 flex-col gap-0.5 text-2xs text-ink-dim">
+          <label className="flex flex-1 flex-col gap-0.5 text-tag text-ink-dim">
             Search
             <input
               type="search"
@@ -181,7 +181,7 @@ export function TasksPage() {
                     )}
                   >
                     <StatusDot status={node.status} />
-                    <span className="font-mono text-3xs text-ink-dim">{node.id}</span>
+                    <span className="font-mono text-micro text-ink-dim">{node.id}</span>
                     <span className="truncate text-xs text-ink">{node.title}</span>
                     {node.verdicts?.stale === true && <StaleBadge />}
                   </button>

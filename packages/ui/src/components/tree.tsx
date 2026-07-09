@@ -74,7 +74,7 @@ function TreeNode({
       <span className={cn('shrink-0 font-mono text-sm font-semibold sm:hidden', meta.text)}>
         {STATUS_LETTER[node.status]}
       </span>
-      <span className="shrink-0 font-mono text-xs whitespace-nowrap text-ink-dim md:text-3xs">
+      <span className="shrink-0 font-mono text-xs whitespace-nowrap text-ink-dim md:text-micro">
         {node.id}
       </span>
       <span
@@ -85,7 +85,7 @@ function TreeNode({
           'min-w-0 line-clamp-2 leading-tight md:truncate md:text-xs',
           container
             ? 'text-base font-semibold text-ink-bright'
-            : 'text-md text-ink-bright md:font-normal md:text-ink',
+            : 'text-card-mobile text-ink-bright md:font-normal md:text-ink',
         )}
       >
         {node.title}

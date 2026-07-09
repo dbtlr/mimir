@@ -21,7 +21,7 @@ export default defineConfig({
     VitePWA({
       includeAssets: ['icons/mimir.svg', 'icons/mimir-maskable.svg'],
       manifest: {
-        background_color: '#0a0e16',
+        background_color: '#0d1219',
         description: 'Operator console — work state across every project',
         display: 'standalone',
         icons: [
@@ -35,7 +35,7 @@ export default defineConfig({
         ],
         name: 'Mimir',
         short_name: 'Mimir',
-        theme_color: '#0a0e16',
+        theme_color: '#0d1219',
       },
       registerType: 'autoUpdate',
       workbox: {

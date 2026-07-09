@@ -45,7 +45,7 @@ export function LaneSection({
   const pip = <span className={cn('h-[3px] w-5 shrink-0 rounded-sm', LANE_PIP[lane.lane])} />;
   const label = <h2 className="microlabel text-ink">{lane.label}</h2>;
   const countChip = (
-    <span className="rounded-full border border-line px-2 py-px font-mono text-2xs text-ink-dim tabular-nums">
+    <span className="rounded-full border border-line px-2 py-px font-mono text-tag text-ink-dim tabular-nums">
       {count}
     </span>
   );
@@ -68,7 +68,7 @@ export function LaneSection({
           {label}
           {countChip}
           {rule}
-          <span className="text-2xs text-ink-faint transition-colors group-hover:text-ink">
+          <span className="text-tag text-ink-faint transition-colors group-hover:text-ink">
             {expanded ? 'Hide ↑' : 'Show ↓'}
           </span>
         </button>

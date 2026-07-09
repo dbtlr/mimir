@@ -59,7 +59,7 @@ describe('theme resolution (MMR-74)', () => {
     expect(localStorage.getItem('mimir-theme')).toBe('light');
     expect(document.documentElement.dataset.theme).toBe('light');
     expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(
-      '#e9edf3',
+      '#e9eff3',
     );
   });
 

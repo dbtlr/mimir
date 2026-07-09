@@ -18,7 +18,7 @@ export function ScrollArea({
         orientation="vertical"
         className="flex w-1 justify-center rounded bg-transparent opacity-0 transition-opacity data-[hovering]:opacity-100 data-[scrolling]:opacity-100"
       >
-        <BaseScrollArea.Thumb className="w-full rounded bg-well-700" />
+        <BaseScrollArea.Thumb className="w-full rounded bg-line-bright" />
       </BaseScrollArea.Scrollbar>
     </BaseScrollArea.Root>
   );

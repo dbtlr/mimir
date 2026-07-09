@@ -10,6 +10,7 @@ import { OfflineBanner } from '../components/offline-banner';
 import { ProjectSettingsButton } from '../components/project-settings-button';
 import { StatusBadge } from '../components/status-badge';
 import { TreeView } from '../components/tree';
+import { segmentVariants, segmentedTrackClass } from '../components/ui/segmented-control';
 import { Skeleton } from '../components/ui/skeleton';
 import { buildAncestry } from '../lib/ancestry';
 import { buildBoard } from '../lib/board';
@@ -23,16 +24,13 @@ function LensToggle({ view, nodeParam }: { view: ProjectLens; nodeParam: string 
     <Link
       from={projectRoute.fullPath}
       search={nodeParam === undefined ? { view: target } : { node: nodeParam, view: target }}
-      className={cn(
-        'microlabel rounded-md px-2.5 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-accent',
-        view === target ? 'bg-well-700 text-ink-bright' : 'text-ink-dim hover:text-ink',
-      )}
+      className={segmentVariants({ active: view === target })}
     >
       {label}
     </Link>
   );
   return (
-    <nav aria-label="Lens" className="flex gap-px rounded-md border border-line bg-well-850 p-px">
+    <nav aria-label="Lens" className={segmentedTrackClass}>
       {lens('board', 'Board')}
       {lens('tree', 'Tree')}
     </nav>

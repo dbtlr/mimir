@@ -85,7 +85,7 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
 
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-3 text-2xs">
+    <div className="flex justify-between gap-3 text-tag">
       <dt className="text-ink-dim">{label}</dt>
       <dd className="text-right font-mono text-ink">{value}</dd>
     </div>
@@ -108,9 +108,9 @@ function RefRow({
       className="flex items-center gap-2 rounded-sm px-1 py-0.5 text-left text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
     >
       {refNode.status !== undefined && <StatusDot status={refNode.status} />}
-      <span className="font-mono text-2xs text-accent">{refNode.id}</span>
+      <span className="font-mono text-tag text-accent">{refNode.id}</span>
       {refNode.via !== undefined && (
-        <span className="text-3xs text-ink-dim">via {refNode.via}</span>
+        <span className="text-micro text-ink-dim">via {refNode.via}</span>
       )}
     </button>
   );
@@ -199,11 +199,11 @@ function FeedRow({ item }: { item: FeedItem }) {
   const glyph = FEED_GLYPH[item.variant] ?? '◆';
   return (
     <li className="flex gap-2.5">
-      <span aria-hidden className="mt-0.5 text-2xs text-ink-faint select-none">
+      <span aria-hidden className="mt-0.5 text-tag text-ink-faint select-none">
         {glyph}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <time className="font-mono text-3xs text-ink-faint">
+        <time className="font-mono text-micro text-ink-faint">
           {absoluteTime(item.at)} · {ago(item.at)}
         </time>
         {item.variant === 'created' && <span className="text-xs text-ink-dim">Created</span>}
@@ -221,7 +221,7 @@ function TransitionLine({ entry }: { entry: WireHistoryEntry }) {
   return (
     <p className="text-xs text-ink">
       <span className="font-medium">{label}</span>
-      {detail != null && <span className="ml-1.5 font-mono text-2xs text-ink-dim">{detail}</span>}
+      {detail != null && <span className="ml-1.5 font-mono text-tag text-ink-dim">{detail}</span>}
       {entry.reason != null && <span className="text-ink-dim"> — {entry.reason}</span>}
     </p>
   );
@@ -323,7 +323,7 @@ function DrawerBody({
               </>
             )}
           </div>
-          <SheetTitle className="text-md leading-snug font-semibold text-ink-bright">
+          <SheetTitle className="text-card-mobile leading-snug font-semibold text-ink-bright">
             {node.data?.title ?? nodeId}
           </SheetTitle>
         </div>
@@ -436,7 +436,7 @@ function DrawerBody({
                   <Section label="Dependencies">
                     {node.data.deps.depends_on.length > 0 && (
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-2xs text-ink-dim">depends on</span>
+                        <span className="text-tag text-ink-dim">depends on</span>
                         {node.data.deps.depends_on.map((r) => (
                           <RefRow key={r.id} refNode={r} onOpenNode={onOpenNode} />
                         ))}
@@ -444,7 +444,7 @@ function DrawerBody({
                     )}
                     {(node.data.deps.awaiting_on?.length ?? 0) > 0 && (
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-2xs text-ink-dim">awaiting on</span>
+                        <span className="text-tag text-ink-dim">awaiting on</span>
                         {node.data.deps.awaiting_on?.map((r) => (
                           <RefRow key={r.id} refNode={r} onOpenNode={onOpenNode} />
                         ))}
@@ -452,7 +452,7 @@ function DrawerBody({
                     )}
                     {node.data.deps.blocking.length > 0 && (
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-2xs text-ink-dim">blocking</span>
+                        <span className="text-tag text-ink-dim">blocking</span>
                         {node.data.deps.blocking.map((r) => (
                           <RefRow key={r.id} refNode={r} onOpenNode={onOpenNode} />
                         ))}
@@ -487,7 +487,7 @@ function DrawerBody({
                           }}
                           className="flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-left text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
                         >
-                          <span className="font-mono text-3xs text-ink-dim">{a.id}</span>
+                          <span className="font-mono text-micro text-ink-dim">{a.id}</span>
                           <span className="truncate">{a.title}</span>
                         </button>
                       </li>

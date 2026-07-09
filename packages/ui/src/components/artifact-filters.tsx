@@ -51,7 +51,7 @@ export function ArtifactFilters({
 
   return (
     <div className="flex flex-wrap items-end gap-2 border-b border-line p-3">
-      <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
+      <label className="flex flex-col gap-0.5 text-tag text-ink-dim">
         Project
         <select
           value={filters.project ?? ''}
@@ -68,7 +68,7 @@ export function ArtifactFilters({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
+      <label className="flex flex-col gap-0.5 text-tag text-ink-dim">
         Tag
         <input
           value={filters.tag ?? ''}
@@ -79,7 +79,7 @@ export function ArtifactFilters({
           className="rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent"
         />
       </label>
-      <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
+      <label className="flex flex-col gap-0.5 text-tag text-ink-dim">
         Since
         <input
           type="date"
@@ -90,7 +90,7 @@ export function ArtifactFilters({
           className="rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent"
         />
       </label>
-      <label className="flex flex-col gap-0.5 text-2xs text-ink-dim">
+      <label className="flex flex-col gap-0.5 text-tag text-ink-dim">
         Before
         <input
           type="date"
@@ -101,7 +101,7 @@ export function ArtifactFilters({
           className="rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent"
         />
       </label>
-      <label className="flex flex-1 flex-col gap-0.5 text-2xs text-ink-dim">
+      <label className="flex flex-1 flex-col gap-0.5 text-tag text-ink-dim">
         Search
         <input
           value={q}

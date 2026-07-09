@@ -46,7 +46,9 @@ export function NewTaskButton({ projectKey, offline }: { projectKey: string; off
         {open && (
           <SheetContent aria-describedby={undefined}>
             <div className="flex flex-col gap-4 p-4">
-              <SheetTitle className="text-md font-semibold text-ink-bright">New task</SheetTitle>
+              <SheetTitle className="text-card-mobile font-semibold text-ink-bright">
+                New task
+              </SheetTitle>
               <TaskForm
                 mode="create"
                 parents={tree.data ? parentOptions(tree.data) : []}

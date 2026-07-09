@@ -42,8 +42,8 @@ export function ProjectPicker() {
           >
             <StatusDot status={p.status} />
             <span className="font-mono text-sm font-semibold text-ink-bright">{p.id}</span>
-            <span className="truncate text-sm text-ink md:text-2xs">{p.title}</span>
-            <span className="ml-auto font-mono text-xs text-ink-dim tabular-nums md:text-2xs">
+            <span className="truncate text-sm text-ink md:text-tag">{p.title}</span>
+            <span className="ml-auto font-mono text-xs text-ink-dim tabular-nums md:text-tag">
               {readyByKey.get(p.id) ?? 0} ready
             </span>
           </MenuItem>

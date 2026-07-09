@@ -5,6 +5,7 @@ import { useForm } from '@tanstack/react-form';
 import type { ParentOption } from '../lib/parent-options';
 import { emptyTaskForm, taskFormSchema } from '../lib/schemas';
 import type { TaskFormValues } from '../lib/schemas';
+import { ActionButton } from './ui/action-button';
 
 export type TaskFormSubmit = {
   parent?: string;
@@ -140,7 +141,7 @@ export function TaskForm({
             />
           )}
         </form.Field>
-        <p className="text-3xs text-ink-faint">Short one-line lede for list views (optional)</p>
+        <p className="text-micro text-ink-faint">Short one-line lede for list views (optional)</p>
       </div>
 
       {/* Description — always visible, not behind disclosure (MMR-75) */}
@@ -286,17 +287,18 @@ export function TaskForm({
           selector={(state) => ({ parent: state.values.parent, title: state.values.title })}
         >
           {({ title, parent }) => (
-            <button
+            <ActionButton
               type="submit"
+              size="sm"
               disabled={
                 submitting === true ||
                 title.trim() === '' ||
                 (mode === 'create' && (parent ?? '').trim() === '')
               }
-              className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="disabled:cursor-not-allowed"
             >
               {mode === 'create' ? 'Create' : 'Save'}
-            </button>
+            </ActionButton>
           )}
         </form.Subscribe>
       </div>

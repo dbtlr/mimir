@@ -336,6 +336,26 @@ release. When a release is cut, this section is promoted to
   against a live `norn mcp` (v0.41.0): dry-run-by-default mutations,
   create→find→get round-trip, and stored-wikilink field matching.
 
+- **Meridian design-system foundation for the console** (MMR-219). The operator
+  console (`packages/ui`) is re-based on the Meridian token system: the `@theme`
+  block is remapped hex-for-hex in both themes to flat wells (the body grid +
+  vignette atmosphere is gone — depth is carried by tone and hairlines alone),
+  paired status tokens (`--color-status-<word>` + `-foreground`) across the
+  closed nine-word vocabulary, and new `action`, `attention`/`attention-solid`,
+  `accent-foreground`, `ink-ghost`, and `well-recessed` roles. The type base
+  drops to `100%` so a semantic rem scale (`--text-page` → `--text-micro`)
+  renders spec-true px at the 16px browser default; the legacy `--text-3xs/2xs/md`
+  steps and the `--color-well-700` step are retired and their call sites
+  re-classed. Instrument Sans (self-hosted) replaces Archivo. A CVA primitive kit
+  lands in `components/ui` — status chips (the wash + inset-ring idiom, nine
+  literal variants), `StatusDot`, `ActionButton` (action / attention / outline),
+  `SegmentedControl`, and `Card` (recessed + status-left-border variants, a
+  light-only lift) — with status-chip treatments moved out of the `lib/status.ts`
+  string soup into the variants. Loading skeletons are now static recessed blocks
+  (off the motion budget). A dev-only `/kit` showcase renders the whole
+  foundation over both themes for regression-at-a-glance; it is gated on
+  `import.meta.env.DEV` and dropped from the production bundle.
+
 ### Changed
 
 - **Body-section reads go through native `norn get --section`** (MMR-187, NRN-102/

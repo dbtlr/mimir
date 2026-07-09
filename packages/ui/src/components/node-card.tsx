@@ -62,7 +62,7 @@ export function NodeCard({
       )}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-xs text-ink-dim md:text-3xs">{node.id}</span>
+        <span className="font-mono text-xs text-ink-dim md:text-micro">{node.id}</span>
         <div className="flex items-center gap-1">
           {node.verdicts?.stale === true && <StaleBadge />}
           {grip}
@@ -70,7 +70,7 @@ export function NodeCard({
         </div>
       </div>
       {ancestry !== undefined && ancestry !== '' && (
-        <p className="truncate text-2xs text-ink-faint md:text-3xs" title={ancestry}>
+        <p className="truncate text-tag text-ink-faint md:text-micro" title={ancestry}>
           {ancestry}
         </p>
       )}
@@ -81,11 +81,11 @@ export function NodeCard({
         }}
         className="mt-0.5 block w-full text-left focus-visible:outline-2 focus-visible:outline-accent"
       >
-        <p className="line-clamp-2 text-md font-semibold leading-snug text-ink-bright group-hover:text-ink-bright md:text-xs md:font-medium md:text-ink">
+        <p className="line-clamp-2 text-card-mobile font-semibold leading-snug text-ink-bright group-hover:text-ink-bright md:text-xs md:font-medium md:text-ink">
           {node.title}
         </p>
         {node.summary != null && node.summary !== '' && (
-          <p className="truncate text-2xs text-ink-dim md:text-3xs">{node.summary}</p>
+          <p className="truncate text-tag text-ink-dim md:text-micro">{node.summary}</p>
         )}
       </button>
       {(node.priority != null ||

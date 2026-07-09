@@ -34,7 +34,7 @@ export function TransitionMenu({
         <MenuTrigger
           aria-label="Actions"
           disabled={disabled}
-          className="flex h-8 w-8 items-center justify-center rounded text-lg leading-none text-ink-dim transition-colors hover:bg-well-700 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40 md:h-auto md:w-auto md:px-1.5 md:py-0.5 md:text-sm"
+          className="flex h-8 w-8 items-center justify-center rounded text-lg leading-none text-ink-dim transition-colors hover:bg-line-bright hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40 md:h-auto md:w-auto md:px-1.5 md:py-0.5 md:text-sm"
         >
           ⋯
         </MenuTrigger>

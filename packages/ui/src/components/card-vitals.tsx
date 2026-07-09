@@ -44,7 +44,7 @@ export function CardVitals({ counts }: { counts: Distribution | undefined }) {
           <li
             key={v.word}
             className={cn(
-              'flex items-center gap-1 text-3xs whitespace-nowrap text-ink-dim',
+              'flex items-center gap-1 text-micro whitespace-nowrap text-ink-dim',
               v.count === 0 && 'opacity-45',
             )}
           >

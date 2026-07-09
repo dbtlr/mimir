@@ -2,6 +2,8 @@ import { useState } from 'react';
 
 import { useTag, useUntag } from '../api/mutations';
 import type { WireTag } from '../api/types';
+import { ActionButton } from './ui/action-button';
+import { Badge } from './ui/badge';
 
 export function TagEditor({
   nodeId,
@@ -27,10 +29,7 @@ export function TagEditor({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-1">
         {tags.map((t) => (
-          <span
-            key={t.tag}
-            className="inline-flex items-center gap-1 rounded-sm border border-line-bright px-1.5 py-px text-3xs font-medium text-ink-dim whitespace-nowrap"
-          >
+          <Badge key={t.tag} variant="outline">
             {t.tag}
             {!offline && (
               <button
@@ -43,7 +42,7 @@ export function TagEditor({
                 ×
               </button>
             )}
-          </span>
+          </Badge>
         ))}
       </div>
 
@@ -61,15 +60,15 @@ export function TagEditor({
             placeholder="Add tag…"
             className="min-w-0 flex-1 rounded border border-line bg-well-850 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent"
           />
-          <button
-            type="button"
+          <ActionButton
+            size="sm"
             aria-label="Add tag"
             disabled={addDisabled}
             onClick={handleAdd}
-            className="rounded bg-accent px-3 py-1 text-xs font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="disabled:cursor-not-allowed"
           >
             Add
-          </button>
+          </ActionButton>
         </div>
       )}
     </div>
