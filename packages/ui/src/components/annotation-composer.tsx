@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useAnnotate } from '../api/mutations';
+import { ActionButton } from './ui/action-button';
 
 export function AnnotationComposer({ nodeId, offline }: { nodeId: string; offline?: boolean }) {
   const [value, setValue] = useState('');
@@ -24,15 +25,15 @@ export function AnnotationComposer({ nodeId, offline }: { nodeId: string; offlin
         className="min-h-16 resize-y rounded border border-line bg-well-850 p-2 text-xs text-ink outline-none focus-visible:border-accent"
       />
       <div className="flex justify-end">
-        <button
-          type="button"
+        <ActionButton
+          size="sm"
           aria-label="Add note"
           disabled={disabled}
           onClick={handleClick}
-          className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="disabled:cursor-not-allowed"
         >
           Add note
-        </button>
+        </ActionButton>
       </div>
     </div>
   );

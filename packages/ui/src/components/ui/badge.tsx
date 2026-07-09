@@ -11,8 +11,8 @@ const badgeVariants = cva(
     defaultVariants: { variant: 'default' },
     variants: {
       variant: {
-        default: 'bg-well-800 text-ink',
-        mono: 'bg-well-800 font-mono text-tag text-ink-dim md:text-micro',
+        default: 'bg-well-800 inset-ring inset-ring-line text-ink',
+        mono: 'bg-well-800 inset-ring inset-ring-line font-mono text-tag text-ink-dim md:text-micro',
         outline: 'inset-ring inset-ring-line-bright text-ink',
       },
     },
@@ -26,10 +26,12 @@ export function Badge({ className, variant, ...props }: BadgeProps) {
 }
 
 /*
- * The status chip — the wash idiom made literal. Each hue is a 12% fill under a
- * 1px inset ring at ~2x that alpha, with the hue's `-foreground` text tone. Nine
- * literal variants keyed by the status vocabulary so Tailwind extracts every
- * class; the ring rides in both themes (a light-mode legibility rule).
+ * The status chip — the wash idiom made literal, and the single documentation
+ * point for it. Canonical wash ratio: `/12` hue fill under a 1px inset ring at
+ * `/24` (~2x the fill alpha), with the hue's `-foreground` text tone.
+ * segmented-control.tsx mirrors this ratio for the active segment. Nine literal
+ * variants keyed by the status vocabulary so Tailwind extracts every class; the
+ * ring rides in both themes (a light-mode legibility rule).
  */
 export const statusChipVariants = cva(
   'inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-tag font-semibold whitespace-nowrap',

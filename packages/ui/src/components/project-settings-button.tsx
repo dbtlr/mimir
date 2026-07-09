@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { useUpdateProject } from '../api/mutations';
 import type { WireNode } from '../api/types';
+import { ActionButton } from './ui/action-button';
 import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
 
 export type ProjectFormValues = {
@@ -147,13 +148,14 @@ function ProjectSettingsForm({
         </button>
         <form.Subscribe selector={(state) => state.values.title}>
           {(title) => (
-            <button
+            <ActionButton
               type="submit"
+              size="sm"
               disabled={submitting === true || title.trim() === ''}
-              className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-well-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="disabled:cursor-not-allowed"
             >
               Save
-            </button>
+            </ActionButton>
           )}
         </form.Subscribe>
       </div>

@@ -12,10 +12,16 @@ import { cn } from '../../lib/cn';
  * label stays legible on either theme's fill.
  */
 const actionButtonVariants = cva(
-  'inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-body font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40',
+  'inline-flex items-center justify-center gap-1.5 font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40',
   {
-    defaultVariants: { variant: 'action' },
+    defaultVariants: { size: 'default', variant: 'action' },
     variants: {
+      // `sm` is the dialog-footer density that the form/dialog submit buttons
+      // route through; `default` is the primary surface button (radius 8).
+      size: {
+        default: 'rounded-lg px-3 py-1.5 text-body',
+        sm: 'rounded-md px-3 py-1.5 text-xs',
+      },
       variant: {
         action: 'bg-action text-action-foreground hover:bg-action/90',
         attention: 'bg-attention-solid text-well-950 hover:bg-attention-solid/90',
@@ -29,11 +35,11 @@ const actionButtonVariants = cva(
 export type ActionButtonProps = {} & ButtonHTMLAttributes<HTMLButtonElement> &
   VariantProps<typeof actionButtonVariants>;
 
-export function ActionButton({ className, variant, type, ...props }: ActionButtonProps) {
+export function ActionButton({ className, size, variant, type, ...props }: ActionButtonProps) {
   return (
     <button
       type={type ?? 'button'}
-      className={cn(actionButtonVariants({ variant }), className)}
+      className={cn(actionButtonVariants({ size, variant }), className)}
       {...props}
     />
   );

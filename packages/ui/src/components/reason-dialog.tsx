@@ -2,6 +2,7 @@ import { Dialog } from '@base-ui-components/react/dialog';
 import { useState } from 'react';
 
 import type { VerbSpec } from '../lib/transitions';
+import { ActionButton } from './ui/action-button';
 
 /**
  * Optional-reason modal for the reason-carrying verbs (park/block/abandon/
@@ -49,16 +50,15 @@ export function ReasonDialog({
             <Dialog.Close className="rounded px-3 py-1.5 text-xs text-ink-dim hover:text-ink">
               Cancel
             </Dialog.Close>
-            <button
-              type="button"
+            <ActionButton
+              size="sm"
               onClick={() => {
                 onConfirm(reason.trim());
                 setReason('');
               }}
-              className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-well-950 hover:opacity-90"
             >
               Confirm
-            </button>
+            </ActionButton>
           </div>
         </Dialog.Popup>
       </Dialog.Portal>

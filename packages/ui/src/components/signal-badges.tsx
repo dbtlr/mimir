@@ -9,10 +9,12 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
     <Badge
       variant="mono"
       className={cn(
-        priority === 'p0' && 'bg-status-blocked/20 text-status-blocked',
-        priority === 'p1' && 'bg-status-in-progress/20 text-status-in-progress',
-        priority === 'p2' && 'bg-well-800 text-ink',
-        priority === 'p3' && 'bg-well-800 text-ink-dim',
+        priority === 'p0' &&
+          'bg-status-blocked/12 inset-ring inset-ring-status-blocked/24 text-status-blocked-foreground',
+        priority === 'p1' &&
+          'bg-status-in-progress/12 inset-ring inset-ring-status-in-progress/24 text-status-in-progress-foreground',
+        priority === 'p2' && 'bg-well-800 inset-ring inset-ring-line text-ink',
+        priority === 'p3' && 'bg-well-800 inset-ring inset-ring-line text-ink-dim',
       )}
     >
       {priority}
@@ -44,7 +46,7 @@ export function OpenEndedBadge() {
 export function StaleBadge() {
   return (
     <Badge
-      className="bg-status-in-progress/20 text-status-in-progress"
+      className="bg-status-in-progress/12 inset-ring inset-ring-status-in-progress/24 text-status-in-progress-foreground"
       title="stale — in flight too long"
     >
       ⧗ stale
@@ -60,8 +62,14 @@ export function StaleBadge() {
  */
 export function GoingColdBadge() {
   return (
-    <Badge className="bg-cold/20 text-cold" title="going cold — untouched too long">
-      ⧗ going cold
+    <Badge
+      className="bg-cold/12 inset-ring inset-ring-cold/24 text-ink-dim"
+      title="going cold — untouched too long"
+    >
+      <span aria-hidden className="text-cold">
+        ⧗
+      </span>
+      going cold
     </Badge>
   );
 }

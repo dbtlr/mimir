@@ -11,18 +11,15 @@ import { cn } from '../../lib/cn';
  * A status left-border is applied by consumers via the literal `border-l-2` +
  * `STATUS_META[...].border` classes, keeping Tailwind extraction literal.
  */
-const cardVariants = cva(
-  'rounded-[10px] border border-line bg-well-850 light:shadow-[0_1px_2px_rgba(23,36,47,0.05)]',
-  {
-    defaultVariants: { variant: 'default' },
-    variants: {
-      variant: {
-        default: '',
-        recessed: 'bg-well-recessed text-ink-ghost light:shadow-none',
-      },
+const cardVariants = cva('rounded-[10px] border border-line bg-well-850 light:shadow-card', {
+  defaultVariants: { variant: 'default' },
+  variants: {
+    variant: {
+      default: '',
+      recessed: 'bg-well-recessed text-ink-ghost light:shadow-none',
     },
   },
-);
+});
 
 export type CardProps = {} & HTMLAttributes<HTMLDivElement> & VariantProps<typeof cardVariants>;
 

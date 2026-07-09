@@ -96,6 +96,13 @@
   --color-status-abandoned: #3a4552;
   --color-status-abandoned-foreground: #3a4552;
 
+  /* light-mode elevation family — all derived from ink #17242F (never black),
+     per the light-mode shadow conversion rules. Scoped to light via the `light:`
+     variant on consumers; dark carries no drop shadows. */
+  --shadow-card: 0 1px 2px rgba(23, 36, 47, 0.05);
+  --shadow-menu: 0 8px 24px rgba(23, 36, 47, 0.12);
+  --shadow-overlay: 0 20px 48px rgba(23, 36, 47, 0.18);
+
   --animate-pulse-dot: pulse-dot 2.2s ease-in-out infinite;
 
   @keyframes pulse-dot {
