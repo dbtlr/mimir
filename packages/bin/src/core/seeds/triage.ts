@@ -151,6 +151,36 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
     ...taskStems.values(),
   ]);
 
+  // Memoize the upstream seed reads across tasks — several requester tasks can
+  // point at the SAME upstream seed, and the pass never mutates seeds, so the
+  // load/history reads are stable within a run. Keyed on the KEY-sN stem.
+  const seedLoads = new Map<string, ReturnType<typeof store.seeds.load>>();
+  const seedHistories = new Map<string, ReturnType<typeof store.seeds.loadHistory>>();
+  const loadSeed = (
+    upstream: string,
+    key: string,
+    seq: number,
+  ): ReturnType<typeof store.seeds.load> => {
+    let p = seedLoads.get(upstream);
+    if (p === undefined) {
+      p = store.seeds.load(key, seq);
+      seedLoads.set(upstream, p);
+    }
+    return p;
+  };
+  const loadSeedHistory = (
+    upstream: string,
+    key: string,
+    seq: number,
+  ): ReturnType<typeof store.seeds.loadHistory> => {
+    let p = seedHistories.get(upstream);
+    if (p === undefined) {
+      p = store.seeds.loadHistory(key, seq);
+      seedHistories.set(upstream, p);
+    }
+    return p;
+  };
+
   for (const task of tasks) {
     const upstream = task.upstream;
     const taskStem = taskStems.get(task.id);
@@ -175,14 +205,14 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
         continue;
       }
       // Cross-board: the upstream seed's store read resolves by KEY-sN on ANY board.
-      const seedRec = await store.seeds.load(ref.key, ref.seq);
+      const seedRec = await loadSeed(upstream, ref.key, ref.seq);
       if (seedRec === undefined || !isTerminalSeed(seedRec.lifecycle)) {
         continue;
       }
       // `isTerminalSeed` narrows the lifecycle to `resolved | rejected` (the guard).
       const terminal = seedRec.lifecycle;
       const reason = terminalReason(
-        (await store.seeds.loadHistory(ref.key, ref.seq)) ?? [],
+        (await loadSeedHistory(upstream, ref.key, ref.seq)) ?? [],
         terminal,
       );
 
