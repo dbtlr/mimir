@@ -48,6 +48,24 @@ release. When a release is cut, this section is promoted to
     facet but counts as settled for ready-to-resolve, and an archived `requester`
     is nulled on read with a distinct `mimir doctor` `archived-requester` warn.
 
+- **Triage pass — `mimir triage [KEY]`** (MMR-246). An explicit-run
+  reconciliation over ONE board (bare `triage` uses the bound board; `triage KEY`
+  targets another), self-contained — no vault-wide scans, no cross-board
+  mutation. Three checks: (a) surfaces the board's new/untriaged seeds; (b) flags
+  its promoted seeds whose spawned work has all settled (ready to resolve — an
+  attention signal, **never** an auto-close); and (c) over the board's OWN tasks
+  whose `upstream` seed went terminal (on any board), appends an idempotent
+  annotation recording the resolution (`upstream KEY-sN resolved: <reason>` /
+  `rejected: <reason>`, the reason pulled from the seed's `## History`) and
+  suggests unblock for a blocked task. It **writes the check-(c) annotations by
+  default** (running it is the intent) but **never transitions anything** —
+  unblock/resolve stay operator suggestions; `--dry-run` previews with no writes.
+  The annotation marker is machine-recognizable, so a re-run recognizes its own
+  work and is a no-op (idempotent). A report, never a gate — it always exits 0.
+  Surfaced on the CLI and MCP (`triage`, 1:1); the report is operator/agent-facing
+  (the console's triage surface is the seeds queue UI, MMR-247), so HTTP is out of
+  scope for the pass itself.
+
 - **Seeds — the grooming-queue entity** (MMR-244, ADR 0020). A seed is a record
   filed against a project that implies no work, only triage (`idea`/`bug`/
   `feature`), with its own `KEY-sN` id grammar and a small lifecycle
