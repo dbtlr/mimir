@@ -1,10 +1,33 @@
+import { cva } from 'class-variance-authority';
+import type { VariantProps } from 'class-variance-authority';
 import type { HTMLAttributes } from 'react';
 
 import { cn } from '../../lib/cn';
 
-/** Vendored shadcn-style card — a hairline panel over the well. */
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('rounded-md border border-line bg-well-850', className)} {...props} />;
+/*
+ * Vendored shadcn-style card — a flat hairline panel over the well (radius 10).
+ * Elevation is tone + line, not shadow, in dark; light gets a single faint lift.
+ * `recessed` demotes done / folded content to the recessed well with ghost ink.
+ * A status left-border is applied by consumers via the literal `border-l-2` +
+ * `STATUS_META[...].border` classes, keeping Tailwind extraction literal.
+ */
+const cardVariants = cva(
+  'rounded-[10px] border border-line bg-well-850 light:shadow-[0_1px_2px_rgba(23,36,47,0.05)]',
+  {
+    defaultVariants: { variant: 'default' },
+    variants: {
+      variant: {
+        default: '',
+        recessed: 'bg-well-recessed text-ink-ghost light:shadow-none',
+      },
+    },
+  },
+);
+
+export type CardProps = {} & HTMLAttributes<HTMLDivElement> & VariantProps<typeof cardVariants>;
+
+export function Card({ className, variant, ...props }: CardProps) {
+  return <div className={cn(cardVariants({ variant }), className)} {...props} />;
 }
 
 export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {

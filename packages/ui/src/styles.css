@@ -9,6 +9,9 @@
  * like `dark:prose-invert` follow the resolved theme.
  */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+/* Light is the token-override theme; scope light-only affordances (drop shadows,
+   which dark deliberately omits) to it — the mirror of the `dark` variant. */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
 
 /*
  * The Meridian console design system — dark-first, dense, hairline-bordered.

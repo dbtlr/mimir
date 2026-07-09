@@ -103,7 +103,27 @@ export const tasksRoute = createRoute({
   },
 });
 
-const routeTree = rootRoute.addChildren([overviewRoute, projectRoute, artifactsRoute, tasksRoute]);
+/**
+ * The Meridian kit showcase — a dev-only foundation surface. The whole branch
+ * (route + its lazy `import()`) lives inside the `import.meta.env.DEV` guard, so
+ * the build folds it to `false` and drops the dynamic import: no kit chunk, no
+ * showcase code, and no `/kit` route reach the prod bundle.
+ */
+const devRoutes = import.meta.env.DEV
+  ? [
+      createRoute({ getParentRoute: () => rootRoute, path: '/kit' }).lazy(
+        async () => (await import('./routes/kit')).Route,
+      ),
+    ]
+  : [];
+
+const routeTree = rootRoute.addChildren([
+  overviewRoute,
+  projectRoute,
+  artifactsRoute,
+  tasksRoute,
+  ...devRoutes,
+]);
 
 export const router = createRouter({ routeTree });
 
