@@ -556,7 +556,9 @@ function DossierBody({
         {data !== undefined ? `${data.title} · ${nodeId}` : nodeId}
       </Dialog.Title>
       <header className="flex items-center gap-2.5 border-b border-line px-5 py-4">
-        <span className="font-mono text-mono-id text-ink-faint">{nodeId}</span>
+        <span className="shrink-0 whitespace-nowrap font-mono text-mono-id text-ink-faint">
+          {nodeId}
+        </span>
         {data !== undefined && <StatusBadge status={data.status} pill />}
         {parentId !== undefined && (
           <span className="hidden min-w-0 items-baseline gap-1 truncate text-tag text-ink-dim sm:flex">
