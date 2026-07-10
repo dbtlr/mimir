@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { useTransition } from '../api/mutations';
 import type { WireNode } from '../api/types';
-import type { SwimlaneColumn } from '../lib/bands';
+import type { BoardColumn } from '../lib/board';
 import { cn } from '../lib/cn';
 import { STATUS_META } from '../lib/status';
 import { ReasonDialog } from './reason-dialog';
@@ -44,6 +44,10 @@ function ReleaseTag({ value }: { value: string }) {
  * the inline cold marker on a stale non-terminal card. The title opens the
  * drawer; a grip (rankable columns) is the sole drag source. Offline inerts the
  * verb buttons but never the open/drag affordances.
+ *
+ * `mobile` scales the anatomy up to the phone board's touch sizing (MMR-224):
+ * 13×14 padding, radius 10, a 15px title, and a 44px min hit target — otherwise
+ * the tighter desktop swimlane sizing (13×11 padding, radius 9, 14px title).
  */
 export function BoardCard({
   node,
@@ -52,14 +56,17 @@ export function BoardCard({
   offline,
   sortable,
   selected,
+  mobile,
 }: {
   node: WireNode;
-  column: SwimlaneColumn;
+  column: BoardColumn;
   onOpen: (id: string) => void;
   offline?: boolean;
   sortable?: CardSortable;
   /** The quick-view selection mark (MMR-223): a ring + a caret tying it to the drop panel below. */
   selected?: boolean;
+  /** The mobile board's touch sizing (MMR-224): >=44px targets, larger padding/radius. */
+  mobile?: boolean;
 }) {
   const { mutate } = useTransition(node.id);
   const [returning, setReturning] = useState(false);
@@ -90,6 +97,7 @@ export function BoardCard({
       className={cn(
         cardVariants({ variant: isDone ? 'recessed' : 'default' }),
         'group relative flex flex-col gap-1.5 rounded-[9px] px-[13px] py-[11px] transition-colors',
+        mobile && 'min-h-11 rounded-[10px] px-[14px] py-[13px]',
         !isDone && `border-l-2 ${STATUS_META[node.status].border}`,
         // The neutral hover border must not win over the verdict card's violet
         // emphasis border (tailwind-merge keeps both; `hover:` outranks it on hover).
@@ -142,7 +150,8 @@ export function BoardCard({
       >
         <p
           className={cn(
-            'text-body leading-[1.45] font-medium',
+            'leading-[1.45] font-medium',
+            mobile ? 'text-card-mobile' : 'text-body',
             isDone || isCold ? 'text-ink-dim' : 'text-ink-bright',
           )}
         >
