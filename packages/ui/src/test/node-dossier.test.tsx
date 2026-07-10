@@ -363,16 +363,94 @@ describe('nodeDossier', () => {
     await waitFor(() =>
       expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/nodes/MMR-93', expect.anything()),
     );
-    expect(apiSend).not.toHaveBeenCalledWith(
-      'PUT',
-      expect.stringContaining('/tags/'),
-      expect.anything(),
+    // Scoped to this node's id — apiSend accumulates calls across the file.
+    const tagWrites = apiSend.mock.calls.filter(
+      ([, path]) => typeof path === 'string' && path.includes('/MMR-93/tags/'),
     );
-    expect(apiSend).not.toHaveBeenCalledWith(
-      'DELETE',
-      expect.stringContaining('/tags/'),
-      expect.anything(),
+    expect(tagWrites).toStrictEqual([]);
+  });
+
+  it('appending a tag by typing keeps the existing tag intact', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-94' });
+    mockNode(
+      task({
+        id: 'MMR-94',
+        status: 'ready',
+        tags: [{ created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'ui' }],
+        title: 'tag-append task',
+      }),
     );
+    render(<NodeDossier nodeId="MMR-94" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+      wrapper,
+    });
+    await screen.findByText('tag-append task');
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    // Keystroke-by-keystroke append: a trailing comma must survive mid-typing
+    // (the parse must never rewrite the box), or "ui" and "feat" merge.
+    await userEvent.type(screen.getByLabelText(/tags/i), ', feat');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+    await waitFor(() =>
+      expect(apiSend).toHaveBeenCalledWith('PUT', '/api/nodes/MMR-94/tags/feat', undefined),
+    );
+    // Scoped to this node's id — apiSend accumulates calls across the file.
+    const tagWrites = apiSend.mock.calls.filter(
+      ([, path]) => typeof path === 'string' && path.includes('/MMR-94/tags/'),
+    );
+    expect(tagWrites).toStrictEqual([['PUT', '/api/nodes/MMR-94/tags/feat', undefined]]);
+  });
+
+  it('one save fires add + remove for the changed tags and nothing for the kept one', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-95' });
+    mockNode(
+      task({
+        id: 'MMR-95',
+        status: 'ready',
+        tags: [
+          { created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'keep' },
+          { created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'drop' },
+        ],
+        title: 'tag-mix task',
+      }),
+    );
+    render(<NodeDossier nodeId="MMR-95" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+      wrapper,
+    });
+    await screen.findByText('tag-mix task');
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const input = screen.getByLabelText(/tags/i);
+    await userEvent.clear(input);
+    await userEvent.type(input, 'keep, fresh');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+    await waitFor(() =>
+      expect(apiSend).toHaveBeenCalledWith('PUT', '/api/nodes/MMR-95/tags/fresh', undefined),
+    );
+    expect(apiSend).toHaveBeenCalledWith('DELETE', '/api/nodes/MMR-95/tags/drop', undefined);
+    const keepWrites = apiSend.mock.calls.filter(
+      ([, path]) => typeof path === 'string' && path.endsWith('/tags/keep'),
+    );
+    expect(keepWrites).toStrictEqual([]);
+  });
+
+  it('a failed tag mutation keeps the edit form open', async () => {
+    apiSend.mockImplementation((method: string) =>
+      method === 'PUT'
+        ? Promise.reject(new Error('tag write failed'))
+        : Promise.resolve({ id: 'MMR-96' }),
+    );
+    mockNode(task({ id: 'MMR-96', status: 'ready', tags: [], title: 'tag-fail task' }));
+    render(<NodeDossier nodeId="MMR-96" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+      wrapper,
+    });
+    await screen.findByText('tag-fail task');
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    await userEvent.type(screen.getByLabelText(/tags/i), 'feat');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+    await waitFor(() =>
+      expect(apiSend).toHaveBeenCalledWith('PUT', '/api/nodes/MMR-96/tags/feat', undefined),
+    );
+    // The partial failure must not close the form back to the record view.
+    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/tags/i)).toBeInTheDocument();
   });
 
   it('surfaces the description body and carried-forward meta rows', async () => {

@@ -506,7 +506,12 @@ function DossierBody({
   const navigate = useNavigate();
   const node = useQuery(nodeQuery(nodeId));
   const annotations = useQuery(annotationsQuery(nodeId));
-  const [editing, setEditing] = useState(false);
+  // Snapshot of the edit form's initial values, captured when Edit opens.
+  // Non-null means editing; it is also the tag-diff baseline — diffing against
+  // live node.data would misread a tag added concurrently elsewhere (refetched
+  // into node.data by invalidation while the form is open) as a removal.
+  const [editBaseline, setEditBaseline] = useState<TaskFormValues | null>(null);
+  const editing = editBaseline !== null;
   const [moving, setMoving] = useState(false);
   const update = useUpdateNode(nodeId);
   const tag = useTag(nodeId);
@@ -528,13 +533,13 @@ function DossierBody({
   }
 
   // Tags aren't a scalar field on the dumb update — diff the submitted names
-  // against the node's current tags and fire tag/untag per delta. An
+  // against the form's baseline tags and fire tag/untag per delta. An
   // unchanged tag issues neither: re-issuing `tag` on one that already exists
   // would PUT it with no note, silently dropping any note it carries.
   async function handleEditSubmit(values: TaskFormSubmit) {
-    const currentTags = new Set((node.data?.tags ?? []).map((t) => t.tag));
+    const currentTags = new Set(editBaseline?.tags);
     const nextTags = new Set(values.tags);
-    const added = values.tags.filter((t) => !currentTags.has(t));
+    const added = [...nextTags].filter((t) => !currentTags.has(t));
     const removed = [...currentTags].filter((t) => !nextTags.has(t));
 
     try {
@@ -550,7 +555,7 @@ function DossierBody({
         ...added.map((t) => tag.mutateAsync(t)),
         ...removed.map((t) => untag.mutateAsync(t)),
       ]);
-      setEditing(false);
+      setEditBaseline(null);
     } catch {
       // Each mutation already toasts its own failure (onError in mutations.ts);
       // this just keeps the edit form open instead of closing on a partial fail.
@@ -607,7 +612,7 @@ function DossierBody({
                 </VerbChip>
               )}
               {offline !== true && data.type === 'task' && (
-                <VerbChip onClick={() => setEditing(true)}>Edit</VerbChip>
+                <VerbChip onClick={() => setEditBaseline(fromNode(data))}>Edit</VerbChip>
               )}
             </>
           )}
@@ -633,14 +638,14 @@ function DossierBody({
             <p className="p-5 text-xs text-status-blocked">Couldn't load {nodeId}.</p>
           )}
 
-          {data !== undefined && editing && (
+          {data !== undefined && editBaseline !== null && (
             <div className="p-5">
               <TaskForm
                 mode="edit"
-                initial={fromNode(data)}
+                initial={editBaseline}
                 submitting={update.isPending || tag.isPending || untag.isPending}
                 onSubmit={handleEditSubmit}
-                onCancel={() => setEditing(false)}
+                onCancel={() => setEditBaseline(null)}
               />
             </div>
           )}
