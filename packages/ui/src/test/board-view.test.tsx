@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, vi } from 'vitest';
@@ -164,14 +164,16 @@ describe('boardView — swimlane', () => {
     expect(within(swimlane()).getByText('Approve')).toBeDefined();
   });
 
-  it('swipeTarget: left advances, right retreats, weak/vertical swipes ignored (MMR-70)', () => {
-    const ids = ['held', 'awaiting', 'ready', 'in_progress', 'done'];
-    expect(swipeTarget('in_progress', -150, 10, ids)).toBe('done'); // left → next
-    expect(swipeTarget('in_progress', 150, 10, ids)).toBe('ready'); // right → prev
-    expect(swipeTarget('done', -150, 10, ids)).toBeNull(); // past the end
-    expect(swipeTarget('held', 150, 10, ids)).toBeNull(); // past the start
-    expect(swipeTarget('ready', -30, 10, ids)).toBeNull(); // below threshold
-    expect(swipeTarget('ready', -150, 200, ids)).toBeNull(); // vertical-dominant
+  it('swipeTarget pages the full board-status order; ends and weak/vertical swipes are no-ops', () => {
+    // The mobile board pages this canonical order (STATUS_ORDER minus new/abandoned).
+    const order = ['in_progress', 'under_review', 'ready', 'awaiting', 'blocked', 'parked', 'done'];
+    expect(swipeTarget('in_progress', -150, 10, order)).toBe('under_review'); // left → next
+    expect(swipeTarget('under_review', 150, 10, order)).toBe('in_progress'); // right → prev
+    expect(swipeTarget('parked', -150, 10, order)).toBe('done'); // walks past held into done
+    expect(swipeTarget('done', -150, 10, order)).toBeNull(); // past the end
+    expect(swipeTarget('in_progress', 150, 10, order)).toBeNull(); // past the start
+    expect(swipeTarget('ready', -30, 10, order)).toBeNull(); // below threshold
+    expect(swipeTarget('ready', -150, 200, order)).toBeNull(); // vertical-dominant
   });
 
   it('clicking a card opens the quick view, not the dossier (MMR-223)', async () => {
@@ -210,6 +212,147 @@ describe('boardView — swimlane', () => {
     const title = within(swimlane()).getByText('open me').closest('button');
     await userEvent.click(title as HTMLElement);
     await userEvent.click(within(swimlane()).getByText('Full dossier ↗'));
+    expect(onOpen).toHaveBeenCalledWith('MMR-8');
+  });
+});
+
+/** The mobile board body — the md:hidden single-status surface (mock 9a). */
+function mobile(): HTMLElement {
+  return screen.getByTestId('mobile-board');
+}
+
+describe('boardView — mobile board (mock 9a)', () => {
+  it('the status control opens the nine-word sheet with Done·7d and inert new/abandoned', () => {
+    const board = buildBoard(
+      [
+        task({ id: 'MMR-2', status: 'in_progress', title: 'building' }),
+        task({ id: 'MMR-3', status: 'ready', title: 'queued' }),
+      ],
+      [],
+      NOW,
+    );
+    render(
+      <BoardView
+        board={board}
+        bands="off"
+        onOpenNode={vi.fn()}
+        doneTotal={0}
+        onViewDone={vi.fn()}
+        distribution={{ abandoned: 2, in_progress: 1, new: 5, ready: 1 }}
+      />,
+      { wrapper },
+    );
+    // The control names the default status + its live count.
+    const control = within(mobile()).getByRole('button', { name: /In progress/ });
+    expect(control.textContent).toContain('In progress · 1');
+
+    fireEvent.click(control);
+    const sheet = screen.getByRole('dialog');
+    // Done carries the 7-day window tag, not a raw count.
+    expect(within(sheet).getByText('Done · 7d')).toBeDefined();
+    // New/abandoned counts come from the project rollup and are inert (no board list).
+    const newRow = within(sheet).getByRole('button', { name: /New/ });
+    expect(newRow).toHaveProperty('disabled', true);
+    expect(newRow.textContent).toContain('5');
+  });
+
+  it('selecting a sheet row re-renders the body for that status', () => {
+    const board = buildBoard(
+      [
+        task({ id: 'MMR-2', status: 'in_progress', title: 'building' }),
+        task({ id: 'MMR-3', status: 'ready', title: 'queued' }),
+      ],
+      [],
+      NOW,
+    );
+    render(
+      <BoardView
+        board={board}
+        bands="off"
+        onOpenNode={vi.fn()}
+        doneTotal={0}
+        onViewDone={vi.fn()}
+      />,
+      { wrapper },
+    );
+    fireEvent.click(within(mobile()).getByRole('button', { name: /In progress/ }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Ready/ }));
+    // The body swapped: the Ready card shows, the In-progress card is gone.
+    expect(within(mobile()).getByText('queued')).toBeDefined();
+    expect(within(mobile()).queryByText('building')).toBeNull();
+  });
+
+  it('renders an inline band header per band: name, ∞ for standing bands, and the card', () => {
+    const tree = {
+      children: [
+        {
+          children: [{ children: [], id: 'MMR-9', title: 't', type: 'task' }],
+          id: 'MMR-2',
+          open_ended: true,
+          title: 'Phase A',
+          type: 'phase',
+        },
+      ],
+      id: 'MMR',
+      title: 'Mimir',
+      type: 'project',
+    } as unknown as WireTreeNode;
+    const board = buildBoard(
+      [task({ id: 'MMR-9', status: 'in_progress', title: 'phased' })],
+      [],
+      NOW,
+    );
+    render(
+      <BoardView
+        board={board}
+        bands="phase"
+        tree={tree}
+        onOpenNode={vi.fn()}
+        doneTotal={0}
+        onViewDone={vi.fn()}
+      />,
+      { wrapper },
+    );
+    const body = mobile();
+    expect(within(body).getByText('Phase A')).toBeDefined();
+    expect(within(body).getByText('∞')).toBeDefined();
+    expect(within(body).getByText('phased')).toBeDefined();
+  });
+
+  it('falls back to the empty state for a status with no cards', () => {
+    const board = buildBoard([task({ id: 'MMR-3', status: 'ready', title: 'queued' })], [], NOW);
+    render(
+      <BoardView
+        board={board}
+        bands="off"
+        onOpenNode={vi.fn()}
+        doneTotal={0}
+        onViewDone={vi.fn()}
+      />,
+      { wrapper },
+    );
+    // The default status (In progress) has no cards.
+    expect(within(mobile()).getByText(/Nothing in progress/i)).toBeDefined();
+  });
+
+  it('a card tap routes through onOpenNode, exactly as the swimlane does', () => {
+    const onOpen = vi.fn();
+    const board = buildBoard(
+      [task({ id: 'MMR-8', status: 'in_progress', title: 'open me mobile' })],
+      [],
+      NOW,
+    );
+    render(
+      <BoardView
+        board={board}
+        bands="off"
+        onOpenNode={onOpen}
+        doneTotal={0}
+        onViewDone={vi.fn()}
+      />,
+      { wrapper },
+    );
+    within(mobile()).getByText('open me mobile').closest('button')?.click();
     expect(onOpen).toHaveBeenCalledWith('MMR-8');
   });
 });

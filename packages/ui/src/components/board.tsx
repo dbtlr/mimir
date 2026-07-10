@@ -1,3 +1,4 @@
+import { Dialog } from '@base-ui-components/react/dialog';
 import {
   DndContext,
   PointerSensor,
@@ -9,6 +10,7 @@ import {
 import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type { Distribution, StatusWord } from '@mimir/contract';
 import { useRef, useState } from 'react';
 
 import { useReorder } from '../api/mutations';
@@ -20,14 +22,12 @@ import type { Board, BoardColumn } from '../lib/board';
 import { cn } from '../lib/cn';
 import { reorderArgs } from '../lib/reorder';
 import type { ReorderArgs } from '../lib/reorder';
-import { STATUS_META } from '../lib/status';
+import { STATUS_META, STATUS_ORDER } from '../lib/status';
 import { BoardCard } from './board-card';
 import { DistributionBar } from './distribution-bar';
-import { NodeCard } from './node-card';
-import { QuickShelf, QuickViewPanel } from './node-quick-view';
+import { QuickViewPanel } from './node-quick-view';
 import { StatusDot } from './status-dot';
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
-import { Tabs, TabsContent } from './ui/tabs';
+import { statusChipVariants } from './ui/badge';
 
 type BoardViewProps = {
   board: Board;
@@ -37,8 +37,8 @@ type BoardViewProps = {
   tree?: WireTreeNode;
   onOpenNode: (id: string) => void;
   offline?: boolean;
-  /** node id → `initiative › phase` breadcrumb, for the mobile card's tree context. */
-  ancestry?: Map<string, string>;
+  /** All-nine status tally (the project rollup) — the mobile sheet's `new`/`abandoned` counts. */
+  distribution?: Distribution;
   /** Total completed tasks fetched (before the Done window) — the `m` in "n of m". */
   doneTotal: number;
   /** Drill from Done into the `/tasks` browser (kept a callback so the board stays router-free). */
@@ -47,26 +47,10 @@ type BoardViewProps = {
 
 /** The rankable set (ADR 0007) as board columns — drag-to-reorder lives here only. */
 export const RANKABLE_COLUMNS = ['in_progress', 'ready', 'awaiting'] as const;
-type RankableColumn = (typeof RANKABLE_COLUMNS)[number];
-
-function isRankable(column: BoardColumn): column is RankableColumn {
-  return (RANKABLE_COLUMNS as readonly string[]).includes(column);
-}
 
 /** The ordered ids of a column (rank order as served). */
 export function columnIds(board: Board, column: BoardColumn): string[] {
   return board[column].map((n) => n.id);
-}
-
-/** The board node with a given id, wherever it sits — the quick view's source record. */
-function findBoardNode(board: Board, id: string): WireNode | undefined {
-  for (const column of BOARD_COLUMNS) {
-    const found = board[column].find((n) => n.id === id);
-    if (found !== undefined) {
-      return found;
-    }
-  }
-  return undefined;
 }
 
 /** A drop within a column → the reorder body, or null for a no-op. */
@@ -76,43 +60,6 @@ export function dropToReorder(
   orderedIds: readonly string[],
 ): ReorderArgs | null {
   return reorderArgs(activeId, overId, orderedIds);
-}
-
-function ColumnHeader({
-  column,
-  count,
-  onCollapse,
-}: {
-  column: BoardColumn;
-  count: number;
-  onCollapse?: () => void;
-}) {
-  const meta = STATUS_META[column];
-  return (
-    <header className="flex items-center gap-2 border-b border-line px-2 py-1.5">
-      <StatusDot status={column} />
-      <h2 className={cn('microlabel', meta.text)}>{meta.label}</h2>
-      <span className="ml-auto font-mono text-micro text-ink-dim">{count}</span>
-      {onCollapse !== undefined && (
-        <button
-          type="button"
-          onClick={onCollapse}
-          aria-label={`Collapse ${meta.label}`}
-          className="rounded text-ink-faint transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="m15 18-6-6 6-6"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-      )}
-    </header>
-  );
 }
 
 /** The held set (parked/blocked/awaiting) as the HELD-ledge order (MMR-221 §2.2). */
@@ -250,38 +197,6 @@ const SPINE_TRACK = '170px';
 /** The swimlane grid template — a leading 170px spine unless the spine is dropped (off mode). */
 function gridTemplate(spine: boolean): string {
   return spine ? `${SPINE_TRACK} repeat(4, minmax(0, 1fr))` : 'repeat(4, minmax(0, 1fr))';
-}
-
-/** A draggable card: useSortable feeds the grip + ref into NodeCard. */
-function SortableCard({
-  node,
-  onQuickOpen,
-  offline,
-  ancestry,
-}: {
-  node: WireNode;
-  onQuickOpen: (id: string) => void;
-  offline?: boolean;
-  ancestry?: string;
-}) {
-  const { setNodeRef, transform, transition, attributes, listeners, isDragging } = useSortable({
-    disabled: offline,
-    id: node.id,
-  });
-  return (
-    <NodeCard
-      node={node}
-      onOpen={onQuickOpen}
-      offline={offline}
-      ancestry={ancestry}
-      sortable={{
-        handleProps: { ...attributes, ...listeners },
-        isDragging,
-        setNodeRef,
-        style: { transform: CSS.Transform.toString(transform), transition },
-      }}
-    />
-  );
 }
 
 /** The swimlane draggable: useSortable feeds the grip + ref into BoardCard. */
@@ -468,73 +383,11 @@ function SwimlaneGrid({
   );
 }
 
-function ColumnCards({
-  board,
-  column,
-  onQuickOpen,
-  offline,
-  ancestry,
-}: {
-  board: Board;
-  column: BoardColumn;
-  onQuickOpen: (id: string) => void;
-  offline?: boolean;
-  ancestry?: Map<string, string>;
-}) {
-  const items = board[column];
-  if (items.length === 0) {
-    return (
-      <p className="px-2 py-4 text-center text-tag text-ink-faint">
-        Nothing {STATUS_META[column].label.toLowerCase()}
-      </p>
-    );
-  }
-  const rankable = isRankable(column);
-  const list = (
-    <ol className="flex flex-col gap-1.5 py-1.5 md:p-1.5">
-      {items.map((node) => (
-        <li key={node.id}>
-          {rankable ? (
-            <SortableCard
-              node={node}
-              onQuickOpen={onQuickOpen}
-              offline={offline}
-              ancestry={ancestry?.get(node.id)}
-            />
-          ) : (
-            <NodeCard
-              node={node}
-              onOpen={onQuickOpen}
-              offline={offline}
-              ancestry={ancestry?.get(node.id)}
-            />
-          )}
-        </li>
-      ))}
-    </ol>
-  );
-  return rankable ? (
-    <SortableContext items={columnIds(board, column)} strategy={verticalListSortingStrategy}>
-      {list}
-    </SortableContext>
-  ) : (
-    list
-  );
-}
-
-const MOBILE_TABS = [
-  { columns: ['parked', 'blocked'], id: 'held', label: 'Held' },
-  { columns: ['awaiting'], id: 'awaiting', label: 'Awaiting' },
-  { columns: ['ready'], id: 'ready', label: 'Ready' },
-  { columns: ['in_progress'], id: 'in_progress', label: 'In progress' },
-  { columns: ['under_review'], id: 'under_review', label: 'Under review' },
-  { columns: ['done'], id: 'done', label: 'Done' },
-] as const satisfies readonly { id: string; label: string; columns: readonly BoardColumn[] }[];
-
 /**
- * Which mobile tab a swipe lands on, or null for a non-swipe (MMR-70). A swipe
- * must be horizontal-dominant and clear the threshold; left (dx<0) advances,
- * right retreats; past either end is a no-op.
+ * Which status a swipe lands on, or null for a non-swipe (MMR-70). A swipe must
+ * be horizontal-dominant and clear the threshold; left (dx<0) advances, right
+ * retreats; past either end is a no-op. The mobile board (MMR-224) pages this
+ * over the canonical board-status order.
  */
 export function swipeTarget(
   current: string,
@@ -548,100 +401,308 @@ export function swipeTarget(
   return ids[ids.indexOf(current) + (dx < 0 ? 1 : -1)] ?? null;
 }
 
+/** The board carries card lists for these seven words; `new`/`abandoned` aren't fetched here. */
+function isBoardColumn(status: string): status is BoardColumn {
+  return (BOARD_COLUMNS as readonly string[]).includes(status);
+}
+
 /**
- * The mobile column switcher (MMR-86): the current column IS a big legible
- * header that taps open to a jump menu of every column + count — replacing the
- * crammed tab row, which couldn't show the active column and got worse as the
- * vocabulary grew. Swipe (MMR-70) still moves between columns.
+ * The mobile swipe/paging order: the canonical status order (shared by dots,
+ * bars, and the sheet) narrowed to the words the board actually fetches. `new`
+ * and `abandoned` appear in the sheet as counts but are not board pages (G1).
  */
-function MobileColumnSwitcher({
-  current,
-  board,
-  onSelect,
+const BOARD_STATUS_ORDER: readonly BoardColumn[] = STATUS_ORDER.filter(isBoardColumn);
+
+/**
+ * One inline band header above a status's card group (MMR-224). A lighter
+ * anatomy than the desktop BandSpine: name + (∞ for standing bands) + hairline +
+ * this status's count. Purely informational — no collapse affordance.
+ */
+function MobileBandHeader({
+  name,
+  openEnded,
+  count,
+  first,
 }: {
-  current: string;
-  board: Board;
-  onSelect: (id: string) => void;
+  name: string;
+  openEnded: boolean;
+  count: number;
+  first: boolean;
 }) {
-  const tabCount = (tab: (typeof MOBILE_TABS)[number]): number =>
-    tab.columns.reduce((n, c) => n + board[c].length, 0);
-  const active = MOBILE_TABS.find((t) => t.id === current);
-  if (active === undefined) {
-    return null;
-  }
-  const activeDot = active.columns.length === 1 ? active.columns[0] : undefined;
-  // The signature control carries the active column's status color on its left edge (like the cards).
-  const accent = activeDot !== undefined ? STATUS_META[activeDot].border : 'border-l-line';
   return (
-    <MenuRoot>
-      <MenuTrigger
+    <div className={cn('flex items-center gap-2 px-4 pb-2', first ? 'pt-0.5' : 'pt-3.5')}>
+      <span className="text-tag font-semibold text-ink-dim">{name}</span>
+      {openEnded && <span className="font-mono text-mono-id text-ink-faint">∞</span>}
+      <span className="h-px flex-1 bg-line" />
+      <span className="font-mono text-mono-id text-ink-faint tabular-nums">{count}</span>
+    </div>
+  );
+}
+
+/**
+ * The single status control (mock 9a): a wash pill naming the current status +
+ * count that taps open the nine-word sheet, with a right-aligned swipe hint. The
+ * pill reuses the canonical wash idiom (statusChipVariants) at its own radius and
+ * scale; the caret carries the plain status hue, the label the `-foreground` tone.
+ * A 44px min hit target (the mock's tighter pill padded up for touch).
+ */
+function MobileStatusControl({
+  status,
+  count,
+  onOpen,
+}: {
+  status: BoardColumn;
+  count: number;
+  onOpen: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 px-4 pt-0.5 pb-3">
+      <button
+        type="button"
+        onClick={onOpen}
         className={cn(
-          'flex w-full items-center justify-between rounded-md border border-l-2 border-line bg-well-850 px-3 py-2 text-sm font-semibold text-ink-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent',
-          accent,
+          statusChipVariants({ status }),
+          'min-h-11 gap-2 rounded-[11px] px-[15px] py-2.5 text-meta font-bold focus-visible:outline-2 focus-visible:outline-accent',
         )}
       >
-        <span className="flex items-center gap-2">
-          {activeDot !== undefined && <StatusDot status={activeDot} />}
-          {active.label}
-          <span className="font-mono text-xs font-normal text-ink-dim tabular-nums">
-            {tabCount(active)}
-          </span>
+        <StatusDot status={status} />
+        <span>
+          {STATUS_META[status].label} · {count}
         </span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="m6 9 6 6 6-6"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </MenuTrigger>
-      <MenuContent className="w-[calc(100vw-2rem)] max-w-sm">
-        {MOBILE_TABS.map((tab) => {
-          const dot = tab.columns.length === 1 ? tab.columns[0] : undefined;
-          const isCurrent = tab.id === current;
-          return (
-            <MenuItem
-              key={tab.id}
-              className={cn('min-h-11 gap-2 py-2.5', isCurrent && 'bg-well-800')}
-              onClick={() => {
-                onSelect(tab.id);
-              }}
+        <span className={cn('text-micro', STATUS_META[status].text)} aria-hidden>
+          ▾
+        </span>
+      </button>
+      <span className="ml-auto text-micro text-ink-ghost" aria-hidden>
+        ‹ swipe ›
+      </span>
+    </div>
+  );
+}
+
+/**
+ * One row of the nine-word sheet. The active row carries the wash + ring (G3);
+ * the board's seven words select, `new`/`abandoned` show a count but are inert
+ * (the board never fetched their cards — G1). Done's label carries the 7-day
+ * window tag; Abandoned's inactive label double-demotes to ink-faint.
+ */
+function StatusSheetRow({
+  status,
+  count,
+  active,
+  onSelect,
+}: {
+  status: StatusWord;
+  count: number;
+  active: boolean;
+  onSelect: (status: BoardColumn) => void;
+}) {
+  const meta = STATUS_META[status];
+  const label = status === 'done' ? 'Done · 7d' : meta.label;
+  const selectable = isBoardColumn(status);
+  const base =
+    'flex min-h-11 items-center gap-2 rounded-[9px] px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-accent';
+  return (
+    <button
+      type="button"
+      disabled={!selectable}
+      aria-current={active ? 'true' : undefined}
+      onClick={() => {
+        if (isBoardColumn(status)) {
+          onSelect(status);
+        }
+      }}
+      className={
+        active
+          ? cn(statusChipVariants({ status }), base, 'font-semibold')
+          : cn(base, selectable ? 'hover:bg-well-800' : 'cursor-default')
+      }
+    >
+      <StatusDot status={status} className="size-1.5" />
+      <span
+        className={cn(
+          'flex-1 text-xs',
+          !active && 'font-medium',
+          !active && (status === 'abandoned' ? 'text-ink-faint' : 'text-ink-dim'),
+        )}
+      >
+        {label}
+      </span>
+      <span
+        className={cn('font-mono text-mono-id tabular-nums', active ? meta.text : 'text-ink-faint')}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * The nine-word bottom sheet (mock 9a). A bespoke bottom-anchored dialog (not the
+ * shared node drawer, whose `sm:` switch to a right rail would fire mid-range):
+ * this stays bottom-anchored up to the `md` swimlane breakpoint. Dismiss on
+ * backdrop tap / Esc (Base UI defaults) or a downward swipe.
+ */
+function StatusSheet({
+  open,
+  onOpenChange,
+  selected,
+  statusCount,
+  onSelect,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selected: BoardColumn;
+  statusCount: (status: StatusWord) => number;
+  onSelect: (status: BoardColumn) => void;
+}) {
+  const swipeStart = useRef<number | null>(null);
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-40 bg-well-950/70 backdrop-blur-[2px] transition-opacity duration-[180ms] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+        <Dialog.Popup
+          aria-describedby={undefined}
+          onTouchStart={(e) => {
+            swipeStart.current = e.touches[0]?.clientY ?? null;
+          }}
+          onTouchEnd={(e) => {
+            const start = swipeStart.current;
+            swipeStart.current = null;
+            const end = e.changedTouches[0]?.clientY;
+            if (start !== null && end !== undefined && end - start > 60) {
+              onOpenChange(false);
+            }
+          }}
+          className="fixed inset-x-0 bottom-0 z-50 rounded-t-[14px] border-t border-line bg-well-900 pb-4 shadow-2xl outline-none transition-transform duration-[180ms] ease-out data-[ending-style]:translate-y-full data-[starting-style]:translate-y-full"
+        >
+          <Dialog.Title className="sr-only">Select a status</Dialog.Title>
+          <div className="mx-auto mt-2.5 mb-2 h-1 w-9 rounded-full bg-line-bright" aria-hidden />
+          <div className="grid grid-cols-2 gap-1 px-3 pb-2">
+            {STATUS_ORDER.map((status) => (
+              <StatusSheetRow
+                key={status}
+                status={status}
+                count={statusCount(status)}
+                active={status === selected}
+                onSelect={(s) => {
+                  onSelect(s);
+                  onOpenChange(false);
+                }}
+              />
+            ))}
+          </div>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+/**
+ * The mobile board body (mock 9a): a single status control + nine-word sheet +
+ * swipe paging, replacing the old six-tab switcher. The selected status's cards
+ * are grouped by band (the shared buildBands model) under inline band headers;
+ * swipe left/right pages across the board-status order; the control opens the
+ * sheet. Cards tap through to node detail via onOpenNode, exactly as the desktop
+ * swimlane does. No drag-to-reorder here — the surface is swipe-first.
+ */
+function MobileBoard({
+  bandList,
+  board,
+  distribution,
+  onOpenNode,
+  offline,
+}: {
+  bandList: Band[];
+  board: Board;
+  distribution?: Distribution;
+  onOpenNode: (id: string) => void;
+  offline?: boolean;
+}) {
+  const [selected, setSelected] = useState<BoardColumn>('in_progress');
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  const statusCount = (status: StatusWord): number =>
+    isBoardColumn(status) ? board[status].length : (distribution?.[status] ?? 0);
+
+  const bandsForStatus = bandList.filter((band) => band.columns[selected].length > 0);
+
+  function onTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    touchStart.current = t === undefined ? null : { x: t.clientX, y: t.clientY };
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    const t = e.changedTouches[0];
+    if (start === null || t === undefined) {
+      return;
+    }
+    const target = swipeTarget(
+      selected,
+      t.clientX - start.x,
+      t.clientY - start.y,
+      BOARD_STATUS_ORDER,
+    );
+    if (target !== null && isBoardColumn(target)) {
+      setSelected(target);
+    }
+  }
+
+  return (
+    <div className="pb-4 md:hidden" data-testid="mobile-board">
+      <MobileStatusControl
+        status={selected}
+        count={board[selected].length}
+        onOpen={() => {
+          setSheetOpen(true);
+        }}
+      />
+      <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        {bandsForStatus.length === 0 ? (
+          <p className="px-4 py-6 text-center text-tag text-ink-faint">
+            Nothing {STATUS_META[selected].label.toLowerCase()}
+          </p>
+        ) : (
+          bandsForStatus.map((band, i) => (
+            <section
+              key={band.key}
+              aria-label={band.name === '' ? STATUS_META[selected].label : band.name}
             >
-              {dot !== undefined && <StatusDot status={dot} />}
-              <span
-                className={cn('text-sm', isCurrent ? 'font-semibold text-ink-bright' : 'text-ink')}
-              >
-                {tab.label}
-              </span>
-              {/* right cluster: check sits LEFT of the count, so the count's right edge is constant across rows */}
-              <span className="ml-auto flex items-center gap-2">
-                {isCurrent && (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    aria-hidden="true"
-                    className="text-accent"
-                  >
-                    <path
-                      d="m5 13 4 4L19 7"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+              {band.name !== '' && (
+                <MobileBandHeader
+                  name={band.name}
+                  openEnded={band.openEnded}
+                  count={band.columns[selected].length}
+                  first={i === 0}
+                />
+              )}
+              <ol className="flex flex-col gap-2 px-4">
+                {band.columns[selected].map((node) => (
+                  <li key={node.id}>
+                    <BoardCard
+                      node={node}
+                      column={selected}
+                      onOpen={onOpenNode}
+                      offline={offline}
+                      mobile
                     />
-                  </svg>
-                )}
-                <span className="font-mono text-sm text-ink-dim tabular-nums">{tabCount(tab)}</span>
-              </span>
-            </MenuItem>
-          );
-        })}
-      </MenuContent>
-    </MenuRoot>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ))
+        )}
+      </div>
+      <StatusSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        selected={selected}
+        statusCount={statusCount}
+        onSelect={setSelected}
+      />
+    </div>
   );
 }
 
@@ -656,7 +717,7 @@ export function BoardView({
   tree,
   onOpenNode,
   offline,
-  ancestry,
+  distribution,
   doneTotal,
   onViewDone,
 }: BoardViewProps) {
@@ -675,39 +736,13 @@ export function BoardView({
   };
 
   // The open quick view (MMR-223) — a single in-surface selection, not the
-  // `?node=` dossier address. Desktop renders it as a drop panel, mobile as a
-  // shelf; both read the same id, and the lookup self-heals if a refetch moves
-  // the node off the board.
+  // `?node=` dossier address. Desktop renders it as a drop panel below the
+  // card's band row; on mobile a card tap keeps calling onOpenNode (the mobile
+  // shelf wiring is deferred to MMR-258).
   const [quickId, setQuickId] = useState<string | null>(null);
-  const quickNode = quickId !== null ? findBoardNode(board, quickId) : undefined;
   const closeQuick = () => {
     setQuickId(null);
   };
-
-  // Mobile: swipe left/right to move between the column tabs (MMR-70).
-  const [mobileTab, setMobileTab] = useState<string>('in_progress');
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  function onTouchStart(e: React.TouchEvent) {
-    const t = e.touches[0];
-    touchStart.current = t === undefined ? null : { x: t.clientX, y: t.clientY };
-  }
-  function onTouchEnd(e: React.TouchEvent) {
-    const start = touchStart.current;
-    touchStart.current = null;
-    const t = e.changedTouches[0];
-    if (start === null || t === undefined) {
-      return;
-    }
-    const target = swipeTarget(
-      mobileTab,
-      t.clientX - start.x,
-      t.clientY - start.y,
-      MOBILE_TABS.map((tab): string => tab.id),
-    );
-    if (target !== null) {
-      setMobileTab(target);
-    }
-  }
 
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -728,11 +763,10 @@ export function BoardView({
     }
   }
 
-  // The desktop swimlane and mobile board are both permanently mounted (md:
-  // toggles visibility, not rendering), so a rankable card registers useSortable
-  // under the same id in both. One DndContext spanning both would collide those
-  // ids in its registry; give each surface its own context (drop resolution is
-  // otherwise identical) so the hidden twin never captures a drop.
+  // The desktop swimlane owns the only DndContext: it's the sole surface with
+  // drag-to-reorder. The mobile board is swipe-first (no sortable cards), so it
+  // needs no context — and with no shared sortable ids, the old collision
+  // between two permanently-mounted surfaces is gone (MMR-224).
   return (
     <div data-testid="board">
       {/* desktop — the swimlane grid: HELD ledge, band × status columns, Done drill-through */}
@@ -758,47 +792,14 @@ export function BoardView({
         </div>
       </DndContext>
 
-      {/* mobile — a column-header dropdown switcher (MMR-86) + swipe (MMR-70) */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <div className="px-4 pb-4 md:hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-          <Tabs
-            className="w-full"
-            value={mobileTab}
-            onValueChange={(v) => {
-              setMobileTab(String(v));
-            }}
-          >
-            <MobileColumnSwitcher current={mobileTab} board={board} onSelect={setMobileTab} />
-            {MOBILE_TABS.map((tab) => (
-              <TabsContent key={tab.id} value={tab.id} className="mt-2 w-full">
-                {tab.columns.map((column) => (
-                  <section key={column} aria-label={STATUS_META[column].label}>
-                    {tab.columns.length > 1 && (
-                      <ColumnHeader column={column} count={board[column].length} />
-                    )}
-                    <ColumnCards
-                      board={board}
-                      column={column}
-                      onQuickOpen={setQuickId}
-                      offline={offline}
-                      ancestry={ancestry}
-                    />
-                  </section>
-                ))}
-              </TabsContent>
-            ))}
-          </Tabs>
-          {quickNode !== undefined && (
-            <QuickShelf
-              key={quickNode.id}
-              node={quickNode}
-              onClose={closeQuick}
-              onOpenNode={onOpenNode}
-              offline={offline}
-            />
-          )}
-        </div>
-      </DndContext>
+      {/* mobile — single status control + nine-word sheet + swipe paging (mock 9a) */}
+      <MobileBoard
+        bandList={bandList}
+        board={board}
+        distribution={distribution}
+        onOpenNode={onOpenNode}
+        offline={offline}
+      />
     </div>
   );
 }
