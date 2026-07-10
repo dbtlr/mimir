@@ -449,7 +449,9 @@ function SwimlaneGrid({
               />
             ))}
             {quickNode !== undefined && (
-              <div style={{ gridColumn: '1 / -1' }}>
+              // The panel owns its 14px top gap (mt-3.5); `-mt-3` cancels the
+              // band grid's own 12px row-gap so the two don't stack to ~26px.
+              <div className="-mt-3" style={{ gridColumn: '1 / -1' }}>
                 <QuickViewPanel
                   key={quickNode.id}
                   node={quickNode}

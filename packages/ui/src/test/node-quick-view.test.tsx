@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,6 +19,24 @@ function wrapper({ children }: { children: ReactNode }) {
     defaultOptions: { queries: { refetchInterval: false, retry: false } },
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
+/** The panel's exit-slide duration (mirrors CLOSE_MS in the component). */
+const CLOSE_MS = 180;
+
+/** Stub `matchMedia` to a fixed `matches` — the panel's Esc guard reads it. */
+function stubMatchMedia(matches: boolean): void {
+  globalThis.matchMedia = ((query: string) =>
+    ({
+      addEventListener: () => {},
+      addListener: () => {},
+      dispatchEvent: () => false,
+      matches,
+      media: query,
+      onchange: null,
+      removeEventListener: () => {},
+      removeListener: () => {},
+    }) as MediaQueryList) as typeof globalThis.matchMedia;
 }
 
 /** Resolve the detail + annotations fetches the open quick view fires. */
@@ -75,6 +93,40 @@ describe('quickViewPanel — desktop drop panel', () => {
     });
     expect(screen.getByText('Approve')).toHaveProperty('disabled', true);
   });
+
+  it('esc closes the panel on a desktop viewport (deferred by the exit slide)', async () => {
+    const original = globalThis.matchMedia;
+    stubMatchMedia(true);
+    try {
+      const onClose = vi.fn();
+      const node = task({ id: 'MMR-35', status: 'ready', title: 'preview me' });
+      mockDetail(node);
+      render(<QuickViewPanel node={node} onClose={onClose} onOpenNode={vi.fn()} />, { wrapper });
+      await userEvent.keyboard('{Escape}');
+      await waitFor(() => {
+        expect(onClose).toHaveBeenCalled();
+      });
+    } finally {
+      globalThis.matchMedia = original;
+    }
+  });
+
+  it('the panel Esc handler no-ops below md, so it cannot close the mobile shelf', () => {
+    // The default test matchMedia reports no match (mobile) — the shared panel
+    // is always mounted, and its Esc listener must not close the shelf (MMR-223 §6).
+    vi.useFakeTimers();
+    try {
+      const onClose = vi.fn();
+      const node = task({ id: 'MMR-36', status: 'ready', title: 'preview me' });
+      mockDetail(node);
+      render(<QuickViewPanel node={node} onClose={onClose} onOpenNode={vi.fn()} />, { wrapper });
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      vi.advanceTimersByTime(CLOSE_MS + 40);
+      expect(onClose).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('quickShelf — mobile shelf', () => {
@@ -109,13 +161,16 @@ describe('quickShelf — mobile shelf', () => {
     expect(onOpenNode).toHaveBeenCalledWith('MMR-10');
   });
 
-  it('closing via ✕ calls onClose', async () => {
+  it('closing via ✕ calls onClose after the exit animation', async () => {
     const onClose = vi.fn();
     const node = task({ id: 'MMR-11', status: 'ready', title: 'go' });
     mockDetail(node);
     render(<QuickShelf node={node} onClose={onClose} onOpenNode={vi.fn()} />, { wrapper });
     await userEvent.click(screen.getByRole('button', { name: 'Close quick view' }));
-    expect(onClose).toHaveBeenCalled();
+    // Close plays a 180ms slide-down before the parent unmounts, so onClose fires deferred.
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
   });
 
   it('offline inerts the verb buttons', () => {

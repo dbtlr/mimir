@@ -1,12 +1,12 @@
 import type { StatusWord } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useTransition } from '../api/mutations';
 import { annotationsQuery, nodeQuery } from '../api/queries';
 import type { WireHistoryEntry, WireNode } from '../api/types';
 import { cn } from '../lib/cn';
-import { relativeTime } from '../lib/time';
+import { ago, relativeTime } from '../lib/time';
 import { availableTransitions } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { describeTransition } from './node-dossier';
@@ -24,6 +24,9 @@ import { Skeleton } from './ui/skeleton';
  * {@link QuickShelf} (mobile bottom sheet, 6c). Both are read-only previews plus
  * a small verb set; neither reimplements the dossier.
  */
+
+/** The panel/shelf slide duration (ms) — Esc/✕ play this exit before unmounting. */
+const CLOSE_MS = 180;
 
 /** The most recent transition_log entry (max timestamp), or undefined for none. */
 function lastTransition(
@@ -128,7 +131,7 @@ function VerdictBlock({
   return (
     <>
       <p className="text-tag leading-[1.5] text-attention-foreground">
-        Submitted {relativeTime(submittedAt(detail ?? node))} ago
+        Submitted {ago(submittedAt(detail ?? node))}
         {summary !== '' && <>: “{summary}”</>}
         {ref != null && ref !== '' && (
           <>
@@ -200,7 +203,7 @@ function StatusContext({
   const last = lastTransition(detail?.history);
   return (
     <>
-      <StatusBadge status={node.status} />
+      <StatusBadge status={node.status} className="self-start" />
       {last !== undefined && (
         <p className="text-tag text-ink-dim">
           {describeTransition(last).label} · {relativeTime(last.at)}
@@ -237,19 +240,37 @@ export function QuickViewPanel({
   const detail = useQuery(nodeQuery(node.id));
   const annotations = useQuery(annotationsQuery(node.id));
   const [open, setOpen] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Close is animated: play the 180ms exit slide, then let the parent unmount us.
+  const requestClose = useCallback(() => {
+    setOpen(false);
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+    }
+    closeTimer.current = setTimeout(onClose, CLOSE_MS);
+  }, [onClose]);
 
   useEffect(() => {
     setOpen(true);
+    // Esc closes the desktop drop panel only. This component is permanently
+    // mounted (the swimlane is `hidden md:block`, not conditionally rendered), so
+    // the listener must no-op below the md breakpoint — otherwise it would also
+    // close the mobile shelf, whose sole close affordance is ✕.
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        onClose();
+      const desktop = globalThis.matchMedia('(min-width: 768px)').matches;
+      if (e.key === 'Escape' && desktop) {
+        requestClose();
       }
     }
     globalThis.addEventListener('keydown', onKey);
     return () => {
       globalThis.removeEventListener('keydown', onKey);
+      if (closeTimer.current !== null) {
+        clearTimeout(closeTimer.current);
+      }
     };
-  }, [onClose]);
+  }, [requestClose]);
 
   const isUnderReview = node.status === 'under_review';
   const d = detail.data;
@@ -285,7 +306,7 @@ export function QuickViewPanel({
           <button
             type="button"
             aria-label="Close quick view"
-            onClick={onClose}
+            onClick={requestClose}
             className="text-xs text-ink-faint hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
           >
             ✕
@@ -404,9 +425,32 @@ export function QuickShelf({
   const detail = useQuery(nodeQuery(node.id));
   const [open, setOpen] = useState(false);
   const { run, dialog } = useVerbRunner(node.id);
+  const shelfRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Close is animated: play the 180ms slide-down, then let the parent unmount us.
+  const requestClose = useCallback(() => {
+    setOpen(false);
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+    }
+    closeTimer.current = setTimeout(onClose, CLOSE_MS);
+  }, [onClose]);
 
   useEffect(() => {
     setOpen(true);
+    // The shelf is a focused preview: move focus into it on open and restore it
+    // to the triggering card on unmount (it replaced a focus-managed dialog).
+    const previous = document.activeElement;
+    shelfRef.current?.focus();
+    return () => {
+      if (closeTimer.current !== null) {
+        clearTimeout(closeTimer.current);
+      }
+      if (previous instanceof HTMLElement) {
+        previous.focus();
+      }
+    };
   }, []);
 
   const verbs = availableTransitions(node.status);
@@ -416,9 +460,21 @@ export function QuickShelf({
 
   return (
     <div
+      ref={shelfRef}
       data-testid="quick-shelf"
+      role="dialog"
+      aria-label={`Quick view: ${node.title}`}
+      tabIndex={-1}
+      // The shelf lives inside the mobile board's swipe-handler div; without this
+      // a horizontal drag on the shelf would bubble up and flip the board tab.
+      onTouchStart={(e) => {
+        e.stopPropagation();
+      }}
+      onTouchEnd={(e) => {
+        e.stopPropagation();
+      }}
       className={cn(
-        'fixed inset-x-0 bottom-0 z-40 flex flex-col gap-2.5 rounded-t-[18px] border-t-2 bg-well-850 px-4 pt-2.5 pb-5',
+        'fixed inset-x-0 bottom-0 z-40 flex flex-col gap-2.5 rounded-t-[18px] border-t-2 bg-well-850 px-4 pt-2.5 pb-5 focus:outline-none',
         'transition-transform duration-[180ms] ease-out dark:shadow-[0_-12px_34px_rgba(0,0,0,0.55)] light:shadow-overlay',
         open ? 'translate-y-0' : 'translate-y-full',
         SHELF_BORDER[node.status],
@@ -431,7 +487,7 @@ export function QuickShelf({
         <button
           type="button"
           aria-label="Close quick view"
-          onClick={onClose}
+          onClick={requestClose}
           className="ml-auto text-ink-faint hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
         >
           ✕
