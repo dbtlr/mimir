@@ -12,7 +12,6 @@ import { StatusBadge } from '../components/status-badge';
 import { TreeView } from '../components/tree';
 import { segmentVariants, segmentedTrackClass } from '../components/ui/segmented-control';
 import { Skeleton } from '../components/ui/skeleton';
-import { buildAncestry } from '../lib/ancestry';
 import type { BandMode } from '../lib/bands';
 import { buildBoard } from '../lib/board';
 import { cn } from '../lib/cn';
@@ -76,7 +75,6 @@ export function ProjectPage() {
   // walk it, and cards degrade gracefully if it's missing. Excluded from the
   // board's connectivity so a tree miss never demotes a cached board.
   const tree = useQuery(treeQuery(key));
-  const ancestry = tree.data !== undefined ? buildAncestry(tree.data) : undefined;
 
   const conn = connectivity(view === 'board' ? [project, live, done] : [project, tree]);
 
@@ -135,7 +133,7 @@ export function ProjectPage() {
             tree={tree.data}
             onOpenNode={openNode}
             offline={conn.offline}
-            ancestry={ancestry}
+            distribution={project.data?.distribution}
             doneTotal={done.data.items.length}
             onViewDone={() =>
               void navigate({ search: { project: key, status: 'done' }, to: '/tasks' })

@@ -51,6 +51,22 @@ release. When a release is cut, this section is promoted to
   with a skeleton while loading; verbs run through the existing transition
   mutation and disable offline. The panel's **Full dossier ↗** and the shelf's
   **Dossier ↗** route through the existing `?node=` node-detail mechanism.
+
+- **Mobile board** (MMR-224). The project board's phone surface
+  (`/p/:key?view=board` below the `md` breakpoint) is rebuilt on the Meridian
+  design system as a single-status view: one wash **status control** pill (dot +
+  label + count + caret) that taps open a **nine-word bottom sheet** — a 2-column
+  grid of every Status word in the canonical order with per-word counts, the
+  active word carrying the wash-and-ring idiom — plus **swipe left/right** to page
+  between statuses. The selected status's cards are grouped by band under inline
+  band headers (name + `∞` for standing bands + hairline + per-status count),
+  sourced from the shared band model, and rendered with the kebab-free board card
+  at mobile touch sizing (13×14 padding, 15px title, 44px min hit target). The old
+  six-tab column switcher is retired. Card taps route to node detail exactly as
+  the desktop swimlane does; offline keeps the control and sheet browsable while
+  card write affordances stay disabled. `new` and `abandoned` show their rollup
+  counts in the sheet but are inert (the board never fetches their card lists).
+
 - **Fixture vault generator** (MMR-255). A standalone dev script
   (`bun run fixtures:vault [path]`) seeds a throwaway Norn-managed vault with a
   one-of-everything set of work states — every Status word as a leaf and a
