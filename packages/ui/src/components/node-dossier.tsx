@@ -189,7 +189,7 @@ function buildFeed(
 }
 
 /** Human label + optional detail for a transition_log entry (mirrors the verbs that wrote it). */
-function describeTransition(e: WireHistoryEntry): { label: string; detail?: string } {
+export function describeTransition(e: WireHistoryEntry): { label: string; detail?: string } {
   switch (e.kind) {
     case 'lifecycle': {
       if (e.to === 'under_review') {
