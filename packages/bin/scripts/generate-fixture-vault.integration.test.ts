@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -119,4 +119,46 @@ test.skipIf(!NORN)('the dependency chain, tags, and artifacts manifest', async (
   expect(artifacts.length).toBe(2);
   expect(artifacts.some((a) => a.links.length > 0)).toBe(true);
   expect(artifacts.some((a) => a.links.length === 0)).toBe(true);
+});
+
+// ── The target guard (needs no norn: it refuses before any vault work) ──────
+
+/** Run the generator expecting a refusal; returns the thrown message.
+ * try/catch avoids the await-thenable lint on `.rejects.toThrow` (repo
+ * convention) and guarantees the refusal lands before the caller inspects
+ * the directory. */
+async function refusalOf(target: string): Promise<string> {
+  try {
+    await generateFixtureVault(target);
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  throw new Error('expected the generator to refuse');
+}
+
+test('refuses a real marked vault that lacks the fixture sentinel', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mimir-fixture-guard-'));
+  try {
+    // A directory that LOOKS like a real vault: the standard marker, no sentinel.
+    writeFileSync(join(dir, '.mimir-vault.toml'), 'schema = 4\n');
+    writeFileSync(join(dir, 'notes.md'), 'irreplaceable\n');
+    expect(await refusalOf(dir)).toMatch(/refusing to touch it/);
+    // Nothing was deleted.
+    expect(existsSync(join(dir, '.mimir-vault.toml'))).toBe(true);
+    expect(readFileSync(join(dir, 'notes.md'), 'utf8')).toBe('irreplaceable\n');
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test('refuses a regular-file target', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mimir-fixture-guard-'));
+  try {
+    const file = join(dir, 'not-a-dir');
+    writeFileSync(file, 'plain file\n');
+    expect(await refusalOf(file)).toMatch(/is a file, not a directory/);
+    expect(readFileSync(file, 'utf8')).toBe('plain file\n'); // untouched
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
 });

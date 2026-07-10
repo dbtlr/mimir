@@ -26,10 +26,10 @@
  * intent layer resolves ids against a freshly loaded snapshot.
  */
 import { setSystemTime } from 'bun:test';
-import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 
-import type { Lane, SeedLane, StatusWord } from '@mimir/contract';
+import type { Lane, SeedLane, StatusWord, TaskStatusWord } from '@mimir/contract';
 
 import {
   abandonTask,
@@ -43,6 +43,8 @@ import {
   depend,
   deriveSet,
   fileSeed,
+  findNodeInSet,
+  findProjectInSet,
   isStale,
   listSeeds,
   nodeStatusWord,
@@ -61,7 +63,6 @@ import { bunExec } from '../src/exec';
 import { NornClient } from '../src/norn/client';
 import { createNornWriteStore } from '../src/norn/writer';
 import { converge } from '../src/vault/converge';
-import { MARKER_FILE } from '../src/vault/schema';
 
 /** How far back the "going cold" cohort is stamped — comfortably past the 14-day
  * stale threshold so backdated in_progress/ready tasks read as stale. */
@@ -71,21 +72,14 @@ const COLD_EPOCH_DAYS = 20;
  * real store (the same isolation `.dev/` gives the from-source dev DB). */
 const DEFAULT_TARGET = join('.dev', 'fixture-vault');
 
-/** Finder droppings that don't count against an "empty" directory. */
-const IGNORABLE = new Set(['.DS_Store']);
-
-/** A leaf task's target Status word and the verb recipe that manufactures it.
- * `awaiting` needs an unsettled prerequisite; every other word is a self-contained
- * sequence over a fresh todo task. */
-type LeafWord =
-  | 'ready'
-  | 'awaiting'
-  | 'blocked'
-  | 'parked'
-  | 'in_progress'
-  | 'under_review'
-  | 'done'
-  | 'abandoned';
+/**
+ * The fixture sentinel — written by this generator (and ONLY this generator)
+ * into every vault it creates. The delete-and-regenerate guard keys on it:
+ * a directory without the sentinel is never deleted, so pointing the script at
+ * a real personal vault (which carries the standard `.mimir-vault.toml` marker
+ * but never this file) refuses instead of destroying it.
+ */
+export const FIXTURE_SENTINEL = '.mimir-fixture-vault';
 
 /**
  * A board-scoped verb façade. Every method re-resolves the numeric ids it needs
@@ -103,8 +97,8 @@ class Board {
   }
 
   private async projectId(): Promise<number> {
-    const ws = await this.store.loadWorkingSet();
-    const project = ws.projects.find((p) => p.key === this.key);
+    const set = deriveSet(await this.store.loadWorkingSet());
+    const project = findProjectInSet(set, this.key);
     if (project === undefined) {
       throw new Error(`project ${this.key} not found`);
     }
@@ -112,15 +106,12 @@ class Board {
   }
 
   private async nodeId(stem: string): Promise<number> {
-    const ws = await this.store.loadWorkingSet();
-    const set = deriveSet(ws);
-    for (const node of ws.nodes) {
-      const key = set.keyByProjectId.get(node.project_id);
-      if (key !== undefined && renderId({ key, seq: node.seq }) === stem) {
-        return node.id;
-      }
+    const set = deriveSet(await this.store.loadWorkingSet());
+    const node = findNodeInSet(set, stem);
+    if (node === undefined) {
+      throw new Error(`node ${stem} not found`);
     }
-    throw new Error(`node ${stem} not found`);
+    return node.id;
   }
 
   private stem(seq: number): string {
@@ -159,7 +150,7 @@ class Board {
   }
 
   /** Drive a fresh todo task to `word`; `awaiting` wires a dependency on `prereq`. */
-  async drive(stem: string, word: LeafWord, prereq?: string): Promise<void> {
+  async drive(stem: string, word: TaskStatusWord, prereq?: string): Promise<void> {
     const id = await this.nodeId(stem);
     switch (word) {
       case 'ready': {
@@ -235,7 +226,7 @@ class Board {
 const AURORA_ZOO: readonly {
   word: StatusWord;
   phase: string;
-  task?: { title: string; leaf: LeafWord };
+  task?: { title: string; leaf: TaskStatusWord };
 }[] = [
   {
     phase: 'Onboarding Flow',
@@ -292,8 +283,9 @@ async function buildAurora(store: Store): Promise<void> {
     title: 'Core Experience',
   });
 
-  // The status zoo: one phase per rollup word, each with its lone leaf.
-  let inProgressLeaf: string | undefined;
+  // The status zoo: one phase per rollup word, each with its lone leaf. The
+  // in_progress leaf (the carousel task) doubles as the dependency-chain
+  // prerequisite and the tag/artifact anchor below.
   let awaitingLeaf: string | undefined;
   let carousel: string | undefined;
   let receipts: string | undefined;
@@ -309,7 +301,6 @@ async function buildAurora(store: Store): Promise<void> {
       await board.drive(task, row.task.leaf);
     }
     if (row.task.leaf === 'in_progress') {
-      inProgressLeaf = task;
       carousel = task;
     }
     if (row.task.leaf === 'blocked') {
@@ -319,8 +310,8 @@ async function buildAurora(store: Store): Promise<void> {
 
   // Dependency chain: the deep-linking task awaits the in-progress carousel task,
   // which becomes a blocking prerequisite (it now has an unsettled dependent).
-  if (awaitingLeaf !== undefined && inProgressLeaf !== undefined) {
-    await board.drive(awaitingLeaf, 'awaiting', inProgressLeaf);
+  if (awaitingLeaf !== undefined && carousel !== undefined) {
+    await board.drive(awaitingLeaf, 'awaiting', carousel);
   }
 
   // Two open-ended homes (MMR-204): an idle one (empty → reads `ready`, "open
@@ -484,40 +475,83 @@ export type FixtureSummary = {
   artifacts: number;
 };
 
-/** Guard the target: regenerate a throwaway fixture vault (empty, absent, or a
- * marked mimir vault), but refuse a non-empty directory that is NOT a vault. */
+/**
+ * Guard the target. Delete-and-regenerate is allowed ONLY for a directory this
+ * generator itself created (it carries {@link FIXTURE_SENTINEL}); an absent
+ * path and an empty directory proceed untouched. Anything else refuses — a
+ * regular file, a non-empty directory, and in particular a REAL mimir vault
+ * (which carries the standard marker but never the fixture sentinel) — so the
+ * script can never destroy a personal vault.
+ */
 function prepareTarget(target: string): void {
-  if (existsSync(target)) {
-    const entries = readdirSync(target).filter((e) => !IGNORABLE.has(e));
-    const isVault = existsSync(join(target, MARKER_FILE));
-    if (entries.length > 0 && !isVault) {
-      throw new Error(
-        `${target} is not empty and is not a mimir fixture vault — refusing to overwrite it. ` +
-          'Point the generator at an empty path or an existing fixture vault.',
-      );
-    }
-    rmSync(target, { force: true, recursive: true });
+  if (!existsSync(target)) {
+    return; // absent — converge creates it
+  }
+  if (!statSync(target).isDirectory()) {
+    throw new Error(
+      `${target} is a file, not a directory — refusing to use it as the fixture vault target.`,
+    );
+  }
+  if (existsSync(join(target, FIXTURE_SENTINEL))) {
+    rmSync(target, { force: true, recursive: true }); // a throwaway we made — regenerate
+    return;
+  }
+  if (readdirSync(target).length === 0) {
+    return; // empty — nothing to delete; converge scaffolds in place
+  }
+  throw new Error(
+    `${target} is not empty and is not a generated fixture vault (no ${FIXTURE_SENTINEL} sentinel) — ` +
+      'refusing to touch it. Point the generator at an absent/empty path or a previously generated fixture vault.',
+  );
+}
+
+/**
+ * Freeze the process clock `days` in the past and PROVE the freeze took effect
+ * — `setSystemTime` is a `bun:test` API exercised here under plain `bun run`,
+ * so if a future Bun makes it a no-op outside the test runner, the going-cold
+ * cohort would silently ship fresh and defeat the fixture's purpose. Fail loud
+ * instead.
+ */
+function freezeClockDaysAgo(days: number): void {
+  const realNow = Date.now();
+  const offsetMs = days * 24 * 60 * 60 * 1000;
+  setSystemTime(new Date(realNow - offsetMs));
+  const observed = realNow - Date.now();
+  // The frozen clock should read ~offsetMs behind the captured real time; allow
+  // a generous minute of slack for the calls themselves.
+  if (Math.abs(observed - offsetMs) > 60_000) {
+    setSystemTime();
+    throw new Error(
+      'setSystemTime did not take effect under `bun run` — the backdated (going-cold) ' +
+        'cohort cannot be generated. Check the Bun version.',
+    );
   }
 }
 
 /**
- * Generate the fixture vault at `target` (created fresh; an existing fixture
- * vault or empty dir is regenerated). Returns a coverage summary read back
- * through the derivation surface. Exported so the integration test drives the
- * same entry point the CLI does.
+ * Generate the fixture vault at `target` (created fresh; a previously generated
+ * fixture vault is regenerated). Returns a coverage summary read back through
+ * the derivation surface. Exported so the integration test drives the same
+ * entry point the CLI does.
  */
 export async function generateFixtureVault(target: string): Promise<FixtureSummary> {
   const absTarget = isAbsolute(target) ? target : resolve(target);
   prepareTarget(absTarget);
   mkdirSync(absTarget, { recursive: true });
   await converge(absTarget, { allowCreate: true, exec: bunExec });
+  // Mark the vault as a generated throwaway IMMEDIATELY, so even a crashed
+  // half-built run leaves a directory the next run may regenerate.
+  writeFileSync(
+    join(absTarget, FIXTURE_SENTINEL),
+    'Generated fixture vault (MMR-255) — safe to delete or regenerate via `bun run fixtures:vault`.\n',
+  );
 
   const client = new NornClient({ vaultPath: absTarget });
   try {
     const store = createNornWriteStore(client, absTarget);
 
-    // Epoch 1: the going-cold cohort, under a frozen past clock.
-    setSystemTime(new Date(Date.now() - COLD_EPOCH_DAYS * 24 * 60 * 60 * 1000));
+    // Epoch 1: the going-cold cohort, under a frozen (and verified) past clock.
+    freezeClockDaysAgo(COLD_EPOCH_DAYS);
     await buildBeaconCold(store);
     setSystemTime(); // restore the real clock for every fresh cohort
 
@@ -610,6 +644,13 @@ async function main(): Promise<number> {
   const summary = await generateFixtureVault(target);
   console.log('fixture vault generated:\n');
   console.log(formatSummary(summary));
+  if (summary.stale === 0) {
+    console.error(
+      '\n✗ no stale tasks manifested — the backdated (going-cold) cohort did not land; ' +
+        'the fixture is incomplete.',
+    );
+    return 1;
+  }
   console.log('\nsmoke it:');
   console.log(`  MIMIR_STORE_BACKEND=norn MIMIR_VAULT=${summary.vaultPath} \\`);
   console.log('    bun run packages/bin/src/main.ts serve');
