@@ -243,34 +243,33 @@ export function TaskForm({
             </form.Field>
           </div>
 
-          {/* Tags input — create mode only */}
-          {mode === 'create' && (
-            <div className="flex flex-col gap-1">
-              <label htmlFor="task-form-tags" className="text-xs font-medium text-ink-dim">
-                Tags
-              </label>
-              <form.Field name="tags">
-                {(field) => (
-                  <input
-                    id="task-form-tags"
-                    type="text"
-                    placeholder="Comma-separated tags"
-                    value={field.state.value.join(', ')}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      const tags = raw
-                        .split(',')
-                        .map((t) => t.trim())
-                        .filter((t) => t.length > 0);
-                      field.handleChange(tags);
-                    }}
-                    onBlur={field.handleBlur}
-                    className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs text-ink outline-none focus-visible:border-accent"
-                  />
-                )}
-              </form.Field>
-            </div>
-          )}
+          {/* Tags — create and edit (MMR-257: the dossier's edit form is the
+              tag-edit surface; the retired standalone TagEditor is gone) */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="task-form-tags" className="text-xs font-medium text-ink-dim">
+              Tags
+            </label>
+            <form.Field name="tags">
+              {(field) => (
+                <input
+                  id="task-form-tags"
+                  type="text"
+                  placeholder="Comma-separated tags"
+                  value={field.state.value.join(', ')}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    const tags = raw
+                      .split(',')
+                      .map((t) => t.trim())
+                      .filter((t) => t.length > 0);
+                    field.handleChange(tags);
+                  }}
+                  onBlur={field.handleBlur}
+                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs text-ink outline-none focus-visible:border-accent"
+                />
+              )}
+            </form.Field>
+          </div>
         </div>
       </details>
 

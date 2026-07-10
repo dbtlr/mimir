@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, vi } from 'vitest';
@@ -284,6 +284,94 @@ describe('nodeDossier', () => {
       'PATCH',
       expect.stringContaining('/api/nodes/'),
       expect.not.objectContaining({ external_ref: null }),
+    );
+  });
+
+  it('edit form pre-populates existing tags', async () => {
+    mockNode(
+      task({
+        id: 'MMR-90',
+        status: 'ready',
+        tags: [
+          { created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'ui' },
+          { created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'release:v0.5' },
+        ],
+        title: 'tagged task',
+      }),
+    );
+    render(<NodeDossier nodeId="MMR-90" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+      wrapper,
+    });
+    await screen.findByText('tagged task');
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByLabelText(/tags/i)).toHaveValue('ui, release:v0.5');
+  });
+
+  it('saving with an added tag fires the tag mutation with the right payload', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-91' });
+    mockNode(task({ id: 'MMR-91', status: 'ready', tags: [], title: 'tag-add task' }));
+    render(<NodeDossier nodeId="MMR-91" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+      wrapper,
+    });
+    await screen.findByText('tag-add task');
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    await userEvent.type(screen.getByLabelText(/tags/i), 'feat');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+    await waitFor(() =>
+      expect(apiSend).toHaveBeenCalledWith('PUT', '/api/nodes/MMR-91/tags/feat', undefined),
+    );
+  });
+
+  it('saving with a removed tag fires untag', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-92' });
+    mockNode(
+      task({
+        id: 'MMR-92',
+        status: 'ready',
+        tags: [{ created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'ui' }],
+        title: 'tag-remove task',
+      }),
+    );
+    render(<NodeDossier nodeId="MMR-92" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+      wrapper,
+    });
+    await screen.findByText('tag-remove task');
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    await userEvent.clear(screen.getByLabelText(/tags/i));
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+    await waitFor(() =>
+      expect(apiSend).toHaveBeenCalledWith('DELETE', '/api/nodes/MMR-92/tags/ui', undefined),
+    );
+  });
+
+  it('saving with unchanged tags fires neither tag nor untag, but scalars still update', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-93' });
+    mockNode(
+      task({
+        id: 'MMR-93',
+        status: 'ready',
+        tags: [{ created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'ui' }],
+        title: 'tag-keep task',
+      }),
+    );
+    render(<NodeDossier nodeId="MMR-93" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+      wrapper,
+    });
+    await screen.findByText('tag-keep task');
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+    await waitFor(() =>
+      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/nodes/MMR-93', expect.anything()),
+    );
+    expect(apiSend).not.toHaveBeenCalledWith(
+      'PUT',
+      expect.stringContaining('/tags/'),
+      expect.anything(),
+    );
+    expect(apiSend).not.toHaveBeenCalledWith(
+      'DELETE',
+      expect.stringContaining('/tags/'),
+      expect.anything(),
     );
   });
 

@@ -477,6 +477,18 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Task tags edit from the dossier's Edit form** (MMR-257). A task's tags are
+  no longer read-only outside creation: the dossier's Edit form (previously
+  scalar fields only) now carries the same comma-separated tags input the
+  create form uses, pre-populated from the node's current tags. Saving diffs
+  the submitted names against the node's tags — added names fire `tag`,
+  removed names fire `untag`, unchanged names fire neither (re-issuing `tag`
+  on an existing name would silently drop any note it carries) — running
+  alongside the scalar update with editing only closing once every fired
+  mutation settles. The SIGNALS section's read-only tag chips are unchanged.
+  The standalone `TagEditor` component (the retired drawer's tag-edit idiom,
+  unmounted since the Meridian dossier rebuild) is removed; `useTag`/`useUntag`
+  carry over as the dossier's diff mutations.
 - **Body-section reads go through native `norn get --section`** (MMR-187, NRN-102/
   NRN-173). The Norn read path — a node's `## Task Description` / `## History` /
   `## Annotations` facets and the cross-node transitions feed — now asks norn for
