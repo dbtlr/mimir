@@ -64,8 +64,14 @@ function emptyColumns(): BandColumns {
   };
 }
 
+/**
+ * The band's leaves for the fallback distribution mini-bar — the four swimlane
+ * columns only. The desktop `BandSpine` bar has always summed the swimlane set;
+ * the held three (parked/blocked/awaiting) are bucketed into `columns` for the
+ * mobile board but must not leak into the desktop distribution (MMR-224 review).
+ */
 function bandLeaves(columns: BandColumns): WireNode[] {
-  return BOARD_COLUMNS.flatMap((column) => columns[column]);
+  return SWIMLANE_COLUMNS.flatMap((column) => columns[column]);
 }
 
 /** Tally a set of leaves into a status distribution — the fallback mini-bar source. */

@@ -306,6 +306,18 @@ function quickNodeInBand(band: Band, quickId: string | null): WireNode | undefin
   return undefined;
 }
 
+/**
+ * Whether a band has any card in a swimlane column. The desktop grid renders
+ * only the four swimlane columns, so a band whose cards are all held
+ * (parked/blocked/awaiting) would draw a phantom empty row — those held nodes
+ * already live in the flat HELD ledge. Widening the band bucketing to all seven
+ * columns (for the mobile board) must not resurrect such rows on desktop
+ * (MMR-224 review), so the swimlane filters to swimlane-bearing bands.
+ */
+function hasSwimlaneCards(band: Band): boolean {
+  return SWIMLANE_COLUMNS.some((column) => band.columns[column].length > 0);
+}
+
 /** The desktop swimlane: a column-header row, then one grid row per band. */
 function SwimlaneGrid({
   bands,
@@ -449,10 +461,12 @@ function MobileBandHeader({
 function MobileStatusControl({
   status,
   count,
+  open,
   onOpen,
 }: {
   status: BoardColumn;
   count: number;
+  open: boolean;
   onOpen: () => void;
 }) {
   return (
@@ -460,6 +474,8 @@ function MobileStatusControl({
       <button
         type="button"
         onClick={onOpen}
+        aria-haspopup="dialog"
+        aria-expanded={open}
         className={cn(
           statusChipVariants({ status }),
           'min-h-11 gap-2 rounded-[11px] px-[15px] py-2.5 text-meta font-bold focus-visible:outline-2 focus-visible:outline-accent',
@@ -619,7 +635,12 @@ function MobileBoard({
   onOpenNode: (id: string) => void;
   offline?: boolean;
 }) {
-  const [selected, setSelected] = useState<BoardColumn>('in_progress');
+  // Open on the first populated status in canonical order rather than a fixed
+  // `in_progress`, so a project with no in-progress work doesn't land on an empty
+  // board (MMR-224 review); an all-empty board falls back to `in_progress` copy.
+  const [selected, setSelected] = useState<BoardColumn>(
+    () => BOARD_STATUS_ORDER.find((column) => board[column].length > 0) ?? 'in_progress',
+  );
   const [sheetOpen, setSheetOpen] = useState(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
@@ -655,6 +676,7 @@ function MobileBoard({
       <MobileStatusControl
         status={selected}
         count={board[selected].length}
+        open={sheetOpen}
         onOpen={() => {
           setSheetOpen(true);
         }}
@@ -725,6 +747,9 @@ export function BoardView({
   const reorder = useReorder();
 
   const bandList = buildBands(board, bands, tree);
+  // The desktop swimlane renders only the four swimlane columns; drop bands whose
+  // cards are entirely held so widened bucketing (MMR-224) draws no phantom rows.
+  const swimlaneBands = bandList.filter(hasSwimlaneCards);
   // Off mode has no spine; phase mode without a tree degrades to the same flat,
   // spineless grid rather than rendering a nameless 170px spine gutter (§4).
   const spine = bands !== 'off' && !(bands === 'phase' && tree === undefined);
@@ -774,7 +799,7 @@ export function BoardView({
         <div data-testid="swimlane" className="hidden px-5 md:block">
           <HeldLedge board={board} />
           <SwimlaneGrid
-            bands={bandList}
+            bands={swimlaneBands}
             spine={spine}
             onOpenNode={onOpenNode}
             onQuickOpen={setQuickId}

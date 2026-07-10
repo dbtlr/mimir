@@ -319,8 +319,8 @@ describe('boardView — mobile board (mock 9a)', () => {
     expect(within(body).getByText('phased')).toBeDefined();
   });
 
-  it('falls back to the empty state for a status with no cards', () => {
-    const board = buildBoard([task({ id: 'MMR-3', status: 'ready', title: 'queued' })], [], NOW);
+  it('falls back to the empty state on an empty board', () => {
+    const board = buildBoard([], [], NOW);
     render(
       <BoardView
         board={board}
@@ -331,8 +331,54 @@ describe('boardView — mobile board (mock 9a)', () => {
       />,
       { wrapper },
     );
-    // The default status (In progress) has no cards.
+    // No cards anywhere: selection falls back to In progress and shows its empty copy.
     expect(within(mobile()).getByText(/Nothing in progress/i)).toBeDefined();
+  });
+
+  it('opens on the first populated status when in-progress is empty', () => {
+    // Delta Records shape: work exists only in held/terminal columns, not in-progress.
+    const board = buildBoard(
+      [task({ id: 'MMR-3', status: 'parked', title: 'shelved for now' })],
+      [task({ completed_at: daysAgo(1), id: 'MMR-4', status: 'done', title: 'shipped' })],
+      NOW,
+    );
+    render(
+      <BoardView
+        board={board}
+        bands="off"
+        onOpenNode={vi.fn()}
+        doneTotal={1}
+        onViewDone={vi.fn()}
+      />,
+      { wrapper },
+    );
+    // Lands on Parked (first populated in canonical order), not an empty In progress.
+    expect(within(mobile()).getByRole('button', { name: /Parked/ })).toBeDefined();
+    expect(within(mobile()).getByText('shelved for now')).toBeDefined();
+    expect(within(mobile()).queryByText(/Nothing/i)).toBeNull();
+  });
+
+  it('the status control announces itself as a dialog trigger to assistive tech', () => {
+    const board = buildBoard(
+      [task({ id: 'MMR-2', status: 'in_progress', title: 'building' })],
+      [],
+      NOW,
+    );
+    render(
+      <BoardView
+        board={board}
+        bands="off"
+        onOpenNode={vi.fn()}
+        doneTotal={0}
+        onViewDone={vi.fn()}
+      />,
+      { wrapper },
+    );
+    const control = within(mobile()).getByRole('button', { name: /In progress/ });
+    expect(control.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(control.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(control);
+    expect(control.getAttribute('aria-expanded')).toBe('true');
   });
 
   it('a card tap routes through onOpenNode, exactly as the swimlane does', () => {
