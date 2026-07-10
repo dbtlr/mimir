@@ -62,10 +62,11 @@ release. When a release is cut, this section is promoted to
   band headers (name + `∞` for standing bands + hairline + per-status count),
   sourced from the shared band model, and rendered with the kebab-free board card
   at mobile touch sizing (13×14 padding, 15px title, 44px min hit target). The old
-  six-tab column switcher is retired. Card taps route to node detail exactly as
-  the desktop swimlane does; offline keeps the control and sheet browsable while
-  card write affordances stay disabled. `new` and `abandoned` show their rollup
-  counts in the sheet but are inert (the board never fetches their card lists).
+  six-tab column switcher is retired. Card taps open the node quick shelf
+  (MMR-258, below); offline keeps the control and sheet browsable while card
+  write affordances stay disabled. `new` and `abandoned` show their rollup
+  counts in the sheet as census-only rows (the board never fetches their card
+  lists — MMR-258, below).
 
 - **Meridian wave-2 wiring** (MMR-258). Closes out the board/quick-view
   integration: the mobile board's card tap now opens the **shelf** (MMR-223)

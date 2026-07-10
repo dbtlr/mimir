@@ -451,4 +451,60 @@ describe('boardView — mobile board (mock 9a)', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Ready/ }));
     expect(within(mobile()).queryByTestId('quick-shelf')).toBeNull();
   });
+
+  it('a swipe to another status page also closes the shelf (MMR-258)', () => {
+    const board = buildBoard(
+      [task({ id: 'MMR-8', status: 'in_progress', title: 'open me mobile' })],
+      [],
+      NOW,
+    );
+    render(
+      <BoardView
+        board={board}
+        bands="off"
+        onOpenNode={vi.fn()}
+        doneTotal={0}
+        onViewDone={vi.fn()}
+      />,
+      { wrapper },
+    );
+    const card = within(mobile()).getByText('open me mobile').closest('button') as HTMLElement;
+    fireEvent.click(card);
+    expect(within(mobile()).getByTestId('quick-shelf')).toBeDefined();
+    // A left swipe on the card list (bubbling to the board's swipe handler)
+    // pages in_progress → under_review; the page change retires the shelf.
+    fireEvent.touchStart(card, { touches: [{ clientX: 220, clientY: 100 }] });
+    fireEvent.touchEnd(card, { changedTouches: [{ clientX: 60, clientY: 108 }] });
+    expect(within(mobile()).getByRole('button', { name: /Under review/ })).toBeDefined();
+    expect(within(mobile()).queryByTestId('quick-shelf')).toBeNull();
+  });
+
+  it('the shelf unmounts when its node vanishes from the board data (MMR-258)', () => {
+    const props = {
+      bands: 'off',
+      doneTotal: 0,
+      onOpenNode: vi.fn(),
+      onViewDone: vi.fn(),
+    } as const;
+    const board = buildBoard(
+      [
+        task({ id: 'MMR-8', status: 'in_progress', title: 'open me mobile' }),
+        task({ id: 'MMR-9', status: 'in_progress', title: 'stays behind' }),
+      ],
+      [],
+      NOW,
+    );
+    const { rerender } = render(<BoardView board={board} {...props} />, { wrapper });
+    fireEvent.click(within(mobile()).getByText('open me mobile').closest('button') as HTMLElement);
+    expect(within(mobile()).getByTestId('quick-shelf')).toBeDefined();
+    // The node leaves the board data entirely (e.g. abandoned on refetch):
+    // boardNode resolves nothing and the shelf unmounts.
+    const withoutNode = buildBoard(
+      [task({ id: 'MMR-9', status: 'in_progress', title: 'stays behind' })],
+      [],
+      NOW,
+    );
+    rerender(<BoardView board={withoutNode} {...props} />);
+    expect(within(mobile()).queryByTestId('quick-shelf')).toBeNull();
+  });
 });

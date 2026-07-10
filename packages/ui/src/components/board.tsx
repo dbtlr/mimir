@@ -625,8 +625,11 @@ function StatusSheet({
 
 /**
  * The shelf's node, looked up across every board column (not just the selected
- * status): if the node transitions out from under the shelf, the lookup fails
- * and the shelf closes on the next render rather than showing stale data.
+ * status). A transition that keeps the node on the board — start, submit,
+ * return, park, block, even done within the 7-day window — keeps the shelf
+ * open and live on the new status: act and see the result. The shelf closes
+ * only when the node leaves the board data entirely (transitioned to
+ * new/abandoned, done aged out of the window, or gone on refetch).
  */
 function boardNode(board: Board, id: string | null): WireNode | undefined {
   if (id === null) {
