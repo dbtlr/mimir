@@ -497,6 +497,11 @@ function DossierBody({
 
   return (
     <>
+      {/* The dialog's accessible name in every state (loading/editing/record);
+          kept distinct from the visible left-column title heading. */}
+      <Dialog.Title className="sr-only">
+        {data !== undefined ? `${data.title} · ${nodeId}` : nodeId}
+      </Dialog.Title>
       <header className="flex items-center gap-2.5 border-b border-line px-5 py-4">
         <span className="font-mono text-mono-id text-ink-faint">{nodeId}</span>
         {data !== undefined && <StatusBadge status={data.status} pill />}
@@ -562,9 +567,9 @@ function DossierBody({
 
           {data !== undefined && !editing && (
             <div className="flex flex-col gap-4 p-5">
-              <Dialog.Title className="text-dossier leading-[1.4] font-semibold text-ink-bright">
+              <h2 className="text-dossier leading-[1.4] font-semibold text-ink-bright">
                 {data.title}
-              </Dialog.Title>
+              </h2>
 
               {data.status === 'under_review' && (
                 <VerdictBlock
