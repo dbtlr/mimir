@@ -256,7 +256,7 @@ function TimelineNote({ content }: { content: string }) {
       <p
         ref={ref}
         className={cn(
-          'text-meta leading-relaxed whitespace-pre-wrap text-ink transition-[max-height]',
+          'text-meta leading-relaxed whitespace-pre-wrap text-ink',
           !expanded && 'line-clamp-3',
         )}
       >
@@ -342,7 +342,7 @@ function Timeline({
         </TabsTrigger>
       </TabsList>
       <div className="relative min-h-0 flex-1">
-        <ScrollArea className="h-full max-h-[330px]">
+        <ScrollArea className="h-full">
           <div className="p-4">
             <TabsContent value="all">{panel(feed, 'Nothing yet.')}</TabsContent>
             <TabsContent value="activity">{panel(activity, 'No activity yet.')}</TabsContent>
