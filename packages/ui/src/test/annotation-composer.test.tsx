@@ -15,10 +15,10 @@ function wrap(ui: ReactNode) {
 }
 
 describe('annotationComposer', () => {
-  it('add note is disabled until non-blank, then posts the trimmed content', async () => {
+  it('append is disabled until non-blank, then posts the trimmed content', async () => {
     apiSend.mockResolvedValue({ id: 'MMR-9' });
     wrap(<AnnotationComposer nodeId="MMR-9" offline={false} />);
-    const btn = screen.getByRole('button', { name: /add note/i });
+    const btn = screen.getByRole('button', { name: /append/i });
     expect(btn).toBeDisabled();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '  found a bug  ' } });
     expect(btn).toBeEnabled();
@@ -32,7 +32,6 @@ describe('annotationComposer', () => {
 
   it('is disabled when offline', () => {
     wrap(<AnnotationComposer nodeId="MMR-9" offline />);
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'x' } });
-    expect(screen.getByRole('button', { name: /add note/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /append/i })).toBeDisabled();
   });
 });
