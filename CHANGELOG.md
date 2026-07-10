@@ -15,6 +15,25 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Node dossier — deep-read detail overlay** (MMR-222). The node-detail
+  surface (`?node=KEY-seq`) is rebuilt on the Meridian design system as a
+  centered overlay over a dimmed board, replacing the right-anchored drawer at
+  every mount (overview, tasks browser, project board/tree). One shared header
+  (mono id, uppercase status pill, parent breadcrumb) sits over two columns: the
+  left is the stable record — title, a violet **verdict block** shown only under
+  review (a derived submitted-summary line + external-ref link over inline
+  **Approve** / **Return with notes…**), full unclamped description, a
+  **SIGNALS** / **BLOCKING** grid, and an **ARTIFACTS** chip row (❄ glyph); the
+  right is the timeline ground on a recessed well — All / Activity / Notes tabs,
+  a bounded feed with a bottom fade edge, filled status-colored dots for
+  transitions versus outlined dots for notes, 3-line note clamping with expand
+  in place, and a pinned append-only composer. The kebab is **retired** here:
+  legal transitions surface as labeled verb chips (reason-carrying verbs open
+  the shared reason dialog), alongside a **Move…** picker and **Edit**. Tags now
+  render read-only in SIGNALS. The `?node=` URL contract (deep-link, Esc/✕
+  close), TanStack Query data flow, invalidate-and-refetch writes, and offline
+  inerting of every write affordance are preserved. Adds a reusable `pill` shape
+  to the status-chip kit variant.
 - **Fixture vault generator** (MMR-255). A standalone dev script
   (`bun run fixtures:vault [path]`) seeds a throwaway Norn-managed vault with a
   one-of-everything set of work states — every Status word as a leaf and a
