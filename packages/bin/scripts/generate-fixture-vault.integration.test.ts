@@ -1,0 +1,122 @@
+import { afterAll, beforeAll, expect, test } from 'bun:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { SEED_LANE_VALUES, STATUS_WORD_VALUES } from '@mimir/contract';
+import type { Lane } from '@mimir/contract';
+
+import { deriveSet, isStale, listSeeds, nodeStatusWord } from '../src/core';
+import type { Store } from '../src/core';
+import { attentionOf } from '../src/core/attention';
+import type { Node } from '../src/core/model';
+import { seedLane } from '../src/core/seeds';
+import { NornClient } from '../src/norn/client';
+import { createNornWriteStore } from '../src/norn/writer';
+import { generateFixtureVault } from './generate-fixture-vault';
+
+/**
+ * The fixture vault generator over a real `norn` subprocess (MMR-255): generate
+ * into a temp dir, then assert through the READ/derive surface that every visual
+ * state the smokes rely on actually manifests. Skipped when the binary isn't on
+ * PATH (same convention as store-norn.integration.test.ts).
+ */
+const NORN = Bun.which('norn') !== null;
+
+let root: string;
+let client: NornClient;
+let store: Store;
+
+beforeAll(async () => {
+  if (!NORN) {
+    return;
+  }
+  root = mkdtempSync(join(tmpdir(), 'mimir-fixture-'));
+  const vault = join(root, 'vault');
+  await generateFixtureVault(vault);
+  client = new NornClient({ vaultPath: vault });
+  store = createNornWriteStore(client, vault);
+});
+
+afterAll(async () => {
+  if (!NORN) {
+    return;
+  }
+  await client.close();
+  rmSync(root, { force: true, recursive: true });
+});
+
+const byTitle = (nodes: readonly Node[], title: string): Node => {
+  const node = nodes.find((n) => n.title === title);
+  if (node === undefined) {
+    throw new Error(`no node titled "${title}"`);
+  }
+  return node;
+};
+
+test.skipIf(!NORN)('every Status word manifests somewhere in the vault', async () => {
+  const ws = await store.loadWorkingSet();
+  const set = deriveSet(ws);
+  const words = new Set(ws.nodes.map((n) => nodeStatusWord(set, n)));
+  for (const word of STATUS_WORD_VALUES) {
+    expect(words.has(word)).toBe(true);
+  }
+});
+
+test.skipIf(!NORN)('the backdated cohort reads as stale', async () => {
+  const ws = await store.loadWorkingSet();
+  const set = deriveSet(ws);
+  // The two Beacon leaves were created ~20 days back (past the 14-day threshold).
+  const backfill = byTitle(ws.nodes, 'Backfill the event schema to v2');
+  const partition = byTitle(ws.nodes, 'Partition the cold store by tenant');
+  expect(isStale(set, backfill)).toBe(true); // stale in_progress
+  expect(isStale(set, partition)).toBe(true); // stale ready
+  // And a fresh Aurora leaf is NOT stale — proving the freeze/restore boundary.
+  expect(isStale(set, byTitle(ws.nodes, 'Cache the home feed locally'))).toBe(false);
+});
+
+test.skipIf(!NORN)('every attention lane is populated across the projects', async () => {
+  const ws = await store.loadWorkingSet();
+  const set = deriveSet(ws);
+  const lanes = new Set<Lane>(ws.projects.map((p) => attentionOf(set, p).lane));
+  for (const lane of ['awaiting_you', 'live', 'needs_unsticking', 'at_rest'] as const) {
+    expect(lanes.has(lane)).toBe(true);
+  }
+});
+
+test.skipIf(!NORN)('seeds are present in all four lanes', async () => {
+  const views = await listSeeds(store, { status: 'all' });
+  const lanes = new Set(views.map((v) => seedLane(v)));
+  for (const lane of SEED_LANE_VALUES) {
+    expect(lanes.has(lane)).toBe(true);
+  }
+});
+
+test.skipIf(!NORN)('the idle and active open-ended homes read correctly', async () => {
+  const ws = await store.loadWorkingSet();
+  const set = deriveSet(ws);
+  // Idle open-ended (empty) reads `ready` via the transparency coercion (MMR-204).
+  expect(nodeStatusWord(set, byTitle(ws.nodes, 'Polish'))).toBe('ready');
+  // Active open-ended (a live child) reads its rollup.
+  expect(nodeStatusWord(set, byTitle(ws.nodes, 'Bug Bash'))).toBe('in_progress');
+});
+
+test.skipIf(!NORN)('the dependency chain, tags, and artifacts manifest', async () => {
+  const ws = await store.loadWorkingSet();
+  // The deep-linking task awaits the carousel task — one edge in the graph.
+  const carousel = byTitle(ws.nodes, 'Wire up the welcome carousel');
+  const deepLink = byTitle(ws.nodes, 'Route universal links to screens');
+  expect(ws.edges).toContainEqual({ depends_on_node_id: carousel.id, node_id: deepLink.id });
+
+  // Node + project tags.
+  expect((ws.nodeTags.get(carousel.id) ?? []).map((t) => t.tag)).toContain('area:onboarding');
+  const aurora = ws.projects.find((p) => p.key === 'AUR');
+  expect(aurora).toBeDefined();
+  expect((ws.projectTags.get(aurora?.id ?? -1) ?? []).map((t) => t.tag)).toContain('release:v1');
+
+  // A task-linked artifact and a project-level one.
+  const artifacts = await store.artifacts.listForProject('AUR');
+  expect(artifacts.length).toBe(2);
+  expect(artifacts.some((a) => a.links.length > 0)).toBe(true);
+  expect(artifacts.some((a) => a.links.length === 0)).toBe(true);
+});
