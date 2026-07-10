@@ -1,7 +1,8 @@
 import type { Distribution, StatusWord } from '@mimir/contract';
 
 import type { WireNode, WireTreeNode } from '../api/types';
-import type { Board } from './board';
+import { BOARD_COLUMNS } from './board';
+import type { Board, BoardColumn } from './board';
 
 /**
  * The swimlane band model (MMR-221). The board's status lens is re-cut into
@@ -26,7 +27,14 @@ export type SwimlaneColumn = (typeof SWIMLANE_COLUMNS)[number];
 /** The rankable swimlane columns — drag-to-reorder lives here (ADR 0007, per status). */
 export const SWIMLANE_RANKABLE: readonly SwimlaneColumn[] = ['ready', 'in_progress'];
 
-export type BandColumns = Record<SwimlaneColumn, WireNode[]>;
+/**
+ * A band's per-status card slices. Every {@link BoardColumn} is bucketed (not
+ * just the four swimlane columns): the desktop grid reads only the swimlane
+ * four, while the mobile board's single-status paging (MMR-224) needs the held
+ * three (parked/blocked/awaiting) grouped by band the same way. Pure re-bucketing
+ * of the board already fetched — no new reads.
+ */
+export type BandColumns = Record<BoardColumn, WireNode[]>;
 
 export type Band = {
   /** Stable identity for keys/tests (container id, `release:<v>`, or a sentinel). */
@@ -45,11 +53,19 @@ export type Band = {
 };
 
 function emptyColumns(): BandColumns {
-  return { done: [], in_progress: [], ready: [], under_review: [] };
+  return {
+    awaiting: [],
+    blocked: [],
+    done: [],
+    in_progress: [],
+    parked: [],
+    ready: [],
+    under_review: [],
+  };
 }
 
 function bandLeaves(columns: BandColumns): WireNode[] {
-  return SWIMLANE_COLUMNS.flatMap((column) => columns[column]);
+  return BOARD_COLUMNS.flatMap((column) => columns[column]);
 }
 
 /** Tally a set of leaves into a status distribution — the fallback mini-bar source. */
@@ -63,12 +79,7 @@ function distributionOf(nodes: readonly WireNode[]): Distribution {
 
 /** The single flat band — off mode, or phase mode with no tree to group by. */
 function flatBand(board: Board): Band {
-  const columns: BandColumns = {
-    done: board.done,
-    in_progress: board.in_progress,
-    ready: board.ready,
-    under_review: board.under_review,
-  };
+  const columns: BandColumns = { ...board };
   return {
     columns,
     distribution: distributionOf(bandLeaves(columns)),
@@ -120,7 +131,7 @@ function phaseBands(board: Board, tree: WireTreeNode): Band[] {
   const bandOf = phaseBandMap(tree);
   const order = preorderIndex(tree);
   const byBand = new Map<string, { node: WireTreeNode; columns: BandColumns }>();
-  for (const column of SWIMLANE_COLUMNS) {
+  for (const column of BOARD_COLUMNS) {
     for (const node of board[column]) {
       const container = bandOf.get(node.id) ?? tree;
       let entry = byBand.get(container.id);
@@ -158,7 +169,7 @@ function releaseBands(board: Board): Band[] {
   const byRelease = new Map<string, BandColumns>();
   const untagged = emptyColumns();
   let hasUntagged = false;
-  for (const column of SWIMLANE_COLUMNS) {
+  for (const column of BOARD_COLUMNS) {
     for (const node of board[column]) {
       const release = releaseOf(node);
       if (release === undefined || release === '') {
