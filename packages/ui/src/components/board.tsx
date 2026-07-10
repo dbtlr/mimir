@@ -25,7 +25,7 @@ import type { ReorderArgs } from '../lib/reorder';
 import { STATUS_META, STATUS_ORDER } from '../lib/status';
 import { BoardCard } from './board-card';
 import { DistributionBar } from './distribution-bar';
-import { QuickViewPanel } from './node-quick-view';
+import { QuickShelf, QuickViewPanel } from './node-quick-view';
 import { StatusDot } from './status-dot';
 import { statusChipVariants } from './ui/badge';
 
@@ -496,11 +496,30 @@ function MobileStatusControl({
   );
 }
 
+/** Shared row anatomy: dot + label + count, min 44px tall. */
+const SHEET_ROW_BASE =
+  'flex min-h-11 items-center gap-2 rounded-[9px] px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-accent';
+
+/**
+ * A `new`/`abandoned` row (G1): the board never fetched their cards, so there's
+ * nothing to select into. Rendered as a plain, quieter row — not a disabled
+ * button — so the count reads as an honest census figure rather than a dead
+ * affordance (MMR-258).
+ */
+function StatusSheetCensusRow({ status, count }: { status: StatusWord; count: number }) {
+  const meta = STATUS_META[status];
+  return (
+    <div className={cn(SHEET_ROW_BASE, 'opacity-60')}>
+      <StatusDot status={status} className="size-1.5" />
+      <span className="flex-1 text-xs font-medium text-ink-faint">{meta.label}</span>
+      <span className="font-mono text-mono-id tabular-nums text-ink-faint">{count}</span>
+    </div>
+  );
+}
+
 /**
  * One row of the nine-word sheet. The active row carries the wash + ring (G3);
- * the board's seven words select, `new`/`abandoned` show a count but are inert
- * (the board never fetched their cards — G1). Done's label carries the 7-day
- * window tag; Abandoned's inactive label double-demotes to ink-faint.
+ * the board's seven words select. Done's label carries the 7-day window tag.
  */
 function StatusSheetRow({
   status,
@@ -508,42 +527,28 @@ function StatusSheetRow({
   active,
   onSelect,
 }: {
-  status: StatusWord;
+  status: BoardColumn;
   count: number;
   active: boolean;
   onSelect: (status: BoardColumn) => void;
 }) {
   const meta = STATUS_META[status];
   const label = status === 'done' ? 'Done · 7d' : meta.label;
-  const selectable = isBoardColumn(status);
-  const base =
-    'flex min-h-11 items-center gap-2 rounded-[9px] px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-accent';
   return (
     <button
       type="button"
-      disabled={!selectable}
       aria-current={active ? 'true' : undefined}
       onClick={() => {
-        if (isBoardColumn(status)) {
-          onSelect(status);
-        }
+        onSelect(status);
       }}
       className={
         active
-          ? cn(statusChipVariants({ status }), base, 'font-semibold')
-          : cn(base, selectable ? 'hover:bg-well-800' : 'cursor-default')
+          ? cn(statusChipVariants({ status }), SHEET_ROW_BASE, 'font-semibold')
+          : cn(SHEET_ROW_BASE, 'hover:bg-well-800')
       }
     >
       <StatusDot status={status} className="size-1.5" />
-      <span
-        className={cn(
-          'flex-1 text-xs',
-          !active && 'font-medium',
-          !active && (status === 'abandoned' ? 'text-ink-faint' : 'text-ink-dim'),
-        )}
-      >
-        {label}
-      </span>
+      <span className={cn('flex-1 text-xs', !active && 'font-medium text-ink-dim')}>{label}</span>
       <span
         className={cn('font-mono text-mono-id tabular-nums', active ? meta.text : 'text-ink-faint')}
       >
@@ -595,18 +600,22 @@ function StatusSheet({
           <Dialog.Title className="sr-only">Select a status</Dialog.Title>
           <div className="mx-auto mt-2.5 mb-2 h-1 w-9 rounded-full bg-line-bright" aria-hidden />
           <div className="grid grid-cols-2 gap-1 px-3 pb-2">
-            {STATUS_ORDER.map((status) => (
-              <StatusSheetRow
-                key={status}
-                status={status}
-                count={statusCount(status)}
-                active={status === selected}
-                onSelect={(s) => {
-                  onSelect(s);
-                  onOpenChange(false);
-                }}
-              />
-            ))}
+            {STATUS_ORDER.map((status) =>
+              isBoardColumn(status) ? (
+                <StatusSheetRow
+                  key={status}
+                  status={status}
+                  count={statusCount(status)}
+                  active={status === selected}
+                  onSelect={(s) => {
+                    onSelect(s);
+                    onOpenChange(false);
+                  }}
+                />
+              ) : (
+                <StatusSheetCensusRow key={status} status={status} count={statusCount(status)} />
+              ),
+            )}
           </div>
         </Dialog.Popup>
       </Dialog.Portal>
@@ -615,12 +624,35 @@ function StatusSheet({
 }
 
 /**
+ * The shelf's node, looked up across every board column (not just the selected
+ * status). A transition that keeps the node on the board — start, submit,
+ * return, park, block, even done within the 7-day window — keeps the shelf
+ * open and live on the new status: act and see the result. The shelf closes
+ * only when the node leaves the board data entirely (transitioned to
+ * new/abandoned, done aged out of the window, or gone on refetch).
+ */
+function boardNode(board: Board, id: string | null): WireNode | undefined {
+  if (id === null) {
+    return undefined;
+  }
+  for (const column of BOARD_COLUMNS) {
+    const found = board[column].find((n) => n.id === id);
+    if (found !== undefined) {
+      return found;
+    }
+  }
+  return undefined;
+}
+
+/**
  * The mobile board body (mock 9a): a single status control + nine-word sheet +
  * swipe paging, replacing the old six-tab switcher. The selected status's cards
  * are grouped by band (the shared buildBands model) under inline band headers;
  * swipe left/right pages across the board-status order; the control opens the
- * sheet. Cards tap through to node detail via onOpenNode, exactly as the desktop
- * swimlane does. No drag-to-reorder here — the surface is swipe-first.
+ * sheet. A card tap opens the mobile **shelf** (MMR-223/258) — a local
+ * selection, not the `?node=` dossier — whose own Dossier ↗ routes through
+ * onOpenNode; changing status (swipe or sheet) closes it. No drag-to-reorder
+ * here — the surface is swipe-first.
  */
 function MobileBoard({
   bandList,
@@ -642,12 +674,23 @@ function MobileBoard({
     () => BOARD_STATUS_ORDER.find((column) => board[column].length > 0) ?? 'in_progress',
   );
   const [sheetOpen, setSheetOpen] = useState(false);
+  // The open shelf (MMR-258) — a local selection mirroring the desktop `quickId`
+  // idiom, deliberately not the `?node=` dossier address (see BoardView).
+  const [shelfId, setShelfId] = useState<string | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   const statusCount = (status: StatusWord): number =>
     isBoardColumn(status) ? board[status].length : (distribution?.[status] ?? 0);
 
   const bandsForStatus = bandList.filter((band) => band.columns[selected].length > 0);
+  const shelfNode = boardNode(board, shelfId);
+
+  // Changing the visible status page — by swipe or by the sheet — retires the
+  // shelf rather than leaving it pointing at a card that's no longer on screen.
+  function changeStatus(status: BoardColumn) {
+    setSelected(status);
+    setShelfId(null);
+  }
 
   function onTouchStart(e: React.TouchEvent) {
     const t = e.touches[0];
@@ -667,7 +710,7 @@ function MobileBoard({
       BOARD_STATUS_ORDER,
     );
     if (target !== null && isBoardColumn(target)) {
-      setSelected(target);
+      changeStatus(target);
     }
   }
 
@@ -706,7 +749,7 @@ function MobileBoard({
                     <BoardCard
                       node={node}
                       column={selected}
-                      onOpen={onOpenNode}
+                      onOpen={setShelfId}
                       offline={offline}
                       mobile
                     />
@@ -716,13 +759,24 @@ function MobileBoard({
             </section>
           ))
         )}
+        {shelfNode !== undefined && (
+          <QuickShelf
+            key={shelfNode.id}
+            node={shelfNode}
+            onClose={() => {
+              setShelfId(null);
+            }}
+            onOpenNode={onOpenNode}
+            offline={offline}
+          />
+        )}
       </div>
       <StatusSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         selected={selected}
         statusCount={statusCount}
-        onSelect={setSelected}
+        onSelect={changeStatus}
       />
     </div>
   );
@@ -762,8 +816,8 @@ export function BoardView({
 
   // The open quick view (MMR-223) — a single in-surface selection, not the
   // `?node=` dossier address. Desktop renders it as a drop panel below the
-  // card's band row; on mobile a card tap keeps calling onOpenNode (the mobile
-  // shelf wiring is deferred to MMR-258).
+  // card's band row via this quickId; mobile owns an equivalent local shelfId
+  // inside MobileBoard (MMR-258) — the two surfaces never share selection.
   const [quickId, setQuickId] = useState<string | null>(null);
   const closeQuick = () => {
     setQuickId(null);

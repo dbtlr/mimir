@@ -130,7 +130,7 @@ describe('quickViewPanel — desktop drop panel', () => {
 });
 
 describe('quickShelf — mobile shelf', () => {
-  it('the primary verb runs the first legal transition', async () => {
+  it('the primary verb runs the first legal transition (non-under-review status)', async () => {
     mutate.mockClear();
     const node = task({ id: 'MMR-8', status: 'ready', title: 'go' });
     mockDetail(node);
@@ -138,6 +138,53 @@ describe('quickShelf — mobile shelf', () => {
     // availableTransitions('ready')[0] === 'start'
     await userEvent.click(screen.getByText('Start'));
     expect(mutate).toHaveBeenCalledWith({ verb: 'start' });
+  });
+
+  it('under_review shows the Approve/Return verdict pair instead of the generic primary (MMR-258)', () => {
+    const node = task({ id: 'MMR-13', status: 'under_review', title: 'sign off' });
+    mockDetail(node);
+    render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    expect(screen.getByText('Approve')).toBeDefined();
+    expect(screen.getByText('Return…')).toBeDefined();
+    // done/return move out of the generic primary slot, so no bare "Done" button.
+    expect(screen.queryByText('Done')).toBeNull();
+  });
+
+  it('the verdict pair Approve runs the done verb', async () => {
+    mutate.mockClear();
+    const node = task({ id: 'MMR-14', status: 'under_review', title: 'sign off' });
+    mockDetail(node);
+    render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    await userEvent.click(screen.getByText('Approve'));
+    expect(mutate).toHaveBeenCalledWith({ verb: 'done' });
+  });
+
+  it('the verdict pair Return… opens the reason dialog rather than mutating immediately', async () => {
+    mutate.mockClear();
+    const node = task({ id: 'MMR-15', status: 'under_review', title: 'sign off' });
+    mockDetail(node);
+    render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    await userEvent.click(screen.getByText('Return…'));
+    expect(screen.getByPlaceholderText(/context for the next agent/i)).toBeDefined();
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('the remaining verbs (park/block/abandon) still surface under Verbs… for under_review', async () => {
+    const node = task({ id: 'MMR-16', status: 'under_review', title: 'sign off' });
+    mockDetail(node);
+    render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    await userEvent.click(screen.getByText('Verbs…'));
+    await expect(screen.findByText('Park')).resolves.toBeDefined();
+    expect(screen.getByText('Block')).toBeDefined();
+    expect(screen.getByText('Abandon')).toBeDefined();
+  });
+
+  it('offline inerts the verdict pair', () => {
+    const node = task({ id: 'MMR-17', status: 'under_review', title: 'sign off' });
+    mockDetail(node);
+    render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} offline />, { wrapper });
+    expect(screen.getByText('Approve')).toHaveProperty('disabled', true);
+    expect(screen.getByText('Return…')).toHaveProperty('disabled', true);
   });
 
   it('the Verbs… menu surfaces the remaining transitions (park needs a reason)', async () => {

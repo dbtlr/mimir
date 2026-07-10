@@ -407,9 +407,13 @@ function useVerbRunner(id: string) {
 
 /**
  * The mobile shelf (6c). A fixed bottom sheet: drag handle, id + status pill +
- * close, title, 2-line description, and three ≥44px actions — the primary verb,
- * a "Verbs…" menu for the rest, and "Dossier ↗". The handle is decorative (no
- * drag-to-dismiss in this scope); ✕ closes. 180ms ease-out slide-up.
+ * close, title, 2-line description, and ≥44px actions — the primary verb, a
+ * "Verbs…" menu for the rest, and "Dossier ↗". Under review swaps the primary
+ * slot for the same **Approve** / **Return…** verdict pair the desktop drop
+ * panel shows (MMR-258): Approve fires `done` directly, Return… opens the
+ * reason dialog for `return`; the remaining verbs (park/block/abandon) still
+ * land under "Verbs…". The handle is decorative (no drag-to-dismiss in this
+ * scope); ✕ closes. 180ms ease-out slide-up.
  */
 export function QuickShelf({
   node,
@@ -454,8 +458,15 @@ export function QuickShelf({
   }, []);
 
   const verbs = availableTransitions(node.status);
-  const primary = verbs[0];
-  const rest = primary === undefined ? verbs : verbs.slice(1);
+  const isUnderReview = node.status === 'under_review';
+  // Under review, done/return move out of the generic primary slot into the
+  // Approve/Return verdict pair below; everything else still falls to Verbs….
+  const primary = isUnderReview ? undefined : verbs[0];
+  const rest = isUnderReview
+    ? verbs.filter((v) => v.verb !== 'done' && v.verb !== 'return')
+    : verbs.slice(1);
+  const approveVerb = verbs.find((v) => v.verb === 'done');
+  const returnVerb = verbs.find((v) => v.verb === 'return');
   const description = detail.data?.description ?? node.description ?? null;
 
   return (
@@ -496,6 +507,34 @@ export function QuickShelf({
       <p className="text-card-mobile font-semibold leading-[1.45] text-ink-bright">{node.title}</p>
       {description != null && description !== '' && (
         <p className="line-clamp-2 text-meta leading-[1.6] text-ink">{description}</p>
+      )}
+      {isUnderReview && (
+        <div className="flex gap-2">
+          {approveVerb !== undefined && (
+            <ActionButton
+              variant="attention"
+              disabled={offline}
+              className="min-h-11 flex-1"
+              onClick={() => {
+                run(approveVerb);
+              }}
+            >
+              Approve
+            </ActionButton>
+          )}
+          {returnVerb !== undefined && (
+            <ActionButton
+              variant="outline"
+              disabled={offline}
+              className="min-h-11 flex-1"
+              onClick={() => {
+                run(returnVerb);
+              }}
+            >
+              Return…
+            </ActionButton>
+          )}
+        </div>
       )}
       <div className="flex gap-2">
         {primary !== undefined && (
