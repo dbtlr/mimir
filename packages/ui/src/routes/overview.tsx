@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 
 import { projectsQuery } from '../api/queries';
 import { LaneSection } from '../components/lane-section';
-import { NodeDrawer } from '../components/node-drawer';
+import { NodeDossier } from '../components/node-dossier';
 import { OfflineBanner } from '../components/offline-banner';
 import { ProjectCard } from '../components/project-card';
 import { ActionButton } from '../components/ui/action-button';
@@ -110,7 +110,7 @@ export function OverviewPage() {
             );
           })()}
       </main>
-      <NodeDrawer nodeId={node} onClose={closeNode} onOpenNode={openNode} />
+      <NodeDossier nodeId={node} onClose={closeNode} onOpenNode={openNode} offline={conn.offline} />
     </>
   );
 }

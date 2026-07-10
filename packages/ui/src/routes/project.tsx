@@ -5,7 +5,7 @@ import { boardDoneQuery, boardLiveQuery, projectQuery, treeQuery } from '../api/
 import { BoardView } from '../components/board';
 import { DistributionBar } from '../components/distribution-bar';
 import { NewTaskButton } from '../components/new-task-button';
-import { NodeDrawer } from '../components/node-drawer';
+import { NodeDossier } from '../components/node-dossier';
 import { OfflineBanner } from '../components/offline-banner';
 import { ProjectSettingsButton } from '../components/project-settings-button';
 import { StatusBadge } from '../components/status-badge';
@@ -157,7 +157,7 @@ export function ProjectPage() {
           </p>
         )}
       </main>
-      <NodeDrawer nodeId={node} onClose={closeNode} onOpenNode={openNode} offline={conn.offline} />
+      <NodeDossier nodeId={node} onClose={closeNode} onOpenNode={openNode} offline={conn.offline} />
     </>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { projectsQuery, tasksQuery } from '../api/queries';
 import type { TaskFilters } from '../api/queries';
-import { NodeDrawer } from '../components/node-drawer';
+import { NodeDossier } from '../components/node-dossier';
 import { OfflineBanner } from '../components/offline-banner';
 import { StaleBadge } from '../components/signal-badges';
 import { StatusDot } from '../components/status-dot';
@@ -191,7 +191,7 @@ export function TasksPage() {
           )}
         </div>
       </main>
-      <NodeDrawer
+      <NodeDossier
         nodeId={search.node}
         onClose={closeNode}
         onOpenNode={openNode}
