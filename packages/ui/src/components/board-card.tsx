@@ -51,12 +51,15 @@ export function BoardCard({
   onOpen,
   offline,
   sortable,
+  selected,
 }: {
   node: WireNode;
   column: SwimlaneColumn;
   onOpen: (id: string) => void;
   offline?: boolean;
   sortable?: CardSortable;
+  /** The quick-view selection mark (MMR-223): a ring + a caret tying it to the drop panel below. */
+  selected?: boolean;
 }) {
   const { mutate } = useTransition(node.id);
   const [returning, setReturning] = useState(false);
@@ -86,17 +89,32 @@ export function BoardCard({
       style={sortable?.style}
       className={cn(
         cardVariants({ variant: isDone ? 'recessed' : 'default' }),
-        'group flex flex-col gap-1.5 rounded-[9px] px-[13px] py-[11px] transition-colors',
+        'group relative flex flex-col gap-1.5 rounded-[9px] px-[13px] py-[11px] transition-colors',
         !isDone && `border-l-2 ${STATUS_META[node.status].border}`,
         // The neutral hover border must not win over the verdict card's violet
         // emphasis border (tailwind-merge keeps both; `hover:` outranks it on hover).
         !isDone && !isUnderReview && 'hover:border-line-bright',
         isUnderReview &&
           'border-attention/40 dark:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-attention)_10%,transparent)]',
+        // The quick-view selection ring (MMR-223): teal wash for any non-under-review
+        // status; under-review already carries its violet ring, so it's not restacked.
+        selected === true &&
+          !isUnderReview &&
+          'border-accent/40 dark:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_10%,transparent)]',
         isDone && 'opacity-80',
         sortable?.isDragging === true && 'opacity-50',
       )}
     >
+      {selected === true && (
+        <span
+          aria-hidden
+          style={{ bottom: '-15px' }}
+          className={cn(
+            'absolute left-1/2 h-0 w-0 -translate-x-1/2 border-x-8 border-x-transparent border-b-8',
+            isUnderReview ? 'border-b-attention/40' : 'border-b-accent/40',
+          )}
+        />
+      )}
       <div className="flex items-center justify-between gap-2">
         <span
           className={cn('font-mono text-mono-id', isDone ? 'text-ink-ghost' : 'text-ink-faint')}

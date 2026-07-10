@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, vi } from 'vitest';
 
@@ -13,8 +14,21 @@ vi.mock('../api/mutations', () => ({
   useTransition: () => ({ mutate: vi.fn() }),
 }));
 
+// The quick view fetches the node's detail facet on open; resolve it so the
+// panel/shelf mount cleanly (the shell renders from the in-memory node anyway).
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
+apiGet.mockImplementation((path: string) =>
+  path.endsWith('/annotations')
+    ? Promise.resolve({ items: [], total: 0 })
+    : Promise.resolve({ description: null }),
+);
+
 function wrapper({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>;
+  const client = new QueryClient({
+    defaultOptions: { queries: { refetchInterval: false, retry: false } },
+  });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
 /** The desktop swimlane container — the surface under test (mobile is a separate branch). */
@@ -160,7 +174,7 @@ describe('boardView — swimlane', () => {
     expect(swipeTarget('ready', -150, 200, ids)).toBeNull(); // vertical-dominant
   });
 
-  it('clicking a card opens its node', () => {
+  it('clicking a card opens the quick view, not the dossier (MMR-223)', async () => {
     const onOpen = vi.fn();
     const board = buildBoard([task({ id: 'MMR-8', status: 'ready', title: 'open me' })], [], NOW);
     render(
@@ -173,7 +187,29 @@ describe('boardView — swimlane', () => {
       />,
       { wrapper },
     );
-    within(swimlane()).getByText('open me').closest('button')?.click();
+    const title = within(swimlane()).getByText('open me').closest('button');
+    await userEvent.click(title as HTMLElement);
+    // The card selects into the drop panel — it does not route to `?node=`.
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(within(swimlane()).getByTestId('quick-panel')).toBeDefined();
+  });
+
+  it("the drop panel's Full dossier link routes via onOpenNode (MMR-223)", async () => {
+    const onOpen = vi.fn();
+    const board = buildBoard([task({ id: 'MMR-8', status: 'ready', title: 'open me' })], [], NOW);
+    render(
+      <BoardView
+        board={board}
+        bands="off"
+        onOpenNode={onOpen}
+        doneTotal={0}
+        onViewDone={vi.fn()}
+      />,
+      { wrapper },
+    );
+    const title = within(swimlane()).getByText('open me').closest('button');
+    await userEvent.click(title as HTMLElement);
+    await userEvent.click(within(swimlane()).getByText('Full dossier ↗'));
     expect(onOpen).toHaveBeenCalledWith('MMR-8');
   });
 });

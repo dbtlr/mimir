@@ -15,6 +15,7 @@ import { useReorder } from '../api/mutations';
 import type { WireNode, WireTreeNode } from '../api/types';
 import { SWIMLANE_COLUMNS, SWIMLANE_RANKABLE, buildBands } from '../lib/bands';
 import type { Band, BandMode, SwimlaneColumn } from '../lib/bands';
+import { BOARD_COLUMNS } from '../lib/board';
 import type { Board, BoardColumn } from '../lib/board';
 import { cn } from '../lib/cn';
 import { reorderArgs } from '../lib/reorder';
@@ -23,6 +24,7 @@ import { STATUS_META } from '../lib/status';
 import { BoardCard } from './board-card';
 import { DistributionBar } from './distribution-bar';
 import { NodeCard } from './node-card';
+import { QuickShelf, QuickViewPanel } from './node-quick-view';
 import { StatusDot } from './status-dot';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
 import { Tabs, TabsContent } from './ui/tabs';
@@ -54,6 +56,17 @@ function isRankable(column: BoardColumn): column is RankableColumn {
 /** The ordered ids of a column (rank order as served). */
 export function columnIds(board: Board, column: BoardColumn): string[] {
   return board[column].map((n) => n.id);
+}
+
+/** The board node with a given id, wherever it sits — the quick view's source record. */
+function findBoardNode(board: Board, id: string): WireNode | undefined {
+  for (const column of BOARD_COLUMNS) {
+    const found = board[column].find((n) => n.id === id);
+    if (found !== undefined) {
+      return found;
+    }
+  }
+  return undefined;
 }
 
 /** A drop within a column → the reorder body, or null for a no-op. */
@@ -242,12 +255,12 @@ function gridTemplate(spine: boolean): string {
 /** A draggable card: useSortable feeds the grip + ref into NodeCard. */
 function SortableCard({
   node,
-  onOpenNode,
+  onQuickOpen,
   offline,
   ancestry,
 }: {
   node: WireNode;
-  onOpenNode: (id: string) => void;
+  onQuickOpen: (id: string) => void;
   offline?: boolean;
   ancestry?: string;
 }) {
@@ -258,7 +271,7 @@ function SortableCard({
   return (
     <NodeCard
       node={node}
-      onOpen={onOpenNode}
+      onOpen={onQuickOpen}
       offline={offline}
       ancestry={ancestry}
       sortable={{
@@ -275,13 +288,15 @@ function SortableCard({
 function SortableBoardCard({
   node,
   column,
-  onOpenNode,
+  onQuickOpen,
   offline,
+  selected,
 }: {
   node: WireNode;
   column: SwimlaneColumn;
-  onOpenNode: (id: string) => void;
+  onQuickOpen: (id: string) => void;
   offline?: boolean;
+  selected?: boolean;
 }) {
   const { setNodeRef, transform, transition, attributes, listeners, isDragging } = useSortable({
     disabled: offline,
@@ -291,8 +306,9 @@ function SortableBoardCard({
     <BoardCard
       node={node}
       column={column}
-      onOpen={onOpenNode}
+      onOpen={onQuickOpen}
       offline={offline}
+      selected={selected}
       sortable={{
         handleProps: { ...attributes, ...listeners },
         isDragging,
@@ -312,13 +328,15 @@ function SortableBoardCard({
 function SwimlaneColumnCell({
   band,
   column,
-  onOpenNode,
+  onQuickOpen,
   offline,
+  quickId,
 }: {
   band: Band;
   column: SwimlaneColumn;
-  onOpenNode: (id: string) => void;
+  onQuickOpen: (id: string) => void;
   offline?: boolean;
+  quickId: string | null;
 }) {
   const items = band.columns[column];
   if (items.length === 0) {
@@ -333,11 +351,18 @@ function SwimlaneColumnCell({
             <SortableBoardCard
               node={node}
               column={column}
-              onOpenNode={onOpenNode}
+              onQuickOpen={onQuickOpen}
               offline={offline}
+              selected={node.id === quickId}
             />
           ) : (
-            <BoardCard node={node} column={column} onOpen={onOpenNode} offline={offline} />
+            <BoardCard
+              node={node}
+              column={column}
+              onOpen={onQuickOpen}
+              offline={offline}
+              selected={node.id === quickId}
+            />
           )}
         </li>
       ))}
@@ -352,17 +377,37 @@ function SwimlaneColumnCell({
   );
 }
 
+/** The selected quick-view node if it lives in this band — the drop-panel anchor. */
+function quickNodeInBand(band: Band, quickId: string | null): WireNode | undefined {
+  if (quickId === null) {
+    return undefined;
+  }
+  for (const column of SWIMLANE_COLUMNS) {
+    const found = band.columns[column].find((n) => n.id === quickId);
+    if (found !== undefined) {
+      return found;
+    }
+  }
+  return undefined;
+}
+
 /** The desktop swimlane: a column-header row, then one grid row per band. */
 function SwimlaneGrid({
   bands,
   spine,
   onOpenNode,
+  onQuickOpen,
+  onQuickClose,
+  quickId,
   offline,
   headerCount,
 }: {
   bands: Band[];
   spine: boolean;
   onOpenNode: (id: string) => void;
+  onQuickOpen: (id: string) => void;
+  onQuickClose: () => void;
+  quickId: string | null;
   offline?: boolean;
   headerCount: Record<SwimlaneColumn, number>;
 }) {
@@ -381,27 +426,44 @@ function SwimlaneGrid({
       {bands.length === 0 && (
         <p className="py-6 text-center text-tag text-ink-faint">Nothing on the board yet</p>
       )}
-      {bands.map((band, i) => (
-        <div
-          key={band.key}
-          className={cn(
-            'grid items-start gap-3 py-3.5',
-            i < bands.length - 1 && 'border-b border-line',
-          )}
-          style={{ gridTemplateColumns: template }}
-        >
-          {spine && <BandSpine band={band} />}
-          {SWIMLANE_COLUMNS.map((column) => (
-            <SwimlaneColumnCell
-              key={column}
-              band={band}
-              column={column}
-              onOpenNode={onOpenNode}
-              offline={offline}
-            />
-          ))}
-        </div>
-      ))}
+      {bands.map((band, i) => {
+        const quickNode = quickNodeInBand(band, quickId);
+        return (
+          <div
+            key={band.key}
+            className={cn(
+              'grid items-start gap-3 py-3.5',
+              i < bands.length - 1 && 'border-b border-line',
+            )}
+            style={{ gridTemplateColumns: template }}
+          >
+            {spine && <BandSpine band={band} />}
+            {SWIMLANE_COLUMNS.map((column) => (
+              <SwimlaneColumnCell
+                key={column}
+                band={band}
+                column={column}
+                onQuickOpen={onQuickOpen}
+                offline={offline}
+                quickId={quickId}
+              />
+            ))}
+            {quickNode !== undefined && (
+              // The panel owns its 14px top gap (mt-3.5); `-mt-3` cancels the
+              // band grid's own 12px row-gap so the two don't stack to ~26px.
+              <div className="-mt-3" style={{ gridColumn: '1 / -1' }}>
+                <QuickViewPanel
+                  key={quickNode.id}
+                  node={quickNode}
+                  onClose={onQuickClose}
+                  onOpenNode={onOpenNode}
+                  offline={offline}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -409,13 +471,13 @@ function SwimlaneGrid({
 function ColumnCards({
   board,
   column,
-  onOpenNode,
+  onQuickOpen,
   offline,
   ancestry,
 }: {
   board: Board;
   column: BoardColumn;
-  onOpenNode: (id: string) => void;
+  onQuickOpen: (id: string) => void;
   offline?: boolean;
   ancestry?: Map<string, string>;
 }) {
@@ -435,14 +497,14 @@ function ColumnCards({
           {rankable ? (
             <SortableCard
               node={node}
-              onOpenNode={onOpenNode}
+              onQuickOpen={onQuickOpen}
               offline={offline}
               ancestry={ancestry?.get(node.id)}
             />
           ) : (
             <NodeCard
               node={node}
-              onOpen={onOpenNode}
+              onOpen={onQuickOpen}
               offline={offline}
               ancestry={ancestry?.get(node.id)}
             />
@@ -612,6 +674,16 @@ export function BoardView({
     under_review: board.under_review.length,
   };
 
+  // The open quick view (MMR-223) — a single in-surface selection, not the
+  // `?node=` dossier address. Desktop renders it as a drop panel, mobile as a
+  // shelf; both read the same id, and the lookup self-heals if a refetch moves
+  // the node off the board.
+  const [quickId, setQuickId] = useState<string | null>(null);
+  const quickNode = quickId !== null ? findBoardNode(board, quickId) : undefined;
+  const closeQuick = () => {
+    setQuickId(null);
+  };
+
   // Mobile: swipe left/right to move between the column tabs (MMR-70).
   const [mobileTab, setMobileTab] = useState<string>('in_progress');
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -671,6 +743,9 @@ export function BoardView({
             bands={bandList}
             spine={spine}
             onOpenNode={onOpenNode}
+            onQuickOpen={setQuickId}
+            onQuickClose={closeQuick}
+            quickId={quickId}
             offline={offline}
             headerCount={headerCount}
           />
@@ -704,7 +779,7 @@ export function BoardView({
                     <ColumnCards
                       board={board}
                       column={column}
-                      onOpenNode={onOpenNode}
+                      onQuickOpen={setQuickId}
                       offline={offline}
                       ancestry={ancestry}
                     />
@@ -713,6 +788,15 @@ export function BoardView({
               </TabsContent>
             ))}
           </Tabs>
+          {quickNode !== undefined && (
+            <QuickShelf
+              key={quickNode.id}
+              node={quickNode}
+              onClose={closeQuick}
+              onOpenNode={onOpenNode}
+              offline={offline}
+            />
+          )}
         </div>
       </DndContext>
     </div>
