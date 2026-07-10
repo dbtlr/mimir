@@ -15,6 +15,17 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Fixture vault generator** (MMR-255). A standalone dev script
+  (`bun run fixtures:vault [path]`) seeds a throwaway Norn-managed vault with a
+  one-of-everything set of work states — every Status word as a leaf and a
+  container rollup, both open-ended-home readings, a backdated going-cold cohort
+  (via a frozen clock), all four attention lanes across four plausibly-named
+  projects, an orphan and an orphan-muted case, a dependency chain, tags,
+  artifacts, and seeds in all four lanes — so the console's visual smokes can
+  screenshot state-dependent UI treatments without pointing at a live personal
+  vault. Built through the real core mutation path (no raw markdown writes); not
+  wired into the release binary or CLI dispatch. Regenerates into a gitignored
+  `.dev/fixture-vault` by default.
 - **Board swimlanes** (MMR-221). The project board (`/p/:key?view=board`) is
   rebuilt on the Meridian design system as a band-spine × status-column grid.
   The header restyles to spec (title, key chip, status pill, rollup bar) and
