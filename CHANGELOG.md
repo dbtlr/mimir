@@ -34,6 +34,23 @@ release. When a release is cut, this section is promoted to
   close), TanStack Query data flow, invalidate-and-refetch writes, and offline
   inerting of every write affordance are preserved. Adds a reusable `pill` shape
   to the status-chip kit variant.
+
+- **Node quick views** (MMR-223). Clicking a board card now opens a compact,
+  read-only preview of that node in place — distinct from the full dossier — in
+  two renderings gated on the board's existing `md:` split. On desktop it's a
+  **drop panel** (6a): a full-width row inserted below the selected card's band
+  row, the card marked with a ring (violet for under-review, teal otherwise) and
+  a caret tying it to the panel, which shows the clamped description and signals
+  on the left and, on the right, either the verdict block (**Approve** / **Return…**,
+  the real `done`/`return` verbs) for under-review nodes or a status-context
+  summary otherwise. On mobile it's a **shelf** (6c): a fixed bottom sheet with
+  the id, status pill, title, clamped description, and three ≥44px actions — the
+  primary verb, a **Verbs…** menu for the rest, and **Dossier ↗**. Esc closes the
+  panel; ✕ closes either; only one is open at a time. The description and latest
+  note are fetched per open (`nodeQuery`/`annotationsQuery`, mirroring the drawer)
+  with a skeleton while loading; verbs run through the existing transition
+  mutation and disable offline. The panel's **Full dossier ↗** and the shelf's
+  **Dossier ↗** route through the existing `?node=` node-detail mechanism.
 - **Fixture vault generator** (MMR-255). A standalone dev script
   (`bun run fixtures:vault [path]`) seeds a throwaway Norn-managed vault with a
   one-of-everything set of work states — every Status word as a leaf and a
