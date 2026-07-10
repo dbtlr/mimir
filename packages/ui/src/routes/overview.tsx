@@ -110,7 +110,7 @@ export function OverviewPage() {
             );
           })()}
       </main>
-      <NodeDossier nodeId={node} onClose={closeNode} onOpenNode={openNode} />
+      <NodeDossier nodeId={node} onClose={closeNode} onOpenNode={openNode} offline={conn.offline} />
     </>
   );
 }

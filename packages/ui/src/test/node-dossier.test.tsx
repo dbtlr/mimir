@@ -19,6 +19,16 @@ vi.mock('@tanstack/react-router', async (orig) => ({
   useNavigate: () => navigate,
 }));
 
+/** A minimal WireTreeNode for the Move… picker (parentOptions reads id/title/type). */
+function treeNode(
+  id: string,
+  title: string,
+  type: 'initiative' | 'phase' | 'project',
+  children: unknown[] = [],
+) {
+  return { ...task({ id, status: 'in_progress', title, type }), children };
+}
+
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
     defaultOptions: { queries: { refetchInterval: false, retry: false } },
@@ -275,6 +285,69 @@ describe('nodeDossier', () => {
       expect.stringContaining('/api/nodes/'),
       expect.not.objectContaining({ external_ref: null }),
     );
+  });
+
+  it('surfaces the description body and carried-forward meta rows', async () => {
+    mockNode(
+      task({
+        completed_at: '2026-07-01T00:00:00.000Z',
+        description: 'The full unclamped body text.',
+        external_ref: 'GH-123',
+        id: 'MMR-80',
+        status: 'in_progress',
+        target: '2026-08-01',
+        title: 'described task',
+      }),
+    );
+    render(<NodeDossier nodeId="MMR-80" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+
+    await screen.findByText('described task');
+    expect(screen.getByText('The full unclamped body text.')).toBeDefined();
+    // Carried-forward meta rows the drawer used to show (regression guard).
+    expect(screen.getByText('target')).toBeDefined();
+    expect(screen.getByText('2026-08-01')).toBeDefined();
+    expect(screen.getByText('created')).toBeDefined();
+    expect(screen.getByText('updated')).toBeDefined();
+    expect(screen.getByText('completed')).toBeDefined();
+    // A non-URL external_ref renders as plain text, never a dead in-app link.
+    const ref = screen.getByText('GH-123');
+    expect(ref.tagName).not.toBe('A');
+  });
+
+  it('move… opens the reparent picker and moves to the chosen parent', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-16' });
+    const node = task({ id: 'MMR-16', parent: 'MMR-1', status: 'in_progress', title: 'chunk' });
+    const tree = treeNode('MMR', 'proj', 'project', [
+      treeNode('MMR-1', 'Initiative one', 'initiative'),
+      treeNode('MMR-2', 'Initiative two', 'initiative'),
+    ]);
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/nodes/MMR-16') {
+        return Promise.resolve(node);
+      }
+      if (path === '/api/nodes/MMR-16/annotations') {
+        return Promise.resolve({ items: [], total: 0 });
+      }
+      if (path === '/api/projects/MMR/tree') {
+        return Promise.resolve(tree);
+      }
+      if (path.startsWith('/api/nodes/')) {
+        return Promise.resolve(
+          task({ id: 'MMR-1', status: 'in_progress', title: 'Initiative one' }),
+        );
+      }
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    render(<NodeDossier nodeId="MMR-16" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+      wrapper,
+    });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Move…' }));
+    // Options render once the tree loads (which also enables the select).
+    await screen.findByRole('option', { name: /Initiative two/ });
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'New parent' }), 'MMR-2');
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }));
+    expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-16/move', { to: 'MMR-2' });
   });
 
   it('clicking an artifact navigates to the reader with provenance', async () => {

@@ -10,7 +10,7 @@ import { annotationsQuery, nodeQuery } from '../api/queries';
 import type { WireAnnotation, WireHistoryEntry, WireNode } from '../api/types';
 import { cn } from '../lib/cn';
 import type { TaskFormValues } from '../lib/schemas';
-import { ago } from '../lib/time';
+import { absoluteTime, ago } from '../lib/time';
 import { availableTransitions } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { AnnotationComposer } from './annotation-composer';
@@ -99,7 +99,7 @@ function VerbChip({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex items-center rounded-full px-2.5 py-1 text-tag font-medium text-ink-dim inset-ring inset-ring-line transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
+      className="inline-flex items-center rounded-full px-2.5 py-1 text-tag font-medium whitespace-nowrap text-ink-dim inset-ring inset-ring-line transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
     >
       {children}
     </button>
@@ -122,6 +122,42 @@ function RefRow({ refNode, onOpenNode }: { refNode: NodeRef; onOpenNode: (id: st
         <span className="truncate text-ink-dim">{refNode.title}</span>
       )}
     </button>
+  );
+}
+
+/** external_ref is free text (e.g. `GH-123`, `PR #41`) — only link genuine URLs. */
+function isHttpUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/** external_ref as a `↗` link when it's a URL, else plain mono text (no dead link). */
+function ExternalRef({ value }: { value: string }) {
+  if (isHttpUrl(value)) {
+    return (
+      <a
+        href={value}
+        target="_blank"
+        rel="noreferrer"
+        className="self-start font-mono text-mono-id text-accent-foreground hover:text-accent"
+      >
+        {value} ↗
+      </a>
+    );
+  }
+  return <span className="font-mono text-mono-id text-ink-dim">{value}</span>;
+}
+
+function MetaRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex justify-between gap-3 text-tag">
+      <dt className="text-ink-dim">{label}</dt>
+      <dd className="text-right font-mono text-ink">{children}</dd>
+    </div>
   );
 }
 
@@ -212,6 +248,18 @@ const TRANSITION_DOT: Record<string, string> = {
   under_review: 'bg-status-under-review',
 };
 
+/** Hold-reason callout wash, keyed to the hold kind (parked ≠ blocked hue). */
+const HOLD_CALLOUT: Record<'blocked' | 'parked', { box: string; label: string }> = {
+  blocked: {
+    box: 'bg-status-blocked/10 inset-ring-status-blocked/24',
+    label: 'text-status-blocked',
+  },
+  parked: {
+    box: 'bg-status-parked/10 inset-ring-status-parked/24',
+    label: 'text-status-parked',
+  },
+};
+
 /** Timeline dot: filled (status-colored) for transitions/creation, outlined for notes. */
 function FeedDot({ item }: { item: FeedItem }) {
   if (item.variant === 'annotation') {
@@ -244,13 +292,23 @@ function TransitionLine({ entry }: { entry: WireHistoryEntry }) {
 function TimelineNote({ content }: { content: string }) {
   const ref = useRef<HTMLParagraphElement>(null);
   const [expanded, setExpanded] = useState(false);
-  const [overflowing, setOverflowing] = useState(false);
+  // Total rendered line count (measured while clamped), so the expand affordance
+  // can carry the handoff-of-record copy "Show all · N lines ⌄" (brief §2).
+  const [lines, setLines] = useState(0);
   useLayoutEffect(() => {
     const el = ref.current;
-    if (el !== null) {
-      setOverflowing(el.scrollHeight - el.clientHeight > 1);
+    if (el === null) {
+      return;
+    }
+    const lh = Number.parseFloat(getComputedStyle(el).lineHeight);
+    if (Number.isFinite(lh) && lh > 0) {
+      setLines(Math.round(el.scrollHeight / lh));
+    } else {
+      // No computed line-height (jsdom): fall back to bare overflow detection.
+      setLines(el.scrollHeight - el.clientHeight > 1 ? 4 : 0);
     }
   }, [content]);
+  const overflowing = lines > 3;
   return (
     <div className="flex flex-col gap-0.5">
       <p
@@ -268,7 +326,7 @@ function TimelineNote({ content }: { content: string }) {
           onClick={() => setExpanded((e) => !e)}
           className="self-start text-micro text-accent-foreground transition-colors hover:text-accent"
         >
-          {expanded ? 'Show less ⌃' : 'Show all ⌄'}
+          {expanded ? 'Show less ⌃' : `Show all · ${String(lines)} lines ⌄`}
         </button>
       )}
     </div>
@@ -318,15 +376,19 @@ function Timeline({
     }
     return (
       <ol className="flex flex-col gap-3">
-        {items.map((i) => (
-          <FeedRow key={`${i.variant}-${i.at}-${i.sort}`} item={i} />
+        {items.map((i, idx) => (
+          // Index disambiguates same-millisecond entries (two annotations can share
+          // created_at), which `${variant}-${at}-${sort}` alone would collide on.
+          <FeedRow key={`${i.variant}-${i.sort}-${String(idx)}`} item={i} />
         ))}
       </ol>
     );
   };
 
+  // The shared TabsTrigger base carries `.microlabel` (uppercase + text-micro);
+  // the dossier tabs are mixed-case per brief §2, so reset transform/tracking/size.
   const tabClass =
-    'flex-none rounded-none border-b-2 border-transparent px-1 py-2.5 data-[selected]:border-accent data-[selected]:bg-transparent data-[selected]:text-ink-bright';
+    'flex-none rounded-none border-b-2 border-transparent px-1 py-2.5 text-meta font-medium tracking-normal normal-case data-[selected]:border-accent data-[selected]:bg-transparent data-[selected]:text-ink-bright';
 
   return (
     <Tabs defaultValue="all" className="flex min-h-0 flex-col bg-well-recessed">
@@ -385,16 +447,7 @@ function VerdictBlock({
   return (
     <div className="flex flex-col gap-2.5 rounded-xl bg-gradient-to-br from-attention/10 to-attention/[0.03] p-3.5 inset-ring inset-ring-attention/35">
       {summary !== undefined && <p className="text-xs leading-relaxed text-ink">{summary}</p>}
-      {node.external_ref != null && (
-        <a
-          href={node.external_ref}
-          target="_blank"
-          rel="noreferrer"
-          className="self-start font-mono text-mono-id text-accent-foreground hover:text-accent"
-        >
-          {node.external_ref} ↗
-        </a>
-      )}
+      {node.external_ref != null && <ExternalRef value={node.external_ref} />}
       <div className="flex gap-2">
         {doneSpec !== undefined && (
           <ActionButton
@@ -523,9 +576,15 @@ function DossierBody({
                   {v.needsReason && '…'}
                 </VerbChip>
               ))}
-              <VerbChip disabled={offline} onClick={() => setMoving(true)}>
-                Move…
-              </VerbChip>
+              {/* Move… only for tasks: parentOptions() enumerates initiative/
+                  phase parents (the valid targets for a task), so the picker has
+                  no valid selection for a non-task node — gating here avoids the
+                  broken/no-op picker an initiative or phase would otherwise open. */}
+              {data.type === 'task' && (
+                <VerbChip disabled={offline} onClick={() => setMoving(true)}>
+                  Move…
+                </VerbChip>
+              )}
               {offline !== true && data.type === 'task' && (
                 <VerbChip onClick={() => setEditing(true)}>Edit</VerbChip>
               )}
@@ -580,14 +639,23 @@ function DossierBody({
                 />
               )}
 
-              {data.hold_reason != null && data.hold !== 'none' && data.hold !== undefined && (
-                <div className="rounded-lg bg-status-blocked/10 p-2.5 text-xs text-ink inset-ring inset-ring-status-blocked/24">
-                  <span className="microlabel mr-2 text-status-blocked">{data.hold}</span>
-                  {data.hold_reason}
-                </div>
-              )}
+              {(data.hold === 'parked' || data.hold === 'blocked') &&
+                data.hold_reason != null &&
+                data.hold_reason.trim() !== '' && (
+                  <div
+                    className={cn(
+                      'rounded-lg p-2.5 text-xs text-ink inset-ring',
+                      HOLD_CALLOUT[data.hold].box,
+                    )}
+                  >
+                    <span className={cn('microlabel mr-2', HOLD_CALLOUT[data.hold].label)}>
+                      {data.hold}
+                    </span>
+                    {data.hold_reason}
+                  </div>
+                )}
 
-              {data.description != null && (
+              {data.description != null && data.description.trim() !== '' && (
                 <section className="flex flex-col gap-1.5">
                   <Microlabel>Description</Microlabel>
                   <p className="text-body leading-[1.65] whitespace-pre-wrap text-ink">
@@ -661,6 +729,27 @@ function DossierBody({
                   </div>
                 </section>
               )}
+
+              {/* Meta rows carried forward from the retired drawer: target,
+                  external ref, and the created/updated/completed timestamps —
+                  the dossier's only home for these fields. external_ref rides the
+                  verdict block while under_review, so it's shown here otherwise. */}
+              <section className="flex flex-col gap-1.5">
+                <Microlabel>Details</Microlabel>
+                <dl className="flex flex-col gap-1">
+                  {data.target != null && <MetaRow label="target">{data.target}</MetaRow>}
+                  {data.status !== 'under_review' && data.external_ref != null && (
+                    <MetaRow label="external ref">
+                      <ExternalRef value={data.external_ref} />
+                    </MetaRow>
+                  )}
+                  <MetaRow label="created">{absoluteTime(data.created_at)}</MetaRow>
+                  <MetaRow label="updated">{absoluteTime(data.updated_at)}</MetaRow>
+                  {data.completed_at != null && (
+                    <MetaRow label="completed">{absoluteTime(data.completed_at)}</MetaRow>
+                  )}
+                </dl>
+              </section>
             </div>
           )}
         </div>

@@ -30,8 +30,11 @@ describe('annotationComposer', () => {
     );
   });
 
-  it('is disabled when offline', () => {
+  it('is inert when offline: the field itself is disabled, so no note can be composed', () => {
     wrap(<AnnotationComposer nodeId="MMR-9" offline />);
+    // The textarea being disabled is the real offline gate — asserting the button
+    // alone is a tautology (empty field already disables it regardless of offline).
+    expect(screen.getByRole('textbox')).toBeDisabled();
     expect(screen.getByRole('button', { name: /append/i })).toBeDisabled();
   });
 });
