@@ -67,6 +67,18 @@ release. When a release is cut, this section is promoted to
   card write affordances stay disabled. `new` and `abandoned` show their rollup
   counts in the sheet but are inert (the board never fetches their card lists).
 
+- **Meridian wave-2 wiring** (MMR-258). Closes out the board/quick-view
+  integration: the mobile board's card tap now opens the **shelf** (MMR-223)
+  instead of routing straight to the dossier — its **Dossier ↗** still opens
+  the full detail — and the shelf closes when the visible status page changes
+  (swipe or the nine-word sheet). Under review, the shelf swaps its generic
+  primary verb for the same **Approve** / **Return…** pair the desktop drop
+  panel shows, with park/block/abandon still under **Verbs…**. The nine-word
+  sheet's `new`/`abandoned` rows are now plain, quieter census rows — a count
+  with no selection affordance — rather than disabled-looking dead buttons.
+  The legacy kebab (`NodeCard`, `TransitionMenu`), unmounted since the Meridian
+  rebuild, is removed.
+
 - **Fixture vault generator** (MMR-255). A standalone dev script
   (`bun run fixtures:vault [path]`) seeds a throwaway Norn-managed vault with a
   one-of-everything set of work states — every Status word as a leaf and a
