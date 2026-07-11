@@ -95,6 +95,28 @@ describe('nodeDossier', () => {
     expect(screen.getByText('IN PROGRESS')).toBeDefined();
   });
 
+  it('a dep in both depends_on and awaiting_on renders one chip, with the awaiting reading', async () => {
+    mockNode(
+      task({
+        deps: {
+          awaiting_on: [{ id: 'MMR-20', status: 'blocked', title: 'still gating' }],
+          blocking: [],
+          depends_on: [{ id: 'MMR-20', status: 'done', title: 'still gating (stale)' }],
+        },
+        id: 'MMR-21',
+        status: 'in_progress',
+        title: 'dep dedupe task',
+      }),
+    );
+
+    render(<NodeDossier nodeId="MMR-21" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+
+    await screen.findByText('dep dedupe task');
+    expect(screen.getAllByText('MMR-20')).toHaveLength(1);
+    expect(screen.getByText('still gating')).toBeDefined();
+    expect(screen.queryByText('still gating (stale)')).toBeNull();
+  });
+
   it('timeline merges transitions + annotations oldest-first, with the creation anchor', async () => {
     mockNode(
       task({

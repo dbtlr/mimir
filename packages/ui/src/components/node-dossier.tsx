@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/mutations';
 import { annotationsQuery, nodeQuery } from '../api/queries';
-import type { WireAnnotation, WireHistoryEntry, WireNode } from '../api/types';
+import type { WireAnnotation, WireDeps, WireHistoryEntry, WireNode } from '../api/types';
 import { cn } from '../lib/cn';
 import type { TaskFormValues } from '../lib/schemas';
 import { absoluteTime, ago } from '../lib/time';
@@ -124,6 +124,27 @@ function RefRow({ refNode, onOpenNode }: { refNode: NodeRef; onOpenNode: (id: st
       )}
     </button>
   );
+}
+
+/**
+ * The Blocking section's rows, deduped by node id — a dependency can appear
+ * in both `depends_on` (declared, possibly already settled) and `awaiting_on`
+ * (still gating), and the two arrays are iterated weakest-first so the
+ * stronger `awaiting_on`/`blocking` reading overwrites the row's content
+ * while keeping the id's first-seen position (its `depends_on` slot).
+ */
+function blockingRows(deps: WireDeps): NodeRef[] {
+  const rows = new Map<string, NodeRef>();
+  for (const r of deps.depends_on) {
+    rows.set(r.id, r);
+  }
+  for (const r of deps.awaiting_on ?? []) {
+    rows.set(r.id, r);
+  }
+  for (const r of deps.blocking) {
+    rows.set(r.id, r);
+  }
+  return [...rows.values()];
 }
 
 /** external_ref is free text (e.g. `GH-123`, `PR #41`) — only link genuine URLs. */
@@ -719,14 +740,8 @@ function DossierBody({
                     <section className="flex flex-col gap-1.5">
                       <Microlabel>Blocking</Microlabel>
                       <div className="flex flex-col gap-0.5">
-                        {data.deps.depends_on.map((r) => (
-                          <RefRow key={`dep-${r.id}`} refNode={r} onOpenNode={onOpenNode} />
-                        ))}
-                        {data.deps.awaiting_on?.map((r) => (
-                          <RefRow key={`await-${r.id}`} refNode={r} onOpenNode={onOpenNode} />
-                        ))}
-                        {data.deps.blocking.map((r) => (
-                          <RefRow key={`block-${r.id}`} refNode={r} onOpenNode={onOpenNode} />
+                        {blockingRows(data.deps).map((r) => (
+                          <RefRow key={r.id} refNode={r} onOpenNode={onOpenNode} />
                         ))}
                       </div>
                     </section>
