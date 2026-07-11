@@ -1,11 +1,12 @@
 import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
-import type { Priority, Size } from '@mimir/contract';
+import type { Priority, SeedKind, Size } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
+import { toast } from 'sonner';
 
-import { useCreateNode, useDepend } from '../api/mutations';
-import type { CreateNodeInput } from '../api/mutations';
+import { useCreateNode, useDepend, usePromoteSeed } from '../api/mutations';
+import type { CreateNodeInput, PromoteSeedInput } from '../api/mutations';
 import { projectsQuery, tasksQuery, treeQuery } from '../api/queries';
 import type { WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
@@ -53,6 +54,18 @@ export type AuthoringPrefill = {
   home?: string;
 };
 
+/**
+ * MMR-248 promote mode: the same sheet, germinating a seed into a task. Its
+ * presence locks the type to `task`, swaps the submit to
+ * `POST /api/seeds/:id/promote`, and turns on the provenance strip + promote
+ * footer. `kind` drives the honest home suggestion (bug → the project's lone
+ * standing container, else no suggestion).
+ */
+export type AuthoringPromote = {
+  seedId: string;
+  kind: SeedKind;
+};
+
 export type AuthoringSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -64,6 +77,8 @@ export type AuthoringSheetProps = {
   prefill?: AuthoringPrefill;
   /** MMR-248 seam: replaces the NEW microlabel (e.g. PROMOTE SEED + kind chip). */
   headerSlot?: ReactNode;
+  /** MMR-248: present in promote mode — germinate a seed rather than create a node. */
+  promote?: AuthoringPromote;
 };
 
 /**
@@ -95,7 +110,9 @@ export function AuthoringSheet(props: AuthoringSheetProps) {
         props.onOpenChange(next);
       }}
     >
-      {props.open && <AuthoringSheetBody {...props} dismissGuardRef={dismissGuard} />}
+      {props.open && (
+        <AuthoringSheetBody key={props.promote?.seedId} {...props} dismissGuardRef={dismissGuard} />
+      )}
     </Sheet>
   );
 }
@@ -107,6 +124,7 @@ function AuthoringSheetBody({
   onOpenNode,
   prefill,
   headerSlot,
+  promote,
   dismissGuardRef,
 }: AuthoringSheetProps & { dismissGuardRef: RefObject<DismissGuard | null> }) {
   const [type, setType] = useState<AuthoringType>('task');
@@ -144,8 +162,20 @@ function AuthoringSheetBody({
   });
   const homes =
     type !== 'initiative' && tree.data !== undefined ? homeOptions(type, tree.data) : [];
-  // A stale pick (after a type/project switch) falls back to the first legal home.
-  const pickedHome = homes.find((h) => h.id === parentPick) ?? homes[0];
+  // MMR-248 honest home suggestion: a bug germinates into the project's standing
+  // (open-ended) container — but ONLY when exactly one determinate candidate
+  // exists. Any other kind (or an ambiguous set) yields no suggestion, so the
+  // picker's normal first-home default stands and no "suggested" label is shown.
+  const suggestedHome =
+    promote !== undefined && promote.kind === 'bug'
+      ? (() => {
+          const standing = homes.filter((h) => h.openEnded);
+          return standing.length === 1 ? standing[0] : undefined;
+        })()
+      : undefined;
+  // A stale pick (after a type/project switch) falls back to the suggestion, then
+  // the first legal home. Until the user picks, the suggestion is the effective home.
+  const pickedHome = homes.find((h) => h.id === parentPick) ?? suggestedHome ?? homes[0];
   const effectiveParent = type === 'initiative' ? projKey : (pickedHome?.id ?? '');
   const homesPending = type !== 'initiative' && projKey !== '' && tree.isPending;
 
@@ -194,7 +224,8 @@ function AuthoringSheetBody({
 
   const create = useCreateNode();
   const depend = useDepend();
-  const submitting = create.isPending || depend.isPending;
+  const promoteSeed = usePromoteSeed(promote?.seedId ?? '');
+  const submitting = create.isPending || depend.isPending || promoteSeed.isPending;
   const canCreate =
     offline !== true &&
     !submitting &&
@@ -225,6 +256,63 @@ function AuthoringSheetBody({
       }
     }
     return input;
+  }
+
+  function buildPromoteInput(): PromoteSeedInput {
+    const input: PromoteSeedInput = { parent: effectiveParent, title: title.trim() };
+    const desc = description.trim();
+    if (desc !== '') {
+      input.description = desc;
+    }
+    if (tags.length > 0) {
+      input.tags = tags;
+    }
+    if (priority !== '') {
+      input.priority = priority;
+    }
+    if (size !== '') {
+      input.size = size;
+    }
+    return input;
+  }
+
+  // MMR-248 promote submit: one POST to the promote endpoint (never the create
+  // route). Success toasts the spawned task id, invalidates seeds + node keys via
+  // the hook, and closes; "& open" routes to the created task's dossier.
+  async function handlePromote(openAfter: boolean) {
+    if (!canCreate || promote === undefined) {
+      return;
+    }
+    let result: Awaited<ReturnType<typeof promoteSeed.mutateAsync>>;
+    try {
+      result = await promoteSeed.mutateAsync(buildPromoteInput());
+    } catch {
+      return; // toasted by the hook; the sheet stays open, fields intact
+    }
+    const spawnedId = result.created;
+    toast.success(
+      spawnedId !== undefined
+        ? `Promoted ${promote.seedId} → ${spawnedId}`
+        : `Promoted ${promote.seedId}`,
+    );
+    if (openAfter && spawnedId !== undefined) {
+      onOpenNode?.(spawnedId);
+    }
+    onOpenChange(false);
+  }
+
+  // Footer labels — a helper each to keep the JSX free of nested ternaries.
+  function openActionLabel(): string {
+    if (promote !== undefined) {
+      return 'Promote & open';
+    }
+    return created !== null ? 'Retry deps & open' : 'Create & open';
+  }
+  function submitActionLabel(): string {
+    if (promote !== undefined) {
+      return 'Promote ↵';
+    }
+    return created !== null ? 'Retry deps ↵' : 'Create ↵';
   }
 
   function resetForNext() {
@@ -319,12 +407,14 @@ function AuthoringSheetBody({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void handleCreate(false);
+          void (promote !== undefined ? handlePromote(false) : handleCreate(false));
         }}
         className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-5 py-[18px]"
       >
         {/* ── header: NEW · type selector · esc hint ─────────────────────── */}
-        <SheetTitle className="sr-only">New work item</SheetTitle>
+        <SheetTitle className="sr-only">
+          {promote !== undefined ? 'Promote seed' : 'New work item'}
+        </SheetTitle>
         {/* Retry posture (node created, deps pending) freezes everything the
             already-created node can no longer absorb — only DEPENDS ON and the
             footer stay live. */}
@@ -334,14 +424,18 @@ function AuthoringSheetBody({
         >
           <header className="flex flex-wrap items-center gap-2.5">
             {headerSlot ?? <span className="microlabel text-accent-foreground">New</span>}
-            <SegmentedControl
-              options={TYPE_OPTIONS}
-              value={type}
-              onChange={setType}
-              ariaLabel="Type"
-              className="rounded-full"
-              segmentClassName="min-h-11 rounded-full px-3 text-mono-id tracking-normal normal-case sm:min-h-0"
-            />
+            {/* A seed germinates into a task — the type is fixed, so the selector is
+                hidden in promote mode (the type stays `task`, its initial value). */}
+            {promote === undefined && (
+              <SegmentedControl
+                options={TYPE_OPTIONS}
+                value={type}
+                onChange={setType}
+                ariaLabel="Type"
+                className="rounded-full"
+                segmentClassName="min-h-11 rounded-full px-3 text-mono-id tracking-normal normal-case sm:min-h-0"
+              />
+            )}
             <span aria-hidden className="ml-auto font-mono text-micro text-ink-ghost">
               esc
             </span>
@@ -394,6 +488,11 @@ function AuthoringSheetBody({
                         title="open-ended"
                       >
                         ∞
+                      </span>
+                    )}
+                    {suggestedHome !== undefined && pickedHome?.id === suggestedHome.id && (
+                      <span className="text-micro text-ink-ghost">
+                        suggested — bug → standing home
                       </span>
                     )}
                   </>
@@ -513,7 +612,9 @@ function AuthoringSheetBody({
         </fieldset>
 
         {/* ── DEPENDS ON — chip field + task search (tasks only) ─────────── */}
-        {type === 'task' && (
+        {/* Hidden in promote mode: the promote endpoint takes no deps, so a field
+            here would be a no-op — the task's deps are edited post-germination. */}
+        {type === 'task' && promote === undefined && (
           <div className="flex flex-col gap-1.5">
             <label htmlFor="authoring-dep-search" className="microlabel text-ink-faint">
               Depends on
@@ -733,26 +834,44 @@ function AuthoringSheetBody({
           </p>
         )}
 
-        {/* ── footer — create another · Create & open · Create ↵ ─────────── */}
+        {/* ── provenance contract (promote only) — the link-back verdict pact ─ */}
+        {promote !== undefined && (
+          <p className="rounded-[9px] bg-accent/5 px-[13px] py-2.5 text-meta leading-[1.5] text-ink-dim inset-ring inset-ring-accent/18">
+            The task links back to{' '}
+            <span className="font-mono text-mono-id text-accent-foreground">{promote.seedId}</span>;
+            when it settles, the seed surfaces as ready to resolve — your verdict, never
+            auto-closed.
+          </p>
+        )}
+
+        {/* ── footer — promote copy + actions, or the create-mode controls ──── */}
         <footer className="mt-auto flex flex-wrap items-center gap-2.5 border-t border-line pt-3.5">
-          <label className="flex items-center gap-2 text-tag text-ink-dim">
-            <input
-              type="checkbox"
-              checked={createAnother}
-              onChange={(e) => setCreateAnother(e.target.checked)}
-              className="size-[13px] rounded-[4px] accent-accent"
-            />
-            create another
-          </label>
+          {promote !== undefined ? (
+            <span className="text-tag text-ink-dim">
+              seed stays in the queue as <i>promoted</i>
+            </span>
+          ) : (
+            <label className="flex items-center gap-2 text-tag text-ink-dim">
+              <input
+                type="checkbox"
+                checked={createAnother}
+                onChange={(e) => setCreateAnother(e.target.checked)}
+                className="size-[13px] rounded-[4px] accent-accent"
+              />
+              create another
+            </label>
+          )}
           <div className="ml-auto flex items-center gap-2">
             <ActionButton
               size="sm"
               variant="outline"
               disabled={!canCreate}
-              onClick={() => void handleCreate(true)}
+              onClick={() =>
+                void (promote !== undefined ? handlePromote(true) : handleCreate(true))
+              }
               className="min-h-11 sm:min-h-0"
             >
-              {created !== null ? 'Retry deps & open' : 'Create & open'}
+              {openActionLabel()}
             </ActionButton>
             <ActionButton
               size="sm"
@@ -760,7 +879,7 @@ function AuthoringSheetBody({
               disabled={!canCreate}
               className="min-h-11 font-bold sm:min-h-0"
             >
-              {created !== null ? 'Retry deps ↵' : 'Create ↵'}
+              {submitActionLabel()}
             </ActionButton>
           </div>
         </footer>
