@@ -11,6 +11,7 @@ import type { BandMode } from './lib/bands';
 import { ArtifactsPage } from './routes/artifacts';
 import { OverviewPage } from './routes/overview';
 import { ProjectPage } from './routes/project';
+import { SeedsPage } from './routes/seeds';
 import { Shell } from './routes/shell';
 import { TasksPage } from './routes/tasks';
 
@@ -112,6 +113,29 @@ export const tasksRoute = createRoute({
   },
 });
 
+export type SeedsSearch = {
+  /** The filter to one project's board (`all`/absent = every board). */
+  project?: string;
+  /** The selected seed — deep-linkable; drives the reading pane (wide) or in-place expand (narrow). */
+  seed?: string;
+};
+
+export const seedsRoute = createRoute({
+  component: SeedsPage,
+  getParentRoute: () => rootRoute,
+  path: '/seeds',
+  validateSearch: (search: Record<string, unknown>): SeedsSearch => {
+    const out: SeedsSearch = {};
+    for (const k of ['project', 'seed'] as const) {
+      const v = search[k];
+      if (typeof v === 'string' && v !== '') {
+        out[k] = v;
+      }
+    }
+    return out;
+  },
+});
+
 /**
  * The Meridian kit showcase — a dev-only foundation surface. The whole branch
  * (route + its lazy `import()`) lives inside the `import.meta.env.DEV` guard, so
@@ -130,6 +154,7 @@ const routeTree = rootRoute.addChildren([
   overviewRoute,
   projectRoute,
   artifactsRoute,
+  seedsRoute,
   tasksRoute,
   ...devRoutes,
 ]);
