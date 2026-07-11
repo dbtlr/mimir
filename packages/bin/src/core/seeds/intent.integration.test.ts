@@ -142,12 +142,17 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     expect(created1).not.toBe('');
     expect(first.seed.lifecycle).toBe('promoted');
     expect(first.seed.spawned).toEqual([created1]);
+    // spawnedId (MMR-259) is the composer-facing id — the spawned task, matching
+    // `created` in create mode.
+    expect(first.spawnedId).toBe(created1);
 
     // Repeatable while promoted — a second germination appends a second link.
     const second = await promoteSeed(store, 'MMR-s1', { parent });
     const created2 = second.created ?? '';
     expect(second.seed.spawned).toEqual([created1, created2]);
     expect(second.seed.lifecycle).toBe('promoted');
+    expect(second.spawnedId).toBe(created2);
+    expect(second.spawnedId).not.toBe(first.spawnedId);
   });
 
   test('promote --link records existing work without creating; --parent + --link conflict', async () => {
@@ -163,6 +168,9 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     expect(linked.created).toBeUndefined();
     expect(linked.seed.spawned).toEqual([existingRef]);
     expect(linked.seed.lifecycle).toBe('promoted');
+    // spawnedId (MMR-259) is the linked id in link mode, even though `created`
+    // (create-mode-only) stays undefined.
+    expect(linked.spawnedId).toBe(existingRef);
 
     expect(
       await rejectMessage(() => promoteSeed(store, 'MMR-s1', { link: existingRef, parent })),

@@ -908,7 +908,7 @@ export async function cmdSeeds(c: Ctx): Promise<number> {
 
 export async function cmdPromote(c: Ctx): Promise<number> {
   const id = requireSeedId(c, 'promote');
-  const { seed, created } = await promoteSeed(c.store, id, {
+  const { seed, created, spawnedId } = await promoteSeed(c.store, id, {
     description: optStr(c, 'desc'),
     link: optStr(c, 'link'),
     parent: optStr(c, 'parent'),
@@ -924,7 +924,7 @@ export async function cmdPromote(c: Ctx): Promise<number> {
       ? `promoted ${seed.id} · spawned ${created}`
       : `promoted ${seed.id} · recorded existing work`,
   );
-  renderSeedView(seed, c.format, c.io, created);
+  renderSeedView(seed, c.format, c.io, created, spawnedId);
   return 0;
 }
 

@@ -514,8 +514,18 @@ export function renderSeeds(
 
 /** Render one seed (a `get`/write echo) in any format. `created` is the promote
  * echo's sibling task id (MMR-245) — undefined everywhere but `promote` create
- * mode, where {@link formatPromoteJson} folds it in identically to MCP/HTTP. */
-export function renderSeedView(seed: SeedView, format: Format, io: Io, created?: string): void {
+ * mode, where {@link formatPromoteJson} folds it in identically to MCP/HTTP.
+ * `idsTarget` overrides the `ids`-format id — `promote` passes the spawned or
+ * linked id (MMR-259) so a composer's `$(mimir promote … -f ids)` captures the
+ * task it just made, not the seed; every other verb leaves it unset and echoes
+ * the seed id as before. */
+export function renderSeedView(
+  seed: SeedView,
+  format: Format,
+  io: Io,
+  created?: string,
+  idsTarget?: string,
+): void {
   switch (format) {
     case 'json':
     case 'jsonl': {
@@ -523,7 +533,7 @@ export function renderSeedView(seed: SeedView, format: Format, io: Io, created?:
       break;
     }
     case 'ids': {
-      io.write(seed.id);
+      io.write(idsTarget ?? seed.id);
       break;
     }
     case 'table':
