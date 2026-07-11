@@ -101,14 +101,18 @@ describe('formatNodeJson', () => {
     expect('total' in parsed).toBe(false);
   });
 
-  test('upstream present on the wire when set, absent when not', () => {
+  test('upstream rides the task wire like external_ref: set, or null when unset', () => {
     const withUpstream = parseJson<Record<string, unknown>>(
       formatNodeJson(task('MMR-2', { upstream: 'NRN-s3' })),
     );
     expect(withUpstream.upstream).toBe('NRN-s3');
 
-    const without = parseJson<Record<string, unknown>>(formatNodeJson(task('MMR-3')));
-    expect('upstream' in without).toBe(false);
+    // buildNodeView assigns the model's `string | null` — a task without an
+    // upstream serializes `upstream: null`, present like `external_ref`.
+    const unset = parseJson<Record<string, unknown>>(
+      formatNodeJson(task('MMR-3', { upstream: null })),
+    );
+    expect(unset.upstream).toBeNull();
   });
 
   test('phase omits task-only fields, includes target', () => {
@@ -127,6 +131,7 @@ describe('formatNodeJson', () => {
     expect(parsed.target).toBe('ship');
     expect('priority' in parsed).toBe(false);
     expect('hold' in parsed).toBe(false);
+    expect('upstream' in parsed).toBe(false);
   });
 });
 

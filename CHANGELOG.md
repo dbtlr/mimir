@@ -882,8 +882,9 @@ release. When a release is cut, this section is promoted to
   (`nodeToWire` / `GET /api/nodes/:id`) never emitted it, so a requester had no
   way to see the pointer it had set. `get` now shows an `upstream` detail row
   next to `external ref` when the field is set, and `nodeToWire` projects
-  `upstream` (bare, task-only, omitted when unset — the `external_ref`
-  convention) so it rides the JSON/JSONL wire and the HTTP node payload.
+  `upstream` (task-only: set or `null` on tasks, absent on other node types —
+  the `external_ref` convention) so it rides the JSON/JSONL wire and the HTTP
+  node payload.
   Console UI is deferred to the dossier consuming it (MMR-222).
 - **Dossier Blocking section no longer double-chips a dependency in both
   `depends_on` and `awaiting_on`** (MMR-261). A task's still-unsettled own
