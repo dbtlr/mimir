@@ -92,6 +92,9 @@ function openSheet() {
   fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
 }
 
+const follows = (a: Element, b: Element) =>
+  (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+
 describe('projectSettings lifecycle (MMR-230)', () => {
   it('shows the LIFECYCLE section with the archive contract copy', () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
@@ -137,6 +140,26 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     await vi.waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/MMR/unarchive', undefined);
     });
+  });
+
+  it('describes the archive consequences to assistive tech (aria-describedby)', () => {
+    wrap(<ProjectSettingsButton project={baseProject} />);
+    openSheet();
+    expect(screen.getByRole('button', { name: 'Archive project' })).toHaveAccessibleDescription(
+      /Archiving freezes the project and hides it everywhere by default/,
+    );
+  });
+
+  it('keeps Cancel between Save and the no-confirm Archive in tab order', () => {
+    wrap(<ProjectSettingsButton project={baseProject} />);
+    openSheet();
+    const save = screen.getByRole('button', { name: /save/i });
+    const cancel = screen.getByRole('button', { name: /cancel/i });
+    const archiveButton = screen.getByRole('button', { name: 'Archive project' });
+    // DOM order IS tab order here (no tabindex overrides): Save → Cancel →
+    // Archive, so overshooting Save by one Tab lands on Cancel, never Archive.
+    expect(follows(save, cancel)).toBe(true);
+    expect(follows(cancel, archiveButton)).toBe(true);
   });
 
   it('the archive button disables at 40% when offline', () => {

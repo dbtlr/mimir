@@ -1,9 +1,31 @@
 import { afterEach, describe, expect, vi } from 'vitest';
 
-import { apiSend } from '../api/client';
+import { apiGet, apiSend } from '../api/client';
+import { ApiError, isNotFound } from '../api/errors';
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe('apiGet', () => {
+  it('throws an ApiError carrying the HTTP status on a non-2xx answer', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('gone', { status: 404 }));
+    const failing = apiGet('/api/projects/SR');
+    await expect(failing).rejects.toBeInstanceOf(ApiError);
+    await expect(failing).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe('isNotFound', () => {
+  it('is true only for a server-answered 404', () => {
+    expect(isNotFound(new ApiError('GET /api/projects/SR → 404', 404))).toBe(true);
+    expect(isNotFound(new ApiError('boom', 500))).toBe(false);
+  });
+
+  it('is false for network-shaped failures — unreachable is not not-found', () => {
+    expect(isNotFound(new TypeError('fetch failed'))).toBe(false);
+    expect(isNotFound(undefined)).toBe(false);
+  });
 });
 
 describe('apiSend', () => {

@@ -120,7 +120,10 @@ function NewProjectForm({ onDone }: { onDone: () => void }) {
             {(key) => {
               const k = key.trim() === '' ? 'KEY' : key.trim();
               return (
-                <p id={helperId} className="text-[11.5px] leading-normal text-ink-ghost">
+                // ink-dim, not the mock's ink-ghost: this is the one warning
+                // that the key is permanent — it must clear WCAG AA (ghost on
+                // well-850 sits near 2.5:1 in both themes).
+                <p id={helperId} className="text-[11.5px] leading-normal text-ink-dim">
                   auto from title · permanent — it names every ID (
                   <span className="font-mono">{k}-1</span>, <span className="font-mono">{k}-2</span>
                   …)
@@ -153,7 +156,8 @@ function NewProjectForm({ onDone }: { onDone: () => void }) {
 
       {/* Footer */}
       <div className="flex items-center gap-2.5 border-t border-line pt-3.5">
-        <span className="text-tag text-ink-ghost">lands in At rest until work starts moving</span>
+        {/* ink-dim over the mock's ink-ghost — same WCAG AA bump as the KEY helper. */}
+        <span className="text-tag text-ink-dim">lands in At rest until work starts moving</span>
         <form.Subscribe selector={(state) => [state.values.title, state.values.key] as const}>
           {([title, key]) => (
             <ActionButton

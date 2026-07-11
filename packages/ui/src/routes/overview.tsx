@@ -64,10 +64,19 @@ export function OverviewPage() {
           (() => {
             const onOpen = (key: string) => void navigate({ params: { key }, to: '/p/$key' });
             if (projects.data.items.length === 0) {
+              // A fresh vault's one useful action is creating a project —
+              // offer the trigger right here, not a pointer at the CLI.
               return (
-                <p className="text-xs text-ink-dim">
-                  No projects yet — create one with `mimir create project`.
-                </p>
+                <div className="flex flex-col items-start gap-3">
+                  <p className="text-xs text-ink-dim">No projects yet.</p>
+                  <ActionButton
+                    className="px-3.5 py-1.5"
+                    disabled={conn.offline}
+                    onClick={() => setCreating(true)}
+                  >
+                    + New project
+                  </ActionButton>
+                </div>
               );
             }
             const grouping = groupIntoLanes(projects.data.items);

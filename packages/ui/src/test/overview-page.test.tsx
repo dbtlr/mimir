@@ -231,15 +231,14 @@ describe('overviewPage attention-router (MMR-102)', () => {
     });
   });
 
-  it('shows an empty state when there are no projects', async () => {
-    apiGet.mockImplementation((path: string) => {
-      if (path === '/api/projects') {
-        return Promise.resolve({ items: [], total: 0 });
-      }
-      return Promise.resolve({ items: [], total: 0 });
-    });
+  it('the empty state offers the create trigger, not a CLI pointer (MMR-230)', async () => {
+    apiGet.mockResolvedValue({ items: [], total: 0 });
     renderOverview();
 
     await expect(screen.findByText(/no projects yet/i)).resolves.toBeDefined();
+    expect(screen.queryByText(/mimir create project/)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /new project/i }));
+    await expect(screen.findByLabelText(/title/i)).resolves.toBeDefined();
+    expect(screen.getByText(/lands in At rest until work starts moving/)).toBeDefined();
   });
 });

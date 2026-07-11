@@ -1,6 +1,6 @@
 import { useForm } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useArchiveProject, useUnarchiveProject, useUpdateProject } from '../api/mutations';
@@ -29,6 +29,7 @@ export function ProjectSettingsButton({
   offline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const lifecycleCopyId = useId();
   const navigate = useNavigate();
   const update = useUpdateProject(project.id);
   const archive = useArchiveProject(project.id);
@@ -77,16 +78,21 @@ export function ProjectSettingsButton({
                 onCancel={() => setOpen(false)}
               />
               {/* LIFECYCLE (20b): archive is slate, not red — nothing is
-                  destroyed — and deliberately not adjacent to Save. */}
+                  destroyed — and deliberately not adjacent to Save (the form
+                  footer's DOM order keeps Cancel between Save and this button
+                  in the tab sequence). The contract copy doubles as the
+                  button's accessible description, so a screen reader hears
+                  the no-confirm consequences before activating it. */}
               <section className="flex flex-col gap-2.5 border-t border-line pt-3.5">
                 <h3 className="microlabel text-ink-faint">Lifecycle</h3>
-                <p className="text-[12.5px] leading-[1.65] text-ink-dim">
+                <p id={lifecycleCopyId} className="text-[12.5px] leading-[1.65] text-ink-dim">
                   Archiving freezes the project and hides it everywhere by default — board, picker,
                   tasks, attention. Everything stays readable from the Archived shelf. Reversible
                   any time; nothing is deleted.
                 </p>
                 <button
                   type="button"
+                  aria-describedby={lifecycleCopyId}
                   disabled={offline === true || archive.isPending}
                   onClick={handleArchive}
                   className="self-start rounded-lg bg-[#31485e] px-[15px] py-[7px] text-xs font-semibold text-white transition-colors hover:bg-[#31485e]/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
@@ -179,15 +185,11 @@ function ProjectSettingsForm({
         </form.Field>
       </div>
 
-      {/* Buttons */}
-      <div className="flex justify-end gap-2 pt-1">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded px-3 py-1.5 text-xs text-ink-dim hover:text-ink"
-        >
-          Cancel
-        </button>
+      {/* Buttons — DOM order Save→Cancel under row-reverse keeps the visual
+          Cancel|Save while putting Cancel between Save and the no-confirm
+          Archive button in the tab sequence, so overshooting Save by one Tab
+          never lands on Archive (brief §7). */}
+      <div className="flex flex-row-reverse justify-start gap-2 pt-1">
         <form.Subscribe selector={(state) => state.values.title}>
           {(title) => (
             <ActionButton
@@ -200,6 +202,13 @@ function ProjectSettingsForm({
             </ActionButton>
           )}
         </form.Subscribe>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded px-3 py-1.5 text-xs text-ink-dim hover:text-ink"
+        >
+          Cancel
+        </button>
       </div>
     </form>
   );
