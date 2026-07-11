@@ -1,4 +1,5 @@
-import type { TaskStatusWord } from '@mimir/contract';
+import type { StatusSelector, TaskStatusWord } from '@mimir/contract';
+import { STATUS_SELECTOR_VALUES } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -35,17 +36,43 @@ const DEFAULT_TRACK = TASK_STATUS_ORDER.slice(0, 3);
 const isTaskStatusWord = (v: string): v is TaskStatusWord =>
   (TASK_STATUS_ORDER as readonly string[]).includes(v);
 
-/** The concrete task status words in a (possibly comma-separated) `status` param —
- * union selectors (`live`, `all`, …) filter fine but render no chip. */
-function parseStatusWords(status: string | undefined): TaskStatusWord[] {
-  if (status === undefined) {
-    return [];
+/** The union universe selectors (`live`, `terminal`, `all`, `archived`) — never
+ * offered by the chips, but a deep link (or an old `/tasks` bookmark) can carry
+ * one, and the server filters on it, so the UI must show and preserve it. */
+type UnionSelector = Exclude<StatusSelector, TaskStatusWord>;
+
+const UNION_LABEL: Record<UnionSelector, string> = {
+  all: 'All',
+  archived: 'Archived',
+  live: 'Live',
+  terminal: 'Terminal',
+};
+
+const isUnionSelector = (v: string): v is UnionSelector =>
+  (STATUS_SELECTOR_VALUES as readonly string[]).includes(v) && !isTaskStatusWord(v);
+
+/** Every valid selector in a (possibly comma-separated) `status` param, split
+ * into concrete task words and union selectors. Both filter server-side and
+ * both must render as active chips; invalid tokens (e.g. `new`) drop. */
+function parseStatusSelectors(status: string | undefined): {
+  words: TaskStatusWord[];
+  unions: UnionSelector[];
+} {
+  const words: TaskStatusWord[] = [];
+  const unions: UnionSelector[] = [];
+  for (const token of (status ?? '').split(',').map((t) => t.trim())) {
+    if (isTaskStatusWord(token) && !words.includes(token)) {
+      words.push(token);
+    } else if (isUnionSelector(token) && !unions.includes(token)) {
+      unions.push(token);
+    }
   }
-  return status
-    .split(',')
-    .map((t) => t.trim())
-    .filter(isTaskStatusWord);
+  return { unions, words };
 }
+
+/** The canonical `status` param: words in display order, then union selectors. */
+const composeStatus = (words: readonly TaskStatusWord[], unions: readonly UnionSelector[]) =>
+  [...TASK_STATUS_ORDER.filter((w) => words.includes(w)), ...unions].join(',');
 
 /** HOME cell: mono project key › parent title, ∞ on standing (open-ended) homes. */
 function HomeCell({ node }: { node: WireNode }) {
@@ -58,7 +85,18 @@ function HomeCell({ node }: { node: WireNode }) {
     <>
       <span className="font-mono">{home.project_key}</span>
       {home.parent_title !== null && <> › {home.parent_title}</>}
-      {home.parent_open_ended === true && <span title="open-ended — a standing home"> ∞</span>}
+      {home.parent_open_ended === true && (
+        // role="img" + aria-label: `title` alone is unreliable AT — the glyph's
+        // meaning must survive without a mouse (the OpenEndedBadge idiom, sized
+        // down to table density where the literal-text badge doesn't fit).
+        <span
+          role="img"
+          aria-label="open-ended — a standing home"
+          title="open-ended — a standing home"
+        >
+          {' ∞'}
+        </span>
+      )}
     </>
   );
 }
@@ -129,13 +167,26 @@ export function TasksPage() {
     };
   }, [q, search.q]);
 
-  // The status chip-group state: concrete selected words, canonically ordered.
-  const statusWords = useMemo(() => parseStatusWords(search.status), [search.status]);
+  // The status chip-group state: concrete selected words plus any deep-linked
+  // union selectors. Toggling a word rebuilds the param from BOTH sets, so a
+  // union arriving by URL is never silently discarded by a chip click.
+  const { unions: statusUnions, words: statusWords } = useMemo(
+    () => parseStatusSelectors(search.status),
+    [search.status],
+  );
   const toggleStatus = (word: TaskStatusWord) => {
     const next = statusWords.includes(word)
       ? statusWords.filter((w) => w !== word)
       : [...statusWords, word];
-    setFilter({ status: TASK_STATUS_ORDER.filter((w) => next.includes(w)).join(',') });
+    setFilter({ status: composeStatus(next, statusUnions) });
+  };
+  const removeUnion = (union: UnionSelector) => {
+    setFilter({
+      status: composeStatus(
+        statusWords,
+        statusUnions.filter((u) => u !== union),
+      ),
+    });
   };
   const trackWords =
     statusWords.length > 0
@@ -271,6 +322,23 @@ export function TasksPage() {
               aria-label="Status filter"
               className="flex flex-wrap items-center gap-1 rounded-full border border-line-bright p-[3px]"
             >
+              {/* Deep-linked union selectors (live/terminal/all/archived) render as
+                  active, removable chips — accent wash, not a status wash, because
+                  they name a universe, not a word. */}
+              {statusUnions.map((union) => (
+                <button
+                  key={union}
+                  type="button"
+                  aria-pressed
+                  title={`${union} — a status union from the URL; click to remove`}
+                  onClick={() => {
+                    removeUnion(union);
+                  }}
+                  className="inline-flex items-center rounded-full bg-accent/9 px-2 py-0.5 text-tag font-semibold text-accent-foreground inset-ring inset-ring-accent/20 transition-colors hover:bg-accent/15"
+                >
+                  {UNION_LABEL[union]}
+                </button>
+              ))}
               {trackWords.map((word) => {
                 const selected = statusWords.includes(word);
                 return (
@@ -366,8 +434,11 @@ export function TasksPage() {
               </div>
               <div role="rowgroup">
                 {items.map((node) => {
-                  // Terminal rows demote by dropping an ink tier onto the recessed
-                  // well — never by opacity (ADR 0019 §7; opacity is offline's).
+                  // Terminal rows demote by ink tier alone — never by opacity
+                  // (ADR 0019 §7; opacity is offline's), and never by a row
+                  // ground: rows sit on the page well, where `well-recessed`
+                  // (defined against the card ground) reads RAISED in both
+                  // themes (the trap skeleton.tsx documents).
                   const demoted = node.status === 'done' || node.status === 'abandoned';
                   const meta = STATUS_META[node.status];
                   return (
@@ -389,7 +460,6 @@ export function TasksPage() {
                         ROW_GRID,
                         'hover:bg-well-850 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
                         node.status === 'under_review' && 'bg-attention/3',
-                        demoted && 'bg-well-recessed',
                         search.node === node.id && 'bg-well-800 inset-ring inset-ring-line-bright',
                       )}
                     >
@@ -398,19 +468,22 @@ export function TasksPage() {
                         <span
                           className={cn(
                             'font-mono text-micro tracking-[0.08em] whitespace-nowrap uppercase',
-                            meta.foreground,
+                            // The abandoned foreground token fails AA as text at
+                            // this size in both themes (~1.9:1 dark / ~3.4:1
+                            // light on the page well); the word must stay
+                            // legible — it is the status carrier for the
+                            // color-blind case. ink-dim passes in both themes;
+                            // the dot keeps the status hue.
+                            node.status === 'abandoned' ? 'text-ink-dim' : meta.foreground,
                           )}
                         >
                           {meta.label}
                         </span>
                       </span>
-                      <span
-                        role="cell"
-                        className={cn(
-                          'font-mono text-mono-id',
-                          demoted ? 'text-ink-ghost' : 'text-ink-faint',
-                        )}
-                      >
+                      {/* Metadata cells stay at the ink-faint baseline even when
+                          demoted — the ghost tier drops below ~2.6:1 on the page
+                          well; the demotion reads from the title + STATUS word. */}
+                      <span role="cell" className="font-mono text-mono-id text-ink-faint">
                         {node.id}
                       </span>
                       <span
@@ -423,13 +496,7 @@ export function TasksPage() {
                       >
                         {node.title}
                       </span>
-                      <span
-                        role="cell"
-                        className={cn(
-                          'truncate text-mono-id',
-                          demoted ? 'text-ink-ghost' : 'text-ink-faint',
-                        )}
-                      >
+                      <span role="cell" className="truncate text-mono-id text-ink-faint">
                         <HomeCell node={node} />
                       </span>
                       <span role="cell" className="flex items-center gap-1">
@@ -440,13 +507,7 @@ export function TasksPage() {
                           <SizeBadge size={node.size} />
                         )}
                       </span>
-                      <span
-                        role="cell"
-                        className={cn(
-                          'text-mono-id md:text-right',
-                          demoted ? 'text-ink-ghost' : 'text-ink-faint',
-                        )}
-                      >
+                      <span role="cell" className="text-mono-id text-ink-faint md:text-right">
                         {relativeTime(node.updated_at)}
                       </span>
                     </button>

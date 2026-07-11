@@ -137,10 +137,14 @@ describe('tasksPage (17a, MMR-228)', () => {
     const reviewRow = screen.getByRole('row', { name: /MMR-11/ });
     expect(within(reviewRow).getByText('MMR')).toBeDefined();
     expect(reviewRow.textContent).toContain('› Storage cutover');
-    expect(reviewRow.textContent).toContain('∞');
+    // the ∞ glyph carries its meaning without a mouse (role=img + aria-label,
+    // not a bare title attribute)
+    expect(
+      within(reviewRow).getByRole('img', { name: 'open-ended — a standing home' }).textContent,
+    ).toContain('∞');
   });
 
-  it('demotes terminal rows by ink tier (never opacity) and tints under_review', async () => {
+  it('demotes terminal rows by ink tier (never opacity or a row ground) and tints under_review', async () => {
     mockApi();
     renderTasks();
     await screen.findByText('Doctor the wire');
@@ -148,12 +152,21 @@ describe('tasksPage (17a, MMR-228)', () => {
     expect(review.className).toContain('bg-attention/3');
 
     const done = screen.getByRole('row', { name: /MMR-12/ });
-    expect(done.className).toContain('bg-well-recessed');
+    // well-recessed is defined against the card ground — on the page well it
+    // reads RAISED in both themes, inverting the demotion (skeleton.tsx trap)
+    expect(done.className).not.toContain('bg-well-recessed');
     expect(done.className).not.toContain('opacity');
     expect(within(done).getByText('Land the schema').className).toContain('text-ink-dim');
 
     const abandoned = screen.getByRole('row', { name: /MMR-13/ });
     expect(within(abandoned).getByText('Old dead end').className).toContain('line-through');
+    // the ABANDONED word stays legible (the abandoned foreground token fails AA
+    // as text at microlabel size) — ink-dim, never the illegible status tone
+    const label = within(abandoned).getByText('Abandoned');
+    expect(label.className).toContain('text-ink-dim');
+    expect(label.className).not.toContain('text-status-abandoned-foreground');
+    // metadata cells hold the ink-faint baseline rather than dropping to ghost
+    expect(within(abandoned).getByText('MMR-13').className).toContain('text-ink-faint');
   });
 
   it('status chips toggle in and out of the URL (filter → URL round trip)', async () => {
@@ -212,6 +225,46 @@ describe('tasksPage (17a, MMR-228)', () => {
     await waitFor(() => {
       expect(search(testRouter).status).toBe('abandoned');
     });
+  });
+
+  it('shows a deep-linked union selector as an active chip and preserves it on toggle', async () => {
+    mockApi();
+    const testRouter = renderTasks('/tasks?status=terminal');
+    const user = userEvent.setup();
+    await screen.findByText('Doctor the wire');
+
+    // the active union is visible — never an invisible filter (old /tasks
+    // bookmarks carry status=terminal/all)
+    const union = screen.getByRole('button', { name: 'Terminal' });
+    expect(union.getAttribute('aria-pressed')).toBe('true');
+
+    // toggling a word keeps the union rather than silently discarding it
+    await user.click(screen.getByRole('button', { name: 'Ready' }));
+    await waitFor(() => {
+      expect(search(testRouter).status).toBe('ready,terminal');
+    });
+
+    // the union chip is removable on its own
+    await user.click(screen.getByRole('button', { name: 'Terminal' }));
+    await waitFor(() => {
+      expect(search(testRouter).status).toBe('ready');
+    });
+  });
+
+  it('toggling a word off keeps a live union (status=done,live → live)', async () => {
+    mockApi();
+    const testRouter = renderTasks('/tasks?status=done,live');
+    const user = userEvent.setup();
+    await screen.findByText('Doctor the wire');
+
+    expect(screen.getByRole('button', { name: 'Live' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Done' }).getAttribute('aria-pressed')).toBe('true');
+
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => {
+      expect(search(testRouter).status).toBe('live');
+    });
+    expect(screen.getByText('/tasks?status=live')).toBeDefined();
   });
 
   it('never renders a pressed chip for the container-only `new` on a deep link', async () => {
