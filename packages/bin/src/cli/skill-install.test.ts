@@ -20,7 +20,7 @@ afterEach(async () => {
   await db.destroy();
 });
 
-test('the embedded skill carries the root + five references, all non-empty', () => {
+test('the embedded skill carries the root + six references, all non-empty', () => {
   const paths = SKILL_FILES.map((f) => f.path);
   expect(paths).toEqual([
     'SKILL.md',
@@ -29,6 +29,7 @@ test('the embedded skill carries the root + five references, all non-empty', () 
     'references/querying.md',
     'references/status-model.md',
     'references/tags.md',
+    'references/seeds.md',
   ]);
   for (const f of SKILL_FILES) {
     expect(f.content.length).toBeGreaterThan(200);

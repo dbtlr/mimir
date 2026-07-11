@@ -63,14 +63,21 @@ relaxes these.
   next agent's context. `unblock`/`unpark` on resume.
 - `abandon <id> "reason"` when an approach or task dies. Never delete, never leave a
   zombie `todo`.
-- **Discovered work = a new task** (`create task` + `depend` if it gates something),
-  never a silent widening of the current one. `annotate` the current task with what
-  you found.
-- **Discovered _non-work_ = a seed.** A bug you noticed, an idea, a capability ask —
-  especially against **another** board — implies no committed work, only triage:
-  `mimir seed "…" -k <kind> [-p KEY]`, never a prose note that decays. If it blocks
-  you: `block` your task **and** set `--upstream KEY-sN` — never a prose-only hold
-  (`references/seeds.md`).
+- **Discovered work on YOUR board = a new task** (`create task` + `depend` if it
+  gates something), never a silent widening of the current one — and **never a
+  seed**: if you can state the fix, you already triaged it. Review findings and
+  test follow-ups terminate in fixed, dismissed-with-reason, or deferred to a
+  **task**. `annotate` the current task with what you found.
+- **A seed covers exactly two cases** (`mimir seed "…" -k <kind> [-p KEY]`, never
+  a prose note that decays — `references/seeds.md`):
+  1. **Anything for ANOTHER board** (~90% of seeds) — a bug, feature, or
+     capability ask, however fully shaped the fix is. You never create tasks on
+     a board you don't own; the owning board commits its own work.
+  2. **An own-board idea or observation with no statable fix** —
+     decision-shaped ("should X?", "decide the policy"); it may or may not
+     germinate into work.
+- **If a seed blocks you:** `block` your task **and** set `--upstream KEY-sN` —
+  never a prose-only hold.
 - `annotate <id> "note"` when something lands mid-flight — a decision, a surprise, a
   scope change.
 - **The end-of-session sweep (the catch-all):** before ending, run
@@ -82,6 +89,7 @@ relaxes these.
 | ----------------------------------- | ------------------------------------------------ |
 | "I'll update statuses at the end"   | The end never comes. Transition at the moment.   |
 | "This was just a tiny fix"          | Tiny fixes are work. Track it or don't touch it. |
+| "I'll seed it so triage decides"    | A statable fix IS triaged. Own board → task.     |
 | "I don't want to clutter the board" | An untracked in-flight task IS the clutter.      |
 | "The user saw me do it"             | Mimir is the record, not the chat scroll.        |
 
