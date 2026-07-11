@@ -111,12 +111,12 @@ Guessing a verb (`describe`? `show`? `edit`?) or a flag either errors and burns 
 round-trip, or — worse — silently writes the wrong field. Grepping the source for a
 flag is the tell that you skipped this step.
 
-| Rationalization                        | Reality                                                     |
-| -------------------------------------- | ----------------------------------------------------------- |
-| "I remember the verb/flag"             | The surface drifts; memory misfires. Open the reference.    |
-| "`describe`/`show`/`edit` must exist"  | Only the referenced verbs exist. Guessing fails or misfires.|
-| "`mimir <cmd> -h` will remind me"      | There is no per-command help — the reference IS the help.   |
-| "It's one scalar field, I'll wing it"  | A wrong field patches the wrong row silently. Read first.   |
+| Rationalization                       | Reality                                                      |
+| ------------------------------------- | ------------------------------------------------------------ |
+| "I remember the verb/flag"            | The surface drifts; memory misfires. Open the reference.     |
+| "`describe`/`show`/`edit` must exist" | Only the referenced verbs exist. Guessing fails or misfires. |
+| "`mimir <cmd> -h` will remind me"     | There is no per-command help — the reference IS the help.    |
+| "It's one scalar field, I'll wing it" | A wrong field patches the wrong row silently. Read first.    |
 
 ## Routing
 
