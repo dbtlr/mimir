@@ -40,6 +40,8 @@ describe('artifactsPage', () => {
       </QueryClientProvider>,
     );
     await expect(screen.findByText('Artifacts browser')).resolves.toBeDefined();
-    expect(screen.getByPlaceholderText(/search title and body/i)).toBeDefined();
+    expect(screen.getByPlaceholderText(/search title \+ body/i)).toBeDefined();
+    expect(screen.getByText('1 frozen')).toBeDefined();
+    expect(screen.getByText('newest first · windowed, scroll for more')).toBeDefined();
   });
 });

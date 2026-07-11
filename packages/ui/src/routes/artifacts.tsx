@@ -15,7 +15,11 @@ import { artifactsRoute } from '../router';
 
 const FILTER_KEYS = ['project', 'tag', 'q', 'since', 'before'] as const;
 
-/** `/artifacts` — the portfolio artifact browser (master-detail). */
+/**
+ * `/artifacts` — the portfolio artifact browser (Meridian 16a/16b): a 360px
+ * master column (search, filter chips, date-grouped rows) beside the frozen
+ * reader; below `md` the two panes are mutually exclusive.
+ */
 export function ArtifactsPage() {
   const navigate = useNavigate();
   const search = artifactsRoute.useSearch();
@@ -73,34 +77,35 @@ export function ArtifactsPage() {
       to: '/p/$key',
     });
 
+  const openProject = (key: string) =>
+    void navigate({ params: { key }, search: { view: 'board' }, to: '/p/$key' });
+
   const selected = search.a;
 
   return (
     <>
       <OfflineBanner {...conn} />
-      <main className={cn('flex min-h-0 flex-1 flex-col', conn.offline && 'offline-demoted')}>
-        <h1 className="flex items-baseline gap-2 px-4 pt-3">
-          <span className="font-mono text-lg font-bold tracking-tight text-ink-bright">
-            Artifacts
-          </span>
-          {artifacts.data !== undefined && (
-            <span className="text-xs text-ink-dim">{artifacts.data.total}</span>
+      <main className={cn('flex min-h-0 flex-1', conn.offline && 'offline-demoted')}>
+        <div
+          className={cn(
+            'min-h-0 w-full flex-col border-line bg-well-950 md:flex md:w-90 md:shrink-0 md:border-r',
+            selected !== undefined ? 'hidden' : 'flex',
           )}
-        </h1>
-
-        <ArtifactFilters
-          filters={filters}
-          projects={(projects.data?.items ?? []).map((p) => p.id)}
-          onChange={setFilter}
-        />
-
-        <div className="flex min-h-0 flex-1">
-          <div
-            className={cn(
-              'min-h-0 w-full overflow-auto border-line md:w-80 md:shrink-0 md:border-r',
-              selected !== undefined && 'hidden md:block',
+        >
+          <header className="flex items-center gap-2.5 px-4 pt-4 pb-2.5">
+            <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">Artifacts</h1>
+            {artifacts.data !== undefined && (
+              <span className="ml-auto text-tag text-ink-faint">{artifacts.data.total} frozen</span>
             )}
-          >
+          </header>
+
+          <ArtifactFilters
+            filters={filters}
+            projects={(projects.data?.items ?? []).map((p) => p.id)}
+            onChange={setFilter}
+          />
+
+          <div className="min-h-0 flex-1 overflow-auto">
             {artifacts.isPending && <Skeleton className="m-2 h-40" />}
             {artifacts.data !== undefined && (
               <ArtifactList items={artifacts.data.items} selectedId={selected} onSelect={select} />
@@ -111,20 +116,31 @@ export function ArtifactsPage() {
               </p>
             )}
           </div>
-          <div
-            className={cn(
-              'min-h-0 flex-1 flex-col',
-              selected !== undefined ? 'flex' : 'hidden md:flex',
-            )}
-          >
-            {selected !== undefined ? (
-              <ArtifactReader id={selected} onBack={back} onOpenNode={openNode} />
-            ) : (
-              <p className="hidden w-full items-center justify-center p-8 text-xs text-ink-faint md:flex">
-                Select an artifact to read.
-              </p>
-            )}
-          </div>
+
+          <footer className="border-t border-line px-4 py-2 text-tag text-ink-ghost">
+            newest first · windowed, scroll for more
+          </footer>
+        </div>
+
+        <div
+          className={cn(
+            'min-h-0 flex-1 flex-col bg-well-900',
+            selected !== undefined ? 'flex' : 'hidden md:flex',
+          )}
+        >
+          {selected !== undefined ? (
+            <ArtifactReader
+              id={selected}
+              fromNode={search.from}
+              onBack={back}
+              onOpenNode={openNode}
+              onOpenProject={openProject}
+            />
+          ) : (
+            <p className="hidden w-full items-center justify-center p-8 text-xs text-ink-faint md:flex">
+              Select an artifact to read.
+            </p>
+          )}
         </div>
       </main>
     </>

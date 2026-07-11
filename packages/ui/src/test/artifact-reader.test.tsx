@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, vi } from 'vitest';
 
+import type { WireArtifactDetail } from '../api/types';
 import { ArtifactReader } from '../components/artifact-reader';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
@@ -13,54 +14,133 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>;
 }
 
+const detail: WireArtifactDetail = {
+  content: '# Heading\n\nbody with `inline code`\n',
+  // Midday UTC so the local calendar date is stable across test timezones.
+  created_at: '2026-06-16T12:00:00.000Z',
+  id: 'MMR-a8',
+  links: [{ id: 'MMR-52', status: 'done', title: 'Doctor read-surface' }],
+  project: 'MMR',
+  tags: ['kind:session', 'doctor'],
+  title: 'Artifacts browser',
+};
+
+function mockApi(overrides: Partial<WireArtifactDetail> = {}) {
+  apiGet.mockImplementation((path: string) => {
+    if (path.startsWith('/api/projects')) {
+      return Promise.resolve({
+        items: [{ id: 'MMR', status: 'ready', title: 'Mimir' }],
+        total: 1,
+      });
+    }
+    if (path.startsWith('/api/artifacts/')) {
+      return Promise.resolve({ ...detail, ...overrides });
+    }
+    return Promise.reject(new Error(`unexpected ${path}`));
+  });
+}
+
 describe('artifactReader', () => {
-  it('renders the markdown body, metadata, and backlinks', async () => {
-    apiGet.mockResolvedValue({
-      content: '# Heading\n\n- one\n- two\n',
-      created_at: '2026-06-16T00:00:00.000Z',
-      id: 'MMR-a8',
-      links: ['MMR-52'],
-      project: 'MMR',
-      tags: ['kind:spec'],
-      title: 'Artifacts browser',
-    });
-    render(<ArtifactReader id="MMR-a8" onBack={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+  it('renders the body, the frozen/immutable microlabel, and the provenance rail', async () => {
+    mockApi();
+    render(
+      <ArtifactReader id="MMR-a8" onBack={vi.fn()} onOpenNode={vi.fn()} onOpenProject={vi.fn()} />,
+      { wrapper },
+    );
     await expect(screen.findByRole('heading', { name: 'Heading' })).resolves.toBeDefined();
-    expect(screen.getByText('one')).toBeDefined();
     expect(screen.getByText('Artifacts browser')).toBeDefined();
-    expect(screen.getByText('MMR-52')).toBeDefined();
+    // The freeze cue is text (screen-reader legible), standing where edit would be.
+    expect(screen.getByText(/FROZEN 2026-06-16 · IMMUTABLE/)).toBeDefined();
+    // Rail: linked node with status dot + id + title; project; kind/tags split.
+    const rail = screen.getByRole('complementary', { name: /provenance/i });
+    expect(within(rail).getByText('Linked nodes')).toBeDefined();
+    expect(
+      within(rail).getByRole('button', { name: 'Open MMR-52 Doctor read-surface' }),
+    ).toBeDefined();
+    expect(within(rail).getByText('Kind · tags')).toBeDefined();
+    expect(within(rail).getByText('session')).toBeDefined();
+    expect(within(rail).getByText('doctor')).toBeDefined();
   });
 
-  it('back fires onBack', async () => {
-    apiGet.mockResolvedValue({
-      content: 'body',
-      created_at: '2026-06-16T00:00:00.000Z',
-      id: 'MMR-a8',
-      links: [],
-      project: 'MMR',
-      tags: [],
-      title: 'x',
-    });
+  it('back reads “← Artifacts” when browsing and names the node when arrived from one', async () => {
+    mockApi();
     const onBack = vi.fn();
-    render(<ArtifactReader id="MMR-a8" onBack={onBack} onOpenNode={vi.fn()} />, { wrapper });
-    await screen.findByText('body');
-    await userEvent.click(screen.getByRole('button', { name: /back/i }));
+    const { rerender } = render(
+      <ArtifactReader id="MMR-a8" onBack={onBack} onOpenNode={vi.fn()} onOpenProject={vi.fn()} />,
+      { wrapper },
+    );
+    await screen.findByText('Artifacts browser');
+    const back = screen.getByRole('button', { name: '← Artifacts' });
+    await userEvent.click(back);
     expect(onBack).toHaveBeenCalled();
+
+    rerender(
+      <ArtifactReader
+        id="MMR-a8"
+        fromNode="MMR-140"
+        onBack={onBack}
+        onOpenNode={vi.fn()}
+        onOpenProject={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: '← back to board · MMR-140' })).toBeDefined();
   });
 
-  it('backlink click opens the node', async () => {
-    apiGet.mockResolvedValue({
-      content: 'body',
-      created_at: '2026-06-16T00:00:00.000Z',
-      id: 'MMR-a8',
-      links: ['MMR-52'],
-      project: 'MMR',
-      tags: [],
-      title: 'x',
-    });
+  it('a rail link opens its node; the project row opens the project', async () => {
+    mockApi();
     const onOpenNode = vi.fn();
-    render(<ArtifactReader id="MMR-a8" onBack={vi.fn()} onOpenNode={onOpenNode} />, { wrapper });
-    await userEvent.click(await screen.findByText('MMR-52'));
+    const onOpenProject = vi.fn();
+    render(
+      <ArtifactReader
+        id="MMR-a8"
+        onBack={vi.fn()}
+        onOpenNode={onOpenNode}
+        onOpenProject={onOpenProject}
+      />,
+      { wrapper },
+    );
+    const rail = screen.getByRole('complementary', { name: /provenance/i });
+    await userEvent.click(
+      await within(rail).findByRole('button', { name: 'Open MMR-52 Doctor read-surface' }),
+    );
     expect(onOpenNode).toHaveBeenCalledWith('MMR-52');
+    await userEvent.click(within(rail).getByRole('button', { name: 'Open project MMR' }));
+    expect(onOpenProject).toHaveBeenCalledWith('MMR');
+  });
+
+  it('mobile chip row: the owning project is the first chip', async () => {
+    mockApi();
+    render(
+      <ArtifactReader id="MMR-a8" onBack={vi.fn()} onOpenNode={vi.fn()} onOpenProject={vi.fn()} />,
+      { wrapper },
+    );
+    await screen.findByText('Artifacts browser');
+    const chips = within(screen.getByTestId('provenance-chips')).getAllByRole('button');
+    expect(chips[0]).toHaveAccessibleName('Open project MMR');
+    expect(chips[1]).toHaveAccessibleName('Open MMR-52 Doctor read-surface');
+  });
+
+  it('mobile chip row keeps the project chip with zero linked nodes (never a dead end)', async () => {
+    mockApi({ links: [] });
+    render(
+      <ArtifactReader id="MMR-a8" onBack={vi.fn()} onOpenNode={vi.fn()} onOpenProject={vi.fn()} />,
+      { wrapper },
+    );
+    await screen.findByText('Artifacts browser');
+    const chips = within(screen.getByTestId('provenance-chips')).getAllByRole('button');
+    expect(chips).toHaveLength(1);
+    expect(chips[0]).toHaveAccessibleName('Open project MMR');
+    // …and the rail omits the empty LINKED NODES block.
+    expect(screen.queryByText('Linked nodes')).toBeNull();
+  });
+
+  it('a dangling link degrades to its bare mono id', async () => {
+    mockApi({ links: [{ id: 'MMR-99' }] });
+    render(
+      <ArtifactReader id="MMR-a8" onBack={vi.fn()} onOpenNode={vi.fn()} onOpenProject={vi.fn()} />,
+      { wrapper },
+    );
+    const rail = screen.getByRole('complementary', { name: /provenance/i });
+    await expect(within(rail).findByRole('button', { name: 'Open MMR-99' })).resolves.toBeDefined();
   });
 });
