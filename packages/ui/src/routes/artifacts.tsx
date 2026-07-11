@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import type { UIEvent } from 'react';
 
 import { artifactsQuery, projectsQuery } from '../api/queries';
 import type { ArtifactFilters as Filters } from '../api/queries';
@@ -31,8 +32,20 @@ export function ArtifactsPage() {
   }
 
   const projects = useQuery(projectsQuery);
-  const artifacts = useQuery(artifactsQuery(filters));
+  const artifacts = useInfiniteQuery(artifactsQuery(filters));
   const conn = connectivity([projects, artifacts]);
+
+  const rows = artifacts.data?.pages.flatMap((page) => page.items);
+  const total = artifacts.data?.pages.at(-1)?.total;
+
+  // The footer's "scroll for more": nearing the bottom pulls the next window.
+  const onListScroll = (e: UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 200;
+    if (nearBottom && artifacts.hasNextPage && !artifacts.isFetchingNextPage) {
+      void artifacts.fetchNextPage();
+    }
+  };
 
   // `replace` so a filter edit replaces the current history entry rather than
   // pushing one per keystroke (Back should leave the browser, not unwind typing).
@@ -94,8 +107,8 @@ export function ArtifactsPage() {
         >
           <header className="flex items-center gap-2.5 px-4 pt-4 pb-2.5">
             <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">Artifacts</h1>
-            {artifacts.data !== undefined && (
-              <span className="ml-auto text-tag text-ink-faint">{artifacts.data.total} frozen</span>
+            {total !== undefined && (
+              <span className="ml-auto text-tag text-ink-faint">{total} frozen</span>
             )}
           </header>
 
@@ -105,11 +118,16 @@ export function ArtifactsPage() {
             onChange={setFilter}
           />
 
-          <div className="min-h-0 flex-1 overflow-auto">
+          <div
+            className="min-h-0 flex-1 overflow-auto"
+            data-testid="artifact-scroll"
+            onScroll={onListScroll}
+          >
             {artifacts.isPending && <Skeleton className="m-2 h-40" />}
-            {artifacts.data !== undefined && (
-              <ArtifactList items={artifacts.data.items} selectedId={selected} onSelect={select} />
+            {rows !== undefined && (
+              <ArtifactList items={rows} selectedId={selected} onSelect={select} />
             )}
+            {artifacts.isFetchingNextPage && <Skeleton className="m-2 h-10" />}
             {artifacts.isError && artifacts.data === undefined && (
               <p className="p-4 text-xs text-status-blocked">
                 Unreachable — is `mimir serve` running?

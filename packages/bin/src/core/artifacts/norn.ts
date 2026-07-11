@@ -284,7 +284,8 @@ export function createNornArtifactStore(client: NornClient): ArtifactStore {
         return b.seq - a.seq;
       });
       const total = items.length;
-      return { items: items.slice(0, query.limit ?? 100), total };
+      const offset = query.offset ?? 0;
+      return { items: items.slice(offset, offset + (query.limit ?? 100)), total };
     },
 
     async listForNode(nodeStem: string) {

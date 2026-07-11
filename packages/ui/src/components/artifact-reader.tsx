@@ -6,6 +6,7 @@ import { artifactQuery, projectsQuery } from '../api/queries';
 import type { WireArtifactLink } from '../api/types';
 import { splitKindTags } from '../lib/artifacts';
 import { cn } from '../lib/cn';
+import { STATUS_META } from '../lib/status';
 import { calendarDate, shortDate } from '../lib/time';
 import { StatusDot } from './status-dot';
 import { Skeleton } from './ui/skeleton';
@@ -30,9 +31,23 @@ const INK_PROSE = cn(
   '[--tw-prose-links:var(--color-accent-foreground)] [--tw-prose-invert-links:var(--color-accent-foreground)]',
 );
 
-/** A provenance-rail / chip-row linked-node label — degrades with the facet. */
+/**
+ * Artifact bodies are user markdown: an unmapped `#`/`##` would render a
+ * literal h1/h2 that outranks the reader's own h2 title in the heading
+ * outline. Body headings are demoted to start below it (h1→h3, capped at
+ * h6); the prose classes keep the visual size uniform, so only the
+ * semantics shift.
+ */
+const BODY_HEADINGS = { h1: 'h3', h2: 'h4', h3: 'h5', h4: 'h6', h5: 'h6', h6: 'h6' } as const;
+
+/**
+ * A provenance-rail / chip-row linked-node label — degrades with the facet.
+ * Carries the status word too: the row's `StatusDot` is aria-hidden color,
+ * so the accessible name is where AT users get the same information.
+ */
 function linkName(link: WireArtifactLink): string {
-  return link.title === undefined ? `Open ${link.id}` : `Open ${link.id} ${link.title}`;
+  const name = link.title === undefined ? `Open ${link.id}` : `Open ${link.id} ${link.title}`;
+  return link.status === undefined ? name : `${name} — ${STATUS_META[link.status].label}`;
 }
 
 /**
@@ -100,9 +115,11 @@ export function ArtifactReader({
           )}
         </div>
 
-        <h1 className="max-w-[620px] text-[1.1875rem] leading-[1.35] font-bold text-ink-bright">
+        {/* h2, not h1: the reader sits inline beside the master pane's page
+            h1 (same demotion the dossier uses for its on-screen title). */}
+        <h2 className="max-w-[620px] text-[1.1875rem] leading-[1.35] font-bold text-ink-bright">
           {data?.title ?? id}
-        </h1>
+        </h2>
 
         {/* Mobile provenance chips (16b): the owning project is ALWAYS the
             first chip — even with zero linked nodes there's a way back. */}
@@ -149,11 +166,16 @@ export function ArtifactReader({
             className={cn(
               'prose prose-sm dark:prose-invert max-w-[620px] text-[0.84375rem] leading-[1.75] max-md:text-sm',
               'prose-headings:text-[0.90625rem] prose-headings:font-semibold',
+              // prose-headings covers h1–h4 only; demoted body headings can
+              // land on h5/h6, which get the same uniform treatment.
+              '[&_:is(h5,h6)]:mt-4 [&_:is(h5,h6)]:text-[0.90625rem] [&_:is(h5,h6)]:font-semibold [&_:is(h5,h6)]:text-ink-bright',
               INK_PROSE,
               MACHINE_PROSE,
             )}
           >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={BODY_HEADINGS}>
+              {data.content}
+            </ReactMarkdown>
           </article>
         )}
       </div>
@@ -165,7 +187,7 @@ export function ArtifactReader({
       >
         {links.length > 0 && (
           <section className="flex flex-col gap-1.5">
-            <h2 className="microlabel text-ink-faint">Linked nodes</h2>
+            <h3 className="microlabel text-ink-faint">Linked nodes</h3>
             {links.map((link) => (
               <button
                 key={link.id}
@@ -190,7 +212,7 @@ export function ArtifactReader({
 
         {data !== undefined && (
           <section className="flex flex-col gap-1.5">
-            <h2 className="microlabel text-ink-faint">Project</h2>
+            <h3 className="microlabel text-ink-faint">Project</h3>
             <button
               type="button"
               onClick={() => {
@@ -212,7 +234,7 @@ export function ArtifactReader({
 
         {(kind !== undefined || tags.length > 0) && (
           <section className="flex flex-col gap-1.5">
-            <h2 className="microlabel text-ink-faint">{kindTagsLabel}</h2>
+            <h3 className="microlabel text-ink-faint">{kindTagsLabel}</h3>
             <div className="flex flex-wrap gap-1.5">
               {kind !== undefined && (
                 <span className="rounded-full bg-well-800 px-2 py-0.5 font-mono text-micro text-ink-dim inset-ring inset-ring-line">

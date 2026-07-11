@@ -239,6 +239,11 @@ for (const backend of backends) {
       const limited = await h.artifacts.list({ limit: 2 });
       expect(limited.items).toHaveLength(2);
       expect(limited.total).toBe(3); // pre-limit total
+
+      // offset pages the same newest-first order past the window.
+      const paged = await h.artifacts.list({ limit: 2, offset: 2 });
+      expect(paged.items.map((r) => r.seq)).toEqual([1]);
+      expect(paged.total).toBe(3); // pre-window total, unchanged by paging
     });
 
     test.skipIf(backend.skip)('applyTag adds; removeTags removes and counts', async () => {

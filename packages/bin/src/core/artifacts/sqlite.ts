@@ -186,6 +186,7 @@ export function createSqliteArtifactStore(db: Db): ArtifactStore {
         .orderBy('artifact.created_at', 'desc')
         .orderBy('artifact.id', 'desc')
         .limit(query.limit ?? DEFAULT_LIMIT)
+        .offset(query.offset ?? 0)
         .execute();
       const items: ArtifactRecord[] = [];
       for (const row of rows) {

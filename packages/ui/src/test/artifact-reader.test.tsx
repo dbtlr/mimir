@@ -52,10 +52,11 @@ describe('artifactReader', () => {
     // The freeze cue is text (screen-reader legible), standing where edit would be.
     expect(screen.getByText(/FROZEN 2026-06-16 · IMMUTABLE/)).toBeDefined();
     // Rail: linked node with status dot + id + title; project; kind/tags split.
+    // The dot is aria-hidden color, so the accessible name carries the status.
     const rail = screen.getByRole('complementary', { name: /provenance/i });
     expect(within(rail).getByText('Linked nodes')).toBeDefined();
     expect(
-      within(rail).getByRole('button', { name: 'Open MMR-52 Doctor read-surface' }),
+      within(rail).getByRole('button', { name: 'Open MMR-52 Doctor read-surface — Done' }),
     ).toBeDefined();
     expect(within(rail).getByText('Kind · tags')).toBeDefined();
     expect(within(rail).getByText('session')).toBeDefined();
@@ -101,7 +102,7 @@ describe('artifactReader', () => {
     );
     const rail = screen.getByRole('complementary', { name: /provenance/i });
     await userEvent.click(
-      await within(rail).findByRole('button', { name: 'Open MMR-52 Doctor read-surface' }),
+      await within(rail).findByRole('button', { name: 'Open MMR-52 Doctor read-surface — Done' }),
     );
     expect(onOpenNode).toHaveBeenCalledWith('MMR-52');
     await userEvent.click(within(rail).getByRole('button', { name: 'Open project MMR' }));
@@ -117,7 +118,7 @@ describe('artifactReader', () => {
     await screen.findByText('Artifacts browser');
     const chips = within(screen.getByTestId('provenance-chips')).getAllByRole('button');
     expect(chips[0]).toHaveAccessibleName('Open project MMR');
-    expect(chips[1]).toHaveAccessibleName('Open MMR-52 Doctor read-surface');
+    expect(chips[1]).toHaveAccessibleName('Open MMR-52 Doctor read-surface — Done');
   });
 
   it('mobile chip row keeps the project chip with zero linked nodes (never a dead end)', async () => {
@@ -132,6 +133,22 @@ describe('artifactReader', () => {
     expect(chips[0]).toHaveAccessibleName('Open project MMR');
     // …and the rail omits the empty LINKED NODES block.
     expect(screen.queryByText('Linked nodes')).toBeNull();
+  });
+
+  it('mounts no h1: the title is an h2 under the page heading, body headings demote below it', async () => {
+    mockApi();
+    render(
+      <ArtifactReader id="MMR-a8" onBack={vi.fn()} onOpenNode={vi.fn()} onOpenProject={vi.fn()} />,
+      { wrapper },
+    );
+    // The artifact title is h2 (the page's h1 lives in the master pane) …
+    await expect(
+      screen.findByRole('heading', { level: 2, name: 'Artifacts browser' }),
+    ).resolves.toBeDefined();
+    // … the body's markdown `# Heading` demotes to h3, below the title …
+    expect(screen.getByRole('heading', { level: 3, name: 'Heading' })).toBeDefined();
+    // … and the reader never contributes a second level-1 heading.
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
   });
 
   it('a dangling link degrades to its bare mono id', async () => {

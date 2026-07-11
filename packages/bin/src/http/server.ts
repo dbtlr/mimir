@@ -453,6 +453,14 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               }
               listOpts.limit = n;
             }
+            const offset = q.get('offset');
+            if (offset !== null) {
+              const n = Number(offset);
+              if (!Number.isInteger(n) || n < 0) {
+                throw validation(`invalid offset ${offset}`);
+              }
+              listOpts.offset = n;
+            }
             // Archived projects' artifacts read as absent (ADR 0015); archived
             // state lives with the node backend, so the caller supplies the keys.
             listOpts.excludeProjects = await archivedProjectKeys(store);

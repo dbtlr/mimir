@@ -42,6 +42,8 @@ export type ArtifactListQuery = {
   before?: string;
   q?: string;
   limit?: number;
+  /** Rows to skip before the window — pages the newest-first list. */
+  offset?: number;
   /** Project keys whose artifacts read as absent (archived, ADR 0015). */
   excludeProjects?: string[];
 };
