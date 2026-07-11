@@ -288,6 +288,12 @@ export async function buildProjectView(
   if (facets.has('leafCounts')) {
     view.leafCounts = leafDistribution(set, project.id);
   }
+  if (facets.has('artifactCount')) {
+    // A count, not the inventory — the archived shelf's `N artifacts` line
+    // (MMR-125); archived projects 404 on the detail get, so the list facet is
+    // the only address for it.
+    view.artifactCount = (await artifacts.listForProject(project.key)).length;
+  }
   if (facets.has('attention')) {
     view.attention = attentionOf(set, project);
   }

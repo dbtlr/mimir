@@ -331,6 +331,9 @@ export type NodeView = {
   distribution?: Distribution;
   /** Per-project leaf-task status tally (MMR-105) — the project card's vitals panel. */
   leafCounts?: Distribution;
+  /** Per-project artifact tally (MMR-125) — the archived shelf's count line; the
+   * list-facet address for a count the archived-404 detail route can't serve. */
+  artifactCount?: number;
   verdicts?: Verdicts;
   attention?: AttentionState;
   /** Where the row lives (MMR-228) — project KEY + parent container ref. */
@@ -367,6 +370,7 @@ export const FACET_NAMES = [
   'children',
   'distribution',
   'leafCounts',
+  'artifactCount',
   'verdicts',
   'attention',
   'home',

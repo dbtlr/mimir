@@ -128,6 +128,10 @@ const PROJECT_LIST_FACETS: readonly FacetName[] = [
   'attention',
   'leafCounts',
 ];
+/** The archived door adds the artifact tally for the shelf's count line (MMR-125).
+ * Scoped to `?status=archived` only: the facet costs an artifact-store read per
+ * project, and the active list is polled every 10s by a UI that never reads it. */
+const ARCHIVED_LIST_FACETS: readonly FacetName[] = [...PROJECT_LIST_FACETS, 'artifactCount'];
 
 /** Resolve a node token against an already-derived set — the HTTP binding of the
  * core guard, with route pointers. The multi-token twin `nodeRef` uses when a
@@ -956,10 +960,11 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             // Archived projects are hidden by default; ?status=archived is the
             // door (ADR 0015), ?status=all returns both.
+            const filter = projectFilter(new URL(req.url).searchParams.get('status'));
             const items = await listProjects(
               store,
-              PROJECT_LIST_FACETS,
-              projectFilter(new URL(req.url).searchParams.get('status')),
+              filter === 'archived' ? ARCHIVED_LIST_FACETS : PROJECT_LIST_FACETS,
+              filter,
             );
             return json(req, setBody(items.length, items));
           }),

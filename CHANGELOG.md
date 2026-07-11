@@ -65,6 +65,22 @@ release. When a release is cut, this section is promoted to
   owning project key plus parent title/open-endedness — so HOME renders
   "project › parent ∞" without per-parent fetches.
 
+- **Archived shelf on the Overview** (MMR-125). Retired projects are visible
+  again without leaving the Overview: a separate shelf below the At-rest
+  lane — folded to an `ARCHIVED · n` count row ("frozen — hidden from every
+  default view, picker included"), unfolding to dashed-border frozen cards
+  with the greyed key, demoted title, `❄` archived date, a
+  `{tasks} tasks · {artifacts} artifacts · readable, nothing writable` count
+  line, and an inline **Unarchive** button. Unarchiving needs no
+  confirmation — the card leaves the shelf and the project reappears in its
+  live lane; the shelf is absent entirely at zero. The Overview header gains
+  a `· m archived` clause, and a shared `Archived <title>` undo toast (with
+  an Unarchive action) backs the archive flow — undo instead of a confirm
+  dialog on either side. Offline demotes the shelf and inerts Unarchive. The
+  project list wire grows an `artifact_count` facet so the frozen card can
+  say what it's guarding — archived projects 404 on the detail routes, so
+  the list row is the only address for it.
+
 - **Node dossier — deep-read detail overlay** (MMR-222). The node-detail
   surface (`?node=KEY-seq`) is rebuilt on the Meridian design system as a
   centered overlay over a dimmed board, replacing the right-anchored drawer at
