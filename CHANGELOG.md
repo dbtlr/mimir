@@ -15,6 +15,25 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **New project + project lifecycle** (MMR-230). The console can now create and
+  archive projects. Every "+ New project" trigger — the Overview header action
+  (desktop), a dashed end-of-list row after the last lane (mobile), and a
+  trailing project-picker row — opens the Meridian create-project sheet:
+  autofocused TITLE, a mono KEY auto-suggested from the title (word initials,
+  consonant fallback, clamped to 2–4 letters) that stays editable until create
+  and is permanent after (it names every ID), an optional DESCRIPTION, and a
+  footer `Create ↵` — the project lands in At rest. Duplicate/invalid keys
+  toast the server's message verbatim and the sheet stays open. Project
+  settings gains a **LIFECYCLE** section: the archive contract copy plus a
+  slate **Archive project** button (slate in both themes — nothing is
+  destroyed) with no confirm dialog; archiving closes the sheet, returns to the
+  Overview, and raises an undo toast whose **Unarchive** restores the project
+  (ADR 0015) — the toast holds for 10s, longer than the default, since it may
+  still be the nearest recovery affordance at the moment of archive. Offline
+  disables every create trigger and the Archive button. (The Overview header's
+  `· {m} archived` clause and the shared undo toast are MMR-125's; this feature
+  consumes them.)
+
 - **Authoring sheet — one create surface for task / phase / initiative**
   (MMR-227). The board's create affordance now opens the Meridian authoring
   sheet (mock 19a), replacing the `TaskForm` create path (`TaskForm` remains
