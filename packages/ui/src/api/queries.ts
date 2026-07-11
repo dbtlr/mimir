@@ -26,8 +26,9 @@ export const projectsQuery = queryOptions({
 
 /**
  * The archived shelf (MMR-125): frozen projects behind the `?status=archived`
- * door (ADR 0015). Keyed under `['projects']` so every write's invalidation
- * refreshes the shelf alongside the live lanes.
+ * door (ADR 0015). Feeds both the archived shelf and the Overview header's
+ * `· {m} archived` clause (MMR-230). Keyed under `['projects']` so every
+ * write's invalidation refreshes the shelf alongside the live lanes.
  */
 export const archivedProjectsQuery = queryOptions({
   queryFn: () => apiGet<Collection<WireNode>>('/api/projects?status=archived'),

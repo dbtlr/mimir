@@ -157,6 +157,40 @@ export function useMoveNode(id: string) {
   });
 }
 
+export type CreateProjectInput = {
+  key: string;
+  name: string;
+  description?: string;
+};
+
+/**
+ * Create a project (MMR-230): `POST /api/projects`. The wire body takes
+ * `name` + `key` (not `title`) — the sheet maps TITLE→name, KEY→key. The
+ * server owns key uniqueness/validity; its rejection toasts verbatim.
+ */
+export function useCreateProject() {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: (input: CreateProjectInput) => apiSend<WireNode>('POST', '/api/projects', input),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+  });
+}
+
+/**
+ * Archive a project (ADR 0015): frozen and hidden, never deleted. There is no
+ * confirm — the caller raises an undo toast whose Unarchive is the recovery.
+ */
+export function useArchiveProject(key: string) {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: () =>
+      apiSend<WireNode>('POST', `/api/projects/${encodeURIComponent(key)}/archive`, undefined),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+  });
+}
+
 export type UpdateProjectInput = {
   title?: string;
   description?: string;
