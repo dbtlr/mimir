@@ -121,12 +121,13 @@ const SET_FACETS: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdi
 const DETAIL_FACETS: readonly FacetName[] = [...SET_FACETS, 'artifacts', 'history', 'description'];
 /** The project-record projection (verdicts/deps don't apply to a project). */
 const PROJECT_FACETS: readonly FacetName[] = ['children', 'distribution', 'tags', 'artifacts'];
-/** The project-list projection — the attention facet (MMR-101) + per-project leaf counts (MMR-105) for the project card vitals (MMR-106). */
+/** The project-list projection — the attention facet (MMR-101) + per-project leaf counts (MMR-105) for the project card vitals (MMR-106) + the artifact tally for the archived shelf's count line (MMR-125). */
 const PROJECT_LIST_FACETS: readonly FacetName[] = [
   'distribution',
   'tags',
   'attention',
   'leafCounts',
+  'artifactCount',
 ];
 
 /** Resolve a node token against an already-derived set — the HTTP binding of the

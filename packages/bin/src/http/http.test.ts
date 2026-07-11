@@ -663,6 +663,13 @@ test("a prerequisite's terminal state frees the dependent through the API view",
 // --- project archive (ADR 0015, MMR-123) ---
 
 test('POST archive freezes + hides a project; the door and unarchive round-trip', async () => {
+  // an artifact so the archived list's artifact_count facet has something to count
+  const frozen1 = await send('POST', `/api/nodes/${task1}/artifacts`, {
+    content: 'frozen body',
+    title: 'design',
+  });
+  expect(frozen1.status).toBe(201);
+
   // archive echoes the project with its archived_at
   const arc = await send('POST', '/api/projects/MMR/archive', { reason: 'superseded' });
   expect(arc.status).toBe(200);
@@ -673,6 +680,13 @@ test('POST archive freezes + hides a project; the door and unarchive round-trip'
   expect((active.items as Rec[]).map((p) => p.id)).toEqual(['NRN']);
   const archived = await parse(await get('/api/projects?status=archived'));
   expect((archived.items as Rec[]).map((p) => p.id)).toEqual(['MMR']);
+  // the shelf's count line rides the list facets (MMR-125): the archived-404
+  // detail route can't serve them, so the list row carries archived_at,
+  // leaf_counts, and the artifact tally
+  const shelfRow = (archived.items as Rec[])[0];
+  expect(shelfRow?.archived_at).not.toBeUndefined();
+  expect(shelfRow?.artifact_count).toBe(1);
+  expect(shelfRow?.leaf_counts).not.toBeUndefined();
   const all = await parse(await get('/api/projects?status=all'));
   expect((all.items as { id: string }[]).map((p) => p.id).toSorted()).toEqual(['MMR', 'NRN']);
 
