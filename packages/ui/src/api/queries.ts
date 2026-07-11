@@ -175,6 +175,16 @@ export function artifactParams(f: ArtifactFilters): string {
 export const ARTIFACT_PAGE_SIZE = 100;
 
 /**
+ * Key roots (`queryKey[0]`) of every infinite query. The persister's restore
+ * guard (see persist.ts `sanitizePersistedClient`) drops a persisted entry
+ * under one of these whose cached data isn't infinite-shaped
+ * (`{ pages, pageParams }`) — a legacy flat-collection payload from before the
+ * query became infinite, or any shape drift a missed persister-buster bump let
+ * through. Add an infinite query's root here when you add the query.
+ */
+export const INFINITE_QUERY_KEY_ROOTS: ReadonlySet<string> = new Set(['artifacts']);
+
+/**
  * Portfolio artifact search — re-runs as filters change. Windowed (the list
  * footer's "scroll for more"): each page asks for an explicit limit/offset
  * slice, and the next offset is however many rows are already on screen,

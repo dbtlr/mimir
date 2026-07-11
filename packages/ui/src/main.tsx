@@ -44,7 +44,13 @@ createRoot(root).render(
     <PersistQueryClientProvider
       client={queryClient}
       persistOptions={{
-        buster: 'mimir-ui-v1',
+        // Persisted-cache schema version. RULE: ANY change to the persisted
+        // shape of a query (its queryKey shape, or its data shape — e.g. a
+        // plain query becoming an infinite `{ pages, pageParams }` one) MUST
+        // bump this. A stale-shape warm cache restored into the new code
+        // crashes the route before app code runs; bumping drops the old cache
+        // on restore. See persist.ts for the shape guard behind this.
+        buster: 'mimir-ui-v2',
         // see shouldPersistQuery — the default would erase the offline
         // cache exactly as the server dies
         dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
