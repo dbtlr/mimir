@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useRejectSeed, useResolveSeed } from '../api/mutations';
 import type { WireSeed } from '../api/types';
 import { cn } from '../lib/cn';
-import { SeedReasonDialog } from './seed-reason-dialog';
+import { ReasonDialog } from './reason-dialog';
 
 type PendingVerb = 'reject' | 'resolve' | null;
 
@@ -38,7 +38,7 @@ function VerbChip({
 }
 
 /** The spawned-work reference line, e.g. "spawned MMR-118 · done" (ready) or bare (promoted). */
-function SpawnedRef({ seed }: { seed: WireSeed }) {
+export function SpawnedRef({ seed }: { seed: WireSeed }) {
   if (seed.spawned.length === 0) {
     return null;
   }
@@ -109,9 +109,10 @@ export function SeedVerbs({
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
       {chips}
       <SpawnedRef seed={seed} />
-      <SeedReasonDialog
+      <ReasonDialog
         title="Reject seed"
         confirmLabel="Reject"
+        required
         open={pending === 'reject'}
         onClose={() => setPending(null)}
         onConfirm={(reason) => {
@@ -119,9 +120,10 @@ export function SeedVerbs({
           setPending(null);
         }}
       />
-      <SeedReasonDialog
+      <ReasonDialog
         title="Resolve — done"
         confirmLabel="Resolve"
+        required
         open={pending === 'resolve'}
         onClose={() => setPending(null)}
         onConfirm={(reason) => {

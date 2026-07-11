@@ -5,7 +5,7 @@ import type { WireSeed } from '../api/types';
 import { cn } from '../lib/cn';
 import { relativeTime } from '../lib/time';
 import { SeedKindChip } from './seed-kind-chip';
-import { SeedVerbs } from './seed-verbs';
+import { SeedVerbs, SpawnedRef } from './seed-verbs';
 import { Skeleton } from './ui/skeleton';
 
 /** requester · age · id — the dense meta cluster on a seed row. */
@@ -52,14 +52,12 @@ function ExpandedBody({
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-7 bg-gradient-to-t from-well-850 to-transparent" />
         )}
       </div>
-      {seed.lane !== 'settled' && (
-        <SeedVerbs
-          seed={seed}
-          onLater={onLater}
-          offline={offline}
-          className="mt-2.5 border-t border-line px-4 py-3"
-        />
-      )}
+      <SeedVerbs
+        seed={seed}
+        onLater={onLater}
+        offline={offline}
+        className="mt-2.5 border-t border-line px-4 py-3"
+      />
     </>
   );
 }
@@ -147,12 +145,7 @@ export function SeedRow({
         >
           {seed.title}
         </span>
-        {seed.spawned.length > 0 && (
-          <span className="text-tag text-attention-foreground">
-            spawned <span className="font-mono">{seed.spawned.join(', ')}</span>
-            {seed.ready_to_resolve && ' · done'}
-          </span>
-        )}
+        <SpawnedRef seed={seed} />
       </button>
     </>
   );
