@@ -8,13 +8,13 @@ import { projectsQuery, taskCensusQuery, tasksQuery } from '../api/queries';
 import type { TaskFilters } from '../api/queries';
 import type { WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
-import { NewTaskSheet } from '../components/new-task-button';
+import { AuthoringSheet } from '../components/authoring-sheet';
 import { NodeDossier } from '../components/node-dossier';
 import { OfflineBanner } from '../components/offline-banner';
 import { PriorityBadge, SizeBadge } from '../components/signal-badges';
 import { StatusDot } from '../components/status-dot';
 import { statusChipVariants } from '../components/ui/badge';
-import { MenuContent, MenuItem, MenuLabel, MenuRoot, MenuTrigger } from '../components/ui/menu';
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/menu';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
@@ -127,7 +127,7 @@ export function TasksPage() {
   const census = useQuery(taskCensusQuery);
   const tasks = useQuery(tasksQuery(filters));
   const conn = connectivity([tasks]);
-  const [createFor, setCreateFor] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const setFilter = (partial: Partial<TaskFilters>) =>
     void navigate({
@@ -240,31 +240,19 @@ export function TasksPage() {
                   match
                 </span>
               )}
-            {/* Interim create path until MMR-227's authoring sheet lands: the
-                project pick IS the sheet's first step, then the create form. */}
-            <MenuRoot>
-              <MenuTrigger
-                disabled={conn.offline}
-                className="ml-auto inline-flex items-center rounded-lg bg-action px-[13px] py-1.5 text-tag font-bold text-action-foreground transition-colors hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
-              >
-                + New task
-              </MenuTrigger>
-              <MenuContent className="w-64">
-                <MenuLabel>Project</MenuLabel>
-                {(projects.data?.items ?? []).map((p) => (
-                  <MenuItem
-                    key={p.id}
-                    onClick={() => {
-                      setCreateFor(p.id);
-                    }}
-                  >
-                    <StatusDot status={p.status} />
-                    <span className="font-mono text-xs font-semibold text-ink-bright">{p.id}</span>
-                    <span className="truncate">{p.title}</span>
-                  </MenuItem>
-                ))}
-              </MenuContent>
-            </MenuRoot>
+            {/* Create opens the shared authoring sheet (MMR-227), whose own
+                project-spanning HOME picker chooses where the node lands — the
+                cross-project browser has no single active project to pre-fill. */}
+            <button
+              type="button"
+              disabled={conn.offline}
+              onClick={() => {
+                setCreateOpen(true);
+              }}
+              className="ml-auto inline-flex items-center rounded-lg bg-action px-[13px] py-1.5 text-tag font-bold text-action-foreground transition-colors hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
+            >
+              + New task
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
@@ -530,17 +518,12 @@ export function TasksPage() {
         </footer>
       </main>
 
-      {createFor !== null && (
-        <NewTaskSheet
-          projectKey={createFor}
-          open
-          onOpenChange={(open) => {
-            if (!open) {
-              setCreateFor(null);
-            }
-          }}
-        />
-      )}
+      <AuthoringSheet
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onOpenNode={openNode}
+        offline={conn.offline}
+      />
       <NodeDossier
         nodeId={search.node}
         onClose={closeNode}
