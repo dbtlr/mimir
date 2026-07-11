@@ -32,7 +32,7 @@ export function VersionFooter() {
       {stale && (
         <span
           className="text-micro text-ink-dim"
-          title={`This console bundle (${BUILD_VERSION}) doesn't match the running daemon (${serverVersion}) — reload to pick up the new build.`}
+          title={`This console bundle (${BUILD_VERSION}) doesn't match the running daemon (${serverVersion}) — reload to converge; if the console is the newer side, restart or update the daemon instead.`}
         >
           · update available
         </span>
