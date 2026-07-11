@@ -1,0 +1,335 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, vi } from 'vitest';
+
+import type { WireTreeNode } from '../api/types';
+import { AuthoringSheet } from '../components/authoring-sheet';
+import type { AuthoringSheetProps } from '../components/authoring-sheet';
+import { project, task } from './fixtures';
+
+const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast }));
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+/** A minimal WireTreeNode (homeOptions reads id/title/type/open_ended/children). */
+function treeNode(
+  id: string,
+  title: string,
+  type: 'initiative' | 'phase' | 'project',
+  children: unknown[] = [],
+  openEnded = false,
+): WireTreeNode {
+  return {
+    ...task({ id, status: 'in_progress', title, type }),
+    children,
+    open_ended: openEnded,
+  } as unknown as WireTreeNode;
+}
+
+const mmrTree = treeNode('MMR', 'Mimir', 'project', [
+  treeNode('MMR-1', 'build', 'initiative', [
+    treeNode('MMR-7', 'Phase 5 — UI', 'phase'),
+    treeNode('MMR-2', 'Phase 0', 'phase'),
+  ]),
+  treeNode('MMR-9', 'Polish', 'initiative', [], true),
+]);
+const webTree = treeNode('WEB', 'Website', 'project', [treeNode('WEB-1', 'launch', 'initiative')]);
+
+const depRows = [
+  task({ id: 'MMR-40', status: 'ready', title: 'auth tokens' }),
+  task({ id: 'MMR-41', status: 'in_progress', title: 'auth UI' }),
+];
+
+function mockReads() {
+  apiGet.mockImplementation((path: string) => {
+    if (path === '/api/projects') {
+      return Promise.resolve({
+        items: [project({ id: 'MMR', title: 'Mimir' }), project({ id: 'WEB', title: 'Website' })],
+        total: 2,
+      });
+    }
+    if (path === '/api/projects/MMR/tree') {
+      return Promise.resolve(mmrTree);
+    }
+    if (path === '/api/projects/WEB/tree') {
+      return Promise.resolve(webTree);
+    }
+    if (path.startsWith('/api/nodes?type=task&q=')) {
+      return Promise.resolve({ items: depRows, total: depRows.length });
+    }
+    return Promise.reject(new Error(`unexpected ${path}`));
+  });
+}
+
+function renderSheet(props: Partial<AuthoringSheetProps> = {}) {
+  mockReads();
+  const onOpenChange = vi.fn();
+  const onOpenNode = vi.fn();
+  const client = new QueryClient({
+    defaultOptions: { queries: { refetchInterval: false, retry: false } },
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <AuthoringSheet
+        open
+        onOpenChange={onOpenChange}
+        projectKey="MMR"
+        onOpenNode={onOpenNode}
+        {...props}
+      />
+    </QueryClientProvider>,
+  );
+  return { onOpenChange, onOpenNode };
+}
+
+/** The sheet is interactable once the tree resolved into the HOME row. */
+async function sheetReady() {
+  await screen.findByText('build');
+}
+
+describe('authoringSheet', () => {
+  it('renders the 19a sheet: type selector, autofocused title, HOME, description, deps, signals, footer', async () => {
+    renderSheet();
+    await sheetReady();
+
+    expect(screen.getByText('New')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Task' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Phase' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Initiative' })).toBeInTheDocument();
+    expect(screen.getByText('esc')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Title')).toHaveFocus());
+    expect(screen.getByText('Home')).toBeInTheDocument();
+    expect(screen.getByLabelText('Description')).toBeInTheDocument();
+    expect(screen.getByText('markdown ok')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('search tasks…')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "this task won't read ready until its prerequisites are done — inherited by any children",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Signals · optional')).toBeInTheDocument();
+    expect(screen.getByLabelText('create another')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create ↵' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create & open' })).toBeInTheDocument();
+    // Invariant 1 / ADR 0019 §5: nodes are born `new`; no status field, ever.
+    expect(screen.queryByText(/status/i)).not.toBeInTheDocument();
+  });
+
+  it('type governs legal homes: task → initiative+phase, phase → initiative, initiative → project', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await sheetReady();
+
+    // task: initiatives and phases
+    await user.click(screen.getByRole('button', { expanded: false, name: /home/i }));
+    expect(screen.getByRole('option', { name: /Phase 0/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Polish/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: /Phase 0/ }));
+
+    // phase: initiatives only
+    await user.click(screen.getByRole('radio', { name: 'Phase' }));
+    await user.click(screen.getByRole('button', { expanded: false, name: /home/i }));
+    await expect(screen.findByRole('option', { name: /build/ })).resolves.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Polish/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Phase 0/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: /build/ }));
+
+    // initiative: the picker collapses to bare projects
+    await user.click(screen.getByRole('radio', { name: 'Initiative' }));
+    await user.click(screen.getByRole('button', { expanded: false, name: /home/i }));
+    expect(screen.getByRole('option', { name: /Mimir/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Website/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /build/ })).not.toBeInTheDocument();
+  });
+
+  it('creates a task, then applies DEPENDS-ON via /depend, and closes', async () => {
+    const user = userEvent.setup();
+    apiSend.mockResolvedValue({ id: 'MMR-99' });
+    const { onOpenChange } = renderSheet();
+    await sheetReady();
+
+    await user.type(screen.getByLabelText('Title'), 'Wire auth');
+    await user.type(screen.getByRole('combobox'), 'auth');
+    await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
+    // picking appends a chip; the remove control is a real button
+    expect(screen.getByLabelText('Remove dependency MMR-40')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Create ↵' }));
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenNthCalledWith(1, 'POST', '/api/nodes', {
+        parent: 'MMR-1',
+        title: 'Wire auth',
+        type: 'task',
+      });
+      expect(apiSend).toHaveBeenNthCalledWith(2, 'POST', '/api/nodes/MMR-99/depend', {
+        on: ['MMR-40'],
+      });
+    });
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
+
+  it('a removed dep chip is not applied', async () => {
+    const user = userEvent.setup();
+    apiSend.mockResolvedValue({ id: 'MMR-99' });
+    renderSheet();
+    await sheetReady();
+
+    await user.type(screen.getByLabelText('Title'), 'Solo');
+    await user.type(screen.getByRole('combobox'), 'auth');
+    await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
+    await user.click(screen.getByLabelText('Remove dependency MMR-40'));
+
+    await user.click(screen.getByRole('button', { name: 'Create ↵' }));
+    await waitFor(() => expect(apiSend).toHaveBeenCalledOnce());
+    expect(apiSend).toHaveBeenCalledWith(
+      'POST',
+      '/api/nodes',
+      expect.objectContaining({ title: 'Solo' }),
+    );
+  });
+
+  it('keeps the sheet open and toasts when depend fails after a successful create', async () => {
+    const user = userEvent.setup();
+    apiSend.mockImplementation((_method: string, path: string) =>
+      path === '/api/nodes'
+        ? Promise.resolve({ id: 'MMR-99' })
+        : Promise.reject(new Error('would create a cycle')),
+    );
+    const { onOpenChange } = renderSheet();
+    await sheetReady();
+
+    await user.type(screen.getByLabelText('Title'), 'Wire auth');
+    await user.type(screen.getByRole('combobox'), 'auth');
+    await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
+    await user.click(screen.getByRole('button', { name: 'Create ↵' }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('would create a cycle'));
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it('create another resets the form, refocuses the title, and stays open', async () => {
+    const user = userEvent.setup();
+    apiSend.mockResolvedValue({ id: 'MMR-99' });
+    const { onOpenChange } = renderSheet();
+    await sheetReady();
+
+    await user.click(screen.getByLabelText('create another'));
+    await user.type(screen.getByLabelText('Title'), 'First of many');
+    await user.click(screen.getByRole('button', { name: 'Create ↵' }));
+
+    await waitFor(() => expect(screen.getByLabelText('Title')).toHaveValue(''));
+    expect(screen.getByLabelText('Title')).toHaveFocus();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it('create & open routes to the fresh node and closes', async () => {
+    const user = userEvent.setup();
+    apiSend.mockResolvedValue({ id: 'MMR-99' });
+    const { onOpenChange, onOpenNode } = renderSheet();
+    await sheetReady();
+
+    await user.type(screen.getByLabelText('Title'), 'Open me');
+    await user.click(screen.getByRole('button', { name: 'Create & open' }));
+
+    await waitFor(() => expect(onOpenNode).toHaveBeenCalledWith('MMR-99'));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('creates a phase with type=phase and no task-only signal fields', async () => {
+    const user = userEvent.setup();
+    apiSend.mockResolvedValue({ id: 'MMR-50' });
+    renderSheet();
+    await sheetReady();
+
+    await user.click(screen.getByRole('radio', { name: 'Phase' }));
+    // DEPENDS ON is task-level — hidden for containers
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('Title'), 'Hardening');
+    await user.click(screen.getByRole('button', { name: 'Create ↵' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes', {
+        parent: 'MMR-1',
+        title: 'Hardening',
+        type: 'phase',
+      });
+    });
+  });
+
+  it('creates an initiative homed on the bare project KEY', async () => {
+    const user = userEvent.setup();
+    apiSend.mockResolvedValue({ id: 'MMR-51' });
+    renderSheet();
+    await sheetReady();
+
+    await user.click(screen.getByRole('radio', { name: 'Initiative' }));
+    await user.type(screen.getByLabelText('Title'), 'Meridian');
+    await user.click(screen.getByRole('button', { name: 'Create ↵' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes', {
+        parent: 'MMR',
+        title: 'Meridian',
+        type: 'initiative',
+      });
+    });
+  });
+
+  it('signals expand to priority/size pills and tags; the picks ride the POST', async () => {
+    const user = userEvent.setup();
+    apiSend.mockResolvedValue({ id: 'MMR-99' });
+    renderSheet();
+    await sheetReady();
+
+    await user.type(screen.getByLabelText('Title'), 'Signal-rich');
+    await user.click(screen.getByRole('button', { name: /signals · optional/i }));
+    await user.click(screen.getByRole('button', { name: 'p1' }));
+    await user.click(screen.getByRole('button', { name: 's' }));
+    await user.click(screen.getByRole('button', { name: '+ tag' }));
+    await user.type(screen.getByLabelText('Tags'), 'ui, meridian');
+    await user.keyboard('{Enter}');
+
+    await user.click(screen.getByRole('button', { name: 'Create ↵' }));
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes', {
+        parent: 'MMR-1',
+        priority: 'p1',
+        size: 'small',
+        tags: ['ui', 'meridian'],
+        title: 'Signal-rich',
+        type: 'task',
+      });
+    });
+  });
+
+  it('offline disables both create buttons', async () => {
+    renderSheet({ offline: true });
+    await sheetReady();
+    expect(screen.getByRole('button', { name: 'Create ↵' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Create & open' })).toBeDisabled();
+  });
+
+  it('blocks create while the title is empty', async () => {
+    renderSheet();
+    await sheetReady();
+    expect(screen.getByRole('button', { name: 'Create ↵' })).toBeDisabled();
+  });
+
+  it('pre-fills title, description, and home for the promote seam (MMR-248)', async () => {
+    renderSheet({
+      headerSlot: <span>Promote seed</span>,
+      prefill: { description: 'From a seed.', home: 'MMR-7', title: 'Promoted' },
+    });
+    await screen.findByText('Phase 5 — UI');
+    expect(screen.getByLabelText('Title')).toHaveValue('Promoted');
+    expect(screen.getByLabelText('Description')).toHaveValue('From a seed.');
+    expect(screen.getByText('Promote seed')).toBeInTheDocument();
+    expect(screen.queryByText('New')).not.toBeInTheDocument();
+  });
+});

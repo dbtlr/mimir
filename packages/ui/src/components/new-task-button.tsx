@@ -1,34 +1,23 @@
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { useCreateTask } from '../api/mutations';
-import { treeQuery } from '../api/queries';
-import { parentOptions } from '../lib/parent-options';
-import { TaskForm } from './task-form';
-import type { TaskFormSubmit } from './task-form';
-import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
+import { AuthoringSheet } from './authoring-sheet';
 
-export function NewTaskButton({ projectKey, offline }: { projectKey: string; offline?: boolean }) {
+/**
+ * The board header's create affordance. Opens the Meridian authoring sheet
+ * (MMR-227) — task / phase / initiative behind a type selector — pre-filled to
+ * the current project. Replaces the retired `TaskForm mode="create"` path.
+ */
+export function NewTaskButton({
+  projectKey,
+  offline,
+  onOpenNode,
+}: {
+  projectKey: string;
+  offline?: boolean;
+  /** "Create & open" routes the fresh node here (`?node=<id>`). */
+  onOpenNode?: (id: string) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const tree = useQuery({ ...treeQuery(projectKey), enabled: open });
-  const create = useCreateTask();
-
-  function handleSubmit(values: TaskFormSubmit) {
-    const { parent, title, description, summary, priority, size, external_ref, tags } = values;
-    create.mutate(
-      {
-        description: description ?? undefined,
-        external_ref: external_ref ?? undefined,
-        parent: parent ?? '',
-        priority: priority ?? undefined,
-        size: size ?? undefined,
-        summary: summary ?? undefined,
-        tags,
-        title,
-      },
-      { onSuccess: () => setOpen(false) },
-    );
-  }
 
   return (
     <>
@@ -42,24 +31,13 @@ export function NewTaskButton({ projectKey, offline }: { projectKey: string; off
         +<span className="hidden sm:inline"> New task</span>
       </button>
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        {open && (
-          <SheetContent aria-describedby={undefined}>
-            <div className="flex flex-col gap-4 p-4">
-              <SheetTitle className="text-card-mobile font-semibold text-ink-bright">
-                New task
-              </SheetTitle>
-              <TaskForm
-                mode="create"
-                parents={tree.data ? parentOptions(tree.data) : []}
-                submitting={create.isPending || tree.isPending}
-                onSubmit={handleSubmit}
-                onCancel={() => setOpen(false)}
-              />
-            </div>
-          </SheetContent>
-        )}
-      </Sheet>
+      <AuthoringSheet
+        open={open}
+        onOpenChange={setOpen}
+        projectKey={projectKey}
+        offline={offline}
+        onOpenNode={onOpenNode}
+      />
     </>
   );
 }

@@ -35,12 +35,15 @@ export function SegmentedControl<T extends string>({
   onChange,
   ariaLabel,
   className,
+  segmentClassName,
 }: {
   options: readonly SegmentedOption<T>[];
   value: T;
   onChange: (value: T) => void;
   ariaLabel: string;
   className?: string;
+  /** Per-segment overrides (e.g. the authoring sheet's pill-shaped, mixed-case type selector). */
+  segmentClassName?: string;
 }) {
   return (
     <div role="radiogroup" aria-label={ariaLabel} className={cn(segmentedTrackClass, className)}>
@@ -53,7 +56,7 @@ export function SegmentedControl<T extends string>({
           onClick={() => {
             onChange(option.value);
           }}
-          className={segmentVariants({ active: value === option.value })}
+          className={cn(segmentVariants({ active: value === option.value }), segmentClassName)}
         >
           {option.label}
         </button>
