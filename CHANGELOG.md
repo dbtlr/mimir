@@ -889,6 +889,15 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **Dossier and quick-view verdict summaries can no longer disagree** (MMR-262).
+  The dossier's verdict block derived its "what's awaiting a verdict" line from
+  the latest annotation authored at/after the submit-into-review transition,
+  while the quick-view verdict block read the wire's generic `summary` field
+  instead — an unrelated board-card lede (MMR-162) a task can carry regardless
+  of review state, so the two could show different text for the same
+  under-review task, or one could show text the other omitted. Both now call a
+  single `verdictSummary` helper; the quick-view drop panel no longer reads
+  `summary` for this line.
 - **`promote -f ids` echoes the spawned/linked work id, not the seed**
   (MMR-259). The compose pattern `ID=$(mimir promote KEY-sN --parent … -f ids);
   mimir update $ID …` was capturing the seed id (`KEY-sN`) instead of the task

@@ -13,6 +13,7 @@ import type { TaskFormValues } from '../lib/schemas';
 import { absoluteTime, ago } from '../lib/time';
 import { availableTransitions } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
+import { verdictSummary } from '../lib/verdict';
 import { AnnotationComposer } from './annotation-composer';
 import { MoveDialog } from './move-dialog';
 import { ReasonDialog } from './reason-dialog';
@@ -444,9 +445,9 @@ function Timeline({
 /**
  * The verdict block — first in the left column, and only when a review is
  * pending. Approve fires `done` immediately; Return opens the reason dialog.
- * The submitted-summary line is DERIVED (gap 1): the latest annotation authored
- * at/after the submit; the external ref is the real `external_ref` field. No
- * summary text is fabricated when neither exists.
+ * The submitted-summary line comes from `verdictSummary` (MMR-262) — the same
+ * derivation the quick-view verdict block uses; the external ref is the real
+ * `external_ref` field.
  */
 function VerdictBlock({
   node,
@@ -492,25 +493,6 @@ function VerdictBlock({
       </div>
     </div>
   );
-}
-
-/** DERIVED: the latest annotation authored at/after the submit into review, if any. */
-function verdictSummary(
-  history: readonly WireHistoryEntry[] | undefined,
-  annotations: readonly WireAnnotation[] | undefined,
-): string | undefined {
-  const lastSubmit = (history ?? []).findLast(
-    (e) => e.kind === 'lifecycle' && e.to === 'under_review',
-  );
-  if (lastSubmit === undefined) {
-    return undefined;
-  }
-  const submittedAt = Date.parse(lastSubmit.at);
-  const latest = (annotations ?? [])
-    .filter((a) => Date.parse(a.created_at) >= submittedAt)
-    .toSorted((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))
-    .at(-1);
-  return latest?.content;
 }
 
 function DossierBody({

@@ -94,6 +94,42 @@ describe('quickViewPanel — desktop drop panel', () => {
     expect(screen.getByText('Approve')).toHaveProperty('disabled', true);
   });
 
+  it('the verdict summary derives from the post-submit annotation, not the stale `summary` field (MMR-262)', async () => {
+    const node = task({
+      external_ref: null,
+      history: [
+        {
+          at: '2026-06-05T09:00:00.000Z',
+          from: 'in_progress',
+          kind: 'lifecycle',
+          reason: null,
+          to: 'under_review',
+        },
+      ],
+      id: 'MMR-41',
+      status: 'under_review',
+      summary: 'stale board lede',
+      title: 'sign off',
+    });
+    apiGet.mockImplementation((path: string) =>
+      path.endsWith('/annotations')
+        ? Promise.resolve({
+            items: [
+              { content: '79 tests · drop-cause facet', created_at: '2026-06-05T10:00:00.000Z' },
+            ],
+            total: 1,
+          })
+        : Promise.resolve(node),
+    );
+    render(<QuickViewPanel node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    // The post-submit annotation is echoed both by the verdict summary line and
+    // (independently) the "Last note" line, so at least one match is expected.
+    await waitFor(() => {
+      expect(screen.getAllByText(/79 tests · drop-cause facet/).length).toBeGreaterThanOrEqual(1);
+    });
+    expect(screen.queryByText(/stale board lede/)).toBeNull();
+  });
+
   it('esc closes the panel on a desktop viewport (deferred by the exit slide)', async () => {
     const original = globalThis.matchMedia;
     stubMatchMedia(true);
