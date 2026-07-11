@@ -302,13 +302,16 @@ export type PromoteSeedInput = {
  * existing node as spawned without creating. Either way it appends the spawned
  * provenance link and, on the FIRST promote, transitions `new → promoted`
  * (repeatable while promoted). `--parent` and `--link` are mutually exclusive.
- * Returns the updated seed plus the created id (create mode only).
+ * Returns the updated seed, the created id (create mode only), and
+ * `spawnedId` — the task a composer wants (the created task in `--parent`
+ * mode, the linked id in `--link` mode; MMR-259). Every promote spawns or
+ * links exactly one, so `spawnedId` is never undefined.
  */
 export async function promoteSeed(
   store: Store,
   id: string,
   input: PromoteSeedInput,
-): Promise<{ seed: SeedView; created?: string }> {
+): Promise<{ seed: SeedView; created?: string; spawnedId: string }> {
   const ref = parseSeedRef(id);
   if (ref === null) {
     throw notFound(`${id} is not a seed id`, 'seed ids look like KEY-sN');
@@ -376,7 +379,7 @@ export async function promoteSeed(
   // the stem already linked and the seed already promoted is a no-op, so a retried
   // `--parent`/`--link` cannot double-record (B2).
   await store.seeds.germinate(ref.key, ref.seq, createdStem);
-  return { created, seed: await getSeed(store, id, { content: true }) };
+  return { created, seed: await getSeed(store, id, { content: true }), spawnedId: createdStem };
 }
 
 /**

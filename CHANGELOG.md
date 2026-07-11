@@ -889,6 +889,16 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **`promote -f ids` echoes the spawned/linked work id, not the seed**
+  (MMR-259). The compose pattern `ID=$(mimir promote KEY-sN --parent … -f ids);
+  mimir update $ID …` was capturing the seed id (`KEY-sN`) instead of the task
+  a composer just made, so a follow-up `update`/`reorder` silently targeted the
+  live seed rather than the spawned or linked work. `ids` output now echoes the
+  created task id in `--parent` (create) mode and the linked id in `--link`
+  mode; a repeated promote echoes the newly spawned id each time. The
+  default/records and `json` echoes are unchanged (still the seed view, with
+  its `spawned`/`created` fields); other seed verbs (`resolve`, `reject`,
+  `seed`, `update KEY-sN`) still echo the seed id under `-f ids`.
 - **`upstream` is now readable, not just writable** (MMR-252). A task's
   `upstream` seed pointer (`mimir update <id> --upstream KEY-sN`, MCP, HTTP) is
   consumed by the triage pass's check (c) but was write-only on every read

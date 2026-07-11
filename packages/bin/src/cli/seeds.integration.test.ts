@@ -126,6 +126,34 @@ describe.skipIf(!NORN)('seed CLI verbs', () => {
     expect(rec.spawned).toEqual([rec.created]);
   });
 
+  test('promote --parent -f ids echoes the spawned task id, not the seed (MMR-259)', async () => {
+    await cli(['seed', 's', '-k', 'feature']);
+    const { code, io } = await cli(['promote', 'MMR-s1', '--parent', phaseRef, '-f', 'ids']);
+    expect(code).toBe(0);
+    const spawnedId = io.out.join('').trim();
+    expect(spawnedId).not.toBe('MMR-s1');
+    expect(spawnedId).toMatch(/^MMR-\d+$/);
+  });
+
+  test('promote --link -f ids echoes the linked work id, not the seed (MMR-259)', async () => {
+    const existing = await createTask(store, { parentId: await idOf(phaseRef), title: 'existing' });
+    const existingRef = `MMR-${String(existing.seq)}`;
+    await cli(['seed', 's', '-k', 'bug']);
+    const { code, io } = await cli(['promote', 'MMR-s1', '--link', existingRef, '-f', 'ids']);
+    expect(code).toBe(0);
+    expect(io.out.join('').trim()).toBe(existingRef);
+  });
+
+  test('a repeated promote -f ids echoes the newly spawned id each time (MMR-259)', async () => {
+    await cli(['seed', 's', '-k', 'feature']);
+    const first = await cli(['promote', 'MMR-s1', '--parent', phaseRef, '-f', 'ids']);
+    const second = await cli(['promote', 'MMR-s1', '--parent', phaseRef, '-f', 'ids']);
+    const firstId = first.io.out.join('').trim();
+    const secondId = second.io.out.join('').trim();
+    expect(secondId).not.toBe(firstId);
+    expect(secondId).not.toBe('MMR-s1');
+  });
+
   test('update KEY-sN routes to the seed patch; a node-only flag is refused', async () => {
     await cli(['seed', 's', '-k', 'idea']);
     const ok = await cli(['update', 'MMR-s1', '--title', 'renamed', '-k', 'bug', '-f', 'json']);
