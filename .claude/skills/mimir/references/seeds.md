@@ -12,9 +12,9 @@ Exactly two things are seeds:
    or capability need you hit in a surface you don't own. You **never** create
    tasks on another board — however fully shaped the fix is, it crosses boards
    as a seed, and the owning board decides what work to commit.
-2. **An own-board idea or observation that may not imply work**:
-   decision-shaped — "should X?", "decide the policy", "prove it or delete it" —
-   not a statable fix.
+2. **An own-board idea or observation with no statable fix**:
+   decision-shaped — "should X?", "decide the policy", "prove it or delete
+   it" — it may or may not germinate into work.
 
 **Not a seed: work discovered on your own board.** If you can state the fix,
 you already triaged it — `create task`. Review findings, test follow-ups, and

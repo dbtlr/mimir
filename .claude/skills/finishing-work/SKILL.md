@@ -23,7 +23,8 @@ verification means _in this repo_.
    reviewer subagent); every finding terminates as fixed, consciously dismissed
    with a reason, or deferred to a **task** (`mimir create task`) — never left
    open, and never parked as a seed on this board (a finding with a statable fix
-   is already triaged; seeds are for cross-board asks).
+   is already triaged; seeds are for cross-board asks or undecided own-board
+   ideas, and a review finding is neither).
 5. **Submit** — `mimir submit <id>` (→ `under_review`) and open the PR. The work is
    now Drew's to merge; you do not merge to `main`.
 6. **Done** — `mimir done <id>` **only after Drew merges**, never before.

@@ -510,7 +510,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--desc <text>', 'description → the ## Seed Description body section'],
     ],
     summary:
-      'file a seed — an ask against another board, or an own-board idea that may not imply work. Own-board statable fix → create task.',
+      'file a seed — an ask against another board, or an own-board idea with no statable fix. Own-board statable fix → create task.',
     usage: 'mimir seed "<title>" -k <kind> [-p KEY] [--desc <text>]',
   },
   seeds: {

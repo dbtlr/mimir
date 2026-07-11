@@ -73,8 +73,9 @@ relaxes these.
   1. **Anything for ANOTHER board** (~90% of seeds) — a bug, feature, or
      capability ask, however fully shaped the fix is. You never create tasks on
      a board you don't own; the owning board commits its own work.
-  2. **An own-board idea or observation that may not imply work** —
-     decision-shaped ("should X?", "decide the policy"), not a statable fix.
+  2. **An own-board idea or observation with no statable fix** —
+     decision-shaped ("should X?", "decide the policy"); it may or may not
+     germinate into work.
 - **If a seed blocks you:** `block` your task **and** set `--upstream KEY-sN` —
   never a prose-only hold.
 - `annotate <id> "note"` when something lands mid-flight — a decision, a surprise, a
