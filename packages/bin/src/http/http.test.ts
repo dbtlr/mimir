@@ -524,7 +524,11 @@ test('artifacts: POST freezes onto the node (201), GET returns content; cross-pr
   expect(created.status).toBe(201);
   const artifact = await parse(created);
   expect(artifact.id).toBe('MMR-a1');
-  expect(artifact.links).toEqual([task1, task2]);
+  // The HTTP wire enriches links with the linked node's title + status (MMR-229).
+  expect(artifact.links).toEqual([
+    { id: task1, status: 'ready', title: 'first' },
+    { id: task2, status: 'ready', title: 'second' },
+  ]);
 
   const fetched = await parse(await get('/api/artifacts/MMR-a1'));
   expect(fetched.content).toBe('# Spec\nbody');

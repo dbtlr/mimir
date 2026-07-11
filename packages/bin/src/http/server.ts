@@ -1,4 +1,5 @@
 import type {
+  ArtifactDetail,
   FacetName,
   FieldFilter,
   NodeView,
@@ -57,6 +58,7 @@ import {
   listNodes,
   listProjects,
   moveNode,
+  nodeStatusWord,
   nodeToWire,
   notFound,
   projectNotFound,
@@ -102,6 +104,28 @@ function normalizeDate(value: string, edge: 'start' | 'end'): string {
     return edge === 'start' ? `${value}T00:00:00.000Z` : `${value}T23:59:59.999Z`;
   }
   return value;
+}
+
+/**
+ * An artifact detail on the HTTP wire (MMR-229): `links` carries each linked
+ * node's title and status word, resolved at read time from the working set —
+ * the console's provenance rail reads one response instead of fanning out a
+ * node fetch per link. A link whose node no longer resolves degrades to its
+ * bare id (the CLI wire in core/format.ts keeps the id-only shape).
+ */
+async function artifactDetailToWire(
+  store: Store,
+  detail: ArtifactDetail,
+): Promise<Record<string, unknown>> {
+  const wire = artifactToWire(detail);
+  const set = deriveSet(await store.loadWorkingSet());
+  wire.links = detail.links.map((id) => {
+    const node = findNodeInSet(set, id);
+    return node === undefined
+      ? { id }
+      : { id, status: nodeStatusWord(set, node), title: node.title };
+  });
+  return wire;
 }
 
 /**
@@ -452,7 +476,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         GET: (req) =>
           guarded(req, async () => {
             const detail = await getArtifact(store, req.params.id, { content: true });
-            return json(req, artifactToWire(detail));
+            return json(req, await artifactDetailToWire(store, detail));
           }),
         // The dumb update for an artifact (MMR-40): title only; content is
         // frozen (ADR 0004) and never patchable.
@@ -468,7 +492,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               await updateArtifact(store, { key: identity.key, seq: identity.seq }, { title });
             }
             const detail = await getArtifact(store, req.params.id, { content: true });
-            return json(req, artifactToWire(detail));
+            return json(req, await artifactDetailToWire(store, detail));
           }),
       },
 
@@ -726,7 +750,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               title: requiredStr(body, 'title', 'attach'),
             });
             const detail = await getArtifact(store, renderedId, { content: true });
-            return json(req, artifactToWire(detail), 201);
+            return json(req, await artifactDetailToWire(store, detail), 201);
           }),
       },
 
