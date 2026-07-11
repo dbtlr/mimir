@@ -64,12 +64,23 @@ export type WireArtifactSummary = {
   created_at: string;
 };
 
+/**
+ * A linked node on the artifact-detail wire (MMR-229) — title and status are
+ * resolved server-side at read time; both absent when the node no longer
+ * resolves (the link degrades to its bare id).
+ */
+export type WireArtifactLink = {
+  id: string;
+  title?: string;
+  status?: StatusWord;
+};
+
 /** A single artifact with its frozen body (`GET /api/artifacts/:id`). */
 export type WireArtifactDetail = {
   id: string;
   title: string;
   project: string;
-  links: string[];
+  links: WireArtifactLink[];
   tags: string[];
   created_at: string;
   content?: string;

@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 
 import { apiGet } from './client';
 import type {
@@ -171,12 +171,39 @@ export function artifactParams(f: ArtifactFilters): string {
   return p.toString();
 }
 
-/** Portfolio artifact search — re-runs as filters change. */
+/** The artifact list's window size — one fetched page of the newest-first feed. */
+export const ARTIFACT_PAGE_SIZE = 100;
+
+/**
+ * Key roots (`queryKey[0]`) of every infinite query. The persister's restore
+ * guard (see persist.ts `sanitizePersistedClient`) drops a persisted entry
+ * under one of these whose cached data isn't infinite-shaped
+ * (`{ pages, pageParams }`) — a legacy flat-collection payload from before the
+ * query became infinite, or any shape drift a missed persister-buster bump let
+ * through. Add an infinite query's root here when you add the query.
+ */
+export const INFINITE_QUERY_KEY_ROOTS: ReadonlySet<string> = new Set(['artifacts']);
+
+/**
+ * Portfolio artifact search — re-runs as filters change. Windowed (the list
+ * footer's "scroll for more"): each page asks for an explicit limit/offset
+ * slice, and the next offset is however many rows are already on screen,
+ * until the envelope's `total` is reached.
+ */
 export const artifactsQuery = (f: ArtifactFilters) =>
-  queryOptions({
-    queryFn: () => {
-      const qs = artifactParams(f);
-      return apiGet<Collection<WireArtifactSummary>>(`/api/artifacts${qs === '' ? '' : `?${qs}`}`);
+  infiniteQueryOptions({
+    getNextPageParam: (last: Collection<WireArtifactSummary>, pages) => {
+      const fetched = pages.reduce((n, page) => n + page.items.length, 0);
+      return fetched < last.total && last.items.length > 0 ? fetched : undefined;
+    },
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) => {
+      const p = new URLSearchParams(artifactParams(f));
+      p.set('limit', String(ARTIFACT_PAGE_SIZE));
+      if (pageParam > 0) {
+        p.set('offset', String(pageParam));
+      }
+      return apiGet<Collection<WireArtifactSummary>>(`/api/artifacts?${p.toString()}`);
     },
     queryKey: ['artifacts', f],
   });

@@ -1,9 +1,15 @@
 import type { WireArtifactSummary } from '../api/types';
+import { groupByRecency, splitKindTags } from '../lib/artifacts';
 import { cn } from '../lib/cn';
-import { ago } from '../lib/time';
-import { Badge } from './ui/badge';
+import { shortDate } from '../lib/time';
 
-/** The artifact-search results column — title · project · tags · age; one row selects. */
+/**
+ * The master-list column (Meridian 16a): date-grouped rows — THIS WEEK /
+ * LAST WEEK / month buckets — each row title over a mono-project meta line.
+ * The selected row carries the accent wash; rows older than last week render
+ * with the title demoted (opacity in dark, an ink tier down in light — ADR
+ * 0019 §7 rule 3); the meta line keeps full ink-faint contrast in both themes.
+ */
 export function ArtifactList({
   items,
   selectedId,
@@ -17,36 +23,59 @@ export function ArtifactList({
     return <p className="px-2 py-6 text-center text-xs text-ink-faint">No artifacts match.</p>;
   }
   return (
-    <ol className="flex flex-col gap-1 p-1.5">
-      {items.map((a) => (
-        <li key={a.id}>
-          <button
-            type="button"
-            onClick={() => {
-              onSelect(a.id);
-            }}
-            className={cn(
-              'flex w-full flex-col gap-1 rounded-sm border border-line p-2 text-left transition-colors',
-              'hover:border-line-bright hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent',
-              a.id === selectedId ? 'border-accent bg-well-800' : 'bg-well-850',
-            )}
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="font-mono text-micro text-ink-dim">{a.id}</span>
-              <time className="font-mono text-micro text-ink-faint">{ago(a.created_at)}</time>
-            </div>
-            <p className="line-clamp-2 text-xs leading-snug text-ink">{a.title}</p>
-            <div className="flex flex-wrap items-center gap-1">
-              <Badge variant="outline">{a.project}</Badge>
-              {a.tags.map((t) => (
-                <Badge key={t} variant="outline" className="max-w-32 truncate">
-                  {t}
-                </Badge>
-              ))}
-            </div>
-          </button>
-        </li>
+    <div className="flex flex-col gap-1 px-2 pb-2">
+      {groupByRecency(items).map((group) => (
+        <section key={group.label} aria-label={group.label}>
+          {/* Mono microlabel spelled from raw utilities — `.microlabel` inlines
+              font-sans unlayered, which would beat the layered font-mono utility. */}
+          <h2 className="px-2 pt-2.5 pb-1 font-mono text-micro font-semibold tracking-[0.13em] text-ink-faint uppercase">
+            {group.label}
+          </h2>
+          <ol className="flex flex-col gap-0.5">
+            {group.items.map((a) => {
+              const selected = a.id === selectedId;
+              const { kind } = splitKindTags(a.tags);
+              const date = shortDate(a.created_at);
+              return (
+                <li key={a.id}>
+                  <button
+                    type="button"
+                    aria-current={selected ? 'true' : undefined}
+                    onClick={() => {
+                      onSelect(a.id);
+                    }}
+                    className={cn(
+                      'flex w-full flex-col gap-1 rounded-[10px] px-[13px] py-[11px] text-left transition-colors',
+                      'hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent',
+                      selected && 'bg-accent/8 inset-ring inset-ring-accent/35',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'text-meta leading-snug text-ink-bright',
+                        selected ? 'font-semibold' : 'font-medium',
+                        // Demotion scopes to the title only — the ink-faint meta
+                        // line is already at the AA floor and must not dim further.
+                        // Dark dims by opacity; light demotes by ink tier, not
+                        // opacity (ADR 0019 §7 rule 3).
+                        !selected && !group.recent && 'dark:opacity-75 light:text-ink',
+                      )}
+                    >
+                      {a.title}
+                    </span>
+                    <span className="text-tag text-ink-faint">
+                      <span className="font-mono">{a.project}</span>
+                      {kind !== undefined && <> · {kind}</>}
+                      {' · '}
+                      {selected ? `frozen ${date}` : date}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
       ))}
-    </ol>
+    </div>
   );
 }

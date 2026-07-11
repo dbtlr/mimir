@@ -34,3 +34,20 @@ export function absoluteTime(iso: string): string {
   const at = new Date(iso);
   return Number.isNaN(at.getTime()) ? '—' : at.toLocaleString();
 }
+
+/** Local calendar date, `YYYY-MM-DD` — the reader's FROZEN microlabel. */
+export function calendarDate(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) {
+    return '—';
+  }
+  const mm = String(at.getMonth() + 1).padStart(2, '0');
+  const dd = String(at.getDate()).padStart(2, '0');
+  return `${String(at.getFullYear())}-${mm}-${dd}`;
+}
+
+/** Local `MM-DD` — dense row meta and the mobile FROZEN microlabel. */
+export function shortDate(iso: string): string {
+  const full = calendarDate(iso);
+  return full === '—' ? full : full.slice(5);
+}

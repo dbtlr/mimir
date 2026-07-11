@@ -2,88 +2,257 @@ import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import { artifactQuery } from '../api/queries';
-import { absoluteTime } from '../lib/time';
-import { Badge } from './ui/badge';
+import { artifactQuery, projectsQuery } from '../api/queries';
+import type { WireArtifactLink } from '../api/types';
+import { splitKindTags } from '../lib/artifacts';
+import { cn } from '../lib/cn';
+import { STATUS_META } from '../lib/status';
+import { calendarDate, shortDate } from '../lib/time';
+import { StatusDot } from './status-dot';
 import { Skeleton } from './ui/skeleton';
 
 /**
- * The shared artifact reader — renders a frozen markdown body plus metadata and
- * backlinks. Reached two ways (the browser's reader pane, and a task drawer's
- * artifact row); `onBack` is supplied by the host so Back is provenance-aware.
+ * Inline code and code blocks are machine ground: the dark well stays dark in
+ * BOTH themes (ADR 0019 §7 rule 4 — the inversion marks the boundary between
+ * UI and record), so the values are literal, not theme tokens.
+ */
+const MACHINE_PROSE = cn(
+  'prose-code:rounded-[4px] prose-code:bg-[#0B0F14] prose-code:px-1.5 prose-code:py-px',
+  'prose-code:font-mono prose-code:text-xs prose-code:font-normal prose-code:text-[#B9C4CD]',
+  'prose-code:before:content-none prose-code:after:content-none',
+  'prose-pre:bg-[#0B0F14] prose-pre:text-[#B9C4CD]',
+);
+
+/** Route the typography plugin's palette through the Meridian ink tokens. */
+const INK_PROSE = cn(
+  '[--tw-prose-body:var(--color-ink)] [--tw-prose-invert-body:var(--color-ink)]',
+  '[--tw-prose-headings:var(--color-ink-bright)] [--tw-prose-invert-headings:var(--color-ink-bright)]',
+  '[--tw-prose-bold:var(--color-ink-bright)] [--tw-prose-invert-bold:var(--color-ink-bright)]',
+  '[--tw-prose-links:var(--color-accent-foreground)] [--tw-prose-invert-links:var(--color-accent-foreground)]',
+);
+
+/**
+ * Artifact bodies are user markdown: an unmapped `#`/`##` would render a
+ * literal h1/h2 that outranks the reader's own h2 title in the heading
+ * outline. Body headings are demoted to start below it (h1→h3, capped at
+ * h6); the prose classes keep the visual size uniform, so only the
+ * semantics shift.
+ */
+const BODY_HEADINGS = { h1: 'h3', h2: 'h4', h3: 'h5', h4: 'h6', h5: 'h6', h6: 'h6' } as const;
+
+/**
+ * A provenance-rail / chip-row linked-node label — degrades with the facet.
+ * Carries the status word too: the row's `StatusDot` is aria-hidden color,
+ * so the accessible name is where AT users get the same information.
+ */
+function linkName(link: WireArtifactLink): string {
+  const name = link.title === undefined ? `Open ${link.id}` : `Open ${link.id} ${link.title}`;
+  return link.status === undefined ? name : `${name} — ${STATUS_META[link.status].label}`;
+}
+
+/**
+ * The frozen artifact reader (Meridian 16a/16b) — provenance back-link and a
+ * `❄ FROZEN · IMMUTABLE` microlabel standing where an edit affordance would
+ * be (there is deliberately none: the record is append-only), the markdown
+ * body at a fixed 620px measure, and provenance on a recessed rail (desktop)
+ * or a project-first chip row under the title (mobile — the owning project is
+ * always the first chip, so an artifact with no linked nodes is never a dead
+ * end). Reached two ways (the browser's reader pane, and a dossier's artifact
+ * row); `onBack` is supplied by the host so Back is provenance-aware, and
+ * `fromNode` names the node it returns to when set.
  */
 export function ArtifactReader({
   id,
+  fromNode,
   onBack,
   onOpenNode,
+  onOpenProject,
 }: {
   id: string;
+  fromNode?: string | undefined;
   onBack: () => void;
   onOpenNode: (nodeId: string) => void;
+  onOpenProject: (key: string) => void;
 }) {
   const artifact = useQuery(artifactQuery(id));
+  const projects = useQuery(projectsQuery);
+
+  const data = artifact.data;
+  const links = data?.links ?? [];
+  const { kind, rest: tags } = splitKindTags(data?.tags ?? []);
+  const projectTitle =
+    data === undefined ? undefined : projects.data?.items.find((p) => p.id === data.project)?.title;
+
+  let kindTagsLabel = 'Tags';
+  if (kind !== undefined) {
+    kindTagsLabel = tags.length > 0 ? 'Kind · tags' : 'Kind';
+  }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-testid="artifact-reader">
-      <header className="flex items-start gap-3 border-b border-line p-4 pb-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded px-2 py-1 text-xs text-ink-dim transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          ← Back
-        </button>
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-tag text-ink-dim">{id}</span>
-            <Badge variant="outline">{artifact.data?.project ?? '…'}</Badge>
-          </div>
-          <h1 className="text-card-mobile leading-snug font-semibold text-ink-bright">
-            {artifact.data?.title ?? id}
-          </h1>
-          {artifact.data !== undefined && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {artifact.data.tags.map((t) => (
-                <Badge key={t} variant="outline">
-                  {t}
-                </Badge>
-              ))}
-              <time className="font-mono text-micro text-ink-faint">
-                {absoluteTime(artifact.data.created_at)}
-              </time>
-            </div>
+    <div
+      className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[1fr_230px]"
+      data-testid="artifact-reader"
+    >
+      <div className="flex min-h-0 flex-col gap-3.5 overflow-auto border-line px-4 py-[22px] md:border-r md:px-[30px]">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded text-tag text-accent-foreground transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            {fromNode === undefined ? '← Artifacts' : `← back to board · ${fromNode}`}
+          </button>
+          {data !== undefined && (
+            <span className="ml-auto font-mono text-micro tracking-[0.1em] text-ink-faint">
+              <span aria-hidden className="select-none">
+                ❄{' '}
+              </span>
+              <span className="md:hidden">FROZEN {shortDate(data.created_at)}</span>
+              <span className="max-md:hidden">
+                FROZEN {calendarDate(data.created_at)} · IMMUTABLE
+              </span>
+            </span>
           )}
         </div>
-      </header>
 
-      <div className="min-h-0 flex-1 overflow-auto p-4">
-        {artifact.isPending && <Skeleton className="h-40 w-full" />}
+        {/* h2, not h1: the reader sits inline beside the master pane's page
+            h1 (same demotion the dossier uses for its on-screen title). */}
+        <h2 className="max-w-[620px] text-[1.1875rem] leading-[1.35] font-bold text-ink-bright">
+          {data?.title ?? id}
+        </h2>
+
+        {/* Mobile provenance chips (16b): the owning project is ALWAYS the
+            first chip — even with zero linked nodes there's a way back. */}
+        {data !== undefined && (
+          <div
+            className="flex flex-wrap items-center gap-1.5 md:hidden"
+            data-testid="provenance-chips"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                onOpenProject(data.project);
+              }}
+              aria-label={`Open project ${data.project}`}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-accent/9 px-3.5 text-tag font-semibold text-accent-foreground inset-ring inset-ring-accent/20 transition-colors hover:bg-accent/15 focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              <span className="font-mono">{data.project}</span>
+              {projectTitle !== undefined && <span>{projectTitle}</span>}
+              <span aria-hidden>→</span>
+            </button>
+            {links.map((link) => (
+              <button
+                key={link.id}
+                type="button"
+                onClick={() => {
+                  onOpenNode(link.id);
+                }}
+                aria-label={linkName(link)}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 font-mono text-tag text-ink-dim inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                {link.status !== undefined && (
+                  <StatusDot status={link.status} className="size-1.5" />
+                )}
+                {link.id}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {artifact.isPending && <Skeleton className="h-40 w-full max-w-[620px]" />}
         {artifact.isError && <p className="text-xs text-status-blocked">Couldn't load {id}.</p>}
-        {artifact.data?.content !== undefined && (
-          <article className="prose prose-sm max-w-none dark:prose-invert">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{artifact.data.content}</ReactMarkdown>
+        {data?.content !== undefined && (
+          <article
+            className={cn(
+              'prose prose-sm dark:prose-invert max-w-[620px] text-[0.84375rem] leading-[1.75] max-md:text-sm',
+              'prose-headings:text-[0.90625rem] prose-headings:font-semibold',
+              // prose-headings covers h1–h4 only; demoted body headings can
+              // land on h5/h6, which get the same uniform treatment.
+              '[&_:is(h5,h6)]:mt-4 [&_:is(h5,h6)]:text-[0.90625rem] [&_:is(h5,h6)]:font-semibold [&_:is(h5,h6)]:text-ink-bright',
+              INK_PROSE,
+              MACHINE_PROSE,
+            )}
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={BODY_HEADINGS}>
+              {data.content}
+            </ReactMarkdown>
           </article>
         )}
-        {artifact.data !== undefined && artifact.data.links.length > 0 && (
-          <section className="mt-6 border-t border-line pt-3">
-            <h2 className="microlabel mb-1.5 text-ink-faint">Linked</h2>
+      </div>
+
+      {/* Desktop provenance rail (16a) on recessed ground. */}
+      <aside
+        aria-label="Provenance"
+        className="hidden min-h-0 flex-col gap-4 overflow-auto bg-well-recessed px-[18px] py-[22px] md:flex"
+      >
+        {links.length > 0 && (
+          <section className="flex flex-col gap-1.5">
+            <h3 className="microlabel text-ink-faint">Linked nodes</h3>
+            {links.map((link) => (
+              <button
+                key={link.id}
+                type="button"
+                onClick={() => {
+                  onOpenNode(link.id);
+                }}
+                aria-label={linkName(link)}
+                className="flex items-center gap-2 rounded-lg px-2.5 py-[7px] text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                {link.status !== undefined && (
+                  <StatusDot status={link.status} className="size-1.5" />
+                )}
+                <span className="shrink-0 font-mono text-mono-id text-ink-faint">{link.id}</span>
+                {link.title !== undefined && (
+                  <span className="truncate text-[0.78125rem] text-ink">{link.title}</span>
+                )}
+              </button>
+            ))}
+          </section>
+        )}
+
+        {data !== undefined && (
+          <section className="flex flex-col gap-1.5">
+            <h3 className="microlabel text-ink-faint">Project</h3>
+            <button
+              type="button"
+              onClick={() => {
+                onOpenProject(data.project);
+              }}
+              aria-label={`Open project ${data.project}`}
+              className="flex items-center gap-2 rounded-lg px-2.5 py-[7px] text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              <span className="shrink-0 font-mono text-mono-id text-ink-faint">{data.project}</span>
+              {projectTitle !== undefined && (
+                <span className="truncate text-[0.78125rem] text-ink">{projectTitle}</span>
+              )}
+              <span aria-hidden className="ml-auto text-ink-faint">
+                →
+              </span>
+            </button>
+          </section>
+        )}
+
+        {(kind !== undefined || tags.length > 0) && (
+          <section className="flex flex-col gap-1.5">
+            <h3 className="microlabel text-ink-faint">{kindTagsLabel}</h3>
             <div className="flex flex-wrap gap-1.5">
-              {artifact.data.links.map((nodeId) => (
-                <button
-                  key={nodeId}
-                  type="button"
-                  onClick={() => {
-                    onOpenNode(nodeId);
-                  }}
-                  className="rounded-sm px-1.5 py-0.5 font-mono text-tag text-accent transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+              {kind !== undefined && (
+                <span className="rounded-full bg-well-800 px-2 py-0.5 font-mono text-micro text-ink-dim inset-ring inset-ring-line">
+                  {kind}
+                </span>
+              )}
+              {tags.map((t) => (
+                <span
+                  key={t}
+                  className="max-w-32 truncate rounded-full bg-accent/9 px-2 py-0.5 font-mono text-micro text-accent-foreground inset-ring inset-ring-accent/20"
                 >
-                  {nodeId}
-                </button>
+                  {t}
+                </span>
               ))}
             </div>
           </section>
         )}
-      </div>
+      </aside>
     </div>
   );
 }

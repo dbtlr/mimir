@@ -72,3 +72,17 @@ test('invalid limit is a 4xx, not a crash', async () => {
   const res = await fetch(`${base}/api/artifacts?limit=0`);
   expect(res.status).toBeGreaterThanOrEqual(400);
 });
+
+test('offset pages the window over the wire; total stays pre-window', async () => {
+  const body = (await (await fetch(`${base}/api/artifacts?offset=1`)).json()) as {
+    total: number;
+    items: unknown[];
+  };
+  expect(body.total).toBe(1);
+  expect(body.items).toEqual([]);
+});
+
+test('invalid offset is a 4xx, not a crash', async () => {
+  const res = await fetch(`${base}/api/artifacts?offset=-1`);
+  expect(res.status).toBeGreaterThanOrEqual(400);
+});
