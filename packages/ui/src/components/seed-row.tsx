@@ -23,7 +23,17 @@ function RowMeta({ seed }: { seed: WireSeed }) {
  * gradient. The list payload omits `description` by design (content isn't read
  * on the queue), so the body is fetched on expand from the detail read.
  */
-function ExpandedBody({ id, seed, offline }: { id: string; seed: WireSeed; offline?: boolean }) {
+function ExpandedBody({
+  id,
+  seed,
+  offline,
+  onLater,
+}: {
+  id: string;
+  seed: WireSeed;
+  offline?: boolean;
+  onLater: () => void;
+}) {
   const detail = useQuery(seedQuery(id));
   const description = detail.data?.description ?? '';
   return (
@@ -45,6 +55,7 @@ function ExpandedBody({ id, seed, offline }: { id: string; seed: WireSeed; offli
       {seed.lane !== 'settled' && (
         <SeedVerbs
           seed={seed}
+          onLater={onLater}
           offline={offline}
           className="mt-2.5 border-t border-line px-4 py-3"
         />
@@ -101,7 +112,14 @@ export function SeedRow({
           </span>
           <RowMeta seed={seed} />
         </button>
-        {active && <ExpandedBody id={seed.id} seed={seed} offline={offline} />}
+        {active && (
+          <ExpandedBody
+            id={seed.id}
+            seed={seed}
+            offline={offline}
+            onLater={() => onSelect(undefined)}
+          />
+        )}
       </div>
 
       {/* ── wide: compact master row (mock 14a), body/verbs in the pane ──── */}
