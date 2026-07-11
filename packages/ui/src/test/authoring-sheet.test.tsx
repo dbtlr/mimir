@@ -497,7 +497,9 @@ describe('authoringSheet', () => {
 
       // a seed germinates into a task — the type selector is gone, not just hidden
       expect(screen.queryByRole('radio', { name: 'Task' })).not.toBeInTheDocument();
-      // DEPENDS ON can't ride the promote POST, so it isn't offered
+      // DEPENDS ON is present but collapsed by default — the field stays hidden
+      // until the disclosure is opened (deps are chained onto the spawned task)
+      expect(screen.getByRole('button', { name: /depends on · optional/i })).toBeInTheDocument();
       expect(screen.queryByPlaceholderText('search tasks…')).not.toBeInTheDocument();
       // provenance contract, verbatim — and the word "dispose" appears nowhere
       expect(document.body.textContent).toContain(
@@ -584,6 +586,68 @@ describe('authoringSheet', () => {
       await promoteReady();
       expect(screen.queryByText('suggested — bug → standing home')).not.toBeInTheDocument();
       expect(screen.getByText('launch')).toBeInTheDocument();
+    });
+
+    it('expands DEPENDS ON and chains /depend onto the spawned task after promote', async () => {
+      const user = userEvent.setup();
+      apiSend.mockImplementation((_method: string, path: string) =>
+        path.endsWith('/promote')
+          ? Promise.resolve({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' })
+          : Promise.resolve({ id: 'MMR-42' }),
+      );
+      const { onOpenChange } = renderSheet({
+        headerSlot: <span>Promote seed</span>,
+        prefill: { title: 'Tree lens scroll' },
+        promote: { kind: 'bug', seedId: 'MMR-s1' },
+      });
+      await promoteReady();
+
+      // the field is collapsed by default — open the disclosure, then pick a dep
+      await user.click(screen.getByRole('button', { name: /depends on · optional/i }));
+      await user.type(screen.getByRole('combobox'), 'auth');
+      await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
+
+      await user.click(screen.getByRole('button', { name: 'Promote ↵' }));
+      await waitFor(() => {
+        // the promote POST carries no deps…
+        expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s1/promote', {
+          parent: 'MMR-9',
+          title: 'Tree lens scroll',
+        });
+        // …they are chained onto the echoed spawned id
+        expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-42/depend', {
+          on: ['MMR-40'],
+        });
+      });
+      expect(toast.success).toHaveBeenCalledWith('Promoted MMR-s1 → MMR-42');
+      await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    });
+
+    it('surfaces a partial failure honestly when the deps chain fails after promote', async () => {
+      const user = userEvent.setup();
+      apiSend.mockImplementation((_method: string, path: string) =>
+        path.endsWith('/promote')
+          ? Promise.resolve({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' })
+          : Promise.reject(new Error('would create a cycle')),
+      );
+      const { onOpenChange } = renderSheet({
+        headerSlot: <span>Promote seed</span>,
+        prefill: { title: 'Tree lens scroll' },
+        promote: { kind: 'bug', seedId: 'MMR-s1' },
+      });
+      await promoteReady();
+
+      await user.click(screen.getByRole('button', { name: /depends on · optional/i }));
+      await user.type(screen.getByRole('combobox'), 'auth');
+      await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
+      await user.click(screen.getByRole('button', { name: 'Promote ↵' }));
+
+      // the task exists — the honest recap names the spawned id, not a success
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('MMR-42')),
+      );
+      expect(toast.success).not.toHaveBeenCalled();
+      await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     });
   });
 });

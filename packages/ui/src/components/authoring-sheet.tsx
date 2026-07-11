@@ -75,6 +75,12 @@ export type AuthoringSheetProps = {
   /** "Create & open" routes the fresh node here (`?node=<id>`). */
   onOpenNode?: (id: string) => void;
   prefill?: AuthoringPrefill;
+  /**
+   * MMR-248: the prefill description is still loading (the promote body read is
+   * in flight). The sheet shows a pending affordance and folds the body in once
+   * it lands — unless the user has already started editing.
+   */
+  descriptionPending?: boolean;
   /** MMR-248 seam: replaces the NEW microlabel (e.g. PROMOTE SEED + kind chip). */
   headerSlot?: ReactNode;
   /** MMR-248: present in promote mode — germinate a seed rather than create a node. */
@@ -123,6 +129,7 @@ function AuthoringSheetBody({
   offline,
   onOpenNode,
   prefill,
+  descriptionPending,
   headerSlot,
   promote,
   dismissGuardRef,
@@ -139,6 +146,7 @@ function AuthoringSheetBody({
   const [depSearch, setDepSearch] = useState('');
   const [depQ, setDepQ] = useState('');
   const [depActive, setDepActive] = useState(0);
+  const [depsOpen, setDepsOpen] = useState(false);
   const [signalsOpen, setSignalsOpen] = useState(false);
   const [priority, setPriority] = useState('');
   const [size, setSize] = useState('');
@@ -150,6 +158,9 @@ function AuthoringSheetBody({
   // failed — the next submit retries the attach instead of re-creating.
   const [created, setCreated] = useState<WireNode | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  // The description auto-fills from the (late) promote body only until the user
+  // types — this guards the sync effect from clobbering an in-progress edit.
+  const descriptionTouched = useRef(false);
 
   const projects = useQuery(projectsQuery);
   const projectItems = projects.data?.items ?? [];
@@ -192,6 +203,15 @@ function AuthoringSheetBody({
       clearTimeout(t);
     };
   }, [depSearch, depQ]);
+  // MMR-248: the promote body read lands after the sheet is already open — fold
+  // the seed description into the field once it arrives, unless the user has
+  // already edited it (the touched guard keeps a late read from clobbering).
+  const prefillDescription = prefill?.description;
+  useEffect(() => {
+    if (!descriptionTouched.current && prefillDescription !== undefined) {
+      setDescription(prefillDescription);
+    }
+  }, [prefillDescription]);
   const depQuery = useQuery({
     ...tasksQuery({ q: depQ }),
     enabled: type === 'task' && depQ.trim() !== '',
@@ -238,8 +258,13 @@ function AuthoringSheetBody({
     .map((t) => t.trim())
     .filter((t) => t.length > 0);
 
-  function buildInput(): CreateNodeInput {
-    const input: CreateNodeInput = { parent: effectiveParent, title: title.trim(), type };
+  // The shared signal assembly (MMR-248) — description/tags plus the task-only
+  // priority/size — folded onto whichever payload (create or promote) so the two
+  // builders can't drift. Priority/size gate on `type` (containers omit them;
+  // promote is always a task, so they ride there).
+  function assignSignals(
+    input: Pick<CreateNodeInput, 'description' | 'tags' | 'priority' | 'size'>,
+  ) {
     const desc = description.trim();
     if (desc !== '') {
       input.description = desc;
@@ -255,24 +280,17 @@ function AuthoringSheetBody({
         input.size = size;
       }
     }
+  }
+
+  function buildInput(): CreateNodeInput {
+    const input: CreateNodeInput = { parent: effectiveParent, title: title.trim(), type };
+    assignSignals(input);
     return input;
   }
 
   function buildPromoteInput(): PromoteSeedInput {
     const input: PromoteSeedInput = { parent: effectiveParent, title: title.trim() };
-    const desc = description.trim();
-    if (desc !== '') {
-      input.description = desc;
-    }
-    if (tags.length > 0) {
-      input.tags = tags;
-    }
-    if (priority !== '') {
-      input.priority = priority;
-    }
-    if (size !== '') {
-      input.size = size;
-    }
+    assignSignals(input);
     return input;
   }
 
@@ -290,11 +308,28 @@ function AuthoringSheetBody({
       return; // toasted by the hook; the sheet stays open, fields intact
     }
     const spawnedId = result.created;
-    toast.success(
-      spawnedId !== undefined
-        ? `Promoted ${promote.seedId} → ${spawnedId}`
-        : `Promoted ${promote.seedId}`,
-    );
+    // The promote endpoint takes no deps, so declared blockers are chained onto
+    // the spawned task (create's create-then-depend seam). A partial failure —
+    // task created, deps didn't attach — is surfaced honestly, the id still named.
+    let depsFailed = false;
+    if (spawnedId !== undefined && type === 'task' && deps.length > 0) {
+      try {
+        await depend.mutateAsync({ id: spawnedId, on: deps.map((d) => d.id) });
+      } catch {
+        depsFailed = true; // the hook toasts the raw cause; we add the honest recap
+      }
+    }
+    if (depsFailed) {
+      toast.error(
+        `Promoted ${promote.seedId} → ${spawnedId}, but its dependencies didn't attach — add them on the task.`,
+      );
+    } else {
+      toast.success(
+        spawnedId !== undefined
+          ? `Promoted ${promote.seedId} → ${spawnedId}`
+          : `Promoted ${promote.seedId}`,
+      );
+    }
     if (openAfter && spawnedId !== undefined) {
       onOpenNode?.(spawnedId);
     }
@@ -601,99 +636,128 @@ function AuthoringSheetBody({
             <textarea
               id="authoring-description"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              aria-busy={descriptionPending === true}
+              placeholder={descriptionPending === true ? 'loading the seed body…' : undefined}
+              onChange={(e) => {
+                descriptionTouched.current = true;
+                setDescription(e.target.value);
+              }}
               className={cn(
                 FIELD_SHELL,
-                'min-h-16 resize-y px-[13px] py-[11px] text-meta leading-[1.65] text-ink caret-accent outline-none focus-visible:border-accent/35',
+                'min-h-16 resize-y px-[13px] py-[11px] text-meta leading-[1.65] text-ink caret-accent outline-none placeholder:text-ink-ghost focus-visible:border-accent/35',
               )}
             />
-            <p className="text-tag text-ink-ghost">markdown ok</p>
+            <p className="text-tag text-ink-ghost">
+              {descriptionPending === true ? 'loading the seed body…' : 'markdown ok'}
+            </p>
           </div>
         </fieldset>
 
         {/* ── DEPENDS ON — chip field + task search (tasks only) ─────────── */}
-        {/* Hidden in promote mode: the promote endpoint takes no deps, so a field
-            here would be a no-op — the task's deps are edited post-germination. */}
-        {type === 'task' && promote === undefined && (
+        {/* Always-visible in create mode; a collapsed disclosure in promote mode
+            (MMR-248) — the promote endpoint takes no deps, so declared blockers
+            are chained onto the spawned task after it germinates. */}
+        {type === 'task' && (
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="authoring-dep-search" className="microlabel text-ink-faint">
-              Depends on
-            </label>
-            <div className="relative">
-              <div
-                className={cn(FIELD_SHELL, 'flex flex-wrap items-center gap-1.5 px-[11px] py-2')}
+            {promote === undefined ? (
+              <label htmlFor="authoring-dep-search" className="microlabel text-ink-faint">
+                Depends on
+              </label>
+            ) : (
+              <button
+                type="button"
+                aria-expanded={depsOpen}
+                onClick={() => setDepsOpen((o) => !o)}
+                className="flex items-center gap-2 self-start rounded focus-visible:outline-2 focus-visible:outline-accent"
               >
-                {deps.map((d) => (
-                  <span
-                    key={d.id}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-line/70 py-1 pr-1 pl-2.5 inset-ring inset-ring-line-bright"
+                <span className="microlabel text-ink-faint">Depends on · optional</span>
+                <span aria-hidden className="text-micro text-ink-ghost">
+                  {depsOpen ? '⌃' : '⌄'}
+                </span>
+              </button>
+            )}
+            {(promote === undefined || depsOpen) && (
+              <>
+                <div className="relative">
+                  <div
+                    className={cn(
+                      FIELD_SHELL,
+                      'flex flex-wrap items-center gap-1.5 px-[11px] py-2',
+                    )}
                   >
-                    <StatusDot status={d.status} className="size-[5px]" />
-                    <span className="font-mono text-tag text-ink-faint">{d.id}</span>
-                    <span className="max-w-48 truncate text-xs text-ink">{d.title}</span>
-                    <button
-                      type="button"
-                      aria-label={`Remove dependency ${d.id}`}
-                      onClick={() => setDeps((cur) => cur.filter((x) => x.id !== d.id))}
-                      className="-my-2.5 flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink-faint transition-colors hover:text-ink-bright sm:my-0 sm:min-h-0 sm:min-w-0 sm:px-1"
+                    {deps.map((d) => (
+                      <span
+                        key={d.id}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-line/70 py-1 pr-1 pl-2.5 inset-ring inset-ring-line-bright"
+                      >
+                        <StatusDot status={d.status} className="size-[5px]" />
+                        <span className="font-mono text-tag text-ink-faint">{d.id}</span>
+                        <span className="max-w-48 truncate text-xs text-ink">{d.title}</span>
+                        <button
+                          type="button"
+                          aria-label={`Remove dependency ${d.id}`}
+                          onClick={() => setDeps((cur) => cur.filter((x) => x.id !== d.id))}
+                          className="-my-2.5 flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink-faint transition-colors hover:text-ink-bright sm:my-0 sm:min-h-0 sm:min-w-0 sm:px-1"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      id="authoring-dep-search"
+                      role="combobox"
+                      aria-expanded={depListOpen}
+                      aria-controls="authoring-dep-results"
+                      aria-autocomplete="list"
+                      aria-activedescendant={
+                        depListOpen && depActiveOption !== undefined
+                          ? depOptionDomId(depActiveOption.id)
+                          : undefined
+                      }
+                      value={depSearch}
+                      onChange={(e) => setDepSearch(e.target.value)}
+                      onKeyDown={handleDepKey}
+                      placeholder="search tasks…"
+                      className="min-w-32 flex-1 bg-transparent text-xs text-ink caret-accent outline-none placeholder:text-ink-faint"
+                    />
+                  </div>
+                  {depListOpen && (
+                    <div
+                      id="authoring-dep-results"
+                      role="listbox"
+                      aria-label="Matching tasks"
+                      className="absolute inset-x-0 top-full z-20 mt-1 flex max-h-56 flex-col gap-px overflow-y-auto rounded-[9px] border border-line-bright bg-well-850 p-1 shadow-2xl light:shadow-menu"
                     >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-                <input
-                  id="authoring-dep-search"
-                  role="combobox"
-                  aria-expanded={depListOpen}
-                  aria-controls="authoring-dep-results"
-                  aria-autocomplete="list"
-                  aria-activedescendant={
-                    depListOpen && depActiveOption !== undefined
-                      ? depOptionDomId(depActiveOption.id)
-                      : undefined
-                  }
-                  value={depSearch}
-                  onChange={(e) => setDepSearch(e.target.value)}
-                  onKeyDown={handleDepKey}
-                  placeholder="search tasks…"
-                  className="min-w-32 flex-1 bg-transparent text-xs text-ink caret-accent outline-none placeholder:text-ink-faint"
-                />
-              </div>
-              {depListOpen && (
-                <div
-                  id="authoring-dep-results"
-                  role="listbox"
-                  aria-label="Matching tasks"
-                  className="absolute inset-x-0 top-full z-20 mt-1 flex max-h-56 flex-col gap-px overflow-y-auto rounded-[9px] border border-line-bright bg-well-850 p-1 shadow-2xl light:shadow-menu"
-                >
-                  {depQuery.isPending && (
-                    <p className="px-2 py-1.5 text-xs text-ink-faint">searching…</p>
-                  )}
-                  {!depQuery.isPending && depOptions.length === 0 && (
-                    <p className="px-2 py-1.5 text-xs text-ink-faint">No tasks match.</p>
-                  )}
-                  {depOptions.map((n, i) => (
-                    <button
-                      key={n.id}
-                      id={depOptionDomId(n.id)}
-                      type="button"
-                      role="option"
-                      aria-selected={i === depActive}
-                      onClick={() => pickDep(n)}
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-well-800',
-                        i === depActive && 'bg-well-800',
+                      {depQuery.isPending && (
+                        <p className="px-2 py-1.5 text-xs text-ink-faint">searching…</p>
                       )}
-                    >
-                      <StatusDot status={n.status} className="size-[5px]" />
-                      <span className="font-mono text-tag text-ink-faint">{n.id}</span>
-                      <span className="truncate text-xs text-ink">{n.title}</span>
-                    </button>
-                  ))}
+                      {!depQuery.isPending && depOptions.length === 0 && (
+                        <p className="px-2 py-1.5 text-xs text-ink-faint">No tasks match.</p>
+                      )}
+                      {depOptions.map((n, i) => (
+                        <button
+                          key={n.id}
+                          id={depOptionDomId(n.id)}
+                          type="button"
+                          role="option"
+                          aria-selected={i === depActive}
+                          onClick={() => pickDep(n)}
+                          className={cn(
+                            'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-well-800',
+                            i === depActive && 'bg-well-800',
+                          )}
+                        >
+                          <StatusDot status={n.status} className="size-[5px]" />
+                          <span className="font-mono text-tag text-ink-faint">{n.id}</span>
+                          <span className="truncate text-xs text-ink">{n.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <p className="text-tag text-ink-ghost">{DEP_HELPER}</p>
+                <p className="text-tag text-ink-ghost">{DEP_HELPER}</p>
+              </>
+            )}
           </div>
         )}
 
