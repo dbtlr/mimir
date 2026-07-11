@@ -389,7 +389,7 @@ export function TasksPage() {
                         <StatusDot status={node.status} className="size-1.5" />
                         <span
                           className={cn(
-                            'font-mono text-micro tracking-[0.08em] uppercase',
+                            'font-mono text-micro tracking-[0.08em] whitespace-nowrap uppercase',
                             meta.foreground,
                           )}
                         >
