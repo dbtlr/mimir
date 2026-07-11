@@ -36,13 +36,22 @@ describe('seedVerbs promote chip (MMR-248)', () => {
     expect(screen.getByRole('button', { name: 'Promote → task…' })).toBeInTheDocument();
   });
 
-  it('is offered on a ready seed alongside Resolve', () => {
+  it('follows Resolve as a secondary chip on the ready lane — one primary per lane', () => {
     renderVerbs(
       seed({ lane: 'ready', lifecycle: 'promoted', ready_to_resolve: true, spawned: ['MMR-90'] }),
       vi.fn(),
     );
-    expect(screen.getByRole('button', { name: 'Promote → task…' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Resolve — done' })).toBeInTheDocument();
+    const buttons = screen.getAllByRole('button');
+    // Resolve keeps the lead; Promote falls in right behind it, ahead of Reject.
+    expect(buttons[0]).toHaveTextContent('Resolve — done');
+    expect(buttons[1]).toHaveTextContent('Promote → task…');
+    expect(buttons[2]).toHaveTextContent('Reject…');
+  });
+
+  it('leads the verb row on a promoted (in-flight) seed', () => {
+    renderVerbs(seed({ lane: 'promoted', lifecycle: 'promoted', spawned: ['MMR-90'] }), vi.fn());
+    const buttons = screen.getAllByRole('button');
+    expect(buttons[0]).toHaveTextContent('Promote → task…');
   });
 
   it('is absent on a settled seed — frozen, no verbs at all', () => {

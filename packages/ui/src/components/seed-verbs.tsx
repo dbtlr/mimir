@@ -53,15 +53,15 @@ export function SpawnedRef({ seed }: { seed: WireSeed }) {
 /**
  * The pinned triage verb row (MMR-247, ADR 0019 §5) — labeled chips scoped to
  * the seed's lane:
- *  - untriaged: Reject… · Later
- *  - ready (to resolve): Resolve — done (primary) · Reject…, with the spawned link
- *  - promoted (in flight): Reject… only, with the spawned reference
+ *  - untriaged: Promote → task… (primary) · Reject… · Later
+ *  - ready (to resolve): Resolve — done (primary) · Promote → task… · Reject…, with the spawned link
+ *  - promoted (in flight): Promote → task… (primary) · Reject…, with the spawned reference
  * "Later" is purely local — it collapses/deselects the row, no lifecycle change,
  * no server call. Reject/Resolve open the required-reason dialog.
  *
- * Seam (MMR-248): the lead "Promote → task…" chip ships with the promote sheet.
- * The chip row is an array built left-to-right — the promote chip slots in ahead
- * of Reject on untriaged/promoted without reworking this component.
+ * Seam (MMR-248): one primary per lane. Promote leads (primary) on untriaged and
+ * promoted; on the ready lane Resolve keeps the lead and Promote falls in behind
+ * it as a secondary chip.
  */
 export function SeedVerbs({
   seed,
@@ -93,6 +93,15 @@ export function SeedVerbs({
         Resolve — done
       </VerbChip>,
     );
+    // On the ready lane Resolve is the lead primary, so Promote falls in behind
+    // it as a secondary chip — one primary per lane.
+    if (onPromote !== undefined) {
+      chips.push(
+        <VerbChip key="promote" disabled={offline} onClick={() => onPromote(seed)}>
+          Promote → task…
+        </VerbChip>,
+      );
+    }
   }
   chips.push(
     <VerbChip key="reject" disabled={offline} onClick={() => setPending('reject')}>
@@ -106,10 +115,10 @@ export function SeedVerbs({
       </VerbChip>,
     );
   }
-  // MMR-248 promote seam: the lead verb on every live lane (untriaged/promoted/
-  // ready). Promote is repeatable while the seed is live — a further promote
-  // appends another spawned link — so it isn't gated to the untriaged lane.
-  if (onPromote !== undefined) {
+  // MMR-248 promote seam: the lead primary verb on untriaged/promoted (the ready
+  // lane placed Promote as a secondary above). Promote is repeatable while the
+  // seed is live — a further promote appends another spawned link.
+  if (onPromote !== undefined && seed.lane !== 'ready') {
     chips.unshift(
       <VerbChip key="promote" primary disabled={offline} onClick={() => onPromote(seed)}>
         Promote → task…
