@@ -1,14 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, vi } from 'vitest';
 
 import type { WireAttention } from '../api/types';
 import { router } from '../router';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
+const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet, apiSend }));
 
 function attn(lane: WireAttention['lane'], lastActivity: string, stale = false): WireAttention {
   return { lane, last_activity: lastActivity, stale };
@@ -16,6 +16,18 @@ function attn(lane: WireAttention['lane'], lastActivity: string, stale = false):
 
 function proj(id: string, attention?: WireAttention) {
   return { attention, distribution: {}, id, status: 'in_progress', title: `${id} project` };
+}
+
+function archivedProj(id: string) {
+  return {
+    archived_at: '2026-06-30T12:00:00.000Z',
+    artifact_count: 12,
+    distribution: {},
+    id,
+    leaf_counts: { done: 40, ready: 1 },
+    status: 'done',
+    title: `${id} project`,
+  };
 }
 
 function renderOverview() {
@@ -91,6 +103,83 @@ describe('overviewPage attention-router (MMR-102)', () => {
     await expect(screen.findByText('Overview')).resolves.toBeDefined();
     expect(screen.getByText('OLDCACHE')).toBeDefined();
     expect(screen.queryByText('Awaiting you')).toBeNull();
+  });
+
+  it('omits the archived shelf and header clause at zero archived (MMR-125)', async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/projects') {
+        return Promise.resolve({
+          items: [proj('LIVE', attn('live', '2026-06-19T00:00:00.000Z'))],
+          total: 1,
+        });
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    renderOverview();
+
+    await expect(screen.findByRole('heading', { name: 'Projects' })).resolves.toBeDefined();
+    expect(screen.queryByText(/archived/i)).toBeNull();
+  });
+
+  it('renders the archived shelf below the lanes and the header archived clause (MMR-125)', async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/projects') {
+        return Promise.resolve({
+          items: [proj('LIVE', attn('live', '2026-06-19T00:00:00.000Z'))],
+          total: 1,
+        });
+      }
+      if (path === '/api/projects?status=archived') {
+        return Promise.resolve({ items: [archivedProj('OLD'), archivedProj('DUSTY')], total: 2 });
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    renderOverview();
+
+    await expect(screen.findByText('· 2 archived')).resolves.toBeDefined(); // header clause
+    // folded by default: the count row shows, the frozen cards don't
+    const bar = screen.getByRole('button', { name: 'Archived, 2 projects' });
+    expect(bar.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('OLD project')).toBeNull();
+
+    await userEvent.click(bar);
+    expect(screen.getByText('OLD project')).toBeDefined();
+    expect(screen.getByText('DUSTY project')).toBeDefined();
+    expect(
+      screen.getAllByText('41 tasks · 12 artifacts · readable, nothing writable'),
+    ).toHaveLength(2);
+  });
+
+  it('unarchive removes the project from the shelf via refetch — no confirmation (MMR-125)', async () => {
+    let archivedReads = 0;
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/projects') {
+        return Promise.resolve({
+          items: [proj('LIVE', attn('live', '2026-06-19T00:00:00.000Z'))],
+          total: 1,
+        });
+      }
+      if (path === '/api/projects?status=archived') {
+        archivedReads += 1;
+        return Promise.resolve(
+          archivedReads === 1
+            ? { items: [archivedProj('OLD')], total: 1 }
+            : { items: [], total: 0 },
+        );
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    apiSend.mockResolvedValue({ id: 'OLD' });
+    renderOverview();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Archived, 1 project' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Unarchive OLD project' }));
+
+    expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/OLD/unarchive', undefined);
+    // the write invalidates ['projects']; the refetch empties the shelf
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /^Archived,/ })).toBeNull();
+    });
   });
 
   it('shows an empty state when there are no projects', async () => {

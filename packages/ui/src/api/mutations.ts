@@ -172,6 +172,22 @@ export function useUpdateProject(key: string) {
   });
 }
 
+/**
+ * Restore an archived project (ADR 0015, MMR-125) — fired from the shelf's
+ * frozen card and the archive undo toast alike. Deliberately no confirmation
+ * either way: unarchive IS the undo. Errors toast verbatim and the card stays
+ * on the shelf (no optimistic removal — writes invalidate + refetch).
+ */
+export function useUnarchiveProject(key: string) {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: () =>
+      apiSend<WireNode>('POST', `/api/projects/${encodeURIComponent(key)}/unarchive`, undefined),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+  });
+}
+
 export function useAnnotate(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({

@@ -24,6 +24,16 @@ export const projectsQuery = queryOptions({
   queryKey: ['projects'],
 });
 
+/**
+ * The archived shelf (MMR-125): frozen projects behind the `?status=archived`
+ * door (ADR 0015). Keyed under `['projects']` so every write's invalidation
+ * refreshes the shelf alongside the live lanes.
+ */
+export const archivedProjectsQuery = queryOptions({
+  queryFn: () => apiGet<Collection<WireNode>>('/api/projects?status=archived'),
+  queryKey: ['projects', 'archived'],
+});
+
 /** Attention: tasks awaiting the operator's review, portfolio-wide (MMR-103). */
 export const underReviewQuery = queryOptions({
   queryFn: () => apiGet<Collection<WireNode>>('/api/nodes?type=task&status=under_review'),

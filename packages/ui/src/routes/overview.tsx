@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 
-import { projectsQuery } from '../api/queries';
+import { archivedProjectsQuery, projectsQuery } from '../api/queries';
+import { ArchivedShelf } from '../components/archived-shelf';
 import { LaneSection } from '../components/lane-section';
 import { NodeDossier } from '../components/node-dossier';
 import { OfflineBanner } from '../components/offline-banner';
@@ -26,7 +27,9 @@ export function OverviewPage() {
   const { node } = overviewRoute.useSearch();
 
   const projects = useQuery(projectsQuery);
-  const conn = connectivity([projects]);
+  const archived = useQuery(archivedProjectsQuery);
+  const archivedProjects = archived.data?.items ?? [];
+  const conn = connectivity([projects, archived]);
   const openNode = (id: string) => void navigate({ search: { node: id }, to: '.' });
   const closeNode = () => void navigate({ search: {}, to: '.' });
 
@@ -84,9 +87,8 @@ export function OverviewPage() {
               );
             return (
               <>
-                {/* The one solid action per surface; desktop-only header row. The
-                    archived clause is omitted — /api/projects exposes no archived
-                    count. The button rides MMR-227's new-project sheet. Suppressed
+                {/* The one solid action per surface; desktop-only header row.
+                    The button rides MMR-227's new-project sheet. Suppressed
                     in degraded flat mode, which carries its own "Overview" heading. */}
                 {grouping.mode !== 'flat' && (
                   <header className="hidden items-baseline gap-2.5 md:flex">
@@ -94,6 +96,11 @@ export function OverviewPage() {
                       Projects
                     </h1>
                     <span className="text-tag text-ink-faint">{projects.data.items.length}</span>
+                    {archivedProjects.length > 0 && (
+                      <span className="text-tag text-ink-faint">
+                        · {archivedProjects.length} archived
+                      </span>
+                    )}
                     <ActionButton
                       className="ml-auto px-3.5 py-1.5"
                       disabled={conn.offline}
@@ -109,6 +116,9 @@ export function OverviewPage() {
               </>
             );
           })()}
+        {/* Below the last lane: the Archived shelf (MMR-125) — absent entirely
+            at zero; a folded count row otherwise. Frozen, not empty-stated. */}
+        <ArchivedShelf projects={archivedProjects} offline={conn.offline} />
       </main>
       <NodeDossier nodeId={node} onClose={closeNode} onOpenNode={openNode} offline={conn.offline} />
     </>

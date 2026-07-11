@@ -117,6 +117,8 @@ export type WireNode = {
   /** Container-only (MMR-204): purposefully open-ended, opts out of done-rollup. */
   open_ended?: boolean | null;
   completed_at?: string | null;
+  /** Project-only (ADR 0015): present and non-null only when archived — the shelf's ❄ date. */
+  archived_at?: string | null;
   created_at: string;
   updated_at: string;
 
@@ -125,6 +127,8 @@ export type WireNode = {
   distribution?: Distribution;
   /** Per-project leaf-task status tally (MMR-105) — the project card's vitals panel. */
   leaf_counts?: Distribution;
+  /** Per-project artifact tally (MMR-125) — the archived shelf's count line. */
+  artifact_count?: number;
   tags?: WireTag[];
   annotations?: WireAnnotation[];
   artifacts?: WireArtifact[];
