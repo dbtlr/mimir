@@ -21,6 +21,16 @@ describe('suggestKey (MMR-230)', () => {
     expect(suggestKey('ab')).toBe('AB');
   });
 
+  it('never suggests fewer than two letters for an all-vowel word', () => {
+    expect(suggestKey('AI')).toBe('AI');
+    expect(suggestKey('Io')).toBe('IO');
+    expect(suggestKey('Aeiou')).toBe('AE');
+  });
+
+  it('suggests nothing for a one-letter title (below the 2-char floor)', () => {
+    expect(suggestKey('A')).toBe('');
+  });
+
   it('ignores digits and punctuation', () => {
     expect(suggestKey('Project 9: relaunch!')).toBe('PR');
   });

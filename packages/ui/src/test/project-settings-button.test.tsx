@@ -11,7 +11,12 @@ vi.mock('../api/client', () => ({ apiSend }));
 // The undo toast is the bare callable; `error` covers the mutation failures.
 const { toast } = vi.hoisted(() => {
   const fn =
-    vi.fn<(message: string, opts?: { action?: { label: string; onClick: () => void } }) => void>();
+    vi.fn<
+      (
+        message: string,
+        opts?: { action?: { label: string; onClick: () => void }; duration?: number },
+      ) => void
+    >();
   return { toast: Object.assign(fn, { error: vi.fn() }) };
 });
 vi.mock('sonner', () => ({ toast }));
@@ -120,6 +125,9 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     await vi.waitFor(() => {
       expect(toast).toHaveBeenCalledWith('Archived My Project', {
         action: expect.objectContaining({ label: 'Unarchive' }),
+        // The undo toast is the only console unarchive path (the archived
+        // shelf is MMR-125) — it must outlive sonner's ~4s default.
+        duration: 10_000,
       });
     });
     expect(navigate).toHaveBeenCalledWith({ to: '/' });

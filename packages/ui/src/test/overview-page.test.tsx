@@ -30,16 +30,24 @@ function archivedProj(id: string) {
   };
 }
 
-function renderOverview() {
+function renderOverview(client = new QueryClient()) {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: ['/'] }),
     routeTree: router.routeTree,
   });
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <RouterProvider router={testRouter} />
     </QueryClientProvider>,
   );
+}
+
+/** A client with cached projects whose refetch will fail → offline over cache. */
+function offlineClient(items: ReturnType<typeof proj>[]) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client.setQueryData(['projects'], { items, total: items.length });
+  apiGet.mockRejectedValue(new Error('unreachable'));
+  return client;
 }
 
 describe('overviewPage attention-router (MMR-102)', () => {
@@ -228,6 +236,28 @@ describe('overviewPage attention-router (MMR-102)', () => {
     // <body>; the main landmark is the fallback
     await waitFor(() => {
       expect(document.activeElement).toBe(screen.getByRole('main'));
+    });
+  });
+
+  it('offline disables the header and mobile end-of-list create triggers (MMR-230)', async () => {
+    renderOverview(offlineClient([proj('LIVE', attn('live', '2026-06-19T00:00:00.000Z'))]));
+
+    await expect(screen.findByRole('heading', { name: 'Projects' })).resolves.toBeDefined();
+    const triggers = await screen.findAllByRole('button', { name: /new project/i });
+    expect(triggers).toHaveLength(2); // desktop header + mobile dashed row
+    await waitFor(() => {
+      for (const trigger of triggers) {
+        expect(trigger).toBeDisabled();
+      }
+    });
+  });
+
+  it('offline disables the empty-state create trigger (MMR-230)', async () => {
+    renderOverview(offlineClient([]));
+
+    await expect(screen.findByText(/no projects yet/i)).resolves.toBeDefined();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /new project/i })).toBeDisabled();
     });
   });
 

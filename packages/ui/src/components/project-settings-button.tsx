@@ -39,8 +39,12 @@ export function ProjectSettingsButton({
     archive.mutate(undefined, {
       onSuccess: () => {
         setOpen(false);
+        // Longer than sonner's ~4s default: with no confirm and no archived
+        // shelf yet (MMR-125), this toast is the console's only unarchive
+        // path — give the operator a real window to catch it.
         toast(`Archived ${project.title}`, {
           action: { label: 'Unarchive', onClick: () => unarchive.mutate(undefined) },
+          duration: 10_000,
         });
         void navigate({ to: '/' });
       },
