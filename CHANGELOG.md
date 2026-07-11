@@ -477,6 +477,19 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Fixture vault enrichment — descriptions, annotations, submit metadata**
+  (MMR-256). The fixture vault generator (MMR-255) previously seeded every task
+  with a null description, zero annotations, and no external ref, leaving the
+  console's description clamp/expand, the timeline's expand-in-place note, and
+  the verdict block's summary/ref line unscreenshotable. A representative subset
+  of the Aurora tasks now carries realistic descriptions (one long
+  multi-paragraph, several short), a few 1-2 short-note annotations plus one
+  3+ line note (the expand-in-place case), and — on the under-review leaf — a
+  submit summary and a GH-style `external_ref`, so both verdict-block surfaces
+  (the dossier's derived post-submit annotation and the quick view's `summary`
+  field) render. All content lands through the same core mutations the product
+  uses (`annotate`, `updateNode`); the declarative zoo rows simply grew optional
+  `description`/`notes`/`review` fields.
 - **Task tags edit from the dossier's Edit form** (MMR-257). A task's tags are
   no longer read-only outside creation: the dossier's Edit form (previously
   scalar fields only) now carries the same comma-separated tags input the
