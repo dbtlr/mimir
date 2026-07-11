@@ -109,7 +109,12 @@ export function SeedsPage() {
 
         <div className="hidden min-h-0 flex-1 flex-col bg-well-900 md:flex">
           {selected !== undefined ? (
-            <SeedDetail id={selected} onLater={() => select(undefined)} offline={conn.offline} />
+            <SeedDetail
+              key={selected}
+              id={selected}
+              onLater={() => select(undefined)}
+              offline={conn.offline}
+            />
           ) : (
             <p className="flex w-full items-center justify-center p-8 text-xs text-ink-faint">
               Select a seed to read.

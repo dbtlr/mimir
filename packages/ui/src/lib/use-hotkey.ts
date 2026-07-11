@@ -12,13 +12,27 @@ function isEditableTarget(el: Element | null): boolean {
   return el instanceof HTMLElement && el.isContentEditable;
 }
 
+/** Focus on a popup role that owns single-letter typeahead (base-ui menu/select/combobox). */
+function isPopupTarget(el: Element | null): boolean {
+  if (el === null) {
+    return false;
+  }
+  const role = el.getAttribute('role');
+  return role === 'menuitem' || role === 'option' || role === 'combobox';
+}
+
+/** Any open dialog, menu, or listbox — base-ui mounts each with its ARIA role while open. */
+function hasOpenPopup(): boolean {
+  return document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]') !== null;
+}
+
 /**
  * A single global, unmodified-key hotkey (MMR-247) — the `s` capture trigger.
- * Guarded so a bare letter never hijacks typing or stacks over a modal:
+ * Guarded so a bare letter never hijacks typing or stacks over a modal or popup:
  * ignores the key when focus is in an input / textarea / select / contenteditable,
- * when any modifier is held, and when another dialog is already open (base-ui
- * mounts dialogs with `role="dialog"`). The handler is held in a ref so a fresh
- * closure each render never re-binds the listener.
+ * when focus is on a menu/select/combobox item, when any modifier is held, and
+ * when another dialog, menu, or listbox is already open. The handler is held in
+ * a ref so a fresh closure each render never re-binds the listener.
  */
 export function useHotkey(
   key: string,
@@ -43,7 +57,10 @@ export function useHotkey(
       if (isEditableTarget(document.activeElement)) {
         return;
       }
-      if (document.querySelector('[role="dialog"]') !== null) {
+      if (isPopupTarget(document.activeElement)) {
+        return;
+      }
+      if (hasOpenPopup()) {
         return;
       }
       e.preventDefault();

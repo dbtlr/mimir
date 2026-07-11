@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { WireSeed } from '../api/types';
@@ -41,6 +42,9 @@ function mockApi() {
     }
     if (path.startsWith('/api/seeds?')) {
       return Promise.resolve({ items: list, total: list.length });
+    }
+    if (path === '/api/seeds/MMR-s1') {
+      return Promise.resolve({ ...list[0], description: 'Alpha original text.' });
     }
     if (path === '/api/seeds/MMR-s2') {
       return Promise.resolve({
@@ -117,5 +121,35 @@ describe('seedsPage (13a/14a, MMR-247)', () => {
     await screen.findByText('The banner repaints on every wake.');
     expect(document.body.textContent?.toLowerCase()).not.toContain('dispose');
     expect(document.body.textContent).toContain('READY TO RESOLVE');
+  });
+
+  it('clears an in-progress edit when the selected seed changes (no state bleed across ids)', async () => {
+    mockApi();
+    renderSeeds('/seeds?seed=MMR-s1');
+    await screen.findAllByText('Alpha original text.');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const textarea = await screen.findByRole('textbox');
+    await userEvent.clear(textarea);
+    await userEvent.type(textarea, 'DRAFT FOR A — UNSAVED');
+
+    // switch the selection to a different seed without saving A's draft
+    const rowB = screen.getAllByText('Offline banner flicker')[0];
+    if (rowB === undefined) {
+      throw new Error('row B not found');
+    }
+    await userEvent.click(rowB);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('The banner repaints on every wake.').length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(document.body.textContent).not.toContain('DRAFT FOR A');
+
+    // starting a fresh edit on B shows B's own untouched description, never A's draft
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    await expect(screen.findByRole('textbox')).resolves.toHaveValue(
+      'The banner repaints on every wake.',
+    );
   });
 });
