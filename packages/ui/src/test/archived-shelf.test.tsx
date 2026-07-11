@@ -22,11 +22,19 @@ function frozen(id: string, overrides: Partial<WireNode> = {}): WireNode {
 }
 
 function renderShelf(projects: WireNode[], offline = false) {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
+  const client = new QueryClient();
+  const { rerender } = render(
+    <QueryClientProvider client={client}>
       <ArchivedShelf projects={projects} offline={offline} />
     </QueryClientProvider>,
   );
+  return (next: WireNode[]) => {
+    rerender(
+      <QueryClientProvider client={client}>
+        <ArchivedShelf projects={next} offline={offline} />
+      </QueryClientProvider>,
+    );
+  };
 }
 
 describe('archivedShelf (MMR-125)', () => {
@@ -77,6 +85,18 @@ describe('archivedShelf (MMR-125)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Unarchive project OLD' }));
 
     expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/OLD/unarchive', undefined);
+  });
+
+  it('moves focus to the disclosure bar when the unarchived card unmounts', async () => {
+    apiSend.mockResolvedValue({ id: 'OLD' });
+    const rerenderShelf = renderShelf([frozen('OLD'), frozen('DUSTY')]);
+    await userEvent.click(screen.getByRole('button', { name: /archived/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'Unarchive project OLD' }));
+
+    rerenderShelf([frozen('DUSTY')]); // the refetched list, one card fewer
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Archived, 1 project' }),
+    );
   });
 
   it('offline disables Unarchive — the write affordance goes inert', async () => {

@@ -678,6 +678,9 @@ test('POST archive freezes + hides a project; the door and unarchive round-trip'
   // hidden from the default project list; visible via the door; a sibling stays
   const active = await parse(await get('/api/projects'));
   expect((active.items as Rec[]).map((p) => p.id)).toEqual(['NRN']);
+  // artifact_count is archived-door-only: the active list backs the UI's 10s
+  // poll, which never reads it, so it must not pay the per-project artifact read
+  expect((active.items as Rec[])[0]?.artifact_count).toBeUndefined();
   const archived = await parse(await get('/api/projects?status=archived'));
   expect((archived.items as Rec[]).map((p) => p.id)).toEqual(['MMR']);
   // the shelf's count line rides the list facets (MMR-125): the archived-404

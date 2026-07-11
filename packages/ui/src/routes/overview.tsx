@@ -36,7 +36,10 @@ export function OverviewPage() {
   return (
     <>
       <OfflineBanner {...conn} />
+      {/* tabIndex -1: the archived shelf's focus fallback — unarchiving the
+          last archived project unmounts the shelf, and focus lands here. */}
       <main
+        tabIndex={-1}
         className={cn(
           'mx-auto flex w-full max-w-7xl min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto p-5',
           conn.offline && 'offline-demoted',

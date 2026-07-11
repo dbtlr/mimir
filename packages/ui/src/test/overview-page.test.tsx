@@ -180,6 +180,11 @@ describe('overviewPage attention-router (MMR-102)', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /^Archived,/ })).toBeNull();
     });
+    // the shelf unmounted while holding focus — it must not strand focus on
+    // <body>; the main landmark is the fallback
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByRole('main'));
+    });
   });
 
   it('shows an empty state when there are no projects', async () => {

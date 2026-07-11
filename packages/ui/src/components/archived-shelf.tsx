@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useUnarchiveProject } from '../api/mutations';
 import type { WireNode } from '../api/types';
@@ -63,16 +63,39 @@ function FrozenProjectCard({ project, offline }: { project: WireNode; offline: b
 
 export function ArchivedShelf({ projects, offline }: { projects: WireNode[]; offline: boolean }) {
   const [expanded, setExpanded] = useState(false);
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const barRef = useRef<HTMLButtonElement | null>(null);
+  const landmarkRef = useRef<HTMLElement | null>(null);
+  const prevCount = useRef(projects.length);
+
+  // Unarchiving unmounts the focused Unarchive button (and, on the last
+  // project, the whole shelf), which would strand keyboard focus on <body>.
+  // When the list shrinks and focus was dropped, restore it: to the disclosure
+  // bar while the shelf survives, else to the enclosing main landmark
+  // (remembered from the last render the shelf was mounted).
+  useEffect(() => {
+    const shrank = projects.length < prevCount.current;
+    prevCount.current = projects.length;
+    if (sectionRef.current !== null) {
+      landmarkRef.current = sectionRef.current.closest('main');
+    }
+    if (shrank && document.activeElement === document.body) {
+      (barRef.current ?? landmarkRef.current)?.focus();
+    }
+  }, [projects.length]);
+
   if (projects.length === 0) {
     return null;
   }
 
   return (
     <section
+      ref={sectionRef}
       aria-label="Archived projects"
       className="overflow-hidden rounded-xl border border-line"
     >
       <button
+        ref={barRef}
         type="button"
         aria-expanded={expanded}
         aria-label={`Archived, ${String(projects.length)} ${projects.length === 1 ? 'project' : 'projects'}`}
