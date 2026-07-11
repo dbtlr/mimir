@@ -33,6 +33,7 @@ import type { Lane, SeedLane, StatusWord, TaskStatusWord } from '@mimir/contract
 
 import {
   abandonTask,
+  annotate,
   attachArtifact,
   blockTask,
   completeTask,
@@ -56,6 +57,7 @@ import {
   submitTask,
   tagEntities,
   transitionSeed,
+  updateNode,
 } from '../src/core';
 import type { Store } from '../src/core';
 import { attentionOf } from '../src/core/attention';
@@ -140,13 +142,35 @@ class Board {
 
   async task(
     parentStem: string,
-    input: { title: string; size?: 'small' | 'medium' | 'large' },
+    input: { title: string; size?: 'small' | 'medium' | 'large'; description?: string },
   ): Promise<string> {
     const node = await createTask(this.store, {
       ...input,
       parentId: await this.nodeId(parentStem),
     });
     return this.stem(node.seq);
+  }
+
+  /** Append a freeform annotation (the core `annotate` verb) — the timeline note
+   * the console's expand-in-place treatment renders. */
+  async note(stem: string, content: string): Promise<void> {
+    await annotate(this.store, await this.nodeId(stem), content);
+  }
+
+  /**
+   * Submit-for-review metadata (MMR-256): `submitTask` itself takes only an id
+   * (ADR 0001/0007) — a summary/ref rides two separate surfaces instead. The
+   * `summary` field is set directly (the quick-view verdict line reads
+   * `node.summary`); a matching annotation lands right after so the dossier's
+   * verdict block — which derives its summary from the latest annotation
+   * authored at/after the submit transition — has one to find. `externalRef`
+   * is the real `external_ref` field, read by both surfaces as-is. Call after
+   * `drive(stem, 'under_review')`.
+   */
+  async submitWith(stem: string, input: { summary: string; externalRef: string }): Promise<void> {
+    const id = await this.nodeId(stem);
+    await updateNode(this.store, id, { externalRef: input.externalRef, summary: input.summary });
+    await annotate(this.store, id, input.summary);
   }
 
   /** Drive a fresh todo task to `word`; `awaiting` wires a dependency on `prereq`. */
@@ -222,25 +246,65 @@ class Board {
  * task state (`new` is the empty-container reading, with no leaf). Adding a
  * visual state is adding a row. The `awaiting` leaf is wired to depend on the
  * `in_progress` leaf (its unsettled prerequisite) after the phases exist.
+ *
+ * A representative subset also carries description/annotation/review content
+ * (MMR-256) so the description clamp, the timeline's expand-in-place note, and
+ * the verdict block's summary/ref line are all screenshotable: `description`
+ * (one long multi-paragraph, several short), `notes` (1-2 short annotations, one
+ * 3+ line note), and `review` (the lone `under_review` leaf's submit summary +
+ * external ref).
  */
 const AURORA_ZOO: readonly {
   word: StatusWord;
   phase: string;
-  task?: { title: string; leaf: TaskStatusWord };
+  task?: {
+    title: string;
+    leaf: TaskStatusWord;
+    description?: string;
+    notes?: string[];
+    review?: { summary: string; externalRef: string };
+  };
 }[] = [
   {
     phase: 'Onboarding Flow',
-    task: { leaf: 'in_progress', title: 'Wire up the welcome carousel' },
+    task: {
+      description:
+        'Replace the static onboarding splash with a three-panel carousel that walks new users through account setup, notification permissions, and the home feed. Panels advance on swipe or a 4s auto-advance timer that pauses on touch.\n\nThe carousel needs to respect reduced-motion settings (drop the auto-advance and cross-fade instead of slide) and cold-start under 400ms on a mid-tier Android device, since it sits on the critical first-run path.\n\nAnalytics: fire a `carousel_panel_viewed` event per panel with the dwell time, plus `carousel_skipped` if the user taps past before the timer completes. Design signed off on the panel copy in Figma; still waiting on final illustration exports for panel three.',
+      leaf: 'in_progress',
+      notes: [
+        'Confirmed with design: use the existing ease-out-quad curve for the slide transition, not a new easing token.',
+        'Illustration exports for panel three are still pending from brand — blocking the final QA pass.',
+      ],
+      title: 'Wire up the welcome carousel',
+    },
     word: 'in_progress',
   },
   {
     phase: 'Push Notifications',
-    task: { leaf: 'under_review', title: 'Silent push delivery receipts' },
+    task: {
+      description:
+        'Log a delivery receipt back to the ingestion service when a silent push actually wakes the app, so delivered can be told apart from just-sent.',
+      leaf: 'under_review',
+      review: {
+        externalRef: 'GH-482',
+        summary:
+          'Delivery receipts now round-trip through the ingestion service; added retry-with-backoff for the three transient failure codes we saw in staging. Tests green, ready for a look.',
+      },
+      title: 'Silent push delivery receipts',
+    },
     word: 'under_review',
   },
   {
     phase: 'Offline Mode',
-    task: { leaf: 'ready', title: 'Cache the home feed locally' },
+    task: {
+      description:
+        'Persist the last-fetched home feed to local storage so cold app opens render instantly, then refresh in the background once connectivity is confirmed.',
+      leaf: 'ready',
+      notes: [
+        'Talked through the caching approach with the platform team today:\n- IndexedDB for web, SQLite-backed cache for the native shell\n- 24h TTL before we treat the cached feed as stale and force a refetch\n- Falls back to the empty state (not a spinner) if both the cache and the network miss\nNo objections raised — moving ahead with this shape for the v1 cut.',
+      ],
+      title: 'Cache the home feed locally',
+    },
     word: 'ready',
   },
   {
@@ -250,7 +314,15 @@ const AURORA_ZOO: readonly {
   },
   {
     phase: 'Payments',
-    task: { leaf: 'blocked', title: 'Integrate App Store receipts' },
+    task: {
+      description:
+        'Wire the App Store server-to-server notification webhook into the payments service so receipt validation happens without a client round-trip.',
+      leaf: 'blocked',
+      notes: [
+        'External dependency confirmed blocking — the App Store Connect webhook config is owned by the platform-infra team; waiting on their sprint slot.',
+      ],
+      title: 'Integrate App Store receipts',
+    },
     word: 'blocked',
   },
   {
@@ -258,10 +330,22 @@ const AURORA_ZOO: readonly {
     task: { leaf: 'parked', title: 'Home-screen glance widget' },
     word: 'parked',
   },
-  { phase: 'Authentication', task: { leaf: 'done', title: 'Biometric unlock' }, word: 'done' },
+  {
+    phase: 'Authentication',
+    task: {
+      description:
+        'Add Face ID / Touch ID as an alternate to the PIN unlock screen, gated behind the existing biometric capability check.',
+      leaf: 'done',
+      title: 'Biometric unlock',
+    },
+    word: 'done',
+  },
   {
     phase: 'Legacy Bridge',
-    task: { leaf: 'abandoned', title: 'Port the old settings sheet' },
+    task: {
+      leaf: 'abandoned',
+      title: 'Port the old settings sheet',
+    },
     word: 'abandoned',
   },
   { phase: 'Localization', word: 'new' }, // empty container → new
@@ -294,11 +378,22 @@ async function buildAurora(store: Store): Promise<void> {
     if (row.task === undefined) {
       continue; // `new` — a deliberately empty container
     }
-    const task = await board.task(phase, { title: row.task.title });
+    const task = await board.task(phase, {
+      description: row.task.description,
+      title: row.task.title,
+    });
     if (row.task.leaf === 'awaiting') {
       awaitingLeaf = task; // wired after the loop, once its prerequisite exists
     } else {
       await board.drive(task, row.task.leaf);
+    }
+    for (const note of row.task.notes ?? []) {
+      await board.note(task, note);
+    }
+    if (row.task.review !== undefined) {
+      // Applied after `drive` has already carried the leaf to under_review, so
+      // the submit-summary annotation lands after the submit transition.
+      await board.submitWith(task, row.task.review);
     }
     if (row.task.leaf === 'in_progress') {
       carousel = task;
@@ -326,7 +421,16 @@ async function buildAurora(store: Store): Promise<void> {
     summary: 'Rolling defect intake.',
     title: 'Bug Bash',
   });
-  await board.drive(await board.task(bugBash, { title: 'Fix crash on cold start' }), 'in_progress');
+  const coldStartCrash = await board.task(bugBash, {
+    description:
+      "Users on iOS 17 devices with low storage are hitting a crash during cold start when the asset cache directory can't be created; guard the mkdir call and fall back to in-memory caching.",
+    title: 'Fix crash on cold start',
+  });
+  await board.drive(coldStartCrash, 'in_progress');
+  await board.note(
+    coldStartCrash,
+    "Reproduced locally by filling the simulator's disk to <200MB free — matches the crash signature from Crashlytics.",
+  );
 
   // Tags — a project tag (set at create) plus node tags.
   if (carousel !== undefined) {
