@@ -5,6 +5,7 @@ import { AttentionAlert } from '../components/attention-alert';
 import { ProjectPicker } from '../components/project-picker';
 import { ThemeToggle } from '../components/theme-toggle';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/menu';
+import { VersionFooter } from '../components/version-footer';
 import { useTheme } from '../lib/use-theme';
 import { useToastPosition } from '../lib/use-toast-position';
 
@@ -73,6 +74,7 @@ export function Shell() {
         </div>
       </header>
       <Outlet />
+      <VersionFooter />
       {/* Desktop: bottom-LEFT — the sheet/dossier rail owns the bottom-right
           corner, and a toast there sits on top of (and intercepts clicks meant
           for) the rail's footer actions — exactly the error-retry path toasts

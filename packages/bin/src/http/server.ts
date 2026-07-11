@@ -84,6 +84,7 @@ import {
   updateProject,
   validation,
 } from '../core';
+import { VAULT_SCHEMA } from '../vault';
 import {
   boolField,
   guarded,
@@ -505,7 +506,10 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       },
 
       '/api/health': {
-        GET: (req) => json(req, { status: 'ok', version: opts.version }),
+        // `version` is the daemon's build (MMR-57); `schema` is the vault
+        // format it produces — together the console's stale-binary signal
+        // (MMR-260): a running UI bundle compares its own build against this.
+        GET: (req) => json(req, { schema: VAULT_SCHEMA, status: 'ok', version: opts.version }),
       },
 
       '/api/nodes': {

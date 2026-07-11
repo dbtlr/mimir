@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { vitestReact } from '@dbtlr/tooling/vitest';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
@@ -9,12 +11,35 @@ import { defineConfig } from 'vitest/config';
 import { injectThemeColorMeta, WELL_900 } from './src/lib/theme-colors';
 
 /**
+ * The bundle-side twin of `MIMIR_BUILD_VERSION` (packages/bin/src/version.ts,
+ * MMR-57): release.yml exports the same env var before both `build:ui` and
+ * the binary compile, so a tagged build stamps identical versions on both
+ * sides. Absent that (local/dev/PR builds), fall back to the bin package's
+ * version — the same fallback `version.ts` uses — so an un-stamped bundle and
+ * an un-stamped daemon agree by default instead of reading as permanently stale.
+ */
+function readVersion(pkgPath: URL): string {
+  const pkg: unknown = JSON.parse(readFileSync(pkgPath, 'utf8'));
+  const version =
+    typeof pkg === 'object' && pkg !== null && 'version' in pkg ? pkg.version : undefined;
+  if (typeof version !== 'string') {
+    throw new Error(`no "version" string in ${pkgPath.toString()}`);
+  }
+  return version;
+}
+
+const binVersion = readVersion(new URL('../bin/package.json', import.meta.url));
+
+/**
  * The console build (ADR 0013): a static SPA whose `dist/` output is embedded
  * in the mimir binary and served by `mimir serve`. The PWA layer is app-shell
  * only — precache the shell so the installed app always opens; data freshness
  * is TanStack Query's job, never the service worker's.
  */
 export default defineConfig({
+  define: {
+    MIMIR_BUILD_VERSION: JSON.stringify(process.env.MIMIR_BUILD_VERSION ?? binVersion),
+  },
   plugins: [
     react(),
     tailwindcss(),
