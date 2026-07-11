@@ -4,11 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useTransition } from '../api/mutations';
 import { annotationsQuery, nodeQuery } from '../api/queries';
-import type { WireHistoryEntry, WireNode } from '../api/types';
+import type { WireAnnotation, WireHistoryEntry, WireNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { ago, relativeTime } from '../lib/time';
 import { availableTransitions } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
+import { verdictSummary } from '../lib/verdict';
 import { describeTransition } from './node-dossier';
 import { ReasonDialog } from './reason-dialog';
 import { PriorityBadge, SizeBadge } from './signal-badges';
@@ -111,6 +112,7 @@ function LastNoteLine({
 function VerdictBlock({
   node,
   detail,
+  annotations,
   note,
   notePending,
   offline,
@@ -118,6 +120,7 @@ function VerdictBlock({
 }: {
   node: WireNode;
   detail: WireNode | undefined;
+  annotations: readonly WireAnnotation[] | undefined;
   note: string | undefined;
   notePending: boolean;
   offline?: boolean;
@@ -125,7 +128,7 @@ function VerdictBlock({
 }) {
   const { mutate } = useTransition(node.id);
   const [returning, setReturning] = useState(false);
-  const summary = detail?.summary ?? node.summary ?? '';
+  const summary = verdictSummary(detail?.history, annotations) ?? '';
   const ref = detail?.external_ref ?? node.external_ref ?? null;
 
   return (
@@ -344,6 +347,7 @@ export function QuickViewPanel({
           <VerdictBlock
             node={node}
             detail={d}
+            annotations={annotations.data?.items}
             note={note}
             notePending={annotations.isPending}
             offline={offline}
