@@ -1,17 +1,32 @@
 # Seeds: the grooming queue
 
-A **seed** is a record filed against a project that implies **no work — only
-triage**: an idea, a bug report, or a feature ask (`kind` ∈ `idea|bug|feature`).
-Ids: `KEY-sN`. A seed either germinates into work or it doesn't; triage decides
-what gets cultivated. Seeds are project-anchored records (artifact-model
-siblings), never tree nodes — they have their own lifecycle, verbs, and queue.
+A **seed** is a record filed against a board that implies **no committed work —
+only triage** (`kind` ∈ `idea|bug|feature`, ids `KEY-sN`). A seed either
+germinates into work or it doesn't; the **owning board's** triage decides what
+gets cultivated. Seeds are project-anchored records (artifact-model siblings),
+never tree nodes — they have their own lifecycle, verbs, and queue.
+
+Exactly two things are seeds:
+
+1. **An ask against ANOTHER board** (~90% of seeds): a bug report, feature ask,
+   or capability need you hit in a surface you don't own. You **never** create
+   tasks on another board — however fully shaped the fix is, it crosses boards
+   as a seed, and the owning board decides what work to commit.
+2. **An own-board idea or observation that may not imply work**:
+   decision-shaped — "should X?", "decide the policy", "prove it or delete it" —
+   not a statable fix.
+
+**Not a seed: work discovered on your own board.** If you can state the fix,
+you already triaged it — `create task`. Review findings, test follow-ups, and
+build discoveries terminate in fixed, dismissed-with-reason, or deferred to a
+**task**; routing them through your own grooming queue is pure indirection.
 
 ## Filing
 
 ```sh
-mimir seed "vault.get should take a section arg" -k feature      # onto the bound board
 mimir seed "append collapses the boundary" -k bug -p NRN \
-    --desc "repro: empty target section; found while building MMR-156"
+    --desc "repro: empty target section; found while building MMR-156"   # their board, their triage
+mimir seed "should capture parse a title from the first line?" -k idea   # own board: no statable fix yet
 ```
 
 - Target board **and** requester default from the bound board. Filing onto
@@ -19,8 +34,9 @@ mimir seed "append collapses the boundary" -k bug -p NRN \
   unbound) leaves requester null.
 - The title is the capture; `--desc` is body prose (`## Seed Description`) —
   repro steps, context, links.
-- Filing is low-ceremony **by design**: prefer a seed over a mental note, a
-  prose TODO, or a task nobody committed to.
+- Filing is low-ceremony **by design**: prefer a seed over a mental note or a
+  prose TODO that decays. (Low ceremony is not a routing rule — own-board
+  statable work still goes straight to `create task`.)
 
 ## Reading the queue
 

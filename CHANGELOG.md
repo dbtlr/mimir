@@ -13,6 +13,18 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Changed
+
+- **Seed filing contract sharpened to two paths** (MMR-264). The `seed` CLI
+  help, MCP tool description, and the mimir skill (SKILL.md + seeds reference)
+  now teach exactly two seed cases: an ask against **another** board (never
+  file a task on a board you don't own, however shaped the fix), or an
+  own-board idea/observation with no statable fix. Work discovered on your own
+  board — review findings, test follow-ups — goes straight to `create task`;
+  a statable fix is already triaged. Prompted by a 30-seed audit in which ~43%
+  were own-board work-shaped follow-ups routed through the grooming queue as
+  pure indirection.
+
 ### Added
 
 - **Promote a seed into work** (MMR-248). Live seeds now grow a lead

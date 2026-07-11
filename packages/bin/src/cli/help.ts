@@ -500,16 +500,17 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   seed: {
     args: [['<title>', 'the seed title (the capture field)']],
     examples: [
-      'mimir seed "flaky login test" -k bug',
-      'mimir seed "dark mode" -k feature --desc "requested by two users"',
-      'mimir seed "audit deps" -k idea -p OTHER      # file into another board (requester = your board)',
+      'mimir seed "apply retries forever on lock timeout" -k bug -p OTHER   # their board, their triage',
+      'mimir seed "dark mode" -k feature -p OTHER --desc "requested by two users"',
+      'mimir seed "should captures allow multi-line bodies?" -k idea   # own board: undecided, no statable fix',
     ],
     flags: [
       ['-k, --kind <k>', 'idea | bug | feature (required)'],
       ['-p, --project <KEY>', 'target board (default: the bound board)'],
       ['--desc <text>', 'description → the ## Seed Description body section'],
     ],
-    summary: 'file a seed against a board — a grooming record that implies triage, not work.',
+    summary:
+      'file a seed — an ask against another board, or an own-board idea that may not imply work. Own-board statable fix → create task.',
     usage: 'mimir seed "<title>" -k <kind> [-p KEY] [--desc <text>]',
   },
   seeds: {
