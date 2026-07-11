@@ -127,11 +127,9 @@ function RefRow({ refNode, onOpenNode }: { refNode: NodeRef; onOpenNode: (id: st
 }
 
 /**
- * The Blocking section's rows, deduped by node id — a dependency can appear
- * in both `depends_on` (declared, possibly already settled) and `awaiting_on`
- * (still gating), and the two arrays are iterated weakest-first so the
- * stronger `awaiting_on`/`blocking` reading overwrites the row's content
- * while keeping the id's first-seen position (its `depends_on` slot).
+ * The Blocking section's rows, deduped by node id — an unsettled own
+ * prerequisite appears in both `depends_on` and `awaiting_on`, and each node
+ * gets one chip at its first-seen position.
  */
 function blockingRows(deps: WireDeps): NodeRef[] {
   const rows = new Map<string, NodeRef>();

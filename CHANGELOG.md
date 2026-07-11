@@ -876,15 +876,12 @@ release. When a release is cut, this section is promoted to
 ### Fixed
 
 - **Dossier Blocking section no longer double-chips a dependency in both
-  `depends_on` and `awaiting_on`** (MMR-261). A task's declared prerequisite
-  that was still unsettled appeared in both `deps.depends_on` and
-  `deps.awaiting_on`, and the dossier rendered each facet's refs as its own
-  chip row with no dedup, so the same related node showed up twice in
-  Blocking. Rows are now deduped by node id — `depends_on`, `awaiting_on`, and
-  `blocking` are folded into one map keyed by id, giving each related node a
-  single chip at its first-seen position while a later, stronger reading
-  (still-gating `awaiting_on`, or the reverse `blocking`) overwrites a mere
-  declared `depends_on` entry's content.
+  `depends_on` and `awaiting_on`** (MMR-261). A task's still-unsettled own
+  prerequisite appears in both `deps.depends_on` and `deps.awaiting_on`, and
+  the dossier rendered each facet's refs as its own chip row with no dedup, so
+  the same related node showed up twice in Blocking. The three facets are now
+  folded into one list deduped by node id, giving each related node a single
+  chip at its first-seen position.
 - **The write path no longer silently erases a pruned dangling `depends_on`**
   (MMR-186, ADR 0017). The data-tolerant reader drops a dangling or cycle-broken
   `depends_on` edge on load, so the in-memory working set omits it; a later
