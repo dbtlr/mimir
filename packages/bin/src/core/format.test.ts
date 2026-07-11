@@ -101,6 +101,16 @@ describe('formatNodeJson', () => {
     expect('total' in parsed).toBe(false);
   });
 
+  test('upstream present on the wire when set, absent when not', () => {
+    const withUpstream = parseJson<Record<string, unknown>>(
+      formatNodeJson(task('MMR-2', { upstream: 'NRN-s3' })),
+    );
+    expect(withUpstream.upstream).toBe('NRN-s3');
+
+    const without = parseJson<Record<string, unknown>>(formatNodeJson(task('MMR-3')));
+    expect('upstream' in without).toBe(false);
+  });
+
   test('phase omits task-only fields, includes target', () => {
     const phase: NodeView = {
       createdAt: '2026-06-05T00:00:00.000Z',

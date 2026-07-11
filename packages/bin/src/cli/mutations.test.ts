@@ -542,3 +542,15 @@ test('records view surfaces open-ended for a standing container (MMR-204)', asyn
   await runCli(['get', phaseRef], () => store, io); // default format = records
   expect(io.out.join('')).toContain('open-ended');
 });
+
+test('records view surfaces upstream when set, omits it when unset (MMR-252)', async () => {
+  const unset = fakeIo(true);
+  await runCli(['get', taskRef], () => store, unset); // default format = records
+  expect(unset.out.join('')).not.toContain('upstream');
+
+  await runCli(['update', taskRef, '--upstream', 'NRN-s3'], () => store, fakeIo(false));
+  const set = fakeIo(true);
+  await runCli(['get', taskRef], () => store, set);
+  expect(set.out.join('')).toContain('upstream');
+  expect(set.out.join('')).toContain('NRN-s3');
+});

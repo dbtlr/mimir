@@ -83,6 +83,7 @@ One **flat, closed** vocabulary on every selection front-end — _the dot-facet 
 | `hold_reason`                                | task  | or null                                                                                                                                                     |
 | `target`                                     | phase | the milestone the phase aims at                                                                                                                             |
 | `external_ref`                               | task  | GitHub issue/PR linkage, or null                                                                                                                            |
+| `upstream`                                   | task  | the requester-side seed pointer (`KEY-sN`, MMR-244/245), reference-only, or null                                                                            |
 | `created_at` / `updated_at` / `completed_at` | all   | ISO-ms-`Z` UTC; rendered local only at the edge                                                                                                             |
 
 **`status` and the raw axes deliberately coexist.** `status` is the glance; `lifecycle`/`hold` are the detail a script automating a _transition_ must read (it can't reliably parse the collapsed word back into axes). `next` shows only `status`; `get` shows both.

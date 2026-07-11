@@ -300,6 +300,8 @@ export type NodeView = {
   hold?: Hold;
   holdReason?: string | null;
   externalRef?: string | null;
+  /** The requester-side seed pointer (`KEY-sN`, MMR-244/245) — reference-only. */
+  upstream?: string | null;
   completedAt?: string | null;
 
   // bare — phase-only

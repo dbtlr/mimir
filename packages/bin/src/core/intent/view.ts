@@ -78,6 +78,7 @@ export async function buildNodeView(
     view.hold = node.hold ?? undefined;
     view.holdReason = node.hold_reason;
     view.externalRef = node.external_ref;
+    view.upstream = node.upstream;
     view.completedAt = node.completed_at;
   } else if (node.type === 'phase') {
     view.target = node.target;
