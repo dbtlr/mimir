@@ -3,7 +3,13 @@ import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { useFileSeed, useRejectSeed, useResolveSeed, useUpdateSeed } from '../api/mutations';
+import {
+  useFileSeed,
+  usePromoteSeed,
+  useRejectSeed,
+  useResolveSeed,
+  useUpdateSeed,
+} from '../api/mutations';
 
 const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiSend }));
@@ -71,6 +77,20 @@ describe('seed mutation hooks (MMR-247)', () => {
         description: 'a fuller body',
       });
     });
+  });
+
+  it('usePromoteSeed POSTs the promote verb and returns the created sibling (MMR-248)', async () => {
+    apiSend.mockResolvedValue({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' });
+    const client = new QueryClient();
+    const { result } = renderHook(() => usePromoteSeed('MMR-s1'), { wrapper: wrapper(client) });
+    result.current.mutate({ parent: 'MMR-9', title: 'Tree lens scroll' });
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s1/promote', {
+        parent: 'MMR-9',
+        title: 'Tree lens scroll',
+      });
+    });
+    expect(result.current.data).toMatchObject({ created: 'MMR-42', lifecycle: 'promoted' });
   });
 
   it('invalidates the seeds keys on settle', async () => {

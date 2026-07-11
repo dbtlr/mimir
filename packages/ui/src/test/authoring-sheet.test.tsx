@@ -10,7 +10,7 @@ import { project, task } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
-const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn() } }));
+const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('sonner', () => ({ toast }));
 
 afterEach(() => {
@@ -91,6 +91,11 @@ function renderSheet(props: Partial<AuthoringSheetProps> = {}) {
 /** The sheet is interactable once the tree resolved into the HOME row. */
 async function sheetReady() {
   await screen.findByText('build');
+}
+
+/** Promote submit is enabled once the tree resolved a legal (effective) home. */
+async function promoteReady() {
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Promote ↵' })).toBeEnabled());
 }
 
 describe('authoringSheet', () => {
@@ -479,5 +484,170 @@ describe('authoringSheet', () => {
     expect(screen.getByLabelText('Description')).toHaveValue('From a seed.');
     expect(screen.getByText('Promote seed')).toBeInTheDocument();
     expect(screen.queryByText('New')).not.toBeInTheDocument();
+  });
+
+  describe('promote mode (24a, MMR-248)', () => {
+    it('locks the type, shows the provenance strip, and swaps the footer', async () => {
+      renderSheet({
+        headerSlot: <span>Promote seed</span>,
+        prefill: { title: 'Tree lens scroll' },
+        promote: { kind: 'bug', seedId: 'MMR-s1' },
+      });
+      await promoteReady();
+
+      // a seed germinates into a task — the type selector is gone, not just hidden
+      expect(screen.queryByRole('radio', { name: 'Task' })).not.toBeInTheDocument();
+      // DEPENDS ON is present but collapsed by default — the field stays hidden
+      // until the disclosure is opened (deps are chained onto the spawned task)
+      expect(screen.getByRole('button', { name: /depends on · optional/i })).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText('search tasks…')).not.toBeInTheDocument();
+      // provenance contract, verbatim — and the word "dispose" appears nowhere
+      expect(document.body.textContent).toContain(
+        'The task links back to MMR-s1; when it settles, the seed surfaces as ready to resolve — your verdict, never auto-closed.',
+      );
+      expect(document.body.textContent?.toLowerCase()).not.toContain('dispose');
+      // footer: promote microcopy + actions replace create-another / Create
+      expect(screen.getByText(/seed stays in the queue as/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Promote & open' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Create ↵' })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('create another')).not.toBeInTheDocument();
+    });
+
+    it('submits to the promote endpoint with the edited body, never the create route', async () => {
+      const user = userEvent.setup();
+      apiSend.mockResolvedValue({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' });
+      const { onOpenChange } = renderSheet({
+        headerSlot: <span>Promote seed</span>,
+        prefill: { description: 'Repro steps.', title: 'Tree lens scroll' },
+        promote: { kind: 'bug', seedId: 'MMR-s1' },
+      });
+      await promoteReady();
+
+      await user.click(screen.getByRole('button', { name: 'Promote ↵' }));
+      await waitFor(() => {
+        // parent is the suggested standing home (MMR-9 'Polish'), the lone ∞ container
+        expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s1/promote', {
+          description: 'Repro steps.',
+          parent: 'MMR-9',
+          title: 'Tree lens scroll',
+        });
+      });
+      expect(apiSend).not.toHaveBeenCalledWith('POST', '/api/nodes', expect.anything());
+      expect(toast.success).toHaveBeenCalledWith('Promoted MMR-s1 → MMR-42');
+      await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    });
+
+    it('promote & open routes to the spawned task and closes', async () => {
+      const user = userEvent.setup();
+      apiSend.mockResolvedValue({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' });
+      const { onOpenChange, onOpenNode } = renderSheet({
+        headerSlot: <span>Promote seed</span>,
+        prefill: { title: 'Tree lens scroll' },
+        promote: { kind: 'bug', seedId: 'MMR-s1' },
+      });
+      await promoteReady();
+
+      await user.click(screen.getByRole('button', { name: 'Promote & open' }));
+      await waitFor(() => expect(onOpenNode).toHaveBeenCalledWith('MMR-42'));
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    it('suggests the lone standing home for a bug and labels it', async () => {
+      renderSheet({
+        headerSlot: <span>Promote seed</span>,
+        prefill: { title: 'x' },
+        promote: { kind: 'bug', seedId: 'MMR-s1' },
+      });
+      await promoteReady();
+      // MMR-9 'Polish' is the only open-ended container → the suggested home
+      expect(screen.getByText('suggested — bug → standing home')).toBeInTheDocument();
+      expect(screen.getByText('Polish')).toBeInTheDocument();
+    });
+
+    it('offers no suggestion for a non-bug kind — silent first-home fallback', async () => {
+      renderSheet({
+        headerSlot: <span>Promote seed</span>,
+        prefill: { title: 'x' },
+        promote: { kind: 'idea', seedId: 'MMR-s2' },
+      });
+      await promoteReady();
+      expect(screen.queryByText('suggested — bug → standing home')).not.toBeInTheDocument();
+      // the picker falls back to the first legal home, silently
+      expect(screen.getByText('build')).toBeInTheDocument();
+    });
+
+    it('offers no suggestion when the project has no standing home, even for a bug', async () => {
+      renderSheet({
+        headerSlot: <span>Promote seed</span>,
+        prefill: { title: 'x' },
+        projectKey: 'WEB',
+        promote: { kind: 'bug', seedId: 'WEB-s1' },
+      });
+      await promoteReady();
+      expect(screen.queryByText('suggested — bug → standing home')).not.toBeInTheDocument();
+      expect(screen.getByText('launch')).toBeInTheDocument();
+    });
+
+    it('expands DEPENDS ON and chains /depend onto the spawned task after promote', async () => {
+      const user = userEvent.setup();
+      apiSend.mockImplementation((_method: string, path: string) =>
+        path.endsWith('/promote')
+          ? Promise.resolve({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' })
+          : Promise.resolve({ id: 'MMR-42' }),
+      );
+      const { onOpenChange } = renderSheet({
+        headerSlot: <span>Promote seed</span>,
+        prefill: { title: 'Tree lens scroll' },
+        promote: { kind: 'bug', seedId: 'MMR-s1' },
+      });
+      await promoteReady();
+
+      // the field is collapsed by default — open the disclosure, then pick a dep
+      await user.click(screen.getByRole('button', { name: /depends on · optional/i }));
+      await user.type(screen.getByRole('combobox'), 'auth');
+      await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
+
+      await user.click(screen.getByRole('button', { name: 'Promote ↵' }));
+      await waitFor(() => {
+        // the promote POST carries no deps…
+        expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s1/promote', {
+          parent: 'MMR-9',
+          title: 'Tree lens scroll',
+        });
+        // …they are chained onto the echoed spawned id
+        expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-42/depend', {
+          on: ['MMR-40'],
+        });
+      });
+      expect(toast.success).toHaveBeenCalledWith('Promoted MMR-s1 → MMR-42');
+      await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    });
+
+    it('surfaces a partial failure honestly when the deps chain fails after promote', async () => {
+      const user = userEvent.setup();
+      apiSend.mockImplementation((_method: string, path: string) =>
+        path.endsWith('/promote')
+          ? Promise.resolve({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' })
+          : Promise.reject(new Error('would create a cycle')),
+      );
+      const { onOpenChange } = renderSheet({
+        headerSlot: <span>Promote seed</span>,
+        prefill: { title: 'Tree lens scroll' },
+        promote: { kind: 'bug', seedId: 'MMR-s1' },
+      });
+      await promoteReady();
+
+      await user.click(screen.getByRole('button', { name: /depends on · optional/i }));
+      await user.type(screen.getByRole('combobox'), 'auth');
+      await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
+      await user.click(screen.getByRole('button', { name: 'Promote ↵' }));
+
+      // the task exists — the honest recap names the spawned id, not a success
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('MMR-42')),
+      );
+      expect(toast.success).not.toHaveBeenCalled();
+      await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    });
   });
 });

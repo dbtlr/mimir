@@ -270,6 +270,37 @@ export function useResolveSeed(id: string) {
   });
 }
 
+/**
+ * Promote a seed into work (MMR-248) — `POST /api/seeds/:id/promote`, create
+ * mode: `parent` is the chosen home, title/description ride as edited, and
+ * priority/size/tags when the sheet collected them. The echo is the seed wire
+ * plus a SIBLING `created` field (the spawned task id), so the result widens
+ * `WireSeed` with it. `['seeds']` and the node keys both invalidate (the task
+ * is a new node), so the queue re-groups the seed to PROMOTED and the boards
+ * pick up the spawned task.
+ */
+export type PromoteSeedInput = {
+  parent: string;
+  title?: string;
+  description?: string;
+  priority?: string;
+  size?: string;
+  tags?: string[];
+};
+
+/** The promote echo (MMR-245): the seed wire with the spawned task id as a sibling. */
+export type PromotedSeed = WireSeed & { created?: string };
+
+export function usePromoteSeed(id: string) {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: (input: PromoteSeedInput) =>
+      apiSend<PromotedSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/promote`, input),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+  });
+}
+
 export type UpdateSeedInput = {
   title?: string;
   kind?: string;

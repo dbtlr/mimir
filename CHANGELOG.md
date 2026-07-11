@@ -15,6 +15,19 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Promote a seed into work** (MMR-248). Live seeds now grow a lead
+  **Promote → task…** verb (untriaged, promoted, and ready lanes alike —
+  promoting is repeatable while a seed is live, appending another spawned
+  link each time). It opens the authoring sheet in a promote mode: the seed's
+  title and description arrive carried and editable, the type is fixed to task
+  (a seed germinates into one), and the home is suggested from the seed's
+  project and kind — a bug lands in the project's lone standing (∞) container
+  when exactly one exists, otherwise the picker falls back silently with no
+  suggestion. A teal provenance strip states the contract ("the task links
+  back to the seed; when it settles, the seed surfaces as ready to resolve —
+  your verdict, never auto-closed"), and the seed stays in the queue as
+  promoted. **Promote ↵** files it (a toast names the spawned task);
+  **Promote & open** additionally routes to the new task's dossier.
 - **Seeds console surface** (MMR-247). The console gains a grooming queue at
   `/seeds` (a "Seeds" nav entry beside Tasks and Artifacts) and a global
   low-ceremony capture popover. Press `s` from any surface — or "+ File a
@@ -29,8 +42,8 @@ release. When a release is cut, this section is promoted to
   body prose, an editable description while the seed is live, and a
   requester / filed / project / spawned meta rail. Triage verbs are pinned per
   lane: **Reject…** and **Later** on untriaged rows, **Resolve — done** on the
-  ready lane, each Reject/Resolve gated behind a required reason. (Promote →
-  task ships next, with MMR-248.)
+  ready lane, each Reject/Resolve gated behind a required reason, with the
+  Promote verb added in MMR-248.
 - **Console version footer + stale-UI signal** (MMR-260). Every page now
   carries a quiet mono version line at the bottom of the shell, so an
   operator (or a screenshot-smoke) can tell "stale binary" from "broken

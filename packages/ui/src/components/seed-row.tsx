@@ -28,11 +28,13 @@ function ExpandedBody({
   seed,
   offline,
   onLater,
+  onPromote,
 }: {
   id: string;
   seed: WireSeed;
   offline?: boolean;
   onLater: () => void;
+  onPromote?: (seed: WireSeed) => void;
 }) {
   const detail = useQuery(seedQuery(id));
   const description = detail.data?.description ?? '';
@@ -55,6 +57,7 @@ function ExpandedBody({
       <SeedVerbs
         seed={seed}
         onLater={onLater}
+        onPromote={onPromote}
         offline={offline}
         className="mt-2.5 border-t border-line px-4 py-3"
       />
@@ -72,12 +75,14 @@ export function SeedRow({
   seed,
   active,
   onSelect,
+  onPromote,
   offline,
   dimmed = false,
 }: {
   seed: WireSeed;
   active: boolean;
   onSelect: (id: string | undefined) => void;
+  onPromote?: (seed: WireSeed) => void;
   offline?: boolean;
   dimmed?: boolean;
 }) {
@@ -116,6 +121,7 @@ export function SeedRow({
             seed={seed}
             offline={offline}
             onLater={() => onSelect(undefined)}
+            onPromote={onPromote}
           />
         )}
       </div>

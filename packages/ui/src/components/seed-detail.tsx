@@ -34,10 +34,12 @@ function RailField({ label, children }: { label: string; children: ReactNode }) 
 export function SeedDetail({
   id,
   onLater,
+  onPromote,
   offline,
 }: {
   id: string;
   onLater: () => void;
+  onPromote?: (seed: WireSeed) => void;
   offline?: boolean;
 }) {
   const seed = useQuery(seedQuery(id));
@@ -85,7 +87,7 @@ export function SeedDetail({
           <SeedKindChip kind={data.kind} />
           <span className="font-mono text-mono-id text-ink-faint">{data.id}</span>
           <div className="ml-auto">
-            <SeedVerbs seed={data} onLater={onLater} offline={offline} />
+            <SeedVerbs seed={data} onLater={onLater} onPromote={onPromote} offline={offline} />
           </div>
         </div>
 
