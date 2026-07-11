@@ -66,11 +66,14 @@ export function SpawnedRef({ seed }: { seed: WireSeed }) {
 export function SeedVerbs({
   seed,
   onLater,
+  onPromote,
   offline,
   className,
 }: {
   seed: WireSeed;
   onLater?: () => void;
+  /** MMR-248: opens the promote sheet for this seed (the lead verb while live). */
+  onPromote?: (seed: WireSeed) => void;
   offline?: boolean;
   className?: string;
 }) {
@@ -84,7 +87,6 @@ export function SeedVerbs({
   }
 
   const chips: ReactNode[] = [];
-  // MMR-248 promote seam: `chips.unshift(<Promote… />)` lands here for untriaged/promoted.
   if (seed.lane === 'ready') {
     chips.push(
       <VerbChip key="resolve" primary disabled={offline} onClick={() => setPending('resolve')}>
@@ -101,6 +103,16 @@ export function SeedVerbs({
     chips.push(
       <VerbChip key="later" onClick={onLater}>
         Later
+      </VerbChip>,
+    );
+  }
+  // MMR-248 promote seam: the lead verb on every live lane (untriaged/promoted/
+  // ready). Promote is repeatable while the seed is live — a further promote
+  // appends another spawned link — so it isn't gated to the untriaged lane.
+  if (onPromote !== undefined) {
+    chips.unshift(
+      <VerbChip key="promote" primary disabled={offline} onClick={() => onPromote(seed)}>
+        Promote → task…
       </VerbChip>,
     );
   }

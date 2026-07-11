@@ -29,10 +29,48 @@ const list: WireSeed[] = [
   seed({ id: 'MMR-s5', lane: 'settled', lifecycle: 'rejected' }),
 ];
 
+/** A minimal MMR tree with a lone standing (∞) container, so a bug suggests it. */
+const mmrTree = {
+  children: [
+    {
+      children: [],
+      created_at: '',
+      id: 'MMR-1',
+      open_ended: false,
+      parent: 'MMR',
+      status: 'in_progress',
+      title: 'Build',
+      type: 'initiative',
+      updated_at: '',
+    },
+    {
+      children: [],
+      created_at: '',
+      id: 'MMR-9',
+      open_ended: true,
+      parent: 'MMR',
+      status: 'in_progress',
+      title: 'Maintenance & releases',
+      type: 'initiative',
+      updated_at: '',
+    },
+  ],
+  created_at: '',
+  id: 'MMR',
+  parent: null,
+  status: 'in_progress',
+  title: 'Mimir',
+  type: 'project',
+  updated_at: '',
+};
+
 function mockApi() {
   apiGet.mockImplementation((path: string) => {
     if (path === '/api/health') {
       return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
+    }
+    if (path === '/api/projects/MMR/tree') {
+      return Promise.resolve(mmrTree);
     }
     if (path.startsWith('/api/projects')) {
       return Promise.resolve({
@@ -121,6 +159,38 @@ describe('seedsPage (13a/14a, MMR-247)', () => {
     await screen.findByText('The banner repaints on every wake.');
     expect(document.body.textContent?.toLowerCase()).not.toContain('dispose');
     expect(document.body.textContent).toContain('READY TO RESOLVE');
+  });
+
+  it('promotes a live seed from the pane and, with Promote & open, routes to the spawned task (MMR-248)', async () => {
+    mockApi();
+    apiSend.mockResolvedValue({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' });
+    const testRouter = renderSeeds('/seeds?seed=MMR-s1');
+    await screen.findAllByText('Alpha original text.');
+
+    // the reading pane leads with the promote chip on this untriaged bug
+    const chips = screen.getAllByRole('button', { name: 'Promote → task…' });
+    await userEvent.click(chips[0] as HTMLElement);
+
+    // the promote sheet arrives full — its provenance strip + Enter-to-promote action
+    const promote = await screen.findByRole('button', { name: 'Promote & open' });
+    await waitFor(() => expect(promote).toBeEnabled());
+
+    await userEvent.click(promote);
+
+    // POSTs the promote endpoint with the carried body + suggested standing home
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s1/promote', {
+        description: 'Alpha original text.',
+        parent: 'MMR-9',
+        title: 'Scroll snaps to top',
+      });
+    });
+    expect(apiSend).not.toHaveBeenCalledWith('POST', '/api/nodes', expect.anything());
+    // "& open" routes to the created task's URL-addressable dossier
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/');
+      expect(testRouter.state.location.search).toMatchObject({ node: 'MMR-42' });
+    });
   });
 
   it('clears an in-progress edit when the selected seed changes (no state bleed across ids)', async () => {

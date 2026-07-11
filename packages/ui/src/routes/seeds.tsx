@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
 
 import { seedsQuery } from '../api/queries';
 import type { SeedFilters } from '../api/queries';
+import type { WireSeed } from '../api/types';
 import { OfflineBanner } from '../components/offline-banner';
 import { useSeedCapture } from '../components/seed-capture';
 import { SeedDetail } from '../components/seed-detail';
+import { SeedPromoteSheet } from '../components/seed-promote-sheet';
 import { SeedRow } from '../components/seed-row';
 import { SeedSettledStrip } from '../components/seed-settled-strip';
 import { Skeleton } from '../components/ui/skeleton';
@@ -37,6 +40,10 @@ export function SeedsPage() {
   const groups = groupSeedsByLane(items);
   const { toTriage, toResolve } = seedSummary(items);
   const selected = search.seed;
+
+  // The seed being promoted (its sheet is a single instance, opened from any
+  // lane's verb row — narrow expanded rows and the wide reading pane alike).
+  const [promoting, setPromoting] = useState<WireSeed | null>(null);
 
   const select = (id: string | undefined) =>
     void navigate({ search: (prev) => ({ ...prev, seed: id }), to: '/seeds' });
@@ -88,6 +95,7 @@ export function SeedsPage() {
                       seed={seed}
                       active={seed.id === selected}
                       onSelect={select}
+                      onPromote={setPromoting}
                       offline={conn.offline}
                     />
                   ))}
@@ -113,6 +121,7 @@ export function SeedsPage() {
               key={selected}
               id={selected}
               onLater={() => select(undefined)}
+              onPromote={setPromoting}
               offline={conn.offline}
             />
           ) : (
@@ -122,6 +131,18 @@ export function SeedsPage() {
           )}
         </div>
       </main>
+      {promoting !== null && (
+        <SeedPromoteSheet
+          seed={promoting}
+          open
+          onOpenChange={(next) => {
+            if (!next) {
+              setPromoting(null);
+            }
+          }}
+          offline={conn.offline}
+        />
+      )}
     </>
   );
 }
