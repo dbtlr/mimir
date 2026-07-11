@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 
+import { isNotFound } from '../api/errors';
 import { boardDoneQuery, boardLiveQuery, projectQuery, treeQuery } from '../api/queries';
 import { BoardView } from '../components/board';
 import { DistributionBar } from '../components/distribution-bar';
@@ -84,6 +85,36 @@ export function ProjectPage() {
     void navigate({ search: (prev) => ({ bands: prev.bands, view: prev.view }), to: '.' });
 
   const boardReady = live.data !== undefined && done.data !== undefined;
+
+  // Archived-404 semantics (ADR 0015): a 404 means the server ANSWERED — this
+  // is not "offline". Back-navigating to a just-archived board (or opening a
+  // stale bookmark) gets a notice and a way home instead of a sticky false
+  // Offline banner; the project query keeps polling, so an unarchive heals
+  // straight back into the board.
+  if (isNotFound(project.error)) {
+    return (
+      <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col items-start gap-3 p-5">
+        <div className="flex items-center gap-3.5">
+          <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
+            Project unavailable
+          </h1>
+          <span className="rounded-[5px] px-[7px] py-[3px] font-mono text-tag text-ink-faint inset-ring inset-ring-line-bright">
+            {key}
+          </span>
+        </div>
+        <p className="text-xs leading-relaxed text-ink-dim">
+          This project is archived or no longer exists. Archived projects leave the board and
+          picker; nothing is deleted.
+        </p>
+        <Link
+          to="/"
+          className="text-xs font-semibold text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          ← Back to Overview
+        </Link>
+      </main>
+    );
+  }
 
   return (
     <>

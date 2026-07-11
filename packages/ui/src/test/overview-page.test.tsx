@@ -30,16 +30,24 @@ function archivedProj(id: string) {
   };
 }
 
-function renderOverview() {
+function renderOverview(client = new QueryClient()) {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: ['/'] }),
     routeTree: router.routeTree,
   });
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <RouterProvider router={testRouter} />
     </QueryClientProvider>,
   );
+}
+
+/** A client with cached projects whose refetch will fail → offline over cache. */
+function offlineClient(items: ReturnType<typeof proj>[]) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client.setQueryData(['projects'], { items, total: items.length });
+  apiGet.mockRejectedValue(new Error('unreachable'));
+  return client;
 }
 
 describe('overviewPage attention-router (MMR-102)', () => {
@@ -71,7 +79,7 @@ describe('overviewPage attention-router (MMR-102)', () => {
     expect(screen.getByText('RESTED project')).toBeDefined();
   });
 
-  it('renders the page header with the project count and the new-project action', async () => {
+  it('renders the page header with the project count and the new-project triggers', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/projects') {
         return Promise.resolve({
@@ -87,8 +95,52 @@ describe('overviewPage attention-router (MMR-102)', () => {
     renderOverview();
 
     await expect(screen.findByRole('heading', { name: 'Projects' })).resolves.toBeDefined();
-    expect(screen.getByText('2')).toBeDefined(); // project count meta
-    expect(screen.getByRole('button', { name: /new project/i })).toBeDefined();
+    expect(screen.getByText('2')).toBeDefined(); // project count meta, no archived clause
+    // Two triggers share the sheet: the desktop header action + the mobile
+    // dashed end-of-list row (MMR-230).
+    expect(screen.getAllByRole('button', { name: /new project/i })).toHaveLength(2);
+  });
+
+  it('appends the archived clause to the header count when archived projects exist (MMR-230)', async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/projects') {
+        return Promise.resolve({
+          items: [proj('LIVE', attn('live', '2026-06-19T00:00:00.000Z'))],
+          total: 1,
+        });
+      }
+      if (path === '/api/projects?status=archived') {
+        return Promise.resolve({ items: [archivedProj('OLD'), archivedProj('OLDER')], total: 2 });
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    renderOverview();
+
+    // The clause renders as its own span beside the live count (MMR-125's
+    // separate-span form), not a merged "1 · 2 archived" string.
+    await expect(screen.findByText('· 2 archived')).resolves.toBeDefined();
+    expect(screen.getByText('1')).toBeDefined();
+  });
+
+  it('the new-project triggers open the create sheet (MMR-230)', async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/projects') {
+        return Promise.resolve({
+          items: [proj('LIVE', attn('live', '2026-06-19T00:00:00.000Z'))],
+          total: 1,
+        });
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    renderOverview();
+
+    const [headerTrigger] = await screen.findAllByRole('button', { name: /new project/i });
+    if (headerTrigger === undefined) {
+      throw new Error('missing new-project trigger');
+    }
+    await userEvent.click(headerTrigger);
+    await expect(screen.findByLabelText(/title/i)).resolves.toBeDefined();
+    expect(screen.getByText(/lands in At rest until work starts moving/)).toBeDefined();
   });
 
   it('degrades to a flat Overview grid when the attention facet is absent', async () => {
@@ -187,15 +239,36 @@ describe('overviewPage attention-router (MMR-102)', () => {
     });
   });
 
-  it('shows an empty state when there are no projects', async () => {
-    apiGet.mockImplementation((path: string) => {
-      if (path === '/api/projects') {
-        return Promise.resolve({ items: [], total: 0 });
+  it('offline disables the header and mobile end-of-list create triggers (MMR-230)', async () => {
+    renderOverview(offlineClient([proj('LIVE', attn('live', '2026-06-19T00:00:00.000Z'))]));
+
+    await expect(screen.findByRole('heading', { name: 'Projects' })).resolves.toBeDefined();
+    const triggers = await screen.findAllByRole('button', { name: /new project/i });
+    expect(triggers).toHaveLength(2); // desktop header + mobile dashed row
+    await waitFor(() => {
+      for (const trigger of triggers) {
+        expect(trigger).toBeDisabled();
       }
-      return Promise.resolve({ items: [], total: 0 });
     });
+  });
+
+  it('offline disables the empty-state create trigger (MMR-230)', async () => {
+    renderOverview(offlineClient([]));
+
+    await expect(screen.findByText(/no projects yet/i)).resolves.toBeDefined();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /new project/i })).toBeDisabled();
+    });
+  });
+
+  it('the empty state offers the create trigger, not a CLI pointer (MMR-230)', async () => {
+    apiGet.mockResolvedValue({ items: [], total: 0 });
     renderOverview();
 
     await expect(screen.findByText(/no projects yet/i)).resolves.toBeDefined();
+    expect(screen.queryByText(/mimir create project/)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /new project/i }));
+    await expect(screen.findByLabelText(/title/i)).resolves.toBeDefined();
+    expect(screen.getByText(/lands in At rest until work starts moving/)).toBeDefined();
   });
 });

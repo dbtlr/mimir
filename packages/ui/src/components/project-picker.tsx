@@ -1,8 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
+import { useState } from 'react';
 
 import { projectsQuery, readyQuery } from '../api/queries';
+import { connectivity } from '../lib/connectivity';
 import { countByProject } from '../lib/counts';
+import { NewProjectSheet } from './new-project-sheet';
 import { StatusDot } from './status-dot';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
 
@@ -10,14 +13,17 @@ import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
  * Top-bar project switcher (MMR-79). Shows the current project key (or
  * "Projects" off the overview); the menu lists every project with its status and
  * ready count so you can jump between boards without returning to the overview.
+ * A trailing "+ New project" row opens the create-project sheet (MMR-230).
  */
 export function ProjectPicker() {
   const navigate = useNavigate();
   // Loose read — the key only exists on the /p/$key route.
   const { key } = useParams({ strict: false });
+  const [creating, setCreating] = useState(false);
   const projects = useQuery(projectsQuery);
   const ready = useQuery(readyQuery);
   const readyByKey = countByProject(ready.data?.items ?? []);
+  const conn = connectivity([projects]);
 
   return (
     <MenuRoot>
@@ -48,7 +54,15 @@ export function ProjectPicker() {
             </span>
           </MenuItem>
         ))}
+        <MenuItem
+          disabled={conn.offline}
+          onClick={() => setCreating(true)}
+          className="font-medium text-ink-dim data-disabled:opacity-40"
+        >
+          + New project
+        </MenuItem>
       </MenuContent>
+      <NewProjectSheet open={creating} onOpenChange={setCreating} />
     </MenuRoot>
   );
 }

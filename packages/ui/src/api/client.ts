@@ -3,12 +3,14 @@
  * `mimir serve` itself); `VITE_API_BASE` exists for the dev loop — `vite dev`
  * against a running `mimir serve`, which already reflects localhost CORS.
  */
+import { ApiError } from './errors';
+
 const API_BASE: string = import.meta.env.VITE_API_BASE ?? '';
 
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { headers: { accept: 'application/json' } });
   if (!res.ok) {
-    throw new Error(`GET ${path} → ${String(res.status)}`);
+    throw new ApiError(`GET ${path} → ${String(res.status)}`, res.status);
   }
   // Untrusted HTTP boundary: the response is typed as the caller's `T`. Per-response
   // schema validation (parseJson(text, schema)) is the planned follow-up — it needs
@@ -42,7 +44,7 @@ export async function apiSend<T>(method: WriteMethod, path: string, body?: unkno
     } catch {
       // non-JSON error body — keep the status-code message
     }
-    throw new Error(message);
+    throw new ApiError(message, res.status);
   }
   // Untrusted HTTP boundary — see the apiGet note (schema validation is the follow-up).
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion

@@ -5,12 +5,15 @@ import { afterEach, describe, expect, vi } from 'vitest';
 
 import {
   useAnnotate,
+  useArchiveProject,
   useCreateNode,
+  useCreateProject,
   useDepend,
   useMoveNode,
   useReorder,
   useTag,
   useTransition,
+  useUnarchiveProject,
   useUndepend,
   useUntag,
   useUpdateNode,
@@ -193,6 +196,45 @@ describe('authoring mutation hooks', () => {
         title: 'Renamed',
       });
     });
+  });
+
+  it('useCreateProject POSTs /api/projects with key + name (MMR-230)', async () => {
+    apiSend.mockResolvedValue({ id: 'SR' });
+    const client = new QueryClient();
+    const { result } = renderHook(() => useCreateProject(), { wrapper: wrapper(client) });
+    result.current.mutate({ description: 'A relay', key: 'SR', name: 'Signal relay' });
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects', {
+        description: 'A relay',
+        key: 'SR',
+        name: 'Signal relay',
+      });
+    });
+  });
+
+  it('useCreateProject toasts the server rejection (dup/invalid key)', async () => {
+    apiSend.mockRejectedValue(new Error('project SR already exists'));
+    const client = new QueryClient();
+    const { result } = renderHook(() => useCreateProject(), { wrapper: wrapper(client) });
+    result.current.mutate({ key: 'SR', name: 'Signal relay' });
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('project SR already exists');
+    });
+  });
+
+  it('useArchiveProject and useUnarchiveProject POST the lifecycle routes (MMR-230)', async () => {
+    apiSend.mockResolvedValue({ id: 'SR' });
+    const client = new QueryClient();
+    const archive = renderHook(() => useArchiveProject('SR'), { wrapper: wrapper(client) });
+    archive.result.current.mutate();
+    await waitFor(() =>
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/SR/archive', undefined),
+    );
+    const unarchive = renderHook(() => useUnarchiveProject('SR'), { wrapper: wrapper(client) });
+    unarchive.result.current.mutate();
+    await waitFor(() =>
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/SR/unarchive', undefined),
+    );
   });
 
   it('useTag POSTs and useUntag DELETEs the tag route (encoded)', async () => {
