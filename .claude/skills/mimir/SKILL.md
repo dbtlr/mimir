@@ -27,7 +27,7 @@ the gate below BEFORE other work. These thoughts mean STOP — you are rationali
 1. `command -v mimir` — missing → not installed; only raise it if the user wants
    work tracking (install: see `references/setup.md`).
 2. Is there a `.mimir.toml` here (this directory or any ancestor)? It binds the repo
-   to its project and becomes the default scope.
+   to its project and becomes the default `--scope`.
    - **Bound** → orient now: `mimir status <KEY>` then `mimir list` then `mimir next`
      (that order — see `references/querying.md`). On a board you own, follow with
      `mimir triage` — untriaged seeds and ready-to-resolve flags are part of "what
@@ -102,7 +102,25 @@ the controller transition. A solo agent is its own controller; the full contract
 already scoped to the bound project. `-s KEY` targets another project; `-s all`
 queries every project.
 
+**7. Drive from the reference, never from memory.** The verb and flag surface is
+exact and narrow — the only verbs that exist are the ones the references list, and
+there is **no per-command help** (`mimir <cmd> -h`/`--help` prints the general help,
+not that command's flags). **Before your first create/update/restructure in a
+session, open the matching `references/*.md` (Routing, below) and drive from it.**
+Guessing a verb (`describe`? `show`? `edit`?) or a flag either errors and burns a
+round-trip, or — worse — silently writes the wrong field. Grepping the source for a
+flag is the tell that you skipped this step.
+
+| Rationalization                       | Reality                                                      |
+| ------------------------------------- | ------------------------------------------------------------ |
+| "I remember the verb/flag"            | The surface drifts; memory misfires. Open the reference.     |
+| "`describe`/`show`/`edit` must exist" | Only the referenced verbs exist. Guessing fails or misfires. |
+| "`mimir <cmd> -h` will remind me"     | There is no per-command help — the reference IS the help.    |
+| "It's one scalar field, I'll wing it" | A wrong field patches the wrong row silently. Read first.    |
+
 ## Routing
+
+**Read the matching reference before you act in its area — not after a guess fails.**
 
 | You need to…                                                            | Read                         |
 | ----------------------------------------------------------------------- | ---------------------------- |
