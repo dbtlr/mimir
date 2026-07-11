@@ -583,6 +583,20 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Theme page-ground color, single-sourced** (MMR-254). The well-900 hex
+  (`#0d1219` dark / `#e9eff3` light) was hardcoded independently across the UI
+  package — `styles.css`, `lib/theme.ts`, `index.html`'s meta theme-color,
+  `vite.config.ts`'s PWA manifest, and both icon SVGs — so a palette tweak
+  meant hand-editing seven sites in lockstep (MMR-219 initially missed the
+  icons). `lib/theme-colors.ts` is now the one source: `lib/theme.ts` and
+  `vite.config.ts` import it directly; `index.html`'s meta tag carries a
+  placeholder a small `transformIndexHtml` plugin fills at build/dev time
+  (the tag is a pre-hydration fallback — `useTheme` reconciles it from React
+  on mount). `styles.css` and the icon SVGs can't import JS, so a new test
+  (`theme-colors.test.ts`) asserts they still agree with the constant,
+  turning a future desync into a failing test instead of a silent miss. The
+  project-settings archive button's `#31485e` is a distinct slate, not this
+  page-ground color, and is left alone.
 - **Fixture vault enrichment — descriptions, annotations, submit metadata**
   (MMR-256). The fixture vault generator (MMR-255) previously seeded every task
   with a null description, zero annotations, and no external ref, leaving the

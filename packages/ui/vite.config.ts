@@ -6,6 +6,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 // and the `test` block; vite-plus's defineConfig hits TS2321 excessive-depth here.
 import { defineConfig } from 'vitest/config';
 
+import { injectThemeColorMeta, WELL_900 } from './src/lib/theme-colors';
+
 /**
  * The console build (ADR 0013): a static SPA whose `dist/` output is embedded
  * in the mimir binary and served by `mimir serve`. The PWA layer is app-shell
@@ -21,7 +23,7 @@ export default defineConfig({
     VitePWA({
       includeAssets: ['icons/mimir.svg', 'icons/mimir-maskable.svg'],
       manifest: {
-        background_color: '#0d1219',
+        background_color: WELL_900.dark,
         description: 'Operator console — work state across every project',
         display: 'standalone',
         icons: [
@@ -35,7 +37,7 @@ export default defineConfig({
         ],
         name: 'Mimir',
         short_name: 'Mimir',
-        theme_color: '#0d1219',
+        theme_color: WELL_900.dark,
       },
       registerType: 'autoUpdate',
       workbox: {
@@ -44,6 +46,9 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//],
       },
     }),
+    // The meta theme-color is a pre-hydration fallback (useTheme reconciles it
+    // on mount, MMR-254) — inject it here so it still has one source.
+    { name: 'meta-theme-color', transformIndexHtml: injectThemeColorMeta },
   ],
   // Lint/fmt are centralized in the root vite.config; this member carries only
   // build + test. The jsdom test env comes from @dbtlr/tooling's vitestReact().
