@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
 
 import { archivedProjectsQuery, projectsQuery } from '../api/queries';
 import { ArchivedShelf } from '../components/archived-shelf';
 import { LaneSection } from '../components/lane-section';
+import { NewProjectSheet } from '../components/new-project-sheet';
 import { NodeDossier } from '../components/node-dossier';
 import { OfflineBanner } from '../components/offline-banner';
 import { ProjectCard } from '../components/project-card';
@@ -25,6 +27,7 @@ import { overviewRoute } from '../router';
 export function OverviewPage() {
   const navigate = useNavigate();
   const { node } = overviewRoute.useSearch();
+  const [creating, setCreating] = useState(false);
 
   const projects = useQuery(projectsQuery);
   const archived = useQuery(archivedProjectsQuery);
@@ -91,7 +94,7 @@ export function OverviewPage() {
             return (
               <>
                 {/* The one solid action per surface; desktop-only header row.
-                    The button rides MMR-227's new-project sheet. Suppressed
+                    The button opens MMR-230's new-project sheet. Suppressed
                     in degraded flat mode, which carries its own "Overview" heading. */}
                 {grouping.mode !== 'flat' && (
                   <header className="hidden items-baseline gap-2.5 md:flex">
@@ -107,15 +110,23 @@ export function OverviewPage() {
                     <ActionButton
                       className="ml-auto px-3.5 py-1.5"
                       disabled={conn.offline}
-                      onClick={() => {
-                        // TODO(MMR-227): open the new-project sheet (21a) once landed.
-                      }}
+                      onClick={() => setCreating(true)}
                     >
                       + New project
                     </ActionButton>
                   </header>
                 )}
                 {lanes}
+                {/* Mobile has no header row — the create entry is a dashed
+                    end-of-list row after the last lane (22a / MMR-230). */}
+                <button
+                  type="button"
+                  disabled={conn.offline}
+                  onClick={() => setCreating(true)}
+                  className="min-h-11 rounded-xl border border-dashed border-line-bright text-[12.5px] font-semibold text-ink-dim transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 md:hidden"
+                >
+                  + New project
+                </button>
               </>
             );
           })()}
@@ -123,6 +134,7 @@ export function OverviewPage() {
             at zero; a folded count row otherwise. Frozen, not empty-stated. */}
         <ArchivedShelf projects={archivedProjects} offline={conn.offline} />
       </main>
+      <NewProjectSheet open={creating} onOpenChange={setCreating} />
       <NodeDossier nodeId={node} onClose={closeNode} onOpenNode={openNode} offline={conn.offline} />
     </>
   );

@@ -71,7 +71,7 @@ describe('overviewPage attention-router (MMR-102)', () => {
     expect(screen.getByText('RESTED project')).toBeDefined();
   });
 
-  it('renders the page header with the project count and the new-project action', async () => {
+  it('renders the page header with the project count and the new-project triggers', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/projects') {
         return Promise.resolve({
@@ -87,8 +87,52 @@ describe('overviewPage attention-router (MMR-102)', () => {
     renderOverview();
 
     await expect(screen.findByRole('heading', { name: 'Projects' })).resolves.toBeDefined();
-    expect(screen.getByText('2')).toBeDefined(); // project count meta
-    expect(screen.getByRole('button', { name: /new project/i })).toBeDefined();
+    expect(screen.getByText('2')).toBeDefined(); // project count meta, no archived clause
+    // Two triggers share the sheet: the desktop header action + the mobile
+    // dashed end-of-list row (MMR-230).
+    expect(screen.getAllByRole('button', { name: /new project/i })).toHaveLength(2);
+  });
+
+  it('appends the archived clause to the header count when archived projects exist (MMR-230)', async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/projects') {
+        return Promise.resolve({
+          items: [proj('LIVE', attn('live', '2026-06-19T00:00:00.000Z'))],
+          total: 1,
+        });
+      }
+      if (path === '/api/projects?status=archived') {
+        return Promise.resolve({ items: [archivedProj('OLD'), archivedProj('OLDER')], total: 2 });
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    renderOverview();
+
+    // The clause renders as its own span beside the live count (MMR-125's
+    // separate-span form), not a merged "1 · 2 archived" string.
+    await expect(screen.findByText('· 2 archived')).resolves.toBeDefined();
+    expect(screen.getByText('1')).toBeDefined();
+  });
+
+  it('the new-project triggers open the create sheet (MMR-230)', async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/projects') {
+        return Promise.resolve({
+          items: [proj('LIVE', attn('live', '2026-06-19T00:00:00.000Z'))],
+          total: 1,
+        });
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    renderOverview();
+
+    const [headerTrigger] = await screen.findAllByRole('button', { name: /new project/i });
+    if (headerTrigger === undefined) {
+      throw new Error('missing new-project trigger');
+    }
+    await userEvent.click(headerTrigger);
+    await expect(screen.findByLabelText(/title/i)).resolves.toBeDefined();
+    expect(screen.getByText(/lands in At rest until work starts moving/)).toBeDefined();
   });
 
   it('degrades to a flat Overview grid when the attention facet is absent', async () => {
