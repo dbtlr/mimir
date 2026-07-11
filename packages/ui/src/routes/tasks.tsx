@@ -1,4 +1,4 @@
-import type { StatusWord } from '@mimir/contract';
+import type { TaskStatusWord } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -17,7 +17,7 @@ import { MenuContent, MenuItem, MenuLabel, MenuRoot, MenuTrigger } from '../comp
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
-import { STATUS_META, STATUS_ORDER } from '../lib/status';
+import { STATUS_META, TASK_STATUS_ORDER } from '../lib/status';
 import { relativeTime } from '../lib/time';
 import { tasksRoute } from '../router';
 
@@ -27,21 +27,24 @@ const SEARCH_DEBOUNCE_MS = 250;
 const ROW_GRID = 'md:grid md:grid-cols-[140px_84px_minmax(0,1fr)_220px_120px_90px] md:gap-3';
 
 /** Chip-track words shown when no status is selected; the rest fold into `+N ▾`. */
-const DEFAULT_TRACK = STATUS_ORDER.slice(0, 3);
+const DEFAULT_TRACK = TASK_STATUS_ORDER.slice(0, 3);
 
-const isStatusWord = (v: string): v is StatusWord =>
-  (STATUS_ORDER as readonly string[]).includes(v);
+// The chip vocabulary is the task-closed set (TASK_STATUS_ORDER, 8 words) —
+// `new` is container-only, a task never carries it, and the status selector
+// rejects it outright (one bad token voids the whole selection server-side).
+const isTaskStatusWord = (v: string): v is TaskStatusWord =>
+  (TASK_STATUS_ORDER as readonly string[]).includes(v);
 
-/** The concrete status words in a (possibly comma-separated) `status` param —
+/** The concrete task status words in a (possibly comma-separated) `status` param —
  * union selectors (`live`, `all`, …) filter fine but render no chip. */
-function parseStatusWords(status: string | undefined): StatusWord[] {
+function parseStatusWords(status: string | undefined): TaskStatusWord[] {
   if (status === undefined) {
     return [];
   }
   return status
     .split(',')
     .map((t) => t.trim())
-    .filter(isStatusWord);
+    .filter(isTaskStatusWord);
 }
 
 /** HOME cell: mono project key › parent title, ∞ on standing (open-ended) homes. */
@@ -128,15 +131,17 @@ export function TasksPage() {
 
   // The status chip-group state: concrete selected words, canonically ordered.
   const statusWords = useMemo(() => parseStatusWords(search.status), [search.status]);
-  const toggleStatus = (word: StatusWord) => {
+  const toggleStatus = (word: TaskStatusWord) => {
     const next = statusWords.includes(word)
       ? statusWords.filter((w) => w !== word)
       : [...statusWords, word];
-    setFilter({ status: STATUS_ORDER.filter((w) => next.includes(w)).join(',') });
+    setFilter({ status: TASK_STATUS_ORDER.filter((w) => next.includes(w)).join(',') });
   };
   const trackWords =
-    statusWords.length > 0 ? STATUS_ORDER.filter((w) => statusWords.includes(w)) : DEFAULT_TRACK;
-  const overflowWords = STATUS_ORDER.filter((w) => !trackWords.includes(w));
+    statusWords.length > 0
+      ? TASK_STATUS_ORDER.filter((w) => statusWords.includes(w))
+      : DEFAULT_TRACK;
+  const overflowWords = TASK_STATUS_ORDER.filter((w) => !trackWords.includes(w));
 
   // Last activity, newest first — the API's rank/completion order is
   // deliberately not this surface's order.
@@ -334,7 +339,10 @@ export function TasksPage() {
           )}
           {items.length > 0 && (
             <div role="table" aria-label="Tasks">
-              <div role="rowgroup" className="max-md:hidden">
+              {/* Below md the header row hides *visually only* (sr-only, not
+                  display:none) so the columnheader↔cell association survives
+                  in the accessibility tree at every width. */}
+              <div role="rowgroup" className="max-md:sr-only">
                 <div
                   role="row"
                   className={cn(

@@ -201,15 +201,43 @@ describe('tasksPage (17a, MMR-228)', () => {
     const user = userEvent.setup();
     await screen.findByText('Doctor the wire');
 
-    // default track = first three of STATUS_ORDER; the other six fold away
-    await user.click(screen.getByRole('button', { name: '+6 ▾' }));
+    // default track = first three task words; the other five fold away
+    await user.click(screen.getByRole('button', { name: '+5 ▾' }));
     await expect(screen.findByRole('menuitem', { name: 'Done' })).resolves.toBeDefined();
     expect(screen.getByRole('menuitem', { name: 'Abandoned' })).toBeDefined();
+    // `new` is container-only (the selector rejects it) — never offered here
+    expect(screen.queryByRole('menuitem', { name: 'New' })).toBeNull();
 
     await user.click(screen.getByRole('menuitem', { name: 'Abandoned' }));
     await waitFor(() => {
       expect(search(testRouter).status).toBe('abandoned');
     });
+  });
+
+  it('never renders a pressed chip for the container-only `new` on a deep link', async () => {
+    mockApi();
+    renderTasks('/tasks?status=new');
+    await screen.findByText('Doctor the wire');
+
+    // `new` is not a task status word: no chip claims it, nothing is pressed
+    expect(screen.queryByRole('button', { name: 'New' })).toBeNull();
+    for (const chip of ['In progress', 'Under review', 'Ready']) {
+      expect(screen.getByRole('button', { name: chip }).getAttribute('aria-pressed')).toBe('false');
+    }
+  });
+
+  it('keeps the column-header row in the accessibility tree at every width', async () => {
+    mockApi();
+    renderTasks();
+    await screen.findByText('Doctor the wire');
+
+    // Below md the header row must hide visually (sr-only), never display:none —
+    // otherwise mobile screen readers get cells with no columnheader to associate.
+    const headerGroup = screen
+      .getByRole('columnheader', { name: 'STATUS' })
+      .closest('[role="rowgroup"]');
+    expect(headerGroup?.className).toContain('max-md:sr-only');
+    expect(headerGroup?.className).not.toContain('max-md:hidden');
   });
 
   it('a row click opens the dossier via ?node=', async () => {

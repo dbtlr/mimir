@@ -1,4 +1,5 @@
-import type { StatusWord } from '@mimir/contract';
+import type { StatusWord, TaskStatusWord } from '@mimir/contract';
+import { TASK_STATUS_WORD_VALUES } from '@mimir/contract';
 
 /**
  * The status color system — one lookup, used identically everywhere a status
@@ -96,3 +97,12 @@ export const STATUS_ORDER: readonly StatusWord[] = [
   'done',
   'abandoned',
 ];
+
+/**
+ * {@link STATUS_ORDER} narrowed to the task-reachable vocabulary — `new` is
+ * container-only (a task never projects to it, and the status selector rejects
+ * it), so task-only surfaces must offer this set, not the full one.
+ */
+export const TASK_STATUS_ORDER: readonly TaskStatusWord[] = STATUS_ORDER.filter(
+  (w): w is TaskStatusWord => (TASK_STATUS_WORD_VALUES as readonly string[]).includes(w),
+);

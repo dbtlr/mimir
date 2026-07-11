@@ -53,8 +53,9 @@ release. When a release is cut, this section is promoted to
   across {m} projects · {k} match") and "+ New task" (a project pick into the
   create sheet); the filter row is a labeled debounced title search, a project
   chip with picker, and a status chip-group whose `+N ▾` overflow discloses
-  the full closed vocabulary — the terminal words (Done, Abandoned) are
-  first-class here. Terminal rows demote by ink tier onto the recessed well
+  the rest of the task-closed vocabulary (the eight words a task can carry —
+  container-only `new` is never offered) — the terminal words (Done,
+  Abandoned) are first-class here. Terminal rows demote by ink tier onto the recessed well
   (never opacity), abandoned titles strike through, under-review rows carry
   the violet tint. Filters stay URL-addressable (`q`, `project`, `status`,
   `node`), deep-links restore exactly, and the footer echoes the canonical
