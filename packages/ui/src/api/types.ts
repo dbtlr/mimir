@@ -161,6 +161,13 @@ export type Collection<T> = {
   items: T[];
 };
 
+/** `/api/health` — the daemon's build + vault schema (MMR-260 stale-binary signal). */
+export type WireHealth = {
+  status: 'ok';
+  version: string;
+  schema: number;
+};
+
 /** The project key a rendered id belongs to (`MMR-16` → `MMR`, `MMR` → `MMR`). */
 export function projectKeyOf(id: string): string {
   const dash = id.indexOf('-');

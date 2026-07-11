@@ -15,6 +15,7 @@ import {
 } from '../core';
 import type { Db, Store } from '../core';
 import { createTestDb } from '../db/testing';
+import { VAULT_SCHEMA } from '../vault';
 import { createServer } from './server';
 
 /**
@@ -81,10 +82,10 @@ const errorCode = (body: Rec): string => (body.error as { code: string }).code;
 // Health
 // ---------------------------------------------------------------------------
 
-test('GET /api/health reports ok and the serving version', async () => {
+test('GET /api/health reports ok, the serving version, and the vault schema', async () => {
   const res = await get('/api/health');
   expect(res.status).toBe(200);
-  expect(await parse(res)).toEqual({ status: 'ok', version: '0.0.0-test' });
+  expect(await parse(res)).toEqual({ schema: VAULT_SCHEMA, status: 'ok', version: '0.0.0-test' });
 });
 
 // ---------------------------------------------------------------------------

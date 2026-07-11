@@ -15,6 +15,15 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Console version footer + stale-UI signal** (MMR-260). Every page now
+  carries a quiet mono version line at the bottom of the shell, so an
+  operator (or a screenshot-smoke) can tell "stale binary" from "broken
+  design" at a glance instead of guessing. `/api/health` now also reports the
+  running vault schema alongside its version. The line shows the daemon's
+  reported version; if the loaded UI bundle was built with a different
+  version than the daemon it's talking to, a subtle "· update available"
+  hint appears next to it — the reload/restart call is still the operator's,
+  this is only the tell.
 - **New project + project lifecycle** (MMR-230). The console can now create and
   archive projects. Every "+ New project" trigger — the Overview header action
   (desktop), a dashed end-of-list row after the last lane (mobile), and a

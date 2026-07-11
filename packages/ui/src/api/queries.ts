@@ -6,6 +6,7 @@ import type {
   WireAnnotation,
   WireArtifactDetail,
   WireArtifactSummary,
+  WireHealth,
   WireNode,
   WireTreeNode,
 } from './types';
@@ -17,6 +18,12 @@ import type {
  * on reconnect/focus by default.
  */
 export const POLL_MS = 10_000;
+
+/** The footer's stale-binary check (MMR-260): the daemon's build + vault schema. */
+export const healthQuery = queryOptions({
+  queryFn: () => apiGet<WireHealth>('/api/health'),
+  queryKey: ['health'],
+});
 
 /** Overview: every project with its rollup distribution riding along. */
 export const projectsQuery = queryOptions({

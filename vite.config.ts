@@ -114,6 +114,10 @@ const layerOverrides: Override[] = [
   // Kysely migrations use an ordered `NNNN_name` filename convention, not
   // kebab/pascal — exempt the whole directory from filename-case.
   { files: ['packages/bin/src/db/migrations/**'], rules: { 'unicorn/filename-case': 'off' } },
+  // The UI's vite config is a Node/Bun build script, not shipped browser code —
+  // it reads packages/bin/package.json to stamp the bundle's build version
+  // (MMR-260) alongside the binary's own MIMIR_BUILD_VERSION define.
+  { files: ['packages/ui/vite.config.ts'], rules: { 'import/no-nodejs-modules': 'off' } },
   uiLintOverride,
 ];
 
