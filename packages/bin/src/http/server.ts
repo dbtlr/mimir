@@ -116,7 +116,7 @@ function normalizeDate(value: string, edge: 'start' | 'end'): string {
  */
 
 /** The set-read projection — one record shape on every collection (boundary at selection). */
-const SET_FACETS: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts'];
+const SET_FACETS: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts', 'home'];
 /** Detail/echo add the artifact inventory (id + title — content stays a sub-resource) and the per-node transition history. */
 const DETAIL_FACETS: readonly FacetName[] = [...SET_FACETS, 'artifacts', 'history', 'description'];
 /** The project-record projection (verdicts/deps don't apply to a project). */

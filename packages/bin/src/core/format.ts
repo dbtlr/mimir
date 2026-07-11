@@ -115,6 +115,14 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.verdicts !== undefined) {
     wire.verdicts = node.verdicts;
   }
+  if (node.home !== undefined) {
+    wire.home = {
+      parent_id: node.home.parentId,
+      parent_open_ended: node.home.parentOpenEnded,
+      parent_title: node.home.parentTitle,
+      project_key: node.home.projectKey,
+    };
+  }
   if (node.attention !== undefined) {
     wire.attention = {
       lane: node.attention.lane,

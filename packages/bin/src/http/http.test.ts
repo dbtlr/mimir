@@ -279,6 +279,35 @@ test('a bad status value is a warning and an empty set, not an error', async () 
   expect(warnings[0]?.expected).toContain('live');
 });
 
+test('list rows carry the home facet: project key + parent title/∞ (MMR-228)', async () => {
+  // A standing (open-ended) home to exercise the ∞ marker field.
+  const set = deriveSet(await store.loadWorkingSet());
+  const init = findNodeInSet(set, initiativeRef);
+  if (init === undefined) {
+    throw new Error('fixture initiative missing');
+  }
+  const standing = await createPhase(store, {
+    openEnded: true,
+    parentId: init.id,
+    title: 'Bugs',
+  });
+  await createTask(store, { parentId: standing.id, title: 'flaky test' });
+
+  const body = await parse(await get('/api/nodes?type=task'));
+  const rows = body.items as Rec[];
+  const first = rows.find((n) => n.id === task1);
+  expect(first?.home).toEqual({
+    parent_id: phaseRef,
+    parent_open_ended: null,
+    parent_title: 'phase 4',
+    project_key: 'MMR',
+  });
+  const filed = rows.find((n) => n.title === 'flaky test');
+  const filedHome = filed?.home as Rec | undefined;
+  expect(filedHome?.parent_open_ended).toBe(true);
+  expect(filedHome?.parent_title).toBe('Bugs');
+});
+
 test('one bad token in a status union voids the selection with a warning (MMR-228)', async () => {
   const res = await get('/api/nodes?status=ready,bogus');
   expect(res.status).toBe(200);
