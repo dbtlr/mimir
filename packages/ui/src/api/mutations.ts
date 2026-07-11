@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import type { ReorderArgs } from '../lib/reorder';
 import type { TransitionVerb } from '../lib/transitions';
 import { apiSend } from './client';
-import type { WireNode } from './types';
+import type { WireNode, WireSeed } from './types';
 
 /** Every read key a write can stale. Broad invalidation is fine — the server is loopback. */
 const WRITE_KEYS: readonly (readonly string[])[] = [
@@ -13,6 +13,7 @@ const WRITE_KEYS: readonly (readonly string[])[] = [
   ['nodes'],
   ['projects'],
   ['project'],
+  ['seeds'],
   ['tree'],
 ];
 
@@ -217,6 +218,74 @@ export function useUnarchiveProject(key: string) {
   return useMutation({
     mutationFn: () =>
       apiSend<WireNode>('POST', `/api/projects/${encodeURIComponent(key)}/unarchive`, undefined),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+  });
+}
+
+/**
+ * File a seed (MMR-247) — `POST /api/seeds`. Console-filed seeds are self-filed:
+ * `requester` is never sent (the server nulls it → "you"). `kind` defaults to
+ * `idea` at the call site; `description` is optional (edited later in detail).
+ */
+export type FileSeedInput = {
+  project: string;
+  title: string;
+  kind: string;
+  description?: string;
+};
+
+export function useFileSeed() {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: (input: FileSeedInput) => apiSend<WireSeed>('POST', '/api/seeds', input),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+  });
+}
+
+/**
+ * Reject a seed (MMR-247) — `POST /api/seeds/:id/reject`. The server requires a
+ * non-empty `reason`; the reason dialog gates confirm on it, so the body always
+ * carries one.
+ */
+export function useRejectSeed(id: string) {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: (reason: string) =>
+      apiSend<WireSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/reject`, { reason }),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+  });
+}
+
+/** Resolve a seed (MMR-247) — `POST /api/seeds/:id/resolve`, `reason` required (mirror of reject). */
+export function useResolveSeed(id: string) {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: (reason: string) =>
+      apiSend<WireSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/resolve`, { reason }),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+  });
+}
+
+export type UpdateSeedInput = {
+  title?: string;
+  kind?: string;
+  description?: string;
+};
+
+/**
+ * Patch a live seed (MMR-247) — `PATCH /api/seeds/:id`. The server refuses a
+ * terminal (frozen) seed, so the detail surfaces edit only while the seed is
+ * live; `requester`/`spawned` are verb-owned and never patched here.
+ */
+export function useUpdateSeed(id: string) {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: (fields: UpdateSeedInput) =>
+      apiSend<WireSeed>('PATCH', `/api/seeds/${encodeURIComponent(id)}`, fields),
     onError: (err: Error) => toast.error(err.message),
     onSettled: invalidate,
   });

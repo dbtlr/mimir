@@ -15,6 +15,22 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Seeds console surface** (MMR-247). The console gains a grooming queue at
+  `/seeds` (a "Seeds" nav entry beside Tasks and Artifacts) and a global
+  low-ceremony capture popover. Press `s` from any surface — or "+ File a
+  seed" — to open the popover: pick a kind (bug / idea / feature, tinted),
+  type one title, optionally choose a project, and Enter files it (self-filed,
+  so it lands untriaged as "you"). The queue groups seeds by the server's lane
+  in fixed order — UNTRIAGED → READY TO RESOLVE → PROMOTED → SETTLED — with
+  SETTLED folded to a bottom strip ("N · x resolved · y rejected") that
+  expands to read-only terminal rows. Below the master-detail breakpoint the
+  rows stack and expand in place; at and above it the queue becomes a fixed
+  master list beside a reading pane (the artifacts-browser grammar) with the
+  body prose, an editable description while the seed is live, and a
+  requester / filed / project / spawned meta rail. Triage verbs are pinned per
+  lane: **Reject…** and **Later** on untriaged rows, **Resolve — done** on the
+  ready lane, each Reject/Resolve gated behind a required reason. (Promote →
+  task ships next, with MMR-248.)
 - **Console version footer + stale-UI signal** (MMR-260). Every page now
   carries a quiet mono version line at the bottom of the shell, so an
   operator (or a screenshot-smoke) can tell "stale binary" from "broken

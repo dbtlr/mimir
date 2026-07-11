@@ -8,6 +8,7 @@ import type {
   WireArtifactSummary,
   WireHealth,
   WireNode,
+  WireSeed,
   WireTreeNode,
 } from './types';
 
@@ -220,4 +221,34 @@ export const artifactQuery = (id: string) =>
   queryOptions({
     queryFn: () => apiGet<WireArtifactDetail>(`/api/artifacts/${encodeURIComponent(id)}`),
     queryKey: ['artifact', id],
+  });
+
+/** The seeds-queue filter set (MMR-247) — `project` narrows to one board (or all). */
+export type SeedFilters = {
+  project?: string;
+};
+
+/**
+ * The grooming queue (MMR-247): every seed across every lane. `status=all`
+ * so the SETTLED lane's terminal rows arrive alongside the live ones (the
+ * default `live` would drop them); `project=all` spans every board unless a
+ * filter narrows it. The server serves `lane` per row, so grouping derives
+ * nothing (MMR-245). Keyed under `['seeds', 'list', …]` so a write's
+ * `['seeds']` invalidation refreshes it.
+ */
+export const seedsQuery = (f: SeedFilters = {}) =>
+  queryOptions({
+    queryFn: () => {
+      const p = new URLSearchParams({ status: 'all' });
+      p.set('project', f.project !== undefined && f.project !== '' ? f.project : 'all');
+      return apiGet<Collection<WireSeed>>(`/api/seeds?${p.toString()}`);
+    },
+    queryKey: ['seeds', 'list', f],
+  });
+
+/** One seed with its body prose — the reading pane / detail source (content read). */
+export const seedQuery = (id: string) =>
+  queryOptions({
+    queryFn: () => apiGet<WireSeed>(`/api/seeds/${encodeURIComponent(id)}`),
+    queryKey: ['seeds', 'detail', id],
   });
