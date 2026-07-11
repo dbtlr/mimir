@@ -15,6 +15,28 @@ release. When a release is cut, this section is promoted to
 
 ### Added
 
+- **Authoring sheet — one create surface for task / phase / initiative**
+  (MMR-227). The board's create affordance now opens the Meridian authoring
+  sheet (mock 19a), replacing the `TaskForm` create path (`TaskForm` remains
+  the dossier's edit form). A **Task / Phase / Initiative** type selector
+  governs the sheet — no status field for any type, nodes are born `new` — over
+  an autofocused accent-ringed title, a project-spanning **HOME** picker whose
+  legal parents follow the type (task → initiative/phase, phase → initiative,
+  initiative → the bare project; open-ended parents wear ∞), an always-visible
+  markdown description, a **DEPENDS ON** chip field with debounced task search,
+  and a collapsed **SIGNALS · OPTIONAL** section (p0–p3 / s·m·l pills, raw-text
+  tags rendered as chips). The footer carries **create another** (reset +
+  refocus, sheet stays open), **Create & open** (routes to the new node's
+  dossier), and the one solid **Create ↵** (slate in light). This is the first
+  UI path that authors phases and initiatives. Dependencies apply post-create
+  via `/depend` — accepted non-atomicity: on a depend failure the node
+  survives, the error toasts, and the sheet stays open. Offline disables the
+  trigger and both create buttons. Pre-fill props and a header slot leave the
+  seam for the promote-seed flow (MMR-248); `recent:` parent chips are omitted
+  until a recents source exists. API layer: `useCreateTask` generalizes to
+  `useCreateNode` (type in the body, `open_ended` for containers), and new
+  `useDepend` / `useUndepend` mutations wrap `/depend` & `/undepend`.
+
 - **Node dossier — deep-read detail overlay** (MMR-222). The node-detail
   surface (`?node=KEY-seq`) is rebuilt on the Meridian design system as a
   centered overlay over a dimmed board, replacing the right-anchored drawer at
