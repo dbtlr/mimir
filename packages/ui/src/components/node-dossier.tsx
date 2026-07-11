@@ -5,7 +5,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useTransition, useUpdateNode } from '../api/mutations';
+import { useTag, useTransition, useUntag, useUpdateNode } from '../api/mutations';
 import { annotationsQuery, nodeQuery } from '../api/queries';
 import type { WireAnnotation, WireHistoryEntry, WireNode } from '../api/types';
 import { cn } from '../lib/cn';
@@ -34,9 +34,10 @@ function fromNode(n: WireNode): TaskFormValues {
     size: n.size ?? '',
     summary: n.summary ?? '',
     // Reparenting is the Move… verb (its own dialog), not the dumb update — the
-    // edit form no longer carries a parent picker. Tags render read-only in
-    // SIGNALS (5a), so the form omits them too.
-    tags: [],
+    // edit form no longer carries a parent picker. Tags ARE editable here
+    // (MMR-257) — the SIGNALS view (5a) stays read-only; handleEditSubmit
+    // diffs the submitted names against these to fire tag/untag.
+    tags: n.tags?.map((t) => t.tag) ?? [],
     title: n.title,
   };
 }
@@ -505,9 +506,16 @@ function DossierBody({
   const navigate = useNavigate();
   const node = useQuery(nodeQuery(nodeId));
   const annotations = useQuery(annotationsQuery(nodeId));
-  const [editing, setEditing] = useState(false);
+  // Snapshot of the edit form's initial values, captured when Edit opens.
+  // Non-null means editing; it is also the tag-diff baseline — diffing against
+  // live node.data would misread a tag added concurrently elsewhere (refetched
+  // into node.data by invalidation while the form is open) as a removal.
+  const [editBaseline, setEditBaseline] = useState<TaskFormValues | null>(null);
+  const editing = editBaseline !== null;
   const [moving, setMoving] = useState(false);
   const update = useUpdateNode(nodeId);
+  const tag = useTag(nodeId);
+  const untag = useUntag(nodeId);
   const { mutate: transition } = useTransition(nodeId);
   const [reasonVerb, setReasonVerb] = useState<VerbSpec | null>(null);
 
@@ -524,18 +532,34 @@ function DossierBody({
     }
   }
 
-  function handleEditSubmit(values: TaskFormSubmit) {
-    update.mutate(
-      {
-        description: values.description ?? undefined,
-        external_ref: values.external_ref ?? undefined,
-        priority: values.priority ?? undefined,
-        size: values.size ?? undefined,
-        summary: values.summary ?? undefined,
-        title: values.title,
-      },
-      { onSuccess: () => setEditing(false) },
-    );
+  // Tags aren't a scalar field on the dumb update — diff the submitted names
+  // against the form's baseline tags and fire tag/untag per delta. An
+  // unchanged tag issues neither: re-issuing `tag` on one that already exists
+  // would PUT it with no note, silently dropping any note it carries.
+  async function handleEditSubmit(values: TaskFormSubmit) {
+    const currentTags = new Set(editBaseline?.tags);
+    const nextTags = new Set(values.tags);
+    const added = [...nextTags].filter((t) => !currentTags.has(t));
+    const removed = [...currentTags].filter((t) => !nextTags.has(t));
+
+    try {
+      await Promise.all([
+        update.mutateAsync({
+          description: values.description ?? undefined,
+          external_ref: values.external_ref ?? undefined,
+          priority: values.priority ?? undefined,
+          size: values.size ?? undefined,
+          summary: values.summary ?? undefined,
+          title: values.title,
+        }),
+        ...added.map((t) => tag.mutateAsync(t)),
+        ...removed.map((t) => untag.mutateAsync(t)),
+      ]);
+      setEditBaseline(null);
+    } catch {
+      // Each mutation already toasts its own failure (onError in mutations.ts);
+      // this just keeps the edit form open instead of closing on a partial fail.
+    }
   }
 
   const data = node.data;
@@ -588,7 +612,7 @@ function DossierBody({
                 </VerbChip>
               )}
               {offline !== true && data.type === 'task' && (
-                <VerbChip onClick={() => setEditing(true)}>Edit</VerbChip>
+                <VerbChip onClick={() => setEditBaseline(fromNode(data))}>Edit</VerbChip>
               )}
             </>
           )}
@@ -614,14 +638,14 @@ function DossierBody({
             <p className="p-5 text-xs text-status-blocked">Couldn't load {nodeId}.</p>
           )}
 
-          {data !== undefined && editing && (
+          {data !== undefined && editBaseline !== null && (
             <div className="p-5">
               <TaskForm
                 mode="edit"
-                initial={fromNode(data)}
-                submitting={update.isPending}
+                initial={editBaseline}
+                submitting={update.isPending || tag.isPending || untag.isPending}
                 onSubmit={handleEditSubmit}
-                onCancel={() => setEditing(false)}
+                onCancel={() => setEditBaseline(null)}
               />
             </div>
           )}

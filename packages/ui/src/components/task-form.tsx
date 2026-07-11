@@ -1,6 +1,7 @@
 import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
 import type { Priority, Size } from '@mimir/contract';
 import { useForm } from '@tanstack/react-form';
+import { useState } from 'react';
 
 import type { ParentOption } from '../lib/parent-options';
 import { emptyTaskForm, taskFormSchema } from '../lib/schemas';
@@ -36,6 +37,12 @@ export function TaskForm({
   onCancel,
 }: TaskFormProps) {
   const defaultParent = initial?.parent ?? parents?.[0]?.id ?? '';
+
+  // The tags box displays exactly what was typed — parsing must never rewrite
+  // the text mid-typing (joining the parsed array back would eat a trailing
+  // comma, silently merging "ui" + ", feat" into "uifeat"). The raw string
+  // lives here; the form field only ever holds the parsed array.
+  const [tagsText, setTagsText] = useState(() => (initial?.tags ?? []).join(', '));
 
   const form = useForm({
     defaultValues: {
@@ -243,34 +250,34 @@ export function TaskForm({
             </form.Field>
           </div>
 
-          {/* Tags input — create mode only */}
-          {mode === 'create' && (
-            <div className="flex flex-col gap-1">
-              <label htmlFor="task-form-tags" className="text-xs font-medium text-ink-dim">
-                Tags
-              </label>
-              <form.Field name="tags">
-                {(field) => (
-                  <input
-                    id="task-form-tags"
-                    type="text"
-                    placeholder="Comma-separated tags"
-                    value={field.state.value.join(', ')}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      const tags = raw
-                        .split(',')
-                        .map((t) => t.trim())
-                        .filter((t) => t.length > 0);
-                      field.handleChange(tags);
-                    }}
-                    onBlur={field.handleBlur}
-                    className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs text-ink outline-none focus-visible:border-accent"
-                  />
-                )}
-              </form.Field>
-            </div>
-          )}
+          {/* Tags — create and edit (MMR-257: the dossier's edit form is the
+              tag-edit surface; the retired standalone TagEditor is gone) */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="task-form-tags" className="text-xs font-medium text-ink-dim">
+              Tags
+            </label>
+            <form.Field name="tags">
+              {(field) => (
+                <input
+                  id="task-form-tags"
+                  type="text"
+                  placeholder="Comma-separated tags"
+                  value={tagsText}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setTagsText(raw);
+                    const tags = raw
+                      .split(',')
+                      .map((t) => t.trim())
+                      .filter((t) => t.length > 0);
+                    field.handleChange(tags);
+                  }}
+                  onBlur={field.handleBlur}
+                  className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs text-ink outline-none focus-visible:border-accent"
+                />
+              )}
+            </form.Field>
+          </div>
         </div>
       </details>
 
