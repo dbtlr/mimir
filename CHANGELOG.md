@@ -100,6 +100,27 @@ release. When a release is cut, this section is promoted to
   say what it's guarding — archived projects 404 on the detail routes, so
   the list row is the only address for it.
 
+- **Artifacts browser rebuilt on Meridian** (MMR-229). The `/artifacts`
+  master-detail browser is restyled to the settled console design. The master
+  pane is a 360px column on the deep well: a labeled **title + body
+  (substring)** search, active filters as removable accent-wash chips behind a
+  `+ filter` unfold, **date-grouped** rows (THIS WEEK / LAST WEEK / month
+  buckets, older rows demoted), a `{total} frozen` count, and a
+  `newest first · windowed, scroll for more` footer. The reader carries a
+  provenance-aware back-link (`← back to board · KEY-seq` when arrived from a
+  node, else `← Artifacts`), a `❄ FROZEN <date> · IMMUTABLE` microlabel
+  standing where an edit affordance would be (the record is append-only — there
+  deliberately isn't one), the markdown body at a fixed 620px measure with
+  inline code on dark machine chips **in both themes**, and a **provenance
+  rail** on recessed ground: LINKED NODES (status dot + mono id + node title,
+  navigable), PROJECT (navigable), and KIND · TAGS (the `kind:` tag namespace
+  rendered as KIND). On mobile the rail becomes a chip row under the title
+  where the **owning project is always the first chip** — an artifact with no
+  linked nodes is never a dead end. Serving the rail, the HTTP artifact-detail
+  wire (`GET /api/artifacts/:id` and its write echoes) now enriches `links` to
+  `{id, title, status}`, resolved at read time; a dangling link degrades to its
+  bare id.
+
 - **Node dossier — deep-read detail overlay** (MMR-222). The node-detail
   surface (`?node=KEY-seq`) is rebuilt on the Meridian design system as a
   centered overlay over a dimmed board, replacing the right-anchored drawer at
