@@ -115,7 +115,7 @@ export function ProjectPage() {
             {project.data !== undefined && (
               <ProjectSettingsButton project={project.data} offline={conn.offline} />
             )}
-            <NewTaskButton projectKey={key} offline={conn.offline} />
+            <NewTaskButton projectKey={key} offline={conn.offline} onOpenNode={openNode} />
           </div>
         </header>
 

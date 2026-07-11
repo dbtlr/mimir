@@ -65,7 +65,13 @@ export function useReorder() {
   });
 }
 
-export type CreateTaskInput = {
+/**
+ * One create for all three authorable node types (MMR-227) — the route
+ * branches on `type` server-side. `open_ended` is container-only;
+ * priority/size/external_ref are task-only. The server validates the split.
+ */
+export type CreateNodeInput = {
+  type: 'task' | 'phase' | 'initiative';
   parent: string;
   title: string;
   description?: string;
@@ -73,14 +79,45 @@ export type CreateTaskInput = {
   priority?: string;
   size?: string;
   external_ref?: string;
+  open_ended?: boolean;
   tags?: string[];
 };
 
-export function useCreateTask() {
+export function useCreateNode() {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
-    mutationFn: (input: CreateTaskInput) =>
-      apiSend<WireNode>('POST', '/api/nodes', { type: 'task', ...input }),
+    mutationFn: (input: CreateNodeInput) => apiSend<WireNode>('POST', '/api/nodes', input),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+  });
+}
+
+/**
+ * Dependencies are applied after the node exists (`POST /api/nodes` takes no
+ * deps field), so create-with-deps is create-then-depend — two writes, not
+ * one. The id is only known at mutate time (the reorder pattern).
+ */
+export type DependInput = {
+  id: string;
+  on: string[];
+};
+
+export function useDepend() {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: ({ id, on }: DependInput) =>
+      apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/depend`, { on }),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: invalidate,
+  });
+}
+
+/** The symmetric un-link, for edit-surface reuse. */
+export function useUndepend() {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: ({ id, on }: DependInput) =>
+      apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/undepend`, { on }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: invalidate,
   });

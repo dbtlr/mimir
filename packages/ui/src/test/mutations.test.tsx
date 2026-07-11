@@ -5,11 +5,13 @@ import { afterEach, describe, expect, vi } from 'vitest';
 
 import {
   useAnnotate,
-  useCreateTask,
+  useCreateNode,
+  useDepend,
   useMoveNode,
   useReorder,
   useTag,
   useTransition,
+  useUndepend,
   useUntag,
   useUpdateNode,
   useUpdateProject,
@@ -94,11 +96,17 @@ describe('mutation hooks', () => {
 });
 
 describe('authoring mutation hooks', () => {
-  it('useCreateTask POSTs /api/nodes with type=task', async () => {
+  it('useCreateNode POSTs /api/nodes with the given type (task)', async () => {
     apiSend.mockResolvedValue({ id: 'MMR-99' });
     const client = new QueryClient();
-    const { result } = renderHook(() => useCreateTask(), { wrapper: wrapper(client) });
-    result.current.mutate({ parent: 'MMR-7', priority: 'p1', tags: ['ui'], title: 'new' });
+    const { result } = renderHook(() => useCreateNode(), { wrapper: wrapper(client) });
+    result.current.mutate({
+      parent: 'MMR-7',
+      priority: 'p1',
+      tags: ['ui'],
+      title: 'new',
+      type: 'task',
+    });
     await waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes', {
         parent: 'MMR-7',
@@ -106,6 +114,45 @@ describe('authoring mutation hooks', () => {
         tags: ['ui'],
         title: 'new',
         type: 'task',
+      });
+    });
+  });
+
+  it('useCreateNode carries container-only fields for phase/initiative', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-42' });
+    const client = new QueryClient();
+    const { result } = renderHook(() => useCreateNode(), { wrapper: wrapper(client) });
+    result.current.mutate({ open_ended: true, parent: 'MMR', title: 'Polish', type: 'initiative' });
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes', {
+        open_ended: true,
+        parent: 'MMR',
+        title: 'Polish',
+        type: 'initiative',
+      });
+    });
+  });
+
+  it('useDepend POSTs the depend route with the on array, id at mutate time', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-99' });
+    const client = new QueryClient();
+    const { result } = renderHook(() => useDepend(), { wrapper: wrapper(client) });
+    result.current.mutate({ id: 'MMR-99', on: ['MMR-7', 'MMR-8'] });
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-99/depend', {
+        on: ['MMR-7', 'MMR-8'],
+      });
+    });
+  });
+
+  it('useUndepend POSTs the undepend route (symmetry)', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-99' });
+    const client = new QueryClient();
+    const { result } = renderHook(() => useUndepend(), { wrapper: wrapper(client) });
+    result.current.mutate({ id: 'MMR-99', on: ['MMR-7'] });
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-99/undepend', {
+        on: ['MMR-7'],
       });
     });
   });

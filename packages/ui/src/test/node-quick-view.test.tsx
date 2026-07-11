@@ -26,7 +26,7 @@ const CLOSE_MS = 180;
 
 /** Stub `matchMedia` to a fixed `matches` — the panel's Esc guard reads it. */
 function stubMatchMedia(matches: boolean): void {
-  globalThis.matchMedia = ((query: string) =>
+  globalThis.matchMedia = (query: string) =>
     ({
       addEventListener: () => {},
       addListener: () => {},
@@ -36,7 +36,7 @@ function stubMatchMedia(matches: boolean): void {
       onchange: null,
       removeEventListener: () => {},
       removeListener: () => {},
-    }) as MediaQueryList) as typeof globalThis.matchMedia;
+    }) as MediaQueryList;
 }
 
 /** Resolve the detail + annotations fetches the open quick view fires. */

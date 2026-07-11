@@ -157,9 +157,14 @@ body {
   transition: filter 400ms ease;
 }
 
-/* micro-label: the control-room caption idiom — Meridian micro spec (10.5/600) */
-.microlabel {
-  @apply font-sans text-micro font-semibold tracking-[0.13em] uppercase;
+/* micro-label: the control-room caption idiom — Meridian micro spec (10.5/600).
+   Layered as a component so single-purpose utility overrides (the dossier tabs'
+   `normal-case`, the authoring type selector's mixed-case pills) can win —
+   unlayered it would outrank every utility in the cascade. */
+@layer components {
+  .microlabel {
+    @apply font-sans text-micro font-semibold tracking-[0.13em] uppercase;
+  }
 }
 
 ::selection {
