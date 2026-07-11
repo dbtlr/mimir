@@ -6,6 +6,9 @@ import type {
   Lifecycle,
   NodeRef,
   Priority,
+  SeedKind,
+  SeedLane,
+  SeedLifecycle,
   Size,
   StatusWord,
   TransitionKind,
@@ -148,6 +151,30 @@ export type WireNode = {
   attention?: WireAttention;
   /** Where the row lives (MMR-228) — rides node-list responses. */
   home?: WireHome;
+};
+
+/**
+ * A grooming-queue seed (MMR-247) as the wire serves it — the contract's
+ * `SeedView` in snake_case (mirrors `seedToWire` in `@mimir/bin` core/format.ts).
+ * `lane` is served, not derived: consume it directly (MMR-245). `requester` is
+ * null when self-filed (rendered "you"); `spawned` lists surviving work-node
+ * stems; `ready_to_resolve` is the derived promoted-and-all-work-settled flag.
+ * `description` rides only the detail read (list rows omit it).
+ */
+export type WireSeed = {
+  id: string;
+  project: string;
+  title: string;
+  kind: SeedKind;
+  lifecycle: SeedLifecycle;
+  lane: SeedLane;
+  requester: string | null;
+  spawned: string[];
+  ready_to_resolve: boolean;
+  created_at: string;
+  updated_at: string;
+  /** The seed body prose — present on the detail fetch, absent on list rows. */
+  description?: string | null;
 };
 
 /** The nested whole-project tree (`/api/projects/:key/tree`) — children rank-ordered. */
