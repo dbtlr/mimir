@@ -243,6 +243,9 @@ export function renderRecords(node: NodeView, io: Io): string {
   if (node.externalRef != null) {
     pairs.push(['external ref', node.externalRef]);
   }
+  if (node.upstream != null) {
+    pairs.push(['upstream', node.upstream]);
+  }
   if (node.completedAt != null) {
     pairs.push(['completed', node.completedAt]);
   }

@@ -101,6 +101,20 @@ describe('formatNodeJson', () => {
     expect('total' in parsed).toBe(false);
   });
 
+  test('upstream rides the task wire like external_ref: set, or null when unset', () => {
+    const withUpstream = parseJson<Record<string, unknown>>(
+      formatNodeJson(task('MMR-2', { upstream: 'NRN-s3' })),
+    );
+    expect(withUpstream.upstream).toBe('NRN-s3');
+
+    // buildNodeView assigns the model's `string | null` — a task without an
+    // upstream serializes `upstream: null`, present like `external_ref`.
+    const unset = parseJson<Record<string, unknown>>(
+      formatNodeJson(task('MMR-3', { upstream: null })),
+    );
+    expect(unset.upstream).toBeNull();
+  });
+
   test('phase omits task-only fields, includes target', () => {
     const phase: NodeView = {
       createdAt: '2026-06-05T00:00:00.000Z',
@@ -117,6 +131,7 @@ describe('formatNodeJson', () => {
     expect(parsed.target).toBe('ship');
     expect('priority' in parsed).toBe(false);
     expect('hold' in parsed).toBe(false);
+    expect('upstream' in parsed).toBe(false);
   });
 });
 
