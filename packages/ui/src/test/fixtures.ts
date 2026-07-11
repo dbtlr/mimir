@@ -1,6 +1,6 @@
 // Shared test fixtures module, not a test body.
 // oxlint-disable vitest/require-hook
-import type { WireAttention, WireNode } from '../api/types';
+import type { WireAttention, WireNode, WireSeed } from '../api/types';
 
 let seq = 100;
 
@@ -47,6 +47,25 @@ export function task(overrides: Partial<WireNode> & { status: WireNode['status']
     type: 'task',
     updated_at: '2026-06-01T10:00:00.000Z',
     verdicts: { blocking: false, orphaned: false, stale: false },
+    ...overrides,
+  };
+}
+
+/** A seed record as the wire serves it (MMR-247); override what the case needs. */
+export function seed(overrides: Partial<WireSeed> & { lane: WireSeed['lane'] }): WireSeed {
+  seq += 1;
+  const id = overrides.id ?? `MMR-s${String(seq)}`;
+  return {
+    created_at: '2026-06-01T10:00:00.000Z',
+    id,
+    kind: 'idea',
+    lifecycle: 'new',
+    project: 'MMR',
+    ready_to_resolve: false,
+    requester: null,
+    spawned: [],
+    title: `seed ${id}`,
+    updated_at: '2026-06-01T10:00:00.000Z',
     ...overrides,
   };
 }
