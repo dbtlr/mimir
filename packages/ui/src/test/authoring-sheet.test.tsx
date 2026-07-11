@@ -297,6 +297,18 @@ describe('authoringSheet', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  it('links the HOME trigger to its listbox via aria-controls', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await sheetReady();
+
+    const trigger = screen.getByRole('button', { expanded: false, name: /home/i });
+    expect(trigger).toHaveAttribute('aria-controls', 'authoring-home-options');
+
+    await user.click(trigger);
+    expect(screen.getByRole('listbox')).toHaveAttribute('id', 'authoring-home-options');
+  });
+
   it('esc closes the open DEPENDS-ON results list before the sheet', async () => {
     const user = userEvent.setup();
     const { onOpenChange } = renderSheet();

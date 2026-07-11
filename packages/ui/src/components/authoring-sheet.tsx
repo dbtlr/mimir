@@ -367,6 +367,7 @@ function AuthoringSheetBody({
                 aria-labelledby="authoring-home-label"
                 aria-haspopup="listbox"
                 aria-expanded={homeOpen}
+                aria-controls="authoring-home-options"
                 onClick={() => setHomeOpen((o) => !o)}
                 className={cn(
                   FIELD_SHELL,
@@ -412,6 +413,7 @@ function AuthoringSheetBody({
                     className="fixed inset-0 z-10 cursor-default"
                   />
                   <div
+                    id="authoring-home-options"
                     role="listbox"
                     aria-labelledby="authoring-home-label"
                     className="absolute inset-x-0 top-full z-20 mt-1 flex max-h-64 flex-col gap-px overflow-y-auto rounded-[9px] border border-line-bright bg-well-850 p-1 shadow-2xl light:shadow-menu"

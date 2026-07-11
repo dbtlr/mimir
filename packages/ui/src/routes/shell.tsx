@@ -6,11 +6,13 @@ import { ProjectPicker } from '../components/project-picker';
 import { ThemeToggle } from '../components/theme-toggle';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/menu';
 import { useTheme } from '../lib/use-theme';
+import { useToastPosition } from '../lib/use-toast-position';
 
 /** The app shell: brand + project picker, the routed surface, and the global
  * top-bar controls (artifacts, attention, theme). */
 export function Shell() {
   const { theme, toggle } = useTheme();
+  const toastPosition = useToastPosition();
   const navigate = useNavigate();
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
@@ -71,10 +73,13 @@ export function Shell() {
         </div>
       </header>
       <Outlet />
-      {/* bottom-LEFT: the sheet/dossier rail owns the bottom-right corner, and
-          a toast there sits on top of (and intercepts clicks meant for) the
-          rail's footer actions — exactly the error-retry path toasts announce. */}
-      <Toaster theme={theme} position="bottom-left" richColors closeButton />
+      {/* Desktop: bottom-LEFT — the sheet/dossier rail owns the bottom-right
+          corner, and a toast there sits on top of (and intercepts clicks meant
+          for) the rail's footer actions — exactly the error-retry path toasts
+          announce. Mobile: top-center — sonner goes full-width at the bottom
+          below 600px no matter the x-position, right over the bottom sheet's
+          footer, so small viewports route toasts to the top instead. */}
+      <Toaster theme={theme} position={toastPosition} richColors closeButton />
     </div>
   );
 }
