@@ -213,6 +213,142 @@ describe('authoringSheet', () => {
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
+  it('a depend failure pins a retry posture: the created node surfaces, fields freeze', async () => {
+    const user = userEvent.setup();
+    apiSend.mockImplementation((_method: string, path: string) =>
+      path === '/api/nodes'
+        ? Promise.resolve({ id: 'MMR-99' })
+        : Promise.reject(new Error('would create a cycle')),
+    );
+    const { onOpenChange, onOpenNode } = renderSheet();
+    await sheetReady();
+
+    await user.type(screen.getByLabelText('Title'), 'Wire auth');
+    await user.type(screen.getByRole('combobox'), 'auth');
+    await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
+    await user.click(screen.getByRole('button', { name: 'Create ↵' }));
+
+    // The created node stays visible + linked so the user can retry the dep.
+    await screen.findByRole('button', { name: 'Retry deps ↵' });
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'MMR-99 created — dependencies not yet attached.',
+    );
+    // Fields the created node can no longer absorb are frozen…
+    expect(screen.getByLabelText('Title')).toBeDisabled();
+    expect(screen.getByLabelText('Description')).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'Phase' })).toBeDisabled();
+    // …while the dep chips stay editable for the retry.
+    expect(screen.getByLabelText('Remove dependency MMR-40')).toBeEnabled();
+
+    // "open it" routes to the created node without any further write.
+    await user.click(screen.getByRole('button', { name: 'open it' }));
+    expect(onOpenNode).toHaveBeenCalledWith('MMR-99');
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('retrying after a depend failure re-attaches to the created node — never a duplicate create', async () => {
+    const user = userEvent.setup();
+    let dependCalls = 0;
+    apiSend.mockImplementation((_method: string, path: string) => {
+      if (path === '/api/nodes') {
+        return Promise.resolve({ id: 'MMR-99' });
+      }
+      dependCalls += 1;
+      return dependCalls === 1
+        ? Promise.reject(new Error('would create a cycle'))
+        : Promise.resolve({ id: 'MMR-99' });
+    });
+    const { onOpenChange } = renderSheet();
+    await sheetReady();
+
+    await user.type(screen.getByLabelText('Title'), 'Wire auth');
+    await user.type(screen.getByRole('combobox'), 'auth');
+    await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
+    await user.click(screen.getByRole('button', { name: 'Create ↵' }));
+
+    await user.click(await screen.findByRole('button', { name: 'Retry deps ↵' }));
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+
+    // Exactly one node was ever created; the depend was attempted twice.
+    const posts = apiSend.mock.calls.filter((c: unknown[]) => c[1] === '/api/nodes');
+    expect(posts).toHaveLength(1);
+    const depends = apiSend.mock.calls.filter(
+      (c: unknown[]) => c[1] === '/api/nodes/MMR-99/depend',
+    );
+    expect(depends).toHaveLength(2);
+  });
+
+  it('esc closes the innermost popup first — the HOME dropdown — not the sheet', async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = renderSheet();
+    await sheetReady();
+
+    await user.type(screen.getByLabelText('Title'), 'Precious typing');
+    await user.click(screen.getByRole('button', { expanded: false, name: /home/i }));
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Title')).toHaveValue('Precious typing');
+
+    // With no popup open, esc dismisses the sheet itself.
+    await user.keyboard('{Escape}');
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('esc closes the open DEPENDS-ON results list before the sheet', async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = renderSheet();
+    await sheetReady();
+
+    await user.type(screen.getByRole('combobox'), 'auth');
+    await screen.findByRole('option', { name: /MMR-40/ });
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('option', { name: /MMR-40/ })).not.toBeInTheDocument();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it('type segments follow the radiogroup pattern: arrows move selection, one tab stop', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await sheetReady();
+
+    const taskSegment = screen.getByRole('radio', { name: 'Task' });
+    expect(taskSegment).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('radio', { name: 'Phase' })).toHaveAttribute('tabindex', '-1');
+
+    taskSegment.focus();
+    await user.keyboard('{ArrowRight}');
+    const phase = screen.getByRole('radio', { name: 'Phase' });
+    expect(phase).toBeChecked();
+    expect(phase).toHaveFocus();
+    expect(screen.getByRole('radio', { name: 'Task' })).toHaveAttribute('tabindex', '-1');
+
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByRole('radio', { name: 'Task' })).toBeChecked();
+  });
+
+  it('exposes the arrow-highlighted dep option to AT via aria-activedescendant', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await sheetReady();
+
+    const box = screen.getByRole('combobox');
+    expect(box).not.toHaveAttribute('aria-activedescendant');
+    await user.type(box, 'auth');
+    await screen.findByRole('option', { name: /MMR-40/ });
+    expect(box).toHaveAttribute('aria-activedescendant', 'authoring-dep-option-MMR-40');
+
+    await user.keyboard('{ArrowDown}');
+    expect(box).toHaveAttribute('aria-activedescendant', 'authoring-dep-option-MMR-41');
+    expect(screen.getByRole('option', { name: /MMR-41/ })).toHaveAttribute(
+      'id',
+      'authoring-dep-option-MMR-41',
+    );
+  });
+
   it('create another resets the form, refocuses the title, and stays open', async () => {
     const user = userEvent.setup();
     apiSend.mockResolvedValue({ id: 'MMR-99' });

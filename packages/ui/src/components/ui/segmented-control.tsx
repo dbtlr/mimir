@@ -1,4 +1,6 @@
 import { cva } from 'class-variance-authority';
+import { useRef } from 'react';
+import type { KeyboardEvent } from 'react';
 
 import { cn } from '../../lib/cn';
 
@@ -45,14 +47,50 @@ export function SegmentedControl<T extends string>({
   /** Per-segment overrides (e.g. the authoring sheet's pill-shaped, mixed-case type selector). */
   segmentClassName?: string;
 }) {
+  const segmentRefs = useRef(new Map<T, HTMLButtonElement>());
+
+  // The ARIA radiogroup contract: one tab stop (the checked radio), arrows
+  // move — and announce — the selection.
+  function handleKey(e: KeyboardEvent<HTMLButtonElement>) {
+    const current = options.findIndex((option) => option.value === value);
+    let next: number;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      next = (current + 1) % options.length;
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      next = (current - 1 + options.length) % options.length;
+    } else if (e.key === 'Home') {
+      next = 0;
+    } else if (e.key === 'End') {
+      next = options.length - 1;
+    } else {
+      return;
+    }
+    e.preventDefault();
+    const target = options[next];
+    if (target === undefined) {
+      return;
+    }
+    onChange(target.value);
+    segmentRefs.current.get(target.value)?.focus();
+  }
+
   return (
     <div role="radiogroup" aria-label={ariaLabel} className={cn(segmentedTrackClass, className)}>
       {options.map((option) => (
         <button
           key={option.value}
+          ref={(el) => {
+            if (el === null) {
+              segmentRefs.current.delete(option.value);
+            } else {
+              segmentRefs.current.set(option.value, el);
+            }
+          }}
           type="button"
           role="radio"
           aria-checked={value === option.value}
+          tabIndex={value === option.value ? 0 : -1}
+          onKeyDown={handleKey}
           onClick={() => {
             onChange(option.value);
           }}

@@ -2,7 +2,7 @@ import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
 import type { Priority, Size } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent, ReactNode } from 'react';
+import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 
 import { useCreateNode, useDepend } from '../api/mutations';
 import type { CreateNodeInput } from '../api/mutations';
@@ -40,6 +40,11 @@ const PRIORITY_WASH: Record<Priority, string> = {
 
 const SIZE_GLYPH: Record<Size, string> = { large: 'l', medium: 'm', small: 's' };
 
+/** DOM id for a dep-results option — the combobox's aria-activedescendant target. */
+function depOptionDomId(id: string) {
+  return `authoring-dep-option-${id}`;
+}
+
 /** MMR-248 seam: the promote flow pre-fills these without forking the sheet. */
 export type AuthoringPrefill = {
   title?: string;
@@ -62,17 +67,35 @@ export type AuthoringSheetProps = {
 };
 
 /**
+ * Closes the innermost open popup (home picker, dep results) ahead of a sheet
+ * dismissal; returns true when it consumed the dismissal.
+ */
+type DismissGuard = () => boolean;
+
+/**
  * The authoring sheet (Meridian 19a, MMR-227) — one create surface for
  * task / phase / initiative behind a type selector, with a project-spanning
  * HOME picker, always-visible markdown description, and a DEPENDS-ON chip
  * field. Nodes are born `new`; no status control exists here (ADR 0019 §5).
  * Deps apply post-create (`/depend`) — accepted non-atomicity: on a depend
- * failure the node survives, the error toasts, and the sheet stays open.
+ * failure the node survives, the error toasts, and the sheet holds a
+ * retry-deps posture pinned to the created node (never a duplicate create).
  */
 export function AuthoringSheet(props: AuthoringSheetProps) {
+  const dismissGuard = useRef<DismissGuard | null>(null);
   return (
-    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
-      {props.open && <AuthoringSheetBody {...props} />}
+    <Sheet
+      open={props.open}
+      onOpenChange={(next) => {
+        // Esc closes the innermost open popup first; the sheet — and the
+        // typed form state its unmount destroys — only goes on the next one.
+        if (!next && dismissGuard.current?.() === true) {
+          return;
+        }
+        props.onOpenChange(next);
+      }}
+    >
+      {props.open && <AuthoringSheetBody {...props} dismissGuardRef={dismissGuard} />}
     </Sheet>
   );
 }
@@ -84,7 +107,8 @@ function AuthoringSheetBody({
   onOpenNode,
   prefill,
   headerSlot,
-}: AuthoringSheetProps) {
+  dismissGuardRef,
+}: AuthoringSheetProps & { dismissGuardRef: RefObject<DismissGuard | null> }) {
   const [type, setType] = useState<AuthoringType>('task');
   const [title, setTitle] = useState(prefill?.title ?? '');
   const [description, setDescription] = useState(prefill?.description ?? '');
@@ -104,6 +128,9 @@ function AuthoringSheetBody({
   const [tagsText, setTagsText] = useState('');
   const [tagEntryOpen, setTagEntryOpen] = useState(false);
   const [createAnother, setCreateAnother] = useState(false);
+  // Partial-failure marker: the node a prior submit created whose depend
+  // failed — the next submit retries the attach instead of re-creating.
+  const [created, setCreated] = useState<WireNode | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
   const projects = useQuery(projectsQuery);
@@ -143,6 +170,27 @@ function AuthoringSheetBody({
     .filter((n) => !deps.some((d) => d.id === n.id))
     .slice(0, 8);
   const depListOpen = type === 'task' && depSearch.trim() !== '' && depQ.trim() !== '';
+  const depActiveOption = depOptions[depActive] ?? depOptions[0];
+
+  // Register the innermost-popup guard so Esc dismisses the open dropdown
+  // (home picker, then dep results) before it ever reaches the sheet.
+  useEffect(() => {
+    dismissGuardRef.current = () => {
+      if (homeOpen) {
+        setHomeOpen(false);
+        return true;
+      }
+      if (depListOpen) {
+        setDepSearch('');
+        setDepQ('');
+        return true;
+      }
+      return false;
+    };
+    return () => {
+      dismissGuardRef.current = null;
+    };
+  });
 
   const create = useCreateNode();
   const depend = useDepend();
@@ -197,20 +245,29 @@ function AuthoringSheetBody({
       return;
     }
     let node: WireNode;
-    try {
-      node = await create.mutateAsync(buildInput());
-    } catch {
-      return; // toasted by the hook; the sheet stays open, nothing was written
+    if (created !== null) {
+      // A prior submit already created this node and only the depend failed —
+      // retry the attach against it; never re-create (a duplicate node).
+      node = created;
+    } else {
+      try {
+        node = await create.mutateAsync(buildInput());
+      } catch {
+        return; // toasted by the hook; the sheet stays open, nothing was written
+      }
     }
     if (type === 'task' && deps.length > 0) {
       try {
         await depend.mutateAsync({ id: node.id, on: deps.map((d) => d.id) });
       } catch {
         // Create landed, depend failed — accepted non-atomicity: the hook
-        // toasts the error and the sheet stays open; the node exists.
+        // toasts the error and the sheet stays open in a retry-deps posture
+        // pinned to the created node (visible + linked below the fields).
+        setCreated(node);
         return;
       }
     }
+    setCreated(null);
     if (openAfter) {
       onOpenNode?.(node.id);
       onOpenChange(false);
@@ -249,7 +306,7 @@ function AuthoringSheetBody({
       setDepActive((i) => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      pickDep(depOptions[depActive] ?? depOptions[0]);
+      pickDep(depActiveOption);
     }
   }
 
@@ -268,182 +325,190 @@ function AuthoringSheetBody({
       >
         {/* ── header: NEW · type selector · esc hint ─────────────────────── */}
         <SheetTitle className="sr-only">New work item</SheetTitle>
-        <header className="flex flex-wrap items-center gap-2.5">
-          {headerSlot ?? <span className="microlabel text-accent-foreground">New</span>}
-          <SegmentedControl
-            options={TYPE_OPTIONS}
-            value={type}
-            onChange={setType}
-            ariaLabel="Type"
-            className="rounded-full"
-            segmentClassName="min-h-11 rounded-full px-3 text-mono-id tracking-normal normal-case sm:min-h-0"
+        {/* Retry posture (node created, deps pending) freezes everything the
+            already-created node can no longer absorb — only DEPENDS ON and the
+            footer stay live. */}
+        <fieldset
+          disabled={created !== null}
+          className="flex min-w-0 flex-col gap-3.5 disabled:opacity-40"
+        >
+          <header className="flex flex-wrap items-center gap-2.5">
+            {headerSlot ?? <span className="microlabel text-accent-foreground">New</span>}
+            <SegmentedControl
+              options={TYPE_OPTIONS}
+              value={type}
+              onChange={setType}
+              ariaLabel="Type"
+              className="rounded-full"
+              segmentClassName="min-h-11 rounded-full px-3 text-mono-id tracking-normal normal-case sm:min-h-0"
+            />
+            <span aria-hidden className="ml-auto font-mono text-micro text-ink-ghost">
+              esc
+            </span>
+          </header>
+
+          {/* ── title — the accent-ringed lead field ───────────────────────── */}
+          <input
+            ref={titleRef}
+            aria-label="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="rounded-[10px] border border-accent/35 bg-well-900 px-3.5 py-3 text-card-mobile font-medium text-ink-bright caret-accent outline-none placeholder:text-ink-ghost focus-visible:border-accent/60"
           />
-          <span aria-hidden className="ml-auto font-mono text-micro text-ink-ghost">
-            esc
-          </span>
-        </header>
 
-        {/* ── title — the accent-ringed lead field ───────────────────────── */}
-        <input
-          ref={titleRef}
-          aria-label="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="rounded-[10px] border border-accent/35 bg-well-900 px-3.5 py-3 text-card-mobile font-medium text-ink-bright caret-accent outline-none placeholder:text-ink-ghost focus-visible:border-accent/60"
-        />
-
-        {/* ── HOME — the type-governed legal-parent picker ───────────────── */}
-        <div className="flex flex-col gap-1.5">
-          <span id="authoring-home-label" className="microlabel text-ink-faint">
-            Home
-          </span>
-          <div className="relative">
-            <button
-              type="button"
-              aria-labelledby="authoring-home-label"
-              aria-haspopup="listbox"
-              aria-expanded={homeOpen}
-              onClick={() => setHomeOpen((o) => !o)}
-              className={cn(
-                FIELD_SHELL,
-                'flex w-full items-center gap-2 px-[13px] py-2.5 text-left transition-colors hover:border-line-bright focus-visible:outline-2 focus-visible:outline-accent',
-              )}
-            >
-              <span className="shrink-0 font-mono text-mono-id text-ink-faint">
-                {projKey === '' ? '—' : projKey}
-              </span>
-              <span className="truncate text-meta font-medium text-ink-bright">
-                {projKey === '' ? 'No projects' : projTitle}
-              </span>
-              {type !== 'initiative' && (
-                <>
-                  <span aria-hidden className="text-ink-ghost">
-                    ›
-                  </span>
-                  <span className="truncate text-meta font-medium text-ink-bright">
-                    {homesPending ? 'loading…' : (pickedHome?.label ?? 'No legal home')}
-                  </span>
-                  {pickedHome?.openEnded === true && (
-                    <span
-                      className="font-mono text-mono-id text-accent-foreground"
-                      title="open-ended"
-                    >
-                      ∞
+          {/* ── HOME — the type-governed legal-parent picker ───────────────── */}
+          <div className="flex flex-col gap-1.5">
+            <span id="authoring-home-label" className="microlabel text-ink-faint">
+              Home
+            </span>
+            <div className="relative">
+              <button
+                type="button"
+                aria-labelledby="authoring-home-label"
+                aria-haspopup="listbox"
+                aria-expanded={homeOpen}
+                onClick={() => setHomeOpen((o) => !o)}
+                className={cn(
+                  FIELD_SHELL,
+                  'flex w-full items-center gap-2 px-[13px] py-2.5 text-left transition-colors hover:border-line-bright focus-visible:outline-2 focus-visible:outline-accent',
+                )}
+              >
+                <span className="shrink-0 font-mono text-mono-id text-ink-faint">
+                  {projKey === '' ? '—' : projKey}
+                </span>
+                <span className="truncate text-meta font-medium text-ink-bright">
+                  {projKey === '' ? 'No projects' : projTitle}
+                </span>
+                {type !== 'initiative' && (
+                  <>
+                    <span aria-hidden className="text-ink-ghost">
+                      ›
                     </span>
-                  )}
+                    <span className="truncate text-meta font-medium text-ink-bright">
+                      {homesPending ? 'loading…' : (pickedHome?.label ?? 'No legal home')}
+                    </span>
+                    {pickedHome?.openEnded === true && (
+                      <span
+                        className="font-mono text-mono-id text-accent-foreground"
+                        title="open-ended"
+                      >
+                        ∞
+                      </span>
+                    )}
+                  </>
+                )}
+                <span aria-hidden className="ml-auto text-ink-ghost">
+                  ▾
+                </span>
+              </button>
+              {homeOpen && (
+                <>
+                  {/* click-away scrim for the picker (below the listbox, above the sheet) */}
+                  <button
+                    type="button"
+                    aria-hidden
+                    tabIndex={-1}
+                    onClick={() => setHomeOpen(false)}
+                    className="fixed inset-0 z-10 cursor-default"
+                  />
+                  <div
+                    role="listbox"
+                    aria-labelledby="authoring-home-label"
+                    className="absolute inset-x-0 top-full z-20 mt-1 flex max-h-64 flex-col gap-px overflow-y-auto rounded-[9px] border border-line-bright bg-well-850 p-1 shadow-2xl light:shadow-menu"
+                  >
+                    {type === 'initiative' ? (
+                      <HomeProjectOptions
+                        projectItems={projectItems}
+                        projKey={projKey}
+                        onPick={(id) => {
+                          setProjectPick(id);
+                          setParentPick('');
+                          setHomeOpen(false);
+                        }}
+                      />
+                    ) : (
+                      <>
+                        {projectItems.length > 1 && (
+                          <div className="flex flex-wrap items-center gap-1 border-b border-line px-1.5 pt-1 pb-1.5">
+                            {projectItems.map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  setProjectPick(p.id);
+                                  setParentPick('');
+                                }}
+                                className={cn(
+                                  'rounded-full px-2 py-0.5 font-mono text-micro text-ink-dim inset-ring inset-ring-line transition-colors hover:text-ink',
+                                  p.id === projKey &&
+                                    'bg-accent/12 text-accent-foreground inset-ring-accent/24',
+                                )}
+                              >
+                                {p.id}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {homesPending && (
+                          <p className="px-2 py-1.5 text-xs text-ink-faint">loading…</p>
+                        )}
+                        {!homesPending && homes.length === 0 && (
+                          <p className="px-2 py-1.5 text-xs text-ink-faint">
+                            No legal home in {projKey === '' ? 'this project' : projKey}.
+                          </p>
+                        )}
+                        {homes.map((h) => (
+                          <button
+                            key={h.id}
+                            type="button"
+                            role="option"
+                            aria-selected={h.id === effectiveParent}
+                            onClick={() => {
+                              setParentPick(h.id);
+                              setHomeOpen(false);
+                            }}
+                            className={cn(
+                              'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-meta text-ink transition-colors hover:bg-well-800 hover:text-ink-bright',
+                              h.depth === 1 && 'pl-6',
+                              h.id === effectiveParent && 'bg-accent/12 text-ink-bright',
+                            )}
+                          >
+                            <span className="truncate">{h.label}</span>
+                            {h.openEnded && (
+                              <span
+                                className="font-mono text-mono-id text-accent-foreground"
+                                title="open-ended"
+                              >
+                                ∞
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
                 </>
               )}
-              <span aria-hidden className="ml-auto text-ink-ghost">
-                ▾
-              </span>
-            </button>
-            {homeOpen && (
-              <>
-                {/* click-away scrim for the picker (below the listbox, above the sheet) */}
-                <button
-                  type="button"
-                  aria-hidden
-                  tabIndex={-1}
-                  onClick={() => setHomeOpen(false)}
-                  className="fixed inset-0 z-10 cursor-default"
-                />
-                <div
-                  role="listbox"
-                  aria-labelledby="authoring-home-label"
-                  className="absolute inset-x-0 top-full z-20 mt-1 flex max-h-64 flex-col gap-px overflow-y-auto rounded-[9px] border border-line-bright bg-well-850 p-1 shadow-2xl light:shadow-menu"
-                >
-                  {type === 'initiative' ? (
-                    <HomeProjectOptions
-                      projectItems={projectItems}
-                      projKey={projKey}
-                      onPick={(id) => {
-                        setProjectPick(id);
-                        setParentPick('');
-                        setHomeOpen(false);
-                      }}
-                    />
-                  ) : (
-                    <>
-                      {projectItems.length > 1 && (
-                        <div className="flex flex-wrap items-center gap-1 border-b border-line px-1.5 pt-1 pb-1.5">
-                          {projectItems.map((p) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => {
-                                setProjectPick(p.id);
-                                setParentPick('');
-                              }}
-                              className={cn(
-                                'rounded-full px-2 py-0.5 font-mono text-micro text-ink-dim inset-ring inset-ring-line transition-colors hover:text-ink',
-                                p.id === projKey &&
-                                  'bg-accent/12 text-accent-foreground inset-ring-accent/24',
-                              )}
-                            >
-                              {p.id}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {homesPending && (
-                        <p className="px-2 py-1.5 text-xs text-ink-faint">loading…</p>
-                      )}
-                      {!homesPending && homes.length === 0 && (
-                        <p className="px-2 py-1.5 text-xs text-ink-faint">
-                          No legal home in {projKey === '' ? 'this project' : projKey}.
-                        </p>
-                      )}
-                      {homes.map((h) => (
-                        <button
-                          key={h.id}
-                          type="button"
-                          role="option"
-                          aria-selected={h.id === effectiveParent}
-                          onClick={() => {
-                            setParentPick(h.id);
-                            setHomeOpen(false);
-                          }}
-                          className={cn(
-                            'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-meta text-ink transition-colors hover:bg-well-800 hover:text-ink-bright',
-                            h.depth === 1 && 'pl-6',
-                            h.id === effectiveParent && 'bg-accent/12 text-ink-bright',
-                          )}
-                        >
-                          <span className="truncate">{h.label}</span>
-                          {h.openEnded && (
-                            <span
-                              className="font-mono text-mono-id text-accent-foreground"
-                              title="open-ended"
-                            >
-                              ∞
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </div>
-              </>
-            )}
+            </div>
           </div>
-        </div>
 
-        {/* ── description — always visible, markdown ok ──────────────────── */}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="authoring-description" className="microlabel text-ink-faint">
-            Description
-          </label>
-          <textarea
-            id="authoring-description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className={cn(
-              FIELD_SHELL,
-              'min-h-16 resize-y px-[13px] py-[11px] text-meta leading-[1.65] text-ink caret-accent outline-none focus-visible:border-accent/35',
-            )}
-          />
-          <p className="text-tag text-ink-ghost">markdown ok</p>
-        </div>
+          {/* ── description — always visible, markdown ok ──────────────────── */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="authoring-description" className="microlabel text-ink-faint">
+              Description
+            </label>
+            <textarea
+              id="authoring-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className={cn(
+                FIELD_SHELL,
+                'min-h-16 resize-y px-[13px] py-[11px] text-meta leading-[1.65] text-ink caret-accent outline-none focus-visible:border-accent/35',
+              )}
+            />
+            <p className="text-tag text-ink-ghost">markdown ok</p>
+          </div>
+        </fieldset>
 
         {/* ── DEPENDS ON — chip field + task search (tasks only) ─────────── */}
         {type === 'task' && (
@@ -467,7 +532,7 @@ function AuthoringSheetBody({
                       type="button"
                       aria-label={`Remove dependency ${d.id}`}
                       onClick={() => setDeps((cur) => cur.filter((x) => x.id !== d.id))}
-                      className="relative rounded-full px-1 text-ink-faint transition-colors after:absolute after:-inset-2.5 hover:text-ink-bright sm:after:inset-0"
+                      className="-my-2.5 flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink-faint transition-colors hover:text-ink-bright sm:my-0 sm:min-h-0 sm:min-w-0 sm:px-1"
                     >
                       ✕
                     </button>
@@ -479,6 +544,11 @@ function AuthoringSheetBody({
                   aria-expanded={depListOpen}
                   aria-controls="authoring-dep-results"
                   aria-autocomplete="list"
+                  aria-activedescendant={
+                    depListOpen && depActiveOption !== undefined
+                      ? depOptionDomId(depActiveOption.id)
+                      : undefined
+                  }
                   value={depSearch}
                   onChange={(e) => setDepSearch(e.target.value)}
                   onKeyDown={handleDepKey}
@@ -502,6 +572,7 @@ function AuthoringSheetBody({
                   {depOptions.map((n, i) => (
                     <button
                       key={n.id}
+                      id={depOptionDomId(n.id)}
                       type="button"
                       role="option"
                       aria-selected={i === depActive}
@@ -524,7 +595,10 @@ function AuthoringSheetBody({
         )}
 
         {/* ── SIGNALS · OPTIONAL — collapsed disclosure ──────────────────── */}
-        <div className="flex flex-col gap-2.5 border-t border-line pt-3">
+        <fieldset
+          disabled={created !== null}
+          className="flex min-w-0 flex-col gap-2.5 border-t border-line pt-3 disabled:opacity-40"
+        >
           <button
             type="button"
             aria-expanded={signalsOpen}
@@ -593,7 +667,7 @@ function AuthoringSheetBody({
                         type="button"
                         aria-label={`Remove tag ${t}`}
                         onClick={() => setTagsText(tags.filter((x) => x !== t).join(', '))}
-                        className="relative rounded-full px-1 text-ink-faint transition-colors after:absolute after:-inset-2.5 hover:text-ink-bright sm:after:inset-0"
+                        className="-my-2.5 flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink-faint transition-colors hover:text-ink-bright sm:my-0 sm:min-h-0 sm:min-w-0 sm:px-1"
                       >
                         ✕
                       </button>
@@ -632,7 +706,30 @@ function AuthoringSheetBody({
               </div>
             </div>
           )}
-        </div>
+        </fieldset>
+
+        {/* ── retry posture — the created node stays visible + linked ────── */}
+        {created !== null && (
+          <p role="status" className={cn(FIELD_SHELL, 'px-3 py-2 text-xs text-ink')}>
+            <span className="font-mono text-tag text-ink-faint">{created.id}</span> created —
+            dependencies not yet attached.
+            {onOpenNode !== undefined && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenNode(created.id);
+                    onOpenChange(false);
+                  }}
+                  className="rounded text-accent-foreground underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  open it
+                </button>
+              </>
+            )}
+          </p>
+        )}
 
         {/* ── footer — create another · Create & open · Create ↵ ─────────── */}
         <footer className="mt-auto flex flex-wrap items-center gap-2.5 border-t border-line pt-3.5">
@@ -653,7 +750,7 @@ function AuthoringSheetBody({
               onClick={() => void handleCreate(true)}
               className="min-h-11 sm:min-h-0"
             >
-              Create &amp; open
+              {created !== null ? 'Retry deps & open' : 'Create & open'}
             </ActionButton>
             <ActionButton
               size="sm"
@@ -661,7 +758,7 @@ function AuthoringSheetBody({
               disabled={!canCreate}
               className="min-h-11 font-bold sm:min-h-0"
             >
-              Create ↵
+              {created !== null ? 'Retry deps ↵' : 'Create ↵'}
             </ActionButton>
           </div>
         </footer>

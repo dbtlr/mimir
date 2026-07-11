@@ -19,7 +19,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 /** A leaf task tree node (no children). */
 function leaf(overrides: Partial<WireNode> & { status: WireNode['status'] }): WireTreeNode {
-  return { ...task(overrides), children: [] } as WireTreeNode;
+  return { ...task(overrides), children: [] };
 }
 
 /** A container tree node (initiative/phase/project) with its children. */
@@ -27,7 +27,7 @@ function branch(
   overrides: Partial<WireNode> & { status: WireNode['status'] },
   children: WireTreeNode[],
 ): WireTreeNode {
-  return { ...task(overrides), children } as WireTreeNode;
+  return { ...task(overrides), children };
 }
 
 function project(children: WireTreeNode[]): WireTreeNode {

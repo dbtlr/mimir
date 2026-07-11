@@ -30,12 +30,20 @@ release. When a release is cut, this section is promoted to
   dossier), and the one solid **Create ↵** (slate in light). This is the first
   UI path that authors phases and initiatives. Dependencies apply post-create
   via `/depend` — accepted non-atomicity: on a depend failure the node
-  survives, the error toasts, and the sheet stays open. Offline disables the
-  trigger and both create buttons. Pre-fill props and a header slot leave the
-  seam for the promote-seed flow (MMR-248); `recent:` parent chips are omitted
-  until a recents source exists. API layer: `useCreateTask` generalizes to
-  `useCreateNode` (type in the body, `open_ended` for containers), and new
-  `useDepend` / `useUndepend` mutations wrap `/depend` & `/undepend`.
+  survives, the error toasts, and the sheet holds a **retry-deps posture**
+  pinned to the created node — the node stays visible and linked ("open it"),
+  the frozen fields go dim, and resubmitting re-attaches the deps instead of
+  creating a duplicate. Esc closes the innermost open popup (HOME picker, dep
+  results) before the sheet, so typed form state survives a dropdown dismiss.
+  Offline disables the trigger and both create buttons. Pre-fill props and a
+  header slot leave the seam for the promote-seed flow (MMR-248); `recent:`
+  parent chips are omitted until a recents source exists. API layer:
+  `useCreateTask` generalizes to `useCreateNode` (type in the body,
+  `open_ended` for containers), and new `useDepend` / `useUndepend` mutations
+  wrap `/depend` & `/undepend`. The global toaster moves to the bottom-LEFT so
+  error toasts never sit on (and intercept clicks meant for) the sheet rail's
+  footer actions, and the kit `SegmentedControl` gains the full radiogroup
+  keyboard contract (roving tabindex, arrow-key selection).
 
 - **Node dossier — deep-read detail overlay** (MMR-222). The node-detail
   surface (`?node=KEY-seq`) is rebuilt on the Meridian design system as a

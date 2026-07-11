@@ -71,7 +71,10 @@ export function Shell() {
         </div>
       </header>
       <Outlet />
-      <Toaster theme={theme} position="bottom-right" richColors closeButton />
+      {/* bottom-LEFT: the sheet/dossier rail owns the bottom-right corner, and
+          a toast there sits on top of (and intercepts clicks meant for) the
+          rail's footer actions — exactly the error-retry path toasts announce. */}
+      <Toaster theme={theme} position="bottom-left" richColors closeButton />
     </div>
   );
 }
