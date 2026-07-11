@@ -47,6 +47,12 @@ export function ArtifactFilters({
   const [q, setQ] = useState(filters.q ?? '');
   const [adding, setAdding] = useState(false);
 
+  // Focus handoff on chip removal: the activated ✕ button unmounts, which would
+  // drop keyboard focus to <body>. Before the removal lands, focus hops to a
+  // surviving neighbor chip (next, else previous), falling back to `+ filter`.
+  const chipRefs = useRef(new Map<string, HTMLButtonElement>());
+  const addFilterRef = useRef<HTMLButtonElement>(null);
+
   // Re-sync when `q` changes from outside (Back/Forward, clear-filters). When our
   // own debounced push lands, filters.q already equals q, so this is a no-op.
   useEffect(() => {
@@ -91,12 +97,23 @@ export function ArtifactFilters({
       </label>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        {chips.map((chip) => (
+        {chips.map((chip, i) => (
           <button
             key={chip.key}
             type="button"
+            ref={(el) => {
+              if (el === null) {
+                chipRefs.current.delete(chip.key);
+              } else {
+                chipRefs.current.set(chip.key, el);
+              }
+            }}
             aria-label={`Remove filter ${chip.label}`}
             onClick={() => {
+              const neighbor = chips[i + 1] ?? chips[i - 1];
+              const target =
+                neighbor === undefined ? addFilterRef.current : chipRefs.current.get(neighbor.key);
+              target?.focus();
               onChange(chip.clear);
             }}
             className="inline-flex items-center gap-1.5 rounded-full bg-accent/9 px-2.5 py-1 font-mono text-tag font-semibold text-accent-foreground inset-ring inset-ring-accent/20 transition-colors hover:bg-accent/15 focus-visible:outline-2 focus-visible:outline-accent"
@@ -107,6 +124,7 @@ export function ArtifactFilters({
         ))}
         <button
           type="button"
+          ref={addFilterRef}
           aria-expanded={adding}
           onClick={() => {
             setAdding((v) => !v);

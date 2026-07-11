@@ -542,6 +542,36 @@ test('artifacts: POST freezes onto the node (201), GET returns content; cross-pr
   expect(crossed.status).toBe(400);
 });
 
+test('artifact detail degrades a dangling link to its bare id (MMR-229)', async () => {
+  // SQLite FK-enforces links, but the vault backend stores them as file
+  // frontmatter stems that can go stale. Serve the same data with the artifact
+  // read carrying one resolvable and one dangling stem: the wire must degrade
+  // the dangler to `{ id }` — no invented title/status, no crash.
+  await send('POST', `/api/nodes/${task1}/artifacts`, { content: 'body', title: 'stale link' });
+  const staleStore: Store = {
+    ...store,
+    artifacts: {
+      ...store.artifacts,
+      load: async (key, seq, opts) => {
+        const record = await store.artifacts.load(key, seq, opts);
+        return record === undefined ? undefined : { ...record, links: [task1, 'MMR-999'] };
+      },
+    },
+  };
+  const staleServer = createServer(staleStore, { port: 0, version: '0.0.0-test' });
+  try {
+    const res = await fetch(`http://127.0.0.1:${String(staleServer.port)}/api/artifacts/MMR-a1`);
+    expect(res.status).toBe(200);
+    const fetched = await parse(res);
+    expect(fetched.links).toEqual([
+      { id: task1, status: 'ready', title: 'first' },
+      { id: 'MMR-999' },
+    ]);
+  } finally {
+    await staleServer.stop(true);
+  }
+});
+
 test('PATCH /api/artifacts/:id retitles; content frozen; unknown fields and blank titles 400 (MMR-40)', async () => {
   await send('POST', `/api/nodes/${task1}/artifacts`, { content: '# body', title: 'wrong' });
 

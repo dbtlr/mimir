@@ -1,8 +1,24 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, vi } from 'vitest';
 
+import type { ArtifactFilters as Filters } from '../api/queries';
 import { ArtifactFilters } from '../components/artifact-filters';
+
+/** A stateful parent mirroring the page: merges each partial into the filters. */
+function Harness({ initial }: { initial: Filters }) {
+  const [filters, setFilters] = useState(initial);
+  return (
+    <ArtifactFilters
+      filters={filters}
+      projects={['MMR']}
+      onChange={(partial) => {
+        setFilters((f) => ({ ...f, ...partial }));
+      }}
+    />
+  );
+}
 
 describe('artifactFilters', () => {
   it('typing in search debounces a single onChange with the final q', async () => {
@@ -53,5 +69,20 @@ describe('artifactFilters', () => {
     expect(screen.getByRole('button', { name: 'Remove filter since 2026-06-01' })).toBeDefined();
     await userEvent.click(screen.getByRole('button', { name: 'Remove filter MMR' }));
     expect(onChange).toHaveBeenCalledWith({ project: '' });
+  });
+
+  it('removing a chip hands keyboard focus to a neighbor, then + filter — never <body>', async () => {
+    render(<Harness initial={{ project: 'MMR', tag: 'kind:session' }} />);
+
+    // Activate the first chip's ✕ — its button unmounts, so focus must hop to
+    // the surviving neighbor chip instead of dropping to <body>.
+    await userEvent.click(screen.getByRole('button', { name: 'Remove filter MMR' }));
+    const neighbor = screen.getByRole('button', { name: 'Remove filter kind:session' });
+    expect(neighbor).toHaveFocus();
+
+    // Removing the last chip falls back to the + filter button.
+    await userEvent.click(neighbor);
+    expect(screen.queryByRole('button', { name: /remove filter/i })).toBeNull();
+    expect(screen.getByRole('button', { name: '+ filter' })).toHaveFocus();
   });
 });

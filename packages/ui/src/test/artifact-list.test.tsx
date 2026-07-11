@@ -47,6 +47,27 @@ describe('artifactList', () => {
     expect(screen.getByRole('heading', { name: 'APRIL 2026' })).toBeDefined();
   });
 
+  it('group headers are mono, built from raw utilities (not .microlabel, which pins sans)', () => {
+    render(<ArtifactList items={items} selectedId={undefined} onSelect={vi.fn()} />);
+    const heading = screen.getByRole('heading', { name: 'THIS WEEK' });
+    expect(heading.className).toContain('font-mono');
+    // `.microlabel` is unlayered CSS whose font-sans beats the layered
+    // font-mono utility — it must not appear alongside font-mono.
+    expect(heading.className).not.toContain('microlabel');
+  });
+
+  it('older rows demote only the title — the meta line keeps full contrast', () => {
+    render(<ArtifactList items={items} selectedId={undefined} onSelect={vi.fn()} />);
+    // 'Session log' (April) is older than last week → demoted.
+    const row = screen.getByRole('button', { name: /Session log/ });
+    expect(row.className).not.toContain('opacity');
+    const title = screen.getByText('Session log');
+    expect(title.className).toContain('dark:opacity-75');
+    expect(title.className).toContain('light:text-ink');
+    // Recent rows are not demoted at all.
+    expect(screen.getByText('Artifacts browser').className).not.toContain('opacity');
+  });
+
   it('a row carries title and the project · kind · date meta line', () => {
     render(<ArtifactList items={items} selectedId={undefined} onSelect={vi.fn()} />);
     expect(screen.getByRole('button', { name: /MMR · spec · 06-18/ })).toBeDefined();
