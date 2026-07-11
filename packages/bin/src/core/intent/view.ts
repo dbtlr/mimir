@@ -126,6 +126,17 @@ export async function buildNodeView(
   if (facets.has('verdicts')) {
     view.verdicts = verdictsOf(set, node);
   }
+  if (facets.has('home')) {
+    // Where the row lives (MMR-228) — resolved here so portfolio lists render
+    // `project › parent ∞` without fetching every parent. The parent is in the
+    // same project, so archived-project hiding needs no extra guard.
+    view.home = {
+      parentId: view.parent,
+      parentOpenEnded: parent === undefined ? null : parent.open_ended,
+      parentTitle: parent === undefined ? null : parent.title,
+      projectKey: set.keyByProjectId.get(node.project_id) ?? '',
+    };
+  }
   return view;
 }
 

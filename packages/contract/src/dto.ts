@@ -246,6 +246,19 @@ export type AttentionState = {
   stale: boolean;
 };
 
+/**
+ * `home` — where a row lives (MMR-228): the owning project's KEY plus the
+ * parent container's rendered id, title, and open-endedness, resolved
+ * server-side so portfolio list surfaces can render `project › parent ∞`
+ * without a per-parent fetch. Parent fields are null for a root-level node.
+ */
+export type HomeFacet = {
+  projectKey: string;
+  parentId: string | null;
+  parentTitle: string | null;
+  parentOpenEnded: boolean | null;
+};
+
 /** A cross-cutting transition-log read (`/api/transitions`) — `node` is the rendered id. */
 export type TransitionView = {
   node: string;
@@ -320,6 +333,8 @@ export type NodeView = {
   leafCounts?: Distribution;
   verdicts?: Verdicts;
   attention?: AttentionState;
+  /** Where the row lives (MMR-228) — project KEY + parent container ref. */
+  home?: HomeFacet;
 };
 
 /**
@@ -354,6 +369,7 @@ export const FACET_NAMES = [
   'leafCounts',
   'verdicts',
   'attention',
+  'home',
 ] as const;
 export type FacetName = (typeof FACET_NAMES)[number];
 

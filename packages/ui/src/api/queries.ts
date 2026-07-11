@@ -58,6 +58,16 @@ export type TaskFilters = {
   q?: string;
 };
 
+/**
+ * The all-time task census (MMR-228): every task, ever, across all projects —
+ * fetched at `limit=1` because only the envelope's `total` is consumed (the
+ * tasks-browser header's "{n} across {m} projects" count).
+ */
+export const taskCensusQuery = queryOptions({
+  queryFn: () => apiGet<Collection<WireNode>>('/api/nodes?type=task&status=all&limit=1'),
+  queryKey: ['nodes', 'tasks', 'census'],
+});
+
 /** The `/tasks` browser read (MMR-78): portfolio task list with filter + search. */
 export const tasksQuery = (f: TaskFilters) =>
   queryOptions({

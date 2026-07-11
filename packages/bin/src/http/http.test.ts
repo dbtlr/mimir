@@ -255,6 +255,20 @@ test('GET /api/nodes?status= selects the universe; terminal tasks appear under a
   expect((done.items as Rec[]).map((n) => n.id)).toEqual([task1]);
 });
 
+test('GET /api/nodes?status= accepts a comma-separated union (MMR-228)', async () => {
+  await send('POST', `/api/nodes/${task1}/done`);
+
+  const union = await parse(await get('/api/nodes?type=task&status=ready,done'));
+  const ids = (union.items as Rec[]).map((n) => n.id);
+  expect(ids).toContain(task1); // done — the terminal side of the union
+  expect(ids).toContain(task2); // ready — the live side
+  expect(union.total).toBe(ids.length);
+
+  // A union of words nothing carries is a clean empty set, not an error.
+  const none = await parse(await get('/api/nodes?type=task&status=blocked,parked'));
+  expect(none.items).toEqual([]);
+});
+
 test('a bad status value is a warning and an empty set, not an error', async () => {
   const res = await get('/api/nodes?status=bogus');
   expect(res.status).toBe(200);
@@ -263,6 +277,45 @@ test('a bad status value is a warning and an empty set, not an error', async () 
   const warnings = body.warnings as Rec[];
   expect(warnings[0]?.field).toBe('status');
   expect(warnings[0]?.expected).toContain('live');
+});
+
+test('list rows carry the home facet: project key + parent title/∞ (MMR-228)', async () => {
+  // A standing (open-ended) home to exercise the ∞ marker field.
+  const set = deriveSet(await store.loadWorkingSet());
+  const init = findNodeInSet(set, initiativeRef);
+  if (init === undefined) {
+    throw new Error('fixture initiative missing');
+  }
+  const standing = await createPhase(store, {
+    openEnded: true,
+    parentId: init.id,
+    title: 'Bugs',
+  });
+  await createTask(store, { parentId: standing.id, title: 'flaky test' });
+
+  const body = await parse(await get('/api/nodes?type=task'));
+  const rows = body.items as Rec[];
+  const first = rows.find((n) => n.id === task1);
+  expect(first?.home).toEqual({
+    parent_id: phaseRef,
+    parent_open_ended: null,
+    parent_title: 'phase 4',
+    project_key: 'MMR',
+  });
+  const filed = rows.find((n) => n.title === 'flaky test');
+  const filedHome = filed?.home as Rec | undefined;
+  expect(filedHome?.parent_open_ended).toBe(true);
+  expect(filedHome?.parent_title).toBe('Bugs');
+});
+
+test('one bad token in a status union voids the selection with a warning (MMR-228)', async () => {
+  const res = await get('/api/nodes?status=ready,bogus');
+  expect(res.status).toBe(200);
+  const body = await parse(res);
+  expect(body.items).toEqual([]);
+  const warnings = body.warnings as Rec[];
+  expect(warnings[0]?.field).toBe('status');
+  expect(warnings[0]?.value).toBe('bogus');
 });
 
 test('field operators filter; a bad field is a structural 400', async () => {

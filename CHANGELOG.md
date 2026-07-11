@@ -45,6 +45,26 @@ release. When a release is cut, this section is promoted to
   footer actions, and the kit `SegmentedControl` gains the full radiogroup
   keyboard contract (roving tabindex, arrow-key selection).
 
+- **Tasks browser — the flat portfolio table** (MMR-228). `/tasks` is rebuilt
+  on the Meridian design system as the escape hatch from every windowed view:
+  every task, ever, across all projects, in one dense six-column table
+  (STATUS / ID / TITLE / HOME / SIGNALS / ACTIVITY) sorted by last activity
+  (rank deliberately absent). The header carries the all-time census ("{n}
+  across {m} projects · {k} match") and "+ New task" (a project pick into the
+  create sheet); the filter row is a labeled debounced title search, a project
+  chip with picker, and a status chip-group whose `+N ▾` overflow discloses
+  the rest of the task-closed vocabulary (the eight words a task can carry —
+  container-only `new` is never offered) — the terminal words (Done,
+  Abandoned) are first-class here. Terminal rows demote by ink tier onto the recessed well
+  (never opacity), abandoned titles strike through, under-review rows carry
+  the violet tint. Filters stay URL-addressable (`q`, `project`, `status`,
+  `node`), deep-links restore exactly, and the footer echoes the canonical
+  URL. Supporting API: `GET /api/nodes` now accepts a comma-separated
+  `status` union (single values unchanged; one bad token voids the selection
+  with the standard warning envelope), and list rows gain a `home` facet —
+  owning project key plus parent title/open-endedness — so HOME renders
+  "project › parent ∞" without per-parent fetches.
+
 - **Node dossier — deep-read detail overlay** (MMR-222). The node-detail
   surface (`?node=KEY-seq`) is rebuilt on the Meridian design system as a
   centered overlay over a dimmed board, replacing the right-anchored drawer at

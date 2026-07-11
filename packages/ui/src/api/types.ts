@@ -82,6 +82,18 @@ export type WireAttention = {
   stale: boolean;
 };
 
+/**
+ * Where a row lives (MMR-228) — the owning project's KEY plus the parent
+ * container's rendered id, title, and open-endedness (`∞` on standing homes).
+ * Parent fields are null for a root-level node.
+ */
+export type WireHome = {
+  project_key: string;
+  parent_id: string | null;
+  parent_title: string | null;
+  parent_open_ended: boolean | null;
+};
+
 /** A rendered node record — bare fields always, facets when the route includes them. */
 export type WireNode = {
   id: string;
@@ -119,6 +131,8 @@ export type WireNode = {
   history?: WireHistoryEntry[];
   verdicts?: Verdicts;
   attention?: WireAttention;
+  /** Where the row lives (MMR-228) — rides node-list responses. */
+  home?: WireHome;
 };
 
 /** The nested whole-project tree (`/api/projects/:key/tree`) — children rank-ordered. */
