@@ -141,6 +141,28 @@ function inUniverse(word: StatusWord, selector: StatusSelector): boolean {
   return word === selector;
 }
 
+/** Does the selector's universe include any live (non-terminal) words? */
+function coversLive(selector: StatusSelector): boolean {
+  if (selector === 'live' || selector === 'all') {
+    return true;
+  }
+  if (selector === 'terminal' || selector === 'archived') {
+    return false;
+  }
+  return !isTerminalWord(selector);
+}
+
+/** Does the selector's universe include any terminal words? */
+function coversTerminal(selector: StatusSelector): boolean {
+  if (selector === 'terminal' || selector === 'all') {
+    return true;
+  }
+  if (selector === 'live' || selector === 'archived') {
+    return false;
+  }
+  return isTerminalWord(selector);
+}
+
 /** AND every `--is` / `--not-is` verdict against a node. */
 function passesVerdicts(
   set: DerivationSet,
@@ -280,8 +302,10 @@ export async function nextTasks(
 
 export type ListOptions = {
   scope?: string;
-  /** The selection universe (MMR-33). Default `live`. */
-  status?: StatusSelector;
+  /** The selection universe (MMR-33). Default `live`. An array ORs the
+   * selectors into one union universe (MMR-228 — the tasks browser's
+   * multi-status filter). */
+  status?: StatusSelector | readonly StatusSelector[];
   verdicts?: VerdictSelector[];
   filters?: FieldFilter[];
   priority?: Priority;
@@ -309,9 +333,16 @@ export async function listNodes(
   if (compiled.warnings.length > 0) {
     return emptyResult(compiled.warnings);
   }
-  const universe = opts.status ?? 'live';
+  const statusOpt = opts.status ?? 'live';
+  const asGiven: readonly StatusSelector[] =
+    typeof statusOpt === 'string' ? [statusOpt] : statusOpt;
+  const selectors: readonly StatusSelector[] = asGiven.length > 0 ? asGiven : ['live'];
   const widened = (opts.filters ?? []).some((f) => f.field === 'type');
-  const terminalOrder = universe === 'terminal' || universe === 'done' || universe === 'abandoned';
+  const anyLive = selectors.some(coversLive);
+  const anyTerminal = selectors.some(coversTerminal);
+  // A purely terminal selection orders by completion; anything touching the
+  // live universe keeps rank order (mixed unions included — rank nulls sort last).
+  const terminalOrder = anyTerminal && !anyLive;
 
   const set = deriveSet(await store.loadWorkingSet());
   const scopeId = opts.scope === undefined ? undefined : resolveScope(set, opts.scope);
@@ -323,18 +354,10 @@ export async function listNodes(
         if (n.type !== 'task') {
           return false;
         }
-        // Task words map 1:1 onto lifecycle terminality — the coarse universe cut.
-        if (terminalOrder) {
-          if (n.lifecycle !== 'done' && n.lifecycle !== 'abandoned') {
-            return false;
-          }
-        } else if (
-          universe !== 'all' &&
-          n.lifecycle !== 'todo' &&
-          n.lifecycle !== 'in_progress' &&
-          n.lifecycle !== 'under_review'
-        ) {
-          // Non-terminal lifecycle (incl. the under_review gate) — the live universe.
+        // Task words map 1:1 onto lifecycle terminality — the coarse universe
+        // cut: drop the terminality bucket no selector's universe can reach.
+        const terminal = n.lifecycle === 'done' || n.lifecycle === 'abandoned';
+        if (terminal ? !anyTerminal : !anyLive) {
           return false;
         }
       }
@@ -366,7 +389,7 @@ export async function listNodes(
   const matched: { node: Node; word: StatusWord }[] = [];
   for (const row of rows) {
     const word = nodeStatusWord(set, row);
-    if (!inUniverse(word, universe)) {
+    if (!selectors.some((selector) => inUniverse(word, selector))) {
       continue;
     }
     if (!passesVerdicts(set, row, verdicts)) {

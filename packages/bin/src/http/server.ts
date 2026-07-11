@@ -1,4 +1,11 @@
-import type { FacetName, FieldFilter, NodeView, SeedKind, VerdictSelector } from '@mimir/contract';
+import type {
+  FacetName,
+  FieldFilter,
+  NodeView,
+  SeedKind,
+  StatusSelector,
+  VerdictSelector,
+} from '@mimir/contract';
 import {
   NODE_TYPE_VALUES,
   PRIORITY_VALUES,
@@ -294,12 +301,27 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
     }
     opts.limit = n;
   }
+  // `status` accepts one selector or a comma-separated union (MMR-228 — the
+  // tasks browser's multi-status filter); a single value keeps its exact
+  // pre-union semantics. Any bad token voids the whole selection (warning path).
   const status = q.get('status');
   if (status !== null) {
-    if (!isMember(status, STATUS_SELECTOR_VALUES)) {
+    const tokens = status
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t !== '');
+    if (tokens.length === 0) {
       return { badStatus: status, opts };
     }
-    opts.status = status;
+    const selectors: StatusSelector[] = [];
+    for (const token of tokens) {
+      if (!isMember(token, STATUS_SELECTOR_VALUES)) {
+        return { badStatus: token, opts };
+      }
+      selectors.push(token);
+    }
+    const [only] = selectors;
+    opts.status = selectors.length === 1 && only !== undefined ? only : selectors;
   }
   return { opts };
 }
