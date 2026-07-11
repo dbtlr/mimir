@@ -1,7 +1,9 @@
 import { useForm } from '@tanstack/react-form';
+import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
-import { useUpdateProject } from '../api/mutations';
+import { useArchiveProject, useUnarchiveProject, useUpdateProject } from '../api/mutations';
 import type { WireNode } from '../api/types';
 import { ActionButton } from './ui/action-button';
 import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
@@ -13,7 +15,11 @@ export type ProjectFormValues = {
 
 /**
  * Modest settings affordance for the active project board header. Opens a
- * Sheet letting the user rename the project and edit its description.
+ * Sheet letting the user rename the project, edit its description, and — in
+ * the LIFECYCLE section (20b / MMR-230) — archive it. Archiving carries no
+ * confirm: the undo toast's Unarchive is the safety (ADR 0015), and since the
+ * archived project 404s, the sheet closes and navigation returns to the
+ * Overview.
  */
 export function ProjectSettingsButton({
   project,
@@ -23,7 +29,22 @@ export function ProjectSettingsButton({
   offline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
   const update = useUpdateProject(project.id);
+  const archive = useArchiveProject(project.id);
+  const unarchive = useUnarchiveProject(project.id);
+
+  const handleArchive = () => {
+    archive.mutate(undefined, {
+      onSuccess: () => {
+        setOpen(false);
+        toast(`Archived ${project.title}`, {
+          action: { label: 'Unarchive', onClick: () => unarchive.mutate(undefined) },
+        });
+        void navigate({ to: '/' });
+      },
+    });
+  };
 
   return (
     <>
@@ -41,9 +62,12 @@ export function ProjectSettingsButton({
         {open && (
           <SheetContent aria-describedby={undefined}>
             <div className="flex flex-col gap-4 p-4">
-              <SheetTitle className="text-card-mobile font-semibold text-ink-bright">
-                Project settings
-              </SheetTitle>
+              <div className="flex items-center gap-2">
+                <SheetTitle className="microlabel text-ink-faint">Project settings</SheetTitle>
+                <span className="rounded-[5px] px-[7px] py-[3px] font-mono text-tag text-ink-faint inset-ring inset-ring-line-bright">
+                  {project.id}
+                </span>
+              </div>
               <ProjectSettingsForm
                 project={project}
                 submitting={update.isPending}
@@ -52,6 +76,24 @@ export function ProjectSettingsButton({
                 }}
                 onCancel={() => setOpen(false)}
               />
+              {/* LIFECYCLE (20b): archive is slate, not red — nothing is
+                  destroyed — and deliberately not adjacent to Save. */}
+              <section className="flex flex-col gap-2.5 border-t border-line pt-3.5">
+                <h3 className="microlabel text-ink-faint">Lifecycle</h3>
+                <p className="text-[12.5px] leading-[1.65] text-ink-dim">
+                  Archiving freezes the project and hides it everywhere by default — board, picker,
+                  tasks, attention. Everything stays readable from the Archived shelf. Reversible
+                  any time; nothing is deleted.
+                </p>
+                <button
+                  type="button"
+                  disabled={offline === true || archive.isPending}
+                  onClick={handleArchive}
+                  className="self-start rounded-lg bg-[#31485e] px-[15px] py-[7px] text-xs font-semibold text-white transition-colors hover:bg-[#31485e]/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Archive project
+                </button>
+              </section>
             </div>
           </SheetContent>
         )}

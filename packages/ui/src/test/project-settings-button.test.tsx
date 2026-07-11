@@ -8,8 +8,15 @@ import { ProjectSettingsButton } from '../components/project-settings-button';
 
 const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiSend }));
-const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn() } }));
+// The undo toast is the bare callable; `error` covers the mutation failures.
+const { toast } = vi.hoisted(() => {
+  const fn =
+    vi.fn<(message: string, opts?: { action?: { label: string; onClick: () => void } }) => void>();
+  return { toast: Object.assign(fn, { error: vi.fn() }) };
+});
 vi.mock('sonner', () => ({ toast }));
+const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
+vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -78,5 +85,68 @@ describe('projectSettingsButton', () => {
         title: 'Renamed',
       });
     });
+  });
+});
+
+function openSheet() {
+  fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
+}
+
+describe('projectSettings lifecycle (MMR-230)', () => {
+  it('shows the LIFECYCLE section with the archive contract copy', () => {
+    wrap(<ProjectSettingsButton project={baseProject} />);
+    openSheet();
+    expect(screen.getByText('Lifecycle')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Archiving freezes the project and hides it everywhere by default — board, picker, tasks, attention. Everything stays readable from the Archived shelf. Reversible any time; nothing is deleted.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Archive project' })).toBeEnabled();
+  });
+
+  it('archiving POSTs the archive route with no confirm, closes, toasts undo, and returns to the Overview', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR' });
+    wrap(<ProjectSettingsButton project={baseProject} />);
+    openSheet();
+    fireEvent.click(screen.getByRole('button', { name: 'Archive project' }));
+
+    await vi.waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/MMR/archive', undefined);
+    });
+    await vi.waitFor(() => {
+      expect(toast).toHaveBeenCalledWith('Archived My Project', {
+        action: expect.objectContaining({ label: 'Unarchive' }),
+      });
+    });
+    expect(navigate).toHaveBeenCalledWith({ to: '/' });
+    // The sheet closed — its fields are gone.
+    expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument();
+  });
+
+  it('the undo toast Unarchive POSTs the unarchive route', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR' });
+    wrap(<ProjectSettingsButton project={baseProject} />);
+    openSheet();
+    fireEvent.click(screen.getByRole('button', { name: 'Archive project' }));
+    await vi.waitFor(() => {
+      expect(toast).toHaveBeenCalled();
+    });
+
+    toast.mock.calls.at(0)?.[1]?.action?.onClick();
+    await vi.waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/MMR/unarchive', undefined);
+    });
+  });
+
+  it('the archive button disables at 40% when offline', () => {
+    const { rerender } = wrap(<ProjectSettingsButton project={baseProject} />);
+    openSheet();
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <ProjectSettingsButton project={baseProject} offline />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole('button', { name: 'Archive project' })).toBeDisabled();
   });
 });
