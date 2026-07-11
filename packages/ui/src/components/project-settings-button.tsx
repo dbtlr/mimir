@@ -1,10 +1,10 @@
 import { useForm } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
 import { useId, useState } from 'react';
-import { toast } from 'sonner';
 
 import { useArchiveProject, useUnarchiveProject, useUpdateProject } from '../api/mutations';
 import type { WireNode } from '../api/types';
+import { archivedUndoToast } from './archive-undo-toast';
 import { ActionButton } from './ui/action-button';
 import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
 
@@ -39,13 +39,11 @@ export function ProjectSettingsButton({
     archive.mutate(undefined, {
       onSuccess: () => {
         setOpen(false);
-        // Longer than sonner's ~4s default: with no confirm and no archived
-        // shelf yet (MMR-125), this toast is the console's only unarchive
-        // path — give the operator a real window to catch it.
-        toast(`Archived ${project.title}`, {
-          action: { label: 'Unarchive', onClick: () => unarchive.mutate(undefined) },
-          duration: 10_000,
-        });
+        // Shared MMR-125 undo toast, held for 10s (longer than the ~4s
+        // default): with no confirm, this toast may still be the nearest
+        // unarchive affordance at the moment of archive — give the operator a
+        // real window to catch it. The archived shelf is the durable path.
+        archivedUndoToast(project.title, () => unarchive.mutate(undefined), { duration: 10_000 });
         void navigate({ to: '/' });
       },
     });

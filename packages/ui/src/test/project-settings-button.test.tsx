@@ -9,14 +9,19 @@ import { ProjectSettingsButton } from '../components/project-settings-button';
 const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiSend }));
 // The undo toast is the bare callable; `error` covers the mutation failures.
+// Since the archive flow delegates to `archivedUndoToast` (MMR-125), the
+// message arg is a ReactNode, not a bare string.
 const { toast } = vi.hoisted(() => {
-  const fn =
-    vi.fn<
-      (
-        message: string,
-        opts?: { action?: { label: string; onClick: () => void }; duration?: number },
-      ) => void
-    >();
+  const fn = vi.fn<
+    (
+      message: ReactNode,
+      opts?: {
+        action?: { label: string; onClick: () => void };
+        duration?: number;
+        actionButtonStyle?: Record<string, unknown>;
+      },
+    ) => void
+  >();
   return { toast: Object.assign(fn, { error: vi.fn() }) };
 });
 vi.mock('sonner', () => ({ toast }));
@@ -123,13 +128,20 @@ describe('projectSettings lifecycle (MMR-230)', () => {
       expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/MMR/archive', undefined);
     });
     await vi.waitFor(() => {
-      expect(toast).toHaveBeenCalledWith('Archived My Project', {
-        action: expect.objectContaining({ label: 'Unarchive' }),
-        // The undo toast is the only console unarchive path (the archived
-        // shelf is MMR-125) — it must outlive sonner's ~4s default.
-        duration: 10_000,
-      });
+      expect(toast).toHaveBeenCalledOnce();
     });
+    const [message, opts] = toast.mock.calls[0] as [
+      ReactNode,
+      { action: { label: string; onClick: () => void }; duration?: number },
+    ];
+    render(<>{message}</>);
+    expect(screen.getByText(/Archived/)).toBeInTheDocument();
+    expect(screen.getByText('My Project')).toBeInTheDocument();
+    expect(opts.action.label).toBe('Unarchive');
+    // The undo toast may be the nearest unarchive affordance at archive time
+    // (the durable path is MMR-125's archived shelf) — it must outlive
+    // sonner's ~4s default.
+    expect(opts.duration).toBe(10_000);
     expect(navigate).toHaveBeenCalledWith({ to: '/' });
     // The sheet closed — its fields are gone.
     expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument();
