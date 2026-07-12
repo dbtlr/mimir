@@ -24,6 +24,21 @@ release. When a release is cut, this section is promoted to
   doctor check. The full body stays the detail read; settled seeds get their
   lede on demand from it. Recorded in [ADR
   0021](docs/decisions/0021-seed-lede-derived-and-capture-grammar.md).
+- **Record-health doctor surface + `/api/doctor` facet** (MMR-185). A new
+  read-only `/api/doctor` REST facet over the shared validator — the same
+  dropped-record diagnostics `mimir doctor` reports (ADR 0017: one validator,
+  two views) — enriched with per-project file groups (path, dropped/readable
+  counts), each record's parse cause, what-it-was title, line + byte location,
+  a source snippet with the offending token marked, and a nearest-legal
+  suggestion over the closed vocabulary. Every read is a Norn read (ADR 0018:
+  the `.raw` disk representation, fetched by path so it resolves even for a
+  document whose frontmatter won't parse). The console gains a Record-health
+  panel (`/doctor`, mocks 15a/23b): file groups, per-record cause chip, the
+  source snippet on a dark well in both themes, and Copy location (`path:line`)
+  as the only affordance — strictly read-only. Damage surfaces as an amber chip
+  in the project header, an amber vital on the Overview card, and a line below
+  the needs-you set in the attention menu; all absent at zero findings. Amber
+  throughout — the system is behaving; never red.
 
 ### Changed
 

@@ -14,10 +14,7 @@ vi.mock('../api/client', () => ({ apiGet, apiSend }));
 function facet(n: number): WireDoctorFacet {
   return {
     dropped_total: n,
-    groups:
-      n === 0
-        ? []
-        : [{ dropped: n, path: 'MMR', project: 'MMR', readable: 40, records: [] }],
+    groups: n === 0 ? [] : [{ dropped: n, path: 'MMR', project: 'MMR', readable: 40, records: [] }],
     scanned_at: new Date().toISOString(),
   };
 }
@@ -74,7 +71,7 @@ describe('record-health surfacing (MMR-185, mock 15b)', () => {
     const pill = await screen.findByRole('button', { name: '2 dropped' });
     await userEvent.click(pill);
     // The damage line sits in the menu, deep-linking to the health panel.
-    expect(await screen.findByText(/Record damage in/)).toBeDefined();
+    await expect(screen.findByText(/Record damage in/)).resolves.toBeDefined();
     expect(screen.getByText('health →')).toBeDefined();
   });
 
