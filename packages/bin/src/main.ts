@@ -194,21 +194,18 @@ async function main(argv: string[]): Promise<number> {
     // Long-running: the server keeps the process alive; loopback-only by
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
     const built = await buildStore();
-    // The record-health facet provider (MMR-185). Post-MMR-234 the vault read
-    // handles are always wired (the Norn vault is the only backend); the guard
-    // stays to narrow each handle's type.
+    // The record-health facet provider (MMR-185): every read handle is wired
+    // unconditionally (the Norn vault is the only backend).
     const { readNodeDocs, readRaw, readSectionFailures, readVaultGraph, validate } = built;
-    let doctor: ((scope: string | undefined) => Promise<DoctorFacet>) | undefined;
-    if (readNodeDocs && readRaw && readSectionFailures && readVaultGraph && validate) {
-      const deps: DoctorFacetDeps = {
-        readNodeDocs,
-        readRaw,
-        readSectionFailures,
-        readVaultGraph,
-        validate,
-      };
-      doctor = (scope) => computeDoctorFacet(deps, scope);
-    }
+    const deps: DoctorFacetDeps = {
+      readNodeDocs,
+      readRaw,
+      readSectionFailures,
+      readVaultGraph,
+      validate,
+    };
+    const doctor = (scope: string | undefined): Promise<DoctorFacet> =>
+      computeDoctorFacet(deps, scope);
     let server: ReturnType<typeof createServer>;
     try {
       server = createServer(built.store, { doctor, hunt: !noHunt, port, version: VERSION });
