@@ -2,7 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 
 import { isNotFound } from '../api/errors';
-import { boardDoneQuery, boardLiveQuery, projectQuery, treeQuery } from '../api/queries';
+import {
+  boardDoneQuery,
+  boardLiveQuery,
+  doctorQuery,
+  projectQuery,
+  treeQuery,
+} from '../api/queries';
 import { BoardView } from '../components/board';
 import { DistributionBar } from '../components/distribution-bar';
 import { NewTaskButton } from '../components/new-task-button';
@@ -70,6 +76,10 @@ export function ProjectPage() {
   const { view, bands, node } = projectRoute.useSearch();
 
   const project = useQuery(projectQuery(key));
+  // Record-damage count for this board (MMR-185) — the amber header chip; a miss
+  // just omits the chip.
+  const health = useQuery(doctorQuery(key));
+  const dropped = health.data?.dropped_total ?? 0;
   const live = useQuery({ ...boardLiveQuery(key), enabled: view === 'board' });
   const done = useQuery({ ...boardDoneQuery(key), enabled: view === 'board' });
   // Fetched for both lenses: the tree view renders it, the board's Phase bands
@@ -133,6 +143,16 @@ export function ProjectPage() {
             {key}
           </span>
           {project.data !== undefined && <StatusBadge status={project.data.status} />}
+          {dropped > 0 && (
+            <Link
+              to="/doctor"
+              search={{ project: key }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-status-in-progress/10 px-2.5 py-1 text-tag font-semibold text-status-in-progress-foreground inset-ring inset-ring-status-in-progress/30 transition-colors hover:bg-status-in-progress/16 focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              <span aria-hidden className="size-1.5 rounded-full bg-status-in-progress" />
+              {dropped} dropped
+            </Link>
+          )}
           {project.data?.distribution !== undefined && (
             <DistributionBar
               distribution={project.data.distribution}
