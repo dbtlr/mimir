@@ -13,6 +13,18 @@ Entries here have landed on `main` but have not yet been cut into a tagged
 release. When a release is cut, this section is promoted to
 `## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
 
+### Added
+
+- **Runtime seed lede** (MMR-263). The seeds queue now shows a preview of each
+  live seed's body. The list path batch-reads the `## Seed Description` section
+  for the live seeds in one native section read and derives a bounded `lede`
+  server-side — single-sourced so `mimir seeds`, the triage report, and the HTTP
+  list wire (the console's 2-line preview) all show the same preview. Nothing is
+  stored (derive, don't store): no schema field, no frontmatter projection, no
+  doctor check. The full body stays the detail read; settled seeds get their
+  lede on demand from it. Recorded in [ADR
+  0021](docs/decisions/0021-seed-lede-derived-and-capture-grammar.md).
+
 ### Changed
 
 - **Seed filing contract sharpened to two paths** (MMR-264). The `seed` CLI
