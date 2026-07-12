@@ -32,6 +32,17 @@ export function deriveLede(description: string | null): string | null {
   }
   const slice = flattened.slice(0, SEED_LEDE_BUDGET);
   const lastSpace = slice.lastIndexOf(' ');
-  const cut = lastSpace > 0 ? slice.slice(0, lastSpace) : slice;
+  // No space to cut on → hard cut, code-point-safe: a UTF-16 cut landing
+  // mid-surrogate-pair would leave a lone high surrogate at the boundary (not a
+  // valid string), so back off one unit when the last unit is a high surrogate.
+  const cut = lastSpace > 0 ? slice.slice(0, lastSpace) : trimLoneSurrogate(slice);
   return `${cut.trimEnd()}…`;
+}
+
+/** A high surrogate at the end of the string — the head of a pair the cut split. */
+const TRAILING_HIGH_SURROGATE = /[\uD800-\uDBFF]$/;
+
+/** Drop a trailing lone high surrogate — the tail of a pair the budget cut split. */
+function trimLoneSurrogate(text: string): string {
+  return TRAILING_HIGH_SURROGATE.test(text) ? text.slice(0, -1) : text;
 }

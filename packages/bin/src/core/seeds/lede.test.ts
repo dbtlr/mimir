@@ -44,4 +44,16 @@ describe('deriveLede', () => {
     expect(lede.endsWith('…')).toBe(true);
     expect(lede.slice(0, -1).length).toBe(SEED_LEDE_BUDGET);
   });
+
+  test('the hard cut never splits a surrogate pair (astral-heavy space-free body)', () => {
+    // A space-free body of astral code points: a UTF-16 code-unit cut can land
+    // mid-pair, leaving a lone high surrogate at the boundary — which is not a
+    // valid string (encodeURIComponent throws on it).
+    const lede = deriveLede(`x${'😀'.repeat(200)}`) ?? '';
+    expect(() => encodeURIComponent(lede)).not.toThrow();
+    // The cut backs off at most one unit — still within (and near) the budget.
+    const text = lede.slice(0, -1);
+    expect(text.length).toBeLessThanOrEqual(SEED_LEDE_BUDGET);
+    expect(text.length).toBeGreaterThanOrEqual(SEED_LEDE_BUDGET - 1);
+  });
 });
