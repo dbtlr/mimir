@@ -393,6 +393,17 @@ export const CHEAP_FACETS: readonly FacetName[] = [
   'artifacts',
 ];
 
+/**
+ * The write-echo facet set (ADR 0003): every mutation verb, on every transport,
+ * echoes the affected node through this set. `description` so a mutation that
+ * set it echoes the value back rather than dropping the field it just wrote
+ * (MMR-162); `distribution` so a container's echoed status line rolls up over
+ * its real children instead of reading as an unloaded, childless node
+ * (MMR-242) — the same rollup source `get`'s `CHEAP_FACETS` draws on, kept
+ * lean rather than pulling `get`'s full facet set into every write echo.
+ */
+export const WRITE_ECHO_FACETS: readonly FacetName[] = ['description', 'distribution'];
+
 /** The lean bare-field set for broad selection (`next`/`list`); `parent` is the row's hierarchy anchor (MMR-87). */
 export const LEAN_COLS = ['id', 'title', 'status', 'priority', 'size', 'parent'] as const;
 

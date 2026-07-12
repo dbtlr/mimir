@@ -1,4 +1,10 @@
-import { CHEAP_FACETS, PRIORITY_VALUES, SEED_KIND_VALUES, SIZE_VALUES } from '@mimir/contract';
+import {
+  CHEAP_FACETS,
+  PRIORITY_VALUES,
+  SEED_KIND_VALUES,
+  SIZE_VALUES,
+  WRITE_ECHO_FACETS,
+} from '@mimir/contract';
 import type {
   FacetName,
   FieldFilter,
@@ -152,14 +158,13 @@ async function projectId(store: Store, key: string): Promise<number> {
 }
 
 /**
- * Echo a returned Node row as bare JSON (the mutation echo contract).
+ * Echo a returned Node row as bare JSON (the mutation echo contract, shared
+ * with the CLI's `WRITE_ECHO_FACETS`, ADR 0003).
  * Accepts the Node row returned directly by mutation verbs — no reload needed.
  * Typed via `Parameters` to avoid importing the `Node` row type directly.
- * Requests the `description` facet (facet-gated since MMR-162) so a mutation that
- * set it echoes the value back rather than dropping the field it just wrote.
  */
 async function echoNode(store: Store, node: Parameters<typeof nodeViewOf>[1]): Promise<ToolResult> {
-  return ok(formatNodeJson(await nodeViewOf(store, node, new Set<FacetName>(['description']))));
+  return ok(formatNodeJson(await nodeViewOf(store, node, new Set<FacetName>(WRITE_ECHO_FACETS))));
 }
 
 // ---------------------------------------------------------------------------

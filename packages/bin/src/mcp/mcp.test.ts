@@ -260,6 +260,23 @@ test('annotate echoes the node', async () => {
   expect(JSON.parse(textOf(res)).id).toBe(taskRef);
 });
 
+test('annotate on a container echoes the true rollup, matching get (MMR-242)', async () => {
+  await createTask(store, { parentId: phaseId, title: 't2' });
+
+  const getView = parseJson<{ distribution: Record<string, number> }>(
+    textOf(await toolGet(store, { id: phaseRef })),
+  );
+
+  const res = await toolAnnotate(store, { content: 'checked in', id: phaseRef });
+  expect(res.isError).toBeUndefined();
+  const annotateView = parseJson<{ distribution: Record<string, number> }>(textOf(res));
+
+  // The mutation echo must derive its rollup from the same source as `get` —
+  // not read as an unloaded, childless node.
+  expect(annotateView.distribution).toEqual(getView.distribution);
+  expect(annotateView.distribution).toEqual({ ready: 2 });
+});
+
 // ---------------------------------------------------------------------------
 // Create tool
 // ---------------------------------------------------------------------------
