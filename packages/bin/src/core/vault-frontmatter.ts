@@ -5,11 +5,10 @@ import type { NodeTag } from './store';
 /**
  * The node/project → frontmatter projection (ADR 0016) — the inverse of the
  * `loadWorkingSetOverNorn` reader in {@link ./store-norn}. It is the single
- * definition of the vault's frontmatter field contract, shared by the Phase-2b
- * seed ({@link ../vault/node-seed}) and the MMR-153 node write path
- * ({@link ../norn/writer}), so a document a create writes reads back identically
- * to one the seed writes. Lives in `core/` so both the `vault/` seed and the
- * `norn/` writer can consume it without a layering cycle.
+ * definition of the vault's frontmatter field contract, consumed by the node
+ * write path ({@link ../norn/writer}), so every document a create writes reads
+ * back identically. Lives in `core/` so the `norn/` writer can consume it
+ * without a layering cycle.
  *
  * Field names are the model's snake_case store vocabulary; `created` is the
  * creation timestamp (the artifact precedent and the reader agree). Every field

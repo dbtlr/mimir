@@ -64,8 +64,14 @@ test('writeBinding round-trips through findBinding', () => {
 // ---------------------------------------------------------------------------
 
 let store: Store;
-let closeStore: () => Promise<void>;
+let closeStore: (() => Promise<void>) | undefined;
 beforeEach(async () => {
+  // Norn-only fixture: the binding-file tests above are pure fs/logic and must
+  // run everywhere, so without norn the store fixture stays un-built (every
+  // store-touching test below is skipIf(!NORN)-gated).
+  if (!NORN) {
+    return;
+  }
   ({ close: closeStore, store } = await createTestStore());
   for (const key of ['MMR', 'XX'] as const) {
     await createProject(store, { key, name: key.toLowerCase() });
@@ -78,7 +84,8 @@ beforeEach(async () => {
   }
 });
 afterEach(async () => {
-  await closeStore();
+  await closeStore?.();
+  closeStore = undefined;
 });
 
 test.skipIf(!NORN)('bind writes .mimir.toml into the injected cwd and echoes the key', async () => {

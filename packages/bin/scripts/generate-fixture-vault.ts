@@ -756,7 +756,7 @@ async function main(): Promise<number> {
     return 1;
   }
   console.log('\nsmoke it:');
-  console.log(`  MIMIR_STORE_BACKEND=norn MIMIR_VAULT=${summary.vaultPath} \\`);
+  console.log(`  MIMIR_VAULT=${summary.vaultPath} \\`);
   console.log('    bun run packages/bin/src/main.ts serve');
   return 0;
 }

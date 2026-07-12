@@ -12,11 +12,17 @@ import { tagEntities, untagEntities } from './tags';
 const NORN = Bun.which('norn') !== null;
 
 let store: Store;
-let closeStore: () => Promise<void>;
+let closeStore: (() => Promise<void>) | undefined;
 let projectId: number;
 let phaseId: number;
 let taskId: number;
 beforeEach(async () => {
+  // Norn-only fixture: the pure resolver test below runs everywhere over an
+  // in-memory set, so without norn the store fixture stays un-built (every
+  // store-touching test is skipIf(!NORN)-gated).
+  if (!NORN) {
+    return;
+  }
   ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'm' });
   projectId = await projectIdOf(store, 'MMR');
@@ -28,7 +34,8 @@ beforeEach(async () => {
   taskId = await nodeIdOf(store, `MMR-${String(task.seq)}`);
 });
 afterEach(async () => {
-  await closeStore();
+  await closeStore?.();
+  closeStore = undefined;
 });
 
 async function projectTagsOf(id: number): Promise<{ tag: string; note: string | null }[]> {
@@ -103,7 +110,15 @@ test.skipIf(!NORN)('neither tag nor untag writes the transition log', async () =
 });
 
 test('resolveEntityToken rejects unknown project/node and malformed tokens', async () => {
-  const set = deriveSet(await store.loadWorkingSet());
+  // Pure resolver logic — an empty in-memory working set, no store needed, so
+  // this runs on every platform (norn or not).
+  const set = deriveSet({
+    edges: [],
+    nodeTags: new Map(),
+    nodes: [],
+    projectTags: new Map(),
+    projects: [],
+  });
   await expectMimirError('not_found', async () => resolveEntityTokenInSet(set, 'ZZZ'));
   await expectMimirError('not_found', async () => resolveEntityTokenInSet(set, 'MMR-99'));
   await expectMimirError('not_found', async () => resolveEntityTokenInSet(set, 'not-an-id'));
