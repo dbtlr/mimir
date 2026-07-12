@@ -18,6 +18,7 @@ on:
   pull_request:
     paths:
       - 'packages/**'
+      - 'skills/mimir/**'
       - 'package.json'
       - 'bun.lock'
       - '.github/workflows/release.yml'

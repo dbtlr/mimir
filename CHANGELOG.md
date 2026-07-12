@@ -24,6 +24,11 @@ release. When a release is cut, this section is promoted to
   goes straight to `create task`; a statable fix is already triaged. Prompted
   by a 30-seed audit in which ~43% were own-board work-shaped follow-ups
   routed through the grooming queue as pure indirection.
+- **Canonical mimir skill moved to `skills/mimir/`** (MMR-268), the
+  `skills.sh`-installable layout (top-level `skills/<name>/SKILL.md`). A
+  relative symlink at `.claude/skills/mimir` keeps Claude-harness
+  project-skill discovery working; `mimir skill install` behavior is
+  unchanged.
 
 ### Fixed
 
