@@ -24,16 +24,19 @@ build discoveries terminate in fixed, dismissed-with-reason, or deferred to a
 ## Filing
 
 ```sh
-mimir seed "append collapses the boundary" -k bug -p NRN \
-    --desc "repro: empty target section; found while building MMR-156"   # their board, their triage
+mimir seed "append collapses the boundary
+repro: empty target section; found while building MMR-156" -k bug -p NRN   # first line title, rest body
 mimir seed "should capture parse a title from the first line?" -k idea   # own board: no statable fix yet
 ```
 
 - Target board **and** requester default from the bound board. Filing onto
   **another** board records your board as `requester`; self-filing (or filing
   unbound) leaves requester null.
-- The title is the capture; `--desc` is body prose (`## Seed Description`) —
-  repro steps, context, links.
+- **Capture is one blob** (commit-message semantics): the **first line is the
+  title** (the lede), everything after the first newline is the `## Seed
+Description` body — repro steps, context, links. The first line has a hard
+  **120-char cap** that **errors** (put the body on the next line). `--desc`
+  still works and **wins** over the blob split; `update --title` inherits the cap.
 - Filing is low-ceremony **by design**: prefer a seed over a mental note or a
   prose TODO that decays. (Low ceremony is not a routing rule — own-board
   statable work still goes straight to `create task`.)

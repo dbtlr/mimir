@@ -27,6 +27,16 @@ release. When a release is cut, this section is promoted to
 
 ### Changed
 
+- **Seed capture is one blob with a hard title cap** (MMR-263). Filing a seed
+  now takes one text blob with commit-message semantics: the first line is the
+  title, everything after the first newline is the `## Seed Description` body,
+  split uniformly across the CLI `seed`, MCP, HTTP, and the console capture
+  popover (a textarea — Enter files, Shift+Enter adds a body line). An explicit
+  `--desc`/`description` still wins over the split. A first line longer than 120
+  characters now **errors** with copy that teaches the split — the forcing
+  function that keeps prose out of the title; `update --title` on a seed inherits
+  the cap. Recorded in [ADR
+  0021](docs/decisions/0021-seed-lede-derived-and-capture-grammar.md).
 - **Seed filing contract sharpened to two paths** (MMR-264). The `seed` CLI
   help, MCP tool description, and the mimir + finishing-work skills (SKILL.md,
   seeds reference, review gate) now teach exactly two seed cases: an ask
