@@ -26,10 +26,13 @@ export function LaneSection({
   lane,
   onOpen,
   collapsible = false,
+  droppedByKey,
 }: {
   lane: LaneGroup;
   onOpen: (key: string) => void;
   collapsible?: boolean;
+  /** Per-project record-damage counts (MMR-185) — the card's amber vital. */
+  droppedByKey?: Map<string, number>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const count = lane.projects.length;
@@ -38,7 +41,13 @@ export function LaneSection({
   const cards = (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {lane.projects.map((project) => (
-        <ProjectCard key={project.id} project={project} onOpen={onOpen} lane={lane.lane} />
+        <ProjectCard
+          key={project.id}
+          project={project}
+          onOpen={onOpen}
+          lane={lane.lane}
+          dropped={droppedByKey?.get(project.id)}
+        />
       ))}
     </div>
   );

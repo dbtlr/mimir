@@ -6,6 +6,7 @@ import type {
   WireAnnotation,
   WireArtifactDetail,
   WireArtifactSummary,
+  WireDoctorFacet,
   WireHealth,
   WireNode,
   WireSeed,
@@ -25,6 +26,23 @@ export const healthQuery = queryOptions({
   queryFn: () => apiGet<WireHealth>('/api/health'),
   queryKey: ['health'],
 });
+
+/**
+ * The record-health facet (MMR-185): dropped-record diagnostics, optionally scoped
+ * to one project. Unscoped feeds the always-on surfacing (overview vital, attention
+ * damage line); the `key` form feeds the project header chip + the panel. Read-only
+ * — no write ever invalidates it, so it rides the poll like every other read.
+ */
+export const doctorQuery = (project?: string) =>
+  queryOptions({
+    queryFn: () =>
+      apiGet<WireDoctorFacet>(
+        project !== undefined && project !== ''
+          ? `/api/doctor?project=${encodeURIComponent(project)}`
+          : '/api/doctor',
+      ),
+    queryKey: ['doctor', project ?? 'all'],
+  });
 
 /** Overview: every project with its rollup distribution riding along. */
 export const projectsQuery = queryOptions({

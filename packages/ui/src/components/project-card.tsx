@@ -54,10 +54,14 @@ export function ProjectCard({
   project,
   onOpen,
   lane,
+  dropped,
 }: {
   project: WireNode;
   onOpen: (key: string) => void;
   lane?: Lane;
+  /** Record-damage count (MMR-185) — an amber vital that pre-empts the lane
+   * signal when the project has dropped records; absent/0 renders the lane signal. */
+  dropped?: number;
 }) {
   const counts = overviewCardCounts(project.leaf_counts);
   // Live cards trade the held figure for a recency tail; other lanes keep held.
@@ -76,7 +80,14 @@ export function ProjectCard({
         <div className="flex items-baseline gap-2">
           <span className="shrink-0 font-mono text-tag text-ink-faint">{project.id}</span>
           <span className="truncate text-meta font-semibold text-ink-bright">{project.title}</span>
-          {laneSignal(project, lane)}
+          {dropped != null && dropped > 0 ? (
+            <span className="ml-auto flex shrink-0 items-center gap-1.5 text-micro font-semibold text-status-in-progress-foreground">
+              <span aria-hidden className="size-[5px] rounded-full bg-status-in-progress" />
+              {dropped} dropped
+            </span>
+          ) : (
+            laneSignal(project, lane)
+          )}
         </div>
         <DistributionBar distribution={project.distribution ?? {}} className="h-[5px]" />
         {(rowCounts.length > 0 || (lane === 'live' && movedAt != null)) && (

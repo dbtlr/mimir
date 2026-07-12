@@ -199,6 +199,48 @@ export type WireHealth = {
   schema: number;
 };
 
+/** One line of a record-health source snippet (MMR-185); `offending` marks the bad
+ * token's column span into `text` on the offending line. */
+export type WireDoctorSnippetLine = {
+  n: number;
+  text: string;
+  offending?: { start: number; length: number };
+};
+
+/** One dropped record on the `/api/doctor` wire — its cause, what-it-was title, the
+ * offending field's line + byte location, a source snippet, and a nearest-legal
+ * suggestion. Locate-derived fields are null when the document/field can't be read. */
+export type WireDoctorRecord = {
+  id: string;
+  cause: string;
+  severity: 'error' | 'warn';
+  title: string | null;
+  path: string;
+  field: string | null;
+  value: string | null;
+  location: { line: number; byte: number } | null;
+  snippet: { lines: WireDoctorSnippetLine[] } | null;
+  suggestion: string | null;
+  note: string;
+};
+
+/** A file group — one project's dropped records with its readable tally. */
+export type WireDoctorGroup = {
+  project: string;
+  path: string;
+  dropped: number;
+  readable: number;
+  records: WireDoctorRecord[];
+};
+
+/** `/api/doctor` (MMR-185) — the record-health facet: dropped records grouped by
+ * project, with the scan time the panel derives "last scan Ns ago" from. */
+export type WireDoctorFacet = {
+  scanned_at: string;
+  dropped_total: number;
+  groups: WireDoctorGroup[];
+};
+
 /** The project key a rendered id belongs to (`MMR-16` → `MMR`, `MMR` → `MMR`). */
 export function projectKeyOf(id: string): string {
   const dash = id.indexOf('-');

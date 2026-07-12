@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
-import { archivedProjectsQuery, projectsQuery } from '../api/queries';
+import { archivedProjectsQuery, doctorQuery, projectsQuery } from '../api/queries';
 import { ArchivedShelf } from '../components/archived-shelf';
 import { LaneSection } from '../components/lane-section';
 import { NewProjectSheet } from '../components/new-project-sheet';
@@ -13,6 +13,7 @@ import { ActionButton } from '../components/ui/action-button';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
+import { droppedByProject } from '../lib/health';
 import { groupIntoLanes } from '../lib/lanes';
 import { overviewRoute } from '../router';
 
@@ -31,6 +32,10 @@ export function OverviewPage() {
 
   const projects = useQuery(projectsQuery);
   const archived = useQuery(archivedProjectsQuery);
+  // Record-damage counts (MMR-185) — the card's amber vital; a miss (offline /
+  // pre-feature cache) simply yields no vital, never a broken overview.
+  const health = useQuery(doctorQuery());
+  const droppedByKey = droppedByProject(health.data);
   const archivedProjects = archived.data?.items ?? [];
   const conn = connectivity([projects, archived]);
   const openNode = (id: string) => void navigate({ search: { node: id }, to: '.' });
@@ -86,7 +91,12 @@ export function OverviewPage() {
                   <h2 className="microlabel text-ink-faint">Overview</h2>
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {grouping.projects.map((project) => (
-                      <ProjectCard key={project.id} project={project} onOpen={onOpen} />
+                      <ProjectCard
+                        key={project.id}
+                        project={project}
+                        onOpen={onOpen}
+                        dropped={droppedByKey.get(project.id)}
+                      />
                     ))}
                   </div>
                 </section>
@@ -97,6 +107,7 @@ export function OverviewPage() {
                     lane={lane}
                     onOpen={onOpen}
                     collapsible={lane.lane === 'at_rest'}
+                    droppedByKey={droppedByKey}
                   />
                 ))
               );
