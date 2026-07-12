@@ -23,6 +23,7 @@ import type { Store } from '../store';
 import { readVaultGraph } from '../store-norn';
 import { validate } from '../validate';
 import { fileSeed, getSeed, listSeeds, promoteSeed, transitionSeed, updateSeed } from './intent';
+import { triage } from './triage';
 
 /**
  * The seed verb surface (MMR-245) against a real converged vault — the intent
@@ -131,6 +132,80 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     expect(all.map((s) => s.id)).toEqual(['MMR-s3', 'MMR-s2', 'MMR-s1']);
     const rejected = await listSeeds(store, { project: 'MMR', status: 'rejected' });
     expect(rejected.map((s) => s.id)).toEqual(['MMR-s3']);
+  });
+
+  test('listSeeds derives a bounded lede for live seeds in ONE section read (MMR-263)', async () => {
+    await seedbed();
+    const body = 'first body line\n\nmore prose that forms the lede preview';
+    await fileSeed(store, {
+      description: body,
+      kind: 'idea',
+      project: 'MMR',
+      requester: null,
+      title: 'has body',
+    });
+    await fileSeed(store, { kind: 'bug', project: 'MMR', requester: null, title: 'no body' });
+    await fileSeed(store, { kind: 'feature', project: 'MMR', requester: null, title: 'to settle' });
+    await transitionSeed(store, 'MMR-s3', 'rejected', 'nope');
+
+    // Instrument the native section read: the whole live queue's descriptions must
+    // ride ONE batched `vault.get { section }`, not a per-seed read.
+    const original = client.getSections.bind(client);
+    let sectionReads = 0;
+    client.getSections = async (targets: string[], sections: string[]): Promise<unknown[]> => {
+      sectionReads += 1;
+      return original(targets, sections);
+    };
+
+    const live = await listSeeds(store, { project: 'MMR' });
+    expect(sectionReads).toBe(1);
+    const byId = new Map(live.map((s) => [s.id, s] as const));
+    // The multi-line body flows into one bounded lede (newlines collapsed).
+    expect(byId.get('MMR-s1')?.lede).toBe('first body line more prose that forms the lede preview');
+    // A live seed with no body carries a null lede (derived, present, empty).
+    expect(byId.get('MMR-s2')?.lede).toBeNull();
+
+    // Settled seeds are excluded from the batch — the settled row carries no lede,
+    // and the full body stays the detail read.
+    const all = await listSeeds(store, { project: 'MMR', status: 'all' });
+    expect(all.find((s) => s.id === 'MMR-s3')?.lede).toBeUndefined();
+    const detail = await getSeed(store, 'MMR-s1', { content: true });
+    expect(detail.description).toBe(body);
+  });
+
+  test('a rejected lede batch read degrades to lede-less rows, never aborts (MMR-263)', async () => {
+    await seedbed();
+    await fileSeed(store, {
+      description: 'a body that would lede',
+      kind: 'bug',
+      project: 'MMR',
+      requester: null,
+      title: 'survives',
+    });
+
+    // Force a TRANSPORT-level failure of the batch section read (per-doc corruption
+    // already degrades inside the store) — the queue must not die for a preview.
+    const originalLoad = store.seeds.loadDescriptions;
+    const originalError = console.error;
+    const notes: string[] = [];
+    console.error = (...args: unknown[]) => notes.push(args.map(String).join(' '));
+    try {
+      store.seeds.loadDescriptions = () => Promise.reject(new Error('norn transport down'));
+
+      const live = await listSeeds(store, { project: 'MMR' });
+      expect(live.map((s) => s.id)).toEqual(['MMR-s1']);
+      expect(live[0]?.lede).toBeNull(); // degraded: row survives, preview dropped
+
+      // The degradation is not silent — one stderr note per failed batch.
+      expect(notes.some((n) => /seed description read failed/.test(n))).toBe(true);
+
+      // The triage pass (reads through listSeeds) completes on the degraded read.
+      const report = await triage(store, { board: 'MMR', dryRun: true });
+      expect(report.untriaged.map((s) => s.id)).toEqual(['MMR-s1']);
+    } finally {
+      store.seeds.loadDescriptions = originalLoad;
+      console.error = originalError;
+    }
   });
 
   test('promote (create) spawns a task, links it, and moves new → promoted; repeatable', async () => {

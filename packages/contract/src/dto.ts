@@ -129,6 +129,11 @@ export type SeedView = {
   updatedAt: string;
   /** The `## Seed Description` prose — opt-in (content read); `null` when empty. */
   description?: string | null;
+  /** The bounded, read-time preview of the description prose (MMR-263) — derived
+   * on the LIVE queue read (never stored); absent on settled list rows and on the
+   * detail read (which carries the full `description`). `null` when the seed has
+   * no body. */
+  lede?: string | null;
 };
 
 /**

@@ -366,6 +366,35 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
       return opts?.content === true ? loadWithContent(key, seq) : loadRecord(key, seq);
     },
 
+    async loadDescriptions(refs) {
+      // ONE native `vault.get { section }` over every requested seed path (MMR-263):
+      // the whole live queue's `## Seed Description` prose in a single round-trip, the
+      // derive-at-read lede source. An empty request short-circuits (an empty target
+      // list to vault.get is unverified behavior, matching the doctor/triage probes).
+      const out = new Map<string, string | null>();
+      if (refs.length === 0) {
+        return out;
+      }
+      const paths = refs.map(({ key, seq }) => pathOf(key, seq));
+      const records = await client.getSections(paths, [SEED_DESCRIPTION_HEADING]);
+      for (const raw of records) {
+        const record = pathAndSections(raw);
+        if (record === null) {
+          continue;
+        }
+        const identity = seqFromPath(record.path);
+        if (identity === null) {
+          continue;
+        }
+        // A warn-omitted/absent section reads as empty prose → null (no lede).
+        const description = parseDescriptionSection(
+          sectionBody(record.sections[SEED_DESCRIPTION_HEADING] ?? ''),
+        );
+        out.set(stemOf(identity.key, identity.seq), description);
+      }
+      return out;
+    },
+
     async loadHistory(key, seq) {
       // Read the seed's `## History` natively (`vault.get { section }`), exactly as
       // the node body-section store does — one round-trip, sliced with norn's edit

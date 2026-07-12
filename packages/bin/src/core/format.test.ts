@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import type { NodeView, SetResult } from '@mimir/contract';
+import type { NodeView, SeedView, SetResult } from '@mimir/contract';
 import { parseJson } from '@mimir/helpers';
 
 import {
@@ -9,7 +9,22 @@ import {
   formatSetJson,
   formatSetJsonl,
   formatStatusJson,
+  seedToWire,
 } from './format';
+
+const seedView = (over: Partial<SeedView> = {}): SeedView => ({
+  createdAt: '2026-07-01T00:00:00.000Z',
+  id: 'MMR-s1',
+  kind: 'idea',
+  lifecycle: 'new',
+  project: 'MMR',
+  readyToResolve: false,
+  requester: null,
+  spawned: [],
+  title: 'a seed',
+  updatedAt: '2026-07-01T00:00:00.000Z',
+  ...over,
+});
 
 const task = (id: string, over: Partial<NodeView> = {}): NodeView => ({
   completedAt: null,
@@ -147,5 +162,20 @@ describe('formatStatusJson', () => {
     );
     expect(parsed.status).toBe('in_progress');
     expect(parsed.distribution).toEqual({ in_progress: 1, ready: 2 });
+  });
+});
+
+describe('seedToWire lede (MMR-263)', () => {
+  test('emits lede when the list read derived one (including a null body)', () => {
+    expect(seedToWire(seedView({ lede: 'a preview' })).lede).toBe('a preview');
+    // A live seed with no body still carries the (null) lede on the wire.
+    expect('lede' in seedToWire(seedView({ lede: null }))).toBe(true);
+    expect(seedToWire(seedView({ lede: null })).lede).toBeNull();
+  });
+
+  test('omits lede on a detail read (undefined), which carries description instead', () => {
+    const wire = seedToWire(seedView({ description: 'full body' }));
+    expect('lede' in wire).toBe(false);
+    expect(wire.description).toBe('full body');
   });
 });

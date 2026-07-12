@@ -175,6 +175,10 @@ export type WireSeed = {
   updated_at: string;
   /** The seed body prose — present on the detail fetch, absent on list rows. */
   description?: string | null;
+  /** The derived body lede (MMR-263) — a bounded preview served on LIVE queue rows
+   * (never stored); absent on settled rows and on the detail read (which carries the
+   * full `description`). `null` when the seed has no body. */
+  lede?: string | null;
 };
 
 /** The nested whole-project tree (`/api/projects/:key/tree`) — children rank-ordered. */
