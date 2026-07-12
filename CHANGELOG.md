@@ -36,14 +36,15 @@ release. When a release is cut, this section is promoted to
   shared core query layer, so the fix reaches the CLI, MCP, and HTTP
   transports at once.
 - **`annotate` (and every other mutation echo) now reports a container's true
-  rollup** (MMR-242). Annotating, updating, or otherwise mutating an
-  initiative/phase with children echoed `(rollup over 0 direct children)`
-  regardless of how many children it actually had, because the write-echo
-  path requested a leaner facet set than `get` and never loaded the
-  distribution the rollup count is drawn from. The CLI's write-echo facets and
-  the MCP `annotate`/mutation echo (previously two separately hardcoded facet
-  sets) now both route through one shared `WRITE_ECHO_FACETS`, so every
-  transport's mutation echo rolls up over the same source `get` does.
+  rollup** (MMR-242). Annotating, updating, or otherwise mutating a container
+  with children — an initiative, phase, or project — echoed `(rollup over 0
+  direct children)` regardless of how many children it actually had, because
+  the write-echo path requested a leaner facet set than `get` and never loaded
+  the distribution the rollup count is drawn from. The CLI's node and project
+  write-echoes and the MCP node and project mutation echoes (previously
+  separately hardcoded facet sets) now all route through one shared
+  `WRITE_ECHO_FACETS`, so every mutation echo rolls up over the same source
+  `get` does.
 - **norn 0.47 contract adoption** (MMR-266). Three verified contract breaks
   against norn 0.47 are absorbed. `vault.set` retired its map-shaped param
   (NRN-238): the new ordered `KEY=JSON` `field_json` tokens are now serialized

@@ -122,7 +122,9 @@ export async function echoNodeWith(
 /**
  * Echo the updated project record to stdout in the requested format. Accepts
  * the project key, loads the row, and projects it to a view through the same
- * path as `get KEY`. Matches the write-echo idiom of every other mutation.
+ * path as `get KEY`. Matches the write-echo idiom of every other mutation —
+ * including the shared write-echo facets, so the echoed rollup covers the
+ * project's real root children (MMR-242).
  */
 export async function echoProject(
   store: Store,
@@ -130,7 +132,7 @@ export async function echoProject(
   format: Format,
   io: Io,
 ): Promise<void> {
-  const view = await projectViewByKey(store, key);
+  const view = await projectViewByKey(store, key, WRITE_ECHO_FACET_SET);
   if (view === undefined) {
     throw notFound(`project ${key} vanished before echo`);
   }
