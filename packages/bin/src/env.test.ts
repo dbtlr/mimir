@@ -1,14 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import {
-  DEFAULT_PORT,
-  DEV_PORT,
-  IS_PRODUCTION,
-  defaultStorePath,
-  envFlag,
-  envPort,
-  storePath,
-} from './env';
+import { DEFAULT_PORT, DEV_PORT, IS_PRODUCTION, defaultVaultPath, envFlag, envPort } from './env';
 
 // Unit/dev runs are not compiled with `--define MIMIR_BUILD_PROFILE`, so the
 // build profile is dev — the same reasoning as version.test.ts (MMR-117/MMR-57).
@@ -22,36 +14,10 @@ test('the default port is the dev port, off the production port', () => {
   expect(DEFAULT_PORT).not.toBe(64647);
 });
 
-test('the dev store is an isolated repo-local .dev store, never the production path', () => {
-  const path = defaultStorePath();
-  expect(path).toEndWith('/.dev/mimir.db');
+test('the dev vault is an isolated repo-local .dev vault, never the production path', () => {
+  const path = defaultVaultPath();
+  expect(path).toEndWith('/.dev/vault');
   expect(path).not.toContain('/.local/share/mimir');
-});
-
-test('storePath honors MIMIR_DB as the explicit override', () => {
-  const original = process.env.MIMIR_DB;
-  try {
-    process.env.MIMIR_DB = '/tmp/explicit-store.db';
-    expect(storePath()).toBe('/tmp/explicit-store.db');
-  } finally {
-    if (original === undefined) {
-      delete process.env.MIMIR_DB;
-    } else {
-      process.env.MIMIR_DB = original;
-    }
-  }
-});
-
-test('storePath falls back to the dev default when MIMIR_DB is unset', () => {
-  const original = process.env.MIMIR_DB;
-  try {
-    delete process.env.MIMIR_DB;
-    expect(storePath()).toBe(defaultStorePath());
-  } finally {
-    if (original !== undefined) {
-      process.env.MIMIR_DB = original;
-    }
-  }
 });
 
 test('envPort parses a valid port, rejects malformed, and passes through unset', () => {

@@ -32,7 +32,7 @@ import {
   statusOfNode,
   treeToWire,
 } from '../core';
-import type { Db, Store } from '../core';
+import type { Store } from '../core';
 import { cmdDoctor } from '../doctor/commands';
 import type { DoctorDeps } from '../doctor/commands';
 import { defaultVaultPath } from '../env';
@@ -43,8 +43,6 @@ import type { VaultDeps } from '../vault/commands';
 import { BINDING_FILE, writeBinding } from './binding';
 import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from './errors';
 import { COMMAND_HELP, FULL_HELP, TERSE_HELP, helpForCommand } from './help';
-import { cmdMigrateArtifacts } from './migrate-artifacts';
-import { cmdMigrateNodes } from './migrate-nodes';
 import {
   cmdAbandon,
   cmdAnnotate,
@@ -157,7 +155,7 @@ const OPTIONS = {
   requester: { type: 'string' },
   sort: { type: 'string' },
   grouped: { type: 'boolean' },
-  // migrate artifacts (cutover, MMR-144)
+  // triage preview (MMR-246)
   'dry-run': { type: 'boolean' },
   // self-update selectors (--tag reuses the multiple `tag` flag above,
   // last-wins like the other shared write-surface flags)
@@ -203,21 +201,8 @@ export type Defaults = {
   /** Real vault edges (git snapshot); absent where the vault is unavailable (tests). */
   vault?: VaultDeps;
   /** The `doctor` vault diagnostics read handle; absent where doctor is
-   * unavailable (tests). Its `readNodeDocs` is `null` on the SQLite backend. */
+   * unavailable (tests). */
   doctor?: DoctorDeps;
-  /**
-   * The DB schema migrator (`migrate schema`). Injected because it opens the
-   * store UN-migrated to inspect/apply migrations, so it can't ride the normal
-   * auto-migrating store provider; absent in tests that don't exercise it.
-   */
-  migrateSchema?: (sub: string | undefined) => Promise<number>;
-  /**
-   * A raw SQLite handle for the one-time `migrate artifacts`/`migrate nodes`
-   * commands (MMR-160) — they read the legacy tables (`transition_log`,
-   * `annotation`) directly to reconstruct bodies, a source-backend operation
-   * outside the Store seam. Absent where migration isn't available (tests).
-   */
-  db?: () => Db | Promise<Db>;
 };
 
 /**
@@ -237,8 +222,8 @@ function effectiveScope(
 
 /**
  * Run the CLI for one invocation. `argv` is the args after `mimir`; `getStore`
- * lazily supplies the Store over an open, migrated database — it must be
- * idempotent (the caller owns the connection's lifecycle) and is called only
+ * lazily supplies the Store over the converged Norn vault — it must be
+ * idempotent (the caller owns the client's lifecycle) and is called only
  * by verbs that touch data, so help/usage/`skill` paths never open a store
  * (MMR-39); `io` is the injected sink + presentation context. Returns the
  * process exit code.
@@ -249,14 +234,6 @@ export async function runCli(
   io: Io,
   defaults: Defaults = {},
 ): Promise<number> {
-  // The one-time SQLite→vault migration reads the legacy tables directly (MMR-160);
-  // the raw handle is injected, no longer reached through the Store.
-  const getDb = async (): Promise<Db> => {
-    if (defaults.db === undefined) {
-      throw usage('migrate is unavailable in this context');
-    }
-    return defaults.db();
-  };
   let values: {
     scope?: string;
     priority?: string;
@@ -622,37 +599,6 @@ export async function runCli(
           ctx.write(`${glyph} bound to ${key} (${BINDING_FILE})`);
         }
         return 0;
-      }
-      case 'migrate': {
-        // One dispatch for the whole `migrate` namespace (`-h`/`--help` on any
-        // of it is already handled above, before the store is ever touched).
-        // `schema` runs the DB migrator through an injected capability — it
-        // opens the store UN-migrated, so it can't ride the auto-migrating
-        // provider; the data subcommands run over a normally-migrated store.
-        const sub = positionals[1];
-        if (sub === 'schema') {
-          if (defaults.migrateSchema === undefined) {
-            throw usage('migrate schema is unavailable in this context');
-          }
-          return await defaults.migrateSchema(positionals[2]);
-        }
-        if (sub === 'artifacts') {
-          return await cmdMigrateArtifacts(await getDb(), ctx, {
-            dryRun: values['dry-run'] === true,
-            json: values.format === 'json' || values.format === 'jsonl',
-          });
-        }
-        if (sub === 'nodes') {
-          return await cmdMigrateNodes(await getDb(), ctx, {
-            dryRun: values['dry-run'] === true,
-            json: values.format === 'json' || values.format === 'jsonl',
-          });
-        }
-        if (sub === undefined) {
-          ctx.write(helpForCommand('migrate', undefined, full) ?? TERSE_HELP);
-          return 0;
-        }
-        throw usage(`unknown migrate subcommand '${sub}' — expected: schema, artifacts, nodes`);
       }
       case 'setup': {
         if (defaults.service === undefined || defaults.vault === undefined) {

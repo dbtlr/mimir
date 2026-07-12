@@ -34,7 +34,7 @@ async function readNodeSections(
  * docs (`vault.find`; seeds carry `## History`/`## Annotations` too, MMR-244), then
  * batch-reads their bodies (`vault.get … .body`) and keys each back by path. A
  * vault diagnostic reads the disk directly, so it is independent of the node read
- * path (still SQLite until the Phase 4 cutover).
+ * path.
  *
  * A `scope` (a project KEY) pushes into the find as `project:KEY`, so a scoped
  * doctor fetches only its project's docs instead of the whole vault (MMR-170) —
@@ -118,8 +118,8 @@ export async function readSectionFailures(
   return out;
 }
 
-/** Ascending compare on the created-at ISO — annotations sort chronologically to
- * match the SQLite backend's `order by created_at`, ties keep document order. */
+/** Ascending compare on the created-at ISO — annotations sort chronologically
+ * by `created_at`, ties keep document order. */
 function byCreatedAt(a: AnnotationView, b: AnnotationView): number {
   if (a.createdAt < b.createdAt) {
     return -1;
@@ -133,9 +133,9 @@ function byCreatedAt(a: AnnotationView, b: AnnotationView): number {
  * NRN-173) and parsed through the shared codec. norn slices each section with
  * `edit`'s exact boundary semantics, so a read mirrors a write; a heading absent
  * from the document is warn-and-omitted (an empty section). Annotations are
- * re-sorted by created-at so both backends agree even under non-monotonic
- * timestamps; History keeps document order (its SQLite sibling orders by
- * insertion, which is the same).
+ * re-sorted by created-at for a deterministic order even under non-monotonic
+ * timestamps; History keeps document order (insertion order, which is the
+ * same).
  */
 export function createNornBodySectionStore(client: NornClient): BodySectionStore {
   // One `vault.get { section }` per read, requesting exactly the wanted headings

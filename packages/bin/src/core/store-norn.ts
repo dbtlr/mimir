@@ -11,19 +11,19 @@ import type { NodeTag, WorkingSet } from './store';
 import { validate } from './validate';
 
 /**
- * The Norn-vault node read path (MMR-149, ADR 0016 Phase 2b) — the second
- * `Store.loadWorkingSet` backend, sibling to the SQLite one. One bulk
- * `vault.find` over the work-state document types projects the whole store,
- * then this assembles the same {@link WorkingSet} the SQLite path produces, so
- * derivation runs byte-identically over either backend (parity is the point).
+ * The Norn-vault node read path (MMR-149, ADR 0016 Phase 2b) — the
+ * `Store.loadWorkingSet` backend. One bulk `vault.find` over the work-state
+ * document types projects the whole store, then this assembles the
+ * {@link WorkingSet} derivation runs over, deterministically for a given vault
+ * state.
  *
  * Deliberately harness/test-constructed only in 2b — not wired into
  * `buildStore` or any backend flag. No pushdown: the query is a flat "give me
  * every node/project", and every predicate/rollup stays in Mimir's in-memory
  * derivation pass.
  *
- * Two representational deltas from SQLite, both by design (the vault is the
- * system of record the migration targets, not a mirror of SQLite's rows):
+ * Two representational choices, both by design (the vault is the system of
+ * record, not a mirror of relational rows):
  * - **Synthetic ints.** The vault has no surrogate ids (the stem *is* the id);
  *   ints are minted here, stable per load, so the int-keyed model is unchanged
  *   (the id→`KEY-seq` model migration is Phase 3). Identity that crosses the
@@ -43,9 +43,10 @@ function num(value: unknown): number | null {
 /**
  * Narrow a frontmatter value to an enum member. Norn has no enum field_type, so
  * value legality can't be enforced at the vault layer — the reader is the guard.
- * An ABSENT field returns null (the caller applies the SQLite default / column
- * nullability); a PRESENT but out-of-vocabulary value throws, matching the
- * column CHECK that makes it unrepresentable in the SQLite backend.
+ * An ABSENT field returns null (the caller applies its own default /
+ * nullability); a PRESENT but out-of-vocabulary value throws, enforcing in
+ * code the same enum invariant a column CHECK constraint would enforce in a
+ * schema.
  */
 function enumFieldStrict<T extends string>(
   value: unknown,
@@ -126,12 +127,11 @@ function cmpStr(a: string, b: string): number {
 }
 
 /**
- * Vault tags are a plain string set — no per-tag note or timestamp the way
- * SQLite's tag rows have. Project each onto a {@link NodeTag} with `note=null`
- * and the document's own `created` as a uniform `created_at`, sorted by tag so
- * the order is deterministic and matches the SQLite path's `(created_at, tag)`
- * tiebreak (MMR-148). A transitional read delta, mirroring the artifact store's
- * tag-note rejection.
+ * Vault tags are a plain string set — no per-tag note or timestamp. Project
+ * each onto a {@link NodeTag} with `note=null` and the document's own
+ * `created` as a uniform `created_at`, sorted by tag so the order is
+ * deterministic, tiebreaking on `(created_at, tag)` (MMR-148). Mirrors the
+ * artifact store's tag-note rejection.
  */
 function toTagRecords(tags: readonly string[], created: string): NodeTag[] {
   return tags.toSorted(cmpStr).map((tag) => ({ created_at: created, note: null, tag }));
@@ -458,10 +458,10 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   const survivingNodes = rawNodes.filter((n) => validByStem.has(n.stem));
 
   // Synthetic-int allocation — stable and deterministic. Projects key-ordered,
-  // nodes (key, seq)-ordered; independent int spaces mirroring SQLite's separate
-  // project/node tables. Identity across the seam is always the stem. Allocated
-  // over the survivors only — a clean vault drops nothing, so the allocation
-  // (and thus the whole WorkingSet) stays byte-identical to SQLite.
+  // nodes (key, seq)-ordered; independent int spaces (projects and nodes number
+  // separately). Identity across the seam is always the stem. Allocated over the
+  // survivors only — a clean vault drops nothing, so the allocation (and thus
+  // the whole WorkingSet) is deterministic.
   projectDocs.sort((a, b) => cmpStr(a.key, b.key));
   survivingNodes.sort((a, b) => (a.key === b.key ? a.seq - b.seq : cmpStr(a.key, b.key)));
 
@@ -544,8 +544,8 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       parentId = resolved;
     }
 
-    // Task-only columns (SQLite CHECK: NULL for non-task) are read only for a
-    // task; a stray value on another type is ignored, never projected.
+    // Task-only fields are read only for a task (a non-task never carries
+    // them); a stray value on another type is ignored, never projected.
     const isTask = n.type === 'task';
     let lifecycle: Lifecycle | null = null;
     if (isTask) {
@@ -571,9 +571,9 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       // BodySectionStore seam (`readDescription`), not carried in the bulk load.
       description: null,
       external_ref: isTask ? str(n.fm.external_ref) : null,
-      // A task always carries a hold (SQLite CHECK: type='task' ⟺ hold NOT NULL,
-      // default 'none'); the idiomatic vault omits the 'none' no-hold state, so an
-      // absent hold on a task reconstructs to 'none'.
+      // A task always carries a hold (default 'none'); a non-task never does.
+      // The idiomatic vault omits the 'none' no-hold state, so an absent hold
+      // on a task reconstructs to 'none'.
       hold: isTask ? (enumFieldStrict(n.fm.hold, HOLD_VALUES, n.stem, 'hold') ?? 'none') : null,
       hold_reason: isTask ? str(n.fm.hold_reason) : null,
       id: n.id,
@@ -606,8 +606,8 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     // stem here resolves to a *distinct* survivor. Both lookups below are seam
     // invariants, never record throws: a miss or a self-edge on validated data
     // would mean the validator and this build disagree, not that the vault is bad.
-    // The prereqIds set keeps the reader's own idempotence against the SQLite
-    // (node_id, depends_on_node_id) key.
+    // The prereqIds set keeps the reader's own idempotence — the same collapse
+    // a (node_id, depends_on_node_id) unique key would enforce.
     const prereqIds = new Set<number>();
     for (const prereqStem of refs.dependsOn) {
       const prereqId = nodeIdByStem.get(prereqStem);

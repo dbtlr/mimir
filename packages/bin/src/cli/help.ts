@@ -157,11 +157,7 @@ other:
                           then push + reconcile when an upstream is configured;
                           the cadence behind the scheduled snapshot unit
   doctor                  run vault diagnostics and report problems for a human
-                          to fix (nonzero exit on error findings). scoped by -s;
-                          a no-op on the SQLite backend
-  migrate <sub>           schema [status] (apply/inspect DB migrations) ·
-                          artifacts / nodes [--dry-run] (copy SQLite artifacts /
-                          node work-state into the vault — idempotent, lossless)
+                          to fix (nonzero exit on error findings). scoped by -s
   mcp                     the agent envelope over stdio (MCP transport)
 `;
 
@@ -608,25 +604,6 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     args: [['<KEY>', 'the archived project to restore (bare project key)']],
     examples: ['mimir unarchive SAGA'],
   },
-  // ── migrations (MMR-159) ──
-  migrate: {
-    args: [
-      ['schema [status]', 'apply pending DB migrations; `status` lists applied + pending'],
-      ['artifacts [--dry-run]', 'copy SQLite artifacts into the Norn vault backend'],
-      ['nodes [--dry-run]', 'copy SQLite node/project work-state into the vault backend'],
-    ],
-    examples: [
-      'mimir migrate schema                 # apply pending DB migrations',
-      'mimir migrate schema status          # list applied + pending migrations',
-      'mimir migrate artifacts --dry-run    # count what would move, write nothing',
-      'mimir migrate nodes --dry-run        # count what would move, write nothing',
-      'mimir migrate nodes                  # copy every node + project into the vault',
-    ],
-    flags: [['--dry-run', 'artifacts / nodes: report the source inventory without writing']],
-    summary:
-      'run a migration. `schema` applies/inspects the DB migrations; `artifacts` and `nodes` copy SQLite artifacts / node work-state into the vault — preserving identity + timestamps, idempotent and lossless (SQLite is untouched).',
-    usage: 'mimir migrate <schema [status] | artifacts [--dry-run] | nodes [--dry-run]>',
-  },
   // ── setup wizard (MMR-145) ──
   setup: {
     examples: [
@@ -680,7 +657,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ],
     ],
     summary:
-      'run the vault diagnostics registry and report problems for a human to fix. Non-gating (ADR 0017): a successful run always exits 0 — findings are output, not status — and each finding carries an informational severity label (error = a record the reader drops; warn = a heading-shaped line the reader still reads as content). Checks body-section record integrity plus referential validity (dangling refs, missing projects, cycles, node fields). A no-op on the SQLite backend (typed rows carry no malformable body sections).',
+      'run the vault diagnostics registry and report problems for a human to fix. Non-gating (ADR 0017): a successful run always exits 0 — findings are output, not status — and each finding carries an informational severity label (error = a record the reader drops; warn = a heading-shaped line the reader still reads as content). Checks body-section record integrity plus referential validity (dangling refs, missing projects, cycles, node fields).',
     usage: 'mimir doctor [-s <KEY>] [--format <fmt>]',
   },
   // ── binding ──

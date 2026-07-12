@@ -83,17 +83,15 @@ function cmp(a: Positioned, b: { at: string; stem: string; idx: number }): numbe
  * chronologically ordered stream keyed by `(at, stem, index)`.
  *
  * A markdown vault carries no global insertion sequence, so this `at`-primary
- * order is a best-effort *approximation* of the SQLite feed's `transition_log.id`
- * (true insertion) order — not a byte-for-byte match. They agree whenever `at`
- * is monotonic in insertion order (the normal case); they diverge when it is
- * not (a clock step-back, a backfilled/imported transition, a hand-edited
- * `## History`), both across nodes on an equal `at` and within one node on a
- * non-monotonic `at`. For the same reason the `(at, stem, index)` resume cursor
- * is not a true monotonic sequence: a transition appended after a cursor was
- * issued but stamped with an earlier `at` sorts before it and is skipped, where
- * SQLite's `id > since` would still deliver it. These are inherent limits of the
- * markdown backend, tracked for the Phase-4 cutover (MMR-160 follow-up); the A/B
- * parity harness therefore compares the two feeds as a *set*, not by page order.
+ * order is a best-effort *approximation* of true insertion order — not a
+ * byte-for-byte match. It agrees with insertion order whenever `at` is
+ * monotonic (the normal case); it diverges when it is not (a clock step-back,
+ * a backfilled/imported transition, a hand-edited `## History`), both across
+ * nodes on an equal `at` and within one node on a non-monotonic `at`. For the
+ * same reason the `(at, stem, index)` resume cursor is not a true monotonic
+ * sequence: a transition appended after a cursor was issued but stamped with
+ * an earlier `at` sorts before it and is skipped. These are inherent limits of
+ * the markdown backend (MMR-160 follow-up), tracked as MMR-168.
  */
 export function createNornTransitionsFeed(client: NornClient): TransitionsFeed {
   return {
@@ -101,8 +99,7 @@ export function createNornTransitionsFeed(client: NornClient): TransitionsFeed {
       if (opts.limit !== undefined && (!Number.isInteger(opts.limit) || opts.limit < 1)) {
         throw validation(`invalid limit ${String(opts.limit)}`);
       }
-      // An absent OR empty `since` reads from the start — the SQLite feed accepts
-      // `''` (its `Number('') === 0`), so both backends agree on an empty cursor.
+      // An absent OR empty `since` reads from the start (`Number('') === 0`).
       const after =
         opts.since === undefined || opts.since === '' ? undefined : decodeCursor(opts.since);
 

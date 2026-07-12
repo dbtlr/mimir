@@ -251,8 +251,7 @@ export const danglingRefCheck: Diagnostic = {
  * since MMR-181 the reader tolerates an absent project doc by hiding the node
  * (and its project siblings) from the read (`store-norn.ts`) — so, like a
  * dangling ref, it is data hidden on read, not a failed load. The companion to
- * {@link danglingRefCheck} over the same `validate` pass: `error`,
- * whole-vault, vault-only (SQLite's `project_id` FK precludes it).
+ * {@link danglingRefCheck} over the same `validate` pass: `error`, whole-vault.
  *
  * Reports one finding per *missing project*, not per orphaned node: every node
  * under an absent key shares the one fix (add that project doc), so collapsing

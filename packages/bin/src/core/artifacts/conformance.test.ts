@@ -3,59 +3,28 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createTestDb } from '../../db/testing';
 import { bunExec } from '../../exec';
 import { NornClient } from '../../norn/client';
 import { converge } from '../../vault/converge';
-import type { Db } from '../context';
-import { createInitiative, createProject, createTask } from '../create';
-import { renderNodeId } from '../lookup';
-import { createSqliteStore } from '../store-sqlite';
 import { createNornArtifactStore } from './norn';
 import type { ArtifactStore } from './store';
 
 /**
- * The artifact-seam conformance oracle (MMR-143, ADR 0016): the SAME contract
- * suite runs against both backends, so the Norn implementation is held to the
- * SQLite behavior it replaces. The Norn arm needs a real `norn` binary and is
- * skipped when it's off PATH (CI) — the SQLite arm always runs.
+ * The artifact-seam conformance oracle (MMR-143, ADR 0016): the contract suite
+ * the Norn `ArtifactStore` must satisfy. Needs a real `norn` binary and is
+ * skipped when it's off PATH (CI).
  *
- * Documented, intentional deltas (asserted in the Norn arm, not the shared
- * suite): `q` matches title only (not content), and a tag `note` is rejected.
+ * Documented, intentional deltas: `q` matches title only (not content), and a
+ * tag `note` is rejected.
  */
 const NORN = Bun.which('norn') !== null;
 
 type Harness = {
   artifacts: ArtifactStore;
-  /** Real, linkable node stems under `MMR` — three of them for the tests. */
+  /** Linkable node stems under `MMR` — three of them for the tests. */
   nodeStems: string[];
   cleanup: () => Promise<void>;
 };
-
-/**
- * SQLite enforces `artifact_link`'s FK, so link targets must be real nodes;
- * Norn allows dangling wikilinks. To hold both to the same contract, seed
- * real nodes in SQLite and reuse their stems for Norn (where they're just
- * links). Three tasks under one initiative gives the tests distinct anchors.
- */
-async function sqliteHarness(): Promise<Harness> {
-  const db: Db = await createTestDb();
-  const store = createSqliteStore(db);
-  const project = await createProject(store, { key: 'MMR', name: 'MMR' });
-  const init = await createInitiative(store, { projectId: project.id, title: 'i' });
-  const stems: string[] = [];
-  for (const title of ['n1', 'n2', 'n3']) {
-    const task = await createTask(store, { parentId: init.id, title });
-    stems.push((await renderNodeId(db, task.id)) ?? 'unknown');
-  }
-  return {
-    artifacts: store.artifacts,
-    async cleanup() {
-      await db.destroy();
-    },
-    nodeStems: stems,
-  };
-}
 
 async function nornHarness(): Promise<Harness> {
   const root = mkdtempSync(join(tmpdir(), 'mimir-conf-'));
@@ -67,14 +36,13 @@ async function nornHarness(): Promise<Harness> {
       await client.close();
       rmSync(root, { force: true, recursive: true });
     },
-    // Dangling wikilinks are allowed (nodes live in SQLite until Phase 3), so
-    // the same stems the SQLite arm seeded are valid links here without nodes.
+    // Dangling wikilinks are allowed, so these stems are valid link targets
+    // without seeding real nodes.
     nodeStems: ['MMR-2', 'MMR-3', 'MMR-4'],
   };
 }
 
 const backends: { name: string; make: () => Promise<Harness>; skip: boolean }[] = [
-  { make: sqliteHarness, name: 'sqlite', skip: false },
   { make: nornHarness, name: 'norn', skip: !NORN },
 ];
 
@@ -258,7 +226,7 @@ for (const backend of backends) {
   });
 }
 
-describe('Norn backend — documented deltas from SQLite', () => {
+describe('Norn backend — documented deltas', () => {
   let h: Harness;
   beforeEach(async () => {
     if (!NORN) {

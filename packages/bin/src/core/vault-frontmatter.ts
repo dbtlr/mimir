@@ -47,8 +47,9 @@ export function projectFrontmatter(
     fm.tags = tags.map((t) => t.tag);
   }
   return fm;
-  // last_seq / last_artifact_seq are SQLite allocation counters, deliberately
-  // dropped: Phase 2b derives seq as max(seq)+1 over the vault (ADR 0016 fork #1).
+  // last_seq / last_artifact_seq were allocation counters from the old backend,
+  // deliberately dropped: Phase 2b derives seq as max(seq)+1 over the vault
+  // (ADR 0016 fork #1).
 }
 
 /** Node → frontmatter record. Relations arrive resolved to stems by the caller. */

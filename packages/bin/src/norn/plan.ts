@@ -3,7 +3,7 @@
  * `vault.apply` (MMR-153, ADR 0016; renamed from `vault.apply_plan` in norn 0.45,
  * MMR-207). One plan per `transact`: every
  * frontmatter set, section append, and document create the verbs compose lands
- * as one all-or-nothing batch, mirroring the SQLite transaction it replaces.
+ * as one all-or-nothing batch, applied as one atomic transaction.
  *
  * The types mirror norn's authoritative Rust schema (`src/migration_plan.rs`,
  * schema v1). Every operation nests its params under `fields`; the exact keys

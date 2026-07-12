@@ -329,7 +329,7 @@ export function parseHistorySection(body: string): HistoryEntry[] {
 
 // ── Annotations ──────────────────────────────────────────────────────────
 // The same H3-per-record grammar as History, minus the edge line: an
-// annotation has no durable id (the SQLite surrogate is never surfaced) and no
+// annotation has no durable id (no surrogate key is ever surfaced) and no
 // kind, so the heading carries only the created-at ISO and the whole body under
 // it is the note content. Trailing blank lines normalize away like a History
 // reason — content is otherwise byte-preserved (heading-shaped lines escaped).

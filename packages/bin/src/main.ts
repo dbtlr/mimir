@@ -1,29 +1,19 @@
 /**
  * Entry point + composition root. Unlike the transport layers, `main` may wire
- * `db` and transports together. It opens the database (auto-applying migrations
- * on startup), then dispatches:
+ * the store and transports together. It builds the store (converging the Norn
+ * vault, ADR 0016), then dispatches:
  *
  *   <verb> [args]   read/write commands → CLI transport
  *   mcp             the agent envelope over stdio → MCP transport
  *   --help, -h      help (handled by the CLI)
- *
- * The whole `migrate <sub>` namespace dispatches through the CLI transport;
- * `migrate schema` is wired in as the `migrateSchema` capability because it
- * must open the store WITHOUT auto-migrating (it inspects/applies migrations
- * itself), so it can't ride the normal auto-migrating store provider.
  */
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-
 import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
-import type { Db, Store } from './core';
-import { createDb } from './db/client';
-import { migrateToLatest, migrationStatus } from './db/migrator';
+import type { Store } from './core';
 import type { DoctorFacet } from './doctor/facet';
 import { computeDoctorFacet } from './doctor/serve';
 import type { DoctorFacetDeps } from './doctor/serve';
-import { DEFAULT_PORT, IS_PRODUCTION, envFlag, envPort, storePath } from './env';
+import { DEFAULT_PORT, IS_PRODUCTION, envFlag, envPort } from './env';
 import { createServer } from './http';
 import { serveStdio } from './mcp';
 import {
@@ -46,26 +36,11 @@ import {
   serveInstallEnv,
 } from './service';
 import type { Health, ServiceDeps } from './service';
-import { buildStore, storeBackend } from './store-backend';
+import { buildStore } from './store-backend';
 import type { BuiltStore } from './store-backend';
 import { resolveVault } from './vault';
 import type { VaultDeps } from './vault/commands';
 import { VERSION } from './version';
-
-/**
- * Open the database — creating the parent directory if needed — and apply any
- * pending migrations under the migration lock.
- */
-async function openMigrated(path: string): Promise<Db> {
-  mkdirSync(dirname(path), { recursive: true });
-  const db = createDb(path);
-  const { error } = await migrateToLatest(db);
-  if (error !== undefined) {
-    await db.destroy();
-    throw error instanceof Error ? error : new Error(JSON.stringify(error));
-  }
-  return db;
-}
 
 const line = (stream: NodeJS.WriteStream) => (text: string) => {
   stream.write(text.endsWith('\n') ? text : `${text}\n`);
@@ -92,36 +67,6 @@ function stdoutIo(): Io {
     plain: process.env.NO_COLOR !== undefined || !isTTY,
     write: line(process.stdout),
   };
-}
-
-async function runMigrateSchema(sub: string | undefined): Promise<number> {
-  // Opens without auto-migrating — `migrate schema` inspects/applies them itself.
-  const path = storePath();
-  mkdirSync(dirname(path), { recursive: true });
-  const db = createDb(path);
-  try {
-    if (sub === 'status') {
-      for (const m of await migrationStatus(db)) {
-        console.log(`${m.executedAt === undefined ? 'pending ' : 'applied '} ${m.name}`);
-      }
-      return 0;
-    }
-    const { results, error } = await migrateToLatest(db);
-    for (const r of results ?? []) {
-      console.log(`${r.status === 'Success' ? 'applied' : 'failed '}  ${r.migrationName}`);
-    }
-    if (error !== undefined) {
-      const message = error instanceof Error ? error.message : JSON.stringify(error);
-      console.error(`migration error: ${message}`);
-      return 1;
-    }
-    if ((results ?? []).length === 0) {
-      console.log('already up to date');
-    }
-    return 0;
-  } finally {
-    await db.destroy();
-  }
 }
 
 /**
@@ -175,21 +120,16 @@ function realServiceDeps(): ServiceDeps {
         logFile: SERVE_LOG_FILE,
         plistFile: plistPathFor(SERVE_LABEL),
         render: () => {
-          // Read config once and feed both backend + vault resolution. On
-          // SQLite the norn binary and vault are irrelevant, so don't resolve
-          // them (a wasted PATH search + config-derived vault).
+          // The daemon shells out to norn and reads the vault (ADR 0018), so
+          // preflight both at install time and bake the absolute norn path.
           const config = readConfig();
-          const backend = storeBackend(config);
-          if (backend === 'sqlite') {
-            return plistFor(binPath, serveInstallEnv({ backend, dbPath: process.env.MIMIR_DB }));
-          }
           const vault = resolveVault({
             configPath: config.vault.path,
             envPath: process.env.MIMIR_VAULT,
           });
           return plistFor(
             binPath,
-            serveInstallEnv({ backend, nornPath: Bun.which('norn') ?? undefined, vault }),
+            serveInstallEnv({ nornPath: Bun.which('norn') ?? undefined, vault }),
           );
         },
         supervisor: new LaunchdSupervisor(bunExec, uid, SERVE_LABEL),
@@ -253,12 +193,10 @@ async function main(argv: string[]): Promise<number> {
     const port = flagPort ?? overridePort ?? config.port ?? DEFAULT_PORT;
     // Long-running: the server keeps the process alive; loopback-only by
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
-    const db = await openMigrated(storePath());
-    const built = await buildStore(db);
-    // The record-health facet provider (MMR-185) — present only when the vault
-    // read handles are (Norn backend). Destructured so the truthy guard narrows each
-    // to its non-undefined type; on SQLite it stays undefined and the route serves
-    // the empty facet.
+    const built = await buildStore();
+    // The record-health facet provider (MMR-185). Post-MMR-234 the vault read
+    // handles are always wired (the Norn vault is the only backend); the guard
+    // stays to narrow each handle's type.
     const { readNodeDocs, readRaw, readSectionFailures, readVaultGraph, validate } = built;
     let doctor: ((scope: string | undefined) => Promise<DoctorFacet>) | undefined;
     if (readNodeDocs && readRaw && readSectionFailures && readVaultGraph && validate) {
@@ -310,29 +248,25 @@ async function main(argv: string[]): Promise<number> {
     // Long-running: connect and let the stdio transport keep the process alive.
     // The MCP rendering honors the same Project Binding (ADR 0011), resolved
     // from the server's spawn cwd.
-    const db = await openMigrated(storePath());
-    const built = await buildStore(db);
+    const built = await buildStore();
     try {
       await serveStdio(built.store, VERSION, findBinding(process.cwd()));
     } finally {
       // serveStdio resolves when the stdio transport closes; close releases the
-      // Norn subprocess (its open pipes would otherwise keep the process alive)
-      // and the db handle.
+      // Norn subprocess (its open pipes would otherwise keep the process alive).
       await built.close();
     }
     return 0;
   }
 
   // Read and write commands go through the CLI. The store is acquired lazily
-  // (MMR-39): a verb that touches data asks for it, opening + migrating on
+  // (MMR-39): a verb that touches data asks for it, converging the vault on
   // first ask; help, usage errors, and `skill install` never ask, so a bare
-  // `mimir` / `mimir --help` never creates a file. main holds no verb list.
+  // `mimir` / `mimir --help` never touches the vault. main holds no verb list.
   let built: BuiltStore | undefined;
-  let dbHandle: Db | undefined;
   const getStore = async (): Promise<Store> => {
     if (built === undefined) {
-      dbHandle = await openMigrated(storePath());
-      built = await buildStore(dbHandle);
+      built = await buildStore();
     }
     return built.store;
   };
@@ -341,54 +275,32 @@ async function main(argv: string[]): Promise<number> {
     // default -s scope; resolved here so the CLI itself never reads cwd.
     return await runCli(argv, getStore, stdoutIo(), {
       cwd: process.cwd(),
-      db: async () => {
-        await getStore(); // ensure the handle is open
-        if (dbHandle === undefined) {
-          throw new Error('internal: store opened without a db handle');
-        }
-        return dbHandle;
-      },
       doctor: {
-        // A vault diagnostic: on the SQLite backend there is no vault to read,
-        // so doctor no-ops (null). On Norn, open the store (building the client)
-        // and read every node document's raw body.
-        readNodeDocs:
-          storeBackend() === 'norn'
-            ? async (scope) => {
-                await getStore();
-                return (await built?.readNodeDocs?.(scope)) ?? [];
-              }
-            : null,
-        readSectionFailures:
-          storeBackend() === 'norn'
-            ? async (scope) => {
-                await getStore();
-                return (await built?.readSectionFailures?.(scope)) ?? [];
-              }
-            : null,
-        readVaultGraph:
-          storeBackend() === 'norn'
-            ? async () => {
-                await getStore();
-                return (await built?.readVaultGraph?.()) ?? { nodes: [], projectKeys: [] };
-              }
-            : null,
-        validate:
-          storeBackend() === 'norn'
-            ? async () => {
-                await getStore();
-                return (await built?.validate?.()) ?? { findings: [] };
-              }
-            : null,
+        // Vault diagnostics: build the store (the client) and read the vault.
+        readNodeDocs: async (scope) => {
+          await getStore();
+          return (await built?.readNodeDocs(scope)) ?? [];
+        },
+        readSectionFailures: async (scope) => {
+          await getStore();
+          return (await built?.readSectionFailures(scope)) ?? [];
+        },
+        readVaultGraph: async () => {
+          await getStore();
+          return (await built?.readVaultGraph()) ?? { nodes: [], projectKeys: [] };
+        },
+        validate: async () => {
+          await getStore();
+          return (await built?.validate()) ?? { findings: [] };
+        },
       },
-      migrateSchema: runMigrateSchema,
       scope: findBinding(process.cwd()),
       service: realServiceDeps(),
       vault: realVaultDeps(),
     });
   } finally {
-    // close() releases the artifact backend (a Norn subprocess would otherwise
-    // keep the process alive) and the db handle (MMR-160).
+    // close() releases the Norn subprocess (its open pipes would otherwise keep
+    // the process alive).
     await built?.close();
   }
 }

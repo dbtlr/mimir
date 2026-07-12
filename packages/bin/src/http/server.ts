@@ -1263,8 +1263,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         GET: (req) =>
           guarded(req, async () => {
             const q = new URL(req.url).searchParams;
-            // An empty `?since=` is an absent cursor, not the cursor `''` — the
-            // two backends decode `''` divergently (SQLite from-start, Norn throws).
+            // An empty `?since=` is an absent cursor, not the literal cursor `''`.
             const since = q.get('since') || undefined;
             let limit: number | undefined;
             const rawLimit = q.get('limit');

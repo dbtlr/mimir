@@ -72,19 +72,6 @@ const ERROR_DOC = `## History\n### 2026-07-03T10:00:00.000Z — lifecycle\n## An
 // error on it — it is a `warn` at most.
 const TOLERATED_HASH_DOC = `## History\n### 2026-07-03T10:00:00.000Z — lifecycle\nactive → done\n### a hand note\n## Annotations\n`;
 
-test('no-op with a clean stdout line and exit 0 when no vault backend is active', async () => {
-  const io = fakeIo();
-  const code = await cmdDoctor(
-    io,
-    { readNodeDocs: null, readSectionFailures: null, readVaultGraph: null, validate: null },
-    'table',
-    undefined,
-  );
-  expect(code).toBe(0);
-  expect(io.out.join('')).toContain('vault backend not active');
-  expect(io.err.join('')).toBe('');
-});
-
 test('reports no problems and exits 0 over a clean vault', async () => {
   const io = fakeIo();
   const code = await cmdDoctor(
@@ -179,18 +166,6 @@ test('jsonl format emits one finding per line (NDJSON), not a single array', asy
   expect(lines).toHaveLength(2);
   const parsed = lines.map((l) => JSON.parse(l) as { node: string });
   expect(parsed.map((p) => p.node).toSorted()).toEqual(['MMR-8', 'MMR-9']);
-});
-
-test('json no-op emits an empty array and exits 0', async () => {
-  const io = fakeIo();
-  const code = await cmdDoctor(
-    io,
-    { readNodeDocs: null, readSectionFailures: null, readVaultGraph: null, validate: null },
-    'json',
-    undefined,
-  );
-  expect(code).toBe(0);
-  expect(io.out.join('')).toBe('[]');
 });
 
 test('the -s scope keeps the project and its nodes, dropping other projects', async () => {
@@ -912,18 +887,6 @@ test('the -s scope drops another project’s frontmatter findings (a per-documen
   expect(findings.map((f) => f.node)).toEqual(['MMR-1']);
 });
 
-test('the frontmatter check no-ops on the SQLite backend (validate handle null)', async () => {
-  const io = fakeIo();
-  const code = await cmdDoctor(
-    io,
-    { readNodeDocs: null, readSectionFailures: null, readVaultGraph: null, validate: null },
-    'json',
-    undefined,
-  );
-  expect(code).toBe(0);
-  expect(io.out.join('')).toBe('[]');
-});
-
 test('a malformed / empty validate payload does not crash doctor', async () => {
   for (const payload of [
     undefined,
@@ -939,25 +902,6 @@ test('a malformed / empty validate payload does not crash doctor', async () => {
     expect(code).toBe(0);
     expect(JSON.parse(io.out.join('')) as unknown[]).toHaveLength(0);
   }
-});
-
-test('a null validate handle alone (others present) trips the no-op guard, exit 0', async () => {
-  // Isolate the `|| deps.validate === null` clause: on a backend that reads docs
-  // and the graph but cannot validate, doctor must no-op, not crash on a null call.
-  const io = fakeIo();
-  const code = await cmdDoctor(
-    io,
-    {
-      readNodeDocs: () => Promise.resolve([]),
-      readSectionFailures: () => Promise.resolve([]),
-      readVaultGraph: () => Promise.reject(new Error('unused')),
-      validate: null,
-    },
-    'json',
-    undefined,
-  );
-  expect(code).toBe(0);
-  expect(io.out.join('')).toBe('[]');
 });
 
 test('deps.validate() rejecting (unreachable vault) propagates, not a swallowed exit 0', async () => {

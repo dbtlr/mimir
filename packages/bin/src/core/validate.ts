@@ -246,8 +246,8 @@ export function validate(graph: VaultGraph): ValidatedGraph {
       parent = null;
     }
 
-    // Dedup by stem, mirroring the loader's collapse to SQLite's
-    // (node_id, depends_on_node_id) primary key — a doubled wikilink is one edge.
+    // Dedup by stem — a doubled wikilink is one edge, the same collapse a
+    // (node_id, depends_on_node_id) primary key would enforce.
     // Deduping here (not in the reader) keeps the valid subgraph the single truth:
     // a doubled prereq yields one output edge and, when dangling, one drop.
     const dependsOn: string[] = [];

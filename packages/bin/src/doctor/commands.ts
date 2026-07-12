@@ -1,9 +1,8 @@
 /**
  * The `mimir doctor` command (MMR-166) — run the vault diagnostics registry and
  * report. A vault-only surface: the body-section records it checks live in
- * hand-editable markdown, so on the SQLite backend (typed rows, nothing
- * malformable) doctor no-ops. `readNodeDocs` is the injected vault read handle,
- * `null` when no vault backend is active.
+ * hand-editable markdown. `readNodeDocs` / `readSectionFailures` / `readVaultGraph`
+ * / `validate` are the injected vault read handles.
  *
  * Output honors the CLI contract: findings print to stderr and a clean run
  * prints one line on stdout. Doctor is a **non-gating diagnostic** (ADR 0017):
@@ -22,25 +21,19 @@ import type { DoctorContext, DoctorFinding } from './checks';
 import { CHECKS } from './checks';
 
 export type DoctorDeps = {
-  /** Read every work-state document's raw markdown, or `null` when no vault
-   * backend is active (doctor then no-ops). A `scope` (project KEY) pushes into
-   * the vault query so a scoped run fetches only that project's docs (MMR-170). */
-  readNodeDocs: ((scope: string | undefined) => Promise<{ stem: string; body: string }[]>) | null;
+  /** Read every work-state document's raw markdown. A `scope` (project KEY) pushes
+   * into the vault query so a scoped run fetches only that project's docs (MMR-170). */
+  readNodeDocs: (scope: string | undefined) => Promise<{ stem: string; body: string }[]>;
   /** Read every work-state doc whose `## History`/`## Annotations` heading norn
    * cannot resolve (ambiguous duplicate or missing) — the input for the
-   * section-resolution check (MMR-239), or `null` on SQLite. Wired with
-   * {@link readNodeDocs}: all present, or all null. */
-  readSectionFailures:
-    | ((scope: string | undefined) => Promise<{ stem: string; section: string }[]>)
-    | null;
-  /** Read the vault's raw, unresolved relational graph, or `null` on the SQLite
-   * backend. Wired with {@link readNodeDocs}: both present, or both null. */
-  readVaultGraph: (() => Promise<VaultGraph>) | null;
-  /** Run norn's `vault.validate` and return its raw (untyped) payload, or `null`
-   * on the SQLite backend. Surfaces the frontmatter corruptions (parse-failed,
-   * untyped) that make a doc invisible to the reader AND to every graph-based
-   * check (MMR-191). Wired with {@link readNodeDocs}: all present, or all null. */
-  validate: (() => Promise<unknown>) | null;
+   * section-resolution check (MMR-239). */
+  readSectionFailures: (scope: string | undefined) => Promise<{ stem: string; section: string }[]>;
+  /** Read the vault's raw, unresolved relational graph. */
+  readVaultGraph: () => Promise<VaultGraph>;
+  /** Run norn's `vault.validate` and return its raw (untyped) payload. Surfaces
+   * the frontmatter corruptions (parse-failed, untyped) that make a doc invisible
+   * to the reader AND to every graph-based check (MMR-191). */
+  validate: () => Promise<unknown>;
 };
 
 /** Keep only docs in the `-s` scope: the project itself (`KEY`) or its nodes
@@ -55,22 +48,6 @@ export async function cmdDoctor(
   format: Format,
   scope: string | undefined,
 ): Promise<number> {
-  if (
-    deps.readNodeDocs === null ||
-    deps.readSectionFailures === null ||
-    deps.readVaultGraph === null ||
-    deps.validate === null
-  ) {
-    // No vault backend: node state lives in typed SQLite rows — nothing here can
-    // be malformed (body sections) or dangle (the parent_id/project_id FKs hold).
-    if (format === 'json') {
-      io.write('[]');
-    } else if (format !== 'jsonl') {
-      ok(io, 'doctor: vault backend not active — no body sections to check');
-    }
-    return 0;
-  }
-
   // Read the vault once and share it across every check — the registry is built
   // to grow, so a per-check read would be one scan per check. The `-s` scope is
   // pushed into the vault query (MMR-170) so a scoped run fetches only its

@@ -57,7 +57,7 @@ function resolveScope(set: DerivationSet, key: string): number {
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
-/** ASCII-only lowering — parity with SQLite `lower()`, which leaves non-ASCII untouched. */
+/** ASCII-only lowering (non-ASCII left untouched). */
 const asciiLower = (s: string): string => s.replace(/[A-Z]/g, (c) => c.toLowerCase());
 
 /**
