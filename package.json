@@ -20,7 +20,7 @@
     "build": "bun run build:ui && bun run assets && bun build packages/bin/src/main.ts --compile --define 'MIMIR_BUILD_PROFILE=\"production\"' --outfile dist/mimir"
   },
   "dependencies": {
-    "vite": "^8.1.3"
+    "vite": "^8.1.4"
   },
   "devDependencies": {
     "@dbtlr/tooling": "0.3.0",
