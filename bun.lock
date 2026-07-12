@@ -21,11 +21,9 @@
         "mimir": "./src/main.ts",
       },
       "dependencies": {
-        "@meck93/kysely-bun-sqlite": "0.2.16",
         "@mimir/contract": "workspace:*",
         "@mimir/helpers": "workspace:*",
         "@modelcontextprotocol/sdk": "1.29.0",
-        "kysely": "0.28.17",
         "zod": "4.4.3",
       },
     },
@@ -395,8 +393,6 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
-
-    "@meck93/kysely-bun-sqlite": ["@meck93/kysely-bun-sqlite@0.2.16", "", { "peerDependencies": { "kysely": "^0.28.11" } }, "sha512-3lDrz1P156/TKGE60W+wQL8DJGNvjX1N1yAks0av/g5eyvJdhiaPukm47Du4pc2xGgj1SabEgvI2oJeGaFyokg=="],
 
     "@mimir/bin": ["@mimir/bin@workspace:packages/bin"],
 
@@ -1141,8 +1137,6 @@
     "jsonfile": ["jsonfile@6.2.1", "", { "dependencies": { "universalify": "^2.0.0" }, "optionalDependencies": { "graceful-fs": "^4.1.6" } }, "sha512-zwOTdL3rFQ/lRdBnntKVOX6k5cKJwEc1HdilT71BWEu7J41gXIB2MRp+vxduPSwZJPWBxEzv4yH1wYLJGUHX4Q=="],
 
     "jsonpointer": ["jsonpointer@5.0.1", "", {}, "sha512-p/nXbhSEcu3pZRdkW1OfJhpsVtW1gd4Wa1fnQc9YLiTfAjn0312eMKimbdIQzuZl9aa9xUGaRlP9T/CJE/ditQ=="],
-
-    "kysely": ["kysely@0.28.17", "", {}, "sha512-nbD8lB9EB3wNdMhOCdx5Li8DxnLbvKByylRLcJ1h+4SkrowVeECAyZlyiKMThF7xFdRz0jSQ2MoJr+wXux2y0Q=="],
 
     "leven": ["leven@3.1.0", "", {}, "sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A=="],
 

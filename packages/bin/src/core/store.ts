@@ -18,8 +18,8 @@ import type { TransitionsFeed } from './transitions/store';
  * The coarse storage seam (ADR 0016 Phase 0). The core reads work state as
  * bulk projections — O(views) store queries, never O(nodes) — and derives
  * everything else in memory; writes run inside `transact`, composing the
- * `StoreWriter` primitives. A backend implements this interface; SQLite is
- * the lone implementation today (`createSqliteStore`).
+ * `StoreWriter` primitives. The Norn markdown vault implements this interface
+ * (`createNornWriteStore`, ADR 0016) — the sole backend since MMR-234.
  */
 
 /**
@@ -50,9 +50,8 @@ export type WorkingSet = {
 
 // ---------------------------------------------------------------------------
 // Write records — the backend-neutral shapes the verbs hand the writer.
-// Patterned like `model.ts` (snake_case store vocabulary) and structurally
-// compatible with Kysely's Insertable/Updateable, so the SQLite backend
-// passes them straight through.
+// Patterned like `model.ts` (snake_case store vocabulary) — the store maps them
+// onto the vault's frontmatter.
 // ---------------------------------------------------------------------------
 
 export type NewProjectRecord = {
@@ -152,9 +151,9 @@ export type NewTransitionRecord = {
   from_value: string | null;
   to_value: string | null;
   reason?: string | null;
-  // Core-supplied (MMR-173): stamped by `logTransition`, not the DB column
-  // default, so the SQLite and Norn backends persist the same transition time —
-  // upholding the `stamp` invariant (the core is the sole time-maintainer).
+  // Core-supplied (MMR-173): stamped by `logTransition`, not the store, so the
+  // transition time upholds the `stamp` invariant (the core is the sole
+  // time-maintainer).
   at: string;
 };
 
@@ -224,32 +223,28 @@ export type Store = {
   transact: <T>(fn: (w: StoreWriter) => Promise<T>) => Promise<T>;
 
   /**
-   * The artifact slice (MMR-143, ADR 0016 Phase 2a) — the first surface with
-   * two backends. The composition root plugs in SQLite (default) or the
-   * Norn vault; everything artifact-shaped routes through here, keyed by
-   * external identity, never numeric ids.
+   * The artifact slice (MMR-143, ADR 0016 Phase 2a) — everything artifact-shaped
+   * routes through here, keyed by external identity (`KEY-aN`), never numeric ids.
    */
   readonly artifacts: ArtifactStore;
 
   /**
    * The seed slice (MMR-244) — the grooming-queue entity, project-anchored like
    * artifacts (ADR 0004 precedent), keyed by the `KEY-sN` external identity.
-   * **Norn-backed only**: the SQLite arm throws (seeds are not stored in the
-   * retiring SQLite backend, MMR-234).
    */
   readonly seeds: SeedStore;
 
   /**
    * The body-section read slice (MMR-154, ADR 0016 Phase 3) — a node's
-   * `## History` and `## Annotations` facets, backed by the `transition_log` /
-   * `annotation` tables (SQLite) or the markdown sections (Norn).
+   * `## History` and `## Annotations` facets, backed by the markdown body
+   * sections in the vault.
    */
   readonly bodySections: BodySectionStore;
 
   /**
    * The cross-node transition feed slice (MMR-160, ADR 0016 Phase 3) — the
-   * whole-portfolio transition log, backed by the `transition_log` table
-   * (SQLite) or the fanned-out `## History` sections (Norn).
+   * whole-portfolio transition log, backed by the fanned-out `## History`
+   * sections in the vault.
    */
   readonly transitions: TransitionsFeed;
 };

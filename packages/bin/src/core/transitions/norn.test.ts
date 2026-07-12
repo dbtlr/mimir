@@ -180,7 +180,7 @@ test('a trailing-separator cursor (empty idx) is rejected, not decoded as idx 0'
   expect(feed.list({ since: '2026-07-04T10:00:00.000Z|MMR-3|' })).rejects.toThrow(/cursor/);
 });
 
-test("an empty `since` reads from the start (parity with SQLite's Number('') === 0)", async () => {
+test('an empty `since` reads from the start', async () => {
   const feed = createNornTransitionsFeed(
     fakeClient([projectDoc('MMR'), nodeDoc('MMR-3', [entry('2026-07-04T10:00:00.000Z', 'a')])]),
   );

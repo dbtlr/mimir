@@ -14,19 +14,19 @@ import type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore }
  *
  * - **Seq allocation is derived**: `max(seq)+1` over the project's artifact
  *   stems, with create-exclusive retry — `vault.new` refuses an existing path,
- *   so a concurrent-create collision re-derives and retries (bounded). Unlike
- *   SQLite's monotonic `last_artifact_seq`, a derived max *reuses* a seq if the
- *   highest artifact file is removed — harmless here because artifacts are
- *   append-only and never deleted (ADR 0004; a hand-deletion is out of
- *   contract), and the id↔int layer thins to the stem regardless (ADR 0016).
- * - **Anchors may dangle during the split** (nodes still in SQLite until
- *   Phase 3): links are written as real wikilinks and queried as stored text
- *   (Norn collapses brackets in field matching) — ADR 0016 Refinement.
+ *   so a concurrent-create collision re-derives and retries (bounded). A
+ *   derived max *reuses* a seq if the highest artifact file is removed —
+ *   harmless here because artifacts are append-only and never deleted (ADR
+ *   0004; a hand-deletion is out of contract), and the id↔int layer thins to
+ *   the stem regardless (ADR 0016).
+ * - **Anchors may dangle during the split**: links are written as real
+ *   wikilinks and queried as stored text (Norn collapses brackets in field
+ *   matching) — ADR 0016 Refinement.
  * - **Tag notes are rejected**: frontmatter `tags` are plain strings; a
  *   `--note` on a vault-backed artifact has nowhere faithful to live.
- * - **`q` search rides Norn's `contains`** (title) — case-sensitive literal
- *   matching vs SQLite's case-insensitive LIKE over title+content; a
- *   documented transitional delta of the flag, not a silent one.
+ * - **`q` search is case-insensitive and title-only** (in-process
+ *   `toLowerCase().includes` over the loaded records); the title-only scope is
+ *   the documented delta from the flag's prior title+content behavior.
  */
 
 const CREATE_RETRIES = 5;
@@ -64,8 +64,9 @@ function artifactFieldJson(fields: {
 }
 
 /**
- * Cutover-only (MMR-144): write one SQLite-sourced artifact into the vault at
- * its *existing* identity — the same `KEY-aN` stem and the same `created` — so
+ * Cutover-only (MMR-144): write one pre-existing artifact record into the
+ * vault at its *existing* identity — the same `KEY-aN` stem and the same
+ * `created` — so
  * ids and timestamps survive the migration and a re-run is idempotent. Unlike
  * `create`, it never derives a fresh seq or re-stamps `created`; the frozen
  * `content` becomes the body. An already-migrated path (create-exclusive
@@ -178,8 +179,8 @@ export function createNornArtifactStore(client: NornClient): ArtifactStore {
       return record;
     }
     // Norn writes markdown with a trailing newline (POSIX convention); strip
-    // one so content round-trips what was attached, matching SQLite's verbatim
-    // storage. (A body deliberately ending in `\n` loses that one newline —
+    // one so content round-trips what was attached, verbatim. (A body
+    // deliberately ending in `\n` loses that one newline —
     // benign for frozen markdown artifacts, and the sole content delta.)
     const raw = typeof doc.body === 'string' ? doc.body : '';
     return { ...record, content: raw.endsWith('\n') ? raw.slice(0, -1) : raw };
@@ -276,7 +277,7 @@ export function createNornArtifactStore(client: NornClient): ArtifactStore {
         const q = query.q.toLowerCase();
         items = items.filter((r) => r.title.toLowerCase().includes(q));
       }
-      // Newest-first, seq as the stable tiebreak (SQLite used insert order).
+      // Newest-first, seq as the stable tiebreak (matches insertion order).
       items.sort((a, b) => {
         if (a.created_at !== b.created_at) {
           return a.created_at < b.created_at ? 1 : -1;

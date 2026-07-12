@@ -2,7 +2,7 @@
  * Working-set token resolution (MMR-160, ADR 0016 Phase 3) — resolves a
  * human `KEY`/`KEY-seq`/`KEY-aN` token against the {@link DerivationSet}
  * snapshot a transport already derives its views over, so no read path
- * touches the raw SQLite executor. Identical error vocabulary throughout (a
+ * bypasses the derivation layer. Identical error vocabulary throughout (a
  * project token where a node is expected, an unknown key).
  */
 

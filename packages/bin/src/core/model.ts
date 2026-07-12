@@ -10,14 +10,12 @@ import type {
 
 /**
  * The backend-neutral domain model (ADR 0016 Phase 0) — the record shapes the
- * core reads and derives over, owned by the core rather than any storage
- * layer. `db/schema.ts` asserts its SQLite row types stay assignable to these,
- * so a Kysely result satisfies the model structurally with no mapping; a
- * future backend only has to produce the same shapes.
+ * core reads and derives over, owned by the core rather than the storage layer.
+ * The Norn store (`store-norn.ts`) projects the vault's frontmatter into these
+ * shapes; the model owns the contract, not the store.
  *
- * Field names remain the store's snake_case vocabulary — they are the wire
- * projection's bare-field names too (output-contract reference), not a
- * SQLite-ism.
+ * Field names are the store's snake_case vocabulary — they are the wire
+ * projection's bare-field names too (output-contract reference).
  */
 
 export type Project = {

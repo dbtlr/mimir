@@ -6,6 +6,12 @@ date: 2026-07-01
 
 # ADR 0016: A Norn-managed markdown vault is the system of record
 
+> **Status update (2026-07-12, MMR-234): implemented.** The incremental cutover is
+> complete. The SQLite store — implementation, schema/migrations, the `[store]`
+> backend fence, and the one-time migration tooling — has been removed; the
+> Norn-managed vault is the sole backend. The narrative below is the original
+> decision record and describes the now-retired transitional two-backend seam.
+
 Mimir's system of record moves from its own SQLite store to a **Norn-managed
 markdown vault**: markdown files are the durable, git-backed, inspectable
 truth; Norn owns all reads, writes, queries, and integrity (maintaining its

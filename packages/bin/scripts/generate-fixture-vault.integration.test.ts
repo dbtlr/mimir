@@ -36,15 +36,22 @@ beforeAll(async () => {
   await generateFixtureVault(vault);
   client = new NornClient({ vaultPath: vault });
   store = createNornWriteStore(client, vault);
-});
+  // Generating the full demo vault is many norn transacts — well past bun's
+  // 5s default hook timeout on a cold CI runner (the suite only started
+  // running in CI when MMR-234 provisioned norn there).
+}, 120_000);
 
 afterAll(async () => {
-  if (!NORN) {
-    return;
+  // `client` can be unassigned when norn is absent OR when beforeAll timed
+  // out mid-generation — guard both rather than gating on NORN alone.
+  try {
+    await client?.close();
+  } finally {
+    if (root !== undefined) {
+      rmSync(root, { force: true, recursive: true });
+    }
   }
-  await client.close();
-  rmSync(root, { force: true, recursive: true });
-});
+}, 30_000);
 
 const byTitle = (nodes: readonly Node[], title: string): Node => {
   const node = nodes.find((n) => n.title === title);

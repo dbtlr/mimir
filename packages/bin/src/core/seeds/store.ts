@@ -14,10 +14,8 @@ import type { HistoryEntry, SeedKind, SeedLifecycle } from '@mimir/contract';
  * `promoted → resolved | rejected`) and the store-level mutation primitives
  * ({@link SeedStore.patch}/{@link SeedStore.transition}/{@link SeedStore.germinate}).
  * The verb surface (CLI/MCP/HTTP) rides on top in MMR-245; `requester`/`spawned`
- * are verb-owned relations, never patched directly.
- *
- * **Norn backend only.** The SQLite backend is a fenced rollback being retired
- * (MMR-234) and never grows a seed table; its arm throws (see `sqlite.ts`).
+ * are verb-owned relations, never patched directly. Seeds live in the vault
+ * (a `KEY/seeds/KEY-sN.md` doc), like every entity since MMR-234.
  */
 
 /** One seed's metadata, backend-neutral. Description is BODY prose, never here. */

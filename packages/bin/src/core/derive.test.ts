@@ -2,245 +2,353 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import type { Lifecycle } from '@mimir/contract';
 
-import { createTestDb } from '../db/testing';
-import type { Db } from './context';
+import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { childDistribution, deriveSet, nodeStatusWord, statusOf } from './derive';
 import type { Store } from './store';
-import { createSqliteStore, loadWorkingSet } from './store-sqlite';
 
-let db: Db;
+const NORN = Bun.which('norn') !== null;
+
 let store: Store;
+let closeStore: () => Promise<void>;
 beforeEach(async () => {
-  db = await createTestDb();
-  store = createSqliteStore(db);
+  ({ close: closeStore, store } = await createTestStore());
 });
 afterEach(async () => {
-  await db.destroy();
+  await closeStore();
 });
 
-const setOf = async () => deriveSet(await loadWorkingSet(db));
+const setOf = async () => deriveSet(await store.loadWorkingSet());
 
-async function setLifecycle(id: number, lifecycle: Lifecycle): Promise<void> {
-  await db.updateTable('node').set({ lifecycle }).where('id', '=', id).execute();
+async function setLifecycle(key: string, seq: number, lifecycle: Lifecycle): Promise<void> {
+  const id = await nodeIdOf(store, `${key}-${String(seq)}`);
+  await store.transact((w) => w.updateNode(id, { lifecycle }));
 }
 
-async function reload(id: number) {
+async function reload(key: string, seq: number) {
+  const id = await nodeIdOf(store, `${key}-${String(seq)}`);
   const node = await store.transact((w) => w.loadNode(id));
   if (node === undefined) {
-    throw new Error(`node ${id} vanished`);
+    throw new Error(`node ${key}-${String(seq)} vanished`);
   }
   return node;
 }
 
-async function dep(nodeId: number, dependsOn: number): Promise<void> {
-  await db
-    .insertInto('dependency')
-    .values({ depends_on_node_id: dependsOn, node_id: nodeId })
-    .execute();
+async function dep(key: string, nodeSeq: number, dependsOnSeq: number): Promise<void> {
+  const nodeId = await nodeIdOf(store, `${key}-${String(nodeSeq)}`);
+  const dependsOnId = await nodeIdOf(store, `${key}-${String(dependsOnSeq)}`);
+  await store.transact((w) =>
+    w.insertDependency({ depends_on_node_id: dependsOnId, node_id: nodeId }),
+  );
 }
 
-test('an initiative-level prerequisite gates a deep task and rolls the phase up to awaiting', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'dependent init' });
-  const prereqInit = await createInitiative(store, { projectId: p.id, title: 'prereq init' });
-  const prereqTask = await createTask(store, { parentId: prereqInit.id, title: 'prereq work' });
-  await dep(init.id, prereqInit.id); // edge two levels above the leaf
+test.skipIf(!NORN)(
+  'an initiative-level prerequisite gates a deep task and rolls the phase up to awaiting',
+  async () => {
+    await createProject(store, { key: 'MMR', name: 'm' });
+    const projectId = await projectIdOf(store, 'MMR');
+    const init = await createInitiative(store, { projectId, title: 'dependent init' });
+    const prereqInit = await createInitiative(store, { projectId, title: 'prereq init' });
+    const prereqTask = await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(prereqInit.seq)}`),
+      title: 'prereq work',
+    });
+    await dep('MMR', init.seq, prereqInit.seq); // edge two levels above the leaf
 
-  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
-  const deep = await createTask(store, { parentId: phase.id, title: 'deep' });
+    const phase = await createPhase(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(init.seq)}`),
+      title: 'ph',
+    });
+    const deep = await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(phase.seq)}`),
+      title: 'deep',
+    });
 
-  // inherited across two levels (deep → phase → init), and the phase rolls up awaiting
-  expect(nodeStatusWord(await setOf(), await reload(deep.id))).toBe('awaiting');
-  expect(nodeStatusWord(await setOf(), await reload(phase.id))).toBe('awaiting');
+    // inherited across two levels (deep → phase → init), and the phase rolls up awaiting
+    expect(nodeStatusWord(await setOf(), await reload('MMR', deep.seq))).toBe('awaiting');
+    expect(nodeStatusWord(await setOf(), await reload('MMR', phase.seq))).toBe('awaiting');
 
-  // the prerequisite initiative settles → the gate clears, top to bottom
-  await setLifecycle(prereqTask.id, 'done');
-  expect(nodeStatusWord(await setOf(), await reload(deep.id))).toBe('ready');
-  expect(nodeStatusWord(await setOf(), await reload(phase.id))).toBe('ready');
-});
+    // the prerequisite initiative settles → the gate clears, top to bottom
+    await setLifecycle('MMR', prereqTask.seq, 'done');
+    expect(nodeStatusWord(await setOf(), await reload('MMR', deep.seq))).toBe('ready');
+    expect(nodeStatusWord(await setOf(), await reload('MMR', phase.seq))).toBe('ready');
+  },
+);
 
-test('an inherited gate is advisory: a started descendant stays in_progress', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const phase1 = await createPhase(store, { parentId: init.id, title: 'phase 1' });
-  await createTask(store, { parentId: phase1.id, title: 'p1 work' }); // keeps phase 1 unsettled
-  const phase2 = await createPhase(store, { parentId: init.id, title: 'phase 2' });
-  await dep(phase2.id, phase1.id);
-  const started = await createTask(store, { parentId: phase2.id, title: 'started early' });
+test.skipIf(!NORN)(
+  'an inherited gate is advisory: a started descendant stays in_progress',
+  async () => {
+    await createProject(store, { key: 'MMR', name: 'm' });
+    const projectId = await projectIdOf(store, 'MMR');
+    const init = await createInitiative(store, { projectId, title: 'i' });
+    const initId = await nodeIdOf(store, `MMR-${String(init.seq)}`);
+    const phase1 = await createPhase(store, { parentId: initId, title: 'phase 1' });
+    await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(phase1.seq)}`),
+      title: 'p1 work',
+    }); // keeps phase 1 unsettled
+    const phase2 = await createPhase(store, { parentId: initId, title: 'phase 2' });
+    await dep('MMR', phase2.seq, phase1.seq);
+    const started = await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(phase2.seq)}`),
+      title: 'started early',
+    });
 
-  // gate governs picking up new work, not retroactively un-starting active work
-  await setLifecycle(started.id, 'in_progress');
-  expect(nodeStatusWord(await setOf(), await reload(started.id))).toBe('in_progress');
-  // and the phase reads in_progress (live work beats the gate) — honest
-  expect(nodeStatusWord(await setOf(), await reload(phase2.id))).toBe('in_progress');
-});
+    // gate governs picking up new work, not retroactively un-starting active work
+    await setLifecycle('MMR', started.seq, 'in_progress');
+    expect(nodeStatusWord(await setOf(), await reload('MMR', started.seq))).toBe('in_progress');
+    // and the phase reads in_progress (live work beats the gate) — honest
+    expect(nodeStatusWord(await setOf(), await reload('MMR', phase2.seq))).toBe('in_progress');
+  },
+);
 
-test('a fresh phase of todo tasks rolls up to ready', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
-  await createTask(store, { parentId: phase.id, title: 't1' });
-  await createTask(store, { parentId: phase.id, title: 't2' });
+test.skipIf(!NORN)('a fresh phase of todo tasks rolls up to ready', async () => {
+  await createProject(store, { key: 'MMR', name: 'm' });
+  const projectId = await projectIdOf(store, 'MMR');
+  const init = await createInitiative(store, { projectId, title: 'i' });
+  const phase = await createPhase(store, {
+    parentId: await nodeIdOf(store, `MMR-${String(init.seq)}`),
+    title: 'ph',
+  });
+  const phaseId = await nodeIdOf(store, `MMR-${String(phase.seq)}`);
+  await createTask(store, { parentId: phaseId, title: 't1' });
+  await createTask(store, { parentId: phaseId, title: 't2' });
 
-  expect(childDistribution(await setOf(), phase.id)).toEqual({ ready: 2 });
-  expect(statusOf(await setOf(), await reload(phase.id)).status).toBe('ready');
+  expect(childDistribution(await setOf(), phaseId)).toEqual({ ready: 2 });
+  expect(statusOf(await setOf(), await reload('MMR', phase.seq)).status).toBe('ready');
   // initiative tallies the phase's word
-  expect(statusOf(await setOf(), await reload(init.id)).status).toBe('ready');
+  expect(statusOf(await setOf(), await reload('MMR', init.seq)).status).toBe('ready');
 });
 
-test('live work beats ready in the rollup', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
-  const t1 = await createTask(store, { parentId: phase.id, title: 't1' });
-  await createTask(store, { parentId: phase.id, title: 't2' });
+test.skipIf(!NORN)('live work beats ready in the rollup', async () => {
+  await createProject(store, { key: 'MMR', name: 'm' });
+  const projectId = await projectIdOf(store, 'MMR');
+  const init = await createInitiative(store, { projectId, title: 'i' });
+  const phase = await createPhase(store, {
+    parentId: await nodeIdOf(store, `MMR-${String(init.seq)}`),
+    title: 'ph',
+  });
+  const phaseId = await nodeIdOf(store, `MMR-${String(phase.seq)}`);
+  const t1 = await createTask(store, { parentId: phaseId, title: 't1' });
+  await createTask(store, { parentId: phaseId, title: 't2' });
 
-  await setLifecycle(t1.id, 'in_progress');
-  expect(childDistribution(await setOf(), phase.id)).toEqual({ in_progress: 1, ready: 1 });
-  expect(statusOf(await setOf(), await reload(phase.id)).status).toBe('in_progress');
+  await setLifecycle('MMR', t1.seq, 'in_progress');
+  expect(childDistribution(await setOf(), phaseId)).toEqual({ in_progress: 1, ready: 1 });
+  expect(statusOf(await setOf(), await reload('MMR', phase.seq)).status).toBe('in_progress');
 });
 
-test('all-done rolls up to done; an empty phase is new', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
-  const t1 = await createTask(store, { parentId: phase.id, title: 't1' });
-  await setLifecycle(t1.id, 'done');
-  expect(statusOf(await setOf(), await reload(phase.id)).status).toBe('done');
+test.skipIf(!NORN)('all-done rolls up to done; an empty phase is new', async () => {
+  await createProject(store, { key: 'MMR', name: 'm' });
+  const projectId = await projectIdOf(store, 'MMR');
+  const init = await createInitiative(store, { projectId, title: 'i' });
+  const initId = await nodeIdOf(store, `MMR-${String(init.seq)}`);
+  const phase = await createPhase(store, { parentId: initId, title: 'ph' });
+  const t1 = await createTask(store, {
+    parentId: await nodeIdOf(store, `MMR-${String(phase.seq)}`),
+    title: 't1',
+  });
+  await setLifecycle('MMR', t1.seq, 'done');
+  expect(statusOf(await setOf(), await reload('MMR', phase.seq)).status).toBe('done');
 
-  const empty = await createPhase(store, { parentId: init.id, title: 'empty' });
-  expect(statusOf(await setOf(), await reload(empty.id)).status).toBe('new');
+  const empty = await createPhase(store, { parentId: initId, title: 'empty' });
+  expect(statusOf(await setOf(), await reload('MMR', empty.seq)).status).toBe('new');
 
   // initiative over [done phase, new phase] → new (only undefined chunks remain after terminal)
-  expect(statusOf(await setOf(), await reload(init.id)).status).toBe('new');
+  expect(statusOf(await setOf(), await reload('MMR', init.seq)).status).toBe('new');
 });
 
-test('a task awaits an unsettled prerequisite and becomes ready once it settles', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
-  const prereq = await createTask(store, { parentId: phase.id, title: 'prereq' });
-  const dependent = await createTask(store, { parentId: phase.id, title: 'dependent' });
-  await db
-    .insertInto('dependency')
-    .values({ depends_on_node_id: prereq.id, node_id: dependent.id })
-    .execute();
+test.skipIf(!NORN)(
+  'a task awaits an unsettled prerequisite and becomes ready once it settles',
+  async () => {
+    await createProject(store, { key: 'MMR', name: 'm' });
+    const projectId = await projectIdOf(store, 'MMR');
+    const init = await createInitiative(store, { projectId, title: 'i' });
+    const phase = await createPhase(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(init.seq)}`),
+      title: 'ph',
+    });
+    const phaseId = await nodeIdOf(store, `MMR-${String(phase.seq)}`);
+    const prereq = await createTask(store, { parentId: phaseId, title: 'prereq' });
+    const dependent = await createTask(store, { parentId: phaseId, title: 'dependent' });
+    await dep('MMR', dependent.seq, prereq.seq);
 
-  expect(nodeStatusWord(await setOf(), await reload(dependent.id))).toBe('awaiting');
+    expect(nodeStatusWord(await setOf(), await reload('MMR', dependent.seq))).toBe('awaiting');
 
-  await setLifecycle(prereq.id, 'done');
-  expect(nodeStatusWord(await setOf(), await reload(dependent.id))).toBe('ready');
+    await setLifecycle('MMR', prereq.seq, 'done');
+    expect(nodeStatusWord(await setOf(), await reload('MMR', dependent.seq))).toBe('ready');
 
-  // an abandoned prerequisite also settles the dependent (abandoned never freezes)
-  const prereq2 = await createTask(store, { parentId: phase.id, title: 'prereq2' });
-  await db
-    .insertInto('dependency')
-    .values({ depends_on_node_id: prereq2.id, node_id: dependent.id })
-    .execute();
-  expect(nodeStatusWord(await setOf(), await reload(dependent.id))).toBe('awaiting');
-  await setLifecycle(prereq2.id, 'abandoned');
-  expect(nodeStatusWord(await setOf(), await reload(dependent.id))).toBe('ready');
-});
+    // an abandoned prerequisite also settles the dependent (abandoned never freezes)
+    const prereq2 = await createTask(store, { parentId: phaseId, title: 'prereq2' });
+    await dep('MMR', dependent.seq, prereq2.seq);
+    expect(nodeStatusWord(await setOf(), await reload('MMR', dependent.seq))).toBe('awaiting');
+    await setLifecycle('MMR', prereq2.seq, 'abandoned');
+    expect(nodeStatusWord(await setOf(), await reload('MMR', dependent.seq))).toBe('ready');
+  },
+);
 
-test('a container-dependency loop written behind the verbs throws the cycle invariant', async () => {
-  // The depend/move guards reject this shape at write time (MMR-140); write the
-  // raw rows to pin the read-side detection for data that predates the guards.
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const initA = await createInitiative(store, { projectId: p.id, title: 'A' });
-  const b = await createTask(store, { parentId: initA.id, title: 'b' });
-  const initC = await createInitiative(store, { projectId: p.id, title: 'C' });
-  const d = await createTask(store, { parentId: initC.id, title: 'd' });
-  await dep(b.id, initC.id); // A's task awaits C's rollup
-  await dep(d.id, initA.id); // C's task awaits A's rollup — the loop
+test.skipIf(!NORN)(
+  'a container-dependency loop written behind the verbs throws the cycle invariant',
+  async () => {
+    // The depend/move guards reject this shape at write time (MMR-140); write the
+    // raw edge to pin the read-side detection for data that predates the guards.
+    await createProject(store, { key: 'MMR', name: 'm' });
+    const projectId = await projectIdOf(store, 'MMR');
+    const initA = await createInitiative(store, { projectId, title: 'A' });
+    const b = await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(initA.seq)}`),
+      title: 'b',
+    });
+    const initC = await createInitiative(store, { projectId, title: 'C' });
+    const d = await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(initC.seq)}`),
+      title: 'd',
+    });
+    await dep('MMR', b.seq, initC.seq); // A's task awaits C's rollup
+    await dep('MMR', d.seq, initA.seq); // C's task awaits A's rollup — the loop
 
-  const set = await setOf();
-  const node = await reload(b.id);
-  expect(() => nodeStatusWord(set, node)).toThrow(/derivation cycle/);
-});
+    const set = await setOf();
+    const node = await reload('MMR', b.seq);
+    expect(() => nodeStatusWord(set, node)).toThrow(/derivation cycle/);
+  },
+);
 
 // ── Open-ended containers (MMR-204) ──────────────────────────────────────────
 
-async function setOpenEnded(id: number, value: boolean): Promise<void> {
-  await db.updateTable('node').set({ open_ended: value }).where('id', '=', id).execute();
+async function setOpenEnded(key: string, seq: number, value: boolean): Promise<void> {
+  const id = await nodeIdOf(store, `${key}-${String(seq)}`);
+  await store.transact((w) => w.updateNode(id, { open_ended: value }));
 }
 
-test('open-ended: a container with all children terminal reads ready, not done', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(store, { parentId: init.id, title: 'bugs' });
-  const t = await createTask(store, { parentId: phase.id, title: 't' });
-  await setLifecycle(t.id, 'done');
-  await setOpenEnded(phase.id, true);
+test.skipIf(!NORN)(
+  'open-ended: a container with all children terminal reads ready, not done',
+  async () => {
+    await createProject(store, { key: 'MMR', name: 'm' });
+    const projectId = await projectIdOf(store, 'MMR');
+    const init = await createInitiative(store, { projectId, title: 'i' });
+    const phase = await createPhase(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(init.seq)}`),
+      title: 'bugs',
+    });
+    const t = await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(phase.seq)}`),
+      title: 't',
+    });
+    await setLifecycle('MMR', t.seq, 'done');
+    await setOpenEnded('MMR', phase.seq, true);
 
-  // a normal phase would read `done` here; open-ended stays open for filing
-  expect(nodeStatusWord(await setOf(), await reload(phase.id))).toBe('ready');
+    // a normal phase would read `done` here; open-ended stays open for filing
+    expect(nodeStatusWord(await setOf(), await reload('MMR', phase.seq))).toBe('ready');
+  },
+);
+
+test.skipIf(!NORN)('open-ended: an empty container reads ready, not new', async () => {
+  await createProject(store, { key: 'MMR', name: 'm' });
+  const projectId = await projectIdOf(store, 'MMR');
+  const init = await createInitiative(store, { projectId, title: 'i' });
+  const phase = await createPhase(store, {
+    parentId: await nodeIdOf(store, `MMR-${String(init.seq)}`),
+    title: 'standing',
+  });
+  await setOpenEnded('MMR', phase.seq, true);
+
+  expect(nodeStatusWord(await setOf(), await reload('MMR', phase.seq))).toBe('ready');
 });
 
-test('open-ended: an empty container reads ready, not new', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(store, { parentId: init.id, title: 'standing' });
-  await setOpenEnded(phase.id, true);
+test.skipIf(!NORN)(
+  'open-ended: a container with live children derives its normal word',
+  async () => {
+    await createProject(store, { key: 'MMR', name: 'm' });
+    const projectId = await projectIdOf(store, 'MMR');
+    const init = await createInitiative(store, { projectId, title: 'i' });
+    const phase = await createPhase(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(init.seq)}`),
+      title: 'bugs',
+    });
+    const t = await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(phase.seq)}`),
+      title: 't',
+    });
+    await setLifecycle('MMR', t.seq, 'in_progress');
+    await setOpenEnded('MMR', phase.seq, true);
 
-  expect(nodeStatusWord(await setOf(), await reload(phase.id))).toBe('ready');
-});
+    expect(nodeStatusWord(await setOf(), await reload('MMR', phase.seq))).toBe('in_progress');
+  },
+);
 
-test('open-ended: a container with live children derives its normal word', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(store, { parentId: init.id, title: 'bugs' });
-  const t = await createTask(store, { parentId: phase.id, title: 't' });
-  await setLifecycle(t.id, 'in_progress');
-  await setOpenEnded(phase.id, true);
+test.skipIf(!NORN)(
+  'open-ended: an idle container is excluded from its parent rollup so the parent can close',
+  async () => {
+    await createProject(store, { key: 'MMR', name: 'm' });
+    const projectId = await projectIdOf(store, 'MMR');
+    const init = await createInitiative(store, { projectId, title: 'i' });
+    const initId = await nodeIdOf(store, `MMR-${String(init.seq)}`);
+    const donePhase = await createPhase(store, { parentId: initId, title: 'done work' });
+    const dt = await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(donePhase.seq)}`),
+      title: 'dt',
+    });
+    await setLifecycle('MMR', dt.seq, 'done');
+    const standing = await createPhase(store, { parentId: initId, title: 'bugs' });
+    await setOpenEnded('MMR', standing.seq, true); // empty + open-ended → idle
 
-  expect(nodeStatusWord(await setOf(), await reload(phase.id))).toBe('in_progress');
-});
+    // the idle open-ended phase drops out of the tally; only the done phase remains
+    expect(childDistribution(await setOf(), initId)).toEqual({ done: 1 });
+    expect(nodeStatusWord(await setOf(), await reload('MMR', init.seq))).toBe('done');
+  },
+);
 
-test('open-ended: an idle container is excluded from its parent rollup so the parent can close', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const donePhase = await createPhase(store, { parentId: init.id, title: 'done work' });
-  const dt = await createTask(store, { parentId: donePhase.id, title: 'dt' });
-  await setLifecycle(dt.id, 'done');
-  const standing = await createPhase(store, { parentId: init.id, title: 'bugs' });
-  await setOpenEnded(standing.id, true); // empty + open-ended → idle
+test.skipIf(!NORN)(
+  'open-ended: a container with live children contributes its word to the parent',
+  async () => {
+    await createProject(store, { key: 'MMR', name: 'm' });
+    const projectId = await projectIdOf(store, 'MMR');
+    const init = await createInitiative(store, { projectId, title: 'i' });
+    const initId = await nodeIdOf(store, `MMR-${String(init.seq)}`);
+    const donePhase = await createPhase(store, { parentId: initId, title: 'done work' });
+    const dt = await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(donePhase.seq)}`),
+      title: 'dt',
+    });
+    await setLifecycle('MMR', dt.seq, 'done');
+    const standing = await createPhase(store, { parentId: initId, title: 'bugs' });
+    const live = await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(standing.seq)}`),
+      title: 'bug',
+    });
+    await setLifecycle('MMR', live.seq, 'in_progress');
+    await setOpenEnded('MMR', standing.seq, true);
 
-  // the idle open-ended phase drops out of the tally; only the done phase remains
-  expect(childDistribution(await setOf(), init.id)).toEqual({ done: 1 });
-  expect(nodeStatusWord(await setOf(), await reload(init.id))).toBe('done');
-});
+    // live children → contributes in_progress; parent stays open
+    expect(childDistribution(await setOf(), initId)).toEqual({ done: 1, in_progress: 1 });
+    expect(nodeStatusWord(await setOf(), await reload('MMR', init.seq))).toBe('in_progress');
+  },
+);
 
-test('open-ended: a container with live children contributes its word to the parent', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const donePhase = await createPhase(store, { parentId: init.id, title: 'done work' });
-  const dt = await createTask(store, { parentId: donePhase.id, title: 'dt' });
-  await setLifecycle(dt.id, 'done');
-  const standing = await createPhase(store, { parentId: init.id, title: 'bugs' });
-  const live = await createTask(store, { parentId: standing.id, title: 'bug' });
-  await setLifecycle(live.id, 'in_progress');
-  await setOpenEnded(standing.id, true);
+test.skipIf(!NORN)(
+  'open-ended: a container never satisfies a dependency, even when it displays ready (MMR-204)',
+  async () => {
+    await createProject(store, { key: 'MMR', name: 'm' });
+    const projectId = await projectIdOf(store, 'MMR');
+    const init = await createInitiative(store, { projectId, title: 'i' });
+    const initId = await nodeIdOf(store, `MMR-${String(init.seq)}`);
+    // prerequisite: an idle open-ended phase (one done child → displays ready)
+    const prereq = await createPhase(store, { parentId: initId, title: 'bugs' });
+    const bug = await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(prereq.seq)}`),
+      title: 'bug',
+    });
+    await setLifecycle('MMR', bug.seq, 'done');
+    await setOpenEnded('MMR', prereq.seq, true);
+    // a dependent in a sibling phase depends on the standing container
+    const work = await createPhase(store, { parentId: initId, title: 'work' });
+    const after = await createTask(store, {
+      parentId: await nodeIdOf(store, `MMR-${String(work.seq)}`),
+      title: 'after bugs',
+    });
+    await dep('MMR', after.seq, prereq.seq);
 
-  // live children → contributes in_progress; parent stays open
-  expect(childDistribution(await setOf(), init.id)).toEqual({ done: 1, in_progress: 1 });
-  expect(nodeStatusWord(await setOf(), await reload(init.id))).toBe('in_progress');
-});
-
-test('open-ended: a container never satisfies a dependency, even when it displays ready (MMR-204)', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  // prerequisite: an idle open-ended phase (one done child → displays ready)
-  const prereq = await createPhase(store, { parentId: init.id, title: 'bugs' });
-  const bug = await createTask(store, { parentId: prereq.id, title: 'bug' });
-  await setLifecycle(bug.id, 'done');
-  await setOpenEnded(prereq.id, true);
-  // a dependent in a sibling phase depends on the standing container
-  const work = await createPhase(store, { parentId: init.id, title: 'work' });
-  const after = await createTask(store, { parentId: work.id, title: 'after bugs' });
-  await dep(after.id, prereq.id);
-
-  // the prereq shows `ready`, but a standing home never settles → the dependent awaits
-  expect(nodeStatusWord(await setOf(), await reload(prereq.id))).toBe('ready');
-  expect(nodeStatusWord(await setOf(), await reload(after.id))).toBe('awaiting');
-});
+    // the prereq shows `ready`, but a standing home never settles → the dependent awaits
+    expect(nodeStatusWord(await setOf(), await reload('MMR', prereq.seq))).toBe('ready');
+    expect(nodeStatusWord(await setOf(), await reload('MMR', after.seq))).toBe('awaiting');
+  },
+);

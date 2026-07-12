@@ -47,10 +47,14 @@ export type VaultConfig = {
 export const DEFAULT_SNAPSHOT_INTERVAL_SECONDS = 900;
 
 export type StoreConfig = {
-  /** Which backend serves the whole work-state store — SQLite (default) or the
-   * Norn vault (MMR-143/MMR-235). */
-  backend?: 'sqlite' | 'norn';
-  problem?: 'malformed' | 'invalid-backend';
+  /**
+   * Set iff a legacy `[store] backend` (or its `artifacts` alias) key is present.
+   * The backend fence was retired at MMR-234 — the Norn vault is the only store —
+   * so the value is not interpreted; it exists only so the composition root can
+   * emit a one-line "ignored" note (see `buildStore`) instead of failing an old
+   * config.
+   */
+  backend?: string;
 };
 
 export type GlobalConfig = { serve: ServeConfig; vault: VaultConfig; store: StoreConfig };
@@ -157,23 +161,15 @@ function snapshotSection(raw: unknown): SnapshotConfig | 'invalid' | undefined {
  * falling through to a default.
  */
 function storeSection(raw: unknown): StoreConfig {
-  if (raw === undefined) {
-    return {};
-  }
   if (!isTable(raw)) {
-    return { problem: 'malformed' };
-  }
-  // `artifacts` is the pre-MMR-235 name for this key, honored as a deprecated alias
-  // for one release so an old config never SILENTLY falls back to the sqlite default
-  // (store `problem` is not surfaced); removed at the cutover.
-  const backend = raw.backend ?? raw.artifacts;
-  if (backend === undefined) {
     return {};
   }
-  if (backend === 'sqlite' || backend === 'norn') {
-    return { backend };
-  }
-  return { problem: 'invalid-backend' };
+  // The backend fence is retired (MMR-234): flag a legacy `backend` (or its
+  // pre-MMR-235 `artifacts` alias) key only so the composition root can note it
+  // as ignored — the value is never interpreted.
+  const backend = raw.backend ?? raw.artifacts;
+  // Only a string key is meaningful to flag; the value is never interpreted.
+  return typeof backend === 'string' ? { backend } : {};
 }
 
 export function readConfig(file = configPath()): GlobalConfig {
@@ -186,7 +182,7 @@ export function readConfig(file = configPath()): GlobalConfig {
   } catch {
     return {
       serve: { problem: 'malformed' },
-      store: { problem: 'malformed' },
+      store: {},
       vault: { problem: 'malformed' },
     };
   }
@@ -216,7 +212,6 @@ export type ConfigPatch = {
    * can drop a key like `upstream`, which a per-key merge could never express.
    */
   vault?: { path?: string; snapshot?: SnapshotConfig };
-  store?: { backend?: 'sqlite' | 'norn' };
 };
 
 type Table = Record<string, unknown>;
@@ -351,9 +346,6 @@ export function writeConfig(file: string, patch: ConfigPatch): WriteResult {
       vault.snapshot = { ...patch.vault.snapshot };
     }
     raw.vault = vault;
-  }
-  if (patch.store?.backend !== undefined) {
-    raw.store = { ...asTable(raw.store), backend: patch.store.backend };
   }
   const out: string[] = [];
   emitTable('', raw, out);

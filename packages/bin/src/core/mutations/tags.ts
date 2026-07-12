@@ -11,10 +11,10 @@ import { assertProjectActive } from './common';
  */
 
 /**
- * A tag target. Node/project targets carry the surrogate id and use the
- * SQLite tag table; an **artifact** target carries its external identity
+ * A tag target. Node/project targets carry the surrogate id and use the tag
+ * table directly; an **artifact** target carries its external identity
  * (`key`, `seq`) and routes through the artifact seam (MMR-143), so a
- * vault-backed artifact — which has no SQLite row — can still be tagged.
+ * vault-backed artifact — which has no tag-table row — can still be tagged.
  */
 export type EntityRef =
   | { entityType: 'project' | 'node'; entityId: number }
@@ -36,7 +36,7 @@ async function projectOfTarget(w: StoreWriter, ref: EntityRef): Promise<number |
  * row is kept (re-tagging never errors); a provided `note` overwrites the
  * stored one (the note rides the application, not the vocabulary).
  *
- * Node/project tags write the SQLite tag table under one transaction; an
+ * Node/project tags write the tag table under one transaction; an
  * artifact's tags route through the seam (the backend owns where they live).
  * The archive write-lock (ADR 0015) is asserted for every target either way.
  */
@@ -53,7 +53,7 @@ export async function tagEntities(
         await assertProjectActive(w, projectId);
       }
       if (target.entityType === 'artifact') {
-        continue; // written through the seam below, outside the SQLite tx
+        continue; // written through the seam below, outside this tx
       }
       for (const tag of tags) {
         const row = { entity_id: target.entityId, entity_type: target.entityType, tag };

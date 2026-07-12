@@ -10,7 +10,7 @@ type Override = LintOverride;
  * vite-plus centralizes lint/fmt here — per-package `lint` blocks are ignored
  * (only Vite/Vitest/build config is honored per package). `toolingConfig`'s
  * `node`/`react` take glob lists to scope each target to its package:
- *   - `packages/bin/**`  is the Bun binary (db/core/CLI/MCP/HTTP) — `node` is
+ *   - `packages/bin/**`  is the Bun binary (core/CLI/MCP/HTTP) — `node` is
  *     the closest shipped target (allows `node:` builtins). NOTE: there is no
  *     `bun` target yet, so `bun:*` imports and the `Bun` global are not covered.
  *   - `packages/contract/**` is pure types under the browser baseline (no glob).
@@ -25,14 +25,13 @@ type Override = LintOverride;
  *
  * Layer-boundary enforcement (the one thing toolingConfig can't express) rides
  * through `lint.overrides`. Inside `@mimir/bin` the flow is
- * `contract ← db ← core ← transports`:
- *   - `db` may import `contract`, never `core`/transports.
- *   - `core` may import `db` + `contract`, never transports.
- *   - transports import `core` + `contract`, never `db` or each other.
+ * `contract ← core ← transports`:
+ *   - `core` may import `contract` (and the `norn`/`vault` seam), never transports.
+ *   - transports import `core` + `contract`, never each other.
  * `main.ts` is the composition root and is intentionally unrestricted.
  *
  * Patterns match the relative import specifiers we actually write (`../core/x`,
- * `../../db/y`); `**` spans the leading `..` segments. Brace/extglob `@(...)`
+ * `../../core/y`); `**` spans the leading `..` segments. Brace/extglob `@(...)`
  * forms are avoided — oxlint silently ignores them in `overrides[].files`.
  */
 const layerGroups = (layer: string): string[] => [`**/${layer}`, `**/${layer}/**`];
@@ -96,13 +95,13 @@ const uiLintOverride: Override = {
 };
 
 const layerOverrides: Override[] = [
-  forbid(['packages/bin/src/db/**'], ['core', 'cli', 'mcp', 'http']),
   forbid(['packages/bin/src/core/**'], ['cli', 'mcp', 'http']),
-  forbid(['packages/bin/src/cli/**'], ['db', 'mcp', 'http']),
-  forbid(['packages/bin/src/mcp/**'], ['db', 'cli', 'http']),
-  forbid(['packages/bin/src/http/**'], ['db', 'cli', 'mcp']),
-  // Tests legitimately wire layers together (fixtures from `db/testing`,
-  // cross-layer assertions); the boundary constrains shipped code, not tests.
+  forbid(['packages/bin/src/cli/**'], ['mcp', 'http']),
+  forbid(['packages/bin/src/mcp/**'], ['cli', 'http']),
+  forbid(['packages/bin/src/http/**'], ['cli', 'mcp']),
+  // Tests legitimately wire layers together (the Norn store fixture from
+  // `testing/store`, cross-layer assertions); the boundary constrains shipped
+  // code, not tests.
   { files: ['**/*.test.ts'], rules: { 'no-restricted-imports': 'off' } },
   // Tests legitimately force bad/loose types — to drive error paths, assert over
   // untyped HTTP responses, narrow DOM queries — so unsafe assertions are allowed
@@ -111,9 +110,6 @@ const layerOverrides: Override[] = [
     files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx'],
     rules: { 'typescript/no-unsafe-type-assertion': 'off' },
   },
-  // Kysely migrations use an ordered `NNNN_name` filename convention, not
-  // kebab/pascal — exempt the whole directory from filename-case.
-  { files: ['packages/bin/src/db/migrations/**'], rules: { 'unicorn/filename-case': 'off' } },
   // The UI's vite config is a Node/Bun build script, not shipped browser code —
   // it reads packages/bin/package.json to stamp the bundle's build version
   // (MMR-260) alongside the binary's own MIMIR_BUILD_VERSION define.

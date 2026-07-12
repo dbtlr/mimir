@@ -6,9 +6,9 @@ date: 2026-06-04
 
 # mimir Schema Reference
 
-The concrete SQLite shape of the model decided across ADRs [0001](decisions/0001-task-status-two-axes-derived-rollup.md)–[0007](decisions/0007-rank-is-primary-order-priority-is-signal.md). This is a **maintained reference**, not a frozen artifact: the real migrations are constructed from here, and this document is kept honest as the model moves. The ADRs hold the _why_ in full; this note holds the _shape_ plus enough prose to build without re-deriving.
+The concrete shape of the model — realized as the vault's markdown frontmatter — decided across ADRs [0001](decisions/0001-task-status-two-axes-derived-rollup.md)–[0007](decisions/0007-rank-is-primary-order-priority-is-signal.md). This is a **maintained reference**, not a frozen artifact: the vault's frontmatter and Norn's handling of it are built from here, and this document is kept honest as the model moves. The ADRs hold the _why_ in full; this note holds the _shape_ plus enough prose to build without re-deriving.
 
-> **Single source of truth is the code.** Once the migration exists in the repo, the DB is authoritative and this note is a design projection — keep them in step, and prefer the ADRs over either when they disagree.
+> **Single source of truth is the vault.** Once an entity's frontmatter exists in the vault, it is authoritative and this note is a design projection — keep them in step, and prefer the ADRs over either when they disagree. Norn owns storage and keeps its own internal index; that index is a cache, never the record.
 
 ## Shape at a glance
 
@@ -17,7 +17,7 @@ The concrete SQLite shape of the model decided across ADRs [0001](decisions/0001
 - **`dependency`** — node→node edges; `blocked`/`ready`/`blocking` are _derived_ from these, never stored.
 - **`annotation`** — freeform in-flight notes on a task.
 - **`artifact`** + **`artifact_link`** — frozen blobs, anchored to one project, linked to 0..N nodes ([ADR 0004](decisions/0004-artifact-model-project-anchored-flexibly-linked.md)).
-- **`seed`** — the grooming-queue entity ([ADR 0020](decisions/0020-seeds-grooming-queue-entity.md)): project-anchored, its own `KEY-sN` id, **not** a node. **Vault-only** (a markdown doc at `KEY/seeds/KEY-sN.md`); it has **no SQLite table** — the SQLite backend is retiring (MMR-234), so seeds landed Norn-only. See the ADR for its frontmatter/lifecycle shape.
+- **`seed`** — the grooming-queue entity ([ADR 0020](decisions/0020-seeds-grooming-queue-entity.md)): project-anchored, its own `KEY-sN` id, **not** a node. Lives in the vault the same way every entity does — a markdown doc at `KEY/seeds/KEY-sN.md` — no special-casing. See the ADR for its frontmatter/lifecycle shape.
 - **`tag`** — opaque strings on any project/node/artifact; the whole grouping axis ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)) and classification layer ([ADR 0002](decisions/0002-general-purpose-primitives-not-baked-in-semantics.md)).
 - **`transition_log`** — append-only history written beside every status-bearing change ([ADR 0003](decisions/0003-append-only-transition-log.md)).
 
@@ -84,7 +84,7 @@ CREATE INDEX idx_node_rank       ON node(project_id, rank);               -- nex
 CREATE INDEX idx_node_actionable ON node(project_id, lifecycle, hold);    -- ready / rankable filter
 ```
 
-**One typed table** absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseless initiative, a spec-less task) where five rigid tables would fight it (ADR 0006 spine / design-spec §3.3). Type-specific fields live as **nullable columns**, and the table-level `CHECK`s make the structurally-illegal rows **unrepresentable**: non-task rows carry no status/signal/rank, non-phase rows carry no `target`, and every task has both status axes. The line is clean — **the DB refuses illegal _rows_** (row-local, cheap, stable), while **the core owns the behavioral invariants it can't express**: parent type-correctness, cycle-freedom (`move_node`), dependency completeness behind `ready`, the rank reindex. (SQLite can't `ALTER` a `CHECK`, so changing this map later is a table rebuild — immaterial pre-release.)
+**One typed table** absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseless initiative, a spec-less task) where five rigid tables would fight it (ADR 0006 spine / design-spec §3.3). Type-specific fields live as **nullable columns**, and the table-level `CHECK`s make the structurally-illegal rows **unrepresentable**: non-task rows carry no status/signal/rank, non-phase rows carry no `target`, and every task has both status axes. The line is clean — **the model forbids structurally-illegal records** (structural, cheap, stable), while **the core owns the behavioral invariants it can't express structurally**: parent type-correctness, cycle-freedom (`move_node`), dependency completeness behind `ready`, the rank reindex.
 
 **`project_id` is denormalized onto every node** (not just derivable by walking `parent_id` to the root) because the three hottest operations are all project-scoped: `seq` allocation (ADR 0006), `rank` ordering/reindex (ADR 0007), and ID rendering (`KEY-seq`). Paying one cheap redundant column beats a recursive CTE on every one of those. The rendered human ID `KEY-seq` is **derived** (`project.key || '-' || seq`), never stored.
 
@@ -140,7 +140,7 @@ CREATE TABLE artifact_link (
 CREATE INDEX idx_artifact_link_node ON artifact_link(node_id);
 ```
 
-Stored as **blobs in SQLite, not files** (frozen → no diff/edit/git need → self-contained DB). **Anchored to exactly one project** (required), **linked to 0..N nodes** (optional context) — ADR 0004. Deliberately **no `type` enum and no `consolidated_at` column** (both removed, ADR 0002/0004): `spec`/`plan`/`session_log` classification and consolidation state are **tags**. Append-only — correct a bad artifact by attaching a new one.
+Frozen markdown docs in the vault, one per artifact at `KEY/artifacts/KEY-aN.md` — not diffed/edited in place, only ever added to. **Anchored to exactly one project** (required), **linked to 0..N nodes** (optional context) — ADR 0004. Deliberately **no `type` enum and no `consolidated_at` field** (both removed, ADR 0002/0004): `spec`/`plan`/`session_log` classification and consolidation state are **tags**. Append-only — correct a bad artifact by attaching a new one.
 
 ## `tag` — opaque strings, the grouping + classification axis
 
@@ -181,7 +181,7 @@ Written **in the same transaction** as the state change, by the same lifecycle/h
 
 ## Timestamps — one canonical format
 
-Every timestamp column (`created_at`, `updated_at`, `completed_at`, `transition_log.at`, `tag.created_at`) is **`TEXT`, ISO-8601, UTC, millisecond precision with an explicit `Z`** — `strftime('%Y-%m-%dT%H:%M:%fZ','now')`. Chosen over epoch integers because this is a local-first SQLite file you'll inspect by hand: ISO text is human-readable and sorts lexically = chronologically. Milliseconds (not bare `datetime('now')` seconds) keep the **caller-cursor** "since X" queries on `transition_log.at` / `tag.created_at` from tying; `transition_log.id` is the exact tiebreaker, so a cursor is `(at, id) > (X, lastId)`. **UTC always** — local time is rendered only at the UI edge, never stored. `created_at` DB-defaults; **`updated_at` is stamped by the core on every write** (not a trigger — time-maintenance stays in the sole writer, like the behavioral invariants).
+Every timestamp field (`created_at`, `updated_at`, `completed_at`, `transition_log.at`, `tag.created_at`) is **`TEXT`, ISO-8601, UTC, millisecond precision with an explicit `Z`**. Chosen over epoch integers because this is vault frontmatter you'll inspect by hand: ISO text is human-readable and sorts lexically = chronologically. Millisecond precision keeps the **caller-cursor** "since X" queries on `transition_log.at` / `tag.created_at` from tying; the transition log is an `at`-ordered best-effort feed with a stable secondary tiebreak, so a cursor is `(at, id) > (X, lastId)`. **UTC always** — local time is rendered only at the UI edge, never stored. `created_at` is set once, at creation; **`updated_at` is stamped by the core on every write** (time-maintenance stays in the sole writer, like the behavioral invariants).
 
 ---
 

@@ -166,7 +166,7 @@ export async function annotate(store: Store, id: number, content: string): Promi
   return store.transact(async (w) => {
     await requireNode(w, id);
     // Core-stamp the created-at (MMR-173) rather than lean on the DB default, so
-    // the SQLite and Norn backends persist the same value.
+    // every write path persists the same value.
     await w.insertAnnotation({ content, created_at: now(), node_id: id });
     await stamp(w, id); // in-flight activity moves the task (affects stale)
     return reloadNode(w, id);
@@ -221,7 +221,7 @@ export type AttachArtifactInput = {
  * Attach an artifact (MMR-34). Node-side validation (project active, links
  * in-project) runs in one transaction; the artifact write is a separate call
  * because it may target a different backend (ADR 0016 Phase 2a) that can't
- * join the SQLite transaction.
+ * join the node write's transaction.
  *
  * Transitional non-atomicity: an `archive` that commits between the two would
  * let the artifact land against a now-archived project, where reads hide it —

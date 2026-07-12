@@ -477,7 +477,7 @@ test('a real node body round-trips both sections through the read path', () => {
 });
 
 // ── Migration body reconstruction (MMR-155) ──────────────────────────────
-// The authoritative migration rebuilds a document body from SQLite rows: the
+// The codec rebuilds a document body from transition + annotation records: the
 // reconstructed body must read back — through the same read path the Norn reader
 // uses — to the exact records, in order.
 

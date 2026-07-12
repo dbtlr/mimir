@@ -26,6 +26,42 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # The store-backed suites run against the real `norn` binary (MMR-234 —
+      # the Norn vault is the only backend). Pinned deliberately: norn is
+      # pre-1.0 and contract breaks are absorbed on purpose (MMR-266 adopted
+      # 0.47) — bump the pin with intent, never float to latest. The release
+      # installer's PATH handling is rc-file-based, so the binary goes on
+      # GITHUB_PATH by hand.
+      - name: Install norn (pinned)
+        env:
+          NORN_VERSION: v0.47.0
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          # Digests pinned from the v0.47.0 release assets — a bumped
+          # NORN_VERSION moves these too (the release's own .sha256 files live
+          # in the same mutable release, so they can't be the trust anchor).
+          case "$(uname -s)-$(uname -m)" in
+            Darwin-arm64)
+              target=aarch64-apple-darwin
+              sha256=a646e022727ba8ebfd696789cee46067e0c6ef102eee93146dc6d95e4167cad4 ;;
+            Linux-x86_64)
+              target=x86_64-unknown-linux-musl
+              sha256=57c9bdcff1413709b19627253ff87bb844b9db855ef52b8fe65671a0b7fcfeda ;;
+            Linux-aarch64)
+              target=aarch64-unknown-linux-musl
+              sha256=412d6f97095e650c6a9f07eb8383ce31618075eeeea8ddf8e2f7fc92de6de17b ;;
+            *) echo "unsupported runner: $(uname -s)-$(uname -m)" >&2; exit 1 ;;
+          esac
+          asset="norn-run-${target}.tar.xz"
+          base="https://github.com/dbtlr/norn/releases/download/${NORN_VERSION}"
+          curl -fsSLO "${base}/${asset}"
+          echo "${sha256}  ${asset}" | shasum -a 256 -c
+          tar -xf "$asset"
+          mkdir -p norn-bin && mv "norn-run-${target}/norn" norn-bin/
+          echo "${RUNNER_TEMP}/norn-bin" >> "$GITHUB_PATH"
+          ./norn-bin/norn --version
+
       # The same gate enforced locally: oxfmt + oxlint + type-aware typecheck,
       # warnings treated as errors (vite.config.ts: denyWarnings, maxWarnings 0).
       # `check`/`test` regenerate the embedded-UI manifest first (ADR 0013).

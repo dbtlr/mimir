@@ -1,24 +1,18 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { expect, test } from 'bun:test';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createSqliteStore } from '../core';
-import type { Db, Store } from '../core';
-import { createTestDb } from '../db/testing';
+import type { Store } from '../core';
 import { runCli } from './run';
 import { SKILL_FILES, skillDirFor } from './skill-assets';
 import { fakeIo } from './testing';
 
-let db: Db;
-let store: Store;
-beforeEach(async () => {
-  db = await createTestDb();
-  store = createSqliteStore(db);
-});
-afterEach(async () => {
-  await db.destroy();
-});
+// `skill install` never touches the store — a throwing getter proves it and
+// keeps this suite norn-free.
+const getStore = (): Store => {
+  throw new Error('skill install must not touch the store');
+};
 
 test('the embedded skill carries the root + six references, all non-empty', () => {
   const paths = SKILL_FILES.map((f) => f.path);
@@ -51,7 +45,7 @@ test('skill install --local writes the full tree into the working copy', async (
   try {
     const io = fakeIo();
     expect(
-      await runCli(['skill', 'install', '--local', '-f', 'ids'], () => store, io, { cwd: dir }),
+      await runCli(['skill', 'install', '--local', '-f', 'ids'], getStore, io, { cwd: dir }),
     ).toBe(0);
     const root = join(dir, '.claude', 'skills', 'mimir');
     expect(io.out.join('')).toBe(root);
@@ -68,14 +62,14 @@ test('skill install --local --agent codex uses the .agents layout; reinstall ove
   const dir = mkdtempSync(join(tmpdir(), 'mimir-skill-'));
   try {
     expect(
-      await runCli(['skill', 'install', '--local', '--agent', 'codex'], () => store, fakeIo(), {
+      await runCli(['skill', 'install', '--local', '--agent', 'codex'], getStore, fakeIo(), {
         cwd: dir,
       }),
     ).toBe(0);
     expect(existsSync(join(dir, '.agents', 'skills', 'mimir', 'SKILL.md'))).toBe(true);
     // Refresh-on-upgrade: a second install over the same target succeeds.
     expect(
-      await runCli(['skill', 'install', '--local', '--agent', 'codex'], () => store, fakeIo(), {
+      await runCli(['skill', 'install', '--local', '--agent', 'codex'], getStore, fakeIo(), {
         cwd: dir,
       }),
     ).toBe(0);
@@ -87,15 +81,15 @@ test('skill install --local --agent codex uses the .agents layout; reinstall ove
 test('skill install rejects bad invocations (exit 2)', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'mimir-skill-'));
   try {
-    expect(await runCli(['skill'], () => store, fakeIo(), { cwd: dir })).toBe(2);
+    expect(await runCli(['skill'], getStore, fakeIo(), { cwd: dir })).toBe(2);
     expect(
-      await runCli(['skill', 'install', '--global', '--local'], () => store, fakeIo(), {
+      await runCli(['skill', 'install', '--global', '--local'], getStore, fakeIo(), {
         cwd: dir,
       }),
     ).toBe(2);
     const io = fakeIo();
     expect(
-      await runCli(['skill', 'install', '--local', '--agent', 'vim'], () => store, io, {
+      await runCli(['skill', 'install', '--local', '--agent', 'vim'], getStore, io, {
         cwd: dir,
       }),
     ).toBe(2);

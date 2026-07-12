@@ -1,7 +1,7 @@
 /**
  * The service lifecycle event log (MMR-47): one JSONL record per service
  * verb / self-update, discoverable by `service status`. A plain file, never
- * the SQLite store — ops state is consumer state (ADR 0002). Load-bearing
+ * the work-state store — ops state is consumer state (ADR 0002). Load-bearing
  * assumption: the file is append-only with no rotation — event rate is
  * human-frequency (verbs + self-updates), so the whole-file read stays cheap.
  */

@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import { createTestDb, expectReject } from '../../db/testing';
-import type { Db } from '../context';
+import { createTestStore, nodeIdOf, projectIdOf } from '../../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import type { Node } from '../model';
 import {
@@ -13,137 +12,158 @@ import {
   startTask,
 } from '../mutations';
 import type { Store } from '../store';
-import { createSqliteStore } from '../store-sqlite';
+import { expectMimirError } from '../testing';
 import { getArtifact, getNode, listNodes, nextTasks, statusOfNode } from './index';
 
-let db: Db;
+const NORN = Bun.which('norn') !== null;
+
 let store: Store;
+let closeStore: () => Promise<void>;
 let phaseId: number;
+let phaseSeq: number;
+let initId: number;
 let key: string;
 beforeEach(async () => {
-  db = await createTestDb();
-  store = createSqliteStore(db);
+  ({ close: closeStore, store } = await createTestStore());
   const p = await createProject(store, { key: 'MMR', name: 'm' });
   key = p.key;
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
-  phaseId = phase.id;
+  const init = await createInitiative(store, {
+    projectId: await projectIdOf(store, key),
+    title: 'i',
+  });
+  initId = await nodeIdOf(store, `${key}-${String(init.seq)}`);
+  const phase = await createPhase(store, { parentId: initId, title: 'ph' });
+  phaseId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
+  phaseSeq = phase.seq;
 });
 afterEach(async () => {
-  await db.destroy();
+  await closeStore();
 });
 
 const idOf = (n: { seq: number }) => `${key}-${n.seq}`;
 
-test('list orders within a project by numeric seq, not the lexical stem', async () => {
-  // Enough tasks to reach a two-digit seq; abandon a low- and a high-seq one so
-  // both share completed_at=null and fall to the seq tiebreak — the exact path a
-  // lexical KEY-seq compare mis-ordered ("MMR-10" < "MMR-2").
-  const tasks: Node[] = [];
-  for (let i = 0; i < 10; i += 1) {
-    tasks.push(await createTask(store, { parentId: phaseId, title: `t${String(i)}` }));
-  }
-  const bySeq = [...tasks].toSorted((a, b) => a.seq - b.seq);
-  const low = bySeq[0];
-  const high = bySeq[bySeq.length - 1];
-  if (low === undefined || high === undefined) {
-    throw new Error('expected created tasks');
-  }
-  expect(high.seq).toBeGreaterThanOrEqual(10); // ensure the lexical/numeric divergence is in play
-  await abandonTask(store, low.id);
-  await abandonTask(store, high.id);
+test.skipIf(!NORN)(
+  'list orders within a project by numeric seq, not the lexical stem',
+  async () => {
+    // Enough tasks to reach a two-digit seq; abandon a low- and a high-seq one so
+    // both share completed_at=null and fall to the seq tiebreak — the exact path a
+    // lexical KEY-seq compare mis-ordered ("MMR-10" < "MMR-2").
+    const tasks: Node[] = [];
+    for (let i = 0; i < 10; i += 1) {
+      tasks.push(await createTask(store, { parentId: phaseId, title: `t${String(i)}` }));
+    }
+    const bySeq = [...tasks].toSorted((a, b) => a.seq - b.seq);
+    const low = bySeq[0];
+    const high = bySeq[bySeq.length - 1];
+    if (low === undefined || high === undefined) {
+      throw new Error('expected created tasks');
+    }
+    expect(high.seq).toBeGreaterThanOrEqual(10); // ensure the lexical/numeric divergence is in play
+    const lowId = await nodeIdOf(store, idOf(low));
+    const highId = await nodeIdOf(store, idOf(high));
+    await abandonTask(store, lowId);
+    await abandonTask(store, highId);
 
-  const res = await listNodes(store, { facets: [], scope: key, status: 'abandoned' });
-  const ids = res.items.map((v) => v.id);
-  expect(ids.indexOf(idOf(low))).toBeLessThan(ids.indexOf(idOf(high)));
-});
+    const res = await listNodes(store, { facets: [], scope: key, status: 'abandoned' });
+    const ids = res.items.map((v) => v.id);
+    expect(ids.indexOf(idOf(low))).toBeLessThan(ids.indexOf(idOf(high)));
+  },
+);
 
-test('next returns ready tasks in rank order, excluding awaiting/held', async () => {
+test.skipIf(!NORN)('next returns ready tasks in rank order, excluding awaiting/held', async () => {
   const a = await createTask(store, { parentId: phaseId, title: 'a' });
   const b = await createTask(store, { parentId: phaseId, title: 'b' });
   const c = await createTask(store, { parentId: phaseId, title: 'c' });
+  const aId = await nodeIdOf(store, idOf(a));
+  const bId = await nodeIdOf(store, idOf(b));
+  const cId = await nodeIdOf(store, idOf(c));
   // b awaits a; c is blocked → only a and (later) others are ready
-  await depend(store, b.id, [a.id]);
-  await blockTask(store, c.id, 'later');
+  await depend(store, bId, [aId]);
+  await blockTask(store, cId, 'later');
 
-  const res = await nextTasks(createSqliteStore(db), { scope: key });
+  const res = await nextTasks(store, { scope: key });
   expect(res.items.map((n) => n.id)).toEqual([idOf(a)]);
   expect(res.total).toBe(1);
   expect(res.items[0]?.status).toBe('ready');
 
   // completing a unblocks b
-  await completeTask(store, a.id);
-  const res2 = await nextTasks(createSqliteStore(db), { scope: key });
+  await completeTask(store, aId);
+  const res2 = await nextTasks(store, { scope: key });
   expect(res2.items.map((n) => n.id)).toEqual([idOf(b)]);
 });
 
-test('next respects priority filter and the limit', async () => {
+test.skipIf(!NORN)('next respects priority filter and the limit', async () => {
   await createTask(store, { parentId: phaseId, priority: 'p2', title: 'p2' });
   const hi = await createTask(store, { parentId: phaseId, priority: 'p0', title: 'p0' });
-  const onlyP0 = await nextTasks(createSqliteStore(db), { priority: 'p0', scope: key });
+  const onlyP0 = await nextTasks(store, { priority: 'p0', scope: key });
   expect(onlyP0.items.map((n) => n.id)).toEqual([idOf(hi)]);
 
-  const limited = await nextTasks(createSqliteStore(db), { limit: 1, scope: key });
+  const limited = await nextTasks(store, { limit: 1, scope: key });
   expect(limited.returned).toBe(1);
   expect(limited.total).toBe(2); // total reflects the full ready set
 });
 
-test('a direct prerequisite surfaces in awaitingOn (no via) and clears when settled', async () => {
-  const x = await createTask(store, { parentId: phaseId, title: 'x' });
-  const y = await createTask(store, { parentId: phaseId, title: 'y' });
-  await depend(store, y.id, [x.id]);
+test.skipIf(!NORN)(
+  'a direct prerequisite surfaces in awaitingOn (no via) and clears when settled',
+  async () => {
+    const x = await createTask(store, { parentId: phaseId, title: 'x' });
+    const y = await createTask(store, { parentId: phaseId, title: 'y' });
+    const xId = await nodeIdOf(store, idOf(x));
+    const yId = await nodeIdOf(store, idOf(y));
+    await depend(store, yId, [xId]);
 
-  const view = await getNode(store, idOf(y));
-  expect(view.deps?.dependsOn.map((r) => r.id)).toEqual([idOf(x)]);
-  expect(view.deps?.awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
-    { id: idOf(x), via: undefined },
-  ]);
+    const view = await getNode(store, idOf(y));
+    expect(view.deps?.dependsOn.map((r) => r.id)).toEqual([idOf(x)]);
+    expect(view.deps?.awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
+      { id: idOf(x), via: undefined },
+    ]);
 
-  await completeTask(store, x.id); // prerequisite terminal → gate clears
-  expect((await getNode(store, idOf(y))).deps?.awaitingOn).toEqual([]);
-});
+    await completeTask(store, xId); // prerequisite terminal → gate clears
+    expect((await getNode(store, idOf(y))).deps?.awaitingOn).toEqual([]);
+  },
+);
 
-test('an inherited prerequisite surfaces in awaitingOn, tagged via the ancestor', async () => {
-  const { parent_id } = await db
-    .selectFrom('node')
-    .select('parent_id')
-    .where('id', '=', phaseId)
-    .executeTakeFirstOrThrow();
-  const initId = parent_id as number;
-  const phase1 = await createPhase(store, { parentId: initId, title: 'phase 1' });
-  const phase2 = await createPhase(store, { parentId: initId, title: 'phase 2' });
-  await depend(store, phase2.id, [phase1.id]); // edge on the ancestor phase
-  const t = await createTask(store, { parentId: phase2.id, title: 't' });
+test.skipIf(!NORN)(
+  'an inherited prerequisite surfaces in awaitingOn, tagged via the ancestor',
+  async () => {
+    const phase1 = await createPhase(store, { parentId: initId, title: 'phase 1' });
+    const phase2 = await createPhase(store, { parentId: initId, title: 'phase 2' });
+    const phase1Id = await nodeIdOf(store, idOf(phase1));
+    const phase2Id = await nodeIdOf(store, idOf(phase2));
+    await depend(store, phase2Id, [phase1Id]); // edge on the ancestor phase
+    const t = await createTask(store, { parentId: phase2Id, title: 't' });
 
-  const view = await getNode(store, idOf(t));
-  expect(view.deps?.dependsOn).toEqual([]); // t declares nothing of its own
-  expect(view.deps?.awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
-    { id: idOf(phase1), via: idOf(phase2) }, // inherited from phase 2
-  ]);
-});
+    const view = await getNode(store, idOf(t));
+    expect(view.deps?.dependsOn).toEqual([]); // t declares nothing of its own
+    expect(view.deps?.awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
+      { id: idOf(phase1), via: idOf(phase2) }, // inherited from phase 2
+    ]);
+  },
+);
 
-test('awaitingOn lists a prereq reachable both directly and via an ancestor only once', async () => {
-  const { parent_id } = await db
-    .selectFrom('node')
-    .select('parent_id')
-    .where('id', '=', phaseId)
-    .executeTakeFirstOrThrow();
-  const initId = parent_id as number;
-  const prereq = await createPhase(store, { parentId: initId, title: 'prereq phase' }); // empty → unsettled
-  const t = await createTask(store, { parentId: phaseId, title: 't' });
-  await depend(store, t.id, [prereq.id]); // direct edge
-  await depend(store, phaseId, [prereq.id]); // same prereq, now also inherited via the phase
+test.skipIf(!NORN)(
+  'awaitingOn lists a prereq reachable both directly and via an ancestor only once',
+  async () => {
+    const prereq = await createPhase(store, { parentId: initId, title: 'prereq phase' }); // empty → unsettled
+    const prereqId = await nodeIdOf(store, idOf(prereq));
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const tId = await nodeIdOf(store, idOf(t));
+    await depend(store, tId, [prereqId]); // direct edge
+    await depend(store, phaseId, [prereqId]); // same prereq, now also inherited via the phase
 
-  const awaitingOn = (await getNode(store, idOf(t))).deps?.awaitingOn ?? [];
-  expect(awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
-    { id: idOf(prereq), via: undefined }, // listed once, the direct entry wins
-  ]);
-});
+    const awaitingOn = (await getNode(store, idOf(t))).deps?.awaitingOn ?? [];
+    expect(awaitingOn.map((r) => ({ id: r.id, via: r.via }))).toEqual([
+      { id: idOf(prereq), via: undefined }, // listed once, the direct entry wins
+    ]);
+  },
+);
 
-test('get returns a full record with cheap facets and resolves KEY-seq', async () => {
+test.skipIf(!NORN)('get returns a full record with cheap facets and resolves KEY-seq', async () => {
   const a = await createTask(store, { parentId: phaseId, title: 'a' });
   const b = await createTask(store, { parentId: phaseId, title: 'b' });
-  await depend(store, b.id, [a.id]);
+  const aId = await nodeIdOf(store, idOf(a));
+  const bId = await nodeIdOf(store, idOf(b));
+  await depend(store, bId, [aId]);
 
   const view = await getNode(store, idOf(b));
   expect(view.id).toBe(idOf(b));
@@ -154,31 +174,28 @@ test('get returns a full record with cheap facets and resolves KEY-seq', async (
   expect(view.history).toBeUndefined(); // heavy facet opt-in
 });
 
-test('get throws on a missing or malformed id', async () => {
-  await expectReject(() => getNode(store, 'MMR-999'));
-  await expectReject(() => getNode(store, 'not-an-id'));
+test.skipIf(!NORN)('get throws on a missing or malformed id', async () => {
+  await expectMimirError('not_found', () => getNode(store, 'MMR-999'));
+  await expectMimirError('not_found', () => getNode(store, 'not-an-id'));
 });
 
-test('status_of returns label + distribution for a non-leaf', async () => {
+test.skipIf(!NORN)('status_of returns label + distribution for a non-leaf', async () => {
   const t1 = await createTask(store, { parentId: phaseId, title: 't1' });
   await createTask(store, { parentId: phaseId, title: 't2' });
-  await startTask(store, t1.id);
+  const t1Id = await nodeIdOf(store, idOf(t1));
+  await startTask(store, t1Id);
 
-  const phase = await db
-    .selectFrom('node')
-    .select('seq')
-    .where('id', '=', phaseId)
-    .executeTakeFirstOrThrow();
-  const status = await statusOfNode(store, `${key}-${String(phase.seq)}`);
+  const status = await statusOfNode(store, `${key}-${String(phaseSeq)}`);
   expect(status.status).toBe('in_progress');
   expect(status.distribution).toEqual({ in_progress: 1, ready: 1 });
 });
 
 // addressability (MMR-32): the full grammar on get/status
 
-test('get on a bare KEY returns the whole-project view', async () => {
+test.skipIf(!NORN)('get on a bare KEY returns the whole-project view', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
-  await startTask(store, t.id);
+  const tId = await nodeIdOf(store, idOf(t));
+  await startTask(store, tId);
 
   const view = await getNode(store, key);
   expect(view.id).toBe(key);
@@ -189,9 +206,10 @@ test('get on a bare KEY returns the whole-project view', async () => {
   expect(view.distribution).toEqual({ in_progress: 1 });
 });
 
-test("status_of on a bare KEY rolls up the project's roots", async () => {
+test.skipIf(!NORN)("status_of on a bare KEY rolls up the project's roots", async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
-  await startTask(store, t.id);
+  const tId = await nodeIdOf(store, idOf(t));
+  await startTask(store, tId);
 
   const status = await statusOfNode(store, key);
   expect(status.id).toBe(key);
@@ -199,13 +217,14 @@ test("status_of on a bare KEY rolls up the project's roots", async () => {
   expect(status.distribution).toEqual({ in_progress: 1 });
 });
 
-test('get on KEY-aN returns the artifact detail with rendered links', async () => {
+test.skipIf(!NORN)('get on KEY-aN returns the artifact detail with rendered links', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
-  const project = await db.selectFrom('project').select('id').executeTakeFirstOrThrow();
+  const tId = await nodeIdOf(store, idOf(t));
+  const projectId = await projectIdOf(store, key);
   const { renderedId } = await attachArtifact(store, {
     content: '# frozen\n',
-    linkNodeIds: [t.id],
-    projectId: project.id,
+    linkNodeIds: [tId],
+    projectId,
     title: 'frozen plan',
   });
   expect(renderedId).toBe(`${key}-a1`);
@@ -216,17 +235,18 @@ test('get on KEY-aN returns the artifact detail with rendered links', async () =
   expect(detail.links).toEqual([idOf(t)]);
 });
 
-test('status_of rejects an artifact id as a behavioral error', async () => {
-  await expectReject(() => statusOfNode(store, `${key}-a1`));
+test.skipIf(!NORN)('status_of rejects an artifact id as a behavioral error', async () => {
+  await expectMimirError('validation', () => statusOfNode(store, `${key}-a1`));
 });
 
-test('the node artifacts facet speaks KEY-aN', async () => {
+test.skipIf(!NORN)('the node artifacts facet speaks KEY-aN', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
-  const project = await db.selectFrom('project').select('id').executeTakeFirstOrThrow();
+  const tId = await nodeIdOf(store, idOf(t));
+  const projectId = await projectIdOf(store, key);
   await attachArtifact(store, {
     content: 'x',
-    linkNodeIds: [t.id],
-    projectId: project.id,
+    linkNodeIds: [tId],
+    projectId,
     title: 'x',
   });
 
@@ -237,100 +257,116 @@ test('the node artifacts facet speaks KEY-aN', async () => {
   expect(projectView.artifacts?.map((a) => a.id)).toEqual([`${key}-a1`]);
 });
 
-test('list selects by status universe (MMR-33)', async () => {
+test.skipIf(!NORN)('list selects by status universe (MMR-33)', async () => {
   const a = await createTask(store, { parentId: phaseId, title: 'a' });
   const b = await createTask(store, { parentId: phaseId, title: 'b' });
-  await blockTask(store, b.id, 'x');
+  const aId = await nodeIdOf(store, idOf(a));
+  const bId = await nodeIdOf(store, idOf(b));
+  await blockTask(store, bId, 'x');
 
-  const blocked = await listNodes(createSqliteStore(db), { scope: key, status: 'blocked' });
+  const blocked = await listNodes(store, { scope: key, status: 'blocked' });
   expect(blocked.items.map((n) => n.id)).toEqual([idOf(b)]);
 
-  const ready = await listNodes(createSqliteStore(db), { scope: key, status: 'ready' });
+  const ready = await listNodes(store, { scope: key, status: 'ready' });
   expect(ready.items.map((n) => n.id)).toEqual([idOf(a)]);
 
-  const live = await listNodes(createSqliteStore(db), { scope: key });
+  const live = await listNodes(store, { scope: key });
   expect(live.total).toBe(2); // live is the default universe
 
-  await completeTask(store, a.id);
-  const terminal = await listNodes(createSqliteStore(db), { scope: key, status: 'terminal' });
+  await completeTask(store, aId);
+  const terminal = await listNodes(store, { scope: key, status: 'terminal' });
   expect(terminal.items.map((n) => n.id)).toEqual([idOf(a)]);
-  const all = await listNodes(createSqliteStore(db), { scope: key, status: 'all' });
+  const all = await listNodes(store, { scope: key, status: 'all' });
   expect(all.total).toBe(2);
 });
 
-test('list filters by q — case-insensitive substring over title (MMR-78)', async () => {
-  const auth = await createTask(store, { parentId: phaseId, title: 'Wire up AUTH gate' });
-  await createTask(store, { parentId: phaseId, title: 'Polish the board' });
+test.skipIf(!NORN)(
+  'list filters by q — case-insensitive substring over title (MMR-78)',
+  async () => {
+    const auth = await createTask(store, { parentId: phaseId, title: 'Wire up AUTH gate' });
+    await createTask(store, { parentId: phaseId, title: 'Polish the board' });
 
-  const hit = await listNodes(createSqliteStore(db), { q: 'auth', scope: key });
-  expect(hit.items.map((n) => n.id)).toEqual([idOf(auth)]);
+    const hit = await listNodes(store, { q: 'auth', scope: key });
+    expect(hit.items.map((n) => n.id)).toEqual([idOf(auth)]);
 
-  expect((await listNodes(createSqliteStore(db), { q: 'zzz', scope: key })).total).toBe(0);
-  // an empty q is a no-op, not a match-nothing
-  expect((await listNodes(createSqliteStore(db), { q: '', scope: key })).total).toBe(2);
+    expect((await listNodes(store, { q: 'zzz', scope: key })).total).toBe(0);
+    // an empty q is a no-op, not a match-nothing
+    expect((await listNodes(store, { q: '', scope: key })).total).toBe(2);
 
-  // LIKE parity: %/_ inside q act as wildcards, and a regex special is literal
-  expect((await listNodes(createSqliteStore(db), { q: 'a_th', scope: key })).total).toBe(1);
-  expect((await listNodes(createSqliteStore(db), { q: 'wire%gate', scope: key })).total).toBe(1);
-  expect((await listNodes(createSqliteStore(db), { q: 'auth.', scope: key })).total).toBe(0);
-});
+    // LIKE parity: %/_ inside q act as wildcards, and a regex special is literal
+    expect((await listNodes(store, { q: 'a_th', scope: key })).total).toBe(1);
+    expect((await listNodes(store, { q: 'wire%gate', scope: key })).total).toBe(1);
+    expect((await listNodes(store, { q: 'auth.', scope: key })).total).toBe(0);
+  },
+);
 
-test('deps facet lists prerequisites in ascending id order regardless of edge insertion order', async () => {
-  const older = await createTask(store, { parentId: phaseId, title: 'older prereq' });
-  const newer = await createTask(store, { parentId: phaseId, title: 'newer prereq' });
-  const dependent = await createTask(store, { parentId: phaseId, title: 'dependent' });
-  // insert edges newest-first — the SQL path read them back id-ascending (PK index)
-  await depend(store, dependent.id, [newer.id, older.id]);
+test.skipIf(!NORN)(
+  'deps facet lists prerequisites in ascending id order regardless of edge insertion order',
+  async () => {
+    const older = await createTask(store, { parentId: phaseId, title: 'older prereq' });
+    const newer = await createTask(store, { parentId: phaseId, title: 'newer prereq' });
+    const dependent = await createTask(store, { parentId: phaseId, title: 'dependent' });
+    const olderId = await nodeIdOf(store, idOf(older));
+    const newerId = await nodeIdOf(store, idOf(newer));
+    const dependentId = await nodeIdOf(store, idOf(dependent));
+    // insert edges newest-first — the read path re-derives them id-ascending
+    await depend(store, dependentId, [newerId, olderId]);
 
-  const view = await getNode(store, idOf(dependent), { facets: ['deps'] });
-  expect(view.deps?.dependsOn.map((r) => r.id)).toEqual([idOf(older), idOf(newer)]);
-  expect(view.deps?.awaitingOn.map((r) => r.id)).toEqual([idOf(older), idOf(newer)]);
-});
+    const view = await getNode(store, idOf(dependent), { facets: ['deps'] });
+    expect(view.deps?.dependsOn.map((r) => r.id)).toEqual([idOf(older), idOf(newer)]);
+    expect(view.deps?.awaitingOn.map((r) => r.id)).toEqual([idOf(older), idOf(newer)]);
+  },
+);
 
-test('list q matches SQL LIKE for non-ASCII case (SQLite lower() is ASCII-only)', async () => {
+test.skipIf(!NORN)('list q lowercasing is ASCII-only (non-ASCII case left untouched)', async () => {
   await createTask(store, { parentId: phaseId, title: 'Über refactor' });
   await createTask(store, { parentId: phaseId, title: 'über cleanup' });
 
   // ASCII case folds both ways; non-ASCII stays case-sensitive — LIKE parity.
-  expect((await listNodes(createSqliteStore(db), { q: 'über', scope: key })).total).toBe(1);
-  expect((await listNodes(createSqliteStore(db), { q: 'ÜBER', scope: key })).total).toBe(1);
-  expect((await listNodes(createSqliteStore(db), { q: 'REFACTOR', scope: key })).total).toBe(1);
+  expect((await listNodes(store, { q: 'über', scope: key })).total).toBe(1);
+  expect((await listNodes(store, { q: 'ÜBER', scope: key })).total).toBe(1);
+  expect((await listNodes(store, { q: 'REFACTOR', scope: key })).total).toBe(1);
 });
 
-test('list q: the _ wildcard consumes one full code point, astral included (LIKE parity)', async () => {
-  await createTask(store, { parentId: phaseId, title: 'a😀b' });
+test.skipIf(!NORN)(
+  'list q: the _ wildcard consumes one full code point, astral included (LIKE parity)',
+  async () => {
+    await createTask(store, { parentId: phaseId, title: 'a😀b' });
 
-  expect((await listNodes(createSqliteStore(db), { q: 'a_b', scope: key })).total).toBe(1);
-  expect((await listNodes(createSqliteStore(db), { q: 'a__b', scope: key })).total).toBe(0);
-});
+    expect((await listNodes(store, { q: 'a_b', scope: key })).total).toBe(1);
+    expect((await listNodes(store, { q: 'a__b', scope: key })).total).toBe(0);
+  },
+);
 
-test('list applies verdicts and field operators within the universe', async () => {
+test.skipIf(!NORN)('list applies verdicts and field operators within the universe', async () => {
   const a = await createTask(store, { parentId: phaseId, priority: 'p1', title: 'a' });
   const b = await createTask(store, { parentId: phaseId, priority: 'p2', title: 'b' });
-  await depend(store, b.id, [a.id]); // a blocks b
+  const aId = await nodeIdOf(store, idOf(a));
+  const bId = await nodeIdOf(store, idOf(b));
+  await depend(store, bId, [aId]); // a blocks b
 
-  const blocking = await listNodes(createSqliteStore(db), {
+  const blocking = await listNodes(store, {
     scope: key,
     verdicts: [{ negate: false, verdict: 'blocking' }],
   });
   expect(blocking.items.map((n) => n.id)).toEqual([idOf(a)]);
 
-  const notBlocking = await listNodes(createSqliteStore(db), {
+  const notBlocking = await listNodes(store, {
     scope: key,
     verdicts: [{ negate: true, verdict: 'blocking' }],
   });
   expect(notBlocking.items.map((n) => n.id)).toEqual([idOf(b)]);
 
-  const p2 = await listNodes(createSqliteStore(db), {
+  const p2 = await listNodes(store, {
     filters: [{ field: 'priority', op: 'eq', value: 'p2' }],
     scope: key,
   });
   expect(p2.items.map((n) => n.id)).toEqual([idOf(b)]);
 });
 
-test('a value fault returns an empty set with warnings, not an error', async () => {
+test.skipIf(!NORN)('a value fault returns an empty set with warnings, not an error', async () => {
   await createTask(store, { parentId: phaseId, priority: 'p1', title: 'a' });
-  const res = await listNodes(createSqliteStore(db), {
+  const res = await listNodes(store, {
     filters: [{ field: 'priority', op: 'eq', value: 'p9' }],
     scope: key,
   });
@@ -340,61 +376,57 @@ test('a value fault returns an empty set with warnings, not an error', async () 
   expect(res.warnings?.[0]?.expected).toEqual(['p0', 'p1', 'p2', 'p3']);
 });
 
-test('upstream filters at parity with external_ref (MMR-265)', async () => {
+test.skipIf(!NORN)('upstream filters at parity with external_ref (MMR-265)', async () => {
   const a = await createTask(store, { parentId: phaseId, title: 'a', upstream: 'MMR-s6' });
   await createTask(store, { parentId: phaseId, title: 'b' });
 
-  const match = await listNodes(createSqliteStore(db), {
+  const match = await listNodes(store, {
     filters: [{ field: 'upstream', op: 'eq', value: 'MMR-s6' }],
     scope: key,
   });
   expect(match.items.map((n) => n.id)).toEqual([idOf(a)]);
 
-  const noMatch = await listNodes(createSqliteStore(db), {
+  const noMatch = await listNodes(store, {
     filters: [{ field: 'upstream', op: 'eq', value: 'MMR-s7' }],
     scope: key,
   });
   expect(noMatch.items).toEqual([]);
 });
 
-test('a type filter widens list beyond tasks', async () => {
+test.skipIf(!NORN)('a type filter widens list beyond tasks', async () => {
   await createTask(store, { parentId: phaseId, title: 'a' });
-  const phases = await listNodes(createSqliteStore(db), {
+  const phases = await listNodes(store, {
     filters: [{ field: 'type', op: 'eq', value: 'phase' }],
     scope: key,
   });
   expect(phases.items.map((n) => n.type)).toEqual(['phase']);
 });
 
-test('terminal universe orders by completed_at desc', async () => {
+test.skipIf(!NORN)('terminal universe orders by completed_at desc', async () => {
   const a = await createTask(store, { parentId: phaseId, title: 'a' });
   const b = await createTask(store, { parentId: phaseId, title: 'b' });
-  await completeTask(store, a.id);
-  await completeTask(store, b.id);
+  const aId = await nodeIdOf(store, idOf(a));
+  const bId = await nodeIdOf(store, idOf(b));
+  await completeTask(store, aId);
+  await completeTask(store, bId);
   // pin distinct completion instants (same-ms completions would tie)
-  await db
-    .updateTable('node')
-    .set({ completed_at: '2026-06-01T00:00:00.000Z' })
-    .where('id', '=', a.id)
-    .execute();
-  await db
-    .updateTable('node')
-    .set({ completed_at: '2026-06-02T00:00:00.000Z' })
-    .where('id', '=', b.id)
-    .execute();
-  const done = await listNodes(createSqliteStore(db), { scope: key, status: 'done' });
+  await store.transact(async (w) => {
+    await w.updateNode(aId, { completed_at: '2026-06-01T00:00:00.000Z' });
+    await w.updateNode(bId, { completed_at: '2026-06-02T00:00:00.000Z' });
+  });
+  const done = await listNodes(store, { scope: key, status: 'done' });
   expect(done.items.map((n) => n.id)).toEqual([idOf(b), idOf(a)]);
 });
 
-test("the tag pseudo-field filters via the node's tag set", async () => {
+test.skipIf(!NORN)("the tag pseudo-field filters via the node's tag set", async () => {
   const a = await createTask(store, { parentId: phaseId, tags: ['spec'], title: 'a' });
   await createTask(store, { parentId: phaseId, title: 'b' });
-  const tagged = await listNodes(createSqliteStore(db), {
+  const tagged = await listNodes(store, {
     filters: [{ field: 'tag', op: 'eq', value: 'spec' }],
     scope: key,
   });
   expect(tagged.items.map((n) => n.id)).toEqual([idOf(a)]);
-  const untagged = await listNodes(createSqliteStore(db), {
+  const untagged = await listNodes(store, {
     filters: [{ field: 'tag', op: 'missing', value: null }],
     scope: key,
   });

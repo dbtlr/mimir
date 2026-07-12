@@ -159,25 +159,31 @@ test('a present-but-wrong-shaped section is malformed, never silence', () => {
 
 test('readConfig parses once and returns every section', () => {
   const file = join(dir, 'config.toml');
-  writeFileSync(file, '[serve]\nport = 50124\n[vault]\npath = "/v"\n[store]\nbackend = "norn"\n');
+  writeFileSync(file, '[serve]\nport = 50124\n[vault]\npath = "/v"\n');
   expect(readConfig(file)).toEqual({
     serve: { port: 50124 },
-    store: { backend: 'norn' },
+    store: {},
     vault: { path: '/v' },
   });
 });
 
-test('readVaultConfig missing sections default empty; a wrong-typed store surfaces', () => {
+// The `[store] backend` fence was retired at MMR-234: any legacy `backend` (or its
+// `artifacts` alias) key is recorded verbatim only so the composition root can note
+// it as ignored — the value is never interpreted, and the Norn vault is the only store.
+test('readConfig flags a legacy [store] backend key without interpreting it', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(file, '[serve]\nport = 50124\n');
   expect(readConfig(file).store).toEqual({});
+  writeFileSync(file, '[store]\nbackend = "sqlite"\n');
+  expect(readConfig(file).store).toEqual({ backend: 'sqlite' });
   writeFileSync(file, '[store]\nbackend = "postgres"\n');
-  expect(readConfig(file).store).toEqual({ problem: 'invalid-backend' });
-  // the pre-MMR-235 `artifacts` key is honored as a deprecated alias (no silent fallback)
+  expect(readConfig(file).store).toEqual({ backend: 'postgres' });
+  // the pre-MMR-235 `artifacts` key is still recognized as the same legacy key
   writeFileSync(file, '[store]\nartifacts = "norn"\n');
   expect(readConfig(file).store).toEqual({ backend: 'norn' });
+  // a non-table `store` contributes nothing (no legacy key to flag)
   writeFileSync(file, 'store = "norn"\n');
-  expect(readConfig(file).store).toEqual({ problem: 'malformed' });
+  expect(readConfig(file).store).toEqual({});
 });
 
 test('writeConfig creates parents and round-trips a vault path + snapshot', () => {

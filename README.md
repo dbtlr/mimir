@@ -5,9 +5,10 @@ the frozen artifacts attached to them. It is the _work_ tool in a three-part
 split along the founding distinction of knowledge vs. work: **Norn** keeps
 knowledge, **Mimir** holds work state, **Saga** weaves them into a session.
 
-Work state is ephemeral and fast-changing, so it lives in a structured store
-(SQLite) where it is the source of truth — markdown is a _projection_, not the
-store. Status rollups and dependency predicates are **derived live, never
+Work state lives in a **Norn-managed markdown vault** — git-backed, inspectable
+markdown files are the source of truth; Norn owns all reads, writes, and
+integrity, and Mimir is the business-logic and derivation layer over it (ADR
+0016). Status rollups and dependency predicates are **derived live, never
 stored** (caching them is the sync problem Mimir exists to remove). One core
 query layer, four surfaces: a **CLI** for humans and scripts, **MCP** for
 agents (plus an embedded agent skill the binary installs itself), an **HTTP
@@ -46,12 +47,14 @@ bun run build    # compiles dist/mimir; or `bun run mimir <verb>` straight from 
 ```sh
 mimir --version
 mimir --help
-mimir migrate schema # create / migrate the database (applied automatically on first run)
+mimir setup          # first-run: create the vault + optionally install the service
 ```
 
-The database lives at `$XDG_DATA_HOME/mimir/mimir.db` (default
-`~/.local/share/mimir/mimir.db`), so `mimir` works from any directory; set
-`MIMIR_DB` to use a per-project store instead.
+The vault lives at `$XDG_DATA_HOME/mimir/vault` (default
+`~/.local/share/mimir/vault`) and is created on first use, so `mimir` works from
+any directory; set `MIMIR_VAULT` (or `[vault] path` in the config) to point at a
+vault elsewhere. Mimir shells out to the `norn` binary for all vault access
+(ADR 0018), so `norn` must be on `PATH`.
 
 Every entity has one rendered id, spoken by every surface: a project is the
 bare `KEY`, a tree node is `KEY-seq` (`MMR-16`), an artifact is `KEY-aN`
@@ -147,7 +150,8 @@ bun run verify    # the full gate: format, lint, typecheck, test
 ```
 
 `verify` is `bun run check` (oxfmt + oxlint + type-aware typecheck, zero-warning)
-plus `bun test` (the suite on in-memory SQLite) plus `bun run test:ui` (the
+plus `bun test` (the store-backed suites run against a temp Norn vault, so they
+need `norn` on `PATH`; they skip without it) plus `bun run test:ui` (the
 console's vitest suite) — the same gate CI enforces. For UI work, run
 `vite dev` in `packages/ui` against a running `mimir serve` (localhost CORS is
 pre-wired); `bun run build` builds the console and embeds it in the compiled
@@ -160,8 +164,8 @@ Architecture — one core, thin transports:
 ```
 packages/contract/   @mimir/contract — pure DTO + wire types (the dependency-free leaf; the UI imports it)
 packages/bin/        @mimir/bin — the binary
-  src/db/            Kysely instance, schema/migrations, the Migrator
-  src/core/          storage-committed domain logic: derivation, rank, verbs, intent layer
+  src/core/          domain logic over the Store seam: derivation, rank, verbs, intent layer
+  src/norn/          the Norn client + vault write path (speaks to the `norn` binary)
   src/cli/           the human transport (parseArgs + styled/structured renderers)
   src/mcp/           the agent transport (official MCP SDK over stdio)
   src/http/          the UI transport (resource-shaped REST over Bun.serve)
@@ -169,9 +173,9 @@ packages/bin/        @mimir/bin — the binary
 packages/ui/         @mimir/ui — the operator console SPA (embedded in the binary)
 ```
 
-The layering `contract ← db ← core ← transports` is enforced by an oxlint
-`no-restricted-imports` rule: `core` may not import a transport, `db` may not
-import `core`, and the transports may not import each other or `db`.
+The layering `contract ← core ← transports` is enforced by an oxlint
+`no-restricted-imports` rule: `core` may not import a transport, and the
+transports may not import each other.
 
 ## License
 

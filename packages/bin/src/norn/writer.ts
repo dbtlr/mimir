@@ -46,8 +46,8 @@ import {
  * write path). The model is: read one snapshot → run the verb, accumulating
  * intended effects over an in-memory overlay → collapse every effect into ONE
  * atomic {@link import('./plan').MigrationPlan} → `vault.apply` → replay on drift.
- * It is the sibling of {@link import('../core/store-sqlite').createSqliteStore}'s
- * `transact`, behaviorally identical from the verbs' point of view.
+ * It is the sole `Store.transact` implementation (MMR-234) — the verbs compose
+ * the same `StoreWriter` vocabulary regardless.
  *
  * Every verb reduces to one document (design §95): a node's tags, History, and
  * parent all live in its own file, so a whole `transact` coalesces per target
@@ -247,8 +247,8 @@ function failedOpErrors(root: unknown): { code: string | null; message: string |
 /**
  * The accumulating `StoreWriter`: point reads serve from a mutable overlay of
  * the snapshot (so a read after a write in the same `transact` sees the pending
- * change, matching SQLite's in-tx view), and write primitives record intended
- * effects keyed by target document without touching Norn.
+ * change, the in-transaction read-your-writes view the verbs expect), and write
+ * primitives record intended effects keyed by target document without touching Norn.
  */
 class Accumulator {
   readonly writer: StoreWriter;
@@ -572,8 +572,8 @@ class Accumulator {
 
   /**
    * Queue a node's `## Annotations` append (MMR-154). The created-at is
-   * core-supplied (MMR-173) — the mutation layer stamps it so SQLite and Norn
-   * persist the same value — and the record flushes as one `append_to_section`
+   * core-supplied (MMR-173) — the mutation layer stamps it (the `stamp`
+   * invariant) — and the record flushes as one `append_to_section`
    * op, the same mechanism `## History` uses. Annotations are node-only; a
    * target absent from the snapshot fails loud rather than silently dropping the
    * note.
@@ -768,8 +768,8 @@ class Accumulator {
   /**
    * Replace a created node's provisional echo with the ACTUAL persisted Node,
    * re-resolved from a post-apply reload by its now-real `KEY-seq` stem. The
-   * SQLite invariant a create must uphold — a real positive `id` AND `seq`, or
-   * the transact throws — holds here too: a stem that never resolved (the
+   * invariant a create must uphold — a real positive `id` AND `seq`, or
+   * the transact throws — holds: a stem that never resolved (the
    * report lacked/mismatched its create summary) already threw in
    * {@link extractResolvedSeqs}, and a node missing from the reload throws
    * below. The provisional sentinel is never returned.

@@ -1,8 +1,8 @@
 /**
  * Vault path resolution (MMR-142): `MIMIR_VAULT` env > `[vault] path` in the
- * global config > the build-profile default — mirroring the `MIMIR_DB`
- * precedence exactly. `.mimir.toml` never names a vault (ADR 0011: the repo
- * binding carries repo facts; which store is an environment fact).
+ * global config > the build-profile default — the standard env-over-config-over-
+ * default precedence. `.mimir.toml` never names a vault (ADR 0011: the repo
+ * binding carries repo facts; where the vault lives is an environment fact).
  *
  * `allowCreate` encodes the mount-safety rule: only the *derived default*
  * path may be auto-created at runtime. An explicitly configured path (env or

@@ -5,9 +5,8 @@ import { join } from 'node:path';
 
 import type { Server } from 'bun';
 
-import { createSqliteStore } from '../core';
-import type { Db } from '../core';
-import { createTestDb } from '../db/testing';
+import type { Store } from '../core';
+import { createTestStore } from '../testing/store';
 import { createServer } from './server';
 import type { UiAssetMap } from './static';
 
@@ -18,12 +17,15 @@ import type { UiAssetMap } from './static';
  * embedded dist (same mechanism: paths `Bun.file` can open).
  */
 
-let db: Db;
+const NORN = Bun.which('norn') !== null;
+
+let store: Store;
+let closeStore: () => Promise<void>;
 let server: Server<undefined> | undefined;
 let dir: string;
 
 beforeEach(async () => {
-  db = await createTestDb();
+  ({ close: closeStore, store } = await createTestStore());
   dir = mkdtempSync(join(tmpdir(), 'mimir-ui-assets-'));
   writeFileSync(join(dir, 'index.html'), '<!doctype html><title>Mimir</title>');
   writeFileSync(join(dir, 'app-abc123.js'), "console.log('mimir')");
@@ -32,7 +34,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await server?.stop(true);
   server = undefined;
-  await db.destroy();
+  await closeStore();
   rmSync(dir, { force: true, recursive: true });
 });
 
@@ -52,11 +54,11 @@ function fixtureAssets(): UiAssetMap {
 }
 
 function start(assets: UiAssetMap): string {
-  server = createServer(createSqliteStore(db), { assets, port: 0, version: '0.0.0-test' });
+  server = createServer(store, { assets, port: 0, version: '0.0.0-test' });
   return `http://127.0.0.1:${String(server.port)}`;
 }
 
-test('serves an exact asset with content-type and immutable caching', async () => {
+test.skipIf(!NORN)('serves an exact asset with content-type and immutable caching', async () => {
   const base = start(fixtureAssets());
   const res = await fetch(`${base}/assets/app-abc123.js`);
   expect(res.status).toBe(200);
@@ -65,7 +67,7 @@ test('serves an exact asset with content-type and immutable caching', async () =
   expect(await res.text()).toBe("console.log('mimir')");
 });
 
-test('serves index.html at / without immutable caching', async () => {
+test.skipIf(!NORN)('serves index.html at / without immutable caching', async () => {
   const base = start(fixtureAssets());
   const res = await fetch(`${base}/`);
   expect(res.status).toBe(200);
@@ -74,30 +76,36 @@ test('serves index.html at / without immutable caching', async () => {
   expect(await res.text()).toContain('<title>Mimir</title>');
 });
 
-test('any non-/api miss falls back to index.html — the SPA owns its routes', async () => {
-  const base = start(fixtureAssets());
-  for (const path of ['/p/MMR', '/p/MMR?view=tree&node=MMR-16', '/nope']) {
-    const res = await fetch(`${base}${path}`);
-    expect(res.status).toBe(200);
-    expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8');
-    expect(await res.text()).toContain('<title>Mimir</title>');
-  }
-});
+test.skipIf(!NORN)(
+  'any non-/api miss falls back to index.html — the SPA owns its routes',
+  async () => {
+    const base = start(fixtureAssets());
+    for (const path of ['/p/MMR', '/p/MMR?view=tree&node=MMR-16', '/nope']) {
+      const res = await fetch(`${base}${path}`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8');
+      expect(await res.text()).toContain('<title>Mimir</title>');
+    }
+  },
+);
 
-test('/api/* stays the resource envelope — routes answer, misses stay JSON 404s', async () => {
-  const base = start(fixtureAssets());
-  const api = await fetch(`${base}/api/projects`);
-  expect(api.status).toBe(200);
-  expect(api.headers.get('content-type')).toContain('application/json');
-  expect(((await api.json()) as { items: unknown[] }).items).toEqual([]);
+test.skipIf(!NORN)(
+  '/api/* stays the resource envelope — routes answer, misses stay JSON 404s',
+  async () => {
+    const base = start(fixtureAssets());
+    const api = await fetch(`${base}/api/projects`);
+    expect(api.status).toBe(200);
+    expect(api.headers.get('content-type')).toContain('application/json');
+    expect(((await api.json()) as { items: unknown[] }).items).toEqual([]);
 
-  const miss = await fetch(`${base}/api/nope`);
-  expect(miss.status).toBe(404);
-  const body = (await miss.json()) as { error: { code: string } };
-  expect(body.error.code).toBe('not_found');
-});
+    const miss = await fetch(`${base}/api/nope`);
+    expect(miss.status).toBe(404);
+    const body = (await miss.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('not_found');
+  },
+);
 
-test('an empty manifest serves no UI — non-/api paths are JSON 404s', async () => {
+test.skipIf(!NORN)('an empty manifest serves no UI — non-/api paths are JSON 404s', async () => {
   const base = start({});
   for (const path of ['/', '/p/MMR']) {
     const res = await fetch(`${base}${path}`);
@@ -107,7 +115,7 @@ test('an empty manifest serves no UI — non-/api paths are JSON 404s', async ()
   }
 });
 
-test('non-GET outside /api never hits the asset map', async () => {
+test.skipIf(!NORN)('non-GET outside /api never hits the asset map', async () => {
   const base = start(fixtureAssets());
   const res = await fetch(`${base}/`, { method: 'POST' });
   expect(res.status).toBe(404);

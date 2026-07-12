@@ -29,12 +29,6 @@ test('plist runs serve --no-hunt with no port and supervises it', () => {
   );
 });
 
-test('MIMIR_DB present at install time is baked into the environment', () => {
-  const xml = plistFor('/usr/local/bin/mimir', { dbPath: '/data/mimir.db' });
-  expect(xml).toContain('<key>MIMIR_DB</key>');
-  expect(xml).toContain('<string>/data/mimir.db</string>');
-});
-
 test('the Norn backend bakes MIMIR_NORN + MIMIR_VAULT as absolute paths', () => {
   // launchd gives the daemon a minimal PATH and does no `~`/`$VAR` expansion, so
   // the norn binary and vault are baked as resolved absolutes (ADR 0018).
@@ -92,9 +86,9 @@ test('MIMIR_VAULT present at install time is baked into the snapshot environment
 // XML-escape tests — launchctl rejects malformed plists loudly but the error
 // message never points at the offending character, making this class of bug
 // very hard to diagnose after the fact.
-test('special XML characters in binPath and dbPath are escaped', () => {
+test('special XML characters in binPath and baked env values are escaped', () => {
   const xml = plistFor('/Users/op/Drew & Co/bin/mimir', {
-    dbPath: '/data/a<b/m.db',
+    vaultPath: '/data/a<b/vault',
   });
   expect(xml).toContain('Drew &amp; Co');
   expect(xml).toContain('a&lt;b');
@@ -116,7 +110,7 @@ afterEach(() => {
 // + the macOS release runner), and is skipped on Linux CI.
 test.skipIf(process.platform !== 'darwin')('escaped plist passes plutil -lint', () => {
   const xml = plistFor('/Users/op/Drew & Co/bin/mimir', {
-    dbPath: '/data/a<b/m.db',
+    vaultPath: '/data/a<b/vault',
   });
   const file = join(dir, 'test.plist');
   writeFileSync(file, xml, 'utf8');

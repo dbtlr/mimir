@@ -16,20 +16,21 @@ bun run verify    # the full gate: format, lint, typecheck, test (what CI runs)
 ```
 
 `verify` is `bun run check` (oxfmt + oxlint + type-aware typecheck, zero-warning)
-plus `bun test` (the suite on in-memory SQLite).
+plus `bun test`. The store-backed suites run against a temporary Norn vault, so
+they need the `norn` binary on `PATH` (they skip cleanly without it).
 
 ## Project shape
 
 One core, thin transports, in a Bun workspace. `packages/contract`
 (`@mimir/contract`) is the dependency-free type leaf — the wire vocabulary
-every consumer parses. `packages/bin` (`@mimir/bin`) is the binary: `src/db`
-owns persistence; `src/core` is the storage-committed domain logic (derivation,
-rank, mutation verbs, intent layer); `src/cli`, `src/mcp`, and `src/http` are
-the transports; `src/main.ts` is the composition root. `packages/ui`
-(`@mimir/ui`) is the operator-console SPA, embedded in the binary at build
-time. Inside the binary the layering `contract ← db ← core ← transports` is
-enforced by an oxlint rule — `core` may not import a transport, `db` may not
-import `core`, transports may not import each other or `db`.
+every consumer parses. `packages/bin` (`@mimir/bin`) is the binary: `src/core`
+is the domain logic (derivation, rank, mutation verbs, intent layer) over the
+`Store` seam; `src/norn` speaks to the `norn` binary that owns the vault;
+`src/cli`, `src/mcp`, and `src/http` are the transports; `src/main.ts` is the
+composition root. `packages/ui` (`@mimir/ui`) is the operator-console SPA,
+embedded in the binary at build time. Inside the binary the layering
+`contract ← core ← transports` is enforced by an oxlint rule — `core` may not
+import a transport, and transports may not import each other.
 
 ## Pull requests
 

@@ -42,7 +42,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0021](0021-seed-lede-derived-and-capture-grammar.md)             | Seed lede is derived at read; capture is one blob              |
 
 Two maintained engineering references live beside this directory:
-[`docs/schema-reference.md`](../schema-reference.md) (the concrete SQLite
-schema implied by ADRs 0001–0007) and
+[`docs/schema-reference.md`](../schema-reference.md) (the concrete model
+shape implied by ADRs 0001–0007) and
 [`docs/output-contract-reference.md`](../output-contract-reference.md) (the
 CLI/MCP output and selection contract bound by ADR 0009).

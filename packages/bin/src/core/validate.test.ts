@@ -101,7 +101,7 @@ test('a dangling aliased depends_on drops with the de-aliased ref (MMR-190)', ()
   expect(subgraph(g)['MMR-2']).toEqual({ dependsOn: [], parent: null });
 });
 
-test('a doubled depends_on is collapsed to one edge — matching the loader (SQLite PK)', () => {
+test('a doubled depends_on is collapsed to one edge — matching the loader', () => {
   const g = graphOf(
     [
       { dependsOn: ['MMR-1', 'MMR-1'], parent: null, stem: 'MMR-2' }, // resolved, doubled
