@@ -1,17 +1,19 @@
-import refAuthoring from '../../../../.claude/skills/mimir/references/authoring.md' with { type: 'text' };
-import refQuerying from '../../../../.claude/skills/mimir/references/querying.md' with { type: 'text' };
-import refSeeds from '../../../../.claude/skills/mimir/references/seeds.md' with { type: 'text' };
-import refSetup from '../../../../.claude/skills/mimir/references/setup.md' with { type: 'text' };
-import refStatusModel from '../../../../.claude/skills/mimir/references/status-model.md' with { type: 'text' };
-import refTags from '../../../../.claude/skills/mimir/references/tags.md' with { type: 'text' };
+import refAuthoring from '../../../../skills/mimir/references/authoring.md' with { type: 'text' };
+import refQuerying from '../../../../skills/mimir/references/querying.md' with { type: 'text' };
+import refSeeds from '../../../../skills/mimir/references/seeds.md' with { type: 'text' };
+import refSetup from '../../../../skills/mimir/references/setup.md' with { type: 'text' };
+import refStatusModel from '../../../../skills/mimir/references/status-model.md' with { type: 'text' };
+import refTags from '../../../../skills/mimir/references/tags.md' with { type: 'text' };
 /**
  * The agent skill, embedded in the binary at compile time (text imports) so
  * `mimir skill install` works anywhere the binary is and the installed skill
  * can never skew from the surface this binary actually speaks (MMR-24).
- * Imports point at the canonical in-repo copy (`.claude/skills/mimir/`) —
- * the single source; a second checked-in copy drifts (MMR-264).
+ * Imports point at the canonical in-repo copy (`skills/mimir/`) — the
+ * single source; a second checked-in copy drifts (MMR-264). A relative
+ * symlink at `.claude/skills/mimir` keeps Claude-harness project-skill
+ * discovery working, but the embed reads the real path directly (MMR-268).
  */
-import skillRoot from '../../../../.claude/skills/mimir/SKILL.md' with { type: 'text' };
+import skillRoot from '../../../../skills/mimir/SKILL.md' with { type: 'text' };
 
 /** Relative path inside the installed skill directory → file content. */
 export const SKILL_FILES: readonly { path: string; content: string }[] = [
