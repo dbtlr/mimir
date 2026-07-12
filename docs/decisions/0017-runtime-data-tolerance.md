@@ -6,6 +6,12 @@ date: 2026-07-05
 
 # ADR 0017: Runtime data-tolerance; doctor is a non-gating diagnostic
 
+> **Status update (2026-07-12, MMR-234): implemented.** With the SQLite backend
+> retired, the Norn-managed vault is the sole store, so the data-tolerant reader
+> and the single shared validator described here are the only path — there is no
+> longer a typed-row backend whose FKs/CHECKs would preclude the corruptions
+> doctor surfaces.
+
 Refines ADR 0016. Under a Norn-managed markdown vault, the durable record is
 hand-editable and integrity is not enforced by a database — so corruption
 (a dangling reference, a missing project, a relational cycle, a malformed body

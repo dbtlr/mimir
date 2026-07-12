@@ -39,6 +39,21 @@ release. When a release is cut, this section is promoted to
   in the project header, an amber vital on the Overview card, and a line below
   the needs-you set in the attention menu; all absent at zero findings. Amber
   throughout — the system is behaving; never red.
+### Removed
+
+- **SQLite store backend retired** (MMR-234). After the Norn-backend soak, the
+  Norn-managed markdown vault (ADR 0016) is now the **sole** work-state store,
+  and the SQLite rollback path is gone. Removed: the SQLite `Store`
+  implementation and every per-slice arm (nodes, artifacts, body sections,
+  seeds, transitions); the `db/` schema, Kysely migrations, and migrator; the
+  `[store] backend` fence flag (Norn-default since MMR-232) with its
+  `MIMIR_STORE_BACKEND` / `MIMIR_ARTIFACT_STORE` env overrides; the `MIMIR_DB`
+  store-path override; the one-time `migrate schema` / `migrate artifacts` /
+  `migrate nodes` cutover commands; and the now-unused `kysely` +
+  `@meck93/kysely-bun-sqlite` dependencies. Mimir shells out to `norn` for all
+  storage (ADR 0018), so **`norn` must be on `PATH`**. Startup no longer opens
+  any SQLite database (folds in the MMR-236 unused-db-open cleanup). ADR
+  0016/0017 are marked implemented.
 
 ### Changed
 
@@ -52,6 +67,12 @@ release. When a release is cut, this section is promoted to
   function that keeps prose out of the title; `update --title` on a seed inherits
   the cap. Recorded in [ADR
   0021](docs/decisions/0021-seed-lede-derived-and-capture-grammar.md).
+- **A legacy `[store] backend` config key is now ignored, not honored**
+  (MMR-234). With the SQLite fence retired there is only one backend, so an
+  existing config's `[store] backend` (or its pre-MMR-235 `artifacts` alias) is
+  no longer interpreted — mimir prints a one-line stderr note and uses the Norn
+  vault regardless. Existing configs keep working unchanged; remove the key to
+  silence the note.
 - **Seed filing contract sharpened to two paths** (MMR-264). The `seed` CLI
   help, MCP tool description, and the mimir + finishing-work skills (SKILL.md,
   seeds reference, review gate) now teach exactly two seed cases: an ask
