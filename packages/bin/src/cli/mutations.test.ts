@@ -308,61 +308,75 @@ test.skipIf(!NORN)('annotate from the positional tail exits 0', async () => {
 test.skipIf(!NORN)('annotate with no content is a usage error → exit 2', async () => {
   expect(await runCli(['annotate', taskRef], () => store, fakeIo(true))).toBe(2); // isTTY=true so stdin isn't read
 });
-test.skipIf(!NORN)('annotate on a container echoes the true rollup, matching get (MMR-242)', async () => {
-  // phase already carries one task (taskRef, from beforeEach) — add a second so
-  // the count is unambiguous and the plural form exercises.
-  await createTask(store, { parentId: phaseId, title: 't2' });
+test.skipIf(!NORN)(
+  'annotate on a container echoes the true rollup, matching get (MMR-242)',
+  async () => {
+    // phase already carries one task (taskRef, from beforeEach) — add a second so
+    // the count is unambiguous and the plural form exercises.
+    await createTask(store, { parentId: phaseId, title: 't2' });
 
-  const getIo = fakeIo(false);
-  expect(await runCli(['get', phaseRef, '-f', 'json'], () => store, getIo)).toBe(0);
-  const getView = parseJson<{ distribution: Record<string, number> }>(getIo.out.join(''));
+    const getIo = fakeIo(false);
+    expect(await runCli(['get', phaseRef, '-f', 'json'], () => store, getIo)).toBe(0);
+    const getView = parseJson<{ distribution: Record<string, number> }>(getIo.out.join(''));
 
-  const annotateIo = fakeIo(false);
-  expect(
-    await runCli(['annotate', phaseRef, 'checked', 'in', '-f', 'json'], () => store, annotateIo),
-  ).toBe(0);
-  const annotateView = parseJson<{ distribution: Record<string, number> }>(annotateIo.out.join(''));
+    const annotateIo = fakeIo(false);
+    expect(
+      await runCli(['annotate', phaseRef, 'checked', 'in', '-f', 'json'], () => store, annotateIo),
+    ).toBe(0);
+    const annotateView = parseJson<{ distribution: Record<string, number> }>(
+      annotateIo.out.join(''),
+    );
 
-  // The mutation echo must derive its rollup from the same source as `get` —
-  // not read as an unloaded, childless node.
-  expect(annotateView.distribution).toEqual(getView.distribution);
+    // The mutation echo must derive its rollup from the same source as `get` —
+    // not read as an unloaded, childless node.
+    expect(annotateView.distribution).toEqual(getView.distribution);
 
-  const recordsIo = fakeIo(true); // TTY — the rollup signpost is styled-format-only
-  expect(await runCli(['annotate', phaseRef, 'checked', 'again'], () => store, recordsIo)).toBe(0);
-  const text = recordsIo.out.join('');
-  expect(text).toContain('rollup over 2 direct children');
-  expect(text).not.toContain('rollup over 0 direct children');
-});
-test.skipIf(!NORN)('update on a project echoes the true rollup, matching get (MMR-242)', async () => {
-  // The project already carries one root initiative (from beforeEach) — add a
-  // second so the count is unambiguous and the plural form exercises.
-  await createInitiative(store, { projectId: await resolveProject(store, 'MMR'), title: 'i2' });
+    const recordsIo = fakeIo(true); // TTY — the rollup signpost is styled-format-only
+    expect(await runCli(['annotate', phaseRef, 'checked', 'again'], () => store, recordsIo)).toBe(
+      0,
+    );
+    const text = recordsIo.out.join('');
+    expect(text).toContain('rollup over 2 direct children');
+    expect(text).not.toContain('rollup over 0 direct children');
+  },
+);
+test.skipIf(!NORN)(
+  'update on a project echoes the true rollup, matching get (MMR-242)',
+  async () => {
+    // The project already carries one root initiative (from beforeEach) — add a
+    // second so the count is unambiguous and the plural form exercises.
+    await createInitiative(store, { projectId: await resolveProject(store, 'MMR'), title: 'i2' });
 
-  const getIo = fakeIo(false);
-  expect(await runCli(['get', 'MMR', '-f', 'json'], () => store, getIo)).toBe(0);
-  const getView = parseJson<{ children: unknown[]; distribution: Record<string, number> }>(
-    getIo.out.join(''),
-  );
+    const getIo = fakeIo(false);
+    expect(await runCli(['get', 'MMR', '-f', 'json'], () => store, getIo)).toBe(0);
+    const getView = parseJson<{ children: unknown[]; distribution: Record<string, number> }>(
+      getIo.out.join(''),
+    );
 
-  const updateIo = fakeIo(false);
-  expect(
-    await runCli(['update', 'MMR', '--desc', 'renamed body', '-f', 'json'], () => store, updateIo),
-  ).toBe(0);
-  const updateView = parseJson<{ children: unknown[]; distribution: Record<string, number> }>(
-    updateIo.out.join(''),
-  );
+    const updateIo = fakeIo(false);
+    expect(
+      await runCli(
+        ['update', 'MMR', '--desc', 'renamed body', '-f', 'json'],
+        () => store,
+        updateIo,
+      ),
+    ).toBe(0);
+    const updateView = parseJson<{ children: unknown[]; distribution: Record<string, number> }>(
+      updateIo.out.join(''),
+    );
 
-  // The project write-echo must derive its rollup from the same sources as
-  // `get KEY` — not read as an unloaded, childless project.
-  expect(updateView.children).toEqual(getView.children);
-  expect(updateView.distribution).toEqual(getView.distribution);
+    // The project write-echo must derive its rollup from the same sources as
+    // `get KEY` — not read as an unloaded, childless project.
+    expect(updateView.children).toEqual(getView.children);
+    expect(updateView.distribution).toEqual(getView.distribution);
 
-  const recordsIo = fakeIo(true); // TTY — the rollup signpost is styled-format-only
-  expect(await runCli(['update', 'MMR', '--desc', 'again'], () => store, recordsIo)).toBe(0);
-  const text = recordsIo.out.join('');
-  expect(text).toContain('rollup over 2 direct children');
-  expect(text).not.toContain('rollup over 0 direct children');
-});
+    const recordsIo = fakeIo(true); // TTY — the rollup signpost is styled-format-only
+    expect(await runCli(['update', 'MMR', '--desc', 'again'], () => store, recordsIo)).toBe(0);
+    const text = recordsIo.out.join('');
+    expect(text).toContain('rollup over 2 direct children');
+    expect(text).not.toContain('rollup over 0 direct children');
+  },
+);
 
 // create verbs
 test.skipIf(!NORN)('create project echoes the new key', async () => {
