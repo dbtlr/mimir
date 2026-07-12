@@ -87,6 +87,13 @@ export type NornNewArgs = {
 
 export type NornSetArgs = {
   target: string;
+  /**
+   * Ergonomic record surface for the fields to write. norn 0.47 (NRN-238) retired
+   * `vault.set`'s map-shaped `set` param — the wire contract is now ordered
+   * `KEY=JSON` tokens (`field_json`, the same shape `vault.new` takes). {@link set}
+   * serializes this record into those tokens (`${key}=${JSON.stringify(value)}`);
+   * mimir's usage has unique keys, so the map→ordered-token mapping is identical.
+   */
   set?: Record<string, unknown>;
   remove?: string[];
   body?: string;
@@ -401,7 +408,17 @@ export class NornClient {
   }
 
   async set(args: NornSetArgs): Promise<unknown> {
-    return this.call('vault.set', args, false);
+    // norn 0.47 (NRN-238): serialize the record-shaped `set` into the
+    // `field_json` ordered `KEY=JSON` tokens the new wire contract requires (the
+    // retired map param is silently ignored). `remove` and `body` pass through.
+    const { set, ...rest } = args;
+    const wire: Record<string, unknown> = { ...rest };
+    if (set !== undefined) {
+      wire.field_json = Object.entries(set).map(
+        ([key, value]) => `${key}=${JSON.stringify(value)}`,
+      );
+    }
+    return this.call('vault.set', wire, false);
   }
 
   async edit(target: string, edits: unknown[], confirm: boolean): Promise<unknown> {
