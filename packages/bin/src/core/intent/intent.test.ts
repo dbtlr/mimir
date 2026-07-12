@@ -340,6 +340,23 @@ test('a value fault returns an empty set with warnings, not an error', async () 
   expect(res.warnings?.[0]?.expected).toEqual(['p0', 'p1', 'p2', 'p3']);
 });
 
+test('upstream filters at parity with external_ref (MMR-265)', async () => {
+  const a = await createTask(store, { parentId: phaseId, title: 'a', upstream: 'MMR-s6' });
+  await createTask(store, { parentId: phaseId, title: 'b' });
+
+  const match = await listNodes(createSqliteStore(db), {
+    filters: [{ field: 'upstream', op: 'eq', value: 'MMR-s6' }],
+    scope: key,
+  });
+  expect(match.items.map((n) => n.id)).toEqual([idOf(a)]);
+
+  const noMatch = await listNodes(createSqliteStore(db), {
+    filters: [{ field: 'upstream', op: 'eq', value: 'MMR-s7' }],
+    scope: key,
+  });
+  expect(noMatch.items).toEqual([]);
+});
+
 test('a type filter widens list beyond tasks', async () => {
   await createTask(store, { parentId: phaseId, title: 'a' });
   const phases = await listNodes(createSqliteStore(db), {

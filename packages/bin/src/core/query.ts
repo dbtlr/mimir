@@ -49,6 +49,7 @@ export const QUERY_FIELDS: Record<string, FieldSpec> = {
   title: { kind: 'string' },
   type: { kind: 'enum', values: NODE_TYPE_VALUES },
   updated_at: { kind: 'date' },
+  upstream: { kind: 'string' },
 };
 
 const DATE_OPS: ReadonlySet<QueryOp> = new Set([

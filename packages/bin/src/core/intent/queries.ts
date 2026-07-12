@@ -215,6 +215,7 @@ function toQueryRow(
     title: node.title,
     type: node.type,
     updated_at: node.updated_at,
+    upstream: node.upstream,
   };
   if (needed.has('id')) {
     values.id = renderNodeIdFromSet(set, node);

@@ -393,6 +393,20 @@ export const CHEAP_FACETS: readonly FacetName[] = [
   'artifacts',
 ];
 
+/**
+ * The write-echo facet set (ADR 0003): the CLI and MCP mutation echoes — node
+ * and project alike — project the affected record through this set (HTTP's
+ * echoes request their own broader detail sets, which carry these fields too).
+ * `description` so a mutation that set it echoes the value back rather than
+ * dropping the field it just wrote (MMR-162); `children` + `distribution` so a
+ * container's echoed status line rolls up over its real children instead of
+ * reading as an unloaded, childless node (MMR-242) — the same rollup sources
+ * `get`'s `CHEAP_FACETS` draws on (both, because a transparent open-ended
+ * child tallies in `children` but not `distribution`, MMR-204), kept lean
+ * rather than pulling `get`'s full facet set into every write echo.
+ */
+export const WRITE_ECHO_FACETS: readonly FacetName[] = ['description', 'children', 'distribution'];
+
 /** The lean bare-field set for broad selection (`next`/`list`); `parent` is the row's hierarchy anchor (MMR-87). */
 export const LEAN_COLS = ['id', 'title', 'status', 'priority', 'size', 'parent'] as const;
 

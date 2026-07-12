@@ -32,6 +32,24 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **`--where upstream` reaches parity with `external_ref`** (MMR-265). The task
+  `upstream` seed pointer became a readable projection field in MMR-252 but
+  was never added to the field-operator registry, so `mimir list --eq
+  upstream:KEY-sN` (and the `--in`/`--has`/`--missing`/etc. family) errored
+  with "unknown field" — a filter-parity gap flagged at MMR-252 review time.
+  `upstream` is now a queryable string field alongside `external_ref` on the
+  shared core query layer, so the fix reaches the CLI, MCP, and HTTP
+  transports at once.
+- **`annotate` (and every other mutation echo) now reports a container's true
+  rollup** (MMR-242). Annotating, updating, or otherwise mutating a container
+  with children — an initiative, phase, or project — echoed `(rollup over 0
+  direct children)` regardless of how many children it actually had, because
+  the write-echo path requested a leaner facet set than `get` and never loaded
+  the distribution the rollup count is drawn from. The CLI's node and project
+  write-echoes and the MCP node and project mutation echoes (previously
+  separately hardcoded facet sets) now all route through one shared
+  `WRITE_ECHO_FACETS`, so every mutation echo rolls up over the same source
+  `get` does.
 - **norn 0.47 contract adoption** (MMR-266). Three verified contract breaks
   against norn 0.47 are absorbed. `vault.set` retired its map-shaped param
   (NRN-238): the new ordered `KEY=JSON` `field_json` tokens are now serialized
