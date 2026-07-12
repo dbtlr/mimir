@@ -717,7 +717,9 @@ const FRONTMATTER_FINDINGS = {
       path: 'MMR/MMR-2.md',
     },
     {
-      code: 'frontmatter-disallowed-value',
+      // norn 0.47 (NRN-235) foreign-value code; the old-code path is locked by the
+      // artifact test below (dual-key tolerance).
+      code: 'value-not-allowed',
       field: 'type',
       message: 'foreign type',
       path: 'MMR/MMR-3.md',
@@ -801,6 +803,8 @@ test('an artifact doc (KEY/artifacts/KEY-aN.md) with a foreign type is surfaced 
     vaultOf([], [], undefined, {
       findings: [
         {
+          // Old (norn <=0.46) foreign-value code — kept to lock the dual-key
+          // tolerance (0.47 renamed it `value-not-allowed`, exercised above).
           code: 'frontmatter-disallowed-value',
           field: 'type',
           message: 'foreign type',

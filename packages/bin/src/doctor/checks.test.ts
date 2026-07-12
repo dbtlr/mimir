@@ -137,3 +137,18 @@ test('frontmatter renders an untyped seed doc; a seed stem outside /seeds/ is no
   );
   expect(misplaced).toEqual([]);
 });
+
+test('frontmatter renders a foreign-`type` node under either norn foreign-value code (NRN-235)', async () => {
+  // norn 0.47 renamed the foreign-value code `frontmatter-disallowed-value` ->
+  // `value-not-allowed`; both keys must render the untyped finding (dual-key tolerance).
+  const current = await frontmatterCheck.run(
+    frontmatterCtx([{ code: 'value-not-allowed', field: 'type', path: 'MMR/MMR-5.md' }]),
+  );
+  expect(current).toHaveLength(1);
+  expect(current[0]).toMatchObject({ node: 'MMR-5', where: 'frontmatter · type' });
+  const legacy = await frontmatterCheck.run(
+    frontmatterCtx([{ code: 'frontmatter-disallowed-value', field: 'type', path: 'MMR/MMR-6.md' }]),
+  );
+  expect(legacy).toHaveLength(1);
+  expect(legacy[0]).toMatchObject({ node: 'MMR-6', where: 'frontmatter · type' });
+});
