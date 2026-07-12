@@ -208,7 +208,14 @@ export async function listSeeds(store: Store, opts: ListSeedsOptions = {}): Prom
 }
 
 /** Attach the derived lede to the LIVE views in `views` (mutated in place) from a
- * single batched section read (MMR-263). A no-op when no view is live. */
+ * single batched section read (MMR-263). A no-op when no view is live.
+ *
+ * The lede is decorative, so a REJECTED batch read (a transport-level fault —
+ * per-document corruption already degrades inside the store) must not abort the
+ * queue: the live rows degrade to `lede: null` and the fault is noted on stderr —
+ * the one channel every transport shares (CLI terminal, serve daemon log, MCP
+ * server stderr) without a wire change — so the degradation is diagnosable, not
+ * silent (ADR 0017's diagnosability rule). */
 async function attachLede(store: Store, views: SeedView[]): Promise<void> {
   const live = views.filter((v) => isLive(v.lifecycle));
   const refs = live
@@ -217,7 +224,17 @@ async function attachLede(store: Store, views: SeedView[]): Promise<void> {
   if (refs.length === 0) {
     return;
   }
-  const descriptions = await store.seeds.loadDescriptions(refs);
+  let descriptions: ReadonlyMap<string, string | null>;
+  try {
+    descriptions = await store.seeds.loadDescriptions(refs);
+  } catch (error) {
+    for (const view of live) {
+      view.lede = null;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`mimir: seed description read failed — listing without previews (${message})`);
+    return;
+  }
   for (const view of live) {
     view.lede = deriveLede(descriptions.get(view.id) ?? null);
   }

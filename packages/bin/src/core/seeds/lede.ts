@@ -6,18 +6,19 @@
  * the same preview (the derive-don't-store spine, ADR 0021).
  */
 
-/** The lede character budget — the extracted preview is truncated to this many
- * characters at a word boundary. A budget in characters (not lines) keeps the
- * derivation transport-neutral; the console applies its own 2-line CSS clamp on
- * top. Chosen minimal-but-legible: two console lines of body prose. */
+/** The lede character budget — the RETURNED lede never exceeds this many
+ * characters, trailing ellipsis included (a truncation reserves one character
+ * for it). A budget in characters (not lines) keeps the derivation
+ * transport-neutral; the console applies its own 2-line CSS clamp on top.
+ * Chosen minimal-but-legible: two console lines of body prose. */
 export const SEED_LEDE_BUDGET = 240;
 
 /**
  * Derive the bounded lede from a seed's description prose. Whitespace runs
  * (including newlines) collapse to single spaces so the lede is one clean flowed
  * string; an empty/whitespace-only or absent description yields `null` (no lede).
- * Prose longer than {@link SEED_LEDE_BUDGET} is cut at the last word boundary at
- * or before the budget and marked with a trailing ellipsis.
+ * Longer prose is cut at the last word boundary that keeps the result — trailing
+ * ellipsis included — within {@link SEED_LEDE_BUDGET}.
  */
 export function deriveLede(description: string | null): string | null {
   if (description === null) {
@@ -30,7 +31,8 @@ export function deriveLede(description: string | null): string | null {
   if (flattened.length <= SEED_LEDE_BUDGET) {
     return flattened;
   }
-  const slice = flattened.slice(0, SEED_LEDE_BUDGET);
+  // Reserve one character for the ellipsis so the returned string stays ≤ budget.
+  const slice = flattened.slice(0, SEED_LEDE_BUDGET - 1);
   const lastSpace = slice.lastIndexOf(' ');
   // No space to cut on → hard cut, code-point-safe: a UTF-16 cut landing
   // mid-surrogate-pair would leave a lone high surrogate at the boundary (not a

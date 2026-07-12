@@ -15,9 +15,11 @@ which changes storage:
   0016](0016-norn-vault-system-of-record.md)) and derives a bounded `lede`
   server-side in one core function shared by every transport. The lede rides the
   CLI queue rendering, the triage report, and the HTTP list wire (the console's
-  2-line preview). The full body stays the detail read; settled seeds get their
-  lede on demand from that detail read. Nothing is stored — no schema field, no
-  frontmatter projection, no doctor check.
+  2-line preview). `lede` rides **only live list rows**: settled rows and the
+  detail read omit it — the detail read carries the full `description`, which is
+  how a settled seed's body (and any preview of it) is fetched on demand.
+  Nothing is stored — no schema field, no frontmatter projection, no doctor
+  check.
 
 - **(write) Capture is one text blob with commit-message semantics.** The first
   line is the title, the rest is the body, split at the first newline —
@@ -47,11 +49,12 @@ seen, so all prose migrated there.
 
 ## Spec-at-phase settlements
 
-- **Lede budget: 240 characters.** The derivation normalizes whitespace runs
-  (including newlines) to single spaces, trims, and truncates at the last word
-  boundary at or before the budget, appending an ellipsis when it cuts. A
-  character budget (not a line count) keeps the derivation transport-neutral;
-  the console applies its own 2-line CSS clamp on top.
+- **Lede budget: 240 characters, ellipsis included.** The derivation normalizes
+  whitespace runs (including newlines) to single spaces, trims, and cuts at the
+  last word boundary that keeps the result — trailing ellipsis included — within
+  the budget, so the returned lede never exceeds 240 characters. A character
+  budget (not a line count) keeps the derivation transport-neutral; the console
+  applies its own 2-line CSS clamp on top.
 - **The plain `mimir seeds` table shows the lede** (as a dimmed second line under
   each live row), not only `--grouped`. The queue's purpose is to surface the
   prose that used to hide in the detail read, so gating it behind a flag would
@@ -79,7 +82,10 @@ seen, so all prose migrated there.
   `## Seed Description` for many seeds in one native section read (the norn arm;
   the retiring SQLite arm throws, as every seed method does). `listSeeds`
   attaches the derived lede to its live rows from that one batch; the triage
-  report inherits it (it reads through `listSeeds`).
+  report inherits it (it reads through `listSeeds`). The lede is decorative, so
+  a rejected batch read never aborts the queue: the live rows degrade to
+  `lede: null` with a stderr note ([ADR 0017](0017-runtime-data-tolerance.md)'s
+  diagnosability rule — degraded, never silent).
 - `SeedView` gains an optional `lede` (present on live list rows, absent on the
   detail read and on settled rows); `seedToWire` emits it when present. The
   full `description` continues to ride only the content/detail read.

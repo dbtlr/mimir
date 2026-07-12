@@ -31,9 +31,9 @@ describe('deriveLede', () => {
     expect(lede).not.toBeNull();
     const value = lede ?? '';
     expect(value.endsWith('…')).toBe(true);
-    // The extracted text (ellipsis aside) stays within the budget and cuts on a word.
+    // The RETURNED lede — ellipsis included — stays within the budget, cut on a word.
+    expect(value.length).toBeLessThanOrEqual(SEED_LEDE_BUDGET);
     const text = value.slice(0, -1);
-    expect(text.length).toBeLessThanOrEqual(SEED_LEDE_BUDGET);
     expect(text.endsWith(' ')).toBe(false);
     expect(long.startsWith(text)).toBe(true);
   });
@@ -42,18 +42,21 @@ describe('deriveLede', () => {
     const blob = 'y'.repeat(SEED_LEDE_BUDGET + 50);
     const lede = deriveLede(blob) ?? '';
     expect(lede.endsWith('…')).toBe(true);
-    expect(lede.slice(0, -1).length).toBe(SEED_LEDE_BUDGET);
+    // The RETURNED lede is exactly the budget: budget-1 content + the ellipsis.
+    expect(lede.length).toBe(SEED_LEDE_BUDGET);
   });
 
   test('the hard cut never splits a surrogate pair (astral-heavy space-free body)', () => {
     // A space-free body of astral code points: a UTF-16 code-unit cut can land
     // mid-pair, leaving a lone high surrogate at the boundary — which is not a
-    // valid string (encodeURIComponent throws on it).
-    const lede = deriveLede(`x${'😀'.repeat(200)}`) ?? '';
-    expect(() => encodeURIComponent(lede)).not.toThrow();
-    // The cut backs off at most one unit — still within (and near) the budget.
-    const text = lede.slice(0, -1);
-    expect(text.length).toBeLessThanOrEqual(SEED_LEDE_BUDGET);
-    expect(text.length).toBeGreaterThanOrEqual(SEED_LEDE_BUDGET - 1);
+    // valid string (encodeURIComponent throws on it). Both parities: one of the
+    // two bodies puts the cut mid-pair whatever the (odd/even) budget cut-off is.
+    for (const blob of ['😀'.repeat(200), `x${'😀'.repeat(200)}`]) {
+      const lede = deriveLede(blob) ?? '';
+      expect(() => encodeURIComponent(lede)).not.toThrow();
+      // The cut backs off at most one unit — within (and near) the budget.
+      expect(lede.length).toBeLessThanOrEqual(SEED_LEDE_BUDGET);
+      expect(lede.length).toBeGreaterThanOrEqual(SEED_LEDE_BUDGET - 1);
+    }
   });
 });
