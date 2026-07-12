@@ -43,6 +43,7 @@ import {
 
 let db: Db;
 let store: Store;
+let projectId: number;
 let phaseId: number;
 let phaseRef: string;
 let taskRef: string;
@@ -52,6 +53,7 @@ beforeEach(async () => {
   db = await createTestDb();
   store = createSqliteStore(db);
   const p = await createProject(store, { key: 'MMR', name: 'm' });
+  projectId = p.id;
   const init = await createInitiative(store, { projectId: p.id, title: 'i' });
   initiativeId = init.id;
   const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
@@ -258,6 +260,45 @@ test('annotate echoes the node', async () => {
   const res = await toolAnnotate(store, { content: 'looked into this', id: taskRef });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).id).toBe(taskRef);
+});
+
+test('annotate on a container echoes the true rollup, matching get (MMR-242)', async () => {
+  await createTask(store, { parentId: phaseId, title: 't2' });
+
+  const getView = parseJson<{ distribution: Record<string, number> }>(
+    textOf(await toolGet(store, { id: phaseRef })),
+  );
+
+  const res = await toolAnnotate(store, { content: 'checked in', id: phaseRef });
+  expect(res.isError).toBeUndefined();
+  const annotateView = parseJson<{ distribution: Record<string, number> }>(textOf(res));
+
+  // The mutation echo must derive its rollup from the same source as `get` —
+  // not read as an unloaded, childless node.
+  expect(annotateView.distribution).toEqual(getView.distribution);
+  expect(annotateView.distribution).toEqual({ ready: 2 });
+});
+
+test('update on a project echoes the true rollup, matching get (MMR-242)', async () => {
+  // The project already carries one root initiative (from beforeEach) — add a
+  // second so the count is unambiguous.
+  await createInitiative(store, { projectId, title: 'i2' });
+
+  const getView = parseJson<{ children: unknown[]; distribution: Record<string, number> }>(
+    textOf(await toolGet(store, { id: 'MMR' })),
+  );
+
+  const res = await toolUpdate(store, { description: 'renamed body', id: 'MMR' });
+  expect(res.isError).toBeUndefined();
+  const updateView = parseJson<{ children: unknown[]; distribution: Record<string, number> }>(
+    textOf(res),
+  );
+
+  // The project write-echo must derive its rollup from the same sources as
+  // `get KEY` — not read as an unloaded, childless project.
+  expect(updateView.children).toEqual(getView.children);
+  expect(updateView.distribution).toEqual(getView.distribution);
+  expect(updateView.distribution).toEqual({ new: 1, ready: 1 });
 });
 
 // ---------------------------------------------------------------------------

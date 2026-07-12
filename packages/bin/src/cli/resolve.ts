@@ -4,7 +4,7 @@
  * affected node back to stdout in the requested format.
  */
 
-import type { FacetName } from '@mimir/contract';
+import { WRITE_ECHO_FACETS } from '@mimir/contract';
 
 import {
   deriveSet,
@@ -24,13 +24,8 @@ import type { Format, Io } from './render';
 
 export type { Format };
 
-/**
- * The write-echo facet set. `description` is facet-gated (MMR-162), so a mutation
- * that set it must request the facet to echo the value back — otherwise the
- * record a `create`/`update` prints omits the field it just wrote. Kept to
- * `description` alone to match the pre-MMR-162 bare-field echo shape.
- */
-const WRITE_ECHO_FACETS = new Set<FacetName>(['description']);
+/** The write-echo facet set — {@link WRITE_ECHO_FACETS}, as a `Set` for the seams below. */
+const WRITE_ECHO_FACET_SET = new Set(WRITE_ECHO_FACETS);
 
 /**
  * Resolve a node token to its surrogate integer id — the CLI's binding of the
@@ -95,7 +90,7 @@ export async function echoNode(
   format: Format,
   io: Io,
 ): Promise<void> {
-  const view = await nodeViewById(store, nodeId, WRITE_ECHO_FACETS);
+  const view = await nodeViewById(store, nodeId, WRITE_ECHO_FACET_SET);
   if (view === undefined) {
     throw notFound('the record vanished before echo');
   }
@@ -116,7 +111,7 @@ export async function echoNodeWith(
   io: Io,
   makeSignpost: (renderedId: string) => string,
 ): Promise<void> {
-  const view = await nodeViewById(store, nodeId, WRITE_ECHO_FACETS);
+  const view = await nodeViewById(store, nodeId, WRITE_ECHO_FACET_SET);
   if (view === undefined) {
     throw notFound('the record vanished before echo');
   }
@@ -127,7 +122,9 @@ export async function echoNodeWith(
 /**
  * Echo the updated project record to stdout in the requested format. Accepts
  * the project key, loads the row, and projects it to a view through the same
- * path as `get KEY`. Matches the write-echo idiom of every other mutation.
+ * path as `get KEY`. Matches the write-echo idiom of every other mutation —
+ * including the shared write-echo facets, so the echoed rollup covers the
+ * project's real root children (MMR-242).
  */
 export async function echoProject(
   store: Store,
@@ -135,7 +132,7 @@ export async function echoProject(
   format: Format,
   io: Io,
 ): Promise<void> {
-  const view = await projectViewByKey(store, key);
+  const view = await projectViewByKey(store, key, WRITE_ECHO_FACET_SET);
   if (view === undefined) {
     throw notFound(`project ${key} vanished before echo`);
   }
