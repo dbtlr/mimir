@@ -426,7 +426,10 @@ export function renderSeedRecords(seed: SeedView, io: Io): string {
   return [bold(seed.id, io.plain), ...pairs.map(([l, v]) => row(l, v, labelW))].join('\n');
 }
 
-/** One queue row: kind · lifecycle · requester · age · id · title (aligned). */
+/** One queue row: kind · lifecycle · requester · age · id · title (aligned), with
+ * the derived lede (MMR-263) as a dimmed second line when the live seed carries a
+ * body — the queue's own preview of the `## Seed Description`, so `mimir seeds`
+ * shows the prose that used to hide in the detail read. */
 export function seedRows(seeds: readonly SeedView[], io: Io): string[] {
   const kindW = Math.max(...seeds.map((s) => s.kind.length));
   const lifeW = Math.max(...seeds.map((s) => s.lifecycle.length));
@@ -436,7 +439,11 @@ export function seedRows(seeds: readonly SeedView[], io: Io): string[] {
   const readyGlyph = io.plain ? ' *' : ' \x1b[32m●\x1b[0m';
   return seeds.map((s) => {
     const ready = s.readyToResolve ? readyGlyph : '';
-    return `${pad(s.kind, kindW)}   ${pad(s.lifecycle, lifeW)}   ${pad(s.requester ?? '-', reqW)}   ${pad(s.createdAt, ageW)}   ${pad(s.id, idW)}   ${s.title}${ready}`;
+    const head = `${pad(s.kind, kindW)}   ${pad(s.lifecycle, lifeW)}   ${pad(s.requester ?? '-', reqW)}   ${pad(s.createdAt, ageW)}   ${pad(s.id, idW)}   ${s.title}${ready}`;
+    if (s.lede == null || s.lede === '') {
+      return head;
+    }
+    return `${head}\n${color(`      ${s.lede}`, 90, io.plain)}`;
   });
 }
 

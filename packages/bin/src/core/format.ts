@@ -244,6 +244,11 @@ export function seedToWire(seed: SeedView): Record<string, unknown> {
   if (seed.description !== undefined) {
     wire.description = seed.description;
   }
+  // The derived list lede (MMR-263) — present on live queue rows, omitted on the
+  // detail read (which carries the full `description`) and on settled rows.
+  if (seed.lede !== undefined) {
+    wire.lede = seed.lede;
+  }
   return wire;
 }
 
