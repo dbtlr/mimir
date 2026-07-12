@@ -27,6 +27,14 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **`--where upstream` reaches parity with `external_ref`** (MMR-265). The task
+  `upstream` seed pointer became a readable projection field in MMR-252 but
+  was never added to the field-operator registry, so `mimir list --eq
+  upstream:KEY-sN` (and the `--in`/`--has`/`--missing`/etc. family) errored
+  with "unknown field" — a filter-parity gap flagged at MMR-252 review time.
+  `upstream` is now a queryable string field alongside `external_ref` on the
+  shared core query layer, so the fix reaches the CLI, MCP, and HTTP
+  transports at once.
 - **norn 0.47 contract adoption** (MMR-266). Three verified contract breaks
   against norn 0.47 are absorbed. `vault.set` retired its map-shaped param
   (NRN-238): the new ordered `KEY=JSON` `field_json` tokens are now serialized

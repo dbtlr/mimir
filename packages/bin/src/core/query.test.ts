@@ -48,6 +48,20 @@ describe('parseFilterToken (structural validation)', () => {
     // working set), so filtering it would silently diverge across backends.
     await expectMimirError('validation', async () => parseFilterToken('eq', 'description:prose'));
   });
+
+  test('upstream is queryable, at parity with external_ref (MMR-265)', () => {
+    // Both are nullable task-only strings (MMR-252); `upstream` used to be
+    // "unknown field" here — it now filters exactly like `external_ref`.
+    expect(parseFilterToken('eq', 'upstream:MMR-s6')).toEqual({
+      field: 'upstream',
+      op: 'eq',
+      value: 'MMR-s6',
+    });
+    const { test: run } = compileFilters([{ field: 'upstream', op: 'eq', value: 'MMR-s6' }]);
+    expect(run(row({ upstream: 'MMR-s6' }))).toBe(true);
+    expect(run(row({ upstream: 'MMR-s7' }))).toBe(false);
+    expect(run(row({ upstream: null }))).toBe(false);
+  });
 });
 
 describe('compileFilters (value faults → warnings)', () => {

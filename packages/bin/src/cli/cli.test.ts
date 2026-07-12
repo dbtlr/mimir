@@ -799,6 +799,33 @@ test('list --eq type:phase filters to phases only', async () => {
   expect(out).not.toContain(`MMR-${String(t.seq)}`);
 });
 
+// --where/upstream parity (MMR-265)
+
+test('list --eq upstream:KEY-sN filters at parity with external_ref', async () => {
+  const a = await createTask(store, { parentId: phaseId, title: 'a', upstream: 'MMR-s6' });
+  await createTask(store, { parentId: phaseId, title: 'b' });
+  const io = fakeIo(false);
+  const code = await runCli(
+    ['list', '--scope', 'MMR', '--eq', 'upstream:MMR-s6', '-f', 'ids'],
+    () => store,
+    io,
+  );
+  expect(code).toBe(0);
+  expect(io.out.join('').trim()).toBe(`MMR-${String(a.seq)}`);
+});
+
+test('list --eq upstream:KEY-sN with no match returns an empty set', async () => {
+  await createTask(store, { parentId: phaseId, title: 'a', upstream: 'MMR-s6' });
+  const io = fakeIo(false);
+  const code = await runCli(
+    ['list', '--scope', 'MMR', '--eq', 'upstream:MMR-s7', '-f', 'ids'],
+    () => store,
+    io,
+  );
+  expect(code).toBe(0);
+  expect(io.out.join('').trim()).toBe('');
+});
+
 test('--type is now an unknown option → rejected with exit 2 (MMR-94)', async () => {
   const io = fakeIo(false);
   const code = await runCli(['list', '--type', 'phase'], () => store, io);
