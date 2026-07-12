@@ -84,6 +84,8 @@ import {
   updateProject,
   validation,
 } from '../core';
+import type { DoctorFacet } from '../doctor/facet';
+import { emptyDoctorFacet } from '../doctor/serve';
 import { VAULT_SCHEMA } from '../vault';
 import {
   boolField,
@@ -363,6 +365,12 @@ export type ServeOptions = {
   assets?: UiAssetMap;
   /** The MMR-53 walk-upward convenience; the daemon posture passes false (declared port, loud failure). */
   hunt?: boolean;
+  /**
+   * The `/api/doctor` record-health facet provider (MMR-185) — computes the
+   * dropped-record diagnostics over the vault, scoped to an optional project. Absent
+   * on the SQLite backend (no vault); the route then serves the empty facet.
+   */
+  doctor?: (scope: string | undefined) => Promise<DoctorFacet>;
 };
 
 /** How far past a taken port the hunt walks before giving up (MMR-53). */
@@ -502,6 +510,26 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             }
             const detail = await getArtifact(store, req.params.id, { content: true });
             return json(req, await artifactDetailToWire(store, detail));
+          }),
+      },
+
+      // The record-health facet (MMR-185, ADR 0017): the console projection of the
+      // same dropped-record diagnostics `mimir doctor` reports. Read-only. `?project`
+      // scopes to one project's group (the project-header/panel case); unscoped
+      // returns every project's group (the overview + attention surfacing).
+      '/api/doctor': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const scope = new URL(req.url).searchParams.get('project') ?? undefined;
+            const facet = opts.doctor === undefined ? emptyDoctorFacet() : await opts.doctor(scope);
+            if (scope === undefined) {
+              return json(req, facet);
+            }
+            // A project-scoped read keeps only that project's group; the referential
+            // graph is whole-vault, so another project's drops can ride along.
+            const groups = facet.groups.filter((g) => g.project === scope);
+            const droppedTotal = groups.reduce((sum, g) => sum + g.dropped, 0);
+            return json(req, { ...facet, dropped_total: droppedTotal, groups });
           }),
       },
 

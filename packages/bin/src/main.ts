@@ -20,6 +20,9 @@ import type { Io } from './cli';
 import type { Db, Store } from './core';
 import { createDb } from './db/client';
 import { migrateToLatest, migrationStatus } from './db/migrator';
+import type { DoctorFacet } from './doctor/facet';
+import { computeDoctorFacet } from './doctor/serve';
+import type { DoctorFacetDeps } from './doctor/serve';
 import { DEFAULT_PORT, IS_PRODUCTION, envFlag, envPort, storePath } from './env';
 import { createServer } from './http';
 import { serveStdio } from './mcp';
@@ -252,9 +255,25 @@ async function main(argv: string[]): Promise<number> {
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
     const db = await openMigrated(storePath());
     const built = await buildStore(db);
+    // The record-health facet provider (MMR-185) — present only when the vault
+    // read handles are (Norn backend). Destructured so the truthy guard narrows each
+    // to its non-undefined type; on SQLite it stays undefined and the route serves
+    // the empty facet.
+    const { readNodeDocs, readRaw, readSectionFailures, readVaultGraph, validate } = built;
+    let doctor: ((scope: string | undefined) => Promise<DoctorFacet>) | undefined;
+    if (readNodeDocs && readRaw && readSectionFailures && readVaultGraph && validate) {
+      const deps: DoctorFacetDeps = {
+        readNodeDocs,
+        readRaw,
+        readSectionFailures,
+        readVaultGraph,
+        validate,
+      };
+      doctor = (scope) => computeDoctorFacet(deps, scope);
+    }
     let server: ReturnType<typeof createServer>;
     try {
-      server = createServer(built.store, { hunt: !noHunt, port, version: VERSION });
+      server = createServer(built.store, { doctor, hunt: !noHunt, port, version: VERSION });
     } catch (err) {
       await built.close();
       if (err instanceof Error && 'code' in err && err.code === 'EADDRINUSE') {

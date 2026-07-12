@@ -9,6 +9,7 @@ import type { SearchSchemaInput } from '@tanstack/react-router';
 import { BAND_MODES } from './lib/bands';
 import type { BandMode } from './lib/bands';
 import { ArtifactsPage } from './routes/artifacts';
+import { DoctorPage } from './routes/doctor';
 import { OverviewPage } from './routes/overview';
 import { ProjectPage } from './routes/project';
 import { SeedsPage } from './routes/seeds';
@@ -113,6 +114,20 @@ export const tasksRoute = createRoute({
   },
 });
 
+export type DoctorSearch = {
+  /** The project the panel scopes to (`all`/absent = every board) — the deep-link
+   * the project-header damage chip carries. */
+  project?: string;
+};
+
+export const doctorRoute = createRoute({
+  component: DoctorPage,
+  getParentRoute: () => rootRoute,
+  path: '/doctor',
+  validateSearch: (search: Record<string, unknown>): DoctorSearch =>
+    typeof search.project === 'string' && search.project !== '' ? { project: search.project } : {},
+});
+
 export type SeedsSearch = {
   /** The filter to one project's board (`all`/absent = every board). */
   project?: string;
@@ -156,6 +171,7 @@ const routeTree = rootRoute.addChildren([
   artifactsRoute,
   seedsRoute,
   tasksRoute,
+  doctorRoute,
   ...devRoutes,
 ]);
 
