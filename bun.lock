@@ -56,7 +56,7 @@
         "@tanstack/react-router": "^1.170.16",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
-        "idb-keyval": "^6.2.2",
+        "idb-keyval": "^6.3.0",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
         "react-markdown": "^10.1.0",
@@ -1030,7 +1030,7 @@
 
     "idb": ["idb@7.1.1", "", {}, "sha512-gchesWBzyvGHRO9W8tzUWFDycow5gwjvFKfyV9FF32Y7F50yZMp7mP+T2mJIWFx49zicqyC4uefHM17o6xKIVQ=="],
 
-    "idb-keyval": ["idb-keyval@6.2.5", "", {}, "sha512-eKQkTnS0relYsSOYomx8ozIbmdsQCKUdhyuIaQ2DZgKuaxtyQQMkyD/wlnQN32pO3yutN1b1L8uqwcDKaJd7/Q=="],
+    "idb-keyval": ["idb-keyval@6.3.0", "", {}, "sha512-um+2dgAWmYsu615EXpWVwSmapJhON0G43t3Ka/EVaohzPQXSMqKEqeDK/oIW3Ow+BXaF2PvSc+oBTFp793A5Ow=="],
 
     "indent-string": ["indent-string@4.0.0", "", {}, "sha512-EdDDZu4A2OyIK7Lr/2zG+w5jmbuk1DVBnEwREQvBzspBJkCEbRa8GxU1lghYcaGJCnRWibjDXlq779X1/y5xwg=="],
 
