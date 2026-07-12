@@ -35,15 +35,28 @@ function SnippetLine({ line }: { line: WireDoctorSnippetLine }) {
   );
 }
 
-/** Copy `path:line` (or the bare path when unlocated) — the one affordance. */
+/** Copy `path:line` (or the bare path when unlocated) — the one affordance. The
+ * success toast waits for the clipboard write to resolve; a rejection or an absent
+ * `navigator.clipboard` (an insecure off-loopback context) toasts the failure
+ * instead of falsely announcing a copy. */
 function CopyLocation({ record }: { record: WireDoctorRecord }) {
   const target = record.location === null ? record.path : `${record.path}:${record.location.line}`;
+  const copy = async () => {
+    try {
+      if (navigator.clipboard === undefined) {
+        throw new Error('clipboard unavailable');
+      }
+      await navigator.clipboard.writeText(target);
+      toast.success(`Copied ${target}`);
+    } catch {
+      toast.error(`Couldn't copy ${target} — select it from the file group above.`);
+    }
+  };
   return (
     <button
       type="button"
       onClick={() => {
-        void navigator.clipboard?.writeText(target);
-        toast.success(`Copied ${target}`);
+        void copy();
       }}
       className="shrink-0 rounded-md px-2.5 py-[3px] text-tag font-semibold text-accent-foreground inset-ring inset-ring-accent/25 transition-colors hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-accent"
     >
