@@ -34,8 +34,12 @@ const SHAPES: Record<string, z.ZodRawShape> = {
     targets: z.array(z.string()),
   },
   'vault.set': {
+    body: z.string().optional(),
     confirm: z.boolean().optional(),
-    set: z.record(z.string(), z.unknown()).optional(),
+    // norn 0.47 (NRN-238): the map-shaped `set` param is retired; fields arrive
+    // as ordered KEY=JSON tokens, the same shape `vault.new` takes.
+    field_json: z.array(z.string()).optional(),
+    remove: z.array(z.string()).optional(),
     target: z.string(),
   },
 };
@@ -115,6 +119,25 @@ test('an isError result raises a validation error carrying norn message', async 
   await expectMimirError('validation', () =>
     (client as NornClient).set({ confirm: true, set: { a: 1 }, target: 'x.md' }),
   );
+});
+
+test('set serializes the record into ordered field_json KEY=JSON tokens (norn 0.47)', async () => {
+  // NRN-238: the map-shaped `set` param is retired (norn silently ignores it);
+  // the wire carries `field_json` tokens — the exact serialization is the contract.
+  let received: unknown = null;
+  const fake = fakeNorn(() => ({
+    'vault.set': (args) => {
+      received = args;
+      return Promise.resolve({ structuredContent: { ok: true } });
+    },
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  await client.set({ confirm: true, set: { tags: ['a', 'b'], title: 'After' }, target: 'x.md' });
+  expect(received).toEqual({
+    confirm: true,
+    field_json: ['tags=["a","b"]', 'title="After"'],
+    target: 'x.md',
+  });
 });
 
 test('calls are serialized: a slow call blocks the next, never pipelined', async () => {
@@ -293,6 +316,68 @@ test('applyPlan throws with norn message on an isError result that is not an app
     }
     expect(message).toContain('plan schema invalid');
   }
+});
+
+test('a vault.get isError carrying the structured read payload is returned as data (norn 0.46)', async () => {
+  // NRN-214: an unresolved target / all-headings-miss get sets isError:true but
+  // PRESERVES records/section_failures/notes. The seams need that payload —
+  // sectionFailures reports instead of aborting, get sees empty records.
+  const fake = fakeNorn(() => ({
+    'vault.get': () =>
+      Promise.resolve({
+        content: [{ text: 'did not resolve', type: 'text' as const }],
+        isError: true,
+        structuredContent: {
+          notes: ["error: 'MMR/MMR-9.md' did not resolve to any doc"],
+          records: [],
+          section_failures: [{ path: 'MMR/MMR-1.md', requested_headings: ['Annotations'] }],
+        },
+      }),
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  expect(await client.get(['MMR-9'])).toEqual([]);
+  expect(await client.sectionFailures(['MMR-1'], ['Annotations'])).toEqual(['MMR/MMR-1.md']);
+});
+
+test('a vault.get isError with no structured payload still throws validation', async () => {
+  // The tolerance is scoped to a genuine read payload — a payload-less tool error
+  // must surface norn's diagnostic text, never degrade to an empty read.
+  const fake = fakeNorn(() => ({
+    'vault.get': () =>
+      Promise.resolve({
+        content: [{ text: 'vault is locked', type: 'text' as const }],
+        isError: true,
+      }),
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  await expectMimirError('validation', () => (client as NornClient).get(['MMR-1']));
+  let message = '';
+  try {
+    await client.get(['MMR-1']);
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain('vault is locked');
+});
+
+test('the isError read tolerance is scoped to vault.get — other tools still throw', async () => {
+  // A records-shaped payload on a DIFFERENT tool must not slip through as data.
+  const fake = fakeNorn(() => ({
+    'vault.find': () =>
+      Promise.resolve({
+        content: [{ text: 'find rejected', type: 'text' as const }],
+        isError: true,
+        structuredContent: { records: [] },
+      }),
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  let message = '';
+  try {
+    await client.find({});
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toContain('find rejected');
 });
 
 test('an in-flight death on applyPlan fails typed and is never replayed', async () => {
