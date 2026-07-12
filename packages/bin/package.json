@@ -12,7 +12,7 @@
     "@mimir/contract": "workspace:*",
     "@mimir/helpers": "workspace:*",
     "@modelcontextprotocol/sdk": "1.29.0",
-    "kysely": "0.28.17",
+    "kysely": "0.29.3",
     "zod": "4.4.3"
   }
 }
