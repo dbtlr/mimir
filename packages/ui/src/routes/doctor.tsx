@@ -30,8 +30,11 @@ function DoctorGroup({ group }: { group: WireDoctorGroup }) {
         </span>
       </div>
       <div className="flex flex-col gap-4 px-4 py-3.5">
-        {group.records.map((record) => (
-          <DoctorRecord key={`${record.id}:${record.cause}`} record={record} />
+        {/* id+cause alone collides (two dangling depends_on edges on one node);
+            the index disambiguates — the list is read-only and re-fetched whole,
+            so a positional key never fights a reorder. */}
+        {group.records.map((record, i) => (
+          <DoctorRecord key={`${record.id}:${record.cause}:${String(i)}`} record={record} />
         ))}
       </div>
     </div>

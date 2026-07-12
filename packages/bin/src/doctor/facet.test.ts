@@ -15,6 +15,14 @@ describe('editDistance / nearest', () => {
     expect(nearest('in_progres', ['todo', 'in_progress', 'done'])).toBe('in_progress');
     expect(nearest('', ['a', 'b'])).toBeNull();
   });
+
+  test('nearest suppresses a suggestion for gibberish (no near miss)', () => {
+    // Nothing in the vocabulary is anywhere near — suggesting "todo" for line
+    // noise would be worse than silence.
+    expect(nearest('qqqqzzzzxxxx', ['todo', 'in_progress', 'done'])).toBeNull();
+    // A near miss (a transposition) still suggests.
+    expect(nearest('dnoe', ['todo', 'in_progress', 'done'])).toBe('done');
+  });
 });
 
 describe('pathOfStem', () => {
@@ -157,6 +165,29 @@ describe('buildDoctorFacet', () => {
     });
     // MMR-2 was never in the readable set, so the readable tally is untouched.
     expect(facet.groups[0]?.readable).toBe(1);
+  });
+
+  test('a dangling spawned edge gets its own cause, not the missing-project fallback', () => {
+    const rawSeed = ['---', 'type: seed', 'title: s', 'spawned: "[[MMR-9]]"', '---'].join('\n');
+    const facet = buildDoctorFacet({
+      findings: [
+        {
+          check: 'seed-validity',
+          message: 'spawned MMR-9 resolves to no node in the vault — pruned on read',
+          node: 'MMR-s1',
+          severity: 'error',
+          where: 'frontmatter · spawned',
+        },
+      ],
+      rawByStem: new Map([['MMR-s1', rawSeed]]),
+      readableDocStems: ['MMR-s1'],
+      scannedAt: '2026-07-12T00:00:00.000Z',
+    });
+    const record = facet.groups[0]?.records[0];
+    expect(record?.cause).toBe('dangling spawned');
+    expect(record?.note).toContain('pruned on read');
+    // No closed vocabulary for a reference — never a nearest-legal suggestion.
+    expect(record?.suggestion).toBeNull();
   });
 
   test('a clean vault yields an empty facet', () => {

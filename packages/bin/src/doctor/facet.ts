@@ -123,7 +123,13 @@ export function editDistance(a: string, b: string): number {
 }
 
 /** The nearest vocabulary member to `value` by edit distance, or null when the
- * value is empty or the vocabulary is. Ties resolve to vocabulary order. */
+ * value is empty, the vocabulary is, or nothing is a NEAR miss. The suggestion
+ * exists for the hand-edit typo (`praked` → `parked`); an unconditional nearest
+ * would confidently suggest a word for pure line noise. The threshold is half the
+ * candidate's length: a genuine typo corrupts a minority of the intended word's
+ * characters, while gibberish needs edits to most of the candidate — measuring
+ * against the candidate (not the value) keeps a long garbage value from inflating
+ * its own budget. Ties resolve to vocabulary order. */
 export function nearest(value: string, vocab: readonly string[]): string | null {
   if (value === '' || vocab.length === 0) {
     return null;
@@ -132,7 +138,7 @@ export function nearest(value: string, vocab: readonly string[]): string | null 
   let bestScore = Infinity;
   for (const candidate of vocab) {
     const score = editDistance(value.toLowerCase(), candidate.toLowerCase());
-    if (score < bestScore) {
+    if (score < bestScore && score * 2 <= candidate.length) {
       bestScore = score;
       best = candidate;
     }
@@ -203,6 +209,14 @@ function causeOf(finding: DoctorFinding, field: string | null): { cause: string;
       }
       if (field === 'requester') {
         return { cause: 'unknown requester', note: 'Names no active project — nulled on read.' };
+      }
+      if (field === 'spawned') {
+        // A seed's dangling spawned edge — the CLI's "resolves to no node in the
+        // vault — pruned on read", not the record-level missing-project fallback.
+        return {
+          cause: 'dangling spawned',
+          note: 'Resolves to no node in the vault — pruned on read.',
+        };
       }
       return { cause: 'missing project', note: 'The owning project has no document.' };
     }

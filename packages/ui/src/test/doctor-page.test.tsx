@@ -93,6 +93,50 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     expect(writeText).toHaveBeenCalledWith('MMR/MMR-97.md:412');
   });
 
+  it('renders two same-cause findings on one node without duplicate keys', async () => {
+    // Two dangling depends_on edges on one node: same id, same cause — the row
+    // key must still be unique or React logs a duplicate-key error.
+    const record = {
+      cause: 'dangling reference',
+      field: 'depends_on',
+      id: 'MMR-7',
+      location: null,
+      note: 'Points at no document — the edge is dropped on read.',
+      path: 'MMR/MMR-7.md',
+      severity: 'error' as const,
+      snippet: null,
+      suggestion: null,
+      title: 'twice-dangling',
+    };
+    const twin: WireDoctorFacet = {
+      dropped_total: 2,
+      groups: [
+        {
+          dropped: 2,
+          path: 'MMR',
+          project: 'MMR',
+          readable: 10,
+          records: [
+            { ...record, value: 'MMR-90' },
+            { ...record, value: 'MMR-91' },
+          ],
+        },
+      ],
+      scanned_at: new Date().toISOString(),
+    };
+    apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path.startsWith('/api/doctor') ? twin : { items: [], total: 0 }),
+    );
+    const consoleError = vi.spyOn(console, 'error');
+    renderAt('/doctor?project=MMR');
+
+    await expect(screen.findAllByText('dangling reference')).resolves.toHaveLength(2);
+    expect(
+      consoleError.mock.calls.filter((args) => String(args[0]).includes('same key')),
+    ).toHaveLength(0);
+    consoleError.mockRestore();
+  });
+
   it('shows the zero state when nothing is dropped', async () => {
     apiGet.mockImplementation((path: string) =>
       Promise.resolve(
