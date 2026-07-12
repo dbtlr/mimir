@@ -21,6 +21,7 @@ import {
 import { conflict, notFound, projectNotFound, validation } from '../errors';
 import { parseSeedRef, renderId, renderSeedRef } from '../ids';
 import type { Store } from '../store';
+import { assertTitleWithinCap, splitCapture } from './capture';
 import { deriveLede } from './lede';
 import { isTerminalSeed } from './store';
 import type { SeedRecord } from './store';
@@ -275,9 +276,12 @@ export async function getSeed(
 export type FileSeedInput = {
   /** The target project (the board the seed is filed against). */
   project: string;
+  /** The capture blob (MMR-263): the first line is the title, the rest is the body
+   * (split at the first newline). A single line is a title-only capture. */
   title: string;
   kind: SeedKind;
-  /** Prose for the `## Seed Description` body section (never frontmatter). */
+  /** Explicit prose for the `## Seed Description` body section — wins over the
+   * capture blob's split body when provided (never frontmatter). */
   description?: string | null;
   /** Requester-side project key; `null` = self-filed at the target board. */
   requester?: string | null;
@@ -288,9 +292,14 @@ export type FileSeedInput = {
  * non-`null` requester must name a known project. Echoes the created record.
  */
 export async function fileSeed(store: Store, input: FileSeedInput): Promise<SeedView> {
-  if (input.title.trim() === '') {
+  // One-blob capture grammar (MMR-263): the first line is the title, the rest is
+  // the body; an explicit description wins over the split. The hard title cap is
+  // the forcing function that keeps prose out of the title.
+  const { title, description } = splitCapture(input.title, input.description);
+  if (title === '') {
     throw validation('a seed requires a title');
   }
+  assertTitleWithinCap(title);
   const r = await seedResolver(store);
   if (!r.projectKeys.has(input.project)) {
     throw projectNotFound(input.project);
@@ -305,11 +314,11 @@ export async function fileSeed(store: Store, input: FileSeedInput): Promise<Seed
     );
   }
   const { key, seq } = await store.seeds.create({
-    description: input.description ?? null,
+    description,
     key: input.project,
     kind: input.kind,
     requester,
-    title: input.title,
+    title,
   });
   // Reuse the resolver already built for the guards (E2): creating a seed adds no
   // work node and changes no project, so `r` still resolves the echo — no second
@@ -465,6 +474,11 @@ export async function updateSeed(
   const ref = parseSeedRef(id);
   if (ref === null) {
     throw notFound(`${id} is not a seed id`, 'seed ids look like KEY-sN');
+  }
+  // `update --title` inherits the capture title cap (MMR-263) — the same forcing
+  // function, so a title can never grow past the cap after the fact.
+  if (fields.title !== undefined) {
+    assertTitleWithinCap(fields.title);
   }
   assertSeedBoardActive((await seedResolver(store)).set, ref.key);
   await store.seeds.patch(ref.key, ref.seq, fields);

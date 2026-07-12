@@ -498,20 +498,20 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   },
   // ── seeds (MMR-245) ──
   seed: {
-    args: [['<title>', 'the seed title (the capture field)']],
+    args: [['<capture>', 'the capture blob — the first line is the title, the rest is the body']],
     examples: [
       'mimir seed "apply retries forever on lock timeout" -k bug -p OTHER   # their board, their triage',
-      'mimir seed "dark mode" -k feature -p OTHER --desc "requested by two users"',
+      String.raw`mimir seed "dark mode\nrequested by two users on the forum" -k feature -p OTHER   # first line title, rest body`,
       'mimir seed "should captures allow multi-line bodies?" -k idea   # own board: undecided, no statable fix',
     ],
     flags: [
       ['-k, --kind <k>', 'idea | bug | feature (required)'],
       ['-p, --project <KEY>', 'target board (default: the bound board)'],
-      ['--desc <text>', 'description → the ## Seed Description body section'],
+      ['--desc <text>', 'explicit ## Seed Description body — wins over the blob split'],
     ],
     summary:
-      'file a seed — an ask against another board, or an own-board idea with no statable fix. Own-board statable fix → create task.',
-    usage: 'mimir seed "<title>" -k <kind> [-p KEY] [--desc <text>]',
+      'file a seed — an ask against another board, or an own-board idea with no statable fix. Own-board statable fix → create task. Capture is one blob: first line is the title, rest is the body.',
+    usage: 'mimir seed "<title>[\\n<body>]" -k <kind> [-p KEY] [--desc <text>]',
   },
   seeds: {
     examples: [

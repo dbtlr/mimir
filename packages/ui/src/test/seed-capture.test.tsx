@@ -64,10 +64,10 @@ describe('seed capture popover (12c, MMR-247)', () => {
 
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
     // the popover is up
-    await screen.findByLabelText('Title');
+    await screen.findByLabelText('Seed');
 
     await user.click(screen.getByRole('button', { name: 'bug' }));
-    await user.type(screen.getByLabelText('Title'), 'Tree lens loses scroll');
+    await user.type(screen.getByLabelText('Seed'), 'Tree lens loses scroll');
     await user.click(screen.getByRole('button', { name: 'File ↵' }));
 
     await waitFor(() => {
@@ -83,7 +83,34 @@ describe('seed capture popover (12c, MMR-247)', () => {
     // success toasts and the popover closes (fields reset behind it)
     expect(toast.success).toHaveBeenCalledWith('Filed MMR-s7');
     await waitFor(() => {
-      expect(screen.queryByLabelText('Title')).toBeNull();
+      expect(screen.queryByLabelText('Seed')).toBeNull();
+    });
+  });
+
+  it('enter files; Shift+Enter adds a body line — the whole blob rides `title` (MMR-263)', async () => {
+    mockApi();
+    apiSend.mockResolvedValue({ id: 'MMR-s8' });
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    const field = await screen.findByLabelText('Seed');
+    await user.click(screen.getByRole('button', { name: 'bug' }));
+
+    await user.type(field, 'title line');
+    // Shift+Enter inserts a newline — it must NOT file.
+    await user.keyboard('{Shift>}{Enter}{/Shift}');
+    await user.type(field, 'body line');
+    expect(apiSend).not.toHaveBeenCalled();
+
+    // A bare Enter files the whole capture blob as `title` (server splits it).
+    await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds', {
+        kind: 'bug',
+        project: 'MMR',
+        title: 'title line\nbody line',
+      });
     });
   });
 
@@ -94,6 +121,6 @@ describe('seed capture popover (12c, MMR-247)', () => {
     await screen.findByRole('heading', { name: 'Seeds' });
 
     await user.keyboard('s');
-    await expect(screen.findByLabelText('Title')).resolves.toBeDefined();
+    await expect(screen.findByLabelText('Seed')).resolves.toBeDefined();
   });
 });

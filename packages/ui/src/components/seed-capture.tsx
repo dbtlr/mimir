@@ -68,11 +68,11 @@ function SeedCaptureDialog({
 }
 
 /**
- * Three fields, no more (12c): kind pills (default `idea`), a single title
- * field, and an optional project select (the current board when on `/p/$key`,
- * else the first project). The body/description is edited later in the detail
- * view — by design it is not captured here. Enter files; success closes,
- * toasts, and resets.
+ * Three fields, no more (12c): kind pills (default `idea`), one capture field,
+ * and an optional project select (the current board when on `/p/$key`, else the
+ * first project). The capture field is one blob with commit-message semantics
+ * (MMR-263): the first line is the title, the rest is the body. Enter files;
+ * Shift+Enter adds a newline. Success closes, toasts, and resets.
  */
 function SeedCaptureForm({ onClose }: { onClose: () => void }) {
   const { key } = useParams({ strict: false });
@@ -83,7 +83,7 @@ function SeedCaptureForm({ onClose }: { onClose: () => void }) {
   const [kind, setKind] = useState<SeedKind>('idea');
   const [title, setTitle] = useState('');
   const [project, setProject] = useState(defaultProject);
-  const titleRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
 
   const file = useFileSeed();
   const effectiveProject = project !== '' ? project : defaultProject;
@@ -102,10 +102,12 @@ function SeedCaptureForm({ onClose }: { onClose: () => void }) {
     }
     try {
       // Never send `requester` — a console-filed seed is self-filed (server → "you").
+      // Send the whole capture blob as `title`; the server splits the first line
+      // off as the title and the rest into the `## Seed Description` body (MMR-263).
       const seed = await file.mutateAsync({
         kind,
         project: effectiveProject,
-        title: title.trim(),
+        title,
       });
       toast.success(`Filed ${seed.id}`);
       reset();
@@ -151,16 +153,25 @@ function SeedCaptureForm({ onClose }: { onClose: () => void }) {
         ))}
       </div>
 
-      <input
+      <textarea
         ref={titleRef}
-        aria-label="Title"
-        // autofocus lands on the title the moment the popover opens
+        aria-label="Seed"
+        // autofocus lands on the capture field the moment the popover opens
         // oxlint-disable-next-line jsx-a11y/no-autofocus
         autoFocus
+        rows={3}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="What's the seed?"
-        className="rounded-[10px] border border-line-bright bg-well-900 px-3.5 py-2.5 text-card-mobile text-ink-bright caret-accent outline-none placeholder:text-ink-ghost focus-visible:border-accent/60"
+        onKeyDown={(e) => {
+          // Enter files; Shift+Enter inserts a newline (the body). Guard IME
+          // composition so an in-progress candidate commit never files.
+          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            void submit();
+          }
+        }}
+        placeholder="First line is the title. Shift+Enter for a body line."
+        className="resize-none rounded-[10px] border border-line-bright bg-well-900 px-3.5 py-2.5 text-card-mobile leading-[1.5] text-ink-bright caret-accent outline-none placeholder:text-ink-ghost focus-visible:border-accent/60"
       />
 
       <div className="flex items-center gap-2">

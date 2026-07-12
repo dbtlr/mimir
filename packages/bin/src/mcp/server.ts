@@ -484,7 +484,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'seed',
-    'File a seed — an ask against ANOTHER board (a bug/feature you hit in a surface you do not own; the owning board triages it), or an own-board idea with no statable fix. NOT for work discovered on your own board: a statable fix is already triaged — create a task instead. kind is idea|bug|feature. project defaults to the bound board; a seed filed into a DIFFERENT board records the bound board as its requester (else self-filed). description is body prose. Echoes the created seed.',
+    'File a seed — an ask against ANOTHER board (a bug/feature you hit in a surface you do not own; the owning board triages it), or an own-board idea with no statable fix. NOT for work discovered on your own board: a statable fix is already triaged — create a task instead. kind is idea|bug|feature. project defaults to the bound board; a seed filed into a DIFFERENT board records the bound board as its requester (else self-filed). title is one capture blob: the first line is the title, the rest (after a newline) is the ## Seed Description body — the first line has a hard 120-char cap that errors. An explicit description wins over the blob split. Echoes the created seed.',
     {
       description: z.string().optional(),
       kind: SEED_KIND,

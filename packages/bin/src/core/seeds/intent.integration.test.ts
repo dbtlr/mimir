@@ -208,6 +208,60 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     }
   });
 
+  test('fileSeed splits the capture blob; --desc wins; the title cap errors (MMR-263)', async () => {
+    await seedbed();
+    // One blob: first line title, rest body.
+    const split = await fileSeed(store, {
+      kind: 'bug',
+      project: 'MMR',
+      requester: null,
+      title: 'redirect loop on expiry\nrepro: expire the cookie, hit any authed route',
+    });
+    expect(split.title).toBe('redirect loop on expiry');
+    const got = await getSeed(store, split.id, { content: true });
+    expect(got.description).toBe('repro: expire the cookie, hit any authed route');
+
+    // An explicit description wins over the blob's split body.
+    const explicit = await fileSeed(store, {
+      description: 'explicit body wins',
+      kind: 'idea',
+      project: 'MMR',
+      requester: null,
+      title: 'title line\nsplit body loses',
+    });
+    expect((await getSeed(store, explicit.id, { content: true })).description).toBe(
+      'explicit body wins',
+    );
+
+    // An over-cap first line errors with copy that teaches the split.
+    expect(
+      await rejectMessage(() =>
+        fileSeed(store, {
+          kind: 'idea',
+          project: 'MMR',
+          requester: null,
+          title: 'x'.repeat(121),
+        }),
+      ),
+    ).toMatch(/first line is the title/);
+  });
+
+  test('update --title inherits the seed title cap and single-line rule (MMR-263)', async () => {
+    await seedbed();
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'short' });
+    expect(
+      await rejectMessage(() => updateSeed(store, 'MMR-s1', { title: 'y'.repeat(121) })),
+    ).toMatch(/cap is 120/);
+    // An embedded newline is refused — update takes the raw value (no blob split),
+    // so a multi-line title would defeat the forcing function.
+    expect(
+      await rejectMessage(() => updateSeed(store, 'MMR-s1', { title: 'line one\nline two' })),
+    ).toMatch(/one line/);
+    // A title at the cap still patches.
+    const ok = await updateSeed(store, 'MMR-s1', { title: 'z'.repeat(120) });
+    expect(ok.title).toBe('z'.repeat(120));
+  });
+
   test('promote (create) spawns a task, links it, and moves new → promoted; repeatable', async () => {
     const { phaseRef: parent } = await seedbed();
     await fileSeed(store, { kind: 'feature', project: 'MMR', requester: null, title: 's' });
