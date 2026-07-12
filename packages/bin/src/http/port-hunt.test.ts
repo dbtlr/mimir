@@ -2,9 +2,7 @@ import { afterEach, expect, test } from 'bun:test';
 
 import type { Server } from 'bun';
 
-import { createSqliteStore } from '../core';
-import type { Db } from '../core';
-import { createTestDb } from '../db/testing';
+import { createTestStore } from '../testing/store';
 import { PORT_HUNT_SPAN, createServer } from './server';
 
 /**
@@ -13,16 +11,18 @@ import { PORT_HUNT_SPAN, createServer } from './server';
  * renders it as a normal failure.
  */
 
+const NORN = Bun.which('norn') !== null;
+
 let squatters: Server<undefined>[] = [];
-let db: Db | undefined;
+let closeStore: (() => Promise<void>) | undefined;
 
 afterEach(async () => {
   for (const s of squatters) {
     await s.stop(true);
   }
   squatters = [];
-  await db?.destroy();
-  db = undefined;
+  await closeStore?.();
+  closeStore = undefined;
 });
 
 /**
@@ -60,8 +60,9 @@ function squatWithHeadroom(): Server<undefined> {
   }
 }
 
-test('a free requested port binds exactly', async () => {
-  db = await createTestDb();
+test.skipIf(!NORN)('a free requested port binds exactly', async () => {
+  const { close, store } = await createTestStore();
+  closeStore = close;
   const probe = occupy(0);
   if (probe === undefined) {
     throw new Error('port 0 must bind');
@@ -70,16 +71,17 @@ test('a free requested port binds exactly', async () => {
   await probe.stop(true);
   squatters.splice(squatters.indexOf(probe), 1);
 
-  const server = createServer(createSqliteStore(db), { port, version: '0.0.0-test' });
+  const server = createServer(store, { port, version: '0.0.0-test' });
   squatters.push(server);
   expect(server.port).toBe(port);
 });
 
-test('a taken port hunts upward to the next free one', async () => {
-  db = await createTestDb();
+test.skipIf(!NORN)('a taken port hunts upward to the next free one', async () => {
+  const { close, store } = await createTestStore();
+  closeStore = close;
   const taken = portOf(squatWithHeadroom());
 
-  const server = createServer(createSqliteStore(db), { port: taken, version: '0.0.0-test' });
+  const server = createServer(store, { port: taken, version: '0.0.0-test' });
   squatters.push(server);
   expect(portOf(server)).toBeGreaterThan(taken);
   expect(portOf(server)).toBeLessThanOrEqual(taken + PORT_HUNT_SPAN);
@@ -88,8 +90,9 @@ test('a taken port hunts upward to the next free one', async () => {
   expect(res.status).toBe(200);
 });
 
-test('exhausting the hunt span fails with EADDRINUSE naming the range', async () => {
-  db = await createTestDb();
+test.skipIf(!NORN)('exhausting the hunt span fails with EADDRINUSE naming the range', async () => {
+  const { close, store } = await createTestStore();
+  closeStore = close;
   const base = portOf(squatWithHeadroom());
   for (let p = base + 1; p <= base + PORT_HUNT_SPAN; p++) {
     occupy(p);
@@ -97,7 +100,7 @@ test('exhausting the hunt span fails with EADDRINUSE naming the range', async ()
 
   let thrown: unknown;
   try {
-    createServer(createSqliteStore(db), { port: base, version: '0.0.0-test' });
+    createServer(store, { port: base, version: '0.0.0-test' });
   } catch (err) {
     thrown = err;
   }
@@ -107,12 +110,13 @@ test('exhausting the hunt span fails with EADDRINUSE naming the range', async ()
   expect((thrown as Error).message).toContain(String(base + PORT_HUNT_SPAN));
 });
 
-test('hunt: false fails loudly on a taken port instead of walking', async () => {
-  db = await createTestDb();
+test.skipIf(!NORN)('hunt: false fails loudly on a taken port instead of walking', async () => {
+  const { close, store } = await createTestStore();
+  closeStore = close;
   const taken = portOf(squatWithHeadroom());
   let thrown: unknown;
   try {
-    const server = createServer(createSqliteStore(db), {
+    const server = createServer(store, {
       hunt: false,
       port: taken,
       version: '0.0.0-test',

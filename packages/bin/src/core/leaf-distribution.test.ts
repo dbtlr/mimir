@@ -2,12 +2,10 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import type { Hold, Lifecycle } from '@mimir/contract';
 
-import { createTestDb } from '../db/testing';
-import type { Db } from './context';
+import { nodeIdOf, projectIdOf, createTestStore } from '../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { deriveSet, leafDistribution } from './derive';
 import type { Store } from './store';
-import { createSqliteStore, loadWorkingSet } from './store-sqlite';
 
 /**
  * MMR-105 — the per-project leaf-status tally. The leaf-level sibling of
@@ -16,96 +14,128 @@ import { createSqliteStore, loadWorkingSet } from './store-sqlite';
  * project card's vitals panel (MMR-106).
  */
 
-let db: Db;
+const NORN = Bun.which('norn') !== null;
+
 let store: Store;
+let closeStore: () => Promise<void>;
 beforeEach(async () => {
-  db = await createTestDb();
-  store = createSqliteStore(db);
+  ({ close: closeStore, store } = await createTestStore());
 });
 afterEach(async () => {
-  await db.destroy();
+  await closeStore();
 });
 
-const setOf = async () => deriveSet(await loadWorkingSet(db));
+const setOf = async () => deriveSet(await store.loadWorkingSet());
 
 async function patch(id: number, fields: { lifecycle?: Lifecycle; hold?: Hold }): Promise<void> {
-  await db.updateTable('node').set(fields).where('id', '=', id).execute();
+  await store.transact((w) => w.updateNode(id, fields));
 }
 async function dep(nodeId: number, dependsOn: number): Promise<void> {
-  await db
-    .insertInto('dependency')
-    .values({ depends_on_node_id: dependsOn, node_id: nodeId })
-    .execute();
+  await store.transact((w) =>
+    w.insertDependency({ depends_on_node_id: dependsOn, node_id: nodeId }),
+  );
 }
 
 async function fixture(key = 'MMR') {
   const p = await createProject(store, { key, name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
-  return { init, p, phase };
+  const projectId = await projectIdOf(store, key);
+  const init = await createInitiative(store, { projectId, title: 'i' });
+  const initId = await nodeIdOf(store, `${key}-${String(init.seq)}`);
+  const phase = await createPhase(store, { parentId: initId, title: 'ph' });
+  return { init, key, p, phase, projectId };
 }
 
-test('an empty project tallies to {}', async () => {
-  const { p } = await fixture();
-  expect(leafDistribution(await setOf(), p.id)).toEqual({});
+test.skipIf(!NORN)('an empty project tallies to {}', async () => {
+  const { projectId } = await fixture();
+  expect(leafDistribution(await setOf(), projectId)).toEqual({});
 });
 
-test("tallies every leaf task's derived status word across the whole project", async () => {
-  const { p, phase } = await fixture();
-  // ready (fresh), in_progress, under_review, blocked
-  await createTask(store, { parentId: phase.id, title: 'ready' });
-  const prog = await createTask(store, { parentId: phase.id, title: 'prog' });
-  await patch(prog.id, { lifecycle: 'in_progress' });
-  const review = await createTask(store, { parentId: phase.id, title: 'review' });
-  await patch(review.id, { lifecycle: 'under_review' });
-  const blocked = await createTask(store, { parentId: phase.id, title: 'blocked' });
-  await patch(blocked.id, { hold: 'blocked' });
+test.skipIf(!NORN)(
+  "tallies every leaf task's derived status word across the whole project",
+  async () => {
+    const { key, projectId, phase } = await fixture();
+    const phaseId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
+    // ready (fresh), in_progress, under_review, blocked
+    await createTask(store, { parentId: phaseId, title: 'ready' });
+    const prog = await createTask(store, { parentId: phaseId, title: 'prog' });
+    await patch(await nodeIdOf(store, `${key}-${String(prog.seq)}`), { lifecycle: 'in_progress' });
+    const review = await createTask(store, { parentId: phaseId, title: 'review' });
+    await patch(await nodeIdOf(store, `${key}-${String(review.seq)}`), {
+      lifecycle: 'under_review',
+    });
+    const blocked = await createTask(store, { parentId: phaseId, title: 'blocked' });
+    await patch(await nodeIdOf(store, `${key}-${String(blocked.seq)}`), { hold: 'blocked' });
 
-  expect(leafDistribution(await setOf(), p.id)).toEqual({
-    blocked: 1,
-    in_progress: 1,
-    ready: 1,
-    under_review: 1,
-  });
-});
+    expect(leafDistribution(await setOf(), projectId)).toEqual({
+      blocked: 1,
+      in_progress: 1,
+      ready: 1,
+      under_review: 1,
+    });
+  },
+);
 
-test('tallies the held and terminal buckets too (parked / done / abandoned)', async () => {
-  const { p, phase } = await fixture();
-  const parked = await createTask(store, { parentId: phase.id, title: 'parked' });
-  await patch(parked.id, { hold: 'parked' });
-  const done = await createTask(store, { parentId: phase.id, title: 'done' });
-  await patch(done.id, { lifecycle: 'done' });
-  const gone = await createTask(store, { parentId: phase.id, title: 'gone' });
-  await patch(gone.id, { lifecycle: 'abandoned' });
-  expect(leafDistribution(await setOf(), p.id)).toEqual({ abandoned: 1, done: 1, parked: 1 });
-});
+test.skipIf(!NORN)(
+  'tallies the held and terminal buckets too (parked / done / abandoned)',
+  async () => {
+    const { key, projectId, phase } = await fixture();
+    const phaseId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
+    const parked = await createTask(store, { parentId: phaseId, title: 'parked' });
+    await patch(await nodeIdOf(store, `${key}-${String(parked.seq)}`), { hold: 'parked' });
+    const done = await createTask(store, { parentId: phaseId, title: 'done' });
+    await patch(await nodeIdOf(store, `${key}-${String(done.seq)}`), { lifecycle: 'done' });
+    const gone = await createTask(store, { parentId: phaseId, title: 'gone' });
+    await patch(await nodeIdOf(store, `${key}-${String(gone.seq)}`), { lifecycle: 'abandoned' });
+    expect(leafDistribution(await setOf(), projectId)).toEqual({
+      abandoned: 1,
+      done: 1,
+      parked: 1,
+    });
+  },
+);
 
-test('counts the derived awaiting word (todo with an unsettled prerequisite)', async () => {
-  const { p, phase } = await fixture();
-  const a = await createTask(store, { parentId: phase.id, title: 'a' });
-  const b = await createTask(store, { parentId: phase.id, title: 'b' });
-  await dep(b.id, a.id); // b awaits a; a is ready
-  expect(leafDistribution(await setOf(), p.id)).toEqual({ awaiting: 1, ready: 1 });
-});
+test.skipIf(!NORN)(
+  'counts the derived awaiting word (todo with an unsettled prerequisite)',
+  async () => {
+    const { key, projectId, phase } = await fixture();
+    const phaseId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
+    const a = await createTask(store, { parentId: phaseId, title: 'a' });
+    const b = await createTask(store, { parentId: phaseId, title: 'b' });
+    const aId = await nodeIdOf(store, `${key}-${String(a.seq)}`);
+    const bId = await nodeIdOf(store, `${key}-${String(b.seq)}`);
+    await dep(bId, aId); // b awaits a; a is ready
+    expect(leafDistribution(await setOf(), projectId)).toEqual({ awaiting: 1, ready: 1 });
+  },
+);
 
-test('tallies leaves across multiple phases, excluding the containers themselves', async () => {
-  const { p, init } = await fixture();
-  const ph2 = await createPhase(store, { parentId: init.id, title: 'ph2' });
-  await createTask(store, { parentId: ph2.id, title: 'x' });
-  // first phase has no tasks; second has one ready leaf
-  const dist = leafDistribution(await setOf(), p.id);
-  // only the single leaf task is counted — initiatives/phases never appear
-  expect(dist).toEqual({ ready: 1 });
-});
+test.skipIf(!NORN)(
+  'tallies leaves across multiple phases, excluding the containers themselves',
+  async () => {
+    const { key, projectId, init } = await fixture();
+    const initId = await nodeIdOf(store, `${key}-${String(init.seq)}`);
+    const ph2 = await createPhase(store, { parentId: initId, title: 'ph2' });
+    const ph2Id = await nodeIdOf(store, `${key}-${String(ph2.seq)}`);
+    await createTask(store, { parentId: ph2Id, title: 'x' });
+    // first phase has no tasks; second has one ready leaf
+    const dist = leafDistribution(await setOf(), projectId);
+    // only the single leaf task is counted — initiatives/phases never appear
+    expect(dist).toEqual({ ready: 1 });
+  },
+);
 
-test('scopes to the project — no cross-project leak', async () => {
-  const { p, phase } = await fixture('AAA');
-  await createTask(store, { parentId: phase.id, title: 'mine' });
+test.skipIf(!NORN)('scopes to the project — no cross-project leak', async () => {
+  const mine = await fixture('AAA');
+  const minePhaseId = await nodeIdOf(store, `AAA-${String(mine.phase.seq)}`);
+  await createTask(store, { parentId: minePhaseId, title: 'mine' });
+
   const other = await fixture('BBB');
-  await createTask(store, { parentId: other.phase.id, title: 'theirs' });
-  const stuck = await createTask(store, { parentId: other.phase.id, title: 'stuck' });
-  await patch(stuck.id, { hold: 'blocked' });
+  const otherPhaseId = await nodeIdOf(store, `BBB-${String(other.phase.seq)}`);
+  await createTask(store, { parentId: otherPhaseId, title: 'theirs' });
+  const stuck = await createTask(store, { parentId: otherPhaseId, title: 'stuck' });
+  await patch(await nodeIdOf(store, `BBB-${String(stuck.seq)}`), { hold: 'blocked' });
 
-  expect(leafDistribution(await setOf(), p.id)).toEqual({ ready: 1 });
-  expect(leafDistribution(await setOf(), other.p.id)).toEqual({ blocked: 1, ready: 1 });
+  const mineProjectId = await projectIdOf(store, 'AAA');
+  const otherProjectId = await projectIdOf(store, 'BBB');
+  expect(leafDistribution(await setOf(), mineProjectId)).toEqual({ ready: 1 });
+  expect(leafDistribution(await setOf(), otherProjectId)).toEqual({ blocked: 1, ready: 1 });
 });

@@ -3,18 +3,14 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  createInitiative,
-  createPhase,
-  createProject,
-  createSqliteStore,
-  createTask,
-} from '../core';
-import type { Db, Store } from '../core';
-import { createTestDb } from '../db/testing';
+import { createInitiative, createPhase, createProject, createTask } from '../core';
+import type { Store } from '../core';
+import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { BINDING_FILE, findBinding, parseBinding, writeBinding } from './binding';
 import { runCli } from './run';
 import { fakeIo } from './testing';
+
+const NORN = Bun.which('norn') !== null;
 
 // ---------------------------------------------------------------------------
 // The binding file itself
@@ -67,23 +63,25 @@ test('writeBinding round-trips through findBinding', () => {
 // The bind verb + default scope through the CLI
 // ---------------------------------------------------------------------------
 
-let db: Db;
 let store: Store;
+let closeStore: () => Promise<void>;
 beforeEach(async () => {
-  db = await createTestDb();
-  store = createSqliteStore(db);
+  ({ close: closeStore, store } = await createTestStore());
   for (const key of ['MMR', 'XX'] as const) {
-    const p = await createProject(store, { key, name: key.toLowerCase() });
-    const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-    const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
-    await createTask(store, { parentId: phase.id, title: `${key} work` });
+    await createProject(store, { key, name: key.toLowerCase() });
+    const projectId = await projectIdOf(store, key);
+    const init = await createInitiative(store, { projectId, title: 'i' });
+    const initId = await nodeIdOf(store, `${key}-${String(init.seq)}`);
+    const phase = await createPhase(store, { parentId: initId, title: 'ph' });
+    const phaseId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
+    await createTask(store, { parentId: phaseId, title: `${key} work` });
   }
 });
 afterEach(async () => {
-  await db.destroy();
+  await closeStore();
 });
 
-test('bind writes .mimir.toml into the injected cwd and echoes the key', async () => {
+test.skipIf(!NORN)('bind writes .mimir.toml into the injected cwd and echoes the key', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'mimir-bind-'));
   try {
     const io = fakeIo();
@@ -95,50 +93,59 @@ test('bind writes .mimir.toml into the injected cwd and echoes the key', async (
   }
 });
 
-test('bind validates the project exists (not_found, exit 1) and requires a key (exit 2)', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'mimir-bind-'));
-  try {
-    const io = fakeIo();
-    expect(await runCli(['bind', 'NOPE'], () => store, io, { cwd: dir })).toBe(1);
-    expect(findBinding(dir)).toBeUndefined();
-    expect(await runCli(['bind'], () => store, fakeIo(), { cwd: dir })).toBe(2);
-  } finally {
-    rmSync(dir, { force: true, recursive: true });
-  }
-});
+test.skipIf(!NORN)(
+  'bind validates the project exists (not_found, exit 1) and requires a key (exit 2)',
+  async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mimir-bind-'));
+    try {
+      const io = fakeIo();
+      expect(await runCli(['bind', 'NOPE'], () => store, io, { cwd: dir })).toBe(1);
+      expect(findBinding(dir)).toBeUndefined();
+      expect(await runCli(['bind'], () => store, fakeIo(), { cwd: dir })).toBe(2);
+    } finally {
+      rmSync(dir, { force: true, recursive: true });
+    }
+  },
+);
 
-test('the bound scope is the default for next/list; explicit -s wins; -s all escapes', async () => {
-  const bound = async (argv: string[]): Promise<string[]> => {
-    const io = fakeIo();
-    expect(await runCli(argv, () => store, io, { scope: 'MMR' })).toBe(0);
-    return io.out.join('\n').split('\n').filter(Boolean);
-  };
+test.skipIf(!NORN)(
+  'the bound scope is the default for next/list; explicit -s wins; -s all escapes',
+  async () => {
+    const bound = async (argv: string[]): Promise<string[]> => {
+      const io = fakeIo();
+      expect(await runCli(argv, () => store, io, { scope: 'MMR' })).toBe(0);
+      return io.out.join('\n').split('\n').filter(Boolean);
+    };
 
-  const defaulted = await bound(['next', '-f', 'ids']);
-  expect(defaulted).toEqual(['MMR-3']);
+    const defaulted = await bound(['next', '-f', 'ids']);
+    expect(defaulted).toEqual(['MMR-3']);
 
-  const explicit = await bound(['next', '-s', 'XX', '-f', 'ids']);
-  expect(explicit).toEqual(['XX-3']);
+    const explicit = await bound(['next', '-s', 'XX', '-f', 'ids']);
+    expect(explicit).toEqual(['XX-3']);
 
-  const all = await bound(['next', '-s', 'all', '-f', 'ids']);
-  expect(all.toSorted()).toEqual(['MMR-3', 'XX-3']);
+    const all = await bound(['next', '-s', 'all', '-f', 'ids']);
+    expect(all.toSorted()).toEqual(['MMR-3', 'XX-3']);
 
-  const listAll = await bound(['list', '-s', 'all', '-f', 'ids']);
-  expect(listAll.toSorted()).toEqual(['MMR-3', 'XX-3']); // both projects' tasks
-});
+    const listAll = await bound(['list', '-s', 'all', '-f', 'ids']);
+    expect(listAll.toSorted()).toEqual(['MMR-3', 'XX-3']); // both projects' tasks
+  },
+);
 
 // ---------------------------------------------------------------------------
 // The create-project confirmation gate (-y/--yes)
 // ---------------------------------------------------------------------------
 
-test('create project without --yes fails non-interactively (usage, exit 2)', async () => {
-  const io = fakeIo(); // isTTY: false
-  expect(await runCli(['create', 'project', 'New', '--key', 'NEW'], () => store, io)).toBe(2);
-  expect(io.err.join('')).toContain('immutable');
-  expect(io.err.join('')).toContain('--yes');
-});
+test.skipIf(!NORN)(
+  'create project without --yes fails non-interactively (usage, exit 2)',
+  async () => {
+    const io = fakeIo(); // isTTY: false
+    expect(await runCli(['create', 'project', 'New', '--key', 'NEW'], () => store, io)).toBe(2);
+    expect(io.err.join('')).toContain('immutable');
+    expect(io.err.join('')).toContain('--yes');
+  },
+);
 
-test('create project --yes succeeds non-interactively', async () => {
+test.skipIf(!NORN)('create project --yes succeeds non-interactively', async () => {
   const io = fakeIo();
   expect(
     await runCli(['create', 'project', 'New', '--key', 'NEW', '-y', '-f', 'ids'], () => store, io),
@@ -146,7 +153,7 @@ test('create project --yes succeeds non-interactively', async () => {
   expect(io.out.join('')).toBe('NEW');
 });
 
-test('create project at a TTY prompts; declining aborts with exit 1', async () => {
+test.skipIf(!NORN)('create project at a TTY prompts; declining aborts with exit 1', async () => {
   const realConfirm = globalThis.confirm;
   try {
     globalThis.confirm = () => true;

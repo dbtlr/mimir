@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import { createTestDb } from '../db/testing';
-import type { Db } from './context';
+import { nodeIdOf, projectIdOf, createTestStore } from '../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { childDistribution, deriveSet, nodeStatusWord } from './derive';
 import { listNodes } from './intent';
@@ -17,7 +16,6 @@ import {
 import { isStale } from './predicates';
 import { interpret } from './status';
 import type { Store } from './store';
-import { createSqliteStore, loadWorkingSet } from './store-sqlite';
 import { expectMimirError } from './testing';
 
 /**
@@ -26,32 +24,34 @@ import { expectMimirError } from './testing';
  * approval via `complete`, the rank/hold/stale/listing consequences.
  */
 
-let db: Db;
+const NORN = Bun.which('norn') !== null;
+
 let store: Store;
-let projectId: number;
+let closeStore: () => Promise<void>;
 let phaseId: number;
 beforeEach(async () => {
-  db = await createTestDb();
-  store = createSqliteStore(db);
-  const p = await createProject(store, { key: 'MMR', name: 'm' });
-  projectId = p.id;
+  ({ close: closeStore, store } = await createTestStore());
+  await createProject(store, { key: 'MMR', name: 'm' });
+  const projectId = await projectIdOf(store, 'MMR');
   const init = await createInitiative(store, { projectId, title: 'i' });
-  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
-  phaseId = phase.id;
+  const initId = await nodeIdOf(store, `MMR-${String(init.seq)}`);
+  const phase = await createPhase(store, { parentId: initId, title: 'ph' });
+  phaseId = await nodeIdOf(store, `MMR-${String(phase.seq)}`);
 });
 afterEach(async () => {
-  await db.destroy();
+  await closeStore();
 });
 
-const setOf = async () => deriveSet(await loadWorkingSet(db));
+const setOf = async () => deriveSet(await store.loadWorkingSet());
 
 async function startedTask(title = 't'): Promise<number> {
   const t = await createTask(store, { parentId: phaseId, title });
-  await startTask(store, t.id);
-  return t.id;
+  const id = await nodeIdOf(store, `MMR-${String(t.seq)}`);
+  await startTask(store, id);
+  return id;
 }
 
-test('submit moves in_progress → under_review and clears rank', async () => {
+test.skipIf(!NORN)('submit moves in_progress → under_review and clears rank', async () => {
   const id = await startedTask();
   expect((await store.transact((w) => w.loadNode(id)))?.rank).not.toBeNull();
   await submitTask(store, id);
@@ -61,71 +61,77 @@ test('submit moves in_progress → under_review and clears rank', async () => {
   expect(nodeStatusWord(await setOf(), node!)).toBe('under_review');
 });
 
-test('submit is legal only from in_progress', async () => {
+test.skipIf(!NORN)('submit is legal only from in_progress', async () => {
   const todo = await createTask(store, { parentId: phaseId, title: 'x' });
-  await expectMimirError('validation', () => submitTask(store, todo.id));
+  const todoId = await nodeIdOf(store, `MMR-${String(todo.seq)}`);
+  await expectMimirError('validation', () => submitTask(store, todoId));
   const done = await startedTask();
   await completeTask(store, done);
   await expectMimirError('validation', () => submitTask(store, done));
 });
 
-test('return moves under_review → in_progress, re-ranks, and carries the reason', async () => {
-  const id = await startedTask();
-  await submitTask(store, id);
-  await returnTask(store, id, 'tests are missing');
-  const node = await store.transact((w) => w.loadNode(id));
-  expect(node?.lifecycle).toBe('in_progress');
-  expect(node?.rank).not.toBeNull();
+test.skipIf(!NORN)(
+  'return moves under_review → in_progress, re-ranks, and carries the reason',
+  async () => {
+    const id = await startedTask();
+    await submitTask(store, id);
+    await returnTask(store, id, 'tests are missing');
+    const node = await store.transact((w) => w.loadNode(id));
+    expect(node?.lifecycle).toBe('in_progress');
+    expect(node?.rank).not.toBeNull();
 
-  const log = await db
-    .selectFrom('transition_log')
-    .selectAll()
-    .where('node_id', '=', id)
-    .where('to_value', '=', 'in_progress')
-    .where('from_value', '=', 'under_review')
-    .executeTakeFirst();
-  expect(log?.reason).toBe('tests are missing');
-});
+    const { items } = await store.transitions.list();
+    const log = items.find(
+      (t) =>
+        t.node === `MMR-${String(node!.seq)}` &&
+        t.to === 'in_progress' &&
+        t.from === 'under_review',
+    );
+    expect(log?.reason).toBe('tests are missing');
+  },
+);
 
-test('return is legal only from under_review', async () => {
+test.skipIf(!NORN)('return is legal only from under_review', async () => {
   const id = await startedTask();
   await expectMimirError('validation', () => returnTask(store, id));
 });
 
-test('complete approves an under_review task, logging from=under_review', async () => {
-  const id = await startedTask();
-  await submitTask(store, id);
-  await completeTask(store, id);
-  const node = await store.transact((w) => w.loadNode(id));
-  expect(node?.lifecycle).toBe('done');
-  const log = await db
-    .selectFrom('transition_log')
-    .selectAll()
-    .where('node_id', '=', id)
-    .where('to_value', '=', 'done')
-    .executeTakeFirst();
-  expect(log?.from_value).toBe('under_review');
-});
+test.skipIf(!NORN)(
+  'complete approves an under_review task, logging from=under_review',
+  async () => {
+    const id = await startedTask();
+    await submitTask(store, id);
+    await completeTask(store, id);
+    const node = await store.transact((w) => w.loadNode(id));
+    expect(node?.lifecycle).toBe('done');
+    const { items } = await store.transitions.list();
+    const log = items.find((t) => t.node === `MMR-${String(node!.seq)}` && t.to === 'done');
+    expect(log?.from).toBe('under_review');
+  },
+);
 
-test('an under_review task can be abandoned', async () => {
+test.skipIf(!NORN)('an under_review task can be abandoned', async () => {
   const id = await startedTask();
   await submitTask(store, id);
   await abandonTask(store, id, 'scrapped in review');
   expect((await store.transact((w) => w.loadNode(id)))?.lifecycle).toBe('abandoned');
 });
 
-test('holding an under_review task and releasing it does not make it rankable', async () => {
-  const id = await startedTask();
-  await submitTask(store, id);
-  await blockTask(store, id, 'reviewer OOO');
-  await unblockTask(store, id);
-  const node = await store.transact((w) => w.loadNode(id));
-  expect(node?.lifecycle).toBe('under_review');
-  expect(node?.hold).toBe('none');
-  expect(node?.rank).toBeNull(); // still non-rankable — not actionable until the verdict
-});
+test.skipIf(!NORN)(
+  'holding an under_review task and releasing it does not make it rankable',
+  async () => {
+    const id = await startedTask();
+    await submitTask(store, id);
+    await blockTask(store, id, 'reviewer OOO');
+    await unblockTask(store, id);
+    const node = await store.transact((w) => w.loadNode(id));
+    expect(node?.lifecycle).toBe('under_review');
+    expect(node?.hold).toBe('none');
+    expect(node?.rank).toBeNull(); // still non-rankable — not actionable until the verdict
+  },
+);
 
-test('stale chases an under_review task left too long', async () => {
+test.skipIf(!NORN)('stale chases an under_review task left too long', async () => {
   const id = await startedTask();
   await submitTask(store, id);
   const node = await store.transact((w) => w.loadNode(id));
@@ -133,12 +139,15 @@ test('stale chases an under_review task left too long', async () => {
   expect(isStale(await setOf(), node!, { asOf: future })).toBe(true);
 });
 
-test('under_review tasks appear in the default (live) list and roll up a phase', async () => {
-  const id = await startedTask();
-  await submitTask(store, id);
-  const result = await listNodes(createSqliteStore(db), { scope: 'MMR' });
-  expect(result.items.some((i) => i.status === 'under_review')).toBe(true);
+test.skipIf(!NORN)(
+  'under_review tasks appear in the default (live) list and roll up a phase',
+  async () => {
+    const id = await startedTask();
+    await submitTask(store, id);
+    const result = await listNodes(store, { scope: 'MMR' });
+    expect(result.items.some((i) => i.status === 'under_review')).toBe(true);
 
-  // the phase containing only this task rolls up to under_review
-  expect(interpret(childDistribution(await setOf(), phaseId))).toBe('under_review');
-});
+    // the phase containing only this task rolls up to under_review
+    expect(interpret(childDistribution(await setOf(), phaseId))).toBe('under_review');
+  },
+);

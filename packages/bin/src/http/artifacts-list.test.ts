@@ -1,44 +1,47 @@
-import { afterAll, beforeAll, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import type { Server } from 'bun';
 
-import type { Db } from '../core/context';
 import { createInitiative, createPhase, createProject, createTask } from '../core/create';
 import { attachArtifact } from '../core/mutations';
 import type { Store } from '../core/store';
-import { createSqliteStore } from '../core/store-sqlite';
-import { createTestDb } from '../db/testing';
+import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { createServer } from './server';
 
-let db: Db;
+const NORN = Bun.which('norn') !== null;
+
 let store: Store;
+let closeStore: () => Promise<void>;
 let server: Server<undefined>;
 let base: string;
 
-beforeAll(async () => {
-  db = await createTestDb();
-  store = createSqliteStore(db);
-  const p = await createProject(store, { key: 'MMR', name: 'Mimir' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
-  const t = await createTask(store, { parentId: phase.id, title: 't' });
+beforeEach(async () => {
+  ({ close: closeStore, store } = await createTestStore());
+  await createProject(store, { key: 'MMR', name: 'Mimir' });
+  const projectId = await projectIdOf(store, 'MMR');
+  const init = await createInitiative(store, { projectId, title: 'i' });
+  const initId = await nodeIdOf(store, `MMR-${String(init.seq)}`);
+  const phase = await createPhase(store, { parentId: initId, title: 'ph' });
+  const phaseId = await nodeIdOf(store, `MMR-${String(phase.seq)}`);
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const taskId = await nodeIdOf(store, `MMR-${String(t.seq)}`);
   await attachArtifact(store, {
     content: 'loopback and Caddy',
-    linkNodeIds: [t.id],
-    projectId: p.id,
+    linkNodeIds: [taskId],
+    projectId,
     tags: ['kind:spec'],
     title: 'Auth gate design',
   });
-  server = createServer(createSqliteStore(db), { hunt: false, port: 0, version: 'test' });
+  server = createServer(store, { hunt: false, port: 0, version: 'test' });
   base = `http://127.0.0.1:${String(server.port)}`;
 });
 
-afterAll(async () => {
+afterEach(async () => {
   await server.stop(true);
-  await db.destroy();
+  await closeStore();
 });
 
-test('GET /api/artifacts returns the envelope of summaries', async () => {
+test.skipIf(!NORN)('GET /api/artifacts returns the envelope of summaries', async () => {
   const res = await fetch(`${base}/api/artifacts`);
   expect(res.status).toBe(200);
   const body = (await res.json()) as { total: number; items: { id: string; project: string }[] };
@@ -48,8 +51,10 @@ test('GET /api/artifacts returns the envelope of summaries', async () => {
   expect(body.items[0]).not.toHaveProperty('content');
 });
 
-test('q filter is honored over the wire', async () => {
-  const hit = (await (await fetch(`${base}/api/artifacts?q=caddy`)).json()) as { total: number };
+test.skipIf(!NORN)('q filter is honored over the wire', async () => {
+  // Norn's q rides `contains` over title only, case-sensitive (core/artifacts/norn.ts) —
+  // the vault backend searches title only, case-sensitive (a documented delta from the retired backend's title+content search).
+  const hit = (await (await fetch(`${base}/api/artifacts?q=gate`)).json()) as { total: number };
   expect(hit.total).toBe(1);
   const miss = (await (await fetch(`${base}/api/artifacts?q=nonexistent`)).json()) as {
     total: number;
@@ -59,7 +64,7 @@ test('q filter is honored over the wire', async () => {
   expect(miss.items).toEqual([]);
 });
 
-test("a bare-date before still includes the same day's artifacts", async () => {
+test.skipIf(!NORN)("a bare-date before still includes the same day's artifacts", async () => {
   // the seeded artifact was created today; a bare-date `before` of today must include it
   const today = new Date().toISOString().slice(0, 10);
   const body = (await (await fetch(`${base}/api/artifacts?before=${today}`)).json()) as {
@@ -68,12 +73,12 @@ test("a bare-date before still includes the same day's artifacts", async () => {
   expect(body.total).toBe(1);
 });
 
-test('invalid limit is a 4xx, not a crash', async () => {
+test.skipIf(!NORN)('invalid limit is a 4xx, not a crash', async () => {
   const res = await fetch(`${base}/api/artifacts?limit=0`);
   expect(res.status).toBeGreaterThanOrEqual(400);
 });
 
-test('offset pages the window over the wire; total stays pre-window', async () => {
+test.skipIf(!NORN)('offset pages the window over the wire; total stays pre-window', async () => {
   const body = (await (await fetch(`${base}/api/artifacts?offset=1`)).json()) as {
     total: number;
     items: unknown[];
@@ -82,7 +87,7 @@ test('offset pages the window over the wire; total stays pre-window', async () =
   expect(body.items).toEqual([]);
 });
 
-test('invalid offset is a 4xx, not a crash', async () => {
+test.skipIf(!NORN)('invalid offset is a 4xx, not a crash', async () => {
   const res = await fetch(`${base}/api/artifacts?offset=-1`);
   expect(res.status).toBeGreaterThanOrEqual(400);
 });

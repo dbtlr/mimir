@@ -5,43 +5,46 @@
  */
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import {
-  createInitiative,
-  createPhase,
-  createProject,
-  createSqliteStore,
-  createTask,
-} from '../core';
-import type { Db, Store } from '../core';
+import { createInitiative, createPhase, createProject, createTask } from '../core';
+import type { Store } from '../core';
 import { depend } from '../core/mutations';
-import { createTestDb } from '../db/testing';
+import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { runCli } from './run';
 import { fakeIo } from './testing';
 
-let db: Db;
+const NORN = Bun.which('norn') !== null;
+
 let store: Store;
+let closeStore: () => Promise<void>;
 let initId: number;
 beforeEach(async () => {
-  db = await createTestDb();
-  store = createSqliteStore(db);
-  const p = await createProject(store, { key: 'MMR', name: 'Mimir' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'Init' });
-  initId = init.id;
+  ({ close: closeStore, store } = await createTestStore());
+  await createProject(store, { key: 'MMR', name: 'Mimir' });
+  const init = await createInitiative(store, {
+    projectId: await projectIdOf(store, 'MMR'),
+    title: 'Init',
+  });
+  initId = await nodeIdOf(store, `MMR-${String(init.seq)}`);
 });
 afterEach(async () => {
-  await db.destroy();
+  await closeStore();
 });
 
-test('get renders an inherited prerequisite as an "awaiting on … (via …)" line', async () => {
-  const phase1 = await createPhase(store, { parentId: initId, title: 'Phase 1' });
-  const phase2 = await createPhase(store, { parentId: initId, title: 'Phase 2' });
-  await depend(store, phase2.id, [phase1.id]); // edge on the ancestor phase
-  const t = await createTask(store, { parentId: phase2.id, title: 'work' });
+test.skipIf(!NORN)(
+  'get renders an inherited prerequisite as an "awaiting on … (via …)" line',
+  async () => {
+    const phase1 = await createPhase(store, { parentId: initId, title: 'Phase 1' });
+    const phase2Raw = await createPhase(store, { parentId: initId, title: 'Phase 2' });
+    const phase1Id = await nodeIdOf(store, `MMR-${String(phase1.seq)}`);
+    const phase2 = await nodeIdOf(store, `MMR-${String(phase2Raw.seq)}`);
+    await depend(store, phase2, [phase1Id]); // edge on the ancestor phase
+    const t = await createTask(store, { parentId: phase2, title: 'work' });
 
-  const io = fakeIo(true); // TTY → human record render
-  await runCli(['get', `MMR-${String(t.seq)}`], () => store, io);
-  const out = io.out.join('');
+    const io = fakeIo(true); // TTY → human record render
+    await runCli(['get', `MMR-${String(t.seq)}`], () => store, io);
+    const out = io.out.join('');
 
-  expect(out).toContain('awaiting on');
-  expect(out).toContain(`via MMR-${String(phase2.seq)}`);
-});
+    expect(out).toContain('awaiting on');
+    expect(out).toContain(`via MMR-${String(phase2Raw.seq)}`);
+  },
+);

@@ -3,21 +3,21 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createSqliteStore } from '../core';
-import type { Db, Store } from '../core';
-import { createTestDb } from '../db/testing';
+import type { Store } from '../core';
+import { createTestStore } from '../testing/store';
 import { runCli } from './run';
 import { SKILL_FILES, skillDirFor } from './skill-assets';
 import { fakeIo } from './testing';
 
-let db: Db;
+const NORN = Bun.which('norn') !== null;
+
 let store: Store;
+let closeStore: () => Promise<void>;
 beforeEach(async () => {
-  db = await createTestDb();
-  store = createSqliteStore(db);
+  ({ close: closeStore, store } = await createTestStore());
 });
 afterEach(async () => {
-  await db.destroy();
+  await closeStore();
 });
 
 test('the embedded skill carries the root + six references, all non-empty', () => {
@@ -46,7 +46,7 @@ test('skillDirFor encodes the per-agent host layout', () => {
   expect(skillDirFor('codex', '/home/x')).toBe('/home/x/.agents/skills/mimir');
 });
 
-test('skill install --local writes the full tree into the working copy', async () => {
+test.skipIf(!NORN)('skill install --local writes the full tree into the working copy', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'mimir-skill-'));
   try {
     const io = fakeIo();
@@ -64,27 +64,30 @@ test('skill install --local writes the full tree into the working copy', async (
   }
 });
 
-test('skill install --local --agent codex uses the .agents layout; reinstall overwrites', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'mimir-skill-'));
-  try {
-    expect(
-      await runCli(['skill', 'install', '--local', '--agent', 'codex'], () => store, fakeIo(), {
-        cwd: dir,
-      }),
-    ).toBe(0);
-    expect(existsSync(join(dir, '.agents', 'skills', 'mimir', 'SKILL.md'))).toBe(true);
-    // Refresh-on-upgrade: a second install over the same target succeeds.
-    expect(
-      await runCli(['skill', 'install', '--local', '--agent', 'codex'], () => store, fakeIo(), {
-        cwd: dir,
-      }),
-    ).toBe(0);
-  } finally {
-    rmSync(dir, { force: true, recursive: true });
-  }
-});
+test.skipIf(!NORN)(
+  'skill install --local --agent codex uses the .agents layout; reinstall overwrites',
+  async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mimir-skill-'));
+    try {
+      expect(
+        await runCli(['skill', 'install', '--local', '--agent', 'codex'], () => store, fakeIo(), {
+          cwd: dir,
+        }),
+      ).toBe(0);
+      expect(existsSync(join(dir, '.agents', 'skills', 'mimir', 'SKILL.md'))).toBe(true);
+      // Refresh-on-upgrade: a second install over the same target succeeds.
+      expect(
+        await runCli(['skill', 'install', '--local', '--agent', 'codex'], () => store, fakeIo(), {
+          cwd: dir,
+        }),
+      ).toBe(0);
+    } finally {
+      rmSync(dir, { force: true, recursive: true });
+    }
+  },
+);
 
-test('skill install rejects bad invocations (exit 2)', async () => {
+test.skipIf(!NORN)('skill install rejects bad invocations (exit 2)', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'mimir-skill-'));
   try {
     expect(await runCli(['skill'], () => store, fakeIo(), { cwd: dir })).toBe(2);

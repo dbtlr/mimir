@@ -2,157 +2,192 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import type { Hold, Lifecycle } from '@mimir/contract';
 
-import { createTestDb } from '../db/testing';
-import type { Db } from './context';
+import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { deriveSet } from './derive';
 import { isAwaiting, isBlocked, isBlocking, isOrphaned, isReady, isStale } from './predicates';
 import type { Store } from './store';
-import { createSqliteStore, loadWorkingSet } from './store-sqlite';
 
-let db: Db;
+const NORN = Bun.which('norn') !== null;
+
 let store: Store;
+let closeStore: () => Promise<void>;
 beforeEach(async () => {
-  db = await createTestDb();
-  store = createSqliteStore(db);
+  ({ close: closeStore, store } = await createTestStore());
 });
 afterEach(async () => {
-  await db.destroy();
+  await closeStore();
 });
 
-const setOf = async () => deriveSet(await loadWorkingSet(db));
+const setOf = async () => deriveSet(await store.loadWorkingSet());
 
-async function patch(id: number, fields: { lifecycle?: Lifecycle; hold?: Hold }): Promise<void> {
-  await db.updateTable('node').set(fields).where('id', '=', id).execute();
+async function patch(
+  key: string,
+  seq: number,
+  fields: { lifecycle?: Lifecycle; hold?: Hold },
+): Promise<void> {
+  const id = await nodeIdOf(store, `${key}-${String(seq)}`);
+  await store.transact((w) => w.updateNode(id, fields));
 }
-async function reload(id: number) {
+async function reload(key: string, seq: number) {
+  const id = await nodeIdOf(store, `${key}-${String(seq)}`);
   const node = await store.transact((w) => w.loadNode(id));
   if (node === undefined) {
-    throw new Error(`node ${id} vanished`);
+    throw new Error(`node ${key}-${String(seq)} vanished`);
   }
   return node;
 }
-async function dep(nodeId: number, dependsOn: number): Promise<void> {
-  await db
-    .insertInto('dependency')
-    .values({ depends_on_node_id: dependsOn, node_id: nodeId })
-    .execute();
+async function dep(key: string, nodeSeq: number, dependsOnSeq: number): Promise<void> {
+  const nodeId = await nodeIdOf(store, `${key}-${String(nodeSeq)}`);
+  const dependsOnId = await nodeIdOf(store, `${key}-${String(dependsOnSeq)}`);
+  await store.transact((w) =>
+    w.insertDependency({ depends_on_node_id: dependsOnId, node_id: nodeId }),
+  );
 }
 
 async function fixture(key = 'MMR') {
   const p = await createProject(store, { key, name: 'm' });
-  const init = await createInitiative(store, { projectId: p.id, title: 'i' });
-  const phase = await createPhase(store, { parentId: init.id, title: 'ph' });
-  return { init, p, phase };
+  const projectId = await projectIdOf(store, key);
+  const init = await createInitiative(store, { projectId, title: 'i' });
+  const phase = await createPhase(store, {
+    parentId: await nodeIdOf(store, `${key}-${String(init.seq)}`),
+    title: 'ph',
+  });
+  return { init, key, p, phase };
 }
 
-test('ready vs awaiting hinge on prerequisite settledness', async () => {
-  const { phase } = await fixture();
-  const a = await createTask(store, { parentId: phase.id, title: 'a' });
-  const b = await createTask(store, { parentId: phase.id, title: 'b' });
+test.skipIf(!NORN)('ready vs awaiting hinge on prerequisite settledness', async () => {
+  const { key, phase } = await fixture();
+  const phaseId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
+  const a = await createTask(store, { parentId: phaseId, title: 'a' });
+  const b = await createTask(store, { parentId: phaseId, title: 'b' });
   expect(isReady(await setOf(), a)).toBe(true);
   expect(isAwaiting(await setOf(), a)).toBe(false);
 
-  await dep(b.id, a.id);
-  expect(isReady(await setOf(), await reload(b.id))).toBe(false);
-  expect(isAwaiting(await setOf(), await reload(b.id))).toBe(true);
+  await dep(key, b.seq, a.seq);
+  expect(isReady(await setOf(), await reload(key, b.seq))).toBe(false);
+  expect(isAwaiting(await setOf(), await reload(key, b.seq))).toBe(true);
 
-  await patch(a.id, { lifecycle: 'done' });
-  expect(isReady(await setOf(), await reload(b.id))).toBe(true);
-  expect(isAwaiting(await setOf(), await reload(b.id))).toBe(false);
+  await patch(key, a.seq, { lifecycle: 'done' });
+  expect(isReady(await setOf(), await reload(key, b.seq))).toBe(true);
+  expect(isAwaiting(await setOf(), await reload(key, b.seq))).toBe(false);
 });
 
-test('a task inherits its ancestor phase prerequisite (reads awaiting, clears to ready)', async () => {
-  const { init, phase } = await fixture();
-  // a sibling "phase 1" with a live task → unsettled prerequisite
-  const phase1 = await createPhase(store, { parentId: init.id, title: 'phase 1' });
-  const p1task = await createTask(store, { parentId: phase1.id, title: 'p1 work' });
-  // "phase 2" (the fixture phase) depends on phase 1, and holds a task
-  await dep(phase.id, phase1.id);
-  const t = await createTask(store, { parentId: phase.id, title: 't' });
+test.skipIf(!NORN)(
+  'a task inherits its ancestor phase prerequisite (reads awaiting, clears to ready)',
+  async () => {
+    const { init, key, phase } = await fixture();
+    // a sibling "phase 1" with a live task → unsettled prerequisite
+    const initId = await nodeIdOf(store, `${key}-${String(init.seq)}`);
+    const phase1 = await createPhase(store, { parentId: initId, title: 'phase 1' });
+    const p1task = await createTask(store, {
+      parentId: await nodeIdOf(store, `${key}-${String(phase1.seq)}`),
+      title: 'p1 work',
+    });
+    // "phase 2" (the fixture phase) depends on phase 1, and holds a task
+    await dep(key, phase.seq, phase1.seq);
+    const t = await createTask(store, {
+      parentId: await nodeIdOf(store, `${key}-${String(phase.seq)}`),
+      title: 't',
+    });
 
-  // t declares no edge of its own, yet inherits phase 2's gate
-  expect(isReady(await setOf(), await reload(t.id))).toBe(false);
-  expect(isAwaiting(await setOf(), await reload(t.id))).toBe(true);
+    // t declares no edge of its own, yet inherits phase 2's gate
+    expect(isReady(await setOf(), await reload(key, t.seq))).toBe(false);
+    expect(isAwaiting(await setOf(), await reload(key, t.seq))).toBe(true);
 
-  // phase 1 settles (its only task done) → t clears to ready
-  await patch(p1task.id, { lifecycle: 'done' });
-  expect(isReady(await setOf(), await reload(t.id))).toBe(true);
-  expect(isAwaiting(await setOf(), await reload(t.id))).toBe(false);
+    // phase 1 settles (its only task done) → t clears to ready
+    await patch(key, p1task.seq, { lifecycle: 'done' });
+    expect(isReady(await setOf(), await reload(key, t.seq))).toBe(true);
+    expect(isAwaiting(await setOf(), await reload(key, t.seq))).toBe(false);
+  },
+);
+
+test.skipIf(!NORN)('a held task is neither ready nor awaiting', async () => {
+  const { key, phase } = await fixture();
+  const t = await createTask(store, {
+    parentId: await nodeIdOf(store, `${key}-${String(phase.seq)}`),
+    title: 't',
+  });
+  await patch(key, t.seq, { hold: 'blocked' });
+  expect(isReady(await setOf(), await reload(key, t.seq))).toBe(false);
+  expect(isAwaiting(await setOf(), await reload(key, t.seq))).toBe(false);
+  expect(isBlocked(await reload(key, t.seq))).toBe(true);
 });
 
-test('a held task is neither ready nor awaiting', async () => {
-  const { phase } = await fixture();
-  const t = await createTask(store, { parentId: phase.id, title: 't' });
-  await patch(t.id, { hold: 'blocked' });
-  expect(isReady(await setOf(), await reload(t.id))).toBe(false);
-  expect(isAwaiting(await setOf(), await reload(t.id))).toBe(false);
-  expect(isBlocked(await reload(t.id))).toBe(true);
+test.skipIf(!NORN)('blocking is true while an unsettled dependent exists', async () => {
+  const { key, phase } = await fixture();
+  const phaseId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
+  const prereq = await createTask(store, { parentId: phaseId, title: 'prereq' });
+  const dependent = await createTask(store, { parentId: phaseId, title: 'dependent' });
+  await dep(key, dependent.seq, prereq.seq);
+
+  expect(isBlocking(await setOf(), await reload(key, prereq.seq))).toBe(true);
+  await patch(key, dependent.seq, { lifecycle: 'done' });
+  expect(isBlocking(await setOf(), await reload(key, prereq.seq))).toBe(false);
 });
 
-test('blocking is true while an unsettled dependent exists', async () => {
-  const { phase } = await fixture();
-  const prereq = await createTask(store, { parentId: phase.id, title: 'prereq' });
-  const dependent = await createTask(store, { parentId: phase.id, title: 'dependent' });
-  await dep(dependent.id, prereq.id);
+test.skipIf(!NORN)(
+  'stale chases in_progress/blocked, mutes parked/awaiting, respects the threshold',
+  async () => {
+    const { key, phase } = await fixture();
+    const t = await createTask(store, {
+      parentId: await nodeIdOf(store, `${key}-${String(phase.seq)}`),
+      title: 't',
+    });
+    await patch(key, t.seq, { lifecycle: 'in_progress' });
+    // backdate updated_at well past the threshold
+    const id = await nodeIdOf(store, `${key}-${String(t.seq)}`);
+    await store.transact((w) => w.updateNode(id, { updated_at: '2000-01-01T00:00:00.000Z' }));
+    const asOf = '2026-06-05T00:00:00.000Z';
 
-  expect(isBlocking(await setOf(), await reload(prereq.id))).toBe(true);
-  await patch(dependent.id, { lifecycle: 'done' });
-  expect(isBlocking(await setOf(), await reload(prereq.id))).toBe(false);
-});
+    expect(isStale(await setOf(), await reload(key, t.seq), { asOf })).toBe(true);
 
-test('stale chases in_progress/blocked, mutes parked/awaiting, respects the threshold', async () => {
-  const { phase } = await fixture();
-  const t = await createTask(store, { parentId: phase.id, title: 't' });
-  await patch(t.id, { lifecycle: 'in_progress' });
-  // backdate updated_at well past the threshold
-  await db
-    .updateTable('node')
-    .set({ updated_at: '2000-01-01T00:00:00.000Z' })
-    .where('id', '=', t.id)
-    .execute();
-  const asOf = '2026-06-05T00:00:00.000Z';
+    // parked is muted even when ancient
+    await patch(key, t.seq, { hold: 'parked' });
+    expect(isStale(await setOf(), await reload(key, t.seq), { asOf })).toBe(false);
 
-  expect(isStale(await setOf(), await reload(t.id), { asOf })).toBe(true);
+    // fresh in_progress is not stale
+    await patch(key, t.seq, { hold: 'none' });
+    const id2 = await nodeIdOf(store, `${key}-${String(t.seq)}`);
+    await store.transact((w) => w.updateNode(id2, { updated_at: asOf }));
+    expect(isStale(await setOf(), await reload(key, t.seq), { asOf })).toBe(false);
+  },
+);
 
-  // parked is muted even when ancient
-  await patch(t.id, { hold: 'parked' });
-  expect(isStale(await setOf(), await reload(t.id), { asOf })).toBe(false);
-
-  // fresh in_progress is not stale
-  await patch(t.id, { hold: 'none' });
-  await db.updateTable('node').set({ updated_at: asOf }).where('id', '=', t.id).execute();
-  expect(isStale(await setOf(), await reload(t.id), { asOf })).toBe(false);
-});
-
-test('orphaned: a live task stranded among all-terminal siblings', async () => {
-  const { phase } = await fixture();
-  const live = await createTask(store, { parentId: phase.id, title: 'live' });
-  const sib = await createTask(store, { parentId: phase.id, title: 'sib' });
+test.skipIf(!NORN)('orphaned: a live task stranded among all-terminal siblings', async () => {
+  const { key, phase } = await fixture();
+  const phaseId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
+  const live = await createTask(store, { parentId: phaseId, title: 'live' });
+  const sib = await createTask(store, { parentId: phaseId, title: 'sib' });
 
   // two live siblings → not orphaned
-  expect(isOrphaned(await setOf(), await reload(live.id))).toBe(false);
+  expect(isOrphaned(await setOf(), await reload(key, live.seq))).toBe(false);
 
   // sibling done → the live one is now stranded
-  await patch(sib.id, { lifecycle: 'done' });
-  expect(isOrphaned(await setOf(), await reload(live.id))).toBe(true);
+  await patch(key, sib.seq, { lifecycle: 'done' });
+  expect(isOrphaned(await setOf(), await reload(key, live.seq))).toBe(true);
 
   // a sole child is never orphaned
-  const { phase: solo } = await fixture('SOL');
-  const only = await createTask(store, { parentId: solo.id, title: 'only' });
-  expect(isOrphaned(await setOf(), await reload(only.id))).toBe(false);
+  const { key: soloKey, phase: solo } = await fixture('SOL');
+  const only = await createTask(store, {
+    parentId: await nodeIdOf(store, `${soloKey}-${String(solo.seq)}`),
+    title: 'only',
+  });
+  expect(isOrphaned(await setOf(), await reload(soloKey, only.seq))).toBe(false);
 });
 
-test('orphaned: muted for a live task inside an open-ended container', async () => {
-  const { phase } = await fixture();
-  const live = await createTask(store, { parentId: phase.id, title: 'live' });
-  const sib = await createTask(store, { parentId: phase.id, title: 'sib' });
-  await patch(sib.id, { lifecycle: 'done' });
+test.skipIf(!NORN)('orphaned: muted for a live task inside an open-ended container', async () => {
+  const { key, phase } = await fixture();
+  const phaseId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
+  const live = await createTask(store, { parentId: phaseId, title: 'live' });
+  const sib = await createTask(store, { parentId: phaseId, title: 'sib' });
+  await patch(key, sib.seq, { lifecycle: 'done' });
 
   // normal container: every-other-sibling-terminal → orphaned
-  expect(isOrphaned(await setOf(), await reload(live.id))).toBe(true);
+  expect(isOrphaned(await setOf(), await reload(key, live.seq))).toBe(true);
 
   // open-ended container: every-sibling-terminal is structurally meaningless → muted
-  await db.updateTable('node').set({ open_ended: true }).where('id', '=', phase.id).execute();
-  expect(isOrphaned(await setOf(), await reload(live.id))).toBe(false);
+  const openId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
+  await store.transact((w) => w.updateNode(openId, { open_ended: true }));
+  expect(isOrphaned(await setOf(), await reload(key, live.seq))).toBe(false);
 });
