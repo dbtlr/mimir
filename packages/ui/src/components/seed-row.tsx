@@ -102,18 +102,25 @@ export function SeedRow({
           type="button"
           aria-expanded={active}
           onClick={toggle}
-          className="flex w-full items-center gap-2.5 px-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-accent"
+          className="flex w-full flex-col gap-1 px-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-accent"
         >
-          <SeedKindChip kind={seed.kind} />
-          <span
-            className={cn(
-              'min-w-0 flex-1 truncate text-body font-medium',
-              dimmed ? 'text-ink-dim' : 'text-ink-bright',
-            )}
-          >
-            {seed.title}
+          <span className="flex w-full items-center gap-2.5">
+            <SeedKindChip kind={seed.kind} />
+            <span
+              className={cn(
+                'min-w-0 flex-1 truncate text-body font-medium',
+                dimmed ? 'text-ink-dim' : 'text-ink-bright',
+              )}
+            >
+              {seed.title}
+            </span>
+            <RowMeta seed={seed} />
           </span>
-          <RowMeta seed={seed} />
+          {/* The derived lede (MMR-263) — a 2-line clamp of the body prose, shown
+              only when collapsed (the expanded body fetches the full description). */}
+          {!active && seed.lede != null && seed.lede !== '' && (
+            <span className="line-clamp-2 text-meta leading-[1.5] text-ink-faint">{seed.lede}</span>
+          )}
         </button>
         {active && (
           <ExpandedBody

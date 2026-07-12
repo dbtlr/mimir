@@ -14,7 +14,13 @@ vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success
 
 /** One seed per lane, plus two terminal rows for the settled fold. */
 const list: WireSeed[] = [
-  seed({ id: 'MMR-s1', kind: 'bug', lane: 'untriaged', title: 'Scroll snaps to top' }),
+  seed({
+    id: 'MMR-s1',
+    kind: 'bug',
+    lane: 'untriaged',
+    lede: 'The list scroll position jumps back to the top on every refetch.',
+    title: 'Scroll snaps to top',
+  }),
   seed({
     id: 'MMR-s2',
     kind: 'feature',
@@ -129,6 +135,16 @@ describe('seedsPage (13a/14a, MMR-247)', () => {
     // DOM order is the fixed lane order (FOLLOWING bit set ⇒ later in the tree)
     expect(untriaged.compareDocumentPosition(ready) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     expect(ready.compareDocumentPosition(promoted) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it('renders the derived lede as a preview on a collapsed queue row (MMR-263)', async () => {
+    mockApi();
+    renderSeeds();
+    // The live untriaged row shows its body lede (the 2-line clamp of mock 13a)
+    // straight from the list payload — no detail fetch, no expand.
+    await expect(
+      screen.findByText('The list scroll position jumps back to the top on every refetch.'),
+    ).resolves.toBeDefined();
   });
 
   it('folds SETTLED to a strip with resolved/rejected counts', async () => {
