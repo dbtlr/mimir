@@ -44,9 +44,12 @@ beforeAll(async () => {
 afterAll(async () => {
   // `client` can be unassigned when norn is absent OR when beforeAll timed
   // out mid-generation — guard both rather than gating on NORN alone.
-  await client?.close();
-  if (root !== undefined) {
-    rmSync(root, { force: true, recursive: true });
+  try {
+    await client?.close();
+  } finally {
+    if (root !== undefined) {
+      rmSync(root, { force: true, recursive: true });
+    }
   }
 }, 30_000);
 
