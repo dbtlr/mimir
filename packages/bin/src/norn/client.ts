@@ -18,7 +18,10 @@ import { parseJson } from '@mimir/helpers';
  * - **Results are the `structuredContent` payload** (observed against norn
  *   v0.41.0; the text content mirrors it as JSON). `isError` results raise a
  *   `validation` MimirError carrying norn's message; connection-level
- *   failures raise `invariant` (infra state, not a rejected input).
+ *   failures raise `invariant` (infra state, not a rejected input). Two
+ *   `isError`-with-structured-payload exceptions are handed back as data instead
+ *   of thrown (see {@link unwrap}): an apply report (norn 0.45.1 / NRN-219) and a
+ *   `vault.get` that didn't resolve its target/sections (norn 0.46 / NRN-214).
  *
  * Known, accepted window: a mutation issued between a subprocess death and
  * the SDK's onclose delivery fails with the ambiguous error even though the
@@ -87,6 +90,13 @@ export type NornNewArgs = {
 
 export type NornSetArgs = {
   target: string;
+  /**
+   * Ergonomic record surface for the fields to write. norn 0.47 (NRN-238) retired
+   * `vault.set`'s map-shaped `set` param — the wire contract is now ordered
+   * `KEY=JSON` tokens (`field_json`, the same shape `vault.new` takes). {@link set}
+   * serializes this record into those tokens (`${key}=${JSON.stringify(value)}`);
+   * mimir's usage has unique keys, so the map→ordered-token mapping is identical.
+   */
   set?: Record<string, unknown>;
   remove?: string[];
   body?: string;
@@ -287,6 +297,21 @@ export class NornClient {
       ) {
         return result.structuredContent;
       }
+      // norn 0.46 (NRN-214): a `vault.get` whose target doesn't resolve, or whose
+      // every `--section` heading misses, sets `isError: true` but PRESERVES the
+      // structured read payload (`records`, `section_failures`, `notes`). Hand that
+      // payload back so each read seam keeps its documented semantics: the
+      // section-failure channel reports rather than aborts (triage's corrupt-anchor
+      // quarantine), and an absent-doc lookup fails loud with a clean mimir-side
+      // message off empty `records` — never norn's raw JSON blob. A genuine tool or
+      // connection error carries no such payload and still throws below.
+      if (
+        name === 'vault.get' &&
+        isRecord(result.structuredContent) &&
+        ('records' in result.structuredContent || 'section_failures' in result.structuredContent)
+      ) {
+        return result.structuredContent;
+      }
       const message = firstText(result.content) ?? 'norn returned an error with no message';
       throw validation(`norn ${name}: ${message}`);
     }
@@ -401,7 +426,17 @@ export class NornClient {
   }
 
   async set(args: NornSetArgs): Promise<unknown> {
-    return this.call('vault.set', args, false);
+    // norn 0.47 (NRN-238): serialize the record-shaped `set` into the
+    // `field_json` ordered `KEY=JSON` tokens the new wire contract requires (the
+    // retired map param is silently ignored). `remove` and `body` pass through.
+    const { set, ...rest } = args;
+    const wire: Record<string, unknown> = { ...rest };
+    if (set !== undefined) {
+      wire.field_json = Object.entries(set).map(
+        ([key, value]) => `${key}=${JSON.stringify(value)}`,
+      );
+    }
+    return this.call('vault.set', wire, false);
   }
 
   async edit(target: string, edits: unknown[], confirm: boolean): Promise<unknown> {

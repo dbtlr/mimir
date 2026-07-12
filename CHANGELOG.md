@@ -27,6 +27,20 @@ release. When a release is cut, this section is promoted to
 
 ### Fixed
 
+- **norn 0.47 contract adoption** (MMR-266). Three verified contract breaks
+  against norn 0.47 are absorbed. `vault.set` retired its map-shaped param
+  (NRN-238): the new ordered `KEY=JSON` `field_json` tokens are now serialized
+  inside the client, so `mimir tag`/`untag` and `update KEY-aN --title` persist
+  again instead of silently reporting success while writing nothing. A
+  `vault.get` that fails to resolve its target or every `--section` heading now
+  sets `isError` while preserving its structured payload (NRN-214): the client
+  hands that payload back rather than throwing norn's raw JSON blob, so `mimir
+  triage` quarantines a corrupt/ambiguous `## Annotations` anchor into
+  `failures[]` (and keeps reconciling the rest) instead of aborting the pass,
+  and an absent-doc mutation fails loud with a clean mimir-side message. The
+  doctor frontmatter check now recognizes the renamed `value-not-allowed`
+  finding code (NRN-235, was `frontmatter-disallowed-value`), restoring
+  coverage of foreign-`type` (untyped) documents; both codes are accepted.
 - **`mimir skill install` no longer installs a stale skill** (MMR-264). The
   binary embedded its own checked-in copy of the skill
   (`packages/bin/skills/`), which had drifted several features behind the

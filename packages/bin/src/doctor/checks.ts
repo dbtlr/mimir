@@ -424,18 +424,23 @@ function workStateStem(path: string): string | null {
 }
 
 /**
- * The frontmatter codes this check renders, and how to describe each. These three
- * code strings and the `field === "type"` gate on the two field-scoped ones are
- * the empirically-verified norn 0.44 `vault.validate` contract (mimir's generated
+ * The frontmatter codes this check renders, and how to describe each. These
+ * code strings and the `field === "type"` gate on the field-scoped ones are the
+ * empirically-verified norn `vault.validate` contract (mimir's generated
  * `.norn/config.yaml` carries the `document-type` rule): a corrupt work-state doc
  * emits `frontmatter-parse-failed` (no field — always qualifies) and, for a
- * missing/foreign type, `frontmatter-required-field-missing`/
- * `frontmatter-disallowed-value` with `field: "type"`. The two field-scoped codes
- * also fire for other fields (a missing `title`, a foreign `lifecycle`, …), which
- * leave the doc visible — hence the `field` gate. A future norn code rename lands
- * here.
+ * missing/foreign type, `frontmatter-required-field-missing`/the foreign-value
+ * code with `field: "type"`. norn 0.47 (NRN-235) renamed the foreign-value code
+ * `frontmatter-disallowed-value` -> `value-not-allowed`; BOTH keys are kept (mimir
+ * has no norn version floor, so dual keys are cheap tolerance for an older norn).
+ * The field-scoped codes also fire for other fields (a missing `title`, a foreign
+ * `lifecycle`, …), which leave the doc visible — hence the `field` gate. A future
+ * norn code rename lands here.
  */
 const FRONTMATTER: Record<string, { field: string | null; where: string; message: string }> = {
+  // norn <=0.46 emitted `frontmatter-disallowed-value`; 0.47 (NRN-235) renamed it
+  // `value-not-allowed` (below). Both keys point at the same spec — a foreign `type`
+  // is an untyped doc, invisible to the reader.
   'frontmatter-disallowed-value': {
     field: 'type',
     message:
@@ -451,6 +456,13 @@ const FRONTMATTER: Record<string, { field: string | null; where: string; message
     field: 'type',
     message:
       'frontmatter is missing the required `type` field — the document is invisible to the reader',
+    where: 'frontmatter · type',
+  },
+  // The 0.47 (NRN-235) rename of `frontmatter-disallowed-value`; same spec.
+  'value-not-allowed': {
+    field: 'type',
+    message:
+      'frontmatter `type` is a foreign value — the document is invisible to the reader (untyped)',
     where: 'frontmatter · type',
   },
 };
