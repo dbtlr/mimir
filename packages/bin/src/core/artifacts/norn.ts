@@ -24,9 +24,9 @@ import type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore }
  *   matching) — ADR 0016 Refinement.
  * - **Tag notes are rejected**: frontmatter `tags` are plain strings; a
  *   `--note` on a vault-backed artifact has nowhere faithful to live.
- * - **`q` search rides Norn's `contains`** (title) — case-sensitive literal
- *   matching over title only; a documented delta of the flag's prior
- *   case-insensitive, title+content behavior, not a silent one.
+ * - **`q` search is case-insensitive and title-only** (in-process
+ *   `toLowerCase().includes` over the loaded records); the title-only scope is
+ *   the documented delta from the flag's prior title+content behavior.
  */
 
 const CREATE_RETRIES = 5;

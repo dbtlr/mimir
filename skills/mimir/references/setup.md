@@ -11,7 +11,8 @@ curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 (or `bun add -g mimir` from source). Work state lives in a Norn-managed markdown
 vault (default `$XDG_DATA_HOME/mimir/vault`, i.e. `~/.local/share/mimir/vault`;
 `[vault] path` in the config or `MIMIR_VAULT` overrides). Mimir shells out to the
-`norn` binary for all storage, so **`norn` must be on `PATH`** — that is the one
+`norn` binary for all storage, so **`norn` must be on `PATH`** — check it with
+`command -v norn` (install: the dbtlr/norn release installer) — that is the one
 preflight; there are no migrations to run.
 
 ## Case 1 — the project exists, this working copy isn't bound

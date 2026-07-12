@@ -38,17 +38,25 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
+          # Digests pinned from the v0.47.0 release assets — a bumped
+          # NORN_VERSION moves these too (the release's own .sha256 files live
+          # in the same mutable release, so they can't be the trust anchor).
           case "$(uname -s)-$(uname -m)" in
-            Darwin-arm64) target=aarch64-apple-darwin ;;
-            Linux-x86_64) target=x86_64-unknown-linux-musl ;;
-            Linux-aarch64) target=aarch64-unknown-linux-musl ;;
+            Darwin-arm64)
+              target=aarch64-apple-darwin
+              sha256=a646e022727ba8ebfd696789cee46067e0c6ef102eee93146dc6d95e4167cad4 ;;
+            Linux-x86_64)
+              target=x86_64-unknown-linux-musl
+              sha256=57c9bdcff1413709b19627253ff87bb844b9db855ef52b8fe65671a0b7fcfeda ;;
+            Linux-aarch64)
+              target=aarch64-unknown-linux-musl
+              sha256=412d6f97095e650c6a9f07eb8383ce31618075eeeea8ddf8e2f7fc92de6de17b ;;
             *) echo "unsupported runner: $(uname -s)-$(uname -m)" >&2; exit 1 ;;
           esac
           asset="norn-run-${target}.tar.xz"
           base="https://github.com/dbtlr/norn/releases/download/${NORN_VERSION}"
           curl -fsSLO "${base}/${asset}"
-          curl -fsSLO "${base}/${asset}.sha256"
-          shasum -a 256 -c "${asset}.sha256"
+          echo "${sha256}  ${asset}" | shasum -a 256 -c
           tar -xf "$asset"
           mkdir -p norn-bin && mv "norn-run-${target}/norn" norn-bin/
           echo "${RUNNER_TEMP}/norn-bin" >> "$GITHUB_PATH"

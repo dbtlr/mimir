@@ -20,13 +20,18 @@ import { fakeIo } from './testing';
 const NORN = Bun.which('norn') !== null;
 
 let store: Store;
-let closeStore: () => Promise<void>;
+let closeStore: (() => Promise<void>) | undefined;
 let taskRef: string;
 let phaseId: number;
 let phaseRef: string;
 let initiativeId: number;
 let initiativeRef: string;
 beforeEach(async () => {
+  // The pure readContent tests below run norn-less; the store fixture only
+  // builds when the gated store tests will actually run.
+  if (!NORN) {
+    return;
+  }
   ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'm' });
   const projectId = await projectIdOf(store, 'MMR');
@@ -40,7 +45,7 @@ beforeEach(async () => {
   taskRef = `MMR-${String(task.seq)}`;
 });
 afterEach(async () => {
-  await closeStore();
+  await closeStore?.();
 });
 
 // resolveNode
@@ -152,12 +157,12 @@ test.skipIf(!NORN)(
 );
 
 // readContent
-test.skipIf(!NORN)('readContent returns joined tail when tail is non-empty', async () => {
+test('readContent returns joined tail when tail is non-empty', async () => {
   const io = fakeIo(false);
   const result = await readContent(['hello', 'world'], io);
   expect(result).toBe('hello world');
 });
-test.skipIf(!NORN)('readContent returns empty string when tail is empty and isTTY', async () => {
+test('readContent returns empty string when tail is empty and isTTY', async () => {
   const io = fakeIo(true);
   const result = await readContent([], io);
   expect(result).toBe('');

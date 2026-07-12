@@ -12,24 +12,10 @@ import {
   startTask,
 } from '../mutations';
 import type { Store } from '../store';
+import { expectMimirError } from '../testing';
 import { getArtifact, getNode, listNodes, nextTasks, statusOfNode } from './index';
 
 const NORN = Bun.which('norn') !== null;
-
-/**
- * Assert that an async operation rejects. Replaces `expect(p).rejects.toThrow()`
- * — bun's types declare that chain non-thenable, which trips the type-aware
- * `await-thenable` lint under our zero-warning gate.
- */
-async function expectReject(run: () => Promise<unknown>): Promise<void> {
-  let threw = false;
-  try {
-    await run();
-  } catch {
-    threw = true;
-  }
-  expect(threw).toBe(true);
-}
 
 let store: Store;
 let closeStore: () => Promise<void>;
@@ -189,8 +175,8 @@ test.skipIf(!NORN)('get returns a full record with cheap facets and resolves KEY
 });
 
 test.skipIf(!NORN)('get throws on a missing or malformed id', async () => {
-  await expectReject(() => getNode(store, 'MMR-999'));
-  await expectReject(() => getNode(store, 'not-an-id'));
+  await expectMimirError('not_found', () => getNode(store, 'MMR-999'));
+  await expectMimirError('not_found', () => getNode(store, 'not-an-id'));
 });
 
 test.skipIf(!NORN)('status_of returns label + distribution for a non-leaf', async () => {
@@ -250,7 +236,7 @@ test.skipIf(!NORN)('get on KEY-aN returns the artifact detail with rendered link
 });
 
 test.skipIf(!NORN)('status_of rejects an artifact id as a behavioral error', async () => {
-  await expectReject(() => statusOfNode(store, `${key}-a1`));
+  await expectMimirError('validation', () => statusOfNode(store, `${key}-a1`));
 });
 
 test.skipIf(!NORN)('the node artifacts facet speaks KEY-aN', async () => {

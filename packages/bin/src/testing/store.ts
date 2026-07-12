@@ -24,15 +24,24 @@ export type TestStore = { store: Store; close: () => Promise<void> };
 
 export async function createTestStore(): Promise<TestStore> {
   const root = mkdtempSync(join(tmpdir(), 'mimir-test-'));
-  await converge(root, { allowCreate: true, exec: bunExec });
-  const client = new NornClient({ vaultPath: root });
-  return {
-    close: async () => {
-      await client.close();
-      rmSync(root, { force: true, recursive: true });
-    },
-    store: createNornWriteStore(client, root),
-  };
+  try {
+    await converge(root, { allowCreate: true, exec: bunExec });
+    const client = new NornClient({ vaultPath: root });
+    return {
+      close: async () => {
+        try {
+          await client.close();
+        } finally {
+          rmSync(root, { force: true, recursive: true });
+        }
+      },
+      store: createNornWriteStore(client, root),
+    };
+  } catch (error) {
+    // A failed converge (or client construction) must not strand the temp dir.
+    rmSync(root, { force: true, recursive: true });
+    throw error;
+  }
 }
 
 /**
