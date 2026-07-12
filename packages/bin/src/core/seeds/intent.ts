@@ -21,6 +21,7 @@ import {
 import { conflict, notFound, projectNotFound, validation } from '../errors';
 import { parseSeedRef, renderId, renderSeedRef } from '../ids';
 import type { Store } from '../store';
+import { deriveLede } from './lede';
 import { isTerminalSeed } from './store';
 import type { SeedRecord } from './store';
 
@@ -198,7 +199,28 @@ export async function listSeeds(store: Store, opts: ListSeedsOptions = {}): Prom
   if (opts.sort === 'desc') {
     views.reverse();
   }
+  // Derive-at-read lede (MMR-263): batch-read the `## Seed Description` for the
+  // LIVE seeds in ONE native section read, then derive the bounded lede server-side
+  // (the single source every transport renders). Settled rows carry no lede — their
+  // body comes on demand from the detail read. Nothing is stored.
+  await attachLede(store, views);
   return views;
+}
+
+/** Attach the derived lede to the LIVE views in `views` (mutated in place) from a
+ * single batched section read (MMR-263). A no-op when no view is live. */
+async function attachLede(store: Store, views: SeedView[]): Promise<void> {
+  const live = views.filter((v) => isLive(v.lifecycle));
+  const refs = live
+    .map((v) => parseSeedRef(v.id))
+    .filter((ref): ref is { key: string; seq: number } => ref !== null);
+  if (refs.length === 0) {
+    return;
+  }
+  const descriptions = await store.seeds.loadDescriptions(refs);
+  for (const view of live) {
+    view.lede = deriveLede(descriptions.get(view.id) ?? null);
+  }
 }
 
 function cmp(a: string, b: string): number {

@@ -74,6 +74,14 @@ export type SeedStore = {
    * unbound `seeds` listing filters it to active boards), instead of a per-project
    * loop of `listForProject` (MMR-245/E1). */
   listAll: () => Promise<SeedRecord[]>;
+  /** Batch-read the `## Seed Description` prose for many seeds in ONE native
+   * section read (`vault.get { section }`), keyed by the `KEY-sN` stem — the
+   * derive-at-read lede source for the live queue (MMR-263). A seed with no
+   * description (empty section) maps to `null`; an absent/ambiguous doc is simply
+   * missing from the map. Nothing is stored; the caller derives the bounded lede. */
+  loadDescriptions: (
+    refs: readonly { key: string; seq: number }[],
+  ) => Promise<Map<string, string | null>>;
   /** Edit a LIVE seed's title/kind/description; refuses when the seed is terminal
    * or absent — a terminal seed is frozen (the reason string carries the nuance). */
   patch: (key: string, seq: number, patch: SeedPatch) => Promise<void>;
