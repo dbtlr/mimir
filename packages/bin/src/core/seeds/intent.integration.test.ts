@@ -246,12 +246,17 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     ).toMatch(/first line is the title/);
   });
 
-  test('update --title inherits the seed title cap (MMR-263)', async () => {
+  test('update --title inherits the seed title cap and single-line rule (MMR-263)', async () => {
     await seedbed();
     await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'short' });
     expect(
       await rejectMessage(() => updateSeed(store, 'MMR-s1', { title: 'y'.repeat(121) })),
     ).toMatch(/cap is 120/);
+    // An embedded newline is refused — update takes the raw value (no blob split),
+    // so a multi-line title would defeat the forcing function.
+    expect(
+      await rejectMessage(() => updateSeed(store, 'MMR-s1', { title: 'line one\nline two' })),
+    ).toMatch(/one line/);
     // A title at the cap still patches.
     const ok = await updateSeed(store, 'MMR-s1', { title: 'z'.repeat(120) });
     expect(ok.title).toBe('z'.repeat(120));

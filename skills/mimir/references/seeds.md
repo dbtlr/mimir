@@ -33,10 +33,11 @@ mimir seed "should capture parse a title from the first line?" -k idea   # own b
   **another** board records your board as `requester`; self-filing (or filing
   unbound) leaves requester null.
 - **Capture is one blob** (commit-message semantics): the **first line is the
-  title** (the lede), everything after the first newline is the `## Seed
-Description` body — repro steps, context, links. The first line has a hard
-  **120-char cap** that **errors** (put the body on the next line). `--desc`
-  still works and **wins** over the blob split; `update --title` inherits the cap.
+  title** (the lede), everything after the first newline is the
+  `## Seed Description` body — repro steps, context, links. The first line has
+  a hard **120-char cap** that **errors** (put the body on the next line).
+  `--desc` still works and **wins** over the blob split; `update --title`
+  inherits the cap.
 - Filing is low-ceremony **by design**: prefer a seed over a mental note or a
   prose TODO that decays. (Low ceremony is not a routing rule — own-board
   statable work still goes straight to `create task`.)

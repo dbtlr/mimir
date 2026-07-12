@@ -40,11 +40,20 @@ export function splitCapture(
 }
 
 /**
- * The hard title cap (MMR-263) — a first line over {@link SEED_TITLE_CAP}
- * characters errors with copy teaching the first-newline split. Shared by seed
- * filing and `update --title` so the cap is uniform.
+ * The hard title shape (MMR-263) — a title is ONE line under {@link
+ * SEED_TITLE_CAP} characters; anything else errors with copy teaching the split.
+ * Shared by seed filing and `update --title` so the rule is uniform: filing can
+ * never pass a newline here ({@link splitCapture} takes the first line), but
+ * `update --title` hands the raw value through, so the single-line rule is
+ * asserted here too — a multi-line title would defeat the forcing function.
  */
 export function assertTitleWithinCap(title: string): void {
+  if (title.includes('\n')) {
+    throw validation(
+      'a seed title is one line — the title is the lede',
+      'put the rest in the description (the first newline splits title from body on filing)',
+    );
+  }
   if (title.length > SEED_TITLE_CAP) {
     throw validation(
       `the first line is the title (the lede), and it is ${String(title.length)} characters — the cap is ${String(SEED_TITLE_CAP)}`,

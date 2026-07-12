@@ -58,4 +58,11 @@ describe('assertTitleWithinCap', () => {
       /first line is the title/,
     );
   });
+
+  test('errors on an embedded newline — a title is one line (the update path)', () => {
+    // fileSeed can never hand this a newline (splitCapture takes the first line),
+    // but `update --title` passes the raw value — a multi-line title would defeat
+    // the forcing function and corrupt the queue table row.
+    expect(() => assertTitleWithinCap('line one\nline two')).toThrow(/one line/);
+  });
 });
