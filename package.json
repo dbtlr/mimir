@@ -11,6 +11,7 @@
     "mimir": "bun run packages/bin/src/main.ts",
     "assets": "bun packages/bin/scripts/generate-ui-assets.ts",
     "fixtures:vault": "bun packages/bin/scripts/generate-fixture-vault.ts",
+    "changelog:compile": "bun packages/bin/scripts/compile-changelog.ts",
     "build:ui": "bun run --cwd packages/ui build",
     "dev:ui": "bun run --cwd packages/ui dev",
     "check": "bun run assets && vp check",

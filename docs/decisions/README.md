@@ -40,6 +40,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0019](0019-meridian-console-design-system.md)                    | Meridian — the console design system; attention model          |
 | [0020](0020-seeds-grooming-queue-entity.md)                       | Seeds — the grooming-queue entity                              |
 | [0021](0021-seed-lede-derived-and-capture-grammar.md)             | Seed lede is derived at read; capture is one blob              |
+| [0022](0022-changelog-fragments-compiled-at-cut.md)               | Changelog fragments, compiled at the cut                       |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model

@@ -31,19 +31,28 @@ verification means _in this repo_.
 
 ## The CHANGELOG gate
 
-A user-facing change needs a `CHANGELOG.md` entry under `[Unreleased]`, in the right
-`Added` / `Changed` / `Removed` / `Fixed` heading ([Keep a Changelog]). Add it on
-the branch, in the same PR — not at the release cut. v0.12 deferred every entry to
-the cut and the per-PR record drifted for a whole cycle.
+A user-facing change needs a **changelog fragment**: a `.changes/<slug>.md` file
+(task id as the slug, e.g. `.changes/mmr-267.md`) holding the entry under the
+right Keep-a-Changelog heading — `### Added` / `### Changed` / `### Deprecated` /
+`### Removed` / `### Fixed` / `### Security`
+([Keep a Changelog]; grammar in `.changes/README.md`). Add it on the branch, in
+the same PR — not at the release cut. v0.12 deferred every entry to the cut and
+the per-PR record drifted for a whole cycle. Never edit `CHANGELOG.md` directly —
+it holds released sections only and is written by the release cut's compile step
+(ADR 0022); the fragment is what makes parallel PRs conflict-free.
 
-**Completion criterion:** either `[Unreleased]` has gained a line for this change,
-**or** the PR carries the `skip-changelog` label. One of the two is true before you
-submit — there is no third option.
+**Completion criterion:** either the PR adds a `.changes/` fragment for this
+change, **or** it carries the `skip-changelog` label. One of the two is true
+before you submit — there is no third option.
 
 CI enforces exactly this: `changelog-guard` fails any PR touching build-affecting
-paths (`packages/**`, `package.json`, `bun.lock`, `install.sh`, the release
-workflows) that adds no `[Unreleased]` line and has no label. The label is the
-**only** legitimate way past a missing entry.
+paths (`packages/**`, `skills/mimir/**`, `package.json`, `bun.lock`,
+`install.sh`, the release workflows) that touches no `.changes/*.md` fragment
+and has no label — and
+parses the fragments it finds with the compiler's own parser
+(`bun run changelog:compile --check`), so a fragment that passes CI is
+guaranteed to compile at the cut. The label is the **only** legitimate way past
+a missing fragment.
 
 **The escape hatch** — `skip-changelog` — is for a genuinely behavior-preserving
 change (an internal refactor, a test-only or build-meta edit). Once the PR exists

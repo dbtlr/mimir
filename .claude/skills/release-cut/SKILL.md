@@ -16,9 +16,10 @@ that into `X.Y.Z`, then into `X.(Y+1).0-next`.
 
 - On `main`, working tree clean, fetched fresh (`git fetch && git status`).
 - `bun run verify` is green.
-- `## [Unreleased]` in `CHANGELOG.md` has real entries. An empty section means
-  there is nothing to ship — stop. (`finishing-work` + `changelog-guard` keep this
-  section honest per-PR; the cut trusts it.)
+- `.changes/` has real pending fragments — preview the section they compile to
+  with `bun run changelog:compile`. No fragments means there is nothing to ship —
+  stop. (`finishing-work` + `changelog-guard` keep the fragments honest per-PR;
+  the cut trusts them.)
 - Target version = the `-next` base in `packages/bin/package.json`
   (`0.13.0-next` → `0.13.0`).
 
@@ -27,8 +28,10 @@ that into `X.Y.Z`, then into `X.(Y+1).0-next`.
 On a branch:
 
 - Bump `packages/bin/package.json` `"version"` from `X.Y.Z-next` to `X.Y.Z`.
-- In `CHANGELOG.md`, rename `## [Unreleased]` to `## vX.Y.Z - YYYY-MM-DD` (today's
-  date) and add a fresh empty `## [Unreleased]` above it.
+- Compile the changelog: `bun run changelog:compile --write --version X.Y.Z` —
+  writes the `## vX.Y.Z - YYYY-MM-DD` section into `CHANGELOG.md` and deletes
+  the compiled fragments. Commit both together (the fragment deletions are what
+  satisfy `changelog-guard` on this PR).
 - _Optional, only when the release warrants it:_ refresh the README (status
   callout, screenshots). Not a gate — skip it for a routine cut.
 
@@ -42,8 +45,8 @@ git tag -a vX.Y.Z -m "Release vX.Y.Z" && git push origin vX.Y.Z
 
 Don't let another PR merge between the cut merge and the tag push: the tag must
 sit on the cut commit, or a stray change gets baked into the binaries while its
-CHANGELOG entry lands under the _new_ `[Unreleased]` instead of the promoted
-`## vX.Y.Z` section — binary and notes diverge silently. Push the tag with your
+`.changes/` fragment stays pending for the _next_ cut — binary and notes diverge
+silently. Push the tag with your
 own credentials, **not** a bot / `GITHUB_TOKEN`: GitHub's anti-recursion guard
 suppresses the `push: tags` trigger for `GITHUB_TOKEN`-authored pushes, so the
 build silently won't fire (this is why the prerelease tagger uses

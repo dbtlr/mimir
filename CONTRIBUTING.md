@@ -39,14 +39,20 @@ import a transport, and transports may not import each other.
 - Keep PRs small and focused — one logical change per PR.
 - Run `bun run verify` locally before pushing. CI runs the same gate.
 - If the change affects CLI/MCP behavior, output format, the schema, or
-  configuration, add a `CHANGELOG.md` entry under `[Unreleased]` in the
-  appropriate `Added` / `Changed` / `Removed` / `Fixed` heading
-  ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/)). The
-  `changelog-guard` check enforces this: a PR touching build-affecting paths
-  (`packages/**`, `package.json`, `bun.lock`, `install.sh`, the release
-  workflows) fails CI unless it adds an `[Unreleased]` entry. For a genuinely
-  behavior-preserving change (internal refactor, test- or build-meta only),
-  apply the `skip-changelog` label with a one-line reason instead.
+  configuration, add a changelog fragment: a `.changes/<slug>.md` file (the
+  task id is the conventional slug) with the entry under the appropriate
+  Keep-a-Changelog heading — `### Added` / `### Changed` / `### Deprecated` /
+  `### Removed` / `### Fixed` / `### Security`
+  ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/); format details in
+  [`.changes/README.md`](.changes/README.md)). `CHANGELOG.md` itself is written
+  only at the release cut, which compiles the pending fragments — so parallel
+  PRs never conflict on it. The `changelog-guard` check enforces this: a PR
+  touching build-affecting paths (`packages/**`, `skills/mimir/**`,
+  `package.json`, `bun.lock`, `install.sh`, the release workflows) fails CI
+  unless it touches a fragment.
+  For a genuinely behavior-preserving change (internal refactor, test- or
+  build-meta only), apply the `skip-changelog` label with a one-line reason
+  instead.
 
 ## Commit messages
 
@@ -68,9 +74,10 @@ or update one with `MIMIR_NEXT=1 sh install.sh`, `mimir self-update --next`, or
 pin a build with `mimir self-update --tag v0.6.0-next.5`.
 
 **Cutting an official release** is a two-commit procedure. A _cut commit_ bumps
-`packages/bin/package.json` `X.Y.Z-next` → `X.Y.Z`, promotes `[Unreleased]` in
-`CHANGELOG.md` to `## vX.Y.Z - YYYY-MM-DD` (a fresh `[Unreleased]` added above),
-and pushes the `vX.Y.Z` tag — the release workflow then builds the per-platform
+`packages/bin/package.json` `X.Y.Z-next` → `X.Y.Z`, compiles the pending
+`.changes/` fragments into a new `## vX.Y.Z - YYYY-MM-DD` section
+(`bun run changelog:compile --write --version X.Y.Z`, which also deletes the
+compiled fragments), and pushes the `vX.Y.Z` tag — the release workflow then builds the per-platform
 binaries and publishes a non-prerelease GitHub Release with notes pulled from the
 changelog. A _next-cycle commit_ then bumps to the next `-next` to resume the
 prerelease stream; the version guard makes a forgotten next-cycle bump loud, not

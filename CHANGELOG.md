@@ -7,11 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 once it ships v1.0. Mimir is **pre-release** (`0.x`) and will be for a while;
 minor releases may include breaking changes.
 
-## [Unreleased]
-
-Entries here have landed on `main` but have not yet been cut into a tagged
-release. When a release is cut, this section is promoted to
-`## v0.X.Y - YYYY-MM-DD` and a fresh `## [Unreleased]` header is added above it.
+This file holds released sections only — there is no `[Unreleased]` section.
+Pending entries accrue as per-PR fragments in [`.changes/`](.changes/README.md)
+and are compiled into a new release section at each cut
+([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
+`bun run changelog:compile` previews the pending section.
 
 ## v0.13.0 - 2026-07-12
 
