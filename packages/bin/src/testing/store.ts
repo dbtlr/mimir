@@ -63,3 +63,24 @@ export async function nodeIdOf(store: Store, ref: string): Promise<number> {
   }
   return node.id;
 }
+
+/**
+ * A {@link Store} that must never be called (MMR-271): every property read
+ * throws. For a suite whose routes never touch storage (asset serving, the
+ * port hunt's non-request paths) — a real store needs `norn` on PATH just to
+ * construct the fixture; this needs nothing, so those tests run everywhere.
+ * A read that *does* reach it fails loudly rather than silently misbehaving,
+ * so an accidental new store call surfaces as a clear assertion failure
+ * instead of a green test over the wrong data.
+ */
+export function inertStore(): Store {
+  // The Proxy target is never actually read — every trap throws before the
+  // empty object underneath is consulted — so asserting it to the full
+  // interface here is safe despite looking narrower than `{}`.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return new Proxy<Store>({} as unknown as Store, {
+    get(_target, prop) {
+      throw new Error(`inert test store: unexpected read of store.${String(prop)}`);
+    },
+  });
+}
