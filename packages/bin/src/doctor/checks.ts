@@ -16,7 +16,8 @@ import { stemOf } from '../norn/decode';
 
 /** What a check reads: the raw vault documents to diagnose. */
 export type DoctorContext = {
-  /** Every work-state document's raw markdown, as `{ stem, body }` — scoped by `-s`. */
+  /** Every work-state document's raw markdown, as `{ stem, body }` — filtered to
+   * `-s` by canonical stem after a whole-vault enumeration (MMR-240). */
   readNodeDocs: () => Promise<{ stem: string; body: string }[]>;
   /** The shared validator's `dropped[]` over the whole-vault graph — computed
    * once by the runner and fed to every referential check, so the four checks
@@ -40,7 +41,7 @@ export type DoctorContext = {
   /** Documents whose `## History`/`## Annotations` heading norn cannot resolve —
    * a hand-edited duplicate (ambiguous) or a missing heading — so the section reads
    * as EMPTY (ADR 0017). The input for the section-resolution check (MMR-239); each
-   * is `{ stem, section }`. Pre-scoped by `-s` in the runner. */
+   * is `{ stem, section }`. Filtered to `-s` by canonical stem in the runner. */
   sectionFailures: readonly { stem: string; section: string }[];
 };
 

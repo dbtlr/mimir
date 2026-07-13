@@ -185,21 +185,69 @@ test('the -s scope keeps the project and its nodes, dropping other projects', as
   expect(findings.map((f) => f.node).toSorted()).toEqual(['MMR', 'MMR-9']);
 });
 
-test('the -s scope is pushed into the vault read (not just filtered after) (MMR-170)', async () => {
-  const seen: (string | undefined)[] = [];
+test('the -s scope reads per-document diagnostics whole-vault, then filters by canonical stem (MMR-240)', async () => {
+  const seenDocs: (string | undefined)[] = [];
+  const seenSections: (string | undefined)[] = [];
   const deps: DoctorDeps = {
     readNodeDocs: (scope) => {
-      seen.push(scope);
+      seenDocs.push(scope);
       return Promise.resolve([]);
     },
-    readSectionFailures: () => Promise.resolve([]),
+    readSectionFailures: (scope) => {
+      seenSections.push(scope);
+      return Promise.resolve([]);
+    },
     readVaultGraph: () => Promise.resolve({ nodes: [], projectKeys: [] }),
     validate: () => Promise.resolve({ findings: [] }),
   };
   await cmdDoctor(fakeIo(), deps, 'json', 'MMR');
-  // an unscoped run passes undefined through — the whole vault is read
   await cmdDoctor(fakeIo(), deps, 'json', undefined);
-  expect(seen).toEqual(['MMR', undefined]);
+  expect(seenDocs).toEqual([undefined, undefined]);
+  expect(seenSections).toEqual([undefined, undefined]);
+});
+
+test('corrupt project projections cannot hide per-document findings from canonical scope (MMR-240)', async () => {
+  const docs = [
+    {
+      body: ERROR_DOC.replaceAll('\n', '\r\n'),
+      projectedProject: 'OTH',
+      stem: 'MMR-9',
+    },
+    {
+      body: ERROR_DOC,
+      projectedProject: 'MMR',
+      stem: 'OTH-5',
+    },
+  ];
+  const deps: DoctorDeps = {
+    // Mirror the old production failure: passing MMR would select by the corrupt
+    // projection, hiding MMR-9 and admitting OTH-5 before the stem backstop.
+    readNodeDocs: (scope) =>
+      Promise.resolve(
+        docs
+          .filter((doc) => scope === undefined || doc.projectedProject === scope)
+          .map(({ body, stem }) => ({ body, stem })),
+      ),
+    readSectionFailures: (scope) =>
+      Promise.resolve(
+        docs
+          .filter((doc) => scope === undefined || doc.projectedProject === scope)
+          .map(({ stem }) => ({ section: 'History', stem })),
+      ),
+    readVaultGraph: () => Promise.resolve({ nodes: [], projectKeys: [] }),
+    validate: () => Promise.resolve({ findings: [] }),
+  };
+
+  const io = fakeIo();
+  await cmdDoctor(io, deps, 'json', 'MMR');
+  const findings = JSON.parse(io.out.join('')) as { check: string; node: string }[];
+
+  expect(findings.map((finding) => finding.check).toSorted()).toEqual([
+    'body-sections',
+    'crlf',
+    'section-resolution',
+  ]);
+  expect(findings.every((finding) => finding.node === 'MMR-9')).toBe(true);
 });
 
 test('a section-resolution failure is an error alert, exit 0 non-gating (MMR-239)', async () => {

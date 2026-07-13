@@ -22,7 +22,10 @@ import type { DoctorFacet } from './facet';
  * (the `.raw` fetch for location enrichment). All present on the Norn backend, all
  * null on SQLite (typed rows carry no malformable vault documents). */
 export type DoctorFacetDeps = {
+  /** Called unscoped; the facet narrows by canonical stem after enumeration so a
+   * corrupt `project` projection cannot hide its own diagnostics (MMR-240). */
   readNodeDocs: (scope: string | undefined) => Promise<{ stem: string; body: string }[]>;
+  /** Called unscoped for the same canonical-identity reason as readNodeDocs. */
   readSectionFailures: (scope: string | undefined) => Promise<{ stem: string; section: string }[]>;
   readVaultGraph: () => Promise<VaultGraph>;
   validate: () => Promise<unknown>;
@@ -38,21 +41,22 @@ function inScope(stem: string, scope: string | undefined): boolean {
 
 /**
  * Compute the record-health facet over the whole vault. The `scope` narrows the
- * per-document reads (as `mimir doctor -s` does); the referential graph stays
- * whole-vault (a break anywhere breaks the load). The caller filters the returned
- * groups to a single project for a project-scoped panel.
+ * per-document inputs by canonical stem after whole-vault enumeration (as
+ * `mimir doctor -s` does); the referential graph stays whole-vault (a break
+ * anywhere breaks the load). The caller filters the returned groups to a single
+ * project for a project-scoped panel.
  */
 export async function computeDoctorFacet(
   deps: DoctorFacetDeps,
   scope: string | undefined,
 ): Promise<DoctorFacet> {
-  const docs = (await deps.readNodeDocs(scope)).filter((d) => inScope(d.stem, scope));
+  const docs = (await deps.readNodeDocs(undefined)).filter((d) => inScope(d.stem, scope));
   const graph = await deps.readVaultGraph();
   const { dropped } = validate(graph);
   const validateFindings = decodeValidateFindings(await deps.validate()).filter((f) =>
     inScope(stemOf(f.path), scope),
   );
-  const sectionFailures = (await deps.readSectionFailures(scope)).filter((f) =>
+  const sectionFailures = (await deps.readSectionFailures(undefined)).filter((f) =>
     inScope(f.stem, scope),
   );
   const ctx: DoctorContext = {

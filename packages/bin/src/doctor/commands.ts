@@ -21,12 +21,13 @@ import type { DoctorContext, DoctorFinding } from './checks';
 import { CHECKS } from './checks';
 
 export type DoctorDeps = {
-  /** Read every work-state document's raw markdown. A `scope` (project KEY) pushes
-   * into the vault query so a scoped run fetches only that project's docs (MMR-170). */
+  /** Read work-state documents' raw markdown. Doctor always calls this unscoped,
+   * then filters by canonical stem so corrupt `project` frontmatter cannot hide
+   * a document from its true project (MMR-240). */
   readNodeDocs: (scope: string | undefined) => Promise<{ stem: string; body: string }[]>;
-  /** Read every work-state doc whose `## History`/`## Annotations` heading norn
-   * cannot resolve (ambiguous duplicate or missing) — the input for the
-   * section-resolution check (MMR-239). */
+  /** Read work-state docs whose `## History`/`## Annotations` heading norn cannot
+   * resolve (ambiguous duplicate or missing). Doctor calls this unscoped for the
+   * same canonical-identity reason as {@link readNodeDocs}. */
   readSectionFailures: (scope: string | undefined) => Promise<{ stem: string; section: string }[]>;
   /** Read the vault's raw, unresolved relational graph. */
   readVaultGraph: () => Promise<VaultGraph>;
@@ -48,14 +49,12 @@ export async function cmdDoctor(
   format: Format,
   scope: string | undefined,
 ): Promise<number> {
-  // Read the vault once and share it across every check — the registry is built
-  // to grow, so a per-check read would be one scan per check. The `-s` scope is
-  // pushed into the vault query (MMR-170) so a scoped run fetches only its
-  // project's docs; the stem-based `inScope` filter stays as the authoritative
-  // backstop (the query scopes on the `project` frontmatter field, a projection
-  // of the stem — the stem is the truth, so a filter here can never widen the
-  // set, only guarantee it).
-  const docs = (await deps.readNodeDocs(scope)).filter((d) => inScope(d.stem, scope));
+  // Read the per-document inputs whole-vault, then narrow by canonical stem.
+  // Pushing `scope` into Norn would query the corruptible `project` projection:
+  // a doc whose field lies falls out before this authoritative filter can see it
+  // (MMR-240). MMR-241 will consolidate these independent scans into one shared
+  // snapshot; this checkpoint deliberately fixes only their scope semantics.
+  const docs = (await deps.readNodeDocs(undefined)).filter((d) => inScope(d.stem, scope));
   // The graph stays whole-vault (unscoped): a referential break anywhere breaks
   // the entire vault load, so `-s` must not hide it. Validate it ONCE here and
   // share the `dropped[]` across every referential check (MMR-182) — the four
@@ -71,13 +70,9 @@ export async function cmdDoctor(
   const validateFindings = decodeValidateFindings(await deps.validate()).filter((f) =>
     inScope(stemOf(f.path), scope),
   );
-  // Section-resolution failures are per-document (a duplicate/missing heading), so —
-  // like the body-section and frontmatter checks — they honor `-s` (MMR-239). The
-  // scoped find selects on the `project` frontmatter field; re-apply the same
-  // authoritative stem backstop `readNodeDocs`/`validateFindings` use, so a doc
-  // whose `project` field diverges from its stem can't enter a scoped report under
-  // an out-of-scope stem (its divergence is caught whole-vault by stem-project).
-  const sectionFailures = (await deps.readSectionFailures(scope)).filter((f) =>
+  // Section-resolution failures are per-document and honor `-s`, but their read
+  // must also enumerate whole-vault before the canonical stem filter (MMR-240).
+  const sectionFailures = (await deps.readSectionFailures(undefined)).filter((f) =>
     inScope(f.stem, scope),
   );
   const ctx: DoctorContext = {
