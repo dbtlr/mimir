@@ -1,18 +1,20 @@
 name: Changelog guard
 
-# Fail any PR that changes build-affecting paths but adds no entry under
-# CHANGELOG.md's [Unreleased] section — the backstop for the finishing-work
-# skill's CHANGELOG gate (MMR-109). v0.12 drifted because per-PR entries were
-# deferred to the release cut; this makes the entry structural, not a discipline.
+# Fail any PR that changes build-affecting paths but carries no changelog
+# fragment under .changes/ — the backstop for the finishing-work skill's
+# CHANGELOG gate (MMR-109, reshaped by ADR 0022). Fragments replaced the shared
+# [Unreleased] append point in CHANGELOG.md, which made every parallel merge
+# train conflict (MMR-267); CHANGELOG.md itself is now written only at the
+# release cut.
 #
-# Escape hatch: a behavior-preserving PR (internal refactor, test/build-meta only)
-# applies the `skip-changelog` label instead of an entry.
+# Escape hatch: a behavior-preserving PR (internal refactor, test/build-meta
+# only) applies the `skip-changelog` label instead of a fragment.
 #
-# Runs on every PR and self-determines applicability (like version-guard) so it is
-# always a runnable, requireable check — a `paths:`-filtered required check would
-# hang "pending" on PRs that don't match. `labeled`/`unlabeled` are listed so that
-# applying `skip-changelog` re-runs the gate (a label change does not fire
-# `synchronize`).
+# Runs on every PR and self-determines applicability (like version-guard) so it
+# is always a runnable, requireable check — a `paths:`-filtered required check
+# would hang "pending" on PRs that don't match. `labeled`/`unlabeled` are listed
+# so that applying `skip-changelog` re-runs the gate (a label change does not
+# fire `synchronize`).
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
@@ -28,7 +30,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Require a CHANGELOG entry for build-affecting changes
+      - name: Require a changelog fragment for build-affecting changes
         env:
           # Visible PR escape hatch — kept here for the audit trail.
           HAS_SKIP_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}
@@ -42,34 +44,48 @@ jobs:
           # these can't affect the shipped binary, so it needs no changelog entry.
           changed=$(git diff --name-only "${base}...HEAD")
           if ! echo "$changed" | grep -qE '^(packages/|skills/mimir/|package\.json$|bun\.lock$|install\.sh$|\.github/workflows/(release|prerelease)\.yml$)'; then
-            echo "No build-affecting paths changed — changelog entry not required."
+            echo "No build-affecting paths changed — changelog fragment not required."
             exit 0
           fi
 
           if [ "$HAS_SKIP_LABEL" = "true" ]; then
-            echo "skip-changelog label present — entry waived (visible at merge)."
+            echo "skip-changelog label present — fragment waived (visible at merge)."
             exit 0
           fi
 
-          # Did this PR ADD content under [Unreleased]? Slice the section (from the
-          # '## [Unreleased]' header to the next '## ' header) on both sides and
-          # require head's slice to hold an entry absent from base's. An "entry" is
-          # a Keep-a-Changelog bullet ('- ' / '* '), not just any non-blank line —
-          # so rewording the explanatory prose under [Unreleased] can't satisfy the
-          # gate. (Residual: editing an existing bullet reads as an added bullet and
-          # passes — rare, and it still means the author touched the entries.)
-          section() {
-            git show "$1:CHANGELOG.md" 2>/dev/null \
-              | awk '/^## \[Unreleased\]/{f=1;next} /^## /{f=0} f' \
-              | grep -E '^[[:space:]]*[-*]'
-          }
-          added=$(comm -13 <(section "$base" | sort) <(section HEAD | sort) || true)
-
-          if [ -n "$added" ]; then
-            echo "CHANGELOG [Unreleased] gained an entry:"
-            echo "$added"
-            exit 0
+          # Any touch of a fragment satisfies the gate: added (the normal case),
+          # modified (amending an entry), or deleted (the release-cut PR compiles
+          # fragments away). Presence in the diff is the whole check — there is
+          # no content diffing (ADR 0022 retired the [Unreleased] bullet-diff and
+          # its false PASS/FAIL edges).
+          fragments=$(echo "$changed" | grep -E '^\.changes/.+\.md$' | grep -v '^\.changes/README\.md$' || true)
+          if [ -z "$fragments" ]; then
+            echo "::error::Build-affecting change with no changelog fragment. Add .changes/<slug>.md (see .changes/README.md), or apply the 'skip-changelog' label if this is behavior-preserving."
+            exit 1
           fi
 
-          echo "::error::Build-affecting change with no CHANGELOG entry. Add a line under [Unreleased] in CHANGELOG.md, or apply the 'skip-changelog' label if this is behavior-preserving."
-          exit 1
+          # Shape-check the fragments that still exist on head (deleted ones are
+          # the release cut's compile). Same closed grammar the compiler enforces
+          # — catch garbage at PR time, not cut time.
+          status=0
+          while IFS= read -r f; do
+            [ -f "$f" ] || continue
+            if grep -qE '^#{1,2} |^#{4,} ' "$f"; then
+              echo "::error file=$f::fragment may only contain H3 category headings (### Added / ### Fixed / ...)."
+              status=1
+            fi
+            if grep -E '^### ' "$f" | grep -qvE '^### (Added|Changed|Deprecated|Removed|Fixed|Security)$'; then
+              echo "::error file=$f::unknown category heading — expected ### Added / Changed / Deprecated / Removed / Fixed / Security."
+              status=1
+            fi
+            if ! grep -qE '^### (Added|Changed|Deprecated|Removed|Fixed|Security)$' "$f" || ! grep -qE '^[-*] ' "$f"; then
+              echo "::error file=$f::fragment needs at least one category heading and one '- ' bullet."
+              status=1
+            fi
+          done <<< "$fragments"
+
+          if [ "$status" -eq 0 ]; then
+            echo "Changelog fragment(s) present and well-formed:"
+            echo "$fragments"
+          fi
+          exit "$status"
