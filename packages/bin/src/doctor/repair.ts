@@ -95,8 +95,8 @@ function issueInScope(issue: DoctorFinding, scope: string | undefined): boolean 
 type StructuralHeading = { name: string; start: number };
 
 type MarkdownNode = {
+  alt?: string | null;
   children?: readonly MarkdownNode[];
-  depth?: number;
   position?: { start: { offset?: number } };
   type: string;
   value?: string;
@@ -108,15 +108,18 @@ function resolverHeadingName(node: MarkdownNode): string {
   if (node.type === 'text' || node.type === 'inlineCode') {
     return node.value ?? '';
   }
+  if (node.type === 'image' || node.type === 'imageReference') {
+    return node.alt ?? '';
+  }
   return (node.children ?? []).map(resolverHeadingName).join('');
 }
 
-/** Parse actual CommonMark H2 nodes so fenced examples and inline formatting
- * have the same structural meaning as the section resolver. */
+/** Parse every CommonMark heading node so nesting, depth, fences, and inline
+ * formatting have the same structural meaning as the section resolver. */
 function structuralHeadings(body: string): StructuralHeading[] {
   const headings: StructuralHeading[] = [];
   const visit = (node: MarkdownNode): void => {
-    if (node.type !== 'heading' || node.depth !== 2) {
+    if (node.type !== 'heading') {
       for (const child of node.children ?? []) {
         visit(child);
       }
@@ -124,7 +127,7 @@ function structuralHeadings(body: string): StructuralHeading[] {
     }
     const start = node.position?.start.offset;
     if (start !== undefined) {
-      headings.push({ name: resolverHeadingName(node), start });
+      headings.push({ name: resolverHeadingName(node).trim(), start });
     }
   };
   visit(fromMarkdown(body));
@@ -132,7 +135,8 @@ function structuralHeadings(body: string): StructuralHeading[] {
 }
 
 function lineStart(body: string, offset: number): number {
-  return body.lastIndexOf('\n', Math.max(0, offset - 1)) + 1;
+  const before = Math.max(0, offset - 1);
+  return Math.max(body.lastIndexOf('\n', before), body.lastIndexOf('\r', before)) + 1;
 }
 
 function appendCanonicalHeading(body: string, heading: string): string {

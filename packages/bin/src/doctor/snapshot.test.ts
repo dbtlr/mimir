@@ -120,7 +120,7 @@ test('snapshot context scopes document findings by canonical stem while retainin
     'MMR',
   );
 
-  expect(await ctx.readNodeDocs()).toEqual([{ body: 'mmr', stem: 'MMR-1' }]);
+  expect(await ctx.readNodeDocs()).toEqual([{ body: 'mmr', path: 'MMR/MMR-1.md', stem: 'MMR-1' }]);
   expect(ctx.sectionFailures).toEqual([{ section: 'History', stem: 'MMR-1' }]);
   expect(ctx.validateFindings).toEqual([{ code: 'required-frontmatter', path: 'MMR/MMR-1.md' }]);
   expect(ctx.dropped.some((drop) => drop.rule === 'missing-project' && drop.stem === 'BAD-3')).toBe(

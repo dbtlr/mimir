@@ -16,9 +16,9 @@ import { stemOf } from '../norn/decode';
 
 /** What a check reads: the raw vault documents to diagnose. */
 export type DoctorContext = {
-  /** Every work-state document's raw markdown, as `{ stem, body }` — filtered to
+  /** Every work-state document's raw markdown and exact path — filtered to
    * `-s` by canonical stem after a whole-vault enumeration (MMR-240). */
-  readNodeDocs: () => Promise<{ stem: string; body: string }[]>;
+  readNodeDocs: () => Promise<{ stem: string; body: string; path: string }[]>;
   /** The shared validator's `dropped[]` over the whole-vault graph — computed
    * once by the runner and fed to every referential check, so the four checks
    * that render `dropped[]` (dangling / missing-project / acyclicity / field
@@ -156,7 +156,7 @@ export const bodySectionCheck: Diagnostic = {
   name: 'body-sections',
   run: async (ctx) => {
     const findings: DoctorFinding[] = [];
-    for (const { stem, body } of await ctx.readNodeDocs()) {
+    for (const { stem, body, path } of await ctx.readNodeDocs()) {
       for (const f of lintBodySections(body)) {
         const { message, severity } = PROBLEM[f.problem];
         findings.push(
@@ -164,6 +164,7 @@ export const bodySectionCheck: Diagnostic = {
             check: 'body-sections',
             code: f.problem,
             evidence: { heading: f.heading, line: f.line, section: f.section },
+            locator: path,
             message: `${message} — ${f.heading}`,
             node: stem,
             severity,
@@ -189,7 +190,7 @@ export const crlfCheck: Diagnostic = {
   name: 'crlf',
   run: async (ctx) => {
     const findings: DoctorFinding[] = [];
-    for (const { stem, body } of await ctx.readNodeDocs()) {
+    for (const { stem, body, path } of await ctx.readNodeDocs()) {
       const count = (body.match(/\r\n/g) ?? []).length;
       if (count > 0) {
         findings.push(
@@ -197,6 +198,7 @@ export const crlfCheck: Diagnostic = {
             check: 'crlf',
             code: 'crlf-body',
             evidence: { count },
+            locator: path,
             message: `body uses CRLF line endings (${String(count)}) — tolerated on read (MMR-167) but non-canonical`,
             node: stem,
             severity: 'warn',
@@ -487,7 +489,7 @@ export const fieldValidityCheck: Diagnostic = {
  * notes, a stray `refs/AB-1.md`), so the anchoring is what keeps the check to real
  * work-state docs — a matching stem in the wrong directory is not one.
  */
-function workStateStem(path: string): string | null {
+export function workStateStem(path: string): string | null {
   const stem = stemOf(path);
   const parts = path.split('/');
   const parent = parts.at(-2);

@@ -8,11 +8,13 @@
 import { readSectionFailuresFromDocuments } from '../core/body-sections/norn';
 import type { VaultGraph } from '../core/store-norn';
 import { vaultGraphFromDocs } from '../core/store-norn';
+import type { Drop } from '../core/validate';
 import { validate } from '../core/validate';
 import type { NornClient, NornDocument } from '../norn/client';
 import type { ValidateFinding } from '../norn/decode';
 import { decodeValidateFindings, stemOf } from '../norn/decode';
 import type { DoctorContext } from './checks';
+import { workStateStem } from './checks';
 
 const WORK_STATE_TYPES = 'type:project,task,phase,initiative,seed';
 
@@ -37,6 +39,53 @@ export type DoctorSnapshot = {
 /** Keep the project document and every canonically-owned child in `scope`. */
 export function doctorStemInScope(stem: string, scope: string | undefined): boolean {
   return scope === undefined || stem === scope || stem.startsWith(`${scope}-`);
+}
+
+/** Every known physical owner of a logical stem. Typed enumeration is exact
+ * provenance even at a relocated path; validate-only paths count only when they
+ * match a canonical work-state layout. */
+export function doctorPhysicalPathsByStem(
+  snapshot: DoctorSnapshot,
+): ReadonlyMap<string, ReadonlySet<string>> {
+  const pathsByStem = new Map<string, Set<string>>();
+  const add = (stem: string, path: string): void => {
+    const paths = pathsByStem.get(stem) ?? new Set<string>();
+    paths.add(path);
+    pathsByStem.set(stem, paths);
+  };
+  for (const doc of snapshot.documents) {
+    add(doc.stem, doc.path);
+  }
+  for (const finding of snapshot.validateFindings) {
+    const stem = workStateStem(finding.path);
+    if (stem !== null) {
+      add(stem, finding.path);
+    }
+  }
+  return pathsByStem;
+}
+
+function diagnosticDrops(snapshot: DoctorSnapshot): Drop[] {
+  const dropped = [...validate(snapshot.graph).dropped];
+  const existing = new Set(
+    dropped.flatMap((drop) =>
+      drop.rule === 'duplicate-stem' ? [`${drop.stem}\0${drop.path}`] : [],
+    ),
+  );
+  for (const [stem, ownerPaths] of doctorPhysicalPathsByStem(snapshot)) {
+    if (ownerPaths.size <= 1) {
+      continue;
+    }
+    const paths = [...ownerPaths].toSorted();
+    for (const path of paths) {
+      const key = `${stem}\0${path}`;
+      if (!existing.has(key)) {
+        dropped.push({ kind: 'identity', path, paths, rule: 'duplicate-stem', stem });
+        existing.add(key);
+      }
+    }
+  }
+  return dropped;
 }
 
 function snapshotDocument(doc: NornDocument): DoctorSnapshotDocument {
@@ -84,9 +133,9 @@ export function doctorContextFromSnapshot(
 ): DoctorContext {
   const docs = snapshot.documents
     .filter((doc) => doctorStemInScope(doc.stem, scope))
-    .map(({ body, stem }) => ({ body, stem }));
+    .map(({ body, path, stem }) => ({ body, path, stem }));
   return {
-    dropped: validate(snapshot.graph).dropped,
+    dropped: diagnosticDrops(snapshot),
     projectRefs: snapshot.graph.declarations ?? [],
     readNodeDocs: () => Promise.resolve(docs),
     sectionFailures: snapshot.sectionFailures.filter((failure) =>

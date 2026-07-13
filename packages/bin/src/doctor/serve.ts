@@ -11,11 +11,11 @@
  * one class of corruption absent from the type-enumerated node read.
  */
 import { stemOf } from '../norn/decode';
-import { diagnoseDoctor, doctorPhysicalPathsByStem } from './diagnosis';
+import { diagnoseDoctor } from './diagnosis';
 import { buildDoctorFacet, pathOfStem } from './facet';
 import type { DoctorFacet } from './facet';
 import type { DoctorSnapshot } from './snapshot';
-import { doctorStemInScope } from './snapshot';
+import { doctorPhysicalPathsByStem, doctorStemInScope } from './snapshot';
 
 /** The vault read handles the facet needs — the `cmdDoctor` set plus `readRaw`
  * (the `.raw` fetch for location enrichment). All present on the Norn backend, all

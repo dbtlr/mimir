@@ -86,8 +86,8 @@ test('duplicate logical stems never receive arbitrary physical raw enrichment', 
     readSnapshot: () =>
       Promise.resolve({
         documents: [
-          { body: 'one', documentHash: 'a', path: 'MMR/MMR-9.md', stem: 'MMR-9' },
-          { body: 'two', documentHash: 'b', path: 'archive/MMR-9.md', stem: 'MMR-9' },
+          { body: 'one\r\n', documentHash: 'a', path: 'MMR/MMR-9.md', stem: 'MMR-9' },
+          { body: 'two\r\n', documentHash: 'b', path: 'archive/MMR-9.md', stem: 'MMR-9' },
         ],
         graph: {
           nodes: [],
@@ -103,9 +103,15 @@ test('duplicate logical stems never receive arbitrary physical raw enrichment', 
   };
   const facet = await computeDoctorFacet(deps, 'MMR');
   expect(rawPaths).toEqual([]);
-  expect(facet.groups[0]?.records).toHaveLength(2);
+  expect(facet.groups[0]?.records).toHaveLength(4);
   expect(facet.groups[0]?.records.every((record) => record.title === null)).toBe(true);
   expect(facet.groups[0]?.records.every((record) => record.snippet === null)).toBe(true);
+  expect(
+    facet.groups[0]?.records
+      .filter((record) => record.cause === 'CRLF line endings')
+      .map((record) => record.path)
+      .toSorted(),
+  ).toEqual(['MMR/MMR-9.md', 'archive/MMR-9.md']);
 });
 
 test('a malformed canonical duplicate prevents enrichment of a visible relocated stem', async () => {
@@ -142,4 +148,39 @@ test('a malformed canonical duplicate prevents enrichment of a visible relocated
     (record) => record.cause === 'malformed frontmatter',
   );
   expect(malformed).toMatchObject({ path: 'MMR/MMR-9.md', snippet: null, title: null });
+  expect(
+    facet.groups[0]?.records.filter((record) => record.cause === 'identity-uniqueness'),
+  ).toHaveLength(2);
+});
+
+test('an unrelated validate path does not suppress exact relocated enrichment', async () => {
+  const rawPaths: string[][] = [];
+  const deps: DoctorFacetDeps = {
+    readRaw: (paths) => {
+      rawPaths.push(paths);
+      return Promise.resolve([{ path: 'relocated/MMR-9.md', raw: 'visible\r\n' }]);
+    },
+    readSnapshot: () =>
+      Promise.resolve({
+        documents: [
+          {
+            body: 'visible\r\n',
+            documentHash: 'hash',
+            path: 'relocated/MMR-9.md',
+            stem: 'MMR-9',
+          },
+        ],
+        graph: { nodes: [], projectKeys: ['MMR'] },
+        sectionFailures: [],
+        validateFindings: [{ code: 'frontmatter-parse-failed', path: 'refs/MMR-9.md' }],
+      }),
+  };
+  const facet = await computeDoctorFacet(deps, 'MMR');
+  expect(rawPaths).toEqual([['relocated/MMR-9.md']]);
+  expect(facet.groups[0]?.records).toContainEqual(
+    expect.objectContaining({ cause: 'CRLF line endings', path: 'relocated/MMR-9.md' }),
+  );
+  expect(facet.groups[0]?.records.some((record) => record.cause === 'malformed frontmatter')).toBe(
+    false,
+  );
 });

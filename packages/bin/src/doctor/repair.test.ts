@@ -286,6 +286,26 @@ test('resolver-visible nested and HTML-formatted headings remain byte-identical 
   }
 });
 
+test('Norn-equivalent target names at any heading depth or in image alt text are skips', () => {
+  for (const body of [
+    '# History\n',
+    '### History\n',
+    '## ![History](image.png)\n',
+    '## ![ History ](image.png)\n',
+    '## ![History][history-image]\n\n[history-image]: image.png\n',
+  ]) {
+    const planned = planDoctorRepairs({
+      issues: [issue('section-history-unreadable', 'MMR-1')],
+      scope: 'MMR',
+      snapshot: snapshot([{ body, documentHash: 'hash', path: 'MMR/MMR-1.md', stem: 'MMR-1' }]),
+      timestamp: '2026-07-13T12:00:00.000Z',
+      vaultRoot: '/vault',
+    });
+    expect(planned.migration.operations).toEqual([]);
+    expect(planned.skipped[0]?.reason).toBe('ambiguous-section-heading');
+  }
+});
+
 test('insertion before an indented structural heading preserves its source line bytes', () => {
   const planned = planDoctorRepairs({
     issues: [issue('section-history-unreadable', 'MMR-1')],
@@ -303,6 +323,29 @@ test('insertion before an indented structural heading preserves its source line 
   });
   expect(planned.migration.operations[0]).toMatchObject({
     fields: { new_value: '## Task Description\n## History\n   ## Annotations\n' },
+    kind: 'replace_body',
+  });
+});
+
+test('bare carriage returns still place History after prose and before Annotations', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('section-history-unreadable', 'MMR-1')],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: '## Task Description\rtext\r## Annotations\r',
+        documentHash: 'hash',
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations[0]).toMatchObject({
+    fields: {
+      new_value: '## Task Description\rtext\r## History\n## Annotations\n',
+    },
     kind: 'replace_body',
   });
 });
