@@ -39,7 +39,7 @@ manage commands:
   data:
     update <id> [--title …] [--priority …] [--size …] …   patch fields (KEY-aN: --title only)
     annotate <id> <text>                append a freeform note
-    tag <ids> <tag>… [--note <text>]    tag entities (ids comma-separated)
+    tag <ids> <tag>…                    tag entities (ids comma-separated)
     untag <ids> <tag>…                  remove tags (plain delete, unlogged)
 
   create/attach:
@@ -115,7 +115,6 @@ options:
       --file <path>       attach: path to artifact file
       --link <ids>        attach: additional links — KEY-seq, comma-separated
       --project <KEY>     attach: associate artifact with a project key
-      --note <text>       tag: note stored with each tag application
       --tag <t>           create: tag at creation (repeatable)
       -k, --kind <kind>   seed: idea|bug|feature (required)
       --requester <KEY>   seeds: filter to a requesting board
@@ -399,9 +398,8 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['<tag>…', 'one or more tag values'],
     ],
     examples: ['mimir tag MMR-3,MMR-a1 spec v2       # tag a task and an artifact'],
-    flags: [['--note <text>', 'note stored with each tag application']],
     summary: 'tag entities — ids comma-separated, one or more tags.',
-    usage: 'mimir tag <ids> <tag>… [--note <text>]',
+    usage: 'mimir tag <ids> <tag>…',
   },
   untag: {
     args: [

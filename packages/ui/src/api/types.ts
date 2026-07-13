@@ -33,7 +33,6 @@ export type WireDeps = {
 
 export type WireTag = {
   tag: string;
-  note: string | null;
   created_at: string;
 };
 

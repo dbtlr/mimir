@@ -65,9 +65,9 @@ export type ArtifactStore = {
   listForProject: (key: string) => Promise<ArtifactRecord[]>;
   /** The cross-project feed, newest-first; metadata only. */
   list: (query: ArtifactListQuery) => Promise<{ total: number; items: ArtifactRecord[] }>;
-  /** Idempotent tag apply; a `note` on a vault-backed artifact is rejected —
-   * frontmatter tags are plain, with no field to hold a note. */
-  applyTag: (key: string, seq: number, tag: string, note: string | null) => Promise<void>;
+  /** Idempotent tag apply. Frontmatter tags are a plain string set (ADR 0005) —
+   * a tag application carries no note on any entity. */
+  applyTag: (key: string, seq: number, tag: string) => Promise<void>;
   /** Remove tags; returns how many were actually present. */
   removeTags: (key: string, seq: number, tags: string[]) => Promise<number>;
 };

@@ -38,16 +38,16 @@ afterEach(async () => {
   closeStore = undefined;
 });
 
-async function projectTagsOf(id: number): Promise<{ tag: string; note: string | null }[]> {
+async function projectTagsOf(id: number): Promise<{ tag: string }[]> {
   const ws = await store.loadWorkingSet();
   return [...(ws.projectTags.get(id) ?? [])]
-    .map((t) => ({ note: t.note, tag: t.tag }))
+    .map((t) => ({ tag: t.tag }))
     .toSorted((a, b) => a.tag.localeCompare(b.tag));
 }
-async function nodeTagsOf(id: number): Promise<{ tag: string; note: string | null }[]> {
+async function nodeTagsOf(id: number): Promise<{ tag: string }[]> {
   const ws = await store.loadWorkingSet();
   return [...(ws.nodeTags.get(id) ?? [])]
-    .map((t) => ({ note: t.note, tag: t.tag }))
+    .map((t) => ({ tag: t.tag }))
     .toSorted((a, b) => a.tag.localeCompare(b.tag));
 }
 
@@ -57,8 +57,8 @@ test.skipIf(!NORN)('tag reaches all three entity types via the identity grammar'
   const targets = ['MMR', 'MMR-3', renderedId].map((t) => resolveEntityTokenInSet(set, t));
   await tagEntities(store, targets, ['spec']);
 
-  expect(await projectTagsOf(projectId)).toEqual([{ note: null, tag: 'spec' }]);
-  expect(await nodeTagsOf(taskId)).toEqual([{ note: null, tag: 'spec' }]);
+  expect(await projectTagsOf(projectId)).toEqual([{ tag: 'spec' }]);
+  expect(await nodeTagsOf(taskId)).toEqual([{ tag: 'spec' }]);
 
   // The artifact target carries (key, seq) — no numeric id to look up — so
   // read its tags back through the artifact seam by that same identity.
@@ -70,27 +70,15 @@ test.skipIf(!NORN)('tag reaches all three entity types via the identity grammar'
   expect(record?.tags).toEqual(['spec']);
 });
 
-// NOTE: a node/project tag is a plain frontmatter string set with no per-tag
-// note field (documented in store-norn.ts and vault-frontmatter.ts — the same
-// gap the artifact seam makes explicit by *rejecting* a note outright,
-// MMR-143); `tagEntities` accepts a `note` for a node/project target but it is
-// silently dropped on write, and every tag reads back `note: null`. The
-// idempotency this test guards — re-tagging never duplicates a row — still
-// holds and is still asserted; only the note-persistence expectation changed,
-// to match the backend's real, permanent contract rather than weakening
-// coverage.
-test.skipIf(!NORN)(
-  're-tagging is idempotent; a node/project tag carries no note over Norn',
-  async () => {
-    const target = resolveEntityTokenInSet(deriveSet(await store.loadWorkingSet()), 'MMR-3');
-    await tagEntities(store, [target], ['spec'], 'first');
-    await tagEntities(store, [target], ['spec']); // no note → row kept as-is
-    expect(await nodeTagsOf(taskId)).toEqual([{ note: null, tag: 'spec' }]);
-
-    await tagEntities(store, [target], ['spec'], 'second');
-    expect(await nodeTagsOf(taskId)).toEqual([{ note: null, tag: 'spec' }]);
-  },
-);
+// A node/project tag is a plain frontmatter string set (ADR 0005) — a tag
+// application carries no note on any entity (MMR-270). Re-tagging never
+// duplicates a row.
+test.skipIf(!NORN)('re-tagging is idempotent over Norn', async () => {
+  const target = resolveEntityTokenInSet(deriveSet(await store.loadWorkingSet()), 'MMR-3');
+  await tagEntities(store, [target], ['spec']);
+  await tagEntities(store, [target], ['spec']); // idempotent → row kept as-is
+  expect(await nodeTagsOf(taskId)).toEqual([{ tag: 'spec' }]);
+});
 
 test.skipIf(!NORN)('untag removes only the named tags and reports the count', async () => {
   const target = resolveEntityTokenInSet(deriveSet(await store.loadWorkingSet()), 'MMR-3');

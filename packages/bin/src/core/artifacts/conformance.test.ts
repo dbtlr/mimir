@@ -14,8 +14,7 @@ import type { ArtifactStore } from './store';
  * the Norn `ArtifactStore` must satisfy. Needs a real `norn` binary and is
  * skipped when it's off PATH (CI).
  *
- * Documented, intentional deltas: `q` matches title only (not content), and a
- * tag `note` is rejected.
+ * Documented, intentional delta: `q` matches title only (not content).
  */
 const NORN = Bun.which('norn') !== null;
 
@@ -216,8 +215,8 @@ for (const backend of backends) {
 
     test.skipIf(backend.skip)('applyTag adds; removeTags removes and counts', async () => {
       await h.artifacts.create({ content: '', key: 'MMR', links: [], tags: ['a'], title: 't' });
-      await h.artifacts.applyTag('MMR', 1, 'b', null);
-      await h.artifacts.applyTag('MMR', 1, 'a', null); // idempotent
+      await h.artifacts.applyTag('MMR', 1, 'b');
+      await h.artifacts.applyTag('MMR', 1, 'a'); // idempotent
       expect((await h.artifacts.load('MMR', 1))?.tags.toSorted()).toEqual(['a', 'b']);
       const removed = await h.artifacts.removeTags('MMR', 1, ['a', 'nope']);
       expect(removed).toBe(1);
@@ -225,21 +224,3 @@ for (const backend of backends) {
     });
   });
 }
-
-describe('Norn backend — documented deltas', () => {
-  let h: Harness;
-  beforeEach(async () => {
-    if (!NORN) {
-      return;
-    }
-    h = await nornHarness();
-  });
-  afterEach(async () => {
-    await h?.cleanup();
-  });
-
-  test.skipIf(!NORN)('a tag note is rejected (frontmatter tags are plain)', async () => {
-    await h.artifacts.create({ content: '', key: 'MMR', links: [], tags: [], title: 't' });
-    expect(h.artifacts.applyTag('MMR', 1, 'x', 'a note')).rejects.toThrow(/note/i);
-  });
-});

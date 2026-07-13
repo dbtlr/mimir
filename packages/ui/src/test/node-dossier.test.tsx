@@ -76,7 +76,7 @@ describe('nodeDossier', () => {
         priority: 'p1',
         size: 'large',
         status: 'in_progress',
-        tags: [{ created_at: '2026-06-10T00:00:00.000Z', note: null, tag: 'release:v0.5' }],
+        tags: [{ created_at: '2026-06-10T00:00:00.000Z', tag: 'release:v0.5' }],
         title: 'Web UI chunk 1',
       }),
       [{ content: 'Groomed: read-only console first.', created_at: '2026-06-10T01:00:00.000Z' }],
@@ -315,8 +315,8 @@ describe('nodeDossier', () => {
         id: 'MMR-90',
         status: 'ready',
         tags: [
-          { created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'ui' },
-          { created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'release:v0.5' },
+          { created_at: '2026-06-01T00:00:00.000Z', tag: 'ui' },
+          { created_at: '2026-06-01T00:00:00.000Z', tag: 'release:v0.5' },
         ],
         title: 'tagged task',
       }),
@@ -350,7 +350,7 @@ describe('nodeDossier', () => {
       task({
         id: 'MMR-92',
         status: 'ready',
-        tags: [{ created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'ui' }],
+        tags: [{ created_at: '2026-06-01T00:00:00.000Z', tag: 'ui' }],
         title: 'tag-remove task',
       }),
     );
@@ -372,7 +372,7 @@ describe('nodeDossier', () => {
       task({
         id: 'MMR-93',
         status: 'ready',
-        tags: [{ created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'ui' }],
+        tags: [{ created_at: '2026-06-01T00:00:00.000Z', tag: 'ui' }],
         title: 'tag-keep task',
       }),
     );
@@ -398,7 +398,7 @@ describe('nodeDossier', () => {
       task({
         id: 'MMR-94',
         status: 'ready',
-        tags: [{ created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'ui' }],
+        tags: [{ created_at: '2026-06-01T00:00:00.000Z', tag: 'ui' }],
         title: 'tag-append task',
       }),
     );
@@ -428,8 +428,8 @@ describe('nodeDossier', () => {
         id: 'MMR-95',
         status: 'ready',
         tags: [
-          { created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'keep' },
-          { created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'drop' },
+          { created_at: '2026-06-01T00:00:00.000Z', tag: 'keep' },
+          { created_at: '2026-06-01T00:00:00.000Z', tag: 'drop' },
         ],
         title: 'tag-mix task',
       }),

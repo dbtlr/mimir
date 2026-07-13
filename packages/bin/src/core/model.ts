@@ -98,7 +98,6 @@ export type Tag = {
   entity_type: TagEntityType;
   entity_id: number;
   tag: string;
-  note: string | null;
   created_at: string;
 };
 

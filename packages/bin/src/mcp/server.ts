@@ -392,13 +392,12 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'tag',
-    'Apply free-text tags to entities by rendered id (project KEY, node KEY-seq, artifact KEY-aN). Idempotent; optional note rides the application. Not transition-logged.',
+    'Apply free-text tags to entities by rendered id (project KEY, node KEY-seq, artifact KEY-aN). Idempotent; a tag application carries no note. Not transition-logged.',
     {
       ids: z.array(z.string()).min(1),
-      note: z.string().optional(),
       tags: z.array(z.string()).min(1),
     },
-    (args: { ids: string[]; tags: string[]; note?: string }) => toolTag(store, args),
+    (args: { ids: string[]; tags: string[] }) => toolTag(store, args),
   );
 
   register(

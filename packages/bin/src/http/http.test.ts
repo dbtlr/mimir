@@ -563,13 +563,19 @@ test.skipIf(!NORN)('annotations: POST appends (201), GET lists the sub-resource'
   expect((listed.items as Rec[])[0]?.content).toBe('a note');
 });
 
-test.skipIf(!NORN)('tags: PUT applies (idempotently, with a note), DELETE removes', async () => {
-  const tagged = await parse(await send('PUT', `/api/nodes/${task1}/tags/urgent`, { note: 'why' }));
-  const tags = tagged.tags as { tag: string; note: string | null }[];
+test.skipIf(!NORN)('tags: PUT applies (idempotently), DELETE removes', async () => {
+  const tagged = await parse(await send('PUT', `/api/nodes/${task1}/tags/urgent`));
+  const tags = tagged.tags as { tag: string }[];
   expect(tags.map((t) => t.tag)).toEqual(['urgent']);
-  // Vault tags are a plain string set (ADR 0005): no per-tag note storage, so
-  // the note always reads back null over the Norn backend.
-  expect(tags[0]?.note).toBeNull();
+
+  // Re-applying the same tag is idempotent — the row is kept as-is.
+  const reapplied = await parse(await send('PUT', `/api/nodes/${task1}/tags/urgent`));
+  expect((reapplied.tags as { tag: string }[]).map((t) => t.tag)).toEqual(['urgent']);
+
+  // A tag application carries no note on any entity (ADR 0005 Refinement,
+  // MMR-270): the route takes no body fields, so a `note` is rejected as unknown.
+  const withNote = await send('PUT', `/api/nodes/${task1}/tags/urgent`, { note: 'why' });
+  expect(withNote.status).toBe(400);
 
   const untagged = await parse(await send('DELETE', `/api/nodes/${task1}/tags/urgent`));
   expect(untagged.tags).toEqual([]);

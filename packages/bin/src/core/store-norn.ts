@@ -29,7 +29,7 @@ import { validate } from './validate';
  *   (the id→`KEY-seq` model migration is Phase 3). Identity that crosses the
  *   seam is always `KEY-seq`.
  * - **Tags are a plain set.** Vault `tags` frontmatter carries no per-tag note
- *   or timestamp (ADR 0005); {@link toTagRecords} synthesizes those fields.
+ *   or timestamp (ADR 0005); {@link toTagRecords} synthesizes the timestamp.
  */
 
 function str(value: unknown): string | null {
@@ -127,14 +127,13 @@ function cmpStr(a: string, b: string): number {
 }
 
 /**
- * Vault tags are a plain string set — no per-tag note or timestamp. Project
- * each onto a {@link NodeTag} with `note=null` and the document's own
- * `created` as a uniform `created_at`, sorted by tag so the order is
- * deterministic, tiebreaking on `(created_at, tag)` (MMR-148). Mirrors the
- * artifact store's tag-note rejection.
+ * Vault tags are a plain string set — no per-tag note or timestamp (ADR 0005).
+ * Project each onto a {@link NodeTag} with the document's own `created` as a
+ * uniform `created_at`, sorted by tag so the order is deterministic,
+ * tiebreaking on `(created_at, tag)` (MMR-148).
  */
 function toTagRecords(tags: readonly string[], created: string): NodeTag[] {
-  return tags.toSorted(cmpStr).map((tag) => ({ created_at: created, note: null, tag }));
+  return tags.toSorted(cmpStr).map((tag) => ({ created_at: created, tag }));
 }
 
 type ProjectDoc = { key: string; fm: Record<string, unknown> };

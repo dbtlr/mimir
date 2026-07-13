@@ -93,7 +93,7 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
     wire.artifact_count = node.artifactCount;
   }
   if (node.tags !== undefined) {
-    wire.tags = node.tags.map((t) => ({ created_at: t.createdAt, note: t.note, tag: t.tag }));
+    wire.tags = node.tags.map((t) => ({ created_at: t.createdAt, tag: t.tag }));
   }
   if (node.annotations !== undefined) {
     wire.annotations = node.annotations.map((a) => ({

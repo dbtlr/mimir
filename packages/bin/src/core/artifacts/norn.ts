@@ -22,8 +22,8 @@ import type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore }
  * - **Anchors may dangle during the split**: links are written as real
  *   wikilinks and queried as stored text (Norn collapses brackets in field
  *   matching) — ADR 0016 Refinement.
- * - **Tag notes are rejected**: frontmatter `tags` are plain strings; a
- *   `--note` on a vault-backed artifact has nowhere faithful to live.
+ * - **Tags are a plain set**: frontmatter `tags` are plain strings (ADR 0005);
+ *   a tag application carries no note on any entity.
  * - **`q` search is case-insensitive and title-only** (in-process
  *   `toLowerCase().includes` over the loaded records); the title-only scope is
  *   the documented delta from the flag's prior title+content behavior.
@@ -187,13 +187,7 @@ export function createNornArtifactStore(client: NornClient): ArtifactStore {
   };
 
   return {
-    async applyTag(key, seq, tag, note) {
-      if (note !== null) {
-        throw validation(
-          'tag notes are not supported on vault-backed artifacts',
-          'frontmatter tags are plain strings — apply the tag without --note',
-        );
-      }
+    async applyTag(key, seq, tag) {
       const record = await loadDoc(key, seq, false);
       if (record === undefined) {
         return;

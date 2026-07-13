@@ -63,7 +63,6 @@ export type AnnotationView = {
 /** `tags` — tags on this node. */
 export type TagView = {
   tag: string;
-  note: string | null;
   createdAt: string;
 };
 

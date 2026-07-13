@@ -64,8 +64,8 @@ mimir annotate KEY-9 "Realized the parser must be rewritten; filed KEY-12."
 - `update` patches scalar **fields**; it cannot touch status (verbs only).
 - `update KEY-aN --title "…"` retitles an artifact — title is an artifact's
   one mutable field (content is frozen; attach a new artifact to correct one).
-- Re-tagging with `--note` replaces the stored note (`tag` is an upsert);
-  re-tagging without `--note` never clears one.
+- Re-tagging is idempotent — an existing tag is kept as-is. A tag application
+  carries no note; put one-off rationale in `annotate` instead.
 - `annotate` appends a timestamped freeform note — the in-flight record of
   decisions, surprises, scope changes. Annotations are append-only and permanent:
   misdirected one? Append a correction note; nothing is edited or deleted.
@@ -92,6 +92,6 @@ mimir attach --project KEY --file log.md --tag session_log   # project-level, no
 ## Tagging
 
 ```sh
-mimir tag KEY-9,KEY-a3 spec v2 --note "why this attachment"
+mimir tag KEY-9,KEY-a3 spec v2
 mimir untag KEY-9 v2          # plain delete, unlogged — tags are cheap
 ```
