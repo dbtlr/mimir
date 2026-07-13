@@ -33,7 +33,7 @@ These hold for every document; the per-entity sections below don't repeat them.
 
 - **Closed vocabularies are validator-enforced, not vault-enforced.** Norn has no enum/boolean field type, so value legality can't be checked at the vault layer ([ADR 0016](decisions/0016-norn-vault-system-of-record.md) sketched write-time value enforcement in Norn; the implementation landed it validator-side per [ADR 0017](decisions/0017-runtime-data-tolerance.md)'s tolerance model). The shared graph validator ([ADR 0017](decisions/0017-runtime-data-tolerance.md), consumed by both the tolerant reader and `mimir doctor`) is the guard: it drops or nulls out-of-vocabulary values (see [Closed vocabularies](#closed-vocabularies)). `open_ended` booleans serialize as the strings `'true'`/`'false'`.
 
-- **Timestamps** are `TEXT`, ISO-8601, UTC, millisecond precision with an explicit `Z` — human-readable, and lexically = chronologically sortable. The **creation** timestamp's frontmatter key is `created` (not `created_at`); the mutation/completion/archive stamps keep their `_at` suffix: `updated_at`, `completed_at`, `archived_at`. `created` is set once; `updated_at` is re-stamped by the core on every write. UTC always — local time is a UI-edge rendering, never stored.
+- **Timestamps** are ISO-8601 UTC strings, with millisecond precision and an explicit `Z` — human-readable, and lexically = chronologically sortable. The **creation** timestamp's frontmatter key is `created` (not `created_at`); the mutation/completion/archive stamps keep their `_at` suffix: `updated_at`, `completed_at`, `archived_at`. `created` is set once; `updated_at` is re-stamped by the core on every write. UTC always — local time is a UI-edge rendering, never stored.
 
 ---
 
