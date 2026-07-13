@@ -1,3 +1,6 @@
+import { fromMarkdown } from 'mdast-util-from-markdown';
+import { toString } from 'mdast-util-to-string';
+
 import { renderHistoryBody, renderHistoryRecord, toCanonicalLf } from '../core/history-codec';
 import { wikilink } from '../core/ids';
 import type { Project } from '../core/model';
@@ -90,19 +93,26 @@ function issueInScope(issue: DoctorFinding, scope: string | undefined): boolean 
   return scope === undefined || issue.scopeKey === scope;
 }
 
-function resolverEquivalentHeadingCount(body: string, heading: string): number {
-  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-  return (
-    body.match(new RegExp(`^ {0,3}##[ \\t]+${escaped}(?:[ \\t]+#+)?[ \\t]*\\r?$`, 'gm')) ?? []
-  ).length;
+type StructuralHeading = { name: string; start: number };
+
+/** Parse actual CommonMark H2 nodes so fenced examples and inline formatting
+ * have the same structural meaning as the section resolver. */
+function structuralHeadings(body: string): StructuralHeading[] {
+  return fromMarkdown(body).children.flatMap((node) => {
+    if (node.type !== 'heading' || node.depth !== 2) {
+      return [];
+    }
+    const start = node.position?.start.offset;
+    return start === undefined ? [] : [{ name: toString(node), start }];
+  });
 }
 
 function appendCanonicalHeading(body: string, heading: string): string {
   const base = body.endsWith('\r') ? `${body.slice(0, -1)}\n` : body;
   if (heading === 'History') {
-    const annotations = /^ {0,3}##[ \t]+Annotations(?:[ \t]+#+)?[ \t]*\r?$/m.exec(base);
-    if (annotations?.index !== undefined) {
-      return `${base.slice(0, annotations.index)}## History\n${base.slice(annotations.index)}`;
+    const annotations = structuralHeadings(base).find(({ name }) => name === 'Annotations');
+    if (annotations !== undefined) {
+      return `${base.slice(0, annotations.start)}## History\n${base.slice(annotations.start)}`;
     }
   }
   const separator = base.length === 0 || base.endsWith('\n') ? '' : '\n';
@@ -149,7 +159,7 @@ type BodyRepair = {
 
 /** Pure one-snapshot planner. It never redetects diagnostic classes: it
  * classifies the supplied structured issues, using snapshot bytes only for CAS
- * values and the section recipe's required zero-exact-heading proof. */
+ * values and the section recipe's required zero-resolver-equivalent-heading proof. */
 export function planDoctorRepairs(args: {
   issues: readonly DoctorFinding[];
   scope: string | undefined;
@@ -242,7 +252,7 @@ export function planDoctorRepairs(args: {
       continue;
     }
     const section = entry.code === 'section-history-unreadable' ? 'History' : 'Annotations';
-    if (resolverEquivalentHeadingCount(bodyRepair.body, section) !== 0) {
+    if (structuralHeadings(bodyRepair.body).some(({ name }) => name === section)) {
       skipped.push({ issue: entry, reason: 'ambiguous-section-heading' });
       continue;
     }

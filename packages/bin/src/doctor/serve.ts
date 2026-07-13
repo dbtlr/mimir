@@ -40,12 +40,17 @@ export async function computeDoctorFacet(
 ): Promise<DoctorFacet> {
   const snapshot = await deps.readSnapshot();
   const findings = await diagnoseDoctor(snapshot, scope);
+  const documentCountByStem = new Map<string, number>();
+  for (const document of snapshot.documents) {
+    documentCountByStem.set(document.stem, (documentCountByStem.get(document.stem) ?? 0) + 1);
+  }
 
   // Fetch `.raw` for each affected document (deduped) — the location + snippet
   // enrichment source. Keyed by path (its stem resolves the finding).
   const paths = [
     ...new Set(
       findings
+        .filter((finding) => (documentCountByStem.get(finding.stem) ?? 0) <= 1)
         .map((finding) =>
           finding.locator.endsWith('.md') ? finding.locator : pathOfStem(finding.node),
         )

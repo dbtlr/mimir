@@ -224,7 +224,12 @@ test('supported repairs never choose a first document when an identity is duplic
 });
 
 test('Norn-equivalent heading variants remain byte-identical ambiguous skips', () => {
-  for (const body of ['text\n## History ##\n', 'text\n## History   \n']) {
+  for (const body of [
+    'text\n## History ##\n',
+    'text\n## History   \n',
+    'text\n## **History**\n',
+    'text\n## _History_\n',
+  ]) {
     const planned = planDoctorRepairs({
       issues: [issue('section-history-unreadable', 'MMR-1')],
       scope: 'MMR',
@@ -235,6 +240,21 @@ test('Norn-equivalent heading variants remain byte-identical ambiguous skips', (
     expect(planned.migration.operations).toEqual([]);
     expect(planned.skipped[0]?.reason).toBe('ambiguous-section-heading');
   }
+});
+
+test('a heading-shaped line inside fenced code is not a structural insertion anchor', () => {
+  const body = '## Task Description\n```md\n## Annotations\n```\n';
+  const planned = planDoctorRepairs({
+    issues: [issue('section-history-unreadable', 'MMR-1')],
+    scope: 'MMR',
+    snapshot: snapshot([{ body, documentHash: 'hash', path: 'MMR/MMR-1.md', stem: 'MMR-1' }]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations[0]).toMatchObject({
+    fields: { new_value: `${body}## History\n` },
+    kind: 'replace_body',
+  });
 });
 
 test('scoped repair accounts for whole-vault findings as out-of-scope skips', () => {

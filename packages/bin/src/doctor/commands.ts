@@ -40,6 +40,8 @@ type RepairFailure = {
 };
 
 type DoctorRepairReport = {
+  /** Operational diagnostics are not issue outcomes and never inflate summary. */
+  details: RepairFailure[];
   failed: RepairFailure[];
   fixed: RepairItem[];
   mode: 'apply' | 'dry-run';
@@ -101,6 +103,7 @@ function failureWire(failure: RepairFailure): Record<string, unknown> {
 
 function reportWire(report: DoctorRepairReport): Record<string, unknown> {
   return {
+    ...(report.details.length === 0 ? {} : { details: report.details.map(failureWire) }),
     failed: report.failed.map(failureWire),
     fixed: report.fixed.map(itemWire),
     mode: report.mode,
@@ -122,6 +125,7 @@ function renderRepair(io: Io, format: Format, report: DoctorRepairReport): void 
       ...report.fixed.map((item) => ({ ...itemWire(item), status: 'fixed' })),
       ...report.skipped.map((item) => ({ ...itemWire(item), status: 'skipped' })),
       ...report.failed.map((failure) => ({ ...failureWire(failure), status: 'failed' })),
+      ...report.details.map((detail) => ({ ...failureWire(detail), status: 'detail' })),
       { ...report.summary, mode: report.mode, outcome: report.outcome, status: 'summary' },
     ];
     io.write(records.map((record) => JSON.stringify(record)).join('\n'));
@@ -140,6 +144,9 @@ function renderRepair(io: Io, format: Format, report: DoctorRepairReport): void 
     io.error(
       `[failed] ${failure.issue?.code ?? failure.code}${failure.issue === undefined ? '' : ` ${failure.issue.stem}`}: ${failure.message}`,
     );
+  }
+  for (const detail of report.details) {
+    io.error(`[detail] ${detail.code}: ${detail.message}`);
   }
   io.write(
     `doctor repair ${report.mode === 'dry-run' ? 'preview' : report.outcome}: ${String(report.summary.planned)} planned, ${String(report.summary.fixed)} fixed, ${String(report.summary.skipped)} skipped, ${String(report.summary.failed)} failed`,
@@ -189,11 +196,12 @@ async function cmdDoctorRepair(
       message: 'repair plan not applied because planning failed',
     }));
     const report = finishReport({
+      details: [],
       failed: [...planningFailures, ...unapplied],
       fixed: [],
       mode: dryRun ? 'dry-run' : 'apply',
       outcome: 'failed',
-      planned: dryRun ? plan.planned : [],
+      planned: [],
       skipped: plan.skipped,
     });
     renderRepair(io, format, report);
@@ -202,6 +210,7 @@ async function cmdDoctorRepair(
 
   if (plan.migration.operations.length === 0) {
     const report = finishReport({
+      details: [],
       failed: [],
       fixed: [],
       mode: dryRun ? 'dry-run' : 'apply',
@@ -229,17 +238,23 @@ async function cmdDoctorRepair(
           ? applyFailure(outcome, rawApply)
           : { code: 'apply-failed', message: `norn apply threw: ${errorMessage(thrown)}` };
       const report = finishReport({
-        failed: [failure],
+        details: [failure],
+        failed: plan.planned.map((item) => ({
+          code: failure.code,
+          issue: item.issue,
+          message: 'repair plan validation failed',
+        })),
         fixed: [],
         mode: 'dry-run',
         outcome: 'failed',
-        planned: plan.planned,
+        planned: [],
         skipped: plan.skipped,
       });
       renderRepair(io, format, report);
       return 1;
     }
     const report = finishReport({
+      details: [],
       failed: [],
       fixed: [],
       mode: 'dry-run',
@@ -263,6 +278,7 @@ async function cmdDoctorRepair(
 
   let fixed: RepairItem[] = [];
   let verificationFailures: RepairFailure[] = [];
+  const verificationDetails: RepairFailure[] = [];
   try {
     const postIssues = await diagnoseDoctor(await deps.readSnapshot(), scope);
     const residual = new Set(postIssues.map(repairIssueKey));
@@ -275,16 +291,21 @@ async function cmdDoctorRepair(
         message: 'issue remains after apply',
       }));
   } catch (error) {
-    verificationFailures = [
-      {
-        code: 'verification-failed',
-        message: `post-apply diagnosis failed: ${errorMessage(error)}`,
-      },
-    ];
+    verificationFailures = plan.planned.map((item) => ({
+      code: 'verification-failed',
+      issue: item.issue,
+      message: 'post-apply result indeterminate',
+    }));
+    verificationDetails.push({
+      code: 'verification-failed',
+      message: `post-apply diagnosis failed: ${errorMessage(error)}`,
+    });
   }
-  const failed = [...applyFailures, ...verificationFailures];
-  const success = outcome === 'applied' && failed.length === 0;
+  const details = [...applyFailures, ...verificationDetails];
+  const failed = verificationFailures;
+  const success = outcome === 'applied' && details.length === 0 && failed.length === 0;
   const report = finishReport({
+    details,
     failed,
     fixed,
     mode: 'apply',

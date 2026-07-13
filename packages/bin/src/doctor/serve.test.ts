@@ -75,3 +75,35 @@ test('facet diagnosis uses the shared unique physical locator for relocated raw 
   });
   expect(facet.groups[0]?.records[0]?.snippet).not.toBeNull();
 });
+
+test('duplicate logical stems never receive arbitrary physical raw enrichment', async () => {
+  const rawPaths: string[][] = [];
+  const deps: DoctorFacetDeps = {
+    readRaw: (paths) => {
+      rawPaths.push(paths);
+      return Promise.resolve([{ path: 'MMR/MMR-9.md', raw: 'title: arbitrary\n' }]);
+    },
+    readSnapshot: () =>
+      Promise.resolve({
+        documents: [
+          { body: 'one', documentHash: 'a', path: 'MMR/MMR-9.md', stem: 'MMR-9' },
+          { body: 'two', documentHash: 'b', path: 'archive/MMR-9.md', stem: 'MMR-9' },
+        ],
+        graph: {
+          nodes: [],
+          projectKeys: ['MMR'],
+          sources: [
+            { kind: 'node', path: 'MMR/MMR-9.md', stem: 'MMR-9' },
+            { kind: 'node', path: 'archive/MMR-9.md', stem: 'MMR-9' },
+          ],
+        },
+        sectionFailures: [],
+        validateFindings: [],
+      }),
+  };
+  const facet = await computeDoctorFacet(deps, 'MMR');
+  expect(rawPaths).toEqual([]);
+  expect(facet.groups[0]?.records).toHaveLength(2);
+  expect(facet.groups[0]?.records.every((record) => record.title === null)).toBe(true);
+  expect(facet.groups[0]?.records.every((record) => record.snippet === null)).toBe(true);
+});

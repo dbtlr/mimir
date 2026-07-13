@@ -144,7 +144,7 @@ test('a CAS refusal is a nonzero operational failure in stable JSONL output', as
   expect(records).toContainEqual({
     code: 'apply-refused',
     message: 'norn apply outcome: refused',
-    status: 'failed',
+    status: 'detail',
   });
   expect(records).toContainEqual({
     code: 'verification-failed',
@@ -155,7 +155,7 @@ test('a CAS refusal is a nonzero operational failure in stable JSONL output', as
     stem: 'MMR-1',
   });
   expect(records.at(-1)).toEqual({
-    failed: 2,
+    failed: 1,
     fixed: 0,
     mode: 'apply',
     outcome: 'failed',
@@ -163,6 +163,70 @@ test('a CAS refusal is a nonzero operational failure in stable JSONL output', as
     skipped: 1,
     status: 'summary',
   });
+});
+
+test('mixed planning failure partitions every repair issue exclusively into failed', async () => {
+  const deps: DoctorDeps = {
+    readSnapshot: () =>
+      Promise.resolve({
+        ...twoRepairSnapshots('one\r\n', 'two\r\n'),
+        documents: [
+          { body: 'one\r\n', documentHash: null, path: 'MMR/MMR-1.md', stem: 'MMR-1' },
+          { body: 'two\r\n', documentHash: 'hash-2', path: 'MMR/MMR-2.md', stem: 'MMR-2' },
+        ],
+      }),
+    repair: {
+      applyPlan: () => Promise.reject(new Error('planning failures must not apply')),
+      vaultRoot: '/vault',
+    },
+  };
+  const io = fakeIo();
+  expect(await cmdDoctor(io, deps, 'json', 'MMR', { dryRun: true, fix: true })).toBe(1);
+  const report = JSON.parse(io.out.join('')) as {
+    failed: { issueCode?: string; stem?: string }[];
+    planned: unknown[];
+    summary: { failed: number; planned: number };
+  };
+  expect(report.planned).toEqual([]);
+  expect(report.failed.map(({ issueCode, stem }) => [issueCode, stem])).toEqual([
+    ['crlf-body', 'MMR-1'],
+    ['crlf-body', 'MMR-2'],
+  ]);
+  expect(report.summary).toMatchObject({ failed: 2, planned: 0 });
+});
+
+test('indeterminate post-apply diagnosis preserves every planned issue identity', async () => {
+  let reads = 0;
+  const deps: DoctorDeps = {
+    readSnapshot: () => {
+      reads += 1;
+      return reads === 1
+        ? Promise.resolve(twoRepairSnapshots('one\r\n', 'two\r\n'))
+        : Promise.reject(new Error('snapshot unavailable'));
+    },
+    repair: {
+      applyPlan: () => Promise.resolve({ report: { outcome: 'applied' } }),
+      vaultRoot: '/vault',
+    },
+  };
+  const io = fakeIo();
+  expect(await cmdDoctor(io, deps, 'json', 'MMR', { dryRun: false, fix: true })).toBe(1);
+  const report = JSON.parse(io.out.join('')) as {
+    details: Record<string, unknown>[];
+    failed: { issueCode?: string; stem?: string }[];
+    summary: { failed: number };
+  };
+  expect(report.failed.map(({ issueCode, stem }) => [issueCode, stem])).toEqual([
+    ['crlf-body', 'MMR-1'],
+    ['crlf-body', 'MMR-2'],
+  ]);
+  expect(report.details).toEqual([
+    {
+      code: 'verification-failed',
+      message: 'post-apply diagnosis failed: snapshot unavailable',
+    },
+  ]);
+  expect(report.summary.failed).toBe(2);
 });
 
 test('post-apply verification failure is nonzero and never rendered as fixed', async () => {
@@ -225,11 +289,13 @@ test('a thrown apply error becomes a stable failed report and rediagnoses safely
   expect(reads).toBe(2);
   const report = JSON.parse(io.out.join('')) as Record<string, unknown>;
   expect(report).toMatchObject({ mode: 'apply', outcome: 'failed', planned: [] });
-  expect(report.failed).toEqual([
+  expect(report.details).toEqual([
     {
       code: 'apply-failed',
       message: 'norn apply threw: transport died after dispatch',
     },
+  ]);
+  expect(report.failed).toEqual([
     {
       code: 'verification-failed',
       issueCode: 'crlf-body',
@@ -290,9 +356,11 @@ test('a failed partial apply rediagnoses and reports fixed and residual issues e
   const io = fakeIo();
   expect(await cmdDoctor(io, deps, 'json', 'MMR', { dryRun: false, fix: true })).toBe(1);
   const report = JSON.parse(io.out.join('')) as {
+    details: Record<string, unknown>[];
     failed: Record<string, unknown>[];
     fixed: Record<string, unknown>[];
     planned: unknown[];
+    summary: { failed: number; fixed: number };
   };
   expect(report.planned).toEqual([]);
   expect(report.fixed).toEqual([
@@ -305,8 +373,9 @@ test('a failed partial apply rediagnoses and reports fixed and residual issues e
     scopeKey: 'MMR',
     stem: 'MMR-2',
   });
-  expect(report.failed).toContainEqual({
+  expect(report.details).toContainEqual({
     code: 'apply-failed',
     message: expect.stringContaining('operations'),
   });
+  expect(report.summary).toMatchObject({ failed: 1, fixed: 1 });
 });

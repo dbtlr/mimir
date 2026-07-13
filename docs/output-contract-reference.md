@@ -165,6 +165,11 @@ and `failed`; after an apply, each planned issue moves exclusively to `fixed` or
 CAS/refusal, apply, and post-image verification failures exit `1`. `--dry-run`
 without `--fix` is usage and exits `2`.
 
+Issue outcomes alone populate the four partition arrays and their summary counts.
+An operational apply or verification diagnostic is emitted separately in
+`details`; it preserves transport/Norn error context without counting as another
+issue or duplicating an issue outcome.
+
 The JSON report is one object:
 
 ```json
@@ -193,7 +198,8 @@ The JSON report is one object:
 }
 ```
 
-JSONL emits one item per line with `status: planned|fixed|skipped|failed`, then a
+JSONL emits one issue per line with `status: planned|fixed|skipped|failed`, any
+operational diagnostics with `status: detail`, then a
 final `status: summary` line carrying `mode`, `outcome`, and the four counts.
 `planned` occurs only in dry-run output; applied output never repeats an issue as
 both planned and fixed. A failed or indeterminate write is rediagnosed when safe,

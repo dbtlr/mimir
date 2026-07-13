@@ -160,8 +160,12 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
     const after = fixture.readDocument(path);
     expect(after).toContain('concurrent edit');
     expect(after).toContain('\r\n');
-    const report = JSON.parse(io.out.join('')) as { failed: { code: string }[] };
-    expect(report.failed[0]?.code).toBe('apply-refused');
+    const report = JSON.parse(io.out.join('')) as {
+      details: { code: string }[];
+      failed: { code: string }[];
+    };
+    expect(report.details[0]?.code).toBe('apply-refused');
+    expect(report.failed[0]?.code).toBe('verification-failed');
   });
 
   test('missing-project recovery skips an occupied corrupt canonical path byte-for-byte', async () => {

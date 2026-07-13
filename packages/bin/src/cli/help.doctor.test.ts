@@ -8,6 +8,6 @@ test('doctor help distinguishes bare finding streams from composite repair repor
     'without --fix: json (pretty findings array) | jsonl (one finding per line)',
   );
   expect(help).toContain(
-    '--fix: json (composite report) | jsonl (one outcome per line plus summary)',
+    '--fix: json (composite report) | jsonl (one issue/detail per line plus summary)',
   );
 });
