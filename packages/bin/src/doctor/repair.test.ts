@@ -8,13 +8,14 @@ function issue(
   code: DoctorIssueCode,
   stem: string,
   evidence: Record<string, unknown> = {},
+  locator = 'test',
 ): DoctorFinding {
   const scopeKey = stem.split('-')[0] ?? stem;
   return {
     check: 'test',
     code,
     evidence,
-    locator: 'test',
+    locator,
     message: code,
     node: stem,
     scopeKey,
@@ -221,6 +222,73 @@ test('supported repairs never choose a first document when an identity is duplic
     ['crlf-body', 'ambiguous-identity'],
     ['duplicate-stem', 'ambiguous-identity'],
   ]);
+});
+
+test('body repair resolves a relocated project through its exact locator and logical owner', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('crlf-body', 'custom', { count: 1 }, 'relocated/custom.md')],
+    scope: undefined,
+    snapshot: {
+      documents: [
+        {
+          body: 'project\r\n',
+          documentHash: 'hash',
+          frontmatter: { key: 'MMR', type: 'project' },
+          path: 'relocated/custom.md',
+          stem: 'custom',
+        },
+      ],
+      graph: {
+        nodes: [],
+        projectKeys: ['MMR'],
+        sources: [{ kind: 'project', path: 'relocated/custom.md', stem: 'MMR' }],
+      },
+      sectionFailures: [],
+      validateFindings: [],
+    },
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.skipped).toEqual([]);
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: {
+        document_hash: 'hash',
+        new_value: 'project\n',
+        path: 'relocated/custom.md',
+      },
+      kind: 'replace_body',
+    },
+  ]);
+});
+
+test('missing-project recovery refuses an existing relocated logical project owner', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('missing-project', 'NEW-1', { key: 'NEW' })],
+    scope: undefined,
+    snapshot: {
+      documents: [
+        {
+          body: 'project',
+          documentHash: 'hash',
+          frontmatter: { key: 'NEW', type: 'project' },
+          path: 'relocated/custom.md',
+          stem: 'custom',
+        },
+      ],
+      graph: {
+        nodes: [],
+        projectKeys: ['NEW'],
+        sources: [{ kind: 'project', path: 'relocated/custom.md', stem: 'NEW' }],
+      },
+      sectionFailures: [],
+      validateFindings: [],
+    },
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([]);
+  expect(planned.skipped[0]?.reason).toBe('ambiguous-identity');
 });
 
 test('Norn-equivalent heading variants remain byte-identical ambiguous skips', () => {

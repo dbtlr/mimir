@@ -133,6 +133,38 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     expect(rejected.map((s) => s.id)).toEqual(['MMR-s3']);
   });
 
+  test('duplicate physical seed identities are absent from reads and refuse update', async () => {
+    await seedbed();
+    await fileSeed(store, {
+      kind: 'idea',
+      project: 'MMR',
+      requester: null,
+      title: 'canonical',
+    });
+    await client.newDoc({
+      body: '## Seed Description\n\nrelocated\n\n## History\n## Annotations\n',
+      confirm: true,
+      field_json: [
+        `type=${JSON.stringify('seed')}`,
+        `title=${JSON.stringify('relocated')}`,
+        `project=${JSON.stringify('[[MMR]]')}`,
+        `kind=${JSON.stringify('idea')}`,
+        `lifecycle=${JSON.stringify('new')}`,
+        `created=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
+        `updated_at=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
+      ],
+      parents: true,
+      path: 'relocated/MMR-s1.md',
+    });
+
+    expect(await listSeeds(store, { project: 'MMR' })).toEqual([]);
+    expect(await rejectMessage(() => getSeed(store, 'MMR-s1'))).toMatch(/no seed MMR-s1/);
+    expect(await rejectMessage(() => updateSeed(store, 'MMR-s1', { title: 'mutated' }))).toMatch(
+      /no seed MMR-s1/,
+    );
+    expect(await store.seeds.load('MMR', 1)).toBeUndefined();
+  });
+
   test('listSeeds derives a bounded lede for live seeds in ONE section read (MMR-263)', async () => {
     await seedbed();
     const body = 'first body line\n\nmore prose that forms the lede preview';

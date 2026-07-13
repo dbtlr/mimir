@@ -235,6 +235,21 @@ test('ownership rejects nested schema lookalikes and keys projects by logical ke
   expect([...(owners.get('MMR-9') ?? [])]).toEqual(['relocated/MMR-9.md']);
 });
 
+test('typed graph provenance wins over validate path inference for the same document', () => {
+  const owners = doctorPhysicalPathsByStem({
+    documents: [],
+    graph: {
+      nodes: [],
+      projectKeys: ['MMR'],
+      sources: [{ kind: 'seed', path: 'MMR/MMR-1.md', stem: 'MMR-s1' }],
+    },
+    sectionFailures: [],
+    validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-1.md' }],
+  });
+  expect([...(owners.get('MMR-s1') ?? [])]).toEqual(['MMR/MMR-1.md']);
+  expect(owners.has('MMR-1')).toBe(false);
+});
+
 test('snapshot context scopes document findings by canonical stem while retaining global graph drops', async () => {
   const ctx = doctorContextFromSnapshot(
     {

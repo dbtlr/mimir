@@ -67,14 +67,19 @@ function doctorIdentitySources(snapshot: DoctorSnapshot): VaultGraphSource[] {
     const key = doc.frontmatter?.key;
     if (type === 'project' && typeof key === 'string' && key !== '') {
       add({ kind: 'project', path: doc.path, stem: key });
+      sourcedPaths.add(doc.path);
       continue;
     }
     const identity = parseIdentity(doc.stem);
     if (identity?.kind === 'node' || identity?.kind === 'project' || identity?.kind === 'seed') {
       add({ kind: identity.kind, path: doc.path, stem: doc.stem });
+      sourcedPaths.add(doc.path);
     }
   }
   for (const finding of snapshot.validateFindings) {
+    if (sourcedPaths.has(finding.path)) {
+      continue;
+    }
     const stem = workStateStem(finding.path);
     const identity = stem === null ? null : parseIdentity(stem);
     if (
@@ -85,6 +90,17 @@ function doctorIdentitySources(snapshot: DoctorSnapshot): VaultGraphSource[] {
     }
   }
   return sources;
+}
+
+/** The one logical identity claimed by an exact physical path, or null when the
+ * path is absent or its typed provenance is itself contradictory. */
+export function doctorLogicalStemAtPath(snapshot: DoctorSnapshot, path: string): string | null {
+  const stems = new Set(
+    doctorIdentitySources(snapshot)
+      .filter((source) => source.path === path)
+      .map((source) => source.stem),
+  );
+  return stems.size === 1 ? ([...stems][0] ?? null) : null;
 }
 
 export function doctorPhysicalPathsByStem(

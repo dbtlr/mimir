@@ -8,7 +8,7 @@ import type { MigrationOp, MigrationPlan } from '../norn/plan';
 import { createDocument, migrationPlan, replaceBody, setFrontmatter } from '../norn/plan';
 import type { DoctorFinding, DoctorIssueCode } from './checks';
 import type { DoctorSnapshot, DoctorSnapshotDocument } from './snapshot';
-import { doctorPhysicalPathsByStem } from './snapshot';
+import { doctorLogicalStemAtPath, doctorPhysicalPathsByStem } from './snapshot';
 
 export type RepairRecipe =
   | 'add-canonical-heading'
@@ -246,6 +246,10 @@ export function planDoctorRepairs(args: {
         skipped.push({ issue: entry, reason: 'canonical-path-occupied' });
         continue;
       }
+      if ((physicalPathsByStem.get(key)?.size ?? 0) > 0) {
+        skipped.push({ issue: entry, reason: 'ambiguous-identity' });
+        continue;
+      }
       if (!recovered.has(key)) {
         operations.push(recoveryOperation(key, args.timestamp));
         recovered.add(key);
@@ -254,12 +258,8 @@ export function planDoctorRepairs(args: {
       continue;
     }
 
-    if (physicalPathsByStem.get(entry.stem)?.size !== 1) {
-      skipped.push({ issue: entry, reason: 'ambiguous-identity' });
-      continue;
-    }
-
-    const matchingDocs = docsByStem.get(entry.stem) ?? [];
+    const exactDocs = args.snapshot.documents.filter((doc) => doc.path === entry.locator);
+    const matchingDocs = exactDocs.length > 0 ? exactDocs : (docsByStem.get(entry.stem) ?? []);
     if (matchingDocs.length === 0) {
       failures.push({ issue: entry, reason: 'missing-snapshot-document' });
       continue;
@@ -271,6 +271,11 @@ export function planDoctorRepairs(args: {
     const doc = matchingDocs[0];
     if (doc === undefined) {
       failures.push({ issue: entry, reason: 'missing-snapshot-document' });
+      continue;
+    }
+    const logicalStem = doctorLogicalStemAtPath(args.snapshot, doc.path) ?? entry.stem;
+    if (physicalPathsByStem.get(logicalStem)?.size !== 1) {
+      skipped.push({ issue: entry, reason: 'ambiguous-identity' });
       continue;
     }
 
