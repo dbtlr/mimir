@@ -18,6 +18,15 @@ Object.defineProperty(globalThis, 'localStorage', {
   get: () => jsdomStorage,
 });
 
+// jsdom exposes scrollTo but reports every call as "not implemented". Tests do
+// not observe viewport position, so use the browser-shaped no-op and keep the
+// suite free of false error output from router scroll restoration.
+// oxlint-disable-next-line vitest/require-hook
+Object.defineProperty(globalThis, 'scrollTo', {
+  configurable: true,
+  value: () => {},
+});
+
 // jsdom has no matchMedia; the theme resolver (lib/theme.ts) reads it on mount.
 // Default to "no match" (→ dark). theme.test.ts stubs it per-case for OS-pref tests.
 if (typeof globalThis !== 'undefined' && typeof globalThis.matchMedia !== 'function') {
