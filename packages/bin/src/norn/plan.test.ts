@@ -6,6 +6,7 @@ import {
   createDocument,
   MIGRATION_PLAN_SCHEMA_VERSION,
   migrationPlan,
+  replaceBody,
   removeFrontmatter,
   setFrontmatter,
 } from './plan';
@@ -66,6 +67,17 @@ test('createDocument nests the payload under new_value.{frontmatter, body}', () 
       path: 'MMR/MMR-1.md',
     },
     kind: 'create_document',
+  });
+});
+
+test('replaceBody carries a whole-document hash CAS precondition', () => {
+  expect(replaceBody('MMR/MMR-1.md', 'blake3', 'canonical\n')).toEqual({
+    fields: {
+      document_hash: 'blake3',
+      new_value: 'canonical\n',
+      path: 'MMR/MMR-1.md',
+    },
+    kind: 'replace_body',
   });
 });
 

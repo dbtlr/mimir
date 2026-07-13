@@ -47,6 +47,8 @@ export type DoctorContext = {
 
 /** One problem a check found, anchored for a human to locate and fix. */
 export type DoctorFinding = {
+  /** Stable machine code. The total repair registry is keyed by this union. */
+  code: DoctorIssueCode;
   /** The reporting check's {@link Diagnostic.name}. */
   check: string;
   /** An informational triage label, never a gate (ADR 0017): `error` = a record
@@ -60,7 +62,49 @@ export type DoctorFinding = {
   where: string;
   /** A one-line human description of the problem. */
   message: string;
+  /** Canonical ownership derived from the stem, never from frontmatter. */
+  scopeKey: string;
+  /** Canonical entity identity (kept alongside `node` for JSON compatibility). */
+  stem: string;
+  /** Stable structured facts used by repair policy and machine consumers. */
+  evidence: Readonly<Record<string, unknown>>;
+  /** Physical or logical location of the issue. */
+  locator: string;
 };
+
+/** Every issue code the diagnostic registry can emit. Including Drop['rule']
+ * makes a validator rule addition expand this union automatically; the repair
+ * policy's Record then fails compilation until the rule is classified. */
+export type DoctorIssueCode =
+  | Drop['rule']
+  | BodyRecordProblem
+  | 'crlf-body'
+  | 'frontmatter-disallowed-value'
+  | 'frontmatter-parse-failed'
+  | 'frontmatter-required-field-missing'
+  | 'section-annotations-unreadable'
+  | 'section-history-unreadable'
+  | 'stem-project-divergence'
+  | 'value-not-allowed';
+
+type FindingInput = Omit<DoctorFinding, 'code' | 'evidence' | 'locator' | 'scopeKey' | 'stem'> & {
+  code: DoctorIssueCode;
+  evidence?: Readonly<Record<string, unknown>>;
+  locator?: string;
+};
+
+/** Build the additive structured issue envelope while preserving the original
+ * human/JSON finding fields. */
+function issue(input: FindingInput): DoctorFinding {
+  const identity = parseIdentity(input.node);
+  return {
+    ...input,
+    evidence: input.evidence ?? {},
+    locator: input.locator ?? input.where,
+    scopeKey: identity?.key ?? input.node,
+    stem: input.node,
+  };
+}
 
 /** A registered diagnostic: a named check over the vault. A check is sync when it
  * reads only the pre-computed {@link DoctorContext.dropped}, async when it reads
@@ -115,13 +159,17 @@ export const bodySectionCheck: Diagnostic = {
     for (const { stem, body } of await ctx.readNodeDocs()) {
       for (const f of lintBodySections(body)) {
         const { message, severity } = PROBLEM[f.problem];
-        findings.push({
-          check: 'body-sections',
-          message: `${message} — ${f.heading}`,
-          node: stem,
-          severity,
-          where: `${f.section} · line ${String(f.line)}`,
-        });
+        findings.push(
+          issue({
+            check: 'body-sections',
+            code: f.problem,
+            evidence: { heading: f.heading, line: f.line, section: f.section },
+            message: `${message} — ${f.heading}`,
+            node: stem,
+            severity,
+            where: `${f.section} · line ${String(f.line)}`,
+          }),
+        );
       }
     }
     return findings;
@@ -144,13 +192,17 @@ export const crlfCheck: Diagnostic = {
     for (const { stem, body } of await ctx.readNodeDocs()) {
       const count = (body.match(/\r\n/g) ?? []).length;
       if (count > 0) {
-        findings.push({
-          check: 'crlf',
-          message: `body uses CRLF line endings (${String(count)}) — tolerated on read (MMR-167) but non-canonical`,
-          node: stem,
-          severity: 'warn',
-          where: 'body',
-        });
+        findings.push(
+          issue({
+            check: 'crlf',
+            code: 'crlf-body',
+            evidence: { count },
+            message: `body uses CRLF line endings (${String(count)}) — tolerated on read (MMR-167) but non-canonical`,
+            node: stem,
+            severity: 'warn',
+            where: 'body',
+          }),
+        );
       }
     }
     return findings;
@@ -217,13 +269,15 @@ export const identityUniquenessCheck: Diagnostic = {
         return [];
       }
       return [
-        {
+        issue({
           check: 'identity-uniqueness',
+          code: drop.rule,
+          evidence: { excludedPath: drop.path, paths: drop.paths },
           message: `duplicate stem ${drop.stem} at ${drop.paths.join(', ')} — ${drop.path} is excluded from reads`,
           node: drop.stem,
           severity: 'error' as const,
           where: drop.path,
-        },
+        }),
       ];
     }),
   title: 'Canonical identity uniqueness',
@@ -256,13 +310,17 @@ export const danglingRefCheck: Diagnostic = {
         continue;
       }
       const field = drop.rule === 'dangling-parent' ? 'parent' : 'depends_on';
-      findings.push({
-        check: 'dangling-refs',
-        message: `${field} ${drop.ref} resolves to no node in the vault — the reference is dropped on read`,
-        node: drop.stem,
-        severity: 'error',
-        where: `frontmatter · ${field}`,
-      });
+      findings.push(
+        issue({
+          check: 'dangling-refs',
+          code: drop.rule,
+          evidence: { field, ref: drop.ref },
+          message: `${field} ${drop.ref} resolves to no node in the vault — the reference is dropped on read`,
+          node: drop.stem,
+          severity: 'error',
+          where: `frontmatter · ${field}`,
+        }),
+      );
     }
     return findings;
   },
@@ -301,13 +359,17 @@ export const missingProjectCheck: Diagnostic = {
         seen.count += 1;
       }
     }
-    return Array.from(missing, ([key, { node, count }]) => ({
-      check: 'missing-project',
-      message: `project ${key} has no document in the vault (referenced by ${String(count)} node${count === 1 ? '' : 's'}) — its nodes are hidden on read`,
-      node,
-      severity: 'error',
-      where: 'project',
-    }));
+    return Array.from(missing, ([key, { node, count }]) =>
+      issue({
+        check: 'missing-project',
+        code: 'missing-project',
+        evidence: { count, key },
+        message: `project ${key} has no document in the vault (referenced by ${String(count)} node${count === 1 ? '' : 's'}) — its nodes are hidden on read`,
+        node,
+        severity: 'error',
+        where: 'project',
+      }),
+    );
   },
   title: 'Node → project references',
 };
@@ -334,13 +396,17 @@ export const acyclicityCheck: Diagnostic = {
         continue;
       }
       const field = drop.rule === 'cycle-parent' ? 'parent' : 'depends_on';
-      findings.push({
-        check: 'acyclicity',
-        message: `${field} ${drop.ref} closes a cycle — the edge is dropped on read`,
-        node: drop.stem,
-        severity: 'error',
-        where: `frontmatter · ${field}`,
-      });
+      findings.push(
+        issue({
+          check: 'acyclicity',
+          code: drop.rule,
+          evidence: { field, ref: drop.ref },
+          message: `${field} ${drop.ref} closes a cycle — the edge is dropped on read`,
+          node: drop.stem,
+          severity: 'error',
+          where: `frontmatter · ${field}`,
+        }),
+      );
     }
     return findings;
   },
@@ -393,13 +459,17 @@ export const fieldValidityCheck: Diagnostic = {
         // exhaustiveness test rather than silently continuing (MMR-209).
         continue;
       }
-      findings.push({
-        check: 'field-validity',
-        message,
-        node: drop.stem,
-        severity: 'error',
-        where: `frontmatter · ${field}`,
-      });
+      findings.push(
+        issue({
+          check: 'field-validity',
+          code: drop.rule,
+          evidence: { field, value: drop.value },
+          message,
+          node: drop.stem,
+          severity: 'error',
+          where: `frontmatter · ${field}`,
+        }),
+      );
     }
     return findings;
   },
@@ -518,6 +588,14 @@ export const frontmatterCheck: Diagnostic = {
       if (spec === undefined || (spec.field !== null && finding.field !== spec.field)) {
         continue;
       }
+      if (
+        finding.code !== 'frontmatter-disallowed-value' &&
+        finding.code !== 'frontmatter-parse-failed' &&
+        finding.code !== 'frontmatter-required-field-missing' &&
+        finding.code !== 'value-not-allowed'
+      ) {
+        continue;
+      }
       const stem = workStateStem(finding.path);
       if (stem === null) {
         continue; // a non-work-state path (a stray vault doc) — not this check's domain
@@ -534,13 +612,23 @@ export const frontmatterCheck: Diagnostic = {
         isParseFailed && finding.message !== undefined && finding.message !== ''
           ? `${spec.message} — ${finding.message}`
           : spec.message;
-      byStem.set(stem, {
-        check: 'frontmatter',
-        message,
-        node: stem,
-        severity: 'error',
-        where: spec.where,
-      });
+      byStem.set(
+        stem,
+        issue({
+          check: 'frontmatter',
+          code: finding.code,
+          evidence: {
+            field: finding.field,
+            path: finding.path,
+            validateCode: finding.code,
+          },
+          locator: finding.path,
+          message,
+          node: stem,
+          severity: 'error',
+          where: spec.where,
+        }),
+      );
     }
     return [...byStem.values()];
   },
@@ -573,13 +661,17 @@ export const stemProjectCheck: Diagnostic = {
       if (identity === null || identity.key === project) {
         continue;
       }
-      findings.push({
-        check: 'stem-project',
-        message: `project ${project} diverges from the stem's key ${identity.key} — the doc misfiles under a scoped 'find --eq project:KEY' (the stem is the true owner)`,
-        node: stem,
-        severity: 'warn',
-        where: 'frontmatter · project',
-      });
+      findings.push(
+        issue({
+          check: 'stem-project',
+          code: 'stem-project-divergence',
+          evidence: { actualProject: project, canonicalProject: identity.key },
+          message: `project ${project} diverges from the stem's key ${identity.key} — the doc misfiles under a scoped 'find --eq project:KEY' (the stem is the true owner)`,
+          node: stem,
+          severity: 'warn',
+          where: 'frontmatter · project',
+        }),
+      );
     }
     return findings;
   },
@@ -600,13 +692,18 @@ export const stemProjectCheck: Diagnostic = {
 export const sectionResolutionCheck: Diagnostic = {
   name: 'section-resolution',
   run: (ctx) =>
-    ctx.sectionFailures.map(({ section, stem }) => ({
-      check: 'section-resolution',
-      message: `${section} section is unreadable — a duplicate (ambiguous) or missing heading resolves to no section, so its records read empty`,
-      node: stem,
-      severity: 'error',
-      where: `body · ${section}`,
-    })),
+    ctx.sectionFailures.map(({ section, stem }) =>
+      issue({
+        check: 'section-resolution',
+        code:
+          section === 'History' ? 'section-history-unreadable' : 'section-annotations-unreadable',
+        evidence: { section },
+        message: `${section} section is unreadable — a duplicate (ambiguous) or missing heading resolves to no section, so its records read empty`,
+        node: stem,
+        severity: 'error',
+        where: `body · ${section}`,
+      }),
+    ),
   title: 'Body-section resolution',
 };
 
@@ -634,62 +731,86 @@ export const seedValidityCheck: Diagnostic = {
         continue;
       }
       if (drop.kind === 'node' && drop.rule === 'orphaned-seed') {
-        findings.push({
-          check: 'seed-validity',
-          message: `project ${drop.key} has no document in the vault — the seed is hidden on read`,
-          node: drop.stem,
-          severity: 'error',
-          where: 'project',
-        });
+        findings.push(
+          issue({
+            check: 'seed-validity',
+            code: drop.rule,
+            evidence: { key: drop.key },
+            message: `project ${drop.key} has no document in the vault — the seed is hidden on read`,
+            node: drop.stem,
+            severity: 'error',
+            where: 'project',
+          }),
+        );
       } else if (drop.kind === 'node' && drop.rule === 'invalid-seed-kind') {
-        findings.push({
-          check: 'seed-validity',
-          message:
-            drop.value === null
-              ? 'seed dropped — missing kind'
-              : `seed dropped — invalid kind "${drop.value}"`,
-          node: drop.stem,
-          severity: 'error',
-          where: 'frontmatter · kind',
-        });
+        findings.push(
+          issue({
+            check: 'seed-validity',
+            code: drop.rule,
+            evidence: { value: drop.value },
+            message:
+              drop.value === null
+                ? 'seed dropped — missing kind'
+                : `seed dropped — invalid kind "${drop.value}"`,
+            node: drop.stem,
+            severity: 'error',
+            where: 'frontmatter · kind',
+          }),
+        );
       } else if (drop.kind === 'node' && drop.rule === 'invalid-seed-lifecycle') {
-        findings.push({
-          check: 'seed-validity',
-          message:
-            drop.value === null
-              ? 'seed dropped — missing lifecycle'
-              : `seed dropped — invalid lifecycle "${drop.value}"`,
-          node: drop.stem,
-          severity: 'error',
-          where: 'frontmatter · lifecycle',
-        });
+        findings.push(
+          issue({
+            check: 'seed-validity',
+            code: drop.rule,
+            evidence: { value: drop.value },
+            message:
+              drop.value === null
+                ? 'seed dropped — missing lifecycle'
+                : `seed dropped — invalid lifecycle "${drop.value}"`,
+            node: drop.stem,
+            severity: 'error',
+            where: 'frontmatter · lifecycle',
+          }),
+        );
       } else if (drop.kind === 'field' && drop.rule === 'unknown-requester') {
-        findings.push({
-          check: 'seed-validity',
-          message: `requester ${drop.value} is not a known project — nulled on read (self-filed)`,
-          node: drop.stem,
-          severity: 'error',
-          where: 'frontmatter · requester',
-        });
+        findings.push(
+          issue({
+            check: 'seed-validity',
+            code: drop.rule,
+            evidence: { value: drop.value },
+            message: `requester ${drop.value} is not a known project — nulled on read (self-filed)`,
+            node: drop.stem,
+            severity: 'error',
+            where: 'frontmatter · requester',
+          }),
+        );
       } else if (drop.kind === 'field' && drop.rule === 'archived-requester') {
         // A KNOWN but archived requester: the reader nulls it (active-only
         // visibility), yet it reverts on unarchive — surfaced for awareness, not
         // corruption, so `warn` (matches the `dangling-upstream` warn precedent).
-        findings.push({
-          check: 'seed-validity',
-          message: `requester ${drop.value} is archived — nulled on read (reverts on unarchive)`,
-          node: drop.stem,
-          severity: 'warn',
-          where: 'frontmatter · requester',
-        });
+        findings.push(
+          issue({
+            check: 'seed-validity',
+            code: drop.rule,
+            evidence: { value: drop.value },
+            message: `requester ${drop.value} is archived — nulled on read (reverts on unarchive)`,
+            node: drop.stem,
+            severity: 'warn',
+            where: 'frontmatter · requester',
+          }),
+        );
       } else if (drop.kind === 'edge' && drop.rule === 'dangling-spawned') {
-        findings.push({
-          check: 'seed-validity',
-          message: `spawned ${drop.ref} resolves to no node in the vault — pruned on read`,
-          node: drop.stem,
-          severity: 'error',
-          where: 'frontmatter · spawned',
-        });
+        findings.push(
+          issue({
+            check: 'seed-validity',
+            code: drop.rule,
+            evidence: { ref: drop.ref },
+            message: `spawned ${drop.ref} resolves to no node in the vault — pruned on read`,
+            node: drop.stem,
+            severity: 'error',
+            where: 'frontmatter · spawned',
+          }),
+        );
       }
     }
     return findings;
@@ -719,15 +840,19 @@ export const upstreamRefCheck: Diagnostic = {
         continue;
       }
       const malformed = drop.rule === 'malformed-upstream';
-      findings.push({
-        check: 'upstream-refs',
-        message: malformed
-          ? `upstream "${drop.value}" is not a seed id (KEY-sN) — field nulled on read`
-          : `upstream ${drop.value} resolves to no seed in the vault — surfaced for repair; the reference is reference-only (not dropped on read)`,
-        node: drop.stem,
-        severity: malformed ? 'error' : 'warn',
-        where: 'frontmatter · upstream',
-      });
+      findings.push(
+        issue({
+          check: 'upstream-refs',
+          code: drop.rule,
+          evidence: { value: drop.value },
+          message: malformed
+            ? `upstream "${drop.value}" is not a seed id (KEY-sN) — field nulled on read`
+            : `upstream ${drop.value} resolves to no seed in the vault — surfaced for repair; the reference is reference-only (not dropped on read)`,
+          node: drop.stem,
+          severity: malformed ? 'error' : 'warn',
+          where: 'frontmatter · upstream',
+        }),
+      );
     }
     return findings;
   },

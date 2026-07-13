@@ -13,6 +13,7 @@ import { readDoctorSnapshot } from './doctor/snapshot';
 import { bunExec } from './exec';
 import { NornClient } from './norn/client';
 import { pathAndRaw } from './norn/decode';
+import type { MigrationPlan } from './norn/plan';
 import { createNornWriteStore } from './norn/writer';
 import { readConfig } from './service/config';
 import { backfillVaultData } from './vault/backfill';
@@ -25,6 +26,9 @@ export type BuiltStore = {
   close: () => Promise<void>;
   /** One whole-vault diagnostic enumeration shared by every doctor check. */
   readDoctorSnapshot: () => Promise<DoctorSnapshot>;
+  /** CLI-only doctor repair mutation seam. */
+  applyDoctorPlan: (plan: MigrationPlan, confirm: boolean) => Promise<unknown>;
+  vaultRoot: string;
   /**
    * Read each path's `.raw` disk text (frontmatter + body) — the location +
    * snippet enrichment source for the `/api/doctor` record-health facet (MMR-185).
@@ -62,6 +66,7 @@ export async function buildStore(): Promise<BuiltStore> {
   // absolute norn binary — launchd's minimal PATH can't resolve a bare `norn`.
   const client = new NornClient({ command: process.env.MIMIR_NORN, vaultPath: vault.path });
   return {
+    applyDoctorPlan: (plan, confirm) => client.applyPlan(plan, confirm),
     close: () => client.close(),
     readDoctorSnapshot: () => readDoctorSnapshot(client),
     readRaw: async (paths) => {
@@ -75,5 +80,6 @@ export async function buildStore(): Promise<BuiltStore> {
       });
     },
     store: createNornWriteStore(client, vault.path),
+    vaultRoot: vault.path,
   };
 }

@@ -156,6 +156,8 @@ const OPTIONS = {
   grouped: { type: 'boolean' },
   // triage preview (MMR-246)
   'dry-run': { type: 'boolean' },
+  // doctor deterministic repair (MMR-183)
+  fix: { type: 'boolean' },
   // self-update selectors (--tag reuses the multiple `tag` flag above,
   // last-wins like the other shared write-surface flags)
   next: { type: 'boolean' },
@@ -288,6 +290,7 @@ export async function runCli(
     grouped?: boolean;
     next?: boolean;
     'dry-run'?: boolean;
+    fix?: boolean;
   };
   let positionals: string[];
   try {
@@ -640,12 +643,16 @@ export async function runCli(
         if (defaults.doctor === undefined) {
           throw usage('doctor is unavailable in this context');
         }
+        if (values['dry-run'] === true && values.fix !== true) {
+          throw usage('doctor --dry-run requires --fix');
+        }
         const format = pickFormat(values.format, 'report', ctx);
         return await cmdDoctor(
           ctx,
           defaults.doctor,
           format,
           effectiveScope(values.scope, defaults.scope),
+          { dryRun: values['dry-run'] === true, fix: values.fix === true },
         );
       }
       case 'self-update': {

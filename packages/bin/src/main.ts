@@ -280,6 +280,18 @@ async function main(argv: string[]): Promise<number> {
           }
           return snapshot;
         },
+        repair: {
+          applyPlan: async (plan, confirm) => {
+            await getStore();
+            if (built === undefined) {
+              throw new Error('doctor repair unavailable after store initialization');
+            }
+            return built.applyDoctorPlan(plan, confirm);
+          },
+          get vaultRoot() {
+            return built?.vaultRoot ?? '';
+          },
+        },
       },
       scope: findBinding(process.cwd()),
       service: realServiceDeps(),

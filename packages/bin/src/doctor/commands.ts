@@ -14,30 +14,281 @@
  */
 import type { Format, Io } from '../cli/render';
 import { ok } from '../cli/render';
+import { now } from '../core/time';
+import type { MigrationPlan } from '../norn/plan';
 import type { DoctorFinding } from './checks';
 import { CHECKS } from './checks';
+import type { DoctorRepairPlan, RepairItem } from './repair';
+import { planDoctorRepairs, repairIssueKey } from './repair';
 import type { DoctorSnapshot } from './snapshot';
 import { doctorContextFromSnapshot } from './snapshot';
 
 export type DoctorDeps = {
   /** Read every diagnostic input from one whole-vault enumeration (MMR-241). */
   readSnapshot: () => Promise<DoctorSnapshot>;
+  /** CLI-only mutation capability. Read-only transports intentionally do not
+   * receive this dependency. */
+  repair?: {
+    applyPlan: (plan: MigrationPlan, confirm: boolean) => Promise<unknown>;
+    vaultRoot: string;
+  };
 };
+
+export async function diagnoseDoctor(
+  snapshot: DoctorSnapshot,
+  scope: string | undefined,
+): Promise<DoctorFinding[]> {
+  const ctx = doctorContextFromSnapshot(snapshot, scope);
+  const findings: DoctorFinding[] = [];
+  for (const check of CHECKS) {
+    findings.push(...(await check.run(ctx)));
+  }
+  const pathsByStem = new Map<string, string[]>();
+  for (const doc of snapshot.documents) {
+    const paths = pathsByStem.get(doc.stem) ?? [];
+    paths.push(doc.path);
+    pathsByStem.set(doc.stem, paths);
+  }
+  for (const finding of findings) {
+    const paths = pathsByStem.get(finding.stem);
+    if (paths?.length === 1) {
+      finding.locator = paths[0] ?? finding.locator;
+    }
+  }
+  return findings;
+}
+
+type RepairFailure = {
+  code: 'apply-failed' | 'apply-refused' | 'planning-failed' | 'verification-failed';
+  message: string;
+  issue?: DoctorFinding;
+};
+
+type DoctorRepairReport = {
+  failed: RepairFailure[];
+  fixed: RepairItem[];
+  mode: 'apply' | 'dry-run';
+  outcome: 'applied' | 'failed' | 'preview';
+  planned: RepairItem[];
+  skipped: RepairItem[];
+  summary: { failed: number; fixed: number; planned: number; skipped: number };
+};
+
+function applyOutcome(report: unknown): string | undefined {
+  if (!isRecord(report)) {
+    return undefined;
+  }
+  const envelope = report;
+  const root = isRecord(envelope.report) ? envelope.report : envelope;
+  return typeof root.outcome === 'string' ? root.outcome : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function itemWire(item: RepairItem): Record<string, unknown> {
+  return {
+    code: item.issue.code,
+    ...(item.reason === undefined ? {} : { reason: item.reason }),
+    ...(item.recipe === undefined ? {} : { recipe: item.recipe }),
+    scopeKey: item.issue.scopeKey,
+    stem: item.issue.stem,
+  };
+}
+
+function failureWire(failure: RepairFailure): Record<string, unknown> {
+  return {
+    code: failure.code,
+    message: failure.message,
+    ...(failure.issue === undefined
+      ? {}
+      : {
+          issueCode: failure.issue.code,
+          scopeKey: failure.issue.scopeKey,
+          stem: failure.issue.stem,
+        }),
+  };
+}
+
+function reportWire(report: DoctorRepairReport): Record<string, unknown> {
+  return {
+    failed: report.failed.map(failureWire),
+    fixed: report.fixed.map(itemWire),
+    mode: report.mode,
+    outcome: report.outcome,
+    planned: report.planned.map(itemWire),
+    skipped: report.skipped.map(itemWire),
+    summary: report.summary,
+  };
+}
+
+function renderRepair(io: Io, format: Format, report: DoctorRepairReport): void {
+  if (format === 'json') {
+    io.write(JSON.stringify(reportWire(report), null, 2));
+    return;
+  }
+  if (format === 'jsonl') {
+    const records = [
+      ...report.planned.map((item) => ({ ...itemWire(item), status: 'planned' })),
+      ...report.fixed.map((item) => ({ ...itemWire(item), status: 'fixed' })),
+      ...report.skipped.map((item) => ({ ...itemWire(item), status: 'skipped' })),
+      ...report.failed.map((failure) => ({ ...failureWire(failure), status: 'failed' })),
+      { ...report.summary, mode: report.mode, outcome: report.outcome, status: 'summary' },
+    ];
+    io.write(records.map((record) => JSON.stringify(record)).join('\n'));
+    return;
+  }
+  const primary = report.mode === 'dry-run' ? report.planned : report.fixed;
+  for (const item of primary) {
+    io.write(
+      `[${report.mode === 'dry-run' ? 'planned' : 'fixed'}] ${item.issue.code} ${item.issue.stem}: ${item.recipe ?? ''}`,
+    );
+  }
+  for (const item of report.skipped) {
+    io.write(`[skipped] ${item.issue.code} ${item.issue.stem}: ${item.reason ?? ''}`);
+  }
+  for (const failure of report.failed) {
+    io.error(
+      `[failed] ${failure.issue?.code ?? failure.code}${failure.issue === undefined ? '' : ` ${failure.issue.stem}`}: ${failure.message}`,
+    );
+  }
+  io.write(
+    `doctor repair ${report.mode === 'dry-run' ? 'preview' : report.outcome}: ${String(report.summary.planned)} planned, ${String(report.summary.fixed)} fixed, ${String(report.summary.skipped)} skipped, ${String(report.summary.failed)} failed`,
+  );
+}
+
+function finishReport(args: Omit<DoctorRepairReport, 'summary'>): DoctorRepairReport {
+  return {
+    ...args,
+    summary: {
+      failed: args.failed.length,
+      fixed: args.fixed.length,
+      planned: args.planned.length,
+      skipped: args.skipped.length,
+    },
+  };
+}
+
+async function cmdDoctorRepair(
+  io: Io,
+  deps: DoctorDeps,
+  format: Format,
+  scope: string | undefined,
+  dryRun: boolean,
+): Promise<number> {
+  if (deps.repair === undefined) {
+    throw new Error('doctor repair is unavailable in this context');
+  }
+  const snapshot = await deps.readSnapshot();
+  const issues = await diagnoseDoctor(snapshot, scope);
+  const plan: DoctorRepairPlan = planDoctorRepairs({
+    issues,
+    scope,
+    snapshot,
+    timestamp: now(),
+    vaultRoot: deps.repair.vaultRoot,
+  });
+  const planningFailures: RepairFailure[] = plan.failures.map((failure) => ({
+    code: 'planning-failed',
+    issue: failure.issue,
+    message: failure.reason,
+  }));
+  if (planningFailures.length > 0) {
+    const report = finishReport({
+      failed: planningFailures,
+      fixed: [],
+      mode: dryRun ? 'dry-run' : 'apply',
+      outcome: 'failed',
+      planned: plan.planned,
+      skipped: plan.skipped,
+    });
+    renderRepair(io, format, report);
+    return 1;
+  }
+
+  if (plan.migration.operations.length === 0) {
+    const report = finishReport({
+      failed: [],
+      fixed: [],
+      mode: dryRun ? 'dry-run' : 'apply',
+      outcome: dryRun ? 'preview' : 'applied',
+      planned: plan.planned,
+      skipped: plan.skipped,
+    });
+    renderRepair(io, format, report);
+    return 0;
+  }
+
+  const rawApply = await deps.repair.applyPlan(plan.migration, !dryRun);
+  const outcome = applyOutcome(rawApply);
+  if (outcome !== 'applied') {
+    const report = finishReport({
+      failed: [
+        {
+          code: outcome === 'refused' ? 'apply-refused' : 'apply-failed',
+          message: `norn apply outcome: ${outcome ?? 'unrecognized'}`,
+        },
+      ],
+      fixed: [],
+      mode: dryRun ? 'dry-run' : 'apply',
+      outcome: 'failed',
+      planned: plan.planned,
+      skipped: plan.skipped,
+    });
+    renderRepair(io, format, report);
+    return 1;
+  }
+
+  if (dryRun) {
+    const report = finishReport({
+      failed: [],
+      fixed: [],
+      mode: 'dry-run',
+      outcome: 'preview',
+      planned: plan.planned,
+      skipped: plan.skipped,
+    });
+    renderRepair(io, format, report);
+    return 0;
+  }
+
+  const postIssues = await diagnoseDoctor(await deps.readSnapshot(), scope);
+  const residual = new Set(postIssues.map(repairIssueKey));
+  const fixed = plan.planned.filter((item) => !residual.has(repairIssueKey(item.issue)));
+  const verificationFailures: RepairFailure[] = plan.planned
+    .filter((item) => residual.has(repairIssueKey(item.issue)))
+    .map((item) => ({
+      code: 'verification-failed',
+      issue: item.issue,
+      message: 'issue remains after apply',
+    }));
+  const report = finishReport({
+    failed: verificationFailures,
+    fixed,
+    mode: 'apply',
+    outcome: verificationFailures.length === 0 ? 'applied' : 'failed',
+    planned: plan.planned,
+    skipped: plan.skipped,
+  });
+  renderRepair(io, format, report);
+  return verificationFailures.length === 0 ? 0 : 1;
+}
 
 export async function cmdDoctor(
   io: Io,
   deps: DoctorDeps,
   format: Format,
   scope: string | undefined,
+  repair?: { dryRun: boolean; fix: boolean },
 ): Promise<number> {
+  if (repair?.fix === true) {
+    return cmdDoctorRepair(io, deps, format, scope, repair.dryRun);
+  }
   // One shared post-refresh document set serves bodies, graph/declarations, and
   // section diagnostics. The projection keeps MMR-240's authoritative stem scope
   // while the unfiltered snapshot remains available to MMR-183's repair planner.
-  const ctx = doctorContextFromSnapshot(await deps.readSnapshot(), scope);
-  const findings: DoctorFinding[] = [];
-  for (const check of CHECKS) {
-    findings.push(...(await check.run(ctx)));
-  }
+  const findings = await diagnoseDoctor(await deps.readSnapshot(), scope);
 
   if (format === 'jsonl') {
     // One finding per line — the NDJSON contract every mimir surface honors.

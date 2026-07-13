@@ -1,9 +1,11 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { Store } from '../core';
 import { deriveSet, findNodeInSet, resolveProjectKeyInSet } from '../core';
+import type { DoctorDeps } from '../doctor/commands';
+import { readDoctorSnapshot } from '../doctor/snapshot';
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
 import { createNornWriteStore } from '../norn/writer';
@@ -20,7 +22,25 @@ import { converge } from '../vault/converge';
  * suites already do) — a skipped test never runs its `beforeEach`, so the
  * temp-vault fixture stays cheap and CI (no norn) stays green.
  */
-export type TestStore = { store: Store; close: () => Promise<void> };
+export type TestStore = {
+  store: Store;
+  close: () => Promise<void>;
+  /** CLI-only repair dependencies over this isolated Norn client. */
+  doctor: DoctorDeps;
+  /** Deliberate hand-edit seam for corruption tests; path stays vault-relative. */
+  corruptDocument: (path: string, mutate: (raw: string) => string) => void;
+  /** Byte-exact observation seam for no-write/scope assertions. */
+  readDocument: (path: string) => string;
+  /** Deliberate missing-container corruption for recovery tests. */
+  removeDocument: (path: string) => void;
+};
+
+function safeVaultPath(root: string, path: string): string {
+  if (path.startsWith('/') || path.split('/').includes('..')) {
+    throw new Error(`test document path must stay vault-relative: ${path}`);
+  }
+  return join(root, path);
+}
 
 export async function createTestStore(): Promise<TestStore> {
   const root = mkdtempSync(join(tmpdir(), 'mimir-test-'));
@@ -35,6 +55,19 @@ export async function createTestStore(): Promise<TestStore> {
           rmSync(root, { force: true, recursive: true });
         }
       },
+      corruptDocument: (path, mutate) => {
+        const absolute = safeVaultPath(root, path);
+        writeFileSync(absolute, mutate(readFileSync(absolute, 'utf8')));
+      },
+      doctor: {
+        readSnapshot: () => readDoctorSnapshot(client),
+        repair: {
+          applyPlan: (plan, confirm) => client.applyPlan(plan, confirm),
+          vaultRoot: root,
+        },
+      },
+      readDocument: (path) => readFileSync(safeVaultPath(root, path), 'utf8'),
+      removeDocument: (path) => unlinkSync(safeVaultPath(root, path)),
       store: createNornWriteStore(client, root),
     };
   } catch (error) {
