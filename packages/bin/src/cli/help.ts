@@ -643,6 +643,8 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     examples: [
       'mimir doctor                         # check the bound scope; always exits 0 (findings are output)',
       'mimir doctor -s all --format json    # every project, machine-readable findings',
+      'mimir doctor --fix --dry-run         # preview supported repairs and explicit skips',
+      'mimir doctor --fix                   # atomically repair, then rediagnose the scope',
     ],
     flags: [
       [
@@ -653,10 +655,12 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
         '--format <fmt>',
         'json (pretty array) | jsonl (one finding per line); table/records render a human report',
       ],
+      ['--fix', 'apply deterministic structural repairs, then verify the post-image'],
+      ['--dry-run', 'preview and validate a repair plan without writing (requires --fix)'],
     ],
     summary:
-      'run the vault diagnostics registry and report problems for a human to fix. Non-gating (ADR 0017): a successful run always exits 0 — findings are output, not status — and each finding carries an informational severity label (error = a record the reader drops; warn = a heading-shaped line the reader still reads as content). Checks body-section record integrity plus referential validity (dangling refs, missing projects, cycles, node fields).',
-    usage: 'mimir doctor [-s <KEY>] [--format <fmt>]',
+      'run read-only vault diagnostics, or use --fix for conservative CLI-only repair. Bare doctor stays non-gating and exits 0 after a successful read. Repair supports only deterministic structural recipes; every other finding is reported with a stable skip reason. Repair apply/refusal/verification failures are nonzero.',
+    usage: 'mimir doctor [-s <KEY>] [--format <fmt>] [--fix [--dry-run]]',
   },
   // ── binding ──
   bind: {

@@ -12,6 +12,13 @@ date: 2026-07-05
 > longer a typed-row backend whose FKs/CHECKs would preclude the corruptions
 > doctor surfaces.
 
+> **Refinement (2026-07-13, MMR-183): deterministic repair.** Bare `mimir
+doctor` remains the read-only, non-gating diagnostic decided here. The CLI may
+> additionally invoke `mimir doctor --fix [--dry-run]`, a conservative repair
+> pass over the same structured findings and one whole-vault snapshot. This
+> refinement resolves the automated-repair deferral below without turning reader
+> containment into permission to delete durable data.
+
 Refines ADR 0016. Under a Norn-managed markdown vault, the durable record is
 hand-editable and integrity is not enforced by a database — so corruption
 (a dangling reference, a missing project, a relational cycle, a malformed body
@@ -46,6 +53,30 @@ subgraph, dropped[] with reasons }`. The reader consumes the valid subgraph;
 - **Doctor is non-gating.** Always exits `0` on a successful run regardless of
   findings; a nonzero exit is reserved for doctor itself failing (vault
   unreachable, backend error). Findings are the output, not the status.
+- **Repair is explicit and structurally bounded.** `--fix` supports only four
+  uniquely implied changes: normalize CRLF bodies; restore the query-only
+  `project` projection from the canonical stem; add an exact missing `## History`
+  or `## Annotations` heading; and recover an absent project document as an
+  archived container with a valid archive-history record. Every other issue code
+  has an explicit stable skip disposition. In particular, tolerant-reader drops
+  of edges, nodes, fields, or body records are not persisted as deletions or
+  invented defaults.
+- **Canonical identity is the write boundary.** Repair scope comes from the stem's
+  project key, never the possibly corrupt `project` frontmatter. A recovered
+  project is created only at `KEY/KEY.md`; an occupied canonical path is skipped,
+  never overwritten.
+- **One snapshot, one atomic plan, then proof.** Repair derives one Norn migration
+  plan from one diagnostic snapshot, carrying full-document hashes and
+  expected-old values as CAS preconditions. Dry-run asks Norn to validate the plan
+  without writing. Confirmed repair applies once, then rediagnoses the canonical
+  scope; only absent post-image issues are reported fixed.
+- **Repair failure is operational.** Unsupported residual findings are
+  informational and preserve exit `0`. Planning failure, Norn refusal or drift,
+  apply failure, and failed post-image verification exit nonzero. This does not
+  change bare doctor's successful exit-0 contract.
+- **Operator-only surface.** Repair is CLI-only. HTTP, MCP, and the console retain
+  the read-only diagnostic projection; no ambient service receives a repair
+  mutation capability.
 
 **Consequences.**
 
@@ -59,7 +90,8 @@ subgraph, dropped[] with reasons }`. The reader consumes the valid subgraph;
 - Makes the Phase-4 cutover safe: the live reader stays stable on a vault the
   database can no longer vet.
 
-**Out of scope (deliberately deferred, post-cutover).** Automated repair
-(`doctor --fix`) — including the non-trivial recover-vs-delete question for a
-missing container — gets its own decision. An aggregate issue-count trailer on
-`mimir next` and a UI issues surface are enhancements, not part of this contract.
+**Still out of scope.** Semantic repair of references, lifecycle/signal values,
+duplicate identities, malformed records/frontmatter, or ambiguous sections;
+generic closest-match repair; an aggregate issue-count trailer on `mimir next`;
+and a repair surface in HTTP, MCP, or the console. A future semantic recipe must
+refine this decision explicitly rather than broadening `--fix` by default.
