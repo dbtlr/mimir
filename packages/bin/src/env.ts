@@ -17,6 +17,8 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parsePort } from '@mimir/helpers';
+
 // Replaced by a string literal at compile time in release builds; left
 // undeclared (undefined) from source. `typeof` on the possibly-undeclared
 // identifier is the one safe read.
@@ -88,9 +90,5 @@ export function envPort(raw = process.env.MIMIR_PORT): number | null | undefined
   if (raw === undefined) {
     return undefined;
   }
-  const port = Number(raw);
-  if (Number.isInteger(port) && port >= 1 && port <= 65535) {
-    return port;
-  }
-  return null;
+  return parsePort(raw);
 }
