@@ -8,6 +8,7 @@ import type { MigrationOp, MigrationPlan } from '../norn/plan';
 import { createDocument, migrationPlan, replaceBody, setFrontmatter } from '../norn/plan';
 import type { DoctorFinding, DoctorIssueCode } from './checks';
 import type { DoctorSnapshot, DoctorSnapshotDocument } from './snapshot';
+import { doctorPhysicalPathsByStem } from './snapshot';
 
 export type RepairRecipe =
   | 'add-canonical-heading'
@@ -109,9 +110,13 @@ function resolverHeadingName(node: MarkdownNode): string {
     return node.value ?? '';
   }
   if (node.type === 'image' || node.type === 'imageReference') {
-    return node.alt ?? '';
+    return resolverHeadingName(fromMarkdown(node.alt ?? ''));
   }
   return (node.children ?? []).map(resolverHeadingName).join('');
+}
+
+function trimRustWhitespace(value: string): string {
+  return value.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, '');
 }
 
 /** Parse every CommonMark heading node so nesting, depth, fences, and inline
@@ -127,7 +132,7 @@ function structuralHeadings(body: string): StructuralHeading[] {
     }
     const start = node.position?.start.offset;
     if (start !== undefined) {
-      headings.push({ name: resolverHeadingName(node).trim(), start });
+      headings.push({ name: trimRustWhitespace(resolverHeadingName(node)), start });
     }
   };
   visit(fromMarkdown(body));
@@ -212,6 +217,7 @@ export function planDoctorRepairs(args: {
   }
   const bodies = new Map<string, BodyRepair>();
   const occupied = occupiedPaths(args.snapshot);
+  const physicalPathsByStem = doctorPhysicalPathsByStem(args.snapshot);
   const recovered = new Set<string>();
 
   const selected = args.issues.toSorted((a, b) =>
@@ -245,6 +251,11 @@ export function planDoctorRepairs(args: {
         recovered.add(key);
       }
       planned.push({ issue: entry, recipe: policy.recipe });
+      continue;
+    }
+
+    if (physicalPathsByStem.get(entry.stem)?.size !== 1) {
+      skipped.push({ issue: entry, reason: 'ambiguous-identity' });
       continue;
     }
 

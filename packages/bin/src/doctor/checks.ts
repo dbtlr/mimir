@@ -41,8 +41,8 @@ export type DoctorContext = {
   /** Documents whose `## History`/`## Annotations` heading norn cannot resolve —
    * a hand-edited duplicate (ambiguous) or a missing heading — so the section reads
    * as EMPTY (ADR 0017). The input for the section-resolution check (MMR-239); each
-   * is `{ stem, section }`. Filtered to `-s` by canonical stem in the runner. */
-  sectionFailures: readonly { stem: string; section: string }[];
+   * is `{ path, stem, section }`. Filtered to `-s` by canonical stem in the runner. */
+  sectionFailures: readonly { path: string; stem: string; section: string }[];
 };
 
 /** One problem a check found, anchored for a human to locate and fix. */
@@ -496,23 +496,33 @@ export function workStateStem(path: string): string | null {
   const grandparent = parts.at(-3);
   const identity = parseIdentity(stem);
   // A node `KEY/KEY-seq.md`: the parent dir is the node's own project key.
-  if (identity?.kind === 'node' && parent === identity.key) {
+  if (identity?.kind === 'node' && parts.length === 2 && parent === identity.key) {
     return stem;
   }
   // A project `KEY/KEY.md`: the parent dir is that same key.
-  if (identity?.kind === 'project' && parent === stem) {
+  if (identity?.kind === 'project' && parts.length === 2 && parent === stem) {
     return stem;
   }
   // An artifact `KEY/artifacts/KEY-aN.md`: parent dir `artifacts`, grandparent
   // the artifact's project key. Artifacts are work-state docs too — a corrupt one
   // is invisible on read, so it belongs here (the finding's node is the KEY-aN).
-  if (identity?.kind === 'artifact' && parent === 'artifacts' && grandparent === identity.key) {
+  if (
+    identity?.kind === 'artifact' &&
+    parts.length === 3 &&
+    parent === 'artifacts' &&
+    grandparent === identity.key
+  ) {
     return stem;
   }
   // A seed `KEY/seeds/KEY-sN.md` (MMR-244): parent dir `seeds`, grandparent the
   // seed's project key. Seeds are work-state docs too — a parse-failed/untyped one
   // is invisible on read, so it belongs here (the finding's node is the KEY-sN).
-  if (identity?.kind === 'seed' && parent === 'seeds' && grandparent === identity.key) {
+  if (
+    identity?.kind === 'seed' &&
+    parts.length === 3 &&
+    parent === 'seeds' &&
+    grandparent === identity.key
+  ) {
     return stem;
   }
   return null;
@@ -694,12 +704,13 @@ export const stemProjectCheck: Diagnostic = {
 export const sectionResolutionCheck: Diagnostic = {
   name: 'section-resolution',
   run: (ctx) =>
-    ctx.sectionFailures.map(({ section, stem }) =>
+    ctx.sectionFailures.map(({ path, section, stem }) =>
       issue({
         check: 'section-resolution',
         code:
           section === 'History' ? 'section-history-unreadable' : 'section-annotations-unreadable',
         evidence: { section },
+        locator: path,
         message: `${section} section is unreadable — a duplicate (ambiguous) or missing heading resolves to no section, so its records read empty`,
         node: stem,
         severity: 'error',

@@ -26,8 +26,8 @@ test('a scoped facet reads one whole-vault snapshot and filters by canonical ste
         ],
         graph: { nodes: [], projectKeys: [] },
         sectionFailures: [
-          { section: 'History', stem: 'MMR-9' },
-          { section: 'History', stem: 'OTH-5' },
+          { path: 'MMR/MMR-9.md', section: 'History', stem: 'MMR-9' },
+          { path: 'OTH/OTH-5.md', section: 'History', stem: 'OTH-5' },
         ],
         validateFindings: [],
       });
@@ -183,4 +183,27 @@ test('an unrelated validate path does not suppress exact relocated enrichment', 
   expect(facet.groups[0]?.records.some((record) => record.cause === 'malformed frontmatter')).toBe(
     false,
   );
+});
+
+test('a relocated section failure preserves its exact path under identity ambiguity', async () => {
+  const deps: DoctorFacetDeps = {
+    readRaw: () => Promise.resolve([]),
+    readSnapshot: () =>
+      Promise.resolve({
+        documents: [
+          {
+            body: '## Task Description\ntext\n',
+            documentHash: 'hash',
+            path: 'relocated/MMR-9.md',
+            stem: 'MMR-9',
+          },
+        ],
+        graph: { nodes: [], projectKeys: ['MMR'] },
+        sectionFailures: [{ path: 'relocated/MMR-9.md', section: 'History', stem: 'MMR-9' }],
+        validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-9.md' }],
+      }),
+  };
+  const facet = await computeDoctorFacet(deps, 'MMR');
+  const section = facet.groups[0]?.records.find((record) => record.cause === 'unreadable section');
+  expect(section?.path).toBe('relocated/MMR-9.md');
 });

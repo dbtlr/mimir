@@ -6,9 +6,9 @@
  * derives every document-based diagnostic input from that one post-refresh view.
  */
 import { readSectionFailuresFromDocuments } from '../core/body-sections/norn';
-import type { VaultGraph } from '../core/store-norn';
+import { parseIdentity } from '../core/ids';
+import type { VaultGraph, VaultGraphSource } from '../core/store-norn';
 import { vaultGraphFromDocs } from '../core/store-norn';
-import type { Drop } from '../core/validate';
 import { validate } from '../core/validate';
 import type { NornClient, NornDocument } from '../norn/client';
 import type { ValidateFinding } from '../norn/decode';
@@ -32,7 +32,7 @@ export type DoctorSnapshotDocument = {
 export type DoctorSnapshot = {
   documents: readonly DoctorSnapshotDocument[];
   graph: VaultGraph;
-  sectionFailures: readonly { stem: string; section: string }[];
+  sectionFailures: readonly { path: string; stem: string; section: string }[];
   validateFindings: readonly ValidateFinding[];
 };
 
@@ -44,48 +44,63 @@ export function doctorStemInScope(stem: string, scope: string | undefined): bool
 /** Every known physical owner of a logical stem. Typed enumeration is exact
  * provenance even at a relocated path; validate-only paths count only when they
  * match a canonical work-state layout. */
+function doctorIdentitySources(snapshot: DoctorSnapshot): VaultGraphSource[] {
+  const sources: VaultGraphSource[] = [];
+  const seen = new Set<string>();
+  const add = (source: VaultGraphSource): void => {
+    const key = `${source.stem}\0${source.path}`;
+    if (!seen.has(key)) {
+      sources.push(source);
+      seen.add(key);
+    }
+  };
+  const sourcedPaths = new Set<string>();
+  for (const source of snapshot.graph.sources ?? []) {
+    add(source);
+    sourcedPaths.add(source.path);
+  }
+  for (const doc of snapshot.documents) {
+    if (sourcedPaths.has(doc.path)) {
+      continue;
+    }
+    const type = doc.frontmatter?.type;
+    const key = doc.frontmatter?.key;
+    if (type === 'project' && typeof key === 'string' && key !== '') {
+      add({ kind: 'project', path: doc.path, stem: key });
+      continue;
+    }
+    const identity = parseIdentity(doc.stem);
+    if (identity?.kind === 'node' || identity?.kind === 'project' || identity?.kind === 'seed') {
+      add({ kind: identity.kind, path: doc.path, stem: doc.stem });
+    }
+  }
+  for (const finding of snapshot.validateFindings) {
+    const stem = workStateStem(finding.path);
+    const identity = stem === null ? null : parseIdentity(stem);
+    if (
+      stem !== null &&
+      (identity?.kind === 'node' || identity?.kind === 'project' || identity?.kind === 'seed')
+    ) {
+      add({ kind: identity.kind, path: finding.path, stem });
+    }
+  }
+  return sources;
+}
+
 export function doctorPhysicalPathsByStem(
   snapshot: DoctorSnapshot,
 ): ReadonlyMap<string, ReadonlySet<string>> {
   const pathsByStem = new Map<string, Set<string>>();
-  const add = (stem: string, path: string): void => {
+  for (const { path, stem } of doctorIdentitySources(snapshot)) {
     const paths = pathsByStem.get(stem) ?? new Set<string>();
     paths.add(path);
     pathsByStem.set(stem, paths);
-  };
-  for (const doc of snapshot.documents) {
-    add(doc.stem, doc.path);
-  }
-  for (const finding of snapshot.validateFindings) {
-    const stem = workStateStem(finding.path);
-    if (stem !== null) {
-      add(stem, finding.path);
-    }
   }
   return pathsByStem;
 }
 
-function diagnosticDrops(snapshot: DoctorSnapshot): Drop[] {
-  const dropped = [...validate(snapshot.graph).dropped];
-  const existing = new Set(
-    dropped.flatMap((drop) =>
-      drop.rule === 'duplicate-stem' ? [`${drop.stem}\0${drop.path}`] : [],
-    ),
-  );
-  for (const [stem, ownerPaths] of doctorPhysicalPathsByStem(snapshot)) {
-    if (ownerPaths.size <= 1) {
-      continue;
-    }
-    const paths = [...ownerPaths].toSorted();
-    for (const path of paths) {
-      const key = `${stem}\0${path}`;
-      if (!existing.has(key)) {
-        dropped.push({ kind: 'identity', path, paths, rule: 'duplicate-stem', stem });
-        existing.add(key);
-      }
-    }
-  }
-  return dropped;
+function diagnosticDrops(snapshot: DoctorSnapshot): DoctorContext['dropped'] {
+  return validate({ ...snapshot.graph, sources: doctorIdentitySources(snapshot) }).dropped;
 }
 
 function snapshotDocument(doc: NornDocument): DoctorSnapshotDocument {

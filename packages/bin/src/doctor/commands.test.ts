@@ -44,7 +44,11 @@ function vaultOf(
           nodes: graphNodes,
           projectKeys: projectKeys ?? [...new Set(graphNodes.map((n) => n.key))],
         },
-        sectionFailures: sectionFailures ?? [],
+        sectionFailures: (sectionFailures ?? []).map((failure) => ({
+          path: `${failure.stem.split('-')[0] ?? failure.stem}/${failure.stem}.md`,
+          section: failure.section,
+          stem: failure.stem,
+        })),
         // Production decodes Norn's defensive payload while building the snapshot.
         validateFindings: decodeValidateFindings(validateFindings ?? { findings: [] }),
       }),
@@ -236,7 +240,11 @@ test('corrupt project projections cannot hide per-document findings from canonic
           stem,
         })),
         graph: { nodes: [], projectKeys: [] },
-        sectionFailures: docs.map(({ stem }) => ({ section: 'History', stem })),
+        sectionFailures: docs.map(({ stem }) => ({
+          path: `${stem.split('-')[0] ?? stem}/${stem}.md`,
+          section: 'History',
+          stem,
+        })),
         validateFindings: [],
       }),
   };

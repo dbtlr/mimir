@@ -87,7 +87,7 @@ export async function readAllNodeDocs(
 export async function readSectionFailures(
   client: NornClient,
   scope?: string,
-): Promise<{ stem: string; section: string }[]> {
+): Promise<{ path: string; stem: string; section: string }[]> {
   const docs = await client.find({
     in: ['type:project,task,phase,initiative,seed'],
     ...(scope === undefined ? {} : { eq: [`project:${scope}`] }),
@@ -106,14 +106,14 @@ export async function readSectionFailures(
 export async function readSectionFailuresFromDocuments(
   client: NornClient,
   docs: readonly NornDocument[],
-): Promise<{ stem: string; section: string }[]> {
+): Promise<{ path: string; stem: string; section: string }[]> {
   const allPaths = docs.map((doc) => doc.path);
   // Nodes and seeds carry `## Annotations`; a project does not (MMR-244).
   const annotatablePaths = allPaths.filter((p) => {
     const kind = parseIdentity(stemOf(p))?.kind;
     return kind === 'node' || kind === 'seed';
   });
-  const out: { stem: string; section: string }[] = [];
+  const out: { path: string; stem: string; section: string }[] = [];
   const collect = async (paths: string[], heading: string): Promise<void> => {
     // An empty target list to vault.get is unverified behavior (readAllNodeDocs
     // makes the same guard) — skip the query for an empty/all-foreign set.
@@ -121,7 +121,7 @@ export async function readSectionFailuresFromDocuments(
       return;
     }
     for (const path of await client.sectionFailures(paths, [heading])) {
-      out.push({ section: heading, stem: stemOf(path) });
+      out.push({ path, section: heading, stem: stemOf(path) });
     }
   };
   // The two reads are independent round-trips — run them concurrently.

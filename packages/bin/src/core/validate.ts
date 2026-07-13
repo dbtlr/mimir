@@ -311,6 +311,9 @@ export function validate(graph: VaultGraph): ValidatedGraph {
   if (graph.seeds !== undefined) {
     const seedSurvivors = new Set<string>();
     for (const seed of graph.seeds) {
+      if (duplicateStems.has(seed.stem)) {
+        continue;
+      }
       if (!member(seed.kind, SEED_KIND_VALUES)) {
         dropped.push({
           key: seed.key,

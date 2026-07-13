@@ -232,11 +232,17 @@ export type SeedRefs = {
  * plus the set of project `key`s present. Both `mimir doctor` referential checks
  * resolve against this one read.
  */
+export type VaultGraphSource = {
+  kind: 'node' | 'project' | 'seed';
+  stem: string;
+  path: string;
+};
+
 export type VaultGraph = {
   nodes: NodeRefs[];
   projectKeys: string[];
   /** Work-state identities paired with their physical paths for collision checks. */
-  sources?: readonly { kind: 'node' | 'project'; stem: string; path: string }[];
+  sources?: readonly VaultGraphSource[];
   /** The subset of `projectKeys` whose project is ARCHIVED (`archived_at` set).
    * Carried so the validator can give the seed `requester` check the reader's
    * ACTIVE-only visibility (an archived requester is nulled on read, MMR-245/B1d),
@@ -331,7 +337,7 @@ export function vaultGraphFromDocs(
   const projectKeys: string[] = [];
   const archivedProjectKeys: string[] = [];
   const declarations: ProjectDeclaration[] = [];
-  const sources: { kind: 'node' | 'project'; stem: string; path: string }[] = [];
+  const sources: VaultGraphSource[] = [];
   // Only populated (and only made present on the graph) when the caller asked —
   // the node-only resolving loader and the transitions feed pass no seeds, so the
   // seed/upstream passes in `validate` stay off for them (MMR-244).
@@ -361,6 +367,7 @@ export function vaultGraphFromDocs(
     if (withSeeds && type === 'seed') {
       const seedRef = parseSeedRef(stem);
       if (seedRef !== null) {
+        sources.push({ kind: 'seed', path: doc.path, stem });
         seeds.push({
           key: seedRef.key,
           kind: fm.kind,

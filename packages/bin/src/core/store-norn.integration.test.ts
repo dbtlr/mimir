@@ -415,8 +415,16 @@ test.skipIf(!NORN)(
     });
 
     const failures = await readSectionFailures(client);
-    expect(failures).toContainEqual({ section: 'History', stem: 'MMR-1' });
-    expect(failures).toContainEqual({ section: 'Annotations', stem: 'MMR-2' });
+    expect(failures).toContainEqual({
+      path: 'MMR/MMR-1.md',
+      section: 'History',
+      stem: 'MMR-1',
+    });
+    expect(failures).toContainEqual({
+      path: 'MMR/MMR-2.md',
+      section: 'Annotations',
+      stem: 'MMR-2',
+    });
     // The healthy node and the project doc are reported for neither section.
     expect(failures.some((f) => f.stem === 'MMR-3' || f.stem === 'MMR')).toBe(false);
   },

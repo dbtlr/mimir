@@ -306,6 +306,50 @@ test('Norn-equivalent target names at any heading depth or in image alt text are
   }
 });
 
+test('image-alt HTML and Rust whitespace follow Norn heading-name semantics', () => {
+  for (const body of ['## ![<i>History</i>](image.png)\n', '## \u0085History\u0085\n']) {
+    const planned = planDoctorRepairs({
+      issues: [issue('section-history-unreadable', 'MMR-1')],
+      scope: 'MMR',
+      snapshot: snapshot([{ body, documentHash: 'hash', path: 'MMR/MMR-1.md', stem: 'MMR-1' }]),
+      timestamp: '2026-07-13T12:00:00.000Z',
+      vaultRoot: '/vault',
+    });
+    expect(planned.migration.operations).toEqual([]);
+  }
+
+  const bom = '## \uFEFFHistory\uFEFF\n';
+  const planned = planDoctorRepairs({
+    issues: [issue('section-history-unreadable', 'MMR-1')],
+    scope: 'MMR',
+    snapshot: snapshot([{ body: bom, documentHash: 'hash', path: 'MMR/MMR-1.md', stem: 'MMR-1' }]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toHaveLength(1);
+});
+
+test('a validate-only malformed owner makes a supported typed repair ambiguous', () => {
+  const snap = snapshot([
+    {
+      body: '## Task Description\ntext\n',
+      documentHash: 'hash',
+      path: 'relocated/MMR-1.md',
+      stem: 'MMR-1',
+    },
+  ]);
+  snap.validateFindings = [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-1.md' }];
+  const planned = planDoctorRepairs({
+    issues: [issue('section-history-unreadable', 'MMR-1')],
+    scope: 'MMR',
+    snapshot: snap,
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([]);
+  expect(planned.skipped[0]?.reason).toBe('ambiguous-identity');
+});
+
 test('insertion before an indented structural heading preserves its source line bytes', () => {
   const planned = planDoctorRepairs({
     issues: [issue('section-history-unreadable', 'MMR-1')],
