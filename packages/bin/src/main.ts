@@ -7,6 +7,8 @@
  *   mcp             the agent envelope over stdio → MCP transport
  *   --help, -h      help (handled by the CLI)
  */
+import { parsePort } from '@mimir/helpers';
+
 import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
 import type { Store } from './core';
@@ -81,11 +83,10 @@ function servePort(args: string[]): number | null | undefined {
     return undefined;
   }
   const raw = args[at + 1];
-  const port = Number(raw);
-  if (raw === undefined || !Number.isInteger(port) || port < 1 || port > 65535) {
+  if (raw === undefined) {
     return null;
   }
-  return port;
+  return parsePort(raw);
 }
 
 function realServiceDeps(): ServiceDeps {

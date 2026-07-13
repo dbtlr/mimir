@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { parseJson } from './index';
+import { parseJson, parsePort } from './index';
 import type { StandardSchemaV1 } from './index';
 
 /** A hand-rolled Standard Schema, so the test stays dependency-free like the package. */
@@ -29,5 +29,23 @@ describe('parseJson', () => {
 
   test('propagates JSON syntax errors', () => {
     expect(() => parseJson('{bad')).toThrow();
+  });
+});
+
+describe('parsePort', () => {
+  test('accepts an integer in 1–65535', () => {
+    expect(parsePort('1')).toBe(1);
+    expect(parsePort('65535')).toBe(65535);
+    expect(parsePort('64747')).toBe(64747);
+  });
+
+  test('rejects 0, negatives, out-of-range, and non-numeric input', () => {
+    expect(parsePort('0')).toBeNull();
+    expect(parsePort('-1')).toBeNull();
+    expect(parsePort('65536')).toBeNull();
+    expect(parsePort('70000')).toBeNull();
+    expect(parsePort('nope')).toBeNull();
+    expect(parsePort('64.5')).toBeNull();
+    expect(parsePort('')).toBeNull();
   });
 });
