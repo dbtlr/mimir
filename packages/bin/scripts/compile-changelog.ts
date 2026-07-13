@@ -9,6 +9,10 @@
  * the release-cut procedure's promote step):
  *   bun run changelog:compile --write --version X.Y.Z
  *
+ * Check (parse fragments and report violations — what changelog-guard runs, so
+ * the guard and the cut share one grammar):
+ *   bun run changelog:compile --check [files...]   (default: all pending)
+ *
  * Fragments use the Keep-a-Changelog grammar verbatim: H3 category headings
  * from the closed set, `- ` bullets beneath them, nothing else. The compiler
  * concatenates — it never rewrites prose. Categories render in canonical
@@ -161,6 +165,31 @@ if (import.meta.main) {
   const write = args.includes('--write');
   const versionFlag = args.indexOf('--version');
   const version = versionFlag === -1 ? null : (args[versionFlag + 1] ?? null);
+
+  const checkFlag = args.indexOf('--check');
+  if (checkFlag !== -1) {
+    const named = args.slice(checkFlag + 1).filter((arg) => !arg.startsWith('--'));
+    if (named.length === 0 && !existsSync(CHANGES_DIR)) {
+      console.error(`${CHANGES_DIR}/ not found — run from the repo root.`);
+      process.exit(1);
+    }
+    const files =
+      named.length > 0 ? named : pendingFragments().map((name) => join(CHANGES_DIR, name));
+    let failed = false;
+    for (const file of files) {
+      try {
+        parseFragment(file, readFileSync(file, 'utf8'));
+      } catch (error) {
+        failed = true;
+        console.error(error instanceof Error ? error.message : String(error));
+      }
+    }
+    if (failed) {
+      process.exit(1);
+    }
+    console.log(`ok: ${files.length} fragment(s) parse`);
+    process.exit(0);
+  }
 
   if (!existsSync(CHANGES_DIR)) {
     console.error(`${CHANGES_DIR}/ not found — run from the repo root.`);

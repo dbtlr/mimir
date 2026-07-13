@@ -31,6 +31,7 @@ jobs:
           fetch-depth: 0
 
       - name: Require a changelog fragment for build-affecting changes
+        id: gate
         env:
           # Visible PR escape hatch — kept here for the audit trail.
           HAS_SKIP_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}
@@ -55,37 +56,42 @@ jobs:
 
           # Any touch of a fragment satisfies the gate: added (the normal case),
           # modified (amending an entry), or deleted (the release-cut PR compiles
-          # fragments away). Presence in the diff is the whole check — there is
-          # no content diffing (ADR 0022 retired the [Unreleased] bullet-diff and
-          # its false PASS/FAIL edges).
-          fragments=$(echo "$changed" | grep -E '^\.changes/.+\.md$' | grep -v '^\.changes/README\.md$' || true)
+          # fragments away). Fragments live flat in .changes/ — the compiler does
+          # not recurse, so a nested path does not count.
+          fragments=$(echo "$changed" | grep -E '^\.changes/[^/]+\.md$' | grep -v '^\.changes/README\.md$' || true)
           if [ -z "$fragments" ]; then
             echo "::error::Build-affecting change with no changelog fragment. Add .changes/<slug>.md (see .changes/README.md), or apply the 'skip-changelog' label if this is behavior-preserving."
             exit 1
           fi
 
-          # Shape-check the fragments that still exist on head (deleted ones are
-          # the release cut's compile). Same closed grammar the compiler enforces
-          # — catch garbage at PR time, not cut time.
-          status=0
-          while IFS= read -r f; do
-            [ -f "$f" ] || continue
-            if grep -qE '^#{1,2} |^#{4,} ' "$f"; then
-              echo "::error file=$f::fragment may only contain H3 category headings (### Added / ### Fixed / ...)."
-              status=1
-            fi
-            if grep -E '^### ' "$f" | grep -qvE '^### (Added|Changed|Deprecated|Removed|Fixed|Security)$'; then
-              echo "::error file=$f::unknown category heading — expected ### Added / Changed / Deprecated / Removed / Fixed / Security."
-              status=1
-            fi
-            if ! grep -qE '^### (Added|Changed|Deprecated|Removed|Fixed|Security)$' "$f" || ! grep -qE '^[-*] ' "$f"; then
-              echo "::error file=$f::fragment needs at least one category heading and one '- ' bullet."
-              status=1
-            fi
-          done <<< "$fragments"
-
-          if [ "$status" -eq 0 ]; then
-            echo "Changelog fragment(s) present and well-formed:"
-            echo "$fragments"
+          # Fragments that exist on head get parsed by the compiler itself (next
+          # step) — one grammar, shared with the release cut, instead of a looser
+          # re-implementation here (ADR 0022 retired the [Unreleased] bullet-diff
+          # and its false PASS/FAIL edges). Deleted-only means the release-cut PR:
+          # nothing to parse, gate satisfied.
+          present=$(echo "$fragments" | while IFS= read -r f; do [ -f "$f" ] && echo "$f" || true; done)
+          if [ -z "$present" ]; then
+            echo "Fragment deletions only — the release-cut compile. Gate satisfied."
+            exit 0
           fi
-          exit "$status"
+          echo "$present" > "$RUNNER_TEMP/fragments.txt"
+          echo "parse=true" >> "$GITHUB_OUTPUT"
+          echo "Changelog fragment(s) present, parsing with the compiler:"
+          echo "$present"
+
+      - name: Set up Bun
+        if: steps.gate.outputs.parse == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .tool-versions
+
+      - name: Install dependencies
+        if: steps.gate.outputs.parse == 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Parse fragments with the compiler's parser
+        if: steps.gate.outputs.parse == 'true'
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2046 -- fragment paths are flat slugs, no spaces
+          bun packages/bin/scripts/compile-changelog.ts --check $(tr '\n' ' ' < "$RUNNER_TEMP/fragments.txt")

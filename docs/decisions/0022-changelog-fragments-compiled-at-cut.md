@@ -22,10 +22,11 @@ same commit (`bun run changelog:compile --write --version X.Y.Z`). There is no
   Keep-a-Changelog set (`Added | Changed | Deprecated | Removed | Fixed |
 Security`), bullets beneath them, nothing else. The compiler concatenates
   verbatim; it never rewrites prose.
-- **`changelog-guard` becomes a presence + shape check**: a build-affecting PR
-  must touch `.changes/*.md` or carry the `skip-changelog` label; touched
-  fragments must parse (valid headings, at least one bullet). No content
-  diffing.
+- **`changelog-guard` becomes a presence + parse check**: a build-affecting PR
+  must touch a flat `.changes/*.md` fragment or carry the `skip-changelog`
+  label, and fragments present on head must parse — the guard runs the
+  compiler's own `--check` mode, so the grammar exists exactly once. No
+  content diffing.
 - **Compilation is deterministic and pure-git**: categories in canonical
   Keep-a-Changelog order; within a category, fragments in landing order (the
   commit date each file was added, filename as tie-break).
@@ -91,14 +92,17 @@ Security`), bullets beneath them, nothing else. The compiler concatenates
 - `packages/bin/scripts/compile-changelog.ts` (`bun run changelog:compile`)
   owns parsing, ordering, rendering, section insertion, and fragment deletion;
   parse failures name the offending file and line. The parser is strict — an
-  unknown heading or non-bullet prose is an error at compile _and_ in the
-  guard's shape check, so garbage is caught at PR time, not cut time.
+  unknown heading or non-bullet prose is an error — and the guard runs the
+  same parser (`--check`), so garbage is caught at PR time, not cut time, and
+  the two can never disagree.
 - `changelog-guard` keeps its applicability logic (build-affecting path list,
   `skip-changelog` label, always-runnable required check) and swaps the
-  bullet-diff for fragment presence + shape. A delete-only fragment change
-  passes — that is the release-cut PR itself. Of the MMR-109 papercuts, the
-  bullet-diff false PASS/FAIL are retired; the build-affecting path list
-  triplication and the label re-trigger flash remain (unchanged scope).
+  bullet-diff for fragment presence plus the `--check` parse (the parse steps
+  set up Bun, so the guard job is no longer checkout-only on fragment-carrying
+  PRs). A delete-only fragment change passes — that is the release-cut PR
+  itself. Of the MMR-109 papercuts, the bullet-diff false PASS/FAIL are
+  retired; the build-affecting path list triplication and the label
+  re-trigger flash remain (unchanged scope).
 - The release cut gains one mechanical step (`changelog:compile --write`) and
   loses one (hand-promoting `[Unreleased]`); its "empty section means nothing
   to ship" precondition becomes "no fragments means nothing to ship".

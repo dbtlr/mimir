@@ -47,8 +47,10 @@ before you submit — there is no third option.
 CI enforces exactly this: `changelog-guard` fails any PR touching build-affecting
 paths (`packages/**`, `package.json`, `bun.lock`, `install.sh`, the release
 workflows) that touches no `.changes/*.md` fragment and has no label — and
-shape-checks the fragments it finds (closed heading set, at least one bullet).
-The label is the **only** legitimate way past a missing fragment.
+parses the fragments it finds with the compiler's own parser
+(`bun run changelog:compile --check`), so a fragment that passes CI is
+guaranteed to compile at the cut. The label is the **only** legitimate way past
+a missing fragment.
 
 **The escape hatch** — `skip-changelog` — is for a genuinely behavior-preserving
 change (an internal refactor, a test-only or build-meta edit). Once the PR exists

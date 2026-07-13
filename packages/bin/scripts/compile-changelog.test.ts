@@ -1,4 +1,8 @@
 import { describe, expect, test } from 'bun:test';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { insertSection, parseFragment, renderSection } from './compile-changelog';
 
@@ -86,5 +90,87 @@ describe('insertSection', () => {
     expect(insertSection('# Changelog\n\nProse.\n', '## v0.1.0 - 2026-01-01\n\n- first.\n')).toBe(
       '# Changelog\n\nProse.\n\n## v0.1.0 - 2026-01-01\n\n- first.\n',
     );
+  });
+});
+
+// CLI integration — the parts the pure functions can't pin: git landing order,
+// README exclusion, fragment deletion, and flag validation.
+const SCRIPT = new URL('compile-changelog.ts', import.meta.url).pathname;
+
+const run = (cwd: string, args: string[]) => {
+  const result = Bun.spawnSync(['bun', SCRIPT, ...args], { cwd });
+  return {
+    exitCode: result.exitCode,
+    stderr: result.stderr.toString(),
+    stdout: result.stdout.toString(),
+  };
+};
+
+const commit = (cwd: string, message: string, date: string) => {
+  execFileSync('git', ['add', '-A'], { cwd });
+  execFileSync('git', ['commit', '-qm', message], {
+    cwd,
+    env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
+  });
+};
+
+const makeRepo = (): string => {
+  const dir = mkdtempSync(join(tmpdir(), 'changelog-cut-'));
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: dir });
+  execFileSync('git', ['config', 'user.name', 'test'], { cwd: dir });
+  writeFileSync(
+    join(dir, 'CHANGELOG.md'),
+    '# Changelog\n\nProse.\n\n## v0.1.0 - 2026-01-01\n\n### Added\n\n- old.\n',
+  );
+  mkdirSync(join(dir, '.changes'));
+  writeFileSync(join(dir, '.changes', 'README.md'), '# fragments\n');
+  return dir;
+};
+
+describe('cli', () => {
+  test('--write compiles in landing order, deletes fragments, keeps README', () => {
+    const dir = makeRepo();
+    // zz-* lands FIRST, aa-* lands SECOND — compiled order must follow git
+    // history, not the alphabet.
+    writeFileSync(join(dir, '.changes', 'zz-first.md'), '### Fixed\n\n- landed first.\n');
+    commit(dir, 'one', '2026-01-02T00:00:00Z');
+    writeFileSync(join(dir, '.changes', 'aa-second.md'), '### Fixed\n\n- landed second.\n');
+    commit(dir, 'two', '2026-02-02T00:00:00Z');
+
+    const result = run(dir, ['--write', '--version', '0.2.0']);
+    expect(result.exitCode).toBe(0);
+
+    const changelog = readFileSync(join(dir, 'CHANGELOG.md'), 'utf8');
+    expect(changelog.indexOf('## v0.2.0 - ')).toBeGreaterThan(-1);
+    expect(changelog.indexOf('## v0.2.0 - ')).toBeLessThan(changelog.indexOf('## v0.1.0'));
+    expect(changelog.indexOf('landed first.')).toBeLessThan(changelog.indexOf('landed second.'));
+    expect(existsSync(join(dir, '.changes', 'zz-first.md'))).toBe(false);
+    expect(existsSync(join(dir, '.changes', 'aa-second.md'))).toBe(false);
+    expect(existsSync(join(dir, '.changes', 'README.md'))).toBe(true);
+  });
+
+  test('--write refuses a missing or malformed --version', () => {
+    const dir = makeRepo();
+    writeFileSync(join(dir, '.changes', 'mmr-1.md'), '### Added\n\n- a thing.\n');
+    commit(dir, 'one', '2026-01-02T00:00:00Z');
+
+    expect(run(dir, ['--write']).exitCode).toBe(1);
+    expect(run(dir, ['--write', '--version', 'v0.2.0']).stderr).toContain('--version X.Y.Z');
+    expect(readFileSync(join(dir, 'CHANGELOG.md'), 'utf8')).not.toContain('a thing.');
+  });
+
+  test('--check passes a valid fragment and fails a malformed one with its location', () => {
+    const dir = makeRepo();
+    writeFileSync(join(dir, '.changes', 'good.md'), '### Added\n\n- fine.\n');
+    writeFileSync(join(dir, '.changes', 'bad.md'), '### Added\n\nprose, not a bullet\n');
+
+    const good = run(dir, ['--check', '.changes/good.md']);
+    expect(good.exitCode).toBe(0);
+    expect(good.stdout).toContain('ok: 1 fragment(s) parse');
+
+    const bad = run(dir, ['--check', '.changes/good.md', '.changes/bad.md']);
+    expect(bad.exitCode).toBe(1);
+    expect(bad.stderr).toContain('.changes/bad.md:3: prose outside a bullet');
   });
 });

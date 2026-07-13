@@ -28,4 +28,7 @@ bun run changelog:compile
 
 The `changelog-guard` CI check enforces the contract: a PR touching
 build-affecting paths must add a fragment (or carry the `skip-changelog`
-label), and every touched fragment must parse.
+label), and every touched fragment must parse — the guard runs the compiler's
+own parser (`bun run changelog:compile --check`), so what passes the guard is
+exactly what compiles at the cut. Fragments live flat in this directory;
+subdirectories are not scanned.
