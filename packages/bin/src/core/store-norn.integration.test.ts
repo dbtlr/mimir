@@ -11,7 +11,7 @@ import { readSectionFailures } from './body-sections';
 import { renderHistoryBody, renderNodeBody } from './history-codec';
 import { renderId } from './ids';
 import { undepend } from './mutations/dependency';
-import { loadWorkingSetOverNorn, readVaultGraph } from './store-norn';
+import { loadNornSnapshot, loadWorkingSetOverNorn, readVaultGraph } from './store-norn';
 import { validate } from './validate';
 
 /**
@@ -99,13 +99,13 @@ test.skipIf(!NORN)(
     const prereq = must(byStem.get('MMR-2'));
     const dependent = must(byStem.get('MMR-3'));
 
-    // parent: project root → null; node parent → that node's synthetic int.
+    // parent: project root → null; node parent → that node's canonical stem.
     expect(phase.parent_id).toBeNull();
     expect(prereq.parent_id).toBe(phase.id);
     expect(dependent.priority).toBe('p1');
     expect(dependent.rank).toBe(1);
 
-    // the depends_on edge resolves both endpoints to synthetic ints.
+    // the depends_on edge carries canonical stems at both endpoints.
     expect(ws.edges).toEqual([{ depends_on_node_id: prereq.id, node_id: dependent.id }]);
 
     // tags: sorted, note-less, project + node.
@@ -113,9 +113,78 @@ test.skipIf(!NORN)(
       { created_at: '2026-06-01T00:00:00.000Z', tag: 'alpha' },
       { created_at: '2026-06-01T00:00:00.000Z', tag: 'zebra' },
     ]);
-    expect(ws.projectTags.get(must(ws.projects[0]).id)).toEqual([
+    expect(ws.projectTags.get(must(ws.projects[0]).key)).toEqual([
       { created_at: '2026-06-01T00:00:00.000Z', tag: 'release:v1' },
     ]);
+  },
+);
+
+test.skipIf(!NORN)(
+  'duplicate node stems exclude every collider and preserve all paths for doctor',
+  async () => {
+    await writeDoc('MMR/MMR.md', [
+      jsonField('type', 'project'),
+      jsonField('key', 'MMR'),
+      jsonField('name', 'Mimir'),
+    ]);
+    const taskFields = [
+      jsonField('type', 'task'),
+      jsonField('title', 'Duplicate'),
+      jsonField('parent', wikilink('MMR')),
+      jsonField('lifecycle', 'todo'),
+    ];
+    await writeDoc('MMR/MMR-1.md', taskFields);
+    await writeDoc('relocated/MMR-1.md', taskFields);
+
+    expect((await loadWorkingSetOverNorn(client)).nodes).toEqual([]);
+    const drops = validate(await readVaultGraph(client)).dropped.filter(
+      (drop) => drop.rule === 'duplicate-stem',
+    );
+    expect(drops).toHaveLength(2);
+    expect(drops.map((drop) => (drop.kind === 'identity' ? drop.path : ''))).toEqual([
+      'MMR/MMR-1.md',
+      'relocated/MMR-1.md',
+    ]);
+  },
+);
+
+test.skipIf(!NORN)(
+  'duplicate project identities withhold projects, nodes, and path locators',
+  async () => {
+    const projectFields = [
+      jsonField('type', 'project'),
+      jsonField('key', 'MMR'),
+      jsonField('name', 'Mimir'),
+    ];
+    await writeDoc('MMR/MMR.md', projectFields);
+    await writeDoc('relocated/MMR.md', projectFields);
+    await writeDoc('MMR/MMR-1.md', [
+      jsonField('type', 'task'),
+      jsonField('title', 'Orphaned by collision'),
+      jsonField('parent', wikilink('MMR')),
+      jsonField('lifecycle', 'todo'),
+    ]);
+
+    const snapshot = await loadNornSnapshot(client);
+    expect(snapshot.workingSet.projects).toEqual([]);
+    expect(snapshot.workingSet.nodes).toEqual([]);
+    expect(snapshot.pathByStem.has('MMR')).toBe(false);
+    expect(snapshot.pathByStem.has('MMR-1')).toBe(false);
+
+    const drops = validate(await readVaultGraph(client)).dropped;
+    expect(drops.filter((drop) => drop.rule === 'duplicate-stem')).toHaveLength(2);
+    expect(
+      drops
+        .filter((drop) => drop.kind === 'identity')
+        .map((drop) => drop.path)
+        .toSorted(),
+    ).toEqual(['MMR/MMR.md', 'relocated/MMR.md']);
+    expect(drops).toContainEqual({
+      key: 'MMR',
+      kind: 'node',
+      rule: 'missing-project',
+      stem: 'MMR-1',
+    });
   },
 );
 
@@ -160,10 +229,7 @@ test.skipIf(!NORN)('drops a node whose owning project is absent (no throw)', asy
   // ZZZ-1 dropped (no ZZZ project); MMR-1 the lone survivor. Resolve each
   // survivor's REAL project key (not a hardcoded 'MMR') so an inverted regression
   // — keep ZZZ-1, drop MMR-1 — can't render as 'MMR-1' and pass green.
-  const keyById = new Map(ws.projects.map((p) => [p.id, p.key]));
-  expect(
-    ws.nodes.map((n) => renderId({ key: must(keyById.get(n.project_id)), seq: n.seq })),
-  ).toEqual(['MMR-1']);
+  expect(ws.nodes.map((n) => n.id)).toEqual(['MMR-1']);
 });
 
 test.skipIf(!NORN)('drops a dangling KEY-seq parent edge; the node floats to root', async () => {

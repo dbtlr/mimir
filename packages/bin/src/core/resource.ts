@@ -55,7 +55,7 @@ function boardOrder(a: Node, b: Node): number {
   return aNull - bNull || (a.rank ?? 0) - (b.rank ?? 0) || a.seq - b.seq;
 }
 
-function childRows(set: DerivationSet, projectId: number, parentId: number | null): Node[] {
+function childRows(set: DerivationSet, projectId: string, parentId: string | null): Node[] {
   const children =
     parentId === null
       ? (set.nodesByProject.get(projectId) ?? []).filter((n) => n.parent_id === null)
@@ -83,13 +83,13 @@ export async function projectTree(
 
   const subtree = async (node: Node): Promise<TreeView> => {
     const view = await buildNodeView(store.bodySections, store.artifacts, set, node, facetSet);
-    const children = childRows(set, project.id, node.id);
+    const children = childRows(set, project.key, node.id);
     const { children: _refs, ...record } = view;
     return { ...record, children: await Promise.all(children.map(subtree)) };
   };
 
   const rootView = await buildProjectView(store.artifacts, set, project, facetSet);
-  const roots = childRows(set, project.id, null);
+  const roots = childRows(set, project.key, null);
   const { children: _refs, ...record } = rootView;
   return { ...record, children: await Promise.all(roots.map(subtree)) };
 }

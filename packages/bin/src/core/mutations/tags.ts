@@ -11,19 +11,19 @@ import { assertProjectActive } from './common';
  */
 
 /**
- * A tag target. Node/project targets carry the surrogate id and use the tag
+ * A tag target. Node/project targets carry their canonical stem/key and use the tag
  * table directly; an **artifact** target carries its external identity
  * (`key`, `seq`) and routes through the artifact seam (MMR-143), so a
  * vault-backed artifact — which has no tag-table row — can still be tagged.
  */
 export type EntityRef =
-  | { entityType: 'project' | 'node'; entityId: number }
+  | { entityType: 'project' | 'node'; entityId: string }
   | { entityType: 'artifact'; key: string; seq: number };
 
 /** The node/project projects, for the archive write-lock check. */
-async function projectOfTarget(w: StoreWriter, ref: EntityRef): Promise<number | undefined> {
+async function projectOfTarget(w: StoreWriter, ref: EntityRef): Promise<string | undefined> {
   if (ref.entityType === 'artifact') {
-    return (await w.loadProjectByKey(ref.key))?.id;
+    return (await w.loadProjectByKey(ref.key))?.key;
   }
   if (ref.entityType === 'project') {
     return ref.entityId;

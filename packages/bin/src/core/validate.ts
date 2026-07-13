@@ -44,6 +44,13 @@ import type { NodeRefs, VaultGraph } from './store-norn';
  * offending value.
  */
 export type Drop =
+  | {
+      kind: 'identity';
+      rule: 'duplicate-stem';
+      stem: string;
+      path: string;
+      paths: readonly string[];
+    }
   | { kind: 'node'; rule: 'missing-project'; stem: string; key: string }
   | { kind: 'node'; rule: 'invalid-lifecycle'; stem: string; key: string; value: string | null }
   | { kind: 'node'; rule: 'invalid-hold'; stem: string; key: string; value: string | null }
@@ -82,8 +89,8 @@ export type Drop =
  * consumes, plus the {@link Drop}s doctor renders. `nodes` holds only surviving
  * nodes — those whose project is present — each with its edges pruned to the
  * survivors (a dropped `parent` becomes `null`, floating the node to its project
- * root; a dropped `depends_on` is removed). `projectKeys` is carried through
- * unchanged.
+ * root; a dropped `depends_on` is removed). `projectKeys` excludes identities
+ * made ambiguous by colliding project documents.
  */
 export type ValidatedGraph = {
   nodes: NodeRefs[];
@@ -130,7 +137,19 @@ export type ValidatedGraph = {
  *    unaffected.
  */
 export function validate(graph: VaultGraph): ValidatedGraph {
-  const present = new Set(graph.projectKeys);
+  const sourcesByStem = new Map<string, string[]>();
+  for (const source of graph.sources ?? []) {
+    const paths = sourcesByStem.get(source.stem);
+    if (paths === undefined) {
+      sourcesByStem.set(source.stem, [source.path]);
+    } else {
+      paths.push(source.path);
+    }
+  }
+  const duplicateStems = new Set(
+    [...sourcesByStem].filter(([, paths]) => paths.length > 1).map(([stem]) => stem),
+  );
+  const present = new Set(graph.projectKeys.filter((key) => !duplicateStems.has(key)));
   // The reader's ACTIVE-only visibility, for the seed `requester` check ONLY — an
   // archived project is present (its nodes survive, hidden) but its key is NOT
   // active, so a requester naming it is nulled on read (MMR-245/B1d). Every other
@@ -139,6 +158,12 @@ export function validate(graph: VaultGraph): ValidatedGraph {
   const archived = new Set(graph.archivedProjectKeys);
   const survivors = new Set<string>();
   const dropped: Drop[] = [];
+  for (const stem of [...duplicateStems].toSorted()) {
+    const paths = (sourcesByStem.get(stem) ?? []).toSorted();
+    for (const path of paths) {
+      dropped.push({ kind: 'identity', path, paths, rule: 'duplicate-stem', stem });
+    }
+  }
 
   // Pass 0: field validity (MMR-177). Task-only; skipped when a node carries no
   // `raw` (referential-only callers). A load-bearing field (lifecycle/hold) drops
@@ -147,6 +172,9 @@ export function validate(graph: VaultGraph): ValidatedGraph {
   // (priority/size) drops only the FIELD and the node stays.
   const fieldDropped = new Set<string>();
   for (const node of graph.nodes) {
+    if (duplicateStems.has(node.stem)) {
+      continue;
+    }
     const raw = node.raw;
     if (raw === undefined) {
       continue;
@@ -225,7 +253,7 @@ export function validate(graph: VaultGraph): ValidatedGraph {
   // already dropped in pass 0 is gone — it emits no further (referential) drop.
   const kept: NodeRefs[] = [];
   for (const node of graph.nodes) {
-    if (fieldDropped.has(node.stem)) {
+    if (duplicateStems.has(node.stem) || fieldDropped.has(node.stem)) {
       continue;
     }
     if (present.has(node.key)) {
@@ -361,7 +389,7 @@ export function validate(graph: VaultGraph): ValidatedGraph {
     }
   }
 
-  return { dropped, nodes, projectKeys: graph.projectKeys };
+  return { dropped, nodes, projectKeys: graph.projectKeys.filter((key) => present.has(key)) };
 }
 
 /**

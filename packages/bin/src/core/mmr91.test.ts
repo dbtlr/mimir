@@ -27,10 +27,10 @@ const NORN = Bun.which('norn') !== null;
 
 let store: Store;
 let closeStore: () => Promise<void>;
-let phaseId: number;
+let phaseId: string;
 let phaseSeq: number;
-let initId: number;
-let taskId: number;
+let initId: string;
+let taskId: string;
 let taskSeq: number;
 
 beforeEach(async () => {

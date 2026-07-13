@@ -12,9 +12,9 @@ import { logTransition, reloadNode, renderNodeRef, requireNode, stamp } from './
  */
 
 /** Can `startId` reach `targetId` by following `depends_on` edges? */
-async function reaches(w: StoreWriter, startId: number, targetId: number): Promise<boolean> {
-  const seen = new Set<number>();
-  const stack: number[] = [startId];
+async function reaches(w: StoreWriter, startId: string, targetId: string): Promise<boolean> {
+  const seen = new Set<string>();
+  const stack: string[] = [startId];
   while (stack.length > 0) {
     const current = stack.pop();
     if (current === undefined || seen.has(current)) {
@@ -31,7 +31,7 @@ async function reaches(w: StoreWriter, startId: number, targetId: number): Promi
   return false;
 }
 
-export async function depend(store: Store, id: number, onIds: number[]): Promise<Node> {
+export async function depend(store: Store, id: string, onIds: string[]): Promise<Node> {
   return store.transact(async (w) => {
     await requireNode(w, id);
     // One snapshot serves every lineage guard — depend never rewires parents.
@@ -99,7 +99,7 @@ export async function depend(store: Store, id: number, onIds: number[]): Promise
   });
 }
 
-export async function undepend(store: Store, id: number, onIds: number[]): Promise<Node> {
+export async function undepend(store: Store, id: string, onIds: string[]): Promise<Node> {
   return store.transact(async (w) => {
     await requireNode(w, id);
     for (const onId of onIds) {

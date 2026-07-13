@@ -28,7 +28,7 @@ const NORN = Bun.which('norn') !== null;
 
 let store: Store;
 let closeStore: () => Promise<void>;
-let phaseId: number;
+let phaseId: string;
 beforeEach(async () => {
   ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'm' });
@@ -44,7 +44,7 @@ afterEach(async () => {
 
 const setOf = async () => deriveSet(await store.loadWorkingSet());
 
-async function startedTask(title = 't'): Promise<number> {
+async function startedTask(title = 't'): Promise<string> {
   const t = await createTask(store, { parentId: phaseId, title });
   const id = await nodeIdOf(store, `MMR-${String(t.seq)}`);
   await startTask(store, id);

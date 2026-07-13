@@ -43,11 +43,11 @@ async function seedbed(key = 'MMR'): Promise<{ phaseRef: string }> {
   return { phaseRef: `${key}-${String(phase.seq)}` };
 }
 
-async function pidOf(key: string): Promise<number> {
+async function pidOf(key: string): Promise<string> {
   return resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
 }
 
-async function idOf(ref: string): Promise<number> {
+async function idOf(ref: string): Promise<string> {
   const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), ref);
   if (node === undefined) {
     throw new Error(`no node ${ref}`);

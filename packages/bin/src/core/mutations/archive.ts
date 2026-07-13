@@ -14,7 +14,7 @@ import { logTransition } from './common';
  * `transition_log`) — never a delete, so append-only holds.
  */
 
-async function loadProject(w: StoreWriter, id: number): Promise<Project> {
+async function loadProject(w: StoreWriter, id: string): Promise<Project> {
   const project = await w.loadProject(id);
   if (project === undefined) {
     throw notFound('the project was not found');
@@ -23,7 +23,7 @@ async function loadProject(w: StoreWriter, id: number): Promise<Project> {
 }
 
 /** Archive a project (active → archived). Idempotency is a conflict, not a no-op. */
-export async function archiveProject(store: Store, id: number, reason?: string): Promise<Project> {
+export async function archiveProject(store: Store, id: string, reason?: string): Promise<Project> {
   return store.transact(async (w) => {
     const project = await loadProject(w, id);
     if (project.archived_at !== null) {
@@ -52,11 +52,11 @@ export async function archiveProject(store: Store, id: number, reason?: string):
  * terminal tasks, or tasks already ready for other reasons. Names the leaf, not
  * the edge-holding container.
  */
-export async function releasedByArchive(store: Store, projectId: number): Promise<string[]> {
+export async function releasedByArchive(store: Store, projectId: string): Promise<string[]> {
   const set = deriveSet(await store.loadWorkingSet());
   // The prerequisites this archive just settled: nodes in the project that were
   // not already terminal on their own (a done/abandoned prereq gated nothing).
-  const settling = new Set<number>();
+  const settling = new Set<string>();
   for (const node of set.nodesByProject.get(projectId) ?? []) {
     if (!isNodeSettled(set, node)) {
       settling.add(node.id);
@@ -95,7 +95,7 @@ export async function releasedByArchive(store: Store, projectId: number): Promis
 }
 
 /** Unarchive a project (archived → active). Unarchiving an active project is a conflict. */
-export async function unarchiveProject(store: Store, id: number): Promise<Project> {
+export async function unarchiveProject(store: Store, id: string): Promise<Project> {
   return store.transact(async (w) => {
     const project = await loadProject(w, id);
     if (project.archived_at === null) {

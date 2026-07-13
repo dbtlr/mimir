@@ -58,7 +58,7 @@ export function attentionOf(
   project: Project,
   options: StaleOptions = {},
 ): AttentionState {
-  const tasks = (set.nodesByProject.get(project.id) ?? []).filter((n) => n.type === 'task');
+  const tasks = (set.nodesByProject.get(project.key) ?? []).filter((n) => n.type === 'task');
 
   let best = AT_REST;
   let stale = false;

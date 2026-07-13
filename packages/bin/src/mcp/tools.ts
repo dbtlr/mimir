@@ -139,21 +139,21 @@ async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {
 
 /** Resolve a node token against an already-derived set — the multi-token twin
  * `nodeId` uses when a handler resolves several tokens over ONE snapshot. */
-function nodeIdIn(set: DerivationSet, id: string, expected = 'node'): number {
+function nodeIdIn(set: DerivationSet, id: string, expected = 'node'): string {
   return resolveNodeTokenInSet(set, id, expected);
 }
 
 /** Resolve a node token over its own fresh working-set snapshot (MMR-160, no raw
  * db). Handlers resolving multiple tokens derive one set + `nodeIdIn`. */
-async function nodeId(store: Store, id: string, expected = 'node'): Promise<number> {
+async function nodeId(store: Store, id: string, expected = 'node'): Promise<string> {
   return nodeIdIn(deriveSet(await store.loadWorkingSet()), id, expected);
 }
 
 /**
- * Resolve a bare project KEY to its surrogate integer id over the working set.
+ * Resolve a bare project KEY to its canonical identity over the working set.
  * Throws not_found if no project with that key exists.
  */
-async function projectId(store: Store, key: string): Promise<number> {
+async function projectId(store: Store, key: string): Promise<string> {
   return resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
 }
 
@@ -471,7 +471,7 @@ export function toolReorder(
   return guard(async () => {
     const id = await nodeId(store, args.id, 'task');
     const position: RankPosition = args.position;
-    let refId: number | null = null;
+    let refId: string | null = null;
     if (position === 'before' || position === 'after') {
       if (args.ref === undefined) {
         throw validation('reorder before/after requires ref');
@@ -852,8 +852,8 @@ export function toolAttach(
       }
     }
 
-    let pid: number;
-    const linkNodeIds: number[] = [];
+    let pid: string;
+    const linkNodeIds: string[] = [];
 
     if (linkTokens.length > 0) {
       // Resolve all node refs; require they all belong to one project

@@ -1,9 +1,7 @@
 /**
- * Allocation (ADR 0006). `project.key` is the consumer-supplied scope prefix;
- * `node.seq` is a per-project counter the core hands out — monotonic, immutable,
- * never reused. The deliberate stored value the spine allows, because it is
- * *allocation*, not derivation. The seq bump itself is a `StoreWriter` primitive
- * (`allocateSeq` / `allocateArtifactSeq`); only key validation lives here.
+ * Identity allocation (ADR 0006). `project.key` is the consumer-supplied scope
+ * prefix; Norn allocates each immutable `node.seq` during document creation.
+ * This module owns only project-key validation.
  */
 
 const KEY_PATTERN = /^[A-Z]{2,4}$/;

@@ -10,7 +10,7 @@ import type {
 
 import type { ArtifactStore } from './artifacts/store';
 import type { BodySectionStore } from './body-sections/store';
-import type { Artifact, Dependency, Node, Project, Tag } from './model';
+import type { Artifact, Dependency, Node, Project } from './model';
 import type { SeedStore } from './seeds/store';
 import type { TransitionsFeed } from './transitions/store';
 
@@ -35,17 +35,17 @@ import type { TransitionsFeed } from './transitions/store';
  * of cheap queries; scope filtering happens in memory.
  */
 /** A node's tag record inside the working set — the tag facet's full shape. */
-export type NodeTag = Pick<Tag, 'tag' | 'created_at'>;
+export type NodeTag = { tag: string; created_at: string };
 
 export type WorkingSet = {
   /** Every project, key-ordered, archived included. */
   projects: readonly Project[];
   nodes: readonly Node[];
   edges: readonly Dependency[];
-  /** Node id → its tag records in `created_at` order. Absent = untagged. */
-  nodeTags: ReadonlyMap<number, readonly NodeTag[]>;
-  /** Project id → its tag records in `created_at` order. Absent = untagged. */
-  projectTags: ReadonlyMap<number, readonly NodeTag[]>;
+  /** Node stem → its tag records in `created_at` order. Absent = untagged. */
+  nodeTags: ReadonlyMap<string, readonly NodeTag[]>;
+  /** Project key → its tag records in `created_at` order. Absent = untagged. */
+  projectTags: ReadonlyMap<string, readonly NodeTag[]>;
 };
 
 // ---------------------------------------------------------------------------
@@ -58,6 +58,7 @@ export type NewProjectRecord = {
   key: string;
   name: string;
   description: string | null;
+  tags?: string[];
 };
 
 /** The mutable project columns — `key` and the counters are immutable/allocated. */
@@ -69,10 +70,10 @@ export type ProjectPatch = {
 };
 
 export type NewNodeRecord = {
-  project_id: number;
+  project_id: string;
   type: NodeType;
-  parent_id: number | null;
-  seq: number;
+  parent_id: string | null;
+  tags?: string[];
   title: string;
   description: string | null;
   /** The short list lede (MMR-162) — all-node, never type-gated. */
@@ -98,7 +99,7 @@ export type NodePatch = {
   description?: string | null;
   /** The short list lede (MMR-162) — all-node, never type-gated. */
   summary?: string | null;
-  parent_id?: number | null;
+  parent_id?: string | null;
   lifecycle?: Lifecycle;
   hold?: Hold;
   hold_reason?: string | null;
@@ -116,7 +117,7 @@ export type NodePatch = {
 };
 
 export type NewAnnotationRecord = {
-  node_id: number;
+  node_id: string;
   content: string;
   // Core-supplied (MMR-173): the mutation layer stamps this, not the DB default,
   // so both backends persist the identical value — the `stamp` invariant (the
@@ -125,7 +126,7 @@ export type NewAnnotationRecord = {
 };
 
 export type NewArtifactRecord = {
-  project_id: number;
+  project_id: string;
   seq: number;
   title: string;
   content: string;
@@ -138,15 +139,15 @@ export type ArtifactPatch = {
 
 export type NewTagRecord = {
   entity_type: TagEntityType;
-  entity_id: number;
+  entity_id: string;
   tag: string;
 };
 
 // Entity-keyed (ADR 0015): exactly one of node_id / project_id is set.
 export type NewTransitionRecord = {
   kind: TransitionKind;
-  node_id?: number | null;
-  project_id?: number | null;
+  node_id?: string | null;
+  project_id?: string | null;
   from_value: string | null;
   to_value: string | null;
   reason?: string | null;
@@ -158,7 +159,7 @@ export type NewTransitionRecord = {
 
 /** A ranked task's ordering row — `rank` asc, `seq` asc (the stable tiebreak). */
 export type RankedTask = {
-  id: number;
+  id: string;
   rank: number;
   seq: number;
 };
@@ -174,37 +175,36 @@ export type StoreWriter = {
   loadWorkingSet: () => Promise<WorkingSet>;
 
   // Point reads
-  loadNode: (id: number) => Promise<Node | undefined>;
-  loadProject: (id: number) => Promise<Project | undefined>;
+  loadNode: (id: string) => Promise<Node | undefined>;
+  loadProject: (key: string) => Promise<Project | undefined>;
   loadProjectByKey: (key: string) => Promise<Project | undefined>;
-  loadArtifact: (id: number) => Promise<Artifact | undefined>;
+  loadArtifact: (id: string) => Promise<Artifact | undefined>;
   /** Direct children of a node (one hop, not the subtree). */
-  listChildren: (parentId: number) => Promise<number[]>;
+  listChildren: (parentId: string) => Promise<string[]>;
   /** The nodes `nodeId` directly depends on (its outgoing `depends_on` edges). */
-  listPrereqsOf: (nodeId: number) => Promise<number[]>;
+  listPrereqsOf: (nodeId: string) => Promise<string[]>;
   /** A project's ranked tasks (`rank` non-null), ordered `rank` asc then `seq` asc. */
-  listRankedTasks: (projectId: number) => Promise<RankedTask[]>;
+  listRankedTasks: (projectId: string) => Promise<RankedTask[]>;
 
   // Allocation (ADR 0006) — the atomic per-project counter bumps.
-  allocateSeq: (projectId: number) => Promise<number>;
-  allocateArtifactSeq: (projectId: number) => Promise<number>;
+  allocateArtifactSeq: (projectId: string) => Promise<number>;
 
   // Writes
   insertProject: (row: NewProjectRecord) => Promise<Project>;
-  updateProject: (id: number, patch: ProjectPatch) => Promise<void>;
+  updateProject: (key: string, patch: ProjectPatch) => Promise<void>;
   insertNode: (row: NewNodeRecord) => Promise<Node>;
-  updateNode: (id: number, patch: NodePatch) => Promise<void>;
+  updateNode: (id: string, patch: NodePatch) => Promise<void>;
   insertDependency: (edge: Dependency) => Promise<void>;
   /** Delete one edge; `true` iff a row was removed. */
   deleteDependency: (edge: Dependency) => Promise<boolean>;
   insertAnnotation: (row: NewAnnotationRecord) => Promise<void>;
-  insertArtifact: (row: NewArtifactRecord) => Promise<{ id: number }>;
-  updateArtifact: (id: number, patch: ArtifactPatch) => Promise<void>;
-  linkArtifact: (artifactId: number, nodeId: number) => Promise<void>;
+  insertArtifact: (row: NewArtifactRecord) => Promise<{ id: string }>;
+  updateArtifact: (id: string, patch: ArtifactPatch) => Promise<void>;
+  linkArtifact: (artifactId: string, nodeId: string) => Promise<void>;
   /** Idempotent tag insert — an existing (entity, tag) row is kept untouched. */
   insertTag: (row: NewTagRecord) => Promise<void>;
   /** Remove the given tags from one entity; returns the number of rows deleted. */
-  deleteTags: (entityType: TagEntityType, entityId: number, tags: string[]) => Promise<number>;
+  deleteTags: (entityType: TagEntityType, entityId: string, tags: string[]) => Promise<number>;
   appendTransition: (row: NewTransitionRecord) => Promise<void>;
 };
 
@@ -221,7 +221,7 @@ export type Store = {
 
   /**
    * The artifact slice (MMR-143, ADR 0016 Phase 2a) — everything artifact-shaped
-   * routes through here, keyed by external identity (`KEY-aN`), never numeric ids.
+   * routes through here, keyed by canonical artifact stem (`KEY-aN`).
    */
   readonly artifacts: ArtifactStore;
 

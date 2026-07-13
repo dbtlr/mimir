@@ -27,10 +27,10 @@ function assertParentType(child: NodeType, parent: NodeType): void {
 }
 
 /** Every node in the subtree rooted at `rootId` (inclusive), walked in-memory over the set. */
-function subtreeIds(set: DerivationSet, rootId: number): number[] {
-  const ids: number[] = [];
-  const seen = new Set<number>();
-  const stack: number[] = [rootId];
+function subtreeIds(set: DerivationSet, rootId: string): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  const stack: string[] = [rootId];
   while (stack.length > 0) {
     const cur = stack.pop();
     if (cur === undefined || seen.has(cur)) {
@@ -55,8 +55,8 @@ function subtreeIds(set: DerivationSet, rootId: number): number[] {
  */
 async function assertMoveKeepsDepsCrossLineage(
   w: StoreWriter,
-  id: number,
-  newParentId: number,
+  id: string,
+  newParentId: string,
   set: DerivationSet,
 ): Promise<void> {
   const subtree = new Set(subtreeIds(set, id));
@@ -81,11 +81,11 @@ async function assertMoveKeepsDepsCrossLineage(
 /** Is `candidateId` within the subtree rooted at `ancestorId` (walking up parents)? */
 async function isDescendantOf(
   w: StoreWriter,
-  candidateId: number,
-  ancestorId: number,
+  candidateId: string,
+  ancestorId: string,
 ): Promise<boolean> {
-  let current: number | null = candidateId;
-  const seen = new Set<number>();
+  let current: string | null = candidateId;
+  const seen = new Set<string>();
   while (current !== null) {
     if (current === ancestorId) {
       return true;
@@ -102,8 +102,8 @@ async function isDescendantOf(
 
 export async function moveNode(
   store: Store,
-  id: number,
-  newParentId: number | null,
+  id: string,
+  newParentId: string | null,
 ): Promise<Node> {
   return store.transact(async (w) => {
     const node = await requireNode(w, id);

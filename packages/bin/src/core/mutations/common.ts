@@ -1,6 +1,5 @@
 import { deriveSet, lineageIds, renderNodeIdFromSet } from '../derive';
 import { conflict, invariant, notFound, validation } from '../errors';
-import { renderId } from '../ids';
 import type { Node } from '../model';
 import { isReady } from '../predicates';
 import type { NewTransitionRecord, StoreWriter } from '../store';
@@ -15,7 +14,7 @@ import { now } from '../time';
  */
 
 /** Reload a node that must exist (post-write echo / mid-verb refresh). */
-export async function reloadNode(w: StoreWriter, id: number): Promise<Node> {
+export async function reloadNode(w: StoreWriter, id: string): Promise<Node> {
   const node = await w.loadNode(id);
   if (node === undefined) {
     throw invariant('the record vanished mid-transaction');
@@ -30,7 +29,7 @@ export async function reloadNode(w: StoreWriter, id: number): Promise<Node> {
  * node-targeting verb; the handful of project-level / create / attach / tag
  * paths that don't load a node first call it directly with the owning project.
  */
-export async function assertProjectActive(w: StoreWriter, projectId: number): Promise<void> {
+export async function assertProjectActive(w: StoreWriter, projectId: string): Promise<void> {
   const project = await w.loadProject(projectId);
   if (project?.archived_at != null) {
     throw conflict(
@@ -44,13 +43,12 @@ export async function assertProjectActive(w: StoreWriter, projectId: number): Pr
  * Render a node's external `KEY-seq` id from two writer point reads — the
  * in-scope equivalent of `lookup.renderNodeId` for verb hints and log values.
  */
-export async function renderNodeRef(w: StoreWriter, nodeId: number): Promise<string | null> {
+export async function renderNodeRef(w: StoreWriter, nodeId: string): Promise<string | null> {
   const node = await w.loadNode(nodeId);
   if (node === undefined) {
     return null;
   }
-  const project = await w.loadProject(node.project_id);
-  return project === undefined ? null : renderId({ key: project.key, seq: node.seq });
+  return node.id;
 }
 
 /**
@@ -59,7 +57,7 @@ export async function renderNodeRef(w: StoreWriter, nodeId: number): Promise<str
  * its target (and any reference node) through here, so the freeze can't be
  * bypassed per-verb.
  */
-export async function requireNode(w: StoreWriter, id: number): Promise<Node> {
+export async function requireNode(w: StoreWriter, id: string): Promise<Node> {
   const node = await w.loadNode(id);
   if (node === undefined) {
     throw notFound('the record was not found');
@@ -96,7 +94,7 @@ async function readyDescendantIds(w: StoreWriter, container: Node): Promise<stri
 }
 
 /** Load a node, asserting it is a task (verbs that touch lifecycle/hold/rank). */
-export async function requireTask(w: StoreWriter, id: number): Promise<Node> {
+export async function requireTask(w: StoreWriter, id: string): Promise<Node> {
   const node = await requireNode(w, id);
   if (node.type !== 'task') {
     const rendered = (await renderNodeRef(w, id)) ?? 'it';
@@ -112,7 +110,7 @@ export async function requireTask(w: StoreWriter, id: number): Promise<Node> {
 }
 
 /** Stamp `updated_at` on a node — the core is the sole time-maintainer (not a trigger). */
-export async function stamp(w: StoreWriter, id: number): Promise<void> {
+export async function stamp(w: StoreWriter, id: string): Promise<void> {
   await w.updateNode(id, { updated_at: now() });
 }
 

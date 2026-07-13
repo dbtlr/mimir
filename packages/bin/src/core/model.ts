@@ -1,12 +1,4 @@
-import type {
-  Hold,
-  Lifecycle,
-  NodeType,
-  Priority,
-  Size,
-  TagEntityType,
-  TransitionKind,
-} from '@mimir/contract';
+import type { Hold, Lifecycle, NodeType, Priority, Size } from '@mimir/contract';
 
 /**
  * The backend-neutral domain model (ADR 0016 Phase 0) — the record shapes the
@@ -19,7 +11,6 @@ import type {
  */
 
 export type Project = {
-  id: number;
   key: string;
   name: string;
   description: string | null;
@@ -32,10 +23,10 @@ export type Project = {
 };
 
 export type Node = {
-  id: number;
-  project_id: number;
+  id: string;
+  project_id: string;
   type: NodeType;
-  parent_id: number | null;
+  parent_id: string | null;
   seq: number;
   title: string;
   description: string | null;
@@ -69,46 +60,15 @@ export type Node = {
 
 /** A prerequisite edge: `node_id` waits on `depends_on_node_id`. */
 export type Dependency = {
-  node_id: number;
-  depends_on_node_id: number;
-};
-
-export type Annotation = {
-  id: number;
-  node_id: number;
-  content: string;
-  created_at: string;
+  node_id: string;
+  depends_on_node_id: string;
 };
 
 export type Artifact = {
-  id: number;
-  project_id: number;
+  id: string;
+  project_id: string;
   seq: number;
   title: string;
   content: string;
   created_at: string;
-};
-
-export type ArtifactLink = {
-  artifact_id: number;
-  node_id: number;
-};
-
-export type Tag = {
-  entity_type: TagEntityType;
-  entity_id: number;
-  tag: string;
-  created_at: string;
-};
-
-// Entity-keyed (ADR 0015): exactly one of node_id / project_id is set.
-export type TransitionRow = {
-  id: number;
-  node_id: number | null;
-  project_id: number | null;
-  kind: TransitionKind;
-  from_value: string | null;
-  to_value: string | null;
-  at: string;
-  reason: string | null;
 };

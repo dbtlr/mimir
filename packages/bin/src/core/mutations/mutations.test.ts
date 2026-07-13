@@ -35,10 +35,8 @@ const NORN = Bun.which('norn') !== null;
 
 let store: Store;
 let closeStore: () => Promise<void>;
-// Fixture identities are threaded as `KEY-seq` (via seq), never as a cached
-// numeric id — several tests below create extra projects mid-test, which
-// re-mints every id in the vault (a Norn surrogate id is per-load), so the
-// project/initiative/phase id is always resolved fresh, right before use.
+// Fixture identities are threaded as their canonical `KEY-seq` stems. The
+// project/initiative/phase helpers resolve those stems at the point of use.
 let mmrInitSeq: number;
 let mmrPhaseSeq: number;
 const projectId = () => projectIdOf(store, 'MMR');
@@ -57,20 +55,19 @@ afterEach(async () => {
   await closeStore();
 });
 
-async function task(title = 't'): Promise<number> {
+async function task(title = 't'): Promise<string> {
   const t = await createTask(store, { parentId: await phaseId(), title });
   return nodeIdOf(store, `MMR-${String(t.seq)}`);
 }
-async function reload(id: number) {
+async function reload(id: string) {
   const node = await store.transact((w) => w.loadNode(id));
   if (node === undefined) {
     throw new Error(`node ${id} vanished`);
   }
   return node;
 }
-/** The `KEY-seq` stem a surrogate id currently resolves to, for the transitions
- * feed (keyed by rendered id, not numeric id) and link assertions. */
-async function stemOf(id: number): Promise<string> {
+/** The canonical `KEY-seq` stem used by the transitions feed and link assertions. */
+async function stemOf(id: string): Promise<string> {
   const set = deriveSet(await store.loadWorkingSet());
   const node = set.nodeById.get(id);
   if (node === undefined) {
@@ -82,7 +79,7 @@ async function stemOf(id: number): Promise<string> {
   }
   return stem;
 }
-async function logs(id: number) {
+async function logs(id: string) {
   const ref = await stemOf(id);
   const { items } = await store.transitions.list();
   return items
@@ -435,7 +432,7 @@ test.skipIf(!NORN)(
       title: 'doc',
     });
     // The verb path: resolve the token, then tag — an artifact target carries
-    // (key, seq), not a numeric id, so it needs no row-level surrogate.
+    // (key, seq), so it needs no separate row-level identity.
     const target = resolveEntityTokenInSet(deriveSet(await store.loadWorkingSet()), renderedId);
     expect(target.entityType).toBe('artifact');
     await tagEntities(store, [target], ['urgent']);
@@ -498,7 +495,7 @@ test.skipIf(!NORN)(
     );
 
     // Missing project
-    await expectMimirError('not_found', () => updateProject(store, 9999, { name: 'x' }));
+    await expectMimirError('not_found', () => updateProject(store, 'ZZZ', { name: 'x' }));
   },
 );
 

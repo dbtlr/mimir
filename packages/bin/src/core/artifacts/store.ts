@@ -1,7 +1,7 @@
 /**
  * The artifact storage seam (MMR-143, ADR 0016 Phase 2a) — the first slice
  * where a second backend exists behind the `Store`. Artifacts are keyed by
- * **external identity** (`key` + `seq`, the `KEY-aN` stem): no numeric ids
+ * **canonical identity** (`key` + `seq`, the `KEY-aN` stem): no separate ids
  * cross this boundary, because the Norn backend has none — the file stem is
  * the id (ADR 0016: "the id↔int lookup layer thins").
  *

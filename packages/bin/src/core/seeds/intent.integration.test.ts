@@ -46,8 +46,7 @@ let store: Store;
 
 /**
  * A phase (KEY-seq) under a fresh initiative — a valid `--parent` for promote.
- * Over the Norn store, surrogate ids are provisional until applied, so each
- * child resolves its parent by the stable `KEY-seq` ref, not the returned id.
+ * Each child resolves its parent by the canonical `KEY-seq` stem.
  */
 async function seedbed(key = 'MMR'): Promise<{ phaseRef: string }> {
   await createProject(store, { key, name: key });
@@ -58,8 +57,8 @@ async function seedbed(key = 'MMR'): Promise<{ phaseRef: string }> {
   return { phaseRef: `${key}-${String(phase.seq)}` };
 }
 
-/** Resolve a project's surrogate id by key over a fresh snapshot. */
-async function pidOf(key: string): Promise<number> {
+/** Resolve a project's canonical key over a fresh snapshot. */
+async function pidOf(key: string): Promise<string> {
   return resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
 }
 
@@ -512,8 +511,8 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
   });
 });
 
-/** Resolve a node's surrogate id from its rendered `KEY-seq` over the module store. */
-async function idOf(ref: string): Promise<number> {
+/** Resolve a node's canonical stem from its rendered `KEY-seq` over the module store. */
+async function idOf(ref: string): Promise<string> {
   const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), ref);
   if (node === undefined) {
     throw new Error(`no node ${ref}`);

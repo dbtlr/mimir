@@ -20,7 +20,7 @@ import type { Dependency, Node, Project } from './model';
 
 const AT = '2026-01-01T00:00:00.000Z';
 let seq = 0;
-const nextId = (): number => {
+const nextSeq = (): number => {
   seq += 1;
   return seq;
 };
@@ -30,7 +30,6 @@ function project(overrides: Partial<Project> = {}): Project {
     archived_at: null,
     created_at: AT,
     description: null,
-    id: nextId(),
     key: 'MMR',
     last_artifact_seq: 0,
     last_seq: 0,
@@ -41,8 +40,8 @@ function project(overrides: Partial<Project> = {}): Project {
 }
 
 /** A leaf task, defaulting to a fresh todo/none/undeps leaf (reads `ready`). */
-function task(projectId: number, overrides: Partial<Node> = {}): Node {
-  const id = nextId();
+function task(projectId: string, overrides: Partial<Node> = {}): Node {
+  const nodeSeq = nextSeq();
   return {
     completed_at: null,
     created_at: AT,
@@ -50,14 +49,14 @@ function task(projectId: number, overrides: Partial<Node> = {}): Node {
     external_ref: null,
     hold: 'none' satisfies Hold,
     hold_reason: null,
-    id,
+    id: `${projectId}-${String(nodeSeq)}`,
     lifecycle: 'todo' satisfies Lifecycle,
     open_ended: null,
     parent_id: null,
     priority: null,
     project_id: projectId,
     rank: null,
-    seq: id, // unread by attentionOf — reuse id rather than burn a second counter tick
+    seq: nodeSeq,
     size: null,
     summary: null,
     target: null,
@@ -89,38 +88,38 @@ test('an empty project (no leaf tasks) is at_rest, recency falling back to the p
 
 test('a project whose only live signal is under_review lands in awaiting_you', () => {
   const p = project();
-  const t = task(p.id, { lifecycle: 'under_review' });
+  const t = task(p.key, { lifecycle: 'under_review' });
   expect(attentionOf(setOf(p, [t]), p).lane).toBe('awaiting_you');
 });
 
 test('in_progress and ready leaves both read as live', () => {
   const p1 = project();
-  const running = task(p1.id, { lifecycle: 'in_progress' });
+  const running = task(p1.key, { lifecycle: 'in_progress' });
   expect(attentionOf(setOf(p1, [running]), p1).lane).toBe('live');
 
   const p2 = project({ key: 'RDY' });
-  const fresh = task(p2.id); // todo + none, no deps → ready
+  const fresh = task(p2.key); // todo + none, no deps → ready
   expect(attentionOf(setOf(p2, [fresh]), p2).lane).toBe('live');
 });
 
 test('blocked and awaiting leaves both read as needs_unsticking', () => {
   const p1 = project();
-  const stuck = task(p1.id, { hold: 'blocked' });
+  const stuck = task(p1.key, { hold: 'blocked' });
   expect(attentionOf(setOf(p1, [stuck]), p1).lane).toBe('needs_unsticking');
 
   const p2 = project({ key: 'AWT' });
   // park the prereq so the project's top lane is the awaiting leaf
-  const prereq = task(p2.id, { hold: 'parked' });
-  const dependent = task(p2.id);
+  const prereq = task(p2.key, { hold: 'parked' });
+  const dependent = task(p2.key);
   const edge: Dependency = { depends_on_node_id: prereq.id, node_id: dependent.id };
   expect(attentionOf(setOf(p2, [prereq, dependent], [edge]), p2).lane).toBe('needs_unsticking');
 });
 
 test('a project of only parked/terminal leaves is at_rest', () => {
   const p = project();
-  const parked = task(p.id, { hold: 'parked' });
-  const done = task(p.id, { lifecycle: 'done' });
-  const gone = task(p.id, { lifecycle: 'abandoned' });
+  const parked = task(p.key, { hold: 'parked' });
+  const done = task(p.key, { lifecycle: 'done' });
+  const gone = task(p.key, { lifecycle: 'abandoned' });
   const a = attentionOf(setOf(p, [parked, done, gone]), p);
   expect(a.lane).toBe('at_rest');
   expect(a.stale).toBe(false);
@@ -128,9 +127,9 @@ test('a project of only parked/terminal leaves is at_rest', () => {
 
 test('the highest lane wins when leaves span several lanes', () => {
   const p = project();
-  const review = task(p.id, { lifecycle: 'under_review' });
-  const ready = task(p.id); // live
-  const blocked = task(p.id, { hold: 'blocked' }); // needs_unsticking
+  const review = task(p.key, { lifecycle: 'under_review' });
+  const ready = task(p.key); // live
+  const blocked = task(p.key, { hold: 'blocked' }); // needs_unsticking
 
   // awaiting_you (under_review) outranks live and needs_unsticking
   expect(attentionOf(setOf(p, [review, ready, blocked]), p).lane).toBe('awaiting_you');
@@ -143,16 +142,16 @@ test('the highest lane wins when leaves span several lanes', () => {
 test('highest-wins is independent of scan order — the winning leaf created last still wins', () => {
   const p = project();
   // lower lanes first, the awaiting_you leaf created last (so it scans last)
-  const blocked = task(p.id, { hold: 'blocked' }); // needs_unsticking
-  const ready = task(p.id); // live
-  const review = task(p.id, { lifecycle: 'under_review' }); // awaiting_you, created last
+  const blocked = task(p.key, { hold: 'blocked' }); // needs_unsticking
+  const ready = task(p.key); // live
+  const review = task(p.key, { lifecycle: 'under_review' }); // awaiting_you, created last
   expect(attentionOf(setOf(p, [blocked, ready, review]), p).lane).toBe('awaiting_you');
 });
 
 test('stale is a modifier that decorates the live lane, not a lane of its own', () => {
   const p = project();
   const asOf = '2026-06-05T00:00:00.000Z';
-  const ancient = task(p.id, {
+  const ancient = task(p.key, {
     lifecycle: 'in_progress',
     updated_at: '2000-01-01T00:00:00.000Z', // ancient
   });
@@ -168,7 +167,7 @@ test('stale is a modifier that decorates the live lane, not a lane of its own', 
 
 test("lastActivity is the max updated_at across the project's leaf tasks", () => {
   const p = project();
-  const older = task(p.id, { updated_at: '2026-01-01T00:00:00.000Z' });
-  const newer = task(p.id, { updated_at: '2026-06-20T12:00:00.000Z' });
+  const older = task(p.key, { updated_at: '2026-01-01T00:00:00.000Z' });
+  const newer = task(p.key, { updated_at: '2026-06-20T12:00:00.000Z' });
   expect(attentionOf(setOf(p, [older, newer]), p).lastActivity).toBe('2026-06-20T12:00:00.000Z');
 });

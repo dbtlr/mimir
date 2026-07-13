@@ -18,6 +18,10 @@ import { CHECKS, frontmatterCheck, RULE_OWNER, stemProjectCheck } from './checks
  * to render a finding. */
 function dropOf(rule: Drop['rule']): Drop {
   const stem = 'MMR-1';
+  if (rule === 'duplicate-stem') {
+    const paths = ['MMR/MMR-1.md', 'archive/MMR-1.md'];
+    return { kind: 'identity', path: paths[0]!, paths, rule, stem };
+  }
   if (rule === 'missing-project' || rule === 'orphaned-seed') {
     return { key: 'MMR', kind: 'node', rule, stem };
   }

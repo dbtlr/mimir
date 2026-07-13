@@ -13,7 +13,7 @@ import {
   renderHistoryRecord,
   renderNodeBody,
 } from '../core/history-codec';
-import { parseId, renderId } from '../core/ids';
+import { parseId } from '../core/ids';
 import type { Dependency, Node, Project } from '../core/model';
 import { createNornSeedStore } from '../core/seeds';
 import type {
@@ -58,20 +58,13 @@ import {
  * write is caught and the deterministic verb is replayed against a fresh
  * snapshot.
  *
- * Identity: the vault has no surrogate ids (the stem IS the id), so the reader
- * mints synthetic ints stable per load; this writer resolves those ints to
- * `KEY/KEY-seq.md` paths through the same snapshot. A new node has no seq until
- * Norn allocates it — `create_document`'s `{{seq}}` token is resolved to the
- * next per-project sequence at apply time — so `allocateSeq` hands back a
- * provisional sentinel used only for intra-`transact` overlay identity; the real
- * `KEY-seq` comes back in the apply report and is stitched into the echoed node.
+ * Identity is canonical throughout. Existing documents resolve through the
+ * snapshot's stem-to-path locator. A new node remains private to this writer
+ * until Norn resolves `{{seq}}`; the structured apply-report stem supplies its
+ * final echo without another vault load.
  */
 
 const MAX_ATTEMPTS = 5;
-
-/** A provisional, per-`transact` sentinel id/seq: negative, so it never collides
- * with a snapshot's 1-based synthetic ints (which the reader mints positive). */
-type Provisional = number;
 
 /** A queued append under a document's `## History` section. */
 type HistoryAppend = HistoryEntry;
@@ -88,10 +81,9 @@ type Mutation = {
   annotations: AnnotationAppend[];
 };
 
-/** A queued create of one NEW document (provisional id → resolved at apply). */
+/** A queued create of one NEW document, private to the writer. */
 type Create = {
-  targetKind: 'node' | 'project';
-  provisionalId: Provisional;
+  tags: NodeTag[];
   /** The path template handed to `create_document`; a node carries `{{seq}}`. */
   pathTemplate: string;
   /**
@@ -103,7 +95,7 @@ type Create = {
    * if the emit order or op-per-create count ever changes.
    */
   opId?: number;
-};
+} & ({ targetKind: 'node'; target: Node } | { targetKind: 'project'; target: Project });
 
 /** The frontmatter field a node patch column maps onto (identity but for parent). */
 function nodePatchField(column: string): string {
@@ -157,11 +149,8 @@ async function runTransact<T>(
       // `isError` path did, so it doesn't read as an internal mimir bug.
       throw validation('the node write path apply did not complete', verdict.detail);
     }
-    const resolvedSeqs = extractResolvedSeqs(report, acc.creates);
-    // A create resolves its real KEY-seq/id from a post-apply reload; a pure
-    // mutation has nothing to stitch, so skip the extra read.
-    const reloaded = resolvedSeqs.size > 0 ? await loadNornSnapshot(client) : undefined;
-    return acc.resolveResult(result, resolvedSeqs, reloaded);
+    const resolvedStems = extractResolvedStems(report, acc.creates);
+    return acc.resolveResult(result, resolvedStems);
   }
   throw invariant(
     'the node write path exhausted its drift retries',
@@ -255,21 +244,20 @@ class Accumulator {
   readonly creates: Create[] = [];
 
   private readonly snapshot: NornSnapshot;
-  private readonly nodes: Map<number, Node>;
-  private readonly projects: Map<number, Project>;
+  private readonly nodes: Map<string, Node>;
+  private readonly projects: Map<string, Project>;
   private readonly projectByKey: Map<string, Project>;
   private edges: Dependency[];
-  private readonly nodeTags: Map<number, NodeTag[]>;
-  private readonly projectTags: Map<number, NodeTag[]>;
-  private readonly nodeMutations = new Map<number, Mutation>();
-  private readonly projectMutations = new Map<number, Mutation>();
-  private nextProvisional: Provisional = -1;
+  private readonly nodeTags: Map<string, NodeTag[]>;
+  private readonly projectTags: Map<string, NodeTag[]>;
+  private readonly nodeMutations = new Map<string, Mutation>();
+  private readonly projectMutations = new Map<string, Mutation>();
 
   constructor(snapshot: NornSnapshot) {
     this.snapshot = snapshot;
     const ws = snapshot.workingSet;
     this.nodes = new Map(ws.nodes.map((n) => [n.id, { ...n }]));
-    this.projects = new Map(ws.projects.map((p) => [p.id, { ...p }]));
+    this.projects = new Map(ws.projects.map((p) => [p.key, { ...p }]));
     this.projectByKey = new Map([...this.projects.values()].map((p) => [p.key, p]));
     this.edges = ws.edges.map((e) => ({ ...e }));
     this.nodeTags = new Map(
@@ -291,7 +279,7 @@ class Accumulator {
     };
   }
 
-  private mutationOf(map: Map<number, Mutation>, id: number): Mutation {
+  private mutationOf(map: Map<string, Mutation>, id: string): Mutation {
     let mutation = map.get(id);
     if (mutation === undefined) {
       mutation = { annotations: [], dirty: new Set(), history: [] };
@@ -302,8 +290,7 @@ class Accumulator {
 
   private buildWriter(): StoreWriter {
     return {
-      allocateArtifactSeq: () => Promise.resolve(this.nextProvisional--),
-      allocateSeq: () => Promise.resolve(this.nextProvisional--),
+      allocateArtifactSeq: () => Promise.resolve(0),
       appendTransition: (row) => this.appendTransition(row),
       deleteDependency: (edge) => this.deleteDependency(edge),
       deleteTags: (entityType, entityId, tags) => this.deleteTags(entityType, entityId, tags),
@@ -343,7 +330,7 @@ class Accumulator {
     };
   }
 
-  private cloneNode(id: number): Node | undefined {
+  private cloneNode(id: string): Node | undefined {
     const node = this.nodes.get(id);
     return node === undefined ? undefined : { ...node };
   }
@@ -355,10 +342,10 @@ class Accumulator {
   // ── Write primitives (record effects + update overlay) ──────────────────
 
   private insertNode(row: {
-    project_id: number;
+    project_id: string;
     type: Node['type'];
-    parent_id: number | null;
-    seq: number;
+    parent_id: string | null;
+    tags?: string[];
     title: string;
     description?: string | null;
     summary?: string | null;
@@ -384,14 +371,14 @@ class Accumulator {
       external_ref: row.external_ref ?? null,
       hold: row.hold ?? (row.type === 'task' ? 'none' : null),
       hold_reason: null,
-      id: this.nextProvisional--,
+      id: '',
       lifecycle: row.lifecycle ?? null,
       open_ended: row.open_ended ?? null,
       parent_id: row.parent_id,
       priority: row.priority ?? null,
       project_id: row.project_id,
       rank: row.rank ?? null,
-      seq: row.seq,
+      seq: 0,
       size: row.size ?? null,
       summary: row.summary ?? null,
       target: row.target ?? null,
@@ -400,49 +387,50 @@ class Accumulator {
       updated_at: timestamp,
       upstream: row.upstream ?? null,
     };
-    this.nodes.set(node.id, node);
     this.creates.push({
       pathTemplate: `${project.key}/${project.key}-{{seq}}.md`,
-      provisionalId: node.id,
+      tags: (row.tags ?? []).map((tag) => ({ created_at: timestamp, tag })),
+      target: node,
       targetKind: 'node',
     });
-    return Promise.resolve({ ...node });
+    return Promise.resolve(node);
   }
 
   private insertProject(row: {
     key: string;
     name: string;
     description: string | null;
+    tags?: string[];
   }): Promise<Project> {
     const timestamp = now();
     const project: Project = {
       archived_at: null,
       created_at: timestamp,
       description: row.description,
-      id: this.nextProvisional--,
       key: row.key,
       last_artifact_seq: 0,
       last_seq: 0,
       name: row.name,
       updated_at: timestamp,
     };
-    this.projects.set(project.id, project);
+    this.projects.set(project.key, project);
     this.projectByKey.set(project.key, project);
     this.creates.push({
       pathTemplate: `${project.key}/${project.key}.md`,
-      provisionalId: project.id,
+      tags: (row.tags ?? []).map((tag) => ({ created_at: timestamp, tag })),
+      target: project,
       targetKind: 'project',
     });
-    return Promise.resolve({ ...project });
+    return Promise.resolve(project);
   }
 
-  private updateNode(id: number, patch: Record<string, unknown>): Promise<void> {
+  private updateNode(id: string, patch: Record<string, unknown>): Promise<void> {
     const node = this.nodes.get(id);
     if (node === undefined) {
       return Promise.reject(invariant('the record vanished mid-transaction'));
     }
     Object.assign(node, patch);
-    if (id > 0) {
+    if (this.snapshot.pathByStem.has(id)) {
       const mutation = this.mutationOf(this.nodeMutations, id);
       for (const column of Object.keys(patch)) {
         mutation.dirty.add(nodePatchField(column));
@@ -451,13 +439,13 @@ class Accumulator {
     return Promise.resolve();
   }
 
-  private updateProject(id: number, patch: Record<string, unknown>): Promise<void> {
+  private updateProject(id: string, patch: Record<string, unknown>): Promise<void> {
     const project = this.projects.get(id);
     if (project === undefined) {
       return Promise.reject(invariant('the record vanished mid-transaction'));
     }
     Object.assign(project, patch);
-    if (id > 0) {
+    if (this.snapshot.pathByStem.has(id)) {
       const mutation = this.mutationOf(this.projectMutations, id);
       for (const column of Object.keys(patch)) {
         mutation.dirty.add(column);
@@ -489,15 +477,15 @@ class Accumulator {
     return Promise.resolve(removed);
   }
 
-  private markDependsOnDirty(nodeId: number): void {
-    if (nodeId > 0) {
+  private markDependsOnDirty(nodeId: string): void {
+    if (this.snapshot.pathByStem.has(nodeId)) {
       this.mutationOf(this.nodeMutations, nodeId).dirty.add('depends_on');
     }
   }
 
   private applyTag(
     entityType: 'node' | 'project' | 'artifact',
-    entityId: number,
+    entityId: string,
     tag: string,
   ): Promise<void> {
     if (entityType === 'artifact') {
@@ -511,7 +499,7 @@ class Accumulator {
       tags.push({ created_at: now(), tag });
     }
     map.set(entityId, tags);
-    if (entityId > 0) {
+    if (this.snapshot.pathByStem.has(entityId)) {
       const mutations = entityType === 'node' ? this.nodeMutations : this.projectMutations;
       this.mutationOf(mutations, entityId).dirty.add('tags');
     }
@@ -520,7 +508,7 @@ class Accumulator {
 
   private deleteTags(
     entityType: 'node' | 'project' | 'artifact',
-    entityId: number,
+    entityId: string,
     tags: string[],
   ): Promise<number> {
     if (entityType === 'artifact') {
@@ -532,7 +520,7 @@ class Accumulator {
     const kept = current.filter((t) => !remove.has(t.tag));
     const removed = current.length - kept.length;
     map.set(entityId, kept);
-    if (removed > 0 && entityId > 0) {
+    if (removed > 0 && this.snapshot.pathByStem.has(entityId)) {
       const mutations = entityType === 'node' ? this.nodeMutations : this.projectMutations;
       this.mutationOf(mutations, entityId).dirty.add('tags');
     }
@@ -547,18 +535,17 @@ class Accumulator {
       reason: row.reason ?? null,
       to: row.to_value,
     };
-    // Fail loud on an unresolvable target, mirroring `stemOf`'s contract: a
-    // transition against a same-transact create (negative provisional id) or a
-    // node/project absent from the snapshot must not be silently dropped —
+    // Fail loud on an unresolvable target: a transition against a same-transact
+    // create or a node/project absent from the snapshot must not be dropped —
     // that would lose History. A create is not a transition (ADR 0003), so no
     // legitimate flow reaches here with a non-positive id.
     if (row.node_id != null) {
-      if (row.node_id <= 0 || !this.nodes.has(row.node_id)) {
+      if (!this.snapshot.pathByStem.has(row.node_id) || !this.nodes.has(row.node_id)) {
         throw invariant('a transition targets a node absent from the snapshot');
       }
       this.mutationOf(this.nodeMutations, row.node_id).history.push(entry);
     } else if (row.project_id != null) {
-      if (row.project_id <= 0 || !this.projects.has(row.project_id)) {
+      if (!this.snapshot.pathByStem.has(row.project_id) || !this.projects.has(row.project_id)) {
         throw invariant('a transition targets a project absent from the snapshot');
       }
       this.mutationOf(this.projectMutations, row.project_id).history.push(entry);
@@ -577,7 +564,7 @@ class Accumulator {
    * note.
    */
   private insertAnnotation(row: NewAnnotationRecord): Promise<void> {
-    if (row.node_id <= 0 || !this.nodes.has(row.node_id)) {
+    if (!this.snapshot.pathByStem.has(row.node_id) || !this.nodes.has(row.node_id)) {
       throw invariant('an annotation targets a node absent from the snapshot');
     }
     this.mutationOf(this.nodeMutations, row.node_id).annotations.push({
@@ -589,24 +576,18 @@ class Accumulator {
 
   // ── Plan build (coalesce every effect into one op-set per document) ──────
 
-  /** A node's canonical stem, resolved through its project's key. A create node
-   * has no real seq yet — a relation to one is unrepresentable pre-apply. */
-  private stemOf(nodeId: number): string {
-    const node = this.nodes.get(nodeId);
-    if (node === undefined) {
+  /** Validate and return an existing node's canonical stem. */
+  private stemOf(nodeId: string): string {
+    if (!this.nodes.has(nodeId)) {
       throw invariant('a relation referenced a node absent from the snapshot');
     }
-    if (nodeId < 0) {
-      throw invariant('a relation to a node created in the same transact is not yet supported');
-    }
-    const project = this.projects.get(node.project_id);
-    if (project === undefined) {
-      throw invariant('a node referenced a project absent from the snapshot');
-    }
-    return renderId({ key: project.key, seq: node.seq });
+    return nodeId;
   }
 
-  private nodeRelations(node: Node): {
+  private nodeRelations(
+    node: Node,
+    createTags?: NodeTag[],
+  ): {
     projectKey: string;
     parentStem: string | null;
     dependsOn: string[];
@@ -628,15 +609,16 @@ class Accumulator {
     const dependsOn = [...new Set([...liveDeps, ...preserved])].toSorted((a, b) =>
       a.localeCompare(b),
     );
-    const tags = (this.nodeTags.get(node.id) ?? []).toSorted((a, b) => a.tag.localeCompare(b.tag));
-    const project = this.projects.get(node.project_id);
-    if (project === undefined) {
+    const tags = (createTags ?? this.nodeTags.get(node.id) ?? []).toSorted((a, b) =>
+      a.tag.localeCompare(b.tag),
+    );
+    if (!this.projects.has(node.project_id)) {
       throw invariant('a node referenced a project absent from the snapshot');
     }
     return {
       dependsOn,
       parentStem: node.parent_id === null ? null : this.stemOf(node.parent_id),
-      projectKey: project.key,
+      projectKey: node.project_id,
       tags,
     };
   }
@@ -650,20 +632,12 @@ class Accumulator {
     for (const create of this.creates) {
       create.opId = operations.length;
       if (create.targetKind === 'node') {
-        const node = this.nodes.get(create.provisionalId);
-        if (node === undefined) {
-          throw invariant('a queued node create vanished from the overlay');
-        }
-        const fm = nodeFrontmatter(node, this.nodeRelations(node));
+        const node = create.target;
+        const fm = nodeFrontmatter(node, this.nodeRelations(node, create.tags));
         operations.push(createDocument(create.pathTemplate, fm, renderNodeBody(node.description)));
       } else {
-        const project = this.projects.get(create.provisionalId);
-        if (project === undefined) {
-          throw invariant('a queued project create vanished from the overlay');
-        }
-        const tags = (this.projectTags.get(project.id) ?? []).toSorted((a, b) =>
-          a.tag.localeCompare(b.tag),
-        );
+        const project = create.target;
+        const tags = create.tags.toSorted((a, b) => a.tag.localeCompare(b.tag));
         const fm = projectFrontmatter(project, tags);
         operations.push(createDocument(create.pathTemplate, fm, renderHistoryBody()));
       }
@@ -674,11 +648,10 @@ class Accumulator {
       if (node === undefined) {
         throw invariant('a mutated node vanished from the overlay');
       }
-      const project = this.projects.get(node.project_id);
-      if (project === undefined) {
-        throw invariant('a mutated node references a project absent from the snapshot');
+      const path = this.snapshot.pathByStem.get(id);
+      if (path === undefined) {
+        throw invariant('a mutated node has no path in the transaction snapshot');
       }
-      const path = `${project.key}/${renderId({ key: project.key, seq: node.seq })}.md`;
       const finalFm = nodeFrontmatter(node, this.nodeRelations(node));
       const rawFm = this.snapshot.nodeFm.get(id) ?? {};
       this.emitFieldOps(operations, path, mutation.dirty, finalFm, rawFm);
@@ -700,7 +673,10 @@ class Accumulator {
       if (project === undefined) {
         throw invariant('a mutated project vanished from the overlay');
       }
-      const path = `${project.key}/${project.key}.md`;
+      const path = this.snapshot.pathByStem.get(id);
+      if (path === undefined) {
+        throw invariant('a mutated project has no path in the transaction snapshot');
+      }
       const tags = (this.projectTags.get(id) ?? []).toSorted((a, b) => a.tag.localeCompare(b.tag));
       const finalFm = projectFrontmatter(project, tags);
       const rawFm = this.snapshot.projectFm.get(id) ?? {};
@@ -763,44 +739,20 @@ class Accumulator {
     }
   }
 
-  /**
-   * Replace a created node's provisional echo with the ACTUAL persisted Node,
-   * re-resolved from a post-apply reload by its now-real `KEY-seq` stem. The
-   * invariant a create must uphold — a real positive `id` AND `seq`, or
-   * the transact throws — holds: a stem that never resolved (the
-   * report lacked/mismatched its create summary) already threw in
-   * {@link extractResolvedSeqs}, and a node missing from the reload throws
-   * below. The provisional sentinel is never returned.
-   */
-  resolveResult<T>(
-    result: T,
-    resolvedSeqs: Map<Provisional, number>,
-    reloaded: NornSnapshot | undefined,
-  ): T {
-    if (reloaded === undefined || !isRecord(result)) {
-      return result;
+  /** Fill a created node echo directly from Norn's structured apply report. */
+  resolveResult<T>(result: T, resolvedStems: ReadonlyMap<Create, string>): T {
+    for (const [create, stem] of resolvedStems) {
+      if (create.targetKind !== 'node' || result !== create.target) {
+        continue;
+      }
+      const node = create.target;
+      const ref = parseId(stem);
+      if (ref === null || ref.key !== node.project_id) {
+        throw invariant(`a created node resolved to an unexpected stem: ${stem}`);
+      }
+      node.id = stem;
+      node.seq = ref.seq;
     }
-    const id = result.id;
-    if (typeof id !== 'number' || !resolvedSeqs.has(id)) {
-      return result;
-    }
-    const seq = resolvedSeqs.get(id);
-    const provisional = this.nodes.get(id);
-    const project =
-      provisional === undefined ? undefined : this.projects.get(provisional.project_id);
-    if (seq === undefined || project === undefined) {
-      throw invariant('a created node could not be resolved to its project');
-    }
-    const stem = renderId({ key: project.key, seq });
-    const real = reloaded.workingSet.nodes.find((n) => {
-      const p = reloaded.workingSet.projects.find((x) => x.id === n.project_id);
-      return p !== undefined && p.key === project.key && n.seq === seq;
-    });
-    if (real === undefined) {
-      throw invariant(`a created node ${stem} was not found in the vault after apply`);
-    }
-    // Return the real, persisted node — positive `id`, allocated `seq`.
-    Object.assign(result, real);
     return result;
   }
 }
@@ -811,7 +763,7 @@ class Accumulator {
 type ReportOp = { kind: string; status?: string; stem?: string };
 
 /**
- * Map each create's provisional id to the sequence Norn allocated. norn reports
+ * Map each private queued create to the stem Norn allocated. norn reports
  * every op's `op_id` as its plan position; {@link Accumulator.buildOperations}
  * stamps each create with the op index it emitted at ({@link Create.opId}), so
  * the correlation is that captured index — not a re-derivation from the
@@ -819,16 +771,15 @@ type ReportOp = { kind: string; status?: string; stem?: string };
  * op-per-create count ever changed. Read the resolved `stem` straight from the
  * correlated op (NRN-175's structured field), not norn's human summary text.
  */
-function extractResolvedSeqs(report: unknown, creates: Create[]): Map<Provisional, number> {
-  const resolved = new Map<Provisional, number>();
+function extractResolvedStems(report: unknown, creates: Create[]): Map<Create, string> {
+  const resolved = new Map<Create, string>();
   const byOpId = reportOperations(report);
   for (const create of creates) {
     if (create.targetKind !== 'node') {
       continue;
     }
-    // Fail loud rather than leak the negative provisional seq (which would
-    // render `KEY--1`): a create MUST resolve its real allocated seq from an
-    // applied, structured report op, or the whole transact throws.
+    // A create MUST resolve its real identity from an applied, structured report
+    // op, or the transaction throws before its pending echo can leave the writer.
     if (create.opId === undefined) {
       throw invariant('a created node was not stamped with its plan op_id before apply');
     }
@@ -845,7 +796,7 @@ function extractResolvedSeqs(report: unknown, creates: Create[]): Map<Provisiona
     if (ref === null) {
       throw invariant(`a created node's resolved stem is not a KEY-seq: ${op.stem}`);
     }
-    resolved.set(create.provisionalId, ref.seq);
+    resolved.set(create, op.stem);
   }
   return resolved;
 }

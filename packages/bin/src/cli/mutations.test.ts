@@ -22,9 +22,9 @@ const NORN = Bun.which('norn') !== null;
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
 let taskRef: string;
-let phaseId: number;
+let phaseId: string;
 let phaseRef: string;
-let initiativeId: number;
+let initiativeId: string;
 let initiativeRef: string;
 beforeEach(async () => {
   // The pure readContent tests below run norn-less; the store fixture only
@@ -49,9 +49,9 @@ afterEach(async () => {
 });
 
 // resolveNode
-test.skipIf(!NORN)('resolveNode returns the surrogate id for a valid KEY-seq', async () => {
+test.skipIf(!NORN)('resolveNode returns the canonical stem for a valid KEY-seq', async () => {
   const id = await resolveNode(store, taskRef);
-  expect(typeof id).toBe('number');
+  expect(id).toBe(taskRef);
 });
 test.skipIf(!NORN)('resolveNode throws not_found (code) for a missing id', async () => {
   let threw: unknown;
@@ -64,9 +64,9 @@ test.skipIf(!NORN)('resolveNode throws not_found (code) for a missing id', async
 });
 
 // resolveProject
-test.skipIf(!NORN)('resolveProject returns the surrogate id for a valid project key', async () => {
+test.skipIf(!NORN)('resolveProject returns the canonical project key', async () => {
   const id = await resolveProject(store, 'MMR');
-  expect(typeof id).toBe('number');
+  expect(id).toBe('MMR');
 });
 test.skipIf(!NORN)('resolveProject throws not_found (code) for a missing project key', async () => {
   let threw: unknown;
@@ -81,13 +81,11 @@ test.skipIf(!NORN)('resolveProject throws not_found (code) for a missing project
 // resolveParent
 test.skipIf(!NORN)("resolveParent returns {kind:'project'} for a bare project key", async () => {
   const result = await resolveParent(store, 'MMR');
-  expect(result).toMatchObject({ kind: 'project' });
-  expect(typeof result.id).toBe('number');
+  expect(result).toEqual({ id: 'MMR', kind: 'project' });
 });
 test.skipIf(!NORN)("resolveParent returns {kind:'node'} for a KEY-seq token", async () => {
   const result = await resolveParent(store, taskRef);
-  expect(result).toMatchObject({ kind: 'node' });
-  expect(typeof result.id).toBe('number');
+  expect(result).toEqual({ id: taskRef, kind: 'node' });
 });
 
 // echoNode

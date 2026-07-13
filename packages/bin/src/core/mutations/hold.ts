@@ -24,7 +24,7 @@ function assertHoldable(task: Node): void {
 
 async function enterHold(
   store: Store,
-  id: number,
+  id: string,
   to: Exclude<Hold, 'none'>,
   reason?: string,
 ): Promise<Node> {
@@ -47,7 +47,7 @@ async function enterHold(
   });
 }
 
-async function releaseHold(store: Store, id: number, from: Exclude<Hold, 'none'>): Promise<Node> {
+async function releaseHold(store: Store, id: string, from: Exclude<Hold, 'none'>): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
     if (task.hold !== from) {
@@ -64,14 +64,14 @@ async function releaseHold(store: Store, id: number, from: Exclude<Hold, 'none'>
   });
 }
 
-export const parkTask = (store: Store, id: number, reason?: string): Promise<Node> =>
+export const parkTask = (store: Store, id: string, reason?: string): Promise<Node> =>
   enterHold(store, id, 'parked', reason);
 
-export const unparkTask = (store: Store, id: number): Promise<Node> =>
+export const unparkTask = (store: Store, id: string): Promise<Node> =>
   releaseHold(store, id, 'parked');
 
-export const blockTask = (store: Store, id: number, reason?: string): Promise<Node> =>
+export const blockTask = (store: Store, id: string, reason?: string): Promise<Node> =>
   enterHold(store, id, 'blocked', reason);
 
-export const unblockTask = (store: Store, id: number): Promise<Node> =>
+export const unblockTask = (store: Store, id: string): Promise<Node> =>
   releaseHold(store, id, 'blocked');

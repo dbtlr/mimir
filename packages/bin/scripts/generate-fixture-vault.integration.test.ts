@@ -119,7 +119,7 @@ test.skipIf(!NORN)('the dependency chain, tags, and artifacts manifest', async (
   expect((ws.nodeTags.get(carousel.id) ?? []).map((t) => t.tag)).toContain('area:onboarding');
   const aurora = ws.projects.find((p) => p.key === 'AUR');
   expect(aurora).toBeDefined();
-  expect((ws.projectTags.get(aurora?.id ?? -1) ?? []).map((t) => t.tag)).toContain('release:v1');
+  expect((ws.projectTags.get(aurora?.key ?? '') ?? []).map((t) => t.tag)).toContain('release:v1');
 
   // A task-linked artifact and a project-level one.
   const artifacts = await store.artifacts.listForProject('AUR');

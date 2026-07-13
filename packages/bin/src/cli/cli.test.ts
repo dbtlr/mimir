@@ -20,7 +20,7 @@ const NORN = Bun.which('norn') !== null;
 
 let store: Store;
 let closeStore: () => Promise<void>;
-let phaseId: number;
+let phaseId: string;
 let phaseSeq: number;
 beforeEach(async () => {
   if (!NORN) {
@@ -238,8 +238,8 @@ test.skipIf(!NORN)('archive warns about released cross-project dependents (MMR-1
   const aPhase = await createPhase(store, { parentId: aInitId, title: 'ph' });
   const aPhaseId = await nodeIdOf(store, `AAA-${String(aPhase.seq)}`);
   const a1 = await createTask(store, { parentId: aPhaseId, title: 'a1' });
-  // Resolve both ids fresh, right before the mutation — numeric ids are a
-  // per-snapshot artifact, and several creates happened since mmrTask's.
+  // Keep both operands in the same explicit mutation setup so this fixture
+  // remains readable after the cross-project creates above.
   const a1Id = await nodeIdOf(store, `AAA-${String(a1.seq)}`);
   const mmrTaskId = await nodeIdOf(store, `MMR-${String(mmrTask.seq)}`);
   await depend(store, a1Id, [mmrTaskId]);

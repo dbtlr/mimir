@@ -57,8 +57,8 @@ beforeEach(async () => {
   phaseRef = `MMR-${String(phase.seq)}`;
 });
 
-/** Resolve a node's surrogate id by its KEY-seq ref (Norn ids are provisional). */
-async function idOf(ref: string): Promise<number> {
+/** Resolve a node's canonical stem by its KEY-seq ref. */
+async function idOf(ref: string): Promise<string> {
   const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), ref);
   if (node === undefined) {
     throw new Error(`no node ${ref}`);

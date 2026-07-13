@@ -128,7 +128,7 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
   const tasks =
     project === undefined
       ? []
-      : (set.nodesByProject.get(project.id) ?? []).filter(
+      : (set.nodesByProject.get(project.key) ?? []).filter(
           (node) => node.type === 'task' && node.upstream !== null && !isNodeSettled(set, node),
         );
 
@@ -138,7 +138,7 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
   // Render each task's stem ONCE (pure). A task whose id can't render is a
   // derivation gap — skip it silently, as before. The surviving stems key both
   // the annotation reads and the batched anchor-health probe below.
-  const taskStems = new Map<number, string>();
+  const taskStems = new Map<string, string>();
   for (const task of tasks) {
     const stem = renderNodeIdFromSet(set, task);
     if (stem !== null) {

@@ -12,7 +12,7 @@ const KEY = 'MMR';
 
 let store: Store;
 let closeStore: () => Promise<void>;
-let phaseId: number;
+let phaseId: string;
 beforeEach(async () => {
   ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: KEY, name: 'm' });

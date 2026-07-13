@@ -399,10 +399,7 @@ export async function promoteSeed(
     if (parent === undefined || set.archivedProjects.has(parent.project_id)) {
       throw notFound(`${input.parent} doesn't exist`, 'a task parent is a phase or initiative');
     }
-    const key = set.keyByProjectId.get(parent.project_id);
-    if (key === undefined) {
-      throw validation(`${input.parent} has no resolvable project`);
-    }
+    const key = parent.project_id;
     const task = await createTask(store, {
       description: input.description ?? rec.description ?? null,
       parentId: parent.id,

@@ -46,24 +46,24 @@ function nodeBody(): string {
 
 test('readHistory reads + parses the ## History section natively', async () => {
   const store = createNornBodySectionStore(clientWithBody(nodeBody()));
-  expect(await store.readHistory(9, 'MMR-9')).toEqual([HISTORY]);
+  expect(await store.readHistory('MMR-9', 'MMR-9')).toEqual([HISTORY]);
 });
 
 test('readAnnotations reads + parses the ## Annotations section natively', async () => {
   const store = createNornBodySectionStore(clientWithBody(nodeBody()));
-  expect(await store.readAnnotations(9, 'MMR-9')).toEqual([ANNOTATION]);
+  expect(await store.readAnnotations('MMR-9', 'MMR-9')).toEqual([ANNOTATION]);
 });
 
 test('a freshly-seeded node (empty sections) reads back as no records', async () => {
   const store = createNornBodySectionStore(clientWithBody(renderNodeBody('a task')));
-  expect(await store.readHistory(9, 'MMR-9')).toEqual([]);
-  expect(await store.readAnnotations(9, 'MMR-9')).toEqual([]);
+  expect(await store.readHistory('MMR-9', 'MMR-9')).toEqual([]);
+  expect(await store.readAnnotations('MMR-9', 'MMR-9')).toEqual([]);
 });
 
 test('a missing document (no records returned) reads back empty, not a throw', async () => {
   const store = createNornBodySectionStore(clientWithBody(undefined));
-  expect(await store.readHistory(9, 'MMR-9')).toEqual([]);
-  expect(await store.readAnnotations(9, 'MMR-9')).toEqual([]);
+  expect(await store.readHistory('MMR-9', 'MMR-9')).toEqual([]);
+  expect(await store.readAnnotations('MMR-9', 'MMR-9')).toEqual([]);
 });
 
 test('an ambiguous (duplicate) heading reads back empty, not the first section (MMR-239)', async () => {
@@ -78,8 +78,8 @@ test('an ambiguous (duplicate) heading reads back empty, not the first section (
     },
   } as unknown as NornClient;
   const store = createNornBodySectionStore(ambiguous);
-  expect(await store.readHistory(9, 'MMR-9')).toEqual([]);
-  expect(await store.readAnnotations(9, 'MMR-9')).toEqual([]);
+  expect(await store.readHistory('MMR-9', 'MMR-9')).toEqual([]);
+  expect(await store.readAnnotations('MMR-9', 'MMR-9')).toEqual([]);
 });
 
 test('readSections reads all requested facets in one getSections round-trip (MMR-164 F6)', async () => {
@@ -104,7 +104,7 @@ test('readSections reads all requested facets in one getSections round-trip (MMR
     },
   } as unknown as NornClient;
   const store = createNornBodySectionStore(client);
-  const sections = await store.readSections(9, 'MMR-9', {
+  const sections = await store.readSections('MMR-9', 'MMR-9', {
     annotations: true,
     description: true,
     history: true,
@@ -118,7 +118,7 @@ test('readSections reads all requested facets in one getSections round-trip (MMR
 
 test('readSections populates only the requested facets (MMR-164)', async () => {
   const store = createNornBodySectionStore(clientWithBody(nodeBody()));
-  const sections = await store.readSections(9, 'MMR-9', { history: true });
+  const sections = await store.readSections('MMR-9', 'MMR-9', { history: true });
   expect(sections.history).toEqual([HISTORY]);
   expect(sections.annotations).toBeUndefined();
   expect(sections.description).toBeUndefined();
@@ -131,7 +131,7 @@ test('annotations sort by created-at, not document order', async () => {
   const earlier = { content: 'earlier note', createdAt: '2026-07-04T09:00:00.000Z' };
   const body = `## Annotations\n${renderAnnotationRecord(later)}${renderAnnotationRecord(earlier)}`;
   const store = createNornBodySectionStore(clientWithBody(body));
-  expect(await store.readAnnotations(9, 'MMR-9')).toEqual([earlier, later]);
+  expect(await store.readAnnotations('MMR-9', 'MMR-9')).toEqual([earlier, later]);
 });
 
 // ── readAllNodeDocs (MMR-166): the `mimir doctor` raw-body reader ─────────
