@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util';
+
 import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import { createNornArtifactStore } from '../core/artifacts';
@@ -29,8 +31,8 @@ import { loadNornSnapshot, loadWorkingSetOverNorn } from '../core/store-norn';
 import { now } from '../core/time';
 import { createNornTransitionsFeed } from '../core/transitions';
 import { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
-import type { NornClient } from './client';
-import { collapse, stemOf } from './decode';
+import type { NornClient, NornDocument } from './client';
+import { stemOf } from './decode';
 import type { MigrationOp } from './plan';
 import {
   addFrontmatter,
@@ -85,6 +87,8 @@ type Mutation = {
 
 /** A queued create of one NEW document, private to the writer. */
 type Create = {
+  /** Exact `create_document.new_value`, retained for post-apply verification. */
+  createdPayload?: { body: string; frontmatter: Record<string, unknown> };
   tags: NodeTag[];
   /** The path template handed to `create_document`; a node carries `{{seq}}`. */
   pathTemplate: string;
@@ -641,12 +645,16 @@ class Accumulator {
       if (create.targetKind === 'node') {
         const node = create.target;
         const fm = nodeFrontmatter(node, this.nodeRelations(node, create.tags));
-        operations.push(createDocument(create.pathTemplate, fm, renderNodeBody(node.description)));
+        const body = renderNodeBody(node.description);
+        create.createdPayload = { body, frontmatter: fm };
+        operations.push(createDocument(create.pathTemplate, fm, body));
       } else {
         const project = create.target;
         const tags = create.tags.toSorted((a, b) => a.tag.localeCompare(b.tag));
         const fm = projectFrontmatter(project, tags);
-        operations.push(createDocument(create.pathTemplate, fm, renderHistoryBody()));
+        const body = renderHistoryBody();
+        create.createdPayload = { body, frontmatter: fm };
+        operations.push(createDocument(create.pathTemplate, fm, body));
       }
     }
 
@@ -823,33 +831,64 @@ async function verifyCreates(
   if (creates.length === 0) {
     return;
   }
+  const projectKeys = new Set<string>();
+  for (const create of creates) {
+    if (create.targetKind === 'project') {
+      projectKeys.add(create.target.key);
+    } else {
+      projectKeys.add(create.target.project_id);
+    }
+  }
+
+  // A project is identified by its frontmatter key, not its filename stem: a
+  // relocated `OTHER.md` can still carry `key: NEW`. Query that identity
+  // directly and without taking another whole-vault snapshot.
+  const projectsByKey = new Map<string, NornDocument[]>();
+  for (const key of projectKeys) {
+    projectsByKey.set(
+      key,
+      await client.find({ eq: ['type:project', `key:${key}`], no_limit: true }),
+    );
+  }
+
+  for (const create of creates) {
+    const key = create.targetKind === 'project' ? create.target.key : create.target.project_id;
+    if ((projectsByKey.get(key) ?? []).length !== 1) {
+      throw invariant(
+        create.targetKind === 'project'
+          ? `created project did not survive uniquely after apply: ${key}`
+          : `created node did not survive with one owning project after apply: ${resolvedStems.get(create) ?? 'unknown'}`,
+      );
+    }
+  }
+
   const targets = new Set<string>();
   for (const create of creates) {
     if (create.targetKind === 'project') {
-      targets.add(create.target.key);
+      const project = projectsByKey.get(create.target.key)?.[0];
+      if (project !== undefined) {
+        targets.add(project.path);
+      }
     } else {
       const stem = resolvedStems.get(create);
       if (stem === undefined) {
         throw invariant('a created node has no resolved stem for survivor verification');
       }
       targets.add(stem);
-      targets.add(create.target.project_id);
     }
   }
-  const records = await client.get([...targets]);
+  const records = await client.get([...targets], '.body');
   for (const create of creates) {
+    const expected = create.createdPayload;
+    if (expected === undefined) {
+      throw invariant('a create has no emitted payload for survivor verification');
+    }
     if (create.targetKind === 'project') {
-      const matches = records.filter(
-        (record) =>
-          isRecord(record) &&
-          typeof record.path === 'string' &&
-          stemOf(record.path) === create.target.key,
-      );
-      const record = matches[0];
-      const fm = isRecord(record) && isRecord(record.frontmatter) ? record.frontmatter : undefined;
-      if (matches.length !== 1 || fm?.type !== 'project' || fm.key !== create.target.key) {
+      const path = projectsByKey.get(create.target.key)?.[0]?.path;
+      const record = records.find((candidate) => isRecord(candidate) && candidate.path === path);
+      if (!isDeepStrictEqual(createdPayloadOf(record), expected)) {
         throw invariant(
-          `created project did not survive uniquely after apply: ${create.target.key}`,
+          `created project did not survive with its complete payload after apply: ${create.target.key}`,
         );
       }
       continue;
@@ -862,32 +901,23 @@ async function verifyCreates(
       (record) =>
         isRecord(record) && typeof record.path === 'string' && stemOf(record.path) === stem,
     );
-    const projectMatches = records.filter(
-      (record) =>
-        isRecord(record) &&
-        typeof record.path === 'string' &&
-        stemOf(record.path) === create.target.project_id,
-    );
     const nodeRecord = nodeMatches[0];
-    const projectRecord = projectMatches[0];
-    const nodeFm =
-      isRecord(nodeRecord) && isRecord(nodeRecord.frontmatter) ? nodeRecord.frontmatter : undefined;
-    const projectFm =
-      isRecord(projectRecord) && isRecord(projectRecord.frontmatter)
-        ? projectRecord.frontmatter
-        : undefined;
-    const validNode =
-      nodeMatches.length === 1 &&
-      nodeFm?.type === create.target.type &&
-      collapse(nodeFm.project) === create.target.project_id;
-    const validProject =
-      projectMatches.length === 1 &&
-      projectFm?.type === 'project' &&
-      projectFm.key === create.target.project_id;
-    if (!validNode || !validProject) {
-      throw invariant(`created node did not survive with one owning project after apply: ${stem}`);
+    if (nodeMatches.length !== 1 || !isDeepStrictEqual(createdPayloadOf(nodeRecord), expected)) {
+      throw invariant(
+        `created node did not survive with its complete payload after apply: ${stem}`,
+      );
     }
   }
+}
+
+/** Project a real Norn `.body` record onto the create payload shape. */
+function createdPayloadOf(
+  record: unknown,
+): { body: string; frontmatter: Record<string, unknown> } | undefined {
+  if (!isRecord(record) || !isRecord(record.frontmatter) || typeof record.body !== 'string') {
+    return undefined;
+  }
+  return { body: record.body, frontmatter: record.frontmatter };
 }
 
 function reportOperations(report: unknown): Map<string, ReportOp> {

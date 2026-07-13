@@ -58,17 +58,25 @@ const driftRefusal = (field = 'lifecycle'): ApplyOutcome => ({
 function fakeClient(
   docs: NornDocument[],
   outcomes: ApplyOutcome[] = [],
-  reloadDocs?: NornDocument[],
+  reloadDocs?: NornDocument[] | ((plans: MigrationPlan[]) => NornDocument[]),
 ): {
   client: NornClient;
   plans: MigrationPlan[];
   findCount: () => number;
   getCount: () => number;
+  getCols: () => (string | undefined)[];
 } {
   const plans: MigrationPlan[] = [];
   let finds = 0;
   let gets = 0;
+  const getCols: (string | undefined)[] = [];
   let applies = 0;
+  const currentDocs = (): NornDocument[] => {
+    if (applies === 0) {
+      return docs;
+    }
+    return typeof reloadDocs === 'function' ? reloadDocs(plans) : (reloadDocs ?? docs);
+  };
   const client = {
     applyPlan: (plan: MigrationPlan): Promise<unknown> => {
       plans.push(plan);
@@ -81,13 +89,22 @@ function fakeClient(
       }
       return Promise.resolve(outcome.report);
     },
-    find: (): Promise<NornDocument[]> => {
+    find: (args: { eq?: string[] }): Promise<NornDocument[]> => {
       finds += 1;
-      return Promise.resolve(applies > 0 ? (reloadDocs ?? docs) : docs);
+      const current = currentDocs();
+      return Promise.resolve(
+        (args.eq ?? []).reduce((matches, token) => {
+          const separator = token.indexOf(':');
+          const field = token.slice(0, separator);
+          const value = token.slice(separator + 1);
+          return matches.filter((doc) => doc.frontmatter?.[field] === value);
+        }, current),
+      );
     },
-    get: (targets: string[]): Promise<NornDocument[]> => {
+    get: (targets: string[], col?: string): Promise<NornDocument[]> => {
       gets += 1;
-      const current = applies > 0 ? (reloadDocs ?? docs) : docs;
+      getCols.push(col);
+      const current = currentDocs();
       return Promise.resolve(
         targets.flatMap((target) => {
           const matches = current.filter((doc) => {
@@ -101,7 +118,7 @@ function fakeClient(
       );
     },
   } as unknown as NornClient;
-  return { client, findCount: () => finds, getCount: () => gets, plans };
+  return { client, findCount: () => finds, getCols: () => getCols, getCount: () => gets, plans };
 }
 
 const projectDoc = (): NornDocument => ({
@@ -121,6 +138,22 @@ const createdTaskDoc = (): NornDocument => ({
   },
   path: 'MMR/MMR-2.md',
 });
+
+/** Materialize the exact create payload captured by the fake apply. */
+function createdDocFromPlan(plans: MigrationPlan[], path: string): NornDocument {
+  const create = plans[0]?.operations.find((op) => op.kind === 'create_document');
+  const value = create?.fields.new_value as { body?: unknown; frontmatter?: unknown } | undefined;
+  if (
+    value === undefined ||
+    typeof value.body !== 'string' ||
+    typeof value.frontmatter !== 'object' ||
+    value.frontmatter === null ||
+    Array.isArray(value.frontmatter)
+  ) {
+    throw new Error('fake apply did not capture a complete create payload');
+  }
+  return { body: value.body, frontmatter: value.frontmatter as Record<string, unknown>, path };
+}
 
 const findOp = (plan: MigrationPlan, kind: string, field?: string): MigrationOp | undefined =>
   plan.operations.find(
@@ -303,7 +336,7 @@ test('a create resolves its final echo from the apply report without a post-appl
     },
   ];
   // apply resolves {{seq}} to MMR-2 through the structured report stem.
-  const { client, findCount, getCount, plans } = fakeClient(
+  const { client, findCount, getCols, getCount, plans } = fakeClient(
     docs,
     [
       {
@@ -329,7 +362,7 @@ test('a create resolves its final echo from the apply report without a post-appl
         },
       },
     ],
-    [...docs, createdTaskDoc()],
+    (captured) => [...docs, createdDocFromPlan(captured, 'MMR/MMR-2.md')],
   );
   const store = createNornWriteStore(client, ROOT);
   const ws = await store.loadWorkingSet();
@@ -341,8 +374,9 @@ test('a create resolves its final echo from the apply report without a post-appl
   // object carries only the final canonical stem and allocated numeric sequence.
   expect(task.seq).toBe(2);
   expect(task.id).toBe('MMR-2');
-  expect(findCount()).toBe(2); // explicit load above + transaction snapshot only
+  expect(findCount()).toBe(3); // explicit load + transaction snapshot + targeted project query
   expect(getCount()).toBe(1); // targeted created-stem + project survivor verification
+  expect(getCols()).toEqual(['.body']);
 
   const plan = plans[0];
   const create = plan?.operations.find((op) => op.kind === 'create_document');
@@ -399,7 +433,7 @@ test('creation tags are set values with deterministic order', async () => {
         },
       },
     ],
-    [...docs, createdTaskDoc()],
+    (captured) => [...docs, createdDocFromPlan(captured, 'MMR/MMR-2.md')],
   );
   const store = createNornWriteStore(client, ROOT);
 
@@ -477,11 +511,64 @@ test('a created node is not returned when its owning project disappears after ap
   }
 
   expect(message).toContain('created node did not survive with one owning project');
-  expect(findCount()).toBe(1); // transaction snapshot only; no post-apply whole-vault reload
-  expect(getCount()).toBe(1); // one targeted verification for the created stem + project
+  expect(findCount()).toBe(2); // transaction snapshot + targeted owning-project query
+  expect(getCount()).toBe(0); // missing owner fails before the node payload read
 });
 
-test('a created project is not returned when its identity is ambiguous after apply', async () => {
+test('a created node is not returned when its stem is replaced with a different payload', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        parent: '[[MMR]]',
+        title: 'Init',
+        type: 'initiative',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ];
+  const replacement = createdTaskDoc();
+  replacement.frontmatter = { ...replacement.frontmatter, title: 'Concurrent replacement' };
+  replacement.body = '## History\n\nreplacement body\n';
+  const { client } = fakeClient(
+    docs,
+    [
+      {
+        report: {
+          report: {
+            applied: 1,
+            failed: 0,
+            operations: [
+              {
+                kind: 'create_document',
+                op_id: '0',
+                path: 'MMR/MMR-2.md',
+                status: 'applied',
+                stem: 'MMR-2',
+              },
+            ],
+            outcome: 'applied',
+          },
+        },
+      },
+    ],
+    [...docs, replacement],
+  );
+  const store = createNornWriteStore(client, ROOT);
+
+  let message = '';
+  try {
+    await createTask(store, { parentId: 'MMR-1', priority: 'p1', title: 'New' });
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+
+  expect(message).toContain('created node did not survive with its complete payload');
+});
+
+test('a created project is not returned when its frontmatter key is ambiguous after apply', async () => {
   const collidingProjects: NornDocument[] = [
     {
       frontmatter: { created: TS, key: 'NEW', name: 'New', type: 'project', updated_at: TS },
@@ -489,7 +576,7 @@ test('a created project is not returned when its identity is ambiguous after app
     },
     {
       frontmatter: { created: TS, key: 'NEW', name: 'Concurrent', type: 'project', updated_at: TS },
-      path: 'relocated/NEW.md',
+      path: 'relocated/OTHER.md',
     },
   ];
   const { client, findCount, getCount } = fakeClient(
@@ -507,8 +594,38 @@ test('a created project is not returned when its identity is ambiguous after app
   }
 
   expect(message).toContain('created project did not survive uniquely after apply');
-  expect(findCount()).toBe(1);
-  expect(getCount()).toBe(1);
+  expect(findCount()).toBe(2); // transaction snapshot + targeted type/key uniqueness query
+  expect(getCount()).toBe(0); // ambiguity fails before any survivor payload read
+});
+
+test('a created project is not returned when its key is replaced with a different payload', async () => {
+  const replacement: NornDocument = {
+    body: '## History\n\nreplacement body\n',
+    frontmatter: {
+      created: TS,
+      key: 'NEW',
+      name: 'Concurrent replacement',
+      project: '[[NEW]]',
+      type: 'project',
+      updated_at: TS,
+    },
+    path: 'NEW/NEW.md',
+  };
+  const { client } = fakeClient(
+    [],
+    [{ report: { report: { applied: 1, failed: 0, operations: [], outcome: 'applied' } } }],
+    [replacement],
+  );
+  const store = createNornWriteStore(client, ROOT);
+
+  let message = '';
+  try {
+    await createProject(store, { description: 'Expected description', key: 'NEW', name: 'New' });
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+
+  expect(message).toContain('created project did not survive with its complete payload');
 });
 
 test('a drift refusal reloads the snapshot and replays the verb', async () => {
