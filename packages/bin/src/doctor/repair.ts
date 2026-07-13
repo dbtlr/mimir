@@ -1,5 +1,7 @@
 import { renderHistoryBody, renderHistoryRecord, toCanonicalLf } from '../core/history-codec';
 import { wikilink } from '../core/ids';
+import type { Project } from '../core/model';
+import { projectFrontmatter } from '../core/vault-frontmatter';
 import type { MigrationOp, MigrationPlan } from '../norn/plan';
 import { createDocument, migrationPlan, replaceBody, setFrontmatter } from '../norn/plan';
 import type { DoctorFinding, DoctorIssueCode } from './checks';
@@ -18,6 +20,7 @@ export type RepairSkipReason =
   | 'canonical-path-occupied'
   | 'invalid-semantic-value'
   | 'non-corruption-warning'
+  | 'out-of-scope'
   | 'semantic-reference'
   | 'unreadable-document';
 
@@ -87,14 +90,23 @@ function issueInScope(issue: DoctorFinding, scope: string | undefined): boolean 
   return scope === undefined || issue.scopeKey === scope;
 }
 
-function exactHeadingCount(body: string, heading: string): number {
+function resolverEquivalentHeadingCount(body: string, heading: string): number {
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-  return (body.match(new RegExp(`^## ${escaped}\\r?$`, 'gm')) ?? []).length;
+  return (
+    body.match(new RegExp(`^ {0,3}##[ \\t]+${escaped}(?:[ \\t]+#+)?[ \\t]*\\r?$`, 'gm')) ?? []
+  ).length;
 }
 
 function appendCanonicalHeading(body: string, heading: string): string {
-  const separator = body.length === 0 || body.endsWith('\n') ? '' : '\n';
-  return `${body}${separator}## ${heading}\n`;
+  const base = body.endsWith('\r') ? `${body.slice(0, -1)}\n` : body;
+  if (heading === 'History') {
+    const annotations = /^ {0,3}##[ \t]+Annotations(?:[ \t]+#+)?[ \t]*\r?$/m.exec(base);
+    if (annotations?.index !== undefined) {
+      return `${base.slice(0, annotations.index)}## History\n${base.slice(annotations.index)}`;
+    }
+  }
+  const separator = base.length === 0 || base.endsWith('\n') ? '' : '\n';
+  return `${base}${separator}## ${heading}\n`;
 }
 
 function occupiedPaths(snapshot: DoctorSnapshot): ReadonlySet<string> {
@@ -106,17 +118,19 @@ function occupiedPaths(snapshot: DoctorSnapshot): ReadonlySet<string> {
 
 function recoveryOperation(key: string, timestamp: string): MigrationOp {
   const reason = `Recovered by mimir doctor --fix because project ${key} was missing.`;
+  const recovered: Project = {
+    archived_at: timestamp,
+    created_at: timestamp,
+    description: null,
+    key,
+    last_artifact_seq: 0,
+    last_seq: 0,
+    name: `Recovered ${key}`,
+    updated_at: timestamp,
+  };
   return createDocument(
     `${key}/${key}.md`,
-    {
-      archived_at: timestamp,
-      created: timestamp,
-      key,
-      name: `Recovered ${key}`,
-      project: wikilink(key),
-      type: 'project',
-      updated_at: timestamp,
-    },
+    projectFrontmatter(recovered, []),
     `${renderHistoryBody()}${renderHistoryRecord({
       at: timestamp,
       from: 'active',
@@ -147,27 +161,29 @@ export function planDoctorRepairs(args: {
   const operations: MigrationOp[] = [];
   const planned: RepairItem[] = [];
   const skipped: RepairItem[] = [];
-  const docsByStem = new Map<string, DoctorSnapshotDocument>();
+  const docsByStem = new Map<string, DoctorSnapshotDocument[]>();
+  const pathCounts = new Map<string, number>();
   for (const doc of args.snapshot.documents) {
-    if (!docsByStem.has(doc.stem)) {
-      docsByStem.set(doc.stem, doc);
-    }
+    docsByStem.set(doc.stem, [...(docsByStem.get(doc.stem) ?? []), doc]);
+    pathCounts.set(doc.path, (pathCounts.get(doc.path) ?? 0) + 1);
   }
   const bodies = new Map<string, BodyRepair>();
   const occupied = occupiedPaths(args.snapshot);
   const recovered = new Set<string>();
 
-  const selected = args.issues
-    .filter((entry) => issueInScope(entry, args.scope))
-    .toSorted((a, b) =>
-      `${a.scopeKey}\0${a.stem}\0${a.code}`.localeCompare(
-        `${b.scopeKey}\0${b.stem}\0${b.code}`,
-        undefined,
-        { numeric: true },
-      ),
-    );
+  const selected = args.issues.toSorted((a, b) =>
+    `${a.scopeKey}\0${a.stem}\0${a.code}`.localeCompare(
+      `${b.scopeKey}\0${b.stem}\0${b.code}`,
+      undefined,
+      { numeric: true },
+    ),
+  );
 
   for (const entry of selected) {
+    if (!issueInScope(entry, args.scope)) {
+      skipped.push({ issue: entry, reason: 'out-of-scope' });
+      continue;
+    }
     const policy = REPAIR_POLICY[entry.code];
     if (policy.kind === 'skipped') {
       skipped.push({ issue: entry, reason: policy.reason });
@@ -189,7 +205,16 @@ export function planDoctorRepairs(args: {
       continue;
     }
 
-    const doc = docsByStem.get(entry.stem);
+    const matchingDocs = docsByStem.get(entry.stem) ?? [];
+    if (matchingDocs.length === 0) {
+      failures.push({ issue: entry, reason: 'missing-snapshot-document' });
+      continue;
+    }
+    if (matchingDocs.length !== 1 || pathCounts.get(matchingDocs[0]?.path ?? '') !== 1) {
+      skipped.push({ issue: entry, reason: 'ambiguous-identity' });
+      continue;
+    }
+    const doc = matchingDocs[0];
     if (doc === undefined) {
       failures.push({ issue: entry, reason: 'missing-snapshot-document' });
       continue;
@@ -217,7 +242,7 @@ export function planDoctorRepairs(args: {
       continue;
     }
     const section = entry.code === 'section-history-unreadable' ? 'History' : 'Annotations';
-    if (exactHeadingCount(bodyRepair.body, section) !== 0) {
+    if (resolverEquivalentHeadingCount(bodyRepair.body, section) !== 0) {
       skipped.push({ issue: entry, reason: 'ambiguous-section-heading' });
       continue;
     }
@@ -255,5 +280,9 @@ export function planDoctorRepairs(args: {
 /** Stable identity used to reconcile a planned issue against post-image
  * diagnostics. Locator/message may legitimately change after a rewrite. */
 export function repairIssueKey(issue: DoctorFinding): string {
+  if (issue.code === 'missing-project' || issue.code === 'orphaned-seed') {
+    const projectKey = typeof issue.evidence.key === 'string' ? issue.evidence.key : issue.scopeKey;
+    return `${issue.code}\0${projectKey}`;
+  }
   return `${issue.code}\0${issue.scopeKey}\0${issue.stem}`;
 }

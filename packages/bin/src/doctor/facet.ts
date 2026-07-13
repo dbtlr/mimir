@@ -341,7 +341,9 @@ function snippetAround(
 function toRecord(finding: DoctorFinding, raw: string | undefined): DoctorRecord {
   const field = fieldOf(finding.where);
   const { cause, note } = causeOf(finding, field);
-  const path = pathOfStem(finding.node) ?? finding.node;
+  const path = finding.locator.endsWith('.md')
+    ? finding.locator
+    : (pathOfStem(finding.node) ?? finding.node);
   const titleRaw = raw === undefined ? undefined : locateField(raw, 'title')?.value;
   const title = titleRaw === undefined ? null : (unquote(titleRaw) ?? null);
 
@@ -448,7 +450,9 @@ export function buildDoctorFacet(input: {
       group = { droppedStems: new Set(), records: [] };
       groups.set(key, group);
     }
-    group.records.push(toRecord(finding, rawByStem.get(finding.node)));
+    group.records.push(
+      toRecord(finding, rawByStem.get(finding.locator) ?? rawByStem.get(finding.node)),
+    );
     group.droppedStems.add(finding.node);
   }
 

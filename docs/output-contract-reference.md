@@ -158,8 +158,9 @@ diagnostic read exits `0` even when findings exist. Human findings retain the
 `mimir doctor --fix [--dry-run]` is a separate CLI-only mutation envelope. The
 invocation is confirmation; `--dry-run` validates the Norn CAS plan with no
 write. A bound invocation or `-s KEY` writes only that canonical project; `-s
-all` admits every project. The report partitions findings into `planned`,
-`fixed`, `skipped`, and `failed`. Unsupported findings always carry a stable
+all` admits every project. Dry-run partitions findings into `planned`, `skipped`,
+and `failed`; after an apply, each planned issue moves exclusively to `fixed` or
+`failed` and `planned` is empty. Unsupported findings always carry a stable
 `reason`; they do not make an otherwise successful repair nonzero. Planning,
 CAS/refusal, apply, and post-image verification failures exit `1`. `--dry-run`
 without `--fix` is usage and exits `2`.
@@ -194,6 +195,10 @@ The JSON report is one object:
 
 JSONL emits one item per line with `status: planned|fixed|skipped|failed`, then a
 final `status: summary` line carrying `mode`, `outcome`, and the four counts.
+`planned` occurs only in dry-run output; applied output never repeats an issue as
+both planned and fixed. A failed or indeterminate write is rediagnosed when safe,
+so its report separates actually fixed issues from residual verification failures
+while preserving a global apply failure detail and returning nonzero.
 Human output names every fixed/planned/skipped/failed issue and ends with the same
 counts. Repair is not exposed through MCP, HTTP, or the console.
 

@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 
 import type { DoctorFinding, DoctorIssueCode } from './checks';
-import { planDoctorRepairs, REPAIR_POLICY } from './repair';
+import { planDoctorRepairs, repairIssueKey, REPAIR_POLICY } from './repair';
 import type { DoctorSnapshot, DoctorSnapshotDocument } from './snapshot';
 
 function issue(
@@ -133,7 +133,7 @@ test('one snapshot becomes one deterministic CAS plan for all four recipes', () 
     {
       fields: {
         document_hash: 'hash-1',
-        new_value: '## Task Description\ntext\n## Annotations\n## History\n',
+        new_value: '## Task Description\ntext\n## History\n## Annotations\n',
         path: 'MMR/MMR-1.md',
       },
       kind: 'replace_body',
@@ -174,7 +174,11 @@ test('canonical scope filters every write and occupied or ambiguous targets are 
     vaultRoot: '/vault',
   });
   expect(planned.migration.operations).toEqual([]);
-  expect(planned.skipped.map((item) => item.reason)).toEqual(['ambiguous-section-heading']);
+  expect(planned.skipped.map((item) => item.reason)).toEqual([
+    'ambiguous-section-heading',
+    'out-of-scope',
+    'out-of-scope',
+  ]);
 
   const occupied = planDoctorRepairs({
     issues: [issue('missing-project', 'NEW-1', { key: 'NEW' })],
@@ -199,4 +203,100 @@ test('a body recipe without a document hash is an operational planning failure',
   });
   expect(planned.migration.operations).toEqual([]);
   expect(planned.failures[0]?.reason).toBe('missing-cas-hash');
+});
+
+test('supported repairs never choose a first document when an identity is duplicated', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('crlf-body', 'MMR-1'), issue('duplicate-stem', 'MMR-1')],
+    scope: 'MMR',
+    snapshot: snapshot([
+      { body: 'first\r\n', documentHash: 'hash-a', path: 'a/MMR-1.md', stem: 'MMR-1' },
+      { body: 'second\r\n', documentHash: 'hash-b', path: 'b/MMR-1.md', stem: 'MMR-1' },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([]);
+  expect(planned.skipped.map((item) => [item.issue.code, item.reason])).toEqual([
+    ['crlf-body', 'ambiguous-identity'],
+    ['duplicate-stem', 'ambiguous-identity'],
+  ]);
+});
+
+test('Norn-equivalent heading variants remain byte-identical ambiguous skips', () => {
+  for (const body of ['text\n## History ##\n', 'text\n## History   \n']) {
+    const planned = planDoctorRepairs({
+      issues: [issue('section-history-unreadable', 'MMR-1')],
+      scope: 'MMR',
+      snapshot: snapshot([{ body, documentHash: 'hash', path: 'MMR/MMR-1.md', stem: 'MMR-1' }]),
+      timestamp: '2026-07-13T12:00:00.000Z',
+      vaultRoot: '/vault',
+    });
+    expect(planned.migration.operations).toEqual([]);
+    expect(planned.skipped[0]?.reason).toBe('ambiguous-section-heading');
+  }
+});
+
+test('scoped repair accounts for whole-vault findings as out-of-scope skips', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('crlf-body', 'MMR-1'), issue('dangling-parent', 'OTH-1')],
+    scope: 'MMR',
+    snapshot: snapshot([
+      { body: 'x\r\n', documentHash: 'hash', path: 'MMR/MMR-1.md', stem: 'MMR-1' },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.skipped).toContainEqual({
+    issue: issue('dangling-parent', 'OTH-1'),
+    reason: 'out-of-scope',
+  });
+  expect(planned.migration.operations).toHaveLength(1);
+});
+
+test('missing-project verification identity is stable across representative nodes', () => {
+  expect(repairIssueKey(issue('missing-project', 'MMR-1', { key: 'MMR' }))).toBe(
+    repairIssueKey(issue('missing-project', 'MMR-99', { key: 'MMR' })),
+  );
+});
+
+test('adding a heading after a lone carriage return produces a canonical LF post-image', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('section-history-unreadable', 'MMR-1')],
+    scope: 'MMR',
+    snapshot: snapshot([
+      { body: 'text\r', documentHash: 'hash', path: 'MMR/MMR-1.md', stem: 'MMR-1' },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations[0]).toMatchObject({
+    fields: { new_value: 'text\n## History\n' },
+    kind: 'replace_body',
+  });
+});
+
+test('missing structural headings are inserted in canonical History then Annotations order', () => {
+  for (const [body, issues] of [
+    [
+      '## Task Description\ntext\n',
+      [
+        issue('section-annotations-unreadable', 'MMR-1'),
+        issue('section-history-unreadable', 'MMR-1'),
+      ],
+    ],
+    ['## Task Description\ntext\n## Annotations\n', [issue('section-history-unreadable', 'MMR-1')]],
+  ] as const) {
+    const planned = planDoctorRepairs({
+      issues,
+      scope: 'MMR',
+      snapshot: snapshot([{ body, documentHash: 'hash', path: 'MMR/MMR-1.md', stem: 'MMR-1' }]),
+      timestamp: '2026-07-13T12:00:00.000Z',
+      vaultRoot: '/vault',
+    });
+    const replacement = planned.migration.operations.find((op) => op.kind === 'replace_body');
+    expect(replacement?.fields.new_value).toBe(
+      '## Task Description\ntext\n## History\n## Annotations\n',
+    );
+  }
 });

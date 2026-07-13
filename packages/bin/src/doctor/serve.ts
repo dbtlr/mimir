@@ -11,12 +11,11 @@
  * one class of corruption absent from the type-enumerated node read.
  */
 import { stemOf } from '../norn/decode';
-import type { DoctorFinding } from './checks';
-import { CHECKS } from './checks';
+import { diagnoseDoctor } from './diagnosis';
 import { buildDoctorFacet, pathOfStem } from './facet';
 import type { DoctorFacet } from './facet';
 import type { DoctorSnapshot } from './snapshot';
-import { doctorContextFromSnapshot, doctorStemInScope } from './snapshot';
+import { doctorStemInScope } from './snapshot';
 
 /** The vault read handles the facet needs — the `cmdDoctor` set plus `readRaw`
  * (the `.raw` fetch for location enrichment). All present on the Norn backend, all
@@ -40,18 +39,23 @@ export async function computeDoctorFacet(
   scope: string | undefined,
 ): Promise<DoctorFacet> {
   const snapshot = await deps.readSnapshot();
-  const ctx = doctorContextFromSnapshot(snapshot, scope);
-  const findings: DoctorFinding[] = [];
-  for (const check of CHECKS) {
-    findings.push(...(await check.run(ctx)));
-  }
+  const findings = await diagnoseDoctor(snapshot, scope);
 
   // Fetch `.raw` for each affected document (deduped) — the location + snippet
   // enrichment source. Keyed by path (its stem resolves the finding).
-  const paths = [...new Set(findings.map((f) => pathOfStem(f.node)).filter((p) => p !== null))];
+  const paths = [
+    ...new Set(
+      findings
+        .map((finding) =>
+          finding.locator.endsWith('.md') ? finding.locator : pathOfStem(finding.node),
+        )
+        .filter((path) => path !== null),
+    ),
+  ];
   const rawByStem = new Map<string, string>();
   if (paths.length > 0) {
     for (const { path, raw } of await deps.readRaw(paths)) {
+      rawByStem.set(path, raw);
       rawByStem.set(stemOf(path), raw);
     }
   }

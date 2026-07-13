@@ -44,3 +44,34 @@ test('a scoped facet reads one whole-vault snapshot and filters by canonical ste
     'unreadable section',
   ]);
 });
+
+test('facet diagnosis uses the shared unique physical locator for relocated raw enrichment', async () => {
+  const rawPaths: string[][] = [];
+  const deps: DoctorFacetDeps = {
+    readRaw: (paths) => {
+      rawPaths.push(paths);
+      return Promise.resolve([{ path: 'relocated/custom.md', raw: 'line one\r\nline two\r\n' }]);
+    },
+    readSnapshot: () =>
+      Promise.resolve({
+        documents: [
+          {
+            body: 'line one\r\nline two\r\n',
+            documentHash: 'hash',
+            path: 'relocated/custom.md',
+            stem: 'MMR-9',
+          },
+        ],
+        graph: { nodes: [], projectKeys: [] },
+        sectionFailures: [],
+        validateFindings: [],
+      }),
+  };
+  const facet = await computeDoctorFacet(deps, 'MMR');
+  expect(rawPaths).toEqual([['relocated/custom.md']]);
+  expect(facet.groups[0]?.records[0]).toMatchObject({
+    id: 'MMR-9',
+    path: 'relocated/custom.md',
+  });
+  expect(facet.groups[0]?.records[0]?.snippet).not.toBeNull();
+});

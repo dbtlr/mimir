@@ -17,11 +17,10 @@ import { ok } from '../cli/render';
 import { now } from '../core/time';
 import type { MigrationPlan } from '../norn/plan';
 import type { DoctorFinding } from './checks';
-import { CHECKS } from './checks';
+import { diagnoseDoctor } from './diagnosis';
 import type { DoctorRepairPlan, RepairItem } from './repair';
 import { planDoctorRepairs, repairIssueKey } from './repair';
 import type { DoctorSnapshot } from './snapshot';
-import { doctorContextFromSnapshot } from './snapshot';
 
 export type DoctorDeps = {
   /** Read every diagnostic input from one whole-vault enumeration (MMR-241). */
@@ -33,30 +32,6 @@ export type DoctorDeps = {
     vaultRoot: string;
   };
 };
-
-export async function diagnoseDoctor(
-  snapshot: DoctorSnapshot,
-  scope: string | undefined,
-): Promise<DoctorFinding[]> {
-  const ctx = doctorContextFromSnapshot(snapshot, scope);
-  const findings: DoctorFinding[] = [];
-  for (const check of CHECKS) {
-    findings.push(...(await check.run(ctx)));
-  }
-  const pathsByStem = new Map<string, string[]>();
-  for (const doc of snapshot.documents) {
-    const paths = pathsByStem.get(doc.stem) ?? [];
-    paths.push(doc.path);
-    pathsByStem.set(doc.stem, paths);
-  }
-  for (const finding of findings) {
-    const paths = pathsByStem.get(finding.stem);
-    if (paths?.length === 1) {
-      finding.locator = paths[0] ?? finding.locator;
-    }
-  }
-  return findings;
-}
 
 type RepairFailure = {
   code: 'apply-failed' | 'apply-refused' | 'planning-failed' | 'verification-failed';
@@ -81,6 +56,19 @@ function applyOutcome(report: unknown): string | undefined {
   const envelope = report;
   const root = isRecord(envelope.report) ? envelope.report : envelope;
   return typeof root.outcome === 'string' ? root.outcome : undefined;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function applyFailure(outcome: string | undefined, report: unknown): RepairFailure {
+  const base = `norn apply outcome: ${outcome ?? 'unrecognized'}`;
+  const detail = outcome === 'failed' ? `; report: ${JSON.stringify(report)}` : '';
+  return {
+    code: outcome === 'refused' ? 'apply-refused' : 'apply-failed',
+    message: `${base}${detail}`,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -195,12 +183,17 @@ async function cmdDoctorRepair(
     message: failure.reason,
   }));
   if (planningFailures.length > 0) {
+    const unapplied: RepairFailure[] = plan.planned.map((item) => ({
+      code: 'planning-failed',
+      issue: item.issue,
+      message: 'repair plan not applied because planning failed',
+    }));
     const report = finishReport({
-      failed: planningFailures,
+      failed: [...planningFailures, ...unapplied],
       fixed: [],
       mode: dryRun ? 'dry-run' : 'apply',
       outcome: 'failed',
-      planned: plan.planned,
+      planned: dryRun ? plan.planned : [],
       skipped: plan.skipped,
     });
     renderRepair(io, format, report);
@@ -213,34 +206,39 @@ async function cmdDoctorRepair(
       fixed: [],
       mode: dryRun ? 'dry-run' : 'apply',
       outcome: dryRun ? 'preview' : 'applied',
-      planned: plan.planned,
+      planned: dryRun ? plan.planned : [],
       skipped: plan.skipped,
     });
     renderRepair(io, format, report);
     return 0;
   }
 
-  const rawApply = await deps.repair.applyPlan(plan.migration, !dryRun);
-  const outcome = applyOutcome(rawApply);
-  if (outcome !== 'applied') {
-    const report = finishReport({
-      failed: [
-        {
-          code: outcome === 'refused' ? 'apply-refused' : 'apply-failed',
-          message: `norn apply outcome: ${outcome ?? 'unrecognized'}`,
-        },
-      ],
-      fixed: [],
-      mode: dryRun ? 'dry-run' : 'apply',
-      outcome: 'failed',
-      planned: plan.planned,
-      skipped: plan.skipped,
-    });
-    renderRepair(io, format, report);
-    return 1;
+  let rawApply: unknown;
+  let thrown: unknown;
+  try {
+    rawApply = await deps.repair.applyPlan(plan.migration, !dryRun);
+  } catch (error) {
+    thrown = error;
   }
+  const outcome = thrown === undefined ? applyOutcome(rawApply) : undefined;
 
   if (dryRun) {
+    if (thrown !== undefined || outcome !== 'applied') {
+      const failure: RepairFailure =
+        thrown === undefined
+          ? applyFailure(outcome, rawApply)
+          : { code: 'apply-failed', message: `norn apply threw: ${errorMessage(thrown)}` };
+      const report = finishReport({
+        failed: [failure],
+        fixed: [],
+        mode: 'dry-run',
+        outcome: 'failed',
+        planned: plan.planned,
+        skipped: plan.skipped,
+      });
+      renderRepair(io, format, report);
+      return 1;
+    }
     const report = finishReport({
       failed: [],
       fixed: [],
@@ -253,26 +251,49 @@ async function cmdDoctorRepair(
     return 0;
   }
 
-  const postIssues = await diagnoseDoctor(await deps.readSnapshot(), scope);
-  const residual = new Set(postIssues.map(repairIssueKey));
-  const fixed = plan.planned.filter((item) => !residual.has(repairIssueKey(item.issue)));
-  const verificationFailures: RepairFailure[] = plan.planned
-    .filter((item) => residual.has(repairIssueKey(item.issue)))
-    .map((item) => ({
-      code: 'verification-failed',
-      issue: item.issue,
-      message: 'issue remains after apply',
-    }));
+  const applyFailures: RepairFailure[] = [];
+  if (thrown !== undefined) {
+    applyFailures.push({
+      code: 'apply-failed',
+      message: `norn apply threw: ${errorMessage(thrown)}`,
+    });
+  } else if (outcome !== 'applied') {
+    applyFailures.push(applyFailure(outcome, rawApply));
+  }
+
+  let fixed: RepairItem[] = [];
+  let verificationFailures: RepairFailure[] = [];
+  try {
+    const postIssues = await diagnoseDoctor(await deps.readSnapshot(), scope);
+    const residual = new Set(postIssues.map(repairIssueKey));
+    fixed = plan.planned.filter((item) => !residual.has(repairIssueKey(item.issue)));
+    verificationFailures = plan.planned
+      .filter((item) => residual.has(repairIssueKey(item.issue)))
+      .map((item) => ({
+        code: 'verification-failed',
+        issue: item.issue,
+        message: 'issue remains after apply',
+      }));
+  } catch (error) {
+    verificationFailures = [
+      {
+        code: 'verification-failed',
+        message: `post-apply diagnosis failed: ${errorMessage(error)}`,
+      },
+    ];
+  }
+  const failed = [...applyFailures, ...verificationFailures];
+  const success = outcome === 'applied' && failed.length === 0;
   const report = finishReport({
-    failed: verificationFailures,
+    failed,
     fixed,
     mode: 'apply',
-    outcome: verificationFailures.length === 0 ? 'applied' : 'failed',
-    planned: plan.planned,
+    outcome: success ? 'applied' : 'failed',
+    planned: [],
     skipped: plan.skipped,
   });
   renderRepair(io, format, report);
-  return verificationFailures.length === 0 ? 0 : 1;
+  return success ? 0 : 1;
 }
 
 export async function cmdDoctor(

@@ -653,7 +653,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ],
       [
         '--format <fmt>',
-        'json (pretty array) | jsonl (one finding per line); table/records render a human report',
+        'without --fix: json (pretty findings array) | jsonl (one finding per line); --fix: json (composite report) | jsonl (one outcome per line plus summary)',
       ],
       ['--fix', 'apply deterministic structural repairs, then verify the post-image'],
       ['--dry-run', 'preview and validate a repair plan without writing (requires --fix)'],
