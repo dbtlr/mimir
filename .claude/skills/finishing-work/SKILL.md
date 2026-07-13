@@ -33,7 +33,8 @@ verification means _in this repo_.
 
 A user-facing change needs a **changelog fragment**: a `.changes/<slug>.md` file
 (task id as the slug, e.g. `.changes/mmr-267.md`) holding the entry under the
-right `### Added` / `### Changed` / `### Removed` / `### Fixed` heading
+right Keep-a-Changelog heading — `### Added` / `### Changed` / `### Deprecated` /
+`### Removed` / `### Fixed` / `### Security`
 ([Keep a Changelog]; grammar in `.changes/README.md`). Add it on the branch, in
 the same PR — not at the release cut. v0.12 deferred every entry to the cut and
 the per-PR record drifted for a whole cycle. Never edit `CHANGELOG.md` directly —
@@ -45,8 +46,9 @@ change, **or** it carries the `skip-changelog` label. One of the two is true
 before you submit — there is no third option.
 
 CI enforces exactly this: `changelog-guard` fails any PR touching build-affecting
-paths (`packages/**`, `package.json`, `bun.lock`, `install.sh`, the release
-workflows) that touches no `.changes/*.md` fragment and has no label — and
+paths (`packages/**`, `skills/mimir/**`, `package.json`, `bun.lock`,
+`install.sh`, the release workflows) that touches no `.changes/*.md` fragment
+and has no label — and
 parses the fragments it finds with the compiler's own parser
 (`bun run changelog:compile --check`), so a fragment that passes CI is
 guaranteed to compile at the cut. The label is the **only** legitimate way past

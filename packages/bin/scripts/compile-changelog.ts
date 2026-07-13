@@ -82,7 +82,7 @@ export const parseFragment = (file: string, text: string): FragmentSections => {
     if (line.startsWith('#')) {
       fail(file, at, 'only H3 category headings are allowed in a fragment');
     }
-    if (/^[-*] /.test(line)) {
+    if (line.startsWith('- ')) {
       if (current === null) {
         fail(file, at, 'bullet outside a category heading');
       }

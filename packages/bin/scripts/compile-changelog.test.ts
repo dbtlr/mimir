@@ -47,6 +47,12 @@ describe('parseFragment', () => {
     );
   });
 
+  test('rejects star bullets — the grammar is dash-only', () => {
+    expect(() => parseFragment('f.md', '### Added\n\n* star bullet\n')).toThrow(
+      'prose outside a bullet',
+    );
+  });
+
   test('rejects an empty fragment', () => {
     expect(() => parseFragment('f.md', '### Added\n')).toThrow('fragment has no entries');
   });

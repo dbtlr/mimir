@@ -19,9 +19,9 @@ same commit (`bun run changelog:compile --write --version X.Y.Z`). There is no
   convention. Uniqueness is the only requirement — it is what kills the
   conflicts.
 - **The fragment grammar is the final grammar.** H3 headings from the closed
-  Keep-a-Changelog set (`Added | Changed | Deprecated | Removed | Fixed |
-Security`), bullets beneath them, nothing else. The compiler concatenates
-  verbatim; it never rewrites prose.
+  Keep-a-Changelog set (`Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`,
+  `Security`), `- ` bullets beneath them, nothing else. The compiler
+  concatenates verbatim; it never rewrites prose.
 - **`changelog-guard` becomes a presence + parse check**: a build-affecting PR
   must touch a flat `.changes/*.md` fragment or carry the `skip-changelog`
   label, and fragments present on head must parse — the guard runs the

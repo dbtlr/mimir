@@ -10,8 +10,11 @@ deletes the compiled fragments in the same commit.
 - **Content:** the Keep-a-Changelog grammar, exactly as it should appear in
   the release section — `### Added` / `### Changed` / `### Deprecated` /
   `### Removed` / `### Fixed` / `### Security` headings (H3 only) with `- `
-  bullets beneath them. Multiple headings per fragment are fine. No other
-  content parses.
+  bullets beneath them (`- ` only, not `*`). Multiple headings per fragment
+  are fine. No other content parses.
+- **Links are repo-root-relative** (`docs/decisions/…`, not `../docs/…`): the
+  entry's final home is `CHANGELOG.md` at the repo root, so a link that
+  resolves from this directory would break once compiled.
 
 ```markdown
 ### Fixed
@@ -27,8 +30,9 @@ bun run changelog:compile
 ```
 
 The `changelog-guard` CI check enforces the contract: a PR touching
-build-affecting paths must add a fragment (or carry the `skip-changelog`
-label), and every touched fragment must parse — the guard runs the compiler's
-own parser (`bun run changelog:compile --check`), so what passes the guard is
-exactly what compiles at the cut. Fragments live flat in this directory;
-subdirectories are not scanned.
+build-affecting paths must touch a fragment (or carry the `skip-changelog`
+label), and every fragment remaining on head must parse — the guard runs the
+compiler's own parser (`bun run changelog:compile --check`), so what passes
+the guard is exactly what compiles at the cut. (A delete-only touch is the
+release-cut PR: nothing left to parse, gate satisfied.) Fragments live flat
+in this directory; subdirectories are not scanned.

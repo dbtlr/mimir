@@ -41,13 +41,15 @@ import a transport, and transports may not import each other.
 - If the change affects CLI/MCP behavior, output format, the schema, or
   configuration, add a changelog fragment: a `.changes/<slug>.md` file (the
   task id is the conventional slug) with the entry under the appropriate
-  `### Added` / `### Changed` / `### Removed` / `### Fixed` heading
+  Keep-a-Changelog heading — `### Added` / `### Changed` / `### Deprecated` /
+  `### Removed` / `### Fixed` / `### Security`
   ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/); format details in
   [`.changes/README.md`](.changes/README.md)). `CHANGELOG.md` itself is written
   only at the release cut, which compiles the pending fragments — so parallel
   PRs never conflict on it. The `changelog-guard` check enforces this: a PR
-  touching build-affecting paths (`packages/**`, `package.json`, `bun.lock`,
-  `install.sh`, the release workflows) fails CI unless it touches a fragment.
+  touching build-affecting paths (`packages/**`, `skills/mimir/**`,
+  `package.json`, `bun.lock`, `install.sh`, the release workflows) fails CI
+  unless it touches a fragment.
   For a genuinely behavior-preserving change (internal refactor, test- or
   build-meta only), apply the `skip-changelog` label with a one-line reason
   instead.
