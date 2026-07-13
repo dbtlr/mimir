@@ -248,3 +248,25 @@ test('relocated project raw enrichment gates on its logical owner identity', asy
   await computeDoctorFacet(deps, undefined);
   expect(rawPaths).toEqual([]);
 });
+
+test('a zero-owner finding never synthesizes a canonical raw path', async () => {
+  const rawPaths: string[][] = [];
+  const deps: DoctorFacetDeps = {
+    readRaw: (paths) => {
+      rawPaths.push(paths);
+      return Promise.resolve([]);
+    },
+    readSnapshot: () =>
+      Promise.resolve({
+        documents: [],
+        graph: {
+          nodes: [{ dependsOn: [], key: 'MMR', parent: null, stem: 'MMR-1' }],
+          projectKeys: [],
+        },
+        sectionFailures: [],
+        validateFindings: [],
+      }),
+  };
+  await computeDoctorFacet(deps, undefined);
+  expect(rawPaths).toEqual([]);
+});

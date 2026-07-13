@@ -78,6 +78,8 @@ export type NornDocument = {
   [key: string]: unknown;
 };
 
+export type NornSectionRead = { records: unknown[]; sectionFailures: string[] };
+
 export type NornNewArgs = {
   path?: string;
   title?: string;
@@ -382,8 +384,26 @@ export class NornClient {
    * workaround (MMR-187).
    */
   async getSections(targets: string[], sections: string[]): Promise<unknown[]> {
+    return (await this.getSectionsResult(targets, sections)).records;
+  }
+
+  /** One section operation with both success records and failed physical targets.
+   * Consumers that enforce logical identity need both channels from the same
+   * cache refresh; separate calls would reopen an ambiguity race. */
+  async getSectionsResult(targets: string[], sections: string[]): Promise<NornSectionRead> {
     const payload = await this.call('vault.get', { section: sections, targets }, true);
-    return this.records('vault.get', payload, 'records');
+    const failures = isRecord(payload) ? payload.section_failures : undefined;
+    const sectionFailures: string[] = [];
+    if (Array.isArray(failures)) {
+      for (const entry of failures) {
+        if (typeof entry === 'string') {
+          sectionFailures.push(entry);
+        } else if (isRecord(entry) && typeof entry.path === 'string') {
+          sectionFailures.push(entry.path);
+        }
+      }
+    }
+    return { records: this.records('vault.get', payload, 'records'), sectionFailures };
   }
 
   /**
@@ -395,20 +415,7 @@ export class NornClient {
    * raw path or a `{ path }` object; an absent/empty channel yields `[]`.
    */
   async sectionFailures(targets: string[], sections: string[]): Promise<string[]> {
-    const payload = await this.call('vault.get', { section: sections, targets }, true);
-    const failures = isRecord(payload) ? payload.section_failures : undefined;
-    if (!Array.isArray(failures)) {
-      return [];
-    }
-    const paths: string[] = [];
-    for (const entry of failures) {
-      if (typeof entry === 'string') {
-        paths.push(entry);
-      } else if (isRecord(entry) && typeof entry.path === 'string') {
-        paths.push(entry.path);
-      }
-    }
-    return paths;
+    return (await this.getSectionsResult(targets, sections)).sectionFailures;
   }
 
   async validate(): Promise<unknown> {

@@ -354,10 +354,20 @@ test.skipIf(!NORN)('readVaultGraph carries collapsed project declarations (MMR-2
   const declarations = (await readVaultGraph(client)).declarations ?? [];
   // The node's project wikilink is collapsed to a bare key, paired with its stem —
   // the divergence input (stem key MMR ≠ declared OTH).
-  expect(declarations).toContainEqual({ project: 'OTH', stem: 'MMR-1' });
+  expect(declarations).toContainEqual({
+    kind: 'node',
+    path: 'MMR/MMR-1.md',
+    project: 'OTH',
+    stem: 'MMR-1',
+  });
   // Project docs produce a declaration entry too (this helper writes no `project`
   // field, so it collapses to null — the real self-referential value is MMR-170's).
-  expect(declarations).toContainEqual({ project: null, stem: 'MMR' });
+  expect(declarations).toContainEqual({
+    kind: 'project',
+    path: 'MMR/MMR.md',
+    project: null,
+    stem: 'MMR',
+  });
 });
 
 // MMR-239: readSectionFailures surfaces docs whose History/Annotations heading

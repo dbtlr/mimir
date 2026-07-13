@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { mkdirSync, renameSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { fakeIo } from '../cli/testing';
 import { createInitiative, createProject } from '../core/create';
@@ -187,5 +189,50 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
       scopeKey: 'MMR',
       stem: 'MMR-1',
     });
+  });
+
+  test('relocated project declarations diagnose and repair by logical key and exact path', async () => {
+    await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
+    await createProject(fixture.store, { key: 'ABC', name: 'Alphabet' });
+    const vaultRoot = fixture.doctor.repair?.vaultRoot;
+    if (vaultRoot === undefined) {
+      throw new Error('test fixture repair seam missing');
+    }
+    mkdirSync(join(vaultRoot, 'relocated'), { recursive: true });
+    renameSync(join(vaultRoot, 'MMR/MMR.md'), join(vaultRoot, 'relocated/OTH.md'));
+    renameSync(join(vaultRoot, 'ABC/ABC.md'), join(vaultRoot, 'relocated/custom.md'));
+    fixture.corruptDocument('relocated/OTH.md', (raw) =>
+      raw.replace(/^project:.*$/m, 'project: "[[WRONG]]"'),
+    );
+    fixture.corruptDocument('relocated/custom.md', (raw) =>
+      raw.replace(/^project:.*$/m, 'project: "[[WRONG]]"'),
+    );
+
+    for (const [key, path] of [
+      ['MMR', 'relocated/OTH.md'],
+      ['ABC', 'relocated/custom.md'],
+    ] as const) {
+      const detected = await jsonDoctor(key);
+      expect(detected).toContainEqual(
+        expect.objectContaining({
+          code: 'stem-project-divergence',
+          evidence: expect.objectContaining({ canonicalProject: key }),
+          locator: path,
+          stem: key,
+        }),
+      );
+      const io = fakeIo();
+      expect(await cmdDoctor(io, fixture.doctor, 'json', key, { dryRun: false, fix: true })).toBe(
+        0,
+      );
+      expect(fixture.readDocument(path)).toMatch(
+        new RegExp(`^project: ["']\\[\\[${key}\\]\\]["']$`, 'm'),
+      );
+      expect(
+        (await jsonDoctor(key)).some(
+          (entry) => entry.code === 'stem-project-divergence' && entry.stem === key,
+        ),
+      ).toBe(false);
+    }
   });
 });

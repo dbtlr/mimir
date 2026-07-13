@@ -245,9 +245,9 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
 
     // Instrument the native section read: the whole live queue's descriptions must
     // ride ONE batched `vault.get { section }`, not a per-seed read.
-    const original = client.getSections.bind(client);
+    const original = client.getSectionsResult.bind(client);
     let sectionReads = 0;
-    client.getSections = async (targets: string[], sections: string[]): Promise<unknown[]> => {
+    client.getSectionsResult = async (targets: string[], sections: string[]) => {
       sectionReads += 1;
       return original(targets, sections);
     };

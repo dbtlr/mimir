@@ -52,7 +52,7 @@ export async function computeDoctorFacet(
           const logicalStem = finding.locator.endsWith('.md')
             ? (doctorLogicalStemAtPath(identityIndex, finding.locator) ?? finding.stem)
             : finding.stem;
-          return (physicalPathsByStem.get(logicalStem)?.size ?? 0) <= 1;
+          return physicalPathsByStem.get(logicalStem)?.size === 1;
         })
         .map((finding) =>
           finding.locator.endsWith('.md') ? finding.locator : pathOfStem(finding.node),

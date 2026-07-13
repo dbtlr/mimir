@@ -89,8 +89,8 @@ test('reads one whole-vault enumeration and derives every document diagnostic in
   expect(snapshot.graph.projectKeys).toEqual(['MMR']);
   expect(snapshot.graph.nodes.map((node) => node.stem)).toEqual(['MMR-1']);
   expect(snapshot.graph.declarations).toEqual([
-    { project: 'MMR', stem: 'MMR' },
-    { project: 'OTH', stem: 'MMR-1' },
+    { kind: 'project', path: 'MMR/MMR.md', project: 'MMR', stem: 'MMR' },
+    { kind: 'node', path: 'MMR/MMR-1.md', project: 'OTH', stem: 'MMR-1' },
   ]);
   expect(snapshot.sectionFailures).toEqual([
     { path: 'MMR/MMR-1.md', section: 'Annotations', stem: 'MMR-1' },

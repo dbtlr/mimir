@@ -211,11 +211,9 @@ export function planDoctorRepairs(args: {
   const skipped: RepairItem[] = [];
   const docsByStem = new Map<string, DoctorSnapshotDocument[]>();
   const docsByPath = new Map<string, DoctorSnapshotDocument[]>();
-  const pathCounts = new Map<string, number>();
   for (const doc of args.snapshot.documents) {
     docsByStem.set(doc.stem, [...(docsByStem.get(doc.stem) ?? []), doc]);
     docsByPath.set(doc.path, [...(docsByPath.get(doc.path) ?? []), doc]);
-    pathCounts.set(doc.path, (pathCounts.get(doc.path) ?? 0) + 1);
   }
   const bodies = new Map<string, BodyRepair>();
   const occupied = occupiedPaths(args.snapshot);
@@ -267,7 +265,10 @@ export function planDoctorRepairs(args: {
       failures.push({ issue: entry, reason: 'missing-snapshot-document' });
       continue;
     }
-    if (matchingDocs.length !== 1 || pathCounts.get(matchingDocs[0]?.path ?? '') !== 1) {
+    if (
+      matchingDocs.length !== 1 ||
+      (docsByPath.get(matchingDocs[0]?.path ?? '')?.length ?? 0) !== 1
+    ) {
       skipped.push({ issue: entry, reason: 'ambiguous-identity' });
       continue;
     }

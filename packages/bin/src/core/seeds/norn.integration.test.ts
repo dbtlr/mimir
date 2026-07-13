@@ -374,4 +374,116 @@ describe.skipIf(!NORN)('norn seed store', () => {
       await racer.close();
     }
   });
+
+  test('a lone non-seed document with a seed-shaped stem is absent and immutable', async () => {
+    for (const [seq, type] of [
+      [1, 'note'],
+      [2, undefined],
+    ] as const) {
+      const title = type ?? 'untyped';
+      await client.newDoc({
+        body: '## Seed Description\n\nforeign\n\n## History\n## Annotations\n',
+        confirm: true,
+        field_json: [
+          ...(type === undefined ? [] : [`type=${JSON.stringify(type)}`]),
+          `title=${JSON.stringify(title)}`,
+          `project=${JSON.stringify('[[MMR]]')}`,
+          `kind=${JSON.stringify('idea')}`,
+          `lifecycle=${JSON.stringify('new')}`,
+          `created=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
+          `updated_at=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
+        ],
+        parents: true,
+        path: `relocated/MMR-s${String(seq)}.md`,
+      });
+      expect(await seeds.load('MMR', seq, { content: true })).toBeUndefined();
+      expect(await rejectMessage(() => seeds.patch('MMR', seq, { title: 'mutated' }))).toMatch(
+        new RegExp(`no seed MMR-s${String(seq)}`),
+      );
+      expect((await client.get([`relocated/MMR-s${String(seq)}.md`]))[0]).toMatchObject({
+        frontmatter: { title },
+      });
+    }
+  });
+
+  test('history and description enforce ambiguity in their one logical section read', async () => {
+    await seeds.create({
+      description: 'first body',
+      key: 'MMR',
+      kind: 'idea',
+      requester: null,
+      title: 'first',
+    });
+    await seeds.create({
+      description: 'second body',
+      key: 'MMR',
+      kind: 'idea',
+      requester: null,
+      title: 'second',
+    });
+    const racer = new NornClient({ vaultPath: join(root, 'vault') });
+    const originalSections = client.getSections.bind(client);
+    const originalResult = client.getSectionsResult.bind(client);
+    const injected = new Set<string>();
+    const inject = async (targets: string[]): Promise<void> => {
+      for (const id of ['MMR-s1', 'MMR-s2']) {
+        if (targets.some((target) => target.includes(id)) && !injected.has(id)) {
+          injected.add(id);
+          await racer.newDoc({
+            body: 'no requested seed headings',
+            confirm: true,
+            field_json: [`type=${JSON.stringify('note')}`],
+            parents: true,
+            path: `relocated/${id}.md`,
+          });
+        }
+      }
+    };
+    client.getSections = async (targets, sections) => {
+      await inject(targets);
+      return originalSections(targets, sections);
+    };
+    client.getSectionsResult = async (targets, sections) => {
+      await inject(targets);
+      return originalResult(targets, sections);
+    };
+    try {
+      expect(await seeds.loadHistory('MMR', 1)).toBeUndefined();
+      expect((await seeds.loadDescriptions([{ key: 'MMR', seq: 2 }])).has('MMR-s2')).toBe(false);
+      expect([...injected].toSorted()).toEqual(['MMR-s1', 'MMR-s2']);
+    } finally {
+      await racer.close();
+    }
+  });
+
+  test('listForProject resolves physical owners only for decoded records in that project', async () => {
+    const fakeDocs = Array.from({ length: 2_010 }, (_, index) => {
+      const key = index < 10 ? 'MMR' : 'OTH';
+      const seq = index < 10 ? index + 1 : index - 9;
+      return {
+        frontmatter: {
+          created: '2026-07-13T00:00:00.000Z',
+          kind: 'idea',
+          lifecycle: 'new',
+          project: `[[${key}]]`,
+          title: `${key} ${String(seq)}`,
+          type: 'seed',
+          updated_at: '2026-07-13T00:00:00.000Z',
+        },
+        path: `${key}/seeds/${key}-s${String(seq)}.md`,
+      };
+    });
+    let targets: string[] = [];
+    client.find = () => Promise.resolve(fakeDocs);
+    client.get = (requested) => {
+      targets = requested;
+      const wanted = new Set(requested);
+      return Promise.resolve(
+        fakeDocs.filter((doc) => wanted.has(doc.path.split('/').at(-1)?.slice(0, -3) ?? '')),
+      );
+    };
+    const scoped = createNornSeedStore(client, join(root, 'vault'));
+    expect(await scoped.listForProject('MMR')).toHaveLength(10);
+    expect(targets).toHaveLength(10);
+  });
 });

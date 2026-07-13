@@ -664,21 +664,22 @@ export const stemProjectCheck: Diagnostic = {
   name: 'stem-project',
   run: (ctx) => {
     const findings: DoctorFinding[] = [];
-    for (const { project, stem } of ctx.projectRefs) {
+    for (const { kind, path, project, stem } of ctx.projectRefs) {
       // A missing/malformed `project` is norn's required-field concern (MMR-191).
       if (project === null) {
         continue;
       }
-      const identity = parseIdentity(stem);
-      if (identity === null || identity.key === project) {
+      const canonicalProject = kind === 'project' ? stem : parseIdentity(stem)?.key;
+      if (canonicalProject === undefined || canonicalProject === project) {
         continue;
       }
       findings.push(
         issue({
           check: 'stem-project',
           code: 'stem-project-divergence',
-          evidence: { actualProject: project, canonicalProject: identity.key },
-          message: `project ${project} diverges from the stem's key ${identity.key} — the doc misfiles under a scoped 'find --eq project:KEY' (the stem is the true owner)`,
+          evidence: { actualProject: project, canonicalProject },
+          ...(path === undefined ? {} : { locator: path }),
+          message: `project ${project} diverges from the stem's key ${canonicalProject} — the doc misfiles under a scoped 'find --eq project:KEY' (the stem is the true owner)`,
           node: stem,
           severity: 'warn',
           where: 'frontmatter · project',

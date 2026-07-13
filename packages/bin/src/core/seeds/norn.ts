@@ -102,7 +102,7 @@ function byKeyThenSeq(a: SeedRecord, b: SeedRecord): number {
 function toRecord(doc: NornDocument): SeedRecord | null {
   const identity = seqFromPath(doc.path);
   const fm = doc.frontmatter;
-  if (identity === null || fm === undefined) {
+  if (identity === null || fm === undefined || fm.type !== 'seed') {
     return null;
   }
   const kind = narrowEnum(fm.kind, SEED_KIND_VALUES);
@@ -191,8 +191,14 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
   /** Validator parity for listings: resolve the typed candidates by bare stem in
    * one batch, then exclude every identity with more than one physical target —
    * including parse-failed, untyped, or foreign-type colliders. */
-  const survivingRecords = async (docs: readonly NornDocument[]): Promise<SeedRecord[]> => {
-    const records = docs.map(toRecord).filter((record): record is SeedRecord => record !== null);
+  const survivingRecords = async (
+    docs: readonly NornDocument[],
+    project?: string,
+  ): Promise<SeedRecord[]> => {
+    const records = docs
+      .map(toRecord)
+      .filter((record): record is SeedRecord => record !== null)
+      .filter((record) => project === undefined || record.key === project);
     const resolved = await resolvedDocs(records.map((record) => stemOf(record.key, record.seq)));
     const counts = new Map<string, number>();
     for (const doc of resolved) {
@@ -410,9 +416,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
 
     async listForProject(key: string) {
       const docs = await seedDocs();
-      return (await survivingRecords(docs))
-        .filter((record) => record.key === key)
-        .toSorted((a, b) => a.seq - b.seq);
+      return (await survivingRecords(docs, key)).toSorted((a, b) => a.seq - b.seq);
     },
 
     async load(key, seq, opts) {
@@ -422,65 +426,73 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
     },
 
     async loadDescriptions(refs) {
-      // ONE native `vault.get { section }` over every requested seed path (MMR-263):
-      // the whole live queue's `## Seed Description` prose in a single round-trip, the
-      // derive-at-read lede source. An empty request short-circuits (an empty target
-      // list to vault.get is unverified behavior, matching the doctor/triage probes).
+      // One logical-stem section read over the requested seed identities (MMR-263).
+      // Both records and section failures come from that same cache refresh, so a
+      // collider without the requested heading still counts as a second owner.
       const out = new Map<string, string | null>();
       if (refs.length === 0) {
         return out;
       }
       const wanted = refs.map(({ key, seq }) => stemOf(key, seq));
-      const docs = await resolvedDocs(wanted);
-      const counts = new Map<string, number>();
-      for (const doc of docs) {
+      const result = await client.getSectionsResult(wanted, [SEED_DESCRIPTION_HEADING]);
+      const owners = new Map<string, Set<string>>();
+      const records = new Map<string, ReturnType<typeof pathAndSections>>();
+      for (const raw of result.records) {
+        const doc = pathAndSections(raw);
+        if (doc === null) {
+          continue;
+        }
         const identity = seqFromPath(doc.path);
         if (identity !== null) {
           const stem = stemOf(identity.key, identity.seq);
-          counts.set(stem, (counts.get(stem) ?? 0) + 1);
+          owners.set(stem, new Set([...(owners.get(stem) ?? []), doc.path]));
+          records.set(stem, doc);
         }
       }
-      const paths = docs.flatMap((doc) => {
-        const identity = seqFromPath(doc.path);
-        return identity !== null && counts.get(stemOf(identity.key, identity.seq)) === 1
-          ? [doc.path]
-          : [];
-      });
-      if (paths.length === 0) {
-        return out;
-      }
-      const records = await client.getSections(paths, [SEED_DESCRIPTION_HEADING]);
-      for (const raw of records) {
-        const record = pathAndSections(raw);
-        if (record === null) {
-          continue;
-        }
-        const identity = seqFromPath(record.path);
+      for (const path of result.sectionFailures) {
+        const identity = seqFromPath(path);
         if (identity === null) {
           continue;
         }
-        // A warn-omitted/absent section reads as empty prose → null (no lede).
+        const stem = stemOf(identity.key, identity.seq);
+        owners.set(stem, new Set([...(owners.get(stem) ?? []), path]));
+      }
+      for (const stem of new Set(wanted)) {
+        const record = records.get(stem);
+        if (owners.get(stem)?.size !== 1 || record === null || record === undefined) {
+          continue;
+        }
         const description = parseDescriptionSection(
           sectionBody(record.sections[SEED_DESCRIPTION_HEADING] ?? ''),
         );
-        out.set(stemOf(identity.key, identity.seq), description);
+        out.set(stem, description);
       }
       return out;
     },
 
     async loadHistory(key, seq) {
-      // Read the seed's `## History` natively (`vault.get { section }`), exactly as
-      // the node body-section store does — one round-trip, sliced with norn's edit
-      // boundary semantics. Target the unique physical path resolved above, not
-      // the bare stem, so relocated owners work and collisions remain absent. An
-      // absent doc yields no record → undefined; a warn-omitted/empty section → [].
-      const doc = await loadDoc(key, seq);
-      if (doc === undefined) {
+      // One logical-stem operation returns both successful records and failed
+      // physical owners. Requiring exactly one owner closes the pre-read/section
+      // gap while preserving relocated seeds.
+      const stem = stemOf(key, seq);
+      const result = await client.getSectionsResult([stem], [HISTORY_HEADING]);
+      const records = result.records
+        .map(pathAndSections)
+        .filter((record): record is NonNullable<typeof record> => record !== null)
+        .filter((record) => seqFromPath(record.path)?.key === key)
+        .filter((record) => seqFromPath(record.path)?.seq === seq);
+      const owners = new Set([
+        ...records.map((record) => record.path),
+        ...result.sectionFailures.filter((path) => {
+          const identity = seqFromPath(path);
+          return identity?.key === key && identity.seq === seq;
+        }),
+      ]);
+      if (owners.size !== 1 || records.length !== 1) {
         return undefined;
       }
-      const records = await client.getSections([doc.path], [HISTORY_HEADING]);
-      const record = records.length > 0 ? pathAndSections(records[0]) : null;
-      if (record === null) {
+      const record = records[0];
+      if (record === undefined) {
         return undefined;
       }
       return parseHistorySection(sectionBody(record.sections[HISTORY_HEADING] ?? ''));
