@@ -291,6 +291,78 @@ test('missing-project recovery refuses an existing relocated logical project own
   expect(planned.skipped[0]?.reason).toBe('ambiguous-identity');
 });
 
+test('project projection repair writes the relocated project logical owner key', () => {
+  const planned = planDoctorRepairs({
+    issues: [
+      issue(
+        'stem-project-divergence',
+        'custom',
+        { actualProject: 'WRONG', canonicalProject: 'MMR' },
+        'relocated/custom.md',
+      ),
+    ],
+    scope: undefined,
+    snapshot: {
+      documents: [
+        {
+          body: 'project',
+          documentHash: 'hash',
+          frontmatter: { key: 'MMR', project: '[[WRONG]]', type: 'project' },
+          path: 'relocated/custom.md',
+          stem: 'custom',
+        },
+      ],
+      graph: {
+        nodes: [],
+        projectKeys: ['MMR'],
+        sources: [{ kind: 'project', path: 'relocated/custom.md', stem: 'MMR' }],
+      },
+      sectionFailures: [],
+      validateFindings: [],
+    },
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations[0]).toMatchObject({
+    fields: { new_value: '[[MMR]]', path: 'relocated/custom.md' },
+    kind: 'set_frontmatter',
+  });
+});
+
+test('repair planning builds document and identity indexes once', () => {
+  let pathReads = 0;
+  const documents = Array.from({ length: 100 }, (_, index) => {
+    const stem = `MMR-${String(index + 1)}`;
+    return {
+      body: 'body\r\n',
+      documentHash: `hash-${String(index)}`,
+      get path() {
+        pathReads += 1;
+        return `MMR/${stem}.md`;
+      },
+      stem,
+    } satisfies DoctorSnapshotDocument;
+  });
+  const planned = planDoctorRepairs({
+    issues: documents.map((doc) => issue('crlf-body', doc.stem, {}, `MMR/${doc.stem}.md`)),
+    scope: undefined,
+    snapshot: {
+      documents,
+      graph: {
+        nodes: [],
+        projectKeys: ['MMR'],
+        sources: documents.map((doc) => ({ kind: 'node', path: doc.path, stem: doc.stem })),
+      },
+      sectionFailures: [],
+      validateFindings: [],
+    },
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.planned).toHaveLength(100);
+  expect(pathReads).toBeLessThan(5_000);
+});
+
 test('Norn-equivalent heading variants remain byte-identical ambiguous skips', () => {
   for (const body of [
     'text\n## History ##\n',

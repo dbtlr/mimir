@@ -15,7 +15,7 @@ import { diagnoseDoctor } from './diagnosis';
 import { buildDoctorFacet, pathOfStem } from './facet';
 import type { DoctorFacet } from './facet';
 import type { DoctorSnapshot } from './snapshot';
-import { doctorPhysicalPathsByStem, doctorStemInScope } from './snapshot';
+import { doctorIdentityIndex, doctorLogicalStemAtPath, doctorStemInScope } from './snapshot';
 
 /** The vault read handles the facet needs — the `cmdDoctor` set plus `readRaw`
  * (the `.raw` fetch for location enrichment). All present on the Norn backend, all
@@ -40,14 +40,20 @@ export async function computeDoctorFacet(
 ): Promise<DoctorFacet> {
   const snapshot = await deps.readSnapshot();
   const findings = await diagnoseDoctor(snapshot, scope);
-  const physicalPathsByStem = doctorPhysicalPathsByStem(snapshot);
+  const identityIndex = doctorIdentityIndex(snapshot);
+  const physicalPathsByStem = identityIndex.pathsByStem;
 
   // Fetch `.raw` for each affected document (deduped) — the location + snippet
   // enrichment source. Keyed by path (its stem resolves the finding).
   const paths = [
     ...new Set(
       findings
-        .filter((finding) => (physicalPathsByStem.get(finding.stem)?.size ?? 0) <= 1)
+        .filter((finding) => {
+          const logicalStem = finding.locator.endsWith('.md')
+            ? (doctorLogicalStemAtPath(identityIndex, finding.locator) ?? finding.stem)
+            : finding.stem;
+          return (physicalPathsByStem.get(logicalStem)?.size ?? 0) <= 1;
+        })
         .map((finding) =>
           finding.locator.endsWith('.md') ? finding.locator : pathOfStem(finding.node),
         )

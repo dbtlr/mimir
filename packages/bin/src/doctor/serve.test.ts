@@ -207,3 +207,44 @@ test('a relocated section failure preserves its exact path under identity ambigu
   const section = facet.groups[0]?.records.find((record) => record.cause === 'unreadable section');
   expect(section?.path).toBe('relocated/MMR-9.md');
 });
+
+test('relocated project raw enrichment gates on its logical owner identity', async () => {
+  const rawPaths: string[][] = [];
+  const deps: DoctorFacetDeps = {
+    readRaw: (paths) => {
+      rawPaths.push(paths);
+      return Promise.resolve([]);
+    },
+    readSnapshot: () =>
+      Promise.resolve({
+        documents: [
+          {
+            body: 'relocated\r\n',
+            documentHash: 'a',
+            frontmatter: { key: 'MMR', type: 'project' },
+            path: 'relocated/custom.md',
+            stem: 'custom',
+          },
+          {
+            body: 'canonical\r\n',
+            documentHash: 'b',
+            frontmatter: { key: 'MMR', type: 'project' },
+            path: 'MMR/MMR.md',
+            stem: 'MMR',
+          },
+        ],
+        graph: {
+          nodes: [],
+          projectKeys: ['MMR'],
+          sources: [
+            { kind: 'project', path: 'relocated/custom.md', stem: 'MMR' },
+            { kind: 'project', path: 'MMR/MMR.md', stem: 'MMR' },
+          ],
+        },
+        sectionFailures: [],
+        validateFindings: [],
+      }),
+  };
+  await computeDoctorFacet(deps, undefined);
+  expect(rawPaths).toEqual([]);
+});

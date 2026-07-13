@@ -60,7 +60,7 @@ export type NornSelection = {
   contains?: string[];
   starts_with?: string[];
   ends_with?: string[];
-  path?: string;
+  path?: string[];
   text?: string;
 };
 

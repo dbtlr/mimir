@@ -92,27 +92,37 @@ function doctorIdentitySources(snapshot: DoctorSnapshot): VaultGraphSource[] {
   return sources;
 }
 
+export type DoctorIdentityIndex = {
+  pathsByStem: ReadonlyMap<string, ReadonlySet<string>>;
+  stemsByPath: ReadonlyMap<string, ReadonlySet<string>>;
+};
+
+/** Build both directions of physical/logical ownership once for a snapshot. */
+export function doctorIdentityIndex(snapshot: DoctorSnapshot): DoctorIdentityIndex {
+  const pathsByStem = new Map<string, Set<string>>();
+  const stemsByPath = new Map<string, Set<string>>();
+  for (const { path, stem } of doctorIdentitySources(snapshot)) {
+    const paths = pathsByStem.get(stem) ?? new Set<string>();
+    paths.add(path);
+    pathsByStem.set(stem, paths);
+    const stems = stemsByPath.get(path) ?? new Set<string>();
+    stems.add(stem);
+    stemsByPath.set(path, stems);
+  }
+  return { pathsByStem, stemsByPath };
+}
+
 /** The one logical identity claimed by an exact physical path, or null when the
  * path is absent or its typed provenance is itself contradictory. */
-export function doctorLogicalStemAtPath(snapshot: DoctorSnapshot, path: string): string | null {
-  const stems = new Set(
-    doctorIdentitySources(snapshot)
-      .filter((source) => source.path === path)
-      .map((source) => source.stem),
-  );
-  return stems.size === 1 ? ([...stems][0] ?? null) : null;
+export function doctorLogicalStemAtPath(index: DoctorIdentityIndex, path: string): string | null {
+  const stems = index.stemsByPath.get(path);
+  return stems?.size === 1 ? ([...stems][0] ?? null) : null;
 }
 
 export function doctorPhysicalPathsByStem(
   snapshot: DoctorSnapshot,
 ): ReadonlyMap<string, ReadonlySet<string>> {
-  const pathsByStem = new Map<string, Set<string>>();
-  for (const { path, stem } of doctorIdentitySources(snapshot)) {
-    const paths = pathsByStem.get(stem) ?? new Set<string>();
-    paths.add(path);
-    pathsByStem.set(stem, paths);
-  }
-  return pathsByStem;
+  return doctorIdentityIndex(snapshot).pathsByStem;
 }
 
 function diagnosticDrops(snapshot: DoctorSnapshot): DoctorContext['dropped'] {

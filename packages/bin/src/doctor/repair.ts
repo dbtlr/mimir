@@ -1,14 +1,14 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
 
 import { renderHistoryBody, renderHistoryRecord, toCanonicalLf } from '../core/history-codec';
-import { wikilink } from '../core/ids';
+import { parseIdentity, wikilink } from '../core/ids';
 import type { Project } from '../core/model';
 import { projectFrontmatter } from '../core/vault-frontmatter';
 import type { MigrationOp, MigrationPlan } from '../norn/plan';
 import { createDocument, migrationPlan, replaceBody, setFrontmatter } from '../norn/plan';
 import type { DoctorFinding, DoctorIssueCode } from './checks';
 import type { DoctorSnapshot, DoctorSnapshotDocument } from './snapshot';
-import { doctorLogicalStemAtPath, doctorPhysicalPathsByStem } from './snapshot';
+import { doctorIdentityIndex, doctorLogicalStemAtPath } from './snapshot';
 
 export type RepairRecipe =
   | 'add-canonical-heading'
@@ -210,14 +210,17 @@ export function planDoctorRepairs(args: {
   const planned: RepairItem[] = [];
   const skipped: RepairItem[] = [];
   const docsByStem = new Map<string, DoctorSnapshotDocument[]>();
+  const docsByPath = new Map<string, DoctorSnapshotDocument[]>();
   const pathCounts = new Map<string, number>();
   for (const doc of args.snapshot.documents) {
     docsByStem.set(doc.stem, [...(docsByStem.get(doc.stem) ?? []), doc]);
+    docsByPath.set(doc.path, [...(docsByPath.get(doc.path) ?? []), doc]);
     pathCounts.set(doc.path, (pathCounts.get(doc.path) ?? 0) + 1);
   }
   const bodies = new Map<string, BodyRepair>();
   const occupied = occupiedPaths(args.snapshot);
-  const physicalPathsByStem = doctorPhysicalPathsByStem(args.snapshot);
+  const identityIndex = doctorIdentityIndex(args.snapshot);
+  const physicalPathsByStem = identityIndex.pathsByStem;
   const recovered = new Set<string>();
 
   const selected = args.issues.toSorted((a, b) =>
@@ -258,7 +261,7 @@ export function planDoctorRepairs(args: {
       continue;
     }
 
-    const exactDocs = args.snapshot.documents.filter((doc) => doc.path === entry.locator);
+    const exactDocs = docsByPath.get(entry.locator) ?? [];
     const matchingDocs = exactDocs.length > 0 ? exactDocs : (docsByStem.get(entry.stem) ?? []);
     if (matchingDocs.length === 0) {
       failures.push({ issue: entry, reason: 'missing-snapshot-document' });
@@ -273,7 +276,7 @@ export function planDoctorRepairs(args: {
       failures.push({ issue: entry, reason: 'missing-snapshot-document' });
       continue;
     }
-    const logicalStem = doctorLogicalStemAtPath(args.snapshot, doc.path) ?? entry.stem;
+    const logicalStem = doctorLogicalStemAtPath(identityIndex, doc.path) ?? entry.stem;
     if (physicalPathsByStem.get(logicalStem)?.size !== 1) {
       skipped.push({ issue: entry, reason: 'ambiguous-identity' });
       continue;
@@ -285,7 +288,8 @@ export function planDoctorRepairs(args: {
         failures.push({ issue: entry, reason: 'missing-snapshot-value' });
         continue;
       }
-      operations.push(setFrontmatter(doc.path, 'project', wikilink(entry.scopeKey), expected));
+      const projectKey = parseIdentity(logicalStem)?.key ?? entry.scopeKey;
+      operations.push(setFrontmatter(doc.path, 'project', wikilink(projectKey), expected));
       planned.push({ issue: entry, recipe: policy.recipe });
       continue;
     }

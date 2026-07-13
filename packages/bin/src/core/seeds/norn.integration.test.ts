@@ -308,4 +308,70 @@ describe.skipIf(!NORN)('norn seed store', () => {
     expect(await rejectMessage(() => seeds.germinate('MMR', 99, 'MMR-1'))).toMatch(/no seed/);
     expect(await seeds.load('MMR', 99)).toBeUndefined();
   });
+
+  test('a second client adding a collider before targeted resolution fails the read closed', async () => {
+    await seeds.create({
+      description: null,
+      key: 'MMR',
+      kind: 'idea',
+      requester: null,
+      title: 'canonical',
+    });
+    const racer = new NornClient({ vaultPath: join(root, 'vault') });
+    const originalGet = client.get.bind(client);
+    let injected = false;
+    client.get = async (targets: string[], col?: string): Promise<unknown[]> => {
+      if (!injected && targets.includes('MMR-s1')) {
+        injected = true;
+        await racer.newDoc({
+          body: 'foreign owner',
+          confirm: true,
+          field_json: [`type=${JSON.stringify('note')}`],
+          parents: true,
+          path: 'relocated/MMR-s1.md',
+        });
+      }
+      return originalGet(targets, col);
+    };
+    try {
+      expect(await seeds.load('MMR', 1, { content: true })).toBeUndefined();
+      expect(injected).toBe(true);
+    } finally {
+      await racer.close();
+    }
+  });
+
+  test('a second client adding a collider before mutation resolution prevents the write', async () => {
+    await seeds.create({
+      description: null,
+      key: 'MMR',
+      kind: 'idea',
+      requester: null,
+      title: 'canonical',
+    });
+    const racer = new NornClient({ vaultPath: join(root, 'vault') });
+    const originalGet = client.get.bind(client);
+    let injected = false;
+    client.get = async (targets: string[], col?: string): Promise<unknown[]> => {
+      if (!injected && targets.includes('MMR-s1')) {
+        injected = true;
+        await racer.newDoc({
+          body: 'foreign owner',
+          confirm: true,
+          field_json: [`type=${JSON.stringify('note')}`],
+          parents: true,
+          path: 'relocated/MMR-s1.md',
+        });
+      }
+      return originalGet(targets, col);
+    };
+    try {
+      const message = await rejectMessage(() => seeds.patch('MMR', 1, { title: 'mutated' }));
+      expect(message).toMatch(/no seed MMR-s1/);
+      const canonical = await client.get(['MMR/seeds/MMR-s1.md']);
+      expect(canonical[0]).toMatchObject({ frontmatter: { title: 'canonical' } });
+    } finally {
+      await racer.close();
+    }
+  });
 });
