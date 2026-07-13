@@ -422,7 +422,6 @@ describe.skipIf(!NORN)('norn seed store', () => {
       title: 'second',
     });
     const racer = new NornClient({ vaultPath: join(root, 'vault') });
-    const originalSections = client.getSections.bind(client);
     const originalResult = client.getSectionsResult.bind(client);
     const injected = new Set<string>();
     const inject = async (targets: string[]): Promise<void> => {
@@ -439,10 +438,6 @@ describe.skipIf(!NORN)('norn seed store', () => {
         }
       }
     };
-    client.getSections = async (targets, sections) => {
-      await inject(targets);
-      return originalSections(targets, sections);
-    };
     client.getSectionsResult = async (targets, sections) => {
       await inject(targets);
       return originalResult(targets, sections);
@@ -454,6 +449,37 @@ describe.skipIf(!NORN)('norn seed store', () => {
     } finally {
       await racer.close();
     }
+  });
+
+  test('logical section reads reject unique owners that are not valid seeds', async () => {
+    for (const [seq, fields] of [
+      [1, { kind: 'idea', lifecycle: 'new', type: 'note' }],
+      [2, { kind: 'idea', lifecycle: 'new' }],
+      [3, { kind: 'foreign', lifecycle: 'new', type: 'seed' }],
+      [4, { kind: 'idea', lifecycle: 'foreign', type: 'seed' }],
+    ] as const) {
+      await client.newDoc({
+        body: '## Seed Description\n\nforeign prose\n\n## History\n\n### entry\n\n## Annotations\n',
+        confirm: true,
+        field_json: [
+          ...('type' in fields ? [`type=${JSON.stringify(fields.type)}`] : []),
+          `title=${JSON.stringify('foreign')}`,
+          `project=${JSON.stringify('[[MMR]]')}`,
+          `kind=${JSON.stringify(fields.kind)}`,
+          `lifecycle=${JSON.stringify(fields.lifecycle)}`,
+          `created=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
+          `updated_at=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
+        ],
+        parents: true,
+        path: `relocated/MMR-s${String(seq)}.md`,
+      });
+    }
+    for (const seq of [1, 2, 3, 4]) {
+      expect(await seeds.loadHistory('MMR', seq)).toBeUndefined();
+    }
+    expect(await seeds.loadDescriptions([1, 2, 3, 4].map((seq) => ({ key: 'MMR', seq })))).toEqual(
+      new Map(),
+    );
   });
 
   test('listForProject resolves physical owners only for decoded records in that project', async () => {
@@ -485,5 +511,30 @@ describe.skipIf(!NORN)('norn seed store', () => {
     const scoped = createNornSeedStore(client, join(root, 'vault'));
     expect(await scoped.listForProject('MMR')).toHaveLength(10);
     expect(targets).toHaveLength(10);
+  });
+
+  test('listForProject decodes the final bare-stem resolution, not the stale find rows', async () => {
+    const initial = [1, 2, 3].map((seq) => ({
+      frontmatter: {
+        created: '2026-07-13T00:00:00.000Z',
+        kind: 'idea',
+        lifecycle: 'new',
+        title: `stale ${String(seq)}`,
+        type: 'seed',
+        updated_at: '2026-07-13T00:00:00.000Z',
+      },
+      path: `MMR/seeds/MMR-s${String(seq)}.md`,
+    }));
+    client.find = () => Promise.resolve(initial);
+    client.get = () =>
+      Promise.resolve([
+        { ...initial[0], frontmatter: { ...initial[0]?.frontmatter, title: 'fresh' } },
+        { ...initial[1], frontmatter: { ...initial[1]?.frontmatter, type: 'note' } },
+        { ...initial[2], frontmatter: { ...initial[2]?.frontmatter, kind: 'foreign' } },
+      ]);
+    const scoped = createNornSeedStore(client, join(root, 'vault'));
+    expect((await scoped.listForProject('MMR')).map(({ seq, title }) => ({ seq, title }))).toEqual([
+      { seq: 1, title: 'fresh' },
+    ]);
   });
 });

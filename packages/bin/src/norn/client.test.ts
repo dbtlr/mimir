@@ -257,19 +257,27 @@ test('getSections sends vault.get with {targets, section} and returns the record
 });
 
 test('getSectionsResult preserves records and section failures from one response', async () => {
+  let received: unknown = null;
   const fake = fakeNorn(() => ({
-    'vault.get': () =>
-      Promise.resolve({
+    'vault.get': (args) => {
+      received = args;
+      return Promise.resolve({
         structuredContent: {
           records: [{ path: 'MMR/MMR-1.md', sections: { History: '## History\n' } }],
           section_failures: [{ path: 'relocated/MMR-1.md' }],
         },
-      }),
+      });
+    },
   }));
   client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
-  expect(await client.getSectionsResult(['MMR-1'], ['History'])).toEqual({
+  expect(await client.getSectionsResult(['MMR-1'], ['History'], '.frontmatter')).toEqual({
     records: [{ path: 'MMR/MMR-1.md', sections: { History: '## History\n' } }],
     sectionFailures: ['relocated/MMR-1.md'],
+  });
+  expect(received).toEqual({
+    col: '.frontmatter',
+    section: ['History'],
+    targets: ['MMR-1'],
   });
 });
 

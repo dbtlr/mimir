@@ -48,6 +48,29 @@ function twoRepairSnapshots(body1: string, body2: string): DoctorSnapshot {
   };
 }
 
+function projectProjectionSnapshot(key: string, project: string): DoctorSnapshot {
+  const path = 'relocated/OTH.md';
+  return {
+    documents: [
+      {
+        body: '## History\n',
+        documentHash: 'hash',
+        frontmatter: { key, project: `[[${project}]]`, type: 'project' },
+        path,
+        stem: 'OTH',
+      },
+    ],
+    graph: {
+      declarations: [{ kind: 'project', path, project, stem: key }],
+      nodes: [],
+      projectKeys: [key],
+      sources: [{ kind: 'project', path, stem: key }],
+    },
+    sectionFailures: [],
+    validateFindings: [],
+  };
+}
+
 test('doctor --fix --dry-run emits a stable composite JSON report and never confirms', async () => {
   const confirms: boolean[] = [];
   const plans: MigrationPlan[] = [];
@@ -253,6 +276,32 @@ test('post-apply verification failure is nonzero and never rendered as fixed', a
       stem: 'MMR-1',
     },
   ]);
+});
+
+test('project verification follows the exact repaired path when its logical key changes', async () => {
+  let reads = 0;
+  const deps: DoctorDeps = {
+    readSnapshot: () =>
+      Promise.resolve(projectProjectionSnapshot(++reads === 1 ? 'MMR' : 'ABC', 'WRONG')),
+    repair: {
+      applyPlan: () => Promise.resolve({ report: { outcome: 'applied' } }),
+      vaultRoot: '/vault',
+    },
+  };
+  const io = fakeIo();
+  expect(await cmdDoctor(io, deps, 'json', 'MMR', { dryRun: false, fix: true })).toBe(1);
+  const report = JSON.parse(io.out.join('')) as {
+    failed: Record<string, unknown>[];
+    fixed: unknown[];
+  };
+  expect(report.fixed).toEqual([]);
+  expect(report.failed).toContainEqual({
+    code: 'verification-failed',
+    issueCode: 'stem-project-divergence',
+    message: 'issue remains after apply',
+    scopeKey: 'MMR',
+    stem: 'MMR',
+  });
 });
 
 test('doctor --dry-run without --fix is a usage error before any vault read', async () => {

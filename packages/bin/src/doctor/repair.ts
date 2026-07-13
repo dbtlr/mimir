@@ -350,11 +350,15 @@ export function planDoctorRepairs(args: {
 }
 
 /** Stable identity used to reconcile a planned issue against post-image
- * diagnostics. Locator/message may legitimately change after a rewrite. */
+ * diagnostics. A project projection follows its exact physical target even if a
+ * concurrent key edit changes the finding's logical identity. */
 export function repairIssueKey(issue: DoctorFinding): string {
   if (issue.code === 'missing-project' || issue.code === 'orphaned-seed') {
     const projectKey = typeof issue.evidence.key === 'string' ? issue.evidence.key : issue.scopeKey;
     return `${issue.code}\0${projectKey}`;
+  }
+  if (issue.code === 'stem-project-divergence') {
+    return `${issue.code}\0${issue.locator}`;
   }
   return `${issue.code}\0${issue.scopeKey}\0${issue.stem}`;
 }

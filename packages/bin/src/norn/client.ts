@@ -389,9 +389,16 @@ export class NornClient {
 
   /** One section operation with both success records and failed physical targets.
    * Consumers that enforce logical identity need both channels from the same
-   * cache refresh; separate calls would reopen an ambiguity race. */
-  async getSectionsResult(targets: string[], sections: string[]): Promise<NornSectionRead> {
-    const payload = await this.call('vault.get', { section: sections, targets }, true);
+   * cache refresh; `col` can opt frontmatter into those same records so type
+   * validation does not reopen an ambiguity race with a second call. */
+  async getSectionsResult(
+    targets: string[],
+    sections: string[],
+    col?: string,
+  ): Promise<NornSectionRead> {
+    const args =
+      col === undefined ? { section: sections, targets } : { col, section: sections, targets };
+    const payload = await this.call('vault.get', args, true);
     const failures = isRecord(payload) ? payload.section_failures : undefined;
     const sectionFailures: string[] = [];
     if (Array.isArray(failures)) {

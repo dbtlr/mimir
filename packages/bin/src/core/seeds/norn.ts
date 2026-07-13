@@ -195,11 +195,13 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
     docs: readonly NornDocument[],
     project?: string,
   ): Promise<SeedRecord[]> => {
-    const records = docs
-      .map(toRecord)
-      .filter((record): record is SeedRecord => record !== null)
-      .filter((record) => project === undefined || record.key === project);
-    const resolved = await resolvedDocs(records.map((record) => stemOf(record.key, record.seq)));
+    const candidateStems = docs.flatMap((doc) => {
+      const identity = seqFromPath(doc.path);
+      return identity !== null && (project === undefined || identity.key === project)
+        ? [stemOf(identity.key, identity.seq)]
+        : [];
+    });
+    const resolved = await resolvedDocs(candidateStems);
     const counts = new Map<string, number>();
     for (const doc of resolved) {
       const identity = seqFromPath(doc.path);
@@ -208,7 +210,11 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
         counts.set(stem, (counts.get(stem) ?? 0) + 1);
       }
     }
-    return records.filter((record) => counts.get(stemOf(record.key, record.seq)) === 1);
+    return resolved
+      .map(toRecord)
+      .filter((record): record is SeedRecord => record !== null)
+      .filter((record) => project === undefined || record.key === project)
+      .filter((record) => counts.get(stemOf(record.key, record.seq)) === 1);
   };
 
   // The typed record plus the RAW frontmatter — the mutation path needs the raw
@@ -427,14 +433,18 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
 
     async loadDescriptions(refs) {
       // One logical-stem section read over the requested seed identities (MMR-263).
-      // Both records and section failures come from that same cache refresh, so a
-      // collider without the requested heading still counts as a second owner.
+      // Frontmatter, sections, and section failures come from that same cache
+      // refresh, so foreign owners and heading-less colliders both fail closed.
       const out = new Map<string, string | null>();
       if (refs.length === 0) {
         return out;
       }
       const wanted = refs.map(({ key, seq }) => stemOf(key, seq));
-      const result = await client.getSectionsResult(wanted, [SEED_DESCRIPTION_HEADING]);
+      const result = await client.getSectionsResult(
+        wanted,
+        [SEED_DESCRIPTION_HEADING],
+        '.frontmatter',
+      );
       const owners = new Map<string, Set<string>>();
       const records = new Map<string, ReturnType<typeof pathAndSections>>();
       for (const raw of result.records) {
@@ -446,7 +456,11 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
         if (identity !== null) {
           const stem = stemOf(identity.key, identity.seq);
           owners.set(stem, new Set([...(owners.get(stem) ?? []), doc.path]));
-          records.set(stem, doc);
+          const frontmatter =
+            isStringRecord(raw) && isStringRecord(raw.frontmatter) ? raw.frontmatter : undefined;
+          if (toRecord({ frontmatter, path: doc.path }) !== null) {
+            records.set(stem, doc);
+          }
         }
       }
       for (const path of result.sectionFailures) {
@@ -472,17 +486,25 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
 
     async loadHistory(key, seq) {
       // One logical-stem operation returns both successful records and failed
-      // physical owners. Requiring exactly one owner closes the pre-read/section
-      // gap while preserving relocated seeds.
+      // physical owners plus frontmatter. Requiring one valid seed owner closes
+      // the pre-read/section gap while preserving relocated seeds.
       const stem = stemOf(key, seq);
-      const result = await client.getSectionsResult([stem], [HISTORY_HEADING]);
-      const records = result.records
+      const result = await client.getSectionsResult([stem], [HISTORY_HEADING], '.frontmatter');
+      const sectionRecords = result.records
         .map(pathAndSections)
         .filter((record): record is NonNullable<typeof record> => record !== null)
         .filter((record) => seqFromPath(record.path)?.key === key)
         .filter((record) => seqFromPath(record.path)?.seq === seq);
+      const records = result.records.flatMap((raw) => {
+        const record = pathAndSections(raw);
+        const frontmatter =
+          isStringRecord(raw) && isStringRecord(raw.frontmatter) ? raw.frontmatter : undefined;
+        return record !== null && toRecord({ frontmatter, path: record.path }) !== null
+          ? [record]
+          : [];
+      });
       const owners = new Set([
-        ...records.map((record) => record.path),
+        ...sectionRecords.map((record) => record.path),
         ...result.sectionFailures.filter((path) => {
           const identity = seqFromPath(path);
           return identity?.key === key && identity.seq === seq;
