@@ -145,11 +145,6 @@ export function writeIntroducesDerivationCycle(
   return nodeHitsDerivationCycle(after, nodeId) && !nodeHitsDerivationCycle(before, nodeId);
 }
 
-/** Render a node's external `KEY-seq` id from the set (error messages, refs). */
-export function renderNodeIdFromSet(_set: DerivationSet, node: Node): string {
-  return node.id;
-}
-
 /**
  * Resolve an external `KEY-seq` id to its node against the working-set
  * snapshot (ADR 0016 Phase 2b). Returns `undefined` for a malformed id or an
@@ -294,8 +289,7 @@ export function nodeStatusWord(set: DerivationSet, node: Node): StatusWord {
     let word: StatusWord;
     if (node.type === 'task') {
       if (node.lifecycle === null || node.hold === null) {
-        const rendered = renderNodeIdFromSet(set, node) ?? 'task';
-        throw invariant(`${rendered} is missing a status axis`);
+        throw invariant(`${node.id} is missing a status axis`);
       }
       const awaiting = hasUnsettledPrereq(set, node.id);
       word = taskStatus({ awaiting, hold: node.hold, lifecycle: node.lifecycle });

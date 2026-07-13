@@ -277,10 +277,7 @@ describe.skipIf(!NORN)('seed CLI verbs', () => {
     expect(out).toMatch(/would annotate/);
 
     // Nothing was written — a real run still annotates.
-    const notes = await store.bodySections.readAnnotations(
-      await idOf(`MMR-${String(task.seq)}`),
-      `MMR-${String(task.seq)}`,
-    );
+    const notes = await store.bodySections.readAnnotations(`MMR-${String(task.seq)}`);
     expect(notes).toHaveLength(0);
   });
 

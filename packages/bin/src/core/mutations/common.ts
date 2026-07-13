@@ -1,4 +1,4 @@
-import { deriveSet, lineageIds, renderNodeIdFromSet } from '../derive';
+import { deriveSet, lineageIds } from '../derive';
 import { conflict, invariant, notFound, validation } from '../errors';
 import type { Node } from '../model';
 import { isReady } from '../predicates';
@@ -85,10 +85,7 @@ async function readyDescendantIds(w: StoreWriter, container: Node): Promise<stri
     if (!isReady(set, task)) {
       continue;
     }
-    const rendered = renderNodeIdFromSet(set, task);
-    if (rendered !== null) {
-      ids.push(rendered);
-    }
+    ids.push(task.id);
   }
   return ids;
 }

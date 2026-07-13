@@ -173,11 +173,12 @@ export type RankedTask = {
 export type StoreWriter = {
   /** The in-scope bulk snapshot the mutation guards derive over. */
   loadWorkingSet: () => Promise<WorkingSet>;
+  /** Whether the durable snapshot contains more than one physical doc for this identity. */
+  hasIdentityCollision: (stem: string) => Promise<boolean>;
 
   // Point reads
   loadNode: (id: string) => Promise<Node | undefined>;
   loadProject: (key: string) => Promise<Project | undefined>;
-  loadProjectByKey: (key: string) => Promise<Project | undefined>;
   loadArtifact: (id: string) => Promise<Artifact | undefined>;
   /** Direct children of a node (one hop, not the subtree). */
   listChildren: (parentId: string) => Promise<string[]>;

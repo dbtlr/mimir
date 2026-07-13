@@ -193,7 +193,7 @@ export async function updateArtifact(
     throw validation('an artifact title cannot be blank');
   }
   await store.transact(async (w) => {
-    const project = await w.loadProjectByKey(ref.key);
+    const project = await w.loadProject(ref.key);
     if (project === undefined) {
       throw notFound('the artifact was not found');
     }

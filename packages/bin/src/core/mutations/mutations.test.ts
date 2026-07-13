@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { nodeIdOf, projectIdOf, createTestStore } from '../../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
-import { deriveSet, renderNodeIdFromSet } from '../derive';
+import { deriveSet } from '../derive';
 import { parseIdentity } from '../ids';
 import { getArtifact } from '../intent';
 import { RANK_STEP } from '../rank';
@@ -73,11 +73,7 @@ async function stemOf(id: string): Promise<string> {
   if (node === undefined) {
     throw new Error(`node ${id} vanished`);
   }
-  const stem = renderNodeIdFromSet(set, node);
-  if (stem === null) {
-    throw new Error(`node ${id} has no stem`);
-  }
-  return stem;
+  return node.id;
 }
 async function logs(id: string) {
   const ref = await stemOf(id);
@@ -410,7 +406,7 @@ test.skipIf(!NORN)('annotate and attachArtifact persist and link', async () => {
   const id = await task();
   await annotate(store, id, 'realized X');
   const stem = await stemOf(id);
-  const notes = await store.bodySections.readAnnotations(id, stem);
+  const notes = await store.bodySections.readAnnotations(stem);
   expect(notes.map((n) => n.content)).toEqual(['realized X']);
 
   const { renderedId } = await attachArtifact(store, {

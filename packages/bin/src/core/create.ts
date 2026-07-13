@@ -30,7 +30,10 @@ export async function createProject(store: Store, input: CreateProjectInput): Pr
     throw validation(`project key must match [A-Z]{2,4}: ${input.key}`);
   }
   return store.transact(async (w) => {
-    const existing = await w.loadProjectByKey(input.key);
+    if (await w.hasIdentityCollision(input.key)) {
+      throw conflict(`project key is ambiguous across multiple documents: ${input.key}`);
+    }
+    const existing = await w.loadProject(input.key);
     if (existing !== undefined) {
       throw conflict(`project key already exists: ${input.key}`);
     }

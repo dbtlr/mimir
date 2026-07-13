@@ -57,7 +57,7 @@ async function idOf(ref: string): Promise<string> {
 
 /** Read a task's `## Annotations` note contents, over a fresh snapshot. */
 async function annotationsOf(ref: string): Promise<string[]> {
-  const notes = await store.bodySections.readAnnotations(await idOf(ref), ref);
+  const notes = await store.bodySections.readAnnotations(ref);
   return notes.map((n) => n.content);
 }
 

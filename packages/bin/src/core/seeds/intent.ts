@@ -11,13 +11,7 @@ import { isMember } from '@mimir/helpers';
 
 import { createTask } from '../create';
 import type { DerivationSet } from '../derive';
-import {
-  deriveSet,
-  findNodeInSet,
-  findProjectInSet,
-  isNodeSettled,
-  renderNodeIdFromSet,
-} from '../derive';
+import { deriveSet, findNodeInSet, findProjectInSet, isNodeSettled } from '../derive';
 import { conflict, notFound, projectNotFound, validation } from '../errors';
 import { parseSeedRef, renderId, renderSeedRef } from '../ids';
 import type { Store } from '../store';
@@ -389,11 +383,7 @@ export async function promoteSeed(
     if (node === undefined || set.archivedProjects.has(node.project_id)) {
       throw notFound(`${input.link} doesn't exist`, 'see what exists: mimir list -f ids');
     }
-    const stem = renderNodeIdFromSet(set, node);
-    if (stem === null) {
-      throw validation(`${input.link} could not be rendered as a node id`);
-    }
-    createdStem = stem;
+    createdStem = node.id;
   } else if (input.parent !== undefined) {
     const parent = findNodeInSet(set, input.parent);
     if (parent === undefined || set.archivedProjects.has(parent.project_id)) {

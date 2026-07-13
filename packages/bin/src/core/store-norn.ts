@@ -153,6 +153,8 @@ type NodeDoc = {
  */
 export type NornSnapshot = {
   workingSet: WorkingSet;
+  /** Canonical stem → every physical path withheld because the identity collides. */
+  collidingPathsByStem: ReadonlyMap<string, readonly string[]>;
   /** Node stem → its raw frontmatter record (presence + CAS old-value source). */
   nodeFm: ReadonlyMap<string, Record<string, unknown>>;
   /** Project key → its raw frontmatter record. */
@@ -455,6 +457,12 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   const validByStem = new Map(validRefs.map((r) => [r.stem, r]));
   const validProjectKeys = new Set(validated.projectKeys);
   const survivingProjects = projectDocs.filter((project) => validProjectKeys.has(project.key));
+  const collidingPathsByStem = new Map<string, readonly string[]>();
+  for (const drop of validated.dropped) {
+    if (drop.kind === 'identity' && !collidingPathsByStem.has(drop.stem)) {
+      collidingPathsByStem.set(drop.stem, drop.paths);
+    }
+  }
 
   // Index the pruned `depends_on` refs by stem so the write path can re-merge
   // them (MMR-186). Both drop rules point away from a surviving edge — a
@@ -647,6 +655,7 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   });
 
   return {
+    collidingPathsByStem,
     nodeFm,
     pathByStem,
     projectFm,

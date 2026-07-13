@@ -8,10 +8,12 @@ import { NornClient } from '../norn/client';
 import { createNornWriteStore } from '../norn/writer';
 import { converge } from '../vault/converge';
 import { readSectionFailures } from './body-sections';
+import { createProject } from './create';
 import { renderHistoryBody, renderNodeBody } from './history-codec';
 import { renderId } from './ids';
 import { undepend } from './mutations/dependency';
 import { loadNornSnapshot, loadWorkingSetOverNorn, readVaultGraph } from './store-norn';
+import { expectMimirError } from './testing';
 import { validate } from './validate';
 
 /**
@@ -185,6 +187,39 @@ test.skipIf(!NORN)(
       rule: 'missing-project',
       stem: 'MMR-1',
     });
+  },
+);
+
+test.skipIf(!NORN)(
+  'createProject fails closed when relocated project documents collide on the requested key',
+  async () => {
+    const projectFields = [
+      jsonField('type', 'project'),
+      jsonField('key', 'MMR'),
+      jsonField('name', 'Mimir'),
+    ];
+    await writeDoc('relocated-a/MMR.md', projectFields);
+    await writeDoc('relocated-b/MMR.md', projectFields);
+
+    const snapshot = await loadNornSnapshot(client);
+    expect(snapshot.workingSet.projects).toEqual([]);
+
+    const store = createNornWriteStore(client, join(root, 'vault'));
+    await expectMimirError('conflict', () =>
+      createProject(store, { key: 'MMR', name: 'Third collider' }),
+    );
+    expect(snapshot.collidingPathsByStem.get('MMR')).toEqual([
+      'relocated-a/MMR.md',
+      'relocated-b/MMR.md',
+    ]);
+
+    const projectDocs = (await client.find({ in: ['type:project'], no_limit: true })).filter(
+      (doc) => doc.frontmatter?.key === 'MMR',
+    );
+    expect(projectDocs.map((doc) => doc.path).toSorted()).toEqual([
+      'relocated-a/MMR.md',
+      'relocated-b/MMR.md',
+    ]);
   },
 );
 

@@ -21,7 +21,6 @@ import {
   leafDistribution,
   lineageIds,
   nodeStatusWord,
-  renderNodeIdFromSet,
   rootDistribution,
 } from '../derive';
 import { renderArtifactRef } from '../ids';
@@ -46,7 +45,7 @@ function toRef(set: DerivationSet, nodeId: string): NodeRef {
     return { id: 'unknown' };
   }
   return {
-    id: renderNodeIdFromSet(set, node) ?? 'unknown',
+    id: node.id,
     status: nodeStatusWord(set, node),
     title: node.title,
   };
@@ -62,8 +61,8 @@ export async function buildNodeView(
   const parent = node.parent_id === null ? undefined : set.nodeById.get(node.parent_id);
   const view: NodeView = {
     createdAt: node.created_at,
-    id: renderNodeIdFromSet(set, node) ?? 'unknown',
-    parent: parent === undefined ? null : renderNodeIdFromSet(set, parent),
+    id: node.id,
+    parent: parent?.id ?? null,
     status: nodeStatusWord(set, node),
     summary: node.summary,
     title: node.title,
@@ -106,7 +105,7 @@ export async function buildNodeView(
   const wantAnnotations = facets.has('annotations');
   const wantHistory = facets.has('history');
   if (wantDescription || wantAnnotations || wantHistory) {
-    const sections = await bodySections.readSections(node.id, view.id, {
+    const sections = await bodySections.readSections(view.id, {
       annotations: wantAnnotations,
       description: wantDescription,
       history: wantHistory,
@@ -196,8 +195,7 @@ function buildAwaitingOn(set: DerivationSet, nodeId: string): AwaitingRef[] {
       const ref: AwaitingRef = toRef(set, prereqId);
       if (ancestorId !== nodeId) {
         const ancestor = set.nodeById.get(ancestorId);
-        ref.via =
-          ancestor === undefined ? undefined : (renderNodeIdFromSet(set, ancestor) ?? undefined);
+        ref.via = ancestor?.id;
       }
       out.push(ref);
     }
@@ -233,11 +231,10 @@ async function buildArtifacts(
   nodeId: string,
 ): Promise<ArtifactView[]> {
   const node = set.nodeById.get(nodeId);
-  const stem = node === undefined ? undefined : renderNodeIdFromSet(set, node);
-  if (stem === undefined || stem === null) {
+  if (node === undefined) {
     return [];
   }
-  const records = await artifacts.listForNode(stem);
+  const records = await artifacts.listForNode(node.id);
   return records.map(toArtifactView);
 }
 

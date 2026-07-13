@@ -30,6 +30,7 @@ import { now } from '../core/time';
 import { createNornTransitionsFeed } from '../core/transitions';
 import { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
 import type { NornClient } from './client';
+import { collapse, stemOf } from './decode';
 import type { MigrationOp } from './plan';
 import {
   addFrontmatter,
@@ -61,7 +62,8 @@ import {
  * Identity is canonical throughout. Existing documents resolve through the
  * snapshot's stem-to-path locator. A new node remains private to this writer
  * until Norn resolves `{{seq}}`; the structured apply-report stem supplies its
- * final echo without another vault load.
+ * final echo, followed by a targeted survivor read rather than another
+ * whole-vault load.
  */
 
 const MAX_ATTEMPTS = 5;
@@ -90,12 +92,17 @@ type Create = {
    * The plan-operations index this create's `create_document` op occupies —
    * stamped by {@link Accumulator.buildOperations} at emit time. norn reports
    * each op's `op_id` as its plan position, so this is the correlation key
-   * {@link extractResolvedSeqs} reads the resolved seq back on. Captured at emit
+   * {@link extractResolvedStems} reads the resolved seq back on. Captured at emit
    * rather than reconstructed from the creates-array index, so it stays correct
    * if the emit order or op-per-create count ever changes.
    */
   opId?: number;
 } & ({ targetKind: 'node'; target: Node } | { targetKind: 'project'; target: Project });
+
+/** Creation tags are set-valued; keep each tag's first timestamp and input position. */
+function creationTags(tags: readonly string[], createdAt: string): NodeTag[] {
+  return [...new Set(tags)].map((tag) => ({ created_at: createdAt, tag }));
+}
 
 /** The frontmatter field a node patch column maps onto (identity but for parent). */
 function nodePatchField(column: string): string {
@@ -150,6 +157,7 @@ async function runTransact<T>(
       throw validation('the node write path apply did not complete', verdict.detail);
     }
     const resolvedStems = extractResolvedStems(report, acc.creates);
+    await verifyCreates(client, acc.creates, resolvedStems);
     return acc.resolveResult(result, resolvedStems);
   }
   throw invariant(
@@ -234,10 +242,12 @@ function failedOpErrors(root: unknown): { code: string | null; message: string |
 }
 
 /**
- * The accumulating `StoreWriter`: point reads serve from a mutable overlay of
- * the snapshot (so a read after a write in the same `transact` sees the pending
- * change, the in-transaction read-your-writes view the verbs expect), and write
- * primitives record intended effects keyed by target document without touching Norn.
+ * The accumulating `StoreWriter`: point reads for snapshot-backed records and
+ * newly inserted projects serve from a mutable overlay (the in-transaction
+ * read-your-writes view the verbs expect). A pending node has no canonical stem
+ * until apply and remains private as the value returned by `insertNode`; it is
+ * intentionally absent from id-based point reads. Write primitives record
+ * intended effects keyed by target document without touching Norn.
  */
 class Accumulator {
   readonly writer: StoreWriter;
@@ -246,7 +256,6 @@ class Accumulator {
   private readonly snapshot: NornSnapshot;
   private readonly nodes: Map<string, Node>;
   private readonly projects: Map<string, Project>;
-  private readonly projectByKey: Map<string, Project>;
   private edges: Dependency[];
   private readonly nodeTags: Map<string, NodeTag[]>;
   private readonly projectTags: Map<string, NodeTag[]>;
@@ -258,7 +267,6 @@ class Accumulator {
     const ws = snapshot.workingSet;
     this.nodes = new Map(ws.nodes.map((n) => [n.id, { ...n }]));
     this.projects = new Map(ws.projects.map((p) => [p.key, { ...p }]));
-    this.projectByKey = new Map([...this.projects.values()].map((p) => [p.key, p]));
     this.edges = ws.edges.map((e) => ({ ...e }));
     this.nodeTags = new Map(
       [...ws.nodeTags].map(([id, tags]) => [id, tags.map((t) => ({ ...t }))]),
@@ -294,6 +302,7 @@ class Accumulator {
       appendTransition: (row) => this.appendTransition(row),
       deleteDependency: (edge) => this.deleteDependency(edge),
       deleteTags: (entityType, entityId, tags) => this.deleteTags(entityType, entityId, tags),
+      hasIdentityCollision: (stem) => Promise.resolve(this.snapshot.collidingPathsByStem.has(stem)),
       insertAnnotation: (row) => this.insertAnnotation(row),
       insertArtifact: () =>
         Promise.reject(invariant('artifact writes route through the artifact seam, not the plan')),
@@ -320,8 +329,7 @@ class Accumulator {
         ),
       loadArtifact: () => Promise.resolve(undefined),
       loadNode: (id) => Promise.resolve(this.cloneNode(id)),
-      loadProject: (id) => Promise.resolve(this.cloneProject(this.projects.get(id))),
-      loadProjectByKey: (key) => Promise.resolve(this.cloneProject(this.projectByKey.get(key))),
+      loadProject: (key) => Promise.resolve(this.cloneProject(this.projects.get(key))),
       loadWorkingSet: () => Promise.resolve(this.overlayWorkingSet()),
       updateArtifact: () =>
         Promise.reject(invariant('artifact writes route through the artifact seam, not the plan')),
@@ -389,7 +397,7 @@ class Accumulator {
     };
     this.creates.push({
       pathTemplate: `${project.key}/${project.key}-{{seq}}.md`,
-      tags: (row.tags ?? []).map((tag) => ({ created_at: timestamp, tag })),
+      tags: creationTags(row.tags ?? [], timestamp),
       target: node,
       targetKind: 'node',
     });
@@ -414,10 +422,9 @@ class Accumulator {
       updated_at: timestamp,
     };
     this.projects.set(project.key, project);
-    this.projectByKey.set(project.key, project);
     this.creates.push({
       pathTemplate: `${project.key}/${project.key}.md`,
-      tags: (row.tags ?? []).map((tag) => ({ created_at: timestamp, tag })),
+      tags: creationTags(row.tags ?? [], timestamp),
       target: project,
       targetKind: 'project',
     });
@@ -536,9 +543,9 @@ class Accumulator {
       to: row.to_value,
     };
     // Fail loud on an unresolvable target: a transition against a same-transact
-    // create or a node/project absent from the snapshot must not be dropped —
-    // that would lose History. A create is not a transition (ADR 0003), so no
-    // legitimate flow reaches here with a non-positive id.
+    // create (which has no canonical stem yet) or a node/project absent from the
+    // snapshot must not be dropped — that would lose History. Creation itself
+    // is not a transition (ADR 0003).
     if (row.node_id != null) {
       if (!this.snapshot.pathByStem.has(row.node_id) || !this.nodes.has(row.node_id)) {
         throw invariant('a transition targets a node absent from the snapshot');
@@ -799,6 +806,88 @@ function extractResolvedStems(report: unknown, creates: Create[]): Map<Create, s
     resolved.set(create, op.stem);
   }
   return resolved;
+}
+
+/**
+ * Point-verify applied creates before their echo leaves the transaction. The
+ * apply report remains the authority for allocated node identity; this targeted
+ * `vault.get` only closes the post-apply race where a created stem or its owning
+ * project no longer resolves uniquely. It deliberately avoids rebuilding a
+ * whole snapshot.
+ */
+async function verifyCreates(
+  client: NornClient,
+  creates: readonly Create[],
+  resolvedStems: ReadonlyMap<Create, string>,
+): Promise<void> {
+  if (creates.length === 0) {
+    return;
+  }
+  const targets = new Set<string>();
+  for (const create of creates) {
+    if (create.targetKind === 'project') {
+      targets.add(create.target.key);
+    } else {
+      const stem = resolvedStems.get(create);
+      if (stem === undefined) {
+        throw invariant('a created node has no resolved stem for survivor verification');
+      }
+      targets.add(stem);
+      targets.add(create.target.project_id);
+    }
+  }
+  const records = await client.get([...targets]);
+  for (const create of creates) {
+    if (create.targetKind === 'project') {
+      const matches = records.filter(
+        (record) =>
+          isRecord(record) &&
+          typeof record.path === 'string' &&
+          stemOf(record.path) === create.target.key,
+      );
+      const record = matches[0];
+      const fm = isRecord(record) && isRecord(record.frontmatter) ? record.frontmatter : undefined;
+      if (matches.length !== 1 || fm?.type !== 'project' || fm.key !== create.target.key) {
+        throw invariant(
+          `created project did not survive uniquely after apply: ${create.target.key}`,
+        );
+      }
+      continue;
+    }
+    const stem = resolvedStems.get(create);
+    if (stem === undefined) {
+      throw invariant('a created node has no resolved stem for survivor verification');
+    }
+    const nodeMatches = records.filter(
+      (record) =>
+        isRecord(record) && typeof record.path === 'string' && stemOf(record.path) === stem,
+    );
+    const projectMatches = records.filter(
+      (record) =>
+        isRecord(record) &&
+        typeof record.path === 'string' &&
+        stemOf(record.path) === create.target.project_id,
+    );
+    const nodeRecord = nodeMatches[0];
+    const projectRecord = projectMatches[0];
+    const nodeFm =
+      isRecord(nodeRecord) && isRecord(nodeRecord.frontmatter) ? nodeRecord.frontmatter : undefined;
+    const projectFm =
+      isRecord(projectRecord) && isRecord(projectRecord.frontmatter)
+        ? projectRecord.frontmatter
+        : undefined;
+    const validNode =
+      nodeMatches.length === 1 &&
+      nodeFm?.type === create.target.type &&
+      collapse(nodeFm.project) === create.target.project_id;
+    const validProject =
+      projectMatches.length === 1 &&
+      projectFm?.type === 'project' &&
+      projectFm.key === create.target.project_id;
+    if (!validNode || !validProject) {
+      throw invariant(`created node did not survive with one owning project after apply: ${stem}`);
+    }
+  }
 }
 
 function reportOperations(report: unknown): Map<string, ReportOp> {

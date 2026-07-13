@@ -15,25 +15,24 @@ function str(value: unknown): string | null {
 /**
  * The transition entity token a document's `## History` entries belong to — a
  * project doc yields its `KEY` (from frontmatter), a node doc its `KEY-seq`
- * stem. A project is never dropped by the validator, so its `KEY` always
- * surfaces (parity with the reader, which shows every project doc). A node's
- * stem yields `null` unless it is a validator SURVIVOR, so the feed shows a
- * node's transitions iff the working-set reader shows the node (ADR 0017,
- * MMR-189): a NODE drop (missing project, invalid `lifecycle`/`hold`, absent/
- * unparseable frontmatter) yields `null`; a CYCLE drop is edge-only — the node
- * survives, so its stem is in `surviving` and its transitions still surface.
+ * stem. Either yields `null` unless its identity is a validator SURVIVOR, so
+ * the feed shows transitions iff the working-set reader shows that entity
+ * (ADR 0017, MMR-189). A duplicate project identity and a NODE drop (missing
+ * project, invalid `lifecycle`/`hold`, absent/unparseable frontmatter) are
+ * withheld; a CYCLE drop is edge-only, so its node still surfaces.
  */
 function entityToken(
   fm: Record<string, unknown> | undefined,
   path: string,
-  surviving: ReadonlySet<string>,
+  survivingNodeStems: ReadonlySet<string>,
+  survivingProjectKeys: ReadonlySet<string>,
 ): string | null {
   if (fm !== undefined && str(fm.type) === 'project') {
     const key = str(fm.key);
-    return key !== null && key !== '' ? key : null;
+    return key !== null && survivingProjectKeys.has(key) ? key : null;
   }
   const stem = stemOf(path);
-  return surviving.has(stem) ? stem : null;
+  return survivingNodeStems.has(stem) ? stem : null;
 }
 
 /** One entry positioned in the merged feed: its view plus the sort key. */
@@ -112,10 +111,17 @@ export function createNornTransitionsFeed(client: NornClient): TransitionsFeed {
       // core of `readVaultGraph`) — one find, no second scan and no A/B snapshot
       // skew, no drop rules re-implemented here (ADR 0017, MMR-189). A cycle
       // drop is edge-only, so its node stays in `nodes` and still surfaces.
-      const surviving = new Set(validate(vaultGraphFromDocs(docs)).nodes.map((n) => n.stem));
+      const validated = validate(vaultGraphFromDocs(docs));
+      const survivingNodeStems = new Set(validated.nodes.map((n) => n.stem));
+      const survivingProjectKeys = new Set(validated.projectKeys);
       const tokenByPath = new Map<string, string>();
       for (const doc of docs) {
-        const token = entityToken(doc.frontmatter, doc.path, surviving);
+        const token = entityToken(
+          doc.frontmatter,
+          doc.path,
+          survivingNodeStems,
+          survivingProjectKeys,
+        );
         if (token !== null) {
           tokenByPath.set(doc.path, token);
         }

@@ -20,7 +20,6 @@ import {
   findNodeInSet,
   isTerminalWord,
   nodeStatusWord,
-  renderNodeIdFromSet,
   statusOf,
   statusOfProject,
 } from '../derive';
@@ -215,11 +214,11 @@ function toQueryRow(
     upstream: node.upstream,
   };
   if (needed.has('id')) {
-    values.id = renderNodeIdFromSet(set, node);
+    values.id = node.id;
   }
   if (needed.has('parent')) {
     const parent = node.parent_id === null ? undefined : set.nodeById.get(node.parent_id);
-    values.parent = parent === undefined ? null : renderNodeIdFromSet(set, parent);
+    values.parent = parent?.id ?? null;
   }
   let tags: readonly string[] = [];
   if (needed.has('tag')) {
@@ -505,5 +504,5 @@ export async function statusOfNode(store: Store, id: string): Promise<StatusView
     throw notFound(`${id} doesn't exist`);
   }
   const { status, distribution } = statusOf(set, node);
-  return { distribution, id: renderNodeIdFromSet(set, node) ?? id, status, type: node.type };
+  return { distribution, id: node.id, status, type: node.type };
 }

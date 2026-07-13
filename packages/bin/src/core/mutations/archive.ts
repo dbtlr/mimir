@@ -1,4 +1,4 @@
-import { deriveSet, isNodeSettled, lineageIds, renderNodeIdFromSet } from '../derive';
+import { deriveSet, isNodeSettled, lineageIds } from '../derive';
 import { conflict, notFound } from '../errors';
 import type { Project } from '../model';
 import { isReady } from '../predicates';
@@ -86,10 +86,7 @@ export async function releasedByArchive(store: Store, projectId: string): Promis
     if (!isReady(set, task)) {
       continue;
     }
-    const rendered = renderNodeIdFromSet(set, task);
-    if (rendered !== null) {
-      released.push(rendered);
-    }
+    released.push(task.id);
   }
   return released.toSorted((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }

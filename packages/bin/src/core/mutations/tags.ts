@@ -23,7 +23,7 @@ export type EntityRef =
 /** The node/project projects, for the archive write-lock check. */
 async function projectOfTarget(w: StoreWriter, ref: EntityRef): Promise<string | undefined> {
   if (ref.entityType === 'artifact') {
-    return (await w.loadProjectByKey(ref.key))?.key;
+    return (await w.loadProject(ref.key))?.key;
   }
   if (ref.entityType === 'project') {
     return ref.entityId;
