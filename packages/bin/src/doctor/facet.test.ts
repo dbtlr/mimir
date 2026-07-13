@@ -77,9 +77,14 @@ const rawTask = [
 
 const lifecycleFinding: DoctorFinding = {
   check: 'field-validity',
+  code: 'invalid-lifecycle',
+  evidence: { value: 'dnoe' },
+  locator: 'frontmatter · lifecycle',
   message: 'task dropped — invalid lifecycle "dnoe"',
   node: 'MMR-97',
+  scopeKey: 'MMR',
   severity: 'error',
+  stem: 'MMR-97',
   where: 'frontmatter · lifecycle',
 };
 
@@ -127,9 +132,14 @@ describe('buildDoctorFacet', () => {
       findings: [
         {
           check: 'field-validity',
+          code: 'invalid-hold',
+          evidence: { value: 'praked' },
+          locator: 'frontmatter · hold',
           message: 'invalid hold',
           node: 'MMR-5',
+          scopeKey: 'MMR',
           severity: 'error',
+          stem: 'MMR-5',
           where: 'frontmatter · hold',
         },
       ],
@@ -145,9 +155,14 @@ describe('buildDoctorFacet', () => {
       findings: [
         {
           check: 'frontmatter',
+          code: 'value-not-allowed',
+          evidence: { value: 'foreign' },
+          locator: 'frontmatter · type',
           message: 'foreign type',
           node: 'MMR-2',
+          scopeKey: 'MMR',
           severity: 'error',
+          stem: 'MMR-2',
           where: 'frontmatter · type',
         },
       ],
@@ -173,9 +188,14 @@ describe('buildDoctorFacet', () => {
       findings: [
         {
           check: 'seed-validity',
+          code: 'dangling-spawned',
+          evidence: { ref: 'MMR-9' },
+          locator: 'frontmatter · spawned',
           message: 'spawned MMR-9 resolves to no node in the vault — pruned on read',
           node: 'MMR-s1',
+          scopeKey: 'MMR',
           severity: 'error',
+          stem: 'MMR-s1',
           where: 'frontmatter · spawned',
         },
       ],

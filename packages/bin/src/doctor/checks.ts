@@ -16,8 +16,9 @@ import { stemOf } from '../norn/decode';
 
 /** What a check reads: the raw vault documents to diagnose. */
 export type DoctorContext = {
-  /** Every work-state document's raw markdown, as `{ stem, body }` — scoped by `-s`. */
-  readNodeDocs: () => Promise<{ stem: string; body: string }[]>;
+  /** Every work-state document's raw markdown and exact path — filtered to
+   * `-s` by canonical stem after a whole-vault enumeration (MMR-240). */
+  readNodeDocs: () => Promise<{ stem: string; body: string; path: string }[]>;
   /** The shared validator's `dropped[]` over the whole-vault graph — computed
    * once by the runner and fed to every referential check, so the four checks
    * that render `dropped[]` (dangling / missing-project / acyclicity / field
@@ -40,12 +41,14 @@ export type DoctorContext = {
   /** Documents whose `## History`/`## Annotations` heading norn cannot resolve —
    * a hand-edited duplicate (ambiguous) or a missing heading — so the section reads
    * as EMPTY (ADR 0017). The input for the section-resolution check (MMR-239); each
-   * is `{ stem, section }`. Pre-scoped by `-s` in the runner. */
-  sectionFailures: readonly { stem: string; section: string }[];
+   * is `{ path, stem, section }`. Filtered to `-s` by canonical stem in the runner. */
+  sectionFailures: readonly { path: string; stem: string; section: string }[];
 };
 
 /** One problem a check found, anchored for a human to locate and fix. */
 export type DoctorFinding = {
+  /** Stable machine code. The total repair registry is keyed by this union. */
+  code: DoctorIssueCode;
   /** The reporting check's {@link Diagnostic.name}. */
   check: string;
   /** An informational triage label, never a gate (ADR 0017): `error` = a record
@@ -59,7 +62,49 @@ export type DoctorFinding = {
   where: string;
   /** A one-line human description of the problem. */
   message: string;
+  /** Canonical ownership derived from the stem, never from frontmatter. */
+  scopeKey: string;
+  /** Canonical entity identity (kept alongside `node` for JSON compatibility). */
+  stem: string;
+  /** Stable structured facts used by repair policy and machine consumers. */
+  evidence: Readonly<Record<string, unknown>>;
+  /** Physical or logical location of the issue. */
+  locator: string;
 };
+
+/** Every issue code the diagnostic registry can emit. Including Drop['rule']
+ * makes a validator rule addition expand this union automatically; the repair
+ * policy's Record then fails compilation until the rule is classified. */
+export type DoctorIssueCode =
+  | Drop['rule']
+  | BodyRecordProblem
+  | 'crlf-body'
+  | 'frontmatter-disallowed-value'
+  | 'frontmatter-parse-failed'
+  | 'frontmatter-required-field-missing'
+  | 'section-annotations-unreadable'
+  | 'section-history-unreadable'
+  | 'stem-project-divergence'
+  | 'value-not-allowed';
+
+type FindingInput = Omit<DoctorFinding, 'code' | 'evidence' | 'locator' | 'scopeKey' | 'stem'> & {
+  code: DoctorIssueCode;
+  evidence?: Readonly<Record<string, unknown>>;
+  locator?: string;
+};
+
+/** Build the additive structured issue envelope while preserving the original
+ * human/JSON finding fields. */
+function issue(input: FindingInput): DoctorFinding {
+  const identity = parseIdentity(input.node);
+  return {
+    ...input,
+    evidence: input.evidence ?? {},
+    locator: input.locator ?? input.where,
+    scopeKey: identity?.key ?? input.node,
+    stem: input.node,
+  };
+}
 
 /** A registered diagnostic: a named check over the vault. A check is sync when it
  * reads only the pre-computed {@link DoctorContext.dropped}, async when it reads
@@ -111,16 +156,21 @@ export const bodySectionCheck: Diagnostic = {
   name: 'body-sections',
   run: async (ctx) => {
     const findings: DoctorFinding[] = [];
-    for (const { stem, body } of await ctx.readNodeDocs()) {
+    for (const { stem, body, path } of await ctx.readNodeDocs()) {
       for (const f of lintBodySections(body)) {
         const { message, severity } = PROBLEM[f.problem];
-        findings.push({
-          check: 'body-sections',
-          message: `${message} — ${f.heading}`,
-          node: stem,
-          severity,
-          where: `${f.section} · line ${String(f.line)}`,
-        });
+        findings.push(
+          issue({
+            check: 'body-sections',
+            code: f.problem,
+            evidence: { heading: f.heading, line: f.line, section: f.section },
+            locator: path,
+            message: `${message} — ${f.heading}`,
+            node: stem,
+            severity,
+            where: `${f.section} · line ${String(f.line)}`,
+          }),
+        );
       }
     }
     return findings;
@@ -140,16 +190,21 @@ export const crlfCheck: Diagnostic = {
   name: 'crlf',
   run: async (ctx) => {
     const findings: DoctorFinding[] = [];
-    for (const { stem, body } of await ctx.readNodeDocs()) {
+    for (const { stem, body, path } of await ctx.readNodeDocs()) {
       const count = (body.match(/\r\n/g) ?? []).length;
       if (count > 0) {
-        findings.push({
-          check: 'crlf',
-          message: `body uses CRLF line endings (${String(count)}) — tolerated on read (MMR-167) but non-canonical`,
-          node: stem,
-          severity: 'warn',
-          where: 'body',
-        });
+        findings.push(
+          issue({
+            check: 'crlf',
+            code: 'crlf-body',
+            evidence: { count },
+            locator: path,
+            message: `body uses CRLF line endings (${String(count)}) — tolerated on read (MMR-167) but non-canonical`,
+            node: stem,
+            severity: 'warn',
+            where: 'body',
+          }),
+        );
       }
     }
     return findings;
@@ -216,13 +271,15 @@ export const identityUniquenessCheck: Diagnostic = {
         return [];
       }
       return [
-        {
+        issue({
           check: 'identity-uniqueness',
+          code: drop.rule,
+          evidence: { excludedPath: drop.path, paths: drop.paths },
           message: `duplicate stem ${drop.stem} at ${drop.paths.join(', ')} — ${drop.path} is excluded from reads`,
           node: drop.stem,
           severity: 'error' as const,
           where: drop.path,
-        },
+        }),
       ];
     }),
   title: 'Canonical identity uniqueness',
@@ -255,13 +312,17 @@ export const danglingRefCheck: Diagnostic = {
         continue;
       }
       const field = drop.rule === 'dangling-parent' ? 'parent' : 'depends_on';
-      findings.push({
-        check: 'dangling-refs',
-        message: `${field} ${drop.ref} resolves to no node in the vault — the reference is dropped on read`,
-        node: drop.stem,
-        severity: 'error',
-        where: `frontmatter · ${field}`,
-      });
+      findings.push(
+        issue({
+          check: 'dangling-refs',
+          code: drop.rule,
+          evidence: { field, ref: drop.ref },
+          message: `${field} ${drop.ref} resolves to no node in the vault — the reference is dropped on read`,
+          node: drop.stem,
+          severity: 'error',
+          where: `frontmatter · ${field}`,
+        }),
+      );
     }
     return findings;
   },
@@ -300,13 +361,17 @@ export const missingProjectCheck: Diagnostic = {
         seen.count += 1;
       }
     }
-    return Array.from(missing, ([key, { node, count }]) => ({
-      check: 'missing-project',
-      message: `project ${key} has no document in the vault (referenced by ${String(count)} node${count === 1 ? '' : 's'}) — its nodes are hidden on read`,
-      node,
-      severity: 'error',
-      where: 'project',
-    }));
+    return Array.from(missing, ([key, { node, count }]) =>
+      issue({
+        check: 'missing-project',
+        code: 'missing-project',
+        evidence: { count, key },
+        message: `project ${key} has no document in the vault (referenced by ${String(count)} node${count === 1 ? '' : 's'}) — its nodes are hidden on read`,
+        node,
+        severity: 'error',
+        where: 'project',
+      }),
+    );
   },
   title: 'Node → project references',
 };
@@ -333,13 +398,17 @@ export const acyclicityCheck: Diagnostic = {
         continue;
       }
       const field = drop.rule === 'cycle-parent' ? 'parent' : 'depends_on';
-      findings.push({
-        check: 'acyclicity',
-        message: `${field} ${drop.ref} closes a cycle — the edge is dropped on read`,
-        node: drop.stem,
-        severity: 'error',
-        where: `frontmatter · ${field}`,
-      });
+      findings.push(
+        issue({
+          check: 'acyclicity',
+          code: drop.rule,
+          evidence: { field, ref: drop.ref },
+          message: `${field} ${drop.ref} closes a cycle — the edge is dropped on read`,
+          node: drop.stem,
+          severity: 'error',
+          where: `frontmatter · ${field}`,
+        }),
+      );
     }
     return findings;
   },
@@ -392,13 +461,17 @@ export const fieldValidityCheck: Diagnostic = {
         // exhaustiveness test rather than silently continuing (MMR-209).
         continue;
       }
-      findings.push({
-        check: 'field-validity',
-        message,
-        node: drop.stem,
-        severity: 'error',
-        where: `frontmatter · ${field}`,
-      });
+      findings.push(
+        issue({
+          check: 'field-validity',
+          code: drop.rule,
+          evidence: { field, value: drop.value },
+          message,
+          node: drop.stem,
+          severity: 'error',
+          where: `frontmatter · ${field}`,
+        }),
+      );
     }
     return findings;
   },
@@ -416,30 +489,40 @@ export const fieldValidityCheck: Diagnostic = {
  * notes, a stray `refs/AB-1.md`), so the anchoring is what keeps the check to real
  * work-state docs — a matching stem in the wrong directory is not one.
  */
-function workStateStem(path: string): string | null {
+export function workStateStem(path: string): string | null {
   const stem = stemOf(path);
   const parts = path.split('/');
   const parent = parts.at(-2);
   const grandparent = parts.at(-3);
   const identity = parseIdentity(stem);
   // A node `KEY/KEY-seq.md`: the parent dir is the node's own project key.
-  if (identity?.kind === 'node' && parent === identity.key) {
+  if (identity?.kind === 'node' && parts.length === 2 && parent === identity.key) {
     return stem;
   }
   // A project `KEY/KEY.md`: the parent dir is that same key.
-  if (identity?.kind === 'project' && parent === stem) {
+  if (identity?.kind === 'project' && parts.length === 2 && parent === stem) {
     return stem;
   }
   // An artifact `KEY/artifacts/KEY-aN.md`: parent dir `artifacts`, grandparent
   // the artifact's project key. Artifacts are work-state docs too — a corrupt one
   // is invisible on read, so it belongs here (the finding's node is the KEY-aN).
-  if (identity?.kind === 'artifact' && parent === 'artifacts' && grandparent === identity.key) {
+  if (
+    identity?.kind === 'artifact' &&
+    parts.length === 3 &&
+    parent === 'artifacts' &&
+    grandparent === identity.key
+  ) {
     return stem;
   }
   // A seed `KEY/seeds/KEY-sN.md` (MMR-244): parent dir `seeds`, grandparent the
   // seed's project key. Seeds are work-state docs too — a parse-failed/untyped one
   // is invisible on read, so it belongs here (the finding's node is the KEY-sN).
-  if (identity?.kind === 'seed' && parent === 'seeds' && grandparent === identity.key) {
+  if (
+    identity?.kind === 'seed' &&
+    parts.length === 3 &&
+    parent === 'seeds' &&
+    grandparent === identity.key
+  ) {
     return stem;
   }
   return null;
@@ -517,6 +600,14 @@ export const frontmatterCheck: Diagnostic = {
       if (spec === undefined || (spec.field !== null && finding.field !== spec.field)) {
         continue;
       }
+      if (
+        finding.code !== 'frontmatter-disallowed-value' &&
+        finding.code !== 'frontmatter-parse-failed' &&
+        finding.code !== 'frontmatter-required-field-missing' &&
+        finding.code !== 'value-not-allowed'
+      ) {
+        continue;
+      }
       const stem = workStateStem(finding.path);
       if (stem === null) {
         continue; // a non-work-state path (a stray vault doc) — not this check's domain
@@ -533,13 +624,23 @@ export const frontmatterCheck: Diagnostic = {
         isParseFailed && finding.message !== undefined && finding.message !== ''
           ? `${spec.message} — ${finding.message}`
           : spec.message;
-      byStem.set(stem, {
-        check: 'frontmatter',
-        message,
-        node: stem,
-        severity: 'error',
-        where: spec.where,
-      });
+      byStem.set(
+        stem,
+        issue({
+          check: 'frontmatter',
+          code: finding.code,
+          evidence: {
+            field: finding.field,
+            path: finding.path,
+            validateCode: finding.code,
+          },
+          locator: finding.path,
+          message,
+          node: stem,
+          severity: 'error',
+          where: spec.where,
+        }),
+      );
     }
     return [...byStem.values()];
   },
@@ -563,22 +664,27 @@ export const stemProjectCheck: Diagnostic = {
   name: 'stem-project',
   run: (ctx) => {
     const findings: DoctorFinding[] = [];
-    for (const { project, stem } of ctx.projectRefs) {
+    for (const { kind, path, project, stem } of ctx.projectRefs) {
       // A missing/malformed `project` is norn's required-field concern (MMR-191).
       if (project === null) {
         continue;
       }
-      const identity = parseIdentity(stem);
-      if (identity === null || identity.key === project) {
+      const canonicalProject = kind === 'project' ? stem : parseIdentity(stem)?.key;
+      if (canonicalProject === undefined || canonicalProject === project) {
         continue;
       }
-      findings.push({
-        check: 'stem-project',
-        message: `project ${project} diverges from the stem's key ${identity.key} — the doc misfiles under a scoped 'find --eq project:KEY' (the stem is the true owner)`,
-        node: stem,
-        severity: 'warn',
-        where: 'frontmatter · project',
-      });
+      findings.push(
+        issue({
+          check: 'stem-project',
+          code: 'stem-project-divergence',
+          evidence: { actualProject: project, canonicalProject },
+          ...(path === undefined ? {} : { locator: path }),
+          message: `project ${project} diverges from the stem's key ${canonicalProject} — the doc misfiles under a scoped 'find --eq project:KEY' (the stem is the true owner)`,
+          node: stem,
+          severity: 'warn',
+          where: 'frontmatter · project',
+        }),
+      );
     }
     return findings;
   },
@@ -599,13 +705,19 @@ export const stemProjectCheck: Diagnostic = {
 export const sectionResolutionCheck: Diagnostic = {
   name: 'section-resolution',
   run: (ctx) =>
-    ctx.sectionFailures.map(({ section, stem }) => ({
-      check: 'section-resolution',
-      message: `${section} section is unreadable — a duplicate (ambiguous) or missing heading resolves to no section, so its records read empty`,
-      node: stem,
-      severity: 'error',
-      where: `body · ${section}`,
-    })),
+    ctx.sectionFailures.map(({ path, section, stem }) =>
+      issue({
+        check: 'section-resolution',
+        code:
+          section === 'History' ? 'section-history-unreadable' : 'section-annotations-unreadable',
+        evidence: { section },
+        locator: path,
+        message: `${section} section is unreadable — a duplicate (ambiguous) or missing heading resolves to no section, so its records read empty`,
+        node: stem,
+        severity: 'error',
+        where: `body · ${section}`,
+      }),
+    ),
   title: 'Body-section resolution',
 };
 
@@ -633,62 +745,86 @@ export const seedValidityCheck: Diagnostic = {
         continue;
       }
       if (drop.kind === 'node' && drop.rule === 'orphaned-seed') {
-        findings.push({
-          check: 'seed-validity',
-          message: `project ${drop.key} has no document in the vault — the seed is hidden on read`,
-          node: drop.stem,
-          severity: 'error',
-          where: 'project',
-        });
+        findings.push(
+          issue({
+            check: 'seed-validity',
+            code: drop.rule,
+            evidence: { key: drop.key },
+            message: `project ${drop.key} has no document in the vault — the seed is hidden on read`,
+            node: drop.stem,
+            severity: 'error',
+            where: 'project',
+          }),
+        );
       } else if (drop.kind === 'node' && drop.rule === 'invalid-seed-kind') {
-        findings.push({
-          check: 'seed-validity',
-          message:
-            drop.value === null
-              ? 'seed dropped — missing kind'
-              : `seed dropped — invalid kind "${drop.value}"`,
-          node: drop.stem,
-          severity: 'error',
-          where: 'frontmatter · kind',
-        });
+        findings.push(
+          issue({
+            check: 'seed-validity',
+            code: drop.rule,
+            evidence: { value: drop.value },
+            message:
+              drop.value === null
+                ? 'seed dropped — missing kind'
+                : `seed dropped — invalid kind "${drop.value}"`,
+            node: drop.stem,
+            severity: 'error',
+            where: 'frontmatter · kind',
+          }),
+        );
       } else if (drop.kind === 'node' && drop.rule === 'invalid-seed-lifecycle') {
-        findings.push({
-          check: 'seed-validity',
-          message:
-            drop.value === null
-              ? 'seed dropped — missing lifecycle'
-              : `seed dropped — invalid lifecycle "${drop.value}"`,
-          node: drop.stem,
-          severity: 'error',
-          where: 'frontmatter · lifecycle',
-        });
+        findings.push(
+          issue({
+            check: 'seed-validity',
+            code: drop.rule,
+            evidence: { value: drop.value },
+            message:
+              drop.value === null
+                ? 'seed dropped — missing lifecycle'
+                : `seed dropped — invalid lifecycle "${drop.value}"`,
+            node: drop.stem,
+            severity: 'error',
+            where: 'frontmatter · lifecycle',
+          }),
+        );
       } else if (drop.kind === 'field' && drop.rule === 'unknown-requester') {
-        findings.push({
-          check: 'seed-validity',
-          message: `requester ${drop.value} is not a known project — nulled on read (self-filed)`,
-          node: drop.stem,
-          severity: 'error',
-          where: 'frontmatter · requester',
-        });
+        findings.push(
+          issue({
+            check: 'seed-validity',
+            code: drop.rule,
+            evidence: { value: drop.value },
+            message: `requester ${drop.value} is not a known project — nulled on read (self-filed)`,
+            node: drop.stem,
+            severity: 'error',
+            where: 'frontmatter · requester',
+          }),
+        );
       } else if (drop.kind === 'field' && drop.rule === 'archived-requester') {
         // A KNOWN but archived requester: the reader nulls it (active-only
         // visibility), yet it reverts on unarchive — surfaced for awareness, not
         // corruption, so `warn` (matches the `dangling-upstream` warn precedent).
-        findings.push({
-          check: 'seed-validity',
-          message: `requester ${drop.value} is archived — nulled on read (reverts on unarchive)`,
-          node: drop.stem,
-          severity: 'warn',
-          where: 'frontmatter · requester',
-        });
+        findings.push(
+          issue({
+            check: 'seed-validity',
+            code: drop.rule,
+            evidence: { value: drop.value },
+            message: `requester ${drop.value} is archived — nulled on read (reverts on unarchive)`,
+            node: drop.stem,
+            severity: 'warn',
+            where: 'frontmatter · requester',
+          }),
+        );
       } else if (drop.kind === 'edge' && drop.rule === 'dangling-spawned') {
-        findings.push({
-          check: 'seed-validity',
-          message: `spawned ${drop.ref} resolves to no node in the vault — pruned on read`,
-          node: drop.stem,
-          severity: 'error',
-          where: 'frontmatter · spawned',
-        });
+        findings.push(
+          issue({
+            check: 'seed-validity',
+            code: drop.rule,
+            evidence: { ref: drop.ref },
+            message: `spawned ${drop.ref} resolves to no node in the vault — pruned on read`,
+            node: drop.stem,
+            severity: 'error',
+            where: 'frontmatter · spawned',
+          }),
+        );
       }
     }
     return findings;
@@ -718,15 +854,19 @@ export const upstreamRefCheck: Diagnostic = {
         continue;
       }
       const malformed = drop.rule === 'malformed-upstream';
-      findings.push({
-        check: 'upstream-refs',
-        message: malformed
-          ? `upstream "${drop.value}" is not a seed id (KEY-sN) — field nulled on read`
-          : `upstream ${drop.value} resolves to no seed in the vault — surfaced for repair; the reference is reference-only (not dropped on read)`,
-        node: drop.stem,
-        severity: malformed ? 'error' : 'warn',
-        where: 'frontmatter · upstream',
-      });
+      findings.push(
+        issue({
+          check: 'upstream-refs',
+          code: drop.rule,
+          evidence: { value: drop.value },
+          message: malformed
+            ? `upstream "${drop.value}" is not a seed id (KEY-sN) — field nulled on read`
+            : `upstream ${drop.value} resolves to no seed in the vault — surfaced for repair; the reference is reference-only (not dropped on read)`,
+          node: drop.stem,
+          severity: malformed ? 'error' : 'warn',
+          where: 'frontmatter · upstream',
+        }),
+      );
     }
     return findings;
   },

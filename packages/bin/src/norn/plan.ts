@@ -104,6 +104,18 @@ export function replaceSection(path: string, heading: string, content: string): 
 }
 
 /**
+ * `replace_body` — replace the complete markdown body while preserving
+ * frontmatter. `documentHash` is the full-document CAS precondition captured in
+ * the diagnostic snapshot. Fields: `{path, document_hash, new_value}`.
+ */
+export function replaceBody(path: string, documentHash: string, body: string): MigrationOp {
+  return {
+    fields: { document_hash: documentHash, new_value: body, path },
+    kind: 'replace_body',
+  };
+}
+
+/**
  * `create_document` — write a new document with the given frontmatter and body.
  * norn reads the payload from `new_value.{frontmatter, body}`. Fields:
  * `{path, new_value: {frontmatter, body}}`. `path` may carry a single `{{seq}}`

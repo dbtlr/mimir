@@ -7,13 +7,13 @@
  * diagnostics `mimir doctor` reads. `close` shuts that client down; no other
  * resource is held (no db handle is opened, no db handle to close).
  */
-import { readAllNodeDocs, readSectionFailures } from './core';
 import type { Store } from './core';
-import { readVaultGraph } from './core/store-norn';
-import type { VaultGraph } from './core/store-norn';
+import type { DoctorSnapshot } from './doctor/snapshot';
+import { readDoctorSnapshot } from './doctor/snapshot';
 import { bunExec } from './exec';
 import { NornClient } from './norn/client';
 import { pathAndRaw } from './norn/decode';
+import type { MigrationPlan } from './norn/plan';
 import { createNornWriteStore } from './norn/writer';
 import { readConfig } from './service/config';
 import { backfillVaultData } from './vault/backfill';
@@ -24,28 +24,11 @@ export type BuiltStore = {
   store: Store;
   /** Release every backend resource: the Norn subprocess. */
   close: () => Promise<void>;
-  /**
-   * Read every work-state document's raw markdown from the vault — the input for
-   * `mimir doctor`'s body-section check (MMR-166).
-   */
-  readNodeDocs: (scope?: string) => Promise<{ stem: string; body: string }[]>;
-  /**
-   * Read every work-state document whose `## History`/`## Annotations` heading
-   * norn cannot resolve (ambiguous duplicate or missing) — the input for
-   * `mimir doctor`'s section-resolution check (MMR-239).
-   */
-  readSectionFailures: (scope?: string) => Promise<{ stem: string; section: string }[]>;
-  /**
-   * Read the vault's raw, unresolved relational graph — the input for
-   * `mimir doctor`'s referential checks (MMR-169 dangling refs, MMR-178 missing
-   * project).
-   */
-  readVaultGraph: () => Promise<VaultGraph>;
-  /**
-   * Run norn's `vault.validate` and return its raw payload — the input for
-   * `mimir doctor`'s frontmatter check (MMR-191).
-   */
-  validate: () => Promise<unknown>;
+  /** One whole-vault diagnostic enumeration shared by every doctor check. */
+  readDoctorSnapshot: () => Promise<DoctorSnapshot>;
+  /** CLI-only doctor repair mutation seam. */
+  applyDoctorPlan: (plan: MigrationPlan, confirm: boolean) => Promise<unknown>;
+  vaultRoot: string;
   /**
    * Read each path's `.raw` disk text (frontmatter + body) — the location +
    * snippet enrichment source for the `/api/doctor` record-health facet (MMR-185).
@@ -83,8 +66,9 @@ export async function buildStore(): Promise<BuiltStore> {
   // absolute norn binary — launchd's minimal PATH can't resolve a bare `norn`.
   const client = new NornClient({ command: process.env.MIMIR_NORN, vaultPath: vault.path });
   return {
+    applyDoctorPlan: (plan, confirm) => client.applyPlan(plan, confirm),
     close: () => client.close(),
-    readNodeDocs: (scope) => readAllNodeDocs(client, scope),
+    readDoctorSnapshot: () => readDoctorSnapshot(client),
     readRaw: async (paths) => {
       if (paths.length === 0) {
         return [];
@@ -95,9 +79,7 @@ export async function buildStore(): Promise<BuiltStore> {
         return pr === null ? [] : [pr];
       });
     },
-    readSectionFailures: (scope) => readSectionFailures(client, scope),
-    readVaultGraph: () => readVaultGraph(client),
     store: createNornWriteStore(client, vault.path),
-    validate: () => client.validate(),
+    vaultRoot: vault.path,
   };
 }

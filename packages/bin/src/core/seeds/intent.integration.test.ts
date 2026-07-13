@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -40,7 +40,19 @@ async function rejectMessage(fn: () => Promise<unknown>): Promise<string> {
   throw new Error('expected a rejection, but the call resolved');
 }
 
+async function rejectCode(fn: () => Promise<unknown>): Promise<string> {
+  try {
+    await fn();
+  } catch (error) {
+    return typeof error === 'object' && error !== null && 'code' in error
+      ? String(error.code)
+      : 'missing-code';
+  }
+  throw new Error('expected a rejection, but the call resolved');
+}
+
 let root: string;
+let vaultRoot: string;
 let client: NornClient;
 let store: Store;
 
@@ -64,10 +76,10 @@ async function pidOf(key: string): Promise<string> {
 
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), 'mimir-seedverb-'));
-  const vault = join(root, 'vault');
-  await converge(vault, { allowCreate: true, exec: bunExec });
-  client = new NornClient({ vaultPath: vault });
-  store = createNornWriteStore(client, vault);
+  vaultRoot = join(root, 'vault');
+  await converge(vaultRoot, { allowCreate: true, exec: bunExec });
+  client = new NornClient({ vaultPath: vaultRoot });
+  store = createNornWriteStore(client, vaultRoot);
 });
 
 afterEach(async () => {
@@ -133,6 +145,90 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     expect(rejected.map((s) => s.id)).toEqual(['MMR-s3']);
   });
 
+  test('duplicate physical seed identities are absent from reads and refuse update', async () => {
+    await seedbed();
+    await fileSeed(store, {
+      kind: 'idea',
+      project: 'MMR',
+      requester: null,
+      title: 'canonical',
+    });
+    await client.newDoc({
+      body: '## Seed Description\n\nrelocated\n\n## History\n## Annotations\n',
+      confirm: true,
+      field_json: [
+        `type=${JSON.stringify('seed')}`,
+        `title=${JSON.stringify('relocated')}`,
+        `project=${JSON.stringify('[[MMR]]')}`,
+        `kind=${JSON.stringify('idea')}`,
+        `lifecycle=${JSON.stringify('new')}`,
+        `created=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
+        `updated_at=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
+      ],
+      parents: true,
+      path: 'relocated/MMR-s1.md',
+    });
+
+    expect(await listSeeds(store, { project: 'MMR' })).toEqual([]);
+    expect(await rejectMessage(() => getSeed(store, 'MMR-s1'))).toMatch(/no seed MMR-s1/);
+    expect(await rejectMessage(() => updateSeed(store, 'MMR-s1', { title: 'mutated' }))).toMatch(
+      /no seed MMR-s1/,
+    );
+    expect(await store.seeds.load('MMR', 1)).toBeUndefined();
+  });
+
+  test('foreign-type, untyped, and parse-failed seed colliders hide valid owners', async () => {
+    await seedbed();
+    for (const title of ['one', 'two', 'three']) {
+      await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title });
+    }
+    await client.newDoc({
+      body: 'foreign physical owner',
+      confirm: true,
+      field_json: [`type=${JSON.stringify('note')}`, `title=${JSON.stringify('foreign')}`],
+      parents: true,
+      path: 'relocated/MMR-s1.md',
+    });
+    await client.newDoc({
+      body: 'untyped physical owner',
+      confirm: true,
+      field_json: [`title=${JSON.stringify('untyped')}`],
+      parents: true,
+      path: 'relocated/MMR-s2.md',
+    });
+    mkdirSync(join(vaultRoot, 'relocated'), { recursive: true });
+    writeFileSync(join(vaultRoot, 'relocated/MMR-s3.md'), '---\ntype: [broken\n---\n');
+
+    expect(await listSeeds(store, { project: 'MMR' })).toEqual([]);
+    for (const id of ['MMR-s1', 'MMR-s2', 'MMR-s3']) {
+      expect(await rejectCode(() => getSeed(store, id))).toBe('not_found');
+      expect(await rejectCode(() => updateSeed(store, id, { title: 'mutated' }))).toBe('not_found');
+    }
+  });
+
+  test('allocation counts parse-failed physical seed identities by stem', async () => {
+    await seedbed();
+    mkdirSync(join(vaultRoot, 'relocated'), { recursive: true });
+    writeFileSync(join(vaultRoot, 'relocated/MMR-s1.md'), '---\ntype: [broken\n---\n');
+
+    const created = await fileSeed(store, {
+      kind: 'idea',
+      project: 'MMR',
+      requester: null,
+      title: 'next',
+    });
+    expect(created.id).toBe('MMR-s2');
+  });
+
+  test('hidden or missing seed mutations use the same not_found code as get', async () => {
+    await seedbed();
+    expect(await rejectCode(() => getSeed(store, 'MMR-s99'))).toBe('not_found');
+    expect(await rejectCode(() => updateSeed(store, 'MMR-s99', { title: 'x' }))).toBe('not_found');
+    expect(await rejectCode(() => transitionSeed(store, 'MMR-s99', 'rejected', 'x'))).toBe(
+      'not_found',
+    );
+  });
+
   test('listSeeds derives a bounded lede for live seeds in ONE section read (MMR-263)', async () => {
     await seedbed();
     const body = 'first body line\n\nmore prose that forms the lede preview';
@@ -149,9 +245,9 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
 
     // Instrument the native section read: the whole live queue's descriptions must
     // ride ONE batched `vault.get { section }`, not a per-seed read.
-    const original = client.getSections.bind(client);
+    const original = client.getSectionsResult.bind(client);
     let sectionReads = 0;
-    client.getSections = async (targets: string[], sections: string[]): Promise<unknown[]> => {
+    client.getSectionsResult = async (targets: string[], sections: string[]) => {
       sectionReads += 1;
       return original(targets, sections);
     };

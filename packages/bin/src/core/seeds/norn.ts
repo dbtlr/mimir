@@ -19,7 +19,7 @@ import {
   replaceSection,
   setFrontmatter,
 } from '../../norn/plan';
-import { validation } from '../errors';
+import { notFound, validation } from '../errors';
 import {
   HISTORY_HEADING,
   parseDescriptionSection,
@@ -102,7 +102,7 @@ function byKeyThenSeq(a: SeedRecord, b: SeedRecord): number {
 function toRecord(doc: NornDocument): SeedRecord | null {
   const identity = seqFromPath(doc.path);
   const fm = doc.frontmatter;
-  if (identity === null || fm === undefined) {
+  if (identity === null || fm === undefined || fm.type !== 'seed') {
     return null;
   }
   const kind = narrowEnum(fm.kind, SEED_KIND_VALUES);
@@ -159,9 +159,63 @@ function seedFieldJson(fields: {
 }
 
 export function createNornSeedStore(client: NornClient, vaultRoot: string): SeedStore {
-  /** All seed docs for a project — the seq-derivation and inventory read. */
+  const seedDocs = async (): Promise<NornDocument[]> =>
+    client.find({ eq: ['type:seed'], no_limit: true });
+
+  /** Every seed-shaped physical path, regardless of readable frontmatter. Seq
+   * allocation follows path identity so an untyped/foreign owner still occupies
+   * its number. */
   const projectDocs = async (key: string): Promise<NornDocument[]> =>
-    client.find({ eq: [`type:seed`, `project:${key}`], no_limit: true });
+    (await client.find({ no_limit: true, path: ['**/*-s*.md'] })).filter(
+      (doc) => seqFromPath(doc.path)?.key === key,
+    );
+
+  const resolvedDocs = async (
+    stems: readonly string[],
+    withBody = false,
+  ): Promise<NornDocument[]> => {
+    if (stems.length === 0) {
+      return [];
+    }
+    const records = await client.get(
+      [...new Set(stems)],
+      withBody ? '.frontmatter,.body' : '.frontmatter',
+    );
+    return records.flatMap((record) =>
+      isStringRecord(record) && typeof record.path === 'string'
+        ? [{ ...record, path: record.path }]
+        : [],
+    );
+  };
+
+  /** Validator parity for listings: resolve the typed candidates by bare stem in
+   * one batch, then exclude every identity with more than one physical target —
+   * including parse-failed, untyped, or foreign-type colliders. */
+  const survivingRecords = async (
+    docs: readonly NornDocument[],
+    project?: string,
+  ): Promise<SeedRecord[]> => {
+    const candidateStems = docs.flatMap((doc) => {
+      const identity = seqFromPath(doc.path);
+      return identity !== null && (project === undefined || identity.key === project)
+        ? [stemOf(identity.key, identity.seq)]
+        : [];
+    });
+    const resolved = await resolvedDocs(candidateStems);
+    const counts = new Map<string, number>();
+    for (const doc of resolved) {
+      const identity = seqFromPath(doc.path);
+      if (identity !== null) {
+        const stem = stemOf(identity.key, identity.seq);
+        counts.set(stem, (counts.get(stem) ?? 0) + 1);
+      }
+    }
+    return resolved
+      .map(toRecord)
+      .filter((record): record is SeedRecord => record !== null)
+      .filter((record) => project === undefined || record.key === project)
+      .filter((record) => counts.get(stemOf(record.key, record.seq)) === 1);
+  };
 
   // The typed record plus the RAW frontmatter — the mutation path needs the raw
   // stored values as norn's `expected_old_value` compare-and-set precondition
@@ -170,45 +224,59 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
   const loadDoc = async (
     key: string,
     seq: number,
-  ): Promise<{ record: SeedRecord; fm: Record<string, unknown> } | undefined> => {
-    const records = await client.get([pathOf(key, seq)]);
-    const doc = records[0];
-    if (!isStringRecord(doc) || typeof doc.path !== 'string') {
+    withBody = false,
+  ): Promise<
+    { record: SeedRecord; fm: Record<string, unknown>; path: string; body?: string } | undefined
+  > => {
+    // Bare-stem resolution is the latest point Norn can enforce uniqueness. The
+    // resulting migration must still address `doc.path`: Norn 0.47 apply rejects
+    // logical stems as unknown paths, so a second client can introduce a collider
+    // after this read and before apply. Closing that window requires an atomic
+    // logical-identity precondition in Norn, not another non-atomic adapter read.
+    const docs = (await resolvedDocs([stemOf(key, seq)], withBody)).filter((doc) => {
+      const identity = seqFromPath(doc.path);
+      return identity?.key === key && identity.seq === seq;
+    });
+    if (docs.length !== 1) {
+      return undefined;
+    }
+    const doc = docs[0];
+    if (doc === undefined) {
       return undefined;
     }
     const fm = isStringRecord(doc.frontmatter) ? doc.frontmatter : {};
     const record = toRecord({ frontmatter: fm, path: doc.path });
-    return record === null ? undefined : { fm, record };
+    return record === null
+      ? undefined
+      : {
+          fm,
+          path: doc.path,
+          record,
+          ...(typeof doc.body === 'string' ? { body: doc.body } : {}),
+        };
   };
 
   const loadRecord = async (key: string, seq: number): Promise<SeedRecord | undefined> =>
     (await loadDoc(key, seq))?.record;
 
-  /** The record PLUS its `## Seed Description` prose in ONE `vault.get` (matching
-   * the artifact store's `.body` read): read the doc with its body, build the record
-   * from the frontmatter, and slice + parse the description locally. A single body
-   * read (not a frontmatter get + a section get) also returns the record even when
+  /** The record PLUS its `## Seed Description` prose in one bare-stem resolution
+   * with `.body`: establish unique physical ownership, build the record from the
+   * frontmatter, and slice + parse the description locally. The targeted read also
+   * returns the record even when
    * the description heading is ambiguous — the seed still loads, and `mimir doctor`
    * surfaces the duplicate (MMR-239). */
   const loadWithContent = async (
     key: string,
     seq: number,
   ): Promise<(SeedRecord & { description: string | null }) | undefined> => {
-    const records = await client.get([pathOf(key, seq)], '.body');
-    const doc = records[0];
-    if (!isStringRecord(doc) || typeof doc.path !== 'string') {
+    const doc = await loadDoc(key, seq, true);
+    if (doc === undefined) {
       return undefined;
     }
-    const fm = isStringRecord(doc.frontmatter) ? doc.frontmatter : {};
-    const record = toRecord({ frontmatter: fm, path: doc.path });
-    if (record === null) {
-      return undefined;
-    }
-    const body = typeof doc.body === 'string' ? doc.body : '';
     const description = parseDescriptionSection(
-      sectionBody(sliceSection(body, SEED_DESCRIPTION_HEADING)),
+      sectionBody(sliceSection(doc.body ?? '', SEED_DESCRIPTION_HEADING)),
     );
-    return { ...record, description };
+    return { ...doc.record, description };
   };
 
   /** Apply a one-plan batch of ops, returning norn's `outcome` — `'applied'` on
@@ -260,6 +328,9 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
           .map((s) => s.seq);
         const seq = (seqs.length === 0 ? 0 : Math.max(...seqs)) + 1;
         try {
+          // `vault.new` is exclusive only on this physical destination. A second
+          // client can concurrently create the same stem elsewhere; Norn needs a
+          // stem reservation/unique-create primitive to make that race atomic.
           await client.newDoc({
             body,
             confirm: true,
@@ -290,7 +361,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const doc = await loadDoc(key, seq);
         if (doc === undefined) {
-          throw validation(`no seed ${stemOf(key, seq)}`);
+          throw notFound(`no seed ${stemOf(key, seq)}`);
         }
         const { fm, record } = doc;
         if (isTerminalSeed(record.lifecycle)) {
@@ -306,7 +377,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
         if (alreadyLinked && !needsPromote) {
           return;
         }
-        const path = pathOf(key, seq);
+        const path = doc.path;
         const at = now();
         // ONE plan: the (conditional) spawned append + the (conditional) lifecycle
         // set with its History record + one updated_at — so the link and the
@@ -345,65 +416,105 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
     async listAll() {
       // One `type:seed` find over the whole vault (E1) — the caller filters to the
       // boards it wants. Ordered by (key, seq) for determinism; the listing re-sorts.
-      const docs = await client.find({ eq: ['type:seed'], no_limit: true });
-      return docs
-        .map(toRecord)
-        .filter((r): r is SeedRecord => r !== null)
-        .toSorted(byKeyThenSeq);
+      const docs = await seedDocs();
+      return (await survivingRecords(docs)).toSorted(byKeyThenSeq);
     },
 
     async listForProject(key: string) {
-      const docs = await projectDocs(key);
-      return docs
-        .map(toRecord)
-        .filter((r): r is SeedRecord => r !== null)
-        .toSorted((a, b) => a.seq - b.seq);
+      const docs = await seedDocs();
+      return (await survivingRecords(docs, key)).toSorted((a, b) => a.seq - b.seq);
     },
 
     async load(key, seq, opts) {
-      // Metadata-only stays a frontmatter get; content opts into one body read that
-      // carries both the record and the `## Seed Description` prose (one RPC, not two).
+      // Metadata-only is one bare-stem resolution; content opts into `.body` on
+      // that same targeted read, carrying both record and description prose.
       return opts?.content === true ? loadWithContent(key, seq) : loadRecord(key, seq);
     },
 
     async loadDescriptions(refs) {
-      // ONE native `vault.get { section }` over every requested seed path (MMR-263):
-      // the whole live queue's `## Seed Description` prose in a single round-trip, the
-      // derive-at-read lede source. An empty request short-circuits (an empty target
-      // list to vault.get is unverified behavior, matching the doctor/triage probes).
+      // One logical-stem section read over the requested seed identities (MMR-263).
+      // Frontmatter, sections, and section failures come from that same cache
+      // refresh, so foreign owners and heading-less colliders both fail closed.
       const out = new Map<string, string | null>();
       if (refs.length === 0) {
         return out;
       }
-      const paths = refs.map(({ key, seq }) => pathOf(key, seq));
-      const records = await client.getSections(paths, [SEED_DESCRIPTION_HEADING]);
-      for (const raw of records) {
-        const record = pathAndSections(raw);
-        if (record === null) {
+      const wanted = refs.map(({ key, seq }) => stemOf(key, seq));
+      const result = await client.getSectionsResult(
+        wanted,
+        [SEED_DESCRIPTION_HEADING],
+        '.frontmatter',
+      );
+      const owners = new Map<string, Set<string>>();
+      const records = new Map<string, ReturnType<typeof pathAndSections>>();
+      for (const raw of result.records) {
+        const doc = pathAndSections(raw);
+        if (doc === null) {
           continue;
         }
-        const identity = seqFromPath(record.path);
+        const identity = seqFromPath(doc.path);
+        if (identity !== null) {
+          const stem = stemOf(identity.key, identity.seq);
+          owners.set(stem, new Set([...(owners.get(stem) ?? []), doc.path]));
+          const frontmatter =
+            isStringRecord(raw) && isStringRecord(raw.frontmatter) ? raw.frontmatter : undefined;
+          if (toRecord({ frontmatter, path: doc.path }) !== null) {
+            records.set(stem, doc);
+          }
+        }
+      }
+      for (const path of result.sectionFailures) {
+        const identity = seqFromPath(path);
         if (identity === null) {
           continue;
         }
-        // A warn-omitted/absent section reads as empty prose → null (no lede).
+        const stem = stemOf(identity.key, identity.seq);
+        owners.set(stem, new Set([...(owners.get(stem) ?? []), path]));
+      }
+      for (const stem of new Set(wanted)) {
+        const record = records.get(stem);
+        if (owners.get(stem)?.size !== 1 || record === null || record === undefined) {
+          continue;
+        }
         const description = parseDescriptionSection(
           sectionBody(record.sections[SEED_DESCRIPTION_HEADING] ?? ''),
         );
-        out.set(stemOf(identity.key, identity.seq), description);
+        out.set(stem, description);
       }
       return out;
     },
 
     async loadHistory(key, seq) {
-      // Read the seed's `## History` natively (`vault.get { section }`), exactly as
-      // the node body-section store does — one round-trip, sliced with norn's edit
-      // boundary semantics. Target the full path (the seed store's read convention),
-      // not the bare stem: a seed lives under `KEY/seeds/`, not the vault root. An
-      // absent doc yields no record → undefined; a warn-omitted/empty section → [].
-      const records = await client.getSections([pathOf(key, seq)], [HISTORY_HEADING]);
-      const record = records.length > 0 ? pathAndSections(records[0]) : null;
-      if (record === null) {
+      // One logical-stem operation returns both successful records and failed
+      // physical owners plus frontmatter. Requiring one valid seed owner closes
+      // the pre-read/section gap while preserving relocated seeds.
+      const stem = stemOf(key, seq);
+      const result = await client.getSectionsResult([stem], [HISTORY_HEADING], '.frontmatter');
+      const sectionRecords = result.records
+        .map(pathAndSections)
+        .filter((record): record is NonNullable<typeof record> => record !== null)
+        .filter((record) => seqFromPath(record.path)?.key === key)
+        .filter((record) => seqFromPath(record.path)?.seq === seq);
+      const records = result.records.flatMap((raw) => {
+        const record = pathAndSections(raw);
+        const frontmatter =
+          isStringRecord(raw) && isStringRecord(raw.frontmatter) ? raw.frontmatter : undefined;
+        return record !== null && toRecord({ frontmatter, path: record.path }) !== null
+          ? [record]
+          : [];
+      });
+      const owners = new Set([
+        ...sectionRecords.map((record) => record.path),
+        ...result.sectionFailures.filter((path) => {
+          const identity = seqFromPath(path);
+          return identity?.key === key && identity.seq === seq;
+        }),
+      ]);
+      if (owners.size !== 1 || records.length !== 1) {
+        return undefined;
+      }
+      const record = records[0];
+      if (record === undefined) {
         return undefined;
       }
       return parseHistorySection(sectionBody(record.sections[HISTORY_HEADING] ?? ''));
@@ -412,7 +523,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
     async patch(key, seq, patch: SeedPatch) {
       const doc = await loadDoc(key, seq);
       if (doc === undefined) {
-        throw validation(`no seed ${stemOf(key, seq)}`);
+        throw notFound(`no seed ${stemOf(key, seq)}`);
       }
       const { fm, record } = doc;
       if (isTerminalSeed(record.lifecycle)) {
@@ -421,7 +532,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
           'patches (title/kind/description) apply only to a new or promoted seed',
         );
       }
-      const path = pathOf(key, seq);
+      const path = doc.path;
       const operations: MigrationOp[] = [];
       if (patch.title !== undefined) {
         operations.push(setFrontmatter(path, 'title', patch.title, fm.title));
@@ -448,7 +559,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
     async transition(key, seq, to: SeedLifecycle, reason: string) {
       const doc = await loadDoc(key, seq);
       if (doc === undefined) {
-        throw validation(`no seed ${stemOf(key, seq)}`);
+        throw notFound(`no seed ${stemOf(key, seq)}`);
       }
       const { fm, record } = doc;
       if (!canTransitionSeed(record.lifecycle, to)) {
@@ -457,7 +568,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
           'legal edges: new → promoted | resolved | rejected; promoted → resolved | rejected',
         );
       }
-      const path = pathOf(key, seq);
+      const path = doc.path;
       const at = now();
       // One atomic plan: the lifecycle frontmatter set + the `## History` record
       // (kind `lifecycle`, reusing the shared codec) can never diverge. Each set

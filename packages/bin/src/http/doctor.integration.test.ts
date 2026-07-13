@@ -5,12 +5,12 @@ import { join } from 'node:path';
 
 import type { Server } from 'bun';
 
-import { createProject, readAllNodeDocs, readSectionFailures } from '../core';
+import { createProject } from '../core';
 import type { Store } from '../core';
-import { readVaultGraph } from '../core/store-norn';
 import type { DoctorFacet } from '../doctor/facet';
 import { computeDoctorFacet } from '../doctor/serve';
 import type { DoctorFacetDeps } from '../doctor/serve';
+import { readDoctorSnapshot } from '../doctor/snapshot';
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
 import { pathAndRaw } from '../norn/decode';
@@ -33,7 +33,6 @@ let base: string;
  * live client. */
 function doctorProvider(): (scope: string | undefined) => Promise<DoctorFacet> {
   const deps: DoctorFacetDeps = {
-    readNodeDocs: (scope) => readAllNodeDocs(client, scope),
     readRaw: async (paths) => {
       if (paths.length === 0) {
         return [];
@@ -44,9 +43,7 @@ function doctorProvider(): (scope: string | undefined) => Promise<DoctorFacet> {
         return pr === null ? [] : [pr];
       });
     },
-    readSectionFailures: (scope) => readSectionFailures(client, scope),
-    readVaultGraph: () => readVaultGraph(client),
-    validate: () => client.validate(),
+    readSnapshot: () => readDoctorSnapshot(client),
   };
   return (scope) => computeDoctorFacet(deps, scope);
 }

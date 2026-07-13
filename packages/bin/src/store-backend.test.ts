@@ -39,9 +39,7 @@ test.skipIf(!NORN)('buildStore returns the Norn store over the resolved vault', 
     // A fresh vault projects an empty working set — read through the vault.
     expect((await built.store.loadWorkingSet()).nodes).toEqual([]);
     // The vault diagnostics doctor consumes are always present now (Norn-only).
-    expect(built.readNodeDocs).toBeDefined();
-    expect(built.readVaultGraph).toBeDefined();
-    expect(built.validate).toBeDefined();
+    expect(built.readDoctorSnapshot).toBeDefined();
   } finally {
     await built.close();
   }

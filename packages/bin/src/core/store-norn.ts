@@ -206,13 +206,20 @@ export type NodeRefs = {
   };
 };
 
-/** One work-state doc's declared project membership: its stem paired with the
- * collapsed `project` frontmatter (`[[KEY]]` → `KEY`, aliased forms too — MMR-190),
- * or null when the field is absent/malformed. The `project` field is a query
- * projection of the authoritative `KEY-seq` stem (MMR-170); comparing the two is
- * doctor's stem-vs-project divergence check (MMR-231). The referential passes
- * ignore it. */
-export type ProjectDeclaration = { stem: string; project: string | null };
+/** One work-state doc's declared project membership: its logical identity paired
+ * with the collapsed `project` frontmatter (`[[KEY]]` → `KEY`, aliased forms too —
+ * MMR-190), or null when the field is absent/malformed. Projects use their `key`
+ * frontmatter even when physically relocated; nodes and seeds use their parsed
+ * stems. The exact path lets doctor repair that logical owner without guessing.
+ * The referential passes ignore it. */
+export type ProjectDeclaration = {
+  stem: string;
+  project: string | null;
+  /** Exact physical source for unambiguous diagnostics and repair. */
+  path?: string;
+  /** The typed identity source; optional for referential-only fixtures. */
+  kind?: VaultGraphSource['kind'];
+};
 
 /** One seed's raw referential inputs (MMR-244): its `KEY-sN` stem + project key,
  * the raw `kind`/`lifecycle` frontmatter ({@link validate} owns legality), the
@@ -232,11 +239,17 @@ export type SeedRefs = {
  * plus the set of project `key`s present. Both `mimir doctor` referential checks
  * resolve against this one read.
  */
+export type VaultGraphSource = {
+  kind: 'node' | 'project' | 'seed';
+  stem: string;
+  path: string;
+};
+
 export type VaultGraph = {
   nodes: NodeRefs[];
   projectKeys: string[];
   /** Work-state identities paired with their physical paths for collision checks. */
-  sources?: readonly { kind: 'node' | 'project'; stem: string; path: string }[];
+  sources?: readonly VaultGraphSource[];
   /** The subset of `projectKeys` whose project is ARCHIVED (`archived_at` set).
    * Carried so the validator can give the seed `requester` check the reader's
    * ACTIVE-only visibility (an archived requester is nulled on read, MMR-245/B1d),
@@ -331,7 +344,7 @@ export function vaultGraphFromDocs(
   const projectKeys: string[] = [];
   const archivedProjectKeys: string[] = [];
   const declarations: ProjectDeclaration[] = [];
-  const sources: { kind: 'node' | 'project'; stem: string; path: string }[] = [];
+  const sources: VaultGraphSource[] = [];
   // Only populated (and only made present on the graph) when the caller asked —
   // the node-only resolving loader and the transitions feed pass no seeds, so the
   // seed/upstream passes in `validate` stay off for them (MMR-244).
@@ -355,12 +368,18 @@ export function vaultGraphFromDocs(
       }
       // A project doc's `project` is self-referential (`[[KEY]]`); a divergence
       // means it points at a different project than its own stem (MMR-231).
-      declarations.push({ project: collapse(fm.project), stem });
+      declarations.push({
+        kind: 'project',
+        path: doc.path,
+        project: collapse(fm.project),
+        stem: key ?? stem,
+      });
       continue;
     }
     if (withSeeds && type === 'seed') {
       const seedRef = parseSeedRef(stem);
       if (seedRef !== null) {
+        sources.push({ kind: 'seed', path: doc.path, stem });
         seeds.push({
           key: seedRef.key,
           kind: fm.kind,
@@ -369,7 +388,7 @@ export function vaultGraphFromDocs(
           spawned: linkStems(fm.spawned),
           stem,
         });
-        declarations.push({ project: collapse(fm.project), stem });
+        declarations.push({ kind: 'seed', path: doc.path, project: collapse(fm.project), stem });
       }
       continue;
     }
@@ -379,7 +398,7 @@ export function vaultGraphFromDocs(
     }
     nodes.push(nodeRefsOf(fm, ref.key, stem, type, doc.path));
     sources.push({ kind: 'node', path: doc.path, stem });
-    declarations.push({ project: collapse(fm.project), stem });
+    declarations.push({ kind: 'node', path: doc.path, project: collapse(fm.project), stem });
   }
   return {
     archivedProjectKeys,

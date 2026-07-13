@@ -256,6 +256,31 @@ test('getSections sends vault.get with {targets, section} and returns the record
   expect(records).toEqual([{ path: 'MMR/MMR-1.md', sections: { History: '## History\n### x\n' } }]);
 });
 
+test('getSectionsResult preserves records and section failures from one response', async () => {
+  let received: unknown = null;
+  const fake = fakeNorn(() => ({
+    'vault.get': (args) => {
+      received = args;
+      return Promise.resolve({
+        structuredContent: {
+          records: [{ path: 'MMR/MMR-1.md', sections: { History: '## History\n' } }],
+          section_failures: [{ path: 'relocated/MMR-1.md' }],
+        },
+      });
+    },
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  expect(await client.getSectionsResult(['MMR-1'], ['History'], '.frontmatter')).toEqual({
+    records: [{ path: 'MMR/MMR-1.md', sections: { History: '## History\n' } }],
+    sectionFailures: ['relocated/MMR-1.md'],
+  });
+  expect(received).toEqual({
+    col: '.frontmatter',
+    section: ['History'],
+    targets: ['MMR-1'],
+  });
+});
+
 test('applyPlan returns the structured report even when isError is set (norn 0.45.1 refusal)', async () => {
   // NRN-219: a not-applied apply sets isError:true but PRESERVES the report, so
   // applyPlan must hand it back for runTransact to classify — never throw it away.
