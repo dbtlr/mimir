@@ -568,6 +568,61 @@ test('a created node is not returned when its stem is replaced with a different 
   expect(message).toContain('created node did not survive with its complete payload');
 });
 
+test('a created node is not returned when its owner disappears between verification reads', async () => {
+  const docs: NornDocument[] = [
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        parent: '[[MMR]]',
+        title: 'Init',
+        type: 'initiative',
+        updated_at: TS,
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ];
+  let postApplyReads = 0;
+  const { client } = fakeClient(
+    docs,
+    [
+      {
+        report: {
+          report: {
+            applied: 1,
+            failed: 0,
+            operations: [
+              {
+                kind: 'create_document',
+                op_id: '0',
+                path: 'MMR/MMR-2.md',
+                status: 'applied',
+                stem: 'MMR-2',
+              },
+            ],
+            outcome: 'applied',
+          },
+        },
+      },
+    ],
+    (captured) => {
+      const created = createdDocFromPlan(captured, 'MMR/MMR-2.md');
+      postApplyReads += 1;
+      return postApplyReads === 1 ? [...docs, created] : [docs[1]!, created];
+    },
+  );
+  const store = createNornWriteStore(client, ROOT);
+
+  let message = '';
+  try {
+    await createTask(store, { parentId: 'MMR-1', title: 'New' });
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+
+  expect(message).toContain('created node did not survive with one owning project');
+});
+
 test('a created project is not returned when its frontmatter key is ambiguous after apply', async () => {
   const collidingProjects: NornDocument[] = [
     {

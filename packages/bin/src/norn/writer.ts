@@ -863,13 +863,14 @@ async function verifyCreates(
   }
 
   const targets = new Set<string>();
+  for (const projects of projectsByKey.values()) {
+    const project = projects[0];
+    if (project !== undefined) {
+      targets.add(project.path);
+    }
+  }
   for (const create of creates) {
-    if (create.targetKind === 'project') {
-      const project = projectsByKey.get(create.target.key)?.[0];
-      if (project !== undefined) {
-        targets.add(project.path);
-      }
-    } else {
+    if (create.targetKind === 'node') {
       const stem = resolvedStems.get(create);
       if (stem === undefined) {
         throw invariant('a created node has no resolved stem for survivor verification');
@@ -883,10 +884,25 @@ async function verifyCreates(
     if (expected === undefined) {
       throw invariant('a create has no emitted payload for survivor verification');
     }
+    const projectKey =
+      create.targetKind === 'project' ? create.target.key : create.target.project_id;
+    const projectPath = projectsByKey.get(projectKey)?.[0]?.path;
+    const projectRecord = records.find(
+      (candidate) => isRecord(candidate) && candidate.path === projectPath,
+    );
+    const projectFm =
+      isRecord(projectRecord) && isRecord(projectRecord.frontmatter)
+        ? projectRecord.frontmatter
+        : undefined;
+    if (projectFm?.type !== 'project' || projectFm.key !== projectKey) {
+      throw invariant(
+        create.targetKind === 'project'
+          ? `created project did not survive uniquely after apply: ${projectKey}`
+          : `created node did not survive with one owning project after apply: ${resolvedStems.get(create) ?? 'unknown'}`,
+      );
+    }
     if (create.targetKind === 'project') {
-      const path = projectsByKey.get(create.target.key)?.[0]?.path;
-      const record = records.find((candidate) => isRecord(candidate) && candidate.path === path);
-      if (!isDeepStrictEqual(createdPayloadOf(record), expected)) {
+      if (!isDeepStrictEqual(createdPayloadOf(projectRecord), expected)) {
         throw invariant(
           `created project did not survive with its complete payload after apply: ${create.target.key}`,
         );
