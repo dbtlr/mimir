@@ -1,6 +1,6 @@
 /**
  * Shared resolution + echo helpers for every mutation handler. Resolves
- * human-readable `KEY-seq` / `KEY` tokens to surrogate ids and echoes the
+ * human-readable `KEY-seq` / `KEY` tokens to canonical identities and echoes the
  * affected node back to stdout in the requested format.
  */
 
@@ -28,7 +28,7 @@ export type { Format };
 const WRITE_ECHO_FACET_SET = new Set(WRITE_ECHO_FACETS);
 
 /**
- * Resolve a node token to its surrogate integer id — the CLI's binding of the
+ * Resolve a node token to its canonical stem — the CLI's binding of the
  * core resolution guard, over the working-set snapshot (MMR-160, no raw db).
  * `expected` names what the verb acts on; the default enumerates the work
  * types rather than leaking the internal "node" word into the message.
@@ -37,7 +37,7 @@ export async function resolveNode(
   store: Store,
   token: string,
   expected = 'task, phase, or initiative',
-): Promise<number> {
+): Promise<string> {
   const set = deriveSet(await store.loadWorkingSet());
   return resolveNodeTokenInSet(set, token, expected, {
     notFound: 'see what exists: mimir list -f ids',
@@ -45,10 +45,10 @@ export async function resolveNode(
 }
 
 /**
- * Resolve a bare project KEY to its surrogate integer id over the working set.
+ * Resolve a bare project KEY to its canonical identity over the working set.
  * Throws `not_found` (MimirError) if no project with that key exists.
  */
-export async function resolveProject(store: Store, key: string): Promise<number> {
+export async function resolveProject(store: Store, key: string): Promise<string> {
   return resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
 }
 
@@ -59,7 +59,7 @@ export async function resolveProject(store: Store, key: string): Promise<number>
 export async function resolveParent(
   store: Store,
   token: string,
-): Promise<{ kind: 'project'; id: number } | { kind: 'node'; id: number }> {
+): Promise<{ kind: 'project'; id: string } | { kind: 'node'; id: string }> {
   const identity = parseIdentity(token);
   if (identity?.kind === 'artifact') {
     throw validation(
@@ -80,13 +80,13 @@ export async function resolveParent(
 
 /**
  * Echo the affected node to stdout in the requested format. Accepts the
- * surrogate integer id (as returned by `resolveNode`), loads the row, and
+ * canonical stem (as returned by `resolveNode`), loads the row, and
  * projects it to a view. Matches the single-node renderer semantics of
  * `renderSingle` in `run.ts`.
  */
 export async function echoNode(
   store: Store,
-  nodeId: number,
+  nodeId: string,
   format: Format,
   io: Io,
 ): Promise<void> {
@@ -106,7 +106,7 @@ export async function echoNode(
  */
 export async function echoNodeWith(
   store: Store,
-  nodeId: number,
+  nodeId: string,
   format: Format,
   io: Io,
   makeSignpost: (renderedId: string) => string,

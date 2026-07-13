@@ -43,6 +43,36 @@ test('a clean graph — resolved parent + depends_on and a bare-KEY root — dro
   expect(result.projectKeys).toEqual(['MMR']);
 });
 
+test('duplicate stems fail closed and report every colliding physical path', () => {
+  const nodes: NodeRefs[] = [
+    { dependsOn: [], key: 'MMR', parent: null, path: 'MMR/MMR-1.md', stem: 'MMR-1' },
+    { dependsOn: [], key: 'MMR', parent: null, path: 'archive/MMR-1.md', stem: 'MMR-1' },
+  ];
+  const result = validate({
+    nodes,
+    projectKeys: ['MMR'],
+    sources: nodes.map((node) => ({ kind: 'node' as const, path: node.path!, stem: node.stem })),
+  });
+
+  expect(result.nodes).toEqual([]);
+  expect(result.dropped).toEqual([
+    {
+      kind: 'identity',
+      path: 'MMR/MMR-1.md',
+      paths: ['MMR/MMR-1.md', 'archive/MMR-1.md'],
+      rule: 'duplicate-stem',
+      stem: 'MMR-1',
+    },
+    {
+      kind: 'identity',
+      path: 'archive/MMR-1.md',
+      paths: ['MMR/MMR-1.md', 'archive/MMR-1.md'],
+      rule: 'duplicate-stem',
+      stem: 'MMR-1',
+    },
+  ]);
+});
+
 test('a dangling parent drops the edge; the node survives floated to root', () => {
   const g = graphOf([{ dependsOn: [], parent: 'MMR-99', stem: 'MMR-2' }]);
   const result = validate(g);

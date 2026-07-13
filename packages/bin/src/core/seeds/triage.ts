@@ -6,7 +6,7 @@ import type {
   UpstreamResolution,
 } from '@mimir/contract';
 
-import { deriveSet, findProjectInSet, isNodeSettled, renderNodeIdFromSet } from '../derive';
+import { deriveSet, findProjectInSet, isNodeSettled } from '../derive';
 import { parseSeedRef } from '../ids';
 import { annotate } from '../mutations';
 import type { Store } from '../store';
@@ -128,31 +128,20 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
   const tasks =
     project === undefined
       ? []
-      : (set.nodesByProject.get(project.id) ?? []).filter(
+      : (set.nodesByProject.get(project.key) ?? []).filter(
           (node) => node.type === 'task' && node.upstream !== null && !isNodeSettled(set, node),
         );
 
   const upstreamResolutions: UpstreamResolution[] = [];
   const failures: TriageFailure[] = [];
 
-  // Render each task's stem ONCE (pure). A task whose id can't render is a
-  // derivation gap — skip it silently, as before. The surviving stems key both
-  // the annotation reads and the batched anchor-health probe below.
-  const taskStems = new Map<number, string>();
-  for (const task of tasks) {
-    const stem = renderNodeIdFromSet(set, task);
-    if (stem !== null) {
-      taskStems.set(task.id, stem);
-    }
-  }
-
   // One batched MMR-239 probe: which of these tasks carry a `## Annotations` anchor
   // norn can't resolve (duplicate/missing heading). Appending onto one would refuse
   // and abort the whole pass, so they are quarantined into `failures[]` below —
   // never blind-appended onto (the doctor-class corruption channel, ADR 0017).
-  const corruptAnchors = await store.bodySections.annotationSectionFailures([
-    ...taskStems.values(),
-  ]);
+  const corruptAnchors = await store.bodySections.annotationSectionFailures(
+    tasks.map((task) => task.id),
+  );
 
   // Memoize the upstream seed reads across tasks — several requester tasks can
   // point at the SAME upstream seed, and the pass never mutates seeds, so the
@@ -186,10 +175,10 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
 
   for (const task of tasks) {
     const upstream = task.upstream;
-    const taskStem = taskStems.get(task.id);
-    if (upstream === null || taskStem === undefined) {
+    if (upstream === null) {
       continue;
     }
+    const taskStem = task.id;
     // Per-task isolation: a fault reconciling ONE task (e.g. a flaky cross-board
     // seed read) is recorded and skipped — never an abort of the board pass. The
     // pass's own setup (listSeeds / working-set) stays outside this, so a genuine
@@ -214,7 +203,7 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
       // Idempotency (SERIAL re-runs): skip a task whose annotations already record
       // THIS terminal for THIS seed. Concurrent runs can still duplicate — the
       // read-then-append has no content CAS, so the pass is single-writer per board.
-      const existing = await store.bodySections.readAnnotations(task.id, taskStem);
+      const existing = await store.bodySections.readAnnotations(taskStem);
       const alreadyRecorded = existing.some((note) =>
         annotationRecordsResolution(note.content, upstream, terminal),
       );

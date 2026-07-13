@@ -163,7 +163,7 @@ const ARCHIVED_LIST_FACETS: readonly FacetName[] = [...PROJECT_LIST_FACETS, 'art
 /** Resolve a node token against an already-derived set — the HTTP binding of the
  * core guard, with route pointers. The multi-token twin `nodeRef` uses when a
  * handler resolves several tokens over ONE snapshot (depend/undepend/move). */
-function nodeRefIn(set: DerivationSet, token: string, expected = 'node'): number {
+function nodeRefIn(set: DerivationSet, token: string, expected = 'node'): string {
   return resolveNodeTokenInSet(set, token, expected, {
     artifact: 'artifacts live at /api/artifacts',
     project: 'projects live at /api/projects',
@@ -172,7 +172,7 @@ function nodeRefIn(set: DerivationSet, token: string, expected = 'node'): number
 
 /** Resolve a single node token over its own fresh working-set snapshot (MMR-160,
  * no raw db). Handlers resolving multiple tokens derive one set + `nodeRefIn`. */
-async function nodeRef(store: Store, token: string, expected = 'node'): Promise<number> {
+async function nodeRef(store: Store, token: string, expected = 'node'): Promise<string> {
   return nodeRefIn(deriveSet(await store.loadWorkingSet()), token, expected);
 }
 
@@ -241,7 +241,7 @@ function seedStatusParam(status: string | null): SeedStatusSelector | undefined 
 }
 
 /** Resolve a project key to its id for the archive/unarchive routes (ADR 0015). */
-async function projectIdForArchive(store: Store, key: string): Promise<number> {
+async function projectIdForArchive(store: Store, key: string): Promise<string> {
   if (parseIdentity(key)?.kind !== 'project') {
     throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
   }
@@ -897,7 +897,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
                 'pass {"position":"top"|"bottom"} or {"before":id} / {"after":id}',
               );
             }
-            let refId: number | null = null;
+            let refId: string | null = null;
             if (position === 'before' || position === 'after') {
               if (ref === undefined) {
                 throw validation('reorder before/after requires ref');

@@ -13,7 +13,7 @@ import { parseIdentity } from './ids';
 import type { EntityRef } from './mutations/tags';
 
 /**
- * Resolve a node token (`KEY-seq`) to its surrogate id for a verb that acts
+ * Resolve a node token (`KEY-seq`) to its canonical stem for a verb that acts
  * on nodes. A token naming a project or artifact is rejected as a behavioral
  * error — `expected` names what the verb acts on, and `hints` lets each
  * transport point at its own surface.
@@ -23,7 +23,7 @@ export function resolveNodeTokenInSet(
   token: string,
   expected = 'task, phase, or initiative',
   hints: { project?: string; artifact?: string; seed?: string; notFound?: string } = {},
-): number {
+): string {
   const identity = parseIdentity(token);
   if (identity?.kind === 'project') {
     throw validation(`${token} is a project, not a ${expected}`, hints.project);
@@ -47,17 +47,17 @@ export function resolveNodeTokenInSet(
 }
 
 /** Set-based project-key resolution — throws `not_found` for an unknown key. */
-export function resolveProjectKeyInSet(set: DerivationSet, key: string): number {
+export function resolveProjectKeyInSet(set: DerivationSet, key: string): string {
   const project = findProjectInSet(set, key);
   if (project === undefined) {
     throw projectNotFound(key);
   }
-  return project.id;
+  return project.key;
 }
 
 /**
  * Resolve any rendered identity — `KEY` | `KEY-seq` | `KEY-aN` — to its tag
- * target (entity kind + surrogate id). Throws `not_found` naming the token;
+ * target (entity kind + canonical identity). Throws `not_found` naming the token;
  * the caller decides which kinds it acts on.
  */
 export function resolveEntityTokenInSet(set: DerivationSet, token: string): EntityRef {

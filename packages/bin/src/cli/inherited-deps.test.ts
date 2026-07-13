@@ -16,7 +16,7 @@ const NORN = Bun.which('norn') !== null;
 
 let store: Store;
 let closeStore: () => Promise<void>;
-let initId: number;
+let initId: string;
 beforeEach(async () => {
   ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'Mimir' });

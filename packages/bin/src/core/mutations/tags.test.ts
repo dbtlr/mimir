@@ -13,9 +13,9 @@ const NORN = Bun.which('norn') !== null;
 
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
-let projectId: number;
-let phaseId: number;
-let taskId: number;
+let projectId: string;
+let phaseId: string;
+let taskId: string;
 beforeEach(async () => {
   // Norn-only fixture: the pure resolver test below runs everywhere over an
   // in-memory set, so without norn the store fixture stays un-built (every
@@ -38,13 +38,13 @@ afterEach(async () => {
   closeStore = undefined;
 });
 
-async function projectTagsOf(id: number): Promise<{ tag: string }[]> {
+async function projectTagsOf(id: string): Promise<{ tag: string }[]> {
   const ws = await store.loadWorkingSet();
   return [...(ws.projectTags.get(id) ?? [])]
     .map((t) => ({ tag: t.tag }))
     .toSorted((a, b) => a.tag.localeCompare(b.tag));
 }
-async function nodeTagsOf(id: number): Promise<{ tag: string }[]> {
+async function nodeTagsOf(id: string): Promise<{ tag: string }[]> {
   const ws = await store.loadWorkingSet();
   return [...(ws.nodeTags.get(id) ?? [])]
     .map((t) => ({ tag: t.tag }))
@@ -60,7 +60,7 @@ test.skipIf(!NORN)('tag reaches all three entity types via the identity grammar'
   expect(await projectTagsOf(projectId)).toEqual([{ tag: 'spec' }]);
   expect(await nodeTagsOf(taskId)).toEqual([{ tag: 'spec' }]);
 
-  // The artifact target carries (key, seq) — no numeric id to look up — so
+  // The artifact target carries its canonical (key, seq) identity, so
   // read its tags back through the artifact seam by that same identity.
   const artifactTarget = targets[2];
   if (artifactTarget === undefined || artifactTarget.entityType !== 'artifact') {
@@ -116,7 +116,7 @@ test.skipIf(!NORN)(
   'an artifact token resolves by external identity, existence is the seam’s concern (MMR-143)',
   async () => {
     // Unlike node/project, an artifact token parses to (key, seq) without a
-    // store read — a vault-backed artifact has no row-level surrogate, and tags
+    // store read — the vault-backed artifact stem is already canonical, and tags
     // never validate existence (the seam applies to a missing artifact as a
     // silent no-op).
     const set = deriveSet(await store.loadWorkingSet());

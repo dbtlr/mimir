@@ -45,18 +45,14 @@ export async function createTestStore(): Promise<TestStore> {
 }
 
 /**
- * Resolve a project's surrogate id from a fresh working set by its `KEY`. Over
- * the Norn store the numeric id is a per-snapshot artifact (a create returns
- * `id: -1` for projects), so a chained create/mutation resolves the current id
- * by identity rather than reusing a stale one — the same thing every CLI command
- * does across process boundaries.
+ * Resolve a project's canonical key from a fresh working set.
  */
-export async function projectIdOf(store: Store, key: string): Promise<number> {
+export async function projectIdOf(store: Store, key: string): Promise<string> {
   return resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
 }
 
-/** Resolve a node's surrogate id from a fresh working set by its `KEY-seq` stem. */
-export async function nodeIdOf(store: Store, ref: string): Promise<number> {
+/** Resolve a node's canonical `KEY-seq` stem from a fresh working set. */
+export async function nodeIdOf(store: Store, ref: string): Promise<string> {
   const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), ref);
   if (node === undefined) {
     throw new Error(`no node ${ref}`);

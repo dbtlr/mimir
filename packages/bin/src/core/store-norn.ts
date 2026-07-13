@@ -24,10 +24,8 @@ import { validate } from './validate';
  *
  * Two representational choices, both by design (the vault is the system of
  * record, not a mirror of relational rows):
- * - **Synthetic ints.** The vault has no surrogate ids (the stem *is* the id);
- *   ints are minted here, stable per load, so the int-keyed model is unchanged
- *   (the id→`KEY-seq` model migration is Phase 3). Identity that crosses the
- *   seam is always `KEY-seq`.
+ * - **Stem-native identity.** Project keys and node stems pass through unchanged;
+ *   physical paths stay only in the transaction snapshot as locators.
  * - **Tags are a plain set.** Vault `tags` frontmatter carries no per-tag note
  *   or timestamp (ADR 0005); {@link toTagRecords} synthesizes the timestamp.
  */
@@ -136,10 +134,10 @@ function toTagRecords(tags: readonly string[], created: string): NodeTag[] {
   return tags.toSorted(cmpStr).map((tag) => ({ created_at: created, tag }));
 }
 
-type ProjectDoc = { key: string; fm: Record<string, unknown> };
+type ProjectDoc = { key: string; path: string; fm: Record<string, unknown> };
 type NodeDoc = {
-  id: number;
   stem: string;
+  path: string;
   key: string;
   seq: number;
   type: NodeType;
@@ -148,20 +146,21 @@ type NodeDoc = {
 
 /**
  * A load-time snapshot of the vault's work-state (MMR-153): the same
- * {@link WorkingSet} the read path derives over, plus the two by-id side maps
+ * {@link WorkingSet} the read path derives over, plus adapter-only side maps
  * the *write* path needs and the reader discards — the raw frontmatter per
  * document (the `expected_old_value` CAS precondition set_frontmatter demands)
- * and the synthetic-int → document identity the writer resolves paths through.
- * The synthetic ints are the {@link WorkingSet}'s own (stable per load); a
- * later `transact` reloads and re-mints them, so they are handles WITHIN one
- * snapshot, never durable across applies.
+ * and the stem → actual path locator needed by path-addressed apply operations.
  */
 export type NornSnapshot = {
   workingSet: WorkingSet;
-  /** Node id → its raw frontmatter record (presence + CAS old-value source). */
-  nodeFm: ReadonlyMap<number, Record<string, unknown>>;
-  /** Project id → its raw frontmatter record. */
-  projectFm: ReadonlyMap<number, Record<string, unknown>>;
+  /** Canonical stem → every physical path withheld because the identity collides. */
+  collidingPathsByStem: ReadonlyMap<string, readonly string[]>;
+  /** Node stem → its raw frontmatter record (presence + CAS old-value source). */
+  nodeFm: ReadonlyMap<string, Record<string, unknown>>;
+  /** Project key → its raw frontmatter record. */
+  projectFm: ReadonlyMap<string, Record<string, unknown>>;
+  /** Canonical stem → the surviving document's actual vault-relative path. */
+  pathByStem: ReadonlyMap<string, string>;
   /**
    * Node id → the `depends_on` refs the validator PRUNED on load — a dangling
    * edge (points at no surviving node) or a cycle-closing edge broken by the
@@ -173,7 +172,7 @@ export type NornSnapshot = {
    * per ADR 0017 (the reader drops, doctor reports, the write path does neither).
    * Bare `KEY-seq` stems, as {@link nodeRelations} produces for a live edge.
    */
-  prunedDependsOn: ReadonlyMap<number, readonly string[]>;
+  prunedDependsOn: ReadonlyMap<string, readonly string[]>;
 };
 
 /** One node's raw relational refs — its stem, project `key`, and unresolved
@@ -187,6 +186,8 @@ export type NornSnapshot = {
  * cares only about referential rules is unaffected. */
 export type NodeRefs = {
   stem: string;
+  /** Actual vault-relative path, when loaded from Norn (doctor identity diagnostics). */
+  path?: string;
   key: string;
   parent: string | null;
   dependsOn: string[];
@@ -234,6 +235,8 @@ export type SeedRefs = {
 export type VaultGraph = {
   nodes: NodeRefs[];
   projectKeys: string[];
+  /** Work-state identities paired with their physical paths for collision checks. */
+  sources?: readonly { kind: 'node' | 'project'; stem: string; path: string }[];
   /** The subset of `projectKeys` whose project is ARCHIVED (`archived_at` set).
    * Carried so the validator can give the seed `requester` check the reader's
    * ACTIVE-only visibility (an archived requester is nulled on read, MMR-245/B1d),
@@ -266,11 +269,13 @@ function nodeRefsOf(
   key: string,
   stem: string,
   type: NodeType,
+  path?: string,
 ): NodeRefs {
   return {
     dependsOn: linkStems(fm.depends_on),
     key,
     parent: collapse(fm.parent),
+    ...(path === undefined ? {} : { path }),
     // Field-validity inputs (MMR-177): the raw enum frontmatter, vetted in
     // validate's pass 0. Carried verbatim (unknown) — validate owns legality.
     raw: {
@@ -326,6 +331,7 @@ export function vaultGraphFromDocs(
   const projectKeys: string[] = [];
   const archivedProjectKeys: string[] = [];
   const declarations: ProjectDeclaration[] = [];
+  const sources: { kind: 'node' | 'project'; stem: string; path: string }[] = [];
   // Only populated (and only made present on the graph) when the caller asked —
   // the node-only resolving loader and the transitions feed pass no seeds, so the
   // seed/upstream passes in `validate` stay off for them (MMR-244).
@@ -342,6 +348,7 @@ export function vaultGraphFromDocs(
       const key = str(fm.key);
       if (key !== null && key !== '') {
         projectKeys.push(key);
+        sources.push({ kind: 'project', path: doc.path, stem: key });
         if (str(fm.archived_at) !== null) {
           archivedProjectKeys.push(key);
         }
@@ -370,7 +377,8 @@ export function vaultGraphFromDocs(
     if ((type !== 'task' && type !== 'phase' && type !== 'initiative') || ref === null) {
       continue;
     }
-    nodes.push(nodeRefsOf(fm, ref.key, stem, type));
+    nodes.push(nodeRefsOf(fm, ref.key, stem, type, doc.path));
+    sources.push({ kind: 'node', path: doc.path, stem });
     declarations.push({ project: collapse(fm.project), stem });
   }
   return {
@@ -378,6 +386,7 @@ export function vaultGraphFromDocs(
     declarations,
     nodes,
     projectKeys,
+    sources,
     ...(withSeeds ? { seeds } : {}),
   };
 }
@@ -395,7 +404,7 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   // Partition documents by type; a doc without frontmatter, without a `key`
   // (project), or with a non-`KEY-seq` stem (node) is malformed and dropped.
   const projectDocs: ProjectDoc[] = [];
-  const rawNodes: Omit<NodeDoc, 'id'>[] = [];
+  const rawNodes: NodeDoc[] = [];
   for (const doc of docs) {
     const fm = doc.frontmatter;
     if (fm === undefined) {
@@ -405,12 +414,19 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     if (type === 'project') {
       const key = str(fm.key);
       if (key !== null && key !== '') {
-        projectDocs.push({ fm, key });
+        projectDocs.push({ fm, key, path: doc.path });
       }
     } else if (type === 'task' || type === 'phase' || type === 'initiative') {
       const ref = parseId(stemOf(doc.path));
       if (ref !== null) {
-        rawNodes.push({ fm, key: ref.key, seq: ref.seq, stem: stemOf(doc.path), type });
+        rawNodes.push({
+          fm,
+          key: ref.key,
+          path: doc.path,
+          seq: ref.seq,
+          stem: stemOf(doc.path),
+          type,
+        });
       }
     }
   }
@@ -430,11 +446,23 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   // longer throw on vault data. Every SURVIVING node has a usable lifecycle/hold;
   // a foreign priority/size is nulled by {@link enumFieldOrNull} (the node stays).
   const validated = validate({
-    nodes: rawNodes.map((n) => nodeRefsOf(n.fm, n.key, n.stem, n.type)),
+    nodes: rawNodes.map((n) => nodeRefsOf(n.fm, n.key, n.stem, n.type, n.path)),
     projectKeys: projectDocs.map((p) => p.key),
+    sources: [
+      ...projectDocs.map((p) => ({ kind: 'project' as const, path: p.path, stem: p.key })),
+      ...rawNodes.map((n) => ({ kind: 'node' as const, path: n.path, stem: n.stem })),
+    ],
   });
   const validRefs = validated.nodes;
   const validByStem = new Map(validRefs.map((r) => [r.stem, r]));
+  const validProjectKeys = new Set(validated.projectKeys);
+  const survivingProjects = projectDocs.filter((project) => validProjectKeys.has(project.key));
+  const collidingPathsByStem = new Map<string, readonly string[]>();
+  for (const drop of validated.dropped) {
+    if (drop.kind === 'identity' && !collidingPathsByStem.has(drop.stem)) {
+      collidingPathsByStem.set(drop.stem, drop.paths);
+    }
+  }
 
   // Index the pruned `depends_on` refs by stem so the write path can re-merge
   // them (MMR-186). Both drop rules point away from a surviving edge — a
@@ -456,28 +484,11 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   }
   const survivingNodes = rawNodes.filter((n) => validByStem.has(n.stem));
 
-  // Synthetic-int allocation — stable and deterministic. Projects key-ordered,
-  // nodes (key, seq)-ordered; independent int spaces (projects and nodes number
-  // separately). Identity across the seam is always the stem. Allocated over the
-  // survivors only — a clean vault drops nothing, so the allocation (and thus
-  // the whole WorkingSet) is deterministic.
-  projectDocs.sort((a, b) => cmpStr(a.key, b.key));
+  // Identity and ordering are separate: retain the canonical stems/keys, while
+  // explicitly sorting projects by key and nodes by (key, numeric seq).
+  survivingProjects.sort((a, b) => cmpStr(a.key, b.key));
   survivingNodes.sort((a, b) => (a.key === b.key ? a.seq - b.seq : cmpStr(a.key, b.key)));
-
-  const projectIdByKey = new Map<string, number>();
-  projectDocs.forEach((p, i) => projectIdByKey.set(p.key, i + 1));
-  const nodeDocs: NodeDoc[] = survivingNodes.map((n, i) => ({
-    fm: n.fm,
-    id: i + 1,
-    key: n.key,
-    seq: n.seq,
-    stem: n.stem,
-    type: n.type,
-  }));
-  const nodeIdByStem = new Map<string, number>();
-  for (const n of nodeDocs) {
-    nodeIdByStem.set(n.stem, n.id);
-  }
+  const nodeDocs = survivingNodes;
 
   // last_seq is a write-path allocation counter (unused by read derivation, not
   // in the output contract) — derived as max(seq) so the Project is well-formed.
@@ -486,11 +497,10 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     maxSeqByProject.set(n.key, Math.max(maxSeqByProject.get(n.key) ?? 0, n.seq));
   }
 
-  const projects: Project[] = projectDocs.map((p, i) => ({
+  const projects: Project[] = survivingProjects.map((p) => ({
     archived_at: str(p.fm.archived_at),
     created_at: str(p.fm.created) ?? '',
     description: str(p.fm.description),
-    id: i + 1,
     key: p.key,
     last_artifact_seq: 0,
     last_seq: maxSeqByProject.get(p.key) ?? 0,
@@ -500,16 +510,21 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
 
   const nodes: Node[] = [];
   const edges: Dependency[] = [];
-  const nodeTags = new Map<number, NodeTag[]>();
-  const nodeFm = new Map<number, Record<string, unknown>>();
-  const projectFm = new Map<number, Record<string, unknown>>();
-  const prunedDependsOn = new Map<number, readonly string[]>();
-  projectDocs.forEach((p, i) => projectFm.set(i + 1, p.fm));
+  const nodeTags = new Map<string, NodeTag[]>();
+  const nodeFm = new Map<string, Record<string, unknown>>();
+  const projectFm = new Map<string, Record<string, unknown>>();
+  const prunedDependsOn = new Map<string, readonly string[]>();
+  const pathByStem = new Map<string, string>();
+  survivingProjects.forEach((p) => {
+    projectFm.set(p.key, p.fm);
+    pathByStem.set(p.key, p.path);
+  });
   for (const n of nodeDocs) {
-    nodeFm.set(n.id, n.fm);
+    nodeFm.set(n.stem, n.fm);
+    pathByStem.set(n.stem, n.path);
     const pruned = prunedDependsOnByStem.get(n.stem);
     if (pruned !== undefined) {
-      prunedDependsOn.set(n.id, pruned);
+      prunedDependsOn.set(n.stem, pruned);
     }
     // The validator already vetted this node's referential edges (its project is
     // present, parent/depends_on resolve to survivors), so the lookups below
@@ -520,8 +535,7 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     // never throw for a survivor (their bad nodes are dropped) — they stay strict
     // as a seam backstop — and a foreign priority/size is nulled, not thrown.
     const refs = validByStem.get(n.stem);
-    const projectId = projectIdByKey.get(n.key);
-    if (refs === undefined || projectId === undefined) {
+    if (refs === undefined || !projectFm.has(n.key)) {
       throw invariant(
         `node ${n.stem} survived validation but is unresolvable (project ${n.key})`,
         'the validator must only return nodes whose project and edges resolve',
@@ -531,16 +545,15 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     // parent: the validator's parent is null (a root, or a dropped edge floated to
     // root) or a surviving `KEY-seq` — so it always resolves to another node.
     const parentStem = refs.parent;
-    let parentId: number | null = null;
+    let parentId: string | null = null;
     if (parentStem !== null && parseId(parentStem) !== null) {
-      const resolved = nodeIdByStem.get(parentStem);
-      if (resolved === undefined) {
+      if (!validByStem.has(parentStem)) {
         throw invariant(
           `node ${n.stem} has validated parent ${parentStem}, which is not in the subgraph`,
           'a validated parent must resolve to a surviving node',
         );
       }
-      parentId = resolved;
+      parentId = parentStem;
     }
 
     // Task-only fields are read only for a task (a non-task never carries
@@ -575,7 +588,7 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       // on a task reconstructs to 'none'.
       hold: isTask ? (enumFieldStrict(n.fm.hold, HOLD_VALUES, n.stem, 'hold') ?? 'none') : null,
       hold_reason: isTask ? str(n.fm.hold_reason) : null,
-      id: n.id,
+      id: n.stem,
       lifecycle,
       // Container-only (MMR-204): a foreign value nulls the field like priority/size.
       open_ended: isTask ? null : boolFieldOrNull(n.fm.open_ended),
@@ -583,7 +596,7 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       // priority/size are optional (MMR-177): a foreign value nulls the field (the
       // node stays), so read them non-throwing — the validator keeps such a node.
       priority: isTask ? enumFieldOrNull(n.fm.priority, PRIORITY_VALUES) : null,
-      project_id: projectId,
+      project_id: n.key,
       rank: isTask ? num(n.fm.rank) : null,
       seq: n.seq,
       size: isTask ? enumFieldOrNull(n.fm.size, SIZE_VALUES) : null,
@@ -607,43 +620,44 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     // would mean the validator and this build disagree, not that the vault is bad.
     // The prereqIds set keeps the reader's own idempotence — the same collapse
     // a (node_id, depends_on_node_id) unique key would enforce.
-    const prereqIds = new Set<number>();
+    const prereqIds = new Set<string>();
     for (const prereqStem of refs.dependsOn) {
-      const prereqId = nodeIdByStem.get(prereqStem);
-      if (prereqId === undefined) {
+      if (!validByStem.has(prereqStem)) {
         throw invariant(
           `node ${n.stem} has validated prerequisite ${prereqStem}, which is not in the subgraph`,
           'a validated prerequisite must resolve to a surviving node',
         );
       }
-      if (prereqId === n.id) {
+      if (prereqStem === n.stem) {
         throw invariant(
           `node ${n.stem} has a validated self-dependency`,
           'acyclicity validation (MMR-174) must drop a self-dependency before the reader',
         );
       }
-      if (!prereqIds.has(prereqId)) {
-        prereqIds.add(prereqId);
-        edges.push({ depends_on_node_id: prereqId, node_id: n.id });
+      if (!prereqIds.has(prereqStem)) {
+        prereqIds.add(prereqStem);
+        edges.push({ depends_on_node_id: prereqStem, node_id: n.stem });
       }
     }
 
     const tags = stringList(n.fm.tags);
     if (tags.length > 0) {
-      nodeTags.set(n.id, toTagRecords(tags, str(n.fm.created) ?? ''));
+      nodeTags.set(n.stem, toTagRecords(tags, str(n.fm.created) ?? ''));
     }
   }
 
-  const projectTags = new Map<number, NodeTag[]>();
-  projectDocs.forEach((p, i) => {
+  const projectTags = new Map<string, NodeTag[]>();
+  survivingProjects.forEach((p) => {
     const tags = stringList(p.fm.tags);
     if (tags.length > 0) {
-      projectTags.set(i + 1, toTagRecords(tags, str(p.fm.created) ?? ''));
+      projectTags.set(p.key, toTagRecords(tags, str(p.fm.created) ?? ''));
     }
   });
 
   return {
+    collidingPathsByStem,
     nodeFm,
+    pathByStem,
     projectFm,
     prunedDependsOn,
     workingSet: { edges, nodeTags, nodes, projectTags, projects },

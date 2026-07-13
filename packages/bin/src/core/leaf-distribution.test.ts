@@ -27,10 +27,10 @@ afterEach(async () => {
 
 const setOf = async () => deriveSet(await store.loadWorkingSet());
 
-async function patch(id: number, fields: { lifecycle?: Lifecycle; hold?: Hold }): Promise<void> {
+async function patch(id: string, fields: { lifecycle?: Lifecycle; hold?: Hold }): Promise<void> {
   await store.transact((w) => w.updateNode(id, fields));
 }
-async function dep(nodeId: number, dependsOn: number): Promise<void> {
+async function dep(nodeId: string, dependsOn: string): Promise<void> {
   await store.transact((w) =>
     w.insertDependency({ depends_on_node_id: dependsOn, node_id: nodeId }),
   );

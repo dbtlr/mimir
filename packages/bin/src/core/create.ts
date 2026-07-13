@@ -1,4 +1,4 @@
-import type { Priority, Size, TagEntityType } from '@mimir/contract';
+import type { Priority, Size } from '@mimir/contract';
 
 import { isValidKey } from './allocation';
 import { conflict, notFound, validation } from './errors';
@@ -6,7 +6,7 @@ import type { Node, Project } from './model';
 import { assertProjectActive } from './mutations/common';
 import { normalizeSummary } from './mutations/data';
 import { appendRank } from './rank';
-import type { Store, StoreWriter } from './store';
+import type { Store } from './store';
 
 /**
  * Create verbs. Each opens one write scope: validate the behavioral invariants
@@ -17,18 +17,6 @@ import type { Store, StoreWriter } from './store';
  * Parent rules (design spec §3.4): initiative → project (top-level, `parent_id`
  * null); phase → initiative; task → phase or initiative.
  */
-
-/** Insert creation-time tags (MMR-31) — idempotent, note-less, same transaction. */
-async function insertTags(
-  w: StoreWriter,
-  entityType: TagEntityType,
-  entityId: number,
-  tags?: string[],
-): Promise<void> {
-  for (const tag of tags ?? []) {
-    await w.insertTag({ entity_id: entityId, entity_type: entityType, tag });
-  }
-}
 
 export type CreateProjectInput = {
   key: string;
@@ -42,7 +30,10 @@ export async function createProject(store: Store, input: CreateProjectInput): Pr
     throw validation(`project key must match [A-Z]{2,4}: ${input.key}`);
   }
   return store.transact(async (w) => {
-    const existing = await w.loadProjectByKey(input.key);
+    if (await w.hasIdentityCollision(input.key)) {
+      throw conflict(`project key is ambiguous across multiple documents: ${input.key}`);
+    }
+    const existing = await w.loadProject(input.key);
     if (existing !== undefined) {
       throw conflict(`project key already exists: ${input.key}`);
     }
@@ -50,14 +41,14 @@ export async function createProject(store: Store, input: CreateProjectInput): Pr
       description: input.description ?? null,
       key: input.key,
       name: input.name,
+      tags: input.tags,
     });
-    await insertTags(w, 'project', project.id, input.tags);
     return project;
   });
 }
 
 export type CreateInitiativeInput = {
-  projectId: number;
+  projectId: string;
   title: string;
   description?: string | null;
   /** The short list lede (MMR-162) — all-node, never type-gated. */
@@ -74,24 +65,22 @@ export async function createInitiative(store: Store, input: CreateInitiativeInpu
       throw notFound('the project was not found');
     }
     await assertProjectActive(w, input.projectId);
-    const seq = await w.allocateSeq(input.projectId);
     const node = await w.insertNode({
       description: input.description ?? null,
       open_ended: input.openEnded ?? null,
       parent_id: null,
       project_id: input.projectId,
-      seq,
       summary: normalizeSummary(input.summary ?? null),
+      tags: input.tags,
       title: input.title,
       type: 'initiative',
     });
-    await insertTags(w, 'node', node.id, input.tags);
     return node;
   });
 }
 
 export type CreatePhaseInput = {
-  parentId: number;
+  parentId: string;
   title: string;
   description?: string | null;
   /** The short list lede (MMR-162) — all-node, never type-gated. */
@@ -112,25 +101,23 @@ export async function createPhase(store: Store, input: CreatePhaseInput): Promis
       throw validation(`a phase's parent must be an initiative, not a ${parent.type}`);
     }
     await assertProjectActive(w, parent.project_id);
-    const seq = await w.allocateSeq(parent.project_id);
     const node = await w.insertNode({
       description: input.description ?? null,
       open_ended: input.openEnded ?? null,
       parent_id: parent.id,
       project_id: parent.project_id,
-      seq,
       summary: normalizeSummary(input.summary ?? null),
+      tags: input.tags,
       target: input.target ?? null,
       title: input.title,
       type: 'phase',
     });
-    await insertTags(w, 'node', node.id, input.tags);
     return node;
   });
 }
 
 export type CreateTaskInput = {
-  parentId: number;
+  parentId: string;
   title: string;
   description?: string | null;
   /** The short list lede (MMR-162) — all-node, never type-gated. */
@@ -153,7 +140,6 @@ export async function createTask(store: Store, input: CreateTaskInput): Promise<
       throw validation(`a task's parent must be a phase or initiative, not a ${parent.type}`);
     }
     await assertProjectActive(w, parent.project_id);
-    const seq = await w.allocateSeq(parent.project_id);
     // A fresh task is todo + none → in the rankable set → append to bottom.
     const rank = await appendRank(w, parent.project_id);
     const node = await w.insertNode({
@@ -165,14 +151,13 @@ export async function createTask(store: Store, input: CreateTaskInput): Promise<
       priority: input.priority ?? null,
       project_id: parent.project_id,
       rank,
-      seq,
       size: input.size ?? null,
       summary: normalizeSummary(input.summary ?? null),
+      tags: input.tags,
       title: input.title,
       type: 'task',
       upstream: input.upstream ?? null,
     });
-    await insertTags(w, 'node', node.id, input.tags);
     return node;
   });
 }

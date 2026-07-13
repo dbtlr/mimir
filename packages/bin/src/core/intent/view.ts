@@ -21,7 +21,6 @@ import {
   leafDistribution,
   lineageIds,
   nodeStatusWord,
-  renderNodeIdFromSet,
   rootDistribution,
 } from '../derive';
 import { renderArtifactRef } from '../ids';
@@ -40,13 +39,13 @@ import type { Store } from '../store';
  * read through the {@link BodySectionStore} seam (MMR-154).
  */
 
-function toRef(set: DerivationSet, nodeId: number): NodeRef {
+function toRef(set: DerivationSet, nodeId: string): NodeRef {
   const node = set.nodeById.get(nodeId);
   if (node === undefined) {
     return { id: 'unknown' };
   }
   return {
-    id: renderNodeIdFromSet(set, node) ?? 'unknown',
+    id: node.id,
     status: nodeStatusWord(set, node),
     title: node.title,
   };
@@ -62,8 +61,8 @@ export async function buildNodeView(
   const parent = node.parent_id === null ? undefined : set.nodeById.get(node.parent_id);
   const view: NodeView = {
     createdAt: node.created_at,
-    id: renderNodeIdFromSet(set, node) ?? 'unknown',
-    parent: parent === undefined ? null : renderNodeIdFromSet(set, parent),
+    id: node.id,
+    parent: parent?.id ?? null,
     status: nodeStatusWord(set, node),
     summary: node.summary,
     title: node.title,
@@ -106,7 +105,7 @@ export async function buildNodeView(
   const wantAnnotations = facets.has('annotations');
   const wantHistory = facets.has('history');
   if (wantDescription || wantAnnotations || wantHistory) {
-    const sections = await bodySections.readSections(node.id, view.id, {
+    const sections = await bodySections.readSections(view.id, {
       annotations: wantAnnotations,
       description: wantDescription,
       history: wantHistory,
@@ -135,7 +134,7 @@ export async function buildNodeView(
       parentId: view.parent,
       parentOpenEnded: parent === undefined ? null : parent.open_ended,
       parentTitle: parent === undefined ? null : parent.title,
-      projectKey: set.keyByProjectId.get(node.project_id) ?? '',
+      projectKey: node.project_id,
     };
   }
   return view;
@@ -147,7 +146,7 @@ export async function buildNodeView(
  * status through the `deps` facet (ADR 0015; the facet is a read side-door that
  * bypasses the id-level not_found guards).
  */
-function visibleRefs(set: DerivationSet, nodeIds: readonly number[]): NodeRef[] {
+function visibleRefs(set: DerivationSet, nodeIds: readonly string[]): NodeRef[] {
   const refs: NodeRef[] = [];
   for (const id of nodeIds) {
     const node = set.nodeById.get(id);
@@ -159,7 +158,7 @@ function visibleRefs(set: DerivationSet, nodeIds: readonly number[]): NodeRef[] 
   return refs;
 }
 
-function buildDeps(set: DerivationSet, nodeId: number): DepsFacet {
+function buildDeps(set: DerivationSet, nodeId: string): DepsFacet {
   return {
     awaitingOn: buildAwaitingOn(set, nodeId),
     blocking: visibleRefs(set, set.dependentsByNode.get(nodeId) ?? []),
@@ -174,9 +173,9 @@ function buildDeps(set: DerivationSet, nodeId: number): DepsFacet {
  * (ADR 0001 Refinement). Only unsettled prereqs appear; settled ones no longer
  * gate.
  */
-function buildAwaitingOn(set: DerivationSet, nodeId: number): AwaitingRef[] {
+function buildAwaitingOn(set: DerivationSet, nodeId: string): AwaitingRef[] {
   const out: AwaitingRef[] = [];
-  const seen = new Set<number>();
+  const seen = new Set<string>();
   // lineage is node-first, so a prereq reached both directly and via an ancestor
   // keeps its direct (no-`via`) entry — list each unsettled prerequisite once.
   for (const ancestorId of lineageIds(set, nodeId)) {
@@ -196,8 +195,7 @@ function buildAwaitingOn(set: DerivationSet, nodeId: number): AwaitingRef[] {
       const ref: AwaitingRef = toRef(set, prereqId);
       if (ancestorId !== nodeId) {
         const ancestor = set.nodeById.get(ancestorId);
-        ref.via =
-          ancestor === undefined ? undefined : (renderNodeIdFromSet(set, ancestor) ?? undefined);
+        ref.via = ancestor?.id;
       }
       out.push(ref);
     }
@@ -207,12 +205,12 @@ function buildAwaitingOn(set: DerivationSet, nodeId: number): AwaitingRef[] {
 
 const bySeq = (a: Node, b: Node): number => a.seq - b.seq;
 
-function buildChildren(set: DerivationSet, nodeId: number): NodeRef[] {
+function buildChildren(set: DerivationSet, nodeId: string): NodeRef[] {
   const children = (set.childrenByParent.get(nodeId) ?? []).toSorted(bySeq);
   return children.map((child) => toRef(set, child.id));
 }
 
-function buildTags(set: DerivationSet, nodeId: number): TagView[] {
+function buildTags(set: DerivationSet, nodeId: string): TagView[] {
   const records = set.ws.nodeTags.get(nodeId) ?? [];
   return records.map((r) => ({ createdAt: r.created_at, tag: r.tag }));
 }
@@ -230,14 +228,13 @@ function toArtifactView(record: ArtifactRecord): ArtifactView {
 async function buildArtifacts(
   artifacts: ArtifactStore,
   set: DerivationSet,
-  nodeId: number,
+  nodeId: string,
 ): Promise<ArtifactView[]> {
   const node = set.nodeById.get(nodeId);
-  const stem = node === undefined ? undefined : renderNodeIdFromSet(set, node);
-  if (stem === undefined || stem === null) {
+  if (node === undefined) {
     return [];
   }
-  const records = await artifacts.listForNode(stem);
+  const records = await artifacts.listForNode(node.id);
   return records.map(toArtifactView);
 }
 
@@ -262,7 +259,7 @@ export async function buildProjectView(
   project: Project,
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView> {
-  const distribution = rootDistribution(set, project.id);
+  const distribution = rootDistribution(set, project.key);
   const view: NodeView = {
     createdAt: project.created_at,
     description: project.description,
@@ -278,7 +275,7 @@ export async function buildProjectView(
     view.archivedAt = project.archived_at;
   }
   if (facets.has('children')) {
-    const roots = (set.nodesByProject.get(project.id) ?? [])
+    const roots = (set.nodesByProject.get(project.key) ?? [])
       .filter((n) => n.parent_id === null)
       .toSorted(bySeq);
     view.children = roots.map((root) => toRef(set, root.id));
@@ -287,7 +284,7 @@ export async function buildProjectView(
     view.distribution = distribution;
   }
   if (facets.has('leafCounts')) {
-    view.leafCounts = leafDistribution(set, project.id);
+    view.leafCounts = leafDistribution(set, project.key);
   }
   if (facets.has('artifactCount')) {
     // A count, not the inventory — the archived shelf's `N artifacts` line
@@ -299,7 +296,7 @@ export async function buildProjectView(
     view.attention = attentionOf(set, project);
   }
   if (facets.has('tags')) {
-    const records = set.ws.projectTags.get(project.id) ?? [];
+    const records = set.ws.projectTags.get(project.key) ?? [];
     view.tags = records.map((r) => ({ createdAt: r.created_at, tag: r.tag }));
   }
   if (facets.has('artifacts')) {
@@ -345,14 +342,14 @@ export async function nodeViewOf(
 }
 
 /**
- * A node view resolved by surrogate id over a fresh snapshot (MMR-160) — the
+ * A node view resolved by canonical stem over a fresh snapshot (MMR-160) — the
  * write-echo path when the caller holds only the id (the verb was invoked for
  * effect, not its return). Loads the working set once, finds the node in it,
  * and derives — no raw db read. `undefined` if the id is absent from the set.
  */
 export async function nodeViewById(
   store: Store,
-  id: number,
+  id: string,
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView | undefined> {
   const set = deriveSet(await store.loadWorkingSet());

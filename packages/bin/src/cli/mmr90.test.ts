@@ -16,7 +16,7 @@ const NORN = Bun.which('norn') !== null;
 
 let store: Store;
 let closeStore: () => Promise<void>;
-let phaseId: number;
+let phaseId: string;
 let phaseSeq: number;
 let initSeq: number;
 

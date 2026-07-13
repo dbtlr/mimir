@@ -1,7 +1,7 @@
 import type { StatusWord } from '@mimir/contract';
 
 import { MimirError, invariant } from './errors';
-import { parseId, renderId } from './ids';
+import { parseId } from './ids';
 import type { Node, Project } from './model';
 import { interpret, tally, taskStatus } from './status';
 import type { Distribution } from './status';
@@ -23,22 +23,21 @@ import type { WorkingSet } from './store';
  */
 export type DerivationSet = {
   readonly ws: WorkingSet;
-  readonly nodeById: ReadonlyMap<number, Node>;
-  readonly childrenByParent: ReadonlyMap<number, readonly Node[]>;
-  readonly nodesByProject: ReadonlyMap<number, readonly Node[]>;
+  readonly nodeById: ReadonlyMap<string, Node>;
+  readonly childrenByParent: ReadonlyMap<string, readonly Node[]>;
+  readonly nodesByProject: ReadonlyMap<string, readonly Node[]>;
   /** node id → its own prerequisite node ids (`depends_on`). */
-  readonly prereqsByNode: ReadonlyMap<number, readonly number[]>;
+  readonly prereqsByNode: ReadonlyMap<string, readonly string[]>;
   /** node id → the node ids that depend on it. */
-  readonly dependentsByNode: ReadonlyMap<number, readonly number[]>;
-  readonly keyByProjectId: ReadonlyMap<number, string>;
+  readonly dependentsByNode: ReadonlyMap<string, readonly string[]>;
   /** Archived project ids — their nodes read as absent / settled (ADR 0015). */
-  readonly archivedProjects: ReadonlySet<number>;
+  readonly archivedProjects: ReadonlySet<string>;
   /** Per-snapshot memo + recursion guard — internal to this module. */
-  readonly memo: Map<number, StatusWord>;
+  readonly memo: Map<string, StatusWord>;
   /** Per-snapshot memo for the *raw* container word (pre open-ended coercion) —
    * feeds the transparency test without paying the child walk twice (MMR-204). */
-  readonly rawMemo: Map<number, StatusWord>;
-  readonly inFlight: Set<number>;
+  readonly rawMemo: Map<string, StatusWord>;
+  readonly inFlight: Set<string>;
 };
 
 function push<K, V>(map: Map<K, V[]>, key: K, value: V): void {
@@ -52,32 +51,29 @@ function push<K, V>(map: Map<K, V[]>, key: K, value: V): void {
 
 /** Index a working set for derivation. */
 export function deriveSet(ws: WorkingSet): DerivationSet {
-  const childrenByParent = new Map<number, Node[]>();
-  const nodesByProject = new Map<number, Node[]>();
+  const childrenByParent = new Map<string, Node[]>();
+  const nodesByProject = new Map<string, Node[]>();
   for (const node of ws.nodes) {
     if (node.parent_id !== null) {
       push(childrenByParent, node.parent_id, node);
     }
     push(nodesByProject, node.project_id, node);
   }
-  const prereqsByNode = new Map<number, number[]>();
-  const dependentsByNode = new Map<number, number[]>();
+  const prereqsByNode = new Map<string, string[]>();
+  const dependentsByNode = new Map<string, string[]>();
   for (const edge of ws.edges) {
     push(prereqsByNode, edge.node_id, edge.depends_on_node_id);
     push(dependentsByNode, edge.depends_on_node_id, edge.node_id);
   }
-  // Prereq lists ascend by id — parity with the SQL path, whose per-node reads
-  // came off the (node_id, depends_on_node_id) primary-key index. Dependents
-  // stay in scan (rowid) order, matching the non-unique reverse index.
+  // Preserve numeric node ordering even though identity is the canonical stem.
   for (const list of prereqsByNode.values()) {
-    list.sort((a, b) => a - b);
+    list.sort(compareNodeIds);
   }
   return {
-    archivedProjects: new Set(ws.projects.filter((p) => p.archived_at !== null).map((p) => p.id)),
+    archivedProjects: new Set(ws.projects.filter((p) => p.archived_at !== null).map((p) => p.key)),
     childrenByParent,
     dependentsByNode,
     inFlight: new Set(),
-    keyByProjectId: new Map(ws.projects.map((p) => [p.id, p.key])),
     memo: new Map(),
     nodeById: new Map(ws.nodes.map((n) => [n.id, n])),
     nodesByProject,
@@ -95,8 +91,8 @@ export function deriveSet(ws: WorkingSet): DerivationSet {
  * type to reject the write that would close the loop (MMR-140).
  */
 export class DerivationCycleError extends MimirError {
-  constructor(nodeId: number) {
-    super('invariant', `derivation cycle through container dependencies at node ${String(nodeId)}`);
+  constructor(nodeId: string) {
+    super('invariant', `derivation cycle through container dependencies at node ${nodeId}`);
     this.name = 'DerivationCycleError';
   }
 }
@@ -108,7 +104,7 @@ export class DerivationCycleError extends MimirError {
  * archived container would lie dormant and detonate on unarchive — prevention
  * counts it as real.
  */
-function nodeHitsDerivationCycle(ws: WorkingSet, nodeId: number): boolean {
+function nodeHitsDerivationCycle(ws: WorkingSet, nodeId: string): boolean {
   const set = deriveSet({
     ...ws,
     projects: ws.projects.map((p) => (p.archived_at === null ? p : { ...p, archived_at: null })),
@@ -144,15 +140,9 @@ function nodeHitsDerivationCycle(ws: WorkingSet, nodeId: number): boolean {
 export function writeIntroducesDerivationCycle(
   before: WorkingSet,
   after: WorkingSet,
-  nodeId: number,
+  nodeId: string,
 ): boolean {
   return nodeHitsDerivationCycle(after, nodeId) && !nodeHitsDerivationCycle(before, nodeId);
-}
-
-/** Render a node's external `KEY-seq` id from the set (error messages, refs). */
-export function renderNodeIdFromSet(set: DerivationSet, node: Node): string | null {
-  const key = set.keyByProjectId.get(node.project_id);
-  return key === undefined ? null : renderId({ key, seq: node.seq });
 }
 
 /**
@@ -162,15 +152,7 @@ export function renderNodeIdFromSet(set: DerivationSet, node: Node): string | nu
  * applies the hiding).
  */
 export function findNodeInSet(set: DerivationSet, id: string): Node | undefined {
-  const ref = parseId(id);
-  if (ref === null) {
-    return undefined;
-  }
-  const project = findProjectInSet(set, ref.key);
-  if (project === undefined) {
-    return undefined;
-  }
-  return set.ws.nodes.find((n) => n.project_id === project.id && n.seq === ref.seq);
+  return parseId(id) === null ? undefined : set.nodeById.get(id);
 }
 
 /** Resolve a project `KEY` to its Project against the working-set snapshot — the
@@ -251,10 +233,10 @@ export function isNodeSettled(
 }
 
 /** A node and all of its ancestors (walking `parent_id` to the root). */
-export function lineageIds(set: DerivationSet, nodeId: number): number[] {
-  const ids: number[] = [];
-  const seen = new Set<number>();
-  let cur: number | null = nodeId;
+export function lineageIds(set: DerivationSet, nodeId: string): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  let cur: string | null = nodeId;
   while (cur !== null && !seen.has(cur)) {
     seen.add(cur);
     ids.push(cur);
@@ -269,7 +251,7 @@ export function lineageIds(set: DerivationSet, nodeId: number): number[] {
  * declared on a container gates every descendant, so the dependent's actionable
  * set is computed over the lineage's edges, not just the node's own.
  */
-export function hasUnsettledPrereq(set: DerivationSet, taskId: number): boolean {
+export function hasUnsettledPrereq(set: DerivationSet, taskId: string): boolean {
   for (const ancestorId of lineageIds(set, taskId)) {
     for (const prereqId of set.prereqsByNode.get(ancestorId) ?? []) {
       const prereq = set.nodeById.get(prereqId);
@@ -307,8 +289,7 @@ export function nodeStatusWord(set: DerivationSet, node: Node): StatusWord {
     let word: StatusWord;
     if (node.type === 'task') {
       if (node.lifecycle === null || node.hold === null) {
-        const rendered = renderNodeIdFromSet(set, node) ?? 'task';
-        throw invariant(`${rendered} is missing a status axis`);
+        throw invariant(`${node.id} is missing a status axis`);
       }
       const awaiting = hasUnsettledPrereq(set, node.id);
       word = taskStatus({ awaiting, hold: node.hold, lifecycle: node.lifecycle });
@@ -331,7 +312,7 @@ export function nodeStatusWord(set: DerivationSet, node: Node): StatusWord {
  * tallied). A transparent open-ended child (idle standing container) is excluded
  * entirely, so it can't keep its parent from auto-closing (MMR-204).
  */
-export function childDistribution(set: DerivationSet, nodeId: number): Distribution {
+export function childDistribution(set: DerivationSet, nodeId: string): Distribution {
   const children = set.childrenByParent.get(nodeId) ?? [];
   const contributing = children.filter((child) => !isTransparentOpenEnded(set, child));
   return tally(contributing.map((child) => nodeStatusWord(set, child)));
@@ -343,7 +324,7 @@ export function childDistribution(set: DerivationSet, nodeId: number): Distribut
  * leaf-level sibling of {@link childDistribution} (direct children) and
  * {@link rootDistribution} (project roots); backs the project card's vitals panel.
  */
-export function leafDistribution(set: DerivationSet, projectId: number): Distribution {
+export function leafDistribution(set: DerivationSet, projectId: string): Distribution {
   const tasks = (set.nodesByProject.get(projectId) ?? []).filter((n) => n.type === 'task');
   return tally(tasks.map((task) => nodeStatusWord(set, task)));
 }
@@ -351,7 +332,7 @@ export function leafDistribution(set: DerivationSet, projectId: number): Distrib
 /** The rollup distribution over a project's **root** nodes (the cascade's top
  * step, MMR-32). A transparent open-ended root is excluded, mirroring
  * {@link childDistribution} — a standing root never strands the project (MMR-204). */
-export function rootDistribution(set: DerivationSet, projectId: number): Distribution {
+export function rootDistribution(set: DerivationSet, projectId: string): Distribution {
   const roots = (set.nodesByProject.get(projectId) ?? []).filter(
     (n) => n.parent_id === null && !isTransparentOpenEnded(set, n),
   );
@@ -374,8 +355,17 @@ export function statusOf(
 /** `status_of` for a whole project — `interpret` over its root nodes. */
 export function statusOfProject(
   set: DerivationSet,
-  projectId: number,
+  projectId: string,
 ): { status: StatusWord; distribution: Distribution } {
   const distribution = rootDistribution(set, projectId);
   return { distribution, status: interpret(distribution) };
+}
+
+function compareNodeIds(a: string, b: string): number {
+  const left = parseId(a);
+  const right = parseId(b);
+  if (left === null || right === null || left.key !== right.key) {
+    return a.localeCompare(b);
+  }
+  return left.seq - right.seq;
 }

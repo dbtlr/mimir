@@ -15,8 +15,8 @@ import { tagEntities } from './tags';
 
 const NORN = Bun.which('norn') !== null;
 
-/** Readiness of a task by its surrogate id (loads the row first). */
-async function ready(id: number): Promise<boolean> {
+/** Readiness of a task by its canonical stem (loads the row first). */
+async function ready(id: string): Promise<boolean> {
   const node = await store.transact((w) => w.loadNode(id));
   return node === undefined ? false : isReady(await setOf(), node);
 }
@@ -30,11 +30,8 @@ async function ready(id: number): Promise<boolean> {
 
 let store: Store;
 let closeStore: () => Promise<void>;
-// The MMR fixture's node identities are threaded as `KEY-seq` (via seq),
-// never as a cached numeric id: over Norn a surrogate id is per-load, and
-// several tests below create a second project mid-test, which re-mints every
-// id in the vault — so the project/phase/task id is always resolved fresh,
-// right before use, from these stable seqs.
+// The MMR fixture's node identities are threaded as canonical `KEY-seq` stems
+// and resolved from the stable seqs at the point of use.
 let mmrPhaseSeq: number;
 let mmrTaskSeq: number;
 const projectId = () => projectIdOf(store, 'MMR');

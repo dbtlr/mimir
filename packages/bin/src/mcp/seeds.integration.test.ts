@@ -33,7 +33,7 @@ let phaseRef: string;
 const body = (r: ToolResult): Record<string, unknown> =>
   parseJson<Record<string, unknown>>(r.content[0]?.text ?? '');
 
-async function idOf(ref: string): Promise<number> {
+async function idOf(ref: string): Promise<string> {
   const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), ref);
   if (node === undefined) {
     throw new Error(`no node ${ref}`);

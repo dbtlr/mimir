@@ -79,7 +79,7 @@ test.skipIf(!NORN)(
     expect(init.parent_id).toBeNull();
     expect(init.lifecycle).toBeNull(); // non-tasks store no status
     await expectMimirError('not_found', () =>
-      createInitiative(store, { projectId: 999, title: 'x' }),
+      createInitiative(store, { projectId: 'ZZZ', title: 'x' }),
     );
   },
 );
@@ -102,7 +102,9 @@ test.skipIf(!NORN)(
     await expectMimirError('validation', () =>
       createPhase(store, { parentId: phaseId, title: 'no' }),
     );
-    await expectMimirError('not_found', () => createPhase(store, { parentId: 999, title: 'no' }));
+    await expectMimirError('not_found', () =>
+      createPhase(store, { parentId: 'MMR-999', title: 'no' }),
+    );
   },
 );
 

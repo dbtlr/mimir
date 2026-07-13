@@ -141,7 +141,7 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
   // One `vault.get { section }` per read, requesting exactly the wanted headings
   // (MMR-164, F6 / MMR-187). The single-facet methods are `want`-of-one wrappers,
   // so a multi-facet detail `get` costs one Norn round-trip instead of three.
-  const readSections: BodySectionStore['readSections'] = async (_nodeId, stem, want) => {
+  const readSections: BodySectionStore['readSections'] = async (stem, want) => {
     const headings: string[] = [];
     if (want.description === true) {
       headings.push(DESCRIPTION_HEADING);
@@ -178,12 +178,11 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
       const paths = await client.sectionFailures(stems, [ANNOTATIONS_HEADING]);
       return new Set(paths.map(stemOf));
     },
-    readAnnotations: async (nodeId, stem) =>
-      (await readSections(nodeId, stem, { annotations: true })).annotations ?? [],
-    readDescription: async (nodeId, stem) =>
-      (await readSections(nodeId, stem, { description: true })).description ?? null,
-    readHistory: async (nodeId, stem) =>
-      (await readSections(nodeId, stem, { history: true })).history ?? [],
+    readAnnotations: async (stem) =>
+      (await readSections(stem, { annotations: true })).annotations ?? [],
+    readDescription: async (stem) =>
+      (await readSections(stem, { description: true })).description ?? null,
+    readHistory: async (stem) => (await readSections(stem, { history: true })).history ?? [],
     readSections,
   };
 }

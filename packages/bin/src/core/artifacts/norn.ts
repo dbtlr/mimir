@@ -17,8 +17,8 @@ import type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore }
  *   so a concurrent-create collision re-derives and retries (bounded). A
  *   derived max *reuses* a seq if the highest artifact file is removed —
  *   harmless here because artifacts are append-only and never deleted (ADR
- *   0004; a hand-deletion is out of contract), and the id↔int layer thins to
- *   the stem regardless (ADR 0016).
+ *   0004; a hand-deletion is out of contract). The resulting stem is the
+ *   artifact's canonical identity throughout the seam (ADR 0016).
  * - **Anchors may dangle during the split**: links are written as real
  *   wikilinks and queried as stored text (Norn collapses brackets in field
  *   matching) — ADR 0016 Refinement.

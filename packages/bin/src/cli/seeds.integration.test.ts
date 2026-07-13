@@ -57,8 +57,8 @@ beforeEach(async () => {
   phaseRef = `MMR-${String(phase.seq)}`;
 });
 
-/** Resolve a node's surrogate id by its KEY-seq ref (Norn ids are provisional). */
-async function idOf(ref: string): Promise<number> {
+/** Resolve a node's canonical stem by its KEY-seq ref. */
+async function idOf(ref: string): Promise<string> {
   const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), ref);
   if (node === undefined) {
     throw new Error(`no node ${ref}`);
@@ -277,10 +277,7 @@ describe.skipIf(!NORN)('seed CLI verbs', () => {
     expect(out).toMatch(/would annotate/);
 
     // Nothing was written — a real run still annotates.
-    const notes = await store.bodySections.readAnnotations(
-      await idOf(`MMR-${String(task.seq)}`),
-      `MMR-${String(task.seq)}`,
-    );
+    const notes = await store.bodySections.readAnnotations(`MMR-${String(task.seq)}`);
     expect(notes).toHaveLength(0);
   });
 

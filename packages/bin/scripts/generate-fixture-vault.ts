@@ -19,11 +19,8 @@
  * Run: `bun run fixtures:vault [target-path]` (default `.dev/fixture-vault`).
  * Requires `norn` on PATH.
  *
- * Identity note: the Norn store mints synthetic numeric ids per read and shifts
- * them as documents are added, and a project create echoes only a provisional
- * id — so every numeric id is re-resolved from a fresh working set by its stable
- * `KEY-seq` stem right before use (the {@link Board} helper). This mirrors how the
- * intent layer resolves ids against a freshly loaded snapshot.
+ * The {@link Board} helper carries canonical project keys and node stems through
+ * every operation, matching the runtime store seam.
  */
 import { setSystemTime } from 'bun:test';
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -84,10 +81,7 @@ const DEFAULT_TARGET = join('.dev', 'fixture-vault');
 export const FIXTURE_SENTINEL = '.mimir-fixture-vault';
 
 /**
- * A board-scoped verb façade. Every method re-resolves the numeric ids it needs
- * from a fresh working set by stable `KEY-seq` stem, so ids that shift as the
- * vault grows never leak between transactions. Create verbs return the new node's
- * stem; state verbs take one.
+ * A board-scoped verb façade over canonical project keys and node stems.
  */
 class Board {
   private readonly store: Store;
@@ -98,16 +92,16 @@ class Board {
     this.key = key;
   }
 
-  private async projectId(): Promise<number> {
+  private async projectId(): Promise<string> {
     const set = deriveSet(await this.store.loadWorkingSet());
     const project = findProjectInSet(set, this.key);
     if (project === undefined) {
       throw new Error(`project ${this.key} not found`);
     }
-    return project.id;
+    return project.key;
   }
 
-  private async nodeId(stem: string): Promise<number> {
+  private async nodeId(stem: string): Promise<string> {
     const set = deriveSet(await this.store.loadWorkingSet());
     const node = findNodeInSet(set, stem);
     if (node === undefined) {

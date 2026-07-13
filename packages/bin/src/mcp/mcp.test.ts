@@ -43,12 +43,12 @@ import {
 const NORN = Bun.which('norn') !== null;
 
 let store: Store;
-let projectId: number;
+let projectId: string;
 let closeStore: () => Promise<void>;
-let phaseId: number;
+let phaseId: string;
 let phaseRef: string;
 let taskRef: string;
-let initiativeId: number;
+let initiativeId: string;
 
 beforeEach(async () => {
   ({ close: closeStore, store } = await createTestStore());

@@ -35,12 +35,12 @@ function midpoint(lo: number, hi: number): number | null {
   return mid > lo && mid < hi ? mid : null;
 }
 
-async function maxRank(w: StoreWriter, projectId: number): Promise<number | null> {
+async function maxRank(w: StoreWriter, projectId: string): Promise<number | null> {
   const ranked = await w.listRankedTasks(projectId);
   return ranked.at(-1)?.rank ?? null;
 }
 
-async function minRank(w: StoreWriter, projectId: number): Promise<number | null> {
+async function minRank(w: StoreWriter, projectId: string): Promise<number | null> {
   const ranked = await w.listRankedTasks(projectId);
   return ranked[0]?.rank ?? null;
 }
@@ -48,7 +48,7 @@ async function minRank(w: StoreWriter, projectId: number): Promise<number | null
 /** The rank immediately below (largest `< pivot`) or above (smallest `> pivot`) a pivot, within a project. */
 async function adjacentRank(
   w: StoreWriter,
-  projectId: number,
+  projectId: string,
   pivot: number,
   direction: 'below' | 'above',
 ): Promise<number | null> {
@@ -61,7 +61,7 @@ async function adjacentRank(
 }
 
 /** The next append-to-bottom rank for a project's rankable set: `MAX(rank) + STEP`, or `STEP` if empty. */
-export async function appendRank(w: StoreWriter, projectId: number): Promise<number> {
+export async function appendRank(w: StoreWriter, projectId: string): Promise<number> {
   return ((await maxRank(w, projectId)) ?? 0) + RANK_STEP;
 }
 
@@ -72,7 +72,7 @@ export async function appendRank(w: StoreWriter, projectId: number): Promise<num
  * actionable tasks; rank is invisible to consumers, so this does not touch
  * `updated_at`.
  */
-export async function reindexRanks(w: StoreWriter, projectId: number): Promise<void> {
+export async function reindexRanks(w: StoreWriter, projectId: string): Promise<void> {
   const ranked = await w.listRankedTasks(projectId);
   let next = RANK_STEP;
   for (const row of ranked) {
@@ -90,29 +90,29 @@ export async function reindexRanks(w: StoreWriter, projectId: number): Promise<v
  */
 export async function reorderTask(
   w: StoreWriter,
-  projectId: number,
-  taskId: number,
+  projectId: string,
+  taskId: string,
   position: RankPosition,
-  refId: number | null,
+  refId: string | null,
 ): Promise<void> {
   const rank = await computeTargetRank(w, projectId, taskId, position, refId, true);
   await w.updateNode(taskId, { rank });
 }
 
-async function rankOf(w: StoreWriter, taskId: number): Promise<number> {
+async function rankOf(w: StoreWriter, taskId: string): Promise<number> {
   const node = await w.loadNode(taskId);
   if (node?.rank == null) {
-    throw validation(`task ${String(taskId)} is not in the rankable set`);
+    throw validation(`task ${taskId} is not in the rankable set`);
   }
   return node.rank;
 }
 
 async function computeTargetRank(
   w: StoreWriter,
-  projectId: number,
-  taskId: number,
+  projectId: string,
+  taskId: string,
   position: RankPosition,
-  refId: number | null,
+  refId: string | null,
   allowReindex: boolean,
 ): Promise<number> {
   if (position === 'bottom') {

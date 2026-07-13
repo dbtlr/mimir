@@ -62,7 +62,7 @@ export type UpdateFields = {
   openEnded?: boolean;
 };
 
-export async function updateNode(store: Store, id: number, fields: UpdateFields): Promise<Node> {
+export async function updateNode(store: Store, id: string, fields: UpdateFields): Promise<Node> {
   return store.transact(async (w) => {
     const node = await requireNode(w, id);
 
@@ -130,7 +130,7 @@ export type UpdateProjectFields = {
  */
 export async function updateProject(
   store: Store,
-  id: number,
+  id: string,
   fields: UpdateProjectFields,
 ): Promise<Project> {
   return store.transact(async (w) => {
@@ -162,7 +162,7 @@ export async function updateProject(
   });
 }
 
-export async function annotate(store: Store, id: number, content: string): Promise<Node> {
+export async function annotate(store: Store, id: string, content: string): Promise<Node> {
   return store.transact(async (w) => {
     await requireNode(w, id);
     // Core-stamp the created-at (MMR-173) rather than lean on the DB default, so
@@ -182,7 +182,7 @@ export type ArtifactUpdateFields = {
  * field — content stays frozen (ADR 0004), so a mistitled attach is
  * repairable while the record itself remains immutable. Unlogged, like every
  * metadata patch (the transition log records status transitions).
- * Keyed by external identity (MMR-143) — the artifact seam has no numeric ids.
+ * Keyed by canonical artifact stem (MMR-143), with no second identity scheme.
  */
 export async function updateArtifact(
   store: Store,
@@ -193,11 +193,11 @@ export async function updateArtifact(
     throw validation('an artifact title cannot be blank');
   }
   await store.transact(async (w) => {
-    const project = await w.loadProjectByKey(ref.key);
+    const project = await w.loadProject(ref.key);
     if (project === undefined) {
       throw notFound('the artifact was not found');
     }
-    await assertProjectActive(w, project.id);
+    await assertProjectActive(w, project.key);
   });
   if (fields.title !== undefined) {
     const found = await store.artifacts.updateTitle(ref.key, ref.seq, fields.title);
@@ -208,11 +208,11 @@ export async function updateArtifact(
 }
 
 export type AttachArtifactInput = {
-  projectId: number;
+  projectId: string;
   /** Required (MMR-34): the human handle every artifact carries. */
   title: string;
   content: string;
-  linkNodeIds?: number[];
+  linkNodeIds?: string[];
   /** Attach-and-classify is one intent — creation-time tags on the artifact. */
   tags?: string[];
 };
@@ -270,9 +270,9 @@ export async function attachArtifact(
 
 export async function reorder(
   store: Store,
-  id: number,
+  id: string,
   position: RankPosition,
-  refId: number | null = null,
+  refId: string | null = null,
 ): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);

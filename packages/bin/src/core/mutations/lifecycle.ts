@@ -22,7 +22,7 @@ import { logTransition, reloadNode, requireTask, stamp } from './common';
  * Approval is plain `complete_task` (the log's `from=under_review` marks it).
  */
 
-export async function startTask(store: Store, id: number): Promise<Node> {
+export async function startTask(store: Store, id: string): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
     if (task.lifecycle !== 'todo') {
@@ -40,7 +40,7 @@ export async function startTask(store: Store, id: number): Promise<Node> {
   });
 }
 
-export async function submitTask(store: Store, id: number): Promise<Node> {
+export async function submitTask(store: Store, id: string): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
     if (task.lifecycle !== 'in_progress') {
@@ -60,7 +60,7 @@ export async function submitTask(store: Store, id: number): Promise<Node> {
   });
 }
 
-export async function returnTask(store: Store, id: number, reason?: string): Promise<Node> {
+export async function returnTask(store: Store, id: string, reason?: string): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
     if (task.lifecycle !== 'under_review') {
@@ -81,7 +81,7 @@ export async function returnTask(store: Store, id: number, reason?: string): Pro
   });
 }
 
-export async function completeTask(store: Store, id: number): Promise<Node> {
+export async function completeTask(store: Store, id: string): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
@@ -99,7 +99,7 @@ export async function completeTask(store: Store, id: number): Promise<Node> {
   });
 }
 
-export async function abandonTask(store: Store, id: number, reason?: string): Promise<Node> {
+export async function abandonTask(store: Store, id: string, reason?: string): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
@@ -127,7 +127,7 @@ export async function abandonTask(store: Store, id: number, reason?: string): Pr
  * `done` stays a trusted terminal — prevention of premature-done is the
  * `submit`/`under_review` gate, not a casual reopen.
  */
-export async function reopenTask(store: Store, id: number, reason?: string): Promise<Node> {
+export async function reopenTask(store: Store, id: string, reason?: string): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
     if (task.lifecycle !== 'done' && task.lifecycle !== 'abandoned') {

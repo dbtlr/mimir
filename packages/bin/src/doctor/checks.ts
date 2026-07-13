@@ -159,6 +159,7 @@ export const crlfCheck: Diagnostic = {
 
 /** The referential/field checks that render {@link Drop} entries. */
 type DropCheckName =
+  | 'identity-uniqueness'
   | 'dangling-refs'
   | 'missing-project'
   | 'acyclicity'
@@ -187,6 +188,7 @@ export const RULE_OWNER: Record<Drop['rule'], DropCheckName> = {
   // Seeds (MMR-244): seed-doc rules → seed-validity, task upstream → upstream-refs.
   'dangling-spawned': 'seed-validity',
   'dangling-upstream': 'upstream-refs',
+  'duplicate-stem': 'identity-uniqueness',
   'invalid-hold': 'field-validity',
   'invalid-lifecycle': 'field-validity',
   'invalid-open-ended': 'field-validity',
@@ -204,6 +206,27 @@ export const RULE_OWNER: Record<Drop['rule'], DropCheckName> = {
  * referential/field checks filter on, so the {@link RULE_OWNER} partition and the
  * checks cannot drift (MMR-209). */
 const ownsDrop = (drop: Drop, name: DropCheckName): boolean => RULE_OWNER[drop.rule] === name;
+
+/** Canonical work-state identities must resolve to exactly one physical path. */
+export const identityUniquenessCheck: Diagnostic = {
+  name: 'identity-uniqueness',
+  run: (ctx) =>
+    ctx.dropped.flatMap((drop) => {
+      if (!ownsDrop(drop, 'identity-uniqueness') || drop.kind !== 'identity') {
+        return [];
+      }
+      return [
+        {
+          check: 'identity-uniqueness',
+          message: `duplicate stem ${drop.stem} at ${drop.paths.join(', ')} — ${drop.path} is excluded from reads`,
+          node: drop.stem,
+          severity: 'error' as const,
+          where: drop.path,
+        },
+      ];
+    }),
+  title: 'Canonical identity uniqueness',
+};
 
 /**
  * Dangling relational references (MMR-169): a node whose `parent` (a `KEY-seq`)
@@ -714,6 +737,7 @@ export const upstreamRefCheck: Diagnostic = {
 export const CHECKS: readonly Diagnostic[] = [
   bodySectionCheck,
   crlfCheck,
+  identityUniquenessCheck,
   danglingRefCheck,
   missingProjectCheck,
   acyclicityCheck,

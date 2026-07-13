@@ -43,11 +43,11 @@ async function seedbed(key = 'MMR'): Promise<{ phaseRef: string }> {
   return { phaseRef: `${key}-${String(phase.seq)}` };
 }
 
-async function pidOf(key: string): Promise<number> {
+async function pidOf(key: string): Promise<string> {
   return resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
 }
 
-async function idOf(ref: string): Promise<number> {
+async function idOf(ref: string): Promise<string> {
   const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), ref);
   if (node === undefined) {
     throw new Error(`no node ${ref}`);
@@ -57,7 +57,7 @@ async function idOf(ref: string): Promise<number> {
 
 /** Read a task's `## Annotations` note contents, over a fresh snapshot. */
 async function annotationsOf(ref: string): Promise<string[]> {
-  const notes = await store.bodySections.readAnnotations(await idOf(ref), ref);
+  const notes = await store.bodySections.readAnnotations(ref);
   return notes.map((n) => n.content);
 }
 

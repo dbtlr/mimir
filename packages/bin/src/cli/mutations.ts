@@ -255,7 +255,7 @@ async function resolveIds(
   csv: string,
   verb: string,
   flag: string,
-): Promise<number[]> {
+): Promise<string[]> {
   const tokens = csv.split(',').map((t) => requireToken(t, verb, flag).trim());
   const set = deriveSet(await store.loadWorkingSet());
   return tokens.map((t) =>
@@ -316,7 +316,7 @@ export async function cmdMove(c: Ctx): Promise<number> {
 export async function cmdReorder(c: Ctx): Promise<number> {
   const id = await resolveNode(c.store, requirePos(c, 1, 'reorder'), 'task');
   let position: RankPosition;
-  let refId: number | null = null;
+  let refId: string | null = null;
   let where: string;
   const before = lastFlag(c, 'before');
   const after = lastFlag(c, 'after');
@@ -504,8 +504,8 @@ export async function cmdAttach(c: Ctx): Promise<number> {
     );
   }
 
-  let projectId: number;
-  const linkNodeIds: number[] = [];
+  let projectId: string;
+  const linkNodeIds: string[] = [];
   if (linkTokens.length > 0) {
     const set = deriveSet(await c.store.loadWorkingSet());
     const nodes = linkTokens.map((t) => {

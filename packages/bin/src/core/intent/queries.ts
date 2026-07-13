@@ -20,7 +20,6 @@ import {
   findNodeInSet,
   isTerminalWord,
   nodeStatusWord,
-  renderNodeIdFromSet,
   statusOf,
   statusOfProject,
 } from '../derive';
@@ -47,12 +46,12 @@ import { buildArtifactDetail, buildNodeView, buildProjectView } from './view';
  */
 
 /** Resolve a scope `KEY` against the working set (an archived project resolves — its rows are hidden downstream). */
-function resolveScope(set: DerivationSet, key: string): number {
+function resolveScope(set: DerivationSet, key: string): string {
   const project = set.ws.projects.find((p) => p.key === key);
   if (project === undefined) {
     throw projectNotFound(key);
   }
-  return project.id;
+  return project.key;
 }
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
@@ -82,11 +81,9 @@ function cmpStr(a: string, b: string): number {
   return a > b ? 1 : 0;
 }
 
-/** A node's project KEY — the portable grouping key. Ordering must never key on
- * the surrogate `project_id` (each backend assigns it differently); the KEY is
- * stable, and numeric `seq` stays correct within a project. */
-function projectKey(set: DerivationSet, n: Node): string {
-  return set.keyByProjectId.get(n.project_id) ?? '';
+/** A node's project KEY — identity and the portable grouping key. */
+function projectKey(_set: DerivationSet, n: Node): string {
+  return n.project_id;
 }
 
 /** Board order: rank (nulls last), then (project KEY, numeric seq) — a portable,
@@ -114,8 +111,7 @@ function byCompletedOrder(set: DerivationSet) {
   };
 }
 
-/** `next` order: project KEY, then rank, then numeric seq — keyed on the portable
- * project KEY, never the surrogate `project_id`. `seq` is unique within a project. */
+/** `next` order: project KEY, then rank, then numeric seq. */
 function byProjectRank(set: DerivationSet) {
   return (a: Node, b: Node): number =>
     cmpStr(projectKey(set, a), projectKey(set, b)) ||
@@ -218,11 +214,11 @@ function toQueryRow(
     upstream: node.upstream,
   };
   if (needed.has('id')) {
-    values.id = renderNodeIdFromSet(set, node);
+    values.id = node.id;
   }
   if (needed.has('parent')) {
     const parent = node.parent_id === null ? undefined : set.nodeById.get(node.parent_id);
-    values.parent = parent === undefined ? null : renderNodeIdFromSet(set, parent);
+    values.parent = parent?.id ?? null;
   }
   let tags: readonly string[] = [];
   if (needed.has('tag')) {
@@ -486,10 +482,10 @@ export async function statusOfNode(store: Store, id: string): Promise<StatusView
   const set = deriveSet(await store.loadWorkingSet());
   if (identity?.kind === 'project') {
     const project = set.ws.projects.find((p) => p.key === identity.key);
-    if (project === undefined || set.archivedProjects.has(project.id)) {
+    if (project === undefined || set.archivedProjects.has(project.key)) {
       throw projectNotFound(identity.key);
     }
-    const { status, distribution } = statusOfProject(set, project.id);
+    const { status, distribution } = statusOfProject(set, project.key);
     return { distribution, id: identity.key, status, type: 'project' };
   }
   if (identity?.kind === 'artifact') {
@@ -508,5 +504,5 @@ export async function statusOfNode(store: Store, id: string): Promise<StatusView
     throw notFound(`${id} doesn't exist`);
   }
   const { status, distribution } = statusOf(set, node);
-  return { distribution, id: renderNodeIdFromSet(set, node) ?? id, status, type: node.type };
+  return { distribution, id: node.id, status, type: node.type };
 }

@@ -1,8 +1,7 @@
 /**
  * Human-readable IDs (ADR 0006) and the identity grammar (MMR-32). Every
  * entity has exactly one rendered id, spoken by every surface — echoes,
- * errors, facets, history, JSON/MCP. The surrogate integer PK never crosses
- * the surface.
+ * errors, facets, history, JSON/MCP, and the core/store seam.
  *
  *   project   bare `KEY`     (MMR)
  *   node      `KEY-seq`      (MMR-22)

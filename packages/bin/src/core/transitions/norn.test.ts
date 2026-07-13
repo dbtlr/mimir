@@ -91,6 +91,18 @@ test('a project doc renders its KEY as the transition entity', async () => {
   ]);
 });
 
+test('colliding project documents withhold every ambiguous project history', async () => {
+  const collisionHistory = [entry('2026-07-04T08:00:00.000Z', 'archived')];
+  const feed = createNornTransitionsFeed(
+    fakeClient([
+      { fm: { key: 'MMR', type: 'project' }, history: collisionHistory, path: 'a/MMR.md' },
+      { fm: { key: 'MMR', type: 'project' }, history: collisionHistory, path: 'b/MMR.md' },
+    ]),
+  );
+
+  expect((await feed.list()).items).toEqual([]);
+});
+
 test('the cursor resumes strictly after the last returned entry', async () => {
   const feed = createNornTransitionsFeed(
     fakeClient([
