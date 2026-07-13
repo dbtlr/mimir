@@ -10,7 +10,7 @@ The concrete shape of the model — realized as the vault's **markdown frontmatt
 
 > **Single source of truth is the vault.** The durable record is the markdown itself — hand-editable, git-backed, inspectable. Norn ([ADR 0016](decisions/0016-norn-vault-system-of-record.md)) owns every read, write, and query and maintains its own SQLite **index**; that index is a cache, never the record. Mimir reduces to business logic and derivation over Norn ([ADR 0018](decisions/0018-vault-access-is-norn-only.md): **all vault access is Norn-only** — Mimir never touches files directly). Where this note and a document disagree, the document wins; where an ADR and either disagree, the ADR wins.
 
-This reference replaces the pre-cutover SQLite DDL: post-[MMR-234](decisions/0016-norn-vault-system-of-record.md) there is **no database of record** and **no surrogate integer id** — the SQLite backend, its schema, and its migrations are gone. Each entity is a markdown document whose **file stem is its id**; the integers the reader mints are synthetic, stable only within one load, and never cross a surface or persist.
+This reference replaces the pre-cutover SQLite DDL: post-[MMR-234](decisions/0016-norn-vault-system-of-record.md) there is **no database of record** and **no surrogate integer id** — the SQLite backend, its schema, and its migrations are gone. Each persisted entity has exactly one identity: its canonical file stem. A project's identity is its immutable `KEY`; a node, artifact, or seed is identified by its `KEY-seq`, `KEY-aN`, or `KEY-sN` stem. Those stems also key relations and the core model; Mimir does not mint a second, synthetic identity while loading the vault.
 
 ## Vault conventions
 
@@ -18,16 +18,20 @@ These hold for every document; the per-entity sections below don't repeat them.
 
 - **The stem is the id** ([ADR 0006](decisions/0006-human-readable-node-ids.md)). A document's identity is its filename stem, spoken by every surface:
 
-  | Entity                            | Id form   | Document path             |
+  | Entity                            | Id form   | Canonical creation path   |
   | --------------------------------- | --------- | ------------------------- |
   | project                           | `KEY`     | `KEY/KEY.md`              |
   | work node (initiative/phase/task) | `KEY-seq` | `KEY/KEY-seq.md`          |
   | artifact                          | `KEY-aN`  | `KEY/artifacts/KEY-aN.md` |
   | seed                              | `KEY-sN`  | `KEY/seeds/KEY-sN.md`     |
 
-  `KEY` is `[A-Z]{2,4}`, immutable, consumer-supplied. `seq`/`N` are per-project sequence integers, **derived** as `max(seq)+1` over the project's documents at create time (create-exclusive: a colliding path re-derives and retries) — there is **no stored allocation counter** ([ADR 0016](decisions/0016-norn-vault-system-of-record.md)). A seq is never reused while a document exists.
+  `KEY` is `[A-Z]{2,4}`, immutable, consumer-supplied. `seq`/`N` are per-project sequence integers allocated by Norn from the project's documents during create — there is **no stored allocation counter** ([ADR 0016](decisions/0016-norn-vault-system-of-record.md)). A sequence component is never reused while its document exists.
 
-- **Relations are Obsidian wikilinks.** `project`, `parent`, `depends_on`, `anchor`, `requester`, and `spawned` are written as `[[STEM]]` (or `[[STEM|alias]]`); Norn collapses the brackets in field matching, so `vault.find --eq project:KEY` resolves them. The reader de-aliases and collapses to the bare stem. `upstream` and `external_ref` are **plain scalars**, not wikilinks.
+- **Path locates; stem identifies.** The table above shows where Mimir asks Norn to create a new document, not a second identity or a required permanent location. The Norn adapter retains the actual `stem → vault-relative path` locator for each surviving document in a transaction snapshot because atomic apply operations are path-addressed. Paths never enter the core model or Store seam, and relocating a document inside the vault does not change its Mimir identity.
+
+- **Duplicate stems are corruption.** If multiple work-state documents have the same canonical stem, the tolerant reader chooses neither: it excludes every colliding document from the valid working set and withholds their locators. `mimir doctor` reports the collision with every path so repair is explicit rather than scan-order-dependent.
+
+- **Relations are Obsidian wikilinks.** `project`, `parent`, `depends_on`, `anchor`, `requester`, and `spawned` are written as `[[STEM]]` (or `[[STEM|alias]]`); Norn collapses the brackets in field matching, so `vault.find --eq project:KEY` resolves them. The reader de-aliases them to the same canonical bare stems carried by the core model and Store seam. `upstream` and `external_ref` are **plain scalars**, not wikilinks.
 
 - **Omit-when-empty.** Only the identity/type/timestamp fields are always present. Every other field is written **only when it has a value**; an absent field means "unset," and the reader supplies the documented default (a task's absent `hold` → `none`). A deliberate neutral value (`hold: none`) is written as absence.
 
@@ -52,7 +56,7 @@ These hold for every document; the per-entity sections below don't repeat them.
 
 ## `project` — `KEY/KEY.md`
 
-The scope root. Categorically not a node: it doesn't complete (no status), isn't ordered (no rank), has no parent. Workspace grouping is a **tag** (`workspace:*`), not an FK ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)) — there is no `workspace_id`. The store knows **no filesystem paths** ([ADR 0011](decisions/0011-repo-binding-is-repo-side.md)); the repo→project binding lives repo-side in a checked-in `.mimir.toml`.
+The scope root. Categorically not a node: it doesn't complete (no status), isn't ordered (no rank), has no parent. Workspace grouping is a **tag** (`workspace:*`), not an FK ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)) — there is no `workspace_id`. The core model and Store seam know **no repo checkout or vault document paths** ([ADR 0011](decisions/0011-repo-binding-is-repo-side.md)); the repo→project binding lives repo-side in a checked-in `.mimir.toml`, while the Norn adapter privately retains the current vault locator needed for writes.
 
 | Field         | Type           | Presence | Allowed / default                                                                                 | Written by                  |
 | ------------- | -------------- | -------- | ------------------------------------------------------------------------------------------------- | --------------------------- |
@@ -72,7 +76,7 @@ There is **no `last_seq` / `last_artifact_seq`** in the vault — these were all
 
 ## `node` — `KEY/KEY-seq.md` (initiative | phase | task)
 
-One document shape absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseless initiative, a spec-less task). Type-specific fields are **type-gated**: the writer emits them only for the owning type, and the reader reads them only for it, so a stray value on the wrong type never projects. The rendered id `KEY-seq` is the stem; `project` and `parent` are wikilinks. `parent` **absent** means top-level under the project (a root); it is never a bare project `KEY`.
+One document shape absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseless initiative, a spec-less task). Type-specific fields are **type-gated**: the writer emits them only for the owning type, and the reader reads them only for it, so a stray value on the wrong type never projects. The canonical id is the `KEY-seq` stem; `project` and `parent` are wikilinks carrying the project key and parent stem. `parent` **absent** means top-level under the project (a root); it is never a bare project `KEY`.
 
 | Field          | Type             | Presence                           | Allowed / default                                                                                 | Written by                            |
 | -------------- | ---------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------- |
@@ -215,8 +219,8 @@ Query-layer outputs, intentionally **absent** from every document ([ADR 0001](de
 - **Predicates:** `ready`, `awaiting`, `blocked`, `blocking`, `stale`, `orphaned`.
 - **Rollup:** a non-leaf node's status **distribution** (`{done:3, ready:1}`) and its `interpret()` status word — computed live over direct children, never cached.
 - **Transition cursors:** `newly_ready`, `recently_completed` (a caller cursor over `## History`); `unconsolidated` (a tag query).
-- **Rendered ids / flip-times:** `KEY-seq`, `became_ready_at`, the seed lede.
-- **Allocation counters:** per-project `last_seq` / `last_artifact_seq` — derived as `max(seq)+1` at create time, not persisted.
+- **Flip-times / presentation:** `became_ready_at`, the seed lede.
+- **Allocation counters:** per-project `last_seq` / `last_artifact_seq` — Norn allocates from the project documents at create time; no counter is persisted.
 
 ## Removed vs. the SQLite era
 
@@ -224,8 +228,8 @@ The pre-[MMR-234](decisions/0016-norn-vault-system-of-record.md) DDL modeled the
 
 | Old (SQLite)                                                   | Now (vault)                                                                                                   |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| surrogate `id INTEGER PRIMARY KEY` on every table              | no surrogate id — the file **stem** is the id                                                                 |
-| `project.last_seq` / `last_artifact_seq`                       | dropped — seq derived as `max(seq)+1` over the vault                                                          |
+| surrogate `id INTEGER PRIMARY KEY` on every table              | no surrogate id — the canonical file **stem** is the sole id throughout storage, relations, and core          |
+| `project.last_seq` / `last_artifact_seq`                       | dropped — Norn allocates from project documents at create time                                                |
 | `node.description` column                                      | the `## Task Description` **body section** ([MMR-162])                                                        |
 | (none)                                                         | `summary` frontmatter — the short list lede                                                                   |
 | (none)                                                         | `open_ended` frontmatter — container done-rollup opt-out ([MMR-204])                                          |
@@ -239,4 +243,4 @@ The pre-[MMR-234](decisions/0016-norn-vault-system-of-record.md) DDL modeled the
 
 ## Status
 
-The frontmatter contract is **settled and maintained**: the value sets, the omit-empty and wikilink conventions, the body-section grammar, and the timestamp format above are the shape Norn's read and write paths are built from and round-trip through. It moves with the model — a schema-affecting change updates this reference in step. The vault's referential and field integrity is owned by the shared validator ([ADR 0017](decisions/0017-runtime-data-tolerance.md)) and surfaced by `mimir doctor`, not by database constraints.
+The frontmatter contract is **settled and maintained**: the value sets, the omit-empty and wikilink conventions, the body-section grammar, and the timestamp format above are the shape Norn's read and write paths are built from and round-trip through. It moves with the model — a schema-affecting change updates this reference in step. The vault's referential, identity, and field integrity is owned by the shared validator ([ADR 0017](decisions/0017-runtime-data-tolerance.md)) and surfaced by `mimir doctor`, not by database constraints; duplicate canonical stems fail closed and remain diagnosable by every colliding path.
