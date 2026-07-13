@@ -42,6 +42,7 @@ function project(overrides: Partial<Project> = {}): Project {
 
 /** A leaf task, defaulting to a fresh todo/none/undeps leaf (reads `ready`). */
 function task(projectId: number, overrides: Partial<Node> = {}): Node {
+  const id = nextId();
   return {
     completed_at: null,
     created_at: AT,
@@ -49,14 +50,14 @@ function task(projectId: number, overrides: Partial<Node> = {}): Node {
     external_ref: null,
     hold: 'none' satisfies Hold,
     hold_reason: null,
-    id: nextId(),
+    id,
     lifecycle: 'todo' satisfies Lifecycle,
     open_ended: null,
     parent_id: null,
     priority: null,
     project_id: projectId,
     rank: null,
-    seq: nextId(),
+    seq: id, // unread by attentionOf — reuse id rather than burn a second counter tick
     size: null,
     summary: null,
     target: null,

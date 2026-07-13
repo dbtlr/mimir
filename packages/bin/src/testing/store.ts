@@ -80,7 +80,13 @@ export function inertStore(): Store {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return new Proxy<Store>({} as unknown as Store, {
     get(_target, prop) {
-      throw new Error(`inert test store: unexpected read of store.${String(prop)}`);
+      // Symbol reads (e.g. util.inspect's custom hook, `then`) are
+      // introspection, not a store call — stay silent so a failing
+      // assertion's own error formatting never gets clobbered by this one.
+      if (typeof prop === 'symbol') {
+        return undefined;
+      }
+      throw new Error(`inert test store: unexpected read of store.${prop}`);
     },
   });
 }
