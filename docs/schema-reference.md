@@ -25,13 +25,13 @@ These hold for every document; the per-entity sections below don't repeat them.
   | artifact                          | `KEY-aN`  | `KEY/artifacts/KEY-aN.md` |
   | seed                              | `KEY-sN`  | `KEY/seeds/KEY-sN.md`     |
 
-  `KEY` is `[A-Z]{2,4}`, immutable, consumer-supplied. `seq`/`N` are per-project sequence integers, **derived** as `max(seq)+1` over the project's documents at create time (create-exclusive: a colliding path re-derives and retries) — there is **no stored allocation counter** ([ADR 0016](decisions/0016-norn-vault-system-of-record.md), fork #1). A seq is never reused while a document exists.
+  `KEY` is `[A-Z]{2,4}`, immutable, consumer-supplied. `seq`/`N` are per-project sequence integers, **derived** as `max(seq)+1` over the project's documents at create time (create-exclusive: a colliding path re-derives and retries) — there is **no stored allocation counter** ([ADR 0016](decisions/0016-norn-vault-system-of-record.md)). A seq is never reused while a document exists.
 
 - **Relations are Obsidian wikilinks.** `project`, `parent`, `depends_on`, `anchor`, `requester`, and `spawned` are written as `[[STEM]]` (or `[[STEM|alias]]`); Norn collapses the brackets in field matching, so `vault.find --eq project:KEY` resolves them. The reader de-aliases and collapses to the bare stem. `upstream` and `external_ref` are **plain scalars**, not wikilinks.
 
 - **Omit-when-empty.** Only the identity/type/timestamp fields are always present. Every other field is written **only when it has a value**; an absent field means "unset," and the reader supplies the documented default (a task's absent `hold` → `none`). A deliberate neutral value (`hold: none`) is written as absence.
 
-- **Closed vocabularies are validator-enforced, not vault-enforced.** Norn has no enum/boolean field type, so value legality can't be checked at the vault layer. The shared graph validator ([ADR 0017](decisions/0017-runtime-data-tolerance.md), consumed by both the tolerant reader and `mimir doctor`) is the guard: it drops or nulls out-of-vocabulary values (see [Closed vocabularies](#closed-vocabularies)). `open_ended` booleans serialize as the strings `'true'`/`'false'`.
+- **Closed vocabularies are validator-enforced, not vault-enforced.** Norn has no enum/boolean field type, so value legality can't be checked at the vault layer ([ADR 0016](decisions/0016-norn-vault-system-of-record.md) sketched write-time value enforcement in Norn; the implementation landed it validator-side per [ADR 0017](decisions/0017-runtime-data-tolerance.md)'s tolerance model). The shared graph validator ([ADR 0017](decisions/0017-runtime-data-tolerance.md), consumed by both the tolerant reader and `mimir doctor`) is the guard: it drops or nulls out-of-vocabulary values (see [Closed vocabularies](#closed-vocabularies)). `open_ended` booleans serialize as the strings `'true'`/`'false'`.
 
 - **Timestamps** are `TEXT`, ISO-8601, UTC, millisecond precision with an explicit `Z` — human-readable, and lexically = chronologically sortable. The **creation** timestamp's frontmatter key is `created` (not `created_at`); the mutation/completion/archive stamps keep their `_at` suffix: `updated_at`, `completed_at`, `archived_at`. `created` is set once; `updated_at` is re-stamped by the core on every write. UTC always — local time is a UI-edge rendering, never stored.
 
@@ -46,7 +46,7 @@ These hold for every document; the per-entity sections below don't repeat them.
 - **transition / history** — not its own document: the append-only log ([ADR 0003](decisions/0003-append-only-transition-log.md)) is `## History` records in the node's (or project's, for `archive`) body.
 - **artifact** (`KEY/artifacts/KEY-aN.md`) — frozen markdown blob, anchored to one project, linked to 0..N nodes via the `anchor` field ([ADR 0004](decisions/0004-artifact-model-project-anchored-flexibly-linked.md)).
 - **seed** (`KEY/seeds/KEY-sN.md`) — the grooming-queue record ([ADR 0020](decisions/0020-seeds-grooming-queue-entity.md)): project-anchored, its own `KEY-sN` id, **not** a node. Body: `## Seed Description`, `## History`, `## Annotations`.
-- **tag** — not its own document: an opaque string in the `tags` frontmatter list on any project/node/artifact/seed ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)). The vault stores **no per-tag note or timestamp**.
+- **tag** — not its own document: an opaque string in the `tags` frontmatter list on any project/node/artifact ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)); seeds carry no tags. The vault stores **no per-tag note or timestamp**.
 
 ---
 
@@ -68,34 +68,34 @@ The scope root. Categorically not a node: it doesn't complete (no status), isn't
 
 **Body:** `## History` only (projects carry no `## Annotations`). Project-keyed `archive`/`unarchive` transitions ([ADR 0015](decisions/0015-project-archive-frozen-and-hidden.md)) append here.
 
-There is **no `last_seq` / `last_artifact_seq`** in the vault — these were allocation counters of the retired backend; seq is now derived over the vault ([ADR 0016](decisions/0016-norn-vault-system-of-record.md), fork #1).
+There is **no `last_seq` / `last_artifact_seq`** in the vault — these were allocation counters of the retired backend; seq is now derived over the vault ([ADR 0016](decisions/0016-norn-vault-system-of-record.md)).
 
 ## `node` — `KEY/KEY-seq.md` (initiative | phase | task)
 
 One document shape absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseless initiative, a spec-less task). Type-specific fields are **type-gated**: the writer emits them only for the owning type, and the reader reads them only for it, so a stray value on the wrong type never projects. The rendered id `KEY-seq` is the stem; `project` and `parent` are wikilinks. `parent` **absent** means top-level under the project (a root); it is never a bare project `KEY`.
 
-| Field          | Type             | Presence                           | Allowed / default                                                                                 | Written by                           |
-| -------------- | ---------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `type`         | string           | always                             | `initiative` \| `phase` \| `task` (immutable)                                                     | `create`                             |
-| `title`        | string           | always                             | free text                                                                                         | `create` / `update`                  |
-| `project`      | wikilink         | always                             | `[[KEY]]` (query-scope handle; the authoritative project is the stem)                             | `create`                             |
-| `created`      | timestamp        | always                             | ISO-8601 UTC                                                                                      | `create`                             |
-| `updated_at`   | timestamp        | always                             | ISO-8601 UTC                                                                                      | every write                          |
-| `summary`      | string           | optional (all types)               | the short list lede (≤256 chars)                                                                  | `create` / `update`                  |
-| `parent`       | wikilink         | optional (all types)               | `[[KEY-seq]]`; **absent = top-level root**                                                        | `move`                               |
-| `depends_on`   | list of wikilink | optional (all types)               | `[[KEY-seq]]` prereq stems (see [Dependencies](#dependencies))                                    | `depend` / `undepend`                |
-| `tags`         | list of string   | optional (all types)               | opaque strings                                                                                    | `tag` / `untag`                      |
-| `lifecycle`    | string           | **task** (required)                | `todo` \| `in_progress` \| `under_review` \| `done` \| `abandoned`                                | lifecycle verbs                      |
-| `hold`         | string           | **task**, optional                 | `blocked` \| `parked`; **`none` omitted** (absent → `none`)                                       | `park`/`unpark`, `block`/`unblock`   |
-| `hold_reason`  | string           | **task**, optional                 | context for the current hold (the transition reason itself rides `## History`)                    | `park` / `block` (cleared on unhold) |
-| `priority`     | string           | **task**, optional                 | `p0` \| `p1` \| `p2` \| `p3`; absent = **untriaged**                                              | `create` / `update`                  |
-| `size`         | string           | **task**, optional                 | `small` \| `medium` \| `large`; absent = **unsized**                                              | `create` / `update`                  |
-| `rank`         | integer          | **task**, optional                 | relative order, core-owned & never surfaced; absent outside the rankable set                      | lifecycle/hold verbs, `reorder`      |
-| `external_ref` | scalar           | **task**, optional                 | outward GitHub issue/PR ref                                                                       | `create` / `update`                  |
-| `upstream`     | scalar           | **task**, optional                 | `KEY-sN` seed pointer, reference-only ([ADR 0020](decisions/0020-seeds-grooming-queue-entity.md)) | `create` / `update`                  |
-| `completed_at` | timestamp        | **task**, optional                 | stamped only on `done`                                                                            | `done`                               |
-| `target`       | string           | **phase**, optional                | the milestone/testable result the phase aims at                                                   | `create` / `update`                  |
-| `open_ended`   | bool-as-string   | **container** (non-task), optional | `'true'` \| `'false'`; opts a phase/initiative out of done-rollup ([MMR-204])                     | `create` / `update`                  |
+| Field          | Type             | Presence                           | Allowed / default                                                                                 | Written by                            |
+| -------------- | ---------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `type`         | string           | always                             | `initiative` \| `phase` \| `task` (immutable)                                                     | `create`                              |
+| `title`        | string           | always                             | free text                                                                                         | `create` / `update`                   |
+| `project`      | wikilink         | always                             | `[[KEY]]` (query-scope handle; the authoritative project is the stem)                             | `create`                              |
+| `created`      | timestamp        | always                             | ISO-8601 UTC                                                                                      | `create`                              |
+| `updated_at`   | timestamp        | always                             | ISO-8601 UTC                                                                                      | every write                           |
+| `summary`      | string           | optional (all types)               | the short list lede — free string in the vault; the write verbs reject over 256 chars             | `create` / `update`                   |
+| `parent`       | wikilink         | optional (all types)               | `[[KEY-seq]]`; **absent = top-level root**                                                        | `create` (initial placement) / `move` |
+| `depends_on`   | list of wikilink | optional (all types)               | `[[KEY-seq]]` prereq stems (see [Dependencies](#dependencies))                                    | `depend` / `undepend`                 |
+| `tags`         | list of string   | optional (all types)               | opaque strings                                                                                    | `tag` / `untag`                       |
+| `lifecycle`    | string           | **task** (required)                | `todo` \| `in_progress` \| `under_review` \| `done` \| `abandoned`                                | lifecycle verbs                       |
+| `hold`         | string           | **task**, optional                 | `blocked` \| `parked`; **`none` omitted** (absent → `none`)                                       | `park`/`unpark`, `block`/`unblock`    |
+| `hold_reason`  | string           | **task**, optional                 | context for the current hold (the transition reason itself rides `## History`)                    | `park` / `block` (cleared on unhold)  |
+| `priority`     | string           | **task**, optional                 | `p0` \| `p1` \| `p2` \| `p3`; absent = **untriaged**                                              | `create` / `update`                   |
+| `size`         | string           | **task**, optional                 | `small` \| `medium` \| `large`; absent = **unsized**                                              | `create` / `update`                   |
+| `rank`         | integer          | **task**, optional                 | relative order, core-owned & never surfaced; absent outside the rankable set                      | lifecycle/hold verbs, `reorder`       |
+| `external_ref` | scalar           | **task**, optional                 | outward GitHub issue/PR ref                                                                       | `create` / `update`                   |
+| `upstream`     | scalar           | **task**, optional                 | `KEY-sN` seed pointer, reference-only ([ADR 0020](decisions/0020-seeds-grooming-queue-entity.md)) | `create` / `update`                   |
+| `completed_at` | timestamp        | **task**, optional                 | stamped only on `done`                                                                            | `done`                                |
+| `target`       | string           | **phase**, optional                | the milestone/testable result the phase aims at                                                   | `create` / `update`                   |
+| `open_ended`   | bool-as-string   | **container** (non-task), optional | `'true'` \| `'false'`; opts a phase/initiative out of done-rollup ([MMR-204])                     | `create` / `update`                   |
 
 **Body sections** (all seeded at create so Norn's `append_to_section` always has an anchor):
 
@@ -183,7 +183,7 @@ The task-side `upstream` field (see the node table) is the requester-side pointe
 
 ## `tags`
 
-The whole grouping axis and classification layer ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)/[0002](decisions/0002-general-purpose-primitives-not-baked-in-semantics.md)) is a single **`tags` frontmatter list of opaque strings** on any project, node, artifact, or seed — `workspace:*` on projects, `release:*` on tasks, `spec`/`consolidated` classification, all uniform. The core does set-membership filtering composed with structural scope (`project = X AND has(tag)`) and **never parses** the string.
+The whole grouping axis and classification layer ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)/[0002](decisions/0002-general-purpose-primitives-not-baked-in-semantics.md)) is a single **`tags` frontmatter list of opaque strings** on any project, node, or artifact — `workspace:*` on projects, `release:*` on tasks, `spec`/`consolidated` classification, all uniform. Seeds do **not** carry tags: their classification (`kind`) and triage state (`lifecycle`) are intrinsic closed fields, not tags. The core does set-membership filtering composed with structural scope (`project = X AND has(tag)`) and **never parses** the string.
 
 The vault stores **only the string**: there is **no per-tag `note` and no per-tag timestamp**. (The old backend's `tag` table carried both; both are gone.) The reader synthesizes a uniform `note = null` and a `created_at` equal to the document's own `created`, so downstream shapes still type-check. `tag --note` is therefore rejected on a vault-backed artifact, and unavailable in general — an opaque note about a tag attachment has nowhere faithful to live. Removing a tag is a plain, unlogged frontmatter delete (`untag`).
 
@@ -193,18 +193,18 @@ The vault stores **only the string**: there is **no per-tag `note` and no per-ta
 
 Enforced in code by the shared validator ([ADR 0017](decisions/0017-runtime-data-tolerance.md)), single-sourced in `@mimir/contract`. A present, out-of-vocabulary value is either a **node/record drop** (load-bearing) or a **field null** (optional):
 
-| Field                  | Values                                                      | Bad value ⇒                    |
-| ---------------------- | ----------------------------------------------------------- | ------------------------------ |
-| node `type`            | `initiative`, `phase`, `task`                               | not a work node                |
-| task `lifecycle`       | `todo`, `in_progress`, `under_review`, `done`, `abandoned`  | drop node (missing or foreign) |
-| task `hold`            | `none`, `blocked`, `parked` (absent ⇒ `none`)               | drop node (present & foreign)  |
-| task `priority`        | `p0`, `p1`, `p2`, `p3`                                      | null field (node survives)     |
-| task `size`            | `small`, `medium`, `large`                                  | null field (node survives)     |
-| container `open_ended` | `true`, `false`                                             | null field (node survives)     |
-| transition `kind`      | `lifecycle`, `hold`, `dependency`, `move`, `archive`        | record skipped on read         |
-| seed `kind`            | `idea`, `bug`, `feature`                                    | drop seed record               |
-| seed `lifecycle`       | `new`, `promoted`, `resolved`, `rejected`                   | drop seed record               |
-| tag entity             | `project`, `node`, `artifact` (+ seeds carry `tags` in-doc) | —                              |
+| Field                  | Values                                                     | Bad value ⇒                    |
+| ---------------------- | ---------------------------------------------------------- | ------------------------------ |
+| node `type`            | `initiative`, `phase`, `task`                              | not a work node                |
+| task `lifecycle`       | `todo`, `in_progress`, `under_review`, `done`, `abandoned` | drop node (missing or foreign) |
+| task `hold`            | `none`, `blocked`, `parked` (absent ⇒ `none`)              | drop node (present & foreign)  |
+| task `priority`        | `p0`, `p1`, `p2`, `p3`                                     | null field (node survives)     |
+| task `size`            | `small`, `medium`, `large`                                 | null field (node survives)     |
+| container `open_ended` | `true`, `false`                                            | null field (node survives)     |
+| transition `kind`      | `lifecycle`, `hold`, `dependency`, `move`, `archive`       | record skipped on read         |
+| seed `kind`            | `idea`, `bug`, `feature`                                   | drop seed record               |
+| seed `lifecycle`       | `new`, `promoted`, `resolved`, `rejected`                  | drop seed record               |
+| tag entity             | `project`, `node`, `artifact` (seeds carry no tags)        | —                              |
 
 The **status word** vocabulary (`ready`, `awaiting`, `blocked`, `parked`, `in_progress`, `under_review`, `done`, `abandoned`, and `new` for empty containers — [ADR 0008](decisions/0008-state-word-projection-and-interpret-cascade.md)) is a **derived projection**, not a stored field.
 
