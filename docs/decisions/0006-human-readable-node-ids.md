@@ -6,6 +6,10 @@ date: 2026-06-03
 
 # ADR 0006: Human-readable node IDs (project key + per-project sequence)
 
+> **Refined 2026-07-13 by MMR-198.** The original SQLite-era decision below is
+> retained as history. The refinement at the end replaces the surrogate-PK and
+> stored-counter mechanics: the canonical stem is now the sole identity.
+
 Work nodes get a Jira-style human reference ID, layered on top of the surrogate primary key:
 
 - **Project key** — every project has a **globally unique, immutable** key matching `[A-Z]{2,4}` (e.g. `MMR`, `SAGA`, `PRD`, `VAL`), **consumer-supplied at creation** and Mimir-validated (format + uniqueness).
@@ -34,3 +38,37 @@ Work nodes get a Jira-style human reference ID, layered on top of the surrogate 
 - `create_*` validates the key / allocates the `seq`; the rendered ID is `key + '-' + seq`; lookups resolve either `id` or `KEY-seq`.
 - Cross-project `move_node` disallowed for now (would break the embedded key).
 - Orthogonal to `external_ref` (outward GitHub linkage) — this is Mimir's own internal-but-human identifier.
+
+## Refinement (2026-07-13, MMR-198): the canonical stem is the sole identity
+
+SQLite retirement removed the foreign-key and cascade mechanics that justified a
+second, surrogate identity. The Norn vault persists no integer id; the previous
+Norn adapter recreated integers on each load, used them as snapshot-local join
+handles, then translated them back into stems for every vault operation. A value
+that can change on the next load is not an entity identity.
+
+- **One persisted identity.** A project's immutable `key` is its identity; it has
+  no separate `id`. A node's `KEY-seq` stem is its `id`. Parent links, dependency
+  endpoints, tag keys, and artifact links carry the same canonical stems through
+  the core model and Store seam. Artifacts and seeds keep their existing
+  `KEY-aN` / `KEY-sN` stem identities.
+- **`seq` remains a component, not a competing identity.** Norn allocates it at
+  creation; Mimir retains the number for allocation semantics and explicit
+  numeric ordering. Identity never supplies ordering implicitly.
+- **Path locates; stem identifies.** Norn point reads resolve a unique stem, while
+  atomic apply operations remain path-addressed. The Norn adapter therefore keeps
+  the actual `stem → path` locator in its transaction snapshot. Paths never enter
+  domain logic, and relocating a document inside the vault does not change its
+  Mimir identity. Only creation chooses the canonical `KEY/...` destination.
+- **Pending creates have no provisional identity.** A writer-private handle may
+  correlate a planned create with Norn's apply report, but it never enters the
+  WorkingSet, durable record, domain contract, or public result. The structured
+  report's resolved stem becomes the created entity's identity directly.
+- **Duplicate stems are corruption.** If multiple work-state documents have the
+  same canonical stem, the tolerant reader chooses neither rather than selecting
+  one by scan order; doctor reports every colliding path.
+
+Every public surface already speaks these stems, so the refinement changes no
+CLI, MCP, HTTP, or UI identity contract. It removes the obsolete internal
+translation layer and supersedes the original rejection of stem-keyed relations,
+whose cascade concern belonged to the retired SQLite schema.
