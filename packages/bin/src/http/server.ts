@@ -964,14 +964,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           }),
         PUT: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ['note']);
+            await readBody(req, []);
             const id = await nodeRef(store, req.params.id);
-            await tagEntities(
-              store,
-              [{ entityId: id, entityType: 'node' }],
-              [req.params.tag],
-              strField(body, 'note'),
-            );
+            await tagEntities(store, [{ entityId: id, entityType: 'node' }], [req.params.tag]);
             const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), req.params.id);
             if (node === undefined) {
               throw notFound(`${req.params.id} doesn't exist`);

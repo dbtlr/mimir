@@ -435,17 +435,15 @@ test.skipIf(!NORN)(
 // ---------------------------------------------------------------------------
 
 test.skipIf(!NORN)('tag and untag round-trip over MCP, reaching project and node', async () => {
-  const res = await toolTag(store, { ids: [taskRef, 'MMR'], note: 'why', tags: ['spec'] });
+  const res = await toolTag(store, { ids: [taskRef, 'MMR'], tags: ['spec'] });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res))).toEqual({ tagged: { ids: [taskRef, 'MMR'], tags: ['spec'] } });
 
   const view = await toolGet(store, { id: taskRef });
-  const parsed = parseJson<{ tags: { tag: string; note: string | null }[] }>(textOf(view));
-  // Vault tags are a plain string set (ADR 0005): no per-tag note storage, so
-  // the note always reads back null over the Norn backend.
-  expect(parsed.tags.map((t) => ({ note: t.note, tag: t.tag }))).toEqual([
-    { note: null, tag: 'spec' },
-  ]);
+  const parsed = parseJson<{ tags: { created_at: string; tag: string }[] }>(textOf(view));
+  // A tag application carries no note on any entity (ADR 0005 Refinement,
+  // MMR-270) — exact-shape assertion so a resurrected wire field fails loud.
+  expect(parsed.tags).toEqual([{ created_at: expect.any(String) as string, tag: 'spec' }]);
 
   const off = await toolUntag(store, { ids: [taskRef], tags: ['spec'] });
   expect(off.isError).toBeUndefined();

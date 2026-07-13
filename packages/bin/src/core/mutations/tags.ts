@@ -33,8 +33,9 @@ async function projectOfTarget(w: StoreWriter, ref: EntityRef): Promise<number |
 
 /**
  * Apply every tag to every target, idempotently: an existing (entity, tag)
- * row is kept (re-tagging never errors); a provided `note` overwrites the
- * stored one (the note rides the application, not the vocabulary).
+ * row is kept (re-tagging never errors). A tag application carries no note on
+ * any entity (ADR 0005 Refinement) — vault `tags` frontmatter is a plain string
+ * set, so note-intent routes to `annotate` or a tagged artifact instead.
  *
  * Node/project tags write the tag table under one transaction; an
  * artifact's tags route through the seam (the backend owns where they live).
@@ -44,7 +45,6 @@ export async function tagEntities(
   store: Store,
   targets: EntityRef[],
   tags: string[],
-  note?: string,
 ): Promise<void> {
   await store.transact(async (w) => {
     for (const target of targets) {
@@ -56,17 +56,14 @@ export async function tagEntities(
         continue; // written through the seam below, outside this tx
       }
       for (const tag of tags) {
-        const row = { entity_id: target.entityId, entity_type: target.entityType, tag };
-        await (note === undefined
-          ? w.insertTag({ ...row, note: null })
-          : w.upsertTagNote({ ...row, note }));
+        await w.insertTag({ entity_id: target.entityId, entity_type: target.entityType, tag });
       }
     }
   });
   for (const target of targets) {
     if (target.entityType === 'artifact') {
       for (const tag of tags) {
-        await store.artifacts.applyTag(target.key, target.seq, tag, note ?? null);
+        await store.artifacts.applyTag(target.key, target.seq, tag);
       }
     }
   }

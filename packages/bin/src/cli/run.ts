@@ -112,7 +112,6 @@ const OPTIONS = {
   'not-before': { multiple: true, type: 'string' },
   'not-after': { multiple: true, type: 'string' },
   tag: { multiple: true, short: 't', type: 'string' },
-  note: { type: 'string' },
   limit: { short: 'n', type: 'string' },
   col: { multiple: true, type: 'string' },
   format: { short: 'f', type: 'string' },
@@ -253,7 +252,6 @@ export async function runCli(
     'not-before'?: string[];
     'not-after'?: string[];
     tag?: string[];
-    note?: string;
     limit?: string;
     col?: string[];
     format?: string;

@@ -89,17 +89,17 @@ describe('buildBands — release mode', () => {
     task({
       id: 'MMR-20',
       status: 'ready',
-      tags: [{ created_at: '', note: null, tag: 'release:v0.13' }],
+      tags: [{ created_at: '', tag: 'release:v0.13' }],
     }),
     task({
       id: 'MMR-21',
       status: 'in_progress',
-      tags: [{ created_at: '', note: null, tag: 'release:v0.13' }],
+      tags: [{ created_at: '', tag: 'release:v0.13' }],
     }),
     task({
       id: 'MMR-22',
       status: 'ready',
-      tags: [{ created_at: '', note: null, tag: 'release:v0.14' }],
+      tags: [{ created_at: '', tag: 'release:v0.14' }],
     }),
     task({ id: 'MMR-23', status: 'ready' }),
   ];
@@ -128,7 +128,7 @@ describe('buildBands — release mode', () => {
       task({
         id: 'MMR-24',
         status: 'ready',
-        tags: [{ created_at: '', note: null, tag: 'release:v1' }],
+        tags: [{ created_at: '', tag: 'release:v1' }],
       }),
     ];
     const bands = buildBands(buildBoard(tagged, [], NOW), 'release', tree);

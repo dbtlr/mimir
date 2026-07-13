@@ -214,7 +214,7 @@ function buildChildren(set: DerivationSet, nodeId: number): NodeRef[] {
 
 function buildTags(set: DerivationSet, nodeId: number): TagView[] {
   const records = set.ws.nodeTags.get(nodeId) ?? [];
-  return records.map((r) => ({ createdAt: r.created_at, note: r.note, tag: r.tag }));
+  return records.map((r) => ({ createdAt: r.created_at, tag: r.tag }));
 }
 
 /** Map a seam record to the metadata-only `artifacts` facet view. */
@@ -300,7 +300,7 @@ export async function buildProjectView(
   }
   if (facets.has('tags')) {
     const records = set.ws.projectTags.get(project.id) ?? [];
-    view.tags = records.map((r) => ({ createdAt: r.created_at, note: r.note, tag: r.tag }));
+    view.tags = records.map((r) => ({ createdAt: r.created_at, tag: r.tag }));
   }
   if (facets.has('artifacts')) {
     view.artifacts = await buildProjectArtifacts(artifacts, project);

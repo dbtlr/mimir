@@ -110,11 +110,11 @@ test.skipIf(!NORN)(
 
     // tags: sorted, note-less, project + node.
     expect(ws.nodeTags.get(dependent.id)).toEqual([
-      { created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'alpha' },
-      { created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'zebra' },
+      { created_at: '2026-06-01T00:00:00.000Z', tag: 'alpha' },
+      { created_at: '2026-06-01T00:00:00.000Z', tag: 'zebra' },
     ]);
     expect(ws.projectTags.get(must(ws.projects[0]).id)).toEqual([
-      { created_at: '2026-06-01T00:00:00.000Z', note: null, tag: 'release:v1' },
+      { created_at: '2026-06-01T00:00:00.000Z', tag: 'release:v1' },
     ]);
   },
 );

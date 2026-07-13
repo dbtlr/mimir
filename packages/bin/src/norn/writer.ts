@@ -313,7 +313,7 @@ class Accumulator {
       insertDependency: (edge) => this.insertDependency(edge),
       insertNode: (row) => this.insertNode(row),
       insertProject: (row) => this.insertProject(row),
-      insertTag: (row) => this.applyTag(row.entity_type, row.entity_id, row.tag, row.note),
+      insertTag: (row) => this.applyTag(row.entity_type, row.entity_id, row.tag),
       linkArtifact: () =>
         Promise.reject(invariant('artifact links route through the artifact seam, not the plan')),
       listChildren: (parentId) =>
@@ -340,7 +340,6 @@ class Accumulator {
         Promise.reject(invariant('artifact writes route through the artifact seam, not the plan')),
       updateNode: (id, patch) => this.updateNode(id, patch),
       updateProject: (id, patch) => this.updateProject(id, patch),
-      upsertTagNote: (row) => this.applyTag(row.entity_type, row.entity_id, row.tag, row.note),
     };
   }
 
@@ -500,7 +499,6 @@ class Accumulator {
     entityType: 'node' | 'project' | 'artifact',
     entityId: number,
     tag: string,
-    note: string | null,
   ): Promise<void> {
     if (entityType === 'artifact') {
       return Promise.reject(
@@ -510,7 +508,7 @@ class Accumulator {
     const map = entityType === 'node' ? this.nodeTags : this.projectTags;
     const tags = map.get(entityId) ?? [];
     if (!tags.some((t) => t.tag === tag)) {
-      tags.push({ created_at: now(), note, tag });
+      tags.push({ created_at: now(), tag });
     }
     map.set(entityId, tags);
     if (entityId > 0) {

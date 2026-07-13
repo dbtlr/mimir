@@ -657,7 +657,7 @@ export function toolAnnotate(
 
 export function toolTag(
   store: Store,
-  args: { ids: string[]; tags: string[]; note?: string },
+  args: { ids: string[]; tags: string[] },
 ): Promise<ToolResult> {
   return guard(async () => {
     if (args.ids.length === 0) {
@@ -668,7 +668,7 @@ export function toolTag(
     }
     const tagSet = deriveSet(await store.loadWorkingSet());
     const targets = args.ids.map((t) => resolveEntityTokenInSet(tagSet, t));
-    await tagEntities(store, targets, args.tags, args.note);
+    await tagEntities(store, targets, args.tags);
     return ok(JSON.stringify({ tagged: { ids: args.ids, tags: args.tags } }));
   });
 }

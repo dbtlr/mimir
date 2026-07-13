@@ -157,7 +157,7 @@ A frozen markdown document — not diffed or edited in place, only ever added to
 | `anchor`  | list of wikilink | optional | `[[KEY-seq]]` node stems, 0..N (the "link" set) | `attach` (`--link`) |
 | `tags`    | list of string   | optional | opaque strings                                  | `tag` / `untag`     |
 
-**Body:** the frozen artifact content (markdown). Artifacts have **no `updated_at`** (append-only) and **reject tag notes** — frontmatter `tags` are plain strings with nowhere faithful to store a per-tag note.
+**Body:** the frozen artifact content (markdown). Artifacts have **no `updated_at`** (append-only) and, like every entity, **carry no tag notes** — the tag surface has no note parameter at all (ADR 0005 Refinement, MMR-270).
 
 ## `seed` — `KEY/seeds/KEY-sN.md`
 
@@ -185,7 +185,7 @@ The task-side `upstream` field (see the node table) is the requester-side pointe
 
 The whole grouping axis and classification layer ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)/[0002](decisions/0002-general-purpose-primitives-not-baked-in-semantics.md)) is a single **`tags` frontmatter list of opaque strings** on any project, node, or artifact — `workspace:*` on projects, `release:*` on tasks, `spec`/`consolidated` classification, all uniform. Seeds do **not** carry tags: their classification (`kind`) and triage state (`lifecycle`) are intrinsic closed fields, not tags. The core does set-membership filtering composed with structural scope (`project = X AND has(tag)`) and **never parses** the string.
 
-The vault stores **only the string**: there is **no per-tag `note` and no per-tag timestamp**. (The old backend's `tag` table carried both; both are gone.) The reader synthesizes a uniform `note = null` and a `created_at` equal to the document's own `created`, so downstream shapes still type-check. `tag --note` is therefore rejected on a vault-backed artifact, and unavailable in general — an opaque note about a tag attachment has nowhere faithful to live. Removing a tag is a plain, unlogged frontmatter delete (`untag`).
+The vault stores **only the string**: there is **no per-tag `note` and no per-tag timestamp**. (The old backend's `tag` table carried both; both are gone.) **A tag application carries no note on any entity** ([ADR 0005](decisions/0005-grouping-axis-is-tags.md) Refinement, MMR-270): membership is the whole signal, and the note parameter is retired from the entire surface — note-intent routes to `## Annotations` (one-off rationale) or a tagged artifact (shared grouping metadata, ADR 0005's own pattern). The reader synthesizes a `created_at` equal to the document's own `created`. Removing a tag is a plain, unlogged frontmatter delete (`untag`).
 
 ---
 

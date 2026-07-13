@@ -26,7 +26,7 @@ async function insertTags(
   tags?: string[],
 ): Promise<void> {
   for (const tag of tags ?? []) {
-    await w.insertTag({ entity_id: entityId, entity_type: entityType, note: null, tag });
+    await w.insertTag({ entity_id: entityId, entity_type: entityType, tag });
   }
 }
 

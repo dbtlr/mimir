@@ -33,3 +33,13 @@ The two axes stay as a concept, but the **horizontal / grouping axis** (workspac
 - **Supersedes the design spec's §3.1–3.2 grouping-axis treatment** and the "never a loose tag" rule; rewrites the glossary's **Grouping axis** / **Project** / **Task** entries.
 - §4.3 scope predicates become tag-scoped queries; MCP `scope` sugar resolves to a tag filter, not an FK lookup.
 - A future time-bound, roll-up-target release is an _additive_ change if it's ever genuinely needed — not complexity carried now.
+
+## Refinement (2026-07-13, MMR-270): a tag application carries no note on any entity
+
+Tags are a **plain string set** — a tag application carries **no note**, on nodes, projects, or artifacts alike. The per-tag `note` affordance is retired from the entire tag surface: the CLI `--note` flag, the MCP tool param, the HTTP tag-route body field, and the `note` on every tag record (write and read) are all removed.
+
+The parameter had already ceased to mean anything. Vault `tags` frontmatter is a plain string set with nowhere to hold a note (the frontmatter model here and in the schema reference); once the Norn vault became the sole store, a node/project tag note was **silently dropped on write** — a successful write discarding caller data. The artifact seam made the same gap explicit by _rejecting_ a note outright (MMR-143). One contract everywhere is the honest shape: rather than a param that sometimes throws and sometimes vanishes, it doesn't exist.
+
+**Note-intent routes to the tools that own it.** One-off rationale — why _this_ attachment — goes in `annotate` (about the task's work, append-only, outliving any tag). Grouping metadata that several entities share goes in a **tagged artifact** — the pattern this ADR already prescribes for grouping attributes ("grouping metadata is an artifact tagged into the grouping"). Neither ever needed to ride on the tag row.
+
+This **supersedes the MMR-143 runtime-rejection posture**: with the parameter gone from the seam signature entirely, an artifact tag note is now structurally impossible rather than rejected at runtime — the rejection and its conformance test are removed.

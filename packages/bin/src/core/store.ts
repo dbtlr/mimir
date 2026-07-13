@@ -35,7 +35,7 @@ import type { TransitionsFeed } from './transitions/store';
  * of cheap queries; scope filtering happens in memory.
  */
 /** A node's tag record inside the working set — the tag facet's full shape. */
-export type NodeTag = Pick<Tag, 'tag' | 'note' | 'created_at'>;
+export type NodeTag = Pick<Tag, 'tag' | 'created_at'>;
 
 export type WorkingSet = {
   /** Every project, key-ordered, archived included. */
@@ -140,7 +140,6 @@ export type NewTagRecord = {
   entity_type: TagEntityType;
   entity_id: number;
   tag: string;
-  note: string | null;
 };
 
 // Entity-keyed (ADR 0015): exactly one of node_id / project_id is set.
@@ -204,8 +203,6 @@ export type StoreWriter = {
   linkArtifact: (artifactId: number, nodeId: number) => Promise<void>;
   /** Idempotent tag insert — an existing (entity, tag) row is kept untouched. */
   insertTag: (row: NewTagRecord) => Promise<void>;
-  /** Tag insert that overwrites the stored note on conflict (the note rides the application). */
-  upsertTagNote: (row: NewTagRecord & { note: string }) => Promise<void>;
   /** Remove the given tags from one entity; returns the number of rows deleted. */
   deleteTags: (entityType: TagEntityType, entityId: number, tags: string[]) => Promise<number>;
   appendTransition: (row: NewTransitionRecord) => Promise<void>;

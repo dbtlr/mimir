@@ -59,7 +59,7 @@ describe('boardCard', () => {
         node={task({
           id: 'MMR-33',
           status: 'ready',
-          tags: [{ created_at: '', note: null, tag: 'release:v0.13' }],
+          tags: [{ created_at: '', tag: 'release:v0.13' }],
         })}
         column="ready"
         onOpen={vi.fn()}

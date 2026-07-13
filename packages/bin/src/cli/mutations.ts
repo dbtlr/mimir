@@ -661,7 +661,7 @@ export async function cmdTag(c: Ctx): Promise<number> {
   }
   const set = deriveSet(await c.store.loadWorkingSet());
   const targets = ids.map((t) => resolveEntityTokenInSet(set, t));
-  await tagEntities(c.store, targets, tags, optStr(c, 'note'));
+  await tagEntities(c.store, targets, tags);
   echoTagOp(c, 'tagged', ids, tags);
   return 0;
 }
