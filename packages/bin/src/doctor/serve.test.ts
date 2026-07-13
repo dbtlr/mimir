@@ -107,3 +107,39 @@ test('duplicate logical stems never receive arbitrary physical raw enrichment', 
   expect(facet.groups[0]?.records.every((record) => record.title === null)).toBe(true);
   expect(facet.groups[0]?.records.every((record) => record.snippet === null)).toBe(true);
 });
+
+test('a malformed canonical duplicate prevents enrichment of a visible relocated stem', async () => {
+  const rawPaths: string[][] = [];
+  const deps: DoctorFacetDeps = {
+    readRaw: (paths) => {
+      rawPaths.push(paths);
+      return Promise.resolve([]);
+    },
+    readSnapshot: () =>
+      Promise.resolve({
+        documents: [
+          {
+            body: 'visible\r\n',
+            documentHash: 'hash',
+            path: 'relocated/MMR-9.md',
+            stem: 'MMR-9',
+          },
+        ],
+        graph: { nodes: [], projectKeys: ['MMR'] },
+        sectionFailures: [],
+        validateFindings: [
+          {
+            code: 'frontmatter-parse-failed',
+            message: 'invalid yaml',
+            path: 'MMR/MMR-9.md',
+          },
+        ],
+      }),
+  };
+  const facet = await computeDoctorFacet(deps, 'MMR');
+  expect(rawPaths).toEqual([]);
+  const malformed = facet.groups[0]?.records.find(
+    (record) => record.cause === 'malformed frontmatter',
+  );
+  expect(malformed).toMatchObject({ path: 'MMR/MMR-9.md', snippet: null, title: null });
+});

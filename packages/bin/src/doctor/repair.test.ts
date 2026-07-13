@@ -257,6 +257,56 @@ test('a heading-shaped line inside fenced code is not a structural insertion anc
   });
 });
 
+test('an unclosed fenced block is an ambiguous skip because insertion cannot become structural', () => {
+  const body = '## Task Description\n```md\nexample without closing fence\n';
+  const planned = planDoctorRepairs({
+    issues: [issue('section-history-unreadable', 'MMR-1')],
+    scope: 'MMR',
+    snapshot: snapshot([{ body, documentHash: 'hash', path: 'MMR/MMR-1.md', stem: 'MMR-1' }]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([]);
+  expect(planned.skipped).toEqual([
+    { issue: issue('section-history-unreadable', 'MMR-1'), reason: 'ambiguous-section-heading' },
+  ]);
+});
+
+test('resolver-visible nested and HTML-formatted headings remain byte-identical skips', () => {
+  for (const body of ['> ## History\n', '- item\n\n  ## History\n', '## <i>History</i>\n']) {
+    const planned = planDoctorRepairs({
+      issues: [issue('section-history-unreadable', 'MMR-1')],
+      scope: 'MMR',
+      snapshot: snapshot([{ body, documentHash: 'hash', path: 'MMR/MMR-1.md', stem: 'MMR-1' }]),
+      timestamp: '2026-07-13T12:00:00.000Z',
+      vaultRoot: '/vault',
+    });
+    expect(planned.migration.operations).toEqual([]);
+    expect(planned.skipped[0]?.reason).toBe('ambiguous-section-heading');
+  }
+});
+
+test('insertion before an indented structural heading preserves its source line bytes', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('section-history-unreadable', 'MMR-1')],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: '## Task Description\n   ## Annotations\n',
+        documentHash: 'hash',
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations[0]).toMatchObject({
+    fields: { new_value: '## Task Description\n## History\n   ## Annotations\n' },
+    kind: 'replace_body',
+  });
+});
+
 test('scoped repair accounts for whole-vault findings as out-of-scope skips', () => {
   const planned = planDoctorRepairs({
     issues: [issue('crlf-body', 'MMR-1'), issue('dangling-parent', 'OTH-1')],

@@ -11,7 +11,7 @@
  * one class of corruption absent from the type-enumerated node read.
  */
 import { stemOf } from '../norn/decode';
-import { diagnoseDoctor } from './diagnosis';
+import { diagnoseDoctor, doctorPhysicalPathsByStem } from './diagnosis';
 import { buildDoctorFacet, pathOfStem } from './facet';
 import type { DoctorFacet } from './facet';
 import type { DoctorSnapshot } from './snapshot';
@@ -40,17 +40,14 @@ export async function computeDoctorFacet(
 ): Promise<DoctorFacet> {
   const snapshot = await deps.readSnapshot();
   const findings = await diagnoseDoctor(snapshot, scope);
-  const documentCountByStem = new Map<string, number>();
-  for (const document of snapshot.documents) {
-    documentCountByStem.set(document.stem, (documentCountByStem.get(document.stem) ?? 0) + 1);
-  }
+  const physicalPathsByStem = doctorPhysicalPathsByStem(snapshot);
 
   // Fetch `.raw` for each affected document (deduped) — the location + snippet
   // enrichment source. Keyed by path (its stem resolves the finding).
   const paths = [
     ...new Set(
       findings
-        .filter((finding) => (documentCountByStem.get(finding.stem) ?? 0) <= 1)
+        .filter((finding) => (physicalPathsByStem.get(finding.stem)?.size ?? 0) <= 1)
         .map((finding) =>
           finding.locator.endsWith('.md') ? finding.locator : pathOfStem(finding.node),
         )

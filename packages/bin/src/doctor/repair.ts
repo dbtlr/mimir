@@ -1,5 +1,4 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
-import { toString } from 'mdast-util-to-string';
 
 import { renderHistoryBody, renderHistoryRecord, toCanonicalLf } from '../core/history-codec';
 import { wikilink } from '../core/ids';
@@ -95,16 +94,45 @@ function issueInScope(issue: DoctorFinding, scope: string | undefined): boolean 
 
 type StructuralHeading = { name: string; start: number };
 
+type MarkdownNode = {
+  children?: readonly MarkdownNode[];
+  depth?: number;
+  position?: { start: { offset?: number } };
+  type: string;
+  value?: string;
+};
+
+/** Norn's resolver names headings from text/code events; HTML markup itself does
+ * not contribute to the name, while its textual children still do. */
+function resolverHeadingName(node: MarkdownNode): string {
+  if (node.type === 'text' || node.type === 'inlineCode') {
+    return node.value ?? '';
+  }
+  return (node.children ?? []).map(resolverHeadingName).join('');
+}
+
 /** Parse actual CommonMark H2 nodes so fenced examples and inline formatting
  * have the same structural meaning as the section resolver. */
 function structuralHeadings(body: string): StructuralHeading[] {
-  return fromMarkdown(body).children.flatMap((node) => {
+  const headings: StructuralHeading[] = [];
+  const visit = (node: MarkdownNode): void => {
     if (node.type !== 'heading' || node.depth !== 2) {
-      return [];
+      for (const child of node.children ?? []) {
+        visit(child);
+      }
+      return;
     }
     const start = node.position?.start.offset;
-    return start === undefined ? [] : [{ name: toString(node), start }];
-  });
+    if (start !== undefined) {
+      headings.push({ name: resolverHeadingName(node), start });
+    }
+  };
+  visit(fromMarkdown(body));
+  return headings;
+}
+
+function lineStart(body: string, offset: number): number {
+  return body.lastIndexOf('\n', Math.max(0, offset - 1)) + 1;
 }
 
 function appendCanonicalHeading(body: string, heading: string): string {
@@ -112,7 +140,8 @@ function appendCanonicalHeading(body: string, heading: string): string {
   if (heading === 'History') {
     const annotations = structuralHeadings(base).find(({ name }) => name === 'Annotations');
     if (annotations !== undefined) {
-      return `${base.slice(0, annotations.start)}## History\n${base.slice(annotations.start)}`;
+      const insertion = lineStart(base, annotations.start);
+      return `${base.slice(0, insertion)}## History\n${base.slice(insertion)}`;
     }
   }
   const separator = base.length === 0 || base.endsWith('\n') ? '' : '\n';
@@ -256,7 +285,15 @@ export function planDoctorRepairs(args: {
       skipped.push({ issue: entry, reason: 'ambiguous-section-heading' });
       continue;
     }
-    bodyRepair.body = appendCanonicalHeading(bodyRepair.body, section);
+    const repairedBody = appendCanonicalHeading(bodyRepair.body, section);
+    const repairedHeadings = structuralHeadings(repairedBody).filter(
+      ({ name }) => name === section,
+    );
+    if (repairedHeadings.length !== 1) {
+      skipped.push({ issue: entry, reason: 'ambiguous-section-heading' });
+      continue;
+    }
+    bodyRepair.body = repairedBody;
     bodyRepair.issues.push({ issue: entry, recipe: policy.recipe });
   }
 
