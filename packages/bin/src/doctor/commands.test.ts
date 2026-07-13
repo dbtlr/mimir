@@ -4,6 +4,7 @@ import { fakeIo } from '../cli/testing';
 import { renderMigratedNodeBody, renderNodeBody } from '../core/history-codec';
 import { parseId } from '../core/ids';
 import type { NodeRefs } from '../core/store-norn';
+import { decodeValidateFindings } from '../norn/decode';
 import { cmdDoctor } from './commands';
 import type { DoctorDeps } from './commands';
 
@@ -31,16 +32,22 @@ function vaultOf(
     return key === undefined ? [] : [{ ...n, key }];
   });
   return {
-    // The frontmatter check (MMR-191) reads norn's raw `vault.validate` payload;
-    // default to an empty finding set so unrelated checks' tests stay silent.
-    readNodeDocs: () => Promise.resolve(docs),
-    readSectionFailures: () => Promise.resolve(sectionFailures ?? []),
-    readVaultGraph: () =>
+    readSnapshot: () =>
       Promise.resolve({
-        nodes: graphNodes,
-        projectKeys: projectKeys ?? [...new Set(graphNodes.map((n) => n.key))],
+        documents: docs.map(({ body, stem }) => ({
+          body,
+          documentHash: null,
+          path: `${stem.split('-')[0] ?? stem}/${stem}.md`,
+          stem,
+        })),
+        graph: {
+          nodes: graphNodes,
+          projectKeys: projectKeys ?? [...new Set(graphNodes.map((n) => n.key))],
+        },
+        sectionFailures: sectionFailures ?? [],
+        // Production decodes Norn's defensive payload while building the snapshot.
+        validateFindings: decodeValidateFindings(validateFindings ?? { findings: [] }),
       }),
-    validate: () => Promise.resolve(validateFindings ?? { findings: [] }),
   };
 }
 
@@ -185,25 +192,22 @@ test('the -s scope keeps the project and its nodes, dropping other projects', as
   expect(findings.map((f) => f.node).toSorted()).toEqual(['MMR', 'MMR-9']);
 });
 
-test('the -s scope reads per-document diagnostics whole-vault, then filters by canonical stem (MMR-240)', async () => {
-  const seenDocs: (string | undefined)[] = [];
-  const seenSections: (string | undefined)[] = [];
+test('CLI reads one whole-vault snapshot, then filters per-document diagnostics by canonical stem (MMR-240, MMR-241)', async () => {
+  let reads = 0;
   const deps: DoctorDeps = {
-    readNodeDocs: (scope) => {
-      seenDocs.push(scope);
-      return Promise.resolve([]);
+    readSnapshot: () => {
+      reads += 1;
+      return Promise.resolve({
+        documents: [],
+        graph: { nodes: [], projectKeys: [] },
+        sectionFailures: [],
+        validateFindings: [],
+      });
     },
-    readSectionFailures: (scope) => {
-      seenSections.push(scope);
-      return Promise.resolve([]);
-    },
-    readVaultGraph: () => Promise.resolve({ nodes: [], projectKeys: [] }),
-    validate: () => Promise.resolve({ findings: [] }),
   };
   await cmdDoctor(fakeIo(), deps, 'json', 'MMR');
   await cmdDoctor(fakeIo(), deps, 'json', undefined);
-  expect(seenDocs).toEqual([undefined, undefined]);
-  expect(seenSections).toEqual([undefined, undefined]);
+  expect(reads).toBe(2);
 });
 
 test('corrupt project projections cannot hide per-document findings from canonical scope (MMR-240)', async () => {
@@ -220,22 +224,21 @@ test('corrupt project projections cannot hide per-document findings from canonic
     },
   ];
   const deps: DoctorDeps = {
-    // Mirror the old production failure: passing MMR would select by the corrupt
-    // projection, hiding MMR-9 and admitting OTH-5 before the stem backstop.
-    readNodeDocs: (scope) =>
-      Promise.resolve(
-        docs
-          .filter((doc) => scope === undefined || doc.projectedProject === scope)
-          .map(({ body, stem }) => ({ body, stem })),
-      ),
-    readSectionFailures: (scope) =>
-      Promise.resolve(
-        docs
-          .filter((doc) => scope === undefined || doc.projectedProject === scope)
-          .map(({ stem }) => ({ section: 'History', stem })),
-      ),
-    readVaultGraph: () => Promise.resolve({ nodes: [], projectKeys: [] }),
-    validate: () => Promise.resolve({ findings: [] }),
+    readSnapshot: () =>
+      Promise.resolve({
+        // Both projections are present in the one whole-vault snapshot. Scope
+        // must ignore them and filter by the canonical stems instead.
+        documents: docs.map(({ body, projectedProject, stem }) => ({
+          body,
+          documentHash: null,
+          frontmatter: { project: projectedProject },
+          path: `${stem.split('-')[0] ?? stem}/${stem}.md`,
+          stem,
+        })),
+        graph: { nodes: [], projectKeys: [] },
+        sectionFailures: docs.map(({ stem }) => ({ section: 'History', stem })),
+        validateFindings: [],
+      }),
   };
 
   const io = fakeIo();
@@ -952,26 +955,6 @@ test('a malformed / empty validate payload does not crash doctor', async () => {
   }
 });
 
-test('deps.validate() rejecting (unreachable vault) propagates, not a swallowed exit 0', async () => {
-  // The mirror of the readVaultGraph-rejection case (MMR-182): a doctor-itself
-  // failure through the validate handle must propagate, never be swallowed to 0.
-  const io = fakeIo();
-  const unreachable: DoctorDeps = {
-    readNodeDocs: () => Promise.resolve([]),
-    readSectionFailures: () => Promise.resolve([]),
-    readVaultGraph: () => Promise.resolve({ nodes: [], projectKeys: [] }),
-    validate: () => Promise.reject(new Error('validate unreachable')),
-  };
-  let threw = false;
-  try {
-    await cmdDoctor(io, unreachable, 'json', undefined);
-  } catch (e) {
-    threw = true;
-    expect((e as Error).message).toContain('validate unreachable');
-  }
-  expect(threw).toBe(true);
-});
-
 test('doctor ITSELF failing (the vault read throws) propagates, not a swallowed exit 0', async () => {
   // The reserved nonzero case (ADR 0017): a successful run always exits 0, but a
   // doctor failure — the vault being unreachable — must surface as a rejection the
@@ -979,10 +962,7 @@ test('doctor ITSELF failing (the vault read throws) propagates, not a swallowed 
   // future try/catch that would silently gate-off this half of the contract.
   const io = fakeIo();
   const unreachable: DoctorDeps = {
-    readNodeDocs: () => Promise.resolve([]),
-    readSectionFailures: () => Promise.resolve([]),
-    readVaultGraph: () => Promise.reject(new Error('vault unreachable')),
-    validate: () => Promise.resolve({ findings: [] }),
+    readSnapshot: () => Promise.reject(new Error('vault unreachable')),
   };
   let threw = false;
   try {

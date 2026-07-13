@@ -1,6 +1,6 @@
 import type { AnnotationView } from '@mimir/contract';
 
-import type { NornClient } from '../../norn/client';
+import type { NornClient, NornDocument } from '../../norn/client';
 import { pathAndBody, pathAndSections, stemOf } from '../../norn/decode';
 import {
   ANNOTATIONS_HEADING,
@@ -93,6 +93,20 @@ export async function readSectionFailures(
     ...(scope === undefined ? {} : { eq: [`project:${scope}`] }),
     no_limit: true,
   });
+  return readSectionFailuresFromDocuments(client, docs);
+}
+
+/**
+ * The section-failure probe over an already-enumerated work-state document set.
+ * Doctor's shared diagnostic snapshot uses this core so its body, graph, and
+ * section diagnostics all name the exact same paths without another `vault.find`
+ * (MMR-241). Other callers may keep using {@link readSectionFailures} when they do
+ * not already own a whole-vault enumeration.
+ */
+export async function readSectionFailuresFromDocuments(
+  client: NornClient,
+  docs: readonly NornDocument[],
+): Promise<{ stem: string; section: string }[]> {
   const allPaths = docs.map((doc) => doc.path);
   // Nodes and seeds carry `## Annotations`; a project does not (MMR-244).
   const annotatablePaths = allPaths.filter((p) => {

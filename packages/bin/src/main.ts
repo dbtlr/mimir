@@ -197,13 +197,10 @@ async function main(argv: string[]): Promise<number> {
     const built = await buildStore();
     // The record-health facet provider (MMR-185): every read handle is wired
     // unconditionally (the Norn vault is the only backend).
-    const { readNodeDocs, readRaw, readSectionFailures, readVaultGraph, validate } = built;
+    const { readDoctorSnapshot, readRaw } = built;
     const deps: DoctorFacetDeps = {
-      readNodeDocs,
       readRaw,
-      readSectionFailures,
-      readVaultGraph,
-      validate,
+      readSnapshot: readDoctorSnapshot,
     };
     const doctor = (scope: string | undefined): Promise<DoctorFacet> =>
       computeDoctorFacet(deps, scope);
@@ -274,22 +271,14 @@ async function main(argv: string[]): Promise<number> {
     return await runCli(argv, getStore, stdoutIo(), {
       cwd: process.cwd(),
       doctor: {
-        // Vault diagnostics: build the store (the client) and read the vault.
-        readNodeDocs: async (scope) => {
+        // Vault diagnostics: build the store (the client) and read one snapshot.
+        readSnapshot: async () => {
           await getStore();
-          return (await built?.readNodeDocs(scope)) ?? [];
-        },
-        readSectionFailures: async (scope) => {
-          await getStore();
-          return (await built?.readSectionFailures(scope)) ?? [];
-        },
-        readVaultGraph: async () => {
-          await getStore();
-          return (await built?.readVaultGraph()) ?? { nodes: [], projectKeys: [] };
-        },
-        validate: async () => {
-          await getStore();
-          return (await built?.validate()) ?? { findings: [] };
+          const snapshot = built?.readDoctorSnapshot();
+          if (snapshot === undefined) {
+            throw new Error('doctor snapshot unavailable after store initialization');
+          }
+          return snapshot;
         },
       },
       scope: findBinding(process.cwd()),

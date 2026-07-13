@@ -10,34 +10,23 @@
  * by path, so it resolves even for a document whose frontmatter won't parse — the
  * one class of corruption absent from the type-enumerated node read.
  */
-import type { VaultGraph } from '../core/store-norn';
-import { validate } from '../core/validate';
-import { decodeValidateFindings, stemOf } from '../norn/decode';
-import type { DoctorContext, DoctorFinding } from './checks';
+import { stemOf } from '../norn/decode';
+import type { DoctorFinding } from './checks';
 import { CHECKS } from './checks';
 import { buildDoctorFacet, pathOfStem } from './facet';
 import type { DoctorFacet } from './facet';
+import type { DoctorSnapshot } from './snapshot';
+import { doctorContextFromSnapshot, doctorStemInScope } from './snapshot';
 
 /** The vault read handles the facet needs — the `cmdDoctor` set plus `readRaw`
  * (the `.raw` fetch for location enrichment). All present on the Norn backend, all
  * null on SQLite (typed rows carry no malformable vault documents). */
 export type DoctorFacetDeps = {
-  /** Called unscoped; the facet narrows by canonical stem after enumeration so a
-   * corrupt `project` projection cannot hide its own diagnostics (MMR-240). */
-  readNodeDocs: (scope: string | undefined) => Promise<{ stem: string; body: string }[]>;
-  /** Called unscoped for the same canonical-identity reason as readNodeDocs. */
-  readSectionFailures: (scope: string | undefined) => Promise<{ stem: string; section: string }[]>;
-  readVaultGraph: () => Promise<VaultGraph>;
-  validate: () => Promise<unknown>;
+  /** The same one-enumeration diagnostic snapshot the CLI consumes (MMR-241). */
+  readSnapshot: () => Promise<DoctorSnapshot>;
   /** Fetch each path's `.raw` disk text (frontmatter + body), keyed back by path. */
   readRaw: (paths: string[]) => Promise<{ path: string; raw: string }[]>;
 };
-
-/** Keep only docs in the `-s` scope — the project itself or its nodes (mirrors
- * `cmdDoctor`'s filter). */
-function inScope(stem: string, scope: string | undefined): boolean {
-  return scope === undefined || stem === scope || stem.startsWith(`${scope}-`);
-}
 
 /**
  * Compute the record-health facet over the whole vault. The `scope` narrows the
@@ -50,22 +39,8 @@ export async function computeDoctorFacet(
   deps: DoctorFacetDeps,
   scope: string | undefined,
 ): Promise<DoctorFacet> {
-  const docs = (await deps.readNodeDocs(undefined)).filter((d) => inScope(d.stem, scope));
-  const graph = await deps.readVaultGraph();
-  const { dropped } = validate(graph);
-  const validateFindings = decodeValidateFindings(await deps.validate()).filter((f) =>
-    inScope(stemOf(f.path), scope),
-  );
-  const sectionFailures = (await deps.readSectionFailures(undefined)).filter((f) =>
-    inScope(f.stem, scope),
-  );
-  const ctx: DoctorContext = {
-    dropped,
-    projectRefs: graph.declarations ?? [],
-    readNodeDocs: () => Promise.resolve(docs),
-    sectionFailures,
-    validateFindings,
-  };
+  const snapshot = await deps.readSnapshot();
+  const ctx = doctorContextFromSnapshot(snapshot, scope);
   const findings: DoctorFinding[] = [];
   for (const check of CHECKS) {
     findings.push(...(await check.run(ctx)));
@@ -84,7 +59,9 @@ export async function computeDoctorFacet(
   return buildDoctorFacet({
     findings,
     rawByStem,
-    readableDocStems: docs.map((d) => d.stem),
+    readableDocStems: snapshot.documents
+      .map((document) => document.stem)
+      .filter((stem) => doctorStemInScope(stem, scope)),
     scannedAt: new Date().toISOString(),
   });
 }
