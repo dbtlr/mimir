@@ -223,8 +223,11 @@ export type AttachArtifactInput = {
  * mirroring `seeds.create`): `renderedId` for callers that only need the id
  * (CLI/MCP), `record` for a wire echo (HTTP) — everything a create response
  * renders, with no follow-up `getArtifact` read. Project-activeness is
- * guaranteed by `assertProjectActive` below, inside the SAME transaction that
- * precedes the artifact write — so `record` needs no second active check.
+ * asserted by `assertProjectActive` below, in the node transaction that
+ * precedes the (separate, non-atomic) artifact write — an archive landing in
+ * that window is the accepted concurrency posture (ADR 0023), and the echo
+ * truthfully reports the write that occurred rather than re-checking and
+ * misreporting a landed write as absent.
  */
 export type AttachArtifactResult = {
   renderedId: string;

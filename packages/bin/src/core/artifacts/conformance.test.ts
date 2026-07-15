@@ -71,15 +71,22 @@ for (const backend of backends) {
     test.skipIf(backend.skip)(
       'create allocates KEY-aN and load round-trips metadata + content',
       async () => {
-        const { key, seq } = await h.artifacts.create({
+        const created = await h.artifacts.create({
           content: '# body\n\ntext',
           key: 'MMR',
           links: [h.nodeStems[0] ?? ''],
           tags: ['spec', 'v1'],
           title: 'A spec',
         });
+        const { key, seq } = created;
         expect(key).toBe('MMR');
         expect(seq).toBe(1);
+
+        // The held-record echo IS the contract (MMR-283, mirroring seeds):
+        // create's own return must equal what a subsequent load reads back —
+        // including the normalization edges (unsorted links, multi-trailing-
+        // newline content) covered by the dedicated case below.
+        expect(created).toEqual(await h.artifacts.load('MMR', 1, { content: true }));
 
         const meta = await h.artifacts.load('MMR', 1);
         expect(meta).toMatchObject({
@@ -93,6 +100,24 @@ for (const backend of backends) {
 
         const withBody = await h.artifacts.load('MMR', 1, { content: true });
         expect(withBody?.content).toBe('# body\n\ntext');
+      },
+    );
+
+    test.skipIf(backend.skip)(
+      'the create echo equals a load through the normalization edges (MMR-283)',
+      async () => {
+        // Unsorted links and a multi-trailing-newline body — the two places the
+        // held-record echo could drift from a read-back: links sort on read, and
+        // content sheds exactly the one newline norn appends on write.
+        const created = await h.artifacts.create({
+          content: 'line a\n\n\n',
+          key: 'MMR',
+          links: [h.nodeStems[1] ?? '', h.nodeStems[0] ?? ''],
+          tags: ['spec'],
+          title: 'edge echo',
+        });
+        expect(created).toEqual(await h.artifacts.load('MMR', 1, { content: true }));
+        expect(created.content).toBe('line a\n\n');
       },
     );
 
