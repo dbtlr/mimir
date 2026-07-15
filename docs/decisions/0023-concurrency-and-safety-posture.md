@@ -43,12 +43,15 @@ canonical stem or project key. When that happens, the collision is detectable
 and `doctor` surfaces it — that is the whole of the promise.
 
 **Where identity derives its own path, a create cannot fork it.** A supplied
-identity *is* a canonical path: a project key maps to one document
+identity _is_ a canonical path: a project key maps to one document
 (`KEY/KEY.md`). Two concurrent creates of the same key therefore contend on a
-single file, not two — the filesystem collapses them and the result is
-identical. An allocated identity (a node or seed sequence, handed out uniquely
-by Norn during apply) does not collide at all: two creates get two sequences.
-The only way one identity occupies *two* files is a non-canonical physical
+single path, not two — they collide on that one file rather than producing two
+documents that claim the same identity in different places. Which write wins,
+and whether the surviving body is well-formed, is a separate question the write
+path and `doctor` handle; the point here is only that identity cannot fork. An
+allocated identity (a node or seed sequence, handed out uniquely by Norn during
+apply) does not collide at all: two creates get two sequences.
+The only way one identity occupies _two_ files is a non-canonical physical
 placement — a hand edit or an external move — which is precisely the
 out-of-authority case above. So the "duplicate project key" that motivated the
 rejected options below is not even a product of a concurrent create through
@@ -75,7 +78,7 @@ deferring it to Norn.
   direction. Rejected as out of Norn's remit and unnecessary at single-operator
   scale — and, for the duplicate-project-key case it was raised against,
   guarding a collision that a canonical path already prevents (both creates
-  resolve to `KEY/KEY.md`; the result is one identical document).
+  resolve to `KEY/KEY.md`, one file — identity cannot fork into two documents).
 - **A Mimir-side write coordinator** — a daemon-as-sole-writer or vault-wide
   advisory lock that serializes every mutation. It would close the
   Mimir-vs-Mimir window, but the only race left after Mimir already serializes
