@@ -30,13 +30,15 @@ status:
 | `conflict`   | 409         |
 | `invariant`  | 409         |
 
-A `409` from the HTTP surface means `conflict` or `invariant` — a broken
-store or a violated invariant, not a client mistake. `invariant` errors are
-raised by the Norn layer (`packages/bin/src/norn/*`, `core/store-norn.ts`)
-when the vault's own consistency guarantees are violated (a referenced node
-vanished mid-transaction, a stem resolved unexpectedly, and so on); the
-message on the envelope is that Norn error, verbatim — read it, don't guess.
-A `400` (`validation`), by contrast, is an ordinary tool-level refusal: a
-malformed request body, a missing required field, an unknown enum value.
-`409` is the signal that something is actually wrong with the vault, not with
-the request you sent.
+A `409` from the HTTP surface carries one of two codes, and only one of them
+means trouble. `invariant` is the broken-store signal: raised by the Norn
+layer (`packages/bin/src/norn/*`, `core/store-norn.ts`) when the vault's own
+consistency guarantees are violated (a referenced node vanished
+mid-transaction, a stem resolved unexpectedly, and so on); the message on the
+envelope is that Norn error, verbatim — read it, don't guess. `conflict`, by
+contrast, is an ordinary state clash — a duplicate key, an idempotent
+archive/unarchive replay, a write refused because the current state already
+moved — resolved by adjusting the request, not by repairing the vault. A
+`400` (`validation`) is an ordinary tool-level refusal: a malformed request
+body, a missing required field, an unknown enum value. Reserve the "something
+is wrong with the vault" reading for `409` + `invariant`.
