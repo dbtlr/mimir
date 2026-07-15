@@ -46,6 +46,13 @@ export type WorkingSet = {
   nodeTags: ReadonlyMap<string, readonly NodeTag[]>;
   /** Project key → its tag records in `created_at` order. Absent = untagged. */
   projectTags: ReadonlyMap<string, readonly NodeTag[]>;
+  /** How many records the tolerant reader dropped/noted (ADR 0017) while
+   * building this set — the shared `validate()` pass's `dropped.length`,
+   * carried as a byproduct of the load itself (MMR-184). Optional: only the
+   * Norn-backed `Store.loadWorkingSet` populates it; the write path's
+   * in-transaction overlay (`StoreWriter.loadWorkingSet`) omits it — a
+   * transact never re-validates, so it has no fresher count to offer. */
+  issueCount?: number;
 };
 
 // ---------------------------------------------------------------------------

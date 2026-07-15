@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import { parseJson } from '@mimir/helpers';
 
@@ -12,6 +12,7 @@ import {
 } from '../core';
 import type { Store } from '../core';
 import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
+import type { TestStore } from '../testing/store';
 import { UsageError, exitCodeFor, renderError } from './errors';
 import { runCli } from './run';
 import { fakeIo } from './testing';
@@ -857,4 +858,137 @@ test.skipIf(!NORN)('next empty -f records on a TTY prints a no-results line (MMR
   expect(code).toBe(0);
   const text = io.out.join('');
   expect(text).toMatch(/No ready tasks/i);
+});
+
+// MMR-184: the doctor issue-count trailer — a stderr-only nudge off the
+// tolerant reader's own drop tally for the load `next`/`list` already perform,
+// never a fresh `mimir doctor` pass.
+
+describe.skipIf(!NORN)('doctor issue-count trailer on next/list (MMR-184)', () => {
+  let fixture: TestStore;
+
+  beforeEach(async () => {
+    fixture = await createTestStore();
+  });
+
+  afterEach(async () => {
+    await fixture.close();
+  });
+
+  /** One project, one ready task, and one dangling `parent` ref (a phase
+   * pointing at a nonexistent node) — the tolerant reader floats the phase to
+   * root and records exactly one drop, without losing the task underneath it. */
+  async function seedOneDrop(): Promise<void> {
+    await createProject(fixture.store, { key: 'MMR', name: 'm' });
+    const init = await createInitiative(fixture.store, { projectId: 'MMR', title: 'i' });
+    const phase = await createPhase(fixture.store, { parentId: init.id, title: 'ph' });
+    await createTask(fixture.store, { parentId: phase.id, title: 't' });
+    fixture.corruptDocument(`MMR/${phase.id}.md`, (raw) =>
+      raw.replace(/^parent:.*$/m, 'parent: "[[MMR-999]]"'),
+    );
+  }
+
+  async function seedClean(): Promise<void> {
+    await createProject(fixture.store, { key: 'MMR', name: 'm' });
+    const init = await createInitiative(fixture.store, { projectId: 'MMR', title: 'i' });
+    const phase = await createPhase(fixture.store, { parentId: init.id, title: 'ph' });
+    await createTask(fixture.store, { parentId: phase.id, title: 't' });
+  }
+
+  test('next prints the trailer on stderr (not stdout) when the load drops a record', async () => {
+    await seedOneDrop();
+    const io = fakeIo(true);
+    const code = await runCli(['next', '--scope', 'MMR'], () => fixture.store, io);
+    expect(code).toBe(0);
+    expect(io.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
+    expect(io.out.join('')).not.toContain('issue');
+  });
+
+  test('list prints the trailer on stderr (not stdout) when the load drops a record', async () => {
+    await seedOneDrop();
+    const io = fakeIo(true);
+    const code = await runCli(['list', '--scope', 'MMR'], () => fixture.store, io);
+    expect(code).toBe(0);
+    expect(io.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
+    expect(io.out.join('')).not.toContain('issue');
+  });
+
+  test('a clean vault shows no trailer on next or list', async () => {
+    await seedClean();
+
+    const nextIo = fakeIo(true);
+    expect(await runCli(['next', '--scope', 'MMR'], () => fixture.store, nextIo)).toBe(0);
+    expect(nextIo.err.join('')).toBe('');
+
+    const listIo = fakeIo(true);
+    expect(await runCli(['list', '--scope', 'MMR'], () => fixture.store, listIo)).toBe(0);
+    expect(listIo.err.join('')).toBe('');
+  });
+
+  test('the ids format keeps the prose trailer on stderr while stdout stays clean', async () => {
+    await seedOneDrop();
+    const io = fakeIo(true);
+    const code = await runCli(['list', '--scope', 'MMR', '-f', 'ids'], () => fixture.store, io);
+    expect(code).toBe(0);
+    expect(io.out.join('')).not.toContain('issue');
+    expect(io.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
+  });
+
+  test('json/jsonl formats emit a JSON-shaped trailer line on stderr, mirroring the warning envelope', async () => {
+    await seedOneDrop();
+    for (const format of ['json', 'jsonl'] as const) {
+      const io = fakeIo(true);
+      const code = await runCli(['list', '--scope', 'MMR', '-f', format], () => fixture.store, io);
+      expect(code).toBe(0);
+      expect(io.out.join('')).not.toContain('issue');
+      const trailer = parseJson<{ warning: string; issueCount: number }>(io.err.join(''));
+      expect(trailer.warning).toBe('1 issue — run mimir doctor');
+      expect(trailer.issueCount).toBe(1);
+    }
+  });
+
+  test('the trailer pluralizes past one issue', async () => {
+    await createProject(fixture.store, { key: 'MMR', name: 'm' });
+    const init = await createInitiative(fixture.store, { projectId: 'MMR', title: 'i' });
+    const phaseA = await createPhase(fixture.store, { parentId: init.id, title: 'a' });
+    const phaseB = await createPhase(fixture.store, { parentId: init.id, title: 'b' });
+    fixture.corruptDocument(`MMR/${phaseA.id}.md`, (raw) =>
+      raw.replace(/^parent:.*$/m, 'parent: "[[MMR-999]]"'),
+    );
+    fixture.corruptDocument(`MMR/${phaseB.id}.md`, (raw) =>
+      raw.replace(/^parent:.*$/m, 'parent: "[[MMR-998]]"'),
+    );
+
+    const io = fakeIo(true);
+    const code = await runCli(['list', '--scope', 'MMR'], () => fixture.store, io);
+    expect(code).toBe(0);
+    expect(io.err.join('')).toContain('[warn] 2 issues — run mimir doctor');
+  });
+
+  /** The tally is the whole-vault working-set count (MMR-184), not scoped to
+   * the selection: corruption lives entirely in project OTH, but a `next`/
+   * `list` scoped to the pristine project MMR still carries the trailer. If
+   * the count ever becomes scope-local this must fail. */
+  test('the trailer reflects the whole-vault tally even when the scoped project is clean', async () => {
+    await createProject(fixture.store, { key: 'MMR', name: 'm' });
+    const init = await createInitiative(fixture.store, { projectId: 'MMR', title: 'i' });
+    const phase = await createPhase(fixture.store, { parentId: init.id, title: 'ph' });
+    await createTask(fixture.store, { parentId: phase.id, title: 't' });
+
+    await createProject(fixture.store, { key: 'OTH', name: 'o' });
+    const otherInit = await createInitiative(fixture.store, { projectId: 'OTH', title: 'i' });
+    const otherPhase = await createPhase(fixture.store, { parentId: otherInit.id, title: 'ph' });
+    await createTask(fixture.store, { parentId: otherPhase.id, title: 't' });
+    fixture.corruptDocument(`OTH/${otherPhase.id}.md`, (raw) =>
+      raw.replace(/^parent:.*$/m, 'parent: "[[OTH-999]]"'),
+    );
+
+    const nextIo = fakeIo(true);
+    expect(await runCli(['next', '--scope', 'MMR'], () => fixture.store, nextIo)).toBe(0);
+    expect(nextIo.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
+
+    const listIo = fakeIo(true);
+    expect(await runCli(['list', '--scope', 'MMR'], () => fixture.store, listIo)).toBe(0);
+    expect(listIo.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
+  });
 });

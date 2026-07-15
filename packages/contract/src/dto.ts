@@ -426,4 +426,10 @@ export type SetResult<T> = {
   startsAt: number;
   items: T[];
   warnings?: ValueWarning[];
+  /** How many records the tolerant reader dropped/noted while building the
+   * working set this selection was read over (MMR-184) — the load's own
+   * byproduct, not a fresh `mimir doctor` pass. The CLI nudges toward `mimir
+   * doctor` on stderr when this is non-zero; absent when the load carried no
+   * count (e.g. the value-fault short-circuit, which never reaches the store). */
+  issueCount?: number;
 };
