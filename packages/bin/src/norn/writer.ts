@@ -736,7 +736,12 @@ class Accumulator {
    * drift error and no replay (the drift/replay loop in {@link runTransact} fires
    * only on a CAS mismatch). The write silently lands on a document that moved
    * under the snapshot. The "every verb co-writes a CAS guard" test in
-   * `writer.test.ts` enforces this structurally against the whole verb surface.
+   * `writer.test.ts` enforces the PRESENCE half structurally over the verbs
+   * exported through `core/mutations`: at least one guarded op per touched
+   * document. It cannot check that the guard co-moves with the verb's legality
+   * reads — a verb guarding only an incidental field would pass the test and
+   * still be stale-unsound — so that semantic half is this rule, applied by the
+   * verb author and enforced in review.
    */
   private emitFieldOps(
     operations: MigrationOp[],

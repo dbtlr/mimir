@@ -1440,6 +1440,16 @@ const NON_PLAN_MUTATION_EXPORTS: Record<string, string> = {
   updateArtifact: 'artifact-seam write; the node transaction only validates',
 };
 
+/**
+ * The structural (necessary, not sufficient) half of the co-write invariant:
+ * every driven verb's plan carries at least one `expected_old_value` guard per
+ * touched document. Guard *presence* is checkable mechanically; guard
+ * *relevance* — that the guarded field co-moves with the verb's legality
+ * reads — is semantic and lives in the rule comment on `emitFieldOps` for the
+ * verb author and reviewer. A verb guarding only an incidental field would
+ * pass here and still be stale-unsound; this test is the tripwire, not the
+ * whole fence.
+ */
 test('every mutation verb co-writes a CAS guard on each touched document (MMR-194)', async () => {
   const violations: string[] = [];
   for (const [name, verb] of Object.entries(CAS_PLAN_VERBS)) {
@@ -1486,6 +1496,10 @@ test('the CAS-guard invariant covers every exported mutation verb (MMR-194)', as
   // Enumerate the mutation surface at runtime from the index module (dynamic
   // import so no wildcard `import *`): type-only exports erase, so filtering to
   // `typeof … === 'function'` yields exactly the verbs and shared helpers.
+  // Scope: the `core/mutations` index IS the sanctioned mutation surface (one
+  // core, thin transports), so this equality catches every verb added through
+  // it. A write verb wired around the index would escape both tests — that is
+  // an architecture violation to catch in review, not here.
   const mutationSurface: Record<string, unknown> = await import('../core/mutations');
   const exportedFns = Object.entries(mutationSurface)
     .filter(([, value]) => typeof value === 'function')

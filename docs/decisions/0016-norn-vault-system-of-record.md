@@ -51,11 +51,12 @@ the default backend until the final phase.
   residual cross-document rollback gap is tracked as NRN-107.
 - **Write path: plan-CAS as the north star.** Norn's plan/apply surface is
   compare-and-swap per changed field — build a plan against the state read
-  (each field write carries the read value as its `expected_old_value`
-  precondition), apply atomically, retry on drift. The write path sends no
-  document hash, so whole-document drift protection rides an invariant instead:
-  every verb co-writes at least one CAS-guarded field per touched document
-  (usually the `updated_at` stamp). Until the plan surface covers section
+  (a changed or removed field carries the read value as its
+  `expected_old_value` precondition; an absent→present field emits an
+  unguarded `add_frontmatter`), apply atomically, retry on drift. The write
+  path sends no document hash, so whole-document drift protection rides an
+  invariant instead: every verb co-writes at least one CAS-guarded field per
+  touched document (usually the `updated_at` stamp). Until the plan surface covers section
   edits and creates, ordered fallbacks apply (set→edit; create-exclusive
   retry over derived `max(seq)+1` id allocation). The set→edit fallback
   temporarily relaxes ADR 0003's same-transaction pairing of state and log:
