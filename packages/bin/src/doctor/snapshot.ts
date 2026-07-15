@@ -17,6 +17,7 @@ import type { DoctorContext } from './checks';
 import { workStateStem } from './checks';
 
 const WORK_STATE_TYPES = 'type:project,task,phase,initiative,seed';
+const ARTIFACT_TYPE = 'type:artifact';
 
 /** One physical document in the snapshot. Path is its locator; stem is identity. */
 export type DoctorSnapshotDocument = {
@@ -31,6 +32,13 @@ export type DoctorSnapshotDocument = {
 /** All inputs needed to diagnose one coherent whole-vault enumeration. */
 export type DoctorSnapshot = {
   documents: readonly DoctorSnapshotDocument[];
+  /** Artifact documents (path + stem) from a separate doctor-only `type:artifact`
+   * find (MMR-282). Kept out of {@link documents} — the hot working-set load never
+   * reads artifacts, and only the two artifact-aware checks (duplicate stems, the
+   * artifact arm of seq-gaps) consume these. The production reader always sets it;
+   * OPTIONAL so a snapshot fixture that predates the artifact read (or exercises a
+   * non-artifact concern) need not restate an empty list — absent reads as none. */
+  artifacts?: readonly { path: string; stem: string }[];
   graph: VaultGraph;
   sectionFailures: readonly { path: string; stem: string; section: string }[];
   validateFindings: readonly ValidateFinding[];
@@ -151,9 +159,19 @@ export async function readDoctorSnapshot(client: NornClient): Promise<DoctorSnap
     in: [WORK_STATE_TYPES],
     no_limit: true,
   });
+  // A second, doctor-only find for artifacts — they carry `type: artifact`, absent
+  // from the work-state enumeration above, and the hot working-set load never reads
+  // them. Only path + stem are needed (duplicate detection is by stem, the seq-gap
+  // arm counts the seq), built the same way as the work-state find (MMR-282).
+  const artifactDocs = await client.find({
+    col: ['.frontmatter'],
+    in: [ARTIFACT_TYPE],
+    no_limit: true,
+  });
   const sectionFailures = await readSectionFailuresFromDocuments(client, found);
   const validateFindings = decodeValidateFindings(await client.validate());
   return {
+    artifacts: artifactDocs.map((doc) => ({ path: doc.path, stem: stemOf(doc.path) })),
     documents: found.map(snapshotDocument),
     graph: vaultGraphFromDocs(found, { withSeeds: true }),
     sectionFailures,
@@ -178,6 +196,10 @@ export function doctorContextFromSnapshot(
   return {
     dropped: diagnosticDrops(snapshot),
     projectRefs: snapshot.graph.declarations ?? [],
+    readArtifactDocs: () =>
+      Promise.resolve(
+        (snapshot.artifacts ?? []).filter((artifact) => doctorStemInScope(artifact.stem, scope)),
+      ),
     readNodeDocs: () => Promise.resolve(docs),
     sectionFailures: snapshot.sectionFailures.filter((failure) =>
       doctorStemInScope(failure.stem, scope),

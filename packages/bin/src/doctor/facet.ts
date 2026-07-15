@@ -235,6 +235,12 @@ function causeOf(finding: DoctorFinding, field: string | null): { cause: string;
     case 'stem-project': {
       return { cause: 'misfiled project', note: 'The project field diverges from the stem.' };
     }
+    case 'artifact-duplicate-stems': {
+      return {
+        cause: 'duplicate artifact',
+        note: 'Two files claim this artifact id — the canonical path shadows the other on read.',
+      };
+    }
     case 'upstream-refs': {
       return { cause: 'dangling upstream', note: 'The seed reference does not resolve.' };
     }
@@ -435,7 +441,11 @@ export function buildDoctorFacet(input: {
   // The facet's dropped-records list represents records the reader drops on read
   // (unreadable/excluded docs). A `seq-gaps` finding is an informational warning
   // about a NON-contiguous sequence — nothing is dropped at `KEY/KEY.md` — so it is
-  // not a dropped record and must not render as a phantom one (MMR-197).
+  // not a dropped record and must not render as a phantom one (MMR-197). The artifact
+  // arm of seq-gaps rides the same check name, so it is excluded here too. The
+  // `artifact-duplicate-stems` check is NOT excluded (MMR-282): a duplicate hides one
+  // document on the canonical point-read, so it IS a dropped/hidden record — the same
+  // class as `identity-uniqueness`, which surfaces here.
   const findings = input.findings.filter((finding) => finding.check !== 'seq-gaps');
 
   const readableByProject = new Map<string, number>();

@@ -246,6 +246,57 @@ describe('buildDoctorFacet', () => {
     expect(facet.groups).toEqual([]);
   });
 
+  test('a duplicate-artifact-stem finding surfaces as a dropped record (MMR-282)', () => {
+    // Unlike a seq gap, a duplicate artifact hides one document on the canonical
+    // point-read — a dropped/hidden record, the same class as identity-uniqueness —
+    // so it DOES surface in the record-health facet, with its own cause chip.
+    const dupFinding: DoctorFinding = {
+      check: 'artifact-duplicate-stems',
+      code: 'duplicate-artifact-stem',
+      evidence: { paths: ['MMR/MMR-a2.md', 'MMR/artifacts/MMR-a2.md'] },
+      locator: 'MMR/MMR-a2.md',
+      message: 'duplicate artifact stem MMR-a2 at MMR/MMR-a2.md, MMR/artifacts/MMR-a2.md',
+      node: 'MMR-a2',
+      scopeKey: 'MMR',
+      severity: 'error',
+      stem: 'MMR-a2',
+      where: 'MMR/MMR-a2.md',
+    };
+    const facet = buildDoctorFacet({
+      findings: [dupFinding],
+      rawByStem: new Map(),
+      readableDocStems: ['MMR', 'MMR-1'],
+      scannedAt: '2026-07-12T00:00:00.000Z',
+    });
+    expect(facet.dropped_total).toBe(1);
+    expect(facet.groups).toHaveLength(1);
+    const record = facet.groups[0]?.records[0];
+    expect(record).toMatchObject({ cause: 'duplicate artifact', id: 'MMR-a2', severity: 'error' });
+  });
+
+  test('an artifact seq-gap rides the seq-gaps exclusion and does not surface (MMR-282)', () => {
+    const artifactSeqGap: DoctorFinding = {
+      check: 'seq-gaps',
+      code: 'interior-seq-gap',
+      evidence: { kind: 'artifact', max: 3, missing: [2], missingCount: 1 },
+      locator: 'artifact sequence',
+      message: 'project MMR is missing interior artifact sequence number 2 below its max 3',
+      node: 'MMR',
+      scopeKey: 'MMR',
+      severity: 'warn',
+      stem: 'MMR',
+      where: 'artifact sequence',
+    };
+    const facet = buildDoctorFacet({
+      findings: [artifactSeqGap],
+      rawByStem: new Map(),
+      readableDocStems: ['MMR', 'MMR-a1', 'MMR-a3'],
+      scannedAt: '2026-07-12T00:00:00.000Z',
+    });
+    expect(facet.dropped_total).toBe(0);
+    expect(facet.groups).toEqual([]);
+  });
+
   test('groups records by project and sorts groups by key', () => {
     const facet = buildDoctorFacet({
       findings: [
