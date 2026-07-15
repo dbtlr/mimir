@@ -162,9 +162,9 @@ export async function readDoctorSnapshot(client: NornClient): Promise<DoctorSnap
   // A second, doctor-only find for artifacts — they carry `type: artifact`, absent
   // from the work-state enumeration above, and the hot working-set load never reads
   // them. Only path + stem are needed (duplicate detection is by stem, the seq-gap
-  // arm counts the seq), built the same way as the work-state find (MMR-282).
+  // arm counts the seq) and the stem derives from the path norn always returns, so no
+  // `col` projection is requested — the minimal set (MMR-282).
   const artifactDocs = await client.find({
-    col: ['.frontmatter'],
     in: [ARTIFACT_TYPE],
     no_limit: true,
   });

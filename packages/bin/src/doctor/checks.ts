@@ -751,6 +751,12 @@ export const sectionResolutionCheck: Diagnostic = {
  * per-document checks (`readArtifactDocs` is pre-scoped by canonical stem). Only
  * stems that parse as a `KEY-aN` artifact identity are grouped — a `type: artifact`
  * doc at a non-artifact filename is a different corruption class, not this one.
+ *
+ * Identity is the STEM, not the type or the path (MMR-198 — the stem identifies, the
+ * path merely locates). So a `type: artifact` document whose filename does not parse
+ * as `KEY-aN` holds no artifact identity: it neither duplicates another artifact nor
+ * occupies a seq slot — it is out of this check's (and the seq-gap arm's) scope by the
+ * identity rule, however it is typed.
  */
 export const artifactDuplicateStemCheck: Diagnostic = {
   name: 'artifact-duplicate-stems',
@@ -877,22 +883,38 @@ export const seqGapCheck: Diagnostic = {
       }
     };
     const scopedKeys = new Set<string>();
-    for (const { stem } of await ctx.readNodeDocs()) {
-      occupy(stem);
-      const identity = parseIdentity(stem);
-      if (identity !== null) {
+    // Enroll one doc feed's stems into their seq groups, RESTRICTED to the kinds that
+    // feed legitimately carries: the work-state read enrolls node/seed stems, the
+    // artifact read enrolls artifact stems (MMR-282). The kind gate is the correctness
+    // point — the seq namespaces are per-kind, but the enrollment source is a doc's
+    // `type`, not its filename. A `type: artifact` doc NAMED like a node (`MMR/MMR-5.md`)
+    // arrives on the artifact feed with a node-shaped stem; enrolling it kind-agnostically
+    // would occupy NODE slot 5 and mask a genuine node hand-deletion gap (and symmetrically
+    // a work-state doc named `MMR-a5.md` would mask an artifact gap). Every enrolled key
+    // still joins `scopedKeys` regardless of kind — both feeds are pre-scoped, so their keys
+    // are in scope — to gate the whole-vault dup drops below.
+    const enroll = (
+      docs: readonly { stem: string }[],
+      kinds: ReadonlySet<'node' | 'seed' | 'artifact'>,
+    ): void => {
+      for (const { stem } of docs) {
+        const identity = parseIdentity(stem);
+        if (identity === null) {
+          continue;
+        }
         scopedKeys.add(identity.key);
+        if (
+          (identity.kind === 'node' || identity.kind === 'seed' || identity.kind === 'artifact') &&
+          kinds.has(identity.kind)
+        ) {
+          occupy(stem);
+        }
       }
-    }
-    // Artifacts (MMR-282): every artifact doc's stem occupies its number, canonical
-    // or misplaced — a misplaced doc is not a gap here (the duplicate check owns it).
-    for (const { stem } of await ctx.readArtifactDocs()) {
-      occupy(stem);
-      const identity = parseIdentity(stem);
-      if (identity !== null) {
-        scopedKeys.add(identity.key);
-      }
-    }
+    };
+    const WORK_STATE_KINDS: ReadonlySet<'node' | 'seed' | 'artifact'> = new Set(['node', 'seed']);
+    const ARTIFACT_KINDS: ReadonlySet<'node' | 'seed' | 'artifact'> = new Set(['artifact']);
+    enroll(await ctx.readNodeDocs(), WORK_STATE_KINDS);
+    enroll(await ctx.readArtifactDocs(), ARTIFACT_KINDS);
     for (const drop of ctx.dropped) {
       // Only an identity drop (a `duplicate-stem`) is a doc physically on disk yet
       // EXCLUDED from the type-filtered snapshot — its seq occupies a slot the

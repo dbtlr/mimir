@@ -72,7 +72,6 @@ test('reads one whole-vault enumeration plus one artifact scan and derives every
     no_limit: true,
   });
   expect(findArgs).toContainEqual({
-    col: ['.frontmatter'],
     in: ['type:artifact'],
     no_limit: true,
   });

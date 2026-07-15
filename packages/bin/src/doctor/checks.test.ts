@@ -498,3 +498,53 @@ test('seq-gaps reports node and artifact gaps for one project independently (MMR
   expect(findings.map((f) => f.evidence.kind)).toEqual(['artifact', 'node']);
   expect(findings.every((f) => f.node === 'MMR' && f.severity === 'warn')).toBe(true);
 });
+
+test('seq-gaps: a type:artifact doc named like a node does not occupy the node slot (MMR-282)', async () => {
+  // Enrollment is by FEED kind, not by the stem's shape. Nodes MMR-1..4 + MMR-6 leave a
+  // genuine node gap at 5; a `type: artifact` doc at MMR/MMR-5.md arrives on the artifact
+  // feed with a node-shaped stem. That doc holds NO node identity, so it must not occupy
+  // node slot 5 and mask the gap (kind-agnostic enrollment would — the pre-fix bug).
+  const ctx: DoctorContext = {
+    dropped: [],
+    projectRefs: [],
+    readArtifactDocs: () => Promise.resolve([{ path: 'MMR/MMR-5.md', stem: 'MMR-5' }]),
+    readNodeDocs: () =>
+      Promise.resolve(
+        ['MMR', 'MMR-1', 'MMR-2', 'MMR-3', 'MMR-4', 'MMR-6'].map((stem) => ({
+          body: '',
+          path: `${stem}.md`,
+          stem,
+        })),
+      ),
+    sectionFailures: [],
+    validateFindings: [],
+  };
+  const findings = await seqGapCheck.run(ctx);
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ check: 'seq-gaps', node: 'MMR', where: 'node sequence' });
+  expect(findings[0]?.evidence).toMatchObject({ kind: 'node', max: 6, missing: [5] });
+});
+
+test('seq-gaps: a work-state doc named like an artifact does not occupy the artifact slot (MMR-282)', async () => {
+  // The symmetric direction: artifacts MMR-a1..a4 + MMR-a6 leave a genuine artifact gap at
+  // 5; a work-state doc at MMR/MMR-a5.md arrives on the node feed with an artifact-shaped
+  // stem and must not occupy artifact slot 5.
+  const ctx: DoctorContext = {
+    dropped: [],
+    projectRefs: [],
+    readArtifactDocs: () =>
+      Promise.resolve(
+        ['MMR-a1', 'MMR-a2', 'MMR-a3', 'MMR-a4', 'MMR-a6'].map((stem) => ({
+          path: `MMR/artifacts/${stem}.md`,
+          stem,
+        })),
+      ),
+    readNodeDocs: () => Promise.resolve([{ body: '', path: 'MMR/MMR-a5.md', stem: 'MMR-a5' }]),
+    sectionFailures: [],
+    validateFindings: [],
+  };
+  const findings = await seqGapCheck.run(ctx);
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ node: 'MMR', where: 'artifact sequence' });
+  expect(findings[0]?.evidence).toMatchObject({ kind: 'artifact', max: 6, missing: [5] });
+});

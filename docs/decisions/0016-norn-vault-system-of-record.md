@@ -436,7 +436,10 @@ is the single id-allocation authority.
   stem is never guarded at the allocator: for work-state identities (projects,
   nodes, seeds) the fail-closed tolerant reader and `mimir doctor` (ADR 0017)
   already own it; artifact stems sit outside that snapshot, so their duplicate
-  detection is a tracked doctor follow-up rather than an existing guarantee.
+  detection now ships as its own doctor check rather than an allocator guard
+  (MMR-282: the `artifact-duplicate-stems` check plus the artifact arm of the
+  seq-gap check, over a doctor-only `type:artifact` enumeration). The no-allocator-guard
+  posture is unchanged — doctor detects, it does not prevent.
 
 ## Refinement (2026-07-15, MMR-279): the Store seam survives cutover as the compute core's store-agnostic port
 
