@@ -126,9 +126,10 @@ export type NodePatch = {
 export type NewAnnotationRecord = {
   node_id: string;
   content: string;
-  // Core-supplied (MMR-173): the mutation layer stamps this, not the DB default,
-  // so both backends persist the identical value — the `stamp` invariant (the
-  // core is the sole time-maintainer) now holds for annotations too.
+  // Core-supplied (MMR-173): the mutation layer stamps this, not a store-side
+  // default, so every `Store` port implementor persists the identical value
+  // (ADR 0016 Refinement, MMR-279) — the `stamp` invariant (the core is the
+  // sole time-maintainer) now holds for annotations too.
   created_at: string;
 };
 

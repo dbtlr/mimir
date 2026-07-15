@@ -367,8 +367,10 @@ export type ServeOptions = {
   hunt?: boolean;
   /**
    * The `/api/doctor` record-health facet provider (MMR-185) — computes the
-   * dropped-record diagnostics over the vault, scoped to an optional project. Absent
-   * on the SQLite backend (no vault); the route then serves the empty facet.
+   * dropped-record diagnostics over the vault, scoped to an optional project.
+   * Optional so a doctor-agnostic test server can skip wiring it; the route
+   * then serves the empty facet. A live server always supplies one — Norn is
+   * the sole `Store` port implementor (ADR 0016 Refinement, MMR-279).
    */
   doctor?: (scope: string | undefined) => Promise<DoctorFacet>;
 };

@@ -45,14 +45,6 @@ export type BuiltStore = {
  */
 export async function buildStore(): Promise<BuiltStore> {
   const config = readConfig();
-  if (config.store.backend !== undefined) {
-    // Friendly retirement of the MMR-232 fence: an old `[store] backend` key is
-    // ignored (not an error) so an existing config keeps working — one note, then
-    // the Norn vault regardless.
-    console.error(
-      '⚠ config: [store] backend is ignored — the Norn vault is the only backend (MMR-234); remove the key to silence this',
-    );
-  }
   const vault = resolveVault({
     configPath: config.vault.path,
     envPath: process.env.MIMIR_VAULT,

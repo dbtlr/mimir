@@ -335,8 +335,8 @@ export function parseHistorySection(body: string): HistoryEntry[] {
 // reason — content is otherwise byte-preserved (heading-shaped lines escaped).
 
 // An annotation record opens on `### <createdAt>`, where the created-at is the
-// ISO-8601 instant both backends stamp (`strftime('%Y-%m-%dT%H:%M:%fZ')` /
-// JS `toISOString`). Anchoring the heading to that shape — rather than any
+// ISO-8601 instant the store stamps (JS `toISOString`). Anchoring the heading
+// to that shape — rather than any
 // `### ` line — keeps a hand-typed `### some heading` inside annotation prose
 // from being read as a new record boundary (MMR-161, hazard F4).
 const ANNOTATION_HEADING =

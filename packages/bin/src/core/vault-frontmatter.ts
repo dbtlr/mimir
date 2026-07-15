@@ -99,8 +99,8 @@ export function nodeFrontmatter(
   put(fm, 'target', node.target);
   // Container-only (MMR-204). Type-gated to non-task to match the reader
   // (`store-norn` decodes it only for containers) and the view projection — a
-  // stray task-level value never reaches frontmatter, so the two backends can't
-  // diverge on it. Norn has no boolean field_type, so it rides undeclared and
+  // stray task-level value never reaches frontmatter, so the writer and reader
+  // can't diverge on it. Norn has no boolean field_type, so it rides undeclared and
   // serializes as the strings 'true'/'false' (the reader's `boolFieldOrNull`
   // decodes them back). Emit both states explicitly — a deliberate `false` must
   // round-trip as `false`, not collapse to absent/null, so parity agrees.

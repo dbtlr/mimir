@@ -1,9 +1,10 @@
 /**
- * The artifact storage seam (MMR-143, ADR 0016 Phase 2a) — the first slice
- * where a second backend exists behind the `Store`. Artifacts are keyed by
- * **canonical identity** (`key` + `seq`, the `KEY-aN` stem): no separate ids
- * cross this boundary, because the Norn backend has none — the file stem is
- * the identity carried end to end.
+ * The artifact storage seam (MMR-143, ADR 0016 Phase 2a) — the `Store` port's
+ * artifact slice, keeping the compute core agnostic of its storage implementor
+ * (ADR 0016 Refinement, MMR-279). Artifacts are keyed by **canonical
+ * identity** (`key` + `seq`, the `KEY-aN` stem): no separate ids cross this
+ * boundary, because Norn — the sole implementor today — has none; the file
+ * stem is the identity carried end to end.
  *
  * The seam is storage vocabulary only. Behavioral invariants — title
  * non-blank, project active, links stay in-project — remain in the verbs
@@ -11,7 +12,7 @@
  *
  * Archived-project hiding (ADR 0015) is the *caller's* concern: the intent
  * layer passes `excludeProjects` where hiding applies, because archived
- * state lives with the node backend, which this seam must not reach into.
+ * state lives with the node store, which this seam must not reach into.
  */
 
 /** One artifact's metadata, backend-neutral. `links` are node stems (`KEY-seq`). */

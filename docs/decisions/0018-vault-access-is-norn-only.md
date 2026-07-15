@@ -88,3 +88,22 @@ violation, not a fourth category.
   review.
 - The infrastructure carve-outs are re-examined whenever Norn's surface grows;
   shrinking one is a refinement here, not a new decision.
+
+## Refinement (2026-07-15, MMR-279): the known deviation closes; the legacy-store carve-out retires
+
+Two of this ADR's own tracked items resolved and are recorded here rather than
+left to go stale in place.
+
+- **The known deviation is closed.** MMR-199 landed: `norn/writer.ts` no
+  longer pre-creates parent directories — the filed capability ask was
+  granted (`vault.apply_plan` gained the `parents` option `vault.new` /
+  `vault.move` already exposed), so the writer passes it through Norn instead
+  of touching the filesystem directly. The "Known deviation (tracked)" section
+  above has no current occupant.
+- **Carve-out 3 ("the legacy store") retires.** MMR-234 deleted the SQLite
+  store's code entirely, including the raw handle the migration commands
+  held — there is no SQLite database left to be a carve-out from. The
+  infrastructure carve-out list contracts to two: (1) provisioning
+  (`vault/converge.ts`) and (2) version control (`vault/git.ts`,
+  `vault/snapshot.ts`). A new filesystem touch that does not fit one of those
+  two is a violation, not a candidate third category.

@@ -18,8 +18,9 @@ import type { DoctorSnapshot } from './snapshot';
 import { doctorIdentityIndex, doctorLogicalStemAtPath, doctorStemInScope } from './snapshot';
 
 /** The vault read handles the facet needs — the `cmdDoctor` set plus `readRaw`
- * (the `.raw` fetch for location enrichment). All present on the Norn backend, all
- * null on SQLite (typed rows carry no malformable vault documents). */
+ * (the `.raw` fetch for location enrichment). Norn is the sole `Store` port
+ * implementor (ADR 0016 Refinement, MMR-279), so both are always available
+ * wherever a vault-backed doctor facet is wired in. */
 export type DoctorFacetDeps = {
   /** The same one-enumeration diagnostic snapshot the CLI consumes (MMR-241). */
   readSnapshot: () => Promise<DoctorSnapshot>;
@@ -78,7 +79,8 @@ export async function computeDoctorFacet(
   });
 }
 
-/** The empty facet — the SQLite backend (no vault) and the clean-vault zero state. */
+/** The empty facet — the clean-vault zero state, and the fallback for a caller
+ * (e.g. a doctor-agnostic test server) that never wires a doctor facet provider. */
 export function emptyDoctorFacet(): DoctorFacet {
   return { dropped_total: 0, groups: [], scanned_at: new Date().toISOString() };
 }

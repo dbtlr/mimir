@@ -437,3 +437,35 @@ is the single id-allocation authority.
   nodes, seeds) the fail-closed tolerant reader and `mimir doctor` (ADR 0017)
   already own it; artifact stems sit outside that snapshot, so their duplicate
   detection is a tracked doctor follow-up rather than an existing guarantee.
+
+## Refinement (2026-07-15, MMR-279): the Store seam survives cutover as the compute core's store-agnostic port
+
+The status banner (2026-07-12, MMR-234) called the two-backend seam "now-retired
+transitional" — true of the **hosting**, imprecise about the **seam**. What
+retired was running two live backends side by side; the `Store` interface did
+not retire with it. It remains the port that keeps the compute core (this
+ADR's pure-derivation core) ignorant of its storage implementor: today
+`store-norn` in production and the MMR-271 `inertStore()` fixture in tests,
+deliberately kept as the extension point should a second real store ever be
+worth building (germination thread MMR-s10, no committed work). Keep-the-seam
+is decided; the per-domain `store.ts`/`norn.ts` module pairs stay split along
+the port boundary rather than collapsing into one file now that only one
+production implementor exists.
+
+Two items this ADR's body and Consequences left open resolve elsewhere and are
+recorded here so this ADR stops pointing at stale risk:
+
+- **NRN-107 is withdrawn, not merely residual.** The body's "Relations
+  denormalize onto the node" bullet flagged a rank-reindex cross-document
+  rollback gap and tracked it as NRN-107. [ADR 0023](0023-concurrency-and-safety-posture.md)'s
+  2026-07-15 refinement settled the question at the posture level: Mimir does
+  not build cross-document rollback, by design — the rare multi-write op uses
+  partial-success-plus-retry, and `doctor` reaps any orphan. NRN-107 is no
+  longer load-bearing for Mimir.
+- **`docs/schema-reference.md` did not become historical.** The Consequences
+  section predicted it would be superseded by Norn's `validate.rules` at
+  cutover. MMR-269 overtook that: it rebuilt the document as the maintained
+  frontmatter contract (entity fields, types, required/optional, defaults,
+  allowed values) instead of retiring it — the living reference Mimir's
+  writer/reader and ADR 0017's validator are built from, not a historical
+  artifact.
