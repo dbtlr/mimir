@@ -359,7 +359,7 @@ export class NornClient {
 
   /**
    * Read named body sections natively (`vault.get { section }`, NRN-102/NRN-173) —
-   * norn slices each `## <heading>` with `edit`'s exact boundary semantics, so a
+   * norn slices each `## <heading>` with the `vault.edit` tool's exact boundary semantics, so a
    * section read mirrors a section write. Returns the `records` array; each record
    * carries a `sections` map (heading → the section's raw markdown, heading line
    * included — decode with {@link import('./decode').pathAndSections}). A heading

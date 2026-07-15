@@ -507,7 +507,6 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   // explicitly sorting projects by key and nodes by (key, numeric seq).
   survivingProjects.sort((a, b) => cmpStr(a.key, b.key));
   survivingNodes.sort((a, b) => (a.key === b.key ? a.seq - b.seq : cmpStr(a.key, b.key)));
-  const nodeDocs = survivingNodes;
 
   const projects: Project[] = survivingProjects.map((p) => ({
     archived_at: str(p.fm.archived_at),
@@ -529,7 +528,7 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     projectFm.set(p.key, p.fm);
     pathByStem.set(p.key, p.path);
   });
-  for (const n of nodeDocs) {
+  for (const n of survivingNodes) {
     nodeFm.set(n.stem, n.fm);
     pathByStem.set(n.stem, n.path);
     const pruned = prunedDependsOnByStem.get(n.stem);
