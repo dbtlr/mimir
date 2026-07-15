@@ -7,15 +7,25 @@ import {
   readDoctorSnapshot,
 } from './snapshot';
 
-test('reads one whole-vault enumeration and derives every document diagnostic input (MMR-241)', async () => {
+test('reads one whole-vault enumeration plus one artifact scan and derives every document diagnostic input (MMR-241, MMR-282)', async () => {
   let findCalls = 0;
   let validateCalls = 0;
-  let findArgs: NornFindArgs | undefined;
+  const findArgs: NornFindArgs[] = [];
   const sectionCalls: { paths: string[]; sections: string[] }[] = [];
   const client = {
     find: (args: NornFindArgs) => {
       findCalls += 1;
-      findArgs = args;
+      findArgs.push(args);
+      // The artifact scan is a distinct, doctor-only find keyed on `type:artifact`;
+      // the work-state enumeration is everything else.
+      if (args.in?.includes('type:artifact')) {
+        return Promise.resolve([
+          {
+            frontmatter: { project: '[[MMR]]', type: 'artifact' },
+            path: 'MMR/artifacts/MMR-a1.md',
+          },
+        ]);
+      }
       return Promise.resolve([
         {
           body: '## History\n',
@@ -52,13 +62,20 @@ test('reads one whole-vault enumeration and derives every document diagnostic in
 
   const snapshot = await readDoctorSnapshot(client);
 
-  expect(findCalls).toBe(1);
+  // Two finds: the work-state enumeration + the distinct artifact scan. Section reads
+  // still derive from the work-state find; artifacts contribute only path + stem.
+  expect(findCalls).toBe(2);
   expect(validateCalls).toBe(1);
-  expect(findArgs).toEqual({
+  expect(findArgs).toContainEqual({
     col: ['.frontmatter', '.body', '.document_hash'],
     in: ['type:project,task,phase,initiative,seed'],
     no_limit: true,
   });
+  expect(findArgs).toContainEqual({
+    in: ['type:artifact'],
+    no_limit: true,
+  });
+  expect(snapshot.artifacts).toEqual([{ path: 'MMR/artifacts/MMR-a1.md', stem: 'MMR-a1' }]);
   expect(sectionCalls).toEqual([
     { paths: ['MMR/MMR.md', 'MMR/MMR-1.md'], sections: ['History'] },
     { paths: ['MMR/MMR-1.md'], sections: ['Annotations'] },
@@ -284,4 +301,28 @@ test('snapshot context scopes document findings by canonical stem while retainin
   expect(ctx.dropped.some((drop) => drop.rule === 'missing-project' && drop.stem === 'BAD-3')).toBe(
     true,
   );
+});
+
+test('snapshot context scopes artifact docs by canonical stem (MMR-282)', async () => {
+  const artifacts = [
+    { path: 'MMR/artifacts/MMR-a1.md', stem: 'MMR-a1' },
+    { path: 'MMR/MMR-a1.md', stem: 'MMR-a1' }, // a misplaced twin, still MMR-scoped
+    { path: 'OTH/artifacts/OTH-a1.md', stem: 'OTH-a1' },
+  ];
+  const base = {
+    documents: [],
+    graph: { nodes: [], projectKeys: [] },
+    sectionFailures: [],
+    validateFindings: [],
+  };
+  const scoped = doctorContextFromSnapshot({ ...base, artifacts }, 'MMR');
+  expect(await scoped.readArtifactDocs()).toEqual([
+    { path: 'MMR/artifacts/MMR-a1.md', stem: 'MMR-a1' },
+    { path: 'MMR/MMR-a1.md', stem: 'MMR-a1' },
+  ]);
+  // Whole-vault (no scope) sees every artifact; a snapshot without the field reads none.
+  const all = doctorContextFromSnapshot({ ...base, artifacts }, undefined);
+  expect(await all.readArtifactDocs()).toHaveLength(3);
+  const none = doctorContextFromSnapshot(base, undefined);
+  expect(await none.readArtifactDocs()).toEqual([]);
 });

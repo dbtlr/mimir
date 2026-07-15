@@ -43,6 +43,10 @@ export const REPAIR_POLICY: Record<DoctorIssueCode, RepairPolicy> = {
   'dangling-parent': { kind: 'skipped', reason: 'semantic-reference' },
   'dangling-spawned': { kind: 'skipped', reason: 'semantic-reference' },
   'dangling-upstream': { kind: 'skipped', reason: 'semantic-reference' },
+  // A duplicate artifact stem is two distinct documents claiming one id — which
+  // survives is a human call, never a doctor mutation (ADR 0023: detect, don't
+  // guard). `--fix` skips it, exactly like the work-state `duplicate-stem` (MMR-282).
+  'duplicate-artifact-stem': { kind: 'skipped', reason: 'ambiguous-identity' },
   'duplicate-stem': { kind: 'skipped', reason: 'ambiguous-identity' },
   'frontmatter-disallowed-value': { kind: 'skipped', reason: 'unreadable-document' },
   'frontmatter-parse-failed': { kind: 'skipped', reason: 'unreadable-document' },

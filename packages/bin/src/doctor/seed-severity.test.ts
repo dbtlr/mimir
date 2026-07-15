@@ -12,6 +12,7 @@ import { seedValidityCheck, upstreamRefCheck } from './checks';
 const ctx = (drop: Drop): DoctorContext => ({
   dropped: [drop],
   projectRefs: [],
+  readArtifactDocs: () => Promise.resolve([]),
   readNodeDocs: () => Promise.resolve([]),
   sectionFailures: [],
   validateFindings: [],

@@ -1,9 +1,17 @@
 import { expect, test } from 'bun:test';
 
+import { parseIdentity } from '../core/ids';
 import type { ProjectDeclaration } from '../core/store-norn';
 import type { Drop } from '../core/validate';
 import type { DoctorContext } from './checks';
-import { CHECKS, frontmatterCheck, RULE_OWNER, seqGapCheck, stemProjectCheck } from './checks';
+import {
+  artifactDuplicateStemCheck,
+  CHECKS,
+  frontmatterCheck,
+  RULE_OWNER,
+  seqGapCheck,
+  stemProjectCheck,
+} from './checks';
 import { REPAIR_POLICY } from './repair';
 
 /**
@@ -54,6 +62,7 @@ function dropOf(rule: Drop['rule']): Drop {
 const ctxWith = (drop: Drop): DoctorContext => ({
   dropped: [drop],
   projectRefs: [],
+  readArtifactDocs: () => Promise.resolve([]),
   readNodeDocs: () => Promise.resolve([]),
   sectionFailures: [],
   validateFindings: [],
@@ -79,6 +88,7 @@ test('every Drop rule renders in exactly one check — the one RULE_OWNER names 
 const stemProjectCtx = (projectRefs: ProjectDeclaration[]): DoctorContext => ({
   dropped: [],
   projectRefs,
+  readArtifactDocs: () => Promise.resolve([]),
   readNodeDocs: () => Promise.resolve([]),
   sectionFailures: [],
   validateFindings: [],
@@ -115,6 +125,7 @@ test('stem-project is silent on a matching project, a missing one, and an unpars
 const frontmatterCtx = (validateFindings: DoctorContext['validateFindings']): DoctorContext => ({
   dropped: [],
   projectRefs: [],
+  readArtifactDocs: () => Promise.resolve([]),
   readNodeDocs: () => Promise.resolve([]),
   sectionFailures: [],
   validateFindings,
@@ -164,14 +175,22 @@ test('frontmatter renders a foreign-`type` node under either norn foreign-value 
 const seqCtx = (
   stems: string[],
   extra: Partial<Pick<DoctorContext, 'dropped' | 'validateFindings'>> = {},
-): DoctorContext => ({
-  dropped: extra.dropped ?? [],
-  projectRefs: [],
-  readNodeDocs: () =>
-    Promise.resolve(stems.map((stem) => ({ body: '', path: `${stem}.md`, stem }))),
-  sectionFailures: [],
-  validateFindings: extra.validateFindings ?? [],
-});
+): DoctorContext => {
+  // Artifact stems (KEY-aN) feed the artifact-only enumeration; everything else
+  // (projects, nodes, seeds) feeds the work-state node read (MMR-282).
+  const artifacts = stems.filter((stem) => parseIdentity(stem)?.kind === 'artifact');
+  const nodes = stems.filter((stem) => parseIdentity(stem)?.kind !== 'artifact');
+  return {
+    dropped: extra.dropped ?? [],
+    projectRefs: [],
+    readArtifactDocs: () =>
+      Promise.resolve(artifacts.map((stem) => ({ path: `${stem}.md`, stem }))),
+    readNodeDocs: () =>
+      Promise.resolve(nodes.map((stem) => ({ body: '', path: `${stem}.md`, stem }))),
+    sectionFailures: [],
+    validateFindings: extra.validateFindings ?? [],
+  };
+};
 
 test('seq-gaps flags an interior node gap and names the missing number (MMR-197)', async () => {
   const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-1', 'MMR-2', 'MMR-4', 'MMR-5']));
@@ -354,4 +373,178 @@ test('seq-gaps still reports a genuinely deleted seq beside a surfaced one (MMR-
   expect(findings).toHaveLength(1);
   expect(findings[0]?.evidence).toMatchObject({ kind: 'node', missing: [3] });
   expect(findings[0]?.message).toContain('likely a hand deletion');
+});
+
+// MMR-282: cross-directory duplicate artifact stems + the artifact arm of seq-gaps.
+// Since MMR-196 a hand-misplaced KEY-aN.md outside KEY/artifacts/ frees its number,
+// so a later create can mint the same stem canonically → two docs, one id.
+const artifactCtx = (
+  artifacts: { stem: string; path: string }[],
+  extra: Partial<Pick<DoctorContext, 'validateFindings'>> = {},
+): DoctorContext => ({
+  dropped: [],
+  projectRefs: [],
+  readArtifactDocs: () => Promise.resolve(artifacts),
+  readNodeDocs: () => Promise.resolve([]),
+  sectionFailures: [],
+  validateFindings: extra.validateFindings ?? [],
+});
+
+test('artifact-duplicate-stems flags one stem at two directories with both paths in evidence (MMR-282)', async () => {
+  const findings = await artifactDuplicateStemCheck.run(
+    artifactCtx([
+      { path: 'MMR/artifacts/MMR-a2.md', stem: 'MMR-a2' },
+      { path: 'MMR/MMR-a2.md', stem: 'MMR-a2' }, // misplaced twin
+    ]),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'artifact-duplicate-stems',
+    code: 'duplicate-artifact-stem',
+    node: 'MMR-a2',
+    scopeKey: 'MMR',
+    severity: 'error',
+  });
+  // Both physical paths are in the evidence, sorted (localeCompare) for determinism.
+  expect(findings[0]?.evidence.paths).toEqual(['MMR/artifacts/MMR-a2.md', 'MMR/MMR-a2.md']);
+  expect(findings[0]?.message).toContain('MMR/MMR-a2.md');
+  expect(findings[0]?.message).toContain('MMR/artifacts/MMR-a2.md');
+  // The locator is a real .md path so the facet/diagnosis anchor it to a file.
+  expect(findings[0]?.locator.endsWith('.md')).toBe(true);
+});
+
+test('artifact-duplicate-stems is silent on a canonical-only vault (MMR-282)', async () => {
+  const findings = await artifactDuplicateStemCheck.run(
+    artifactCtx([
+      { path: 'MMR/artifacts/MMR-a1.md', stem: 'MMR-a1' },
+      { path: 'MMR/artifacts/MMR-a2.md', stem: 'MMR-a2' },
+      { path: 'OTH/artifacts/OTH-a1.md', stem: 'OTH-a1' },
+    ]),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('artifact-duplicate-stems ignores a type:artifact doc at a non-artifact filename (MMR-282)', async () => {
+  // A doc bearing type:artifact but not a KEY-aN filename is a different corruption
+  // class (its stem does not parse as an artifact identity) — not this finding.
+  const findings = await artifactDuplicateStemCheck.run(
+    artifactCtx([
+      { path: 'MMR/artifacts/notes.md', stem: 'notes' },
+      { path: 'MMR/notes.md', stem: 'notes' },
+    ]),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('duplicate-artifact-stem is never repaired by --fix (MMR-282)', () => {
+  // Detection only, per ADR 0023: which of two distinct documents survives is a
+  // human call, so --fix skips it exactly like the work-state duplicate-stem.
+  expect(REPAIR_POLICY['duplicate-artifact-stem']).toEqual({
+    kind: 'skipped',
+    reason: 'ambiguous-identity',
+  });
+});
+
+test('seq-gaps flags an interior artifact gap over the same pass (MMR-282)', async () => {
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-a1', 'MMR-a3']));
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'seq-gaps',
+    code: 'interior-seq-gap',
+    node: 'MMR',
+    scopeKey: 'MMR',
+    severity: 'warn',
+    where: 'artifact sequence',
+  });
+  expect(findings[0]?.evidence).toMatchObject({ kind: 'artifact', max: 3, missing: [2] });
+  expect(findings[0]?.message).toContain('artifact sequence');
+});
+
+test('seq-gaps: a misplaced artifact still occupies its number — no phantom gap (MMR-282)', async () => {
+  // MMR-a2 sits OUTSIDE KEY/artifacts/ (the duplicate check owns that story), yet it
+  // still occupies seq 2 here, so {1,2,3} has no interior gap. Occupied = any doc
+  // bearing the stem ANYWHERE, matching how the duplicate check sees them.
+  const findings = await seqGapCheck.run(
+    artifactCtx([
+      { path: 'MMR/artifacts/MMR-a1.md', stem: 'MMR-a1' },
+      { path: 'MMR/MMR-a2.md', stem: 'MMR-a2' }, // misplaced, still occupies 2
+      { path: 'MMR/artifacts/MMR-a3.md', stem: 'MMR-a3' },
+    ]),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('seq-gaps: a present-but-unreadable artifact seq is occupied, not a gap (MMR-282)', async () => {
+  // MMR-a2 fails to parse, so the type:artifact enumeration excludes it; norn's schema
+  // pass sees it by path (KEY/artifacts/KEY-aN.md → workStateStem), so it is occupied,
+  // not a hand-deletion gap. {1,(2),3} → no finding.
+  const findings = await seqGapCheck.run(
+    artifactCtx(
+      [
+        { path: 'MMR/artifacts/MMR-a1.md', stem: 'MMR-a1' },
+        { path: 'MMR/artifacts/MMR-a3.md', stem: 'MMR-a3' },
+      ],
+      { validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/artifacts/MMR-a2.md' }] },
+    ),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('seq-gaps reports node and artifact gaps for one project independently (MMR-282)', async () => {
+  // A node gap at 2 and an artifact gap at 2, same project, distinct groups.
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-1', 'MMR-3', 'MMR-a1', 'MMR-a3']));
+  expect(findings).toHaveLength(2);
+  // Deterministic order: artifact before node (kind localeCompare).
+  expect(findings.map((f) => f.evidence.kind)).toEqual(['artifact', 'node']);
+  expect(findings.every((f) => f.node === 'MMR' && f.severity === 'warn')).toBe(true);
+});
+
+test('seq-gaps: a type:artifact doc named like a node does not occupy the node slot (MMR-282)', async () => {
+  // Enrollment is by FEED kind, not by the stem's shape. Nodes MMR-1..4 + MMR-6 leave a
+  // genuine node gap at 5; a `type: artifact` doc at MMR/MMR-5.md arrives on the artifact
+  // feed with a node-shaped stem. That doc holds NO node identity, so it must not occupy
+  // node slot 5 and mask the gap (kind-agnostic enrollment would — the pre-fix bug).
+  const ctx: DoctorContext = {
+    dropped: [],
+    projectRefs: [],
+    readArtifactDocs: () => Promise.resolve([{ path: 'MMR/MMR-5.md', stem: 'MMR-5' }]),
+    readNodeDocs: () =>
+      Promise.resolve(
+        ['MMR', 'MMR-1', 'MMR-2', 'MMR-3', 'MMR-4', 'MMR-6'].map((stem) => ({
+          body: '',
+          path: `${stem}.md`,
+          stem,
+        })),
+      ),
+    sectionFailures: [],
+    validateFindings: [],
+  };
+  const findings = await seqGapCheck.run(ctx);
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ check: 'seq-gaps', node: 'MMR', where: 'node sequence' });
+  expect(findings[0]?.evidence).toMatchObject({ kind: 'node', max: 6, missing: [5] });
+});
+
+test('seq-gaps: a work-state doc named like an artifact does not occupy the artifact slot (MMR-282)', async () => {
+  // The symmetric direction: artifacts MMR-a1..a4 + MMR-a6 leave a genuine artifact gap at
+  // 5; a work-state doc at MMR/MMR-a5.md arrives on the node feed with an artifact-shaped
+  // stem and must not occupy artifact slot 5.
+  const ctx: DoctorContext = {
+    dropped: [],
+    projectRefs: [],
+    readArtifactDocs: () =>
+      Promise.resolve(
+        ['MMR-a1', 'MMR-a2', 'MMR-a3', 'MMR-a4', 'MMR-a6'].map((stem) => ({
+          path: `MMR/artifacts/${stem}.md`,
+          stem,
+        })),
+      ),
+    readNodeDocs: () => Promise.resolve([{ body: '', path: 'MMR/MMR-a5.md', stem: 'MMR-a5' }]),
+    sectionFailures: [],
+    validateFindings: [],
+  };
+  const findings = await seqGapCheck.run(ctx);
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ node: 'MMR', where: 'artifact sequence' });
+  expect(findings[0]?.evidence).toMatchObject({ kind: 'artifact', max: 6, missing: [5] });
 });

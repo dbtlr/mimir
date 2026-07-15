@@ -19,6 +19,13 @@ export type DoctorContext = {
   /** Every work-state document's raw markdown and exact path — filtered to
    * `-s` by canonical stem after a whole-vault enumeration (MMR-240). */
   readNodeDocs: () => Promise<{ stem: string; body: string; path: string }[]>;
+  /** Every artifact document's path + stem, from a doctor-only `type:artifact`
+   * enumeration (MMR-282) the hot working-set load never runs — artifacts carry
+   * `type: artifact`, absent from the work-state snapshot every other check reads.
+   * Filtered to `-s` by canonical stem in the runner, like {@link readNodeDocs}.
+   * The input for the artifact-duplicate-stem check and the artifact arm of the
+   * seq-gap check (both fold in over this one extra find). */
+  readArtifactDocs: () => Promise<{ stem: string; path: string }[]>;
   /** The shared validator's `dropped[]` over the whole-vault graph — computed
    * once by the runner and fed to every referential check, so the four checks
    * that render `dropped[]` (dangling / missing-project / acyclicity / field
@@ -79,6 +86,7 @@ export type DoctorIssueCode =
   | Drop['rule']
   | BodyRecordProblem
   | 'crlf-body'
+  | 'duplicate-artifact-stem'
   | 'frontmatter-disallowed-value'
   | 'frontmatter-parse-failed'
   | 'frontmatter-required-field-missing'
@@ -722,6 +730,69 @@ export const sectionResolutionCheck: Diagnostic = {
   title: 'Body-section resolution',
 };
 
+/**
+ * Cross-directory duplicate artifact stems (MMR-282). Since MMR-196 an artifact's
+ * `{{seq}}` resolves next-free by filename WITHIN the create's target directory
+ * (`KEY/artifacts/`), so a hand-misplaced or externally-moved `KEY-aN.md` outside
+ * that directory no longer occupies its number — a later create can mint the SAME
+ * stem canonically, leaving two documents that claim one artifact id. Work-state
+ * identities (projects, nodes, seeds) are fail-closed by the tolerant reader and
+ * covered by {@link identityUniquenessCheck}; artifacts read verbatim (the artifact
+ * store never dedups by stem), so nothing catches this at the reader — hence the
+ * dedicated check (ADR 0016 MMR-196 refinement; ADR 0023 — detect, never guard the
+ * allocator). An `error`: the point-read seam (`load(key, seq)`) resolves ONLY the
+ * canonical `KEY/artifacts/KEY-aN.md` path, so a misplaced twin is hidden on read
+ * (while a listing shows both) — data hidden on read, the `error` contract. Never
+ * repairable — the two bodies are distinct artifacts, so which survives is a human
+ * call (REPAIR_POLICY skips it as `ambiguous-identity`, like `duplicate-stem`).
+ *
+ * Detection reads the doctor-only artifact enumeration and groups by stem; a stem
+ * at ≥2 paths is a finding, with every path in evidence. Honors `-s` like the other
+ * per-document checks (`readArtifactDocs` is pre-scoped by canonical stem). Only
+ * stems that parse as a `KEY-aN` artifact identity are grouped — a `type: artifact`
+ * doc at a non-artifact filename is a different corruption class, not this one.
+ *
+ * Identity is the STEM, not the type or the path (MMR-198 — the stem identifies, the
+ * path merely locates). So a `type: artifact` document whose filename does not parse
+ * as `KEY-aN` holds no artifact identity: it neither duplicates another artifact nor
+ * occupies a seq slot — it is out of this check's (and the seq-gap arm's) scope by the
+ * identity rule, however it is typed.
+ */
+export const artifactDuplicateStemCheck: Diagnostic = {
+  name: 'artifact-duplicate-stems',
+  run: async (ctx) => {
+    const pathsByStem = new Map<string, string[]>();
+    for (const { path, stem } of await ctx.readArtifactDocs()) {
+      if (parseIdentity(stem)?.kind !== 'artifact') {
+        continue;
+      }
+      pathsByStem.set(stem, [...(pathsByStem.get(stem) ?? []), path]);
+    }
+    const findings: DoctorFinding[] = [];
+    for (const [stem, paths] of pathsByStem) {
+      if (paths.length < 2) {
+        continue;
+      }
+      const sorted = [...paths].toSorted((a, b) => a.localeCompare(b));
+      findings.push(
+        issue({
+          check: 'artifact-duplicate-stems',
+          code: 'duplicate-artifact-stem',
+          evidence: { paths: sorted },
+          locator: sorted[0] ?? stem,
+          message: `duplicate artifact stem ${stem} at ${sorted.join(', ')} — one id resolves to more than one document (a hand-misplaced or externally-moved file); the canonical KEY/artifacts path shadows the other on read`,
+          node: stem,
+          severity: 'error' as const,
+          where: sorted[0] ?? stem,
+        }),
+      );
+    }
+    // Deterministic report order regardless of enumeration order.
+    return findings.toSorted((a, b) => a.node.localeCompare(b.node));
+  },
+  title: 'Artifact identity uniqueness',
+};
+
 /** Bound the enumerated missing-seq list so a pathological project (one whose
  * numbering was decimated by hand) still renders one readable line rather than
  * thousands of numbers; past the cap the finding names the overflow count only. */
@@ -755,12 +826,17 @@ const SEQ_GAP_EVIDENCE_CAP = 32;
  * hole beside a covered seq is still reported. Only the residual — a number no
  * surviving record or finding accounts for — is reported.
  *
- * Scans NODE and SEED sequences only. Both are enumerated by the one whole-vault
- * snapshot (`type:project,task,phase,initiative,seed`) and allocate identically
- * since MMR-196, so covering seeds is free. ARTIFACTS (`KEY-aN`) allocate the same
- * way but carry `type: artifact`, absent from that enumeration — the doctor
- * snapshot never reads them, so an artifact-gap check would need a whole new vault
- * pass. That is disproportionate to the data flow, so artifacts are out of scope.
+ * Scans NODE, SEED, and ARTIFACT sequences. Nodes/seeds come from the one
+ * whole-vault work-state snapshot; artifacts (`KEY-aN`, `type: artifact`, absent
+ * from that snapshot) fold in over the doctor-only `readArtifactDocs` enumeration
+ * MMR-282 already reads for the duplicate-stem check — so covering artifacts is
+ * free once that find exists (MMR-197's exclusion, annotated to land here). All
+ * three allocate identically since MMR-196. Per the allocation directory, a seq is
+ * OCCUPIED by any document bearing that stem ANYWHERE (canonical or misplaced),
+ * matching how {@link artifactDuplicateStemCheck} sees them: a misplaced doc still
+ * occupies its number here, so it never invents a phantom gap; the DUPLICATE check
+ * owns the misplacement story, and a genuine hole (a number no document accounts
+ * for) is what this reports.
  *
  * The delete-max-then-create edge closes its own gap — the next create reuses the
  * freed top number — and is knowingly undetectable after the fact (ADR 0017); a
@@ -779,14 +855,20 @@ export const seqGapCheck: Diagnostic = {
     // member of its group, never a hand-deletion gap: it suppresses a phantom gap AND
     // counts toward the group's max and existence. A duplicate physical doc for one
     // stem contributes its seq once (a Set), so a collision is not a gap.
-    const groups = new Map<string, { key: string; kind: 'node' | 'seed'; seqs: Set<number> }>();
+    const groups = new Map<
+      string,
+      { key: string; kind: 'node' | 'seed' | 'artifact'; seqs: Set<number> }
+    >();
     const occupy = (stem: string | null): void => {
       if (stem === null) {
         return;
       }
       const identity = parseIdentity(stem);
-      if (identity === null || (identity.kind !== 'node' && identity.kind !== 'seed')) {
-        return; // a project doc (no seq), an artifact (unenumerated), or an unparseable stem
+      if (
+        identity === null ||
+        (identity.kind !== 'node' && identity.kind !== 'seed' && identity.kind !== 'artifact')
+      ) {
+        return; // a project doc (no seq) or an unparseable stem
       }
       const groupKey = `${identity.key}\0${identity.kind}`;
       const group = groups.get(groupKey);
@@ -801,13 +883,38 @@ export const seqGapCheck: Diagnostic = {
       }
     };
     const scopedKeys = new Set<string>();
-    for (const { stem } of await ctx.readNodeDocs()) {
-      occupy(stem);
-      const identity = parseIdentity(stem);
-      if (identity !== null) {
+    // Enroll one doc feed's stems into their seq groups, RESTRICTED to the kinds that
+    // feed legitimately carries: the work-state read enrolls node/seed stems, the
+    // artifact read enrolls artifact stems (MMR-282). The kind gate is the correctness
+    // point — the seq namespaces are per-kind, but the enrollment source is a doc's
+    // `type`, not its filename. A `type: artifact` doc NAMED like a node (`MMR/MMR-5.md`)
+    // arrives on the artifact feed with a node-shaped stem; enrolling it kind-agnostically
+    // would occupy NODE slot 5 and mask a genuine node hand-deletion gap (and symmetrically
+    // a work-state doc named `MMR-a5.md` would mask an artifact gap). Every enrolled key
+    // still joins `scopedKeys` regardless of kind — both feeds are pre-scoped, so their keys
+    // are in scope — to gate the whole-vault dup drops below.
+    const enroll = (
+      docs: readonly { stem: string }[],
+      kinds: ReadonlySet<'node' | 'seed' | 'artifact'>,
+    ): void => {
+      for (const { stem } of docs) {
+        const identity = parseIdentity(stem);
+        if (identity === null) {
+          continue;
+        }
         scopedKeys.add(identity.key);
+        if (
+          (identity.kind === 'node' || identity.kind === 'seed' || identity.kind === 'artifact') &&
+          kinds.has(identity.kind)
+        ) {
+          occupy(stem);
+        }
       }
-    }
+    };
+    const WORK_STATE_KINDS: ReadonlySet<'node' | 'seed' | 'artifact'> = new Set(['node', 'seed']);
+    const ARTIFACT_KINDS: ReadonlySet<'node' | 'seed' | 'artifact'> = new Set(['artifact']);
+    enroll(await ctx.readNodeDocs(), WORK_STATE_KINDS);
+    enroll(await ctx.readArtifactDocs(), ARTIFACT_KINDS);
     for (const drop of ctx.dropped) {
       // Only an identity drop (a `duplicate-stem`) is a doc physically on disk yet
       // EXCLUDED from the type-filtered snapshot — its seq occupies a slot the
@@ -1048,5 +1155,6 @@ export const CHECKS: readonly Diagnostic[] = [
   frontmatterCheck,
   stemProjectCheck,
   sectionResolutionCheck,
+  artifactDuplicateStemCheck,
   seqGapCheck,
 ];

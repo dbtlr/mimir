@@ -79,6 +79,21 @@ function seed(relPath: string, contents: string): void {
   writeFileSync(full, contents);
 }
 
+/** A minimal valid `type: artifact` document — the MMR-282 duplicate-stem seam. */
+function artifactDoc(title: string): string {
+  return [
+    '---',
+    'type: artifact',
+    `title: ${title}`,
+    'project: MMR',
+    'created: 2026-07-15T00:00:00.000Z',
+    '---',
+    '',
+    title,
+    '',
+  ].join('\n');
+}
+
 describe.skipIf(!NORN)('/api/doctor', () => {
   test('a clean vault yields no groups and no dropped records', async () => {
     server = createServer(store, {
@@ -187,6 +202,29 @@ describe.skipIf(!NORN)('/api/doctor', () => {
     // is present even though the reader can't parse the frontmatter.
     const malformed = mmr?.records.find((r) => r.cause === 'malformed frontmatter');
     expect(malformed?.snippet).not.toBeNull();
+  });
+
+  test('a cross-directory duplicate artifact stem surfaces as a dropped record (MMR-282)', async () => {
+    // The canonical artifact and a hand-misplaced twin outside KEY/artifacts/ — both
+    // claim MMR-a1, the window MMR-196's per-directory allocation opened.
+    seed('MMR/artifacts/MMR-a1.md', artifactDoc('canonical'));
+    seed('MMR/MMR-a1.md', artifactDoc('misplaced'));
+
+    server = createServer(store, {
+      doctor: doctorProvider(),
+      hunt: false,
+      port: 0,
+      version: 'test',
+    });
+    base = `http://127.0.0.1:${String(server.port)}`;
+    const facet = (await (await fetch(`${base}/api/doctor`)).json()) as {
+      dropped_total: number;
+      groups: { project: string; records: { id: string; cause: string }[] }[];
+    };
+    expect(facet.dropped_total).toBeGreaterThanOrEqual(1);
+    const mmr = facet.groups.find((g) => g.project === 'MMR');
+    const dup = mmr?.records.find((r) => r.cause === 'duplicate artifact');
+    expect(dup?.id).toBe('MMR-a1');
   });
 
   test('?project scopes the facet to one project group', async () => {
