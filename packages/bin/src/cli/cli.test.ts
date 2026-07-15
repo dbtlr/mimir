@@ -925,14 +925,25 @@ describe.skipIf(!NORN)('doctor issue-count trailer on next/list (MMR-184)', () =
     expect(listIo.err.join('')).toBe('');
   });
 
-  test('machine formats (json/jsonl/ids) keep stdout clean while the trailer still fires on stderr', async () => {
+  test('the ids format keeps the prose trailer on stderr while stdout stays clean', async () => {
     await seedOneDrop();
-    for (const format of ['json', 'jsonl', 'ids'] as const) {
+    const io = fakeIo(true);
+    const code = await runCli(['list', '--scope', 'MMR', '-f', 'ids'], () => fixture.store, io);
+    expect(code).toBe(0);
+    expect(io.out.join('')).not.toContain('issue');
+    expect(io.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
+  });
+
+  test('json/jsonl formats emit a JSON-shaped trailer line on stderr, mirroring the warning envelope', async () => {
+    await seedOneDrop();
+    for (const format of ['json', 'jsonl'] as const) {
       const io = fakeIo(true);
       const code = await runCli(['list', '--scope', 'MMR', '-f', format], () => fixture.store, io);
       expect(code).toBe(0);
       expect(io.out.join('')).not.toContain('issue');
-      expect(io.err.join('')).toContain('run mimir doctor');
+      const trailer = parseJson<{ warning: string; issueCount: number }>(io.err.join(''));
+      expect(trailer.warning).toBe('1 issue — run mimir doctor');
+      expect(trailer.issueCount).toBe(1);
     }
   });
 
@@ -952,5 +963,32 @@ describe.skipIf(!NORN)('doctor issue-count trailer on next/list (MMR-184)', () =
     const code = await runCli(['list', '--scope', 'MMR'], () => fixture.store, io);
     expect(code).toBe(0);
     expect(io.err.join('')).toContain('[warn] 2 issues — run mimir doctor');
+  });
+
+  /** The tally is the whole-vault working-set count (MMR-184), not scoped to
+   * the selection: corruption lives entirely in project OTH, but a `next`/
+   * `list` scoped to the pristine project MMR still carries the trailer. If
+   * the count ever becomes scope-local this must fail. */
+  test('the trailer reflects the whole-vault tally even when the scoped project is clean', async () => {
+    await createProject(fixture.store, { key: 'MMR', name: 'm' });
+    const init = await createInitiative(fixture.store, { projectId: 'MMR', title: 'i' });
+    const phase = await createPhase(fixture.store, { parentId: init.id, title: 'ph' });
+    await createTask(fixture.store, { parentId: phase.id, title: 't' });
+
+    await createProject(fixture.store, { key: 'OTH', name: 'o' });
+    const otherInit = await createInitiative(fixture.store, { projectId: 'OTH', title: 'i' });
+    const otherPhase = await createPhase(fixture.store, { parentId: otherInit.id, title: 'ph' });
+    await createTask(fixture.store, { parentId: otherPhase.id, title: 't' });
+    fixture.corruptDocument(`OTH/${otherPhase.id}.md`, (raw) =>
+      raw.replace(/^parent:.*$/m, 'parent: "[[OTH-999]]"'),
+    );
+
+    const nextIo = fakeIo(true);
+    expect(await runCli(['next', '--scope', 'MMR'], () => fixture.store, nextIo)).toBe(0);
+    expect(nextIo.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
+
+    const listIo = fakeIo(true);
+    expect(await runCli(['list', '--scope', 'MMR'], () => fixture.store, listIo)).toBe(0);
+    expect(listIo.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
   });
 });

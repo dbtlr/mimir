@@ -386,6 +386,10 @@ export async function runCli(
             ['distribution', 'tags'],
             'archived',
           );
+          // No issueCount here by design (MMR-184): this is a project-shelf
+          // resource, not a node working set — threading the doctor tally
+          // through would widen listProjects' cross-transport shape for a
+          // nudge, which is disproportionate.
           return runSet(
             { items: projects, returned: projects.length, startsAt: 0, total: projects.length },
             values.format,
@@ -809,8 +813,16 @@ function runSet(
   // off the tolerant reader's own drop tally for this load — never a fresh
   // `mimir doctor` pass. Unconditional of format (stdout stays a clean machine
   // contract either way) and silent at zero, matching the rare-condition cost bar.
+  // Machine formats (json/jsonl) follow renderWarnings' convention: a JSON
+  // object line on stderr rather than the prose glyph line, so the stream
+  // stays parseable.
   if (result.issueCount !== undefined && result.issueCount > 0) {
-    warn(io, `${countLine(result.issueCount, 'issue')} — run mimir doctor`);
+    const message = `${countLine(result.issueCount, 'issue')} — run mimir doctor`;
+    if (format === 'json' || format === 'jsonl') {
+      io.error(JSON.stringify({ issueCount: result.issueCount, warning: message }));
+    } else {
+      warn(io, message);
+    }
   }
   switch (format) {
     case 'ids': {
