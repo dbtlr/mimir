@@ -47,6 +47,10 @@ export const REPAIR_POLICY: Record<DoctorIssueCode, RepairPolicy> = {
   'frontmatter-disallowed-value': { kind: 'skipped', reason: 'unreadable-document' },
   'frontmatter-parse-failed': { kind: 'skipped', reason: 'unreadable-document' },
   'frontmatter-required-field-missing': { kind: 'skipped', reason: 'unreadable-document' },
+  // A seq gap is deletion evidence, not repairable structure: `--fix` must not
+  // touch it (recovery is `git revert`, ADR 0017). Informational, like the other
+  // non-corruption warning (`archived-requester`).
+  'interior-seq-gap': { kind: 'skipped', reason: 'non-corruption-warning' },
   'invalid-hold': { kind: 'skipped', reason: 'invalid-semantic-value' },
   'invalid-lifecycle': { kind: 'skipped', reason: 'invalid-semantic-value' },
   'invalid-open-ended': { kind: 'skipped', reason: 'invalid-semantic-value' },

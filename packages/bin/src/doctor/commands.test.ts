@@ -135,7 +135,7 @@ test('an unescaped heading inside a valid reason is a warn, not an error (MMR-16
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
-    vaultOf([{ body: TOLERATED_HASH_DOC, stem: 'MMR-9' }]),
+    vaultOf([{ body: TOLERATED_HASH_DOC, stem: 'MMR-1' }]),
     'json',
     undefined,
   );
@@ -149,7 +149,7 @@ test('json format emits a pretty findings array on stdout, exit 0 on an error', 
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
-    vaultOf([{ body: ERROR_DOC, stem: 'MMR-9' }]),
+    vaultOf([{ body: ERROR_DOC, stem: 'MMR-1' }]),
     'json',
     undefined,
   );
@@ -158,7 +158,7 @@ test('json format emits a pretty findings array on stdout, exit 0 on an error', 
   expect(out).toContain('\n  '); // 2-space pretty-printed, not compact
   const findings = JSON.parse(out) as { node: string; check: string; severity: string }[];
   expect(findings).toHaveLength(1);
-  expect(findings[0]).toMatchObject({ check: 'body-sections', node: 'MMR-9', severity: 'error' });
+  expect(findings[0]).toMatchObject({ check: 'body-sections', node: 'MMR-1', severity: 'error' });
 });
 
 test('jsonl format emits one finding per line (NDJSON), not a single array', async () => {
@@ -166,8 +166,8 @@ test('jsonl format emits one finding per line (NDJSON), not a single array', asy
   const code = await cmdDoctor(
     io,
     vaultOf([
-      { body: ERROR_DOC, stem: 'MMR-9' },
-      { body: WARN_DOC, stem: 'MMR-8' },
+      { body: ERROR_DOC, stem: 'MMR-1' },
+      { body: WARN_DOC, stem: 'MMR-2' },
     ]),
     'jsonl',
     undefined,
@@ -176,7 +176,7 @@ test('jsonl format emits one finding per line (NDJSON), not a single array', asy
   const lines = io.out.join('').split('\n');
   expect(lines).toHaveLength(2);
   const parsed = lines.map((l) => JSON.parse(l) as { node: string });
-  expect(parsed.map((p) => p.node).toSorted()).toEqual(['MMR-8', 'MMR-9']);
+  expect(parsed.map((p) => p.node).toSorted()).toEqual(['MMR-1', 'MMR-2']);
 });
 
 test('the -s scope keeps the project and its nodes, dropping other projects', async () => {
@@ -184,7 +184,7 @@ test('the -s scope keeps the project and its nodes, dropping other projects', as
   const code = await cmdDoctor(
     io,
     vaultOf([
-      { body: ERROR_DOC, stem: 'MMR-9' }, // in scope
+      { body: ERROR_DOC, stem: 'MMR-1' }, // in scope
       { body: ERROR_DOC, stem: 'MMR' }, // the project itself — in scope
       { body: ERROR_DOC, stem: 'OTH-3' }, // other project — filtered out
     ]),
@@ -193,7 +193,7 @@ test('the -s scope keeps the project and its nodes, dropping other projects', as
   );
   expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as { node: string }[];
-  expect(findings.map((f) => f.node).toSorted()).toEqual(['MMR', 'MMR-9']);
+  expect(findings.map((f) => f.node).toSorted()).toEqual(['MMR', 'MMR-1']);
 });
 
 test('CLI reads one whole-vault snapshot, then filters per-document diagnostics by canonical stem (MMR-240, MMR-241)', async () => {
@@ -219,7 +219,7 @@ test('corrupt project projections cannot hide per-document findings from canonic
     {
       body: ERROR_DOC.replaceAll('\n', '\r\n'),
       projectedProject: 'OTH',
-      stem: 'MMR-9',
+      stem: 'MMR-1',
     },
     {
       body: ERROR_DOC,
@@ -258,7 +258,7 @@ test('corrupt project projections cannot hide per-document findings from canonic
     'crlf',
     'section-resolution',
   ]);
-  expect(findings.every((finding) => finding.node === 'MMR-9')).toBe(true);
+  expect(findings.every((finding) => finding.node === 'MMR-1')).toBe(true);
 });
 
 test('a section-resolution failure is an error alert, exit 0 non-gating (MMR-239)', async () => {
@@ -267,8 +267,8 @@ test('a section-resolution failure is an error alert, exit 0 non-gating (MMR-239
     io,
     // A clean body, but norn could not resolve the History section (a duplicate or
     // missing heading) — the read degrades to empty, surfaced as an error.
-    vaultOf([{ body: renderNodeBody('a task'), stem: 'MMR-9' }], undefined, undefined, undefined, [
-      { section: 'History', stem: 'MMR-9' },
+    vaultOf([{ body: renderNodeBody('a task'), stem: 'MMR-1' }], undefined, undefined, undefined, [
+      { section: 'History', stem: 'MMR-1' },
     ]),
     'json',
     undefined,
@@ -283,7 +283,7 @@ test('a section-resolution failure is an error alert, exit 0 non-gating (MMR-239
   expect(findings).toHaveLength(1);
   expect(findings[0]).toMatchObject({
     check: 'section-resolution',
-    node: 'MMR-9',
+    node: 'MMR-1',
     severity: 'error',
     where: 'body · History',
   });
@@ -315,7 +315,7 @@ test('a body with CRLF line endings is a non-gating warn (exit 0) with a count',
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
-    vaultOf([{ body: 'line one\r\nline two\r\n', stem: 'MMR-2' }]),
+    vaultOf([{ body: 'line one\r\nline two\r\n', stem: 'MMR-1' }]),
     'json',
     undefined,
   );
@@ -330,7 +330,7 @@ test('a body with CRLF line endings is a non-gating warn (exit 0) with a count',
   expect(findings).toHaveLength(1);
   expect(findings[0]).toMatchObject({
     check: 'crlf',
-    node: 'MMR-2',
+    node: 'MMR-1',
     severity: 'warn',
     where: 'body',
   });
@@ -341,7 +341,7 @@ test('an all-LF body raises no CRLF finding', async () => {
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
-    vaultOf([{ body: 'line one\nline two\n', stem: 'MMR-2' }]),
+    vaultOf([{ body: 'line one\nline two\n', stem: 'MMR-1' }]),
     'json',
     undefined,
   );

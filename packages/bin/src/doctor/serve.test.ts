@@ -14,8 +14,8 @@ test('a scoped facet reads one whole-vault snapshot and filters by canonical ste
           {
             body: 'line one\r\nline two\r\n',
             documentHash: 'hash-1',
-            path: 'MMR/MMR-9.md',
-            stem: 'MMR-9',
+            path: 'MMR/MMR-1.md',
+            stem: 'MMR-1',
           },
           {
             body: 'line one\r\nline two\r\n',
@@ -26,7 +26,7 @@ test('a scoped facet reads one whole-vault snapshot and filters by canonical ste
         ],
         graph: { nodes: [], projectKeys: [] },
         sectionFailures: [
-          { path: 'MMR/MMR-9.md', section: 'History', stem: 'MMR-9' },
+          { path: 'MMR/MMR-1.md', section: 'History', stem: 'MMR-1' },
           { path: 'OTH/OTH-5.md', section: 'History', stem: 'OTH-5' },
         ],
         validateFindings: [],
@@ -38,7 +38,7 @@ test('a scoped facet reads one whole-vault snapshot and filters by canonical ste
 
   expect(reads).toBe(1);
   expect(facet.groups.map((group) => group.project)).toEqual(['MMR']);
-  expect(facet.groups[0]?.records.every((record) => record.id === 'MMR-9')).toBe(true);
+  expect(facet.groups[0]?.records.every((record) => record.id === 'MMR-1')).toBe(true);
   expect(facet.groups[0]?.records.map((record) => record.cause).toSorted()).toEqual([
     'CRLF line endings',
     'unreadable section',
@@ -81,20 +81,20 @@ test('duplicate logical stems never receive arbitrary physical raw enrichment', 
   const deps: DoctorFacetDeps = {
     readRaw: (paths) => {
       rawPaths.push(paths);
-      return Promise.resolve([{ path: 'MMR/MMR-9.md', raw: 'title: arbitrary\n' }]);
+      return Promise.resolve([{ path: 'MMR/MMR-1.md', raw: 'title: arbitrary\n' }]);
     },
     readSnapshot: () =>
       Promise.resolve({
         documents: [
-          { body: 'one\r\n', documentHash: 'a', path: 'MMR/MMR-9.md', stem: 'MMR-9' },
-          { body: 'two\r\n', documentHash: 'b', path: 'archive/MMR-9.md', stem: 'MMR-9' },
+          { body: 'one\r\n', documentHash: 'a', path: 'MMR/MMR-1.md', stem: 'MMR-1' },
+          { body: 'two\r\n', documentHash: 'b', path: 'archive/MMR-1.md', stem: 'MMR-1' },
         ],
         graph: {
           nodes: [],
           projectKeys: ['MMR'],
           sources: [
-            { kind: 'node', path: 'MMR/MMR-9.md', stem: 'MMR-9' },
-            { kind: 'node', path: 'archive/MMR-9.md', stem: 'MMR-9' },
+            { kind: 'node', path: 'MMR/MMR-1.md', stem: 'MMR-1' },
+            { kind: 'node', path: 'archive/MMR-1.md', stem: 'MMR-1' },
           ],
         },
         sectionFailures: [],
@@ -111,7 +111,7 @@ test('duplicate logical stems never receive arbitrary physical raw enrichment', 
       .filter((record) => record.cause === 'CRLF line endings')
       .map((record) => record.path)
       .toSorted(),
-  ).toEqual(['MMR/MMR-9.md', 'archive/MMR-9.md']);
+  ).toEqual(['MMR/MMR-1.md', 'archive/MMR-1.md']);
 });
 
 test('a malformed canonical duplicate prevents enrichment of a visible relocated stem', async () => {

@@ -3,7 +3,8 @@ import { expect, test } from 'bun:test';
 import type { ProjectDeclaration } from '../core/store-norn';
 import type { Drop } from '../core/validate';
 import type { DoctorContext } from './checks';
-import { CHECKS, frontmatterCheck, RULE_OWNER, stemProjectCheck } from './checks';
+import { CHECKS, frontmatterCheck, RULE_OWNER, seqGapCheck, stemProjectCheck } from './checks';
+import { REPAIR_POLICY } from './repair';
 
 /**
  * MMR-209: the drop→check partition is total and non-overlapping — every
@@ -155,4 +156,89 @@ test('frontmatter renders a foreign-`type` node under either norn foreign-value 
   );
   expect(legacy).toHaveLength(1);
   expect(legacy[0]).toMatchObject({ node: 'MMR-6', where: 'frontmatter · type' });
+});
+
+// MMR-197: interior seq gaps — a missing number below a project's max seq is
+// durable evidence of a hand deletion (Mimir never reuses a seq).
+const seqCtx = (stems: string[]): DoctorContext => ({
+  dropped: [],
+  projectRefs: [],
+  readNodeDocs: () =>
+    Promise.resolve(stems.map((stem) => ({ body: '', path: `${stem}.md`, stem }))),
+  sectionFailures: [],
+  validateFindings: [],
+});
+
+test('seq-gaps flags an interior node gap and names the missing number (MMR-197)', async () => {
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-1', 'MMR-2', 'MMR-4', 'MMR-5']));
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'seq-gaps',
+    code: 'interior-seq-gap',
+    node: 'MMR',
+    scopeKey: 'MMR',
+    severity: 'warn',
+    where: 'node sequence',
+  });
+  expect(findings[0]?.evidence).toMatchObject({
+    kind: 'node',
+    max: 5,
+    missing: [3],
+    missingCount: 1,
+  });
+  expect(findings[0]?.message).toContain('3');
+  expect(findings[0]?.message).toContain('max 5');
+});
+
+test('seq-gaps is silent on a gapless project (MMR-197)', async () => {
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-1', 'MMR-2', 'MMR-3']));
+  expect(findings).toEqual([]);
+});
+
+test('seq-gaps reports nothing when only the top number was deleted (MMR-197)', async () => {
+  // {1,2} with 3 removed: max is 2, present by definition — the deleted top left
+  // no interior hole, so this delete-max case is knowingly undetectable (ADR 0017).
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-1', 'MMR-2']));
+  expect(findings).toEqual([]);
+});
+
+test('seq-gaps treats node and seed sequences independently (MMR-197)', async () => {
+  // Node 2 deleted (gap), seeds contiguous → exactly one finding, for the node seq.
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-1', 'MMR-3', 'MMR-s1', 'MMR-s2']));
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ severity: 'warn', where: 'node sequence' });
+  expect(findings[0]?.evidence).toMatchObject({ kind: 'node', missing: [2] });
+});
+
+test('seq-gaps flags a seed gap below its own max (MMR-197)', async () => {
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-s1', 'MMR-s3']));
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ node: 'MMR', where: 'seed sequence' });
+  expect(findings[0]?.evidence).toMatchObject({ kind: 'seed', max: 3, missing: [2] });
+});
+
+test('seq-gaps scopes gaps per project (MMR-197)', async () => {
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1', 'MMR-3', 'OTH', 'OTH-1', 'OTH-2']),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ node: 'MMR', scopeKey: 'MMR' });
+});
+
+test('seq-gaps caps the enumerated missing list for a decimated project (MMR-197)', async () => {
+  // Only seq 100 survives: 1..99 are all interior gaps; evidence stays bounded and
+  // records the true total plus the overflow.
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-100']));
+  expect(findings).toHaveLength(1);
+  const missing = findings[0]?.evidence.missing as number[];
+  expect(missing).toHaveLength(32);
+  expect(findings[0]?.evidence).toMatchObject({ missingCount: 99, truncated: 67 });
+  expect(findings[0]?.message).toContain('more');
+});
+
+test('interior-seq-gap is informational and never repaired by --fix (MMR-197)', () => {
+  expect(REPAIR_POLICY['interior-seq-gap']).toEqual({
+    kind: 'skipped',
+    reason: 'non-corruption-warning',
+  });
 });
