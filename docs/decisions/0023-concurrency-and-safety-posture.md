@@ -107,3 +107,34 @@ them — that the gap is a bug to fix rather than a boundary to accept.
   corruption (ADR 0017); nothing here adds a preventive gate.
 - If the tool ever grows a genuine multi-writer scale (an explicit non-goal
   today), this posture is the thing that must change first.
+
+## Refinement (2026-07-15): no cross-document rollback; multi-write is partial-success + retry
+
+Extends the posture from cross-writer races to the **single-writer, intra-plan**
+case. Occasioned by abandoning MMR-157 ("make create replay idempotent under
+non-atomic apply").
+
+Norn is atomic **within a single-document write**: it batch-writes the whole
+document at once, so a create lands with all of its fields and body together.
+Norn deliberately does **not** rewind an earlier document's write when a later
+document in the same plan fails — it did not scope itself to rollback. Its
+whole-plan atomicity work is aimed at **repair plans and migrations landing
+safely**, not at general multi-document application writes, and Norn already
+performs a **small internal retry** to reapply a plan — so a transient failure
+usually resolves on its own unless something external changed the file in a way
+the plan can no longer apply.
+
+Given that, Mimir does not build cross-document rollback:
+
+- **Nearly every Mimir operation writes exactly one file.** All-or-nothing
+  atomicity across documents would be machinery for a case that barely occurs.
+- **The rare multi-write operation** — e.g. tagging or setting status across
+  many tasks — uses **partial success**, not rollback. Of N writes, the
+  successes stand and Norn returns the failures; Mimir surfaces the failed set
+  to retry. A partial failure never undoes committed work.
+- **The MMR-157 double-create is therefore out of scope.** It required a
+  create-plus-multi-document plan Norn was never designed to run, and none
+  exists. If such a verb is ever added, it follows the same rule — partial
+  success + retry, and `doctor` reaps any orphaned create — not a Norn
+  whole-plan-atomicity dependency. The requester seed NRN-s3 / task NRN-107 are
+  no longer load-bearing for Mimir.
