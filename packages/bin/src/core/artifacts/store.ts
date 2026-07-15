@@ -50,8 +50,14 @@ export type ArtifactListQuery = {
 };
 
 export type ArtifactStore = {
-  /** Allocate the next seq and persist the artifact; returns its identity. */
-  create: (input: ArtifactCreate) => Promise<{ key: string; seq: number }>;
+  /**
+   * Allocate the next seq and persist the artifact; returns the FULL record
+   * (MMR-283, mirroring the seed store's `create`) — every field a create-echo
+   * renders (`key`/`seq`/`title`/`created_at`/`tags`/`links`/`content`) is
+   * already known at write time, so a caller building a create response never
+   * needs a follow-up `load`.
+   */
+  create: (input: ArtifactCreate) => Promise<ArtifactRecord & { content: string }>;
   /** One artifact's record; the frozen body only when `content` is opted in. */
   load: (
     key: string,

@@ -643,6 +643,36 @@ test.skipIf(!NORN)(
 );
 
 test.skipIf(!NORN)(
+  'artifacts: the 201 create body renders from the held record and equals a subsequent GET (MMR-283)',
+  async () => {
+    // task2 < task1 lexically is untrue here (MMR-2 < MMR-1 is false), so anchor
+    // on task2 and link task1 to exercise the out-of-order-links → sorted-echo
+    // path the same way a fresh read would sort them.
+    const created = await send('POST', `/api/nodes/${task2}/artifacts`, {
+      content: '# Spec\nbody\n',
+      links: [task1],
+      tags: ['kind:spec', 'v1'],
+      title: 'held-record echo',
+    });
+    expect(created.status).toBe(201);
+    const createdBody = await parse(created);
+
+    const fetchedBody = await parse(await get(`/api/artifacts/${String(createdBody.id)}`));
+
+    // Every field the 201 body renders must agree with an independent GET —
+    // the wire contract is byte-identical whether it comes from the held
+    // record or a re-read (created_at freshness and the content round-trip
+    // included).
+    expect(createdBody).toEqual(fetchedBody);
+    expect(createdBody.content).toBe('# Spec\nbody');
+    expect(createdBody.links).toEqual([
+      { id: task1, status: 'ready', title: 'first' },
+      { id: task2, status: 'ready', title: 'second' },
+    ]);
+  },
+);
+
+test.skipIf(!NORN)(
   'artifact detail degrades a dangling link to its bare id (MMR-229)',
   async () => {
     // The vault stores links as file-frontmatter stems (no referential
