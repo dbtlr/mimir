@@ -103,12 +103,24 @@ export type DependInput = {
   on: string[];
 };
 
-export function useDepend() {
+export type UseDependOptions = {
+  /**
+   * MMR-273: the hook owns the raw-cause toast by default (create mode's
+   * single-write failures have no other narrator). A caller that folds the
+   * outcome into its own message — e.g. promote's honest partial-failure
+   * recap, which already names the spawned task — passes `silent: true` so
+   * only its toast fires. One owner per flow, never both.
+   */
+  silent?: boolean;
+};
+
+export function useDepend(options?: UseDependOptions) {
   const invalidate = useInvalidateOnWrite();
+  const silent = options?.silent === true;
   return useMutation({
     mutationFn: ({ id, on }: DependInput) =>
       apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/depend`, { on }),
-    onError: (err: Error) => toast.error(err.message),
+    onError: silent ? undefined : (err: Error) => toast.error(err.message),
     onSettled: invalidate,
   });
 }

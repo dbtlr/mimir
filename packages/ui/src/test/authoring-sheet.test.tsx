@@ -215,6 +215,9 @@ describe('authoringSheet', () => {
     await user.click(screen.getByRole('button', { name: 'Create ↵' }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('would create a cycle'));
+    // Create mode has no other narrator for this failure — the hook's toast
+    // is the only one (MMR-273: exactly one toast per outcome).
+    expect(toast.error).toHaveBeenCalledOnce();
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
@@ -533,7 +536,8 @@ describe('authoringSheet', () => {
         });
       });
       expect(apiSend).not.toHaveBeenCalledWith('POST', '/api/nodes', expect.anything());
-      expect(toast.success).toHaveBeenCalledWith('Promoted MMR-s1 → MMR-42');
+      expect(toast.success).toHaveBeenCalledExactlyOnceWith('Promoted MMR-s1 → MMR-42');
+      expect(toast.error).not.toHaveBeenCalled();
       await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     });
 
@@ -646,6 +650,9 @@ describe('authoringSheet', () => {
       await waitFor(() =>
         expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('MMR-42')),
       );
+      // MMR-273: the hook's raw-cause toast is silenced in promote mode — the
+      // recap above is the only toast for this outcome, never both.
+      expect(toast.error).toHaveBeenCalledOnce();
       expect(toast.success).not.toHaveBeenCalled();
       await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     });
