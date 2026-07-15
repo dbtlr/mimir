@@ -243,7 +243,11 @@ function AuthoringSheetBody({
   });
 
   const create = useCreateNode();
-  const depend = useDepend();
+  // MMR-273: create mode has no other narrator for a depend failure, so the
+  // hook keeps owning that toast. Promote mode recaps the outcome itself
+  // (the honest partial-failure message below, naming the spawned task) —
+  // silencing the hook here is what keeps that outcome to one toast, not two.
+  const depend = useDepend({ silent: promote !== undefined });
   const promoteSeed = usePromoteSeed(promote?.seedId ?? '');
   const submitting = create.isPending || depend.isPending || promoteSeed.isPending;
   const canCreate =
@@ -316,7 +320,9 @@ function AuthoringSheetBody({
       try {
         await depend.mutateAsync({ id: spawnedId, on: deps.map((d) => d.id) });
       } catch {
-        depsFailed = true; // the hook toasts the raw cause; we add the honest recap
+        // The hook is silenced in promote mode (MMR-273) — this recap is the
+        // only toast for the outcome.
+        depsFailed = true;
       }
     }
     if (depsFailed) {

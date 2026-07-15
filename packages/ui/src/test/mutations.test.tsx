@@ -148,6 +148,28 @@ describe('authoring mutation hooks', () => {
     });
   });
 
+  it('useDepend({ silent: true }) suppresses the raw-cause toast (MMR-273)', async () => {
+    apiSend.mockRejectedValue(new Error('would create a cycle'));
+    const client = new QueryClient();
+    const { result } = renderHook(() => useDepend({ silent: true }), {
+      wrapper: wrapper(client),
+    });
+    await expect(result.current.mutateAsync({ id: 'MMR-99', on: ['MMR-7'] })).rejects.toThrow(
+      'would create a cycle',
+    );
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('useDepend() (no options) still toasts the raw cause — the default owner', async () => {
+    apiSend.mockRejectedValue(new Error('would create a cycle'));
+    const client = new QueryClient();
+    const { result } = renderHook(() => useDepend(), { wrapper: wrapper(client) });
+    result.current.mutate({ id: 'MMR-99', on: ['MMR-7'] });
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('would create a cycle');
+    });
+  });
+
   it('useUndepend POSTs the undepend route (symmetry)', async () => {
     apiSend.mockResolvedValue({ id: 'MMR-99' });
     const client = new QueryClient();
