@@ -124,17 +124,6 @@ function isNornDocument(value: unknown): value is NornDocument {
   return isRecord(value) && typeof value.path === 'string';
 }
 
-/**
- * Is `error` the create-exclusive path collision — the only failure a `vault.new`
- * caller may safely retry (a concurrent create won the sequence)? Norn's `vault.new`
- * on an existing path fails with "destination already exists" (verified against
- * v0.41.0); the NornClient wraps it, so callers match the message text. The single
- * shared match every derived-seq store (artifacts, seeds) and migration uses.
- */
-export function isPathCollision(error: unknown): boolean {
-  return error instanceof Error && /already exists/i.test(error.message);
-}
-
 /** The first text block of a tool result — norn's error carrier. */
 function firstText(content: unknown): string | null {
   if (!Array.isArray(content)) {

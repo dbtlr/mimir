@@ -41,6 +41,7 @@ import {
   migrationPlan,
   removeFrontmatter,
   replaceSection,
+  SEQ_TOKEN,
   setFrontmatter,
 } from './plan';
 
@@ -400,7 +401,7 @@ class Accumulator {
       upstream: row.upstream ?? null,
     };
     this.creates.push({
-      pathTemplate: `${project.key}/${project.key}-{{seq}}.md`,
+      pathTemplate: `${project.key}/${project.key}-${SEQ_TOKEN}.md`,
       tags: creationTags(row.tags ?? [], timestamp),
       target: node,
       targetKind: 'node',

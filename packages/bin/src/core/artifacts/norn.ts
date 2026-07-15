@@ -1,8 +1,8 @@
 import type { NornClient, NornDocument } from '../../norn/client';
 import { collapse, isStringRecord, stringList } from '../../norn/decode';
-import { createDocument, migrationPlan } from '../../norn/plan';
+import { createDocument, migrationPlan, SEQ_TOKEN } from '../../norn/plan';
 import { invariant, validation } from '../errors';
-import { parseIdentity, renderArtifactRef } from '../ids';
+import { parseIdentity, renderArtifactRef, wikilink } from '../ids';
 import { now } from '../time';
 import type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore } from './store';
 
@@ -35,7 +35,7 @@ const pathOf = (key: string, seq: number): string => `${key}/artifacts/${stemOf(
 /** The `create_document` path template for a fresh artifact — the trailing
  * `KEY-a{{seq}}` token is Norn's per-directory next-free allocation handle
  * (resolved at apply time), mirroring the node write path's `KEY-{{seq}}`. */
-const createTemplate = (key: string): string => `${key}/artifacts/${key}-a{{seq}}.md`;
+const createTemplate = (key: string): string => `${key}/artifacts/${key}-a${SEQ_TOKEN}.md`;
 
 /**
  * The artifact frontmatter record handed to `create_document.new_value` — the
@@ -53,12 +53,12 @@ function artifactFrontmatter(fields: {
 }): Record<string, unknown> {
   const fm: Record<string, unknown> = {
     created: fields.created,
-    project: `[[${fields.key}]]`,
+    project: wikilink(fields.key),
     title: fields.title,
     type: 'artifact',
   };
   if (fields.links.length > 0) {
-    fm.anchor = fields.links.map((stem) => `[[${stem}]]`);
+    fm.anchor = fields.links.map(wikilink);
   }
   if (fields.tags.length > 0) {
     fm.tags = fields.tags;
@@ -126,6 +126,15 @@ export async function restoreArtifact(
   // stem is occupied by a different artifact (silent source/dest divergence),
   // and any non-collision failure fails loud rather than falsely reporting
   // `skipped`.
+  //
+  // The collision contract (verified empirically against norn 0.47.0): a
+  // `create_document` destination collision reports plan `outcome: "refused"`
+  // with the failed op's `status: "failed"` and `error.code: "internal-error"`
+  // — the code is generic, so the message text is the only discriminator
+  // available. The message is `create_document: destination already exists
+  // (use --force to overwrite): <path>`, hence the `/already exists/i` match
+  // below rather than a structured code check. A structured collision code
+  // has been requested upstream; swap this match for it once norn ships one.
   const error = op !== undefined && isStringRecord(op.error) ? op.error : undefined;
   const message = typeof error?.message === 'string' ? error.message : '';
   if (!/already exists/i.test(message)) {
@@ -183,7 +192,7 @@ function toRecord(doc: NornDocument): ArtifactRecord | null {
 }
 
 export function createNornArtifactStore(client: NornClient, vaultRoot: string): ArtifactStore {
-  /** All artifact docs for a project — the seq-derivation and inventory read. */
+  /** All artifact docs for a project — the inventory read (listing/lookup). */
   const projectDocs = async (key: string): Promise<NornDocument[]> =>
     client.find({ eq: [`type:artifact`, `project:${key}`], no_limit: true });
 
@@ -250,7 +259,13 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
       });
       const { op, outcome } = createReportOp(await client.applyPlan(plan, true));
       if (outcome !== 'applied' || op === undefined || typeof op.stem !== 'string') {
-        throw validation('the artifact create did not complete', `apply outcome: ${outcome}`);
+        const error = op !== undefined && isStringRecord(op.error) ? op.error : undefined;
+        const code = typeof error?.code === 'string' ? error.code : undefined;
+        const message = typeof error?.message === 'string' ? error.message : undefined;
+        throw validation(
+          'the artifact create did not complete',
+          `apply outcome: ${outcome}${code !== undefined && message !== undefined ? ` — ${code}: ${message}` : ''}`,
+        );
       }
       const identity = parseIdentity(op.stem);
       if (identity?.kind !== 'artifact' || identity.key !== input.key) {

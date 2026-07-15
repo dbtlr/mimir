@@ -17,6 +17,7 @@ import {
   createDocument,
   migrationPlan,
   replaceSection,
+  SEQ_TOKEN,
   setFrontmatter,
 } from '../../norn/plan';
 import { invariant, notFound, validation } from '../errors';
@@ -64,7 +65,7 @@ const stemOf = (key: string, seq: number): string => renderSeedRef({ key, seq })
 /** The `create_document` path template for a fresh seed — the trailing
  * `KEY-s{{seq}}` token is Norn's per-directory next-free allocation handle
  * (resolved at apply time), mirroring the node write path's `KEY-{{seq}}`. */
-const createTemplate = (key: string): string => `${key}/seeds/${key}-s{{seq}}.md`;
+const createTemplate = (key: string): string => `${key}/seeds/${key}-s${SEQ_TOKEN}.md`;
 
 /** Parse `KEY-sN` out of a vault seed path; null for non-seed paths — the canonical
  * grammar parser over the document stem (store-norn's seed read does the same). */
@@ -334,7 +335,13 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
         (o): o is Record<string, unknown> => isStringRecord(o) && o.kind === 'create_document',
       );
       if (outcome !== 'applied' || op === undefined || typeof op.stem !== 'string') {
-        throw validation('the seed create did not complete', `apply outcome: ${outcome}`);
+        const error = op !== undefined && isStringRecord(op.error) ? op.error : undefined;
+        const code = typeof error?.code === 'string' ? error.code : undefined;
+        const message = typeof error?.message === 'string' ? error.message : undefined;
+        throw validation(
+          'the seed create did not complete',
+          `apply outcome: ${outcome}${code !== undefined && message !== undefined ? ` — ${code}: ${message}` : ''}`,
+        );
       }
       const ref = parseSeedRef(op.stem);
       if (ref === null || ref.key !== input.key) {
