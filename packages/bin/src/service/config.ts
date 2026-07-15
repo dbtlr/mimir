@@ -157,8 +157,9 @@ function snapshotSection(raw: unknown): SnapshotConfig | 'invalid' | undefined {
  * When a section is present but contributed nothing, its `problem` is set so
  * the consumer can warn that the config was ignored rather than silently
  * falling through to a default. `[store]` carries no declared keys (see
- * {@link StoreConfig}), so it is never parsed — any content there is an
- * unknown-key no-op.
+ * {@link StoreConfig}), so its content is never projected into
+ * `GlobalConfig` — the TOML parse still covers it, but whatever it holds is
+ * an unknown-key no-op.
  */
 export function readConfig(file = configPath()): GlobalConfig {
   if (!existsSync(file)) {
