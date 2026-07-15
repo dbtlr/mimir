@@ -101,6 +101,6 @@ match the mechanism rather than pretending the counter survived.
   prevent it (a stored high-water mark or a Norn monotonic allocator were both
   rejected as relocating the durable-state problem the vault's git history already
   solves), Mimir surfaces it: an interior gap is durable deletion evidence,
-  reported by the `mimir doctor` interior-seq-gap check, and recoverable by `git
-revert`. See the refinement to [ADR 0017](0017-runtime-data-tolerance.md). The
+  reported by the `mimir doctor` interior-seq-gap check, and recoverable by
+  `git revert`. See the refinement to [ADR 0017](0017-runtime-data-tolerance.md). The
   delete-max-then-create case closes its own gap and is knowingly undetectable.

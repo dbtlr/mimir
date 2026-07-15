@@ -431,7 +431,12 @@ export function buildDoctorFacet(input: {
   readableDocStems: readonly string[];
   scannedAt: string;
 }): DoctorFacet {
-  const { findings, rawByStem, readableDocStems, scannedAt } = input;
+  const { rawByStem, readableDocStems, scannedAt } = input;
+  // The facet's dropped-records list represents records the reader drops on read
+  // (unreadable/excluded docs). A `seq-gaps` finding is an informational warning
+  // about a NON-contiguous sequence — nothing is dropped at `KEY/KEY.md` — so it is
+  // not a dropped record and must not render as a phantom one (MMR-197).
+  const findings = input.findings.filter((finding) => finding.check !== 'seq-gaps');
 
   const readableByProject = new Map<string, number>();
   for (const stem of readableDocStems) {

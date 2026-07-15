@@ -24,8 +24,11 @@ doctor` remains the read-only, non-gating diagnostic decided here. The CLI may
 > Mimir-driven operation — verbs never delete (abandon is the lifecycle path), and
 > Norn resolves the creation `{{seq}}` token as max+1 within the target directory
 > and never gap-fills. A missing INTERIOR number (one below a project's current
-> max, per node or seed sequence) is therefore durable evidence of a hand deletion
-> (`rm`), never a Mimir write. In a single-user vault that deletion is intentional,
+> max, per node or seed sequence) with no surviving parse/duplicate evidence — no
+> parse-failed, foreign-`type`, or duplicate-stem finding accounts for it — is
+> therefore durable evidence of a hand deletion (`rm`), never a Mimir write; a doc
+> that exists on disk but is excluded from the type-filtered read is surfaced by
+> its own finding, not this gap. In a single-user vault that deletion is intentional,
 > so the stance is the one this ADR already takes: **surface, don't prevent**. A new
 > informational doctor check reports interior gaps (a non-error `warn`, naming the
 > missing numbers, bounded for a pathological vault); recovery is `git revert` over

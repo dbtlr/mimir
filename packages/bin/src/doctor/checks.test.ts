@@ -160,13 +160,16 @@ test('frontmatter renders a foreign-`type` node under either norn foreign-value 
 
 // MMR-197: interior seq gaps — a missing number below a project's max seq is
 // durable evidence of a hand deletion (Mimir never reuses a seq).
-const seqCtx = (stems: string[]): DoctorContext => ({
-  dropped: [],
+const seqCtx = (
+  stems: string[],
+  extra: Partial<Pick<DoctorContext, 'dropped' | 'validateFindings'>> = {},
+): DoctorContext => ({
+  dropped: extra.dropped ?? [],
   projectRefs: [],
   readNodeDocs: () =>
     Promise.resolve(stems.map((stem) => ({ body: '', path: `${stem}.md`, stem }))),
   sectionFailures: [],
-  validateFindings: [],
+  validateFindings: extra.validateFindings ?? [],
 });
 
 test('seq-gaps flags an interior node gap and names the missing number (MMR-197)', async () => {
@@ -241,4 +244,49 @@ test('interior-seq-gap is informational and never repaired by --fix (MMR-197)', 
     kind: 'skipped',
     reason: 'non-corruption-warning',
   });
+});
+
+test('seq-gaps does not flag a gap whose seq is a present-but-unreadable doc (MMR-197)', async () => {
+  // MMR-3 exists on disk but its frontmatter won't parse, so it is excluded from the
+  // type-filtered snapshot and reads as absent. Norn's schema pass sees it by path,
+  // and the frontmatter check reports it (`validateFindings`) — so this is not a
+  // hand-deletion gap. Subtracting the covered seq yields no seq-gap finding.
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1', 'MMR-2', 'MMR-4'], {
+      validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-3.md' }],
+    }),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('seq-gaps does not flag a gap whose seq is a duplicate-stem drop (MMR-197)', async () => {
+  // MMR-2 physically exists but was dropped as a duplicate stem — surfaced by its own
+  // drop finding, not a deletion. It is subtracted before the gap is reported.
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1', 'MMR-3'], {
+      dropped: [
+        {
+          kind: 'identity',
+          path: 'MMR/MMR-2.md',
+          paths: ['MMR/MMR-2.md', 'MMR/dup/MMR-2.md'],
+          rule: 'duplicate-stem',
+          stem: 'MMR-2',
+        },
+      ],
+    }),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('seq-gaps still reports a genuinely deleted seq beside a surfaced one (MMR-197)', async () => {
+  // MMR-2 is a present-but-unreadable doc (surfaced by the frontmatter check); MMR-3
+  // has no covering evidence — a real hand deletion. Only 3 is reported.
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1', 'MMR-4'], {
+      validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-2.md' }],
+    }),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]?.evidence).toMatchObject({ kind: 'node', missing: [3] });
+  expect(findings[0]?.message).toContain('likely a hand deletion');
 });

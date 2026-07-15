@@ -59,7 +59,7 @@ test('facet diagnosis uses the shared unique physical locator for relocated raw 
             body: 'line one\r\nline two\r\n',
             documentHash: 'hash',
             path: 'relocated/custom.md',
-            stem: 'MMR-9',
+            stem: 'MMR-1',
           },
         ],
         graph: { nodes: [], projectKeys: [] },
@@ -70,7 +70,7 @@ test('facet diagnosis uses the shared unique physical locator for relocated raw 
   const facet = await computeDoctorFacet(deps, 'MMR');
   expect(rawPaths).toEqual([['relocated/custom.md']]);
   expect(facet.groups[0]?.records[0]).toMatchObject({
-    id: 'MMR-9',
+    id: 'MMR-1',
     path: 'relocated/custom.md',
   });
   expect(facet.groups[0]?.records[0]?.snippet).not.toBeNull();
@@ -127,8 +127,8 @@ test('a malformed canonical duplicate prevents enrichment of a visible relocated
           {
             body: 'visible\r\n',
             documentHash: 'hash',
-            path: 'relocated/MMR-9.md',
-            stem: 'MMR-9',
+            path: 'relocated/MMR-1.md',
+            stem: 'MMR-1',
           },
         ],
         graph: { nodes: [], projectKeys: ['MMR'] },
@@ -137,7 +137,7 @@ test('a malformed canonical duplicate prevents enrichment of a visible relocated
           {
             code: 'frontmatter-parse-failed',
             message: 'invalid yaml',
-            path: 'MMR/MMR-9.md',
+            path: 'MMR/MMR-1.md',
           },
         ],
       }),
@@ -147,7 +147,7 @@ test('a malformed canonical duplicate prevents enrichment of a visible relocated
   const malformed = facet.groups[0]?.records.find(
     (record) => record.cause === 'malformed frontmatter',
   );
-  expect(malformed).toMatchObject({ path: 'MMR/MMR-9.md', snippet: null, title: null });
+  expect(malformed).toMatchObject({ path: 'MMR/MMR-1.md', snippet: null, title: null });
   expect(
     facet.groups[0]?.records.filter((record) => record.cause === 'identity-uniqueness'),
   ).toHaveLength(2);
@@ -158,7 +158,7 @@ test('an unrelated validate path does not suppress exact relocated enrichment', 
   const deps: DoctorFacetDeps = {
     readRaw: (paths) => {
       rawPaths.push(paths);
-      return Promise.resolve([{ path: 'relocated/MMR-9.md', raw: 'visible\r\n' }]);
+      return Promise.resolve([{ path: 'relocated/MMR-1.md', raw: 'visible\r\n' }]);
     },
     readSnapshot: () =>
       Promise.resolve({
@@ -166,19 +166,19 @@ test('an unrelated validate path does not suppress exact relocated enrichment', 
           {
             body: 'visible\r\n',
             documentHash: 'hash',
-            path: 'relocated/MMR-9.md',
-            stem: 'MMR-9',
+            path: 'relocated/MMR-1.md',
+            stem: 'MMR-1',
           },
         ],
         graph: { nodes: [], projectKeys: ['MMR'] },
         sectionFailures: [],
-        validateFindings: [{ code: 'frontmatter-parse-failed', path: 'refs/MMR-9.md' }],
+        validateFindings: [{ code: 'frontmatter-parse-failed', path: 'refs/MMR-1.md' }],
       }),
   };
   const facet = await computeDoctorFacet(deps, 'MMR');
-  expect(rawPaths).toEqual([['relocated/MMR-9.md']]);
+  expect(rawPaths).toEqual([['relocated/MMR-1.md']]);
   expect(facet.groups[0]?.records).toContainEqual(
-    expect.objectContaining({ cause: 'CRLF line endings', path: 'relocated/MMR-9.md' }),
+    expect.objectContaining({ cause: 'CRLF line endings', path: 'relocated/MMR-1.md' }),
   );
   expect(facet.groups[0]?.records.some((record) => record.cause === 'malformed frontmatter')).toBe(
     false,
@@ -194,18 +194,18 @@ test('a relocated section failure preserves its exact path under identity ambigu
           {
             body: '## Task Description\ntext\n',
             documentHash: 'hash',
-            path: 'relocated/MMR-9.md',
-            stem: 'MMR-9',
+            path: 'relocated/MMR-1.md',
+            stem: 'MMR-1',
           },
         ],
         graph: { nodes: [], projectKeys: ['MMR'] },
-        sectionFailures: [{ path: 'relocated/MMR-9.md', section: 'History', stem: 'MMR-9' }],
-        validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-9.md' }],
+        sectionFailures: [{ path: 'relocated/MMR-1.md', section: 'History', stem: 'MMR-1' }],
+        validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-1.md' }],
       }),
   };
   const facet = await computeDoctorFacet(deps, 'MMR');
   const section = facet.groups[0]?.records.find((record) => record.cause === 'unreadable section');
-  expect(section?.path).toBe('relocated/MMR-9.md');
+  expect(section?.path).toBe('relocated/MMR-1.md');
 });
 
 test('relocated project raw enrichment gates on its logical owner identity', async () => {

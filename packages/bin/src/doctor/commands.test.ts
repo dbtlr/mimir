@@ -103,7 +103,7 @@ test('a dropped record (missing edge) is an error alert on stderr, exit 0 (non-g
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
-    vaultOf([{ body: ERROR_DOC, stem: 'MMR-9' }]),
+    vaultOf([{ body: ERROR_DOC, stem: 'MMR-1' }]),
     'table',
     undefined,
   );
@@ -111,7 +111,7 @@ test('a dropped record (missing edge) is an error alert on stderr, exit 0 (non-g
   expect(io.out.join('')).toBe(''); // errors are the loud channel: stderr only
   const err = io.err.join('');
   expect(err).toContain('[error]');
-  expect(err).toContain('MMR-9');
+  expect(err).toContain('MMR-1');
   expect(err).toContain('dropped on read');
   expect(err).toContain('History · line 2');
 });
@@ -120,7 +120,7 @@ test('an unknown kind is a non-gating warn (exit 0), not an error', async () => 
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
-    vaultOf([{ body: WARN_DOC, stem: 'MMR-9' }]),
+    vaultOf([{ body: WARN_DOC, stem: 'MMR-1' }]),
     'table',
     undefined,
   );
@@ -296,8 +296,8 @@ test('a section-failure whose stem is out of the -s scope is filtered out (MMR-2
   const io = fakeIo();
   const code = await cmdDoctor(
     io,
-    vaultOf([{ body: renderNodeBody('a task'), stem: 'MMR-9' }], undefined, undefined, undefined, [
-      { section: 'History', stem: 'MMR-9' }, // in scope
+    vaultOf([{ body: renderNodeBody('a task'), stem: 'MMR-1' }], undefined, undefined, undefined, [
+      { section: 'History', stem: 'MMR-1' }, // in scope
       { section: 'Annotations', stem: 'OTH-5' }, // out of scope — its field says MMR, stem says OTH
     ]),
     'json',
@@ -306,7 +306,7 @@ test('a section-failure whose stem is out of the -s scope is filtered out (MMR-2
   expect(code).toBe(0);
   const findings = JSON.parse(io.out.join('')) as { check: string; node: string }[];
   const sectionNodes = findings.filter((f) => f.check === 'section-resolution').map((f) => f.node);
-  expect(sectionNodes).toEqual(['MMR-9']); // OTH-5 excluded by the stem backstop
+  expect(sectionNodes).toEqual(['MMR-1']); // OTH-5 excluded by the stem backstop
 });
 
 // ── CRLF hygiene (MMR-176) ────────────────────────────────────────────────────

@@ -733,13 +733,26 @@ const SEQ_GAP_EVIDENCE_CAP = 32;
  * `{{seq}}` as max+1 within the target directory and never gap-fills ([ADR
  * 0006](../../docs/decisions/0006-human-readable-node-ids.md) refinement), and
  * Mimir verbs never delete (abandon is the lifecycle path), so a hole below the
- * max cannot come from a Mimir operation — it is durable evidence of a hand
- * deletion (`rm`). In a single-user vault that deletion is intentional, so the
- * stance is surface-and-repair, not prevent (ADR 0017): recovery is `git revert`
- * over the vault's snapshot history, never a doctor mutation. Rendered at the
- * non-error `warn` tier — the informational severity (nothing is lost on read; the
- * numbering is merely non-contiguous) — and never repairable (`REPAIR_POLICY`
- * skips it as a non-corruption warning).
+ * max cannot come from a Mimir operation. A gap with no surviving parse/duplicate
+ * evidence is therefore durable evidence of a hand deletion (`rm`). In a
+ * single-user vault that deletion is intentional, so the stance is
+ * surface-and-repair, not prevent (ADR 0017): recovery is `git revert` over the
+ * vault's snapshot history, never a doctor mutation. Rendered at the non-error
+ * `warn` tier — the informational severity (nothing is lost on read; the numbering
+ * is merely non-contiguous) — and never repairable (`REPAIR_POLICY` skips it as a
+ * non-corruption warning).
+ *
+ * A missing number is NOT always a deletion: a doc that physically EXISTS but is
+ * excluded from the `type:`-filtered snapshot (unparseable/foreign-`type`
+ * frontmatter, or a duplicate-stem drop) reads as absent here even though the file
+ * is on disk. Such a seq is already surfaced as its OWN finding — the frontmatter
+ * check over `ctx.validateFindings` (docs the type enumeration excludes; see
+ * `snapshot.ts` on `vault.validate`), or a `duplicate-stem` drop in `ctx.dropped`.
+ * So before concluding a seq was deleted, subtract every seq whose stem is
+ * accounted for by that other evidence (their paths/stems parse to `KEY-N` /
+ * `KEY-sN`); a covered seq is a phantom gap, not a hand deletion, and would earn a
+ * wrong git-revert line. Only the residual — a number no surviving record or
+ * finding accounts for — is reported.
  *
  * Scans NODE and SEED sequences only. Both are enumerated by the one whole-vault
  * snapshot (`type:project,task,phase,initiative,seed`) and allocate identically
@@ -777,6 +790,29 @@ export const seqGapCheck: Diagnostic = {
         group.seqs.add(identity.seq);
       }
     }
+    // Seqs whose stem is accounted for by OTHER doctor evidence — a doc that
+    // physically exists but is excluded from the type-filtered `readNodeDocs`
+    // snapshot, so it reads as absent here. Its own finding already surfaces it
+    // (the frontmatter check over `validateFindings`, or a duplicate-stem drop), so
+    // subtracting it keeps this check from reporting a phantom "hand deletion" gap.
+    // Keyed like `groups`, by `${key}\0${kind}\0${seq}`.
+    const surfaced = new Set<string>();
+    const cover = (stem: string | null): void => {
+      if (stem === null) {
+        return;
+      }
+      const identity = parseIdentity(stem);
+      if (identity === null || (identity.kind !== 'node' && identity.kind !== 'seed')) {
+        return;
+      }
+      surfaced.add(`${identity.key}\0${identity.kind}\0${String(identity.seq)}`);
+    };
+    for (const drop of ctx.dropped) {
+      cover(drop.stem); // every Drop carries the offending doc's canonical stem
+    }
+    for (const finding of ctx.validateFindings) {
+      cover(workStateStem(finding.path)); // a doc norn's schema pass sees by path only
+    }
     const findings: DoctorFinding[] = [];
     // Deterministic order: by project key, then node before seed.
     const ordered = [...groups.values()].toSorted(
@@ -785,10 +821,11 @@ export const seqGapCheck: Diagnostic = {
     for (const { key, kind, seqs } of ordered) {
       const max = Math.max(...seqs);
       // Seqs are 1-based (ADR 0006), so an interior gap is any 1..max-1 absent. The
-      // max is present by definition; a deleted top left no hole (undetectable).
+      // max is present by definition; a deleted top left no hole (undetectable). A
+      // seq covered by other evidence (present-but-unreadable) is not a gap.
       const missing: number[] = [];
       for (let n = 1; n < max; n += 1) {
-        if (!seqs.has(n)) {
+        if (!seqs.has(n) && !surfaced.has(`${key}\0${kind}\0${String(n)}`)) {
           missing.push(n);
         }
       }
@@ -809,7 +846,7 @@ export const seqGapCheck: Diagnostic = {
             missingCount: missing.length,
             ...(overflow > 0 ? { truncated: overflow } : {}),
           },
-          message: `project ${key} is missing interior ${kind} sequence number${missing.length === 1 ? '' : 's'} ${list} below its max ${String(max)} — evidence of a hand deletion (Mimir never reuses a seq; recover with git, ADR 0017)`,
+          message: `project ${key} is missing interior ${kind} sequence number${missing.length === 1 ? '' : 's'} ${list} below its max ${String(max)} — no surviving record accounts for ${missing.length === 1 ? 'it' : 'them'}, so likely a hand deletion (Mimir never reuses a seq; recover with git, ADR 0017)`,
           node: key,
           severity: 'warn',
           where: `${kind} sequence`,
