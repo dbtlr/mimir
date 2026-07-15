@@ -28,10 +28,18 @@ that into `X.Y.Z`, then into `X.(Y+1).0-next`.
 On a branch:
 
 - Bump `packages/bin/package.json` `"version"` from `X.Y.Z-next` to `X.Y.Z`.
+- Sync `bun.lock`: edit the `"version"` line under its `"packages/bin"` entry
+  to match. `bun install` (plain, `--force`, or `--lockfile-only`) never
+  rewrites this field — Bun resolves workspace deps by path, so it's metadata
+  only and `--frozen-lockfile` validates fine either way — a hand edit is the
+  only thing that closes it. Skipping this is what leaves a stray
+  `chore: sync bun.lock` follow-up commit next cycle.
 - Compile the changelog: `bun run changelog:compile --write --version X.Y.Z` —
   writes the `## vX.Y.Z - YYYY-MM-DD` section into `CHANGELOG.md` and deletes
-  the compiled fragments. Commit both together (the fragment deletions are what
-  satisfy `changelog-guard` on this PR).
+  the compiled fragments.
+- Stage and commit together: `packages/bin/package.json`, `bun.lock`,
+  `CHANGELOG.md`, and the deleted `.changes/*.md` fragments (the fragment
+  deletions are what satisfy `changelog-guard` on this PR). No `git add -A`.
 - _Optional, only when the release warrants it:_ refresh the README (status
   callout, screenshots). Not a gate — skip it for a routine cut.
 
@@ -81,8 +89,11 @@ A failure here is a release problem — fix forward, do not paper over it.
 ## 4. Open the next cycle (PR, required)
 
 Bump `packages/bin/package.json` `"version"` to `X.(Y+1).0-next` (or a major bump
-if that's the call); open the PR; merge. Confirm the prerelease stream resumes
-(`vX.(Y+1).0-next.1` publishes) and `version-guard` is green.
+if that's the call); sync `bun.lock`'s `"packages/bin"` `"version"` line to match
+(same hand edit as the cut commit — `bun install` won't do it). Stage
+`packages/bin/package.json` and `bun.lock` together, no `git add -A`; open the
+PR; merge. Confirm the prerelease stream resumes (`vX.(Y+1).0-next.1` publishes)
+and `version-guard` is green.
 
 This step is required: `version-guard` fails any build-affecting change that lands
 while a released clean version has no next cycle open — so skipping it is loud, not
