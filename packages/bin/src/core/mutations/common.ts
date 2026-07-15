@@ -114,8 +114,9 @@ export async function stamp(w: StoreWriter, id: string): Promise<void> {
 /**
  * Append a transition-log row in the verb's own write scope (so columns + log
  * can't drift). The transition `at` is stamped here — the single choke point
- * every status-bearing verb funnels through — so the core, not a per-backend DB
- * default, owns the time (MMR-173); both stores persist the value verbatim.
+ * every status-bearing verb funnels through — so the core, not a store-side
+ * default, owns the time (MMR-173); every `Store` port implementor persists
+ * the value verbatim (ADR 0016 Refinement, MMR-279).
  */
 export async function logTransition(
   w: StoreWriter,

@@ -10,8 +10,6 @@ The concrete shape of the model — realized as the vault's **markdown frontmatt
 
 > **Single source of truth is the vault.** The durable record is the markdown itself — hand-editable, git-backed, inspectable. Norn ([ADR 0016](decisions/0016-norn-vault-system-of-record.md)) owns every read, write, and query and maintains its own SQLite **index**; that index is a cache, never the record. Mimir reduces to business logic and derivation over Norn ([ADR 0018](decisions/0018-vault-access-is-norn-only.md): **all vault access is Norn-only** — Mimir never touches files directly). Where this note and a document disagree, the document wins; where an ADR and either disagree, the ADR wins.
 
-This reference replaces the pre-cutover SQLite DDL: post-[MMR-234](decisions/0016-norn-vault-system-of-record.md) there is **no database of record** and **no surrogate integer id** — the SQLite backend, its schema, and its migrations are gone. Each persisted entity has exactly one identity: its canonical file stem. A project's identity is its immutable `KEY`; a node, artifact, or seed is identified by its `KEY-seq`, `KEY-aN`, or `KEY-sN` stem. Those stems also key relations and the core model; Mimir does not mint a second, synthetic identity while loading the vault.
-
 ## Vault conventions
 
 These hold for every document; the per-entity sections below don't repeat them.
@@ -222,25 +220,6 @@ Query-layer outputs, intentionally **absent** from every document ([ADR 0001](de
 - **Rollup:** a non-leaf node's status **distribution** (`{done:3, ready:1}`) and its `interpret()` status word — computed live over direct children, never cached.
 - **Transition cursors:** `newly_ready`, `recently_completed` (a caller cursor over `## History`); `unconsolidated` (a tag query).
 - **Flip-times / presentation:** `became_ready_at`, the seed lede.
-
-## Removed vs. the SQLite era
-
-The pre-[MMR-234](decisions/0016-norn-vault-system-of-record.md) DDL modeled the same concepts relationally; the vault re-expresses them. The mapping, for readers coming from the old shape:
-
-| Old (SQLite)                                                   | Now (vault)                                                                                                   |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| surrogate `id INTEGER PRIMARY KEY` on every table              | no surrogate id — the canonical file **stem** is the sole id throughout storage, relations, and core          |
-| `project.last_seq` / `last_artifact_seq`                       | dropped — Norn allocates from project documents at create time                                                |
-| `node.description` column                                      | the `## Task Description` **body section** ([MMR-162])                                                        |
-| (none)                                                         | `summary` frontmatter — the short list lede                                                                   |
-| (none)                                                         | `open_ended` frontmatter — container done-rollup opt-out ([MMR-204])                                          |
-| `dependency` table + reverse index                             | the `depends_on` wikilink list in the node's own frontmatter                                                  |
-| `annotation` table                                             | `## Annotations` body records                                                                                 |
-| `transition_log` table (node-keyed; kinds l/h/d/move)          | `## History` body records; kinds add `archive`; `archive` is project-keyed                                    |
-| `artifact` + `artifact_link` tables                            | one artifact doc with `title` + an `anchor` wikilink list                                                     |
-| `tag` table (`entity_type`, `entity_id`, `note`, `created_at`) | a `tags` frontmatter string list; **no note, no per-tag timestamp**                                           |
-| `project_id` FK on nodes/artifacts                             | a `project` wikilink (query-scope handle) + the authoritative stem                                            |
-| `CHECK` constraints (type integrity, enums)                    | the shared validator ([ADR 0017](decisions/0017-runtime-data-tolerance.md)); type-gating in the writer/reader |
 
 ## Status
 

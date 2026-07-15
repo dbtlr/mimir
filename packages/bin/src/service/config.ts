@@ -2,7 +2,7 @@
  * The global config (MMR-47) — the stable, declared source for daemon
  * settings, `[serve] port` first. The plist never carries a port: the daemon
  * reads this file at startup, so retargeting is edit-config + restart.
- * Serve's port precedence: --port flag > config > built-in default.
+ * Serve's port precedence: --port > MIMIR_PORT > config > built-in default.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -46,16 +46,14 @@ export type VaultConfig = {
 /** The snapshot cadence when `[vault.snapshot] interval` is unset — the atlas precedent, 15 minutes. */
 export const DEFAULT_SNAPSHOT_INTERVAL_SECONDS = 900;
 
-export type StoreConfig = {
-  /**
-   * Set iff a legacy `[store] backend` (or its `artifacts` alias) key is present.
-   * The backend fence was retired at MMR-234 — the Norn vault is the only store —
-   * so the value is not interpreted; it exists only so the composition root can
-   * emit a one-line "ignored" note (see `buildStore`) instead of failing an old
-   * config.
-   */
-  backend?: string;
-};
+/**
+ * The `[store]` section. Reserved, currently empty: the `backend` fence (and
+ * its `artifacts` alias) that once lived here was retired at MMR-234 — the
+ * Norn vault is the only store — and its MMR-279 tolerated-ignore shim is
+ * retired in turn. A lingering `[store]` key, `backend` included, is an
+ * ordinary unknown-key no-op: parsed, not interpreted, not flagged.
+ */
+export type StoreConfig = Record<string, never>;
 
 export type GlobalConfig = { serve: ServeConfig; vault: VaultConfig; store: StoreConfig };
 
@@ -158,25 +156,15 @@ function snapshotSection(raw: unknown): SnapshotConfig | 'invalid' | undefined {
  * belongs to the consumer (the port bind, the vault open), not the parse.
  * When a section is present but contributed nothing, its `problem` is set so
  * the consumer can warn that the config was ignored rather than silently
- * falling through to a default.
+ * falling through to a default. `[store]` carries no declared keys (see
+ * {@link StoreConfig}), so it is never parsed — any content there is an
+ * unknown-key no-op.
  */
-function storeSection(raw: unknown): StoreConfig {
-  if (!isTable(raw)) {
-    return {};
-  }
-  // The backend fence is retired (MMR-234): flag a legacy `backend` (or its
-  // pre-MMR-235 `artifacts` alias) key only so the composition root can note it
-  // as ignored — the value is never interpreted.
-  const backend = raw.backend ?? raw.artifacts;
-  // Only a string key is meaningful to flag; the value is never interpreted.
-  return typeof backend === 'string' ? { backend } : {};
-}
-
 export function readConfig(file = configPath()): GlobalConfig {
   if (!existsSync(file)) {
     return { serve: {}, store: {}, vault: {} };
   }
-  let parsed: { serve?: unknown; vault?: unknown; store?: unknown };
+  let parsed: { serve?: unknown; vault?: unknown };
   try {
     parsed = Bun.TOML.parse(readFileSync(file, 'utf8'));
   } catch {
@@ -188,7 +176,7 @@ export function readConfig(file = configPath()): GlobalConfig {
   }
   return {
     serve: serveSection(parsed.serve),
-    store: storeSection(parsed.store),
+    store: {},
     vault: vaultSection(parsed.vault),
   };
 }

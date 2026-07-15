@@ -167,21 +167,19 @@ test('readConfig parses once and returns every section', () => {
   });
 });
 
-// The `[store] backend` fence was retired at MMR-234: any legacy `backend` (or its
-// `artifacts` alias) key is recorded verbatim only so the composition root can note
-// it as ignored — the value is never interpreted, and the Norn vault is the only store.
-test('readConfig flags a legacy [store] backend key without interpreting it', () => {
+// The `[store] backend` fence was retired at MMR-234, and its MMR-279
+// tolerated-ignore shim (flagging the key so the composition root could note
+// it as ignored) is retired in turn: `[store]` carries no declared keys, so
+// any content there — `backend` included — is an ordinary unknown-key no-op.
+test('readConfig ignores [store] content entirely', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(file, '[serve]\nport = 50124\n');
   expect(readConfig(file).store).toEqual({});
   writeFileSync(file, '[store]\nbackend = "sqlite"\n');
-  expect(readConfig(file).store).toEqual({ backend: 'sqlite' });
-  writeFileSync(file, '[store]\nbackend = "postgres"\n');
-  expect(readConfig(file).store).toEqual({ backend: 'postgres' });
-  // the pre-MMR-235 `artifacts` key is still recognized as the same legacy key
+  expect(readConfig(file).store).toEqual({});
   writeFileSync(file, '[store]\nartifacts = "norn"\n');
-  expect(readConfig(file).store).toEqual({ backend: 'norn' });
-  // a non-table `store` contributes nothing (no legacy key to flag)
+  expect(readConfig(file).store).toEqual({});
+  // a non-table `store` still contributes nothing
   writeFileSync(file, 'store = "norn"\n');
   expect(readConfig(file).store).toEqual({});
 });
