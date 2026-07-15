@@ -58,7 +58,7 @@ describe.skipIf(!NORN)('norn seed store', () => {
     });
     expect(first).toEqual({ key: 'MMR', seq: 1 });
 
-    // Derived max(seq)+1 — a second create increments.
+    // The `{{seq}}` token allocates next-free — a second create increments.
     const second = await seeds.create({
       description: null,
       key: 'MMR',

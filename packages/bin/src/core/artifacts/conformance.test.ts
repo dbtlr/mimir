@@ -20,6 +20,8 @@ const NORN = Bun.which('norn') !== null;
 
 type Harness = {
   artifacts: ArtifactStore;
+  /** The raw Norn client, for seeding physical sibling fixtures directly. */
+  client: NornClient;
   /** Linkable node stems under `MMR` — three of them for the tests. */
   nodeStems: string[];
   cleanup: () => Promise<void>;
@@ -27,14 +29,16 @@ type Harness = {
 
 async function nornHarness(): Promise<Harness> {
   const root = mkdtempSync(join(tmpdir(), 'mimir-conf-'));
-  await converge(join(root, 'vault'), { allowCreate: true, exec: bunExec });
-  const client = new NornClient({ vaultPath: join(root, 'vault') });
+  const vault = join(root, 'vault');
+  await converge(vault, { allowCreate: true, exec: bunExec });
+  const client = new NornClient({ vaultPath: vault });
   return {
-    artifacts: createNornArtifactStore(client),
+    artifacts: createNornArtifactStore(client, vault),
     async cleanup() {
       await client.close();
       rmSync(root, { force: true, recursive: true });
     },
+    client,
     // Dangling wikilinks are allowed, so these stems are valid link targets
     // without seeding real nodes.
     nodeStems: ['MMR-2', 'MMR-3', 'MMR-4'],
@@ -86,6 +90,36 @@ for (const backend of backends) {
 
         const withBody = await h.artifacts.load('MMR', 1, { content: true });
         expect(withBody?.content).toBe('# body\n\ntext');
+      },
+    );
+
+    test.skipIf(backend.skip)(
+      'create allocates next-free through the {{seq}} template over an existing sibling (MMR-196)',
+      async () => {
+        // A physical sibling minted outside the store — the `{{seq}}` token
+        // resolves next-free against the `KEY-a` prefix in `KEY/artifacts/` by
+        // filename, so the create lands at MMR-a2, never a client-derived count.
+        await h.client.newDoc({
+          body: '# pre',
+          confirm: true,
+          field_json: [
+            `type=${JSON.stringify('artifact')}`,
+            `title=${JSON.stringify('pre-existing')}`,
+            `project=${JSON.stringify('[[MMR]]')}`,
+            `created=${JSON.stringify('2026-01-01T00:00:00.000Z')}`,
+          ],
+          parents: true,
+          path: 'MMR/artifacts/MMR-a1.md',
+        });
+        const { seq } = await h.artifacts.create({
+          content: 'body',
+          key: 'MMR',
+          links: [],
+          tags: [],
+          title: 'next',
+        });
+        expect(seq).toBe(2);
+        expect((await h.artifacts.load('MMR', 2))?.title).toBe('next');
       },
     );
 

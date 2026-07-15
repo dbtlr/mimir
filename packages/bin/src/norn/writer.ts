@@ -115,7 +115,7 @@ function nodePatchField(column: string): string {
 
 export function createNornWriteStore(client: NornClient, vaultRoot: string): Store {
   return {
-    artifacts: createNornArtifactStore(client),
+    artifacts: createNornArtifactStore(client, vaultRoot),
     bodySections: createNornBodySectionStore(client),
     loadWorkingSet: () => loadWorkingSetOverNorn(client),
     seeds: createNornSeedStore(client, vaultRoot),

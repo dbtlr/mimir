@@ -403,3 +403,30 @@ historical.
   an absent configured path errors rather than silently scaffolding a fresh empty
   vault — the mount-safety rule (`resolveVault`) that only the derived default
   path may be auto-created at runtime.
+
+## Refinement (2026-07-15, MMR-196): plan-CAS is the sole write mechanism for every create — the ordered fallbacks era ends
+
+The body's "Write path: plan-CAS as the north star" bullet carried a transitional
+clause: until the plan surface covered creates, an ordered fallback applied —
+create-exclusive retry over a client-derived `max(seq)+1` id allocation. Node
+creation retired that first (MMR-153): a node is one `create_document` op whose
+path carries a trailing `{{seq}}` token that Norn resolves to the next free
+per-project sequence at apply time. Artifact and seed creation were the two
+remaining derive-loop sites; they now ride the same token
+(`KEY/artifacts/KEY-a{{seq}}.md`, `KEY/seeds/KEY-s{{seq}}.md`). With that, the
+create-exclusive-retry-over-derived-`max(seq)+1` fallback is fully historical:
+plan-CAS is the sole write mechanism for ALL creates, and Norn's `{{seq}}` token
+is the single id-allocation authority.
+
+- **No client-side allocation survives.** No create path derives an id by
+  `max(seq)+1` over a read of sibling stems, runs a bounded create-exclusive
+  retry loop, or issues a `vault.new` second write. The apply report echoes the
+  resolved `KEY-aN` / `KEY-sN` stem, which each store decodes inline for its
+  create echo — the same way the node write path reads a resolved node stem back.
+- **Allocation is per-directory and by filename.** `{{seq}}` resolves next-free
+  against the literal template prefix within the create's target directory, by
+  filename — so an unparseable or foreign-typed sibling in that directory still
+  occupies its number (no reuse), while a hand-misplaced document in a different
+  directory does not contaminate the count. A resulting cross-directory duplicate
+  stem is left to the fail-closed tolerant reader and `mimir doctor` (ADR 0017),
+  not guarded at the allocator.
