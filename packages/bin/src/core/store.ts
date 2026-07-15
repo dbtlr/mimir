@@ -237,8 +237,16 @@ export type Store = {
    * in-project — so loading the targets' projects is the whole closure without a
    * whole-vault load. Edges are not projected (settledness never consults them).
    * An empty key list reads as no nodes (no query).
+   *
+   * `validProjectKeys` is the caller's already-validated project-key set (from
+   * {@link loadProjects}): presence is derived from it, NOT trusted from the requested
+   * keys, so a target in a missing/duplicate-key project drops identically to the
+   * whole-vault path (MMR-251).
    */
-  loadNodesForProjects: (projectKeys: readonly string[]) => Promise<readonly Node[]>;
+  loadNodesForProjects: (
+    projectKeys: readonly string[],
+    validProjectKeys: ReadonlySet<string>,
+  ) => Promise<readonly Node[]>;
 
   /**
    * The write scope (MMR-135): run `fn` inside one transaction over the

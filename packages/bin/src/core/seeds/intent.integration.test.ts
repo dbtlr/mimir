@@ -649,6 +649,89 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     });
   });
 
+  test('a spawned target whose project has no doc prunes identically in the scoped and whole-vault reads (MMR-251)', async () => {
+    // Parity for the missing-project corruption class: a spawned WORK NODE whose owning
+    // project has NO project document is dropped by the validator (missing-project) on
+    // the whole-vault path — listSeeds prunes the ref. The scoped single-seed read
+    // (getSeed/echo) must prune it identically, deriving presence from the VALIDATED
+    // projects read rather than trusting the target's requested key.
+    await seedbed();
+    // Build a real project + a work node in it (so norn indexes the directory), then
+    // delete the project document — leaving the node orphaned (its container is missing),
+    // the exact missing-project corruption the whole-vault validator drops.
+    await createProject(store, { key: 'ORPH', name: 'ORPH' });
+    const orphanPid = await pidOf('ORPH');
+    const orphanInit = await createInitiative(store, { projectId: orphanPid, title: 'orphan' });
+    const orphanStem = `ORPH-${String(orphanInit.seq)}`;
+    rmSync(join(vaultRoot, 'ORPH', 'ORPH.md'), { force: true });
+
+    // A promoted MMR seed that spawned that now-orphaned node.
+    await client.newDoc({
+      body: '## Seed Description\n\n\n## History\n## Annotations\n',
+      confirm: true,
+      field_json: [
+        `type=${JSON.stringify('seed')}`,
+        `title=${JSON.stringify('spawns orphan')}`,
+        `project=${JSON.stringify('[[MMR]]')}`,
+        `kind=${JSON.stringify('bug')}`,
+        `lifecycle=${JSON.stringify('promoted')}`,
+        `spawned=${JSON.stringify([`[[${orphanStem}]]`])}`,
+        `created=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
+        `updated_at=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
+      ],
+      parents: true,
+      path: 'MMR/seeds/MMR-s1.md',
+    });
+
+    // Whole-vault path: the validator drops the orphan-project node, so listSeeds prunes.
+    const listed = (await listSeeds(store, { project: 'MMR' })).find((v) => v.id === 'MMR-s1');
+    expect(listed?.spawned).toEqual([]);
+
+    // Scoped path: getSeed must prune the SAME ref (before the fix it survived, because
+    // the scoped read trusted the target's project as present and loaded the node).
+    const got = await getSeed(store, 'MMR-s1');
+    expect(got.spawned).toEqual([]);
+    expect(got.readyToResolve).toBe(false);
+
+    // The doctor validator reports the orphan node (one detector) — the whole-vault
+    // drop the scoped path now mirrors.
+    const { dropped } = validate(await readVaultGraph(client));
+    expect(dropped).toContainEqual({
+      key: 'ORPH',
+      kind: 'node',
+      rule: 'missing-project',
+      stem: orphanStem,
+    });
+  });
+
+  test('the create echo normalizes description to the read-back semantics (MMR-251)', async () => {
+    await seedbed();
+    // A padded/blank-framed description: the echo must equal what a subsequent load
+    // returns (parseDescriptionSection trims + blanks → null), not the raw input.
+    const filed = await fileSeed(store, {
+      description: '  padded \n',
+      kind: 'idea',
+      project: 'MMR',
+      requester: null,
+      title: 'has description',
+    });
+    const loaded = await getSeed(store, filed.id, { content: true });
+    expect(filed.description).toBe('padded');
+    expect(filed.description).toBe(loaded.description);
+
+    // A blank-after-trim description normalizes to null on the echo, matching the load.
+    const blank = await fileSeed(store, {
+      description: '   \n',
+      kind: 'idea',
+      project: 'MMR',
+      requester: null,
+      title: 'blank description',
+    });
+    const blankLoaded = await getSeed(store, blank.id, { content: true });
+    expect(blank.description).toBeNull();
+    expect(blank.description).toBe(blankLoaded.description);
+  });
+
   test('the single-seed echoes never pay a whole-vault load (MMR-251)', async () => {
     const { phaseRef: parent } = await seedbed();
     await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'newseed' });
@@ -672,19 +755,26 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     const rejectNew = await countRpcs(() => transitionSeed(store, 'MMR-s1', 'rejected', 'nope'));
     expect(rejectNew).toEqual({ finds: 1, gets: 2, wholeVaultFinds: 0 });
 
-    // promote (create): the ECHO reuses the mid-promote load — it adds no whole-vault
-    // find (D2). The two that remain are the mid-promote resolve and createTask's own
-    // transaction snapshot, both pre-existing and outside the echo.
+    // promote (create): the ECHO reuses the mid-promote load — it adds ZERO whole-vault
+    // finds (D2). Exact per-category so a regression is diagnosable and an offsetting
+    // swap (the echo regaining a whole-vault load while createTask sheds one) can't hide.
+    //   wholeVaultFinds: 2 = the mid-promote resolve + createTask's transaction snapshot.
+    //   finds: 3 = those 2 whole-vault finds + createTask's internal create-verify find.
+    //   gets: 4 = the initial content load (rec) + createTask's verify body get +
+    //             germinate's load-doc + the post-germinate echo re-read.
     const promoteC = await countRpcs(() => promoteSeed(store, 'MMR-s2', { parent }));
-    expect(promoteC.wholeVaultFinds).toBe(2);
+    expect(promoteC).toEqual({ finds: 3, gets: 4, wholeVaultFinds: 2 });
 
-    // resolve of a PROMOTED seed (spawned work to settle/prune): still ZERO
-    // whole-vault finds — the echo loads only the spawned target's project, scoped.
+    // resolve of a PROMOTED seed (spawned work to settle/prune): ZERO whole-vault finds —
+    // the echo loads only the spawned target's project (scoped). Exact per-category,
+    // replacing the loose `<= 4` bound so an added whole-vault load or an extra read
+    // can't slip under it.
+    //   finds: 2 = the board-active/echo projects read + the one scoped node find.
+    //   gets: 2 = the transition's load-doc + the echo's content load.
     const resolvePromoted = await countRpcs(() =>
       transitionSeed(store, 'MMR-s2', 'resolved', 'done'),
     );
-    expect(resolvePromoted.wholeVaultFinds).toBe(0);
-    expect(resolvePromoted.finds + resolvePromoted.gets).toBeLessThanOrEqual(4);
+    expect(resolvePromoted).toEqual({ finds: 2, gets: 2, wholeVaultFinds: 0 });
   });
 
   test('listSeeds + triage share ONE whole-vault load (MMR-251/D4)', async () => {

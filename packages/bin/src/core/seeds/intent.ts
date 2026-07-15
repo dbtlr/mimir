@@ -124,7 +124,11 @@ async function echoSeed(
     throw notFound(`no seed ${renderSeedRef(ref)}`);
   }
   const keys = spawnedTargetKeys([rec]);
-  const nodes = keys.length > 0 ? await store.loadNodesForProjects(keys) : [];
+  // Presence for the scoped node read derives from the VALIDATED projects read (MMR-251),
+  // never the requested spawned-target keys: a target in a missing/duplicate-key project
+  // drops (missing-project) exactly as the whole-vault path drops it, so the ref prunes.
+  const valid = new Set(projects.map((p) => p.key));
+  const nodes = keys.length > 0 ? await store.loadNodesForProjects(keys, valid) : [];
   return resolveSeedView(rec, buildResolver(projects, nodes));
 }
 

@@ -8,7 +8,7 @@ import { invariant } from './errors';
 import { parseId, parseSeedRef } from './ids';
 import type { Dependency, Node, Project } from './model';
 import type { NodeTag, WorkingSet } from './store';
-import { validate } from './validate';
+import { presentProjectKeys, validate } from './validate';
 
 /**
  * The Norn-vault node read path (MMR-149, ADR 0016 Phase 2b) — the
@@ -704,7 +704,8 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
  */
 export async function loadProjectsOverNorn(client: NornClient): Promise<Project[]> {
   const docs = await client.find({ eq: ['type:project'], no_limit: true });
-  const byKey = new Map<string, { fm: Record<string, unknown> }[]>();
+  const byKey = new Map<string, Record<string, unknown>>();
+  const sources: { stem: string }[] = [];
   for (const doc of docs) {
     const fm = doc.frontmatter;
     if (fm === undefined || str(fm.type) !== 'project') {
@@ -714,16 +715,19 @@ export async function loadProjectsOverNorn(client: NornClient): Promise<Project[
     if (key === null || key === '') {
       continue;
     }
-    const list = byKey.get(key);
-    if (list === undefined) {
-      byKey.set(key, [{ fm }]);
-    } else {
-      list.push({ fm });
+    // One source per document (stem = the project key), so a key carried by more than
+    // one doc collides; `byKey` keeps the first (a colliding key is dropped below).
+    sources.push({ stem: key });
+    if (!byKey.has(key)) {
+      byKey.set(key, fm);
     }
   }
+  // Validity derives from the SHARED project-presence/duplicate rule the whole-vault
+  // snapshot uses (MMR-251) — a colliding key reads as no known board, identically.
+  const present = presentProjectKeys([...byKey.keys()], sources);
   return [...byKey]
-    .filter(([, list]) => list.length === 1)
-    .map(([key, list]) => decodeProject(key, list[0]?.fm ?? {}))
+    .filter(([key]) => present.has(key))
+    .map(([key, fm]) => decodeProject(key, fm))
     .toSorted((a, b) => cmpStr(a.key, b.key));
 }
 
@@ -739,10 +743,17 @@ export async function loadProjectsOverNorn(client: NornClient): Promise<Project[
  * the doctor validator would). Edges cross project boundaries but settledness never
  * consults them (a task is settled by its own lifecycle; a container by its
  * descendant tasks' terminal-ness), so they are deliberately not projected.
+ *
+ * Presence is NOT trusted from the requested keys: `validProjectKeys` is the valid
+ * project-key set the caller already derived from its validated projects read
+ * (MMR-251), so a spawned target whose project doc is missing or duplicate-key is
+ * dropped here (missing-project) exactly as the whole-vault snapshot drops it — the
+ * scoped and whole-vault paths agree, and the resolving seam prunes the ref either way.
  */
 export async function loadNodesForProjectsOverNorn(
   client: NornClient,
   projectKeys: readonly string[],
+  validProjectKeys: ReadonlySet<string>,
 ): Promise<Node[]> {
   const keys = [...new Set(projectKeys)];
   if (keys.length === 0) {
@@ -771,12 +782,14 @@ export async function loadNodesForProjectsOverNorn(
       rawNodes.push({ fm, key: ref.key, path: doc.path, seq: ref.seq, stem, type });
     }
   }
-  // Validate the scoped subgraph against the requested projects (all present):
-  // field validity drops a bad-lifecycle/hold node, duplicate stems drop an
+  // Validate the scoped subgraph, with presence taken from the caller's VALIDATED
+  // project keys — not the requested keys: a target whose project is missing/duplicate
+  // is not present, so its node drops (missing-project) exactly as the whole-vault path
+  // drops it. Field validity drops a bad-lifecycle/hold node, duplicate stems drop an
   // ambiguous identity, dangling edges to out-of-scope nodes prune (unused here).
   const validated = validate({
     nodes: rawNodes.map((n) => nodeRefsOf(n.fm, n.key, n.stem, n.type, n.path)),
-    projectKeys: keys,
+    projectKeys: keys.filter((key) => validProjectKeys.has(key)),
     sources: rawNodes.map((n) => ({ kind: 'node' as const, path: n.path, stem: n.stem })),
   });
   const validByStem = new Map(validated.nodes.map((r) => [r.stem, r]));
