@@ -36,18 +36,50 @@ type Override = LintOverride;
  */
 const layerGroups = (layer: string): string[] => [`**/${layer}`, `**/${layer}/**`];
 
-const forbid = (files: string[], layers: string[]): Override => ({
+/**
+ * ADR 0018: vault access is Norn-only. Now that MMR-199 retired the
+ * `mkdirSync` deviation, the restricted-import ban the ADR deferred can land:
+ * `node:fs` / `node:fs/promises` are banned across the Norn client and the
+ * core read/write paths, so the invariant is enforced structurally instead of
+ * by review. The ADR's carve-outs — provisioning (`vault/converge.ts`) and
+ * version control (`vault/git.ts`, `vault/snapshot.ts`) — live under
+ * `vault/**`, a sibling of the banned globs, so they need no explicit
+ * exclusion here.
+ */
+const nodeFsBanPaths = (file: string | undefined): { message: string; name: string }[] => {
+  const message = `ADR 0018: vault access is Norn-only — ${file} may not import node:fs directly; read and write vault content through the Norn client.`;
+  // Both specifier spellings: Node/Bun resolve bare `fs` identically to
+  // `node:fs`, so banning only the prefixed form would leave a green-lint
+  // bypass.
+  return [
+    { message, name: 'node:fs' },
+    { message, name: 'node:fs/promises' },
+    { message, name: 'fs' },
+    { message, name: 'fs/promises' },
+  ];
+};
+
+/**
+ * `layers`: layer-boundary group patterns as before (empty to skip). `banFs`:
+ * also forbid `node:fs`/`node:fs/promises` on the same files (ADR 0018).
+ */
+const forbid = (files: string[], layers: string[], options?: { banFs?: boolean }): Override => ({
   files,
   rules: {
     'no-restricted-imports': [
       'error',
       {
-        patterns: [
-          {
-            group: layers.flatMap(layerGroups),
-            message: `Layer boundary: ${files[0]} may not import from ${layers.join(', ')} (contract <- db <- core <- transports).`,
-          },
-        ],
+        ...(layers.length > 0
+          ? {
+              patterns: [
+                {
+                  group: layers.flatMap(layerGroups),
+                  message: `Layer boundary: ${files[0]} may not import from ${layers.join(', ')} (contract <- db <- core <- transports).`,
+                },
+              ],
+            }
+          : {}),
+        ...(options?.banFs === true ? { paths: nodeFsBanPaths(files[0]) } : {}),
       },
     ],
   },
@@ -95,10 +127,19 @@ const uiLintOverride: Override = {
 };
 
 const layerOverrides: Override[] = [
-  forbid(['packages/bin/src/core/**'], ['cli', 'mcp', 'http']),
+  forbid(['packages/bin/src/core/**'], ['cli', 'mcp', 'http'], { banFs: true }),
   forbid(['packages/bin/src/cli/**'], ['mcp', 'http']),
-  forbid(['packages/bin/src/mcp/**'], ['cli', 'http']),
-  forbid(['packages/bin/src/http/**'], ['cli', 'mcp']),
+  forbid(['packages/bin/src/mcp/**'], ['cli', 'http'], { banFs: true }),
+  forbid(['packages/bin/src/http/**'], ['cli', 'mcp'], { banFs: true }),
+  // `norn/**` (the Norn client itself) and `doctor/**` (reaches the vault
+  // only via that client already) carry no layer-boundary restriction of
+  // their own — just the ADR 0018 node:fs ban. `cli/**` keeps legitimate
+  // non-vault filesystem use (the `.mimir.toml` binding file, service
+  // config/plist, self-update) that falls outside the ADR's carve-out list,
+  // so it is deliberately left unbanned rather than growing carve-outs the
+  // ADR doesn't name.
+  forbid(['packages/bin/src/norn/**'], [], { banFs: true }),
+  forbid(['packages/bin/src/doctor/**'], [], { banFs: true }),
   // Tests legitimately wire layers together (the Norn store fixture from
   // `testing/store`, cross-layer assertions); the boundary constrains shipped
   // code, not tests.
