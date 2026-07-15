@@ -1,5 +1,6 @@
 import type { Priority, Size } from '@mimir/contract';
 
+import type { ArtifactRecord } from '../artifacts/store';
 import { invariant, notFound, validation } from '../errors';
 import { renderArtifactRef } from '../ids';
 import type { Node, Project } from '../model';
@@ -218,6 +219,19 @@ export type AttachArtifactInput = {
 };
 
 /**
+ * `attachArtifact`'s return, echoing the just-written record IN FULL (MMR-283,
+ * mirroring `seeds.create`): `renderedId` for callers that only need the id
+ * (CLI/MCP), `record` for a wire echo (HTTP) — everything a create response
+ * renders, with no follow-up `getArtifact` read. Project-activeness is
+ * guaranteed by `assertProjectActive` below, inside the SAME transaction that
+ * precedes the artifact write — so `record` needs no second active check.
+ */
+export type AttachArtifactResult = {
+  renderedId: string;
+  record: ArtifactRecord & { content: string };
+};
+
+/**
  * Attach an artifact (MMR-34). Node-side validation (project active, links
  * in-project) runs in one transaction; the artifact write is a separate call
  * because it may target a different backend (ADR 0016 Phase 2a) that can't
@@ -231,13 +245,15 @@ export type AttachArtifactInput = {
 export async function attachArtifact(
   store: Store,
   input: AttachArtifactInput,
-): Promise<{ renderedId: string }> {
+): Promise<AttachArtifactResult> {
   if (input.title.trim() === '') {
     throw validation('attach requires a title');
   }
   // Validate the project and every link against the node backend, and render
   // the link stems, before the artifact write hits its own (possibly Norn)
-  // backend — the invariants stay verb-side (MMR-143).
+  // backend — the invariants stay verb-side (MMR-143). `assertProjectActive`
+  // runs BEFORE the artifact write below, so the project is known active at
+  // write time — the echo needs no second active check (MMR-283).
   const { projectKey, linkStems } = await store.transact(async (w) => {
     const project = await w.loadProject(input.projectId);
     if (project === undefined) {
@@ -258,14 +274,14 @@ export async function attachArtifact(
     }
     return { linkStems: stems, projectKey: project.key };
   });
-  const { key, seq } = await store.artifacts.create({
+  const record = await store.artifacts.create({
     content: input.content,
     key: projectKey,
     links: linkStems,
     tags: input.tags ?? [],
     title: input.title,
   });
-  return { renderedId: renderArtifactRef({ key, seq }) };
+  return { record, renderedId: renderArtifactRef({ key: record.key, seq: record.seq }) };
 }
 
 export async function reorder(

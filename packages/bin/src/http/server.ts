@@ -29,6 +29,7 @@ import {
   artifactToWire,
   attachArtifact,
   blockTask,
+  buildArtifactDetail,
   deriveSet,
   fileSeed,
   findNodeInSet,
@@ -784,14 +785,18 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
                 linkNodeIds.push(linked.id);
               }
             }
-            const { renderedId } = await attachArtifact(store, {
+            // Echo from the held record (MMR-283): `attachArtifact` already asserted
+            // the project active BEFORE the write and its store-side `create` returns
+            // the full record, so the 201 body renders with no `getArtifact` re-read
+            // (no second active check, no point read of the artifact just written).
+            const { record } = await attachArtifact(store, {
               content: requiredStr(body, 'content', 'attach'),
               linkNodeIds,
               projectId: anchor.project_id,
               tags: strList(body, 'tags'),
               title: requiredStr(body, 'title', 'attach'),
             });
-            const detail = await getArtifact(store, renderedId, { content: true });
+            const detail = buildArtifactDetail(record);
             return json(req, await artifactDetailToWire(store, detail), 201);
           }),
       },

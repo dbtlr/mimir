@@ -134,6 +134,20 @@ export async function restoreArtifact(
   throw validation('the artifact restore collided with a different artifact', path);
 }
 
+/**
+ * Norn writes markdown with a trailing newline (POSIX convention): a body
+ * lacking one gets one appended at write time, while a body already ending in
+ * `\n` is written as-is. Either way the file ends in exactly one trailing
+ * `\n`, so stripping one on read round-trips a no-trailing-newline body
+ * exactly (a trailing-newline body deliberately loses that one newline — the
+ * sole content delta, benign for frozen markdown). Applying this SAME strip
+ * directly to the input body (rather than the file `create` just wrote)
+ * yields the identical result without a read-back (MMR-283).
+ */
+function stripTrailingNewline(body: string): string {
+  return body.endsWith('\n') ? body.slice(0, -1) : body;
+}
+
 /** Parse `KEY-aN` out of a vault path; null for non-artifact paths. */
 function seqFromPath(path: string): { key: string; seq: number } | null {
   const match = /(?:^|\/)([A-Z]{2,4})-a(\d+)\.md$/.exec(path);
@@ -198,12 +212,9 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
     if (!content) {
       return record;
     }
-    // Norn writes markdown with a trailing newline (POSIX convention); strip
-    // one so content round-trips what was attached, verbatim. (A body
-    // deliberately ending in `\n` loses that one newline —
-    // benign for frozen markdown artifacts, and the sole content delta.)
+    // Round-trip the frozen body verbatim — see stripTrailingNewline.
     const raw = typeof doc.body === 'string' ? doc.body : '';
-    return { ...record, content: raw.endsWith('\n') ? raw.slice(0, -1) : raw };
+    return { ...record, content: stripTrailingNewline(raw) };
   };
 
   return {
@@ -227,8 +238,9 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
       // allocates the next free per-directory sequence at apply time (the single
       // allocation authority), so there is no derived `max(seq)+1` and no
       // create-exclusive retry. The apply report echoes the resolved `KEY-aN`.
+      const timestamp = now();
       const frontmatter = artifactFrontmatter({
-        created: now(),
+        created: timestamp,
         key: input.key,
         links: input.links,
         tags: input.tags,
@@ -248,7 +260,24 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
       if (identity?.kind !== 'artifact' || identity.key !== input.key) {
         throw invariant(`a created artifact resolved to an unexpected stem: ${result.stem}`);
       }
-      return { key: input.key, seq: identity.seq };
+      // Echo the record IN FULL from what was just written (MMR-283, mirroring the
+      // seed store's create): every field is either the create input or derived
+      // locally (the resolved seq, the stamped `created`), so a caller building a
+      // create response never needs a follow-up `load`. `content` is normalized to
+      // the read-back semantics (stripTrailingNewline) so the echo equals a
+      // subsequent load's content exactly.
+      return {
+        content: stripTrailingNewline(input.content),
+        created_at: timestamp,
+        key: input.key,
+        // toRecord() sorts `links` on read (see toRecord below) — match that
+        // order here so the echo equals a subsequent load's `links` exactly,
+        // regardless of the caller's link order.
+        links: input.links.toSorted(),
+        seq: identity.seq,
+        tags: input.tags,
+        title: input.title,
+      };
     },
 
     async list(query: ArtifactListQuery) {
