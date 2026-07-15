@@ -13,6 +13,79 @@ and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
+## v0.15.0 - 2026-07-15
+
+### Added
+
+- **Doctor issue-count trailer on `next` / `list`** (MMR-184). When the
+  tolerant reader drops or notes a record while building the working set a
+  selection reads over — a duplicate stem, a dangling or cycle-closing edge, a
+  missing project, an invalid lifecycle — `next` and `list` now print
+  `⚠ N issues — run mimir doctor` as a stderr note, nudging an agent's boot
+  orientation toward vault issues. The count is the whole-vault working-set
+  tally (the shared validator's drop count over the full load, not scoped to
+  `--scope` or the current selection), never a fresh `mimir doctor` pass — so
+  doctor, which also runs seed and per-document checks, may report more.
+  Stdout stays untouched, and a clean vault prints nothing; under `-f json` /
+  `-f jsonl` the trailer is a JSON object line on stderr rather than prose,
+  matching the existing warning-envelope convention. The archived-projects
+  shelf (`list --status archived`) deliberately doesn't carry the trailer — a
+  different, project-shelf resource path.
+- **`mimir doctor` flags interior sequence gaps** (MMR-197). A new informational
+  diagnostic reports a missing number below a project's max node or seed sequence
+  that no surviving record or other finding accounts for — durable evidence of a
+  hand deletion, since Mimir never reuses a seq (abandon is the lifecycle path) and
+  Norn allocates `{{seq}}` as max+1. The check names the
+  missing numbers (bounded for a pathological vault), stays non-gating, and is not
+  repairable by `--fix`; recovery is `git revert` over the vault's snapshot history
+  (see [docs/decisions/0017-runtime-data-tolerance.md](docs/decisions/0017-runtime-data-tolerance.md)).
+- **`mimir doctor` detects cross-directory duplicate artifact stems** (MMR-282). A new
+  diagnostic reports when one artifact id (`KEY-aN`) resolves to more than one document.
+  Detection only — which document survives is a human call, so `--fix` skips it.
+- **The interior sequence-gap check now covers artifact sequences** (MMR-282). A missing
+  artifact number below a project's max is reported the same way as node and seed gaps —
+  informational, non-gating, and not repairable.
+
+### Changed
+
+- **Artifact and seed ids allocate through Norn's `{{seq}}` token** (MMR-196).
+  Artifact and seed creates were the last sites deriving an id by client-side
+  `max(seq)+1` with a create-exclusive retry loop; both now ride a single
+  `create_document` plan op whose path carries the `{{seq}}` token Norn resolves
+  at apply time, matching node creation. Plan-CAS is now the sole write mechanism
+  for every create (see [docs/decisions/0016-norn-vault-system-of-record.md](docs/decisions/0016-norn-vault-system-of-record.md)).
+
+### Removed
+
+- **Dead `NornClient` surface from the SQLite→Norn cutover retired** (MMR-195).
+  `NornClient.edit()` (the set-then-edit fallback, superseded and callerless),
+  `describe()` (its `vault.describe` call always passed `{}`, so the data-summary
+  path it existed for was unreachable), and `count()` (callerless) are gone,
+  along with their `NornToolName` union entries. `validate()` and `set()` stay —
+  `doctor/snapshot.ts` and `vault/backfill.ts` still call them.
+- **Fabricated `last_seq` / `last_artifact_seq` project counters dropped**
+  (MMR-195). The Norn backend invented these two fields on every `Project` to
+  keep the row shaped like the retired SQLite schema; nothing ever consumed
+  them, and Norn allocates node ids from the project's documents directly. The
+  fields are gone from the `Project` model and every write site that fabricated
+  them (`store-norn.ts`, `norn/writer.ts`, `doctor/repair.ts`).
+- **The `[store] backend` tolerated-ignore note** (MMR-279). A stray
+  `[store] backend` (or its `artifacts` alias) key in the global config no
+  longer prints a startup "ignored" note on `serve` — the `[store]` section
+  now carries no declared keys, so a lingering key is a silent, ordinary
+  unknown-key no-op like any other stray TOML content.
+
+### Fixed
+
+- **Promote-with-deps partial failure fired two toasts** (MMR-273). When a
+  seed's promote succeeded but the chained `/depend` call failed, the console
+  showed both the shared depend hook's raw-cause error and the promote
+  sheet's honest recap for the same outcome. The hook now takes a `silent`
+  option so a caller that owns its own outcome message can suppress the
+  hook's toast; the promote flow uses it, so a partial failure surfaces
+  exactly one message — the recap naming the spawned task. Create mode is
+  unchanged: the hook still owns that toast, since nothing else narrates it.
+
 ## v0.14.0 - 2026-07-15
 
 ### Added
