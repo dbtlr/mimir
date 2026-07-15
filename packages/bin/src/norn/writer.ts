@@ -709,6 +709,39 @@ class Accumulator {
    * release) is `remove_frontmatter` guarded by the old value. Norn omits the
    * `none`/null defaults exactly as {@link nodeFrontmatter} does, so "absent" is
    * `finalFm[field] === undefined`.
+   *
+   * ── CO-WRITE INVARIANT (read this before adding a verb) ────────────────────
+   * These per-field `expected_old_value` preconditions are the ONLY drift
+   * protection a mutation has: the write path sends no `document_hash`, so there
+   * is no whole-document compare. Per-field CAS carries whole-document protection
+   * only through an invariant every current verb happens to satisfy:
+   *
+   *   Every mutation must co-write at least one CAS-guarded field per touched
+   *   document.
+   *
+   * A CAS-guarded field is one emitted here as `set_frontmatter` /
+   * `remove_frontmatter` carrying an `expected_old_value`. An `add_frontmatter`
+   * (an absent→present field) does NOT count — it asserts that one field was
+   * absent, not that the document is unchanged; nor do the section appends
+   * (`## History` / `## Annotations`), which carry no per-op precondition. The
+   * field the verb writes counts as the guard when the verb's legality derives
+   * from it: `start` reads and writes `lifecycle`; `reorder` reads and writes
+   * `rank`. The `updated_at` stamp (`stamp` in `mutations/common.ts`), co-written
+   * by every status-bearing verb, covers the common case; `reorder` skips the
+   * stamp but is guarded by `rank`, the field it writes.
+   *
+   * What breaks if a verb violates it: a verb that writes field X without
+   * co-writing any CAS-guarded field, whose legality read a field Y it does not
+   * write, passes its own per-field CAS and applies against a stale Y — with no
+   * drift error and no replay (the drift/replay loop in {@link runTransact} fires
+   * only on a CAS mismatch). The write silently lands on a document that moved
+   * under the snapshot. The "every verb co-writes a CAS guard" test in
+   * `writer.test.ts` enforces the PRESENCE half structurally over the verbs
+   * exported through `core/mutations`: at least one guarded op per touched
+   * document. It cannot check that the guard co-moves with the verb's legality
+   * reads — a verb guarding only an incidental field would pass the test and
+   * still be stale-unsound — so that semantic half is this rule, applied by the
+   * verb author and enforced in review.
    */
   private emitFieldOps(
     operations: MigrationOp[],
