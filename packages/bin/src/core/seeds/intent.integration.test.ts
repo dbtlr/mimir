@@ -74,6 +74,44 @@ async function pidOf(key: string): Promise<string> {
   return resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
 }
 
+type RpcCounts = { finds: number; wholeVaultFinds: number; gets: number };
+
+/**
+ * Instrument the norn client's read RPCs (MMR-251): total `vault.find`s, the
+ * whole-vault subset (`type:project,task,phase,initiative` — the heavy load the
+ * refactor scopes away), and `vault.get`s (point + section reads). Returns the
+ * counts accumulated while `fn` runs, then restores the client.
+ */
+async function countRpcs(fn: () => Promise<unknown>): Promise<RpcCounts> {
+  const counts: RpcCounts = { finds: 0, gets: 0, wholeVaultFinds: 0 };
+  const find = client.find.bind(client);
+  const get = client.get.bind(client);
+  const sections = client.getSectionsResult.bind(client);
+  client.find = (args) => {
+    counts.finds += 1;
+    if ((args.in ?? []).some((s) => s.includes('type:project,task,phase,initiative'))) {
+      counts.wholeVaultFinds += 1;
+    }
+    return find(args);
+  };
+  client.get = (targets, col) => {
+    counts.gets += 1;
+    return get(targets, col);
+  };
+  client.getSectionsResult = (targets, secs, col) => {
+    counts.gets += 1;
+    return sections(targets, secs, col);
+  };
+  try {
+    await fn();
+  } finally {
+    client.find = find;
+    client.get = get;
+    client.getSectionsResult = sections;
+  }
+  return counts;
+}
+
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), 'mimir-seedverb-'));
   vaultRoot = join(root, 'vault');
@@ -609,6 +647,61 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
       rule: 'dangling-spawned',
       stem: 'MMR-s1',
     });
+  });
+
+  test('the single-seed echoes never pay a whole-vault load (MMR-251)', async () => {
+    const { phaseRef: parent } = await seedbed();
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'newseed' });
+    await fileSeed(store, { kind: 'feature', project: 'MMR', requester: null, title: 'topromote' });
+
+    // fileSeed: ONE projects find, and NO read-back get of the seed it just wrote
+    // (the held record echoes it) — down from a whole-vault find + a re-load get (D5).
+    const fileC = await countRpcs(() =>
+      fileSeed(store, { kind: 'bug', project: 'MMR', requester: null, title: 'held' }),
+    );
+    expect(fileC).toEqual({ finds: 1, gets: 0, wholeVaultFinds: 0 });
+
+    // getSeed of a new (spawn-less) seed: ONE projects find (not whole-vault) + the
+    // record get; the scoped read loads no nodes.
+    const getC = await countRpcs(() => getSeed(store, 'MMR-s1', { content: true }));
+    expect(getC).toEqual({ finds: 1, gets: 1, wholeVaultFinds: 0 });
+
+    // reject of a spawn-less seed: 1 projects find + 2 gets (transition load-doc +
+    // echo record) = 3 RPCs — beats the 4-RPC baseline; ZERO whole-vault finds
+    // (was two: the guard's and the echo's).
+    const rejectNew = await countRpcs(() => transitionSeed(store, 'MMR-s1', 'rejected', 'nope'));
+    expect(rejectNew).toEqual({ finds: 1, gets: 2, wholeVaultFinds: 0 });
+
+    // promote (create): the ECHO reuses the mid-promote load — it adds no whole-vault
+    // find (D2). The two that remain are the mid-promote resolve and createTask's own
+    // transaction snapshot, both pre-existing and outside the echo.
+    const promoteC = await countRpcs(() => promoteSeed(store, 'MMR-s2', { parent }));
+    expect(promoteC.wholeVaultFinds).toBe(2);
+
+    // resolve of a PROMOTED seed (spawned work to settle/prune): still ZERO
+    // whole-vault finds — the echo loads only the spawned target's project, scoped.
+    const resolvePromoted = await countRpcs(() =>
+      transitionSeed(store, 'MMR-s2', 'resolved', 'done'),
+    );
+    expect(resolvePromoted.wholeVaultFinds).toBe(0);
+    expect(resolvePromoted.finds + resolvePromoted.gets).toBeLessThanOrEqual(4);
+  });
+
+  test('listSeeds + triage share ONE whole-vault load (MMR-251/D4)', async () => {
+    await seedbed();
+    await fileSeed(store, { kind: 'bug', project: 'MMR', requester: null, title: 'live1' });
+
+    // GET /api/seeds?project=KEY shape: the whole-vault resolver + the type:seed
+    // listing = 2 finds (the baseline), one of them whole-vault.
+    const listC = await countRpcs(() => listSeeds(store, { project: 'MMR' }));
+    expect(listC.finds).toBe(2);
+    expect(listC.wholeVaultFinds).toBe(1);
+
+    // triage reuses listSeeds' set for its own board-task check, so the pass derives
+    // ONE whole-vault load (folded from two) — 2 finds total, down from three.
+    const triageC = await countRpcs(() => triage(store, { board: 'MMR', dryRun: true }));
+    expect(triageC.finds).toBe(2);
+    expect(triageC.wholeVaultFinds).toBe(1);
   });
 });
 

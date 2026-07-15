@@ -221,6 +221,26 @@ export type Store = {
   loadWorkingSet: () => Promise<WorkingSet>;
 
   /**
+   * The lightweight all-projects read (MMR-251): every project (archived included),
+   * WITHOUT the whole-vault node load. The seed resolving seam's requester/board
+   * view — an unknown/archived requester nulls, an archived own-board freezes — needs
+   * only project keys and their `archived_at`, so this is the projects-only slice of
+   * {@link loadWorkingSet}.
+   */
+  loadProjects: () => Promise<readonly Project[]>;
+
+  /**
+   * The project-scoped node read (MMR-251): the nodes of the named projects only,
+   * validated identically to {@link loadWorkingSet} (a bad or duplicate node is
+   * dropped). The seed resolving seam's spawned-target settledness closure —
+   * settledness is a task's own lifecycle or a container's descendant rollup, both
+   * in-project — so loading the targets' projects is the whole closure without a
+   * whole-vault load. Edges are not projected (settledness never consults them).
+   * An empty key list reads as no nodes (no query).
+   */
+  loadNodesForProjects: (projectKeys: readonly string[]) => Promise<readonly Node[]>;
+
+  /**
    * The write scope (MMR-135): run `fn` inside one transaction over the
    * `StoreWriter` vocabulary. A throw rolls the whole scope back — a verb's
    * invariant failure leaves no partial rows.

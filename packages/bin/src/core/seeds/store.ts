@@ -54,8 +54,11 @@ export type SeedPatch = {
 };
 
 export type SeedStore = {
-  /** Allocate the next `KEY-sN` seq and persist the seed; returns its identity. */
-  create: (input: SeedCreate) => Promise<{ key: string; seq: number }>;
+  /** Allocate the next `KEY-sN` seq and persist the seed; returns the created record
+   * IN FULL (its allocated identity, the fields as written, and the `## Seed
+   * Description` prose). The verb echoes this held record directly, so a create needs
+   * no read-back of the seed it just wrote (MMR-251/MMR-196). */
+  create: (input: SeedCreate) => Promise<SeedRecord & { description: string | null }>;
   /** One seed's record; the `## Seed Description` prose only when `content` is opted in. */
   load: (
     key: string,

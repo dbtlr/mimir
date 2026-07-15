@@ -13,7 +13,8 @@ import { createTask } from '../create';
 import type { DerivationSet } from '../derive';
 import { deriveSet, findNodeInSet, findProjectInSet, isNodeSettled } from '../derive';
 import { conflict, notFound, projectNotFound, validation } from '../errors';
-import { parseSeedRef, renderId, renderSeedRef } from '../ids';
+import { parseId, parseSeedRef, renderId, renderSeedRef } from '../ids';
+import type { Node, Project } from '../model';
 import type { Store } from '../store';
 import { assertTitleWithinCap, splitCapture } from './capture';
 import { deriveLede } from './lede';
@@ -24,13 +25,15 @@ import type { SeedRecord } from './store';
  * The seed verb surface (MMR-245) — the transport-agnostic read + mutation
  * layer the CLI, MCP, and HTTP all render, paralleling the node intent layer.
  *
- * **The resolving read seam.** Every verb-facing read routes through
- * {@link seedResolver} + {@link resolveSeedView}, mirroring how the node reader
+ * **The resolving read seam.** Every verb-facing read routes through a
+ * {@link SeedResolver} + {@link resolveSeedView}, mirroring how the node reader
  * consumes `validate`'s valid subgraph (`loadNornSnapshot`): the per-record
  * store decoder stays dumb, and it is HERE that a read nulls/prunes what the
  * validator would drop — an unknown `requester` reads as `null`, a `spawned`
- * ref that resolves to no surviving work node is pruned. Deriving over one
- * working-set snapshot also lets the read compute `readyToResolve` live (the
+ * ref that resolves to no surviving work node is pruned. The resolver is
+ * project-scoped (MMR-251): the single-seed reads and every write echo build it
+ * from an all-projects read plus only the spawned targets' nodes — never a
+ * whole-vault load — while the read still computes `readyToResolve` live (the
  * house rule: derive, never store).
  */
 
@@ -55,15 +58,74 @@ export function asSeedKind(value: unknown): SeedKind | null {
  * nulls against this) plus the derived working set (spawned refs + settledness
  * resolve against its surviving nodes). Archived projects read as absent
  * (ADR 0015), so their keys and nodes are excluded from resolution.
+ *
+ * **Project-scoped (MMR-251).** The single-seed reads and every write echo build
+ * this from a lightweight all-projects read plus ONLY the nodes of the seed's
+ * spawned targets' projects — never a whole-vault load. All projects are present
+ * (the requester-null and archived-board-hiding derive over them); only the spawned
+ * targets' nodes are loaded (a task settles by its own lifecycle, a container by its
+ * in-project descendant rollup, so the target's project is the whole settledness
+ * closure). {@link resolveSeedView} and {@link assertSeedBoardActive} read the same
+ * `DerivationSet` API, so scoping is invisible to them.
  */
 type SeedResolver = { projectKeys: ReadonlySet<string>; set: DerivationSet };
 
-async function seedResolver(store: Store): Promise<SeedResolver> {
-  const set = deriveSet(await store.loadWorkingSet());
-  const projectKeys = new Set(
-    set.ws.projects.filter((p) => p.archived_at === null).map((p) => p.key),
-  );
-  return { projectKeys, set };
+/** The active (non-archived) project keys — an archived board reads as absent
+ * (ADR 0015), so its key is not "known" for board/requester resolution. */
+function activeKeys(projects: readonly Project[]): Set<string> {
+  return new Set(projects.filter((p) => p.archived_at === null).map((p) => p.key));
+}
+
+/** The distinct owning-project keys of the seeds' spawned work-node stems — the
+ * projects whose nodes the resolving read must load to settle/prune the refs. A
+ * non-`KEY-seq` stem contributes nothing (it resolves to no node either way). */
+function spawnedTargetKeys(records: readonly Pick<SeedRecord, 'spawned'>[]): string[] {
+  const keys = new Set<string>();
+  for (const rec of records) {
+    for (const stem of rec.spawned) {
+      const ref = parseId(stem);
+      if (ref !== null) {
+        keys.add(ref.key);
+      }
+    }
+  }
+  return [...keys];
+}
+
+/** Assemble a resolver from an all-projects read + the (project-scoped) nodes that
+ * settle/prune the spawned refs. Edges and tags are irrelevant to seed resolution
+ * (settledness never consults edges), so the derived set carries none. */
+function buildResolver(projects: readonly Project[], nodes: readonly Node[]): SeedResolver {
+  const set = deriveSet({
+    edges: [],
+    nodeTags: new Map(),
+    nodes,
+    projectTags: new Map(),
+    projects,
+  });
+  return { projectKeys: activeKeys(projects), set };
+}
+
+/**
+ * Read a seed and render its resolved view (MMR-251), scoping the resolution to the
+ * spawned targets' projects rather than the whole vault. `projects` is the
+ * already-loaded all-projects read (shared with the caller's guard, so it is read
+ * once per verb); an absent seed throws `not_found`. Every write verb echoes through
+ * here so its output renders identically to a standalone {@link getSeed}.
+ */
+async function echoSeed(
+  store: Store,
+  ref: { key: string; seq: number },
+  projects: readonly Project[],
+  opts: { content?: boolean } = {},
+): Promise<SeedView> {
+  const rec = await store.seeds.load(ref.key, ref.seq, opts);
+  if (rec === undefined) {
+    throw notFound(`no seed ${renderSeedRef(ref)}`);
+  }
+  const keys = spawnedTargetKeys([rec]);
+  const nodes = keys.length > 0 ? await store.loadNodesForProjects(keys) : [];
+  return resolveSeedView(rec, buildResolver(projects, nodes));
 }
 
 /**
@@ -155,7 +217,22 @@ export type ListSeedsOptions = {
  * requester and dangling spawned refs are already nulled/pruned.
  */
 export async function listSeeds(store: Store, opts: ListSeedsOptions = {}): Promise<SeedView[]> {
-  const r = await seedResolver(store);
+  return (await listSeedsResolved(store, opts)).views;
+}
+
+/**
+ * The queue read PLUS the working set it resolved over (MMR-251/D4) — so the triage
+ * pass reuses ONE load for both its live-seed checks (this listing) and its own
+ * board-task check, rather than each deriving a whole-vault set. Unlike the
+ * single-seed reads, the listing stays a whole-vault load: it is inherently
+ * board-wide and its set is what triage's check (c) reads the board's own tasks from.
+ */
+export async function listSeedsResolved(
+  store: Store,
+  opts: ListSeedsOptions = {},
+): Promise<{ views: SeedView[]; set: DerivationSet }> {
+  const set = deriveSet(await store.loadWorkingSet());
+  const r: SeedResolver = { projectKeys: activeKeys(set.ws.projects), set };
   // `'all'` is the every-active-board selector, equivalent to omitting `project` —
   // handled HERE so CLI `-p all`, HTTP `?project=all`, and MCP converge (B5b).
   const project = opts.project === 'all' ? undefined : opts.project;
@@ -199,7 +276,7 @@ export async function listSeeds(store: Store, opts: ListSeedsOptions = {}): Prom
   // (the single source every transport renders). Settled rows carry no lede — their
   // body comes on demand from the detail read. Nothing is stored.
   await attachLede(store, views);
-  return views;
+  return { set, views };
 }
 
 /** Attach the derived lede to the LIVE views in `views` (mutated in place) from a
@@ -256,15 +333,13 @@ export async function getSeed(
   if (ref === null) {
     throw notFound(`${id} is not a seed id`, 'seed ids look like KEY-sN');
   }
-  const r = await seedResolver(store);
-  if (!r.projectKeys.has(ref.key)) {
+  // Project-scoped (MMR-251): the lightweight all-projects read gates the board,
+  // then the echo loads only the seed's spawned targets — no whole-vault load.
+  const projects = await store.loadProjects();
+  if (!activeKeys(projects).has(ref.key)) {
     throw notFound(`no seed ${id}`);
   }
-  const rec = await store.seeds.load(ref.key, ref.seq, opts);
-  if (rec === undefined) {
-    throw notFound(`no seed ${id}`);
-  }
-  return resolveSeedView(rec, r);
+  return echoSeed(store, ref, projects, opts);
 }
 
 export type FileSeedInput = {
@@ -294,34 +369,33 @@ export async function fileSeed(store: Store, input: FileSeedInput): Promise<Seed
     throw validation('a seed requires a title');
   }
   assertTitleWithinCap(title);
-  const r = await seedResolver(store);
-  if (!r.projectKeys.has(input.project)) {
+  // Project-scoped guard (MMR-251): the lightweight all-projects read is all the
+  // target/requester active-checks need — a fresh seed spawns nothing.
+  const projects = await store.loadProjects();
+  const keys = activeKeys(projects);
+  if (!keys.has(input.project)) {
     throw projectNotFound(input.project);
   }
   // Coerce '' → null up front so an empty requester can NEVER bypass the
   // known-project guard nor write an empty `[[]]` wikilink (B5c); it self-files.
   const requester = input.requester == null || input.requester === '' ? null : input.requester;
-  if (requester !== null && !r.projectKeys.has(requester)) {
+  if (requester !== null && !keys.has(requester)) {
     throw validation(
       `requester ${requester} is not a known project`,
       'the requester is a board key (KEY); omit it to self-file',
     );
   }
-  const { key, seq } = await store.seeds.create({
+  // `create` returns the held record IN FULL (MMR-251/MMR-196): a fresh seed adds no
+  // work node and changes no project, so the projects read still resolves the echo —
+  // no read-back of the seed just written, no whole-vault load.
+  const created = await store.seeds.create({
     description,
     key: input.project,
     kind: input.kind,
     requester,
     title,
   });
-  // Reuse the resolver already built for the guards (E2): creating a seed adds no
-  // work node and changes no project, so `r` still resolves the echo — no second
-  // whole-vault read via getSeed.
-  const created = await store.seeds.load(key, seq, { content: true });
-  if (created === undefined) {
-    throw notFound(`no seed ${renderSeedRef({ key, seq })}`);
-  }
-  return resolveSeedView(created, r);
+  return resolveSeedView(created, buildResolver(projects, []));
 }
 
 export type PromoteSeedInput = {
@@ -372,12 +446,19 @@ export async function promoteSeed(
     );
   }
 
-  const set = deriveSet(await store.loadWorkingSet());
+  // The mid-promote whole-vault load resolves an ARBITRARY `--parent`/`--link` node
+  // (any board), so it stays whole-vault; the echo reuses it (below) rather than
+  // paying a second find.
+  const ws = await store.loadWorkingSet();
+  const set = deriveSet(ws);
   // Assert the seed's OWN board is active BEFORE createTask — a promote on an
   // archived board must create nothing and mutate nothing (ADR 0015, B1a).
   assertSeedBoardActive(set, ref.key);
   let createdStem: string;
   let created: string | undefined;
+  // The just-spawned task post-dates the mid-promote load, so it is stitched into
+  // the echo set below (create mode only); link mode targets a node already in `set`.
+  let createdNode: Node | undefined;
   if (input.link !== undefined) {
     const node = findNodeInSet(set, input.link);
     if (node === undefined || set.archivedProjects.has(node.project_id)) {
@@ -400,6 +481,7 @@ export async function promoteSeed(
     });
     createdStem = renderId({ key, seq: task.seq });
     created = createdStem;
+    createdNode = { ...task, id: createdStem };
   } else {
     throw validation(
       'promote requires --parent <node> (create) or --link <KEY-seq> (record existing)',
@@ -414,7 +496,21 @@ export async function promoteSeed(
   // the stem already linked and the seed already promoted is a no-op, so a retried
   // `--parent`/`--link` cannot double-record (B2).
   await store.seeds.germinate(ref.key, ref.seq, createdStem);
-  return { created, seed: await getSeed(store, id, { content: true }), spawnedId: createdStem };
+  // Echo by reusing the mid-promote load (MMR-251/D2): resolution is project-scoped,
+  // so the whole-vault set already resolves every spawned ref; create mode just
+  // stitches in the task it spawned. No second whole-vault find. Only the now-promoted
+  // seed record is re-read (its lifecycle/spawned/updated_at changed).
+  const echoSet =
+    createdNode === undefined ? set : deriveSet({ ...ws, nodes: [...ws.nodes, createdNode] });
+  const echoResolver: SeedResolver = {
+    projectKeys: activeKeys(ws.projects),
+    set: echoSet,
+  };
+  const post = await store.seeds.load(ref.key, ref.seq, { content: true });
+  if (post === undefined) {
+    throw notFound(`no seed ${id}`);
+  }
+  return { created, seed: resolveSeedView(post, echoResolver), spawnedId: createdStem };
 }
 
 /**
@@ -436,9 +532,12 @@ export async function transitionSeed(
   if (reason.trim() === '') {
     throw validation(`${to === 'rejected' ? 'reject' : 'resolve'} requires a reason`);
   }
-  assertSeedBoardActive((await seedResolver(store)).set, ref.key);
+  // One projects read serves the board-active guard AND the echo (MMR-251): no
+  // whole-vault load for either, and no second read for the echo.
+  const projects = await store.loadProjects();
+  assertSeedBoardActive(buildResolver(projects, []).set, ref.key);
   await store.seeds.transition(ref.key, ref.seq, to, reason);
-  return getSeed(store, id, { content: true });
+  return echoSeed(store, ref, projects, { content: true });
 }
 
 export type UpdateSeedFields = {
@@ -467,7 +566,9 @@ export async function updateSeed(
   if (fields.title !== undefined) {
     assertTitleWithinCap(fields.title);
   }
-  assertSeedBoardActive((await seedResolver(store)).set, ref.key);
+  // One projects read serves the board-active guard AND the echo (MMR-251).
+  const projects = await store.loadProjects();
+  assertSeedBoardActive(buildResolver(projects, []).set, ref.key);
   await store.seeds.patch(ref.key, ref.seq, fields);
-  return getSeed(store, id, { content: true });
+  return echoSeed(store, ref, projects, { content: true });
 }

@@ -329,7 +329,22 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
       if (ref === null || ref.key !== input.key) {
         throw invariant(`a created seed resolved to an unexpected stem: ${result.stem}`);
       }
-      return { key: input.key, seq: ref.seq };
+      // Echo the record IN FULL from what was just written — norn's apply report
+      // resolved the `{{seq}}`, and every other field is the create input (a fresh
+      // seed is `new` with no spawned). The verb renders this directly, so no read-back
+      // of the seed just created (MMR-251/MMR-196).
+      return {
+        created_at: timestamp,
+        description: input.description,
+        key: input.key,
+        kind: input.kind,
+        lifecycle: 'new',
+        requester: input.requester,
+        seq: ref.seq,
+        spawned: [],
+        title: input.title,
+        updated_at: timestamp,
+      };
     },
 
     async germinate(key, seq, nodeStem) {

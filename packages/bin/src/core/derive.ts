@@ -24,6 +24,10 @@ import type { WorkingSet } from './store';
 export type DerivationSet = {
   readonly ws: WorkingSet;
   readonly nodeById: ReadonlyMap<string, Node>;
+  /** Project key → its Project — the by-key index {@link findProjectInSet} resolves
+   * against, so a project lookup is O(1) rather than a linear `projects.find` scan
+   * (the seed resolving seam does one per view; MMR-251). */
+  readonly projectByKey: ReadonlyMap<string, Project>;
   readonly childrenByParent: ReadonlyMap<string, readonly Node[]>;
   readonly nodesByProject: ReadonlyMap<string, readonly Node[]>;
   /** node id → its own prerequisite node ids (`depends_on`). */
@@ -78,6 +82,7 @@ export function deriveSet(ws: WorkingSet): DerivationSet {
     nodeById: new Map(ws.nodes.map((n) => [n.id, n])),
     nodesByProject,
     prereqsByNode,
+    projectByKey: new Map(ws.projects.map((p) => [p.key, p])),
     rawMemo: new Map(),
     ws,
   };
@@ -159,7 +164,7 @@ export function findNodeInSet(set: DerivationSet, id: string): Node | undefined 
  * in-memory twin of a `project`-by-key row read; `undefined` for an unknown key.
  * The by-key sibling of {@link findNodeInSet}. */
 export function findProjectInSet(set: DerivationSet, key: string): Project | undefined {
-  return set.ws.projects.find((p) => p.key === key);
+  return set.projectByKey.get(key);
 }
 
 /** Terminal = a decided end state. `abandoned` counts as terminal (and never freezes a parent). */
