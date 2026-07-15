@@ -338,9 +338,10 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
         const error = op !== undefined && isStringRecord(op.error) ? op.error : undefined;
         const code = typeof error?.code === 'string' ? error.code : undefined;
         const message = typeof error?.message === 'string' ? error.message : undefined;
+        const errorDetail = [code, message].filter((value) => value !== undefined).join(': ');
         throw validation(
           'the seed create did not complete',
-          `apply outcome: ${outcome}${code !== undefined && message !== undefined ? ` — ${code}: ${message}` : ''}`,
+          `apply outcome: ${outcome}${errorDetail === '' ? '' : ` — ${errorDetail}`}`,
         );
       }
       const ref = parseSeedRef(op.stem);

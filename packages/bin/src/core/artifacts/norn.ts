@@ -267,9 +267,10 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
         const error = op !== undefined && isStringRecord(op.error) ? op.error : undefined;
         const code = typeof error?.code === 'string' ? error.code : undefined;
         const message = typeof error?.message === 'string' ? error.message : undefined;
+        const errorDetail = [code, message].filter((value) => value !== undefined).join(': ');
         throw validation(
           'the artifact create did not complete',
-          `apply outcome: ${outcome}${code !== undefined && message !== undefined ? ` — ${code}: ${message}` : ''}`,
+          `apply outcome: ${outcome}${errorDetail === '' ? '' : ` — ${errorDetail}`}`,
         );
       }
       const identity = parseIdentity(op.stem);

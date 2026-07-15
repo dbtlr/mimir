@@ -428,5 +428,7 @@ is the single id-allocation authority.
   filename — so an unparseable or foreign-typed sibling in that directory still
   occupies its number (no reuse), while a hand-misplaced document in a different
   directory does not contaminate the count. A resulting cross-directory duplicate
-  stem is left to the fail-closed tolerant reader and `mimir doctor` (ADR 0017),
-  not guarded at the allocator.
+  stem is never guarded at the allocator: for work-state identities (projects,
+  nodes, seeds) the fail-closed tolerant reader and `mimir doctor` (ADR 0017)
+  already own it; artifact stems sit outside that snapshot, so their duplicate
+  detection is a tracked doctor follow-up rather than an existing guarantee.
