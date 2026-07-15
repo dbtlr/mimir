@@ -86,7 +86,7 @@ for (const backend of backends) {
         // create's own return must equal what a subsequent load reads back —
         // including the normalization edges (unsorted links, multi-trailing-
         // newline content) covered by the dedicated case below.
-        expect(created).toEqual(await h.artifacts.load('MMR', 1, { content: true }));
+        expect(await h.artifacts.load('MMR', 1, { content: true })).toEqual(created);
 
         const meta = await h.artifacts.load('MMR', 1);
         expect(meta).toMatchObject({
@@ -116,7 +116,7 @@ for (const backend of backends) {
           tags: ['spec'],
           title: 'edge echo',
         });
-        expect(created).toEqual(await h.artifacts.load('MMR', 1, { content: true }));
+        expect(await h.artifacts.load('MMR', 1, { content: true })).toEqual(created);
         expect(created.content).toBe('line a\n\n');
       },
     );
