@@ -48,9 +48,14 @@ const layerGroups = (layer: string): string[] => [`**/${layer}`, `**/${layer}/**
  */
 const nodeFsBanPaths = (file: string | undefined): { message: string; name: string }[] => {
   const message = `ADR 0018: vault access is Norn-only — ${file} may not import node:fs directly; read and write vault content through the Norn client.`;
+  // Both specifier spellings: Node/Bun resolve bare `fs` identically to
+  // `node:fs`, so banning only the prefixed form would leave a green-lint
+  // bypass.
   return [
     { message, name: 'node:fs' },
     { message, name: 'node:fs/promises' },
+    { message, name: 'fs' },
+    { message, name: 'fs/promises' },
   ];
 };
 
@@ -124,7 +129,7 @@ const uiLintOverride: Override = {
 const layerOverrides: Override[] = [
   forbid(['packages/bin/src/core/**'], ['cli', 'mcp', 'http'], { banFs: true }),
   forbid(['packages/bin/src/cli/**'], ['mcp', 'http']),
-  forbid(['packages/bin/src/mcp/**'], ['cli', 'http']),
+  forbid(['packages/bin/src/mcp/**'], ['cli', 'http'], { banFs: true }),
   forbid(['packages/bin/src/http/**'], ['cli', 'mcp'], { banFs: true }),
   // `norn/**` (the Norn client itself) and `doctor/**` (reaches the vault
   // only via that client already) carry no layer-boundary restriction of
