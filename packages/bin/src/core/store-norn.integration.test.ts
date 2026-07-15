@@ -93,7 +93,7 @@ test.skipIf(!NORN)(
     const ws = await loadWorkingSetOverNorn(client);
 
     expect(ws.projects).toHaveLength(1);
-    expect(ws.projects[0]).toMatchObject({ key: 'MMR', last_seq: 3, name: 'Mimir' });
+    expect(ws.projects[0]).toMatchObject({ key: 'MMR', name: 'Mimir' });
     expect(ws.nodes).toHaveLength(3);
 
     const byStem = new Map(ws.nodes.map((n) => [renderId({ key: 'MMR', seq: n.seq }), n] as const));

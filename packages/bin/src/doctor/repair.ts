@@ -171,8 +171,6 @@ function recoveryOperation(key: string, timestamp: string): MigrationOp {
     created_at: timestamp,
     description: null,
     key,
-    last_artifact_seq: 0,
-    last_seq: 0,
     name: `Recovered ${key}`,
     updated_at: timestamp,
   };

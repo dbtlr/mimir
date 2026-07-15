@@ -40,16 +40,13 @@ import type { MigrationPlan } from './plan';
 /** The subset of the norn tool catalog the artifact and node paths drive. */
 export type NornToolName =
   | 'vault.find'
-  | 'vault.count'
   | 'vault.get'
   | 'vault.new'
   | 'vault.set'
-  | 'vault.edit'
   | 'vault.validate'
-  | 'vault.describe'
   | 'vault.apply';
 
-/** `vault.find` / `vault.count` selection params (probed from the live catalog). */
+/** `vault.find` selection params (probed from the live catalog). */
 export type NornSelection = {
   eq?: string[];
   not_eq?: string[];
@@ -353,10 +350,6 @@ export class NornClient {
     return documents;
   }
 
-  async count(args: NornSelection & { by?: string }): Promise<unknown> {
-    return this.call('vault.count', args, true);
-  }
-
   /** `col` is comma-separated `norn get --col` syntax — dot-prefixed facets
    * (`.body`) opt heavy fields in; bare names select frontmatter fields. */
   async get(targets: string[], col?: string): Promise<unknown[]> {
@@ -429,10 +422,6 @@ export class NornClient {
     return this.call('vault.validate', {}, true);
   }
 
-  async describe(): Promise<unknown> {
-    return this.call('vault.describe', {}, true);
-  }
-
   // ─── Mutation tools (never auto-retried — a confirmed write must not double-apply) ───
 
   async newDoc(args: NornNewArgs): Promise<unknown> {
@@ -451,10 +440,6 @@ export class NornClient {
       );
     }
     return this.call('vault.set', wire, false);
-  }
-
-  async edit(target: string, edits: unknown[], confirm: boolean): Promise<unknown> {
-    return this.call('vault.edit', { confirm, edits, target }, false);
   }
 
   /**

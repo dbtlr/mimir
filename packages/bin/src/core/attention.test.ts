@@ -31,8 +31,6 @@ function project(overrides: Partial<Project> = {}): Project {
     created_at: AT,
     description: null,
     key: 'MMR',
-    last_artifact_seq: 0,
-    last_seq: 0,
     name: 'm',
     updated_at: AT,
     ...overrides,

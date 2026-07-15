@@ -14,8 +14,6 @@ export type Project = {
   key: string;
   name: string;
   description: string | null;
-  last_seq: number;
-  last_artifact_seq: number;
   /** The archived operator axis (ADR 0015): NULL = active, set = archived (doubles as "when"). */
   archived_at: string | null;
   created_at: string;
