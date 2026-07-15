@@ -82,6 +82,7 @@ export type DoctorIssueCode =
   | 'frontmatter-disallowed-value'
   | 'frontmatter-parse-failed'
   | 'frontmatter-required-field-missing'
+  | 'interior-seq-gap'
   | 'section-annotations-unreadable'
   | 'section-history-unreadable'
   | 'stem-project-divergence'
@@ -721,6 +722,166 @@ export const sectionResolutionCheck: Diagnostic = {
   title: 'Body-section resolution',
 };
 
+/** Bound the enumerated missing-seq list so a pathological project (one whose
+ * numbering was decimated by hand) still renders one readable line rather than
+ * thousands of numbers; past the cap the finding names the overflow count only. */
+const SEQ_GAP_EVIDENCE_CAP = 32;
+
+/**
+ * Interior sequence gaps (MMR-197): a project whose node (or seed) sequence is
+ * missing an INTERIOR number — one below the sequence's current max. Norn resolves
+ * `{{seq}}` as max+1 within the target directory and never gap-fills ([ADR
+ * 0006](../../docs/decisions/0006-human-readable-node-ids.md) refinement), and
+ * Mimir verbs never delete (abandon is the lifecycle path), so a hole below the
+ * max cannot come from a Mimir operation. A gap with no surviving parse/duplicate
+ * evidence is therefore durable evidence of a hand deletion (`rm`). In a
+ * single-user vault that deletion is intentional, so the stance is
+ * surface-and-repair, not prevent (ADR 0017): recovery is `git revert` over the
+ * vault's snapshot history, never a doctor mutation. Rendered at the non-error
+ * `warn` tier — the informational severity (nothing is lost on read; the numbering
+ * is merely non-contiguous) — and never repairable (`REPAIR_POLICY` skips it as a
+ * non-corruption warning).
+ *
+ * A missing number is NOT always a deletion: a doc that physically EXISTS but is
+ * excluded from the `type:`-filtered snapshot (unparseable/foreign-`type`
+ * frontmatter, or a duplicate-stem drop) reads as absent here even though the file
+ * is on disk. Such a seq is already surfaced as its OWN finding — the frontmatter
+ * check over `ctx.validateFindings` (docs the type enumeration excludes; see
+ * `snapshot.ts` on `vault.validate`), or a `duplicate-stem` drop in `ctx.dropped`.
+ * So a seq whose stem is accounted for by that other evidence (their paths/stems
+ * parse to `KEY-N` / `KEY-sN`) is treated as an OCCUPIED member of its group, not a
+ * gap: it never reports (a covered seq is a phantom gap that would earn a wrong
+ * git-revert line) AND it counts toward the group's max and existence, so a genuine
+ * hole beside a covered seq is still reported. Only the residual — a number no
+ * surviving record or finding accounts for — is reported.
+ *
+ * Scans NODE and SEED sequences only. Both are enumerated by the one whole-vault
+ * snapshot (`type:project,task,phase,initiative,seed`) and allocate identically
+ * since MMR-196, so covering seeds is free. ARTIFACTS (`KEY-aN`) allocate the same
+ * way but carry `type: artifact`, absent from that enumeration — the doctor
+ * snapshot never reads them, so an artifact-gap check would need a whole new vault
+ * pass. That is disproportionate to the data flow, so artifacts are out of scope.
+ *
+ * The delete-max-then-create edge closes its own gap — the next create reuses the
+ * freed top number — and is knowingly undetectable after the fact (ADR 0017); a
+ * finding only ever names numbers below the current max, which is present by
+ * definition. Honors `-s` like the other per-document checks (`readNodeDocs` is
+ * pre-scoped), so a scoped run reports only the named project's gaps.
+ */
+export const seqGapCheck: Diagnostic = {
+  name: 'seq-gaps',
+  run: async (ctx) => {
+    // Occupied seqs per (project key, sequence kind). A slot is occupied by a present
+    // doc OR by a seq covered by other doctor evidence — a doc that physically exists
+    // but is excluded from the type-filtered `readNodeDocs` snapshot, so it reads as
+    // absent here. That covered seq is surfaced by its OWN finding (the frontmatter
+    // check over `validateFindings`, or a duplicate-stem drop), so it is an occupied
+    // member of its group, never a hand-deletion gap: it suppresses a phantom gap AND
+    // counts toward the group's max and existence. A duplicate physical doc for one
+    // stem contributes its seq once (a Set), so a collision is not a gap.
+    const groups = new Map<string, { key: string; kind: 'node' | 'seed'; seqs: Set<number> }>();
+    const occupy = (stem: string | null): void => {
+      if (stem === null) {
+        return;
+      }
+      const identity = parseIdentity(stem);
+      if (identity === null || (identity.kind !== 'node' && identity.kind !== 'seed')) {
+        return; // a project doc (no seq), an artifact (unenumerated), or an unparseable stem
+      }
+      const groupKey = `${identity.key}\0${identity.kind}`;
+      const group = groups.get(groupKey);
+      if (group === undefined) {
+        groups.set(groupKey, {
+          key: identity.key,
+          kind: identity.kind,
+          seqs: new Set([identity.seq]),
+        });
+      } else {
+        group.seqs.add(identity.seq);
+      }
+    };
+    const scopedKeys = new Set<string>();
+    for (const { stem } of await ctx.readNodeDocs()) {
+      occupy(stem);
+      const identity = parseIdentity(stem);
+      if (identity !== null) {
+        scopedKeys.add(identity.key);
+      }
+    }
+    for (const drop of ctx.dropped) {
+      // Only an identity drop (a `duplicate-stem`) is a doc physically on disk yet
+      // EXCLUDED from the type-filtered snapshot — its seq occupies a slot the
+      // snapshot can't see. A node/edge/field drop is a doc that IS enumerated (a
+      // dangling ref, missing project, bad field on an otherwise-readable doc), so
+      // `readNodeDocs` already carries its seq; occupying from it would double-count
+      // (harmless) or, where a caller separates the two feeds, invent a phantom slot.
+      // Drops are whole-vault while the other feeds honor `-s` (relational drops
+      // can't be scoped), so gate on keys the scoped inputs actually carry — an
+      // out-of-scope dup must not invent a foreign group in a scoped run.
+      const identity = drop.kind === 'identity' ? parseIdentity(drop.stem) : null;
+      if (identity !== null && scopedKeys.has(identity.key)) {
+        occupy(drop.stem); // the dup's canonical stem
+      }
+    }
+    for (const finding of ctx.validateFindings) {
+      occupy(workStateStem(finding.path)); // a doc norn's schema pass sees by path only
+    }
+    const findings: DoctorFinding[] = [];
+    // Deterministic order: by project key, then node before seed.
+    const ordered = [...groups.values()].toSorted(
+      (a, b) => a.key.localeCompare(b.key) || a.kind.localeCompare(b.kind),
+    );
+    for (const { key, kind, seqs } of ordered) {
+      // Seqs are 1-based (ADR 0006), so an interior gap is any 1..max-1 absent. The
+      // max is occupied by definition; a deleted top left no hole (undetectable).
+      // Walk the sorted occupied seqs, deriving the gap between each consecutive pair
+      // (and below the first) arithmetically — the count comes from interval sizes, so
+      // an untrusted max (a hand-crafted `KEY-1000000000` stem) costs no per-number
+      // iteration. Only the first `SEQ_GAP_EVIDENCE_CAP` missing numbers materialize.
+      const occupied = [...seqs].toSorted((a, b) => a - b);
+      const max = occupied[occupied.length - 1] ?? 0;
+      const shown: number[] = [];
+      let missingCount = 0;
+      let prev = 0; // seqs start at 1; 0 is the lower boundary of the first interval
+      for (const seq of occupied) {
+        const gapStart = prev + 1;
+        const gapEnd = seq - 1;
+        if (gapEnd >= gapStart) {
+          missingCount += gapEnd - gapStart + 1;
+          for (let n = gapStart; n <= gapEnd && shown.length < SEQ_GAP_EVIDENCE_CAP; n += 1) {
+            shown.push(n);
+          }
+        }
+        prev = seq;
+      }
+      if (missingCount === 0) {
+        continue;
+      }
+      const overflow = missingCount - shown.length;
+      const list = `${shown.join(', ')}${overflow > 0 ? `, … (+${String(overflow)} more)` : ''}`;
+      findings.push(
+        issue({
+          check: 'seq-gaps',
+          code: 'interior-seq-gap',
+          evidence: {
+            kind,
+            max,
+            missing: shown,
+            missingCount,
+            ...(overflow > 0 ? { truncated: overflow } : {}),
+          },
+          message: `project ${key} is missing interior ${kind} sequence number${missingCount === 1 ? '' : 's'} ${list} below its max ${String(max)} — no surviving record accounts for ${missingCount === 1 ? 'it' : 'them'}, so likely a hand deletion (Mimir operations never delete, so gaps only come from hand edits; recover with git, ADR 0017)`,
+          node: key,
+          severity: 'warn',
+          where: `${kind} sequence`,
+        }),
+      );
+    }
+    return findings;
+  },
+  title: 'Interior sequence gaps',
+};
+
 /**
  * Seed validity (MMR-244, severities revised MMR-245): a seed document's
  * own-project / `kind` / `lifecycle` / `requester` / `spawned`. The seed STORE
@@ -887,4 +1048,5 @@ export const CHECKS: readonly Diagnostic[] = [
   frontmatterCheck,
   stemProjectCheck,
   sectionResolutionCheck,
+  seqGapCheck,
 ];

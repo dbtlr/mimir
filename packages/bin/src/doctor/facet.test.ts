@@ -221,6 +221,31 @@ describe('buildDoctorFacet', () => {
     expect(facet.groups).toEqual([]);
   });
 
+  test('a seq-gaps finding is not rendered as a phantom dropped record (MMR-197)', () => {
+    // A seq gap is an informational warning about non-contiguous numbering — nothing
+    // is dropped at MMR/MMR.md — so it must not appear in the record-health facet.
+    const seqGapFinding: DoctorFinding = {
+      check: 'seq-gaps',
+      code: 'interior-seq-gap',
+      evidence: { kind: 'node', max: 3, missing: [2], missingCount: 1 },
+      locator: 'node sequence',
+      message: 'project MMR is missing interior node sequence number 2 below its max 3',
+      node: 'MMR',
+      scopeKey: 'MMR',
+      severity: 'warn',
+      stem: 'MMR',
+      where: 'node sequence',
+    };
+    const facet = buildDoctorFacet({
+      findings: [seqGapFinding],
+      rawByStem: new Map(),
+      readableDocStems: ['MMR', 'MMR-1', 'MMR-3'],
+      scannedAt: '2026-07-12T00:00:00.000Z',
+    });
+    expect(facet.dropped_total).toBe(0);
+    expect(facet.groups).toEqual([]);
+  });
+
   test('groups records by project and sorts groups by key', () => {
     const facet = buildDoctorFacet({
       findings: [

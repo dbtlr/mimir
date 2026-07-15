@@ -72,3 +72,35 @@ Every public surface already speaks these stems, so the refinement changes no
 CLI, MCP, HTTP, or UI identity contract. It removes the obsolete internal
 translation layer and supersedes the original rejection of stem-keyed relations,
 whose cascade concern belonged to the retired SQLite schema.
+
+## Refinement (2026-07-15, MMR-197): scope the never-reuse guarantee to Mimir operations
+
+The original decision above rejected `MAX(seq)+1` allocation ("reuses dead numbers
+and breaks references; use a stored per-project counter") on the strength of a
+stored counter that no longer exists. The Norn substrate ([ADR
+0016](0016-norn-vault-system-of-record.md)) removed the counter — there is **no
+`last_seq`** in the vault — and Norn now allocates the creation `{{seq}}` token as
+max+1 over the target directory's existing documents (MMR-196 routed artifact and
+seed creates through the same token). That is precisely the derive-max mechanism
+the original text rejected, adopted silently. This refinement scopes the claim to
+match the mechanism rather than pretending the counter survived.
+
+- **Never-reuse holds for Mimir-driven operations.** Mimir verbs never delete a
+  document — abandonment is a lifecycle transition ([ADR
+  0001](0001-task-status-two-axes-derived-rollup.md)), and the abandoned node keeps
+  its seq. So no Mimir operation ever frees a number for max+1 to hand back, and
+  the guarantee the original rationale wanted — a `KEY-seq` reference stays stable
+  forever — still holds under derive-max for every number Mimir itself allocated.
+- **`{{seq}} = max+1` is the current allocation mechanism.** Per-project, per-kind
+  (node / artifact / seed each get their own sequence), 1-based, resolved by Norn
+  at apply time from the surviving sibling documents. No durable counter backs it;
+  the vault's documents are the allocation state.
+- **Hand-deletion reuse is the accepted, surfaced edge.** A hand `rm` of an
+  interior document frees its number, and the next create re-hands it — the one way
+  a seq is reused. In a single-user vault that deletion is intentional; rather than
+  prevent it (a stored high-water mark or a Norn monotonic allocator were both
+  rejected as relocating the durable-state problem the vault's git history already
+  solves), Mimir surfaces it: an interior gap is durable deletion evidence,
+  reported by the `mimir doctor` interior-seq-gap check, and recoverable by
+  `git revert`. See the refinement to [ADR 0017](0017-runtime-data-tolerance.md). The
+  delete-max-then-create case closes its own gap and is knowingly undetectable.

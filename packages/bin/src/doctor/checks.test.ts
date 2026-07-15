@@ -3,7 +3,8 @@ import { expect, test } from 'bun:test';
 import type { ProjectDeclaration } from '../core/store-norn';
 import type { Drop } from '../core/validate';
 import type { DoctorContext } from './checks';
-import { CHECKS, frontmatterCheck, RULE_OWNER, stemProjectCheck } from './checks';
+import { CHECKS, frontmatterCheck, RULE_OWNER, seqGapCheck, stemProjectCheck } from './checks';
+import { REPAIR_POLICY } from './repair';
 
 /**
  * MMR-209: the drop→check partition is total and non-overlapping — every
@@ -155,4 +156,202 @@ test('frontmatter renders a foreign-`type` node under either norn foreign-value 
   );
   expect(legacy).toHaveLength(1);
   expect(legacy[0]).toMatchObject({ node: 'MMR-6', where: 'frontmatter · type' });
+});
+
+// MMR-197: interior seq gaps — a missing number below a project's max seq is
+// durable evidence of a hand deletion (Mimir operations never delete, so gaps only
+// come from hand edits).
+const seqCtx = (
+  stems: string[],
+  extra: Partial<Pick<DoctorContext, 'dropped' | 'validateFindings'>> = {},
+): DoctorContext => ({
+  dropped: extra.dropped ?? [],
+  projectRefs: [],
+  readNodeDocs: () =>
+    Promise.resolve(stems.map((stem) => ({ body: '', path: `${stem}.md`, stem }))),
+  sectionFailures: [],
+  validateFindings: extra.validateFindings ?? [],
+});
+
+test('seq-gaps flags an interior node gap and names the missing number (MMR-197)', async () => {
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-1', 'MMR-2', 'MMR-4', 'MMR-5']));
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'seq-gaps',
+    code: 'interior-seq-gap',
+    node: 'MMR',
+    scopeKey: 'MMR',
+    severity: 'warn',
+    where: 'node sequence',
+  });
+  expect(findings[0]?.evidence).toMatchObject({
+    kind: 'node',
+    max: 5,
+    missing: [3],
+    missingCount: 1,
+  });
+  expect(findings[0]?.message).toContain('3');
+  expect(findings[0]?.message).toContain('max 5');
+});
+
+test('seq-gaps is silent on a gapless project (MMR-197)', async () => {
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-1', 'MMR-2', 'MMR-3']));
+  expect(findings).toEqual([]);
+});
+
+test('seq-gaps reports nothing when only the top number was deleted (MMR-197)', async () => {
+  // {1,2} with 3 removed: max is 2, present by definition — the deleted top left
+  // no interior hole, so this delete-max case is knowingly undetectable (ADR 0017).
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-1', 'MMR-2']));
+  expect(findings).toEqual([]);
+});
+
+test('seq-gaps treats node and seed sequences independently (MMR-197)', async () => {
+  // Node 2 deleted (gap), seeds contiguous → exactly one finding, for the node seq.
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-1', 'MMR-3', 'MMR-s1', 'MMR-s2']));
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ severity: 'warn', where: 'node sequence' });
+  expect(findings[0]?.evidence).toMatchObject({ kind: 'node', missing: [2] });
+});
+
+test('seq-gaps flags a seed gap below its own max (MMR-197)', async () => {
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-s1', 'MMR-s3']));
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ node: 'MMR', where: 'seed sequence' });
+  expect(findings[0]?.evidence).toMatchObject({ kind: 'seed', max: 3, missing: [2] });
+});
+
+test('seq-gaps scopes gaps per project (MMR-197)', async () => {
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1', 'MMR-3', 'OTH', 'OTH-1', 'OTH-2']),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ node: 'MMR', scopeKey: 'MMR' });
+});
+
+test('seq-gaps caps the enumerated missing list for a decimated project (MMR-197)', async () => {
+  // Only seq 100 survives: 1..99 are all interior gaps; evidence stays bounded and
+  // records the true total plus the overflow.
+  const findings = await seqGapCheck.run(seqCtx(['MMR', 'MMR-100']));
+  expect(findings).toHaveLength(1);
+  const missing = findings[0]?.evidence.missing as number[];
+  expect(missing).toHaveLength(32);
+  expect(findings[0]?.evidence).toMatchObject({ missingCount: 99, truncated: 67 });
+  expect(findings[0]?.message).toContain('more');
+});
+
+test('interior-seq-gap is informational and never repaired by --fix (MMR-197)', () => {
+  expect(REPAIR_POLICY['interior-seq-gap']).toEqual({
+    kind: 'skipped',
+    reason: 'non-corruption-warning',
+  });
+});
+
+test('seq-gaps does not flag a gap whose seq is a present-but-unreadable doc (MMR-197)', async () => {
+  // MMR-3 exists on disk but its frontmatter won't parse, so it is excluded from the
+  // type-filtered snapshot and reads as absent. Norn's schema pass sees it by path,
+  // and the frontmatter check reports it (`validateFindings`) — so this is not a
+  // hand-deletion gap. Subtracting the covered seq yields no seq-gap finding.
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1', 'MMR-2', 'MMR-4'], {
+      validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-3.md' }],
+    }),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('seq-gaps does not flag a gap whose seq is a duplicate-stem drop (MMR-197)', async () => {
+  // MMR-2 physically exists but was dropped as a duplicate stem — surfaced by its own
+  // drop finding, not a deletion. It is subtracted before the gap is reported.
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1', 'MMR-3'], {
+      dropped: [
+        {
+          kind: 'identity',
+          path: 'MMR/MMR-2.md',
+          paths: ['MMR/MMR-2.md', 'MMR/dup/MMR-2.md'],
+          rule: 'duplicate-stem',
+          stem: 'MMR-2',
+        },
+      ],
+    }),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('seq-gaps ignores an out-of-scope duplicate-stem drop (MMR-197)', async () => {
+  // Drops are whole-vault while readNodeDocs honors `-s`: a scoped run (only MMR
+  // docs in scope) must not let a foreign project's dup drop invent an XYZ group
+  // and report gaps the operator never asked about.
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1', 'MMR-2'], {
+      dropped: [
+        {
+          kind: 'identity',
+          path: 'XYZ/XYZ-3.md',
+          paths: ['XYZ/XYZ-3.md', 'XYZ/dup/XYZ-3.md'],
+          rule: 'duplicate-stem',
+          stem: 'XYZ-3',
+        },
+      ],
+    }),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('seq-gaps reports a gap below an unreadable max (surfaced seq is occupied) (MMR-197)', async () => {
+  // Readable MMR-1, unreadable MMR-3 (present-but-unexcluded, surfaced by the
+  // frontmatter check), genuinely deleted MMR-2. The surfaced seq 3 is an occupied
+  // member of the group, so it lifts the group's max to 3 and the real hole at 2 is
+  // reported. (Before the union fix, surfaced seqs only suppressed gaps: max stayed
+  // 1 and the gap at 2 was invisible.)
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1'], {
+      validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-3.md' }],
+    }),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]?.evidence).toMatchObject({
+    kind: 'node',
+    max: 3,
+    missing: [2],
+    missingCount: 1,
+  });
+});
+
+test('seq-gaps bounds the computation for an absurd surfaced max (MMR-197)', async () => {
+  // One readable doc plus a surfaced seq at an enormous number: the gap count is
+  // derived arithmetically from interval sizes (no per-number loop over ~5e6), and
+  // the enumerated evidence stays capped. Guards against a hand-crafted stem forcing
+  // a billion iterations / a huge missing[].
+  const start = performance.now();
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1'], {
+      validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-5000000.md' }],
+    }),
+  );
+  const elapsedMs = performance.now() - start;
+  expect(findings).toHaveLength(1);
+  const missing = findings[0]?.evidence.missing as number[];
+  expect(missing).toHaveLength(32);
+  expect(missing[0]).toBe(2); // 1 is occupied; the first hole is 2
+  expect(findings[0]?.evidence).toMatchObject({
+    max: 5_000_000,
+    missingCount: 4_999_998,
+    truncated: 4_999_966,
+  });
+  expect(elapsedMs).toBeLessThan(1000);
+});
+
+test('seq-gaps still reports a genuinely deleted seq beside a surfaced one (MMR-197)', async () => {
+  // MMR-2 is a present-but-unreadable doc (surfaced by the frontmatter check); MMR-3
+  // has no covering evidence — a real hand deletion. Only 3 is reported.
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1', 'MMR-4'], {
+      validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-2.md' }],
+    }),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]?.evidence).toMatchObject({ kind: 'node', missing: [3] });
+  expect(findings[0]?.message).toContain('likely a hand deletion');
 });

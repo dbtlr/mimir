@@ -19,6 +19,27 @@ doctor` remains the read-only, non-gating diagnostic decided here. The CLI may
 > refinement resolves the automated-repair deferral below without turning reader
 > containment into permission to delete durable data.
 
+> **Refinement (2026-07-15, MMR-197): hand-deletion seq reuse is out-of-contract
+> but accepted and surfaced.** A sequence component is never reused by any
+> Mimir-driven operation — verbs never delete (abandon is the lifecycle path), and
+> Norn resolves the creation `{{seq}}` token as max+1 within the target directory
+> and never gap-fills. A missing INTERIOR number (one below a project's current
+> max, per node or seed sequence) with no surviving parse/duplicate evidence — no
+> parse-failed, foreign-`type`, or duplicate-stem finding accounts for it — is
+> therefore durable evidence of a hand deletion (`rm`), never a Mimir write; a doc
+> that exists on disk but is excluded from the type-filtered read is surfaced by
+> its own finding, not this gap. In a single-user vault that deletion is intentional,
+> so the stance is the one this ADR already takes: **surface, don't prevent**. A new
+> informational doctor check reports interior gaps (a non-error `warn`, naming the
+> missing numbers, bounded for a pathological vault); recovery is `git revert` over
+> the vault's snapshot history, not a doctor mutation, so `--fix` skips it as a
+> non-corruption warning. The **delete-max-then-create** edge closes its own gap —
+> the next create reuses the freed top number — and is knowingly undetectable after
+> the fact; a finding only ever names a number below the current max. No stored
+> high-water mark and no Norn monotonic-allocator ask were taken: both relocate the
+> durable-state problem the vault's git history already solves. See the scoping
+> refinement to [ADR 0006](0006-human-readable-node-ids.md).
+
 Refines ADR 0016. Under a Norn-managed markdown vault, the durable record is
 hand-editable and integrity is not enforced by a database — so corruption
 (a dangling reference, a missing project, a relational cycle, a malformed body
