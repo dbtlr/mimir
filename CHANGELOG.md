@@ -13,6 +13,72 @@ and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
+## v0.14.0 - 2026-07-15
+
+### Added
+
+- **Doctor can repair deterministic structural corruption** (MMR-183). The new
+  CLI-only `mimir doctor --fix [--dry-run]` normalizes CRLF bodies, restores the
+  stem-owned project projection, adds provably missing canonical body headings,
+  and recovers missing projects as archived containers. One Norn CAS plan applies
+  once and post-image diagnostics verify each claimed fix; ambiguous or semantic
+  findings remain byte-identical with stable skip reasons. Duplicate identities
+  and resolver-equivalent headings are never
+  rewritten, structural headings retain canonical order, HTTP enrichment uses the
+  shared physical locator, and failed or indeterminate applies are rediagnosed.
+  Applied machine reports partition each issue exclusively into fixed or failed;
+  only dry runs retain planned outcomes.
+
+### Changed
+
+- **Changelog workflow: per-PR fragments compiled at the cut** (MMR-267). A PR
+  now records its changelog entry as a `.changes/<slug>.md` fragment instead of
+  appending to a shared `[Unreleased]` section, so parallel PRs no longer
+  conflict on `CHANGELOG.md` — that file holds released sections only and is
+  written by the release cut's compile step
+  (`bun run changelog:compile --write --version X.Y.Z`; a bare
+  `bun run changelog:compile` previews the pending section). `changelog-guard`
+  now checks fragment presence and shape instead of diffing `[Unreleased]`
+  bullets, retiring its false PASS/FAIL edge cases. Recorded in
+  [ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md).
+- **Canonical stems now carry identity end to end** (MMR-198). Existing CLI,
+  MCP, HTTP, and UI ids stay unchanged while Mimir removes per-load synthetic
+  integer mappings and the post-create whole-vault reload. Relocated documents
+  retain identity; duplicate stems fail closed and `mimir doctor` reports every
+  colliding path instead of accepting a scan-order winner.
+- **Doctor diagnostics now share one whole-vault snapshot** (MMR-241). The CLI
+  and HTTP record-health facet enumerate work-state documents once per run, then
+  derive bodies, canonical scope, graph declarations, and section probes from
+  that same document set. The snapshot also retains each path, frontmatter,
+  body, and document hash for deterministic repair planning.
+
+### Removed
+
+- **Tag applications no longer carry a note** (MMR-270). The per-tag `note`
+  affordance is retired from the entire tag surface — the CLI `mimir tag --note`
+  flag, the MCP `tag` tool's `note` param, and the `note` body field on the
+  HTTP `PUT /api/nodes/:id/tags/:tag` route are all gone, and the tag wire shape
+  no longer emits a `note`. Tags are a plain string set (vault frontmatter has
+  nowhere to hold a note), so a node/project note was already silently dropped
+  and an artifact note was rejected; note-intent now routes to `annotate` (one-off
+  rationale) or a tagged artifact (shared grouping metadata). Recorded in
+  [ADR 0005](docs/decisions/0005-grouping-axis-is-tags.md).
+
+### Fixed
+
+- **Scoped doctor diagnostics follow canonical document identity** (MMR-240).
+  `mimir doctor -s KEY` and the project-scoped record-health facet now enumerate
+  per-document inputs whole-vault before filtering by the authoritative stem, so
+  a corrupt `project` frontmatter projection cannot hide a damaged document from
+  its real project or misfile it into another project's report.
+- **Norn adapter identity reads now fail closed at their final read boundary**
+  (MMR-183). Targeted seed reads require `type: seed`, project-scoped seed lists
+  resolve only that project's candidates, and section reads inspect successful
+  records plus heading failures from one logical-stem operation. Relocated project
+  diagnostics now retain the frontmatter key and exact physical path through
+  repair and post-apply verification, while raw facet enrichment requires exactly
+  one known logical owner.
+
 ## v0.13.0 - 2026-07-12
 
 ### Added
