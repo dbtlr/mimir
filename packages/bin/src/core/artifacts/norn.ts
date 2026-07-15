@@ -1,6 +1,7 @@
+import { createdStem, decodeApplyReport } from '../../norn/apply-report';
 import type { NornClient, NornDocument } from '../../norn/client';
 import { collapse, isStringRecord, stringList } from '../../norn/decode';
-import { createDocument, migrationPlan, SEQ_TOKEN } from '../../norn/plan';
+import { createDocumentPlan, SEQ_TOKEN } from '../../norn/plan';
 import { invariant, validation } from '../errors';
 import { parseIdentity, renderArtifactRef, wikilink } from '../ids';
 import { now } from '../time';
@@ -67,26 +68,6 @@ function artifactFrontmatter(fields: {
 }
 
 /**
- * The one `create_document` op line of a single-op apply report, paired with
- * norn's `outcome`. The local, minimal decode a create needs to read back the
- * resolved stem (or a destination-exists refusal for the idempotent restore) —
- * a shared/generalized apply-report decoder is the follow-up MMR-250, not this.
- */
-function createReportOp(report: unknown): {
-  outcome: string;
-  op: Record<string, unknown> | undefined;
-} {
-  const root = isStringRecord(report) && isStringRecord(report.report) ? report.report : report;
-  const outcome =
-    isStringRecord(root) && typeof root.outcome === 'string' ? root.outcome : 'unrecognized';
-  const operations = isStringRecord(root) && Array.isArray(root.operations) ? root.operations : [];
-  const op = operations.find(
-    (o): o is Record<string, unknown> => isStringRecord(o) && o.kind === 'create_document',
-  );
-  return { op, outcome };
-}
-
-/**
  * Cutover-only (MMR-144): write one pre-existing artifact record into the
  * vault at its *existing* identity — the same `KEY-aN` stem and the same
  * `created` — so ids and timestamps survive the migration and a re-run is
@@ -111,15 +92,12 @@ export async function restoreArtifact(
     tags: record.tags,
     title: record.title,
   });
-  const plan = migrationPlan({
-    generator: 'mimir',
-    operations: [createDocument(path, frontmatter, content)],
-    vaultRoot,
-  });
-  const { op, outcome } = createReportOp(await client.applyPlan(plan, true));
+  const plan = createDocumentPlan(vaultRoot, path, frontmatter, content);
+  const { operations, outcome } = decodeApplyReport(await client.applyPlan(plan, true));
   if (outcome === 'applied') {
     return 'created';
   }
+  const op = operations.find((o) => o.kind === 'create_document');
   // A destination-already-exists refusal is idempotent ONLY if the occupant is
   // *this* artifact (a prior run of this same migration). Confirm by the
   // preserved identity fingerprint (`created` + `title`); a mismatch means the
@@ -135,12 +113,11 @@ export async function restoreArtifact(
   // (use --force to overwrite): <path>`, hence the `/already exists/i` match
   // below rather than a structured code check. A structured collision code
   // has been requested upstream; swap this match for it once norn ships one.
-  const error = op !== undefined && isStringRecord(op.error) ? op.error : undefined;
-  const message = typeof error?.message === 'string' ? error.message : '';
+  const message = op?.error?.message ?? '';
   if (!/already exists/i.test(message)) {
     throw validation(
       'the artifact restore did not complete',
-      message || `apply outcome: ${outcome}`,
+      message || `apply outcome: ${outcome ?? 'unrecognized'}`,
     );
   }
   const existing = await client.get([path]);
@@ -257,25 +234,19 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
         tags: input.tags,
         title: input.title,
       });
-      const plan = migrationPlan({
-        generator: 'mimir',
-        operations: [createDocument(createTemplate(input.key), frontmatter, input.content)],
+      const plan = createDocumentPlan(
         vaultRoot,
-      });
-      const { op, outcome } = createReportOp(await client.applyPlan(plan, true));
-      if (outcome !== 'applied' || op === undefined || typeof op.stem !== 'string') {
-        const error = op !== undefined && isStringRecord(op.error) ? op.error : undefined;
-        const code = typeof error?.code === 'string' ? error.code : undefined;
-        const message = typeof error?.message === 'string' ? error.message : undefined;
-        const errorDetail = [code, message].filter((value) => value !== undefined).join(': ');
-        throw validation(
-          'the artifact create did not complete',
-          `apply outcome: ${outcome}${errorDetail === '' ? '' : ` — ${errorDetail}`}`,
-        );
+        createTemplate(input.key),
+        frontmatter,
+        input.content,
+      );
+      const result = createdStem(await client.applyPlan(plan, true));
+      if ('failure' in result) {
+        throw validation('the artifact create did not complete', result.failure);
       }
-      const identity = parseIdentity(op.stem);
+      const identity = parseIdentity(result.stem);
       if (identity?.kind !== 'artifact' || identity.key !== input.key) {
-        throw invariant(`a created artifact resolved to an unexpected stem: ${op.stem}`);
+        throw invariant(`a created artifact resolved to an unexpected stem: ${result.stem}`);
       }
       return { key: input.key, seq: identity.seq };
     },
