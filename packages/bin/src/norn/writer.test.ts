@@ -4,8 +4,29 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createProject, createTask } from '../core/create';
+import {
+  abandonTask,
+  annotate,
+  archiveProject,
+  blockTask,
+  completeTask,
+  moveNode,
+  parkTask,
+  reopenTask,
+  reorder,
+  returnTask,
+  submitTask,
+  tagEntities,
+  unarchiveProject,
+  unblockTask,
+  unparkTask,
+  untagEntities,
+  updateNode,
+  updateProject,
+} from '../core/mutations';
 import { depend, undepend } from '../core/mutations/dependency';
 import { startTask } from '../core/mutations/lifecycle';
+import type { Store } from '../core/store';
 import type { NornClient, NornDocument } from './client';
 import type { MigrationOp, MigrationPlan } from './plan';
 import { createNornWriteStore } from './writer';
@@ -1230,4 +1251,252 @@ test('editing a node preserves its cycle-broken depends_on edge (MMR-186)', asyn
   // The cut partner survives alongside the newly added dep (MMR-3).
   expect(op?.fields.new_value).toContain(`[[MMR-${partner.seq}]]`);
   expect(op?.fields.new_value).toContain('[[MMR-3]]');
+});
+
+/**
+ * MMR-194 — the write-path CAS co-write invariant (a regression guard).
+ *
+ * The write path sends no `document_hash`, so a mutation's only whole-document
+ * drift protection is that every verb co-writes at least one CAS-guarded field
+ * (a `set_frontmatter` / `remove_frontmatter` carrying `expected_old_value`) on
+ * every document it touches — usually the `updated_at` stamp, but `reorder` is
+ * guarded by `rank` and the tag verbs by `tags`. A future verb that wrote a
+ * field without a co-written guard, whose legality read a field it does not
+ * write, would apply against a stale read with no drift error and no replay.
+ *
+ * The two tests below hold the line structurally: the first drives the real
+ * plan-assembly seam for every mutation verb and asserts the guard is present;
+ * the second asserts the driven set matches the exported mutation surface, so a
+ * newly added verb that carries no driver fails the suite loudly rather than
+ * slipping past uncovered. See the CO-WRITE INVARIANT note on
+ * `Accumulator.emitFieldOps` in `writer.ts`.
+ */
+
+const casTask = (stem: string, fm: Record<string, unknown>): NornDocument => ({
+  frontmatter: { created: TS, parent: '[[MMR]]', title: stem, type: 'task', updated_at: TS, ...fm },
+  path: `MMR/${stem}.md`,
+});
+
+const archivedProjectDoc = (): NornDocument => ({
+  frontmatter: {
+    archived_at: TS,
+    created: TS,
+    key: 'ARC',
+    name: 'Archived',
+    type: 'project',
+    updated_at: TS,
+  },
+  path: 'ARC/ARC.md',
+});
+
+/**
+ * One driver per mutation verb: a scripted snapshot plus the invocation that
+ * exercises its plan. Each verb's touched document must carry a CAS guard —
+ * either the field the verb writes (legality derives from it) or the co-written
+ * `updated_at` stamp. Fixtures put the guarded field on disk (present) so the
+ * emitted op is a value-CAS `set_frontmatter`, not an unguarded `add_frontmatter`.
+ */
+const CAS_PLAN_VERBS: Record<
+  string,
+  { docs: () => NornDocument[]; run: (s: Store) => Promise<unknown> }
+> = {
+  abandonTask: {
+    docs: () => [projectDoc(), casTask('MMR-1', { lifecycle: 'todo', rank: 65536 })],
+    run: (s) => abandonTask(s, 'MMR-1'),
+  },
+  annotate: {
+    // The pure stamp case: the append carries no CAS, so only the `updated_at`
+    // co-write guards the document — removing that stamp turns this test red.
+    docs: () => [projectDoc(), casTask('MMR-1', { lifecycle: 'todo', rank: 65536 })],
+    run: (s) => annotate(s, 'MMR-1', 'a load-bearing note'),
+  },
+  archiveProject: {
+    docs: () => [projectDoc()],
+    run: (s) => archiveProject(s, 'MMR'),
+  },
+  blockTask: {
+    docs: () => [projectDoc(), casTask('MMR-1', { lifecycle: 'todo', rank: 65536 })],
+    run: (s) => blockTask(s, 'MMR-1', 'waiting'),
+  },
+  completeTask: {
+    docs: () => [projectDoc(), casTask('MMR-1', { lifecycle: 'in_progress', rank: 65536 })],
+    run: (s) => completeTask(s, 'MMR-1'),
+  },
+  depend: {
+    docs: () => [
+      projectDoc(),
+      casTask('MMR-1', { lifecycle: 'todo', rank: 65536 }),
+      casTask('MMR-2', { lifecycle: 'todo', rank: 131072 }),
+    ],
+    run: (s) => depend(s, 'MMR-2', ['MMR-1']),
+  },
+  moveNode: {
+    docs: () => [
+      projectDoc(),
+      {
+        frontmatter: {
+          created: TS,
+          parent: '[[MMR]]',
+          title: 'Init',
+          type: 'initiative',
+          updated_at: TS,
+        },
+        path: 'MMR/MMR-1.md',
+      },
+      {
+        frontmatter: {
+          created: TS,
+          parent: '[[MMR-1]]',
+          title: 'Phase',
+          type: 'phase',
+          updated_at: TS,
+        },
+        path: 'MMR/MMR-2.md',
+      },
+      casTask('MMR-3', { lifecycle: 'todo', parent: '[[MMR-1]]', rank: 65536 }),
+    ],
+    run: (s) => moveNode(s, 'MMR-3', 'MMR-2'),
+  },
+  parkTask: {
+    docs: () => [projectDoc(), casTask('MMR-1', { lifecycle: 'todo', rank: 65536 })],
+    run: (s) => parkTask(s, 'MMR-1', 'later'),
+  },
+  reopenTask: {
+    docs: () => [projectDoc(), casTask('MMR-1', { completed_at: TS, lifecycle: 'done' })],
+    run: (s) => reopenTask(s, 'MMR-1'),
+  },
+  reorder: {
+    // No stamp: the guard is `rank`, the field it writes (present → value-CAS).
+    docs: () => [projectDoc(), casTask('MMR-1', { lifecycle: 'todo', rank: 65536 })],
+    run: (s) => reorder(s, 'MMR-1', 'bottom'),
+  },
+  returnTask: {
+    docs: () => [projectDoc(), casTask('MMR-1', { lifecycle: 'under_review' })],
+    run: (s) => returnTask(s, 'MMR-1'),
+  },
+  startTask: {
+    docs: () => [projectDoc(), casTask('MMR-1', { lifecycle: 'todo', rank: 65536 })],
+    run: (s) => startTask(s, 'MMR-1'),
+  },
+  submitTask: {
+    docs: () => [projectDoc(), casTask('MMR-1', { lifecycle: 'in_progress', rank: 65536 })],
+    run: (s) => submitTask(s, 'MMR-1'),
+  },
+  tagEntities: {
+    // No stamp: the guard is `tags`, the field it writes. The fixture pre-seeds a
+    // tag so the write is a present → present value-CAS, not an add_frontmatter.
+    docs: () => [
+      projectDoc(),
+      casTask('MMR-1', { lifecycle: 'todo', rank: 65536, tags: ['alpha'] }),
+    ],
+    run: (s) => tagEntities(s, [{ entityId: 'MMR-1', entityType: 'node' }], ['beta']),
+  },
+  unarchiveProject: {
+    docs: () => [archivedProjectDoc()],
+    run: (s) => unarchiveProject(s, 'ARC'),
+  },
+  unblockTask: {
+    docs: () => [projectDoc(), casTask('MMR-1', { hold: 'blocked', lifecycle: 'todo' })],
+    run: (s) => unblockTask(s, 'MMR-1'),
+  },
+  undepend: {
+    docs: () => [
+      projectDoc(),
+      casTask('MMR-1', { lifecycle: 'todo', rank: 65536 }),
+      casTask('MMR-2', { depends_on: ['[[MMR-1]]'], lifecycle: 'todo', rank: 131072 }),
+    ],
+    run: (s) => undepend(s, 'MMR-2', ['MMR-1']),
+  },
+  unparkTask: {
+    docs: () => [projectDoc(), casTask('MMR-1', { hold: 'parked', lifecycle: 'todo' })],
+    run: (s) => unparkTask(s, 'MMR-1'),
+  },
+  untagEntities: {
+    docs: () => [
+      projectDoc(),
+      casTask('MMR-1', { lifecycle: 'todo', rank: 65536, tags: ['alpha', 'beta'] }),
+    ],
+    run: (s) => untagEntities(s, [{ entityId: 'MMR-1', entityType: 'node' }], ['beta']),
+  },
+  updateNode: {
+    docs: () => [projectDoc(), casTask('MMR-1', { lifecycle: 'todo', rank: 65536 })],
+    run: (s) => updateNode(s, 'MMR-1', { title: 'Renamed' }),
+  },
+  updateProject: {
+    docs: () => [projectDoc()],
+    run: (s) => updateProject(s, 'MMR', { name: 'Renamed' }),
+  },
+};
+
+/**
+ * Mutation-surface exports that emit no drift-guarded document plan, each with
+ * the reason it is out of scope. Kept beside {@link CAS_PLAN_VERBS} so the
+ * coverage assertion below fails loudly when a NEW verb lands in neither set.
+ */
+const NON_PLAN_MUTATION_EXPORTS: Record<string, string> = {
+  assertProjectActive: 'shared archive write-lock guard, not a verb',
+  attachArtifact: 'artifact-seam write; the node transaction only validates',
+  releasedByArchive: 'read-only projection — issues no write plan',
+  updateArtifact: 'artifact-seam write; the node transaction only validates',
+};
+
+test('every mutation verb co-writes a CAS guard on each touched document (MMR-194)', async () => {
+  const violations: string[] = [];
+  for (const [name, verb] of Object.entries(CAS_PLAN_VERBS)) {
+    const { client, plans } = fakeClient(verb.docs());
+    const store = createNornWriteStore(client, ROOT);
+    await verb.run(store);
+    if (plans.length !== 1) {
+      violations.push(`${name}: expected exactly one plan, got ${plans.length}`);
+      continue;
+    }
+    const plan = plans[0];
+    if (plan === undefined) {
+      violations.push(`${name}: no plan captured`);
+      continue;
+    }
+    // Group ops by the document they touch. A `create_document` births a new
+    // document (guarded by create-exclusivity, not CAS-drift), so it is not a
+    // mutated document; every other op targets a document that must be guarded.
+    const mutatedPaths = new Set<string>();
+    const guardedPaths = new Set<string>();
+    for (const op of plan.operations) {
+      if (op.kind === 'create_document') {
+        continue;
+      }
+      const path = String(op.fields.path);
+      mutatedPaths.add(path);
+      if ('expected_old_value' in op.fields) {
+        guardedPaths.add(path);
+      }
+    }
+    if (mutatedPaths.size === 0) {
+      violations.push(`${name}: emitted no document mutation to guard`);
+    }
+    for (const path of mutatedPaths) {
+      if (!guardedPaths.has(path)) {
+        violations.push(`${name}: ${path} carries no expected_old_value CAS guard`);
+      }
+    }
+  }
+  expect(violations).toEqual([]);
+});
+
+test('the CAS-guard invariant covers every exported mutation verb (MMR-194)', async () => {
+  // Enumerate the mutation surface at runtime from the index module (dynamic
+  // import so no wildcard `import *`): type-only exports erase, so filtering to
+  // `typeof … === 'function'` yields exactly the verbs and shared helpers.
+  const mutationSurface: Record<string, unknown> = await import('../core/mutations');
+  const exportedFns = Object.entries(mutationSurface)
+    .filter(([, value]) => typeof value === 'function')
+    .map(([name]) => name)
+    .toSorted();
+  const covered = [
+    ...Object.keys(CAS_PLAN_VERBS),
+    ...Object.keys(NON_PLAN_MUTATION_EXPORTS),
+  ].toSorted();
+  // A new verb added to the mutation index appears in `exportedFns` but neither
+  // set, so this fails loudly — forcing a driver (guarded) or an explicit
+  // out-of-scope entry (with its reason) rather than silently going uncovered.
+  expect(exportedFns).toEqual(covered);
 });
