@@ -704,6 +704,30 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     });
   });
 
+  test('a write against a seed whose board has no project doc refuses (MMR-251)', async () => {
+    // The write-side half of missing-project parity: an orphan seed's FILE still
+    // point-reads fine, so without the board-active guard rejecting an absent
+    // project, a mutation would write into a board every read path treats as
+    // unknown (and promotion could spawn work there).
+    await seedbed();
+    await createProject(store, { key: 'ORPH', name: 'ORPH' });
+    await fileSeed(store, {
+      description: null,
+      kind: 'idea',
+      project: 'ORPH',
+      requester: null,
+      title: 'orphan-board seed',
+    });
+    rmSync(join(vaultRoot, 'ORPH', 'ORPH.md'), { force: true });
+
+    expect(
+      await rejectMessage(() => transitionSeed(store, 'ORPH-s1', 'rejected', 'no board')),
+    ).toMatch(/ORPH/);
+    expect(
+      await rejectMessage(() => updateSeed(store, 'ORPH-s1', { title: 'still orphaned' })),
+    ).toMatch(/ORPH/);
+  });
+
   test('the create echo normalizes description to the read-back semantics (MMR-251)', async () => {
     await seedbed();
     // A padded/blank-framed description: the echo must equal what a subsequent load

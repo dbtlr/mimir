@@ -137,12 +137,18 @@ async function echoSeed(
  * refuses every mutation, mirroring the node write-lock
  * (`mutations/common.ts#assertProjectActive`) with the same `conflict` vocabulary.
  * Asserted BEFORE any store write — and, for promote, before `createTask` — so a
- * frozen board is never mutated and never orphans a task. A board that is merely
- * absent falls through to the store's `no seed` not_found (an orphaned seed).
+ * frozen board is never mutated and never orphans a task. An absent board (no
+ * project doc, or one the validator's presence rule dropped) refuses too: the
+ * orphan seed's FILE still point-reads fine, so without this check a write
+ * would mutate — or promotion spawn work into — a board that every read path
+ * treats as unknown.
  */
 function assertSeedBoardActive(set: DerivationSet, key: string): void {
   const project = findProjectInSet(set, key);
-  if (project !== undefined && project.archived_at !== null) {
+  if (project === undefined) {
+    throw projectNotFound(key);
+  }
+  if (project.archived_at !== null) {
     throw conflict(
       `project ${key} is archived — no changes are allowed`,
       `unarchive it first: mimir unarchive ${key}`,
