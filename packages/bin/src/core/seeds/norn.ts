@@ -2,6 +2,7 @@ import { SEED_KIND_VALUES, SEED_LIFECYCLE_VALUES } from '@mimir/contract';
 import type { SeedKind, SeedLifecycle } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
+import { decodeApplyReport } from '../../norn/apply-report';
 import type { NornClient, NornDocument } from '../../norn/client';
 import {
   collapse,
@@ -14,7 +15,7 @@ import type { MigrationOp } from '../../norn/plan';
 import {
   addFrontmatter,
   appendToSection,
-  createDocument,
+  createDocumentPlan,
   migrationPlan,
   replaceSection,
   SEQ_TOKEN,
@@ -285,8 +286,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
   const applyOutcome = async (operations: MigrationOp[]): Promise<string> => {
     const plan = migrationPlan({ generator: 'mimir', operations, vaultRoot });
     const report = await client.applyPlan(plan, true);
-    const root = isStringRecord(report) && isStringRecord(report.report) ? report.report : report;
-    return isStringRecord(root) && typeof root.outcome === 'string' ? root.outcome : 'unrecognized';
+    return decodeApplyReport(report).outcome ?? 'unrecognized';
   };
 
   /** Apply a one-plan batch of ops, failing loud if norn did not fully apply it.
@@ -320,28 +320,16 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
         updated_at: timestamp,
       });
       const body = renderSeedBody(input.description);
-      const plan = migrationPlan({
-        generator: 'mimir',
-        operations: [createDocument(createTemplate(input.key), frontmatter, body)],
-        vaultRoot,
-      });
-      const report = await client.applyPlan(plan, true);
-      const root = isStringRecord(report) && isStringRecord(report.report) ? report.report : report;
-      const outcome =
-        isStringRecord(root) && typeof root.outcome === 'string' ? root.outcome : 'unrecognized';
-      const operations =
-        isStringRecord(root) && Array.isArray(root.operations) ? root.operations : [];
-      const op = operations.find(
-        (o): o is Record<string, unknown> => isStringRecord(o) && o.kind === 'create_document',
-      );
-      if (outcome !== 'applied' || op === undefined || typeof op.stem !== 'string') {
-        const error = op !== undefined && isStringRecord(op.error) ? op.error : undefined;
-        const code = typeof error?.code === 'string' ? error.code : undefined;
-        const message = typeof error?.message === 'string' ? error.message : undefined;
-        const errorDetail = [code, message].filter((value) => value !== undefined).join(': ');
+      const plan = createDocumentPlan(vaultRoot, createTemplate(input.key), frontmatter, body);
+      const { operations, outcome } = decodeApplyReport(await client.applyPlan(plan, true));
+      const op = operations.find((o) => o.kind === 'create_document');
+      if (outcome !== 'applied' || op === undefined || op.stem === null) {
+        const errorDetail = [op?.error?.code, op?.error?.message]
+          .filter((value): value is string => value != null)
+          .join(': ');
         throw validation(
           'the seed create did not complete',
-          `apply outcome: ${outcome}${errorDetail === '' ? '' : ` — ${errorDetail}`}`,
+          `apply outcome: ${outcome ?? 'unrecognized'}${errorDetail === '' ? '' : ` — ${errorDetail}`}`,
         );
       }
       const ref = parseSeedRef(op.stem);

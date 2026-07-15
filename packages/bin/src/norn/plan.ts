@@ -141,6 +141,27 @@ export function createDocument(
   return { fields: { new_value: { body, frontmatter }, path }, kind: 'create_document' };
 }
 
+/**
+ * A whole {@link MigrationPlan} for a single `create_document` — the one-op
+ * envelope the artifact and seed stores write a new document through (a `{{seq}}`
+ * create or a fixed-path restore). Bakes in the `mimir` generator so those
+ * create sites do not each hand-assemble the same one-op plan. Kept thin on
+ * purpose: multi-op plans (the node write path's coalesced `transact`) still
+ * call {@link migrationPlan} directly.
+ */
+export function createDocumentPlan(
+  vaultRoot: string,
+  path: string,
+  frontmatter: Record<string, unknown>,
+  body: string,
+): MigrationPlan {
+  return migrationPlan({
+    generator: 'mimir',
+    operations: [createDocument(path, frontmatter, body)],
+    vaultRoot,
+  });
+}
+
 /** Assemble a schema-v1 plan for one `transact` from its operations. */
 export function migrationPlan(args: {
   vaultRoot: string;

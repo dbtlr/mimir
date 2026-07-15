@@ -31,6 +31,8 @@ import { loadNornSnapshot, loadWorkingSetOverNorn } from '../core/store-norn';
 import { now } from '../core/time';
 import { createNornTransitionsFeed } from '../core/transitions';
 import { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
+import type { ApplyReportOp } from './apply-report';
+import { decodeApplyReport } from './apply-report';
 import type { NornClient, NornDocument } from './client';
 import { stemOf } from './decode';
 import type { MigrationOp } from './plan';
@@ -198,12 +200,15 @@ type ApplyVerdict =
  * reported as success.
  */
 function classifyApply(report: unknown): ApplyVerdict {
-  const root = isRecord(report) && isRecord(report.report) ? report.report : report;
-  const outcome = isRecord(root) && typeof root.outcome === 'string' ? root.outcome : undefined;
+  const { operations, outcome } = decodeApplyReport(report);
   if (outcome === 'applied') {
     return { kind: 'applied' };
   }
-  const errors = failedOpErrors(root);
+  // Each failed op's `{ code, message }` (a `status: 'failed'` op or one carrying
+  // a structured `error`), for the drift-vs-terminal decision below.
+  const errors = operations.flatMap((op) =>
+    op.status === 'failed' || op.error !== null ? [op.error ?? { code: null, message: null }] : [],
+  );
   const detail =
     errors
       .map((e) => e.message)
@@ -221,29 +226,6 @@ function classifyApply(report: unknown): ApplyVerdict {
     return { detail, kind: 'drift' };
   }
   return { detail, kind: 'failed' };
-}
-
-/** The `{ code, message }` of each failed op in an apply report (`status: 'failed'`
- * or a present `error`), for {@link classifyApply}'s drift-vs-terminal decision. */
-function failedOpErrors(root: unknown): { code: string | null; message: string | null }[] {
-  if (!isRecord(root) || !Array.isArray(root.operations)) {
-    return [];
-  }
-  return root.operations.flatMap((op) => {
-    if (!isRecord(op)) {
-      return [];
-    }
-    const error = isRecord(op.error) ? op.error : undefined;
-    if (op.status !== 'failed' && error === undefined) {
-      return [];
-    }
-    return [
-      {
-        code: error !== undefined && typeof error.code === 'string' ? error.code : null,
-        message: error !== undefined && typeof error.message === 'string' ? error.message : null,
-      },
-    ];
-  });
 }
 
 /**
@@ -804,11 +786,6 @@ class Accumulator {
   }
 }
 
-/** One `create_document` line of a `vault.apply` report, keyed by its `op_id`
- * (norn 0.45 / NRN-175): `stem` is the resolved `KEY-seq` on an applied create;
- * `status` distinguishes `applied` from a `skipped`/not-written op (no stem). */
-type ReportOp = { kind: string; status?: string; stem?: string };
-
 /**
  * Map each private queued create to the stem Norn allocated. norn reports
  * every op's `op_id` as its plan position; {@link Accumulator.buildOperations}
@@ -820,7 +797,15 @@ type ReportOp = { kind: string; status?: string; stem?: string };
  */
 function extractResolvedStems(report: unknown, creates: Create[]): Map<Create, string> {
   const resolved = new Map<Create, string>();
-  const byOpId = reportOperations(report);
+  // Index the structured report ops by `op_id` — an op needs both a real `op_id`
+  // and a `kind` to be a correlation target (the pre-decode `reportOperations`
+  // required both), so a degraded line without them is not mistaken for a create.
+  const byOpId = new Map<string, ApplyReportOp>();
+  for (const op of decodeApplyReport(report).operations) {
+    if (op.opId !== null && op.kind !== null) {
+      byOpId.set(op.opId, op);
+    }
+  }
   for (const create of creates) {
     if (create.targetKind !== 'node') {
       continue;
@@ -834,7 +819,7 @@ function extractResolvedStems(report: unknown, creates: Create[]): Map<Create, s
     if (op === undefined || op.kind !== 'create_document') {
       throw invariant(`a created node has no create_document report op at op_id ${create.opId}`);
     }
-    if (op.stem === undefined) {
+    if (op.stem === null) {
       throw invariant(
         `a created node's apply-report op carries no resolved stem (status: ${op.status ?? 'unknown'})`,
       );
@@ -966,28 +951,6 @@ function createdPayloadOf(
     return undefined;
   }
   return { body: record.body, frontmatter: record.frontmatter };
-}
-
-function reportOperations(report: unknown): Map<string, ReportOp> {
-  const root = isRecord(report) && isRecord(report.report) ? report.report : report;
-  const byOpId = new Map<string, ReportOp>();
-  if (!isRecord(root) || !Array.isArray(root.operations)) {
-    return byOpId;
-  }
-  for (const op of root.operations) {
-    if (!isRecord(op) || typeof op.op_id !== 'string' || typeof op.kind !== 'string') {
-      continue;
-    }
-    const entry: ReportOp = { kind: op.kind };
-    if (typeof op.status === 'string') {
-      entry.status = op.status;
-    }
-    if (typeof op.stem === 'string') {
-      entry.stem = op.stem;
-    }
-    byOpId.set(op.op_id, entry);
-  }
-  return byOpId;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
