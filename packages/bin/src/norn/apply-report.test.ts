@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import { decodeApplyReport } from './apply-report';
+import { applyReportOutcome, createdStem, decodeApplyReport } from './apply-report';
 
 // ── decodeApplyReport (MMR-250) ───────────────────────────────────────────────
 // The one home for the raw `vault.apply` report decode: envelope unwrap (the
@@ -104,4 +104,57 @@ test('drops non-record operation entries', () => {
   });
   expect(decoded.operations).toHaveLength(1);
   expect(decoded.operations[0]?.stem).toBe('MMR-3');
+});
+
+// ── applyReportOutcome (MMR-250) ──────────────────────────────────────────────
+// The light outcome-only read: same envelope unwrap as decodeApplyReport, no
+// operations-array normalization.
+
+test('applyReportOutcome unwraps the double-nested envelope and reads outcome', () => {
+  expect(applyReportOutcome({ report: { operations: [], outcome: 'refused' } })).toBe('refused');
+});
+
+test('applyReportOutcome is null on a degraded report (absent or non-string outcome)', () => {
+  expect(applyReportOutcome({ report: { operations: [] } })).toBeNull();
+  expect(applyReportOutcome({ report: { operations: [], outcome: 7 } })).toBeNull();
+  expect(applyReportOutcome(null)).toBeNull();
+  expect(applyReportOutcome('nope')).toBeNull();
+});
+
+// ── createdStem (MMR-250) ──────────────────────────────────────────────────
+// The shared create read-back the artifact and seed stores both ran
+// byte-identically: resolved stem on an applied create_document, else the
+// assembled failure detail.
+
+test('createdStem resolves the stem on an applied create_document op', () => {
+  const result = createdStem({
+    report: {
+      operations: [{ kind: 'create_document', op_id: '0', status: 'applied', stem: 'MMR-2' }],
+      outcome: 'applied',
+    },
+  });
+  expect(result).toEqual({ stem: 'MMR-2' });
+});
+
+test('createdStem assembles the failure detail from outcome and op error', () => {
+  const result = createdStem({
+    report: {
+      operations: [
+        {
+          error: { code: 'internal-error', message: 'destination already exists' },
+          kind: 'create_document',
+          op_id: '0',
+          status: 'failed',
+        },
+      ],
+      outcome: 'refused',
+    },
+  });
+  expect(result).toEqual({
+    failure: 'apply outcome: refused — internal-error: destination already exists',
+  });
+});
+
+test('createdStem falls back to "unrecognized" with no error detail on a degraded report', () => {
+  expect(createdStem(null)).toEqual({ failure: 'apply outcome: unrecognized' });
 });

@@ -2,7 +2,7 @@ import { SEED_KIND_VALUES, SEED_LIFECYCLE_VALUES } from '@mimir/contract';
 import type { SeedKind, SeedLifecycle } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
-import { decodeApplyReport } from '../../norn/apply-report';
+import { applyReportOutcome, createdStem } from '../../norn/apply-report';
 import type { NornClient, NornDocument } from '../../norn/client';
 import {
   collapse,
@@ -286,7 +286,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
   const applyOutcome = async (operations: MigrationOp[]): Promise<string> => {
     const plan = migrationPlan({ generator: 'mimir', operations, vaultRoot });
     const report = await client.applyPlan(plan, true);
-    return decodeApplyReport(report).outcome ?? 'unrecognized';
+    return applyReportOutcome(report) ?? 'unrecognized';
   };
 
   /** Apply a one-plan batch of ops, failing loud if norn did not fully apply it.
@@ -321,20 +321,13 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
       });
       const body = renderSeedBody(input.description);
       const plan = createDocumentPlan(vaultRoot, createTemplate(input.key), frontmatter, body);
-      const { operations, outcome } = decodeApplyReport(await client.applyPlan(plan, true));
-      const op = operations.find((o) => o.kind === 'create_document');
-      if (outcome !== 'applied' || op === undefined || op.stem === null) {
-        const errorDetail = [op?.error?.code, op?.error?.message]
-          .filter((value): value is string => value != null)
-          .join(': ');
-        throw validation(
-          'the seed create did not complete',
-          `apply outcome: ${outcome ?? 'unrecognized'}${errorDetail === '' ? '' : ` — ${errorDetail}`}`,
-        );
+      const result = createdStem(await client.applyPlan(plan, true));
+      if ('failure' in result) {
+        throw validation('the seed create did not complete', result.failure);
       }
-      const ref = parseSeedRef(op.stem);
+      const ref = parseSeedRef(result.stem);
       if (ref === null || ref.key !== input.key) {
-        throw invariant(`a created seed resolved to an unexpected stem: ${op.stem}`);
+        throw invariant(`a created seed resolved to an unexpected stem: ${result.stem}`);
       }
       return { key: input.key, seq: ref.seq };
     },

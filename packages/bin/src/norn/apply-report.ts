@@ -15,6 +15,11 @@
  * — because those policies legitimately differ (the seed/artifact stores reject
  * the drift-replay verdict by design). Absent or foreign-typed fields decode to
  * `null` so a degraded report never reads as a false success.
+ *
+ * Two lighter entry points sit alongside the full decode: `applyReportOutcome`
+ * for a caller that reads only `outcome` (the seed germinate/apply-outcome
+ * path), and `createdStem` for the create read-back the artifact and seed
+ * stores both ran byte-identically on their single-create apply.
  */
 
 import { isStringRecord } from './decode';
@@ -46,15 +51,57 @@ export type ApplyReport = {
   operations: ApplyReportOp[];
 };
 
+/** Unwrap the envelope: a precondition refusal doubles-nests the report one
+ * level down under `report.report`, while a plain apply returns it at the
+ * root. Shared by every decode entry point below. */
+function unwrapReport(report: unknown): unknown {
+  return isStringRecord(report) && isStringRecord(report.report) ? report.report : report;
+}
+
 /** Decode the raw `vault.apply` result — unwrap the `report.report` double
  * nesting, read `outcome`, and normalize each operation line. Non-record ops are
  * dropped; a non-array `operations` (or a non-record report) yields no ops. */
 export function decodeApplyReport(report: unknown): ApplyReport {
-  const root = isStringRecord(report) && isStringRecord(report.report) ? report.report : report;
+  const root = unwrapReport(report);
   const outcome = isStringRecord(root) && typeof root.outcome === 'string' ? root.outcome : null;
   const rawOps = isStringRecord(root) && Array.isArray(root.operations) ? root.operations : [];
   const operations = rawOps.flatMap((op) => (isStringRecord(op) ? [decodeOp(op)] : []));
   return { operations, outcome };
+}
+
+/** The light decode for a caller that reads only `outcome` (MMR-250) — the
+ * envelope unwrap plus the `outcome` read, without paying for the full
+ * operations-array normalization {@link decodeApplyReport} does. Shares the
+ * unwrap with it so the two never drift on the double-nesting rule. */
+export function applyReportOutcome(report: unknown): string | null {
+  const root = unwrapReport(report);
+  return isStringRecord(root) && typeof root.outcome === 'string' ? root.outcome : null;
+}
+
+/**
+ * The read-back of a single-create apply report (MMR-250): the resolved
+ * `create_document` stem when `outcome` is `'applied'` and that op carries a
+ * string stem; otherwise the assembled failure detail — `apply outcome:
+ * <outcome ?? 'unrecognized'>`, plus ` — code: message` built from whichever of
+ * the failed op's `error.code`/`error.message` are present. This is the exact
+ * read-back the artifact store and the seed store both ran on their create
+ * path; each keeps its own `throw validation(...)` wording and its own parse
+ * of the returned stem. `restoreArtifact` does NOT use this — its collision
+ * branch needs the raw op error for an `/already exists/` match, so it calls
+ * {@link decodeApplyReport} directly.
+ */
+export function createdStem(report: unknown): { stem: string } | { failure: string } {
+  const { operations, outcome } = decodeApplyReport(report);
+  const op = operations.find((o) => o.kind === 'create_document');
+  if (outcome === 'applied' && op !== undefined && op.stem !== null) {
+    return { stem: op.stem };
+  }
+  const errorDetail = [op?.error?.code, op?.error?.message]
+    .filter((value): value is string => value != null)
+    .join(': ');
+  return {
+    failure: `apply outcome: ${outcome ?? 'unrecognized'}${errorDetail === '' ? '' : ` — ${errorDetail}`}`,
+  };
 }
 
 function decodeOp(op: Record<string, unknown>): ApplyReportOp {

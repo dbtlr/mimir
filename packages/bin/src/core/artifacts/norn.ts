@@ -1,4 +1,4 @@
-import { decodeApplyReport } from '../../norn/apply-report';
+import { createdStem, decodeApplyReport } from '../../norn/apply-report';
 import type { NornClient, NornDocument } from '../../norn/client';
 import { collapse, isStringRecord, stringList } from '../../norn/decode';
 import { createDocumentPlan, SEQ_TOKEN } from '../../norn/plan';
@@ -240,20 +240,13 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
         frontmatter,
         input.content,
       );
-      const { operations, outcome } = decodeApplyReport(await client.applyPlan(plan, true));
-      const op = operations.find((o) => o.kind === 'create_document');
-      if (outcome !== 'applied' || op === undefined || op.stem === null) {
-        const errorDetail = [op?.error?.code, op?.error?.message]
-          .filter((value): value is string => value != null)
-          .join(': ');
-        throw validation(
-          'the artifact create did not complete',
-          `apply outcome: ${outcome ?? 'unrecognized'}${errorDetail === '' ? '' : ` — ${errorDetail}`}`,
-        );
+      const result = createdStem(await client.applyPlan(plan, true));
+      if ('failure' in result) {
+        throw validation('the artifact create did not complete', result.failure);
       }
-      const identity = parseIdentity(op.stem);
+      const identity = parseIdentity(result.stem);
       if (identity?.kind !== 'artifact' || identity.key !== input.key) {
-        throw invariant(`a created artifact resolved to an unexpected stem: ${op.stem}`);
+        throw invariant(`a created artifact resolved to an unexpected stem: ${result.stem}`);
       }
       return { key: input.key, seq: identity.seq };
     },

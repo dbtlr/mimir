@@ -31,7 +31,7 @@ import { loadNornSnapshot, loadWorkingSetOverNorn } from '../core/store-norn';
 import { now } from '../core/time';
 import { createNornTransitionsFeed } from '../core/transitions';
 import { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
-import type { ApplyReportOp } from './apply-report';
+import type { ApplyReport, ApplyReportOp } from './apply-report';
 import { decodeApplyReport } from './apply-report';
 import type { NornClient, NornDocument } from './client';
 import { stemOf } from './decode';
@@ -147,7 +147,8 @@ async function runTransact<T>(
     // error signal) rather than throwing — so classify the outcome. A genuine
     // tool/connection error (no report) still throws and is terminal (propagates).
     const report = await client.applyPlan(plan, true);
-    const verdict = classifyApply(report);
+    const applyReport = decodeApplyReport(report);
+    const verdict = classifyApply(applyReport);
     if (verdict.kind === 'drift') {
       // The vault moved under the snapshot — record it and replay from a fresh
       // read. On the FINAL attempt the loop falls through to the exhaustion
@@ -163,7 +164,7 @@ async function runTransact<T>(
       // `isError` path did, so it doesn't read as an internal mimir bug.
       throw validation('the node write path apply did not complete', verdict.detail);
     }
-    const resolvedStems = extractResolvedStems(report, acc.creates);
+    const resolvedStems = extractResolvedStems(applyReport, acc.creates);
     await verifyCreates(client, acc.creates, resolvedStems);
     return acc.resolveResult(result, resolvedStems);
   }
@@ -197,10 +198,11 @@ type ApplyVerdict =
  * Only an explicit `outcome: 'applied'` is success — any outcome we cannot
  * positively confirm as applied (a `failed` partial, a non-drift refusal, or an
  * unrecognized/degraded report) is terminal, so a write we can't confirm is never
- * reported as success.
+ * reported as success. Takes the already-decoded report — `runTransact` decodes
+ * the raw `vault.apply` result once and shares it with {@link extractResolvedStems}.
  */
-function classifyApply(report: unknown): ApplyVerdict {
-  const { operations, outcome } = decodeApplyReport(report);
+function classifyApply(applyReport: ApplyReport): ApplyVerdict {
+  const { operations, outcome } = applyReport;
   if (outcome === 'applied') {
     return { kind: 'applied' };
   }
@@ -794,14 +796,15 @@ class Accumulator {
  * creates-array position, which would silently desync if the emit order or
  * op-per-create count ever changed. Read the resolved `stem` straight from the
  * correlated op (NRN-175's structured field), not norn's human summary text.
+ * Takes the already-decoded report — see {@link classifyApply}.
  */
-function extractResolvedStems(report: unknown, creates: Create[]): Map<Create, string> {
+function extractResolvedStems(applyReport: ApplyReport, creates: Create[]): Map<Create, string> {
   const resolved = new Map<Create, string>();
   // Index the structured report ops by `op_id` — an op needs both a real `op_id`
   // and a `kind` to be a correlation target (the pre-decode `reportOperations`
   // required both), so a degraded line without them is not mistaken for a create.
   const byOpId = new Map<string, ApplyReportOp>();
-  for (const op of decodeApplyReport(report).operations) {
+  for (const op of applyReport.operations) {
     if (op.opId !== null && op.kind !== null) {
       byOpId.set(op.opId, op);
     }
