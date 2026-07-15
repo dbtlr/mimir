@@ -507,22 +507,12 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   // explicitly sorting projects by key and nodes by (key, numeric seq).
   survivingProjects.sort((a, b) => cmpStr(a.key, b.key));
   survivingNodes.sort((a, b) => (a.key === b.key ? a.seq - b.seq : cmpStr(a.key, b.key)));
-  const nodeDocs = survivingNodes;
-
-  // last_seq is a write-path allocation counter (unused by read derivation, not
-  // in the output contract) — derived as max(seq) so the Project is well-formed.
-  const maxSeqByProject = new Map<string, number>();
-  for (const n of nodeDocs) {
-    maxSeqByProject.set(n.key, Math.max(maxSeqByProject.get(n.key) ?? 0, n.seq));
-  }
 
   const projects: Project[] = survivingProjects.map((p) => ({
     archived_at: str(p.fm.archived_at),
     created_at: str(p.fm.created) ?? '',
     description: str(p.fm.description),
     key: p.key,
-    last_artifact_seq: 0,
-    last_seq: maxSeqByProject.get(p.key) ?? 0,
     name: str(p.fm.name) ?? '',
     updated_at: str(p.fm.updated_at) ?? '',
   }));
@@ -538,7 +528,7 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     projectFm.set(p.key, p.fm);
     pathByStem.set(p.key, p.path);
   });
-  for (const n of nodeDocs) {
+  for (const n of survivingNodes) {
     nodeFm.set(n.stem, n.fm);
     pathByStem.set(n.stem, n.path);
     const pruned = prunedDependsOnByStem.get(n.stem);

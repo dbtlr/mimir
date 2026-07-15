@@ -420,8 +420,6 @@ class Accumulator {
       created_at: timestamp,
       description: row.description,
       key: row.key,
-      last_artifact_seq: 0,
-      last_seq: 0,
       name: row.name,
       updated_at: timestamp,
     };

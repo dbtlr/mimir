@@ -17,12 +17,6 @@ afterEach(async () => {
   await closeStore();
 });
 
-test.skipIf(!NORN)('createProject inserts and defaults last_seq to 0', async () => {
-  const p = await createProject(store, { key: 'MMR', name: 'Mimir' });
-  expect(p.key).toBe('MMR');
-  expect(p.last_seq).toBe(0);
-});
-
 test.skipIf(!NORN)('createProject stores optional description (MMR-88)', async () => {
   const withDesc = await createProject(store, {
     description: 'tracks work',

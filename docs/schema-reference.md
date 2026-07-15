@@ -220,7 +220,6 @@ Query-layer outputs, intentionally **absent** from every document ([ADR 0001](de
 - **Rollup:** a non-leaf node's status **distribution** (`{done:3, ready:1}`) and its `interpret()` status word — computed live over direct children, never cached.
 - **Transition cursors:** `newly_ready`, `recently_completed` (a caller cursor over `## History`); `unconsolidated` (a tag query).
 - **Flip-times / presentation:** `became_ready_at`, the seed lede.
-- **Allocation counters:** per-project `last_seq` / `last_artifact_seq` — Norn allocates from the project documents at create time; no counter is persisted.
 
 ## Removed vs. the SQLite era
 
