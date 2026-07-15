@@ -54,6 +54,39 @@ import a transport, and transports may not import each other.
   build-meta only), apply the `skip-changelog` label with a one-line reason
   instead.
 
+## Landing PRs
+
+`main`'s branch protection requires status checks to be **strict** — a PR
+must be up to date with `main` before its checks count toward merge. With
+more than one PR open at once, this forces a serial rebase train: only one PR
+can be up to date and mergeable at a time, and merging it makes every other
+open PR behind again, needing its own rebase and a fresh CI cycle. Budget for
+one full CI cycle per PR in the train, not one for the whole batch. Land PRs
+in dependency order, and have whichever PR first touches shared plumbing
+(config, shared types, a common seam) own that change — don't let two PRs in
+the same train edit the same shared surface independently.
+
+A few sharp edges in the tooling around this:
+
+- **A `gh pr merge` on a behind branch can defer silently.** If the target
+  branch isn't up to date with `main`, `gh pr merge` may queue or defer the
+  merge rather than merging immediately or failing loudly — and still exit
+  `0`. Don't treat a zero exit as "merged." Check `mergeStateStatus` (or the
+  PR's merged state) after the command returns to confirm the merge actually
+  landed, not just that the command didn't error.
+- **`gh pr checks` can report the prior commit's results right after a
+  push.** There's a gap between a push registering and CI re-running checks
+  against the new head SHA; `gh pr checks` polled in that gap can show the
+  previous SHA's (possibly green) results, which reads as "already passing"
+  when the new commit hasn't been checked yet. Poll check-runs against the
+  head SHA explicitly rather than trusting the first `gh pr checks` result
+  after a push.
+- **Re-settle after every merge.** Before handing a branch off (or moving to
+  the next PR in the train), rebase it onto the latest `origin/main` and
+  re-verify — don't leave a branch behind for someone else to discover at
+  merge time. After each PR in the train lands, re-settle the next one before
+  attempting its merge.
+
 ## Commit messages
 
 Conventional, plain-English commit messages. The first line is a short

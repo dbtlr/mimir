@@ -141,6 +141,9 @@ The reasoning behind the model lives in
 schema in [`docs/schema-reference.md`](docs/schema-reference.md) and the
 CLI/MCP output contract in
 [`docs/output-contract-reference.md`](docs/output-contract-reference.md).
+Operating an installed daemon day to day (service lifecycle, health
+probing, self-update, port/proxy posture, install location) is covered in
+[`docs/guides/`](docs/guides/README.md).
 
 ## Development
 
