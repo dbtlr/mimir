@@ -74,15 +74,17 @@ or update one with `MIMIR_NEXT=1 sh install.sh`, `mimir self-update --next`, or
 pin a build with `mimir self-update --tag v0.6.0-next.5`.
 
 **Cutting an official release** is a two-commit procedure. A _cut commit_ bumps
-`packages/bin/package.json` `X.Y.Z-next` → `X.Y.Z`, compiles the pending
-`.changes/` fragments into a new `## vX.Y.Z - YYYY-MM-DD` section
-(`bun run changelog:compile --write --version X.Y.Z`, which also deletes the
-compiled fragments), and pushes the `vX.Y.Z` tag — the release workflow then builds the per-platform
-binaries and publishes a non-prerelease GitHub Release with notes pulled from the
-changelog. A _next-cycle commit_ then bumps to the next `-next` to resume the
-prerelease stream; the version guard makes a forgotten next-cycle bump loud, not
-silent. An official cut also prunes old prereleases lag-by-one, keeping the
-previous official's cycle trail one release longer.
+`packages/bin/package.json` `X.Y.Z-next` → `X.Y.Z` (syncing `bun.lock`'s
+matching version line alongside it), compiles the pending `.changes/`
+fragments into a new `## vX.Y.Z - YYYY-MM-DD` section (`bun run
+changelog:compile --write --version X.Y.Z`, which also deletes the compiled
+fragments), and pushes the `vX.Y.Z` tag — the release workflow then builds the
+per-platform binaries and publishes a non-prerelease GitHub Release with notes
+pulled from the changelog. A _next-cycle commit_ then bumps to the next
+`-next` (again syncing `bun.lock`) to resume the prerelease stream; the
+version guard makes a forgotten next-cycle bump loud, not silent. An official
+cut also prunes old prereleases lag-by-one, keeping the previous official's
+cycle trail one release longer.
 
 The full operational runbook — exact commands and the post-publish verify gate —
 lives in the `release-cut` skill (`.claude/skills/release-cut/`).
