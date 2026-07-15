@@ -149,6 +149,11 @@ export async function restoreArtifact(
   if (found !== null && found.created_at === record.created_at && found.title === record.title) {
     return 'skipped';
   }
+  if (found === null) {
+    // No occupant at the path: the loose text match caught an unrelated
+    // failure, not a collision — surface norn's original error.
+    throw validation('the artifact restore did not complete', message);
+  }
   throw validation('the artifact restore collided with a different artifact', path);
 }
 
