@@ -279,6 +279,26 @@ test('seq-gaps does not flag a gap whose seq is a duplicate-stem drop (MMR-197)'
   expect(findings).toEqual([]);
 });
 
+test('seq-gaps ignores an out-of-scope duplicate-stem drop (MMR-197)', async () => {
+  // Drops are whole-vault while readNodeDocs honors `-s`: a scoped run (only MMR
+  // docs in scope) must not let a foreign project's dup drop invent an XYZ group
+  // and report gaps the operator never asked about.
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1', 'MMR-2'], {
+      dropped: [
+        {
+          kind: 'identity',
+          path: 'XYZ/XYZ-3.md',
+          paths: ['XYZ/XYZ-3.md', 'XYZ/dup/XYZ-3.md'],
+          rule: 'duplicate-stem',
+          stem: 'XYZ-3',
+        },
+      ],
+    }),
+  );
+  expect(findings).toEqual([]);
+});
+
 test('seq-gaps reports a gap below an unreadable max (surfaced seq is occupied) (MMR-197)', async () => {
   // Readable MMR-1, unreadable MMR-3 (present-but-unexcluded, surfaced by the
   // frontmatter check), genuinely deleted MMR-2. The surfaced seq 3 is an occupied

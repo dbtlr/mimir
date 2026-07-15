@@ -800,8 +800,13 @@ export const seqGapCheck: Diagnostic = {
         group.seqs.add(identity.seq);
       }
     };
+    const scopedKeys = new Set<string>();
     for (const { stem } of await ctx.readNodeDocs()) {
       occupy(stem);
+      const identity = parseIdentity(stem);
+      if (identity !== null) {
+        scopedKeys.add(identity.key);
+      }
     }
     for (const drop of ctx.dropped) {
       // Only an identity drop (a `duplicate-stem`) is a doc physically on disk yet
@@ -810,7 +815,11 @@ export const seqGapCheck: Diagnostic = {
       // dangling ref, missing project, bad field on an otherwise-readable doc), so
       // `readNodeDocs` already carries its seq; occupying from it would double-count
       // (harmless) or, where a caller separates the two feeds, invent a phantom slot.
-      if (drop.kind === 'identity') {
+      // Drops are whole-vault while the other feeds honor `-s` (relational drops
+      // can't be scoped), so gate on keys the scoped inputs actually carry — an
+      // out-of-scope dup must not invent a foreign group in a scoped run.
+      const identity = drop.kind === 'identity' ? parseIdentity(drop.stem) : null;
+      if (identity !== null && scopedKeys.has(identity.key)) {
         occupy(drop.stem); // the dup's canonical stem
       }
     }
