@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { bunExec } from '../../exec';
 import { NornClient } from '../../norn/client';
 import { converge } from '../../vault/converge';
-import { createNornArtifactStore } from './norn';
-import type { ArtifactStore } from './store';
+import { createNornArtifactStore, restoreArtifact } from './norn';
+import type { ArtifactRecord, ArtifactStore } from './store';
 
 /**
  * The artifact-seam conformance oracle (MMR-143, ADR 0016): the contract suite
@@ -20,6 +20,10 @@ const NORN = Bun.which('norn') !== null;
 
 type Harness = {
   artifacts: ArtifactStore;
+  /** The raw Norn client, for seeding physical sibling fixtures directly. */
+  client: NornClient;
+  /** The vault root `restoreArtifact` (cutover-only) needs alongside the client. */
+  vaultRoot: string;
   /** Linkable node stems under `MMR` — three of them for the tests. */
   nodeStems: string[];
   cleanup: () => Promise<void>;
@@ -27,17 +31,20 @@ type Harness = {
 
 async function nornHarness(): Promise<Harness> {
   const root = mkdtempSync(join(tmpdir(), 'mimir-conf-'));
-  await converge(join(root, 'vault'), { allowCreate: true, exec: bunExec });
-  const client = new NornClient({ vaultPath: join(root, 'vault') });
+  const vault = join(root, 'vault');
+  await converge(vault, { allowCreate: true, exec: bunExec });
+  const client = new NornClient({ vaultPath: vault });
   return {
-    artifacts: createNornArtifactStore(client),
+    artifacts: createNornArtifactStore(client, vault),
     async cleanup() {
       await client.close();
       rmSync(root, { force: true, recursive: true });
     },
+    client,
     // Dangling wikilinks are allowed, so these stems are valid link targets
     // without seeding real nodes.
     nodeStems: ['MMR-2', 'MMR-3', 'MMR-4'],
+    vaultRoot: vault,
   };
 }
 
@@ -86,6 +93,36 @@ for (const backend of backends) {
 
         const withBody = await h.artifacts.load('MMR', 1, { content: true });
         expect(withBody?.content).toBe('# body\n\ntext');
+      },
+    );
+
+    test.skipIf(backend.skip)(
+      'create allocates next-free through the {{seq}} template over an existing sibling (MMR-196)',
+      async () => {
+        // A physical sibling minted outside the store — the `{{seq}}` token
+        // resolves next-free against the `KEY-a` prefix in `KEY/artifacts/` by
+        // filename, so the create lands at MMR-a2, never a client-derived count.
+        await h.client.newDoc({
+          body: '# pre',
+          confirm: true,
+          field_json: [
+            `type=${JSON.stringify('artifact')}`,
+            `title=${JSON.stringify('pre-existing')}`,
+            `project=${JSON.stringify('[[MMR]]')}`,
+            `created=${JSON.stringify('2026-01-01T00:00:00.000Z')}`,
+          ],
+          parents: true,
+          path: 'MMR/artifacts/MMR-a1.md',
+        });
+        const { seq } = await h.artifacts.create({
+          content: 'body',
+          key: 'MMR',
+          links: [],
+          tags: [],
+          title: 'next',
+        });
+        expect(seq).toBe(2);
+        expect((await h.artifacts.load('MMR', 2))?.title).toBe('next');
       },
     );
 
@@ -222,5 +259,75 @@ for (const backend of backends) {
       expect(removed).toBe(1);
       expect((await h.artifacts.load('MMR', 1))?.tags).toEqual(['b']);
     });
+
+    // restoreArtifact (MMR-144, cutover-only): a FIXED-path create, unlike
+    // `create`'s `{{seq}}` allocation. These three pin the empirical
+    // destination-collision contract (MMR-196) that its idempotency check
+    // relies on — verified against norn 0.47.0 in the surrounding comment.
+    test.skipIf(backend.skip)(
+      'restoreArtifact: a fresh restore creates the doc at its preserved identity',
+      async () => {
+        const record: ArtifactRecord = {
+          created_at: '2026-01-01T00:00:00.000Z',
+          key: 'MMR',
+          links: [],
+          seq: 1,
+          tags: ['spec'],
+          title: 'restored',
+        };
+        const outcome = await restoreArtifact(h.client, h.vaultRoot, record, 'restored body');
+        expect(outcome).toBe('created');
+        const loaded = await h.artifacts.load('MMR', 1, { content: true });
+        expect(loaded).toMatchObject({
+          created_at: record.created_at,
+          key: 'MMR',
+          seq: 1,
+          tags: ['spec'],
+          title: 'restored',
+        });
+        expect(loaded?.content).toBe('restored body');
+      },
+    );
+
+    test.skipIf(backend.skip)(
+      'restoreArtifact: re-running the identical restore is skipped (idempotent)',
+      async () => {
+        const record: ArtifactRecord = {
+          created_at: '2026-01-01T00:00:00.000Z',
+          key: 'MMR',
+          links: [],
+          seq: 1,
+          tags: [],
+          title: 'restored',
+        };
+        expect(await restoreArtifact(h.client, h.vaultRoot, record, 'body')).toBe('created');
+        // The re-run hits norn's destination-already-exists refusal; the
+        // preserved (created, title) fingerprint matches, so it reads as the
+        // idempotent no-op rather than a failure.
+        expect(await restoreArtifact(h.client, h.vaultRoot, record, 'body')).toBe('skipped');
+      },
+    );
+
+    test.skipIf(backend.skip)(
+      'restoreArtifact: a same-path doc with a different identity throws the collision error',
+      async () => {
+        const record: ArtifactRecord = {
+          created_at: '2026-01-01T00:00:00.000Z',
+          key: 'MMR',
+          links: [],
+          seq: 1,
+          tags: [],
+          title: 'original',
+        };
+        expect(await restoreArtifact(h.client, h.vaultRoot, record, 'body')).toBe('created');
+        // Same target path (`MMR/artifacts/MMR-a1.md`), but a different
+        // artifact's identity and content — the fingerprint mismatch must
+        // fail loud rather than falsely report `skipped`.
+        const collider: ArtifactRecord = { ...record, title: 'a different artifact' };
+        expect(restoreArtifact(h.client, h.vaultRoot, collider, 'different body')).rejects.toThrow(
+          /collided with a different artifact/,
+        );
+      },
+    );
   });
 }

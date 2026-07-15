@@ -3,7 +3,6 @@ import type { SeedKind, SeedLifecycle } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import type { NornClient, NornDocument } from '../../norn/client';
-import { isPathCollision } from '../../norn/client';
 import {
   collapse,
   isStringRecord,
@@ -15,11 +14,13 @@ import type { MigrationOp } from '../../norn/plan';
 import {
   addFrontmatter,
   appendToSection,
+  createDocument,
   migrationPlan,
   replaceSection,
+  SEQ_TOKEN,
   setFrontmatter,
 } from '../../norn/plan';
-import { notFound, validation } from '../errors';
+import { invariant, notFound, validation } from '../errors';
 import {
   HISTORY_HEADING,
   parseDescriptionSection,
@@ -45,9 +46,12 @@ import { canTransitionSeed, isTerminalSeed } from './store';
  * shape (`## Seed Description` + `## History` + `## Annotations`) through the
  * shared history codec, exactly as a task doc does.
  *
- * - **Seq allocation is derived**, mirroring the artifact store: `max(seq)+1`
- *   over the project's seed stems, with create-exclusive retry — `vault.new`
- *   refuses an existing path, so a concurrent collision re-derives and retries.
+ * - **Seq allocation rides the `{{seq}}` token** (MMR-196), mirroring the
+ *   artifact store and the node write path: a create is one `create_document`
+ *   op whose path carries a trailing `KEY-s{{seq}}` token that Norn resolves to
+ *   the next free sibling sequence at apply time — the single allocation
+ *   authority. No client-side `max(seq)+1`, no create-exclusive retry; the apply
+ *   report echoes the resolved `KEY-sN` stem.
  * - **Section-touching mutations ride `vault.apply`** (the same atomic plan
  *   machinery the node write path uses): a lifecycle transition is one plan
  *   carrying the `lifecycle` set + the `## History` append, so the frontmatter
@@ -56,10 +60,12 @@ import { canTransitionSeed, isTerminalSeed } from './store';
  *   layer): `patch` refuses a terminal seed, `transition` refuses an illegal edge.
  */
 
-const CREATE_RETRIES = 5;
-
 const stemOf = (key: string, seq: number): string => renderSeedRef({ key, seq });
-const pathOf = (key: string, seq: number): string => `${key}/seeds/${stemOf(key, seq)}.md`;
+
+/** The `create_document` path template for a fresh seed — the trailing
+ * `KEY-s{{seq}}` token is Norn's per-directory next-free allocation handle
+ * (resolved at apply time), mirroring the node write path's `KEY-{{seq}}`. */
+const createTemplate = (key: string): string => `${key}/seeds/${key}-s${SEQ_TOKEN}.md`;
 
 /** Parse `KEY-sN` out of a vault seed path; null for non-seed paths — the canonical
  * grammar parser over the document stem (store-norn's seed read does the same). */
@@ -125,12 +131,13 @@ function toRecord(doc: NornDocument): SeedRecord | null {
 }
 
 /**
- * The seed frontmatter as `vault.new` `field_json` entries — `requester` and
- * `spawned` are omitted when empty so a seed carries only the fields it has,
- * matching the omit-empty node/artifact shape. `project` and `requester` are
- * wikilinks (Norn collapses brackets in matching); `spawned` is a wikilink list.
+ * The seed frontmatter record handed to `create_document.new_value` —
+ * `requester` and `spawned` are omitted when empty so a seed carries only the
+ * fields it has, matching the omit-empty node/artifact shape. `project` and
+ * `requester` are wikilinks (Norn collapses brackets in matching); `spawned` is
+ * a wikilink list.
  */
-function seedFieldJson(fields: {
+function seedFrontmatter(fields: {
   key: string;
   title: string;
   kind: SeedKind;
@@ -139,36 +146,28 @@ function seedFieldJson(fields: {
   spawned: string[];
   created: string;
   updated_at: string;
-}): string[] {
-  const json: string[] = [
-    `type=${JSON.stringify('seed')}`,
-    `title=${JSON.stringify(fields.title)}`,
-    `project=${JSON.stringify(wikilink(fields.key))}`,
-    `kind=${JSON.stringify(fields.kind)}`,
-    `lifecycle=${JSON.stringify(fields.lifecycle)}`,
-    `created=${JSON.stringify(fields.created)}`,
-    `updated_at=${JSON.stringify(fields.updated_at)}`,
-  ];
+}): Record<string, unknown> {
+  const fm: Record<string, unknown> = {
+    created: fields.created,
+    kind: fields.kind,
+    lifecycle: fields.lifecycle,
+    project: wikilink(fields.key),
+    title: fields.title,
+    type: 'seed',
+    updated_at: fields.updated_at,
+  };
   if (fields.requester !== null) {
-    json.push(`requester=${JSON.stringify(wikilink(fields.requester))}`);
+    fm.requester = wikilink(fields.requester);
   }
   if (fields.spawned.length > 0) {
-    json.push(`spawned=${JSON.stringify(fields.spawned.map(wikilink))}`);
+    fm.spawned = fields.spawned.map(wikilink);
   }
-  return json;
+  return fm;
 }
 
 export function createNornSeedStore(client: NornClient, vaultRoot: string): SeedStore {
   const seedDocs = async (): Promise<NornDocument[]> =>
     client.find({ eq: ['type:seed'], no_limit: true });
-
-  /** Every seed-shaped physical path, regardless of readable frontmatter. Seq
-   * allocation follows path identity so an untyped/foreign owner still occupies
-   * its number. */
-  const projectDocs = async (key: string): Promise<NornDocument[]> =>
-    (await client.find({ no_limit: true, path: ['**/*-s*.md'] })).filter(
-      (doc) => seqFromPath(doc.path)?.key === key,
-    );
 
   const resolvedDocs = async (
     stems: readonly string[],
@@ -306,9 +305,11 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
   return {
     async create(input: SeedCreate) {
       const timestamp = now();
-      // Stamped once, not per retry: a create-exclusive collision re-derives the
-      // seq, but `created`/`updated_at` should not drift across attempts.
-      const field_json = seedFieldJson({
+      // One `create_document` whose path carries the `KEY-s{{seq}}` token — Norn
+      // allocates the next free per-directory sequence at apply time (the single
+      // allocation authority), so there is no derived `max(seq)+1` and no
+      // create-exclusive retry. The apply report echoes the resolved `KEY-sN`.
+      const frontmatter = seedFrontmatter({
         created: timestamp,
         key: input.key,
         kind: input.kind,
@@ -319,39 +320,35 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
         updated_at: timestamp,
       });
       const body = renderSeedBody(input.description);
-      let lastError: unknown;
-      for (let attempt = 0; attempt < CREATE_RETRIES; attempt += 1) {
-        const docs = await projectDocs(input.key);
-        const seqs = docs
-          .map((d) => seqFromPath(d.path))
-          .filter((s): s is { key: string; seq: number } => s !== null)
-          .map((s) => s.seq);
-        const seq = (seqs.length === 0 ? 0 : Math.max(...seqs)) + 1;
-        try {
-          // `vault.new` is exclusive only on this physical destination. A second
-          // client can concurrently create the same stem elsewhere; Norn needs a
-          // stem reservation/unique-create primitive to make that race atomic.
-          await client.newDoc({
-            body,
-            confirm: true,
-            field_json,
-            parents: true,
-            path: pathOf(input.key, seq),
-          });
-          return { key: input.key, seq };
-        } catch (error) {
-          // ONLY a create-exclusive path collision means a concurrent create won
-          // this seq — re-derive and retry (mirrors the artifact store). Any other
-          // failure rethrows: a higher-seq retry would write a duplicate.
-          if (!isPathCollision(error)) {
-            throw error;
-          }
-          lastError = error;
-        }
+      const plan = migrationPlan({
+        generator: 'mimir',
+        operations: [createDocument(createTemplate(input.key), frontmatter, body)],
+        vaultRoot,
+      });
+      const report = await client.applyPlan(plan, true);
+      const root = isStringRecord(report) && isStringRecord(report.report) ? report.report : report;
+      const outcome =
+        isStringRecord(root) && typeof root.outcome === 'string' ? root.outcome : 'unrecognized';
+      const operations =
+        isStringRecord(root) && Array.isArray(root.operations) ? root.operations : [];
+      const op = operations.find(
+        (o): o is Record<string, unknown> => isStringRecord(o) && o.kind === 'create_document',
+      );
+      if (outcome !== 'applied' || op === undefined || typeof op.stem !== 'string') {
+        const error = op !== undefined && isStringRecord(op.error) ? op.error : undefined;
+        const code = typeof error?.code === 'string' ? error.code : undefined;
+        const message = typeof error?.message === 'string' ? error.message : undefined;
+        const errorDetail = [code, message].filter((value) => value !== undefined).join(': ');
+        throw validation(
+          'the seed create did not complete',
+          `apply outcome: ${outcome}${errorDetail === '' ? '' : ` — ${errorDetail}`}`,
+        );
       }
-      throw lastError instanceof Error
-        ? lastError
-        : validation(`seed create kept colliding after ${String(CREATE_RETRIES)} attempts`);
+      const ref = parseSeedRef(op.stem);
+      if (ref === null || ref.key !== input.key) {
+        throw invariant(`a created seed resolved to an unexpected stem: ${op.stem}`);
+      }
+      return { key: input.key, seq: ref.seq };
     },
 
     async germinate(key, seq, nodeStem) {

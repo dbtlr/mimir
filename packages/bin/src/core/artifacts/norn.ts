@@ -1,8 +1,8 @@
 import type { NornClient, NornDocument } from '../../norn/client';
-import { isPathCollision } from '../../norn/client';
 import { collapse, isStringRecord, stringList } from '../../norn/decode';
-import { validation } from '../errors';
-import { renderArtifactRef } from '../ids';
+import { createDocument, migrationPlan, SEQ_TOKEN } from '../../norn/plan';
+import { invariant, validation } from '../errors';
+import { parseIdentity, renderArtifactRef, wikilink } from '../ids';
 import { now } from '../time';
 import type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore } from './store';
 
@@ -12,13 +12,13 @@ import type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore }
  * frontmatter is the queryable record (`title`, `project` wikilink, `anchor`
  * wikilink list, `tags`, `created`), the body is the frozen content.
  *
- * - **Seq allocation is derived**: `max(seq)+1` over the project's artifact
- *   stems, with create-exclusive retry — `vault.new` refuses an existing path,
- *   so a concurrent-create collision re-derives and retries (bounded). A
- *   derived max *reuses* a seq if the highest artifact file is removed —
- *   harmless here because artifacts are append-only and never deleted (ADR
- *   0004; a hand-deletion is out of contract). The resulting stem is the
- *   artifact's canonical identity throughout the seam (ADR 0016).
+ * - **Seq allocation rides the `{{seq}}` token** (MMR-196, ADR 0016 Refinement):
+ *   a create is one `create_document` op whose path carries a trailing
+ *   `KEY-a{{seq}}` token that Norn resolves to the next free sibling sequence
+ *   at apply time — the same single allocation authority node creates use. There
+ *   is no client-side `max(seq)+1` derivation and no create-exclusive retry: the
+ *   apply report echoes the resolved `KEY-aN` stem, which is the artifact's
+ *   canonical identity throughout the seam (ADR 0016).
  * - **Anchors may dangle during the split**: links are written as real
  *   wikilinks and queried as stored text (Norn collapses brackets in field
  *   matching) — ADR 0016 Refinement.
@@ -29,89 +29,132 @@ import type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore }
  *   the documented delta from the flag's prior title+content behavior.
  */
 
-const CREATE_RETRIES = 5;
-
 const stemOf = (key: string, seq: number): string => renderArtifactRef({ key, seq });
 const pathOf = (key: string, seq: number): string => `${key}/artifacts/${stemOf(key, seq)}.md`;
 
+/** The `create_document` path template for a fresh artifact — the trailing
+ * `KEY-a{{seq}}` token is Norn's per-directory next-free allocation handle
+ * (resolved at apply time), mirroring the node write path's `KEY-{{seq}}`. */
+const createTemplate = (key: string): string => `${key}/artifacts/${key}-a${SEQ_TOKEN}.md`;
+
 /**
- * The artifact frontmatter as `vault.new` `field_json` entries — the single
- * write shape shared by `create` (which stamps `created=now()`) and the
+ * The artifact frontmatter record handed to `create_document.new_value` — the
+ * single write shape shared by `create` (which stamps `created=now()`) and the
  * cutover `restoreArtifact` (which preserves the source `created`). `anchor`
  * and `tags` are omitted when empty so an artifact carries only the fields it
  * has, matching the pre-seam markdown.
  */
-function artifactFieldJson(fields: {
+function artifactFrontmatter(fields: {
   key: string;
   title: string;
   created: string;
   links: string[];
   tags: string[];
-}): string[] {
-  const json: string[] = [
-    `type=${JSON.stringify('artifact')}`,
-    `title=${JSON.stringify(fields.title)}`,
-    `project=${JSON.stringify(`[[${fields.key}]]`)}`,
-    `created=${JSON.stringify(fields.created)}`,
-  ];
+}): Record<string, unknown> {
+  const fm: Record<string, unknown> = {
+    created: fields.created,
+    project: wikilink(fields.key),
+    title: fields.title,
+    type: 'artifact',
+  };
   if (fields.links.length > 0) {
-    json.push(`anchor=${JSON.stringify(fields.links.map((stem) => `[[${stem}]]`))}`);
+    fm.anchor = fields.links.map(wikilink);
   }
   if (fields.tags.length > 0) {
-    json.push(`tags=${JSON.stringify(fields.tags)}`);
+    fm.tags = fields.tags;
   }
-  return json;
+  return fm;
+}
+
+/**
+ * The one `create_document` op line of a single-op apply report, paired with
+ * norn's `outcome`. The local, minimal decode a create needs to read back the
+ * resolved stem (or a destination-exists refusal for the idempotent restore) —
+ * a shared/generalized apply-report decoder is the follow-up MMR-250, not this.
+ */
+function createReportOp(report: unknown): {
+  outcome: string;
+  op: Record<string, unknown> | undefined;
+} {
+  const root = isStringRecord(report) && isStringRecord(report.report) ? report.report : report;
+  const outcome =
+    isStringRecord(root) && typeof root.outcome === 'string' ? root.outcome : 'unrecognized';
+  const operations = isStringRecord(root) && Array.isArray(root.operations) ? root.operations : [];
+  const op = operations.find(
+    (o): o is Record<string, unknown> => isStringRecord(o) && o.kind === 'create_document',
+  );
+  return { op, outcome };
 }
 
 /**
  * Cutover-only (MMR-144): write one pre-existing artifact record into the
  * vault at its *existing* identity — the same `KEY-aN` stem and the same
- * `created` — so
- * ids and timestamps survive the migration and a re-run is idempotent. Unlike
- * `create`, it never derives a fresh seq or re-stamps `created`; the frozen
- * `content` becomes the body. An already-migrated path (create-exclusive
- * `vault.new` refuses it) is the idempotency signal → `skipped`; every other
- * error propagates so the run fails loudly. Delete alongside the migration
- * command once the vault is the sole backend.
+ * `created` — so ids and timestamps survive the migration and a re-run is
+ * idempotent. Unlike `create`, it addresses a FIXED `create_document` path (no
+ * `{{seq}}` allocation) and never re-stamps `created`; the frozen `content`
+ * becomes the body. An already-migrated path (norn refuses a `create_document`
+ * onto an existing destination) is the idempotency signal → `skipped`; every
+ * other non-applied outcome fails loud. Delete alongside the migration command
+ * once the vault is the sole backend.
  */
 export async function restoreArtifact(
   client: NornClient,
+  vaultRoot: string,
   record: ArtifactRecord,
   content: string,
 ): Promise<'created' | 'skipped'> {
-  try {
-    await client.newDoc({
-      body: content,
-      confirm: true,
-      field_json: artifactFieldJson({
-        created: record.created_at,
-        key: record.key,
-        links: record.links,
-        tags: record.tags,
-        title: record.title,
-      }),
-      parents: true,
-      path: pathOf(record.key, record.seq),
-    });
+  const path = pathOf(record.key, record.seq);
+  const frontmatter = artifactFrontmatter({
+    created: record.created_at,
+    key: record.key,
+    links: record.links,
+    tags: record.tags,
+    title: record.title,
+  });
+  const plan = migrationPlan({
+    generator: 'mimir',
+    operations: [createDocument(path, frontmatter, content)],
+    vaultRoot,
+  });
+  const { op, outcome } = createReportOp(await client.applyPlan(plan, true));
+  if (outcome === 'applied') {
     return 'created';
-  } catch (error) {
-    if (!isPathCollision(error)) {
-      throw error;
-    }
-    // A path already exists — idempotent ONLY if it is *this* artifact (a prior
-    // run of this same migration). Confirm by the preserved identity
-    // fingerprint (`created` + `title`); a mismatch means the stem is occupied
-    // by a different artifact (silent source/dest divergence), and a missing
-    // doc means the loose collision match caught an unrelated error — either
-    // way, rethrow rather than falsely report `skipped`.
-    const existing = await client.get([pathOf(record.key, record.seq)]);
-    const doc = asDoc(existing[0]);
-    const found = doc === null ? null : toRecord(doc);
-    if (found !== null && found.created_at === record.created_at && found.title === record.title) {
-      return 'skipped';
-    }
-    throw error;
   }
+  // A destination-already-exists refusal is idempotent ONLY if the occupant is
+  // *this* artifact (a prior run of this same migration). Confirm by the
+  // preserved identity fingerprint (`created` + `title`); a mismatch means the
+  // stem is occupied by a different artifact (silent source/dest divergence),
+  // and any non-collision failure fails loud rather than falsely reporting
+  // `skipped`.
+  //
+  // The collision contract (verified empirically against norn 0.47.0): a
+  // `create_document` destination collision reports plan `outcome: "refused"`
+  // with the failed op's `status: "failed"` and `error.code: "internal-error"`
+  // — the code is generic, so the message text is the only discriminator
+  // available. The message is `create_document: destination already exists
+  // (use --force to overwrite): <path>`, hence the `/already exists/i` match
+  // below rather than a structured code check. A structured collision code
+  // has been requested upstream; swap this match for it once norn ships one.
+  const error = op !== undefined && isStringRecord(op.error) ? op.error : undefined;
+  const message = typeof error?.message === 'string' ? error.message : '';
+  if (!/already exists/i.test(message)) {
+    throw validation(
+      'the artifact restore did not complete',
+      message || `apply outcome: ${outcome}`,
+    );
+  }
+  const existing = await client.get([path]);
+  const doc = asDoc(existing[0]);
+  const found = doc === null ? null : toRecord(doc);
+  if (found !== null && found.created_at === record.created_at && found.title === record.title) {
+    return 'skipped';
+  }
+  if (found === null) {
+    // No occupant at the path: the loose text match caught an unrelated
+    // failure, not a collision — surface norn's original error.
+    throw validation('the artifact restore did not complete', message);
+  }
+  throw validation('the artifact restore collided with a different artifact', path);
 }
 
 /** Parse `KEY-aN` out of a vault path; null for non-artifact paths. */
@@ -153,8 +196,8 @@ function toRecord(doc: NornDocument): ArtifactRecord | null {
   };
 }
 
-export function createNornArtifactStore(client: NornClient): ArtifactStore {
-  /** All artifact docs for a project — the seq-derivation and inventory read. */
+export function createNornArtifactStore(client: NornClient, vaultRoot: string): ArtifactStore {
+  /** All artifact docs for a project — the inventory read (listing/lookup). */
   const projectDocs = async (key: string): Promise<NornDocument[]> =>
     client.find({ eq: [`type:artifact`, `project:${key}`], no_limit: true });
 
@@ -203,46 +246,38 @@ export function createNornArtifactStore(client: NornClient): ArtifactStore {
     },
 
     async create(input: ArtifactCreate) {
-      // Stamped once, not per retry: a create-exclusive collision re-derives the
-      // seq, but the artifact's `created` should not drift across attempts.
-      const field_json = artifactFieldJson({
+      // One `create_document` whose path carries the `KEY-a{{seq}}` token — Norn
+      // allocates the next free per-directory sequence at apply time (the single
+      // allocation authority), so there is no derived `max(seq)+1` and no
+      // create-exclusive retry. The apply report echoes the resolved `KEY-aN`.
+      const frontmatter = artifactFrontmatter({
         created: now(),
         key: input.key,
         links: input.links,
         tags: input.tags,
         title: input.title,
       });
-      let lastError: unknown;
-      for (let attempt = 0; attempt < CREATE_RETRIES; attempt += 1) {
-        const docs = await projectDocs(input.key);
-        const seqs = docs
-          .map((d) => seqFromPath(d.path))
-          .filter((s): s is { key: string; seq: number } => s !== null)
-          .map((s) => s.seq);
-        const seq = (seqs.length === 0 ? 0 : Math.max(...seqs)) + 1;
-        try {
-          await client.newDoc({
-            body: input.content,
-            confirm: true,
-            field_json,
-            parents: true,
-            path: pathOf(input.key, seq),
-          });
-          return { key: input.key, seq };
-        } catch (error) {
-          // ONLY a create-exclusive path collision means a concurrent create
-          // won this seq — re-derive and retry (ADR 0016 fork #1). Any other
-          // failure (incl. an ambiguous post-write RPC loss) rethrows: retrying
-          // there would re-derive a *higher* seq and write a duplicate.
-          if (!isPathCollision(error)) {
-            throw error;
-          }
-          lastError = error;
-        }
+      const plan = migrationPlan({
+        generator: 'mimir',
+        operations: [createDocument(createTemplate(input.key), frontmatter, input.content)],
+        vaultRoot,
+      });
+      const { op, outcome } = createReportOp(await client.applyPlan(plan, true));
+      if (outcome !== 'applied' || op === undefined || typeof op.stem !== 'string') {
+        const error = op !== undefined && isStringRecord(op.error) ? op.error : undefined;
+        const code = typeof error?.code === 'string' ? error.code : undefined;
+        const message = typeof error?.message === 'string' ? error.message : undefined;
+        const errorDetail = [code, message].filter((value) => value !== undefined).join(': ');
+        throw validation(
+          'the artifact create did not complete',
+          `apply outcome: ${outcome}${errorDetail === '' ? '' : ` — ${errorDetail}`}`,
+        );
       }
-      throw lastError instanceof Error
-        ? lastError
-        : validation(`artifact create kept colliding after ${String(CREATE_RETRIES)} attempts`);
+      const identity = parseIdentity(op.stem);
+      if (identity?.kind !== 'artifact' || identity.key !== input.key) {
+        throw invariant(`a created artifact resolved to an unexpected stem: ${op.stem}`);
+      }
+      return { key: input.key, seq: identity.seq };
     },
 
     async list(query: ArtifactListQuery) {

@@ -206,10 +206,15 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     }
   });
 
-  test('allocation counts parse-failed physical seed identities by stem', async () => {
+  test('{{seq}} allocation skips a parse-failed seed-shaped sibling by filename (MMR-196)', async () => {
+    // The `{{seq}}` token resolves next-free against the literal `KEY-s` prefix
+    // within `KEY/seeds/`, by filename — so an unparseable sibling still occupies
+    // its number and the create does not reuse it. (A misplaced doc in ANOTHER
+    // directory does NOT contaminate — that cross-directory duplicate is the
+    // tolerant reader/doctor's territory, not the per-directory allocator's.)
     await seedbed();
-    mkdirSync(join(vaultRoot, 'relocated'), { recursive: true });
-    writeFileSync(join(vaultRoot, 'relocated/MMR-s1.md'), '---\ntype: [broken\n---\n');
+    mkdirSync(join(vaultRoot, 'MMR/seeds'), { recursive: true });
+    writeFileSync(join(vaultRoot, 'MMR/seeds/MMR-s1.md'), '---\ntype: [broken\n---\n');
 
     const created = await fileSeed(store, {
       kind: 'idea',

@@ -17,6 +17,16 @@
 export const MIGRATION_PLAN_SCHEMA_VERSION = 1;
 
 /**
+ * Norn's sequence-allocation template token (MMR-196). A `create_document`
+ * path may carry one occurrence of this token in its file name; norn resolves
+ * it to the next-free sibling sequence — against the literal template prefix
+ * within the target directory — at apply time. The single authority for the
+ * token's literal spelling; every emit site imports it rather than hardcoding
+ * `'{{seq}}'`.
+ */
+export const SEQ_TOKEN = '{{seq}}';
+
+/**
  * One operation in a {@link MigrationPlan}. All op params nest under `fields`
  * (an untyped JSON object on norn's side); `id`/`requires` are the optional
  * ordering hooks, unused by this slice.

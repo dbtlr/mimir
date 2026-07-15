@@ -41,6 +41,7 @@ import {
   migrationPlan,
   removeFrontmatter,
   replaceSection,
+  SEQ_TOKEN,
   setFrontmatter,
 } from './plan';
 
@@ -115,7 +116,7 @@ function nodePatchField(column: string): string {
 
 export function createNornWriteStore(client: NornClient, vaultRoot: string): Store {
   return {
-    artifacts: createNornArtifactStore(client),
+    artifacts: createNornArtifactStore(client, vaultRoot),
     bodySections: createNornBodySectionStore(client),
     loadWorkingSet: () => loadWorkingSetOverNorn(client),
     seeds: createNornSeedStore(client, vaultRoot),
@@ -400,7 +401,7 @@ class Accumulator {
       upstream: row.upstream ?? null,
     };
     this.creates.push({
-      pathTemplate: `${project.key}/${project.key}-{{seq}}.md`,
+      pathTemplate: `${project.key}/${project.key}-${SEQ_TOKEN}.md`,
       tags: creationTags(row.tags ?? [], timestamp),
       target: node,
       targetKind: 'node',

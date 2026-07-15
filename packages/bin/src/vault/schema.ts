@@ -13,6 +13,8 @@
  * overwritten — the header says so.
  */
 
+import { SEQ_TOKEN } from '../norn/plan';
+
 /**
  * The vault schema this binary produces and can converge older vaults to.
  *
@@ -177,7 +179,7 @@ validate:
             - task
             - phase
             - initiative
-      target: "{{var.key}}/{{var.key}}-{{seq}}.md"
+      target: "{{var.key}}/{{var.key}}-${SEQ_TOKEN}.md"
 
     - name: project
       match:
