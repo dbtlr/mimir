@@ -669,6 +669,15 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
     pathByStem,
     projectFm,
     prunedDependsOn,
-    workingSet: { edges, nodeTags, nodes, projectTags, projects },
+    // The validator's own drop tally (MMR-184) — free off this load's already-run
+    // `validate()` pass; the CLI nudges `mimir doctor` from it, no extra vault read.
+    workingSet: {
+      edges,
+      issueCount: validated.dropped.length,
+      nodeTags,
+      nodes,
+      projectTags,
+      projects,
+    },
   };
 }

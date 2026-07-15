@@ -119,8 +119,13 @@ function byProjectRank(set: DerivationSet) {
     a.seq - b.seq;
 }
 
-function setResult(items: NodeView[], total: number, startsAt = 0): SetResult<NodeView> {
-  return { items, returned: items.length, startsAt, total };
+function setResult(
+  items: NodeView[],
+  total: number,
+  issueCount: number | undefined,
+  startsAt = 0,
+): SetResult<NodeView> {
+  return { issueCount, items, returned: items.length, startsAt, total };
 }
 
 /** Does this Status word fall inside the selected universe? */
@@ -294,7 +299,7 @@ export async function nextTasks(
   const items = await Promise.all(
     limited.map((node) => buildNodeView(store.bodySections, store.artifacts, set, node, facets)),
   );
-  return setResult(items, ready.length);
+  return setResult(items, ready.length, set.ws.issueCount);
 }
 
 export type ListOptions = {
@@ -404,7 +409,7 @@ export async function listNodes(
       buildNodeView(store.bodySections, store.artifacts, set, node, facets),
     ),
   );
-  return setResult(items, matched.length);
+  return setResult(items, matched.length, set.ws.issueCount);
 }
 
 export type GetOptions = {

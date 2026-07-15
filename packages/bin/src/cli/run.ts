@@ -84,6 +84,7 @@ import {
   renderStatus,
   renderTable,
   renderTree,
+  warn,
 } from './render';
 import type { Format, Io } from './render';
 import { resolveProject } from './resolve';
@@ -802,6 +803,14 @@ function runSet(
   const format = pickFormat(explicit, 'set', io);
   if (result.warnings !== undefined && result.warnings.length > 0) {
     renderWarnings(result.warnings, format, io);
+  }
+  // The doctor issue-count nudge (MMR-184): a stderr-only boot-orientation note,
+  // off the tolerant reader's own drop tally for this load — never a fresh
+  // `mimir doctor` pass. Unconditional of format (stdout stays a clean machine
+  // contract either way) and silent at zero, matching the rare-condition cost bar.
+  if (result.issueCount !== undefined && result.issueCount > 0) {
+    const n = result.issueCount;
+    warn(io, `${String(n)} issue${n === 1 ? '' : 's'} — run mimir doctor`);
   }
   switch (format) {
     case 'ids': {
