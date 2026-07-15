@@ -159,7 +159,8 @@ test('frontmatter renders a foreign-`type` node under either norn foreign-value 
 });
 
 // MMR-197: interior seq gaps — a missing number below a project's max seq is
-// durable evidence of a hand deletion (Mimir never reuses a seq).
+// durable evidence of a hand deletion (Mimir operations never delete, so gaps only
+// come from hand edits).
 const seqCtx = (
   stems: string[],
   extra: Partial<Pick<DoctorContext, 'dropped' | 'validateFindings'>> = {},
@@ -276,6 +277,50 @@ test('seq-gaps does not flag a gap whose seq is a duplicate-stem drop (MMR-197)'
     }),
   );
   expect(findings).toEqual([]);
+});
+
+test('seq-gaps reports a gap below an unreadable max (surfaced seq is occupied) (MMR-197)', async () => {
+  // Readable MMR-1, unreadable MMR-3 (present-but-unexcluded, surfaced by the
+  // frontmatter check), genuinely deleted MMR-2. The surfaced seq 3 is an occupied
+  // member of the group, so it lifts the group's max to 3 and the real hole at 2 is
+  // reported. (Before the union fix, surfaced seqs only suppressed gaps: max stayed
+  // 1 and the gap at 2 was invisible.)
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1'], {
+      validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-3.md' }],
+    }),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]?.evidence).toMatchObject({
+    kind: 'node',
+    max: 3,
+    missing: [2],
+    missingCount: 1,
+  });
+});
+
+test('seq-gaps bounds the computation for an absurd surfaced max (MMR-197)', async () => {
+  // One readable doc plus a surfaced seq at an enormous number: the gap count is
+  // derived arithmetically from interval sizes (no per-number loop over ~5e6), and
+  // the enumerated evidence stays capped. Guards against a hand-crafted stem forcing
+  // a billion iterations / a huge missing[].
+  const start = performance.now();
+  const findings = await seqGapCheck.run(
+    seqCtx(['MMR', 'MMR-1'], {
+      validateFindings: [{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-5000000.md' }],
+    }),
+  );
+  const elapsedMs = performance.now() - start;
+  expect(findings).toHaveLength(1);
+  const missing = findings[0]?.evidence.missing as number[];
+  expect(missing).toHaveLength(32);
+  expect(missing[0]).toBe(2); // 1 is occupied; the first hole is 2
+  expect(findings[0]?.evidence).toMatchObject({
+    max: 5_000_000,
+    missingCount: 4_999_998,
+    truncated: 4_999_966,
+  });
+  expect(elapsedMs).toBeLessThan(1000);
 });
 
 test('seq-gaps still reports a genuinely deleted seq beside a surfaced one (MMR-197)', async () => {

@@ -748,11 +748,12 @@ const SEQ_GAP_EVIDENCE_CAP = 32;
  * is on disk. Such a seq is already surfaced as its OWN finding — the frontmatter
  * check over `ctx.validateFindings` (docs the type enumeration excludes; see
  * `snapshot.ts` on `vault.validate`), or a `duplicate-stem` drop in `ctx.dropped`.
- * So before concluding a seq was deleted, subtract every seq whose stem is
- * accounted for by that other evidence (their paths/stems parse to `KEY-N` /
- * `KEY-sN`); a covered seq is a phantom gap, not a hand deletion, and would earn a
- * wrong git-revert line. Only the residual — a number no surviving record or
- * finding accounts for — is reported.
+ * So a seq whose stem is accounted for by that other evidence (their paths/stems
+ * parse to `KEY-N` / `KEY-sN`) is treated as an OCCUPIED member of its group, not a
+ * gap: it never reports (a covered seq is a phantom gap that would earn a wrong
+ * git-revert line) AND it counts toward the group's max and existence, so a genuine
+ * hole beside a covered seq is still reported. Only the residual — a number no
+ * surviving record or finding accounts for — is reported.
  *
  * Scans NODE and SEED sequences only. Both are enumerated by the one whole-vault
  * snapshot (`type:project,task,phase,initiative,seed`) and allocate identically
@@ -770,13 +771,22 @@ const SEQ_GAP_EVIDENCE_CAP = 32;
 export const seqGapCheck: Diagnostic = {
   name: 'seq-gaps',
   run: async (ctx) => {
-    // Group present seqs by (project key, sequence kind). A duplicate physical doc
-    // for one stem contributes its seq once (a Set), so a collision is not a gap.
+    // Occupied seqs per (project key, sequence kind). A slot is occupied by a present
+    // doc OR by a seq covered by other doctor evidence — a doc that physically exists
+    // but is excluded from the type-filtered `readNodeDocs` snapshot, so it reads as
+    // absent here. That covered seq is surfaced by its OWN finding (the frontmatter
+    // check over `validateFindings`, or a duplicate-stem drop), so it is an occupied
+    // member of its group, never a hand-deletion gap: it suppresses a phantom gap AND
+    // counts toward the group's max and existence. A duplicate physical doc for one
+    // stem contributes its seq once (a Set), so a collision is not a gap.
     const groups = new Map<string, { key: string; kind: 'node' | 'seed'; seqs: Set<number> }>();
-    for (const { stem } of await ctx.readNodeDocs()) {
+    const occupy = (stem: string | null): void => {
+      if (stem === null) {
+        return;
+      }
       const identity = parseIdentity(stem);
       if (identity === null || (identity.kind !== 'node' && identity.kind !== 'seed')) {
-        continue; // a project doc (no seq), an artifact (unenumerated), or an unparseable stem
+        return; // a project doc (no seq), an artifact (unenumerated), or an unparseable stem
       }
       const groupKey = `${identity.key}\0${identity.kind}`;
       const group = groups.get(groupKey);
@@ -789,29 +799,23 @@ export const seqGapCheck: Diagnostic = {
       } else {
         group.seqs.add(identity.seq);
       }
-    }
-    // Seqs whose stem is accounted for by OTHER doctor evidence — a doc that
-    // physically exists but is excluded from the type-filtered `readNodeDocs`
-    // snapshot, so it reads as absent here. Its own finding already surfaces it
-    // (the frontmatter check over `validateFindings`, or a duplicate-stem drop), so
-    // subtracting it keeps this check from reporting a phantom "hand deletion" gap.
-    // Keyed like `groups`, by `${key}\0${kind}\0${seq}`.
-    const surfaced = new Set<string>();
-    const cover = (stem: string | null): void => {
-      if (stem === null) {
-        return;
-      }
-      const identity = parseIdentity(stem);
-      if (identity === null || (identity.kind !== 'node' && identity.kind !== 'seed')) {
-        return;
-      }
-      surfaced.add(`${identity.key}\0${identity.kind}\0${String(identity.seq)}`);
     };
+    for (const { stem } of await ctx.readNodeDocs()) {
+      occupy(stem);
+    }
     for (const drop of ctx.dropped) {
-      cover(drop.stem); // every Drop carries the offending doc's canonical stem
+      // Only an identity drop (a `duplicate-stem`) is a doc physically on disk yet
+      // EXCLUDED from the type-filtered snapshot — its seq occupies a slot the
+      // snapshot can't see. A node/edge/field drop is a doc that IS enumerated (a
+      // dangling ref, missing project, bad field on an otherwise-readable doc), so
+      // `readNodeDocs` already carries its seq; occupying from it would double-count
+      // (harmless) or, where a caller separates the two feeds, invent a phantom slot.
+      if (drop.kind === 'identity') {
+        occupy(drop.stem); // the dup's canonical stem
+      }
     }
     for (const finding of ctx.validateFindings) {
-      cover(workStateStem(finding.path)); // a doc norn's schema pass sees by path only
+      occupy(workStateStem(finding.path)); // a doc norn's schema pass sees by path only
     }
     const findings: DoctorFinding[] = [];
     // Deterministic order: by project key, then node before seed.
@@ -819,21 +823,32 @@ export const seqGapCheck: Diagnostic = {
       (a, b) => a.key.localeCompare(b.key) || a.kind.localeCompare(b.kind),
     );
     for (const { key, kind, seqs } of ordered) {
-      const max = Math.max(...seqs);
       // Seqs are 1-based (ADR 0006), so an interior gap is any 1..max-1 absent. The
-      // max is present by definition; a deleted top left no hole (undetectable). A
-      // seq covered by other evidence (present-but-unreadable) is not a gap.
-      const missing: number[] = [];
-      for (let n = 1; n < max; n += 1) {
-        if (!seqs.has(n) && !surfaced.has(`${key}\0${kind}\0${String(n)}`)) {
-          missing.push(n);
+      // max is occupied by definition; a deleted top left no hole (undetectable).
+      // Walk the sorted occupied seqs, deriving the gap between each consecutive pair
+      // (and below the first) arithmetically — the count comes from interval sizes, so
+      // an untrusted max (a hand-crafted `KEY-1000000000` stem) costs no per-number
+      // iteration. Only the first `SEQ_GAP_EVIDENCE_CAP` missing numbers materialize.
+      const occupied = [...seqs].toSorted((a, b) => a - b);
+      const max = occupied[occupied.length - 1] ?? 0;
+      const shown: number[] = [];
+      let missingCount = 0;
+      let prev = 0; // seqs start at 1; 0 is the lower boundary of the first interval
+      for (const seq of occupied) {
+        const gapStart = prev + 1;
+        const gapEnd = seq - 1;
+        if (gapEnd >= gapStart) {
+          missingCount += gapEnd - gapStart + 1;
+          for (let n = gapStart; n <= gapEnd && shown.length < SEQ_GAP_EVIDENCE_CAP; n += 1) {
+            shown.push(n);
+          }
         }
+        prev = seq;
       }
-      if (missing.length === 0) {
+      if (missingCount === 0) {
         continue;
       }
-      const shown = missing.slice(0, SEQ_GAP_EVIDENCE_CAP);
-      const overflow = missing.length - shown.length;
+      const overflow = missingCount - shown.length;
       const list = `${shown.join(', ')}${overflow > 0 ? `, … (+${String(overflow)} more)` : ''}`;
       findings.push(
         issue({
@@ -843,10 +858,10 @@ export const seqGapCheck: Diagnostic = {
             kind,
             max,
             missing: shown,
-            missingCount: missing.length,
+            missingCount,
             ...(overflow > 0 ? { truncated: overflow } : {}),
           },
-          message: `project ${key} is missing interior ${kind} sequence number${missing.length === 1 ? '' : 's'} ${list} below its max ${String(max)} — no surviving record accounts for ${missing.length === 1 ? 'it' : 'them'}, so likely a hand deletion (Mimir never reuses a seq; recover with git, ADR 0017)`,
+          message: `project ${key} is missing interior ${kind} sequence number${missingCount === 1 ? '' : 's'} ${list} below its max ${String(max)} — no surviving record accounts for ${missingCount === 1 ? 'it' : 'them'}, so likely a hand deletion (Mimir operations never delete, so gaps only come from hand edits; recover with git, ADR 0017)`,
           node: key,
           severity: 'warn',
           where: `${kind} sequence`,
