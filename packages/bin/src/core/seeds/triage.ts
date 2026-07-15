@@ -6,11 +6,11 @@ import type {
   UpstreamResolution,
 } from '@mimir/contract';
 
-import { deriveSet, findProjectInSet, isNodeSettled } from '../derive';
+import { findProjectInSet, isNodeSettled } from '../derive';
 import { parseSeedRef } from '../ids';
 import { annotate } from '../mutations';
 import type { Store } from '../store';
-import { listSeeds } from './intent';
+import { listSeedsResolved } from './intent';
 import { seedLane } from './lane';
 import { isTerminalSeed } from './store';
 
@@ -110,16 +110,20 @@ export type TriageOptions = {
 export async function triage(store: Store, opts: TriageOptions): Promise<TriageReport> {
   const dryRun = opts.dryRun ?? false;
 
-  // (a)+(b): the board's live seeds through the resolving seam. `listSeeds` also
-  // validates the board is a known ACTIVE project (throws otherwise), so it is
-  // the single gate — an archived/absent board never reaches the writes below.
-  const liveSeeds = await listSeeds(store, { project: opts.board, status: 'live' });
+  // (a)+(b): the board's live seeds through the resolving seam. `listSeedsResolved`
+  // also validates the board is a known ACTIVE project (throws otherwise), so it is
+  // the single gate — an archived/absent board never reaches the writes below. Its
+  // working set is threaded out and reused for check (c) below, so the pass derives
+  // ONE load, not one per check (MMR-251/D4).
+  const { set, views: liveSeeds } = await listSeedsResolved(store, {
+    project: opts.board,
+    status: 'live',
+  });
   const untriaged = liveSeeds.filter((seed) => seedLane(seed) === 'untriaged');
   const readyToResolve = liveSeeds.filter((seed) => seedLane(seed) === 'ready');
 
   // (c): the board's OWN tasks with an `upstream` ref. A malformed ref was already
   // nulled at the reader's grammar tier, so any non-null `upstream` is valid s-grammar.
-  const set = deriveSet(await store.loadWorkingSet());
   const project = findProjectInSet(set, opts.board);
   // Settled (done/abandoned) requester tasks are excluded: annotating one bumps
   // its `updated_at` (annotate's `stamp()`), re-activating its `lastActivity`

@@ -27,7 +27,12 @@ import type {
   WorkingSet,
 } from '../core/store';
 import type { NornSnapshot } from '../core/store-norn';
-import { loadNornSnapshot, loadWorkingSetOverNorn } from '../core/store-norn';
+import {
+  loadNodesForProjectsOverNorn,
+  loadNornSnapshot,
+  loadProjectsOverNorn,
+  loadWorkingSetOverNorn,
+} from '../core/store-norn';
 import { now } from '../core/time';
 import { createNornTransitionsFeed } from '../core/transitions';
 import { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
@@ -120,6 +125,8 @@ export function createNornWriteStore(client: NornClient, vaultRoot: string): Sto
   return {
     artifacts: createNornArtifactStore(client, vaultRoot),
     bodySections: createNornBodySectionStore(client),
+    loadNodesForProjects: (keys, valid) => loadNodesForProjectsOverNorn(client, keys, valid),
+    loadProjects: () => loadProjectsOverNorn(client),
     loadWorkingSet: () => loadWorkingSetOverNorn(client),
     seeds: createNornSeedStore(client, vaultRoot),
     transact: (fn) => runTransact(client, vaultRoot, fn),

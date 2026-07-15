@@ -8,7 +8,7 @@ import { invariant } from './errors';
 import { parseId, parseSeedRef } from './ids';
 import type { Dependency, Node, Project } from './model';
 import type { NodeTag, WorkingSet } from './store';
-import { validate } from './validate';
+import { presentProjectKeys, validate } from './validate';
 
 /**
  * The Norn-vault node read path (MMR-149, ADR 0016 Phase 2b) — the
@@ -143,6 +143,79 @@ type NodeDoc = {
   type: NodeType;
   fm: Record<string, unknown>;
 };
+
+/** One project document's frontmatter → the backend-neutral {@link Project}. The
+ * single project decode both the whole-vault snapshot and the lightweight
+ * {@link loadProjectsOverNorn} share, so a project reads identically either way. */
+function decodeProject(key: string, fm: Record<string, unknown>): Project {
+  return {
+    archived_at: str(fm.archived_at),
+    created_at: str(fm.created) ?? '',
+    description: str(fm.description),
+    key,
+    name: str(fm.name) ?? '',
+    updated_at: str(fm.updated_at) ?? '',
+  };
+}
+
+/**
+ * One (already-validated) node document → the backend-neutral {@link Node}. The
+ * single node decode the whole-vault snapshot and the project-scoped
+ * {@link loadNodesForProjectsOverNorn} share (MMR-251), so a node reads identically
+ * either way — the read seam's one truth. `parentId` is the resolved parent stem
+ * (or null) the validator returned; every task-only field is null for a container.
+ * The lifecycle throw is a seam backstop: field validity (MMR-177) already dropped a
+ * task with a missing/foreign lifecycle, so a survivor always carries a valid one.
+ */
+function decodeNode(
+  stem: string,
+  key: string,
+  seq: number,
+  type: NodeType,
+  fm: Record<string, unknown>,
+  parentId: string | null,
+): Node {
+  const isTask = type === 'task';
+  let lifecycle: Lifecycle | null = null;
+  if (isTask) {
+    lifecycle = enumFieldStrict(fm.lifecycle, LIFECYCLE_VALUES, stem, 'lifecycle');
+    if (lifecycle === null) {
+      throw invariant(
+        `task ${stem} survived validation without a lifecycle`,
+        'field validity (MMR-177) must drop a task with a missing or foreign lifecycle before the reader',
+      );
+    }
+  }
+  return {
+    completed_at: isTask ? str(fm.completed_at) : null,
+    created_at: str(fm.created) ?? '',
+    // `description` is not frontmatter (MMR-162): the WorkingSet leaves it null; the
+    // prose is read on demand from the `## Task Description` body section.
+    description: null,
+    external_ref: isTask ? str(fm.external_ref) : null,
+    // A task always carries a hold (default 'none'); a non-task never does.
+    hold: isTask ? (enumFieldStrict(fm.hold, HOLD_VALUES, stem, 'hold') ?? 'none') : null,
+    hold_reason: isTask ? str(fm.hold_reason) : null,
+    id: stem,
+    lifecycle,
+    // Container-only (MMR-204): a foreign value nulls the field like priority/size.
+    open_ended: isTask ? null : boolFieldOrNull(fm.open_ended),
+    parent_id: parentId,
+    // priority/size are optional (MMR-177): a foreign value nulls the field.
+    priority: isTask ? enumFieldOrNull(fm.priority, PRIORITY_VALUES) : null,
+    project_id: key,
+    rank: isTask ? num(fm.rank) : null,
+    seq,
+    size: isTask ? enumFieldOrNull(fm.size, SIZE_VALUES) : null,
+    summary: str(fm.summary),
+    target: type === 'phase' ? str(fm.target) : null,
+    title: str(fm.title) ?? '',
+    type,
+    updated_at: str(fm.updated_at) ?? '',
+    // The requester-side seed pointer (MMR-244), task-only like `external_ref`.
+    upstream: isTask ? seedRefOrNull(fm.upstream) : null,
+  };
+}
 
 /**
  * A load-time snapshot of the vault's work-state (MMR-153): the same
@@ -508,14 +581,7 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
   survivingProjects.sort((a, b) => cmpStr(a.key, b.key));
   survivingNodes.sort((a, b) => (a.key === b.key ? a.seq - b.seq : cmpStr(a.key, b.key)));
 
-  const projects: Project[] = survivingProjects.map((p) => ({
-    archived_at: str(p.fm.archived_at),
-    created_at: str(p.fm.created) ?? '',
-    description: str(p.fm.description),
-    key: p.key,
-    name: str(p.fm.name) ?? '',
-    updated_at: str(p.fm.updated_at) ?? '',
-  }));
+  const projects: Project[] = survivingProjects.map((p) => decodeProject(p.key, p.fm));
 
   const nodes: Node[] = [];
   const edges: Dependency[] = [];
@@ -565,62 +631,7 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       parentId = parentStem;
     }
 
-    // Task-only fields are read only for a task (a non-task never carries
-    // them); a stray value on another type is ignored, never projected.
-    const isTask = n.type === 'task';
-    let lifecycle: Lifecycle | null = null;
-    if (isTask) {
-      // Field validity (MMR-177) drops any task whose lifecycle is missing or
-      // foreign, so a surviving task always carries a valid one. `enumFieldStrict`
-      // returns it (never throws here) and the null branch is a seam invariant, not
-      // a record error — a null would mean the validator failed to drop a
-      // lifecycle-less task, an internal contract break.
-      lifecycle = enumFieldStrict(n.fm.lifecycle, LIFECYCLE_VALUES, n.stem, 'lifecycle');
-      if (lifecycle === null) {
-        throw invariant(
-          `task ${n.stem} survived validation without a lifecycle`,
-          'field validity (MMR-177) must drop a task with a missing or foreign lifecycle before the reader',
-        );
-      }
-    }
-
-    nodes.push({
-      completed_at: isTask ? str(n.fm.completed_at) : null,
-      created_at: str(n.fm.created) ?? '',
-      // `description` is not frontmatter (MMR-162): the WorkingSet leaves it null;
-      // the prose is read on demand from the `## Task Description` body via the
-      // BodySectionStore seam (`readDescription`), not carried in the bulk load.
-      description: null,
-      external_ref: isTask ? str(n.fm.external_ref) : null,
-      // A task always carries a hold (default 'none'); a non-task never does.
-      // The idiomatic vault omits the 'none' no-hold state, so an absent hold
-      // on a task reconstructs to 'none'.
-      hold: isTask ? (enumFieldStrict(n.fm.hold, HOLD_VALUES, n.stem, 'hold') ?? 'none') : null,
-      hold_reason: isTask ? str(n.fm.hold_reason) : null,
-      id: n.stem,
-      lifecycle,
-      // Container-only (MMR-204): a foreign value nulls the field like priority/size.
-      open_ended: isTask ? null : boolFieldOrNull(n.fm.open_ended),
-      parent_id: parentId,
-      // priority/size are optional (MMR-177): a foreign value nulls the field (the
-      // node stays), so read them non-throwing — the validator keeps such a node.
-      priority: isTask ? enumFieldOrNull(n.fm.priority, PRIORITY_VALUES) : null,
-      project_id: n.key,
-      rank: isTask ? num(n.fm.rank) : null,
-      seq: n.seq,
-      size: isTask ? enumFieldOrNull(n.fm.size, SIZE_VALUES) : null,
-      summary: str(n.fm.summary),
-      target: n.type === 'phase' ? str(n.fm.target) : null,
-      title: str(n.fm.title) ?? '',
-      type: n.type,
-      updated_at: str(n.fm.updated_at) ?? '',
-      // The requester-side seed pointer (MMR-244), task-only like `external_ref`.
-      // Decoded to mirror the validator locally: collapse the wikilink form, then
-      // null a non-`KEY-sN` grammar (like a foreign priority/size). A dangling but
-      // well-formed ref stays for the resolving seam (MMR-245); the validator owns
-      // the malformed/dangling drops `mimir doctor` renders.
-      upstream: isTask ? seedRefOrNull(n.fm.upstream) : null,
-    });
+    nodes.push(decodeNode(n.stem, n.key, n.seq, n.type, n.fm, parentId));
 
     // The validator already dropped dangling prerequisites, self-dependencies, and
     // cycle-closing edges (acyclicity, MMR-174), and deduped the list, so every
@@ -680,4 +691,113 @@ export async function loadNornSnapshot(client: NornClient): Promise<NornSnapshot
       projects,
     },
   };
+}
+
+/**
+ * The lightweight all-projects read (MMR-251): ONE `type:project` find, decoded to
+ * {@link Project} records — the seed resolving seam's requester/board-active view
+ * WITHOUT paying a whole-vault node load. Validator parity for identity: a project
+ * `key` carried by more than one document is ambiguous and dropped (mirroring the
+ * snapshot's `duplicate-stem` exclusion), so a colliding key never reads as a known
+ * board. Archived projects are included (`archived_at` carries the axis); the caller
+ * applies the active-only visibility. Deterministic key order.
+ */
+export async function loadProjectsOverNorn(client: NornClient): Promise<Project[]> {
+  const docs = await client.find({ eq: ['type:project'], no_limit: true });
+  const byKey = new Map<string, Record<string, unknown>>();
+  const sources: { stem: string }[] = [];
+  for (const doc of docs) {
+    const fm = doc.frontmatter;
+    if (fm === undefined || str(fm.type) !== 'project') {
+      continue;
+    }
+    const key = str(fm.key);
+    if (key === null || key === '') {
+      continue;
+    }
+    // One source per document (stem = the project key), so a key carried by more than
+    // one doc collides; `byKey` keeps the first (a colliding key is dropped below).
+    sources.push({ stem: key });
+    if (!byKey.has(key)) {
+      byKey.set(key, fm);
+    }
+  }
+  // Validity derives from the SHARED project-presence/duplicate rule the whole-vault
+  // snapshot uses (MMR-251) — a colliding key reads as no known board, identically.
+  const present = presentProjectKeys([...byKey.keys()], sources);
+  return [...byKey]
+    .filter(([key]) => present.has(key))
+    .map(([key, fm]) => decodeProject(key, fm))
+    .toSorted((a, b) => cmpStr(a.key, b.key));
+}
+
+/**
+ * The project-scoped node read (MMR-251): the nodes of the named projects only —
+ * the seed resolving seam's spawned-target settledness closure, WITHOUT a
+ * whole-vault load. A container spawned target's settledness is a rollup over its
+ * own subtree, all within its project, so loading the target's PROJECT is the
+ * closure; a task target needs only itself, likewise in-project. Routes through the
+ * shared {@link validate} + {@link decodeNode}, so a scoped node reads byte-identical
+ * to the whole-vault snapshot and the validator's drops agree (a bad-lifecycle or
+ * duplicate node is dropped, so a `spawned` ref at it dangles and prunes, exactly as
+ * the doctor validator would). Edges cross project boundaries but settledness never
+ * consults them (a task is settled by its own lifecycle; a container by its
+ * descendant tasks' terminal-ness), so they are deliberately not projected.
+ *
+ * Presence is NOT trusted from the requested keys: `validProjectKeys` is the valid
+ * project-key set the caller already derived from its validated projects read
+ * (MMR-251), so a spawned target whose project doc is missing or duplicate-key is
+ * dropped here (missing-project) exactly as the whole-vault snapshot drops it — the
+ * scoped and whole-vault paths agree, and the resolving seam prunes the ref either way.
+ */
+export async function loadNodesForProjectsOverNorn(
+  client: NornClient,
+  projectKeys: readonly string[],
+  validProjectKeys: ReadonlySet<string>,
+): Promise<Node[]> {
+  const keys = [...new Set(projectKeys)];
+  if (keys.length === 0) {
+    return [];
+  }
+  // One `type in {task,phase,initiative}` find per project key (the proven
+  // type+project selector shape). The common case is one key (spawned in-board).
+  const docLists = await Promise.all(
+    keys.map((key) =>
+      client.find({ eq: [`project:${key}`], in: ['type:task,phase,initiative'], no_limit: true }),
+    ),
+  );
+  const rawNodes: NodeDoc[] = [];
+  for (const doc of docLists.flat()) {
+    const fm = doc.frontmatter;
+    if (fm === undefined) {
+      continue;
+    }
+    const type = str(fm.type);
+    if (type !== 'task' && type !== 'phase' && type !== 'initiative') {
+      continue;
+    }
+    const stem = stemOf(doc.path);
+    const ref = parseId(stem);
+    if (ref !== null) {
+      rawNodes.push({ fm, key: ref.key, path: doc.path, seq: ref.seq, stem, type });
+    }
+  }
+  // Validate the scoped subgraph, with presence taken from the caller's VALIDATED
+  // project keys — not the requested keys: a target whose project is missing/duplicate
+  // is not present, so its node drops (missing-project) exactly as the whole-vault path
+  // drops it. Field validity drops a bad-lifecycle/hold node, duplicate stems drop an
+  // ambiguous identity, dangling edges to out-of-scope nodes prune (unused here).
+  const validated = validate({
+    nodes: rawNodes.map((n) => nodeRefsOf(n.fm, n.key, n.stem, n.type, n.path)),
+    projectKeys: keys.filter((key) => validProjectKeys.has(key)),
+    sources: rawNodes.map((n) => ({ kind: 'node' as const, path: n.path, stem: n.stem })),
+  });
+  const validByStem = new Map(validated.nodes.map((r) => [r.stem, r]));
+  return rawNodes
+    .filter((n) => validByStem.has(n.stem))
+    .map((n) => {
+      const parent = validByStem.get(n.stem)?.parent ?? null;
+      const parentId = parent !== null && parseId(parent) !== null ? parent : null;
+      return decodeNode(n.stem, n.key, n.seq, n.type, n.fm, parentId);
+    });
 }

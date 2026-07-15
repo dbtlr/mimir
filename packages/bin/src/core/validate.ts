@@ -149,7 +149,7 @@ export function validate(graph: VaultGraph): ValidatedGraph {
   const duplicateStems = new Set(
     [...sourcesByStem].filter(([, paths]) => paths.length > 1).map(([stem]) => stem),
   );
-  const present = new Set(graph.projectKeys.filter((key) => !duplicateStems.has(key)));
+  const present = presentProjectKeys(graph.projectKeys, graph.sources ?? []);
   // The reader's ACTIVE-only visibility, for the seed `requester` check ONLY — an
   // archived project is present (its nodes survive, hidden) but its key is NOT
   // active, so a requester naming it is nulled on read (MMR-245/B1d). Every other
@@ -393,6 +393,26 @@ export function validate(graph: VaultGraph): ValidatedGraph {
   }
 
   return { dropped, nodes, projectKeys: graph.projectKeys.filter((key) => present.has(key)) };
+}
+
+/**
+ * The project-presence/duplicate rule (MMR-181, ADR 0017): the VALID project keys —
+ * those present and carried by exactly one document. A key whose stem collides across
+ * more than one physical source is ambiguous (a hand-authored duplicate) and excluded,
+ * mirroring the node identity `duplicate-stem` drop. This is the ONE predicate the
+ * whole-vault {@link validate} pass and the lightweight projects read (MMR-251,
+ * {@link loadProjectsOverNorn}) share, so a colliding project key is dropped
+ * identically either way — one rule, never two parallel copies that can drift.
+ */
+export function presentProjectKeys(
+  projectKeys: readonly string[],
+  sources: readonly { stem: string }[],
+): Set<string> {
+  const counts = new Map<string, number>();
+  for (const source of sources) {
+    counts.set(source.stem, (counts.get(source.stem) ?? 0) + 1);
+  }
+  return new Set(projectKeys.filter((key) => (counts.get(key) ?? 0) <= 1));
 }
 
 /**

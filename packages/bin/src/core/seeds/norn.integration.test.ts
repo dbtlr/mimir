@@ -56,7 +56,19 @@ describe.skipIf(!NORN)('norn seed store', () => {
       requester: null,
       title: 'seed one',
     });
-    expect(first).toEqual({ key: 'MMR', seq: 1 });
+    // `create` returns the held record IN FULL (MMR-251/MMR-196): the resolved
+    // identity plus the fields as written (a fresh seed is `new` with no spawned).
+    expect(first).toMatchObject({
+      description: 'a rough idea',
+      key: 'MMR',
+      kind: 'feature',
+      lifecycle: 'new',
+      requester: null,
+      seq: 1,
+      spawned: [],
+      title: 'seed one',
+    });
+    expect(first.created_at).toBe(first.updated_at);
 
     // The `{{seq}}` token allocates next-free — a second create increments.
     const second = await seeds.create({
@@ -66,7 +78,7 @@ describe.skipIf(!NORN)('norn seed store', () => {
       requester: 'AB',
       title: 'seed two',
     });
-    expect(second).toEqual({ key: 'MMR', seq: 2 });
+    expect(second).toMatchObject({ description: null, key: 'MMR', requester: 'AB', seq: 2 });
 
     const loaded = await seeds.load('MMR', 1, { content: true });
     expect(loaded).toMatchObject({

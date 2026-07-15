@@ -92,6 +92,23 @@ function spawnedFieldOp(path: string, fm: Record<string, unknown>, spawned: stri
     : addFrontmatter(path, 'spawned', links);
 }
 
+/**
+ * Normalize a create input's description to the READ-BACK semantics (MMR-251): the
+ * `create` echo must equal what a subsequent load returns, and a load runs the prose
+ * through {@link parseDescriptionSection} (unescape + `.trim()`, blank → null). Content
+ * that round-trips through {@link renderSeedBody} unescapes to itself, so the observable
+ * normalization the echo must mirror is trim + blank-after-trim → null. Without it a
+ * `seed --description "  padded "` echoes the raw padded string while the next load
+ * returns the trimmed form — the echo would diverge from the read.
+ */
+function normalizeDescription(description: string | null): string | null {
+  if (description == null) {
+    return null;
+  }
+  const trimmed = description.trim();
+  return trimmed === '' ? null : trimmed;
+}
+
 /** Order seed records by `(key, seq)` — the deterministic whole-vault listing order. */
 function byKeyThenSeq(a: SeedRecord, b: SeedRecord): number {
   if (a.key !== b.key) {
@@ -329,7 +346,23 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
       if (ref === null || ref.key !== input.key) {
         throw invariant(`a created seed resolved to an unexpected stem: ${result.stem}`);
       }
-      return { key: input.key, seq: ref.seq };
+      // Echo the record IN FULL from what was just written — norn's apply report
+      // resolved the `{{seq}}`, and every other field is the create input (a fresh
+      // seed is `new` with no spawned). The verb renders this directly, so no read-back
+      // of the seed just created (MMR-251/MMR-196). The description is normalized to the
+      // read-back semantics so the echo equals a subsequent load's description exactly.
+      return {
+        created_at: timestamp,
+        description: normalizeDescription(input.description),
+        key: input.key,
+        kind: input.kind,
+        lifecycle: 'new',
+        requester: input.requester,
+        seq: ref.seq,
+        spawned: [],
+        title: input.title,
+        updated_at: timestamp,
+      };
     },
 
     async germinate(key, seq, nodeStem) {
