@@ -233,10 +233,17 @@ export type Store = {
    * The project-scoped node read (MMR-251): the nodes of the named projects only,
    * validated identically to {@link loadWorkingSet} (a bad or duplicate node is
    * dropped). The seed resolving seam's spawned-target settledness closure —
-   * settledness is a task's own lifecycle or a container's descendant rollup, both
-   * in-project — so loading the targets' projects is the whole closure without a
-   * whole-vault load. Edges are not projected (settledness never consults them).
-   * An empty key list reads as no nodes (no query).
+   * settledness is a task's own lifecycle or a container's descendant rollup, and
+   * every Mimir-written lineage is in-project (creates pin directory + frontmatter
+   * together; moves are within-project) — so for Mimir-written state, loading the
+   * targets' projects is the whole closure without a whole-vault load. Hand-edited
+   * cross-project topology (a parent or frontmatter `project` pointing outside the
+   * loaded slice) is NOT retrievable here: the validator drops the foreign edge,
+   * which can read differently than the whole-vault path until `mimir doctor`
+   * surfaces and the operator repairs it — the accepted corruption posture
+   * (ADR 0023: reads degrade fail-closed; doctor remediates, reads don't guess).
+   * Edges are not projected (settledness never consults them). An empty key list
+   * reads as no nodes (no query).
    *
    * `validProjectKeys` is the caller's already-validated project-key set (from
    * {@link loadProjects}): presence is derived from it, NOT trusted from the requested
