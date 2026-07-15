@@ -76,6 +76,7 @@ import {
 import type { Ctx } from './mutations';
 import { parsePriority, parseSize } from './parse';
 import {
+  countLine,
   FORMATS,
   renderArtifactDetail,
   renderNodeView,
@@ -809,8 +810,7 @@ function runSet(
   // `mimir doctor` pass. Unconditional of format (stdout stays a clean machine
   // contract either way) and silent at zero, matching the rare-condition cost bar.
   if (result.issueCount !== undefined && result.issueCount > 0) {
-    const n = result.issueCount;
-    warn(io, `${String(n)} issue${n === 1 ? '' : 's'} — run mimir doctor`);
+    warn(io, `${countLine(result.issueCount, 'issue')} — run mimir doctor`);
   }
   switch (format) {
     case 'ids': {
