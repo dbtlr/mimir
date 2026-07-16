@@ -146,15 +146,19 @@ test('an unknown verb suggests the nearest command (MMR-211)', async () => {
   expect(io.err.join('')).toContain("did you mean 'status'");
 });
 
-test('an unknown flag errors (exit 2) with a pointer, not the full help body (MMR-211)', async () => {
+test('an unknown flag errors (exit 2) with a pointer, not the full help body (MMR-211, MMR-289)', async () => {
   const io = fakeIo(true);
   expect(await runCli(['get', 'MMR-1', '--bogus'], neverStore, io)).toBe(2);
   const err = io.err.join('');
-  expect(err).toContain('Unknown option');
+  expect(err).toContain("unknown flag '--bogus'");
   expect(err).toContain('mimir get -h'); // concise pointer to the verb's flags
   expect(io.out.join('')).toBe('');
   // The 144-line top-level help body is gone — no command listing dumped.
   expect(err).not.toContain('work commands');
+  // Library text never ships (MMR-289) — Node's own message, including its
+  // verbose positional-argument advice, appears nowhere in the output.
+  expect(err).not.toContain('Unknown option');
+  expect(err).not.toContain('positional argument');
 });
 
 test('an unknown flag after a value-taking global flag points at the right verb (MMR-211)', async () => {
@@ -179,6 +183,71 @@ test('an ambiguous unknown short flag suggests nothing, not an arbitrary one (MM
   const io = fakeIo(true);
   expect(await runCli(['list', '-x'], neverStore, io)).toBe(2);
   expect(io.err.join('')).not.toContain('did you mean');
+});
+
+test('unknown flag with a near match: house voice + did-you-mean, no library text (MMR-289)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['list', '--statuz', 'ready'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("unknown flag '--statuz'");
+  expect(err).toContain("note: did you mean '--status'?");
+  // Exactly one hint — the help pointer isn't also stapled on.
+  expect(err).not.toContain('mimir list -h');
+  expect(err).not.toContain('Unknown option');
+  expect(err).not.toContain('positional argument');
+});
+
+test('unknown flag with no near match: falls back to the verb help pointer (MMR-289)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['list', '--frobnicate-completely-unknown'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("unknown flag '--frobnicate-completely-unknown'");
+  expect(err).toContain("note: run 'mimir list -h' for its flags");
+  expect(err).not.toContain('did you mean');
+  expect(err).not.toContain('Unknown option');
+  expect(err).not.toContain('positional argument');
+});
+
+test('a flag missing its value is synthesized in house voice (MMR-289)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['list', '--to'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("'--to' expects a value");
+  expect(err).toContain("note: run 'mimir list -h' for its flags");
+  expect(err).not.toContain('argument missing');
+});
+
+test('a value-taking flag followed by another flag is still a missing-value error, not the ambiguous library text (MMR-289)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['list', '--to', '--ascii'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("'--to' expects a value");
+  expect(err).not.toContain('ambiguous');
+  expect(err).not.toContain('Did you forget');
+});
+
+test('an unexpected value for a boolean flag is synthesized in house voice (MMR-289)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['list', '--ascii=x'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("'--ascii' doesn't take a value");
+  expect(err).toContain("note: run 'mimir list -h' for its flags");
+  expect(err).not.toContain('does not take an argument');
+});
+
+test('the JSON envelope carries the synthesized message, never the raw library text (MMR-289)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['list', '--bogus', '-f', 'json'], neverStore, io)).toBe(2);
+  expect(io.out.join('')).toBe('');
+  const parsed = parseJson<{ error: { code: string; message: string; hint?: string } }>(
+    io.err.join(''),
+  );
+  expect(parsed.error.code).toBe('usage');
+  expect(parsed.error.message).toBe("unknown flag '--bogus'");
+  expect(parsed.error.hint).toBe("run 'mimir list -h' for its flags");
+  const raw = JSON.stringify(parsed);
+  expect(raw).not.toContain('Unknown option');
+  expect(raw).not.toContain('positional argument');
 });
 
 test('deps-gated verbs are recognized, not "unknown command" — guards COMMANDS/switch drift (MMR-211)', async () => {

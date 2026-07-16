@@ -44,6 +44,7 @@ import { cmdVault } from '../vault/commands';
 import type { VaultDeps } from '../vault/commands';
 import { BINDING_FILE, writeBinding } from './binding';
 import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from './errors';
+import type { UsageError } from './errors';
 import { COMMAND_HELP, FULL_HELP, TERSE_HELP, helpForCommand } from './help';
 import {
   cmdAbandon,
@@ -301,16 +302,16 @@ export async function runCli(
     values = parsed.values;
     positionals = parsed.positionals;
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    // A strict parse fails on a bad/unknown flag. Recover the verb leniently
-    // (an unknown flag can't be the command) and route: an unknown verb is the
-    // primary fault — surface its typo hint — otherwise it's a genuine flag
-    // error on a known verb, so point at THAT verb's help (MMR-211).
+    // A strict parse fails on a bad flag or bad value. Recover the verb
+    // leniently (a flag error can't be the command) and route: an unknown verb
+    // is the primary fault — surface its typo hint — otherwise it's a genuine
+    // flag error on a known verb, so synthesize house voice for it and point
+    // at THAT verb's help (MMR-211, MMR-289).
     const command = lenientCommand(argv);
     if (command !== undefined && !COMMANDS.has(command)) {
       return renderUnknownCommand(command, argv, io);
     }
-    renderError(usage(msg, unknownFlagHint(command, msg)), errorFormat(argv), io);
+    renderError(synthesizeParseError(error, command), errorFormat(argv), io);
     return 2;
   }
 
@@ -805,19 +806,73 @@ function renderUnknownCommand(command: string, argv: string[], io: Io): number {
 }
 
 /**
- * Hint for a parse failure on a known verb — typically an unknown flag. A
- * did-you-mean on the offending flag when one is unambiguously close, plus a
- * pointer to that verb's own help (its flags), falling back to the top-level
- * help when the verb is absent.
+ * The long spelling for a short flag (`-s` -> `--scope`), or `flag` unchanged
+ * when it's already long or matches no short alias in OPTIONS. Node's own
+ * "argument is ambiguous" message reports whichever spelling the caller
+ * typed; canonicalizing keeps the synthesized message's flag naming
+ * consistent regardless of which one that was.
  */
-function unknownFlagHint(command: string | undefined, message: string): string {
-  const flag = /Unknown option '(--?[^']+)'/.exec(message)?.[1];
-  const near = flag === undefined ? undefined : nearest(flag, FLAG_SPELLINGS);
+function canonicalFlag(flag: string): string {
+  if (flag.startsWith('--')) {
+    return flag;
+  }
+  const short = flag.slice(1);
+  const match = Object.entries(OPTIONS).find(([, spec]) => 'short' in spec && spec.short === short);
+  return match !== undefined ? `--${match[0]}` : flag;
+}
+
+/**
+ * Re-synthesize a `node:util` parseArgs failure in house voice (voice guide:
+ * "library text never ships") — Node's own message is a runtime-library
+ * implementation detail and must appear in no output, including a structured
+ * envelope's `message` field.
+ *
+ * Empirically enumerated for OPTIONS with `strict: true`/`allowPositionals:
+ * true` (the only configuration this parse call uses — `allowPositionals` is
+ * always `true` here, so `ERR_PARSE_ARGS_UNEXPECTED_POSITIONAL`, thrown only
+ * when positionals are disallowed, can never fire): an unknown flag
+ * (`ERR_PARSE_ARGS_UNKNOWN_OPTION`), and — both under
+ * `ERR_PARSE_ARGS_INVALID_OPTION_VALUE` — a missing value (including the
+ * "argument is ambiguous" shape Node emits when the next token looks like a
+ * flag, e.g. `--to --ascii`) and a value given to a boolean flag (e.g.
+ * `--ascii=x`).
+ *
+ * Applies the hint ladder's most specific applicable rung: a near-match
+ * did-you-mean (rung 2) for an unknown flag when an unambiguous candidate
+ * exists in FLAG_SPELLINGS, else the verb's own help pointer (rung 3) — there
+ * is no statable fix (rung 1) for a parse failure, since the intended value is
+ * unknowable.
+ */
+function synthesizeParseError(error: unknown, command: string | undefined): UsageError {
+  const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
+  const message = error instanceof Error ? error.message : String(error);
   const help =
     command !== undefined && COMMANDS.has(command)
       ? `run 'mimir ${command} -h' for its flags`
       : "run 'mimir --help' for usage";
-  return near !== undefined ? `did you mean '${near}'? (or ${help})` : help;
+
+  if (code === 'ERR_PARSE_ARGS_UNKNOWN_OPTION') {
+    const flag = /^Unknown option '(.+?)'\./.exec(message)?.[1];
+    if (flag !== undefined) {
+      const near = nearest(flag, FLAG_SPELLINGS);
+      return usage(`unknown flag '${flag}'`, near !== undefined ? `did you mean '${near}'?` : help);
+    }
+  }
+  if (code === 'ERR_PARSE_ARGS_INVALID_OPTION_VALUE') {
+    const noValueFlag = /^Option '(-{1,2}[\w-]+)' does not take an argument/.exec(message)?.[1];
+    if (noValueFlag !== undefined) {
+      return usage(`'${canonicalFlag(noValueFlag)}' doesn't take a value`, help);
+    }
+    const missingFlag =
+      /^Option '(?:-\w, )?(--[\w-]+)(?: <value>)?' argument missing/.exec(message)?.[1] ??
+      /^Option '(-{1,2}[\w-]+)' argument is ambiguous/.exec(message)?.[1];
+    if (missingFlag !== undefined) {
+      return usage(`'${canonicalFlag(missingFlag)}' expects a value`, help);
+    }
+  }
+  // No further shape has been observed for this OPTIONS table; a defensive
+  // fallback still keeps library text off every output.
+  return usage('invalid arguments', help);
 }
 
 function runSet(
