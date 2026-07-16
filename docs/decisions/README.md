@@ -42,6 +42,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0021](0021-seed-lede-derived-and-capture-grammar.md)             | Seed lede is derived at read; capture is one blob              |
 | [0022](0022-changelog-fragments-compiled-at-cut.md)               | Changelog fragments, compiled at the cut                       |
 | [0023](0023-concurrency-and-safety-posture.md)                    | Concurrency & safety posture — not a write-safe datastore      |
+| [0024](0024-cli-command-taxonomy.md)                              | CLI command taxonomy — two planes, flat work verbs             |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model
