@@ -65,7 +65,18 @@ export function errorResponse(req: Request, error: unknown): Response {
   // error points somewhere), while the raw detail is preserved for the operator
   // on stderr (consistent with how `serve` logs), never in the response.
   const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
-  console.error(`✗ serve: ${req.method} ${new URL(req.url).pathname} did not complete — ${detail}`);
+  // One JSON payload keeps embedded control characters escaped, so raw
+  // exception text can't forge extra records in the line-oriented serve log
+  // (the u2028/u2029 line separators survive JSON.stringify and are escaped
+  // by hand).
+  const diagnostic = JSON.stringify({
+    detail,
+    method: req.method,
+    path: new URL(req.url).pathname,
+  })
+    .replace(/\u2028/g, String.raw`\u2028`)
+    .replace(/\u2029/g, String.raw`\u2029`);
+  console.error(`✗ serve: request did not complete — ${diagnostic}`);
   const body = {
     error: {
       code: 'internal',

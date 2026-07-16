@@ -54,6 +54,15 @@ test('a non-Error throw is stringified to stderr, still house voice in the envel
   expect(logged.join('\n')).toContain('raw string failure');
 });
 
+test('embedded newlines in the detail cannot forge extra records in the log', () => {
+  errorResponse(REQ, 'line1\n✗ serve: forged record');
+  expect(logged).toHaveLength(1);
+  // The diagnostic is one JSON payload: control characters stay escaped.
+  expect(logged[0]).not.toContain('\n');
+  expect(logged[0]).toContain(String.raw`\n`);
+  expect(logged[0]).toContain('forged record');
+});
+
 test('a MimirError still passes through verbatim (regression)', async () => {
   const res = errorResponse(REQ, notFound('MMR-9 doesn’t exist'));
   expect(res.status).toBe(404);
