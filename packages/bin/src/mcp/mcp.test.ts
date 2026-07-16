@@ -573,15 +573,13 @@ test.skipIf(!NORN)(
 test.skipIf(!NORN)(
   'toolUpdate upstream "none" leaves an unrelated field untouched (MMR-301)',
   async () => {
-    const res = await toolUpdate(store, {
-      id: taskRef,
-      title: 'renamed via clear',
-      upstream: 'none',
-    });
+    const titled = await toolUpdate(store, { id: taskRef, title: 'kept across clear' });
+    expect(titled.isError).toBeUndefined();
+    const res = await toolUpdate(store, { id: taskRef, upstream: 'none' });
     expect(res.isError).toBeUndefined();
     const v = parseJson<{ upstream: string | null; title: string }>(textOf(res));
     expect(v.upstream).toBeNull();
-    expect(v.title).toBe('renamed via clear');
+    expect(v.title).toBe('kept across clear');
   },
 );
 

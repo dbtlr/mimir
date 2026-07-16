@@ -456,7 +456,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'update',
-    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, upstream, openEnded), retitle an artifact (KEY-aN, title only), or patch a live seed (KEY-sN: title, kind, description). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers; upstream (a KEY-sN seed pointer) only to tasks — pass the literal string 'none' to clear it (blank/absent leaves it untouched). Echoes the updated record.",
+    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, upstream, openEnded), retitle an artifact (KEY-aN, title only), or patch a live seed (KEY-sN: title, kind, description). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers; upstream (a KEY-sN seed pointer) only to tasks — pass the literal string 'none' to clear it (omit it to leave it untouched; blank is rejected). Echoes the updated record.",
     {
       description: z.string().optional(),
       externalRef: z.string().optional(),
