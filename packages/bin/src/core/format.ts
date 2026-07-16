@@ -2,6 +2,7 @@ import type {
   ArtifactDetail,
   ArtifactSummary,
   NodeView,
+  OverviewReport,
   SeedView,
   SetResult,
   StatusView,
@@ -321,6 +322,44 @@ export function formatTriageJson(report: TriageReport): string {
  * per-line record to stream; jsonl is json without the pretty-print. */
 export function formatTriageJsonl(report: TriageReport): string {
   return emitWire(triageToWire(report), false);
+}
+
+/**
+ * Map an {@link OverviewReport} (MMR-278) to its one composite wire envelope —
+ * the section counts, the tasks through {@link nodeToWire} (the same lean
+ * projection `list`/`next` emit), and each awaiting row's `awaiting_on` ids
+ * folded onto its task object. The single source the CLI `-f json` render and
+ * the MCP `overview` tool both emit, so the two can't drift.
+ */
+export function overviewToWire(report: OverviewReport): Record<string, unknown> {
+  return {
+    awaiting: {
+      count: report.awaiting.count,
+      tasks: report.awaiting.tasks.map((a) => {
+        const wire = nodeToWire(a.task);
+        wire.awaiting_on = a.awaitingOn;
+        return wire;
+      }),
+    },
+    hygiene: {
+      blocked: report.hygiene.blocked,
+      dropped: report.hygiene.dropped,
+      stale: report.hygiene.stale,
+      untriaged: report.hygiene.untriaged,
+    },
+    in_flight: { count: report.inFlight.count, tasks: report.inFlight.tasks.map(nodeToWire) },
+    next: { count: report.next.count, tasks: report.next.tasks.map(nodeToWire) },
+    project: {
+      distribution: report.project.distribution,
+      id: report.project.id,
+      status: report.project.status,
+    },
+  };
+}
+
+/** `json` for the overview composite (MMR-278) — the pretty envelope. */
+export function formatOverviewJson(report: OverviewReport): string {
+  return emitWire(overviewToWire(report), true);
 }
 
 /** Map an {@link ArtifactSummary} to its wire object — metadata only, no content. */

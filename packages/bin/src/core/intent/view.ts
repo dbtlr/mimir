@@ -173,7 +173,7 @@ function buildDeps(set: DerivationSet, nodeId: string): DepsFacet {
  * (ADR 0001 Refinement). Only unsettled prereqs appear; settled ones no longer
  * gate.
  */
-function buildAwaitingOn(set: DerivationSet, nodeId: string): AwaitingRef[] {
+export function buildAwaitingOn(set: DerivationSet, nodeId: string): AwaitingRef[] {
   const out: AwaitingRef[] = [];
   const seen = new Set<string>();
   // lineage is node-first, so a prereq reached both directly and via an ancestor
