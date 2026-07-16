@@ -31,9 +31,10 @@ the gate below BEFORE other work. These thoughts mean STOP — you are rationali
    - **Bound** → orient now: `mimir overview` — the composite orientation surface
      (project rollup · in flight · next · awaiting · hygiene counts; drill-down
      surfaces in `references/querying.md`). On a board you own, follow with
-     `mimir triage` — overview only reads; triage is the write-side sweep that
-     annotates untriaged seeds and ready-to-resolve flags (idempotent, safe every
-     session; `references/seeds.md`).
+     `mimir triage` — overview only reads; triage is the write-side sweep: it
+     reports untriaged seeds and ready-to-resolve flags, and annotates your
+     tasks whose upstream seeds have resolved (idempotent, safe every session;
+     `references/seeds.md`).
    - **Not bound** → this repo isn't Mimir-tracked. **Exit quietly and proceed
      normally.** Route to `references/setup.md` only if the user explicitly wants
      this project tracked.
