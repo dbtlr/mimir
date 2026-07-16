@@ -460,6 +460,23 @@ test('status reports running vs on-disk version and restart pending', async () =
   expect(out).toContain('restart pending');
 });
 
+// 6b. a running prerelease differs from the on-disk release of the same
+// triple — restart IS pending (the numeric-triple comparator hid this).
+test('status flags restart pending when a prerelease runs against an on-disk release', async () => {
+  const sup = new FakeSupervisor();
+  sup.state = { loaded: true, pid: 4242, running: true };
+  const io = fakeIo();
+  const d = deps(sup, {
+    health: () => Promise.resolve({ status: 'ok', version: '0.15.0-next.1' }),
+    version: '0.15.0',
+  });
+
+  const code = await cmdService(['service', 'status'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(io.out.join('\n')).toContain('restart pending');
+});
+
 // 7. status when not loaded says so and still shows paths
 test('status when not loaded says so and still shows paths', async () => {
   const sup = new FakeSupervisor();

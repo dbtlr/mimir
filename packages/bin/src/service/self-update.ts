@@ -17,71 +17,26 @@ export const RELEASE_BASE = 'https://github.com/dbtlr/mimir/releases';
 /** Default fetcher: never auto-follow — the redirect Location IS the answer. */
 export const manualFetch: Fetcher = (url) => fetch(url, { redirect: 'manual' });
 
-/** A parsed SemVer: numeric triple plus optional dot-separated prerelease identifiers. */
-type ParsedSemver = {
-  major: number;
-  minor: number;
-  patch: number;
-  prerelease: string[];
-};
-
-const parseSemver = (v: string): ParsedSemver => {
-  // Strip a leading `v` and any build metadata (`+...`) before splitting off
-  // the prerelease suffix (`-...`).
-  const [main, ...prereleaseParts] = v.replace(/^v/, '').replace(/\+.*$/, '').split('-');
-  const [major = 0, minor = 0, patch = 0] = (main ?? '')
-    .split('.')
-    .map((part) => Number.parseInt(part, 10) || 0);
-  const prerelease = prereleaseParts.length === 0 ? [] : prereleaseParts.join('-').split('.');
-  return { major, minor, patch, prerelease };
-};
-
-const isNumericIdentifier = (id: string): boolean => /^\d+$/.test(id);
-
-/** SemVer §11 precedence for a single dot-separated prerelease identifier pair. */
-function compareIdentifier(a: string, b: string): number {
-  const aNum = isNumericIdentifier(a);
-  const bNum = isNumericIdentifier(b);
-  if (aNum && bNum) {
-    return Number.parseInt(a, 10) - Number.parseInt(b, 10);
-  }
-  if (aNum !== bNum) {
-    // Numeric identifiers always have lower precedence than alphanumeric ones.
-    return aNum ? -1 : 1;
-  }
-  if (a === b) {
-    return 0;
-  }
-  return a < b ? -1 : 1;
-}
-
 /**
- * Full SemVer §11 precedence compare; tolerates a leading `v` and ignores
- * build metadata. <0 means a older than b. A release outranks a prerelease
- * of the same triple (`0.15.0` > `0.15.0-next.12`); between two prereleases,
- * shared identifiers compare left to right (numeric identifiers numerically,
- * alphanumeric ones lexically, numeric always lower than alphanumeric), and
- * if all shared identifiers tie, the longer identifier list wins.
+ * Full SemVer §11 precedence compare, delegated to the runtime's
+ * implementation; tolerates a leading `v`. <0 means a older than b; a release
+ * outranks a prerelease of the same triple (`0.15.0` > `0.15.0-next.12`).
+ * Strict: throws on a non-SemVer input — every internal caller passes a known
+ * version, and the one untrusted source (the release feed) filters through
+ * `isSemverTag` first.
  */
 export function compareSemver(a: string, b: string): number {
-  const pa = parseSemver(a);
-  const pb = parseSemver(b);
-  const coreDiff = pa.major - pb.major || pa.minor - pb.minor || pa.patch - pb.patch;
-  if (coreDiff !== 0) {
-    return coreDiff;
+  return Bun.semver.order(a, b);
+}
+
+/** Whether the runtime's SemVer parser accepts `tag` (leading `v` tolerated). */
+export function isSemverTag(tag: string): boolean {
+  try {
+    Bun.semver.order(tag, tag);
+    return true;
+  } catch {
+    return false;
   }
-  if (pa.prerelease.length === 0 || pb.prerelease.length === 0) {
-    // No prerelease beats having one; two non-prereleases tie here.
-    return (pa.prerelease.length === 0 ? 1 : 0) - (pb.prerelease.length === 0 ? 1 : 0);
-  }
-  const len = Math.min(pa.prerelease.length, pb.prerelease.length);
-  for (let i = 0; i < len; i++) {
-    const d = compareIdentifier(pa.prerelease[i] ?? '', pb.prerelease[i] ?? '');
-    if (d !== 0) {
-      return d;
-    }
-  }
-  return pa.prerelease.length - pb.prerelease.length;
 }
 
 export async function resolveLatestTag(fetcher: Fetcher = manualFetch): Promise<string> {
@@ -101,31 +56,48 @@ export async function resolveLatestTag(fetcher: Fetcher = manualFetch): Promise<
 export const ATOM_FEED = 'https://github.com/dbtlr/mimir/releases.atom';
 
 /**
+ * Entry tag-page links in the atom feed: a literal-quoted href under this
+ * repo's `/releases/tag/`. Entry bodies (`<content type="html">`) are
+ * HTML-escaped — no literal quotes — so a tag-shaped link pasted into
+ * someone's release notes can never match; only the feed's own `<link>`
+ * elements do.
+ */
+const TAG_HREF = new RegExp(
+  `href="${RELEASE_BASE.replaceAll('.', String.raw`\.`)}/tag/([^"]+)"`,
+  'g',
+);
+
+/**
  * The newest release across BOTH channels — official and prerelease — by
  * SemVer precedence (the `--next` channel's target). GitHub's
  * `/releases/latest` excludes prereleases, so we read the atom feed instead —
- * no auth, no REST rate limit — and reduce every tag it mentions with
- * `compareSemver`, since the feed's publish order is not semver order (an
- * official release cut from an older base can publish after a newer
- * prerelease, or vice versa).
+ * no auth, no REST rate limit — and keep the semver max of the entry tags,
+ * since the feed's publish order is not semver order (an official release cut
+ * from an older base can publish after a newer prerelease, or vice versa).
+ * Non-SemVer tags in the feed are skipped, not fatal.
  */
 export async function resolveNextChannelTag(fetcher: Fetcher = manualFetch): Promise<string> {
   const res = await fetcher(ATOM_FEED);
   const text = await res.text();
-  const tags = new Set<string>();
-  for (const m of text.matchAll(/\/releases\/tag\/([^"<]+)/g)) {
-    if (m[1] !== undefined) {
-      tags.add(m[1]);
+  let best: string | undefined;
+  for (const m of text.matchAll(TAG_HREF)) {
+    const tag = m[1];
+    if (
+      tag !== undefined &&
+      isSemverTag(tag) &&
+      (best === undefined || compareSemver(tag, best) > 0)
+    ) {
+      best = tag;
     }
   }
-  if (tags.size === 0) {
+  if (best === undefined) {
     throw new MimirError(
       'validation',
-      'could not resolve a prerelease tag from the release feed',
+      'could not resolve a release tag from the release feed',
       'check network access to github.com',
     );
   }
-  return [...tags].reduce((best, tag) => (compareSemver(tag, best) > 0 ? tag : best));
+  return best;
 }
 
 /** The release asset for this machine — same names install.sh downloads. */

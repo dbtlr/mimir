@@ -8,6 +8,7 @@ import {
   compareSemver,
   downloadAsset,
   downloadSums,
+  isSemverTag,
   replaceBinary,
   resolveLatestTag,
   resolveNextChannelTag,
@@ -42,6 +43,17 @@ test('compareSemver compares prerelease numeric identifiers numerically, not lex
 
 test('compareSemver still lets the numeric triple win over a prerelease suffix', () => {
   expect(compareSemver('0.15.0', '0.16.0-next.1')).toBeLessThan(0);
+});
+
+test('compareSemver is strict: a non-SemVer input throws instead of coercing', () => {
+  expect(() => compareSemver('not-a-version', '0.15.0')).toThrow();
+});
+
+test('isSemverTag accepts release tags and rejects non-SemVer tags', () => {
+  expect(isSemverTag('v0.15.0')).toBe(true);
+  expect(isSemverTag('0.16.0-next.1')).toBe(true);
+  expect(isSemverTag('docs-snapshot')).toBe(false);
+  expect(isSemverTag('')).toBe(false);
 });
 
 test('resolveLatestTag follows the releases/latest redirect', async () => {
@@ -108,21 +120,30 @@ test('downloadAsset follows download redirects and downloadSums returns text', a
 });
 
 test('resolveNextChannelTag picks the semver max, not the publish-order head', async () => {
-  // Publish order (head first) does not match semver order — an official
-  // 0.15.0 lands after 0.15.0-next.12 in the feed, which itself is published
-  // after the head entry 0.15.0-next.1. Each entry mentions its tag twice
-  // (id + link), as a real GitHub atom entry does.
+  // Shaped like the real feed: publish order (head first) does not match
+  // semver order — an official 0.15.0 lands after 0.15.0-next.12, which
+  // itself publishes after the head entry 0.15.0-next.1. Entry ids carry no
+  // /releases/tag/ path; the <link> href is the only tag source. Traps that
+  // must NOT win: a tag-shaped link inside HTML-escaped release notes
+  // (v9.9.9), a literal-quoted href to another repo's tag page, and a
+  // non-SemVer tag on this repo (skipped, not fatal).
   const atom = `<?xml version="1.0"?><feed>
     <entry>
-      <id>https://github.com/dbtlr/mimir/releases/tag/v0.15.0-next.1</id>
+      <id>tag:github.com,2008:Repository/970400512/v0.15.0-next.1</id>
       <link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.15.0-next.1"/>
+      <content type="html">&lt;p&gt;see &lt;a href=&quot;https://github.com/dbtlr/mimir/releases/tag/v9.9.9&quot;&gt;a phantom tag&lt;/a&gt;&lt;/p&gt;</content>
     </entry>
     <entry>
-      <id>https://github.com/dbtlr/mimir/releases/tag/v0.15.0-next.12</id>
+      <id>tag:github.com,2008:Repository/970400512/v0.15.0-next.12</id>
       <link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.15.0-next.12"/>
+      <link rel="related" href="https://github.com/oven-sh/bun/releases/tag/bun-v99.0.0"/>
     </entry>
     <entry>
-      <id>https://github.com/dbtlr/mimir/releases/tag/v0.15.0</id>
+      <id>tag:github.com,2008:Repository/970400512/docs-snapshot</id>
+      <link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/docs-snapshot"/>
+    </entry>
+    <entry>
+      <id>tag:github.com,2008:Repository/970400512/v0.15.0</id>
       <link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.15.0"/>
     </entry>
   </feed>`;
