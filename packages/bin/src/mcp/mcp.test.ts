@@ -723,6 +723,69 @@ test('the tools/list advertised inputSchema is undegraded (MMR-292)', async () =
   }
 });
 
+// ---------------------------------------------------------------------------
+// Unknown-tool voice guard (MMR-296) — the not-found sibling of MMR-292's
+// schema-miss guard, same choke point, same real transport.
+// ---------------------------------------------------------------------------
+
+test('an unknown tool name with a near miss suggests the nearest tool', async () => {
+  const { client, close } = await connectClient();
+  try {
+    // 'geet' is one edit from the registered 'get' and no closer to anything
+    // else. Before MMR-296 the client saw the SDK's raw
+    // "MCP error -32602: Tool geet not found".
+    const res = (await client.callTool({ arguments: {}, name: 'geet' })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const text = callText(res);
+    for (const leak of LIBRARY_LEAKS) {
+      expect(text).not.toContain(leak);
+    }
+    const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(text);
+    expect(parsed.error.code).toBe('not_found');
+    expect(parsed.error.message).toBe("geet doesn't exist");
+    expect(parsed.error.hint).toBe("did you mean 'get'?");
+  } finally {
+    await close();
+  }
+});
+
+test('an unknown tool name with no near match points at tools/list', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({
+      arguments: {},
+      name: 'totally_bogus_tool_xyz',
+    })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const text = callText(res);
+    for (const leak of LIBRARY_LEAKS) {
+      expect(text).not.toContain(leak);
+    }
+    const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(text);
+    expect(parsed.error.code).toBe('not_found');
+    expect(parsed.error.message).toBe("totally_bogus_tool_xyz doesn't exist");
+    expect(parsed.error.hint).toBe("run 'tools/list' to see the available tools");
+  } finally {
+    await close();
+  }
+});
+
+test('a registered tool name is unaffected by the not-found guard', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({ arguments: { id: 'MMR-1' }, name: 'get' })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const text = callText(res);
+    // Reaches the real dispatch — the inert store's own read fault, not the
+    // guard's not-found voice — proving a registered tool never falls into
+    // the unknown-tool branch.
+    expect(text).toContain('inert test store');
+    expect(text).not.toContain("doesn't exist");
+  } finally {
+    await close();
+  }
+});
+
 // A compliant client omits the `arguments` key entirely; the SDK's own client
 // does this. The guard must coalesce and write back so the SDK's re-validation
 // sees `{}`, not `undefined` — else all-optional tools re-leak the zod dump.
