@@ -1,14 +1,15 @@
 /**
  * The `/api/doctor` orchestrator (MMR-185) — gather the vault reads the shared
  * validator needs, run the one detector ({@link CHECKS}), fetch the affected
- * documents' `.raw` text for location + snippet enrichment, and shape it all into
+ * documents' exact Markdown for location + snippet enrichment, and shape it into
  * the {@link DoctorFacet} the console panel consumes. The gather mirrors
  * `cmdDoctor` (ADR 0017: the CLI and the facet read the SAME findings); the extra
- * over the CLI is the `.raw` fetch and the per-project readable/dropped tally.
+ * over the CLI is the raw-Markdown fetch and the per-project readable/dropped tally.
  *
- * Every read is a Norn read (ADR 0018): the `.raw` disk representation is fetched
- * by path, so it resolves even for a document whose frontmatter won't parse — the
- * one class of corruption absent from the type-enumerated node read.
+ * Every read is a Norn read (ADR 0018): the exact Markdown is fetched by path
+ * (norn 0.48 retired the `.raw` facet; `vault.get format: markdown` replaces it),
+ * so it resolves even for a document whose frontmatter won't parse — the one
+ * class of corruption absent from the type-enumerated node read.
  */
 import { stemOf } from '../norn/decode';
 import { diagnoseDoctor } from './diagnosis';
@@ -18,7 +19,7 @@ import type { DoctorSnapshot } from './snapshot';
 import { doctorIdentityIndex, doctorLogicalStemAtPath, doctorStemInScope } from './snapshot';
 
 /** The vault read handles the facet needs — the `cmdDoctor` set plus `readRaw`
- * (the `.raw` fetch for location enrichment). Norn is the sole `Store` port
+ * (the exact-Markdown fetch for location enrichment). Norn is the sole `Store` port
  * implementor (ADR 0016 Refinement, MMR-279), so both are always available
  * wherever a vault-backed doctor facet is wired in. */
 export type DoctorFacetDeps = {
@@ -45,7 +46,7 @@ export async function computeDoctorFacet(
   const identityIndex = doctorIdentityIndex(snapshot);
   const physicalPathsByStem = identityIndex.pathsByStem;
 
-  // Fetch `.raw` for each affected document (deduped) — the location + snippet
+  // Fetch the exact Markdown for each affected document (deduped) — the location + snippet
   // enrichment source. Keyed by path (its stem resolves the finding).
   const paths = [
     ...new Set(
