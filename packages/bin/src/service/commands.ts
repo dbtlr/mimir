@@ -43,8 +43,8 @@ import {
   downloadAsset,
   downloadSums,
   replaceBinary,
-  resolveLatestPrereleaseTag,
   resolveLatestTag,
+  resolveNextChannelTag,
   verifyChecksum,
 } from './self-update';
 import type { Fetcher } from './self-update';
@@ -480,8 +480,8 @@ export async function cmdSelfUpdate(
     targetTag = sel.tag.startsWith('v') ? sel.tag : `v${sel.tag}`;
     alreadyCurrent = stripV(targetTag) === deps.version;
   } else if (sel.next === true) {
-    targetTag = await resolveLatestPrereleaseTag(deps.fetcher);
-    alreadyCurrent = stripV(targetTag) === deps.version;
+    targetTag = await resolveNextChannelTag(deps.fetcher);
+    alreadyCurrent = compareSemver(targetTag, deps.version) <= 0;
   } else {
     targetTag = await resolveLatestTag(deps.fetcher);
     alreadyCurrent = compareSemver(targetTag, deps.version) <= 0;

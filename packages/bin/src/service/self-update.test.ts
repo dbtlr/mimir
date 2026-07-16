@@ -9,8 +9,8 @@ import {
   downloadAsset,
   downloadSums,
   replaceBinary,
-  resolveLatestPrereleaseTag,
   resolveLatestTag,
+  resolveNextChannelTag,
   verifyChecksum,
 } from './self-update';
 
@@ -27,6 +27,21 @@ test('compareSemver orders triples numerically', () => {
   expect(compareSemver('0.10.0', '0.9.9')).toBeGreaterThan(0);
   expect(compareSemver('1.2.3', '1.2.3')).toBe(0);
   expect(compareSemver('v0.6.0', '0.6.0')).toBe(0); // tolerates the tag's v prefix
+});
+
+test('compareSemver ranks a release above a prerelease of the same triple', () => {
+  expect(compareSemver('0.15.0', '0.15.0-next.12')).toBeGreaterThan(0);
+  expect(compareSemver('0.15.0-next.12', '0.15.0')).toBeLessThan(0);
+});
+
+test('compareSemver compares prerelease numeric identifiers numerically, not lexically', () => {
+  expect(compareSemver('0.15.0-next.2', '0.15.0-next.10')).toBeLessThan(0);
+  expect(compareSemver('0.15.0-next.1', '0.15.0-next.1.1')).toBeLessThan(0);
+  expect(compareSemver('0.15.0-alpha', '0.15.0-next')).toBeLessThan(0); // alphanumeric, lexical
+});
+
+test('compareSemver still lets the numeric triple win over a prerelease suffix', () => {
+  expect(compareSemver('0.15.0', '0.16.0-next.1')).toBeLessThan(0);
 });
 
 test('resolveLatestTag follows the releases/latest redirect', async () => {
@@ -92,21 +107,35 @@ test('downloadAsset follows download redirects and downloadSums returns text', a
   expect(await downloadSums('v0.6.0', redirectingFetcher)).toBe('abc  mimir-darwin-arm64\n');
 });
 
-test('resolveLatestPrereleaseTag returns the first entry tag from the atom feed', async () => {
+test('resolveNextChannelTag picks the semver max, not the publish-order head', async () => {
+  // Publish order (head first) does not match semver order — an official
+  // 0.15.0 lands after 0.15.0-next.12 in the feed, which itself is published
+  // after the head entry 0.15.0-next.1. Each entry mentions its tag twice
+  // (id + link), as a real GitHub atom entry does.
   const atom = `<?xml version="1.0"?><feed>
-    <entry><link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.6.0-next.5"/></entry>
-    <entry><link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.6.0-next.4"/></entry>
+    <entry>
+      <id>https://github.com/dbtlr/mimir/releases/tag/v0.15.0-next.1</id>
+      <link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.15.0-next.1"/>
+    </entry>
+    <entry>
+      <id>https://github.com/dbtlr/mimir/releases/tag/v0.15.0-next.12</id>
+      <link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.15.0-next.12"/>
+    </entry>
+    <entry>
+      <id>https://github.com/dbtlr/mimir/releases/tag/v0.15.0</id>
+      <link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.15.0"/>
+    </entry>
   </feed>`;
-  const tag = await resolveLatestPrereleaseTag(() =>
+  const tag = await resolveNextChannelTag(() =>
     Promise.resolve(new Response(atom, { status: 200 })),
   );
-  expect(tag).toBe('v0.6.0-next.5');
+  expect(tag).toBe('v0.15.0');
 });
 
-test('resolveLatestPrereleaseTag throws when the feed names no release', async () => {
+test('resolveNextChannelTag throws when the feed names no release', async () => {
   let thrown: unknown;
   try {
-    await resolveLatestPrereleaseTag(() => Promise.resolve(new Response('<feed></feed>')));
+    await resolveNextChannelTag(() => Promise.resolve(new Response('<feed></feed>')));
   } catch (err) {
     thrown = err;
   }
