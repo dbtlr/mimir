@@ -26,6 +26,7 @@ import {
   toolList,
   toolMove,
   toolNext,
+  toolOverview,
   toolPark,
   toolReopen,
   toolReorder,
@@ -114,6 +115,36 @@ test.skipIf(!NORN)('status tool returns the rollup', async () => {
   }>(textOf(result));
   expect(parsed.status).toBe('ready');
   expect(parsed.distribution).toEqual({ ready: 1 });
+});
+
+test.skipIf(!NORN)('overview tool returns the composite envelope (MMR-278)', async () => {
+  const result = await toolOverview(store, { scope: 'MMR' });
+  expect(result.isError).toBeUndefined();
+  const parsed = parseJson<{
+    project: { id: string; status: string; distribution: Record<string, number> };
+    in_flight: { count: number; tasks: { id: string }[] };
+    next: { count: number; tasks: { id: string; status: string }[] };
+    awaiting: { count: number; tasks: unknown[] };
+    hygiene: { untriaged: number; blocked: number; stale: number; dropped: number };
+  }>(textOf(result));
+  expect(parsed.project.id).toBe('MMR');
+  // beforeEach leaves one ready task under the phase.
+  expect(parsed.next.count).toBe(1);
+  expect(parsed.next.tasks[0]?.status).toBe('ready');
+  expect(parsed.hygiene).toEqual({ blocked: 0, dropped: 0, stale: 0, untriaged: 0 });
+});
+
+test.skipIf(!NORN)('overview tool rejects the cross-project all escape (MMR-278)', async () => {
+  const result = await toolOverview(store, { scope: 'all' });
+  expect(result.isError).toBe(true);
+  const parsed = parseJson<{ error: { code: string; message: string } }>(textOf(result));
+  expect(parsed.error.code).toBe('validation');
+});
+
+test.skipIf(!NORN)('overview tool defaults to the bound scope (MMR-278)', async () => {
+  const result = await toolOverview(store, {}, 'MMR');
+  expect(result.isError).toBeUndefined();
+  expect(parseJson<{ project: { id: string } }>(textOf(result)).project.id).toBe('MMR');
 });
 
 // ---------------------------------------------------------------------------
