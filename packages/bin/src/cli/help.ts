@@ -5,17 +5,17 @@ export const TERSE_HELP = `mimir — query and manage work state
 
 usage: mimir <command> [options]
 
-read commands:
-  next            ready tasks in rank order ("what's next")
-  overview        one project at a glance — in flight, next, awaiting, hygiene
-  list            broad selection by predicate/scope/tag
-  get <id>        full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN), seed (KEY-sN)
-  status <id>     rollup distribution + status (KEY-seq or project KEY)
-  tree <id>       full subtree rooted at any KEY-seq or project (KEY)
-                  compact indented view: id · status · title; use after get/status
-                  to drill into a container's hierarchy
+work commands (flat verbs — read or mutate work state; the agent hot path):
+  read:
+    next            ready tasks in rank order ("what's next")
+    overview        one project at a glance — in flight, next, awaiting, hygiene
+    list            broad selection by predicate/scope/tag
+    get <id>        full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN), seed (KEY-sN)
+    status <id>     rollup distribution + status (KEY-seq or project KEY)
+    tree <id>       full subtree rooted at any KEY-seq or project (KEY)
+                    compact indented view: id · status · title; use after get/status
+                    to drill into a container's hierarchy
 
-manage commands:
   lifecycle:
     start <id>              begin a task (todo → in_progress)
     submit <id>             submit for review (in_progress → under_review)
@@ -124,21 +124,7 @@ options:
       --grouped           seeds: lane view (untriaged/ready/settled)
       --upstream <KEY-sN> create/update task: requester-side seed pointer
 
-other:
-  setup [--vault <path>] [--install-service] [--install-snapshot]
-        [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]
-                          interactive first-install + reconfiguration wizard:
-                          converge the vault, write the config, install the
-                          launchd units. Prefills current values; re-runnable.
-                          Non-interactively takes flags + -y.
-  skill install [--global|--local] [--agent claude|codex]
-                          install the agent skill (default: --global, claude;
-                          claude → .claude/skills, codex → .agents/skills)
-  serve [--port <n>] [--no-hunt]
-                          HTTP API + console (loopback-only; port: --port >
-                          MIMIR_PORT > config [serve] port > ${DEFAULT_PORT}; a
-                          taken port hunts upward unless --no-hunt — the
-                          startup line names the bound URL)
+machinery commands (the installation, host, or store — not the work itself):
   service <sub> [unit]    supervise the launchd units (macOS): install
                           [--port <n>] · uninstall · start · stop · restart ·
                           status. unit is serve | snapshot | all; install
@@ -148,17 +134,32 @@ other:
                           dev/from-source runs refuse the mutating verbs
                           (status stays open); MIMIR_ALLOW_REAL_SERVICE=1
                           opts in to managing the real launchd
+  vault snapshot          commit the vault's working tree (commit-if-dirty),
+                          then push + reconcile when an upstream is configured;
+                          the cadence behind the scheduled snapshot unit
+  skill install [--global|--local] [--agent claude|codex]
+                          install the agent skill (default: --global, claude;
+                          claude → .claude/skills, codex → .agents/skills)
+  setup [--vault <path>] [--install-service] [--install-snapshot]
+        [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]
+                          interactive first-install + reconfiguration wizard:
+                          converge the vault, write the config, install the
+                          launchd units. Prefills current values; re-runnable.
+                          Non-interactively takes flags + -y.
+  serve [--port <n>] [--no-hunt]
+                          HTTP API + console (loopback-only; port: --port >
+                          MIMIR_PORT > config [serve] port > ${DEFAULT_PORT}; a
+                          taken port hunts upward unless --no-hunt — the
+                          startup line names the bound URL)
+  mcp                     the agent envelope over stdio (MCP transport)
+  version                 print the installed version
   self-update [--next] [--tag <tag>]
                           download + verify a release, replace this binary,
                           restart the service if loaded. default: latest
                           official; --next: latest incl. prereleases; --tag:
                           an exact tag (e.g. v0.6.0-next.5)
-  vault snapshot          commit the vault's working tree (commit-if-dirty),
-                          then push + reconcile when an upstream is configured;
-                          the cadence behind the scheduled snapshot unit
   doctor                  run vault diagnostics and report problems for a human
                           to fix (nonzero exit on error findings). scoped by -s
-  mcp                     the agent envelope over stdio (MCP transport)
 `;
 
 // ─── Per-command help (MMR-118) ────────────────────────────────────────────
@@ -643,6 +644,26 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     usage:
       'mimir setup [--vault <path>] [--install-service] [--install-snapshot] [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]',
   },
+  // ── service supervision (MMR-286) ──
+  service: {
+    args: [
+      ['<sub>', 'install | uninstall | start | stop | restart | status'],
+      [
+        '[unit]',
+        'serve | snapshot | all (default: whatever is installed; install defaults to serve)',
+      ],
+    ],
+    examples: [
+      'mimir service install                 # install the serve launchd unit (macOS)',
+      'mimir service install snapshot        # install the (opt-in) snapshot unit',
+      'mimir service status                  # report every installed unit',
+      'mimir service restart                 # restart whatever is installed',
+    ],
+    flags: [['--port <n>', 'install: serve port to persist (~/.config/mimir/config.toml)']],
+    summary:
+      'supervise the launchd units (macOS) — install/uninstall/start/stop/restart/status; uninstall and the lifecycle verbs sweep whatever is installed. dev/from-source runs refuse the mutating verbs (status stays open); MIMIR_ALLOW_REAL_SERVICE=1 opts in to managing the real launchd.',
+    usage: 'mimir service <sub> [unit]',
+  },
   // ── vault cadence (MMR-146) ──
   vault: {
     examples: [
@@ -651,6 +672,36 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     summary:
       "snapshot the vault's git working tree (commit-if-dirty), then push and reconcile a diverged upstream (fetch + merge). Quiet on success; the scheduled unit calls it on an interval.",
     usage: 'mimir vault snapshot',
+  },
+  // ── skill distribution (MMR-286) ──
+  skill: {
+    examples: [
+      'mimir skill install                          # global install for claude (default)',
+      'mimir skill install --local --agent codex     # this repo, for codex',
+    ],
+    flags: [
+      ['--global', 'install into the home agent skills dir (default)'],
+      ['--local', 'install into this repo (.claude/skills or .agents/skills)'],
+      ['--agent <claude|codex>', 'target agent (default: claude)'],
+    ],
+    summary:
+      'install the agent skill (default: --global, claude; claude → .claude/skills, codex → .agents/skills).',
+    usage: 'mimir skill install [--global|--local] [--agent claude|codex]',
+  },
+  // ── self-update (MMR-286) ──
+  'self-update': {
+    examples: [
+      'mimir self-update                     # download + install the latest official release',
+      'mimir self-update --next              # latest, including prereleases',
+      'mimir self-update --tag v0.6.0-next.5 # an exact tag',
+    ],
+    flags: [
+      ['--next', 'latest release, including prereleases'],
+      ['--tag <tag>', 'an exact tag (e.g. v0.6.0-next.5)'],
+    ],
+    summary:
+      'download + verify a release, replace this binary, and restart the service if loaded (default: latest official).',
+    usage: 'mimir self-update [--next] [--tag <tag>]',
   },
   // ── vault diagnostics (MMR-166) ──
   doctor: {

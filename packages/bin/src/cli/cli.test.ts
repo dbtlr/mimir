@@ -76,7 +76,7 @@ test('per-command -h prints that command, not the generic help (MMR-118)', async
   const out = io.out.join('');
   expect(out).toContain('mimir update <id>');
   expect(out).toContain('--desc'); // the flag the dogfood hunt couldn't find
-  expect(out).not.toContain('read commands:'); // not the top-level dump
+  expect(out).not.toContain('work commands'); // not the top-level dump
 });
 
 test('per-command --help adds examples; -h omits them (MMR-118)', async () => {
@@ -105,12 +105,20 @@ test('per-command help never acquires the store (MMR-118, MMR-39)', async () => 
   }
 });
 
-test('a real verb without a descriptor still falls back to the top-level help', async () => {
-  // `service`/`skill`/`self-update` have no COMMAND_HELP descriptor; `-h` shows
-  // the top-level help (exit 0) — the behavior an unknown verb must NOT get.
-  const io = fakeIo(true);
-  expect(await runCli(['service', '-h'], neverStore, io)).toBe(0);
-  expect(io.out.join('')).toContain('usage: mimir');
+test('skill/service/self-update print their own command help, not the top-level fallback (MMR-286)', async () => {
+  // Machinery-plane verbs — previously undocumented in COMMAND_HELP, so `-h`
+  // fell through to the top-level dump. Each now carries a descriptor.
+  for (const [verb, usage] of [
+    ['skill', 'mimir skill install'],
+    ['service', 'mimir service <sub>'],
+    ['self-update', 'mimir self-update'],
+  ] as const) {
+    const io = fakeIo(true);
+    expect(await runCli([verb, '-h'], neverStore, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain(usage);
+    expect(out).not.toContain('usage: mimir <command>'); // not the top-level dump
+  }
 });
 
 test('an unknown verb hard-errors (exit 2) even with -h/--help — never the help fallthrough (MMR-211)', async () => {
@@ -146,7 +154,7 @@ test('an unknown flag errors (exit 2) with a pointer, not the full help body (MM
   expect(err).toContain('mimir get -h'); // concise pointer to the verb's flags
   expect(io.out.join('')).toBe('');
   // The 144-line top-level help body is gone — no command listing dumped.
-  expect(err).not.toContain('read commands:');
+  expect(err).not.toContain('work commands');
 });
 
 test('an unknown flag after a value-taking global flag points at the right verb (MMR-211)', async () => {
@@ -272,7 +280,7 @@ test('archive -h prints the archive command help, not the generic dump (MMR-121)
   expect(await runCli(['archive', '-h'], neverStore, io)).toBe(0);
   const out = io.out.join('');
   expect(out).toContain('mimir archive <KEY>');
-  expect(out).not.toContain('read commands:');
+  expect(out).not.toContain('work commands');
 });
 
 test.skipIf(!NORN)('next --format json lists ready tasks (count-led envelope)', async () => {
