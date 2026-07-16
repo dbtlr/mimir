@@ -8,17 +8,27 @@ expected values** (exit 0) — only structurally bad invocations error (exit 2).
 `list` selects **tasks**. Containers (initiatives/phases) are reached by id
 (`get`/`status`) or explicitly: `--status all --eq type:initiative`.
 
-## 1. Orientation — in this order
+## 1. Orientation — one command
+
+```sh
+mimir overview          # the whole boot picture, attention-ordered
+```
+
+Five sections: **header** (project rollup distribution + status word) · **in
+flight** (`in_progress` + `under_review`, uncapped) · **next** (the ready head,
+top 5 of the true count) · **awaiting** (dep-gated, top 5, each row naming
+what it awaits) · **hygiene** (untriaged/blocked/stale/dropped counts, each nonzero
+count naming its follow-up command). In flight comes before next by design —
+orienting via `next` alone is the classic trap (it **excludes `in_progress`**),
+and overview structurally avoids it.
+
+The singles remain the drill-down surfaces beneath each section:
 
 ```sh
 mimir status KEY        # the shape: rollup distribution + one status word
 mimir list              # the live board (every non-terminal task)
-mimir next              # the READY set, in rank order
+mimir next              # the full READY set, in rank order (overview caps at 5)
 ```
-
-`next` last, because it **excludes `in_progress`** — it answers "what could I pick
-up next", not "what is going on". Orienting via `next` alone is the classic trap:
-you will miss work already underway.
 
 ## 2. What's in the middle?
 
