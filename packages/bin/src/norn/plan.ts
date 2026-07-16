@@ -131,7 +131,7 @@ export function replaceBody(path: string, documentHash: string, body: string): M
  * `{path, new_value: {frontmatter, body}}`. `path` may carry a single `{{seq}}`
  * token in its file name, which norn resolves to the next free sibling sequence
  * at apply time (`src/repair_apply.rs`), so incremental id allocation rides this
- * op — it does not need a separate `vault.new --as` call.
+ * op alone — no separate allocation call needed.
  */
 export function createDocument(
   path: string,

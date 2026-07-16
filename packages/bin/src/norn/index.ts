@@ -3,7 +3,6 @@ export type {
   NornClientOptions,
   NornDocument,
   NornFindArgs,
-  NornNewArgs,
   NornSelection,
   NornSetArgs,
   NornToolName,
