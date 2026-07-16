@@ -45,7 +45,7 @@ describe('mutation signpost — styled formats only', () => {
     async () => {
       const io = fakeIo(false);
       await runCli(['start', taskRef, '-f', 'records'], () => store, io);
-      expect(io.out.join('\n')).toContain(`[ok] started ${taskRef} · todo → in_progress`);
+      expect(io.out.join('\n')).toContain(`[ok] started ${taskRef} · todo -> in_progress`);
     },
   );
 
@@ -68,14 +68,14 @@ describe('mutation signpost — styled formats only', () => {
     async () => {
       const io = fakeIo(false);
       await runCli(['reorder', task2Ref, '--top', '-f', 'records'], () => store, io);
-      expect(io.out.join('\n')).toContain(`[ok] reordered ${task2Ref} → top`);
+      expect(io.out.join('\n')).toContain(`[ok] reordered ${task2Ref} -> top`);
     },
   );
 
   test.skipIf(!NORN)('move names the new parent', async () => {
     const io = fakeIo(false);
     await runCli(['move', taskRef, '--to', phaseRef, '-f', 'records'], () => store, io);
-    expect(io.out.join('\n')).toContain(`[ok] moved ${taskRef} → ${phaseRef}`);
+    expect(io.out.join('\n')).toContain(`[ok] moved ${taskRef} -> ${phaseRef}`);
   });
 
   test.skipIf(!NORN)('depend names the edge', async () => {

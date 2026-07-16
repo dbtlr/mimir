@@ -213,7 +213,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir next --format json | jq  # structured output for scripts',
     ],
     flags: [F_SCOPE, F_PRIORITY, F_SIZE, SELECTION_NOTE, F_LIMIT, F_COL, F_FORMAT],
-    summary: 'ready tasks in rank order ("what\'s next").',
+    summary: 'ready tasks in rank order ("what\'s next")',
     usage: 'mimir next [selection]',
   },
   overview: {
@@ -247,7 +247,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       F_COL,
       F_FORMAT,
     ],
-    summary: 'broad selection by predicate, scope, or tag.',
+    summary: 'broad selection by predicate, scope, or tag',
     usage: 'mimir list [selection]',
   },
   get: {
@@ -260,14 +260,14 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     flags: [F_COL, F_FORMAT],
     summary:
-      'full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN), or seed (KEY-sN).',
+      'full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN), or seed (KEY-sN)',
     usage: 'mimir get <id>',
   },
   status: {
     args: [A_ID],
     examples: ['mimir status MMR-3             # rollup of an initiative/phase'],
     flags: [F_FORMAT],
-    summary: 'rollup distribution + status (KEY-seq or project KEY).',
+    summary: 'rollup distribution + status (KEY-seq or project KEY)',
     usage: 'mimir status <id>',
   },
   tree: {
@@ -277,69 +277,69 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir tree MMR-3               # subtree rooted at a phase/initiative',
     ],
     flags: [F_FORMAT],
-    summary: 'full subtree rooted at any KEY-seq or project (KEY).',
+    summary: 'full subtree rooted at any KEY-seq or project (KEY)',
     usage: 'mimir tree <id>',
   },
   // ── lifecycle ──
   start: {
     args: [A_ID],
     examples: ['mimir start MMR-3'],
-    summary: 'begin a task (todo → in_progress).',
+    summary: 'begin a task (todo → in_progress)',
     usage: 'mimir start <id>',
   },
   submit: {
     args: [A_ID],
     examples: ['mimir submit MMR-3'],
-    summary: 'submit for review (in_progress → under_review).',
+    summary: 'submit for review (in_progress → under_review)',
     usage: 'mimir submit <id>',
   },
   return: {
     args: [A_ID, A_REASON],
     examples: ['mimir return MMR-3 "needs tests"'],
-    summary: 'send back for changes (under_review → in_progress).',
+    summary: 'send back for changes (under_review → in_progress)',
     usage: 'mimir return <id> [reason]',
   },
   done: {
     args: [A_ID],
     examples: ['mimir done MMR-3'],
-    summary: 'complete a task — approves a review, stamps completed_at.',
+    summary: 'complete a task — approves a review, stamps completed_at',
     usage: 'mimir done <id>',
   },
   abandon: {
     args: [A_ID, A_REASON],
     examples: ['mimir abandon MMR-3 "superseded by MMR-9"'],
-    summary: 'abandon a task (kept, not deleted).',
+    summary: 'abandon a task (kept, not deleted)',
     usage: 'mimir abandon <id> [reason]',
   },
   reopen: {
     args: [A_ID, A_REASON],
     examples: ['mimir reopen MMR-3'],
-    summary: 'reopen a terminal task (done/abandoned → in_progress).',
+    summary: 'reopen a terminal task (done/abandoned → in_progress)',
     usage: 'mimir reopen <id> [reason]',
   },
   // ── holds ──
   park: {
     args: [A_ID, A_REASON],
     examples: ['mimir park MMR-3 "waiting on design"'],
-    summary: 'put a task on hold (parked overlay; lifecycle untouched).',
+    summary: 'put a task on hold (parked overlay; lifecycle untouched)',
     usage: 'mimir park <id> [reason]',
   },
   unpark: {
     args: [A_ID],
     examples: ['mimir unpark MMR-3'],
-    summary: 'clear the parked hold.',
+    summary: 'clear the parked hold',
     usage: 'mimir unpark <id>',
   },
   block: {
     args: [A_ID, A_REASON],
     examples: ['mimir block MMR-3 "upstream API down"'],
-    summary: 'mark as externally blocked (blocked overlay; lifecycle untouched).',
+    summary: 'mark as externally blocked (blocked overlay; lifecycle untouched)',
     usage: 'mimir block <id> [reason]',
   },
   unblock: {
     args: [A_ID],
     examples: ['mimir unblock MMR-3'],
-    summary: 'clear the blocked hold.',
+    summary: 'clear the blocked hold',
     usage: 'mimir unblock <id>',
   },
   // ── structure ──
@@ -347,21 +347,21 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     args: [A_ID],
     examples: ['mimir depend MMR-4 --on MMR-3        # MMR-4 waits on MMR-3'],
     flags: [['--on <ids>', 'comma-separated dependency ids (KEY-seq)']],
-    summary: 'add dependency edges — <id> waits on each of <ids>.',
+    summary: 'add dependency edges — <id> waits on each of <ids>',
     usage: 'mimir depend <id> --on <ids>',
   },
   undepend: {
     args: [A_ID],
     examples: ['mimir undepend MMR-4 --on MMR-3'],
     flags: [['--on <ids>', 'comma-separated dependency ids (KEY-seq)']],
-    summary: 'remove dependency edges.',
+    summary: 'remove dependency edges',
     usage: 'mimir undepend <id> --on <ids>',
   },
   move: {
     args: [A_ID],
     examples: ['mimir move MMR-4 --to MMR-2'],
     flags: [['--to <parent>', 'destination parent (KEY or KEY-seq)']],
-    summary: 're-parent a task or phase (validates cycle/type).',
+    summary: 're-parent a task or phase (validates cycle/type)',
     usage: 'mimir move <id> --to <parent>',
   },
   reorder: {
@@ -373,7 +373,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--before <id>', 'insert before this sibling'],
       ['--after <id>', 'insert after this sibling'],
     ],
-    summary: 'change rank within the parent.',
+    summary: 'change rank within the parent',
     usage: 'mimir reorder <id> --top|--bottom|--before <id>|--after <id>',
   },
   // ── data ──
@@ -394,7 +394,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--ref <ref>', 'external reference'],
       ['--name <name>', 'project only (KEY): rename it'],
     ],
-    summary: 'patch scalar fields (a dumb patch — status is excluded; use the lifecycle verbs).',
+    summary: 'patch scalar fields (a dumb patch — status is excluded; use the lifecycle verbs)',
     usage:
       'mimir update <id> [--title …] [--desc …] [--summary …] [--priority …] [--size …] [--target …] [--ref …]',
   },
@@ -404,7 +404,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir annotate MMR-3 "spun out the edge case to MMR-9"',
       'echo "note" | mimir annotate MMR-3',
     ],
-    summary: 'append a freeform note (text positional, or piped on stdin).',
+    summary: 'append a freeform note (text positional, or piped on stdin)',
     usage: 'mimir annotate <id> <text>',
   },
   tag: {
@@ -413,7 +413,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['<tag>…', 'one or more tag values'],
     ],
     examples: ['mimir tag MMR-3,MMR-a1 spec v2       # tag a task and an artifact'],
-    summary: 'tag entities — ids comma-separated, one or more tags.',
+    summary: 'tag entities — ids comma-separated, one or more tags',
     usage: 'mimir tag <ids> <tag>…',
   },
   untag: {
@@ -422,7 +422,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['<tag>…', 'one or more tag values'],
     ],
     examples: ['mimir untag MMR-3 v2'],
-    summary: 'remove tags (a plain delete — not transition-logged).',
+    summary: 'remove tags (a plain delete — not transition-logged)',
     usage: 'mimir untag <ids> <tag>…',
   },
   // ── create / attach ──
@@ -432,7 +432,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir create task "wire the API" --parent MMR-2 --priority p1',
       'mimir create project "Mimir" --key MMR',
     ],
-    summary: "create an entity. Run `mimir create <type> --help` for the type's own flags.",
+    summary: "create an entity. Run `mimir create <type> --help` for the type's own flags",
     usage: 'mimir create <project|initiative|phase|task> …',
   },
   'create project': {
@@ -444,7 +444,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--desc <text>', 'description'],
       ['--tag <t>', 'tag at creation (repeatable)'],
     ],
-    summary: 'create a project — the tree root. The key is immutable.',
+    summary: 'create a project — the tree root. The key is immutable',
     usage: 'mimir create project <name> --key <KEY> [-y] [--desc <text>] [--tag <t>…]',
   },
   'create initiative': {
@@ -456,7 +456,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--summary <text>', 'summary (256 chars max)'],
       ['--tag <t>', 'tag at creation (repeatable)'],
     ],
-    summary: 'create an initiative under a project.',
+    summary: 'create an initiative under a project',
     usage:
       'mimir create initiative <title> --parent <KEY> [--desc <text>] [--summary <text>] [--tag <t>…]',
   },
@@ -470,7 +470,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--target <text>', 'target date or milestone'],
       ['--tag <t>', 'tag at creation (repeatable)'],
     ],
-    summary: 'create a phase under an initiative.',
+    summary: 'create a phase under an initiative',
     usage:
       'mimir create phase <title> --parent <KEY-seq> [--desc <text>] [--summary <text>] [--target <text>] [--tag <t>…]',
   },
@@ -487,7 +487,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--upstream <KEY-sN>', 'requester-side seed pointer (reference-only)'],
       ['--tag <t>', 'tag at creation (repeatable)'],
     ],
-    summary: 'create a task under a phase or initiative.',
+    summary: 'create a task under a phase or initiative',
     usage:
       'mimir create task <title> --parent <id> [--priority …] [--size …] [--desc …] [--summary …] [--ref …] [--upstream <KEY-sN>] [--tag <t>…]',
   },
@@ -501,7 +501,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--project <KEY>', 'associate with a project key (when no node link)'],
       ['--tag <t>', 'tag at creation (repeatable)'],
     ],
-    summary: 'freeze an artifact onto a task or phase → echoes the new KEY-aN.',
+    summary: 'freeze an artifact onto a task or phase → echoes the new KEY-aN',
     usage:
       'mimir attach <id> --file <path> [--title <t>] [--tag <t>…] [--link <ids>] [--project <KEY>]',
   },
@@ -519,7 +519,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--desc <text>', 'explicit ## Seed Description body — wins over the blob split'],
     ],
     summary:
-      'file a seed — an ask against another board, or an own-board idea with no statable fix. Own-board statable fix → create task. Capture is one blob: first line is the title, rest is the body.',
+      'file a seed — an ask against another board, or an own-board idea with no statable fix. Own-board statable fix → create task. Capture is one blob: first line is the title, rest is the body',
     usage: 'mimir seed "<title>[\\n<body>]" -k <kind> [-p KEY] [--desc <text>]',
   },
   seeds: {
@@ -541,7 +541,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--grouped', 'render the lane view with counts'],
       F_FORMAT,
     ],
-    summary: 'the grooming queue — live seeds oldest-first (FIFO triage priority).',
+    summary: 'the grooming queue — live seeds oldest-first (FIFO triage priority)',
     usage: 'mimir seeds [-p KEY] [--requester KEY] [--status <s>] [--sort asc|desc] [--grouped]',
   },
   promote: {
@@ -560,7 +560,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--tag <t>', 'created task: tag at creation (repeatable)'],
     ],
     summary:
-      'germinate a seed into work — creates a task (or records existing work), appends the spawned link, and moves new → promoted (repeatable). Echoes the seed plus the created task id.',
+      'germinate a seed into work — creates a task (or records existing work), appends the spawned link, and moves new → promoted (repeatable). Echoes the seed plus the created task id',
     usage: 'mimir promote <KEY-sN> --parent <node> [task args] | --link <KEY-seq>',
   },
   reject: {
@@ -569,7 +569,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['<reason>', 'why (required)'],
     ],
     examples: ['mimir reject MMR-s1 "out of scope"'],
-    summary: 'reject a seed (terminal) — reachable from new or promoted; reason required.',
+    summary: 'reject a seed (terminal) — reachable from new or promoted; reason required',
     usage: 'mimir reject <KEY-sN> "<reason>"',
   },
   resolve: {
@@ -578,7 +578,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['<resolution>', 'how (required)'],
     ],
     examples: ['mimir resolve MMR-s1 "shipped in MMR-9"', 'mimir resolve MMR-s2 "already fixed"'],
-    summary: 'resolve a seed (terminal) — reachable from new or promoted; resolution required.',
+    summary: 'resolve a seed (terminal) — reachable from new or promoted; resolution required',
     usage: 'mimir resolve <KEY-sN> "<resolution>"',
   },
   triage: {
@@ -594,14 +594,14 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--format <fmt>', 'json (pretty) | jsonl (one-line); table/records render a human report'],
     ],
     summary:
-      "an explicit-run reconciliation pass over ONE board (MMR-246): (a) surfaces new/untriaged seeds, (b) flags promoted seeds whose spawned work has all settled (ready to resolve — never auto-closed), and (c) over the board's own tasks whose upstream seed went terminal, appends an idempotent annotation recording the resolution and suggests unblock. WRITES the check-(c) annotations by default (running it is the intent); NEVER transitions anything (unblock/resolve stay suggestions); --dry-run previews. A report, never a gate — always exits 0. Idempotent: a re-run recognizes its own annotations and is a no-op. Self-contained per board (timer/eventual-consistency mode deferred).",
+      "an explicit-run reconciliation pass over ONE board (MMR-246): (a) surfaces new/untriaged seeds, (b) flags promoted seeds whose spawned work has all settled (ready to resolve — never auto-closed), and (c) over the board's own tasks whose upstream seed went terminal, appends an idempotent annotation recording the resolution and suggests unblock. WRITES the check-(c) annotations by default (running it is the intent); NEVER transitions anything (unblock/resolve stay suggestions); --dry-run previews. A report, never a gate — always exits 0. Idempotent: a re-run recognizes its own annotations and is a no-op. Self-contained per board (timer/eventual-consistency mode deferred)",
     usage: 'mimir triage [KEY] [--dry-run] [--format <fmt>]',
   },
   // ── project ──
   archive: {
     usage: 'mimir archive <KEY> [reason]',
     summary:
-      'archive a project — freeze (no mutation under it) + hide it, its subtree, and its artifacts from default reads. Reversible.',
+      'archive a project — freeze (no mutation under it) + hide it, its subtree, and its artifacts from default reads. Reversible',
     args: [
       ['<KEY>', 'the project to archive (bare project key)'],
       ['[reason]', 'optional note recorded on the archive transition'],
@@ -613,7 +613,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   },
   unarchive: {
     usage: 'mimir unarchive <KEY>',
-    summary: 'restore an archived project (archived → active) — unfreezes and unhides it.',
+    summary: 'restore an archived project (archived → active) — unfreezes and unhides it',
     args: [['<KEY>', 'the archived project to restore (bare project key)']],
     examples: ['mimir unarchive SAGA'],
   },
@@ -640,7 +640,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['-y, --yes', 'run non-interactively from flags (required when not a TTY)'],
     ],
     summary:
-      'first-install + reconfiguration wizard — converge the vault, write the global config, install/update the launchd units you opt into (removal is `service uninstall`). Prefills current values; safe to re-run.',
+      'first-install + reconfiguration wizard — converge the vault, write the global config, install/update the launchd units you opt into (removal is `service uninstall`). Prefills current values; safe to re-run',
     usage:
       'mimir setup [--vault <path>] [--install-service] [--install-snapshot] [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]',
   },
@@ -661,7 +661,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     flags: [['--port <n>', 'install: serve port to persist (~/.config/mimir/config.toml)']],
     summary:
-      'supervise the launchd units (macOS) — install/uninstall/start/stop/restart/status; uninstall and the lifecycle verbs sweep whatever is installed. dev/from-source runs refuse the mutating verbs (status stays open); MIMIR_ALLOW_REAL_SERVICE=1 opts in to managing the real launchd.',
+      'supervise the launchd units (macOS) — install/uninstall/start/stop/restart/status; uninstall and the lifecycle verbs sweep whatever is installed. dev/from-source runs refuse the mutating verbs (status stays open); MIMIR_ALLOW_REAL_SERVICE=1 opts in to managing the real launchd',
     usage: 'mimir service <sub> [unit]',
   },
   // ── vault cadence (MMR-146) ──
@@ -670,7 +670,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir vault snapshot                 # commit the vault; push if an upstream is set',
     ],
     summary:
-      "snapshot the vault's git working tree (commit-if-dirty), then push and reconcile a diverged upstream (fetch + merge). Quiet on success; the scheduled unit calls it on an interval.",
+      "snapshot the vault's git working tree (commit-if-dirty), then push and reconcile a diverged upstream (fetch + merge). Quiet on success; the scheduled unit calls it on an interval",
     usage: 'mimir vault snapshot',
   },
   // ── skill distribution (MMR-286) ──
@@ -685,7 +685,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--agent <claude|codex>', 'target agent (default: claude)'],
     ],
     summary:
-      'install the agent skill (default: --global, claude; claude → .claude/skills, codex → .agents/skills).',
+      'install the agent skill (default: --global, claude; claude → .claude/skills, codex → .agents/skills)',
     usage: 'mimir skill install [--global|--local] [--agent claude|codex]',
   },
   // ── self-update (MMR-286) ──
@@ -700,7 +700,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--tag <tag>', 'an exact tag (e.g. v0.6.0-next.5)'],
     ],
     summary:
-      'download + verify a release, replace this binary, and restart the service if loaded (default: latest official).',
+      'download + verify a release, replace this binary, and restart the service if loaded (default: latest official)',
     usage: 'mimir self-update [--next] [--tag <tag>]',
   },
   // ── vault diagnostics (MMR-166) ──
@@ -724,7 +724,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--dry-run', 'preview and validate a repair plan without writing (requires --fix)'],
     ],
     summary:
-      'run read-only vault diagnostics, or use --fix for conservative CLI-only repair. Bare doctor stays non-gating and exits 0 after a successful read. Repair supports only deterministic structural recipes; every other finding is reported with a stable skip reason. Repair apply/refusal/verification failures are nonzero.',
+      'run read-only vault diagnostics, or use --fix for conservative CLI-only repair. Bare doctor stays non-gating and exits 0 after a successful read. Repair supports only deterministic structural recipes; every other finding is reported with a stable skip reason. Repair apply/refusal/verification failures are nonzero',
     usage: 'mimir doctor [-s <KEY>] [--format <fmt>] [--fix [--dry-run]]',
   },
   // ── binding ──
@@ -732,7 +732,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     args: [['<KEY>', 'an existing project key']],
     examples: ['mimir bind MMR'],
     summary:
-      'bind this directory to a project — writes .mimir.toml, the default --scope from then on.',
+      'bind this directory to a project — writes .mimir.toml, the default --scope from then on',
     usage: 'mimir bind <KEY>',
   },
 };

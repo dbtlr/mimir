@@ -60,7 +60,7 @@ export async function renderNodeRef(w: StoreWriter, nodeId: string): Promise<str
 export async function requireNode(w: StoreWriter, id: string): Promise<Node> {
   const node = await w.loadNode(id);
   if (node === undefined) {
-    throw notFound('the record was not found');
+    throw notFound(`${id} doesn't exist`);
   }
   await assertProjectActive(w, node.project_id);
   return node;

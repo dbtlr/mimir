@@ -62,7 +62,7 @@ export async function createInitiative(store: Store, input: CreateInitiativeInpu
   return store.transact(async (w) => {
     const project = await w.loadProject(input.projectId);
     if (project === undefined) {
-      throw notFound('the project was not found');
+      throw notFound(`${input.projectId} doesn't exist`);
     }
     await assertProjectActive(w, input.projectId);
     const node = await w.insertNode({
@@ -95,7 +95,7 @@ export async function createPhase(store: Store, input: CreatePhaseInput): Promis
   return store.transact(async (w) => {
     const parent = await w.loadNode(input.parentId);
     if (parent === undefined) {
-      throw notFound('the parent was not found');
+      throw notFound(`${input.parentId} doesn't exist`);
     }
     if (parent.type !== 'initiative') {
       throw validation(`a phase's parent must be an initiative, not a ${parent.type}`);
@@ -134,7 +134,7 @@ export async function createTask(store: Store, input: CreateTaskInput): Promise<
   return store.transact(async (w) => {
     const parent = await w.loadNode(input.parentId);
     if (parent === undefined) {
-      throw notFound('the parent was not found');
+      throw notFound(`${input.parentId} doesn't exist`);
     }
     if (parent.type !== 'phase' && parent.type !== 'initiative') {
       throw validation(`a task's parent must be a phase or initiative, not a ${parent.type}`);

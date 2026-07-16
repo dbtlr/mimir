@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
 
-import type { NodeView } from '@mimir/contract';
+import type { NodeView, TriageReport } from '@mimir/contract';
 
-import { renderTable } from './render';
+import { renderTable, renderTriageReport } from './render';
 import { fakeIo } from './testing';
 
 function task(over: Partial<NodeView> = {}): NodeView {
@@ -46,6 +46,32 @@ test('renderTable: empty set on a TTY prints a no-results line (MMR-95)', () => 
   expect(text).toContain('No tasks match.');
   // Must not be just the count line
   expect(text).not.toBe('0 tasks');
+});
+
+// MMR-288: the upstream-resolution head line reads left to right — the settled
+// upstream resolves INTO the task, old → new, never the reversed `<-` form.
+test('renderTriageReport: upstream-resolution arrow reads upstream → task (MMR-288)', () => {
+  const report: TriageReport = {
+    board: 'MMR',
+    dryRun: false,
+    failures: [],
+    readyToResolve: [],
+    untriaged: [],
+    upstreamResolutions: [
+      {
+        alreadyRecorded: false,
+        annotated: true,
+        blocked: false,
+        lifecycle: 'resolved',
+        reason: null,
+        task: 'MMR-3',
+        upstream: 'MMR-s1',
+      },
+    ],
+  };
+  const text = renderTriageReport(report, fakeIo(false));
+  expect(text).toContain('MMR-s1 -> MMR-3'); // plain io: ascii glyph, upstream first
+  expect(text).not.toContain('<-');
 });
 
 test('renderTable: empty set on a non-TTY keeps the bare count line only (MMR-95)', () => {

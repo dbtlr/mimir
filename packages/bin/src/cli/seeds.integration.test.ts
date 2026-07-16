@@ -273,7 +273,7 @@ describe.skipIf(!NORN)('seed CLI verbs', () => {
     expect(dry.code).toBe(0);
     const out = dry.io.out.join('');
     expect(out).toMatch(/triage MMR/);
-    expect(out).toMatch(/UPSTREAM RESOLUTIONS \(1\)/);
+    expect(out).toMatch(/upstream resolutions \(1\)/);
     expect(out).toMatch(/would annotate/);
 
     // Nothing was written — a real run still annotates.

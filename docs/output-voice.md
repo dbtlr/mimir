@@ -39,6 +39,10 @@ next step; even internal or store failures point somewhere (`note: run
   assistant conversing.
 - **The hint line (`note:`) is the only home of imperatives** — remediation
   is inherently an instruction: `note: run 'mimir get -h' for its flags`.
+  This `note:`-only rule scopes to error output (the message + hint pair); a
+  report or orientation body (overview's hygiene rows, the MMR-184 trailer) may
+  carry a row-bound inline pointer in the `fact — next move` shape (`2 untriaged
+seeds — run 'mimir triage MMR'`).
 - **Questions are allowed only as suggestion hints** — `did you mean
 'status'?` lives in the hint slot, nowhere else.
 

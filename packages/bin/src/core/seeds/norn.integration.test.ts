@@ -313,11 +313,15 @@ describe.skipIf(!NORN)('norn seed store', () => {
   });
 
   test('mutations on an absent seed fail loud', async () => {
-    expect(await rejectMessage(() => seeds.patch('MMR', 99, { title: 'x' }))).toMatch(/no seed/);
-    expect(await rejectMessage(() => seeds.transition('MMR', 99, 'promoted', 'x'))).toMatch(
-      /no seed/,
+    expect(await rejectMessage(() => seeds.patch('MMR', 99, { title: 'x' }))).toMatch(
+      /MMR-s99 doesn't exist/,
     );
-    expect(await rejectMessage(() => seeds.germinate('MMR', 99, 'MMR-1'))).toMatch(/no seed/);
+    expect(await rejectMessage(() => seeds.transition('MMR', 99, 'promoted', 'x'))).toMatch(
+      /MMR-s99 doesn't exist/,
+    );
+    expect(await rejectMessage(() => seeds.germinate('MMR', 99, 'MMR-1'))).toMatch(
+      /MMR-s99 doesn't exist/,
+    );
     expect(await seeds.load('MMR', 99)).toBeUndefined();
   });
 
@@ -379,7 +383,7 @@ describe.skipIf(!NORN)('norn seed store', () => {
     };
     try {
       const message = await rejectMessage(() => seeds.patch('MMR', 1, { title: 'mutated' }));
-      expect(message).toMatch(/no seed MMR-s1/);
+      expect(message).toMatch(/MMR-s1 doesn't exist/);
       const canonical = await client.get(['MMR/seeds/MMR-s1.md']);
       expect(canonical[0]).toMatchObject({ frontmatter: { title: 'canonical' } });
     } finally {
@@ -410,7 +414,7 @@ describe.skipIf(!NORN)('norn seed store', () => {
       });
       expect(await seeds.load('MMR', seq, { content: true })).toBeUndefined();
       expect(await rejectMessage(() => seeds.patch('MMR', seq, { title: 'mutated' }))).toMatch(
-        new RegExp(`no seed MMR-s${String(seq)}`),
+        new RegExp(`MMR-s${String(seq)} doesn't exist`),
       );
       expect((await client.get([`relocated/MMR-s${String(seq)}.md`]))[0]).toMatchObject({
         frontmatter: { title },

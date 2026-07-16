@@ -68,6 +68,16 @@ function bold(text: string, plain: boolean): string {
   return plain ? text : `\x1b[1m${text}\x1b[0m`;
 }
 
+/**
+ * The shared status/relation arrow — `→` styled, `->` plain (`--ascii`/NO_COLOR).
+ * Arrows carry direction (real information), so they degrade to ASCII while `·`
+ * keeps its glyph. Every arrow reads left to right; operands are always ordered
+ * old → new (transitions) or subject → destination — never a reversed glyph.
+ */
+export function arrow(plain: boolean): string {
+  return plain ? '->' : '→';
+}
+
 function pad(text: string, width: number): string {
   return text.length >= width ? text : text + ' '.repeat(width - text.length);
 }
@@ -310,7 +320,9 @@ export function renderRecords(node: NodeView, io: Io): string {
   if (node.history !== undefined && node.history.length > 0) {
     pairs.push([
       'history',
-      node.history.map((h) => `${h.kind} ${h.from ?? '-'}→${h.to ?? '-'}`).join('; '),
+      node.history
+        .map((h) => `${h.kind} ${h.from ?? '-'} ${arrow(io.plain)} ${h.to ?? '-'}`)
+        .join('; '),
     ]);
   }
   if (node.verdicts !== undefined) {
@@ -468,23 +480,23 @@ function renderSeedTable(seeds: readonly SeedView[], io: Io, emptyMsg?: string):
   return lines.join('\n');
 }
 
-/** The `--grouped` lane view (MMR-245): UNTRIAGED / READY TO RESOLVE / SETTLED,
+/** The `--grouped` lane view (MMR-245): untriaged / ready to resolve / settled,
  * each with a count. A promoted seed whose spawned work is not all settled is
- * shown in a PROMOTED lane (only when populated) so no seed is dropped. */
+ * shown in a promoted lane (only when populated) so no seed is dropped. */
 function renderSeedGrouped(seeds: readonly SeedView[], io: Io): string {
   // Bucket by the shared classifier (M1) so the lane view can't drift from the wire
   // `lane` field — one source of the untriaged/ready/promoted/settled partition.
   const inLane = (lane: string): SeedView[] => seeds.filter((s) => seedLane(s) === lane);
   const lanes: [string, SeedView[]][] = [
-    ['UNTRIAGED', inLane('untriaged')],
-    ['READY TO RESOLVE', inLane('ready')],
-    ['PROMOTED', inLane('promoted')],
-    ['SETTLED', inLane('settled')],
+    ['untriaged', inLane('untriaged')],
+    ['ready to resolve', inLane('ready')],
+    ['promoted', inLane('promoted')],
+    ['settled', inLane('settled')],
   ];
   const out: string[] = [countLine(seeds.length, 'seed')];
   for (const [label, lane] of lanes) {
-    // The three headline lanes always show (with a count); PROMOTED only when populated.
-    if (label === 'PROMOTED' && lane.length === 0) {
+    // The three headline lanes always show (with a count); promoted only when populated.
+    if (label === 'promoted' && lane.length === 0) {
       continue;
     }
     out.push('', bold(`${label} (${String(lane.length)})`, io.plain));
@@ -568,7 +580,7 @@ function resolutionState(alreadyRecorded: boolean, dryRun: boolean): string {
 }
 
 /** The human triage report (MMR-246): a lede line with per-check counts, then the
- * three sections — UNTRIAGED / READY TO RESOLVE / UPSTREAM RESOLUTIONS. A report,
+ * three sections — untriaged / ready to resolve / upstream resolutions. A report,
  * never a gate: this always renders (exit 0), even when everything is clean. */
 export function renderTriageReport(report: TriageReport, io: Io): string {
   const res = report.upstreamResolutions;
@@ -596,28 +608,29 @@ export function renderTriageReport(report: TriageReport, io: Io): string {
   }
   const out: string[] = [lede.join('\n')];
 
-  out.push('', bold(`UNTRIAGED (${String(report.untriaged.length)})`, io.plain));
+  out.push('', bold(`untriaged (${String(report.untriaged.length)})`, io.plain));
   if (report.untriaged.length > 0) {
     out.push(...seedRows(report.untriaged, io));
   }
-  out.push('', bold(`READY TO RESOLVE (${String(report.readyToResolve.length)})`, io.plain));
+  out.push('', bold(`ready to resolve (${String(report.readyToResolve.length)})`, io.plain));
   if (report.readyToResolve.length > 0) {
     out.push(...seedRows(report.readyToResolve, io));
   }
-  out.push('', bold(`UPSTREAM RESOLUTIONS (${String(res.length)})`, io.plain));
+  out.push('', bold(`upstream resolutions (${String(res.length)})`, io.plain));
+  const glyph = arrow(io.plain);
   for (const r of res) {
-    const arrow = io.plain ? '<-' : '←';
-    const head = `${r.task} ${arrow} ${r.upstream} ${r.lifecycle}`;
+    // Read left to right: the settled upstream resolves INTO the task.
+    const head = `${r.upstream} ${glyph} ${r.task} ${r.lifecycle}`;
     const reason = r.reason !== null && r.reason !== '' ? `: ${r.reason}` : '';
     const state = resolutionState(r.alreadyRecorded, report.dryRun);
-    const unblock = r.blocked ? ` · blocked → suggest: mimir unblock ${r.task}` : '';
+    const unblock = r.blocked ? ` · blocked ${glyph} suggest: mimir unblock ${r.task}` : '';
     out.push(`${head}${reason}   ${state}${unblock}`);
   }
 
   // Skipped check-(c) tasks (corrupt anchor / read fault) — surfaced so the loss is
   // visible; the pass itself still succeeds (exit 0), like `doctor` findings.
   if (report.failures.length > 0) {
-    out.push('', bold(`SKIPPED (${String(report.failures.length)})`, io.plain));
+    out.push('', bold(`skipped (${String(report.failures.length)})`, io.plain));
     for (const f of report.failures) {
       out.push(`${f.task}: ${f.message}`);
     }

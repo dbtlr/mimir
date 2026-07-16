@@ -121,7 +121,7 @@ async function echoSeed(
 ): Promise<SeedView> {
   const rec = await store.seeds.load(ref.key, ref.seq, opts);
   if (rec === undefined) {
-    throw notFound(`no seed ${renderSeedRef(ref)}`);
+    throw notFound(`${renderSeedRef(ref)} doesn't exist`);
   }
   const keys = spawnedTargetKeys([rec]);
   // Presence for the scoped node read derives from the VALIDATED projects read (MMR-251),
@@ -347,7 +347,7 @@ export async function getSeed(
   // then the echo loads only the seed's spawned targets — no whole-vault load.
   const projects = await store.loadProjects();
   if (!activeKeys(projects).has(ref.key)) {
-    throw notFound(`no seed ${id}`);
+    throw notFound(`${id} doesn't exist`);
   }
   return echoSeed(store, ref, projects, opts);
 }
@@ -447,7 +447,7 @@ export async function promoteSeed(
   }
   const rec = await store.seeds.load(ref.key, ref.seq, { content: true });
   if (rec === undefined) {
-    throw notFound(`no seed ${id}`);
+    throw notFound(`${id} doesn't exist`);
   }
   if (isTerminalSeed(rec.lifecycle)) {
     throw validation(
@@ -518,7 +518,7 @@ export async function promoteSeed(
   };
   const post = await store.seeds.load(ref.key, ref.seq, { content: true });
   if (post === undefined) {
-    throw notFound(`no seed ${id}`);
+    throw notFound(`${id} doesn't exist`);
   }
   return { created, seed: resolveSeedView(post, echoResolver), spawnedId: createdStem };
 }

@@ -700,7 +700,7 @@ test('self-update: stable channel proceeds past a prerelease onto the matching o
 
   expect(code).toBe(0);
   expect(io.out.join('\n')).not.toMatch(/up to date/i);
-  expect(io.out.join('\n')).toContain('0.15.0-next.1 → 0.15.0');
+  expect(io.out.join('\n')).toContain('0.15.0-next.1 -> 0.15.0');
 });
 
 // Regression (MMR-285): --next resolved the atom feed's publish-order head
