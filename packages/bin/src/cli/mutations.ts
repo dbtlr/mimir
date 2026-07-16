@@ -431,6 +431,7 @@ async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
     ['target', '--target'],
     ['ref', '--ref'],
     ['summary', '--summary'],
+    ['upstream', '--upstream'],
     ['open-ended', '--open-ended'],
     ['not-open-ended', '--not-open-ended'],
   ] as const) {
@@ -460,6 +461,7 @@ async function cmdUpdateArtifact(c: Ctx, token: string): Promise<number> {
     ['target', '--target'],
     ['ref', '--ref'],
     ['summary', '--summary'],
+    ['upstream', '--upstream'],
     ['open-ended', '--open-ended'],
     ['not-open-ended', '--not-open-ended'],
   ] as const) {
