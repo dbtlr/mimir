@@ -607,10 +607,20 @@ async function updateProjectTool(
     target?: string;
     externalRef?: string;
     openEnded?: boolean;
+    upstream?: string;
   },
 ): Promise<ToolResult> {
   const nodeOnly = (
-    ['title', 'priority', 'size', 'target', 'externalRef', 'summary', 'openEnded'] as const
+    [
+      'title',
+      'priority',
+      'size',
+      'target',
+      'externalRef',
+      'summary',
+      'openEnded',
+      'upstream',
+    ] as const
   ).filter((k) => args[k] !== undefined);
   if (nodeOnly.length > 0) {
     throw validation(
@@ -648,10 +658,20 @@ async function updateArtifactTool(
     target?: string;
     externalRef?: string;
     openEnded?: boolean;
+    upstream?: string;
   },
 ): Promise<ToolResult> {
   const nodeOnly = (
-    ['description', 'priority', 'size', 'target', 'externalRef', 'summary', 'openEnded'] as const
+    [
+      'description',
+      'priority',
+      'size',
+      'target',
+      'externalRef',
+      'summary',
+      'openEnded',
+      'upstream',
+    ] as const
   ).filter((k) => args[k] !== undefined);
   if (nodeOnly.length > 0) {
     throw validation(

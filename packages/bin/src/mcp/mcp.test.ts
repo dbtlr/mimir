@@ -522,6 +522,21 @@ test.skipIf(!NORN)('toolUpdate project rejects node-only flags', async () => {
   expect(JSON.parse(textOf(res)).error.code).toBe('validation');
 });
 
+test.skipIf(!NORN)(
+  'toolUpdate project and artifact reject upstream, never silently no-op (MMR-284)',
+  async () => {
+    const proj = await toolUpdate(store, { id: 'MMR', upstream: 'NRN-s3' });
+    expect(proj.isError).toBe(true);
+    expect(JSON.parse(textOf(proj)).error.code).toBe('validation');
+
+    const attached = await toolAttach(store, { content: '# a\n', node: taskRef, title: 'a' });
+    const aid = parseJson<{ artifact: { id: string } }>(textOf(attached)).artifact.id;
+    const art = await toolUpdate(store, { id: aid, upstream: 'NRN-s3' });
+    expect(art.isError).toBe(true);
+    expect(JSON.parse(textOf(art)).error.code).toBe('validation');
+  },
+);
+
 test.skipIf(!NORN)('toolUpdate project with missing key returns not_found', async () => {
   const res = await toolUpdate(store, { id: 'ZZZ', name: 'x' });
   expect(res.isError).toBe(true);

@@ -303,6 +303,39 @@ test.skipIf(!NORN)('update patches scalar fields and echoes them', async () => {
 test.skipIf(!NORN)('update rejects an invalid priority as usage → exit 2', async () => {
   expect(await runCli(['update', taskRef, '--priority', 'p9'], () => store, fakeIo(false))).toBe(2);
 });
+
+test.skipIf(!NORN)(
+  'update --upstream patches the seed pointer and echoes it (MMR-284)',
+  async () => {
+    const io = fakeIo(false);
+    const code = await runCli(
+      ['update', taskRef, '--upstream', 'NRN-s3', '-f', 'json'],
+      () => store,
+      io,
+    );
+    expect(code).toBe(0);
+    const v = JSON.parse(io.out[0] ?? '{}');
+    expect(v.upstream).toBe('NRN-s3');
+  },
+);
+
+test.skipIf(!NORN)(
+  'update --upstream rejects a non-seed-id as usage → exit 2 (MMR-284)',
+  async () => {
+    expect(
+      await runCli(['update', taskRef, '--upstream', 'not-a-seed'], () => store, fakeIo(false)),
+    ).toBe(2);
+  },
+);
+
+test.skipIf(!NORN)(
+  'update --upstream on a phase is a validation error → exit 1 (MMR-284)',
+  async () => {
+    expect(
+      await runCli(['update', phaseRef, '--upstream', 'NRN-s3'], () => store, fakeIo(false)),
+    ).toBe(1);
+  },
+);
 test.skipIf(!NORN)('annotate from the positional tail exits 0', async () => {
   expect(
     await runCli(['annotate', taskRef, 'looked', 'into', 'this'], () => store, fakeIo(false)),
@@ -508,6 +541,9 @@ test.skipIf(!NORN)(
 
     // node-only flags on an artifact id are a behavioral error → exit 1
     expect(await runCli(['update', aId, '--priority', 'p1'], () => store, fakeIo(false))).toBe(1);
+    expect(await runCli(['update', aId, '--upstream', 'NRN-s3'], () => store, fakeIo(false))).toBe(
+      1,
+    );
     // blank title is validation (the field is being set badly, not missing) → exit 1
     expect(await runCli(['update', aId, '--title', ''], () => store, fakeIo(false))).toBe(1);
     // unknown artifact → not_found
@@ -558,6 +594,9 @@ test.skipIf(!NORN)('update KEY renders description in records format', async () 
 test.skipIf(!NORN)('update KEY refuses node-only flags → exit 1', async () => {
   expect(await runCli(['update', 'MMR', '--title', 'x'], () => store, fakeIo(false))).toBe(1);
   expect(await runCli(['update', 'MMR', '--priority', 'p1'], () => store, fakeIo(false))).toBe(1);
+  expect(await runCli(['update', 'MMR', '--upstream', 'NRN-s3'], () => store, fakeIo(false))).toBe(
+    1,
+  );
 });
 
 test.skipIf(!NORN)('update on missing project key → not_found (exit 1)', async () => {
