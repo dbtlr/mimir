@@ -1,6 +1,6 @@
 {
   "name": "@mimir/bin",
-  "version": "0.15.0",
+  "version": "0.16.0-next",
   "private": true,
   "description": "The mimir binary — core and the three transports (CLI, MCP, HTTP) over the Norn markdown vault.",
   "bin": {
