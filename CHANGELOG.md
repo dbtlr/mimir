@@ -13,6 +13,151 @@ and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
+## v0.16.0 - 2026-07-16
+
+### Added
+
+- **`mimir overview` — the session-boot orientation surface** (MMR-278). A flat,
+  id-free, scope-honoring read verb ([ADR 0024](docs/decisions/0024-cli-command-taxonomy.md))
+  that composes one project's state into five attention-ordered sections: a header
+  (id, status word, rollup distribution), in-flight tasks (`in_progress` +
+  `under_review`, uncapped), the ready-queue head (`next`, top 5), dependency-gated
+  tasks (`awaiting`, top 5, each carrying the upstream ids it awaits), and hygiene
+  counts (untriaged seeds, blocked, stale, and the load's own dropped-record tally).
+  Every section leads with its true total even when its list is capped. The core
+  `overviewOf` query derives the whole surface from one working-set load plus one
+  seeds read — never a `next`/`list`/`status` reload, never the doctor snapshot. It
+  renders as styled sections on a TTY and one composite JSON envelope when piped
+  (`-f json`); the same envelope is exposed as the MCP `overview` tool. `-s all` and
+  the set formats (`table`/`jsonl`/`ids`) are rejected as usage errors that point at
+  `mimir list`.
+
+### Changed
+
+- **The mimir skill's orientation gate is `mimir overview`** (MMR-291). The
+  session-boot ritual collapses from three commands (`status KEY` → `list` →
+  `next`) to one: the skill's gate now runs `mimir overview` (with
+  `mimir triage` kept as the write-side sweep on owned boards), and
+  `references/querying.md` teaches the composite first with
+  `status`/`list`/`next` as the drill-down surfaces beneath its sections.
+- **`--help` groups commands by taxonomy plane** (MMR-286). Top-level help now
+  presents the work plane (flat verbs that read or mutate work state) and the
+  machinery plane (installation/host/store commands) as the two sections
+  [ADR 0024](docs/decisions/0024-cli-command-taxonomy.md) defines, and `skill`,
+  `service`, and `self-update` gain their own command help on `-h`/`--help`
+  instead of falling back to the top-level dump. Help text only — no command
+  names or behavior change.
+- **CLI messages reconciled to the output voice guide** (MMR-288). Not-found
+  errors speak token-as-subject across every entity (`MMR-9 doesn't exist` —
+  the `no project KEY` / `no seed KEY-sN` / `no artifact KEY-aN` / "the record
+  was not found" family is gone); triage and seed-lane headers are lowercase;
+  doctor severity tags use the tier-1 short spelling (`[err]`, never
+  `[error]`); the self-update terminal line carries `[ok]`/`[err]`; help
+  summaries drop their trailing periods; and
+  [docs/output-voice.md](docs/output-voice.md) now records that the
+  `note:`-only imperative rule scopes to error output — report bodies may
+  carry row-bound `fact — next move` pointers. Wording only; the ADR 0009
+  wire contract (envelope shape, field names, exit codes) is untouched.
+- **The mimir skill teaches the settled CLI taxonomy** (MMR-287). The stale
+  "no per-command help" claim is gone — every verb the skill's references
+  teach has carried its own `-h`/`--help` since the COMMAND_HELP registry
+  landed — replaced with the actual contract (per-command help is a flag
+  reminder; the references remain the authority to drive from). The skill now carries
+  [ADR 0024](docs/decisions/0024-cli-command-taxonomy.md)'s grammar where it
+  teaches the surface: the two-plane rule, flat lifecycle verbs with typed-id
+  disambiguation, the `create <type>` creation grammar with `seed`/`attach`
+  as the sanctioned exceptions, and the pre-1.0 hard-break rename policy.
+- **The mimir skill teaches `reopen`** (MMR-293). The verb has existed in the
+  CLI, MCP tool surface, and ADR 0024's lifecycle grammar but was absent from
+  the skill: the non-negotiables' verb enumeration and transition contract
+  now name it, and `references/status-model.md` documents the transition it
+  performs (a terminal task back to `in_progress`) — the deliberate
+  correction path for a call that was wrong, never a substitute for filing
+  new work as a new task.
+- **Adopt norn 0.48: plans emit schema v2, reports read schema v3** (MMR-297).
+  norn 0.48 (NRN-264, ADR 0015) is a hard break with no compatibility shim:
+  `MigrationPlan` moves to `schema_version` 2 (plans gain first-class
+  `preconditions`) and `ApplyReport` moves to schema v3 (reports gain a
+  precondition-results array). Every mimir write now stamps `schema_version: 2`
+  on the plan it hands `vault.apply`, so mutations stop failing with
+  `unsupported plan schema_version 1; this norn build supports v2`. The emitted
+  plan is the minimal conformant v2 shape — an absent `preconditions` array,
+  norn's own default — and mimir does **not** adopt owner-set precondition
+  semantics (deferred to a follow-up decision). The apply-report decode already
+  reads only `outcome` and the per-op fields, so the additive v3 report fields
+  pass through untouched. norn 0.48 also retired the `.raw` structural facet, so
+  `mimir doctor`'s record-health enrichment now reads exact on-disk document
+  text through `vault.get { format: "markdown" }` (its output is unchanged).
+  **Requires norn ≥ 0.48**; the CI norn pin moves to v0.48.0.
+
+### Fixed
+
+- **`self-update` respects SemVer prerelease precedence** (MMR-285). The stable
+  gate parsed only the numeric triple out of a version string, so a machine
+  running an `X.Y.Z-next.N` prerelease compared equal to the official `X.Y.Z`
+  and `self-update` reported "already up to date" instead of installing the
+  release. `compareSemver` now implements full SemVer §11 precedence — a
+  release outranks a prerelease of the same triple, and shared prerelease
+  identifiers compare numerically or lexically as SemVer dictates (`next.2` <
+  `next.10`) — and `--next` resolves the atom feed's semver-max tag instead of
+  its publish-order head, with the same downgrade guard the stable channel
+  uses. `service status` inherits the comparator, so a running prerelease now
+  correctly reads "restart pending" against an on-disk release of the same
+  triple.
+- **Status arrows render consistently through one shared helper** (MMR-288).
+  Every transition/relation arrow is `old → new` (`->` under `--ascii`),
+  fixing the mutation echoes that never degraded to ASCII and triage's
+  reversed `<-` upstream-resolution arrow.
+- **parseArgs failures speak house voice** (MMR-289). Raw `node:util` library
+  text (including the verbose positional-argument advice) no longer ships in
+  any output — human or JSON envelope. Every arg-parse failure on a known
+  command is re-synthesized (`unknown flag '--x'`, `'--to' expects a value`,
+  `'--ascii' doesn't take a value`) and carries exactly one hint per the
+  [output voice guide](docs/output-voice.md)'s ladder: a near-match
+  suggestion (`did you mean '--status'?`) when one exists, else the narrowest
+  help pointer. Exit codes and envelope shape unchanged.
+- **MCP/HTTP envelopes speak token-as-subject on misses** (MMR-290). The
+  transport-local not-found strings — `no artifact with id KEY-aN` in the MCP
+  artifact-update tool and `PATCH /api/artifacts/:id`, plus the HTTP
+  catch-all route 404 (`no route /api/x` → `/api/x doesn't exist`) — join
+  the token-as-subject family. The remaining transport-specific strings
+  (HTTP body validation, MCP tool guards) audited conformant with the
+  [output voice guide](docs/output-voice.md). Envelope shape and status
+  codes unchanged.
+- **`update … --upstream` on a project or artifact now errors instead of
+  silently no-opping** (MMR-284). The flag joins the refuse-lists on both the
+  CLI and the MCP update tool, like every sibling scalar flag ("doesn't apply
+  to a project/artifact"), and the `update` help descriptor now documents
+  `--upstream` (task only: requester-side seed pointer, reference-only). The
+  patch capability itself shipped in v0.13.0 — this closes the gaps around
+  it. (HTTP already rejected unlisted fields structurally.)
+- **`mimir mcp -h` no longer starts the MCP server** (MMR-294). `serve`,
+  `mcp`, and `version` are machinery loners
+  ([ADR 0024](docs/decisions/0024-cli-command-taxonomy.md)) intercepted
+  ahead of CLI dispatch, so `-h`/`--help` on any of them used to be ignored:
+  `mcp` hung awaiting stdio input, `serve` bound a port and converged the
+  vault, and `version` printed the bare version instead of its help. All
+  three now recognize `-h`/`--help` and render that command's help — the
+  same descriptor-driven shape as every other verb — without touching the
+  store.
+- **Two envelope paths stop leaking library text** (MMR-292). The HTTP
+  internal-error fallback (`respond.ts`) no longer forwards a non-domain
+  exception's raw `.message` into `{error:{code:'internal',…}}`; it ships a
+  synthesized house-voice fact plus a hint (`the request did not complete` +
+  `run 'mimir doctor'`) and logs the raw detail — with request method/path —
+  to the serve log's stderr instead. The MCP server re-voices the SDK's
+  pre-handler input validation: a schema miss shipped the zod aggregation
+  verbatim (`MCP error -32602: Invalid arguments for tool … [<zod issues>]`)
+  as the tool-result text, so one choke point now re-validates with the SDK's
+  own stored schema: on a miss it returns the same structured
+  `{"error":{code,message,hint}}` envelope every tool fault uses — token as
+  subject (`id must be a string`, `type is required`), one fault, one hint — and
+  on a pass it writes the coalesced arguments back so the SDK's own re-validation
+  sees the same value and cannot re-leak (an omitted `arguments` key otherwise
+  reached the SDK as `undefined` and leaked for all-optional tools). Envelope
+  shapes, status codes, and the advertised `tools/list` inputSchemas are
+  unchanged; conforms to the [output voice guide](docs/output-voice.md).
+
 ## v0.15.0 - 2026-07-15
 
 ### Added
