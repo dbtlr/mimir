@@ -142,6 +142,39 @@ MMR-09   ◔ awaiting   p0   MMR-5    mcp read tools
 
 Adopt Norn's tool-agnostic **primitives** (count line, record block, table rows, separator, glyph set, ≤4-space indentation) and **house principles**: counts-before-contents; color is decoration, never information; structured formats never carry style; quiet by default (no banners/celebration); lowercase house style; NO_COLOR/`--ascii` lose nothing. Of the deferred brand pass, **voice is now settled** — tone, mood, casing, tags, separators, and message grammar live in the [Output Voice Guide](output-voice.md) (MMR-213); palette and identity glyphs remain deferred.
 
+## The `overview` composite (report kind, MMR-278)
+
+`mimir overview [-s KEY]` is a **`report`-kind** read (like `triage`/`service`):
+styled sections in a terminal, one JSON envelope when piped — `-f json` forces
+the envelope, `-f records` forces the sections. The set formats are category
+errors here: `-f table`, `-f jsonl`, and `-f ids` are **usage** (exit 2) with a
+hint at `mimir list` (a composite is not one table / a row stream / an id set).
+It reads **one project** — bare uses the bound scope, `-s KEY` names it, and `-s
+all` is a usage error (`run 'mimir list -s all' for a cross-project set`).
+
+The envelope is one composite object — never the set wrapper. Task objects are
+the same **lean projection** `list`/`next` emit; each `awaiting` task adds an
+`awaiting_on` array of upstream ids. Every section carries its **true `count`**
+even where its `tasks` array is capped (`next`/`awaiting` cap at 5; `in_flight`
+is uncapped). `hygiene` is counts only — `dropped` is the load's own
+`issueCount` byproduct (MMR-184), never a `doctor` pass.
+
+```json
+{
+  "awaiting": {
+    "count": 12,
+    "tasks": [{ "id": "MMR-9", "status": "awaiting", "awaiting_on": ["MMR-2", "MMR-3"] }]
+  },
+  "hygiene": { "blocked": 1, "dropped": 0, "stale": 2, "untriaged": 3 },
+  "in_flight": { "count": 2, "tasks": [{ "id": "MMR-16", "status": "in_progress" }] },
+  "next": { "count": 8, "tasks": [{ "id": "MMR-23", "status": "ready" }] },
+  "project": { "distribution": { "ready": 8, "done": 5 }, "id": "MMR", "status": "in_progress" }
+}
+```
+
+The MCP `overview` tool returns the identical envelope; there is no HTTP route
+(ADR 0012).
+
 ## Doctor diagnostics and repair
 
 `mimir doctor [-s KEY] [--format …]` is read-only and non-gating. A successful
