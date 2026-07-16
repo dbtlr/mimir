@@ -460,6 +460,40 @@ test('status reports running vs on-disk version and restart pending', async () =
   expect(out).toContain('restart pending');
 });
 
+// 6b. a running prerelease differs from the on-disk release of the same
+// triple — restart IS pending (the numeric-triple comparator hid this).
+test('status flags restart pending when a prerelease runs against an on-disk release', async () => {
+  const sup = new FakeSupervisor();
+  sup.state = { loaded: true, pid: 4242, running: true };
+  const io = fakeIo();
+  const d = deps(sup, {
+    health: () => Promise.resolve({ status: 'ok', version: '0.15.0-next.1' }),
+    version: '0.15.0',
+  });
+
+  const code = await cmdService(['service', 'status'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(io.out.join('\n')).toContain('restart pending');
+});
+
+// 6c. the health payload is untrusted: a non-SemVer version (foreign
+// responder on the port) reads as restart pending — never a crash.
+test('status tolerates a non-SemVer running version from the health probe', async () => {
+  const sup = new FakeSupervisor();
+  sup.state = { loaded: true, pid: 4242, running: true };
+  const io = fakeIo();
+  const d = deps(sup, {
+    health: () => Promise.resolve({ status: 'ok', version: 'not-a-version' }),
+    version: '0.15.0',
+  });
+
+  const code = await cmdService(['service', 'status'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(io.out.join('\n')).toContain('restart pending');
+});
+
 // 7. status when not loaded says so and still shows paths
 test('status when not loaded says so and still shows paths', async () => {
   const sup = new FakeSupervisor();
@@ -621,6 +655,63 @@ test('self-update --next reports up to date when running the latest prerelease',
     binPath: join(dir, 'mimir'),
     fetcher: () => Promise.resolve(new Response(atom)),
     version: '0.6.0-next.5',
+  });
+  const io = fakeIo();
+  expect(await cmdSelfUpdate(io, d, { next: true })).toBe(0);
+  expect(io.out.join('\n')).toMatch(/up to date/i);
+});
+
+// Regression (MMR-285): a machine on a `-next` prerelease could never reach
+// the official release with the same numeric triple via plain self-update,
+// because the old comparator parsed only the numeric triple and treated
+// `0.15.0-next.1` as equal to `0.15.0`.
+test('self-update: stable channel proceeds past a prerelease onto the matching official release', async () => {
+  const newTag = 'v0.15.0';
+  const fakeBody = new TextEncoder().encode('fake-binary-content');
+  const sha256 = new Bun.CryptoHasher('sha256').update(fakeBody).digest('hex');
+  const { assetName } = await import('./self-update');
+  const asset = assetName();
+  const fakeSums = `${sha256}  ${asset}\n`;
+
+  const io = fakeIo();
+  const d = deps(new FakeSupervisor(), {
+    binPath: join(dir, 'mimir'),
+    fetcher: (url: string) => {
+      if (url.includes('/releases/latest')) {
+        return Promise.resolve(
+          new Response(null, {
+            headers: { location: `https://github.com/dbtlr/mimir/releases/tag/${newTag}` },
+            status: 302,
+          }),
+        );
+      }
+      if (url.includes(`/download/${newTag}/SHA256SUMS`)) {
+        return Promise.resolve(new Response(fakeSums, { status: 200 }));
+      }
+      if (url.includes(`/download/${newTag}/${asset}`)) {
+        return Promise.resolve(new Response(fakeBody, { status: 200 }));
+      }
+      return Promise.reject(new Error(`unexpected fetch: ${url}`));
+    },
+    version: '0.15.0-next.1',
+  });
+
+  const code = await cmdSelfUpdate(io, d);
+
+  expect(code).toBe(0);
+  expect(io.out.join('\n')).not.toMatch(/up to date/i);
+  expect(io.out.join('\n')).toContain('0.15.0-next.1 → 0.15.0');
+});
+
+// Regression (MMR-285): --next resolved the atom feed's publish-order head
+// rather than the semver max, so it could move sideways or backwards. Guard
+// against a downgrade explicitly, same as the stable channel now does.
+test('self-update --next refuses to downgrade when the feed max is behind the running prerelease', async () => {
+  const atom = `<entry><link rel="alternate" href="https://github.com/dbtlr/mimir/releases/tag/v0.15.0"/></entry>`;
+  const d = deps(new FakeSupervisor(), {
+    binPath: join(dir, 'mimir'),
+    fetcher: () => Promise.resolve(new Response(atom)),
+    version: '0.16.0-next.1',
   });
   const io = fakeIo();
   expect(await cmdSelfUpdate(io, d, { next: true })).toBe(0);

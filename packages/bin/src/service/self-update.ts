@@ -1,9 +1,10 @@
 /**
  * Self-update (MMR-47): resolve the latest tag from the releases/latest
  * redirect (no GitHub API dependency), download the platform asset, verify
- * it against SHA256SUMS, atomically replace our own binary. Latest only —
- * no channels, no --force. Orchestration (version gate, service restart,
- * event log) lives in the command layer; this module is the engine.
+ * it against SHA256SUMS, atomically replace our own binary. Two channels —
+ * stable (default) and prerelease (`--next`) — plus an explicit `--tag`
+ * escape hatch. Orchestration (version gate, service restart, event log)
+ * lives in the command layer; this module is the engine.
  */
 import { chmodSync, renameSync, writeFileSync } from 'node:fs';
 
@@ -16,17 +17,26 @@ export const RELEASE_BASE = 'https://github.com/dbtlr/mimir/releases';
 /** Default fetcher: never auto-follow — the redirect Location IS the answer. */
 export const manualFetch: Fetcher = (url) => fetch(url, { redirect: 'manual' });
 
-const parseSemverParts = (v: string): number[] =>
-  v
-    .replace(/^v/, '')
-    .split('.')
-    .map((part) => Number.parseInt(part, 10) || 0);
-
-/** Numeric triple compare; tolerates a leading `v`. <0 means a older than b. */
+/**
+ * Full SemVer §11 precedence compare, delegated to the runtime's
+ * implementation; tolerates a leading `v`. <0 means a older than b; a release
+ * outranks a prerelease of the same triple (`0.15.0` > `0.15.0-next.12`).
+ * Strict: throws on a non-SemVer input — every internal caller passes a known
+ * version, and the one untrusted source (the release feed) filters through
+ * `isSemverTag` first.
+ */
 export function compareSemver(a: string, b: string): number {
-  const [a0 = 0, a1 = 0, a2 = 0] = parseSemverParts(a);
-  const [b0 = 0, b1 = 0, b2 = 0] = parseSemverParts(b);
-  return a0 - b0 || a1 - b1 || a2 - b2;
+  return Bun.semver.order(a, b);
+}
+
+/** Whether the runtime's SemVer parser accepts `tag` (leading `v` tolerated). */
+export function isSemverTag(tag: string): boolean {
+  try {
+    Bun.semver.order(tag, tag);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function resolveLatestTag(fetcher: Fetcher = manualFetch): Promise<string> {
@@ -46,23 +56,55 @@ export async function resolveLatestTag(fetcher: Fetcher = manualFetch): Promise<
 export const ATOM_FEED = 'https://github.com/dbtlr/mimir/releases.atom';
 
 /**
- * The most recent release INCLUDING prereleases (the `--next` channel). GitHub's
- * `/releases/latest` excludes prereleases, so we read the atom feed instead —
- * newest-first, no auth, no REST rate limit. The first `/releases/tag/<tag>`
- * occurrence is the newest entry.
+ * Entry tag-page links in the atom feed: a literal-quoted href under this
+ * repo's `/releases/tag/`. Entry bodies (`<content type="html">`) are
+ * HTML-escaped — no literal quotes — so a tag-shaped link pasted into
+ * someone's release notes can never match; only the feed's own `<link>`
+ * elements do.
  */
-export async function resolveLatestPrereleaseTag(fetcher: Fetcher = manualFetch): Promise<string> {
+const TAG_HREF = new RegExp(
+  `href="${RELEASE_BASE.replaceAll('.', String.raw`\.`)}/tag/([^"]+)"`,
+  'g',
+);
+
+/**
+ * The newest release across BOTH channels — official and prerelease — by
+ * SemVer precedence (the `--next` channel's target). GitHub's
+ * `/releases/latest` excludes prereleases, so we read the atom feed instead —
+ * no auth, no REST rate limit — and keep the semver max of the entry tags,
+ * since the feed's publish order is not semver order (an official release cut
+ * from an older base can publish after a newer prerelease, or vice versa).
+ * Non-SemVer tags in the feed are skipped, not fatal.
+ */
+export async function resolveNextChannelTag(fetcher: Fetcher = manualFetch): Promise<string> {
   const res = await fetcher(ATOM_FEED);
-  const text = await res.text();
-  const m = /\/releases\/tag\/([^"<]+)/.exec(text);
-  if (m?.[1] === undefined) {
+  if (!res.ok) {
     throw new MimirError(
       'validation',
-      'could not resolve a prerelease tag from the release feed',
+      `release feed request failed (${String(res.status)})`,
       'check network access to github.com',
     );
   }
-  return m[1];
+  const text = await res.text();
+  let best: string | undefined;
+  for (const m of text.matchAll(TAG_HREF)) {
+    const tag = m[1];
+    if (
+      tag !== undefined &&
+      isSemverTag(tag) &&
+      (best === undefined || compareSemver(tag, best) > 0)
+    ) {
+      best = tag;
+    }
+  }
+  if (best === undefined) {
+    throw new MimirError(
+      'validation',
+      'could not resolve a release tag from the release feed',
+      'check network access to github.com',
+    );
+  }
+  return best;
 }
 
 /** The release asset for this machine — same names install.sh downloads. */

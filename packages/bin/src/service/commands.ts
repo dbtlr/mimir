@@ -43,8 +43,9 @@ import {
   downloadAsset,
   downloadSums,
   replaceBinary,
-  resolveLatestPrereleaseTag,
+  isSemverTag,
   resolveLatestTag,
+  resolveNextChannelTag,
   verifyChecksum,
 } from './self-update';
 import type { Fetcher } from './self-update';
@@ -383,7 +384,11 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
       ? null
       : {
           onDiskVersion: deps.version,
-          restartPending: compareSemver(healthRaw.version, deps.version) !== 0,
+          // The health payload is an untrusted boundary: a non-SemVer version
+          // (foreign responder on the port) is by definition not the on-disk
+          // binary — restart pending, never a crash in a pure read.
+          restartPending:
+            !isSemverTag(healthRaw.version) || compareSemver(healthRaw.version, deps.version) !== 0,
           runningVersion: healthRaw.version,
         };
   const serve: UnitStatus = {
@@ -480,8 +485,8 @@ export async function cmdSelfUpdate(
     targetTag = sel.tag.startsWith('v') ? sel.tag : `v${sel.tag}`;
     alreadyCurrent = stripV(targetTag) === deps.version;
   } else if (sel.next === true) {
-    targetTag = await resolveLatestPrereleaseTag(deps.fetcher);
-    alreadyCurrent = stripV(targetTag) === deps.version;
+    targetTag = await resolveNextChannelTag(deps.fetcher);
+    alreadyCurrent = compareSemver(targetTag, deps.version) <= 0;
   } else {
     targetTag = await resolveLatestTag(deps.fetcher);
     alreadyCurrent = compareSemver(targetTag, deps.version) <= 0;
