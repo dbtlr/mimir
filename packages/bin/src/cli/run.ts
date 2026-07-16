@@ -176,18 +176,14 @@ const OPTIONS = {
  * task data and then act on stale context.
  *
  * Derived from the `COMMAND_HELP` descriptor registry (single source) rather
- * than re-listed: the documented verbs, dropping the space-keyed `create <type>`
- * subcommand descriptors, plus the three real verbs with no descriptor
- * (`skill`/`service`/`self-update`, which fall back to the top-level help on
- * `-h`). `serve`/`mcp`/`version` are intercepted upstream in `main` and never
- * reach here. The switch in `runCli` keeps a defensive `default:` for any drift.
+ * than re-listed: every documented verb, dropping the space-keyed
+ * `create <type>` subcommand descriptors. `serve`/`mcp`/`version` are
+ * intercepted upstream in `main` and never reach here. The switch in
+ * `runCli` keeps a defensive `default:` for any drift.
  */
-const COMMANDS: ReadonlySet<string> = new Set([
-  ...Object.keys(COMMAND_HELP).filter((key) => !key.includes(' ')),
-  'skill',
-  'service',
-  'self-update',
-]);
+const COMMANDS: ReadonlySet<string> = new Set(
+  Object.keys(COMMAND_HELP).filter((key) => !key.includes(' ')),
+);
 
 /** Every valid flag spelling — long `--name` plus any short `-x` alias. */
 const FLAG_SPELLINGS: readonly string[] = Object.entries(OPTIONS).flatMap(([name, spec]) =>
