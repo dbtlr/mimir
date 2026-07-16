@@ -79,8 +79,8 @@ What `list`/`get` show as `status` is computed:
 
 ## Containers aren't lifecycle-managed
 
-Lifecycle verbs (`start`, `submit`, `return`, `done`, `abandon`, `reopen`, `park`,
-`block`) only act on **tasks**. Trying to `start` a phase or initiative is an error — the response
+Lifecycle verbs (`start`, `submit`, `return`, `done`, `abandon`, `reopen`,
+`park`/`unpark`, `block`/`unblock`) only act on **tasks**. Trying to `start` a phase or initiative is an error — the response
 names a ready child task to start instead. Complete the leaf tasks and the
 container's rollup follows automatically; there is nothing to do at the
 container level.
