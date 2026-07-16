@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, setDefaultTimeout, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -23,6 +23,15 @@ import { validate } from './validate';
  * WorkingSet consumers, so this proves the vault→WorkingSet projection itself.
  */
 const NORN = Bun.which('norn') !== null;
+
+// MMR-295: every case here pays a fresh mkdtemp + converge + NornClient
+// subprocess round trip in beforeEach, plus more per fixture seed/read — a
+// case ran to 5133ms against bun's 5000ms default on a loaded CI runner
+// (PR #246, unrelated diff). Profiling found no single case uniquely
+// expensive (45-90ms locally across the file); it's runner contention on
+// the whole subprocess-backed file, not one case's fixture cost, so the
+// budget is raised for the file, not just the case that happened to flake.
+setDefaultTimeout(20_000);
 
 let root: string;
 let vaultRoot: string;
