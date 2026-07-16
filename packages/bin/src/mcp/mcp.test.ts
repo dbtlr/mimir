@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { parseJson } from '@mimir/helpers';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
 import {
   createInitiative,
@@ -11,7 +13,7 @@ import {
   findNodeInSet,
 } from '../core';
 import type { Store } from '../core';
-import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
+import { createTestStore, inertStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { buildMcpServer } from './server';
 import {
   toolAnnotate,
@@ -620,3 +622,158 @@ test.skipIf(!NORN)(
     expect((await toolStart(store, { id: taskRef })).isError).toBeUndefined();
   },
 );
+
+// ---------------------------------------------------------------------------
+// Input-schema voice guard (MMR-292) — driven through the real transport, so
+// the SDK's pre-handler zod validation runs. The handler never executes on a
+// schema miss, so an inert store suffices and these run without norn (the
+// in-memory transport doubles as the MCP smoke).
+// ---------------------------------------------------------------------------
+
+/** Connect an in-memory client to a freshly-built server over an inert store. */
+async function connectClient(): Promise<{ client: Client; close: () => Promise<void> }> {
+  const server = buildMcpServer(inertStore(), '0.0.0');
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: 'test', version: '0.0.0' });
+  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+  return { client, close: () => client.close() };
+}
+
+type ToolCall = { content?: { text?: string }[]; isError?: boolean };
+const callText = (r: ToolCall): string => (r.content ?? []).map((c) => c.text ?? '').join('');
+
+/** The library wording the SDK ships verbatim today — none may reach the client. */
+const LIBRARY_LEAKS = [
+  'MCP error',
+  '-32602',
+  'Input validation error',
+  'Invalid arguments for tool',
+  'invalid_type',
+  'expected string, received',
+];
+
+test('a schema miss over the transport ships house voice, not zod wording', async () => {
+  const { client, close } = await connectClient();
+  try {
+    // id must be a string; passing a number trips the SDK's pre-handler zod
+    // validation. Before MMR-292 the client saw:
+    //   "MCP error -32602: Input validation error: Invalid arguments for tool
+    //    get: [ { "expected": "string", "code": "invalid_type", ... } ]"
+    const res = (await client.callTool({ arguments: { id: 123 }, name: 'get' })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const text = callText(res);
+    for (const leak of LIBRARY_LEAKS) {
+      expect(text).not.toContain(leak);
+    }
+    const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(text);
+    expect(parsed.error.code).toBe('validation');
+    expect(parsed.error.message).toBe('id must be a string');
+    expect(parsed.error.hint).toBe("check the arguments against the 'get' tool schema");
+  } finally {
+    await close();
+  }
+});
+
+test('a missing required arg names the arg as required', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({ arguments: {}, name: 'create' })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const parsed = parseJson<{ error: { message: string } }>(callText(res));
+    expect(parsed.error.message).toBe('type is required');
+  } finally {
+    await close();
+  }
+});
+
+test('an out-of-vocabulary enum arg states the constraint, no zod dump', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({
+      arguments: { id: 'MMR-1', priority: 'p9' },
+      name: 'update',
+    })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const text = callText(res);
+    expect(text).not.toContain('Invalid option');
+    const parsed = parseJson<{ error: { message: string } }>(text);
+    expect(parsed.error.message).toBe("priority must be one of 'p0', 'p1', 'p2', 'p3'");
+  } finally {
+    await close();
+  }
+});
+
+test('the tools/list advertised inputSchema is undegraded (MMR-292)', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const { tools } = await client.listTools();
+    const get = tools.find((t) => t.name === 'get');
+    expect(get).toBeDefined();
+    // The guard changes no schema: get still advertises a required string id and
+    // its optional facets array — exactly as informative as before the guard.
+    const schema = get?.inputSchema as {
+      properties?: Record<string, { type?: string }>;
+      required?: string[];
+    };
+    expect(schema.properties?.id?.type).toBe('string');
+    expect(schema.required).toContain('id');
+    expect(schema.properties?.facets?.type).toBe('array');
+  } finally {
+    await close();
+  }
+});
+
+// A compliant client omits the `arguments` key entirely; the SDK's own client
+// does this. The guard must coalesce and write back so the SDK's re-validation
+// sees `{}`, not `undefined` — else all-optional tools re-leak the zod dump.
+const ALL_OPTIONAL_TOOLS = ['next', 'list', 'seeds', 'overview', 'triage'];
+
+test.each(ALL_OPTIONAL_TOOLS)(
+  "a no-arguments call to '%s' never ships library text (MMR-292)",
+  async (name) => {
+    const { client, close } = await connectClient();
+    try {
+      // No `arguments` key at all — the regression scenario. Over an inert store
+      // the handler's read fails loudly, but that fault is house-shaped; what
+      // must never appear is the SDK's pre-handler zod dump.
+      const res = (await client.callTool({ name })) as ToolCall;
+      const text = callText(res);
+      for (const leak of LIBRARY_LEAKS) {
+        expect(text).not.toContain(leak);
+      }
+    } finally {
+      await close();
+    }
+  },
+);
+
+test.skipIf(!NORN)('a no-arguments call to an all-optional tool succeeds (MMR-292)', async () => {
+  const server = buildMcpServer(store, '0.0.0');
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: 'test', version: '0.0.0' });
+  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+  try {
+    // `next` with no arguments runs against the whole vault (no bound board) —
+    // it must reach the handler and return a set, not error on a missing arg.
+    const res = (await client.callTool({ name: 'next' })) as ToolCall;
+    expect(res.isError).toBeUndefined();
+    expect(parseJson<{ total: number }>(callText(res)).total).toBeGreaterThanOrEqual(0);
+  } finally {
+    await client.close();
+  }
+});
+
+test.skipIf(!NORN)('a valid call still dispatches to the handler through the guard', async () => {
+  const server = buildMcpServer(store, '0.0.0');
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: 'test', version: '0.0.0' });
+  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+  try {
+    const res = (await client.callTool({ arguments: { id: 'MMR' }, name: 'get' })) as ToolCall;
+    // Reaches toolGet, which returns the project record (not the guard's fault).
+    expect(res.isError).toBeUndefined();
+    expect(parseJson<{ id: string }>(callText(res)).id).toBe('MMR');
+  } finally {
+    await client.close();
+  }
+});
