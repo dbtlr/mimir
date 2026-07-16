@@ -392,12 +392,15 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--size <s|m|l>', 'size'],
       ['--target <text>', 'target date or milestone'],
       ['--ref <ref>', 'external reference'],
-      ['--upstream <KEY-sN>', 'task only: requester-side seed pointer (reference-only)'],
+      [
+        '--upstream <KEY-sN|none>',
+        "task only: requester-side seed pointer (reference-only); 'none' clears it",
+      ],
       ['--name <name>', 'project only (KEY): rename it'],
     ],
     summary: 'patch scalar fields (a dumb patch — status is excluded; use the lifecycle verbs)',
     usage:
-      'mimir update <id> [--title …] [--desc …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream …]',
+      'mimir update <id> [--title …] [--desc …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>]',
   },
   annotate: {
     args: [A_ID, ['<text>', 'note body (or stdin when omitted)']],

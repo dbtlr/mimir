@@ -336,6 +336,63 @@ test.skipIf(!NORN)(
     ).toBe(1);
   },
 );
+
+test.skipIf(!NORN)(
+  'update --upstream none clears a set seed pointer (set-then-clear roundtrip, MMR-301)',
+  async () => {
+    const setIo = fakeIo(false);
+    await runCli(['update', taskRef, '--upstream', 'NRN-s3', '-f', 'json'], () => store, setIo);
+    expect(JSON.parse(setIo.out[0] ?? '{}').upstream).toBe('NRN-s3');
+
+    const clearIo = fakeIo(false);
+    const code = await runCli(
+      ['update', taskRef, '--upstream', 'none', '-f', 'json'],
+      () => store,
+      clearIo,
+    );
+    expect(code).toBe(0);
+    expect(JSON.parse(clearIo.out[0] ?? '{}').upstream).toBeNull();
+  },
+);
+
+test.skipIf(!NORN)(
+  'update --upstream none on an already-empty upstream is idempotent (MMR-301)',
+  async () => {
+    const io = fakeIo(false);
+    const code = await runCli(
+      ['update', taskRef, '--upstream', 'none', '-f', 'json'],
+      () => store,
+      io,
+    );
+    expect(code).toBe(0);
+    expect(JSON.parse(io.out[0] ?? '{}').upstream).toBeNull();
+  },
+);
+
+test.skipIf(!NORN)(
+  'update --upstream "" (blank) is still rejected, not treated as clear (MMR-301)',
+  async () => {
+    expect(
+      await runCli(['update', taskRef, '--upstream', '', '-f', 'json'], () => store, fakeIo(false)),
+    ).toBe(2);
+  },
+);
+
+test.skipIf(!NORN)(
+  'update --upstream none leaves an unrelated field untouched (MMR-301)',
+  async () => {
+    const io = fakeIo(false);
+    const code = await runCli(
+      ['update', taskRef, '--title', 'renamed via clear', '--upstream', 'none', '-f', 'json'],
+      () => store,
+      io,
+    );
+    expect(code).toBe(0);
+    const v = JSON.parse(io.out[0] ?? '{}');
+    expect(v.upstream).toBeNull();
+    expect(v.title).toBe('renamed via clear');
+  },
+);
 test.skipIf(!NORN)('annotate from the positional tail exits 0', async () => {
   expect(
     await runCli(['annotate', taskRef, 'looked', 'into', 'this'], () => store, fakeIo(false)),

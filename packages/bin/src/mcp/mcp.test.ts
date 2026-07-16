@@ -539,6 +539,50 @@ test.skipIf(!NORN)(
   },
 );
 
+test.skipIf(!NORN)(
+  'toolUpdate upstream "none" clears a set seed pointer (set-then-clear roundtrip, MMR-301)',
+  async () => {
+    const set = await toolUpdate(store, { id: taskRef, upstream: 'NRN-s3' });
+    expect(set.isError).toBeUndefined();
+    expect(parseJson<{ upstream: string }>(textOf(set)).upstream).toBe('NRN-s3');
+
+    const cleared = await toolUpdate(store, { id: taskRef, upstream: 'none' });
+    expect(cleared.isError).toBeUndefined();
+    expect(parseJson<{ upstream: string | null }>(textOf(cleared)).upstream).toBeNull();
+  },
+);
+
+test.skipIf(!NORN)(
+  'toolUpdate upstream "none" on an already-empty upstream is idempotent (MMR-301)',
+  async () => {
+    const cleared = await toolUpdate(store, { id: taskRef, upstream: 'none' });
+    expect(cleared.isError).toBeUndefined();
+    expect(parseJson<{ upstream: string | null }>(textOf(cleared)).upstream).toBeNull();
+  },
+);
+
+test.skipIf(!NORN)(
+  'toolUpdate upstream "" (blank) is still rejected, not treated as clear (MMR-301)',
+  async () => {
+    const res = await toolUpdate(store, { id: taskRef, upstream: '' });
+    expect(res.isError).toBe(true);
+    expect(JSON.parse(textOf(res)).error.code).toBe('validation');
+  },
+);
+
+test.skipIf(!NORN)(
+  'toolUpdate upstream "none" leaves an unrelated field untouched (MMR-301)',
+  async () => {
+    const titled = await toolUpdate(store, { id: taskRef, title: 'kept across clear' });
+    expect(titled.isError).toBeUndefined();
+    const res = await toolUpdate(store, { id: taskRef, upstream: 'none' });
+    expect(res.isError).toBeUndefined();
+    const v = parseJson<{ upstream: string | null; title: string }>(textOf(res));
+    expect(v.upstream).toBeNull();
+    expect(v.title).toBe('kept across clear');
+  },
+);
+
 test.skipIf(!NORN)('toolUpdate project with missing key returns not_found', async () => {
   const res = await toolUpdate(store, { id: 'ZZZ', name: 'x' });
   expect(res.isError).toBe(true);
