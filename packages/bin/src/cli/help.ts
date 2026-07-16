@@ -678,6 +678,9 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     usage: 'mimir version',
   },
   // ── service supervision (MMR-286) ──
+  // Bare `service -h` renders this group page; each subcommand below gets its
+  // own targeted page (MMR-299) via the `"service <sub>"` key `helpForCommand`
+  // resolves first.
   service: {
     args: [
       ['<sub>', 'install | uninstall | start | stop | restart | status'],
@@ -694,8 +697,68 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     flags: [['--port <n>', 'install: serve port to persist (~/.config/mimir/config.toml)']],
     summary:
-      'supervise the launchd units (macOS) — install/uninstall/start/stop/restart/status; uninstall and the lifecycle verbs sweep whatever is installed. dev/from-source runs refuse the mutating verbs (status stays open); MIMIR_ALLOW_REAL_SERVICE=1 opts in to managing the real launchd',
+      "supervise the launchd units (macOS) — install/uninstall/start/stop/restart/status; uninstall and the lifecycle verbs sweep whatever is installed. dev/from-source runs refuse the mutating verbs (status stays open); MIMIR_ALLOW_REAL_SERVICE=1 opts in to managing the real launchd. run `mimir service <sub> -h` for a sub's own flags",
     usage: 'mimir service <sub> [unit]',
+  },
+  // ── service subcommands (MMR-299) ──
+  'service install': {
+    args: [['[unit]', 'serve | snapshot | all (default: serve — snapshot is opt-in)']],
+    examples: [
+      'mimir service install                 # install the serve launchd unit',
+      'mimir service install snapshot        # install the (opt-in) snapshot unit',
+      'mimir service install --port 4100     # install serve, persisting the port',
+      'mimir service install all             # install both units',
+    ],
+    flags: [['--port <n>', 'serve port to persist (~/.config/mimir/config.toml)']],
+    summary:
+      'install a launchd unit (macOS) — defaults to serve; snapshot is opt-in. --port persists to ~/.config/mimir/config.toml. dev/from-source runs refuse (MIMIR_ALLOW_REAL_SERVICE=1 opts in)',
+    usage: 'mimir service install [unit] [--port <n>]',
+  },
+  'service uninstall': {
+    args: [['[unit]', 'serve | snapshot | all (default: whatever is installed)']],
+    examples: [
+      'mimir service uninstall               # tear down whatever is installed',
+      'mimir service uninstall snapshot      # tear down just the snapshot unit',
+    ],
+    summary:
+      'tear down installed launchd unit(s) (macOS) — config and logs kept. a bare uninstall sweeps whatever is installed; dev/from-source runs refuse (MIMIR_ALLOW_REAL_SERVICE=1 opts in)',
+    usage: 'mimir service uninstall [unit]',
+  },
+  'service start': {
+    args: [['[unit]', 'serve | snapshot | all (default: whatever is installed)']],
+    examples: [
+      'mimir service start                   # start whatever is installed',
+      'mimir service start serve             # start just the serve unit',
+    ],
+    summary:
+      'start an installed launchd unit (macOS) — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. dev/from-source runs refuse (MIMIR_ALLOW_REAL_SERVICE=1 opts in)',
+    usage: 'mimir service start [unit]',
+  },
+  'service stop': {
+    args: [['[unit]', 'serve | snapshot | all (default: whatever is installed)']],
+    examples: [
+      'mimir service stop                    # stop whatever is installed',
+      'mimir service stop snapshot           # stop just the snapshot unit',
+    ],
+    summary:
+      'stop an installed launchd unit (macOS) — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. dev/from-source runs refuse (MIMIR_ALLOW_REAL_SERVICE=1 opts in)',
+    usage: 'mimir service stop [unit]',
+  },
+  'service restart': {
+    args: [['[unit]', 'serve | snapshot | all (default: whatever is installed)']],
+    examples: [
+      'mimir service restart                 # restart whatever is installed',
+      'mimir service restart all             # restart every installed unit',
+    ],
+    summary:
+      'restart an installed launchd unit (macOS) — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. dev/from-source runs refuse (MIMIR_ALLOW_REAL_SERVICE=1 opts in)',
+    usage: 'mimir service restart [unit]',
+  },
+  'service status': {
+    examples: ['mimir service status                  # report every installed unit'],
+    summary:
+      "report every launchd unit's state (loaded/running, serve's port + health, snapshot's interval) plus recent events (macOS) — a read; never mutates, no dev-build refusal",
+    usage: 'mimir service status',
   },
   // ── vault cadence (MMR-146) ──
   vault: {
@@ -800,8 +863,11 @@ export function renderCommandHelp(h: CommandHelp, full: boolean): string {
 
 /**
  * Per-command help text, or undefined when the command has no descriptor (the
- * caller falls back to the top-level help). `create` dispatches on its type
- * subcommand (`create task` → the task descriptor) when one is given.
+ * caller falls back to the top-level help). A group verb dispatches on its
+ * subcommand — `create task` → the task descriptor, `service install` → the
+ * install descriptor — when a `"<command> <sub>"` entry exists in
+ * `COMMAND_HELP`; otherwise the bare command's own (group) descriptor
+ * renders, so `create -h` / `service -h` still work with no subcommand given.
  */
 export function helpForCommand(
   command: string,
@@ -809,9 +875,7 @@ export function helpForCommand(
   full: boolean,
 ): string | undefined {
   const key =
-    command === 'create' && sub !== undefined && `create ${sub}` in COMMAND_HELP
-      ? `create ${sub}`
-      : command;
+    sub !== undefined && `${command} ${sub}` in COMMAND_HELP ? `${command} ${sub}` : command;
   const descriptor = COMMAND_HELP[key];
   return descriptor === undefined ? undefined : renderCommandHelp(descriptor, full);
 }
