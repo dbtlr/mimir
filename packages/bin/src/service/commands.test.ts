@@ -477,6 +477,23 @@ test('status flags restart pending when a prerelease runs against an on-disk rel
   expect(io.out.join('\n')).toContain('restart pending');
 });
 
+// 6c. the health payload is untrusted: a non-SemVer version (foreign
+// responder on the port) reads as restart pending — never a crash.
+test('status tolerates a non-SemVer running version from the health probe', async () => {
+  const sup = new FakeSupervisor();
+  sup.state = { loaded: true, pid: 4242, running: true };
+  const io = fakeIo();
+  const d = deps(sup, {
+    health: () => Promise.resolve({ status: 'ok', version: 'not-a-version' }),
+    version: '0.15.0',
+  });
+
+  const code = await cmdService(['service', 'status'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(io.out.join('\n')).toContain('restart pending');
+});
+
 // 7. status when not loaded says so and still shows paths
 test('status when not loaded says so and still shows paths', async () => {
   const sup = new FakeSupervisor();

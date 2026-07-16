@@ -43,6 +43,7 @@ import {
   downloadAsset,
   downloadSums,
   replaceBinary,
+  isSemverTag,
   resolveLatestTag,
   resolveNextChannelTag,
   verifyChecksum,
@@ -383,7 +384,11 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
       ? null
       : {
           onDiskVersion: deps.version,
-          restartPending: compareSemver(healthRaw.version, deps.version) !== 0,
+          // The health payload is an untrusted boundary: a non-SemVer version
+          // (foreign responder on the port) is by definition not the on-disk
+          // binary — restart pending, never a crash in a pure read.
+          restartPending:
+            !isSemverTag(healthRaw.version) || compareSemver(healthRaw.version, deps.version) !== 0,
           runningVersion: healthRaw.version,
         };
   const serve: UnitStatus = {
