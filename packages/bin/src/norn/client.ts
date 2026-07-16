@@ -396,6 +396,32 @@ export class NornClient {
     return (await this.getSectionsResult(targets, sections)).sectionFailures;
   }
 
+  /**
+   * Read each path's exact on-disk document text (frontmatter + body) — the
+   * location + snippet enrichment source for `mimir doctor`'s record-health
+   * facet (MMR-185). norn 0.48 (NRN-256) retired the `.raw` structural facet;
+   * the exact bytes now come from `vault.get { format: "markdown" }`, which is
+   * single-document only and returns a sibling `markdown: { path, content }`
+   * envelope (never a records field — verified against norn's `MarkdownOutput`).
+   * Fetched by path one document at a time, so it resolves even for a document
+   * whose frontmatter won't parse — the one corruption class the type-enumerated
+   * node read can't see. A path that doesn't resolve is skipped (an empty input
+   * yields an empty result), so the caller's enrichment degrades gracefully.
+   */
+  async readRawDocuments(paths: string[]): Promise<{ path: string; raw: string }[]> {
+    const out: { path: string; raw: string }[] = [];
+    for (const target of paths) {
+      const payload = await this.call('vault.get', { format: 'markdown', targets: [target] }, true);
+      if (isRecord(payload) && isRecord(payload.markdown)) {
+        const { content, path } = payload.markdown;
+        if (typeof path === 'string' && typeof content === 'string') {
+          out.push({ path, raw: content });
+        }
+      }
+    }
+    return out;
+  }
+
   async validate(): Promise<unknown> {
     return this.call('vault.validate', {}, true);
   }

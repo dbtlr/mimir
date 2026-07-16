@@ -13,7 +13,6 @@ import type { DoctorFacetDeps } from '../doctor/serve';
 import { readDoctorSnapshot } from '../doctor/snapshot';
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
-import { pathAndRaw } from '../norn/decode';
 import { createNornWriteStore } from '../norn/writer';
 import { converge } from '../vault/converge';
 import { createServer } from './server';
@@ -33,16 +32,7 @@ let base: string;
  * live client. */
 function doctorProvider(): (scope: string | undefined) => Promise<DoctorFacet> {
   const deps: DoctorFacetDeps = {
-    readRaw: async (paths) => {
-      if (paths.length === 0) {
-        return [];
-      }
-      const records = await client.get(paths, '.raw');
-      return records.flatMap((r) => {
-        const pr = pathAndRaw(r);
-        return pr === null ? [] : [pr];
-      });
-    },
+    readRaw: (paths) => client.readRawDocuments(paths),
     readSnapshot: () => readDoctorSnapshot(client),
   };
   return (scope) => computeDoctorFacet(deps, scope);

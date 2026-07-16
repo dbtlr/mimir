@@ -24,7 +24,8 @@ import { doctorIdentityIndex, doctorLogicalStemAtPath, doctorStemInScope } from 
 export type DoctorFacetDeps = {
   /** The same one-enumeration diagnostic snapshot the CLI consumes (MMR-241). */
   readSnapshot: () => Promise<DoctorSnapshot>;
-  /** Fetch each path's `.raw` disk text (frontmatter + body), keyed back by path. */
+  /** Fetch each path's exact on-disk text (frontmatter + body), keyed back by
+   * path — norn 0.48 sources this from `vault.get { format: "markdown" }`. */
   readRaw: (paths: string[]) => Promise<{ path: string; raw: string }[]>;
 };
 
