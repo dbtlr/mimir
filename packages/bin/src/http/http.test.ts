@@ -554,6 +554,51 @@ test.skipIf(!NORN)(
   },
 );
 
+test.skipIf(!NORN)(
+  'PATCH /api/nodes/:id upstream "none" clears a set seed pointer (set-then-clear roundtrip, MMR-301)',
+  async () => {
+    const set = await send('PATCH', `/api/nodes/${task1}`, { upstream: 'NRN-s3' });
+    expect(set.status).toBe(200);
+    expect((await parse(set)).upstream).toBe('NRN-s3');
+
+    const cleared = await send('PATCH', `/api/nodes/${task1}`, { upstream: 'none' });
+    expect(cleared.status).toBe(200);
+    expect((await parse(cleared)).upstream).toBeNull();
+  },
+);
+
+test.skipIf(!NORN)(
+  'PATCH /api/nodes/:id upstream "none" on an already-empty upstream is idempotent (MMR-301)',
+  async () => {
+    const cleared = await send('PATCH', `/api/nodes/${task1}`, { upstream: 'none' });
+    expect(cleared.status).toBe(200);
+    expect((await parse(cleared)).upstream).toBeNull();
+  },
+);
+
+test.skipIf(!NORN)(
+  'PATCH /api/nodes/:id upstream "" (blank) is still rejected, not treated as clear (MMR-301)',
+  async () => {
+    const res = await send('PATCH', `/api/nodes/${task1}`, { upstream: '' });
+    expect(res.status).toBe(400);
+    expect(errorCode(await parse(res))).toBe('validation');
+  },
+);
+
+test.skipIf(!NORN)(
+  'PATCH /api/nodes/:id upstream "none" leaves an unrelated field untouched (MMR-301)',
+  async () => {
+    const res = await send('PATCH', `/api/nodes/${task1}`, {
+      title: 'renamed via clear',
+      upstream: 'none',
+    });
+    expect(res.status).toBe(200);
+    const body = await parse(res);
+    expect(body.upstream).toBeNull();
+    expect(body.title).toBe('renamed via clear');
+  },
+);
+
 test.skipIf(!NORN)('annotations: POST appends (201), GET lists the sub-resource', async () => {
   const created = await send('POST', `/api/nodes/${task1}/annotations`, { content: 'a note' });
   expect(created.status).toBe(201);
