@@ -6,7 +6,7 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
 import { expectMimirError } from '../core/testing';
-import { NornClient } from './client';
+import { NornClient, nornPlanVersionMismatchHint } from './client';
 import { migrationPlan, setFrontmatter } from './plan';
 
 /**
@@ -340,6 +340,89 @@ test('applyPlan throws with norn message on an isError result that is not an app
       message = error instanceof Error ? error.message : String(error);
     }
     expect(message).toContain('plan schema invalid');
+  }
+});
+
+// MMR-298: norn's plan-schema-version refusal carries no report/hint payload of
+// its own, so it would otherwise surface as a raw validation passthrough with no
+// next move. These pin the direction the hint derives from the two version
+// numbers, and that an unrelated norn error is left alone.
+test('nornPlanVersionMismatchHint: plan newer than norn supports points at norn self-update', () => {
+  const hint = nornPlanVersionMismatchHint(
+    'unsupported plan schema_version 5; this norn build supports v3',
+  );
+  expect(hint).toContain('norn self-update');
+  expect(hint).not.toContain('mimir self-update');
+});
+
+test('nornPlanVersionMismatchHint: plan older than norn supports points at mimir self-update', () => {
+  // The exact wording MMR-297 fixed against (norn 0.48, plan schema v2).
+  const hint = nornPlanVersionMismatchHint(
+    'unsupported plan schema_version 1; this norn build supports v2',
+  );
+  expect(hint).toContain('mimir self-update');
+  expect(hint).not.toContain('norn self-update');
+});
+
+test('nornPlanVersionMismatchHint: an unparseable variant gives the two-sided hint', () => {
+  const hint = nornPlanVersionMismatchHint(
+    'unsupported plan schema_version; this norn build supports a newer format',
+  );
+  expect(hint).toContain('norn self-update');
+  expect(hint).toContain('mimir self-update');
+});
+
+test('nornPlanVersionMismatchHint: an unrelated norn error passes through unchanged', () => {
+  expect(nornPlanVersionMismatchHint('target not found')).toBeNull();
+  expect(nornPlanVersionMismatchHint('vault is locked')).toBeNull();
+});
+
+test('applyPlan throws with the version-mismatch hint on a plan-schema refusal', async () => {
+  const fake = fakeNorn(() => ({
+    'vault.apply': () =>
+      Promise.resolve({
+        content: [
+          {
+            text: 'unsupported plan schema_version 1; this norn build supports v2',
+            type: 'text' as const,
+          },
+        ],
+        isError: true,
+      }),
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  const plan = migrationPlan({ operations: [], vaultRoot: '/vault' });
+  try {
+    await client.applyPlan(plan, true);
+    throw new Error('expected applyPlan to throw');
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    expect(error.message).toContain('unsupported plan schema_version 1');
+    expect((error as { hint?: string }).hint).toContain('mimir self-update');
+  }
+});
+
+test('applyPlan on an unrelated refusal carries no version-mismatch hint', async () => {
+  const fake = fakeNorn(() => ({
+    'vault.apply': () =>
+      Promise.resolve({
+        content: [{ text: 'vault is locked', type: 'text' as const }],
+        isError: true,
+      }),
+  }));
+  client = new NornClient({ transportFactory: fake.factory, vaultPath: '/unused' });
+  const plan = migrationPlan({ operations: [], vaultRoot: '/vault' });
+  try {
+    await client.applyPlan(plan, true);
+    throw new Error('expected applyPlan to throw');
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    expect(error.message).toContain('vault is locked');
+    expect((error as { hint?: string }).hint).toBeUndefined();
   }
 });
 

@@ -126,6 +126,50 @@ function firstText(content: unknown): string | null {
   return null;
 }
 
+/**
+ * Detect norn's plan-`schema_version` refusal shape (MMR-298) and derive an
+ * actionable hint from it. `vault.apply` refuses a plan whose `schema_version`
+ * it doesn't support with a plain-text message — observed at MMR-297 (norn
+ * 0.48) as `unsupported plan schema_version 1; this norn build supports v2` —
+ * that carries no report/hint payload of its own, so {@link NornClient.unwrap}
+ * would otherwise surface it as a raw validation passthrough with no next move
+ * (docs/output-voice.md's hint ladder: "an error without a next move is an
+ * incomplete message"). It doesn't fire against norn 0.48 (mimir already emits
+ * the v2 it wants) — this is groundwork for the next plan-schema bump.
+ *
+ * Detection anchors on the stable tokens `schema_version` and `support` rather
+ * than the exact sentence, so a norn wording tweak doesn't silently stop this
+ * firing — but BOTH tokens are required, so an unrelated validation error is
+ * never hijacked.
+ *
+ * Direction is derived from the two version numbers when both parse: the
+ * plan's `schema_version` (N) against the version norn's build supports (M).
+ * N > M means mimir emitted a plan newer than this norn build understands —
+ * norn is behind (`norn self-update`). N < M means norn has moved ahead of the
+ * plan shape mimir emits — mimir is behind (`mimir self-update`). When either
+ * number doesn't parse, the hint names both moves rather than guessing.
+ */
+export function nornPlanVersionMismatchHint(message: string): string | null {
+  if (!/schema_version/i.test(message) || !/support/i.test(message)) {
+    return null;
+  }
+  const planVersion = /schema_version\D*(\d+)/i.exec(message)?.[1];
+  // `\s+` (not `\D*`) after `support\w*` so this never matches inside
+  // "unsupported" itself — the plan-version number sits right after
+  // "schema_version" with no intervening whitespace-then-digit run.
+  const supportedVersion = /support\w*\s+v?(\d+)/i.exec(message)?.[1];
+  if (planVersion !== undefined && supportedVersion !== undefined) {
+    const plan = Number(planVersion);
+    const supported = Number(supportedVersion);
+    if (Number.isFinite(plan) && Number.isFinite(supported) && plan !== supported) {
+      return plan > supported
+        ? 'this norn build is behind the plan schema mimir emits: norn self-update'
+        : 'this norn build expects a newer plan schema than mimir emits: mimir self-update';
+    }
+  }
+  return 'plan schema version mismatch — align the versions: norn self-update, or mimir self-update';
+}
+
 export class NornClient {
   private readonly options: NornClientOptions;
   private session: Client | null = null;
@@ -290,7 +334,10 @@ export class NornClient {
         return result.structuredContent;
       }
       const message = firstText(result.content) ?? 'norn returned an error with no message';
-      throw validation(`norn ${name}: ${message}`);
+      throw validation(
+        `norn ${name}: ${message}`,
+        nornPlanVersionMismatchHint(message) ?? undefined,
+      );
     }
     if (result.structuredContent !== undefined) {
       return result.structuredContent;
