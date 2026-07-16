@@ -137,7 +137,7 @@ export async function updateProject(
   return store.transact(async (w) => {
     const project = await w.loadProject(id);
     if (project === undefined) {
-      throw notFound('the project was not found');
+      throw notFound(`${id} doesn't exist`);
     }
     await assertProjectActive(w, id);
     if (fields.name !== undefined && fields.name.trim() === '') {
@@ -196,14 +196,14 @@ export async function updateArtifact(
   await store.transact(async (w) => {
     const project = await w.loadProject(ref.key);
     if (project === undefined) {
-      throw notFound('the artifact was not found');
+      throw notFound(`${ref.key}-a${String(ref.seq)} doesn't exist`);
     }
     await assertProjectActive(w, project.key);
   });
   if (fields.title !== undefined) {
     const found = await store.artifacts.updateTitle(ref.key, ref.seq, fields.title);
     if (!found) {
-      throw notFound('the artifact was not found');
+      throw notFound(`${ref.key}-a${String(ref.seq)} doesn't exist`);
     }
   }
 }
@@ -260,7 +260,7 @@ export async function attachArtifact(
   const { projectKey, linkStems } = await store.transact(async (w) => {
     const project = await w.loadProject(input.projectId);
     if (project === undefined) {
-      throw notFound('the project was not found');
+      throw notFound(`${input.projectId} doesn't exist`);
     }
     await assertProjectActive(w, input.projectId);
     const stems: string[] = [];

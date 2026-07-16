@@ -157,7 +157,7 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
       await rejectMessage(() =>
         fileSeed(store, { kind: 'idea', project: 'NOPE', requester: null, title: 't' }),
       ),
-    ).toMatch(/no project NOPE/);
+    ).toMatch(/NOPE doesn't exist/);
     expect(
       await rejectMessage(() =>
         fileSeed(store, { kind: 'idea', project: 'MMR', requester: 'NOPE', title: 't' }),

@@ -266,7 +266,7 @@ describe.skipIf(!NORN)('triage pass', () => {
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
     }
-    expect(message).toMatch(/no project NOPE/);
+    expect(message).toMatch(/NOPE doesn't exist/);
   });
 
   test('a corrupt ## Annotations anchor is quarantined into failures[] — the pass never aborts', async () => {

@@ -28,9 +28,9 @@ export class MimirError extends Error {
 export const notFound = (message: string, hint?: string): MimirError =>
   new MimirError('not_found', message, hint);
 
-/** Canonical "no project KEY" error — all transports emit the same hint. */
+/** Canonical project-miss — token-as-subject; all transports emit the same hint. */
 export const projectNotFound = (key: string): MimirError =>
-  notFound(`no project ${key}`, `create it: mimir create project "Name" --key ${key} -y`);
+  notFound(`${key} doesn't exist`, `create it: mimir create project "Name" --key ${key} -y`);
 export const validation = (message: string, hint?: string): MimirError =>
   new MimirError('validation', message, hint);
 export const conflict = (message: string, hint?: string): MimirError =>

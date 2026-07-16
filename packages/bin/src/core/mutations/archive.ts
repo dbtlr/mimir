@@ -17,7 +17,7 @@ import { logTransition } from './common';
 async function loadProject(w: StoreWriter, id: string): Promise<Project> {
   const project = await w.loadProject(id);
   if (project === undefined) {
-    throw notFound('the project was not found');
+    throw notFound(`${id} doesn't exist`);
   }
   return project;
 }
