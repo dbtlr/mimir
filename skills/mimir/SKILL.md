@@ -124,8 +124,9 @@ queries every project.
 
 **7. Drive from the reference, never from memory.** The verb and flag surface is
 exact and narrow — the only verbs that exist are the ones the references list.
-`mimir <cmd> -h`/`--help` prints that command's own usage and flags (`-h` terse,
-`--help` adds worked examples) — a quick flag reminder, not a substitute for the
+On every verb these references teach, `mimir <cmd> -h`/`--help` prints that
+command's own usage and flags (`-h` terse, `--help` adds worked examples) — a
+quick flag reminder, not a substitute for the
 reference, which stays the complete, authoritative teaching surface: workflow,
 rationale, and the pattern around the command. Renames are pre-1.0 hard breaks
 with no alias — a verb that used to work may have moved; the unknown-command
