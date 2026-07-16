@@ -235,6 +235,17 @@ test('an unexpected value for a boolean flag is synthesized in house voice (MMR-
   expect(err).not.toContain('does not take an argument');
 });
 
+test('a near-match to a short alias suggests the canonical long flag (MMR-289)', async () => {
+  // `--f` is uniquely nearest to the `-f` alias — the suggestion names
+  // `--format`, never the short spelling.
+  const io = fakeIo(true);
+  expect(await runCli(['list', '--f'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("unknown flag '--f'");
+  expect(err).toContain("did you mean '--format'?");
+  expect(err).not.toContain("did you mean '-f'?");
+});
+
 test('a boolean flag with a short alias still names the flag, not the fallback (MMR-289)', async () => {
   // Node prefixes the short form into the message (`Option '-y, --yes' does
   // not take an argument`) — the synthesis must still extract the long flag.

@@ -854,8 +854,13 @@ function synthesizeParseError(error: unknown, command: string | undefined): Usag
   if (code === 'ERR_PARSE_ARGS_UNKNOWN_OPTION') {
     const flag = /^Unknown option '(.+?)'\./.exec(message)?.[1];
     if (flag !== undefined) {
+      // Short aliases stay in the candidate pool (a short typo is nearest to a
+      // short spelling) but the suggestion always names the canonical long flag.
       const near = nearest(flag, FLAG_SPELLINGS);
-      return usage(`unknown flag '${flag}'`, near !== undefined ? `did you mean '${near}'?` : help);
+      return usage(
+        `unknown flag '${flag}'`,
+        near !== undefined ? `did you mean '${canonicalFlag(near)}'?` : help,
+      );
     }
   }
   if (code === 'ERR_PARSE_ARGS_INVALID_OPTION_VALUE') {
