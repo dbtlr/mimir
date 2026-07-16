@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { createTestStore, nodeIdOf, projectIdOf } from '../../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
-import { blockTask, depend, startTask, submitTask } from '../mutations';
+import { archiveProject, blockTask, depend, startTask, submitTask } from '../mutations';
 import { fileSeed } from '../seeds';
 import type { Store } from '../store';
 import { expectMimirError } from '../testing';
@@ -110,4 +110,9 @@ test.skipIf(!NORN)('stale hygiene counts tasks quiet past the threshold (asOf)',
 
 test.skipIf(!NORN)('an unknown scope key throws not_found', async () => {
   await expectMimirError('not_found', () => overviewOf(store, 'ZZZ'));
+});
+
+test.skipIf(!NORN)('an archived project 404s like status/get (ADR 0015 hiding)', async () => {
+  await archiveProject(store, 'MMR');
+  await expectMimirError('not_found', () => overviewOf(store, 'MMR'));
 });

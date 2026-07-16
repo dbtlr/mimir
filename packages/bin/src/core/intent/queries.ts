@@ -540,6 +540,11 @@ export async function overviewOf(
 ): Promise<OverviewReport> {
   const set = deriveSet(await store.loadWorkingSet());
   const scopeId = resolveScope(set, key);
+  // An archived project 404s here exactly like `status`/`get`/`tree` (ADR 0015
+  // hiding) — overview must never surface a shelf the siblings hide.
+  if (set.archivedProjects.has(scopeId)) {
+    throw projectNotFound(key);
+  }
   const { status, distribution } = statusOfProject(set, scopeId);
 
   const tasks = set.ws.nodes.filter((n) => n.type === 'task' && n.project_id === scopeId);

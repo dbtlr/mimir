@@ -649,11 +649,16 @@ export function renderTriage(report: TriageReport, format: Format, io: Io): void
   }
 }
 
-/** `records`-style rendering of `status_of` — label + distribution, with rollup signpost and TTY hint for containers. */
-export function renderStatus(status: StatusView, io: Io): string {
-  const dist = Object.entries(status.distribution)
+/** One spelling for a rollup distribution — `word:count` pairs, comma-joined. */
+function formatDistribution(distribution: Readonly<Record<string, number>>): string {
+  return Object.entries(distribution)
     .map(([word, count]) => `${word}:${String(count)}`)
     .join(', ');
+}
+
+/** `records`-style rendering of `status_of` — label + distribution, with rollup signpost and TTY hint for containers. */
+export function renderStatus(status: StatusView, io: Io): string {
+  const dist = formatDistribution(status.distribution);
   const isContainer = status.type !== 'task';
   const rollupNote = isContainer ? statusRollupSignpost(status) : '';
   const lines = [
@@ -681,9 +686,7 @@ export function renderOverview(report: OverviewReport, io: Io): string {
 
   // header — project id · status word · rollup distribution.
   const { id, status, distribution } = report.project;
-  const dist = Object.entries(distribution)
-    .map(([word, count]) => `${word}:${String(count)}`)
-    .join(', ');
+  const dist = formatDistribution(distribution);
   const head = [bold(id, io.plain), statusCell(status, status.length, io.plain)];
   if (dist !== '') {
     head.push(dist);
