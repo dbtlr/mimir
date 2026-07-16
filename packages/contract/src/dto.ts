@@ -365,6 +365,57 @@ export type StatusView = {
   distribution: Distribution;
 };
 
+/** An `overview` section carrying a capped task list plus its TRUE total (MMR-278):
+ * the `count` is the full population even when `tasks` is capped (next/awaiting cap
+ * at 5), so counts-before-contents holds regardless of the cap. */
+export type OverviewSection = {
+  /** The section's full population — may exceed `tasks.length` when capped. */
+  count: number;
+  /** The lean projection (as `list`/`next` emit), capped where the section caps. */
+  tasks: NodeView[];
+};
+
+/** An `overview` awaiting row (MMR-278): a lean task plus the upstream ids it awaits
+ * — the still-unsettled effective prerequisites (the `deps` facet's awaiting-on ids). */
+export type OverviewAwaitingTask = {
+  task: NodeView;
+  /** The upstream node ids (`KEY-seq`) this task awaits — own or inherited edges. */
+  awaitingOn: string[];
+};
+
+/** The `overview` hygiene block (MMR-278): counts only, no listings. Each nonzero
+ * count names a follow-up command in the human render (`untriaged` → `mimir triage`,
+ * `dropped` → `mimir doctor`, `blocked`/`stale` → the matching `mimir list`). */
+export type OverviewHygiene = {
+  /** New (untriaged) seeds on the board. */
+  untriaged: number;
+  /** Tasks whose status word is `blocked` (a manual hold). */
+  blocked: number;
+  /** Tasks that have gone quiet past the stale threshold. */
+  stale: number;
+  /** Records the tolerant reader dropped building the working set (MMR-184) —
+   * `WorkingSet.issueCount`, the free validate byproduct, never a doctor pass. */
+  dropped: number;
+};
+
+/**
+ * The `mimir overview` composite (MMR-278) — one project's session-boot
+ * orientation surface, a `report`-kind read (ADR 0024). Five attention-ordered
+ * sections: the project header (id, status word, rollup distribution — what
+ * `status KEY` answers), `inFlight` tasks (`in_progress` + `under_review`,
+ * uncapped), `next` (the ready-queue head, top 5), `awaiting`
+ * (dependency-gated tasks, top 5, each carrying the upstream ids it awaits),
+ * and `hygiene` counts. Derived from ONE working-set load plus one seeds read;
+ * renders as styled sections on a TTY and one JSON envelope when piped.
+ */
+export type OverviewReport = {
+  project: { id: string; status: StatusWord; distribution: Distribution };
+  inFlight: OverviewSection;
+  next: OverviewSection;
+  awaiting: { count: number; tasks: OverviewAwaitingTask[] };
+  hygiene: OverviewHygiene;
+};
+
 /** The set-valued column names (flat, MMR-38), for `--col` parsing and the cheap-vs-heavy default sets. */
 export const FACET_NAMES = [
   'deps',

@@ -1,6 +1,7 @@
 import type {
   ArtifactDetail,
   NodeView,
+  OverviewReport,
   SeedView,
   SetResult,
   StatusView,
@@ -113,6 +114,23 @@ function statusCell(status: StatusWord, width: number, plain: boolean): string {
   return color(`${glyph} ${pad(status, width)}`, style.color, plain);
 }
 
+/**
+ * The lean task rows — one task per line, `id`, state cell, `priority`, `parent`,
+ * `title`, aligned over the given items (MMR-87). The single row grammar shared by
+ * `table` (the set view) and the `overview` composite (MMR-278) — never a second
+ * spelling. Callers guard emptiness (the width `Math.max` needs ≥1 item).
+ */
+export function taskRows(items: readonly NodeView[], io: Io): string[] {
+  const idW = Math.max(...items.map((n) => n.id.length));
+  const stW = Math.max(...items.map((n) => n.status.length));
+  // Parent id — the row's hierarchy anchor (MMR-87). A top-level node has none.
+  const parentW = Math.max(...items.map((n) => (n.parent ?? '').length));
+  return items.map(
+    (n) =>
+      `${pad(n.id, idW)}   ${statusCell(n.status, stW, io.plain)}   ${pad(n.priority ?? '', 2)}   ${pad(n.parent ?? '', parentW)}   ${n.title}`,
+  );
+}
+
 /** `table` — one task per line, count-led, in array (rank) order. */
 export function renderTable(result: SetResult<NodeView>, io: Io, emptyMsg?: string): string {
   const lines = [countLine(result.total)];
@@ -123,17 +141,7 @@ export function renderTable(result: SetResult<NodeView>, io: Io, emptyMsg?: stri
     }
     return lines.join('\n');
   }
-  lines.push('');
-  const idW = Math.max(...items.map((n) => n.id.length));
-  const stW = Math.max(...items.map((n) => n.status.length));
-  // Parent id — the row's hierarchy anchor (MMR-87). A top-level node has none.
-  const parentW = Math.max(...items.map((n) => (n.parent ?? '').length));
-  for (const n of items) {
-    const priority = n.priority ?? '';
-    lines.push(
-      `${pad(n.id, idW)}   ${statusCell(n.status, stW, io.plain)}   ${pad(priority, 2)}   ${pad(n.parent ?? '', parentW)}   ${n.title}`,
-    );
-  }
+  lines.push('', ...taskRows(items, io));
   return lines.join('\n');
 }
 
@@ -641,11 +649,16 @@ export function renderTriage(report: TriageReport, format: Format, io: Io): void
   }
 }
 
-/** `records`-style rendering of `status_of` — label + distribution, with rollup signpost and TTY hint for containers. */
-export function renderStatus(status: StatusView, io: Io): string {
-  const dist = Object.entries(status.distribution)
+/** One spelling for a rollup distribution — `word:count` pairs, comma-joined. */
+function formatDistribution(distribution: Readonly<Record<string, number>>): string {
+  return Object.entries(distribution)
     .map(([word, count]) => `${word}:${String(count)}`)
     .join(', ');
+}
+
+/** `records`-style rendering of `status_of` — label + distribution, with rollup signpost and TTY hint for containers. */
+export function renderStatus(status: StatusView, io: Io): string {
+  const dist = formatDistribution(status.distribution);
   const isContainer = status.type !== 'task';
   const rollupNote = isContainer ? statusRollupSignpost(status) : '';
   const lines = [
@@ -658,6 +671,75 @@ export function renderStatus(status: StatusView, io: Io): string {
     lines.push(hint);
   }
   return lines.join('\n');
+}
+
+/**
+ * `overview` — the composite session-boot orientation surface (MMR-278). Five
+ * attention-ordered sections: the project header (id · status word · rollup
+ * distribution), `in flight` (uncapped), `next` and `awaiting` (top 5, each led
+ * by its TRUE total), then hygiene counts. Rows reuse the shared lean row grammar
+ * ({@link taskRows}) verbatim; an awaiting row appends the upstream ids it awaits
+ * as a `·`-separated clause. An empty section renders just its zero-count header.
+ */
+export function renderOverview(report: OverviewReport, io: Io): string {
+  const out: string[] = [];
+
+  // header — project id · status word · rollup distribution.
+  const { id, status, distribution } = report.project;
+  const dist = formatDistribution(distribution);
+  const head = [bold(id, io.plain), statusCell(status, status.length, io.plain)];
+  if (dist !== '') {
+    head.push(dist);
+  }
+  out.push(head.join(' · '));
+
+  const taskSection = (label: string, count: number, tasks: readonly NodeView[]): void => {
+    out.push('', `${label} (${String(count)})`);
+    if (tasks.length > 0) {
+      for (const line of taskRows(tasks, io)) {
+        out.push(`  ${line}`);
+      }
+    }
+  };
+
+  taskSection('in flight', report.inFlight.count, report.inFlight.tasks);
+  taskSection('next', report.next.count, report.next.tasks);
+
+  // awaiting — same rows, each with its upstream ids as a `·` clause.
+  out.push('', `awaiting (${String(report.awaiting.count)})`);
+  if (report.awaiting.tasks.length > 0) {
+    const rows = taskRows(
+      report.awaiting.tasks.map((a) => a.task),
+      io,
+    );
+    rows.forEach((line, i) => {
+      const ids = report.awaiting.tasks[i]?.awaitingOn ?? [];
+      out.push(`  ${ids.length > 0 ? `${line} · awaiting ${ids.join(', ')}` : line}`);
+    });
+  }
+
+  // hygiene — counts only; each nonzero count names its follow-up command,
+  // scoped to the reported project so the pointer stays true under `-s KEY`
+  // (the dropped count is the whole-vault tally, MMR-184 — its `doctor`
+  // pointer stays unscoped to match).
+  const { untriaged, blocked, stale, dropped } = report.hygiene;
+  const hygiene: string[] = [];
+  if (untriaged > 0) {
+    hygiene.push(`${countLine(untriaged, 'untriaged seed')} — run 'mimir triage ${id}'`);
+  }
+  if (blocked > 0) {
+    hygiene.push(`${String(blocked)} blocked — run 'mimir list -s ${id} --status blocked'`);
+  }
+  if (stale > 0) {
+    hygiene.push(`${String(stale)} stale — run 'mimir list -s ${id} --is stale'`);
+  }
+  if (dropped > 0) {
+    hygiene.push(`${countLine(dropped, 'dropped record')} — run 'mimir doctor'`);
+  }
+  out.push('', 'hygiene');
+  out.push(...(hygiene.length === 0 ? ['  nothing flagged'] : hygiene.map((line) => `  ${line}`)));
+
+  return out.join('\n');
 }
 
 /**

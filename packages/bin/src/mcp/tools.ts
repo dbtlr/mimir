@@ -50,6 +50,7 @@ import {
   resolveProjectKeyInSet,
   formatArtifactJson,
   formatNodeJson,
+  formatOverviewJson,
   formatPromoteJson,
   formatSeedJson,
   formatSeedsJson,
@@ -62,6 +63,7 @@ import {
   listProjects,
   moveNode,
   nextTasks,
+  overviewOf,
   notFound,
   projectNotFound,
   parkTask,
@@ -304,6 +306,32 @@ export function toolGet(
 
 export function toolStatus(store: Store, args: { id: string }): Promise<ToolResult> {
   return guard(async () => ok(formatStatusJson(await statusOfNode(store, args.id))));
+}
+
+/**
+ * `overview` — one project's session-boot orientation surface (MMR-278), the same
+ * composite JSON envelope the CLI emits. Reads ONE project: `scope` defaults to the
+ * bound board, and the cross-project `all` escape is a category error (a composite
+ * is not a cross-project set — `list` serves that).
+ */
+export function toolOverview(
+  store: Store,
+  args: { scope?: string },
+  boundScope?: string,
+): Promise<ToolResult> {
+  return guard(async () => {
+    if (args.scope === 'all') {
+      throw validation(
+        'overview reads one project, not a cross-project set',
+        'use list for a cross-project set',
+      );
+    }
+    const scope = args.scope ?? boundScope;
+    if (scope === undefined) {
+      throw validation('overview needs a project', 'pass scope or bind a project');
+    }
+    return ok(formatOverviewJson(await overviewOf(store, scope)));
+  });
 }
 
 // ---------------------------------------------------------------------------

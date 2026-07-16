@@ -7,6 +7,7 @@ usage: mimir <command> [options]
 
 read commands:
   next            ready tasks in rank order ("what's next")
+  overview        one project at a glance — in flight, next, awaiting, hygiene
   list            broad selection by predicate/scope/tag
   get <id>        full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN), seed (KEY-sN)
   status <id>     rollup distribution + status (KEY-seq or project KEY)
@@ -213,6 +214,19 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     flags: [F_SCOPE, F_PRIORITY, F_SIZE, SELECTION_NOTE, F_LIMIT, F_COL, F_FORMAT],
     summary: 'ready tasks in rank order ("what\'s next").',
     usage: 'mimir next [selection]',
+  },
+  overview: {
+    examples: [
+      'mimir overview                 # orient in the bound project',
+      'mimir overview -s MMR          # orient in a specific project',
+      'mimir overview -f json | jq    # the composite envelope for scripts',
+    ],
+    flags: [
+      F_SCOPE,
+      ['-f, --format <fmt>', 'records|json (default: records on a TTY, json when piped)'],
+    ],
+    summary: 'session-boot orientation for one project — in flight, next, awaiting, hygiene',
+    usage: 'mimir overview [-s <KEY>]',
   },
   list: {
     examples: [
@@ -721,6 +735,7 @@ export function helpForCommand(
 export const FULL_HELP = `${TERSE_HELP}
 examples:
   mimir next --scope MMR              # what to work on next in project MMR
+  mimir overview -s MMR               # one project at a glance (session boot)
   mimir next -p p0                    # highest-priority ready tasks
   mimir list --is stale               # tasks that have gone quiet
   mimir list --status done --after completed_at:2026-06-01

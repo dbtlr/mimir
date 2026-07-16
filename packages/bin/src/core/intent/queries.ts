@@ -4,6 +4,8 @@ import type {
   FacetName,
   FieldFilter,
   NodeView,
+  OverviewAwaitingTask,
+  OverviewReport,
   Priority,
   SetResult,
   Size,
@@ -26,11 +28,11 @@ import {
 import { notFound, projectNotFound, validation } from '../errors';
 import { parseIdentity } from '../ids';
 import type { Node } from '../model';
-import { isBlocking, isOrphaned, isReady, isStale } from '../predicates';
+import { isAwaiting, isBlocking, isOrphaned, isReady, isStale } from '../predicates';
 import { compileFilters } from '../query';
 import type { QueryRow } from '../query';
 import type { Store } from '../store';
-import { buildArtifactDetail, buildNodeView, buildProjectView } from './view';
+import { buildArtifactDetail, buildAwaitingOn, buildNodeView, buildProjectView } from './view';
 
 /**
  * The intent layer — the read surface both the CLI and MCP render. Commands
@@ -510,4 +512,88 @@ export async function statusOfNode(store: Store, id: string): Promise<StatusView
   }
   const { status, distribution } = statusOf(set, node);
   return { distribution, id: node.id, status, type: node.type };
+}
+
+/** The `next`/`awaiting` cap — the head of each queue, per ADR 0024's orientation
+ * surface (the tails live one `mimir list`/`mimir next` away). In flight is uncapped. */
+const OVERVIEW_CAP = 5;
+
+export type OverviewOptions = {
+  /** Reference time for the stale hygiene count (ISO-ms-Z); defaults to now — injectable for tests. */
+  asOf?: string;
+};
+
+/**
+ * `overview` — one project's session-boot orientation surface (MMR-278, ADR
+ * 0024): a flat, id-free, scope-honoring read composing the whole board state
+ * into five attention-ordered sections. Derived from ONE `loadWorkingSet` +
+ * `deriveSet` over the existing pure predicates, plus one seeds read for the
+ * untriaged count (triage's one-load precedent) — never a `next`/`list`/`status`
+ * entry point (each reloads the vault), never the doctor snapshot (the dropped
+ * count is the free `WorkingSet.issueCount` byproduct, MMR-184). Counts before
+ * contents: every section carries its TRUE total even where the list is capped.
+ */
+export async function overviewOf(
+  store: Store,
+  key: string,
+  opts: OverviewOptions = {},
+): Promise<OverviewReport> {
+  const set = deriveSet(await store.loadWorkingSet());
+  const scopeId = resolveScope(set, key);
+  // An archived project 404s here exactly like `status`/`get`/`tree` (ADR 0015
+  // hiding) — overview must never surface a shelf the siblings hide.
+  if (set.archivedProjects.has(scopeId)) {
+    throw projectNotFound(key);
+  }
+  const { status, distribution } = statusOfProject(set, scopeId);
+
+  const tasks = set.ws.nodes.filter((n) => n.type === 'task' && n.project_id === scopeId);
+
+  // in flight — the tasks under active hand (in_progress + under_review), uncapped.
+  const inFlightNodes = tasks
+    .filter((n) => {
+      const word = nodeStatusWord(set, n);
+      return word === 'in_progress' || word === 'under_review';
+    })
+    .toSorted(byRankOrder(set));
+
+  // next — the ready-queue head (matches `next`: todo, un-held, ranked, every
+  // prerequisite settled), rank order.
+  const readyNodes = tasks
+    .filter((n) => n.rank !== null && isReady(set, n))
+    .toSorted(byRankOrder(set));
+
+  // awaiting — dependency-gated tasks (the `awaiting` status word), rank order.
+  const awaitingNodes = tasks.filter((n) => isAwaiting(set, n)).toSorted(byRankOrder(set));
+
+  const lean = (nodes: readonly Node[]): Promise<NodeView[]> =>
+    Promise.all(nodes.map((node) => buildNodeView(store.bodySections, store.artifacts, set, node)));
+
+  const inFlightTasks = await lean(inFlightNodes);
+  const nextTop = await lean(readyNodes.slice(0, OVERVIEW_CAP));
+  const awaitingTasks: OverviewAwaitingTask[] = await Promise.all(
+    awaitingNodes.slice(0, OVERVIEW_CAP).map(async (node) => ({
+      // The upstream ids this row awaits — the deps facet's awaiting-on data (own
+      // or ancestor-inherited unsettled prerequisites), reduced to ids for the clause.
+      awaitingOn: buildAwaitingOn(set, node.id).map((ref) => ref.id),
+      task: await buildNodeView(store.bodySections, store.artifacts, set, node),
+    })),
+  );
+
+  // hygiene — counts only, no listings. Untriaged is the one seeds read (a `new`
+  // seed IS the untriaged lane); dropped is the free load byproduct (MMR-184).
+  const untriaged = (await store.seeds.listForProject(scopeId)).filter(
+    (seed) => seed.lifecycle === 'new',
+  ).length;
+  const blocked = tasks.filter((n) => nodeStatusWord(set, n) === 'blocked').length;
+  const stale = tasks.filter((n) => isStale(set, n, { asOf: opts.asOf })).length;
+  const dropped = set.ws.issueCount ?? 0;
+
+  return {
+    awaiting: { count: awaitingNodes.length, tasks: awaitingTasks },
+    hygiene: { blocked, dropped, stale, untriaged },
+    inFlight: { count: inFlightNodes.length, tasks: inFlightTasks },
+    next: { count: readyNodes.length, tasks: nextTop },
+    project: { distribution, id: scopeId, status },
+  };
 }
