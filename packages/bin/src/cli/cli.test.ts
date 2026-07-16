@@ -76,7 +76,7 @@ test('per-command -h prints that command, not the generic help (MMR-118)', async
   const out = io.out.join('');
   expect(out).toContain('mimir update <id>');
   expect(out).toContain('--desc'); // the flag the dogfood hunt couldn't find
-  expect(out).not.toContain('read commands:'); // not the top-level dump
+  expect(out).not.toContain('work commands'); // not the top-level dump
 });
 
 test('per-command --help adds examples; -h omits them (MMR-118)', async () => {
@@ -146,7 +146,7 @@ test('an unknown flag errors (exit 2) with a pointer, not the full help body (MM
   expect(err).toContain('mimir get -h'); // concise pointer to the verb's flags
   expect(io.out.join('')).toBe('');
   // The 144-line top-level help body is gone — no command listing dumped.
-  expect(err).not.toContain('read commands:');
+  expect(err).not.toContain('work commands');
 });
 
 test('an unknown flag after a value-taking global flag points at the right verb (MMR-211)', async () => {
@@ -272,7 +272,7 @@ test('archive -h prints the archive command help, not the generic dump (MMR-121)
   expect(await runCli(['archive', '-h'], neverStore, io)).toBe(0);
   const out = io.out.join('');
   expect(out).toContain('mimir archive <KEY>');
-  expect(out).not.toContain('read commands:');
+  expect(out).not.toContain('work commands');
 });
 
 test.skipIf(!NORN)('next --format json lists ready tasks (count-led envelope)', async () => {
