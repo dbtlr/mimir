@@ -718,17 +718,20 @@ export function renderOverview(report: OverviewReport, io: Io): string {
     });
   }
 
-  // hygiene — counts only; each nonzero count names its follow-up command.
+  // hygiene — counts only; each nonzero count names its follow-up command,
+  // scoped to the reported project so the pointer stays true under `-s KEY`
+  // (the dropped count is the whole-vault tally, MMR-184 — its `doctor`
+  // pointer stays unscoped to match).
   const { untriaged, blocked, stale, dropped } = report.hygiene;
   const hygiene: string[] = [];
   if (untriaged > 0) {
-    hygiene.push(`${countLine(untriaged, 'untriaged seed')} — run 'mimir triage'`);
+    hygiene.push(`${countLine(untriaged, 'untriaged seed')} — run 'mimir triage ${id}'`);
   }
   if (blocked > 0) {
-    hygiene.push(`${String(blocked)} blocked — run 'mimir list --status blocked'`);
+    hygiene.push(`${String(blocked)} blocked — run 'mimir list -s ${id} --status blocked'`);
   }
   if (stale > 0) {
-    hygiene.push(`${String(stale)} stale — run 'mimir list --is stale'`);
+    hygiene.push(`${String(stale)} stale — run 'mimir list -s ${id} --is stale'`);
   }
   if (dropped > 0) {
     hygiene.push(`${countLine(dropped, 'dropped record')} — run 'mimir doctor'`);

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { parseJson } from '@mimir/helpers';
 
 import {
+  blockTask,
   createInitiative,
   createPhase,
   createProject,
@@ -1008,6 +1009,14 @@ describe.skipIf(!NORN)('overview (MMR-278)', () => {
     expect(out).toContain('awaiting (0)');
     expect(out).toContain('hygiene');
     expect(out).toContain('do the thing');
+  });
+
+  test('hygiene follow-up pointers are scoped to the reported project', async () => {
+    const task = await createTask(store, { parentId: phaseId, title: 'stuck' });
+    await blockTask(store, `MMR-${String(task.seq)}`, 'external');
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    expect(io.out.join('')).toContain("1 blocked — run 'mimir list -s MMR --status blocked'");
   });
 
   test('the awaiting row carries the upstream ids it awaits', async () => {
