@@ -859,7 +859,9 @@ function synthesizeParseError(error: unknown, command: string | undefined): Usag
     }
   }
   if (code === 'ERR_PARSE_ARGS_INVALID_OPTION_VALUE') {
-    const noValueFlag = /^Option '(-{1,2}[\w-]+)' does not take an argument/.exec(message)?.[1];
+    const noValueFlag = /^Option '(?:-\w, )?(-{1,2}[\w-]+)' does not take an argument/.exec(
+      message,
+    )?.[1];
     if (noValueFlag !== undefined) {
       return usage(`'${canonicalFlag(noValueFlag)}' doesn't take a value`, help);
     }

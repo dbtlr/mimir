@@ -235,6 +235,17 @@ test('an unexpected value for a boolean flag is synthesized in house voice (MMR-
   expect(err).not.toContain('does not take an argument');
 });
 
+test('a boolean flag with a short alias still names the flag, not the fallback (MMR-289)', async () => {
+  // Node prefixes the short form into the message (`Option '-y, --yes' does
+  // not take an argument`) — the synthesis must still extract the long flag.
+  const io = fakeIo(true);
+  expect(await runCli(['create', 'project', 'x', '--yes=true'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("'--yes' doesn't take a value");
+  expect(err).not.toContain('invalid arguments');
+  expect(err).not.toContain('does not take an argument');
+});
+
 test('the JSON envelope carries the synthesized message, never the raw library text (MMR-289)', async () => {
   const io = fakeIo(true);
   expect(await runCli(['list', '--bogus', '-f', 'json'], neverStore, io)).toBe(2);
