@@ -341,10 +341,12 @@ export async function cmdDoctor(
     ok(io, 'doctor: no problems found');
   } else {
     // Findings are the loud channel: each on stderr, tagged by its informational
-    // severity label (there is no per-severity render glyph, and `error` must not
-    // read as a `warn`).
+    // severity — rendered as the tier-1 short spelling (`[err]`/`[warn]`, never
+    // `[error]`), so `error` never reads as a `warn`. The wire `severity` field
+    // keeps its `error`/`warn` vocabulary; only the human tag is short.
     for (const f of findings) {
-      io.error(`[${f.severity}] ${f.node}: ${f.message} (${f.where})`);
+      const tag = f.severity === 'error' ? 'err' : f.severity;
+      io.error(`[${tag}] ${f.node}: ${f.message} (${f.where})`);
     }
   }
 

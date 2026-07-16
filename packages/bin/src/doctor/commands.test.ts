@@ -110,7 +110,7 @@ test('a dropped record (missing edge) is an error alert on stderr, exit 0 (non-g
   expect(code).toBe(0);
   expect(io.out.join('')).toBe(''); // errors are the loud channel: stderr only
   const err = io.err.join('');
-  expect(err).toContain('[error]');
+  expect(err).toContain('[err]');
   expect(err).toContain('MMR-1');
   expect(err).toContain('dropped on read');
   expect(err).toContain('History · line 2');
