@@ -81,6 +81,7 @@ import {
   arrow,
   countLine,
   FORMATS,
+  ok,
   renderArtifactDetail,
   renderNodeView,
   renderOverview,
@@ -603,9 +604,9 @@ export async function runCli(
         } else if (singleFormat === 'ids') {
           ctx.write(dir);
         } else {
-          const glyph = ctx.plain ? '[ok]' : '\x1b[32m✓\x1b[0m';
-          ctx.write(
-            `${glyph} installed the mimir skill ${arrow(ctx.plain)} ${dir} (${SKILL_FILES.length} files)`,
+          ok(
+            ctx,
+            `installed the mimir skill ${arrow(ctx.plain)} ${dir} (${SKILL_FILES.length} files)`,
           );
         }
         return 0;
