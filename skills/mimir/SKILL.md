@@ -128,8 +128,9 @@ exact and narrow — the only verbs that exist are the ones the references list.
 `--help` adds worked examples) — a quick flag reminder, not a substitute for the
 reference, which stays the complete, authoritative teaching surface: workflow,
 rationale, and the pattern around the command. Renames are pre-1.0 hard breaks
-with no alias — a verb that suddenly errors means it moved, not that you
-mistyped; the unknown-command error may tombstone the old name to the new one.
+with no alias — a verb that used to work may have moved; the unknown-command
+error may tombstone the old name to the new one (no tombstone → check for a
+typo first).
 **Before your first create/update/restructure in a session, open the matching
 `references/*.md` (Routing, below) and drive from it.** Guessing a verb
 (`describe`? `show`? `edit`?) or a flag either errors and burns a round-trip, or
