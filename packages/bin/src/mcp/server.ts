@@ -170,15 +170,79 @@ function schemaMissVoice(
   return { hint, message: `${field} is not valid` };
 }
 
+/** Levenshtein edit distance — small inputs (tool names), one-row DP (mirrors
+ * cli/run.ts's flag/command nearest-match; kept as this module's own copy
+ * rather than a cross-domain import for a ~15-line algorithm). */
+function editDistance(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = row[0] ?? 0;
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const above = row[j] ?? 0;
+      row[j] = Math.min(above + 1, (row[j - 1] ?? 0) + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diag = above;
+    }
+  }
+  return row[b.length] ?? 0;
+}
+
 /**
- * Re-voice the SDK's pre-handler input validation (MMR-292). The MCP SDK
- * zod-validates each tool's `inputSchema` before the handler runs and, on a
- * miss, ships the raw zod aggregation as the tool-result text (`MCP error
- * -32602: Invalid arguments for tool … [<zod issues>]`). output-voice.md
- * forbids library text in any envelope, so this one choke point re-validates
- * with the SDK's OWN stored schema and, on a miss, returns the same structured
+ * The closest registered tool name to `name`, but only when it's a genuinely
+ * near miss: within 2 edits, strictly shorter distance than the input's own
+ * length, and UNAMBIGUOUS — a tie at the minimum yields no suggestion rather
+ * than an arbitrary one.
+ */
+function nearestTool(name: string, known: Iterable<string>): string | undefined {
+  let best: string | undefined;
+  let bestD = Number.POSITIVE_INFINITY;
+  let tied = false;
+  for (const candidate of known) {
+    const d = editDistance(name, candidate);
+    if (d < bestD) {
+      bestD = d;
+      best = candidate;
+      tied = false;
+    } else if (d === bestD) {
+      tied = true;
+    }
+  }
+  return best !== undefined && !tied && bestD <= 2 && bestD < name.length ? best : undefined;
+}
+
+/**
+ * Synthesize a house-voice not-found fault + hint for a CallTool request
+ * naming an unregistered tool (output-voice.md, MMR-296 — the not-found
+ * sibling of MMR-292's schema-miss guard, same choke point). Token-as-subject
+ * (`${name} doesn't exist`, matching core's `notFound` convention); the hint
+ * ladder's near-match rung fires when an edit-distance candidate exists among
+ * the registered tools, else the narrowest pointer at tools/list.
+ */
+function unknownToolVoice(name: string, known: string[]): { hint: string; message: string } {
+  const suggestion = nearestTool(name, known);
+  const hint =
+    suggestion !== undefined
+      ? `did you mean '${suggestion}'?`
+      : "run 'tools/list' to see the available tools";
+  // An empty name is never a near miss (nearestTool's own length guard rules
+  // it out) but still needs a legible subject — quoted, per the voice guide's
+  // literal-in-prose rule, rather than the blank `" doesn't exist"`.
+  const subject = name === '' ? "''" : name;
+  return { hint, message: `${subject} doesn't exist` };
+}
+
+/**
+ * Re-voice the SDK's pre-handler input validation (MMR-292) and its
+ * unregistered-tool-name fault (MMR-296). The MCP SDK zod-validates each
+ * tool's `inputSchema` before the handler runs and, on a miss, ships the raw
+ * zod aggregation as the tool-result text (`MCP error -32602: Invalid
+ * arguments for tool … [<zod issues>]`); a CallTool naming a tool that was
+ * never registered ships the SDK's own raw text the same way (`MCP error
+ * -32602: Tool <name> not found`). output-voice.md forbids library text in any
+ * envelope, so this one choke point re-validates with the SDK's OWN stored
+ * schema and, on either miss, returns the same structured
  * `{"error":{code,message,hint}}` envelope every other tool fault uses. On a
- * pass it writes the coalesced arguments back onto the request before
+ * schema pass it writes the coalesced arguments back onto the request before
  * dispatching, so the SDK's own validation — which still runs — sees the
  * identical value the guard just accepted and therefore cannot fail (an omitted
  * `arguments` key would otherwise reach the SDK as `undefined` and re-leak for
@@ -209,6 +273,15 @@ function guardInputSchemaVoice(server: McpServer): void {
     throw new Error('MCP CallTool handler is not registered');
   }
   server.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+    // An own-property test, not `tools[name] === undefined`: `tools` is a plain
+    // object, so a prototype-named request (`constructor`, `toString`,
+    // `__proto__`) would otherwise resolve an inherited Object.prototype value
+    // — truthy, and schema-less — skipping straight to `dispatch` and re-leaking
+    // the SDK's raw "Tool <name> disabled" text.
+    if (!Object.hasOwn(tools, request.params.name)) {
+      const { hint, message } = unknownToolVoice(request.params.name, Object.keys(tools));
+      return toolErrorResult('not_found', message, hint);
+    }
     const schema = tools[request.params.name]?.inputSchema;
     if (schema !== undefined) {
       const args = request.params.arguments ?? {};
@@ -678,9 +751,9 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     (args: { board?: string; dryRun?: boolean }) => toolTriage(store, args, boundScope),
   );
 
-  // Intercept the SDK's pre-handler input validation so a schema miss speaks
-  // house voice, not zod (MMR-292). Installed last, over the fully-registered
-  // tool set.
+  // Intercept the SDK's pre-handler input validation and its unregistered-tool
+  // fault so both speak house voice, not the SDK's raw text (MMR-292, MMR-296).
+  // Installed last, over the fully-registered tool set.
   guardInputSchemaVoice(server);
 
   return server;
