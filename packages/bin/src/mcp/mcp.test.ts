@@ -770,6 +770,51 @@ test('an unknown tool name with no near match points at tools/list', async () =>
   }
 });
 
+test.each(['constructor', 'toString', '__proto__'])(
+  "a prototype-named tool request ('%s') is voiced as not-found, not dispatched",
+  async (name) => {
+    const { client, close } = await connectClient();
+    try {
+      // `tools` is a plain object; `tools[name] !== undefined` would resolve
+      // an INHERITED Object.prototype value for these names (truthy,
+      // schema-less), skip the not-found branch, and fall through to the
+      // SDK's own dispatch — which re-leaks "MCP error -32602: Tool <name>
+      // disabled" (constructor/toString aren't callable tool handlers, so
+      // the SDK's own `tool.enabled` check trips). The guard must reject
+      // these as unregistered via an own-property test, same as any other
+      // unknown name.
+      const res = (await client.callTool({ arguments: {}, name })) as ToolCall;
+      expect(res.isError).toBe(true);
+      const text = callText(res);
+      for (const leak of LIBRARY_LEAKS) {
+        expect(text).not.toContain(leak);
+      }
+      expect(text).not.toContain('disabled');
+      const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(text);
+      expect(parsed.error.code).toBe('not_found');
+      expect(parsed.error.message).toBe(`${name} doesn't exist`);
+    } finally {
+      await close();
+    }
+  },
+);
+
+test('an empty tool name is voiced with a quoted subject, not a blank one', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({ arguments: {}, name: '' })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(
+      callText(res),
+    );
+    expect(parsed.error.code).toBe('not_found');
+    expect(parsed.error.message).toBe("'' doesn't exist");
+    expect(parsed.error.hint).toBe("run 'tools/list' to see the available tools");
+  } finally {
+    await close();
+  }
+});
+
 test('a registered tool name is unaffected by the not-found guard', async () => {
   const { client, close } = await connectClient();
   try {

@@ -224,7 +224,11 @@ function unknownToolVoice(name: string, known: string[]): { hint: string; messag
     suggestion !== undefined
       ? `did you mean '${suggestion}'?`
       : "run 'tools/list' to see the available tools";
-  return { hint, message: `${name} doesn't exist` };
+  // An empty name is never a near miss (nearestTool's own length guard rules
+  // it out) but still needs a legible subject — quoted, per the voice guide's
+  // literal-in-prose rule, rather than the blank `" doesn't exist"`.
+  const subject = name === '' ? "''" : name;
+  return { hint, message: `${subject} doesn't exist` };
 }
 
 /**
@@ -269,12 +273,16 @@ function guardInputSchemaVoice(server: McpServer): void {
     throw new Error('MCP CallTool handler is not registered');
   }
   server.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
-    const tool = tools[request.params.name];
-    if (tool === undefined) {
+    // An own-property test, not `tools[name] === undefined`: `tools` is a plain
+    // object, so a prototype-named request (`constructor`, `toString`,
+    // `__proto__`) would otherwise resolve an inherited Object.prototype value
+    // — truthy, and schema-less — skipping straight to `dispatch` and re-leaking
+    // the SDK's raw "Tool <name> disabled" text.
+    if (!Object.hasOwn(tools, request.params.name)) {
       const { hint, message } = unknownToolVoice(request.params.name, Object.keys(tools));
       return toolErrorResult('not_found', message, hint);
     }
-    const schema = tool.inputSchema;
+    const schema = tools[request.params.name]?.inputSchema;
     if (schema !== undefined) {
       const args = request.params.arguments ?? {};
       const parsed = schema.safeParse(args);
