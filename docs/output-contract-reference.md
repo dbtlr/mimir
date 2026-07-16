@@ -140,13 +140,15 @@ MMR-09   ◔ awaiting   p0   MMR-5    mcp read tools
 
 ## Layout style — adopted, brand deferred
 
-Adopt Norn's tool-agnostic **primitives** (count line, record block, table rows, separator, glyph set, ≤4-space indentation) and **house principles**: counts-before-contents; color is decoration, never information; structured formats never carry style; quiet by default (no banners/celebration); lowercase house style; NO_COLOR/`--ascii` lose nothing. **Mimir's brand** (palette, voice, identity glyphs) is a deferred branding pass — not a permanent inheritance of Norn's.
+Adopt Norn's tool-agnostic **primitives** (count line, record block, table rows, separator, glyph set, ≤4-space indentation) and **house principles**: counts-before-contents; color is decoration, never information; structured formats never carry style; quiet by default (no banners/celebration); lowercase house style; NO_COLOR/`--ascii` lose nothing. Of the deferred brand pass, **voice is now settled** — tone, mood, casing, tags, separators, and message grammar live in the [Output Voice Guide](output-voice.md) (MMR-213); palette and identity glyphs remain deferred.
 
 ## Doctor diagnostics and repair
 
 `mimir doctor [-s KEY] [--format …]` is read-only and non-gating. A successful
-diagnostic read exits `0` even when findings exist. Human findings retain the
-`[error]` / `[warn]` lines. JSON and JSONL findings retain the established
+diagnostic read exits `0` even when findings exist. Human findings keep their
+severity-tagged lines (today `[error]` / `[warn]`; spelling is governed by the
+[Output Voice Guide](output-voice.md), which adopts `[err]` — reconciliation
+tracked at MMR-288). JSON and JSONL findings retain the established
 `check`, `severity`, `node`, `where`, and `message` fields and add:
 
 - `code` — stable issue code;
