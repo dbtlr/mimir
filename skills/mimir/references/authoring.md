@@ -17,6 +17,11 @@ mimir create task "A discrete, verifiable outcome" --parent KEY-4 \
   doesn't need).
 - `priority`/`size` are optional **signals** — they filter and advise; they never
   reorder the queue. Leave them off rather than guessing.
+- `create <type>` is the single creation verb for tree nodes — one verb, a type
+  positional, not one top-level verb per type. `seed` and `attach` are the only
+  sanctioned exceptions: each earns its own verb because the creation ergonomics
+  ARE the feature (zero-friction capture; the relation itself is the command's
+  point) — see `references/seeds.md` and Artifacts, below.
 
 ## A task vs. a step
 

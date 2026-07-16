@@ -54,6 +54,9 @@ mimir get NRN-s3                  # one seed, resolved view
 - Default shows **live** seeds (`new`+`promoted`) **oldest-first** — the
   longest-waiting seed is the triage priority. `--status <word>|all`,
   `--sort asc|desc`, `-p all` for every board.
+- `seed` (capture) / `seeds` (query) is a deliberate singular–plural idiom, kept
+  because zero-friction capture is the point — it's a one-off, not a pattern.
+  There's no `tasks` or `projects` twin; `list` owns node queries.
 
 ## Triage verbs (the triager's surface)
 
@@ -68,6 +71,11 @@ mimir update  NRN-s2 --title "…" --kind idea      # patch a LIVE seed; termina
 - Lifecycle: `new → promoted → resolved | rejected` — and both terminals are
   reachable straight from `new` ("already fixed" is a **resolve**, not a reject;
   the reason string carries the nuance).
+- `promote`/`reject`/`resolve` are **seed-exclusive** verb names — a future
+  feature wanting one of these words picks something else rather than
+  overloading a seed verb. The grammar mirrors the task lifecycle
+  (`resolve KEY-s10` is the same flat-verb-plus-typed-id shape as
+  `done KEY-42`); only the argument arity differs per verb.
 - `promote` is **repeatable** while promoted — further germination appends
   `spawned` links. `--link` records work that already exists.
 - **Terminal states are set only by these explicit verbs.** All spawned work
