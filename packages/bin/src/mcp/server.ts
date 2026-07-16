@@ -9,6 +9,8 @@ import {
 import type { FacetName } from '@mimir/contract';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import type { ZodRawShape } from 'zod';
 
@@ -48,6 +50,7 @@ import {
   toolUnpark,
   toolUntag,
   toolUpdate,
+  toolErrorResult,
 } from './tools';
 import type { SetQueryArgs, ToolResult } from './tools';
 
@@ -125,6 +128,102 @@ function register<A>(
   // args is zod-validated at runtime; A is the caller's declared shape.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   registerTool(name, { description, inputSchema }, (args) => handler(args as A));
+}
+
+const ARTICLE_VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);
+const articleFor = (word: string): string => (ARTICLE_VOWELS.has(word[0] ?? '') ? 'an' : 'a');
+
+/**
+ * Synthesize a house-voice fault + hint from the first issue of a tool-input
+ * schema miss (output-voice.md, MMR-292). Names the offending arg as the
+ * subject where the issue allows (`id must be a string`, `'type' is required`),
+ * states one fault, and points at the tool's advertised contract — the
+ * narrowest hint rung that applies to an args fault. Reads the structured zod
+ * issue only; no library wording is ever echoed.
+ */
+function schemaMissVoice(
+  name: string,
+  error: z.ZodError,
+  args: Record<string, unknown>,
+): { hint: string; message: string } {
+  const hint = `check the arguments against the '${name}' tool schema`;
+  const issue = error.issues[0];
+  const field = issue === undefined ? 'input' : String(issue.path[0] ?? 'input');
+  // Field-as-subject, unquoted, per the voice guide's token-as-subject rule
+  // (matching respond.ts's `${key} must be a string`). A top-level arg that is
+  // simply absent reads as "required"; a present but ill-typed / out-of-
+  // vocabulary arg states the constraint on its value.
+  if (issue !== undefined && issue.path.length <= 1 && args[field] === undefined) {
+    return { hint, message: `${field} is required` };
+  }
+  if (issue?.code === 'invalid_type') {
+    const expected = issue.expected;
+    return { hint, message: `${field} must be ${articleFor(expected)} ${expected}` };
+  }
+  if (issue?.code === 'invalid_value' && issue.values.length > 0) {
+    const values = issue.values.map((v) => `'${String(v)}'`).join(', ');
+    return { hint, message: `${field} must be one of ${values}` };
+  }
+  if (issue?.code === 'too_small') {
+    return { hint, message: `${field} must not be empty` };
+  }
+  return { hint, message: `${field} is not valid` };
+}
+
+/**
+ * Re-voice the SDK's pre-handler input validation (MMR-292). The MCP SDK
+ * zod-validates each tool's `inputSchema` before the handler runs and, on a
+ * miss, ships the raw zod aggregation as the tool-result text (`MCP error
+ * -32602: Invalid arguments for tool … [<zod issues>]`). output-voice.md
+ * forbids library text in any envelope, so this one choke point re-validates
+ * with the SDK's OWN stored schema and, on a miss, returns the same structured
+ * `{"error":{code,message,hint}}` envelope every other tool fault uses. On a
+ * pass it writes the coalesced arguments back onto the request before
+ * dispatching, so the SDK's own validation — which still runs — sees the
+ * identical value the guard just accepted and therefore cannot fail (an omitted
+ * `arguments` key would otherwise reach the SDK as `undefined` and re-leak for
+ * all-optional tools). Runtime behavior and the advertised tools/list schema
+ * are untouched.
+ *
+ * The SDK exposes no public accessor for its registered CallTool handler or its
+ * stored schemas, so both are read through documented casts (as the register()
+ * seam above already does for the SDK's untyped surface).
+ */
+type CallToolDispatch = (request: CallToolRequest, extra: unknown) => Promise<ToolResult>;
+type McpInternals = {
+  _registeredTools: Record<string, { inputSchema?: z.ZodType } | undefined>;
+  server: { _requestHandlers: Map<string, CallToolDispatch> };
+};
+
+function guardInputSchemaVoice(server: McpServer): void {
+  // The SDK exposes no public accessor for its registered schemas or CallTool
+  // handler; both are read through this one documented cast.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  const internals = server as unknown as McpInternals;
+  // oxlint-disable-next-line eslint/no-underscore-dangle
+  const tools = internals._registeredTools;
+  const method = CallToolRequestSchema.shape.method.value;
+  // oxlint-disable-next-line eslint/no-underscore-dangle
+  const dispatch = internals.server._requestHandlers.get(method);
+  if (dispatch === undefined) {
+    throw new Error('MCP CallTool handler is not registered');
+  }
+  server.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+    const schema = tools[request.params.name]?.inputSchema;
+    if (schema !== undefined) {
+      const args = request.params.arguments ?? {};
+      const parsed = schema.safeParse(args);
+      if (!parsed.success) {
+        const { hint, message } = schemaMissVoice(request.params.name, parsed.error, args);
+        return toolErrorResult('validation', message, hint);
+      }
+      // Write the coalesced value back so the SDK's own re-validation sees the
+      // same object the guard accepted — an omitted `arguments` key reaches the
+      // SDK as `undefined` and would re-leak zod text for all-optional tools.
+      request.params.arguments = args;
+    }
+    return dispatch(request, extra);
+  });
 }
 
 export function buildMcpServer(store: Store, version: string, boundScope?: string): McpServer {
@@ -578,6 +677,11 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     { board: z.string().optional(), dryRun: z.boolean().optional() },
     (args: { board?: string; dryRun?: boolean }) => toolTriage(store, args, boundScope),
   );
+
+  // Intercept the SDK's pre-handler input validation so a schema miss speaks
+  // house voice, not zod (MMR-292). Installed last, over the fully-registered
+  // tool set.
+  guardInputSchemaVoice(server);
 
   return server;
 }

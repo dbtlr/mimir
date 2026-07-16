@@ -115,7 +115,10 @@ export type ToolResult = {
 
 const ok = (text: string): ToolResult => ({ content: [{ text, type: 'text' }] });
 
-const fail = (code: string, message: string, hint?: string): ToolResult => ({
+/** The structured MCP error envelope `{"error":{code,message,hint?}}` as an
+ * `isError` tool result — the shared emitter for tool-level faults and the
+ * input-schema voice guard (server.ts). */
+export const toolErrorResult = (code: string, message: string, hint?: string): ToolResult => ({
   content: [
     {
       text: JSON.stringify(
@@ -126,6 +129,7 @@ const fail = (code: string, message: string, hint?: string): ToolResult => ({
   ],
   isError: true,
 });
+const fail = toolErrorResult;
 
 /** Map a thrown {@link MimirError} to a structured `isError` result; rethrow anything else. */
 async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {

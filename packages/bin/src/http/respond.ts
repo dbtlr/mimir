@@ -60,8 +60,20 @@ export function errorResponse(req: Request, error: unknown): Response {
     };
     return json(req, body, STATUS_BY_CODE[error.code]);
   }
-  const message = error instanceof Error ? error.message : String(error);
-  return json(req, { error: { code: 'internal', message } }, 500);
+  // A non-domain error is an internal fault: the envelope ships a house-voice
+  // fact + a next move (output-voice.md — library text never ships, and every
+  // error points somewhere), while the raw detail is preserved for the operator
+  // on stderr (consistent with how `serve` logs), never in the response.
+  const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  console.error(`✗ serve: ${req.method} ${new URL(req.url).pathname} did not complete — ${detail}`);
+  const body = {
+    error: {
+      code: 'internal',
+      hint: "run 'mimir doctor'",
+      message: 'the request did not complete',
+    },
+  };
+  return json(req, body, 500);
 }
 
 /** Run a handler, rendering any thrown error through the envelope. */
