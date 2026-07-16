@@ -78,6 +78,13 @@ const TAG_HREF = new RegExp(
  */
 export async function resolveNextChannelTag(fetcher: Fetcher = manualFetch): Promise<string> {
   const res = await fetcher(ATOM_FEED);
+  if (!res.ok) {
+    throw new MimirError(
+      'validation',
+      `release feed request failed (${String(res.status)})`,
+      'check network access to github.com',
+    );
+  }
   const text = await res.text();
   let best: string | undefined;
   for (const m of text.matchAll(TAG_HREF)) {

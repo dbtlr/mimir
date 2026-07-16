@@ -153,6 +153,19 @@ test('resolveNextChannelTag picks the semver max, not the publish-order head', a
   expect(tag).toBe('v0.15.0');
 });
 
+test('resolveNextChannelTag surfaces an HTTP failure instead of the generic no-tag error', async () => {
+  let thrown: unknown;
+  try {
+    await resolveNextChannelTag(() =>
+      Promise.resolve(new Response('rate limited', { status: 429 })),
+    );
+  } catch (err) {
+    thrown = err;
+  }
+  expect(thrown).toBeInstanceOf(Error);
+  expect((thrown as Error).message).toMatch(/feed request failed \(429\)/);
+});
+
 test('resolveNextChannelTag throws when the feed names no release', async () => {
   let thrown: unknown;
   try {
