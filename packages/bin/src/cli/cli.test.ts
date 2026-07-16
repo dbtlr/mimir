@@ -121,6 +121,51 @@ test('skill/service/self-update print their own command help, not the top-level 
   }
 });
 
+test("service <sub> -h renders that subcommand's own page, not the group page (MMR-299)", async () => {
+  for (const [sub, usage] of [
+    ['install', 'mimir service install ['],
+    ['uninstall', 'mimir service uninstall ['],
+    ['start', 'mimir service start ['],
+    ['stop', 'mimir service stop ['],
+    ['restart', 'mimir service restart ['],
+    ['status', 'mimir service status'],
+  ] as const) {
+    const io = fakeIo(true);
+    expect(await runCli(['service', sub, '-h'], neverStore, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain(usage);
+    expect(out).not.toContain('mimir service <sub>'); // not the group descriptor
+  }
+});
+
+test('bare service -h still renders the group page listing every subcommand (MMR-299)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['service', '-h'], neverStore, io)).toBe(0);
+  const out = io.out.join('');
+  expect(out).toContain('mimir service <sub>');
+  expect(out).toContain('install | uninstall | start | stop | restart | status');
+});
+
+test('service install --help adds worked examples; -h omits them (MMR-299)', async () => {
+  const terse = fakeIo(true);
+  expect(await runCli(['service', 'install', '-h'], neverStore, terse)).toBe(0);
+  const terseOut = terse.out.join('');
+  expect(terseOut).toContain('--port');
+  expect(terseOut).not.toContain('examples:');
+
+  const full = fakeIo(true);
+  expect(await runCli(['service', 'install', '--help'], neverStore, full)).toBe(0);
+  const fullOut = full.out.join('');
+  expect(fullOut).toContain('examples:');
+  expect(fullOut).toContain('mimir service install snapshot');
+});
+
+test('service subcommand help never acquires the store (MMR-299, MMR-39)', async () => {
+  for (const sub of ['install', 'uninstall', 'start', 'stop', 'restart', 'status']) {
+    expect(await runCli(['service', sub, '-h'], neverStore, fakeIo(true))).toBe(0);
+  }
+});
+
 test('serve/mcp/version print their own command help, not the top-level fallback (MMR-294)', async () => {
   // These three are machinery loners intercepted ahead of runCli in `main`
   // (ADR 0024) — the interception itself is proven by the from-source smoke,
