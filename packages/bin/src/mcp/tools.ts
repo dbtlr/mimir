@@ -40,7 +40,8 @@ import {
   fileSeed,
   getSeed,
   listSeeds,
-  isSeedRef,
+  parseUpstreamField,
+  UPSTREAM_CLEAR,
   promoteSeed,
   transitionSeed,
   resolveBoard,
@@ -579,7 +580,7 @@ export function toolUpdate(
       fields.externalRef = args.externalRef;
     }
     if (args.upstream !== undefined) {
-      fields.upstream = validateUpstream(args.upstream);
+      fields.upstream = parseUpstream(args.upstream);
     }
     if (args.openEnded !== undefined) {
       fields.openEnded = args.openEnded;
@@ -589,12 +590,20 @@ export function toolUpdate(
   });
 }
 
-/** Validate an `--upstream KEY-sN` seed pointer at the tool layer (MMR-245). */
-function validateUpstream(upstream: string): string {
-  if (!isSeedRef(upstream)) {
-    throw validation(`upstream must be a seed id (KEY-sN), got ${upstream}`);
+/**
+ * Parse an `upstream` `KEY-sN` seed pointer at the tool layer (MMR-245),
+ * including its explicit clear sentinel `"none"` (MMR-301) — the same wire
+ * token CLI's `--upstream none` and HTTP's PATCH body share. Blank/absent
+ * never clears (MMR-284 rejected that ambiguity).
+ */
+function parseUpstream(upstream: string): string | null {
+  const parsed = parseUpstreamField(upstream);
+  if (parsed === undefined) {
+    throw validation(
+      `upstream must be a seed id (KEY-sN) or '${UPSTREAM_CLEAR}' to clear, got ${upstream}`,
+    );
   }
-  return upstream;
+  return parsed;
 }
 
 /** `update KEY` — patch a project's `name` and/or `description` (MMR-88). */
@@ -863,7 +872,7 @@ export function toolCreate(
           summary: args.summary,
           tags: args.tags,
           title: args.title,
-          upstream: args.upstream === undefined ? undefined : validateUpstream(args.upstream),
+          upstream: args.upstream === undefined ? undefined : parseUpstream(args.upstream),
         });
         return echoNode(store, node);
       }
