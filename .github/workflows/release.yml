@@ -56,23 +56,23 @@ jobs:
       # Same pinned install as ci.yml — bump the pin with intent, never float.
       - name: Install norn (pinned)
         env:
-          NORN_VERSION: v0.47.0
+          NORN_VERSION: v0.48.0
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          # Digests pinned from the v0.47.0 release assets — a bumped
+          # Digests pinned from the v0.48.0 release assets — a bumped
           # NORN_VERSION moves these too (the release's own .sha256 files live
           # in the same mutable release, so they can't be the trust anchor).
           case "$(uname -s)-$(uname -m)" in
             Darwin-arm64)
               target=aarch64-apple-darwin
-              sha256=a646e022727ba8ebfd696789cee46067e0c6ef102eee93146dc6d95e4167cad4 ;;
+              sha256=146c150fabd3ad80593779e0bebd1bb6be23d393e880ee1366f8bb7dea4e6607 ;;
             Linux-x86_64)
               target=x86_64-unknown-linux-musl
-              sha256=57c9bdcff1413709b19627253ff87bb844b9db855ef52b8fe65671a0b7fcfeda ;;
+              sha256=9985e026e7974b00ed20fceb964f18265b57e393dbd798a9d4a6df8974cac165 ;;
             Linux-aarch64)
               target=aarch64-unknown-linux-musl
-              sha256=412d6f97095e650c6a9f07eb8383ce31618075eeeea8ddf8e2f7fc92de6de17b ;;
+              sha256=f3c7adf0af86fd1f449cbab147bc507ba5312c1f113805cb67efb46fb1f2fc8e ;;
             *) echo "unsupported runner: $(uname -s)-$(uname -m)" >&2; exit 1 ;;
           esac
           asset="norn-run-${target}.tar.xz"

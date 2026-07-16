@@ -95,6 +95,36 @@ test('a non-string field on an op decodes to null (never a false value)', () => 
   });
 });
 
+test('tolerates the norn 0.48 v3 report shape — schema_version 3 and preconditions[] (MMR-297)', () => {
+  // NRN-264 / ADR 0015 moved ApplyReport to schema v3: reports gain a
+  // first-class `preconditions` results array (and carry `schema_version`,
+  // `trace_id`, precondition-result records mimir never reads). The decode reads
+  // only `outcome` and the per-op fields, so the additive v3 fields pass through
+  // untouched — the create stem still resolves and no unknown field derails it.
+  const v3Report = {
+    report: {
+      applied: 1,
+      failed: 0,
+      operations: [{ kind: 'create_document', op_id: '0', status: 'applied', stem: 'MMR-2' }],
+      outcome: 'applied',
+      preconditions: [
+        {
+          actual_paths: ['projects/mimir.md'],
+          expected_paths: ['projects/mimir.md'],
+          id: 'project-owner',
+          status: 'passed',
+        },
+      ],
+      schema_version: 3,
+      skipped: 0,
+      trace_id: 'trace-abc',
+      vault_root: '/vault',
+    },
+  };
+  expect(decodeApplyReport(v3Report).outcome).toBe('applied');
+  expect(createdStem(v3Report)).toEqual({ stem: 'MMR-2' });
+});
+
 test('drops non-record operation entries', () => {
   const decoded = decodeApplyReport({
     report: {

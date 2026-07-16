@@ -6,15 +6,23 @@
  * as one all-or-nothing batch, applied as one atomic transaction.
  *
  * The types mirror norn's authoritative Rust schema (`src/migration_plan.rs`,
- * schema v1). Every operation nests its params under `fields`; the exact keys
+ * schema v2). Every operation nests its params under `fields`; the exact keys
  * per kind are fixed by norn's applier (`src/planner/intent/mod.rs` deserializes
  * `fields` straight into its internal `PlannedChange`, and `src/repair_apply.rs`
  * reads `create_document`'s `new_value.{frontmatter,body}`), so the constructor
  * helpers here are the single place those key names live on the mimir side.
+ *
+ * norn 0.48 (NRN-264, ADR 0015) moved `MigrationPlan` to schema v2: plans gain
+ * first-class `preconditions` (atomic logical-owner assertions). The field is
+ * `#[serde(default, skip_serializing_if = "Vec::is_empty")]` on norn's side, so
+ * an absent `preconditions` is a conformant v2 plan. Mimir emits that minimal
+ * shape — bumping only the stamp — and does NOT adopt owner-set precondition
+ * semantics (deliberately out of scope; a follow-up decision owns whether
+ * mimir's node write path should assert owner sets).
  */
 
-/** The `schema_version` norn's `MigrationPlan` accepts — v1 is the only build target. */
-export const MIGRATION_PLAN_SCHEMA_VERSION = 1;
+/** The `schema_version` norn's `MigrationPlan` accepts — v2 since norn 0.48 (NRN-264). */
+export const MIGRATION_PLAN_SCHEMA_VERSION = 2;
 
 /**
  * Norn's sequence-allocation template token (MMR-196). A `create_document`
@@ -29,7 +37,10 @@ export const SEQ_TOKEN = '{{seq}}';
 /**
  * One operation in a {@link MigrationPlan}. All op params nest under `fields`
  * (an untyped JSON object on norn's side); `id`/`requires` are the optional
- * ordering hooks, unused by this slice.
+ * ordering hooks, unused by this slice. The op shape is unchanged across the
+ * v1→v2 plan break — norn's `MigrationOp` still reads `{kind, fields, id?,
+ * requires?}` (verified against `src/migration_plan.rs`), and `path` lives
+ * inside `fields`, never at the op top level.
  */
 export type MigrationOp = {
   kind: string;
@@ -38,9 +49,11 @@ export type MigrationOp = {
   requires?: string[];
 };
 
-/** A norn migration plan (schema v1) — the whole batch for one `transact`. */
+/** A norn migration plan (schema v2) — the whole batch for one `transact`.
+ * `preconditions` is omitted: an absent/empty array is a conformant v2 plan and
+ * mimir does not assert owner-set preconditions (out of scope, see module doc). */
 export type MigrationPlan = {
-  schema_version: 1;
+  schema_version: 2;
   vault_root: string;
   generator?: string;
   generated_at?: string;
@@ -162,7 +175,7 @@ export function createDocumentPlan(
   });
 }
 
-/** Assemble a schema-v1 plan for one `transact` from its operations. */
+/** Assemble a schema-v2 plan for one `transact` from its operations. */
 export function migrationPlan(args: {
   vaultRoot: string;
   operations: MigrationOp[];
@@ -171,7 +184,7 @@ export function migrationPlan(args: {
 }): MigrationPlan {
   const plan: MigrationPlan = {
     operations: args.operations,
-    schema_version: 1,
+    schema_version: 2,
     vault_root: args.vaultRoot,
   };
   if (args.generator !== undefined) {

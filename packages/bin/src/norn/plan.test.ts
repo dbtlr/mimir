@@ -81,14 +81,14 @@ test('replaceBody carries a whole-document hash CAS precondition', () => {
   });
 });
 
-test('migrationPlan stamps schema_version 1 and the vault root', () => {
+test('migrationPlan stamps schema_version 2 and the vault root', () => {
   const op = setFrontmatter('MMR/MMR-1.md', 'lifecycle', 'done');
   expect(migrationPlan({ operations: [op], vaultRoot: '/vault' })).toEqual({
     operations: [op],
-    schema_version: 1,
+    schema_version: 2,
     vault_root: '/vault',
   });
-  expect(MIGRATION_PLAN_SCHEMA_VERSION).toBe(1);
+  expect(MIGRATION_PLAN_SCHEMA_VERSION).toBe(2);
 });
 
 test('migrationPlan carries optional generator/generated_at only when supplied', () => {
