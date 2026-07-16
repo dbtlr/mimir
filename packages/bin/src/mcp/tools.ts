@@ -660,7 +660,7 @@ async function updateArtifactTool(
   }
   const identity = parseIdentity(args.id);
   if (identity?.kind !== 'artifact') {
-    throw notFound(`no artifact with id ${args.id}`);
+    throw notFound(`${args.id} doesn't exist`);
   }
   if (args.title !== undefined) {
     await updateArtifact(store, { key: identity.key, seq: identity.seq }, { title: args.title });

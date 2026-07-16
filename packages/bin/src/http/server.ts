@@ -427,7 +427,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           return ui;
         }
       }
-      return json(req, { error: { code: 'not_found', message: `no route ${pathname}` } }, 404);
+      return json(req, { error: { code: 'not_found', message: `${pathname} doesn't exist` } }, 404);
     },
     hostname: '127.0.0.1',
     port,
@@ -505,7 +505,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const body = await readBody(req, ['title']);
             const identity = parseIdentity(req.params.id);
             if (identity?.kind !== 'artifact') {
-              throw notFound(`no artifact with id ${req.params.id}`);
+              throw notFound(`${req.params.id} doesn't exist`);
             }
             const title = strField(body, 'title');
             if (title !== undefined) {
