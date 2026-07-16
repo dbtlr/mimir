@@ -37,7 +37,7 @@ const SHAPES: Record<string, z.ZodRawShape> = {
     body: z.string().optional(),
     confirm: z.boolean().optional(),
     // norn 0.47 (NRN-238): the map-shaped `set` param is retired; fields arrive
-    // as ordered KEY=JSON tokens, the same shape `vault.new` takes.
+    // as ordered KEY=JSON tokens.
     field_json: z.array(z.string()).optional(),
     remove: z.array(z.string()).optional(),
     target: z.string(),

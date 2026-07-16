@@ -40,7 +40,7 @@ export function linkStems(value: unknown): string[] {
 }
 
 /** A non-null, non-array object narrowed to `Record<string, unknown>` — the shared
- * guard for probing an untyped `vault.get`/`vault.new` result record before reading
+ * guard for probing an untyped `vault.get`/`vault.apply` result record before reading
  * its fields. (The norn client keeps its own module-private `isRecord`.) */
 export function isStringRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

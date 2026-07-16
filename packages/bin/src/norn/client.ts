@@ -41,7 +41,6 @@ import type { MigrationPlan } from './plan';
 export type NornToolName =
   | 'vault.find'
   | 'vault.get'
-  | 'vault.new'
   | 'vault.set'
   | 'vault.validate'
   | 'vault.apply';
@@ -77,24 +76,14 @@ export type NornDocument = {
 
 export type NornSectionRead = { records: unknown[]; sectionFailures: string[] };
 
-export type NornNewArgs = {
-  path?: string;
-  title?: string;
-  field?: string[];
-  field_json?: string[];
-  body?: string;
-  parents?: boolean;
-  confirm?: boolean;
-};
-
 export type NornSetArgs = {
   target: string;
   /**
    * Ergonomic record surface for the fields to write. norn 0.47 (NRN-238) retired
    * `vault.set`'s map-shaped `set` param — the wire contract is now ordered
-   * `KEY=JSON` tokens (`field_json`, the same shape `vault.new` takes). {@link set}
-   * serializes this record into those tokens (`${key}=${JSON.stringify(value)}`);
-   * mimir's usage has unique keys, so the map→ordered-token mapping is identical.
+   * `KEY=JSON` tokens (`field_json`). {@link set} serializes this record into
+   * those tokens (`${key}=${JSON.stringify(value)}`); mimir's usage has unique
+   * keys, so the map→ordered-token mapping is identical.
    */
   set?: Record<string, unknown>;
   remove?: string[];
@@ -412,10 +401,6 @@ export class NornClient {
   }
 
   // ─── Mutation tools (never auto-retried — a confirmed write must not double-apply) ───
-
-  async newDoc(args: NornNewArgs): Promise<unknown> {
-    return this.call('vault.new', args, false);
-  }
 
   async set(args: NornSetArgs): Promise<unknown> {
     // norn 0.47 (NRN-238): serialize the record-shaped `set` into the

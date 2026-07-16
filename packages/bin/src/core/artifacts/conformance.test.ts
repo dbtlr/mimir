@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { bunExec } from '../../exec';
 import { NornClient } from '../../norn/client';
+import { seedRawDoc } from '../../norn/testing';
 import { converge } from '../../vault/converge';
 import { createNornArtifactStore, restoreArtifact } from './norn';
 import type { ArtifactRecord, ArtifactStore } from './store';
@@ -127,18 +128,18 @@ for (const backend of backends) {
         // A physical sibling minted outside the store — the `{{seq}}` token
         // resolves next-free against the `KEY-a` prefix in `KEY/artifacts/` by
         // filename, so the create lands at MMR-a2, never a client-derived count.
-        await h.client.newDoc({
-          body: '# pre',
-          confirm: true,
-          field_json: [
-            `type=${JSON.stringify('artifact')}`,
-            `title=${JSON.stringify('pre-existing')}`,
-            `project=${JSON.stringify('[[MMR]]')}`,
-            `created=${JSON.stringify('2026-01-01T00:00:00.000Z')}`,
-          ],
-          parents: true,
-          path: 'MMR/artifacts/MMR-a1.md',
-        });
+        await seedRawDoc(
+          h.client,
+          h.vaultRoot,
+          'MMR/artifacts/MMR-a1.md',
+          {
+            created: '2026-01-01T00:00:00.000Z',
+            project: '[[MMR]]',
+            title: 'pre-existing',
+            type: 'artifact',
+          },
+          '# pre',
+        );
         const { seq } = await h.artifacts.create({
           content: 'body',
           key: 'MMR',
