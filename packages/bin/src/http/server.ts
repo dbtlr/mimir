@@ -505,7 +505,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const body = await readBody(req, ['title']);
             const identity = parseIdentity(req.params.id);
             if (identity?.kind !== 'artifact') {
-              throw notFound(`no artifact with id ${req.params.id}`);
+              throw notFound(`${req.params.id} doesn't exist`);
             }
             const title = strField(body, 'title');
             if (title !== undefined) {
