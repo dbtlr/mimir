@@ -427,7 +427,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           return ui;
         }
       }
-      return json(req, { error: { code: 'not_found', message: `no route ${pathname}` } }, 404);
+      return json(req, { error: { code: 'not_found', message: `${pathname} doesn't exist` } }, 404);
     },
     hostname: '127.0.0.1',
     port,

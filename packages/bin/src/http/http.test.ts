@@ -721,7 +721,11 @@ test.skipIf(!NORN)(
     // blank title is validation
     expect((await send('PATCH', '/api/artifacts/MMR-a1', { title: ' ' })).status).toBe(400);
     // unknown artifact / node token on the artifact route
-    expect((await send('PATCH', '/api/artifacts/MMR-a9', { title: 'x' })).status).toBe(404);
+    const missing = await send('PATCH', '/api/artifacts/MMR-a9', { title: 'x' });
+    expect(missing.status).toBe(404);
+    // Voice guide: token-as-subject (MMR-290).
+    const missingBody = (await parse(missing)) as { error: { message: string } };
+    expect(missingBody.error.message).toBe("MMR-a9 doesn't exist");
     expect((await send('PATCH', `/api/artifacts/${task1}`, { title: 'x' })).status).toBe(404);
   },
 );
@@ -801,7 +805,10 @@ test.skipIf(!NORN)('unknown body fields and malformed JSON are structural 400s',
 test.skipIf(!NORN)('unmatched routes get the 404 envelope', async () => {
   const res = await get('/api/bogus');
   expect(res.status).toBe(404);
-  expect(errorCode(await parse(res))).toBe('not_found');
+  const body = await parse(res);
+  expect(errorCode(body)).toBe('not_found');
+  // Voice guide: token-as-subject, never the `no route …` headline form (MMR-290).
+  expect((body as { error: { message: string } }).error.message).toBe("/api/bogus doesn't exist");
 });
 
 test.skipIf(!NORN)('CORS: localhost dev origins are reflected, others get no grant', async () => {
