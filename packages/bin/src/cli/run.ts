@@ -45,7 +45,7 @@ import type { VaultDeps } from '../vault/commands';
 import { BINDING_FILE, writeBinding } from './binding';
 import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from './errors';
 import type { UsageError } from './errors';
-import { COMMAND_HELP, FULL_HELP, TERSE_HELP, helpForCommand } from './help';
+import { COMMAND_HELP, helpForCommand, renderFullHelp, renderTerseHelp } from './help';
 import {
   cmdAbandon,
   cmdAnnotate,
@@ -324,7 +324,7 @@ export async function runCli(
   const command = positionals[0];
   const full = argv.includes('--help');
   if (command === undefined) {
-    ctx.write(full ? FULL_HELP : TERSE_HELP);
+    ctx.write(full ? renderFullHelp(ctx.plain) : renderTerseHelp(ctx.plain));
     return 0;
   }
   // An unknown verb is a hard usage error (exit 2) — even with `-h`/`--help`,
@@ -338,7 +338,10 @@ export async function runCli(
   // back to the top-level help for a verb without a descriptor. Returns before
   // any dispatch, so help never opens the store.
   if (values.help === true) {
-    ctx.write(helpForCommand(command, positionals[1], full) ?? (full ? FULL_HELP : TERSE_HELP));
+    ctx.write(
+      helpForCommand(command, positionals[1], full, ctx.plain) ??
+        (full ? renderFullHelp(ctx.plain) : renderTerseHelp(ctx.plain)),
+    );
     return 0;
   }
 
