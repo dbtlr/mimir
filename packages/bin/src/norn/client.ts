@@ -137,10 +137,11 @@ function firstText(content: unknown): string | null {
  * incomplete message"). It doesn't fire against norn 0.48 (mimir already emits
  * the v2 it wants) — this is groundwork for the next plan-schema bump.
  *
- * Detection anchors on the stable tokens `schema_version` and `support` rather
- * than the exact sentence, so a norn wording tweak doesn't silently stop this
- * firing — but BOTH tokens are required, so an unrelated validation error is
- * never hijacked.
+ * Detection anchors on the stable tokens `schema_version` and a standalone
+ * `support`-word (word-bounded, so the `support` inside "unsupported" doesn't
+ * count) rather than the exact sentence, so a norn wording tweak doesn't
+ * silently stop this firing — but BOTH tokens are required, so an unrelated
+ * validation error is never hijacked.
  *
  * Direction is derived from the two version numbers when both parse: the
  * plan's `schema_version` (N) against the version norn's build supports (M).
@@ -150,7 +151,7 @@ function firstText(content: unknown): string | null {
  * number doesn't parse, the hint names both moves rather than guessing.
  */
 export function nornPlanVersionMismatchHint(message: string): string | null {
-  if (!/schema_version/i.test(message) || !/support/i.test(message)) {
+  if (!/schema_version/i.test(message) || !/\bsupport\w*\b/i.test(message)) {
     return null;
   }
   const planVersion = /schema_version\D*(\d+)/i.exec(message)?.[1];
@@ -161,7 +162,12 @@ export function nornPlanVersionMismatchHint(message: string): string | null {
   if (planVersion !== undefined && supportedVersion !== undefined) {
     const plan = Number(planVersion);
     const supported = Number(supportedVersion);
-    if (Number.isFinite(plan) && Number.isFinite(supported) && plan !== supported) {
+    if (Number.isFinite(plan) && Number.isFinite(supported)) {
+      // Equal versions can't be a mismatch — whatever this message is, a
+      // self-update hint would misdirect.
+      if (plan === supported) {
+        return null;
+      }
       return plan > supported
         ? 'this norn build is behind the plan schema mimir emits: norn self-update'
         : 'this norn build expects a newer plan schema than mimir emits: mimir self-update';

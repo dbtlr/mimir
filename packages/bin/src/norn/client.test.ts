@@ -377,6 +377,18 @@ test('nornPlanVersionMismatchHint: an unrelated norn error passes through unchan
   expect(nornPlanVersionMismatchHint('vault is locked')).toBeNull();
 });
 
+test('nornPlanVersionMismatchHint: "unsupported" alone is not a support token', () => {
+  // No standalone supports-clause — the `support` inside "unsupported" must
+  // not satisfy the guard.
+  expect(nornPlanVersionMismatchHint('unsupported plan schema_version 1')).toBeNull();
+});
+
+test('nornPlanVersionMismatchHint: equal parsed versions are not a mismatch', () => {
+  expect(
+    nornPlanVersionMismatchHint('unsupported plan schema_version 2; this norn build supports v2'),
+  ).toBeNull();
+});
+
 test('applyPlan throws with the version-mismatch hint on a plan-schema refusal', async () => {
   const fake = fakeNorn(() => ({
     'vault.apply': () =>
