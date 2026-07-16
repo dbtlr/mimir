@@ -116,22 +116,6 @@ export function pathAndBody(record: unknown): { path: string; body: string } | n
   return { body: typeof body === 'string' ? body : '', path };
 }
 
-/** A `vault.get --col .raw` record's `path` + its `raw` disk text (frontmatter +
- * body). A non-string path drops the record; an absent/non-string `raw` reads as
- * the empty string. The one read that resolves a document whose frontmatter won't
- * parse (fetched by path), so `mimir doctor`'s facet can locate the corruption. */
-export function pathAndRaw(record: unknown): { path: string; raw: string } | null {
-  if (typeof record !== 'object' || record === null || !('path' in record)) {
-    return null;
-  }
-  const path = record.path;
-  if (typeof path !== 'string') {
-    return null;
-  }
-  const raw = 'raw' in record ? (record as { raw: unknown }).raw : '';
-  return { path, raw: typeof raw === 'string' ? raw : '' };
-}
-
 /** A `vault.get --section` record's `path` + its `sections` map — heading text →
  * that section's raw markdown, the `## <heading>` line INCLUDED (norn's shape;
  * strip it with {@link import('../core/history-codec').sectionBody} before

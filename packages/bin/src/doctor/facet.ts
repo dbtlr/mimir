@@ -7,10 +7,11 @@
  * offending token marked, a nearest-legal suggestion over the closed vocabulary,
  * and file groups with dropped/readable counts. Read-only: it locates corruption
  * for a human to fix in the file; it never writes (ADR 0018 — every vault read is
- * a Norn read, here the `.raw` disk representation).
+ * a Norn read, here the exact-Markdown read).
  *
- * The enrichment reads each affected document's `.raw` text (frontmatter + body,
- * fetched by path so it resolves even for a doc whose frontmatter won't parse) and
+ * The enrichment reads each affected document's exact Markdown (frontmatter +
+ * body, fetched by path so it resolves even for a doc whose frontmatter won't
+ * parse) and
  * locates the field the finding names in {@link DoctorFinding.where}. The base
  * findings come from the one detector — {@link CHECKS} over the shared
  * `validate` — so the facet can never drift from what the reader drops or the CLI
