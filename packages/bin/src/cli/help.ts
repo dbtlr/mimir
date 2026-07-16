@@ -1,5 +1,6 @@
 /** Two help tiers: `-h` terse (synopsis + flags), `--help` fuller with examples. */
 import { DEFAULT_PORT } from '../env';
+import { bold, color } from './render';
 
 export const TERSE_HELP = `mimir — query and manage work state
 
@@ -839,24 +840,28 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
 
 /**
  * Render one command descriptor at the requested tier. `-h` (full=false) stops
- * after usage/args/flags; `--help` (full=true) appends the examples.
+ * after usage/args/flags; `--help` (full=true) appends the examples. `plain`
+ * is render.ts's shared NO_COLOR/--ascii/!isTTY contract (MMR-300): the usage
+ * line and section headers bold, each row's label (flag/arg token) colored,
+ * descriptions left plain; `plain` reproduces today's output byte-for-byte
+ * (`bold`/`color` are no-ops in that case).
  */
-export function renderCommandHelp(h: CommandHelp, full: boolean): string {
-  const lines: string[] = [h.usage, `  ${h.summary}`];
+export function renderCommandHelp(h: CommandHelp, full: boolean, plain: boolean): string {
+  const lines: string[] = [bold(h.usage, plain), `  ${h.summary}`];
   const section = (title: string, rows: readonly Row[] | undefined): void => {
     if (rows === undefined || rows.length === 0) {
       return;
     }
-    lines.push('', `${title}:`);
+    lines.push('', bold(`${title}:`, plain));
     const width = Math.max(...rows.map(([label]) => label.length));
     for (const [label, desc] of rows) {
-      lines.push(`  ${label.padEnd(width)}  ${desc}`);
+      lines.push(`  ${color(label.padEnd(width), 36, plain)}  ${desc}`);
     }
   };
   section('arguments', h.args);
   section('flags', h.flags);
   if (full && h.examples !== undefined && h.examples.length > 0) {
-    lines.push('', 'examples:');
+    lines.push('', bold('examples:', plain));
     for (const example of h.examples) {
       lines.push(`  ${example}`);
     }
@@ -871,16 +876,19 @@ export function renderCommandHelp(h: CommandHelp, full: boolean): string {
  * install descriptor — when a `"<command> <sub>"` entry exists in
  * `COMMAND_HELP`; otherwise the bare command's own (group) descriptor
  * renders, so `create -h` / `service -h` still work with no subcommand given.
+ * `plain` threads render.ts's color contract through to
+ * {@link renderCommandHelp} (MMR-300).
  */
 export function helpForCommand(
   command: string,
   sub: string | undefined,
   full: boolean,
+  plain: boolean,
 ): string | undefined {
   const key =
     sub !== undefined && `${command} ${sub}` in COMMAND_HELP ? `${command} ${sub}` : command;
   const descriptor = COMMAND_HELP[key];
-  return descriptor === undefined ? undefined : renderCommandHelp(descriptor, full);
+  return descriptor === undefined ? undefined : renderCommandHelp(descriptor, full, plain);
 }
 
 export const FULL_HELP = `${TERSE_HELP}
@@ -924,3 +932,76 @@ notes:
   - scope default: the nearest .mimir.toml walking up from cwd (mimir bind);
     explicit -s overrides, -s all queries every project.
 `;
+
+// ─── Root/group help coloring (MMR-300) ────────────────────────────────────
+// TERSE_HELP/FULL_HELP above are the plain templates — the literal bytes a
+// non-TTY/NO_COLOR/--ascii run always emits, unchanged. `colorizeRootHelp`
+// only ever runs on the color path (see `renderTerseHelp`/`renderFullHelp`
+// below); the plain path returns the templates verbatim, which is the whole
+// proof of "color is decoration" for the root/group surfaces.
+
+/** A bare `-x` / `--long-flag` token, anywhere in a line — the boundary is a
+ * leading dash not itself preceded by a word character, so ids/hyphenated
+ * words like `KEY-seq` or `self-update` never match. */
+const FLAG_TOKEN = /(?<![\w-])(--?[a-zA-Z][\w-]*)/g;
+
+function colorFlags(line: string): string {
+  return line.replace(FLAG_TOKEN, (token) => color(token, 36, false));
+}
+
+/** Color the leading whitespace-delimited token (a bare verb name — `next`,
+ * `service`, …) and flag-color the remainder of the line. */
+function highlightLeadToken(line: string): string {
+  const m = /^(\s*)(\S+)/.exec(line);
+  if (m === null) {
+    return colorFlags(line);
+  }
+  const rest = line.slice(m[0].length);
+  return `${m[1] ?? ''}${color(m[2] ?? '', 36, false)}${colorFlags(rest)}`;
+}
+
+/**
+ * Decorate the root/group help for a TTY: bold the `usage:` label and every
+ * section/subsection header (top-level and the 2-space subheadings like
+ * `  read:`), highlight the bare command name leading each verb row inside
+ * the "work commands"/"machinery commands" blocks, and color `-x`/`--long`
+ * flag tokens wherever they appear (inline mentions included). Descriptions
+ * stay plain. Only reached from the color path — see `renderTerseHelp`/
+ * `renderFullHelp`.
+ */
+function colorizeRootHelp(text: string): string {
+  let inCommandsBlock = false;
+  const out: string[] = [];
+  for (const line of text.split('\n')) {
+    const indent = line.length - line.trimStart().length;
+    const trimmed = line.trim();
+    if (indent === 0 && line.startsWith('usage: ')) {
+      out.push(`${bold('usage:', false)}${line.slice('usage:'.length)}`);
+      continue;
+    }
+    const isHeader = (indent === 0 || indent === 2) && trimmed !== '' && trimmed.endsWith(':');
+    if (isHeader) {
+      // Only a top-level header changes the block — a 2-space subheading
+      // (`  read:`, `  lifecycle:`, …) is itself inside the enclosing
+      // "work commands" block and must not reset it.
+      if (indent === 0) {
+        inCommandsBlock = /^(?:work|machinery) commands\b/.test(trimmed);
+      }
+      out.push(bold(line, false));
+      continue;
+    }
+    const isVerbRow = inCommandsBlock && (indent === 4 || (indent === 2 && /^[a-z]/.test(trimmed)));
+    out.push(isVerbRow ? highlightLeadToken(line) : colorFlags(line));
+  }
+  return out.join('\n');
+}
+
+/** `-h`/bare-invocation root help — colored on a TTY, {@link TERSE_HELP} verbatim otherwise. */
+export function renderTerseHelp(plain: boolean): string {
+  return plain ? TERSE_HELP : colorizeRootHelp(TERSE_HELP);
+}
+
+/** `--help` root help — colored on a TTY, {@link FULL_HELP} verbatim otherwise. */
+export function renderFullHelp(plain: boolean): string {
+  return plain ? FULL_HELP : colorizeRootHelp(FULL_HELP);
+}
