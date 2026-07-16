@@ -471,11 +471,11 @@ export async function getArtifact(
   const { projects } = await store.loadWorkingSet();
   const project = projects.find((p) => p.key === identity.key);
   if (project === undefined || project.archived_at !== null) {
-    throw notFound(`no artifact ${id}`);
+    throw notFound(`${id} doesn't exist`);
   }
   const record = await store.artifacts.load(identity.key, identity.seq, opts);
   if (record === undefined) {
-    throw notFound(`no artifact ${id}`);
+    throw notFound(`${id} doesn't exist`);
   }
   return buildArtifactDetail(record);
 }

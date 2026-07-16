@@ -208,9 +208,9 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     });
 
     expect(await listSeeds(store, { project: 'MMR' })).toEqual([]);
-    expect(await rejectMessage(() => getSeed(store, 'MMR-s1'))).toMatch(/no seed MMR-s1/);
+    expect(await rejectMessage(() => getSeed(store, 'MMR-s1'))).toMatch(/MMR-s1 doesn't exist/);
     expect(await rejectMessage(() => updateSeed(store, 'MMR-s1', { title: 'mutated' }))).toMatch(
-      /no seed MMR-s1/,
+      /MMR-s1 doesn't exist/,
     );
     expect(await store.seeds.load('MMR', 1)).toBeUndefined();
   });

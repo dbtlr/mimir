@@ -372,7 +372,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const doc = await loadDoc(key, seq);
         if (doc === undefined) {
-          throw notFound(`no seed ${stemOf(key, seq)}`);
+          throw notFound(`${stemOf(key, seq)} doesn't exist`);
         }
         const { fm, record } = doc;
         if (isTerminalSeed(record.lifecycle)) {
@@ -534,7 +534,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
     async patch(key, seq, patch: SeedPatch) {
       const doc = await loadDoc(key, seq);
       if (doc === undefined) {
-        throw notFound(`no seed ${stemOf(key, seq)}`);
+        throw notFound(`${stemOf(key, seq)} doesn't exist`);
       }
       const { fm, record } = doc;
       if (isTerminalSeed(record.lifecycle)) {
@@ -570,7 +570,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
     async transition(key, seq, to: SeedLifecycle, reason: string) {
       const doc = await loadDoc(key, seq);
       if (doc === undefined) {
-        throw notFound(`no seed ${stemOf(key, seq)}`);
+        throw notFound(`${stemOf(key, seq)} doesn't exist`);
       }
       const { fm, record } = doc;
       if (!canTransitionSeed(record.lifecycle, to)) {

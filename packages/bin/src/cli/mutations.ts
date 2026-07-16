@@ -469,7 +469,7 @@ async function cmdUpdateArtifact(c: Ctx, token: string): Promise<number> {
   }
   const identity = parseIdentity(token);
   if (identity?.kind !== 'artifact') {
-    throw notFound(`no artifact with id ${token}`);
+    throw notFound(`${token} doesn't exist`);
   }
   if (typeof c.values.title === 'string') {
     await updateArtifact(
