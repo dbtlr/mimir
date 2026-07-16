@@ -25,11 +25,12 @@ import {
   fileSeed,
   findNodeInSet,
   getArtifact,
-  isSeedRef,
   listSeeds,
   moveNode,
   parseIdentity,
   parseSeedRef,
+  parseUpstreamField,
+  UPSTREAM_CLEAR,
   notFound,
   parkTask,
   promoteSeed,
@@ -630,18 +631,24 @@ function openEndedFlag(c: Ctx): boolean | undefined {
 
 /**
  * The `--upstream KEY-sN` requester-side seed pointer (MMR-244/245) on task
- * create/update. Grammar-validated at the verb layer (the core plumbing accepts
- * it; the doctor/read tiers vet dangling/malformed refs later).
+ * create/update, plus its explicit clear (`--upstream none`, MMR-301):
+ * `undefined` means "leave it alone", `null` means "clear it" — blank/absent
+ * never clears (MMR-284 rejected that ambiguity). Grammar-validated at the
+ * verb layer (the core plumbing accepts it; the doctor/read tiers vet
+ * dangling/malformed refs later).
  */
-function seedUpstream(c: Ctx): string | undefined {
+function seedUpstream(c: Ctx): string | null | undefined {
   const upstream = optStr(c, 'upstream');
   if (upstream === undefined) {
     return undefined;
   }
-  if (!isSeedRef(upstream)) {
-    throw usage(`--upstream expects a seed id (KEY-sN), got ${upstream}`);
+  const parsed = parseUpstreamField(upstream);
+  if (parsed === undefined) {
+    throw usage(
+      `--upstream expects a seed id (KEY-sN) or '${UPSTREAM_CLEAR}' to clear, got ${upstream}`,
+    );
   }
-  return upstream;
+  return parsed;
 }
 
 /** The repeatable `--tag` values on create (MMR-31). */

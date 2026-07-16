@@ -35,8 +35,9 @@ import {
   findNodeInSet,
   asSeedKind,
   getSeed,
-  isSeedRef,
   listSeeds,
+  parseUpstreamField,
+  UPSTREAM_CLEAR,
   promoteSeed,
   promoteToWire,
   seedToWire,
@@ -194,13 +195,24 @@ function projectFilter(status: string | null): 'active' | 'archived' | 'all' {
   return 'active';
 }
 
-/** Validate an optional `upstream` body field as a seed id (`KEY-sN`), MMR-245. */
-function upstreamField(body: Record<string, unknown>): string | undefined {
+/**
+ * Parse an optional `upstream` body field: a seed id (`KEY-sN`, MMR-245) or
+ * the explicit clear sentinel `"none"` (MMR-301) — the same wire token CLI's
+ * `--upstream none` and the MCP `upstream` tool arg share. Blank/absent never
+ * clears (MMR-284 rejected that ambiguity).
+ */
+function upstreamField(body: Record<string, unknown>): string | null | undefined {
   const upstream = strField(body, 'upstream');
-  if (upstream !== undefined && !isSeedRef(upstream)) {
-    throw validation(`upstream must be a seed id (KEY-sN), got ${upstream}`);
+  if (upstream === undefined) {
+    return undefined;
   }
-  return upstream;
+  const parsed = parseUpstreamField(upstream);
+  if (parsed === undefined) {
+    throw validation(
+      `upstream must be a seed id (KEY-sN) or '${UPSTREAM_CLEAR}' to clear, got ${upstream}`,
+    );
+  }
+  return parsed;
 }
 
 /** Narrow the required `kind` body field to the closed seed-kind enum (MMR-245),

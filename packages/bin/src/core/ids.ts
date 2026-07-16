@@ -69,6 +69,31 @@ export function isSeedRef(value: string): boolean {
   return parseSeedRef(value) !== null;
 }
 
+/**
+ * The explicit `upstream` clearing sentinel (MMR-301). Blank/absent never
+ * clears (MMR-284 rejected that as ambiguous with "not touching the field") —
+ * clearing takes the same deliberate wire token everywhere: CLI
+ * `--upstream none`, the MCP `upstream` tool arg, and the HTTP PATCH body's
+ * `upstream` field all read the literal string `"none"` and translate it to
+ * `null` before it reaches `UpdateFields`. Collision-free: `SEED_PATTERN`
+ * requires `[A-Z]{2,4}-s\d+`, so a real seed id can never render as `none`.
+ */
+export const UPSTREAM_CLEAR = 'none';
+
+/**
+ * Parse an `upstream` wire value into the shape `UpdateFields.upstream`
+ * expects: the clear sentinel becomes `null`, a valid seed id passes through,
+ * and anything else is `undefined` — not ours to validate; the caller throws
+ * its own transport-shaped error (CLI usage/exit-2, MCP/HTTP validation) when
+ * it sees `undefined` back for a non-empty input.
+ */
+export function parseUpstreamField(value: string): string | null | undefined {
+  if (value === UPSTREAM_CLEAR) {
+    return null;
+  }
+  return isSeedRef(value) ? value : undefined;
+}
+
 /** Parse a `KEY-seq` node id back into its parts, or `null` if it isn't one. */
 export function parseId(id: string): NodeRef | null {
   const match = NODE_PATTERN.exec(id);
