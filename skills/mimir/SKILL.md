@@ -51,7 +51,7 @@ These hold for every Mimir interaction. The references add detail; nothing in th
 relaxes these.
 
 **1. Statuses move only through verbs.** `start` · `submit` · `return` · `done` ·
-`abandon` · `park`/`unpark` · `block`/`unblock`. There is no editable status field, and
+`abandon` · `reopen` · `park`/`unpark` · `block`/`unblock`. There is no editable status field, and
 `update` cannot touch status — that is by design, not an omission. Seeds
 (grooming-queue records) move through their own verbs — `promote` · `reject` ·
 `resolve` (`references/seeds.md`).
@@ -72,6 +72,11 @@ relaxes these.
   next agent's context. `unblock`/`unpark` on resume.
 - `abandon <id> "reason"` when an approach or task dies. Never delete, never leave a
   zombie `todo`.
+- `reopen <id> "reason"` **when a terminal call was wrong** — a premature `done`
+  (verification later falsified it) or a wrongly-abandoned approach that's back on.
+  Not for new work found after a genuine `done`: that's a new task, never a reopen —
+  reopen means "the completion claim was wrong," not "there's more to do." Give the
+  reason; it's the next agent's context, same as `block`/`park`.
 - **Discovered work on YOUR board = a new task** (`create task` + `depend` if it
   gates something), never a silent widening of the current one — and **never a
   seed**: if you can state the fix, you already triaged it. Review findings and
