@@ -15,7 +15,7 @@ import { isMember } from '@mimir/helpers';
 
 import { usage } from '../cli/errors';
 import type { Format, Io } from '../cli/render';
-import { ok, warn } from '../cli/render';
+import { arrow, ok, warn } from '../cli/render';
 import { MimirError } from '../core';
 import { PROD_PORT } from '../env';
 import {
@@ -510,7 +510,7 @@ export async function cmdSelfUpdate(
     return 0;
   }
   if (!structured) {
-    io.write(`updating ${deps.version} → ${target} (${asset})`);
+    io.write(`updating ${deps.version} ${arrow(io.plain)} ${target} (${asset})`);
   }
   const [body, sums] = await Promise.all([
     downloadAsset(targetTag, deps.fetcher),
@@ -518,6 +518,8 @@ export async function cmdSelfUpdate(
   ]);
   verifyChecksum(body, sums, asset);
   replaceBinary(deps.binPath, body);
+  // The persisted event-log detail keeps a stable glyph (never presentation-gated);
+  // the human echo below restyles the arrow for `--ascii`.
   const detail = `${deps.version} → ${target}`;
   // Log the replacement immediately — it already happened, regardless of what follows.
   appendEvent(deps.eventsFile, {
@@ -581,7 +583,11 @@ export async function cmdSelfUpdate(
     io,
     format,
     () => formatSelfUpdateJson(result, format === 'json'),
-    () => ok(io, `updated ${detail}${restarted ? ' — service restarted' : ''}`),
+    () =>
+      ok(
+        io,
+        `updated ${deps.version} ${arrow(io.plain)} ${target}${restarted ? ' — service restarted' : ''}`,
+      ),
   );
   return 0;
 }

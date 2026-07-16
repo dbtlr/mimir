@@ -78,6 +78,7 @@ import {
 import type { Ctx } from './mutations';
 import { parsePriority, parseSize } from './parse';
 import {
+  arrow,
   countLine,
   FORMATS,
   renderArtifactDetail,
@@ -603,7 +604,9 @@ export async function runCli(
           ctx.write(dir);
         } else {
           const glyph = ctx.plain ? '[ok]' : '\x1b[32m✓\x1b[0m';
-          ctx.write(`${glyph} installed the mimir skill → ${dir} (${SKILL_FILES.length} files)`);
+          ctx.write(
+            `${glyph} installed the mimir skill ${arrow(ctx.plain)} ${dir} (${SKILL_FILES.length} files)`,
+          );
         }
         return 0;
       }

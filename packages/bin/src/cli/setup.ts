@@ -24,7 +24,7 @@ import { converge, expandTilde } from '../vault';
 import { backfillVaultData } from '../vault/backfill';
 import type { VaultDeps } from '../vault/commands';
 import { usage } from './errors';
-import { ok, warn } from './render';
+import { arrow, ok, warn } from './render';
 import type { Format, Io } from './render';
 
 export type SetupDeps = {
@@ -268,7 +268,7 @@ async function applySetup(
   } else {
     const where = answers.vaultPath;
     ok(io, result.outcome === 'created' ? `vault created at ${where}` : `vault ready at ${where}`);
-    ok(io, `config written → ${deps.service.configFile}`);
+    ok(io, `config written ${arrow(io.plain)} ${deps.service.configFile}`);
     for (const n of leftInstalled) {
       warn(io, `${n} is still installed — remove it with \`mimir service uninstall ${n}\``);
     }

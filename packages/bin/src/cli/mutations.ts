@@ -67,6 +67,8 @@ import type {
 import { usage } from './errors';
 import { parsePriority, parseSize } from './parse';
 import {
+  arrow,
+  ok,
   renderArtifactDetail,
   renderSeedView,
   renderSeeds,
@@ -125,7 +127,13 @@ const withReason = (text: string, reason?: string): string =>
 export async function cmdStart(c: Ctx): Promise<number> {
   const id = await resolveNode(c.store, requirePos(c, 1, 'start'), 'task');
   await startTask(c.store, id);
-  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `started ${rid} · todo → in_progress`);
+  await echoNodeWith(
+    c.store,
+    id,
+    c.format,
+    c.io,
+    (rid) => `started ${rid} · todo ${arrow(c.io.plain)} in_progress`,
+  );
   return 0;
 }
 
@@ -152,7 +160,7 @@ export async function cmdSubmit(c: Ctx): Promise<number> {
     id,
     c.format,
     c.io,
-    (rid) => `submitted ${rid} · in_progress → under_review`,
+    (rid) => `submitted ${rid} · in_progress ${arrow(c.io.plain)} under_review`,
   );
   return 0;
 }
@@ -162,7 +170,7 @@ export async function cmdReturn(c: Ctx): Promise<number> {
   const reason = reasonTail(c);
   await returnTask(c.store, id, reason);
   await echoNodeWith(c.store, id, c.format, c.io, (rid) =>
-    withReason(`returned ${rid} · under_review → in_progress`, reason),
+    withReason(`returned ${rid} · under_review ${arrow(c.io.plain)} in_progress`, reason),
   );
   return 0;
 }
@@ -172,7 +180,7 @@ export async function cmdReopen(c: Ctx): Promise<number> {
   const reason = reasonTail(c);
   await reopenTask(c.store, id, reason);
   await echoNodeWith(c.store, id, c.format, c.io, (rid) =>
-    withReason(`reopened ${rid} → in_progress`, reason),
+    withReason(`reopened ${rid} ${arrow(c.io.plain)} in_progress`, reason),
   );
   return 0;
 }
@@ -191,8 +199,7 @@ function echoArchiveOp(
   } else if (c.format === 'ids') {
     c.io.write(project.key);
   } else {
-    const glyph = c.io.plain ? '[ok]' : '\x1b[32m✓\x1b[0m';
-    c.io.write(`${glyph} ${withReason(`${verb} ${project.key}`, reason)}`);
+    ok(c.io, withReason(`${verb} ${project.key}`, reason));
   }
 }
 
@@ -309,7 +316,13 @@ export async function cmdMove(c: Ctx): Promise<number> {
   const to = requireToken(c.values.to, 'move', 'to');
   const parentId = await resolveNode(c.store, to);
   await moveNode(c.store, id, parentId);
-  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `moved ${rid} → ${to}`);
+  await echoNodeWith(
+    c.store,
+    id,
+    c.format,
+    c.io,
+    (rid) => `moved ${rid} ${arrow(c.io.plain)} ${to}`,
+  );
   return 0;
 }
 
@@ -340,7 +353,13 @@ export async function cmdReorder(c: Ctx): Promise<number> {
     throw usage('reorder requires one of --top | --bottom | --before <id> | --after <id>');
   }
   await reorder(c.store, id, position, refId);
-  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `reordered ${rid} → ${where}`);
+  await echoNodeWith(
+    c.store,
+    id,
+    c.format,
+    c.io,
+    (rid) => `reordered ${rid} ${arrow(c.io.plain)} ${where}`,
+  );
   return 0;
 }
 
