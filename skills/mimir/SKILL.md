@@ -10,6 +10,12 @@ hierarchy, statuses, and frozen artifacts — in a queryable store. The chat scr
 not the record; the board is. You read it and you keep it true, through the `mimir`
 CLI (drive it with shell commands; every example here is a real invocation).
 
+Work-state commands are **flat top-level verbs** — `done`, `list`, `next`, never
+`task done` — because this is the hot path, invoked constantly. A separate,
+noun-grouped **machinery plane** (`service`, `vault`, `skill`) manages the
+installation itself (supervision, snapshots, distribution) and sits outside what
+this skill teaches.
+
 <EXTREMELY-IMPORTANT>
 If there is even a **1% chance** a session is starting in a Mimir-tracked repo, run
 the gate below BEFORE other work. These thoughts mean STOP — you are rationalizing:
@@ -98,7 +104,10 @@ relaxes these.
 
 **3. Ids: one grammar.** Project = bare `KEY` (e.g. `MMR`) · work node = `KEY-seq`
 (`MMR-16`) · artifact = `KEY-a3` · seed = `KEY-s3`. Any id slot takes the full
-grammar; a verb rejects what it can't act on.
+grammar; a verb rejects what it can't act on. This is what keeps lifecycle verbs
+flat instead of namespaced: `done KEY-42` needs no `task` prefix because the id's
+own shape already says what it acts on — `resolve KEY-s10` runs the identical
+flat-verb-plus-typed-id grammar for seeds.
 
 **4. Compose with the echoed id — never guess the next number.** Every create/mutation
 echoes the affected id. Capture it (`ID=$(mimir create task "…" --parent MMR-2 -f ids)`);
