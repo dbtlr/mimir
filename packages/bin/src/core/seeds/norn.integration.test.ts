@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { bunExec } from '../../exec';
 import { NornClient } from '../../norn/client';
 import { pathAndSections } from '../../norn/decode';
+import { seedRawDoc } from '../../norn/testing';
 import { converge } from '../../vault/converge';
 import { HISTORY_HEADING, parseHistorySection, sectionBody } from '../history-codec';
 import { readVaultGraph } from '../store-norn';
@@ -31,15 +32,16 @@ async function rejectMessage(fn: () => Promise<unknown>): Promise<string> {
 }
 
 let root: string;
+let vaultRoot: string;
 let client: NornClient;
 let seeds: SeedStore;
 
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), 'mimir-seed-'));
-  const vault = join(root, 'vault');
-  await converge(vault, { allowCreate: true, exec: bunExec });
-  client = new NornClient({ vaultPath: vault });
-  seeds = createNornSeedStore(client, vault);
+  vaultRoot = join(root, 'vault');
+  await converge(vaultRoot, { allowCreate: true, exec: bunExec });
+  client = new NornClient({ vaultPath: vaultRoot });
+  seeds = createNornSeedStore(client, vaultRoot);
 });
 
 afterEach(async () => {
@@ -228,22 +230,22 @@ describe.skipIf(!NORN)('norn seed store', () => {
     // record's list is empty, but the FIELD is present — so the first append must
     // SET it (carrying the CAS old value), not ADD it: norn refuses to add a field
     // that already exists, so the decoded-length check would throw.
-    await client.newDoc({
-      body: '## Seed Description\n\n\n## History\n## Annotations\n',
-      confirm: true,
-      field_json: [
-        `type=${JSON.stringify('seed')}`,
-        `title=${JSON.stringify('hand')}`,
-        `project=${JSON.stringify('[[MMR]]')}`,
-        `kind=${JSON.stringify('idea')}`,
-        `lifecycle=${JSON.stringify('new')}`,
-        `spawned=${JSON.stringify([])}`,
-        `created=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
-        `updated_at=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
-      ],
-      parents: true,
-      path: 'MMR/seeds/MMR-s1.md',
-    });
+    await seedRawDoc(
+      client,
+      vaultRoot,
+      'MMR/seeds/MMR-s1.md',
+      {
+        created: '2026-07-08T00:00:00.000Z',
+        kind: 'idea',
+        lifecycle: 'new',
+        project: '[[MMR]]',
+        spawned: [],
+        title: 'hand',
+        type: 'seed',
+        updated_at: '2026-07-08T00:00:00.000Z',
+      },
+      '## Seed Description\n\n\n## History\n## Annotations\n',
+    );
     await seeds.germinate('MMR', 1, 'MMR-42');
     const loaded = await seeds.load('MMR', 1);
     expect(loaded?.spawned).toEqual(['MMR-42']);
@@ -260,21 +262,21 @@ describe.skipIf(!NORN)('norn seed store', () => {
       requester: null,
       title: 'ok',
     });
-    await client.newDoc({
-      body: '## Seed Description\n\n\n## History\n## Annotations\n',
-      confirm: true,
-      field_json: [
-        `type=${JSON.stringify('seed')}`,
-        `title=${JSON.stringify('bad')}`,
-        `project=${JSON.stringify('[[MMR]]')}`,
-        `kind=${JSON.stringify('chore')}`,
-        `lifecycle=${JSON.stringify('new')}`,
-        `created=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
-        `updated_at=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
-      ],
-      parents: true,
-      path: 'MMR/seeds/MMR-s2.md',
-    });
+    await seedRawDoc(
+      client,
+      vaultRoot,
+      'MMR/seeds/MMR-s2.md',
+      {
+        created: '2026-07-08T00:00:00.000Z',
+        kind: 'chore',
+        lifecycle: 'new',
+        project: '[[MMR]]',
+        title: 'bad',
+        type: 'seed',
+        updated_at: '2026-07-08T00:00:00.000Z',
+      },
+      '## Seed Description\n\n\n## History\n## Annotations\n',
+    );
 
     const graph = await readVaultGraph(client);
     expect(graph.seeds?.map((s) => s.stem).toSorted()).toEqual(['MMR-s1', 'MMR-s2']);
@@ -296,17 +298,13 @@ describe.skipIf(!NORN)('norn seed store', () => {
       requester: null,
       title: 'a',
     });
-    await client.newDoc({
-      body: '## Seed Description\n\n\n## History\n## Annotations\n',
-      confirm: true,
-      field_json: [
-        `type=${JSON.stringify('project')}`,
-        `key=${JSON.stringify('OTH')}`,
-        `name=${JSON.stringify('Other')}`,
-      ],
-      parents: true,
-      path: 'OTH/OTH.md',
-    });
+    await seedRawDoc(
+      client,
+      vaultRoot,
+      'OTH/OTH.md',
+      { key: 'OTH', name: 'Other', type: 'project' },
+      '## Seed Description\n\n\n## History\n## Annotations\n',
+    );
     await seeds.create({ description: null, key: 'OTH', kind: 'bug', requester: null, title: 'b' });
     const all = await seeds.listAll();
     expect(all.map((s) => `${s.key}-s${String(s.seq)}`).toSorted()).toEqual(['MMR-s1', 'OTH-s1']);
@@ -333,19 +331,19 @@ describe.skipIf(!NORN)('norn seed store', () => {
       requester: null,
       title: 'canonical',
     });
-    const racer = new NornClient({ vaultPath: join(root, 'vault') });
+    const racer = new NornClient({ vaultPath: vaultRoot });
     const originalGet = client.get.bind(client);
     let injected = false;
     client.get = async (targets: string[], col?: string): Promise<unknown[]> => {
       if (!injected && targets.includes('MMR-s1')) {
         injected = true;
-        await racer.newDoc({
-          body: 'foreign owner',
-          confirm: true,
-          field_json: [`type=${JSON.stringify('note')}`],
-          parents: true,
-          path: 'relocated/MMR-s1.md',
-        });
+        await seedRawDoc(
+          racer,
+          vaultRoot,
+          'relocated/MMR-s1.md',
+          { type: 'note' },
+          'foreign owner',
+        );
       }
       return originalGet(targets, col);
     };
@@ -365,19 +363,19 @@ describe.skipIf(!NORN)('norn seed store', () => {
       requester: null,
       title: 'canonical',
     });
-    const racer = new NornClient({ vaultPath: join(root, 'vault') });
+    const racer = new NornClient({ vaultPath: vaultRoot });
     const originalGet = client.get.bind(client);
     let injected = false;
     client.get = async (targets: string[], col?: string): Promise<unknown[]> => {
       if (!injected && targets.includes('MMR-s1')) {
         injected = true;
-        await racer.newDoc({
-          body: 'foreign owner',
-          confirm: true,
-          field_json: [`type=${JSON.stringify('note')}`],
-          parents: true,
-          path: 'relocated/MMR-s1.md',
-        });
+        await seedRawDoc(
+          racer,
+          vaultRoot,
+          'relocated/MMR-s1.md',
+          { type: 'note' },
+          'foreign owner',
+        );
       }
       return originalGet(targets, col);
     };
@@ -397,21 +395,21 @@ describe.skipIf(!NORN)('norn seed store', () => {
       [2, undefined],
     ] as const) {
       const title = type ?? 'untyped';
-      await client.newDoc({
-        body: '## Seed Description\n\nforeign\n\n## History\n## Annotations\n',
-        confirm: true,
-        field_json: [
-          ...(type === undefined ? [] : [`type=${JSON.stringify(type)}`]),
-          `title=${JSON.stringify(title)}`,
-          `project=${JSON.stringify('[[MMR]]')}`,
-          `kind=${JSON.stringify('idea')}`,
-          `lifecycle=${JSON.stringify('new')}`,
-          `created=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
-          `updated_at=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
-        ],
-        parents: true,
-        path: `relocated/MMR-s${String(seq)}.md`,
-      });
+      await seedRawDoc(
+        client,
+        vaultRoot,
+        `relocated/MMR-s${String(seq)}.md`,
+        {
+          ...(type === undefined ? {} : { type }),
+          created: '2026-07-13T00:00:00.000Z',
+          kind: 'idea',
+          lifecycle: 'new',
+          project: '[[MMR]]',
+          title,
+          updated_at: '2026-07-13T00:00:00.000Z',
+        },
+        '## Seed Description\n\nforeign\n\n## History\n## Annotations\n',
+      );
       expect(await seeds.load('MMR', seq, { content: true })).toBeUndefined();
       expect(await rejectMessage(() => seeds.patch('MMR', seq, { title: 'mutated' }))).toMatch(
         new RegExp(`MMR-s${String(seq)} doesn't exist`),
@@ -437,20 +435,20 @@ describe.skipIf(!NORN)('norn seed store', () => {
       requester: null,
       title: 'second',
     });
-    const racer = new NornClient({ vaultPath: join(root, 'vault') });
+    const racer = new NornClient({ vaultPath: vaultRoot });
     const originalResult = client.getSectionsResult.bind(client);
     const injected = new Set<string>();
     const inject = async (targets: string[]): Promise<void> => {
       for (const id of ['MMR-s1', 'MMR-s2']) {
         if (targets.some((target) => target.includes(id)) && !injected.has(id)) {
           injected.add(id);
-          await racer.newDoc({
-            body: 'no requested seed headings',
-            confirm: true,
-            field_json: [`type=${JSON.stringify('note')}`],
-            parents: true,
-            path: `relocated/${id}.md`,
-          });
+          await seedRawDoc(
+            racer,
+            vaultRoot,
+            `relocated/${id}.md`,
+            { type: 'note' },
+            'no requested seed headings',
+          );
         }
       }
     };
@@ -474,21 +472,21 @@ describe.skipIf(!NORN)('norn seed store', () => {
       [3, { kind: 'foreign', lifecycle: 'new', type: 'seed' }],
       [4, { kind: 'idea', lifecycle: 'foreign', type: 'seed' }],
     ] as const) {
-      await client.newDoc({
-        body: '## Seed Description\n\nforeign prose\n\n## History\n\n### entry\n\n## Annotations\n',
-        confirm: true,
-        field_json: [
-          ...('type' in fields ? [`type=${JSON.stringify(fields.type)}`] : []),
-          `title=${JSON.stringify('foreign')}`,
-          `project=${JSON.stringify('[[MMR]]')}`,
-          `kind=${JSON.stringify(fields.kind)}`,
-          `lifecycle=${JSON.stringify(fields.lifecycle)}`,
-          `created=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
-          `updated_at=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
-        ],
-        parents: true,
-        path: `relocated/MMR-s${String(seq)}.md`,
-      });
+      await seedRawDoc(
+        client,
+        vaultRoot,
+        `relocated/MMR-s${String(seq)}.md`,
+        {
+          ...('type' in fields ? { type: fields.type } : {}),
+          created: '2026-07-13T00:00:00.000Z',
+          kind: fields.kind,
+          lifecycle: fields.lifecycle,
+          project: '[[MMR]]',
+          title: 'foreign',
+          updated_at: '2026-07-13T00:00:00.000Z',
+        },
+        '## Seed Description\n\nforeign prose\n\n## History\n\n### entry\n\n## Annotations\n',
+      );
     }
     for (const seq of [1, 2, 3, 4]) {
       expect(await seeds.loadHistory('MMR', seq)).toBeUndefined();

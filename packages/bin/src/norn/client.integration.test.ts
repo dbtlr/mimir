@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import { bunExec } from '../exec';
 import { converge } from '../vault/converge';
 import { NornClient } from './client';
+import { createDocumentPlan } from './plan';
+import { seedRawDoc } from './testing';
 
 /**
  * The live integration slice: a real `norn mcp` subprocess over a vault the
@@ -16,11 +18,13 @@ import { NornClient } from './client';
 const NORN = Bun.which('norn') !== null;
 
 let root: string;
+let vaultRoot: string;
 let client: NornClient;
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), 'mimir-norn-'));
-  await converge(join(root, 'vault'), { allowCreate: true, exec: bunExec });
-  client = new NornClient({ vaultPath: join(root, 'vault') });
+  vaultRoot = join(root, 'vault');
+  await converge(vaultRoot, { allowCreate: true, exec: bunExec });
+  client = new NornClient({ vaultPath: vaultRoot });
 });
 afterEach(async () => {
   await client.close();
@@ -28,34 +32,25 @@ afterEach(async () => {
 });
 
 test.skipIf(!NORN)('create → find → get round-trips an artifact through real norn', async () => {
+  const plan = createDocumentPlan(
+    vaultRoot,
+    'MMR/artifacts/MMR-a1.md',
+    {
+      created: '2026-07-02T12:00:00',
+      project: '[[MMR]]',
+      title: 'Round-trip spec',
+      type: 'artifact',
+    },
+    '# Spec\n\nbody\n',
+  );
+
   // dry-run first: nothing written
-  const dryRun = await client.newDoc({
-    body: '# Spec\n\nbody\n',
-    field_json: [
-      'type="artifact"',
-      'title="Round-trip spec"',
-      'project="[[MMR]]"',
-      'created="2026-07-02T12:00:00"',
-    ],
-    parents: true,
-    path: 'MMR/artifacts/MMR-a1.md',
-  });
+  const dryRun = await client.applyPlan(plan, false);
   expect(dryRun).toBeDefined();
   expect(await client.find({ eq: ['type:artifact'] })).toEqual([]);
 
   // confirmed: the file lands and is queryable
-  await client.newDoc({
-    body: '# Spec\n\nbody\n',
-    confirm: true,
-    field_json: [
-      'type="artifact"',
-      'title="Round-trip spec"',
-      'project="[[MMR]]"',
-      'created="2026-07-02T12:00:00"',
-    ],
-    parents: true,
-    path: 'MMR/artifacts/MMR-a1.md',
-  });
+  await client.applyPlan(plan, true);
 
   const docs = await client.find({ col: ['title'], eq: ['type:artifact'] });
   expect(docs).toHaveLength(1);
@@ -75,31 +70,21 @@ test.skipIf(!NORN)(
   async () => {
     // A hand-edited node with two `## History` headings: norn resolves NEITHER and
     // reports the doc in section_failures with no record — the read degrades to empty.
-    await client.newDoc({
-      body: '## History\n### a\nx\n## History\n### b\ny\n',
-      confirm: true,
-      field_json: [
-        'type="task"',
-        'title="Dup"',
-        'project="[[MMR]]"',
-        'created="2026-07-02T12:00:00"',
-      ],
-      parents: true,
-      path: 'MMR/MMR-1.md',
-    });
+    await seedRawDoc(
+      client,
+      vaultRoot,
+      'MMR/MMR-1.md',
+      { created: '2026-07-02T12:00:00', project: '[[MMR]]', title: 'Dup', type: 'task' },
+      '## History\n### a\nx\n## History\n### b\ny\n',
+    );
     // A healthy sibling — single History — must NOT be reported.
-    await client.newDoc({
-      body: '## History\n### 2026-07-02T12:00:00 — lifecycle\ntodo → done\n',
-      confirm: true,
-      field_json: [
-        'type="task"',
-        'title="Good"',
-        'project="[[MMR]]"',
-        'created="2026-07-02T12:00:00"',
-      ],
-      parents: true,
-      path: 'MMR/MMR-2.md',
-    });
+    await seedRawDoc(
+      client,
+      vaultRoot,
+      'MMR/MMR-2.md',
+      { created: '2026-07-02T12:00:00', project: '[[MMR]]', title: 'Good', type: 'task' },
+      '## History\n### 2026-07-02T12:00:00 — lifecycle\ntodo → done\n',
+    );
 
     const failures = await client.sectionFailures(['MMR/MMR-1.md', 'MMR/MMR-2.md'], ['History']);
     expect(failures).toEqual(['MMR/MMR-1.md']);
@@ -107,16 +92,11 @@ test.skipIf(!NORN)(
 );
 
 test.skipIf(!NORN)('set updates frontmatter through the mutation contract', async () => {
-  await client.newDoc({
-    confirm: true,
-    field_json: [
-      'type="artifact"',
-      'title="Before"',
-      'project="[[MMR]]"',
-      'created="2026-07-02T12:00:00"',
-    ],
-    parents: true,
-    path: 'MMR/artifacts/MMR-a2.md',
+  await seedRawDoc(client, vaultRoot, 'MMR/artifacts/MMR-a2.md', {
+    created: '2026-07-02T12:00:00',
+    project: '[[MMR]]',
+    title: 'Before',
+    type: 'artifact',
   });
   await client.set({
     confirm: true,

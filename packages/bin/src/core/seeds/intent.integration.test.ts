@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { bunExec } from '../../exec';
 import { NornClient } from '../../norn/client';
+import { seedRawDoc } from '../../norn/testing';
 import { createNornWriteStore } from '../../norn/writer';
 import { converge } from '../../vault/converge';
 import { deriveSet, findNodeInSet } from '../derive';
@@ -191,21 +192,21 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
       requester: null,
       title: 'canonical',
     });
-    await client.newDoc({
-      body: '## Seed Description\n\nrelocated\n\n## History\n## Annotations\n',
-      confirm: true,
-      field_json: [
-        `type=${JSON.stringify('seed')}`,
-        `title=${JSON.stringify('relocated')}`,
-        `project=${JSON.stringify('[[MMR]]')}`,
-        `kind=${JSON.stringify('idea')}`,
-        `lifecycle=${JSON.stringify('new')}`,
-        `created=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
-        `updated_at=${JSON.stringify('2026-07-13T00:00:00.000Z')}`,
-      ],
-      parents: true,
-      path: 'relocated/MMR-s1.md',
-    });
+    await seedRawDoc(
+      client,
+      vaultRoot,
+      'relocated/MMR-s1.md',
+      {
+        created: '2026-07-13T00:00:00.000Z',
+        kind: 'idea',
+        lifecycle: 'new',
+        project: '[[MMR]]',
+        title: 'relocated',
+        type: 'seed',
+        updated_at: '2026-07-13T00:00:00.000Z',
+      },
+      '## Seed Description\n\nrelocated\n\n## History\n## Annotations\n',
+    );
 
     expect(await listSeeds(store, { project: 'MMR' })).toEqual([]);
     expect(await rejectMessage(() => getSeed(store, 'MMR-s1'))).toMatch(/MMR-s1 doesn't exist/);
@@ -220,20 +221,20 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     for (const title of ['one', 'two', 'three']) {
       await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title });
     }
-    await client.newDoc({
-      body: 'foreign physical owner',
-      confirm: true,
-      field_json: [`type=${JSON.stringify('note')}`, `title=${JSON.stringify('foreign')}`],
-      parents: true,
-      path: 'relocated/MMR-s1.md',
-    });
-    await client.newDoc({
-      body: 'untyped physical owner',
-      confirm: true,
-      field_json: [`title=${JSON.stringify('untyped')}`],
-      parents: true,
-      path: 'relocated/MMR-s2.md',
-    });
+    await seedRawDoc(
+      client,
+      vaultRoot,
+      'relocated/MMR-s1.md',
+      { title: 'foreign', type: 'note' },
+      'foreign physical owner',
+    );
+    await seedRawDoc(
+      client,
+      vaultRoot,
+      'relocated/MMR-s2.md',
+      { title: 'untyped' },
+      'untyped physical owner',
+    );
     mkdirSync(join(vaultRoot, 'relocated'), { recursive: true });
     writeFileSync(join(vaultRoot, 'relocated/MMR-s3.md'), '---\ntype: [broken\n---\n');
 
@@ -561,21 +562,21 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     const at = '2026-07-08T00:00:00.000Z';
     // Two same-timestamp seeds whose seqs sort differently lexically vs numerically.
     for (const seq of [2, 10]) {
-      await client.newDoc({
-        body: '## Seed Description\n\n\n## History\n## Annotations\n',
-        confirm: true,
-        field_json: [
-          `type=${JSON.stringify('seed')}`,
-          `title=${JSON.stringify(`s${String(seq)}`)}`,
-          `project=${JSON.stringify('[[MMR]]')}`,
-          `kind=${JSON.stringify('idea')}`,
-          `lifecycle=${JSON.stringify('new')}`,
-          `created=${JSON.stringify(at)}`,
-          `updated_at=${JSON.stringify(at)}`,
-        ],
-        parents: true,
-        path: `MMR/seeds/MMR-s${String(seq)}.md`,
-      });
+      await seedRawDoc(
+        client,
+        vaultRoot,
+        `MMR/seeds/MMR-s${String(seq)}.md`,
+        {
+          created: at,
+          kind: 'idea',
+          lifecycle: 'new',
+          project: '[[MMR]]',
+          title: `s${String(seq)}`,
+          type: 'seed',
+          updated_at: at,
+        },
+        '## Seed Description\n\n\n## History\n## Annotations\n',
+      );
     }
     const live = await listSeeds(store, { project: 'MMR' });
     expect(live.map((s) => s.id)).toEqual(['MMR-s2', 'MMR-s10']);
@@ -611,23 +612,23 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     // non-existent node. The verb read must null the requester and prune the ref —
     // exactly what the validator would drop.
     await seedbed();
-    await client.newDoc({
-      body: '## Seed Description\n\n\n## History\n## Annotations\n',
-      confirm: true,
-      field_json: [
-        `type=${JSON.stringify('seed')}`,
-        `title=${JSON.stringify('corrupt')}`,
-        `project=${JSON.stringify('[[MMR]]')}`,
-        `kind=${JSON.stringify('bug')}`,
-        `lifecycle=${JSON.stringify('promoted')}`,
-        `requester=${JSON.stringify('[[GHOST]]')}`,
-        `spawned=${JSON.stringify(['[[MMR-999]]'])}`,
-        `created=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
-        `updated_at=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
-      ],
-      parents: true,
-      path: 'MMR/seeds/MMR-s1.md',
-    });
+    await seedRawDoc(
+      client,
+      vaultRoot,
+      'MMR/seeds/MMR-s1.md',
+      {
+        created: '2026-07-08T00:00:00.000Z',
+        kind: 'bug',
+        lifecycle: 'promoted',
+        project: '[[MMR]]',
+        requester: '[[GHOST]]',
+        spawned: ['[[MMR-999]]'],
+        title: 'corrupt',
+        type: 'seed',
+        updated_at: '2026-07-08T00:00:00.000Z',
+      },
+      '## Seed Description\n\n\n## History\n## Annotations\n',
+    );
     const seed = await getSeed(store, 'MMR-s1');
     expect(seed.requester).toBeNull(); // unknown project → nulled on read
     expect(seed.spawned).toEqual([]); // dangling ref → pruned on read
@@ -666,22 +667,22 @@ describe.skipIf(!NORN)('seed verbs (intent)', () => {
     rmSync(join(vaultRoot, 'ORPH', 'ORPH.md'), { force: true });
 
     // A promoted MMR seed that spawned that now-orphaned node.
-    await client.newDoc({
-      body: '## Seed Description\n\n\n## History\n## Annotations\n',
-      confirm: true,
-      field_json: [
-        `type=${JSON.stringify('seed')}`,
-        `title=${JSON.stringify('spawns orphan')}`,
-        `project=${JSON.stringify('[[MMR]]')}`,
-        `kind=${JSON.stringify('bug')}`,
-        `lifecycle=${JSON.stringify('promoted')}`,
-        `spawned=${JSON.stringify([`[[${orphanStem}]]`])}`,
-        `created=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
-        `updated_at=${JSON.stringify('2026-07-08T00:00:00.000Z')}`,
-      ],
-      parents: true,
-      path: 'MMR/seeds/MMR-s1.md',
-    });
+    await seedRawDoc(
+      client,
+      vaultRoot,
+      'MMR/seeds/MMR-s1.md',
+      {
+        created: '2026-07-08T00:00:00.000Z',
+        kind: 'bug',
+        lifecycle: 'promoted',
+        project: '[[MMR]]',
+        spawned: [`[[${orphanStem}]]`],
+        title: 'spawns orphan',
+        type: 'seed',
+        updated_at: '2026-07-08T00:00:00.000Z',
+      },
+      '## Seed Description\n\n\n## History\n## Annotations\n',
+    );
 
     // Whole-vault path: the validator drops the orphan-project node, so listSeeds prunes.
     const listed = (await listSeeds(store, { project: 'MMR' })).find((v) => v.id === 'MMR-s1');

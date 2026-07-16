@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { bunExec } from '../exec';
 import { NornClient } from '../norn/client';
+import { seedRawDoc } from '../norn/testing';
 import { createNornWriteStore } from '../norn/writer';
 import { converge } from '../vault/converge';
 import { readSectionFailures } from './body-sections';
@@ -24,11 +25,13 @@ import { validate } from './validate';
 const NORN = Bun.which('norn') !== null;
 
 let root: string;
+let vaultRoot: string;
 let client: NornClient;
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), 'mimir-norn-read-'));
-  await converge(join(root, 'vault'), { allowCreate: true, exec: bunExec });
-  client = new NornClient({ vaultPath: join(root, 'vault') });
+  vaultRoot = join(root, 'vault');
+  await converge(vaultRoot, { allowCreate: true, exec: bunExec });
+  client = new NornClient({ vaultPath: vaultRoot });
 });
 afterEach(async () => {
   await client.close();
@@ -43,12 +46,12 @@ function must<T>(value: T | undefined): T {
   return value;
 }
 
-const jsonField = (key: string, value: unknown): string => `${key}=${JSON.stringify(value)}`;
+const jsonField = (key: string, value: unknown): [string, unknown] => [key, value];
 const wikilink = (stem: string): string => `[[${stem}]]`;
 const aliasedWikilink = (stem: string, alias: string): string => `[[${stem}|${alias}]]`;
 
-async function writeDoc(path: string, fields: string[]): Promise<void> {
-  await client.newDoc({ confirm: true, field_json: fields, parents: true, path });
+async function writeDoc(path: string, fields: [string, unknown][], body = ''): Promise<void> {
+  await seedRawDoc(client, vaultRoot, path, Object.fromEntries(fields), body);
 }
 
 test.skipIf(!NORN)(
@@ -375,7 +378,7 @@ test.skipIf(!NORN)('readVaultGraph carries collapsed project declarations (MMR-2
 test.skipIf(!NORN)(
   'readSectionFailures reports ambiguous History/Annotations headings',
   async () => {
-    const fm = (title: string): string[] => [
+    const fm = (title: string): [string, unknown][] => [
       jsonField('type', 'task'),
       jsonField('title', title),
       jsonField('parent', wikilink('MMR')),
@@ -386,43 +389,31 @@ test.skipIf(!NORN)(
     ];
     // The project doc carries a real ## History (as production creates it), so it is
     // not itself a failure.
-    await client.newDoc({
-      body: renderHistoryBody(),
-      confirm: true,
-      field_json: [
+    await writeDoc(
+      'MMR/MMR.md',
+      [
         jsonField('type', 'project'),
         jsonField('key', 'MMR'),
         jsonField('name', 'MMR'),
         jsonField('created', TS),
         jsonField('updated_at', TS),
       ],
-      parents: true,
-      path: 'MMR/MMR.md',
-    });
+      renderHistoryBody(),
+    );
     // Duplicate ## History → History unresolvable (Annotations is fine).
-    await client.newDoc({
-      body: '## Task Description\n\n## History\n### a\nx\n## History\n### b\ny\n## Annotations\n',
-      confirm: true,
-      field_json: fm('DupHistory'),
-      parents: true,
-      path: 'MMR/MMR-1.md',
-    });
+    await writeDoc(
+      'MMR/MMR-1.md',
+      fm('DupHistory'),
+      '## Task Description\n\n## History\n### a\nx\n## History\n### b\ny\n## Annotations\n',
+    );
     // Duplicate ## Annotations → Annotations unresolvable (History is fine).
-    await client.newDoc({
-      body: '## Task Description\n\n## History\n## Annotations\n### a\n## Annotations\n### b\n',
-      confirm: true,
-      field_json: fm('DupAnnotations'),
-      parents: true,
-      path: 'MMR/MMR-2.md',
-    });
+    await writeDoc(
+      'MMR/MMR-2.md',
+      fm('DupAnnotations'),
+      '## Task Description\n\n## History\n## Annotations\n### a\n## Annotations\n### b\n',
+    );
     // A healthy node — neither section is ambiguous.
-    await client.newDoc({
-      body: renderNodeBody(null),
-      confirm: true,
-      field_json: fm('Healthy'),
-      parents: true,
-      path: 'MMR/MMR-3.md',
-    });
+    await writeDoc('MMR/MMR-3.md', fm('Healthy'), renderNodeBody(null));
 
     const failures = await readSectionFailures(client);
     expect(failures).toContainEqual({
@@ -464,10 +455,9 @@ test.skipIf(!NORN)(
     ]);
     // A real node body (## History / ## Annotations) so the edit's transition
     // append lands — a hand-injected dangling depends_on on an otherwise valid doc.
-    await client.newDoc({
-      body: renderNodeBody(null),
-      confirm: true,
-      field_json: [
+    await writeDoc(
+      'MMR/MMR-2.md',
+      [
         jsonField('type', 'task'),
         jsonField('title', 'Dependent'),
         jsonField('parent', wikilink('MMR')),
@@ -476,9 +466,8 @@ test.skipIf(!NORN)(
         jsonField('created', TS),
         jsonField('updated_at', TS),
       ],
-      parents: true,
-      path: 'MMR/MMR-2.md',
-    });
+      renderNodeBody(null),
+    );
 
     // Baseline: the reader drops MMR-999 and doctor's validator reports it.
     expect(validate(await readVaultGraph(client)).dropped.some(mmr2DanglerReported)).toBe(true);
