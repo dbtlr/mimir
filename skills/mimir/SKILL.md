@@ -114,20 +114,25 @@ already scoped to the bound project. `-s KEY` targets another project; `-s all`
 queries every project.
 
 **7. Drive from the reference, never from memory.** The verb and flag surface is
-exact and narrow — the only verbs that exist are the ones the references list, and
-there is **no per-command help** (`mimir <cmd> -h`/`--help` prints the general help,
-not that command's flags). **Before your first create/update/restructure in a
-session, open the matching `references/*.md` (Routing, below) and drive from it.**
-Guessing a verb (`describe`? `show`? `edit`?) or a flag either errors and burns a
-round-trip, or — worse — silently writes the wrong field. Grepping the source for a
-flag is the tell that you skipped this step.
+exact and narrow — the only verbs that exist are the ones the references list.
+`mimir <cmd> -h`/`--help` prints that command's own usage and flags (`-h` terse,
+`--help` adds worked examples) — a quick flag reminder, not a substitute for the
+reference, which stays the complete, authoritative teaching surface: workflow,
+rationale, and the pattern around the command. Renames are pre-1.0 hard breaks
+with no alias — a verb that suddenly errors means it moved, not that you
+mistyped; the unknown-command error may tombstone the old name to the new one.
+**Before your first create/update/restructure in a session, open the matching
+`references/*.md` (Routing, below) and drive from it.** Guessing a verb
+(`describe`? `show`? `edit`?) or a flag either errors and burns a round-trip, or
+— worse — silently writes the wrong field. Grepping the source for a flag is the
+tell that you skipped this step.
 
-| Rationalization                       | Reality                                                      |
-| ------------------------------------- | ------------------------------------------------------------ |
-| "I remember the verb/flag"            | The surface drifts; memory misfires. Open the reference.     |
-| "`describe`/`show`/`edit` must exist" | Only the referenced verbs exist. Guessing fails or misfires. |
-| "`mimir <cmd> -h` will remind me"     | There is no per-command help — the reference IS the help.    |
-| "It's one scalar field, I'll wing it" | A wrong field patches the wrong row silently. Read first.    |
+| Rationalization                       | Reality                                                                       |
+| ------------------------------------- | ----------------------------------------------------------------------------- |
+| "I remember the verb/flag"            | The surface drifts; memory misfires. Open the reference.                      |
+| "`describe`/`show`/`edit` must exist" | Only the referenced verbs exist. Guessing fails or misfires.                  |
+| "`mimir <cmd> -h` will remind me"     | It reminds you of flags, not workflow — the reference is still the authority. |
+| "It's one scalar field, I'll wing it" | A wrong field patches the wrong row silently. Read first.                     |
 
 ## Routing
 
