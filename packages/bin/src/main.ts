@@ -6,6 +6,14 @@
  *   <verb> [args]   read/write commands → CLI transport
  *   mcp             the agent envelope over stdio → MCP transport
  *   --help, -h      help (handled by the CLI)
+ *
+ * `serve`/`mcp`/`version` are machinery loners (ADR 0024) intercepted here,
+ * ahead of `runCli`, because each has a real effect (start a server, hang on
+ * stdio, print a bare version) a lazily-acquired store can't gate the way it
+ * gates every other verb (MMR-39). `-h`/`--help` on any of the three is the
+ * one exception: it's recognized here and falls through to `runCli` instead,
+ * which renders that verb's `COMMAND_HELP` descriptor without ever touching
+ * the vault (MMR-294).
  */
 import { parsePort } from '@mimir/helpers';
 
@@ -69,6 +77,11 @@ function stdoutIo(): Io {
     plain: process.env.NO_COLOR !== undefined || !isTTY,
     write: line(process.stdout),
   };
+}
+
+/** True when `-h`/`--help` is present — the one case a machinery loner (serve/mcp/version) doesn't intercept, falling through to `runCli`'s help instead (MMR-294). */
+function wantsHelp(args: string[]): boolean {
+  return args.includes('-h') || args.includes('--help');
 }
 
 /**
@@ -166,12 +179,17 @@ function realVaultDeps(): VaultDeps {
 async function main(argv: string[]): Promise<number> {
   const command = argv[0];
 
-  if (command === '--version' || command === 'version') {
+  if (command === '--version') {
     console.log(VERSION);
     return 0;
   }
 
-  if (command === 'serve') {
+  if (command === 'version' && !wantsHelp(argv.slice(1))) {
+    console.log(VERSION);
+    return 0;
+  }
+
+  if (command === 'serve' && !wantsHelp(argv.slice(1))) {
     const args = argv.slice(1);
     const flagPort = servePort(args);
     if (flagPort === null) {
@@ -239,7 +257,7 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
-  if (command === 'mcp') {
+  if (command === 'mcp' && !wantsHelp(argv.slice(1))) {
     // Long-running: connect and let the stdio transport keep the process alive.
     // The MCP rendering honors the same Project Binding (ADR 0011), resolved
     // from the server's spawn cwd.

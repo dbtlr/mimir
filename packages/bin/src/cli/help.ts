@@ -645,6 +645,38 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     usage:
       'mimir setup [--vault <path>] [--install-service] [--install-snapshot] [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]',
   },
+  // ── machinery loners (MMR-294) ──
+  // `serve`/`mcp`/`version` are intercepted in `main` before CLI dispatch
+  // (ADR 0024's loner rule) — a bare invocation never reaches here. These
+  // descriptors exist so `<verb> -h`/`--help` still renders like every other
+  // command instead of starting the server or hanging on stdio: `main`
+  // recognizes the help flags and falls through to this registry rather than
+  // intercepting.
+  serve: {
+    examples: [
+      'mimir serve                    # bind the default/configured port, hunting if taken',
+      'mimir serve --port 4100        # bind an explicit port',
+      'mimir serve --no-hunt          # fail instead of hunting when the port is taken',
+    ],
+    flags: [
+      ['--port <n>', `bind port (--port > MIMIR_PORT > config [serve] port > ${DEFAULT_PORT})`],
+      ['--no-hunt', 'fail instead of hunting upward when the port is taken'],
+    ],
+    summary:
+      'HTTP API + console (loopback-only, ADR 0012) — long-running; a taken port hunts upward unless --no-hunt',
+    usage: 'mimir serve [--port <n>] [--no-hunt]',
+  },
+  mcp: {
+    examples: ['mimir mcp                      # run as an MCP stdio server'],
+    summary:
+      'the agent envelope over stdio (MCP transport) — long-running; connects and keeps the process alive until the client disconnects',
+    usage: 'mimir mcp',
+  },
+  version: {
+    examples: ['mimir version', 'mimir --version                # flag alias'],
+    summary: 'print the installed version',
+    usage: 'mimir version',
+  },
   // ── service supervision (MMR-286) ──
   service: {
     args: [

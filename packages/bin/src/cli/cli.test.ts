@@ -121,6 +121,59 @@ test('skill/service/self-update print their own command help, not the top-level 
   }
 });
 
+test('serve/mcp/version print their own command help, not the top-level fallback (MMR-294)', async () => {
+  // These three are machinery loners intercepted ahead of runCli in `main`
+  // (ADR 0024) — the interception itself is proven by the from-source smoke,
+  // not here. This covers the registry + dispatch half: once `main` lets
+  // `-h`/`--help` fall through, runCli must render the verb's own help.
+  for (const [verb, usage] of [
+    ['serve', 'mimir serve ['],
+    ['mcp', 'mimir mcp'],
+    ['version', 'mimir version'],
+  ] as const) {
+    const io = fakeIo(true);
+    expect(await runCli([verb, '-h'], neverStore, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain(usage);
+    expect(out).not.toContain('usage: mimir <command>'); // not the top-level dump
+  }
+});
+
+test('serve/mcp/version --help adds examples; -h omits them (MMR-294)', async () => {
+  for (const verb of ['serve', 'mcp', 'version']) {
+    const terse = fakeIo(true);
+    expect(await runCli([verb, '-h'], neverStore, terse)).toBe(0);
+    expect(terse.out.join('')).not.toContain('examples:');
+
+    const full = fakeIo(true);
+    expect(await runCli([verb, '--help'], neverStore, full)).toBe(0);
+    expect(full.out.join('')).toContain('examples:');
+  }
+});
+
+test('serve/mcp/version help never acquires the store (MMR-294, MMR-39)', async () => {
+  for (const verb of ['serve', 'mcp', 'version']) {
+    expect(await runCli([verb, '-h'], neverStore, fakeIo(true))).toBe(0);
+    expect(await runCli([verb, '--help'], neverStore, fakeIo(true))).toBe(0);
+  }
+});
+
+test('serve --help renders even alongside its other flags, never a parse error (MMR-294)', async () => {
+  // --no-hunt/--port are only ever read via argv.includes/indexOf in `main`,
+  // but they still have to survive runCli's strict parseArgs on the -h/--help
+  // fall-through (serve's own descriptor advertises --no-hunt as an example).
+  for (const argv of [
+    ['serve', '--no-hunt', '--help'],
+    ['serve', '-h', '--no-hunt'],
+    ['serve', '--port', '4100', '--help'],
+  ]) {
+    const io = fakeIo(true);
+    expect(await runCli(argv, neverStore, io)).toBe(0);
+    expect(io.out.join('')).toContain('mimir serve [');
+    expect(io.err.join('')).toBe('');
+  }
+});
+
 test('an unknown verb hard-errors (exit 2) even with -h/--help — never the help fallthrough (MMR-211)', async () => {
   for (const argv of [['frobnicate'], ['frobnicate', '-h'], ['frobnicate', '--help']]) {
     const io = fakeIo(true);

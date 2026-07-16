@@ -151,6 +151,7 @@ const OPTIONS = {
   agent: { type: 'string' },
   // service flag
   port: { type: 'string' },
+  'no-hunt': { type: 'boolean' },
   // setup wizard (MMR-145)
   vault: { type: 'string' },
   'install-service': { type: 'boolean' },
@@ -181,8 +182,10 @@ const OPTIONS = {
  * Derived from the `COMMAND_HELP` descriptor registry (single source) rather
  * than re-listed: every documented verb, dropping the space-keyed
  * `create <type>` subcommand descriptors. `serve`/`mcp`/`version` are
- * intercepted upstream in `main` and never reach here. The switch in
- * `runCli` keeps a defensive `default:` for any drift.
+ * intercepted upstream in `main` for a bare invocation; a `-h`/`--help` on
+ * any of them falls through here instead, rendering that verb's
+ * `COMMAND_HELP` descriptor without ever touching the vault (MMR-294). The
+ * switch in `runCli` keeps a defensive `default:` for any drift.
  */
 const COMMANDS: ReadonlySet<string> = new Set(
   Object.keys(COMMAND_HELP).filter((key) => !key.includes(' ')),
@@ -283,6 +286,7 @@ export async function runCli(
     local?: boolean;
     agent?: string;
     port?: string;
+    'no-hunt'?: boolean;
     vault?: string;
     'install-service'?: boolean;
     'install-snapshot'?: boolean;
