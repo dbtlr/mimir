@@ -60,11 +60,13 @@ const STATUS_STYLE: Record<StatusWord, StatusStyle> = {
   under_review: { ascii: '?', color: 35, icon: '◎' },
 };
 
-function color(text: string, code: number, plain: boolean): string {
+/** Wrap `text` in an ANSI color (`plain` — NO_COLOR/--ascii/!isTTY — passes it through untouched). Exported for the help renderer (MMR-300): same plain/color contract, no second color system. */
+export function color(text: string, code: number, plain: boolean): string {
   return plain ? text : `\x1b[${String(code)}m${text}\x1b[0m`;
 }
 
-function bold(text: string, plain: boolean): string {
+/** Wrap `text` in ANSI bold (`plain` passes it through untouched). Exported for the help renderer (MMR-300). */
+export function bold(text: string, plain: boolean): string {
   return plain ? text : `\x1b[1m${text}\x1b[0m`;
 }
 
