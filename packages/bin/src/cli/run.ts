@@ -17,6 +17,7 @@ import {
   MimirError,
   emitWire,
   formatIds,
+  formatOverviewJson,
   formatSetJson,
   formatSetJsonl,
   formatStatusJson,
@@ -27,6 +28,7 @@ import {
   listProjects,
   nextTasks,
   nodeTree,
+  overviewOf,
   parseFilterToken,
   parseIdentity,
   statusOfNode,
@@ -80,6 +82,7 @@ import {
   FORMATS,
   renderArtifactDetail,
   renderNodeView,
+  renderOverview,
   renderRecords,
   renderSeedView,
   renderStatus,
@@ -473,6 +476,24 @@ export async function runCli(
             break;
           }
         }
+        return 0;
+      }
+      case 'overview': {
+        // `overview` reads ONE project (ADR 0024): `-s all` is a category error —
+        // a composite is not a cross-project set.
+        if (values.scope === 'all') {
+          throw usage(
+            'overview reads one project, not a cross-project set',
+            "run 'mimir list -s all' for a cross-project set",
+          );
+        }
+        const scope = effectiveScope(values.scope, defaults.scope);
+        if (scope === undefined) {
+          throw usage('overview needs a project', 'bind a project or pass -s KEY');
+        }
+        const format = pickOverviewFormat(values.format, ctx);
+        const report = await overviewOf(await getStore(), scope);
+        ctx.write(format === 'json' ? formatOverviewJson(report) : renderOverview(report, ctx));
         return 0;
       }
       case 'start': {
@@ -885,6 +906,34 @@ function pickFormat(
   // agent reading to decide (for whom bare ids are useless), not a `| xargs`
   // pipeline.
   return kind === 'set' ? 'table' : 'records';
+}
+
+/**
+ * The `overview` format resolver (MMR-278): the `report` split — `records` on a
+ * TTY, `json` when piped — but ONLY those two. The set formats are category
+ * errors (a composite is not one table / a row stream / an id set), each rejected
+ * as usage with a pointer at `mimir list`.
+ */
+function pickOverviewFormat(explicit: string | undefined, io: Io): 'records' | 'json' {
+  if (explicit === undefined) {
+    return io.isTTY ? 'records' : 'json';
+  }
+  if (explicit === 'records' || explicit === 'json') {
+    return explicit;
+  }
+  if (explicit === 'table') {
+    throw usage('overview is a composite, not a single table', "run 'mimir list' for a table");
+  }
+  if (explicit === 'jsonl') {
+    throw usage(
+      'overview is a composite, not a row stream',
+      "run 'mimir list -f jsonl' for a row stream",
+    );
+  }
+  if (explicit === 'ids') {
+    throw usage('overview is a composite, not an id set', "run 'mimir list -f ids' for an id set");
+  }
+  throw usage(`unknown format: ${explicit} (expected records|json)`);
 }
 
 function requireId(id: string | undefined, command: string): string {

@@ -992,3 +992,83 @@ describe.skipIf(!NORN)('doctor issue-count trailer on next/list (MMR-184)', () =
     expect(listIo.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
   });
 });
+
+// MMR-278: `overview` — the composite session-boot orientation surface. A
+// report-kind read: styled sections on a TTY, one JSON envelope when piped;
+// the set formats and `-s all` are usage errors pointing at `mimir list`.
+describe.skipIf(!NORN)('overview (MMR-278)', () => {
+  test('records render carries the five sections and the ready row', async () => {
+    await createTask(store, { parentId: phaseId, title: 'do the thing' });
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain('MMR');
+    expect(out).toContain('in flight (0)');
+    expect(out).toContain('next (1)');
+    expect(out).toContain('awaiting (0)');
+    expect(out).toContain('hygiene');
+    expect(out).toContain('do the thing');
+  });
+
+  test('the awaiting row carries the upstream ids it awaits', async () => {
+    const prereq = await createTask(store, { parentId: phaseId, title: 'prereq' });
+    const dependent = await createTask(store, { parentId: phaseId, title: 'dependent' });
+    await depend(store, `MMR-${String(dependent.seq)}`, [`MMR-${String(prereq.seq)}`]);
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain('awaiting (1)');
+    expect(out).toContain(`· awaiting MMR-${String(prereq.seq)}`);
+  });
+
+  test('-f json emits the composite envelope, not a set wrapper', async () => {
+    await createTask(store, { parentId: phaseId, title: 'ready one' });
+    const io = fakeIo(false);
+    expect(await runCli(['overview', '-s', 'MMR', '-f', 'json'], () => store, io)).toBe(0);
+    const env = parseJson<{
+      project: { id: string; status: string; distribution: Record<string, number> };
+      in_flight: { count: number; tasks: unknown[] };
+      next: { count: number; tasks: { id: string; status: string }[] };
+      awaiting: { count: number; tasks: unknown[] };
+      hygiene: { untriaged: number; blocked: number; stale: number; dropped: number };
+    }>(io.out.join(''));
+    expect(env.project.id).toBe('MMR');
+    expect(env.next.count).toBe(1);
+    expect(env.next.tasks[0]?.status).toBe('ready');
+    expect(env.hygiene).toEqual({ blocked: 0, dropped: 0, stale: 0, untriaged: 0 });
+  });
+
+  test('piped default is the json envelope (report split)', async () => {
+    const io = fakeIo(false);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    expect(() => parseJson(io.out.join(''))).not.toThrow();
+  });
+
+  test.each(['table', 'jsonl', 'ids'])('-f %s is a usage error pointing at list', async (fmt) => {
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR', '-f', fmt], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('composite');
+    expect(io.err.join('')).toContain('mimir list');
+    expect(io.out).toHaveLength(0);
+  });
+
+  test('-s all is a usage error', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'all'], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('one project');
+    expect(io.err.join('')).toContain('mimir list -s all');
+  });
+
+  test('no project (no binding, no -s) is a usage error', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['overview'], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('overview needs a project');
+  });
+
+  test('bare uses the bound scope from defaults', async () => {
+    await createTask(store, { parentId: phaseId, title: 'bound task' });
+    const io = fakeIo(false);
+    expect(await runCli(['overview'], () => store, io, { scope: 'MMR' })).toBe(0);
+    expect(parseJson<{ project: { id: string } }>(io.out.join('')).project.id).toBe('MMR');
+  });
+});
