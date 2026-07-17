@@ -24,7 +24,7 @@
     "vite": "^8.1.4"
   },
   "devDependencies": {
-    "@dbtlr/tooling": "0.3.0",
+    "@dbtlr/tooling": "0.5.0",
     "@types/bun": "latest",
     "oxlint": "1.70.0",
     "vite-plus": "^0.2.1"
