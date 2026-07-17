@@ -505,6 +505,14 @@ test.skipIf(!NORN)(
         fakeIo(false),
       ),
     ).toBe(2);
+    // Same for a malformed --upstream token (seedUpstream owns the class).
+    expect(
+      await runCli(
+        ['create', 'task', 'Bad', '--parent', phaseRef, '--upstream', 'not-a-seed'],
+        () => store,
+        fakeIo(false),
+      ),
+    ).toBe(2);
   },
 );
 test.skipIf(!NORN)('create initiative under a bare project KEY', async () => {

@@ -788,7 +788,10 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         tags: tagFlags(c),
         title,
         type: 'task',
-        upstream: optStr(c, 'upstream'),
+        // Same envelope rule for --upstream: a bad token is a usage error via
+        // seedUpstream, matching `update`. On create, `none` and absent agree
+        // (no upstream), so the cleared null maps to undefined for core.
+        upstream: seedUpstream(c) ?? undefined,
       });
       await echoNodeWith(c.store, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;
