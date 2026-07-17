@@ -780,8 +780,10 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         externalRef: optStr(c, 'ref'),
         openEnded: openEndedFlag(c),
         parent: strFlag(c, 'parent', 'create task requires --parent <id>'),
-        priority: optStr(c, 'priority'),
-        size: optStr(c, 'size'),
+        // CLI ergonomics stay in the envelope: prefix expansion (`--size m` →
+        // medium) and the usage error class for a bad value, matching `update`.
+        priority: parsePriority(optStr(c, 'priority')),
+        size: parseSize(optStr(c, 'size')),
         summary: optStr(c, 'summary'),
         tags: tagFlags(c),
         title,

@@ -484,6 +484,29 @@ test.skipIf(!NORN)('create task under a phase, with signals', async () => {
   expect(v.type).toBe('task');
   expect(v.title).toBe('A new task');
 });
+test.skipIf(!NORN)(
+  'create task expands a size prefix and rejects a bad value as usage',
+  async () => {
+    // The prefix ergonomic (`--size m` → medium) is CLI-envelope sugar over the
+    // core createNode verb — pinned so a future consolidation can't drop it.
+    const io = fakeIo(false);
+    const code = await runCli(
+      ['create', 'task', 'Sized', '--parent', phaseRef, '--size', 'm', '-f', 'json'],
+      () => store,
+      io,
+    );
+    expect(code).toBe(0);
+    expect(JSON.parse(io.out[0] ?? '{}').size).toBe('medium');
+    // A bad value stays the CLI usage class (exit 2), matching `update`.
+    expect(
+      await runCli(
+        ['create', 'task', 'Bad', '--parent', phaseRef, '--size', 'x'],
+        () => store,
+        fakeIo(false),
+      ),
+    ).toBe(2);
+  },
+);
 test.skipIf(!NORN)('create initiative under a bare project KEY', async () => {
   expect(
     await runCli(
