@@ -6,6 +6,7 @@ import { nodeIdOf, projectIdOf, createTestStore } from '../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { deriveSet, leafDistribution } from './derive';
 import type { Store } from './store';
+import { now } from './time';
 
 /**
  * MMR-105 — the per-project leaf-status tally. The leaf-level sibling of
@@ -28,12 +29,18 @@ afterEach(async () => {
 const setOf = async () => deriveSet(await store.loadWorkingSet());
 
 async function patch(id: string, fields: { lifecycle?: Lifecycle; hold?: Hold }): Promise<void> {
-  await store.transact((w) => w.updateNode(id, fields));
+  // Co-write the stamp the real verbs carry: a raw lifecycle/hold patch can be
+  // an unguarded add (defaults are omitted from frontmatter) and the writer
+  // refuses a guard-less plan (MMR-303).
+  await store.transact((w) => w.updateNode(id, { updated_at: now(), ...fields }));
 }
 async function dep(nodeId: string, dependsOn: string): Promise<void> {
-  await store.transact((w) =>
-    w.insertDependency({ depends_on_node_id: dependsOn, node_id: nodeId }),
-  );
+  await store.transact(async (w) => {
+    await w.insertDependency({ depends_on_node_id: dependsOn, node_id: nodeId });
+    // The stamp the real `depend` verb co-writes — a first edge alone is an
+    // unguarded add and the writer refuses a guard-less plan (MMR-303).
+    await w.updateNode(nodeId, { updated_at: now() });
+  });
 }
 
 async function fixture(key = 'MMR') {

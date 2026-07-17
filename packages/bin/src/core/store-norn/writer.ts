@@ -689,6 +689,7 @@ class Accumulator {
       this.emitHistory(operations, path, mutation.history);
     }
 
+    assertCoWriteGuards(operations);
     return operations;
   }
 
@@ -726,13 +727,16 @@ class Accumulator {
    * write, passes its own per-field CAS and applies against a stale Y — with no
    * drift error and no replay (the drift/replay loop in {@link runTransact} fires
    * only on a CAS mismatch). The write silently lands on a document that moved
-   * under the snapshot. The "every verb co-writes a CAS guard" test in
-   * `writer.test.ts` enforces the PRESENCE half structurally over the verbs
-   * exported through `core/mutations`: at least one guarded op per touched
-   * document. It cannot check that the guard co-moves with the verb's legality
-   * reads — a verb guarding only an incidental field would pass the test and
-   * still be stale-unsound — so that semantic half is this rule, applied by the
-   * verb author and enforced in review.
+   * under the snapshot. The PRESENCE half is enforced at runtime (MMR-303):
+   * {@link assertCoWriteGuards} refuses any assembled plan whose touched
+   * document carries no guarded op, before it can reach `vault.apply` — the
+   * "every verb co-writes a CAS guard" test in `writer.test.ts` additionally
+   * pins it per verb. Neither can check that the guard co-moves with the verb's
+   * legality reads — a verb guarding only an incidental field would pass both
+   * and still be stale-unsound — so that semantic half is this rule, applied by
+   * the verb author and enforced in review. Known successor (NRN-s24): when norn
+   * grows a document-level hash precondition on `vault.apply`, the per-field
+   * guard discipline and the runtime assertion both collapse into it.
    */
   private emitFieldOps(
     operations: MigrationOp[],
@@ -841,6 +845,38 @@ function extractResolvedStems(applyReport: ApplyReport, creates: Create[]): Map<
     resolved.set(create, op.stem);
   }
   return resolved;
+}
+
+/**
+ * The runtime half of the CO-WRITE INVARIANT (MMR-303, see the note on
+ * {@link Accumulator.emitFieldOps}): every document a plan mutates must carry at
+ * least one CAS-guarded op — a `set_frontmatter` / `remove_frontmatter` with an
+ * `expected_old_value` — or the plan is refused before it reaches `vault.apply`.
+ * A `create_document` births a new document (guarded by create-exclusivity, not
+ * CAS-drift), so it is not a mutated document; every other op targets an
+ * existing document that must be guarded. Fails closed as an `invariant`: an
+ * unguarded plan is a verb-author bug, never a valid write.
+ */
+function assertCoWriteGuards(operations: readonly MigrationOp[]): void {
+  const mutatedPaths = new Set<string>();
+  const guardedPaths = new Set<string>();
+  for (const op of operations) {
+    if (op.kind === 'create_document') {
+      continue;
+    }
+    const path = String(op.fields.path);
+    mutatedPaths.add(path);
+    if ('expected_old_value' in op.fields) {
+      guardedPaths.add(path);
+    }
+  }
+  const unguarded = [...mutatedPaths].filter((path) => !guardedPaths.has(path)).toSorted();
+  if (unguarded.length > 0) {
+    throw invariant(
+      'the write plan touches a document with no CAS-guarded op',
+      `every mutation must co-write at least one expected_old_value-guarded field per touched document (the co-write invariant); unguarded: ${unguarded.join(', ')}`,
+    );
+  }
 }
 
 /**

@@ -27,6 +27,7 @@ import {
 import { depend, undepend } from '../mutations/dependency';
 import { startTask } from '../mutations/lifecycle';
 import type { Store } from '../store';
+import { expectMimirError } from '../testing';
 import type { NornClient, NornDocument } from './client';
 import type { MigrationOp, MigrationPlan } from './plan';
 import { createNornWriteStore } from './writer';
@@ -273,13 +274,16 @@ test('an annotation lands as one append under ## Annotations with a stamped crea
 
   const ws = await store.loadWorkingSet();
   const taskId = ws.nodes[0]?.id ?? '';
-  await store.transact((w) =>
-    w.insertAnnotation({
+  await store.transact(async (w) => {
+    await w.insertAnnotation({
       content: 'a load-bearing note',
       created_at: '2026-01-02T03:04:05.678Z',
       node_id: taskId,
-    }),
-  );
+    });
+    // The co-written stamp every production annotate carries — the append alone
+    // is unguarded and the writer now refuses a guard-less plan (MMR-303).
+    await w.updateNode(taskId, { updated_at: '2026-01-02T03:04:05.678Z' });
+  });
 
   const plan = plans[0];
   if (plan === undefined) {
@@ -1260,13 +1264,16 @@ test('editing a node preserves its cycle-broken depends_on edge (MMR-186)', asyn
  * drift protection is that every verb co-writes at least one CAS-guarded field
  * (a `set_frontmatter` / `remove_frontmatter` carrying `expected_old_value`) on
  * every document it touches — usually the `updated_at` stamp, but `reorder` is
- * guarded by `rank` and the tag verbs by `tags`. A future verb that wrote a
- * field without a co-written guard, whose legality read a field it does not
- * write, would apply against a stale read with no drift error and no replay.
+ * guarded by `rank` and `untag` by `tags`. A future verb that wrote a field
+ * without a co-written guard, whose legality read a field it does not write,
+ * would apply against a stale read with no drift error and no replay.
  *
- * The two tests below hold the line structurally: the first drives the real
- * plan-assembly seam for every mutation verb and asserts the guard is present;
- * the second asserts the driven set matches the exported mutation surface, so a
+ * Since MMR-303 the writer enforces guard presence at runtime
+ * (`assertCoWriteGuards` refuses an unguarded plan before apply). The two tests
+ * below still hold the line per verb: the first drives the real plan-assembly
+ * seam for every mutation verb and asserts the guard is present — pinning that
+ * each verb satisfies the runtime assertion rather than trips it — and the
+ * second asserts the driven set matches the exported mutation surface, so a
  * newly added verb that carries no driver fails the suite loudly rather than
  * slipping past uncovered. See the CO-WRITE INVARIANT note on
  * `Accumulator.emitFieldOps` in `writer.ts`.
@@ -1383,12 +1390,10 @@ const CAS_PLAN_VERBS: Record<
     run: (s) => submitTask(s, 'MMR-1'),
   },
   tagEntities: {
-    // No stamp: the guard is `tags`, the field it writes. The fixture pre-seeds a
-    // tag so the write is a present → present value-CAS, not an add_frontmatter.
-    docs: () => [
-      projectDoc(),
-      casTask('MMR-1', { lifecycle: 'todo', rank: 65536, tags: ['alpha'] }),
-    ],
+    // The once-unguarded path (MMR-303): a first tag on an untagged entity is an
+    // absent → present `add_frontmatter`, which carries no CAS — the co-written
+    // `updated_at` stamp is the guard. Removing that stamp turns this test red.
+    docs: () => [projectDoc(), casTask('MMR-1', { lifecycle: 'todo', rank: 65536 })],
     run: (s) => tagEntities(s, [{ entityId: 'MMR-1', entityType: 'node' }], ['beta']),
   },
   unarchiveProject: {
@@ -1513,4 +1518,37 @@ test('the CAS-guard invariant covers every exported mutation verb (MMR-194)', as
   // set, so this fails loudly — forcing a driver (guarded) or an explicit
   // out-of-scope entry (with its reason) rather than silently going uncovered.
   expect(exportedFns).toEqual(covered);
+});
+
+test('transact refuses a plan whose touched document carries no CAS guard (MMR-303)', async () => {
+  const { client, plans } = fakeClient([
+    projectDoc(),
+    casTask('MMR-1', { lifecycle: 'todo', rank: 65536 }),
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  // Drive the writer primitive directly, skipping the verb's co-written stamp: a
+  // first tag on an untagged node emits only an unguarded `add_frontmatter`, the
+  // exact shape a guard-less future verb would produce. The runtime assertion
+  // must refuse it before anything reaches `vault.apply`.
+  await expectMimirError('invariant', () =>
+    store.transact((w) => w.insertTag({ entity_id: 'MMR-1', entity_type: 'node', tag: 'alpha' })),
+  );
+  expect(plans).toHaveLength(0);
+});
+
+test('a first tag on an untagged entity rides the co-written updated_at guard (MMR-303)', async () => {
+  const { client, plans } = fakeClient([
+    projectDoc(),
+    casTask('MMR-1', { lifecycle: 'todo', rank: 65536 }),
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  await tagEntities(store, [{ entityId: 'MMR-1', entityType: 'node' }], ['alpha']);
+  const plan = plans[0];
+  if (plan === undefined) {
+    throw new Error('expected one applied plan');
+  }
+  // The tags write itself is absent → present, so it carries no CAS…
+  expect(findOp(plan, 'add_frontmatter', 'tags')?.fields.new_value).toEqual(['alpha']);
+  // …and the co-written stamp is the guard that lets the plan through.
+  expect(findOp(plan, 'set_frontmatter', 'updated_at')?.fields.expected_old_value).toBe(TS);
 });

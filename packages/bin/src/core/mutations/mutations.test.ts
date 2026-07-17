@@ -9,6 +9,7 @@ import { RANK_STEP } from '../rank';
 import { resolveEntityTokenInSet } from '../resolve-set';
 import type { Store } from '../store';
 import { expectMimirError } from '../testing';
+import { now } from '../time';
 import {
   abandonTask,
   annotate,
@@ -270,6 +271,10 @@ test.skipIf(!NORN)(
     await store.transact(async (w) => {
       await w.insertDependency({ depends_on_node_id: initYId, node_id: xId });
       await w.insertDependency({ depends_on_node_id: initXId, node_id: yId });
+      // The stamps the real `depend` verb co-writes — a first edge alone is an
+      // unguarded add and the writer refuses a guard-less plan (MMR-303).
+      await w.updateNode(xId, { updated_at: now() });
+      await w.updateNode(yId, { updated_at: now() });
     });
 
     // an unrelated depend-on-container and an unrelated move both still work

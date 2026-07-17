@@ -6,6 +6,7 @@ import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { childDistribution, deriveSet, nodeStatusWord, statusOf } from './derive';
 import type { Store } from './store';
+import { now } from './time';
 
 const NORN = Bun.which('norn') !== null;
 
@@ -22,7 +23,10 @@ const setOf = async () => deriveSet(await store.loadWorkingSet());
 
 async function setLifecycle(key: string, seq: number, lifecycle: Lifecycle): Promise<void> {
   const id = await nodeIdOf(store, `${key}-${String(seq)}`);
-  await store.transact((w) => w.updateNode(id, { lifecycle }));
+  // Co-write the stamp the real verbs carry: a raw lifecycle patch can be an
+  // unguarded add (defaults are omitted from frontmatter) and the writer
+  // refuses a guard-less plan (MMR-303).
+  await store.transact((w) => w.updateNode(id, { lifecycle, updated_at: now() }));
 }
 
 async function reload(key: string, seq: number) {
@@ -37,9 +41,13 @@ async function reload(key: string, seq: number) {
 async function dep(key: string, nodeSeq: number, dependsOnSeq: number): Promise<void> {
   const nodeId = await nodeIdOf(store, `${key}-${String(nodeSeq)}`);
   const dependsOnId = await nodeIdOf(store, `${key}-${String(dependsOnSeq)}`);
-  await store.transact((w) =>
-    w.insertDependency({ depends_on_node_id: dependsOnId, node_id: nodeId }),
-  );
+  await store.transact(async (w) => {
+    await w.insertDependency({ depends_on_node_id: dependsOnId, node_id: nodeId });
+    // The stamp the real `depend` verb co-writes — a first edge alone is an
+    // unguarded add and the writer refuses a guard-less plan (MMR-303). This
+    // helper stays behind the verbs so cycle fixtures can bypass the verb guard.
+    await w.updateNode(nodeId, { updated_at: now() });
+  });
 }
 
 test.skipIf(!NORN)(
@@ -216,7 +224,9 @@ test.skipIf(!NORN)(
 
 async function setOpenEnded(key: string, seq: number, value: boolean): Promise<void> {
   const id = await nodeIdOf(store, `${key}-${String(seq)}`);
-  await store.transact((w) => w.updateNode(id, { open_ended: value }));
+  // Co-write the stamp the real verbs carry: a first open_ended write is an
+  // unguarded add and the writer refuses a guard-less plan (MMR-303).
+  await store.transact((w) => w.updateNode(id, { open_ended: value, updated_at: now() }));
 }
 
 test.skipIf(!NORN)(
