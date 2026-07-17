@@ -878,7 +878,11 @@ function assertCoWriteGuards(operations: readonly MigrationOp[]): void {
       continue;
     }
     const path = String(op.fields.path);
-    const guarded = 'expected_old_value' in op.fields && op.fields.expected_old_value !== null;
+    // Nullish expected-old is no guard: null asserts absence (see the function
+    // doc), and an undefined value — unreachable via the plan constructors, but
+    // possible on a raw op — would drop out at JSON serialization entirely.
+    const expected = op.fields.expected_old_value;
+    const guarded = expected !== null && expected !== undefined;
     guardedByPath.set(path, guarded || (guardedByPath.get(path) ?? false));
     if (op.fields.field === 'updated_at') {
       stampedPaths.add(path);
