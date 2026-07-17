@@ -8,7 +8,7 @@
         "vite": "^8.1.4",
       },
       "devDependencies": {
-        "@dbtlr/tooling": "0.3.0",
+        "@dbtlr/tooling": "0.5.0",
         "@types/bun": "latest",
         "oxlint": "1.70.0",
         "vite-plus": "^0.2.1",
@@ -297,7 +297,7 @@
 
     "@csstools/css-tokenizer": ["@csstools/css-tokenizer@4.0.0", "", {}, "sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA=="],
 
-    "@dbtlr/tooling": ["@dbtlr/tooling@0.3.0", "", { "peerDependencies": { "vite": ">=8.0.0", "vite-plus": ">=0.2.0" }, "optionalPeers": ["vite", "vite-plus"] }, "sha512-yxxpMXwmPb2tWhnj0h28An4APzZOcupnbzesMu7KvGBUdtW+FccCUAi56sku4SH+zdhsafvSse63mDKpxHEuag=="],
+    "@dbtlr/tooling": ["@dbtlr/tooling@0.5.0", "", { "peerDependencies": { "@testing-library/jest-dom": ">=6", "vite": ">=8.0.0", "vite-plus": ">=0.2.0" }, "optionalPeers": ["@testing-library/jest-dom", "vite", "vite-plus"] }, "sha512-nBBNIuE+hqXDY3JK1zuLCHyTKYsPCX077ABiLZ3xoI0Ibr3Y8i/13O+S7dzDLhX3aWlJVwqyCeClowX0m3+zUg=="],
 
     "@dnd-kit/accessibility": ["@dnd-kit/accessibility@3.1.1", "", { "dependencies": { "tslib": "^2.0.0" }, "peerDependencies": { "react": ">=16.8.0" } }, "sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw=="],
 
