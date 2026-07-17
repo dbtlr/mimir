@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import type { Hold, Lifecycle } from '@mimir/contract';
 
-import { nodeIdOf, projectIdOf, createTestStore } from '../testing/store';
+import { nodeIdOf, projectIdOf, createTestStore, rawDep, rawPatchNode } from '../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { deriveSet, leafDistribution } from './derive';
 import type { Store } from './store';
@@ -28,12 +28,10 @@ afterEach(async () => {
 const setOf = async () => deriveSet(await store.loadWorkingSet());
 
 async function patch(id: string, fields: { lifecycle?: Lifecycle; hold?: Hold }): Promise<void> {
-  await store.transact((w) => w.updateNode(id, fields));
+  await rawPatchNode(store, id, fields);
 }
 async function dep(nodeId: string, dependsOn: string): Promise<void> {
-  await store.transact((w) =>
-    w.insertDependency({ depends_on_node_id: dependsOn, node_id: nodeId }),
-  );
+  await rawDep(store, nodeId, dependsOn);
 }
 
 async function fixture(key = 'MMR') {

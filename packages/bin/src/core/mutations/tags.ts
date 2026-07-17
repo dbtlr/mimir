@@ -1,5 +1,6 @@
 import type { Store, StoreWriter } from '../store';
-import { assertProjectActive } from './common';
+import { now } from '../time';
+import { assertProjectActive, stamp } from './common';
 
 /**
  * The tag write surface (MMR-31). Tags are a general-purpose primitive
@@ -40,6 +41,14 @@ async function projectOfTarget(w: StoreWriter, ref: EntityRef): Promise<string |
  * Node/project tags write the tag table under one transaction; an
  * artifact's tags route through the seam (the backend owns where they live).
  * The archive write-lock (ADR 0015) is asserted for every target either way.
+ *
+ * A node/project target whose tag set actually changes is stamped `updated_at`
+ * (MMR-303): a first tag on an untagged entity writes a previously-absent
+ * `tags` field, which alone carries no CAS precondition — the stamp is the
+ * co-written guard the write path's co-write invariant requires. An idempotent
+ * re-tag adds nothing and writes nothing, so it never moves `updated_at` (the
+ * stale clock and attention recency read it). `untag` needs no stamp: removing
+ * from a present `tags` field is always value-CAS-guarded by the field itself.
  */
 export async function tagEntities(
   store: Store,
@@ -55,8 +64,21 @@ export async function tagEntities(
       if (target.entityType === 'artifact') {
         continue; // written through the seam below, outside this tx
       }
+      let added = false;
       for (const tag of tags) {
-        await w.insertTag({ entity_id: target.entityId, entity_type: target.entityType, tag });
+        const applied = await w.insertTag({
+          entity_id: target.entityId,
+          entity_type: target.entityType,
+          tag,
+        });
+        added ||= applied;
+      }
+      if (added) {
+        if (target.entityType === 'node') {
+          await stamp(w, target.entityId);
+        } else {
+          await w.updateProject(target.entityId, { updated_at: now() });
+        }
       }
     }
   });

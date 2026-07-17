@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import type { Lifecycle } from '@mimir/contract';
 
-import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
+import { createTestStore, nodeIdOf, projectIdOf, rawDep, rawPatchNode } from '../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { childDistribution, deriveSet, nodeStatusWord, statusOf } from './derive';
 import type { Store } from './store';
@@ -21,8 +21,7 @@ afterEach(async () => {
 const setOf = async () => deriveSet(await store.loadWorkingSet());
 
 async function setLifecycle(key: string, seq: number, lifecycle: Lifecycle): Promise<void> {
-  const id = await nodeIdOf(store, `${key}-${String(seq)}`);
-  await store.transact((w) => w.updateNode(id, { lifecycle }));
+  await rawPatchNode(store, await nodeIdOf(store, `${key}-${String(seq)}`), { lifecycle });
 }
 
 async function reload(key: string, seq: number) {
@@ -37,9 +36,7 @@ async function reload(key: string, seq: number) {
 async function dep(key: string, nodeSeq: number, dependsOnSeq: number): Promise<void> {
   const nodeId = await nodeIdOf(store, `${key}-${String(nodeSeq)}`);
   const dependsOnId = await nodeIdOf(store, `${key}-${String(dependsOnSeq)}`);
-  await store.transact((w) =>
-    w.insertDependency({ depends_on_node_id: dependsOnId, node_id: nodeId }),
-  );
+  await rawDep(store, nodeId, dependsOnId);
 }
 
 test.skipIf(!NORN)(
@@ -215,8 +212,7 @@ test.skipIf(!NORN)(
 // ── Open-ended containers (MMR-204) ──────────────────────────────────────────
 
 async function setOpenEnded(key: string, seq: number, value: boolean): Promise<void> {
-  const id = await nodeIdOf(store, `${key}-${String(seq)}`);
-  await store.transact((w) => w.updateNode(id, { open_ended: value }));
+  await rawPatchNode(store, await nodeIdOf(store, `${key}-${String(seq)}`), { open_ended: value });
 }
 
 test.skipIf(!NORN)(

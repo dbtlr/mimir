@@ -4,8 +4,10 @@ import { join } from 'node:path';
 
 import type { Store } from '../core';
 import { deriveSet, findNodeInSet, resolveProjectKeyInSet } from '../core';
+import type { NodePatch } from '../core/store';
 import { NornClient } from '../core/store-norn/client';
 import { createNornWriteStore } from '../core/store-norn/writer';
+import { now } from '../core/time';
 import type { DoctorDeps } from '../doctor/commands';
 import { readDoctorSnapshot } from '../doctor/snapshot';
 import { bunExec } from '../exec';
@@ -91,6 +93,31 @@ export async function nodeIdOf(store: Store, ref: string): Promise<string> {
     throw new Error(`no node ${ref}`);
   }
   return node.id;
+}
+
+/**
+ * Raw node patch behind the verbs — for fixtures that force a lifecycle/hold/
+ * open_ended state the verbs would gate. Co-writes the `updated_at` stamp the
+ * write path's co-write invariant requires (MMR-303): a raw patch of a
+ * default-omitted field is an unguarded add on its own, and the writer refuses
+ * a guard-less plan. Caller fields win, so an explicit `updated_at` (e.g. a
+ * stale-test backdate) overrides the stamp.
+ */
+export async function rawPatchNode(store: Store, id: string, fields: NodePatch): Promise<void> {
+  await store.transact((w) => w.updateNode(id, { updated_at: now(), ...fields }));
+}
+
+/**
+ * Raw dependency edge behind the verbs — no cycle guard, so corruption and
+ * legacy-data fixtures can write shapes `depend` refuses. Stamps the dependent
+ * node exactly as the real verb does (MMR-303): a first edge is an unguarded
+ * `depends_on` add on its own.
+ */
+export async function rawDep(store: Store, nodeId: string, dependsOnId: string): Promise<void> {
+  await store.transact(async (w) => {
+    await w.insertDependency({ depends_on_node_id: dependsOnId, node_id: nodeId });
+    await w.updateNode(nodeId, { updated_at: now() });
+  });
 }
 
 /**

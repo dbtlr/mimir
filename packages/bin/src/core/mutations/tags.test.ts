@@ -80,6 +80,27 @@ test.skipIf(!NORN)('re-tagging is idempotent over Norn', async () => {
   expect(await nodeTagsOf(taskId)).toEqual([{ tag: 'spec' }]);
 });
 
+test.skipIf(!NORN)(
+  'a real tag bumps updated_at; an idempotent re-tag leaves it alone (MMR-303)',
+  async () => {
+    const target = resolveEntityTokenInSet(deriveSet(await store.loadWorkingSet()), 'MMR-3');
+    const updatedAtOf = async (): Promise<string> => {
+      const ws = await store.loadWorkingSet();
+      const node = ws.nodes.find((n) => n.id === taskId);
+      if (node === undefined) {
+        throw new Error('task vanished');
+      }
+      return node.updated_at;
+    };
+    const before = await updatedAtOf();
+    await tagEntities(store, [target], ['spec']);
+    const afterFirst = await updatedAtOf();
+    expect(afterFirst).not.toBe(before); // set changed → the co-written guard stamp
+    await tagEntities(store, [target], ['spec']);
+    expect(await updatedAtOf()).toBe(afterFirst); // no-op → stale clock untouched
+  },
+);
+
 test.skipIf(!NORN)('untag removes only the named tags and reports the count', async () => {
   const target = resolveEntityTokenInSet(deriveSet(await store.loadWorkingSet()), 'MMR-3');
   await tagEntities(store, [target], ['spec', 'v2', 'keep']);

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import type { Hold, Lifecycle } from '@mimir/contract';
 
-import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
+import { createTestStore, nodeIdOf, projectIdOf, rawDep, rawPatchNode } from '../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { deriveSet } from './derive';
 import { isAwaiting, isBlocked, isBlocking, isOrphaned, isReady, isStale } from './predicates';
@@ -26,8 +26,7 @@ async function patch(
   seq: number,
   fields: { lifecycle?: Lifecycle; hold?: Hold },
 ): Promise<void> {
-  const id = await nodeIdOf(store, `${key}-${String(seq)}`);
-  await store.transact((w) => w.updateNode(id, fields));
+  await rawPatchNode(store, await nodeIdOf(store, `${key}-${String(seq)}`), fields);
 }
 async function reload(key: string, seq: number) {
   const id = await nodeIdOf(store, `${key}-${String(seq)}`);
@@ -40,9 +39,7 @@ async function reload(key: string, seq: number) {
 async function dep(key: string, nodeSeq: number, dependsOnSeq: number): Promise<void> {
   const nodeId = await nodeIdOf(store, `${key}-${String(nodeSeq)}`);
   const dependsOnId = await nodeIdOf(store, `${key}-${String(dependsOnSeq)}`);
-  await store.transact((w) =>
-    w.insertDependency({ depends_on_node_id: dependsOnId, node_id: nodeId }),
-  );
+  await rawDep(store, nodeId, dependsOnId);
 }
 
 async function fixture(key = 'MMR') {
@@ -188,6 +185,6 @@ test.skipIf(!NORN)('orphaned: muted for a live task inside an open-ended contain
 
   // open-ended container: every-sibling-terminal is structurally meaningless → muted
   const openId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
-  await store.transact((w) => w.updateNode(openId, { open_ended: true }));
+  await rawPatchNode(store, openId, { open_ended: true });
   expect(isOrphaned(await setOf(), await reload(key, live.seq))).toBe(false);
 });
