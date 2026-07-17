@@ -15,11 +15,8 @@ import {
   attachArtifact,
   blockTask,
   completeTask,
-  createInitiative,
-  createPhase,
+  createNode,
   asSeedKind,
-  createProject,
-  createTask,
   depend,
   deriveSet,
   fileSeed,
@@ -77,14 +74,7 @@ import {
   signpost,
 } from './render';
 import type { Format, Io } from './render';
-import {
-  echoNodeWith,
-  echoProject,
-  readContent,
-  resolveNode,
-  resolveParent,
-  resolveProject,
-} from './resolve';
+import { echoNodeWith, echoProject, readContent, resolveNode, resolveProject } from './resolve';
 
 /** Shared dispatch context built once in `run.ts` for every write verb. */
 export type Ctx = {
@@ -712,11 +702,6 @@ export async function cmdUntag(c: Ctx): Promise<number> {
 
 export async function cmdCreate(c: Ctx): Promise<number> {
   const type = c.positionals[1];
-  // open_ended is container-only — reject it on task/project create (symmetry with
-  // `update`, which throws for the same; MMR-204). Only initiative/phase consume it.
-  if ((type === 'task' || type === 'project') && openEndedFlag(c) !== undefined) {
-    throw validation('open_ended applies only to phases and initiatives');
-  }
   switch (type) {
     case 'project': {
       // Positional name like every other create type (MMR-35); --name still works.
@@ -742,11 +727,13 @@ export async function cmdCreate(c: Ctx): Promise<number> {
           return 1;
         }
       }
-      const project = await createProject(c.store, {
+      const project = await createNode(c.store, {
         description: optStr(c, 'desc'),
         key,
         name,
+        openEnded: openEndedFlag(c),
         tags: tagFlags(c),
+        type: 'project',
       });
       if (c.format === 'json' || c.format === 'jsonl') {
         c.io.write(JSON.stringify({ project: { key: project.key, name: project.name } }));
@@ -759,65 +746,47 @@ export async function cmdCreate(c: Ctx): Promise<number> {
     }
     case 'initiative': {
       const title = requirePos(c, 2, 'create initiative', 'a title');
-      const parent = await resolveParent(
-        c.store,
-        strFlag(c, 'parent', 'create initiative requires --parent <KEY>'),
-      );
-      if (parent.kind !== 'project') {
-        throw usage("an initiative's parent must be a project (KEY)");
-      }
-      const node = await createInitiative(c.store, {
+      const node = await createNode(c.store, {
         description: optStr(c, 'desc'),
         openEnded: openEndedFlag(c),
-        projectId: parent.id,
+        parent: strFlag(c, 'parent', 'create initiative requires --parent <KEY>'),
         summary: optStr(c, 'summary'),
         tags: tagFlags(c),
         title,
+        type: 'initiative',
       });
       await echoNodeWith(c.store, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;
     }
     case 'phase': {
       const title = requirePos(c, 2, 'create phase', 'a title');
-      const parent = await resolveParent(
-        c.store,
-        strFlag(c, 'parent', 'create phase requires --parent <id>'),
-      );
-      if (parent.kind !== 'node') {
-        throw usage("a phase's parent must be an initiative (KEY-seq)");
-      }
-      const node = await createPhase(c.store, {
+      const node = await createNode(c.store, {
         description: optStr(c, 'desc'),
         openEnded: openEndedFlag(c),
-        parentId: parent.id,
+        parent: strFlag(c, 'parent', 'create phase requires --parent <id>'),
         summary: optStr(c, 'summary'),
         tags: tagFlags(c),
         target: optStr(c, 'target'),
         title,
+        type: 'phase',
       });
       await echoNodeWith(c.store, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;
     }
     case 'task': {
       const title = requirePos(c, 2, 'create task', 'a title');
-      const parent = await resolveParent(
-        c.store,
-        strFlag(c, 'parent', 'create task requires --parent <id>'),
-      );
-      if (parent.kind !== 'node') {
-        throw usage("a task's parent must be a phase or initiative (KEY-seq)");
-      }
-      const node = await createTask(c.store, {
+      const node = await createNode(c.store, {
         description: optStr(c, 'desc'),
         externalRef: optStr(c, 'ref'),
-        parentId: parent.id,
-        priority:
-          typeof c.values.priority === 'string' ? parsePriority(c.values.priority) : undefined,
-        size: typeof c.values.size === 'string' ? parseSize(c.values.size) : undefined,
+        openEnded: openEndedFlag(c),
+        parent: strFlag(c, 'parent', 'create task requires --parent <id>'),
+        priority: optStr(c, 'priority'),
+        size: optStr(c, 'size'),
         summary: optStr(c, 'summary'),
         tags: tagFlags(c),
         title,
-        upstream: seedUpstream(c),
+        type: 'task',
+        upstream: optStr(c, 'upstream'),
       });
       await echoNodeWith(c.store, node.id, c.format, c.io, (rid) => `created ${rid}`);
       return 0;

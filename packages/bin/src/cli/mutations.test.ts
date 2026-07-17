@@ -13,7 +13,7 @@ import {
 } from '../core';
 import type { Store } from '../core';
 import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
-import { echoNode, readContent, resolveNode, resolveParent, resolveProject } from './resolve';
+import { echoNode, readContent, resolveNode, resolveProject } from './resolve';
 import { runCli } from './run';
 import { fakeIo } from './testing';
 
@@ -76,16 +76,6 @@ test.skipIf(!NORN)('resolveProject throws not_found (code) for a missing project
     threw = e;
   }
   expect(threw).toMatchObject({ code: 'not_found' });
-});
-
-// resolveParent
-test.skipIf(!NORN)("resolveParent returns {kind:'project'} for a bare project key", async () => {
-  const result = await resolveParent(store, 'MMR');
-  expect(result).toEqual({ id: 'MMR', kind: 'project' });
-});
-test.skipIf(!NORN)("resolveParent returns {kind:'node'} for a KEY-seq token", async () => {
-  const result = await resolveParent(store, taskRef);
-  expect(result).toEqual({ id: taskRef, kind: 'node' });
 });
 
 // echoNode
