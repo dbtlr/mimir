@@ -298,7 +298,7 @@ export const identityUniquenessCheck: Diagnostic = {
  * Dangling relational references (MMR-169): a node whose `parent` (a `KEY-seq`)
  * or `depends_on` resolves to no surviving node in the vault. Since MMR-181 the
  * resolving reader tolerates this — it drops the edge and loads a valid subgraph
- * (`store-norn.ts`) — so it is data loss on read, not a failed load: doctor
+ * (`store-norn/store.ts`) — so it is data loss on read, not a failed load: doctor
  * renders every dangling *edge* the `validate` shared validator (MMR-180)
  * drops, so it enumerates them all. Always an `error`, and whole-vault: a single
  * dangler affects the read regardless of `-s`, so the check ignores scope. A bare
@@ -342,7 +342,7 @@ export const danglingRefCheck: Diagnostic = {
  * Node → project references (MMR-178): a node whose owning project has no
  * document. Every node belongs to the project named by its `KEY-seq` stem's key;
  * since MMR-181 the reader tolerates an absent project doc by hiding the node
- * (and its project siblings) from the read (`store-norn.ts`) — so, like a
+ * (and its project siblings) from the read (`store-norn/store.ts`) — so, like a
  * dangling ref, it is data hidden on read, not a failed load. The companion to
  * {@link danglingRefCheck} over the same `validate` pass: `error`, whole-vault.
  *
@@ -391,7 +391,7 @@ export const missingProjectCheck: Diagnostic = {
  * degenerate self-dependency and silently accepted longer cycles (then derived
  * wrongly over them); since MMR-174 acyclicity is a `validate` rule, so the
  * reader drops each cycle-closing (back) edge and loads a valid DAG
- * (`store-norn.ts`) — data loss on read, not a failed load. The sibling of
+ * (`store-norn/store.ts`) — data loss on read, not a failed load. The sibling of
  * {@link danglingRefCheck} over the same validator pass: it renders `dropped[]`
  * entries whose `rule` is `cycle-parent`/`cycle-depends-on`, so it reports exactly
  * the edges the reader drops — one detector, no drift. Always an `error`, and

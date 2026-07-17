@@ -856,7 +856,7 @@ test.skipIf(!NORN)('get KEY-aN --col content returns the frozen body', async () 
   await runCli(['get', 'MMR-a1', '--col', 'content', '-f', 'json'], () => store, withContent);
   const parsed = parseJson<{ content: string }>(withContent.out.join(''));
   // The Norn artifact store strips exactly one trailing newline on read
-  // (core/artifacts/norn.ts) — a documented, intentional round-trip delta.
+  // (core/store-norn/artifacts.ts) — a documented, intentional round-trip delta.
   expect(parsed.content).toBe('# the frozen body');
 });
 
