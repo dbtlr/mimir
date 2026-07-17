@@ -47,10 +47,8 @@ import {
   projectViewByKey,
   projectViewOf,
   completeTask,
-  createInitiative,
-  createPhase,
+  createNode,
   createProject,
-  createTask,
   depend,
   renderArtifactRef,
   resolveNodeTokenInSet,
@@ -66,7 +64,6 @@ import {
   projectNotFound,
   parkTask,
   parseFilterToken,
-  parseId,
   parseIdentity,
   projectTree,
   reorder,
@@ -599,62 +596,57 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const description = strField(body, 'description');
             const summary = strField(body, 'summary');
             const tags = strList(body, 'tags');
-            // open_ended is container-only — reject it on task create (symmetry with
-            // PATCH, which rejects it on a task; MMR-204). initiative/phase consume it.
-            if (type === 'task' && boolField(body, 'open_ended') !== undefined) {
-              throw validation('open_ended applies only to phases and initiatives');
-            }
+            const openEnded = boolField(body, 'open_ended');
             if (type === 'initiative') {
-              if (parseId(parent) !== null) {
-                throw validation("an initiative's parent must be a project (KEY)");
-              }
-              const node = await createInitiative(store, {
+              const node = await createNode(store, {
                 description,
-                openEnded: boolField(body, 'open_ended'),
-                projectId: resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), parent),
+                openEnded,
+                parent,
                 summary,
                 tags,
                 title,
+                type: 'initiative',
               });
               return echoNode(store, req, node, 201);
             }
+            // The same route pointers nodeRefIn hands every other node route.
+            const parentHints = {
+              artifact: 'artifacts live at /api/artifacts',
+              project: 'projects live at /api/projects',
+            };
             if (type === 'phase') {
-              const node = await createPhase(store, {
+              const node = await createNode(store, {
                 description,
-                openEnded: boolField(body, 'open_ended'),
-                parentId: await nodeRef(store, parent, 'initiative'),
+                openEnded,
+                parent,
+                parentHints,
                 summary,
                 tags,
                 target: strField(body, 'target'),
                 title,
+                type: 'phase',
               });
               return echoNode(store, req, node, 201);
             }
             if (type === 'task') {
-              const priority = strField(body, 'priority');
-              if (priority !== undefined && !isMember(priority, PRIORITY_VALUES)) {
-                throw validation(
-                  `invalid priority: ${priority}`,
-                  `priorities: ${PRIORITY_VALUES.join(', ')}`,
-                );
-              }
-              const size = strField(body, 'size');
-              if (size !== undefined && !isMember(size, SIZE_VALUES)) {
-                throw validation(`invalid size: ${size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
-              }
-              const node = await createTask(store, {
+              const node = await createNode(store, {
                 description,
                 externalRef: strField(body, 'external_ref'),
-                parentId: await nodeRef(store, parent, 'phase or initiative'),
-                priority,
-                size,
+                openEnded,
+                parent,
+                parentHints,
+                priority: strField(body, 'priority'),
+                size: strField(body, 'size'),
                 summary,
                 tags,
                 title,
-                upstream: upstreamField(body),
+                type: 'task',
+                upstream: strField(body, 'upstream'),
               });
               return echoNode(store, req, node, 201);
             }
+            // The nodes route never maps type=project — projects have their own
+            // POST /api/projects (ADR 0015); the hint routes the caller there.
             throw validation(
               `create: unknown type ${type}`,
               'types: initiative, phase, task — projects via POST /api/projects',

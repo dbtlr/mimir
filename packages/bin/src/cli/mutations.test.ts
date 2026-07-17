@@ -13,7 +13,7 @@ import {
 } from '../core';
 import type { Store } from '../core';
 import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
-import { echoNode, readContent, resolveNode, resolveParent, resolveProject } from './resolve';
+import { echoNode, readContent, resolveNode, resolveProject } from './resolve';
 import { runCli } from './run';
 import { fakeIo } from './testing';
 
@@ -76,16 +76,6 @@ test.skipIf(!NORN)('resolveProject throws not_found (code) for a missing project
     threw = e;
   }
   expect(threw).toMatchObject({ code: 'not_found' });
-});
-
-// resolveParent
-test.skipIf(!NORN)("resolveParent returns {kind:'project'} for a bare project key", async () => {
-  const result = await resolveParent(store, 'MMR');
-  expect(result).toEqual({ id: 'MMR', kind: 'project' });
-});
-test.skipIf(!NORN)("resolveParent returns {kind:'node'} for a KEY-seq token", async () => {
-  const result = await resolveParent(store, taskRef);
-  expect(result).toEqual({ id: taskRef, kind: 'node' });
 });
 
 // echoNode
@@ -494,6 +484,37 @@ test.skipIf(!NORN)('create task under a phase, with signals', async () => {
   expect(v.type).toBe('task');
   expect(v.title).toBe('A new task');
 });
+test.skipIf(!NORN)(
+  'create task expands a size prefix and rejects a bad value as usage',
+  async () => {
+    // The prefix ergonomic (`--size m` → medium) is CLI-envelope sugar over the
+    // core createNode verb — pinned so a future consolidation can't drop it.
+    const io = fakeIo(false);
+    const code = await runCli(
+      ['create', 'task', 'Sized', '--parent', phaseRef, '--size', 'm', '-f', 'json'],
+      () => store,
+      io,
+    );
+    expect(code).toBe(0);
+    expect(JSON.parse(io.out[0] ?? '{}').size).toBe('medium');
+    // A bad value stays the CLI usage class (exit 2), matching `update`.
+    expect(
+      await runCli(
+        ['create', 'task', 'Bad', '--parent', phaseRef, '--size', 'x'],
+        () => store,
+        fakeIo(false),
+      ),
+    ).toBe(2);
+    // Same for a malformed --upstream token (seedUpstream owns the class).
+    expect(
+      await runCli(
+        ['create', 'task', 'Bad', '--parent', phaseRef, '--upstream', 'not-a-seed'],
+        () => store,
+        fakeIo(false),
+      ),
+    ).toBe(2);
+  },
+);
 test.skipIf(!NORN)('create initiative under a bare project KEY', async () => {
   expect(
     await runCli(
@@ -503,6 +524,39 @@ test.skipIf(!NORN)('create initiative under a bare project KEY', async () => {
     ),
   ).toBe(0);
 });
+test.skipIf(!NORN)('create wrong-shape parents stay the usage class → exit 2', async () => {
+  // The envelope's shape gate (requireParentShape): a token whose grammar
+  // cannot be the required parent kind is a bad invocation, matching the
+  // pre-createNode behavior; core still validates kind/existence behind it.
+  expect(await runCli(['create', 'task', 'T', '--parent', 'MMR'], () => store, fakeIo(false))).toBe(
+    2,
+  );
+  expect(
+    await runCli(['create', 'phase', 'P', '--parent', 'MMR'], () => store, fakeIo(false)),
+  ).toBe(2);
+  expect(
+    await runCli(
+      ['create', 'initiative', 'I', '--parent', initiativeRef],
+      () => store,
+      fakeIo(false),
+    ),
+  ).toBe(2);
+});
+test.skipIf(!NORN)(
+  'create project --open-ended is rejected before the confirmation gate',
+  async () => {
+    // Non-interactive and unconfirmed: the flag error must win over the
+    // confirmation-required usage error — a doomed invocation never prompts.
+    const io = fakeIo(false);
+    const code = await runCli(
+      ['create', 'project', 'Doomed', '--key', 'DMD', '--open-ended'],
+      () => store,
+      io,
+    );
+    expect(code).toBe(1);
+    expect(io.err.join('')).toContain('open_ended applies only to phases and initiatives');
+  },
+);
 test.skipIf(!NORN)('create with an unknown type is a usage error → exit 2', async () => {
   expect(
     await runCli(['create', 'widget', 'x', '--parent', 'MMR'], () => store, fakeIo(false)),

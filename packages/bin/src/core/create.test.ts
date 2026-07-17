@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
-import { createInitiative, createPhase, createProject, createTask } from './create';
+import { createInitiative, createNode, createPhase, createProject, createTask } from './create';
 import { RANK_STEP } from './rank';
 import type { Store } from './store';
 import { expectMimirError } from './testing';
@@ -172,3 +172,170 @@ test.skipIf(!NORN)(
     await expectMimirError('validation', () => createTask(store, { parentId: t1Id, title: 'no' }));
   },
 );
+
+// ─── createNode dispatch + validation (MMR-304) ──────────────────────────────
+
+/** Build a project + initiative + phase via createNode; return their refs. */
+async function scaffold(s: Store): Promise<{ initRef: string; phaseRef: string; taskRef: string }> {
+  await createNode(s, { key: 'MMR', name: 'Mimir', type: 'project' });
+  const init = await createNode(s, { parent: 'MMR', title: 'i', type: 'initiative' });
+  const initRef = `MMR-${String(init.seq)}`;
+  const phase = await createNode(s, { parent: initRef, title: 'ph', type: 'phase' });
+  const phaseRef = `MMR-${String(phase.seq)}`;
+  const task = await createNode(s, { parent: phaseRef, title: 't', type: 'task' });
+  const taskRef = `MMR-${String(task.seq)}`;
+  return { initRef, phaseRef, taskRef };
+}
+
+test.skipIf(!NORN)('createNode dispatches each type to its verb', async () => {
+  const project = await createNode(store, { key: 'MMR', name: 'Mimir', type: 'project' });
+  expect(project.key).toBe('MMR');
+  const init = await createNode(store, { parent: 'MMR', title: 'i', type: 'initiative' });
+  expect(init.type).toBe('initiative');
+  const phase = await createNode(store, {
+    parent: `MMR-${String(init.seq)}`,
+    title: 'ph',
+    type: 'phase',
+  });
+  expect(phase.type).toBe('phase');
+  const task = await createNode(store, {
+    parent: `MMR-${String(phase.seq)}`,
+    title: 't',
+    type: 'task',
+  });
+  expect(task.type).toBe('task');
+  // a task directly under an initiative is allowed (phaseless initiative)
+  const task2 = await createNode(store, {
+    parent: `MMR-${String(init.seq)}`,
+    title: 't2',
+    type: 'task',
+  });
+  expect(task2.parent_id).toBe(init.id);
+});
+
+test.skipIf(!NORN)('createNode rejects a non-project token as an initiative parent', async () => {
+  const { taskRef } = await scaffold(store);
+  // wrong shape (a node ref) short-circuits before any store read
+  await expectMimirError('validation', () =>
+    createNode(store, { parent: taskRef, title: 'x', type: 'initiative' }),
+  );
+});
+
+test.skipIf(!NORN)('createNode rejects a non-node token as a phase/task parent', async () => {
+  await scaffold(store);
+  await expectMimirError('validation', () =>
+    createNode(store, { parent: 'MMR', title: 'x', type: 'phase' }),
+  );
+  await expectMimirError('validation', () =>
+    createNode(store, { parent: 'MMR', title: 'x', type: 'task' }),
+  );
+});
+
+test.skipIf(!NORN)(
+  'createNode names a wrong-kind parent and carries transport hints (MMR-304)',
+  async () => {
+    await scaffold(store);
+    // A recognizable-but-wrong kind gets the resolver's kind-aware wording,
+    // with the envelope's hint carried through the parentHints seam.
+    let wrongKind: unknown;
+    try {
+      await createNode(store, {
+        parent: 'MMR-a1',
+        parentHints: { artifact: 'artifacts live at /api/artifacts' },
+        title: 'x',
+        type: 'task',
+      });
+    } catch (error) {
+      wrongKind = error;
+    }
+    expect(wrongKind).toMatchObject({
+      code: 'validation',
+      hint: 'artifacts live at /api/artifacts',
+      message: 'MMR-a1 is an artifact, not a phase or initiative',
+    });
+    // A well-formed ref that resolves to nothing carries the notFound hint.
+    let missing: unknown;
+    try {
+      await createNode(store, {
+        parent: 'MMR-999',
+        parentHints: { notFound: 'see what exists: mimir list -f ids' },
+        title: 'x',
+        type: 'phase',
+      });
+    } catch (error) {
+      missing = error;
+    }
+    expect(missing).toMatchObject({
+      code: 'not_found',
+      hint: 'see what exists: mimir list -f ids',
+      message: "MMR-999 doesn't exist",
+    });
+  },
+);
+
+test.skipIf(!NORN)('createNode surfaces the in-transact parent-type recheck', async () => {
+  const { taskRef, phaseRef } = await scaffold(store);
+  // a phase under a task (right shape, wrong type) — createPhase rechecks
+  await expectMimirError('validation', () =>
+    createNode(store, { parent: taskRef, title: 'x', type: 'phase' }),
+  );
+  // a task under a phase is fine, but under another task is rejected
+  await expectMimirError('validation', () =>
+    createNode(store, { parent: taskRef, title: 'x', type: 'task' }),
+  );
+  expect((await createNode(store, { parent: phaseRef, title: 'ok', type: 'task' })).type).toBe(
+    'task',
+  );
+});
+
+test.skipIf(!NORN)('createNode validates priority and size enums from raw strings', async () => {
+  const { phaseRef } = await scaffold(store);
+  await expectMimirError('validation', () =>
+    createNode(store, { parent: phaseRef, priority: 'p9', title: 'x', type: 'task' }),
+  );
+  await expectMimirError('validation', () =>
+    createNode(store, { parent: phaseRef, size: 'huge', title: 'x', type: 'task' }),
+  );
+  // a valid enum passes through
+  const task = await createNode(store, {
+    parent: phaseRef,
+    priority: 'p1',
+    size: 'small',
+    title: 'x',
+    type: 'task',
+  });
+  expect(task.priority).toBe('p1');
+  expect(task.size).toBe('small');
+});
+
+test.skipIf(!NORN)('createNode rejects a malformed upstream token', async () => {
+  const { phaseRef } = await scaffold(store);
+  await expectMimirError('validation', () =>
+    createNode(store, { parent: phaseRef, title: 'x', type: 'task', upstream: 'not-a-seed' }),
+  );
+});
+
+test.skipIf(!NORN)('createNode enforces the open_ended container-only rule (MMR-204)', async () => {
+  const { initRef, phaseRef } = await scaffold(store);
+  await expectMimirError('validation', () =>
+    createNode(store, { key: 'OPN', name: 'x', openEnded: true, type: 'project' }),
+  );
+  await expectMimirError('validation', () =>
+    createNode(store, { openEnded: true, parent: phaseRef, title: 'x', type: 'task' }),
+  );
+  // initiative and phase accept it
+  const init = await createNode(store, {
+    openEnded: true,
+    parent: 'MMR',
+    title: 'oe',
+    type: 'initiative',
+  });
+  expect(init.open_ended).toBe(true);
+  const phase = await createNode(store, {
+    openEnded: true,
+    parent: initRef,
+    title: 'oe',
+    type: 'phase',
+  });
+  expect(phase.open_ended).toBe(true);
+});

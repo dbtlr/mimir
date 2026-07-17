@@ -11,10 +11,8 @@ import {
   nodeViewById,
   projectViewByKey,
   notFound,
-  parseIdentity,
   resolveNodeTokenInSet,
   resolveProjectKeyInSet,
-  validation,
 } from '../core';
 import type { Store } from '../core';
 import { renderNodeView, signpost } from './render';
@@ -50,32 +48,6 @@ export async function resolveNode(
  */
 export async function resolveProject(store: Store, key: string): Promise<string> {
   return resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
-}
-
-/**
- * Resolve a parent token — either a bare project KEY or a `KEY-seq` node
- * reference — returning a tagged id so the caller knows which table to target.
- */
-export async function resolveParent(
-  store: Store,
-  token: string,
-): Promise<{ kind: 'project'; id: string } | { kind: 'node'; id: string }> {
-  const identity = parseIdentity(token);
-  if (identity?.kind === 'artifact') {
-    throw validation(
-      `${token} is an artifact — a parent must be a project (KEY) or a task/phase/initiative (KEY-seq)`,
-    );
-  }
-  const set = deriveSet(await store.loadWorkingSet());
-  if (identity?.kind === 'node') {
-    return {
-      id: resolveNodeTokenInSet(set, token, 'task, phase, or initiative', {
-        notFound: 'see what exists: mimir list -f ids',
-      }),
-      kind: 'node',
-    };
-  }
-  return { id: resolveProjectKeyInSet(set, token), kind: 'project' };
 }
 
 /**
