@@ -4,11 +4,11 @@ import { join } from 'node:path';
 
 import type { Store } from '../core';
 import { deriveSet, findNodeInSet, resolveProjectKeyInSet } from '../core';
+import { NornClient } from '../core/store-norn/client';
+import { createNornWriteStore } from '../core/store-norn/writer';
 import type { DoctorDeps } from '../doctor/commands';
 import { readDoctorSnapshot } from '../doctor/snapshot';
 import { bunExec } from '../exec';
-import { NornClient } from '../norn/client';
-import { createNornWriteStore } from '../norn/writer';
 import { converge } from '../vault/converge';
 
 /**

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createProject, createTask } from '../core/create';
+import { createProject, createTask } from '../create';
 import {
   abandonTask,
   annotate,
@@ -23,10 +23,10 @@ import {
   untagEntities,
   updateNode,
   updateProject,
-} from '../core/mutations';
-import { depend, undepend } from '../core/mutations/dependency';
-import { startTask } from '../core/mutations/lifecycle';
-import type { Store } from '../core/store';
+} from '../mutations';
+import { depend, undepend } from '../mutations/dependency';
+import { startTask } from '../mutations/lifecycle';
+import type { Store } from '../store';
 import type { NornClient, NornDocument } from './client';
 import type { MigrationOp, MigrationPlan } from './plan';
 import { createNornWriteStore } from './writer';
@@ -1500,7 +1500,7 @@ test('the CAS-guard invariant covers every exported mutation verb (MMR-194)', as
   // core, thin transports), so this equality catches every verb added through
   // it. A write verb wired around the index would escape both tests — that is
   // an architecture violation to catch in review, not here.
-  const mutationSurface: Record<string, unknown> = await import('../core/mutations');
+  const mutationSurface: Record<string, unknown> = await import('../mutations');
   const exportedFns = Object.entries(mutationSurface)
     .filter(([, value]) => typeof value === 'function')
     .map(([name]) => name)

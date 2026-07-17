@@ -3,7 +3,7 @@ import type { Hold, Lifecycle, NodeType, Priority, Size } from '@mimir/contract'
 /**
  * The backend-neutral domain model (ADR 0016 Phase 0) — the record shapes the
  * core reads and derives over, owned by the core rather than the storage layer.
- * The Norn store (`store-norn.ts`) projects the vault's frontmatter into these
+ * The Norn store (`store-norn/store.ts`) projects the vault's frontmatter into these
  * shapes; the model owns the contract, not the store.
  *
  * Field names are the store's snake_case vocabulary — they are the wire

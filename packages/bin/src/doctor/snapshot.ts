@@ -5,14 +5,14 @@
  * the body + full-content hash that deterministic repair planning needs, and
  * derives every document-based diagnostic input from that one post-refresh view.
  */
-import { readSectionFailuresFromDocuments } from '../core/body-sections/norn';
 import { parseIdentity } from '../core/ids';
 import type { VaultGraph, VaultGraphSource } from '../core/store-norn';
 import { vaultGraphFromDocs } from '../core/store-norn';
+import { readSectionFailuresFromDocuments } from '../core/store-norn/body-sections';
+import type { NornClient, NornDocument } from '../core/store-norn/client';
+import type { ValidateFinding } from '../core/store-norn/decode';
+import { decodeValidateFindings, stemOf } from '../core/store-norn/decode';
 import { validate } from '../core/validate';
-import type { NornClient, NornDocument } from '../norn/client';
-import type { ValidateFinding } from '../norn/decode';
-import { decodeValidateFindings, stemOf } from '../norn/decode';
 import type { DoctorContext } from './checks';
 import { workStateStem } from './checks';
 

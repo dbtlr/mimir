@@ -1,7 +1,7 @@
 /**
  * Shared decoders for `NornClient` results (MMR-152). Both Norn read paths — the
- * artifact slice (`core/artifacts/norn.ts`) and the node/project slice
- * (`core/store-norn.ts`, plus the body-section and transitions readers) — decode
+ * artifact slice (`core/store-norn/artifacts.ts`) and the node/project slice
+ * (`core/store-norn/store.ts`, plus the body-section and transitions readers) — decode
  * the same two shapes out of `vault.get`/`vault.find` records: frontmatter
  * values (a wikilink or string list) and a record's path/body. These lived as
  * byte-for-byte copies in each reader, so a decode fix could silently diverge
@@ -118,7 +118,7 @@ export function pathAndBody(record: unknown): { path: string; body: string } | n
 
 /** A `vault.get --section` record's `path` + its `sections` map — heading text →
  * that section's raw markdown, the `## <heading>` line INCLUDED (norn's shape;
- * strip it with {@link import('../core/history-codec').sectionBody} before
+ * strip it with {@link import('../history-codec').sectionBody} before
  * parsing). A non-string path drops the record; a missing/foreign `sections`
  * object or a non-string section value reads as empty. A heading absent from the
  * document is warn-and-omitted by norn, so it simply never appears in the map. */

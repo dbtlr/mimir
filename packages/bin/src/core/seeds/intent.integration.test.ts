@@ -4,9 +4,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { bunExec } from '../../exec';
-import { NornClient } from '../../norn/client';
-import { seedRawDoc } from '../../norn/testing';
-import { createNornWriteStore } from '../../norn/writer';
 import { converge } from '../../vault/converge';
 import { deriveSet, findNodeInSet } from '../derive';
 import {
@@ -22,6 +19,9 @@ import {
 import { resolveProjectKeyInSet } from '../resolve-set';
 import type { Store } from '../store';
 import { readVaultGraph } from '../store-norn';
+import { NornClient } from '../store-norn/client';
+import { seedRawDoc } from '../store-norn/testing';
+import { createNornWriteStore } from '../store-norn/writer';
 import { validate } from '../validate';
 import { fileSeed, getSeed, listSeeds, promoteSeed, transitionSeed, updateSeed } from './intent';
 import { triage } from './triage';

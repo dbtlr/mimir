@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
 
-import type { NornClient } from '../../norn/client';
 import { renderAnnotationRecord, renderHistoryRecord, renderNodeBody } from '../history-codec';
 import { sliceSection } from '../testing';
-import { createNornBodySectionStore, readAllNodeDocs, readSectionFailures } from './norn';
+import { createNornBodySectionStore, readAllNodeDocs, readSectionFailures } from './body-sections';
+import type { NornClient } from './client';
 
 /** A fake client whose `getSections` serves one document's named sections, sliced
  * from the given `.body` the way norn does (heading line included; an absent

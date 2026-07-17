@@ -1,12 +1,12 @@
 import type { TransitionView } from '@mimir/contract';
 
-import type { NornClient } from '../../norn/client';
-import { pathAndSections, stemOf } from '../../norn/decode';
 import { validation } from '../errors';
 import { HISTORY_HEADING, parseHistorySection, sectionBody } from '../history-codec';
-import { vaultGraphFromDocs } from '../store-norn';
+import type { TransitionsFeed } from '../transitions/store';
 import { validate } from '../validate';
-import type { TransitionsFeed } from './store';
+import type { NornClient } from './client';
+import { pathAndSections, stemOf } from './decode';
+import { vaultGraphFromDocs } from './store';
 
 function str(value: unknown): string | null {
   return typeof value === 'string' ? value : null;

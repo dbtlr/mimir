@@ -2,13 +2,13 @@ import { HOLD_VALUES, LIFECYCLE_VALUES, PRIORITY_VALUES, SIZE_VALUES } from '@mi
 import type { Lifecycle, NodeType } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
-import type { NornClient, NornDocument } from '../norn/client';
-import { collapse, linkStems, stemOf, stringList } from '../norn/decode';
-import { invariant } from './errors';
-import { parseId, parseSeedRef } from './ids';
-import type { Dependency, Node, Project } from './model';
-import type { NodeTag, WorkingSet } from './store';
-import { presentProjectKeys, validate } from './validate';
+import { invariant } from '../errors';
+import { parseId, parseSeedRef } from '../ids';
+import type { Dependency, Node, Project } from '../model';
+import type { NodeTag, WorkingSet } from '../store';
+import { presentProjectKeys, validate } from '../validate';
+import type { NornClient, NornDocument } from './client';
+import { collapse, linkStems, stemOf, stringList } from './decode';
 
 /**
  * The Norn-vault node read path (MMR-149, ADR 0016 Phase 2b) — the

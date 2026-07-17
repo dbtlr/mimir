@@ -4,15 +4,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { bunExec } from '../../exec';
-import { NornClient } from '../../norn/client';
-import { pathAndSections } from '../../norn/decode';
-import { seedRawDoc } from '../../norn/testing';
 import { converge } from '../../vault/converge';
 import { HISTORY_HEADING, parseHistorySection, sectionBody } from '../history-codec';
-import { readVaultGraph } from '../store-norn';
+import type { SeedStore } from '../seeds/store';
 import { validate } from '../validate';
-import { createNornSeedStore } from './norn';
-import type { SeedStore } from './store';
+import { NornClient } from './client';
+import { pathAndSections } from './decode';
+import { createNornSeedStore } from './seeds';
+import { readVaultGraph } from './store';
+import { seedRawDoc } from './testing';
 
 /**
  * The Norn seed store (MMR-244) against a real converged vault. Needs a `norn`

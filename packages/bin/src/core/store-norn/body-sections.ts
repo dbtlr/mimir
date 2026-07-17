@@ -1,7 +1,6 @@
 import type { AnnotationView } from '@mimir/contract';
 
-import type { NornClient, NornDocument } from '../../norn/client';
-import { pathAndBody, pathAndSections, stemOf } from '../../norn/decode';
+import type { BodySections, BodySectionStore } from '../body-sections/store';
 import {
   ANNOTATIONS_HEADING,
   DESCRIPTION_HEADING,
@@ -12,7 +11,8 @@ import {
   sectionBody,
 } from '../history-codec';
 import { parseIdentity } from '../ids';
-import type { BodySections, BodySectionStore } from './store';
+import type { NornClient, NornDocument } from './client';
+import { pathAndBody, pathAndSections, stemOf } from './decode';
 
 /** Read one node's named `## <heading>` sections natively (`vault.get { section }`),
  * returning the heading → raw-section-markdown map (heading line still included —

@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
 
-import { collapse } from '../norn/decode';
 import { parseId } from './ids';
 import type { NodeRefs, VaultGraph } from './store-norn';
+import { collapse } from './store-norn/decode';
 import { validate } from './validate';
 
 /**

@@ -4,10 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { bunExec } from '../../exec';
-import { NornClient } from '../../norn/client';
-import { seedRawDoc } from '../../norn/testing';
 import { converge } from '../../vault/converge';
-import { createNornArtifactStore, restoreArtifact } from './norn';
+import { createNornArtifactStore, restoreArtifact } from '../store-norn/artifacts';
+import { NornClient } from '../store-norn/client';
+import { seedRawDoc } from '../store-norn/testing';
 import type { ArtifactRecord, ArtifactStore } from './store';
 
 /**

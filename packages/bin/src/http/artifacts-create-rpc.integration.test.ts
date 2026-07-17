@@ -7,9 +7,9 @@ import type { Server } from 'bun';
 
 import { createInitiative, createPhase, createProject } from '../core';
 import type { Store } from '../core';
+import { NornClient } from '../core/store-norn/client';
+import { createNornWriteStore } from '../core/store-norn/writer';
 import { bunExec } from '../exec';
-import { NornClient } from '../norn/client';
-import { createNornWriteStore } from '../norn/writer';
 import { nodeIdOf, projectIdOf } from '../testing/store';
 import { converge } from '../vault/converge';
 import { createServer } from './server';

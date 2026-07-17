@@ -13,7 +13,7 @@
  * overwritten — the header says so.
  */
 
-import { SEQ_TOKEN } from '../norn/plan';
+import { SEQ_TOKEN } from '../core/store-norn/plan';
 
 /**
  * The vault schema this binary produces and can converge older vaults to.

@@ -11,8 +11,8 @@
  * the change), so a resumed run completes the remainder.
  */
 import { parseIdentity, wikilink } from '../core/ids';
-import { NornClient } from '../norn/client';
-import { stemOf } from '../norn/decode';
+import { NornClient } from '../core/store-norn/client';
+import { stemOf } from '../core/store-norn/decode';
 
 /** The vault schema that introduced the `project` frontmatter field (MMR-170). */
 const PROJECT_FIELD_SCHEMA = 3;

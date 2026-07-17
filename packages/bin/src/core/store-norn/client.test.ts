@@ -5,7 +5,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
-import { expectMimirError } from '../core/testing';
+import { expectMimirError } from '../testing';
 import { NornClient, nornPlanVersionMismatchHint } from './client';
 import { migrationPlan, setFrontmatter } from './plan';
 

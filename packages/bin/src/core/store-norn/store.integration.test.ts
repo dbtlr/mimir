@@ -3,19 +3,19 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { bunExec } from '../exec';
-import { NornClient } from '../norn/client';
-import { seedRawDoc } from '../norn/testing';
-import { createNornWriteStore } from '../norn/writer';
-import { converge } from '../vault/converge';
+import { bunExec } from '../../exec';
+import { converge } from '../../vault/converge';
+import { createProject } from '../create';
+import { renderHistoryBody, renderNodeBody } from '../history-codec';
+import { renderId } from '../ids';
+import { undepend } from '../mutations/dependency';
+import { expectMimirError } from '../testing';
+import { validate } from '../validate';
 import { readSectionFailures } from './body-sections';
-import { createProject } from './create';
-import { renderHistoryBody, renderNodeBody } from './history-codec';
-import { renderId } from './ids';
-import { undepend } from './mutations/dependency';
-import { loadNornSnapshot, loadWorkingSetOverNorn, readVaultGraph } from './store-norn';
-import { expectMimirError } from './testing';
-import { validate } from './validate';
+import { NornClient } from './client';
+import { loadNornSnapshot, loadWorkingSetOverNorn, readVaultGraph } from './store';
+import { seedRawDoc } from './testing';
+import { createNornWriteStore } from './writer';
 
 /**
  * The Norn node read path over a real `norn` subprocess (MMR-149). Skipped when

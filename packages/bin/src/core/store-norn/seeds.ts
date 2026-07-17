@@ -2,25 +2,6 @@ import { SEED_KIND_VALUES, SEED_LIFECYCLE_VALUES } from '@mimir/contract';
 import type { SeedKind, SeedLifecycle } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
-import { applyReportOutcome, createdStem } from '../../norn/apply-report';
-import type { NornClient, NornDocument } from '../../norn/client';
-import {
-  collapse,
-  isStringRecord,
-  linkStems,
-  pathAndSections,
-  stemOf as stemFromPath,
-} from '../../norn/decode';
-import type { MigrationOp } from '../../norn/plan';
-import {
-  addFrontmatter,
-  appendToSection,
-  createDocumentPlan,
-  migrationPlan,
-  replaceSection,
-  SEQ_TOKEN,
-  setFrontmatter,
-} from '../../norn/plan';
 import { invariant, notFound, validation } from '../errors';
 import {
   HISTORY_HEADING,
@@ -34,9 +15,28 @@ import {
   sliceSection,
 } from '../history-codec';
 import { parseSeedRef, renderSeedRef, wikilink } from '../ids';
+import type { SeedCreate, SeedPatch, SeedRecord, SeedStore } from '../seeds/store';
+import { canTransitionSeed, isTerminalSeed } from '../seeds/store';
 import { now } from '../time';
-import type { SeedCreate, SeedPatch, SeedRecord, SeedStore } from './store';
-import { canTransitionSeed, isTerminalSeed } from './store';
+import { applyReportOutcome, createdStem } from './apply-report';
+import type { NornClient, NornDocument } from './client';
+import {
+  collapse,
+  isStringRecord,
+  linkStems,
+  pathAndSections,
+  stemOf as stemFromPath,
+} from './decode';
+import type { MigrationOp } from './plan';
+import {
+  addFrontmatter,
+  appendToSection,
+  createDocumentPlan,
+  migrationPlan,
+  replaceSection,
+  SEQ_TOKEN,
+  setFrontmatter,
+} from './plan';
 
 /**
  * The Norn-vault `SeedStore` (MMR-244) — a seed is a markdown document at

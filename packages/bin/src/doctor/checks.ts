@@ -10,9 +10,9 @@ import type { BodyRecordProblem } from '../core/history-codec';
 import { lintBodySections } from '../core/history-codec';
 import { parseIdentity } from '../core/ids';
 import type { ProjectDeclaration } from '../core/store-norn';
+import type { ValidateFinding } from '../core/store-norn/decode';
+import { stemOf } from '../core/store-norn/decode';
 import type { Drop } from '../core/validate';
-import type { ValidateFinding } from '../norn/decode';
-import { stemOf } from '../norn/decode';
 
 /** What a check reads: the raw vault documents to diagnose. */
 export type DoctorContext = {

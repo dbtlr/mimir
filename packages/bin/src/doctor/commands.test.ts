@@ -4,7 +4,7 @@ import { fakeIo } from '../cli/testing';
 import { renderMigratedNodeBody, renderNodeBody } from '../core/history-codec';
 import { parseId } from '../core/ids';
 import type { NodeRefs } from '../core/store-norn';
-import { decodeValidateFindings } from '../norn/decode';
+import { decodeValidateFindings } from '../core/store-norn/decode';
 import { cmdDoctor } from './commands';
 import type { DoctorDeps } from './commands';
 

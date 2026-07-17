@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test';
 import { runCli } from '../cli/run';
 import { fakeIo } from '../cli/testing';
 import type { Store } from '../core';
-import type { MigrationPlan } from '../norn/plan';
+import type { MigrationPlan } from '../core/store-norn/plan';
 import { cmdDoctor } from './commands';
 import type { DoctorDeps } from './commands';
 import type { DoctorSnapshot } from './snapshot';

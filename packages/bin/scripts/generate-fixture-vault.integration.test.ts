@@ -11,15 +11,15 @@ import type { Store } from '../src/core';
 import { attentionOf } from '../src/core/attention';
 import type { Node } from '../src/core/model';
 import { seedLane } from '../src/core/seeds';
-import { NornClient } from '../src/norn/client';
-import { createNornWriteStore } from '../src/norn/writer';
+import { NornClient } from '../src/core/store-norn/client';
+import { createNornWriteStore } from '../src/core/store-norn/writer';
 import { generateFixtureVault } from './generate-fixture-vault';
 
 /**
  * The fixture vault generator over a real `norn` subprocess (MMR-255): generate
  * into a temp dir, then assert through the READ/derive surface that every visual
  * state the smokes rely on actually manifests. Skipped when the binary isn't on
- * PATH (same convention as store-norn.integration.test.ts).
+ * PATH (same convention as core/store-norn/store.integration.test.ts).
  */
 const NORN = Bun.which('norn') !== null;
 
