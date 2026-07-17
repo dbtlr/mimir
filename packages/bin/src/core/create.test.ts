@@ -231,6 +231,48 @@ test.skipIf(!NORN)('createNode rejects a non-node token as a phase/task parent',
   );
 });
 
+test.skipIf(!NORN)(
+  'createNode names a wrong-kind parent and carries transport hints (MMR-304)',
+  async () => {
+    await scaffold(store);
+    // A recognizable-but-wrong kind gets the resolver's kind-aware wording,
+    // with the envelope's hint carried through the parentHints seam.
+    let wrongKind: unknown;
+    try {
+      await createNode(store, {
+        parent: 'MMR-a1',
+        parentHints: { artifact: 'artifacts live at /api/artifacts' },
+        title: 'x',
+        type: 'task',
+      });
+    } catch (error) {
+      wrongKind = error;
+    }
+    expect(wrongKind).toMatchObject({
+      code: 'validation',
+      hint: 'artifacts live at /api/artifacts',
+      message: 'MMR-a1 is an artifact, not a phase or initiative',
+    });
+    // A well-formed ref that resolves to nothing carries the notFound hint.
+    let missing: unknown;
+    try {
+      await createNode(store, {
+        parent: 'MMR-999',
+        parentHints: { notFound: 'see what exists: mimir list -f ids' },
+        title: 'x',
+        type: 'phase',
+      });
+    } catch (error) {
+      missing = error;
+    }
+    expect(missing).toMatchObject({
+      code: 'not_found',
+      hint: 'see what exists: mimir list -f ids',
+      message: "MMR-999 doesn't exist",
+    });
+  },
+);
+
 test.skipIf(!NORN)('createNode surfaces the in-transact parent-type recheck', async () => {
   const { taskRef, phaseRef } = await scaffold(store);
   // a phase under a task (right shape, wrong type) — createPhase rechecks

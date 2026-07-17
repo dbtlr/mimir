@@ -524,6 +524,39 @@ test.skipIf(!NORN)('create initiative under a bare project KEY', async () => {
     ),
   ).toBe(0);
 });
+test.skipIf(!NORN)('create wrong-shape parents stay the usage class → exit 2', async () => {
+  // The envelope's shape gate (requireParentShape): a token whose grammar
+  // cannot be the required parent kind is a bad invocation, matching the
+  // pre-createNode behavior; core still validates kind/existence behind it.
+  expect(await runCli(['create', 'task', 'T', '--parent', 'MMR'], () => store, fakeIo(false))).toBe(
+    2,
+  );
+  expect(
+    await runCli(['create', 'phase', 'P', '--parent', 'MMR'], () => store, fakeIo(false)),
+  ).toBe(2);
+  expect(
+    await runCli(
+      ['create', 'initiative', 'I', '--parent', initiativeRef],
+      () => store,
+      fakeIo(false),
+    ),
+  ).toBe(2);
+});
+test.skipIf(!NORN)(
+  'create project --open-ended is rejected before the confirmation gate',
+  async () => {
+    // Non-interactive and unconfirmed: the flag error must win over the
+    // confirmation-required usage error — a doomed invocation never prompts.
+    const io = fakeIo(false);
+    const code = await runCli(
+      ['create', 'project', 'Doomed', '--key', 'DMD', '--open-ended'],
+      () => store,
+      io,
+    );
+    expect(code).toBe(1);
+    expect(io.err.join('')).toContain('open_ended applies only to phases and initiatives');
+  },
+);
 test.skipIf(!NORN)('create with an unknown type is a usage error → exit 2', async () => {
   expect(
     await runCli(['create', 'widget', 'x', '--parent', 'MMR'], () => store, fakeIo(false)),

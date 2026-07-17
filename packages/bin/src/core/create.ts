@@ -5,7 +5,7 @@ import { isMember } from '@mimir/helpers';
 import { isValidKey } from './allocation';
 import { deriveSet } from './derive';
 import { conflict, notFound, validation } from './errors';
-import { parseId, parseIdentity, parseUpstreamField, UPSTREAM_CLEAR } from './ids';
+import { parseIdentity, parseUpstreamField, UPSTREAM_CLEAR } from './ids';
 import type { Node, Project } from './model';
 import { assertProjectActive } from './mutations/common';
 import { normalizeSummary } from './mutations/data';
@@ -194,6 +194,19 @@ export type CreateNodeProjectInput = {
   tags?: string[];
 };
 
+/**
+ * Transport-supplied hint lines for parent-resolution errors — the
+ * {@link resolveNodeTokenInSet} hint seam carried through `createNode`, so each
+ * envelope can point at its own surface (the CLI at `mimir list`, HTTP at its
+ * routes) while the message wording stays core-owned.
+ */
+export type CreateParentHints = {
+  project?: string;
+  artifact?: string;
+  seed?: string;
+  notFound?: string;
+};
+
 export type CreateNodeInitiativeInput = {
   type: 'initiative';
   /** A bare project KEY. */
@@ -209,6 +222,7 @@ export type CreateNodePhaseInput = {
   type: 'phase';
   /** An initiative node ref (`KEY-seq`). */
   parent: string;
+  parentHints?: CreateParentHints;
   title: string;
   description?: string;
   summary?: string;
@@ -221,6 +235,7 @@ export type CreateNodeTaskInput = {
   type: 'task';
   /** A phase-or-initiative node ref (`KEY-seq`). */
   parent: string;
+  parentHints?: CreateParentHints;
   title: string;
   description?: string;
   summary?: string;
@@ -277,11 +292,11 @@ export async function createNode(store: Store, input: CreateNodeInput): Promise<
     return createPhase(store, {
       description: input.description,
       openEnded: input.openEnded,
-      parentId: await resolveNodeParent(
-        store,
-        input.parent,
-        "a phase's parent must be an initiative (KEY-seq)",
-      ),
+      parentId: await resolveNodeParent(store, input.parent, {
+        expected: 'initiative',
+        hints: input.parentHints,
+        shapeError: "a phase's parent must be an initiative (KEY-seq)",
+      }),
       summary: input.summary,
       tags: input.tags,
       target: input.target,
@@ -291,11 +306,11 @@ export async function createNode(store: Store, input: CreateNodeInput): Promise<
   return createTask(store, {
     description: input.description,
     externalRef: input.externalRef,
-    parentId: await resolveNodeParent(
-      store,
-      input.parent,
-      "a task's parent must be a phase or initiative (KEY-seq)",
-    ),
+    parentId: await resolveNodeParent(store, input.parent, {
+      expected: 'phase or initiative',
+      hints: input.parentHints,
+      shapeError: "a task's parent must be a phase or initiative (KEY-seq)",
+    }),
     priority: parsePriorityValue(input.priority),
     size: parseSizeValue(input.size),
     summary: input.summary,
@@ -320,14 +335,26 @@ async function resolveInitiativeParent(store: Store, token: string): Promise<str
 
 /**
  * Resolve a phase/task parent — a `KEY-seq` node ref — over the working set.
- * `shapeError` names the accepted parent when the token isn't a node ref; the
- * per-type verb rechecks the resolved node's actual type in-transact.
+ * A token of a recognizable-but-wrong kind (project/artifact/seed) gets the
+ * resolver's kind-aware wording (`X is an artifact, not a <expected>`) with any
+ * transport hint; a token no identity grammar matches gets `shapeError`, which
+ * names the accepted parent shape. The per-type verb still rechecks the
+ * resolved node's actual type in-transact.
  */
-async function resolveNodeParent(store: Store, token: string, shapeError: string): Promise<string> {
-  if (parseId(token) === null) {
-    throw validation(shapeError);
+async function resolveNodeParent(
+  store: Store,
+  token: string,
+  rules: { expected: string; shapeError: string; hints?: CreateParentHints },
+): Promise<string> {
+  if (parseIdentity(token) === null) {
+    throw validation(rules.shapeError);
   }
-  return resolveNodeTokenInSet(deriveSet(await store.loadWorkingSet()), token);
+  return resolveNodeTokenInSet(
+    deriveSet(await store.loadWorkingSet()),
+    token,
+    rules.expected,
+    rules.hints ?? {},
+  );
 }
 
 /** Validate a raw priority token against the enum (MMR-204 shared wording). */
@@ -355,8 +382,10 @@ function parseSizeValue(value: string | undefined): Size | undefined {
 /**
  * Parse the raw `upstream` wire token: `KEY-sN` passes through, the `none`
  * sentinel clears (MMR-301), anything else is rejected in shared wording.
+ * Exported as the single wire parser — the MCP update path shares it, so the
+ * wording can't drift between create and update.
  */
-function parseUpstreamValue(value: string | undefined): string | null | undefined {
+export function parseUpstreamValue(value: string | undefined): string | null | undefined {
   if (value === undefined) {
     return undefined;
   }

@@ -609,11 +609,17 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               });
               return echoNode(store, req, node, 201);
             }
+            // The same route pointers nodeRefIn hands every other node route.
+            const parentHints = {
+              artifact: 'artifacts live at /api/artifacts',
+              project: 'projects live at /api/projects',
+            };
             if (type === 'phase') {
               const node = await createNode(store, {
                 description,
                 openEnded,
                 parent,
+                parentHints,
                 summary,
                 tags,
                 target: strField(body, 'target'),
@@ -628,6 +634,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
                 externalRef: strField(body, 'external_ref'),
                 openEnded,
                 parent,
+                parentHints,
                 priority: strField(body, 'priority'),
                 size: strField(body, 'size'),
                 summary,

@@ -700,6 +700,28 @@ export async function cmdUntag(c: Ctx): Promise<number> {
   return 0;
 }
 
+/** The CLI's hint for a well-formed parent ref that resolves to nothing. */
+const PARENT_NOT_FOUND_HINT = { notFound: 'see what exists: mimir list -f ids' };
+
+/**
+ * The CLI's parent-token shape gate: a token whose identity grammar cannot be
+ * the required parent kind is a bad invocation (`usage`, exit 2) — the class
+ * the pre-createNode envelope used, matching `update`'s flag errors. Core
+ * re-validates kind and existence semantically for every transport behind it.
+ */
+function requireParentShape(
+  c: Ctx,
+  flagUsage: string,
+  kind: 'project' | 'node',
+  message: string,
+): string {
+  const token = strFlag(c, 'parent', flagUsage);
+  if (parseIdentity(token)?.kind !== kind) {
+    throw usage(message);
+  }
+  return token;
+}
+
 export async function cmdCreate(c: Ctx): Promise<number> {
   const type = c.positionals[1];
   switch (type) {
@@ -710,6 +732,11 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         throw usage('create project requires a name', 'create project "Name" --key KEY');
       }
       const key = strFlag(c, 'key', 'create project requires --key');
+      // Flag validation precedes the interactive gate: a doomed invocation must
+      // never consume a confirmation. The rule itself lives in core createNode.
+      if (openEndedFlag(c) !== undefined) {
+        throw validation('open_ended applies only to phases and initiatives');
+      }
       // The key is immutable, so creation is the one gated write (ADR 0011
       // grooming): interactive sessions confirm at a prompt; non-interactive
       // callers must pass -y/--yes — the recorded proof confirmation happened.
@@ -749,7 +776,12 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       const node = await createNode(c.store, {
         description: optStr(c, 'desc'),
         openEnded: openEndedFlag(c),
-        parent: strFlag(c, 'parent', 'create initiative requires --parent <KEY>'),
+        parent: requireParentShape(
+          c,
+          'create initiative requires --parent <KEY>',
+          'project',
+          "an initiative's parent must be a project (KEY)",
+        ),
         summary: optStr(c, 'summary'),
         tags: tagFlags(c),
         title,
@@ -763,7 +795,13 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       const node = await createNode(c.store, {
         description: optStr(c, 'desc'),
         openEnded: openEndedFlag(c),
-        parent: strFlag(c, 'parent', 'create phase requires --parent <id>'),
+        parent: requireParentShape(
+          c,
+          'create phase requires --parent <id>',
+          'node',
+          "a phase's parent must be an initiative (KEY-seq)",
+        ),
+        parentHints: PARENT_NOT_FOUND_HINT,
         summary: optStr(c, 'summary'),
         tags: tagFlags(c),
         target: optStr(c, 'target'),
@@ -779,7 +817,13 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         description: optStr(c, 'desc'),
         externalRef: optStr(c, 'ref'),
         openEnded: openEndedFlag(c),
-        parent: strFlag(c, 'parent', 'create task requires --parent <id>'),
+        parent: requireParentShape(
+          c,
+          'create task requires --parent <id>',
+          'node',
+          "a task's parent must be a phase or initiative (KEY-seq)",
+        ),
+        parentHints: PARENT_NOT_FOUND_HINT,
         // CLI ergonomics stay in the envelope: prefix expansion (`--size m` →
         // medium) and the usage error class for a bad value, matching `update`.
         priority: parsePriority(optStr(c, 'priority')),
