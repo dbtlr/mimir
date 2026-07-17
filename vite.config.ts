@@ -26,7 +26,8 @@ type Override = LintOverride;
  * Layer-boundary enforcement (the one thing toolingConfig can't express) rides
  * through `lint.overrides`. Inside `@mimir/bin` the flow is
  * `contract ← core ← transports`:
- *   - `core` may import `contract` (and the `norn`/`vault` seam), never transports.
+ *   - `core` may import `contract` (and the `vault` seam) — the Norn adapter
+ *     lives inside core at `core/store-norn/**`, never transports.
  *   - transports import `core` + `contract`, never each other.
  * `main.ts` is the composition root and is intentionally unrestricted.
  *
@@ -131,14 +132,15 @@ const layerOverrides: Override[] = [
   forbid(['packages/bin/src/cli/**'], ['mcp', 'http']),
   forbid(['packages/bin/src/mcp/**'], ['cli', 'http'], { banFs: true }),
   forbid(['packages/bin/src/http/**'], ['cli', 'mcp'], { banFs: true }),
-  // `norn/**` (the Norn client itself) and `doctor/**` (reaches the vault
-  // only via that client already) carry no layer-boundary restriction of
-  // their own — just the ADR 0018 node:fs ban. `cli/**` keeps legitimate
-  // non-vault filesystem use (the `.mimir.toml` binding file, service
-  // config/plist, self-update) that falls outside the ADR's carve-out list,
-  // so it is deliberately left unbanned rather than growing carve-outs the
-  // ADR doesn't name.
-  forbid(['packages/bin/src/norn/**'], [], { banFs: true }),
+  // The Norn adapter (the client itself, the node/artifact/seed/body-section/
+  // transitions readers and writer) now lives at `core/store-norn/**`, inside
+  // the `core/**` boundary above — no separate override needed for it.
+  // `doctor/**` (reaches the vault only via that client already) carries no
+  // layer-boundary restriction of its own — just the ADR 0018 node:fs ban.
+  // `cli/**` keeps legitimate non-vault filesystem use (the `.mimir.toml`
+  // binding file, service config/plist, self-update) that falls outside the
+  // ADR's carve-out list, so it is deliberately left unbanned rather than
+  // growing carve-outs the ADR doesn't name.
   forbid(['packages/bin/src/doctor/**'], [], { banFs: true }),
   // Tests legitimately wire layers together (the Norn store fixture from
   // `testing/store`, cross-layer assertions); the boundary constrains shipped

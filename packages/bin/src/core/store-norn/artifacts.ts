@@ -1,11 +1,16 @@
-import { createdStem, decodeApplyReport } from '../../norn/apply-report';
-import type { NornClient, NornDocument } from '../../norn/client';
-import { collapse, isStringRecord, stringList } from '../../norn/decode';
-import { createDocumentPlan, SEQ_TOKEN } from '../../norn/plan';
+import type {
+  ArtifactCreate,
+  ArtifactListQuery,
+  ArtifactRecord,
+  ArtifactStore,
+} from '../artifacts/store';
 import { invariant, validation } from '../errors';
 import { parseIdentity, renderArtifactRef, wikilink } from '../ids';
 import { now } from '../time';
-import type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore } from './store';
+import { createdStem, decodeApplyReport } from './apply-report';
+import type { NornClient, NornDocument } from './client';
+import { collapse, isStringRecord, stringList } from './decode';
+import { createDocumentPlan, SEQ_TOKEN } from './plan';
 
 /**
  * The Norn-vault `ArtifactStore` (MMR-143, ADR 0016 Phase 2a): an artifact is

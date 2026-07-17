@@ -8,12 +8,12 @@
  * resource is held (no db handle is opened, no db handle to close).
  */
 import type { Store } from './core';
+import { NornClient } from './core/store-norn/client';
+import type { MigrationPlan } from './core/store-norn/plan';
+import { createNornWriteStore } from './core/store-norn/writer';
 import type { DoctorSnapshot } from './doctor/snapshot';
 import { readDoctorSnapshot } from './doctor/snapshot';
 import { bunExec } from './exec';
-import { NornClient } from './norn/client';
-import type { MigrationPlan } from './norn/plan';
-import { createNornWriteStore } from './norn/writer';
 import { readConfig } from './service/config';
 import { backfillVaultData } from './vault/backfill';
 import { converge } from './vault/converge';

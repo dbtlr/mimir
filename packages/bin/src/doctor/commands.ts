@@ -14,8 +14,8 @@
  */
 import type { Format, Io } from '../cli/render';
 import { ok } from '../cli/render';
+import type { MigrationPlan } from '../core/store-norn/plan';
 import { now } from '../core/time';
-import type { MigrationPlan } from '../norn/plan';
 import type { DoctorFinding } from './checks';
 import { diagnoseDoctor } from './diagnosis';
 import type { DoctorRepairPlan, RepairItem } from './repair';

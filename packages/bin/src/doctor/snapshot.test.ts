@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import type { NornClient, NornFindArgs } from '../norn/client';
+import type { NornClient, NornFindArgs } from '../core/store-norn/client';
 import {
   doctorContextFromSnapshot,
   doctorPhysicalPathsByStem,

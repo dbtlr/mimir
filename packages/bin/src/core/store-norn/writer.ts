@@ -2,9 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
-import { createNornArtifactStore } from '../core/artifacts';
-import { createNornBodySectionStore } from '../core/body-sections';
-import { invariant, validation } from '../core/errors';
+import { invariant, validation } from '../errors';
 import {
   ANNOTATIONS_HEADING,
   DESCRIPTION_HEADING,
@@ -14,10 +12,9 @@ import {
   renderHistoryBody,
   renderHistoryRecord,
   renderNodeBody,
-} from '../core/history-codec';
-import { parseId } from '../core/ids';
-import type { Dependency, Node, Project } from '../core/model';
-import { createNornSeedStore } from '../core/seeds';
+} from '../history-codec';
+import { parseId } from '../ids';
+import type { Dependency, Node, Project } from '../model';
 import type {
   NewAnnotationRecord,
   NewTransitionRecord,
@@ -25,19 +22,13 @@ import type {
   Store,
   StoreWriter,
   WorkingSet,
-} from '../core/store';
-import type { NornSnapshot } from '../core/store-norn';
-import {
-  loadNodesForProjectsOverNorn,
-  loadNornSnapshot,
-  loadProjectsOverNorn,
-  loadWorkingSetOverNorn,
-} from '../core/store-norn';
-import { now } from '../core/time';
-import { createNornTransitionsFeed } from '../core/transitions';
-import { nodeFrontmatter, projectFrontmatter } from '../core/vault-frontmatter';
+} from '../store';
+import { now } from '../time';
+import { nodeFrontmatter, projectFrontmatter } from '../vault-frontmatter';
 import type { ApplyReport, ApplyReportOp } from './apply-report';
 import { decodeApplyReport } from './apply-report';
+import { createNornArtifactStore } from './artifacts';
+import { createNornBodySectionStore } from './body-sections';
 import type { NornClient, NornDocument } from './client';
 import { stemOf } from './decode';
 import type { MigrationOp } from './plan';
@@ -51,6 +42,15 @@ import {
   SEQ_TOKEN,
   setFrontmatter,
 } from './plan';
+import { createNornSeedStore } from './seeds';
+import type { NornSnapshot } from './store';
+import {
+  loadNodesForProjectsOverNorn,
+  loadNornSnapshot,
+  loadProjectsOverNorn,
+  loadWorkingSetOverNorn,
+} from './store';
+import { createNornTransitionsFeed } from './transitions';
 
 /**
  * The Norn-backed `Store.transact` + `StoreWriter` (MMR-153, ADR 0016 Phase 3

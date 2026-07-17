@@ -15,9 +15,9 @@ import {
   resolveProjectKeyInSet,
 } from '../core';
 import type { Store } from '../core';
+import { NornClient } from '../core/store-norn/client';
+import { createNornWriteStore } from '../core/store-norn/writer';
 import { bunExec } from '../exec';
-import { NornClient } from '../norn/client';
-import { createNornWriteStore } from '../norn/writer';
 import { converge } from '../vault/converge';
 import { toolPromote, toolReject, toolResolve, toolSeed, toolSeeds, toolTriage } from './tools';
 import type { ToolResult } from './tools';

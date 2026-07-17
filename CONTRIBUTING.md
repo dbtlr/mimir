@@ -25,7 +25,8 @@ One core, thin transports, in a Bun workspace. `packages/contract`
 (`@mimir/contract`) is the dependency-free type leaf — the wire vocabulary
 every consumer parses. `packages/bin` (`@mimir/bin`) is the binary: `src/core`
 is the domain logic (derivation, rank, mutation verbs, intent layer) over the
-`Store` seam; `src/norn` speaks to the `norn` binary that owns the vault;
+`Store` seam; `src/core/store-norn` is the store adapter that speaks to the
+`norn` binary owning the vault;
 `src/cli`, `src/mcp`, and `src/http` are the transports; `src/main.ts` is the
 composition root. `packages/ui` (`@mimir/ui`) is the operator-console SPA,
 embedded in the binary at build time. Inside the binary the layering

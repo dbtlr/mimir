@@ -4,8 +4,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { bunExec } from '../../exec';
-import { NornClient } from '../../norn/client';
-import { createNornWriteStore } from '../../norn/writer';
 import { converge } from '../../vault/converge';
 import { deriveSet, findNodeInSet } from '../derive';
 import {
@@ -18,6 +16,8 @@ import {
 } from '../index';
 import { resolveProjectKeyInSet } from '../resolve-set';
 import type { Store } from '../store';
+import { NornClient } from '../store-norn/client';
+import { createNornWriteStore } from '../store-norn/writer';
 import { fileSeed, promoteSeed, transitionSeed } from './intent';
 import { triage } from './triage';
 

@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { bunExec } from '../exec';
-import { converge } from '../vault/converge';
+import { bunExec } from '../../exec';
+import { converge } from '../../vault/converge';
 import { NornClient } from './client';
 import { createDocumentPlan } from './plan';
 import { seedRawDoc } from './testing';

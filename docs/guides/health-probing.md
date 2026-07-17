@@ -32,7 +32,7 @@ status:
 
 A `409` from the HTTP surface carries one of two codes, and only one of them
 means trouble. `invariant` is the broken-store signal: raised by the Norn
-layer (`packages/bin/src/norn/*`, `core/store-norn.ts`) when the vault's own
+layer (`packages/bin/src/core/store-norn/*`) when the vault's own
 consistency guarantees are violated (a referenced node vanished
 mid-transaction, a stem resolved unexpectedly, and so on); the message on the
 envelope is that Norn error, verbatim — read it, don't guess. `conflict`, by

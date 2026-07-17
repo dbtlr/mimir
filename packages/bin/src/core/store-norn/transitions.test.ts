@@ -2,9 +2,9 @@ import { expect, test } from 'bun:test';
 
 import type { HistoryEntry } from '@mimir/contract';
 
-import type { NornClient } from '../../norn/client';
 import { renderHistoryRecord } from '../history-codec';
-import { createNornTransitionsFeed } from './norn';
+import type { NornClient } from './client';
+import { createNornTransitionsFeed } from './transitions';
 
 type Doc = { path: string; fm?: Record<string, unknown>; history: HistoryEntry[] };
 

@@ -11,7 +11,7 @@
  * so it resolves even for a document whose frontmatter won't parse — the one
  * class of corruption absent from the type-enumerated node read.
  */
-import { stemOf } from '../norn/decode';
+import { stemOf } from '../core/store-norn/decode';
 import { diagnoseDoctor } from './diagnosis';
 import { buildDoctorFacet, pathOfStem } from './facet';
 import type { DoctorFacet } from './facet';

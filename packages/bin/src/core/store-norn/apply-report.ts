@@ -5,9 +5,9 @@
  * `report.report` (with `isError: true`) while a plain apply returns it at the
  * root. The unwrap, the `outcome` read, the operations-array access, and the
  * per-op field reads (`op_id`/`kind`/`status`/`stem`/`error`) had been copied
- * — and had begun to drift — across the node write path (`norn/writer.ts`), the
- * artifact store (`core/artifacts/norn.ts`), and the seed store
- * (`core/seeds/norn.ts`). This is the one home for that RAW decode.
+ * — and had begun to drift — across the node write path (`core/store-norn/writer.ts`), the
+ * artifact store (`core/store-norn/artifacts.ts`), and the seed store
+ * (`core/store-norn/seeds.ts`). This is the one home for that RAW decode.
  *
  * Deliberately RAW: it normalizes the envelope and fields, nothing more. Each
  * consumer keeps its own verdict/classification — the node write path's

@@ -3,9 +3,9 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { NornClient } from '../core/store-norn/client';
+import type { NornSetArgs } from '../core/store-norn/client';
 import { bunExec } from '../exec';
-import { NornClient } from '../norn/client';
-import type { NornSetArgs } from '../norn/client';
 import { backfillProjectField, backfillVaultData } from './backfill';
 import { converge } from './converge';
 import { MARKER_FILE, NORN_CONFIG_FILE, renderNornConfig, VAULT_SCHEMA } from './schema';

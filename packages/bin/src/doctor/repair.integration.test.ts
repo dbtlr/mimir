@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { fakeIo } from '../cli/testing';
 import { createInitiative, createProject } from '../core/create';
-import type { MigrationPlan } from '../norn/plan';
+import type { MigrationPlan } from '../core/store-norn/plan';
 import { createTestStore } from '../testing/store';
 import type { TestStore } from '../testing/store';
 import { cmdDoctor } from './commands';

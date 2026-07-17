@@ -33,8 +33,8 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
-import type { MimirError } from '../core/errors';
-import { invariant, validation } from '../core/errors';
+import type { MimirError } from '../errors';
+import { invariant, validation } from '../errors';
 import type { MigrationPlan } from './plan';
 
 /** The subset of the norn tool catalog the artifact and node paths drive. */

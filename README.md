@@ -168,7 +168,7 @@ Architecture — one core, thin transports:
 packages/contract/   @mimir/contract — pure DTO + wire types (the dependency-free leaf; the UI imports it)
 packages/bin/        @mimir/bin — the binary
   src/core/          domain logic over the Store seam: derivation, rank, verbs, intent layer
-  src/norn/          the Norn client + vault write path (speaks to the `norn` binary)
+    store-norn/      the Norn store adapter — client + vault read/write path (speaks to the `norn` binary)
   src/cli/           the human transport (parseArgs + styled/structured renderers)
   src/mcp/           the agent transport (official MCP SDK over stdio)
   src/http/          the UI transport (resource-shaped REST over Bun.serve)

@@ -58,9 +58,9 @@ import {
 } from '../src/core';
 import type { Store } from '../src/core';
 import { attentionOf } from '../src/core/attention';
+import { NornClient } from '../src/core/store-norn/client';
+import { createNornWriteStore } from '../src/core/store-norn/writer';
 import { bunExec } from '../src/exec';
-import { NornClient } from '../src/norn/client';
-import { createNornWriteStore } from '../src/norn/writer';
 import { converge } from '../src/vault/converge';
 
 /** How far back the "going cold" cohort is stamped — comfortably past the 14-day

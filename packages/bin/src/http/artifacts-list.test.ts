@@ -52,7 +52,7 @@ test.skipIf(!NORN)('GET /api/artifacts returns the envelope of summaries', async
 });
 
 test.skipIf(!NORN)('q filter is honored over the wire', async () => {
-  // Norn's q rides `contains` over title only, case-sensitive (core/artifacts/norn.ts) —
+  // Norn's q rides `contains` over title only, case-sensitive (core/store-norn/artifacts.ts) —
   // the vault backend searches title only, case-sensitive (a documented delta from the retired backend's title+content search).
   const hit = (await (await fetch(`${base}/api/artifacts?q=gate`)).json()) as { total: number };
   expect(hit.total).toBe(1);

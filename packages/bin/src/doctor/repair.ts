@@ -3,9 +3,14 @@ import { fromMarkdown } from 'mdast-util-from-markdown';
 import { renderHistoryBody, renderHistoryRecord, toCanonicalLf } from '../core/history-codec';
 import { parseIdentity, wikilink } from '../core/ids';
 import type { Project } from '../core/model';
+import type { MigrationOp, MigrationPlan } from '../core/store-norn/plan';
+import {
+  createDocument,
+  migrationPlan,
+  replaceBody,
+  setFrontmatter,
+} from '../core/store-norn/plan';
 import { projectFrontmatter } from '../core/vault-frontmatter';
-import type { MigrationOp, MigrationPlan } from '../norn/plan';
-import { createDocument, migrationPlan, replaceBody, setFrontmatter } from '../norn/plan';
 import type { DoctorFinding, DoctorIssueCode } from './checks';
 import type { DoctorSnapshot, DoctorSnapshotDocument } from './snapshot';
 import { doctorIdentityIndex, doctorLogicalStemAtPath } from './snapshot';
