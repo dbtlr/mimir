@@ -32,10 +32,7 @@ import {
   projectViewByKey,
   projectViewOf,
   completeTask,
-  createInitiative,
-  createPhase,
-  createProject,
-  createTask,
+  createNode,
   depend,
   fileSeed,
   getSeed,
@@ -84,7 +81,6 @@ import {
   updateArtifact,
   updateNode,
   parseFilterToken,
-  parseId,
   parseIdentity,
   updateProject,
   validation,
@@ -776,11 +772,6 @@ export function toolCreate(
   },
 ): Promise<ToolResult> {
   return guard(async () => {
-    // open_ended is container-only — reject it on task/project (symmetry with
-    // `update`; MMR-204). Only initiative/phase consume it below.
-    if (args.openEnded !== undefined && (args.type === 'task' || args.type === 'project')) {
-      throw validation('open_ended applies only to phases and initiatives');
-    }
     switch (args.type) {
       case 'project': {
         if (args.key === undefined) {
@@ -789,11 +780,13 @@ export function toolCreate(
         if (args.name === undefined) {
           throw validation('create project requires name');
         }
-        const project = await createProject(store, {
+        const project = await createNode(store, {
           description: args.description,
           key: args.key,
           name: args.name,
+          openEnded: args.openEnded,
           tags: args.tags,
+          type: 'project',
         });
         return ok(JSON.stringify({ project: { key: project.key, name: project.name } }));
       }
@@ -804,18 +797,14 @@ export function toolCreate(
         if (args.parent === undefined) {
           throw validation('create initiative requires parent');
         }
-        // Initiative parent must be a bare project KEY (not a node ref)
-        if (parseId(args.parent) !== null) {
-          throw validation("an initiative's parent must be a project (KEY)");
-        }
-        const pid = await projectId(store, args.parent);
-        const node = await createInitiative(store, {
+        const node = await createNode(store, {
           description: args.description,
           openEnded: args.openEnded,
-          projectId: pid,
+          parent: args.parent,
           summary: args.summary,
           tags: args.tags,
           title: args.title,
+          type: 'initiative',
         });
         return echoNode(store, node);
       }
@@ -826,19 +815,15 @@ export function toolCreate(
         if (args.parent === undefined) {
           throw validation('create phase requires parent');
         }
-        // Phase parent must be a node ref (initiative)
-        if (parseId(args.parent) === null) {
-          throw validation("a phase's parent must be an initiative (KEY-seq)");
-        }
-        const parentNodeId = await nodeId(store, args.parent);
-        const node = await createPhase(store, {
+        const node = await createNode(store, {
           description: args.description,
           openEnded: args.openEnded,
-          parentId: parentNodeId,
+          parent: args.parent,
           summary: args.summary,
           tags: args.tags,
           target: args.target,
           title: args.title,
+          type: 'phase',
         });
         return echoNode(store, node);
       }
@@ -849,30 +834,18 @@ export function toolCreate(
         if (args.parent === undefined) {
           throw validation('create task requires parent');
         }
-        // Task parent must be a node ref (phase or initiative)
-        if (parseId(args.parent) === null) {
-          throw validation("a task's parent must be a phase or initiative (KEY-seq)");
-        }
-        const parentNodeId = await nodeId(store, args.parent);
-        if (args.priority !== undefined && !isMember(args.priority, PRIORITY_VALUES)) {
-          throw validation(
-            `invalid priority: ${args.priority}`,
-            `priorities: ${PRIORITY_VALUES.join(', ')}`,
-          );
-        }
-        if (args.size !== undefined && !isMember(args.size, SIZE_VALUES)) {
-          throw validation(`invalid size: ${args.size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
-        }
-        const node = await createTask(store, {
+        const node = await createNode(store, {
           description: args.description,
           externalRef: args.externalRef,
-          parentId: parentNodeId,
+          openEnded: args.openEnded,
+          parent: args.parent,
           priority: args.priority,
           size: args.size,
           summary: args.summary,
           tags: args.tags,
           title: args.title,
-          upstream: args.upstream === undefined ? undefined : parseUpstream(args.upstream),
+          type: 'task',
+          upstream: args.upstream,
         });
         return echoNode(store, node);
       }
