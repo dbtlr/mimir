@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import { nodeIdOf, projectIdOf, createTestStore } from '../../testing/store';
+import { nodeIdOf, projectIdOf, createTestStore, rawDep } from '../../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { deriveSet } from '../derive';
 import { parseIdentity } from '../ids';
@@ -9,7 +9,6 @@ import { RANK_STEP } from '../rank';
 import { resolveEntityTokenInSet } from '../resolve-set';
 import type { Store } from '../store';
 import { expectMimirError } from '../testing';
-import { now } from '../time';
 import {
   abandonTask,
   annotate,
@@ -268,14 +267,8 @@ test.skipIf(!NORN)(
     const initYId = await nodeIdOf(store, `MMR-${String(initY.seq)}`);
     const y = await createTask(store, { parentId: initYId, title: 'y' });
     const yId = await nodeIdOf(store, `MMR-${String(y.seq)}`);
-    await store.transact(async (w) => {
-      await w.insertDependency({ depends_on_node_id: initYId, node_id: xId });
-      await w.insertDependency({ depends_on_node_id: initXId, node_id: yId });
-      // The stamps the real `depend` verb co-writes — a first edge alone is an
-      // unguarded add and the writer refuses a guard-less plan (MMR-303).
-      await w.updateNode(xId, { updated_at: now() });
-      await w.updateNode(yId, { updated_at: now() });
-    });
+    await rawDep(store, xId, initYId);
+    await rawDep(store, yId, initXId);
 
     // an unrelated depend-on-container and an unrelated move both still work
     const initP = await createInitiative(store, { projectId: await projectId(), title: 'P' });

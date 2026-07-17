@@ -1552,3 +1552,55 @@ test('a first tag on an untagged entity rides the co-written updated_at guard (M
   // …and the co-written stamp is the guard that lets the plan through.
   expect(findOp(plan, 'set_frontmatter', 'updated_at')?.fields.expected_old_value).toBe(TS);
 });
+
+test('an idempotent re-tag writes nothing at all (MMR-303)', async () => {
+  const { client, plans } = fakeClient([
+    projectDoc(),
+    casTask('MMR-1', { lifecycle: 'todo', rank: 65536, tags: ['alpha'] }),
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  await tagEntities(store, [{ entityId: 'MMR-1', entityType: 'node' }], ['alpha']);
+  // No new tag → no stamp, no tags rewrite, no plan: updated_at (the stale
+  // clock, attention recency) must not move on an organizational no-op.
+  expect(plans).toHaveLength(0);
+});
+
+test('tagging an already-tagged entity is value-CAS-guarded by the tags field (MMR-303)', async () => {
+  const { client, plans } = fakeClient([
+    projectDoc(),
+    casTask('MMR-1', { lifecycle: 'todo', rank: 65536, tags: ['alpha'] }),
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  await tagEntities(store, [{ entityId: 'MMR-1', entityType: 'node' }], ['beta']);
+  const plan = plans[0];
+  if (plan === undefined) {
+    throw new Error('expected one applied plan');
+  }
+  const tagsOp = findOp(plan, 'set_frontmatter', 'tags');
+  expect(tagsOp?.fields.expected_old_value).toEqual(['alpha']);
+  expect(tagsOp?.fields.new_value).toEqual(['alpha', 'beta']);
+  // The set changed, so the activity stamp rides along too.
+  expect(findOp(plan, 'set_frontmatter', 'updated_at')?.fields.expected_old_value).toBe(TS);
+});
+
+test('a document missing updated_at refuses as degraded vault state, not a mimir bug (MMR-303)', async () => {
+  // Hand-authored/legacy doc: no updated_at on disk, so the co-written stamp
+  // degrades to an unguarded add_frontmatter. The write fails closed as a
+  // validation (the operator can repair the document) rather than an invariant.
+  const { client, plans } = fakeClient([
+    projectDoc(),
+    {
+      frontmatter: {
+        created: TS,
+        lifecycle: 'todo',
+        parent: '[[MMR]]',
+        title: 'Old',
+        type: 'task',
+      },
+      path: 'MMR/MMR-1.md',
+    },
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  await expectMimirError('validation', () => annotate(store, 'MMR-1', 'a note'));
+  expect(plans).toHaveLength(0);
+});

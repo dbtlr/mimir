@@ -2,12 +2,11 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import type { Hold, Lifecycle } from '@mimir/contract';
 
-import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
+import { createTestStore, nodeIdOf, projectIdOf, rawDep, rawPatchNode } from '../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { deriveSet } from './derive';
 import { isAwaiting, isBlocked, isBlocking, isOrphaned, isReady, isStale } from './predicates';
 import type { Store } from './store';
-import { now } from './time';
 
 const NORN = Bun.which('norn') !== null;
 
@@ -27,11 +26,7 @@ async function patch(
   seq: number,
   fields: { lifecycle?: Lifecycle; hold?: Hold },
 ): Promise<void> {
-  const id = await nodeIdOf(store, `${key}-${String(seq)}`);
-  // Co-write the stamp the real verbs carry: a raw lifecycle/hold patch can be
-  // an unguarded add (defaults are omitted from frontmatter) and the writer
-  // refuses a guard-less plan (MMR-303).
-  await store.transact((w) => w.updateNode(id, { updated_at: now(), ...fields }));
+  await rawPatchNode(store, await nodeIdOf(store, `${key}-${String(seq)}`), fields);
 }
 async function reload(key: string, seq: number) {
   const id = await nodeIdOf(store, `${key}-${String(seq)}`);
@@ -44,12 +39,7 @@ async function reload(key: string, seq: number) {
 async function dep(key: string, nodeSeq: number, dependsOnSeq: number): Promise<void> {
   const nodeId = await nodeIdOf(store, `${key}-${String(nodeSeq)}`);
   const dependsOnId = await nodeIdOf(store, `${key}-${String(dependsOnSeq)}`);
-  await store.transact(async (w) => {
-    await w.insertDependency({ depends_on_node_id: dependsOnId, node_id: nodeId });
-    // The stamp the real `depend` verb co-writes — a first edge alone is an
-    // unguarded add and the writer refuses a guard-less plan (MMR-303).
-    await w.updateNode(nodeId, { updated_at: now() });
-  });
+  await rawDep(store, nodeId, dependsOnId);
 }
 
 async function fixture(key = 'MMR') {
@@ -194,8 +184,7 @@ test.skipIf(!NORN)('orphaned: muted for a live task inside an open-ended contain
   expect(isOrphaned(await setOf(), await reload(key, live.seq))).toBe(true);
 
   // open-ended container: every-sibling-terminal is structurally meaningless → muted
-  // (stamped: a first open_ended write is an unguarded add, MMR-303)
   const openId = await nodeIdOf(store, `${key}-${String(phase.seq)}`);
-  await store.transact((w) => w.updateNode(openId, { open_ended: true, updated_at: now() }));
+  await rawPatchNode(store, openId, { open_ended: true });
   expect(isOrphaned(await setOf(), await reload(key, live.seq))).toBe(false);
 });

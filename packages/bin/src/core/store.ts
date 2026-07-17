@@ -210,8 +210,10 @@ export type StoreWriter = {
   insertArtifact: (row: NewArtifactRecord) => Promise<{ id: string }>;
   updateArtifact: (id: string, patch: ArtifactPatch) => Promise<void>;
   linkArtifact: (artifactId: string, nodeId: string) => Promise<void>;
-  /** Idempotent tag insert — an existing (entity, tag) row is kept untouched. */
-  insertTag: (row: NewTagRecord) => Promise<void>;
+  /** Idempotent tag insert — an existing (entity, tag) row is kept untouched;
+   * `true` iff the tag was newly applied (so the verb can co-write its
+   * CAS-guard stamp only when the tag set actually changed, MMR-303). */
+  insertTag: (row: NewTagRecord) => Promise<boolean>;
   /** Remove the given tags from one entity; returns the number of rows deleted. */
   deleteTags: (entityType: TagEntityType, entityId: string, tags: string[]) => Promise<number>;
   appendTransition: (row: NewTransitionRecord) => Promise<void>;

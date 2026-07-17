@@ -488,7 +488,7 @@ class Accumulator {
     entityType: 'node' | 'project' | 'artifact',
     entityId: string,
     tag: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (entityType === 'artifact') {
       return Promise.reject(
         invariant('artifact tags route through the artifact seam, not the plan'),
@@ -496,15 +496,19 @@ class Accumulator {
     }
     const map = entityType === 'node' ? this.nodeTags : this.projectTags;
     const tags = map.get(entityId) ?? [];
-    if (!tags.some((t) => t.tag === tag)) {
-      tags.push({ created_at: now(), tag });
+    // A no-op re-tag writes nothing (MMR-303): marking `tags` dirty here used to
+    // emit a pointless self-CAS rewrite; skipping it keeps an idempotent re-tag
+    // a pure read, so no plan reaches norn at all.
+    if (tags.some((t) => t.tag === tag)) {
+      return Promise.resolve(false);
     }
+    tags.push({ created_at: now(), tag });
     map.set(entityId, tags);
     if (this.snapshot.pathByStem.has(entityId)) {
       const mutations = entityType === 'node' ? this.nodeMutations : this.projectMutations;
       this.mutationOf(mutations, entityId).dirty.add('tags');
     }
-    return Promise.resolve();
+    return Promise.resolve(true);
   }
 
   private deleteTags(
@@ -850,33 +854,53 @@ function extractResolvedStems(applyReport: ApplyReport, creates: Create[]): Map<
 /**
  * The runtime half of the CO-WRITE INVARIANT (MMR-303, see the note on
  * {@link Accumulator.emitFieldOps}): every document a plan mutates must carry at
- * least one CAS-guarded op — a `set_frontmatter` / `remove_frontmatter` with an
- * `expected_old_value` — or the plan is refused before it reaches `vault.apply`.
- * A `create_document` births a new document (guarded by create-exclusivity, not
- * CAS-drift), so it is not a mutated document; every other op targets an
- * existing document that must be guarded. Fails closed as an `invariant`: an
- * unguarded plan is a verb-author bug, never a valid write.
+ * least one CAS-guarded op — a `set_frontmatter` / `remove_frontmatter` with a
+ * non-null `expected_old_value` — or the plan is refused before it reaches
+ * `vault.apply`. A null expected-old is excluded deliberately: per the plan
+ * contract it asserts the field was *absent*, the same non-guarantee that
+ * disqualifies `add_frontmatter`. A `create_document` births a new document
+ * (guarded by create-exclusivity, not CAS-drift), so it is not a mutated
+ * document; every other op targets an existing document that must be guarded.
+ *
+ * Two refusal classes, told apart by whether the plan carries an `updated_at`
+ * write for the unguarded document: mimir-authored frontmatter always holds a
+ * CAS-able `updated_at`, so a verb that DID co-write the stamp against a
+ * document whose field is missing/null hit degraded (hand-edited or legacy)
+ * vault state — a `validation` refusal the operator can fix. No stamp and no
+ * other guard is a verb-author bug — an `invariant`. Either way the write
+ * fails closed before apply.
  */
 function assertCoWriteGuards(operations: readonly MigrationOp[]): void {
-  const mutatedPaths = new Set<string>();
-  const guardedPaths = new Set<string>();
+  const guardedByPath = new Map<string, boolean>();
+  const stampedPaths = new Set<string>();
   for (const op of operations) {
     if (op.kind === 'create_document') {
       continue;
     }
     const path = String(op.fields.path);
-    mutatedPaths.add(path);
-    if ('expected_old_value' in op.fields) {
-      guardedPaths.add(path);
+    const guarded = 'expected_old_value' in op.fields && op.fields.expected_old_value !== null;
+    guardedByPath.set(path, guarded || (guardedByPath.get(path) ?? false));
+    if (op.fields.field === 'updated_at') {
+      stampedPaths.add(path);
     }
   }
-  const unguarded = [...mutatedPaths].filter((path) => !guardedPaths.has(path)).toSorted();
-  if (unguarded.length > 0) {
-    throw invariant(
-      'the write plan touches a document with no CAS-guarded op',
-      `every mutation must co-write at least one expected_old_value-guarded field per touched document (the co-write invariant); unguarded: ${unguarded.join(', ')}`,
+  const unguarded = [...guardedByPath]
+    .filter(([, guarded]) => !guarded)
+    .map(([path]) => path)
+    .toSorted();
+  if (unguarded.length === 0) {
+    return;
+  }
+  if (unguarded.every((path) => stampedPaths.has(path))) {
+    throw validation(
+      `${unguarded.join(', ')} carries no usable updated_at for the write's drift guard`,
+      'the document was hand-edited or predates mimir management — restore its updated_at field, then retry',
     );
   }
+  throw invariant(
+    'the write plan touches a document with no CAS-guarded op',
+    `a mutation verb must co-write at least one expected_old_value-guarded field per touched document (the co-write invariant); unguarded: ${unguarded.join(', ')}`,
+  );
 }
 
 /**
