@@ -65,20 +65,30 @@ export type UpdateFields = {
   openEnded?: boolean;
 };
 
-/** The canonical {@link UpdateFields} vocabulary, in declaration order. */
-const UPDATE_FIELD_KEYS = [
-  'title',
-  'description',
-  'summary',
-  'priority',
-  'size',
-  'target',
-  'externalRef',
-  'upstream',
-  'openEnded',
-] as const satisfies readonly (keyof UpdateFields)[];
+export type UpdateFieldKey = keyof UpdateFields;
 
-export type UpdateFieldKey = (typeof UPDATE_FIELD_KEYS)[number];
+/**
+ * The canonical {@link UpdateFields} vocabulary — a `Record` keyed by the
+ * full union (the same idiom as the MCP op → arg map), so a field added to
+ * {@link UpdateFields} but omitted here is a compile error rather than a key
+ * that silently escapes the applicability sweep. Key order (alphabetical,
+ * lint-enforced) is the canonical order rejection messages list fields in.
+ */
+const UPDATE_FIELD_ORDER: Record<UpdateFieldKey, null> = {
+  description: null,
+  externalRef: null,
+  openEnded: null,
+  priority: null,
+  size: null,
+  summary: null,
+  target: null,
+  title: null,
+  upstream: null,
+};
+
+// Object.keys widens to string[]; the literal above holds exactly the union's keys.
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+const UPDATE_FIELD_KEYS = Object.keys(UPDATE_FIELD_ORDER) as readonly UpdateFieldKey[];
 
 /**
  * The three non-node identities the generic `update` verb also serves

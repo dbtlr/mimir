@@ -650,38 +650,38 @@ test.skipIf(!NORN)(
 
 test('inapplicableUpdateFields names every UpdateFields key a project rejects but description', () => {
   expect(inapplicableUpdateFields('project')).toEqual([
-    'title',
-    'summary',
+    'externalRef',
+    'openEnded',
     'priority',
     'size',
+    'summary',
     'target',
-    'externalRef',
+    'title',
     'upstream',
-    'openEnded',
   ]);
 });
 
 test('inapplicableUpdateFields names every UpdateFields key an artifact rejects but title', () => {
   expect(inapplicableUpdateFields('artifact')).toEqual([
     'description',
-    'summary',
+    'externalRef',
+    'openEnded',
     'priority',
     'size',
+    'summary',
     'target',
-    'externalRef',
     'upstream',
-    'openEnded',
   ]);
 });
 
 test('inapplicableUpdateFields names every UpdateFields key a seed rejects but title/description', () => {
   expect(inapplicableUpdateFields('seed')).toEqual([
-    'summary',
+    'externalRef',
+    'openEnded',
     'priority',
     'size',
+    'summary',
     'target',
-    'externalRef',
     'upstream',
-    'openEnded',
   ]);
 });
