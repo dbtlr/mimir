@@ -65,6 +65,65 @@ export type UpdateFields = {
   openEnded?: boolean;
 };
 
+export type UpdateFieldKey = keyof UpdateFields;
+
+/**
+ * The canonical {@link UpdateFields} vocabulary — a `Record` keyed by the
+ * full union (the same idiom as the MCP op → arg map), so a field added to
+ * {@link UpdateFields} but omitted here is a compile error rather than a key
+ * that silently escapes the applicability sweep. Key order (alphabetical,
+ * lint-enforced) is the canonical order rejection messages list fields in.
+ */
+const UPDATE_FIELD_ORDER: Record<UpdateFieldKey, null> = {
+  description: null,
+  externalRef: null,
+  openEnded: null,
+  priority: null,
+  size: null,
+  summary: null,
+  target: null,
+  title: null,
+  upstream: null,
+};
+
+// Object.keys widens to string[]; the literal above holds exactly the union's keys.
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+const UPDATE_FIELD_KEYS = Object.keys(UPDATE_FIELD_ORDER) as readonly UpdateFieldKey[];
+
+/**
+ * The three non-node identities the generic `update` verb also serves
+ * (an {@link Identity} `kind` other than `node`) — each narrows
+ * {@link UpdateFields} to the handful of keys it actually owns; a project
+ * renames on its own `name` field (outside this vocabulary entirely), an
+ * artifact's one mutable field is `title`, and a seed's are
+ * `title`/`description` (`kind` likewise outside this vocabulary).
+ */
+export type NarrowUpdateKind = 'project' | 'artifact' | 'seed';
+
+const APPLICABLE_UPDATE_FIELDS: Record<NarrowUpdateKind, readonly UpdateFieldKey[]> = {
+  artifact: ['title'],
+  project: ['description'],
+  seed: ['title', 'description'],
+};
+
+/**
+ * The per-kind field-applicability table (MMR-306) — the single domain fact
+ * of which {@link UpdateFields} keys a project/artifact/seed update rejects
+ * (the complement of what it owns, in canonical order). The CLI and MCP
+ * transports each used to hand-type this same "doesn't apply to a …" list
+ * per kind; they now share this one declaration and keep only their own
+ * rejection wording and flag/arg spelling (the established hint-seam split —
+ * the table owns WHICH fields, the transport owns HOW that's phrased). A
+ * plain node (`task`/`phase`/`initiative`) update has its own field-gating
+ * inside {@link updateNode} below (task-only vs container-only fields) and is
+ * out of scope here — this table is for the three kinds that aren't a `Node`
+ * at all.
+ */
+export function inapplicableUpdateFields(kind: NarrowUpdateKind): readonly UpdateFieldKey[] {
+  const applicable = new Set(APPLICABLE_UPDATE_FIELDS[kind]);
+  return UPDATE_FIELD_KEYS.filter((key) => !applicable.has(key));
+}
+
 export async function updateNode(store: Store, id: string, fields: UpdateFields): Promise<Node> {
   return store.transact(async (w) => {
     const node = await requireNode(w, id);

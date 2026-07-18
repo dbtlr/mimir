@@ -21,6 +21,7 @@ import {
   deriveSet,
   fileSeed,
   getArtifact,
+  inapplicableUpdateFields,
   listSeeds,
   moveNode,
   parseIdentity,
@@ -55,9 +56,11 @@ import {
   validation,
 } from '../core';
 import type {
+  NarrowUpdateKind,
   RankPosition,
   SeedStatusSelector,
   Store,
+  UpdateFieldKey,
   UpdateFields,
   UpdateProjectFields,
   UpdateSeedFields,
@@ -412,24 +415,58 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
   return 0;
 }
 
-/** `update KEY` — patch a project's `name` and/or `description` (MMR-88). */
-async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
-  // Flags that don't apply to a project (only to tasks/phases).
-  for (const [key, flag] of [
-    ['title', '--title'],
-    ['priority', '--priority'],
-    ['size', '--size'],
-    ['target', '--target'],
-    ['ref', '--ref'],
-    ['summary', '--summary'],
-    ['upstream', '--upstream'],
+/**
+ * CLI flag spelling for each canonical {@link UpdateFieldKey} — the shared
+ * per-kind table (`inapplicableUpdateFields`, MMR-306) names WHICH fields a
+ * project/artifact/seed update rejects; this local map owns the CLI's own
+ * flag spelling for reporting it, `open_ended`'s two-flag on/off pair included.
+ */
+const UPDATE_FIELD_FLAGS: Record<
+  UpdateFieldKey,
+  readonly (readonly [key: string, flag: string])[]
+> = {
+  description: [['desc', '--desc']],
+  externalRef: [['ref', '--ref']],
+  openEnded: [
     ['open-ended', '--open-ended'],
     ['not-open-ended', '--not-open-ended'],
-  ] as const) {
-    if (c.values[key] !== undefined) {
-      throw validation(`${flag} doesn't apply to a project — use --name to rename it`);
+  ],
+  priority: [['priority', '--priority']],
+  size: [['size', '--size']],
+  summary: [['summary', '--summary']],
+  target: [['target', '--target']],
+  title: [['title', '--title']],
+  upstream: [['upstream', '--upstream']],
+};
+
+/**
+ * Reject any flag inapplicable to `kind` (MMR-306) — the CLI-side sweep over
+ * the shared table, in canonical field order. `fail` lets the seed update
+ * keep its usage/exit-2 class (a node-only flag there is a bad invocation,
+ * not a value fault, B5a) while project/artifact stay `validation`/exit-1.
+ */
+function rejectInapplicableFields(
+  c: Ctx,
+  kind: NarrowUpdateKind,
+  describe: (flag: string) => string,
+  fail: (message: string) => Error = validation,
+): void {
+  for (const field of inapplicableUpdateFields(kind)) {
+    for (const [key, flag] of UPDATE_FIELD_FLAGS[field]) {
+      if (c.values[key] !== undefined) {
+        throw fail(describe(flag));
+      }
     }
   }
+}
+
+/** `update KEY` — patch a project's `name` and/or `description` (MMR-88). */
+async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
+  rejectInapplicableFields(
+    c,
+    'project',
+    (flag) => `${flag} doesn't apply to a project — use --name to rename it`,
+  );
   const projectId = await resolveProject(c.store, token);
   const fields: UpdateProjectFields = {};
   if (typeof c.values.name === 'string') {
@@ -445,21 +482,11 @@ async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
 
 /** `update KEY-aN` — title is an artifact's one mutable field (MMR-40). */
 async function cmdUpdateArtifact(c: Ctx, token: string): Promise<number> {
-  for (const [key, flag] of [
-    ['desc', '--desc'],
-    ['priority', '--priority'],
-    ['size', '--size'],
-    ['target', '--target'],
-    ['ref', '--ref'],
-    ['summary', '--summary'],
-    ['upstream', '--upstream'],
-    ['open-ended', '--open-ended'],
-    ['not-open-ended', '--not-open-ended'],
-  ] as const) {
-    if (c.values[key] !== undefined) {
-      throw validation(`${flag} doesn't apply to an artifact — title is its one mutable field`);
-    }
-  }
+  rejectInapplicableFields(
+    c,
+    'artifact',
+    (flag) => `${flag} doesn't apply to an artifact — title is its one mutable field`,
+  );
   const identity = parseIdentity(token);
   if (identity?.kind !== 'artifact') {
     throw notFound(`${token} doesn't exist`);
@@ -990,22 +1017,14 @@ export async function cmdTriage(c: Ctx): Promise<number> {
 
 /** `update KEY-sN` — patch a live seed's title/kind/description (MMR-245). */
 async function cmdUpdateSeed(c: Ctx, token: string): Promise<number> {
-  for (const [key, flag] of [
-    ['priority', '--priority'],
-    ['size', '--size'],
-    ['target', '--target'],
-    ['ref', '--ref'],
-    ['summary', '--summary'],
-    ['open-ended', '--open-ended'],
-    ['not-open-ended', '--not-open-ended'],
-    ['upstream', '--upstream'],
-  ] as const) {
-    if (c.values[key] !== undefined) {
-      // A node-only flag on a seed update is a bad INVOCATION, not a value fault —
-      // usage/exit-2, mirroring the sibling --kind guard and the output contract (B5a).
-      throw usage(`${flag} doesn't apply to a seed — patch --title, --kind, or --desc`);
-    }
-  }
+  // A node-only flag on a seed update is a bad INVOCATION, not a value fault —
+  // usage/exit-2, mirroring the sibling --kind guard and the output contract (B5a).
+  rejectInapplicableFields(
+    c,
+    'seed',
+    (flag) => `${flag} doesn't apply to a seed — patch --title, --kind, or --desc`,
+    usage,
+  );
   const fields: UpdateSeedFields = {};
   const changed: string[] = [];
   if (typeof c.values.title === 'string') {

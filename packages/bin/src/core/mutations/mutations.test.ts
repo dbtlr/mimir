@@ -17,6 +17,7 @@ import {
   blockTask,
   completeTask,
   depend,
+  inapplicableUpdateFields,
   moveNode,
   parkTask,
   reorder,
@@ -640,3 +641,47 @@ test.skipIf(!NORN)(
     await expectMimirError('not_found', () => resolveAttachTargets(store, [], 'ZZZ'));
   },
 );
+
+// ---------------------------------------------------------------------------
+// inapplicableUpdateFields (MMR-306) — the shared per-kind table the CLI and
+// MCP transports both sweep over instead of hand-typing their own list. A
+// pure lookup, no store needed.
+// ---------------------------------------------------------------------------
+
+test('inapplicableUpdateFields names every UpdateFields key a project rejects but description', () => {
+  expect(inapplicableUpdateFields('project')).toEqual([
+    'externalRef',
+    'openEnded',
+    'priority',
+    'size',
+    'summary',
+    'target',
+    'title',
+    'upstream',
+  ]);
+});
+
+test('inapplicableUpdateFields names every UpdateFields key an artifact rejects but title', () => {
+  expect(inapplicableUpdateFields('artifact')).toEqual([
+    'description',
+    'externalRef',
+    'openEnded',
+    'priority',
+    'size',
+    'summary',
+    'target',
+    'upstream',
+  ]);
+});
+
+test('inapplicableUpdateFields names every UpdateFields key a seed rejects but title/description', () => {
+  expect(inapplicableUpdateFields('seed')).toEqual([
+    'externalRef',
+    'openEnded',
+    'priority',
+    'size',
+    'summary',
+    'target',
+    'upstream',
+  ]);
+});
