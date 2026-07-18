@@ -415,15 +415,20 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
   return 0;
 }
 
+/** camelCase → kebab, for the default `--flag` spelling of a field. */
+const kebab = (name: string): string => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+
 /**
- * CLI flag spelling for each canonical {@link UpdateFieldKey} — the shared
- * per-kind table (`inapplicableUpdateFields`, MMR-306) names WHICH fields a
- * project/artifact/seed update rejects; this local map owns the CLI's own
- * flag spelling for reporting it, `open_ended`'s two-flag on/off pair included.
+ * The CLI's flag spellings that diverge from the default (ADR 0025 finding iii)
+ * — the only hand-held part of the flag template. Everything else derives: a
+ * field's default flag is a single `--<kebab-key>` reading the same key. The SET
+ * of fields is NOT listed here; {@link updateFieldFlags} renders whatever
+ * {@link inapplicableUpdateFields} sweeps, so a new spec field surfaces with a
+ * derived flag and no edit. The overrides are `--ref` (not `--external-ref`),
+ * `--desc` (not `--description`), and `open_ended`'s on/off pair.
  */
-const UPDATE_FIELD_FLAGS: Record<
-  UpdateFieldKey,
-  readonly (readonly [key: string, flag: string])[]
+const UPDATE_FLAG_OVERRIDES: Partial<
+  Record<UpdateFieldKey, readonly (readonly [key: string, flag: string])[]>
 > = {
   description: [['desc', '--desc']],
   externalRef: [['ref', '--ref']],
@@ -431,13 +436,20 @@ const UPDATE_FIELD_FLAGS: Record<
     ['open-ended', '--open-ended'],
     ['not-open-ended', '--not-open-ended'],
   ],
-  priority: [['priority', '--priority']],
-  size: [['size', '--size']],
-  summary: [['summary', '--summary']],
-  target: [['target', '--target']],
-  title: [['title', '--title']],
-  upstream: [['upstream', '--upstream']],
 };
+
+/** The CLI flag(s) for an update field — its spelling override, else the derived
+ * default `--<kebab-key>`. A view template over the field model, not a fact. */
+export function updateFieldFlags(
+  field: UpdateFieldKey,
+): readonly (readonly [key: string, flag: string])[] {
+  const override = UPDATE_FLAG_OVERRIDES[field];
+  if (override !== undefined) {
+    return override;
+  }
+  const flag = kebab(field);
+  return [[flag, `--${flag}`]];
+}
 
 /**
  * Reject any flag inapplicable to `kind` (MMR-306) — the CLI-side sweep over
@@ -452,7 +464,7 @@ function rejectInapplicableFields(
   fail: (message: string) => Error = validation,
 ): void {
   for (const field of inapplicableUpdateFields(kind)) {
-    for (const [key, flag] of UPDATE_FIELD_FLAGS[field]) {
+    for (const [key, flag] of updateFieldFlags(field)) {
       if (c.values[key] !== undefined) {
         throw fail(describe(flag));
       }

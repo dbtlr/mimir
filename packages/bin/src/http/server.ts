@@ -18,11 +18,19 @@ import {
 import { isMember } from '@mimir/helpers';
 import type { Server } from 'bun';
 
-import type { DerivationSet, ListOptions, SeedStatusSelector, Store, UpdateFields } from '../core';
+import type {
+  DerivationSet,
+  ListOptions,
+  SeedStatusSelector,
+  SpecUpdateField,
+  Store,
+  UpdateFields,
+} from '../core';
 import {
   abandonTask,
   annotate,
   archiveProject,
+  SPEC_UPDATE_FIELDS,
   artifactSummaryToWire,
   artifactToWire,
   attachArtifact,
@@ -169,6 +177,28 @@ const NODE_KIND_HINTS = {
   project: 'projects live at /api/projects',
   seed: 'seeds live at /api/seeds',
 } as const;
+
+/** The data-plane body fields both node writes accept, derived from the field
+ * spec (ADR 0025) — the snake_case frontmatter keys in canonical order. A new
+ * spec field with an `update` key joins both allow-lists with no route edit.
+ * Parameterized for the derivation test. */
+export function nodeBodyFields(fields: readonly SpecUpdateField[] = SPEC_UPDATE_FIELDS): string[] {
+  return fields.map((field) => field.key);
+}
+const NODE_BODY_FIELDS: readonly string[] = nodeBodyFields();
+/** `POST /api/nodes` allow-list: the bespoke identity/topology args + the derived
+ * data fields. `readBody` rejects anything else and lists these in the fault hint. */
+const NODE_CREATE_FIELDS: readonly string[] = [
+  'type',
+  'parent',
+  'title',
+  'description',
+  'tags',
+  ...NODE_BODY_FIELDS,
+];
+/** `PATCH /api/nodes/:id` allow-list: the two structural update targets
+ * (`title`/`description`, not spec fields) + the derived data fields. */
+const NODE_PATCH_FIELDS: readonly string[] = ['title', 'description', ...NODE_BODY_FIELDS];
 
 function nodeRefIn(set: DerivationSet, token: string, expected = 'node'): string {
   return resolveNodeTokenInSet(set, token, expected, NODE_KIND_HINTS);
@@ -581,20 +611,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           }),
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, [
-              'type',
-              'parent',
-              'title',
-              'description',
-              'summary',
-              'target',
-              'priority',
-              'size',
-              'external_ref',
-              'upstream',
-              'open_ended',
-              'tags',
-            ]);
+            const body = await readBody(req, NODE_CREATE_FIELDS);
             const type = requiredStr(body, 'type', 'create');
             const parent = requiredStr(body, 'parent', 'create');
             const title = requiredStr(body, 'title', 'create');
@@ -672,17 +689,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           }),
         PATCH: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, [
-              'title',
-              'description',
-              'summary',
-              'priority',
-              'size',
-              'target',
-              'external_ref',
-              'upstream',
-              'open_ended',
-            ]);
+            const body = await readBody(req, NODE_PATCH_FIELDS);
             const fields: UpdateFields = {};
             const title = strField(body, 'title');
             if (title !== undefined) {

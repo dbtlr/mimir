@@ -1,4 +1,6 @@
 import {
+  HOLD_VALUES,
+  LIFECYCLE_VALUES,
   PRIORITY_VALUES,
   SEED_KIND_VALUES,
   SEED_STATUS_SELECTOR_VALUES,
@@ -6,7 +8,7 @@ import {
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
 } from '@mimir/contract';
-import type { FacetName } from '@mimir/contract';
+import type { FacetName, FieldKindName } from '@mimir/contract';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -14,7 +16,8 @@ import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import type { ZodRawShape } from 'zod';
 
-import type { SeedStatusSelector, Store } from '../core';
+import { SPEC_UPDATE_FIELDS } from '../core';
+import type { SeedStatusSelector, SpecUpdateField, Store } from '../core';
 import {
   toolAnnotate,
   toolArchive,
@@ -96,6 +99,53 @@ const FACET = z.enum([
   'content', // artifact-only: the frozen body (heavy, opt-in)
 ]);
 const LIMIT = z.number().int().positive();
+
+/**
+ * The per-kind zod fragment — the MCP view of a field **kind** (ADR 0025). The
+ * kind's parser/emitter and query bindings live in the core; its wire schema is
+ * a transport template, and MCP is its only zod consumer, so the fragment lives
+ * here rather than in the shared registry. Keyed by the full {@link FieldKindName}
+ * union, so a new kind is a compile error here, not a silently untyped arg. Each
+ * entry is the base type; {@link fieldInputShape} adds `.optional()`.
+ */
+const KIND_ZOD: Record<FieldKindName, z.ZodType> = {
+  bool: z.boolean(),
+  'enum:hold': z.enum(HOLD_VALUES),
+  'enum:lifecycle': z.enum(LIFECYCLE_VALUES),
+  'enum:priority': z.enum(PRIORITY_VALUES),
+  'enum:size': z.enum(SIZE_VALUES),
+  'seed-ref': z.string(),
+  string: z.string(),
+};
+
+/**
+ * The `update`/`create` arg fragment for the generic-`update` spec fields (ADR
+ * 0025) — each named by its camelCase update key, typed by its kind, optional.
+ * Both tool schemas compose this with their own bespoke identity/topology args
+ * (`id`/`type`/`parent`/`title`/…). Parameterized for the derivation test.
+ */
+export function fieldInputShape(
+  fields: readonly SpecUpdateField[] = SPEC_UPDATE_FIELDS,
+): ZodRawShape {
+  const shape: Record<string, ZodRawShape[string]> = {};
+  for (const field of fields) {
+    shape[field.update] = KIND_ZOD[field.kind].optional();
+  }
+  return shape;
+}
+
+/** Reorder a raw shape's keys alphabetically — the tool schemas keep their
+ * hand-authored alphabetical arg order once the derived fields are merged in. */
+function sortedShape(shape: ZodRawShape): ZodRawShape {
+  const out: Record<string, ZodRawShape[string]> = {};
+  for (const key of Object.keys(shape).toSorted()) {
+    const value = shape[key];
+    if (value !== undefined) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
 
 /**
  * Register a tool with its `inputSchema` widened to the base `ZodRawShape`. The
@@ -530,19 +580,16 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     server,
     'update',
     "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, upstream, openEnded), retitle an artifact (KEY-aN, title only), or patch a live seed (KEY-sN: title, kind, description). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers; upstream (a KEY-sN seed pointer) only to tasks — pass the literal string 'none' to clear it (omit it to leave it untouched; blank is rejected). Echoes the updated record.",
-    {
+    // The scalar-field args derive from the field spec (ADR 0025); the bespoke
+    // identity/topology args (id) and the non-node targets (title/description,
+    // seed kind) stay hand-listed. Sorted to keep the advertised alphabetical order.
+    sortedShape({
+      ...fieldInputShape(),
       description: z.string().optional(),
-      externalRef: z.string().optional(),
       id: z.string(),
       kind: SEED_KIND.optional(),
-      openEnded: z.boolean().optional(),
-      priority: PRIORITY.optional(),
-      size: SIZE.optional(),
-      summary: z.string().optional(),
-      target: z.string().optional(),
       title: z.string().optional(),
-      upstream: z.string().optional(),
-    },
+    }),
     (args: {
       id: string;
       title?: string;
@@ -597,22 +644,18 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     server,
     'create',
     'Create a node of the given type. project: requires key+name, echoes {project:{key,name}}. initiative: requires title+parent (project KEY). phase/task: requires title+parent (KEY-seq node ref). Echoes the created node.',
-    {
+    // Scalar-field args derive from the field spec (ADR 0025); the identity/topology
+    // args (type/key/name/parent/title/tags) stay hand-listed. Sorted to keep order.
+    sortedShape({
+      ...fieldInputShape(),
       description: z.string().optional(),
-      externalRef: z.string().optional(),
       key: z.string().optional(),
       name: z.string().optional(),
-      openEnded: z.boolean().optional(),
       parent: z.string().optional(),
-      priority: PRIORITY.optional(),
-      size: SIZE.optional(),
-      summary: z.string().optional(),
       tags: z.array(z.string()).optional(),
-      target: z.string().optional(),
       title: z.string().optional(),
       type: z.enum(['project', 'initiative', 'phase', 'task']),
-      upstream: z.string().optional(),
-    },
+    }),
     (args: {
       type: 'project' | 'initiative' | 'phase' | 'task';
       key?: string;
