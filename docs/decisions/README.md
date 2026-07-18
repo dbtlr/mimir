@@ -17,32 +17,33 @@ they conflict. References to **Norn** and **Saga** are sibling projects in the
 same toolset (knowledge store and session orchestration, respectively); Norn's
 dogfooded CLI conventions are prior art that ADR 0009 adopts.
 
-| ADR                                                               | Decision                                                       |
-| ----------------------------------------------------------------- | -------------------------------------------------------------- |
-| [0001](0001-task-status-two-axes-derived-rollup.md)               | Task status — two axes, derived readiness, distribution rollup |
-| [0002](0002-general-purpose-primitives-not-baked-in-semantics.md) | General-purpose primitives, not baked-in semantics             |
-| [0003](0003-append-only-transition-log.md)                        | Append-only transition log                                     |
-| [0004](0004-artifact-model-project-anchored-flexibly-linked.md)   | Artifacts — project-anchored, flexibly linked                  |
-| [0005](0005-grouping-axis-is-tags.md)                             | The grouping axis is tags                                      |
-| [0006](0006-human-readable-node-ids.md)                           | Human-readable node ids                                        |
-| [0007](0007-rank-is-primary-order-priority-is-signal.md)          | Rank is the primary order; priority is a signal                |
-| [0008](0008-state-word-projection-and-interpret-cascade.md)       | Status-word projection and the `interpret` cascade             |
-| [0009](0009-adopt-norn-output-and-selection-contract.md)          | Adopt Norn's output + selection/projection contract            |
-| [0010](0010-one-binary-transport-only-consumption.md)             | One binary; transport-only consumption                         |
-| [0011](0011-repo-binding-is-repo-side.md)                         | Repo binding is repo-side; the store knows no paths            |
-| [0012](0012-http-api-true-resource-envelope.md)                   | The HTTP API is a true resource envelope                       |
-| [0013](0013-ui-embedded-spa.md)                                   | The UI is an embedded SPA — board-first console, PWA           |
-| [0014](0014-work-artifacts-authored-into-mimir.md)                | Work artifacts are authored into Mimir, not the vault          |
-| [0015](0015-project-archive-frozen-and-hidden.md)                 | Project archive — a frozen, hidden, reversible project state   |
-| [0016](0016-norn-vault-system-of-record.md)                       | A Norn-managed markdown vault is the system of record          |
-| [0017](0017-runtime-data-tolerance.md)                            | Runtime data-tolerance; doctor is a non-gating diagnostic      |
-| [0018](0018-vault-access-is-norn-only.md)                         | Vault access is Norn-only; fs-need signals a Norn ask          |
-| [0019](0019-meridian-console-design-system.md)                    | Meridian — the console design system; attention model          |
-| [0020](0020-seeds-grooming-queue-entity.md)                       | Seeds — the grooming-queue entity                              |
-| [0021](0021-seed-lede-derived-and-capture-grammar.md)             | Seed lede is derived at read; capture is one blob              |
-| [0022](0022-changelog-fragments-compiled-at-cut.md)               | Changelog fragments, compiled at the cut                       |
-| [0023](0023-concurrency-and-safety-posture.md)                    | Concurrency & safety posture — not a write-safe datastore      |
-| [0024](0024-cli-command-taxonomy.md)                              | CLI command taxonomy — two planes, flat work verbs             |
+| ADR                                                               | Decision                                                           |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [0001](0001-task-status-two-axes-derived-rollup.md)               | Task status — two axes, derived readiness, distribution rollup     |
+| [0002](0002-general-purpose-primitives-not-baked-in-semantics.md) | General-purpose primitives, not baked-in semantics                 |
+| [0003](0003-append-only-transition-log.md)                        | Append-only transition log                                         |
+| [0004](0004-artifact-model-project-anchored-flexibly-linked.md)   | Artifacts — project-anchored, flexibly linked                      |
+| [0005](0005-grouping-axis-is-tags.md)                             | The grouping axis is tags                                          |
+| [0006](0006-human-readable-node-ids.md)                           | Human-readable node ids                                            |
+| [0007](0007-rank-is-primary-order-priority-is-signal.md)          | Rank is the primary order; priority is a signal                    |
+| [0008](0008-state-word-projection-and-interpret-cascade.md)       | Status-word projection and the `interpret` cascade                 |
+| [0009](0009-adopt-norn-output-and-selection-contract.md)          | Adopt Norn's output + selection/projection contract                |
+| [0010](0010-one-binary-transport-only-consumption.md)             | One binary; transport-only consumption                             |
+| [0011](0011-repo-binding-is-repo-side.md)                         | Repo binding is repo-side; the store knows no paths                |
+| [0012](0012-http-api-true-resource-envelope.md)                   | The HTTP API is a true resource envelope                           |
+| [0013](0013-ui-embedded-spa.md)                                   | The UI is an embedded SPA — board-first console, PWA               |
+| [0014](0014-work-artifacts-authored-into-mimir.md)                | Work artifacts are authored into Mimir, not the vault              |
+| [0015](0015-project-archive-frozen-and-hidden.md)                 | Project archive — a frozen, hidden, reversible project state       |
+| [0016](0016-norn-vault-system-of-record.md)                       | A Norn-managed markdown vault is the system of record              |
+| [0017](0017-runtime-data-tolerance.md)                            | Runtime data-tolerance; doctor is a non-gating diagnostic          |
+| [0018](0018-vault-access-is-norn-only.md)                         | Vault access is Norn-only; fs-need signals a Norn ask              |
+| [0019](0019-meridian-console-design-system.md)                    | Meridian — the console design system; attention model              |
+| [0020](0020-seeds-grooming-queue-entity.md)                       | Seeds — the grooming-queue entity                                  |
+| [0021](0021-seed-lede-derived-and-capture-grammar.md)             | Seed lede is derived at read; capture is one blob                  |
+| [0022](0022-changelog-fragments-compiled-at-cut.md)               | Changelog fragments, compiled at the cut                           |
+| [0023](0023-concurrency-and-safety-posture.md)                    | Concurrency & safety posture — not a write-safe datastore          |
+| [0024](0024-cli-command-taxonomy.md)                              | CLI command taxonomy — two planes, flat work verbs                 |
+| [0025](0025-descriptor-driven-registration.md)                    | Descriptor-driven registration — facts in tables, grammar in views |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model
