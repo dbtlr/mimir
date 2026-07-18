@@ -19,7 +19,7 @@ import {
 } from './core';
 import type { SpecUpdateField, Store } from './core';
 import { createServer } from './http/server';
-import { toolUpdate } from './mcp/tools';
+import { toolCreate, toolUpdate } from './mcp/tools';
 import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
 
 /**
@@ -41,7 +41,9 @@ let server: Server<undefined>;
 let base: string;
 let projectId: string;
 let initiativeId: string;
+let initiativeRef: string;
 let phaseId: string;
+let phaseRef: string;
 let seedId: string;
 
 beforeEach(async () => {
@@ -52,9 +54,11 @@ beforeEach(async () => {
   await createProject(store, { key: 'MMR', name: 'Mimir' });
   projectId = await projectIdOf(store, 'MMR');
   const init = await createInitiative(store, { projectId, title: 'init' });
-  initiativeId = await nodeIdOf(store, `MMR-${String(init.seq)}`);
+  initiativeRef = `MMR-${String(init.seq)}`;
+  initiativeId = await nodeIdOf(store, initiativeRef);
   const phase = await createPhase(store, { parentId: initiativeId, title: 'phase' });
-  phaseId = await nodeIdOf(store, `MMR-${String(phase.seq)}`);
+  phaseRef = `MMR-${String(phase.seq)}`;
+  phaseId = await nodeIdOf(store, phaseRef);
   // A real seed backs the `seed-ref` kind's wire value (`upstream`).
   const seed = await fileSeed(store, {
     kind: 'idea',
@@ -174,6 +178,117 @@ for (const field of SPEC_UPDATE_FIELDS) {
       const ref = await freshNode(type);
       const { expected, native } = wireFor(field);
       await drive(ref, field, native);
+      expect(await landedValue(ref, field)).toEqual(expected);
+    });
+  }
+}
+
+/**
+ * The create-path sibling gap (MMR-315): the create paths (HTTP `POST /api/nodes`,
+ * the MCP `create` tool, CLI `create`) keep hand-mapped application — deriving them
+ * fights `createNode`'s discriminated union — while their ACCEPTANCE derives from the
+ * spec (HTTP `NODE_CREATE_FIELDS`, the MCP create schema's `fieldInputShape`, the CLI
+ * create flags). That is exactly the accept-without-apply shape the update fix closed,
+ * left unpinned here: a future spec field would be accepted at create and silently
+ * dropped. This drives every generic-`update` spec field through each real create
+ * surface on the field's canonical node type and asserts the passed value lands.
+ *
+ * Coverage: every spec field is accepted AND applied at create on all three transports
+ * (task carries external_ref/priority/size/summary/upstream; a phase carries
+ * open_ended/summary/target; an initiative open_ended/summary), so none is skipped —
+ * there is no create-time-only omission on any transport. A field advertised at create
+ * but dropped by its hand-map arm turns this suite red.
+ */
+
+/** The parent token a create of `type` needs, over the shared fixture: a task's
+ * parent is a phase, a phase's an initiative, an initiative's a project KEY. */
+function createParentFor(type: NodeType): string {
+  if (type === 'task') {
+    return phaseRef;
+  }
+  if (type === 'phase') {
+    return initiativeRef;
+  }
+  return 'MMR';
+}
+
+/** Create a node of `type` through a real transport, passing exactly `field`'s wire
+ * value, and return the created node's ref for read-back. */
+type CreateDriver = (
+  type: NodeType,
+  field: SpecUpdateField,
+  native: string | boolean,
+) => Promise<string>;
+
+const cliCreate: CreateDriver = async (type, field, native) => {
+  const [, flag] = updateFieldFlags(field.update)[0] ?? [];
+  if (flag === undefined) {
+    throw new Error(`no CLI flag for ${field.update}`);
+  }
+  const io = fakeIo(false);
+  // `--format json` so the created id round-trips as bare-node JSON on io.out.
+  const head = [
+    'create',
+    type,
+    `create-${field.key}`,
+    '--parent',
+    createParentFor(type),
+    '--format',
+    'json',
+  ];
+  // A bool is a bare flag (its `true` face); every other kind takes a value token.
+  const argv = field.kind === 'bool' ? [...head, flag] : [...head, flag, String(native)];
+  const code = await runCli(argv, () => store, io);
+  expect(code).toBe(0);
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return (JSON.parse(io.out.join('')) as { id: string }).id;
+};
+
+const httpCreate: CreateDriver = async (type, field, native) => {
+  const res = await fetch(`${base}/api/nodes`, {
+    body: JSON.stringify({
+      [field.key]: native,
+      parent: createParentFor(type),
+      title: `create-${field.key}`,
+      type,
+    }),
+    headers: { 'content-type': 'application/json' },
+    method: 'POST',
+  });
+  expect(res.status).toBe(201);
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return ((await res.json()) as { id: string }).id;
+};
+
+const mcpCreate: CreateDriver = async (type, field, native) => {
+  const args = {
+    [field.update]: native,
+    parent: createParentFor(type),
+    title: `create-${field.key}`,
+    type,
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  } as Parameters<typeof toolCreate>[1];
+  const res = await toolCreate(store, args);
+  expect(res.isError).toBeUndefined();
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return (JSON.parse(res.content[0]?.text ?? '{}') as { id: string }).id;
+};
+
+const CREATE_DRIVERS: [name: string, drive: CreateDriver][] = [
+  ['cli', cliCreate],
+  ['http', httpCreate],
+  ['mcp', mcpCreate],
+];
+
+for (const field of SPEC_UPDATE_FIELDS) {
+  const type = FIELD_SPEC[field.key].appliesTo[0];
+  for (const [name, drive] of CREATE_DRIVERS) {
+    test.skipIf(!NORN)(`${name} create applies ${field.key} onto a ${type ?? '?'}`, async () => {
+      if (type === undefined) {
+        throw new Error(`spec field ${field.key} applies to no node type`);
+      }
+      const { expected, native } = wireFor(field);
+      const ref = await drive(type, field, native);
       expect(await landedValue(ref, field)).toEqual(expected);
     });
   }
