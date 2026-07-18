@@ -20,6 +20,7 @@ import {
   moveNode,
   parkTask,
   reorder,
+  resolveAttachTargets,
   startTask,
   tagEntities,
   unblockTask,
@@ -508,5 +509,134 @@ test.skipIf(!NORN)(
 
     await completeTask(store, a);
     await expectMimirError('validation', () => reorder(store, a, 'top')); // terminal -> no rank
+  },
+);
+
+// ─── resolveAttachTargets: the shared attach link-resolution (MMR-305) ────────
+
+/** Build a second project OTH with one task; return its `KEY-seq` ref. */
+async function otherProjectTask(): Promise<string> {
+  await createProject(store, { key: 'OTH', name: 'o' });
+  const oi = await createInitiative(store, {
+    projectId: await projectIdOf(store, 'OTH'),
+    title: 'i',
+  });
+  const op = await createPhase(store, {
+    parentId: await nodeIdOf(store, `OTH-${String(oi.seq)}`),
+    title: 'p',
+  });
+  const ot = await createTask(store, {
+    parentId: await nodeIdOf(store, `OTH-${String(op.seq)}`),
+    title: 't',
+  });
+  return `OTH-${String(ot.seq)}`;
+}
+
+test.skipIf(!NORN)('resolveAttachTargets resolves links and infers the project', async () => {
+  const a = await task('a');
+  const b = await task('b');
+  const pid = await projectId();
+  const out = await resolveAttachTargets(store, [a, b]);
+  expect(out.projectId).toBe(pid);
+  expect(out.linkNodeIds).toEqual([a, b]);
+});
+
+test.skipIf(!NORN)(
+  'resolveAttachTargets dedupes repeated tokens and a link equal to the anchor',
+  async () => {
+    const a = await task('a');
+    const b = await task('b');
+    // anchor a, then a again (link==anchor), then b, then b again (repeat)
+    const out = await resolveAttachTargets(store, [a, a, b, b]);
+    expect(out.linkNodeIds).toEqual([a, b]); // first-occurrence order, deduped
+  },
+);
+
+test.skipIf(!NORN)('resolveAttachTargets rejects cross-project links', async () => {
+  const a = await task('a');
+  const other = await otherProjectTask();
+  await expectMimirError('validation', () => resolveAttachTargets(store, [a, other]));
+});
+
+test.skipIf(!NORN)('resolveAttachTargets reports a missing token as not_found', async () => {
+  await expectMimirError('not_found', () => resolveAttachTargets(store, ['MMR-9999']));
+});
+
+test.skipIf(!NORN)(
+  'resolveAttachTargets names a wrong-kind token and carries the transport hint (MMR-304 parity)',
+  async () => {
+    const a = await task('a');
+    // A project key where a link is expected — kind-aware, not a fake "doesn't exist".
+    let wrongProject: unknown;
+    try {
+      await resolveAttachTargets(store, ['MMR']);
+    } catch (error) {
+      wrongProject = error;
+    }
+    expect(wrongProject).toMatchObject({
+      code: 'validation',
+      message: 'MMR is a project, not a task, phase, or initiative',
+    });
+    // An artifact id is likewise named by kind.
+    const { renderedId } = await attachArtifact(store, {
+      content: 'x',
+      linkNodeIds: [a],
+      projectId: await projectId(),
+      title: 'doc',
+    });
+    let wrongArtifact: unknown;
+    try {
+      await resolveAttachTargets(store, [renderedId]);
+    } catch (error) {
+      wrongArtifact = error;
+    }
+    expect(wrongArtifact).toMatchObject({
+      code: 'validation',
+      message: `${renderedId} is an artifact, not a task, phase, or initiative`,
+    });
+    // A genuine node miss keeps "doesn't exist" and carries the notFound hint.
+    let missing: unknown;
+    try {
+      await resolveAttachTargets(store, ['MMR-9999'], undefined, { notFound: 'try mimir list' });
+    } catch (error) {
+      missing = error;
+    }
+    expect(missing).toMatchObject({
+      code: 'not_found',
+      hint: 'try mimir list',
+      message: "MMR-9999 doesn't exist",
+    });
+  },
+);
+
+test.skipIf(!NORN)('resolveAttachTargets honors an agreeing explicit project', async () => {
+  const a = await task('a');
+  const out = await resolveAttachTargets(store, [a], 'MMR');
+  expect(out.projectId).toBe(await projectId());
+  expect(out.linkNodeIds).toEqual([a]);
+});
+
+test.skipIf(!NORN)('resolveAttachTargets rejects a disagreeing explicit project', async () => {
+  const a = await task('a');
+  await otherProjectTask(); // makes OTH a real, resolvable key
+  let disagree: unknown;
+  try {
+    await resolveAttachTargets(store, [a], 'OTH');
+  } catch (error) {
+    disagree = error;
+  }
+  expect(disagree).toMatchObject({
+    code: 'validation',
+    message: "the project disagrees with the links' project",
+  });
+});
+
+test.skipIf(!NORN)(
+  'resolveAttachTargets resolves an explicit project with no links, and rejects an unknown key',
+  async () => {
+    const out = await resolveAttachTargets(store, [], 'MMR');
+    expect(out.projectId).toBe(await projectId());
+    expect(out.linkNodeIds).toEqual([]);
+    await expectMimirError('not_found', () => resolveAttachTargets(store, [], 'ZZZ'));
   },
 );

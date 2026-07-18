@@ -9,6 +9,7 @@ import {
   createTask,
   deriveSet,
   findNodeInSet,
+  getArtifact,
   updateNode,
 } from '../core';
 import type { Store } from '../core';
@@ -595,6 +596,26 @@ test.skipIf(!NORN)(
     );
     expect(code).toBe(1);
     expect(io.out).toHaveLength(0);
+  },
+);
+test.skipIf(!NORN)(
+  'attach dedupes a --link equal to the anchor and a repeated link (MMR-305)',
+  async () => {
+    const t2 = await createTask(store, { parentId: phaseId, title: 't2' });
+    const t2Ref = `MMR-${String(t2.seq)}`;
+    const tmp = `${process.env.TMPDIR ?? '/tmp'}/mimir-attach-dedup.md`;
+    await Bun.write(tmp, '# body');
+    const io = fakeIo(false);
+    // anchor taskRef, then --link csv repeating the anchor and t2 twice
+    const code = await runCli(
+      ['attach', taskRef, '--file', tmp, '--link', `${taskRef},${t2Ref},${t2Ref}`, '-f', 'json'],
+      () => store,
+      io,
+    );
+    expect(code).toBe(0);
+    const aId = parseJson<{ artifact: { id: string } }>(io.out.join('')).artifact.id;
+    const detail = await getArtifact(store, aId);
+    expect(detail.links).toEqual([taskRef, t2Ref]); // deduped, first-occurrence order
   },
 );
 test.skipIf(!NORN)(

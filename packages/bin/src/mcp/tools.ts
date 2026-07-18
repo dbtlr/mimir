@@ -27,7 +27,6 @@ import {
   attachArtifact,
   blockTask,
   deriveSet,
-  findNodeInSet,
   nodeViewOf,
   projectViewByKey,
   projectViewOf,
@@ -43,6 +42,7 @@ import {
   resolveBoard,
   triage,
   updateSeed,
+  resolveAttachTargets,
   resolveNodeTokenInSet,
   resolveProjectKeyInSet,
   formatArtifactJson,
@@ -869,43 +869,16 @@ export function toolAttach(
       }
     }
 
-    let pid: string;
-    const linkNodeIds: string[] = [];
-
-    if (linkTokens.length > 0) {
-      // Resolve all node refs; require they all belong to one project
-      const linkSet = deriveSet(await store.loadWorkingSet());
-      const nodes = linkTokens.map((t) => {
-        const n = findNodeInSet(linkSet, t);
-        if (n === undefined) {
-          throw notFound(`${t} doesn't exist`);
-        }
-        return n;
-      });
-      const projects = new Set(nodes.map((n) => n.project_id));
-      if (projects.size > 1) {
-        throw validation('all the links must be in one project');
-      }
-      const [resolvedProjectId] = projects;
-      if (resolvedProjectId === undefined) {
-        throw validation('internal: links resolved but project is missing');
-      }
-      pid = resolvedProjectId;
-      linkNodeIds.push(...nodes.map((n) => n.id));
-      // If --project is also provided, it must agree
-      if (args.project !== undefined) {
-        const explicitId = await projectId(store, args.project);
-        if (explicitId !== pid) {
-          throw validation("project disagrees with the links' project");
-        }
-      }
-    } else {
-      // No links — project is required
-      if (args.project === undefined) {
-        throw validation('attach requires a link (KEY-seq) or a project key');
-      }
-      pid = await projectId(store, args.project);
+    // Dedup, the one-project invariant, and project agreement all live in core
+    // (MMR-305); the native required-arg gap stays here.
+    if (linkTokens.length === 0 && args.project === undefined) {
+      throw validation('attach requires a link (KEY-seq) or a project key');
     }
+    const { linkNodeIds, projectId: pid } = await resolveAttachTargets(
+      store,
+      linkTokens,
+      args.project,
+    );
 
     const { renderedId } = await attachArtifact(store, {
       content: args.content,
