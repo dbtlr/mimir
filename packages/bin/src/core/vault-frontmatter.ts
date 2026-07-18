@@ -1,3 +1,4 @@
+import { emitDataFields } from './field-spec';
 import { wikilink } from './ids';
 import type { Node, Project } from './model';
 import type { NodeTag } from './store';
@@ -70,10 +71,6 @@ export function nodeFrontmatter(
   // make Norn's frontmatter-only `find` able to scope by project. A wikilink to
   // the project doc, mirroring `parent` (Norn collapses brackets in matching).
   fm.project = wikilink(rel.projectKey);
-  // `description` is NOT frontmatter (MMR-162, ADR 0016 Refinement): the full
-  // prose is authoritative in the `## Task Description` body section. Only the
-  // short `summary` lede rides frontmatter.
-  put(fm, 'summary', node.summary);
   if (rel.parentStem !== null) {
     fm.parent = wikilink(rel.parentStem);
   }
@@ -83,29 +80,17 @@ export function nodeFrontmatter(
   if (rel.tags.length > 0) {
     fm.tags = rel.tags.map((t) => t.tag);
   }
-  put(fm, 'lifecycle', node.lifecycle);
-  // `hold: 'none'` is the neutral default — omit it (and null) so a task carries
-  // a hold only when actually held; the reader defaults absent → 'none'.
-  put(fm, 'hold', node.hold === 'none' ? null : node.hold);
-  put(fm, 'hold_reason', node.hold_reason);
-  put(fm, 'priority', node.priority);
-  put(fm, 'size', node.size);
+  // Structural, task-only scalars (topology/timestamps): `rank` is the invisible
+  // ordering key and `completed_at` a lifecycle-driven timestamp — both stay
+  // bespoke, outside the data-plane spec (ADR 0025 Decision 1).
   put(fm, 'rank', node.rank);
-  put(fm, 'external_ref', node.external_ref);
-  // The requester-side pointer at a seed (`KEY-sN`), nullable (MMR-244) — a plain
-  // scalar like `external_ref`, omitted when null.
-  put(fm, 'upstream', node.upstream);
   put(fm, 'completed_at', node.completed_at);
-  put(fm, 'target', node.target);
-  // Container-only (MMR-204). Type-gated to non-task to match the reader
-  // (`store-norn` decodes it only for containers) and the view projection — a
-  // stray task-level value never reaches frontmatter, so the writer and reader
-  // can't diverge on it. Norn has no boolean field_type, so it rides undeclared and
-  // serializes as the strings 'true'/'false' (the reader's `boolFieldOrNull`
-  // decodes them back). Emit both states explicitly — a deliberate `false` must
-  // round-trip as `false`, not collapse to absent/null, so parity agrees.
-  if (node.type !== 'task') {
-    put(fm, 'open_ended', node.open_ended === null ? null : String(node.open_ended));
-  }
+  // The data plane is one generic loop over the field spec (ADR 0025): every
+  // updatable/queryable scalar fact — `summary`, the status axes, priority/size,
+  // external_ref/upstream, target, open_ended — is type-gated and emitted by its
+  // kind, the inverse of `decodeDataFields`. `description` is NOT frontmatter
+  // (MMR-162): the prose lives in the `## Task Description` body section, and only
+  // its short `summary` lede rides frontmatter (a spec field).
+  emitDataFields(fm, node);
   return fm;
 }

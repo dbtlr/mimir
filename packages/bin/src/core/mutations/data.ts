@@ -3,6 +3,8 @@ import type { Priority, Size } from '@mimir/contract';
 import type { ArtifactRecord } from '../artifacts/store';
 import { deriveSet } from '../derive';
 import { invariant, notFound, validation } from '../errors';
+import { SPEC_UPDATE_KEYS, updateKeysForTypes } from '../field-spec';
+import type { SpecUpdateKey } from '../field-spec';
 import { renderArtifactRef } from '../ids';
 import type { Node, Project } from '../model';
 import { reorderTask } from '../rank';
@@ -68,27 +70,35 @@ export type UpdateFields = {
 export type UpdateFieldKey = keyof UpdateFields;
 
 /**
- * The canonical {@link UpdateFields} vocabulary — a `Record` keyed by the
- * full union (the same idiom as the MCP op → arg map), so a field added to
- * {@link UpdateFields} but omitted here is a compile error rather than a key
- * that silently escapes the applicability sweep. Key order (alphabetical,
- * lint-enforced) is the canonical order rejection messages list fields in.
+ * The two update targets outside the data-plane spec (ADR 0025): `title` is
+ * always-present node identity and `description` is body prose, not a
+ * frontmatter scalar — and both apply across the non-node kinds too, so neither
+ * is a node-typed spec field. Everything else in the {@link UpdateFields}
+ * vocabulary is a spec `update` field.
  */
-const UPDATE_FIELD_ORDER: Record<UpdateFieldKey, null> = {
-  description: null,
-  externalRef: null,
-  openEnded: null,
-  priority: null,
-  size: null,
-  summary: null,
-  target: null,
-  title: null,
-  upstream: null,
-};
+const STRUCTURAL_UPDATE_KEYS = ['description', 'title'] as const;
 
-// Object.keys widens to string[]; the literal above holds exactly the union's keys.
-// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-const UPDATE_FIELD_KEYS = Object.keys(UPDATE_FIELD_ORDER) as readonly UpdateFieldKey[];
+/** Compile guard (MMR-306): every {@link UpdateFields} key must be reachable
+ * from the field spec (a `update` field) or the two structural keys — a new key
+ * that is neither makes this alias non-`never`, failing {@link Assert} below, so
+ * a field can't silently escape the applicability sweep. */
+type UnregisteredUpdateKey = Exclude<
+  UpdateFieldKey,
+  SpecUpdateKey | (typeof STRUCTURAL_UPDATE_KEYS)[number]
+>;
+type AssertNever<T extends never> = T;
+type _AllUpdateKeysRegistered = AssertNever<UnregisteredUpdateKey>;
+
+/**
+ * The canonical {@link UpdateFields} vocabulary — the spec's `update` fields plus
+ * the two structural targets, sorted into the canonical (alphabetical) order
+ * rejection messages list fields in. Derived from the spec, not a parallel table
+ * (ADR 0025): a new spec field with an `update` key joins automatically.
+ */
+const UPDATE_FIELD_KEYS: readonly UpdateFieldKey[] = [
+  ...SPEC_UPDATE_KEYS,
+  ...STRUCTURAL_UPDATE_KEYS,
+].toSorted();
 
 /**
  * The three non-node identities the generic `update` verb also serves
@@ -128,12 +138,12 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
   return store.transact(async (w) => {
     const node = await requireNode(w, id);
 
-    const wantsTaskField =
-      fields.priority !== undefined ||
-      fields.size !== undefined ||
-      fields.externalRef !== undefined ||
-      fields.upstream !== undefined;
-    if (wantsTaskField && node.type !== 'task') {
+    // The applicability gates derive from the spec's `appliesTo` (ADR 0025,
+    // MMR-306): a field set on a node whose type doesn't carry it is rejected.
+    // The three checks keep their established precedence and wording; only WHICH
+    // fields are task-only now comes from the spec, not a hand-typed condition.
+    const taskOnly = updateKeysForTypes(['task']);
+    if (taskOnly.some((key) => fields[key] !== undefined) && node.type !== 'task') {
       throw validation('priority, size, external_ref, and upstream apply only to tasks');
     }
     if (fields.target !== undefined && node.type !== 'phase') {

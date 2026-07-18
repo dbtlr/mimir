@@ -1,11 +1,10 @@
-import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
 import type { Priority, Size } from '@mimir/contract';
-import { isMember } from '@mimir/helpers';
 
 import { isValidKey } from './allocation';
 import { deriveSet } from './derive';
 import { conflict, notFound, validation } from './errors';
-import { parseIdentity, parseUpstreamField, UPSTREAM_CLEAR } from './ids';
+import { parsePriorityValue, parseSizeValue, parseUpstreamValue } from './field-spec';
+import { parseIdentity } from './ids';
 import type { Node, Project } from './model';
 import { assertProjectActive } from './mutations/common';
 import { normalizeSummary } from './mutations/data';
@@ -355,52 +354,4 @@ async function resolveNodeParent(
     rules.expected,
     rules.hints ?? {},
   );
-}
-
-/**
- * Validate a raw priority token against the enum — the one `invalid
- * priority: <x>` assert every transport shares (create, update, and promote
- * paths alike, MMR-306). `undefined` passes through untouched (no change).
- */
-export function parsePriorityValue(value: string | undefined): Priority | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (!isMember(value, PRIORITY_VALUES)) {
-    throw validation(`invalid priority: ${value}`, `priorities: ${PRIORITY_VALUES.join(', ')}`);
-  }
-  return value;
-}
-
-/**
- * Validate a raw size token against the enum — the shared `invalid size:
- * <x>` assert (MMR-306), sibling to {@link parsePriorityValue}.
- */
-export function parseSizeValue(value: string | undefined): Size | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (!isMember(value, SIZE_VALUES)) {
-    throw validation(`invalid size: ${value}`, `sizes: ${SIZE_VALUES.join(', ')}`);
-  }
-  return value;
-}
-
-/**
- * Parse the raw `upstream` wire token: `KEY-sN` passes through, the `none`
- * sentinel clears (MMR-301), anything else is rejected in shared wording.
- * Exported as the single wire parser — the MCP update path shares it, so the
- * wording can't drift between create and update.
- */
-export function parseUpstreamValue(value: string | undefined): string | null | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  const parsed = parseUpstreamField(value);
-  if (parsed === undefined) {
-    throw validation(
-      `upstream must be a seed id (KEY-sN) or '${UPSTREAM_CLEAR}' to clear, got ${value}`,
-    );
-  }
-  return parsed;
 }
