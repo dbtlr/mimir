@@ -60,6 +60,7 @@ test('the total repair registry explicitly classifies every current issue code',
     'malformed-history-heading',
     'malformed-upstream',
     'missing-project',
+    'missing-updated-at',
     'non-iso-annotation-heading',
     'orphaned-seed',
     'section-annotations-unreadable',
@@ -551,6 +552,93 @@ test('scoped repair accounts for whole-vault findings as out-of-scope skips', ()
     reason: 'out-of-scope',
   });
   expect(planned.migration.operations).toHaveLength(1);
+});
+
+// MMR-312: stamp-updated-at — the one recipe whose write cannot itself carry an
+// updated_at CAS guard (the field is absent/null, exactly what the finding
+// names), so it is planned as an unguarded add (absent) or a null-old-value set
+// (present-but-null) rather than a value-guarded set_frontmatter.
+test('stamp-updated-at adds the field, seeded from created, when it is absent', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('missing-updated-at', 'MMR-1', { present: false })],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: 'body',
+        documentHash: 'hash',
+        frontmatter: { created: '2026-01-01T00:00:00.000Z', type: 'task' },
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.skipped).toEqual([]);
+  expect(planned.failures).toEqual([]);
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: {
+        field: 'updated_at',
+        new_value: '2026-01-01T00:00:00.000Z',
+        path: 'MMR/MMR-1.md',
+      },
+      kind: 'add_frontmatter',
+    },
+  ]);
+});
+
+test('stamp-updated-at sets the field against a null old value when it is present-but-null', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('missing-updated-at', 'MMR-1', { present: true })],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: 'body',
+        documentHash: 'hash',
+        frontmatter: { created: '2026-01-01T00:00:00.000Z', type: 'task', updated_at: null },
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: {
+        expected_old_value: null,
+        field: 'updated_at',
+        new_value: '2026-01-01T00:00:00.000Z',
+        path: 'MMR/MMR-1.md',
+      },
+      kind: 'set_frontmatter',
+    },
+  ]);
+});
+
+test('stamp-updated-at falls back to the repair timestamp when no created exists', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('missing-updated-at', 'MMR-1', { present: false })],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: 'body',
+        documentHash: 'hash',
+        frontmatter: { type: 'task' },
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: { field: 'updated_at', new_value: '2026-07-13T12:00:00.000Z', path: 'MMR/MMR-1.md' },
+      kind: 'add_frontmatter',
+    },
+  ]);
 });
 
 test('missing-project verification identity is stable across representative nodes', () => {
