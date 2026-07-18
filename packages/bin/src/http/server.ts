@@ -51,6 +51,7 @@ import {
   createProject,
   depend,
   renderArtifactRef,
+  resolveAttachTargets,
   resolveNodeTokenInSet,
   resolveProjectKeyInSet,
   getArtifact,
@@ -771,24 +772,19 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         POST: (req) =>
           guarded(req, async () => {
             const body = await readBody(req, ['title', 'content', 'links', 'tags']);
-            const set = deriveSet(await store.loadWorkingSet());
-            const anchor = findNodeInSet(set, req.params.id);
-            if (anchor === undefined) {
-              throw notFound(`${req.params.id} doesn't exist`);
-            }
-            const linkNodeIds = [anchor.id];
-            for (const token of strList(body, 'links') ?? []) {
-              const linked = findNodeInSet(set, token);
-              if (linked === undefined) {
-                throw notFound(`${token} doesn't exist`);
-              }
-              if (linked.project_id !== anchor.project_id) {
-                throw validation('all the links must be in one project');
-              }
-              if (!linkNodeIds.includes(linked.id)) {
-                linkNodeIds.push(linked.id);
-              }
-            }
+            // The path :id anchors the link-set as its first token; core owns the
+            // dedup + one-project invariant (MMR-305). No explicit project on this
+            // route — the anchor supplies it.
+            const tokens = [req.params.id, ...(strList(body, 'links') ?? [])];
+            const { linkNodeIds, projectId } = await resolveAttachTargets(
+              store,
+              tokens,
+              undefined,
+              {
+                artifact: 'artifacts live at /api/artifacts',
+                project: 'projects live at /api/projects',
+              },
+            );
             // Echo from the held record (MMR-283): `attachArtifact` already asserted
             // the project active BEFORE the write and its store-side `create` returns
             // the full record, so the 201 body renders with no `getArtifact` re-read
@@ -796,7 +792,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const { record } = await attachArtifact(store, {
               content: requiredStr(body, 'content', 'attach'),
               linkNodeIds,
-              projectId: anchor.project_id,
+              projectId,
               tags: strList(body, 'tags'),
               title: requiredStr(body, 'title', 'attach'),
             });

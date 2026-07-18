@@ -11,6 +11,7 @@ import {
   createTask,
   deriveSet,
   findNodeInSet,
+  getArtifact,
 } from '../core';
 import type { Store } from '../core';
 import { createTestStore, inertStore, nodeIdOf, projectIdOf } from '../testing/store';
@@ -403,6 +404,24 @@ test.skipIf(!NORN)('attach to a node infers the project and echoes an artifact i
   const v = parseJson<{ artifact: { id: string } }>(textOf(res));
   expect(v.artifact.id).toMatch(/^[A-Z]{2,4}-a\d+$/);
 });
+
+test.skipIf(!NORN)(
+  'attach dedupes a link equal to the node anchor and a repeated link (MMR-305)',
+  async () => {
+    const t2 = await createTask(store, { parentId: phaseId, title: 't2' });
+    const t2Ref = `MMR-${String(t2.seq)}`;
+    const res = await toolAttach(store, {
+      content: 'x',
+      links: [taskRef, t2Ref, t2Ref], // link==anchor, then a repeat
+      node: taskRef,
+      title: 'plan',
+    });
+    expect(res.isError).toBeUndefined();
+    const aId = parseJson<{ artifact: { id: string } }>(textOf(res)).artifact.id;
+    const detail = await getArtifact(store, aId);
+    expect(detail.links).toEqual([taskRef, t2Ref]); // deduped, first-occurrence order
+  },
+);
 
 test.skipIf(!NORN)('attach cross-project link returns structured validation error', async () => {
   await createProject(store, { key: 'OTH', name: 'o' });

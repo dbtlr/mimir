@@ -20,7 +20,6 @@ import {
   depend,
   deriveSet,
   fileSeed,
-  findNodeInSet,
   getArtifact,
   listSeeds,
   moveNode,
@@ -34,6 +33,7 @@ import {
   releasedByArchive,
   reorder,
   reopenTask,
+  resolveAttachTargets,
   resolveEntityTokenInSet,
   resolveNodeTokenInSet,
   returnTask,
@@ -516,39 +516,15 @@ export async function cmdAttach(c: Ctx): Promise<number> {
     );
   }
 
-  let projectId: string;
-  const linkNodeIds: string[] = [];
-  if (linkTokens.length > 0) {
-    const set = deriveSet(await c.store.loadWorkingSet());
-    const nodes = linkTokens.map((t) => {
-      const n = findNodeInSet(set, t);
-      if (n === undefined) {
-        throw notFound(`${t} doesn't exist`);
-      }
-      return n;
-    });
-    const projects = new Set(nodes.map((n) => n.project_id));
-    if (projects.size > 1) {
-      throw validation('all the links must be in one project');
-    }
-    const [projectIdFromNodes] = projects; // number | undefined under noUncheckedIndexedAccess
-    if (projectIdFromNodes === undefined) {
-      throw validation('internal: links resolved but project is missing');
-    }
-    projectId = projectIdFromNodes;
-    linkNodeIds.push(...nodes.map((n) => n.id));
-    if (typeof c.values.project === 'string') {
-      const explicit = await resolveProject(c.store, c.values.project);
-      if (explicit !== projectId) {
-        throw validation("--project disagrees with the links' project");
-      }
-    }
-  } else {
-    projectId = await resolveProject(
-      c.store,
-      strFlag(c, 'project', 'attach requires a link (KEY-seq) or --project <KEY>'),
-    );
+  // Dedup, the one-project invariant, and --project agreement all live in core
+  // (MMR-305); the native required-arg gap stays here as a `usage` error.
+  const projectFlag = optStr(c, 'project');
+  if (linkTokens.length === 0 && projectFlag === undefined) {
+    throw usage('attach requires a link (KEY-seq) or --project <KEY>');
   }
+  const { projectId, linkNodeIds } = await resolveAttachTargets(c.store, linkTokens, projectFlag, {
+    notFound: 'see what exists: mimir list -f ids',
+  });
 
   const explicitTitle = optStr(c, 'title');
   const basename = file?.split('/').pop();

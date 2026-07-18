@@ -1,11 +1,13 @@
 import type { Priority, Size } from '@mimir/contract';
 
 import type { ArtifactRecord } from '../artifacts/store';
+import { deriveSet } from '../derive';
 import { invariant, notFound, validation } from '../errors';
 import { renderArtifactRef } from '../ids';
 import type { Node, Project } from '../model';
 import { reorderTask } from '../rank';
 import type { RankPosition } from '../rank';
+import { resolveNodeTokenInSet, resolveProjectKeyInSet } from '../resolve-set';
 import type { NodePatch, ProjectPatch, Store } from '../store';
 import { now } from '../time';
 import {
@@ -285,6 +287,84 @@ export async function attachArtifact(
     title: input.title,
   });
   return { record, renderedId: renderArtifactRef({ key: record.key, seq: record.seq }) };
+}
+
+/**
+ * Transport-supplied hint lines for attach link-resolution errors — the
+ * {@link resolveNodeTokenInSet} hint seam carried through, so each envelope can
+ * point at its own surface (the CLI at `mimir list`, HTTP at its routes) while
+ * the wording stays core-owned. Mirrors `CreateParentHints` (MMR-304/305).
+ */
+export type AttachLinkHints = {
+  project?: string;
+  artifact?: string;
+  seed?: string;
+  notFound?: string;
+};
+
+/** The resolved attach target: the owning project and the deduped link ids. */
+export type AttachTargets = {
+  projectId: string;
+  linkNodeIds: string[];
+};
+
+/**
+ * Resolve the attach link-set and its owning project (MMR-305) — the one
+ * algorithm the CLI, MCP, and HTTP envelopes used to each re-implement. `tokens`
+ * are the raw node refs a transport gathered (HTTP's path anchor is simply the
+ * first token). Each is resolved against ONE working-set snapshot with the
+ * kind-aware guard (a project/artifact/seed token is named as such rather than a
+ * fake `doesn't exist`, MMR-304 parity; a genuine node miss keeps `X doesn't
+ * exist`), deduped by resolved id (a link equal to the anchor, or any repeated
+ * token, collapses), and required to share one project. An `explicitProject`
+ * (CLI `--project`, MCP `project`) must agree with the links' project when links
+ * exist; with no links it resolves the project on its own (`not_found` for an
+ * unknown key).
+ *
+ * The zero-token / no-`explicitProject` case is the transport's own
+ * required-argument error (its native class + wording) and is guarded upstream;
+ * reaching it here is an internal invariant break.
+ */
+export async function resolveAttachTargets(
+  store: Store,
+  tokens: string[],
+  explicitProject?: string,
+  hints: AttachLinkHints = {},
+): Promise<AttachTargets> {
+  const set = deriveSet(await store.loadWorkingSet());
+  if (tokens.length === 0) {
+    if (explicitProject === undefined) {
+      throw invariant('attach resolution reached with neither a link nor a project');
+    }
+    return { linkNodeIds: [], projectId: resolveProjectKeyInSet(set, explicitProject) };
+  }
+  const linkNodeIds: string[] = [];
+  let projectId: string | undefined;
+  for (const token of tokens) {
+    const id = resolveNodeTokenInSet(set, token, 'task, phase, or initiative', hints);
+    const node = set.nodeById.get(id);
+    if (node === undefined) {
+      throw invariant('a resolved link vanished from the working set');
+    }
+    if (projectId === undefined) {
+      projectId = node.project_id;
+    } else if (node.project_id !== projectId) {
+      throw validation('all the links must be in one project');
+    }
+    if (!linkNodeIds.includes(id)) {
+      linkNodeIds.push(id);
+    }
+  }
+  if (projectId === undefined) {
+    throw invariant('links resolved but project is missing');
+  }
+  if (explicitProject !== undefined) {
+    const explicit = resolveProjectKeyInSet(set, explicitProject);
+    if (explicit !== projectId) {
+      throw validation("the project disagrees with the links' project");
+    }
+  }
+  return { linkNodeIds, projectId };
 }
 
 export async function reorder(

@@ -1442,6 +1442,7 @@ const NON_PLAN_MUTATION_EXPORTS: Record<string, string> = {
   assertProjectActive: 'shared archive write-lock guard, not a verb',
   attachArtifact: 'artifact-seam write; the node transaction only validates',
   releasedByArchive: 'read-only projection — issues no write plan',
+  resolveAttachTargets: 'read-only working-set resolution — issues no write plan',
   updateArtifact: 'artifact-seam write; the node transaction only validates',
 };
 

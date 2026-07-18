@@ -688,6 +688,21 @@ test.skipIf(!NORN)(
 );
 
 test.skipIf(!NORN)(
+  'artifacts: POST dedupes a link equal to the path anchor and a repeated link (MMR-305)',
+  async () => {
+    const created = await send('POST', `/api/nodes/${task1}/artifacts`, {
+      content: 'body',
+      links: [task1, task2, task2], // link==anchor, then a repeat
+      title: 'deduped',
+    });
+    expect(created.status).toBe(201);
+    const artifact = await parse(created);
+    // The anchor leads; each node appears once, first-occurrence order preserved.
+    expect((artifact.links as { id: string }[]).map((l) => l.id)).toEqual([task1, task2]);
+  },
+);
+
+test.skipIf(!NORN)(
   'artifacts: the 201 create body renders from the held record and equals a subsequent GET (MMR-283)',
   async () => {
     // task2 < task1 lexically is untrue here (MMR-2 < MMR-1 is false), so anchor
