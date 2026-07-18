@@ -641,6 +641,30 @@ test('stamp-updated-at falls back to the repair timestamp when no created exists
   ]);
 });
 
+test('stamp-updated-at ignores an unparseable created and stamps the repair timestamp', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('missing-updated-at', 'MMR-1', { present: false })],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: 'body',
+        documentHash: 'hash',
+        frontmatter: { created: 'sometime last winter', type: 'task' },
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: { field: 'updated_at', new_value: '2026-07-13T12:00:00.000Z', path: 'MMR/MMR-1.md' },
+      kind: 'add_frontmatter',
+    },
+  ]);
+});
+
 test('missing-project verification identity is stable across representative nodes', () => {
   expect(repairIssueKey(issue('missing-project', 'MMR-1', { key: 'MMR' }))).toBe(
     repairIssueKey(issue('missing-project', 'MMR-99', { key: 'MMR' })),

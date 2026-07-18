@@ -257,6 +257,12 @@ function causeOf(finding: DoctorFinding, field: string | null): { cause: string;
     case 'crlf': {
       return { cause: 'CRLF line endings', note: 'Tolerated on read, but non-canonical.' };
     }
+    case 'updated-at': {
+      return {
+        cause: 'missing write guard',
+        note: 'No usable updated_at — every mutation is refused until repaired.',
+      };
+    }
     default: {
       return { cause: finding.check, note: finding.message };
     }

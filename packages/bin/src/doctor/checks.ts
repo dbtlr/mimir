@@ -269,7 +269,11 @@ export const updatedAtCheck: Diagnostic = {
         continue;
       }
       if (frontmatter === undefined) {
-        continue; // no frontmatter captured for this doc — nothing to assert
+        // Unreachable today: the snapshot enumerates by work-state `type:`
+        // frontmatter, so every doc it returns parsed a frontmatter block. If
+        // that enumeration ever loosens, this skip silently hides a doc the
+        // writer refuses.
+        continue;
       }
       const present = 'updated_at' in frontmatter;
       if (present && frontmatter.updated_at !== null) {

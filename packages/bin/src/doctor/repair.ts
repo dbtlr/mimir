@@ -320,10 +320,21 @@ export function planDoctorRepairs(args: {
       // null old value (present-but-null), never a value-guarded `set_frontmatter`.
       const present = entry.evidence.present === true;
       const created = doc.frontmatter?.created;
-      const stamp = typeof created === 'string' && created !== '' ? created : args.timestamp;
+      // The target population is hand-edited docs, so `created` itself may be
+      // garbage — only a parseable timestamp is trusted as the seed.
+      const stamp =
+        typeof created === 'string' && !Number.isNaN(Date.parse(created))
+          ? created
+          : args.timestamp;
       operations.push(
         present
-          ? setFrontmatter(doc.path, 'updated_at', stamp, null)
+          ? // norn (≥ 0.48, the pinned floor) coerces present-with-null and
+            // absent to the same CAS expectation, so `expected_old_value: null`
+            // matches the present-but-null field even though plan.ts documents
+            // null as asserting absence. A norn that distinguishes them makes
+            // this repair CAS-refuse (fail closed); the norn-gated integration
+            // test is the tripwire.
+            setFrontmatter(doc.path, 'updated_at', stamp, null)
           : addFrontmatter(doc.path, 'updated_at', stamp),
       );
       planned.push({ issue: entry, recipe: policy.recipe });
