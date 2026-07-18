@@ -1,14 +1,8 @@
-import {
-  HOLD_VALUES,
-  LIFECYCLE_VALUES,
-  NODE_TYPE_VALUES,
-  PRIORITY_VALUES,
-  SIZE_VALUES,
-  STATUS_WORD_VALUES,
-} from '@mimir/contract';
+import { NODE_TYPE_VALUES, STATUS_WORD_VALUES } from '@mimir/contract';
 import type { FieldFilter, QueryOp, ValueWarning } from '@mimir/contract';
 
 import { validation } from './errors';
+import { dataQueryFields } from './field-spec';
 
 /**
  * The field-operator compiler (MMR-33). Structural faults — unknown field,
@@ -28,29 +22,45 @@ type FieldSpec = {
   values?: readonly string[];
 };
 
-export const QUERY_FIELDS: Record<string, FieldSpec> = {
+/**
+ * The structural (identity/topology) query fields — id, parent, type, the tag
+ * pseudo-field, the derived `status` word, and the timestamps. These are NOT in
+ * the data-plane field spec (ADR 0025): they are what makes a node a node, or a
+ * derived/timestamp value, so they stay bespoke here. `description` is
+ * deliberately absent (MMR-162): it is body prose read per node, not a
+ * bulk-cheap frontmatter field — the short `summary` lede (a spec field) is the
+ * queryable stand-in.
+ */
+const STRUCTURAL_QUERY_FIELDS: Record<string, FieldSpec> = {
   completed_at: { kind: 'date' },
   created_at: { kind: 'date' },
-  // `description` is not queryable (MMR-162): it is body prose read per node, not
-  // a bulk-cheap frontmatter field — filtering it would force a body read of
-  // every candidate. The short `summary` lede is the queryable stand-in.
-  external_ref: { kind: 'string' },
-  hold: { kind: 'enum', values: HOLD_VALUES },
-  hold_reason: { kind: 'string' },
   id: { kind: 'string' },
-  lifecycle: { kind: 'enum', values: LIFECYCLE_VALUES },
   parent: { kind: 'string' },
-  priority: { kind: 'enum', values: PRIORITY_VALUES },
-  size: { kind: 'enum', values: SIZE_VALUES },
   status: { kind: 'enum', values: STATUS_WORD_VALUES },
-  summary: { kind: 'string' },
   tag: { kind: 'tag' },
-  target: { kind: 'string' },
   title: { kind: 'string' },
   type: { kind: 'enum', values: NODE_TYPE_VALUES },
   updated_at: { kind: 'date' },
-  upstream: { kind: 'string' },
 };
+
+/** Ascending key compare without a nested ternary (canonical alphabetical order). */
+function byKey([a]: [string, FieldSpec], [b]: [string, FieldSpec]): number {
+  if (a < b) {
+    return -1;
+  }
+  return a > b ? 1 : 0;
+}
+
+/**
+ * The queryable field registry (MMR-33): the structural fields above merged with
+ * the data-plane fields projected from the field spec (ADR 0025 — priority/size/
+ * lifecycle/hold as enums, summary/target/external_ref/upstream/hold_reason as
+ * strings; `open_ended` is not queryable and so absent). Alphabetized so the
+ * unknown-field hint lists every field in canonical order.
+ */
+export const QUERY_FIELDS: Record<string, FieldSpec> = Object.fromEntries(
+  Object.entries({ ...STRUCTURAL_QUERY_FIELDS, ...dataQueryFields() }).toSorted(byKey),
+);
 
 const DATE_OPS: ReadonlySet<QueryOp> = new Set([
   'before',

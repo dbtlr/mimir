@@ -1,8 +1,7 @@
-import { HOLD_VALUES, LIFECYCLE_VALUES, PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
-import type { Lifecycle, NodeType } from '@mimir/contract';
-import { isMember } from '@mimir/helpers';
+import type { NodeType } from '@mimir/contract';
 
 import { invariant } from '../errors';
+import { decodeDataFields } from '../field-spec';
 import { parseId, parseSeedRef } from '../ids';
 import type { Dependency, Node, Project } from '../model';
 import type { NodeTag, WorkingSet } from '../store';
@@ -36,84 +35,6 @@ function str(value: unknown): string | null {
 
 function num(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
-}
-
-/**
- * Narrow a frontmatter value to an enum member. Norn has no enum field_type, so
- * value legality can't be enforced at the vault layer — the reader is the guard.
- * An ABSENT field returns null (the caller applies its own default /
- * nullability); a PRESENT but out-of-vocabulary value throws, enforcing in
- * code the same enum invariant a column CHECK constraint would enforce in a
- * schema.
- */
-function enumFieldStrict<T extends string>(
-  value: unknown,
-  values: readonly T[],
-  stem: string,
-  field: string,
-): T | null {
-  if (value === undefined) {
-    return null;
-  }
-  const s = str(value);
-  if (s !== null && isMember(s, values)) {
-    return s;
-  }
-  throw invariant(
-    `node ${stem} has an invalid ${field} value`,
-    `${field} must be one of: ${values.join(', ')}`,
-  );
-}
-
-/**
- * The non-throwing enum narrow for the OPTIONAL task fields (`priority`/`size`,
- * MMR-177): absent → null, a valid member → the value, and a PRESENT foreign
- * value → null (no throw). Field validity keeps a node with a foreign
- * priority/size (null is a truthful "unset"), so a surviving node can still carry
- * one — this reads it as null rather than crashing the never-throw read path. The
- * tiering decision (null-the-field vs drop-the-node) lives only in {@link validate};
- * this is the mechanical "don't crash" over the SAME vocabulary. NOT used for
- * `lifecycle`/`hold`, whose bad nodes the validator already drops — those stay on
- * {@link enumFieldStrict} as a seam backstop.
- */
-function enumFieldOrNull<T extends string>(value: unknown, values: readonly T[]): T | null {
-  const s = str(value);
-  return s !== null && isMember(s, values) ? s : null;
-}
-
-/**
- * The non-throwing boolean narrow for the container-only OPTIONAL field
- * `open_ended` (MMR-204). Norn has no boolean field_type, so the field rides
- * undeclared and round-trips as the strings `'true'`/`'false'` (see
- * `vault-frontmatter.ts`); a hand-authored YAML boolean is accepted too. Absent
- * or any foreign value → null — the foreign-nulls-the-field tiering that mirrors
- * {@link enumFieldOrNull} (the validator owns the null-vs-drop decision).
- */
-function boolFieldOrNull(value: unknown): boolean | null {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  const s = str(value);
-  if (s === 'true') {
-    return true;
-  }
-  return s === 'false' ? false : null;
-}
-
-/**
- * The non-throwing decode for a task's `upstream` seed pointer (MMR-244), mirroring
- * {@link validate}'s view WHERE THE READER CAN ACT LOCALLY: collapse the wikilink
- * form ({@link collapse}), then null unless the grammar is a `KEY-sN` seed id — the
- * grammar tier nulled here exactly as {@link enumFieldOrNull} nulls a foreign
- * priority/size. A DANGLING but well-formed ref (valid grammar, no such seed) is
- * NOT decided here: the hot read path loads no seeds, so it stays the collapsed
- * stem and the resolving read seam (MMR-245) resolves it; the validator/`mimir
- * doctor` surface the dangle. The tiering decision lives in {@link validate}; this
- * is the mechanical "collapse + grammar guard".
- */
-function seedRefOrNull(value: unknown): string | null {
-  const stem = collapse(value);
-  return stem !== null && parseSeedRef(stem) !== null ? stem : null;
 }
 
 /** Ascending string compare without a nested ternary (deterministic tiebreaks). */
@@ -176,44 +97,26 @@ function decodeNode(
   parentId: string | null,
 ): Node {
   const isTask = type === 'task';
-  let lifecycle: Lifecycle | null = null;
-  if (isTask) {
-    lifecycle = enumFieldStrict(fm.lifecycle, LIFECYCLE_VALUES, stem, 'lifecycle');
-    if (lifecycle === null) {
-      throw invariant(
-        `task ${stem} survived validation without a lifecycle`,
-        'field validity (MMR-177) must drop a task with a missing or foreign lifecycle before the reader',
-      );
-    }
-  }
   return {
+    // The data plane is one generic loop over the field spec (ADR 0025): every
+    // updatable/queryable scalar fact is type-gated, decoded by its kind, and
+    // (for `lifecycle`) required-checked there — the inverse of `emitDataFields`.
+    ...decodeDataFields(fm, type, stem),
+    // The identity/topology plane stays bespoke: id/type/parent/rank, the
+    // timestamps, and the body-only `description` are what make a node a node.
     completed_at: isTask ? str(fm.completed_at) : null,
     created_at: str(fm.created) ?? '',
     // `description` is not frontmatter (MMR-162): the WorkingSet leaves it null; the
     // prose is read on demand from the `## Task Description` body section.
     description: null,
-    external_ref: isTask ? str(fm.external_ref) : null,
-    // A task always carries a hold (default 'none'); a non-task never does.
-    hold: isTask ? (enumFieldStrict(fm.hold, HOLD_VALUES, stem, 'hold') ?? 'none') : null,
-    hold_reason: isTask ? str(fm.hold_reason) : null,
     id: stem,
-    lifecycle,
-    // Container-only (MMR-204): a foreign value nulls the field like priority/size.
-    open_ended: isTask ? null : boolFieldOrNull(fm.open_ended),
     parent_id: parentId,
-    // priority/size are optional (MMR-177): a foreign value nulls the field.
-    priority: isTask ? enumFieldOrNull(fm.priority, PRIORITY_VALUES) : null,
     project_id: key,
     rank: isTask ? num(fm.rank) : null,
     seq,
-    size: isTask ? enumFieldOrNull(fm.size, SIZE_VALUES) : null,
-    summary: str(fm.summary),
-    target: type === 'phase' ? str(fm.target) : null,
     title: str(fm.title) ?? '',
     type,
     updated_at: str(fm.updated_at) ?? '',
-    // The requester-side seed pointer (MMR-244), task-only like `external_ref`.
-    upstream: isTask ? seedRefOrNull(fm.upstream) : null,
   };
 }
 
