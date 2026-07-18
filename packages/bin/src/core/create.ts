@@ -357,8 +357,12 @@ async function resolveNodeParent(
   );
 }
 
-/** Validate a raw priority token against the enum (MMR-204 shared wording). */
-function parsePriorityValue(value: string | undefined): Priority | undefined {
+/**
+ * Validate a raw priority token against the enum — the one `invalid
+ * priority: <x>` assert every transport shares (create, update, and promote
+ * paths alike, MMR-306). `undefined` passes through untouched (no change).
+ */
+export function parsePriorityValue(value: string | undefined): Priority | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -368,8 +372,11 @@ function parsePriorityValue(value: string | undefined): Priority | undefined {
   return value;
 }
 
-/** Validate a raw size token against the enum (shared wording). */
-function parseSizeValue(value: string | undefined): Size | undefined {
+/**
+ * Validate a raw size token against the enum — the shared `invalid size:
+ * <x>` assert (MMR-306), sibling to {@link parsePriorityValue}.
+ */
+export function parseSizeValue(value: string | undefined): Size | undefined {
   if (value === undefined) {
     return undefined;
   }
