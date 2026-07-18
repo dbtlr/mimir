@@ -1441,6 +1441,7 @@ const CAS_PLAN_VERBS: Record<
 const NON_PLAN_MUTATION_EXPORTS: Record<string, string> = {
   assertProjectActive: 'shared archive write-lock guard, not a verb',
   attachArtifact: 'artifact-seam write; the node transaction only validates',
+  inapplicableUpdateFields: 'pure lookup over the field-applicability table — issues no write plan',
   releasedByArchive: 'read-only projection — issues no write plan',
   resolveAttachTargets: 'read-only working-set resolution — issues no write plan',
   updateArtifact: 'artifact-seam write; the node transaction only validates',

@@ -65,6 +65,55 @@ export type UpdateFields = {
   openEnded?: boolean;
 };
 
+/** The canonical {@link UpdateFields} vocabulary, in declaration order. */
+const UPDATE_FIELD_KEYS = [
+  'title',
+  'description',
+  'summary',
+  'priority',
+  'size',
+  'target',
+  'externalRef',
+  'upstream',
+  'openEnded',
+] as const satisfies readonly (keyof UpdateFields)[];
+
+export type UpdateFieldKey = (typeof UPDATE_FIELD_KEYS)[number];
+
+/**
+ * The three non-node identities the generic `update` verb also serves
+ * (an {@link Identity} `kind` other than `node`) — each narrows
+ * {@link UpdateFields} to the handful of keys it actually owns; a project
+ * renames on its own `name` field (outside this vocabulary entirely), an
+ * artifact's one mutable field is `title`, and a seed's are
+ * `title`/`description` (`kind` likewise outside this vocabulary).
+ */
+export type NarrowUpdateKind = 'project' | 'artifact' | 'seed';
+
+const APPLICABLE_UPDATE_FIELDS: Record<NarrowUpdateKind, readonly UpdateFieldKey[]> = {
+  artifact: ['title'],
+  project: ['description'],
+  seed: ['title', 'description'],
+};
+
+/**
+ * The per-kind field-applicability table (MMR-306) — the single domain fact
+ * of which {@link UpdateFields} keys a project/artifact/seed update rejects
+ * (the complement of what it owns, in canonical order). The CLI and MCP
+ * transports each used to hand-type this same "doesn't apply to a …" list
+ * per kind; they now share this one declaration and keep only their own
+ * rejection wording and flag/arg spelling (the established hint-seam split —
+ * the table owns WHICH fields, the transport owns HOW that's phrased). A
+ * plain node (`task`/`phase`/`initiative`) update has its own field-gating
+ * inside {@link updateNode} below (task-only vs container-only fields) and is
+ * out of scope here — this table is for the three kinds that aren't a `Node`
+ * at all.
+ */
+export function inapplicableUpdateFields(kind: NarrowUpdateKind): readonly UpdateFieldKey[] {
+  const applicable = new Set(APPLICABLE_UPDATE_FIELDS[kind]);
+  return UPDATE_FIELD_KEYS.filter((key) => !applicable.has(key));
+}
+
 export async function updateNode(store: Store, id: string, fields: UpdateFields): Promise<Node> {
   return store.transact(async (w) => {
     const node = await requireNode(w, id);
