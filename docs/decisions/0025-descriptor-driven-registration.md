@@ -78,9 +78,11 @@ it belongs in a view template.
   against evidence, is a small change; starting with them is not.
 
 **Consequences.** Adding a field with an existing kind is one spec entry and
-it surfaces on every transport; the decode/encode drift class becomes
-structurally impossible; adding a uniform verb is one registry entry plus
-one core mutation. Rendered prose becomes generated, so migration reviews
+it surfaces on every transport; registration drift between the codec
+directions — a field wired for emit but not decode, or the reverse — becomes
+structurally impossible, while semantic disagreement inside a kind's
+parser/emitter pair remains possible and is guarded by round-trip testing;
+adding a uniform verb is one registry entry plus one core mutation. Rendered prose becomes generated, so migration reviews
 all text as golden diffs, and the codec swap must prove behavior
 preservation by round-trip comparison against a representative vault
 snapshot. Implementation: MMR-314 (field spec + kind registry + codec),
