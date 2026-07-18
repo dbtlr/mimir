@@ -11,6 +11,7 @@ import { isMember } from '@mimir/helpers';
 import {
   abandonTask,
   annotate,
+  applyUpdateFields,
   archiveProject,
   attachArtifact,
   blockTask,
@@ -27,6 +28,7 @@ import {
   parseIdentity,
   parseSeedRef,
   parseUpstreamField,
+  parseWireField,
   UPSTREAM_CLEAR,
   notFound,
   parkTask,
@@ -59,11 +61,13 @@ import type {
   NarrowUpdateKind,
   RankPosition,
   SeedStatusSelector,
+  SpecUpdateField,
   Store,
   UpdateFieldKey,
   UpdateFields,
   UpdateProjectFields,
   UpdateSeedFields,
+  WireValue,
 } from '../core';
 import { usage } from './errors';
 import { parsePriority, parseSize } from './parse';
@@ -371,6 +375,8 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
   const id = await resolveNode(c.store, token);
   const fields: UpdateFields = {};
   const changed: string[] = [];
+  // title/description stay bespoke: they are the identity/prose plane, not spec
+  // data fields (ADR 0025). Everything else derives from SPEC_UPDATE_FIELDS.
   if (typeof c.values.title === 'string') {
     fields.title = c.values.title;
     changed.push('title');
@@ -379,40 +385,50 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
     fields.description = c.values.desc;
     changed.push('description');
   }
-  if (typeof c.values.summary === 'string') {
-    fields.summary = c.values.summary;
-    changed.push('summary');
-  }
-  if (typeof c.values.priority === 'string') {
-    fields.priority = parsePriority(c.values.priority);
-    changed.push('priority');
-  }
-  if (typeof c.values.size === 'string') {
-    fields.size = parseSize(c.values.size);
-    changed.push('size');
-  }
-  if (typeof c.values.target === 'string') {
-    fields.target = c.values.target;
-    changed.push('target');
-  }
-  if (typeof c.values.ref === 'string') {
-    fields.externalRef = c.values.ref;
-    changed.push('ref');
-  }
-  const openEnded = openEndedFlag(c);
-  if (openEnded !== undefined) {
-    fields.openEnded = openEnded;
-    changed.push('open_ended');
-  }
-  const upstream = seedUpstream(c);
-  if (upstream !== undefined) {
-    fields.upstream = upstream;
-    changed.push('upstream');
+  const applied = applyUpdateFields(fields, (field) => {
+    const reader = CLI_UPDATE_READERS[field.update];
+    if (reader !== undefined) {
+      return reader(c);
+    }
+    const [key] = updateFieldFlags(field.update)[0] ?? [];
+    const raw = key === undefined ? undefined : optStr(c, key);
+    return raw === undefined ? undefined : parseWireField(field.kind, raw);
+  });
+  for (const field of applied) {
+    changed.push(cliChangedLabel(field));
   }
   await updateNode(c.store, id, fields);
   const suffix = changed.length > 0 ? ` (${changed.join(', ')})` : '';
   await echoNodeWith(c.store, id, c.format, c.io, (rid) => `updated ${rid}${suffix}`);
   return 0;
+}
+
+/**
+ * The CLI update fields read view-side rather than through the shared wire parser
+ * (ADR 0025 override seam) — those whose CLI grammar is genuinely bespoke: the
+ * usage-class (exit 2) value errors for `priority`/`size` plus `size`'s prefix
+ * expansion (`m` → medium), `upstream`'s own usage wording and `none` sentinel,
+ * and `open_ended`'s on/off flag pair. Everything absent here derives from its
+ * kind (summary/target/external_ref are the `string` kind — identity passthrough).
+ */
+const CLI_UPDATE_READERS: Partial<Record<UpdateFieldKey, (c: Ctx) => WireValue | undefined>> = {
+  openEnded: openEndedFlag,
+  priority: (c) => parsePriority(optStr(c, 'priority')),
+  size: (c) => parseSize(optStr(c, 'size')),
+  upstream: seedUpstream,
+};
+
+/**
+ * The `changed`-echo label for a spec field (MMR-315): its primary CLI flag key,
+ * so `external_ref` reads as `ref` — except `open_ended`, whose reader keeps the
+ * historic snake_case label rather than its `--open-ended` kebab flag key.
+ */
+function cliChangedLabel(field: SpecUpdateField): string {
+  if (field.update === 'openEnded') {
+    return 'open_ended';
+  }
+  const [key] = updateFieldFlags(field.update)[0] ?? [];
+  return key ?? field.key;
 }
 
 /** camelCase → kebab, for the default `--flag` spelling of a field. */

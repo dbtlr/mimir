@@ -29,6 +29,7 @@ import type {
 import {
   abandonTask,
   annotate,
+  applyUpdateFields,
   archiveProject,
   SPEC_UPDATE_FIELDS,
   artifactSummaryToWire,
@@ -42,8 +43,6 @@ import {
   asSeedKind,
   getSeed,
   listSeeds,
-  parseUpstreamField,
-  UPSTREAM_CLEAR,
   promoteSeed,
   promoteToWire,
   seedToWire,
@@ -74,6 +73,7 @@ import {
   parseIdentity,
   parsePriorityValue,
   parseSizeValue,
+  parseWireField,
   projectTree,
   reorder,
   reopenTask,
@@ -225,26 +225,6 @@ function projectFilter(status: string | null): 'active' | 'archived' | 'all' {
     return 'all';
   }
   return 'active';
-}
-
-/**
- * Parse an optional `upstream` body field: a seed id (`KEY-sN`, MMR-245) or
- * the explicit clear sentinel `"none"` (MMR-301) — the same wire token CLI's
- * `--upstream none` and the MCP `upstream` tool arg share. Blank/absent never
- * clears (MMR-284 rejected that ambiguity).
- */
-function upstreamField(body: Record<string, unknown>): string | null | undefined {
-  const upstream = strField(body, 'upstream');
-  if (upstream === undefined) {
-    return undefined;
-  }
-  const parsed = parseUpstreamField(upstream);
-  if (parsed === undefined) {
-    throw validation(
-      `upstream must be a seed id (KEY-sN) or '${UPSTREAM_CLEAR}' to clear, got ${upstream}`,
-    );
-  }
-  return parsed;
 }
 
 /** Narrow the required `kind` body field to the closed seed-kind enum (MMR-245),
@@ -691,6 +671,8 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             const body = await readBody(req, NODE_PATCH_FIELDS);
             const fields: UpdateFields = {};
+            // title/description are the bespoke identity/prose plane; the scalar
+            // data fields derive from the spec (ADR 0025), read by snake_case key.
             const title = strField(body, 'title');
             if (title !== undefined) {
               fields.title = title;
@@ -699,34 +681,13 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (description !== undefined) {
               fields.description = description;
             }
-            const summary = strField(body, 'summary');
-            if (summary !== undefined) {
-              fields.summary = summary;
-            }
-            const priority = strField(body, 'priority');
-            if (priority !== undefined) {
-              fields.priority = parsePriorityValue(priority);
-            }
-            const size = strField(body, 'size');
-            if (size !== undefined) {
-              fields.size = parseSizeValue(size);
-            }
-            const target = strField(body, 'target');
-            if (target !== undefined) {
-              fields.target = target;
-            }
-            const externalRef = strField(body, 'external_ref');
-            if (externalRef !== undefined) {
-              fields.externalRef = externalRef;
-            }
-            const upstream = upstreamField(body);
-            if (upstream !== undefined) {
-              fields.upstream = upstream;
-            }
-            const openEnded = boolField(body, 'open_ended');
-            if (openEnded !== undefined) {
-              fields.openEnded = openEnded;
-            }
+            applyUpdateFields(fields, (field) => {
+              if (field.kind === 'bool') {
+                return boolField(body, field.key);
+              }
+              const raw = strField(body, field.key);
+              return raw === undefined ? undefined : parseWireField(field.kind, raw);
+            });
             const node = await updateNode(store, await nodeRef(store, req.params.id), fields);
             return echoNode(store, req, node);
           }),
