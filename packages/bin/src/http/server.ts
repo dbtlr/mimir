@@ -9,11 +9,9 @@ import type {
 } from '@mimir/contract';
 import {
   NODE_TYPE_VALUES,
-  PRIORITY_VALUES,
   QUERY_OP_VALUES,
   SEED_KIND_VALUES,
   SEED_STATUS_SELECTOR_VALUES,
-  SIZE_VALUES,
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
 } from '@mimir/contract';
@@ -66,6 +64,8 @@ import {
   parkTask,
   parseFilterToken,
   parseIdentity,
+  parsePriorityValue,
+  parseSizeValue,
   projectTree,
   reorder,
   reopenTask,
@@ -698,20 +698,11 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             }
             const priority = strField(body, 'priority');
             if (priority !== undefined) {
-              if (!isMember(priority, PRIORITY_VALUES)) {
-                throw validation(
-                  `invalid priority: ${priority}`,
-                  `priorities: ${PRIORITY_VALUES.join(', ')}`,
-                );
-              }
-              fields.priority = priority;
+              fields.priority = parsePriorityValue(priority);
             }
             const size = strField(body, 'size');
             if (size !== undefined) {
-              if (!isMember(size, SIZE_VALUES)) {
-                throw validation(`invalid size: ${size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
-              }
-              fields.size = size;
+              fields.size = parseSizeValue(size);
             }
             const target = strField(body, 'target');
             if (target !== undefined) {
@@ -1205,23 +1196,12 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               'size',
               'tags',
             ]);
-            const priority = strField(body, 'priority');
-            if (priority !== undefined && !isMember(priority, PRIORITY_VALUES)) {
-              throw validation(
-                `invalid priority: ${priority}`,
-                `priorities: ${PRIORITY_VALUES.join(', ')}`,
-              );
-            }
-            const size = strField(body, 'size');
-            if (size !== undefined && !isMember(size, SIZE_VALUES)) {
-              throw validation(`invalid size: ${size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
-            }
             const { created, seed } = await promoteSeed(store, req.params.id, {
               description: strField(body, 'description'),
               link: strField(body, 'link'),
               parent: strField(body, 'parent'),
-              priority,
-              size,
+              priority: parsePriorityValue(strField(body, 'priority')),
+              size: parseSizeValue(strField(body, 'size')),
               tags: strList(body, 'tags'),
               title: strField(body, 'title'),
             });

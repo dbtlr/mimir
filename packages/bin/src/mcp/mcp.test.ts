@@ -657,6 +657,24 @@ test.skipIf(!NORN)('list selects by status universe and operators', async () => 
   expect(byStatus.tasks.map((t) => t.id)).toEqual([taskRef]);
 });
 
+test.skipIf(!NORN)(
+  'list filters through the not-eq/not-in arg keys, pinning the op → SetQueryArgs mapping (MMR-306)',
+  async () => {
+    const up = await toolUpdate(store, { id: taskRef, priority: 'p1' });
+    expect(up.isError).toBeUndefined();
+
+    const notEq = parseJson<{ tasks: { id: string }[] }>(
+      textOf(await toolList(store, { notEq: ['priority:p2'] })),
+    );
+    expect(notEq.tasks.map((t) => t.id)).toContain(taskRef);
+
+    const notIn = parseJson<{ tasks: { id: string }[] }>(
+      textOf(await toolList(store, { notIn: ['priority:p2,p3'] })),
+    );
+    expect(notIn.tasks.map((t) => t.id)).toContain(taskRef);
+  },
+);
+
 // --- project archive (ADR 0015, MMR-123) ---
 
 test.skipIf(!NORN)(

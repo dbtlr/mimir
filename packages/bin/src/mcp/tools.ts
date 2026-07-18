@@ -1,8 +1,7 @@
 import {
   CHEAP_FACETS,
-  PRIORITY_VALUES,
+  QUERY_OP_VALUES,
   SEED_KIND_VALUES,
-  SIZE_VALUES,
   WRITE_ECHO_FACETS,
 } from '@mimir/contract';
 import type {
@@ -16,7 +15,6 @@ import type {
   Verdict,
   VerdictSelector,
 } from '@mimir/contract';
-import { isMember } from '@mimir/helpers';
 
 import {
   MimirError,
@@ -35,7 +33,10 @@ import {
   depend,
   fileSeed,
   getSeed,
+  inapplicableUpdateFields,
   listSeeds,
+  parsePriorityValue,
+  parseSizeValue,
   parseUpstreamValue,
   promoteSeed,
   transitionSeed,
@@ -211,24 +212,31 @@ export type SetQueryArgs = {
   limit?: number;
 };
 
-const OP_ARGS: [QueryOp, keyof SetQueryArgs][] = [
-  ['eq', 'eq'],
-  ['not-eq', 'notEq'],
-  ['in', 'in'],
-  ['not-in', 'notIn'],
-  ['has', 'has'],
-  ['missing', 'missing'],
-  ['before', 'before'],
-  ['on', 'on'],
-  ['after', 'after'],
-  ['not-before', 'notBefore'],
-  ['not-after', 'notAfter'],
-];
+/**
+ * The op → {@link SetQueryArgs} key mapping — a `Record` keyed by the full
+ * `QueryOp` union (MMR-306), so an operator the contract adds is a compile
+ * error here until this map names its arg key, never a silently-missed
+ * transport. The CLI needs no equivalent map: its flags are spelled
+ * identically to the op (`run.ts`'s `parseFilters`).
+ */
+const OP_ARG_KEYS: Record<QueryOp, keyof SetQueryArgs> = {
+  after: 'after',
+  before: 'before',
+  eq: 'eq',
+  has: 'has',
+  in: 'in',
+  missing: 'missing',
+  'not-after': 'notAfter',
+  'not-before': 'notBefore',
+  'not-eq': 'notEq',
+  'not-in': 'notIn',
+  on: 'on',
+};
 
 function collectFilters(args: SetQueryArgs): FieldFilter[] {
   const filters: FieldFilter[] = [];
-  for (const [op, key] of OP_ARGS) {
-    const tokens = args[key];
+  for (const op of QUERY_OP_VALUES) {
+    const tokens = args[OP_ARG_KEYS[op]];
     if (!Array.isArray(tokens)) {
       continue;
     }
@@ -554,19 +562,10 @@ export function toolUpdate(
       fields.summary = args.summary;
     }
     if (args.priority !== undefined) {
-      if (!isMember(args.priority, PRIORITY_VALUES)) {
-        throw validation(
-          `invalid priority: ${args.priority}`,
-          `priorities: ${PRIORITY_VALUES.join(', ')}`,
-        );
-      }
-      fields.priority = args.priority;
+      fields.priority = parsePriorityValue(args.priority);
     }
     if (args.size !== undefined) {
-      if (!isMember(args.size, SIZE_VALUES)) {
-        throw validation(`invalid size: ${args.size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
-      }
-      fields.size = args.size;
+      fields.size = parseSizeValue(args.size);
     }
     if (args.target !== undefined) {
       fields.target = args.target;
@@ -602,18 +601,7 @@ async function updateProjectTool(
     upstream?: string;
   },
 ): Promise<ToolResult> {
-  const nodeOnly = (
-    [
-      'title',
-      'priority',
-      'size',
-      'target',
-      'externalRef',
-      'summary',
-      'openEnded',
-      'upstream',
-    ] as const
-  ).filter((k) => args[k] !== undefined);
+  const nodeOnly = inapplicableUpdateFields('project').filter((k) => args[k] !== undefined);
   if (nodeOnly.length > 0) {
     throw validation(
       `${nodeOnly.join(', ')} appl${nodeOnly.length === 1 ? 'ies' : 'y'} only to nodes — use name to rename a project`,
@@ -653,18 +641,7 @@ async function updateArtifactTool(
     upstream?: string;
   },
 ): Promise<ToolResult> {
-  const nodeOnly = (
-    [
-      'description',
-      'priority',
-      'size',
-      'target',
-      'externalRef',
-      'summary',
-      'openEnded',
-      'upstream',
-    ] as const
-  ).filter((k) => args[k] !== undefined);
+  const nodeOnly = inapplicableUpdateFields('artifact').filter((k) => args[k] !== undefined);
   if (nodeOnly.length > 0) {
     throw validation(
       `${nodeOnly.join(', ')} appl${nodeOnly.length === 1 ? 'ies' : 'y'} only to nodes — title is an artifact's one mutable field`,
@@ -976,21 +953,12 @@ export function toolPromote(
   },
 ): Promise<ToolResult> {
   return guard(async () => {
-    if (args.priority !== undefined && !isMember(args.priority, PRIORITY_VALUES)) {
-      throw validation(
-        `invalid priority: ${args.priority}`,
-        `priorities: ${PRIORITY_VALUES.join(', ')}`,
-      );
-    }
-    if (args.size !== undefined && !isMember(args.size, SIZE_VALUES)) {
-      throw validation(`invalid size: ${args.size}`, `sizes: ${SIZE_VALUES.join(', ')}`);
-    }
     const { created, seed } = await promoteSeed(store, args.id, {
       description: args.description,
       link: args.link,
       parent: args.parent,
-      priority: args.priority,
-      size: args.size,
+      priority: parsePriorityValue(args.priority),
+      size: parseSizeValue(args.size),
       tags: args.tags,
       title: args.title,
     });
@@ -1049,9 +1017,7 @@ async function updateSeedTool(
     openEnded?: boolean;
   },
 ): Promise<ToolResult> {
-  const seedOnly = (
-    ['priority', 'size', 'target', 'externalRef', 'upstream', 'summary', 'openEnded'] as const
-  ).filter((k) => args[k] !== undefined);
+  const seedOnly = inapplicableUpdateFields('seed').filter((k) => args[k] !== undefined);
   if (seedOnly.length > 0) {
     throw validation(
       `${seedOnly.join(', ')} do not apply to a seed — patch title, kind, or description`,

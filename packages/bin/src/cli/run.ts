@@ -2,7 +2,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { parseArgs } from 'node:util';
 
-import { CHEAP_FACETS, FACET_NAMES, STATUS_SELECTOR_VALUES, VERDICT_VALUES } from '@mimir/contract';
+import {
+  CHEAP_FACETS,
+  FACET_NAMES,
+  QUERY_OP_VALUES,
+  STATUS_SELECTOR_VALUES,
+  VERDICT_VALUES,
+} from '@mimir/contract';
 import type {
   FacetName,
   FieldFilter,
@@ -1094,29 +1100,17 @@ function parseVerdicts(is: string[] | undefined, notIs: string[] | undefined): V
   return out;
 }
 
-/** The query-op flags, in declaration order. */
-const OP_FLAGS = [
-  'eq',
-  'not-eq',
-  'in',
-  'not-in',
-  'has',
-  'missing',
-  'before',
-  'on',
-  'after',
-  'not-before',
-  'not-after',
-] as const;
-
 /**
- * Collect FIELD:VALUE filter tokens from the op flags. Structural faults
- * (unknown field, operator-type mismatch) surface as usage — the caller's
- * invocation is wrong (exit 2); the same fault over MCP stays `validation`.
+ * Collect FIELD:VALUE filter tokens from the op flags — one flag per
+ * {@link QUERY_OP_VALUES} entry, the flag spelled identically to the op
+ * (MMR-306: the CLI needs no separate flag-name mapping, unlike MCP's
+ * `OP_ARG_KEYS`). Structural faults (unknown field, operator-type mismatch)
+ * surface as usage — the caller's invocation is wrong (exit 2); the same
+ * fault over MCP stays `validation`.
  */
 function parseFilters(values: Record<string, unknown>): FieldFilter[] {
   const filters: FieldFilter[] = [];
-  for (const op of OP_FLAGS) {
+  for (const op of QUERY_OP_VALUES) {
     const tokens = values[op];
     if (!Array.isArray(tokens)) {
       continue;
