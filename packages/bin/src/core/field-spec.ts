@@ -11,7 +11,7 @@ import { isMember } from '@mimir/helpers';
 import { invariant, validation } from './errors';
 import { parseSeedRef, parseUpstreamField, UPSTREAM_CLEAR } from './ids';
 import type { Node } from './model';
-import type { UpdateFieldKey } from './mutations/data';
+import type { UpdateFieldKey, UpdateFields } from './mutations/data';
 import { collapse } from './store-norn/decode';
 
 /**
@@ -183,12 +183,21 @@ export type DecodeCtx = { stem: string; field: string };
 /** The query-registry projection of a kind — `null` when the field isn't queryable. */
 type QueryProjection = { kind: 'enum'; values: readonly string[] } | { kind: 'string' };
 
+/** The value a kind's wire parser yields — the scalar a transport assigns into
+ * {@link UpdateFields} (`null` is the seed-ref clear). */
+export type WireValue = string | boolean | null;
+
 /**
- * A field **kind** — the parser/emitter pair and query semantics a field
- * declares by name (ADR 0025 Decision 2). `decode` reads a frontmatter value
+ * A field **kind** — the parser/emitter pair, query semantics, and wire parser a
+ * field declares by name (ADR 0025 Decision 2). `decode` reads a frontmatter value
  * into the model (tolerant, or a legality throw for the strict enums); `emit`
  * projects the model value back to a frontmatter value (`null` omits the key,
- * the omit-empty shape); `query` is the registry projection.
+ * the omit-empty shape); `query` is the registry projection; `wire` parses a raw
+ * transport token into the {@link UpdateFields} value (the third direction — the
+ * `update` write plane), reusing the kind's existing parse binding so every
+ * transport shares one grammar and error wording. `wire` is `null` for a kind read
+ * natively by every transport (the status axes, which have no generic `update`,
+ * and `bool`, whose value arrives already typed) — those never route through it.
  */
 type FieldKind = {
   decode: (value: unknown, ctx: DecodeCtx) => ModelScalar;
@@ -197,6 +206,9 @@ type FieldKind = {
    * to {@link ModelScalar} even though a passthrough never yields a boolean. */
   emit: (value: ModelScalar) => ModelScalar;
   query: QueryProjection | null;
+  /** Raw transport token → {@link UpdateFields} value, or `null` for a natively-read
+   * kind (see {@link parseWireField}). */
+  wire: ((value: string) => WireValue) | null;
 };
 
 const FIELD_KINDS: Record<FieldKindName, FieldKind> = {
@@ -207,6 +219,9 @@ const FIELD_KINDS: Record<FieldKindName, FieldKind> = {
     // absent, so both states emit explicitly (only null omits).
     emit: (value) => (value === null ? null : String(value)),
     query: null,
+    // A bool arrives already typed on every transport (the CLI flag pair, the MCP
+    // boolean arg, the HTTP boolean body field), so it is read natively, not here.
+    wire: null,
   },
   'enum:hold': {
     // A task always carries a hold; an absent one defaults to the neutral 'none'.
@@ -215,31 +230,40 @@ const FIELD_KINDS: Record<FieldKindName, FieldKind> = {
     // hold only when actually held; the reader defaults absent → 'none'.
     emit: (value) => (value === null || value === 'none' ? null : value),
     query: { kind: 'enum', values: HOLD_VALUES },
+    // A status axis with its own verbs — no generic `update` plane.
+    wire: null,
   },
   'enum:lifecycle': {
     decode: (value, ctx) => enumFieldStrict(value, LIFECYCLE_VALUES, ctx.stem, ctx.field),
     emit: (value) => value,
     query: { kind: 'enum', values: LIFECYCLE_VALUES },
+    wire: null,
   },
   'enum:priority': {
     decode: (value) => enumFieldOrNull(value, PRIORITY_VALUES),
     emit: (value) => value,
     query: { kind: 'enum', values: PRIORITY_VALUES },
+    // The shared priority assert — one wording across create/update/promote.
+    wire: (value) => parsePriorityValue(value) ?? null,
   },
   'enum:size': {
     decode: (value) => enumFieldOrNull(value, SIZE_VALUES),
     emit: (value) => value,
     query: { kind: 'enum', values: SIZE_VALUES },
+    wire: (value) => parseSizeValue(value) ?? null,
   },
   'seed-ref': {
     decode: (value) => seedRefOrNull(value),
     emit: (value) => value,
     query: { kind: 'string' },
+    // `KEY-sN` passes through, `none` clears (→ null), anything else is rejected.
+    wire: (value) => parseUpstreamValue(value) ?? null,
   },
   string: {
     decode: (value) => str(value),
     emit: (value) => value,
     query: { kind: 'string' },
+    wire: (value) => value,
   },
 };
 
@@ -374,6 +398,56 @@ export type SpecUpdateField = { key: DataFieldKey; kind: FieldKindName; update: 
 export const SPEC_UPDATE_FIELDS: readonly SpecUpdateField[] = FIELD_SPEC_ENTRIES.flatMap((spec) =>
   spec.update === undefined ? [] : [{ key: spec.key, kind: spec.kind, update: spec.update }],
 );
+
+/**
+ * Parse a raw wire token into a field kind's {@link UpdateFields} value (ADR
+ * 0025) — the one parser the CLI/MCP/HTTP update paths share, so a kind's accepted
+ * grammar and its stored value can't drift between transports. Delegates to the
+ * kind's existing parse binding ({@link parsePriorityValue} et al.), so error
+ * wording stays byte-identical. Throws for a kind with no wire parser (the status
+ * axes and `bool`, read natively by every transport) — reaching it is a transport
+ * wiring bug, not a value fault.
+ */
+export function parseWireField(kind: FieldKindName, value: string): WireValue {
+  const parse = FIELD_KINDS[kind].wire;
+  if (parse === null) {
+    throw invariant(
+      `field kind ${kind} has no wire parser`,
+      'a natively-read kind (bool or a status axis) is handled by the transport reader, not routed here',
+    );
+  }
+  return parse(value);
+}
+
+/**
+ * Apply the generic-`update` spec fields to an {@link UpdateFields} patch (ADR
+ * 0025) — the shared loop each transport's update path runs so a new spec field
+ * lands with no per-field edit, closing the accept-without-apply gap that deriving
+ * only the accepted set would leave. For each spec field, `read` returns the parsed
+ * value (the transport read its native key and parsed via {@link parseWireField},
+ * or via its own bespoke reader for a natively-typed / idiosyncratic field) or
+ * `undefined` to leave the field untouched. Returns the applied fields in canonical
+ * order — the CLI's `changed` echo derives from it.
+ */
+export function applyUpdateFields(
+  fields: UpdateFields,
+  read: (field: SpecUpdateField) => WireValue | undefined,
+): SpecUpdateField[] {
+  const applied: SpecUpdateField[] = [];
+  for (const field of SPEC_UPDATE_FIELDS) {
+    const value = read(field);
+    if (value === undefined) {
+      continue;
+    }
+    // The kind's wire parser yields exactly `field.update`'s value type (the spec
+    // pairs kind ↔ update key); the precise-key assignment the checker can't prove
+    // across the union is sound.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    (fields as Record<string, WireValue>)[field.update] = value;
+    applied.push(field);
+  }
+  return applied;
+}
 
 /** The `update` keys of fields that apply to exactly the given node types — the
  * data source for `updateNode`'s type gates (the imperative `wantsTaskField`
