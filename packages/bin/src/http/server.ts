@@ -163,11 +163,15 @@ const ARCHIVED_LIST_FACETS: readonly FacetName[] = [...PROJECT_LIST_FACETS, 'art
 /** Resolve a node token against an already-derived set — the HTTP binding of the
  * core guard, with route pointers. The multi-token twin `nodeRef` uses when a
  * handler resolves several tokens over ONE snapshot (depend/undepend/move). */
+/** The HTTP surface's kind-error pointers — route homes, never CLI verbs. */
+const NODE_KIND_HINTS = {
+  artifact: 'artifacts live at /api/artifacts',
+  project: 'projects live at /api/projects',
+  seed: 'seeds live at /api/seeds',
+} as const;
+
 function nodeRefIn(set: DerivationSet, token: string, expected = 'node'): string {
-  return resolveNodeTokenInSet(set, token, expected, {
-    artifact: 'artifacts live at /api/artifacts',
-    project: 'projects live at /api/projects',
-  });
+  return resolveNodeTokenInSet(set, token, expected, NODE_KIND_HINTS);
 }
 
 /** Resolve a single node token over its own fresh working-set snapshot (MMR-160,
@@ -611,10 +615,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               return echoNode(store, req, node, 201);
             }
             // The same route pointers nodeRefIn hands every other node route.
-            const parentHints = {
-              artifact: 'artifacts live at /api/artifacts',
-              project: 'projects live at /api/projects',
-            };
+            const parentHints = NODE_KIND_HINTS;
             if (type === 'phase') {
               const node = await createNode(store, {
                 description,
@@ -780,10 +781,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               store,
               tokens,
               undefined,
-              {
-                artifact: 'artifacts live at /api/artifacts',
-                project: 'projects live at /api/projects',
-              },
+              NODE_KIND_HINTS,
             );
             // Echo from the held record (MMR-283): `attachArtifact` already asserted
             // the project active BEFORE the write and its store-side `create` returns
