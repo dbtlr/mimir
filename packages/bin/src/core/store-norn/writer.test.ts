@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createProject, createTask } from '../create';
+import { MimirError } from '../errors';
 import {
   abandonTask,
   annotate,
@@ -1603,6 +1604,20 @@ test('a document missing updated_at refuses as degraded vault state, not a mimir
     },
   ]);
   const store = createNornWriteStore(client, ROOT);
-  await expectMimirError('validation', () => annotate(store, 'MMR-1', 'a note'));
+  let caught: unknown;
+  try {
+    await annotate(store, 'MMR-1', 'a note');
+  } catch (error) {
+    caught = error;
+  }
+  if (!(caught instanceof MimirError)) {
+    throw new Error(`expected a MimirError(validation), got ${String(caught)}`, { cause: caught });
+  }
+  expect(caught.code).toBe('validation');
+  // The refusal points the operator at the repair surface, not a hand edit
+  // (MMR-312): `mimir doctor --fix` now stamps `updated_at` deterministically.
+  expect(caught.hint).toBe(
+    "the document was hand-edited or predates mimir management — run 'mimir doctor --fix' to repair it",
+  );
   expect(plans).toHaveLength(0);
 });

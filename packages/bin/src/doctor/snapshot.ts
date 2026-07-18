@@ -186,13 +186,28 @@ export async function readDoctorSnapshot(client: NornClient): Promise<DoctorSnap
  * graph. CLI and HTTP both use this function, so their scope semantics cannot
  * drift while repair later consumes the unfiltered snapshot.
  */
+/** The `readNodeDocs` per-document shape — body/path/stem always, `frontmatter`
+ * only when the snapshot captured it. */
+type ScannedDoc = {
+  stem: string;
+  body: string;
+  path: string;
+  frontmatter?: Record<string, unknown>;
+};
+
+/** Project one snapshot document down to {@link ScannedDoc} — `frontmatter` is
+ * kept out of the object entirely rather than set to `undefined` when absent, so
+ * a fixture without it stays byte-equal for `toEqual`. A named function, not a
+ * `.map` spread, per the no-map-spread lint rule. */
+function scanDoc({ body, frontmatter, path, stem }: DoctorSnapshotDocument): ScannedDoc {
+  return frontmatter === undefined ? { body, path, stem } : { body, frontmatter, path, stem };
+}
+
 export function doctorContextFromSnapshot(
   snapshot: DoctorSnapshot,
   scope: string | undefined,
 ): DoctorContext {
-  const docs = snapshot.documents
-    .filter((doc) => doctorStemInScope(doc.stem, scope))
-    .map(({ body, path, stem }) => ({ body, path, stem }));
+  const docs = snapshot.documents.filter((doc) => doctorStemInScope(doc.stem, scope)).map(scanDoc);
   return {
     dropped: diagnosticDrops(snapshot),
     projectRefs: snapshot.graph.declarations ?? [],

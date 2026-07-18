@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { fakeIo } from '../cli/testing';
 import { createInitiative, createProject } from '../core/create';
+import { annotate } from '../core/mutations';
 import type { MigrationPlan } from '../core/store-norn/plan';
 import { createTestStore } from '../testing/store';
 import type { TestStore } from '../testing/store';
@@ -37,6 +38,20 @@ function addFrontmatter(raw: string, line: string): string {
     throw new Error('expected a frontmatter close delimiter');
   }
   return `${raw.slice(0, close)}\n${line}${raw.slice(close)}`;
+}
+
+/** Strip a frontmatter field's whole line — the MMR-303 "absent" shape. */
+function removeFrontmatterField(raw: string, field: string): string {
+  return raw
+    .split('\n')
+    .filter((line) => !new RegExp(`^${field}:`).test(line))
+    .join('\n');
+}
+
+/** Overwrite a frontmatter field's value with a literal YAML `null` — the
+ * MMR-303 "present but unusable" shape. */
+function nullifyFrontmatter(raw: string, field: string): string {
+  return raw.replace(new RegExp(`^${field}:.*$`, 'm'), `${field}: null`);
 }
 
 async function jsonDoctor(scope: string): Promise<Record<string, unknown>[]> {
@@ -234,5 +249,61 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
         ),
       ).toBe(false);
     }
+  });
+
+  test('detects, repairs, and unblocks a write on both missing and null updated_at (MMR-312)', async () => {
+    await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
+    const task = await createInitiative(fixture.store, { projectId: 'MMR', title: 'Legacy work' });
+    const taskPath = `MMR/${task.id}.md`;
+    const projectPath = 'MMR/MMR.md';
+
+    // Two shapes of the same MMR-303 degraded class: absent entirely (the task)
+    // and present-but-null (the project) — one finding class covers both.
+    fixture.corruptDocument(taskPath, (raw) => removeFrontmatterField(raw, 'updated_at'));
+    fixture.corruptDocument(projectPath, (raw) => nullifyFrontmatter(raw, 'updated_at'));
+
+    const detected = await jsonDoctor('MMR');
+    const findings = detected.filter((entry) => entry.code === 'missing-updated-at');
+    expect(findings).toHaveLength(2);
+    expect(
+      findings.map((f) => f.stem).toSorted((a, b) => String(a).localeCompare(String(b))),
+    ).toEqual(['MMR', task.id]);
+    expect(findings.find((f) => f.stem === task.id)?.evidence).toMatchObject({ present: false });
+    expect(findings.find((f) => f.stem === 'MMR')?.evidence).toMatchObject({ present: true });
+
+    // The refusal MMR-303 wired in: a normal mutation against the degraded task
+    // is refused, not silently applied.
+    let refused: unknown;
+    try {
+      await annotate(fixture.store, task.id, 'pre-repair note');
+    } catch (error) {
+      refused = error;
+    }
+    expect(refused).toBeDefined();
+
+    const preview = fakeIo();
+    expect(
+      await cmdDoctor(preview, fixture.doctor, 'json', 'MMR', { dryRun: true, fix: true }),
+    ).toBe(0);
+    expect(fixture.readDocument(taskPath)).not.toContain('updated_at:');
+    expect(fixture.readDocument(projectPath)).toContain('updated_at: null');
+
+    const applied = fakeIo();
+    expect(
+      await cmdDoctor(applied, fixture.doctor, 'json', 'MMR', { dryRun: false, fix: true }),
+    ).toBe(0);
+    const repairedTask = fixture.readDocument(taskPath);
+    const repairedProject = fixture.readDocument(projectPath);
+    expect(repairedTask).toMatch(/^updated_at: .+$/m);
+    expect(repairedTask).not.toContain('updated_at: null');
+    expect(repairedProject).toMatch(/^updated_at: .+$/m);
+    expect(repairedProject).not.toContain('updated_at: null');
+
+    const post = await jsonDoctor('MMR');
+    expect(post.some((entry) => entry.code === 'missing-updated-at')).toBe(false);
+
+    // A normal mutation against the repaired document now succeeds end-to-end.
+    await annotate(fixture.store, task.id, 'post-repair note');
+    expect(fixture.readDocument(taskPath)).toContain('post-repair note');
   });
 });

@@ -5,6 +5,7 @@ import { parseIdentity, wikilink } from '../core/ids';
 import type { Project } from '../core/model';
 import type { MigrationOp, MigrationPlan } from '../core/store-norn/plan';
 import {
+  addFrontmatter,
   createDocument,
   migrationPlan,
   replaceBody,
@@ -19,7 +20,8 @@ export type RepairRecipe =
   | 'add-canonical-heading'
   | 'normalize-crlf'
   | 'recover-missing-project'
-  | 'restore-project-projection';
+  | 'restore-project-projection'
+  | 'stamp-updated-at';
 
 export type RepairSkipReason =
   | 'ambiguous-body-record'
@@ -70,6 +72,7 @@ export const REPAIR_POLICY: Record<DoctorIssueCode, RepairPolicy> = {
   'malformed-history-heading': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'malformed-upstream': { kind: 'skipped', reason: 'invalid-semantic-value' },
   'missing-project': { kind: 'supported', recipe: 'recover-missing-project' },
+  'missing-updated-at': { kind: 'supported', recipe: 'stamp-updated-at' },
   'non-iso-annotation-heading': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'orphaned-seed': { kind: 'supported', recipe: 'recover-missing-project' },
   'section-annotations-unreadable': {
@@ -302,6 +305,38 @@ export function planDoctorRepairs(args: {
       }
       const projectKey = parseIdentity(logicalStem)?.key ?? entry.scopeKey;
       operations.push(setFrontmatter(doc.path, 'project', wikilink(projectKey), expected));
+      planned.push({ issue: entry, recipe: policy.recipe });
+      continue;
+    }
+
+    if (policy.recipe === 'stamp-updated-at') {
+      // Trusts the finding's own classification (never redetects) — `present`
+      // says whether `updated_at` sat in frontmatter with a null value or was
+      // absent entirely; snapshot bytes are read only for the CAS stamp value
+      // (`created`, when the document carries one). This is the one recipe whose
+      // write cannot itself carry an `updated_at` CAS guard — the field is
+      // absent/null, exactly the condition the finding names — so it is planned
+      // as an `add_frontmatter` (absent) or a `set_frontmatter` asserting the
+      // null old value (present-but-null), never a value-guarded `set_frontmatter`.
+      const present = entry.evidence.present === true;
+      const created = doc.frontmatter?.created;
+      // The target population is hand-edited docs, so `created` itself may be
+      // garbage — only a parseable timestamp is trusted as the seed.
+      const stamp =
+        typeof created === 'string' && !Number.isNaN(Date.parse(created))
+          ? created
+          : args.timestamp;
+      operations.push(
+        present
+          ? // norn (≥ 0.48, the pinned floor) coerces present-with-null and
+            // absent to the same CAS expectation, so `expected_old_value: null`
+            // matches the present-but-null field even though plan.ts documents
+            // null as asserting absence. A norn that distinguishes them makes
+            // this repair CAS-refuse (fail closed); the norn-gated integration
+            // test is the tripwire.
+            setFrontmatter(doc.path, 'updated_at', stamp, null)
+          : addFrontmatter(doc.path, 'updated_at', stamp),
+      );
       planned.push({ issue: entry, recipe: policy.recipe });
       continue;
     }

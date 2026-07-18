@@ -898,7 +898,7 @@ function assertCoWriteGuards(operations: readonly MigrationOp[]): void {
   if (unguarded.every((path) => stampedPaths.has(path))) {
     throw validation(
       `${unguarded.join(', ')} carries no usable updated_at for the write's drift guard`,
-      'the document was hand-edited or predates mimir management — restore its updated_at field, then retry',
+      "the document was hand-edited or predates mimir management — run 'mimir doctor --fix' to repair it",
     );
   }
   throw invariant(
