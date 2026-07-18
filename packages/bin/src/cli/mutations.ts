@@ -11,6 +11,7 @@ import { isMember } from '@mimir/helpers';
 import {
   abandonTask,
   annotate,
+  applyUpdateFields,
   archiveProject,
   attachArtifact,
   blockTask,
@@ -27,6 +28,7 @@ import {
   parseIdentity,
   parseSeedRef,
   parseUpstreamField,
+  parseWireField,
   UPSTREAM_CLEAR,
   notFound,
   parkTask,
@@ -59,11 +61,13 @@ import type {
   NarrowUpdateKind,
   RankPosition,
   SeedStatusSelector,
+  SpecUpdateField,
   Store,
   UpdateFieldKey,
   UpdateFields,
   UpdateProjectFields,
   UpdateSeedFields,
+  WireValue,
 } from '../core';
 import { usage } from './errors';
 import { parsePriority, parseSize } from './parse';
@@ -371,6 +375,8 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
   const id = await resolveNode(c.store, token);
   const fields: UpdateFields = {};
   const changed: string[] = [];
+  // title/description stay bespoke: they are the identity/prose plane, not spec
+  // data fields (ADR 0025). Everything else derives from SPEC_UPDATE_FIELDS.
   if (typeof c.values.title === 'string') {
     fields.title = c.values.title;
     changed.push('title');
@@ -379,35 +385,17 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
     fields.description = c.values.desc;
     changed.push('description');
   }
-  if (typeof c.values.summary === 'string') {
-    fields.summary = c.values.summary;
-    changed.push('summary');
-  }
-  if (typeof c.values.priority === 'string') {
-    fields.priority = parsePriority(c.values.priority);
-    changed.push('priority');
-  }
-  if (typeof c.values.size === 'string') {
-    fields.size = parseSize(c.values.size);
-    changed.push('size');
-  }
-  if (typeof c.values.target === 'string') {
-    fields.target = c.values.target;
-    changed.push('target');
-  }
-  if (typeof c.values.ref === 'string') {
-    fields.externalRef = c.values.ref;
-    changed.push('ref');
-  }
-  const openEnded = openEndedFlag(c);
-  if (openEnded !== undefined) {
-    fields.openEnded = openEnded;
-    changed.push('open_ended');
-  }
-  const upstream = seedUpstream(c);
-  if (upstream !== undefined) {
-    fields.upstream = upstream;
-    changed.push('upstream');
+  const applied = applyUpdateFields(fields, (field) => {
+    const reader = CLI_UPDATE_READERS[field.update];
+    if (reader !== undefined) {
+      return reader(c);
+    }
+    const [key] = updateFieldFlags(field.update)[0] ?? [];
+    const raw = key === undefined ? undefined : optStr(c, key);
+    return raw === undefined ? undefined : parseWireField(field.kind, raw);
+  });
+  for (const field of applied) {
+    changed.push(cliChangedLabel(field));
   }
   await updateNode(c.store, id, fields);
   const suffix = changed.length > 0 ? ` (${changed.join(', ')})` : '';
@@ -416,14 +404,47 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
 }
 
 /**
- * CLI flag spelling for each canonical {@link UpdateFieldKey} — the shared
- * per-kind table (`inapplicableUpdateFields`, MMR-306) names WHICH fields a
- * project/artifact/seed update rejects; this local map owns the CLI's own
- * flag spelling for reporting it, `open_ended`'s two-flag on/off pair included.
+ * The CLI update fields read view-side rather than through the shared wire parser
+ * (ADR 0025 override seam) — those whose CLI grammar is genuinely bespoke: the
+ * usage-class (exit 2) value errors for `priority`/`size` plus `size`'s prefix
+ * expansion (`m` → medium), `upstream`'s own usage wording and `none` sentinel,
+ * and `open_ended`'s on/off flag pair. Everything absent here derives from its
+ * kind (summary/target/external_ref are the `string` kind — identity passthrough).
  */
-const UPDATE_FIELD_FLAGS: Record<
-  UpdateFieldKey,
-  readonly (readonly [key: string, flag: string])[]
+const CLI_UPDATE_READERS: Partial<Record<UpdateFieldKey, (c: Ctx) => WireValue | undefined>> = {
+  openEnded: openEndedFlag,
+  priority: (c) => parsePriority(optStr(c, 'priority')),
+  size: (c) => parseSize(optStr(c, 'size')),
+  upstream: seedUpstream,
+};
+
+/**
+ * The `changed`-echo label for a spec field (MMR-315): its primary CLI flag key,
+ * so `external_ref` reads as `ref` — except `open_ended`, whose reader keeps the
+ * historic snake_case label rather than its `--open-ended` kebab flag key.
+ */
+function cliChangedLabel(field: SpecUpdateField): string {
+  if (field.update === 'openEnded') {
+    return 'open_ended';
+  }
+  const [key] = updateFieldFlags(field.update)[0] ?? [];
+  return key ?? field.key;
+}
+
+/** camelCase → kebab, for the default `--flag` spelling of a field. */
+const kebab = (name: string): string => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+
+/**
+ * The CLI's flag spellings that diverge from the default (ADR 0025 finding iii)
+ * — the only hand-held part of the flag template. Everything else derives: a
+ * field's default flag is a single `--<kebab-key>` reading the same key. The SET
+ * of fields is NOT listed here; {@link updateFieldFlags} renders whatever
+ * {@link inapplicableUpdateFields} sweeps, so a new spec field surfaces with a
+ * derived flag and no edit. The overrides are `--ref` (not `--external-ref`),
+ * `--desc` (not `--description`), and `open_ended`'s on/off pair.
+ */
+const UPDATE_FLAG_OVERRIDES: Partial<
+  Record<UpdateFieldKey, readonly (readonly [key: string, flag: string])[]>
 > = {
   description: [['desc', '--desc']],
   externalRef: [['ref', '--ref']],
@@ -431,13 +452,20 @@ const UPDATE_FIELD_FLAGS: Record<
     ['open-ended', '--open-ended'],
     ['not-open-ended', '--not-open-ended'],
   ],
-  priority: [['priority', '--priority']],
-  size: [['size', '--size']],
-  summary: [['summary', '--summary']],
-  target: [['target', '--target']],
-  title: [['title', '--title']],
-  upstream: [['upstream', '--upstream']],
 };
+
+/** The CLI flag(s) for an update field — its spelling override, else the derived
+ * default `--<kebab-key>`. A view template over the field model, not a fact. */
+export function updateFieldFlags(
+  field: UpdateFieldKey,
+): readonly (readonly [key: string, flag: string])[] {
+  const override = UPDATE_FLAG_OVERRIDES[field];
+  if (override !== undefined) {
+    return override;
+  }
+  const flag = kebab(field);
+  return [[flag, `--${flag}`]];
+}
 
 /**
  * Reject any flag inapplicable to `kind` (MMR-306) — the CLI-side sweep over
@@ -452,7 +480,7 @@ function rejectInapplicableFields(
   fail: (message: string) => Error = validation,
 ): void {
   for (const field of inapplicableUpdateFields(kind)) {
-    for (const [key, flag] of UPDATE_FIELD_FLAGS[field]) {
+    for (const [key, flag] of updateFieldFlags(field)) {
       if (c.values[key] !== undefined) {
         throw fail(describe(flag));
       }

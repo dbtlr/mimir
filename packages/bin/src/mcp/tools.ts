@@ -20,6 +20,7 @@ import {
   MimirError,
   abandonTask,
   annotate,
+  applyUpdateFields,
   archiveProject,
   asSeedKind,
   attachArtifact,
@@ -37,7 +38,7 @@ import {
   listSeeds,
   parsePriorityValue,
   parseSizeValue,
-  parseUpstreamValue,
+  parseWireField,
   promoteSeed,
   transitionSeed,
   resolveBoard,
@@ -552,33 +553,26 @@ export function toolUpdate(
     }
     const id = await nodeId(store, args.id);
     const fields: UpdateFields = {};
+    // title/description are the bespoke identity/prose plane; the scalar data
+    // fields derive from the spec (ADR 0025).
     if (args.title !== undefined) {
       fields.title = args.title;
     }
     if (args.description !== undefined) {
       fields.description = args.description;
     }
-    if (args.summary !== undefined) {
-      fields.summary = args.summary;
-    }
-    if (args.priority !== undefined) {
-      fields.priority = parsePriorityValue(args.priority);
-    }
-    if (args.size !== undefined) {
-      fields.size = parseSizeValue(args.size);
-    }
-    if (args.target !== undefined) {
-      fields.target = args.target;
-    }
-    if (args.externalRef !== undefined) {
-      fields.externalRef = args.externalRef;
-    }
-    if (args.upstream !== undefined) {
-      fields.upstream = parseUpstreamValue(args.upstream);
-    }
-    if (args.openEnded !== undefined) {
-      fields.openEnded = args.openEnded;
-    }
+    // Zod-validated: the string-family kinds arrive as strings, openEnded (`bool`)
+    // as a boolean read natively.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const raw = args as Record<string, string | boolean | undefined>;
+    applyUpdateFields(fields, (field) => {
+      const value = raw[field.update];
+      if (value === undefined || field.kind === 'bool') {
+        return value;
+      }
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return parseWireField(field.kind, value as string);
+    });
     const node = await updateNode(store, id, fields);
     return echoNode(store, node);
   });

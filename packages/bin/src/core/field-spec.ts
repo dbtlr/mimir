@@ -1,22 +1,32 @@
-import { HOLD_VALUES, LIFECYCLE_VALUES, PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
-import type { NodeType, Priority, Size } from '@mimir/contract';
+import {
+  FIELD_FACTS,
+  HOLD_VALUES,
+  LIFECYCLE_VALUES,
+  PRIORITY_VALUES,
+  SIZE_VALUES,
+} from '@mimir/contract';
+import type { DataFieldKey, FieldKindName, NodeType, Priority, Size } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import { invariant, validation } from './errors';
 import { parseSeedRef, parseUpstreamField, UPSTREAM_CLEAR } from './ids';
 import type { Node } from './model';
-import type { UpdateFieldKey } from './mutations/data';
+import type { UpdateFieldKey, UpdateFields } from './mutations/data';
 import { collapse } from './store-norn/decode';
 
 /**
- * The data-plane field spec + kind registry (ADR 0025) — the single per-field
- * declaration every data-plane surface derives from: the frontmatter codec
- * (decode in `store-norn/store.ts`, emit in `vault-frontmatter.ts` — the inverse
- * pair ceases to exist as a hand-synced pair), the `update` applicability gates
- * (`mutations/data.ts`), and the query registry (`query.ts`). Each field is one
- * {@link DataFieldSpec} entry naming a **kind**; the kind ({@link FIELD_KINDS})
- * owns the parser/emitter pair, the wire parser, and the query semantics — kinds
- * are where code lives, fields are pure data (ADR 0025 Decision 2).
+ * The data-plane kind registry (ADR 0025) — the code bindings that compose with
+ * the pure field facts in `@mimir/contract` ({@link FIELD_FACTS}, re-exported
+ * here as {@link FIELD_SPEC}) to form the field spec every data-plane surface
+ * derives from: the frontmatter codec (decode in `store-norn/store.ts`, emit in
+ * `vault-frontmatter.ts` — the inverse pair ceases to exist as a hand-synced
+ * pair), the `update` applicability gates (`mutations/data.ts`), the query
+ * registry (`query.ts`), and the three transport surfaces (CLI flags, MCP zod
+ * fragments, HTTP body allow-lists). Each field names a **kind**; the kind
+ * ({@link FIELD_KINDS}) owns the parser/emitter pair, the wire parser, and the
+ * query semantics — kinds are where code lives, fields are pure data (ADR 0025
+ * Decision 2). Facts live in the contract so any consumer (including the UI) can
+ * read them; this module holds only the bindings and the derivations.
  *
  * The identity/topology plane — id, type, parent, rank, tags, the timestamps
  * (`created_at`/`updated_at`/`completed_at`), transition history, and body
@@ -27,6 +37,8 @@ import { collapse } from './store-norn/decode';
  * applicability spans the non-node kinds (project/artifact/seed), which this
  * node-typed spec does not model.
  */
+
+export type { DataFieldKey, FieldKindName } from '@mimir/contract';
 
 // ─── Kind implementations (the parser/emitter pairs) ────────────────────────
 
@@ -171,12 +183,21 @@ export type DecodeCtx = { stem: string; field: string };
 /** The query-registry projection of a kind — `null` when the field isn't queryable. */
 type QueryProjection = { kind: 'enum'; values: readonly string[] } | { kind: 'string' };
 
+/** The value a kind's wire parser yields — the scalar a transport assigns into
+ * {@link UpdateFields} (`null` is the seed-ref clear). */
+export type WireValue = string | boolean | null;
+
 /**
- * A field **kind** — the parser/emitter pair and query semantics a field
- * declares by name (ADR 0025 Decision 2). `decode` reads a frontmatter value
+ * A field **kind** — the parser/emitter pair, query semantics, and wire parser a
+ * field declares by name (ADR 0025 Decision 2). `decode` reads a frontmatter value
  * into the model (tolerant, or a legality throw for the strict enums); `emit`
  * projects the model value back to a frontmatter value (`null` omits the key,
- * the omit-empty shape); `query` is the registry projection.
+ * the omit-empty shape); `query` is the registry projection; `wire` parses a raw
+ * transport token into the {@link UpdateFields} value (the third direction — the
+ * `update` write plane), reusing the kind's existing parse binding so every
+ * transport shares one grammar and error wording. `wire` is `null` for a kind read
+ * natively by every transport (the status axes, which have no generic `update`,
+ * and `bool`, whose value arrives already typed) — those never route through it.
  */
 type FieldKind = {
   decode: (value: unknown, ctx: DecodeCtx) => ModelScalar;
@@ -185,16 +206,10 @@ type FieldKind = {
    * to {@link ModelScalar} even though a passthrough never yields a boolean. */
   emit: (value: ModelScalar) => ModelScalar;
   query: QueryProjection | null;
+  /** Raw transport token → {@link UpdateFields} value, or `null` for a natively-read
+   * kind (see {@link parseWireField}). */
+  wire: ((value: string) => WireValue) | null;
 };
-
-export type FieldKindName =
-  | 'string'
-  | 'seed-ref'
-  | 'bool'
-  | 'enum:priority'
-  | 'enum:size'
-  | 'enum:lifecycle'
-  | 'enum:hold';
 
 const FIELD_KINDS: Record<FieldKindName, FieldKind> = {
   bool: {
@@ -204,6 +219,9 @@ const FIELD_KINDS: Record<FieldKindName, FieldKind> = {
     // absent, so both states emit explicitly (only null omits).
     emit: (value) => (value === null ? null : String(value)),
     query: null,
+    // A bool arrives already typed on every transport (the CLI flag pair, the MCP
+    // boolean arg, the HTTP boolean body field), so it is read natively, not here.
+    wire: null,
   },
   'enum:hold': {
     // A task always carries a hold; an absent one defaults to the neutral 'none'.
@@ -212,58 +230,63 @@ const FIELD_KINDS: Record<FieldKindName, FieldKind> = {
     // hold only when actually held; the reader defaults absent → 'none'.
     emit: (value) => (value === null || value === 'none' ? null : value),
     query: { kind: 'enum', values: HOLD_VALUES },
+    // A status axis with its own verbs — no generic `update` plane.
+    wire: null,
   },
   'enum:lifecycle': {
     decode: (value, ctx) => enumFieldStrict(value, LIFECYCLE_VALUES, ctx.stem, ctx.field),
     emit: (value) => value,
     query: { kind: 'enum', values: LIFECYCLE_VALUES },
+    wire: null,
   },
   'enum:priority': {
     decode: (value) => enumFieldOrNull(value, PRIORITY_VALUES),
     emit: (value) => value,
     query: { kind: 'enum', values: PRIORITY_VALUES },
+    // The shared priority assert — one wording across create/update/promote.
+    wire: (value) => parsePriorityValue(value) ?? null,
   },
   'enum:size': {
     decode: (value) => enumFieldOrNull(value, SIZE_VALUES),
     emit: (value) => value,
     query: { kind: 'enum', values: SIZE_VALUES },
+    wire: (value) => parseSizeValue(value) ?? null,
   },
   'seed-ref': {
     decode: (value) => seedRefOrNull(value),
     emit: (value) => value,
     query: { kind: 'string' },
+    // `KEY-sN` passes through, `none` clears (→ null), anything else is rejected.
+    wire: (value) => parseUpstreamValue(value) ?? null,
   },
   string: {
     decode: (value) => str(value),
     emit: (value) => value,
     query: { kind: 'string' },
+    wire: (value) => value,
   },
 };
 
-// ─── The field spec ─────────────────────────────────────────────────────────
+// ─── The field spec (facts from contract, bindings above) ───────────────────
 
-/** The data-plane field keys — the external snake_case names, which double as
- * the frontmatter keys and the query field names (no second vocabulary). */
-export type DataFieldKey =
-  | 'summary'
-  | 'lifecycle'
-  | 'hold'
-  | 'hold_reason'
-  | 'priority'
-  | 'size'
-  | 'external_ref'
-  | 'upstream'
-  | 'target'
-  | 'open_ended';
+/**
+ * The data-plane field spec — the pure facts ({@link FIELD_FACTS} in
+ * `@mimir/contract`) under the core's name. Re-exported so core consumers and
+ * the transports keep one import site; the `as const` type is preserved through
+ * the alias, so {@link SpecUpdateKey} still extracts the precise `update` union.
+ */
+export const FIELD_SPEC = FIELD_FACTS;
 
 /** The model-side subset one node carries for the data-plane fields — the codec's
  * output half, the complement of the structural fields `decodeNode` fills in. */
 export type DataFields = Pick<Node, DataFieldKey>;
 
 /**
- * One data-plane field's declaration — the single place the field's kind, node
- * applicability, `update` participation, and read-required status are stated.
- * Everything else (codec direction, query entry, update gate) derives from this.
+ * One data-plane field's declaration, core-narrowed: the contract fact with its
+ * `update` marker tied to the precise {@link UpdateFieldKey} union (the fact
+ * carries it as a bare string, since the contract can't reach the core's update
+ * vocabulary). Assigning {@link FIELD_SPEC}'s entries to this type re-checks that
+ * every `update` literal is a real `UpdateFieldKey`.
  */
 type DataFieldSpec = {
   key: DataFieldKey;
@@ -278,33 +301,8 @@ type DataFieldSpec = {
   required?: boolean;
 };
 
-const TASK = ['task'] as const;
-const CONTAINERS = ['phase', 'initiative'] as const;
-const ALL_TYPES = ['task', 'phase', 'initiative'] as const;
-
-/**
- * The data-plane field spec (ADR 0025) — one entry per field, alphabetical by
- * key. This is the only per-field declaration in the core for every data-plane
- * field; the codec, update gates, and query registry all derive from it. `as
- * const` keeps each entry's `update` literal so {@link SpecUpdateKey} extracts
- * the precise union — the compile guard `mutations/data.ts` checks its
- * `UpdateFields` vocabulary against (MMR-306).
- */
-export const FIELD_SPEC = {
-  external_ref: { appliesTo: TASK, key: 'external_ref', kind: 'string', update: 'externalRef' },
-  hold: { appliesTo: TASK, key: 'hold', kind: 'enum:hold' },
-  hold_reason: { appliesTo: TASK, key: 'hold_reason', kind: 'string' },
-  lifecycle: { appliesTo: TASK, key: 'lifecycle', kind: 'enum:lifecycle', required: true },
-  open_ended: { appliesTo: CONTAINERS, key: 'open_ended', kind: 'bool', update: 'openEnded' },
-  priority: { appliesTo: TASK, key: 'priority', kind: 'enum:priority', update: 'priority' },
-  size: { appliesTo: TASK, key: 'size', kind: 'enum:size', update: 'size' },
-  summary: { appliesTo: ALL_TYPES, key: 'summary', kind: 'string', update: 'summary' },
-  target: { appliesTo: ['phase'], key: 'target', kind: 'string', update: 'target' },
-  upstream: { appliesTo: TASK, key: 'upstream', kind: 'seed-ref', update: 'upstream' },
-} as const satisfies Record<DataFieldKey, DataFieldSpec>;
-
 /** The precise union of camelCase `UpdateFields` keys the spec's data fields own —
- * extracted from the `as const` spec so a caller can compile-check completeness. */
+ * extracted from the `as const` facts so a caller can compile-check completeness. */
 export type SpecUpdateKey = {
   [K in DataFieldKey]: (typeof FIELD_SPEC)[K] extends {
     readonly update: infer U extends UpdateFieldKey;
@@ -313,7 +311,7 @@ export type SpecUpdateKey = {
     : never;
 }[DataFieldKey];
 
-/** The spec entries in canonical (alphabetical-key) order. */
+/** The spec entries in canonical (alphabetical-key) order, core-narrowed. */
 const FIELD_SPEC_ENTRIES: readonly DataFieldSpec[] = Object.values(FIELD_SPEC);
 
 /** Does the field apply to (is it carried by) the given node type? */
@@ -383,6 +381,73 @@ export function emitDataFields(fm: Record<string, unknown>, node: Node): void {
 export const SPEC_UPDATE_KEYS: readonly UpdateFieldKey[] = FIELD_SPEC_ENTRIES.flatMap((spec) =>
   spec.update === undefined ? [] : [spec.update],
 );
+
+/** One data-plane field the generic `update` verb owns — the fact triple the
+ * transport surfaces derive from: `key` is the snake_case body/frontmatter name
+ * (HTTP), `update` the camelCase arg name (CLI flags, MCP args), `kind` selects
+ * the wire type. */
+export type SpecUpdateField = { key: DataFieldKey; kind: FieldKindName; update: UpdateFieldKey };
+
+/**
+ * The generic-`update` spec fields in canonical order (ADR 0025) — the single
+ * source the three transport surfaces derive their field portion from: the CLI
+ * flag template, the MCP `update`/`create` zod fragments, and the HTTP body
+ * allow-lists. A new spec entry with an `update` key joins all three with no
+ * transport edit.
+ */
+export const SPEC_UPDATE_FIELDS: readonly SpecUpdateField[] = FIELD_SPEC_ENTRIES.flatMap((spec) =>
+  spec.update === undefined ? [] : [{ key: spec.key, kind: spec.kind, update: spec.update }],
+);
+
+/**
+ * Parse a raw wire token into a field kind's {@link UpdateFields} value (ADR
+ * 0025) — the one parser the CLI/MCP/HTTP update paths share, so a kind's accepted
+ * grammar and its stored value can't drift between transports. Delegates to the
+ * kind's existing parse binding ({@link parsePriorityValue} et al.), so error
+ * wording stays byte-identical. Throws for a kind with no wire parser (the status
+ * axes and `bool`, read natively by every transport) — reaching it is a transport
+ * wiring bug, not a value fault.
+ */
+export function parseWireField(kind: FieldKindName, value: string): WireValue {
+  const parse = FIELD_KINDS[kind].wire;
+  if (parse === null) {
+    throw invariant(
+      `field kind ${kind} has no wire parser`,
+      'a natively-read kind (bool or a status axis) is handled by the transport reader, not routed here',
+    );
+  }
+  return parse(value);
+}
+
+/**
+ * Apply the generic-`update` spec fields to an {@link UpdateFields} patch (ADR
+ * 0025) — the shared loop each transport's update path runs so a new spec field
+ * lands with no per-field edit, closing the accept-without-apply gap that deriving
+ * only the accepted set would leave. For each spec field, `read` returns the parsed
+ * value (the transport read its native key and parsed via {@link parseWireField},
+ * or via its own bespoke reader for a natively-typed / idiosyncratic field) or
+ * `undefined` to leave the field untouched. Returns the applied fields in canonical
+ * order — the CLI's `changed` echo derives from it.
+ */
+export function applyUpdateFields(
+  fields: UpdateFields,
+  read: (field: SpecUpdateField) => WireValue | undefined,
+): SpecUpdateField[] {
+  const applied: SpecUpdateField[] = [];
+  for (const field of SPEC_UPDATE_FIELDS) {
+    const value = read(field);
+    if (value === undefined) {
+      continue;
+    }
+    // The kind's wire parser yields exactly `field.update`'s value type (the spec
+    // pairs kind ↔ update key); the precise-key assignment the checker can't prove
+    // across the union is sound.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    (fields as Record<string, WireValue>)[field.update] = value;
+    applied.push(field);
+  }
+  return applied;
+}
 
 /** The `update` keys of fields that apply to exactly the given node types — the
  * data source for `updateNode`'s type gates (the imperative `wantsTaskField`
