@@ -81,4 +81,4 @@ export const FIELD_FACTS = {
   summary: { appliesTo: ALL_TYPES, key: 'summary', kind: 'string', update: 'summary' },
   target: { appliesTo: ['phase'], key: 'target', kind: 'string', update: 'target' },
   upstream: { appliesTo: TASK, key: 'upstream', kind: 'seed-ref', update: 'upstream' },
-} as const satisfies Record<DataFieldKey, FieldFact>;
+} as const satisfies { [K in DataFieldKey]: FieldFact & { key: K } };
