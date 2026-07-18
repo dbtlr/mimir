@@ -11,6 +11,7 @@ import {
   RULE_OWNER,
   seqGapCheck,
   stemProjectCheck,
+  updatedAtCheck,
 } from './checks';
 import { REPAIR_POLICY } from './repair';
 
@@ -547,4 +548,87 @@ test('seq-gaps: a work-state doc named like an artifact does not occupy the arti
   expect(findings).toHaveLength(1);
   expect(findings[0]).toMatchObject({ node: 'MMR', where: 'artifact sequence' });
   expect(findings[0]?.evidence).toMatchObject({ kind: 'artifact', max: 6, missing: [5] });
+});
+
+// MMR-312: a node/project document whose updated_at is missing or explicitly
+// null — the read path silently tolerates both (falls back to '', core/model.ts)
+// but the write path's CAS co-write invariant (MMR-303) refuses any mutation
+// against it, so doctor must flag it even though nothing is lost on read.
+const updatedAtCtx = (
+  docs: { stem: string; frontmatter?: Record<string, unknown> }[],
+): DoctorContext => ({
+  dropped: [],
+  projectRefs: [],
+  readArtifactDocs: () => Promise.resolve([]),
+  readNodeDocs: () =>
+    Promise.resolve(
+      docs.map(({ frontmatter, stem }) => ({
+        body: '',
+        path: `${stem}.md`,
+        stem,
+        ...(frontmatter === undefined ? {} : { frontmatter }),
+      })),
+    ),
+  sectionFailures: [],
+  validateFindings: [],
+});
+
+test('updated-at flags a task whose updated_at is missing from frontmatter (MMR-312)', async () => {
+  const findings = await updatedAtCheck.run(
+    updatedAtCtx([
+      { frontmatter: { created: '2026-01-01T00:00:00Z', type: 'task' }, stem: 'MMR-1' },
+    ]),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'updated-at',
+    code: 'missing-updated-at',
+    node: 'MMR-1',
+    severity: 'error',
+    where: 'frontmatter · updated_at',
+  });
+  expect(findings[0]?.evidence).toEqual({ present: false });
+  expect(findings[0]?.message).toContain('missing');
+});
+
+test('updated-at flags a project whose updated_at is explicitly null (MMR-312)', async () => {
+  const findings = await updatedAtCheck.run(
+    updatedAtCtx([{ frontmatter: { type: 'project', updated_at: null }, stem: 'MMR' }]),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'updated-at',
+    code: 'missing-updated-at',
+    node: 'MMR',
+  });
+  expect(findings[0]?.evidence).toEqual({ present: true });
+  expect(findings[0]?.message).toContain('null');
+});
+
+test('updated-at is silent on a document carrying a usable stamp (MMR-312)', async () => {
+  const findings = await updatedAtCheck.run(
+    updatedAtCtx([
+      { frontmatter: { type: 'task', updated_at: '2026-01-01T00:00:00Z' }, stem: 'MMR-1' },
+    ]),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('updated-at ignores a seed — its write seam does not share the MMR-303 guard (MMR-312)', async () => {
+  const findings = await updatedAtCheck.run(
+    updatedAtCtx([{ frontmatter: { kind: 'feature', type: 'seed' }, stem: 'MMR-s1' }]),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('updated-at is silent when the snapshot carries no frontmatter for a doc (MMR-312)', async () => {
+  const findings = await updatedAtCheck.run(updatedAtCtx([{ stem: 'MMR-1' }]));
+  expect(findings).toEqual([]);
+});
+
+test('missing-updated-at repairs deterministically via the stamp-updated-at recipe (MMR-312)', () => {
+  expect(REPAIR_POLICY['missing-updated-at']).toEqual({
+    kind: 'supported',
+    recipe: 'stamp-updated-at',
+  });
 });

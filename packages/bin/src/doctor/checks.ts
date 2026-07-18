@@ -17,8 +17,13 @@ import type { Drop } from '../core/validate';
 /** What a check reads: the raw vault documents to diagnose. */
 export type DoctorContext = {
   /** Every work-state document's raw markdown and exact path — filtered to
-   * `-s` by canonical stem after a whole-vault enumeration (MMR-240). */
-  readNodeDocs: () => Promise<{ stem: string; body: string; path: string }[]>;
+   * `-s` by canonical stem after a whole-vault enumeration (MMR-240).
+   * `frontmatter` rides along (present whenever the snapshot captured it) for
+   * checks that need a field's raw value rather than the parsed markdown —
+   * currently only {@link updatedAtCheck} (MMR-312). */
+  readNodeDocs: () => Promise<
+    { stem: string; body: string; path: string; frontmatter?: Record<string, unknown> }[]
+  >;
   /** Every artifact document's path + stem, from a doctor-only `type:artifact`
    * enumeration (MMR-282) the hot working-set load never runs — artifacts carry
    * `type: artifact`, absent from the work-state snapshot every other check reads.
@@ -91,6 +96,7 @@ export type DoctorIssueCode =
   | 'frontmatter-parse-failed'
   | 'frontmatter-required-field-missing'
   | 'interior-seq-gap'
+  | 'missing-updated-at'
   | 'section-annotations-unreadable'
   | 'section-history-unreadable'
   | 'stem-project-divergence'
@@ -219,6 +225,74 @@ export const crlfCheck: Diagnostic = {
     return findings;
   },
   title: 'CRLF line endings',
+};
+
+/**
+ * Frontmatter `updated_at` presence (MMR-312): a node or project document whose
+ * `updated_at` is either absent from frontmatter or explicitly `null`. The read
+ * path tolerates both silently — `decodeNode`/`decodeProject` fall back to `''`
+ * (`str(fm.updated_at) ?? ''`, `core/model.ts`) — so nothing is lost or flagged
+ * on read; unlike the field-validity check below (invalid lifecycle/hold/
+ * priority/size), `updated_at` carries no `validate` rule at all, so this is a
+ * wholly new detector, not another {@link Drop} rendering.
+ *
+ * The read-time silence hides a write-time hazard (MMR-303): the write path's
+ * only whole-document drift protection is a CAS-guarded `updated_at` co-write on
+ * every mutated document, and the runtime guard (`assertCoWriteGuards`,
+ * `core/store-norn/writer.ts`) refuses ANY mutation against a document with no
+ * usable `updated_at` to guard — a hand-edited or pre-mimir document is
+ * permanently unmutable until repaired. So this is an `error`: it names no data
+ * lost on read, but a document no ordinary verb can ever again successfully
+ * write — a stronger failure than most `error` findings here. Node + project
+ * only, the two document kinds the write path's co-write invariant covers — a
+ * seed's write seam (`core/store-norn/seeds.ts`) does not share the runtime
+ * guard, so a seed's `updated_at` is out of this check's scope.
+ *
+ * `--fix` repairs it deterministically (the `stamp-updated-at` recipe,
+ * `repair.ts`): seeded from `created` when present, else the repair's own
+ * timestamp. It is the one repair in the registry whose write CANNOT itself
+ * carry an `updated_at` CAS guard (the field is absent/null — the exact
+ * condition this check finds), so it is planned as an `add_frontmatter` or a
+ * `null`-old-value `set_frontmatter` instead. That plan applies through
+ * `client.applyPlan` directly (`doctor/commands.ts`), never through the
+ * `Accumulator`/`assertCoWriteGuards` path a normal verb's plan takes — the
+ * same sanctioned, narrow route every other supported doctor recipe already
+ * uses, not a new bypass of the MMR-303 invariant.
+ */
+export const updatedAtCheck: Diagnostic = {
+  name: 'updated-at',
+  run: async (ctx) => {
+    const findings: DoctorFinding[] = [];
+    for (const { stem, path, frontmatter } of await ctx.readNodeDocs()) {
+      const identity = parseIdentity(stem);
+      if (identity === null || (identity.kind !== 'node' && identity.kind !== 'project')) {
+        continue;
+      }
+      if (frontmatter === undefined) {
+        continue; // no frontmatter captured for this doc — nothing to assert
+      }
+      const present = 'updated_at' in frontmatter;
+      if (present && frontmatter.updated_at !== null) {
+        continue; // a usable stamp — healthy
+      }
+      findings.push(
+        issue({
+          check: 'updated-at',
+          code: 'missing-updated-at',
+          evidence: { present },
+          locator: path,
+          message: present
+            ? 'frontmatter `updated_at` is null — the write path has no drift guard to key on, so every future mutation is refused (MMR-303)'
+            : 'frontmatter `updated_at` is missing — the write path has no drift guard to key on, so every future mutation is refused (MMR-303)',
+          node: stem,
+          severity: 'error',
+          where: 'frontmatter · updated_at',
+        }),
+      );
+    }
+    return findings;
+  },
+  title: 'Frontmatter updated_at presence',
 };
 
 /** The referential/field checks that render {@link Drop} entries. */
@@ -1145,6 +1219,7 @@ export const upstreamRefCheck: Diagnostic = {
 export const CHECKS: readonly Diagnostic[] = [
   bodySectionCheck,
   crlfCheck,
+  updatedAtCheck,
   identityUniquenessCheck,
   danglingRefCheck,
   missingProjectCheck,
