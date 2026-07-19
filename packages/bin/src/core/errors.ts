@@ -37,3 +37,17 @@ export const conflict = (message: string, hint?: string): MimirError =>
   new MimirError('conflict', message, hint);
 export const invariant = (message: string, hint?: string): MimirError =>
   new MimirError('invariant', message, hint);
+
+/**
+ * The single source of truth for the degraded-document refusal: a mutating write
+ * whose target carries no usable `updated_at` for the write's CAS drift guard —
+ * a hand-edited or pre-mimir document. Raised by both write seams that share the
+ * co-write invariant: the node/project write path (`assertCoWriteGuards`,
+ * MMR-303) and the seed store (MMR-313). `subject` is the offending path, or the
+ * writer's comma-joined list of them. Both point the operator at the one repair.
+ */
+export const degradedUpdatedAt = (subject: string): MimirError =>
+  validation(
+    `${subject} carries no usable updated_at for the write's drift guard`,
+    "the document was hand-edited or predates mimir management — run 'mimir doctor --fix' to repair it",
+  );
