@@ -152,15 +152,15 @@ Appended by `annotate`. Nodes only — projects carry no `## Annotations`. Trans
 
 A frozen markdown document — not diffed or edited in place, only ever added to. **Anchored to exactly one project** (required); **linked to 0..N nodes** via `anchor` (optional context) ([ADR 0004](decisions/0004-artifact-model-project-anchored-flexibly-linked.md)). No `type` classification enum and no `consolidated_at`: `spec`/`plan`/`session_log` and consolidation state are **tags** ([ADR 0002](decisions/0002-general-purpose-primitives-not-baked-in-semantics.md)/0004). Correct a bad artifact by attaching a new one.
 
-| Field        | Type             | Presence | Allowed / default                               | Written by          |
-| ------------ | ---------------- | -------- | ----------------------------------------------- | ------------------- |
-| `type`       | string           | always   | `artifact`                                      | `attach`            |
-| `title`      | string           | always   | display title                                   | `attach` / `update` |
-| `project`    | wikilink         | always   | `[[KEY]]` (the required project home)           | `attach`            |
-| `created`    | timestamp        | always   | ISO-8601 UTC                                    | `attach`            |
-| `updated_at` | timestamp        | always   | ISO-8601 UTC                                    | metadata mutations  |
-| `anchor`     | list of wikilink | optional | `[[KEY-seq]]` node stems, 0..N (the "link" set) | `attach` (`--link`) |
-| `tags`       | list of string   | optional | opaque strings                                  | `tag` / `untag`     |
+| Field        | Type             | Presence                                               | Allowed / default                               | Written by                    |
+| ------------ | ---------------- | ------------------------------------------------------ | ----------------------------------------------- | ----------------------------- |
+| `type`       | string           | always                                                 | `artifact`                                      | `attach`                      |
+| `title`      | string           | always                                                 | display title                                   | `attach` / `update`           |
+| `project`    | wikilink         | always                                                 | `[[KEY]]` (the required project home)           | `attach`                      |
+| `created`    | timestamp        | always                                                 | ISO-8601 UTC                                    | `attach`                      |
+| `updated_at` | timestamp        | always on new docs; legacy absent until `doctor --fix` | ISO-8601 UTC                                    | `attach` + metadata mutations |
+| `anchor`     | list of wikilink | optional                                               | `[[KEY-seq]]` node stems, 0..N (the "link" set) | `attach` (`--link`)           |
+| `tags`       | list of string   | optional                                               | opaque strings                                  | `tag` / `untag`               |
 
 **Body:** the frozen artifact content (markdown) — never re-stamped, since the body is append-only, not edited. `updated_at` tracks **metadata** mutations only (retitle, tag/untag): it is the CAS drift guard those writes co-stamp, exactly like the node/project/seed write paths (MMR-303/313/317). A metadata mutation against an artifact whose `updated_at` is missing or null refuses as degraded vault state until `mimir doctor --fix` stamps it; legacy artifacts predating the field are repaired that way (the field is **not** `required_frontmatter`, deliberately, so the missing-field flow routes through the supported `missing-updated-at` → `stamp-updated-at` repair). Like every entity, artifacts **carry no tag notes** — the tag surface has no note parameter at all (ADR 0005 Refinement, MMR-270).
 
