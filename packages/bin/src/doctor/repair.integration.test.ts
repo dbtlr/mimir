@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { fakeIo } from '../cli/testing';
 import { createInitiative, createProject } from '../core/create';
+import { MimirError } from '../core/errors';
 import { annotate } from '../core/mutations';
 import type { MigrationPlan } from '../core/store-norn/plan';
 import { createTestStore } from '../testing/store';
@@ -279,7 +280,8 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
     } catch (error) {
       refused = error;
     }
-    expect(refused).toBeDefined();
+    expect(refused).toBeInstanceOf(MimirError);
+    expect((refused as MimirError).code).toBe('validation');
 
     const preview = fakeIo();
     expect(
@@ -332,7 +334,8 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
     } catch (error) {
       refused = error;
     }
-    expect(refused).toBeDefined();
+    expect(refused).toBeInstanceOf(MimirError);
+    expect((refused as MimirError).code).toBe('validation');
 
     expect(
       await cmdDoctor(fakeIo(), fixture.doctor, 'json', 'MMR', { dryRun: false, fix: true }),
@@ -372,7 +375,8 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
     } catch (error) {
       refused = error;
     }
-    expect(refused).toBeDefined();
+    expect(refused).toBeInstanceOf(MimirError);
+    expect((refused as MimirError).code).toBe('validation');
 
     expect(
       await cmdDoctor(fakeIo(), fixture.doctor, 'json', 'MMR', { dryRun: false, fix: true }),

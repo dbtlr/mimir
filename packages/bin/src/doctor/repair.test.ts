@@ -808,6 +808,34 @@ test('stamp-updated-at sets an artifact field against a null old value when it i
   ]);
 });
 
+// The fabricated artifact index entry (`body: ''`, `documentHash: null`) is the
+// fail-closed guard, not just filler: a body-affecting recipe that ever reaches
+// an artifact stem plans a `missing-cas-hash` failure, never a `replace_body`
+// over the fabricated empty body.
+test('a body recipe reaching an artifact-slice doc fails closed on the fabricated hash (MMR-317)', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('section-history-unreadable', 'MMR-a1', {}, 'MMR/artifacts/MMR-a1.md')],
+    scope: 'MMR',
+    snapshot: {
+      artifacts: [
+        {
+          frontmatter: { created: '2026-01-01T00:00:00.000Z', type: 'artifact' },
+          path: 'MMR/artifacts/MMR-a1.md',
+          stem: 'MMR-a1',
+        },
+      ],
+      documents: [],
+      graph: { nodes: [], projectKeys: [] },
+      sectionFailures: [],
+      validateFindings: [],
+    },
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([]);
+  expect(planned.failures.map((item) => item.reason)).toEqual(['missing-cas-hash']);
+});
+
 test('missing-project verification identity is stable across representative nodes', () => {
   expect(repairIssueKey(issue('missing-project', 'MMR-1', { key: 'MMR' }))).toBe(
     repairIssueKey(issue('missing-project', 'MMR-99', { key: 'MMR' })),

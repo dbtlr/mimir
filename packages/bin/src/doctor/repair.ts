@@ -234,10 +234,12 @@ export function planDoctorRepairs(args: {
   }
   // Artifacts (MMR-317) live in their own snapshot slice (the hot work-state load
   // never reads them), so the doc index must fold them in for the artifact arm of
-  // the `stamp-updated-at` recipe to reach them. They carry no body/hash here —
-  // that recipe writes only frontmatter (`add`/`null`-CAS `set`), never a
-  // body-replace — so `body`/`documentHash` are unused for artifacts; `created`
-  // (the stamp seed) rides on `frontmatter`.
+  // the `stamp-updated-at` recipe to reach them. That recipe writes only
+  // frontmatter (`add`/`null`-CAS `set`); the fabricated `documentHash: null` is
+  // the fail-closed guard for everything else — a body-affecting recipe reaching
+  // an artifact stem plans a `missing-cas-hash` failure, never a `replace_body`
+  // over the fabricated empty body. `created` (the stamp seed) rides on
+  // `frontmatter`.
   for (const artifact of args.snapshot.artifacts ?? []) {
     indexDoc({
       body: '',
