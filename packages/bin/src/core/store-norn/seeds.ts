@@ -2,7 +2,7 @@ import { SEED_KIND_VALUES, SEED_LIFECYCLE_VALUES } from '@mimir/contract';
 import type { SeedKind, SeedLifecycle } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
-import { invariant, notFound, validation } from '../errors';
+import { degradedUpdatedAt, invariant, notFound, validation } from '../errors';
 import {
   HISTORY_HEADING,
   parseDescriptionSection,
@@ -90,6 +90,22 @@ function spawnedFieldOp(path: string, fm: Record<string, unknown>, spawned: stri
   return 'spawned' in fm
     ? setFrontmatter(path, 'spawned', links, fm.spawned)
     : addFrontmatter(path, 'spawned', links);
+}
+
+/**
+ * Refuse a mutating seed write whose loaded `updated_at` is absent or null
+ * (MMR-313). Every seed mutation co-writes the `updated_at` stamp as its CAS
+ * drift guard, carrying `fm.updated_at` as norn's `expected_old_value`; a
+ * missing/null field would emit an unguarded null old value — a silent
+ * guard-less write, the exact hazard the node/project write path's co-write
+ * invariant (MMR-303, `assertCoWriteGuards`) fails closed on. Fail closed at the
+ * same degraded-vault refusal and point the operator at `mimir doctor --fix`.
+ * `create` needs no guard — a `create_document` is birth, not drift.
+ */
+function assertSeedGuard(path: string, fm: Record<string, unknown>): void {
+  if (fm.updated_at === undefined || fm.updated_at === null) {
+    throw degradedUpdatedAt(path);
+  }
 }
 
 /**
@@ -389,6 +405,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
           return;
         }
         const path = doc.path;
+        assertSeedGuard(path, fm);
         const at = now();
         // ONE plan: the (conditional) spawned append + the (conditional) lifecycle
         // set with its History record + one updated_at — so the link and the
@@ -563,6 +580,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
       if (operations.length === 0) {
         return;
       }
+      assertSeedGuard(path, fm);
       operations.push(setFrontmatter(path, 'updated_at', now(), fm.updated_at));
       await apply(operations);
     },
@@ -580,6 +598,7 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
         );
       }
       const path = doc.path;
+      assertSeedGuard(path, fm);
       const at = now();
       // One atomic plan: the lifecycle frontmatter set + the `## History` record
       // (kind `lifecycle`, reusing the shared codec) can never diverge. Each set
