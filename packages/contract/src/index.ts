@@ -6,5 +6,6 @@
 export * from './enums';
 export * from './dto';
 export * from './fields';
+export * from './ops';
 export * from './query';
 export type * from './wire';
