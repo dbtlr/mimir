@@ -155,6 +155,22 @@ const httpDrive: Driver = async (verb, ref) => {
   expect(res.status).toBe(200);
 };
 
+test.skipIf(!NORN)('http unarchive rejects an unexpected body key', async () => {
+  // The one disclosed behavior change of the registry cutover: unarchive now
+  // enforces the empty body allow-list every other reason-less route already
+  // had. An unexpected key refuses as validation and the write never lands.
+  const key = await projectInPreState('unarchive');
+  const res = await fetch(`${base}/api/projects/${key}/unarchive`, {
+    body: JSON.stringify({ bogus: 1 }),
+    headers: { 'content-type': 'application/json' },
+    method: 'POST',
+  });
+  expect(res.status).toBe(400);
+  const body = (await res.json()) as { error?: { code?: string } };
+  expect(body.error?.code).toBe('validation');
+  expect(await projectArchived(key)).toBe(true);
+});
+
 const mcpDrive: Driver = async (verb, ref) => {
   const args = OP_FACTS[verb].subject === 'project' ? { key: ref } : { id: ref };
   const res = await toolUniform(store, verb, args);
