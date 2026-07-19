@@ -19,27 +19,18 @@ import { buildMcpServer } from './server';
 import {
   toolAnnotate,
   toolAttach,
-  toolAbandon,
-  toolArchive,
-  toolBlock,
   toolCreate,
   toolDepend,
-  toolDone,
   toolGet,
   toolList,
   toolMove,
   toolNext,
   toolOverview,
-  toolPark,
-  toolReopen,
   toolReorder,
-  toolStart,
   toolStatus,
   toolTag,
-  toolUnarchive,
-  toolUnblock,
   toolUndepend,
-  toolUnpark,
+  toolUniform,
   toolUntag,
   toolUpdate,
 } from './tools';
@@ -155,35 +146,35 @@ test.skipIf(!NORN)('overview tool defaults to the bound scope (MMR-278)', async 
 // ---------------------------------------------------------------------------
 
 test.skipIf(!NORN)('start echoes the node as bare json with status in_progress', async () => {
-  const res = await toolStart(store, { id: taskRef });
+  const res = await toolUniform(store, 'start', { id: taskRef });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).status).toBe('in_progress');
 });
 
 test.skipIf(!NORN)('done echoes the node as bare json with status done', async () => {
-  await toolStart(store, { id: taskRef });
-  const res = await toolDone(store, { id: taskRef });
+  await toolUniform(store, 'start', { id: taskRef });
+  const res = await toolUniform(store, 'done', { id: taskRef });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).status).toBe('done');
 });
 
 test.skipIf(!NORN)('abandon echoes the node with status abandoned', async () => {
-  const res = await toolAbandon(store, { id: taskRef, reason: 'superseded' });
+  const res = await toolUniform(store, 'abandon', { id: taskRef, reason: 'superseded' });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).status).toBe('abandoned');
 });
 
 test.skipIf(!NORN)('toolReopen sends a done task back to in_progress (MMR-104)', async () => {
-  await toolStart(store, { id: taskRef });
-  await toolDone(store, { id: taskRef });
-  const res = await toolReopen(store, { id: taskRef, reason: 'unverified' });
+  await toolUniform(store, 'start', { id: taskRef });
+  await toolUniform(store, 'done', { id: taskRef });
+  const res = await toolUniform(store, 'reopen', { id: taskRef, reason: 'unverified' });
   expect(res.isError).toBeUndefined();
   const node = JSON.parse(textOf(res));
   expect(node.status).toBe('in_progress');
 });
 
 test.skipIf(!NORN)('a not_found mutation returns the structured envelope as isError', async () => {
-  const res = await toolDone(store, { id: 'MMR-9999' });
+  const res = await toolUniform(store, 'done', { id: 'MMR-9999' });
   expect(res.isError).toBe(true);
   const parsed = parseJson<{ error: { code: string } }>(textOf(res));
   expect(parsed.error.code).toBe('not_found');
@@ -194,24 +185,24 @@ test.skipIf(!NORN)('a not_found mutation returns the structured envelope as isEr
 // ---------------------------------------------------------------------------
 
 test.skipIf(!NORN)('park sets the hold overlay → status parked', async () => {
-  const res = await toolPark(store, { id: taskRef, reason: 'waiting on review' });
+  const res = await toolUniform(store, 'park', { id: taskRef, reason: 'waiting on review' });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).status).toBe('parked');
 });
 
 test.skipIf(!NORN)('unpark clears the hold', async () => {
-  await toolPark(store, { id: taskRef });
-  const res = await toolUnpark(store, { id: taskRef });
+  await toolUniform(store, 'park', { id: taskRef });
+  const res = await toolUniform(store, 'unpark', { id: taskRef });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).status).toBe('ready');
 });
 
 test.skipIf(!NORN)('block then unblock', async () => {
-  const blocked = await toolBlock(store, { id: taskRef, reason: 'ci red' });
+  const blocked = await toolUniform(store, 'block', { id: taskRef, reason: 'ci red' });
   expect(blocked.isError).toBeUndefined();
   expect(JSON.parse(textOf(blocked)).status).toBe('blocked');
 
-  const unblocked = await toolUnblock(store, { id: taskRef });
+  const unblocked = await toolUniform(store, 'unblock', { id: taskRef });
   expect(unblocked.isError).toBeUndefined();
   expect(JSON.parse(textOf(unblocked)).status).toBe('ready');
 });
@@ -644,7 +635,7 @@ test.skipIf(!NORN)('a structural fault over MCP is a validation error', async ()
 });
 
 test.skipIf(!NORN)('list selects by status universe and operators', async () => {
-  const start = await toolStart(store, { id: taskRef });
+  const start = await toolUniform(store, 'start', { id: taskRef });
   expect(start.isError).toBeUndefined();
   const inProgress = parseJson<{
     tasks: { id: string }[];
@@ -680,12 +671,12 @@ test.skipIf(!NORN)(
 test.skipIf(!NORN)(
   'MCP archive freezes + hides; the list door and unarchive round-trip',
   async () => {
-    const arc = await toolArchive(store, { key: 'MMR', reason: 'superseded' });
+    const arc = await toolUniform(store, 'archive', { key: 'MMR', reason: 'superseded' });
     expect(arc.isError).toBeUndefined();
     expect(parseJson<{ archived_at: string }>(textOf(arc)).archived_at).not.toBeUndefined();
 
     // frozen: a mutation under it is a conflict
-    const frozen = await toolStart(store, { id: taskRef });
+    const frozen = await toolUniform(store, 'start', { id: taskRef });
     expect(frozen.isError).toBe(true);
     expect(parseJson<{ error: { code: string } }>(textOf(frozen)).error.code).toBe('conflict');
 
@@ -697,10 +688,10 @@ test.skipIf(!NORN)(
     expect(shelf.projects.map((p) => p.id)).toEqual(['MMR']);
 
     // unarchive restores mutation
-    const un = await toolUnarchive(store, { key: 'MMR' });
+    const un = await toolUniform(store, 'unarchive', { key: 'MMR' });
     expect(un.isError).toBeUndefined();
     expect(parseJson<{ archived_at?: string }>(textOf(un)).archived_at).toBeUndefined();
-    expect((await toolStart(store, { id: taskRef })).isError).toBeUndefined();
+    expect((await toolUniform(store, 'start', { id: taskRef })).isError).toBeUndefined();
   },
 );
 
