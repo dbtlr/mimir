@@ -3,7 +3,7 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { cn } from '../../lib/cn';
 
-/** Vendored Base UI menu — the per-card actions menu (kebab). */
+/** Vendored Base UI menu — dropdown menus (Verbs overflow, project picker, header/alert menus). */
 export function MenuRoot(props: ComponentProps<typeof Menu.Root>) {
   return <Menu.Root {...props} />;
 }
