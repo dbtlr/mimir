@@ -167,6 +167,50 @@ const DRIVERS: [name: string, drive: Driver][] = [
   ['mcp', mcpDrive],
 ];
 
+/**
+ * Golden pin of the twelve human-format echo signposts through the real CLI
+ * dispatch (plain rendering, reasoned variant where the policy allows). The
+ * `-f json` driver below bypasses the prose entirely, so participle or
+ * transition-suffix template drift (`doned`, a lost bare arrow) lands here.
+ */
+const ECHO_SIGNPOST: Record<UniformVerb, (ref: string) => string> = {
+  abandon: (r) => `[ok] abandoned ${r}`,
+  archive: (r) => `[ok] archived ${r}`,
+  block: (r) => `[ok] blocked ${r}`,
+  done: (r) => `[ok] completed ${r}`,
+  park: (r) => `[ok] parked ${r}`,
+  reopen: (r) => `[ok] reopened ${r} -> in_progress`,
+  return: (r) => `[ok] returned ${r} · under_review -> in_progress`,
+  start: (r) => `[ok] started ${r} · todo -> in_progress`,
+  submit: (r) => `[ok] submitted ${r} · in_progress -> under_review`,
+  unarchive: (r) => `[ok] unarchived ${r}`,
+  unblock: (r) => `[ok] unblocked ${r}`,
+  unpark: (r) => `[ok] unparked ${r}`,
+};
+
+async function refInPreState(verb: UniformVerb): Promise<string> {
+  return OP_FACTS[verb].subject === 'project'
+    ? await projectInPreState(verb)
+    : await taskInPreState(verb);
+}
+
+for (const verb of UNIFORM_VERBS) {
+  test.skipIf(!NORN)(`cli echo golden: ${verb}`, async () => {
+    const ref = await refInPreState(verb);
+    const io = fakeIo(false);
+    expect(await runCli([verb, ref, '-f', 'records'], () => store, io)).toBe(0);
+    expect(io.out.join('\n')).toContain(ECHO_SIGNPOST[verb](ref));
+  });
+  if (OP_FACTS[verb].reason === 'optional') {
+    test.skipIf(!NORN)(`cli echo golden: ${verb} with reason`, async () => {
+      const ref = await refInPreState(verb);
+      const io = fakeIo(false);
+      expect(await runCli([verb, ref, 'smoke reason', '-f', 'records'], () => store, io)).toBe(0);
+      expect(io.out.join('\n')).toContain(`${ECHO_SIGNPOST[verb](ref)} · smoke reason`);
+    });
+  }
+}
+
 for (const verb of UNIFORM_VERBS) {
   for (const [name, drive] of DRIVERS) {
     test.skipIf(!NORN)(`${name} drives ${verb} end-to-end`, async () => {

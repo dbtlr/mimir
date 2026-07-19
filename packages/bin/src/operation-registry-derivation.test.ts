@@ -109,6 +109,35 @@ test('golden: the derived rendered text is pinned exactly (CLI + MCP)', () => {
   ]);
 });
 
+test('golden: the per-command arg rows are pinned exactly', () => {
+  // The descriptor args derive from the subject id-kind + reason policy (the
+  // shared A_ID/A_KEY/A_REASON fragments); a reworded fragment or a policy
+  // drift in the projection fails here.
+  const rows = OP_SPECS.map(
+    (s) =>
+      `${s.verb}|${(COMMAND_HELP[s.verb]?.args ?? [])
+        .map(([arg, desc]) => `${arg} — ${desc}`)
+        .join('; ')}`,
+  );
+  const id = '<id> — KEY-seq (task/phase/initiative), KEY (project), or KEY-aN (artifact)';
+  const key = '<KEY> — a project key (bare KEY)';
+  const reason = '[reason] — optional note recorded in the transition log';
+  expect(rows).toEqual([
+    `start|${id}`,
+    `submit|${id}`,
+    `return|${id}; ${reason}`,
+    `done|${id}`,
+    `abandon|${id}; ${reason}`,
+    `reopen|${id}; ${reason}`,
+    `park|${id}; ${reason}`,
+    `unpark|${id}`,
+    `block|${id}; ${reason}`,
+    `unblock|${id}`,
+    `archive|${key}; ${reason}`,
+    `unarchive|${key}`,
+  ]);
+});
+
 test('the transport builders are pure over the registry: a synthetic verb propagates', () => {
   // A synthetic uniform verb, as if a new OP_FACTS entry — a task subject with an
   // optional reason. This exercises the builders directly, proving they derive
