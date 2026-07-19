@@ -300,6 +300,7 @@ for (const backend of backends) {
           seq: 1,
           tags: ['spec'],
           title: 'restored',
+          updated_at: '2026-02-02T00:00:00.000Z',
         };
         const outcome = await restoreArtifact(h.client, h.vaultRoot, record, 'restored body');
         expect(outcome).toBe('created');
@@ -310,6 +311,8 @@ for (const backend of backends) {
           seq: 1,
           tags: ['spec'],
           title: 'restored',
+          // restore preserves the source `updated_at` (MMR-317).
+          updated_at: record.updated_at,
         });
         expect(loaded?.content).toBe('restored body');
       },
@@ -325,6 +328,7 @@ for (const backend of backends) {
           seq: 1,
           tags: [],
           title: 'restored',
+          updated_at: '2026-02-02T00:00:00.000Z',
         };
         expect(await restoreArtifact(h.client, h.vaultRoot, record, 'body')).toBe('created');
         // The re-run hits norn's destination-already-exists refusal; the
@@ -344,6 +348,7 @@ for (const backend of backends) {
           seq: 1,
           tags: [],
           title: 'original',
+          updated_at: '2026-02-02T00:00:00.000Z',
         };
         expect(await restoreArtifact(h.client, h.vaultRoot, record, 'body')).toBe('created');
         // Same target path (`MMR/artifacts/MMR-a1.md`), but a different

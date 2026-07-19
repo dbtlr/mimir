@@ -21,6 +21,7 @@ export type ArtifactRecord = {
   seq: number;
   title: string;
   created_at: string;
+  updated_at: string;
   tags: string[];
   links: string[];
 };
@@ -53,7 +54,7 @@ export type ArtifactStore = {
   /**
    * Allocate the next seq and persist the artifact; returns the FULL record
    * (MMR-283, mirroring the seed store's `create`) — every field a create-echo
-   * renders (`key`/`seq`/`title`/`created_at`/`tags`/`links`/`content`) is
+   * renders (`key`/`seq`/`title`/`created_at`/`updated_at`/`tags`/`links`/`content`) is
    * already known at write time, so a caller building a create response never
    * needs a follow-up `load`.
    */

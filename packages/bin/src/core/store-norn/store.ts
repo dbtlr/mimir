@@ -216,7 +216,11 @@ export type SeedRefs = {
  * resolve against this one read.
  */
 export type VaultGraphSource = {
-  kind: 'node' | 'project' | 'seed';
+  // `artifact` is used only by the doctor identity index (MMR-317) so the
+  // artifact `stamp-updated-at` repair can prove single physical ownership; the
+  // relational `validate` passes never see artifact sources and read only
+  // `stem`/`path` here, never `kind`.
+  kind: 'node' | 'project' | 'seed' | 'artifact';
   stem: string;
   path: string;
 };
