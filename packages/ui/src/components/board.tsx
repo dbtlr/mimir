@@ -784,8 +784,9 @@ function MobileBoard({
 
 /**
  * The board — the status lens. Drag-to-reorder (rankable columns, grip handle
- * only) runs `reorder`; all status changes are explicit (card kebab). One
- * DndContext spans the board; a drop resolves within its source column.
+ * only) runs `reorder`; status never changes by drag — transitions stay
+ * explicit (the dossier's labeled verb chips). One DndContext spans the
+ * board; a drop resolves within its source column.
  */
 export function BoardView({
   board,
