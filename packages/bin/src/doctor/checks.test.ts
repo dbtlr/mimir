@@ -614,9 +614,42 @@ test('updated-at is silent on a document carrying a usable stamp (MMR-312)', asy
   expect(findings).toEqual([]);
 });
 
-test('updated-at ignores a seed — its write seam does not share the MMR-303 guard (MMR-312)', async () => {
+test('updated-at flags a seed whose updated_at is missing from frontmatter (MMR-313)', async () => {
   const findings = await updatedAtCheck.run(
     updatedAtCtx([{ frontmatter: { kind: 'feature', type: 'seed' }, stem: 'MMR-s1' }]),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'updated-at',
+    code: 'missing-updated-at',
+    node: 'MMR-s1',
+    severity: 'error',
+    where: 'frontmatter · updated_at',
+  });
+  expect(findings[0]?.evidence).toEqual({ present: false });
+  expect(findings[0]?.message).toContain('missing');
+});
+
+test('updated-at flags a seed whose updated_at is explicitly null (MMR-313)', async () => {
+  const findings = await updatedAtCheck.run(
+    updatedAtCtx([
+      { frontmatter: { kind: 'feature', type: 'seed', updated_at: null }, stem: 'MMR-s1' },
+    ]),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ code: 'missing-updated-at', node: 'MMR-s1' });
+  expect(findings[0]?.evidence).toEqual({ present: true });
+  expect(findings[0]?.message).toContain('null');
+});
+
+test('updated-at is silent on a seed carrying a usable stamp (MMR-313)', async () => {
+  const findings = await updatedAtCheck.run(
+    updatedAtCtx([
+      {
+        frontmatter: { kind: 'feature', type: 'seed', updated_at: '2026-01-01T00:00:00Z' },
+        stem: 'MMR-s1',
+      },
+    ]),
   );
   expect(findings).toEqual([]);
 });

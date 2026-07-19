@@ -4,8 +4,10 @@ import { join } from 'node:path';
 
 import type { Store } from '../core';
 import { deriveSet, findNodeInSet, resolveProjectKeyInSet } from '../core';
+import type { SeedStore } from '../core/seeds/store';
 import type { NodePatch } from '../core/store';
 import { NornClient } from '../core/store-norn/client';
+import { createNornSeedStore } from '../core/store-norn/seeds';
 import { createNornWriteStore } from '../core/store-norn/writer';
 import { now } from '../core/time';
 import type { DoctorDeps } from '../doctor/commands';
@@ -26,6 +28,10 @@ import { converge } from '../vault/converge';
  */
 export type TestStore = {
   store: Store;
+  /** The seed store over the same isolated Norn client — seed-mutation fixtures
+   * (the MMR-313 co-write guard cycle) drive it directly, as the write `store`
+   * has no seed surface. */
+  seeds: SeedStore;
   close: () => Promise<void>;
   /** CLI-only repair dependencies over this isolated Norn client. */
   doctor: DoctorDeps;
@@ -70,6 +76,7 @@ export async function createTestStore(): Promise<TestStore> {
       },
       readDocument: (path) => readFileSync(safeVaultPath(root, path), 'utf8'),
       removeDocument: (path) => unlinkSync(safeVaultPath(root, path)),
+      seeds: createNornSeedStore(client, root),
       store: createNornWriteStore(client, root),
     };
   } catch (error) {

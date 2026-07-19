@@ -243,10 +243,12 @@ export const crlfCheck: Diagnostic = {
  * usable `updated_at` to guard — a hand-edited or pre-mimir document is
  * permanently unmutable until repaired. So this is an `error`: it names no data
  * lost on read, but a document no ordinary verb can ever again successfully
- * write — a stronger failure than most `error` findings here. Node + project
- * only, the two document kinds the write path's co-write invariant covers — a
- * seed's write seam (`core/store-norn/seeds.ts`) does not share the runtime
- * guard, so a seed's `updated_at` is out of this check's scope.
+ * write — a stronger failure than most `error` findings here. Node, project,
+ * and seed, the three document kinds the write path's co-write invariant covers:
+ * the seed store's mutating verbs (`core/store-norn/seeds.ts`) share the same
+ * guard (MMR-313), refusing a missing/null `updated_at` exactly as the
+ * node/project path does. Artifacts stay out of scope — their mutations ride
+ * CAS-less `vault.set` and their schema carries no `updated_at` at all.
  *
  * `--fix` repairs it deterministically (the `stamp-updated-at` recipe,
  * `repair.ts`): seeded from `created` when present, else the repair's own
@@ -265,7 +267,10 @@ export const updatedAtCheck: Diagnostic = {
     const findings: DoctorFinding[] = [];
     for (const { stem, path, frontmatter } of await ctx.readNodeDocs()) {
       const identity = parseIdentity(stem);
-      if (identity === null || (identity.kind !== 'node' && identity.kind !== 'project')) {
+      if (
+        identity === null ||
+        (identity.kind !== 'node' && identity.kind !== 'project' && identity.kind !== 'seed')
+      ) {
         continue;
       }
       if (frontmatter === undefined) {

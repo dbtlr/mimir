@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
-import { invariant, validation } from '../errors';
+import { degradedUpdatedAt, invariant, validation } from '../errors';
 import {
   ANNOTATIONS_HEADING,
   DESCRIPTION_HEADING,
@@ -896,10 +896,7 @@ function assertCoWriteGuards(operations: readonly MigrationOp[]): void {
     return;
   }
   if (unguarded.every((path) => stampedPaths.has(path))) {
-    throw validation(
-      `${unguarded.join(', ')} carries no usable updated_at for the write's drift guard`,
-      "the document was hand-edited or predates mimir management — run 'mimir doctor --fix' to repair it",
-    );
+    throw degradedUpdatedAt(unguarded.join(', '));
   }
   throw invariant(
     'the write plan touches a document with no CAS-guarded op',

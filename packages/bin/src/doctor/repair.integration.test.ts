@@ -306,4 +306,44 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
     await annotate(fixture.store, task.id, 'post-repair note');
     expect(fixture.readDocument(taskPath)).toContain('post-repair note');
   });
+
+  test('detects, repairs, and unblocks a seed write on a missing updated_at (MMR-313)', async () => {
+    await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
+    await fixture.seeds.create({
+      description: 'a rough idea',
+      key: 'MMR',
+      kind: 'feature',
+      requester: null,
+      title: 'Legacy seed',
+    });
+    const seedPath = 'MMR/seeds/MMR-s1.md';
+    fixture.corruptDocument(seedPath, (raw) => removeFrontmatterField(raw, 'updated_at'));
+
+    const detected = await jsonDoctor('MMR');
+    const findings = detected.filter((entry) => entry.code === 'missing-updated-at');
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ evidence: { present: false }, stem: 'MMR-s1' });
+
+    // The MMR-313 refusal: a seed mutation against the degraded doc is refused,
+    // not silently applied unguarded.
+    let refused: unknown;
+    try {
+      await fixture.seeds.patch('MMR', 1, { title: 'renamed pre-repair' });
+    } catch (error) {
+      refused = error;
+    }
+    expect(refused).toBeDefined();
+
+    expect(
+      await cmdDoctor(fakeIo(), fixture.doctor, 'json', 'MMR', { dryRun: false, fix: true }),
+    ).toBe(0);
+    expect(fixture.readDocument(seedPath)).toMatch(/^updated_at: .+$/m);
+
+    const post = await jsonDoctor('MMR');
+    expect(post.some((entry) => entry.code === 'missing-updated-at')).toBe(false);
+
+    // The previously-refused seed write now succeeds end-to-end.
+    await fixture.seeds.patch('MMR', 1, { title: 'renamed post-repair' });
+    expect((await fixture.seeds.load('MMR', 1))?.title).toBe('renamed post-repair');
+  });
 });
