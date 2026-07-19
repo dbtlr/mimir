@@ -1,6 +1,56 @@
 /** Two help tiers: `-h` terse (synopsis + flags), `--help` fuller with examples. */
+import { isTerminalLifecycle, OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
+import type { OpFact, UniformVerb } from '@mimir/contract';
+
 import { DEFAULT_PORT } from '../env';
 import { bold, color } from './render';
+
+// ─── Uniform-verb help derivation (ADR 0025 Decision 4) ─────────────────────
+// The twelve uniform verbs' terse rows and per-command descriptors derive from
+// the operation facts, not hand-authored prose: the synopsis (verb + id-kind +
+// optional reason), the summary (the canonical sentence plus the lifecycle
+// transition arrow), and the args all project from one registry entry. Only the
+// worked examples stay hand-authored per verb (a CLI view seam). Adding a
+// uniform verb is one registry entry — its help surfaces with no edit here.
+
+type UniformSpec = OpFact & { verb: UniformVerb };
+const UNIFORM_SPEC_LIST: UniformSpec[] = [];
+for (const verb of UNIFORM_VERBS) {
+  UNIFORM_SPEC_LIST.push({ verb, ...OP_FACTS[verb] });
+}
+const UNIFORM_SPECS: readonly UniformSpec[] = UNIFORM_SPEC_LIST;
+
+/** The positional grammar for a uniform verb: the subject id-kind plus the
+ * optional reason tail (`<id>`, `<id> [reason]`, `<KEY>`, `<KEY> [reason]`). */
+export function uniformArgSpec(spec: OpFact): string {
+  const subject = spec.subject === 'project' ? '<KEY>' : '<id>';
+  return spec.reason === 'optional' ? `${subject} [reason]` : subject;
+}
+
+/** The canonical summary composed with the transition arrow — a lifecycle move to
+ * a non-terminal state renders `(from → to)` (the source states joined by `/`);
+ * a terminal move and the hold/archive axes render the summary bare. */
+export function uniformSummary(spec: OpFact): string {
+  const t = spec.transition;
+  if (t.axis === 'lifecycle' && !isTerminalLifecycle(t.to)) {
+    return `${spec.summary} (${t.from.join('/')} → ${t.to})`;
+  }
+  return spec.summary;
+}
+
+/** The terse-help rows for the uniform verbs matching `group`, aligned to the
+ * shared synopsis column (indent 4, synopsis padded to 24, then the summary). */
+function uniformTerseRows(group: (spec: UniformSpec) => boolean): string[] {
+  return UNIFORM_SPECS.filter(group).map(
+    (spec) => `    ${`${spec.verb} ${uniformArgSpec(spec)}`.padEnd(24)}${uniformSummary(spec)}`,
+  );
+}
+
+const LIFECYCLE_ROWS = uniformTerseRows(
+  (spec) => spec.transition.axis === 'lifecycle' && spec.subject === 'task',
+).join('\n');
+const HOLD_ROWS = uniformTerseRows((spec) => spec.transition.axis === 'hold').join('\n');
+const PROJECT_ROWS = uniformTerseRows((spec) => spec.subject === 'project').join('\n');
 
 export const TERSE_HELP = `mimir — query and manage work state
 
@@ -18,18 +68,10 @@ work commands (flat verbs — read or mutate work state; the agent hot path):
                     to drill into a container's hierarchy
 
   lifecycle:
-    start <id>              begin a task (todo → in_progress)
-    submit <id>             submit for review (in_progress → under_review)
-    return <id> [reason]    send back for changes (under_review → in_progress)
-    done <id>               complete a task (approves a review)
-    abandon <id> [reason]   abandon a task (kept, not deleted)
-    reopen <id> [reason]    reopen a terminal task (done/abandoned → in_progress)
+${LIFECYCLE_ROWS}
 
   holds:
-    park <id> [reason]      put a task on hold
-    unpark <id>             clear the parked hold
-    block <id> [reason]     mark as externally blocked
-    unblock <id>            clear the blocked hold
+${HOLD_ROWS}
 
   structure:
     depend <id> --on <ids>              add dependency edges
@@ -60,9 +102,7 @@ work commands (flat verbs — read or mutate work state; the agent hot path):
     triage [KEY] [--dry-run]            reconcile a board — untriaged / ready-to-resolve / upstream resolutions
 
   project:
-    archive <KEY> [reason]  archive a project — freeze + hide it and its whole
-                            subtree (reversible; --status archived lists them)
-    unarchive <KEY>         restore an archived project
+${PROJECT_ROWS}
 
   binding:
     bind <KEY>              bind this directory to a project — writes
@@ -200,6 +240,49 @@ const SELECTION_NOTE: Row = [
 ];
 const A_ID: Row = ['<id>', 'KEY-seq (task/phase/initiative), KEY (project), or KEY-aN (artifact)'];
 const A_REASON: Row = ['[reason]', 'optional note recorded in the transition log'];
+const A_KEY: Row = ['<KEY>', 'a project key (bare KEY)'];
+
+/**
+ * The hand-authored worked examples for each uniform verb — the one CLI view
+ * seam the operation registry doesn't derive (ADR 0025 Decision 4 lets per-verb
+ * examples stay hand-authored). Everything else in a uniform verb's descriptor —
+ * usage, summary, args — projects from the facts via {@link uniformCommandHelp}.
+ */
+const UNIFORM_EXAMPLES: Record<UniformVerb, readonly string[]> = {
+  abandon: ['mimir abandon MMR-3 "superseded by MMR-9"'],
+  archive: [
+    'mimir archive SAGA "superseded by SAGA2"',
+    'mimir list --status archived        # the archived projects (the one door)',
+  ],
+  block: ['mimir block MMR-3 "upstream API down"'],
+  done: ['mimir done MMR-3'],
+  park: ['mimir park MMR-3 "waiting on design"'],
+  reopen: ['mimir reopen MMR-3'],
+  return: ['mimir return MMR-3 "needs tests"'],
+  start: ['mimir start MMR-3'],
+  submit: ['mimir submit MMR-3'],
+  unarchive: ['mimir unarchive SAGA'],
+  unblock: ['mimir unblock MMR-3'],
+  unpark: ['mimir unpark MMR-3'],
+};
+
+/** The per-command descriptors for the twelve uniform verbs, projected from the
+ * operation facts (ADR 0025): the usage line, the summary (canonical sentence +
+ * transition arrow), and the args (subject id-kind + optional reason) all derive;
+ * only the examples are hand-authored. Merged into {@link COMMAND_HELP} below. */
+function uniformCommandHelp(): Record<string, CommandHelp> {
+  const out: Record<string, CommandHelp> = {};
+  for (const spec of UNIFORM_SPECS) {
+    const subjectArg = spec.subject === 'project' ? A_KEY : A_ID;
+    out[spec.verb] = {
+      args: spec.reason === 'optional' ? [subjectArg, A_REASON] : [subjectArg],
+      examples: UNIFORM_EXAMPLES[spec.verb],
+      summary: uniformSummary(spec),
+      usage: `mimir ${spec.verb} ${uniformArgSpec(spec)}`,
+    };
+  }
+  return out;
+}
 
 // Grouped by concern to mirror the top-level help (read → lifecycle → holds →
 // structure → data → create/attach → binding), not alphabetical — the reader
@@ -281,68 +364,10 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     summary: 'full subtree rooted at any KEY-seq or project (KEY)',
     usage: 'mimir tree <id>',
   },
-  // ── lifecycle ──
-  start: {
-    args: [A_ID],
-    examples: ['mimir start MMR-3'],
-    summary: 'begin a task (todo → in_progress)',
-    usage: 'mimir start <id>',
-  },
-  submit: {
-    args: [A_ID],
-    examples: ['mimir submit MMR-3'],
-    summary: 'submit for review (in_progress → under_review)',
-    usage: 'mimir submit <id>',
-  },
-  return: {
-    args: [A_ID, A_REASON],
-    examples: ['mimir return MMR-3 "needs tests"'],
-    summary: 'send back for changes (under_review → in_progress)',
-    usage: 'mimir return <id> [reason]',
-  },
-  done: {
-    args: [A_ID],
-    examples: ['mimir done MMR-3'],
-    summary: 'complete a task — approves a review, stamps completed_at',
-    usage: 'mimir done <id>',
-  },
-  abandon: {
-    args: [A_ID, A_REASON],
-    examples: ['mimir abandon MMR-3 "superseded by MMR-9"'],
-    summary: 'abandon a task (kept, not deleted)',
-    usage: 'mimir abandon <id> [reason]',
-  },
-  reopen: {
-    args: [A_ID, A_REASON],
-    examples: ['mimir reopen MMR-3'],
-    summary: 'reopen a terminal task (done/abandoned → in_progress)',
-    usage: 'mimir reopen <id> [reason]',
-  },
-  // ── holds ──
-  park: {
-    args: [A_ID, A_REASON],
-    examples: ['mimir park MMR-3 "waiting on design"'],
-    summary: 'put a task on hold (parked overlay; lifecycle untouched)',
-    usage: 'mimir park <id> [reason]',
-  },
-  unpark: {
-    args: [A_ID],
-    examples: ['mimir unpark MMR-3'],
-    summary: 'clear the parked hold',
-    usage: 'mimir unpark <id>',
-  },
-  block: {
-    args: [A_ID, A_REASON],
-    examples: ['mimir block MMR-3 "upstream API down"'],
-    summary: 'mark as externally blocked (blocked overlay; lifecycle untouched)',
-    usage: 'mimir block <id> [reason]',
-  },
-  unblock: {
-    args: [A_ID],
-    examples: ['mimir unblock MMR-3'],
-    summary: 'clear the blocked hold',
-    usage: 'mimir unblock <id>',
-  },
+  // ── lifecycle + holds + project: the twelve uniform verbs, derived from the
+  // operation registry (ADR 0025 Decision 4). The bespoke `structure`/`data`/…
+  // verbs stay hand-authored below.
+  ...uniformCommandHelp(),
   // ── structure ──
   depend: {
     args: [A_ID],
@@ -601,26 +626,6 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     summary:
       "an explicit-run reconciliation pass over ONE board (MMR-246): (a) surfaces new/untriaged seeds, (b) flags promoted seeds whose spawned work has all settled (ready to resolve — never auto-closed), and (c) over the board's own tasks whose upstream seed went terminal, appends an idempotent annotation recording the resolution and suggests unblock. WRITES the check-(c) annotations by default (running it is the intent); NEVER transitions anything (unblock/resolve stay suggestions); --dry-run previews. A report, never a gate — always exits 0. Idempotent: a re-run recognizes its own annotations and is a no-op. Self-contained per board (timer/eventual-consistency mode deferred)",
     usage: 'mimir triage [KEY] [--dry-run] [--format <fmt>]',
-  },
-  // ── project ──
-  archive: {
-    usage: 'mimir archive <KEY> [reason]',
-    summary:
-      'archive a project — freeze (no mutation under it) + hide it, its subtree, and its artifacts from default reads. Reversible',
-    args: [
-      ['<KEY>', 'the project to archive (bare project key)'],
-      ['[reason]', 'optional note recorded on the archive transition'],
-    ],
-    examples: [
-      'mimir archive SAGA "superseded by SAGA2"',
-      'mimir list --status archived        # the archived projects (the one door)',
-    ],
-  },
-  unarchive: {
-    usage: 'mimir unarchive <KEY>',
-    summary: 'restore an archived project (archived → active) — unfreezes and unhides it',
-    args: [['<KEY>', 'the archived project to restore (bare project key)']],
-    examples: ['mimir unarchive SAGA'],
   },
   // ── setup wizard (MMR-145) ──
   setup: {

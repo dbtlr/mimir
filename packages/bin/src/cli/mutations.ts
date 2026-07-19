@@ -4,18 +4,18 @@
  * write verbs. Tasks 4–8 will add more handlers here and cases to `run.ts`.
  */
 
-import { SEED_KIND_VALUES, SEED_STATUS_SELECTOR_VALUES } from '@mimir/contract';
-import type { SeedKind } from '@mimir/contract';
+import {
+  isTerminalLifecycle,
+  SEED_KIND_VALUES,
+  SEED_STATUS_SELECTOR_VALUES,
+} from '@mimir/contract';
+import type { OpTransition, SeedKind, UniformVerb } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import {
-  abandonTask,
   annotate,
   applyUpdateFields,
-  archiveProject,
   attachArtifact,
-  blockTask,
-  completeTask,
   createNode,
   asSeedKind,
   depend,
@@ -25,31 +25,24 @@ import {
   inapplicableUpdateFields,
   listSeeds,
   moveNode,
+  OPS,
   parseIdentity,
   parseSeedRef,
   parseUpstreamField,
   parseWireField,
   UPSTREAM_CLEAR,
   notFound,
-  parkTask,
   promoteSeed,
   releasedByArchive,
   reorder,
-  reopenTask,
   resolveAttachTargets,
   resolveEntityTokenInSet,
   resolveNodeTokenInSet,
-  returnTask,
-  startTask,
-  submitTask,
   resolveBoard,
   tagEntities,
   transitionSeed,
   triage,
-  unarchiveProject,
-  unblockTask,
   undepend,
-  unparkTask,
   untagEntities,
   updateArtifact,
   updateNode,
@@ -122,74 +115,98 @@ function requireToken(value: string, verb: string, flag: string): string {
 const withReason = (text: string, reason?: string): string =>
   reason !== undefined ? `${text} · ${reason}` : text;
 
-export async function cmdStart(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.store, requirePos(c, 1, 'start'), 'task');
-  await startTask(c.store, id);
-  await echoNodeWith(
-    c.store,
-    id,
-    c.format,
-    c.io,
-    (rid) => `started ${rid} · todo ${arrow(c.io.plain)} in_progress`,
-  );
-  return 0;
-}
-
-export async function cmdDone(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.store, requirePos(c, 1, 'done'), 'task');
-  await completeTask(c.store, id);
-  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `completed ${rid}`);
-  return 0;
-}
-
-export async function cmdAbandon(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.store, requirePos(c, 1, 'abandon'), 'task');
-  const reason = reasonTail(c);
-  await abandonTask(c.store, id, reason);
-  await echoNodeWith(c.store, id, c.format, c.io, (rid) => withReason(`abandoned ${rid}`, reason));
-  return 0;
-}
-
-export async function cmdSubmit(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.store, requirePos(c, 1, 'submit'), 'task');
-  await submitTask(c.store, id);
-  await echoNodeWith(
-    c.store,
-    id,
-    c.format,
-    c.io,
-    (rid) => `submitted ${rid} · in_progress ${arrow(c.io.plain)} under_review`,
-  );
-  return 0;
-}
-
-export async function cmdReturn(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.store, requirePos(c, 1, 'return'), 'task');
-  const reason = reasonTail(c);
-  await returnTask(c.store, id, reason);
-  await echoNodeWith(c.store, id, c.format, c.io, (rid) =>
-    withReason(`returned ${rid} · under_review ${arrow(c.io.plain)} in_progress`, reason),
-  );
-  return 0;
-}
-
-export async function cmdReopen(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.store, requirePos(c, 1, 'reopen'), 'task');
-  const reason = reasonTail(c);
-  await reopenTask(c.store, id, reason);
-  await echoNodeWith(c.store, id, c.format, c.io, (rid) =>
-    withReason(`reopened ${rid} ${arrow(c.io.plain)} in_progress`, reason),
-  );
-  return 0;
-}
-
 const reasonTail = (c: Ctx): string | undefined => c.positionals.slice(2).join(' ') || undefined;
+
+/**
+ * The past-participle echo word for a uniform verb (ADR 0025 CLI view template)
+ * — the derived default is `verb + 'ed'` (or `+ 'd'` for a verb ending in `e`),
+ * matching started/returned/parked/archived/…; the two English irregulars whose
+ * echo word isn't that (`submit` doubles the final consonant; `done` echoes the
+ * mutation's own word) are the only hand-held spellings, a narrow documented CLI
+ * seam like `UPDATE_FLAG_OVERRIDES` (MMR-315), not a fact on the registry.
+ */
+const PAST_PARTICIPLE_OVERRIDES: Partial<Record<UniformVerb, string>> = {
+  done: 'completed',
+  submit: 'submitted',
+};
+function pastParticiple(verb: UniformVerb): string {
+  return PAST_PARTICIPLE_OVERRIDES[verb] ?? (verb.endsWith('e') ? `${verb}d` : `${verb}ed`);
+}
+
+/**
+ * The CLI echo's transition suffix, derived from the transition fact (ADR 0025):
+ * a lifecycle move to a non-terminal state renders its arrow — with the source
+ * state when there's exactly one (`· todo → in_progress`), bare when the source
+ * is a set (reopen's `→ in_progress`, done/abandoned collapsed). A move to a
+ * terminal state (done/abandon) and the hold/archive axes render no suffix. The
+ * arrow glyph follows `io.plain` (`→` vs `->`).
+ */
+function echoTransitionSuffix(t: OpTransition, plain: boolean): string {
+  if (t.axis !== 'lifecycle' || isTerminalLifecycle(t.to)) {
+    return '';
+  }
+  const a = arrow(plain);
+  return t.from.length === 1 ? ` · ${t.from[0]} ${a} ${t.to}` : ` ${a} ${t.to}`;
+}
+
+/**
+ * The one generic dispatch arm for the twelve uniform verbs (ADR 0025 Decision
+ * 3) — the twelve hand-written `cmdStart`/`cmdArchive`/… handlers collapsed to a
+ * single registry-driven handler. Resolves the subject by its id-kind (a task
+ * stem vs a project KEY), reads the optional reason tail per the verb's policy,
+ * runs the bound mutation, and echoes through the per-verb view template
+ * (past-participle word + transition suffix + reason tail). Archive's
+ * out-of-project released-dependents line and the project-echo shape stay a
+ * narrow, documented CLI seam — verb-specific view behavior, not silent loss.
+ */
+export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
+  const op = OPS[verb];
+  const reason = op.reason === 'optional' ? reasonTail(c) : undefined;
+  const word = pastParticiple(verb);
+  if (op.subject === 'project') {
+    const key = requirePos(c, 1, verb, 'a project KEY');
+    const projectId = await resolveProject(c.store, key);
+    // The project subject guarantees a Project row (the archive/unarchive
+    // mutations return one); the registry's `run` widens it to OpResult, so the
+    // echo reads the two project fields it needs off the returned row.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const project = (await op.run(c.store, projectId, reason)) as {
+      key: string;
+      archived_at: string | null;
+    };
+    echoArchiveOp(c, project, word, reason);
+    // Name the out-of-project dependents this archive released (ADR 0015
+    // Refinement) — their archived prerequisite no longer gates them.
+    if (verb === 'archive') {
+      const released = await releasedByArchive(c.store, projectId);
+      if (
+        released.length > 0 &&
+        c.format !== 'json' &&
+        c.format !== 'jsonl' &&
+        c.format !== 'ids'
+      ) {
+        const glyph = c.io.plain ? '[warn]' : '\x1b[33m⚠\x1b[0m';
+        c.io.write(
+          `${glyph} released ${String(released.length)} dependent(s): ${released.join(', ')}`,
+        );
+      }
+    }
+    return 0;
+  }
+  const id = await resolveNode(c.store, requirePos(c, 1, verb), 'task');
+  await op.run(c.store, id, reason);
+  const suffix = echoTransitionSuffix(op.transition, c.io.plain);
+  await echoNodeWith(c.store, id, c.format, c.io, (rid) =>
+    withReason(`${word} ${rid}${suffix}`, reason),
+  );
+  return 0;
+}
 
 /** Echo a project archive/unarchive — a signpost (the project view doesn't surface archived state until Phase 1). */
 function echoArchiveOp(
   c: Ctx,
   project: { key: string; archived_at: string | null },
-  verb: 'archived' | 'unarchived',
+  verb: string,
   reason?: string,
 ): void {
   if (c.format === 'json' || c.format === 'jsonl') {
@@ -199,60 +216,6 @@ function echoArchiveOp(
   } else {
     ok(c.io, withReason(`${verb} ${project.key}`, reason));
   }
-}
-
-export async function cmdArchive(c: Ctx): Promise<number> {
-  const key = requirePos(c, 1, 'archive', 'a project KEY');
-  const reason = reasonTail(c);
-  const projectId = await resolveProject(c.store, key);
-  const project = await archiveProject(c.store, projectId, reason);
-  echoArchiveOp(c, project, 'archived', reason);
-  // Name the out-of-project dependents this archive released (ADR 0015
-  // Refinement) — their archived prerequisite no longer gates them.
-  const released = await releasedByArchive(c.store, projectId);
-  if (released.length > 0 && c.format !== 'json' && c.format !== 'jsonl' && c.format !== 'ids') {
-    const glyph = c.io.plain ? '[warn]' : '\x1b[33m⚠\x1b[0m';
-    c.io.write(`${glyph} released ${String(released.length)} dependent(s): ${released.join(', ')}`);
-  }
-  return 0;
-}
-
-export async function cmdUnarchive(c: Ctx): Promise<number> {
-  const key = requirePos(c, 1, 'unarchive', 'a project KEY');
-  const projectId = await resolveProject(c.store, key);
-  const project = await unarchiveProject(c.store, projectId);
-  echoArchiveOp(c, project, 'unarchived');
-  return 0;
-}
-
-export async function cmdPark(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.store, requirePos(c, 1, 'park'), 'task');
-  const reason = reasonTail(c);
-  await parkTask(c.store, id, reason);
-  await echoNodeWith(c.store, id, c.format, c.io, (rid) => withReason(`parked ${rid}`, reason));
-  return 0;
-}
-
-export async function cmdUnpark(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.store, requirePos(c, 1, 'unpark'), 'task');
-  await unparkTask(c.store, id);
-  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `unparked ${rid}`);
-  return 0;
-}
-
-export async function cmdBlock(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.store, requirePos(c, 1, 'block'), 'task');
-  const reason = reasonTail(c);
-  await blockTask(c.store, id, reason);
-  await echoNodeWith(c.store, id, c.format, c.io, (rid) => withReason(`blocked ${rid}`, reason));
-  return 0;
-}
-
-export async function cmdUnblock(c: Ctx): Promise<number> {
-  const id = await resolveNode(c.store, requirePos(c, 1, 'unblock'), 'task');
-  await unblockTask(c.store, id);
-  await echoNodeWith(c.store, id, c.format, c.io, (rid) => `unblocked ${rid}`);
-  return 0;
 }
 
 async function resolveIds(
