@@ -10,9 +10,9 @@
  * exit code, not stdout emptiness.
  */
 import { usage } from '../cli/errors';
-import { ok, warn } from '../cli/render';
-import type { Format, Io } from '../cli/render';
 import type { Exec } from '../exec';
+import { ok, warn } from '../presentation';
+import type { Format, Io } from '../presentation';
 import type { SnapshotConfig } from '../service/config';
 import type { ResolvedVault } from './resolve';
 import { snapshotVault } from './snapshot';

@@ -45,6 +45,8 @@ import type { Store } from '../core';
 import { cmdDoctor } from '../doctor/commands';
 import type { DoctorDeps } from '../doctor/commands';
 import { defaultVaultPath } from '../env';
+import { arrow, FORMATS, ok, warn } from '../presentation';
+import type { Format, Io } from '../presentation';
 import { cmdSelfUpdate, cmdService } from '../service';
 import type { ServiceDeps } from '../service';
 import { cmdVault } from '../vault/commands';
@@ -75,10 +77,7 @@ import {
 import type { Ctx } from './mutations';
 import { parsePriority, parseSize } from './parse';
 import {
-  arrow,
   countLine,
-  FORMATS,
-  ok,
   renderArtifactDetail,
   renderNodeView,
   renderOverview,
@@ -87,9 +86,7 @@ import {
   renderStatus,
   renderTable,
   renderTree,
-  warn,
 } from './render';
-import type { Format, Io } from './render';
 import { resolveProject } from './resolve';
 import { cmdSetup } from './setup';
 import { SKILL_AGENTS, SKILL_FILES, skillDirFor } from './skill-assets';

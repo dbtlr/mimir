@@ -62,18 +62,17 @@ import type {
   UpdateSeedFields,
   WireValue,
 } from '../core';
+import { arrow, ok } from '../presentation';
+import type { Format, Io } from '../presentation';
 import { usage } from './errors';
 import { parsePriority, parseSize } from './parse';
 import {
-  arrow,
-  ok,
   renderArtifactDetail,
   renderSeedView,
   renderSeeds,
   renderTriage,
   signpost,
 } from './render';
-import type { Format, Io } from './render';
 import { echoNodeWith, echoProject, readContent, resolveNode, resolveProject } from './resolve';
 
 /** Shared dispatch context built once in `run.ts` for every write verb. */

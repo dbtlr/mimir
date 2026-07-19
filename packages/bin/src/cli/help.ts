@@ -3,7 +3,7 @@ import { isTerminalLifecycle, OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { OpFact, UniformVerb } from '@mimir/contract';
 
 import { DEFAULT_PORT } from '../env';
-import { bold, color } from './render';
+import { bold, color } from '../presentation';
 
 // ─── Uniform-verb help derivation (ADR 0025 Decision 4) ─────────────────────
 // The twelve uniform verbs' terse rows and per-command descriptors derive from

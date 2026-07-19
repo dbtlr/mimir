@@ -20,27 +20,8 @@ import {
   formatTriageJsonl,
   seedLane,
 } from '../core';
-
-export const FORMATS = ['table', 'records', 'ids', 'json', 'jsonl'] as const;
-export type Format = (typeof FORMATS)[number];
-
-/**
- * The styled TTY formats — `table` (set view) and `records` (detail view).
- * Color/icon only *highlight*; the Status **word** is always present, so
- * `--ascii` / NO_COLOR lose nothing (output-contract / Norn's "color is
- * decoration, never information"). Glyphs + palette are provisional — the brand
- * pass is deferred.
- */
-
-/** Output sink + presentation context, injected so the CLI is testable. */
-export type Io = {
-  write: (text: string) => void;
-  error: (text: string) => void;
-  /** Is stdout a TTY? Drives the format default. */
-  isTTY: boolean;
-  /** Suppress ANSI (NO_COLOR env or `--ascii`). */
-  plain: boolean;
-};
+import { arrow, bold, color, ok } from '../presentation';
+import type { Format, Io } from '../presentation';
 
 type StatusStyle = {
   icon: string;
@@ -60,26 +41,6 @@ const STATUS_STYLE: Record<StatusWord, StatusStyle> = {
   under_review: { ascii: '?', color: 35, icon: '◎' },
 };
 
-/** Wrap `text` in an ANSI color (`plain` — NO_COLOR/--ascii/!isTTY — passes it through untouched). Exported for the help renderer (MMR-300): same plain/color contract, no second color system. */
-export function color(text: string, code: number, plain: boolean): string {
-  return plain ? text : `\x1b[${String(code)}m${text}\x1b[0m`;
-}
-
-/** Wrap `text` in ANSI bold (`plain` passes it through untouched). Exported for the help renderer (MMR-300). */
-export function bold(text: string, plain: boolean): string {
-  return plain ? text : `\x1b[1m${text}\x1b[0m`;
-}
-
-/**
- * The shared status/relation arrow — `→` styled, `->` plain (`--ascii`/NO_COLOR).
- * Arrows carry direction (real information), so they degrade to ASCII while `·`
- * keeps its glyph. Every arrow reads left to right; operands are always ordered
- * old → new (transitions) or subject → destination — never a reversed glyph.
- */
-export function arrow(plain: boolean): string {
-  return plain ? '->' : '→';
-}
-
 function pad(text: string, width: number): string {
   return text.length >= width ? text : text + ' '.repeat(width - text.length);
 }
@@ -89,13 +50,13 @@ export function countLine(n: number, unit = 'task'): string {
   return `${String(n)} ${unit}${n === 1 ? '' : 's'}`;
 }
 
-/** Success line on stdout — the shared `✓`/`[ok]` glyph (color is decoration). */
-export function ok(io: Io, text: string): void {
-  const glyph = io.plain ? '[ok]' : '\x1b[32m✓\x1b[0m';
-  io.write(`${glyph} ${text}`);
-}
-
 /**
+ * The styled TTY formats — `table` (set view) and `records` (detail view).
+ * Color/icon only *highlight*; the Status **word** is always present, so
+ * `--ascii` / NO_COLOR lose nothing (output-contract / Norn's "color is
+ * decoration, never information"). Glyphs + palette are provisional — the brand
+ * pass is deferred.
+ *
  * The styled (human) formats carry prose — confirmations, signposts, hints;
  * the structured formats (`json`/`jsonl`/`ids`) stay a clean machine contract.
  */
@@ -112,12 +73,6 @@ export function signpost(io: Io, format: Format, text: string): void {
   if (isStyled(format)) {
     ok(io, text);
   }
-}
-
-/** Warning line on stderr — the shared `⚠`/`[warn]` glyph. */
-export function warn(io: Io, text: string): void {
-  const glyph = io.plain ? '[warn]' : '\x1b[33m⚠\x1b[0m';
-  io.error(`${glyph} ${text}`);
 }
 
 function statusCell(status: StatusWord, width: number, plain: boolean): string {
