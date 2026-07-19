@@ -12,30 +12,28 @@ import type {
   SeedKind,
   Size,
   StatusSelector,
+  UniformVerb,
   Verdict,
   VerdictSelector,
 } from '@mimir/contract';
 
 import {
   MimirError,
-  abandonTask,
   annotate,
   applyUpdateFields,
-  archiveProject,
   asSeedKind,
   attachArtifact,
-  blockTask,
   deriveSet,
   nodeViewOf,
   projectViewByKey,
   projectViewOf,
-  completeTask,
   createNode,
   depend,
   fileSeed,
   getSeed,
   inapplicableUpdateFields,
   listSeeds,
+  OPS,
   parsePriorityValue,
   parseSizeValue,
   parseWireField,
@@ -65,19 +63,11 @@ import {
   overviewOf,
   notFound,
   projectNotFound,
-  parkTask,
   reorder,
   resolveEntityTokenInSet,
-  reopenTask,
-  returnTask,
-  startTask,
-  submitTask,
   statusOfNode,
   tagEntities,
-  unarchiveProject,
-  unblockTask,
   undepend,
-  unparkTask,
   untagEntities,
   updateArtifact,
   updateNode,
@@ -344,121 +334,36 @@ export function toolOverview(
 }
 
 // ---------------------------------------------------------------------------
-// Lifecycle mutation tools
+// Uniform mutation tools (ADR 0025 Decision 3)
 // ---------------------------------------------------------------------------
 
-export function toolStart(store: Store, args: { id: string }): Promise<ToolResult> {
-  return guard(async () => {
-    const id = await nodeId(store, args.id, 'task');
-    const node = await startTask(store, id);
-    return echoNode(store, node);
-  });
-}
-
-export function toolSubmit(store: Store, args: { id: string }): Promise<ToolResult> {
-  return guard(async () => {
-    const id = await nodeId(store, args.id, 'task');
-    const node = await submitTask(store, id);
-    return echoNode(store, node);
-  });
-}
-
-export function toolReturn(
+/**
+ * The one generic handler for the twelve uniform verbs — the twelve per-verb
+ * `toolStart`/`toolArchive`/… handlers collapsed to a single registry-driven
+ * function (ADR 0025). Resolves the subject by its id-kind (a task stem vs a
+ * project KEY), applies the reason per the verb's policy, runs the bound
+ * mutation, and echoes the matching record shape. `mcp/server.ts` loop-registers
+ * one MCP tool per registry entry over this handler, so adding a uniform verb
+ * needs no transport edit.
+ */
+export function toolUniform(
   store: Store,
-  args: { id: string; reason?: string },
+  verb: UniformVerb,
+  args: { id?: string; key?: string; reason?: string },
 ): Promise<ToolResult> {
   return guard(async () => {
-    const id = await nodeId(store, args.id, 'task');
-    const node = await returnTask(store, id, args.reason);
-    return echoNode(store, node);
-  });
-}
-
-export function toolReopen(
-  store: Store,
-  args: { id: string; reason?: string },
-): Promise<ToolResult> {
-  return guard(async () => {
-    const id = await nodeId(store, args.id, 'task');
-    const node = await reopenTask(store, id, args.reason);
-    return echoNode(store, node);
-  });
-}
-
-/** Archive a project — freeze + hide it and its subtree (ADR 0015). Echoes the project. */
-export function toolArchive(
-  store: Store,
-  args: { key: string; reason?: string },
-): Promise<ToolResult> {
-  return guard(async () => {
-    const project = await archiveProject(store, await projectId(store, args.key), args.reason);
-    return echoProject(store, project);
-  });
-}
-
-/** Unarchive a project (ADR 0015). Echoes the project. */
-export function toolUnarchive(store: Store, args: { key: string }): Promise<ToolResult> {
-  return guard(async () => {
-    const project = await unarchiveProject(store, await projectId(store, args.key));
-    return echoProject(store, project);
-  });
-}
-
-export function toolDone(store: Store, args: { id: string }): Promise<ToolResult> {
-  return guard(async () => {
-    const id = await nodeId(store, args.id, 'task');
-    const node = await completeTask(store, id);
-    return echoNode(store, node);
-  });
-}
-
-export function toolAbandon(
-  store: Store,
-  args: { id: string; reason?: string },
-): Promise<ToolResult> {
-  return guard(async () => {
-    const id = await nodeId(store, args.id, 'task');
-    const node = await abandonTask(store, id, args.reason);
-    return echoNode(store, node);
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Hold mutation tools
-// ---------------------------------------------------------------------------
-
-export function toolPark(store: Store, args: { id: string; reason?: string }): Promise<ToolResult> {
-  return guard(async () => {
-    const id = await nodeId(store, args.id, 'task');
-    const node = await parkTask(store, id, args.reason);
-    return echoNode(store, node);
-  });
-}
-
-export function toolUnpark(store: Store, args: { id: string }): Promise<ToolResult> {
-  return guard(async () => {
-    const id = await nodeId(store, args.id, 'task');
-    const node = await unparkTask(store, id);
-    return echoNode(store, node);
-  });
-}
-
-export function toolBlock(
-  store: Store,
-  args: { id: string; reason?: string },
-): Promise<ToolResult> {
-  return guard(async () => {
-    const id = await nodeId(store, args.id, 'task');
-    const node = await blockTask(store, id, args.reason);
-    return echoNode(store, node);
-  });
-}
-
-export function toolUnblock(store: Store, args: { id: string }): Promise<ToolResult> {
-  return guard(async () => {
-    const id = await nodeId(store, args.id, 'task');
-    const node = await unblockTask(store, id);
-    return echoNode(store, node);
+    const op = OPS[verb];
+    const reason = op.reason === 'optional' ? args.reason : undefined;
+    if (op.subject === 'project') {
+      const project = await op.run(store, await projectId(store, args.key ?? ''), reason);
+      // The project subject guarantees a Project row from `run`.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return echoProject(store, project as Parameters<typeof echoProject>[1]);
+    }
+    const node = await op.run(store, await nodeId(store, args.id ?? '', 'task'), reason);
+    // The task subject guarantees a Node row from `run`.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    return echoNode(store, node as Parameters<typeof echoNode>[1]);
   });
 }
 

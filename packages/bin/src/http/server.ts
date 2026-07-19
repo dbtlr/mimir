@@ -16,7 +16,7 @@ import {
   VERDICT_VALUES,
 } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
-import type { Server } from 'bun';
+import type { BunRequest, Server } from 'bun';
 
 import type {
   DerivationSet,
@@ -27,15 +27,13 @@ import type {
   UpdateFields,
 } from '../core';
 import {
-  abandonTask,
   annotate,
   applyUpdateFields,
-  archiveProject,
+  OP_SPECS,
   SPEC_UPDATE_FIELDS,
   artifactSummaryToWire,
   artifactToWire,
   attachArtifact,
-  blockTask,
   buildArtifactDetail,
   deriveSet,
   fileSeed,
@@ -51,7 +49,6 @@ import {
   nodeViewOf,
   projectViewByKey,
   projectViewOf,
-  completeTask,
   createNode,
   createProject,
   depend,
@@ -68,7 +65,6 @@ import {
   nodeToWire,
   notFound,
   projectNotFound,
-  parkTask,
   parseFilterToken,
   parseIdentity,
   parsePriorityValue,
@@ -76,16 +72,9 @@ import {
   parseWireField,
   projectTree,
   reorder,
-  reopenTask,
-  returnTask,
-  startTask,
-  submitTask,
   tagEntities,
   treeToWire,
-  unarchiveProject,
-  unblockTask,
   undepend,
-  unparkTask,
   untagEntities,
   updateArtifact,
   updateNode,
@@ -284,6 +273,89 @@ async function echoNode(
   return json(req, nodeToWire(view), status);
 }
 
+// ─── Uniform-verb action routes (ADR 0025 Decision 3) ───────────────────────
+// The ten node action routes and the two project archive routes loop-generate
+// from the operation registry: each entry's subject picks the URL family (a
+// task → POST /api/nodes/:id/<verb>, a project → POST /api/projects/:key/<verb>,
+// the archive family unchanged) and its reason policy picks the body allow-list.
+// Adding a uniform verb mounts its route with no edit here.
+
+/** One uniform verb's POST route handler map. `req.params` is `Record<string,
+ * string>` (the generic `BunRequest` shape), so `.id`/`.key` read directly. */
+type UniformRoute = { POST: (req: BunRequest) => Promise<Response> };
+type UniformRouteSpec = (typeof OP_SPECS)[number];
+
+/** The reason argument for a uniform verb: read the allow-listed `reason` body
+ * key when the policy accepts one, else `undefined` (and the empty allow-list
+ * still rejects any unexpected body key). */
+function uniformReason(spec: UniformRouteSpec, body: Record<string, unknown>): string | undefined {
+  return spec.reason === 'optional' ? strField(body, 'reason') : undefined;
+}
+
+/** A matched route param under the generic `BunRequest` (params typed as an index
+ * signature): Bun always populates the `:id`/`:key` segment a route matched on,
+ * so the coalesce only keeps the type a `string` — the empty fallback is
+ * unreachable for a segment the router required. */
+function routeParam(req: BunRequest, name: string): string {
+  return req.params[name] ?? '';
+}
+
+/** A task-subject action route — POST /api/nodes/:id/<verb>. Body-first (a bad
+ * body 400s before resolution — the node action routes' established order). */
+function uniformNodeRoute(store: Store, spec: UniformRouteSpec): UniformRoute {
+  return {
+    POST: (req) =>
+      guarded(req, async () => {
+        const body = await readBody(req, spec.reason === 'optional' ? ['reason'] : []);
+        const id = await nodeRef(store, routeParam(req, 'id'), 'task');
+        const node = await spec.run(store, id, uniformReason(spec, body));
+        // The task subject guarantees a Node row from `run`.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        const row = node as Parameters<typeof echoNode>[2];
+        return echoNode(store, req, row);
+      }),
+  };
+}
+
+/** A project-subject action route — POST /api/projects/:key/<verb>. Resolve
+ * first (a bad key 404s before any body parse — the archive family's order);
+ * the echo builds the view from the returned row, since getNode would 404 on a
+ * now-archived project. */
+function uniformProjectRoute(store: Store, spec: UniformRouteSpec): UniformRoute {
+  return {
+    POST: (req) =>
+      guarded(req, async () => {
+        const id = await projectIdForArchive(store, routeParam(req, 'key'));
+        const body = await readBody(req, spec.reason === 'optional' ? ['reason'] : []);
+        const project = await spec.run(store, id, uniformReason(spec, body));
+        // The project subject guarantees a Project row from `run`.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        const row = project as Parameters<typeof projectViewOf>[1];
+        const view = await projectViewOf(store, row, new Set(PROJECT_FACETS));
+        return json(req, nodeToWire(view));
+      }),
+  };
+}
+
+/** The action routes for the twelve uniform verbs, keyed by URL path (ADR 0025).
+ * Parameterized over the spec list for the derivation test; the live server
+ * passes the full {@link OP_SPECS}. */
+export function uniformRoutes(
+  store: Store,
+  specs: readonly UniformRouteSpec[] = OP_SPECS,
+): Record<string, UniformRoute> {
+  const routes: Record<string, UniformRoute> = {};
+  for (const spec of specs) {
+    const path =
+      spec.subject === 'project'
+        ? `/api/projects/:key/${spec.verb}`
+        : `/api/nodes/:id/${spec.verb}`;
+    routes[path] =
+      spec.subject === 'project' ? uniformProjectRoute(store, spec) : uniformNodeRoute(store, spec);
+  }
+  return routes;
+}
+
 /** A collection body: the envelope object, warnings folded in when present. */
 function setBody(total: number, items: NodeView[], warnings?: unknown[]): Record<string, unknown> {
   const body: Record<string, unknown> = { items: items.map(nodeToWire), total };
@@ -456,6 +528,10 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
     hostname: '127.0.0.1',
     port,
     routes: {
+      // The twelve uniform-verb action routes (ADR 0025 Decision 3), loop-
+      // generated from the operation registry — ten node routes plus the two
+      // project archive routes. The remaining routes below stay bespoke.
+      ...uniformRoutes(store),
       '/api/artifacts': {
         GET: (req) =>
           guarded(req, async () => {
@@ -693,19 +769,6 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           }),
       },
 
-      '/api/nodes/:id/abandon': {
-        POST: (req) =>
-          guarded(req, async () => {
-            const body = await readBody(req, ['reason']);
-            const node = await abandonTask(
-              store,
-              await nodeRef(store, req.params.id, 'task'),
-              strField(body, 'reason'),
-            );
-            return echoNode(store, req, node);
-          }),
-      },
-
       '/api/nodes/:id/annotations': {
         GET: (req) =>
           guarded(req, async () => {
@@ -758,19 +821,6 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           }),
       },
 
-      '/api/nodes/:id/block': {
-        POST: (req) =>
-          guarded(req, async () => {
-            const body = await readBody(req, ['reason']);
-            const node = await blockTask(
-              store,
-              await nodeRef(store, req.params.id, 'task'),
-              strField(body, 'reason'),
-            );
-            return echoNode(store, req, node);
-          }),
-      },
-
       '/api/nodes/:id/depend': {
         POST: (req) =>
           guarded(req, async () => {
@@ -786,18 +836,6 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           }),
       },
 
-      '/api/nodes/:id/done': {
-        POST: (req) =>
-          guarded(req, async () => {
-            await readBody(req, []);
-            return echoNode(
-              store,
-              req,
-              await completeTask(store, await nodeRef(store, req.params.id, 'task')),
-            );
-          }),
-      },
-
       '/api/nodes/:id/move': {
         POST: (req) =>
           guarded(req, async () => {
@@ -805,32 +843,6 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const to = requiredStr(body, 'to', 'move');
             const set = deriveSet(await store.loadWorkingSet());
             const node = await moveNode(store, nodeRefIn(set, req.params.id), nodeRefIn(set, to));
-            return echoNode(store, req, node);
-          }),
-      },
-
-      '/api/nodes/:id/park': {
-        POST: (req) =>
-          guarded(req, async () => {
-            const body = await readBody(req, ['reason']);
-            const node = await parkTask(
-              store,
-              await nodeRef(store, req.params.id, 'task'),
-              strField(body, 'reason'),
-            );
-            return echoNode(store, req, node);
-          }),
-      },
-
-      '/api/nodes/:id/reopen': {
-        POST: (req) =>
-          guarded(req, async () => {
-            const body = await readBody(req, ['reason']);
-            const node = await reopenTask(
-              store,
-              await nodeRef(store, req.params.id, 'task'),
-              strField(body, 'reason'),
-            );
             return echoNode(store, req, node);
           }),
       },
@@ -878,43 +890,6 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           }),
       },
 
-      '/api/nodes/:id/return': {
-        POST: (req) =>
-          guarded(req, async () => {
-            const body = await readBody(req, ['reason']);
-            const node = await returnTask(
-              store,
-              await nodeRef(store, req.params.id, 'task'),
-              strField(body, 'reason'),
-            );
-            return echoNode(store, req, node);
-          }),
-      },
-
-      '/api/nodes/:id/start': {
-        POST: (req) =>
-          guarded(req, async () => {
-            await readBody(req, []);
-            return echoNode(
-              store,
-              req,
-              await startTask(store, await nodeRef(store, req.params.id, 'task')),
-            );
-          }),
-      },
-
-      '/api/nodes/:id/submit': {
-        POST: (req) =>
-          guarded(req, async () => {
-            await readBody(req, []);
-            return echoNode(
-              store,
-              req,
-              await submitTask(store, await nodeRef(store, req.params.id, 'task')),
-            );
-          }),
-      },
-
       '/api/nodes/:id/tags/:tag': {
         DELETE: (req) =>
           guarded(req, async () => {
@@ -939,18 +914,6 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           }),
       },
 
-      '/api/nodes/:id/unblock': {
-        POST: (req) =>
-          guarded(req, async () => {
-            await readBody(req, []);
-            return echoNode(
-              store,
-              req,
-              await unblockTask(store, await nodeRef(store, req.params.id, 'task')),
-            );
-          }),
-      },
-
       '/api/nodes/:id/undepend': {
         POST: (req) =>
           guarded(req, async () => {
@@ -963,18 +926,6 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const id = nodeRefIn(set, req.params.id);
             const onIds = on.map((t) => nodeRefIn(set, t));
             return echoNode(store, req, await undepend(store, id, onIds));
-          }),
-      },
-
-      '/api/nodes/:id/unpark': {
-        POST: (req) =>
-          guarded(req, async () => {
-            await readBody(req, []);
-            return echoNode(
-              store,
-              req,
-              await unparkTask(store, await nodeRef(store, req.params.id, 'task')),
-            );
           }),
       },
 
@@ -1039,19 +990,6 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       // Project archive (ADR 0015). The echo builds the view directly from the
       // returned row — getNode would 404 on the now-archived project. Route keys
       // stay alphabetically sorted (archive < tree < unarchive).
-      '/api/projects/:key/archive': {
-        POST: (req) =>
-          guarded(req, async () => {
-            const id = await projectIdForArchive(store, req.params.key);
-            const body = await readBody(req, ['reason']);
-            const project = await archiveProject(store, id, strField(body, 'reason'));
-            return json(
-              req,
-              nodeToWire(await projectViewOf(store, project, new Set(PROJECT_FACETS))),
-            );
-          }),
-      },
-
       '/api/projects/:key/tree': {
         GET: (req) =>
           guarded(req, async () => {
@@ -1060,18 +998,6 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               throw validation(`${key} is not a project key`);
             }
             return json(req, treeToWire(await projectTree(store, key)));
-          }),
-      },
-
-      '/api/projects/:key/unarchive': {
-        POST: (req) =>
-          guarded(req, async () => {
-            const id = await projectIdForArchive(store, req.params.key);
-            const project = await unarchiveProject(store, id);
-            return json(
-              req,
-              nodeToWire(await projectViewOf(store, project, new Set(PROJECT_FACETS))),
-            );
           }),
       },
 

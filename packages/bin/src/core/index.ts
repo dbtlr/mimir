@@ -7,6 +7,7 @@
  */
 export * from './create';
 export * from './field-spec';
+export * from './ops';
 export * from './mutations';
 export * from './derive';
 export * from './predicates';

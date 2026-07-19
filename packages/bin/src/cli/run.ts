@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util';
 import {
   CHEAP_FACETS,
   FACET_NAMES,
+  isUniformVerb,
   QUERY_OP_VALUES,
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
@@ -53,26 +54,15 @@ import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from '.
 import type { UsageError } from './errors';
 import { COMMAND_HELP, helpForCommand, renderFullHelp, renderTerseHelp } from './help';
 import {
-  cmdAbandon,
   cmdAnnotate,
-  cmdArchive,
   cmdAttach,
-  cmdBlock,
   cmdCreate,
   cmdDepend,
-  cmdDone,
   cmdMove,
-  cmdPark,
-  cmdReopen,
   cmdReorder,
-  cmdReturn,
-  cmdStart,
-  cmdSubmit,
   cmdTag,
-  cmdUnarchive,
-  cmdUnblock,
   cmdUndepend,
-  cmdUnpark,
+  cmdUniform,
   cmdUntag,
   cmdUpdate,
   cmdPromote,
@@ -370,6 +360,13 @@ export async function runCli(
       };
     };
 
+    // The twelve uniform verbs (six lifecycle, four hold, archive/unarchive)
+    // dispatch through one generic arm driven by the operation registry (ADR
+    // 0025 Decision 3) — no per-verb case. The remaining verbs stay bespoke.
+    if (isUniformVerb(command)) {
+      return await cmdUniform(await mkCtx(), command);
+    }
+
     switch (command) {
       case 'next': {
         const nextScope = effectiveScope(values.scope, defaults.scope);
@@ -508,36 +505,6 @@ export async function runCli(
         ctx.write(format === 'json' ? formatOverviewJson(report) : renderOverview(report, ctx));
         return 0;
       }
-      case 'start': {
-        return await cmdStart(await mkCtx());
-      }
-      case 'submit': {
-        return await cmdSubmit(await mkCtx());
-      }
-      case 'return': {
-        return await cmdReturn(await mkCtx());
-      }
-      case 'done': {
-        return await cmdDone(await mkCtx());
-      }
-      case 'abandon': {
-        return await cmdAbandon(await mkCtx());
-      }
-      case 'reopen': {
-        return await cmdReopen(await mkCtx());
-      }
-      case 'park': {
-        return await cmdPark(await mkCtx());
-      }
-      case 'unpark': {
-        return await cmdUnpark(await mkCtx());
-      }
-      case 'block': {
-        return await cmdBlock(await mkCtx());
-      }
-      case 'unblock': {
-        return await cmdUnblock(await mkCtx());
-      }
       case 'depend': {
         return await cmdDepend(await mkCtx());
       }
@@ -587,12 +554,6 @@ export async function runCli(
       }
       case 'untag': {
         return await cmdUntag(await mkCtx());
-      }
-      case 'archive': {
-        return await cmdArchive(await mkCtx());
-      }
-      case 'unarchive': {
-        return await cmdUnarchive(await mkCtx());
       }
       case 'skill': {
         const sub = positionals[1];

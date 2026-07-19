@@ -1,5 +1,6 @@
 import {
   HOLD_VALUES,
+  isTerminalLifecycle,
   LIFECYCLE_VALUES,
   PRIORITY_VALUES,
   SEED_KIND_VALUES,
@@ -8,7 +9,7 @@ import {
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
 } from '@mimir/contract';
-import type { FacetName, FieldKindName } from '@mimir/contract';
+import type { FacetName, FieldKindName, OpFact } from '@mimir/contract';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -16,41 +17,30 @@ import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import type { ZodRawShape } from 'zod';
 
-import { SPEC_UPDATE_FIELDS } from '../core';
+import { OP_SPECS, SPEC_UPDATE_FIELDS } from '../core';
 import type { SeedStatusSelector, SpecUpdateField, Store } from '../core';
 import {
   toolAnnotate,
-  toolArchive,
   toolAttach,
-  toolAbandon,
-  toolUnarchive,
-  toolBlock,
   toolCreate,
   toolDepend,
-  toolDone,
   toolGet,
   toolList,
   toolMove,
   toolGetSeed,
   toolNext,
   toolOverview,
-  toolPark,
   toolPromote,
   toolReject,
-  toolReopen,
   toolReorder,
   toolResolve,
-  toolReturn,
   toolSeed,
   toolSeeds,
-  toolStart,
   toolStatus,
-  toolSubmit,
   toolTag,
   toolTriage,
-  toolUnblock,
   toolUndepend,
-  toolUnpark,
+  toolUniform,
   toolUntag,
   toolUpdate,
   toolErrorResult,
@@ -132,6 +122,36 @@ export function fieldInputShape(
     shape[field.update] = KIND_ZOD[field.kind].optional();
   }
   return shape;
+}
+
+/**
+ * The MCP input schema for a uniform verb (ADR 0025) — the subject id arg (`id`
+ * for a task, `key` for a project) plus an optional `reason` when the verb's
+ * policy accepts one. Pure over the operation fact, so a new registry entry
+ * registers its tool with no edit here.
+ */
+export function uniformToolSchema(spec: OpFact): ZodRawShape {
+  const subject: ZodRawShape =
+    spec.subject === 'project' ? { key: z.string() } : { id: z.string() };
+  return spec.reason === 'optional' ? { ...subject, reason: z.string().optional() } : subject;
+}
+
+/**
+ * The MCP tool description for a uniform verb (ADR 0025 Decision 4) — a view
+ * template composing the canonical summary (capitalized) with the transition
+ * arrow, the reason clause, and the echo clause. No per-verb prose lives on the
+ * registry; the previously hand-authored descriptions become this derived form
+ * (disclosed as golden diffs, MMR-316).
+ */
+export function uniformToolDescription(spec: OpFact): string {
+  const t = spec.transition;
+  const arrow =
+    t.axis === 'lifecycle' && !isTerminalLifecycle(t.to) ? ` (${t.from.join('/')} → ${t.to})` : '';
+  const head = `${spec.summary.charAt(0).toUpperCase()}${spec.summary.slice(1)}`;
+  const reason =
+    spec.reason === 'optional' ? ' Optionally records a reason on the transition.' : '';
+  const echo = spec.subject === 'project' ? 'Echoes the project.' : 'Echoes the updated node.';
+  return `${head}${arrow}.${reason} ${echo}`;
 }
 
 /** Reorder a raw shape's keys alphabetically — the tool schemas keep their
@@ -424,108 +444,22 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   );
 
   // ---------------------------------------------------------------------------
-  // Lifecycle mutation tools
+  // Uniform mutation tools (ADR 0025 Decision 3) — one registration per registry
+  // entry: lifecycle (start/submit/return/done/abandon/reopen), hold
+  // (park/unpark/block/unblock), archive/unarchive. The description and schema
+  // derive from the operation facts; the handler is the generic `toolUniform`.
+  // Adding a uniform verb needs no edit here.
   // ---------------------------------------------------------------------------
 
-  register(
-    server,
-    'start',
-    'Move a todo task to in_progress. Echoes the updated node. Use before beginning active work.',
-    { id: z.string() },
-    (args: { id: string }) => toolStart(store, args),
-  );
-
-  register(
-    server,
-    'submit',
-    "Submit an in_progress task for review (in_progress → under_review) — the optional ship-readiness gate: you believe it's done and shippable, awaiting a human verdict. Echoes the updated node.",
-    { id: z.string() },
-    (args: { id: string }) => toolSubmit(store, args),
-  );
-
-  register(
-    server,
-    'return',
-    "Return an under_review task to in_progress with an optional reason (the changes requested). The reviewer's 'request changes'. Echoes the updated node.",
-    { id: z.string(), reason: z.string().optional() },
-    (args: { id: string; reason?: string }) => toolReturn(store, args),
-  );
-
-  register(
-    server,
-    'done',
-    'Mark a task as done — from in_progress, under_review (approving the review), or todo. Terminal — removes from rankable set. Echoes the updated node.',
-    { id: z.string() },
-    (args: { id: string }) => toolDone(store, args),
-  );
-
-  register(
-    server,
-    'abandon',
-    'Mark a task as abandoned with an optional reason. Terminal — removes from rankable set. Echoes the updated node.',
-    { id: z.string(), reason: z.string().optional() },
-    (args: { id: string; reason?: string }) => toolAbandon(store, args),
-  );
-
-  register(
-    server,
-    'reopen',
-    'Reopen a terminal task (done or abandoned → in_progress) with an optional reason — the deliberate correction path for a premature done. Re-enters the rankable set at the bottom. Echoes the updated node.',
-    { id: z.string(), reason: z.string().optional() },
-    (args: { id: string; reason?: string }) => toolReopen(store, args),
-  );
-
-  register(
-    server,
-    'archive',
-    'Archive a project (bare KEY) with an optional reason — freezes the whole subtree (no mutation) and hides it from default reads. Reversible via unarchive; use list with status "archived" to see archived projects. Echoes the project.',
-    { key: z.string(), reason: z.string().optional() },
-    (args: { key: string; reason?: string }) => toolArchive(store, args),
-  );
-
-  register(
-    server,
-    'unarchive',
-    'Unarchive a project (bare KEY) — restores an archived project to active, unfreezing and unhiding it. Echoes the project.',
-    { key: z.string() },
-    (args: { key: string }) => toolUnarchive(store, args),
-  );
-
-  // ---------------------------------------------------------------------------
-  // Hold mutation tools
-  // ---------------------------------------------------------------------------
-
-  register(
-    server,
-    'park',
-    "Apply a 'parked' hold to a task (voluntary deprioritisation) with an optional reason. Echoes the updated node.",
-    { id: z.string(), reason: z.string().optional() },
-    (args: { id: string; reason?: string }) => toolPark(store, args),
-  );
-
-  register(
-    server,
-    'unpark',
-    'Release a parked hold, re-entering the task at the bottom of the rankable set. Echoes the updated node.',
-    { id: z.string() },
-    (args: { id: string }) => toolUnpark(store, args),
-  );
-
-  register(
-    server,
-    'block',
-    "Apply a 'blocked' hold to a task (external impediment) with an optional reason. Echoes the updated node.",
-    { id: z.string(), reason: z.string().optional() },
-    (args: { id: string; reason?: string }) => toolBlock(store, args),
-  );
-
-  register(
-    server,
-    'unblock',
-    'Release a blocked hold, re-entering the task at the bottom of the rankable set. Echoes the updated node.',
-    { id: z.string() },
-    (args: { id: string }) => toolUnblock(store, args),
-  );
+  for (const spec of OP_SPECS) {
+    register(
+      server,
+      spec.verb,
+      uniformToolDescription(spec),
+      uniformToolSchema(spec),
+      (args: { id?: string; key?: string; reason?: string }) => toolUniform(store, spec.verb, args),
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Dependency mutation tools
