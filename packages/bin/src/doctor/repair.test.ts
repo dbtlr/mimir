@@ -665,6 +665,73 @@ test('stamp-updated-at ignores an unparseable created and stamps the repair time
   ]);
 });
 
+// MMR-313: the seed store's mutating verbs share the MMR-303 co-write guard, so
+// a seed with a missing/null updated_at is repaired by the same stamp recipe,
+// seeded from the seed's `created` frontmatter key exactly as node/project docs.
+test('stamp-updated-at adds the field to a seed, seeded from created, when it is absent', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('missing-updated-at', 'MMR-s1', { present: false })],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: 'body',
+        documentHash: 'hash',
+        frontmatter: { created: '2026-01-01T00:00:00.000Z', kind: 'feature', type: 'seed' },
+        path: 'MMR/seeds/MMR-s1.md',
+        stem: 'MMR-s1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.skipped).toEqual([]);
+  expect(planned.failures).toEqual([]);
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: {
+        field: 'updated_at',
+        new_value: '2026-01-01T00:00:00.000Z',
+        path: 'MMR/seeds/MMR-s1.md',
+      },
+      kind: 'add_frontmatter',
+    },
+  ]);
+});
+
+test('stamp-updated-at sets a seed field against a null old value when it is present-but-null', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('missing-updated-at', 'MMR-s1', { present: true })],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: 'body',
+        documentHash: 'hash',
+        frontmatter: {
+          created: '2026-01-01T00:00:00.000Z',
+          kind: 'feature',
+          type: 'seed',
+          updated_at: null,
+        },
+        path: 'MMR/seeds/MMR-s1.md',
+        stem: 'MMR-s1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: {
+        expected_old_value: null,
+        field: 'updated_at',
+        new_value: '2026-01-01T00:00:00.000Z',
+        path: 'MMR/seeds/MMR-s1.md',
+      },
+      kind: 'set_frontmatter',
+    },
+  ]);
+});
+
 test('missing-project verification identity is stable across representative nodes', () => {
   expect(repairIssueKey(issue('missing-project', 'MMR-1', { key: 'MMR' }))).toBe(
     repairIssueKey(issue('missing-project', 'MMR-99', { key: 'MMR' })),
