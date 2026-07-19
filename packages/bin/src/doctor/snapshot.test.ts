@@ -63,7 +63,8 @@ test('reads one whole-vault enumeration plus one artifact scan and derives every
   const snapshot = await readDoctorSnapshot(client);
 
   // Two finds: the work-state enumeration + the distinct artifact scan. Section reads
-  // still derive from the work-state find; artifacts contribute only path + stem.
+  // still derive from the work-state find; artifacts contribute path + stem plus their
+  // `.frontmatter` (MMR-317: the updated_at check and stamp repair read it).
   expect(findCalls).toBe(2);
   expect(validateCalls).toBe(1);
   expect(findArgs).toContainEqual({
@@ -72,10 +73,17 @@ test('reads one whole-vault enumeration plus one artifact scan and derives every
     no_limit: true,
   });
   expect(findArgs).toContainEqual({
+    col: ['.frontmatter'],
     in: ['type:artifact'],
     no_limit: true,
   });
-  expect(snapshot.artifacts).toEqual([{ path: 'MMR/artifacts/MMR-a1.md', stem: 'MMR-a1' }]);
+  expect(snapshot.artifacts).toEqual([
+    {
+      frontmatter: { project: '[[MMR]]', type: 'artifact' },
+      path: 'MMR/artifacts/MMR-a1.md',
+      stem: 'MMR-a1',
+    },
+  ]);
   expect(sectionCalls).toEqual([
     { paths: ['MMR/MMR.md', 'MMR/MMR-1.md'], sections: ['History'] },
     { paths: ['MMR/MMR-1.md'], sections: ['Annotations'] },

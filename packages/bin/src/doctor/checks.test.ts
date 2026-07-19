@@ -573,6 +573,20 @@ const updatedAtCtx = (
   validateFindings: [],
 });
 
+/** The `updated_at` check reads artifacts off the artifact feed (MMR-317), not the
+ * work-state {@link DoctorContext.readNodeDocs} one — so an artifact fixture rides
+ * `readArtifactDocs` while `readNodeDocs` stays empty. */
+const updatedAtArtifactCtx = (
+  docs: { stem: string; path: string; frontmatter?: Record<string, unknown> }[],
+): DoctorContext => ({
+  dropped: [],
+  projectRefs: [],
+  readArtifactDocs: () => Promise.resolve(docs),
+  readNodeDocs: () => Promise.resolve([]),
+  sectionFailures: [],
+  validateFindings: [],
+});
+
 test('updated-at flags a task whose updated_at is missing from frontmatter (MMR-312)', async () => {
   const findings = await updatedAtCheck.run(
     updatedAtCtx([
@@ -648,6 +662,55 @@ test('updated-at is silent on a seed carrying a usable stamp (MMR-313)', async (
       {
         frontmatter: { kind: 'feature', type: 'seed', updated_at: '2026-01-01T00:00:00Z' },
         stem: 'MMR-s1',
+      },
+    ]),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('updated-at flags an artifact whose updated_at is missing from frontmatter (MMR-317)', async () => {
+  const findings = await updatedAtCheck.run(
+    updatedAtArtifactCtx([
+      {
+        frontmatter: { created: '2026-01-01T00:00:00Z', type: 'artifact' },
+        path: 'MMR/artifacts/MMR-a1.md',
+        stem: 'MMR-a1',
+      },
+    ]),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'updated-at',
+    code: 'missing-updated-at',
+    node: 'MMR-a1',
+    severity: 'error',
+    where: 'frontmatter · updated_at',
+  });
+  expect(findings[0]?.evidence).toEqual({ present: false });
+});
+
+test('updated-at flags an artifact whose updated_at is explicitly null (MMR-317)', async () => {
+  const findings = await updatedAtCheck.run(
+    updatedAtArtifactCtx([
+      {
+        frontmatter: { type: 'artifact', updated_at: null },
+        path: 'MMR/artifacts/MMR-a1.md',
+        stem: 'MMR-a1',
+      },
+    ]),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({ code: 'missing-updated-at', node: 'MMR-a1' });
+  expect(findings[0]?.evidence).toEqual({ present: true });
+});
+
+test('updated-at is silent on an artifact carrying a usable stamp (MMR-317)', async () => {
+  const findings = await updatedAtCheck.run(
+    updatedAtArtifactCtx([
+      {
+        frontmatter: { type: 'artifact', updated_at: '2026-01-01T00:00:00Z' },
+        path: 'MMR/artifacts/MMR-a1.md',
+        stem: 'MMR-a1',
       },
     ]),
   );

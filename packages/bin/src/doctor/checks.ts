@@ -24,13 +24,17 @@ export type DoctorContext = {
   readNodeDocs: () => Promise<
     { stem: string; body: string; path: string; frontmatter?: Record<string, unknown> }[]
   >;
-  /** Every artifact document's path + stem, from a doctor-only `type:artifact`
-   * enumeration (MMR-282) the hot working-set load never runs — artifacts carry
-   * `type: artifact`, absent from the work-state snapshot every other check reads.
-   * Filtered to `-s` by canonical stem in the runner, like {@link readNodeDocs}.
-   * The input for the artifact-duplicate-stem check and the artifact arm of the
-   * seq-gap check (both fold in over this one extra find). */
-  readArtifactDocs: () => Promise<{ stem: string; path: string }[]>;
+  /** Every artifact document's path + stem (plus raw `frontmatter` since
+   * MMR-317), from a doctor-only `type:artifact` enumeration (MMR-282) the hot
+   * working-set load never runs — artifacts carry `type: artifact`, absent from
+   * the work-state snapshot every other check reads. Filtered to `-s` by canonical
+   * stem in the runner, like {@link readNodeDocs}. The input for the
+   * artifact-duplicate-stem check, the artifact arm of the seq-gap check (both
+   * fold in over this one extra find), and the artifact arm of
+   * {@link updatedAtCheck} (which reads the raw `updated_at` field). */
+  readArtifactDocs: () => Promise<
+    { stem: string; path: string; frontmatter?: Record<string, unknown> }[]
+  >;
   /** The shared validator's `dropped[]` over the whole-vault graph — computed
    * once by the runner and fed to every referential check, so the four checks
    * that render `dropped[]` (dangling / missing-project / acyclicity / field
@@ -244,11 +248,14 @@ export const crlfCheck: Diagnostic = {
  * permanently unmutable until repaired. So this is an `error`: it names no data
  * lost on read, but a document no ordinary verb can ever again successfully
  * write — a stronger failure than most `error` findings here. Node, project,
- * and seed, the three document kinds the write path's co-write invariant covers:
- * the seed store's mutating verbs (`core/store-norn/seeds.ts`) share the same
- * guard (MMR-313), refusing a missing/null `updated_at` exactly as the
- * node/project path does. Artifacts stay out of scope — their mutations ride
- * CAS-less `vault.set` and their schema carries no `updated_at` at all.
+ * seed, AND artifact — the four document kinds the write path's co-write
+ * invariant now covers: the seed store's mutating verbs
+ * (`core/store-norn/seeds.ts`, MMR-313) and the artifact store's tag/title
+ * mutations (`core/store-norn/artifacts.ts`, MMR-317) share the same guard,
+ * refusing a missing/null `updated_at` exactly as the node/project path does.
+ * Artifacts carry `updated_at` in frontmatter (schema 5) and reach this check via
+ * {@link DoctorContext.readArtifactDocs}, not the work-state {@link
+ * DoctorContext.readNodeDocs} feed, so both feeds are scanned below.
  *
  * `--fix` repairs it deterministically (the `stamp-updated-at` recipe,
  * `repair.ts`): seeded from `created` when present, else the repair's own
@@ -265,19 +272,26 @@ export const updatedAtCheck: Diagnostic = {
   name: 'updated-at',
   run: async (ctx) => {
     const findings: DoctorFinding[] = [];
-    for (const { stem, path, frontmatter } of await ctx.readNodeDocs()) {
+    // Both feeds: work-state docs (node/project/seed) carry `updated_at` in their
+    // frontmatter, and artifacts (schema 5, MMR-317) arrive on the artifact feed.
+    const nodeDocs = await ctx.readNodeDocs();
+    const artifactDocs = await ctx.readArtifactDocs();
+    for (const { stem, path, frontmatter } of [...nodeDocs, ...artifactDocs]) {
       const identity = parseIdentity(stem);
       if (
         identity === null ||
-        (identity.kind !== 'node' && identity.kind !== 'project' && identity.kind !== 'seed')
+        (identity.kind !== 'node' &&
+          identity.kind !== 'project' &&
+          identity.kind !== 'seed' &&
+          identity.kind !== 'artifact')
       ) {
         continue;
       }
       if (frontmatter === undefined) {
-        // Unreachable today: the snapshot enumerates by work-state `type:`
-        // frontmatter, so every doc it returns parsed a frontmatter block. If
-        // that enumeration ever loosens, this skip silently hides a doc the
-        // writer refuses.
+        // Unreachable in production: both feeds project `.frontmatter` (the
+        // work-state find and, since MMR-317, the artifact find), so every doc
+        // they return parsed a frontmatter block. If that ever loosens, this skip
+        // silently hides a doc the writer refuses.
         continue;
       }
       const present = 'updated_at' in frontmatter;

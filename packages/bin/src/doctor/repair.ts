@@ -225,9 +225,27 @@ export function planDoctorRepairs(args: {
   const skipped: RepairItem[] = [];
   const docsByStem = new Map<string, DoctorSnapshotDocument[]>();
   const docsByPath = new Map<string, DoctorSnapshotDocument[]>();
-  for (const doc of args.snapshot.documents) {
+  const indexDoc = (doc: DoctorSnapshotDocument): void => {
     docsByStem.set(doc.stem, [...(docsByStem.get(doc.stem) ?? []), doc]);
     docsByPath.set(doc.path, [...(docsByPath.get(doc.path) ?? []), doc]);
+  };
+  for (const doc of args.snapshot.documents) {
+    indexDoc(doc);
+  }
+  // Artifacts (MMR-317) live in their own snapshot slice (the hot work-state load
+  // never reads them), so the doc index must fold them in for the artifact arm of
+  // the `stamp-updated-at` recipe to reach them. They carry no body/hash here —
+  // that recipe writes only frontmatter (`add`/`null`-CAS `set`), never a
+  // body-replace — so `body`/`documentHash` are unused for artifacts; `created`
+  // (the stamp seed) rides on `frontmatter`.
+  for (const artifact of args.snapshot.artifacts ?? []) {
+    indexDoc({
+      body: '',
+      documentHash: null,
+      ...(artifact.frontmatter === undefined ? {} : { frontmatter: artifact.frontmatter }),
+      path: artifact.path,
+      stem: artifact.stem,
+    });
   }
   const bodies = new Map<string, BodyRepair>();
   const occupied = occupiedPaths(args.snapshot);

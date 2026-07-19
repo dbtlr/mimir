@@ -732,6 +732,82 @@ test('stamp-updated-at sets a seed field against a null old value when it is pre
   ]);
 });
 
+// MMR-317: the artifact store's tag/title mutations share the co-write guard, so
+// an artifact with a missing/null updated_at is repaired by the same stamp recipe.
+// Artifacts live in the snapshot's separate `artifacts` slice (never `documents`),
+// so the recipe reaches them only because the planner folds that slice into its
+// doc + identity indexes.
+test('stamp-updated-at adds the field to an artifact, seeded from created, when it is absent', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('missing-updated-at', 'MMR-a1', { present: false }, 'MMR/artifacts/MMR-a1.md')],
+    scope: 'MMR',
+    snapshot: {
+      artifacts: [
+        {
+          frontmatter: { created: '2026-01-01T00:00:00.000Z', type: 'artifact' },
+          path: 'MMR/artifacts/MMR-a1.md',
+          stem: 'MMR-a1',
+        },
+      ],
+      documents: [],
+      graph: { nodes: [], projectKeys: [] },
+      sectionFailures: [],
+      validateFindings: [],
+    },
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.skipped).toEqual([]);
+  expect(planned.failures).toEqual([]);
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: {
+        field: 'updated_at',
+        new_value: '2026-01-01T00:00:00.000Z',
+        path: 'MMR/artifacts/MMR-a1.md',
+      },
+      kind: 'add_frontmatter',
+    },
+  ]);
+});
+
+test('stamp-updated-at sets an artifact field against a null old value when it is present-but-null', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('missing-updated-at', 'MMR-a1', { present: true }, 'MMR/artifacts/MMR-a1.md')],
+    scope: 'MMR',
+    snapshot: {
+      artifacts: [
+        {
+          frontmatter: {
+            created: '2026-01-01T00:00:00.000Z',
+            type: 'artifact',
+            updated_at: null,
+          },
+          path: 'MMR/artifacts/MMR-a1.md',
+          stem: 'MMR-a1',
+        },
+      ],
+      documents: [],
+      graph: { nodes: [], projectKeys: [] },
+      sectionFailures: [],
+      validateFindings: [],
+    },
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: {
+        expected_old_value: null,
+        field: 'updated_at',
+        new_value: '2026-01-01T00:00:00.000Z',
+        path: 'MMR/artifacts/MMR-a1.md',
+      },
+      kind: 'set_frontmatter',
+    },
+  ]);
+});
+
 test('missing-project verification identity is stable across representative nodes', () => {
   expect(repairIssueKey(issue('missing-project', 'MMR-1', { key: 'MMR' }))).toBe(
     repairIssueKey(issue('missing-project', 'MMR-99', { key: 'MMR' })),
