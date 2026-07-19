@@ -11,8 +11,8 @@ import { parseJson } from '@mimir/helpers';
 
 import { renderError } from '../cli/errors';
 import type { RenderableError } from '../cli/errors';
-import type { Io } from '../cli/render';
 import { resolveProject } from '../cli/resolve';
+import type { Io } from '../presentation';
 import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from './create';
 import { deriveSet } from './derive';

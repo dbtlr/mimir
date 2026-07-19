@@ -12,10 +12,10 @@
  * label, not an exit gate. The `json` (pretty array) / `jsonl` (one finding per
  * line) formats emit findings on stdout, same exit-0 contract.
  */
-import type { Format, Io } from '../cli/render';
-import { ok } from '../cli/render';
 import type { MigrationPlan } from '../core/store-norn/plan';
 import { now } from '../core/time';
+import type { Format, Io } from '../presentation';
+import { ok } from '../presentation';
 import type { DoctorFinding } from './checks';
 import { diagnoseDoctor } from './diagnosis';
 import type { DoctorRepairPlan, RepairItem } from './repair';

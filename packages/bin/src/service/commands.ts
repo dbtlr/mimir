@@ -14,10 +14,10 @@ import { basename } from 'node:path';
 import { isMember } from '@mimir/helpers';
 
 import { usage } from '../cli/errors';
-import type { Format, Io } from '../cli/render';
-import { arrow, ok, warn } from '../cli/render';
 import { MimirError } from '../core';
 import { PROD_PORT } from '../env';
+import type { Format, Io } from '../presentation';
+import { arrow, ok, warn } from '../presentation';
 import {
   DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
   readConfig,
