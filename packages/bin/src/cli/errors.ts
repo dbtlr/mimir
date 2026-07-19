@@ -10,7 +10,7 @@
 import type { ValueWarning } from '@mimir/contract';
 
 import { MimirError } from '../core';
-import type { Io } from './render';
+import type { Io } from '../presentation';
 
 /** A bad invocation (parse failure, unknown verb, invalid flag value). Exit 2. */
 export class UsageError extends Error {

@@ -5,5 +5,5 @@
  */
 export { runCli } from './run';
 export type { Defaults } from './run';
-export type { Io } from './render';
+export type { Io } from '../presentation';
 export { findBinding } from './binding';

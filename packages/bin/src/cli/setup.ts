@@ -16,6 +16,8 @@
  */
 import { existsSync } from 'node:fs';
 
+import { arrow, ok, warn } from '../presentation';
+import type { Format, Io } from '../presentation';
 import { cmdService } from '../service';
 import type { ServiceDeps } from '../service';
 import { DEFAULT_SNAPSHOT_INTERVAL_SECONDS, readConfig, writeConfig } from '../service/config';
@@ -24,8 +26,6 @@ import { converge, expandTilde } from '../vault';
 import { backfillVaultData } from '../vault/backfill';
 import type { VaultDeps } from '../vault/commands';
 import { usage } from './errors';
-import { arrow, ok, warn } from './render';
-import type { Format, Io } from './render';
 
 export type SetupDeps = {
   service: ServiceDeps;
