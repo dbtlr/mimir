@@ -32,13 +32,18 @@ export type DoctorSnapshotDocument = {
 /** All inputs needed to diagnose one coherent whole-vault enumeration. */
 export type DoctorSnapshot = {
   documents: readonly DoctorSnapshotDocument[];
-  /** Artifact documents (path + stem) from a separate doctor-only `type:artifact`
-   * find (MMR-282). Kept out of {@link documents} — the hot working-set load never
-   * reads artifacts, and only the two artifact-aware checks (duplicate stems, the
-   * artifact arm of seq-gaps) consume these. The production reader always sets it;
-   * OPTIONAL so a snapshot fixture that predates the artifact read (or exercises a
-   * non-artifact concern) need not restate an empty list — absent reads as none. */
-  artifacts?: readonly { path: string; stem: string }[];
+  /** Artifact documents (path + stem, plus `frontmatter` since MMR-317) from a
+   * separate doctor-only `type:artifact` find (MMR-282). Kept out of
+   * {@link documents} — the hot working-set load never reads artifacts, and only
+   * the artifact-aware checks (duplicate stems, the artifact arm of seq-gaps, and
+   * the artifact arm of `updated_at` presence) consume these. `frontmatter` is
+   * carried so the `updated_at` check reads the raw field and the
+   * `stamp-updated-at` repair reads `created`. The production reader always sets
+   * it; OPTIONAL so a snapshot fixture that predates the artifact read (or
+   * exercises a non-artifact concern) need not restate an empty list — absent
+   * reads as none. `frontmatter` is itself optional per-artifact so a fixture that
+   * only needs path + stem (the duplicate/seq-gap checks) need not restate it. */
+  artifacts?: readonly { path: string; stem: string; frontmatter?: Record<string, unknown> }[];
   graph: VaultGraph;
   sectionFailures: readonly { path: string; stem: string; section: string }[];
   validateFindings: readonly ValidateFinding[];
@@ -52,7 +57,10 @@ export function doctorStemInScope(stem: string, scope: string | undefined): bool
 /** Every known physical owner of a logical stem. Typed enumeration is exact
  * provenance even at a relocated path; validate-only paths count only when they
  * match a canonical work-state layout. */
-function doctorIdentitySources(snapshot: DoctorSnapshot): VaultGraphSource[] {
+function doctorIdentitySources(
+  snapshot: DoctorSnapshot,
+  opts?: { withArtifacts?: boolean },
+): VaultGraphSource[] {
   const sources: VaultGraphSource[] = [];
   const seen = new Set<string>();
   const add = (source: VaultGraphSource): void => {
@@ -97,6 +105,18 @@ function doctorIdentitySources(snapshot: DoctorSnapshot): VaultGraphSource[] {
       add({ kind: identity.kind, path: finding.path, stem });
     }
   }
+  // Artifacts join the identity index ONLY when asked (MMR-317): the repair path
+  // needs their single-physical-ownership proof for the `stamp-updated-at`
+  // recipe, but the relational `validate` pass ({@link diagnosticDrops}) must not
+  // see them — an artifact stem at two paths is the `duplicate-artifact-stem`
+  // check's story, not a work-state `duplicate-stem` drop.
+  if (opts?.withArtifacts === true) {
+    for (const artifact of snapshot.artifacts ?? []) {
+      if (parseIdentity(artifact.stem)?.kind === 'artifact') {
+        add({ kind: 'artifact', path: artifact.path, stem: artifact.stem });
+      }
+    }
+  }
   return sources;
 }
 
@@ -109,7 +129,9 @@ export type DoctorIdentityIndex = {
 export function doctorIdentityIndex(snapshot: DoctorSnapshot): DoctorIdentityIndex {
   const pathsByStem = new Map<string, Set<string>>();
   const stemsByPath = new Map<string, Set<string>>();
-  for (const { path, stem } of doctorIdentitySources(snapshot)) {
+  // Artifacts are included so the repair path can prove single ownership of an
+  // artifact stem (MMR-317); validate (diagnosticDrops) still omits them.
+  for (const { path, stem } of doctorIdentitySources(snapshot, { withArtifacts: true })) {
     const paths = pathsByStem.get(stem) ?? new Set<string>();
     paths.add(path);
     pathsByStem.set(stem, paths);
@@ -147,6 +169,19 @@ function snapshotDocument(doc: NornDocument): DoctorSnapshotDocument {
   };
 }
 
+/** Project one artifact `find` result down to the snapshot slice — path + stem
+ * plus `.frontmatter` when captured (MMR-317). A named function, not a `.map`
+ * spread, per the no-map-spread lint rule (like {@link scanDoc}). */
+function artifactSlice(doc: NornDocument): {
+  path: string;
+  stem: string;
+  frontmatter?: Record<string, unknown>;
+} {
+  return doc.frontmatter === undefined
+    ? { path: doc.path, stem: stemOf(doc.path) }
+    : { frontmatter: doc.frontmatter, path: doc.path, stem: stemOf(doc.path) };
+}
+
 /**
  * Read one complete diagnostic snapshot. `vault.validate` remains its own Norn
  * operation because it can see malformed/untyped documents excluded by the type
@@ -161,17 +196,19 @@ export async function readDoctorSnapshot(client: NornClient): Promise<DoctorSnap
   });
   // A second, doctor-only find for artifacts — they carry `type: artifact`, absent
   // from the work-state enumeration above, and the hot working-set load never reads
-  // them. Only path + stem are needed (duplicate detection is by stem, the seq-gap
-  // arm counts the seq) and the stem derives from the path norn always returns, so no
-  // `col` projection is requested — the minimal set (MMR-282).
+  // them. `.frontmatter` is projected since MMR-317 so the `updated_at` presence
+  // check reads the raw field and the `stamp-updated-at` repair reads `created`;
+  // the duplicate-stem and seq-gap arms still need only path + stem (the stem
+  // derives from the path norn always returns).
   const artifactDocs = await client.find({
+    col: ['.frontmatter'],
     in: [ARTIFACT_TYPE],
     no_limit: true,
   });
   const sectionFailures = await readSectionFailuresFromDocuments(client, found);
   const validateFindings = decodeValidateFindings(await client.validate());
   return {
-    artifacts: artifactDocs.map((doc) => ({ path: doc.path, stem: stemOf(doc.path) })),
+    artifacts: artifactDocs.map(artifactSlice),
     documents: found.map(snapshotDocument),
     graph: vaultGraphFromDocs(found, { withSeeds: true }),
     sectionFailures,

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { fakeIo } from '../cli/testing';
 import { createInitiative, createProject } from '../core/create';
+import { MimirError } from '../core/errors';
 import { annotate } from '../core/mutations';
 import type { MigrationPlan } from '../core/store-norn/plan';
 import { createTestStore } from '../testing/store';
@@ -279,7 +280,8 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
     } catch (error) {
       refused = error;
     }
-    expect(refused).toBeDefined();
+    expect(refused).toBeInstanceOf(MimirError);
+    expect((refused as MimirError).code).toBe('validation');
 
     const preview = fakeIo();
     expect(
@@ -332,7 +334,8 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
     } catch (error) {
       refused = error;
     }
-    expect(refused).toBeDefined();
+    expect(refused).toBeInstanceOf(MimirError);
+    expect((refused as MimirError).code).toBe('validation');
 
     expect(
       await cmdDoctor(fakeIo(), fixture.doctor, 'json', 'MMR', { dryRun: false, fix: true }),
@@ -345,5 +348,46 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
     // The previously-refused seed write now succeeds end-to-end.
     await fixture.seeds.patch('MMR', 1, { title: 'renamed post-repair' });
     expect((await fixture.seeds.load('MMR', 1))?.title).toBe('renamed post-repair');
+  });
+
+  test('detects, repairs, and unblocks an artifact write on a missing updated_at (MMR-317)', async () => {
+    await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
+    await fixture.artifacts.create({
+      content: 'frozen body',
+      key: 'MMR',
+      links: [],
+      tags: ['a'],
+      title: 'Legacy artifact',
+    });
+    const artifactPath = 'MMR/artifacts/MMR-a1.md';
+    fixture.corruptDocument(artifactPath, (raw) => removeFrontmatterField(raw, 'updated_at'));
+
+    const detected = await jsonDoctor('MMR');
+    const findings = detected.filter((entry) => entry.code === 'missing-updated-at');
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ evidence: { present: false }, stem: 'MMR-a1' });
+
+    // The MMR-317 refusal: an artifact mutation against the degraded doc is
+    // refused, not silently applied unguarded.
+    let refused: unknown;
+    try {
+      await fixture.artifacts.applyTag('MMR', 1, 'b');
+    } catch (error) {
+      refused = error;
+    }
+    expect(refused).toBeInstanceOf(MimirError);
+    expect((refused as MimirError).code).toBe('validation');
+
+    expect(
+      await cmdDoctor(fakeIo(), fixture.doctor, 'json', 'MMR', { dryRun: false, fix: true }),
+    ).toBe(0);
+    expect(fixture.readDocument(artifactPath)).toMatch(/^updated_at: .+$/m);
+
+    const post = await jsonDoctor('MMR');
+    expect(post.some((entry) => entry.code === 'missing-updated-at')).toBe(false);
+
+    // The previously-refused artifact write now succeeds end-to-end.
+    await fixture.artifacts.applyTag('MMR', 1, 'b');
+    expect((await fixture.artifacts.load('MMR', 1))?.tags.toSorted()).toEqual(['a', 'b']);
   });
 });

@@ -24,8 +24,10 @@ import { SEQ_TOKEN } from '../core/store-norn/plan';
  * vault marked newer rather than silently regenerating its `.norn/config.yaml`
  * without the newer rule. Schema 4 added the `seed` rule (MMR-244); a schema-3
  * binary must refuse a schema-4 vault, not regenerate a seed-less config.
+ * Schema 5 added `updated_at` to the artifact rule's `field_types` (MMR-317);
+ * a schema-4 binary must refuse a schema-5 vault.
  */
-export const VAULT_SCHEMA = 4;
+export const VAULT_SCHEMA = 5;
 
 export const MARKER_FILE = '.mimir-vault.toml';
 export const NORN_CONFIG_FILE = '.norn/config.yaml';
@@ -92,6 +94,13 @@ validate:
         path: "**/*.md"
         frontmatter:
           type: artifact
+      # DELIBERATELY NOT in required_frontmatter (MMR-317): legacy artifacts
+      # predate the field, and a required rule would flag them
+      # frontmatter-required-field-missing, which repair maps to
+      # unreadable-document (skipped) — bypassing the supported
+      # missing-updated-at -> stamp-updated-at flow. It is declared only as a
+      # field_type so a present value is datetime-validated. (The seed rule DOES
+      # require it — no legacy seeds ever existed.)
       required_frontmatter:
         - title
         - project
@@ -102,6 +111,7 @@ validate:
         anchor: wikilink_or_list
         tags: list_of_strings
         created: datetime
+        updated_at: datetime
       allowed_paths:
         - "*/artifacts/*.md"
 

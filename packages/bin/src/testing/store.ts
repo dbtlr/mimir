@@ -4,8 +4,10 @@ import { join } from 'node:path';
 
 import type { Store } from '../core';
 import { deriveSet, findNodeInSet, resolveProjectKeyInSet } from '../core';
+import type { ArtifactStore } from '../core/artifacts/store';
 import type { SeedStore } from '../core/seeds/store';
 import type { NodePatch } from '../core/store';
+import { createNornArtifactStore } from '../core/store-norn/artifacts';
 import { NornClient } from '../core/store-norn/client';
 import { createNornSeedStore } from '../core/store-norn/seeds';
 import { createNornWriteStore } from '../core/store-norn/writer';
@@ -32,6 +34,9 @@ export type TestStore = {
    * (the MMR-313 co-write guard cycle) drive it directly, as the write `store`
    * has no seed surface. */
   seeds: SeedStore;
+  /** The artifact store over the same isolated Norn client — artifact-mutation
+   * fixtures (the MMR-317 co-write guard cycle) drive it directly. */
+  artifacts: ArtifactStore;
   close: () => Promise<void>;
   /** CLI-only repair dependencies over this isolated Norn client. */
   doctor: DoctorDeps;
@@ -56,6 +61,7 @@ export async function createTestStore(): Promise<TestStore> {
     await converge(root, { allowCreate: true, exec: bunExec });
     const client = new NornClient({ vaultPath: root });
     return {
+      artifacts: createNornArtifactStore(client, root),
       close: async () => {
         try {
           await client.close();

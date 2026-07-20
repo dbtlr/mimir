@@ -4,13 +4,20 @@ import type {
   ArtifactRecord,
   ArtifactStore,
 } from '../artifacts/store';
-import { invariant, validation } from '../errors';
+import { degradedUpdatedAt, invariant, validation } from '../errors';
 import { parseIdentity, renderArtifactRef, wikilink } from '../ids';
 import { now } from '../time';
-import { createdStem, decodeApplyReport } from './apply-report';
+import { applyReportOutcome, createdStem, decodeApplyReport } from './apply-report';
 import type { NornClient, NornDocument } from './client';
 import { collapse, isStringRecord, stringList } from './decode';
-import { createDocumentPlan, SEQ_TOKEN } from './plan';
+import type { MigrationOp } from './plan';
+import {
+  addFrontmatter,
+  createDocumentPlan,
+  migrationPlan,
+  SEQ_TOKEN,
+  setFrontmatter,
+} from './plan';
 
 /**
  * The Norn-vault `ArtifactStore` (MMR-143, ADR 0016 Phase 2a): an artifact is
@@ -48,12 +55,14 @@ const createTemplate = (key: string): string => `${key}/artifacts/${key}-a${SEQ_
  * single write shape shared by `create` (which stamps `created=now()`) and the
  * cutover `restoreArtifact` (which preserves the source `created`). `anchor`
  * and `tags` are omitted when empty so an artifact carries only the fields it
- * has, matching the pre-seam markdown.
+ * has, matching the pre-seam markdown. `updated_at` is always emitted (like the
+ * seed rule): every mutation co-writes it as the CAS drift guard (MMR-317).
  */
 function artifactFrontmatter(fields: {
   key: string;
   title: string;
   created: string;
+  updated_at: string;
   links: string[];
   tags: string[];
 }): Record<string, unknown> {
@@ -62,6 +71,7 @@ function artifactFrontmatter(fields: {
     project: wikilink(fields.key),
     title: fields.title,
     type: 'artifact',
+    updated_at: fields.updated_at,
   };
   if (fields.links.length > 0) {
     fm.anchor = fields.links.map(wikilink);
@@ -70,6 +80,32 @@ function artifactFrontmatter(fields: {
     fm.tags = fields.tags;
   }
   return fm;
+}
+
+/**
+ * Refuse a mutating artifact write whose loaded `updated_at` is absent or null
+ * (MMR-317). Every artifact mutation co-writes the `updated_at` stamp as its CAS
+ * drift guard, carrying `fm.updated_at` as norn's `expected_old_value`; a
+ * missing/null field would emit an unguarded null old value — a silent
+ * guard-less write. Mirrors the seed store's `assertSeedGuard` (MMR-313) and the
+ * node/project write path's co-write invariant (MMR-303): fail closed at the
+ * shared degraded-vault refusal and point the operator at `mimir doctor --fix`.
+ * `create` needs no guard — a `create_document` is birth, not drift.
+ */
+function assertArtifactGuard(path: string, fm: Record<string, unknown>): void {
+  if (fm.updated_at === undefined || fm.updated_at === null) {
+    throw degradedUpdatedAt(path);
+  }
+}
+
+/** Choose add vs set for the `tags` field on the RAW field PRESENCE (matching
+ * the seed store's `spawnedFieldOp`): an absent field is ADDed, a present one is
+ * SET carrying its raw stored value as the CAS precondition — norn refuses to
+ * add a present field, and an omitted precondition on a set asserts absence. */
+function tagsFieldOp(path: string, fm: Record<string, unknown>, tags: string[]): MigrationOp {
+  return 'tags' in fm
+    ? setFrontmatter(path, 'tags', tags, fm.tags)
+    : addFrontmatter(path, 'tags', tags);
 }
 
 /**
@@ -96,6 +132,10 @@ export async function restoreArtifact(
     links: record.links,
     tags: record.tags,
     title: record.title,
+    // Preserve the source `updated_at` across the migration so a re-run is
+    // idempotent; a legacy artifact predating the field falls back to `created`
+    // (the migration is birth-for-the-vault, so a real stamp must exist).
+    updated_at: record.updated_at === '' ? record.created_at : record.updated_at,
   });
   const plan = createDocumentPlan(vaultRoot, path, frontmatter, content);
   const { operations, outcome } = decodeApplyReport(await client.applyPlan(plan, true));
@@ -189,6 +229,9 @@ function toRecord(doc: NornDocument): ArtifactRecord | null {
     seq: identity.seq,
     tags: stringList(fm.tags),
     title,
+    // Tolerant of a legacy artifact predating the field (string-or-empty, like
+    // seeds): reads as `''`, which the mutation guard then refuses (MMR-317).
+    updated_at: typeof fm.updated_at === 'string' ? fm.updated_at : '',
   };
 }
 
@@ -197,11 +240,19 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
   const projectDocs = async (key: string): Promise<NornDocument[]> =>
     client.find({ eq: [`type:artifact`, `project:${key}`], no_limit: true });
 
-  const loadDoc = async (
+  // The typed record PLUS the raw frontmatter and path — the mutation path needs
+  // the raw stored values as norn's `expected_old_value` compare-and-set
+  // precondition (an omitted precondition asserts the field is ABSENT, so
+  // overwriting a present field must carry its current value), mirroring the seed
+  // store's loader (MMR-313).
+  const resolveDoc = async (
     key: string,
     seq: number,
     content: boolean,
-  ): Promise<(ArtifactRecord & { content?: string }) | undefined> => {
+  ): Promise<
+    | { record: ArtifactRecord; fm: Record<string, unknown>; path: string; content?: string }
+    | undefined
+  > => {
     // Point-read by the deterministic path — `vault.get` resolves one document
     // and returns its frontmatter (and `.body` when asked). A missing target
     // yields no records rather than an error.
@@ -214,28 +265,41 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
     if (record === null) {
       return undefined;
     }
+    const fm = isStringRecord(doc.frontmatter) ? doc.frontmatter : {};
     if (!content) {
-      return record;
+      return { fm, path: doc.path, record };
     }
     // Round-trip the frozen body verbatim — see stripTrailingNewline.
     const raw = typeof doc.body === 'string' ? doc.body : '';
-    return { ...record, content: stripTrailingNewline(raw) };
+    return { content: stripTrailingNewline(raw), fm, path: doc.path, record };
+  };
+
+  /** Apply a one-plan batch of ops, failing loud if norn did not fully apply it —
+   * the single-shot mutation path (an unconfirmed apply is terminal). Every
+   * mutation appends the `updated_at` co-write, so the plan is never empty. */
+  const apply = async (operations: MigrationOp[]): Promise<void> => {
+    const plan = migrationPlan({ generator: 'mimir', operations, vaultRoot });
+    const outcome = applyReportOutcome(await client.applyPlan(plan, true)) ?? 'unrecognized';
+    if (outcome !== 'applied') {
+      throw validation('the artifact write did not complete', `apply outcome: ${outcome}`);
+    }
   };
 
   return {
     async applyTag(key, seq, tag) {
-      const record = await loadDoc(key, seq, false);
-      if (record === undefined) {
+      const doc = await resolveDoc(key, seq, false);
+      if (doc === undefined) {
         return;
       }
-      if (record.tags.includes(tag)) {
+      // A no-op re-tag writes nothing (MMR-303 posture): no plan, no stamp.
+      if (doc.record.tags.includes(tag)) {
         return;
       }
-      await client.set({
-        confirm: true,
-        set: { tags: [...record.tags, tag] },
-        target: pathOf(key, seq),
-      });
+      assertArtifactGuard(doc.path, doc.fm);
+      await apply([
+        tagsFieldOp(doc.path, doc.fm, [...doc.record.tags, tag]),
+        setFrontmatter(doc.path, 'updated_at', now(), doc.fm.updated_at),
+      ]);
     },
 
     async create(input: ArtifactCreate) {
@@ -250,6 +314,7 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
         links: input.links,
         tags: input.tags,
         title: input.title,
+        updated_at: timestamp,
       });
       const plan = createDocumentPlan(
         vaultRoot,
@@ -282,6 +347,7 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
         seq: identity.seq,
         tags: input.tags,
         title: input.title,
+        updated_at: timestamp,
       };
     },
 
@@ -343,33 +409,43 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
     },
 
     async load(key, seq, opts) {
-      return loadDoc(key, seq, opts?.content === true);
+      const doc = await resolveDoc(key, seq, opts?.content === true);
+      if (doc === undefined) {
+        return undefined;
+      }
+      return doc.content === undefined ? doc.record : { ...doc.record, content: doc.content };
     },
 
     async removeTags(key, seq, tags) {
-      const record = await loadDoc(key, seq, false);
-      if (record === undefined || tags.length === 0) {
+      const doc = await resolveDoc(key, seq, false);
+      if (doc === undefined || tags.length === 0) {
         return 0;
       }
       const removing = new Set(tags);
-      const remaining = record.tags.filter((t) => !removing.has(t));
-      const removed = record.tags.length - remaining.length;
-      if (removed > 0) {
-        await client.set({
-          confirm: true,
-          set: { tags: remaining },
-          target: pathOf(key, seq),
-        });
+      const remaining = doc.record.tags.filter((t) => !removing.has(t));
+      const removed = doc.record.tags.length - remaining.length;
+      // A no-op removal writes nothing (MMR-303 posture): no plan, no stamp.
+      if (removed === 0) {
+        return 0;
       }
+      assertArtifactGuard(doc.path, doc.fm);
+      await apply([
+        tagsFieldOp(doc.path, doc.fm, remaining),
+        setFrontmatter(doc.path, 'updated_at', now(), doc.fm.updated_at),
+      ]);
       return removed;
     },
 
     async updateTitle(key, seq, title) {
-      const record = await loadDoc(key, seq, false);
-      if (record === undefined) {
+      const doc = await resolveDoc(key, seq, false);
+      if (doc === undefined) {
         return false;
       }
-      await client.set({ confirm: true, set: { title }, target: pathOf(key, seq) });
+      assertArtifactGuard(doc.path, doc.fm);
+      await apply([
+        setFrontmatter(doc.path, 'title', title, doc.fm.title),
+        setFrontmatter(doc.path, 'updated_at', now(), doc.fm.updated_at),
+      ]);
       return true;
     },
   };
