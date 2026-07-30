@@ -151,7 +151,7 @@ options:
       --name <name>       create project: display name (or positional)
       --title <text>      create/update: title text
       --desc <text>       create/update: description
-      --summary <text>    create/update/attach: summary (all-node; 256 chars max)
+      --summary <text>    create/update/attach: summary (nodes and artifacts; 256 chars max)
       --target <text>     create/update: target date or milestone
       --ref <ref>         create/update: external reference
       --file <path>       attach: path to artifact file
