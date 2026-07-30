@@ -53,7 +53,7 @@ single-operator system needs no lock manager. Lifecycle verbs clear the fields
 on terminal transitions and holds and keep them through `under_review` (the
 branch and session remain the live pointers at the human gate); transition-log
 rows echo them at boundaries, so history preserves claim succession. The
-boundary rule: anything recoverable *from* the session — model, durations,
+boundary rule: anything recoverable _from_ the session — model, durations,
 token counts — stays out. Mimir stores the keys into richer stores; mining
 happens there. Mimir makes no liveness claims; consumers judge via the
 handles, with the stale predicate as the coarse backstop. PR linkage rides the
