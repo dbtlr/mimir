@@ -257,6 +257,28 @@ test.skipIf(!NORN)('the node artifacts facet speaks KEY-aN', async () => {
   expect(projectView.artifacts?.map((a) => a.id)).toEqual([`${key}-a1`]);
 });
 
+test.skipIf(!NORN)(
+  'the artifacts facet carries the summary lede only when set (MMR-319)',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const tId = await nodeIdOf(store, idOf(t));
+    const projectId = await projectIdOf(store, key);
+    await attachArtifact(store, { content: 'x', linkNodeIds: [tId], projectId, title: 'bare' });
+    await attachArtifact(store, {
+      content: 'y',
+      linkNodeIds: [tId],
+      projectId,
+      summary: 'the lede',
+      title: 'led',
+    });
+
+    const view = await getNode(store, idOf(t));
+    expect(view.artifacts?.map((a) => a.summary)).toEqual([undefined, 'the lede']);
+    expect((await getArtifact(store, `${key}-a2`)).summary).toBe('the lede');
+    expect((await getArtifact(store, `${key}-a1`)).summary).toBeUndefined();
+  },
+);
+
 test.skipIf(!NORN)('list selects by status universe (MMR-33)', async () => {
   const a = await createTask(store, { parentId: phaseId, title: 'a' });
   const b = await createTask(store, { parentId: phaseId, title: 'b' });

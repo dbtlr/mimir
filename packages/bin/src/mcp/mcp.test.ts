@@ -397,6 +397,51 @@ test.skipIf(!NORN)('attach to a node infers the project and echoes an artifact i
 });
 
 test.skipIf(!NORN)(
+  'attach summary lands on the record; over-length refuses (MMR-319)',
+  async () => {
+    const res = await toolAttach(store, {
+      content: '# plan\n',
+      node: taskRef,
+      summary: 'the lede',
+      title: 'plan',
+    });
+    const id = parseJson<{ artifact: { id: string } }>(textOf(res)).artifact.id;
+    expect((await getArtifact(store, id)).summary).toBe('the lede');
+
+    const long = await toolAttach(store, {
+      content: '# plan\n',
+      node: taskRef,
+      summary: 'x'.repeat(257),
+      title: 'too long',
+    });
+    expect(long.isError).toBe(true);
+    expect(JSON.parse(textOf(long)).error.code).toBe('validation');
+  },
+);
+
+test.skipIf(!NORN)(
+  'toolUpdate on a KEY-aN sets, clears, and caps the summary lede (MMR-319)',
+  async () => {
+    const attached = await toolAttach(store, { content: '# a\n', node: taskRef, title: 'a' });
+    const aid = parseJson<{ artifact: { id: string } }>(textOf(attached)).artifact.id;
+
+    const set = await toolUpdate(store, { id: aid, summary: 'a fresh lede' });
+    expect(set.isError).toBeUndefined();
+    expect(parseJson<{ summary: string }>(textOf(set)).summary).toBe('a fresh lede');
+    expect((await getArtifact(store, aid)).summary).toBe('a fresh lede');
+
+    const cleared = await toolUpdate(store, { id: aid, summary: '  ' });
+    expect(cleared.isError).toBeUndefined();
+    expect((await getArtifact(store, aid)).summary).toBeUndefined();
+
+    const long = await toolUpdate(store, { id: aid, summary: 'x'.repeat(257) });
+    expect(long.isError).toBe(true);
+    expect(JSON.parse(textOf(long)).error.code).toBe('validation');
+    expect((await getArtifact(store, aid, { content: true })).content).toBe('# a');
+  },
+);
+
+test.skipIf(!NORN)(
   'attach dedupes a link equal to the node anchor and a repeated link (MMR-305)',
   async () => {
     const t2 = await createTask(store, { parentId: phaseId, title: 't2' });

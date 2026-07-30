@@ -175,7 +175,7 @@ for (const backend of backends) {
     );
 
     test.skipIf(backend.skip)(
-      'updateTitle patches title, leaves content frozen; false for a missing artifact',
+      'updateMetadata patches title, leaves content frozen; false for a missing artifact',
       async () => {
         await h.artifacts.create({
           content: 'body',
@@ -184,11 +184,50 @@ for (const backend of backends) {
           tags: [],
           title: 'old',
         });
-        expect(await h.artifacts.updateTitle('MMR', 1, 'new')).toBe(true);
+        expect(await h.artifacts.updateMetadata('MMR', 1, { title: 'new' })).toBe(true);
         const loaded = await h.artifacts.load('MMR', 1, { content: true });
         expect(loaded?.title).toBe('new');
         expect(loaded?.content).toBe('body');
-        expect(await h.artifacts.updateTitle('MMR', 99, 'x')).toBe(false);
+        expect(await h.artifacts.updateMetadata('MMR', 99, { title: 'x' })).toBe(false);
+      },
+    );
+
+    // The lede round-trip (MMR-319): absent on create reads as null, added by a
+    // metadata patch, replaced in place, and cleared back to absent — the whole
+    // add/set/remove field-op cycle against a real vault.
+    test.skipIf(backend.skip)(
+      'updateMetadata adds, replaces, and clears the summary lede; create carries it through',
+      async () => {
+        await h.artifacts.create({
+          content: 'body',
+          key: 'MMR',
+          links: [],
+          tags: [],
+          title: 'no lede',
+        });
+        expect((await h.artifacts.load('MMR', 1))?.summary).toBeNull();
+
+        expect(await h.artifacts.updateMetadata('MMR', 1, { summary: 'the lede' })).toBe(true);
+        expect((await h.artifacts.load('MMR', 1))?.summary).toBe('the lede');
+
+        expect(await h.artifacts.updateMetadata('MMR', 1, { summary: 'a better lede' })).toBe(true);
+        expect((await h.artifacts.load('MMR', 1))?.summary).toBe('a better lede');
+
+        expect(await h.artifacts.updateMetadata('MMR', 1, { summary: null })).toBe(true);
+        const cleared = await h.artifacts.load('MMR', 1, { content: true });
+        expect(cleared?.summary).toBeNull();
+        expect(cleared?.content).toBe('body');
+
+        const born = await h.artifacts.create({
+          content: 'body',
+          key: 'MMR',
+          links: [],
+          summary: 'born with one',
+          tags: [],
+          title: 'with lede',
+        });
+        expect(born.summary).toBe('born with one');
+        expect((await h.artifacts.load('MMR', born.seq))?.summary).toBe('born with one');
       },
     );
 
@@ -298,6 +337,7 @@ for (const backend of backends) {
           key: 'MMR',
           links: [],
           seq: 1,
+          summary: null,
           tags: ['spec'],
           title: 'restored',
           updated_at: '2026-02-02T00:00:00.000Z',
@@ -326,6 +366,7 @@ for (const backend of backends) {
           key: 'MMR',
           links: [],
           seq: 1,
+          summary: null,
           tags: [],
           title: 'restored',
           updated_at: '2026-02-02T00:00:00.000Z',
@@ -346,6 +387,7 @@ for (const backend of backends) {
           key: 'MMR',
           links: [],
           seq: 1,
+          summary: null,
           tags: [],
           title: 'original',
           updated_at: '2026-02-02T00:00:00.000Z',

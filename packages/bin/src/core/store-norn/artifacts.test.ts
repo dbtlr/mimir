@@ -141,10 +141,18 @@ test('removeTags on an artifact with an explicitly null updated_at refuses as de
   await expectDegradedRefusal(plans, () => store.removeTags('MMR', 1, ['a']));
 });
 
-test('updateTitle on a healthy artifact writes the updated_at stamp guarded by its CAS old value (MMR-317)', async () => {
+test('the decoder reads a present summary and tolerates an absent or non-string one (MMR-319)', async () => {
+  const store = (fm: Record<string, unknown>): ReturnType<typeof createNornArtifactStore> =>
+    createNornArtifactStore(fakeClient(artifactDoc(fm)).client, ROOT);
+  expect((await store({ summary: 'a lede' }).load('MMR', 1))?.summary).toBe('a lede');
+  expect((await store({}).load('MMR', 1))?.summary).toBeNull();
+  expect((await store({ summary: 42 }).load('MMR', 1))?.summary).toBeNull();
+});
+
+test('updateMetadata on a healthy artifact writes the updated_at stamp guarded by its CAS old value (MMR-317)', async () => {
   const { client, plans } = fakeClient(artifactDoc());
   const store = createNornArtifactStore(client, ROOT);
-  expect(await store.updateTitle('MMR', 1, 'renamed')).toBe(true);
+  expect(await store.updateMetadata('MMR', 1, { title: 'renamed' })).toBe(true);
   const plan = plans[0];
   if (plan === undefined) {
     throw new Error('expected one applied plan');
@@ -153,14 +161,70 @@ test('updateTitle on a healthy artifact writes the updated_at stamp guarded by i
   expect(findOp(plan, 'updated_at')?.fields.expected_old_value).toBe(TS);
 });
 
-test('updateTitle on an artifact missing updated_at refuses as degraded vault state (MMR-317)', async () => {
+test('updateMetadata on an artifact missing updated_at refuses as degraded vault state (MMR-317)', async () => {
   const { client, plans } = fakeClient(artifactDoc({ updated_at: undefined }));
   const store = createNornArtifactStore(client, ROOT);
-  await expectDegradedRefusal(plans, () => store.updateTitle('MMR', 1, 'renamed'));
+  await expectDegradedRefusal(plans, () => store.updateMetadata('MMR', 1, { title: 'renamed' }));
 });
 
-test('updateTitle on an artifact with an explicitly null updated_at refuses as degraded vault state (MMR-317)', async () => {
+test('updateMetadata on an artifact with an explicitly null updated_at refuses as degraded vault state (MMR-317)', async () => {
   const { client, plans } = fakeClient(artifactDoc({ updated_at: null }));
   const store = createNornArtifactStore(client, ROOT);
-  await expectDegradedRefusal(plans, () => store.updateTitle('MMR', 1, 'renamed'));
+  await expectDegradedRefusal(plans, () => store.updateMetadata('MMR', 1, { title: 'renamed' }));
+});
+
+test('updateMetadata adds an absent summary and co-writes the guarded stamp (MMR-319)', async () => {
+  const { client, plans } = fakeClient(artifactDoc());
+  const store = createNornArtifactStore(client, ROOT);
+  expect(await store.updateMetadata('MMR', 1, { summary: 'a lede' })).toBe(true);
+  const plan = plans[0];
+  if (plan === undefined) {
+    throw new Error('expected one applied plan');
+  }
+  const op = findOp(plan, 'summary');
+  expect(op?.kind).toBe('add_frontmatter');
+  expect(op?.fields.new_value).toBe('a lede');
+  expect(op?.fields.expected_old_value).toBeUndefined();
+  expect(findOp(plan, 'updated_at')?.fields.expected_old_value).toBe(TS);
+});
+
+test('updateMetadata sets a present summary under its stored CAS old value (MMR-319)', async () => {
+  const { client, plans } = fakeClient(artifactDoc({ summary: 'the old lede' }));
+  const store = createNornArtifactStore(client, ROOT);
+  expect(await store.updateMetadata('MMR', 1, { summary: 'the new lede' })).toBe(true);
+  const plan = plans[0];
+  if (plan === undefined) {
+    throw new Error('expected one applied plan');
+  }
+  const op = findOp(plan, 'summary');
+  expect(op?.kind).toBe('set_frontmatter');
+  expect(op?.fields.new_value).toBe('the new lede');
+  expect(op?.fields.expected_old_value).toBe('the old lede');
+});
+
+test('updateMetadata clearing a present summary removes it under its CAS old value (MMR-319)', async () => {
+  const { client, plans } = fakeClient(artifactDoc({ summary: 'the old lede' }));
+  const store = createNornArtifactStore(client, ROOT);
+  expect(await store.updateMetadata('MMR', 1, { summary: null })).toBe(true);
+  const plan = plans[0];
+  if (plan === undefined) {
+    throw new Error('expected one applied plan');
+  }
+  const op = plan.operations.find((o) => o.fields.field === 'summary');
+  expect(op?.kind).toBe('remove_frontmatter');
+  expect(op?.fields.expected_old_value).toBe('the old lede');
+  expect(findOp(plan, 'updated_at')?.fields.expected_old_value).toBe(TS);
+});
+
+test('updateMetadata clearing an already-absent summary writes nothing (no-op, MMR-303 posture)', async () => {
+  const { client, plans } = fakeClient(artifactDoc());
+  const store = createNornArtifactStore(client, ROOT);
+  expect(await store.updateMetadata('MMR', 1, { summary: null })).toBe(true);
+  expect(plans).toHaveLength(0);
+});
+
+test('updateMetadata on an artifact missing updated_at refuses a summary write too (MMR-317/319)', async () => {
+  const { client, plans } = fakeClient(artifactDoc({ updated_at: undefined }));
+  const store = createNornArtifactStore(client, ROOT);
+  await expectDegradedRefusal(plans, () => store.updateMetadata('MMR', 1, { summary: 'a lede' }));
 });

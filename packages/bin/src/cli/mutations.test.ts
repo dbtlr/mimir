@@ -629,6 +629,33 @@ test.skipIf(!NORN)('attach to a missing node is not_found → exit 1', async () 
   await Bun.write(tmp, 'x');
   expect(await runCli(['attach', 'MMR-9999', '--file', tmp], () => store, fakeIo(false))).toBe(1);
 });
+test.skipIf(!NORN)(
+  'attach --summary lands on the record and over-length refuses (MMR-319)',
+  async () => {
+    const tmp = `${process.env.TMPDIR ?? '/tmp'}/mimir-attach-summary.md`;
+    await Bun.write(tmp, '# body');
+    const io = fakeIo(false);
+    expect(
+      await runCli(
+        ['attach', taskRef, '--file', tmp, '--title', 'a', '--summary', 'the lede', '-f', 'json'],
+        () => store,
+        io,
+      ),
+    ).toBe(0);
+    const aId = parseJson<{ artifact: { id: string } }>(io.out.join('')).artifact.id;
+    expect((await getArtifact(store, aId)).summary).toBe('the lede');
+
+    const long = fakeIo(false);
+    expect(
+      await runCli(
+        ['attach', taskRef, '--file', tmp, '--title', 'b', '--summary', 'x'.repeat(257)],
+        () => store,
+        long,
+      ),
+    ).toBe(1);
+    expect(long.out).toHaveLength(0);
+  },
+);
 
 test.skipIf(!NORN)(
   'blank required tokens are usage errors → exit 2, not not_found (MMR-41)',
@@ -682,6 +709,43 @@ test.skipIf(!NORN)(
     expect(await runCli(['update', 'MMR-a999', '--title', 'x'], () => store, fakeIo(false))).toBe(
       1,
     );
+  },
+);
+
+test.skipIf(!NORN)(
+  'update KEY-aN --summary sets, clears, and refuses over the 256-char cap (MMR-319)',
+  async () => {
+    const tmp = `${process.env.TMPDIR ?? '/tmp'}/mimir-artifact-summary.md`;
+    await Bun.write(tmp, '# body');
+    const io = fakeIo(false);
+    expect(
+      await runCli(
+        ['attach', taskRef, '--file', tmp, '--title', 'titled', '-f', 'json'],
+        () => store,
+        io,
+      ),
+    ).toBe(0);
+    const aId = parseJson<{ artifact: { id: string } }>(io.out.join('')).artifact.id;
+
+    const echo = fakeIo(false);
+    expect(
+      await runCli(['update', aId, '--summary', 'a fresh lede', '-f', 'json'], () => store, echo),
+    ).toBe(0);
+    const detail = parseJson<{ id: string; summary: string }>(echo.out.join(''));
+    expect(detail.id).toBe(aId);
+    expect(detail.summary).toBe('a fresh lede');
+    expect((await getArtifact(store, aId)).summary).toBe('a fresh lede');
+
+    // a blank clears it back to absent — the key leaves the projection entirely
+    expect(await runCli(['update', aId, '--summary', '  '], () => store, fakeIo(false))).toBe(0);
+    expect((await getArtifact(store, aId)).summary).toBeUndefined();
+
+    // the cap is the node summary's, enforced core-side → validation, exit 1
+    expect(
+      await runCli(['update', aId, '--summary', 'x'.repeat(257)], () => store, fakeIo(false)),
+    ).toBe(1);
+    // the content stays frozen through every metadata patch
+    expect((await getArtifact(store, aId, { content: true })).content).toBe('# body');
   },
 );
 

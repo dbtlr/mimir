@@ -791,6 +791,48 @@ test.skipIf(!NORN)(
 );
 
 test.skipIf(!NORN)(
+  'artifacts: the summary lede rides POST and PATCH, clears blank, and caps at 256 (MMR-319)',
+  async () => {
+    const created = await send('POST', `/api/nodes/${task1}/artifacts`, {
+      content: '# body',
+      summary: 'the lede',
+      title: 'led',
+    });
+    expect(created.status).toBe(201);
+    expect((await parse(created)).summary).toBe('the lede');
+    expect((await parse(await get('/api/artifacts/MMR-a1'))).summary).toBe('the lede');
+    // The cross-project feed carries it too.
+    const listed = (await parse(await get('/api/artifacts'))) as { items: { summary?: string }[] };
+    expect(listed.items[0]?.summary).toBe('the lede');
+
+    const patched = await send('PATCH', '/api/artifacts/MMR-a1', { summary: 'a better lede' });
+    expect(patched.status).toBe(200);
+    expect((await parse(patched)).summary).toBe('a better lede');
+
+    // A blank clears it — the key leaves the wire object entirely.
+    const cleared = await send('PATCH', '/api/artifacts/MMR-a1', { summary: '  ' });
+    expect(cleared.status).toBe(200);
+    const clearedBody = await parse(cleared);
+    expect(clearedBody.summary).toBeUndefined();
+    expect(clearedBody.content).toBe('# body');
+
+    // The cap is the node summary's, enforced core-side.
+    expect(
+      (await send('PATCH', '/api/artifacts/MMR-a1', { summary: 'x'.repeat(257) })).status,
+    ).toBe(400);
+    expect(
+      (
+        await send('POST', `/api/nodes/${task1}/artifacts`, {
+          content: 'y',
+          summary: 'x'.repeat(257),
+          title: 'too long',
+        })
+      ).status,
+    ).toBe(400);
+  },
+);
+
+test.skipIf(!NORN)(
   'POST /api/nodes/:id/reopen sends a done task back to in_progress (MMR-104)',
   async () => {
     await send('POST', `/api/nodes/${task1}/start`);
