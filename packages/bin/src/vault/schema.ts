@@ -25,9 +25,10 @@ import { SEQ_TOKEN } from '../core/store-norn/plan';
  * without the newer rule. Schema 4 added the `seed` rule (MMR-244); a schema-3
  * binary must refuse a schema-4 vault, not regenerate a seed-less config.
  * Schema 5 added `updated_at` to the artifact rule's `field_types` (MMR-317);
- * a schema-4 binary must refuse a schema-5 vault.
+ * a schema-4 binary must refuse a schema-5 vault. Schema 6 added the optional
+ * `summary` lede to the same rule (MMR-319).
  */
-export const VAULT_SCHEMA = 5;
+export const VAULT_SCHEMA = 6;
 
 export const MARKER_FILE = '.mimir-vault.toml';
 export const NORN_CONFIG_FILE = '.norn/config.yaml';
@@ -107,6 +108,10 @@ validate:
         - created
       field_types:
         title: text
+        # The optional lede (MMR-319) — a field_type only, never
+        # required_frontmatter: absence is a legitimate state, not a repair
+        # signal, so nothing detects or stamps it.
+        summary: text
         project: wikilink
         anchor: wikilink_or_list
         tags: list_of_strings

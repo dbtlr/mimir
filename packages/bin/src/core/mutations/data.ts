@@ -1,6 +1,6 @@
 import type { Priority, Size } from '@mimir/contract';
 
-import type { ArtifactRecord } from '../artifacts/store';
+import type { ArtifactMetadataPatch, ArtifactRecord } from '../artifacts/store';
 import { deriveSet } from '../derive';
 import { invariant, notFound, validation } from '../errors';
 import { SPEC_UPDATE_KEYS, updateKeysForTypes } from '../field-spec';
@@ -105,13 +105,13 @@ const UPDATE_FIELD_KEYS: readonly UpdateFieldKey[] = [
  * (an {@link Identity} `kind` other than `node`) — each narrows
  * {@link UpdateFields} to the handful of keys it actually owns; a project
  * renames on its own `name` field (outside this vocabulary entirely), an
- * artifact's one mutable field is `title`, and a seed's are
+ * artifact's mutable fields are `title` and `summary`, and a seed's are
  * `title`/`description` (`kind` likewise outside this vocabulary).
  */
 export type NarrowUpdateKind = 'project' | 'artifact' | 'seed';
 
 const APPLICABLE_UPDATE_FIELDS: Record<NarrowUpdateKind, readonly UpdateFieldKey[]> = {
-  artifact: ['title'],
+  artifact: ['summary', 'title'],
   project: ['description'],
   seed: ['title', 'description'],
 };
@@ -247,12 +247,16 @@ export async function annotate(store: Store, id: string, content: string): Promi
 
 export type ArtifactUpdateFields = {
   title?: string;
+  /** The lede (MMR-319) — same 256-char cap as a node's, cleared by a blank. */
+  summary?: string | null;
 };
 
 /**
- * The dumb `update` for an artifact (MMR-40): `title` is the only mutable
- * field — content stays frozen (ADR 0004), so a mistitled attach is
- * repairable while the record itself remains immutable. Unlogged, like every
+ * The dumb `update` for an artifact (MMR-40, MMR-319): `title` and the
+ * `summary` lede are the mutable fields — content stays frozen (ADR 0004), so a
+ * mistitled or mis-led attach is repairable while the record itself remains
+ * immutable. `summary` runs the same {@link normalizeSummary} a node's does, so
+ * the cap and its refusal wording are one core fact. Unlogged, like every
  * metadata patch (the transition log records status transitions).
  * Keyed by canonical artifact stem (MMR-143), with no second identity scheme.
  */
@@ -264,6 +268,13 @@ export async function updateArtifact(
   if (fields.title !== undefined && fields.title.trim() === '') {
     throw validation('an artifact title cannot be blank');
   }
+  const patch: ArtifactMetadataPatch = {};
+  if (fields.title !== undefined) {
+    patch.title = fields.title;
+  }
+  if (fields.summary !== undefined) {
+    patch.summary = normalizeSummary(fields.summary);
+  }
   await store.transact(async (w) => {
     const project = await w.loadProject(ref.key);
     if (project === undefined) {
@@ -271,8 +282,8 @@ export async function updateArtifact(
     }
     await assertProjectActive(w, project.key);
   });
-  if (fields.title !== undefined) {
-    const found = await store.artifacts.updateTitle(ref.key, ref.seq, fields.title);
+  if (Object.keys(patch).length > 0) {
+    const found = await store.artifacts.updateMetadata(ref.key, ref.seq, patch);
     if (!found) {
       throw notFound(`${ref.key}-a${String(ref.seq)} doesn't exist`);
     }
@@ -284,6 +295,8 @@ export type AttachArtifactInput = {
   /** Required (MMR-34): the human handle every artifact carries. */
   title: string;
   content: string;
+  /** Optional lede (MMR-319) — the same 256-char cap a node's summary carries. */
+  summary?: string | null;
   linkNodeIds?: string[];
   /** Attach-and-classify is one intent — creation-time tags on the artifact. */
   tags?: string[];
@@ -323,6 +336,9 @@ export async function attachArtifact(
   if (input.title.trim() === '') {
     throw validation('attach requires a title');
   }
+  // The lede runs the node summary's own normalizer (MMR-319) — one cap, one
+  // refusal voice — and is checked before any write, like the title gate above.
+  const summary = normalizeSummary(input.summary ?? null);
   // Validate the project and every link against the node backend, and render
   // the link stems, before the artifact write hits its own (possibly Norn)
   // backend — the invariants stay verb-side (MMR-143). `assertProjectActive`
@@ -352,6 +368,7 @@ export async function attachArtifact(
     content: input.content,
     key: projectKey,
     links: linkStems,
+    summary,
     tags: input.tags ?? [],
     title: input.title,
   });

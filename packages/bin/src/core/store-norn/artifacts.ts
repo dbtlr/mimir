@@ -1,6 +1,7 @@
 import type {
   ArtifactCreate,
   ArtifactListQuery,
+  ArtifactMetadataPatch,
   ArtifactRecord,
   ArtifactStore,
 } from '../artifacts/store';
@@ -15,6 +16,7 @@ import {
   addFrontmatter,
   createDocumentPlan,
   migrationPlan,
+  removeFrontmatter,
   SEQ_TOKEN,
   setFrontmatter,
 } from './plan';
@@ -22,8 +24,9 @@ import {
 /**
  * The Norn-vault `ArtifactStore` (MMR-143, ADR 0016 Phase 2a): an artifact is
  * a markdown document at `KEY/artifacts/KEY-aN.md` — the stem is the id,
- * frontmatter is the queryable record (`title`, `project` wikilink, `anchor`
- * wikilink list, `tags`, `created`), the body is the frozen content.
+ * frontmatter is the queryable record (`title`, the optional `summary` lede,
+ * `project` wikilink, `anchor` wikilink list, `tags`, `created`), the body is
+ * the frozen content.
  *
  * - **Seq allocation rides the `{{seq}}` token** (MMR-196, ADR 0016 Refinement):
  *   a create is one `create_document` op whose path carries a trailing
@@ -53,14 +56,16 @@ const createTemplate = (key: string): string => `${key}/artifacts/${key}-a${SEQ_
 /**
  * The artifact frontmatter record handed to `create_document.new_value` — the
  * single write shape shared by `create` (which stamps `created=now()`) and the
- * cutover `restoreArtifact` (which preserves the source `created`). `anchor`
- * and `tags` are omitted when empty so an artifact carries only the fields it
- * has, matching the pre-seam markdown. `updated_at` is always emitted (like the
- * seed rule): every mutation co-writes it as the CAS drift guard (MMR-317).
+ * cutover `restoreArtifact` (which preserves the source `created`). `anchor`,
+ * `summary`, and `tags` are omitted when empty so an artifact carries only the
+ * fields it has, matching the pre-seam markdown. `updated_at` is always emitted
+ * (like the seed rule): every mutation co-writes it as the CAS drift guard
+ * (MMR-317).
  */
 function artifactFrontmatter(fields: {
   key: string;
   title: string;
+  summary: string | null;
   created: string;
   updated_at: string;
   links: string[];
@@ -75,6 +80,9 @@ function artifactFrontmatter(fields: {
   };
   if (fields.links.length > 0) {
     fm.anchor = fields.links.map(wikilink);
+  }
+  if (fields.summary !== null) {
+    fm.summary = fields.summary;
   }
   if (fields.tags.length > 0) {
     fm.tags = fields.tags;
@@ -108,6 +116,24 @@ function tagsFieldOp(path: string, fm: Record<string, unknown>, tags: string[]):
     : addFrontmatter(path, 'tags', tags);
 }
 
+/** The `summary` field op for one metadata patch (MMR-319), chosen on the RAW
+ * field PRESENCE like {@link tagsFieldOp}: a value ADDs an absent field and SETs
+ * a present one under its stored CAS precondition, while a null CLEARS — a
+ * remove carrying the same precondition, or nothing at all when the field is
+ * already absent (the no-op posture: no op, no stamp). */
+function summaryFieldOp(
+  path: string,
+  fm: Record<string, unknown>,
+  summary: string | null,
+): MigrationOp | undefined {
+  if (summary === null) {
+    return 'summary' in fm ? removeFrontmatter(path, 'summary', fm.summary) : undefined;
+  }
+  return 'summary' in fm
+    ? setFrontmatter(path, 'summary', summary, fm.summary)
+    : addFrontmatter(path, 'summary', summary);
+}
+
 /**
  * Cutover-only (MMR-144): write one pre-existing artifact record into the
  * vault at its *existing* identity — the same `KEY-aN` stem and the same
@@ -130,6 +156,7 @@ export async function restoreArtifact(
     created: record.created_at,
     key: record.key,
     links: record.links,
+    summary: record.summary,
     tags: record.tags,
     title: record.title,
     // Preserve the source `updated_at` across the migration so a re-run is
@@ -227,6 +254,9 @@ function toRecord(doc: NornDocument): ArtifactRecord | null {
     key: identity.key,
     links: links.toSorted(),
     seq: identity.seq,
+    // Absent by design (MMR-319) — the lede is optional, so a missing or
+    // non-string field reads as none, never as a decode failure.
+    summary: typeof fm.summary === 'string' ? fm.summary : null,
     tags: stringList(fm.tags),
     title,
     // Tolerant of a legacy artifact predating the field (string-or-empty, like
@@ -308,10 +338,12 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
       // allocation authority), so there is no derived `max(seq)+1` and no
       // create-exclusive retry. The apply report echoes the resolved `KEY-aN`.
       const timestamp = now();
+      const summary = input.summary ?? null;
       const frontmatter = artifactFrontmatter({
         created: timestamp,
         key: input.key,
         links: input.links,
+        summary,
         tags: input.tags,
         title: input.title,
         updated_at: timestamp,
@@ -345,6 +377,7 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
         // regardless of the caller's link order.
         links: input.links.toSorted(),
         seq: identity.seq,
+        summary,
         tags: input.tags,
         title: input.title,
         updated_at: timestamp,
@@ -436,16 +469,28 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
       return removed;
     },
 
-    async updateTitle(key, seq, title) {
+    async updateMetadata(key, seq, patch: ArtifactMetadataPatch) {
       const doc = await resolveDoc(key, seq, false);
       if (doc === undefined) {
         return false;
       }
+      const ops: MigrationOp[] = [];
+      if (patch.title !== undefined) {
+        ops.push(setFrontmatter(doc.path, 'title', patch.title, doc.fm.title));
+      }
+      if (patch.summary !== undefined) {
+        const op = summaryFieldOp(doc.path, doc.fm, patch.summary);
+        if (op !== undefined) {
+          ops.push(op);
+        }
+      }
+      // A patch that changes nothing writes nothing (MMR-303 posture): clearing
+      // an already-absent summary is the one reachable case.
+      if (ops.length === 0) {
+        return true;
+      }
       assertArtifactGuard(doc.path, doc.fm);
-      await apply([
-        setFrontmatter(doc.path, 'title', title, doc.fm.title),
-        setFrontmatter(doc.path, 'updated_at', now(), doc.fm.updated_at),
-      ]);
+      await apply([...ops, setFrontmatter(doc.path, 'updated_at', now(), doc.fm.updated_at)]);
       return true;
     },
   };
