@@ -67,8 +67,9 @@ mimir annotate KEY-9 "Realized the parser must be rewritten; filed KEY-12."
 ```
 
 - `update` patches scalar **fields**; it cannot touch status (verbs only).
-- `update KEY-aN --title "…"` retitles an artifact — title is an artifact's
-  one mutable field (content is frozen; attach a new artifact to correct one).
+- `update KEY-aN --title "…" --summary "…"` patches an artifact — title and
+  summary are its two mutable fields (content is frozen; attach a new artifact
+  to correct one).
 - Re-tagging is idempotent — an existing tag is kept as-is. A tag application
   carries no note; put one-off rationale in `annotate` instead.
 - `annotate` appends a timestamped freeform note — the in-flight record of
@@ -90,6 +91,8 @@ mimir attach --project KEY --file log.md --tag session_log   # project-level, no
 
 - `--title` is required when piping from stdin; always pass a real one — it is the
   human handle when tag hygiene is sloppy.
+- `--summary "…"` adds the optional lede (≤256 chars) — what the artifact says,
+  for a reader scanning a list of them. Omit it when the title already tells all.
 - Artifacts are **append-only**: never edit one; correct by attaching a successor.
 - Classify by tag (`spec`, `plan`, `session_log` — see `references/tags.md`), find
   by tag + time, read back with `mimir get KEY-a3 --col content`.
