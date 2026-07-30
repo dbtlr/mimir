@@ -77,6 +77,7 @@ import {
   validation,
 } from '../core';
 import type {
+  ArtifactUpdateFields,
   DerivationSet,
   RankPosition,
   SeedStatusSelector,
@@ -524,7 +525,8 @@ async function updateProjectTool(
   return ok(formatNodeJson(view));
 }
 
-/** `update` on a `KEY-aN` id — title is an artifact's one mutable field (MMR-40). */
+/** `update` on a `KEY-aN` id — title and summary are an artifact's mutable
+ * fields (MMR-40, MMR-319). */
 async function updateArtifactTool(
   store: Store,
   args: {
@@ -543,15 +545,22 @@ async function updateArtifactTool(
   const nodeOnly = inapplicableUpdateFields('artifact').filter((k) => args[k] !== undefined);
   if (nodeOnly.length > 0) {
     throw validation(
-      `${nodeOnly.join(', ')} appl${nodeOnly.length === 1 ? 'ies' : 'y'} only to nodes — title is an artifact's one mutable field`,
+      `${nodeOnly.join(', ')} appl${nodeOnly.length === 1 ? 'ies' : 'y'} only to nodes — title and summary are an artifact's mutable fields`,
     );
   }
   const identity = parseIdentity(args.id);
   if (identity?.kind !== 'artifact') {
     throw notFound(`${args.id} doesn't exist`);
   }
+  const fields: ArtifactUpdateFields = {};
   if (args.title !== undefined) {
-    await updateArtifact(store, { key: identity.key, seq: identity.seq }, { title: args.title });
+    fields.title = args.title;
+  }
+  if (args.summary !== undefined) {
+    fields.summary = args.summary;
+  }
+  if (Object.keys(fields).length > 0) {
+    await updateArtifact(store, { key: identity.key, seq: identity.seq }, fields);
   }
   return ok(formatArtifactJson(await getArtifact(store, args.id)));
 }
@@ -726,6 +735,7 @@ export function toolAttach(
     project?: string;
     title: string;
     content: string;
+    summary?: string;
     links?: string[];
     tags?: string[];
   },
@@ -760,6 +770,7 @@ export function toolAttach(
       content: args.content,
       linkNodeIds,
       projectId: pid,
+      summary: args.summary,
       tags: args.tags,
       title: args.title,
     });

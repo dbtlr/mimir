@@ -19,6 +19,7 @@ import { isMember } from '@mimir/helpers';
 import type { BunRequest, Server } from 'bun';
 
 import type {
+  ArtifactUpdateFields,
   DerivationSet,
   ListOptions,
   SeedStatusSelector,
@@ -583,6 +584,8 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
                   createdAt: r.created_at,
                   id: renderArtifactRef({ key: r.key, seq: r.seq }),
                   project: r.key,
+                  // Optional (MMR-319): no lede, no key on the wire.
+                  ...(r.summary === null ? {} : { summary: r.summary }),
                   tags: r.tags,
                   title: r.title,
                 }),
@@ -598,18 +601,26 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const detail = await getArtifact(store, req.params.id, { content: true });
             return json(req, await artifactDetailToWire(store, detail));
           }),
-        // The dumb update for an artifact (MMR-40): title only; content is
-        // frozen (ADR 0004) and never patchable.
+        // The dumb update for an artifact (MMR-40, MMR-319): title and the
+        // summary lede; content is frozen (ADR 0004) and never patchable.
         PATCH: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ['title']);
+            const body = await readBody(req, ['summary', 'title']);
             const identity = parseIdentity(req.params.id);
             if (identity?.kind !== 'artifact') {
               throw notFound(`${req.params.id} doesn't exist`);
             }
+            const fields: ArtifactUpdateFields = {};
             const title = strField(body, 'title');
             if (title !== undefined) {
-              await updateArtifact(store, { key: identity.key, seq: identity.seq }, { title });
+              fields.title = title;
+            }
+            const summary = strField(body, 'summary');
+            if (summary !== undefined) {
+              fields.summary = summary;
+            }
+            if (Object.keys(fields).length > 0) {
+              await updateArtifact(store, { key: identity.key, seq: identity.seq }, fields);
             }
             const detail = await getArtifact(store, req.params.id, { content: true });
             return json(req, await artifactDetailToWire(store, detail));
@@ -794,7 +805,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       '/api/nodes/:id/artifacts': {
         POST: (req) =>
           guarded(req, async () => {
-            const body = await readBody(req, ['title', 'content', 'links', 'tags']);
+            const body = await readBody(req, ['title', 'content', 'summary', 'links', 'tags']);
             // The path :id anchors the link-set as its first token; core owns the
             // dedup + one-project invariant (MMR-305). No explicit project on this
             // route — the anchor supplies it.
@@ -813,6 +824,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               content: requiredStr(body, 'content', 'attach'),
               linkNodeIds,
               projectId,
+              summary: strField(body, 'summary'),
               tags: strList(body, 'tags'),
               title: requiredStr(body, 'title', 'attach'),
             });
