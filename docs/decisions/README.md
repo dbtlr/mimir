@@ -44,6 +44,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0023](0023-concurrency-and-safety-posture.md)                    | Concurrency & safety posture — not a write-safe datastore          |
 | [0024](0024-cli-command-taxonomy.md)                              | CLI command taxonomy — two planes, flat work verbs                 |
 | [0025](0025-descriptor-driven-registration.md)                    | Descriptor-driven registration — facts in tables, grammar in views |
+| [0026](0026-work-state-composition.md)                            | Work-state composition — views composed at read time               |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model
