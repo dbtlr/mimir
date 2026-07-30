@@ -106,6 +106,7 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
     wire.artifacts = node.artifacts.map((a) => ({
       created_at: a.createdAt,
       id: a.id,
+      ...(a.summary !== undefined ? { summary: a.summary } : {}),
       tags: a.tags,
       title: a.title,
     }));

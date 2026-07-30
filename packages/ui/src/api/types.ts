@@ -53,6 +53,7 @@ export type WireHistoryEntry = {
 export type WireArtifact = {
   id: string;
   title: string;
+  summary?: string;
   tags: string[];
   created_at: string;
 };
