@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { nodeIdOf, projectIdOf, createTestStore, rawDep } from '../../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { deriveSet } from '../derive';
+import { MimirError } from '../errors';
 import { parseIdentity } from '../ids';
 import { getArtifact } from '../intent';
 import { RANK_STEP } from '../rank';
@@ -466,6 +467,65 @@ test.skipIf(!NORN)(
   },
 );
 
+/** A summary one character past the cap, and the message a refusal carries —
+ * the pair the artifact/node refusal-parity assertion below is built from. */
+const LONG = 'x'.repeat(257);
+
+async function messageOf(run: () => Promise<unknown>): Promise<string> {
+  try {
+    await run();
+  } catch (error) {
+    if (!(error instanceof MimirError)) {
+      throw new Error(`expected a MimirError, got ${String(error)}`, { cause: error });
+    }
+    expect(error.code).toBe('validation');
+    return error.message;
+  }
+  throw new Error('expected a MimirError, but nothing was thrown');
+}
+
+test.skipIf(!NORN)(
+  'attach and updateArtifact carry the summary lede, normalized and capped exactly like a node summary (MMR-319)',
+  async () => {
+    const projectKey = await projectId();
+    const { record } = await attachArtifact(store, {
+      content: '# body',
+      projectId: projectKey,
+      summary: 'line one\nline two',
+      title: 'led',
+    });
+    // The node normalizer's newline collapse applies verbatim.
+    expect(record.summary).toBe('line one line two');
+    const ref = { key: record.key, seq: record.seq };
+    expect((await store.artifacts.load(ref.key, ref.seq))?.summary).toBe('line one line two');
+
+    await updateArtifact(store, ref, { summary: 'a better lede' });
+    expect((await store.artifacts.load(ref.key, ref.seq))?.summary).toBe('a better lede');
+
+    // Blank clears, content stays frozen throughout.
+    await updateArtifact(store, ref, { summary: '   ' });
+    const cleared = await store.artifacts.load(ref.key, ref.seq, { content: true });
+    expect(cleared?.summary).toBeNull();
+    expect(cleared?.content).toBe('# body');
+
+    // One cap, one refusal voice: the artifact message is byte-identical to the
+    // node one, because both run `normalizeSummary` (MMR-162).
+    const taskId = await task();
+    const nodeRefusal = await messageOf(() => updateNode(store, taskId, { summary: LONG }));
+    expect(await messageOf(() => updateArtifact(store, ref, { summary: LONG }))).toBe(nodeRefusal);
+    expect(
+      await messageOf(() =>
+        attachArtifact(store, {
+          content: 'x',
+          projectId: projectKey,
+          summary: LONG,
+          title: 'too long',
+        }),
+      ),
+    ).toBe(nodeRefusal);
+  },
+);
+
 test.skipIf(!NORN)(
   'updateProject patches name and description; key is immutable (MMR-88)',
   async () => {
@@ -661,14 +721,13 @@ test('inapplicableUpdateFields names every UpdateFields key a project rejects bu
   ]);
 });
 
-test('inapplicableUpdateFields names every UpdateFields key an artifact rejects but title', () => {
+test('inapplicableUpdateFields names every UpdateFields key an artifact rejects but title/summary', () => {
   expect(inapplicableUpdateFields('artifact')).toEqual([
     'description',
     'externalRef',
     'openEnded',
     'priority',
     'size',
-    'summary',
     'target',
     'upstream',
   ]);

@@ -1,1 +1,7 @@
-export type { ArtifactCreate, ArtifactListQuery, ArtifactRecord, ArtifactStore } from './store';
+export type {
+  ArtifactCreate,
+  ArtifactListQuery,
+  ArtifactMetadataPatch,
+  ArtifactRecord,
+  ArtifactStore,
+} from './store';

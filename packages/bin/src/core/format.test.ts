@@ -148,6 +148,28 @@ describe('formatNodeJson', () => {
     expect('hold' in parsed).toBe(false);
     expect('upstream' in parsed).toBe(false);
   });
+
+  test('artifacts facet carries summary on the wire when set, omits the key when absent (MMR-319)', () => {
+    const parsed = parseJson<Record<string, unknown>>(
+      formatNodeJson(
+        task('MMR-2', {
+          artifacts: [
+            {
+              createdAt: '2026-07-01T00:00:00.000Z',
+              id: 'MMR-a1',
+              summary: 'the lede',
+              tags: [],
+              title: 'with',
+            },
+            { createdAt: '2026-07-01T00:00:00.000Z', id: 'MMR-a2', tags: [], title: 'without' },
+          ],
+        }),
+      ),
+    );
+    const artifacts = parsed.artifacts as Record<string, unknown>[];
+    expect(artifacts[0]?.summary).toBe('the lede');
+    expect('summary' in (artifacts[1] ?? {})).toBe(false);
+  });
 });
 
 describe('formatStatusJson', () => {

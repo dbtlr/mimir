@@ -53,6 +53,7 @@ export type WireHistoryEntry = {
 export type WireArtifact = {
   id: string;
   title: string;
+  summary?: string;
   tags: string[];
   created_at: string;
 };
@@ -61,6 +62,8 @@ export type WireArtifact = {
 export type WireArtifactSummary = {
   id: string;
   title: string;
+  /** The optional lede (MMR-319) — absent when the artifact carries none. */
+  summary?: string;
   project: string;
   tags: string[];
   created_at: string;
@@ -81,6 +84,8 @@ export type WireArtifactLink = {
 export type WireArtifactDetail = {
   id: string;
   title: string;
+  /** The optional lede (MMR-319) — absent when the artifact carries none. */
+  summary?: string;
   project: string;
   links: WireArtifactLink[];
   tags: string[];

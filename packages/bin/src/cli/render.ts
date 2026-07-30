@@ -353,10 +353,11 @@ export function renderArtifactDetail(artifact: ArtifactDetail, format: Format, i
       break;
     }
     case 'records': {
-      const pairs: [string, string][] = [
-        ['title', artifact.title],
-        ['project', artifact.project],
-      ];
+      const pairs: [string, string][] = [['title', artifact.title]];
+      if (artifact.summary !== undefined) {
+        pairs.push(['summary', artifact.summary]);
+      }
+      pairs.push(['project', artifact.project]);
       if (artifact.links.length > 0) {
         pairs.push(['links', artifact.links.join(', ')]);
       }

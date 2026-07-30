@@ -20,6 +20,8 @@ export type ArtifactRecord = {
   key: string;
   seq: number;
   title: string;
+  /** The ≤256-char lede (MMR-319), null when the artifact carries none. */
+  summary: string | null;
   created_at: string;
   updated_at: string;
   tags: string[];
@@ -31,9 +33,21 @@ export type ArtifactCreate = {
   key: string;
   title: string;
   content: string;
+  /** The lede (MMR-319), already normalized/length-checked by the verb. */
+  summary?: string | null;
   tags: string[];
   /** Linked node stems (`KEY-seq`), already validated same-project by the verb. */
   links: string[];
+};
+
+/**
+ * The mutable metadata slice of an artifact (MMR-40, MMR-319) — `title` and the
+ * `summary` lede; content stays frozen (ADR 0004). An omitted key is untouched;
+ * a null `summary` clears the field. Both values arrive verb-validated.
+ */
+export type ArtifactMetadataPatch = {
+  title?: string;
+  summary?: string | null;
 };
 
 /** Portfolio artifact search (MMR-52). All filters compose with AND. */
@@ -54,8 +68,8 @@ export type ArtifactStore = {
   /**
    * Allocate the next seq and persist the artifact; returns the FULL record
    * (MMR-283, mirroring the seed store's `create`) — every field a create-echo
-   * renders (`key`/`seq`/`title`/`created_at`/`updated_at`/`tags`/`links`/`content`) is
-   * already known at write time, so a caller building a create response never
+   * renders (`key`/`seq`/`title`/`summary`/`created_at`/`updated_at`/`tags`/`links`/`content`)
+   * is already known at write time, so a caller building a create response never
    * needs a follow-up `load`.
    */
   create: (input: ArtifactCreate) => Promise<ArtifactRecord & { content: string }>;
@@ -65,8 +79,8 @@ export type ArtifactStore = {
     seq: number,
     opts?: { content?: boolean },
   ) => Promise<(ArtifactRecord & { content?: string }) | undefined>;
-  /** Retitle (the one mutable field, ADR 0004); false when the artifact doesn't exist. */
-  updateTitle: (key: string, seq: number, title: string) => Promise<boolean>;
+  /** Patch the mutable metadata (ADR 0004); false when the artifact doesn't exist. */
+  updateMetadata: (key: string, seq: number, patch: ArtifactMetadataPatch) => Promise<boolean>;
   /** Artifacts linked to a node (its `artifacts` facet), seq ascending. */
   listForNode: (nodeStem: string) => Promise<ArtifactRecord[]>;
   /** A project's whole inventory (`get KEY --col artifacts`), seq ascending. */

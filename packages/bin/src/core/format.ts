@@ -106,6 +106,7 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
     wire.artifacts = node.artifacts.map((a) => ({
       created_at: a.createdAt,
       id: a.id,
+      ...(a.summary !== undefined ? { summary: a.summary } : {}),
       tags: a.tags,
       title: a.title,
     }));
@@ -214,6 +215,9 @@ export function artifactToWire(artifact: ArtifactDetail): Record<string, unknown
     tags: artifact.tags,
     title: artifact.title,
   };
+  if (artifact.summary !== undefined) {
+    wire.summary = artifact.summary;
+  }
   if (artifact.content !== undefined) {
     wire.content = artifact.content;
   }
@@ -364,11 +368,15 @@ export function formatOverviewJson(report: OverviewReport): string {
 
 /** Map an {@link ArtifactSummary} to its wire object — metadata only, no content. */
 export function artifactSummaryToWire(a: ArtifactSummary): Record<string, unknown> {
-  return {
+  const wire: Record<string, unknown> = {
     created_at: a.createdAt,
     id: a.id,
     project: a.project,
     tags: a.tags,
     title: a.title,
   };
+  if (a.summary !== undefined) {
+    wire.summary = a.summary;
+  }
+  return wire;
 }

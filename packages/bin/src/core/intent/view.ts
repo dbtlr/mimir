@@ -217,12 +217,17 @@ function buildTags(set: DerivationSet, nodeId: string): TagView[] {
 
 /** Map a seam record to the metadata-only `artifacts` facet view. */
 function toArtifactView(record: ArtifactRecord): ArtifactView {
-  return {
+  const view: ArtifactView = {
     createdAt: record.created_at,
     id: renderArtifactRef({ key: record.key, seq: record.seq }),
     tags: record.tags,
     title: record.title,
   };
+  // Optional (MMR-319): an artifact without a lede carries no key at all.
+  if (record.summary !== null) {
+    view.summary = record.summary;
+  }
+  return view;
 }
 
 async function buildArtifacts(
@@ -320,6 +325,9 @@ export function buildArtifactDetail(record: ArtifactRecord & { content?: string 
     tags: record.tags,
     title: record.title,
   };
+  if (record.summary !== null) {
+    detail.summary = record.summary;
+  }
   if (record.content !== undefined) {
     detail.content = record.content;
   }

@@ -51,6 +51,7 @@ import {
   validation,
 } from '../core';
 import type {
+  ArtifactUpdateFields,
   NarrowUpdateKind,
   RankPosition,
   SeedStatusSelector,
@@ -470,23 +471,26 @@ async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
   return 0;
 }
 
-/** `update KEY-aN` — title is an artifact's one mutable field (MMR-40). */
+/** `update KEY-aN` — title and summary are an artifact's mutable fields (MMR-40, MMR-319). */
 async function cmdUpdateArtifact(c: Ctx, token: string): Promise<number> {
   rejectInapplicableFields(
     c,
     'artifact',
-    (flag) => `${flag} doesn't apply to an artifact — title is its one mutable field`,
+    (flag) => `${flag} doesn't apply to an artifact — title and summary are its mutable fields`,
   );
   const identity = parseIdentity(token);
   if (identity?.kind !== 'artifact') {
     throw notFound(`${token} doesn't exist`);
   }
+  const fields: ArtifactUpdateFields = {};
   if (typeof c.values.title === 'string') {
-    await updateArtifact(
-      c.store,
-      { key: identity.key, seq: identity.seq },
-      { title: c.values.title },
-    );
+    fields.title = c.values.title;
+  }
+  if (typeof c.values.summary === 'string') {
+    fields.summary = c.values.summary;
+  }
+  if (Object.keys(fields).length > 0) {
+    await updateArtifact(c.store, { key: identity.key, seq: identity.seq }, fields);
   }
   renderArtifactDetail(await getArtifact(c.store, token), c.format, c.io);
   return 0;
@@ -553,6 +557,7 @@ export async function cmdAttach(c: Ctx): Promise<number> {
     content,
     linkNodeIds,
     projectId,
+    summary: optStr(c, 'summary'),
     tags: tagFlags(c),
     title,
   });

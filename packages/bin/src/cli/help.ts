@@ -151,7 +151,7 @@ options:
       --name <name>       create project: display name (or positional)
       --title <text>      create/update: title text
       --desc <text>       create/update: description
-      --summary <text>    create/update: summary (all-node; 256 chars max)
+      --summary <text>    create/update/attach: summary (nodes and artifacts; 256 chars max)
       --target <text>     create/update: target date or milestone
       --ref <ref>         create/update: external reference
       --file <path>       attach: path to artifact file
@@ -527,13 +527,14 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     flags: [
       ['--file <path>', 'artifact file (or piped stdin)'],
       ['--title <t>', 'artifact title (defaults to the file basename)'],
+      ['--summary <text>', 'summary (256 chars max)'],
       ['--link <ids>', 'additional links — KEY-seq, comma-separated (one project)'],
       ['--project <KEY>', 'associate with a project key (when no node link)'],
       ['--tag <t>', 'tag at creation (repeatable)'],
     ],
     summary: 'freeze an artifact onto a task or phase → echoes the new KEY-aN',
     usage:
-      'mimir attach <id> --file <path> [--title <t>] [--tag <t>…] [--link <ids>] [--project <KEY>]',
+      'mimir attach <id> --file <path> [--title <t>] [--summary <text>] [--tag <t>…] [--link <ids>] [--project <KEY>]',
   },
   // ── seeds (MMR-245) ──
   seed: {

@@ -70,6 +70,8 @@ export type TagView = {
 export type ArtifactSummary = {
   id: string;
   title: string;
+  /** The optional lede (MMR-319) — omitted when the artifact carries none. */
+  summary?: string;
   project: string;
   tags: string[];
   createdAt: string;
@@ -81,6 +83,8 @@ export type ArtifactView = {
   id: string;
   /** Required human handle (MMR-34). */
   title: string;
+  /** The optional lede (MMR-319) — omitted when the artifact carries none. */
+  summary?: string;
   tags: string[];
   createdAt: string;
 };
@@ -93,6 +97,8 @@ export type ArtifactView = {
 export type ArtifactDetail = {
   id: string;
   title: string;
+  /** The optional lede (MMR-319) — omitted when the artifact carries none. */
+  summary?: string;
   project: string;
   links: string[];
   tags: string[];
