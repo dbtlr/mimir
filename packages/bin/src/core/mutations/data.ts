@@ -81,6 +81,12 @@ export function normalizeNext(value: string | null): string | null {
  * queued, so the caller co-writes the `updated_at` stamp — the section ops
  * carry no precondition of their own — and so a rewrite with the identical text
  * writes NOTHING at all, leaving the stale clock where it was.
+ *
+ * Fails CLOSED on a document whose `## Next` heading norn cannot resolve to one
+ * section (a hand-edited duplicate): the read reports that as "no section" —
+ * indistinguishable from a genuinely absent one — so proceeding would insert yet
+ * another copy, or report a clear that removed nothing. The operator is pointed
+ * at `mimir doctor`, which names the duplicate (MMR-239's posture, MMR-321).
  */
 async function applyNextSection(
   store: Store,
@@ -94,11 +100,25 @@ async function applyNextSection(
   }
   const text = normalizeNext(value);
   const current = await store.bodySections.readNext(id);
+  if (current.ambiguous) {
+    throw validation(
+      `${id} carries more than one '## Next' heading, so the section can't be re-authored`,
+      "the document was hand-edited — run 'mimir doctor' to find the duplicate heading and repair it",
+    );
+  }
   // A clear is a no-op only when the document carries no section at all: a
   // present-but-empty heading (a hand edit) is still removed.
   const unchanged = text === null ? !current.present : current.text === text;
   if (unchanged) {
     return false;
+  }
+  // A FIRST write splices the section in above `## History`; without that anchor
+  // norn refuses the whole batch as an opaque apply failure. Name it instead.
+  if (!current.present && !current.hasInsertAnchor) {
+    throw validation(
+      `${id} has no '## History' heading for the '## Next' section to be written above`,
+      "the document was hand-edited or predates mimir management — run 'mimir doctor' to repair it",
+    );
   }
   await w.setNextSection(entityType, id, { present: current.present, text });
   return true;
