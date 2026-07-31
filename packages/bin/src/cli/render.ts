@@ -189,6 +189,11 @@ export function renderRecords(node: NodeView, io: Io): string {
   if (node.description != null) {
     pairs.push(['description', node.description]);
   }
+  // The owned direction narrative (MMR-321) — present only on a project or
+  // container whose `## Next` section is set.
+  if (node.next != null) {
+    pairs.push(['next', node.next]);
+  }
   if (node.summary != null) {
     pairs.push(['summary', node.summary]);
   }

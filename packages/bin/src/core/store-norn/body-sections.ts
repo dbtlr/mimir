@@ -3,11 +3,14 @@ import type { AnnotationView } from '@mimir/contract';
 import type { BodySections, BodySectionStore } from '../body-sections/store';
 import {
   ANNOTATIONS_HEADING,
+  countSectionHeadings,
   DESCRIPTION_HEADING,
   HISTORY_HEADING,
+  NEXT_HEADING,
   parseAnnotationsSection,
   parseDescriptionSection,
   parseHistorySection,
+  parseNextSection,
   sectionBody,
 } from '../history-codec';
 import { parseIdentity } from '../ids';
@@ -160,6 +163,9 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
     if (want.description === true) {
       headings.push(DESCRIPTION_HEADING);
     }
+    if (want.next === true) {
+      headings.push(NEXT_HEADING);
+    }
     if (want.annotations === true) {
       headings.push(ANNOTATIONS_HEADING);
     }
@@ -170,6 +176,13 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
     const sections: BodySections = {};
     if (want.description === true) {
       sections.description = parseDescriptionSection(sectionBody(raw[DESCRIPTION_HEADING] ?? ''));
+    }
+    if (want.next === true) {
+      // A duplicated `## Next` reads as EMPTY here, exactly as an ambiguous
+      // `## History`/`## Task Description` does — the deliberate graceful
+      // degradation of ADR 0017. `mimir doctor` names the duplicate so the drop
+      // isn't silent, and the WRITE path refuses outright (MMR-321).
+      sections.next = parseNextSection(sectionBody(raw[NEXT_HEADING] ?? ''));
     }
     if (want.annotations === true) {
       sections.annotations = parseAnnotationsSection(
@@ -197,6 +210,40 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
     readDescription: async (stem) =>
       (await readSections(stem, { description: true })).description ?? null,
     readHistory: async (stem) => (await readSections(stem, { history: true })).history ?? [],
+    readNext: async (stem) => {
+      // Presence comes from the RAW section map, not the parsed prose: a
+      // resolved heading is exactly "norn can target this section", which is
+      // what a `replace_section`/`delete_section` op needs (MMR-321).
+      const raw = await readNodeSections(client, stem, [NEXT_HEADING]);
+      const section = raw[NEXT_HEADING];
+      if (section !== undefined) {
+        // Resolved: the write replaces or deletes THIS heading, so no insert
+        // anchor is consulted.
+        return {
+          ambiguous: false,
+          insertAnchors: 1,
+          present: true,
+          text: parseNextSection(sectionBody(section)),
+        };
+      }
+      // Not resolved — and norn reports a MISSING heading and a hand-duplicated
+      // (AMBIGUOUS) one identically: both are warn-omitted from `sections`, both
+      // land in `section_failures`, and only the human-readable note tells them
+      // apart. Absence is therefore not provable from the section read, so
+      // confirm it against the document body. Costs one extra read on the write
+      // that FIRST sets the section (and on a clear against an absent one); the
+      // alternative is a write that inserts a further duplicate every run.
+      const records = await client.get([stem], '.body');
+      const body = pathAndBody(records[0])?.body ?? '';
+      return {
+        ambiguous: countSectionHeadings(body, NEXT_HEADING) > 0,
+        // The same body answers, for free, how many anchors a first write has
+        // to splice above — `## History` is on every mimir-written document.
+        insertAnchors: countSectionHeadings(body, HISTORY_HEADING),
+        present: false,
+        text: null,
+      };
+    },
     readSections,
   };
 }

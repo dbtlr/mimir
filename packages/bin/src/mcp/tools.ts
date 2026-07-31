@@ -470,6 +470,10 @@ export type UpdateToolArgs = {
   title?: string;
   name?: string;
   description?: string;
+  /** The owned `## Next` direction narrative (MMR-321) — project/container-only.
+   * Body prose, not a data-plane spec field, so it is hand-listed like
+   * `description` and never reaches the {@link SpecUpdateKey} guard above. */
+  next?: string;
   summary?: string;
   priority?: string;
   size?: string;
@@ -506,6 +510,11 @@ export function toolUpdate(store: Store, args: UpdateToolArgs): Promise<ToolResu
     if (args.description !== undefined) {
       fields.description = args.description;
     }
+    // The `## Next` narrative (MMR-321) — body prose alongside description, so
+    // it is read here rather than through the data-plane spec.
+    if (args.next !== undefined) {
+      fields.next = args.next;
+    }
     // Zod-validated: the string-family kinds arrive as strings, openEnded (`bool`)
     // as a boolean read natively.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
@@ -523,13 +532,15 @@ export function toolUpdate(store: Store, args: UpdateToolArgs): Promise<ToolResu
   });
 }
 
-/** `update KEY` — patch a project's `name` and/or `description` (MMR-88). */
+/** `update KEY` — patch a project's `name`, `description`, and/or the owned
+ * `## Next` narrative (MMR-88, MMR-321). */
 async function updateProjectTool(
   store: Store,
   args: {
     id: string;
     name?: string;
     description?: string;
+    next?: string;
     summary?: string;
     title?: string;
     priority?: string;
@@ -559,6 +570,9 @@ async function updateProjectTool(
   if (args.description !== undefined) {
     fields.description = args.description;
   }
+  if (args.next !== undefined) {
+    fields.next = args.next;
+  }
   await updateProject(store, pid, fields);
   // Echo the updated project through the same projection as getNode/get KEY
   const view = await projectViewByKey(store, key, WRITE_ECHO_FACET_SET);
@@ -576,6 +590,7 @@ async function updateArtifactTool(
     id: string;
     title?: string;
     description?: string;
+    next?: string;
     summary?: string;
     priority?: string;
     size?: string;
@@ -976,6 +991,7 @@ async function updateSeedTool(
     id: string;
     title?: string;
     description?: string;
+    next?: string;
     kind?: string;
     priority?: string;
     size?: string;

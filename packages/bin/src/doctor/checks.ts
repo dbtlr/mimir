@@ -145,6 +145,13 @@ export type Diagnostic = {
  */
 const PROBLEM: Record<BodyRecordProblem, { severity: DoctorFinding['severity']; message: string }> =
   {
+    'duplicate-next-section': {
+      // Not a warn: norn resolves NEITHER copy, so the whole narrative reads
+      // empty and re-authoring it refuses until a human picks the survivor.
+      message:
+        'duplicate `## Next` heading — the direction narrative resolves to no section, so it reads empty and cannot be re-authored',
+      severity: 'error',
+    },
     'malformed-history-heading': {
       message:
         'looks like a history record heading but is not one — read as text, not a transition',
@@ -166,10 +173,11 @@ const PROBLEM: Record<BodyRecordProblem, { severity: DoctorFinding['severity']; 
 
 /**
  * Body-section record integrity: scan each node/project body for malformed
- * `## History` / `## Annotations` records. An `error` is a record the reader
- * drops (a lost transition); a `warn` is a heading-shaped line the reader keeps
- * as content but that looks like an intended record — surfaced for a human, not
- * a gate.
+ * `## History` / `## Annotations` records, and for a duplicated `## Next` H2
+ * (MMR-321). An `error` is content the reader drops (a lost transition, or a
+ * whole narrative that resolves to nothing); a `warn` is a heading-shaped line
+ * the reader keeps as content but that looks like an intended record —
+ * surfaced for a human, not a gate.
  */
 export const bodySectionCheck: Diagnostic = {
   name: 'body-sections',

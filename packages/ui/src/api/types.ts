@@ -125,6 +125,9 @@ export type WireNode = {
 
   /** Facet — only present on the detail fetch, not list/board responses. */
   description?: string | null;
+  /** Facet (MMR-321) — the owned `## Next` direction narrative on a project,
+   * initiative, or phase. Absent entirely when the section is unset. */
+  next?: string;
   /** Short single-line lede for list/board views (all-node, optional). */
   summary?: string | null;
 

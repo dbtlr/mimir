@@ -48,6 +48,16 @@ export const DESCRIPTION_HEADING = 'Task Description';
 export const SEED_DESCRIPTION_HEADING = 'Seed Description';
 
 /**
+ * The `## Next` section heading (H2) — the owned direction narrative a project
+ * or container doc carries (MMR-321, ADR 0026 Decision 2). Unlike the other
+ * sections it is NOT seeded at create time: a document carries the heading only
+ * while the narrative is set, so an absent section and an empty one are the same
+ * state. The write path therefore inserts, replaces, and deletes the whole
+ * section rather than replacing a permanent anchor's body.
+ */
+export const NEXT_HEADING = 'Next';
+
+/**
  * The document body every work-state node carries: a `## Task Description` lede
  * (the authoritative home for the prose since MMR-162 — read back through
  * {@link parseDescriptionSection}, no longer a frontmatter field), the
@@ -99,6 +109,36 @@ export function renderSeedBody(description: string | null): string {
  */
 export function renderDescriptionSection(description: string | null): string {
   return `\n${escapeBodyLines(description ?? '')}\n\n`;
+}
+
+/**
+ * The body of the `## Next` section — the payload a `replace_section` op hands
+ * norn when the direction narrative is re-authored (MMR-321). The prose grammar
+ * is the description section's, verbatim: the same blank-line framing and the
+ * same heading-line escape, so it round-trips through
+ * {@link parseNextSection}.
+ */
+export function renderNextSection(next: string): string {
+  return renderDescriptionSection(next);
+}
+
+/**
+ * A whole `## Next` block — the heading line plus its body. The payload for the
+ * `insert_before_heading` that ADDS the section to a document that carries none
+ * (the section is never seeded at create time, so a first write inserts it).
+ */
+export function renderNextBlock(next: string): string {
+  return `## ${NEXT_HEADING}\n${renderNextSection(next)}`;
+}
+
+/**
+ * Parse a `## Next` section body back to its prose — the inverse of
+ * {@link renderNextSection}, sharing the description section's codec. An empty
+ * (or whitespace-only) section reads as null, which is the same state as the
+ * section being absent.
+ */
+export function parseNextSection(body: string): string | null {
+  return parseDescriptionSection(body);
 }
 
 /** A project/container body: just the `## History` section the log appends under. */
@@ -498,6 +538,30 @@ export function sectionBody(section: string): string {
 }
 
 /**
+ * How many `## <heading>` H2 anchors a body carries.
+ *
+ * The fact norn's section read cannot report back (MMR-321): it warn-OMITS an
+ * AMBIGUOUS heading from `sections` exactly as it omits a MISSING one, and its
+ * structured `section_failures` channel is byte-identical for the two — only the
+ * human-readable `notes` prose distinguishes them, which is no contract to
+ * parse. A caller that must tell "no section" from "several sections" — the
+ * `## Next` write path, which would otherwise insert a further duplicate on
+ * every run — counts them here instead.
+ *
+ * Matches the anchors norn's resolver matches: exact heading text, tolerating
+ * trailing whitespace (the {@link sectionRange} rule), over CRLF-normalized
+ * lines. Escaped content lines (`\## Next`) are content, never anchors, so they
+ * don't count. Like the rest of this module it is line-based rather than
+ * markdown-parsed, so a heading-shaped line inside a fenced block counts — which
+ * fails a write CLOSED (the operator is pointed at `mimir doctor`) rather than
+ * open, the posture ADR 0023 asks for.
+ */
+export function countSectionHeadings(body: string, heading: string): number {
+  const target = `## ${heading}`;
+  return splitLines(body).filter((line) => line.replace(/[ \t]+$/, '') === target).length;
+}
+
+/**
  * Slice one `## <heading>` section out of a WHOLE document body — the heading line
  * INCLUDED, through the line before the next H2 (`## `) or EOF; an absent heading
  * yields the empty string. Reproduces norn's `vault.get { section }` slice shape
@@ -534,13 +598,22 @@ export function sliceSection(body: string, heading: string): string {
 // surfaced. Escaped `\### ` content lines are legitimate and never flagged, so
 // anything the writer emits (including heading-ful reasons/annotations) lints
 // clean — the round-trip guarantee, in reverse.
+//
+// The lint also owns the one H2-level deviation (MMR-321): a duplicated
+// `## Next`. The `## History`/`## Annotations` anchors have their own duplicate
+// channel — norn's `section_failures`, which `sectionResolutionCheck` reports —
+// but that channel cannot carry `## Next`: the section is OPTIONAL, and norn
+// reports a missing heading and an ambiguous one identically, so probing it
+// there would flag every document that simply has no narrative. Counting
+// anchors in the body is the only detector that fires on the duplicate alone.
 
 /** The classes of malformed body-section record `mimir doctor` reports. */
 export type BodyRecordProblem =
   | 'unknown-transition-kind' // `### <at> — <kind>` whose kind is not a TransitionKind
   | 'malformed-history-heading' // an unescaped `### ` line that isn't record-shaped at all
   | 'unparseable-history-record' // a valid heading whose edge line is missing/unparseable
-  | 'non-iso-annotation-heading'; // an unescaped `### ` line whose text isn't an ISO createdAt
+  | 'non-iso-annotation-heading' // an unescaped `### ` line whose text isn't an ISO createdAt
+  | 'duplicate-next-section'; // two or more `## Next` H2 anchors — the section reads empty
 
 /** One malformed record found in a node body, anchored to its line for a human to fix. */
 export type BodyRecordFinding = {
@@ -579,11 +652,11 @@ function sectionRange(lines: string[], heading: string): { start: number; end: n
 
 /**
  * Scan a node's raw markdown body for malformed `## History` / `## Annotations`
- * records — the pure detector behind `mimir doctor` (MMR-166). Returns one
- * finding per offending unescaped `### ` line, in document order; a clean body
- * (or one with no such sections — e.g. a project body has no Annotations) yields
- * no findings. Transport-agnostic: the caller reads the raw body from whichever
- * backend and hands it here.
+ * records, plus a duplicated `## Next` H2 — the pure detector behind
+ * `mimir doctor` (MMR-166, MMR-321). Returns one finding per offending line, in
+ * document order; a clean body (or one with no such sections — e.g. a project
+ * body has no Annotations) yields no findings. Transport-agnostic: the caller
+ * reads the raw body from whichever backend and hands it here.
  */
 export function lintBodySections(body: string): BodyRecordFinding[] {
   const lines = splitLines(body);
@@ -624,7 +697,23 @@ export function lintBodySections(body: string): BodyRecordFinding[] {
     }
   }
 
-  return findings;
+  // A duplicated `## Next` (MMR-321): norn resolves neither copy, so the section
+  // reads EMPTY and the write path refuses outright. Reported once per extra
+  // anchor, anchored at the line the operator has to delete — the first copy is
+  // left unflagged because which one is canonical is a human call.
+  const nextTarget = `## ${NEXT_HEADING}`;
+  const nextAnchors = lines.flatMap((line, index) =>
+    line.replace(/[ \t]+$/, '') === nextTarget ? [index] : [],
+  );
+  if (nextAnchors.length > 1) {
+    for (const index of nextAnchors.slice(1)) {
+      findings.push(
+        finding(NEXT_HEADING, index, lines[index] ?? nextTarget, 'duplicate-next-section'),
+      );
+    }
+  }
+
+  return findings.toSorted((a, b) => a.line - b.line);
 }
 
 function finding(

@@ -54,6 +54,10 @@ export const REPAIR_POLICY: Record<DoctorIssueCode, RepairPolicy> = {
   // survives is a human call, never a doctor mutation (ADR 0023: detect, don't
   // guard). `--fix` skips it, exactly like the work-state `duplicate-stem` (MMR-282).
   'duplicate-artifact-stem': { kind: 'skipped', reason: 'ambiguous-identity' },
+  // Which of two `## Next` blocks is the live narrative is a human call — the
+  // same reason a duplicated `## History`/`## Annotations` anchor is only ever
+  // APPENDED to when absent, never de-duplicated (see `appendCanonicalHeading`).
+  'duplicate-next-section': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'duplicate-stem': { kind: 'skipped', reason: 'ambiguous-identity' },
   'frontmatter-disallowed-value': { kind: 'skipped', reason: 'unreadable-document' },
   'frontmatter-parse-failed': { kind: 'skipped', reason: 'unreadable-document' },

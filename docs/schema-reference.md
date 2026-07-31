@@ -43,8 +43,8 @@ These hold for every document; the per-entity sections below don't repeat them.
 
 ## Shape at a glance
 
-- **project** (`KEY/KEY.md`) — the scope root and allocation authority. Carries the immutable `key`. Doesn't complete, isn't ranked, has no parent. Body: `## History` only.
-- **work node** (`KEY/KEY-seq.md`) — the typed adjacency tree (`initiative | phase | task`), one document shape with type-gated fields. Only **tasks** carry status (`lifecycle`/`hold`) and `rank`. Body: `## Task Description`, `## History`, `## Annotations`.
+- **project** (`KEY/KEY.md`) — the scope root and allocation authority. Carries the immutable `key`. Doesn't complete, isn't ranked, has no parent. Body: `## History`, plus `## Next` while a direction narrative is set.
+- **work node** (`KEY/KEY-seq.md`) — the typed adjacency tree (`initiative | phase | task`), one document shape with type-gated fields. Only **tasks** carry status (`lifecycle`/`hold`) and `rank`. Body: `## Task Description`, `## History`, `## Annotations` — plus `## Next` on a **container** (initiative/phase) while a direction narrative is set.
 - **dependency** — not its own document: a node's prerequisites are the `depends_on` wikilink list in **its own** frontmatter. `blocked`/`ready`/`blocking` are _derived_ from these, never stored.
 - **annotation** — not its own document: freeform in-flight notes are `## Annotations` records in the node's body.
 - **transition / history** — not its own document: the append-only log ([ADR 0003](decisions/0003-append-only-transition-log.md)) is `## History` records in the node's (or project's, for `archive`) body.
@@ -70,7 +70,7 @@ The scope root. Categorically not a node: it doesn't complete (no status), isn't
 | `archived_at` | timestamp      | optional | set = archived, absent = active ([ADR 0015](decisions/0015-project-archive-frozen-and-hidden.md)) | `archive` / `unarchive`     |
 | `tags`        | list of string | optional | opaque strings                                                                                    | `tag` / `untag`             |
 
-**Body:** `## History` only (projects carry no `## Annotations`). Project-keyed `archive`/`unarchive` transitions ([ADR 0015](decisions/0015-project-archive-frozen-and-hidden.md)) append here.
+**Body:** `## History` (projects carry no `## Annotations`). Project-keyed `archive`/`unarchive` transitions ([ADR 0015](decisions/0015-project-archive-frozen-and-hidden.md)) append here. A project also carries the optional `## Next` direction narrative — see [`## Next`](#-next--the-direction-narrative).
 
 There is **no `last_seq` / `last_artifact_seq`** in the vault — these were allocation counters of the retired backend; seq is now derived over the vault ([ADR 0016](decisions/0016-norn-vault-system-of-record.md)).
 
@@ -110,6 +110,8 @@ One document shape absorbs the semi-regular hierarchy (a monorepo sub-project, a
 - `## Task Description` — the authoritative home for the node's prose. **`description` is not frontmatter** ([MMR-162]): only the short `summary` lede rides frontmatter; the full prose lives here and is edited via a section replace.
 - `## History` — the append-only transition log (see [`## History`](#-history--the-transition-log)).
 - `## Annotations` — freeform in-flight notes (see [`## Annotations`](#-annotations)).
+
+One further section is **not** seeded at create and appears only while it is set: `## Next`, the container-only direction narrative (see [`## Next`](#-next--the-direction-narrative)).
 
 **Status is two stored axes, and only on tasks** ([ADR 0001](decisions/0001-task-status-two-axes-derived-rollup.md)): `lifecycle` (pure progress) and `hold` (the `none|blocked|parked` overlay). Phases and initiatives store **no** status — their truth is the live distribution over children, derived, never a `status` field. Every surviving task carries a valid `lifecycle` (the validator drops a task missing/foreign on it) and an effective `hold` (absent reconstructs to `none`).
 
@@ -154,6 +156,20 @@ Freeform in-flight notes on a node — the lightweight middle ground between the
 ```
 
 Appended by `annotate`. Nodes only — projects carry no `## Annotations`. Transition reasons do **not** live here (they ride `## History`).
+
+## `## Next` — the direction narrative
+
+The one **owned prose surface above task granularity** ([ADR 0026](decisions/0026-work-state-composition.md) Decision 2). What to work on next is derived (ready ∩ rank) and is never stored; the non-derivable residue — the editorial statement of where a project or container is headed — lives here, as free markdown under a `## Next` H2 on a **project**, **initiative**, or **phase** document. Tasks carry none: a task's prose homes are `## Task Description` and `## Annotations`.
+
+Unlike the other body sections it is **not seeded at create**. The heading exists only while the narrative is set, so an absent section and an empty one are the same state, and every projection omits the field entirely when it is unset.
+
+**Replace-not-append.** `update <id> --direction "<text>"` (CLI; `next` on MCP and HTTP) re-authors the **whole** section — there is no append grain, which is precisely what kept hand-maintained work-state sections growing monotonically. A blank value **clears** it, removing the heading with the prose. The write rides the ordinary CAS-guarded plan and co-stamps `updated_at`; re-authoring the identical text writes nothing at all, so the stale clock doesn't move on a no-op. A concurrent write that drifts the document refuses on that CAS — the writer re-reads and re-authors against the current board rather than replaying a stale draft.
+
+The prose is **uncapped**, like `## Task Description` — only the short `summary` lede carries a length limit. Heading-shaped lines are backslash-escaped exactly as in the other sections, so an arbitrary markdown body round-trips.
+
+**A duplicated `## Next` refuses the write.** norn warn-omits an _ambiguous_ heading from a section read exactly as it omits a _missing_ one, and its structured `section_failures` channel does not distinguish the two — so "the section didn't resolve" cannot be read as "there is no section". The write path counts the anchors in the body: two or more, and the write refuses and points at `mimir doctor` rather than splicing in yet another copy (or reporting a clear that removed nothing). Reads degrade to empty, like every other ambiguous section ([ADR 0017](decisions/0017-runtime-data-tolerance.md)), and `mimir doctor` reports `duplicate-next-section` naming each extra heading's line. A first write also needs exactly one `## History` anchor to splice in above; a document with none, or with several, refuses by name instead of as an opaque apply failure — and the two are told apart, since adding the heading and deleting the duplicate are opposite repairs. The narrative is set only through `update`: `create` refuses `--direction` (and the HTTP create body rejects a stray `next`) rather than accepting prose it would discard.
+
+Reads: `get KEY` / `get KEY-seq` carry it by default, and `--col next` names it explicitly. On a **container** it is free — it rides the one batched section read `## Task Description` already pays for. On a **project** it costs one extra document read, since a project's `description` is frontmatter and its detail read otherwise touches no body. Bulk paths (`list`, `next`, `tree`) pass their own facet lists and exclude it.
 
 ## `artifact` — `KEY/artifacts/KEY-aN.md`
 

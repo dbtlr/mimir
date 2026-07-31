@@ -521,21 +521,24 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'update',
-    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, upstream, openEnded, and the resume handles host/harness/session/branch), patch an artifact (KEY-aN: title, summary), or patch a live seed (KEY-sN: title, kind, description). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers; upstream (a KEY-sN seed pointer) only to tasks — pass the literal string 'none' to clear it (omit it to leave it untouched; blank is rejected). The resume handles are task-only in-flight metadata (set them on start; overwrite them here to resume or take over; a blank clears one). Echoes the updated record.",
+    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, upstream, openEnded, and the resume handles host/harness/session/branch), patch a project (KEY: name, description, next), patch an artifact (KEY-aN: title, summary), or patch a live seed (KEY-sN: title, kind, description). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers; upstream (a KEY-sN seed pointer) only to tasks — pass the literal string 'none' to clear it (omit it to leave it untouched; blank is rejected). The resume handles are task-only in-flight metadata (set them on start; overwrite them here to resume or take over; a blank clears one). next is the owned direction narrative (the `## Next` body section) on a project, initiative, or phase — re-authored WHOLE on each write, never appended, and cleared by a blank string. Echoes the updated record.",
     // The scalar-field args derive from the field spec (ADR 0025); the bespoke
-    // identity/topology args (id) and the non-node targets (title/description,
-    // seed kind) stay hand-listed. Sorted to keep the advertised alphabetical order.
+    // identity/topology args (id) and the non-node targets (title/description/
+    // next, seed kind) stay hand-listed. Sorted to keep the advertised
+    // alphabetical order.
     sortedShape({
       ...fieldInputShape(),
       description: z.string().optional(),
       id: z.string(),
       kind: SEED_KIND.optional(),
+      next: z.string().optional(),
       title: z.string().optional(),
     }),
     (args: {
       id: string;
       title?: string;
       description?: string;
+      next?: string;
       summary?: string;
       priority?: string;
       size?: string;

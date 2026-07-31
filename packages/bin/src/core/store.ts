@@ -134,6 +134,20 @@ export type NodePatch = {
   updated_at?: string;
 };
 
+/**
+ * The `## Next` section write (MMR-321, ADR 0026 Decision 2) — replace-not-
+ * append: `text` is the whole re-authored narrative, and `null` clears the
+ * section (the heading is removed, not emptied). `present` is what the verb read
+ * on the target document a moment earlier; the write path needs it to pick
+ * between inserting the section, replacing its body, and deleting it, and it
+ * cannot be inferred from `text` (a hand-emptied section is present but reads
+ * as null).
+ */
+export type NextSectionWrite = {
+  text: string | null;
+  present: boolean;
+};
+
 export type NewAnnotationRecord = {
   node_id: string;
   content: string;
@@ -221,6 +235,18 @@ export type StoreWriter = {
   /** Delete one edge; `true` iff a row was removed. */
   deleteDependency: (edge: Dependency) => Promise<boolean>;
   insertAnnotation: (row: NewAnnotationRecord) => Promise<void>;
+  /**
+   * Re-author a project's or container's owned `## Next` narrative (MMR-321).
+   * The section is written WHOLE — there is no append grain — and a null `text`
+   * removes it. Like the other section writes it carries no precondition of its
+   * own, so the calling verb MUST co-write the `updated_at` stamp (the co-write
+   * invariant); the runtime guard refuses an unguarded plan either way.
+   */
+  setNextSection: (
+    entityType: 'node' | 'project',
+    entityId: string,
+    write: NextSectionWrite,
+  ) => Promise<void>;
   insertArtifact: (row: NewArtifactRecord) => Promise<{ id: string }>;
   updateArtifact: (id: string, patch: ArtifactPatch) => Promise<void>;
   linkArtifact: (artifactId: string, nodeId: string) => Promise<void>;

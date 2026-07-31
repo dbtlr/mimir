@@ -125,6 +125,11 @@ const OPTIONS = {
   key: { type: 'string' },
   name: { type: 'string' },
   desc: { type: 'string' },
+  // The `next` field's write flag (MMR-321). Spelled `--direction` — ADR 0026's
+  // own word for what the `## Next` section holds — because `--next` is already
+  // taken, as a BOOLEAN, by `self-update`'s prerelease channel below, and one
+  // options table cannot carry a flag under two types.
+  direction: { type: 'string' },
   summary: { type: 'string' },
   target: { type: 'string' },
   ref: { type: 'string' },
@@ -189,6 +194,48 @@ const OPTIONS = {
 const COMMANDS: ReadonlySet<string> = new Set(
   Object.keys(COMMAND_HELP).filter((key) => !key.includes(' ')),
 );
+
+/**
+ * Flags parsed globally (there is one options table) but owned by exactly ONE
+ * verb — `parseArgs` cannot scope a flag to a verb, so without this guard an
+ * owner-mismatched flag is accepted and silently ignored (MMR-321).
+ *
+ * Most shared flags are read by several verbs and a stray one is harmless. These
+ * two are not, because each silently DISCARDS an argument the caller meant to
+ * store:
+ *
+ * - `--next` is `self-update`'s prerelease selector and a BOOLEAN, so it
+ *   swallows no value and `update KEY --next "text"` exits 0 having written
+ *   nothing, the text having slid into the positionals. Every machine surface
+ *   (MCP arg, HTTP body field, `--col`) spells the direction field `next`, so
+ *   that is precisely the invocation to expect.
+ * - `--direction` writes that narrative, and only `update` reads it — the
+ *   settled write surface (ADR 0026 Decision 2). `create … --direction "…"`
+ *   would drop the prose on the floor, which is worse for being exactly where
+ *   the `--next` hint above sends the caller.
+ *
+ * Each entry redirects to the flag or verb that does the work, so the hint
+ * ladder terminates somewhere useful instead of looping.
+ */
+const VERB_OWNED_FLAGS: readonly {
+  flag: string;
+  owner: string;
+  given: (values: { next?: boolean; direction?: string }) => boolean;
+  hint: string;
+}[] = [
+  {
+    flag: '--next',
+    given: (values) => values.next === true,
+    hint: `did you mean '--direction'? (mimir update <id> --direction "…" writes the ## Next narrative)`,
+    owner: 'self-update',
+  },
+  {
+    flag: '--direction',
+    given: (values) => values.direction !== undefined,
+    hint: `the ## Next narrative is set after create: mimir update <id> --direction "…"`,
+    owner: 'update',
+  },
+];
 
 /** Every valid flag spelling — long `--name` plus any short `-x` alias. */
 const FLAG_SPELLINGS: readonly string[] = Object.entries(OPTIONS).flatMap(([name, spec]) =>
@@ -271,6 +318,7 @@ export async function runCli(
     key?: string;
     name?: string;
     desc?: string;
+    direction?: string;
     summary?: string;
     target?: string;
     ref?: string;
@@ -345,6 +393,13 @@ export async function runCli(
   }
 
   try {
+    // Verb-owned flags, checked before any dispatch (inside the try so they
+    // render through the usual usage path). See {@link VERB_OWNED_FLAGS}.
+    for (const owned of VERB_OWNED_FLAGS) {
+      if (command !== owned.owner && owned.given(values)) {
+        throw usage(`'${owned.flag}' doesn't apply to ${command}`, owned.hint);
+      }
+    }
     // The write echo's format, picked inside the try block so a bad --format
     // value is caught and rendered.
     const singleFormat = pickFormat(values.format, 'single', ctx);

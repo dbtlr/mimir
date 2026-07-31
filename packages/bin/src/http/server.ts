@@ -144,9 +144,23 @@ async function artifactDetailToWire(
 /** The set-read projection — one record shape on every collection (boundary at selection). */
 const SET_FACETS: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts', 'home'];
 /** Detail/echo add the artifact inventory (id + title — content stays a sub-resource) and the per-node transition history. */
-const DETAIL_FACETS: readonly FacetName[] = [...SET_FACETS, 'artifacts', 'history', 'description'];
+const DETAIL_FACETS: readonly FacetName[] = [
+  ...SET_FACETS,
+  'artifacts',
+  'history',
+  'description',
+  // The owned direction narrative (MMR-321) — container-only, omitted when unset.
+  'next',
+];
 /** The project-record projection (verdicts/deps don't apply to a project). */
-const PROJECT_FACETS: readonly FacetName[] = ['children', 'distribution', 'tags', 'artifacts'];
+const PROJECT_FACETS: readonly FacetName[] = [
+  'children',
+  'distribution',
+  'tags',
+  'artifacts',
+  // The project doc's own `## Next` narrative (MMR-321).
+  'next',
+];
 /** The project-list projection — the attention facet (MMR-101) + per-project leaf counts (MMR-105) for the project card vitals (MMR-106). */
 const PROJECT_LIST_FACETS: readonly FacetName[] = [
   'distribution',
@@ -187,9 +201,9 @@ const NODE_CREATE_FIELDS: readonly string[] = [
   'tags',
   ...NODE_BODY_FIELDS,
 ];
-/** `PATCH /api/nodes/:id` allow-list: the two structural update targets
- * (`title`/`description`, not spec fields) + the derived data fields. */
-const NODE_PATCH_FIELDS: readonly string[] = ['title', 'description', ...NODE_BODY_FIELDS];
+/** `PATCH /api/nodes/:id` allow-list: the three structural update targets
+ * (`title`/`description`/`next`, not spec fields) + the derived data fields. */
+const NODE_PATCH_FIELDS: readonly string[] = ['title', 'description', 'next', ...NODE_BODY_FIELDS];
 
 function nodeRefIn(set: DerivationSet, token: string, expected = 'node'): string {
   return resolveNodeTokenInSet(set, token, expected, NODE_KIND_HINTS);
@@ -810,6 +824,12 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (description !== undefined) {
               fields.description = description;
             }
+            // The `## Next` narrative (MMR-321) — body prose alongside
+            // description; container-only, refused by the core on a task.
+            const next = strField(body, 'next');
+            if (next !== undefined) {
+              fields.next = next;
+            }
             applyUpdateFields(fields, (field) => {
               if (field.kind === 'bool') {
                 return boolField(body, field.key);
@@ -1026,13 +1046,15 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (parseIdentity(key)?.kind !== 'project') {
               throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
             }
-            const body = await readBody(req, ['name', 'title', 'description']);
+            const body = await readBody(req, ['name', 'title', 'description', 'next']);
             // Accept both `name` and `title` as the project name field
             // (`title` follows the NodeView wire name; `name` is the native field).
             const name = strField(body, 'name') ?? strField(body, 'title');
             const description = strField(body, 'description');
+            // The owned `## Next` narrative (MMR-321) — re-authored whole.
+            const next = strField(body, 'next');
             const projectId = resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
-            await updateProject(store, projectId, { description, name });
+            await updateProject(store, projectId, { description, name, next });
             const view = await projectViewByKey(store, key, new Set(PROJECT_FACETS));
             if (view === undefined) {
               throw projectNotFound(key);

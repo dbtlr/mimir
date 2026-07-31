@@ -354,6 +354,14 @@ export type NodeView = {
    * (still frontmatter) description.
    */
   description?: string | null;
+  /**
+   * The owned direction narrative — the `## Next` body section (MMR-321, ADR
+   * 0026 Decision 2). Project and container (initiative/phase) docs only; a
+   * task's prose homes are `description` and its annotations. Re-authored whole
+   * on each write, never appended. Omitted entirely when the section is absent,
+   * so an empty section and a missing one read alike.
+   */
+  next?: string;
   deps?: DepsFacet;
   annotations?: AnnotationView[];
   artifacts?: ArtifactView[];
@@ -446,6 +454,7 @@ export type OverviewReport = {
 export const FACET_NAMES = [
   'deps',
   'description',
+  'next',
   'annotations',
   'artifacts',
   'history',
@@ -463,10 +472,15 @@ export type FacetName = (typeof FACET_NAMES)[number];
 /** Cheap facets included by default on a targeted `get`; `history` stays opt-in.
  * `description` (the body prose, MMR-162) is here — a detail `get` shows it, but
  * bulk `list`/`next` (which pass no facets) omit it, so they never pay the
- * per-node body read. */
+ * per-node body read. `next` (the direction narrative, MMR-321) joins it: on a
+ * NODE it costs nothing extra, riding the same batched section read
+ * `description` already pays for; on a PROJECT — whose `description` is
+ * frontmatter, not a body section — it is one additional document read. Bulk
+ * `list`/`next`/`tree` pass their own facet lists, which exclude it. */
 export const CHEAP_FACETS: readonly FacetName[] = [
   'deps',
   'description',
+  'next',
   'tags',
   'children',
   'distribution',
@@ -484,9 +498,18 @@ export const CHEAP_FACETS: readonly FacetName[] = [
  * reading as an unloaded, childless node (MMR-242) — the same rollup sources
  * `get`'s `CHEAP_FACETS` draws on (both, because a transparent open-ended
  * child tallies in `children` but not `distribution`, MMR-204), kept lean
- * rather than pulling `get`'s full facet set into every write echo.
+ * rather than pulling `get`'s full facet set into every write echo. `next`
+ * (MMR-321) rides for the same reason `description` does — a write that
+ * re-authored the section echoes it back instead of dropping it. Free on a node
+ * (it shares `description`'s batched section read); one extra document read on
+ * a PROJECT echo, whose `description` is frontmatter and reads no body at all.
  */
-export const WRITE_ECHO_FACETS: readonly FacetName[] = ['description', 'children', 'distribution'];
+export const WRITE_ECHO_FACETS: readonly FacetName[] = [
+  'description',
+  'next',
+  'children',
+  'distribution',
+];
 
 /** The lean bare-field set for broad selection (`next`/`list`); `parent` is the row's hierarchy anchor (MMR-87). */
 export const LEAN_COLS = ['id', 'title', 'status', 'priority', 'size', 'parent'] as const;
