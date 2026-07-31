@@ -1,6 +1,8 @@
 import type {
   ArtifactDetail,
+  ArtifactSummary,
   NodeView,
+  OverviewAttentionTask,
   OverviewReport,
   SeedView,
   SetResult,
@@ -11,7 +13,10 @@ import type {
 } from '@mimir/contract';
 
 import {
+  formatArtifactIds,
   formatArtifactJson,
+  formatArtifactSetJson,
+  formatArtifactSetJsonl,
   formatNodeJson,
   formatPromoteJson,
   formatSeedsJson,
@@ -664,12 +669,32 @@ export function renderStatus(status: StatusView, io: Io): string {
 }
 
 /**
- * `overview` — the composite session-boot orientation surface (MMR-278). Five
- * attention-ordered sections: the project header (id · status word · rollup
- * distribution), `in flight` (uncapped), `next` and `awaiting` (top 5, each led
- * by its TRUE total), then hygiene counts. Rows reuse the shared lean row grammar
- * ({@link taskRows}) verbatim; an awaiting row appends the upstream ids it awaits
- * as a `·`-separated clause. An empty section renders just its zero-count header.
+ * The in-flight resume-handle clause (MMR-322) — `harness@host · branch ·
+ * session`, each part omitted when unset and the whole clause omitted when the
+ * task carries no handle at all, so a settled board's rows are byte-identical to
+ * what they were before the fields existed. `harness@host` reads as one fact
+ * (where the work is happening) and so stays one part, not two clauses.
+ */
+function handleClause(task: NodeView): string {
+  const where =
+    task.harness != null && task.host != null
+      ? `${task.harness}@${task.host}`
+      : (task.harness ?? task.host ?? null);
+  const parts = [where, task.branch, task.session].filter(
+    (part): part is string => part != null && part !== '',
+  );
+  return parts.length === 0 ? '' : ` · ${parts.join(' · ')}`;
+}
+
+/**
+ * `overview` — the composite session-boot orientation surface (MMR-278, expanded
+ * MMR-322). Attention-ordered sections: the project header (id · status word ·
+ * rollup distribution), the owned `direction` prose, `in flight` (uncapped, each
+ * row carrying its resume handles), `next` and `awaiting` (top 5, each led by its
+ * TRUE total), `recent sessions`, then hygiene counts with their capped listings.
+ * Rows reuse the shared lean row grammar ({@link taskRows}) verbatim; an awaiting
+ * row appends the upstream ids it awaits as a `·`-separated clause. An empty
+ * section renders just its zero-count header.
  */
 export function renderOverview(report: OverviewReport, io: Io): string {
   const out: string[] = [];
@@ -683,16 +708,37 @@ export function renderOverview(report: OverviewReport, io: Io): string {
   }
   out.push(head.join(' · '));
 
-  const taskSection = (label: string, count: number, tasks: readonly NodeView[]): void => {
+  // direction — the owned `## Next` prose (MMR-321), verbatim: the project's own
+  // narrative, then each live container's under its id. Absent entirely when
+  // nothing carries prose, so a board that owns none pays no header.
+  const { project: projectNext, containers } = report.direction;
+  if (projectNext != null || containers.length > 0) {
+    out.push('', 'direction');
+    if (projectNext != null) {
+      out.push(...projectNext.split('\n').map((line) => `  ${line}`));
+    }
+    for (const container of containers) {
+      out.push(`  ${bold(container.id, io.plain)} · ${container.title}`);
+      out.push(...container.next.split('\n').map((line) => `    ${line}`));
+    }
+  }
+
+  const taskSection = (
+    label: string,
+    count: number,
+    tasks: readonly NodeView[],
+    suffix: (task: NodeView) => string = () => '',
+  ): void => {
     out.push('', `${label} (${String(count)})`);
     if (tasks.length > 0) {
-      for (const line of taskRows(tasks, io)) {
-        out.push(`  ${line}`);
-      }
+      taskRows(tasks, io).forEach((line, i) => {
+        const task = tasks[i];
+        out.push(`  ${line}${task === undefined ? '' : suffix(task)}`);
+      });
     }
   };
 
-  taskSection('in flight', report.inFlight.count, report.inFlight.tasks);
+  taskSection('in flight', report.inFlight.count, report.inFlight.tasks, handleClause);
   taskSection('next', report.next.count, report.next.tasks);
 
   // awaiting — same rows, each with its upstream ids as a `·` clause.
@@ -708,28 +754,135 @@ export function renderOverview(report: OverviewReport, io: Io): string {
     });
   }
 
-  // hygiene — counts only; each nonzero count names its follow-up command,
-  // scoped to the reported project so the pointer stays true under `-s KEY`
-  // (the dropped count is the whole-vault tally, MMR-184 — its `doctor`
-  // pointer stays unscoped to match).
-  const { untriaged, blocked, stale, dropped } = report.hygiene;
+  // recent sessions — one line per entry (id · window · N transitions · the tasks
+  // touched), with the joined summary's lede dimmed beneath it, the way the seed
+  // queue renders its own derived lede.
+  out.push('', `recent sessions (${String(report.sessions.count)})`);
+  for (const entry of report.sessions.entries) {
+    const parts = [entry.id ?? '(no session)', `${entry.from} ${arrow(io.plain)} ${entry.to}`];
+    if (entry.transitions > 0) {
+      parts.push(countLine(entry.transitions, 'transition'));
+    }
+    if (entry.tasks.length > 0) {
+      parts.push(entry.tasks.map((task) => task.id).join(', '));
+    }
+    out.push(`  ${parts.join(' · ')}`);
+    if (entry.artifact !== undefined) {
+      const lede = entry.artifact.summary ?? entry.artifact.title;
+      out.push(color(`    ${entry.artifact.id} · ${lede}`, 90, io.plain));
+    }
+  }
+
+  // hygiene — the counts, each nonzero one naming its follow-up command scoped to
+  // the reported project so the pointer stays true under `-s KEY` (the dropped
+  // count is the whole-vault tally, MMR-184 — its `doctor` pointer stays unscoped
+  // to match), then the capped listing beneath it: the lane word first, so the
+  // row reads as a standing, then the task's own line.
+  const { untriaged, blocked, stale, dropped, listings } = report.hygiene;
+  out.push('', 'hygiene');
   const hygiene: string[] = [];
+  const pushAttention = (rows: readonly OverviewAttentionTask[]): void => {
+    if (rows.length === 0) {
+      return;
+    }
+    const laneW = Math.max(...rows.map((r) => r.lane.length));
+    taskRows(
+      rows.map((r) => r.task),
+      io,
+    ).forEach((line, i) => {
+      const entry = rows[i];
+      if (entry === undefined) {
+        return;
+      }
+      const cold = entry.stale ? ' · going cold' : '';
+      const reason = entry.task.holdReason == null ? '' : ` · ${entry.task.holdReason}`;
+      hygiene.push(`  ${pad(entry.lane, laneW)}   ${line}${reason}${cold}`);
+    });
+  };
   if (untriaged > 0) {
     hygiene.push(`${countLine(untriaged, 'untriaged seed')} — run 'mimir triage ${id}'`);
+    for (const seed of listings.untriaged) {
+      const lede = seed.lede == null || seed.lede === '' ? '' : ` · ${seed.lede}`;
+      hygiene.push(`  ${seed.id}   ${seed.title}${lede}`);
+    }
   }
   if (blocked > 0) {
     hygiene.push(`${String(blocked)} blocked — run 'mimir list -s ${id} --status blocked'`);
+    pushAttention(listings.blocked);
   }
   if (stale > 0) {
     hygiene.push(`${String(stale)} stale — run 'mimir list -s ${id} --is stale'`);
+    pushAttention(listings.stale);
   }
   if (dropped > 0) {
     hygiene.push(`${countLine(dropped, 'dropped record')} — run 'mimir doctor'`);
   }
-  out.push('', 'hygiene');
   out.push(...(hygiene.length === 0 ? ['  nothing flagged'] : hygiene.map((line) => `  ${line}`)));
 
   return out.join('\n');
+}
+
+/** One artifact feed row: id · project (cross-project only) · title · tags ·
+ * created, with the MMR-319 lede dimmed beneath it — the same head-plus-lede
+ * grammar the seed queue renders. */
+export function artifactRows(
+  items: readonly ArtifactSummary[],
+  io: Io,
+  opts: { showProject: boolean },
+): string[] {
+  const idW = Math.max(...items.map((a) => a.id.length));
+  const projectW = Math.max(...items.map((a) => a.project.length));
+  const titleW = Math.max(...items.map((a) => a.title.length));
+  const tagW = Math.max(...items.map((a) => a.tags.join(', ').length));
+  return items.map((a) => {
+    const cells = [pad(a.id, idW)];
+    if (opts.showProject) {
+      cells.push(pad(a.project, projectW));
+    }
+    cells.push(pad(a.title, titleW), pad(a.tags.join(', '), tagW), a.createdAt);
+    const head = cells.join('   ');
+    if (a.summary === undefined || a.summary === '') {
+      return head;
+    }
+    return `${head}\n${color(`      ${a.summary}`, 90, io.plain)}`;
+  });
+}
+
+/**
+ * Render the artifact feed (MMR-322) in any format. The human formats are
+ * count-led like every other set view; the machine formats are the shared
+ * `artifacts`-unit wire. `showProject` drops the project column on a
+ * single-project query, where every row would repeat the same key.
+ */
+export function renderArtifacts(
+  result: SetResult<ArtifactSummary>,
+  format: Format,
+  io: Io,
+  opts: { showProject: boolean },
+): void {
+  switch (format) {
+    case 'json': {
+      io.write(formatArtifactSetJson(result));
+      break;
+    }
+    case 'jsonl': {
+      io.write(formatArtifactSetJsonl(result.items));
+      break;
+    }
+    case 'ids': {
+      io.write(formatArtifactIds(result.items));
+      break;
+    }
+    case 'records':
+    case 'table': {
+      const lines = [countLine(result.total, 'artifact')];
+      if (result.items.length > 0) {
+        lines.push('', ...artifactRows(result.items, io, { showProject: opts.showProject }));
+      }
+      io.write(lines.join('\n'));
+      break;
+    }
+  }
 }
 
 /**

@@ -1236,12 +1236,24 @@ describe.skipIf(!NORN)('overview (MMR-278)', () => {
       in_flight: { count: number; tasks: unknown[] };
       next: { count: number; tasks: { id: string; status: string }[] };
       awaiting: { count: number; tasks: unknown[] };
-      hygiene: { untriaged: number; blocked: number; stale: number; dropped: number };
+      hygiene: {
+        untriaged: number;
+        blocked: number;
+        stale: number;
+        dropped: number;
+        listings: { blocked: unknown[]; stale: unknown[]; untriaged: unknown[] };
+      };
     }>(io.out.join(''));
     expect(env.project.id).toBe('MMR');
     expect(env.next.count).toBe(1);
     expect(env.next.tasks[0]?.status).toBe('ready');
-    expect(env.hygiene).toEqual({ blocked: 0, dropped: 0, stale: 0, untriaged: 0 });
+    expect(env.hygiene).toEqual({
+      blocked: 0,
+      dropped: 0,
+      listings: { blocked: [], stale: [], untriaged: [] },
+      stale: 0,
+      untriaged: 0,
+    });
   });
 
   test('piped default is the json envelope (report split)', async () => {

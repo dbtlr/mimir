@@ -96,7 +96,15 @@ test.skipIf(!NORN)('empty sections carry a zero count', async () => {
   expect(report.inFlight).toEqual({ count: 0, tasks: [] });
   expect(report.next).toEqual({ count: 0, tasks: [] });
   expect(report.awaiting).toEqual({ count: 0, tasks: [] });
-  expect(report.hygiene).toEqual({ blocked: 0, dropped: 0, stale: 0, untriaged: 0 });
+  expect(report.hygiene).toEqual({
+    blocked: 0,
+    dropped: 0,
+    listings: { blocked: [], stale: [], untriaged: [] },
+    stale: 0,
+    untriaged: 0,
+  });
+  expect(report.sessions).toEqual({ count: 0, entries: [] });
+  expect(report.direction).toEqual({ containers: [], project: null });
 });
 
 test.skipIf(!NORN)('stale hygiene counts tasks quiet past the threshold (asOf)', async () => {

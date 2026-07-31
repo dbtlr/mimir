@@ -417,8 +417,41 @@ export type OverviewAwaitingTask = {
   awaitingOn: string[];
 };
 
-/** The `overview` hygiene block (MMR-278): counts only, no listings. Each nonzero
- * count names a follow-up command in the human render (`untriaged` → `mimir triage`,
+/**
+ * One needs-attention row (MMR-322): a lean task plus the derived standing the
+ * Overview's project cards already speak — the {@link Lane} its Status word falls
+ * in, and the `going cold` modifier. Same vocabulary as {@link AttentionState},
+ * one rung down: a lane over ONE leaf rather than the highest-wins lane over a
+ * project's leaves.
+ */
+export type OverviewAttentionTask = {
+  task: NodeView;
+  lane: Lane;
+  /** The `going cold` modifier — this task is past the stale threshold. */
+  stale: boolean;
+};
+
+/** One untriaged-seed row in the hygiene listing (MMR-322) — the grooming queue's
+ * own lean projection: id, title, and the derived `## Seed Description` lede
+ * (MMR-263), `null` when the seed carries no body. */
+export type OverviewSeed = {
+  id: string;
+  title: string;
+  lede: string | null;
+};
+
+/** The capped listings behind the hygiene counts (MMR-322) — the head of each
+ * attention lane, 5 rows apiece against the TRUE counts alongside them. `dropped`
+ * has no listing by design: it is a load byproduct (MMR-184), not a set of tasks. */
+export type OverviewHygieneListings = {
+  blocked: OverviewAttentionTask[];
+  stale: OverviewAttentionTask[];
+  untriaged: OverviewSeed[];
+};
+
+/** The `overview` hygiene block (MMR-278, listings added MMR-322): the four counts,
+ * each with its capped listing where one exists. Each nonzero count names a
+ * follow-up command in the human render (`untriaged` → `mimir triage`,
  * `dropped` → `mimir doctor`, `blocked`/`stale` → the matching `mimir list`). */
 export type OverviewHygiene = {
   /** New (untriaged) seeds on the board. */
@@ -430,23 +463,96 @@ export type OverviewHygiene = {
   /** Records the tolerant reader dropped building the working set (MMR-184) —
    * `WorkingSet.issueCount`, the free validate byproduct, never a doctor pass. */
   dropped: number;
+  /** The capped heads of the three task/seed-shaped counts (MMR-322). */
+  listings: OverviewHygieneListings;
+};
+
+/** The `session_summary` artifact joined onto a recent-sessions entry (MMR-322) —
+ * its id, title, and the MMR-319 lede when it carries one. */
+export type OverviewSessionArtifact = {
+  id: string;
+  title: string;
+  /** The artifact's `summary` lede — omitted when it carries none. */
+  summary?: string;
 };
 
 /**
- * The `mimir overview` composite (MMR-278) — one project's session-boot
- * orientation surface, a `report`-kind read (ADR 0024). Five attention-ordered
- * sections: the project header (id, status word, rollup distribution — what
- * `status KEY` answers), `inFlight` tasks (`in_progress` + `under_review`,
- * uncapped), `next` (the ready-queue head, top 5), `awaiting`
- * (dependency-gated tasks, top 5, each carrying the upstream ids it awaits),
- * and `hygiene` counts. Derived from ONE working-set load plus one seeds read;
- * renders as styled sections on a TTY and one JSON envelope when piped.
+ * One recent-sessions entry (MMR-322, ADR 0026 Decision 4). The mechanical layer
+ * is derived: transition-log rows grouped by the `session` resume handle they
+ * echoed (MMR-320), which yields the session id, its activity window, the tasks
+ * it touched, and how many boundaries it crossed. A `session_summary`-tagged
+ * artifact joins on by linked-task overlap and supplies the retrospective lede.
+ *
+ * An entry with no `id` is a summary-only (knowledge-only) session: an artifact
+ * whose links overlap no derived group — nothing crossed a boundary, so the log
+ * has nothing to group. Its window is the artifact's `created_at` and its
+ * `transitions` count is 0.
+ */
+export type OverviewSession = {
+  /** The session id the grouped rows carried; `null` on a summary-only entry. */
+  id: string | null;
+  /** The activity window over the grouped rows (ISO-ms-Z). */
+  from: string;
+  to: string;
+  /** How many transition rows carried this session id; `0` on a summary-only entry. */
+  transitions: number;
+  /** The tasks the session touched, in first-touch order. */
+  tasks: NodeRef[];
+  /** The joined session summary, when one matched. */
+  artifact?: OverviewSessionArtifact;
+};
+
+/** The `overview` recent-sessions section (MMR-322) — entries newest-first, capped
+ * at 5 against the TRUE total, exactly like `next`/`awaiting`. */
+export type OverviewSessions = {
+  count: number;
+  entries: OverviewSession[];
+};
+
+/** One container's owned direction prose on the overview (MMR-322) — the `## Next`
+ * body section (MMR-321) of an initiative or phase that parents live work. */
+export type OverviewDirectionContainer = {
+  id: string;
+  title: string;
+  next: string;
+};
+
+/**
+ * The `overview` direction block (MMR-322) — the owned `## Next` prose (ADR 0026
+ * Decision 2) rendered verbatim: the project's own narrative, plus the narrative
+ * of every container parenting an in-flight or ready-head task. A dormant
+ * container's prose stays one `mimir get` away rather than crowding the boot
+ * surface. Spelled `direction` because the overview's `next` key is already the
+ * ready-queue head; the node-level field keeps its `next` spelling.
+ */
+export type OverviewDirection = {
+  /** The project doc's prose; `null` when the section is absent. */
+  project: string | null;
+  /** Containers with live work AND prose set — deduped, in board order. */
+  containers: OverviewDirectionContainer[];
+};
+
+/**
+ * The `mimir overview` composite (MMR-278, expanded MMR-322) — one project's
+ * session-boot orientation surface, a `report`-kind read (ADR 0024). The
+ * attention-ordered sections: the project header (id, status word, rollup
+ * distribution — what `status KEY` answers), `direction` (the owned `## Next`
+ * prose of the project and of the containers holding live work), `inFlight`
+ * tasks (`in_progress` + `under_review`, uncapped), `next` (the ready-queue
+ * head, top 5), `awaiting` (dependency-gated tasks, top 5, each carrying the
+ * upstream ids it awaits), `sessions` (recent session activity with its joined
+ * summary ledes, top 5), and `hygiene` counts with their capped listings.
+ * Derived from ONE working-set load plus the bounded body-section and artifact
+ * reads the composed sections need; renders as styled sections on a TTY and one
+ * JSON envelope when piped.
  */
 export type OverviewReport = {
   project: { id: string; status: StatusWord; distribution: Distribution };
+  direction: OverviewDirection;
   inFlight: OverviewSection;
   next: OverviewSection;
   awaiting: { count: number; tasks: OverviewAwaitingTask[] };
+  sessions: OverviewSessions;
   hygiene: OverviewHygiene;
 };
 

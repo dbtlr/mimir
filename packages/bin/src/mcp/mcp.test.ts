@@ -119,13 +119,30 @@ test.skipIf(!NORN)('overview tool returns the composite envelope (MMR-278)', asy
     in_flight: { count: number; tasks: { id: string }[] };
     next: { count: number; tasks: { id: string; status: string }[] };
     awaiting: { count: number; tasks: unknown[] };
-    hygiene: { untriaged: number; blocked: number; stale: number; dropped: number };
+    hygiene: {
+      untriaged: number;
+      blocked: number;
+      stale: number;
+      dropped: number;
+      listings: { blocked: unknown[]; stale: unknown[]; untriaged: unknown[] };
+    };
+    sessions: { count: number; entries: unknown[] };
+    direction: { project: string | null; containers: unknown[] };
   }>(textOf(result));
   expect(parsed.project.id).toBe('MMR');
   // beforeEach leaves one ready task under the phase.
   expect(parsed.next.count).toBe(1);
   expect(parsed.next.tasks[0]?.status).toBe('ready');
-  expect(parsed.hygiene).toEqual({ blocked: 0, dropped: 0, stale: 0, untriaged: 0 });
+  expect(parsed.hygiene).toEqual({
+    blocked: 0,
+    dropped: 0,
+    listings: { blocked: [], stale: [], untriaged: [] },
+    stale: 0,
+    untriaged: 0,
+  });
+  // The MMR-322 sections ride the same envelope, empty on a quiet board.
+  expect(parsed.sessions).toEqual({ count: 0, entries: [] });
+  expect(parsed.direction).toEqual({ containers: [], project: null });
 });
 
 test.skipIf(!NORN)('overview tool rejects the cross-project all escape (MMR-278)', async () => {

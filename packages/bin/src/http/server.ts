@@ -64,12 +64,15 @@ import {
   moveNode,
   nodeStatusWord,
   nodeToWire,
+  normalizeFilterDate,
   notFound,
   projectNotFound,
   parseFilterToken,
   parseIdentity,
   parsePriorityValue,
   parseSizeValue,
+  overviewOf,
+  overviewToWire,
   parseWireField,
   projectTree,
   reorder,
@@ -99,14 +102,6 @@ import {
 import { uiResponse } from './static';
 import type { UiAssetMap } from './static';
 import { UI_ASSETS } from './ui-assets.generated';
-
-/** A bare `YYYY-MM-DD` filter date → an ISO-ms bound; full timestamps pass through. */
-function normalizeDate(value: string, edge: 'start' | 'end'): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return edge === 'start' ? `${value}T00:00:00.000Z` : `${value}T23:59:59.999Z`;
-  }
-  return value;
-}
 
 /**
  * An artifact detail on the HTTP wire (MMR-229): `links` carries each linked
@@ -600,11 +595,11 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             }
             const since = q.get('since');
             if (since !== null) {
-              listOpts.since = normalizeDate(since, 'start');
+              listOpts.since = normalizeFilterDate(since, 'start');
             }
             const before = q.get('before');
             if (before !== null) {
-              listOpts.before = normalizeDate(before, 'end');
+              listOpts.before = normalizeFilterDate(before, 'end');
             }
             const limit = q.get('limit');
             if (limit !== null) {
@@ -1060,6 +1055,22 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               throw projectNotFound(key);
             }
             return json(req, nodeToWire(view));
+          }),
+      },
+
+      // The composite orientation surface (MMR-278/MMR-322) as a resource read —
+      // the same wire envelope the CLI `-f json` render and the MCP `overview`
+      // tool emit, through the one shared mapper. `overviewOf` already 404s an
+      // unknown OR archived project (ADR 0015 hiding), so the posture here is
+      // identical to core with no route-level guard of its own.
+      '/api/projects/:key/overview': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const key = req.params.key;
+            if (parseIdentity(key)?.kind !== 'project') {
+              throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
+            }
+            return json(req, overviewToWire(await overviewOf(store, key)));
           }),
       },
 

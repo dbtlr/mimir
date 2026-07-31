@@ -46,6 +46,7 @@ import {
   resolveNodeTokenInSet,
   resolveProjectKeyInSet,
   formatArtifactJson,
+  formatArtifactSetJson,
   formatNodeJson,
   formatOverviewJson,
   formatPromoteJson,
@@ -56,6 +57,7 @@ import {
   formatTriageJson,
   getArtifact,
   getNode,
+  listArtifacts,
   listNodes,
   listProjects,
   moveNode,
@@ -334,6 +336,42 @@ export function toolOverview(
     }
     return ok(formatOverviewJson(await overviewOf(store, scope)));
   });
+}
+
+/** The `artifacts` tool args (MMR-322) — the CLI feed's flags under their
+ * camelCase MCP spellings; every filter AND-composes. */
+export type ArtifactQueryToolArgs = {
+  scope?: string;
+  tag?: string;
+  since?: string;
+  before?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+};
+
+/**
+ * `artifacts` — the cross-project artifact feed (MMR-322), newest-first, metadata
+ * only (a frozen body is `get KEY-aN` with the `content` facet). Unlike
+ * `overview` this IS a cross-project read: `scope` defaults to the bound board
+ * and the literal `all` widens to the portfolio, exactly as on `list`/`next`.
+ */
+export function toolArtifacts(store: Store, args: ArtifactQueryToolArgs): Promise<ToolResult> {
+  return guard(async () =>
+    ok(
+      formatArtifactSetJson(
+        await listArtifacts(store, {
+          before: args.before,
+          limit: args.limit,
+          offset: args.offset,
+          q: args.q,
+          scope: args.scope,
+          since: args.since,
+          tag: args.tag,
+        }),
+      ),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------

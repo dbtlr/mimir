@@ -31,6 +31,7 @@ import {
   getArtifact,
   getNode,
   getSeed,
+  listArtifacts,
   listNodes,
   listProjects,
   nextTasks,
@@ -79,6 +80,7 @@ import { parsePriority, parseSize } from './parse';
 import {
   countLine,
   renderArtifactDetail,
+  renderArtifacts,
   renderNodeView,
   renderOverview,
   renderRecords,
@@ -113,6 +115,11 @@ const OPTIONS = {
   'not-before': { multiple: true, type: 'string' },
   'not-after': { multiple: true, type: 'string' },
   tag: { multiple: true, short: 't', type: 'string' },
+  // The artifact feed's own window (MMR-322) — `--before` and `-t` are shared
+  // with the query ops above; `--since`/`--offset`/`-q` are the feed's alone.
+  since: { type: 'string' },
+  offset: { type: 'string' },
+  query: { short: 'q', type: 'string' },
   limit: { short: 'n', type: 'string' },
   col: { multiple: true, type: 'string' },
   format: { short: 'f', type: 'string' },
@@ -307,6 +314,9 @@ export async function runCli(
     'not-before'?: string[];
     'not-after'?: string[];
     tag?: string[];
+    since?: string;
+    offset?: string;
+    query?: string;
     limit?: string;
     col?: string[];
     format?: string;
@@ -561,6 +571,31 @@ export async function runCli(
         const format = pickOverviewFormat(values.format, ctx);
         const report = await overviewOf(await getStore(), scope);
         ctx.write(format === 'json' ? formatOverviewJson(report) : renderOverview(report, ctx));
+        return 0;
+      }
+      case 'artifacts': {
+        // Unlike `overview`, the artifact feed IS a cross-project set: an unbound
+        // invocation and the literal `-s all` both mean the portfolio (ADR 0004 —
+        // an artifact is project-anchored but the search never was).
+        const scope = effectiveScope(values.scope, defaults.scope);
+        const result = await listArtifacts(await getStore(), {
+          before: parseFeedDate(values.before?.at(-1), '--before'),
+          limit: parseLimit(values.limit),
+          offset: parseOffset(values.offset),
+          q: values.query,
+          scope,
+          since: parseFeedDate(values.since, '--since'),
+          tag: values.tag?.[0],
+        });
+        const format = pickFormat(values.format, 'set', ctx);
+        issueNudge(result.issueCount, format, ctx);
+        // A well-formed query that matches nothing is an empty set at exit 0, with
+        // the nudge on stderr so stdout stays a clean machine contract (ADR 0009).
+        if (result.total === 0) {
+          const where = scope === undefined ? '' : ` in ${scope}`;
+          emptySetWarning(`no artifacts${where} — widen the window, or drop a filter`, format, ctx);
+        }
+        renderArtifacts(result, format, ctx, { showProject: scope === undefined });
         return 0;
       }
       case 'depend': {
@@ -924,21 +959,7 @@ function runSet(
   if (result.warnings !== undefined && result.warnings.length > 0) {
     renderWarnings(result.warnings, format, io);
   }
-  // The doctor issue-count nudge (MMR-184): a stderr-only boot-orientation note,
-  // off the tolerant reader's own drop tally for this load — never a fresh
-  // `mimir doctor` pass. Unconditional of format (stdout stays a clean machine
-  // contract either way) and silent at zero, matching the rare-condition cost bar.
-  // Machine formats (json/jsonl) follow renderWarnings' convention: a JSON
-  // object line on stderr rather than the prose glyph line, so the stream
-  // stays parseable.
-  if (result.issueCount !== undefined && result.issueCount > 0) {
-    const message = `${countLine(result.issueCount, 'issue')} — run mimir doctor`;
-    if (format === 'json' || format === 'jsonl') {
-      io.error(JSON.stringify({ issueCount: result.issueCount, warning: message }));
-    } else {
-      warn(io, message);
-    }
-  }
+  issueNudge(result.issueCount, format, io);
   switch (format) {
     case 'ids': {
       io.write(formatIds(result.items));
@@ -966,6 +987,43 @@ function runSet(
     }
   }
   return 0;
+}
+
+/**
+ * The doctor issue-count nudge (MMR-184): a stderr-only boot-orientation note,
+ * off the tolerant reader's own drop tally for this load — never a fresh
+ * `mimir doctor` pass. Unconditional of format (stdout stays a clean machine
+ * contract either way) and silent at zero, matching the rare-condition cost bar.
+ */
+function issueNudge(issueCount: number | undefined, format: Format, io: Io): void {
+  if (issueCount === undefined || issueCount === 0) {
+    return;
+  }
+  emitStderrNote(`${countLine(issueCount, 'issue')} — run mimir doctor`, format, io, {
+    issueCount,
+  });
+}
+
+/** The querying-doctrine note for a well-formed query that matched nothing
+ * (ADR 0009): exit 0, an empty set on stdout, the "why nothing" on stderr. */
+function emptySetWarning(message: string, format: Format, io: Io): void {
+  emitStderrNote(message, format, io);
+}
+
+/** One stderr note, in the destination's own grammar. Machine formats
+ * (json/jsonl) follow renderWarnings' convention — a JSON object line rather
+ * than the prose glyph line — so a piped stderr stays parseable. */
+function emitStderrNote(
+  message: string,
+  format: Format,
+  io: Io,
+  extra: Record<string, unknown> = {},
+): void {
+  if (format === 'json' || format === 'jsonl') {
+    io.error(JSON.stringify({ ...extra, warning: message }));
+  } else {
+    warn(io, message);
+  }
 }
 
 function renderSingle(node: NodeView, explicit: string | undefined, io: Io): number {
@@ -1160,4 +1218,32 @@ function parseLimit(value: string | undefined): number | undefined {
     throw usage(`invalid limit: ${value}`);
   }
   return n;
+}
+
+/** The artifact feed's paging cursor (MMR-322) — rows to skip before the window. */
+function parseOffset(value: string | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const n = Number.parseInt(value, 10);
+  if (Number.isNaN(n) || n < 0) {
+    throw usage(`invalid offset: ${value}`, 'offset is a count of rows to skip (0 or more)');
+  }
+  return n;
+}
+
+/**
+ * The artifact feed's date bounds (MMR-322) — a bare `YYYY-MM-DD` (widened to
+ * the whole day downstream) or a full ISO timestamp. A malformed value is a
+ * STRUCTURAL fault, not a value fault: it would otherwise filter nothing out and
+ * report the unfiltered feed as if the window had applied.
+ */
+function parseFeedDate(value: string | undefined, flag: string): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}(?:T[\d:.]+Z?)?$/.test(value) || Number.isNaN(Date.parse(value))) {
+    throw usage(`invalid date: ${value}`, `${flag} takes YYYY-MM-DD or a full ISO timestamp`);
+  }
+  return value;
 }

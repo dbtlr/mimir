@@ -23,6 +23,17 @@ import type { StaleOptions } from './predicates';
 const LANES: readonly Lane[] = ['awaiting_you', 'live', 'needs_unsticking', 'at_rest'];
 const AT_REST = LANES.length - 1;
 
+/**
+ * A leaf task's Status word → the lane it stands in — the same mapping
+ * {@link attentionOf} reduces over a project's leaves, exposed for the
+ * needs-attention listings (MMR-322), which report the lane of ONE task. Shared
+ * rather than re-spelled: two lane vocabularies would drift the moment a Status
+ * word moved lanes.
+ */
+export function laneOf(word: StatusWord): Lane {
+  return LANES[laneIndex(word)] ?? 'at_rest';
+}
+
 /** A leaf task's Status word → its lane index (lower = higher attention). */
 function laneIndex(word: StatusWord): number {
   switch (word) {

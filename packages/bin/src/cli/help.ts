@@ -93,8 +93,10 @@ usage: mimir <command> [options]
 work commands (flat verbs — read or mutate work state; the agent hot path):
   read:
     next            ready tasks in rank order ("what's next")
-    overview        one project at a glance — in flight, next, awaiting, hygiene
+    overview        one project at a glance — direction, in flight, next,
+                    awaiting, recent sessions, hygiene
     list            broad selection by predicate/scope/tag
+    artifacts       the artifact feed — frozen work products, newest first
     get <id>        full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN), seed (KEY-sN)
     status <id>     rollup distribution + status (KEY-seq or project KEY)
     tree <id>       full subtree rooted at any KEY-seq or project (KEY)
@@ -147,8 +149,14 @@ options:
                           binding if present; "all" = every project)
   -p, --priority <p0..p3> filter by priority (signal, not sort)
       --size <s|m|l>      filter by size
-  -t, --tag <tag>         list: filter by tag
+  -t, --tag <tag>         list/artifacts: filter by tag
   -n, --limit <n>         cap the result count
+
+  artifacts (the frozen-work-product feed):
+      --since <date>      created on or after (YYYY-MM-DD or ISO timestamp)
+      --before <date>     created on or before (same grammar)
+  -q, --query <text>      case-insensitive substring over the title
+      --offset <n>        rows to skip — pages the newest-first feed
 
   selection (list/next — AND-composed):
       --status <word>     list: the universe — ready|awaiting|in_progress|
@@ -360,8 +368,29 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       F_SCOPE,
       ['-f, --format <fmt>', 'records|json (default: records on a TTY, json when piped)'],
     ],
-    summary: 'session-boot orientation for one project — in flight, next, awaiting, hygiene',
+    summary:
+      'session-boot orientation for one project — direction, in flight, next, awaiting, sessions, hygiene',
     usage: 'mimir overview [-s <KEY>]',
+  },
+  artifacts: {
+    examples: [
+      'mimir artifacts                             # the bound project, newest first',
+      'mimir artifacts -s all -t session_summary   # session retrospectives everywhere',
+      'mimir artifacts --since 2026-07-01 -q vault    # title substring, windowed',
+      'mimir artifacts -f ids | head -1            # the newest id, for a get',
+    ],
+    flags: [
+      F_SCOPE,
+      ['-t, --tag <tag>', 'filter by tag'],
+      ['--since <date>', 'created on or after (YYYY-MM-DD or ISO timestamp)'],
+      ['--before <date>', 'created on or before (YYYY-MM-DD or ISO timestamp)'],
+      ['-q, --query <text>', 'case-insensitive substring over the title'],
+      F_LIMIT,
+      ['--offset <n>', 'rows to skip — pages the newest-first feed'],
+      F_FORMAT,
+    ],
+    summary: 'the artifact feed — frozen work products, newest first (KEY-aN)',
+    usage: 'mimir artifacts [-s <KEY>] [selection]',
   },
   list: {
     examples: [
@@ -972,6 +1001,7 @@ examples:
   mimir get MMR-16                    # full record (cheap facets included)
   mimir get MMR-16 --col history      # add the transition log
   mimir get MMR-a1 --col content      # an artifact's frozen body
+  mimir artifacts -t session_summary  # the retrospectives, newest first
   mimir status MMR-3                  # rollup of an initiative/phase
   mimir tree MMR                      # full hierarchy under the project
   mimir tree MMR-3                    # subtree rooted at a phase/initiative
