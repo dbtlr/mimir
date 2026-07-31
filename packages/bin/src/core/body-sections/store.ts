@@ -50,15 +50,21 @@ export type NextSection = {
    */
   ambiguous: boolean;
   /**
-   * Whether the document carries the `## History` anchor a FIRST `## Next` write
-   * splices the section in above. Consulted only on that insert — a replace or a
-   * clear targets `## Next` itself — and reported `true` whenever no insert can
-   * follow. A document without the anchor is degraded vault state `mimir doctor`
-   * already reports (`section-history-unreadable`); carrying the fact here (it
-   * rides the same read that proves the section absent) turns norn's opaque
-   * whole-batch refusal into one that names what is missing.
+   * How many `## History` anchors the document carries — the heading a FIRST
+   * `## Next` write splices the section in above. Consulted only on that insert
+   * (a replace or a clear targets `## Next` itself), and reported as `1`
+   * whenever no insert can follow.
+   *
+   * A COUNT rather than a boolean because zero and several are different faults
+   * with opposite repairs: norn refuses an ambiguous anchor as surely as a
+   * missing one, but "add the heading" and "delete the duplicate" are contrary
+   * instructions, and a refusal that conflates them sends the operator the wrong
+   * way. Either state is degraded vault state `mimir doctor` reports as
+   * `section-history-unreadable`; carrying the count here (it rides the same
+   * read that proves the section absent) turns norn's opaque whole-batch refusal
+   * into one that names the actual fault.
    */
-  hasInsertAnchor: boolean;
+  insertAnchors: number;
 };
 
 export type BodySectionStore = {

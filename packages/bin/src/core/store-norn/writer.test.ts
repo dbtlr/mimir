@@ -1799,22 +1799,49 @@ test('clearing the Next narrative refuses on a duplicated heading (MMR-321)', as
   expect(plans).toHaveLength(0);
 });
 
-test('a first Next write names a missing ## History anchor rather than failing opaquely (MMR-321)', async () => {
-  // Without the anchor norn refuses the whole batch as "apply did not complete";
-  // the body read that already proved the section absent names the real fault.
-  const { client, plans } = fakeClient([projectDoc(), containerDoc('## Task Description\n\np\n')]);
-  const store = createNornWriteStore(client, ROOT);
+/** Run a `## Next` write expected to refuse, returning the MimirError. */
+async function refusedNextWrite(store: Store, id: string, next: string): Promise<MimirError> {
   let caught: unknown;
   try {
-    await updateNode(store, 'MMR-1', { next: 'direction' });
+    await updateNode(store, id, { next });
   } catch (error) {
     caught = error;
   }
   if (!(caught instanceof MimirError)) {
-    throw new Error(`expected a MimirError(validation), got ${String(caught)}`, { cause: caught });
+    throw new Error(`expected a MimirError, got ${String(caught)}`, { cause: caught });
   }
+  return caught;
+}
+
+/**
+ * The insert anchor's two failure modes are DIFFERENT faults with opposite
+ * repairs — add the heading vs delete the duplicate — so the refusal must tell
+ * them apart. Both would otherwise surface as norn's opaque whole-batch
+ * "apply did not complete", and a shared boolean would have sent an operator
+ * with two `## History` headings off to add a third.
+ */
+
+test('a first Next write names a MISSING ## History anchor (MMR-321)', async () => {
+  const { client, plans } = fakeClient([projectDoc(), containerDoc('## Task Description\n\np\n')]);
+  const store = createNornWriteStore(client, ROOT);
+  const caught = await refusedNextWrite(store, 'MMR-1', 'direction');
   expect(caught.code).toBe('validation');
-  expect(caught.message).toContain("no '## History' heading");
+  expect(caught.message).toContain("has no '## History' heading");
+  expect(plans).toHaveLength(0);
+});
+
+test('a first Next write names a DUPLICATED ## History anchor, not a missing one (MMR-321)', async () => {
+  const { client, plans } = fakeClient([
+    projectDoc(),
+    containerDoc('## Task Description\n\np\n## History\n## History\n'),
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  const caught = await refusedNextWrite(store, 'MMR-1', 'direction');
+  expect(caught.code).toBe('validation');
+  expect(caught.message).toContain("carries more than one '## History' heading");
+  // The wrong diagnosis this replaced — the document has two, not none.
+  expect(caught.message).not.toContain("has no '## History' heading");
+  expect(caught.hint).toContain('duplicate heading');
   expect(plans).toHaveLength(0);
 });
 

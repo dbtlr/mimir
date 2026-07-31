@@ -112,12 +112,20 @@ async function applyNextSection(
   if (unchanged) {
     return false;
   }
-  // A FIRST write splices the section in above `## History`; without that anchor
-  // norn refuses the whole batch as an opaque apply failure. Name it instead.
-  if (!current.present && !current.hasInsertAnchor) {
+  // A FIRST write splices the section in above `## History`; without exactly one
+  // such anchor norn refuses the whole batch as an opaque apply failure. Name the
+  // fault instead — and tell the two apart, because "add the heading" and
+  // "delete the duplicate" are opposite repairs.
+  if (!current.present && current.insertAnchors === 0) {
     throw validation(
       `${id} has no '## History' heading for the '## Next' section to be written above`,
       "the document was hand-edited or predates mimir management — run 'mimir doctor' to repair it",
+    );
+  }
+  if (!current.present && current.insertAnchors > 1) {
+    throw validation(
+      `${id} carries more than one '## History' heading, so the '## Next' section has no unambiguous anchor to be written above`,
+      "the document was hand-edited — run 'mimir doctor' to find the duplicate heading and repair it",
     );
   }
   await w.setNextSection(entityType, id, { present: current.present, text });

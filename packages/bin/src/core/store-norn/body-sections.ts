@@ -221,7 +221,7 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
         // anchor is consulted.
         return {
           ambiguous: false,
-          hasInsertAnchor: true,
+          insertAnchors: 1,
           present: true,
           text: parseNextSection(sectionBody(section)),
         };
@@ -237,9 +237,9 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
       const body = pathAndBody(records[0])?.body ?? '';
       return {
         ambiguous: countSectionHeadings(body, NEXT_HEADING) > 0,
-        // The same body answers, for free, whether a first write has an anchor
+        // The same body answers, for free, how many anchors a first write has
         // to splice above — `## History` is on every mimir-written document.
-        hasInsertAnchor: countSectionHeadings(body, HISTORY_HEADING) === 1,
+        insertAnchors: countSectionHeadings(body, HISTORY_HEADING),
         present: false,
         text: null,
       };
