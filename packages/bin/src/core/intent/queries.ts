@@ -875,8 +875,8 @@ export type ArtifactQueryOptions = {
  * date is. It has to be checked rather than merely normalized: the filter is a
  * lexical string compare downstream, so `since: "yesterday"` would not error —
  * it would sort against the ISO timestamps and quietly return the wrong window.
- * The shape test comes first and `Date.parse` backstops it, which rejects
- * calendar-impossible values (`2026-13-45`) the regex alone would admit.
+ * A calendar-impossible date (`2026-13-45`, `2026-02-30`) is rejected too — see
+ * {@link canonicalFilterInstant} for why `Date.parse` alone cannot do it.
  */
 export function isFilterDate(value: string): boolean {
   return canonicalFilterInstant(value) !== null;
@@ -908,15 +908,30 @@ const BARE_DATE = /^\d{4}-\d{2}-\d{2}$/;
  * A zone-less timestamp is read as **UTC**, matching the bare-date bounds below;
  * `new Date` would otherwise read it as local time and shift the window by the
  * host's offset, making the same command mean different things on two machines.
+ *
+ * `Date.parse` is not a sufficient calendar check on its own: it rejects an
+ * out-of-range MONTH (`2026-13-45`) but silently ROLLS an out-of-range day, so
+ * `2026-02-30` becomes March 2 and `2027-02-29` becomes March 1 — a bound the
+ * caller never asked for, applied without a word. The day is therefore
+ * round-tripped: the date part is re-rendered through UTC midnight and must come
+ * back unchanged. That check reads the date part ALONE, never the canonical
+ * result, because a legitimate offset may move the instant across a day boundary
+ * (`2026-07-01T01:00+02:00` really is `2026-06-30T23:00Z`) and comparing whole
+ * canonical dates would reject it.
  */
 function canonicalFilterInstant(value: string): string | null {
   if (!FILTER_DATE_SHAPE.test(value)) {
     return null;
   }
+  const datePart = value.slice(0, 10);
+  const rolled = new Date(`${datePart}T00:00:00.000Z`);
+  if (Number.isNaN(rolled.getTime()) || rolled.toISOString().slice(0, 10) !== datePart) {
+    return null;
+  }
   const separated = value.replace(' ', 'T');
   const zoned = /(?:Z|[+-]\d{2}:\d{2})$/.test(separated) ? separated : `${separated}Z`;
   const ms = Date.parse(zoned);
-  // Backstops the shape test, which admits calendar-impossible values (`2026-13-45`).
+  // Backstops the time-of-day fields the day check above does not reach.
   return Number.isNaN(ms) ? null : new Date(ms).toISOString();
 }
 

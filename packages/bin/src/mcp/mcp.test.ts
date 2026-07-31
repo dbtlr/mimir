@@ -903,11 +903,19 @@ const asLocalOffset = (ms: number): string =>
 // are free strings at the schema level (an ISO date is not a zod primitive), so
 // the handler's own check is the only thing standing between `"yesterday"` and a
 // lexical compare that silently returns the wrong window.
-test.each(['since', 'before'])('artifacts rejects a malformed %s over dispatch', async (arg) => {
+test.each([
+  ['since', 'yesterday'],
+  ['before', 'yesterday'],
+  // Day overflow — `Date.parse` rolls these to the next month rather than
+  // rejecting them, so the guard has to catch them itself.
+  ['since', '2026-02-30'],
+  ['before', '2026-02-30T10:00:00Z'],
+  ['since', '2027-02-29'],
+])('artifacts rejects %s=%s over dispatch', async (arg, value) => {
   const { client, close } = await connectClient();
   try {
     const res = (await client.callTool({
-      arguments: { [arg]: 'yesterday', scope: 'MMR' },
+      arguments: { [arg]: value, scope: 'MMR' },
       name: 'artifacts',
     })) as ToolCall;
     expect(res.isError).toBe(true);
@@ -917,8 +925,25 @@ test.each(['since', 'before'])('artifacts rejects a malformed %s over dispatch',
     }
     const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(text);
     expect(parsed.error.code).toBe('validation');
-    expect(parsed.error.message).toBe('invalid date: yesterday');
+    expect(parsed.error.message).toBe(`invalid date: ${value}`);
     expect(parsed.error.hint).toBe(`${arg} takes YYYY-MM-DD or a full ISO timestamp`);
+  } finally {
+    await close();
+  }
+});
+
+test.skipIf(!NORN)('artifacts accepts a real leap day over dispatch', async () => {
+  const { client, close } = await connectClient(store);
+  try {
+    await toolAttach(store, { content: '# a\n', node: taskRef, title: 'in window' });
+    const res = (await client.callTool({
+      arguments: { since: '2028-02-29' },
+      name: 'artifacts',
+    })) as ToolCall;
+    // Accepted (not a validation error); the bound is in the future, so it
+    // matches nothing — what matters is that the guard let it through.
+    expect(res.isError).toBeUndefined();
+    expect(parseJson<{ total: number }>(callText(res)).total).toBe(0);
   } finally {
     await close();
   }

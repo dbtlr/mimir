@@ -1496,8 +1496,14 @@ describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
   test.each([
     ['--since', 'yesterday'],
     ['--before', 'not-a-date'],
-    ['--since', '2026-13-45'], // shape-valid, calendar-impossible: Date.parse backstop
+    ['--since', '2026-13-45'], // out-of-range month: Date.parse rejects outright
     ['--before', '2026-07-31T99:00:00Z'],
+    // Day overflow, which `Date.parse` ROLLS rather than rejects — Feb 30 would
+    // silently become Mar 2, a bound the caller never asked for.
+    ['--since', '2026-02-30'],
+    ['--before', '2026-02-30T10:00:00Z'],
+    ['--since', '2027-02-29'], // not a leap year
+    ['--before', '2026-06-31'], // 30-day month
   ])('%s with a malformed value is a usage error', async (flag, value) => {
     const io = fakeIo(true);
     expect(await runCli(['artifacts', flag, value], neverStore, io)).toBe(2);
@@ -1514,6 +1520,8 @@ describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
     '2026-07-31T10:15:00-04:00',
     '2026-07-31T10:15:00+05:30',
     '2026-07-31T10:15',
+    '2028-02-29', // a real leap day — the overflow check must not reject it
+    '2028-02-29T10:15:00Z',
   ])('%s is an accepted date bound', async (value) => {
     const io = fakeIo(true);
     expect(await runCli(['artifacts', '-s', 'MMR', '--since', value], () => store, io)).toBe(0);
