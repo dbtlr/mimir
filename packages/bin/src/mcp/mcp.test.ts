@@ -18,6 +18,7 @@ import { createTestStore, inertStore, nodeIdOf, projectIdOf } from '../testing/s
 import { buildMcpServer } from './server';
 import {
   toolAnnotate,
+  toolArtifacts,
   toolAttach,
   toolCreate,
   toolDepend,
@@ -143,6 +144,57 @@ test.skipIf(!NORN)('overview tool returns the composite envelope (MMR-278)', asy
   // The MMR-322 sections ride the same envelope, empty on a quiet board.
   expect(parsed.sessions).toEqual({ count: 0, entries: [] });
   expect(parsed.direction).toEqual({ containers: [], project: null });
+});
+
+// The artifact feed (MMR-322) — the one read tool that IS cross-project.
+test.skipIf(!NORN)('artifacts tool returns the artifacts-unit set wrapper', async () => {
+  await toolAttach(store, {
+    content: '# retro\n',
+    node: taskRef,
+    summary: 'closed out the codec work',
+    tags: ['session_summary'],
+    title: 'session retro',
+  });
+  const result = await toolArtifacts(store, { scope: 'MMR' });
+  expect(result.isError).toBeUndefined();
+  const parsed = parseJson<{
+    total: number;
+    returned: number;
+    starts_at: number;
+    artifacts: { id: string; project: string; tags: string[]; summary?: string }[];
+  }>(textOf(result));
+  expect(parsed.total).toBe(1);
+  expect(parsed.returned).toBe(1);
+  expect(parsed.starts_at).toBe(0);
+  expect(parsed.artifacts[0]?.project).toBe('MMR');
+  expect(parsed.artifacts[0]?.tags).toEqual(['session_summary']);
+  expect(parsed.artifacts[0]?.summary).toBe('closed out the codec work');
+});
+
+test.skipIf(!NORN)('artifacts tool AND-composes its filters', async () => {
+  await toolAttach(store, { content: '# a\n', node: taskRef, tags: ['design'], title: 'a design' });
+  await toolAttach(store, {
+    content: '# b\n',
+    node: taskRef,
+    tags: ['session_summary'],
+    title: 'a retro',
+  });
+  const tagged = parseJson<{ total: number; artifacts: { title: string }[] }>(
+    textOf(await toolArtifacts(store, { scope: 'MMR', tag: 'session_summary' })),
+  );
+  expect(tagged.total).toBe(1);
+  expect(tagged.artifacts[0]?.title).toBe('a retro');
+
+  const missed = parseJson<{ total: number }>(
+    textOf(await toolArtifacts(store, { q: 'nothing here', scope: 'MMR', tag: 'session_summary' })),
+  );
+  expect(missed.total).toBe(0);
+});
+
+test.skipIf(!NORN)('artifacts tool returns a structured error for an unknown scope', async () => {
+  const result = await toolArtifacts(store, { scope: 'ZZZ' });
+  expect(result.isError).toBe(true);
+  expect(parseJson<{ error: { code: string } }>(textOf(result)).error.code).toBe('not_found');
 });
 
 test.skipIf(!NORN)('overview tool rejects the cross-project all escape (MMR-278)', async () => {

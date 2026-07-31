@@ -578,7 +578,10 @@ export async function runCli(
         // invocation and the literal `-s all` both mean the portfolio (ADR 0004 —
         // an artifact is project-anchored but the search never was).
         const scope = effectiveScope(values.scope, defaults.scope);
-        const result = await listArtifacts(await getStore(), {
+        // Every structural fault (bad date, bad offset, bad format) is decided
+        // BEFORE the store is acquired — a wrong invocation must never open the
+        // vault, matching the help/usage paths (MMR-39).
+        const artifactQuery = {
           before: parseFeedDate(values.before?.at(-1), '--before'),
           limit: parseLimit(values.limit),
           offset: parseOffset(values.offset),
@@ -586,8 +589,9 @@ export async function runCli(
           scope,
           since: parseFeedDate(values.since, '--since'),
           tag: values.tag?.[0],
-        });
+        };
         const format = pickFormat(values.format, 'set', ctx);
+        const result = await listArtifacts(await getStore(), artifactQuery);
         issueNudge(result.issueCount, format, ctx);
         // A well-formed query that matches nothing is an empty set at exit 0, with
         // the nudge on stderr so stdout stays a clean machine contract (ADR 0009).

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { parseJson } from '@mimir/helpers';
 
 import {
+  attachArtifact,
   blockTask,
   createInitiative,
   createPhase,
@@ -10,6 +11,9 @@ import {
   createTask,
   depend,
   notFound,
+  startTask,
+  updateNode,
+  updateProject,
 } from '../core';
 import type { Store } from '../core';
 import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
@@ -1288,5 +1292,235 @@ describe.skipIf(!NORN)('overview (MMR-278)', () => {
     const io = fakeIo(false);
     expect(await runCli(['overview'], () => store, io, { scope: 'MMR' })).toBe(0);
     expect(parseJson<{ project: { id: string } }>(io.out.join('')).project.id).toBe('MMR');
+  });
+});
+
+// MMR-322: the composed sections — direction prose, recent sessions, the
+// in-flight resume handles, and the needs-attention listings behind the counts.
+describe.skipIf(!NORN)('overview composition (MMR-322)', () => {
+  test('an in-flight row shows its handles compactly', async () => {
+    const task = await createTask(store, { parentId: phaseId, title: 'running' });
+    await startTask(store, `MMR-${String(task.seq)}`, {
+      branch: 'feat/mmr-322',
+      harness: 'codex',
+      host: 'workbench',
+      session: 's-01',
+    });
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain('in flight (1)');
+    expect(out).toContain('codex@workbench · feat/mmr-322 · s-01');
+  });
+
+  test('an in-flight row with no handles carries no clause', async () => {
+    const task = await createTask(store, { parentId: phaseId, title: 'running' });
+    await startTask(store, `MMR-${String(task.seq)}`);
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    const line = io.out
+      .join('')
+      .split('\n')
+      .find((l) => l.includes('running'));
+    expect(line).toBeDefined();
+    expect(line?.trimEnd().endsWith('running')).toBe(true);
+  });
+
+  test('direction renders the owned prose verbatim, under its container', async () => {
+    await updateProject(store, await projectIdOf(store, 'MMR'), { next: 'ship phase 3' });
+    await updateNode(store, phaseId, { next: 'land the composition' });
+    await createTask(store, { parentId: phaseId, title: 'ready one' });
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain('direction');
+    expect(out).toContain('ship phase 3');
+    expect(out).toContain(`MMR-${String(phaseSeq)} · ph`);
+    expect(out).toContain('land the composition');
+  });
+
+  test('a board owning no prose renders no direction header', async () => {
+    await createTask(store, { parentId: phaseId, title: 'ready one' });
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    expect(io.out.join('')).not.toContain('direction');
+  });
+
+  test('recent sessions render the group and its joined summary lede', async () => {
+    const task = await createTask(store, { parentId: phaseId, title: 'claimed' });
+    const stem = `MMR-${String(task.seq)}`;
+    await startTask(store, stem, { session: 's-77' });
+    await attachArtifact(store, {
+      content: '# retro',
+      linkNodeIds: [await nodeIdOf(store, stem)],
+      projectId: await projectIdOf(store, 'MMR'),
+      summary: 'closed out the codec work',
+      tags: ['session_summary'],
+      title: 'session retro',
+    });
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain('recent sessions (1)');
+    expect(out).toContain('s-77');
+    expect(out).toContain('closed out the codec work');
+  });
+
+  test('the blocked listing renders the lane word and the hold reason', async () => {
+    const task = await createTask(store, { parentId: phaseId, title: 'stuck' });
+    await blockTask(store, `MMR-${String(task.seq)}`, 'upstream API down');
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain("1 blocked — run 'mimir list -s MMR --status blocked'");
+    expect(out).toContain('needs_unsticking');
+    expect(out).toContain('upstream API down');
+  });
+
+  test('-f json carries the composed sections on the same envelope', async () => {
+    await updateProject(store, await projectIdOf(store, 'MMR'), { next: 'ship phase 3' });
+    const task = await createTask(store, { parentId: phaseId, title: 'stuck' });
+    await blockTask(store, `MMR-${String(task.seq)}`, 'external');
+    const io = fakeIo(false);
+    expect(await runCli(['overview', '-s', 'MMR', '-f', 'json'], () => store, io)).toBe(0);
+    const env = parseJson<{
+      direction: { project: string | null; containers: { id: string; next: string }[] };
+      sessions: { count: number; entries: unknown[] };
+      hygiene: { listings: { blocked: { id: string; lane: string; stale: boolean }[] } };
+    }>(io.out.join(''));
+    expect(env.direction.project).toBe('ship phase 3');
+    expect(env.sessions).toEqual({ count: 0, entries: [] });
+    expect(env.hygiene.listings.blocked[0]?.lane).toBe('needs_unsticking');
+    expect(env.hygiene.listings.blocked[0]?.stale).toBe(false);
+  });
+});
+
+// MMR-322: `artifacts` — the flat, cross-project artifact feed. A `set`-kind
+// read: the querying doctrine applies (empty set at exit 0 with a stderr note,
+// structural faults at exit 2).
+describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
+  const attach = async (title: string, tags: string[] = [], summary?: string): Promise<string> =>
+    (
+      await attachArtifact(store, {
+        content: `# ${title}`,
+        projectId: await projectIdOf(store, 'MMR'),
+        summary,
+        tags,
+        title,
+      })
+    ).renderedId;
+
+  test('the table render is count-led and carries the lede', async () => {
+    const id = await attach('vault notes', ['session_summary'], 'what the converge does');
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'MMR'], () => store, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain('1 artifact');
+    expect(out).toContain(id);
+    expect(out).toContain('vault notes');
+    expect(out).toContain('session_summary');
+    expect(out).toContain('what the converge does');
+    expect(io.err).toHaveLength(0);
+  });
+
+  test('a tag filter narrows the feed', async () => {
+    await attach('a design note', ['design']);
+    const summaryId = await attach('a retro', ['session_summary']);
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'MMR', '-t', 'session_summary'], () => store, io)).toBe(
+      0,
+    );
+    const out = io.out.join('');
+    expect(out).toContain('1 artifact');
+    expect(out).toContain(summaryId);
+    expect(out).not.toContain('a design note');
+  });
+
+  test('-f ids emits bare KEY-aN ids', async () => {
+    const id = await attach('vault notes');
+    const io = fakeIo(false);
+    expect(await runCli(['artifacts', '-s', 'MMR', '-f', 'ids'], () => store, io)).toBe(0);
+    expect(io.out.join('')).toBe(id);
+  });
+
+  test('-f json emits the artifacts-unit set wrapper', async () => {
+    await attach('vault notes', [], 'a lede');
+    const io = fakeIo(false);
+    expect(await runCli(['artifacts', '-s', 'MMR', '-f', 'json'], () => store, io)).toBe(0);
+    const env = parseJson<{
+      total: number;
+      returned: number;
+      starts_at: number;
+      artifacts: { id: string; project: string; summary?: string }[];
+    }>(io.out.join(''));
+    expect(env.total).toBe(1);
+    expect(env.returned).toBe(1);
+    expect(env.starts_at).toBe(0);
+    expect(env.artifacts[0]?.project).toBe('MMR');
+    expect(env.artifacts[0]?.summary).toBe('a lede');
+  });
+
+  test('a well-formed empty query exits 0 with a stderr note', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'MMR', '-t', 'nothing'], () => store, io)).toBe(0);
+    expect(io.out.join('')).toContain('0 artifacts');
+    expect(io.err.join('')).toContain('no artifacts in MMR');
+  });
+
+  test('the empty note is a JSON line on the machine formats', async () => {
+    const io = fakeIo(false);
+    expect(
+      await runCli(['artifacts', '-s', 'MMR', '-t', 'nothing', '-f', 'json'], () => store, io),
+    ).toBe(0);
+    expect(parseJson<{ warning: string }>(io.err.join('')).warning).toContain('no artifacts');
+  });
+
+  test('-s all spans projects and keeps the project column', async () => {
+    await attach('vault notes');
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'all'], () => store, io)).toBe(0);
+    expect(io.out.join('')).toContain('MMR');
+  });
+
+  test('an unknown scope is a not-found, not an empty set', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'ZZZ'], () => store, io)).toBe(1);
+    expect(io.err.join('')).toContain('ZZZ');
+  });
+
+  test.each([
+    ['--since', 'yesterday'],
+    ['--before', 'not-a-date'],
+  ])('%s with a malformed value is a usage error', async (flag, value) => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', flag, value], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('invalid date');
+    expect(io.out).toHaveLength(0);
+  });
+
+  test('a negative offset is a usage error', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '--offset', '-2'], neverStore, io)).toBe(2);
+    expect(io.out).toHaveLength(0);
+  });
+
+  test('an unknown format is a usage error and never opens the store', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-f', 'yaml'], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('unknown format');
+  });
+
+  test('bare uses the bound scope from defaults', async () => {
+    await attach('vault notes');
+    const io = fakeIo(false);
+    expect(await runCli(['artifacts', '-f', 'json'], () => store, io, { scope: 'MMR' })).toBe(0);
+    expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(1);
+  });
+
+  test('-h prints the verb descriptor without touching the store', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-h'], neverStore, io)).toBe(0);
+    expect(io.out.join('')).toContain('mimir artifacts');
+    expect(io.out.join('')).toContain('--since');
   });
 });
