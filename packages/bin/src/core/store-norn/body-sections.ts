@@ -1,6 +1,6 @@
 import type { AnnotationView } from '@mimir/contract';
 
-import type { BodySections, BodySectionStore } from '../body-sections/store';
+import type { BodySectionFacets, BodySections, BodySectionStore } from '../body-sections/store';
 import {
   ANNOTATIONS_HEADING,
   countSectionHeadings,
@@ -154,46 +154,56 @@ function byCreatedAt(a: AnnotationView, b: AnnotationView): number {
  * timestamps; History keeps document order (insertion order, which is the
  * same).
  */
+/** The headings a {@link BodySectionFacets} request resolves to, in the order the
+ * parse below reads them back. One list, so the single-stem and batched readers
+ * can never ask for different sections. */
+function headingsFor(want: BodySectionFacets): string[] {
+  const headings: string[] = [];
+  if (want.description === true) {
+    headings.push(DESCRIPTION_HEADING);
+  }
+  if (want.next === true) {
+    headings.push(NEXT_HEADING);
+  }
+  if (want.annotations === true) {
+    headings.push(ANNOTATIONS_HEADING);
+  }
+  if (want.history === true) {
+    headings.push(HISTORY_HEADING);
+  }
+  return headings;
+}
+
+/** Parse one document's raw heading → section-markdown map into the requested facets. */
+function parseFacets(raw: Record<string, string>, want: BodySectionFacets): BodySections {
+  const sections: BodySections = {};
+  if (want.description === true) {
+    sections.description = parseDescriptionSection(sectionBody(raw[DESCRIPTION_HEADING] ?? ''));
+  }
+  if (want.next === true) {
+    // A duplicated `## Next` reads as EMPTY here, exactly as an ambiguous
+    // `## History`/`## Task Description` does — the deliberate graceful
+    // degradation of ADR 0017. `mimir doctor` names the duplicate so the drop
+    // isn't silent, and the WRITE path refuses outright (MMR-321).
+    sections.next = parseNextSection(sectionBody(raw[NEXT_HEADING] ?? ''));
+  }
+  if (want.annotations === true) {
+    sections.annotations = parseAnnotationsSection(
+      sectionBody(raw[ANNOTATIONS_HEADING] ?? ''),
+    ).toSorted(byCreatedAt);
+  }
+  if (want.history === true) {
+    sections.history = parseHistorySection(sectionBody(raw[HISTORY_HEADING] ?? ''));
+  }
+  return sections;
+}
+
 export function createNornBodySectionStore(client: NornClient): BodySectionStore {
   // One `vault.get { section }` per read, requesting exactly the wanted headings
   // (MMR-164, F6 / MMR-187). The single-facet methods are `want`-of-one wrappers,
   // so a multi-facet detail `get` costs one Norn round-trip instead of three.
-  const readSections: BodySectionStore['readSections'] = async (stem, want) => {
-    const headings: string[] = [];
-    if (want.description === true) {
-      headings.push(DESCRIPTION_HEADING);
-    }
-    if (want.next === true) {
-      headings.push(NEXT_HEADING);
-    }
-    if (want.annotations === true) {
-      headings.push(ANNOTATIONS_HEADING);
-    }
-    if (want.history === true) {
-      headings.push(HISTORY_HEADING);
-    }
-    const raw = await readNodeSections(client, stem, headings);
-    const sections: BodySections = {};
-    if (want.description === true) {
-      sections.description = parseDescriptionSection(sectionBody(raw[DESCRIPTION_HEADING] ?? ''));
-    }
-    if (want.next === true) {
-      // A duplicated `## Next` reads as EMPTY here, exactly as an ambiguous
-      // `## History`/`## Task Description` does — the deliberate graceful
-      // degradation of ADR 0017. `mimir doctor` names the duplicate so the drop
-      // isn't silent, and the WRITE path refuses outright (MMR-321).
-      sections.next = parseNextSection(sectionBody(raw[NEXT_HEADING] ?? ''));
-    }
-    if (want.annotations === true) {
-      sections.annotations = parseAnnotationsSection(
-        sectionBody(raw[ANNOTATIONS_HEADING] ?? ''),
-      ).toSorted(byCreatedAt);
-    }
-    if (want.history === true) {
-      sections.history = parseHistorySection(sectionBody(raw[HISTORY_HEADING] ?? ''));
-    }
-    return sections;
-  };
+  const readSections: BodySectionStore['readSections'] = async (stem, want) =>
+    parseFacets(await readNodeSections(client, stem, headingsFor(want)), want);
   return {
     annotationSectionFailures: async (stems) => {
       // One MMR-239 `section_failures` probe over the given stems (norn resolves a
@@ -245,5 +255,27 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
       };
     },
     readSections,
+    readSectionsMany: async (stems, want) => {
+      // ONE `vault.get { section, targets: [...] }` over every stem (MMR-322) —
+      // the `loadDescriptions` shape (MMR-263). The client serializes its calls,
+      // so N per-stem reads are N sequential IPC round-trips no `Promise.all`
+      // can overlap; batching is the only way a fan-out read stays one hop.
+      const out = new Map<string, BodySections>();
+      const unique = [...new Set(stems)];
+      // An empty target list to `vault.get` is unverified behavior (the
+      // transitions feed and the annotation probe make the same guard).
+      if (unique.length === 0) {
+        return out;
+      }
+      const records = await client.getSections(unique, headingsFor(want));
+      for (const record of records) {
+        const doc = pathAndSections(record);
+        if (doc === null) {
+          continue;
+        }
+        out.set(stemOf(doc.path), parseFacets(doc.sections, want));
+      }
+      return out;
+    },
   };
 }

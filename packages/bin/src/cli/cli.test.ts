@@ -3,13 +3,18 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { parseJson } from '@mimir/helpers';
 
 import {
+  attachArtifact,
   blockTask,
   createInitiative,
   createPhase,
   createProject,
   createTask,
   depend,
+  getArtifact,
   notFound,
+  startTask,
+  updateNode,
+  updateProject,
 } from '../core';
 import type { Store } from '../core';
 import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
@@ -1236,12 +1241,24 @@ describe.skipIf(!NORN)('overview (MMR-278)', () => {
       in_flight: { count: number; tasks: unknown[] };
       next: { count: number; tasks: { id: string; status: string }[] };
       awaiting: { count: number; tasks: unknown[] };
-      hygiene: { untriaged: number; blocked: number; stale: number; dropped: number };
+      hygiene: {
+        untriaged: number;
+        blocked: number;
+        stale: number;
+        dropped: number;
+        listings: { blocked: unknown[]; stale: unknown[]; untriaged: unknown[] };
+      };
     }>(io.out.join(''));
     expect(env.project.id).toBe('MMR');
     expect(env.next.count).toBe(1);
     expect(env.next.tasks[0]?.status).toBe('ready');
-    expect(env.hygiene).toEqual({ blocked: 0, dropped: 0, stale: 0, untriaged: 0 });
+    expect(env.hygiene).toEqual({
+      blocked: 0,
+      dropped: 0,
+      listings: { blocked: [], stale: [], untriaged: [] },
+      stale: 0,
+      untriaged: 0,
+    });
   });
 
   test('piped default is the json envelope (report split)', async () => {
@@ -1276,5 +1293,406 @@ describe.skipIf(!NORN)('overview (MMR-278)', () => {
     const io = fakeIo(false);
     expect(await runCli(['overview'], () => store, io, { scope: 'MMR' })).toBe(0);
     expect(parseJson<{ project: { id: string } }>(io.out.join('')).project.id).toBe('MMR');
+  });
+});
+
+// MMR-322: the composed sections — direction prose, recent sessions, the
+// in-flight resume handles, and the needs-attention listings behind the counts.
+describe.skipIf(!NORN)('overview composition (MMR-322)', () => {
+  test('an in-flight row shows its handles compactly', async () => {
+    const task = await createTask(store, { parentId: phaseId, title: 'running' });
+    await startTask(store, `MMR-${String(task.seq)}`, {
+      branch: 'feat/mmr-322',
+      harness: 'codex',
+      host: 'workbench',
+      session: 's-01',
+    });
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain('in flight (1)');
+    expect(out).toContain('codex@workbench · feat/mmr-322 · s-01');
+  });
+
+  test('an in-flight row with no handles carries no clause', async () => {
+    const task = await createTask(store, { parentId: phaseId, title: 'running' });
+    await startTask(store, `MMR-${String(task.seq)}`);
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    const line = io.out
+      .join('')
+      .split('\n')
+      .find((l) => l.includes('running'));
+    expect(line).toBeDefined();
+    expect(line?.trimEnd().endsWith('running')).toBe(true);
+  });
+
+  test('direction renders the owned prose verbatim, under its container', async () => {
+    await updateProject(store, await projectIdOf(store, 'MMR'), { next: 'ship phase 3' });
+    await updateNode(store, phaseId, { next: 'land the composition' });
+    await createTask(store, { parentId: phaseId, title: 'ready one' });
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain('direction');
+    expect(out).toContain('ship phase 3');
+    expect(out).toContain(`MMR-${String(phaseSeq)} · ph`);
+    expect(out).toContain('land the composition');
+  });
+
+  test('a board owning no prose renders no direction header', async () => {
+    await createTask(store, { parentId: phaseId, title: 'ready one' });
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    expect(io.out.join('')).not.toContain('direction');
+  });
+
+  test('recent sessions render the group and its joined summary lede', async () => {
+    const task = await createTask(store, { parentId: phaseId, title: 'claimed' });
+    const stem = `MMR-${String(task.seq)}`;
+    await startTask(store, stem, { session: 's-77' });
+    await attachArtifact(store, {
+      content: '# retro',
+      linkNodeIds: [await nodeIdOf(store, stem)],
+      projectId: await projectIdOf(store, 'MMR'),
+      summary: 'closed out the codec work',
+      tags: ['session_summary'],
+      title: 'session retro',
+    });
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain('recent sessions (1 shown)');
+    expect(out).toContain('s-77');
+    expect(out).toContain('closed out the codec work');
+  });
+
+  test('the blocked listing renders the lane word and the hold reason', async () => {
+    const task = await createTask(store, { parentId: phaseId, title: 'stuck' });
+    await blockTask(store, `MMR-${String(task.seq)}`, 'upstream API down');
+    const io = fakeIo(true);
+    expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain("1 blocked — run 'mimir list -s MMR --status blocked'");
+    expect(out).toContain('needs_unsticking');
+    expect(out).toContain('upstream API down');
+  });
+
+  test('-f json carries the composed sections on the same envelope', async () => {
+    await updateProject(store, await projectIdOf(store, 'MMR'), { next: 'ship phase 3' });
+    const task = await createTask(store, { parentId: phaseId, title: 'stuck' });
+    await blockTask(store, `MMR-${String(task.seq)}`, 'external');
+    const io = fakeIo(false);
+    expect(await runCli(['overview', '-s', 'MMR', '-f', 'json'], () => store, io)).toBe(0);
+    const env = parseJson<{
+      direction: {
+        project: string | null;
+        count: number;
+        containers: { id: string; next: string }[];
+      };
+      sessions: { shown: number; entries: unknown[] };
+      hygiene: { listings: { blocked: { id: string; lane: string; stale: boolean }[] } };
+    }>(io.out.join(''));
+    expect(env.direction.project).toBe('ship phase 3');
+    expect(env.sessions).toEqual({ entries: [], shown: 0 });
+    expect(env.hygiene.listings.blocked[0]?.lane).toBe('needs_unsticking');
+    expect(env.hygiene.listings.blocked[0]?.stale).toBe(false);
+  });
+});
+
+// MMR-322: `artifacts` — the flat, cross-project artifact feed. A `set`-kind
+// read: the querying doctrine applies (empty set at exit 0 with a stderr note,
+// structural faults at exit 2).
+describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
+  const attach = async (title: string, tags: string[] = [], summary?: string): Promise<string> =>
+    (
+      await attachArtifact(store, {
+        content: `# ${title}`,
+        projectId: await projectIdOf(store, 'MMR'),
+        summary,
+        tags,
+        title,
+      })
+    ).renderedId;
+
+  test('the table render is count-led and carries the lede', async () => {
+    const id = await attach('vault notes', ['session_summary'], 'what the converge does');
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'MMR'], () => store, io)).toBe(0);
+    const out = io.out.join('');
+    expect(out).toContain('1 artifact');
+    expect(out).toContain(id);
+    expect(out).toContain('vault notes');
+    expect(out).toContain('session_summary');
+    expect(out).toContain('what the converge does');
+    expect(io.err).toHaveLength(0);
+  });
+
+  test('a tag filter narrows the feed', async () => {
+    await attach('a design note', ['design']);
+    const summaryId = await attach('a retro', ['session_summary']);
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'MMR', '-t', 'session_summary'], () => store, io)).toBe(
+      0,
+    );
+    const out = io.out.join('');
+    expect(out).toContain('1 artifact');
+    expect(out).toContain(summaryId);
+    expect(out).not.toContain('a design note');
+  });
+
+  test('-f ids emits bare KEY-aN ids', async () => {
+    const id = await attach('vault notes');
+    const io = fakeIo(false);
+    expect(await runCli(['artifacts', '-s', 'MMR', '-f', 'ids'], () => store, io)).toBe(0);
+    expect(io.out.join('')).toBe(id);
+  });
+
+  test('-f json emits the artifacts-unit set wrapper', async () => {
+    await attach('vault notes', [], 'a lede');
+    const io = fakeIo(false);
+    expect(await runCli(['artifacts', '-s', 'MMR', '-f', 'json'], () => store, io)).toBe(0);
+    const env = parseJson<{
+      total: number;
+      returned: number;
+      starts_at: number;
+      artifacts: { id: string; project: string; summary?: string }[];
+    }>(io.out.join(''));
+    expect(env.total).toBe(1);
+    expect(env.returned).toBe(1);
+    expect(env.starts_at).toBe(0);
+    expect(env.artifacts[0]?.project).toBe('MMR');
+    expect(env.artifacts[0]?.summary).toBe('a lede');
+  });
+
+  test('a well-formed empty query exits 0 with a stderr note', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'MMR', '-t', 'nothing'], () => store, io)).toBe(0);
+    expect(io.out.join('')).toContain('0 artifacts');
+    expect(io.err.join('')).toContain('no artifacts in MMR');
+  });
+
+  test('the empty note is a JSON line on the machine formats', async () => {
+    const io = fakeIo(false);
+    expect(
+      await runCli(['artifacts', '-s', 'MMR', '-t', 'nothing', '-f', 'json'], () => store, io),
+    ).toBe(0);
+    expect(parseJson<{ warning: string }>(io.err.join('')).warning).toContain('no artifacts');
+  });
+
+  test('-s all spans projects and keeps the project column', async () => {
+    await attach('vault notes');
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'all'], () => store, io)).toBe(0);
+    expect(io.out.join('')).toContain('MMR');
+  });
+
+  test('an unknown scope is a not-found, not an empty set', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'ZZZ'], () => store, io)).toBe(1);
+    expect(io.err.join('')).toContain('ZZZ');
+  });
+
+  test.each([
+    ['--since', 'yesterday'],
+    ['--before', 'not-a-date'],
+    ['--since', '2026-13-45'], // out-of-range month: Date.parse rejects outright
+    ['--before', '2026-07-31T99:00:00Z'],
+    // Day overflow, which `Date.parse` ROLLS rather than rejects — Feb 30 would
+    // silently become Mar 2, a bound the caller never asked for.
+    ['--since', '2026-02-30'],
+    ['--before', '2026-02-30T10:00:00Z'],
+    ['--since', '2027-02-29'], // not a leap year
+    ['--before', '2026-06-31'], // 30-day month
+  ])('%s with a malformed value is a usage error', async (flag, value) => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', flag, value], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('invalid date');
+    expect(io.out).toHaveLength(0);
+  });
+
+  test.each([
+    '2026-07-31',
+    '2026-07-31T10:15:00Z',
+    '2026-07-31T10:15:00.123Z',
+    // A numeric UTC offset — the help text and the error hint both promise "a
+    // full ISO timestamp", so these must be accepted.
+    '2026-07-31T10:15:00-04:00',
+    '2026-07-31T10:15:00+05:30',
+    '2026-07-31T10:15',
+    '2028-02-29', // a real leap day — the overflow check must not reject it
+    '2028-02-29T10:15:00Z',
+  ])('%s is an accepted date bound', async (value) => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'MMR', '--since', value], () => store, io)).toBe(0);
+  });
+
+  // The `=` form so parseArgs hands the value through rather than reading a
+  // leading `-` as the next flag.
+  test.each([
+    '--offset=-2',
+    '--offset=2x',
+    '--offset=2.5',
+    '--offset=1e3',
+    '--offset=0x10',
+    '--offset= ',
+    '--offset=9007199254740993',
+  ])('%s is a usage error naming the flag', async (token) => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', token], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('invalid offset');
+    expect(io.err.join('')).toContain('whole count of rows to skip');
+    expect(io.out).toHaveLength(0);
+  });
+
+  test.each(['--limit=2x', '--limit=2.5', '--limit=-1'])(
+    '%s is a usage error (MMR-322 tightening — parseInt used to truncate silently)',
+    async (token) => {
+      const io = fakeIo(true);
+      expect(await runCli(['artifacts', token], neverStore, io)).toBe(2);
+      expect(io.err.join('')).toContain('invalid limit');
+    },
+  );
+
+  // `list`/`next` share the limit parser, so the tightening reaches them too —
+  // and, since MMR-322 hoisted their selection parse above the store open, they
+  // refuse a bad limit WITHOUT touching the vault, like every other usage error
+  // (MMR-39).
+  test.each(['list', 'next'])('%s refuses a bad limit before opening the store', async (verb) => {
+    const io = fakeIo(true);
+    expect(await runCli([verb, '--limit=2x'], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('invalid limit');
+    expect(io.out).toHaveLength(0);
+  });
+
+  // The store compares `created_at` LEXICALLY against the bound, and stored
+  // values are always ISO-ms UTC — so an accepted form that isn't canonicalized
+  // silently windows wrong rather than erroring.
+  test('a numeric-offset bound is converted to UTC before the compare', async () => {
+    const id = await attach('vault notes');
+    const createdAt = (await getArtifact(store, id)).createdAt;
+    const created = new Date(createdAt);
+    // A bound 30 minutes BEFORE the artifact, expressed as +02:00 local time.
+    // Passed through verbatim it reads two hours later than it is and the
+    // artifact drops out of its own window.
+    const bound = new Date(created.getTime() - 30 * 60 * 1000);
+    const local = new Date(bound.getTime() + 2 * 60 * 60 * 1000)
+      .toISOString()
+      .replace('Z', '+02:00');
+
+    const io = fakeIo(false);
+    expect(
+      await runCli(['artifacts', '-s', 'MMR', '--since', local, '-f', 'json'], () => store, io),
+    ).toBe(0);
+    expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(1);
+  });
+
+  test('a space-separated bound does not degrade to start-of-day', async () => {
+    const id = await attach('vault notes');
+    const created = new Date((await getArtifact(store, id)).createdAt);
+    // An hour AFTER the artifact, space-separated. `' ' < 'T'`, so passed through
+    // verbatim this sorts below every timestamp that day and matches everything.
+    const after = new Date(created.getTime() + 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 16)
+      .replace('T', ' ');
+
+    const io = fakeIo(false);
+    expect(
+      await runCli(['artifacts', '-s', 'MMR', '--since', after, '-f', 'json'], () => store, io),
+    ).toBe(0);
+    expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(0);
+  });
+
+  test('a zone-less bound is read as UTC, matching the bare-date bounds', async () => {
+    const id = await attach('vault notes');
+    const created = new Date((await getArtifact(store, id)).createdAt);
+    const before = new Date(created.getTime() - 60 * 60 * 1000).toISOString().slice(0, 19);
+
+    const io = fakeIo(false);
+    expect(
+      await runCli(['artifacts', '-s', 'MMR', '--since', before, '-f', 'json'], () => store, io),
+    ).toBe(0);
+    expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(1);
+  });
+
+  test('an offset past the end is exit 0 with a note naming the match count', async () => {
+    await attach('vault notes');
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'MMR', '--offset', '5'], () => store, io)).toBe(0);
+    expect(io.err.join('')).toContain('past offset 5');
+    expect(io.err.join('')).toContain('1 artifact matched');
+  });
+
+  test('an unknown format is a usage error and never opens the store', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-f', 'yaml'], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('unknown format');
+  });
+
+  test('bare uses the bound scope from defaults', async () => {
+    await attach('vault notes');
+    const io = fakeIo(false);
+    expect(await runCli(['artifacts', '-f', 'json'], () => store, io, { scope: 'MMR' })).toBe(0);
+    expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(1);
+  });
+
+  test('-h prints the verb descriptor without touching the store', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-h'], neverStore, io)).toBe(0);
+    expect(io.out.join('')).toContain('mimir artifacts');
+    expect(io.out.join('')).toContain('--since');
+  });
+});
+
+// The artifact feed's flags live in the ONE global options table, so without a
+// verb-owned guard `mimir list --since 2026-07-01` would exit 0 with the
+// UNFILTERED board — a silently-wrong answer where the invocation was previously
+// a hard unknown-flag error. Same failure mode `--direction`/`--next` were
+// guarded against in MMR-321.
+describe('artifacts flags are verb-owned (MMR-322)', () => {
+  test.each([
+    ['list', '--since', '2026-07-01'],
+    ['next', '--since', '2026-07-01'],
+    ['list', '--offset', '3'],
+    ['next', '--offset', '3'],
+    ['list', '-q', 'vault'],
+    ['next', '--query', 'vault'],
+    ['get', '--since', '2026-07-01'],
+    ['create', '--offset', '1'],
+  ])('%s rejects %s', async (verb, flag, value) => {
+    const io = fakeIo(true);
+    expect(await runCli([verb, flag, value], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain(`doesn't apply to ${verb}`);
+    expect(io.out).toHaveLength(0);
+  });
+
+  test('the refusal hints at the op grammar list/next actually use', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['list', '--since', '2026-07-01'], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('--after created_at:');
+  });
+
+  test.skipIf(!NORN)('artifacts itself still accepts all three', async () => {
+    const io = fakeIo(false);
+    expect(
+      await runCli(
+        [
+          'artifacts',
+          '-s',
+          'MMR',
+          '--since',
+          '2026-01-01',
+          '--offset',
+          '0',
+          '-q',
+          'x',
+          '-f',
+          'json',
+        ],
+        () => store,
+        io,
+      ),
+    ).toBe(0);
   });
 });

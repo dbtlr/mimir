@@ -29,6 +29,7 @@ import {
   toolMove,
   toolGetSeed,
   toolNext,
+  toolArtifacts,
   toolOverview,
   toolPromote,
   toolReject,
@@ -45,7 +46,7 @@ import {
   toolUpdate,
   toolErrorResult,
 } from './tools';
-import type { SetQueryArgs, ToolResult, UniformToolArgs } from './tools';
+import type { ArtifactQueryToolArgs, SetQueryArgs, ToolResult, UniformToolArgs } from './tools';
 
 /**
  * The MCP server — the agent envelope. Registers read + write tools over the
@@ -449,6 +450,22 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'Session-boot orientation for ONE project (MMR-278): a header (project id, status word, rollup distribution), in-flight tasks (in_progress + under_review, uncapped), the ready-queue head (next, top 5), dependency-gated tasks (awaiting, top 5, each carrying the upstream ids it awaits), and hygiene counts (untriaged seeds, blocked, stale, dropped records). scope defaults to the bound board; "all" is rejected — a composite is one project, use list for a cross-project set. Every section carries its TRUE total even when its list is capped. Returns one composite JSON envelope.',
     { scope: z.string().optional() },
     (args: { scope?: string }) => toolOverview(store, args, boundScope),
+  );
+
+  register(
+    server,
+    'artifacts',
+    'The artifact feed (MMR-322): frozen work products newest-first, metadata only — id, project, title, tags, the summary lede, created_at. Filters AND-compose: tag, since/before (YYYY-MM-DD or ISO timestamp, on created_at), q (case-insensitive substring over the title), plus limit/offset paging. Unlike overview this IS a cross-project read — scope defaults to the bound board and "all" widens to every project. Read an artifact\'s frozen body with get KEY-aN and the content facet. Tag session_summary marks a session retrospective (ADR 0026).',
+    {
+      before: z.string().optional(),
+      limit: LIMIT.optional(),
+      offset: z.number().int().min(0).optional(),
+      q: z.string().optional(),
+      scope: z.string().optional(),
+      since: z.string().optional(),
+      tag: z.string().optional(),
+    },
+    (args: ArtifactQueryToolArgs) => toolArtifacts(store, applyScope(args)),
   );
 
   // ---------------------------------------------------------------------------

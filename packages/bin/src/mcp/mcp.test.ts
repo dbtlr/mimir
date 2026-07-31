@@ -18,6 +18,7 @@ import { createTestStore, inertStore, nodeIdOf, projectIdOf } from '../testing/s
 import { buildMcpServer } from './server';
 import {
   toolAnnotate,
+  toolArtifacts,
   toolAttach,
   toolCreate,
   toolDepend,
@@ -119,13 +120,81 @@ test.skipIf(!NORN)('overview tool returns the composite envelope (MMR-278)', asy
     in_flight: { count: number; tasks: { id: string }[] };
     next: { count: number; tasks: { id: string; status: string }[] };
     awaiting: { count: number; tasks: unknown[] };
-    hygiene: { untriaged: number; blocked: number; stale: number; dropped: number };
+    hygiene: {
+      untriaged: number;
+      blocked: number;
+      stale: number;
+      dropped: number;
+      listings: { blocked: unknown[]; stale: unknown[]; untriaged: unknown[] };
+    };
+    sessions: { shown: number; entries: unknown[] };
+    direction: { project: string | null; count: number; containers: unknown[] };
   }>(textOf(result));
   expect(parsed.project.id).toBe('MMR');
   // beforeEach leaves one ready task under the phase.
   expect(parsed.next.count).toBe(1);
   expect(parsed.next.tasks[0]?.status).toBe('ready');
-  expect(parsed.hygiene).toEqual({ blocked: 0, dropped: 0, stale: 0, untriaged: 0 });
+  expect(parsed.hygiene).toEqual({
+    blocked: 0,
+    dropped: 0,
+    listings: { blocked: [], stale: [], untriaged: [] },
+    stale: 0,
+    untriaged: 0,
+  });
+  // The MMR-322 sections ride the same envelope, empty on a quiet board.
+  expect(parsed.sessions).toEqual({ entries: [], shown: 0 });
+  expect(parsed.direction).toEqual({ containers: [], count: 0, project: null });
+});
+
+// The artifact feed (MMR-322) — the one read tool that IS cross-project.
+test.skipIf(!NORN)('artifacts tool returns the artifacts-unit set wrapper', async () => {
+  await toolAttach(store, {
+    content: '# retro\n',
+    node: taskRef,
+    summary: 'closed out the codec work',
+    tags: ['session_summary'],
+    title: 'session retro',
+  });
+  const result = await toolArtifacts(store, { scope: 'MMR' });
+  expect(result.isError).toBeUndefined();
+  const parsed = parseJson<{
+    total: number;
+    returned: number;
+    starts_at: number;
+    artifacts: { id: string; project: string; tags: string[]; summary?: string }[];
+  }>(textOf(result));
+  expect(parsed.total).toBe(1);
+  expect(parsed.returned).toBe(1);
+  expect(parsed.starts_at).toBe(0);
+  expect(parsed.artifacts[0]?.project).toBe('MMR');
+  expect(parsed.artifacts[0]?.tags).toEqual(['session_summary']);
+  expect(parsed.artifacts[0]?.summary).toBe('closed out the codec work');
+});
+
+test.skipIf(!NORN)('artifacts tool AND-composes its filters', async () => {
+  await toolAttach(store, { content: '# a\n', node: taskRef, tags: ['design'], title: 'a design' });
+  await toolAttach(store, {
+    content: '# b\n',
+    node: taskRef,
+    tags: ['session_summary'],
+    title: 'a retro',
+  });
+  const tagged = parseJson<{ total: number; artifacts: { title: string }[] }>(
+    textOf(await toolArtifacts(store, { scope: 'MMR', tag: 'session_summary' })),
+  );
+  expect(tagged.total).toBe(1);
+  expect(tagged.artifacts[0]?.title).toBe('a retro');
+
+  const missed = parseJson<{ total: number }>(
+    textOf(await toolArtifacts(store, { q: 'nothing here', scope: 'MMR', tag: 'session_summary' })),
+  );
+  expect(missed.total).toBe(0);
+});
+
+test.skipIf(!NORN)('artifacts tool returns a structured error for an unknown scope', async () => {
+  const result = await toolArtifacts(store, { scope: 'ZZZ' });
+  expect(result.isError).toBe(true);
+  expect(parseJson<{ error: { code: string } }>(textOf(result)).error.code).toBe('not_found');
 });
 
 test.skipIf(!NORN)('overview tool rejects the cross-project all escape (MMR-278)', async () => {
@@ -747,9 +816,13 @@ test.skipIf(!NORN)(
 // in-memory transport doubles as the MCP smoke).
 // ---------------------------------------------------------------------------
 
-/** Connect an in-memory client to a freshly-built server over an inert store. */
-async function connectClient(): Promise<{ client: Client; close: () => Promise<void> }> {
-  const server = buildMcpServer(inertStore(), '0.0.0');
+/** Connect an in-memory client to a freshly-built server over the given store —
+ * the inert one by default (schema-guard tests must never reach data), the real
+ * fixture store when the assertion is about a tool's ANSWER. */
+async function connectClient(
+  over: Store = inertStore(),
+): Promise<{ client: Client; close: () => Promise<void> }> {
+  const server = buildMcpServer(over, '0.0.0');
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0.0.0' });
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -815,6 +888,121 @@ test('an out-of-vocabulary enum arg states the constraint, no zod dump', async (
     expect(text).not.toContain('Invalid option');
     const parsed = parseJson<{ error: { message: string } }>(text);
     expect(parsed.error.message).toBe("priority must be one of 'p0', 'p1', 'p2', 'p3'");
+  } finally {
+    await close();
+  }
+});
+
+/** An instant rendered as a `+02:00` local-offset ISO timestamp — the form whose
+ * conversion to UTC the bound tests are about. */
+const asLocalOffset = (ms: number): string =>
+  new Date(ms + 2 * 60 * 60 * 1000).toISOString().replace('Z', '+02:00');
+
+// The `artifacts` tool over the REAL dispatch path (MMR-322) — registration,
+// zod coercion, and handler, not a direct `toolArtifacts` call. `since`/`before`
+// are free strings at the schema level (an ISO date is not a zod primitive), so
+// the handler's own check is the only thing standing between `"yesterday"` and a
+// lexical compare that silently returns the wrong window.
+test.each([
+  ['since', 'yesterday'],
+  ['before', 'yesterday'],
+  // Day overflow — `Date.parse` rolls these to the next month rather than
+  // rejecting them, so the guard has to catch them itself.
+  ['since', '2026-02-30'],
+  ['before', '2026-02-30T10:00:00Z'],
+  ['since', '2027-02-29'],
+])('artifacts rejects %s=%s over dispatch', async (arg, value) => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({
+      arguments: { [arg]: value, scope: 'MMR' },
+      name: 'artifacts',
+    })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const text = callText(res);
+    for (const leak of LIBRARY_LEAKS) {
+      expect(text).not.toContain(leak);
+    }
+    const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(text);
+    expect(parsed.error.code).toBe('validation');
+    expect(parsed.error.message).toBe(`invalid date: ${value}`);
+    expect(parsed.error.hint).toBe(`${arg} takes YYYY-MM-DD or a full ISO timestamp`);
+  } finally {
+    await close();
+  }
+});
+
+test.skipIf(!NORN)('artifacts accepts a real leap day over dispatch', async () => {
+  const { client, close } = await connectClient(store);
+  try {
+    await toolAttach(store, { content: '# a\n', node: taskRef, title: 'in window' });
+    const res = (await client.callTool({
+      arguments: { since: '2028-02-29' },
+      name: 'artifacts',
+    })) as ToolCall;
+    // Accepted (not a validation error); the bound is in the future, so it
+    // matches nothing — what matters is that the guard let it through.
+    expect(res.isError).toBeUndefined();
+    expect(parseJson<{ total: number }>(callText(res)).total).toBe(0);
+  } finally {
+    await close();
+  }
+});
+
+test.skipIf(!NORN)(
+  'artifacts accepts an ISO timestamp with a numeric offset over dispatch',
+  async () => {
+    // A real store here: the assertion is that the bound APPLIED, which an inert
+    // store cannot answer. The bound sits 30 minutes either side of the fixture's
+    // own created_at, expressed as +02:00 local time — a far-past bound would
+    // pass whether or not the offset was ever converted to UTC.
+    const { client, close } = await connectClient(store);
+    try {
+      const attached = await toolAttach(store, {
+        content: '# a\n',
+        node: taskRef,
+        title: 'in window',
+      });
+      const id = parseJson<{ artifact: { id: string } }>(textOf(attached)).artifact.id;
+      const created = new Date((await getArtifact(store, id)).createdAt).getTime();
+
+      const included = (await client.callTool({
+        arguments: { since: asLocalOffset(created - 30 * 60 * 1000) },
+        name: 'artifacts',
+      })) as ToolCall;
+      expect(included.isError).toBeUndefined();
+      expect(parseJson<{ total: number }>(callText(included)).total).toBe(1);
+
+      // The mirror case: 30 minutes AFTER, which must exclude it. Together these
+      // pin that the offset was converted rather than compared verbatim.
+      const excluded = (await client.callTool({
+        arguments: { since: asLocalOffset(created + 30 * 60 * 1000) },
+        name: 'artifacts',
+      })) as ToolCall;
+      expect(parseJson<{ total: number }>(callText(excluded)).total).toBe(0);
+    } finally {
+      await close();
+    }
+  },
+);
+
+test('artifacts advertises its filter args on tools/list', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const { tools } = await client.listTools();
+    const artifacts = tools.find((t) => t.name === 'artifacts');
+    expect(artifacts).toBeDefined();
+    const schema = artifacts?.inputSchema as {
+      properties?: Record<string, { type?: string }>;
+      required?: string[];
+    };
+    for (const arg of ['scope', 'tag', 'since', 'before', 'q']) {
+      expect(schema.properties?.[arg]?.type).toBe('string');
+    }
+    expect(schema.properties?.limit?.type).toBe('integer');
+    expect(schema.properties?.offset?.type).toBe('integer');
+    // Every arg is a filter; none is required.
+    expect(schema.required ?? []).toEqual([]);
   } finally {
     await close();
   }

@@ -417,8 +417,41 @@ export type OverviewAwaitingTask = {
   awaitingOn: string[];
 };
 
-/** The `overview` hygiene block (MMR-278): counts only, no listings. Each nonzero
- * count names a follow-up command in the human render (`untriaged` → `mimir triage`,
+/**
+ * One needs-attention row (MMR-322): a lean task plus the derived standing the
+ * Overview's project cards already speak — the {@link Lane} its Status word falls
+ * in, and the `going cold` modifier. Same vocabulary as {@link AttentionState},
+ * one rung down: a lane over ONE leaf rather than the highest-wins lane over a
+ * project's leaves.
+ */
+export type OverviewAttentionTask = {
+  task: NodeView;
+  lane: Lane;
+  /** The `going cold` modifier — this task is past the stale threshold. */
+  stale: boolean;
+};
+
+/** One untriaged-seed row in the hygiene listing (MMR-322) — the grooming queue's
+ * own lean projection: id, title, and the derived `## Seed Description` lede
+ * (MMR-263), `null` when the seed carries no body. */
+export type OverviewSeed = {
+  id: string;
+  title: string;
+  lede: string | null;
+};
+
+/** The capped listings behind the hygiene counts (MMR-322) — the head of each
+ * attention lane, 5 rows apiece against the TRUE counts alongside them. `dropped`
+ * has no listing by design: it is a load byproduct (MMR-184), not a set of tasks. */
+export type OverviewHygieneListings = {
+  blocked: OverviewAttentionTask[];
+  stale: OverviewAttentionTask[];
+  untriaged: OverviewSeed[];
+};
+
+/** The `overview` hygiene block (MMR-278, listings added MMR-322): the four counts,
+ * each with its capped listing where one exists. Each nonzero count names a
+ * follow-up command in the human render (`untriaged` → `mimir triage`,
  * `dropped` → `mimir doctor`, `blocked`/`stale` → the matching `mimir list`). */
 export type OverviewHygiene = {
   /** New (untriaged) seeds on the board. */
@@ -430,23 +463,140 @@ export type OverviewHygiene = {
   /** Records the tolerant reader dropped building the working set (MMR-184) —
    * `WorkingSet.issueCount`, the free validate byproduct, never a doctor pass. */
   dropped: number;
+  /** The capped heads of the three task/seed-shaped counts (MMR-322). */
+  listings: OverviewHygieneListings;
+};
+
+/** The `session_summary` artifact joined onto a recent-sessions entry (MMR-322) —
+ * its id, title, and the MMR-319 lede when it carries one. */
+export type OverviewSessionArtifact = {
+  id: string;
+  title: string;
+  /** The artifact's `summary` lede — omitted when it carries none. */
+  summary?: string;
 };
 
 /**
- * The `mimir overview` composite (MMR-278) — one project's session-boot
- * orientation surface, a `report`-kind read (ADR 0024). Five attention-ordered
- * sections: the project header (id, status word, rollup distribution — what
- * `status KEY` answers), `inFlight` tasks (`in_progress` + `under_review`,
- * uncapped), `next` (the ready-queue head, top 5), `awaiting`
- * (dependency-gated tasks, top 5, each carrying the upstream ids it awaits),
- * and `hygiene` counts. Derived from ONE working-set load plus one seeds read;
- * renders as styled sections on a TTY and one JSON envelope when piped.
+ * One recent-sessions entry (MMR-322, ADR 0026 Decision 4). The mechanical layer
+ * is derived: transition-log rows grouped by the `session` resume handle they
+ * echoed (MMR-320). A `session_summary`-tagged artifact joins on by linked-task
+ * overlap and supplies the retrospective lede.
+ *
+ * **Only handle-echoing rows are visible**, which is narrower than "everything
+ * the session did" (MMR-320 fixes which boundaries echo, and that policy stands):
+ *
+ * - `start` echoes the claim state, and the clearing verbs (`done`/`abandon`,
+ *   `park`/`block`) echo what they cleared. These are the rows that group.
+ * - `submit`, `return`, `reopen`, `unpark`, and `unblock` move no handle and echo
+ *   none, so a session that only reviewed or resubmitted work leaves no
+ *   mechanical trace. Its retrospective artifact, if it wrote one, still appears
+ *   — as a summary-only entry.
+ * - A clearing row echoes the handles the task still CARRIED, which are the
+ *   claiming session's. A takeover that resumed work without re-stating
+ *   `--session` therefore credits its `done` row to the session it took over
+ *   from. Re-state the handle on takeover (`mimir update <id> --session …`) and
+ *   the succession is exact.
+ *
+ * An entry with no `id` is a summary-only (knowledge-only) session: an artifact
+ * whose links overlap no derived group. Its window is the artifact's
+ * `created_at` and its `transitions` count is 0.
+ */
+export type OverviewSession = {
+  /** The session id the grouped rows carried; `null` on a summary-only entry. */
+  id: string | null;
+  /** The activity window over the grouped rows (ISO-ms-Z). */
+  from: string;
+  to: string;
+  /** How many handle-echoing transition rows carried this session id — NOT how
+   * many boundaries the session crossed (see the type doc). `0` on a
+   * summary-only entry. */
+  transitions: number;
+  /** The tasks the session touched, in first-touch order. */
+  tasks: NodeRef[];
+  /** The joined session summary, when one matched. */
+  artifact?: OverviewSessionArtifact;
+};
+
+/**
+ * The `overview` recent-sessions section (MMR-322) — entries newest-first,
+ * capped at 5.
+ *
+ * **`shown` is deliberately not a true total**, and is named so it cannot be read
+ * as one. Unlike `next`/`awaiting` — whose populations are a filter over the
+ * working set already in hand — this section is composed from two bounded reads
+ * and its full population is unknowable without unbounded ones:
+ *
+ * - the derived groups come from `## History` over a bounded window of recently
+ *   touched tasks, so an older session can be missing entirely (and `updated_at`
+ *   moves on any write, not just a transition, so the window shifts under
+ *   ordinary edits);
+ * - the summary-only entries come from a bounded page of `session_summary`
+ *   artifacts, so they can push the figure ABOVE the number of derived groups.
+ *
+ * `shown` is therefore exactly what it says: how many entries the composition
+ * found in its scan window, of which `entries` carries the first 5. `mimir
+ * artifacts -t session_summary` is the unbounded, pageable view.
+ */
+export type OverviewSessions = {
+  /** Entries found within the scan window — a floor on reality, never a total. */
+  shown: number;
+  entries: OverviewSession[];
+};
+
+/** One container's owned direction prose on the overview (MMR-322) — the `## Next`
+ * body section (MMR-321) of an initiative or phase that parents live work. */
+export type OverviewDirectionContainer = {
+  id: string;
+  title: string;
+  next: string;
+};
+
+/**
+ * The `overview` direction block (MMR-322) — the owned `## Next` prose (ADR 0026
+ * Decision 2) rendered verbatim: the project's own narrative, plus the narrative
+ * of every container parenting LIVE work — a task that is in flight or ready. A
+ * dormant container's prose stays one `mimir get` away rather than crowding the
+ * boot surface. Spelled `direction` because the overview's `next` key is already
+ * the ready-queue head; the node-level field keeps its `next` spelling.
+ *
+ * Prose is read for EVERY container in that population and only then capped, so
+ * `count` is a true total and `containers` carries the first 5 of it. Both halves
+ * of that ordering matter: capping containers before the prose read would hide
+ * the only container carrying direction behind five that carry none, and drawing
+ * candidates from the CAPPED ready head (rather than the whole ready set) would
+ * hide a container's prose for no reason but its work's rank.
+ */
+export type OverviewDirection = {
+  /** The project doc's prose; `null` when the section is absent. */
+  project: string | null;
+  /** How many containers with live work carry prose — the TRUE total, which may
+   * exceed `containers.length`. */
+  count: number;
+  /** Containers with live work AND prose set — deduped, board order, capped at 5. */
+  containers: OverviewDirectionContainer[];
+};
+
+/**
+ * The `mimir overview` composite (MMR-278, expanded MMR-322) — one project's
+ * session-boot orientation surface, a `report`-kind read (ADR 0024). The
+ * attention-ordered sections: the project header (id, status word, rollup
+ * distribution — what `status KEY` answers), `direction` (the owned `## Next`
+ * prose of the project and of the containers holding live work), `inFlight`
+ * tasks (`in_progress` + `under_review`, uncapped), `next` (the ready-queue
+ * head, top 5), `awaiting` (dependency-gated tasks, top 5, each carrying the
+ * upstream ids it awaits), `sessions` (recent session activity with its joined
+ * summary ledes, top 5), and `hygiene` counts with their capped listings.
+ * Derived from ONE working-set load plus the bounded body-section and artifact
+ * reads the composed sections need; renders as styled sections on a TTY and one
+ * JSON envelope when piped.
  */
 export type OverviewReport = {
   project: { id: string; status: StatusWord; distribution: Distribution };
+  direction: OverviewDirection;
   inFlight: OverviewSection;
   next: OverviewSection;
   awaiting: { count: number; tasks: OverviewAwaitingTask[] };
+  sessions: OverviewSessions;
   hygiene: OverviewHygiene;
 };
 

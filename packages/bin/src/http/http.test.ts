@@ -246,6 +246,39 @@ test.skipIf(!NORN)('GET /api/projects/:key/tree 404s on an unknown project', asy
   expect(errorCode(await parse(res))).toBe('not_found');
 });
 
+// The composite orientation surface as a resource read (MMR-322) — the same
+// wire envelope the CLI `-f json` and the MCP `overview` tool emit.
+test.skipIf(!NORN)('GET /api/projects/:key/overview serves the composite envelope', async () => {
+  const res = await get('/api/projects/MMR/overview');
+  expect(res.status).toBe(200);
+  const body = await parse(res);
+  expect((body.project as Rec).id).toBe('MMR');
+  expect((body.next as Rec).count).toBe(2);
+  expect(body.in_flight).toEqual({ count: 0, tasks: [] });
+  expect(body.sessions).toEqual({ entries: [], shown: 0 });
+  expect(body.direction).toEqual({ containers: [], count: 0, project: null });
+  expect((body.hygiene as Rec).listings).toEqual({ blocked: [], stale: [], untriaged: [] });
+});
+
+test.skipIf(!NORN)('GET /api/projects/:key/overview 404s on an unknown project', async () => {
+  const res = await get('/api/projects/NOPE/overview');
+  expect(res.status).toBe(404);
+  expect(errorCode(await parse(res))).toBe('not_found');
+});
+
+test.skipIf(!NORN)('GET /api/projects/:key/overview 404s on an archived project', async () => {
+  expect((await send('POST', '/api/projects/MMR/archive')).status).toBe(200);
+  const res = await get('/api/projects/MMR/overview');
+  expect(res.status).toBe(404);
+  expect(errorCode(await parse(res))).toBe('not_found');
+});
+
+test.skipIf(!NORN)('GET /api/projects/:key/overview rejects a node ref key', async () => {
+  const res = await get(`/api/projects/${task1}/overview`);
+  expect(res.status).toBe(400);
+  expect(errorCode(await parse(res))).toBe('validation');
+});
+
 // ---------------------------------------------------------------------------
 // Nodes — collection
 // ---------------------------------------------------------------------------

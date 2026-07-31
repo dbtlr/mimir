@@ -2,7 +2,9 @@ import type {
   ArtifactDetail,
   ArtifactSummary,
   NodeView,
+  OverviewAttentionTask,
   OverviewReport,
+  OverviewSession,
   SeedView,
   SetResult,
   StatusView,
@@ -349,12 +351,48 @@ export function formatTriageJsonl(report: TriageReport): string {
   return emitWire(triageToWire(report), false);
 }
 
+/** One needs-attention listing row (MMR-322) — the lean task with its lane word
+ * and the `going cold` modifier folded onto the same object, exactly as an
+ * awaiting row folds on `awaiting_on`. */
+function attentionTaskToWire(row: OverviewAttentionTask): Record<string, unknown> {
+  const wire = nodeToWire(row.task);
+  wire.lane = row.lane;
+  wire.stale = row.stale;
+  return wire;
+}
+
+/** One recent-sessions entry (MMR-322) — the derived group plus its joined
+ * summary; `artifact` is omitted entirely when no summary matched. */
+function sessionToWire(entry: OverviewSession): Record<string, unknown> {
+  const wire: Record<string, unknown> = {
+    from: entry.from,
+    id: entry.id,
+    tasks: entry.tasks.map((task) => ({ id: task.id, title: task.title })),
+    to: entry.to,
+    transitions: entry.transitions,
+  };
+  if (entry.artifact !== undefined) {
+    wire.artifact = {
+      id: entry.artifact.id,
+      ...(entry.artifact.summary === undefined ? {} : { summary: entry.artifact.summary }),
+      title: entry.artifact.title,
+    };
+  }
+  return wire;
+}
+
 /**
- * Map an {@link OverviewReport} (MMR-278) to its one composite wire envelope —
- * the section counts, the tasks through {@link nodeToWire} (the same lean
- * projection `list`/`next` emit), and each awaiting row's `awaiting_on` ids
- * folded onto its task object. The single source the CLI `-f json` render and
- * the MCP `overview` tool both emit, so the two can't drift.
+ * Map an {@link OverviewReport} (MMR-278, expanded MMR-322) to its one composite
+ * wire envelope — the section counts, the tasks through {@link nodeToWire} (the
+ * same lean projection `list`/`next` emit), each awaiting row's `awaiting_on` ids
+ * folded onto its task object, the recent-session entries, the hygiene listings,
+ * and the owned direction prose. The single source the CLI `-f json` render, the
+ * MCP `overview` tool, and the HTTP overview route all emit, so the three can't
+ * drift.
+ *
+ * `direction` rather than `next` for the prose: the envelope's `next` key is
+ * already the ready-queue head. The node-level field keeps its `next` spelling
+ * (MMR-321) inside each container object.
  */
 export function overviewToWire(report: OverviewReport): Record<string, unknown> {
   return {
@@ -366,9 +404,27 @@ export function overviewToWire(report: OverviewReport): Record<string, unknown> 
         return wire;
       }),
     },
+    direction: {
+      containers: report.direction.containers.map((c) => ({
+        id: c.id,
+        next: c.next,
+        title: c.title,
+      })),
+      count: report.direction.count,
+      project: report.direction.project,
+    },
     hygiene: {
       blocked: report.hygiene.blocked,
       dropped: report.hygiene.dropped,
+      listings: {
+        blocked: report.hygiene.listings.blocked.map(attentionTaskToWire),
+        stale: report.hygiene.listings.stale.map(attentionTaskToWire),
+        untriaged: report.hygiene.listings.untriaged.map((seed) => ({
+          id: seed.id,
+          lede: seed.lede,
+          title: seed.title,
+        })),
+      },
       stale: report.hygiene.stale,
       untriaged: report.hygiene.untriaged,
     },
@@ -378,6 +434,13 @@ export function overviewToWire(report: OverviewReport): Record<string, unknown> 
       distribution: report.project.distribution,
       id: report.project.id,
       status: report.project.status,
+    },
+    // `shown`, not `count`: unlike every other section here, this one is composed
+    // from bounded reads and has no knowable true total (MMR-322) — the key name
+    // is the contract that says so.
+    sessions: {
+      entries: report.sessions.entries.map(sessionToWire),
+      shown: report.sessions.shown,
     },
   };
 }
@@ -400,4 +463,28 @@ export function artifactSummaryToWire(a: ArtifactSummary): Record<string, unknow
     wire.summary = a.summary;
   }
   return wire;
+}
+
+/** `json` for the artifact feed (MMR-322) — the count-led set wrapper `list`/`next`
+ * use, with `artifacts` as the unit key. */
+export function formatArtifactSetJson(result: SetResult<ArtifactSummary>): string {
+  return emitWire(
+    {
+      artifacts: result.items.map(artifactSummaryToWire),
+      returned: result.returned,
+      starts_at: result.startsAt,
+      total: result.total,
+    },
+    true,
+  );
+}
+
+/** `jsonl` for the artifact feed — one wire object per line, no wrapper (streaming). */
+export function formatArtifactSetJsonl(items: readonly ArtifactSummary[]): string {
+  return items.map((a) => emitWire(artifactSummaryToWire(a), false)).join('\n');
+}
+
+/** `ids` for the artifact feed — one `KEY-aN` per line. */
+export function formatArtifactIds(items: readonly ArtifactSummary[]): string {
+  return items.map((a) => a.id).join('\n');
 }

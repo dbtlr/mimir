@@ -14,13 +14,41 @@ expected values** (exit 0) — only structurally bad invocations error (exit 2).
 mimir overview          # the whole boot picture, attention-ordered
 ```
 
-Five sections: **header** (project rollup distribution + status word) · **in
-flight** (`in_progress` + `under_review`, uncapped) · **next** (the ready head,
-top 5 of the true count) · **awaiting** (dep-gated, top 5, each row naming
-what it awaits) · **hygiene** (untriaged/blocked/stale/dropped counts, each nonzero
-count naming its follow-up command). In flight comes before next by design —
-orienting via `next` alone is the classic trap (it **excludes `in_progress`**),
-and overview structurally avoids it.
+Sections, attention-ordered: **header** (project rollup distribution + status
+word) · **direction** (the owned `## Next` prose, verbatim, of the project and of
+every container parenting live work — in flight or ready; top 5 of the true
+count, the rest named) · **in flight** (`in_progress` +
+`under_review`, uncapped, each row showing its resume handles as
+`harness@host · branch · session` when set) · **next** (the ready head, top 5 of
+the true count) · **awaiting** (dep-gated, top 5, each row naming what it
+awaits) · **recent sessions** (top 5: the session id, its window, the tasks it
+touched, and the lede of the `session_summary` artifact that covers it) ·
+**hygiene** (untriaged/blocked/stale/dropped counts, each nonzero count naming
+its follow-up command, with the first 5 rows behind it — blocked and stale
+tasks carry their attention lane, untriaged seeds their lede). In flight comes
+before next by design — orienting via `next` alone is the classic trap (it
+**excludes `in_progress`**), and overview structurally avoids it.
+
+Every count in the render is a TRUE total — except recent sessions, whose
+header reads `N shown`. That section is composed from bounded reads and has no
+knowable total: `mimir artifacts -t session_summary` is the pageable view.
+
+Recent sessions is derived, not stored: transition rows grouped by the `session`
+handle `mimir start --session …` stamped. A retrospective joins on by linked-task
+overlap — attach it with `mimir attach <task> --file retro.md -t session_summary
+--summary "…"`. Two limits are worth knowing:
+
+- **Only handle-moving boundaries are visible.** `start` and the clearing verbs
+  (`done`/`abandon`, `park`/`block`) echo handles; `submit`/`return`/`reopen`/
+  `unpark`/`unblock` do not. A session that only reviewed work shows up solely
+  through its retrospective, as a knowledge-only entry.
+- **A takeover must re-state its session.** A clearing row echoes whatever the
+  task still carried, so resuming someone else's work without
+  `mimir update <id> --session …` credits your `done` to their session.
+
+Direction prose is written, not derived: `mimir update <KEY|container> --direction
+"…"` re-authors the whole section. A dormant container's prose stays one
+`mimir get` away.
 
 The singles remain the drill-down surfaces beneath each section:
 
@@ -85,7 +113,24 @@ mimir get KEY-a2 --col content     # an artifact's frozen body
 mimir get KEY                      # the whole project: children + distribution
 ```
 
-## 6. Reporting and scripting
+## 6. Artifacts — the frozen work products
+
+```sh
+mimir artifacts                         # this board's artifacts, newest first
+mimir artifacts -s all -t session_summary   # every board's session retrospectives
+mimir artifacts --since 2026-07-01 -q vault # windowed, title substring
+mimir artifacts -f ids | head -1        # the newest id, to feed a get
+```
+
+`artifacts` is the cross-project sibling of `list`: AND-composed filters, the
+same formats, exit 0 on an empty set. Unlike `overview` it accepts `-s all`.
+Rows are metadata only — id, project, title, tags, the `summary` lede,
+`created_at`; the frozen body comes from `mimir get KEY-aN --col content`.
+`--limit`/`--offset` page the newest-first feed, and `artifacts` specifically
+puts its "why nothing came back" note on **stderr** (including when `--offset`
+lands past the end), leaving stdout a clean machine contract.
+
+## 7. Reporting and scripting
 
 ```sh
 mimir list --status done --after completed_at:2026-06-01    # what shipped since

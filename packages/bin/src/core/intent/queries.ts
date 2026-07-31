@@ -1,11 +1,16 @@
 import { CHEAP_FACETS } from '@mimir/contract';
 import type {
   ArtifactDetail,
+  ArtifactSummary,
   FacetName,
   FieldFilter,
   NodeView,
+  OverviewAttentionTask,
   OverviewAwaitingTask,
+  OverviewDirection,
   OverviewReport,
+  OverviewSeed,
+  OverviewSessions,
   Priority,
   SetResult,
   Size,
@@ -16,6 +21,8 @@ import type {
   VerdictSelector,
 } from '@mimir/contract';
 
+import type { ArtifactListQuery } from '../artifacts/store';
+import { laneOf } from '../attention';
 import type { DerivationSet } from '../derive';
 import {
   deriveSet,
@@ -26,12 +33,15 @@ import {
   statusOfProject,
 } from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
-import { parseIdentity } from '../ids';
+import { parseIdentity, renderArtifactRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
 import { isAwaiting, isBlocking, isOrphaned, isReady, isStale } from '../predicates';
 import { compileFilters } from '../query';
 import type { QueryRow } from '../query';
+import { deriveLede } from '../seeds/lede';
 import type { Store } from '../store';
+import type { SessionRow } from './sessions';
+import { SESSION_SUMMARY_TAG, groupSessionRows, joinSessionSummaries } from './sessions';
 import { buildArtifactDetail, buildAwaitingOn, buildNodeView, buildProjectView } from './view';
 
 /**
@@ -521,9 +531,26 @@ export async function statusOfNode(store: Store, id: string): Promise<StatusView
   return { distribution, id: node.id, status, type: node.type };
 }
 
-/** The `next`/`awaiting` cap — the head of each queue, per ADR 0024's orientation
- * surface (the tails live one `mimir list`/`mimir next` away). In flight is uncapped. */
+/** The section cap — the head of each queue and listing, per ADR 0024's orientation
+ * surface (the tails live one `mimir list`/`mimir next`/`mimir artifacts` away).
+ * In flight is uncapped. */
 const OVERVIEW_CAP = 5;
+
+/**
+ * How many of the project's tasks the recent-sessions layer reads `## History`
+ * for (MMR-322) — the read-amplification bound. History is a body section: a
+ * per-task document read that a big board would otherwise multiply by every task
+ * it holds, for a section that shows five entries. The scan takes the most
+ * recently touched tasks first, which is exactly the population the newest
+ * sessions moved, so the bound costs coverage only for sessions already far
+ * below the cap.
+ */
+const SESSION_SCAN_CAP = 20;
+
+/** How many `session_summary` artifacts the join considers (MMR-322) — newest-first,
+ * deep enough to cover the capped entries plus their orphans without paging the
+ * project's whole retrospective shelf. */
+const SESSION_SUMMARY_CAP = 20;
 
 export type OverviewOptions = {
   /** Reference time for the stale hygiene count (ISO-ms-Z); defaults to now — injectable for tests. */
@@ -531,14 +558,173 @@ export type OverviewOptions = {
 };
 
 /**
- * `overview` — one project's session-boot orientation surface (MMR-278, ADR
- * 0024): a flat, id-free, scope-honoring read composing the whole board state
- * into five attention-ordered sections. Derived from ONE `loadWorkingSet` +
- * `deriveSet` over the existing pure predicates, plus one seeds read for the
- * untriaged count (triage's one-load precedent) — never a `next`/`list`/`status`
+ * The recent-sessions section (MMR-322, ADR 0026 Decision 4).
+ *
+ * **Read path.** The mechanical layer comes from `## History` over the working
+ * set overview already holds — NOT from the {@link
+ * import('../transitions/store').TransitionsFeed}. The feed is whole-vault by
+ * construction (no scope or `since` push-down: it re-fans, validates, and parses
+ * every node document in the vault on each call), so routing a one-project
+ * orientation surface through it would read every other project's board to
+ * answer a question about this one. The {@link SESSION_SCAN_CAP} most recently
+ * touched tasks in scope are read in ONE batched
+ * {@link import('../body-sections/store').BodySectionStore.readSectionsMany}
+ * call — the backend client serializes its calls, so a per-task fan-out would be
+ * 20 sequential IPC hops on the session-boot path however it were wrapped.
+ *
+ * **What the section can and cannot see.** Two bounds shape the result, and
+ * neither is recoverable without unbounded reads — which is why the section
+ * reports what it saw rather than a true total (see {@link
+ * import('@mimir/contract').OverviewSessions}):
+ *
+ * - a session whose tasks have all fallen below the scan window is invisible.
+ *   `updated_at` moves on ANY write, not just a transition, so a busy board can
+ *   evict a session-bearing task without that session having ended;
+ * - only the boundaries that ECHO a session handle are visible at all — `start`
+ *   (the claim) and the clearing verbs (`done`/`abandon`, `park`/`block`).
+ *   `submit`/`return`/`reopen`/`unpark`/`unblock` move no handle and echo none
+ *   (MMR-320), so a session that only reviewed work leaves no mechanical trace;
+ *   its retrospective artifact, if it wrote one, still surfaces as its own entry.
+ */
+async function recentSessions(
+  store: Store,
+  scopeKey: string,
+  tasks: readonly Node[],
+): Promise<OverviewSessions> {
+  const scanned = tasks
+    .toSorted((a, b) => -cmpStr(a.updated_at, b.updated_at))
+    .slice(0, SESSION_SCAN_CAP);
+
+  const rows: SessionRow[] = [];
+  const histories = await store.bodySections.readSectionsMany(
+    scanned.map((node) => node.id),
+    { history: true },
+  );
+  for (const node of scanned) {
+    for (const entry of histories.get(node.id)?.history ?? []) {
+      // A row that moved no handle carries no session, so it joins no group —
+      // it is not "unknown session" activity, it is activity the log cannot
+      // attribute. Rows written before the handles existed read the same way.
+      const session = entry.handles?.session;
+      if (session !== undefined && session !== '') {
+        rows.push({ at: entry.at, session, task: { id: node.id, title: node.title } });
+      }
+    }
+  }
+
+  const summaries = await store.artifacts.list({
+    limit: SESSION_SUMMARY_CAP,
+    project: scopeKey,
+    tag: SESSION_SUMMARY_TAG,
+  });
+  const entries = joinSessionSummaries(
+    groupSessionRows(rows),
+    summaries.items.map((record) => ({
+      createdAt: record.created_at,
+      id: renderArtifactRef({ key: record.key, seq: record.seq }),
+      links: record.links,
+      summary: record.summary,
+      title: record.title,
+    })),
+  );
+  return { entries: entries.slice(0, OVERVIEW_CAP), shown: entries.length };
+}
+
+/**
+ * The direction block (MMR-322) — the owned `## Next` prose (MMR-321) of the
+ * project plus of the containers parenting live work, in ONE batched section
+ * read alongside the project's own.
+ *
+ * **Filter, then cap** — never the reverse. The section's population is the
+ * DIRECT parents of every live task: in-flight or ready, the FULL ready set and
+ * not the capped head. Prose is then read for all of them, and only the
+ * resulting list caps.
+ *
+ * Both widenings exist for the same reason — a cap upstream of the prose read
+ * silently drops direction. Capping the containers first lets five prose-less
+ * ones hide the only container with something to say; taking parents from the
+ * capped ready head instead of the whole ready set does the same thing one step
+ * earlier, hiding a container whose work merely sits below rank 5. Neither costs
+ * anything to widen: the candidate set is DISTINCT PARENTS of live work (a
+ * handful of containers, not the board), and
+ * {@link import('../body-sections/store').BodySectionStore.readSectionsMany}
+ * batches the read into one round-trip however many stems it carries.
+ *
+ * `count` is therefore a TRUE total over that population, and only the rendered
+ * list caps at {@link OVERVIEW_CAP} — the prose is uncapped in length, so a board
+ * with many parallel claims would otherwise turn a boot surface into a document
+ * dump. A dormant container's prose stays one `mimir get` away by design.
+ */
+async function directionOf(
+  store: Store,
+  set: DerivationSet,
+  scopeKey: string,
+  live: readonly Node[],
+): Promise<OverviewDirection> {
+  const candidates: Node[] = [];
+  const seen = new Set<string>();
+  for (const node of live) {
+    const parent = node.parent_id === null ? undefined : set.nodeById.get(node.parent_id);
+    if (parent === undefined || parent.type === 'task' || seen.has(parent.id)) {
+      continue;
+    }
+    seen.add(parent.id);
+    candidates.push(parent);
+  }
+  const ordered = candidates.toSorted((a, b) => a.seq - b.seq);
+  // The project's stem is its bare KEY, so it rides the same batched read.
+  const prose = await store.bodySections.readSectionsMany(
+    [scopeKey, ...ordered.map((node) => node.id)],
+    { next: true },
+  );
+  const withProse: OverviewDirection['containers'] = [];
+  for (const node of ordered) {
+    const next = prose.get(node.id)?.next;
+    if (next != null && next !== '') {
+      withProse.push({ id: node.id, next, title: node.title });
+    }
+  }
+  return {
+    containers: withProse.slice(0, OVERVIEW_CAP),
+    count: withProse.length,
+    project: prose.get(scopeKey)?.next ?? null,
+  };
+}
+
+/** A needs-attention listing row (MMR-322) — the lean task plus its lane word and
+ * the `going cold` modifier, both off the shared {@link laneOf} mapping. */
+async function attentionRows(
+  store: Store,
+  set: DerivationSet,
+  nodes: readonly Node[],
+  asOf: string | undefined,
+): Promise<OverviewAttentionTask[]> {
+  return Promise.all(
+    nodes.slice(0, OVERVIEW_CAP).map(async (node) => ({
+      lane: laneOf(nodeStatusWord(set, node)),
+      stale: isStale(set, node, { asOf }),
+      task: await buildNodeView(store.bodySections, store.artifacts, set, node),
+    })),
+  );
+}
+
+/**
+ * `overview` — one project's session-boot orientation surface (MMR-278, expanded
+ * MMR-322 per ADR 0026): a flat, id-free, scope-honoring read composing the whole
+ * board state into attention-ordered sections. Still ONE `loadWorkingSet` +
+ * `deriveSet` over the existing pure predicates — never a `next`/`list`/`status`
  * entry point (each reloads the vault), never the doctor snapshot (the dropped
- * count is the free `WorkingSet.issueCount` byproduct, MMR-184). Counts before
- * contents: every section carries its TRUE total even where the list is capped.
+ * count is the free `WorkingSet.issueCount` byproduct, MMR-184).
+ *
+ * The composed sections add reads the working set cannot serve, each **bounded by
+ * construction** rather than by the board's size: one seeds read (the untriaged
+ * lane, triage's one-load precedent) plus one batched description read for its
+ * ledes; `## History` for the {@link SESSION_SCAN_CAP} most recently touched
+ * tasks; one `session_summary` artifact page; and `## Next` for the project plus
+ * the deduped parents of live work.
+ *
+ * Counts before contents: every section carries its TRUE total even where the
+ * list is capped.
  */
 export async function overviewOf(
   store: Store,
@@ -587,20 +773,250 @@ export async function overviewOf(
     })),
   );
 
-  // hygiene — counts only, no listings. Untriaged is the one seeds read (a `new`
-  // seed IS the untriaged lane); dropped is the free load byproduct (MMR-184).
-  const untriaged = (await store.seeds.listForProject(scopeId)).filter(
+  // hygiene — the counts, each with the capped head of its own lane (MMR-322).
+  // Untriaged is the one seeds read (a `new` seed IS the untriaged lane); dropped
+  // is the free load byproduct (MMR-184) and stays count-only — it counts records
+  // the reader dropped, which by definition are not tasks anyone can list.
+  const untriagedSeeds = (await store.seeds.listForProject(scopeId)).filter(
     (seed) => seed.lifecycle === 'new',
-  ).length;
-  const blocked = tasks.filter((n) => nodeStatusWord(set, n) === 'blocked').length;
-  const stale = tasks.filter((n) => isStale(set, n, { asOf: opts.asOf })).length;
+  );
+  const blockedNodes = tasks
+    .filter((n) => nodeStatusWord(set, n) === 'blocked')
+    .toSorted(byRankOrder(set));
+  const staleNodes = tasks
+    .filter((n) => isStale(set, n, { asOf: opts.asOf }))
+    .toSorted(byRankOrder(set));
   const dropped = set.ws.issueCount ?? 0;
+
+  const [direction, sessions, blockedRows, staleRows, untriagedRows] = await Promise.all([
+    // The FULL ready set, not the capped head: the cap is a display bound on
+    // `next`, and letting it reach back into the direction candidates would hide
+    // a container's prose for no reason but its work's rank.
+    directionOf(store, set, scopeId, [...inFlightNodes, ...readyNodes]),
+    recentSessions(store, scopeId, tasks),
+    attentionRows(store, set, blockedNodes, opts.asOf),
+    attentionRows(store, set, staleNodes, opts.asOf),
+    untriagedRowsOf(store, untriagedSeeds.slice(0, OVERVIEW_CAP)),
+  ]);
 
   return {
     awaiting: { count: awaitingNodes.length, tasks: awaitingTasks },
-    hygiene: { blocked, dropped, stale, untriaged },
+    direction,
+    hygiene: {
+      blocked: blockedNodes.length,
+      dropped,
+      listings: { blocked: blockedRows, stale: staleRows, untriaged: untriagedRows },
+      stale: staleNodes.length,
+      untriaged: untriagedSeeds.length,
+    },
     inFlight: { count: inFlightNodes.length, tasks: inFlightTasks },
     next: { count: readyNodes.length, tasks: nextTop },
     project: { distribution, id: scopeId, status },
+    sessions,
+  };
+}
+
+/**
+ * The untriaged listing rows (MMR-322) — id, title, and the derived
+ * `## Seed Description` lede, off ONE batched section read for the capped set
+ * (the `mimir seeds` queue's own MMR-263 path). The lede is decorative, so a
+ * rejected batch read degrades the rows to `lede: null` rather than failing the
+ * whole orientation surface (ADR 0017).
+ */
+async function untriagedRowsOf(
+  store: Store,
+  seeds: readonly { key: string; seq: number; title: string }[],
+): Promise<OverviewSeed[]> {
+  const rows = seeds.map((seed) => ({
+    id: renderSeedRef({ key: seed.key, seq: seed.seq }),
+    lede: null as string | null,
+    title: seed.title,
+  }));
+  if (rows.length === 0) {
+    return rows;
+  }
+  let descriptions: ReadonlyMap<string, string | null>;
+  try {
+    descriptions = await store.seeds.loadDescriptions(
+      seeds.map((seed) => ({ key: seed.key, seq: seed.seq })),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`mimir: seed description read failed — overview without previews (${message})`);
+    return rows;
+  }
+  for (const row of rows) {
+    row.lede = deriveLede(descriptions.get(row.id) ?? null);
+  }
+  return rows;
+}
+
+/** Portfolio artifact search options (MMR-322) — the CLI/MCP-facing shape of the
+ * {@link import('../artifacts/store').ArtifactListQuery} seam query. */
+export type ArtifactQueryOptions = {
+  /** A project KEY, or undefined for the cross-project feed. */
+  scope?: string;
+  tag?: string;
+  /** `YYYY-MM-DD` or a full ISO timestamp — a bare date widens to the whole day. */
+  since?: string;
+  before?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+};
+
+/**
+ * Is `value` a date bound the artifact feed can filter on — a bare
+ * `YYYY-MM-DD`, or a full ISO timestamp with an optional fractional part and an
+ * optional zone (`Z` or a numeric `±HH:MM` UTC offset)?
+ *
+ * The ONE definition every transport enforces (MMR-322), so the CLI's usage
+ * refusal and the MCP tool's `validation` refusal cannot disagree about what a
+ * date is. It has to be checked rather than merely normalized: the filter is a
+ * lexical string compare downstream, so `since: "yesterday"` would not error —
+ * it would sort against the ISO timestamps and quietly return the wrong window.
+ * A calendar-impossible date (`2026-13-45`, `2026-02-30`) is rejected too — see
+ * {@link canonicalFilterInstant} for why `Date.parse` alone cannot do it.
+ */
+export function isFilterDate(value: string): boolean {
+  return canonicalFilterInstant(value) !== null;
+}
+
+/** The shapes {@link isFilterDate} admits: a bare date, or a timestamp with an
+ * optional seconds/fraction and an optional zone, `T`- or space-separated. */
+const FILTER_DATE_SHAPE =
+  /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?$/;
+
+const BARE_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * An accepted filter date as the ONE canonical instant string the store compares
+ * against — `YYYY-MM-DDTHH:mm:ss.sssZ` — or `null` when the value is not a
+ * filter date at all. The single decision point behind both {@link isFilterDate}
+ * and {@link normalizeFilterDate}, so "accepted" and "normalized" cannot drift
+ * into a shape that passes validation and then compares wrong.
+ *
+ * Canonicalization is load-bearing because the comparison downstream is
+ * **lexical** over stored `created_at` values, which are always ISO-ms UTC. Two
+ * accepted forms are wrong if passed through verbatim:
+ *
+ * - a numeric UTC offset — `2026-07-01T23:00:00.000+02:00` is 21:00Z, but sorts
+ *   as if it were 23:00, silently excluding artifacts from those two hours;
+ * - the ISO space separator — `'2026-07-01 10:00'` sorts BELOW every `…T…`
+ *   value for that day (`' ' < 'T'`), collapsing the bound to start-of-day.
+ *
+ * A zone-less timestamp is read as **UTC**, matching the bare-date bounds below;
+ * `new Date` would otherwise read it as local time and shift the window by the
+ * host's offset, making the same command mean different things on two machines.
+ *
+ * `Date.parse` is not a sufficient calendar check on its own: it rejects an
+ * out-of-range MONTH (`2026-13-45`) but silently ROLLS an out-of-range day, so
+ * `2026-02-30` becomes March 2 and `2027-02-29` becomes March 1 — a bound the
+ * caller never asked for, applied without a word. The day is therefore
+ * round-tripped: the date part is re-rendered through UTC midnight and must come
+ * back unchanged. That check reads the date part ALONE, never the canonical
+ * result, because a legitimate offset may move the instant across a day boundary
+ * (`2026-07-01T01:00+02:00` really is `2026-06-30T23:00Z`) and comparing whole
+ * canonical dates would reject it.
+ */
+function canonicalFilterInstant(value: string): string | null {
+  if (!FILTER_DATE_SHAPE.test(value)) {
+    return null;
+  }
+  const datePart = value.slice(0, 10);
+  const rolled = new Date(`${datePart}T00:00:00.000Z`);
+  if (Number.isNaN(rolled.getTime()) || rolled.toISOString().slice(0, 10) !== datePart) {
+    return null;
+  }
+  const separated = value.replace(' ', 'T');
+  const zoned = /(?:Z|[+-]\d{2}:\d{2})$/.test(separated) ? separated : `${separated}Z`;
+  const ms = Date.parse(zoned);
+  // Backstops the time-of-day fields the day check above does not reach.
+  return Number.isNaN(ms) ? null : new Date(ms).toISOString();
+}
+
+/**
+ * A filter date → the ISO-ms UTC bound the store compares against. A bare
+ * `YYYY-MM-DD` widens to the requested edge of that whole day; every other
+ * accepted form canonicalizes to its exact instant (see
+ * {@link canonicalFilterInstant}). Shared so the CLI, MCP, and HTTP artifact
+ * feeds bound a window identically.
+ *
+ * A value that isn't a filter date passes through untouched — every caller
+ * validates first, and silently substituting a bound would be worse than the
+ * empty result the raw value produces.
+ */
+export function normalizeFilterDate(value: string, edge: 'start' | 'end'): string {
+  if (BARE_DATE.test(value)) {
+    return edge === 'start' ? `${value}T00:00:00.000Z` : `${value}T23:59:59.999Z`;
+  }
+  return canonicalFilterInstant(value) ?? value;
+}
+
+/**
+ * `artifacts` — the cross-project artifact feed (MMR-52, surfaced as a verb in
+ * MMR-322): a thin read-only envelope over the {@link
+ * import('../artifacts/store').ArtifactStore} `list` query, newest-first,
+ * metadata only (a body is `get KEY-aN --col content`). Unlike `overview` it
+ * spans projects — an omitted `scope` IS the portfolio query.
+ *
+ * Archived projects' artifacts read as absent (ADR 0015). Archived state lives
+ * with the node store, which the artifact seam must not reach into, so the
+ * exclude set is resolved here off the same working-set read every other
+ * intent-layer query takes.
+ */
+export async function listArtifacts(
+  store: Store,
+  opts: ArtifactQueryOptions = {},
+): Promise<SetResult<ArtifactSummary>> {
+  const ws = await store.loadWorkingSet();
+  if (opts.scope !== undefined && !ws.projects.some((p) => p.key === opts.scope)) {
+    throw projectNotFound(opts.scope);
+  }
+  const query: ArtifactListQuery = {
+    excludeProjects: ws.projects.filter((p) => p.archived_at !== null).map((p) => p.key),
+  };
+  if (opts.scope !== undefined) {
+    query.project = opts.scope;
+  }
+  if (opts.tag !== undefined) {
+    query.tag = opts.tag;
+  }
+  if (opts.q !== undefined && opts.q !== '') {
+    query.q = opts.q;
+  }
+  if (opts.since !== undefined) {
+    query.since = normalizeFilterDate(opts.since, 'start');
+  }
+  if (opts.before !== undefined) {
+    query.before = normalizeFilterDate(opts.before, 'end');
+  }
+  if (opts.limit !== undefined) {
+    query.limit = opts.limit;
+  }
+  if (opts.offset !== undefined) {
+    query.offset = opts.offset;
+  }
+  const result = await store.artifacts.list(query);
+  const items = result.items.map((record) => {
+    const summary: ArtifactSummary = {
+      createdAt: record.created_at,
+      id: renderArtifactRef({ key: record.key, seq: record.seq }),
+      project: record.key,
+      tags: record.tags,
+      title: record.title,
+    };
+    // Optional (MMR-319): no lede, no key on the wire.
+    if (record.summary !== null) {
+      summary.summary = record.summary;
+    }
+    return summary;
+  });
+  return {
+    issueCount: ws.issueCount,
+    items,
+    returned: items.length,
+    startsAt: opts.offset ?? 0,
+    total: result.total,
   };
 }

@@ -93,6 +93,25 @@ export type BodySectionStore = {
    */
   readSections: (stem: string, want: BodySectionFacets) => Promise<BodySections>;
   /**
+   * The same facets across MANY stems in ONE backend round-trip (MMR-322) —
+   * `readSections`' fan-out sibling, keyed back by `KEY-seq` stem (a project's
+   * stem is its bare `KEY`).
+   *
+   * A separate method rather than a `Promise.all` over `readSections` because
+   * the backend client serializes its calls: N per-stem reads are N sequential
+   * IPC hops that no concurrency wrapper can overlap. `overview` composes
+   * sections over up-to-20 tasks plus every live container, so the difference is
+   * one hop versus ~25 on the session-boot hot path.
+   *
+   * A stem whose document doesn't resolve is simply absent from the map (never a
+   * throw); callers treat absence as "no sections", exactly as `readSections`
+   * yields empty facets for a missing document. Duplicate stems collapse.
+   */
+  readSectionsMany: (
+    stems: readonly string[],
+    want: BodySectionFacets,
+  ) => Promise<Map<string, BodySections>>;
+  /**
    * Of the given stems, those whose `## Annotations` heading the backend cannot
    * resolve — a hand-edited duplicate (ambiguous) or a missing heading — so a
    * native section read/append degrades silently (ADR 0017, the MMR-239 channel).

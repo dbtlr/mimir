@@ -31,6 +31,8 @@ import {
   getArtifact,
   getNode,
   getSeed,
+  isFilterDate,
+  listArtifacts,
   listNodes,
   listProjects,
   nextTasks,
@@ -79,6 +81,7 @@ import { parsePriority, parseSize } from './parse';
 import {
   countLine,
   renderArtifactDetail,
+  renderArtifacts,
   renderNodeView,
   renderOverview,
   renderRecords,
@@ -113,6 +116,11 @@ const OPTIONS = {
   'not-before': { multiple: true, type: 'string' },
   'not-after': { multiple: true, type: 'string' },
   tag: { multiple: true, short: 't', type: 'string' },
+  // The artifact feed's own window (MMR-322) — `--before` and `-t` are shared
+  // with the query ops above; `--since`/`--offset`/`-q` are the feed's alone.
+  since: { type: 'string' },
+  offset: { type: 'string' },
+  query: { short: 'q', type: 'string' },
   limit: { short: 'n', type: 'string' },
   col: { multiple: true, type: 'string' },
   format: { short: 'f', type: 'string' },
@@ -201,8 +209,7 @@ const COMMANDS: ReadonlySet<string> = new Set(
  * owner-mismatched flag is accepted and silently ignored (MMR-321).
  *
  * Most shared flags are read by several verbs and a stray one is harmless. These
- * two are not, because each silently DISCARDS an argument the caller meant to
- * store:
+ * are not, because each silently DISCARDS an argument the caller meant to apply:
  *
  * - `--next` is `self-update`'s prerelease selector and a BOOLEAN, so it
  *   swallows no value and `update KEY --next "text"` exits 0 having written
@@ -213,14 +220,28 @@ const COMMANDS: ReadonlySet<string> = new Set(
  *   settled write surface (ADR 0026 Decision 2). `create … --direction "…"`
  *   would drop the prose on the floor, which is worse for being exactly where
  *   the `--next` hint above sends the caller.
+ * - `--since`, `--offset`, and `-q`/`--query` are `artifacts`' own selection
+ *   (MMR-322). Adding them to the shared table would otherwise make
+ *   `mimir list --since 2026-07-01` exit 0 with the UNFILTERED board — a
+ *   silently-wrong answer where the invocation used to be a hard unknown-flag
+ *   error. `list`/`next` filter dates through the `--after`/`--before FIELD:VALUE`
+ *   op grammar, which is where the hint sends the caller.
  *
  * Each entry redirects to the flag or verb that does the work, so the hint
  * ladder terminates somewhere useful instead of looping.
  */
+type OwnedFlagValues = {
+  next?: boolean;
+  direction?: string;
+  since?: string;
+  offset?: string;
+  query?: string;
+};
+
 const VERB_OWNED_FLAGS: readonly {
   flag: string;
   owner: string;
-  given: (values: { next?: boolean; direction?: string }) => boolean;
+  given: (values: OwnedFlagValues) => boolean;
   hint: string;
 }[] = [
   {
@@ -234,6 +255,24 @@ const VERB_OWNED_FLAGS: readonly {
     given: (values) => values.direction !== undefined,
     hint: `the ## Next narrative is set after create: mimir update <id> --direction "…"`,
     owner: 'update',
+  },
+  {
+    flag: '--since',
+    given: (values) => values.since !== undefined,
+    hint: `'--since' selects artifacts by created_at; on list/next use '--after created_at:YYYY-MM-DD'`,
+    owner: 'artifacts',
+  },
+  {
+    flag: '--offset',
+    given: (values) => values.offset !== undefined,
+    hint: `'--offset' pages the artifact feed; list/next cap with '-n, --limit'`,
+    owner: 'artifacts',
+  },
+  {
+    flag: '--query',
+    given: (values) => values.query !== undefined,
+    hint: `'-q, --query' searches artifact titles; list selects by field op, e.g. '--eq title:…'`,
+    owner: 'artifacts',
   },
 ];
 
@@ -307,6 +346,9 @@ export async function runCli(
     'not-before'?: string[];
     'not-after'?: string[];
     tag?: string[];
+    since?: string;
+    offset?: string;
+    query?: string;
     limit?: string;
     col?: string[];
     format?: string;
@@ -432,22 +474,40 @@ export async function runCli(
           nextScope !== undefined
             ? `No ready tasks in ${nextScope} — mimir list --status awaiting -s ${nextScope} shows what's queued`
             : "No ready tasks — mimir list --status awaiting shows what's queued";
+        // Parsed BEFORE the store is opened (MMR-39): every one of these throws
+        // `usage` on a structural fault, and a wrong invocation must not open the
+        // vault. Inside the call's argument list they were evaluated after
+        // `getStore()` had already resolved.
+        const nextQuery = {
+          facets: parseFacets(values.col),
+          filters: parseFilters(values),
+          limit: parseLimit(values.limit),
+          priority: parsePriority(values.priority),
+          scope: nextScope,
+          size: parseSize(values.size),
+          verdicts: parseVerdicts(values.is, values['not-is']),
+        };
         return runSet(
-          await nextTasks(await getStore(), {
-            facets: parseFacets(values.col),
-            filters: parseFilters(values),
-            limit: parseLimit(values.limit),
-            priority: parsePriority(values.priority),
-            scope: nextScope,
-            size: parseSize(values.size),
-            verdicts: parseVerdicts(values.is, values['not-is']),
-          }),
+          await nextTasks(await getStore(), nextQuery),
           values.format,
           ctx,
           nextEmptyMsg,
         );
       }
       case 'list': {
+        // Same pre-store parse as `next` above (MMR-39) — hoisted out of the
+        // call's argument list, where it ran only after the store had opened.
+        const listQuery = {
+          facets: parseFacets(values.col),
+          filters: parseFilters(values),
+          limit: parseLimit(values.limit),
+          priority: parsePriority(values.priority),
+          scope: effectiveScope(values.scope, defaults.scope),
+          size: parseSize(values.size),
+          status: parseStatus(values.status),
+          tag: values.tag?.[0],
+          verdicts: parseVerdicts(values.is, values['not-is']),
+        };
         // The archived-projects shelf (ADR 0015) — the sole door to hidden
         // projects; lists projects, not nodes, so it bypasses listNodes.
         if (values.status === 'archived') {
@@ -468,17 +528,7 @@ export async function runCli(
           );
         }
         return runSet(
-          await listNodes(await getStore(), {
-            facets: parseFacets(values.col),
-            filters: parseFilters(values),
-            limit: parseLimit(values.limit),
-            priority: parsePriority(values.priority),
-            scope: effectiveScope(values.scope, defaults.scope),
-            size: parseSize(values.size),
-            status: parseStatus(values.status),
-            tag: values.tag?.[0],
-            verdicts: parseVerdicts(values.is, values['not-is']),
-          }),
+          await listNodes(await getStore(), listQuery),
           values.format,
           ctx,
           'No tasks match — try --status all, or drop a filter',
@@ -561,6 +611,44 @@ export async function runCli(
         const format = pickOverviewFormat(values.format, ctx);
         const report = await overviewOf(await getStore(), scope);
         ctx.write(format === 'json' ? formatOverviewJson(report) : renderOverview(report, ctx));
+        return 0;
+      }
+      case 'artifacts': {
+        // Unlike `overview`, the artifact feed IS a cross-project set: an unbound
+        // invocation and the literal `-s all` both mean the portfolio (ADR 0004 —
+        // an artifact is project-anchored but the search never was).
+        const scope = effectiveScope(values.scope, defaults.scope);
+        // Every structural fault (bad date, bad offset, bad format) is decided
+        // BEFORE the store is acquired — a wrong invocation must never open the
+        // vault, matching the help/usage paths (MMR-39).
+        const artifactQuery = {
+          before: parseFeedDate(values.before?.at(-1), '--before'),
+          limit: parseLimit(values.limit),
+          offset: parseOffset(values.offset),
+          q: values.query,
+          scope,
+          since: parseFeedDate(values.since, '--since'),
+          tag: values.tag?.[0],
+        };
+        const format = pickFormat(values.format, 'set', ctx);
+        const result = await listArtifacts(await getStore(), artifactQuery);
+        issueNudge(result.issueCount, format, ctx);
+        // A well-formed query that returns NO ROWS is an empty set at exit 0, with
+        // the reason on stderr so stdout stays a clean machine contract (ADR 0009).
+        // Keyed off the returned rows, not the total: an `--offset` past the end
+        // matches plenty and returns nothing, which is the case most in need of a
+        // note (and the one a `total === 0` test would silently pass over).
+        if (result.returned === 0) {
+          const where = scope === undefined ? '' : ` in ${scope}`;
+          emptySetWarning(
+            result.total > 0
+              ? `no artifacts${where} past offset ${String(result.startsAt)} — ${countLine(result.total, 'artifact')} matched`
+              : `no artifacts${where} — widen the window, or drop a filter`,
+            format,
+            ctx,
+          );
+        }
+        renderArtifacts(result, format, ctx, { showProject: scope === undefined });
         return 0;
       }
       case 'depend': {
@@ -924,21 +1012,7 @@ function runSet(
   if (result.warnings !== undefined && result.warnings.length > 0) {
     renderWarnings(result.warnings, format, io);
   }
-  // The doctor issue-count nudge (MMR-184): a stderr-only boot-orientation note,
-  // off the tolerant reader's own drop tally for this load — never a fresh
-  // `mimir doctor` pass. Unconditional of format (stdout stays a clean machine
-  // contract either way) and silent at zero, matching the rare-condition cost bar.
-  // Machine formats (json/jsonl) follow renderWarnings' convention: a JSON
-  // object line on stderr rather than the prose glyph line, so the stream
-  // stays parseable.
-  if (result.issueCount !== undefined && result.issueCount > 0) {
-    const message = `${countLine(result.issueCount, 'issue')} — run mimir doctor`;
-    if (format === 'json' || format === 'jsonl') {
-      io.error(JSON.stringify({ issueCount: result.issueCount, warning: message }));
-    } else {
-      warn(io, message);
-    }
-  }
+  issueNudge(result.issueCount, format, io);
   switch (format) {
     case 'ids': {
       io.write(formatIds(result.items));
@@ -966,6 +1040,43 @@ function runSet(
     }
   }
   return 0;
+}
+
+/**
+ * The doctor issue-count nudge (MMR-184): a stderr-only boot-orientation note,
+ * off the tolerant reader's own drop tally for this load — never a fresh
+ * `mimir doctor` pass. Unconditional of format (stdout stays a clean machine
+ * contract either way) and silent at zero, matching the rare-condition cost bar.
+ */
+function issueNudge(issueCount: number | undefined, format: Format, io: Io): void {
+  if (issueCount === undefined || issueCount === 0) {
+    return;
+  }
+  emitStderrNote(`${countLine(issueCount, 'issue')} — run mimir doctor`, format, io, {
+    issueCount,
+  });
+}
+
+/** The querying-doctrine note for a well-formed query that matched nothing
+ * (ADR 0009): exit 0, an empty set on stdout, the "why nothing" on stderr. */
+function emptySetWarning(message: string, format: Format, io: Io): void {
+  emitStderrNote(message, format, io);
+}
+
+/** One stderr note, in the destination's own grammar. Machine formats
+ * (json/jsonl) follow renderWarnings' convention — a JSON object line rather
+ * than the prose glyph line — so a piped stderr stays parseable. */
+function emitStderrNote(
+  message: string,
+  format: Format,
+  io: Io,
+  extra: Record<string, unknown> = {},
+): void {
+  if (format === 'json' || format === 'jsonl') {
+    io.error(JSON.stringify({ ...extra, warning: message }));
+  } else {
+    warn(io, message);
+  }
 }
 
 function renderSingle(node: NodeView, explicit: string | undefined, io: Io): number {
@@ -1151,13 +1262,57 @@ function parseFilters(values: Record<string, unknown>): FieldFilter[] {
   return filters;
 }
 
-function parseLimit(value: string | undefined): number | undefined {
+/**
+ * A whole-token non-negative integer flag value. `Number.parseInt` is the wrong
+ * tool here and was the wrong tool before (MMR-322 tightening): it stops at the
+ * first non-digit, so `-n 2x` silently capped at 2 and `-n 2.5` silently capped
+ * at 2 — a wrong answer reported as a right one. The token must parse WHOLE, and
+ * must land inside the safe-integer range so a huge value can't alias.
+ */
+function parseCount(value: string | undefined, flag: string, hint: string): number | undefined {
   if (value === undefined) {
     return undefined;
   }
-  const n = Number.parseInt(value, 10);
-  if (Number.isNaN(n) || n < 0) {
-    throw usage(`invalid limit: ${value}`);
+  const n = Number(value);
+  if (
+    value.trim() === '' ||
+    !Number.isSafeInteger(n) ||
+    n < 0 ||
+    // `Number` accepts hex/binary/exponent/whitespace forms `parseInt` wouldn't;
+    // the flag grammar is plain decimal digits, so require exactly that.
+    !/^\d+$/.test(value)
+  ) {
+    throw usage(`invalid ${flag}: ${value}`, hint);
   }
   return n;
+}
+
+function parseLimit(value: string | undefined): number | undefined {
+  return parseCount(value, 'limit', 'limit is a whole number of rows (0 or more)');
+}
+
+/** The artifact feed's paging cursor (MMR-322) — rows to skip before the window. */
+function parseOffset(value: string | undefined): number | undefined {
+  return parseCount(value, 'offset', 'offset is a whole count of rows to skip (0 or more)');
+}
+
+/**
+ * The artifact feed's date bounds (MMR-322) — a bare `YYYY-MM-DD` (widened to
+ * the whole day downstream) or a full ISO timestamp. A malformed value is a
+ * STRUCTURAL fault, not a value fault: the filter is a lexical string compare
+ * downstream, so a garbage bound would silently empty the feed or not apply at
+ * all, and either way report the result as if the window had held.
+ *
+ * The predicate itself is core's {@link isFilterDate} — the same one the MCP tool
+ * enforces — so the two transports cannot drift on what a date is; only the
+ * refusal differs (usage/exit 2 here, a `validation` envelope there).
+ */
+function parseFeedDate(value: string | undefined, flag: string): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isFilterDate(value)) {
+    throw usage(`invalid date: ${value}`, `${flag} takes YYYY-MM-DD or a full ISO timestamp`);
+  }
+  return value;
 }
