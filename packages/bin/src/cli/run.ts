@@ -351,6 +351,19 @@ export async function runCli(
   }
 
   try {
+    // `--next` is `self-update`'s prerelease-channel selector and a BOOLEAN, so
+    // on any other verb it swallows nothing and the value token that follows it
+    // slides into the positionals: `update KEY --next "…"` would exit 0 having
+    // written nothing at all. Every machine surface (MCP arg, HTTP body field,
+    // `--col`) spells the direction field `next`, so that is precisely the
+    // invocation to expect — intercept it and name the flag that does write
+    // (MMR-321). Inside the try so it renders through the usual usage path.
+    if (values.next === true && command !== 'self-update') {
+      throw usage(
+        `'--next' doesn't apply to ${command}`,
+        `did you mean '--direction'? (mimir update <id> --direction "…" writes the ## Next narrative)`,
+      );
+    }
     // The write echo's format, picked inside the try block so a bad --format
     // value is caught and rendered.
     const singleFormat = pickFormat(values.format, 'single', ctx);
