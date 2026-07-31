@@ -65,6 +65,7 @@ import {
   projectNotFound,
   reorder,
   resolveEntityTokenInSet,
+  specUpdateFields,
   statusOfNode,
   tagEntities,
   undepend,
@@ -81,6 +82,7 @@ import type {
   DerivationSet,
   RankPosition,
   SeedStatusSelector,
+  SpecUpdateKey,
   Store,
   UpdateFields,
   UpdateProjectFields,
@@ -346,11 +348,21 @@ export function toolOverview(
  * mutation, and echoes the matching record shape. `mcp/server.ts` loop-registers
  * one MCP tool per registry entry over this handler, so adding a uniform verb
  * needs no transport edit.
+ *
+ * A verb declaring extra data-plane fields (ADR 0026 — only `start`'s resume
+ * handles) reads them by their camelCase update-arg names through the shared
+ * {@link applyUpdateFields} loop, so acceptance and application can't drift apart.
  */
+export type UniformToolArgs = {
+  id?: string;
+  key?: string;
+  reason?: string;
+} & Record<string, unknown>;
+
 export function toolUniform(
   store: Store,
   verb: UniformVerb,
-  args: { id?: string; key?: string; reason?: string },
+  args: UniformToolArgs,
 ): Promise<ToolResult> {
   return guard(async () => {
     const op = OPS[verb];
@@ -361,7 +373,18 @@ export function toolUniform(
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       return echoProject(store, project as Parameters<typeof echoProject>[1]);
     }
-    const node = await op.run(store, await nodeId(store, args.id ?? '', 'task'), reason);
+    const fields: UpdateFields = {};
+    applyUpdateFields(
+      fields,
+      (field) => {
+        const value = args[field.update];
+        // Zod-validated against the kind fragment, so a present value is a string.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        return value === undefined ? undefined : parseWireField(field.kind, value as string);
+      },
+      specUpdateFields(op.fields ?? []),
+    );
+    const node = await op.run(store, await nodeId(store, args.id ?? '', 'task'), reason, fields);
     // The task subject guarantees a Node row from `run`.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return echoNode(store, node as Parameters<typeof echoNode>[1]);
@@ -430,23 +453,39 @@ export function toolReorder(
 // Data mutation tools
 // ---------------------------------------------------------------------------
 
-export function toolUpdate(
-  store: Store,
-  args: {
-    id: string;
-    title?: string;
-    name?: string;
-    description?: string;
-    summary?: string;
-    priority?: string;
-    size?: string;
-    target?: string;
-    externalRef?: string;
-    upstream?: string;
-    kind?: string;
-    openEnded?: boolean;
-  },
-): Promise<ToolResult> {
+/**
+ * Compile guard (MMR-320): the two write tools' arg types are hand-written while
+ * their advertised zod shapes DERIVE from the field spec (`fieldInputShape`). A
+ * new spec field therefore lands on the wire — accepted and applied — while the
+ * exported type silently lags, forcing every direct TS caller to cast past an
+ * excess-property error the runtime would have accepted. Naming the two types and
+ * excluding them from {@link SpecUpdateKey} makes that lag a type error instead.
+ */
+type AssertNever<T extends never> = T;
+type _UpdateArgsCoverSpec = AssertNever<Exclude<SpecUpdateKey, keyof UpdateToolArgs>>;
+type _CreateArgsCoverSpec = AssertNever<Exclude<SpecUpdateKey, keyof CreateToolArgs>>;
+
+export type UpdateToolArgs = {
+  id: string;
+  title?: string;
+  name?: string;
+  description?: string;
+  summary?: string;
+  priority?: string;
+  size?: string;
+  target?: string;
+  externalRef?: string;
+  upstream?: string;
+  /** The resume handles (MMR-320) — task-only. */
+  host?: string;
+  harness?: string;
+  session?: string;
+  branch?: string;
+  kind?: string;
+  openEnded?: boolean;
+};
+
+export function toolUpdate(store: Store, args: UpdateToolArgs): Promise<ToolResult> {
   return guard(async () => {
     if (parseIdentity(args.id)?.kind === 'artifact') {
       return updateArtifactTool(store, args);
@@ -499,6 +538,10 @@ async function updateProjectTool(
     externalRef?: string;
     openEnded?: boolean;
     upstream?: string;
+    host?: string;
+    harness?: string;
+    session?: string;
+    branch?: string;
   },
 ): Promise<ToolResult> {
   const nodeOnly = inapplicableUpdateFields('project').filter((k) => args[k] !== undefined);
@@ -540,6 +583,10 @@ async function updateArtifactTool(
     externalRef?: string;
     openEnded?: boolean;
     upstream?: string;
+    host?: string;
+    harness?: string;
+    session?: string;
+    branch?: string;
   },
 ): Promise<ToolResult> {
   const nodeOnly = inapplicableUpdateFields('artifact').filter((k) => args[k] !== undefined);
@@ -620,25 +667,29 @@ export function toolUntag(
 // Create tool
 // ---------------------------------------------------------------------------
 
-export function toolCreate(
-  store: Store,
-  args: {
-    type: 'project' | 'initiative' | 'phase' | 'task';
-    key?: string;
-    name?: string;
-    parent?: string;
-    title?: string;
-    description?: string;
-    summary?: string;
-    target?: string;
-    priority?: string;
-    size?: string;
-    externalRef?: string;
-    upstream?: string;
-    openEnded?: boolean;
-    tags?: string[];
-  },
-): Promise<ToolResult> {
+export type CreateToolArgs = {
+  type: 'project' | 'initiative' | 'phase' | 'task';
+  key?: string;
+  name?: string;
+  parent?: string;
+  title?: string;
+  description?: string;
+  summary?: string;
+  target?: string;
+  priority?: string;
+  size?: string;
+  externalRef?: string;
+  upstream?: string;
+  /** The resume handles (MMR-320) — task-only, normally set by `start`. */
+  host?: string;
+  harness?: string;
+  session?: string;
+  branch?: string;
+  openEnded?: boolean;
+  tags?: string[];
+};
+
+export function toolCreate(store: Store, args: CreateToolArgs): Promise<ToolResult> {
   return guard(async () => {
     switch (args.type) {
       case 'project': {
@@ -705,6 +756,14 @@ export function toolCreate(
         const node = await createNode(store, {
           description: args.description,
           externalRef: args.externalRef,
+          // The resume handles (MMR-320) — accepted at create like every other
+          // generic-`update` spec field; `start` is where they usually land.
+          handles: {
+            branch: args.branch,
+            harness: args.harness,
+            host: args.host,
+            session: args.session,
+          },
           openEnded: args.openEnded,
           parent: args.parent,
           priority: args.priority,
@@ -925,6 +984,10 @@ async function updateSeedTool(
     upstream?: string;
     summary?: string;
     openEnded?: boolean;
+    host?: string;
+    harness?: string;
+    session?: string;
+    branch?: string;
   },
 ): Promise<ToolResult> {
   const seedOnly = inapplicableUpdateFields('seed').filter((k) => args[k] !== undefined);

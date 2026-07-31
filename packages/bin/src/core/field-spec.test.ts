@@ -21,12 +21,15 @@ const DATA_KEYS = Object.keys(FIELD_SPEC) as DataFieldKey[];
  * structural half is bespoke and irrelevant here; only the data plane is asserted. */
 function baseNode(type: NodeType, over: Partial<Node>): Node {
   return {
+    branch: null,
     completed_at: null,
     created_at: '2026-01-01T00:00:00.000Z',
     description: null,
     external_ref: null,
+    harness: null,
     hold: type === 'task' ? 'none' : null,
     hold_reason: null,
+    host: null,
     id: 'MMR-1',
     lifecycle: type === 'task' ? 'todo' : null,
     open_ended: null,
@@ -35,6 +38,7 @@ function baseNode(type: NodeType, over: Partial<Node>): Node {
     project_id: 'MMR',
     rank: type === 'task' ? 1 : null,
     seq: 1,
+    session: null,
     size: null,
     summary: null,
     target: null,
@@ -49,12 +53,16 @@ function baseNode(type: NodeType, over: Partial<Node>): Node {
 /** The data-plane subset of a node — the codec's output half. */
 function dataOf(node: Node): DataFields {
   return {
+    branch: node.branch,
     external_ref: node.external_ref,
+    harness: node.harness,
     hold: node.hold,
     hold_reason: node.hold_reason,
+    host: node.host,
     lifecycle: node.lifecycle,
     open_ended: node.open_ended,
     priority: node.priority,
+    session: node.session,
     size: node.size,
     summary: node.summary,
     target: node.target,
@@ -71,12 +79,16 @@ function roundTrip(node: Node): DataFields {
 
 /** A representative non-null value per field, valid for the field's kind. */
 const REPRESENTATIVE: Record<DataFieldKey, string | boolean> = {
+  branch: 'feat/mmr-320-execution-metadata',
   external_ref: 'JIRA-123',
+  harness: 'codex',
   hold: 'blocked',
   hold_reason: 'waiting on review',
+  host: 'workbench.local',
   lifecycle: 'in_progress',
   open_ended: true,
   priority: 'p1',
+  session: 's-01J8ABCD',
   size: 'medium',
   summary: 'the short lede',
   target: '2026-Q3',
@@ -148,6 +160,22 @@ test('null/unset optional fields round-trip as null (omit-empty)', () => {
   expect(decoded.external_ref).toBeNull();
   expect(decoded.upstream).toBeNull();
   expect(decoded.summary).toBeNull();
+  // The resume handles (MMR-320): an unclaimed task carries none, and absence is
+  // a legitimate state — never a default, never a repair signal.
+  expect(decoded.host).toBeNull();
+  expect(decoded.harness).toBeNull();
+  expect(decoded.session).toBeNull();
+  expect(decoded.branch).toBeNull();
+});
+
+test('the resume handles are task-only — a container never carries them', () => {
+  const fm: Record<string, unknown> = {};
+  emitDataFields(fm, baseNode('phase', {}));
+  expect(fm.host).toBeUndefined();
+  // A stray handle on a container's frontmatter is type-gated out on read.
+  const decoded = decodeDataFields({ branch: 'feat/x', host: 'box' }, 'phase', 'MMR-1');
+  expect(decoded.host).toBeNull();
+  expect(decoded.branch).toBeNull();
 });
 
 test('a foreign priority/size nulls the field (tolerant read), unlike a foreign hold', () => {

@@ -122,5 +122,10 @@ export async function logTransition(
   w: StoreWriter,
   row: Omit<NewTransitionRecord, 'at'>,
 ): Promise<void> {
-  await w.appendTransition({ ...row, at: now() });
+  // An EMPTY handle record is "no handles moved", not "handles moved to nothing"
+  // — normalize it away here (the one choke point) so a row either carries a
+  // non-empty echo or none at all, and the codec round-trips it exactly.
+  const handles =
+    row.handles !== undefined && Object.keys(row.handles).length > 0 ? row.handles : undefined;
+  await w.appendTransition({ ...row, at: now(), handles });
 }

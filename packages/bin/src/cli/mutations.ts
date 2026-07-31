@@ -5,11 +5,12 @@
  */
 
 import {
+  HANDLE_FIELD_KEYS,
   isTerminalLifecycle,
   SEED_KIND_VALUES,
   SEED_STATUS_SELECTOR_VALUES,
 } from '@mimir/contract';
-import type { OpTransition, SeedKind, UniformVerb } from '@mimir/contract';
+import type { DataFieldKey, OpTransition, SeedKind, UniformVerb } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import {
@@ -39,6 +40,7 @@ import {
   resolveEntityTokenInSet,
   resolveNodeTokenInSet,
   resolveBoard,
+  specUpdateFields,
   tagEntities,
   transitionSeed,
   triage,
@@ -158,10 +160,15 @@ function echoTransitionSuffix(t: OpTransition, plain: boolean): string {
  * (past-participle word + transition suffix + reason tail). Archive's
  * out-of-project released-dependents line and the project-echo shape stay a
  * narrow, documented CLI seam — verb-specific view behavior, not silent loss.
+ *
+ * A verb that declares extra data-plane fields ({@link OpFact.fields} — only
+ * `start`'s resume handles) reads them through the SAME flag template and wire
+ * parser the generic `update` uses, so nothing about the arm is verb-special.
  */
 export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
   const op = OPS[verb];
   const reason = op.reason === 'optional' ? reasonTail(c) : undefined;
+  const fields = readUniformFields(c, op.fields ?? []);
   const word = pastParticiple(verb);
   if (op.subject === 'project') {
     const key = requirePos(c, 1, verb, 'a project KEY');
@@ -194,12 +201,34 @@ export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
     return 0;
   }
   const id = await resolveNode(c.store, requirePos(c, 1, verb), 'task');
-  await op.run(c.store, id, reason);
+  await op.run(c.store, id, reason, fields);
   const suffix = echoTransitionSuffix(op.transition, c.io.plain);
   await echoNodeWith(c.store, id, c.format, c.io, (rid) =>
     withReason(`${word} ${rid}${suffix}`, reason),
   );
   return 0;
+}
+
+/**
+ * Read a uniform verb's declared extra data-plane fields off the CLI flags (ADR
+ * 0026, MMR-320) — the same {@link updateFieldFlags} spelling and
+ * {@link parseWireField} grammar `update` reads them by, so `mimir start MMR-3
+ * --host …` and `mimir update MMR-3 --host …` cannot diverge. An empty
+ * declaration (the other eleven verbs) reads nothing and allocates one empty
+ * object.
+ */
+function readUniformFields(c: Ctx, keys: readonly DataFieldKey[]): UpdateFields {
+  const fields: UpdateFields = {};
+  applyUpdateFields(
+    fields,
+    (field) => {
+      const [key] = updateFieldFlags(field.update)[0] ?? [];
+      const raw = key === undefined ? undefined : optStr(c, key);
+      return raw === undefined ? undefined : parseWireField(field.kind, raw);
+    },
+    specUpdateFields(keys),
+  );
+  return fields;
 }
 
 /** Echo a project archive/unarchive — a signpost (the project view doesn't surface archived state until Phase 1). */
@@ -814,6 +843,8 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       const node = await createNode(c.store, {
         description: optStr(c, 'desc'),
         externalRef: optStr(c, 'ref'),
+        // The resume handles (MMR-320) — same flags `start`/`update` read.
+        handles: readUniformFields(c, HANDLE_FIELD_KEYS),
         openEnded: openEndedFlag(c),
         parent: requireParentShape(
           c,

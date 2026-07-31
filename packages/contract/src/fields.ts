@@ -27,7 +27,29 @@ export type DataFieldKey =
   | 'external_ref'
   | 'upstream'
   | 'target'
-  | 'open_ended';
+  | 'open_ended'
+  | 'host'
+  | 'harness'
+  | 'session'
+  | 'branch';
+
+/**
+ * The in-flight execution-metadata field keys (ADR 0026 Decision 3) — the four
+ * **resume handles** a task carries while it is being worked: what is happening,
+ * what did happen, how do I continue. Free strings, never telemetry: anything
+ * recoverable *from* the session (model, durations, token counts) stays out.
+ * Listed in canonical (alphabetical) order, the order every derived surface —
+ * the transport args, the `## History` echo — renders them in.
+ */
+export const HANDLE_FIELD_KEYS = ['branch', 'harness', 'host', 'session'] as const;
+export type HandleFieldKey = (typeof HANDLE_FIELD_KEYS)[number];
+
+/**
+ * A set of resume handles, omit-when-absent: a handle is a key here only when
+ * it is actually set. The shape `start` records at its transition, the clearing
+ * verbs echo on the row they clear, and the `## History` codec round-trips.
+ */
+export type ExecutionHandles = Partial<Record<HandleFieldKey, string>>;
 
 /** A field **kind** *name* — the pure-fact half of a kind (ADR 0025 Decision 2).
  * The name selects the parser/emitter pair, wire schema fragment, and query
@@ -71,12 +93,16 @@ const ALL_TYPES = ['task', 'phase', 'initiative'] as const;
  * union it compile-checks its `UpdateFields` vocabulary against (ADR 0025).
  */
 export const FIELD_FACTS = {
+  branch: { appliesTo: TASK, key: 'branch', kind: 'string', update: 'branch' },
   external_ref: { appliesTo: TASK, key: 'external_ref', kind: 'string', update: 'externalRef' },
+  harness: { appliesTo: TASK, key: 'harness', kind: 'string', update: 'harness' },
   hold: { appliesTo: TASK, key: 'hold', kind: 'enum:hold' },
   hold_reason: { appliesTo: TASK, key: 'hold_reason', kind: 'string' },
+  host: { appliesTo: TASK, key: 'host', kind: 'string', update: 'host' },
   lifecycle: { appliesTo: TASK, key: 'lifecycle', kind: 'enum:lifecycle', required: true },
   open_ended: { appliesTo: CONTAINERS, key: 'open_ended', kind: 'bool', update: 'openEnded' },
   priority: { appliesTo: TASK, key: 'priority', kind: 'enum:priority', update: 'priority' },
+  session: { appliesTo: TASK, key: 'session', kind: 'string', update: 'session' },
   size: { appliesTo: TASK, key: 'size', kind: 'enum:size', update: 'size' },
   summary: { appliesTo: ALL_TYPES, key: 'summary', kind: 'string', update: 'summary' },
   target: { appliesTo: ['phase'], key: 'target', kind: 'string', update: 'target' },

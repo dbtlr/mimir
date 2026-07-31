@@ -1,6 +1,7 @@
 import { OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { OpFact, UniformVerb } from '@mimir/contract';
 
+import { invariant } from './errors';
 import type { Node, Project } from './model';
 import {
   abandonTask,
@@ -16,6 +17,7 @@ import {
   unblockTask,
   unparkTask,
 } from './mutations';
+import type { HandleFields } from './mutations/handles';
 import type { Store } from './store';
 
 /**
@@ -44,12 +46,14 @@ export type OpResult = Node | Project;
  * One uniform verb's spec — the pure facts ({@link OpFact}) plus the `run`
  * binding. `run` receives the already-resolved canonical id (a node stem for a
  * `task` subject, a project id for a `project` subject — each transport does its
- * own subject-kind resolution) and the optional reason, and delegates to the core
- * mutation fn. A reason-less verb's binding drops the argument (e.g.
- * `unarchiveProject` takes no reason slot at all — absorbed here).
+ * own subject-kind resolution), the optional reason, and the extra data-plane
+ * fields the verb's {@link OpFact.fields} declares (only `start`'s resume
+ * handles), and delegates to the core mutation fn. A binding drops the arguments
+ * its verb doesn't take (e.g. `unarchiveProject` has no reason slot at all —
+ * absorbed here), so the widened signature costs the other eleven nothing.
  */
 export type OpSpec = OpFact & {
-  run: (store: Store, id: string, reason?: string) => Promise<OpResult>;
+  run: (store: Store, id: string, reason?: string, fields?: HandleFields) => Promise<OpResult>;
 };
 
 /** The per-verb `run` bindings — the one place code pairs with a fact. Keyed by
@@ -63,7 +67,7 @@ const OP_RUN: Record<UniformVerb, OpSpec['run']> = {
   park: (store, id, reason) => parkTask(store, id, reason),
   reopen: (store, id, reason) => reopenTask(store, id, reason),
   return: (store, id, reason) => returnTask(store, id, reason),
-  start: (store, id) => startTask(store, id),
+  start: (store, id, _reason, fields) => startTask(store, id, fields),
   submit: (store, id) => submitTask(store, id),
   unarchive: (store, id) => unarchiveProject(store, id),
   unblock: (store, id) => unblockTask(store, id),
@@ -76,9 +80,32 @@ const OP_RUN: Record<UniformVerb, OpSpec['run']> = {
  * uniform verb; a transport iterates {@link UNIFORM_VERBS} for grouped rendering
  * or looks up by verb for dispatch.
  */
+/**
+ * Refuse a fact that declares extra data-plane fields on a PROJECT subject (ADR
+ * 0026): such a verb's `run` returns a Project row, and the transports' project
+ * arms — the CLI's `echoArchiveOp`, the MCP project branch, the HTTP project
+ * route — have nowhere to route a field patch, so the fields would be advertised
+ * and silently dropped. Refused when the registry is built, not at the first lost
+ * write. (`specUpdateFields` separately refuses a key the generic `update` doesn't
+ * own; together they are the whole legality of the extra-args fact.)
+ */
+export function assertOpFields(verb: string, fact: OpFact): void {
+  if (fact.subject === 'project' && (fact.fields ?? []).length > 0) {
+    throw invariant(
+      `${verb} declares data-plane fields on a project subject`,
+      'only a task-subject verb can record fields at its transition',
+    );
+  }
+}
+
 const OP_ENTRIES: [UniformVerb, OpSpec][] = [];
 for (const verb of UNIFORM_VERBS) {
-  OP_ENTRIES.push([verb, { ...OP_FACTS[verb], run: OP_RUN[verb] }]);
+  // Read through the declared fact type: `OP_FACTS`'s `as const` narrows each
+  // entry to exactly the keys it happens to carry, which would make the guard
+  // statically vacuous for today's table rather than a live check.
+  const fact: OpFact = OP_FACTS[verb];
+  assertOpFields(verb, fact);
+  OP_ENTRIES.push([verb, { ...fact, run: OP_RUN[verb] }]);
 }
 // `Object.fromEntries` erases the key union to `string`; the entries are exactly
 // the `UniformVerb` set (one per verb), so the narrow back is sound.

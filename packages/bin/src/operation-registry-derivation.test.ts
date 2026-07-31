@@ -4,8 +4,14 @@ import { OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { OpFact } from '@mimir/contract';
 import { z } from 'zod';
 
-import { COMMAND_HELP, TERSE_HELP, uniformArgSpec, uniformSummary } from './cli/help';
-import { OP_SPECS } from './core';
+import {
+  COMMAND_HELP,
+  TERSE_HELP,
+  uniformArgSpec,
+  uniformFlagSpec,
+  uniformSummary,
+} from './cli/help';
+import { assertOpFields, OP_SPECS } from './core';
 import { uniformRoutes } from './http/server';
 import { buildMcpServer, uniformToolDescription, uniformToolSchema } from './mcp/server';
 import { inertStore } from './testing/store';
@@ -136,6 +142,100 @@ test('golden: the per-command arg rows are pinned exactly', () => {
     `archive|${key}; ${reason}`,
     `unarchive|${key}`,
   ]);
+});
+
+// ── Extra data-plane fields on a uniform verb (ADR 0026, MMR-320) ────────────
+// One verb (`start`) declares fields it records at its transition. The fact is
+// optional, so the OTHER eleven must render byte-identically to before it
+// existed — these pins are the regression fence around that claim.
+
+test('golden: only start declares extra data-plane fields', () => {
+  expect(OP_SPECS.flatMap((s) => (s.fields === undefined ? [] : [s.verb]))).toEqual(['start']);
+  expect(OP_FACTS.start.fields).toEqual(['branch', 'harness', 'host', 'session']);
+});
+
+test('golden: the advertised MCP arg names are pinned per verb', () => {
+  // Only `start` gained args; every other verb advertises exactly its subject id
+  // (+ reason where its policy allows one), in advertised alphabetical order.
+  expect(OP_SPECS.map((s) => `${s.verb}|${mcpToolProps(s.verb).join(',')}`)).toEqual([
+    'start|branch,harness,host,id,session',
+    'submit|id',
+    'return|id,reason',
+    'done|id',
+    'abandon|id,reason',
+    'reopen|id,reason',
+    'park|id,reason',
+    'unpark|id',
+    'block|id,reason',
+    'unblock|id',
+    'archive|key,reason',
+    'unarchive|key',
+  ]);
+});
+
+test('golden: the CLI usage lines and flag rows are pinned per verb', () => {
+  // The eleven keep a bare `mimir <verb> <subject> [reason?]` usage and NO flags
+  // key at all; `start` appends its derived flag grammar.
+  expect(OP_SPECS.map((s) => `${s.verb}|${COMMAND_HELP[s.verb]?.usage ?? ''}`)).toEqual([
+    'start|mimir start <id> [--branch <text>] [--harness <text>] [--host <text>] [--session <text>]',
+    'submit|mimir submit <id>',
+    'return|mimir return <id> [reason]',
+    'done|mimir done <id>',
+    'abandon|mimir abandon <id> [reason]',
+    'reopen|mimir reopen <id> [reason]',
+    'park|mimir park <id> [reason]',
+    'unpark|mimir unpark <id>',
+    'block|mimir block <id> [reason]',
+    'unblock|mimir unblock <id>',
+    'archive|mimir archive <KEY> [reason]',
+    'unarchive|mimir unarchive <KEY>',
+  ]);
+  for (const spec of OP_SPECS) {
+    expect(COMMAND_HELP[spec.verb]?.flags === undefined).toBe(spec.verb !== 'start');
+  }
+  expect(COMMAND_HELP.start?.flags).toEqual([
+    ['--branch', 'the branch the work lives on'],
+    ['--harness', 'the agent harness running it'],
+    ['--host', 'the machine the work is happening on'],
+    ['--session', 'the session id to resume from'],
+  ]);
+});
+
+test('the registry refuses extra data-plane fields on a project subject', () => {
+  // A project verb's `run` returns a Project row, and every transport's project
+  // arm has nowhere to route a field patch — so declaring one would be advertised
+  // and silently dropped. Exercised through the same synthetic-fact pattern the
+  // builders use, since the live table can never reach the branch.
+  const projectFact: OpFact = {
+    fields: ['host'],
+    reason: 'none',
+    subject: 'project',
+    summary: 'freeze a project',
+    transition: { axis: 'archive', from: 'active', to: 'archived' },
+  };
+  expect(() => assertOpFields('freeze', projectFact)).toThrow(
+    /declares data-plane fields on a project subject/,
+  );
+  // A task subject declaring the same field is fine, and so is a project subject
+  // declaring none — the guard is exactly the one combination.
+  expect(() => assertOpFields('claim', { ...projectFact, subject: 'task' })).not.toThrow();
+  expect(() => assertOpFields('freeze', { ...projectFact, fields: [] })).not.toThrow();
+  // ...and the live registry passes it (every entry was bound at module load).
+  for (const spec of OP_SPECS) {
+    expect(() => assertOpFields(spec.verb, spec)).not.toThrow();
+  }
+});
+
+test('a synthetic verb declaring no extra fields renders exactly as it always did', () => {
+  const bare: OpFact = {
+    reason: 'none',
+    subject: 'task',
+    summary: 'do the thing',
+    transition: { axis: 'lifecycle', from: ['todo'], to: 'in_progress' },
+  };
+  expect(uniformFlagSpec(bare)).toBe('');
+  expect(uniformArgSpec(bare)).toBe('<id>');
+  expect(Object.keys(uniformToolSchema(bare))).toEqual(['id']);
 });
 
 test('the transport builders are pure over the registry: a synthetic verb propagates', () => {

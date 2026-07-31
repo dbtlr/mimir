@@ -360,6 +360,11 @@ class Accumulator {
     rank?: number | null;
     external_ref?: string | null;
     upstream?: string | null;
+    /** The in-flight resume handles (MMR-320) — normally stamped later by `start`. */
+    host?: string | null;
+    harness?: string | null;
+    session?: string | null;
+    branch?: string | null;
     target?: string | null;
     open_ended?: boolean | null;
   }): Promise<Node> {
@@ -369,12 +374,15 @@ class Accumulator {
     }
     const timestamp = now();
     const node: Node = {
+      branch: row.branch ?? null,
       completed_at: null,
       created_at: timestamp,
       description: row.description ?? null,
       external_ref: row.external_ref ?? null,
+      harness: row.harness ?? null,
       hold: row.hold ?? (row.type === 'task' ? 'none' : null),
       hold_reason: null,
+      host: row.host ?? null,
       id: '',
       lifecycle: row.lifecycle ?? null,
       open_ended: row.open_ended ?? null,
@@ -383,6 +391,7 @@ class Accumulator {
       project_id: row.project_id,
       rank: row.rank ?? null,
       seq: 0,
+      session: row.session ?? null,
       size: row.size ?? null,
       summary: row.summary ?? null,
       target: row.target ?? null,
@@ -540,6 +549,11 @@ class Accumulator {
       reason: row.reason ?? null,
       to: row.to_value,
     };
+    // The resume-handle echo (MMR-320) — set only when the transition moved them,
+    // so a non-boundary row carries no key at all.
+    if (row.handles !== undefined) {
+      entry.handles = row.handles;
+    }
     // Fail loud on an unresolvable target: a transition against a same-transact
     // create (which has no canonical stem yet) or a node/project absent from the
     // snapshot must not be dropped — that would lose History. Creation itself

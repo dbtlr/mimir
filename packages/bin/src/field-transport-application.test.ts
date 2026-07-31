@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
+import { HANDLE_FIELD_KEYS } from '@mimir/contract';
 import type { NodeType } from '@mimir/contract';
 import type { Server } from 'bun';
 
@@ -194,10 +195,14 @@ for (const field of SPEC_UPDATE_FIELDS) {
  * surface on the field's canonical node type and asserts the passed value lands.
  *
  * Coverage: every spec field is accepted AND applied at create on all three transports
- * (task carries external_ref/priority/size/summary/upstream; a phase carries
+ * (a task carries external_ref/priority/size/summary/upstream and the four resume
+ * handles branch/harness/host/session, MMR-320; a phase carries
  * open_ended/summary/target; an initiative open_ended/summary), so none is skipped —
  * there is no create-time-only omission on any transport. A field advertised at create
- * but dropped by its hand-map arm turns this suite red.
+ * but dropped by its hand-map arm turns this suite red: the cases are GENERATED from
+ * `SPEC_UPDATE_FIELDS`, so they are named per field (`cli create applies host onto a
+ * task`) rather than hand-listed. `handleCreateCoverage` below is the guard that a
+ * field can never quietly leave that generated matrix.
  */
 
 /** The parent token a create of `type` needs, over the shared fixture: a task's
@@ -279,6 +284,18 @@ const CREATE_DRIVERS: [name: string, drive: CreateDriver][] = [
   ['http', httpCreate],
   ['mcp', mcpCreate],
 ];
+
+// Guard (MMR-320): the create matrix above is generated from the spec, so a field
+// that quietly loses its `update` marker would take its three create cases with it
+// and the suite would still pass. Name the handle fields explicitly, so the
+// three hand-written create arms can never go uncovered without a red test.
+test('the generated create matrix covers every resume handle', () => {
+  const covered = new Set(SPEC_UPDATE_FIELDS.map((f) => f.key));
+  for (const key of HANDLE_FIELD_KEYS) {
+    expect(covered.has(key)).toBe(true);
+  }
+  expect(CREATE_DRIVERS.map(([name]) => name)).toEqual(['cli', 'http', 'mcp']);
+});
 
 for (const field of SPEC_UPDATE_FIELDS) {
   const type = FIELD_SPEC[field.key].appliesTo[0];

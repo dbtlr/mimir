@@ -68,11 +68,20 @@ test('golden: the advertised update/create schemas are pinned exactly', () => {
     priority: { enum: ['p0', 'p1', 'p2', 'p3'], type: 'string' },
     size: { enum: ['small', 'medium', 'large'], type: 'string' },
   };
+  // The four resume handles (MMR-320) are plain `string` kind, so they join both
+  // write schemas by their spec entries alone.
+  const handles = {
+    branch: { type: 'string' },
+    harness: { type: 'string' },
+    host: { type: 'string' },
+    session: { type: 'string' },
+  };
   const update = mcpToolSchema('update');
   expect(update).toEqual({
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     additionalProperties: false,
     properties: {
+      ...handles,
       description: { type: 'string' },
       externalRef: { type: 'string' },
       id: { type: 'string' },
@@ -92,6 +101,7 @@ test('golden: the advertised update/create schemas are pinned exactly', () => {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     additionalProperties: false,
     properties: {
+      ...handles,
       description: { type: 'string' },
       externalRef: { type: 'string' },
       key: { type: 'string' },

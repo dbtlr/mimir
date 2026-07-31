@@ -78,6 +78,12 @@ export async function buildNodeView(
     view.holdReason = node.hold_reason;
     view.externalRef = node.external_ref;
     view.upstream = node.upstream;
+    // The resume handles (MMR-320) ride like every other task scalar — present
+    // and null when unset, so a consumer reads one stable key set per task.
+    view.host = node.host;
+    view.harness = node.harness;
+    view.session = node.session;
+    view.branch = node.branch;
     view.completedAt = node.completed_at;
   } else if (node.type === 'phase') {
     view.target = node.target;

@@ -41,12 +41,15 @@ function project(overrides: Partial<Project> = {}): Project {
 function task(projectId: string, overrides: Partial<Node> = {}): Node {
   const nodeSeq = nextSeq();
   return {
+    branch: null,
     completed_at: null,
     created_at: AT,
     description: null,
     external_ref: null,
+    harness: null,
     hold: 'none' satisfies Hold,
     hold_reason: null,
+    host: null,
     id: `${projectId}-${String(nodeSeq)}`,
     lifecycle: 'todo' satisfies Lifecycle,
     open_ended: null,
@@ -55,6 +58,7 @@ function task(projectId: string, overrides: Partial<Node> = {}): Node {
     project_id: projectId,
     rank: null,
     seq: nodeSeq,
+    session: null,
     size: null,
     summary: null,
     target: null,

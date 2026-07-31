@@ -20,6 +20,8 @@ import {
   requireTask,
   stamp,
 } from './common';
+import { applyHandlePatch } from './handles';
+import type { HandleFields } from './handles';
 
 /**
  * Data + structural-order verbs that aren't status-bearing: the dumb `update`
@@ -65,9 +67,28 @@ export type UpdateFields = {
   upstream?: string | null;
   /** Container-only (phase/initiative) — opt in/out of open-ended (MMR-204). */
   openEnded?: boolean;
+  /**
+   * The in-flight resume handles (ADR 0026 Decision 3, MMR-320) — task-only free
+   * strings. There is no claim verb: resume or takeover is an ordinary `update`
+   * overwrite of these, and a blank clears one.
+   */
+  host?: string | null;
+  harness?: string | null;
+  session?: string | null;
+  branch?: string | null;
 };
 
 export type UpdateFieldKey = keyof UpdateFields;
+
+/** Compile guard (MMR-320): {@link HandleFields} is declared standalone in
+ * `handles.ts` — so the codec-side handle machinery needn't depend on the whole
+ * `update` vocabulary — and must stay exactly a slice of {@link UpdateFields}.
+ * A key that drifts out of the update plane makes this alias non-`never`. */
+type UnregisteredHandleKey = Exclude<keyof HandleFields, UpdateFieldKey>;
+type _HandleKeysAreUpdateKeys = AssertNever<UnregisteredHandleKey>;
+type _HandleValuesMatchUpdate = AssertNever<
+  HandleFields extends Pick<UpdateFields, keyof HandleFields> ? never : 'handle slice drifted'
+>;
 
 /**
  * The two update targets outside the data-plane spec (ADR 0025): `title` is
@@ -144,7 +165,9 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     // fields are task-only now comes from the spec, not a hand-typed condition.
     const taskOnly = updateKeysForTypes(['task']);
     if (taskOnly.some((key) => fields[key] !== undefined) && node.type !== 'task') {
-      throw validation('priority, size, external_ref, and upstream apply only to tasks');
+      throw validation(
+        'priority, size, external_ref, upstream, and the execution handles (host, harness, session, branch) apply only to tasks',
+      );
     }
     if (fields.target !== undefined && node.type !== 'phase') {
       throw validation('target applies only to phases');
@@ -181,6 +204,9 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     if (fields.openEnded !== undefined) {
       patch.open_ended = fields.openEnded;
     }
+    // The resume handles (MMR-320) run the shared normalizer, so a blank clears
+    // one and a multi-line paste can't break its `## History` echo line.
+    applyHandlePatch(patch, fields);
 
     if (Object.keys(patch).length > 0) {
       patch.updated_at = now();

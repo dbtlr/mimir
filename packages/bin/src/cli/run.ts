@@ -151,6 +151,12 @@ const OPTIONS = {
   'install-snapshot': { type: 'boolean' },
   'snapshot-interval': { type: 'string' },
   upstream: { type: 'string' },
+  // the resume handles (ADR 0026 Decision 3, MMR-320) — set at `start`,
+  // overwritten by `update` on resume or takeover
+  host: { type: 'string' },
+  harness: { type: 'string' },
+  session: { type: 'string' },
+  branch: { type: 'string' },
   // seed verbs (MMR-245)
   kind: { short: 'k', type: 'string' },
   requester: { type: 'string' },

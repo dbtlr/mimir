@@ -73,6 +73,7 @@ import {
   parseWireField,
   projectTree,
   reorder,
+  specUpdateFields,
   tagEntities,
   treeToWire,
   undepend,
@@ -293,6 +294,34 @@ function uniformReason(spec: UniformRouteSpec, body: Record<string, unknown>): s
   return spec.reason === 'optional' ? strField(body, 'reason') : undefined;
 }
 
+/** The body keys a uniform verb accepts: its reason (per policy) plus the
+ * snake_case keys of the extra data-plane fields it declares (ADR 0026 — only
+ * `start`'s resume handles). An empty allow-list still rejects any other key.
+ * The node route only: a project-subject verb can declare no fields at all (the
+ * registry refuses one at load), so its route keeps the bare reason allow-list. */
+function uniformBodyFields(spec: UniformRouteSpec): string[] {
+  return [
+    ...(spec.reason === 'optional' ? ['reason'] : []),
+    ...nodeBodyFields(specUpdateFields(spec.fields ?? [])),
+  ];
+}
+
+/** The extra data-plane fields a uniform verb records, read off its body by
+ * snake_case key through the shared wire parser — the same accept-AND-apply
+ * loop the `PATCH` route runs, so the two doors can't diverge. */
+function uniformFields(spec: UniformRouteSpec, body: Record<string, unknown>): UpdateFields {
+  const fields: UpdateFields = {};
+  applyUpdateFields(
+    fields,
+    (field) => {
+      const raw = strField(body, field.key);
+      return raw === undefined ? undefined : parseWireField(field.kind, raw);
+    },
+    specUpdateFields(spec.fields ?? []),
+  );
+  return fields;
+}
+
 /** A matched route param under the generic `BunRequest` (params typed as an index
  * signature): Bun always populates the `:id`/`:key` segment a route matched on,
  * so the coalesce only keeps the type a `string` — the empty fallback is
@@ -307,9 +336,14 @@ function uniformNodeRoute(store: Store, spec: UniformRouteSpec): UniformRoute {
   return {
     POST: (req) =>
       guarded(req, async () => {
-        const body = await readBody(req, spec.reason === 'optional' ? ['reason'] : []);
+        const body = await readBody(req, uniformBodyFields(spec));
         const id = await nodeRef(store, routeParam(req, 'id'), 'task');
-        const node = await spec.run(store, id, uniformReason(spec, body));
+        const node = await spec.run(
+          store,
+          id,
+          uniformReason(spec, body),
+          uniformFields(spec, body),
+        );
         // The task subject guarantees a Node row from `run`.
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         const row = node as Parameters<typeof echoNode>[2];
@@ -718,6 +752,14 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               const node = await createNode(store, {
                 description,
                 externalRef: strField(body, 'external_ref'),
+                // The resume handles (MMR-320) — accepted at create like every
+                // other generic-`update` spec field; `start` usually sets them.
+                handles: {
+                  branch: strField(body, 'branch'),
+                  harness: strField(body, 'harness'),
+                  host: strField(body, 'host'),
+                  session: strField(body, 'session'),
+                },
                 openEnded,
                 parent,
                 parentHints,

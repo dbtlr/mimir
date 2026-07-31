@@ -17,7 +17,7 @@ import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import type { ZodRawShape } from 'zod';
 
-import { OP_SPECS, SPEC_UPDATE_FIELDS } from '../core';
+import { OP_SPECS, specUpdateFields, SPEC_UPDATE_FIELDS } from '../core';
 import type { SeedStatusSelector, SpecUpdateField, Store } from '../core';
 import {
   toolAnnotate,
@@ -45,7 +45,7 @@ import {
   toolUpdate,
   toolErrorResult,
 } from './tools';
-import type { SetQueryArgs, ToolResult } from './tools';
+import type { SetQueryArgs, ToolResult, UniformToolArgs } from './tools';
 
 /**
  * The MCP server — the agent envelope. Registers read + write tools over the
@@ -126,14 +126,22 @@ export function fieldInputShape(
 
 /**
  * The MCP input schema for a uniform verb (ADR 0025) — the subject id arg (`id`
- * for a task, `key` for a project) plus an optional `reason` when the verb's
- * policy accepts one. Pure over the operation fact, so a new registry entry
- * registers its tool with no edit here.
+ * for a task, `key` for a project), an optional `reason` when the verb's policy
+ * accepts one, and the extra data-plane fields the verb declares (ADR 0026 —
+ * only `start`'s resume handles), typed by the SAME kind fragment the `update`
+ * tool derives. Pure over the operation fact, so a new registry entry registers
+ * its tool with no edit here; a verb declaring no extra fields advertises exactly
+ * what it did before.
  */
 export function uniformToolSchema(spec: OpFact): ZodRawShape {
   const subject: ZodRawShape =
     spec.subject === 'project' ? { key: z.string() } : { id: z.string() };
-  return spec.reason === 'optional' ? { ...subject, reason: z.string().optional() } : subject;
+  const reason: ZodRawShape = spec.reason === 'optional' ? { reason: z.string().optional() } : {};
+  return sortedShape({
+    ...subject,
+    ...reason,
+    ...fieldInputShape(specUpdateFields(spec.fields ?? [])),
+  });
 }
 
 /**
@@ -457,7 +465,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       spec.verb,
       uniformToolDescription(spec),
       uniformToolSchema(spec),
-      (args: { id?: string; key?: string; reason?: string }) => toolUniform(store, spec.verb, args),
+      (args: UniformToolArgs) => toolUniform(store, spec.verb, args),
     );
   }
 
@@ -513,7 +521,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'update',
-    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, upstream, openEnded), patch an artifact (KEY-aN: title, summary), or patch a live seed (KEY-sN: title, kind, description). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers; upstream (a KEY-sN seed pointer) only to tasks — pass the literal string 'none' to clear it (omit it to leave it untouched; blank is rejected). Echoes the updated record.",
+    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, upstream, openEnded, and the resume handles host/harness/session/branch), patch an artifact (KEY-aN: title, summary), or patch a live seed (KEY-sN: title, kind, description). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers; upstream (a KEY-sN seed pointer) only to tasks — pass the literal string 'none' to clear it (omit it to leave it untouched; blank is rejected). The resume handles are task-only in-flight metadata (set them on start; overwrite them here to resume or take over; a blank clears one). Echoes the updated record.",
     // The scalar-field args derive from the field spec (ADR 0025); the bespoke
     // identity/topology args (id) and the non-node targets (title/description,
     // seed kind) stay hand-listed. Sorted to keep the advertised alphabetical order.
@@ -534,6 +542,10 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       target?: string;
       externalRef?: string;
       upstream?: string;
+      host?: string;
+      harness?: string;
+      session?: string;
+      branch?: string;
       kind?: string;
       openEnded?: boolean;
     }) => toolUpdate(store, args),
@@ -603,6 +615,10 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       size?: string;
       externalRef?: string;
       upstream?: string;
+      host?: string;
+      harness?: string;
+      session?: string;
+      branch?: string;
       openEnded?: boolean;
       tags?: string[];
     }) => toolCreate(store, args),

@@ -59,6 +59,20 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.upstream !== undefined) {
     wire.upstream = node.upstream;
   }
+  // The resume handles (MMR-320) — task-only, so present exactly when the view
+  // populated them, like external_ref/upstream above.
+  if (node.host !== undefined) {
+    wire.host = node.host;
+  }
+  if (node.harness !== undefined) {
+    wire.harness = node.harness;
+  }
+  if (node.session !== undefined) {
+    wire.session = node.session;
+  }
+  if (node.branch !== undefined) {
+    wire.branch = node.branch;
+  }
   if (node.target !== undefined) {
     wire.target = node.target;
   }
@@ -115,6 +129,8 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
     wire.history = node.history.map((h) => ({
       at: h.at,
       from: h.from,
+      // The resume-handle echo (MMR-320) rides only the rows that moved them.
+      ...(h.handles === undefined ? {} : { handles: h.handles }),
       kind: h.kind,
       reason: h.reason,
       to: h.to,

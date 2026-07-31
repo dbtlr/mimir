@@ -1,4 +1,5 @@
 import type {
+  ExecutionHandles,
   Hold,
   Lifecycle,
   NodeType,
@@ -94,6 +95,11 @@ export type NewNodeRecord = {
   external_ref?: string | null;
   /** The requester-side seed pointer (`KEY-sN`), nullable (MMR-244). */
   upstream?: string | null;
+  /** The in-flight resume handles (ADR 0026 Decision 3, MMR-320). */
+  host?: string | null;
+  harness?: string | null;
+  session?: string | null;
+  branch?: string | null;
   // phase-only
   target?: string | null;
   // container-only (phase/initiative) — MMR-204
@@ -116,6 +122,11 @@ export type NodePatch = {
   external_ref?: string | null;
   /** The requester-side seed pointer (`KEY-sN`), nullable (MMR-244). */
   upstream?: string | null;
+  /** The in-flight resume handles (ADR 0026 Decision 3, MMR-320) — `null` clears. */
+  host?: string | null;
+  harness?: string | null;
+  session?: string | null;
+  branch?: string | null;
   completed_at?: string | null;
   target?: string | null;
   // container-only (phase/initiative) — MMR-204
@@ -159,6 +170,9 @@ export type NewTransitionRecord = {
   from_value: string | null;
   to_value: string | null;
   reason?: string | null;
+  /** The resume handles this transition set or cleared (ADR 0026 Decision 3) —
+   * echoed onto the `## History` row so claim succession survives in the log. */
+  handles?: ExecutionHandles;
   // Core-supplied (MMR-173): stamped by `logTransition`, not the store, so the
   // transition time upholds the `stamp` invariant (the core is the sole
   // time-maintainer).
