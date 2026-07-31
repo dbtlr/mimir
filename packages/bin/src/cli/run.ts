@@ -125,6 +125,11 @@ const OPTIONS = {
   key: { type: 'string' },
   name: { type: 'string' },
   desc: { type: 'string' },
+  // The `next` field's write flag (MMR-321). Spelled `--direction` — ADR 0026's
+  // own word for what the `## Next` section holds — because `--next` is already
+  // taken, as a BOOLEAN, by `self-update`'s prerelease channel below, and one
+  // options table cannot carry a flag under two types.
+  direction: { type: 'string' },
   summary: { type: 'string' },
   target: { type: 'string' },
   ref: { type: 'string' },
@@ -271,6 +276,7 @@ export async function runCli(
     key?: string;
     name?: string;
     desc?: string;
+    direction?: string;
     summary?: string;
     target?: string;
     ref?: string;

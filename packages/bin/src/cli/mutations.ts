@@ -377,6 +377,12 @@ export async function cmdUpdate(c: Ctx): Promise<number> {
     fields.description = c.values.desc;
     changed.push('description');
   }
+  // The `## Next` narrative (MMR-321) — body prose like `--desc`, so it is read
+  // here rather than through the data-plane spec.
+  if (typeof c.values.direction === 'string') {
+    fields.next = c.values.direction;
+    changed.push('next');
+  }
   const applied = applyUpdateFields(fields, (field) => {
     const reader = CLI_UPDATE_READERS[field.update];
     if (reader !== undefined) {
@@ -433,13 +439,18 @@ const kebab = (name: string): string => name.replace(/[A-Z]/g, (c) => `-${c.toLo
  * of fields is NOT listed here; {@link updateFieldFlags} renders whatever
  * {@link inapplicableUpdateFields} sweeps, so a new spec field surfaces with a
  * derived flag and no edit. The overrides are `--ref` (not `--external-ref`),
- * `--desc` (not `--description`), and `open_ended`'s on/off pair.
+ * `--desc` (not `--description`), `--direction` (not `--next`, MMR-321), and
+ * `open_ended`'s on/off pair.
  */
 const UPDATE_FLAG_OVERRIDES: Partial<
   Record<UpdateFieldKey, readonly (readonly [key: string, flag: string])[]>
 > = {
   description: [['desc', '--desc']],
   externalRef: [['ref', '--ref']],
+  // `--next` is already `self-update`'s boolean prerelease selector in the one
+  // shared options table, so the `## Next` narrative writes through ADR 0026's
+  // own word for it (MMR-321).
+  next: [['direction', '--direction']],
   openEnded: [
     ['open-ended', '--open-ended'],
     ['not-open-ended', '--not-open-ended'],
@@ -480,7 +491,8 @@ function rejectInapplicableFields(
   }
 }
 
-/** `update KEY` — patch a project's `name` and/or `description` (MMR-88). */
+/** `update KEY` — patch a project's `name`, `description`, and/or the owned
+ * `## Next` narrative (MMR-88, MMR-321). */
 async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
   rejectInapplicableFields(
     c,
@@ -494,6 +506,9 @@ async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
   }
   if (typeof c.values.desc === 'string') {
     fields.description = c.values.desc;
+  }
+  if (typeof c.values.direction === 'string') {
+    fields.next = c.values.direction;
   }
   await updateProject(c.store, projectId, fields);
   await echoProject(c.store, token, c.format, c.io);

@@ -185,6 +185,7 @@ options:
       --name <name>       create project: display name (or positional)
       --title <text>      create/update: title text
       --desc <text>       create/update: description
+      --direction <text>  update: the ## Next narrative (projects/containers)
       --summary <text>    create/update/attach: summary (nodes and artifacts; 256 chars max)
       --target <text>     create/update: target date or milestone
       --ref <ref>         create/update: external reference
@@ -458,10 +459,15 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir update MMR-3 --priority p1 --size m',
       'mimir update MMR-3 --desc "clarified scope"',
       'mimir update MMR --name "Mimir core"        # rename a project',
+      'mimir update MMR --direction "Ship the read path, then revisit caching."',
     ],
     flags: [
       ['--title <text>', 'title text'],
       ['--desc <text>', 'description'],
+      [
+        '--direction <text>',
+        'projects and containers: the ## Next narrative, re-authored whole (blank clears it)',
+      ],
       ['--summary <text>', 'summary (all-node; 256 chars max)'],
       ['--priority <p0..p3>', 'priority signal'],
       ['--size <s|m|l>', 'size'],
@@ -479,7 +485,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     summary: 'patch scalar fields (a dumb patch — status is excluded; use the lifecycle verbs)',
     usage:
-      'mimir update <id> [--title …] [--desc …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>] [--host …] [--harness …] [--session …] [--branch …]',
+      'mimir update <id> [--title …] [--desc …] [--direction …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>] [--host …] [--harness …] [--session …] [--branch …]',
   },
   annotate: {
     args: [A_ID, ['<text>', 'note body (or stdin when omitted)']],
