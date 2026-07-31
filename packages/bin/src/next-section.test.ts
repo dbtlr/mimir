@@ -315,6 +315,39 @@ test.skipIf(!NORN)('HTTP applies the narrative to a container and a project', as
   expect(await readNext('MMR')).toBe('http project direction');
 });
 
+// ── Create refuses the narrative ───────────────────────────────────────────
+
+/**
+ * `update` is the settled write surface (ADR 0026 Decision 2), so create must
+ * REFUSE the narrative rather than accept and discard it. The CLI's flag is
+ * parsed globally (one options table), so without an explicit guard
+ * `create … --direction "…"` exited 0 with the prose dropped on the floor —
+ * worse for being exactly where the `--next` hint sends the caller.
+ */
+
+test.skipIf(!NORN)('create refuses --direction and points at update (MMR-321)', async () => {
+  const out = await cli(
+    ['create', 'initiative', 'made with direction', '--parent', 'MMR', '--direction', 'prose'],
+    2,
+  );
+  expect(out).toContain("'--direction' doesn't apply to create");
+  expect(out).toContain('mimir update <id> --direction');
+  // Refused before any write: the node was never created.
+  expect(await cli(['tree', 'MMR'])).not.toContain('made with direction');
+});
+
+test.skipIf(!NORN)('the HTTP create body rejects a stray next field (MMR-321)', async () => {
+  const res = await fetch(`${base}/api/nodes`, {
+    body: JSON.stringify({ next: 'prose', parent: 'MMR', title: 'via http', type: 'initiative' }),
+    headers: { 'content-type': 'application/json' },
+    method: 'POST',
+  });
+  expect(res.status).toBe(400);
+  expect(((await res.json()) as { error?: { message?: string } }).error?.message).toContain(
+    'unknown body field next',
+  );
+});
+
 // ── Read surface ───────────────────────────────────────────────────────────
 
 test.skipIf(!NORN)('the records view shows the narrative only when set (MMR-321)', async () => {
