@@ -14,6 +14,8 @@ import type { AnnotationView, HistoryEntry } from '@mimir/contract';
  * pass should populate. */
 export type BodySectionFacets = {
   description?: boolean;
+  /** The `## Next` direction narrative (MMR-321) — project/container docs only. */
+  next?: boolean;
   annotations?: boolean;
   history?: boolean;
 };
@@ -21,8 +23,22 @@ export type BodySectionFacets = {
 /** A batched body-section read — only the facets named in the request are set. */
 export type BodySections = {
   description?: string | null;
+  next?: string | null;
   annotations?: AnnotationView[];
   history?: HistoryEntry[];
+};
+
+/**
+ * The `## Next` section as the WRITE path needs it (MMR-321): whether the
+ * heading exists at all, alongside its parsed prose. Presence is what picks the
+ * section op — a document with no `## Next` gets one inserted, one that has it
+ * gets its body replaced, and clearing removes the heading outright — and it
+ * cannot be inferred from `text` alone (a hand-emptied section is present but
+ * parses to null).
+ */
+export type NextSection = {
+  present: boolean;
+  text: string | null;
 };
 
 export type BodySectionStore = {
@@ -34,6 +50,13 @@ export type BodySectionStore = {
    * document body. Trimmed; empty → null.
    */
   readDescription: (stem: string) => Promise<string | null>;
+  /**
+   * The `## Next` direction narrative WITH its heading presence (MMR-321) — the
+   * read the write path takes before re-authoring the section, so it can tell an
+   * absent heading from an empty one and detect a no-op rewrite. The read facet
+   * goes through {@link readSections} instead; this is the write-side probe.
+   */
+  readNext: (stem: string) => Promise<NextSection>;
   /**
    * Read several body-section facets in one round-trip (MMR-164, F6). A detail
    * `get` assembling `description` + `annotations` + `history` reads one node

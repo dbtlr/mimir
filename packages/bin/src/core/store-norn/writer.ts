@@ -7,10 +7,13 @@ import {
   ANNOTATIONS_HEADING,
   DESCRIPTION_HEADING,
   HISTORY_HEADING,
+  NEXT_HEADING,
   renderAnnotationRecord,
   renderDescriptionSection,
   renderHistoryBody,
   renderHistoryRecord,
+  renderNextBlock,
+  renderNextSection,
   renderNodeBody,
 } from '../history-codec';
 import { parseId } from '../ids';
@@ -18,6 +21,7 @@ import type { Dependency, Node, Project } from '../model';
 import type {
   NewAnnotationRecord,
   NewTransitionRecord,
+  NextSectionWrite,
   NodeTag,
   Store,
   StoreWriter,
@@ -36,6 +40,8 @@ import {
   addFrontmatter,
   appendToSection,
   createDocument,
+  deleteSection,
+  insertBeforeHeading,
   migrationPlan,
   removeFrontmatter,
   replaceSection,
@@ -91,6 +97,10 @@ type Mutation = {
   history: HistoryAppend[];
   /** Queued `## Annotations` appends (nodes only; projects carry no annotations). */
   annotations: AnnotationAppend[];
+  /** The queued whole-section `## Next` re-authoring (MMR-321), when a verb set
+   * one. At most one per document: replace semantics means the last write wins,
+   * and there is no append grain to accumulate. */
+  next?: NextSectionWrite;
 };
 
 /** A queued create of one NEW document, private to the writer. */
@@ -327,6 +337,8 @@ class Accumulator {
       loadNode: (id) => Promise.resolve(this.cloneNode(id)),
       loadProject: (key) => Promise.resolve(this.cloneProject(this.projects.get(key))),
       loadWorkingSet: () => Promise.resolve(this.overlayWorkingSet()),
+      setNextSection: (entityType, entityId, write) =>
+        this.setNextSection(entityType, entityId, write),
       updateArtifact: () =>
         Promise.reject(invariant('artifact writes route through the artifact seam, not the plan')),
       updateNode: (id, patch) => this.updateNode(id, patch),
@@ -593,6 +605,27 @@ class Accumulator {
     return Promise.resolve();
   }
 
+  /**
+   * Queue the whole-section `## Next` re-authoring (MMR-321). Node- and
+   * project-addressable alike — the direction narrative is a container-level
+   * surface, and a project doc carries it exactly as an initiative or phase
+   * does. A target absent from the snapshot fails loud rather than silently
+   * dropping the prose, as the History/Annotations queues do.
+   */
+  private setNextSection(
+    entityType: 'node' | 'project',
+    entityId: string,
+    write: NextSectionWrite,
+  ): Promise<void> {
+    const known = entityType === 'node' ? this.nodes.has(entityId) : this.projects.has(entityId);
+    if (!known || !this.snapshot.pathByStem.has(entityId)) {
+      return Promise.reject(invariant('a ## Next write targets a record absent from the snapshot'));
+    }
+    const mutations = entityType === 'node' ? this.nodeMutations : this.projectMutations;
+    this.mutationOf(mutations, entityId).next = write;
+    return Promise.resolve();
+  }
+
   // ── Plan build (coalesce every effect into one op-set per document) ──────
 
   /** Validate and return an existing node's canonical stem. */
@@ -687,6 +720,7 @@ class Accumulator {
           replaceSection(path, DESCRIPTION_HEADING, renderDescriptionSection(node.description)),
         );
       }
+      this.emitNext(operations, path, mutation.next);
       this.emitHistory(operations, path, mutation.history);
       this.emitAnnotations(operations, path, mutation.annotations);
     }
@@ -704,6 +738,7 @@ class Accumulator {
       const finalFm = projectFrontmatter(project, tags);
       const rawFm = this.snapshot.projectFm.get(id) ?? {};
       this.emitFieldOps(operations, path, mutation.dirty, finalFm, rawFm);
+      this.emitNext(operations, path, mutation.next);
       this.emitHistory(operations, path, mutation.history);
     }
 
@@ -781,6 +816,43 @@ class Accumulator {
         operations.push(removeFrontmatter(path, field, rawFm[field]));
       }
     }
+  }
+
+  /**
+   * Emit the one op the `## Next` re-authoring reduces to (MMR-321) — replace
+   * semantics, so exactly one of three shapes and never an append:
+   *
+   * - prose onto a document that already has the heading → `replace_section`;
+   * - prose onto one that doesn't → `insert_before_heading` above `## History`,
+   *   which every work-state document carries, fixing the section's position
+   *   without rewriting the body;
+   * - a clear (`text: null`) → `delete_section`, so the heading goes with the
+   *   prose and an empty section is never left behind.
+   *
+   * Clearing a section that was already absent emits nothing: there is no
+   * document state to change, and norn would refuse the whole plan on the
+   * missing anchor. None of these ops carries a precondition — the co-written
+   * `updated_at` stamp is the drift guard (see {@link emitFieldOps}).
+   */
+  private emitNext(
+    operations: MigrationOp[],
+    path: string,
+    write: NextSectionWrite | undefined,
+  ): void {
+    if (write === undefined) {
+      return;
+    }
+    if (write.text === null) {
+      if (write.present) {
+        operations.push(deleteSection(path, NEXT_HEADING));
+      }
+      return;
+    }
+    operations.push(
+      write.present
+        ? replaceSection(path, NEXT_HEADING, renderNextSection(write.text))
+        : insertBeforeHeading(path, HISTORY_HEADING, renderNextBlock(write.text)),
+    );
   }
 
   private emitHistory(operations: MigrationOp[], path: string, history: HistoryAppend[]): void {

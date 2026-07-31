@@ -127,6 +127,29 @@ export function replaceSection(path: string, heading: string, content: string): 
 }
 
 /**
+ * `delete_section` — remove a heading and its body outright (a `norn edit` op
+ * applied under whole-doc CAS). Clearing the owned `## Next` narrative removes
+ * the section rather than emptying it (MMR-321), so an absent section and an
+ * empty one never both exist. norn refuses the whole batch when the heading is
+ * missing, so the caller emits this only against a section it read as present.
+ * Fields: `{path, heading}`.
+ */
+export function deleteSection(path: string, heading: string): MigrationOp {
+  return { fields: { heading, path }, kind: 'delete_section' };
+}
+
+/**
+ * `insert_before_heading` — splice `content` in immediately above `heading` (a
+ * `norn edit` op applied under whole-doc CAS). The write path adds a `## Next`
+ * section to a document that carries none by inserting it above the `## History`
+ * anchor every work-state document has (MMR-321), which fixes the section's
+ * position in the body without rewriting it. Fields: `{path, heading, content}`.
+ */
+export function insertBeforeHeading(path: string, heading: string, content: string): MigrationOp {
+  return { fields: { content, heading, path }, kind: 'insert_before_heading' };
+}
+
+/**
  * `replace_body` — replace the complete markdown body while preserving
  * frontmatter. `documentHash` is the full-document CAS precondition captured in
  * the diagnostic snapshot. Fields: `{path, document_hash, new_value}`.

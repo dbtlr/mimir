@@ -35,6 +35,11 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.description !== undefined) {
     wire.description = node.description;
   }
+  // The owned direction narrative (MMR-321) — a project/container facet that is
+  // omitted entirely when the `## Next` section is absent.
+  if (node.next !== undefined) {
+    wire.next = node.next;
+  }
   if (node.summary !== undefined) {
     wire.summary = node.summary;
   }

@@ -5,12 +5,13 @@ import { deriveSet } from '../derive';
 import { invariant, notFound, validation } from '../errors';
 import { SPEC_UPDATE_KEYS, updateKeysForTypes } from '../field-spec';
 import type { SpecUpdateKey } from '../field-spec';
+import { toCanonicalLf } from '../history-codec';
 import { renderArtifactRef } from '../ids';
 import type { Node, Project } from '../model';
 import { reorderTask } from '../rank';
 import type { RankPosition } from '../rank';
 import { resolveNodeTokenInSet, resolveProjectKeyInSet } from '../resolve-set';
-import type { NodePatch, ProjectPatch, Store } from '../store';
+import type { NodePatch, ProjectPatch, Store, StoreWriter } from '../store';
 import { now } from '../time';
 import {
   assertProjectActive,
@@ -54,9 +55,65 @@ export function normalizeSummary(value: string | null): string | null {
   return stripped === '' ? null : stripped;
 }
 
+/**
+ * Normalize a `## Next` narrative (MMR-321): line endings fold to the codec's
+ * canonical LF and the prose is trimmed, so what is compared for a no-op is
+ * exactly what the section round-trips to. A blank (or whitespace-only) value
+ * is the CLEAR — it stores as `null`, which removes the section outright.
+ *
+ * Deliberately uncapped, exactly like `description`: this is body prose, not a
+ * frontmatter lede, and the codebase caps only the short `summary` field.
+ */
+export function normalizeNext(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+  const text = toCanonicalLf(value).trim();
+  return text === '' ? null : text;
+}
+
+/**
+ * Queue a `## Next` re-authoring for one record (MMR-321, ADR 0026 Decision 2)
+ * — the shared half of the node and project update verbs. Replace-not-append:
+ * the current section is read (inside the transaction, so a concurrent write
+ * either loses the `updated_at` CAS or is replayed against), the new prose
+ * replaces it whole, and a blank clears it. Returns whether anything was
+ * queued, so the caller co-writes the `updated_at` stamp — the section ops
+ * carry no precondition of their own — and so a rewrite with the identical text
+ * writes NOTHING at all, leaving the stale clock where it was.
+ */
+async function applyNextSection(
+  store: Store,
+  w: StoreWriter,
+  entityType: 'node' | 'project',
+  id: string,
+  value: string | null | undefined,
+): Promise<boolean> {
+  if (value === undefined) {
+    return false;
+  }
+  const text = normalizeNext(value);
+  const current = await store.bodySections.readNext(id);
+  // A clear is a no-op only when the document carries no section at all: a
+  // present-but-empty heading (a hand edit) is still removed.
+  const unchanged = text === null ? !current.present : current.text === text;
+  if (unchanged) {
+    return false;
+  }
+  await w.setNextSection(entityType, id, { present: current.present, text });
+  return true;
+}
+
 export type UpdateFields = {
   title?: string;
   description?: string | null;
+  /**
+   * The owned direction narrative — the `## Next` body section (MMR-321).
+   * Container-only on a node (phase/initiative) and also a project's, never a
+   * task's. Replace semantics: the value is the whole section, and a blank
+   * clears it.
+   */
+  next?: string | null;
   /** The short list lede (MMR-162) — all-node, never type-gated. */
   summary?: string | null;
   priority?: Priority | null;
@@ -91,13 +148,13 @@ type _HandleValuesMatchUpdate = AssertNever<
 >;
 
 /**
- * The two update targets outside the data-plane spec (ADR 0025): `title` is
- * always-present node identity and `description` is body prose, not a
- * frontmatter scalar — and both apply across the non-node kinds too, so neither
- * is a node-typed spec field. Everything else in the {@link UpdateFields}
- * vocabulary is a spec `update` field.
+ * The three update targets outside the data-plane spec (ADR 0025): `title` is
+ * always-present node identity, and `description` and `next` (MMR-321) are body
+ * prose rather than frontmatter scalars — and each applies across at least one
+ * non-node kind, so none is a node-typed spec field. Everything else in the
+ * {@link UpdateFields} vocabulary is a spec `update` field.
  */
-const STRUCTURAL_UPDATE_KEYS = ['description', 'title'] as const;
+const STRUCTURAL_UPDATE_KEYS = ['description', 'next', 'title'] as const;
 
 /** Compile guard (MMR-306): every {@link UpdateFields} key must be reachable
  * from the field spec (a `update` field) or the two structural keys — a new key
@@ -133,7 +190,10 @@ export type NarrowUpdateKind = 'project' | 'artifact' | 'seed';
 
 const APPLICABLE_UPDATE_FIELDS: Record<NarrowUpdateKind, readonly UpdateFieldKey[]> = {
   artifact: ['summary', 'title'],
-  project: ['description'],
+  // A project carries the owned `## Next` narrative alongside its description
+  // (MMR-321) — direction-level prose is a container surface, and the project
+  // doc is the outermost container.
+  project: ['description', 'next'],
   seed: ['title', 'description'],
 };
 
@@ -175,6 +235,11 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     if (fields.openEnded !== undefined && node.type === 'task') {
       throw validation('open_ended applies only to phases and initiatives');
     }
+    // The direction narrative is a container surface (ADR 0026 Decision 2): a
+    // task's prose homes are its description and its annotations.
+    if (fields.next !== undefined && node.type === 'task') {
+      throw validation('next applies only to phases and initiatives');
+    }
 
     const patch: NodePatch = {};
     if (fields.title !== undefined) {
@@ -208,7 +273,12 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     // one and a multi-line paste can't break its `## History` echo line.
     applyHandlePatch(patch, fields);
 
-    if (Object.keys(patch).length > 0) {
+    // The `## Next` re-authoring is a body-section write, not a patch column —
+    // but it must ride the same co-written `updated_at` stamp, so it is decided
+    // before the stamp is taken and folded into the same write decision.
+    const wroteNext = await applyNextSection(store, w, 'node', id, fields.next);
+
+    if (Object.keys(patch).length > 0 || wroteNext) {
       patch.updated_at = now();
       await w.updateNode(id, patch);
     }
@@ -219,12 +289,17 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
 export type UpdateProjectFields = {
   name?: string;
   description?: string | null;
+  /** The owned `## Next` direction narrative (MMR-321) — body prose, not a
+   * frontmatter scalar; blank clears the section. */
+  next?: string | null;
 };
 
 /**
  * The dumb scalar patcher for a project row (MMR-88): `name` and `description`
- * are the only mutable fields — `key` is immutable. No transition log (projects
- * have no status). Returns the updated project row directly.
+ * are its mutable frontmatter — `key` is immutable — joined since MMR-321 by
+ * the `## Next` body section, which is written through the same transaction and
+ * guarded by the same co-written `updated_at` stamp. No transition log
+ * (projects have no status). Returns the updated project row directly.
  */
 export async function updateProject(
   store: Store,
@@ -248,7 +323,9 @@ export async function updateProject(
       patch.description = fields.description;
     }
 
-    if (Object.keys(patch).length > 0) {
+    const wroteNext = await applyNextSection(store, w, 'project', id, fields.next);
+
+    if (Object.keys(patch).length > 0 || wroteNext) {
       patch.updated_at = now();
       await w.updateProject(id, patch);
     }

@@ -40,7 +40,9 @@ export async function listProjects(
     return true;
   });
   return Promise.all(
-    projects.map((p) => buildProjectView(store.artifacts, set, p, new Set(facets))),
+    projects.map((p) =>
+      buildProjectView(store.bodySections, store.artifacts, set, p, new Set(facets)),
+    ),
   );
 }
 
@@ -88,7 +90,13 @@ export async function projectTree(
     return { ...record, children: await Promise.all(children.map(subtree)) };
   };
 
-  const rootView = await buildProjectView(store.artifacts, set, project, facetSet);
+  const rootView = await buildProjectView(
+    store.bodySections,
+    store.artifacts,
+    set,
+    project,
+    facetSet,
+  );
   const roots = childRows(set, project.key, null);
   const { children: _refs, ...record } = rootView;
   return { ...record, children: await Promise.all(roots.map(subtree)) };

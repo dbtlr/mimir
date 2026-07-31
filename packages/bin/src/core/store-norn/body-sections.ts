@@ -5,9 +5,11 @@ import {
   ANNOTATIONS_HEADING,
   DESCRIPTION_HEADING,
   HISTORY_HEADING,
+  NEXT_HEADING,
   parseAnnotationsSection,
   parseDescriptionSection,
   parseHistorySection,
+  parseNextSection,
   sectionBody,
 } from '../history-codec';
 import { parseIdentity } from '../ids';
@@ -160,6 +162,9 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
     if (want.description === true) {
       headings.push(DESCRIPTION_HEADING);
     }
+    if (want.next === true) {
+      headings.push(NEXT_HEADING);
+    }
     if (want.annotations === true) {
       headings.push(ANNOTATIONS_HEADING);
     }
@@ -170,6 +175,9 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
     const sections: BodySections = {};
     if (want.description === true) {
       sections.description = parseDescriptionSection(sectionBody(raw[DESCRIPTION_HEADING] ?? ''));
+    }
+    if (want.next === true) {
+      sections.next = parseNextSection(sectionBody(raw[NEXT_HEADING] ?? ''));
     }
     if (want.annotations === true) {
       sections.annotations = parseAnnotationsSection(
@@ -197,6 +205,18 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
     readDescription: async (stem) =>
       (await readSections(stem, { description: true })).description ?? null,
     readHistory: async (stem) => (await readSections(stem, { history: true })).history ?? [],
+    readNext: async (stem) => {
+      // Presence comes from the RAW section map, not the parsed prose: norn
+      // omits a heading it cannot resolve, so `NEXT_HEADING in raw` is exactly
+      // "the document carries a `## Next` heading" — the fact that picks between
+      // inserting, replacing, and deleting the section (MMR-321).
+      const raw = await readNodeSections(client, stem, [NEXT_HEADING]);
+      const section = raw[NEXT_HEADING];
+      return {
+        present: section !== undefined,
+        text: parseNextSection(sectionBody(section ?? '')),
+      };
+    },
     readSections,
   };
 }

@@ -48,6 +48,16 @@ export const DESCRIPTION_HEADING = 'Task Description';
 export const SEED_DESCRIPTION_HEADING = 'Seed Description';
 
 /**
+ * The `## Next` section heading (H2) — the owned direction narrative a project
+ * or container doc carries (MMR-321, ADR 0026 Decision 2). Unlike the other
+ * sections it is NOT seeded at create time: a document carries the heading only
+ * while the narrative is set, so an absent section and an empty one are the same
+ * state. The write path therefore inserts, replaces, and deletes the whole
+ * section rather than replacing a permanent anchor's body.
+ */
+export const NEXT_HEADING = 'Next';
+
+/**
  * The document body every work-state node carries: a `## Task Description` lede
  * (the authoritative home for the prose since MMR-162 — read back through
  * {@link parseDescriptionSection}, no longer a frontmatter field), the
@@ -99,6 +109,36 @@ export function renderSeedBody(description: string | null): string {
  */
 export function renderDescriptionSection(description: string | null): string {
   return `\n${escapeBodyLines(description ?? '')}\n\n`;
+}
+
+/**
+ * The body of the `## Next` section — the payload a `replace_section` op hands
+ * norn when the direction narrative is re-authored (MMR-321). The prose grammar
+ * is the description section's, verbatim: the same blank-line framing and the
+ * same heading-line escape, so it round-trips through
+ * {@link parseNextSection}.
+ */
+export function renderNextSection(next: string): string {
+  return renderDescriptionSection(next);
+}
+
+/**
+ * A whole `## Next` block — the heading line plus its body. The payload for the
+ * `insert_before_heading` that ADDS the section to a document that carries none
+ * (the section is never seeded at create time, so a first write inserts it).
+ */
+export function renderNextBlock(next: string): string {
+  return `## ${NEXT_HEADING}\n${renderNextSection(next)}`;
+}
+
+/**
+ * Parse a `## Next` section body back to its prose — the inverse of
+ * {@link renderNextSection}, sharing the description section's codec. An empty
+ * (or whitespace-only) section reads as null, which is the same state as the
+ * section being absent.
+ */
+export function parseNextSection(body: string): string | null {
+  return parseDescriptionSection(body);
 }
 
 /** A project/container body: just the `## History` section the log appends under. */

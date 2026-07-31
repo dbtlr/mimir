@@ -105,19 +105,28 @@ export async function buildNodeView(
   if (facets.has('tags')) {
     view.tags = buildTags(set, node.id);
   }
-  // The three body-section facets read one node document — fetch its body once
+  // The body-section facets read one node document — fetch its body once
   // and slice all requested sections in a single backend round-trip (MMR-164, F6).
   const wantDescription = facets.has('description');
+  // The direction narrative is container-only (MMR-321, ADR 0026 Decision 2), so
+  // a task never pays for the heading and never carries the key.
+  const wantNext = facets.has('next') && node.type !== 'task';
   const wantAnnotations = facets.has('annotations');
   const wantHistory = facets.has('history');
-  if (wantDescription || wantAnnotations || wantHistory) {
+  if (wantDescription || wantNext || wantAnnotations || wantHistory) {
     const sections = await bodySections.readSections(view.id, {
       annotations: wantAnnotations,
       description: wantDescription,
       history: wantHistory,
+      next: wantNext,
     });
     if (wantDescription) {
       view.description = sections.description ?? null;
+    }
+    // Omit-when-absent (MMR-321): a container with no narrative carries no key,
+    // so an empty section and a missing one read identically.
+    if (wantNext && sections.next != null) {
+      view.next = sections.next;
     }
     if (wantAnnotations) {
       view.annotations = sections.annotations ?? [];
@@ -265,6 +274,7 @@ async function buildProjectArtifacts(
  * annotations, history) are silently absent.
  */
 export async function buildProjectView(
+  bodySections: BodySectionStore,
   artifacts: ArtifactStore,
   set: DerivationSet,
   project: Project,
@@ -312,6 +322,15 @@ export async function buildProjectView(
   }
   if (facets.has('artifacts')) {
     view.artifacts = await buildProjectArtifacts(artifacts, project);
+  }
+  // The project doc's own `## Next` body section (MMR-321) — the one body facet
+  // a project carries; its `description` is still frontmatter, above. Omitted
+  // when the section is absent, exactly as on a container node.
+  if (facets.has('next')) {
+    const sections = await bodySections.readSections(project.key, { next: true });
+    if (sections.next != null) {
+      view.next = sections.next;
+    }
   }
   return view;
 }
@@ -384,7 +403,7 @@ export async function projectViewByKey(
   const project = findProjectInSet(set, key);
   return project === undefined
     ? undefined
-    : buildProjectView(store.artifacts, set, project, facets);
+    : buildProjectView(store.bodySections, store.artifacts, set, project, facets);
 }
 
 /** A project view over a fresh snapshot — the one-off echo path (verbs, transports). */
@@ -394,6 +413,7 @@ export async function projectViewOf(
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView> {
   return buildProjectView(
+    store.bodySections,
     store.artifacts,
     deriveSet(await store.loadWorkingSet()),
     project,
