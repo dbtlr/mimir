@@ -198,12 +198,13 @@ options:
       --sort <asc|desc>   seeds: age order (default asc)
       --grouped           seeds: lane view (untriaged/ready/settled)
       --upstream <KEY-sN> create/update task: requester-side seed pointer
-      --host <text>       start/update task: the machine the work is happening on
-      --harness <text>    start/update task: the agent harness running it
-      --session <text>    start/update task: the session id to resume from
-      --branch <text>     start/update task: the branch the work lives on
-                          (the four resume handles — cleared on done/abandon
-                          and on park/block; a blank on update clears one)
+      --host <text>       create/start/update: the machine the work happens on
+      --harness <text>    create/start/update: the agent harness running it
+      --session <text>    create/start/update: the session id to resume from
+      --branch <text>     create/start/update: the branch the work lives on
+                          (the four task-only resume handles — cleared on
+                          done/abandon and on park/block; a blank on update
+                          clears one)
 
 machinery commands (the installation, host, or store — not the work itself):
   service <sub> [unit]    supervise the launchd units (macOS): install
