@@ -78,6 +78,31 @@ mimir annotate KEY-9 "Realized the parser must be rewritten; filed KEY-12."
 - Transition _reasons_ belong on the transition itself
   (`park <id> "reason"`), not in annotations.
 
+## The direction narrative (`## Next`)
+
+```sh
+mimir update KEY --direction "Read path first; caching waits on the benchmark."
+mimir update KEY-4 --direction ""      # clear it
+```
+
+- Projects, initiatives, and phases carry an owned `## Next` body section — the
+  editorial statement of **where this container is headed**. Tasks don't: their
+  prose homes are `--desc` and annotations.
+- Write only what Mimir cannot derive. The queue itself (what's ready, what's
+  ranked first, what's blocked) is already answered by `mimir next` / `overview`;
+  restating it here is a rollup that will drift. Direction is the judgment
+  _above_ that: sequencing rationale, what is deliberately deferred, the bet
+  being made.
+- **Replace, not append.** Each write re-authors the whole section against the
+  current board; there is no append mode, and a blank value clears the section.
+  Read it, decide what is still true, write the new whole. Never paste an
+  addition onto a stale draft.
+- The write is CAS-guarded like every other. If a concurrent write landed first,
+  it refuses — **re-read and merge**, then write again. Never replay the draft
+  you composed against the old state (ADR 0026).
+- Re-writing identical text writes nothing, so an idempotent re-author doesn't
+  move `updated_at` (and doesn't fake activity).
+
 ## Resume handles: how the work is picked back up
 
 ```sh
