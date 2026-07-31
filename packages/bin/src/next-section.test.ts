@@ -16,6 +16,8 @@ import {
   updateProject,
 } from './core';
 import type { Store } from './core';
+import type { DoctorDeps } from './doctor/commands';
+import { cmdDoctor } from './doctor/commands';
 import { createServer } from './http/server';
 import { toolUpdate } from './mcp/tools';
 import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
@@ -33,6 +35,8 @@ const NORN = Bun.which('norn') !== null;
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
 let readDocument: (path: string) => string;
+let corruptDocument: (path: string, mutate: (raw: string) => string) => void;
+let doctorDeps: DoctorDeps;
 let server: Server<undefined>;
 let base: string;
 let projectId: string;
@@ -46,7 +50,13 @@ beforeEach(async () => {
   if (!NORN) {
     return;
   }
-  ({ close: closeStore, readDocument, store } = await createTestStore());
+  ({
+    close: closeStore,
+    corruptDocument,
+    doctor: doctorDeps,
+    readDocument,
+    store,
+  } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'Mimir' });
   projectId = await projectIdOf(store, 'MMR');
   const initiative = await createInitiative(store, { projectId, title: 'init' });
@@ -150,6 +160,62 @@ test.skipIf(!NORN)('a seed and an artifact refuse it in each voice (MMR-321)', a
   expect(artifactTool.content[0]?.text).toContain('next applies only to nodes');
 });
 
+// ── The hand-duplicated heading ────────────────────────────────────────────
+
+/**
+ * norn warn-OMITS an AMBIGUOUS `## Next` from `sections` exactly as it omits a
+ * MISSING one, and its structured `section_failures` channel is byte-identical
+ * for the two — only the human-readable note distinguishes them. So the section
+ * read alone reports a duplicate as "no section", and a write that trusted that
+ * would insert a THIRD copy on every run while a clear reported success having
+ * removed nothing. The write path counts the anchors and refuses.
+ */
+
+/** Hand-edit a second `## Next` onto the document, as a careless merge would. */
+function duplicateNextHeading(path: string): void {
+  corruptDocument(path, (raw) => raw.replace('## History', '## Next\n\nsecond\n\n## History'));
+}
+
+test.skipIf(!NORN)('a duplicated ## Next refuses the set, writing nothing (MMR-321)', async () => {
+  const id = await nodeIdOf(store, phaseRef);
+  await updateNode(store, id, { next: 'first' });
+  duplicateNextHeading(`MMR/${phaseRef}.md`);
+  const before = readDocument(`MMR/${phaseRef}.md`);
+
+  const out = await cli(['update', phaseRef, '--direction', 'third'], 1);
+  expect(out).toContain("more than one '## Next' heading");
+  expect(out).toContain('mimir doctor');
+  // The pre-fix bug inserted a third section here.
+  expect(readDocument(`MMR/${phaseRef}.md`)).toBe(before);
+});
+
+test.skipIf(!NORN)(
+  'a duplicated ## Next refuses the clear rather than lying (MMR-321)',
+  async () => {
+    const id = await nodeIdOf(store, phaseRef);
+    await updateNode(store, id, { next: 'first' });
+    duplicateNextHeading(`MMR/${phaseRef}.md`);
+    const before = readDocument(`MMR/${phaseRef}.md`);
+
+    // The pre-fix bug echoed `updated (next)` at exit 0 having changed nothing.
+    const out = await cli(['update', phaseRef, '--direction', ''], 1);
+    expect(out).toContain("more than one '## Next' heading");
+    expect(readDocument(`MMR/${phaseRef}.md`)).toBe(before);
+  },
+);
+
+test.skipIf(!NORN)('mimir doctor names the duplicated ## Next heading (MMR-321)', async () => {
+  await updateProject(store, projectId, { next: 'first' });
+  duplicateNextHeading('MMR/MMR.md');
+
+  const io = fakeIo();
+  expect(await cmdDoctor(io, doctorDeps, 'json', 'MMR')).toBe(0);
+  const findings = JSON.parse(io.out.join('')) as { code?: string; node?: string }[];
+  const duplicate = findings.filter((f) => f.code === 'duplicate-next-section');
+  expect(duplicate).toHaveLength(1);
+  expect(duplicate[0]?.node).toBe('MMR');
+});
+
 // ── Per-transport accept AND apply ─────────────────────────────────────────
 
 test.skipIf(!NORN)('the CLI applies the narrative to a container and a project', async () => {
@@ -212,3 +278,18 @@ test.skipIf(!NORN)(
     expect(Object.keys(task as Record<string, unknown>)).not.toContain('next');
   },
 );
+
+// ── The `--next` trap ──────────────────────────────────────────────────────
+
+test.skipIf(!NORN)('`--next` is intercepted and pointed at --direction (MMR-321)', async () => {
+  // `--next` is self-update's BOOLEAN channel selector, so it swallows no value
+  // and the text slides into the positionals: this used to exit 0 having written
+  // nothing at all. Every machine surface spells the field `next`, so it is
+  // exactly the invocation an agent reaches for.
+  const out = await cli(['update', phaseRef, '--next', 'boom'], 2);
+  expect(out).toContain("'--next' doesn't apply to update");
+  expect(out).toContain('--direction');
+  expect(await readNext(phaseRef)).toBeUndefined();
+  // Every non-self-update verb is covered, not just `update`.
+  expect(await cli(['list', '--next'], 2)).toContain("'--next' doesn't apply to list");
+});

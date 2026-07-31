@@ -7,6 +7,7 @@ import {
   DESCRIPTION_HEADING,
   HISTORY_HEADING,
   lintBodySections,
+  NEXT_HEADING,
   parseAnnotationsSection,
   parseDescriptionSection,
   parseHistorySection,
@@ -15,6 +16,7 @@ import {
   renderDescriptionSection,
   renderHistoryRecord,
   renderMigratedNodeBody,
+  renderNextSection,
   renderMigratedProjectBody,
   renderNodeBody,
   renderSeedBody,
@@ -789,4 +791,45 @@ test('lintBodySections finds a malformed record in a CRLF-saved body (no false-c
   const findings = lintBodySections(crlf);
   expect(findings).toHaveLength(1);
   expect(findings[0]?.problem).toBe('unknown-transition-kind');
+});
+
+// ── The duplicated `## Next` anchor (MMR-321) ────────────────────────────
+// The one H2-level deviation the lint owns. norn's `section_failures` channel
+// can't carry it: `## Next` is OPTIONAL, and a missing heading and an ambiguous
+// one are reported identically there, so probing it that way would flag every
+// document that simply has no narrative. Counting anchors fires on the fault
+// alone.
+
+test('a single ## Next anchor lints clean (MMR-321)', () => {
+  expect(lintBodySections(`## ${NEXT_HEADING}\n\ndirection\n## ${HISTORY_HEADING}\n`)).toEqual([]);
+});
+
+test('flags every extra ## Next anchor, leaving the first for a human to choose (MMR-321)', () => {
+  const body = `## ${NEXT_HEADING}\n\nfirst\n## ${NEXT_HEADING}\n\nsecond\n## ${NEXT_HEADING}\n\nthird\n## ${HISTORY_HEADING}\n`;
+  expect(lintBodySections(body)).toEqual([
+    {
+      heading: `## ${NEXT_HEADING}`,
+      line: 4,
+      problem: 'duplicate-next-section',
+      section: NEXT_HEADING,
+    },
+    {
+      heading: `## ${NEXT_HEADING}`,
+      line: 7,
+      problem: 'duplicate-next-section',
+      section: NEXT_HEADING,
+    },
+  ]);
+});
+
+test('an escaped ## Next content line is prose, never a duplicate anchor (MMR-321)', () => {
+  // The writer escapes heading-shaped prose, so a narrative that quotes its own
+  // heading must lint clean — the round-trip guarantee, in reverse.
+  const body = `## ${NEXT_HEADING}${renderNextSection(`talking about ## ${NEXT_HEADING}`)}## ${HISTORY_HEADING}\n`;
+  expect(lintBodySections(body)).toEqual([]);
+});
+
+test('duplicate ## Next findings interleave in document order with record findings (MMR-321)', () => {
+  const body = `## ${NEXT_HEADING}\n\na\n## ${NEXT_HEADING}\n\nb\n## ${HISTORY_HEADING}\n### not a real record\n`;
+  expect(lintBodySections(body).map((f) => f.line)).toEqual([4, 8]);
 });

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { createProject, createTask } from '../create';
 import { MimirError } from '../errors';
-import { sliceSection } from '../history-codec';
+import { countSectionHeadings, sliceSection } from '../history-codec';
 import {
   abandonTask,
   annotate,
@@ -141,10 +141,15 @@ function fakeClient(
         }),
       );
     },
-    // The native section read (MMR-321 uses it before a `## Next` write). Slices
-    // the scripted doc's `body` with `sliceSection`, which reproduces norn's own
-    // boundary semantics — and omits the record entirely when NO requested
-    // heading resolves, exactly as norn does.
+    // The native section read (MMR-321 uses it before a `## Next` write).
+    //
+    // Faithful to norn 0.48 on the two cases that matter: a heading present
+    // exactly ONCE resolves to `sliceSection`'s slice, and a heading present
+    // TWICE or MORE is warn-OMITTED — norn refuses an ambiguous anchor rather
+    // than picking one, so the fake must NOT fall back to `sliceSection`, which
+    // resolves a duplicate to the first match. A record whose every requested
+    // heading failed to resolve is still returned (with empty `sections`), as
+    // norn returns it; only a target that resolves to no document is dropped.
     getSections: (targets: string[], sections: string[]): Promise<unknown[]> => {
       const current = currentDocs();
       return Promise.resolve(
@@ -160,12 +165,12 @@ function fakeClient(
           const found: Record<string, string> = {};
           const body = typeof doc.body === 'string' ? doc.body : '';
           for (const heading of sections) {
-            const slice = sliceSection(body, heading);
-            if (slice !== '') {
-              found[heading] = slice;
+            if (countSectionHeadings(body, heading) !== 1) {
+              continue; // missing or ambiguous — both warn-omitted by norn
             }
+            found[heading] = sliceSection(body, heading);
           }
-          return Object.keys(found).length === 0 ? [] : [{ path: doc.path, sections: found }];
+          return [{ path: doc.path, sections: found }];
         }),
       );
     },
@@ -1754,6 +1759,63 @@ test('a project carries the Next narrative on its own document (MMR-321)', async
   expect(insert?.fields.path).toBe('MMR/MMR.md');
   expect(insert?.fields.content).toBe('## Next\n\nGroom the backlog before the next cut.\n\n');
   expect(findOp(plan, 'set_frontmatter', 'updated_at')?.fields.expected_old_value).toBe(TS);
+});
+
+/**
+ * A hand-duplicated `## Next` must fail the write CLOSED (MMR-321). norn
+ * warn-OMITS an ambiguous heading exactly as it omits a missing one — and its
+ * structured `section_failures` channel cannot tell the two apart — so a write
+ * that trusted "not resolved = absent" would `insert_before_heading` a THIRD
+ * copy on every run, and a clear would report success having deleted nothing.
+ */
+
+const duplicatedNextDoc = (): NornDocument =>
+  containerDoc(`${nextBody('first')}${nextBody('second')}## History\n`);
+
+test('setting the Next narrative refuses on a duplicated heading (MMR-321)', async () => {
+  const { client, plans } = fakeClient([projectDoc(), duplicatedNextDoc()]);
+  const store = createNornWriteStore(client, ROOT);
+  let caught: unknown;
+  try {
+    await updateNode(store, 'MMR-1', { next: 'a third' });
+  } catch (error) {
+    caught = error;
+  }
+  if (!(caught instanceof MimirError)) {
+    throw new Error(`expected a MimirError(validation), got ${String(caught)}`, { cause: caught });
+  }
+  expect(caught.code).toBe('validation');
+  // The refusal names the real fault, not a generic apply failure.
+  expect(caught.message).toContain("more than one '## Next' heading");
+  expect(caught.hint).toContain('mimir doctor');
+  expect(plans).toHaveLength(0);
+});
+
+test('clearing the Next narrative refuses on a duplicated heading (MMR-321)', async () => {
+  const { client, plans } = fakeClient([projectDoc(), duplicatedNextDoc()]);
+  const store = createNornWriteStore(client, ROOT);
+  // The pre-fix bug: `present` read false, so the clear "succeeded" silently.
+  await expectMimirError('validation', () => updateNode(store, 'MMR-1', { next: '' }));
+  expect(plans).toHaveLength(0);
+});
+
+test('a first Next write names a missing ## History anchor rather than failing opaquely (MMR-321)', async () => {
+  // Without the anchor norn refuses the whole batch as "apply did not complete";
+  // the body read that already proved the section absent names the real fault.
+  const { client, plans } = fakeClient([projectDoc(), containerDoc('## Task Description\n\np\n')]);
+  const store = createNornWriteStore(client, ROOT);
+  let caught: unknown;
+  try {
+    await updateNode(store, 'MMR-1', { next: 'direction' });
+  } catch (error) {
+    caught = error;
+  }
+  if (!(caught instanceof MimirError)) {
+    throw new Error(`expected a MimirError(validation), got ${String(caught)}`, { cause: caught });
+  }
+  expect(caught.code).toBe('validation');
+  expect(caught.message).toContain("no '## History' heading");
+  expect(plans).toHaveLength(0);
 });
 
 test('a Next write against a document missing updated_at fails closed (MMR-321)', async () => {
