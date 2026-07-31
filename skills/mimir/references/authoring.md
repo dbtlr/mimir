@@ -78,6 +78,28 @@ mimir annotate KEY-9 "Realized the parser must be rewritten; filed KEY-12."
 - Transition _reasons_ belong on the transition itself
   (`park <id> "reason"`), not in annotations.
 
+## Resume handles: how the work is picked back up
+
+```sh
+mimir start KEY-9 --host $(hostname) --harness codex --session "$SESSION" --branch feat/key-9
+mimir update KEY-9 --session "$SESSION" --branch feat/key-9   # resuming, or taking over
+mimir update KEY-9 --session ''                               # a blank clears one
+```
+
+Set them at `start` — they answer what is happening, what did happen, and how to
+continue. There is **no claim verb**: `in_progress` is the claim, so resuming a
+task you left or taking one over from another agent is a plain `update`
+overwrite of the same four fields. Set what you actually know and leave the rest
+absent; an unclaimed task legitimately carries none.
+
+`done`/`abandon` and `park`/`block` clear all four, so a settled or held task
+never carries a stale pointer. `submit` and `return` keep them — the branch and
+session are still live while a human reviews. `reopen`/`unpark`/`unblock` restore
+nothing: when you pick the work back up, re-state the handles with `update`.
+
+Keep them handles, not telemetry — a session id, not what happened in the
+session. The retrospective belongs in an artifact; the PR link belongs in `--ref`.
+
 ## Artifacts: frozen records
 
 Specs, plans, session logs — frozen documents attached to the work, stored in the
