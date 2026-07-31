@@ -82,6 +82,7 @@ import type {
   DerivationSet,
   RankPosition,
   SeedStatusSelector,
+  SpecUpdateKey,
   Store,
   UpdateFields,
   UpdateProjectFields,
@@ -452,23 +453,39 @@ export function toolReorder(
 // Data mutation tools
 // ---------------------------------------------------------------------------
 
-export function toolUpdate(
-  store: Store,
-  args: {
-    id: string;
-    title?: string;
-    name?: string;
-    description?: string;
-    summary?: string;
-    priority?: string;
-    size?: string;
-    target?: string;
-    externalRef?: string;
-    upstream?: string;
-    kind?: string;
-    openEnded?: boolean;
-  },
-): Promise<ToolResult> {
+/**
+ * Compile guard (MMR-320): the two write tools' arg types are hand-written while
+ * their advertised zod shapes DERIVE from the field spec (`fieldInputShape`). A
+ * new spec field therefore lands on the wire — accepted and applied — while the
+ * exported type silently lags, forcing every direct TS caller to cast past an
+ * excess-property error the runtime would have accepted. Naming the two types and
+ * excluding them from {@link SpecUpdateKey} makes that lag a type error instead.
+ */
+type AssertNever<T extends never> = T;
+type _UpdateArgsCoverSpec = AssertNever<Exclude<SpecUpdateKey, keyof UpdateToolArgs>>;
+type _CreateArgsCoverSpec = AssertNever<Exclude<SpecUpdateKey, keyof CreateToolArgs>>;
+
+export type UpdateToolArgs = {
+  id: string;
+  title?: string;
+  name?: string;
+  description?: string;
+  summary?: string;
+  priority?: string;
+  size?: string;
+  target?: string;
+  externalRef?: string;
+  upstream?: string;
+  /** The resume handles (MMR-320) — task-only. */
+  host?: string;
+  harness?: string;
+  session?: string;
+  branch?: string;
+  kind?: string;
+  openEnded?: boolean;
+};
+
+export function toolUpdate(store: Store, args: UpdateToolArgs): Promise<ToolResult> {
   return guard(async () => {
     if (parseIdentity(args.id)?.kind === 'artifact') {
       return updateArtifactTool(store, args);
@@ -650,30 +667,29 @@ export function toolUntag(
 // Create tool
 // ---------------------------------------------------------------------------
 
-export function toolCreate(
-  store: Store,
-  args: {
-    type: 'project' | 'initiative' | 'phase' | 'task';
-    key?: string;
-    name?: string;
-    parent?: string;
-    title?: string;
-    description?: string;
-    summary?: string;
-    target?: string;
-    priority?: string;
-    size?: string;
-    externalRef?: string;
-    upstream?: string;
-    /** The resume handles (MMR-320) — task-only, normally set by `start`. */
-    host?: string;
-    harness?: string;
-    session?: string;
-    branch?: string;
-    openEnded?: boolean;
-    tags?: string[];
-  },
-): Promise<ToolResult> {
+export type CreateToolArgs = {
+  type: 'project' | 'initiative' | 'phase' | 'task';
+  key?: string;
+  name?: string;
+  parent?: string;
+  title?: string;
+  description?: string;
+  summary?: string;
+  target?: string;
+  priority?: string;
+  size?: string;
+  externalRef?: string;
+  upstream?: string;
+  /** The resume handles (MMR-320) — task-only, normally set by `start`. */
+  host?: string;
+  harness?: string;
+  session?: string;
+  branch?: string;
+  openEnded?: boolean;
+  tags?: string[];
+};
+
+export function toolCreate(store: Store, args: CreateToolArgs): Promise<ToolResult> {
   return guard(async () => {
     switch (args.type) {
       case 'project': {
