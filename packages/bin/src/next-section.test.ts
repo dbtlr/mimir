@@ -18,6 +18,7 @@ import {
 import type { Store } from './core';
 import type { DoctorDeps } from './doctor/commands';
 import { cmdDoctor } from './doctor/commands';
+import { diagnoseDoctor } from './doctor/diagnosis';
 import { createServer } from './http/server';
 import { toolUpdate } from './mcp/tools';
 import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
@@ -171,9 +172,20 @@ test.skipIf(!NORN)('a seed and an artifact refuse it in each voice (MMR-321)', a
  * removed nothing. The write path counts the anchors and refuses.
  */
 
-/** Hand-edit a second `## Next` onto the document, as a careless merge would. */
+/** Hand-edit a second `## Next` in ABOVE `## History`, as a careless merge would. */
 function duplicateNextHeading(path: string): void {
   corruptDocument(path, (raw) => raw.replace('## History', '## Next\n\nsecond\n\n## History'));
+}
+
+/**
+ * Hand-append a second `## Next` at END of file — after `## Annotations`, past
+ * every seeded anchor. The other placement a careless edit produces, and the one
+ * a plain `printf '\n## Next\n…' >> doc.md` makes; kept distinct from
+ * {@link duplicateNextHeading} because the detector scans anchors rather than a
+ * bounded section range, and only an EOF case proves it isn't range-bound.
+ */
+function appendDuplicateNextAtEof(path: string): void {
+  corruptDocument(path, (raw) => `${raw}\n## Next\n\nsecond copy\n`);
 }
 
 test.skipIf(!NORN)('a duplicated ## Next refuses the set, writing nothing (MMR-321)', async () => {
@@ -215,6 +227,53 @@ test.skipIf(!NORN)('mimir doctor names the duplicated ## Next heading (MMR-321)'
   expect(duplicate).toHaveLength(1);
   expect(duplicate[0]?.node).toBe('MMR');
 });
+
+/**
+ * The unscoped, EOF-append shape — a smoke run's exact steps: converge a vault,
+ * write the narrative through the verb, `>>` a second heading onto the file, and
+ * ask the production pipeline (`readDoctorSnapshot` → `diagnoseDoctor`, the same
+ * pair `mimir doctor` runs) with NO scope, as a bare invocation outside a Project
+ * Binding does. The sibling test above scopes explicitly and splices the
+ * duplicate above `## History`; neither of those is what an operator does by
+ * hand, so this pins the real one on both axes.
+ */
+test.skipIf(!NORN)(
+  'the unscoped doctor pipeline reports a duplicate appended at EOF (MMR-321)',
+  async () => {
+    await updateNode(store, await nodeIdOf(store, initiativeRef), { next: 'legit' });
+    appendDuplicateNextAtEof(`MMR/${initiativeRef}.md`);
+
+    const findings = await diagnoseDoctor(await doctorDeps.readSnapshot(), undefined);
+    const duplicate = findings.filter((f) => f.code === 'duplicate-next-section');
+    expect(duplicate).toHaveLength(1);
+    expect(duplicate[0]?.stem).toBe(initiativeRef);
+    expect(duplicate[0]?.locator).toBe(`MMR/${initiativeRef}.md`);
+    expect(duplicate[0]?.severity).toBe('error');
+  },
+);
+
+/**
+ * The trap that produced a false "doctor sees nothing" report during review, and
+ * why it is not this feature's bug: `runCli` passes `scope: findBinding(cwd)`
+ * (ADR 0011), and doctor filters findings by canonical stem — so an invocation
+ * whose Project Binding names a project absent from the vault has NOTHING in
+ * scope and reports clean. That silences every check equally, not just this one,
+ * so it is pinned here beside the positive case rather than worked around.
+ */
+test.skipIf(!NORN)(
+  'a doctor scope naming another project hides every finding (MMR-321)',
+  async () => {
+    await updateNode(store, await nodeIdOf(store, initiativeRef), { next: 'legit' });
+    appendDuplicateNextAtEof(`MMR/${initiativeRef}.md`);
+    const snapshot = await doctorDeps.readSnapshot();
+
+    expect(
+      (await diagnoseDoctor(snapshot, 'MMR')).filter((f) => f.code === 'duplicate-next-section'),
+    ).toHaveLength(1);
+    // A foreign scope matches no stem, so the same snapshot reads clean.
+    expect(await diagnoseDoctor(snapshot, 'OTHER')).toEqual([]);
+  },
+);
 
 // ── Per-transport accept AND apply ─────────────────────────────────────────
 
