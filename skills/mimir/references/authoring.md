@@ -99,6 +99,9 @@ nothing: when you pick the work back up, re-state the handles with `update`.
 
 Keep them handles, not telemetry — a session id, not what happened in the
 session. The retrospective belongs in an artifact; the PR link belongs in `--ref`.
+One character rule: a value can't contain `·` surrounded by spaces — the
+transition log uses that separator to record handle moves, so the write refuses
+rather than storing a value the log would mis-read.
 
 ## Artifacts: frozen records
 
