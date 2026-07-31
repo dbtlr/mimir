@@ -31,6 +31,7 @@ import {
   getArtifact,
   getNode,
   getSeed,
+  isFilterDate,
   listArtifacts,
   listNodes,
   listProjects,
@@ -208,8 +209,7 @@ const COMMANDS: ReadonlySet<string> = new Set(
  * owner-mismatched flag is accepted and silently ignored (MMR-321).
  *
  * Most shared flags are read by several verbs and a stray one is harmless. These
- * two are not, because each silently DISCARDS an argument the caller meant to
- * store:
+ * are not, because each silently DISCARDS an argument the caller meant to apply:
  *
  * - `--next` is `self-update`'s prerelease selector and a BOOLEAN, so it
  *   swallows no value and `update KEY --next "text"` exits 0 having written
@@ -220,14 +220,28 @@ const COMMANDS: ReadonlySet<string> = new Set(
  *   settled write surface (ADR 0026 Decision 2). `create … --direction "…"`
  *   would drop the prose on the floor, which is worse for being exactly where
  *   the `--next` hint above sends the caller.
+ * - `--since`, `--offset`, and `-q`/`--query` are `artifacts`' own selection
+ *   (MMR-322). Adding them to the shared table would otherwise make
+ *   `mimir list --since 2026-07-01` exit 0 with the UNFILTERED board — a
+ *   silently-wrong answer where the invocation used to be a hard unknown-flag
+ *   error. `list`/`next` filter dates through the `--after`/`--before FIELD:VALUE`
+ *   op grammar, which is where the hint sends the caller.
  *
  * Each entry redirects to the flag or verb that does the work, so the hint
  * ladder terminates somewhere useful instead of looping.
  */
+type OwnedFlagValues = {
+  next?: boolean;
+  direction?: string;
+  since?: string;
+  offset?: string;
+  query?: string;
+};
+
 const VERB_OWNED_FLAGS: readonly {
   flag: string;
   owner: string;
-  given: (values: { next?: boolean; direction?: string }) => boolean;
+  given: (values: OwnedFlagValues) => boolean;
   hint: string;
 }[] = [
   {
@@ -241,6 +255,24 @@ const VERB_OWNED_FLAGS: readonly {
     given: (values) => values.direction !== undefined,
     hint: `the ## Next narrative is set after create: mimir update <id> --direction "…"`,
     owner: 'update',
+  },
+  {
+    flag: '--since',
+    given: (values) => values.since !== undefined,
+    hint: `'--since' selects artifacts by created_at; on list/next use '--after created_at:YYYY-MM-DD'`,
+    owner: 'artifacts',
+  },
+  {
+    flag: '--offset',
+    given: (values) => values.offset !== undefined,
+    hint: `'--offset' pages the artifact feed; list/next cap with '-n, --limit'`,
+    owner: 'artifacts',
+  },
+  {
+    flag: '--query',
+    given: (values) => values.query !== undefined,
+    hint: `'-q, --query' searches artifact titles; list selects by field op, e.g. '--eq title:…'`,
+    owner: 'artifacts',
   },
 ];
 
@@ -593,11 +625,20 @@ export async function runCli(
         const format = pickFormat(values.format, 'set', ctx);
         const result = await listArtifacts(await getStore(), artifactQuery);
         issueNudge(result.issueCount, format, ctx);
-        // A well-formed query that matches nothing is an empty set at exit 0, with
-        // the nudge on stderr so stdout stays a clean machine contract (ADR 0009).
-        if (result.total === 0) {
+        // A well-formed query that returns NO ROWS is an empty set at exit 0, with
+        // the reason on stderr so stdout stays a clean machine contract (ADR 0009).
+        // Keyed off the returned rows, not the total: an `--offset` past the end
+        // matches plenty and returns nothing, which is the case most in need of a
+        // note (and the one a `total === 0` test would silently pass over).
+        if (result.returned === 0) {
           const where = scope === undefined ? '' : ` in ${scope}`;
-          emptySetWarning(`no artifacts${where} — widen the window, or drop a filter`, format, ctx);
+          emptySetWarning(
+            result.total > 0
+              ? `no artifacts${where} past offset ${String(result.startsAt)} — ${countLine(result.total, 'artifact')} matched`
+              : `no artifacts${where} — widen the window, or drop a filter`,
+            format,
+            ctx,
+          );
         }
         renderArtifacts(result, format, ctx, { showProject: scope === undefined });
         return 0;
@@ -1213,40 +1254,56 @@ function parseFilters(values: Record<string, unknown>): FieldFilter[] {
   return filters;
 }
 
-function parseLimit(value: string | undefined): number | undefined {
+/**
+ * A whole-token non-negative integer flag value. `Number.parseInt` is the wrong
+ * tool here and was the wrong tool before (MMR-322 tightening): it stops at the
+ * first non-digit, so `-n 2x` silently capped at 2 and `-n 2.5` silently capped
+ * at 2 — a wrong answer reported as a right one. The token must parse WHOLE, and
+ * must land inside the safe-integer range so a huge value can't alias.
+ */
+function parseCount(value: string | undefined, flag: string, hint: string): number | undefined {
   if (value === undefined) {
     return undefined;
   }
-  const n = Number.parseInt(value, 10);
-  if (Number.isNaN(n) || n < 0) {
-    throw usage(`invalid limit: ${value}`);
+  const n = Number(value);
+  if (
+    value.trim() === '' ||
+    !Number.isSafeInteger(n) ||
+    n < 0 ||
+    // `Number` accepts hex/binary/exponent/whitespace forms `parseInt` wouldn't;
+    // the flag grammar is plain decimal digits, so require exactly that.
+    !/^\d+$/.test(value)
+  ) {
+    throw usage(`invalid ${flag}: ${value}`, hint);
   }
   return n;
 }
 
+function parseLimit(value: string | undefined): number | undefined {
+  return parseCount(value, 'limit', 'limit is a whole number of rows (0 or more)');
+}
+
 /** The artifact feed's paging cursor (MMR-322) — rows to skip before the window. */
 function parseOffset(value: string | undefined): number | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  const n = Number.parseInt(value, 10);
-  if (Number.isNaN(n) || n < 0) {
-    throw usage(`invalid offset: ${value}`, 'offset is a count of rows to skip (0 or more)');
-  }
-  return n;
+  return parseCount(value, 'offset', 'offset is a whole count of rows to skip (0 or more)');
 }
 
 /**
  * The artifact feed's date bounds (MMR-322) — a bare `YYYY-MM-DD` (widened to
  * the whole day downstream) or a full ISO timestamp. A malformed value is a
- * STRUCTURAL fault, not a value fault: it would otherwise filter nothing out and
- * report the unfiltered feed as if the window had applied.
+ * STRUCTURAL fault, not a value fault: the filter is a lexical string compare
+ * downstream, so a garbage bound would silently empty the feed or not apply at
+ * all, and either way report the result as if the window had held.
+ *
+ * The predicate itself is core's {@link isFilterDate} — the same one the MCP tool
+ * enforces — so the two transports cannot drift on what a date is; only the
+ * refusal differs (usage/exit 2 here, a `validation` envelope there).
  */
 function parseFeedDate(value: string | undefined, flag: string): string | undefined {
   if (value === undefined) {
     return undefined;
   }
-  if (!/^\d{4}-\d{2}-\d{2}(?:T[\d:.]+Z?)?$/.test(value) || Number.isNaN(Date.parse(value))) {
+  if (!isFilterDate(value)) {
     throw usage(`invalid date: ${value}`, `${flag} takes YYYY-MM-DD or a full ISO timestamp`);
   }
   return value;

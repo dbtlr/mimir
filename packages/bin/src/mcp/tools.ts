@@ -32,6 +32,7 @@ import {
   fileSeed,
   getSeed,
   inapplicableUpdateFields,
+  isFilterDate,
   listSeeds,
   OPS,
   parsePriorityValue,
@@ -357,8 +358,24 @@ export type ArtifactQueryToolArgs = {
  * and the literal `all` widens to the portfolio, exactly as on `list`/`next`.
  */
 export function toolArtifacts(store: Store, args: ArtifactQueryToolArgs): Promise<ToolResult> {
-  return guard(async () =>
-    ok(
+  return guard(async () => {
+    // The date bounds are checked, not merely normalized: the filter is a lexical
+    // compare downstream, so `since: "yesterday"` would not error — it would sort
+    // against the ISO timestamps and quietly return the wrong window. Same
+    // predicate the CLI enforces (`isFilterDate`), different refusal: a
+    // `validation` envelope here, usage/exit 2 there.
+    for (const [name, value] of [
+      ['since', args.since],
+      ['before', args.before],
+    ] as const) {
+      if (value !== undefined && !isFilterDate(value)) {
+        throw validation(
+          `invalid date: ${value}`,
+          `${name} takes YYYY-MM-DD or a full ISO timestamp`,
+        );
+      }
+    }
+    return ok(
       formatArtifactSetJson(
         await listArtifacts(store, {
           before: args.before,
@@ -370,8 +387,8 @@ export function toolArtifacts(store: Store, args: ArtifactQueryToolArgs): Promis
           tag: args.tag,
         }),
       ),
-    ),
-  );
+    );
+  });
 }
 
 // ---------------------------------------------------------------------------

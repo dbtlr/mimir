@@ -8,9 +8,23 @@ import type { NodeRef, OverviewSession } from '@mimir/contract';
  * Two layers, deliberately separable:
  *
  * - **Mechanical** ({@link groupSessionRows}) — transition-log rows grouped by
- *   the `session` resume handle they echoed (MMR-320). Nothing heuristic: the
- *   handle IS the session id. A row with no handle (every row written before
- *   MMR-322, and every boundary that moves no handle) simply joins no group.
+ *   the `session` resume handle they echoed (MMR-320). The grouping itself is
+ *   exact: the handle on a row IS that row's session id, and no inference
+ *   happens here. What the grouping can SEE is narrower than "what the session
+ *   did", because only some boundaries echo a handle at all (MMR-320's policy,
+ *   which stands):
+ *
+ *   - `start` echoes the claim state and the clearing verbs (`done`/`abandon`,
+ *     `park`/`block`) echo what they cleared — these rows group;
+ *   - `submit`/`return`/`reopen`/`unpark`/`unblock` move no handle and echo
+ *     none, so a review-only session produces no group at all;
+ *   - a clearing row echoes the handles the task still CARRIED, i.e. the
+ *     CLAIMING session's — so a takeover that never re-stated `--session`
+ *     credits its terminal row to the session it took over from.
+ *
+ *   A row with no handle — every row written before MMR-320, and every boundary
+ *   that moves none — joins no group. `transitions` counts handle-echoing rows,
+ *   not boundaries crossed.
  * - **Editorial** ({@link joinSessionSummaries}) — `session_summary`-tagged
  *   artifacts matched onto those groups by linked-task overlap. This half IS a
  *   heuristic, and disclosed as one: an artifact names the tasks it covers, not
@@ -96,9 +110,22 @@ export function groupSessionRows(rows: readonly SessionRow[]): SessionGroup[] {
       group.tasks.push(row.task);
     }
   }
-  return [...groups.values()]
-    .map(({ seen: _seen, ...group }) => group)
-    .toSorted((a, b) => newestFirst(a.to, b.to) || (a.id < b.id ? -1 : 1));
+  return [...groups.values()].map(({ seen: _seen, ...group }) => group).toSorted(byLastActivity);
+}
+
+/** Newest last activity first, with the session id as the tiebreak so two groups
+ * that ended in the same millisecond keep a stable order regardless of how the
+ * rows arrived. Applied by BOTH exported functions — `joinSessionSummaries` is
+ * exported and must not depend on its caller having pre-sorted. */
+function byLastActivity(a: { to: string; id: string }, b: { to: string; id: string }): number {
+  return newestFirst(a.to, b.to) || cmpId(a.id, b.id);
+}
+
+function cmpId(a: string, b: string): number {
+  if (a === b) {
+    return 0;
+  }
+  return a < b ? -1 : 1;
 }
 
 /**
@@ -122,11 +149,16 @@ export function joinSessionSummaries(
   groups: readonly SessionGroup[],
   artifacts: readonly SessionSummaryArtifact[],
 ): OverviewSession[] {
-  const ordered = groups.toSorted((a, b) => newestFirst(a.to, b.to));
+  // Re-sorted with the same tiebreak `groupSessionRows` applies: this function is
+  // exported, so which group a contested artifact claims must not depend on the
+  // caller having pre-ordered its input.
+  const ordered = groups.toSorted(byLastActivity);
   const claimed = new Map<string, SessionSummaryArtifact>();
   const orphans: SessionSummaryArtifact[] = [];
 
-  for (const artifact of artifacts.toSorted((a, b) => newestFirst(a.createdAt, b.createdAt))) {
+  for (const artifact of artifacts.toSorted(
+    (a, b) => newestFirst(a.createdAt, b.createdAt) || cmpId(a.id, b.id),
+  )) {
     const links = new Set(artifact.links);
     // `ordered` is already newest-first, so the first overlap IS the newest one.
     const match = ordered.find(
@@ -167,7 +199,12 @@ export function joinSessionSummaries(
     });
   }
 
-  return entries.toSorted((a, b) => newestFirst(a.to, b.to));
+  // A summary-only entry has no session id to tiebreak on, so it falls back to
+  // its artifact id — still total, still caller-order-independent.
+  return entries.toSorted(
+    (a, b) =>
+      newestFirst(a.to, b.to) || cmpId(a.id ?? a.artifact?.id ?? '', b.id ?? b.artifact?.id ?? ''),
+  );
 }
 
 function toEntryArtifact(artifact: SessionSummaryArtifact): OverviewSession['artifact'] {

@@ -1361,7 +1361,7 @@ describe.skipIf(!NORN)('overview composition (MMR-322)', () => {
     const io = fakeIo(true);
     expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
     const out = io.out.join('');
-    expect(out).toContain('recent sessions (1)');
+    expect(out).toContain('recent sessions (1 shown)');
     expect(out).toContain('s-77');
     expect(out).toContain('closed out the codec work');
   });
@@ -1385,11 +1385,11 @@ describe.skipIf(!NORN)('overview composition (MMR-322)', () => {
     expect(await runCli(['overview', '-s', 'MMR', '-f', 'json'], () => store, io)).toBe(0);
     const env = parseJson<{
       direction: { project: string | null; containers: { id: string; next: string }[] };
-      sessions: { count: number; entries: unknown[] };
+      sessions: { shown: number; entries: unknown[] };
       hygiene: { listings: { blocked: { id: string; lane: string; stale: boolean }[] } };
     }>(io.out.join(''));
     expect(env.direction.project).toBe('ship phase 3');
-    expect(env.sessions).toEqual({ count: 0, entries: [] });
+    expect(env.sessions).toEqual({ entries: [], shown: 0 });
     expect(env.hygiene.listings.blocked[0]?.lane).toBe('needs_unsticking');
     expect(env.hygiene.listings.blocked[0]?.stale).toBe(false);
   });
@@ -1491,6 +1491,8 @@ describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
   test.each([
     ['--since', 'yesterday'],
     ['--before', 'not-a-date'],
+    ['--since', '2026-13-45'], // shape-valid, calendar-impossible: Date.parse backstop
+    ['--before', '2026-07-31T99:00:00Z'],
   ])('%s with a malformed value is a usage error', async (flag, value) => {
     const io = fakeIo(true);
     expect(await runCli(['artifacts', flag, value], neverStore, io)).toBe(2);
@@ -1498,10 +1500,62 @@ describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
     expect(io.out).toHaveLength(0);
   });
 
-  test('a negative offset is a usage error', async () => {
+  test.each([
+    '2026-07-31',
+    '2026-07-31T10:15:00Z',
+    '2026-07-31T10:15:00.123Z',
+    // A numeric UTC offset — the help text and the error hint both promise "a
+    // full ISO timestamp", so these must be accepted.
+    '2026-07-31T10:15:00-04:00',
+    '2026-07-31T10:15:00+05:30',
+    '2026-07-31T10:15',
+  ])('%s is an accepted date bound', async (value) => {
     const io = fakeIo(true);
-    expect(await runCli(['artifacts', '--offset', '-2'], neverStore, io)).toBe(2);
+    expect(await runCli(['artifacts', '-s', 'MMR', '--since', value], () => store, io)).toBe(0);
+  });
+
+  // The `=` form so parseArgs hands the value through rather than reading a
+  // leading `-` as the next flag.
+  test.each([
+    '--offset=-2',
+    '--offset=2x',
+    '--offset=2.5',
+    '--offset=1e3',
+    '--offset=0x10',
+    '--offset= ',
+    '--offset=9007199254740993',
+  ])('%s is a usage error naming the flag', async (token) => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', token], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('invalid offset');
+    expect(io.err.join('')).toContain('whole count of rows to skip');
     expect(io.out).toHaveLength(0);
+  });
+
+  test.each(['--limit=2x', '--limit=2.5', '--limit=-1'])(
+    '%s is a usage error (MMR-322 tightening — parseInt used to truncate silently)',
+    async (token) => {
+      const io = fakeIo(true);
+      expect(await runCli(['artifacts', token], neverStore, io)).toBe(2);
+      expect(io.err.join('')).toContain('invalid limit');
+    },
+  );
+
+  // `list`/`next` share the limit parser, so the tightening reaches them too.
+  // (They resolve their store before parsing the flag — a pre-existing ordering
+  // that `artifacts` deliberately inverts — so this one passes a real store.)
+  test.skipIf(!NORN)('the same tightening covers list, which shares the parser', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['list', '--limit=2x'], () => store, io)).toBe(2);
+    expect(io.err.join('')).toContain('invalid limit');
+  });
+
+  test('an offset past the end is exit 0 with a note naming the match count', async () => {
+    await attach('vault notes');
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '-s', 'MMR', '--offset', '5'], () => store, io)).toBe(0);
+    expect(io.err.join('')).toContain('past offset 5');
+    expect(io.err.join('')).toContain('1 artifact matched');
   });
 
   test('an unknown format is a usage error and never opens the store', async () => {
@@ -1522,5 +1576,57 @@ describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
     expect(await runCli(['artifacts', '-h'], neverStore, io)).toBe(0);
     expect(io.out.join('')).toContain('mimir artifacts');
     expect(io.out.join('')).toContain('--since');
+  });
+});
+
+// The artifact feed's flags live in the ONE global options table, so without a
+// verb-owned guard `mimir list --since 2026-07-01` would exit 0 with the
+// UNFILTERED board — a silently-wrong answer where the invocation was previously
+// a hard unknown-flag error. Same failure mode `--direction`/`--next` were
+// guarded against in MMR-321.
+describe('artifacts flags are verb-owned (MMR-322)', () => {
+  test.each([
+    ['list', '--since', '2026-07-01'],
+    ['next', '--since', '2026-07-01'],
+    ['list', '--offset', '3'],
+    ['next', '--offset', '3'],
+    ['list', '-q', 'vault'],
+    ['next', '--query', 'vault'],
+    ['get', '--since', '2026-07-01'],
+    ['create', '--offset', '1'],
+  ])('%s rejects %s', async (verb, flag, value) => {
+    const io = fakeIo(true);
+    expect(await runCli([verb, flag, value], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain(`doesn't apply to ${verb}`);
+    expect(io.out).toHaveLength(0);
+  });
+
+  test('the refusal hints at the op grammar list/next actually use', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['list', '--since', '2026-07-01'], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('--after created_at:');
+  });
+
+  test.skipIf(!NORN)('artifacts itself still accepts all three', async () => {
+    const io = fakeIo(false);
+    expect(
+      await runCli(
+        [
+          'artifacts',
+          '-s',
+          'MMR',
+          '--since',
+          '2026-01-01',
+          '--offset',
+          '0',
+          '-q',
+          'x',
+          '-f',
+          'json',
+        ],
+        () => store,
+        io,
+      ),
+    ).toBe(0);
   });
 });

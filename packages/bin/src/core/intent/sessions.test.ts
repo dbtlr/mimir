@@ -40,11 +40,29 @@ test('rows group by session id, carrying the window, task set, and row count', (
   expect(first?.tasks.map((t) => t.id)).toEqual(['MMR-1', 'MMR-2']);
 });
 
-test('legacy rows without a session handle join no group (the caller filters them out)', () => {
-  // The caller only ever forwards rows that carried a handle, so an empty input
-  // — a project whose whole history predates MMR-320 — yields no groups at all,
-  // never an "unknown session" bucket.
-  expect(groupSessionRows([])).toEqual([]);
+test('groups are newest-first, with the session id as a total tiebreak', () => {
+  // Two groups closing in the SAME millisecond: order must come from the id, not
+  // from the order the rows happened to arrive in.
+  const at = '2026-07-02T10:00:00.000Z';
+  const forward = groupSessionRows([row('s-b', at, 'MMR-1'), row('s-a', at, 'MMR-2')]);
+  const reversed = groupSessionRows([row('s-a', at, 'MMR-2'), row('s-b', at, 'MMR-1')]);
+  expect(forward.map((g) => g.id)).toEqual(['s-a', 's-b']);
+  expect(reversed.map((g) => g.id)).toEqual(forward.map((g) => g.id));
+});
+
+test('the join does not depend on the caller having pre-sorted the groups', () => {
+  // `joinSessionSummaries` is exported, so which group a contested artifact
+  // claims must be decided by the groups' own order, not the array's.
+  const groups = [
+    { from: 'a', id: 's-old', tasks: [{ id: 'MMR-1', title: 'one' }], to: 'b', transitions: 1 },
+    { from: 'c', id: 's-new', tasks: [{ id: 'MMR-1', title: 'one' }], to: 'd', transitions: 1 },
+  ];
+  const summary = artifact('MMR-a1', '2026-07-03T00:00:00.000Z', ['MMR-1']);
+  const asGiven = joinSessionSummaries(groups, [summary]);
+  const reversed = joinSessionSummaries(groups.toReversed(), [summary]);
+  // `to: 'd'` is the newest window, so s-new claims it either way.
+  expect(asGiven.find((e) => e.artifact !== undefined)?.id).toBe('s-new');
+  expect(reversed.find((e) => e.artifact !== undefined)?.id).toBe('s-new');
 });
 
 test('an artifact joins the group its links overlap, and carries its lede', () => {

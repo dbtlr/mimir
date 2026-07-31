@@ -74,6 +74,25 @@ essence). No new top-level creation verbs beyond these.
 scope-honoring read verb, sibling to `next`/`list`/`get`/`status`/`tree`,
 composing the session-boot orientation surface.
 
+**Amendment (MMR-322): `artifacts` joins as a flat read verb.** The
+cross-project artifact feed — filters, paging, newest-first — becomes
+`mimir artifacts`, sibling to the read verbs above. This does **not** reopen the
+plural-noun pattern the seed rule disclaims ("no `tasks`, no `projects` — `list`
+owns node queries"), because that rule scopes to **nodes**, and the reason it
+holds is that `list` already reaches them. Neither clause applies here: an
+artifact is not a tree node (ADR 0004 — project-anchored, its own `KEY-aN`
+grammar, deliberately outside the hierarchy), and `list` cannot select it under
+any flag. The query existed and was reachable only over HTTP; the choice was a
+verb or a permanent CLI/MCP gap, not a verb or `list`. `seeds` is the standing
+precedent — the same shape for the same reason, a non-node record type with its
+own id grammar and its own query surface.
+
+The plural spelling is not a new idiom either: `seed`/`seeds` is grandfathered as
+a singular–plural **pair**, and the objection there was to the pair, not the
+plural. `artifacts` has no singular twin — creation is `attach`, whose relation
+is the command's essence (see the creation grammar above) — so it is a plain
+plural noun naming the set it returns.
+
 **Rename policy (pre-1.0): hard breaks, no aliases.** A rename removes the
 old verb outright — no alias or shim table, which would let two names mean
 one thing and reintroduce exactly the drift this taxonomy exists to prevent.
@@ -125,3 +144,5 @@ regrouping + descriptors) and MMR-287 (skill-reference alignment).
 - Per-command help (the MMR-118 thread) bakes in this hierarchy — which is
   now the intent, not a risk.
 - `mimir overview` lands under its audited name and placement (MMR-278).
+- `mimir artifacts` lands as a flat read verb under the amendment above
+  (MMR-322). The plural-noun disclaimer stands unchanged for node queries.

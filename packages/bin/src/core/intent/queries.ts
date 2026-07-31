@@ -560,16 +560,31 @@ export type OverviewOptions = {
 /**
  * The recent-sessions section (MMR-322, ADR 0026 Decision 4).
  *
- * **Read path.** The mechanical layer comes from per-task `## History` reads over
- * the working set overview already holds — NOT from the {@link
+ * **Read path.** The mechanical layer comes from `## History` over the working
+ * set overview already holds — NOT from the {@link
  * import('../transitions/store').TransitionsFeed}. The feed is whole-vault by
  * construction (no scope or `since` push-down: it re-fans, validates, and parses
  * every node document in the vault on each call), so routing a one-project
  * orientation surface through it would read every other project's board to
- * answer a question about this one. Reading history for the {@link
- * SESSION_SCAN_CAP} most recently touched tasks in scope is bounded, honors the
- * project scope, and reuses the batched section reader; the cost is that a
- * session which touched only long-dormant tasks falls out of the scan.
+ * answer a question about this one. The {@link SESSION_SCAN_CAP} most recently
+ * touched tasks in scope are read in ONE batched
+ * {@link import('../body-sections/store').BodySectionStore.readSectionsMany}
+ * call — the backend client serializes its calls, so a per-task fan-out would be
+ * 20 sequential IPC hops on the session-boot path however it were wrapped.
+ *
+ * **What the section can and cannot see.** Two bounds shape the result, and
+ * neither is recoverable without unbounded reads — which is why the section
+ * reports what it saw rather than a true total (see {@link
+ * import('@mimir/contract').OverviewSessions}):
+ *
+ * - a session whose tasks have all fallen below the scan window is invisible.
+ *   `updated_at` moves on ANY write, not just a transition, so a busy board can
+ *   evict a session-bearing task without that session having ended;
+ * - only the boundaries that ECHO a session handle are visible at all — `start`
+ *   (the claim) and the clearing verbs (`done`/`abandon`, `park`/`block`).
+ *   `submit`/`return`/`reopen`/`unpark`/`unblock` move no handle and echo none
+ *   (MMR-320), so a session that only reviewed work leaves no mechanical trace;
+ *   its retrospective artifact, if it wrote one, still surfaces as its own entry.
  */
 async function recentSessions(
   store: Store,
@@ -581,20 +596,21 @@ async function recentSessions(
     .slice(0, SESSION_SCAN_CAP);
 
   const rows: SessionRow[] = [];
-  await Promise.all(
-    scanned.map(async (node) => {
-      const sections = await store.bodySections.readSections(node.id, { history: true });
-      for (const entry of sections.history ?? []) {
-        // Rows written before the handles existed — and every boundary that moves
-        // none — carry no session, so they join no group (they are not "unknown
-        // session" activity; they are activity the log cannot attribute).
-        const session = entry.handles?.session;
-        if (session !== undefined && session !== '') {
-          rows.push({ at: entry.at, session, task: { id: node.id, title: node.title } });
-        }
-      }
-    }),
+  const histories = await store.bodySections.readSectionsMany(
+    scanned.map((node) => node.id),
+    { history: true },
   );
+  for (const node of scanned) {
+    for (const entry of histories.get(node.id)?.history ?? []) {
+      // A row that moved no handle carries no session, so it joins no group —
+      // it is not "unknown session" activity, it is activity the log cannot
+      // attribute. Rows written before the handles existed read the same way.
+      const session = entry.handles?.session;
+      if (session !== undefined && session !== '') {
+        rows.push({ at: entry.at, session, task: { id: node.id, title: node.title } });
+      }
+    }
+  }
 
   const summaries = await store.artifacts.list({
     limit: SESSION_SUMMARY_CAP,
@@ -611,16 +627,20 @@ async function recentSessions(
       title: record.title,
     })),
   );
-  return { count: entries.length, entries: entries.slice(0, OVERVIEW_CAP) };
+  return { entries: entries.slice(0, OVERVIEW_CAP), shown: entries.length };
 }
 
 /**
  * The direction block (MMR-322) — the owned `## Next` prose (MMR-321) of the
- * project plus of every container parenting live work, read through the same
- * batched body-section facet path `get` takes. The container selection is the
- * bound on the read: the direct parents of the in-flight tasks and of the capped
- * ready head, deduped — a dormant container's prose stays one `mimir get` away
- * rather than turning a boot surface into a document dump.
+ * project plus of the containers parenting live work, in ONE batched section
+ * read alongside the project's own.
+ *
+ * Two bounds, both real: the candidate set is the DIRECT parents of the in-flight
+ * tasks and of the capped ready head (a dormant container's prose stays one
+ * `mimir get` away), and at most {@link OVERVIEW_CAP} distinct containers are
+ * read — `inFlight` is uncapped by design, and the prose itself is uncapped in
+ * length, so without this second bound a board with many parallel claims would
+ * turn a boot surface into a document dump.
  */
 async function directionOf(
   store: Store,
@@ -638,23 +658,20 @@ async function directionOf(
     seen.add(parent.id);
     containers.push(parent);
   }
-  const [project, prose] = await Promise.all([
-    store.bodySections.readSections(scopeKey, { next: true }),
-    Promise.all(
-      containers
-        .toSorted((a, b) => a.seq - b.seq)
-        .map(async (node) => ({
-          next: (await store.bodySections.readSections(node.id, { next: true })).next,
-          node,
-        })),
-    ),
-  ]);
-  return {
-    containers: prose
-      .filter((row): row is { node: Node; next: string } => row.next != null && row.next !== '')
-      .map((row) => ({ id: row.node.id, next: row.next, title: row.node.title })),
-    project: project.next ?? null,
-  };
+  const wanted = containers.toSorted((a, b) => a.seq - b.seq).slice(0, OVERVIEW_CAP);
+  // The project's stem is its bare KEY, so it rides the same batched read.
+  const prose = await store.bodySections.readSectionsMany(
+    [scopeKey, ...wanted.map((node) => node.id)],
+    { next: true },
+  );
+  const containerRows: OverviewDirection['containers'] = [];
+  for (const node of wanted) {
+    const next = prose.get(node.id)?.next;
+    if (next != null && next !== '') {
+      containerRows.push({ id: node.id, next, title: node.title });
+    }
+  }
+  return { containers: containerRows, project: prose.get(scopeKey)?.next ?? null };
 }
 
 /** A needs-attention listing row (MMR-322) — the lean task plus its lane word and
@@ -827,6 +844,30 @@ export type ArtifactQueryOptions = {
   limit?: number;
   offset?: number;
 };
+
+/**
+ * Is `value` a date bound the artifact feed can filter on — a bare
+ * `YYYY-MM-DD`, or a full ISO timestamp with an optional fractional part and an
+ * optional zone (`Z` or a numeric `±HH:MM` UTC offset)?
+ *
+ * The ONE definition every transport enforces (MMR-322), so the CLI's usage
+ * refusal and the MCP tool's `validation` refusal cannot disagree about what a
+ * date is. It has to be checked rather than merely normalized: the filter is a
+ * lexical string compare downstream, so `since: "yesterday"` would not error —
+ * it would sort against the ISO timestamps and quietly return the wrong window.
+ * The shape test comes first and `Date.parse` backstops it, which rejects
+ * calendar-impossible values (`2026-13-45`) the regex alone would admit.
+ */
+export function isFilterDate(value: string): boolean {
+  if (
+    !/^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?$/.test(
+      value,
+    )
+  ) {
+    return false;
+  }
+  return !Number.isNaN(Date.parse(value));
+}
 
 /** A bare `YYYY-MM-DD` filter date → its ISO-ms bound; a full timestamp passes
  * through. Shared so the CLI, MCP, and HTTP artifact feeds bound a day identically. */

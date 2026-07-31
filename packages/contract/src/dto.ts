@@ -479,14 +479,27 @@ export type OverviewSessionArtifact = {
 /**
  * One recent-sessions entry (MMR-322, ADR 0026 Decision 4). The mechanical layer
  * is derived: transition-log rows grouped by the `session` resume handle they
- * echoed (MMR-320), which yields the session id, its activity window, the tasks
- * it touched, and how many boundaries it crossed. A `session_summary`-tagged
- * artifact joins on by linked-task overlap and supplies the retrospective lede.
+ * echoed (MMR-320). A `session_summary`-tagged artifact joins on by linked-task
+ * overlap and supplies the retrospective lede.
+ *
+ * **Only handle-echoing rows are visible**, which is narrower than "everything
+ * the session did" (MMR-320 fixes which boundaries echo, and that policy stands):
+ *
+ * - `start` echoes the claim state, and the clearing verbs (`done`/`abandon`,
+ *   `park`/`block`) echo what they cleared. These are the rows that group.
+ * - `submit`, `return`, `reopen`, `unpark`, and `unblock` move no handle and echo
+ *   none, so a session that only reviewed or resubmitted work leaves no
+ *   mechanical trace. Its retrospective artifact, if it wrote one, still appears
+ *   — as a summary-only entry.
+ * - A clearing row echoes the handles the task still CARRIED, which are the
+ *   claiming session's. A takeover that resumed work without re-stating
+ *   `--session` therefore credits its `done` row to the session it took over
+ *   from. Re-state the handle on takeover (`mimir update <id> --session …`) and
+ *   the succession is exact.
  *
  * An entry with no `id` is a summary-only (knowledge-only) session: an artifact
- * whose links overlap no derived group — nothing crossed a boundary, so the log
- * has nothing to group. Its window is the artifact's `created_at` and its
- * `transitions` count is 0.
+ * whose links overlap no derived group. Its window is the artifact's
+ * `created_at` and its `transitions` count is 0.
  */
 export type OverviewSession = {
   /** The session id the grouped rows carried; `null` on a summary-only entry. */
@@ -494,7 +507,9 @@ export type OverviewSession = {
   /** The activity window over the grouped rows (ISO-ms-Z). */
   from: string;
   to: string;
-  /** How many transition rows carried this session id; `0` on a summary-only entry. */
+  /** How many handle-echoing transition rows carried this session id — NOT how
+   * many boundaries the session crossed (see the type doc). `0` on a
+   * summary-only entry. */
   transitions: number;
   /** The tasks the session touched, in first-touch order. */
   tasks: NodeRef[];
@@ -502,10 +517,29 @@ export type OverviewSession = {
   artifact?: OverviewSessionArtifact;
 };
 
-/** The `overview` recent-sessions section (MMR-322) — entries newest-first, capped
- * at 5 against the TRUE total, exactly like `next`/`awaiting`. */
+/**
+ * The `overview` recent-sessions section (MMR-322) — entries newest-first,
+ * capped at 5.
+ *
+ * **`shown` is deliberately not a true total**, and is named so it cannot be read
+ * as one. Unlike `next`/`awaiting` — whose populations are a filter over the
+ * working set already in hand — this section is composed from two bounded reads
+ * and its full population is unknowable without unbounded ones:
+ *
+ * - the derived groups come from `## History` over a bounded window of recently
+ *   touched tasks, so an older session can be missing entirely (and `updated_at`
+ *   moves on any write, not just a transition, so the window shifts under
+ *   ordinary edits);
+ * - the summary-only entries come from a bounded page of `session_summary`
+ *   artifacts, so they can push the figure ABOVE the number of derived groups.
+ *
+ * `shown` is therefore exactly what it says: how many entries the composition
+ * found in its scan window, of which `entries` carries the first 5. `mimir
+ * artifacts -t session_summary` is the unbounded, pageable view.
+ */
 export type OverviewSessions = {
-  count: number;
+  /** Entries found within the scan window — a floor on reality, never a total. */
+  shown: number;
   entries: OverviewSession[];
 };
 

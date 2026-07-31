@@ -6,6 +6,7 @@ export {
   type OverviewOptions,
   getArtifact,
   getNode,
+  isFilterDate,
   listArtifacts,
   listNodes,
   nextTasks,

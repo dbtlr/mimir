@@ -127,7 +127,7 @@ test.skipIf(!NORN)('overview tool returns the composite envelope (MMR-278)', asy
       dropped: number;
       listings: { blocked: unknown[]; stale: unknown[]; untriaged: unknown[] };
     };
-    sessions: { count: number; entries: unknown[] };
+    sessions: { shown: number; entries: unknown[] };
     direction: { project: string | null; containers: unknown[] };
   }>(textOf(result));
   expect(parsed.project.id).toBe('MMR');
@@ -142,7 +142,7 @@ test.skipIf(!NORN)('overview tool returns the composite envelope (MMR-278)', asy
     untriaged: 0,
   });
   // The MMR-322 sections ride the same envelope, empty on a quiet board.
-  expect(parsed.sessions).toEqual({ count: 0, entries: [] });
+  expect(parsed.sessions).toEqual({ entries: [], shown: 0 });
   expect(parsed.direction).toEqual({ containers: [], project: null });
 });
 
@@ -816,9 +816,13 @@ test.skipIf(!NORN)(
 // in-memory transport doubles as the MCP smoke).
 // ---------------------------------------------------------------------------
 
-/** Connect an in-memory client to a freshly-built server over an inert store. */
-async function connectClient(): Promise<{ client: Client; close: () => Promise<void> }> {
-  const server = buildMcpServer(inertStore(), '0.0.0');
+/** Connect an in-memory client to a freshly-built server over the given store —
+ * the inert one by default (schema-guard tests must never reach data), the real
+ * fixture store when the assertion is about a tool's ANSWER. */
+async function connectClient(
+  over: Store = inertStore(),
+): Promise<{ client: Client; close: () => Promise<void> }> {
+  const server = buildMcpServer(over, '0.0.0');
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0.0.0' });
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -884,6 +888,74 @@ test('an out-of-vocabulary enum arg states the constraint, no zod dump', async (
     expect(text).not.toContain('Invalid option');
     const parsed = parseJson<{ error: { message: string } }>(text);
     expect(parsed.error.message).toBe("priority must be one of 'p0', 'p1', 'p2', 'p3'");
+  } finally {
+    await close();
+  }
+});
+
+// The `artifacts` tool over the REAL dispatch path (MMR-322) — registration,
+// zod coercion, and handler, not a direct `toolArtifacts` call. `since`/`before`
+// are free strings at the schema level (an ISO date is not a zod primitive), so
+// the handler's own check is the only thing standing between `"yesterday"` and a
+// lexical compare that silently returns the wrong window.
+test.each(['since', 'before'])('artifacts rejects a malformed %s over dispatch', async (arg) => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({
+      arguments: { [arg]: 'yesterday', scope: 'MMR' },
+      name: 'artifacts',
+    })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const text = callText(res);
+    for (const leak of LIBRARY_LEAKS) {
+      expect(text).not.toContain(leak);
+    }
+    const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(text);
+    expect(parsed.error.code).toBe('validation');
+    expect(parsed.error.message).toBe('invalid date: yesterday');
+    expect(parsed.error.hint).toBe(`${arg} takes YYYY-MM-DD or a full ISO timestamp`);
+  } finally {
+    await close();
+  }
+});
+
+test.skipIf(!NORN)(
+  'artifacts accepts an ISO timestamp with a numeric offset over dispatch',
+  async () => {
+    // A real store here: the assertion is that the bound APPLIED, which an inert
+    // store cannot answer. The offset form is what the help text promises.
+    const { client, close } = await connectClient(store);
+    try {
+      await toolAttach(store, { content: '# a\n', node: taskRef, title: 'in window' });
+      const res = (await client.callTool({
+        arguments: { since: '2000-01-01T00:00:00-04:00' },
+        name: 'artifacts',
+      })) as ToolCall;
+      expect(res.isError).toBeUndefined();
+      expect(parseJson<{ total: number }>(callText(res)).total).toBe(1);
+    } finally {
+      await close();
+    }
+  },
+);
+
+test('artifacts advertises its filter args on tools/list', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const { tools } = await client.listTools();
+    const artifacts = tools.find((t) => t.name === 'artifacts');
+    expect(artifacts).toBeDefined();
+    const schema = artifacts?.inputSchema as {
+      properties?: Record<string, { type?: string }>;
+      required?: string[];
+    };
+    for (const arg of ['scope', 'tag', 'since', 'before', 'q']) {
+      expect(schema.properties?.[arg]?.type).toBe('string');
+    }
+    expect(schema.properties?.limit?.type).toBe('integer');
+    expect(schema.properties?.offset?.type).toBe('integer');
+    // Every arg is a filter; none is required.
+    expect(schema.required ?? []).toEqual([]);
   } finally {
     await close();
   }

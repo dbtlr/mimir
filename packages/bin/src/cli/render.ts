@@ -756,8 +756,10 @@ export function renderOverview(report: OverviewReport, io: Io): string {
 
   // recent sessions — one line per entry (id · window · N transitions · the tasks
   // touched), with the joined summary's lede dimmed beneath it, the way the seed
-  // queue renders its own derived lede.
-  out.push('', `recent sessions (${String(report.sessions.count)})`);
+  // queue renders its own derived lede. The header says `shown`, not a bare count:
+  // this section is composed from bounded reads and has no knowable true total
+  // (MMR-322), unlike the parenthesised counts above it.
+  out.push('', `recent sessions (${String(report.sessions.shown)} shown)`);
   for (const entry of report.sessions.entries) {
     const parts = [entry.id ?? '(no session)', `${entry.from} ${arrow(io.plain)} ${entry.to}`];
     if (entry.transitions > 0) {

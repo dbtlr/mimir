@@ -115,7 +115,7 @@ test.skipIf(!NORN)('empty sections carry a zero count', async () => {
     stale: 0,
     untriaged: 0,
   });
-  expect(report.sessions).toEqual({ count: 0, entries: [] });
+  expect(report.sessions).toEqual({ entries: [], shown: 0 });
   expect(report.direction).toEqual({ containers: [], project: null });
 });
 
@@ -147,7 +147,7 @@ test.skipIf(!NORN)('sessions group the transition rows a session handle stamped'
   await startTask(store, idOf(two), { session: 's-alpha' });
 
   const report = await overviewOf(store, 'MMR');
-  expect(report.sessions.count).toBe(1);
+  expect(report.sessions.shown).toBe(1);
   const [entry] = report.sessions.entries;
   expect(entry?.id).toBe('s-alpha');
   // `start` stamps the handles and echoes them; `submit` KEEPS them and echoes
@@ -162,7 +162,7 @@ test.skipIf(!NORN)('rows with no session handle are part of no group (legacy)', 
   const task = await createTask(store, { parentId: phaseId, title: 'unclaimed' });
   await startTask(store, idOf(task));
   const report = await overviewOf(store, 'MMR');
-  expect(report.sessions).toEqual({ count: 0, entries: [] });
+  expect(report.sessions).toEqual({ entries: [], shown: 0 });
 });
 
 test.skipIf(!NORN)('a session_summary artifact joins its overlapping group', async () => {
@@ -178,7 +178,7 @@ test.skipIf(!NORN)('a session_summary artifact joins its overlapping group', asy
   });
 
   const report = await overviewOf(store, 'MMR');
-  expect(report.sessions.count).toBe(1);
+  expect(report.sessions.shown).toBe(1);
   expect(report.sessions.entries[0]?.id).toBe('s-beta');
   expect(report.sessions.entries[0]?.artifact).toEqual({
     id: renderedId,
@@ -215,22 +215,89 @@ test.skipIf(!NORN)('a summary linking no touched task keeps its own entry', asyn
   });
 
   const report = await overviewOf(store, 'MMR');
-  expect(report.sessions.count).toBe(2);
+  expect(report.sessions.shown).toBe(2);
   const orphan = report.sessions.entries.find((e) => e.id === null);
   expect(orphan?.transitions).toBe(0);
   expect(orphan?.tasks).toEqual([]);
   expect(orphan?.artifact?.title).toBe('knowledge only');
 });
 
-test.skipIf(!NORN)('the sessions section caps at 5 against a true count', async () => {
+test.skipIf(!NORN)('the sessions section caps entries at 5, `shown` counting them', async () => {
   for (let i = 0; i < 7; i += 1) {
     const task = await createTask(store, { parentId: phaseId, title: `t-${String(i)}` });
     await startTask(store, idOf(task), { session: `s-${String(i)}` });
   }
   const report = await overviewOf(store, 'MMR');
-  expect(report.sessions.count).toBe(7);
+  expect(report.sessions.shown).toBe(7);
   expect(report.sessions.entries).toHaveLength(5);
 });
+
+test.skipIf(!NORN)('a session below the history scan window is invisible', async () => {
+  // The oldest claim, then 20 tasks touched after it — enough to push the
+  // claiming task out of the 20-task `## History` scan window entirely.
+  const old = await createTask(store, { parentId: phaseId, title: 'old claim' });
+  await startTask(store, idOf(old), { session: 's-ancient' });
+  for (let i = 0; i < 20; i += 1) {
+    await createTask(store, { parentId: phaseId, title: `fresh-${String(i)}` });
+  }
+  const report = await overviewOf(store, 'MMR');
+  expect(report.sessions.entries.map((e) => e.id)).not.toContain('s-ancient');
+  // `shown` is what the scan found, never a claim about the whole board — which
+  // is exactly why the key is not spelled `count`.
+  expect(report.sessions.shown).toBe(0);
+});
+
+test.skipIf(!NORN)('an ordinary update evicts from the scan window, no transition', async () => {
+  const claimed = await createTask(store, { parentId: phaseId, title: 'claimed' });
+  await startTask(store, idOf(claimed), { session: 's-evictable' });
+  expect((await overviewOf(store, 'MMR')).sessions.shown).toBe(1);
+  // `updated_at` moves on ANY write. Twenty plain title patches — not one
+  // transition among them — push the claim below the window.
+  for (let i = 0; i < 20; i += 1) {
+    const filler = await createTask(store, { parentId: phaseId, title: `filler-${String(i)}` });
+    await updateNode(store, await nodeIdOf(store, idOf(filler)), { title: `touched-${String(i)}` });
+  }
+  expect((await overviewOf(store, 'MMR')).sessions.shown).toBe(0);
+});
+
+test.skipIf(!NORN)('orphan summaries push `shown` above the derived group count', async () => {
+  const claimed = await createTask(store, { parentId: phaseId, title: 'claimed' });
+  await startTask(store, idOf(claimed), { session: 's-one' });
+  // Three retrospectives that overlap no group — knowledge-only sittings.
+  for (let i = 0; i < 3; i += 1) {
+    const untouched = await createTask(store, { parentId: phaseId, title: `subject-${String(i)}` });
+    await attachArtifact(store, {
+      content: '# retro',
+      linkNodeIds: [await nodeIdOf(store, idOf(untouched))],
+      projectId,
+      tags: ['session_summary'],
+      title: `retro ${String(i)}`,
+    });
+  }
+  const report = await overviewOf(store, 'MMR');
+  // One derived group + three orphans: `shown` is above the group count, which a
+  // "true total of sessions" reading could never produce.
+  expect(report.sessions.shown).toBe(4);
+  expect(report.sessions.entries.filter((e) => e.id === null)).toHaveLength(3);
+});
+
+test.skipIf(!NORN)(
+  'a review-only session leaves no mechanical trace (MMR-320 echo policy)',
+  async () => {
+    // `start` under one session, `submit` under another. submit moves no handle and
+    // echoes none, so the reviewing session produces no group at all — deliberate,
+    // not a gap: the handles are resume pointers, not a session ledger.
+    const task = await createTask(store, { parentId: phaseId, title: 'reviewed' });
+    await startTask(store, idOf(task), { session: 's-author' });
+    await submitTask(store, idOf(task));
+
+    const report = await overviewOf(store, 'MMR');
+    expect(report.sessions.entries.map((e) => e.id)).toEqual(['s-author']);
+    // The submit row is invisible, so `transitions` counts handle-echoing rows —
+    // NOT boundaries the session crossed.
+    expect(report.sessions.entries[0]?.transitions).toBe(1);
+  },
+);
 
 // ─── Needs-attention listings (MMR-322) ─────────────────────────────────────
 
