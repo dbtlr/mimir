@@ -1,4 +1,3 @@
-import { HANDLE_FIELD_KEYS } from '@mimir/contract';
 import type { Priority, Size } from '@mimir/contract';
 
 import type { ArtifactMetadataPatch, ArtifactRecord } from '../artifacts/store';
@@ -21,6 +20,8 @@ import {
   requireTask,
   stamp,
 } from './common';
+import { applyHandlePatch } from './handles';
+import type { HandleFields } from './handles';
 
 /**
  * Data + structural-order verbs that aren't status-bearing: the dumb `update`
@@ -53,21 +54,6 @@ export function normalizeSummary(value: string | null): string | null {
   return stripped === '' ? null : stripped;
 }
 
-/**
- * Normalize a resume-handle value (MMR-320): newlines collapse to a single space
- * and the result is trimmed, so a handle always renders as one `## History` line;
- * an empty/whitespace-only result stores as `null`, which is how a plain `update`
- * CLEARS a handle (`--host ''`). A `null` input passes through untouched. No cap:
- * a handle is an opaque key into a richer store, not prose (ADR 0026 Decision 3).
- */
-export function normalizeHandle(value: string | null): string | null {
-  if (value === null) {
-    return null;
-  }
-  const stripped = value.replace(/\s+/g, ' ').trim();
-  return stripped === '' ? null : stripped;
-}
-
 export type UpdateFields = {
   title?: string;
   description?: string | null;
@@ -94,25 +80,15 @@ export type UpdateFields = {
 
 export type UpdateFieldKey = keyof UpdateFields;
 
-/** The {@link UpdateFields} slice the resume handles occupy — what `start` records
- * and the terminal/hold verbs clear (ADR 0026 Decision 3). */
-export type HandleFields = Pick<UpdateFields, 'branch' | 'harness' | 'host' | 'session'>;
-
-/**
- * Copy the SET resume handles from an update patch onto a {@link NodePatch},
- * normalized (MMR-320) — the one binding `update` and `start` share, so both
- * doors store the identical value. The camelCase update-arg name and the
- * snake_case frontmatter column coincide for all four (they are single words),
- * so one loop over {@link HANDLE_FIELD_KEYS} serves both sides.
- */
-export function applyHandlePatch(patch: NodePatch, fields: HandleFields): void {
-  for (const key of HANDLE_FIELD_KEYS) {
-    const value = fields[key];
-    if (value !== undefined) {
-      patch[key] = normalizeHandle(value);
-    }
-  }
-}
+/** Compile guard (MMR-320): {@link HandleFields} is declared standalone in
+ * `handles.ts` — so the codec-side handle machinery needn't depend on the whole
+ * `update` vocabulary — and must stay exactly a slice of {@link UpdateFields}.
+ * A key that drifts out of the update plane makes this alias non-`never`. */
+type UnregisteredHandleKey = Exclude<keyof HandleFields, UpdateFieldKey>;
+type _HandleKeysAreUpdateKeys = AssertNever<UnregisteredHandleKey>;
+type _HandleValuesMatchUpdate = AssertNever<
+  HandleFields extends Pick<UpdateFields, keyof HandleFields> ? never : 'handle slice drifted'
+>;
 
 /**
  * The two update targets outside the data-plane spec (ADR 0025): `title` is

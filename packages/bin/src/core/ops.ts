@@ -17,7 +17,7 @@ import {
   unblockTask,
   unparkTask,
 } from './mutations';
-import type { HandleFields } from './mutations/data';
+import type { HandleFields } from './mutations/handles';
 import type { Store } from './store';
 
 /**
@@ -80,23 +80,31 @@ const OP_RUN: Record<UniformVerb, OpSpec['run']> = {
  * uniform verb; a transport iterates {@link UNIFORM_VERBS} for grouped rendering
  * or looks up by verb for dispatch.
  */
-const OP_ENTRIES: [UniformVerb, OpSpec][] = [];
-for (const verb of UNIFORM_VERBS) {
-  // Read through the declared fact type: `OP_FACTS`'s `as const` narrows each
-  // entry to exactly the keys it happens to carry, which would make the guard
-  // below statically vacuous for today's table rather than a live check.
-  const fact: OpFact = OP_FACTS[verb];
-  // A project-subject verb has no data-plane fields to apply — its `run` returns
-  // a Project row and the transports' project arms have nowhere to route them.
-  // Declaring any would be an accept-without-apply hole, so refuse at load, not
-  // at the first silently-dropped write. (Every field the spec owns is
-  // node-typed; `specUpdateFields` separately refuses a key with no update arg.)
+/**
+ * Refuse a fact that declares extra data-plane fields on a PROJECT subject (ADR
+ * 0026): such a verb's `run` returns a Project row, and the transports' project
+ * arms — the CLI's `echoArchiveOp`, the MCP project branch, the HTTP project
+ * route — have nowhere to route a field patch, so the fields would be advertised
+ * and silently dropped. Refused when the registry is built, not at the first lost
+ * write. (`specUpdateFields` separately refuses a key the generic `update` doesn't
+ * own; together they are the whole legality of the extra-args fact.)
+ */
+export function assertOpFields(verb: string, fact: OpFact): void {
   if (fact.subject === 'project' && (fact.fields ?? []).length > 0) {
     throw invariant(
       `${verb} declares data-plane fields on a project subject`,
       'only a task-subject verb can record fields at its transition',
     );
   }
+}
+
+const OP_ENTRIES: [UniformVerb, OpSpec][] = [];
+for (const verb of UNIFORM_VERBS) {
+  // Read through the declared fact type: `OP_FACTS`'s `as const` narrows each
+  // entry to exactly the keys it happens to carry, which would make the guard
+  // statically vacuous for today's table rather than a live check.
+  const fact: OpFact = OP_FACTS[verb];
+  assertOpFields(verb, fact);
   OP_ENTRIES.push([verb, { ...fact, run: OP_RUN[verb] }]);
 }
 // `Object.fromEntries` erases the key union to `string`; the entries are exactly

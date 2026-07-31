@@ -3,9 +3,9 @@ import type { Node } from '../model';
 import { appendRank } from '../rank';
 import type { NodePatch, Store } from '../store';
 import { now } from '../time';
-import { clearHandles, handlesOf, logTransition, reloadNode, requireTask, stamp } from './common';
-import { applyHandlePatch } from './data';
-import type { HandleFields } from './data';
+import { logTransition, reloadNode, requireTask, stamp } from './common';
+import { applyHandlePatch, clearHandles, handlesOf } from './handles';
+import type { HandleFields } from './handles';
 
 /**
  * Lifecycle verbs (ADR 0001/0003/0007). `start` keeps the task in the rankable

@@ -4,7 +4,8 @@ import { validation } from '../errors';
 import type { Node } from '../model';
 import { appendRank, isRankable } from '../rank';
 import type { NodePatch, Store } from '../store';
-import { clearHandles, logTransition, reloadNode, requireTask, stamp } from './common';
+import { logTransition, reloadNode, requireTask, stamp } from './common';
+import { clearHandles } from './handles';
 
 /**
  * Hold verbs (ADR 0001/0007). The hold overlay is orthogonal to lifecycle: a

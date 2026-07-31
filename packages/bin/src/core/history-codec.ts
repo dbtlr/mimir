@@ -217,11 +217,38 @@ function renderEdge(from: string | null, to: string | null): string {
  * house's own list glyph (the CLI echo uses it), and it never occurs in a
  * machine-written edge value.
  */
-const HANDLE_SEP = ' · ';
+export const HANDLE_SEP = ' · ';
 /** Split an edge line at every separator that OPENS a known handle key — a value
  * carrying a bare ` · ` is left intact, since only `key=` starts a new pair. */
 const HANDLE_OPENER = new RegExp(` · (?=(?:${HANDLE_FIELD_KEYS.join('|')})=)`);
 const HANDLE_PAIR = /^([a-z]+)=([\s\S]*)$/;
+
+/**
+ * The two byte sequences a handle value cannot carry through the echo (MMR-320):
+ * a newline would open a second `### ` record or close the `## History` section
+ * outright (the edge line is written verbatim, unescaped — unlike a reason), and
+ * the separator would read back as an ADDITIONAL, never-set handle. Both are
+ * forgery in the log whose whole purpose is claim succession, so the codec owns
+ * the rule and both boundaries route through it: the write path REFUSES such a
+ * value ({@link normalizeHandle}) and the echo path FLATTENS whatever the vault
+ * already holds ({@link flattenHandle}) — a hand edit must not be able to forge a
+ * row, and must not be able to block a verb either (ADR 0017 runtime tolerance).
+ */
+
+/** Can this value ride the echo verbatim? Exactly "flattening changes nothing". */
+export function isEchoSafeHandle(value: string): boolean {
+  return flattenHandle(value) === value;
+}
+
+/**
+ * Force a value into the one-line, separator-free form the echo can carry
+ * losslessly: whitespace runs collapse to a single space, the separator
+ * collapses to a single space, and the result is trimmed. Idempotent, so
+ * {@link isEchoSafeHandle} is exactly "flattening changes nothing".
+ */
+export function flattenHandle(value: string): string {
+  return value.replace(/\s+/g, ' ').replaceAll(HANDLE_SEP, ' ').replace(/\s+/g, ' ').trim();
+}
 
 /** The ` · key=value` tail for a transition's handle echo — empty when none. */
 function renderHandles(handles: ExecutionHandles | undefined): string {

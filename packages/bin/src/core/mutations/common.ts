@@ -1,11 +1,8 @@
-import { HANDLE_FIELD_KEYS } from '@mimir/contract';
-import type { ExecutionHandles } from '@mimir/contract';
-
 import { deriveSet, lineageIds } from '../derive';
 import { conflict, invariant, notFound, validation } from '../errors';
 import type { Node } from '../model';
 import { isReady } from '../predicates';
-import type { NewTransitionRecord, NodePatch, StoreWriter } from '../store';
+import type { NewTransitionRecord, StoreWriter } from '../store';
 import { now } from '../time';
 
 /**
@@ -131,41 +128,4 @@ export async function logTransition(
   const handles =
     row.handles !== undefined && Object.keys(row.handles).length > 0 ? row.handles : undefined;
   await w.appendTransition({ ...row, at: now(), handles });
-}
-
-/**
- * The resume handles a task currently carries (ADR 0026 Decision 3, MMR-320),
- * omit-when-absent — the record a clearing transition echoes on its `## History`
- * row, and the emptiness test the clearing verbs branch on. An empty result means
- * the task was never claimed (or was already cleared), so nothing is written.
- */
-export function handlesOf(task: Node): ExecutionHandles {
-  const handles: ExecutionHandles = {};
-  for (const key of HANDLE_FIELD_KEYS) {
-    const value = task[key];
-    if (value !== null) {
-      handles[key] = value;
-    }
-  }
-  return handles;
-}
-
-/**
- * Add the resume-handle clears to a mutation's node patch, and return what was
- * cleared for the transition row (ADR 0026 Decision 3): the terminal transitions
- * (`done`, `abandon`) and the holds (`park`, `block`) drop the handles, because
- * the work is no longer in flight and a stale pointer is worse than none. Only
- * the SET handles are nulled, so an unclaimed task's transition writes no extra
- * frontmatter op. `submit`/`return` deliberately do NOT call this — the branch and
- * session stay the live pointers at the human gate — and `reopen`/`unpark`/
- * `unblock` restore nothing: a resuming agent re-states them via `update`.
- */
-export function clearHandles(patch: NodePatch, task: Node): ExecutionHandles {
-  const cleared = handlesOf(task);
-  for (const key of HANDLE_FIELD_KEYS) {
-    if (cleared[key] !== undefined) {
-      patch[key] = null;
-    }
-  }
-  return cleared;
 }

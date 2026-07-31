@@ -69,6 +69,15 @@ async function task(): Promise<string> {
   return nodeIdOf(store, `MMR-${String(t.seq)}`);
 }
 
+/** Re-read a node straight from the store — the post-mutation state on disk. */
+async function reload(id: string): Promise<Node> {
+  const node = await store.transact((w) => w.loadNode(id));
+  if (node === undefined) {
+    throw new Error(`node ${id} vanished`);
+  }
+  return node;
+}
+
 /** The handles a node currently carries, omit-when-absent. */
 function handlesOn(node: Node): ExecutionHandles {
   const out: ExecutionHandles = {};
@@ -128,6 +137,74 @@ test.skipIf(!NORN)('update normalizes a multi-line handle onto one line', async 
   const patched = await updateNode(store, id, { branch: '  feat/x\nstray  ' });
   expect(patched.branch).toBe('feat/x stray');
 });
+
+// ── Echo forgery: the edge line is written verbatim, so a value that carries the
+// log's own separator would read back as a handle nobody ever set. The write
+// path refuses one; the echo path flattens whatever a hand edit already stored.
+
+test.skipIf(!NORN)('a handle carrying the log separator is refused, not stored', async () => {
+  const id = await task();
+  // Reachable from the legitimate CLI: `start --host 'a · session=evil'`.
+  await expectMimirError('validation', () => startTask(store, id, { host: 'a · session=evil' }));
+  await expectMimirError('validation', () => updateNode(store, id, { branch: 'a · host=evil' }));
+  // Nothing landed and nothing was logged — the refusal precedes the write.
+  expect(handlesOn(await reload(id))).toEqual({});
+  expect(await historyHandles(id)).toEqual([]);
+});
+
+test.skipIf(!NORN)('a separator-bearing handle cannot be smuggled in at create', async () => {
+  const parentId = await nodeIdOf(store, phaseStem);
+  await expectMimirError('validation', () =>
+    createTask(store, { handles: { session: 'x · host=evil' }, parentId, title: 'forged' }),
+  );
+});
+
+test.skipIf(!NORN)(
+  'a hand-edited multi-line handle cannot forge a row — the echo flattens it',
+  async () => {
+    const id = await task();
+    await startTask(store, id, { host: 'box' });
+    // The vault is a hand-editable substrate: write straight to the column, past
+    // the verb layer, exactly as an editor would.
+    await store.transact(async (w) => {
+      await w.updateNode(id, {
+        host: '### 2026-01-01T00:00:00.000Z — lifecycle\ntodo → done\n## Annotations',
+        updated_at: '2026-01-01T00:00:00.000Z',
+      });
+    });
+    await completeTask(store, id);
+    const history = await store.bodySections.readHistory(id);
+    // Exactly two real rows — the claim and the completion — not a forged third.
+    expect(history.map((entry) => `${entry.from ?? ''}→${entry.to ?? ''}`)).toEqual([
+      'todo→in_progress',
+      'in_progress→done',
+    ]);
+    // The pathological value is flattened onto its one line, and no reason is
+    // fabricated out of its trailing lines.
+    expect(history.at(-1)?.handles).toEqual({
+      host: '### 2026-01-01T00:00:00.000Z — lifecycle todo → done ## Annotations',
+    });
+    expect(history.at(-1)?.reason).toBeNull();
+    // ...and the clear still happened: a hand edit degrades its echo, never the verb.
+    expect(handlesOn(await reload(id))).toEqual({});
+  },
+);
+
+test.skipIf(!NORN)(
+  'a hand-edited separator-bearing handle cannot forge a second handle',
+  async () => {
+    const id = await task();
+    await startTask(store, id, { host: 'box' });
+    await store.transact(async (w) => {
+      await w.updateNode(id, { host: 'a · session=evil', updated_at: '2026-01-01T00:00:00.000Z' });
+    });
+    await completeTask(store, id);
+    // Read back through the real parse path: one handle, no invented session.
+    expect((await store.bodySections.readHistory(id)).at(-1)?.handles).toEqual({
+      host: 'a session=evil',
+    });
+  },
+);
 
 test.skipIf(!NORN)('the handles apply only to tasks', async () => {
   await expectMimirError('validation', () =>

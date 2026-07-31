@@ -219,10 +219,12 @@ export type HistoryEntry = {
   at: string;
   reason: string | null;
   /**
-   * The resume handles this transition set or cleared (ADR 0026 Decision 3) —
-   * present only on the boundary rows that move them (`start` echoes what it
-   * stamped; a terminal/hold row echoes what it cleared), so the append-only log
-   * preserves claim succession. Absent everywhere else, never partially empty.
+   * The resume handles in play at this transition (ADR 0026 Decision 3) —
+   * present only on the boundary rows that move them: `start` echoes the CLAIM
+   * STATE the task carries once claimed (which includes a handle pre-seeded at
+   * `create`, not only what its own flags stamped), and a terminal/hold row
+   * echoes what it cleared. So the append-only log preserves claim succession.
+   * Absent everywhere else, never partially empty.
    */
   handles?: ExecutionHandles;
 };

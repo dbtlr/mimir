@@ -11,7 +11,7 @@ import {
   uniformFlagSpec,
   uniformSummary,
 } from './cli/help';
-import { OP_SPECS } from './core';
+import { assertOpFields, OP_SPECS } from './core';
 import { uniformRoutes } from './http/server';
 import { buildMcpServer, uniformToolDescription, uniformToolSchema } from './mcp/server';
 import { inertStore } from './testing/store';
@@ -199,6 +199,31 @@ test('golden: the CLI usage lines and flag rows are pinned per verb', () => {
     ['--host', 'the machine the work is happening on'],
     ['--session', 'the session id to resume from'],
   ]);
+});
+
+test('the registry refuses extra data-plane fields on a project subject', () => {
+  // A project verb's `run` returns a Project row, and every transport's project
+  // arm has nowhere to route a field patch — so declaring one would be advertised
+  // and silently dropped. Exercised through the same synthetic-fact pattern the
+  // builders use, since the live table can never reach the branch.
+  const projectFact: OpFact = {
+    fields: ['host'],
+    reason: 'none',
+    subject: 'project',
+    summary: 'freeze a project',
+    transition: { axis: 'archive', from: 'active', to: 'archived' },
+  };
+  expect(() => assertOpFields('freeze', projectFact)).toThrow(
+    /declares data-plane fields on a project subject/,
+  );
+  // A task subject declaring the same field is fine, and so is a project subject
+  // declaring none — the guard is exactly the one combination.
+  expect(() => assertOpFields('claim', { ...projectFact, subject: 'task' })).not.toThrow();
+  expect(() => assertOpFields('freeze', { ...projectFact, fields: [] })).not.toThrow();
+  // ...and the live registry passes it (every entry was bound at module load).
+  for (const spec of OP_SPECS) {
+    expect(() => assertOpFields(spec.verb, spec)).not.toThrow();
+  }
 });
 
 test('a synthetic verb declaring no extra fields renders exactly as it always did', () => {

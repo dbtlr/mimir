@@ -7,8 +7,9 @@ import { parsePriorityValue, parseSizeValue, parseUpstreamValue } from './field-
 import { parseIdentity } from './ids';
 import type { Node, Project } from './model';
 import { assertProjectActive } from './mutations/common';
-import { applyHandlePatch, normalizeSummary } from './mutations/data';
-import type { HandleFields } from './mutations/data';
+import { normalizeSummary } from './mutations/data';
+import { applyHandlePatch } from './mutations/handles';
+import type { HandleFields } from './mutations/handles';
 import { appendRank } from './rank';
 import { resolveNodeTokenInSet, resolveProjectKeyInSet } from './resolve-set';
 import type { NodePatch, Store } from './store';

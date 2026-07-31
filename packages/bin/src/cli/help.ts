@@ -567,11 +567,15 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--summary <text>', 'summary (256 chars max)'],
       ['--ref <ref>', 'external reference'],
       ['--upstream <KEY-sN>', 'requester-side seed pointer (reference-only)'],
+      [
+        '--host/--harness/--session/--branch <text>',
+        'the resume handles — accepted here, but normally stamped by `start`',
+      ],
       ['--tag <t>', 'tag at creation (repeatable)'],
     ],
     summary: 'create a task under a phase or initiative',
     usage:
-      'mimir create task <title> --parent <id> [--priority …] [--size …] [--desc …] [--summary …] [--ref …] [--upstream <KEY-sN>] [--tag <t>…]',
+      'mimir create task <title> --parent <id> [--priority …] [--size …] [--desc …] [--summary …] [--ref …] [--upstream <KEY-sN>] [--host …] [--harness …] [--session …] [--branch …] [--tag <t>…]',
   },
   attach: {
     args: [['<id>', 'the primary node (KEY-seq) the artifact attaches to']],
