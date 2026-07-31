@@ -104,6 +104,8 @@ mimir update KEY-4 --direction ""      # clear it
   move `updated_at` (and doesn't fake activity).
 - The flag is `--direction`, not `--next` (`--next` belongs to `self-update`).
   The field is spelled `next` on MCP, HTTP, and `--col next`.
+- It is an `update` flag only — set the narrative after the container exists;
+  `create --direction` is refused rather than silently dropped.
 - A refusal naming a duplicate `## Next` means the document was hand-edited into
   two sections — `mimir doctor` points at the extra heading; delete it, then
   re-author.
