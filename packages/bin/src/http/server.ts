@@ -296,7 +296,9 @@ function uniformReason(spec: UniformRouteSpec, body: Record<string, unknown>): s
 
 /** The body keys a uniform verb accepts: its reason (per policy) plus the
  * snake_case keys of the extra data-plane fields it declares (ADR 0026 — only
- * `start`'s resume handles). An empty allow-list still rejects any other key. */
+ * `start`'s resume handles). An empty allow-list still rejects any other key.
+ * The node route only: a project-subject verb can declare no fields at all (the
+ * registry refuses one at load), so its route keeps the bare reason allow-list. */
 function uniformBodyFields(spec: UniformRouteSpec): string[] {
   return [
     ...(spec.reason === 'optional' ? ['reason'] : []),

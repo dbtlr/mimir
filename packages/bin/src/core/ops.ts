@@ -1,6 +1,7 @@
 import { OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { OpFact, UniformVerb } from '@mimir/contract';
 
+import { invariant } from './errors';
 import type { Node, Project } from './model';
 import {
   abandonTask,
@@ -81,7 +82,22 @@ const OP_RUN: Record<UniformVerb, OpSpec['run']> = {
  */
 const OP_ENTRIES: [UniformVerb, OpSpec][] = [];
 for (const verb of UNIFORM_VERBS) {
-  OP_ENTRIES.push([verb, { ...OP_FACTS[verb], run: OP_RUN[verb] }]);
+  // Read through the declared fact type: `OP_FACTS`'s `as const` narrows each
+  // entry to exactly the keys it happens to carry, which would make the guard
+  // below statically vacuous for today's table rather than a live check.
+  const fact: OpFact = OP_FACTS[verb];
+  // A project-subject verb has no data-plane fields to apply — its `run` returns
+  // a Project row and the transports' project arms have nowhere to route them.
+  // Declaring any would be an accept-without-apply hole, so refuse at load, not
+  // at the first silently-dropped write. (Every field the spec owns is
+  // node-typed; `specUpdateFields` separately refuses a key with no update arg.)
+  if (fact.subject === 'project' && (fact.fields ?? []).length > 0) {
+    throw invariant(
+      `${verb} declares data-plane fields on a project subject`,
+      'only a task-subject verb can record fields at its transition',
+    );
+  }
+  OP_ENTRIES.push([verb, { ...fact, run: OP_RUN[verb] }]);
 }
 // `Object.fromEntries` erases the key union to `string`; the entries are exactly
 // the `UniformVerb` set (one per verb), so the narrow back is sound.
