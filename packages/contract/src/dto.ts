@@ -554,15 +554,25 @@ export type OverviewDirectionContainer = {
 /**
  * The `overview` direction block (MMR-322) — the owned `## Next` prose (ADR 0026
  * Decision 2) rendered verbatim: the project's own narrative, plus the narrative
- * of every container parenting an in-flight or ready-head task. A dormant
- * container's prose stays one `mimir get` away rather than crowding the boot
- * surface. Spelled `direction` because the overview's `next` key is already the
- * ready-queue head; the node-level field keeps its `next` spelling.
+ * of every container parenting LIVE work — a task that is in flight or ready. A
+ * dormant container's prose stays one `mimir get` away rather than crowding the
+ * boot surface. Spelled `direction` because the overview's `next` key is already
+ * the ready-queue head; the node-level field keeps its `next` spelling.
+ *
+ * Prose is read for EVERY container in that population and only then capped, so
+ * `count` is a true total and `containers` carries the first 5 of it. Both halves
+ * of that ordering matter: capping containers before the prose read would hide
+ * the only container carrying direction behind five that carry none, and drawing
+ * candidates from the CAPPED ready head (rather than the whole ready set) would
+ * hide a container's prose for no reason but its work's rank.
  */
 export type OverviewDirection = {
   /** The project doc's prose; `null` when the section is absent. */
   project: string | null;
-  /** Containers with live work AND prose set — deduped, in board order. */
+  /** How many containers with live work carry prose — the TRUE total, which may
+   * exceed `containers.length`. */
+  count: number;
+  /** Containers with live work AND prose set — deduped, board order, capped at 5. */
   containers: OverviewDirectionContainer[];
 };
 

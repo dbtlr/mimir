@@ -256,7 +256,7 @@ test.skipIf(!NORN)('GET /api/projects/:key/overview serves the composite envelop
   expect((body.next as Rec).count).toBe(2);
   expect(body.in_flight).toEqual({ count: 0, tasks: [] });
   expect(body.sessions).toEqual({ entries: [], shown: 0 });
-  expect(body.direction).toEqual({ containers: [], project: null });
+  expect(body.direction).toEqual({ containers: [], count: 0, project: null });
   expect((body.hygiene as Rec).listings).toEqual({ blocked: [], stale: [], untriaged: [] });
 });
 

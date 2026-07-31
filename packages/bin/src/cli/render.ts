@@ -711,7 +711,7 @@ export function renderOverview(report: OverviewReport, io: Io): string {
   // direction — the owned `## Next` prose (MMR-321), verbatim: the project's own
   // narrative, then each live container's under its id. Absent entirely when
   // nothing carries prose, so a board that owns none pays no header.
-  const { project: projectNext, containers } = report.direction;
+  const { project: projectNext, containers, count: directionCount } = report.direction;
   if (projectNext != null || containers.length > 0) {
     out.push('', 'direction');
     if (projectNext != null) {
@@ -720,6 +720,12 @@ export function renderOverview(report: OverviewReport, io: Io): string {
     for (const container of containers) {
       out.push(`  ${bold(container.id, io.plain)} · ${container.title}`);
       out.push(...container.next.split('\n').map((line) => `    ${line}`));
+    }
+    // Prose is uncapped in length, so the list caps at 5 even though the count is
+    // true — name the remainder rather than dropping it silently.
+    const hidden = directionCount - containers.length;
+    if (hidden > 0) {
+      out.push(`  ${String(hidden)} more with direction — run 'mimir get <id>'`);
     }
   }
 

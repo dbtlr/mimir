@@ -635,12 +635,25 @@ async function recentSessions(
  * project plus of the containers parenting live work, in ONE batched section
  * read alongside the project's own.
  *
- * Two bounds, both real: the candidate set is the DIRECT parents of the in-flight
- * tasks and of the capped ready head (a dormant container's prose stays one
- * `mimir get` away), and at most {@link OVERVIEW_CAP} distinct containers are
- * read — `inFlight` is uncapped by design, and the prose itself is uncapped in
- * length, so without this second bound a board with many parallel claims would
- * turn a boot surface into a document dump.
+ * **Filter, then cap** — never the reverse. The section's population is the
+ * DIRECT parents of every live task: in-flight or ready, the FULL ready set and
+ * not the capped head. Prose is then read for all of them, and only the
+ * resulting list caps.
+ *
+ * Both widenings exist for the same reason — a cap upstream of the prose read
+ * silently drops direction. Capping the containers first lets five prose-less
+ * ones hide the only container with something to say; taking parents from the
+ * capped ready head instead of the whole ready set does the same thing one step
+ * earlier, hiding a container whose work merely sits below rank 5. Neither costs
+ * anything to widen: the candidate set is DISTINCT PARENTS of live work (a
+ * handful of containers, not the board), and
+ * {@link import('../body-sections/store').BodySectionStore.readSectionsMany}
+ * batches the read into one round-trip however many stems it carries.
+ *
+ * `count` is therefore a TRUE total over that population, and only the rendered
+ * list caps at {@link OVERVIEW_CAP} — the prose is uncapped in length, so a board
+ * with many parallel claims would otherwise turn a boot surface into a document
+ * dump. A dormant container's prose stays one `mimir get` away by design.
  */
 async function directionOf(
   store: Store,
@@ -648,7 +661,7 @@ async function directionOf(
   scopeKey: string,
   live: readonly Node[],
 ): Promise<OverviewDirection> {
-  const containers: Node[] = [];
+  const candidates: Node[] = [];
   const seen = new Set<string>();
   for (const node of live) {
     const parent = node.parent_id === null ? undefined : set.nodeById.get(node.parent_id);
@@ -656,22 +669,26 @@ async function directionOf(
       continue;
     }
     seen.add(parent.id);
-    containers.push(parent);
+    candidates.push(parent);
   }
-  const wanted = containers.toSorted((a, b) => a.seq - b.seq).slice(0, OVERVIEW_CAP);
+  const ordered = candidates.toSorted((a, b) => a.seq - b.seq);
   // The project's stem is its bare KEY, so it rides the same batched read.
   const prose = await store.bodySections.readSectionsMany(
-    [scopeKey, ...wanted.map((node) => node.id)],
+    [scopeKey, ...ordered.map((node) => node.id)],
     { next: true },
   );
-  const containerRows: OverviewDirection['containers'] = [];
-  for (const node of wanted) {
+  const withProse: OverviewDirection['containers'] = [];
+  for (const node of ordered) {
     const next = prose.get(node.id)?.next;
     if (next != null && next !== '') {
-      containerRows.push({ id: node.id, next, title: node.title });
+      withProse.push({ id: node.id, next, title: node.title });
     }
   }
-  return { containers: containerRows, project: prose.get(scopeKey)?.next ?? null };
+  return {
+    containers: withProse.slice(0, OVERVIEW_CAP),
+    count: withProse.length,
+    project: prose.get(scopeKey)?.next ?? null,
+  };
 }
 
 /** A needs-attention listing row (MMR-322) — the lean task plus its lane word and
@@ -772,7 +789,10 @@ export async function overviewOf(
   const dropped = set.ws.issueCount ?? 0;
 
   const [direction, sessions, blockedRows, staleRows, untriagedRows] = await Promise.all([
-    directionOf(store, set, scopeId, [...inFlightNodes, ...readyNodes.slice(0, OVERVIEW_CAP)]),
+    // The FULL ready set, not the capped head: the cap is a display bound on
+    // `next`, and letting it reach back into the direction candidates would hide
+    // a container's prose for no reason but its work's rank.
+    directionOf(store, set, scopeId, [...inFlightNodes, ...readyNodes]),
     recentSessions(store, scopeId, tasks),
     attentionRows(store, set, blockedNodes, opts.asOf),
     attentionRows(store, set, staleNodes, opts.asOf),
@@ -859,23 +879,63 @@ export type ArtifactQueryOptions = {
  * calendar-impossible values (`2026-13-45`) the regex alone would admit.
  */
 export function isFilterDate(value: string): boolean {
-  if (
-    !/^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?$/.test(
-      value,
-    )
-  ) {
-    return false;
-  }
-  return !Number.isNaN(Date.parse(value));
+  return canonicalFilterInstant(value) !== null;
 }
 
-/** A bare `YYYY-MM-DD` filter date → its ISO-ms bound; a full timestamp passes
- * through. Shared so the CLI, MCP, and HTTP artifact feeds bound a day identically. */
+/** The shapes {@link isFilterDate} admits: a bare date, or a timestamp with an
+ * optional seconds/fraction and an optional zone, `T`- or space-separated. */
+const FILTER_DATE_SHAPE =
+  /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?$/;
+
+const BARE_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * An accepted filter date as the ONE canonical instant string the store compares
+ * against — `YYYY-MM-DDTHH:mm:ss.sssZ` — or `null` when the value is not a
+ * filter date at all. The single decision point behind both {@link isFilterDate}
+ * and {@link normalizeFilterDate}, so "accepted" and "normalized" cannot drift
+ * into a shape that passes validation and then compares wrong.
+ *
+ * Canonicalization is load-bearing because the comparison downstream is
+ * **lexical** over stored `created_at` values, which are always ISO-ms UTC. Two
+ * accepted forms are wrong if passed through verbatim:
+ *
+ * - a numeric UTC offset — `2026-07-01T23:00:00.000+02:00` is 21:00Z, but sorts
+ *   as if it were 23:00, silently excluding artifacts from those two hours;
+ * - the ISO space separator — `'2026-07-01 10:00'` sorts BELOW every `…T…`
+ *   value for that day (`' ' < 'T'`), collapsing the bound to start-of-day.
+ *
+ * A zone-less timestamp is read as **UTC**, matching the bare-date bounds below;
+ * `new Date` would otherwise read it as local time and shift the window by the
+ * host's offset, making the same command mean different things on two machines.
+ */
+function canonicalFilterInstant(value: string): string | null {
+  if (!FILTER_DATE_SHAPE.test(value)) {
+    return null;
+  }
+  const separated = value.replace(' ', 'T');
+  const zoned = /(?:Z|[+-]\d{2}:\d{2})$/.test(separated) ? separated : `${separated}Z`;
+  const ms = Date.parse(zoned);
+  // Backstops the shape test, which admits calendar-impossible values (`2026-13-45`).
+  return Number.isNaN(ms) ? null : new Date(ms).toISOString();
+}
+
+/**
+ * A filter date → the ISO-ms UTC bound the store compares against. A bare
+ * `YYYY-MM-DD` widens to the requested edge of that whole day; every other
+ * accepted form canonicalizes to its exact instant (see
+ * {@link canonicalFilterInstant}). Shared so the CLI, MCP, and HTTP artifact
+ * feeds bound a window identically.
+ *
+ * A value that isn't a filter date passes through untouched — every caller
+ * validates first, and silently substituting a bound would be worse than the
+ * empty result the raw value produces.
+ */
 export function normalizeFilterDate(value: string, edge: 'start' | 'end'): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+  if (BARE_DATE.test(value)) {
     return edge === 'start' ? `${value}T00:00:00.000Z` : `${value}T23:59:59.999Z`;
   }
-  return value;
+  return canonicalFilterInstant(value) ?? value;
 }
 
 /**

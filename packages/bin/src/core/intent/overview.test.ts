@@ -116,7 +116,7 @@ test.skipIf(!NORN)('empty sections carry a zero count', async () => {
     untriaged: 0,
   });
   expect(report.sessions).toEqual({ entries: [], shown: 0 });
-  expect(report.direction).toEqual({ containers: [], project: null });
+  expect(report.direction).toEqual({ containers: [], count: 0, project: null });
 });
 
 test.skipIf(!NORN)('stale hygiene counts tasks quiet past the threshold (asOf)', async () => {
@@ -378,7 +378,7 @@ test.skipIf(!NORN)('direction carries the project prose and live containers only
 test.skipIf(!NORN)('a live container with no prose contributes no direction row', async () => {
   await createTask(store, { parentId: phaseId, title: 'ready one' });
   const report = await overviewOf(store, 'MMR');
-  expect(report.direction).toEqual({ containers: [], project: null });
+  expect(report.direction).toEqual({ containers: [], count: 0, project: null });
 });
 
 test.skipIf(!NORN)('a container parenting only in-flight work still shows its prose', async () => {
@@ -396,4 +396,35 @@ test.skipIf(!NORN)('a container is listed once however many live tasks it parent
   }
   const report = await overviewOf(store, 'MMR');
   expect(report.direction.containers).toHaveLength(1);
+  expect(report.direction.count).toBe(1);
+});
+
+test.skipIf(!NORN)('prose-less containers cannot hide one that carries prose', async () => {
+  // Six live containers, only the LAST by seq carrying direction. A cap applied
+  // before the prose read would show the five empty ones and drop the only row
+  // with anything to say.
+  let lastId = '';
+  for (let i = 0; i < 6; i += 1) {
+    const phase = await createPhase(store, { parentId: initId, title: `p-${String(i)}` });
+    lastId = await nodeIdOf(store, `MMR-${String(phase.seq)}`);
+    await createTask(store, { parentId: lastId, title: `t-${String(i)}` });
+  }
+  await updateNode(store, lastId, { next: 'the only direction on the board' });
+
+  const report = await overviewOf(store, 'MMR');
+  expect(report.direction.count).toBe(1);
+  expect(report.direction.containers).toHaveLength(1);
+  expect(report.direction.containers[0]?.next).toBe('the only direction on the board');
+});
+
+test.skipIf(!NORN)('direction caps the list at 5 while `count` stays true', async () => {
+  for (let i = 0; i < 7; i += 1) {
+    const phase = await createPhase(store, { parentId: initId, title: `p-${String(i)}` });
+    const id = await nodeIdOf(store, `MMR-${String(phase.seq)}`);
+    await createTask(store, { parentId: id, title: `t-${String(i)}` });
+    await updateNode(store, id, { next: `direction ${String(i)}` });
+  }
+  const report = await overviewOf(store, 'MMR');
+  expect(report.direction.count).toBe(7);
+  expect(report.direction.containers).toHaveLength(5);
 });

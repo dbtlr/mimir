@@ -15,8 +15,9 @@ mimir overview          # the whole boot picture, attention-ordered
 ```
 
 Sections, attention-ordered: **header** (project rollup distribution + status
-word) · **direction** (the owned `## Next` prose of the project and of every
-container holding live work, verbatim) · **in flight** (`in_progress` +
+word) · **direction** (the owned `## Next` prose, verbatim, of the project and of
+every container parenting live work — in flight or ready; top 5 of the true
+count, the rest named) · **in flight** (`in_progress` +
 `under_review`, uncapped, each row showing its resume handles as
 `harness@host · branch · session` when set) · **next** (the ready head, top 5 of
 the true count) · **awaiting** (dep-gated, top 5, each row naming what it
@@ -28,7 +29,7 @@ tasks carry their attention lane, untriaged seeds their lede). In flight comes
 before next by design — orienting via `next` alone is the classic trap (it
 **excludes `in_progress`**), and overview structurally avoids it.
 
-Every parenthesised number is a TRUE total — except recent sessions, whose
+Every count in the render is a TRUE total — except recent sessions, whose
 header reads `N shown`. That section is composed from bounded reads and has no
 knowable total: `mimir artifacts -t session_summary` is the pageable view.
 

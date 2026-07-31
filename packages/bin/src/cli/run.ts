@@ -474,22 +474,40 @@ export async function runCli(
           nextScope !== undefined
             ? `No ready tasks in ${nextScope} — mimir list --status awaiting -s ${nextScope} shows what's queued`
             : "No ready tasks — mimir list --status awaiting shows what's queued";
+        // Parsed BEFORE the store is opened (MMR-39): every one of these throws
+        // `usage` on a structural fault, and a wrong invocation must not open the
+        // vault. Inside the call's argument list they were evaluated after
+        // `getStore()` had already resolved.
+        const nextQuery = {
+          facets: parseFacets(values.col),
+          filters: parseFilters(values),
+          limit: parseLimit(values.limit),
+          priority: parsePriority(values.priority),
+          scope: nextScope,
+          size: parseSize(values.size),
+          verdicts: parseVerdicts(values.is, values['not-is']),
+        };
         return runSet(
-          await nextTasks(await getStore(), {
-            facets: parseFacets(values.col),
-            filters: parseFilters(values),
-            limit: parseLimit(values.limit),
-            priority: parsePriority(values.priority),
-            scope: nextScope,
-            size: parseSize(values.size),
-            verdicts: parseVerdicts(values.is, values['not-is']),
-          }),
+          await nextTasks(await getStore(), nextQuery),
           values.format,
           ctx,
           nextEmptyMsg,
         );
       }
       case 'list': {
+        // Same pre-store parse as `next` above (MMR-39) — hoisted out of the
+        // call's argument list, where it ran only after the store had opened.
+        const listQuery = {
+          facets: parseFacets(values.col),
+          filters: parseFilters(values),
+          limit: parseLimit(values.limit),
+          priority: parsePriority(values.priority),
+          scope: effectiveScope(values.scope, defaults.scope),
+          size: parseSize(values.size),
+          status: parseStatus(values.status),
+          tag: values.tag?.[0],
+          verdicts: parseVerdicts(values.is, values['not-is']),
+        };
         // The archived-projects shelf (ADR 0015) — the sole door to hidden
         // projects; lists projects, not nodes, so it bypasses listNodes.
         if (values.status === 'archived') {
@@ -510,17 +528,7 @@ export async function runCli(
           );
         }
         return runSet(
-          await listNodes(await getStore(), {
-            facets: parseFacets(values.col),
-            filters: parseFilters(values),
-            limit: parseLimit(values.limit),
-            priority: parsePriority(values.priority),
-            scope: effectiveScope(values.scope, defaults.scope),
-            size: parseSize(values.size),
-            status: parseStatus(values.status),
-            tag: values.tag?.[0],
-            verdicts: parseVerdicts(values.is, values['not-is']),
-          }),
+          await listNodes(await getStore(), listQuery),
           values.format,
           ctx,
           'No tasks match — try --status all, or drop a filter',

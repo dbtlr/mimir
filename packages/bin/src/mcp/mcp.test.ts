@@ -128,7 +128,7 @@ test.skipIf(!NORN)('overview tool returns the composite envelope (MMR-278)', asy
       listings: { blocked: unknown[]; stale: unknown[]; untriaged: unknown[] };
     };
     sessions: { shown: number; entries: unknown[] };
-    direction: { project: string | null; containers: unknown[] };
+    direction: { project: string | null; count: number; containers: unknown[] };
   }>(textOf(result));
   expect(parsed.project.id).toBe('MMR');
   // beforeEach leaves one ready task under the phase.
@@ -143,7 +143,7 @@ test.skipIf(!NORN)('overview tool returns the composite envelope (MMR-278)', asy
   });
   // The MMR-322 sections ride the same envelope, empty on a quiet board.
   expect(parsed.sessions).toEqual({ entries: [], shown: 0 });
-  expect(parsed.direction).toEqual({ containers: [], project: null });
+  expect(parsed.direction).toEqual({ containers: [], count: 0, project: null });
 });
 
 // The artifact feed (MMR-322) — the one read tool that IS cross-project.
@@ -893,6 +893,11 @@ test('an out-of-vocabulary enum arg states the constraint, no zod dump', async (
   }
 });
 
+/** An instant rendered as a `+02:00` local-offset ISO timestamp — the form whose
+ * conversion to UTC the bound tests are about. */
+const asLocalOffset = (ms: number): string =>
+  new Date(ms + 2 * 60 * 60 * 1000).toISOString().replace('Z', '+02:00');
+
 // The `artifacts` tool over the REAL dispatch path (MMR-322) — registration,
 // zod coercion, and handler, not a direct `toolArtifacts` call. `since`/`before`
 // are free strings at the schema level (an ISO date is not a zod primitive), so
@@ -923,16 +928,33 @@ test.skipIf(!NORN)(
   'artifacts accepts an ISO timestamp with a numeric offset over dispatch',
   async () => {
     // A real store here: the assertion is that the bound APPLIED, which an inert
-    // store cannot answer. The offset form is what the help text promises.
+    // store cannot answer. The bound sits 30 minutes either side of the fixture's
+    // own created_at, expressed as +02:00 local time — a far-past bound would
+    // pass whether or not the offset was ever converted to UTC.
     const { client, close } = await connectClient(store);
     try {
-      await toolAttach(store, { content: '# a\n', node: taskRef, title: 'in window' });
-      const res = (await client.callTool({
-        arguments: { since: '2000-01-01T00:00:00-04:00' },
+      const attached = await toolAttach(store, {
+        content: '# a\n',
+        node: taskRef,
+        title: 'in window',
+      });
+      const id = parseJson<{ artifact: { id: string } }>(textOf(attached)).artifact.id;
+      const created = new Date((await getArtifact(store, id)).createdAt).getTime();
+
+      const included = (await client.callTool({
+        arguments: { since: asLocalOffset(created - 30 * 60 * 1000) },
         name: 'artifacts',
       })) as ToolCall;
-      expect(res.isError).toBeUndefined();
-      expect(parseJson<{ total: number }>(callText(res)).total).toBe(1);
+      expect(included.isError).toBeUndefined();
+      expect(parseJson<{ total: number }>(callText(included)).total).toBe(1);
+
+      // The mirror case: 30 minutes AFTER, which must exclude it. Together these
+      // pin that the offset was converted rather than compared verbatim.
+      const excluded = (await client.callTool({
+        arguments: { since: asLocalOffset(created + 30 * 60 * 1000) },
+        name: 'artifacts',
+      })) as ToolCall;
+      expect(parseJson<{ total: number }>(callText(excluded)).total).toBe(0);
     } finally {
       await close();
     }

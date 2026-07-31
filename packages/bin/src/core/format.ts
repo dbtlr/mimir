@@ -410,6 +410,7 @@ export function overviewToWire(report: OverviewReport): Record<string, unknown> 
         next: c.next,
         title: c.title,
       })),
+      count: report.direction.count,
       project: report.direction.project,
     },
     hygiene: {

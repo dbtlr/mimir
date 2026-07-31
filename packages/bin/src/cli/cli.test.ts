@@ -10,6 +10,7 @@ import {
   createProject,
   createTask,
   depend,
+  getArtifact,
   notFound,
   startTask,
   updateNode,
@@ -1384,7 +1385,11 @@ describe.skipIf(!NORN)('overview composition (MMR-322)', () => {
     const io = fakeIo(false);
     expect(await runCli(['overview', '-s', 'MMR', '-f', 'json'], () => store, io)).toBe(0);
     const env = parseJson<{
-      direction: { project: string | null; containers: { id: string; next: string }[] };
+      direction: {
+        project: string | null;
+        count: number;
+        containers: { id: string; next: string }[];
+      };
       sessions: { shown: number; entries: unknown[] };
       hygiene: { listings: { blocked: { id: string; lane: string; stale: boolean }[] } };
     }>(io.out.join(''));
@@ -1541,13 +1546,66 @@ describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
     },
   );
 
-  // `list`/`next` share the limit parser, so the tightening reaches them too.
-  // (They resolve their store before parsing the flag — a pre-existing ordering
-  // that `artifacts` deliberately inverts — so this one passes a real store.)
-  test.skipIf(!NORN)('the same tightening covers list, which shares the parser', async () => {
+  // `list`/`next` share the limit parser, so the tightening reaches them too —
+  // and, since MMR-322 hoisted their selection parse above the store open, they
+  // refuse a bad limit WITHOUT touching the vault, like every other usage error
+  // (MMR-39).
+  test.each(['list', 'next'])('%s refuses a bad limit before opening the store', async (verb) => {
     const io = fakeIo(true);
-    expect(await runCli(['list', '--limit=2x'], () => store, io)).toBe(2);
+    expect(await runCli([verb, '--limit=2x'], neverStore, io)).toBe(2);
     expect(io.err.join('')).toContain('invalid limit');
+    expect(io.out).toHaveLength(0);
+  });
+
+  // The store compares `created_at` LEXICALLY against the bound, and stored
+  // values are always ISO-ms UTC — so an accepted form that isn't canonicalized
+  // silently windows wrong rather than erroring.
+  test('a numeric-offset bound is converted to UTC before the compare', async () => {
+    const id = await attach('vault notes');
+    const createdAt = (await getArtifact(store, id)).createdAt;
+    const created = new Date(createdAt);
+    // A bound 30 minutes BEFORE the artifact, expressed as +02:00 local time.
+    // Passed through verbatim it reads two hours later than it is and the
+    // artifact drops out of its own window.
+    const bound = new Date(created.getTime() - 30 * 60 * 1000);
+    const local = new Date(bound.getTime() + 2 * 60 * 60 * 1000)
+      .toISOString()
+      .replace('Z', '+02:00');
+
+    const io = fakeIo(false);
+    expect(
+      await runCli(['artifacts', '-s', 'MMR', '--since', local, '-f', 'json'], () => store, io),
+    ).toBe(0);
+    expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(1);
+  });
+
+  test('a space-separated bound does not degrade to start-of-day', async () => {
+    const id = await attach('vault notes');
+    const created = new Date((await getArtifact(store, id)).createdAt);
+    // An hour AFTER the artifact, space-separated. `' ' < 'T'`, so passed through
+    // verbatim this sorts below every timestamp that day and matches everything.
+    const after = new Date(created.getTime() + 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 16)
+      .replace('T', ' ');
+
+    const io = fakeIo(false);
+    expect(
+      await runCli(['artifacts', '-s', 'MMR', '--since', after, '-f', 'json'], () => store, io),
+    ).toBe(0);
+    expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(0);
+  });
+
+  test('a zone-less bound is read as UTC, matching the bare-date bounds', async () => {
+    const id = await attach('vault notes');
+    const created = new Date((await getArtifact(store, id)).createdAt);
+    const before = new Date(created.getTime() - 60 * 60 * 1000).toISOString().slice(0, 19);
+
+    const io = fakeIo(false);
+    expect(
+      await runCli(['artifacts', '-s', 'MMR', '--since', before, '-f', 'json'], () => store, io),
+    ).toBe(0);
+    expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(1);
   });
 
   test('an offset past the end is exit 0 with a note naming the match count', async () => {
