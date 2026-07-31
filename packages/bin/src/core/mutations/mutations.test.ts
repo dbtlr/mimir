@@ -710,9 +710,13 @@ test.skipIf(!NORN)(
 
 test('inapplicableUpdateFields names every UpdateFields key a project rejects but description', () => {
   expect(inapplicableUpdateFields('project')).toEqual([
+    'branch',
     'externalRef',
+    'harness',
+    'host',
     'openEnded',
     'priority',
+    'session',
     'size',
     'summary',
     'target',
@@ -723,10 +727,14 @@ test('inapplicableUpdateFields names every UpdateFields key a project rejects bu
 
 test('inapplicableUpdateFields names every UpdateFields key an artifact rejects but title/summary', () => {
   expect(inapplicableUpdateFields('artifact')).toEqual([
+    'branch',
     'description',
     'externalRef',
+    'harness',
+    'host',
     'openEnded',
     'priority',
+    'session',
     'size',
     'target',
     'upstream',
@@ -735,9 +743,13 @@ test('inapplicableUpdateFields names every UpdateFields key an artifact rejects 
 
 test('inapplicableUpdateFields names every UpdateFields key a seed rejects but title/description', () => {
   expect(inapplicableUpdateFields('seed')).toEqual([
+    'branch',
     'externalRef',
+    'harness',
+    'host',
     'openEnded',
     'priority',
+    'session',
     'size',
     'summary',
     'target',

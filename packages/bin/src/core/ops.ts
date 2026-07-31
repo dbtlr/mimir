@@ -16,6 +16,7 @@ import {
   unblockTask,
   unparkTask,
 } from './mutations';
+import type { HandleFields } from './mutations/data';
 import type { Store } from './store';
 
 /**
@@ -44,12 +45,14 @@ export type OpResult = Node | Project;
  * One uniform verb's spec — the pure facts ({@link OpFact}) plus the `run`
  * binding. `run` receives the already-resolved canonical id (a node stem for a
  * `task` subject, a project id for a `project` subject — each transport does its
- * own subject-kind resolution) and the optional reason, and delegates to the core
- * mutation fn. A reason-less verb's binding drops the argument (e.g.
- * `unarchiveProject` takes no reason slot at all — absorbed here).
+ * own subject-kind resolution), the optional reason, and the extra data-plane
+ * fields the verb's {@link OpFact.fields} declares (only `start`'s resume
+ * handles), and delegates to the core mutation fn. A binding drops the arguments
+ * its verb doesn't take (e.g. `unarchiveProject` has no reason slot at all —
+ * absorbed here), so the widened signature costs the other eleven nothing.
  */
 export type OpSpec = OpFact & {
-  run: (store: Store, id: string, reason?: string) => Promise<OpResult>;
+  run: (store: Store, id: string, reason?: string, fields?: HandleFields) => Promise<OpResult>;
 };
 
 /** The per-verb `run` bindings — the one place code pairs with a fact. Keyed by
@@ -63,7 +66,7 @@ const OP_RUN: Record<UniformVerb, OpSpec['run']> = {
   park: (store, id, reason) => parkTask(store, id, reason),
   reopen: (store, id, reason) => reopenTask(store, id, reason),
   return: (store, id, reason) => returnTask(store, id, reason),
-  start: (store, id) => startTask(store, id),
+  start: (store, id, _reason, fields) => startTask(store, id, fields),
   submit: (store, id) => submitTask(store, id),
   unarchive: (store, id) => unarchiveProject(store, id),
   unblock: (store, id) => unblockTask(store, id),

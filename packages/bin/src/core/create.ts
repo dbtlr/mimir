@@ -7,10 +7,11 @@ import { parsePriorityValue, parseSizeValue, parseUpstreamValue } from './field-
 import { parseIdentity } from './ids';
 import type { Node, Project } from './model';
 import { assertProjectActive } from './mutations/common';
-import { normalizeSummary } from './mutations/data';
+import { applyHandlePatch, normalizeSummary } from './mutations/data';
+import type { HandleFields } from './mutations/data';
 import { appendRank } from './rank';
 import { resolveNodeTokenInSet, resolveProjectKeyInSet } from './resolve-set';
-import type { Store } from './store';
+import type { NodePatch, Store } from './store';
 
 /**
  * Create verbs. Each opens one write scope: validate the behavioral invariants
@@ -131,6 +132,13 @@ export type CreateTaskInput = {
   externalRef?: string | null;
   /** The requester-side seed pointer (`KEY-sN`), nullable (MMR-244). */
   upstream?: string | null;
+  /**
+   * The resume handles (ADR 0026 Decision 3, MMR-320). A fresh task is `todo`, so
+   * these are normally stamped later by `start` — they are accepted here only
+   * because every generic-`update` spec field is accepted at create (ADR 0025);
+   * pre-seeding one is legitimate, since absence is never a signal.
+   */
+  handles?: HandleFields;
   tags?: string[];
 };
 
@@ -146,7 +154,12 @@ export async function createTask(store: Store, input: CreateTaskInput): Promise<
     await assertProjectActive(w, parent.project_id);
     // A fresh task is todo + none → in the rankable set → append to bottom.
     const rank = await appendRank(w, parent.project_id);
+    // The handles run the same normalizer `update`/`start` use, so one door can't
+    // store a value another wouldn't (MMR-320).
+    const handles: NodePatch = {};
+    applyHandlePatch(handles, input.handles ?? {});
     const node = await w.insertNode({
+      ...handles,
       description: input.description ?? null,
       external_ref: input.externalRef ?? null,
       hold: 'none',
@@ -245,6 +258,9 @@ export type CreateNodeTaskInput = {
   externalRef?: string;
   /** Raw `upstream` wire token (`KEY-sN` or the `none` clear sentinel). */
   upstream?: string;
+  /** The resume handles (ADR 0026 Decision 3, MMR-320) — normally stamped by
+   * `start`, accepted here for parity with every other spec field. */
+  handles?: HandleFields;
   openEnded?: boolean;
   tags?: string[];
 };
@@ -305,6 +321,7 @@ export async function createNode(store: Store, input: CreateNodeInput): Promise<
   return createTask(store, {
     description: input.description,
     externalRef: input.externalRef,
+    handles: input.handles,
     parentId: await resolveNodeParent(store, input.parent, {
       expected: 'phase or initiative',
       hints: input.parentHints,

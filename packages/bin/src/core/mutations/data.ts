@@ -1,3 +1,4 @@
+import { HANDLE_FIELD_KEYS } from '@mimir/contract';
 import type { Priority, Size } from '@mimir/contract';
 
 import type { ArtifactMetadataPatch, ArtifactRecord } from '../artifacts/store';
@@ -52,6 +53,21 @@ export function normalizeSummary(value: string | null): string | null {
   return stripped === '' ? null : stripped;
 }
 
+/**
+ * Normalize a resume-handle value (MMR-320): newlines collapse to a single space
+ * and the result is trimmed, so a handle always renders as one `## History` line;
+ * an empty/whitespace-only result stores as `null`, which is how a plain `update`
+ * CLEARS a handle (`--host ''`). A `null` input passes through untouched. No cap:
+ * a handle is an opaque key into a richer store, not prose (ADR 0026 Decision 3).
+ */
+export function normalizeHandle(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+  const stripped = value.replace(/\s+/g, ' ').trim();
+  return stripped === '' ? null : stripped;
+}
+
 export type UpdateFields = {
   title?: string;
   description?: string | null;
@@ -65,9 +81,38 @@ export type UpdateFields = {
   upstream?: string | null;
   /** Container-only (phase/initiative) — opt in/out of open-ended (MMR-204). */
   openEnded?: boolean;
+  /**
+   * The in-flight resume handles (ADR 0026 Decision 3, MMR-320) — task-only free
+   * strings. There is no claim verb: resume or takeover is an ordinary `update`
+   * overwrite of these, and a blank clears one.
+   */
+  host?: string | null;
+  harness?: string | null;
+  session?: string | null;
+  branch?: string | null;
 };
 
 export type UpdateFieldKey = keyof UpdateFields;
+
+/** The {@link UpdateFields} slice the resume handles occupy — what `start` records
+ * and the terminal/hold verbs clear (ADR 0026 Decision 3). */
+export type HandleFields = Pick<UpdateFields, 'branch' | 'harness' | 'host' | 'session'>;
+
+/**
+ * Copy the SET resume handles from an update patch onto a {@link NodePatch},
+ * normalized (MMR-320) — the one binding `update` and `start` share, so both
+ * doors store the identical value. The camelCase update-arg name and the
+ * snake_case frontmatter column coincide for all four (they are single words),
+ * so one loop over {@link HANDLE_FIELD_KEYS} serves both sides.
+ */
+export function applyHandlePatch(patch: NodePatch, fields: HandleFields): void {
+  for (const key of HANDLE_FIELD_KEYS) {
+    const value = fields[key];
+    if (value !== undefined) {
+      patch[key] = normalizeHandle(value);
+    }
+  }
+}
 
 /**
  * The two update targets outside the data-plane spec (ADR 0025): `title` is
@@ -144,7 +189,9 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     // fields are task-only now comes from the spec, not a hand-typed condition.
     const taskOnly = updateKeysForTypes(['task']);
     if (taskOnly.some((key) => fields[key] !== undefined) && node.type !== 'task') {
-      throw validation('priority, size, external_ref, and upstream apply only to tasks');
+      throw validation(
+        'priority, size, external_ref, upstream, and the execution handles (host, harness, session, branch) apply only to tasks',
+      );
     }
     if (fields.target !== undefined && node.type !== 'phase') {
       throw validation('target applies only to phases');
@@ -181,6 +228,9 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     if (fields.openEnded !== undefined) {
       patch.open_ended = fields.openEnded;
     }
+    // The resume handles (MMR-320) run the shared normalizer, so a blank clears
+    // one and a multi-line paste can't break its `## History` echo line.
+    applyHandlePatch(patch, fields);
 
     if (Object.keys(patch).length > 0) {
       patch.updated_at = now();

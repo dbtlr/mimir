@@ -221,6 +221,20 @@ export function renderRecords(node: NodeView, io: Io): string {
   if (node.upstream != null) {
     pairs.push(['upstream', node.upstream]);
   }
+  // The in-flight resume handles (MMR-320) — shown only while set, so a settled
+  // record stays as terse as before.
+  if (node.host != null) {
+    pairs.push(['host', node.host]);
+  }
+  if (node.harness != null) {
+    pairs.push(['harness', node.harness]);
+  }
+  if (node.session != null) {
+    pairs.push(['session', node.session]);
+  }
+  if (node.branch != null) {
+    pairs.push(['branch', node.branch]);
+  }
   if (node.completedAt != null) {
     pairs.push(['completed', node.completedAt]);
   }

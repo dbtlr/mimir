@@ -26,9 +26,10 @@ import { SEQ_TOKEN } from '../core/store-norn/plan';
  * binary must refuse a schema-4 vault, not regenerate a seed-less config.
  * Schema 5 added `updated_at` to the artifact rule's `field_types` (MMR-317);
  * a schema-4 binary must refuse a schema-5 vault. Schema 6 added the optional
- * `summary` lede to the same rule (MMR-319).
+ * `summary` lede to the same rule (MMR-319). Schema 7 added the four optional
+ * task resume handles to the node rule's `field_types` (MMR-320).
  */
-export const VAULT_SCHEMA = 6;
+export const VAULT_SCHEMA = 7;
 
 export const MARKER_FILE = '.mimir-vault.toml';
 export const NORN_CONFIG_FILE = '.norn/config.yaml';
@@ -172,6 +173,14 @@ validate:
         size: string
         external_ref: string
         upstream: string
+        # The in-flight resume handles (ADR 0026 Decision 3, MMR-320) — declared
+        # as field_types only, never required_frontmatter: a task that is not in
+        # flight legitimately carries none, so absence is never a repair signal
+        # and no doctor check reads them (the same posture as the artifact lede).
+        host: string
+        harness: string
+        session: string
+        branch: string
         target: string
         created: datetime
         updated_at: datetime

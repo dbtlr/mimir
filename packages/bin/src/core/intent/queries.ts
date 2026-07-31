@@ -201,16 +201,23 @@ function toQueryRow(
   needed: ReadonlySet<string>,
 ): QueryRow {
   const values: Record<string, string | null> = {
+    // The resume handles (branch/harness/host/session, MMR-320) are ordinary
+    // queryable strings — `--eq session:…` / `--has branch` is how a caller finds
+    // the work a given session or machine still holds.
+    branch: node.branch,
     completed_at: node.completed_at,
     created_at: node.created_at,
     // No `description`: it left the query surface (MMR-162) — it is body prose,
     // and `node.description` is null on the Norn working set, so filtering it
     // would silently diverge. `summary` (frontmatter) is the queryable field.
     external_ref: node.external_ref,
+    harness: node.harness,
     hold: node.hold,
     hold_reason: node.hold_reason,
+    host: node.host,
     lifecycle: node.lifecycle,
     priority: node.priority,
+    session: node.session,
     size: node.size,
     status: word,
     summary: node.summary,

@@ -1,9 +1,11 @@
 /** Two help tiers: `-h` terse (synopsis + flags), `--help` fuller with examples. */
 import { isTerminalLifecycle, OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
-import type { OpFact, UniformVerb } from '@mimir/contract';
+import type { DataFieldKey, OpFact, UniformVerb } from '@mimir/contract';
 
+import { specUpdateFields } from '../core';
 import { DEFAULT_PORT } from '../env';
 import { bold, color } from '../presentation';
+import { updateFieldFlags } from './mutations';
 
 // ─── Uniform-verb help derivation (ADR 0025 Decision 4) ─────────────────────
 // The twelve uniform verbs' terse rows and per-command descriptors derive from
@@ -26,6 +28,38 @@ export function uniformArgSpec(spec: OpFact): string {
   const subject = spec.subject === 'project' ? '<KEY>' : '<id>';
   return spec.reason === 'optional' ? `${subject} [reason]` : subject;
 }
+
+/**
+ * The optional-flag grammar for a uniform verb's declared extra data-plane
+ * fields (ADR 0026 — only `start`'s resume handles): ` [--host <text>] …` in the
+ * registry's key order, derived from the same flag template `update` renders. The
+ * empty string for the eleven verbs that declare none, so their usage lines and
+ * terse rows are byte-identical to before.
+ */
+export function uniformFlagSpec(spec: OpFact): string {
+  return uniformFlagRows(spec)
+    .map(([flag]) => ` [${flag} <text>]`)
+    .join('');
+}
+
+/** The `[flag, description]` arg rows for a uniform verb's extra data-plane
+ * fields — the flag spelled by the shared template, described by its field. */
+export function uniformFlagRows(spec: OpFact): Row[] {
+  return specUpdateFields(spec.fields ?? []).flatMap((field) =>
+    updateFieldFlags(field.update).map(
+      ([, flag]): Row => [flag, FIELD_ARG_HELP[field.key] ?? `${field.key} recorded on the row`],
+    ),
+  );
+}
+
+/** The one-line gloss per extra field a uniform verb records (ADR 0026 Decision
+ * 3's resume handles) — a CLI view seam like the worked examples, not a fact. */
+const FIELD_ARG_HELP: Partial<Record<DataFieldKey, string>> = {
+  branch: 'the branch the work lives on',
+  harness: 'the agent harness running it',
+  host: 'the machine the work is happening on',
+  session: 'the session id to resume from',
+};
 
 /** The canonical summary composed with the transition arrow — a lifecycle move to
  * a non-terminal state renders `(from → to)` (the source states joined by `/`);
@@ -164,6 +198,12 @@ options:
       --sort <asc|desc>   seeds: age order (default asc)
       --grouped           seeds: lane view (untriaged/ready/settled)
       --upstream <KEY-sN> create/update task: requester-side seed pointer
+      --host <text>       start/update task: the machine the work is happening on
+      --harness <text>    start/update task: the agent harness running it
+      --session <text>    start/update task: the session id to resume from
+      --branch <text>     start/update task: the branch the work lives on
+                          (the four resume handles — cleared on done/abandon
+                          and on park/block; a blank on update clears one)
 
 machinery commands (the installation, host, or store — not the work itself):
   service <sub> [unit]    supervise the launchd units (macOS): install
@@ -259,7 +299,11 @@ const UNIFORM_EXAMPLES: Record<UniformVerb, readonly string[]> = {
   park: ['mimir park MMR-3 "waiting on design"'],
   reopen: ['mimir reopen MMR-3'],
   return: ['mimir return MMR-3 "needs tests"'],
-  start: ['mimir start MMR-3'],
+  start: [
+    'mimir start MMR-3',
+    'mimir start MMR-3 --host laptop --harness codex --session s-91 --branch feat/mmr-3',
+    'mimir update MMR-3 --session s-92   # resume or take over — no claim verb',
+  ],
   submit: ['mimir submit MMR-3'],
   unarchive: ['mimir unarchive SAGA'],
   unblock: ['mimir unblock MMR-3'],
@@ -277,8 +321,12 @@ function uniformCommandHelp(): Record<string, CommandHelp> {
     out[spec.verb] = {
       args: spec.reason === 'optional' ? [subjectArg, A_REASON] : [subjectArg],
       examples: UNIFORM_EXAMPLES[spec.verb],
+      // Extra data-plane fields (ADR 0026) surface as flags, not positionals —
+      // an empty list for the eleven verbs that declare none, so their
+      // descriptors keep no `flags` key at all.
+      ...(spec.fields === undefined ? {} : { flags: uniformFlagRows(spec) }),
       summary: uniformSummary(spec),
-      usage: `mimir ${spec.verb} ${uniformArgSpec(spec)}`,
+      usage: `mimir ${spec.verb} ${uniformArgSpec(spec)}${uniformFlagSpec(spec)}`,
     };
   }
   return out;
@@ -422,11 +470,15 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
         '--upstream <KEY-sN|none>',
         "task only: requester-side seed pointer (reference-only); 'none' clears it",
       ],
+      [
+        '--host/--harness/--session/--branch <text>',
+        'task only: the resume handles — how a takeover picks the work back up; a blank clears one',
+      ],
       ['--name <name>', 'project only (KEY): rename it'],
     ],
     summary: 'patch scalar fields (a dumb patch — status is excluded; use the lifecycle verbs)',
     usage:
-      'mimir update <id> [--title …] [--desc …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>]',
+      'mimir update <id> [--title …] [--desc …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>] [--host …] [--harness …] [--session …] [--branch …]',
   },
   annotate: {
     args: [A_ID, ['<text>', 'note body (or stdin when omitted)']],

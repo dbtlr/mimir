@@ -1,4 +1,6 @@
 import type { Hold, Lifecycle } from './enums';
+import { HANDLE_FIELD_KEYS } from './fields';
+import type { DataFieldKey } from './fields';
 
 /**
  * The operation facts (ADR 0025 Decision 3/4) — the pure-fact half of the
@@ -74,6 +76,21 @@ export type OpFact = {
   /** One canonical sentence — the lower-case prose base every transport's view
    * template composes (with the transition arrow, reason clause, echo clause). */
   summary: string;
+  /**
+   * Extra **data-plane fields** the verb records at its transition, beyond the
+   * uniform "subject id + optional reason" shape (ADR 0026 Decision 3). Only
+   * `start` declares any — the four resume handles it stamps as the claim. Each
+   * key names a {@link FIELD_FACTS} entry with an `update` marker, so every
+   * transport derives the arg from the SAME field spec its `update` surface
+   * already derives from (one grammar, one wire parser, one spelling); the core
+   * binds them into an update patch the verb's mutation applies.
+   *
+   * Absent for the other eleven verbs, whose surfaces therefore render exactly
+   * as before — the fact is a knob three consumers read (CLI flags, MCP zod,
+   * HTTP body allow-list), which is why it lives here rather than as three
+   * per-transport `start` overrides (ADR 0025 Decision 4).
+   */
+  fields?: readonly DataFieldKey[];
 };
 
 /**
@@ -133,6 +150,10 @@ export const OP_FACTS = {
     transition: { axis: 'lifecycle', from: ['under_review'], to: 'in_progress' },
   },
   start: {
+    // The claim records the resume handles (ADR 0026 Decision 3): `in_progress`
+    // already IS the claim, so there is no claim verb — resume or takeover is a
+    // plain `update` overwrite of these same fields.
+    fields: HANDLE_FIELD_KEYS,
     reason: 'none',
     subject: 'task',
     summary: 'begin a task',

@@ -400,6 +400,27 @@ export const SPEC_UPDATE_FIELDS: readonly SpecUpdateField[] = FIELD_SPEC_ENTRIES
 );
 
 /**
+ * The {@link SpecUpdateField} triples for a NAMED subset of data-plane keys, in
+ * canonical order (ADR 0026) — the derivation an operation's extra-args fact
+ * ({@link OpFact.fields}, only `start`'s resume handles today) feeds the same
+ * three transport surfaces `update` derives from, so a verb that records fields
+ * at its transition shares one grammar, one wire parser, and one flag spelling
+ * with the generic patch. A named key with no `update` marker is a registry
+ * wiring bug — it has no transport arg to derive — and is refused here.
+ */
+export function specUpdateFields(keys: readonly DataFieldKey[]): readonly SpecUpdateField[] {
+  const wanted = new Set<DataFieldKey>(keys);
+  const fields = SPEC_UPDATE_FIELDS.filter((field) => wanted.delete(field.key));
+  if (wanted.size > 0) {
+    throw invariant(
+      `${[...wanted].join(', ')} has no generic-update arg to derive`,
+      'an operation may only name data-plane fields the generic `update` verb owns',
+    );
+  }
+  return fields;
+}
+
+/**
  * Parse a raw wire token into a field kind's {@link UpdateFields} value (ADR
  * 0025) — the one parser the CLI/MCP/HTTP update paths share, so a kind's accepted
  * grammar and its stored value can't drift between transports. Delegates to the
@@ -428,13 +449,19 @@ export function parseWireField(kind: FieldKindName, value: string): WireValue {
  * or via its own bespoke reader for a natively-typed / idiosyncratic field) or
  * `undefined` to leave the field untouched. Returns the applied fields in canonical
  * order — the CLI's `changed` echo derives from it.
+ *
+ * `over` narrows the loop to a SUBSET of the spec fields — how the uniform verbs
+ * that record extra fields at their transition (`start`'s resume handles, ADR
+ * 0026) reuse the identical read/parse/apply machinery the generic patch uses.
+ * It defaults to the whole {@link SPEC_UPDATE_FIELDS}, the `update` plane.
  */
 export function applyUpdateFields(
   fields: UpdateFields,
   read: (field: SpecUpdateField) => WireValue | undefined,
+  over: readonly SpecUpdateField[] = SPEC_UPDATE_FIELDS,
 ): SpecUpdateField[] {
   const applied: SpecUpdateField[] = [];
-  for (const field of SPEC_UPDATE_FIELDS) {
+  for (const field of over) {
     const value = read(field);
     if (value === undefined) {
       continue;

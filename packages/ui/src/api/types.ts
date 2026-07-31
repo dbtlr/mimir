@@ -48,6 +48,9 @@ export type WireHistoryEntry = {
   to: string | null;
   at: string;
   reason: string | null;
+  /** The resume handles this transition set or cleared (MMR-320) — present only
+   * on the boundary rows that move them (`start`, and the terminal/hold verbs). */
+  handles?: Partial<Record<'branch' | 'harness' | 'host' | 'session', string>>;
 };
 
 export type WireArtifact = {
@@ -131,6 +134,12 @@ export type WireNode = {
   hold?: Hold;
   hold_reason?: string | null;
   external_ref?: string | null;
+  /** The in-flight resume handles (MMR-320) — task-only; cleared at terminal
+   * transitions and holds, kept through the under-review gate. */
+  host?: string | null;
+  harness?: string | null;
+  session?: string | null;
+  branch?: string | null;
   target?: string | null;
   /** Container-only (MMR-204): purposefully open-ended, opts out of done-rollup. */
   open_ended?: boolean | null;

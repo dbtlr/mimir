@@ -9,6 +9,7 @@ import type {
   StatusWord,
   TransitionKind,
 } from './enums';
+import type { ExecutionHandles } from './fields';
 import type { ValueWarning } from './query';
 
 /**
@@ -217,6 +218,13 @@ export type HistoryEntry = {
   to: string | null;
   at: string;
   reason: string | null;
+  /**
+   * The resume handles this transition set or cleared (ADR 0026 Decision 3) —
+   * present only on the boundary rows that move them (`start` echoes what it
+   * stamped; a terminal/hold row echoes what it cleared), so the append-only log
+   * preserves claim succession. Absent everywhere else, never partially empty.
+   */
+  handles?: ExecutionHandles;
 };
 
 /**
@@ -312,6 +320,16 @@ export type NodeView = {
   externalRef?: string | null;
   /** The requester-side seed pointer (`KEY-sN`, MMR-244/245) — reference-only. */
   upstream?: string | null;
+  /**
+   * The in-flight resume handles (ADR 0026 Decision 3, MMR-320) — where the work
+   * is happening and how to pick it back up. Task-only and free-form; they ride
+   * like every other task scalar (null when unset), and the lifecycle verbs clear
+   * them at terminal transitions and holds.
+   */
+  host?: string | null;
+  harness?: string | null;
+  session?: string | null;
+  branch?: string | null;
   completedAt?: string | null;
 
   // bare — phase-only

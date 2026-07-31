@@ -3,8 +3,8 @@ import type { Hold } from '@mimir/contract';
 import { validation } from '../errors';
 import type { Node } from '../model';
 import { appendRank, isRankable } from '../rank';
-import type { Store } from '../store';
-import { logTransition, reloadNode, requireTask, stamp } from './common';
+import type { NodePatch, Store } from '../store';
+import { clearHandles, logTransition, reloadNode, requireTask, stamp } from './common';
 
 /**
  * Hold verbs (ADR 0001/0007). The hold overlay is orthogonal to lifecycle: a
@@ -14,6 +14,11 @@ import { logTransition, reloadNode, requireTask, stamp } from './common';
  * natural re-triage point) — but only if the underlying lifecycle is rankable.
  * A held `under_review` task stays non-rankable on release (it's not actionable
  * until the human verdict lands), so it gets no rank back.
+ *
+ * Entering a hold also CLEARS the resume handles (ADR 0026 Decision 3, MMR-320):
+ * held work is not in flight, and a stale host/session pointer is worse than an
+ * absent one. Releasing restores nothing — a resuming agent re-states them with
+ * `update`, which is also how a takeover overwrites them.
  */
 
 function assertHoldable(task: Node): void {
@@ -34,9 +39,12 @@ async function enterHold(
     if (task.hold !== 'none') {
       throw validation(`task is already ${task.hold}`);
     }
-    await w.updateNode(id, { hold: to, hold_reason: reason ?? null, rank: null });
+    const patch: NodePatch = { hold: to, hold_reason: reason ?? null, rank: null };
+    const handles = clearHandles(patch, task);
+    await w.updateNode(id, patch);
     await logTransition(w, {
       from_value: 'none',
+      handles,
       kind: 'hold',
       node_id: id,
       reason: reason ?? null,

@@ -1,5 +1,11 @@
-import type { AnnotationView, HistoryEntry, TransitionKind } from '@mimir/contract';
-import { TRANSITION_KIND_VALUES } from '@mimir/contract';
+import type {
+  AnnotationView,
+  ExecutionHandles,
+  HistoryEntry,
+  TransitionKind,
+} from '@mimir/contract';
+import { HANDLE_FIELD_KEYS, TRANSITION_KIND_VALUES } from '@mimir/contract';
+import { isMember } from '@mimir/helpers';
 
 /**
  * The `## History` record codec (MMR-153): the single grammar the vault write
@@ -18,6 +24,14 @@ import { TRANSITION_KIND_VALUES } from '@mimir/contract';
  * null) and `-from` when one was removed (`to` is null). The optional reason is
  * everything after the edge line (multi-line and unicode preserved), with a
  * trailing blank line dropped.
+ *
+ * A boundary that moves the resume handles (ADR 0026 Decision 3: `start` stamps
+ * them, the terminal/hold verbs clear them) echoes them as a ` · key=value` tail
+ * on that same edge line, in canonical key order and omitted entirely when empty.
+ * The tail rides the EDGE line, not a line of its own, precisely because the edge
+ * line is machine-written on both sides — its values are state words and node
+ * stems — so the tail can never be confused with a hand-written reason, and the
+ * "reason is everything after the edge line" rule is untouched.
  */
 
 /** The `## History` section heading (H2) — the anchor the writer appends under. */
@@ -197,6 +211,48 @@ function renderEdge(from: string | null, to: string | null): string {
   return '—';
 }
 
+/**
+ * The separator between the edge and each resume-handle pair, and between the
+ * pairs themselves (MMR-320). The middle dot with surrounding spaces is the
+ * house's own list glyph (the CLI echo uses it), and it never occurs in a
+ * machine-written edge value.
+ */
+const HANDLE_SEP = ' · ';
+/** Split an edge line at every separator that OPENS a known handle key — a value
+ * carrying a bare ` · ` is left intact, since only `key=` starts a new pair. */
+const HANDLE_OPENER = new RegExp(` · (?=(?:${HANDLE_FIELD_KEYS.join('|')})=)`);
+const HANDLE_PAIR = /^([a-z]+)=([\s\S]*)$/;
+
+/** The ` · key=value` tail for a transition's handle echo — empty when none. */
+function renderHandles(handles: ExecutionHandles | undefined): string {
+  if (handles === undefined) {
+    return '';
+  }
+  return HANDLE_FIELD_KEYS.flatMap((key) => {
+    const value = handles[key];
+    return value === undefined ? [] : [`${HANDLE_SEP}${key}=${value}`];
+  }).join('');
+}
+
+/** Split an edge line into its edge and any trailing handle echo — the inverse of
+ * {@link renderHandles}. A line with no handle tail yields the line untouched. */
+function splitHandles(line: string): { edge: string; handles?: ExecutionHandles } {
+  const [edge, ...pairs] = line.split(HANDLE_OPENER);
+  if (edge === undefined || pairs.length === 0) {
+    return { edge: line };
+  }
+  const handles: ExecutionHandles = {};
+  for (const pair of pairs) {
+    const match = HANDLE_PAIR.exec(pair);
+    const key = match?.[1];
+    const value = match?.[2];
+    if (key !== undefined && value !== undefined && isMember(key, HANDLE_FIELD_KEYS)) {
+      handles[key] = value;
+    }
+  }
+  return Object.keys(handles).length > 0 ? { edge, handles } : { edge: line };
+}
+
 /** Parse an edge line back into its `from`/`to` sides; null when unrecognized. */
 function parseEdge(line: string): { from: string | null; to: string | null } | null {
   if (line === '—') {
@@ -217,7 +273,10 @@ function parseEdge(line: string): { from: string | null; to: string | null } | n
 
 /** Render one transition as the `### …` block to hand to `appendToSection`. */
 export function renderHistoryRecord(entry: HistoryEntry): string {
-  const lines = [`### ${entry.at} — ${entry.kind}`, renderEdge(entry.from, entry.to)];
+  const lines = [
+    `### ${entry.at} — ${entry.kind}`,
+    `${renderEdge(entry.from, entry.to)}${renderHandles(entry.handles)}`,
+  ];
   // An empty or whitespace-only reason is indistinguishable from `null` after a
   // round-trip (the parser strips trailing blank lines), so normalize it to
   // "no reason line" here — render and parse then agree on `reason: null`.
@@ -279,7 +338,10 @@ function parseRecord(lines: string[]): HistoryEntry | null {
   if (edgeIndex === -1) {
     return null;
   }
-  const edge = parseEdge(rest[edgeIndex] ?? '');
+  // The handle echo (MMR-320) rides the edge line's tail — split it off before
+  // the edge parse so an echoing row reads back exactly as it was written.
+  const { edge: edgeText, handles } = splitHandles(rest[edgeIndex] ?? '');
+  const edge = parseEdge(edgeText);
   if (edge === null) {
     return null;
   }
@@ -290,7 +352,11 @@ function parseRecord(lines: string[]): HistoryEntry | null {
   }
   const reason = reasonLines.length > 0 ? unescapeBodyLines(reasonLines.join('\n')) : null;
 
-  return { at, from: edge.from, kind, reason, to: edge.to };
+  const record: HistoryEntry = { at, from: edge.from, kind, reason, to: edge.to };
+  if (handles !== undefined) {
+    record.handles = handles;
+  }
+  return record;
 }
 
 /**

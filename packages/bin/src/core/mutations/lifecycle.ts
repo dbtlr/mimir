@@ -1,9 +1,11 @@
 import { validation } from '../errors';
 import type { Node } from '../model';
 import { appendRank } from '../rank';
-import type { Store } from '../store';
+import type { NodePatch, Store } from '../store';
 import { now } from '../time';
-import { logTransition, reloadNode, requireTask, stamp } from './common';
+import { clearHandles, handlesOf, logTransition, reloadNode, requireTask, stamp } from './common';
+import { applyHandlePatch } from './data';
+import type { HandleFields } from './data';
 
 /**
  * Lifecycle verbs (ADR 0001/0003/0007). `start` keeps the task in the rankable
@@ -20,17 +22,37 @@ import { logTransition, reloadNode, requireTask, stamp } from './common';
  * actionable — the ball is in the human's court), so `submit` clears `rank` and
  * `return` re-enters at the bottom, exactly like the hold enter/release pattern.
  * Approval is plain `complete_task` (the log's `from=under_review` marks it).
+ *
+ * The resume handles (ADR 0026 Decision 3, MMR-320) ride the same verbs: `start`
+ * stamps them as the claim, `done`/`abandon` clear them (the work has left the
+ * board), and `submit`/`return` KEEP them — the branch and session stay the live
+ * pointers at the human gate. `reopen` restores nothing; a resuming agent
+ * re-states them with `update`.
  */
 
-export async function startTask(store: Store, id: string): Promise<Node> {
+/**
+ * Begin a task, optionally recording the resume handles as the claim (ADR 0026
+ * Decision 3). The CAS-guarded `todo → in_progress` assert already makes claiming
+ * atomic for concurrent agents, so there is no separate claim verb; the handles
+ * ride the transition that already happened. The `## History` row echoes what the
+ * task carries once claimed.
+ */
+export async function startTask(
+  store: Store,
+  id: string,
+  handles: HandleFields = {},
+): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
     if (task.lifecycle !== 'todo') {
       throw validation(`only a todo task can be started (is ${String(task.lifecycle)})`);
     }
-    await w.updateNode(id, { lifecycle: 'in_progress' });
+    const patch: NodePatch = { lifecycle: 'in_progress' };
+    applyHandlePatch(patch, handles);
+    await w.updateNode(id, patch);
     await logTransition(w, {
       from_value: 'todo',
+      handles: handlesOf(await reloadNode(w, id)),
       kind: 'lifecycle',
       node_id: id,
       to_value: 'in_progress',
@@ -87,9 +109,12 @@ export async function completeTask(store: Store, id: string): Promise<Node> {
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
-    await w.updateNode(id, { completed_at: now(), lifecycle: 'done', rank: null });
+    const patch: NodePatch = { completed_at: now(), lifecycle: 'done', rank: null };
+    const handles = clearHandles(patch, task);
+    await w.updateNode(id, patch);
     await logTransition(w, {
       from_value: task.lifecycle,
+      handles,
       kind: 'lifecycle',
       node_id: id,
       to_value: 'done',
@@ -105,9 +130,12 @@ export async function abandonTask(store: Store, id: string, reason?: string): Pr
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
-    await w.updateNode(id, { lifecycle: 'abandoned', rank: null });
+    const patch: NodePatch = { lifecycle: 'abandoned', rank: null };
+    const handles = clearHandles(patch, task);
+    await w.updateNode(id, patch);
     await logTransition(w, {
       from_value: task.lifecycle,
+      handles,
       kind: 'lifecycle',
       node_id: id,
       reason: reason ?? null,
