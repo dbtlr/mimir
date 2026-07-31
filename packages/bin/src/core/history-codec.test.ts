@@ -55,6 +55,38 @@ const SAMPLES = {
     reason: 'no longer a prerequisite',
     to: null,
   },
+  // The resume-handle echo (ADR 0026 Decision 3, MMR-320): a claim row carrying
+  // the full set, a partial clear, and a clearing row that also carries a reason
+  // — the three shapes the mutations actually emit.
+  handlesClaim: {
+    at: '2026-07-03T10:10:00.000Z',
+    from: 'todo',
+    handles: {
+      branch: 'feat/mmr-320-execution-metadata',
+      harness: 'codex',
+      host: 'workbench.local',
+      session: 's-01J8ABCD',
+    },
+    kind: 'lifecycle',
+    reason: null,
+    to: 'in_progress',
+  },
+  handlesClearedWithReason: {
+    at: '2026-07-03T10:11:00.000Z',
+    from: 'none',
+    handles: { host: 'workbench.local', session: 's-01J8ABCD' },
+    kind: 'hold',
+    reason: 'waiting on review · see the thread',
+    to: 'parked',
+  },
+  handlesPartial: {
+    at: '2026-07-03T10:12:00.000Z',
+    from: 'in_progress',
+    handles: { branch: 'feat/x' },
+    kind: 'lifecycle',
+    reason: null,
+    to: 'done',
+  },
   holdReason: {
     at: '2026-07-03T10:03:00.000Z',
     from: 'none',
@@ -135,6 +167,59 @@ test('a reasonless record has no trailing reason line', () => {
 
 test.each(Object.entries(SAMPLES))('round-trips a single %s record losslessly', (_name, entry) => {
   expect(parseHistorySection(renderHistoryRecord(entry))).toEqual([entry]);
+});
+
+// ── The resume-handle echo (ADR 0026 Decision 3, MMR-320) ────────────────────
+// The handles ride the EDGE line's tail, in canonical key order, omitted when
+// empty — so a row that moved no handles is byte-identical to a pre-MMR-320 one.
+
+test('a claim row echoes its handles as a ` · key=value` tail in canonical order', () => {
+  expect(renderHistoryRecord(SAMPLES.handlesClaim)).toBe(
+    '### 2026-07-03T10:10:00.000Z — lifecycle\n' +
+      'todo → in_progress · branch=feat/mmr-320-execution-metadata · harness=codex' +
+      ' · host=workbench.local · session=s-01J8ABCD\n',
+  );
+});
+
+test('a row that moved no handles renders exactly as it did before the echo', () => {
+  expect(renderHistoryRecord(SAMPLES.lifecycle)).toBe(
+    '### 2026-07-03T10:05:00.000Z — lifecycle\ntodo → in_progress\n',
+  );
+  expect(parseHistorySection(renderHistoryRecord(SAMPLES.lifecycle))[0]?.handles).toBeUndefined();
+});
+
+test('only the moved handles are echoed — a partial set carries only its keys', () => {
+  expect(renderHistoryRecord(SAMPLES.handlesPartial)).toContain(
+    'in_progress → done · branch=feat/x',
+  );
+});
+
+test("the echo rides the edge line, so a reason's own ` · ` is never mistaken for one", () => {
+  // The reason line is untouched by the split: it is everything AFTER the edge.
+  const block = renderHistoryRecord(SAMPLES.handlesClearedWithReason);
+  expect(block).toBe(
+    '### 2026-07-03T10:11:00.000Z — hold\n' +
+      'none → parked · host=workbench.local · session=s-01J8ABCD\n' +
+      'waiting on review · see the thread\n',
+  );
+  expect(parseHistorySection(block)).toEqual([SAMPLES.handlesClearedWithReason]);
+});
+
+test('a handle value containing a bare ` · ` survives — only `key=` opens a pair', () => {
+  const entry: HistoryEntry = {
+    at: '2026-07-03T10:13:00.000Z',
+    from: 'todo',
+    handles: { harness: 'claude · code', host: 'box' },
+    kind: 'lifecycle',
+    reason: null,
+    to: 'in_progress',
+  };
+  expect(parseHistorySection(renderHistoryRecord(entry))).toEqual([entry]);
+});
+
+test('an echoing record lints clean — doctor sees a well-formed row (MMR-166)', () => {
+  const body = `## ${HISTORY_HEADING}\n${renderHistoryRecord(SAMPLES.handlesClaim)}`;
+  expect(lintBodySections(body)).toEqual([]);
 });
 
 test('round-trips a whole section of concatenated records in order', () => {

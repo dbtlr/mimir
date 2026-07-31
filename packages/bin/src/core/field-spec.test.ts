@@ -160,6 +160,22 @@ test('null/unset optional fields round-trip as null (omit-empty)', () => {
   expect(decoded.external_ref).toBeNull();
   expect(decoded.upstream).toBeNull();
   expect(decoded.summary).toBeNull();
+  // The resume handles (MMR-320): an unclaimed task carries none, and absence is
+  // a legitimate state — never a default, never a repair signal.
+  expect(decoded.host).toBeNull();
+  expect(decoded.harness).toBeNull();
+  expect(decoded.session).toBeNull();
+  expect(decoded.branch).toBeNull();
+});
+
+test('the resume handles are task-only — a container never carries them', () => {
+  const fm: Record<string, unknown> = {};
+  emitDataFields(fm, baseNode('phase', {}));
+  expect(fm.host).toBeUndefined();
+  // A stray handle on a container's frontmatter is type-gated out on read.
+  const decoded = decodeDataFields({ branch: 'feat/x', host: 'box' }, 'phase', 'MMR-1');
+  expect(decoded.host).toBeNull();
+  expect(decoded.branch).toBeNull();
 });
 
 test('a foreign priority/size nulls the field (tolerant read), unlike a foreign hold', () => {
