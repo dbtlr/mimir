@@ -472,8 +472,11 @@ export type FacetName = (typeof FACET_NAMES)[number];
 /** Cheap facets included by default on a targeted `get`; `history` stays opt-in.
  * `description` (the body prose, MMR-162) is here — a detail `get` shows it, but
  * bulk `list`/`next` (which pass no facets) omit it, so they never pay the
- * per-node body read. `next` (the direction narrative, MMR-321) rides the same
- * per-document section read `description` already pays for, so it joins it. */
+ * per-node body read. `next` (the direction narrative, MMR-321) joins it: on a
+ * NODE it costs nothing extra, riding the same batched section read
+ * `description` already pays for; on a PROJECT — whose `description` is
+ * frontmatter, not a body section — it is one additional document read. Bulk
+ * `list`/`next`/`tree` pass their own facet lists, which exclude it. */
 export const CHEAP_FACETS: readonly FacetName[] = [
   'deps',
   'description',
@@ -497,8 +500,9 @@ export const CHEAP_FACETS: readonly FacetName[] = [
  * child tallies in `children` but not `distribution`, MMR-204), kept lean
  * rather than pulling `get`'s full facet set into every write echo. `next`
  * (MMR-321) rides for the same reason `description` does — a write that
- * re-authored the section echoes it back instead of dropping it — and costs no
- * extra round-trip, sharing `description`'s section read.
+ * re-authored the section echoes it back instead of dropping it. Free on a node
+ * (it shares `description`'s batched section read); one extra document read on
+ * a PROJECT echo, whose `description` is frontmatter and reads no body at all.
  */
 export const WRITE_ECHO_FACETS: readonly FacetName[] = [
   'description',

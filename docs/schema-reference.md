@@ -167,7 +167,9 @@ Unlike the other body sections it is **not seeded at create**. The heading exist
 
 The prose is **uncapped**, like `## Task Description` — only the short `summary` lede carries a length limit. Heading-shaped lines are backslash-escaped exactly as in the other sections, so an arbitrary markdown body round-trips.
 
-Reads: `get KEY` / `get KEY-seq` carry it by default (it shares the one section read `description` already pays for), and `--col next` names it explicitly.
+**A duplicated `## Next` refuses the write.** norn warn-omits an _ambiguous_ heading from a section read exactly as it omits a _missing_ one, and its structured `section_failures` channel does not distinguish the two — so "the section didn't resolve" cannot be read as "there is no section". The write path counts the anchors in the body: two or more, and the write refuses and points at `mimir doctor` rather than splicing in yet another copy (or reporting a clear that removed nothing). Reads degrade to empty, like every other ambiguous section ([ADR 0017](decisions/0017-runtime-data-tolerance.md)), and `mimir doctor` reports `duplicate-next-section` naming each extra heading's line. A first write also needs the `## History` anchor it splices in above; a document missing it refuses by name instead of as an opaque apply failure.
+
+Reads: `get KEY` / `get KEY-seq` carry it by default, and `--col next` names it explicitly. On a **container** it is free — it rides the one batched section read `## Task Description` already pays for. On a **project** it costs one extra document read, since a project's `description` is frontmatter and its detail read otherwise touches no body. Bulk paths (`list`, `next`, `tree`) pass their own facet lists and exclude it.
 
 ## `artifact` — `KEY/artifacts/KEY-aN.md`
 

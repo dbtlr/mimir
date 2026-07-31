@@ -102,6 +102,11 @@ mimir update KEY-4 --direction ""      # clear it
   you composed against the old state (ADR 0026).
 - Re-writing identical text writes nothing, so an idempotent re-author doesn't
   move `updated_at` (and doesn't fake activity).
+- The flag is `--direction`, not `--next` (`--next` belongs to `self-update`).
+  The field is spelled `next` on MCP, HTTP, and `--col next`.
+- A refusal naming a duplicate `## Next` means the document was hand-edited into
+  two sections — `mimir doctor` points at the extra heading; delete it, then
+  re-author.
 
 ## Resume handles: how the work is picked back up
 
