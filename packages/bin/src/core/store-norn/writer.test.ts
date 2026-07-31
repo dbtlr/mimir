@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { createProject, createTask } from '../create';
 import { MimirError } from '../errors';
+import { sliceSection } from '../history-codec';
 import {
   abandonTask,
   annotate,
@@ -137,6 +138,34 @@ function fakeClient(
           });
           // Real Norn returns no record when a stem is missing or ambiguous.
           return matches.length === 1 ? matches : [];
+        }),
+      );
+    },
+    // The native section read (MMR-321 uses it before a `## Next` write). Slices
+    // the scripted doc's `body` with `sliceSection`, which reproduces norn's own
+    // boundary semantics — and omits the record entirely when NO requested
+    // heading resolves, exactly as norn does.
+    getSections: (targets: string[], sections: string[]): Promise<unknown[]> => {
+      const current = currentDocs();
+      return Promise.resolve(
+        targets.flatMap((target) => {
+          const doc = current.find((candidate) => {
+            const base = candidate.path.slice(candidate.path.lastIndexOf('/') + 1);
+            const stem = base.endsWith('.md') ? base.slice(0, -3) : base;
+            return target === candidate.path || target === stem;
+          });
+          if (doc === undefined) {
+            return [];
+          }
+          const found: Record<string, string> = {};
+          const body = typeof doc.body === 'string' ? doc.body : '';
+          for (const heading of sections) {
+            const slice = sliceSection(body, heading);
+            if (slice !== '') {
+              found[heading] = slice;
+            }
+          }
+          return Object.keys(found).length === 0 ? [] : [{ path: doc.path, sections: found }];
         }),
       );
     },
@@ -1619,5 +1648,127 @@ test('a document missing updated_at refuses as degraded vault state, not a mimir
   expect(caught.hint).toBe(
     "the document was hand-edited or predates mimir management — run 'mimir doctor --fix' to repair it",
   );
+  expect(plans).toHaveLength(0);
+});
+
+/**
+ * MMR-321 — the owned `## Next` narrative's plan shape (ADR 0026 Decision 2).
+ *
+ * The section is not seeded at create time, so a write reduces to exactly one of
+ * three ops depending on whether the document already carries the heading, and a
+ * rewrite of the identical prose must reduce to NO plan at all. Each case also
+ * pins the co-written `updated_at` guard: the section ops carry no precondition
+ * of their own, so the stamp is the whole drift protection.
+ */
+
+const nextBody = (next: string): string => `## Next\n\n${next}\n`;
+
+const containerDoc = (body: string): NornDocument => ({
+  body,
+  frontmatter: {
+    created: TS,
+    parent: '[[MMR]]',
+    title: 'Init',
+    type: 'initiative',
+    updated_at: TS,
+  },
+  path: 'MMR/MMR-1.md',
+});
+
+/** The single plan a `## Next` write is expected to have produced. */
+function onlyPlan(plans: MigrationPlan[]): MigrationPlan {
+  const plan = plans[0];
+  if (plan === undefined || plans.length !== 1) {
+    throw new Error(`expected exactly one applied plan, got ${String(plans.length)}`);
+  }
+  return plan;
+}
+
+test('a first Next narrative inserts the section above ## History, stamp-guarded (MMR-321)', async () => {
+  const { client, plans } = fakeClient([
+    projectDoc(),
+    containerDoc('## Task Description\n\nprose\n\n## History\n## Annotations\n'),
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  await updateNode(store, 'MMR-1', { next: 'Land the read path, then revisit caching.' });
+  const plan = onlyPlan(plans);
+  const insert = findOp(plan, 'insert_before_heading');
+  expect(insert?.fields.heading).toBe('History');
+  expect(insert?.fields.content).toBe('## Next\n\nLand the read path, then revisit caching.\n\n');
+  expect(findOp(plan, 'replace_section')).toBeUndefined();
+  expect(findOp(plan, 'set_frontmatter', 'updated_at')?.fields.expected_old_value).toBe(TS);
+});
+
+test('re-authoring an existing Next narrative is one replace_section (MMR-321)', async () => {
+  const { client, plans } = fakeClient([
+    projectDoc(),
+    containerDoc(`## Task Description\n\nprose\n\n${nextBody('old direction')}## History\n`),
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  await updateNode(store, 'MMR-1', { next: 'new direction' });
+  const plan = onlyPlan(plans);
+  const replace = findOp(plan, 'replace_section');
+  expect(replace?.fields.heading).toBe('Next');
+  expect(replace?.fields.content).toBe('\nnew direction\n\n');
+  expect(findOp(plan, 'insert_before_heading')).toBeUndefined();
+  expect(findOp(plan, 'set_frontmatter', 'updated_at')?.fields.expected_old_value).toBe(TS);
+});
+
+test('a blank Next value deletes the whole section, heading included (MMR-321)', async () => {
+  const { client, plans } = fakeClient([
+    projectDoc(),
+    containerDoc(`${nextBody('old direction')}## History\n`),
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  await updateNode(store, 'MMR-1', { next: '   ' });
+  const plan = onlyPlan(plans);
+  expect(findOp(plan, 'delete_section')?.fields.heading).toBe('Next');
+  expect(findOp(plan, 'set_frontmatter', 'updated_at')?.fields.expected_old_value).toBe(TS);
+});
+
+test('rewriting the identical Next narrative writes nothing at all (MMR-321)', async () => {
+  const { client, plans } = fakeClient([
+    projectDoc(),
+    containerDoc(`${nextBody('same direction')}## History\n`),
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  await updateNode(store, 'MMR-1', { next: 'same direction\n' });
+  // No section op AND no stamp: updated_at (the stale clock) must not move on a
+  // re-author that changes nothing, exactly as an idempotent re-tag doesn't.
+  expect(plans).toHaveLength(0);
+});
+
+test('clearing an already-absent Next narrative writes nothing at all (MMR-321)', async () => {
+  const { client, plans } = fakeClient([projectDoc(), containerDoc('## History\n')]);
+  const store = createNornWriteStore(client, ROOT);
+  await updateNode(store, 'MMR-1', { next: '' });
+  expect(plans).toHaveLength(0);
+});
+
+test('a project carries the Next narrative on its own document (MMR-321)', async () => {
+  const { client, plans } = fakeClient([{ ...projectDoc(), body: '## History\n' }]);
+  const store = createNornWriteStore(client, ROOT);
+  await updateProject(store, 'MMR', { next: 'Groom the backlog before the next cut.' });
+  const plan = onlyPlan(plans);
+  const insert = findOp(plan, 'insert_before_heading');
+  expect(insert?.fields.path).toBe('MMR/MMR.md');
+  expect(insert?.fields.content).toBe('## Next\n\nGroom the backlog before the next cut.\n\n');
+  expect(findOp(plan, 'set_frontmatter', 'updated_at')?.fields.expected_old_value).toBe(TS);
+});
+
+test('a Next write against a document missing updated_at fails closed (MMR-321)', async () => {
+  // The section ops carry no precondition of their own, so a degraded document
+  // (no stamp to CAS on) leaves the plan unguarded — it must refuse before apply
+  // rather than land a body edit on a document that may have moved underneath.
+  const { client, plans } = fakeClient([
+    projectDoc(),
+    {
+      body: '## History\n',
+      frontmatter: { created: TS, parent: '[[MMR]]', title: 'Init', type: 'initiative' },
+      path: 'MMR/MMR-1.md',
+    },
+  ]);
+  const store = createNornWriteStore(client, ROOT);
+  await expectMimirError('validation', () => updateNode(store, 'MMR-1', { next: 'direction' }));
   expect(plans).toHaveLength(0);
 });

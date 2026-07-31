@@ -86,6 +86,7 @@ test('golden: the advertised update/create schemas are pinned exactly', () => {
       externalRef: { type: 'string' },
       id: { type: 'string' },
       kind: { enum: ['idea', 'bug', 'feature'], type: 'string' },
+      next: { type: 'string' },
       openEnded: { type: 'boolean' },
       ...enums,
       summary: { type: 'string' },
@@ -140,6 +141,9 @@ test('CLI flag spelling: default is --<kebab-key>, overrides diverge', () => {
   // Overrides — the only hand-held spellings.
   expect(updateFieldFlags('externalRef' as UpdateFieldKey)).toEqual([['ref', '--ref']]);
   expect(updateFieldFlags('description' as UpdateFieldKey)).toEqual([['desc', '--desc']]);
+  // `--next` is `self-update`'s boolean channel flag, so the `## Next` narrative
+  // writes through `--direction` (MMR-321).
+  expect(updateFieldFlags('next' as UpdateFieldKey)).toEqual([['direction', '--direction']]);
   expect(updateFieldFlags('openEnded' as UpdateFieldKey)).toEqual([
     ['open-ended', '--open-ended'],
     ['not-open-ended', '--not-open-ended'],

@@ -708,7 +708,7 @@ test.skipIf(!NORN)(
 // pure lookup, no store needed.
 // ---------------------------------------------------------------------------
 
-test('inapplicableUpdateFields names every UpdateFields key a project rejects but description', () => {
+test('inapplicableUpdateFields names every UpdateFields key a project rejects but description/next', () => {
   expect(inapplicableUpdateFields('project')).toEqual([
     'branch',
     'externalRef',
@@ -732,6 +732,7 @@ test('inapplicableUpdateFields names every UpdateFields key an artifact rejects 
     'externalRef',
     'harness',
     'host',
+    'next',
     'openEnded',
     'priority',
     'session',
@@ -747,6 +748,7 @@ test('inapplicableUpdateFields names every UpdateFields key a seed rejects but t
     'externalRef',
     'harness',
     'host',
+    'next',
     'openEnded',
     'priority',
     'session',
