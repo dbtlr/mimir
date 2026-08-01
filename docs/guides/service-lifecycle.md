@@ -51,9 +51,10 @@ not read the operator's global config, and therefore default to the repo-local
 overrides. Setup/configuration commands still read and write the config because
 administering that file is their purpose.
 
-When the escape hatch installs a dev `serve` unit, the resolved dev port is
-baked as `MIMIR_PORT`; production units remain config-driven. This keeps the
-daemon, status probe, and install report on one port in both profiles.
+When the escape hatch installs a dev `serve` unit, the resolved dev port
+(install flag > `MIMIR_PORT` > dev default) is baked into the owned plist;
+later status reads it back. Production units remain config-driven. This keeps
+the daemon, status probe, and install report on one port in both profiles.
 
 ## Source
 

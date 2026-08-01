@@ -31,8 +31,10 @@ rewrite: `mimir service install --port <n>` followed by
 
 The one exception is an explicitly opted-in dev service install
 (`MIMIR_ALLOW_REAL_SERVICE=1`): because a dev binary never reads the operator
-config, its plist bakes `MIMIR_PORT` so the installed daemon and the install
-report cannot diverge. Production keeps the config-driven behavior above.
+config, its plist bakes the resolved `MIMIR_PORT` (install flag > environment >
+dev default). Later `service status` reads that owned plist value, so the
+installed daemon, status probe, and install report cannot diverge. Production
+keeps the config-driven behavior above.
 
 ## Loopback only — the proxy is the boundary
 

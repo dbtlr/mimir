@@ -84,6 +84,10 @@ export type ServiceDeps = {
   configFile: string;
   /** The serve fallback baked into this build profile. */
   defaultPort: number;
+  /** Dev-only explicit environment override captured for service installation. */
+  portOverride?: number;
+  /** Port baked into an installed dev unit; absent for production units. */
+  readInstalledPort: () => number | undefined;
   /** The build-profile-aware config projection used by every service read/render. */
   readConfig: (file: string) => GlobalConfig;
   eventsFile: string;
@@ -222,7 +226,7 @@ export async function cmdService(
       }
       // Render every plist before any mutation — this is where a bad Norn env aborts.
       const config = deps.readConfig(deps.configFile);
-      const effectivePort = port ?? config.serve.port ?? deps.defaultPort;
+      const effectivePort = port ?? deps.portOverride ?? config.serve.port ?? deps.defaultPort;
       const rendered = units.map((name) => {
         const unit = deps.units[name];
         return {
@@ -382,7 +386,7 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
   // Probe the port this build profile's daemon actually resolves. In dev the
   // operator config is absent by policy, so this falls back to DEV_PORT; in a
   // production binary it remains the installed PROD_PORT behavior.
-  const port = config.port ?? deps.defaultPort;
+  const port = deps.readInstalledPort() ?? deps.portOverride ?? config.port ?? deps.defaultPort;
   const healthRaw = await deps.health(port);
   const health: ServiceHealth | null =
     healthRaw === undefined

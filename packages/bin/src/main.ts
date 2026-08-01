@@ -41,6 +41,7 @@ import {
   plistForSnapshot,
   plistPathFor,
   readRuntimeConfig,
+  readServePlistPort,
   serveInstallEnv,
 } from './service';
 import type { Health, ServiceDeps } from './service';
@@ -103,6 +104,7 @@ function servePort(args: string[]): number | null | undefined {
 function realServiceDeps(): ServiceDeps {
   const binPath = process.execPath;
   const uid = process.getuid?.() ?? 501;
+  const explicitPort = envPort();
   return {
     // Only a production build manages the host launchd by default; a dev/
     // from-source run must opt in explicitly (the MMR-147 fence).
@@ -128,7 +130,9 @@ function realServiceDeps(): ServiceDeps {
       }
     },
     platform: process.platform,
+    portOverride: !IS_PRODUCTION && typeof explicitPort === 'number' ? explicitPort : undefined,
     readConfig: readRuntimeConfig,
+    readInstalledPort: () => readServePlistPort(plistPathFor(SERVE_LABEL)),
     units: {
       serve: {
         logFile: SERVE_LOG_FILE,

@@ -66,6 +66,7 @@ function deps(
     health: () => Promise.resolve(undefined),
     platform,
     readConfig,
+    readInstalledPort: () => undefined,
     units: {
       serve: {
         logFile: join(dir, 'serve.log'),

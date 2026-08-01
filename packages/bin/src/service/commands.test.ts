@@ -64,6 +64,7 @@ function deps(
     health: () => Promise.resolve(undefined),
     platform: 'darwin',
     readConfig,
+    readInstalledPort: () => undefined,
     units: {
       serve: {
         logFile: join(dir, 'serve.log'),
@@ -766,6 +767,24 @@ test('service status probes the build profile default when config contributes no
   expect(JSON.parse(io.out.join('\n')).units[0].port).toBe(64747);
 });
 
+test('service status prefers the port persisted in an installed dev plist', async () => {
+  const io = fakeIo();
+  let probed: number | undefined;
+  const d = deps(new FakeSupervisor(), {
+    defaultPort: 64747,
+    health: (port) => {
+      probed = port;
+      return Promise.resolve(undefined);
+    },
+    readConfig: () => ({ serve: {}, store: {}, vault: {} }),
+    readInstalledPort: () => 55440,
+  });
+
+  expect(await cmdService(['service', 'status'], {}, io, d, 'json')).toBe(0);
+  expect(probed).toBe(55440);
+  expect(JSON.parse(io.out.join('\n')).units[0].port).toBe(55440);
+});
+
 test('service install serve echoes the action envelope when format is json', async () => {
   const sup = new FakeSupervisor();
   const io = fakeIo();
@@ -785,6 +804,18 @@ test('service install serve echoes the action envelope when format is json', asy
   expect(parsed.actions[0].paths.plist).toBe(d.units.serve.plistFile);
   // The human path's detail lines must not leak into json mode.
   expect(io.out.join('\n')).not.toContain('plist:');
+});
+
+test('dev service install honors its captured MIMIR_PORT override', async () => {
+  const io = fakeIo();
+  const d = deps(new FakeSupervisor(), {
+    defaultPort: 64747,
+    portOverride: 55441,
+    readConfig: () => ({ serve: {}, store: {}, vault: {} }),
+  });
+
+  expect(await cmdService(['service', 'install', 'serve'], {}, io, d, 'json')).toBe(0);
+  expect(JSON.parse(io.out.join('\n')).actions[0].port).toBe(55441);
 });
 
 test('self-update emits the json result envelope when format is json', async () => {

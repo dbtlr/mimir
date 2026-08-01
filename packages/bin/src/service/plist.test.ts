@@ -3,7 +3,14 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SERVE_LABEL, SNAPSHOT_LABEL, plistFor, plistForSnapshot, plistPathFor } from './plist';
+import {
+  SERVE_LABEL,
+  SNAPSHOT_LABEL,
+  plistFor,
+  plistForSnapshot,
+  plistPathFor,
+  readServePlistPort,
+} from './plist';
 
 test('plist runs serve --no-hunt with no port and supervises it', () => {
   const xml = plistFor('/Users/op/.local/bin/mimir', {});
@@ -54,6 +61,13 @@ test('an opted-in dev service can bake its resolved port as MIMIR_PORT', () => {
   expect(xml).toContain('<key>MIMIR_PORT</key>');
   expect(xml).toContain('<string>64747</string>');
   expect(xml).not.toContain('--port');
+});
+
+test('the baked dev port round-trips from the installed plist', () => {
+  const file = join(dir, 'serve.plist');
+  writeFileSync(file, plistFor('/Users/op/workspaces/mimir/dev-bin', { port: 55440 }));
+  expect(readServePlistPort(file)).toBe(55440);
+  expect(readServePlistPort(join(dir, 'missing.plist'))).toBeUndefined();
 });
 
 test("plistPathFor lands the serve unit in the user's LaunchAgents", () => {

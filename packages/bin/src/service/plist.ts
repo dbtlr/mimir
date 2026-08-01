@@ -10,8 +10,11 @@
  *     interval and exits; a failure (missing volume, etc.) just re-fires next
  *     interval. No KeepAlive — a periodic command must not be kept alive.
  */
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+
+import { parsePort } from '@mimir/helpers';
 
 import { SERVE_LOG_FILE, SNAPSHOT_LOG_FILE } from './events';
 
@@ -20,6 +23,16 @@ export const SNAPSHOT_LABEL = 'com.dbtlr.mimir.snapshot';
 
 export function plistPathFor(label: string): string {
   return join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`);
+}
+
+/** Read the dev-only MIMIR_PORT baked into an owned serve plist. */
+export function readServePlistPort(file: string): number | undefined {
+  if (!existsSync(file)) {
+    return undefined;
+  }
+  const xml = readFileSync(file, 'utf8');
+  const match = /<key>MIMIR_PORT<\/key>\s*<string>([^<]+)<\/string>/.exec(xml);
+  return match?.[1] === undefined ? undefined : (parsePort(match[1]) ?? undefined);
 }
 
 export type PlistOptions = {
