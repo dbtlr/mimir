@@ -30,9 +30,13 @@ export function readServePlistPort(file: string): number | undefined {
   if (!existsSync(file)) {
     return undefined;
   }
-  const xml = readFileSync(file, 'utf8');
-  const match = /<key>MIMIR_PORT<\/key>\s*<string>([^<]+)<\/string>/.exec(xml);
-  return match?.[1] === undefined ? undefined : (parsePort(match[1]) ?? undefined);
+  try {
+    const xml = readFileSync(file, 'utf8');
+    const match = /<key>MIMIR_PORT<\/key>\s*<string>([^<]+)<\/string>/.exec(xml);
+    return match?.[1] === undefined ? undefined : (parsePort(match[1]) ?? undefined);
+  } catch {
+    return undefined;
+  }
 }
 
 export type PlistOptions = {

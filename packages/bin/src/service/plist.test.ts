@@ -68,6 +68,7 @@ test('the baked dev port round-trips from the installed plist', () => {
   writeFileSync(file, plistFor('/Users/op/workspaces/mimir/dev-bin', { port: 55440 }));
   expect(readServePlistPort(file)).toBe(55440);
   expect(readServePlistPort(join(dir, 'missing.plist'))).toBeUndefined();
+  expect(readServePlistPort(dir)).toBeUndefined();
 });
 
 test("plistPathFor lands the serve unit in the user's LaunchAgents", () => {

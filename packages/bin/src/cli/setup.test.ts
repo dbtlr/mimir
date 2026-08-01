@@ -143,6 +143,22 @@ test('--install-service --port installs the serve unit and persists the port', a
   });
 });
 
+test('setup --port wins over a captured MIMIR_PORT during service install', async () => {
+  const d = deps(new FakeSupervisor(), new FakeSupervisor());
+  d.service.portOverride = 55441;
+  const io = fakeIo(false);
+
+  expect(
+    await cmdSetup(
+      { installService: true, port: '55442', vault: join(dir, 'vault'), yes: true },
+      io,
+      d,
+      'records',
+    ),
+  ).toBe(0);
+  expect(io.out.join('\n')).toContain('http://127.0.0.1:55442');
+});
+
 // The dev-build fence (MMR-147): the setup install path routes through the same
 // cmdService gate, so a from-source `setup --install-snapshot` (the smoke that
 // polluted real launchd) fails loudly instead of writing a real unit.
