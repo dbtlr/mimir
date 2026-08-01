@@ -8,6 +8,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { IS_PRODUCTION } from '../env';
+
 export type ServeConfig = {
   port?: number;
   /** Set when a config file exists but contributed nothing — callers may warn. */
@@ -180,6 +182,17 @@ export function readConfig(file = configPath()): GlobalConfig {
     store: {},
     vault: vaultSection(parsed.vault),
   };
+}
+
+/**
+ * Read operator runtime settings only in a production build. From-source/dev
+ * commands deliberately do not open the global config path: their runtime
+ * state is isolated under the repo unless an explicit environment override is
+ * present. Configuration administration continues to use {@link readConfig}
+ * directly.
+ */
+export function readRuntimeConfig(file = configPath(), production = IS_PRODUCTION): GlobalConfig {
+  return production ? readConfig(file) : { serve: {}, store: {}, vault: {} };
 }
 
 /** The `[serve]` section — see {@link readConfig} for the tolerance contract. */

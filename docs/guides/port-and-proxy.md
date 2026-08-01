@@ -2,12 +2,17 @@
 
 ## Port precedence
 
-`mimir serve` resolves its port in this order, highest wins:
+An installed production `mimir serve` resolves its port in this order, highest
+wins:
 
 1. `--port <n>` flag
 2. `MIMIR_PORT` environment variable
 3. `[serve] port` in `~/.config/mimir/config.toml` (`$XDG_CONFIG_HOME` if set)
 4. the built-in default
+
+A dev/from-source run never reads the operator config: its order is `--port`,
+`MIMIR_PORT`, then the isolated dev default `64747`. This keeps a source
+checkout from inheriting the installed daemon's runtime surface.
 
 A malformed `MIMIR_PORT` (not an integer in 1–65535) is ignored with a
 warning, not a hard failure. `service install --port <n>` writes the config

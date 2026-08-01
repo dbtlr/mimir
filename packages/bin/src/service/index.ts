@@ -4,6 +4,7 @@ export {
   type ConfigPatch,
   configPath,
   readConfig,
+  readRuntimeConfig,
   readServeConfig,
   readVaultConfig,
   writeConfig,

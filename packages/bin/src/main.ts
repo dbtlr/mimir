@@ -40,9 +40,7 @@ import {
   plistFor,
   plistForSnapshot,
   plistPathFor,
-  readConfig,
-  readServeConfig,
-  readVaultConfig,
+  readRuntimeConfig,
   serveInstallEnv,
 } from './service';
 import type { Health, ServiceDeps } from './service';
@@ -136,7 +134,7 @@ function realServiceDeps(): ServiceDeps {
         render: () => {
           // The daemon shells out to norn and reads the vault (ADR 0018), so
           // preflight both at install time and bake the absolute norn path.
-          const config = readConfig();
+          const config = readRuntimeConfig();
           const vault = resolveVault({
             configPath: config.vault.path,
             envPath: process.env.MIMIR_VAULT,
@@ -156,7 +154,8 @@ function realServiceDeps(): ServiceDeps {
         render: (configFile) =>
           plistForSnapshot(binPath, {
             intervalSeconds:
-              readVaultConfig(configFile).snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+              readRuntimeConfig(configFile).vault.snapshot?.interval ??
+              DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
             vaultPath: process.env.MIMIR_VAULT,
           }),
         supervisor: new LaunchdSupervisor(bunExec, uid, SNAPSHOT_LABEL),
@@ -170,8 +169,11 @@ function realVaultDeps(): VaultDeps {
   return {
     exec: bunExec,
     resolveVault: () =>
-      resolveVault({ configPath: readConfig().vault.path, envPath: process.env.MIMIR_VAULT }),
-    snapshotConfig: () => readConfig().vault.snapshot ?? {},
+      resolveVault({
+        configPath: readRuntimeConfig().vault.path,
+        envPath: process.env.MIMIR_VAULT,
+      }),
+    snapshotConfig: () => readRuntimeConfig().vault.snapshot ?? {},
     stamp: () => new Date().toISOString(),
   };
 }
@@ -197,15 +199,16 @@ async function main(argv: string[]): Promise<number> {
       return 2;
     }
     const noHunt = args.includes('--no-hunt');
-    // Declared port wins: flag > MIMIR_PORT env > global config > built-in
-    // default (MMR-47, MMR-117). A malformed MIMIR_PORT is ignored with a warn.
+    // Declared port wins: flag > MIMIR_PORT env > production-only global config
+    // > built-in default (MMR-47/MMR-117/MMR-325). A malformed MIMIR_PORT is
+    // ignored with a warning.
     const overridePort = envPort();
     if (overridePort === null) {
       console.error(
         `⚠ serve: MIMIR_PORT ignored (not an integer in 1–65535) — ${String(process.env.MIMIR_PORT)}`,
       );
     }
-    const config = readServeConfig();
+    const config = readRuntimeConfig().serve;
     if (config.problem !== undefined) {
       console.error(`⚠ serve: config ignored (${config.problem}) — ${configPath()}`);
     }
