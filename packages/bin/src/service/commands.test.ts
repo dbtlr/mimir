@@ -58,6 +58,7 @@ function deps(
     allowRealSupervisor: true,
     binPath: join(dir, 'mimir'),
     configFile: join(dir, 'config.toml'),
+    defaultPort: PROD_PORT,
     eventsFile: join(dir, 'service-events.jsonl'),
     fetcher: () => Promise.reject(new Error('no network in tests')),
     health: () => Promise.resolve(undefined),
@@ -746,6 +747,23 @@ test('service status emits the json envelope when format is json', async () => {
   // The snapshot unit is reported too, carrying its interval, not a port.
   const snap = parsed.units.find((u: { unit: string }) => u.unit === 'snapshot');
   expect(snap).toMatchObject({ interval_seconds: 900, unit: 'snapshot' });
+});
+
+test('service status probes the build profile default when config contributes no port', async () => {
+  const io = fakeIo();
+  let probed: number | undefined;
+  const d = deps(new FakeSupervisor(), {
+    defaultPort: 64747,
+    health: (port) => {
+      probed = port;
+      return Promise.resolve(undefined);
+    },
+    readConfig: () => ({ serve: {}, store: {}, vault: {} }),
+  });
+
+  expect(await cmdService(['service', 'status'], {}, io, d, 'json')).toBe(0);
+  expect(probed).toBe(64747);
+  expect(JSON.parse(io.out.join('\n')).units[0].port).toBe(64747);
 });
 
 test('service install serve echoes the action envelope when format is json', async () => {

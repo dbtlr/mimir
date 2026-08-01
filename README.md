@@ -44,9 +44,10 @@ bun run build    # compiles dist/mimir; or `bun run mimir <verb>` straight from 
 
 `bun run build` produces the production-profile binary and preserves the
 installed runtime resolution below. Direct `bun run mimir …` invocations use
-an isolated dev profile: they never read the operator's global config, default
-to `.dev/vault` and port `64747`, and still honor explicit `MIMIR_VAULT` /
-`MIMIR_PORT` overrides.
+an isolated dev profile: ordinary runtime commands never read the operator's
+global config, default to `.dev/vault` and port `64747`, and still honor
+explicit `MIMIR_VAULT` / `MIMIR_PORT` overrides. The explicit `setup` command
+remains the configuration-administration path.
 
 ## Quickstart
 

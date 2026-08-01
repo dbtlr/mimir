@@ -49,6 +49,13 @@ test('with no env baked, the serve unit carries no EnvironmentVariables', () => 
   expect(xml).not.toContain('EnvironmentVariables');
 });
 
+test('an opted-in dev service can bake its resolved port as MIMIR_PORT', () => {
+  const xml = plistFor('/Users/op/workspaces/mimir/dev-bin', { port: 64747 });
+  expect(xml).toContain('<key>MIMIR_PORT</key>');
+  expect(xml).toContain('<string>64747</string>');
+  expect(xml).not.toContain('--port');
+});
+
 test("plistPathFor lands the serve unit in the user's LaunchAgents", () => {
   expect(plistPathFor(SERVE_LABEL)).toMatch(
     /Library\/LaunchAgents\/com\.dbtlr\.mimir\.serve\.plist$/,

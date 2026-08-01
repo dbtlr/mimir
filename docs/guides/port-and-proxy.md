@@ -19,7 +19,7 @@ warning, not a hard failure. `service install --port <n>` writes the config
 file's `[serve] port` — it does not set an env var and does not touch the
 plist.
 
-## The plist never bakes a port
+## Production plists do not bake a port
 
 The launchd unit's `ProgramArguments` for `serve` are always just
 `serve --no-hunt` — no `--port`. The daemon reads its port from the config
@@ -28,6 +28,11 @@ file (or `MIMIR_PORT`, if you've set that in the plist's own
 This means retargeting the port is edit-config-then-restart, never a plist
 rewrite: `mimir service install --port <n>` followed by
 `mimir service restart` (or just `install` again, which reinstalls the unit).
+
+The one exception is an explicitly opted-in dev service install
+(`MIMIR_ALLOW_REAL_SERVICE=1`): because a dev binary never reads the operator
+config, its plist bakes `MIMIR_PORT` so the installed daemon and the install
+report cannot diverge. Production keeps the config-driven behavior above.
 
 ## Loopback only — the proxy is the boundary
 

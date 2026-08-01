@@ -15,7 +15,6 @@ import { isMember } from '@mimir/helpers';
 
 import { usage } from '../cli/errors';
 import { MimirError } from '../core';
-import { PROD_PORT } from '../env';
 import type { Format, Io } from '../presentation';
 import { arrow, ok, warn } from '../presentation';
 import { DEFAULT_SNAPSHOT_INTERVAL_SECONDS, writeServePort } from './config';
@@ -67,7 +66,7 @@ export type ServiceUnit = {
   plistFile: string;
   logFile: string;
   /** Render the plist from the given config file — the same file the command reads for its report. */
-  render: (configFile: string, config: GlobalConfig) => string;
+  render: (configFile: string, config: GlobalConfig, port: number | undefined) => string;
 };
 
 export type ServiceDeps = {
@@ -83,6 +82,8 @@ export type ServiceDeps = {
   /** This invocation's version (build-injected tag, or package.json) — the on-disk version by definition. */
   version: string;
   configFile: string;
+  /** The serve fallback baked into this build profile. */
+  defaultPort: number;
   /** The build-profile-aware config projection used by every service read/render. */
   readConfig: (file: string) => GlobalConfig;
   eventsFile: string;
@@ -221,9 +222,14 @@ export async function cmdService(
       }
       // Render every plist before any mutation — this is where a bad Norn env aborts.
       const config = deps.readConfig(deps.configFile);
+      const effectivePort = port ?? config.serve.port ?? deps.defaultPort;
       const rendered = units.map((name) => {
         const unit = deps.units[name];
-        return { name, plist: unit.render(deps.configFile, config), unit };
+        return {
+          name,
+          plist: unit.render(deps.configFile, config, name === 'serve' ? effectivePort : undefined),
+          unit,
+        };
       });
       // A reset means the prior file was unparseable and got rewritten fresh
       // (lossy) — surface it rather than clobbering other sections silently.
@@ -237,11 +243,16 @@ export async function cmdService(
         await unit.supervisor.install(unit.plistFile);
         const paths = { config: deps.configFile, log: unit.logFile, plist: unit.plistFile };
         if (name === 'serve') {
-          const effective = port ?? config.serve.port ?? PROD_PORT;
-          log('install', true, `serve · port ${String(effective)}`);
-          results.push({ action: 'install', ok: true, paths, port: effective, unit: 'serve' });
+          log('install', true, `serve · port ${String(effectivePort)}`);
+          results.push({
+            action: 'install',
+            ok: true,
+            paths,
+            port: effectivePort,
+            unit: 'serve',
+          });
           humans.push(() => {
-            ok(io, `serve installed — serving on http://127.0.0.1:${String(effective)}`);
+            ok(io, `serve installed — serving on http://127.0.0.1:${String(effectivePort)}`);
             io.write(`  plist:  ${unit.plistFile}`);
             io.write(
               `  config: ${deps.configFile}${port === undefined ? ' (defaults; set with service install --port)' : ''}`,
@@ -368,12 +379,10 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
   }
 
   const serveInfo = await deps.units.serve.supervisor.info();
-  // The service surface manages the installed production daemon regardless of
-  // how this CLI was invoked, so the daemon's own default (PROD_PORT) governs —
-  // not the invoking process's profile default (MMR-117). Probe health
-  // unconditionally (as before the units refactor): a serve answering the port
-  // outside launchd still surfaces, rather than reading as dead.
-  const port = config.port ?? PROD_PORT;
+  // Probe the port this build profile's daemon actually resolves. In dev the
+  // operator config is absent by policy, so this falls back to DEV_PORT; in a
+  // production binary it remains the installed PROD_PORT behavior.
+  const port = config.port ?? deps.defaultPort;
   const healthRaw = await deps.health(port);
   const health: ServiceHealth | null =
     healthRaw === undefined

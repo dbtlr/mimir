@@ -60,6 +60,7 @@ function deps(
     allowRealSupervisor: true,
     binPath: join(dir, 'mimir'),
     configFile: join(dir, 'config.toml'),
+    defaultPort: 64647,
     eventsFile: join(dir, 'service-events.jsonl'),
     fetcher: () => Promise.reject(new Error('no network in tests')),
     health: () => Promise.resolve(undefined),

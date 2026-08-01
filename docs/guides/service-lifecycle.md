@@ -51,6 +51,10 @@ not read the operator's global config, and therefore default to the repo-local
 overrides. Setup/configuration commands still read and write the config because
 administering that file is their purpose.
 
+When the escape hatch installs a dev `serve` unit, the resolved dev port is
+baked as `MIMIR_PORT`; production units remain config-driven. This keeps the
+daemon, status probe, and install report on one port in both profiles.
+
 ## Source
 
 `packages/bin/src/service/launchd.ts` (the supervisor), `commands.ts` (the

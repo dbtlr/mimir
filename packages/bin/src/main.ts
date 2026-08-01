@@ -109,6 +109,7 @@ function realServiceDeps(): ServiceDeps {
     allowRealSupervisor: IS_PRODUCTION || envFlag(process.env.MIMIR_ALLOW_REAL_SERVICE),
     binPath,
     configFile: configPath(),
+    defaultPort: DEFAULT_PORT,
     eventsFile: EVENTS_FILE,
     fetcher: manualFetch,
     health: async (port: number): Promise<Health | undefined> => {
@@ -132,17 +133,17 @@ function realServiceDeps(): ServiceDeps {
       serve: {
         logFile: SERVE_LOG_FILE,
         plistFile: plistPathFor(SERVE_LABEL),
-        render: (_configFile, config) => {
+        render: (_configFile, config, port) => {
           // The daemon shells out to norn and reads the vault (ADR 0018), so
           // preflight both at install time and bake the absolute norn path.
           const vault = resolveVault({
             configPath: config.vault.path,
             envPath: process.env.MIMIR_VAULT,
           });
-          return plistFor(
-            binPath,
-            serveInstallEnv({ nornPath: Bun.which('norn') ?? undefined, vault }),
-          );
+          return plistFor(binPath, {
+            ...serveInstallEnv({ nornPath: Bun.which('norn') ?? undefined, vault }),
+            port: IS_PRODUCTION ? undefined : port,
+          });
         },
         supervisor: new LaunchdSupervisor(bunExec, uid, SERVE_LABEL),
       },
