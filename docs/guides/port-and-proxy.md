@@ -15,9 +15,12 @@ A dev/from-source run never reads the operator config: its order is `--port`,
 checkout from inheriting the installed daemon's runtime surface.
 
 A malformed `MIMIR_PORT` (not an integer in 1–65535) is ignored with a
-warning, not a hard failure. `service install --port <n>` writes the config
-file's `[serve] port` — it does not set an env var and does not touch the
-plist.
+warning, not a hard failure. For a production unit,
+`service install --port <n>` writes the config file's `[serve] port` — it does
+not set an env var or change the plist. `setup` is the explicit
+configuration-command exception to dev runtime isolation: it reads and writes
+the operator config by design. An opted-in dev service install also persists
+its resolved port in the plist, as described below.
 
 ## Production plists do not bake a port
 

@@ -115,13 +115,14 @@ mimir mcp     # JSON-RPC over stdio; the same read + write surface as tools
 Serve the HTTP API and the operator console:
 
 ```sh
-mimir serve   # loopback-only, default port 64647
+mimir serve           # installed production profile: http://127.0.0.1:64647/
+bun run mimir serve   # direct source dev profile: http://127.0.0.1:64747/
 ```
 
-`http://127.0.0.1:64647/` is the console (the screenshot above): an Overview
-of every project with an attention strip of in-flight and stuck work, and a
-per-project kanban board / tree with a detail drawer on every node. It is an
-installable PWA — usable from a phone behind your own reverse proxy — that
+Those profile-specific URLs open the console (the screenshot above): an
+Overview of every project with an attention strip of in-flight and stuck work,
+and a per-project kanban board / tree with a detail drawer on every node. It is
+an installable PWA — usable from a phone behind your own reverse proxy — that
 polls while visible and, when the server is unreachable, shows the last-synced
 board behind an explicit offline banner. This first cut is **read-only**; the
 API under `/api/*` carries the same verb surface as the CLI/MCP for writes
