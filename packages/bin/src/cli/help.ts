@@ -242,7 +242,7 @@ machinery commands (the installation, host, or store — not the work itself):
                           launchd units. Prefills current values; re-runnable.
                           Non-interactively takes flags + -y.
   serve [--port <n>] [--no-hunt]
-                          HTTP API + console (loopback-only; port: --port >
+                          HTTP API + console (loopback-only; port:
                           ${PORT_PRECEDENCE}; a
                           taken port hunts upward unless --no-hunt — the
                           startup line names the bound URL)
