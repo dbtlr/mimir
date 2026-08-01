@@ -243,7 +243,7 @@ async function applySetup(
       ['service', 'install', selector],
       {},
       serviceIo,
-      deps.service,
+      { ...deps.service, readConfig },
       format,
     );
     serviceOk = code === 0;

@@ -172,7 +172,7 @@ test('a dev runtime never opens the operator config path', () => {
   const unreadableAsConfig = join(dir, 'config-is-a-directory');
   mkdirSync(unreadableAsConfig);
 
-  expect(readRuntimeConfig(unreadableAsConfig, false)).toEqual({
+  expect(readRuntimeConfig(unreadableAsConfig)).toEqual({
     serve: {},
     store: {},
     vault: {},

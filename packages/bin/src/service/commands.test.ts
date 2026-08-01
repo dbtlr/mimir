@@ -8,7 +8,7 @@ import { MimirError } from '../core';
 import { PROD_PORT } from '../env';
 import type { ServiceDeps } from './commands';
 import { cmdSelfUpdate, cmdService } from './commands';
-import { readServeConfig } from './config';
+import { readConfig, readServeConfig } from './config';
 import { recentEvents } from './events';
 import type { ServiceInfo, Supervisor } from './launchd';
 import { plistFor, plistForSnapshot } from './plist';
@@ -62,6 +62,7 @@ function deps(
     fetcher: () => Promise.reject(new Error('no network in tests')),
     health: () => Promise.resolve(undefined),
     platform: 'darwin',
+    readConfig,
     units: {
       serve: {
         logFile: join(dir, 'serve.log'),

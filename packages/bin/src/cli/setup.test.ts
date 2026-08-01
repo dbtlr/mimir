@@ -64,6 +64,7 @@ function deps(
     fetcher: () => Promise.reject(new Error('no network in tests')),
     health: () => Promise.resolve(undefined),
     platform,
+    readConfig,
     units: {
       serve: {
         logFile: join(dir, 'serve.log'),

@@ -127,14 +127,14 @@ function realServiceDeps(): ServiceDeps {
       }
     },
     platform: process.platform,
+    readConfig: readRuntimeConfig,
     units: {
       serve: {
         logFile: SERVE_LOG_FILE,
         plistFile: plistPathFor(SERVE_LABEL),
-        render: () => {
+        render: (_configFile, config) => {
           // The daemon shells out to norn and reads the vault (ADR 0018), so
           // preflight both at install time and bake the absolute norn path.
-          const config = readRuntimeConfig();
           const vault = resolveVault({
             configPath: config.vault.path,
             envPath: process.env.MIMIR_VAULT,
@@ -151,11 +151,9 @@ function realServiceDeps(): ServiceDeps {
         plistFile: plistPathFor(SNAPSHOT_LABEL),
         // Bake the interval from the SAME config file the command reports from,
         // and the vault at install time (launchd does no shell expansion).
-        render: (configFile) =>
+        render: (_configFile, config) =>
           plistForSnapshot(binPath, {
-            intervalSeconds:
-              readRuntimeConfig(configFile).vault.snapshot?.interval ??
-              DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+            intervalSeconds: config.vault.snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
             vaultPath: process.env.MIMIR_VAULT,
           }),
         supervisor: new LaunchdSupervisor(bunExec, uid, SNAPSHOT_LABEL),
