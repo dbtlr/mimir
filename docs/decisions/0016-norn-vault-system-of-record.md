@@ -153,11 +153,13 @@ the default backend until the final phase.
 The Norn-client phase gate resolved the deferred vault-shape items.
 
 - **The vault path is an environment fact** — the same class as the SQLite
-  store path, with the same treatment: `MIMIR_VAULT` env > `[vault] path` in
-  the global config (`~/.config/mimir/config.toml`) > the build-profile
-  default (`$XDG_DATA_HOME/mimir/vault` in production; the repo-local
-  `.dev/vault` from source). `.mimir.toml` never names a vault; the ADR 0011
-  tension dissolves rather than needing an exception.
+  store path. A production binary resolves `MIMIR_VAULT` env > `[vault] path`
+  in the global config (`~/.config/mimir/config.toml`) >
+  `$XDG_DATA_HOME/mimir/vault`. A dev/from-source build resolves
+  `MIMIR_VAULT` env > the repo-local `.dev/vault` and never opens the operator
+  config (MMR-325); the build profile is baked at compile time and defaults to
+  dev when absent. `.mimir.toml` never names a vault; the ADR 0011 tension
+  dissolves rather than needing an exception.
 - **Per-project directory layout** — `KEY/KEY.md` (the project document),
   `KEY/KEY-seq.md` (nodes), `KEY/artifacts/KEY-aN.md` (artifacts). Stems
   remain globally unique, so the layout is browsability, asserted

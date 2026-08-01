@@ -60,10 +60,13 @@ function deps(
     allowRealSupervisor: true,
     binPath: join(dir, 'mimir'),
     configFile: join(dir, 'config.toml'),
+    defaultPort: 64647,
     eventsFile: join(dir, 'service-events.jsonl'),
     fetcher: () => Promise.reject(new Error('no network in tests')),
     health: () => Promise.resolve(undefined),
     platform,
+    readConfig,
+    readInstalledPort: () => undefined,
     units: {
       serve: {
         logFile: join(dir, 'serve.log'),
@@ -138,6 +141,22 @@ test('--install-service --port installs the serve unit and persists the port', a
     store: {},
     vault: { path: join(dir, 'vault') },
   });
+});
+
+test('setup --port wins over a captured MIMIR_PORT during service install', async () => {
+  const d = deps(new FakeSupervisor(), new FakeSupervisor());
+  d.service.portOverride = 55441;
+  const io = fakeIo(false);
+
+  expect(
+    await cmdSetup(
+      { installService: true, port: '55442', vault: join(dir, 'vault'), yes: true },
+      io,
+      d,
+      'records',
+    ),
+  ).toBe(0);
+  expect(io.out.join('\n')).toContain('http://127.0.0.1:55442');
 });
 
 // The dev-build fence (MMR-147): the setup install path routes through the same

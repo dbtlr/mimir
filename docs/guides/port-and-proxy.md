@@ -2,19 +2,27 @@
 
 ## Port precedence
 
-`mimir serve` resolves its port in this order, highest wins:
+An installed production `mimir serve` resolves its port in this order, highest
+wins:
 
 1. `--port <n>` flag
 2. `MIMIR_PORT` environment variable
 3. `[serve] port` in `~/.config/mimir/config.toml` (`$XDG_CONFIG_HOME` if set)
 4. the built-in default
 
-A malformed `MIMIR_PORT` (not an integer in 1–65535) is ignored with a
-warning, not a hard failure. `service install --port <n>` writes the config
-file's `[serve] port` — it does not set an env var and does not touch the
-plist.
+A dev/from-source run never reads the operator config: its order is `--port`,
+`MIMIR_PORT`, then the isolated dev default `64747`. This keeps a source
+checkout from inheriting the installed daemon's runtime surface.
 
-## The plist never bakes a port
+A malformed `MIMIR_PORT` (not an integer in 1–65535) is ignored with a
+warning, not a hard failure. For a production unit,
+`service install --port <n>` writes the config file's `[serve] port` — it does
+not set an env var or change the plist. `setup` is the explicit
+configuration-command exception to dev runtime isolation: it reads and writes
+the operator config by design. An opted-in dev service install also persists
+its resolved port in the plist, as described below.
+
+## Production plists do not bake a port
 
 The launchd unit's `ProgramArguments` for `serve` are always just
 `serve --no-hunt` — no `--port`. The daemon reads its port from the config
@@ -23,6 +31,13 @@ file (or `MIMIR_PORT`, if you've set that in the plist's own
 This means retargeting the port is edit-config-then-restart, never a plist
 rewrite: `mimir service install --port <n>` followed by
 `mimir service restart` (or just `install` again, which reinstalls the unit).
+
+The one exception is an explicitly opted-in dev service install
+(`MIMIR_ALLOW_REAL_SERVICE=1`): because a dev binary never reads the operator
+config, its plist bakes the resolved `MIMIR_PORT` (install flag > environment >
+dev default). Later `service status` reads that owned plist value, so the
+installed daemon, status probe, and install report cannot diverge. Production
+keeps the config-driven behavior above.
 
 ## Loopback only — the proxy is the boundary
 

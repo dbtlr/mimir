@@ -1,16 +1,20 @@
 /**
  * The launchd units (MMR-47, MMR-146). Two shapes share one escaper:
  *
- *   - **serve** — a KeepAlive daemon. ProgramArguments carry `serve --no-hunt`
- *     and NO port; the declared port lives in the global config, so retargeting
- *     never rewrites the plist. KeepAlive + the loud --no-hunt failure means
- *     launchd retries (~10s) while a squatter holds the port and self-heals.
+ *   - **serve** — a KeepAlive daemon. ProgramArguments carry `serve --no-hunt`.
+ *     Production resolves the port from global config; an explicitly opted-in
+ *     dev install bakes `MIMIR_PORT` because that profile ignores global config.
+ *     KeepAlive + the loud --no-hunt failure means launchd retries (~10s) while
+ *     a squatter holds the port and self-heals.
  *   - **snapshot** — a StartInterval timer. It runs `vault snapshot` every
  *     interval and exits; a failure (missing volume, etc.) just re-fires next
  *     interval. No KeepAlive — a periodic command must not be kept alive.
  */
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+
+import { parsePort } from '@mimir/helpers';
 
 import { SERVE_LOG_FILE, SNAPSHOT_LOG_FILE } from './events';
 
@@ -21,7 +25,23 @@ export function plistPathFor(label: string): string {
   return join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`);
 }
 
+/** Read the dev-only MIMIR_PORT baked into an owned serve plist. */
+export function readServePlistPort(file: string): number | undefined {
+  if (!existsSync(file)) {
+    return undefined;
+  }
+  try {
+    const xml = readFileSync(file, 'utf8');
+    const match = /<key>MIMIR_PORT<\/key>\s*<string>([^<]+)<\/string>/.exec(xml);
+    return match?.[1] === undefined ? undefined : (parsePort(match[1]) ?? undefined);
+  } catch {
+    return undefined;
+  }
+}
+
 export type PlistOptions = {
+  /** `MIMIR_PORT`, baked only for an explicitly opted-in dev service install. */
+  port?: number;
   /**
    * `MIMIR_NORN` — the absolute path to the `norn` binary, resolved and existence-
    * checked at install time (mimir shells out to it, ADR 0018). Baked directly
@@ -74,6 +94,7 @@ ${body}
 export function plistFor(binPath: string, opts: PlistOptions): string {
   const env = envDict({
     MIMIR_NORN: opts.nornPath,
+    MIMIR_PORT: opts.port === undefined ? undefined : String(opts.port),
     MIMIR_VAULT: opts.vaultPath,
   });
   return `<?xml version="1.0" encoding="UTF-8"?>

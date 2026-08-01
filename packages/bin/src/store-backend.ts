@@ -14,7 +14,7 @@ import { createNornWriteStore } from './core/store-norn/writer';
 import type { DoctorSnapshot } from './doctor/snapshot';
 import { readDoctorSnapshot } from './doctor/snapshot';
 import { bunExec } from './exec';
-import { readConfig } from './service/config';
+import { readRuntimeConfig } from './service/config';
 import { backfillVaultData } from './vault/backfill';
 import { converge } from './vault/converge';
 import { resolveVault } from './vault/resolve';
@@ -44,7 +44,7 @@ export type BuiltStore = {
  * directory) propagates so `serve` fails fast and a supervisor retries.
  */
 export async function buildStore(): Promise<BuiltStore> {
-  const config = readConfig();
+  const config = readRuntimeConfig();
   const vault = resolveVault({
     configPath: config.vault.path,
     envPath: process.env.MIMIR_VAULT,

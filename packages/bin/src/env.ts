@@ -10,8 +10,9 @@
  * The polarity is deliberate: a build missing the define lands in dev (harmless),
  * so only a real compiled binary ever points at production work-state.
  *
- * User overrides still sit on top of the baked default: `MIMIR_VAULT` / `MIMIR_PORT`
- * env vars win, then the global config, then this default.
+ * Environment overrides still sit on top of the baked default in both profiles.
+ * Only production reads the operator's global config between those sources;
+ * dev/from-source never opens it.
  */
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -55,8 +56,8 @@ function dataPath(...leaf: string[]): string {
 /**
  * The default Norn-vault path for this build (MMR-142): production resolves
  * `$XDG_DATA_HOME/mimir/vault`; dev/from-source resolves the isolated repo-local
- * `.dev/vault`. `MIMIR_VAULT` / the `[vault] path` config override it upstream
- * (see `resolveVault`).
+ * `.dev/vault`. `MIMIR_VAULT` overrides it in both profiles; `[vault] path`
+ * participates only in production (see `readRuntimeConfig` + `resolveVault`).
  */
 export function defaultVaultPath(): string {
   return dataPath('vault');

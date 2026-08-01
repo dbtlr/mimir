@@ -40,9 +40,8 @@ import {
   plistFor,
   plistForSnapshot,
   plistPathFor,
-  readConfig,
-  readServeConfig,
-  readVaultConfig,
+  readRuntimeConfig,
+  readServePlistPort,
   serveInstallEnv,
 } from './service';
 import type { Health, ServiceDeps } from './service';
@@ -105,12 +104,14 @@ function servePort(args: string[]): number | null | undefined {
 function realServiceDeps(): ServiceDeps {
   const binPath = process.execPath;
   const uid = process.getuid?.() ?? 501;
+  const explicitPort = envPort();
   return {
     // Only a production build manages the host launchd by default; a dev/
     // from-source run must opt in explicitly (the MMR-147 fence).
     allowRealSupervisor: IS_PRODUCTION || envFlag(process.env.MIMIR_ALLOW_REAL_SERVICE),
     binPath,
     configFile: configPath(),
+    defaultPort: DEFAULT_PORT,
     eventsFile: EVENTS_FILE,
     fetcher: manualFetch,
     health: async (port: number): Promise<Health | undefined> => {
@@ -129,22 +130,24 @@ function realServiceDeps(): ServiceDeps {
       }
     },
     platform: process.platform,
+    portOverride: !IS_PRODUCTION && typeof explicitPort === 'number' ? explicitPort : undefined,
+    readConfig: readRuntimeConfig,
+    readInstalledPort: () => readServePlistPort(plistPathFor(SERVE_LABEL)),
     units: {
       serve: {
         logFile: SERVE_LOG_FILE,
         plistFile: plistPathFor(SERVE_LABEL),
-        render: () => {
+        render: (_configFile, config, port) => {
           // The daemon shells out to norn and reads the vault (ADR 0018), so
           // preflight both at install time and bake the absolute norn path.
-          const config = readConfig();
           const vault = resolveVault({
             configPath: config.vault.path,
             envPath: process.env.MIMIR_VAULT,
           });
-          return plistFor(
-            binPath,
-            serveInstallEnv({ nornPath: Bun.which('norn') ?? undefined, vault }),
-          );
+          return plistFor(binPath, {
+            ...serveInstallEnv({ nornPath: Bun.which('norn') ?? undefined, vault }),
+            port: IS_PRODUCTION ? undefined : port,
+          });
         },
         supervisor: new LaunchdSupervisor(bunExec, uid, SERVE_LABEL),
       },
@@ -153,10 +156,9 @@ function realServiceDeps(): ServiceDeps {
         plistFile: plistPathFor(SNAPSHOT_LABEL),
         // Bake the interval from the SAME config file the command reports from,
         // and the vault at install time (launchd does no shell expansion).
-        render: (configFile) =>
+        render: (_configFile, config) =>
           plistForSnapshot(binPath, {
-            intervalSeconds:
-              readVaultConfig(configFile).snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+            intervalSeconds: config.vault.snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
             vaultPath: process.env.MIMIR_VAULT,
           }),
         supervisor: new LaunchdSupervisor(bunExec, uid, SNAPSHOT_LABEL),
@@ -170,8 +172,11 @@ function realVaultDeps(): VaultDeps {
   return {
     exec: bunExec,
     resolveVault: () =>
-      resolveVault({ configPath: readConfig().vault.path, envPath: process.env.MIMIR_VAULT }),
-    snapshotConfig: () => readConfig().vault.snapshot ?? {},
+      resolveVault({
+        configPath: readRuntimeConfig().vault.path,
+        envPath: process.env.MIMIR_VAULT,
+      }),
+    snapshotConfig: () => readRuntimeConfig().vault.snapshot ?? {},
     stamp: () => new Date().toISOString(),
   };
 }
@@ -197,15 +202,16 @@ async function main(argv: string[]): Promise<number> {
       return 2;
     }
     const noHunt = args.includes('--no-hunt');
-    // Declared port wins: flag > MIMIR_PORT env > global config > built-in
-    // default (MMR-47, MMR-117). A malformed MIMIR_PORT is ignored with a warn.
+    // Declared port wins: flag > MIMIR_PORT env > production-only global config
+    // > built-in default (MMR-47/MMR-117/MMR-325). A malformed MIMIR_PORT is
+    // ignored with a warning.
     const overridePort = envPort();
     if (overridePort === null) {
       console.error(
         `⚠ serve: MIMIR_PORT ignored (not an integer in 1–65535) — ${String(process.env.MIMIR_PORT)}`,
       );
     }
-    const config = readServeConfig();
+    const config = readRuntimeConfig().serve;
     if (config.problem !== undefined) {
       console.error(`⚠ serve: config ignored (${config.problem}) — ${configPath()}`);
     }

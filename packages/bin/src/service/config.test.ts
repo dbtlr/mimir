@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
   configPath,
   readConfig,
+  readRuntimeConfig,
   readServeConfig,
   readVaultConfig,
   writeConfig,
@@ -165,6 +166,24 @@ test('readConfig parses once and returns every section', () => {
     store: {},
     vault: { path: '/v' },
   });
+});
+
+test('a dev runtime never opens the operator config path', () => {
+  const unreadableAsConfig = join(dir, 'config-is-a-directory');
+  mkdirSync(unreadableAsConfig);
+
+  expect(readRuntimeConfig(unreadableAsConfig)).toEqual({
+    serve: {},
+    store: {},
+    vault: {},
+  });
+});
+
+test('a production runtime preserves the operator config projection', () => {
+  const file = join(dir, 'production.toml');
+  writeFileSync(file, '[serve]\nport = 50130\n\n[vault]\npath = "/operator/vault"\n');
+
+  expect(readRuntimeConfig(file, true)).toEqual(readConfig(file));
 });
 
 // The `[store] backend` fence was retired at MMR-234, and its MMR-279

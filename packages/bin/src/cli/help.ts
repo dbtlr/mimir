@@ -3,9 +3,13 @@ import { isTerminalLifecycle, OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { DataFieldKey, OpFact, UniformVerb } from '@mimir/contract';
 
 import { specUpdateFields } from '../core';
-import { DEFAULT_PORT } from '../env';
+import { DEFAULT_PORT, IS_PRODUCTION } from '../env';
 import { bold, color } from '../presentation';
 import { updateFieldFlags } from './mutations';
+
+const PORT_PRECEDENCE = IS_PRODUCTION
+  ? `--port > MIMIR_PORT > config [serve] port > ${String(DEFAULT_PORT)}`
+  : `--port > MIMIR_PORT > dev default ${String(DEFAULT_PORT)}`;
 
 // ─── Uniform-verb help derivation (ADR 0025 Decision 4) ─────────────────────
 // The twelve uniform verbs' terse rows and per-command descriptors derive from
@@ -238,8 +242,8 @@ machinery commands (the installation, host, or store — not the work itself):
                           launchd units. Prefills current values; re-runnable.
                           Non-interactively takes flags + -y.
   serve [--port <n>] [--no-hunt]
-                          HTTP API + console (loopback-only; port: --port >
-                          MIMIR_PORT > config [serve] port > ${DEFAULT_PORT}; a
+                          HTTP API + console (loopback-only; port:
+                          ${PORT_PRECEDENCE}; a
                           taken port hunts upward unless --no-hunt — the
                           startup line names the bound URL)
   mcp                     the agent envelope over stdio (MCP transport)
@@ -761,7 +765,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir serve --no-hunt          # fail instead of hunting when the port is taken',
     ],
     flags: [
-      ['--port <n>', `bind port (--port > MIMIR_PORT > config [serve] port > ${DEFAULT_PORT})`],
+      ['--port <n>', `bind port (${PORT_PRECEDENCE})`],
       ['--no-hunt', 'fail instead of hunting upward when the port is taken'],
     ],
     summary:

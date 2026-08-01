@@ -241,9 +241,9 @@ async function applySetup(
     const serviceIo: Io = structured ? { ...io, write: () => undefined } : io;
     const code = await cmdService(
       ['service', 'install', selector],
-      {},
+      { port: answers.port === undefined ? undefined : String(answers.port) },
       serviceIo,
-      deps.service,
+      { ...deps.service, readConfig },
       format,
     );
     serviceOk = code === 0;

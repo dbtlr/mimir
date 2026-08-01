@@ -45,6 +45,17 @@ production build, or `MIMIR_ALLOW_REAL_SERVICE=1` is set. This exists so a
 `bun run` dev invocation or a smoke test can never silently pollute
 `~/Library/LaunchAgents`. `status` is exempt — it only reads.
 
+The fence is paired with runtime-state isolation: dev/from-source commands do
+not read the operator's global config, and therefore default to the repo-local
+`.dev/vault` and dev port. `MIMIR_VAULT` and `MIMIR_PORT` remain explicit
+overrides. Setup/configuration commands still read and write the config because
+administering that file is their purpose.
+
+When the escape hatch installs a dev `serve` unit, the resolved dev port
+(install flag > `MIMIR_PORT` > dev default) is baked into the owned plist;
+later status reads it back. Production units remain config-driven. This keeps
+the daemon, status probe, and install report on one port in both profiles.
+
 ## Source
 
 `packages/bin/src/service/launchd.ts` (the supervisor), `commands.ts` (the
