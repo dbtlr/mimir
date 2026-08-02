@@ -34,6 +34,7 @@ test('the embedded skill carries the root + seven references, all non-empty', ()
   expect(root).toContain('name: mimir');
   expect(root).toContain('transition');
   expect(root).toContain('KEY-seq');
+  expect(root).toContain('reuse it and do not run the command');
 });
 
 test('skillDirFor encodes the per-agent host layout', () => {
@@ -53,7 +54,9 @@ test('skill install --local writes the full tree into the working copy', async (
     for (const f of SKILL_FILES) {
       expect(existsSync(join(root, f.path))).toBe(true);
     }
-    expect(readFileSync(join(root, 'SKILL.md'), 'utf8')).toContain('name: mimir');
+    const installedRoot = readFileSync(join(root, 'SKILL.md'), 'utf8');
+    expect(installedRoot).toContain('name: mimir');
+    expect(installedRoot).toContain('reuse it and do not run the command');
   } finally {
     rmSync(dir, { force: true, recursive: true });
   }
