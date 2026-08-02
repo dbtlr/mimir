@@ -15,12 +15,13 @@
 import type { MigrationPlan } from '../core/store-norn/plan';
 import { now } from '../core/time';
 import type { Format, Io } from '../presentation';
-import { ok } from '../presentation';
+import { ok, warn } from '../presentation';
 import type { DoctorFinding } from './checks';
 import { diagnoseDoctor } from './diagnosis';
 import type { DoctorRepairPlan, RepairItem } from './repair';
 import { planDoctorRepairs, repairIssueKey } from './repair';
 import type { DoctorSnapshot } from './snapshot';
+import { doctorScopeMatch } from './snapshot';
 
 export type DoctorDeps = {
   /** Read every diagnostic input from one whole-vault enumeration (MMR-241). */
@@ -153,6 +154,13 @@ function renderRepair(io: Io, format: Format, report: DoctorRepairReport): void 
   );
 }
 
+function warnEmptyScope(io: Io, snapshot: DoctorSnapshot, scope: string | undefined): void {
+  const match = doctorScopeMatch(snapshot, scope);
+  if (match?.matched_documents === 0) {
+    warn(io, `doctor scope '${match.key}' matched 0 documents`);
+  }
+}
+
 function finishReport(args: Omit<DoctorRepairReport, 'summary'>): DoctorRepairReport {
   return {
     ...args,
@@ -176,6 +184,7 @@ async function cmdDoctorRepair(
     throw new Error('doctor repair is unavailable in this context');
   }
   const snapshot = await deps.readSnapshot();
+  warnEmptyScope(io, snapshot, scope);
   const issues = await diagnoseDoctor(snapshot, scope);
   const plan: DoctorRepairPlan = planDoctorRepairs({
     issues,
@@ -330,7 +339,9 @@ export async function cmdDoctor(
   // One shared post-refresh document set serves bodies, graph/declarations, and
   // section diagnostics. The projection keeps MMR-240's authoritative stem scope
   // while the unfiltered snapshot remains available to MMR-183's repair planner.
-  const findings = await diagnoseDoctor(await deps.readSnapshot(), scope);
+  const snapshot = await deps.readSnapshot();
+  warnEmptyScope(io, snapshot, scope);
+  const findings = await diagnoseDoctor(snapshot, scope);
 
   if (format === 'jsonl') {
     // One finding per line — the NDJSON contract every mimir surface honors.

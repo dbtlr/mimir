@@ -54,6 +54,25 @@ export function doctorStemInScope(stem: string, scope: string | undefined): bool
   return scope === undefined || stem === scope || stem.startsWith(`${scope}-`);
 }
 
+/** Metadata shared by every doctor transport so an absent/stale project scope
+ * cannot be mistaken for a clean scan. Artifacts are intentionally excluded:
+ * a valid project scope always owns a work-state project document. */
+export type DoctorScopeMatch = { key: string; matched_documents: number } | null;
+
+export function doctorScopeMatch(
+  snapshot: DoctorSnapshot,
+  scope: string | undefined,
+): DoctorScopeMatch {
+  return scope === undefined || scope === ''
+    ? null
+    : {
+        key: scope,
+        matched_documents: snapshot.documents.filter((document) =>
+          doctorStemInScope(document.stem, scope),
+        ).length,
+      };
+}
+
 /** Every known physical owner of a logical stem. Typed enumeration is exact
  * provenance even at a relocated path; validate-only paths count only when they
  * match a canonical work-state layout. */

@@ -16,7 +16,12 @@ import { diagnoseDoctor } from './diagnosis';
 import { buildDoctorFacet, pathOfStem } from './facet';
 import type { DoctorFacet } from './facet';
 import type { DoctorSnapshot } from './snapshot';
-import { doctorIdentityIndex, doctorLogicalStemAtPath, doctorStemInScope } from './snapshot';
+import {
+  doctorIdentityIndex,
+  doctorLogicalStemAtPath,
+  doctorScopeMatch,
+  doctorStemInScope,
+} from './snapshot';
 
 /** The vault read handles the facet needs — the `cmdDoctor` set plus `readRaw`
  * (the exact-Markdown fetch for location enrichment). Norn is the sole `Store` port
@@ -71,7 +76,7 @@ export async function computeDoctorFacet(
     }
   }
 
-  return buildDoctorFacet({
+  const facet = buildDoctorFacet({
     findings,
     rawByStem,
     readableDocStems: snapshot.documents
@@ -79,10 +84,14 @@ export async function computeDoctorFacet(
       .filter((stem) => doctorStemInScope(stem, scope)),
     scannedAt: new Date().toISOString(),
   });
+  return {
+    ...facet,
+    scope: doctorScopeMatch(snapshot, scope),
+  };
 }
 
 /** The empty facet — the clean-vault zero state, and the fallback for a caller
  * (e.g. a doctor-agnostic test server) that never wires a doctor facet provider. */
 export function emptyDoctorFacet(): DoctorFacet {
-  return { dropped_total: 0, groups: [], scanned_at: new Date().toISOString() };
+  return { dropped_total: 0, groups: [], scanned_at: new Date().toISOString(), scope: null };
 }

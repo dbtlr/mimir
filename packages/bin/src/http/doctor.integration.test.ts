@@ -97,10 +97,12 @@ describe.skipIf(!NORN)('/api/doctor', () => {
       dropped_total: number;
       groups: unknown[];
       scanned_at: string;
+      scope: { key: string; matched_documents: number } | null;
     };
     expect(facet.dropped_total).toBe(0);
     expect(facet.groups).toEqual([]);
     expect(typeof facet.scanned_at).toBe('string');
+    expect(facet.scope).toBeNull();
   });
 
   test('reports groups + causes for the three seeded corruptions', async () => {
@@ -242,8 +244,28 @@ describe.skipIf(!NORN)('/api/doctor', () => {
     const facet = (await (await fetch(`${base}/api/doctor?project=MMR`)).json()) as {
       dropped_total: number;
       groups: { project: string }[];
+      scope: { key: string; matched_documents: number } | null;
     };
     expect(facet.groups.every((g) => g.project === 'MMR')).toBe(true);
     expect(facet.dropped_total).toBeGreaterThanOrEqual(1);
+    expect(facet.scope).toEqual({ key: 'MMR', matched_documents: 2 });
+  });
+
+  test('?project distinguishes a stale scope from a clean matching scope', async () => {
+    server = createServer(store, {
+      doctor: doctorProvider(),
+      hunt: false,
+      port: 0,
+      version: 'test',
+    });
+    base = `http://127.0.0.1:${String(server.port)}`;
+    const facet = (await (await fetch(`${base}/api/doctor?project=OTH`)).json()) as {
+      dropped_total: number;
+      groups: unknown[];
+      scope: { key: string; matched_documents: number } | null;
+    };
+    expect(facet.dropped_total).toBe(0);
+    expect(facet.groups).toEqual([]);
+    expect(facet.scope).toEqual({ key: 'OTH', matched_documents: 0 });
   });
 });

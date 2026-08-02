@@ -28,6 +28,7 @@ import {
 
 import { parseIdentity } from '../core/ids';
 import type { DoctorFinding } from './checks';
+import type { DoctorScopeMatch } from './snapshot';
 
 /** One line of a source snippet; `offending` marks the bad token's span (0-based
  * column into `text`) when this is the offending line. */
@@ -86,6 +87,10 @@ export type DoctorFacet = {
   /** Total dropped records across every group — the surfacing count. */
   dropped_total: number;
   groups: DoctorGroup[];
+  /** Requested project scope plus its canonical work-state document count.
+   * `null` identifies a whole-vault scan. This distinguishes a stale scope from
+   * a genuinely clean scoped scan without inventing a diagnostic finding. */
+  scope: DoctorScopeMatch;
 };
 
 /** The document layout inverse of `checks.ts`'s `workStateStem`: a stem → its
@@ -499,5 +504,6 @@ export function buildDoctorFacet(input: {
     dropped_total: findings.length,
     groups: out,
     scanned_at: scannedAt,
+    scope: null,
   };
 }
