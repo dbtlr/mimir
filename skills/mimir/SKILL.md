@@ -34,10 +34,12 @@ the gate below BEFORE other work. These thoughts mean STOP — you are rationali
    work tracking (install: see `references/setup.md`).
 2. Is there a `.mimir.toml` here (this directory or any ancestor)? It binds the repo
    to its project and becomes the default `--scope`.
-   - **Bound** → orient now: `mimir overview` — the composite orientation surface
+   - **Bound** → orient from `mimir overview`, the composite orientation surface
      (project rollup · direction prose · in flight · next · awaiting · recent
      sessions · hygiene counts and listings; drill-down surfaces in
-     `references/querying.md`). On a board you own, follow with
+     `references/querying.md`). If the current Active Context already supplies
+     `mimir overview` for this bound project, reuse it and do not run the command
+     again. Otherwise run `mimir overview` now. On a board you own, follow with
      `mimir triage` — overview only reads; triage is the write-side sweep: it
      reports untriaged seeds and ready-to-resolve flags, and annotates your
      tasks whose upstream seeds have resolved (idempotent, safe every session;
