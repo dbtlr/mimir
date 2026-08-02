@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { parseJson } from '@mimir/helpers';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 
 import {
   createInitiative,
@@ -819,14 +820,42 @@ test.skipIf(!NORN)(
 /** Connect an in-memory client to a freshly-built server over the given store —
  * the inert one by default (schema-guard tests must never reach data), the real
  * fixture store when the assertion is about a tool's ANSWER. */
-async function connectClient(
-  over: Store = inertStore(),
-): Promise<{ client: Client; close: () => Promise<void> }> {
+async function connectClient(over: Store = inertStore()): Promise<{
+  client: Client;
+  close: () => Promise<void>;
+  server: ReturnType<typeof buildMcpServer>;
+  transport: InMemoryTransport;
+}> {
   const server = buildMcpServer(over, '0.0.0');
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0.0.0' });
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
-  return { client, close: () => client.close() };
+  return { client, close: () => client.close(), server, transport: clientTransport };
+}
+
+async function sendRawRequest(
+  transport: InMemoryTransport,
+  request: unknown,
+  id: number,
+): Promise<JSONRPCMessage> {
+  const { promise, resolve } = Promise.withResolvers<JSONRPCMessage>();
+  const prior = transport.onmessage;
+  // InMemoryTransport is callback-based rather than an EventTarget; preserve
+  // the Client-owned handler for every response except this raw request.
+  // oxlint-disable-next-line unicorn/prefer-add-event-listener
+  transport.onmessage = (message, extra) => {
+    if ('id' in message && message.id === id) {
+      // oxlint-disable-next-line unicorn/prefer-add-event-listener
+      transport.onmessage = prior;
+      resolve(message);
+      return;
+    }
+    prior?.(message, extra);
+  };
+  // Deliberately malformed requests exercise the raw transport boundary.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  await transport.send(request as JSONRPCMessage);
+  return promise;
 }
 
 type ToolCall = { content?: { text?: string }[]; isError?: boolean };
@@ -906,6 +935,50 @@ test("an own '__proto__' argument is rejected before dispatch", async () => {
       hint: "check the arguments against the 'get' tool schema",
       message: "__proto__ isn't an argument",
     });
+  } finally {
+    await close();
+  }
+});
+
+test.each([
+  ['missing params', {}],
+  ['missing name', { params: {} }],
+] as const)('a raw tools/call request with %s stays on SDK validation', async (_label, shape) => {
+  const { close, transport } = await connectClient();
+  try {
+    const id = 9001;
+    const response = await sendRawRequest(
+      transport,
+      { id, jsonrpc: '2.0', method: 'tools/call', ...shape },
+      id,
+    );
+    expect(response).toMatchObject({
+      error: { code: -32603 },
+      id,
+      jsonrpc: '2.0',
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('a raw tools/call request with null params is rejected by the SDK transport', async () => {
+  const { close, server, transport } = await connectClient();
+  try {
+    const sdkError = Promise.withResolvers<Error>();
+    // The SDK server is callback-based rather than an EventTarget.
+    // oxlint-disable-next-line unicorn/prefer-add-event-listener
+    server.server.onerror = sdkError.resolve;
+    // The SDK classifies this as an unknown JSON-RPC message before consulting
+    // the tools/call handler, so the raw guard cannot and need not dereference it.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    await transport.send({
+      id: 9002,
+      jsonrpc: '2.0',
+      method: 'tools/call',
+      params: null,
+    } as unknown as JSONRPCMessage);
+    expect((await sdkError.promise).message).toContain('Unknown message type');
   } finally {
     await close();
   }

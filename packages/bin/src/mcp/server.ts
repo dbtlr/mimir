@@ -371,16 +371,24 @@ function guardInputSchemaVoice(server: McpServer): void {
   // this raw-argument check and our tool-schema guard.
   // oxlint-disable-next-line eslint/no-underscore-dangle
   internals.server._requestHandlers.set(method, async (request, extra) => {
+    // Preserve the original SDK dispatch for malformed outer requests. Its
+    // stored handler owns CallToolRequestSchema's JSON-RPC validation and error
+    // mapping; the raw wrapper only intervenes once that envelope is valid.
+    const parsedRequest = CallToolRequestSchema.safeParse(request);
+    if (!parsedRequest.success) {
+      return dispatch(request, extra);
+    }
+    const name = parsedRequest.data.params.name;
     // An own-property test, not `tools[name] === undefined`: `tools` is a plain
     // object, so a prototype-named request (`constructor`, `toString`,
     // `__proto__`) would otherwise resolve an inherited Object.prototype value
     // — truthy, and schema-less — skipping straight to `dispatch` and re-leaking
     // the SDK's raw "Tool <name> disabled" text.
-    if (!Object.hasOwn(tools, request.params.name)) {
-      const { hint, message } = unknownToolVoice(request.params.name, Object.keys(tools));
+    if (!Object.hasOwn(tools, name)) {
+      const { hint, message } = unknownToolVoice(name, Object.keys(tools));
       return toolErrorResult('not_found', message, hint);
     }
-    const schema = tools[request.params.name]?.inputSchema;
+    const schema = tools[name]?.inputSchema;
     if (schema !== undefined) {
       const args = request.params.arguments ?? {};
       // Zod deliberately skips this special own key while walking an object,
@@ -390,20 +398,20 @@ function guardInputSchemaVoice(server: McpServer): void {
         return toolErrorResult(
           'validation',
           "__proto__ isn't an argument",
-          `check the arguments against the '${request.params.name}' tool schema`,
+          `check the arguments against the '${name}' tool schema`,
         );
       }
       const parsed = schema.safeParse(args);
       if (!parsed.success) {
-        const { hint, message } = schemaMissVoice(request.params.name, parsed.error, args);
+        const { hint, message } = schemaMissVoice(name, parsed.error, args);
         return toolErrorResult('validation', message, hint);
       }
       // Write the coalesced value back so the SDK's own re-validation sees the
       // same object the guard accepted — an omitted `arguments` key reaches the
       // SDK as `undefined` and would re-leak zod text for all-optional tools.
-      request.params.arguments = args;
+      parsedRequest.data.params.arguments = args;
     }
-    return dispatch(request, extra);
+    return dispatch(parsedRequest.data, extra);
   });
 }
 
