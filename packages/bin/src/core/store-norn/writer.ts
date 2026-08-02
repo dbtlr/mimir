@@ -62,7 +62,10 @@ import { createNornTransitionsFeed } from './transitions';
  * The Norn-backed `Store.transact` + `StoreWriter` (MMR-153, ADR 0016 Phase 3
  * write path). The model is: read one snapshot → run the verb, accumulating
  * intended effects over an in-memory overlay → collapse every effect into ONE
- * atomic {@link import('./plan').MigrationPlan} → `vault.apply` → replay on drift.
+ * atomic {@link import('./plan').MigrationPlan} → `vault.apply` → replay
+ * deterministic structured writes on drift. Whole-prose `## Next` writes are
+ * the exception: replaying a caller-authored draft over a concurrent edit would
+ * lose meaning, so their drift refusal is surfaced for re-read and merge.
  * It is the sole `Store.transact` implementation (MMR-234) — the verbs compose
  * the same `StoreWriter` vocabulary regardless.
  *
@@ -167,6 +170,12 @@ async function runTransact<T>(
     const applyReport = decodeApplyReport(report);
     const verdict = classifyApply(applyReport);
     if (verdict.kind === 'drift') {
+      if (acc.hasNextWrite()) {
+        throw validation(
+          'the direction narrative changed concurrently',
+          're-read the current board and direction, merge the new facts, then re-author the whole section',
+        );
+      }
       // The vault moved under the snapshot — record it and replay from a fresh
       // read. On the FINAL attempt the loop falls through to the exhaustion
       // throw below, never leaking the raw drift detail.
@@ -281,6 +290,13 @@ class Accumulator {
       [...ws.projectTags].map(([id, tags]) => [id, tags.map((t) => ({ ...t }))]),
     );
     this.writer = this.buildWriter();
+  }
+
+  /** Whole-prose direction drafts are not safe to replay after CAS drift. */
+  hasNextWrite(): boolean {
+    return [...this.nodeMutations.values(), ...this.projectMutations.values()].some(
+      (mutation) => mutation.next !== undefined,
+    );
   }
 
   private overlayWorkingSet(): WorkingSet {

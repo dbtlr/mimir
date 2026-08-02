@@ -774,6 +774,32 @@ test('a drift refusal reloads the snapshot and replays the verb', async () => {
   expect(findCount() - findsBefore).toBe(2);
 });
 
+test('a drift refusal never replays a stale Next narrative (MMR-323)', async () => {
+  const { client, plans, findCount } = fakeClient(
+    [{ ...projectDoc(), body: `${nextBody('concurrent direction')}## History\n` }],
+    [driftRefusal('updated_at')],
+  );
+  const store = createNornWriteStore(client, ROOT);
+
+  const findsBefore = findCount();
+  let caught: unknown;
+  try {
+    await updateProject(store, 'MMR', { next: 'stale direction' });
+  } catch (error) {
+    caught = error;
+  }
+
+  if (!(caught instanceof MimirError)) {
+    throw new Error(`expected a MimirError(validation), got ${String(caught)}`, { cause: caught });
+  }
+  expect(caught.code).toBe('validation');
+  expect(caught.message).toContain('direction narrative changed concurrently');
+  expect(caught.hint).toContain('re-read');
+  expect(caught.hint).toContain('merge');
+  expect(plans).toHaveLength(1);
+  expect(findCount() - findsBefore).toBe(1);
+});
+
 test('a thrown tool/connection error propagates without a replay', async () => {
   const docs: NornDocument[] = [
     projectDoc(),
