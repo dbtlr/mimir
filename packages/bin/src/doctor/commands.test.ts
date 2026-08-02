@@ -196,6 +196,65 @@ test('the -s scope keeps the project and its nodes, dropping other projects', as
   expect(findings.map((f) => f.node).toSorted()).toEqual(['MMR', 'MMR-1']);
 });
 
+test('a non-empty scope matching zero documents warns without changing JSON findings', async () => {
+  const io = fakeIo();
+  const code = await cmdDoctor(
+    io,
+    vaultOf([{ body: renderNodeBody('a task'), stem: 'MMR-1' }]),
+    'json',
+    'OTH',
+  );
+  expect(code).toBe(0);
+  expect(JSON.parse(io.out.join(''))).toEqual([]);
+  expect(io.err.join('')).toContain("[warn] doctor scope 'OTH' matched 0 documents");
+});
+
+test('the zero-match scope warning also preserves table and JSONL output', async () => {
+  for (const format of ['table', 'jsonl'] as const) {
+    const io = fakeIo();
+    expect(await cmdDoctor(io, vaultOf([]), format, 'OTH')).toBe(0);
+    expect(io.err.join('')).toContain("[warn] doctor scope 'OTH' matched 0 documents");
+    expect(io.out.join('')).toBe(format === 'table' ? '[ok] doctor: no problems found' : '');
+  }
+});
+
+test('matching scopes and unscoped empty vaults do not warn', async () => {
+  const matching = fakeIo();
+  await cmdDoctor(
+    matching,
+    vaultOf([{ body: renderNodeBody('a task'), stem: 'MMR-1' }]),
+    'json',
+    'MMR',
+  );
+  expect(matching.err.join('')).toBe('');
+
+  const unscoped = fakeIo();
+  await cmdDoctor(unscoped, vaultOf([]), 'json', undefined);
+  expect(unscoped.err.join('')).toBe('');
+});
+
+test('an empty scope scans the whole vault like an omitted scope', async () => {
+  const io = fakeIo();
+  expect(await cmdDoctor(io, vaultOf([{ body: ERROR_DOC, stem: 'MMR-1' }]), 'json', '')).toBe(0);
+  expect(
+    (JSON.parse(io.out.join('')) as { node: string }[]).map((finding) => finding.node),
+  ).toEqual(['MMR-1']);
+  expect(io.err.join('')).toBe('');
+});
+
+test('doctor --fix warns when its non-empty scope matches zero documents', async () => {
+  const io = fakeIo();
+  const deps: DoctorDeps = {
+    ...vaultOf([]),
+    repair: {
+      applyPlan: () => Promise.resolve({ outcome: 'applied' }),
+      vaultRoot: '/vault',
+    },
+  };
+  expect(await cmdDoctor(io, deps, 'json', 'OTH', { dryRun: false, fix: true })).toBe(0);
+  expect(io.err.join('')).toContain("[warn] doctor scope 'OTH' matched 0 documents");
+});
+
 test('CLI reads one whole-vault snapshot, then filters per-document diagnostics by canonical stem (MMR-240, MMR-241)', async () => {
   let reads = 0;
   const deps: DoctorDeps = {

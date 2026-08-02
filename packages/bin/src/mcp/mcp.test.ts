@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { parseJson } from '@mimir/helpers';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 
 import {
   createInitiative,
@@ -819,14 +820,42 @@ test.skipIf(!NORN)(
 /** Connect an in-memory client to a freshly-built server over the given store —
  * the inert one by default (schema-guard tests must never reach data), the real
  * fixture store when the assertion is about a tool's ANSWER. */
-async function connectClient(
-  over: Store = inertStore(),
-): Promise<{ client: Client; close: () => Promise<void> }> {
+async function connectClient(over: Store = inertStore()): Promise<{
+  client: Client;
+  close: () => Promise<void>;
+  server: ReturnType<typeof buildMcpServer>;
+  transport: InMemoryTransport;
+}> {
   const server = buildMcpServer(over, '0.0.0');
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0.0.0' });
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
-  return { client, close: () => client.close() };
+  return { client, close: () => client.close(), server, transport: clientTransport };
+}
+
+async function sendRawRequest(
+  transport: InMemoryTransport,
+  request: unknown,
+  id: number,
+): Promise<JSONRPCMessage> {
+  const { promise, resolve } = Promise.withResolvers<JSONRPCMessage>();
+  const prior = transport.onmessage;
+  // InMemoryTransport is callback-based rather than an EventTarget; preserve
+  // the Client-owned handler for every response except this raw request.
+  // oxlint-disable-next-line unicorn/prefer-add-event-listener
+  transport.onmessage = (message, extra) => {
+    if ('id' in message && message.id === id) {
+      // oxlint-disable-next-line unicorn/prefer-add-event-listener
+      transport.onmessage = prior;
+      resolve(message);
+      return;
+    }
+    prior?.(message, extra);
+  };
+  // Deliberately malformed requests exercise the raw transport boundary.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  await transport.send(request as JSONRPCMessage);
+  return promise;
 }
 
 type ToolCall = { content?: { text?: string }[]; isError?: boolean };
@@ -876,6 +905,85 @@ test('a missing required arg names the arg as required', async () => {
   }
 });
 
+test('an undeclared arg wins over a simultaneously missing required arg', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({
+      arguments: { nonsense: true },
+      name: 'create',
+    })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const parsed = parseJson<{ error: { message: string } }>(callText(res));
+    expect(parsed.error.message).toBe("nonsense isn't an argument");
+  } finally {
+    await close();
+  }
+});
+
+test("an own '__proto__' argument is rejected before dispatch", async () => {
+  const { client, close } = await connectClient();
+  try {
+    const args = JSON.parse('{"id":"MMR-1","__proto__":true}') as Record<string, unknown>;
+    expect(Object.hasOwn(args, '__proto__')).toBe(true);
+    const res = (await client.callTool({ arguments: args, name: 'get' })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(
+      callText(res),
+    );
+    expect(parsed.error).toEqual({
+      code: 'validation',
+      hint: "check the arguments against the 'get' tool schema",
+      message: "__proto__ isn't an argument",
+    });
+  } finally {
+    await close();
+  }
+});
+
+test.each([
+  ['missing params', {}],
+  ['missing name', { params: {} }],
+] as const)('a raw tools/call request with %s stays on SDK validation', async (_label, shape) => {
+  const { close, transport } = await connectClient();
+  try {
+    const id = 9001;
+    const response = await sendRawRequest(
+      transport,
+      { id, jsonrpc: '2.0', method: 'tools/call', ...shape },
+      id,
+    );
+    expect(response).toMatchObject({
+      error: { code: -32603 },
+      id,
+      jsonrpc: '2.0',
+    });
+  } finally {
+    await close();
+  }
+});
+
+test('a raw tools/call request with null params is rejected by the SDK transport', async () => {
+  const { close, server, transport } = await connectClient();
+  try {
+    const sdkError = Promise.withResolvers<Error>();
+    // The SDK server is callback-based rather than an EventTarget.
+    // oxlint-disable-next-line unicorn/prefer-add-event-listener
+    server.server.onerror = sdkError.resolve;
+    // The SDK classifies this as an unknown JSON-RPC message before consulting
+    // the tools/call handler, so the raw guard cannot and need not dereference it.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    await transport.send({
+      id: 9002,
+      jsonrpc: '2.0',
+      method: 'tools/call',
+      params: null,
+    } as unknown as JSONRPCMessage);
+    expect((await sdkError.promise).message).toContain('Unknown message type');
+  } finally {
+    await close();
+  }
+});
+
 test('an out-of-vocabulary enum arg states the constraint, no zod dump', async () => {
   const { client, close } = await connectClient();
   try {
@@ -888,6 +996,78 @@ test('an out-of-vocabulary enum arg states the constraint, no zod dump', async (
     expect(text).not.toContain('Invalid option');
     const parsed = parseJson<{ error: { message: string } }>(text);
     expect(parsed.error.message).toBe("priority must be one of 'p0', 'p1', 'p2', 'p3'");
+  } finally {
+    await close();
+  }
+});
+
+const WRITE_TOOL_CALLS: readonly [name: string, args: Record<string, unknown>][] = [
+  ['start', { id: 'MMR-1' }],
+  ['submit', { id: 'MMR-1' }],
+  ['return', { id: 'MMR-1' }],
+  ['done', { id: 'MMR-1' }],
+  ['abandon', { id: 'MMR-1' }],
+  ['reopen', { id: 'MMR-1' }],
+  ['park', { id: 'MMR-1' }],
+  ['unpark', { id: 'MMR-1' }],
+  ['block', { id: 'MMR-1' }],
+  ['unblock', { id: 'MMR-1' }],
+  ['archive', { key: 'MMR' }],
+  ['unarchive', { key: 'MMR' }],
+  ['depend', { id: 'MMR-1', on: [] }],
+  ['undepend', { id: 'MMR-1', on: [] }],
+  ['move', { id: 'MMR-1', to: 'MMR-2' }],
+  ['reorder', { id: 'MMR-1', position: 'top' }],
+  ['update', { id: 'MMR-1' }],
+  ['annotate', { content: 'note', id: 'MMR-1' }],
+  ['tag', { ids: ['MMR-1'], tags: ['one'] }],
+  ['untag', { ids: ['MMR-1'], tags: ['one'] }],
+  ['create', { type: 'task' }],
+  ['attach', { content: '# body', title: 'artifact' }],
+  ['seed', { kind: 'bug', title: 'seed' }],
+  ['promote', { id: 'MMR-s1' }],
+  ['reject', { id: 'MMR-s1', reason: 'not actionable' }],
+  ['resolve', { id: 'MMR-s1', reason: 'handled' }],
+  ['triage', {}],
+];
+
+test.each(WRITE_TOOL_CALLS)(
+  "the '%s' write tool rejects an undeclared argument before dispatch",
+  async (name, args) => {
+    const { client, close } = await connectClient();
+    try {
+      const res = (await client.callTool({
+        arguments: { ...args, nonsense: true },
+        name,
+      })) as ToolCall;
+      expect(res.isError).toBe(true);
+      const text = callText(res);
+      for (const leak of LIBRARY_LEAKS) {
+        expect(text).not.toContain(leak);
+      }
+      const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(text);
+      expect(parsed.error.code).toBe('validation');
+      expect(parsed.error.message).toBe("nonsense isn't an argument");
+      expect(parsed.error.hint).toBe(`check the arguments against the '${name}' tool schema`);
+    } finally {
+      await close();
+    }
+  },
+);
+
+test.each([
+  ['get', { id: 'MMR-1' }],
+  ['next', {}],
+] as const)("the '%s' read tool also rejects an undeclared argument", async (name, args) => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({
+      arguments: { ...args, nonsense: true },
+      name,
+    })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const parsed = parseJson<{ error: { message: string } }>(callText(res));
+    expect(parsed.error.message).toBe("nonsense isn't an argument");
   } finally {
     await close();
   }

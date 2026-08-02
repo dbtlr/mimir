@@ -177,14 +177,15 @@ function sortedShape(shape: ZodRawShape): ZodRawShape {
 }
 
 /**
- * Register a tool with its `inputSchema` widened to the base `ZodRawShape`. The
- * concrete zod validators still run at runtime; widening only stops the SDK's
- * per-field generic inference from recursing past the type-checker's depth
- * limit (TS2589). The handler casts the validated args to its known shape.
+ * Register a tool from its `inputSchema` raw shape. The shape is wrapped in one
+ * strict object here so runtime parsing rejects keys outside the advertised
+ * JSON Schema; the widened SDK signature stops its per-field generic inference
+ * from recursing past the type-checker's depth limit (TS2589). The handler
+ * casts the validated args to its known shape.
  */
 type RegisterFn = (
   name: string,
-  config: { description: string; inputSchema: ZodRawShape },
+  config: { description: string; inputSchema: z.ZodType },
   cb: (args: unknown) => Promise<ToolResult>,
 ) => void;
 
@@ -204,17 +205,24 @@ function register<A>(
   // don't expose a usable narrow signature here, so the seam is cast (case 2).
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const registerTool = server.registerTool.bind(server) as unknown as RegisterFn;
+  // The SDK turns a raw shape into a default Zod object, whose runtime parser
+  // strips unknown keys even though its generated JSON Schema advertises
+  // `additionalProperties: false`. Build the object here instead so the one
+  // registration seam gives every tool the same strict wire contract it
+  // advertises. The SDK stores and dispatches through this exact schema.
+  const schema = z.strictObject(inputSchema);
   // args is zod-validated at runtime; A is the caller's declared shape.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  registerTool(name, { description, inputSchema }, (args) => handler(args as A));
+  registerTool(name, { description, inputSchema: schema }, (args) => handler(args as A));
 }
 
 const ARTICLE_VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);
 const articleFor = (word: string): string => (ARTICLE_VOWELS.has(word[0] ?? '') ? 'an' : 'a');
 
 /**
- * Synthesize a house-voice fault + hint from the first issue of a tool-input
- * schema miss (output-voice.md, MMR-292). Names the offending arg as the
+ * Synthesize a house-voice fault + hint from a tool-input schema miss
+ * (output-voice.md, MMR-292). An undeclared argument wins over a missing
+ * required argument because it is the caller-provided fault. Names the arg as the
  * subject where the issue allows (`id must be a string`, `'type' is required`),
  * states one fault, and points at the tool's advertised contract — the
  * narrowest hint rung that applies to an args fault. Reads the structured zod
@@ -226,7 +234,12 @@ function schemaMissVoice(
   args: Record<string, unknown>,
 ): { hint: string; message: string } {
   const hint = `check the arguments against the '${name}' tool schema`;
-  const issue = error.issues[0];
+  const issue =
+    error.issues.find((candidate) => candidate.code === 'unrecognized_keys') ?? error.issues[0];
+  if (issue?.code === 'unrecognized_keys') {
+    const key = issue.keys[0] ?? 'input';
+    return { hint, message: `${key} isn't an argument` };
+  }
   const field = issue === undefined ? 'input' : String(issue.path[0] ?? 'input');
   // Field-as-subject, unquoted, per the voice guide's token-as-subject rule
   // (matching respond.ts's `${key} must be a string`). A top-level arg that is
@@ -325,8 +338,8 @@ function unknownToolVoice(name: string, known: string[]): { hint: string; messag
  * dispatching, so the SDK's own validation — which still runs — sees the
  * identical value the guard just accepted and therefore cannot fail (an omitted
  * `arguments` key would otherwise reach the SDK as `undefined` and re-leak for
- * all-optional tools). Runtime behavior and the advertised tools/list schema
- * are untouched.
+ * all-optional tools). The guard does not rewrite the advertised tools/list
+ * schema.
  *
  * The SDK exposes no public accessor for its registered CallTool handler or its
  * stored schemas, so both are read through documented casts (as the register()
@@ -351,30 +364,54 @@ function guardInputSchemaVoice(server: McpServer): void {
   if (dispatch === undefined) {
     throw new Error('MCP CallTool handler is not registered');
   }
-  server.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+  // Replace the stored handler directly instead of calling setRequestHandler:
+  // that SDK helper parses CallToolRequestSchema before invoking our guard, and
+  // z.record drops an own `__proto__` key during that parse. The original
+  // dispatch retained below still performs the SDK's full request parse after
+  // this raw-argument check and our tool-schema guard.
+  // oxlint-disable-next-line eslint/no-underscore-dangle
+  internals.server._requestHandlers.set(method, async (request, extra) => {
+    // Preserve the original SDK dispatch for malformed outer requests. Its
+    // stored handler owns CallToolRequestSchema's JSON-RPC validation and error
+    // mapping; the raw wrapper only intervenes once that envelope is valid.
+    const parsedRequest = CallToolRequestSchema.safeParse(request);
+    if (!parsedRequest.success) {
+      return dispatch(request, extra);
+    }
+    const name = parsedRequest.data.params.name;
     // An own-property test, not `tools[name] === undefined`: `tools` is a plain
     // object, so a prototype-named request (`constructor`, `toString`,
     // `__proto__`) would otherwise resolve an inherited Object.prototype value
     // — truthy, and schema-less — skipping straight to `dispatch` and re-leaking
     // the SDK's raw "Tool <name> disabled" text.
-    if (!Object.hasOwn(tools, request.params.name)) {
-      const { hint, message } = unknownToolVoice(request.params.name, Object.keys(tools));
+    if (!Object.hasOwn(tools, name)) {
+      const { hint, message } = unknownToolVoice(name, Object.keys(tools));
       return toolErrorResult('not_found', message, hint);
     }
-    const schema = tools[request.params.name]?.inputSchema;
+    const schema = tools[name]?.inputSchema;
     if (schema !== undefined) {
       const args = request.params.arguments ?? {};
+      // Zod deliberately skips this special own key while walking an object,
+      // so neither the request record nor strictObject can enforce the advertised
+      // additionalProperties:false contract for JSON-decoded input on its own.
+      if (Object.hasOwn(args, '__proto__')) {
+        return toolErrorResult(
+          'validation',
+          "__proto__ isn't an argument",
+          `check the arguments against the '${name}' tool schema`,
+        );
+      }
       const parsed = schema.safeParse(args);
       if (!parsed.success) {
-        const { hint, message } = schemaMissVoice(request.params.name, parsed.error, args);
+        const { hint, message } = schemaMissVoice(name, parsed.error, args);
         return toolErrorResult('validation', message, hint);
       }
       // Write the coalesced value back so the SDK's own re-validation sees the
       // same object the guard accepted — an omitted `arguments` key reaches the
       // SDK as `undefined` and would re-leak zod text for all-optional tools.
-      request.params.arguments = args;
+      parsedRequest.data.params.arguments = args;
     }
-    return dispatch(request, extra);
+    return dispatch(parsedRequest.data, extra);
   });
 }
 

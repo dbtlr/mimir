@@ -3,6 +3,32 @@ import { expect, test } from 'bun:test';
 import type { DoctorFacetDeps } from './serve';
 import { computeDoctorFacet } from './serve';
 
+test('a scoped facet reports how many snapshot documents matched the scope', async () => {
+  const deps: DoctorFacetDeps = {
+    readRaw: () => Promise.resolve([]),
+    readSnapshot: () =>
+      Promise.resolve({
+        documents: [
+          { body: '', documentHash: 'one', path: 'MMR/MMR.md', stem: 'MMR' },
+          { body: '', documentHash: 'two', path: 'MMR/MMR-1.md', stem: 'MMR-1' },
+        ],
+        graph: { nodes: [], projectKeys: ['MMR'] },
+        sectionFailures: [],
+        validateFindings: [],
+      }),
+  };
+
+  expect((await computeDoctorFacet(deps, 'MMR')).scope).toEqual({
+    key: 'MMR',
+    matched_documents: 2,
+  });
+  expect((await computeDoctorFacet(deps, 'OTH')).scope).toEqual({
+    key: 'OTH',
+    matched_documents: 0,
+  });
+  expect((await computeDoctorFacet(deps, undefined)).scope).toBeNull();
+});
+
 test('a scoped facet reads one whole-vault snapshot and filters by canonical stem (MMR-240, MMR-241)', async () => {
   let reads = 0;
   const deps: DoctorFacetDeps = {
@@ -43,6 +69,33 @@ test('a scoped facet reads one whole-vault snapshot and filters by canonical ste
     'CRLF line endings',
     'unreadable section',
   ]);
+});
+
+test('an empty facet scope scans the whole vault like an omitted scope', async () => {
+  const deps: DoctorFacetDeps = {
+    readRaw: () => Promise.resolve([]),
+    readSnapshot: () =>
+      Promise.resolve({
+        documents: [
+          {
+            body: 'line one\r\nline two\r\n',
+            documentHash: 'hash',
+            path: 'MMR/MMR-1.md',
+            stem: 'MMR-1',
+          },
+        ],
+        graph: { nodes: [], projectKeys: [] },
+        sectionFailures: [],
+        validateFindings: [],
+      }),
+  };
+
+  const facet = await computeDoctorFacet(deps, '');
+  expect(facet.scope).toBeNull();
+  expect(facet.groups[0]?.records[0]).toMatchObject({
+    cause: 'CRLF line endings',
+    id: 'MMR-1',
+  });
 });
 
 test('facet diagnosis uses the shared unique physical locator for relocated raw enrichment', async () => {
