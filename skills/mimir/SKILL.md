@@ -151,6 +151,13 @@ tell that you skipped this step.
 | "`mimir <cmd> -h` will remind me"     | It reminds you of flags, not workflow — the reference is still the authority. |
 | "It's one scalar field, I'll wing it" | A wrong field patches the wrong row silently. Read first.                     |
 
+**8. Finish work in three standalone pieces.** A work boundary may need any one
+of **transition**, **groom-next**, or **summarize**; task completion composes all
+three in that order. Read `references/finishing.md` before running any piece.
+Do not defer them into one end-of-session ritual: settle state when it changes,
+re-author direction when the board changes, and freeze the retrospective while
+the session is still fresh.
+
 ## Routing
 
 **Read the matching reference before you act in its area — not after a guess fails.**
@@ -160,6 +167,7 @@ tell that you skipped this step.
 | Set up tracking: install, bind, create a project, backfill history      | `references/setup.md`        |
 | Add or restructure work: tasks, phases, deps, artifacts, annotations    | `references/authoring.md`    |
 | Ask the board questions: queues, triage, drill-down, reports, scripting | `references/querying.md`     |
+| Finish a task or session: transition, groom-next, summarize             | `references/finishing.md`    |
 | Understand a status word, group, or rollup                              | `references/status-model.md` |
 | Classify with tags                                                      | `references/tags.md`         |
 | File or triage grooming-queue records: ideas, bugs, cross-board asks    | `references/seeds.md`        |
