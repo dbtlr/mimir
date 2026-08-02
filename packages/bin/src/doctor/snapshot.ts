@@ -51,7 +51,7 @@ export type DoctorSnapshot = {
 
 /** Keep the project document and every canonically-owned child in `scope`. */
 export function doctorStemInScope(stem: string, scope: string | undefined): boolean {
-  return scope === undefined || stem === scope || stem.startsWith(`${scope}-`);
+  return scope === undefined || scope === '' || stem === scope || stem.startsWith(`${scope}-`);
 }
 
 /** Metadata shared by every doctor transport so an absent/stale project scope

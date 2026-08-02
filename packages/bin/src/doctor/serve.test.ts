@@ -71,6 +71,33 @@ test('a scoped facet reads one whole-vault snapshot and filters by canonical ste
   ]);
 });
 
+test('an empty facet scope scans the whole vault like an omitted scope', async () => {
+  const deps: DoctorFacetDeps = {
+    readRaw: () => Promise.resolve([]),
+    readSnapshot: () =>
+      Promise.resolve({
+        documents: [
+          {
+            body: 'line one\r\nline two\r\n',
+            documentHash: 'hash',
+            path: 'MMR/MMR-1.md',
+            stem: 'MMR-1',
+          },
+        ],
+        graph: { nodes: [], projectKeys: [] },
+        sectionFailures: [],
+        validateFindings: [],
+      }),
+  };
+
+  const facet = await computeDoctorFacet(deps, '');
+  expect(facet.scope).toBeNull();
+  expect(facet.groups[0]?.records[0]).toMatchObject({
+    cause: 'CRLF line endings',
+    id: 'MMR-1',
+  });
+});
+
 test('facet diagnosis uses the shared unique physical locator for relocated raw enrichment', async () => {
   const rawPaths: string[][] = [];
   const deps: DoctorFacetDeps = {

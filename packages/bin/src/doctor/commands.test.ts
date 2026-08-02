@@ -233,6 +233,15 @@ test('matching scopes and unscoped empty vaults do not warn', async () => {
   expect(unscoped.err.join('')).toBe('');
 });
 
+test('an empty scope scans the whole vault like an omitted scope', async () => {
+  const io = fakeIo();
+  expect(await cmdDoctor(io, vaultOf([{ body: ERROR_DOC, stem: 'MMR-1' }]), 'json', '')).toBe(0);
+  expect(
+    (JSON.parse(io.out.join('')) as { node: string }[]).map((finding) => finding.node),
+  ).toEqual(['MMR-1']);
+  expect(io.err.join('')).toBe('');
+});
+
 test('doctor --fix warns when its non-empty scope matches zero documents', async () => {
   const io = fakeIo();
   const deps: DoctorDeps = {

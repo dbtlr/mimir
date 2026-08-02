@@ -876,6 +876,41 @@ test('a missing required arg names the arg as required', async () => {
   }
 });
 
+test('an undeclared arg wins over a simultaneously missing required arg', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({
+      arguments: { nonsense: true },
+      name: 'create',
+    })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const parsed = parseJson<{ error: { message: string } }>(callText(res));
+    expect(parsed.error.message).toBe("nonsense isn't an argument");
+  } finally {
+    await close();
+  }
+});
+
+test("an own '__proto__' argument is rejected before dispatch", async () => {
+  const { client, close } = await connectClient();
+  try {
+    const args = JSON.parse('{"id":"MMR-1","__proto__":true}') as Record<string, unknown>;
+    expect(Object.hasOwn(args, '__proto__')).toBe(true);
+    const res = (await client.callTool({ arguments: args, name: 'get' })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(
+      callText(res),
+    );
+    expect(parsed.error).toEqual({
+      code: 'validation',
+      hint: "check the arguments against the 'get' tool schema",
+      message: "__proto__ isn't an argument",
+    });
+  } finally {
+    await close();
+  }
+});
+
 test('an out-of-vocabulary enum arg states the constraint, no zod dump', async () => {
   const { client, close } = await connectClient();
   try {
