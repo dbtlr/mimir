@@ -893,6 +893,78 @@ test('an out-of-vocabulary enum arg states the constraint, no zod dump', async (
   }
 });
 
+const WRITE_TOOL_CALLS: readonly [name: string, args: Record<string, unknown>][] = [
+  ['start', { id: 'MMR-1' }],
+  ['submit', { id: 'MMR-1' }],
+  ['return', { id: 'MMR-1' }],
+  ['done', { id: 'MMR-1' }],
+  ['abandon', { id: 'MMR-1' }],
+  ['reopen', { id: 'MMR-1' }],
+  ['park', { id: 'MMR-1' }],
+  ['unpark', { id: 'MMR-1' }],
+  ['block', { id: 'MMR-1' }],
+  ['unblock', { id: 'MMR-1' }],
+  ['archive', { key: 'MMR' }],
+  ['unarchive', { key: 'MMR' }],
+  ['depend', { id: 'MMR-1', on: [] }],
+  ['undepend', { id: 'MMR-1', on: [] }],
+  ['move', { id: 'MMR-1', to: 'MMR-2' }],
+  ['reorder', { id: 'MMR-1', position: 'top' }],
+  ['update', { id: 'MMR-1' }],
+  ['annotate', { content: 'note', id: 'MMR-1' }],
+  ['tag', { ids: ['MMR-1'], tags: ['one'] }],
+  ['untag', { ids: ['MMR-1'], tags: ['one'] }],
+  ['create', { type: 'task' }],
+  ['attach', { content: '# body', title: 'artifact' }],
+  ['seed', { kind: 'bug', title: 'seed' }],
+  ['promote', { id: 'MMR-s1' }],
+  ['reject', { id: 'MMR-s1', reason: 'not actionable' }],
+  ['resolve', { id: 'MMR-s1', reason: 'handled' }],
+  ['triage', {}],
+];
+
+test.each(WRITE_TOOL_CALLS)(
+  "the '%s' write tool rejects an undeclared argument before dispatch",
+  async (name, args) => {
+    const { client, close } = await connectClient();
+    try {
+      const res = (await client.callTool({
+        arguments: { ...args, nonsense: true },
+        name,
+      })) as ToolCall;
+      expect(res.isError).toBe(true);
+      const text = callText(res);
+      for (const leak of LIBRARY_LEAKS) {
+        expect(text).not.toContain(leak);
+      }
+      const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(text);
+      expect(parsed.error.code).toBe('validation');
+      expect(parsed.error.message).toBe("nonsense isn't an argument");
+      expect(parsed.error.hint).toBe(`check the arguments against the '${name}' tool schema`);
+    } finally {
+      await close();
+    }
+  },
+);
+
+test.each([
+  ['get', { id: 'MMR-1' }],
+  ['next', {}],
+] as const)("the '%s' read tool also rejects an undeclared argument", async (name, args) => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({
+      arguments: { ...args, nonsense: true },
+      name,
+    })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const parsed = parseJson<{ error: { message: string } }>(callText(res));
+    expect(parsed.error.message).toBe("nonsense isn't an argument");
+  } finally {
+    await close();
+  }
+});
+
 /** An instant rendered as a `+02:00` local-offset ISO timestamp — the form whose
  * conversion to UTC the bound tests are about. */
 const asLocalOffset = (ms: number): string =>

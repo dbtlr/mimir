@@ -177,14 +177,15 @@ function sortedShape(shape: ZodRawShape): ZodRawShape {
 }
 
 /**
- * Register a tool with its `inputSchema` widened to the base `ZodRawShape`. The
- * concrete zod validators still run at runtime; widening only stops the SDK's
- * per-field generic inference from recursing past the type-checker's depth
- * limit (TS2589). The handler casts the validated args to its known shape.
+ * Register a tool from its `inputSchema` raw shape. The shape is wrapped in one
+ * strict object here so runtime parsing rejects keys outside the advertised
+ * JSON Schema; the widened SDK signature stops its per-field generic inference
+ * from recursing past the type-checker's depth limit (TS2589). The handler
+ * casts the validated args to its known shape.
  */
 type RegisterFn = (
   name: string,
-  config: { description: string; inputSchema: ZodRawShape },
+  config: { description: string; inputSchema: z.ZodType },
   cb: (args: unknown) => Promise<ToolResult>,
 ) => void;
 
@@ -204,9 +205,15 @@ function register<A>(
   // don't expose a usable narrow signature here, so the seam is cast (case 2).
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const registerTool = server.registerTool.bind(server) as unknown as RegisterFn;
+  // The SDK turns a raw shape into a default Zod object, whose runtime parser
+  // strips unknown keys even though its generated JSON Schema advertises
+  // `additionalProperties: false`. Build the object here instead so the one
+  // registration seam gives every tool the same strict wire contract it
+  // advertises. The SDK stores and dispatches through this exact schema.
+  const schema = z.strictObject(inputSchema);
   // args is zod-validated at runtime; A is the caller's declared shape.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  registerTool(name, { description, inputSchema }, (args) => handler(args as A));
+  registerTool(name, { description, inputSchema: schema }, (args) => handler(args as A));
 }
 
 const ARTICLE_VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);
@@ -227,6 +234,10 @@ function schemaMissVoice(
 ): { hint: string; message: string } {
   const hint = `check the arguments against the '${name}' tool schema`;
   const issue = error.issues[0];
+  if (issue?.code === 'unrecognized_keys') {
+    const key = issue.keys[0] ?? 'input';
+    return { hint, message: `${key} isn't an argument` };
+  }
   const field = issue === undefined ? 'input' : String(issue.path[0] ?? 'input');
   // Field-as-subject, unquoted, per the voice guide's token-as-subject rule
   // (matching respond.ts's `${key} must be a string`). A top-level arg that is
@@ -325,8 +336,8 @@ function unknownToolVoice(name: string, known: string[]): { hint: string; messag
  * dispatching, so the SDK's own validation — which still runs — sees the
  * identical value the guard just accepted and therefore cannot fail (an omitted
  * `arguments` key would otherwise reach the SDK as `undefined` and re-leak for
- * all-optional tools). Runtime behavior and the advertised tools/list schema
- * are untouched.
+ * all-optional tools). The guard does not rewrite the advertised tools/list
+ * schema.
  *
  * The SDK exposes no public accessor for its registered CallTool handler or its
  * stored schemas, so both are read through documented casts (as the register()
