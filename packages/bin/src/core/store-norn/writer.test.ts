@@ -1825,6 +1825,17 @@ test('clearing the Next narrative refuses on a duplicated heading (MMR-321)', as
   expect(plans).toHaveLength(0);
 });
 
+test('setting Next ignores a heading-shaped line inside fenced code (MMR-324)', async () => {
+  const body = '```md\n## Next\n```\n## History\n';
+  const { client, plans } = fakeClient([projectDoc(), containerDoc(body)]);
+  const store = createNornWriteStore(client, ROOT);
+
+  await updateNode(store, 'MMR-1', { next: 'the real direction' });
+
+  const insert = findOp(onlyPlan(plans), 'insert_before_heading');
+  expect(insert?.fields.content).toBe('## Next\n\nthe real direction\n\n');
+});
+
 /** Run a `## Next` write expected to refuse, returning the MimirError. */
 async function refusedNextWrite(store: Store, id: string, next: string): Promise<MimirError> {
   let caught: unknown;

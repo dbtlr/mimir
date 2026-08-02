@@ -548,17 +548,47 @@ export function sectionBody(section: string): string {
  * `## Next` write path, which would otherwise insert a further duplicate on
  * every run — counts them here instead.
  *
- * Matches the anchors norn's resolver matches: exact heading text, tolerating
- * trailing whitespace (the {@link sectionRange} rule), over CRLF-normalized
- * lines. Escaped content lines (`\## Next`) are content, never anchors, so they
- * don't count. Like the rest of this module it is line-based rather than
- * markdown-parsed, so a heading-shaped line inside a fenced block counts — which
- * fails a write CLOSED (the operator is pointed at `mimir doctor`) rather than
- * open, the posture ADR 0023 asks for.
+ * Matches semantic markdown headings: exact heading text, tolerating trailing
+ * whitespace (the {@link sectionRange} rule), over CRLF-normalized lines.
+ * Escaped and indented content lines are not headings, and headings inside
+ * backtick or tilde fenced code blocks are literal code. This is also the one
+ * locator used by doctor, so diagnostics and write refusal cannot drift.
  */
 export function countSectionHeadings(body: string, heading: string): number {
+  return sectionHeadingLines(body, heading).length;
+}
+
+/** Zero-based lines carrying a semantic `## <heading>` outside markdown code. */
+function sectionHeadingLines(body: string, heading: string): number[] {
   const target = `## ${heading}`;
-  return splitLines(body).filter((line) => line.replace(/[ \t]+$/, '') === target).length;
+  const anchors: number[] = [];
+  let fence: { marker: '`' | '~'; length: number } | null = null;
+
+  for (const [index, line] of splitLines(body).entries()) {
+    const fenceLine = /^( {0,3})(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence !== null) {
+      if (
+        fenceLine?.[2]?.[0] === fence.marker &&
+        fenceLine[2].length >= fence.length &&
+        /^[ \t]*$/.test(fenceLine[3] ?? '')
+      ) {
+        fence = null;
+      }
+      continue;
+    }
+    if (fenceLine?.[2] !== undefined) {
+      const marker = fenceLine[2][0];
+      const info = fenceLine[3] ?? '';
+      if ((marker === '~' || !info.includes('`')) && (marker === '`' || marker === '~')) {
+        fence = { length: fenceLine[2].length, marker };
+        continue;
+      }
+    }
+    if (line.replace(/[ \t]+$/, '') === target) {
+      anchors.push(index);
+    }
+  }
+  return anchors;
 }
 
 /**
@@ -702,9 +732,7 @@ export function lintBodySections(body: string): BodyRecordFinding[] {
   // anchor, anchored at the line the operator has to delete — the first copy is
   // left unflagged because which one is canonical is a human call.
   const nextTarget = `## ${NEXT_HEADING}`;
-  const nextAnchors = lines.flatMap((line, index) =>
-    line.replace(/[ \t]+$/, '') === nextTarget ? [index] : [],
-  );
+  const nextAnchors = sectionHeadingLines(body, NEXT_HEADING);
   if (nextAnchors.length > 1) {
     for (const index of nextAnchors.slice(1)) {
       findings.push(
