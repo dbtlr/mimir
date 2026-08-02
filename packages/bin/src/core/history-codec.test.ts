@@ -6,6 +6,7 @@ import {
   ANNOTATIONS_HEADING,
   DESCRIPTION_HEADING,
   HISTORY_HEADING,
+  countSectionHeadings,
   lintBodySections,
   NEXT_HEADING,
   parseAnnotationsSection,
@@ -826,6 +827,24 @@ test('an escaped ## Next content line is prose, never a duplicate anchor (MMR-32
   // The writer escapes heading-shaped prose, so a narrative that quotes its own
   // heading must lint clean — the round-trip guarantee, in reverse.
   const body = `## ${NEXT_HEADING}${renderNextSection(`talking about ## ${NEXT_HEADING}`)}## ${HISTORY_HEADING}\n`;
+  expect(lintBodySections(body)).toEqual([]);
+});
+
+test('## Next inside backtick and tilde fences is code, not a duplicate (MMR-324)', () => {
+  const body = `## ${NEXT_HEADING}\n\ndirection\n\`\`\`md\n## ${NEXT_HEADING}\n\`\`\`\n~~~~ markdown\n## ${NEXT_HEADING}\n~~~~\n## ${HISTORY_HEADING}\n`;
+  expect(countSectionHeadings(body, NEXT_HEADING)).toBe(1);
+  expect(lintBodySections(body)).toEqual([]);
+});
+
+test('a shorter fence does not close a longer fence (MMR-324)', () => {
+  const body = `## ${NEXT_HEADING}\n\n\`\`\`\`md\n\`\`\`\n## ${NEXT_HEADING}\n\`\`\`\`\n## ${HISTORY_HEADING}\n`;
+  expect(countSectionHeadings(body, NEXT_HEADING)).toBe(1);
+  expect(lintBodySections(body)).toEqual([]);
+});
+
+test('an indented ## Next is code, not a duplicate (MMR-324)', () => {
+  const body = `## ${NEXT_HEADING}\n\ndirection\n\n    ## ${NEXT_HEADING}\n\n## ${HISTORY_HEADING}\n`;
+  expect(countSectionHeadings(body, NEXT_HEADING)).toBe(1);
   expect(lintBodySections(body)).toEqual([]);
 });
 
