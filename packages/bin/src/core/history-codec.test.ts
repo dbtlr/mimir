@@ -842,6 +842,12 @@ test('a shorter fence does not close a longer fence (MMR-324)', () => {
   expect(lintBodySections(body)).toEqual([]);
 });
 
+test('Unicode whitespace after a fence marker does not close the fence (MMR-324)', () => {
+  const body = `## ${NEXT_HEADING}\n\n\`\`\`md\n\`\`\`\u00a0\n## ${NEXT_HEADING}\n\`\`\`\n## ${HISTORY_HEADING}\n`;
+  expect(countSectionHeadings(body, NEXT_HEADING)).toBe(1);
+  expect(lintBodySections(body)).toEqual([]);
+});
+
 test('an indented ## Next is code, not a duplicate (MMR-324)', () => {
   const body = `## ${NEXT_HEADING}\n\ndirection\n\n    ## ${NEXT_HEADING}\n\n## ${HISTORY_HEADING}\n`;
   expect(countSectionHeadings(body, NEXT_HEADING)).toBe(1);

@@ -570,7 +570,7 @@ function sectionHeadingLines(body: string, heading: string): number[] {
       if (
         fenceLine?.[2]?.[0] === fence.marker &&
         fenceLine[2].length >= fence.length &&
-        (fenceLine[3] ?? '').trim() === ''
+        /^[ \t]*$/.test(fenceLine[3] ?? '')
       ) {
         fence = null;
       }
