@@ -1,4 +1,5 @@
 import refAuthoring from '../../../../skills/mimir/references/authoring.md' with { type: 'text' };
+import refFinishing from '../../../../skills/mimir/references/finishing.md' with { type: 'text' };
 import refQuerying from '../../../../skills/mimir/references/querying.md' with { type: 'text' };
 import refSeeds from '../../../../skills/mimir/references/seeds.md' with { type: 'text' };
 import refSetup from '../../../../skills/mimir/references/setup.md' with { type: 'text' };
@@ -21,6 +22,7 @@ export const SKILL_FILES: readonly { path: string; content: string }[] = [
   { content: refSetup, path: 'references/setup.md' },
   { content: refAuthoring, path: 'references/authoring.md' },
   { content: refQuerying, path: 'references/querying.md' },
+  { content: refFinishing, path: 'references/finishing.md' },
   { content: refStatusModel, path: 'references/status-model.md' },
   { content: refTags, path: 'references/tags.md' },
   { content: refSeeds, path: 'references/seeds.md' },

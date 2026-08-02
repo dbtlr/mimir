@@ -14,13 +14,14 @@ const getStore = (): Store => {
   throw new Error('skill install must not touch the store');
 };
 
-test('the embedded skill carries the root + six references, all non-empty', () => {
+test('the embedded skill carries the root + seven references, all non-empty', () => {
   const paths = SKILL_FILES.map((f) => f.path);
   expect(paths).toEqual([
     'SKILL.md',
     'references/setup.md',
     'references/authoring.md',
     'references/querying.md',
+    'references/finishing.md',
     'references/status-model.md',
     'references/tags.md',
     'references/seeds.md',
