@@ -13,6 +13,469 @@ and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
+## v0.17.0 - 2026-08-02
+
+### Added
+
+- **`update --upstream` can now clear the seed pointer, not just set it**
+  (MMR-301). `mimir update <task> --upstream none` removes a task's
+  requester-side seed pointer; the same explicit `"none"` sentinel clears it
+  through the MCP `update` tool's `upstream` arg and the HTTP
+  `PATCH /api/nodes/:id` body's `upstream` field — one grammar across all
+  three transports. Blank or omitted `upstream` still never clears it (a
+  deliberate rejection carried over from MMR-284): only the literal `none`
+  token does, and it's collision-free since a real seed id is always
+  `KEY-sN`.
+- **`mimir doctor` detects a node or project document with a missing or nulled
+  `updated_at`** (MMR-312). The read path silently tolerates both shapes — a
+  task or project loads fine either way — but the write path's CAS co-write
+  invariant (MMR-303) refuses every mutation against such a document, leaving
+  it permanently unwritable until repaired. Doctor now surfaces it as
+  an `error` finding (`missing-updated-at`) so the corruption is visible before
+  the next write hits it. `--fix` repairs it deterministically: the stamp is
+  seeded from the document's `created` timestamp when present, else the
+  repair's own timestamp, applied through the same one-plan-plus-rediagnosis
+  flow every other supported repair uses.
+- **Artifacts now carry `updated_at`** (MMR-317). The artifact contract and
+  frontmatter gain the `updated_at` stamp, and the vault schema advances to v5
+  (a v4 binary refuses a v5 vault). The stamp is metadata-only — the frozen body
+  stays append-only — and is deliberately not a required field, so legacy
+  artifacts predating it stay readable and are repaired through the supported
+  path rather than flagged unreadable.
+- **Artifacts now carry an optional `summary` lede** (MMR-319). `attach` and
+  `update` accept a `summary` on all three transports (CLI `--summary`, the MCP
+  `attach`/`update` args, the HTTP artifact POST/PATCH bodies), and it surfaces
+  in every artifact projection — `get KEY-aN`, the `artifacts` facet, and the
+  portfolio artifact feed. It mirrors the node `summary` exactly: the same
+  256-character cap and the same core normalization (newlines collapse, blank
+  clears), so one refusal wording covers both. The vault schema advances to v6
+  (a v5 binary refuses a v6 vault); the field is deliberately optional and not
+  required frontmatter, so an artifact without a lede is a legitimate record,
+  not a repair signal.
+- **Tasks carry four optional in-flight execution fields — `host`, `harness`,
+  `session`, `branch`** (MMR-320). They are the _resume handles_ of
+  [ADR 0026](docs/decisions/0026-work-state-composition.md) Decision 3: what
+  is happening, what did happen, how do I continue. `start` records them at the
+  claim (CLI `--host/--harness/--session/--branch`, the same args on MCP and
+  the HTTP action route), and they surface on every task projection — `get`,
+  `-f json`, and the `--eq`/`--has` query surface. They are deliberately not
+  telemetry: anything recoverable from the session (model, durations, token
+  counts) stays out, and Mimir makes no liveness claim. The vault schema
+  advances to v7 (a v6 binary refuses a v7 vault); the fields are optional
+  `field_types` only, never required frontmatter, so an unclaimed task is a
+  legitimate record and no doctor check reads them.
+- **Projects, initiatives, and phases carry an owned `## Next` direction
+  narrative** (MMR-321, [ADR 0026](docs/decisions/0026-work-state-composition.md)
+  Decision 2). What to work on next stays derived (ready ∩ rank); this is the
+  non-derivable residue — the editorial statement of where a container is
+  headed, as free markdown in its document body. `update` accepts it on all
+  three transports (CLI `--direction`, the MCP `update` arg `next`, the HTTP
+  node/project PATCH body field `next`), and it surfaces on `get KEY` /
+  `get KEY-seq` and as `--col next`. Tasks, seeds, and artifacts refuse it in
+  each transport's own inapplicable-field voice — direction prose is a container
+  surface, and a task's prose homes are its description and annotations.
+
+  **Replace-not-append**: a write re-authors the whole section, and a blank
+  clears it (the heading goes with the prose, so an absent section and an empty
+  one are the same state). There is deliberately no append mode — append grain
+  is what let hand-maintained work-state sections grow monotonically. The write
+  rides the ordinary CAS-guarded plan and co-stamps `updated_at`; re-authoring
+  the identical text writes nothing at all, and a conflicting concurrent write
+  refuses on that CAS so the writer re-reads and re-authors against the current
+  board instead of replaying a stale draft. The prose is uncapped, like
+  `## Task Description` — only the short `summary` lede carries a length limit.
+
+  **A hand-duplicated `## Next` refuses the write.** norn warn-omits an
+  _ambiguous_ heading from a section read exactly as it omits a _missing_ one,
+  and its structured failure channel doesn't distinguish them — so "the section
+  didn't resolve" can't be read as "there is no section". The write path counts
+  the anchors and refuses, rather than splicing in a further copy on every run
+  or reporting a clear that removed nothing. `mimir doctor` gains
+  `duplicate-next-section`, naming each extra heading's line (it is not
+  auto-repairable — which copy is the live narrative is a human call). A first
+  write that finds no unambiguous `## History` anchor to splice above likewise
+  refuses by name instead of as an opaque apply failure — and says which fault
+  it hit, since "add the heading" and "delete the duplicate" are opposite
+  repairs.
+
+  `update` is the only write surface: `create` refuses `--direction` and points
+  at `mimir update <id> --direction "…"`, and the HTTP create body rejects a
+  stray `next` field, so the narrative is never accepted and discarded.
+
+  This section needs no vault schema change of its own (the cycle's bump to v7
+  comes from the resume handles): the generated norn rules constrain frontmatter
+  only, so a new body section needs no rule and no converge.
+
+  The CLI flag is `--direction` rather than `--next`, because `--next` is
+  already `self-update`'s boolean prerelease-channel selector and one options
+  table cannot carry a flag under two types. `--direction` is [ADR
+  0026](docs/decisions/0026-work-state-composition.md)'s own word for what the
+  section holds; the field is spelled `next` everywhere else. Since a boolean
+  flag swallows no value, `mimir update <id> --next "text"` would otherwise have
+  exited 0 having written nothing — `--next` on any verb but `self-update` is
+  now a usage error pointing at `--direction`.
+- **`mimir overview` composes recent sessions, needs-attention listings, and
+  owned direction prose** (MMR-322,
+  [ADR 0026](docs/decisions/0026-work-state-composition.md)). The orientation
+  surface stops being a queue summary and becomes the whole boot picture, on the
+  CLI, the MCP `overview` tool, and — new — `GET /api/projects/:key/overview`,
+  all through one shared wire mapper.
+
+  **`sessions`** is derived work state, never stored: `## History` rows grouped
+  by the `session` resume handle `start` stamped (MMR-320), each group carrying
+  its activity window, the tasks it touched, and its handle-echoing row count. A
+  `session_summary`-tagged artifact joins on by linked-task overlap and lends its
+  `summary` lede (MMR-319) — newest artifact wins a contested group, an artifact
+  attaches to at most one, and a summary that overlaps no group keeps its own
+  knowledge-only entry rather than vanishing. The overlap rule is a disclosed
+  heuristic over the evidence today's records carry; an explicit session key
+  would replace it wholesale. Rows written before the handles existed are simply
+  unattributed — never bucketed as an "unknown session".
+
+  The section reports `N shown`, deliberately not a count: unlike the other
+  sections — whose populations are a filter over the working set already in hand
+  — this one is composed from bounded reads, so an older session can be missing
+  and summary-only entries can push the figure above the number of derived
+  groups. Two attribution limits are documented rather than papered over, both
+  following from MMR-320's echo policy: only `start` and the clearing verbs
+  (`done`/`abandon`, `park`/`block`) echo a handle, so a review-only session
+  leaves no mechanical trace; and a clearing row echoes what the task still
+  carried, so a takeover that never re-stated `--session` credits its `done` to
+  the session it took over from. `mimir artifacts -t session_summary` is the
+  unbounded, pageable view.
+
+  **`hygiene` gains listings** behind its counts: the first 5 blocked tasks (with
+  their hold reason), stale tasks, and untriaged seeds (with the derived lede),
+  each task row carrying the attention lane its status word falls in — the same
+  `awaiting_you`/`live`/`needs_unsticking`/`at_rest` vocabulary the console's
+  project cards speak (MMR-101), shared rather than re-spelled. The counts are
+  unchanged and stay TRUE against the caps. `dropped` remains count-only: it
+  counts records the tolerant reader dropped, which are by definition not tasks
+  anyone can list.
+
+  **`direction`** renders the owned `## Next` prose (MMR-321) verbatim — the
+  project's, plus that of every container parenting live work (a task in flight
+  or ready), deduped. A dormant container's narrative stays one `mimir get` away
+  rather than turning a boot surface into a document dump. The envelope key is
+  `direction` because `next` there is already the ready-queue head; the
+  node-level field keeps its `next` spelling.
+
+  Prose is read for every such container and only the rendered list caps, so the
+  section's `count` is a true total and the human render names any remainder.
+  Ordering it the other way — capping containers before reading, or drawing
+  candidates from the CAPPED ready head rather than the whole ready set — would
+  hide the one container carrying direction behind five that carry none, or hide
+  it for no reason but its work's rank.
+
+  In-flight rows now show their resume handles compactly in the human render
+  (`harness@host · branch · session`), omitted entirely when unset. The JSON
+  already carried them, so this is a render change only.
+
+  Every added section is capped at 5 against a true count, and every added read
+  is bounded by construction rather than by board size: `## History` for the 20
+  most recently touched tasks in scope (the whole-vault transitions feed has no
+  scope or `since` push-down, so it would read every other project to answer a
+  question about this one), one `session_summary` artifact page, one batched seed
+  description read, and `## Next` for the project plus the deduped parents of
+  live work. No vault schema change — everything here is derived or reads fields
+  that already exist.
+- **`mimir artifacts` — the cross-project artifact feed as a flat verb**
+  (MMR-322), with the matching MCP `artifacts` tool. A read-only envelope over
+  the portfolio search that has backed `GET /api/artifacts` since MMR-52 —
+  `-s`, `-t`, `--since`, `--before`, `-q`, `--limit`, and `--offset`, all
+  AND-composed — newest-first and metadata only: id,
+  project, title, tags, the `summary` lede, `created_at` (a frozen body is still
+  `mimir get KEY-aN --col content`). Unlike `overview` it is a cross-project
+  read: scope defaults to the binding and `-s all` widens to the portfolio.
+  Archived projects' artifacts read as absent (ADR 0015). The querying doctrine
+  applies — a well-formed query matching nothing is an empty set at exit 0 with
+  the reason on stderr, while a malformed `--since`/`--before`/`--offset` is a
+  usage error at exit 2, decided before the store is ever opened.
+
+### Changed
+
+- **Help output is colorized on a TTY** (MMR-300). Root help (`mimir -h`/`--help`),
+  group pages, and per-command `-h`/`--help` now style section headers (`usage:`,
+  `flags:`, the `read:`/`lifecycle:`/… group headings) bold and command/flag names
+  cyan; descriptions and examples stay plain. Routed through render.ts's existing
+  `plain` contract (NO_COLOR / `--ascii` / non-TTY), so a piped or `--ascii` run is
+  byte-for-byte identical to before — color is pure decoration, never information.
+- **The Norn store adapter is consolidated under `core/store-norn/`** (MMR-307).
+  The client, plan, decode, apply-report, and writer modules, plus the
+  artifact/body-section/seed/transitions Norn readers, now live together
+  inside the `core` layer boundary instead of a separate `norn/` directory —
+  breaking the `core` ↔ `norn` directory cycle. No behavior change; the
+  layer lint's standalone `norn/**` override was absorbed by the existing
+  `core/**` boundary.
+- **The write path enforces the CAS co-write invariant at runtime** (MMR-303).
+  Every document a write plan mutates must carry at least one op guarded by a
+  non-null `expected_old_value`; the writer now refuses an unguarded plan
+  before it reaches `vault.apply` instead of trusting each verb's discipline
+  by review alone. A refusal names its class: a document whose frontmatter
+  lacks a usable `updated_at` (hand-edited or pre-mimir) is a validation
+  error with the repair step, while a verb that co-wrote no guard at all is
+  an internal invariant. To keep the first tag on an untagged entity guarded,
+  tagging co-writes the `updated_at` stamp whenever the tag set actually
+  changes — an idempotent re-tag now writes nothing at all, so it no longer
+  rewrites the `tags` field and never moves `updated_at` (the stale clock and
+  attention recency read it).
+- **Create logic is unified behind one core `createNode` verb** (MMR-304). The
+  CLI, MCP, and HTTP handlers used to each re-implement the same create
+  machinery — the type dispatch, the parent token shape and kind rules, the
+  priority/size enum checks, the `upstream` wire parse, and the open_ended
+  container-only rule (MMR-204) — with the guard comments copied per transport
+  and the error wording drifted. That machinery now lives once in
+  `core/create.ts`, composing the existing per-type verbs (which keep their
+  in-transact invariants); each transport is reduced to argument mapping and
+  echo. Where the transports had drifted on the same check, the wording is
+  unified in the core voice: an invalid priority/size reports
+  `invalid priority: <x>` with the enum in the hint, and a malformed parent or
+  `upstream` reads the same on every surface. Required-argument checks stay
+  with each transport in its native error class, and the CLI's project-create
+  confirmation gate is unchanged.
+- **Attach link-resolution is unified behind one core `resolveAttachTargets`**
+  (MMR-305). The CLI, MCP, and HTTP handlers used to each re-implement the same
+  attach machinery — resolving the node refs, enforcing the one-project
+  invariant, and reconciling an explicit `--project`/`project` against the
+  links — by three different algorithms, and only HTTP deduped a link that
+  repeated the anchor or another link. That resolution now lives once beside
+  `attachArtifact` in `core/mutations/data.ts`, over a single working-set
+  snapshot; each transport is reduced to token gathering (its positional/anchor
+  plus link list, with its native required-argument error) and echo. All three
+  now dedupe a repeated token or a link equal to the anchor, share the wording
+  `all the links must be in one project`, and report a disagreeing explicit
+  project identically as `the project disagrees with the links' project`
+  (previously `--project disagrees with the links' project` on the CLI and
+  `project disagrees with the links' project` on MCP). A link token that names a
+  project, artifact, or seed is now named by kind (for example
+  `MMR is a project, not a task, phase, or initiative`) rather than the
+  misleading `doesn't exist` the transports used to return, matching the
+  kind-aware parent resolution MMR-304 adopted; a genuine missing ref still
+  reads `<ref> doesn't exist`. That kind-aware upgrade also changes the error
+  class for a wrong-kind token from `not_found` to `validation` — on HTTP a
+  `POST /api/nodes/:id/artifacts` whose anchor or link names a project,
+  artifact, or seed now returns 400 (previously 404), and the machine-readable
+  `error.code` reads `validation`; HTTP kind errors carry the surface's route
+  pointers (including the new `seeds live at /api/seeds`).
+- **Three more guard checks unify behind one declaration each** (MMR-306).
+  The `invalid priority`/`invalid size` enum asserts core's create path
+  already owned (MMR-304) now cover the update and seed-promote paths too —
+  `core/create.ts` exports `parsePriorityValue`/`parseSizeValue`, and the
+  hand-copied `isMember(…, PRIORITY_VALUES)` checks in the MCP and HTTP
+  update/promote handlers are gone in favor of calling them. The per-kind
+  "which update fields don't apply" lists the CLI and MCP each hand-typed for
+  `update` on a project, artifact, and seed are now one table,
+  `inapplicableUpdateFields` in `core/mutations/data.ts`, its field
+  vocabulary a `Record` over the full key union so a new update field that
+  skips the table is a compile error — each transport
+  keeps its own rejection wording, flag spelling, and error class (the CLI's
+  seed guard stays usage/exit-2; everything else stays `validation`), sweeping
+  over the shared table instead of retyping the field set. And the query
+  operator vocabulary the CLI and MCP re-typed as `OP_FLAGS`/`OP_ARGS` is now
+  derived from the contract's `QUERY_OP_VALUES` — the CLI iterates it
+  directly (its flags are spelled identically to the op), and MCP's op → arg
+  key mapping is a `Record` keyed by the full `QueryOp` union, so a new
+  contract operator is a compile error in the mapping rather than a silently
+  unfiltered flag. No user-visible wording changed; the one behavioral note is
+  that when a caller passes _several_ simultaneously-inapplicable update
+  fields at once over the CLI or MCP, which one is named first may differ
+  from before — the single most common case, one field at a time, is
+  unaffected.
+- **The MMR-303 degraded-document refusal now points at `mimir doctor --fix`**
+  instead of a hand edit. The hint reads: "the document was hand-edited or
+  predates mimir management — run 'mimir doctor --fix' to repair it".
+- **The data-plane fields collapse behind one field spec** (MMR-314). Every
+  updatable and/or queryable scalar fact on a work node — `summary`, the
+  `lifecycle`/`hold`/`hold_reason` status axes, `priority`/`size`,
+  `external_ref`/`upstream`, `target`, and `open_ended` — is now declared
+  exactly once, in a field-spec table (`core/field-spec.ts`) whose entries name
+  a **kind** (`string`, `seed-ref`, `bool`, `enum:priority`, …) that owns the
+  parser/emitter pair and the query semantics (per [ADR
+  0025](docs/decisions/0025-descriptor-driven-registration.md)). Both codec
+  directions now derive from that one entry: the frontmatter decode
+  (`store-norn/store.ts`) and emit (`vault-frontmatter.ts`) each became a
+  generic loop over the spec, so a field wired for emit but not decode — the
+  silent read-back bug the hand-maintained inverse pair invited — is
+  structurally impossible, guarded by a round-trip property test over every
+  spec'd field and node kind. The `update` applicability gates
+  (`mutations/data.ts`) and the query registry (`core/query.ts`) likewise
+  project from the spec rather than restating the field vocabulary in parallel
+  tables, and the create/update wire parsers (`parsePriorityValue`,
+  `parseSizeValue`, `parseUpstreamValue`, and the `upstream` seed-ref decode)
+  moved out of `core/create.ts` into `core/field-spec.ts` alongside their
+  kinds. The identity/topology plane
+  (id, type, parent, rank, tags, the timestamps, transition history, body
+  sections, and the always-present `title`) stays bespoke — the two-plane
+  boundary is deliberate. No user-visible behavior changed; transport
+  derivation from the spec (CLI flags, MCP schemas, HTTP allow-lists) is a
+  later phase.
+- **The field transport surfaces derive from the spec** (MMR-315). The three
+  data-plane field surfaces stop hand-listing field keys and project from the
+  one field spec ([ADR
+  0025](docs/decisions/0025-descriptor-driven-registration.md) phase 2): the
+  CLI's `UPDATE_FIELD_FLAGS` becomes a view template (a default `--<kebab-key>`
+  flag plus the few spellings that diverge — `--ref`, `--desc`, and
+  `open_ended`'s on/off pair); the MCP `update`/`create` tool schemas compose a
+  spec-derived field fragment (each arg typed by a per-kind zod fragment) with
+  their bespoke identity args; and the HTTP node create and PATCH body
+  allow-lists derive their data-field portion from the spec's `update` keys.
+  Each transport's `update` path now also _applies_ the derived fields through a
+  shared per-kind wire parser (the same `parsePriorityValue`/`parseUpstreamValue`
+  bindings, so wording is byte-identical), closing the gap where a field could be
+  advertised and accepted yet silently dropped; a route-level propagation suite
+  drives every spec field end-to-end through all three transports — on both the
+  `update` paths and the (still hand-mapped) create paths — as the pin.
+  Adding a field with an existing kind is now one spec
+  entry that surfaces on all three transports with no transport edit. The
+  pure-fact half of the spec — field keys, kind names, and the
+  `appliesTo`/`update`/`required` flags — also moved into `@mimir/contract`
+  (`FIELD_FACTS`) so the console can eventually read it; the kind parser/emitter
+  registry stays in the core, which composes the facts with those bindings. No
+  user-visible behavior changed. The MCP tool schemas and the CLI rejection
+  wording are byte-identical; the only rendered-text changes are the field
+  ordering in the HTTP unknown-body-field error hint and the CLI `update`
+  `changed`-echo list, both now the spec's canonical order (the field sets and
+  labels are unchanged).
+- **The uniform verbs derive from an operation registry** (MMR-316). The twelve
+  uniform verbs (six lifecycle — start/submit/return/done/abandon/reopen, four
+  hold — park/unpark/block/unblock, and archive/unarchive) stop restating the
+  same few facts once per transport and derive from one registry ([ADR
+  0025](docs/decisions/0025-descriptor-driven-registration.md) phase 3): one
+  entry owns the subject id-kind, reason policy, state transition, and canonical
+  summary. The CLI's twelve switch arms and twelve echo handlers collapse to one
+  generic arm; the MCP tool registrations and the HTTP action routes loop-
+  generate; and all rendered text (CLI terse-help rows, per-command
+  descriptors, echo signposts, and MCP tool descriptions) becomes a
+  per-transport view template over the facts. Adding a uniform verb is now one
+  registry entry plus one core mutation, surfacing on all three transports with
+  no transport edit. The pure fact table lives in `@mimir/contract` (`OP_FACTS`)
+  so the console can eventually read it; the `run` bindings stay in the core.
+  The CLI echo lines are byte-identical. The CLI help and MCP descriptions are
+  now derived: the terse-help rows are byte-identical except `archive` (its
+  two-line entry becomes one line, reworded to "freeze + hide it and its subtree
+  (reversible)"); the per-command summaries for done/park/block/archive/
+  unarchive and every MCP tool description are regenerated from the canonical
+  summary plus the transition and reason clauses (the richer hand-authored prose
+  is replaced by the derived form — the per-verb examples stay hand-authored).
+  The `POST /api/projects/:key/unarchive` route now rejects an unexpected request
+  body (the empty allow-list every reason-less verb already enforced), matching
+  the other reason-less routes; no URL or success-path behavior changed. The MCP
+  `tools/list` registration order also changed — archive/unarchive now register
+  last, following the registry's verb order (tool ordering is not a contract).
+- **`summary` joins `title` as an artifact's mutable metadata** (MMR-319). The
+  artifact `update` now accepts both, riding the same CAS-guarded write plan
+  that co-writes the `updated_at` drift stamp (MMR-317); the body stays frozen
+  (ADR 0004). Transport rejections for inapplicable fields say so.
+- **There is no claim verb — resume and takeover are a plain `update`**
+  (MMR-320). `in_progress` already is the claim and `start`'s CAS-guarded
+  `todo→in_progress` assert already makes claiming atomic, so overwriting a
+  handle is an ordinary patch on all three transports (a blank clears one).
+- **The lifecycle verbs clear the handles at the right boundaries** (MMR-320).
+  `done`/`abandon` and `park`/`block` clear all four — settled or held work is
+  not in flight, and a stale pointer is worse than an absent one — while
+  `submit`/`under_review` and `return` **keep** them, since the branch and
+  session stay the live pointers at the human gate. `reopen`/`unpark`/`unblock`
+  restore nothing; a resuming agent re-states them with `update`.
+- **`## History` rows echo the handles they move** (MMR-320). A claiming or
+  clearing transition appends ` · key=value` pairs to its edge line, so the
+  append-only log preserves claim succession. A row that moved no handle is
+  byte-identical to one written before the field existed. To keep that log
+  lossless, a handle value carrying the pair separator — a `·` **surrounded by
+  spaces** — is refused at the write with a named validation error. The rule is
+  exactly that narrow: a bare `a·b` is a perfectly legal handle.
+- **The `overview` wire envelope gains `direction`, `sessions`, and
+  `hygiene.listings`** (MMR-322). Additive on every transport — existing keys,
+  including the four hygiene counts, are untouched — but a consumer asserting the
+  hygiene object _exactly_ now sees the `listings` key alongside the counts.
+- **`-n`/`--limit` refuses a value it used to silently truncate** (MMR-322).
+  Limits were parsed with `parseInt`, which stops at the first non-digit: `-n 2x`
+  and `-n 2.5` both capped at 2 and reported the result as if the caller had
+  asked for that. A limit must now parse whole, as a non-negative safe integer,
+  or the invocation is a usage error (exit 2). The new `--offset` shares the
+  parser. Every previously-valid limit is unaffected.
+- **Ordinary dev/from-source runtime commands no longer read the operator's
+  global config** (MMR-325). They resolve runtime state only from explicit
+  environment overrides or the isolated repo-local vault and dev port; the
+  explicit `setup` administration flow and compiled production binaries
+  preserve the installed config behavior.
+- **Composable Mimir finishing flow** (MMR-323). The bundled skill now teaches
+  transition, `## Next` grooming, and anchored session summaries as three
+  standalone pieces that compose at task completion; concurrent direction edits
+  now refuse for an explicit re-read and merge instead of replaying stale prose.
+- **The shipped Mimir skill now reuses a project overview already supplied in
+  Active Context** instead of redundantly running `mimir overview` during
+  orientation (MMR-344). Direct invocation still loads the overview when it is
+  absent.
+
+### Fixed
+
+- **norn's plan-schema-version refusal now carries an actionable hint** (MMR-298).
+  A `vault.apply` refusal shaped
+  `unsupported plan schema_version N; this norn build supports vM` — norn's
+  plain-text response to a plan schema mismatch — used to surface as a raw
+  validation passthrough with no next move, violating the
+  [output-voice hint ladder](docs/output-voice.md#the-hint-ladder). The norn
+  client seam now detects that shape and attaches a hint naming the fix in
+  whichever direction applies: `N` newer than `M` points at `norn self-update`;
+  `N` older than `M` points at `mimir self-update`; an unparseable variant
+  names both. This doesn't fire against norn 0.48 (mimir already emits the plan
+  schema it expects, MMR-297) — it's groundwork for the next plan-schema bump.
+- **MCP unknown-tool calls stop leaking SDK text** (MMR-296). A CallTool
+  request naming a tool that was never registered shipped the SDK's raw
+  text verbatim (`MCP error -32602: Tool <name> not found`) as the
+  tool-result — the same library-text class MMR-292 closed for schema
+  misses, at the not-found site the guard didn't yet cover. The guard now
+  intercepts this fault too and returns the structured
+  `{"error":{code,message,hint}}` envelope: token as subject
+  (`geet doesn't exist`), with a near-match suggestion when an edit-distance
+  candidate exists among the registered tools (`did you mean 'get'?`) or a
+  pointer at `tools/list` otherwise.
+- **`mimir service <sub> -h` renders that subcommand's own help** (MMR-299).
+  `service install`, `uninstall`, `start`, `stop`, `restart`, and `status`
+  used to fall back to the six-sub group page — `service install -h` gave no
+  hint of `--port` persistence, the unit defaulting to `serve`, or the
+  dev-run refusal. Each subcommand now resolves its own descriptor (usage,
+  arguments, flags), the same shape as every other targeted command; bare
+  `service -h` still renders the group overview. Help text only — no command
+  names or behavior change.
+- **Seed writes on a document with a missing or nulled `updated_at` now refuse
+  instead of silently writing unguarded** (MMR-313). The seed store's mutating
+  verbs (`patch`, `transition`, `germinate`) co-write the `updated_at` stamp as
+  their CAS drift guard, exactly like the node and project write path
+  (MMR-303) — but a missing or null field emitted an unguarded null old value,
+  so the write slipped through with no drift protection. All three now fail
+  closed with the same degraded-document refusal, pointing the operator at
+  `mimir doctor --fix`. `mimir doctor` now detects those seed documents
+  (`missing-updated-at`) and `--fix` stamps them deterministically, seeded from
+  the seed's `created` timestamp when present, else the repair's own timestamp.
+- **Artifact metadata writes on a document with a missing or nulled `updated_at`
+  now refuse instead of silently writing unguarded** (MMR-317). The artifact
+  store's tag and title mutations (`tag`, `untag`, `update`) moved off the
+  CAS-less write path onto CAS-guarded plans that co-write the `updated_at` stamp
+  as their drift guard, exactly like the node/project (MMR-303) and seed
+  (MMR-313) write paths. A missing or null field previously slipped through with
+  no drift protection; all three now fail closed with the shared
+  degraded-document refusal, pointing the operator at `mimir doctor --fix`.
+  `mimir doctor` now detects those artifact documents (`missing-updated-at`) and
+  `--fix` stamps them deterministically, seeded from the artifact's `created`
+  timestamp.
+- **Query verbs reject the artifact feed's flags again** (MMR-322). `--since`,
+  `--offset`, and `-q`/`--query` live in the one global option table, so on their
+  own they would have made `mimir list --since 2026-07-01` exit 0 with the
+  UNFILTERED board — a silently-wrong answer where the invocation had previously
+  been a hard unknown-flag error. They are now verb-owned by `artifacts` (the
+  MMR-321 guard), and a stray one on another verb is a usage error pointing at
+  the `--after created_at:…` op grammar `list`/`next` actually use.
+- **Markdown-aware `## Next` ambiguity detection** (MMR-324). Direction writes
+  and doctor now ignore heading-shaped text inside fenced and indented code,
+  while continuing to refuse and report genuinely duplicated sections.
+- **Stale doctor scopes are now visible** (MMR-326). `mimir doctor` warns when a
+  named scope matches zero documents, including `--fix` runs, and `/api/doctor`
+  reports scoped document-match metadata without changing diagnostic findings.
+- **MCP tools now reject undeclared arguments instead of silently discarding
+  them** (MMR-327). Runtime validation now matches the strict schemas returned
+  by `tools/list`, with the offending argument named in Mimir's error envelope.
+
 ## v0.16.0 - 2026-07-16
 
 ### Added
