@@ -44,8 +44,10 @@ boundary without transitioning a task or writing a retrospective.
 
 ## Summarize
 
-Summarize when the session produced durable context worth recovering. Write a
-short markdown retrospective, then freeze it as a `session_summary` artifact:
+At task completion, always summarize: completing the task is itself durable
+context worth recovering. At another work boundary, summarize when the session
+produced durable context. Write a short markdown retrospective, then freeze it
+as a `session_summary` artifact:
 
 ```sh
 mimir attach KEY-9 --file retro.md --title "Session summary" \
@@ -62,8 +64,8 @@ mimir attach KEY-9 --file retro.md --title "Session summary" \
 - Artifacts cannot span projects. If a session touched several projects, write
   one project-local artifact per project, each with only that project's anchors
   and a lede/body that describes its share of the session.
-- If the session produced no durable retrospective, omit this piece rather than
-  manufacturing activity.
+- At a standalone non-completion boundary that produced no durable
+  retrospective, omit this piece rather than manufacturing activity.
 
 This piece stands alone: it may record planning, review, or investigation even
 when no lifecycle transition or direction edit occurred.
