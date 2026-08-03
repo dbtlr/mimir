@@ -9,6 +9,7 @@ import {
   CHECKS,
   frontmatterCheck,
   RULE_OWNER,
+  scratchpadBodyCheck,
   seqGapCheck,
   stemProjectCheck,
   updatedAtCheck,
@@ -67,6 +68,102 @@ const ctxWith = (drop: Drop): DoctorContext => ({
   readNodeDocs: () => Promise.resolve([]),
   sectionFailures: [],
   validateFindings: [],
+});
+
+test('Scratchpad body failures retain UUID identity and group by explicit project', async () => {
+  const findings = await scratchpadBodyCheck.run({
+    dropped: [],
+    projectRefs: [],
+    readArtifactDocs: () => Promise.resolve([]),
+    readNodeDocs: () => Promise.resolve([]),
+    readScratchpadDocs: () =>
+      Promise.resolve([
+        {
+          body: '## Journal\n\n## Journal\n\n## Agenda\n',
+          frontmatter: {
+            created: '2026-08-03T12:00:00.000Z',
+            project: '[[MMR]]',
+            title: 'Working',
+            type: 'scratch',
+            updated_at: '2026-08-03T12:00:00.000Z',
+          },
+          path: 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md',
+          stem: '018f3f36-7b2b-4c92-8f31-44c764a1a456',
+        },
+      ]),
+    scratchpadAnchorProjects: new Map(),
+    scratchpadProjects: new Set(['MMR']),
+    sectionFailures: [],
+    validateFindings: [],
+  });
+
+  expect(findings).toEqual([
+    expect.objectContaining({
+      check: 'scratchpad-body',
+      code: 'duplicate-journal-section',
+      locator: 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md:3',
+      node: '018f3f36-7b2b-4c92-8f31-44c764a1a456',
+      scopeKey: 'MMR',
+      severity: 'error',
+      where: 'body · line 3',
+    }),
+  ]);
+  expect(REPAIR_POLICY['duplicate-journal-section']).toEqual({
+    kind: 'skipped',
+    reason: 'ambiguous-body-record',
+  });
+});
+
+test('Scratchpad anchor problems are distinct warnings while the pad remains readable', async () => {
+  const findings = await scratchpadBodyCheck.run({
+    dropped: [],
+    projectRefs: [],
+    readArtifactDocs: () => Promise.resolve([]),
+    readNodeDocs: () => Promise.resolve([]),
+    readScratchpadDocs: () =>
+      Promise.resolve([
+        {
+          body: '## Journal\n\n## Agenda\n',
+          frontmatter: {
+            anchor: [42, '[[OTH-1]]', '[[MMR-99]]'],
+            created: '2026-08-03T12:00:00.000Z',
+            project: '[[MMR]]',
+            title: 'Working',
+            type: 'scratch',
+            updated_at: '2026-08-03T12:00:00.000Z',
+          },
+          path: 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md',
+          stem: '018f3f36-7b2b-4c92-8f31-44c764a1a456',
+        },
+      ]),
+    scratchpadAnchorProjects: new Map([['OTH-1', 'OTH']]),
+    scratchpadProjects: new Set(['MMR']),
+    sectionFailures: [],
+    validateFindings: [],
+  });
+
+  expect(findings.map(({ code, severity }) => ({ code, severity }))).toEqual([
+    { code: 'scratchpad-malformed-anchor', severity: 'warn' },
+    { code: 'scratchpad-cross-project-anchor', severity: 'warn' },
+    { code: 'scratchpad-dangling-anchor', severity: 'warn' },
+  ]);
+  expect(findings).toEqual([
+    expect.objectContaining({
+      locator: 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md',
+      message: expect.stringContaining('Scratchpad document is invalid'),
+      where: 'frontmatter',
+    }),
+    expect.objectContaining({
+      locator: 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md',
+      message: expect.stringContaining('Scratchpad document is invalid'),
+      where: 'frontmatter',
+    }),
+    expect.objectContaining({
+      locator: 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md',
+      message: expect.stringContaining('Scratchpad document is invalid'),
+      where: 'frontmatter',
+    }),
+  ]);
 });
 
 test('every Drop rule renders in exactly one check — the one RULE_OWNER names (MMR-209)', async () => {
@@ -151,6 +248,20 @@ test('frontmatter renders an untyped seed doc; a seed stem outside /seeds/ is no
   // A seed stem in the wrong directory (not KEY/seeds/) is not a work-state doc.
   const misplaced = await frontmatterCheck.run(
     frontmatterCtx([{ code: 'frontmatter-parse-failed', path: 'MMR/MMR-s3.md' }]),
+  );
+  expect(misplaced).toEqual([]);
+});
+
+test('frontmatter renders an unreadable Scratchpad only at its canonical UUIDv4 path', async () => {
+  const id = '018f3f36-7b2b-4c92-8f31-44c764a1a456';
+  const canonical = await frontmatterCheck.run(
+    frontmatterCtx([{ code: 'frontmatter-parse-failed', path: `scratch/${id}.md` }]),
+  );
+  expect(canonical).toHaveLength(1);
+  expect(canonical[0]).toMatchObject({ node: id, where: 'frontmatter' });
+
+  const misplaced = await frontmatterCheck.run(
+    frontmatterCtx([{ code: 'frontmatter-parse-failed', path: `notes/${id}.md` }]),
   );
   expect(misplaced).toEqual([]);
 });

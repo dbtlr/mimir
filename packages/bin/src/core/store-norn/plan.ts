@@ -162,6 +162,18 @@ export function replaceBody(path: string, documentHash: string, body: string): M
 }
 
 /**
+ * `delete_document` — remove one complete document under a whole-document CAS.
+ * Norn requires the diagnostic snapshot's `document_hash`; omitting it would
+ * turn a stale read into an unguarded delete.
+ */
+export function deleteDocument(path: string, documentHash: string): MigrationOp {
+  return {
+    fields: { document_hash: documentHash, path },
+    kind: 'delete_document',
+  };
+}
+
+/**
  * `create_document` — write a new document with the given frontmatter and body.
  * norn reads the payload from `new_value.{frontmatter, body}`. Fields:
  * `{path, new_value: {frontmatter, body}}`. `path` may carry a single `{{seq}}`

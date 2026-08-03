@@ -4,6 +4,7 @@ import {
   addFrontmatter,
   appendToSection,
   createDocument,
+  deleteDocument,
   MIGRATION_PLAN_SCHEMA_VERSION,
   migrationPlan,
   replaceBody,
@@ -78,6 +79,13 @@ test('replaceBody carries a whole-document hash CAS precondition', () => {
       path: 'MMR/MMR-1.md',
     },
     kind: 'replace_body',
+  });
+});
+
+test('deleteDocument carries a whole-document hash CAS precondition', () => {
+  expect(deleteDocument('scratch/id.md', 'blake3')).toEqual({
+    fields: { document_hash: 'blake3', path: 'scratch/id.md' },
+    kind: 'delete_document',
   });
 });
 

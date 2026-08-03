@@ -48,6 +48,7 @@ import {
   SEQ_TOKEN,
   setFrontmatter,
 } from './plan';
+import { createNornScratchpadStore } from './scratchpads';
 import { createNornSeedStore } from './seeds';
 import type { NornSnapshot } from './store';
 import {
@@ -141,6 +142,7 @@ export function createNornWriteStore(client: NornClient, vaultRoot: string): Sto
     loadNodesForProjects: (keys, valid) => loadNodesForProjectsOverNorn(client, keys, valid),
     loadProjects: () => loadProjectsOverNorn(client),
     loadWorkingSet: () => loadWorkingSetOverNorn(client),
+    scratchpads: createNornScratchpadStore(client, vaultRoot),
     seeds: createNornSeedStore(client, vaultRoot),
     transact: (fn) => runTransact(client, vaultRoot, fn),
     transitions: createNornTransitionsFeed(client),

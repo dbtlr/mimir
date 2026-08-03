@@ -116,6 +116,10 @@ export type SeedLane = (typeof SEED_LANE_VALUES)[number];
 export const SEED_STATUS_SELECTOR_VALUES = [...SEED_LIFECYCLE_VALUES, 'live', 'all'] as const;
 export type SeedStatusSelector = (typeof SEED_STATUS_SELECTOR_VALUES)[number];
 
+/** Scratchpad Agenda state — the three marks stored in its numbered checklist. */
+export const AGENDA_ITEM_STATE_VALUES = ['open', 'done', 'superseded'] as const;
+export type AgendaItemState = (typeof AGENDA_ITEM_STATE_VALUES)[number];
+
 /** Transition-log row kinds (ADR 0003) — which axis/edge changed. `archive` is project-keyed (ADR 0015); the rest are node-keyed. */
 export const TRANSITION_KIND_VALUES = [
   'lifecycle',

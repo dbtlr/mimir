@@ -27,9 +27,11 @@ import { SEQ_TOKEN } from '../core/store-norn/plan';
  * Schema 5 added `updated_at` to the artifact rule's `field_types` (MMR-317);
  * a schema-4 binary must refuse a schema-5 vault. Schema 6 added the optional
  * `summary` lede to the same rule (MMR-319). Schema 7 added the four optional
- * task resume handles to the node rule's `field_types` (MMR-320).
+ * task resume handles to the node rule's `field_types` (MMR-320). Schema 8
+ * adds the project-anchored Scratchpad document at `scratch/<uuid>.md`
+ * (MMR-329, ADR 0027).
  */
-export const VAULT_SCHEMA = 7;
+export const VAULT_SCHEMA = 8;
 
 export const MARKER_FILE = '.mimir-vault.toml';
 export const NORN_CONFIG_FILE = '.norn/config.yaml';
@@ -90,6 +92,7 @@ validate:
           - phase
           - initiative
           - seed
+          - scratch
 
     - name: artifact
       match:
@@ -144,6 +147,26 @@ validate:
         updated_at: datetime
       allowed_paths:
         - "*/seeds/*.md"
+
+    - name: scratch
+      match:
+        path: "**/*.md"
+        frontmatter:
+          type: scratch
+      required_frontmatter:
+        - title
+        - project
+        - created
+        - updated_at
+      field_types:
+        title: text
+        project: wikilink
+        anchor: wikilink_or_list
+        created: datetime
+        updated_at: datetime
+        freezing_at: datetime
+      allowed_paths:
+        - "scratch/*.md"
 
     - name: node
       match:

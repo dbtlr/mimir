@@ -1,4 +1,5 @@
 import type {
+  AgendaItemState,
   Hold,
   Lifecycle,
   NodeType,
@@ -140,6 +141,39 @@ export type SeedView = {
    * detail read (which carries the full `description`). `null` when the seed has
    * no body. */
   lede?: string | null;
+};
+
+/** One append-only entry in a Scratchpad's numbered Journal. */
+export type ScratchpadJournalEntry = {
+  number: number;
+  at: string;
+  content: string;
+};
+
+/** One item in a Scratchpad's numbered, three-state Agenda. */
+export type ScratchpadAgendaItem = {
+  number: number;
+  state: AgendaItemState;
+  content: string;
+  /** Required for `superseded`; null for open and done items. */
+  reason: string | null;
+};
+
+/** The two owned body sections of an active Scratchpad document. */
+export type ScratchpadBody = {
+  journal: ScratchpadJournalEntry[];
+  agenda: ScratchpadAgendaItem[];
+};
+
+/** A project-owned temporary episode document. */
+export type Scratchpad = ScratchpadBody & {
+  id: string;
+  project: string;
+  title: string;
+  anchors: string[];
+  createdAt: string;
+  updatedAt: string;
+  freezingAt: string | null;
 };
 
 /**
