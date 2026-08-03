@@ -449,7 +449,7 @@ test('status reports running vs on-disk version and restart pending', async () =
   sup.state = { loaded: true, pid: 4242, running: true };
   const io = fakeIo();
   const d = deps(sup, {
-    health: () => Promise.resolve({ status: 'ok', version: '0.5.0' }),
+    health: () => Promise.resolve({ schema: 8, status: 'ok', version: '0.5.0' }),
     version: '0.6.0',
   });
 
@@ -470,7 +470,7 @@ test('status flags restart pending when a prerelease runs against an on-disk rel
   sup.state = { loaded: true, pid: 4242, running: true };
   const io = fakeIo();
   const d = deps(sup, {
-    health: () => Promise.resolve({ status: 'ok', version: '0.15.0-next.1' }),
+    health: () => Promise.resolve({ schema: 8, status: 'ok', version: '0.15.0-next.1' }),
     version: '0.15.0',
   });
 
@@ -487,7 +487,7 @@ test('status tolerates a non-SemVer running version from the health probe', asyn
   sup.state = { loaded: true, pid: 4242, running: true };
   const io = fakeIo();
   const d = deps(sup, {
-    health: () => Promise.resolve({ status: 'ok', version: 'not-a-version' }),
+    health: () => Promise.resolve({ schema: 8, status: 'ok', version: 'not-a-version' }),
     version: '0.15.0',
   });
 
@@ -728,7 +728,7 @@ test('service status emits the json envelope when format is json', async () => {
   sup.state = { loaded: true, pid: 4242, running: true };
   const io = fakeIo();
   const d = deps(sup, {
-    health: () => Promise.resolve({ status: 'ok', version: '0.5.0' }),
+    health: () => Promise.resolve({ schema: 8, status: 'ok', version: '0.5.0' }),
     version: '0.6.0',
   });
 

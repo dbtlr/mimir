@@ -10,7 +10,8 @@ export {
   writeConfig,
   writeServePort,
 } from './config';
-export { cmdSelfUpdate, cmdService, type Health, type ServiceDeps } from './commands';
+export { cmdSelfUpdate, cmdService, type ServiceDeps } from './commands';
+export { type Health, healthSchema, parseHealth } from './health';
 export { EVENTS_FILE, SERVE_LOG_FILE, SNAPSHOT_LOG_FILE } from './events';
 export { LaunchdSupervisor, bunExec } from './launchd';
 export {
