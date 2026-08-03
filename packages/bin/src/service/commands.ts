@@ -30,6 +30,7 @@ import type {
   UnitName,
   UnitStatus,
 } from './format';
+import type { Health } from './health';
 import type { Supervisor } from './launchd';
 import {
   assetName,
@@ -43,11 +44,6 @@ import {
   verifyChecksum,
 } from './self-update';
 import type { Fetcher } from './self-update';
-
-export type Health = {
-  status: string;
-  version: string;
-};
 
 export type UpdateSelection = {
   /** Include prereleases — resolve the newest build on the next-version line (--next). */
