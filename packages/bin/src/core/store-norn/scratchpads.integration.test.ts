@@ -56,18 +56,30 @@ function scratchpad(id: string): Scratchpad {
   };
 }
 
+async function expectRejection(promise: Promise<unknown>, pattern: RegExp): Promise<void> {
+  let error: unknown;
+  try {
+    await promise;
+  } catch (caught) {
+    error = caught;
+  }
+  expect(error).toBeInstanceOf(Error);
+  expect((error as Error).message).toMatch(pattern);
+}
+
 test.skipIf(!NORN)(
   'real Norn persists exact Scratchpad lifecycle and quarantines corrupt body without rewriting it',
   async () => {
     const store = createNornScratchpadStore(client, vaultRoot);
     const created = scratchpad(ID);
 
-    expect(
+    await expectRejection(
       store.create({
         ...scratchpad('323e4567-e89b-42d3-a456-426614174000'),
         agenda: [{ content: 'Invalid', number: 1, reason: null, state: 'superseded' }],
       }),
-    ).rejects.toThrow(/Agenda state/);
+      /Agenda state/,
+    );
 
     await store.create(created);
     expect(await store.load(ID)).toEqual(created);
@@ -80,12 +92,14 @@ test.skipIf(!NORN)(
       journal: [...created.journal, { at: UPDATED, content: 'Persistence settled.', number: 2 }],
       updatedAt: UPDATED,
     };
-    expect(store.replace({ ...replacement, updatedAt: CREATED }, CREATED)).rejects.toThrow(
+    await expectRejection(
+      store.replace({ ...replacement, updatedAt: CREATED }, CREATED),
       /must advance/,
     );
-    expect(
+    await expectRejection(
       store.replace({ ...replacement, updatedAt: '2026-08-03T11:59:00.000Z' }, CREATED),
-    ).rejects.toThrow(/must advance/);
+      /must advance/,
+    );
     await store.replace(replacement, CREATED);
     expect(await store.load(ID)).toEqual(replacement);
 
@@ -103,6 +117,7 @@ test.skipIf(!NORN)(
 
     expect(await store.load(CORRUPT_ID)).toBeUndefined();
     expect(await store.list('MMR')).toEqual([]);
+    await expectRejection(store.delete(CORRUPT_ID, CREATED), /quarantined scratchpad/);
     expect(readFileSync(corruptPath, 'utf8')).toBe(malformed);
   },
 );

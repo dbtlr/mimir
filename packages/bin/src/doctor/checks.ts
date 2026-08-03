@@ -149,13 +149,16 @@ function scratchpadIssue(input: {
   severity?: DoctorFinding['severity'];
   stem: string;
 }): DoctorFinding {
-  const where = `body · line ${input.line}`;
+  const documentLevel = input.code.startsWith('scratchpad-');
+  const where = documentLevel ? 'frontmatter' : `body · line ${input.line}`;
   return {
     check: 'scratchpad-body',
     code: input.code,
     evidence: input.evidence,
-    locator: `${input.path}:${input.line}`,
-    message: `Scratchpad body is structurally invalid: ${input.code.replaceAll('-', ' ')}`,
+    locator: documentLevel ? input.path : `${input.path}:${input.line}`,
+    message: documentLevel
+      ? `Scratchpad document is invalid: ${input.code.replaceAll('-', ' ')}`
+      : `Scratchpad body is structurally invalid: ${input.code.replaceAll('-', ' ')}`,
     node: input.stem,
     scopeKey: input.project,
     severity: input.severity ?? 'error',

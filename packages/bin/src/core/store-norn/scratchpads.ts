@@ -269,9 +269,15 @@ export function createNornScratchpadStore(client: NornClient, vaultRoot: string)
 
     async delete(id, expectedUpdatedAt) {
       const doc = await getRaw(id);
-      const current = doc === undefined ? undefined : await decode(doc);
-      if (doc === undefined || current === undefined) {
+      if (doc === undefined) {
         return;
+      }
+      const current = await decode(doc);
+      if (current === undefined) {
+        throw validation(
+          `${id} names a quarantined scratchpad`,
+          'inspect and recover the raw document before retrying the delete',
+        );
       }
       if (current.updatedAt !== expectedUpdatedAt) {
         throw validation('the scratchpad changed concurrently', 'reload it and retry the mutation');

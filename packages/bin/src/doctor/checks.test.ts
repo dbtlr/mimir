@@ -101,9 +101,11 @@ test('Scratchpad body failures retain UUID identity and group by explicit projec
     expect.objectContaining({
       check: 'scratchpad-body',
       code: 'duplicate-journal-section',
+      locator: 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md:3',
       node: '018f3f36-7b2b-4c92-8f31-44c764a1a456',
       scopeKey: 'MMR',
       severity: 'error',
+      where: 'body · line 3',
     }),
   ]);
   expect(REPAIR_POLICY['duplicate-journal-section']).toEqual({
@@ -144,6 +146,23 @@ test('Scratchpad anchor problems are distinct warnings while the pad remains rea
     { code: 'scratchpad-malformed-anchor', severity: 'warn' },
     { code: 'scratchpad-cross-project-anchor', severity: 'warn' },
     { code: 'scratchpad-dangling-anchor', severity: 'warn' },
+  ]);
+  expect(findings).toEqual([
+    expect.objectContaining({
+      locator: 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md',
+      message: expect.stringContaining('Scratchpad document is invalid'),
+      where: 'frontmatter',
+    }),
+    expect.objectContaining({
+      locator: 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md',
+      message: expect.stringContaining('Scratchpad document is invalid'),
+      where: 'frontmatter',
+    }),
+    expect.objectContaining({
+      locator: 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md',
+      message: expect.stringContaining('Scratchpad document is invalid'),
+      where: 'frontmatter',
+    }),
   ]);
 });
 
