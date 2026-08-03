@@ -24,5 +24,6 @@ export * from './format';
 export { now } from './time';
 export type * from './artifacts';
 export * from './seeds';
+export * from './scratchpads';
 export type * from './body-sections';
 export type * from './transitions';

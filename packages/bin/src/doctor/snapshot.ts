@@ -11,13 +11,14 @@ import { vaultGraphFromDocs } from '../core/store-norn';
 import { readSectionFailuresFromDocuments } from '../core/store-norn/body-sections';
 import type { NornClient, NornDocument } from '../core/store-norn/client';
 import type { ValidateFinding } from '../core/store-norn/decode';
-import { decodeValidateFindings, stemOf } from '../core/store-norn/decode';
+import { collapse, decodeValidateFindings, stemOf } from '../core/store-norn/decode';
 import { validate } from '../core/validate';
 import type { DoctorContext } from './checks';
 import { workStateStem } from './checks';
 
 const WORK_STATE_TYPES = 'type:project,task,phase,initiative,seed';
 const ARTIFACT_TYPE = 'type:artifact';
+const SCRATCHPAD_TYPE = 'type:scratch';
 
 /** One physical document in the snapshot. Path is its locator; stem is identity. */
 export type DoctorSnapshotDocument = {
@@ -44,6 +45,10 @@ export type DoctorSnapshot = {
    * reads as none. `frontmatter` is itself optional per-artifact so a fixture that
    * only needs path + stem (the duplicate/seq-gap checks) need not restate it. */
   artifacts?: readonly { path: string; stem: string; frontmatter?: Record<string, unknown> }[];
+  /** Scratchpads are UUID-addressed, project-owned working documents. They stay
+   * in a distinct doctor-only slice: folding them into `documents` would make
+   * the work-state graph interpret UUID filenames as canonical node stems. */
+  scratchpads?: readonly DoctorSnapshotDocument[];
   graph: VaultGraph;
   sectionFailures: readonly { path: string; stem: string; section: string }[];
   validateFindings: readonly ValidateFinding[];
@@ -224,12 +229,18 @@ export async function readDoctorSnapshot(client: NornClient): Promise<DoctorSnap
     in: [ARTIFACT_TYPE],
     no_limit: true,
   });
+  const scratchpadDocs = await client.find({
+    col: ['.frontmatter', '.body', '.document_hash'],
+    in: [SCRATCHPAD_TYPE],
+    no_limit: true,
+  });
   const sectionFailures = await readSectionFailuresFromDocuments(client, found);
   const validateFindings = decodeValidateFindings(await client.validate());
   return {
     artifacts: artifactDocs.map(artifactSlice),
     documents: found.map(snapshotDocument),
     graph: vaultGraphFromDocs(found, { withSeeds: true }),
+    scratchpads: scratchpadDocs.map(snapshotDocument),
     sectionFailures,
     validateFindings,
   };
@@ -264,6 +275,14 @@ export function doctorContextFromSnapshot(
   scope: string | undefined,
 ): DoctorContext {
   const docs = snapshot.documents.filter((doc) => doctorStemInScope(doc.stem, scope)).map(scanDoc);
+  const scratchpads = (snapshot.scratchpads ?? [])
+    .filter((doc) => {
+      if (scope === undefined || scope === '') {
+        return true;
+      }
+      return collapse(doc.frontmatter?.project) === scope;
+    })
+    .map(scanDoc);
   return {
     dropped: diagnosticDrops(snapshot),
     projectRefs: snapshot.graph.declarations ?? [],
@@ -272,6 +291,11 @@ export function doctorContextFromSnapshot(
         (snapshot.artifacts ?? []).filter((artifact) => doctorStemInScope(artifact.stem, scope)),
       ),
     readNodeDocs: () => Promise.resolve(docs),
+    readScratchpadDocs: () => Promise.resolve(scratchpads),
+    scratchpadAnchorProjects: new Map(
+      snapshot.graph.nodes.map((node) => [node.stem, node.key] as const),
+    ),
+    scratchpadProjects: new Set(snapshot.graph.projectKeys),
     sectionFailures: snapshot.sectionFailures.filter((failure) =>
       doctorStemInScope(failure.stem, scope),
     ),

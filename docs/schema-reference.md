@@ -6,7 +6,7 @@ date: 2026-07-13
 
 # mimir Schema Reference
 
-The concrete shape of the model — realized as the vault's **markdown frontmatter and body sections** — decided across ADRs [0001](decisions/0001-task-status-two-axes-derived-rollup.md)–[0007](decisions/0007-rank-is-primary-order-priority-is-signal.md), extended by seeds ([0020](decisions/0020-seeds-grooming-queue-entity.md)/[0021](decisions/0021-seed-lede-derived-and-capture-grammar.md)) and the project archive ([0015](decisions/0015-project-archive-frozen-and-hidden.md)). This is a **maintained reference**, not a frozen artifact: the vault's frontmatter and Norn's handling of it are built from here, and this document is kept honest as the model moves. The ADRs hold the _why_ in full; this note holds the _shape_ plus enough prose to construct valid Norn documents without re-deriving the contract from code.
+The concrete shape of the model — realized as the vault's **markdown frontmatter and body sections** — decided across ADRs [0001](decisions/0001-task-status-two-axes-derived-rollup.md)–[0007](decisions/0007-rank-is-primary-order-priority-is-signal.md), extended by seeds ([0020](decisions/0020-seeds-grooming-queue-entity.md)/[0021](decisions/0021-seed-lede-derived-and-capture-grammar.md)), Scratchpads ([0027](decisions/0027-scratchpads-are-temporary-episode-state.md)), and the project archive ([0015](decisions/0015-project-archive-frozen-and-hidden.md)). This is a **maintained reference**, not a frozen artifact: the vault's frontmatter and Norn's handling of it are built from here, and this document is kept honest as the model moves. The ADRs hold the _why_ in full; this note holds the _shape_ plus enough prose to construct valid Norn documents without re-deriving the contract from code.
 
 > **Single source of truth is the vault.** The durable record is the markdown itself — hand-editable, git-backed, inspectable. Norn ([ADR 0016](decisions/0016-norn-vault-system-of-record.md)) owns every read, write, and query and maintains its own SQLite **index**; that index is a cache, never the record. Mimir reduces to business logic and derivation over Norn ([ADR 0018](decisions/0018-vault-access-is-norn-only.md): **all vault access is Norn-only** — Mimir never touches files directly). Where this note and a document disagree, the document wins; where an ADR and either disagree, the ADR wins.
 
@@ -22,8 +22,9 @@ These hold for every document; the per-entity sections below don't repeat them.
   | work node (initiative/phase/task) | `KEY-seq` | `KEY/KEY-seq.md`          |
   | artifact                          | `KEY-aN`  | `KEY/artifacts/KEY-aN.md` |
   | seed                              | `KEY-sN`  | `KEY/seeds/KEY-sN.md`     |
+  | scratchpad                        | UUID v4   | `scratch/<uuid>.md`       |
 
-  `KEY` is `[A-Z]{2,4}`, immutable, consumer-supplied. `seq`/`N` are per-project sequence integers allocated by Norn as `max+1` over the project's existing documents during create (1-based, one sequence each for nodes / artifacts / seeds) — there is **no stored allocation counter** ([ADR 0016](decisions/0016-norn-vault-system-of-record.md)). A sequence component is never reused by a Mimir operation while its document exists.
+  `KEY` is `[A-Z]{2,4}`, immutable, consumer-supplied. `seq`/`N` are per-project sequence integers allocated by Norn as `max+1` over the project's existing documents during create (1-based, one sequence each for nodes / artifacts / seeds) — there is **no stored allocation counter** ([ADR 0016](decisions/0016-norn-vault-system-of-record.md)). A sequence component is never reused by a Mimir operation while its document exists. Scratchpads are the deliberate exception to the sequenced durable identity grammar: their temporary identity is a cryptographically generated UUID v4.
 
 - **Abandon, don't `rm`.** To retire a task, use its lifecycle (`mimir abandon`) — the document and its `KEY-seq` stay, so the number is never reused and every `KEY-seq` reference stays stable ([ADR 0006](decisions/0006-human-readable-node-ids.md)). Hand-deleting a document (`rm`) is out of contract: because allocation is `max+1`, the next create re-hands the freed number, silently reusing an id. This is accepted, not prevented (a single-user vault deletion is intentional), but surfaced — an interior sequence gap (a missing number below a project's max) is durable deletion evidence, flagged by `mimir doctor` and recoverable with `git revert` over the vault's snapshot history ([ADR 0017](decisions/0017-runtime-data-tolerance.md)).
 
@@ -50,6 +51,7 @@ These hold for every document; the per-entity sections below don't repeat them.
 - **transition / history** — not its own document: the append-only log ([ADR 0003](decisions/0003-append-only-transition-log.md)) is `## History` records in the node's (or project's, for `archive`) body.
 - **artifact** (`KEY/artifacts/KEY-aN.md`) — frozen markdown blob, anchored to one project, linked to 0..N nodes via the `anchor` field ([ADR 0004](decisions/0004-artifact-model-project-anchored-flexibly-linked.md)).
 - **seed** (`KEY/seeds/KEY-sN.md`) — the grooming-queue record ([ADR 0020](decisions/0020-seeds-grooming-queue-entity.md)): project-anchored, its own `KEY-sN` id, **not** a node. Body: `## Seed Description`, `## History`, `## Annotations`.
+- **scratchpad** (`scratch/<uuid>.md`) — temporary, project-anchored episode state ([ADR 0027](decisions/0027-scratchpads-are-temporary-episode-state.md)), with an append-only numbered Journal and lifecycle-owned numbered Agenda. It freezes into a complete Artifact or is discarded; it is not a node or mutable Artifact.
 - **tag** — not its own document: an opaque string in the `tags` frontmatter list on any project/node/artifact ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)); seeds carry no tags. The vault stores **no per-tag note or timestamp**.
 
 ---
@@ -211,6 +213,42 @@ The grooming-queue record ([ADR 0020](decisions/0020-seeds-grooming-queue-entity
 **Lifecycle machine:** `new → promoted | resolved | rejected` and `promoted → resolved | rejected`. `resolved`/`rejected` are terminal (a terminal seed is frozen — `patch`/`transition` refuse it); the terminal states are set only by explicit triager verbs, never derived from spawned work. `promote`/germinate moves `new → promoted` and appends the spawned node to `spawned` in one atomic plan.
 
 The task-side `upstream` field (see the node table) is the requester-side pointer at a seed — reference-only in v1, resolved by the read seam; the validator surfaces a malformed or dangling `upstream`.
+
+## `scratchpad` — `scratch/<uuid>.md`
+
+A Scratchpad is temporary, project-anchored state for one unsettled work episode ([ADR 0027](decisions/0027-scratchpads-are-temporary-episode-state.md)). Its filename stem is a canonical lowercase UUID v4 generated by the runtime. The storage seam accepts exact UUIDs only; any human-facing prefix convenience belongs above it.
+
+| Field         | Type             | Presence | Allowed / default                                 | Written by               |
+| ------------- | ---------------- | -------- | ------------------------------------------------- | ------------------------ |
+| `type`        | string           | always   | `scratch`                                         | Scratchpad create        |
+| `project`     | wikilink         | always   | `[[KEY]]`, the one required project home          | create                   |
+| `title`       | string           | always   | display title                                     | create / metadata update |
+| `created`     | timestamp        | always   | canonical ISO-8601 UTC milliseconds               | create                   |
+| `updated_at`  | timestamp        | always   | canonical ISO-8601 UTC milliseconds               | every working mutation   |
+| `anchor`      | list of wikilink | optional | same-project linked-work stems                    | create / metadata update |
+| `freezing_at` | timestamp        | optional | present while the idempotent freeze protocol runs | freeze lifecycle         |
+
+`created <= updated_at` is the only relational timestamp invariant. Journal timestamps use the same canonical representation, but their numbering—not wall-clock order—is authoritative; they need not be monotonic or equal `updated_at`. A valid `freezing_at` document remains readable so the service can recover an interrupted freeze.
+
+The body contains exactly one `## Journal` and one `## Agenda`. Their local number spaces are independent, start at 1, and remain contiguous and monotonic:
+
+```md
+## Journal
+
+### 1 — 2026-08-01T20:44:00.000Z
+
+Freeform checkpoint prose.
+
+## Agenda
+
+1. [ ] Open question
+2. [x] Settled question
+3. [-] Superseded question — reason: replaced by agenda 7
+```
+
+Journal records are append-only free Markdown. Agenda supports only add (`[ ]`), complete (`[x]`), and supersede with a required reason (`[-] ... — reason: ...`). Reopening or deleting an item is not a transition; a revived concern gets a new number referencing the old item.
+
+Owned-section corruption—missing or duplicate headings, malformed owned records, or duplicate/missing/out-of-order sequence numbers—quarantines the entire Scratchpad from normal reads. The raw document remains untouched and `mimir doctor` reports the same codec findings; `doctor --fix` never repairs Scratchpad body semantics. A missing or invalid owning project also quarantines the record. An invalid, dangling, or cross-project optional `anchor` is instead pruned individually and diagnosed, matching the non-load-bearing edge-tolerance posture.
 
 ## `tags`
 

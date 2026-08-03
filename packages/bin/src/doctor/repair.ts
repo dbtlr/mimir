@@ -42,6 +42,7 @@ export type RepairPolicy =
  * union includes Drop['rule'], adding a validator rule cannot compile until it
  * is explicitly supported or skipped here. */
 export const REPAIR_POLICY: Record<DoctorIssueCode, RepairPolicy> = {
+  'agenda-sequence': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'archived-requester': { kind: 'skipped', reason: 'non-corruption-warning' },
   'crlf-body': { kind: 'supported', recipe: 'normalize-crlf' },
   'cycle-depends-on': { kind: 'skipped', reason: 'semantic-reference' },
@@ -53,12 +54,15 @@ export const REPAIR_POLICY: Record<DoctorIssueCode, RepairPolicy> = {
   // A duplicate artifact stem is two distinct documents claiming one id — which
   // survives is a human call, never a doctor mutation (ADR 0023: detect, don't
   // guard). `--fix` skips it, exactly like the work-state `duplicate-stem` (MMR-282).
+  'duplicate-agenda-section': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'duplicate-artifact-stem': { kind: 'skipped', reason: 'ambiguous-identity' },
+  'duplicate-journal-section': { kind: 'skipped', reason: 'ambiguous-body-record' },
   // Which of two `## Next` blocks is the live narrative is a human call — the
   // same reason a duplicated `## History`/`## Annotations` anchor is only ever
   // APPENDED to when absent, never de-duplicated (see `appendCanonicalHeading`).
   'duplicate-next-section': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'duplicate-stem': { kind: 'skipped', reason: 'ambiguous-identity' },
+  'empty-journal-entry': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'frontmatter-disallowed-value': { kind: 'skipped', reason: 'unreadable-document' },
   'frontmatter-parse-failed': { kind: 'skipped', reason: 'unreadable-document' },
   'frontmatter-required-field-missing': { kind: 'skipped', reason: 'unreadable-document' },
@@ -67,24 +71,45 @@ export const REPAIR_POLICY: Record<DoctorIssueCode, RepairPolicy> = {
   // non-corruption warning (`archived-requester`).
   'interior-seq-gap': { kind: 'skipped', reason: 'non-corruption-warning' },
   'invalid-hold': { kind: 'skipped', reason: 'invalid-semantic-value' },
+  'invalid-journal-timestamp': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'invalid-lifecycle': { kind: 'skipped', reason: 'invalid-semantic-value' },
   'invalid-open-ended': { kind: 'skipped', reason: 'invalid-semantic-value' },
   'invalid-priority': { kind: 'skipped', reason: 'invalid-semantic-value' },
   'invalid-seed-kind': { kind: 'skipped', reason: 'invalid-semantic-value' },
   'invalid-seed-lifecycle': { kind: 'skipped', reason: 'invalid-semantic-value' },
   'invalid-size': { kind: 'skipped', reason: 'invalid-semantic-value' },
+  'journal-sequence': { kind: 'skipped', reason: 'ambiguous-body-record' },
+  'malformed-agenda-item': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'malformed-history-heading': { kind: 'skipped', reason: 'ambiguous-body-record' },
+  'malformed-journal-entry': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'malformed-upstream': { kind: 'skipped', reason: 'invalid-semantic-value' },
+  'missing-agenda-section': { kind: 'skipped', reason: 'ambiguous-body-record' },
+  'missing-journal-section': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'missing-project': { kind: 'supported', recipe: 'recover-missing-project' },
   'missing-updated-at': { kind: 'supported', recipe: 'stamp-updated-at' },
   'non-iso-annotation-heading': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'orphaned-seed': { kind: 'supported', recipe: 'recover-missing-project' },
+  'scratchpad-created-after-updated': { kind: 'skipped', reason: 'unreadable-document' },
+  'scratchpad-cross-project-anchor': { kind: 'skipped', reason: 'semantic-reference' },
+  'scratchpad-dangling-anchor': { kind: 'skipped', reason: 'semantic-reference' },
+  'scratchpad-invalid-body': { kind: 'skipped', reason: 'ambiguous-body-record' },
+  'scratchpad-invalid-created': { kind: 'skipped', reason: 'unreadable-document' },
+  'scratchpad-invalid-freezing-at': { kind: 'skipped', reason: 'unreadable-document' },
+  'scratchpad-invalid-path': { kind: 'skipped', reason: 'unreadable-document' },
+  'scratchpad-invalid-project': { kind: 'skipped', reason: 'unreadable-document' },
+  'scratchpad-invalid-title': { kind: 'skipped', reason: 'unreadable-document' },
+  'scratchpad-invalid-type': { kind: 'skipped', reason: 'unreadable-document' },
+  'scratchpad-invalid-updated-at': { kind: 'skipped', reason: 'unreadable-document' },
+  'scratchpad-malformed-anchor': { kind: 'skipped', reason: 'semantic-reference' },
+  'scratchpad-missing-project': { kind: 'skipped', reason: 'unreadable-document' },
   'section-annotations-unreadable': {
     kind: 'supported',
     recipe: 'add-canonical-heading',
   },
   'section-history-unreadable': { kind: 'supported', recipe: 'add-canonical-heading' },
+  'section-order': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'stem-project-divergence': { kind: 'supported', recipe: 'restore-project-projection' },
+  'superseded-reason-required': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'unknown-requester': { kind: 'skipped', reason: 'semantic-reference' },
   'unknown-transition-kind': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'unparseable-history-record': { kind: 'skipped', reason: 'ambiguous-body-record' },

@@ -24,6 +24,17 @@ afterEach(() => {
 
 const vaultAt = (name: string) => join(root, name);
 
+test('schema 8 admits project-anchored Scratchpads only under scratch/', () => {
+  const config = renderNornConfig();
+  expect(VAULT_SCHEMA).toBe(8);
+  expect(config).toContain('          - scratch\n');
+  expect(config).toContain(
+    ['    - name: scratch', '      match:', '        path: "**/*.md"'].join('\n'),
+  );
+  expect(config).toContain('        freezing_at: datetime\n');
+  expect(config).toContain('        - "scratch/*.md"\n');
+});
+
 /** An exec whose spawn itself fails — the missing-git-binary environment. */
 const noGitExec = () => Promise.reject(new Error('Executable not found in $PATH: "git"'));
 

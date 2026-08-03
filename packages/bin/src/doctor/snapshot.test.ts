@@ -7,7 +7,7 @@ import {
   readDoctorSnapshot,
 } from './snapshot';
 
-test('reads one whole-vault enumeration plus one artifact scan and derives every document diagnostic input (MMR-241, MMR-282)', async () => {
+test('reads distinct work-state, artifact, and Scratchpad slices (MMR-241, MMR-282, MMR-329)', async () => {
   let findCalls = 0;
   let validateCalls = 0;
   const findArgs: NornFindArgs[] = [];
@@ -23,6 +23,16 @@ test('reads one whole-vault enumeration plus one artifact scan and derives every
           {
             frontmatter: { project: '[[MMR]]', type: 'artifact' },
             path: 'MMR/artifacts/MMR-a1.md',
+          },
+        ]);
+      }
+      if (args.in?.includes('type:scratch')) {
+        return Promise.resolve([
+          {
+            body: '## Journal\n\n## Agenda\n',
+            document_hash: 'scratch-hash',
+            frontmatter: { project: '[[MMR]]', type: 'scratch' },
+            path: 'MMR/scratchpads/018f3f36-7b2b-7c92-8f31-44c764a1a456.md',
           },
         ]);
       }
@@ -62,14 +72,19 @@ test('reads one whole-vault enumeration plus one artifact scan and derives every
 
   const snapshot = await readDoctorSnapshot(client);
 
-  // Two finds: the work-state enumeration + the distinct artifact scan. Section reads
+  // Three finds: work-state plus distinct artifact and Scratchpad scans. Section reads
   // still derive from the work-state find; artifacts contribute path + stem plus their
   // `.frontmatter` (MMR-317: the updated_at check and stamp repair read it).
-  expect(findCalls).toBe(2);
+  expect(findCalls).toBe(3);
   expect(validateCalls).toBe(1);
   expect(findArgs).toContainEqual({
     col: ['.frontmatter', '.body', '.document_hash'],
     in: ['type:project,task,phase,initiative,seed'],
+    no_limit: true,
+  });
+  expect(findArgs).toContainEqual({
+    col: ['.frontmatter', '.body', '.document_hash'],
+    in: ['type:scratch'],
     no_limit: true,
   });
   expect(findArgs).toContainEqual({
@@ -82,6 +97,15 @@ test('reads one whole-vault enumeration plus one artifact scan and derives every
       frontmatter: { project: '[[MMR]]', type: 'artifact' },
       path: 'MMR/artifacts/MMR-a1.md',
       stem: 'MMR-a1',
+    },
+  ]);
+  expect(snapshot.scratchpads).toEqual([
+    {
+      body: '## Journal\n\n## Agenda\n',
+      documentHash: 'scratch-hash',
+      frontmatter: { project: '[[MMR]]', type: 'scratch' },
+      path: 'MMR/scratchpads/018f3f36-7b2b-7c92-8f31-44c764a1a456.md',
+      stem: '018f3f36-7b2b-7c92-8f31-44c764a1a456',
     },
   ]);
   expect(sectionCalls).toEqual([
@@ -123,6 +147,34 @@ test('reads one whole-vault enumeration plus one artifact scan and derives every
   expect(snapshot.validateFindings).toEqual([
     { code: 'required-frontmatter', field: 'title', path: 'MMR/MMR-1.md' },
   ]);
+});
+
+test('Scratchpad scope follows explicit project ownership rather than UUID filename', async () => {
+  const snapshot = {
+    documents: [],
+    graph: { nodes: [], projectKeys: ['MMR', 'OTH'] },
+    scratchpads: [
+      {
+        body: 'mmr',
+        documentHash: 'one',
+        frontmatter: { project: '[[MMR|Mimir]]', type: 'scratch' },
+        path: 'MMR/scratchpads/018f3f36-7b2b-7c92-8f31-44c764a1a456.md',
+        stem: '018f3f36-7b2b-7c92-8f31-44c764a1a456',
+      },
+      {
+        body: 'other',
+        documentHash: 'two',
+        frontmatter: { project: '[[OTH]]', type: 'scratch' },
+        path: 'OTH/scratchpads/018f3f36-7b2b-7c92-8f31-44c764a1a457.md',
+        stem: '018f3f36-7b2b-7c92-8f31-44c764a1a457',
+      },
+    ],
+    sectionFailures: [],
+    validateFindings: [],
+  };
+
+  const docs = await doctorContextFromSnapshot(snapshot, 'MMR').readScratchpadDocs?.();
+  expect(docs?.map((doc) => doc.body)).toEqual(['mmr']);
 });
 
 test('merged physical duplicates fail node and seed references closed before diagnosis', async () => {

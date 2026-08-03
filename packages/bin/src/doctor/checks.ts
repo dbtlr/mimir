@@ -9,9 +9,14 @@
 import type { BodyRecordProblem } from '../core/history-codec';
 import { lintBodySections } from '../core/history-codec';
 import { parseIdentity } from '../core/ids';
+import type { ScratchpadBodyProblem } from '../core/scratchpads/codec';
+import { lintScratchpadBody } from '../core/scratchpads/codec';
+import { isScratchpadId } from '../core/scratchpads/store';
 import type { ProjectDeclaration } from '../core/store-norn';
 import type { ValidateFinding } from '../core/store-norn/decode';
-import { stemOf } from '../core/store-norn/decode';
+import { collapse, stemOf } from '../core/store-norn/decode';
+import { decodeScratchpadDocument } from '../core/store-norn/scratchpads';
+import type { ScratchpadDocumentProblem } from '../core/store-norn/scratchpads';
 import type { Drop } from '../core/validate';
 
 /** What a check reads: the raw vault documents to diagnose. */
@@ -35,6 +40,14 @@ export type DoctorContext = {
   readArtifactDocs: () => Promise<
     { stem: string; path: string; frontmatter?: Record<string, unknown> }[]
   >;
+  /** UUID-addressed `type: scratch` documents from their own doctor-only
+   * enumeration. Scoped by their explicit `project` ownership, never by UUID
+   * filename, and never folded into the work-state graph. */
+  readScratchpadDocs?: () => Promise<
+    { stem: string; body: string; path: string; frontmatter?: Record<string, unknown> }[]
+  >;
+  scratchpadProjects?: ReadonlySet<string>;
+  scratchpadAnchorProjects?: ReadonlyMap<string, string>;
   /** The shared validator's `dropped[]` over the whole-vault graph — computed
    * once by the runner and fed to every referential check, so the four checks
    * that render `dropped[]` (dangling / missing-project / acyclicity / field
@@ -94,6 +107,7 @@ export type DoctorFinding = {
 export type DoctorIssueCode =
   | Drop['rule']
   | BodyRecordProblem
+  | ScratchpadBodyProblem
   | 'crlf-body'
   | 'duplicate-artifact-stem'
   | 'frontmatter-disallowed-value'
@@ -103,6 +117,7 @@ export type DoctorIssueCode =
   | 'missing-updated-at'
   | 'section-annotations-unreadable'
   | 'section-history-unreadable'
+  | `scratchpad-${ScratchpadDocumentProblem['problem']}`
   | 'stem-project-divergence'
   | 'value-not-allowed';
 
@@ -125,6 +140,30 @@ function issue(input: FindingInput): DoctorFinding {
   };
 }
 
+function scratchpadIssue(input: {
+  code: ScratchpadBodyProblem | `scratchpad-${ScratchpadDocumentProblem['problem']}`;
+  evidence: Readonly<Record<string, unknown>>;
+  line: number;
+  path: string;
+  project: string;
+  severity?: DoctorFinding['severity'];
+  stem: string;
+}): DoctorFinding {
+  const where = `body · line ${input.line}`;
+  return {
+    check: 'scratchpad-body',
+    code: input.code,
+    evidence: input.evidence,
+    locator: `${input.path}:${input.line}`,
+    message: `Scratchpad body is structurally invalid: ${input.code.replaceAll('-', ' ')}`,
+    node: input.stem,
+    scopeKey: input.project,
+    severity: input.severity ?? 'error',
+    stem: input.stem,
+    where,
+  };
+}
+
 /** A registered diagnostic: a named check over the vault. A check is sync when it
  * reads only the pre-computed {@link DoctorContext.dropped}, async when it reads
  * raw docs; the runner awaits either. */
@@ -132,6 +171,69 @@ export type Diagnostic = {
   name: string;
   title: string;
   run: (ctx: DoctorContext) => DoctorFinding[] | Promise<DoctorFinding[]>;
+};
+
+/** Scratchpads are quarantined as a whole when either owned body section fails
+ * the shared codec. UUID identity is retained for location while project
+ * frontmatter supplies grouping/scope; Scratchpads never enter the work graph. */
+export const scratchpadBodyCheck: Diagnostic = {
+  name: 'scratchpad-body',
+  async run(ctx) {
+    const docs = await (ctx.readScratchpadDocs?.() ?? Promise.resolve([]));
+    const findings: DoctorFinding[] = [];
+    for (const doc of docs) {
+      const collapsedProject = collapse(doc.frontmatter?.project);
+      const project =
+        collapsedProject !== null && parseIdentity(collapsedProject)?.kind === 'project'
+          ? collapsedProject
+          : doc.stem;
+      for (const finding of lintScratchpadBody(doc.body)) {
+        findings.push(
+          scratchpadIssue({
+            code: finding.problem,
+            evidence: { source: finding.evidence },
+            line: finding.line,
+            path: doc.path,
+            project,
+            stem: doc.stem,
+          }),
+        );
+      }
+      const decoded = decodeScratchpadDocument(
+        {
+          body: doc.body,
+          documentHash: null,
+          fm: doc.frontmatter ?? {},
+          path: doc.path,
+        },
+        ctx.scratchpadProjects ?? new Set(),
+        ctx.scratchpadAnchorProjects ?? new Map(),
+      );
+      for (const problem of decoded.problems) {
+        if (problem.problem === 'invalid-body') {
+          continue;
+        }
+        findings.push(
+          scratchpadIssue({
+            code: `scratchpad-${problem.problem}`,
+            evidence: problem.value === undefined ? {} : { value: problem.value },
+            line: 1,
+            path: doc.path,
+            project,
+            severity:
+              problem.problem === 'dangling-anchor' ||
+              problem.problem === 'cross-project-anchor' ||
+              problem.problem === 'malformed-anchor'
+                ? 'warn'
+                : 'error',
+            stem: doc.stem,
+          }),
+        );
+      }
+    }
+    return findings;
+  },
+  title: 'Scratchpad Journal and Agenda integrity',
 };
 
 /**
@@ -596,7 +698,8 @@ export const fieldValidityCheck: Diagnostic = {
  * A finding's `path` names a work-state document — and its stem — iff the path
  * matches one of the vault's parent-dir-anchored layouts (the `allowed_paths` in
  * `vault/schema.ts`): a node `KEY/KEY-seq.md`, a project `KEY/KEY.md`, an artifact
- * `KEY/artifacts/KEY-aN.md`, or a seed `KEY/seeds/KEY-sN.md`. Every reader (and
+ * `KEY/artifacts/KEY-aN.md`, a seed `KEY/seeds/KEY-sN.md`, or a Scratchpad
+ * `scratch/<uuid>.md`. Every reader (and
  * every other doctor check) enumerates the vault by `type:`, so a doc whose
  * frontmatter won't parse or has no `type` is invisible to them and reported by
  * norn's schema pass by *path* only. The vault may hold unrelated docs (loose
@@ -637,6 +740,12 @@ export function workStateStem(path: string): string | null {
     parent === 'seeds' &&
     grandparent === identity.key
   ) {
+    return stem;
+  }
+  // A Scratchpad `scratch/<uuid-v4>.md`: UUID identity is deliberately outside
+  // parseIdentity's durable KEY grammar, but malformed/untyped frontmatter must
+  // still remain visible to doctor through the canonical staging path.
+  if (parts.length === 2 && parent === 'scratch' && isScratchpadId(stem)) {
     return stem;
   }
   return null;
@@ -1248,6 +1357,7 @@ export const upstreamRefCheck: Diagnostic = {
 
 /** The registered checks `mimir doctor` runs, in report order. */
 export const CHECKS: readonly Diagnostic[] = [
+  scratchpadBodyCheck,
   bodySectionCheck,
   crlfCheck,
   updatedAtCheck,

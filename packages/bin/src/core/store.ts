@@ -12,6 +12,7 @@ import type {
 import type { ArtifactStore } from './artifacts/store';
 import type { BodySectionStore } from './body-sections/store';
 import type { Artifact, Dependency, Node, Project } from './model';
+import type { ScratchpadStore } from './scratchpads/store';
 import type { SeedStore } from './seeds/store';
 import type { TransitionsFeed } from './transitions/store';
 
@@ -316,6 +317,9 @@ export type Store = {
    * artifacts (ADR 0004 precedent), keyed by the `KEY-sN` external identity.
    */
   readonly seeds: SeedStore;
+
+  /** UUID-addressed, project-owned temporary episode documents. */
+  readonly scratchpads: ScratchpadStore;
 
   /**
    * The body-section read slice (MMR-154, ADR 0016 Phase 3) — a node's
