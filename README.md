@@ -100,6 +100,20 @@ mimir tag MMR-3,MMR-a1 spec v2    # tag tasks, projects, artifacts (free-text)
 mimir attach MMR-3 --file plan.md # freeze an artifact (title from basename)
 ```
 
+Temporary episode state uses the Scratchpad noun group. Every mutation takes
+the latest `updated_at` returned by `create`, `get`, or the previous mutation:
+
+```sh
+mimir scratch create "shape import recovery" --link MMR-331 -f json
+mimir scratch list
+mimir scratch get <uuid> -f json
+mimir scratch checkpoint <uuid> "settled the retry contract" --expected-updated-at <timestamp>
+mimir scratch freeze <uuid> --summary "Import recovery design" --expected-updated-at <timestamp>
+```
+
+The matching MCP tools are named `scratch_create`, `scratch_list`,
+`scratch_get`, and `scratch_*` for the remaining operations.
+
 Formats: `table` / `records` (styled TTY) and `ids` / `json` / `jsonl`
 (structural, never styled). The default follows the destination — a table for a
 TTY set, `ids` when piped — and `--format` overrides. Identity selection

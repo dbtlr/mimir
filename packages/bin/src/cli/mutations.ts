@@ -572,9 +572,15 @@ export async function cmdAttach(c: Ctx): Promise<number> {
   if (primary !== undefined) {
     linkTokens.push(primary);
   }
-  if (typeof c.values.link === 'string') {
+  let linkFlags: string[] = [];
+  if (Array.isArray(c.values.link)) {
+    linkFlags = c.values.link.filter((value): value is string => typeof value === 'string');
+  } else if (typeof c.values.link === 'string') {
+    linkFlags = [c.values.link];
+  }
+  for (const linkFlag of linkFlags) {
     linkTokens.push(
-      ...c.values.link
+      ...linkFlag
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
@@ -640,8 +646,7 @@ function lastFlag(c: Ctx, name: string): string | undefined {
 }
 
 function optStr(c: Ctx, name: string): string | undefined {
-  const v = c.values[name];
-  return typeof v === 'string' ? v : undefined;
+  return lastFlag(c, name);
 }
 
 /**
@@ -998,6 +1003,10 @@ export async function cmdSeeds(c: Ctx): Promise<number> {
 
 export async function cmdPromote(c: Ctx): Promise<number> {
   const id = requireSeedId(c, 'promote');
+  const links = c.values.link;
+  if (Array.isArray(links) && links.length > 1) {
+    throw usage('promote accepts exactly one --link');
+  }
   const { seed, created, spawnedId } = await promoteSeed(c.store, id, {
     description: optStr(c, 'desc'),
     link: optStr(c, 'link'),

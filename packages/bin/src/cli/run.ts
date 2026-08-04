@@ -91,6 +91,7 @@ import {
   renderTree,
 } from './render';
 import { resolveProject } from './resolve';
+import { cmdScratch, scratchSubcommand } from './scratch';
 import { cmdSetup } from './setup';
 import { SKILL_AGENTS, SKILL_FILES, skillDirFor } from './skill-assets';
 
@@ -142,7 +143,11 @@ const OPTIONS = {
   target: { type: 'string' },
   ref: { type: 'string' },
   file: { type: 'string' },
-  link: { type: 'string' },
+  link: { multiple: true, type: 'string' },
+  'clear-links': { type: 'boolean' },
+  'expected-updated-at': { type: 'string' },
+  force: { type: 'boolean' },
+  reason: { type: 'string' },
   project: { type: 'string' },
   top: { type: 'boolean' },
   bottom: { type: 'boolean' },
@@ -231,11 +236,15 @@ const COMMANDS: ReadonlySet<string> = new Set(
  * ladder terminates somewhere useful instead of looping.
  */
 type OwnedFlagValues = {
+  'clear-links'?: boolean;
+  'expected-updated-at'?: string;
+  force?: boolean;
   next?: boolean;
   direction?: string;
   since?: string;
   offset?: string;
   query?: string;
+  reason?: string;
 };
 
 const VERB_OWNED_FLAGS: readonly {
@@ -244,6 +253,30 @@ const VERB_OWNED_FLAGS: readonly {
   given: (values: OwnedFlagValues) => boolean;
   hint: string;
 }[] = [
+  {
+    flag: '--clear-links',
+    given: (values) => values['clear-links'] === true,
+    hint: `'--clear-links' replaces linked work; use it with scratch update`,
+    owner: 'scratch',
+  },
+  {
+    flag: '--expected-updated-at',
+    given: (values) => values['expected-updated-at'] !== undefined,
+    hint: `'--expected-updated-at' guards mutations; use it with scratch`,
+    owner: 'scratch',
+  },
+  {
+    flag: '--force',
+    given: (values) => values.force === true,
+    hint: `'--force' permits a non-empty discard; use it with scratch discard`,
+    owner: 'scratch',
+  },
+  {
+    flag: '--reason',
+    given: (values) => values.reason !== undefined,
+    hint: `'--reason' records a Scratchpad supersession or forced discard`,
+    owner: 'scratch',
+  },
   {
     flag: '--next',
     given: (values) => values.next === true,
@@ -365,7 +398,11 @@ export async function runCli(
     target?: string;
     ref?: string;
     file?: string;
-    link?: string;
+    link?: string[];
+    'clear-links'?: boolean;
+    'expected-updated-at'?: string;
+    force?: boolean;
+    reason?: string;
     project?: string;
     top?: boolean;
     bottom?: boolean;
@@ -428,7 +465,7 @@ export async function runCli(
   // any dispatch, so help never opens the store.
   if (values.help === true) {
     ctx.write(
-      helpForCommand(command, positionals[1], full, ctx.plain) ??
+      helpForCommand(command, positionals[1], full, ctx.plain, positionals[2]) ??
         (full ? renderFullHelp(ctx.plain) : renderTerseHelp(ctx.plain)),
     );
     return 0;
@@ -650,6 +687,17 @@ export async function runCli(
         }
         renderArtifacts(result, format, ctx, { showProject: scope === undefined });
         return 0;
+      }
+      case 'scratch': {
+        scratchSubcommand(positionals);
+        return await cmdScratch({
+          boundScope: defaults.scope,
+          format: pickFormat(values.format, positionals[1] === 'list' ? 'set' : 'single', ctx),
+          io: ctx,
+          positionals,
+          store: await getStore(),
+          values,
+        });
       }
       case 'depend': {
         return await cmdDepend(await mkCtx());

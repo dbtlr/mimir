@@ -9,8 +9,31 @@ import {
   formatSetJson,
   formatSetJsonl,
   formatStatusJson,
+  overviewScratchpadToWire,
   seedToWire,
 } from './format';
+
+test('overview Scratchpad wire projection uses public linked-work and timestamp fields', () => {
+  expect(
+    overviewScratchpadToWire({
+      id: '00000000-0000-4000-8000-000000000001',
+      linkedWork: ['MMR-331'],
+      openAgenda: 2,
+      project: 'MMR',
+      state: 'freezing',
+      title: 'surface Scratchpads',
+      updatedAt: '2026-08-03T00:00:00.000Z',
+    }),
+  ).toEqual({
+    id: '00000000-0000-4000-8000-000000000001',
+    linked_work: ['MMR-331'],
+    open_agenda: 2,
+    project: 'MMR',
+    state: 'freezing',
+    title: 'surface Scratchpads',
+    updated_at: '2026-08-03T00:00:00.000Z',
+  });
+});
 
 const seedView = (over: Partial<SeedView> = {}): SeedView => ({
   createdAt: '2026-07-01T00:00:00.000Z',

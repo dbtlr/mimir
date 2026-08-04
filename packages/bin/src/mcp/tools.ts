@@ -5,6 +5,7 @@ import {
   WRITE_ECHO_FACETS,
 } from '@mimir/contract';
 import type {
+  Scratchpad,
   FacetName,
   FieldFilter,
   Priority,
@@ -28,6 +29,7 @@ import {
   projectViewByKey,
   projectViewOf,
   createNode,
+  createScratchpadService,
   depend,
   fileSeed,
   getSeed,
@@ -124,6 +126,194 @@ export const toolErrorResult = (code: string, message: string, hint?: string): T
   isError: true,
 });
 const fail = toolErrorResult;
+
+type ScratchpadMutationArgs = { id: string; expected_updated_at: string };
+
+export type ScratchCreateToolArgs = { scope: string; title: string; linked_work?: string[] };
+export type ScratchListToolArgs = { scope?: string };
+export type ScratchUpdateToolArgs = ScratchpadMutationArgs & {
+  title?: string;
+  linked_work?: string[];
+};
+
+const scratchpadToWire = (scratchpad: Scratchpad): Record<string, unknown> => ({
+  agenda: scratchpad.agenda.map((item) => ({
+    content: item.content,
+    number: item.number,
+    reason: item.reason,
+    state: item.state,
+  })),
+  created_at: scratchpad.createdAt,
+  freezing_at: scratchpad.freezingAt,
+  id: scratchpad.id,
+  journal: scratchpad.journal.map((entry) => ({
+    at: entry.at,
+    content: entry.content,
+    number: entry.number,
+  })),
+  linked_work: scratchpad.anchors,
+  project: scratchpad.project,
+  title: scratchpad.title,
+  updated_at: scratchpad.updatedAt,
+});
+
+const scratchpadReceipt = (scratchpad: Scratchpad): Record<string, unknown> => ({
+  id: scratchpad.id,
+  open_agenda: scratchpad.agenda.filter((item) => item.state === 'open').length,
+  project: scratchpad.project,
+  title: scratchpad.title,
+  updated_at: scratchpad.updatedAt,
+});
+
+const scratchService = (store: Store) =>
+  createScratchpadService(store.scratchpads, store.artifacts);
+
+export function toolScratchCreate(store: Store, args: ScratchCreateToolArgs): Promise<ToolResult> {
+  return guard(async () => {
+    const scratchpad = await scratchService(store).create({
+      anchors: args.linked_work,
+      project: args.scope,
+      title: args.title,
+    });
+    return ok(JSON.stringify(scratchpadReceipt(scratchpad), null, 2));
+  });
+}
+
+export function toolScratchList(store: Store, args: ScratchListToolArgs): Promise<ToolResult> {
+  return guard(async () => {
+    const scratchpads = (await scratchService(store).list(args.scope)).toSorted(
+      (a, b) =>
+        Number(b.freezingAt !== null) - Number(a.freezingAt !== null) ||
+        b.updatedAt.localeCompare(a.updatedAt) ||
+        a.id.localeCompare(b.id),
+    );
+    return ok(
+      JSON.stringify(
+        {
+          scratchpads: scratchpads.map((scratchpad) => ({
+            ...scratchpadReceipt(scratchpad),
+            state: scratchpad.freezingAt === null ? 'active' : 'freezing',
+          })),
+          total: scratchpads.length,
+        },
+        null,
+        2,
+      ),
+    );
+  });
+}
+
+export function toolScratchGet(store: Store, args: { id: string }): Promise<ToolResult> {
+  return guard(async () =>
+    ok(JSON.stringify(scratchpadToWire(await scratchService(store).get(args.id)), null, 2)),
+  );
+}
+
+export function toolScratchUpdate(store: Store, args: ScratchUpdateToolArgs): Promise<ToolResult> {
+  return guard(async () => {
+    const scratchpad = await scratchService(store).updateMetadata(args.id, {
+      anchors: args.linked_work,
+      expectedUpdatedAt: args.expected_updated_at,
+      title: args.title,
+    });
+    return ok(JSON.stringify(scratchpadReceipt(scratchpad), null, 2));
+  });
+}
+
+export function toolScratchCheckpoint(
+  store: Store,
+  args: ScratchpadMutationArgs & { content: string },
+): Promise<ToolResult> {
+  return guard(async () => {
+    const scratchpad = await scratchService(store).checkpoint(args.id, {
+      content: args.content,
+      expectedUpdatedAt: args.expected_updated_at,
+    });
+    return ok(JSON.stringify(scratchpadReceipt(scratchpad), null, 2));
+  });
+}
+
+export function toolScratchAgendaAdd(
+  store: Store,
+  args: ScratchpadMutationArgs & { content: string },
+): Promise<ToolResult> {
+  return guard(async () => {
+    const scratchpad = await scratchService(store).agendaAdd(args.id, {
+      content: args.content,
+      expectedUpdatedAt: args.expected_updated_at,
+    });
+    return ok(JSON.stringify(scratchpadReceipt(scratchpad), null, 2));
+  });
+}
+
+export function toolScratchAgendaComplete(
+  store: Store,
+  args: ScratchpadMutationArgs & { number: number },
+): Promise<ToolResult> {
+  return guard(async () => {
+    const scratchpad = await scratchService(store).agendaComplete(args.id, {
+      expectedUpdatedAt: args.expected_updated_at,
+      number: args.number,
+    });
+    return ok(JSON.stringify(scratchpadReceipt(scratchpad), null, 2));
+  });
+}
+
+export function toolScratchAgendaSupersede(
+  store: Store,
+  args: ScratchpadMutationArgs & { number: number; reason: string },
+): Promise<ToolResult> {
+  return guard(async () => {
+    const scratchpad = await scratchService(store).agendaSupersede(args.id, {
+      expectedUpdatedAt: args.expected_updated_at,
+      number: args.number,
+      reason: args.reason,
+    });
+    return ok(JSON.stringify(scratchpadReceipt(scratchpad), null, 2));
+  });
+}
+
+export function toolScratchFreeze(
+  store: Store,
+  args: ScratchpadMutationArgs & { summary: string; tags?: string[] },
+): Promise<ToolResult> {
+  return guard(async () => {
+    const artifact = await scratchService(store).freeze(args.id, {
+      expectedUpdatedAt: args.expected_updated_at,
+      summary: args.summary,
+      tags: args.tags,
+    });
+    return ok(
+      JSON.stringify(
+        {
+          created_at: artifact.created_at,
+          id: `${artifact.key}-a${String(artifact.seq)}`,
+          linked_work: artifact.links,
+          project: artifact.key,
+          summary: artifact.summary,
+          tags: artifact.tags,
+          title: artifact.title,
+        },
+        null,
+        2,
+      ),
+    );
+  });
+}
+
+export function toolScratchDiscard(
+  store: Store,
+  args: ScratchpadMutationArgs & { force?: boolean; reason?: string },
+): Promise<ToolResult> {
+  return guard(async () => {
+    await scratchService(store).discard(args.id, {
+      expectedUpdatedAt: args.expected_updated_at,
+      force: args.force,
+      reason: args.reason,
+    });
+    return ok(JSON.stringify({ id: args.id, result: 'discarded' }, null, 2));
+  });
+}
 
 /** Map a thrown {@link MimirError} to a structured `isError` result; rethrow anything else. */
 async function guard(run: () => Promise<ToolResult>): Promise<ToolResult> {

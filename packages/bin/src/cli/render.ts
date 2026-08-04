@@ -745,6 +745,17 @@ export function renderOverview(report: OverviewReport, io: Io): string {
   };
 
   taskSection('in flight', report.inFlight.count, report.inFlight.tasks, handleClause);
+
+  out.push('', `active scratchpads (${String(report.scratchpads.count)})`);
+  for (const scratchpad of report.scratchpads.scratchpads) {
+    const state = scratchpad.state === 'freezing' ? 'freezing · ' : '';
+    const links =
+      scratchpad.linkedWork.length === 0 ? '' : ` · linked ${scratchpad.linkedWork.join(', ')}`;
+    out.push(
+      `  ${state}${scratchpad.id} · ${scratchpad.project} · ${scratchpad.title} · ${String(scratchpad.openAgenda)} open Agenda · ${scratchpad.updatedAt}${links}`,
+    );
+  }
+
   taskSection('next', report.next.count, report.next.tasks);
 
   // awaiting — same rows, each with its upstream ids as a `·` clause.

@@ -93,6 +93,12 @@ plural. `artifacts` has no singular twin — creation is `attach`, whose relatio
 is the command's essence (see the creation grammar above) — so it is a plain
 plural noun naming the set it returns.
 
+**Exception (ADR 0028): Scratchpads use a work-plane noun group.** Scratchpads
+use UUID handles outside the sequenced work-id grammar and expose a complete
+temporary-state lifecycle, so `mimir scratch <operation>` keeps their generic
+operations from overloading the established work verbs. This exception does not
+generalize to tasks, Seeds, Artifacts, or future work types.
+
 **Rename policy (pre-1.0): hard breaks, no aliases.** A rename removes the
 old verb outright — no alias or shim table, which would let two names mean
 one thing and reintroduce exactly the drift this taxonomy exists to prevent.
@@ -146,3 +152,5 @@ regrouping + descriptors) and MMR-287 (skill-reference alignment).
 - `mimir overview` lands under its audited name and placement (MMR-278).
 - `mimir artifacts` lands as a flat read verb under the amendment above
   (MMR-322). The plural-noun disclaimer stands unchanged for node queries.
+- Scratchpads use the narrow `mimir scratch <operation>` exception recorded in
+  ADR 0028; the ordinary work lifecycle remains flat.

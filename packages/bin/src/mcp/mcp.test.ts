@@ -28,6 +28,16 @@ import {
   toolMove,
   toolNext,
   toolOverview,
+  toolScratchAgendaAdd,
+  toolScratchAgendaComplete,
+  toolScratchAgendaSupersede,
+  toolScratchCheckpoint,
+  toolScratchCreate,
+  toolScratchDiscard,
+  toolScratchFreeze,
+  toolScratchGet,
+  toolScratchList,
+  toolScratchUpdate,
   toolReorder,
   toolStatus,
   toolTag,
@@ -196,6 +206,202 @@ test.skipIf(!NORN)('artifacts tool returns a structured error for an unknown sco
   const result = await toolArtifacts(store, { scope: 'ZZZ' });
   expect(result.isError).toBe(true);
   expect(parseJson<{ error: { code: string } }>(textOf(result)).error.code).toBe('not_found');
+});
+
+test.skipIf(!NORN)(
+  'scratch tools create, mutate, read full state, and list compactly',
+  async () => {
+    const created = parseJson<{
+      id: string;
+      open_agenda: number;
+      updated_at: string;
+    }>(textOf(await toolScratchCreate(store, { scope: 'MMR', title: 'Episode' })));
+    expect(created.open_agenda).toBe(0);
+
+    const checkpointed = parseJson<{ updated_at: string }>(
+      textOf(
+        await toolScratchCheckpoint(store, {
+          content: 'Found the seam',
+          expected_updated_at: created.updated_at,
+          id: created.id,
+        }),
+      ),
+    );
+    const agenda = parseJson<{ open_agenda: number; updated_at: string }>(
+      textOf(
+        await toolScratchAgendaAdd(store, {
+          content: 'Wire the transport',
+          expected_updated_at: checkpointed.updated_at,
+          id: created.id,
+        }),
+      ),
+    );
+    expect(agenda.open_agenda).toBe(1);
+
+    const completed = parseJson<{ open_agenda: number; updated_at: string }>(
+      textOf(
+        await toolScratchAgendaComplete(store, {
+          expected_updated_at: agenda.updated_at,
+          id: created.id,
+          number: 1,
+        }),
+      ),
+    );
+    expect(completed.open_agenda).toBe(0);
+    const second = parseJson<{ updated_at: string }>(
+      textOf(
+        await toolScratchAgendaAdd(store, {
+          content: 'Obsolete follow-up',
+          expected_updated_at: completed.updated_at,
+          id: created.id,
+        }),
+      ),
+    );
+    const superseded = parseJson<{ open_agenda: number; updated_at: string }>(
+      textOf(
+        await toolScratchAgendaSupersede(store, {
+          expected_updated_at: second.updated_at,
+          id: created.id,
+          number: 2,
+          reason: 'covered elsewhere',
+        }),
+      ),
+    );
+    expect(superseded.open_agenda).toBe(0);
+
+    const full = parseJson<{
+      journal: { content: string }[];
+      agenda: { content: string; number: number; reason: string | null; state: string }[];
+      linked_work: string[];
+    }>(textOf(await toolScratchGet(store, { id: created.id })));
+    expect(full.journal[0]?.content).toBe('Found the seam');
+    expect(full.agenda).toEqual([
+      expect.objectContaining({ content: 'Wire the transport', number: 1, state: 'done' }),
+      expect.objectContaining({
+        content: 'Obsolete follow-up',
+        number: 2,
+        reason: 'covered elsewhere',
+        state: 'superseded',
+      }),
+    ]);
+    expect(full.linked_work).toEqual([]);
+
+    const listed = parseJson<{ total: number; scratchpads: Record<string, unknown>[] }>(
+      textOf(await toolScratchList(store, { scope: 'MMR' })),
+    );
+    expect(listed.total).toBe(1);
+    expect(listed.scratchpads[0]).not.toHaveProperty('journal');
+  },
+);
+
+test.skipIf(!NORN)('scratch update preserves omitted links and rejects a stale guard', async () => {
+  const created = parseJson<{ id: string; updated_at: string }>(
+    textOf(
+      await toolScratchCreate(store, {
+        linked_work: [taskRef],
+        scope: 'MMR',
+        title: 'Episode',
+      }),
+    ),
+  );
+  const updated = await toolScratchUpdate(store, {
+    expected_updated_at: created.updated_at,
+    id: created.id,
+    title: 'Renamed',
+  });
+  expect(updated.isError).toBeUndefined();
+  const full = parseJson<{ linked_work: string[] }>(
+    textOf(await toolScratchGet(store, { id: created.id })),
+  );
+  expect(full.linked_work).toEqual([taskRef]);
+
+  const stale = await toolScratchUpdate(store, {
+    expected_updated_at: created.updated_at,
+    id: created.id,
+    linked_work: [],
+  });
+  expect(stale.isError).toBe(true);
+  expect(parseJson<{ error: { code: string } }>(textOf(stale)).error.code).toBe('validation');
+});
+
+test.skipIf(!NORN)(
+  'scratch freeze returns a compact artifact receipt and retries idempotently',
+  async () => {
+    const created = parseJson<{ id: string; updated_at: string }>(
+      textOf(await toolScratchCreate(store, { scope: 'MMR', title: 'Episode' })),
+    );
+    const args = {
+      expected_updated_at: created.updated_at,
+      id: created.id,
+      summary: 'Durable episode outcome',
+      tags: ['decision'],
+    };
+
+    const first = await toolScratchFreeze(store, args);
+    expect(first.isError).toBeUndefined();
+    const receipt = parseJson<{
+      created_at: string;
+      id: string;
+      linked_work: string[];
+      project: string;
+      summary: string;
+      tags: string[];
+      title: string;
+    }>(textOf(first));
+    expect(receipt).toMatchObject({
+      linked_work: [],
+      project: 'MMR',
+      summary: 'Durable episode outcome',
+      title: 'Episode',
+    });
+    expect(receipt.id).toMatch(/^MMR-a\d+$/);
+    expect(receipt.tags).toEqual(expect.arrayContaining(['scratchpad', 'decision']));
+    expect(receipt).not.toHaveProperty('content');
+
+    const retried = await toolScratchFreeze(store, args);
+    expect(retried.isError).toBeUndefined();
+    expect(parseJson<{ id: string }>(textOf(retried)).id).toBe(receipt.id);
+  },
+);
+
+test.skipIf(!NORN)('scratch discard refuses open Agenda unless forced with a reason', async () => {
+  const created = parseJson<{ id: string; updated_at: string }>(
+    textOf(await toolScratchCreate(store, { scope: 'MMR', title: 'Disposable' })),
+  );
+  const agenda = parseJson<{ updated_at: string }>(
+    textOf(
+      await toolScratchAgendaAdd(store, {
+        content: 'Unsettled work',
+        expected_updated_at: created.updated_at,
+        id: created.id,
+      }),
+    ),
+  );
+
+  const refused = await toolScratchDiscard(store, {
+    expected_updated_at: agenda.updated_at,
+    id: created.id,
+  });
+  expect(refused.isError).toBe(true);
+  expect(parseJson<{ error: { code: string; message: string } }>(textOf(refused))).toMatchObject({
+    error: { code: 'validation' },
+  });
+
+  const forced = await toolScratchDiscard(store, {
+    expected_updated_at: agenda.updated_at,
+    force: true,
+    id: created.id,
+    reason: 'Episode is obsolete',
+  });
+  expect(forced.isError).toBeUndefined();
+  expect(parseJson<Record<string, unknown>>(textOf(forced))).toEqual({
+    id: created.id,
+    result: 'discarded',
+  });
+
+  const missing = await toolScratchGet(store, { id: created.id });
+  expect(missing.isError).toBe(true);
+  expect(parseJson<{ error: { code: string } }>(textOf(missing)).error.code).toBe('not_found');
 });
 
 test.skipIf(!NORN)('overview tool rejects the cross-project all escape (MMR-278)', async () => {

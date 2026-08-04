@@ -4,6 +4,7 @@ import type {
   NodeView,
   OverviewAttentionTask,
   OverviewReport,
+  OverviewScratchpad,
   OverviewSession,
   SeedView,
   SetResult,
@@ -14,6 +15,19 @@ import type {
 } from '@mimir/contract';
 
 import { seedLane } from './seeds/lane';
+
+/** Map the compact active-Scratchpad projection to its public wire vocabulary. */
+export function overviewScratchpadToWire(scratchpad: OverviewScratchpad): Record<string, unknown> {
+  return {
+    id: scratchpad.id,
+    linked_work: scratchpad.linkedWork,
+    open_agenda: scratchpad.openAgenda,
+    project: scratchpad.project,
+    state: scratchpad.state,
+    title: scratchpad.title,
+    updated_at: scratchpad.updatedAt,
+  };
+}
 
 /**
  * The **structural** output formats — `ids` / `json` / `jsonl` — a versioned
@@ -396,6 +410,10 @@ function sessionToWire(entry: OverviewSession): Record<string, unknown> {
  */
 export function overviewToWire(report: OverviewReport): Record<string, unknown> {
   return {
+    active_scratchpads: {
+      count: report.scratchpads.count,
+      scratchpads: report.scratchpads.scratchpads.map(overviewScratchpadToWire),
+    },
     awaiting: {
       count: report.awaiting.count,
       tasks: report.awaiting.tasks.map((a) => {
