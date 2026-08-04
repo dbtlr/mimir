@@ -45,6 +45,8 @@ import {
   promoteSeed,
   promoteToWire,
   seedToWire,
+  scratchpadReceiptToWire,
+  scratchpadToWire,
   transitionSeed,
   updateSeed,
   nodeViewOf,
@@ -52,6 +54,7 @@ import {
   projectViewOf,
   createNode,
   createProject,
+  createScratchpadService,
   depend,
   renderArtifactRef,
   resolveAttachTargets,
@@ -168,6 +171,10 @@ const PROJECT_LIST_FACETS: readonly FacetName[] = [
  * Scoped to `?status=archived` only: the facet costs an artifact-store read per
  * project, and the active list is polled every 10s by a UI that never reads it. */
 const ARCHIVED_LIST_FACETS: readonly FacetName[] = [...PROJECT_LIST_FACETS, 'artifactCount'];
+
+function scratchService(store: Store) {
+  return createScratchpadService(store.scratchpads, store.artifacts);
+}
 
 /** Resolve a node token against an already-derived set — the HTTP binding of the
  * core guard, with route pointers. The multi-token twin `nodeRef` uses when a
@@ -1091,6 +1098,151 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               throw validation(`${key} is not a project key`);
             }
             return json(req, treeToWire(await projectTree(store, key)));
+          }),
+      },
+
+      '/api/scratchpads': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const scope = new URL(req.url).searchParams.get('project') ?? undefined;
+            const scratchpads = (
+              await scratchService(store).list(scope === 'all' ? undefined : scope)
+            ).toSorted(
+              (a, b) =>
+                Number(b.freezingAt !== null) - Number(a.freezingAt !== null) ||
+                b.updatedAt.localeCompare(a.updatedAt) ||
+                a.id.localeCompare(b.id),
+            );
+            return json(req, {
+              items: scratchpads.map((scratchpad) => ({
+                ...scratchpadReceiptToWire(scratchpad),
+                state: scratchpad.freezingAt === null ? 'active' : 'freezing',
+              })),
+              total: scratchpads.length,
+            });
+          }),
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['linked_work', 'project', 'title']);
+            const scratchpad = await scratchService(store).create({
+              anchors: strList(body, 'linked_work'),
+              project: requiredStr(body, 'project', 'scratchpad create'),
+              title: requiredStr(body, 'title', 'scratchpad create'),
+            });
+            return json(req, scratchpadReceiptToWire(scratchpad), 201);
+          }),
+      },
+
+      '/api/scratchpads/:id': {
+        DELETE: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['expected_updated_at', 'force', 'reason']);
+            await scratchService(store).discard(req.params.id, {
+              expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad discard'),
+              force: boolField(body, 'force'),
+              reason: strField(body, 'reason'),
+            });
+            return json(req, { id: req.params.id, result: 'discarded' });
+          }),
+        GET: (req) =>
+          guarded(req, async () =>
+            json(req, scratchpadToWire(await scratchService(store).get(req.params.id))),
+          ),
+        PATCH: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['expected_updated_at', 'linked_work', 'title']);
+            const scratchpad = await scratchService(store).updateMetadata(req.params.id, {
+              anchors: strList(body, 'linked_work'),
+              expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad update'),
+              title: strField(body, 'title'),
+            });
+            return json(req, scratchpadReceiptToWire(scratchpad));
+          }),
+      },
+
+      '/api/scratchpads/:id/agenda': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['content', 'expected_updated_at']);
+            const scratchpad = await scratchService(store).agendaAdd(req.params.id, {
+              content: requiredStr(body, 'content', 'scratchpad agenda add'),
+              expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad agenda add'),
+            });
+            return json(req, scratchpadReceiptToWire(scratchpad));
+          }),
+      },
+
+      '/api/scratchpads/:id/agenda/:number/complete': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['expected_updated_at']);
+            const number = Number(req.params.number);
+            if (!Number.isSafeInteger(number) || number < 1) {
+              throw validation('scratchpad agenda complete requires a positive item number');
+            }
+            const scratchpad = await scratchService(store).agendaComplete(req.params.id, {
+              expectedUpdatedAt: requiredStr(
+                body,
+                'expected_updated_at',
+                'scratchpad agenda complete',
+              ),
+              number,
+            });
+            return json(req, scratchpadReceiptToWire(scratchpad));
+          }),
+      },
+
+      '/api/scratchpads/:id/agenda/:number/supersede': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['expected_updated_at', 'reason']);
+            const number = Number(req.params.number);
+            if (!Number.isSafeInteger(number) || number < 1) {
+              throw validation('scratchpad agenda supersede requires a positive item number');
+            }
+            const scratchpad = await scratchService(store).agendaSupersede(req.params.id, {
+              expectedUpdatedAt: requiredStr(
+                body,
+                'expected_updated_at',
+                'scratchpad agenda supersede',
+              ),
+              number,
+              reason: requiredStr(body, 'reason', 'scratchpad agenda supersede'),
+            });
+            return json(req, scratchpadReceiptToWire(scratchpad));
+          }),
+      },
+
+      '/api/scratchpads/:id/checkpoints': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['content', 'expected_updated_at']);
+            const scratchpad = await scratchService(store).checkpoint(req.params.id, {
+              content: requiredStr(body, 'content', 'scratchpad checkpoint'),
+              expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad checkpoint'),
+            });
+            return json(req, scratchpadReceiptToWire(scratchpad));
+          }),
+      },
+
+      '/api/scratchpads/:id/freeze': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['expected_updated_at', 'summary', 'tags']);
+            const artifact = await scratchService(store).freeze(req.params.id, {
+              expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad freeze'),
+              summary: requiredStr(body, 'summary', 'scratchpad freeze'),
+              tags: strList(body, 'tags'),
+            });
+            return json(req, {
+              created_at: artifact.created_at,
+              id: `${artifact.key}-a${String(artifact.seq)}`,
+              linked_work: artifact.links,
+              project: artifact.key,
+              summary: artifact.summary,
+              tags: artifact.tags,
+              title: artifact.title,
+            });
           }),
       },
 

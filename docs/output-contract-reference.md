@@ -180,8 +180,8 @@ total before the cap. `hygiene` is counts only — `dropped` is the load's own
 }
 ```
 
-The MCP `overview` tool returns the identical envelope; there is no HTTP route
-(ADR 0012).
+The MCP `overview` tool and HTTP `GET /api/projects/:key/overview` return the
+identical envelope (ADR 0012).
 
 ## Doctor diagnostics and repair
 
@@ -288,6 +288,13 @@ Mutations are high-level verbs (never a raw `status` patch — glossary **Lifecy
 | update KEY-sN _(`MMR-245`)_                 | `mimir update KEY-sN [--title --kind --desc]` patches a live seed (the id grammar routes s-ids to the seed store); `resolved`/`rejected` seeds refuse patches. A node-only flag (`--priority`, `--size`, …) on a seed update is a **usage error (exit 2)**, not a validation error. `--upstream KEY-sN` on `create task` / `update KEY-seq` sets the requester-side seed pointer                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | triage _(`MMR-246`)_                        | `mimir triage [KEY] [--dry-run] [--format …]` — the explicit-run reconciliation pass over ONE board (bare = the bound board). Three checks: (a) untriaged seeds, (b) ready-to-resolve seeds, (c) the board's own tasks whose `upstream` seed went terminal → an **idempotent** annotation (`upstream KEY-sN resolved\|rejected: <reason>`, the marker head `upstream <KEY-sN> <resolved\|rejected>` is the machine-recognizable idempotency key) + an unblock **suggestion**. **Writes by default** (running it is the intent); **never transitions**; `--dry-run` previews with no writes. A **report, never a gate** — always **exit 0** (like `doctor`). Format is the `report` split (human in a terminal, `json` piped; `--format json`/`jsonl` for the machine shape — `jsonl` is the composite report on one line, not a per-record stream; `ids` prints the check-(c) task ids). MCP `triage` mirrors 1:1; **HTTP is out of scope** (the report is operator/agent-facing; the console's triage surface is the seeds queue UI, MMR-247). Timer/eventual-consistency mode is **deferred** |
 | scratch _(`MMR-331`, ADR 0028)_             | `mimir scratch create\|list\|get\|update\|checkpoint\|agenda add\|complete\|supersede\|freeze\|discard` — the temporary episode-state noun group. Create/list default to the bound project (`-s KEY`; list also accepts `all`); UUID-addressed reads and mutations are global. Create takes no concurrency token and returns a Scratchpad receipt with `updated_at`. Existing-Scratchpad mutations require `--expected-updated-at` and refuse stale values; update, checkpoint, and agenda operations return the next `updated_at` token. Freeze returns an Artifact receipt and discard returns a discard receipt, neither with `updated_at`. `get` alone returns the full Journal + Agenda. `checkpoint` accepts inline content or `--file`; repeated `--link` values replace linked work and `--clear-links` clears it. Freeze is retryable; discard with open Agenda requires `--force --reason`. MCP mirrors these as `scratch_*` tools with `expected_updated_at` and `linked_work`; HTTP parity is MMR-332.                                                                              |
+
+HTTP exposes Scratchpad parity through `GET/POST /api/scratchpads`,
+`GET/PATCH/DELETE /api/scratchpads/:id`, and the `checkpoints`, `agenda`,
+`agenda/:number/complete`, `agenda/:number/supersede`, and `freeze` mutation
+sub-routes. Collection rows use `items` plus `total`; detail alone carries the
+Journal and Agenda. Every existing-Scratchpad mutation requires
+`expected_updated_at`.
 
 - **IDs** are `KEY-seq` (nodes) / bare `KEY` (projects), resolved in the transport; **`--parent` is polymorphic** (bare KEY = project; KEY-seq = node). Lists are comma-separated (CLI) / arrays (MCP). MCP mirrors these as **named args** — no positionals, no files/stdin (`content` is a required arg).
 - **`create`** takes an explicit type (not inferable from parent). **`attach`** is node-first (infers the owning project) and enforces the **project-consistency rule**: all node refs (primary + links) must share one project, validated _before_ any write.

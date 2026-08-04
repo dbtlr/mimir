@@ -6,6 +6,7 @@ import type {
   OverviewReport,
   OverviewScratchpad,
   OverviewSession,
+  Scratchpad,
   SeedView,
   SetResult,
   StatusView,
@@ -24,6 +25,41 @@ export function overviewScratchpadToWire(scratchpad: OverviewScratchpad): Record
     open_agenda: scratchpad.openAgenda,
     project: scratchpad.project,
     state: scratchpad.state,
+    title: scratchpad.title,
+    updated_at: scratchpad.updatedAt,
+  };
+}
+
+/** Map a complete Scratchpad to the public snake-case transport vocabulary. */
+export function scratchpadToWire(scratchpad: Scratchpad): Record<string, unknown> {
+  return {
+    agenda: scratchpad.agenda.map((item) => ({
+      content: item.content,
+      number: item.number,
+      reason: item.reason,
+      state: item.state,
+    })),
+    created_at: scratchpad.createdAt,
+    freezing_at: scratchpad.freezingAt,
+    id: scratchpad.id,
+    journal: scratchpad.journal.map((entry) => ({
+      at: entry.at,
+      content: entry.content,
+      number: entry.number,
+    })),
+    linked_work: scratchpad.anchors,
+    project: scratchpad.project,
+    title: scratchpad.title,
+    updated_at: scratchpad.updatedAt,
+  };
+}
+
+/** Compact mutation/list projection; `updated_at` is the next concurrency token. */
+export function scratchpadReceiptToWire(scratchpad: Scratchpad): Record<string, unknown> {
+  return {
+    id: scratchpad.id,
+    open_agenda: scratchpad.agenda.filter((item) => item.state === 'open').length,
+    project: scratchpad.project,
     title: scratchpad.title,
     updated_at: scratchpad.updatedAt,
   };
