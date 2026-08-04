@@ -45,6 +45,8 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0024](0024-cli-command-taxonomy.md)                              | CLI command taxonomy — two planes, flat work verbs                 |
 | [0025](0025-descriptor-driven-registration.md)                    | Descriptor-driven registration — facts in tables, grammar in views |
 | [0026](0026-work-state-composition.md)                            | Work-state composition — views composed at read time               |
+| [0027](0027-scratchpads-are-temporary-episode-state.md)           | Scratchpads are temporary episode state                            |
+| [0028](0028-scratchpads-use-a-work-noun-group.md)                 | Scratchpads use a work-plane noun group                            |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model

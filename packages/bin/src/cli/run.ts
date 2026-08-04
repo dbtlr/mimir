@@ -91,6 +91,7 @@ import {
   renderTree,
 } from './render';
 import { resolveProject } from './resolve';
+import { cmdScratch } from './scratch';
 import { cmdSetup } from './setup';
 import { SKILL_AGENTS, SKILL_FILES, skillDirFor } from './skill-assets';
 
@@ -142,7 +143,11 @@ const OPTIONS = {
   target: { type: 'string' },
   ref: { type: 'string' },
   file: { type: 'string' },
-  link: { type: 'string' },
+  link: { multiple: true, type: 'string' },
+  'clear-links': { type: 'boolean' },
+  'expected-updated-at': { type: 'string' },
+  force: { type: 'boolean' },
+  reason: { type: 'string' },
   project: { type: 'string' },
   top: { type: 'boolean' },
   bottom: { type: 'boolean' },
@@ -365,7 +370,11 @@ export async function runCli(
     target?: string;
     ref?: string;
     file?: string;
-    link?: string;
+    link?: string[];
+    'clear-links'?: boolean;
+    'expected-updated-at'?: string;
+    force?: boolean;
+    reason?: string;
     project?: string;
     top?: boolean;
     bottom?: boolean;
@@ -428,7 +437,7 @@ export async function runCli(
   // any dispatch, so help never opens the store.
   if (values.help === true) {
     ctx.write(
-      helpForCommand(command, positionals[1], full, ctx.plain) ??
+      helpForCommand(command, positionals[1], full, ctx.plain, positionals[2]) ??
         (full ? renderFullHelp(ctx.plain) : renderTerseHelp(ctx.plain)),
     );
     return 0;
@@ -650,6 +659,16 @@ export async function runCli(
         }
         renderArtifacts(result, format, ctx, { showProject: scope === undefined });
         return 0;
+      }
+      case 'scratch': {
+        return await cmdScratch({
+          boundScope: defaults.scope,
+          format: pickFormat(values.format, positionals[1] === 'list' ? 'set' : 'single', ctx),
+          io: ctx,
+          positionals,
+          store: await getStore(),
+          values,
+        });
       }
       case 'depend': {
         return await cmdDepend(await mkCtx());

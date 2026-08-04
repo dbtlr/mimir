@@ -117,7 +117,56 @@ test.skipIf(!NORN)('empty sections carry a zero count', async () => {
   });
   expect(report.sessions).toEqual({ entries: [], shown: 0 });
   expect(report.direction).toEqual({ containers: [], count: 0, project: null });
+  expect(report.scratchpads).toEqual({ count: 0, scratchpads: [] });
 });
+
+test.skipIf(!NORN)(
+  'active Scratchpads are capped with a true count and freezing first',
+  async () => {
+    const ids = Array.from(
+      { length: 6 },
+      (_, i) => `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+    );
+    for (const [index, id] of ids.entries()) {
+      const at = `2026-08-03T00:00:0${String(index)}.000Z`;
+      await store.scratchpads.create({
+        agenda:
+          index === 0
+            ? [
+                { content: 'open item', number: 1, reason: null, state: 'open' },
+                { content: 'finished item', number: 2, reason: null, state: 'done' },
+              ]
+            : [],
+        anchors: index === 0 ? [phaseStem] : [],
+        createdAt: at,
+        freezingAt: index === 0 ? at : null,
+        id,
+        journal: [],
+        project: 'MMR',
+        title: `pad-${String(index)}`,
+        updatedAt: at,
+      });
+    }
+
+    const report = await overviewOf(store, 'MMR');
+    expect(report.scratchpads.count).toBe(6);
+    expect(report.scratchpads.scratchpads).toHaveLength(5);
+    const first = report.scratchpads.scratchpads[0];
+    expect(first?.id).toBe(ids[0]);
+    expect(first?.linkedWork).toEqual([phaseStem]);
+    expect(first?.openAgenda).toBe(1);
+    expect(first?.project).toBe('MMR');
+    expect(first?.state).toBe('freezing');
+    expect(first?.title).toBe('pad-0');
+    expect(first?.updatedAt).toBe('2026-08-03T00:00:00.000Z');
+    expect(report.scratchpads.scratchpads.slice(1).map((pad) => pad.title)).toEqual([
+      'pad-5',
+      'pad-4',
+      'pad-3',
+      'pad-2',
+    ]);
+  },
+);
 
 test.skipIf(!NORN)('stale hygiene counts tasks quiet past the threshold (asOf)', async () => {
   const started = await createTask(store, { parentId: phaseId, title: 'started' });

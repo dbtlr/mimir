@@ -12,6 +12,7 @@ export {
   nextTasks,
   normalizeFilterDate,
   overviewOf,
+  overviewScratchpadOf,
   statusOfNode,
 } from './queries';
 export {

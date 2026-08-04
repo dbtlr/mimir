@@ -30,6 +30,8 @@ import { converge } from '../vault/converge';
  */
 export type TestStore = {
   store: Store;
+  /** Isolated vault path for subprocess-level persistence proofs. */
+  vaultRoot: string;
   /** The seed store over the same isolated Norn client — seed-mutation fixtures
    * (the MMR-313 co-write guard cycle) drive it directly, as the write `store`
    * has no seed surface. */
@@ -84,6 +86,7 @@ export async function createTestStore(): Promise<TestStore> {
       removeDocument: (path) => unlinkSync(safeVaultPath(root, path)),
       seeds: createNornSeedStore(client, root),
       store: createNornWriteStore(client, root),
+      vaultRoot: root,
     };
   } catch (error) {
     // A failed converge (or client construction) must not strand the temp dir.

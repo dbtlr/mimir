@@ -443,6 +443,27 @@ export type OverviewSection = {
   tasks: NodeView[];
 };
 
+/** A compact active-Scratchpad row for agent orientation (MMR-331). */
+export type OverviewScratchpad = {
+  /** The full canonical UUID handle; Scratchpads never use abbreviated ids. */
+  id: string;
+  project: string;
+  title: string;
+  /** Public linked-work vocabulary; backed by the Scratchpad's anchors. */
+  linkedWork: string[];
+  updatedAt: string;
+  openAgenda: number;
+  /** A staged freeze remains discoverable and is attention-ordered first. */
+  state: 'active' | 'freezing';
+};
+
+/** Active Scratchpads for one project, capped after attention ordering. */
+export type OverviewScratchpads = {
+  /** The true number of active documents before the overview cap. */
+  count: number;
+  scratchpads: OverviewScratchpad[];
+};
+
 /** An `overview` awaiting row (MMR-278): a lean task plus the upstream ids it awaits
  * — the still-unsettled effective prerequisites (the `deps` facet's awaiting-on ids). */
 export type OverviewAwaitingTask = {
@@ -626,6 +647,7 @@ export type OverviewDirection = {
  */
 export type OverviewReport = {
   project: { id: string; status: StatusWord; distribution: Distribution };
+  scratchpads: OverviewScratchpads;
   direction: OverviewDirection;
   inFlight: OverviewSection;
   next: OverviewSection;

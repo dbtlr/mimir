@@ -45,6 +45,16 @@ import {
   toolUntag,
   toolUpdate,
   toolErrorResult,
+  toolScratchAgendaAdd,
+  toolScratchAgendaComplete,
+  toolScratchAgendaSupersede,
+  toolScratchCheckpoint,
+  toolScratchCreate,
+  toolScratchDiscard,
+  toolScratchFreeze,
+  toolScratchGet,
+  toolScratchList,
+  toolScratchUpdate,
 } from './tools';
 import type { ArtifactQueryToolArgs, SetQueryArgs, ToolResult, UniformToolArgs } from './tools';
 
@@ -503,6 +513,109 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       tag: z.string().optional(),
     },
     (args: ArtifactQueryToolArgs) => toolArtifacts(store, applyScope(args)),
+  );
+
+  register(
+    server,
+    'scratch_create',
+    'Create a temporary, project-owned Scratchpad. Defaults to the bound project and returns a compact mutation receipt.',
+    {
+      linked_work: z.array(z.string()).optional(),
+      scope: z.string().optional(),
+      title: z.string(),
+    },
+    (args: { linked_work?: string[]; scope?: string; title: string }) => {
+      const scoped = applyScope(args);
+      if (scoped.scope === undefined) {
+        return Promise.resolve(
+          toolErrorResult(
+            'validation',
+            'scratch_create requires a project scope',
+            'pass scope or run from a bound workspace',
+          ),
+        );
+      }
+      return toolScratchCreate(store, { ...scoped, scope: scoped.scope });
+    },
+  );
+
+  register(
+    server,
+    'scratch_list',
+    'List active Scratchpads. Defaults to the bound project; scope "all" lists every project.',
+    { scope: z.string().optional() },
+    (args: { scope?: string }) => toolScratchList(store, applyScope(args)),
+  );
+
+  register(
+    server,
+    'scratch_get',
+    'Read one full Scratchpad by UUID.',
+    { id: z.string() },
+    (args: { id: string }) => toolScratchGet(store, args),
+  );
+
+  const scratchMutation = { expected_updated_at: z.string(), id: z.string() };
+
+  register(
+    server,
+    'scratch_update',
+    'Update Scratchpad metadata. Omitted linked_work preserves links; an empty array clears them.',
+    {
+      ...scratchMutation,
+      linked_work: z.array(z.string()).optional(),
+      title: z.string().optional(),
+    },
+    (args: { expected_updated_at: string; id: string; linked_work?: string[]; title?: string }) =>
+      toolScratchUpdate(store, args),
+  );
+  register(
+    server,
+    'scratch_checkpoint',
+    'Append a Journal checkpoint and return a compact receipt.',
+    { ...scratchMutation, content: z.string() },
+    (args: { content: string; expected_updated_at: string; id: string }) =>
+      toolScratchCheckpoint(store, args),
+  );
+  register(
+    server,
+    'scratch_agenda_add',
+    'Append an open Agenda item and return a compact receipt.',
+    { ...scratchMutation, content: z.string() },
+    (args: { content: string; expected_updated_at: string; id: string }) =>
+      toolScratchAgendaAdd(store, args),
+  );
+  register(
+    server,
+    'scratch_agenda_complete',
+    'Complete an open Agenda item and return a compact receipt.',
+    { ...scratchMutation, number: z.number().int().positive() },
+    (args: { expected_updated_at: string; id: string; number: number }) =>
+      toolScratchAgendaComplete(store, args),
+  );
+  register(
+    server,
+    'scratch_agenda_supersede',
+    'Supersede an open Agenda item with a reason and return a compact receipt.',
+    { ...scratchMutation, number: z.number().int().positive(), reason: z.string() },
+    (args: { expected_updated_at: string; id: string; number: number; reason: string }) =>
+      toolScratchAgendaSupersede(store, args),
+  );
+  register(
+    server,
+    'scratch_freeze',
+    'Freeze a Scratchpad into a durable Artifact. Safe to retry after staged failure.',
+    { ...scratchMutation, summary: z.string(), tags: z.array(z.string()).optional() },
+    (args: { expected_updated_at: string; id: string; summary: string; tags?: string[] }) =>
+      toolScratchFreeze(store, args),
+  );
+  register(
+    server,
+    'scratch_discard',
+    'Discard a Scratchpad. Open Agenda items require force plus a reason.',
+    { ...scratchMutation, force: z.boolean().optional(), reason: z.string().optional() },
+    (args: { expected_updated_at: string; force?: boolean; id: string; reason?: string }) =>
+      toolScratchDiscard(store, args),
   );
 
   // ---------------------------------------------------------------------------

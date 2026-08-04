@@ -572,9 +572,15 @@ export async function cmdAttach(c: Ctx): Promise<number> {
   if (primary !== undefined) {
     linkTokens.push(primary);
   }
-  if (typeof c.values.link === 'string') {
+  let linkFlags: string[] = [];
+  if (Array.isArray(c.values.link)) {
+    linkFlags = c.values.link.filter((value): value is string => typeof value === 'string');
+  } else if (typeof c.values.link === 'string') {
+    linkFlags = [c.values.link];
+  }
+  for (const linkFlag of linkFlags) {
     linkTokens.push(
-      ...c.values.link
+      ...linkFlag
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
@@ -641,7 +647,14 @@ function lastFlag(c: Ctx, name: string): string | undefined {
 
 function optStr(c: Ctx, name: string): string | undefined {
   const v = c.values[name];
-  return typeof v === 'string' ? v : undefined;
+  if (typeof v === 'string') {
+    return v;
+  }
+  if (Array.isArray(v)) {
+    const last: unknown = v.at(-1);
+    return typeof last === 'string' ? last : undefined;
+  }
+  return undefined;
 }
 
 /**

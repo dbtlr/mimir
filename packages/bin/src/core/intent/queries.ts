@@ -9,11 +9,13 @@ import type {
   OverviewAwaitingTask,
   OverviewDirection,
   OverviewReport,
+  OverviewScratchpad,
   OverviewSeed,
   OverviewSessions,
   Priority,
   SetResult,
   Size,
+  Scratchpad,
   StatusSelector,
   StatusView,
   StatusWord,
@@ -536,6 +538,19 @@ export async function statusOfNode(store: Store, id: string): Promise<StatusView
  * In flight is uncapped. */
 const OVERVIEW_CAP = 5;
 
+/** Compact public projection shared by Overview's human and wire transports. */
+export function overviewScratchpadOf(scratchpad: Scratchpad): OverviewScratchpad {
+  return {
+    id: scratchpad.id,
+    linkedWork: scratchpad.anchors,
+    openAgenda: scratchpad.agenda.filter((item) => item.state === 'open').length,
+    project: scratchpad.project,
+    state: scratchpad.freezingAt === null ? 'active' : 'freezing',
+    title: scratchpad.title,
+    updatedAt: scratchpad.updatedAt,
+  };
+}
+
 /**
  * How many of the project's tasks the recent-sessions layer reads `## History`
  * for (MMR-322) — the read-amplification bound. History is a body section: a
@@ -740,6 +755,17 @@ export async function overviewOf(
   }
   const { status, distribution } = statusOfProject(set, scopeId);
 
+  // Staged freezes are the recovery-requiring state, so they lead the section;
+  // within each state, newest activity leads and UUID makes ties deterministic.
+  const scratchpads = (await store.scratchpads.list(scopeId))
+    .map(overviewScratchpadOf)
+    .toSorted((a, b) => {
+      if (a.state !== b.state) {
+        return a.state === 'freezing' ? -1 : 1;
+      }
+      return -cmpStr(a.updatedAt, b.updatedAt) || cmpStr(a.id, b.id);
+    });
+
   const tasks = set.ws.nodes.filter((n) => n.type === 'task' && n.project_id === scopeId);
 
   // in flight — the tasks under active hand (in_progress + under_review), uncapped.
@@ -812,6 +838,7 @@ export async function overviewOf(
     inFlight: { count: inFlightNodes.length, tasks: inFlightTasks },
     next: { count: readyNodes.length, tasks: nextTop },
     project: { distribution, id: scopeId, status },
+    scratchpads: { count: scratchpads.length, scratchpads: scratchpads.slice(0, OVERVIEW_CAP) },
     sessions,
   };
 }

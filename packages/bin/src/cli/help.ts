@@ -101,6 +101,7 @@ work commands (flat verbs — read or mutate work state; the agent hot path):
                     awaiting, recent sessions, hygiene
     list            broad selection by predicate/scope/tag
     artifacts       the artifact feed — frozen work products, newest first
+    scratch <sub>   temporary resumable episode state (UUID-addressed)
     get <id>        full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN), seed (KEY-sN)
     status <id>     rollup distribution + status (KEY-seq or project KEY)
     tree <id>       full subtree rooted at any KEY-seq or project (KEY)
@@ -395,6 +396,147 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     summary: 'the artifact feed — frozen work products, newest first (KEY-aN)',
     usage: 'mimir artifacts [-s <KEY>] [selection]',
+  },
+  scratch: {
+    examples: [
+      'mimir scratch create "shape the watcher" --link MMR-331',
+      'mimir scratch get <uuid>',
+      'mimir scratch checkpoint <uuid> "settled the API" --expected-updated-at <timestamp>',
+      'mimir scratch agenda add <uuid> "verify recovery" --expected-updated-at <timestamp>',
+      'mimir scratch freeze <uuid> --summary "Watcher plan" --expected-updated-at <timestamp>',
+    ],
+    flags: [
+      F_SCOPE,
+      ['--title <text>', 'title for create or update'],
+      ['--link <KEY-seq>', 'linked work (repeatable)'],
+      ['--clear-links', 'update: remove all linked work'],
+      ['--expected-updated-at <timestamp>', 'required optimistic-concurrency guard on mutations'],
+      ['--file <path>', 'checkpoint content from a file'],
+      ['--summary <text>', 'freeze artifact summary'],
+      ['-t, --tag <tag>', 'freeze artifact tag (repeatable)'],
+      ['--force --reason <text>', 'discard despite open Agenda items'],
+      F_FORMAT,
+    ],
+    summary: 'create, resume, checkpoint, settle, freeze, or discard temporary episode state',
+    usage: 'mimir scratch <create|list|get|update|checkpoint|agenda|freeze|discard> [...]',
+  },
+  'scratch create': {
+    examples: ['mimir scratch create "shape the watcher" --link MMR-331 -f json'],
+    flags: [
+      F_SCOPE,
+      ['--title <text>', 'title instead of the positional value'],
+      ['--link <KEY-seq>', 'linked work (repeatable)'],
+      F_FORMAT,
+    ],
+    summary: 'create a project-owned Scratchpad and return its concurrency token',
+    usage: 'mimir scratch create <title> [-s <KEY>] [--link <KEY-seq>...]',
+  },
+  'scratch list': {
+    examples: ['mimir scratch list', 'mimir scratch list -s all -f json'],
+    flags: [F_SCOPE, F_FORMAT],
+    summary: 'list active and freezing Scratchpads, freezing first',
+    usage: 'mimir scratch list [-s <KEY|all>]',
+  },
+  'scratch get': {
+    examples: ['mimir scratch get <uuid> -f json'],
+    flags: [F_FORMAT],
+    summary: 'read the full Journal and Agenda for one UUID',
+    usage: 'mimir scratch get <uuid>',
+  },
+  'scratch update': {
+    examples: [
+      'mimir scratch update <uuid> --title "new title" --expected-updated-at <timestamp>',
+      'mimir scratch update <uuid> --clear-links --expected-updated-at <timestamp>',
+    ],
+    flags: [
+      ['--title <text>', 'replacement title'],
+      ['--link <KEY-seq>', 'replace linked work (repeatable)'],
+      ['--clear-links', 'remove all linked work'],
+      ['--expected-updated-at <timestamp>', 'required concurrency token'],
+      F_FORMAT,
+    ],
+    summary: 'replace Scratchpad title or linked-work metadata',
+    usage:
+      'mimir scratch update <uuid> [--title <text>] [--link <KEY-seq>...|--clear-links] --expected-updated-at <timestamp>',
+  },
+  'scratch checkpoint': {
+    examples: [
+      'mimir scratch checkpoint <uuid> "settled the API" --expected-updated-at <timestamp>',
+      'mimir scratch checkpoint <uuid> --file checkpoint.md --expected-updated-at <timestamp>',
+    ],
+    flags: [
+      ['--file <path>', 'content from a file instead of the positional text'],
+      ['--expected-updated-at <timestamp>', 'required concurrency token'],
+      F_FORMAT,
+    ],
+    summary: 'append one numbered Journal checkpoint',
+    usage:
+      'mimir scratch checkpoint <uuid> <content>|--file <path> --expected-updated-at <timestamp>',
+  },
+  'scratch agenda': {
+    examples: [
+      'mimir scratch agenda add <uuid> "verify recovery" --expected-updated-at <timestamp>',
+      'mimir scratch agenda complete <uuid> 1 --expected-updated-at <timestamp>',
+      'mimir scratch agenda supersede <uuid> 2 --reason "covered elsewhere" --expected-updated-at <timestamp>',
+    ],
+    summary: 'add or settle numbered Agenda items',
+    usage: 'mimir scratch agenda <add|complete|supersede> [...]',
+  },
+  'scratch agenda add': {
+    examples: [
+      'mimir scratch agenda add <uuid> "verify recovery" --expected-updated-at <timestamp>',
+    ],
+    flags: [['--expected-updated-at <timestamp>', 'required concurrency token'], F_FORMAT],
+    summary: 'append one open numbered Agenda item',
+    usage: 'mimir scratch agenda add <uuid> <content> --expected-updated-at <timestamp>',
+  },
+  'scratch agenda complete': {
+    examples: ['mimir scratch agenda complete <uuid> 1 --expected-updated-at <timestamp>'],
+    flags: [['--expected-updated-at <timestamp>', 'required concurrency token'], F_FORMAT],
+    summary: 'complete one open Agenda item by number',
+    usage: 'mimir scratch agenda complete <uuid> <number> --expected-updated-at <timestamp>',
+  },
+  'scratch agenda supersede': {
+    examples: [
+      'mimir scratch agenda supersede <uuid> 2 --reason "covered elsewhere" --expected-updated-at <timestamp>',
+    ],
+    flags: [
+      ['--reason <text>', 'required supersession reason'],
+      ['--expected-updated-at <timestamp>', 'required concurrency token'],
+      F_FORMAT,
+    ],
+    summary: 'supersede one open Agenda item by number with a reason',
+    usage:
+      'mimir scratch agenda supersede <uuid> <number> --reason <text> --expected-updated-at <timestamp>',
+  },
+  'scratch freeze': {
+    examples: [
+      'mimir scratch freeze <uuid> --summary "Watcher plan" --expected-updated-at <timestamp>',
+    ],
+    flags: [
+      ['--summary <text>', 'required Artifact summary'],
+      ['-t, --tag <tag>', 'Artifact tag (repeatable)'],
+      ['--expected-updated-at <timestamp>', 'required concurrency token'],
+      F_FORMAT,
+    ],
+    summary: 'freeze the full Scratchpad into a durable Artifact; safe to retry',
+    usage:
+      'mimir scratch freeze <uuid> --summary <text> [--tag <tag>...] --expected-updated-at <timestamp>',
+  },
+  'scratch discard': {
+    examples: [
+      'mimir scratch discard <uuid> --expected-updated-at <timestamp>',
+      'mimir scratch discard <uuid> --force --reason "episode abandoned" --expected-updated-at <timestamp>',
+    ],
+    flags: [
+      ['--force', 'allow discard with open Agenda items'],
+      ['--reason <text>', 'required with --force'],
+      ['--expected-updated-at <timestamp>', 'required concurrency token'],
+      F_FORMAT,
+    ],
+    summary: 'discard temporary episode state, refusing unresolved Agenda by default',
+    usage:
+      'mimir scratch discard <uuid> [--force --reason <text>] --expected-updated-at <timestamp>',
   },
   list: {
     examples: [
@@ -986,9 +1128,17 @@ export function helpForCommand(
   sub: string | undefined,
   full: boolean,
   plain: boolean,
+  nested?: string,
 ): string | undefined {
-  const key =
-    sub !== undefined && `${command} ${sub}` in COMMAND_HELP ? `${command} ${sub}` : command;
+  const nestedKey =
+    sub === undefined || nested === undefined ? undefined : `${command} ${sub} ${nested}`;
+  const subKey = sub === undefined ? undefined : `${command} ${sub}`;
+  let key = command;
+  if (nestedKey !== undefined && nestedKey in COMMAND_HELP) {
+    key = nestedKey;
+  } else if (subKey !== undefined && subKey in COMMAND_HELP) {
+    key = subKey;
+  }
   const descriptor = COMMAND_HELP[key];
   return descriptor === undefined ? undefined : renderCommandHelp(descriptor, full, plain);
 }
