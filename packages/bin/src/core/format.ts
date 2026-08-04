@@ -55,7 +55,7 @@ export function scratchpadToWire(scratchpad: Scratchpad): Record<string, unknown
 }
 
 /** Compact mutation/list projection; `updated_at` is the next concurrency token. */
-export function scratchpadReceiptToWire(scratchpad: Scratchpad): Record<string, unknown> {
+export function scratchpadReceiptToWire(scratchpad: Scratchpad) {
   return {
     id: scratchpad.id,
     open_agenda: scratchpad.agenda.filter((item) => item.state === 'open').length,
@@ -63,6 +63,15 @@ export function scratchpadReceiptToWire(scratchpad: Scratchpad): Record<string, 
     title: scratchpad.title,
     updated_at: scratchpad.updatedAt,
   };
+}
+
+/** The shared Scratchpad list order: freezing first, newest first, then id. */
+export function compareScratchpadRows(a: Scratchpad, b: Scratchpad): number {
+  return (
+    Number(b.freezingAt !== null) - Number(a.freezingAt !== null) ||
+    b.updatedAt.localeCompare(a.updatedAt) ||
+    a.id.localeCompare(b.id)
+  );
 }
 
 /**
@@ -382,7 +391,10 @@ export function triageToWire(report: TriageReport): Record<string, unknown> {
   return {
     board: report.board,
     dry_run: report.dryRun,
-    failures: report.failures.map((f) => ({ message: f.message, task: f.task })),
+    failures: report.failures.map((f) => ({
+      message: f.message,
+      task: f.task,
+    })),
     ready_to_resolve: report.readyToResolve.map(seedToWire),
     untriaged: report.untriaged.map(seedToWire),
     upstream_resolutions: report.upstreamResolutions.map(upstreamResolutionToWire),
@@ -482,8 +494,14 @@ export function overviewToWire(report: OverviewReport): Record<string, unknown> 
       stale: report.hygiene.stale,
       untriaged: report.hygiene.untriaged,
     },
-    in_flight: { count: report.inFlight.count, tasks: report.inFlight.tasks.map(nodeToWire) },
-    next: { count: report.next.count, tasks: report.next.tasks.map(nodeToWire) },
+    in_flight: {
+      count: report.inFlight.count,
+      tasks: report.inFlight.tasks.map(nodeToWire),
+    },
+    next: {
+      count: report.next.count,
+      tasks: report.next.tasks.map(nodeToWire),
+    },
     project: {
       distribution: report.project.distribution,
       id: report.project.id,

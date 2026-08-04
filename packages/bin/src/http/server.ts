@@ -55,6 +55,7 @@ import {
   createNode,
   createProject,
   createScratchpadService,
+  compareScratchpadRows,
   depend,
   renderArtifactRef,
   resolveAttachTargets,
@@ -173,7 +174,15 @@ const PROJECT_LIST_FACETS: readonly FacetName[] = [
 const ARCHIVED_LIST_FACETS: readonly FacetName[] = [...PROJECT_LIST_FACETS, 'artifactCount'];
 
 function scratchService(store: Store) {
-  return createScratchpadService(store.scratchpads, store.artifacts);
+  return createScratchpadService(store.scratchpads, store.artifacts, store);
+}
+
+function agendaNumber(raw: string, verb: string): number {
+  const number = Number(raw);
+  if (!Number.isSafeInteger(number) || number < 1) {
+    throw validation(`${verb} requires a positive item number`);
+  }
+  return number;
 }
 
 /** Resolve a node token against an already-derived set — the HTTP binding of the
@@ -431,7 +440,11 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
     filters.push(parseFilterToken('in', `type:${type}`));
   } else if (!filters.some((f) => f.field === 'type')) {
     // No type selection → the whole tree, not the intent layer's tasks-only default.
-    filters.push({ field: 'type', op: 'in', value: NODE_TYPE_VALUES.join(',') });
+    filters.push({
+      field: 'type',
+      op: 'in',
+      value: NODE_TYPE_VALUES.join(','),
+    });
   }
   const priority = q.get('priority');
   if (priority !== null) {
@@ -649,7 +662,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       '/api/artifacts/:id': {
         GET: (req) =>
           guarded(req, async () => {
-            const detail = await getArtifact(store, req.params.id, { content: true });
+            const detail = await getArtifact(store, req.params.id, {
+              content: true,
+            });
             return json(req, await artifactDetailToWire(store, detail));
           }),
         // The dumb update for an artifact (MMR-40, MMR-319): title and the
@@ -673,7 +688,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (Object.keys(fields).length > 0) {
               await updateArtifact(store, { key: identity.key, seq: identity.seq }, fields);
             }
-            const detail = await getArtifact(store, req.params.id, { content: true });
+            const detail = await getArtifact(store, req.params.id, {
+              content: true,
+            });
             return json(req, await artifactDetailToWire(store, detail));
           }),
       },
@@ -853,7 +870,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       '/api/nodes/:id/annotations': {
         GET: (req) =>
           guarded(req, async () => {
-            const view = await getNode(store, req.params.id, { facets: ['annotations'] });
+            const view = await getNode(store, req.params.id, {
+              facets: ['annotations'],
+            });
             const items = (view.annotations ?? []).map((a) => ({
               content: a.content,
               created_at: a.createdAt,
@@ -1033,7 +1052,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               name: requiredStr(body, 'name', 'create project'),
               tags: strList(body, 'tags'),
             });
-            const view = await getNode(store, project.key, { facets: PROJECT_FACETS });
+            const view = await getNode(store, project.key, {
+              facets: PROJECT_FACETS,
+            });
             return json(req, nodeToWire(view), 201);
           }),
       },
@@ -1101,18 +1122,15 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           }),
       },
 
+      // MMR-332 / ADR 0028: create has no concurrency token; every mutation of
+      // an existing Scratchpad requires expected_updated_at.
       '/api/scratchpads': {
         GET: (req) =>
           guarded(req, async () => {
             const scope = new URL(req.url).searchParams.get('project') ?? undefined;
             const scratchpads = (
               await scratchService(store).list(scope === 'all' ? undefined : scope)
-            ).toSorted(
-              (a, b) =>
-                Number(b.freezingAt !== null) - Number(a.freezingAt !== null) ||
-                b.updatedAt.localeCompare(a.updatedAt) ||
-                a.id.localeCompare(b.id),
-            );
+            ).toSorted(compareScratchpadRows);
             return json(req, {
               items: scratchpads.map((scratchpad) => ({
                 ...scratchpadReceiptToWire(scratchpad),
@@ -1176,10 +1194,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         POST: (req) =>
           guarded(req, async () => {
             const body = await readBody(req, ['expected_updated_at']);
-            const number = Number(req.params.number);
-            if (!Number.isSafeInteger(number) || number < 1) {
-              throw validation('scratchpad agenda complete requires a positive item number');
-            }
+            const number = agendaNumber(req.params.number, 'scratchpad agenda complete');
             const scratchpad = await scratchService(store).agendaComplete(req.params.id, {
               expectedUpdatedAt: requiredStr(
                 body,
@@ -1196,10 +1211,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         POST: (req) =>
           guarded(req, async () => {
             const body = await readBody(req, ['expected_updated_at', 'reason']);
-            const number = Number(req.params.number);
-            if (!Number.isSafeInteger(number) || number < 1) {
-              throw validation('scratchpad agenda supersede requires a positive item number');
-            }
+            const number = agendaNumber(req.params.number, 'scratchpad agenda supersede');
             const scratchpad = await scratchService(store).agendaSupersede(req.params.id, {
               expectedUpdatedAt: requiredStr(
                 body,
@@ -1236,7 +1248,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             });
             return json(req, {
               created_at: artifact.created_at,
-              id: `${artifact.key}-a${String(artifact.seq)}`,
+              id: renderArtifactRef({ key: artifact.key, seq: artifact.seq }),
               linked_work: artifact.links,
               project: artifact.key,
               summary: artifact.summary,
@@ -1273,7 +1285,10 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               listOpts.sort = sort;
             }
             const seeds = await listSeeds(store, listOpts);
-            return json(req, { items: seeds.map(seedToWire), total: seeds.length });
+            return json(req, {
+              items: seeds.map(seedToWire),
+              total: seeds.length,
+            });
           }),
         POST: (req) =>
           guarded(req, async () => {

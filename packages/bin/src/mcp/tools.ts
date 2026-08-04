@@ -29,6 +29,7 @@ import {
   projectViewOf,
   createNode,
   createScratchpadService,
+  compareScratchpadRows,
   depend,
   fileSeed,
   getSeed,
@@ -110,7 +111,9 @@ export type ToolResult = {
   [key: string]: unknown;
 };
 
-const ok = (text: string): ToolResult => ({ content: [{ text, type: 'text' }] });
+const ok = (text: string): ToolResult => ({
+  content: [{ text, type: 'text' }],
+});
 
 /** The structured MCP error envelope `{"error":{code,message,hint?}}` as an
  * `isError` tool result — the shared emitter for tool-level faults and the
@@ -130,7 +133,11 @@ const fail = toolErrorResult;
 
 type ScratchpadMutationArgs = { id: string; expected_updated_at: string };
 
-export type ScratchCreateToolArgs = { scope: string; title: string; linked_work?: string[] };
+export type ScratchCreateToolArgs = {
+  scope: string;
+  title: string;
+  linked_work?: string[];
+};
 export type ScratchListToolArgs = { scope?: string };
 export type ScratchUpdateToolArgs = ScratchpadMutationArgs & {
   title?: string;
@@ -138,7 +145,7 @@ export type ScratchUpdateToolArgs = ScratchpadMutationArgs & {
 };
 
 const scratchService = (store: Store) =>
-  createScratchpadService(store.scratchpads, store.artifacts);
+  createScratchpadService(store.scratchpads, store.artifacts, store);
 
 export function toolScratchCreate(store: Store, args: ScratchCreateToolArgs): Promise<ToolResult> {
   return guard(async () => {
@@ -154,10 +161,7 @@ export function toolScratchCreate(store: Store, args: ScratchCreateToolArgs): Pr
 export function toolScratchList(store: Store, args: ScratchListToolArgs): Promise<ToolResult> {
   return guard(async () => {
     const scratchpads = (await scratchService(store).list(args.scope)).toSorted(
-      (a, b) =>
-        Number(b.freezingAt !== null) - Number(a.freezingAt !== null) ||
-        b.updatedAt.localeCompare(a.updatedAt) ||
-        a.id.localeCompare(b.id),
+      compareScratchpadRows,
     );
     return ok(
       JSON.stringify(
@@ -649,7 +653,11 @@ export function toolMove(store: Store, args: { id: string; to: string }): Promis
 
 export function toolReorder(
   store: Store,
-  args: { id: string; position: 'top' | 'bottom' | 'before' | 'after'; ref?: string },
+  args: {
+    id: string;
+    position: 'top' | 'bottom' | 'before' | 'after';
+    ref?: string;
+  },
 ): Promise<ToolResult> {
   return guard(async () => {
     const id = await nodeId(store, args.id, 'task');

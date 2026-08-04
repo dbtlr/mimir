@@ -1,6 +1,6 @@
 import type { Scratchpad } from '@mimir/contract';
 
-import { createScratchpadService } from '../core';
+import { compareScratchpadRows, createScratchpadService, scratchpadReceiptToWire } from '../core';
 import type { ArtifactRecord, Store } from '../core';
 import type { Format, Io } from '../presentation';
 import { usage } from './errors';
@@ -86,13 +86,7 @@ const wire = (pad: Scratchpad) => ({
   updated_at: pad.updatedAt,
 });
 
-const receipt = (pad: Scratchpad) => ({
-  id: pad.id,
-  open_agenda: pad.agenda.filter((item) => item.state === 'open').length,
-  project: pad.project,
-  title: pad.title,
-  updated_at: pad.updatedAt,
-});
+const receipt = scratchpadReceiptToWire;
 
 function emit(value: Record<string, unknown>, format: Format, io: Io): void {
   if (format === 'json' || format === 'jsonl') {
@@ -159,7 +153,7 @@ function artifactReceipt(artifact: ArtifactRecord) {
 /** Dispatch the `scratch` noun group over the canonical Scratchpad service. */
 export async function cmdScratch(c: ScratchContext): Promise<number> {
   const sub = scratchSubcommand(c.positionals);
-  const service = createScratchpadService(c.store.scratchpads, c.store.artifacts);
+  const service = createScratchpadService(c.store.scratchpads, c.store.artifacts, c.store);
 
   if (sub === 'create') {
     const project = c.values.scope ?? c.boundScope;
@@ -185,12 +179,7 @@ export async function cmdScratch(c: ScratchContext): Promise<number> {
 
   if (sub === 'list') {
     const project = c.values.scope === 'all' ? undefined : (c.values.scope ?? c.boundScope);
-    const pads = (await service.list(project)).toSorted(
-      (a, b) =>
-        Number(b.freezingAt !== null) - Number(a.freezingAt !== null) ||
-        b.updatedAt.localeCompare(a.updatedAt) ||
-        a.id.localeCompare(b.id),
-    );
+    const pads = (await service.list(project)).toSorted(compareScratchpadRows);
     const values = pads.map((pad) => {
       const summary = receipt(pad);
       return Object.assign(summary, {
