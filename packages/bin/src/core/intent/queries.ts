@@ -262,6 +262,8 @@ const emptyResult = (warnings: ValueWarning[]): SetResult<NodeView> => ({
 });
 
 export type NextOptions = {
+  /** Case-insensitive substring over title (MMR-78; LIKE, FTS5 deferred). */
+  q?: string;
   scope?: string;
   priority?: Priority;
   size?: Size;
@@ -287,6 +289,8 @@ export async function nextTasks(
   }
   const set = deriveSet(await store.loadWorkingSet());
   const scopeId = opts.scope === undefined ? undefined : resolveScope(set, opts.scope);
+  const matchesQ =
+    opts.q === undefined || opts.q === '' ? undefined : likeMatcher(opts.q.toLowerCase());
   const candidates = set.ws.nodes
     .filter(
       (n) =>
@@ -296,6 +300,7 @@ export async function nextTasks(
         n.rank !== null &&
         !set.archivedProjects.has(n.project_id) &&
         (scopeId === undefined || n.project_id === scopeId) &&
+        (matchesQ === undefined || matchesQ(n.title.toLowerCase())) &&
         (opts.priority === undefined || n.priority === opts.priority) &&
         (opts.size === undefined || n.size === opts.size),
     )

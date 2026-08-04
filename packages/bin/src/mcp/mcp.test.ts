@@ -98,6 +98,18 @@ test.skipIf(!NORN)('next tool returns the structured envelope', async () => {
   expect(parsed.tasks.some((t) => t.title === 'first')).toBe(true);
 });
 
+test.skipIf(!NORN)('list and next filter by case-insensitive title substring', async () => {
+  await createTask(store, { parentId: phaseId, title: 'Ship Vault Search' });
+  const list = parseJson<{ total: number; tasks: { title: string }[] }>(
+    textOf(await toolList(store, { q: 'VAULT', scope: 'MMR' })),
+  );
+  const next = parseJson<{ total: number; tasks: { title: string }[] }>(
+    textOf(await toolNext(store, { q: 'vault', scope: 'MMR' })),
+  );
+  expect(list.tasks.map((task) => task.title)).toEqual(['Ship Vault Search']);
+  expect(next.tasks.map((task) => task.title)).toEqual(['Ship Vault Search']);
+});
+
 test.skipIf(!NORN)(
   'get tool returns a bare node; a missing id returns the structured error envelope',
   async () => {

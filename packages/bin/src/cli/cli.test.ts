@@ -741,6 +741,18 @@ test.skipIf(!NORN)('create task --tag applies creation-time tags', async () => {
 
 // query surface v2 (MMR-33)
 
+test.skipIf(!NORN)('list and next filter by case-insensitive title substring', async () => {
+  await createTask(store, { parentId: phaseId, title: 'Ship Vault Search' });
+  await createTask(store, { parentId: phaseId, title: 'Unrelated Work' });
+
+  for (const verb of ['list', 'next']) {
+    const io = fakeIo(false);
+    expect(await runCli([verb, '-s', 'MMR', '-q', 'VAULT', '-f', 'json'], () => store, io)).toBe(0);
+    const result = parseJson<{ tasks: { title: string }[] }>(io.out.join(''));
+    expect(result.tasks.map((task) => task.title)).toEqual(['Ship Vault Search']);
+  }
+});
+
 test.skipIf(!NORN)('a value miss warns on stderr and exits 0 with an empty set', async () => {
   await createTask(store, { parentId: phaseId, priority: 'p1', title: 'a' });
   const io = fakeIo(true);
@@ -1656,8 +1668,7 @@ describe('artifacts flags are verb-owned (MMR-322)', () => {
     ['next', '--since', '2026-07-01'],
     ['list', '--offset', '3'],
     ['next', '--offset', '3'],
-    ['list', '-q', 'vault'],
-    ['next', '--query', 'vault'],
+    ['get', '--query', 'vault'],
     ['get', '--since', '2026-07-01'],
     ['create', '--offset', '1'],
   ])('%s rejects %s', async (verb, flag, value) => {
