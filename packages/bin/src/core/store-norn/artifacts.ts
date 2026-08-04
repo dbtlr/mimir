@@ -70,6 +70,7 @@ function artifactFrontmatter(fields: {
   updated_at: string;
   links: string[];
   tags: string[];
+  sourceScratch?: string;
 }): Record<string, unknown> {
   const fm: Record<string, unknown> = {
     created: fields.created,
@@ -86,6 +87,9 @@ function artifactFrontmatter(fields: {
   }
   if (fields.tags.length > 0) {
     fm.tags = fields.tags;
+  }
+  if (fields.sourceScratch !== undefined) {
+    fm.source_scratch = fields.sourceScratch;
   }
   return fm;
 }
@@ -343,6 +347,7 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
         created: timestamp,
         key: input.key,
         links: input.links,
+        sourceScratch: input.sourceScratch,
         summary,
         tags: input.tags,
         title: input.title,
@@ -382,6 +387,28 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
         title: input.title,
         updated_at: timestamp,
       };
+    },
+
+    async findBySourceScratch(id) {
+      const docs = await client.find({
+        col: ['.frontmatter', '.body'],
+        eq: ['type:artifact', `source_scratch:${id}`],
+        no_limit: true,
+      });
+      const matches = docs
+        .map(asDoc)
+        .filter((doc): doc is NornDocument & { body?: unknown } => doc !== null)
+        .map((doc) => {
+          const record = toRecord(doc);
+          return record === null || typeof doc.body !== 'string'
+            ? null
+            : Object.assign(record, { content: stripTrailingNewline(doc.body) });
+        })
+        .filter((record): record is ArtifactRecord & { content: string } => record !== null);
+      if (matches.length > 1) {
+        throw invariant(`scratchpad ${id} produced more than one artifact`);
+      }
+      return matches[0];
     },
 
     async list(query: ArtifactListQuery) {

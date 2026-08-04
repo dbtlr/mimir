@@ -38,6 +38,8 @@ export type ArtifactCreate = {
   tags: string[];
   /** Linked node stems (`KEY-seq`), already validated same-project by the verb. */
   links: string[];
+  /** Scratchpad UUID when this artifact is the durable result of freeze. */
+  sourceScratch?: string;
 };
 
 /**
@@ -85,6 +87,8 @@ export type ArtifactStore = {
   listForNode: (nodeStem: string) => Promise<ArtifactRecord[]>;
   /** A project's whole inventory (`get KEY --col artifacts`), seq ascending. */
   listForProject: (key: string) => Promise<ArtifactRecord[]>;
+  /** Recover the unique artifact created by a staged Scratchpad freeze. */
+  findBySourceScratch: (id: string) => Promise<(ArtifactRecord & { content: string }) | undefined>;
   /** The cross-project feed, newest-first; metadata only. */
   list: (query: ArtifactListQuery) => Promise<{ total: number; items: ArtifactRecord[] }>;
   /** Idempotent tag apply. Frontmatter tags are a plain string set (ADR 0005) —
