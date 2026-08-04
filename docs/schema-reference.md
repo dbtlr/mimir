@@ -177,16 +177,17 @@ Reads: `get KEY` / `get KEY-seq` carry it by default, and `--col next` names it 
 
 A frozen markdown document — not diffed or edited in place, only ever added to. **Anchored to exactly one project** (required); **linked to 0..N nodes** via `anchor` (optional context) ([ADR 0004](decisions/0004-artifact-model-project-anchored-flexibly-linked.md)). No `type` classification enum and no `consolidated_at`: `spec`/`plan`/`session_log` and consolidation state are **tags** ([ADR 0002](decisions/0002-general-purpose-primitives-not-baked-in-semantics.md)/0004). Correct a bad artifact by attaching a new one.
 
-| Field        | Type             | Presence                                               | Allowed / default                               | Written by                    |
-| ------------ | ---------------- | ------------------------------------------------------ | ----------------------------------------------- | ----------------------------- |
-| `type`       | string           | always                                                 | `artifact`                                      | `attach`                      |
-| `title`      | string           | always                                                 | display title                                   | `attach` / `update`           |
-| `summary`    | string           | optional                                               | ≤256-char lede, newlines collapsed              | `attach` / `update`           |
-| `project`    | wikilink         | always                                                 | `[[KEY]]` (the required project home)           | `attach`                      |
-| `created`    | timestamp        | always                                                 | ISO-8601 UTC                                    | `attach`                      |
-| `updated_at` | timestamp        | always on new docs; legacy absent until `doctor --fix` | ISO-8601 UTC                                    | `attach` + metadata mutations |
-| `anchor`     | list of wikilink | optional                                               | `[[KEY-seq]]` node stems, 0..N (the "link" set) | `attach` (`--link`)           |
-| `tags`       | list of string   | optional                                               | opaque strings                                  | `tag` / `untag`               |
+| Field            | Type             | Presence                                               | Allowed / default                               | Written by                    |
+| ---------------- | ---------------- | ------------------------------------------------------ | ----------------------------------------------- | ----------------------------- |
+| `type`           | string           | always                                                 | `artifact`                                      | `attach`                      |
+| `title`          | string           | always                                                 | display title                                   | `attach` / `update`           |
+| `summary`        | string           | optional                                               | ≤256-char lede, newlines collapsed              | `attach` / `update`           |
+| `project`        | wikilink         | always                                                 | `[[KEY]]` (the required project home)           | `attach`                      |
+| `created`        | timestamp        | always                                                 | ISO-8601 UTC                                    | `attach`                      |
+| `updated_at`     | timestamp        | always on new docs; legacy absent until `doctor --fix` | ISO-8601 UTC                                    | `attach` + metadata mutations |
+| `anchor`         | list of wikilink | optional                                               | `[[KEY-seq]]` node stems, 0..N (the "link" set) | `attach` (`--link`)           |
+| `tags`           | list of string   | optional                                               | opaque strings                                  | `tag` / `untag`               |
+| `source_scratch` | string           | optional                                               | canonical Scratchpad UUID; freeze provenance    | Scratchpad freeze             |
 
 `summary` is the artifact's optional lede — the same field a node carries, with the same 256-character cap and the same core normalization (newlines collapse to spaces, blank stores as absent). Absence is a legitimate state, so it is neither required nor repaired: nothing detects or stamps a missing one. With `title` it makes the artifact's two mutable fields; the body stays frozen.
 

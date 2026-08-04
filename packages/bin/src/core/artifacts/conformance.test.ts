@@ -175,6 +175,26 @@ for (const backend of backends) {
     );
 
     test.skipIf(backend.skip)(
+      'source_scratch provenance round-trips through the dedicated recovery lookup',
+      async () => {
+        const sourceScratch = '123e4567-e89b-42d3-a456-426614174000';
+        const created = await h.artifacts.create({
+          content: 'complete scratch body',
+          key: 'MMR',
+          links: [h.nodeStems[0] ?? ''],
+          sourceScratch,
+          summary: 'frozen episode',
+          tags: ['scratchpad'],
+          title: 'episode',
+        });
+        expect(await h.artifacts.findBySourceScratch(sourceScratch)).toEqual(created);
+        expect(
+          await h.artifacts.findBySourceScratch('223e4567-e89b-42d3-a456-426614174000'),
+        ).toBeUndefined();
+      },
+    );
+
+    test.skipIf(backend.skip)(
       'updateMetadata patches title, leaves content frozen; false for a missing artifact',
       async () => {
         await h.artifacts.create({
