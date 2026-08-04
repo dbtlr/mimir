@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { join } from 'node:path';
 
 import type { Scratchpad } from '@mimir/contract';
 
@@ -12,13 +13,16 @@ import { fakeIo } from './testing';
 
 const ID = '123e4567-e89b-42d3-a456-426614174000';
 
+const unopenedStore = (): never => {
+  throw new Error('invalid usage must not open the store');
+};
+
 const jsonOutput = (io: ReturnType<typeof fakeIo>): Record<string, unknown> =>
   JSON.parse(io.out.at(-1) ?? '{}') as Record<string, unknown>;
 
 function freshCli(vaultRoot: string, args: string[]): { code: number; err: string; out: string } {
   const result = Bun.spawnSync({
-    cmd: [process.execPath, 'packages/bin/src/main.ts', ...args],
-    cwd: process.cwd(),
+    cmd: [process.execPath, join(import.meta.dir, '..', 'main.ts'), ...args],
     env: { ...process.env, MIMIR_VAULT: vaultRoot },
     stderr: 'pipe',
     stdout: 'pipe',
@@ -76,7 +80,18 @@ test('scratch create uses binding and returns a compact concurrency receipt', as
   const io = fakeIo();
   expect(
     await runCli(
-      ['scratch', 'create', 'CLI contract', '--link', 'MMR-331', '--link', 'MMR-332', '-f', 'json'],
+      [
+        'scratch',
+        'create',
+        'CLI',
+        'contract',
+        '--link',
+        'MMR-331',
+        '--link',
+        'MMR-332',
+        '-f',
+        'json',
+      ],
       () => store,
       io,
       { scope: 'MMR' },
@@ -87,6 +102,24 @@ test('scratch create uses binding and returns a compact concurrency receipt', as
   expect(result.open_agenda).toBe(0);
   expect(result.updated_at).toBeString();
   expect(result).not.toHaveProperty('journal');
+  expect(result.title).toBe('CLI contract');
+});
+
+test('invalid scratch noun-group tokens do not open the store', async () => {
+  expect(await runCli(['scratch'], unopenedStore, fakeIo())).toBe(2);
+  expect(await runCli(['scratch', 'wat'], unopenedStore, fakeIo())).toBe(2);
+  expect(await runCli(['scratch', 'agenda', 'wat'], unopenedStore, fakeIo())).toBe(2);
+});
+
+test('Scratchpad-only flags are rejected by unrelated verbs before opening the store', async () => {
+  for (const args of [
+    ['list', '--clear-links'],
+    ['list', '--expected-updated-at', 'stamp'],
+    ['list', '--force'],
+    ['list', '--reason', 'because'],
+  ]) {
+    expect(await runCli(args, unopenedStore, fakeIo())).toBe(2);
+  }
 });
 
 test('scratch UUID mutations require and advance the explicit guard', async () => {
@@ -141,31 +174,54 @@ test('scratch update distinguishes omitted, repeated, and explicitly cleared lin
     title: 'CLI',
     updatedAt: '2026-08-03T00:00:00.000Z',
   });
+  const omitted = fakeIo();
+  expect(
+    await runCli(
+      [
+        'scratch',
+        'update',
+        ID,
+        '--title',
+        'Renamed',
+        '--expected-updated-at',
+        '2026-08-03T00:00:00.000Z',
+      ],
+      () => store,
+      omitted,
+    ),
+  ).toBe(0);
+  expect(pads.get(ID)?.anchors).toEqual(['MMR-1']);
+  expect(pads.get(ID)?.title).toBe('Renamed');
+  const initialStamp = pads.get(ID)?.updatedAt ?? '';
   const first = fakeIo();
-  await runCli(
-    [
-      'scratch',
-      'update',
-      ID,
-      '--link',
-      'MMR-2',
-      '--link',
-      'MMR-3',
-      '--expected-updated-at',
-      '2026-08-03T00:00:00.000Z',
-      '-f',
-      'json',
-    ],
-    () => store,
-    first,
-  );
+  expect(
+    await runCli(
+      [
+        'scratch',
+        'update',
+        ID,
+        '--link',
+        'MMR-2',
+        '--link',
+        'MMR-3',
+        '--expected-updated-at',
+        initialStamp,
+        '-f',
+        'json',
+      ],
+      () => store,
+      first,
+    ),
+  ).toBe(0);
   expect(pads.get(ID)?.anchors).toEqual(['MMR-2', 'MMR-3']);
   const stamp = pads.get(ID)?.updatedAt ?? '';
-  await runCli(
-    ['scratch', 'update', ID, '--clear-links', '--expected-updated-at', stamp],
-    () => store,
-    fakeIo(),
-  );
+  expect(
+    await runCli(
+      ['scratch', 'update', ID, '--clear-links', '--expected-updated-at', stamp],
+      () => store,
+      fakeIo(),
+    ),
+  ).toBe(0);
   expect(pads.get(ID)?.anchors).toEqual([]);
 });
 
@@ -249,6 +305,7 @@ test.skipIf(!NORN)(
         '-f',
         'json',
       ]);
+      expect(addOne.code).toBe(0);
       stamp = String(jsonOutput(addOne.io).updated_at);
       const completeOne = await invoke([
         'scratch',
@@ -261,6 +318,7 @@ test.skipIf(!NORN)(
         '-f',
         'json',
       ]);
+      expect(completeOne.code).toBe(0);
       stamp = String(jsonOutput(completeOne.io).updated_at);
       const addTwo = await invoke([
         'scratch',
@@ -273,6 +331,7 @@ test.skipIf(!NORN)(
         '-f',
         'json',
       ]);
+      expect(addTwo.code).toBe(0);
       stamp = String(jsonOutput(addTwo.io).updated_at);
       const supersedeTwo = await invoke([
         'scratch',
@@ -287,6 +346,7 @@ test.skipIf(!NORN)(
         '-f',
         'json',
       ]);
+      expect(supersedeTwo.code).toBe(0);
       stamp = String(jsonOutput(supersedeTwo.io).updated_at);
 
       // Separate Mimir processes reconstruct the store over this isolated vault,
@@ -345,6 +405,7 @@ test.skipIf(!NORN)(
       expect(jsonOutput(recovered.io).id).toBe('MMR-a1');
 
       const disposable = await invoke(['scratch', 'create', 'Discard path', '-f', 'json']);
+      expect(disposable.code).toBe(0);
       const discardId = String(jsonOutput(disposable.io).id);
       let discardStamp = String(jsonOutput(disposable.io).updated_at);
       const open = await invoke([

@@ -646,15 +646,7 @@ function lastFlag(c: Ctx, name: string): string | undefined {
 }
 
 function optStr(c: Ctx, name: string): string | undefined {
-  const v = c.values[name];
-  if (typeof v === 'string') {
-    return v;
-  }
-  if (Array.isArray(v)) {
-    const last: unknown = v.at(-1);
-    return typeof last === 'string' ? last : undefined;
-  }
-  return undefined;
+  return lastFlag(c, name);
 }
 
 /**
@@ -1011,6 +1003,10 @@ export async function cmdSeeds(c: Ctx): Promise<number> {
 
 export async function cmdPromote(c: Ctx): Promise<number> {
   const id = requireSeedId(c, 'promote');
+  const links = c.values.link;
+  if (Array.isArray(links) && links.length > 1) {
+    throw usage('promote accepts exactly one --link');
+  }
   const { seed, created, spawnedId } = await promoteSeed(c.store, id, {
     description: optStr(c, 'desc'),
     link: optStr(c, 'link'),

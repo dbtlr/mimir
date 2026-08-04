@@ -144,6 +144,13 @@ describe.skipIf(!NORN)('seed CLI verbs', () => {
     expect(io.out.join('').trim()).toBe(existingRef);
   });
 
+  test('promote rejects repeated --link instead of silently dropping all but the last', async () => {
+    await cli(['seed', 's', '-k', 'bug']);
+    const { code, io } = await cli(['promote', 'MMR-s1', '--link', phaseRef, '--link', phaseRef]);
+    expect(code).toBe(2);
+    expect(io.err.join('')).toContain('exactly one --link');
+  });
+
   test('a repeated promote -f ids echoes the newly spawned id each time (MMR-259)', async () => {
     await cli(['seed', 's', '-k', 'feature']);
     const first = await cli(['promote', 'MMR-s1', '--parent', phaseRef, '-f', 'ids']);

@@ -27,6 +27,53 @@ export type ScratchContext = {
   values: ScratchValues;
 };
 
+const SCRATCH_SUBCOMMANDS = [
+  'create',
+  'list',
+  'agenda',
+  'get',
+  'update',
+  'checkpoint',
+  'freeze',
+  'discard',
+] as const;
+type ScratchSubcommand = (typeof SCRATCH_SUBCOMMANDS)[number];
+
+/** Validate the noun-group token before callers acquire the vault-backed Store. */
+export function scratchSubcommand(positionals: readonly string[]): ScratchSubcommand {
+  const sub = positionals[1];
+  if (
+    sub === 'agenda' &&
+    positionals[2] !== 'add' &&
+    positionals[2] !== 'complete' &&
+    positionals[2] !== 'supersede'
+  ) {
+    throw usage('scratch agenda requires add, complete, or supersede');
+  }
+  switch (sub) {
+    case 'create':
+    case 'list':
+    case 'agenda':
+    case 'get':
+    case 'update':
+    case 'checkpoint':
+    case 'freeze':
+    case 'discard': {
+      return sub;
+    }
+    case undefined: {
+      throw usage('scratch requires a subcommand');
+    }
+    default: {
+      throw usage(`unknown scratch subcommand: ${sub}`);
+    }
+  }
+}
+
+function unreachable(value: never): never {
+  throw new Error(`unreachable Scratchpad subcommand: ${String(value)}`);
+}
+
 const wire = (pad: Scratchpad) => ({
   agenda: pad.agenda,
   created_at: pad.createdAt,
@@ -111,11 +158,8 @@ function artifactReceipt(artifact: ArtifactRecord) {
 
 /** Dispatch the `scratch` noun group over the canonical Scratchpad service. */
 export async function cmdScratch(c: ScratchContext): Promise<number> {
+  const sub = scratchSubcommand(c.positionals);
   const service = createScratchpadService(c.store.scratchpads, c.store.artifacts);
-  const sub = c.positionals[1];
-  if (sub === undefined) {
-    throw usage('scratch requires a subcommand');
-  }
 
   if (sub === 'create') {
     const project = c.values.scope ?? c.boundScope;
@@ -127,7 +171,10 @@ export async function cmdScratch(c: ScratchContext): Promise<number> {
         await service.create({
           anchors: c.values.link,
           project,
-          title: required(c.values.title ?? c.positionals[2], 'scratch create requires a title'),
+          title: required(
+            c.values.title ?? (c.positionals.slice(2).join(' ') || undefined),
+            'scratch create requires a title',
+          ),
         }),
       ),
       c.format,
@@ -173,7 +220,10 @@ export async function cmdScratch(c: ScratchContext): Promise<number> {
 
   if (sub === 'agenda') {
     const action = c.positionals[2];
-    const id = required(c.positionals[3], `scratch agenda ${action ?? ''} requires a UUID`);
+    if (action !== 'add' && action !== 'complete' && action !== 'supersede') {
+      throw usage('scratch agenda requires add, complete, or supersede');
+    }
+    const id = required(c.positionals[3], `scratch agenda ${action} requires a UUID`);
     if (action === 'add') {
       emit(
         receipt(
@@ -214,8 +264,6 @@ export async function cmdScratch(c: ScratchContext): Promise<number> {
         c.format,
         c.io,
       );
-    } else {
-      throw usage('scratch agenda requires add, complete, or supersede');
     }
     return 0;
   }
@@ -275,14 +323,13 @@ export async function cmdScratch(c: ScratchContext): Promise<number> {
     return 0;
   }
   if (sub === 'discard') {
-    const before = await service.get(id);
     await service.discard(id, {
       ...guard(c.values),
       force: c.values.force,
       reason: c.values.reason,
     });
-    emit({ id: before.id, result: 'discarded' }, c.format, c.io);
+    emit({ id, result: 'discarded' }, c.format, c.io);
     return 0;
   }
-  throw usage(`unknown scratch subcommand: ${sub}`);
+  return unreachable(sub);
 }
