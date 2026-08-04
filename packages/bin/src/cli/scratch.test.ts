@@ -12,6 +12,18 @@ import { runCli } from './run';
 import { fakeIo } from './testing';
 
 const ID = '123e4567-e89b-42d3-a456-426614174000';
+const MEMORY_PROJECTS = [
+  {
+    archived_at: null,
+    created_at: '2026-08-03T00:00:00.000Z',
+    description: null,
+    key: 'MMR',
+    name: 'Mimir',
+    updated_at: '2026-08-03T00:00:00.000Z',
+  },
+];
+
+const loadMemoryProjects = () => Promise.resolve(MEMORY_PROJECTS);
 
 const unopenedStore = (): never => {
   throw new Error('invalid usage must not open the store');
@@ -72,7 +84,10 @@ function memoryStore() {
       return undefined;
     },
   } as unknown as ArtifactStore;
-  return { pads, store: { artifacts, scratchpads } as unknown as Store };
+  return {
+    pads,
+    store: { artifacts, loadProjects: loadMemoryProjects, scratchpads } as unknown as Store,
+  };
 }
 
 test('scratch create uses binding and returns a compact concurrency receipt', async () => {
