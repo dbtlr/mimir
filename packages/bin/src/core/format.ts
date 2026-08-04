@@ -6,6 +6,7 @@ import type {
   OverviewReport,
   OverviewScratchpad,
   OverviewSession,
+  Scratchpad,
   SeedView,
   SetResult,
   StatusView,
@@ -27,6 +28,50 @@ export function overviewScratchpadToWire(scratchpad: OverviewScratchpad): Record
     title: scratchpad.title,
     updated_at: scratchpad.updatedAt,
   };
+}
+
+/** Map a complete Scratchpad to the public snake-case transport vocabulary. */
+export function scratchpadToWire(scratchpad: Scratchpad): Record<string, unknown> {
+  return {
+    agenda: scratchpad.agenda.map((item) => ({
+      content: item.content,
+      number: item.number,
+      reason: item.reason,
+      state: item.state,
+    })),
+    created_at: scratchpad.createdAt,
+    freezing_at: scratchpad.freezingAt,
+    id: scratchpad.id,
+    journal: scratchpad.journal.map((entry) => ({
+      at: entry.at,
+      content: entry.content,
+      number: entry.number,
+    })),
+    linked_work: scratchpad.anchors,
+    project: scratchpad.project,
+    title: scratchpad.title,
+    updated_at: scratchpad.updatedAt,
+  };
+}
+
+/** Compact mutation/list projection; `updated_at` is the next concurrency token. */
+export function scratchpadReceiptToWire(scratchpad: Scratchpad) {
+  return {
+    id: scratchpad.id,
+    open_agenda: scratchpad.agenda.filter((item) => item.state === 'open').length,
+    project: scratchpad.project,
+    title: scratchpad.title,
+    updated_at: scratchpad.updatedAt,
+  };
+}
+
+/** The shared Scratchpad list order: freezing first, newest first, then id. */
+export function compareScratchpadRows(a: Scratchpad, b: Scratchpad): number {
+  return (
+    Number(b.freezingAt !== null) - Number(a.freezingAt !== null) ||
+    b.updatedAt.localeCompare(a.updatedAt) ||
+    a.id.localeCompare(b.id)
+  );
 }
 
 /**
@@ -346,7 +391,10 @@ export function triageToWire(report: TriageReport): Record<string, unknown> {
   return {
     board: report.board,
     dry_run: report.dryRun,
-    failures: report.failures.map((f) => ({ message: f.message, task: f.task })),
+    failures: report.failures.map((f) => ({
+      message: f.message,
+      task: f.task,
+    })),
     ready_to_resolve: report.readyToResolve.map(seedToWire),
     untriaged: report.untriaged.map(seedToWire),
     upstream_resolutions: report.upstreamResolutions.map(upstreamResolutionToWire),
@@ -446,8 +494,14 @@ export function overviewToWire(report: OverviewReport): Record<string, unknown> 
       stale: report.hygiene.stale,
       untriaged: report.hygiene.untriaged,
     },
-    in_flight: { count: report.inFlight.count, tasks: report.inFlight.tasks.map(nodeToWire) },
-    next: { count: report.next.count, tasks: report.next.tasks.map(nodeToWire) },
+    in_flight: {
+      count: report.inFlight.count,
+      tasks: report.inFlight.tasks.map(nodeToWire),
+    },
+    next: {
+      count: report.next.count,
+      tasks: report.next.tasks.map(nodeToWire),
+    },
     project: {
       distribution: report.project.distribution,
       id: report.project.id,

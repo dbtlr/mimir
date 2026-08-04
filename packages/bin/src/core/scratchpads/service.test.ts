@@ -27,6 +27,19 @@ function harness() {
   let failCreateOnce = false;
   let failDeleteOnce = false;
   let tick = 0;
+  const projects = {
+    loadProjects: () =>
+      Promise.resolve([
+        {
+          archived_at: null,
+          created_at: T0,
+          description: null,
+          key: 'MMR',
+          name: 'Mimir',
+          updated_at: T0,
+        },
+      ]),
+  };
   const scratchpads: ScratchpadStore = {
     async create(pad) {
       pads.set(pad.id, structuredClone(pad));
@@ -102,7 +115,7 @@ function harness() {
       return false;
     },
   };
-  const service = createScratchpadService(scratchpads, artifacts, {
+  const service = createScratchpadService(scratchpads, artifacts, projects, {
     clock: () => new Date(new Date(T0).valueOf() + tick++ * 1000).toISOString(),
     uuid: () => ID,
   });
@@ -118,10 +131,36 @@ function harness() {
     frozen,
     pads,
     service,
+    serviceStore: scratchpads,
   };
 }
 
 describe('ScratchpadService', () => {
+  test('create rejects missing and archived projects before persistence', async () => {
+    const h = harness();
+    await rejection(
+      () => h.service.create({ project: 'NOPE', title: 'Missing' }),
+      /project NOPE doesn't exist/,
+    );
+    const archivedProjects = {
+      loadProjects: async () => [
+        {
+          archived_at: T0,
+          created_at: T0,
+          description: null,
+          key: 'ARC',
+          name: 'Archived',
+          updated_at: T0,
+        },
+      ],
+    };
+    const archivedService = createScratchpadService(h.serviceStore, h.artifacts, archivedProjects);
+    await rejection(
+      () => archivedService.create({ project: 'ARC', title: 'Archived' }),
+      /project ARC is archived/,
+    );
+    expect(h.pads.size).toBe(0);
+  });
   test('owns create, checkpoint, Agenda transitions, metadata, reads, and CAS', async () => {
     const h = harness();
     const created = await h.service.create({
@@ -156,7 +195,10 @@ describe('ScratchpadService', () => {
       number: 2,
       reason: 'replaced',
     });
-    expect(superseded.agenda[1]).toMatchObject({ reason: 'replaced', state: 'superseded' });
+    expect(superseded.agenda[1]).toMatchObject({
+      reason: 'replaced',
+      state: 'superseded',
+    });
     const renamed = await h.service.updateMetadata(ID, {
       anchors: ['MMR-2', 'MMR-2'],
       expectedUpdatedAt: superseded.updatedAt,
@@ -164,14 +206,22 @@ describe('ScratchpadService', () => {
     });
     expect(renamed).toMatchObject({ anchors: ['MMR-2'], title: 'Final shape' });
     await rejection(
-      () => h.service.checkpoint(ID, { content: 'stale', expectedUpdatedAt: created.updatedAt }),
+      () =>
+        h.service.checkpoint(ID, {
+          content: 'stale',
+          expectedUpdatedAt: created.updatedAt,
+        }),
       /changed concurrently/,
     );
   });
 
   test('freeze stages, creates one self-contained provenance artifact, and recovers deletion', async () => {
     const h = harness();
-    const created = await h.service.create({ anchors: ['MMR-1'], project: 'MMR', title: 'Shape' });
+    const created = await h.service.create({
+      anchors: ['MMR-1'],
+      project: 'MMR',
+      title: 'Shape',
+    });
     const checkpointed = await h.service.checkpoint(ID, {
       content: 'The complete body',
       expectedUpdatedAt: created.updatedAt,
@@ -190,7 +240,10 @@ describe('ScratchpadService', () => {
     expect(staged.freezingAt).not.toBeNull();
     await rejection(
       () =>
-        h.service.checkpoint(ID, { content: 'stale content', expectedUpdatedAt: staged.updatedAt }),
+        h.service.checkpoint(ID, {
+          content: 'stale content',
+          expectedUpdatedAt: staged.updatedAt,
+        }),
       /freezing/,
     );
 
@@ -224,7 +277,11 @@ describe('ScratchpadService', () => {
     const h = harness();
     const created = await h.service.create({ project: 'MMR', title: 'Shape' });
     await rejection(
-      () => h.service.freeze(ID, { expectedUpdatedAt: created.updatedAt, summary: ' \n ' }),
+      () =>
+        h.service.freeze(ID, {
+          expectedUpdatedAt: created.updatedAt,
+          summary: ' \n ',
+        }),
       /requires a summary/,
     );
     const added = await h.service.agendaAdd(ID, {
@@ -236,7 +293,11 @@ describe('ScratchpadService', () => {
       /1\. Still open/,
     );
     await rejection(
-      () => h.service.discard(ID, { expectedUpdatedAt: added.updatedAt, force: true }),
+      () =>
+        h.service.discard(ID, {
+          expectedUpdatedAt: added.updatedAt,
+          force: true,
+        }),
       /requires a reason/,
     );
     await h.service.discard(ID, {

@@ -5,7 +5,6 @@ import {
   WRITE_ECHO_FACETS,
 } from '@mimir/contract';
 import type {
-  Scratchpad,
   FacetName,
   FieldFilter,
   Priority,
@@ -30,6 +29,7 @@ import {
   projectViewOf,
   createNode,
   createScratchpadService,
+  compareScratchpadRows,
   depend,
   fileSeed,
   getSeed,
@@ -58,6 +58,8 @@ import {
   formatSetJson,
   formatStatusJson,
   formatTriageJson,
+  scratchpadReceiptToWire,
+  scratchpadToWire,
   getArtifact,
   getNode,
   listArtifacts,
@@ -109,7 +111,9 @@ export type ToolResult = {
   [key: string]: unknown;
 };
 
-const ok = (text: string): ToolResult => ({ content: [{ text, type: 'text' }] });
+const ok = (text: string): ToolResult => ({
+  content: [{ text, type: 'text' }],
+});
 
 /** The structured MCP error envelope `{"error":{code,message,hint?}}` as an
  * `isError` tool result — the shared emitter for tool-level faults and the
@@ -129,44 +133,19 @@ const fail = toolErrorResult;
 
 type ScratchpadMutationArgs = { id: string; expected_updated_at: string };
 
-export type ScratchCreateToolArgs = { scope: string; title: string; linked_work?: string[] };
+export type ScratchCreateToolArgs = {
+  scope: string;
+  title: string;
+  linked_work?: string[];
+};
 export type ScratchListToolArgs = { scope?: string };
 export type ScratchUpdateToolArgs = ScratchpadMutationArgs & {
   title?: string;
   linked_work?: string[];
 };
 
-const scratchpadToWire = (scratchpad: Scratchpad): Record<string, unknown> => ({
-  agenda: scratchpad.agenda.map((item) => ({
-    content: item.content,
-    number: item.number,
-    reason: item.reason,
-    state: item.state,
-  })),
-  created_at: scratchpad.createdAt,
-  freezing_at: scratchpad.freezingAt,
-  id: scratchpad.id,
-  journal: scratchpad.journal.map((entry) => ({
-    at: entry.at,
-    content: entry.content,
-    number: entry.number,
-  })),
-  linked_work: scratchpad.anchors,
-  project: scratchpad.project,
-  title: scratchpad.title,
-  updated_at: scratchpad.updatedAt,
-});
-
-const scratchpadReceipt = (scratchpad: Scratchpad): Record<string, unknown> => ({
-  id: scratchpad.id,
-  open_agenda: scratchpad.agenda.filter((item) => item.state === 'open').length,
-  project: scratchpad.project,
-  title: scratchpad.title,
-  updated_at: scratchpad.updatedAt,
-});
-
 const scratchService = (store: Store) =>
-  createScratchpadService(store.scratchpads, store.artifacts);
+  createScratchpadService(store.scratchpads, store.artifacts, store);
 
 export function toolScratchCreate(store: Store, args: ScratchCreateToolArgs): Promise<ToolResult> {
   return guard(async () => {
@@ -175,23 +154,20 @@ export function toolScratchCreate(store: Store, args: ScratchCreateToolArgs): Pr
       project: args.scope,
       title: args.title,
     });
-    return ok(JSON.stringify(scratchpadReceipt(scratchpad), null, 2));
+    return ok(JSON.stringify(scratchpadReceiptToWire(scratchpad), null, 2));
   });
 }
 
 export function toolScratchList(store: Store, args: ScratchListToolArgs): Promise<ToolResult> {
   return guard(async () => {
     const scratchpads = (await scratchService(store).list(args.scope)).toSorted(
-      (a, b) =>
-        Number(b.freezingAt !== null) - Number(a.freezingAt !== null) ||
-        b.updatedAt.localeCompare(a.updatedAt) ||
-        a.id.localeCompare(b.id),
+      compareScratchpadRows,
     );
     return ok(
       JSON.stringify(
         {
           scratchpads: scratchpads.map((scratchpad) => ({
-            ...scratchpadReceipt(scratchpad),
+            ...scratchpadReceiptToWire(scratchpad),
             state: scratchpad.freezingAt === null ? 'active' : 'freezing',
           })),
           total: scratchpads.length,
@@ -216,7 +192,7 @@ export function toolScratchUpdate(store: Store, args: ScratchUpdateToolArgs): Pr
       expectedUpdatedAt: args.expected_updated_at,
       title: args.title,
     });
-    return ok(JSON.stringify(scratchpadReceipt(scratchpad), null, 2));
+    return ok(JSON.stringify(scratchpadReceiptToWire(scratchpad), null, 2));
   });
 }
 
@@ -229,7 +205,7 @@ export function toolScratchCheckpoint(
       content: args.content,
       expectedUpdatedAt: args.expected_updated_at,
     });
-    return ok(JSON.stringify(scratchpadReceipt(scratchpad), null, 2));
+    return ok(JSON.stringify(scratchpadReceiptToWire(scratchpad), null, 2));
   });
 }
 
@@ -242,7 +218,7 @@ export function toolScratchAgendaAdd(
       content: args.content,
       expectedUpdatedAt: args.expected_updated_at,
     });
-    return ok(JSON.stringify(scratchpadReceipt(scratchpad), null, 2));
+    return ok(JSON.stringify(scratchpadReceiptToWire(scratchpad), null, 2));
   });
 }
 
@@ -255,7 +231,7 @@ export function toolScratchAgendaComplete(
       expectedUpdatedAt: args.expected_updated_at,
       number: args.number,
     });
-    return ok(JSON.stringify(scratchpadReceipt(scratchpad), null, 2));
+    return ok(JSON.stringify(scratchpadReceiptToWire(scratchpad), null, 2));
   });
 }
 
@@ -269,7 +245,7 @@ export function toolScratchAgendaSupersede(
       number: args.number,
       reason: args.reason,
     });
-    return ok(JSON.stringify(scratchpadReceipt(scratchpad), null, 2));
+    return ok(JSON.stringify(scratchpadReceiptToWire(scratchpad), null, 2));
   });
 }
 
@@ -677,7 +653,11 @@ export function toolMove(store: Store, args: { id: string; to: string }): Promis
 
 export function toolReorder(
   store: Store,
-  args: { id: string; position: 'top' | 'bottom' | 'before' | 'after'; ref?: string },
+  args: {
+    id: string;
+    position: 'top' | 'bottom' | 'before' | 'after';
+    ref?: string;
+  },
 ): Promise<ToolResult> {
   return guard(async () => {
     const id = await nodeId(store, args.id, 'task');

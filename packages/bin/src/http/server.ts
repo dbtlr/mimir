@@ -45,6 +45,8 @@ import {
   promoteSeed,
   promoteToWire,
   seedToWire,
+  scratchpadReceiptToWire,
+  scratchpadToWire,
   transitionSeed,
   updateSeed,
   nodeViewOf,
@@ -52,6 +54,8 @@ import {
   projectViewOf,
   createNode,
   createProject,
+  createScratchpadService,
+  compareScratchpadRows,
   depend,
   renderArtifactRef,
   resolveAttachTargets,
@@ -168,6 +172,18 @@ const PROJECT_LIST_FACETS: readonly FacetName[] = [
  * Scoped to `?status=archived` only: the facet costs an artifact-store read per
  * project, and the active list is polled every 10s by a UI that never reads it. */
 const ARCHIVED_LIST_FACETS: readonly FacetName[] = [...PROJECT_LIST_FACETS, 'artifactCount'];
+
+function scratchService(store: Store) {
+  return createScratchpadService(store.scratchpads, store.artifacts, store);
+}
+
+function agendaNumber(raw: string, verb: string): number {
+  const number = Number(raw);
+  if (!Number.isSafeInteger(number) || number < 1) {
+    throw validation(`${verb} requires a positive item number`);
+  }
+  return number;
+}
 
 /** Resolve a node token against an already-derived set — the HTTP binding of the
  * core guard, with route pointers. The multi-token twin `nodeRef` uses when a
@@ -424,7 +440,11 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
     filters.push(parseFilterToken('in', `type:${type}`));
   } else if (!filters.some((f) => f.field === 'type')) {
     // No type selection → the whole tree, not the intent layer's tasks-only default.
-    filters.push({ field: 'type', op: 'in', value: NODE_TYPE_VALUES.join(',') });
+    filters.push({
+      field: 'type',
+      op: 'in',
+      value: NODE_TYPE_VALUES.join(','),
+    });
   }
   const priority = q.get('priority');
   if (priority !== null) {
@@ -642,7 +662,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       '/api/artifacts/:id': {
         GET: (req) =>
           guarded(req, async () => {
-            const detail = await getArtifact(store, req.params.id, { content: true });
+            const detail = await getArtifact(store, req.params.id, {
+              content: true,
+            });
             return json(req, await artifactDetailToWire(store, detail));
           }),
         // The dumb update for an artifact (MMR-40, MMR-319): title and the
@@ -666,7 +688,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (Object.keys(fields).length > 0) {
               await updateArtifact(store, { key: identity.key, seq: identity.seq }, fields);
             }
-            const detail = await getArtifact(store, req.params.id, { content: true });
+            const detail = await getArtifact(store, req.params.id, {
+              content: true,
+            });
             return json(req, await artifactDetailToWire(store, detail));
           }),
       },
@@ -846,7 +870,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       '/api/nodes/:id/annotations': {
         GET: (req) =>
           guarded(req, async () => {
-            const view = await getNode(store, req.params.id, { facets: ['annotations'] });
+            const view = await getNode(store, req.params.id, {
+              facets: ['annotations'],
+            });
             const items = (view.annotations ?? []).map((a) => ({
               content: a.content,
               created_at: a.createdAt,
@@ -1026,7 +1052,9 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               name: requiredStr(body, 'name', 'create project'),
               tags: strList(body, 'tags'),
             });
-            const view = await getNode(store, project.key, { facets: PROJECT_FACETS });
+            const view = await getNode(store, project.key, {
+              facets: PROJECT_FACETS,
+            });
             return json(req, nodeToWire(view), 201);
           }),
       },
@@ -1094,6 +1122,142 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           }),
       },
 
+      // MMR-332 / ADR 0028: create has no concurrency token; every mutation of
+      // an existing Scratchpad requires expected_updated_at.
+      '/api/scratchpads': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const scope = new URL(req.url).searchParams.get('project') ?? undefined;
+            const scratchpads = (
+              await scratchService(store).list(scope === 'all' ? undefined : scope)
+            ).toSorted(compareScratchpadRows);
+            return json(req, {
+              items: scratchpads.map((scratchpad) => ({
+                ...scratchpadReceiptToWire(scratchpad),
+                state: scratchpad.freezingAt === null ? 'active' : 'freezing',
+              })),
+              total: scratchpads.length,
+            });
+          }),
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['linked_work', 'project', 'title']);
+            const scratchpad = await scratchService(store).create({
+              anchors: strList(body, 'linked_work'),
+              project: requiredStr(body, 'project', 'scratchpad create'),
+              title: requiredStr(body, 'title', 'scratchpad create'),
+            });
+            return json(req, scratchpadReceiptToWire(scratchpad), 201);
+          }),
+      },
+
+      '/api/scratchpads/:id': {
+        DELETE: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['expected_updated_at', 'force', 'reason']);
+            await scratchService(store).discard(req.params.id, {
+              expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad discard'),
+              force: boolField(body, 'force'),
+              reason: strField(body, 'reason'),
+            });
+            return json(req, { id: req.params.id, result: 'discarded' });
+          }),
+        GET: (req) =>
+          guarded(req, async () =>
+            json(req, scratchpadToWire(await scratchService(store).get(req.params.id))),
+          ),
+        PATCH: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['expected_updated_at', 'linked_work', 'title']);
+            const scratchpad = await scratchService(store).updateMetadata(req.params.id, {
+              anchors: strList(body, 'linked_work'),
+              expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad update'),
+              title: strField(body, 'title'),
+            });
+            return json(req, scratchpadReceiptToWire(scratchpad));
+          }),
+      },
+
+      '/api/scratchpads/:id/agenda': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['content', 'expected_updated_at']);
+            const scratchpad = await scratchService(store).agendaAdd(req.params.id, {
+              content: requiredStr(body, 'content', 'scratchpad agenda add'),
+              expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad agenda add'),
+            });
+            return json(req, scratchpadReceiptToWire(scratchpad));
+          }),
+      },
+
+      '/api/scratchpads/:id/agenda/:number/complete': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['expected_updated_at']);
+            const number = agendaNumber(req.params.number, 'scratchpad agenda complete');
+            const scratchpad = await scratchService(store).agendaComplete(req.params.id, {
+              expectedUpdatedAt: requiredStr(
+                body,
+                'expected_updated_at',
+                'scratchpad agenda complete',
+              ),
+              number,
+            });
+            return json(req, scratchpadReceiptToWire(scratchpad));
+          }),
+      },
+
+      '/api/scratchpads/:id/agenda/:number/supersede': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['expected_updated_at', 'reason']);
+            const number = agendaNumber(req.params.number, 'scratchpad agenda supersede');
+            const scratchpad = await scratchService(store).agendaSupersede(req.params.id, {
+              expectedUpdatedAt: requiredStr(
+                body,
+                'expected_updated_at',
+                'scratchpad agenda supersede',
+              ),
+              number,
+              reason: requiredStr(body, 'reason', 'scratchpad agenda supersede'),
+            });
+            return json(req, scratchpadReceiptToWire(scratchpad));
+          }),
+      },
+
+      '/api/scratchpads/:id/checkpoints': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['content', 'expected_updated_at']);
+            const scratchpad = await scratchService(store).checkpoint(req.params.id, {
+              content: requiredStr(body, 'content', 'scratchpad checkpoint'),
+              expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad checkpoint'),
+            });
+            return json(req, scratchpadReceiptToWire(scratchpad));
+          }),
+      },
+
+      '/api/scratchpads/:id/freeze': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['expected_updated_at', 'summary', 'tags']);
+            const artifact = await scratchService(store).freeze(req.params.id, {
+              expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad freeze'),
+              summary: requiredStr(body, 'summary', 'scratchpad freeze'),
+              tags: strList(body, 'tags'),
+            });
+            return json(req, {
+              created_at: artifact.created_at,
+              id: renderArtifactRef({ key: artifact.key, seq: artifact.seq }),
+              linked_work: artifact.links,
+              project: artifact.key,
+              summary: artifact.summary,
+              tags: artifact.tags,
+              title: artifact.title,
+            });
+          }),
+      },
+
       '/api/seeds': {
         GET: (req) =>
           guarded(req, async () => {
@@ -1121,7 +1285,10 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               listOpts.sort = sort;
             }
             const seeds = await listSeeds(store, listOpts);
-            return json(req, { items: seeds.map(seedToWire), total: seeds.length });
+            return json(req, {
+              items: seeds.map(seedToWire),
+              total: seeds.length,
+            });
           }),
         POST: (req) =>
           guarded(req, async () => {

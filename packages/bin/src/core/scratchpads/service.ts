@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import type { Scratchpad, ScratchpadAgendaItem } from '@mimir/contract';
 
 import type { ArtifactRecord, ArtifactStore } from '../artifacts/store';
-import { notFound, validation } from '../errors';
+import { conflict, notFound, validation } from '../errors';
+import type { Project } from '../model';
 import { normalizeSummary } from '../mutations/data';
 import { now } from '../time';
 import { encodeScratchpadBody } from './codec';
@@ -28,6 +29,7 @@ function assertGuard(scratchpad: Scratchpad, expectedUpdatedAt: string): void {
 export function createScratchpadService(
   scratchpads: ScratchpadStore,
   artifacts: ArtifactStore,
+  projects: { loadProjects: () => Promise<readonly Project[]> },
   deps: { clock?: () => string; uuid?: () => string } = {},
 ) {
   const clock = deps.clock ?? now;
@@ -56,7 +58,10 @@ export function createScratchpadService(
     const current = await loadRequired(id);
     assertWorking(current);
     assertGuard(current, guard.expectedUpdatedAt);
-    const replacement = { ...change(current), updatedAt: stampAfter(current.updatedAt) };
+    const replacement = {
+      ...change(current),
+      updatedAt: stampAfter(current.updatedAt),
+    };
     await scratchpads.replace(replacement, current.updatedAt);
     return replacement;
   };
@@ -138,6 +143,18 @@ export function createScratchpadService(
     }): Promise<Scratchpad> {
       if (input.title.trim() === '') {
         throw validation('scratchpad create requires a title');
+      }
+      const project = (await projects.loadProjects()).find(
+        (candidate) => candidate.key === input.project,
+      );
+      if (project === undefined) {
+        throw notFound(`project ${input.project} doesn't exist`);
+      }
+      if (project.archived_at !== null) {
+        throw conflict(
+          `project ${project.key} is archived — no changes are allowed`,
+          `unarchive it first: mimir unarchive ${project.key}`,
+        );
       }
       const timestamp = clock();
       const scratchpad: Scratchpad = {
