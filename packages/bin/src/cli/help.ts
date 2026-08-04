@@ -160,6 +160,7 @@ options:
   artifacts (the frozen-work-product feed):
       --since <date>      created on or after (YYYY-MM-DD or ISO timestamp)
       --before <date>     created on or before (same grammar)
+  -q, --query <text>      case-insensitive substring over the title
       --offset <n>        rows to skip — pages the newest-first feed
 
   selection (list/next — AND-composed):
