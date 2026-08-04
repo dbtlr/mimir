@@ -73,6 +73,39 @@ test.skipIf(!NORN)("a bare-date before still includes the same day's artifacts",
   expect(body.total).toBe(1);
 });
 
+test.skipIf(!NORN)('an impossible artifact date bound is a validation error', async () => {
+  const res = await fetch(`${base}/api/artifacts?since=2026-02-30`);
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({
+    error: {
+      code: 'validation',
+      hint: 'since takes YYYY-MM-DD or a full ISO timestamp',
+      message: 'invalid date: 2026-02-30',
+    },
+  });
+});
+
+test.skipIf(!NORN)('a malformed before bound is a validation error', async () => {
+  const res = await fetch(`${base}/api/artifacts?before=2026-07-31T99:00:00Z`);
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({
+    error: {
+      code: 'validation',
+      hint: 'before takes YYYY-MM-DD or a full ISO timestamp',
+      message: 'invalid date: 2026-07-31T99:00:00Z',
+    },
+  });
+});
+
+test.skipIf(!NORN)('a numeric-offset bound is compared as its canonical UTC instant', async () => {
+  const bound = new Date(Date.now() - 30 * 60 * 1000);
+  const local = new Date(bound.getTime() + 2 * 60 * 60 * 1000).toISOString().replace('Z', '+02:00');
+  const body = (await (
+    await fetch(`${base}/api/artifacts?since=${encodeURIComponent(local)}`)
+  ).json()) as { total: number };
+  expect(body.total).toBe(1);
+});
+
 test.skipIf(!NORN)('invalid limit is a 4xx, not a crash', async () => {
   const res = await fetch(`${base}/api/artifacts?limit=0`);
   expect(res.status).toBeGreaterThanOrEqual(400);

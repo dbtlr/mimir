@@ -63,6 +63,7 @@ import {
   resolveProjectKeyInSet,
   getArtifact,
   getNode,
+  isFilterDate,
   listNodes,
   listProjects,
   moveNode,
@@ -616,10 +617,22 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             }
             const since = q.get('since');
             if (since !== null) {
+              if (!isFilterDate(since)) {
+                throw validation(
+                  `invalid date: ${since}`,
+                  'since takes YYYY-MM-DD or a full ISO timestamp',
+                );
+              }
               listOpts.since = normalizeFilterDate(since, 'start');
             }
             const before = q.get('before');
             if (before !== null) {
+              if (!isFilterDate(before)) {
+                throw validation(
+                  `invalid date: ${before}`,
+                  'before takes YYYY-MM-DD or a full ISO timestamp',
+                );
+              }
               listOpts.before = normalizeFilterDate(before, 'end');
             }
             const limit = q.get('limit');
