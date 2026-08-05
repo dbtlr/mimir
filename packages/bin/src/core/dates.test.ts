@@ -72,6 +72,39 @@ describe('bare dates resolve through the caller zone', () => {
     });
   });
 
+  // A fall-back that lands ON or just after midnight makes the day's first hour
+  // happen twice, and the day opens at the FIRST of them. East of Greenwich the
+  // naive two-guess resolution reads only the post-transition offset and picks
+  // the later midnight, quietly shortening a 25-hour day to 24 and filing that
+  // hour's rows under the wrong day. Every expectation below is an instant
+  // computed independently of this module (a minute-by-minute scan over Intl's
+  // `longOffset` readings), not a value the module produced.
+  test.each([
+    ['Asia/Amman', '2021-10-29', '2021-10-28T21:00:00.000Z', '2021-10-29T22:00:00.000Z', 25],
+    ['Asia/Gaza', '2021-10-29', '2021-10-28T21:00:00.000Z', '2021-10-29T22:00:00.000Z', 25],
+    ['Asia/Magadan', '2014-10-26', '2014-10-25T12:00:00.000Z', '2014-10-26T14:00:00.000Z', 26],
+    ['Antarctica/Casey', '2023-03-09', '2023-03-08T13:00:00.000Z', '2023-03-09T16:00:00.000Z', 27],
+    ['Asia/Colombo', '1996-05-25', '1996-05-24T18:30:00.000Z', '1996-05-25T17:30:00.000Z', 23],
+  ])('%s %s opens at the earlier of a repeated midnight', (zone, day, from, until, hours) => {
+    const window = dateFilterWindow('on', day, zone);
+    expect({ from: window.from?.at, until: window.until?.at }).toEqual({ from, until });
+    expect((window.until?.epochMs ?? 0) - (window.from?.epochMs ?? 0)).toBe(hours * 60 * 60 * 1000);
+  });
+
+  test('a day that never happened is an empty window', () => {
+    // Samoa skipped 2011-12-30 entirely when it crossed the date line.
+    expect(edges('on', '2011-12-30', 'Pacific/Apia')).toEqual({
+      from: '2011-12-30T10:00:00.000Z',
+      until: '2011-12-30T10:00:00.000Z',
+    });
+    expect(
+      withinWindow(
+        dateFilterWindow('on', '2011-12-30', 'Pacific/Apia'),
+        '2011-12-30T10:00:00.000Z',
+      ),
+    ).toBe(false);
+  });
+
   test('a day whose local midnight does not exist opens at its first real instant', () => {
     // Chile springs forward AT midnight: 2026-09-06 has no 00:00 local.
     const window = dateFilterWindow('on', '2026-09-06', 'America/Santiago');
@@ -97,6 +130,25 @@ describe('bare dates resolve through the caller zone', () => {
     await expectMimirError('validation', async () =>
       dateFilterWindow('on', '2026-06-10', undefined),
     );
+  });
+
+  // `Date.UTC` maps years 0-99 into the 1900s, so `0050-01-01` would resolve to
+  // a 1950 window — a substituted answer, which this module never gives.
+  test.each(['0050-01-01', '0099-12-31', '0000-01-01'])(
+    '%s is refused, not remapped',
+    async (day) => {
+      await expectMimirError('validation', async () => dateFilterWindow('on', day, 'UTC'));
+      await expectMimirError('validation', async () =>
+        dateFilterWindow('before', `${day}T00:00:00Z`, 'UTC'),
+      );
+    },
+  );
+
+  test('the first supported year still resolves', () => {
+    expect(edges('on', '0100-01-01', 'UTC')).toEqual({
+      from: '0100-01-01T00:00:00.000Z',
+      until: '0100-01-02T00:00:00.000Z',
+    });
   });
 });
 
@@ -141,6 +193,19 @@ describe('operator semantics', () => {
       '2026-07-01T09:30:15.250Z',
     );
     expect(edges('before', '2026-07-01T09:30Z', zone).until).toBe('2026-07-01T09:30:00.000Z');
+  });
+
+  // Sub-millisecond digits truncate. Rounding `.9996` up to the next second
+  // would widen an `at-or-before` bound past instants the caller excluded.
+  test('sub-millisecond digits truncate rather than round', () => {
+    expect(edges('at-or-before', '2026-07-01T09:30:00.9996Z', zone).until).toBe(
+      '2026-07-01T09:30:00.999Z',
+    );
+    const window = dateFilterWindow('at-or-before', '2026-07-01T09:30:00.9996Z', zone);
+    expect(withinWindow(window, '2026-07-01T09:30:01.000Z')).toBe(false);
+    expect(edges('before', '2026-07-01T09:30:00.0009Z', zone).until).toBe(
+      '2026-07-01T09:30:00.000Z',
+    );
   });
 
   test('a zone-less or malformed timestamp is refused', async () => {
