@@ -268,6 +268,18 @@ function causeOf(finding: DoctorFinding, field: string | null): { cause: string;
         note: 'No usable updated_at — every mutation is refused until repaired.',
       };
     }
+    case 'timestamps': {
+      return finding.code === 'uninterpretable-timestamp' ||
+        finding.code === 'uninterpretable-record-timestamp'
+        ? {
+            cause: 'uninterpretable timestamp',
+            note: 'Zone-less or malformed — the instant it meant cannot be inferred, so correct it by hand.',
+          }
+        : {
+            cause: 'non-canonical timestamp',
+            note: 'Not canonical UTC — it sorts wrongly against every canonical stamp until repaired.',
+          };
+    }
     default: {
       return { cause: finding.check, note: finding.message };
     }

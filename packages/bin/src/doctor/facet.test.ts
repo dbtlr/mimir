@@ -89,6 +89,28 @@ const lifecycleFinding: DoctorFinding = {
 };
 
 describe('buildDoctorFacet', () => {
+  test('names the two timestamp classes distinctly in the panel (MMR-351)', () => {
+    const timestampFinding = (code: DoctorFinding['code'], where: string): DoctorFinding => ({
+      ...lifecycleFinding,
+      check: 'timestamps',
+      code,
+      where,
+    });
+    const facet = buildDoctorFacet({
+      findings: [
+        timestampFinding('non-canonical-timestamp', 'frontmatter · updated_at'),
+        timestampFinding('uninterpretable-timestamp', 'frontmatter · created'),
+      ],
+      rawByStem: new Map([['MMR-97', rawTask]]),
+      readableDocStems: ['MMR-97'],
+      scannedAt: '2026-07-12T00:00:00.000Z',
+    });
+    expect(facet.groups[0]?.records.map((record) => record.cause)).toEqual([
+      'non-canonical timestamp',
+      'uninterpretable timestamp',
+    ]);
+  });
+
   test('enriches an illegal-lifecycle finding into a full panel record', () => {
     const facet = buildDoctorFacet({
       findings: [lifecycleFinding],
