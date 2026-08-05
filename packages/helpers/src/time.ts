@@ -11,7 +11,7 @@
  */
 
 /** What every formatter returns for an instant it cannot read (ADR 0017). */
-const UNREADABLE = '—';
+export const UNREADABLE = '—';
 
 /** One formatter per zone — construction is expensive and zone rules never
  * change mid-process. */
@@ -123,5 +123,8 @@ export function relativeTime(iso: string | number, nowMs: number): string {
 /** Relative time as a phrase: "just now" / "4m ago" / "3y ago". */
 export function ago(iso: string | number, nowMs: number): string {
   const rel = relativeTime(iso, nowMs);
+  if (rel === UNREADABLE) {
+    return UNREADABLE;
+  }
   return rel === 'now' ? 'just now' : `${rel} ago`;
 }

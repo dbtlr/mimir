@@ -121,7 +121,8 @@ describe('ago', () => {
     expect(ago(now - 3 * 365 * 86_400_000, now)).toBe('3y ago');
   });
 
-  test('an unreadable now phrases the placeholder', () => {
-    expect(ago(now - 4 * 60_000, Number.NaN)).toBe('— ago');
+  test('an unreadable instant or now preserves the bare placeholder', () => {
+    expect(ago(now - 4 * 60_000, Number.NaN)).toBe('—');
+    expect(ago('not-a-date', now)).toBe('—');
   });
 });

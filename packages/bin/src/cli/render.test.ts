@@ -263,6 +263,23 @@ test('overview: a window spanning local midnight keeps both dates (MMR-350)', ()
   expect(text).toContain('2026-08-05 23:50 -> 2026-08-06 00:10 EDT');
 });
 
+test('overview: a session window with an unreadable endpoint collapses to the placeholder', () => {
+  for (const [from, to] of [
+    ['not-a-date', '2026-08-05T13:43:00.000Z'],
+    ['2026-08-05T13:14:00.000Z', 'not-a-date'],
+  ] as const) {
+    const text = renderOverview(
+      overview({
+        sessions: { entries: [{ from, id: 'sess-1', tasks: [], to, transitions: 1 }], shown: 1 },
+      }),
+      fakeIo(false),
+    );
+    expect(text).toContain('sess-1 · —');
+    expect(text).not.toContain('— ->');
+    expect(text).not.toContain('-> —');
+  }
+});
+
 test('overview: an active scratchpad row shows a relative age (MMR-350)', () => {
   const text = renderOverview(
     overview({

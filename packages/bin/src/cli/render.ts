@@ -11,7 +11,7 @@ import type {
   TreeView,
   TriageReport,
 } from '@mimir/contract';
-import { formatDay, formatInstant, relativeTime } from '@mimir/helpers';
+import { UNREADABLE, formatDay, formatInstant, relativeTime } from '@mimir/helpers';
 
 import {
   formatArtifactIds,
@@ -702,6 +702,9 @@ function sessionWindow(from: string, to: string, io: Io): string {
     const [day = '', time = '', label = ''] = formatInstant(iso, io.zone).split(' ');
     return { day, label, time };
   };
+  if (formatInstant(from, io.zone) === UNREADABLE || formatInstant(to, io.zone) === UNREADABLE) {
+    return UNREADABLE;
+  }
   const glyph = arrow(io.plain);
   const [open, close] = [reading(from), reading(to)];
   if (open.label === '' || open.label !== close.label) {
