@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useUnarchiveProject } from '../api/mutations';
 import type { WireNode } from '../api/types';
+import { calendarDate } from '../lib/time';
 import { ActionButton } from './ui/action-button';
 
 /**
@@ -33,8 +34,9 @@ function countLine(project: WireNode): string {
 
 function FrozenProjectCard({ project, offline }: { project: WireNode; offline: boolean }) {
   const unarchive = useUnarchiveProject(project.id);
-  // `❄ YYYY-MM-DD` — the frozen date, omitted rather than broken when absent.
-  const frozenAt = project.archived_at?.slice(0, 10);
+  // `❄ YYYY-MM-DD` — the frozen date in the reader's zone, omitted rather than
+  // broken when absent.
+  const frozenAt = project.archived_at == null ? undefined : calendarDate(project.archived_at);
 
   return (
     <div className="flex flex-col gap-2.5 rounded-[11px] border border-dashed border-line bg-well-recessed px-[15px] py-[13px]">

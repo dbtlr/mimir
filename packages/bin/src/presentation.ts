@@ -20,6 +20,13 @@ export type Io = {
   isTTY: boolean;
   /** Suppress ANSI (NO_COLOR env or `--ascii`). */
   plain: boolean;
+  /**
+   * The IANA zone every human-facing timestamp renders in (ADR 0029) — the
+   * invoking system's, unless the caller named one with `--tz` on a query verb,
+   * in which case that zone resolves their dates AND renders the answer: a
+   * result filtered by Tokyo days but labelled EDT reads as a bug.
+   */
+  zone: string;
 };
 
 /** Wrap `text` in an ANSI color (`plain` — NO_COLOR/--ascii/!isTTY — passes it through untouched). Exported for the help renderer (MMR-300): same plain/color contract, no second color system. */

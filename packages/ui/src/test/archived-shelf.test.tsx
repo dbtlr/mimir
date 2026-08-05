@@ -70,6 +70,17 @@ describe('archivedShelf (MMR-125)', () => {
     expect(screen.getByRole('button', { name: 'Unarchive project OLD' })).toBeDefined();
   });
 
+  // ADR 0029: the ❄ date is the reader's calendar day, not the UTC one. The
+  // suite pins TZ to America/New_York, so 02:00Z on the 1st is still the 30th
+  // where the reader sits — the old `slice(0, 10)` read it as July.
+  it('the ❄ date is the local calendar day, not the UTC slice', async () => {
+    renderShelf([frozen('OLD', { archived_at: '2026-07-01T02:00:00.000Z' })]);
+    await userEvent.click(screen.getByRole('button', { name: /archived/i }));
+
+    expect(screen.getByText('❄ 2026-06-30')).toBeDefined();
+    expect(screen.queryByText('❄ 2026-07-01')).toBeNull();
+  });
+
   it('drops the artifact clause when the facet is absent, the ❄ when the date is', async () => {
     renderShelf([frozen('OLD', { archived_at: undefined, artifact_count: undefined })]);
     await userEvent.click(screen.getByRole('button', { name: /archived/i }));

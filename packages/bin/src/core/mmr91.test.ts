@@ -72,6 +72,7 @@ function renderBoth(err: RenderableError): { human: string; machine: string } {
       isTTY: false,
       plain: true,
       write: () => {},
+      zone: 'America/New_York',
     };
     renderError(err, format, io);
     return out.join('\n');

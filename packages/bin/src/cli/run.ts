@@ -239,9 +239,12 @@ const COMMANDS: ReadonlySet<string> = new Set(
  *   the hint sends the caller.
  *
  * - `--tz`, `--at-or-before`, and `--at-or-after` belong to the four query
- *   verbs (ADR 0029). `mimir get MMR-1 --tz Asia/Tokyo` would otherwise exit 0
- *   having read a record whose timestamps the flag never touched, and the zone
- *   is exactly the argument a caller expects to have changed the answer. Their
+ *   verbs (ADR 0029). `--tz` names the caller's zone for both halves of a
+ *   query — the calendar day a bare date means, and the wall clock the styled
+ *   formats render — but only a verb that runs a date-filtered query has the
+ *   first half to offer. `mimir get MMR-1 --tz Asia/Tokyo` would otherwise
+ *   exit 0 having read a record the flag half-applied to, and the zone is
+ *   exactly the argument a caller expects to have changed the answer. Their
  *   three siblings — `--on`, `--before`, `--after` — stay shared: `depend`
  *   takes `--on`, `reorder` takes `--before`/`--after`, and one options table
  *   cannot scope a spelling two verbs both mean.
@@ -341,7 +344,7 @@ const VERB_OWNED_FLAGS: readonly {
   {
     flag: '--tz',
     given: (values) => values.tz !== undefined,
-    hint: `'--tz' resolves a bare date in a query; use it with ${DATE_QUERY_VERBS.join(', ')}`,
+    hint: `'--tz' resolves a bare date in a query and renders its results; use it with ${DATE_QUERY_VERBS.join(', ')}`,
     owner: DATE_QUERY_VERBS,
   },
   {
@@ -509,7 +512,9 @@ export async function runCli(
     return 2;
   }
 
-  const ctx: Io = { ...io, plain: io.plain || values.ascii === true };
+  // `zone` is reassigned below once `--tz` has been validated against its owning
+  // verb — a caller who names a zone reads the answer in it too (ADR 0029).
+  let ctx: Io = { ...io, plain: io.plain || values.ascii === true };
 
   const command = positionals[0];
   const full = argv.includes('--help');
@@ -554,6 +559,16 @@ export async function runCli(
     // The write echo's format, picked inside the try block so a bad --format
     // value is caught and rendered.
     const singleFormat = pickFormat(values.format, 'single', ctx);
+    // An explicit `--tz` is the caller's zone for the WHOLE invocation: it
+    // resolves their bare dates and renders the styled formats they read back
+    // (ADR 0029). Filtering a Tokyo calendar day and printing EDT is a correct
+    // answer that reads like a bug. Without the flag, rendering stays the
+    // invoking machine's zone. The owned-flag guard above has already refused
+    // `--tz` on any verb outside the date grammar, so this only fires on a
+    // query verb; an unknown zone throws the same usage error it always did.
+    if (values.tz !== undefined) {
+      ctx = { ...ctx, zone: callerTimeZone(values.tz) };
+    }
     // Mutation context shared across all write-verb handlers — built lazily so
     // the store is acquired only by verbs that actually touch data (MMR-39):
     // help, usage errors, and `skill install` never open or create it.
