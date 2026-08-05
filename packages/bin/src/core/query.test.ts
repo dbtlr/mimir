@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
+import type { QueryOp } from '@mimir/contract';
+
 import type { QueryRow } from './query';
 import { compileFilters, parseFilterToken } from './query';
 import { expectMimirError } from './testing';
@@ -79,10 +81,13 @@ describe('compileFilters (value faults → warnings)', () => {
     expect(run(row({ priority: 'p1' }))).toBe(false);
   });
 
-  test('an unparseable date compiles to a warning', () => {
-    const { warnings } = compileFilters([{ field: 'created_at', op: 'before', value: 'notadate' }]);
-    expect(warnings[0]?.code).toBe('no_match_value');
-    expect(warnings[0]?.expected).toEqual(['YYYY-MM-DD', 'ISO-8601 timestamp']);
+  // A date fault is NOT a value warning (ADR 0029): an unreadable bound is a
+  // question that cannot be answered, not a selection that matches nothing —
+  // see the refusal cases under filter evaluation.
+  test('an unparseable date is refused, not warned', async () => {
+    await expectMimirError('validation', async () =>
+      compileFilters([{ field: 'created_at', op: 'before', value: 'notadate' }], 'UTC'),
+    );
   });
 });
 
@@ -128,36 +133,67 @@ describe('filter evaluation', () => {
     expect(none(row({}, ['plan']))).toBe(false);
   });
 
-  test('date ops: day windows for date-only values, inclusive not-variants', () => {
+  test('date ops: caller-zoned day windows, inclusive at-or- variants', () => {
     const at = (ts: string) => row({ created_at: ts });
     const day = '2026-06-10';
+    const zone = 'UTC';
+    const windowFor = (op: QueryOp) =>
+      compileFilters([{ field: 'created_at', op, value: day }], zone).test;
     const inDay = `${day}T12:00:00.000Z`;
     const dayBefore = '2026-06-09T23:59:59.999Z';
     const dayAfter = '2026-06-11T00:00:00.000Z';
 
-    const before = compileFilters([{ field: 'created_at', op: 'before', value: day }]).test;
+    const before = windowFor('before');
     expect(before(at(dayBefore))).toBe(true);
     expect(before(at(inDay))).toBe(false);
 
-    const on = compileFilters([{ field: 'created_at', op: 'on', value: day }]).test;
+    const on = windowFor('on');
     expect(on(at(inDay))).toBe(true);
     expect(on(at(dayBefore))).toBe(false);
     expect(on(at(dayAfter))).toBe(false);
 
-    const after = compileFilters([{ field: 'created_at', op: 'after', value: day }]).test;
+    const after = windowFor('after');
     expect(after(at(dayAfter))).toBe(true);
     expect(after(at(inDay))).toBe(false);
 
-    const notBefore = compileFilters([{ field: 'created_at', op: 'not-before', value: day }]).test;
-    expect(notBefore(at(inDay))).toBe(true); // inclusive lower bound
-    expect(notBefore(at(dayBefore))).toBe(false);
+    const atOrAfter = windowFor('at-or-after');
+    expect(atOrAfter(at(inDay))).toBe(true); // inclusive lower bound
+    expect(atOrAfter(at(dayBefore))).toBe(false);
 
-    const notAfter = compileFilters([{ field: 'created_at', op: 'not-after', value: day }]).test;
-    expect(notAfter(at(inDay))).toBe(true); // inclusive upper bound
-    expect(notAfter(at(dayAfter))).toBe(false);
+    const atOrBefore = windowFor('at-or-before');
+    expect(atOrBefore(at(inDay))).toBe(true); // inclusive upper bound
+    expect(atOrBefore(at(dayAfter))).toBe(false);
 
     // a null date never matches any date op
     expect(on(row({ created_at: null }))).toBe(false);
+  });
+
+  test('a bare date resolves through the caller zone, not UTC', () => {
+    const filters = [{ field: 'created_at', op: 'on' as const, value: '2026-06-10' }];
+    // 2026-06-10T02:00Z is still June 9 in New York — the caller's calendar wins.
+    const newYork = compileFilters(filters, 'America/New_York').test;
+    expect(newYork(row({ created_at: '2026-06-10T02:00:00.000Z' }))).toBe(false);
+    expect(
+      compileFilters(filters, 'UTC').test(row({ created_at: '2026-06-10T02:00:00.000Z' })),
+    ).toBe(true);
+  });
+
+  test('a calendar-impossible date is refused, never rolled', async () => {
+    await expectMimirError('validation', async () =>
+      compileFilters([{ field: 'created_at', op: 'on', value: '2026-02-30' }], 'UTC'),
+    );
+  });
+
+  test('a zone-less timestamp is refused', async () => {
+    await expectMimirError('validation', async () =>
+      compileFilters([{ field: 'created_at', op: 'before', value: '2026-06-10T12:00:00' }], 'UTC'),
+    );
+  });
+
+  test('a bare date with no caller zone is refused', async () => {
+    await expectMimirError('validation', async () =>
+      compileFilters([{ field: 'created_at', op: 'on', value: '2026-06-10' }]),
+    );
   });
 
   test('filters AND-compose', () => {

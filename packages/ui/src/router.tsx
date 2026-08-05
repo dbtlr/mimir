@@ -68,8 +68,8 @@ export type ArtifactsSearch = {
   project?: string;
   tag?: string;
   q?: string;
-  since?: string;
-  before?: string;
+  atOrAfter?: string;
+  atOrBefore?: string;
   a?: string;
   from?: string;
 };
@@ -80,7 +80,7 @@ export const artifactsRoute = createRoute({
   path: '/artifacts',
   validateSearch: (search: Record<string, unknown>): ArtifactsSearch => {
     const out: ArtifactsSearch = {};
-    for (const k of ['project', 'tag', 'q', 'since', 'before', 'a', 'from'] as const) {
+    for (const k of ['project', 'tag', 'q', 'atOrAfter', 'atOrBefore', 'a', 'from'] as const) {
       const v = search[k];
       if (typeof v === 'string' && v !== '') {
         out[k] = v;

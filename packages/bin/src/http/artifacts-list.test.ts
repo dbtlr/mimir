@@ -64,44 +64,106 @@ test.skipIf(!NORN)('q filter is honored over the wire', async () => {
   expect(miss.items).toEqual([]);
 });
 
-test.skipIf(!NORN)("a bare-date before still includes the same day's artifacts", async () => {
-  // the seeded artifact was created today; a bare-date `before` of today must include it
-  const today = new Date().toISOString().slice(0, 10);
-  const body = (await (await fetch(`${base}/api/artifacts?before=${today}`)).json()) as {
-    total: number;
-  };
+test.skipIf(!NORN)('a bare-date at-or-before includes the same caller-local day', async () => {
+  // The artifact was created today; today's window must contain it, resolved
+  // through the caller's own zone rather than UTC's calendar (ADR 0029).
+  const zone = 'America/New_York';
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: zone }).format(new Date());
+  const body = (await (
+    await fetch(`${base}/api/artifacts?at-or-before=created_at:${today}&tz=${zone}`)
+  ).json()) as { total: number };
   expect(body.total).toBe(1);
 });
 
+test.skipIf(!NORN)('a bare date with no tz is a validation error', async () => {
+  const res = await fetch(`${base}/api/artifacts?on=created_at:2026-07-31`);
+  expect(res.status).toBe(400);
+  const body = (await res.json()) as { error: { code: string; hint: string; message: string } };
+  expect(body.error.code).toBe('validation');
+  expect(body.error.message).toContain('no caller timezone');
+  expect(body.error.hint).toContain('tz');
+});
+
+test.skipIf(!NORN)('an unknown tz is a validation error', async () => {
+  const res = await fetch(`${base}/api/artifacts?on=created_at:2026-07-31&tz=Mars/Olympus`);
+  expect(res.status).toBe(400);
+  expect(await res.text()).toContain('unknown timezone');
+});
+
 test.skipIf(!NORN)('an impossible artifact date bound is a validation error', async () => {
-  const res = await fetch(`${base}/api/artifacts?since=2026-02-30`);
+  const res = await fetch(`${base}/api/artifacts?at-or-after=created_at:2026-02-30&tz=UTC`);
   expect(res.status).toBe(400);
   expect(await res.json()).toEqual({
     error: {
       code: 'validation',
-      hint: 'since takes YYYY-MM-DD or a full ISO timestamp',
+      hint: '2026-02 has no such day',
       message: 'invalid date: 2026-02-30',
     },
   });
 });
 
 test.skipIf(!NORN)('a malformed before bound is a validation error', async () => {
-  const res = await fetch(`${base}/api/artifacts?before=2026-07-31T99:00:00Z`);
+  const res = await fetch(`${base}/api/artifacts?before=created_at:2026-07-31T99:00:00Z&tz=UTC`);
   expect(res.status).toBe(400);
-  expect(await res.json()).toEqual({
-    error: {
-      code: 'validation',
-      hint: 'before takes YYYY-MM-DD or a full ISO timestamp',
-      message: 'invalid date: 2026-07-31T99:00:00Z',
-    },
-  });
+  const body = (await res.json()) as { error: { code: string; message: string } };
+  expect(body.error.code).toBe('validation');
+  expect(body.error.message).toBe('invalid date: 2026-07-31T99:00:00Z');
+});
+
+test.skipIf(!NORN)('a zone-less timestamp bound is a validation error', async () => {
+  const res = await fetch(`${base}/api/artifacts?before=created_at:2026-07-31T10:15:00`);
+  expect(res.status).toBe(400);
+  const body = (await res.json()) as { error: { hint: string } };
+  expect(body.error.hint).toContain('explicit zone');
+});
+
+// A date param this API doesn't have is refused, never ignored: a dropped bound
+// answers a different question than the one asked (ADR 0029). That covers the
+// retired operators AND the camelCase spellings MCP uses, which a caller
+// crossing transports reaches for.
+test.skipIf(!NORN).each([
+  ['/api/artifacts', 'since', 'at-or-after'],
+  ['/api/artifacts', 'not-before', 'at-or-after'],
+  ['/api/artifacts', 'atOrAfter', 'at-or-after'],
+  ['/api/artifacts', 'atOrBefore', 'at-or-before'],
+  ['/api/nodes', 'since', 'at-or-after'],
+  ['/api/nodes', 'not-after', 'at-or-before'],
+  ['/api/nodes', 'atOrAfter', 'at-or-after'],
+  ['/api/seeds', 'notBefore', 'at-or-after'],
+  ['/api/seeds', 'atOrBefore', 'at-or-before'],
+])('%s refuses %s with its replacement', async (route, param, replacement) => {
+  const res = await fetch(`${base}${route}?${param}=created_at:2026-07-01&tz=UTC`);
+  expect(res.status).toBe(400);
+  const body = (await res.json()) as { error: { hint: string; message: string } };
+  expect(body.error.message).toBe(`${param} is not a filter`);
+  expect(body.error.hint).toContain(`${replacement}=FIELD:VALUE`);
+});
+
+// The zone is validated on its own terms, filters or not — a shrug would teach
+// the caller their zone had been honored.
+test.skipIf(!NORN).each(['/api/artifacts', '/api/nodes', '/api/seeds'])(
+  '%s refuses an unknown tz with no date filter',
+  async (route) => {
+    const res = await fetch(`${base}${route}?tz=Mars/Olympus`);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain('unknown timezone');
+  },
+);
+
+// The transitions cursor is not a date filter and keeps its own `since` — the
+// date-param guard must not reach it (ADR 0029 leaves the cursor alone).
+test.skipIf(!NORN)('the transitions cursor still owns its since param', async () => {
+  expect((await fetch(`${base}/api/transitions`)).status).toBe(200);
+  const res = await fetch(`${base}/api/transitions?since=0`);
+  const body = (await res.json()) as { error: { message: string } };
+  expect(body.error.message).toBe('invalid cursor 0');
 });
 
 test.skipIf(!NORN)('a numeric-offset bound is compared as its canonical UTC instant', async () => {
   const bound = new Date(Date.now() - 30 * 60 * 1000);
   const local = new Date(bound.getTime() + 2 * 60 * 60 * 1000).toISOString().replace('Z', '+02:00');
   const body = (await (
-    await fetch(`${base}/api/artifacts?since=${encodeURIComponent(local)}`)
+    await fetch(`${base}/api/artifacts?at-or-after=${encodeURIComponent(`created_at:${local}`)}`)
   ).json()) as { total: number };
   expect(body.total).toBe(1);
 });

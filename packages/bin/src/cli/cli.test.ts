@@ -1506,37 +1506,71 @@ describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
   });
 
   test.each([
-    ['--since', 'yesterday'],
+    ['--at-or-after', 'yesterday'],
     ['--before', 'not-a-date'],
-    ['--since', '2026-13-45'], // out-of-range month: Date.parse rejects outright
+    ['--at-or-after', '2026-13-45'], // out-of-range month
     ['--before', '2026-07-31T99:00:00Z'],
     // Day overflow, which `Date.parse` ROLLS rather than rejects — Feb 30 would
     // silently become Mar 2, a bound the caller never asked for.
-    ['--since', '2026-02-30'],
+    ['--at-or-after', '2026-02-30'],
     ['--before', '2026-02-30T10:00:00Z'],
-    ['--since', '2027-02-29'], // not a leap year
+    ['--at-or-after', '2027-02-29'], // not a leap year
     ['--before', '2026-06-31'], // 30-day month
-  ])('%s with a malformed value is a usage error', async (flag, value) => {
+    // Zone-less timestamps are refused rather than read as UTC (ADR 0029): the
+    // same command would otherwise mean two things on two machines.
+    ['--before', '2026-07-31T10:15:00'],
+    ['--at-or-after', '2026-07-31 10:15:00Z'],
+    ['--before', '2026-07-31T10:15'],
+  ])('%s created_at:%s is a usage error', async (flag, value) => {
     const io = fakeIo(true);
-    expect(await runCli(['artifacts', flag, value], neverStore, io)).toBe(2);
+    expect(await runCli(['artifacts', flag, `created_at:${value}`], neverStore, io)).toBe(2);
     expect(io.err.join('')).toContain('invalid date');
     expect(io.out).toHaveLength(0);
+  });
+
+  test('a date filter naming another field is a usage error', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '--on', 'updated_at:2026-07-31'], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('applies to created_at');
+  });
+
+  test('an unqualified date value is a usage error naming the field', async () => {
+    const io = fakeIo(true);
+    expect(await runCli(['artifacts', '--on', '2026-07-31'], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain('created_at:2026-07-31');
+  });
+
+  test('an unknown --tz is a usage error and never opens the store', async () => {
+    const io = fakeIo(true);
+    expect(
+      await runCli(
+        ['artifacts', '--on', 'created_at:2026-07-31', '--tz', 'Mars/Olympus'],
+        neverStore,
+        io,
+      ),
+    ).toBe(2);
+    expect(io.err.join('')).toContain('unknown timezone');
   });
 
   test.each([
     '2026-07-31',
     '2026-07-31T10:15:00Z',
     '2026-07-31T10:15:00.123Z',
-    // A numeric UTC offset — the help text and the error hint both promise "a
-    // full ISO timestamp", so these must be accepted.
+    '2026-07-31T10:15Z',
+    // A numeric UTC offset is a zone, so these are accepted and normalized.
     '2026-07-31T10:15:00-04:00',
     '2026-07-31T10:15:00+05:30',
-    '2026-07-31T10:15',
     '2028-02-29', // a real leap day — the overflow check must not reject it
     '2028-02-29T10:15:00Z',
   ])('%s is an accepted date bound', async (value) => {
     const io = fakeIo(true);
-    expect(await runCli(['artifacts', '-s', 'MMR', '--since', value], () => store, io)).toBe(0);
+    expect(
+      await runCli(
+        ['artifacts', '-s', 'MMR', '--at-or-after', `created_at:${value}`],
+        () => store,
+        io,
+      ),
+    ).toBe(0);
   });
 
   // The `=` form so parseArgs hands the value through rather than reading a
@@ -1594,36 +1628,53 @@ describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
 
     const io = fakeIo(false);
     expect(
-      await runCli(['artifacts', '-s', 'MMR', '--since', local, '-f', 'json'], () => store, io),
+      await runCli(
+        ['artifacts', '-s', 'MMR', '--at-or-after', `created_at:${local}`, '-f', 'json'],
+        () => store,
+        io,
+      ),
     ).toBe(0);
     expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(1);
   });
 
-  test('a space-separated bound does not degrade to start-of-day', async () => {
+  test('a zoned bound an hour after the artifact excludes it', async () => {
     const id = await attach('vault notes');
     const created = new Date((await getArtifact(store, id)).createdAt);
-    // An hour AFTER the artifact, space-separated. `' ' < 'T'`, so passed through
-    // verbatim this sorts below every timestamp that day and matches everything.
-    const after = new Date(created.getTime() + 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 16)
-      .replace('T', ' ');
+    const after = new Date(created.getTime() + 60 * 60 * 1000).toISOString();
 
     const io = fakeIo(false);
     expect(
-      await runCli(['artifacts', '-s', 'MMR', '--since', after, '-f', 'json'], () => store, io),
+      await runCli(
+        ['artifacts', '-s', 'MMR', '--at-or-after', `created_at:${after}`, '-f', 'json'],
+        () => store,
+        io,
+      ),
     ).toBe(0);
     expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(0);
   });
 
-  test('a zone-less bound is read as UTC, matching the bare-date bounds', async () => {
-    const id = await attach('vault notes');
-    const created = new Date((await getArtifact(store, id)).createdAt);
-    const before = new Date(created.getTime() - 60 * 60 * 1000).toISOString().slice(0, 19);
-
+  test('a bare date windows the caller-local day, not the UTC one', async () => {
+    await attach('vault notes');
+    // Kiritimati is UTC+14, so "today" there began before this artifact existed
+    // in every other zone — the day the caller means is the day that filters.
+    const today = new Date().toISOString().slice(0, 10);
     const io = fakeIo(false);
     expect(
-      await runCli(['artifacts', '-s', 'MMR', '--since', before, '-f', 'json'], () => store, io),
+      await runCli(
+        [
+          'artifacts',
+          '-s',
+          'MMR',
+          '--at-or-before',
+          `created_at:${today}`,
+          '--tz',
+          'UTC',
+          '-f',
+          'json',
+        ],
+        () => store,
+        io,
+      ),
     ).toBe(0);
     expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(1);
   });
@@ -1653,7 +1704,7 @@ describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
     const io = fakeIo(true);
     expect(await runCli(['artifacts', '-h'], neverStore, io)).toBe(0);
     expect(io.out.join('')).toContain('mimir artifacts');
-    expect(io.out.join('')).toContain('--since');
+    expect(io.out.join('')).toContain('--at-or-after');
   });
 });
 
@@ -1664,13 +1715,16 @@ describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
 // guarded against in MMR-321.
 describe('artifacts flags are verb-owned (MMR-322)', () => {
   test.each([
-    ['list', '--since', '2026-07-01'],
-    ['next', '--since', '2026-07-01'],
     ['list', '--offset', '3'],
     ['next', '--offset', '3'],
     ['get', '--query', 'vault'],
-    ['get', '--since', '2026-07-01'],
     ['create', '--offset', '1'],
+    // The date grammar belongs to the query verbs (ADR 0029): a zone or bound
+    // on a read that has no date filter would be silently discarded.
+    ['get', '--tz', 'Asia/Tokyo'],
+    ['update', '--tz', 'Asia/Tokyo'],
+    ['get', '--at-or-after', 'created_at:2026-07-01'],
+    ['create', '--at-or-before', 'created_at:2026-07-01'],
   ])('%s rejects %s', async (verb, flag, value) => {
     const io = fakeIo(true);
     expect(await runCli([verb, flag, value], neverStore, io)).toBe(2);
@@ -1678,13 +1732,50 @@ describe('artifacts flags are verb-owned (MMR-322)', () => {
     expect(io.out).toHaveLength(0);
   });
 
-  test('the refusal hints at the op grammar list/next actually use', async () => {
+  // The retired date spellings (ADR 0029) are refused on EVERY verb, artifacts
+  // included, and each refusal names the spelling that replaced it — a silently
+  // ignored bound answers a question the caller never asked.
+  test.each([
+    ['artifacts', '--since', '2026-07-01', '--at-or-after created_at:YYYY-MM-DD'],
+    ['list', '--since', '2026-07-01', '--at-or-after created_at:YYYY-MM-DD'],
+    ['list', '--not-before', 'created_at:2026-07-01', '--at-or-after FIELD:VALUE'],
+    ['next', '--not-after', 'created_at:2026-07-01', '--at-or-before FIELD:VALUE'],
+  ])('%s refuses %s with a redirect', async (verb, flag, value, redirect) => {
     const io = fakeIo(true);
-    expect(await runCli(['list', '--since', '2026-07-01'], neverStore, io)).toBe(2);
-    expect(io.err.join('')).toContain('--after created_at:');
+    expect(await runCli([verb, flag, value], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain(`'${flag}' is retired`);
+    expect(io.err.join('')).toContain(redirect);
+    expect(io.out).toHaveLength(0);
   });
 
-  test.skipIf(!NORN)('artifacts itself still accepts all three', async () => {
+  // The four query verbs own the grammar, so none of them refuses it.
+  test.skipIf(!NORN).each(['list', 'next', 'artifacts', 'seeds'])(
+    '%s accepts --tz and the at-or- bounds',
+    async (verb) => {
+      const io = fakeIo(false);
+      const scope = verb === 'seeds' ? ['-p', 'MMR'] : ['-s', 'MMR'];
+      expect(
+        await runCli(
+          [
+            verb,
+            ...scope,
+            '--at-or-after',
+            'created_at:2026-01-01',
+            '--at-or-before',
+            'created_at:2030-01-01',
+            '--tz',
+            'Asia/Tokyo',
+            '-f',
+            'json',
+          ],
+          () => store,
+          io,
+        ),
+      ).toBe(0);
+    },
+  );
+
+  test.skipIf(!NORN)('artifacts accepts the shared date grammar plus its paging', async () => {
     const io = fakeIo(false);
     expect(
       await runCli(
@@ -1692,8 +1783,8 @@ describe('artifacts flags are verb-owned (MMR-322)', () => {
           'artifacts',
           '-s',
           'MMR',
-          '--since',
-          '2026-01-01',
+          '--at-or-after',
+          'created_at:2026-01-01',
           '--offset',
           '0',
           '-q',

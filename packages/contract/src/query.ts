@@ -38,7 +38,17 @@ export type VerdictSelector = {
   negate: boolean;
 };
 
-/** The field-operator vocabulary (Norn `find` dialect). */
+/**
+ * The date-operator vocabulary (ADR 0029) — the ONE grammar every date-bearing
+ * resource speaks: nodes' three timestamps, an artifact's `created_at`, a seed's
+ * `created_at`. `on` takes a bare calendar date; the other four take a bare date
+ * or an explicitly zoned timestamp. Bare dates resolve through the caller's IANA
+ * timezone, so the window is that caller's calendar day.
+ */
+export const DATE_OP_VALUES = ['before', 'on', 'after', 'at-or-before', 'at-or-after'] as const;
+export type DateOp = (typeof DATE_OP_VALUES)[number];
+
+/** The field-operator vocabulary (Norn `find` dialect) + the date ops. */
 export const QUERY_OP_VALUES = [
   'eq',
   'not-eq',
@@ -46,11 +56,7 @@ export const QUERY_OP_VALUES = [
   'not-in',
   'has',
   'missing',
-  'before',
-  'on',
-  'after',
-  'not-before',
-  'not-after',
+  ...DATE_OP_VALUES,
 ] as const;
 export type QueryOp = (typeof QUERY_OP_VALUES)[number];
 

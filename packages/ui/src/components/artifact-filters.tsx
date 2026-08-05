@@ -14,8 +14,8 @@ const CHIP_FIELDS: {
 }[] = [
   { clear: { project: '' }, key: 'project', label: (v) => v },
   { clear: { tag: '' }, key: 'tag', label: (v) => v },
-  { clear: { since: '' }, key: 'since', label: (v) => `since ${v}` },
-  { clear: { before: '' }, key: 'before', label: (v) => `before ${v}` },
+  { clear: { atOrAfter: '' }, key: 'atOrAfter', label: (v) => `on or after ${v}` },
+  { clear: { atOrBefore: '' }, key: 'atOrBefore', label: (v) => `on or before ${v}` },
 ];
 
 const fieldInput =
@@ -170,23 +170,23 @@ export function ArtifactFilters({
             />
           </label>
           <label className="flex flex-col gap-0.5 text-tag text-ink-dim">
-            Since
+            On or after
             <input
               type="date"
-              value={filters.since ?? ''}
+              value={filters.atOrAfter ?? ''}
               onChange={(e) => {
-                onChange({ since: e.target.value });
+                onChange({ atOrAfter: e.target.value });
               }}
               className={fieldInput}
             />
           </label>
           <label className="flex flex-col gap-0.5 text-tag text-ink-dim">
-            Before
+            On or before
             <input
               type="date"
-              value={filters.before ?? ''}
+              value={filters.atOrBefore ?? ''}
               onChange={(e) => {
-                onChange({ before: e.target.value });
+                onChange({ atOrBefore: e.target.value });
               }}
               className={fieldInput}
             />

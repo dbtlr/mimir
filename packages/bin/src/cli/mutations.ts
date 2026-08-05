@@ -25,6 +25,7 @@ import {
   getArtifact,
   inapplicableUpdateFields,
   listSeeds,
+  SEED_DATE_FIELD,
   moveNode,
   OPS,
   parseIdentity,
@@ -68,7 +69,7 @@ import type {
 import { arrow, ok } from '../presentation';
 import type { Format, Io } from '../presentation';
 import { usage } from './errors';
-import { parsePriority, parseSize } from './parse';
+import { callerTimeZone, parseDateFilters, parsePriority, parseSize } from './parse';
 import {
   renderArtifactDetail,
   renderSeedView,
@@ -988,11 +989,14 @@ export async function cmdSeed(c: Ctx): Promise<number> {
 export async function cmdSeeds(c: Ctx): Promise<number> {
   // Scope: -p/--project, else the bound board, else (unbound / -s all) every project.
   const project = seedProject(c) ?? c.boundScope;
+  const zone = callerTimeZone(typeof c.values.tz === 'string' ? c.values.tz : undefined);
   const seeds = await listSeeds(c.store, {
+    dates: parseDateFilters(c.values, SEED_DATE_FIELD, zone),
     project,
     requester: optStr(c, 'requester'),
     sort: parseSeedSort(c),
     status: parseSeedStatus(c),
+    timeZone: zone,
   });
   renderSeeds(seeds, c.format, c.io, {
     emptyMsg: 'No seeds — file one with mimir seed "…" -k <kind>',

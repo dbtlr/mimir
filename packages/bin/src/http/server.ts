@@ -20,6 +20,7 @@ import type { BunRequest, Server } from 'bun';
 
 import type {
   ArtifactUpdateFields,
+  DateFilter,
   DerivationSet,
   ListOptions,
   SeedStatusSelector,
@@ -61,19 +62,22 @@ import {
   resolveAttachTargets,
   resolveNodeTokenInSet,
   resolveProjectKeyInSet,
+  ARTIFACT_DATE_FIELD,
   getArtifact,
   getNode,
-  isFilterDate,
   listNodes,
   listProjects,
   moveNode,
   nodeStatusWord,
   nodeToWire,
-  normalizeFilterDate,
   notFound,
   projectNotFound,
+  dateFilterWindows,
+  parseDateFilterTokens,
   parseFilterToken,
   parseIdentity,
+  requireTimeZone,
+  SEED_DATE_FIELD,
   parsePriorityValue,
   parseSizeValue,
   overviewOf,
@@ -427,9 +431,58 @@ function setBody(total: number, items: NodeView[], warnings?: unknown[]): Record
   return body;
 }
 
+/**
+ * Date-query params this API does not have, each with the spelling that
+ * replaced it (ADR 0029). Two families, one refusal:
+ *
+ * - the **retired** operators `since` / `not-before` / `not-after`;
+ * - the **camelCase** spellings of the live operators, which are what MCP calls
+ *   them — a caller crossing transports reaches for them, and a query param the
+ *   server doesn't recognize is otherwise dropped in silence, answering the
+ *   unfiltered question rather than the asked one.
+ */
+const WRONG_DATE_PARAMS: Readonly<Record<string, string>> = {
+  atOrAfter: 'at-or-after',
+  atOrBefore: 'at-or-before',
+  'not-after': 'at-or-before',
+  'not-before': 'at-or-after',
+  notAfter: 'at-or-before',
+  notBefore: 'at-or-after',
+  since: 'at-or-after',
+};
+
+/** Refuse a date param this API doesn't have, naming the one it does. */
+function refuseWrongDateParams(q: URLSearchParams): void {
+  for (const [wrong, replacement] of Object.entries(WRONG_DATE_PARAMS)) {
+    if (q.has(wrong)) {
+      throw validation(
+        `${wrong} is not a filter`,
+        `use ${replacement}=FIELD:VALUE — one date grammar across every resource`,
+      );
+    }
+  }
+}
+
+/**
+ * The date filters of a single-date-field resource, read off repeated op params,
+ * plus the caller's validated zone. The zone is checked whether or not a date
+ * rode along: `?tz=Mars/Olympus` is wrong on its own terms, and a route that
+ * shrugged at it would teach a caller the zone had been honored.
+ */
+function dateQueryOf(
+  q: URLSearchParams,
+  field: string,
+): { dates: DateFilter[]; timeZone?: string } {
+  refuseWrongDateParams(q);
+  const dates = parseDateFilterTokens((op) => q.getAll(op), field);
+  const timeZone = requireTimeZone(q.get('tz') ?? undefined);
+  return timeZone === undefined ? { dates } : { dates, timeZone };
+}
+
 /** Parse `/api/nodes` query params into a `listNodes` selection. */
 function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
   const q = url.searchParams;
+  refuseWrongDateParams(q);
   const filters: FieldFilter[] = [];
   for (const op of QUERY_OP_VALUES) {
     for (const token of q.getAll(op)) {
@@ -475,6 +528,10 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
   }
 
   const opts: ListOptions = { facets: SET_FACETS, filters, verdicts };
+  const timeZone = requireTimeZone(q.get('tz') ?? undefined);
+  if (timeZone !== undefined) {
+    opts.timeZone = timeZone;
+  }
   const scope = q.get('project');
   if (scope !== null) {
     opts.scope = scope;
@@ -615,25 +672,12 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (text !== null) {
               listOpts.q = text;
             }
-            const since = q.get('since');
-            if (since !== null) {
-              if (!isFilterDate(since)) {
-                throw validation(
-                  `invalid date: ${since}`,
-                  'since takes YYYY-MM-DD or a full ISO timestamp',
-                );
-              }
-              listOpts.since = normalizeFilterDate(since, 'start');
-            }
-            const before = q.get('before');
-            if (before !== null) {
-              if (!isFilterDate(before)) {
-                throw validation(
-                  `invalid date: ${before}`,
-                  'before takes YYYY-MM-DD or a full ISO timestamp',
-                );
-              }
-              listOpts.before = normalizeFilterDate(before, 'end');
+            // The window is resolved by the core off the caller's `tz` (ADR
+            // 0029) — this route hands over raw tokens and never does date
+            // arithmetic of its own.
+            const created = dateQueryOf(q, ARTIFACT_DATE_FIELD);
+            if (created.dates.length > 0) {
+              listOpts.created = dateFilterWindows(created.dates, created.timeZone);
             }
             const limit = q.get('limit');
             if (limit !== null) {
@@ -1296,6 +1340,13 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
                 throw validation(`invalid sort: ${sort}`, 'sort is asc or desc');
               }
               listOpts.sort = sort;
+            }
+            const created = dateQueryOf(q, SEED_DATE_FIELD);
+            if (created.dates.length > 0) {
+              listOpts.dates = created.dates;
+              if (created.timeZone !== undefined) {
+                listOpts.timeZone = created.timeZone;
+              }
             }
             const seeds = await listSeeds(store, listOpts);
             return json(req, {

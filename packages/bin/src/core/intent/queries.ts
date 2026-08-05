@@ -25,6 +25,8 @@ import type {
 
 import type { ArtifactListQuery } from '../artifacts/store';
 import { laneOf } from '../attention';
+import { dateFilterWindows } from '../dates';
+import type { DateFilter } from '../dates';
 import type { DerivationSet } from '../derive';
 import {
   deriveSet,
@@ -269,6 +271,8 @@ export type NextOptions = {
   size?: Size;
   verdicts?: VerdictSelector[];
   filters?: FieldFilter[];
+  /** The caller's IANA timezone — how every bare date in `filters` resolves (ADR 0029). */
+  timeZone?: string;
   limit?: number;
   facets?: readonly FacetName[];
 };
@@ -283,7 +287,7 @@ export async function nextTasks(
   store: Store,
   opts: NextOptions = {},
 ): Promise<SetResult<NodeView>> {
-  const compiled = compileFilters(opts.filters ?? []);
+  const compiled = compileFilters(opts.filters ?? [], opts.timeZone);
   if (compiled.warnings.length > 0) {
     return emptyResult(compiled.warnings);
   }
@@ -341,6 +345,8 @@ export type ListOptions = {
   tag?: string;
   /** Case-insensitive substring over title (MMR-78; LIKE, FTS5 deferred). */
   q?: string;
+  /** The caller's IANA timezone — how every bare date in `filters` resolves (ADR 0029). */
+  timeZone?: string;
   limit?: number;
   facets?: readonly FacetName[];
 };
@@ -357,7 +363,7 @@ export async function listNodes(
   store: Store,
   opts: ListOptions = {},
 ): Promise<SetResult<NodeView>> {
-  const compiled = compileFilters(opts.filters ?? []);
+  const compiled = compileFilters(opts.filters ?? [], opts.timeZone);
   if (compiled.warnings.length > 0) {
     return emptyResult(compiled.warnings);
   }
@@ -889,101 +895,20 @@ export type ArtifactQueryOptions = {
   /** A project KEY, or undefined for the cross-project feed. */
   scope?: string;
   tag?: string;
-  /** `YYYY-MM-DD` or a full ISO timestamp — a bare date widens to the whole day. */
-  since?: string;
-  before?: string;
+  /** `created_at` date filters in the shared grammar (ADR 0029), AND-composed. */
+  dates?: readonly DateFilter[];
+  /** The caller's IANA timezone — how every bare date in `dates` resolves. */
+  timeZone?: string;
   q?: string;
   limit?: number;
   offset?: number;
 };
 
 /**
- * Is `value` a date bound the artifact feed can filter on — a bare
- * `YYYY-MM-DD`, or a full ISO timestamp with an optional fractional part and an
- * optional zone (`Z` or a numeric `±HH:MM` UTC offset)?
- *
- * The ONE definition every transport enforces (MMR-322), so the CLI's usage
- * refusal and the MCP tool's `validation` refusal cannot disagree about what a
- * date is. It has to be checked rather than merely normalized: the filter is a
- * lexical string compare downstream, so `since: "yesterday"` would not error —
- * it would sort against the ISO timestamps and quietly return the wrong window.
- * A calendar-impossible date (`2026-13-45`, `2026-02-30`) is rejected too — see
- * {@link canonicalFilterInstant} for why `Date.parse` alone cannot do it.
+ * The artifact feed's `created_at` date field — the one date field the resource
+ * exposes, and the field every transport's date tokens must name (ADR 0029).
  */
-export function isFilterDate(value: string): boolean {
-  return canonicalFilterInstant(value) !== null;
-}
-
-/** The shapes {@link isFilterDate} admits: a bare date, or a timestamp with an
- * optional seconds/fraction and an optional zone, `T`- or space-separated. */
-const FILTER_DATE_SHAPE =
-  /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?$/;
-
-const BARE_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-/**
- * An accepted filter date as the ONE canonical instant string the store compares
- * against — `YYYY-MM-DDTHH:mm:ss.sssZ` — or `null` when the value is not a
- * filter date at all. The single decision point behind both {@link isFilterDate}
- * and {@link normalizeFilterDate}, so "accepted" and "normalized" cannot drift
- * into a shape that passes validation and then compares wrong.
- *
- * Canonicalization is load-bearing because the comparison downstream is
- * **lexical** over stored `created_at` values, which are always ISO-ms UTC. Two
- * accepted forms are wrong if passed through verbatim:
- *
- * - a numeric UTC offset — `2026-07-01T23:00:00.000+02:00` is 21:00Z, but sorts
- *   as if it were 23:00, silently excluding artifacts from those two hours;
- * - the ISO space separator — `'2026-07-01 10:00'` sorts BELOW every `…T…`
- *   value for that day (`' ' < 'T'`), collapsing the bound to start-of-day.
- *
- * A zone-less timestamp is read as **UTC**, matching the bare-date bounds below;
- * `new Date` would otherwise read it as local time and shift the window by the
- * host's offset, making the same command mean different things on two machines.
- *
- * `Date.parse` is not a sufficient calendar check on its own: it rejects an
- * out-of-range MONTH (`2026-13-45`) but silently ROLLS an out-of-range day, so
- * `2026-02-30` becomes March 2 and `2027-02-29` becomes March 1 — a bound the
- * caller never asked for, applied without a word. The day is therefore
- * round-tripped: the date part is re-rendered through UTC midnight and must come
- * back unchanged. That check reads the date part ALONE, never the canonical
- * result, because a legitimate offset may move the instant across a day boundary
- * (`2026-07-01T01:00+02:00` really is `2026-06-30T23:00Z`) and comparing whole
- * canonical dates would reject it.
- */
-function canonicalFilterInstant(value: string): string | null {
-  if (!FILTER_DATE_SHAPE.test(value)) {
-    return null;
-  }
-  const datePart = value.slice(0, 10);
-  const rolled = new Date(`${datePart}T00:00:00.000Z`);
-  if (Number.isNaN(rolled.getTime()) || rolled.toISOString().slice(0, 10) !== datePart) {
-    return null;
-  }
-  const separated = value.replace(' ', 'T');
-  const zoned = /(?:Z|[+-]\d{2}:\d{2})$/.test(separated) ? separated : `${separated}Z`;
-  const ms = Date.parse(zoned);
-  // Backstops the time-of-day fields the day check above does not reach.
-  return Number.isNaN(ms) ? null : new Date(ms).toISOString();
-}
-
-/**
- * A filter date → the ISO-ms UTC bound the store compares against. A bare
- * `YYYY-MM-DD` widens to the requested edge of that whole day; every other
- * accepted form canonicalizes to its exact instant (see
- * {@link canonicalFilterInstant}). Shared so the CLI, MCP, and HTTP artifact
- * feeds bound a window identically.
- *
- * A value that isn't a filter date passes through untouched — every caller
- * validates first, and silently substituting a bound would be worse than the
- * empty result the raw value produces.
- */
-export function normalizeFilterDate(value: string, edge: 'start' | 'end'): string {
-  if (BARE_DATE.test(value)) {
-    return edge === 'start' ? `${value}T00:00:00.000Z` : `${value}T23:59:59.999Z`;
-  }
-  return canonicalFilterInstant(value) ?? value;
-}
+export const ARTIFACT_DATE_FIELD = 'created_at';
 
 /**
  * `artifacts` — the cross-project artifact feed (MMR-52, surfaced as a verb in
@@ -1001,6 +926,12 @@ export async function listArtifacts(
   store: Store,
   opts: ArtifactQueryOptions = {},
 ): Promise<SetResult<ArtifactSummary>> {
+  // Resolved BEFORE the read: an unreadable date is a refusal, and a refusal
+  // should never have cost a vault load (MMR-39's rule, at the intent seam).
+  const created =
+    opts.dates === undefined || opts.dates.length === 0
+      ? undefined
+      : dateFilterWindows(opts.dates, opts.timeZone);
   const ws = await store.loadWorkingSet();
   if (opts.scope !== undefined && !ws.projects.some((p) => p.key === opts.scope)) {
     throw projectNotFound(opts.scope);
@@ -1017,11 +948,8 @@ export async function listArtifacts(
   if (opts.q !== undefined && opts.q !== '') {
     query.q = opts.q;
   }
-  if (opts.since !== undefined) {
-    query.since = normalizeFilterDate(opts.since, 'start');
-  }
-  if (opts.before !== undefined) {
-    query.before = normalizeFilterDate(opts.before, 'end');
+  if (created !== undefined) {
+    query.created = created;
   }
   if (opts.limit !== undefined) {
     query.limit = opts.limit;

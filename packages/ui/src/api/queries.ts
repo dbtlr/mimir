@@ -177,22 +177,52 @@ export const annotationsQuery = (id: string) =>
     queryKey: ['node', id, 'annotations'],
   });
 
-/** The artifact-browser filter set; every field is optional and composes AND. */
+/** The artifact-browser filter set; every field is optional and composes AND.
+ * The two date filters are bare `YYYY-MM-DD` calendar days, inclusive at both
+ * edges — the days the person at the browser means (ADR 0029). */
 export type ArtifactFilters = {
   project?: string;
   tag?: string;
   q?: string;
-  since?: string;
-  before?: string;
+  atOrAfter?: string;
+  atOrBefore?: string;
 };
+
+/** The date filters' wire spelling — the shared field-qualified date ops. */
+const DATE_PARAMS = [
+  ['atOrAfter', 'at-or-after'],
+  ['atOrBefore', 'at-or-before'],
+] as const;
+
+/** This browser's IANA timezone — the calendar a bare date is read against.
+ * `UTC` is the fallback for a runtime that reports none; the server refuses a
+ * bare date with no zone rather than guessing one. */
+function browserTimeZone(): string {
+  return new Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
 
 /** Build the `/api/artifacts` query string from set filters (empty → ""). */
 export function artifactParams(f: ArtifactFilters): string {
   const p = new URLSearchParams();
-  for (const [k, v] of Object.entries(f)) {
-    if (v !== undefined && v !== '') {
-      p.set(k, v);
+  for (const [key, value] of [
+    ['project', f.project],
+    ['tag', f.tag],
+    ['q', f.q],
+  ] as const) {
+    if (value !== undefined && value !== '') {
+      p.set(key, value);
     }
+  }
+  let dated = false;
+  for (const [key, param] of DATE_PARAMS) {
+    const value = f[key];
+    if (value !== undefined && value !== '') {
+      p.set(param, `created_at:${value}`);
+      dated = true;
+    }
+  }
+  if (dated) {
+    p.set('tz', browserTimeZone());
   }
   return p.toString();
 }

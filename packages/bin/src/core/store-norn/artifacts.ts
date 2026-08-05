@@ -5,6 +5,7 @@ import type {
   ArtifactRecord,
   ArtifactStore,
 } from '../artifacts/store';
+import { withinWindow } from '../dates';
 import { degradedUpdatedAt, invariant, validation } from '../errors';
 import { parseIdentity, renderArtifactRef, wikilink } from '../ids';
 import { now } from '../time';
@@ -425,13 +426,9 @@ export function createNornArtifactStore(client: NornClient, vaultRoot: string): 
         .map(toRecord)
         .filter((r): r is ArtifactRecord => r !== null)
         .filter((r) => !excluded.has(r.key));
-      if (query.since !== undefined) {
-        const since = query.since;
-        items = items.filter((r) => r.created_at >= since);
-      }
-      if (query.before !== undefined) {
-        const before = query.before;
-        items = items.filter((r) => r.created_at <= before);
+      if (query.created !== undefined) {
+        const created = query.created;
+        items = items.filter((r) => withinWindow(created, r.created_at));
       }
       if (query.q !== undefined) {
         const q = query.q.toLowerCase();

@@ -1297,23 +1297,25 @@ const asLocalOffset = (ms: number): string =>
   new Date(ms + 2 * 60 * 60 * 1000).toISOString().replace('Z', '+02:00');
 
 // The `artifacts` tool over the REAL dispatch path (MMR-322) — registration,
-// zod coercion, and handler, not a direct `toolArtifacts` call. `since`/`before`
-// are free strings at the schema level (an ISO date is not a zod primitive), so
-// the handler's own check is the only thing standing between `"yesterday"` and a
-// lexical compare that silently returns the wrong window.
+// zod coercion, and handler, not a direct `toolArtifacts` call. Date tokens are
+// free strings at the schema level (an ISO date is not a zod primitive), so the
+// core's own check is the only thing standing between `"yesterday"` and a
+// comparison that silently returns the wrong window.
 test.each([
-  ['since', 'yesterday'],
+  ['atOrAfter', 'yesterday'],
   ['before', 'yesterday'],
   // Day overflow — `Date.parse` rolls these to the next month rather than
   // rejecting them, so the guard has to catch them itself.
-  ['since', '2026-02-30'],
+  ['atOrAfter', '2026-02-30'],
   ['before', '2026-02-30T10:00:00Z'],
-  ['since', '2027-02-29'],
-])('artifacts rejects %s=%s over dispatch', async (arg, value) => {
+  ['atOrAfter', '2027-02-29'],
+  // A zone-less timestamp is refused rather than read as UTC (ADR 0029).
+  ['before', '2026-07-31T10:15:00'],
+])('artifacts rejects %s created_at:%s over dispatch', async (arg, value) => {
   const { client, close } = await connectClient();
   try {
     const res = (await client.callTool({
-      arguments: { [arg]: value, scope: 'MMR' },
+      arguments: { [arg]: [`created_at:${value}`], scope: 'MMR', tz: 'America/New_York' },
       name: 'artifacts',
     })) as ToolCall;
     expect(res.isError).toBe(true);
@@ -1324,7 +1326,78 @@ test.each([
     const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(text);
     expect(parsed.error.code).toBe('validation');
     expect(parsed.error.message).toBe(`invalid date: ${value}`);
-    expect(parsed.error.hint).toBe(`${arg} takes YYYY-MM-DD or a full ISO timestamp`);
+  } finally {
+    await close();
+  }
+});
+
+// A bare date is meaningless without the caller's calendar, and MCP has no
+// system zone to fall back on — the refusal is the contract (ADR 0029).
+test('artifacts refuses a bare date with no tz', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({
+      arguments: { on: ['created_at:2026-07-31'] },
+      name: 'artifacts',
+    })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(
+      callText(res),
+    );
+    expect(parsed.error.code).toBe('validation');
+    expect(parsed.error.message).toContain('no caller timezone');
+    expect(parsed.error.hint).toContain('tz');
+  } finally {
+    await close();
+  }
+});
+
+test('an unknown tz is a validation error', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({
+      arguments: { on: ['created_at:2026-07-31'], tz: 'Mars/Olympus' },
+      name: 'artifacts',
+    })) as ToolCall;
+    expect(res.isError).toBe(true);
+    expect(callText(res)).toContain('unknown timezone');
+  } finally {
+    await close();
+  }
+});
+
+// The retired spellings are undeclared args, so the strict schema refuses them
+// rather than dropping a bound the caller believed applied (ADR 0029).
+test.each([
+  ['artifacts', 'since', '2026-07-01', 'atOrAfter'],
+  ['list', 'notBefore', ['created_at:2026-07-01'], 'atOrAfter'],
+  ['next', 'notAfter', ['created_at:2026-07-01'], 'atOrBefore'],
+])('%s refuses the retired %s arg', async (name, arg, value, replacement) => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({ arguments: { [arg]: value }, name })) as ToolCall;
+    expect(res.isError).toBe(true);
+    const parsed = parseJson<{ error: { code: string; hint: string; message: string } }>(
+      callText(res),
+    );
+    expect(parsed.error.message).toBe(`${arg} isn't an argument`);
+    expect(parsed.error.hint).toContain(replacement);
+  } finally {
+    await close();
+  }
+});
+
+// A caller still sending the old scalar `before` gets the shape correction,
+// not a mystery: the arg still exists, as an array of FIELD:VALUE tokens.
+test('a scalar before arg is corrected to the token array', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({
+      arguments: { before: '2026-07-01' },
+      name: 'artifacts',
+    })) as ToolCall;
+    expect(res.isError).toBe(true);
+    expect(callText(res)).toContain('before must be an array');
   } finally {
     await close();
   }
@@ -1335,7 +1408,7 @@ test.skipIf(!NORN)('artifacts accepts a real leap day over dispatch', async () =
   try {
     await toolAttach(store, { content: '# a\n', node: taskRef, title: 'in window' });
     const res = (await client.callTool({
-      arguments: { since: '2028-02-29' },
+      arguments: { atOrAfter: ['created_at:2028-02-29'], tz: 'UTC' },
       name: 'artifacts',
     })) as ToolCall;
     // Accepted (not a validation error); the bound is in the future, so it
@@ -1365,7 +1438,7 @@ test.skipIf(!NORN)(
       const created = new Date((await getArtifact(store, id)).createdAt).getTime();
 
       const included = (await client.callTool({
-        arguments: { since: asLocalOffset(created - 30 * 60 * 1000) },
+        arguments: { atOrAfter: [`created_at:${asLocalOffset(created - 30 * 60 * 1000)}`] },
         name: 'artifacts',
       })) as ToolCall;
       expect(included.isError).toBeUndefined();
@@ -1374,7 +1447,7 @@ test.skipIf(!NORN)(
       // The mirror case: 30 minutes AFTER, which must exclude it. Together these
       // pin that the offset was converted rather than compared verbatim.
       const excluded = (await client.callTool({
-        arguments: { since: asLocalOffset(created + 30 * 60 * 1000) },
+        arguments: { atOrAfter: [`created_at:${asLocalOffset(created + 30 * 60 * 1000)}`] },
         name: 'artifacts',
       })) as ToolCall;
       expect(parseJson<{ total: number }>(callText(excluded)).total).toBe(0);
@@ -1394,8 +1467,11 @@ test('artifacts advertises its filter args on tools/list', async () => {
       properties?: Record<string, { type?: string }>;
       required?: string[];
     };
-    for (const arg of ['scope', 'tag', 'since', 'before', 'q']) {
+    for (const arg of ['scope', 'tag', 'q', 'tz']) {
       expect(schema.properties?.[arg]?.type).toBe('string');
+    }
+    for (const arg of ['on', 'before', 'after', 'atOrBefore', 'atOrAfter']) {
+      expect(schema.properties?.[arg]?.type).toBe('array');
     }
     expect(schema.properties?.limit?.type).toBe('integer');
     expect(schema.properties?.offset?.type).toBe('integer');

@@ -1,15 +1,18 @@
-import { NODE_TYPE_VALUES, STATUS_WORD_VALUES } from '@mimir/contract';
-import type { FieldFilter, QueryOp, ValueWarning } from '@mimir/contract';
+import { DATE_OP_VALUES, NODE_TYPE_VALUES, STATUS_WORD_VALUES } from '@mimir/contract';
+import type { DateOp, FieldFilter, QueryOp, ValueWarning } from '@mimir/contract';
 
+import { dateFilterWindow, withinWindow } from './dates';
 import { validation } from './errors';
 import { dataQueryFields } from './field-spec';
 
 /**
  * The field-operator compiler (MMR-33). Structural faults — unknown field,
- * operator on an incompatible type — throw `validation` at parse time (the
- * caller's program is wrong; the CLI maps this to `usage`). Value faults —
- * enum miss, unparseable date — compile to a {@link ValueWarning} and an
- * empty result, never an error.
+ * operator on an incompatible type, an unreadable date bound (ADR 0029) —
+ * throw `validation` (the caller's program is wrong; the CLI maps this to
+ * `usage`). Value faults — an enum miss — compile to a {@link ValueWarning}
+ * and an empty result, never an error: a value outside a closed vocabulary
+ * still describes a selection, where an unreadable date describes no window
+ * at all.
  *
  * Queryable fields are the projection's bare fields (external snake_case
  * names — no second vocabulary), plus the multi-valued `tag` pseudo-field.
@@ -62,14 +65,10 @@ export const QUERY_FIELDS: Record<string, FieldSpec> = Object.fromEntries(
   Object.entries({ ...STRUCTURAL_QUERY_FIELDS, ...dataQueryFields() }).toSorted(byKey),
 );
 
-const DATE_OPS: ReadonlySet<QueryOp> = new Set([
-  'before',
-  'on',
-  'after',
-  'not-before',
-  'not-after',
-]);
+const DATE_OPS: ReadonlySet<QueryOp> = new Set<QueryOp>(DATE_OP_VALUES);
 const EQUALITY_OPS: ReadonlySet<QueryOp> = new Set(['eq', 'not-eq', 'in', 'not-in']);
+
+const isDateOp = (op: QueryOp): op is DateOp => DATE_OPS.has(op);
 
 /**
  * Parse one `FIELD:VALUE` token (bare `FIELD` for has/missing) into a
@@ -98,10 +97,24 @@ export function parseFilterToken(op: QueryOp, token: string): FieldFilter {
   if (EQUALITY_OPS.has(op) && spec.kind === 'date') {
     throw validation(
       `--${op} does not apply to date field ${field}`,
-      'use --on / --before / --after',
+      `use ${DATE_OP_VALUES.map((dateOp) => `--${dateOp}`).join(' / ')}`,
     );
   }
   return { field, op, value };
+}
+
+/**
+ * Resolve every date filter now and discard the windows — the pre-flight a
+ * transport runs to refuse a bad date BEFORE it opens a store (MMR-39). The
+ * resolution itself is idempotent and storage-free, so doing it twice costs
+ * nothing and keeps the refusal where the caller's mistake is.
+ */
+export function assertDateFilters(filters: readonly FieldFilter[], zone?: string): void {
+  for (const filter of filters) {
+    if (QUERY_FIELDS[filter.field]?.kind === 'date' && isDateOp(filter.op)) {
+      dateFilterWindow(filter.op, filter.value ?? '', zone);
+    }
+  }
 }
 
 /** A row under filter evaluation — external-name scalar values + the tag set. */
@@ -118,29 +131,6 @@ export type CompiledFilters = {
   test: (row: QueryRow) => boolean;
 };
 
-type DateBounds = {
-  /** Inclusive lower bound (ms). */
-  start: number;
-  /** Exclusive upper bound (ms). */
-  end: number;
-};
-
-/** A date value: `YYYY-MM-DD` (a day window) or a full ISO timestamp (an instant). */
-function parseDateValue(value: string): DateBounds | null {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const start = Date.parse(`${value}T00:00:00.000Z`);
-    if (Number.isNaN(start)) {
-      return null;
-    }
-    return { end: start + 24 * 60 * 60 * 1000, start };
-  }
-  const instant = Date.parse(value);
-  if (Number.isNaN(instant)) {
-    return null;
-  }
-  return { end: instant + 1, start: instant };
-}
-
 function warn(field: string, value: string, message: string, expected: string[]): ValueWarning {
   return { code: 'no_match_value', expected, field, message, value };
 }
@@ -153,7 +143,11 @@ const splitCsv = (csv: string): string[] =>
 
 type RowTest = (row: QueryRow) => boolean;
 
-function compileOne(filter: FieldFilter, warnings: ValueWarning[]): RowTest {
+function compileOne(
+  filter: FieldFilter,
+  zone: string | undefined,
+  warnings: ValueWarning[],
+): RowTest {
   const spec = QUERY_FIELDS[filter.field];
   if (spec === undefined) {
     throw validation(`unknown field ${filter.field}`);
@@ -170,36 +164,15 @@ function compileOne(filter: FieldFilter, warnings: ValueWarning[]): RowTest {
   }
 
   if (spec.kind === 'date') {
-    const bounds = parseDateValue(value);
-    if (bounds === null) {
-      warnings.push(
-        warn(field, value, `${value} is not a date`, ['YYYY-MM-DD', 'ISO-8601 timestamp']),
-      );
-      return () => false;
-    }
-    const at = (row: QueryRow): number | null => {
-      const raw = row.values[field];
-      if (raw == null) {
-        return null;
-      }
-      const ms = Date.parse(raw);
-      return Number.isNaN(ms) ? null : ms;
-    };
-    const tests: Record<string, (ms: number) => boolean> = {
-      after: (ms) => ms >= bounds.end,
-      before: (ms) => ms < bounds.start,
-      'not-after': (ms) => ms < bounds.end,
-      'not-before': (ms) => ms >= bounds.start,
-      on: (ms) => ms >= bounds.start && ms < bounds.end,
-    };
-    const test = tests[op];
-    if (test === undefined) {
+    if (!isDateOp(op)) {
       throw validation(`--${op} does not apply to date field ${field}`);
     }
-    return (row) => {
-      const ms = at(row);
-      return ms !== null && test(ms);
-    };
+    // A malformed or calendar-impossible date is a REFUSAL, not a value warning
+    // (ADR 0029): the old path rolled `2026-02-30` into March 2 and answered a
+    // question nobody asked. The window itself comes from the shared date core,
+    // resolved through the caller's zone.
+    const window = dateFilterWindow(op, value, zone);
+    return (row) => withinWindow(window, row.values[field]);
   }
 
   // Equality family over enum / string / tag.
@@ -224,10 +197,14 @@ function compileOne(filter: FieldFilter, warnings: ValueWarning[]): RowTest {
   return op === 'eq' || op === 'in' ? matches : (row) => !matches(row);
 }
 
-/** Compile filters to a conjunctive row test + any value warnings (which force an empty set). */
-export function compileFilters(filters: readonly FieldFilter[]): CompiledFilters {
+/**
+ * Compile filters to a conjunctive row test + any value warnings (which force an
+ * empty set). `zone` is the caller's IANA timezone, through which every bare date
+ * resolves (ADR 0029); a bare date with no zone is a refusal, not a guess.
+ */
+export function compileFilters(filters: readonly FieldFilter[], zone?: string): CompiledFilters {
   const warnings: ValueWarning[] = [];
-  const tests = filters.map((f) => compileOne(f, warnings));
+  const tests = filters.map((f) => compileOne(f, zone, warnings));
   const needed = new Set(filters.map((f) => f.field));
   return {
     needed,

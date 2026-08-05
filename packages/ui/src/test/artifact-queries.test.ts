@@ -14,7 +14,17 @@ describe('artifactParams', () => {
     expect(p.get('project')).toBe('MMR');
     expect(p.get('q')).toBe('auth gate');
     expect(p.get('tag')).toBe('kind:spec');
-    expect(p.has('since')).toBe(false);
+    expect(p.has('at-or-after')).toBe(false);
+    expect(p.has('tz')).toBe(false);
+  });
+
+  it('sends date filters field-qualified, with this browser zone', () => {
+    const p = new URLSearchParams(
+      artifactParams({ atOrAfter: '2026-06-01', atOrBefore: '2026-06-30' }),
+    );
+    expect(p.get('at-or-after')).toBe('created_at:2026-06-01');
+    expect(p.get('at-or-before')).toBe('created_at:2026-06-30');
+    expect(p.get('tz')).toBe(new Intl.DateTimeFormat().resolvedOptions().timeZone);
   });
 });
 
