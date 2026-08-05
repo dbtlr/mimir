@@ -184,6 +184,20 @@ binary. `main` is protected; changes land via PR. See
 [CONTRIBUTING.md](./CONTRIBUTING.md), [CHANGELOG.md](./CHANGELOG.md), and
 [SECURITY.md](./SECURITY.md).
 
+For an isolated from-source CLI smoke, provision the target through the owned
+fixture generator and point the command at it explicitly:
+
+```sh
+MIMIR_SMOKE_VAULT=$(mktemp -d)
+bun run fixtures:vault "$MIMIR_SMOKE_VAULT"
+MIMIR_VAULT="$MIMIR_SMOKE_VAULT" bun run mimir overview -s AUR
+```
+
+The generator converges a valid Norn vault and seeds representative work state;
+it refuses to replace a non-empty directory it did not generate. Remove the
+temporary directory after the smoke. Do not use `mimir setup` for this job:
+`setup` is the operator configuration path and may persist global config.
+
 Architecture — one core, thin transports:
 
 ```

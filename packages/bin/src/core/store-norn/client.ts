@@ -496,7 +496,9 @@ export class NornClient {
   }
 
   /**
-   * Apply a whole {@link MigrationPlan} atomically (MMR-153) — the node write
+   * Apply a whole {@link MigrationPlan} (MMR-153) — operations targeting one
+   * document land atomically, while a multi-document plan may partially succeed
+   * and reports residual failures for verification/retry (ADR 0023). The node write
    * path's single mutation per `transact`. `confirm: false` is norn's dry-run
    * (forecast, no write); `confirm: true` acquires the vault mutation lock and
    * executes every op. Never auto-retried: a confirmed batch must not

@@ -76,6 +76,25 @@ test('resolveLatestTag rejects a non-redirect answer', async () => {
     thrown = err;
   }
   expect(thrown).toBeInstanceOf(Error);
+  expect((thrown as { code?: unknown }).code).toBe('validation');
+  expect((thrown as Error).message).toMatch(/latest release/);
+});
+
+test('resolveLatestTag rejects malformed SemVer redirect tags', async () => {
+  let thrown: unknown;
+  try {
+    await resolveLatestTag(() =>
+      Promise.resolve(
+        new Response(null, {
+          headers: { location: 'https://github.com/dbtlr/mimir/releases/tag/v0.18.0.1' },
+          status: 302,
+        }),
+      ),
+    );
+  } catch (err) {
+    thrown = err;
+  }
+  expect(thrown).toBeInstanceOf(Error);
   expect((thrown as Error).message).toMatch(/latest release/);
 });
 

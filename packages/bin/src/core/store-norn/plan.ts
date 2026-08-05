@@ -1,9 +1,11 @@
 /**
- * `MigrationPlan` — the atomic write artifact the node path hands to norn's
+ * `MigrationPlan` — the write artifact the node path hands to norn's
  * `vault.apply` (MMR-153, ADR 0016; renamed from `vault.apply_plan` in norn 0.45,
  * MMR-207). One plan per `transact`: every
  * frontmatter set, section append, and document create the verbs compose lands
- * as one all-or-nothing batch, applied as one atomic transaction.
+ * in one validated batch. Norn applies each document atomically, but a plan
+ * spanning multiple documents may partially succeed; callers verify and retry
+ * the residual work (ADR 0023).
  *
  * The types mirror norn's authoritative Rust schema (`src/migration_plan.rs`,
  * schema v2). Every operation nests its params under `fields`; the exact keys
