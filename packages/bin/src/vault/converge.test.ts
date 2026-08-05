@@ -24,9 +24,18 @@ afterEach(() => {
 
 const vaultAt = (name: string) => join(root, name);
 
-test('schema 8 admits project-anchored Scratchpads only under scratch/', () => {
+test('schema 9 makes the canonical instant a persisted invariant (MMR-351)', () => {
+  expect(VAULT_SCHEMA).toBe(9);
+  // Schema 9 adds no norn rule — the invariant is enforced by the backfill and
+  // by doctor, not by a validator — but the marker must still ratchet, so an
+  // older binary refuses a normalized vault instead of writing variants back
+  // into it. The generated header carries the version, which is also what makes
+  // converge regenerate the rules file on upgrade.
+  expect(renderNornConfig()).toContain(`# Managed by mimir (vault schema ${String(VAULT_SCHEMA)})`);
+});
+
+test('the scratch rule admits project-anchored Scratchpads only under scratch/', () => {
   const config = renderNornConfig();
-  expect(VAULT_SCHEMA).toBe(8);
   expect(config).toContain('          - scratch\n');
   expect(config).toContain(
     ['    - name: scratch', '      match:', '        path: "**/*.md"'].join('\n'),
