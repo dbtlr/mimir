@@ -42,15 +42,15 @@ export function isSemverTag(tag: string): boolean {
 export async function resolveLatestTag(fetcher: Fetcher = manualFetch): Promise<string> {
   const res = await fetcher(`${RELEASE_BASE}/latest`);
   const location = res.headers.get('location') ?? '';
-  const m = /\/releases\/tag\/(v[\d.]+)$/.exec(location);
-  if (m?.[1] === undefined) {
+  const tag = /\/releases\/tag\/([^/?#]+)$/.exec(location)?.[1];
+  if (tag === undefined || !isSemverTag(tag)) {
     throw new MimirError(
       'validation',
       'could not resolve the latest release tag',
       'check network access to github.com',
     );
   }
-  return m[1];
+  return tag;
 }
 
 export const ATOM_FEED = 'https://github.com/dbtlr/mimir/releases.atom';
