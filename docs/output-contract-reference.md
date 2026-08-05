@@ -279,7 +279,7 @@ Mutations are high-level verbs (never a raw `status` patch — glossary **Lifecy
 | data             | `update(id, fields)`                                      | dumb scalar patch; `status` excluded                                                                           |
 
 - **Every mutation echoes the affected node** in the **lean projection** (`id, title, state, priority, size`) — a write needs no follow-up `get` (Norn's "prevent the extra turn"). In `--json` it returns the bare node object, **not** the set wrapper. (`attach` echoes the artifact id `{"artifact":{"id"}}`; `create project` echoes `{"project":{"key","name"}}` — the two echo exceptions.)
-- Every status-bearing verb appends a `transition_log` row in the same transaction (ADR 0003).
+- Every status-bearing verb appends its history entry in the same per-document atomic write as the state change (ADR 0003). A plan spanning independent documents may partially succeed and follows ADR 0023's verify-and-retry contract rather than cross-document rollback.
 
 ### Verb surface (Phase 3 — CLI; MCP mirrors with named args)
 
