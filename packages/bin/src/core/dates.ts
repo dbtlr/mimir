@@ -2,6 +2,8 @@ import { DATE_OP_VALUES } from '@mimir/contract';
 import type { DateOp } from '@mimir/contract';
 
 import { validation } from './errors';
+import type { CalendarDate } from './time';
+import { BARE_DATE, MIN_YEAR, parseCalendarDate, parseZonedInstant, utcMillis } from './time';
 
 /**
  * The date-query core (ADR 0029). Every transport hands raw filter text plus the
@@ -45,16 +47,6 @@ export type DateFilter = {
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-const BARE_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-
-/**
- * The accepted timestamp shape (ADR 0029): `T`-separated, hours and minutes
- * required, seconds and a fractional part optional, and an explicit zone —
- * `Z` or a numeric `±HH:MM` offset — mandatory.
- */
-const ZONED_TIMESTAMP =
-  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d+)?)?(?:Z|([+-])(\d{2}):(\d{2}))$/;
 
 /** A queryable field's shape — what a `FIELD:VALUE` prefix must look like. */
 const FIELD_NAME = /^[a-z][a-z_]*$/;
@@ -119,28 +111,6 @@ function formatterFor(zone: string): Intl.DateTimeFormat {
   });
   formatters.set(zone, formatter);
   return formatter;
-}
-
-/**
- * A UTC instant from calendar fields, immune to `Date.UTC`'s legacy two-digit
- * year rule (which maps years 0-99 into the 1900s). Years that small are refused
- * at the input boundary, but a *neighbouring* instant can still read as year 99
- * — resolving 0100-01-01 probes the day before it — and a remap there would
- * corrupt the offset the whole resolution rests on.
- */
-function utcMillis(
-  year: number,
-  month: number,
-  day: number,
-  hour = 0,
-  minute = 0,
-  second = 0,
-  millisecond = 0,
-): number {
-  const date = new Date(0);
-  date.setUTCFullYear(year, month - 1, day);
-  date.setUTCHours(hour, minute, second, millisecond);
-  return date.getTime();
 }
 
 /**
@@ -255,42 +225,6 @@ function dayOpensAt(year: number, month: number, day: number, zone: string): num
 const dayOpenings = new Map<string, number>();
 const DAY_OPENING_CACHE_CAP = 512;
 
-type CalendarDate = { year: number; month: number; day: number };
-
-const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-const isLeapYear = (year: number): boolean =>
-  year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-
-const daysInMonth = (year: number, month: number): number =>
-  month === 2 && isLeapYear(year) ? 29 : (DAYS_IN_MONTH[month - 1] ?? 0);
-
-/**
- * The earliest year the module will resolve. Years 0-99 are refused rather than
- * resolved: `Date.UTC` maps them into the 1900s by a legacy two-digit rule, so
- * `0050-01-01` would silently become a 1950 window — precisely the kind of
- * quiet substitution the rest of this module exists to refuse. Nothing this
- * tool tracks predates it.
- */
-const MIN_YEAR = 100;
-
-/**
- * A strict calendar date, or `null`. Strict is the point: `Date.parse` rolls an
- * out-of-range day (`2026-02-30` becomes March 2), applying a bound the caller
- * never asked for without a word.
- */
-function parseCalendarDate(value: string): CalendarDate | null {
-  const match = BARE_DATE.exec(value);
-  if (match === null) {
-    return null;
-  }
-  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  if (year < MIN_YEAR || month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) {
-    return null;
-  }
-  return { day, month, year };
-}
-
 /** The calendar date after `date`. */
 function nextDay(date: CalendarDate): CalendarDate {
   const rolled = new Date(utcMillis(date.year, date.month, date.day) + DAY_MS);
@@ -299,33 +233,6 @@ function nextDay(date: CalendarDate): CalendarDate {
     month: rolled.getUTCMonth() + 1,
     year: rolled.getUTCFullYear(),
   };
-}
-
-/** An explicitly zoned timestamp as its epoch instant, or `null`. */
-function parseZonedTimestamp(value: string): number | null {
-  const match = ZONED_TIMESTAMP.exec(value);
-  if (match === null) {
-    return null;
-  }
-  const date = parseCalendarDate(value.slice(0, 10));
-  if (date === null) {
-    return null;
-  }
-  const [hour, minute, second] = [Number(match[4]), Number(match[5]), Number(match[6] ?? '0')];
-  // Sub-millisecond digits are TRUNCATED, never rounded: rounding `.9996` up to
-  // a whole second would move an `at-or-before` bound past instants the caller
-  // excluded. Read off the digits rather than scaling a float, which is exact.
-  const fraction = Number(`${(match[7] ?? '.').slice(1)}000`.slice(0, 3));
-  if (hour > 23 || minute > 59 || second > 59) {
-    return null;
-  }
-  const offsetHours = Number(match[9] ?? '0');
-  const offsetMinutes = Number(match[10] ?? '0');
-  if (offsetHours > 23 || offsetMinutes > 59) {
-    return null;
-  }
-  const offset = (match[8] === '-' ? -1 : 1) * (offsetHours * 60 + offsetMinutes) * 60 * 1000;
-  return utcMillis(date.year, date.month, date.day, hour, minute, second, fraction) - offset;
 }
 
 const bound = (epochMs: number, inclusive: boolean): InstantBound => ({
@@ -359,7 +266,7 @@ export function dateFilterWindow(
   if (op === 'on') {
     throw validation(`${value} is not a calendar date`, 'on takes a bare YYYY-MM-DD date');
   }
-  const instant = parseZonedTimestamp(value);
+  const instant = parseZonedInstant(value);
   if (instant === null) {
     throw validation(`invalid date: ${value}`, dateValueHint(value));
   }
