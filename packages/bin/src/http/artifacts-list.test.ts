@@ -96,7 +96,7 @@ test.skipIf(!NORN)('an impossible artifact date bound is a validation error', as
   expect(await res.json()).toEqual({
     error: {
       code: 'validation',
-      hint: 'takes YYYY-MM-DD or a zoned ISO timestamp (2026-08-01T09:30:00Z)',
+      hint: '2026-02 has no such day',
       message: 'invalid date: 2026-02-30',
     },
   });

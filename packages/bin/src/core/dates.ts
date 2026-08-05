@@ -260,6 +260,11 @@ export function dateFilterWindow(
     }
     return calendarWindows(date, zone)[op];
   }
+  // Date-shaped but not a real day (`2026-02-30`): the same refusal every
+  // operator gives, so the fault reads as the calendar's, not the operator's.
+  if (BARE_DATE.test(value)) {
+    throw validation(`invalid date: ${value}`, `${value.slice(0, 7)} has no such day`);
+  }
   if (op === 'on') {
     throw validation(`${value} is not a calendar date`, 'on takes a bare YYYY-MM-DD date');
   }
