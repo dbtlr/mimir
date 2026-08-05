@@ -310,30 +310,35 @@ for (const backend of backends) {
       expect(all.total).toBe(2);
     });
 
-    test.skipIf(backend.skip)('list is newest-first and honors since/before + limit', async () => {
-      for (const t of ['a1', 'a2', 'a3']) {
-        await h.artifacts.create({ content: '', key: 'MMR', links: [], tags: [], title: t });
-      }
-      const all = await h.artifacts.list({});
-      expect(all.items.map((r) => r.seq)).toEqual([3, 2, 1]); // newest-first, seq tiebreak
+    test.skipIf(backend.skip)(
+      'list is newest-first and honors the created window + limit',
+      async () => {
+        for (const t of ['a1', 'a2', 'a3']) {
+          await h.artifacts.create({ content: '', key: 'MMR', links: [], tags: [], title: t });
+        }
+        const all = await h.artifacts.list({});
+        expect(all.items.map((r) => r.seq)).toEqual([3, 2, 1]); // newest-first, seq tiebreak
 
-      const mid = all.items[1]?.created_at ?? '';
-      expect((await h.artifacts.list({ since: mid })).items.every((r) => r.created_at >= mid)).toBe(
-        true,
-      );
-      expect(
-        (await h.artifacts.list({ before: mid })).items.every((r) => r.created_at <= mid),
-      ).toBe(true);
+        // The core resolves a filter to this window shape; the backend only
+        // compares against the edges it is handed (ADR 0029).
+        const mid = all.items[1]?.created_at ?? '';
+        const midMs = Date.parse(mid);
+        const atOrAfterMid = { at: mid, epochMs: midMs, inclusive: true };
+        const from = await h.artifacts.list({ created: { from: atOrAfterMid, until: null } });
+        expect(from.items.every((r) => r.created_at >= mid)).toBe(true);
+        const until = await h.artifacts.list({ created: { from: null, until: atOrAfterMid } });
+        expect(until.items.every((r) => r.created_at <= mid)).toBe(true);
 
-      const limited = await h.artifacts.list({ limit: 2 });
-      expect(limited.items).toHaveLength(2);
-      expect(limited.total).toBe(3); // pre-limit total
+        const limited = await h.artifacts.list({ limit: 2 });
+        expect(limited.items).toHaveLength(2);
+        expect(limited.total).toBe(3); // pre-limit total
 
-      // offset pages the same newest-first order past the window.
-      const paged = await h.artifacts.list({ limit: 2, offset: 2 });
-      expect(paged.items.map((r) => r.seq)).toEqual([1]);
-      expect(paged.total).toBe(3); // pre-window total, unchanged by paging
-    });
+        // offset pages the same newest-first order past the window.
+        const paged = await h.artifacts.list({ limit: 2, offset: 2 });
+        expect(paged.items.map((r) => r.seq)).toEqual([1]);
+        expect(paged.total).toBe(3); // pre-window total, unchanged by paging
+      },
+    );
 
     test.skipIf(backend.skip)('applyTag adds; removeTags removes and counts', async () => {
       await h.artifacts.create({ content: '', key: 'MMR', links: [], tags: ['a'], title: 't' });

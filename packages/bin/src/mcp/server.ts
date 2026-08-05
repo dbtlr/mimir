@@ -18,7 +18,7 @@ import { z } from 'zod';
 import type { ZodRawShape } from 'zod';
 
 import { OP_SPECS, specUpdateFields, SPEC_UPDATE_FIELDS } from '../core';
-import type { SeedStatusSelector, SpecUpdateField, Store } from '../core';
+import type { SpecUpdateField, Store } from '../core';
 import {
   toolAnnotate,
   toolAttach,
@@ -56,7 +56,13 @@ import {
   toolScratchList,
   toolScratchUpdate,
 } from './tools';
-import type { ArtifactQueryToolArgs, SetQueryArgs, ToolResult, UniformToolArgs } from './tools';
+import type {
+  ArtifactQueryToolArgs,
+  SeedQueryToolArgs,
+  SetQueryArgs,
+  ToolResult,
+  UniformToolArgs,
+} from './tools';
 
 /**
  * The MCP server — the agent envelope. Registers read + write tools over the
@@ -73,21 +79,31 @@ const SEED_KIND = z.enum(SEED_KIND_VALUES);
 const SEED_STATUS = z.enum(SEED_STATUS_SELECTOR_VALUES);
 const SEED_SORT = z.enum(['asc', 'desc']);
 const TOKENS = z.array(z.string());
+/**
+ * The date operators every date-bearing resource shares (ADR 0029) —
+ * `FIELD:VALUE` tokens plus the caller's IANA timezone, which a query
+ * containing a bare `YYYY-MM-DD` must carry: an MCP caller's calendar is not
+ * the server's, and guessing one is how the two drift apart.
+ */
+const DATE_OPERATOR_SCHEMA = {
+  after: TOKENS.optional(),
+  atOrAfter: TOKENS.optional(),
+  atOrBefore: TOKENS.optional(),
+  before: TOKENS.optional(),
+  on: TOKENS.optional(),
+  tz: z.string().optional(),
+};
 // Field operators (MMR-33): FIELD:VALUE tokens (bare FIELD for has/missing).
 const OPERATOR_SCHEMA = {
-  after: TOKENS.optional(),
-  before: TOKENS.optional(),
+  ...DATE_OPERATOR_SCHEMA,
   eq: TOKENS.optional(),
   has: TOKENS.optional(),
   in: TOKENS.optional(),
   is: z.array(VERDICT).optional(),
   missing: TOKENS.optional(),
-  notAfter: TOKENS.optional(),
-  notBefore: TOKENS.optional(),
   notEq: TOKENS.optional(),
   notIn: TOKENS.optional(),
   notIs: z.array(VERDICT).optional(),
-  on: TOKENS.optional(),
 };
 const FACET = z.enum([
   'deps',
@@ -448,7 +464,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'next',
-    'Ready tasks in rank order — what to work on next. Optionally scope to a project key; filter by case-insensitive title substring (q), priority/size, verdicts (is/notIs: stale|blocking|orphaned), and field operators (eq/notEq/in/notIn/has/missing + date ops, FIELD:VALUE tokens). Value faults return an empty set plus a warnings array.',
+    'Ready tasks in rank order — what to work on next. Optionally scope to a project key; filter by case-insensitive title substring (q), priority/size, verdicts (is/notIs: stale|blocking|orphaned), and field operators (eq/notEq/in/notIn/has/missing + the date ops on/before/after/atOrBefore/atOrAfter, all FIELD:VALUE tokens). A bare YYYY-MM-DD date resolves through tz, your IANA timezone, which is required whenever a date carries no time. Value faults return an empty set plus a warnings array.',
     {
       limit: LIMIT.optional(),
       priority: PRIORITY.optional(),
@@ -463,7 +479,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'list',
-    'Broad selection: status picks the universe (ready|awaiting|in_progress|under_review|blocked|parked|done|abandoned or live|terminal|all; default live); case-insensitive title substring (q), verdicts (is/notIs), and field operators (FIELD:VALUE tokens) filter within it — all AND-composed. Value faults return an empty set plus a warnings array.',
+    'Broad selection: status picks the universe (ready|awaiting|in_progress|under_review|blocked|parked|done|abandoned or live|terminal|all; default live); case-insensitive title substring (q), verdicts (is/notIs), and field operators (FIELD:VALUE tokens, date ops on/before/after/atOrBefore/atOrAfter) filter within it — all AND-composed. A bare YYYY-MM-DD date resolves through tz, your IANA timezone, which is required whenever a date carries no time. Value faults return an empty set plus a warnings array.',
     {
       limit: LIMIT.optional(),
       priority: PRIORITY.optional(),
@@ -504,15 +520,14 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'artifacts',
-    'The artifact feed (MMR-322): frozen work products newest-first, metadata only — id, project, title, tags, the summary lede, created_at. Filters AND-compose: tag, since/before (YYYY-MM-DD or ISO timestamp, on created_at), q (case-insensitive substring over the title), plus limit/offset paging. Unlike overview this IS a cross-project read — scope defaults to the bound board and "all" widens to every project. Read an artifact\'s frozen body with get KEY-aN and the content facet. Tag session_summary marks a session retrospective (ADR 0026).',
+    'The artifact feed (MMR-322): frozen work products newest-first, metadata only — id, project, title, tags, the summary lede, created_at. Filters AND-compose: tag, the created_at date ops (on/before/after/atOrBefore/atOrAfter, each an array of FIELD:VALUE tokens like "created_at:2026-07-01"), q (case-insensitive substring over the title), plus limit/offset paging. A bare YYYY-MM-DD resolves through tz, your IANA timezone, which is required whenever a date has no time; a timestamp must carry Z or an offset. Unlike overview this IS a cross-project read — scope defaults to the bound board and "all" widens to every project. Read an artifact\'s frozen body with get KEY-aN and the content facet. Tag session_summary marks a session retrospective (ADR 0026).',
     {
-      before: z.string().optional(),
       limit: LIMIT.optional(),
       offset: z.number().int().min(0).optional(),
       q: z.string().optional(),
       scope: z.string().optional(),
-      since: z.string().optional(),
       tag: z.string().optional(),
+      ...DATE_OPERATOR_SCHEMA,
     },
     (args: ArtifactQueryToolArgs) => toolArtifacts(store, applyScope(args)),
   );
@@ -845,19 +860,15 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'seeds',
-    'The grooming queue — live seeds (new + promoted) oldest-first by default. project scopes to one board (default the bound board; "all" = every board); requester filters to a requesting board; status is new|promoted|resolved|rejected or live|all; sort is asc|desc (age).',
+    'The grooming queue — live seeds (new + promoted) oldest-first by default. project scopes to one board (default the bound board; "all" = every board); requester filters to a requesting board; status is new|promoted|resolved|rejected or live|all; sort is asc|desc (age). The created_at date ops (on/before/after/atOrBefore/atOrAfter, arrays of FIELD:VALUE tokens like "created_at:2026-07-01") window the queue by age; a bare YYYY-MM-DD needs tz, your IANA timezone.',
     {
       project: z.string().optional(),
       requester: z.string().optional(),
       sort: SEED_SORT.optional(),
       status: SEED_STATUS.optional(),
+      ...DATE_OPERATOR_SCHEMA,
     },
-    (args: {
-      project?: string;
-      requester?: string;
-      status?: SeedStatusSelector;
-      sort?: 'asc' | 'desc';
-    }) => toolSeeds(store, args, boundScope),
+    (args: SeedQueryToolArgs) => toolSeeds(store, args, boundScope),
   );
 
   register(

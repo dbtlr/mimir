@@ -15,6 +15,7 @@ export * from './rank';
 export * from './ids';
 export * from './resolve-set';
 export * from './query';
+export * from './dates';
 export type * from './store';
 export * from './resource';
 export * from './errors';

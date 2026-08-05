@@ -158,8 +158,7 @@ options:
   -n, --limit <n>         cap the result count
 
   artifacts (the frozen-work-product feed):
-      --since <date>      created on or after (YYYY-MM-DD or ISO timestamp)
-      --before <date>     created on or before (same grammar)
+      --on F:DATE         windows created_at with the shared date grammar below
   -q, --query <text>      case-insensitive substring over the title
       --offset <n>        rows to skip — pages the newest-first feed
 
@@ -172,8 +171,11 @@ options:
       --not-is <verdict>  negated verdict (repeatable)
       --eq F:V            field equals (also --not-eq); --in F:V1,V2 any-of
                           (also --not-in); --has F / --missing F presence
-      --before F:DATE     date fields (also --on, --after, --not-before,
-                          --not-after); DATE = YYYY-MM-DD or ISO timestamp
+      --before F:DATE     date fields (also --on, --after, --at-or-before,
+                          --at-or-after); DATE = YYYY-MM-DD, or a timestamp
+                          carrying Z or a ±HH:MM offset
+      --tz <IANA>         the zone a bare YYYY-MM-DD means (default: this
+                          machine's, e.g. America/New_York)
                           fields = the bare projection fields; tag is multi-valued
                           (eq=contains, in=any, not-in=none, missing=untagged)
       --col <col>         add a column (deps tags children distribution
@@ -291,6 +293,11 @@ const F_QUERY: Row = ['-q, --query <text>', 'case-insensitive substring over the
 const F_COL: Row = ['--col <col>', 'add a column (deps tags children distribution …)'];
 const F_PRIORITY: Row = ['-p, --priority <p0..p3>', 'filter by priority (signal, not sort)'];
 const F_SIZE: Row = ['--size <s|m|l>', 'filter by size'];
+const F_DATES: Row = [
+  '--on created_at:<date>',
+  'window created_at (also --before, --after, --at-or-before, --at-or-after)',
+];
+const F_TZ: Row = ['--tz <IANA>', "the zone a bare YYYY-MM-DD means (default: this machine's)"];
 const SELECTION_NOTE: Row = [
   '--is / --eq / …',
   'verdict + field selection (see `mimir --help` for the full grammar)',
@@ -384,14 +391,14 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     examples: [
       'mimir artifacts                             # the bound project, newest first',
       'mimir artifacts -s all -t session_summary   # session retrospectives everywhere',
-      'mimir artifacts --since 2026-07-01 -q vault    # title substring, windowed',
+      'mimir artifacts --at-or-after created_at:2026-07-01 -q vault  # windowed',
       'mimir artifacts -f ids | head -1            # the newest id, for a get',
     ],
     flags: [
       F_SCOPE,
       ['-t, --tag <tag>', 'filter by tag'],
-      ['--since <date>', 'created on or after (YYYY-MM-DD or ISO timestamp)'],
-      ['--before <date>', 'created on or before (YYYY-MM-DD or ISO timestamp)'],
+      F_DATES,
+      F_TZ,
       ['-q, --query <text>', 'case-insensitive substring over the title'],
       F_LIMIT,
       ['--offset <n>', 'rows to skip — pages the newest-first feed'],
@@ -546,6 +553,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir list --is stale                       # tasks that have gone quiet',
       'mimir list -q vault                         # title substring',
       'mimir list --status done --after completed_at:2026-06-01',
+      'mimir list --on created_at:2026-06-10 --tz UTC   # a UTC calendar day',
       'mimir list --eq type:phase                  # filter to phases',
       'mimir list -s all --is stale                # cross-project, ignoring the binding',
     ],
@@ -803,6 +811,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir seeds -p all                   # every active board',
       'mimir seeds --status all --sort desc # every seed, newest-first',
       'mimir seeds --requester MMR          # seeds MMR filed on other boards',
+      'mimir seeds --at-or-after created_at:2026-07-01  # filed this month or later',
     ],
     flags: [
       [
@@ -812,6 +821,8 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--requester <KEY>', 'filter to seeds a board requested'],
       ['--status <s>', 'new|promoted|resolved|rejected, or live (default) | all'],
       ['--sort <asc|desc>', 'age order (default asc = oldest-first)'],
+      F_DATES,
+      F_TZ,
       ['--grouped', 'render the lane view with counts'],
       F_FORMAT,
     ],

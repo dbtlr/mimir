@@ -15,6 +15,8 @@
  * state lives with the node store, which this seam must not reach into.
  */
 
+import type { InstantWindow } from '../dates';
+
 /** One artifact's metadata, backend-neutral. `links` are node stems (`KEY-seq`). */
 export type ArtifactRecord = {
   key: string;
@@ -56,8 +58,9 @@ export type ArtifactMetadataPatch = {
 export type ArtifactListQuery = {
   project?: string;
   tag?: string;
-  since?: string;
-  before?: string;
+  /** The resolved `created_at` window (ADR 0029) — the core owns its arithmetic;
+   * the backend only compares against the edges it is handed. */
+  created?: InstantWindow;
   q?: string;
   limit?: number;
   /** Rows to skip before the window — pages the newest-first list. */

@@ -5,6 +5,7 @@ import {
   WRITE_ECHO_FACETS,
 } from '@mimir/contract';
 import type {
+  DateOp,
   FacetName,
   FieldFilter,
   Priority,
@@ -18,7 +19,9 @@ import type {
 } from '@mimir/contract';
 
 import {
+  ARTIFACT_DATE_FIELD,
   MimirError,
+  SEED_DATE_FIELD,
   annotate,
   applyUpdateFields,
   asSeedKind,
@@ -34,11 +37,12 @@ import {
   fileSeed,
   getSeed,
   inapplicableUpdateFields,
-  isFilterDate,
   listSeeds,
   OPS,
+  parseDateFilterTokens,
   parsePriorityValue,
   parseSizeValue,
+  requireTimeZone,
   parseWireField,
   promoteSeed,
   transitionSeed,
@@ -352,8 +356,38 @@ async function echoProject(
 // Read tools
 // ---------------------------------------------------------------------------
 
+/**
+ * The date args every date-bearing tool shares (ADR 0029) — one array of
+ * `FIELD:VALUE` tokens per operator, plus the caller's IANA timezone. `tz` is
+ * required whenever a token carries a bare `YYYY-MM-DD`: the core refuses to
+ * guess which calendar the caller meant.
+ */
+export type DateQueryArgs = {
+  before?: string[];
+  on?: string[];
+  after?: string[];
+  atOrBefore?: string[];
+  atOrAfter?: string[];
+  tz?: string;
+};
+
+/** The op → camelCase arg-key mapping for the date operators. */
+const DATE_ARG_KEYS: Record<DateOp, keyof Omit<DateQueryArgs, 'tz'>> = {
+  after: 'after',
+  'at-or-after': 'atOrAfter',
+  'at-or-before': 'atOrBefore',
+  before: 'before',
+  on: 'on',
+};
+
+/** The transport accessor {@link parseDateFilterTokens} reads its tokens through. */
+const dateTokens =
+  (args: DateQueryArgs) =>
+  (op: DateOp): readonly string[] =>
+    args[DATE_ARG_KEYS[op]] ?? [];
+
 /** The set-selection args shared by `next` and `list` (MMR-33) — named arrays per operator. */
-export type SetQueryArgs = {
+export type SetQueryArgs = DateQueryArgs & {
   q?: string;
   scope?: string;
   status?: StatusSelector;
@@ -365,11 +399,6 @@ export type SetQueryArgs = {
   notIn?: string[];
   has?: string[];
   missing?: string[];
-  before?: string[];
-  on?: string[];
-  after?: string[];
-  notBefore?: string[];
-  notAfter?: string[];
   priority?: Priority;
   size?: Size;
   tag?: string;
@@ -384,17 +413,13 @@ export type SetQueryArgs = {
  * identically to the op (`run.ts`'s `parseFilters`).
  */
 const OP_ARG_KEYS: Record<QueryOp, keyof SetQueryArgs> = {
-  after: 'after',
-  before: 'before',
+  ...DATE_ARG_KEYS,
   eq: 'eq',
   has: 'has',
   in: 'in',
   missing: 'missing',
-  'not-after': 'notAfter',
-  'not-before': 'notBefore',
   'not-eq': 'notEq',
   'not-in': 'notIn',
-  on: 'on',
 };
 
 function collectFilters(args: SetQueryArgs): FieldFilter[] {
@@ -427,6 +452,7 @@ export function toolNext(store: Store, args: SetQueryArgs): Promise<ToolResult> 
       q: args.q,
       scope: args.scope,
       size: args.size,
+      timeZone: requireTimeZone(args.tz),
       verdicts: collectVerdicts(args),
     });
     return ok(formatSetJson(result, 'tasks', { includeWarnings: true }));
@@ -454,6 +480,7 @@ export function toolList(store: Store, args: SetQueryArgs): Promise<ToolResult> 
       size: args.size,
       status: args.status,
       tag: args.tag,
+      timeZone: requireTimeZone(args.tz),
       verdicts: collectVerdicts(args),
     });
     return ok(formatSetJson(result, 'tasks', { includeWarnings: true }));
@@ -510,14 +537,20 @@ export function toolOverview(
 
 /** The `artifacts` tool args (MMR-322) — the CLI feed's flags under their
  * camelCase MCP spellings; every filter AND-composes. */
-export type ArtifactQueryToolArgs = {
+export type ArtifactQueryToolArgs = DateQueryArgs & {
   scope?: string;
   tag?: string;
-  since?: string;
-  before?: string;
   q?: string;
   limit?: number;
   offset?: number;
+};
+
+/** The `seeds` tool args — the queue selectors plus the shared date grammar. */
+export type SeedQueryToolArgs = DateQueryArgs & {
+  project?: string;
+  requester?: string;
+  status?: SeedStatusSelector;
+  sort?: 'asc' | 'desc';
 };
 
 /**
@@ -527,37 +560,21 @@ export type ArtifactQueryToolArgs = {
  * and the literal `all` widens to the portfolio, exactly as on `list`/`next`.
  */
 export function toolArtifacts(store: Store, args: ArtifactQueryToolArgs): Promise<ToolResult> {
-  return guard(async () => {
-    // The date bounds are checked, not merely normalized: the filter is a lexical
-    // compare downstream, so `since: "yesterday"` would not error — it would sort
-    // against the ISO timestamps and quietly return the wrong window. Same
-    // predicate the CLI enforces (`isFilterDate`), different refusal: a
-    // `validation` envelope here, usage/exit 2 there.
-    for (const [name, value] of [
-      ['since', args.since],
-      ['before', args.before],
-    ] as const) {
-      if (value !== undefined && !isFilterDate(value)) {
-        throw validation(
-          `invalid date: ${value}`,
-          `${name} takes YYYY-MM-DD or a full ISO timestamp`,
-        );
-      }
-    }
-    return ok(
+  return guard(async () =>
+    ok(
       formatArtifactSetJson(
         await listArtifacts(store, {
-          before: args.before,
+          dates: parseDateFilterTokens(dateTokens(args), ARTIFACT_DATE_FIELD),
           limit: args.limit,
           offset: args.offset,
           q: args.q,
           scope: args.scope,
-          since: args.since,
           tag: args.tag,
+          timeZone: requireTimeZone(args.tz),
         }),
       ),
-    );
-  });
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1119,12 +1136,7 @@ export function toolSeed(
 
 export function toolSeeds(
   store: Store,
-  args: {
-    project?: string;
-    requester?: string;
-    status?: SeedStatusSelector;
-    sort?: 'asc' | 'desc';
-  },
+  args: SeedQueryToolArgs,
   boundScope?: string,
 ): Promise<ToolResult> {
   return guard(async () => {
@@ -1133,10 +1145,12 @@ export function toolSeeds(
     // converge on one mapping instead of each special-casing it (B5b).
     const project = args.project ?? boundScope;
     const seeds = await listSeeds(store, {
+      dates: parseDateFilterTokens(dateTokens(args), SEED_DATE_FIELD),
       project,
       requester: args.requester,
       sort: args.sort,
       status: args.status,
+      timeZone: requireTimeZone(args.tz),
     });
     return ok(formatSeedsJson(seeds));
   });

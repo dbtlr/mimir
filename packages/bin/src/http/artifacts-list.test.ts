@@ -64,44 +64,74 @@ test.skipIf(!NORN)('q filter is honored over the wire', async () => {
   expect(miss.items).toEqual([]);
 });
 
-test.skipIf(!NORN)("a bare-date before still includes the same day's artifacts", async () => {
-  // the seeded artifact was created today; a bare-date `before` of today must include it
-  const today = new Date().toISOString().slice(0, 10);
-  const body = (await (await fetch(`${base}/api/artifacts?before=${today}`)).json()) as {
-    total: number;
-  };
+test.skipIf(!NORN)('a bare-date at-or-before includes the same caller-local day', async () => {
+  // The artifact was created today; today's window must contain it, resolved
+  // through the caller's own zone rather than UTC's calendar (ADR 0029).
+  const zone = 'America/New_York';
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: zone }).format(new Date());
+  const body = (await (
+    await fetch(`${base}/api/artifacts?at-or-before=created_at:${today}&tz=${zone}`)
+  ).json()) as { total: number };
   expect(body.total).toBe(1);
 });
 
+test.skipIf(!NORN)('a bare date with no tz is a validation error', async () => {
+  const res = await fetch(`${base}/api/artifacts?on=created_at:2026-07-31`);
+  expect(res.status).toBe(400);
+  const body = (await res.json()) as { error: { code: string; hint: string; message: string } };
+  expect(body.error.code).toBe('validation');
+  expect(body.error.message).toContain('no caller timezone');
+  expect(body.error.hint).toContain('tz');
+});
+
+test.skipIf(!NORN)('an unknown tz is a validation error', async () => {
+  const res = await fetch(`${base}/api/artifacts?on=created_at:2026-07-31&tz=Mars/Olympus`);
+  expect(res.status).toBe(400);
+  expect(await res.text()).toContain('unknown timezone');
+});
+
 test.skipIf(!NORN)('an impossible artifact date bound is a validation error', async () => {
-  const res = await fetch(`${base}/api/artifacts?since=2026-02-30`);
+  const res = await fetch(`${base}/api/artifacts?at-or-after=created_at:2026-02-30&tz=UTC`);
   expect(res.status).toBe(400);
   expect(await res.json()).toEqual({
     error: {
       code: 'validation',
-      hint: 'since takes YYYY-MM-DD or a full ISO timestamp',
+      hint: 'takes YYYY-MM-DD or a zoned ISO timestamp (2026-08-01T09:30:00Z)',
       message: 'invalid date: 2026-02-30',
     },
   });
 });
 
 test.skipIf(!NORN)('a malformed before bound is a validation error', async () => {
-  const res = await fetch(`${base}/api/artifacts?before=2026-07-31T99:00:00Z`);
+  const res = await fetch(`${base}/api/artifacts?before=created_at:2026-07-31T99:00:00Z&tz=UTC`);
   expect(res.status).toBe(400);
-  expect(await res.json()).toEqual({
-    error: {
-      code: 'validation',
-      hint: 'before takes YYYY-MM-DD or a full ISO timestamp',
-      message: 'invalid date: 2026-07-31T99:00:00Z',
-    },
-  });
+  const body = (await res.json()) as { error: { code: string; message: string } };
+  expect(body.error.code).toBe('validation');
+  expect(body.error.message).toBe('invalid date: 2026-07-31T99:00:00Z');
+});
+
+test.skipIf(!NORN)('a zone-less timestamp bound is a validation error', async () => {
+  const res = await fetch(`${base}/api/artifacts?before=created_at:2026-07-31T10:15:00`);
+  expect(res.status).toBe(400);
+  const body = (await res.json()) as { error: { hint: string } };
+  expect(body.error.hint).toContain('explicit zone');
+});
+
+// The retired params are refused, never ignored: a dropped bound answers a
+// different question than the one asked (ADR 0029).
+test.skipIf(!NORN)('the retired since param is refused with its replacement', async () => {
+  const res = await fetch(`${base}/api/artifacts?since=2026-07-01`);
+  expect(res.status).toBe(400);
+  const body = (await res.json()) as { error: { hint: string; message: string } };
+  expect(body.error.message).toBe('since is not a filter');
+  expect(body.error.hint).toContain('at-or-after=FIELD:VALUE');
 });
 
 test.skipIf(!NORN)('a numeric-offset bound is compared as its canonical UTC instant', async () => {
   const bound = new Date(Date.now() - 30 * 60 * 1000);
   const local = new Date(bound.getTime() + 2 * 60 * 60 * 1000).toISOString().replace('Z', '+02:00');
   const body = (await (
-    await fetch(`${base}/api/artifacts?since=${encodeURIComponent(local)}`)
+    await fetch(`${base}/api/artifacts?at-or-after=${encodeURIComponent(`created_at:${local}`)}`)
   ).json()) as { total: number };
   expect(body.total).toBe(1);
 });

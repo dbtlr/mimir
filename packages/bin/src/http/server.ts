@@ -20,6 +20,7 @@ import type { BunRequest, Server } from 'bun';
 
 import type {
   ArtifactUpdateFields,
+  DateFilter,
   DerivationSet,
   ListOptions,
   SeedStatusSelector,
@@ -61,19 +62,22 @@ import {
   resolveAttachTargets,
   resolveNodeTokenInSet,
   resolveProjectKeyInSet,
+  ARTIFACT_DATE_FIELD,
   getArtifact,
   getNode,
-  isFilterDate,
   listNodes,
   listProjects,
   moveNode,
   nodeStatusWord,
   nodeToWire,
-  normalizeFilterDate,
   notFound,
   projectNotFound,
+  dateFilterWindows,
+  parseDateFilterTokens,
   parseFilterToken,
   parseIdentity,
+  requireTimeZone,
+  SEED_DATE_FIELD,
   parsePriorityValue,
   parseSizeValue,
   overviewOf,
@@ -427,9 +431,39 @@ function setBody(total: number, items: NodeView[], warnings?: unknown[]): Record
   return body;
 }
 
+/**
+ * The date-query params ADR 0029 removed, each with the spelling that replaced
+ * it. Refused rather than ignored: a silently-dropped bound answers a different
+ * question than the one asked, and every one of these used to mean something.
+ */
+const RETIRED_PARAMS: Readonly<Record<string, string>> = {
+  'not-after': 'at-or-before',
+  'not-before': 'at-or-after',
+  since: 'at-or-after',
+};
+
+/** Refuse a retired date param, naming its replacement. */
+function refuseRetiredParams(q: URLSearchParams): void {
+  for (const [retired, replacement] of Object.entries(RETIRED_PARAMS)) {
+    if (q.has(retired)) {
+      throw validation(
+        `${retired} is not a filter`,
+        `use ${replacement}=FIELD:VALUE — one date grammar across every resource`,
+      );
+    }
+  }
+}
+
+/** The date filters of a single-date-field resource, read off repeated op params. */
+function dateFiltersOf(q: URLSearchParams, field: string): DateFilter[] {
+  refuseRetiredParams(q);
+  return parseDateFilterTokens((op) => q.getAll(op), field);
+}
+
 /** Parse `/api/nodes` query params into a `listNodes` selection. */
 function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
   const q = url.searchParams;
+  refuseRetiredParams(q);
   const filters: FieldFilter[] = [];
   for (const op of QUERY_OP_VALUES) {
     for (const token of q.getAll(op)) {
@@ -475,6 +509,10 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
   }
 
   const opts: ListOptions = { facets: SET_FACETS, filters, verdicts };
+  const timeZone = requireTimeZone(q.get('tz') ?? undefined);
+  if (timeZone !== undefined) {
+    opts.timeZone = timeZone;
+  }
   const scope = q.get('project');
   if (scope !== null) {
     opts.scope = scope;
@@ -615,25 +653,15 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (text !== null) {
               listOpts.q = text;
             }
-            const since = q.get('since');
-            if (since !== null) {
-              if (!isFilterDate(since)) {
-                throw validation(
-                  `invalid date: ${since}`,
-                  'since takes YYYY-MM-DD or a full ISO timestamp',
-                );
-              }
-              listOpts.since = normalizeFilterDate(since, 'start');
-            }
-            const before = q.get('before');
-            if (before !== null) {
-              if (!isFilterDate(before)) {
-                throw validation(
-                  `invalid date: ${before}`,
-                  'before takes YYYY-MM-DD or a full ISO timestamp',
-                );
-              }
-              listOpts.before = normalizeFilterDate(before, 'end');
+            // The window is resolved by the core off the caller's `tz` (ADR
+            // 0029) — this route hands over raw tokens and never does date
+            // arithmetic of its own.
+            const dates = dateFiltersOf(q, ARTIFACT_DATE_FIELD);
+            if (dates.length > 0) {
+              listOpts.created = dateFilterWindows(
+                dates,
+                requireTimeZone(q.get('tz') ?? undefined),
+              );
             }
             const limit = q.get('limit');
             if (limit !== null) {
@@ -1296,6 +1324,11 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
                 throw validation(`invalid sort: ${sort}`, 'sort is asc or desc');
               }
               listOpts.sort = sort;
+            }
+            const dates = dateFiltersOf(q, SEED_DATE_FIELD);
+            if (dates.length > 0) {
+              listOpts.dates = dates;
+              listOpts.timeZone = requireTimeZone(q.get('tz') ?? undefined);
             }
             const seeds = await listSeeds(store, listOpts);
             return json(req, {

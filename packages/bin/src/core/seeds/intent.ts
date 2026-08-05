@@ -10,6 +10,8 @@ import type {
 import { isMember } from '@mimir/helpers';
 
 import { createTask } from '../create';
+import { dateFilterWindows, withinWindow } from '../dates';
+import type { DateFilter } from '../dates';
 import type { DerivationSet } from '../derive';
 import { deriveSet, findNodeInSet, findProjectInSet, isNodeSettled } from '../derive';
 import { conflict, notFound, projectNotFound, validation } from '../errors';
@@ -217,7 +219,14 @@ export type ListSeedsOptions = {
   status?: SeedStatusSelector;
   /** Order by age (`created_at`): `asc` = oldest-first (FIFO, the default). */
   sort?: 'asc' | 'desc';
+  /** `created_at` date filters in the shared grammar (ADR 0029), AND-composed. */
+  dates?: readonly DateFilter[];
+  /** The caller's IANA timezone — how every bare date in `dates` resolves. */
+  timeZone?: string;
 };
+
+/** The seed queue's `created_at` date field — the one date field it exposes. */
+export const SEED_DATE_FIELD = 'created_at';
 
 /**
  * `seeds` — the queue read (MMR-245). Default: LIVE only (new + promoted),
@@ -241,6 +250,12 @@ export async function listSeedsResolved(
   store: Store,
   opts: ListSeedsOptions = {},
 ): Promise<{ views: SeedView[]; set: DerivationSet }> {
+  // Resolved BEFORE the read: an unreadable date is a refusal, and a refusal
+  // should never have cost a vault load (MMR-39's rule, at the intent seam).
+  const created =
+    opts.dates === undefined || opts.dates.length === 0
+      ? undefined
+      : dateFilterWindows(opts.dates, opts.timeZone);
   const set = deriveSet(await store.loadWorkingSet());
   const r: SeedResolver = { projectKeys: activeKeys(set.ws.projects), set };
   // `'all'` is the every-active-board selector, equivalent to omitting `project` —
@@ -259,6 +274,9 @@ export async function listSeedsResolved(
   let views = records.map((rec) => resolveSeedView(rec, r));
   if (opts.requester !== undefined) {
     views = views.filter((v) => v.requester === opts.requester);
+  }
+  if (created !== undefined) {
+    views = views.filter((v) => withinWindow(created, v.createdAt));
   }
   views = views.filter((v) => {
     if (status === 'all') {

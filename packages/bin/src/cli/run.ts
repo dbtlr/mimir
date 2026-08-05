@@ -28,10 +28,11 @@ import {
   formatSetJson,
   formatSetJsonl,
   formatStatusJson,
+  ARTIFACT_DATE_FIELD,
+  assertDateFilters,
   getArtifact,
   getNode,
   getSeed,
-  isFilterDate,
   listArtifacts,
   listNodes,
   listProjects,
@@ -77,7 +78,7 @@ import {
   cmdTriage,
 } from './mutations';
 import type { Ctx } from './mutations';
-import { parsePriority, parseSize } from './parse';
+import { callerTimeZone, parseDateFilters, parsePriority, parseSize } from './parse';
 import {
   countLine,
   renderArtifactDetail,
@@ -114,12 +115,18 @@ const OPTIONS = {
   before: { multiple: true, type: 'string' },
   on: { multiple: true, type: 'string' },
   after: { multiple: true, type: 'string' },
+  'at-or-before': { multiple: true, type: 'string' },
+  'at-or-after': { multiple: true, type: 'string' },
+  // The caller's IANA timezone — how a bare YYYY-MM-DD resolves (ADR 0029).
+  // Defaults to the invoking system's zone, so the CLI is never zone-less.
+  tz: { type: 'string' },
+  tag: { multiple: true, short: 't', type: 'string' },
+  // Retired date spellings, parsed only so they can be REFUSED with a redirect
+  // (ADR 0029, see VERB_OWNED_FLAGS) rather than read as an unknown flag.
   'not-before': { multiple: true, type: 'string' },
   'not-after': { multiple: true, type: 'string' },
-  tag: { multiple: true, short: 't', type: 'string' },
-  // The artifact feed's own window (MMR-322) — `--before` and `-t` are shared
-  // with the query ops above; `--since`/`--offset` are the feed's alone.
   since: { type: 'string' },
+  // The artifact/seed feeds' paging — `--offset` is theirs alone.
   offset: { type: 'string' },
   query: { short: 'q', type: 'string' },
   limit: { short: 'n', type: 'string' },
@@ -225,12 +232,17 @@ const COMMANDS: ReadonlySet<string> = new Set(
  *   settled write surface (ADR 0026 Decision 2). `create … --direction "…"`
  *   would drop the prose on the floor, which is worse for being exactly where
  *   the `--next` hint above sends the caller.
- * - `--since` and `--offset` are `artifacts`' own selection
- *   (MMR-322). Adding them to the shared table would otherwise make
- *   `mimir list --since 2026-07-01` exit 0 with the UNFILTERED board — a
- *   silently-wrong answer where the invocation used to be a hard unknown-flag
- *   error. `list`/`next` filter dates through the `--after`/`--before FIELD:VALUE`
- *   op grammar, which is where the hint sends the caller.
+ * - `--offset` is the artifact/seed feeds' own paging. In the shared table it
+ *   would otherwise make `mimir list --offset 20` exit 0 with the UNPAGED
+ *   board — a silently-wrong answer where the invocation used to be a hard
+ *   unknown-flag error. `list`/`next` cap with `-n, --limit`, which is where
+ *   the hint sends the caller.
+ *
+ * The same guard carries the **tombstones** for spellings ADR 0029 removed —
+ * `--not-before`, `--not-after`, and the artifact feed's `--since`. An empty
+ * `owner` list means no verb owns them, so every use is refused with the new
+ * spelling in the hint rather than parsed as an unknown flag (whose typo hint
+ * cannot explain a renamed grammar).
  *
  * Each entry redirects to the flag or verb that does the work, so the hint
  * ladder terminates somewhere useful instead of looping.
@@ -242,10 +254,15 @@ type OwnedFlagValues = {
   next?: boolean;
   direction?: string;
   since?: string;
+  'not-before'?: string[];
+  'not-after'?: string[];
   offset?: string;
   query?: string;
   reason?: string;
 };
+
+/** No verb owns a tombstoned flag — every use is a usage error with a redirect. */
+const RETIRED: readonly string[] = [];
 
 const VERB_OWNED_FLAGS: readonly {
   flag: string;
@@ -292,8 +309,20 @@ const VERB_OWNED_FLAGS: readonly {
   {
     flag: '--since',
     given: (values) => values.since !== undefined,
-    hint: `'--since' selects artifacts by created_at; on list/next use '--after created_at:YYYY-MM-DD'`,
-    owner: 'artifacts',
+    hint: `'--since' is retired; every resource windows created_at with '--at-or-after created_at:YYYY-MM-DD'`,
+    owner: RETIRED,
+  },
+  {
+    flag: '--not-before',
+    given: (values) => (values['not-before'] ?? []).length > 0,
+    hint: `'--not-before' is retired; the inclusive lower bound is '--at-or-after FIELD:VALUE'`,
+    owner: RETIRED,
+  },
+  {
+    flag: '--not-after',
+    given: (values) => (values['not-after'] ?? []).length > 0,
+    hint: `'--not-after' is retired; the inclusive upper bound is '--at-or-before FIELD:VALUE'`,
+    owner: RETIRED,
   },
   {
     flag: '--offset',
@@ -376,9 +405,12 @@ export async function runCli(
     before?: string[];
     on?: string[];
     after?: string[];
+    'at-or-before'?: string[];
+    'at-or-after'?: string[];
+    tz?: string;
+    tag?: string[];
     'not-before'?: string[];
     'not-after'?: string[];
-    tag?: string[];
     since?: string;
     offset?: string;
     query?: string;
@@ -475,11 +507,16 @@ export async function runCli(
     // Verb-owned flags, checked before any dispatch (inside the try so they
     // render through the usual usage path). See {@link VERB_OWNED_FLAGS}.
     for (const owned of VERB_OWNED_FLAGS) {
-      const applies = Array.isArray(owned.owner)
-        ? owned.owner.includes(command)
-        : command === owned.owner;
-      if (!applies && owned.given(values)) {
-        throw usage(`'${owned.flag}' doesn't apply to ${command}`, owned.hint);
+      const owners = Array.isArray(owned.owner) ? owned.owner : [owned.owner];
+      if (!owners.includes(command) && owned.given(values)) {
+        // No owner at all means the flag is a tombstone (ADR 0029): say it is
+        // gone rather than that this verb is the wrong home for it.
+        throw usage(
+          owners.length === 0
+            ? `'${owned.flag}' is retired`
+            : `'${owned.flag}' doesn't apply to ${command}`,
+          owned.hint,
+        );
       }
     }
     // The write echo's format, picked inside the try block so a bad --format
@@ -520,12 +557,13 @@ export async function runCli(
         // `getStore()` had already resolved.
         const nextQuery = {
           facets: parseFacets(values.col),
-          filters: parseFilters(values),
+          filters: parseFilters(values, callerTimeZone(values.tz)),
           limit: parseLimit(values.limit),
           priority: parsePriority(values.priority),
           q: values.query,
           scope: nextScope,
           size: parseSize(values.size),
+          timeZone: callerTimeZone(values.tz),
           verdicts: parseVerdicts(values.is, values['not-is']),
         };
         return runSet(
@@ -540,7 +578,7 @@ export async function runCli(
         // call's argument list, where it ran only after the store had opened.
         const listQuery = {
           facets: parseFacets(values.col),
-          filters: parseFilters(values),
+          filters: parseFilters(values, callerTimeZone(values.tz)),
           limit: parseLimit(values.limit),
           priority: parsePriority(values.priority),
           q: values.query,
@@ -548,6 +586,7 @@ export async function runCli(
           size: parseSize(values.size),
           status: parseStatus(values.status),
           tag: values.tag?.[0],
+          timeZone: callerTimeZone(values.tz),
           verdicts: parseVerdicts(values.is, values['not-is']),
         };
         // The archived-projects shelf (ADR 0015) — the sole door to hidden
@@ -660,17 +699,18 @@ export async function runCli(
         // invocation and the literal `-s all` both mean the portfolio (ADR 0004 —
         // an artifact is project-anchored but the search never was).
         const scope = effectiveScope(values.scope, defaults.scope);
+        const artifactZone = callerTimeZone(values.tz);
         // Every structural fault (bad date, bad offset, bad format) is decided
         // BEFORE the store is acquired — a wrong invocation must never open the
         // vault, matching the help/usage paths (MMR-39).
         const artifactQuery = {
-          before: parseFeedDate(values.before?.at(-1), '--before'),
+          dates: parseDateFilters(values, ARTIFACT_DATE_FIELD, artifactZone),
           limit: parseLimit(values.limit),
           offset: parseOffset(values.offset),
           q: values.query,
           scope,
-          since: parseFeedDate(values.since, '--since'),
           tag: values.tag?.[0],
+          timeZone: artifactZone,
         };
         const format = pickFormat(values.format, 'set', ctx);
         const result = await listArtifacts(await getStore(), artifactQuery);
@@ -1291,7 +1331,7 @@ function parseVerdicts(is: string[] | undefined, notIs: string[] | undefined): V
  * surface as usage — the caller's invocation is wrong (exit 2); the same
  * fault over MCP stays `validation`.
  */
-function parseFilters(values: Record<string, unknown>): FieldFilter[] {
+function parseFilters(values: Record<string, unknown>, zone: string): FieldFilter[] {
   const filters: FieldFilter[] = [];
   for (const op of QUERY_OP_VALUES) {
     const tokens = values[op];
@@ -1311,6 +1351,16 @@ function parseFilters(values: Record<string, unknown>): FieldFilter[] {
         throw error;
       }
     }
+  }
+  // Refuse an unreadable date here rather than inside the query, so a wrong
+  // invocation never opens the vault (MMR-39).
+  try {
+    assertDateFilters(filters, zone);
+  } catch (error) {
+    if (error instanceof MimirError) {
+      throw usage(error.message, error.hint);
+    }
+    throw error;
   }
   return filters;
 }
@@ -1347,25 +1397,4 @@ function parseLimit(value: string | undefined): number | undefined {
 /** The artifact feed's paging cursor (MMR-322) — rows to skip before the window. */
 function parseOffset(value: string | undefined): number | undefined {
   return parseCount(value, 'offset', 'offset is a whole count of rows to skip (0 or more)');
-}
-
-/**
- * The artifact feed's date bounds (MMR-322) — a bare `YYYY-MM-DD` (widened to
- * the whole day downstream) or a full ISO timestamp. A malformed value is a
- * STRUCTURAL fault, not a value fault: the filter is a lexical string compare
- * downstream, so a garbage bound would silently empty the feed or not apply at
- * all, and either way report the result as if the window had held.
- *
- * The predicate itself is core's {@link isFilterDate} — the same one the MCP tool
- * enforces — so the two transports cannot drift on what a date is; only the
- * refusal differs (usage/exit 2 here, a `validation` envelope there).
- */
-function parseFeedDate(value: string | undefined, flag: string): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (!isFilterDate(value)) {
-    throw usage(`invalid date: ${value}`, `${flag} takes YYYY-MM-DD or a full ISO timestamp`);
-  }
-  return value;
 }
