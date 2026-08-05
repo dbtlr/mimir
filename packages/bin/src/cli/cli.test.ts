@@ -1719,6 +1719,12 @@ describe('artifacts flags are verb-owned (MMR-322)', () => {
     ['next', '--offset', '3'],
     ['get', '--query', 'vault'],
     ['create', '--offset', '1'],
+    // The date grammar belongs to the query verbs (ADR 0029): a zone or bound
+    // on a read that has no date filter would be silently discarded.
+    ['get', '--tz', 'Asia/Tokyo'],
+    ['update', '--tz', 'Asia/Tokyo'],
+    ['get', '--at-or-after', 'created_at:2026-07-01'],
+    ['create', '--at-or-before', 'created_at:2026-07-01'],
   ])('%s rejects %s', async (verb, flag, value) => {
     const io = fakeIo(true);
     expect(await runCli([verb, flag, value], neverStore, io)).toBe(2);
@@ -1741,6 +1747,33 @@ describe('artifacts flags are verb-owned (MMR-322)', () => {
     expect(io.err.join('')).toContain(redirect);
     expect(io.out).toHaveLength(0);
   });
+
+  // The four query verbs own the grammar, so none of them refuses it.
+  test.skipIf(!NORN).each(['list', 'next', 'artifacts', 'seeds'])(
+    '%s accepts --tz and the at-or- bounds',
+    async (verb) => {
+      const io = fakeIo(false);
+      const scope = verb === 'seeds' ? ['-p', 'MMR'] : ['-s', 'MMR'];
+      expect(
+        await runCli(
+          [
+            verb,
+            ...scope,
+            '--at-or-after',
+            'created_at:2026-01-01',
+            '--at-or-before',
+            'created_at:2030-01-01',
+            '--tz',
+            'Asia/Tokyo',
+            '-f',
+            'json',
+          ],
+          () => store,
+          io,
+        ),
+      ).toBe(0);
+    },
+  );
 
   test.skipIf(!NORN)('artifacts accepts the shared date grammar plus its paging', async () => {
     const io = fakeIo(false);

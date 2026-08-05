@@ -238,6 +238,14 @@ const COMMANDS: ReadonlySet<string> = new Set(
  *   unknown-flag error. `list`/`next` cap with `-n, --limit`, which is where
  *   the hint sends the caller.
  *
+ * - `--tz`, `--at-or-before`, and `--at-or-after` belong to the four query
+ *   verbs (ADR 0029). `mimir get MMR-1 --tz Asia/Tokyo` would otherwise exit 0
+ *   having read a record whose timestamps the flag never touched, and the zone
+ *   is exactly the argument a caller expects to have changed the answer. Their
+ *   three siblings — `--on`, `--before`, `--after` — stay shared: `depend`
+ *   takes `--on`, `reorder` takes `--before`/`--after`, and one options table
+ *   cannot scope a spelling two verbs both mean.
+ *
  * The same guard carries the **tombstones** for spellings ADR 0029 removed —
  * `--not-before`, `--not-after`, and the artifact feed's `--since`. An empty
  * `owner` list means no verb owns them, so every use is refused with the new
@@ -256,6 +264,9 @@ type OwnedFlagValues = {
   since?: string;
   'not-before'?: string[];
   'not-after'?: string[];
+  'at-or-before'?: string[];
+  'at-or-after'?: string[];
+  tz?: string;
   offset?: string;
   query?: string;
   reason?: string;
@@ -263,6 +274,9 @@ type OwnedFlagValues = {
 
 /** No verb owns a tombstoned flag — every use is a usage error with a redirect. */
 const RETIRED: readonly string[] = [];
+
+/** The verbs that run a date-filtered query — the owners of the date grammar. */
+const DATE_QUERY_VERBS: readonly string[] = ['list', 'next', 'artifacts', 'seeds'];
 
 const VERB_OWNED_FLAGS: readonly {
   flag: string;
@@ -323,6 +337,24 @@ const VERB_OWNED_FLAGS: readonly {
     given: (values) => (values['not-after'] ?? []).length > 0,
     hint: `'--not-after' is retired; the inclusive upper bound is '--at-or-before FIELD:VALUE'`,
     owner: RETIRED,
+  },
+  {
+    flag: '--tz',
+    given: (values) => values.tz !== undefined,
+    hint: `'--tz' resolves a bare date in a query; use it with ${DATE_QUERY_VERBS.join(', ')}`,
+    owner: DATE_QUERY_VERBS,
+  },
+  {
+    flag: '--at-or-before',
+    given: (values) => (values['at-or-before'] ?? []).length > 0,
+    hint: `'--at-or-before FIELD:VALUE' filters a query; use it with ${DATE_QUERY_VERBS.join(', ')}`,
+    owner: DATE_QUERY_VERBS,
+  },
+  {
+    flag: '--at-or-after',
+    given: (values) => (values['at-or-after'] ?? []).length > 0,
+    hint: `'--at-or-after FIELD:VALUE' filters a query; use it with ${DATE_QUERY_VERBS.join(', ')}`,
+    owner: DATE_QUERY_VERBS,
   },
   {
     flag: '--offset',
