@@ -6,8 +6,8 @@
  * siblings (orphans, acyclicity, backend parity, …) register the same way
  * without touching the runner (MMR-169).
  */
-import type { BodyRecordProblem } from '../core/history-codec';
-import { lintBodySections } from '../core/history-codec';
+import type { BodyRecordProblem, BodyRecordTimestamp } from '../core/history-codec';
+import { lintBodySections, recordTimestamps } from '../core/history-codec';
 import { parseIdentity } from '../core/ids';
 import type { ScratchpadBodyProblem } from '../core/scratchpads/codec';
 import { lintScratchpadBody } from '../core/scratchpads/codec';
@@ -17,6 +17,7 @@ import type { ValidateFinding } from '../core/store-norn/decode';
 import { collapse, stemOf } from '../core/store-norn/decode';
 import { decodeScratchpadDocument } from '../core/store-norn/scratchpads';
 import type { ScratchpadDocumentProblem } from '../core/store-norn/scratchpads';
+import { canonicalInstant, isCanonicalInstant } from '../core/time';
 import type { Drop } from '../core/validate';
 
 /** What a check reads: the raw vault documents to diagnose. */
@@ -115,10 +116,14 @@ export type DoctorIssueCode =
   | 'frontmatter-required-field-missing'
   | 'interior-seq-gap'
   | 'missing-updated-at'
+  | 'non-canonical-record-timestamp'
+  | 'non-canonical-timestamp'
   | 'section-annotations-unreadable'
   | 'section-history-unreadable'
   | `scratchpad-${ScratchpadDocumentProblem['problem']}`
   | 'stem-project-divergence'
+  | 'uninterpretable-record-timestamp'
+  | 'uninterpretable-timestamp'
   | 'value-not-allowed';
 
 type FindingInput = Omit<DoctorFinding, 'code' | 'evidence' | 'locator' | 'scopeKey' | 'stem'> & {
@@ -176,6 +181,15 @@ export type Diagnostic = {
   run: (ctx: DoctorContext) => DoctorFinding[] | Promise<DoctorFinding[]>;
 };
 
+/** The scratchpad decode problems that are really a timestamp FORMAT fault, and
+ * the frontmatter field each one reads — the hand-off to {@link timestampCheck}
+ * when the field is present (MMR-351). */
+const SCRATCHPAD_TIMESTAMP_FIELD: Partial<Record<ScratchpadDocumentProblem['problem'], string>> = {
+  'invalid-created': 'created',
+  'invalid-freezing-at': 'freezing_at',
+  'invalid-updated-at': 'updated_at',
+};
+
 /** Scratchpads are quarantined as a whole when either owned body section fails
  * the shared codec. UUID identity is retained for location while project
  * frontmatter supplies grouping/scope; Scratchpads never enter the work graph. */
@@ -214,6 +228,16 @@ export const scratchpadBodyCheck: Diagnostic = {
       );
       for (const problem of decoded.problems) {
         if (problem.problem === 'invalid-body') {
+          continue;
+        }
+        // A PRESENT timestamp of the wrong format is {@link timestampCheck}'s to
+        // classify (MMR-351): only it knows whether the instant is recoverable,
+        // and reporting it here too would either duplicate the finding or pin it
+        // to `unreadable-document` and hide a repairable value behind a skip. An
+        // absent or null field keeps its `scratchpad-invalid-*` finding — that is
+        // presence, not format, and no normalizer can invent a missing instant.
+        const timestampField = SCRATCHPAD_TIMESTAMP_FIELD[problem.problem];
+        if (timestampField !== undefined && (doc.frontmatter?.[timestampField] ?? null) !== null) {
           continue;
         }
         findings.push(
@@ -430,6 +454,181 @@ export const updatedAtCheck: Diagnostic = {
   },
   title: 'Frontmatter updated_at presence',
 };
+
+/**
+ * Every frontmatter field the vault stores an instant in — the `datetime`
+ * declarations `vault/schema.ts` renders, gathered in one list. Scanned on every
+ * document kind rather than per-type: the invariant belongs to the VALUE, not to
+ * the rule that declared it, so a field carried by a document type that never
+ * declares it (a hand-added `completed_at` on a project) is still a stored
+ * instant that a lexical comparison could reach.
+ */
+const TIMESTAMP_FIELDS = ['created', 'updated_at', 'completed_at', 'archived_at', 'freezing_at'];
+
+/** One document the timestamp invariant applies to, from whichever feed. */
+type TimestampTarget = {
+  body?: string;
+  frontmatter: Record<string, unknown>;
+  path: string;
+  scopeKey: string;
+  stem: string;
+};
+
+/** The scope a scratchpad's findings group under: its declared owning project
+ * (UUID stems parse to no identity), falling back to the stem — the same rule
+ * {@link scratchpadBodyCheck} applies. */
+function scratchpadScope(frontmatter: Record<string, unknown> | undefined, stem: string): string {
+  const declared = collapse(frontmatter?.project);
+  return declared !== null && parseIdentity(declared)?.kind === 'project' ? declared : stem;
+}
+
+/**
+ * The canonical-timestamp invariant (MMR-351, ADR 0029): every persisted instant
+ * is ISO-8601 UTC with millisecond precision and an explicit `Z`.
+ *
+ * WHY it is an `error` rather than a cosmetic warn. Nothing is dropped on read,
+ * but a non-canonical value silently produces WRONG ANSWERS, which is worse than
+ * a visibly missing one: `core/intent/queries.ts` orders and compares stored
+ * `updated_at`/`completed_at` as raw strings, the annotation sort and the
+ * transition feed's cursor do the same with body record instants, and lexical
+ * order only tracks chronology while every value shares one width, one
+ * precision, and one zone. `2026-08-05T15:00:00+05:30` sorts AFTER
+ * `2026-08-05T09:00:00.000Z` and precedes it in fact; a missing millisecond
+ * mis-orders two records at the very same instant (`.` < `Z`). Scratchpads go
+ * further and fail closed — a non-canonical stored instant makes the whole pad
+ * unreadable (`store-norn/scratchpads.ts`).
+ *
+ * TWO classes, decided here and never re-decided in repair:
+ * - **non-canonical but unambiguously zoned** — an offset form, an absent
+ *   millisecond, extra precision. The document states its instant, so the
+ *   normalizer converts it and `--fix` rewrites the value.
+ * - **malformed or zone-less** — no instant is stated. UTC and host-local are
+ *   both guesses, and a wrong guess is a silently wrong timestamp forever, so
+ *   repair refuses it (`requires-explicit-correction`) and it stays visible as
+ *   corruption until a human states what was meant.
+ *
+ * BOUNDARIES with the neighbouring checks, so nothing is reported twice:
+ * - A missing or `null` value is {@link updatedAtCheck}'s (`updated_at`) or
+ *   norn's required-field validation's story; this check only classifies values
+ *   that are PRESENT and not null.
+ * - A `### ` line the reader does not accept as a record is
+ *   {@link bodySectionCheck}'s (`malformed-history-heading`,
+ *   `non-iso-annotation-heading`); this check reads only the instants
+ *   `recordTimestamps` extracts from headings the reader DOES accept — the exact
+ *   set that reaches a comparison.
+ * - A scratchpad whose stored instant is non-canonical is reported here as a
+ *   format fault; {@link scratchpadBodyCheck} suppresses its own
+ *   `scratchpad-invalid-*` finding for that field so the pad's timestamp is
+ *   classified once, by the check that knows whether it can be repaired.
+ */
+export const timestampCheck: Diagnostic = {
+  name: 'timestamps',
+  run: async (ctx) => {
+    const nodeDocs = await ctx.readNodeDocs();
+    const artifactDocs = await ctx.readArtifactDocs();
+    const scratchpadDocs = await (ctx.readScratchpadDocs?.() ?? Promise.resolve([]));
+    // A document with no captured frontmatter is still scanned: its BODY records
+    // carry instants of their own, and an absent field simply matches nothing.
+    const targets: TimestampTarget[] = [];
+    for (const { stem, path, frontmatter, body } of nodeDocs) {
+      targets.push({
+        body,
+        frontmatter: frontmatter ?? {},
+        path,
+        scopeKey: parseIdentity(stem)?.key ?? stem,
+        stem,
+      });
+    }
+    for (const { stem, path, frontmatter } of artifactDocs) {
+      targets.push({
+        frontmatter: frontmatter ?? {},
+        path,
+        scopeKey: parseIdentity(stem)?.key ?? stem,
+        stem,
+      });
+    }
+    for (const { stem, path, frontmatter } of scratchpadDocs) {
+      // A scratchpad body holds Journal/Agenda sections, never History or
+      // Annotations records — frontmatter is its whole timestamp surface.
+      targets.push({
+        frontmatter: frontmatter ?? {},
+        path,
+        scopeKey: scratchpadScope(frontmatter, stem),
+        stem,
+      });
+    }
+
+    const findings: DoctorFinding[] = [];
+    for (const target of targets) {
+      for (const field of TIMESTAMP_FIELDS) {
+        const raw = target.frontmatter[field];
+        if (raw === undefined || raw === null) {
+          continue; // presence is another check's story (see the boundaries above)
+        }
+        if (isCanonicalInstant(raw)) {
+          continue;
+        }
+        findings.push(timestampIssue(target, field, raw));
+      }
+      for (const record of recordTimestamps(target.body ?? '')) {
+        if (isCanonicalInstant(record.value)) {
+          continue;
+        }
+        findings.push(recordTimestampIssue(target, record));
+      }
+    }
+    return findings;
+  },
+  title: 'Canonical timestamp invariant',
+};
+
+/** One frontmatter timestamp finding, classified by whether its instant is
+ * recoverable from the value itself. */
+function timestampIssue(target: TimestampTarget, field: string, raw: unknown): DoctorFinding {
+  const canonical = canonicalInstant(raw);
+  const shown = typeof raw === 'string' ? raw : JSON.stringify(raw);
+  return {
+    check: 'timestamps',
+    code: canonical === null ? 'uninterpretable-timestamp' : 'non-canonical-timestamp',
+    evidence: canonical === null ? { field, value: shown } : { canonical, field, value: shown },
+    locator: target.path,
+    message:
+      canonical === null
+        ? `frontmatter \`${field}\` is not a usable instant (${shown}) — zone-less or malformed, so the instant it meant cannot be inferred and must be corrected explicitly`
+        : `frontmatter \`${field}\` is not canonical (${shown}) — it compares wrongly against every canonical stamp; --fix rewrites it as ${canonical}`,
+    node: target.stem,
+    scopeKey: target.scopeKey,
+    severity: 'error',
+    stem: target.stem,
+    where: `frontmatter · ${field}`,
+  };
+}
+
+/** One body record-heading timestamp finding — the same two classes, anchored to
+ * the line whose heading carries the instant. */
+function recordTimestampIssue(target: TimestampTarget, record: BodyRecordTimestamp): DoctorFinding {
+  const canonical = canonicalInstant(record.value);
+  const line = String(record.line);
+  return {
+    check: 'timestamps',
+    code:
+      canonical === null ? 'uninterpretable-record-timestamp' : 'non-canonical-record-timestamp',
+    evidence:
+      canonical === null
+        ? { line: record.line, section: record.section, value: record.value }
+        : { canonical, line: record.line, section: record.section, value: record.value },
+    locator: `${target.path}:${line}`,
+    message:
+      canonical === null
+        ? `${record.section} record timestamp is not a usable instant (${record.value}) — zone-less or malformed, so the instant it meant cannot be inferred and must be corrected explicitly`
+        : `${record.section} record timestamp is not canonical (${record.value}) — records sort and page by this value as a raw string; --fix rewrites it as ${canonical}`,
+    node: target.stem,
+    scopeKey: target.scopeKey,
+    severity: 'error',
+    stem: target.stem,
+    where: `${record.section} · line ${line}`,
+  };
+}
 
 /** The referential/field checks that render {@link Drop} entries. */
 type DropCheckName =
@@ -1364,6 +1563,7 @@ export const CHECKS: readonly Diagnostic[] = [
   bodySectionCheck,
   crlfCheck,
   updatedAtCheck,
+  timestampCheck,
   identityUniquenessCheck,
   danglingRefCheck,
   missingProjectCheck,

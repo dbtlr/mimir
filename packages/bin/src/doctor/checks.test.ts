@@ -12,6 +12,7 @@ import {
   scratchpadBodyCheck,
   seqGapCheck,
   stemProjectCheck,
+  timestampCheck,
   updatedAtCheck,
 } from './checks';
 import { REPAIR_POLICY } from './repair';
@@ -838,4 +839,304 @@ test('missing-updated-at repairs deterministically via the stamp-updated-at reci
     kind: 'supported',
     recipe: 'stamp-updated-at',
   });
+});
+
+// ── The canonical timestamp invariant (MMR-351) ──────────────────────────────
+
+type TimestampFixture = {
+  artifacts?: { stem: string; path: string; frontmatter?: Record<string, unknown> }[];
+  nodes?: { stem: string; body?: string; frontmatter?: Record<string, unknown> }[];
+  scratchpads?: { stem: string; frontmatter?: Record<string, unknown> }[];
+};
+
+/** Project a fixture doc onto a feed entry — a named function, not a `.map`
+ * spread, per the no-map-spread lint rule (as `snapshot.ts` does). `frontmatter`
+ * stays absent rather than `undefined` so the "snapshot captured none" case is
+ * exercised faithfully. */
+function timestampNodeDoc({
+  body,
+  frontmatter,
+  stem,
+}: {
+  stem: string;
+  body?: string;
+  frontmatter?: Record<string, unknown>;
+}): {
+  stem: string;
+  body: string;
+  path: string;
+  frontmatter?: Record<string, unknown>;
+} {
+  const doc = { body: body ?? '', path: `MMR/${stem}.md`, stem };
+  return frontmatter === undefined ? doc : { ...doc, frontmatter };
+}
+
+function timestampScratchpadDoc({
+  frontmatter,
+  stem,
+}: {
+  stem: string;
+  frontmatter?: Record<string, unknown>;
+}): {
+  stem: string;
+  body: string;
+  path: string;
+  frontmatter?: Record<string, unknown>;
+} {
+  const doc = { body: '', path: `scratch/${stem}.md`, stem };
+  return frontmatter === undefined ? doc : { ...doc, frontmatter };
+}
+
+const timestampCtx = (fixture: TimestampFixture): DoctorContext => ({
+  dropped: [],
+  projectRefs: [],
+  readArtifactDocs: () => Promise.resolve(fixture.artifacts ?? []),
+  readNodeDocs: () => Promise.resolve((fixture.nodes ?? []).map(timestampNodeDoc)),
+  readScratchpadDocs: () =>
+    Promise.resolve((fixture.scratchpads ?? []).map(timestampScratchpadDoc)),
+  scratchpadAnchorProjects: new Map(),
+  scratchpadProjects: new Set(['MMR']),
+  sectionFailures: [],
+  validateFindings: [],
+});
+
+const CANONICAL = '2026-01-01T00:00:00.000Z';
+
+test('timestamps is silent on a document whose every stamp is canonical', async () => {
+  const findings = await timestampCheck.run(
+    timestampCtx({
+      artifacts: [
+        {
+          frontmatter: { created: CANONICAL, type: 'artifact', updated_at: CANONICAL },
+          path: 'MMR/artifacts/MMR-a1.md',
+          stem: 'MMR-a1',
+        },
+      ],
+      nodes: [
+        {
+          frontmatter: {
+            completed_at: CANONICAL,
+            created: CANONICAL,
+            type: 'task',
+            updated_at: CANONICAL,
+          },
+          stem: 'MMR-1',
+        },
+      ],
+      scratchpads: [
+        {
+          frontmatter: {
+            created: CANONICAL,
+            freezing_at: CANONICAL,
+            project: '[[MMR]]',
+            type: 'scratch',
+            updated_at: CANONICAL,
+          },
+          stem: '018f3f36-7b2b-4c92-8f31-44c764a1a456',
+        },
+      ],
+    }),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('timestamps flags an offset-zoned frontmatter stamp as repairable (MMR-351)', async () => {
+  const findings = await timestampCheck.run(
+    timestampCtx({
+      nodes: [
+        { frontmatter: { type: 'task', updated_at: '2026-01-01T05:30:00+05:30' }, stem: 'MMR-1' },
+      ],
+    }),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    check: 'timestamps',
+    code: 'non-canonical-timestamp',
+    locator: 'MMR/MMR-1.md',
+    node: 'MMR-1',
+    scopeKey: 'MMR',
+    severity: 'error',
+    where: 'frontmatter · updated_at',
+  });
+  expect(findings[0]?.evidence).toEqual({
+    canonical: CANONICAL,
+    field: 'updated_at',
+    value: '2026-01-01T05:30:00+05:30',
+  });
+  expect(REPAIR_POLICY['non-canonical-timestamp']).toEqual({
+    kind: 'supported',
+    recipe: 'normalize-timestamp',
+  });
+});
+
+test('timestamps flags a millisecond-less stamp — equal instants must not mis-sort', async () => {
+  const findings = await timestampCheck.run(
+    timestampCtx({ nodes: [{ frontmatter: { created: '2026-01-01T00:00:00Z' }, stem: 'MMR-1' }] }),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]?.evidence).toEqual({
+    canonical: CANONICAL,
+    field: 'created',
+    value: '2026-01-01T00:00:00Z',
+  });
+});
+
+test('timestamps refuses to guess at a zone-less stamp, and repair skips it (MMR-351)', async () => {
+  const findings = await timestampCheck.run(
+    timestampCtx({
+      nodes: [{ frontmatter: { completed_at: '2026-01-01T00:00:00' }, stem: 'MMR-1' }],
+    }),
+  );
+  expect(findings).toHaveLength(1);
+  expect(findings[0]).toMatchObject({
+    code: 'uninterpretable-timestamp',
+    severity: 'error',
+    where: 'frontmatter · completed_at',
+  });
+  expect(findings[0]?.evidence).toEqual({
+    field: 'completed_at',
+    value: '2026-01-01T00:00:00',
+  });
+  expect(findings[0]?.message).toContain('corrected explicitly');
+  expect(REPAIR_POLICY['uninterpretable-timestamp']).toEqual({
+    kind: 'skipped',
+    reason: 'requires-explicit-correction',
+  });
+});
+
+test('timestamps reports malformed and non-string stored values as corruption', async () => {
+  const findings = await timestampCheck.run(
+    timestampCtx({
+      nodes: [
+        { frontmatter: { created: 'not-a-time' }, stem: 'MMR-1' },
+        { frontmatter: { created: 20_260_101 }, stem: 'MMR-2' },
+        { frontmatter: { created: '2026-01-01' }, stem: 'MMR-3' },
+      ],
+    }),
+  );
+  expect(findings.map((f) => f.code)).toEqual([
+    'uninterpretable-timestamp',
+    'uninterpretable-timestamp',
+    'uninterpretable-timestamp',
+  ]);
+  expect(findings[1]?.evidence).toEqual({ field: 'created', value: '20260101' });
+});
+
+test('timestamps leaves a missing or null value to the presence checks (MMR-312 boundary)', async () => {
+  const findings = await timestampCheck.run(
+    timestampCtx({
+      nodes: [
+        { frontmatter: { created: CANONICAL, type: 'task' }, stem: 'MMR-1' },
+        { frontmatter: { created: CANONICAL, updated_at: null }, stem: 'MMR-2' },
+        { stem: 'MMR-3' },
+      ],
+    }),
+  );
+  expect(findings).toEqual([]);
+});
+
+test('timestamps scans every kind: artifact, seed, project, and scratchpad', async () => {
+  const findings = await timestampCheck.run(
+    timestampCtx({
+      artifacts: [
+        {
+          frontmatter: { created: '2026-01-01T00:00:00Z', type: 'artifact' },
+          path: 'MMR/artifacts/MMR-a1.md',
+          stem: 'MMR-a1',
+        },
+      ],
+      nodes: [
+        { frontmatter: { archived_at: '2026-01-01T00:00:00Z', type: 'project' }, stem: 'MMR' },
+        { frontmatter: { type: 'seed', updated_at: '2026-01-01T00:00:00Z' }, stem: 'MMR-s1' },
+      ],
+      scratchpads: [
+        {
+          frontmatter: { freezing_at: '2026-01-01T00:00:00Z', project: '[[MMR]]' },
+          stem: '018f3f36-7b2b-4c92-8f31-44c764a1a456',
+        },
+      ],
+    }),
+  );
+  expect(
+    findings
+      .map((f) => [f.stem, f.evidence.field, f.code])
+      .toSorted((a, b) => String(a[0]).localeCompare(String(b[0]))),
+  ).toEqual([
+    ['018f3f36-7b2b-4c92-8f31-44c764a1a456', 'freezing_at', 'non-canonical-timestamp'],
+    ['MMR', 'archived_at', 'non-canonical-timestamp'],
+    ['MMR-a1', 'created', 'non-canonical-timestamp'],
+    ['MMR-s1', 'updated_at', 'non-canonical-timestamp'],
+  ]);
+  // A scratchpad's findings group under its declared owning project, not its UUID.
+  expect(findings.find((f) => f.stem.startsWith('018f'))?.scopeKey).toBe('MMR');
+});
+
+test('timestamps flags body record headings the reader accepts as records', async () => {
+  const body =
+    `## History\n### 2026-01-01T05:30:00+05:30 — lifecycle\nactive → done\n` +
+    `### tuesday — lifecycle\ndone → active\n` +
+    `## Annotations\n### 2026-01-01T00:00:00\na note\n`;
+  const findings = await timestampCheck.run(timestampCtx({ nodes: [{ body, stem: 'MMR-1' }] }));
+  expect(findings.map((f) => [f.code, f.locator, f.where])).toEqual([
+    ['non-canonical-record-timestamp', 'MMR/MMR-1.md:2', 'History · line 2'],
+    ['uninterpretable-record-timestamp', 'MMR/MMR-1.md:4', 'History · line 4'],
+    ['uninterpretable-record-timestamp', 'MMR/MMR-1.md:7', 'Annotations · line 7'],
+  ]);
+  expect(findings[0]?.evidence).toEqual({
+    canonical: CANONICAL,
+    line: 2,
+    section: 'History',
+    value: '2026-01-01T05:30:00+05:30',
+  });
+  expect(REPAIR_POLICY['non-canonical-record-timestamp']).toEqual({
+    kind: 'supported',
+    recipe: 'normalize-record-timestamp',
+  });
+  expect(REPAIR_POLICY['uninterpretable-record-timestamp']).toEqual({
+    kind: 'skipped',
+    reason: 'requires-explicit-correction',
+  });
+});
+
+test('a non-canonical scratchpad stamp is classified once, by the timestamp check', async () => {
+  // The pad is unreadable either way (the decoder stays strict), but the finding
+  // that reaches repair must be the REPAIRABLE one — not `scratchpad-invalid-*`,
+  // which repair pins to `unreadable-document`.
+  const scratchpads = [
+    {
+      frontmatter: {
+        created: '2026-01-01T00:00:00Z',
+        project: '[[MMR]]',
+        title: 'Working',
+        type: 'scratch',
+        updated_at: CANONICAL,
+      },
+      stem: '018f3f36-7b2b-4c92-8f31-44c764a1a456',
+    },
+  ];
+  const ctx = timestampCtx({ scratchpads });
+  expect((await scratchpadBodyCheck.run(ctx)).map((f) => f.code)).not.toContain(
+    'scratchpad-invalid-created',
+  );
+  expect((await timestampCheck.run(ctx)).map((f) => f.code)).toEqual(['non-canonical-timestamp']);
+});
+
+test('an ABSENT scratchpad stamp stays the scratchpad check`s finding (presence, not format)', async () => {
+  const ctx = timestampCtx({
+    scratchpads: [
+      {
+        frontmatter: {
+          project: '[[MMR]]',
+          title: 'Working',
+          type: 'scratch',
+          updated_at: CANONICAL,
+        },
+        stem: '018f3f36-7b2b-4c92-8f31-44c764a1a456',
+      },
+    ],
+  });
+  expect((await scratchpadBodyCheck.run(ctx)).map((f) => f.code)).toContain(
+    'scratchpad-invalid-created',
+  );
+  expect(await timestampCheck.run(ctx)).toEqual([]);
 });

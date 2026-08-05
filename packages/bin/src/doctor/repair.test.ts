@@ -72,6 +72,8 @@ test('the total repair registry explicitly classifies every current issue code',
     'missing-journal-section',
     'missing-project',
     'missing-updated-at',
+    'non-canonical-record-timestamp',
+    'non-canonical-timestamp',
     'non-iso-annotation-heading',
     'orphaned-seed',
     'scratchpad-created-after-updated',
@@ -92,6 +94,8 @@ test('the total repair registry explicitly classifies every current issue code',
     'section-order',
     'stem-project-divergence',
     'superseded-reason-required',
+    'uninterpretable-record-timestamp',
+    'uninterpretable-timestamp',
     'unknown-requester',
     'unknown-transition-kind',
     'unparseable-history-record',
@@ -907,4 +911,263 @@ test('missing structural headings are inserted in canonical History then Annotat
       '## Task Description\ntext\n## History\n## Annotations\n',
     );
   }
+});
+
+// MMR-351: the two timestamp recipes. Both trust the finding's classification
+// (the normalized form was computed at detection and is never recomputed here);
+// the snapshot supplies only the CAS precondition and the addressed line.
+
+test('normalize-timestamp writes the canonical value under a CAS on the observed one', () => {
+  const planned = planDoctorRepairs({
+    issues: [
+      issue(
+        'non-canonical-timestamp',
+        'MMR-1',
+        {
+          canonical: '2026-01-01T00:00:00.000Z',
+          field: 'updated_at',
+          value: '2026-01-01T05:30:00+05:30',
+        },
+        'MMR/MMR-1.md',
+      ),
+    ],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: 'body',
+        documentHash: 'hash',
+        frontmatter: { type: 'task', updated_at: '2026-01-01T05:30:00+05:30' },
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.skipped).toEqual([]);
+  expect(planned.failures).toEqual([]);
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: {
+        expected_old_value: '2026-01-01T05:30:00+05:30',
+        field: 'updated_at',
+        new_value: '2026-01-01T00:00:00.000Z',
+        path: 'MMR/MMR-1.md',
+      },
+      kind: 'set_frontmatter',
+    },
+  ]);
+});
+
+test('normalize-timestamp fails closed when the snapshot no longer carries the field', () => {
+  const planned = planDoctorRepairs({
+    issues: [
+      issue(
+        'non-canonical-timestamp',
+        'MMR-1',
+        {
+          canonical: '2026-01-01T00:00:00.000Z',
+          field: 'archived_at',
+          value: '2026-01-01T00:00:00Z',
+        },
+        'MMR/MMR-1.md',
+      ),
+    ],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: 'b',
+        documentHash: 'hash',
+        frontmatter: { type: 'task' },
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([]);
+  expect(planned.failures).toEqual([
+    {
+      issue: expect.objectContaining({ code: 'non-canonical-timestamp' }),
+      reason: 'missing-snapshot-value',
+    },
+  ]);
+});
+
+test('an uninterpretable timestamp is skipped as requiring explicit correction', () => {
+  const planned = planDoctorRepairs({
+    issues: [
+      issue('uninterpretable-timestamp', 'MMR-1', {
+        field: 'created',
+        value: '2026-01-01T00:00:00',
+      }),
+      issue('uninterpretable-record-timestamp', 'MMR-1', {
+        line: 2,
+        section: 'History',
+        value: 'tuesday',
+      }),
+    ],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: 'body',
+        documentHash: 'hash',
+        frontmatter: { created: '2026-01-01T00:00:00', type: 'task' },
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([]);
+  expect(planned.skipped.map((item) => item.reason)).toEqual([
+    'requires-explicit-correction',
+    'requires-explicit-correction',
+  ]);
+});
+
+test('normalize-record-timestamp rewrites only the addressed heading, under the body CAS', () => {
+  const body =
+    '## History\n### 2026-01-01T05:30:00+05:30 — lifecycle\nactive → done\n' +
+    '## Annotations\n### 2026-01-01T00:00:00Z\na note\n';
+  const planned = planDoctorRepairs({
+    issues: [
+      issue(
+        'non-canonical-record-timestamp',
+        'MMR-1',
+        {
+          canonical: '2026-01-01T00:00:00.000Z',
+          line: 2,
+          section: 'History',
+          value: '2026-01-01T05:30:00+05:30',
+        },
+        'MMR/MMR-1.md:2',
+      ),
+      issue(
+        'non-canonical-record-timestamp',
+        'MMR-1',
+        {
+          canonical: '2026-01-01T00:00:00.000Z',
+          line: 5,
+          section: 'Annotations',
+          value: '2026-01-01T00:00:00Z',
+        },
+        'MMR/MMR-1.md:5',
+      ),
+    ],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body,
+        documentHash: 'body-hash',
+        frontmatter: { type: 'task' },
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.skipped).toEqual([]);
+  expect(planned.failures).toEqual([]);
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: {
+        document_hash: 'body-hash',
+        new_value:
+          '## History\n### 2026-01-01T00:00:00.000Z — lifecycle\nactive → done\n' +
+          '## Annotations\n### 2026-01-01T00:00:00.000Z\na note\n',
+        path: 'MMR/MMR-1.md',
+      },
+      kind: 'replace_body',
+    },
+  ]);
+});
+
+test('normalize-record-timestamp skips a line that is not the heading the finding names', () => {
+  const planned = planDoctorRepairs({
+    issues: [
+      issue(
+        'non-canonical-record-timestamp',
+        'MMR-1',
+        {
+          canonical: '2026-01-01T00:00:00.000Z',
+          line: 3,
+          section: 'History',
+          value: '2026-01-01T00:00:00Z',
+        },
+        'MMR/MMR-1.md:3',
+      ),
+    ],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: '## History\n### 2026-01-01T00:00:00Z — lifecycle\nactive → done\n',
+        documentHash: 'body-hash',
+        frontmatter: { type: 'task' },
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([]);
+  expect(planned.skipped).toEqual([
+    {
+      issue: expect.objectContaining({ code: 'non-canonical-record-timestamp' }),
+      reason: 'ambiguous-body-record',
+    },
+  ]);
+});
+
+test('a CRLF body keeps its line endings when a record timestamp is normalized', () => {
+  const planned = planDoctorRepairs({
+    issues: [
+      issue(
+        'non-canonical-record-timestamp',
+        'MMR-1',
+        {
+          canonical: '2026-01-01T00:00:00.000Z',
+          line: 2,
+          section: 'History',
+          value: '2026-01-01T00:00:00Z',
+        },
+        'MMR/MMR-1.md:2',
+      ),
+    ],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: '## History\r\n### 2026-01-01T00:00:00Z — lifecycle\r\nactive → done\r\n',
+        documentHash: 'body-hash',
+        frontmatter: { type: 'task' },
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations[0]).toMatchObject({
+    fields: {
+      new_value: '## History\r\n### 2026-01-01T00:00:00.000Z — lifecycle\r\nactive → done\r\n',
+    },
+  });
+});
+
+test('timestamp findings key by field and line so one document cannot mask another', () => {
+  const created = issue('non-canonical-timestamp', 'MMR-1', { field: 'created' }, 'MMR/MMR-1.md');
+  const updated = issue(
+    'non-canonical-timestamp',
+    'MMR-1',
+    { field: 'updated_at' },
+    'MMR/MMR-1.md',
+  );
+  expect(repairIssueKey(created)).not.toBe(repairIssueKey(updated));
+  const first = issue('non-canonical-record-timestamp', 'MMR-1', { line: 2 }, 'MMR/MMR-1.md:2');
+  const second = issue('non-canonical-record-timestamp', 'MMR-1', { line: 9 }, 'MMR/MMR-1.md:9');
+  expect(repairIssueKey(first)).not.toBe(repairIssueKey(second));
 });

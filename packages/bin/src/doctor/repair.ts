@@ -19,6 +19,8 @@ import { doctorIdentityIndex, doctorLogicalStemAtPath } from './snapshot';
 export type RepairRecipe =
   | 'add-canonical-heading'
   | 'normalize-crlf'
+  | 'normalize-record-timestamp'
+  | 'normalize-timestamp'
   | 'recover-missing-project'
   | 'restore-project-projection'
   | 'stamp-updated-at';
@@ -31,6 +33,9 @@ export type RepairSkipReason =
   | 'invalid-semantic-value'
   | 'non-corruption-warning'
   | 'out-of-scope'
+  /** The stored value names no instant (zone-less or malformed), so only a human
+   * can say what it meant — mimir will not guess one (MMR-351, ADR 0029). */
+  | 'requires-explicit-correction'
   | 'semantic-reference'
   | 'unreadable-document';
 
@@ -87,6 +92,10 @@ export const REPAIR_POLICY: Record<DoctorIssueCode, RepairPolicy> = {
   'missing-journal-section': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'missing-project': { kind: 'supported', recipe: 'recover-missing-project' },
   'missing-updated-at': { kind: 'supported', recipe: 'stamp-updated-at' },
+  // The two timestamp classes (MMR-351) are decided at DETECTION: a value that
+  // states its instant is normalized; one that does not is never guessed at.
+  'non-canonical-record-timestamp': { kind: 'supported', recipe: 'normalize-record-timestamp' },
+  'non-canonical-timestamp': { kind: 'supported', recipe: 'normalize-timestamp' },
   'non-iso-annotation-heading': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'orphaned-seed': { kind: 'supported', recipe: 'recover-missing-project' },
   'scratchpad-created-after-updated': { kind: 'skipped', reason: 'unreadable-document' },
@@ -110,6 +119,8 @@ export const REPAIR_POLICY: Record<DoctorIssueCode, RepairPolicy> = {
   'section-order': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'stem-project-divergence': { kind: 'supported', recipe: 'restore-project-projection' },
   'superseded-reason-required': { kind: 'skipped', reason: 'ambiguous-body-record' },
+  'uninterpretable-record-timestamp': { kind: 'skipped', reason: 'requires-explicit-correction' },
+  'uninterpretable-timestamp': { kind: 'skipped', reason: 'requires-explicit-correction' },
   'unknown-requester': { kind: 'skipped', reason: 'semantic-reference' },
   'unknown-transition-kind': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'unparseable-history-record': { kind: 'skipped', reason: 'ambiguous-body-record' },
@@ -230,6 +241,33 @@ function recoveryOperation(key: string, timestamp: string): MigrationOp {
       to: 'archived',
     })}`,
   );
+}
+
+/**
+ * Rewrite one `### <instant>` record heading to the canonical form the finding
+ * already computed (MMR-351), leaving every other byte of the line alone — a
+ * history heading keeps its ` — <kind>` tail, and a CRLF line keeps its `\r`.
+ * Returns `null` when the addressed line is not the heading the finding
+ * describes, so a shifted or concurrently-edited body is skipped rather than
+ * corrupted. Splitting on `\n` (not the codec's CRLF-tolerant split) keeps line
+ * endings untouched; both splitters index lines identically.
+ */
+function rewriteRecordTimestamp(body: string, issue: DoctorFinding): string | null {
+  const line = typeof issue.evidence.line === 'number' ? issue.evidence.line : undefined;
+  const value = typeof issue.evidence.value === 'string' ? issue.evidence.value : undefined;
+  const canonical =
+    typeof issue.evidence.canonical === 'string' ? issue.evidence.canonical : undefined;
+  if (line === undefined || value === undefined || canonical === undefined) {
+    return null;
+  }
+  const lines = body.split('\n');
+  const target = lines[line - 1];
+  const heading = `### ${value}`;
+  if (target === undefined || !target.startsWith(heading)) {
+    return null;
+  }
+  lines[line - 1] = `### ${canonical}${target.slice(heading.length)}`;
+  return lines.join('\n');
 }
 
 type BodyRepair = {
@@ -358,6 +396,25 @@ export function planDoctorRepairs(args: {
       continue;
     }
 
+    if (policy.recipe === 'normalize-timestamp') {
+      // Trusts the finding's own classification (never redetects): detection
+      // decided the value states an instant and computed its canonical form, and
+      // only that form is written. The snapshot is read for ONE thing — the raw
+      // value to assert as the CAS precondition — so a value that changed between
+      // diagnosis and apply refuses rather than overwrites.
+      const field = typeof entry.evidence.field === 'string' ? entry.evidence.field : undefined;
+      const canonical =
+        typeof entry.evidence.canonical === 'string' ? entry.evidence.canonical : undefined;
+      const observed = field === undefined ? undefined : doc.frontmatter?.[field];
+      if (field === undefined || canonical === undefined || observed === undefined) {
+        failures.push({ issue: entry, reason: 'missing-snapshot-value' });
+        continue;
+      }
+      operations.push(setFrontmatter(doc.path, field, canonical, observed));
+      planned.push({ issue: entry, recipe: policy.recipe });
+      continue;
+    }
+
     if (policy.recipe === 'stamp-updated-at') {
       // Trusts the finding's own classification (never redetects) — `present`
       // says whether `updated_at` sat in frontmatter with a null value or was
@@ -397,6 +454,16 @@ export function planDoctorRepairs(args: {
     }
     if (policy.recipe === 'normalize-crlf') {
       bodyRepair.body = toCanonicalLf(bodyRepair.body);
+      bodyRepair.issues.push({ issue: entry, recipe: policy.recipe });
+      continue;
+    }
+    if (policy.recipe === 'normalize-record-timestamp') {
+      const rewritten = rewriteRecordTimestamp(bodyRepair.body, entry);
+      if (rewritten === null) {
+        skipped.push({ issue: entry, reason: 'ambiguous-body-record' });
+        continue;
+      }
+      bodyRepair.body = rewritten;
       bodyRepair.issues.push({ issue: entry, recipe: policy.recipe });
       continue;
     }
@@ -453,6 +520,19 @@ export function repairIssueKey(issue: DoctorFinding): string {
     return `${issue.code}\0${projectKey}`;
   }
   if (issue.code === 'stem-project-divergence') {
+    return `${issue.code}\0${issue.locator}`;
+  }
+  // One document can carry several bad timestamps at once, so the code+stem key
+  // would conflate them and let a still-broken field ride in on a repaired one's
+  // verification. The field (frontmatter) and the `path:line` locator (a body
+  // record) are what make each finding distinct.
+  if (issue.code === 'non-canonical-timestamp' || issue.code === 'uninterpretable-timestamp') {
+    return `${issue.code}\0${issue.locator}\0${String(issue.evidence.field)}`;
+  }
+  if (
+    issue.code === 'non-canonical-record-timestamp' ||
+    issue.code === 'uninterpretable-record-timestamp'
+  ) {
     return `${issue.code}\0${issue.locator}`;
   }
   return `${issue.code}\0${issue.scopeKey}\0${issue.stem}`;
