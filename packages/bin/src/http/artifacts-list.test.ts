@@ -117,14 +117,46 @@ test.skipIf(!NORN)('a zone-less timestamp bound is a validation error', async ()
   expect(body.error.hint).toContain('explicit zone');
 });
 
-// The retired params are refused, never ignored: a dropped bound answers a
-// different question than the one asked (ADR 0029).
-test.skipIf(!NORN)('the retired since param is refused with its replacement', async () => {
-  const res = await fetch(`${base}/api/artifacts?since=2026-07-01`);
+// A date param this API doesn't have is refused, never ignored: a dropped bound
+// answers a different question than the one asked (ADR 0029). That covers the
+// retired operators AND the camelCase spellings MCP uses, which a caller
+// crossing transports reaches for.
+test.skipIf(!NORN).each([
+  ['/api/artifacts', 'since', 'at-or-after'],
+  ['/api/artifacts', 'not-before', 'at-or-after'],
+  ['/api/artifacts', 'atOrAfter', 'at-or-after'],
+  ['/api/artifacts', 'atOrBefore', 'at-or-before'],
+  ['/api/nodes', 'since', 'at-or-after'],
+  ['/api/nodes', 'not-after', 'at-or-before'],
+  ['/api/nodes', 'atOrAfter', 'at-or-after'],
+  ['/api/seeds', 'notBefore', 'at-or-after'],
+  ['/api/seeds', 'atOrBefore', 'at-or-before'],
+])('%s refuses %s with its replacement', async (route, param, replacement) => {
+  const res = await fetch(`${base}${route}?${param}=created_at:2026-07-01&tz=UTC`);
   expect(res.status).toBe(400);
   const body = (await res.json()) as { error: { hint: string; message: string } };
-  expect(body.error.message).toBe('since is not a filter');
-  expect(body.error.hint).toContain('at-or-after=FIELD:VALUE');
+  expect(body.error.message).toBe(`${param} is not a filter`);
+  expect(body.error.hint).toContain(`${replacement}=FIELD:VALUE`);
+});
+
+// The zone is validated on its own terms, filters or not — a shrug would teach
+// the caller their zone had been honored.
+test.skipIf(!NORN).each(['/api/artifacts', '/api/nodes', '/api/seeds'])(
+  '%s refuses an unknown tz with no date filter',
+  async (route) => {
+    const res = await fetch(`${base}${route}?tz=Mars/Olympus`);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain('unknown timezone');
+  },
+);
+
+// The transitions cursor is not a date filter and keeps its own `since` — the
+// date-param guard must not reach it (ADR 0029 leaves the cursor alone).
+test.skipIf(!NORN)('the transitions cursor still owns its since param', async () => {
+  expect((await fetch(`${base}/api/transitions`)).status).toBe(200);
+  const res = await fetch(`${base}/api/transitions?since=0`);
+  const body = (await res.json()) as { error: { message: string } };
+  expect(body.error.message).toBe('invalid cursor 0');
 });
 
 test.skipIf(!NORN)('a numeric-offset bound is compared as its canonical UTC instant', async () => {
