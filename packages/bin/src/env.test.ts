@@ -1,12 +1,28 @@
 import { expect, test } from 'bun:test';
 
-import { DEFAULT_PORT, DEV_PORT, IS_PRODUCTION, defaultVaultPath, envFlag, envPort } from './env';
+import {
+  DEFAULT_PORT,
+  DEV_PORT,
+  IS_PRODUCTION,
+  defaultVaultPath,
+  envFlag,
+  envPort,
+  isProductionBuildProfile,
+} from './env';
 
 // Unit/dev runs are not compiled with `--define MIMIR_BUILD_PROFILE`, so the
 // build profile is dev — the same reasoning as version.test.ts (MMR-117/MMR-57).
 
 test('dev/from-source is not the production profile', () => {
   expect(IS_PRODUCTION).toBe(false);
+});
+
+test('only the literal production build profile gains production authority', () => {
+  expect(isProductionBuildProfile('production')).toBe(true);
+  expect(isProductionBuildProfile(undefined)).toBe(false);
+  expect(isProductionBuildProfile('development')).toBe(false);
+  expect(isProductionBuildProfile('staging')).toBe(false);
+  expect(isProductionBuildProfile('')).toBe(false);
 });
 
 test('the default port is the dev port, off the production port', () => {

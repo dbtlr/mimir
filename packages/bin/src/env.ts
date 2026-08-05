@@ -25,8 +25,14 @@ import { parsePort } from '@mimir/helpers';
 // identifier is the one safe read.
 declare const MIMIR_BUILD_PROFILE: string | undefined;
 
-/** True only in a compiled release build (the `--define` was injected). */
-export const IS_PRODUCTION = typeof MIMIR_BUILD_PROFILE !== 'undefined';
+/** True only for the literal profile injected into a compiled release build. */
+export function isProductionBuildProfile(profile: string | undefined): boolean {
+  return profile === 'production';
+}
+
+export const IS_PRODUCTION = isProductionBuildProfile(
+  typeof MIMIR_BUILD_PROFILE === 'undefined' ? undefined : MIMIR_BUILD_PROFILE,
+);
 
 /** Production `serve` port — MIMIR on a phone keypad. */
 export const PROD_PORT = 64647;
