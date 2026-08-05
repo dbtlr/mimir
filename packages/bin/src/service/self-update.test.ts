@@ -76,6 +76,7 @@ test('resolveLatestTag rejects a non-redirect answer', async () => {
     thrown = err;
   }
   expect(thrown).toBeInstanceOf(Error);
+  expect((thrown as { code?: unknown }).code).toBe('validation');
   expect((thrown as Error).message).toMatch(/latest release/);
 });
 
