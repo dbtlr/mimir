@@ -101,10 +101,17 @@ mimir list -s all --is stale       # cross-project hygiene sweep
 
 `-q`/`--query` case-insensitively matches a title substring and AND-composes with
 the other selectors. Operators take `FIELD:VALUE` tokens: `--eq/--not-eq`, `--in/--not-in` (csv any-of),
-`--has/--missing FIELD` (presence), and date ops `--before/--on/--after/`
-`--not-before/--not-after FIELD:YYYY-MM-DD`. Fields are the projection fields
-(`type`, `priority`, `size`, `tag`, `created_at`, …); `tag` is multi-valued
-(eq = contains, missing = untagged).
+`--has/--missing FIELD` (presence), and the date ops
+`--on/--before/--after/--at-or-before/--at-or-after FIELD:DATE`. Fields are the
+projection fields (`type`, `priority`, `size`, `tag`, `created_at`, …); `tag` is
+multi-valued (eq = contains, missing = untagged).
+
+`DATE` is a bare `YYYY-MM-DD` — read as a calendar day in **your** timezone,
+this machine's unless `--tz <IANA>` says otherwise — or a timestamp carrying `Z`
+or a `±HH:MM` offset (a zone-less timestamp is refused). `--on` takes a bare
+date only. The bounds are half-open days, so `--at-or-before created_at:2026-07-31`
+means "through the end of July 31 where you are", with no final-millisecond
+trickery. The same grammar windows `artifacts` and `seeds` by `created_at`.
 
 ## 5. Drill-down
 
@@ -121,7 +128,7 @@ mimir get KEY                      # the whole project: children + distribution
 ```sh
 mimir artifacts                         # this board's artifacts, newest first
 mimir artifacts -s all -t session_summary   # every board's session retrospectives
-mimir artifacts --since 2026-07-01 -q vault # windowed, title substring
+mimir artifacts --at-or-after created_at:2026-07-01 -q vault  # windowed
 mimir artifacts -f ids | head -1        # the newest id, to feed a get
 ```
 

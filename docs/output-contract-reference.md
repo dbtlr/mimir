@@ -25,10 +25,11 @@ Supersedes `--predicate`. Three orthogonal pieces, AND-composed; **no OR** (acce
 
 - **`--status <word>`** — the selection **universe**. Vocabulary = the closed status words (`ready` `awaiting` `in_progress` `blocked` `parked` `done` `abandoned`) + unions: **`live`** (the default — today's misnamed `all`), **`terminal`**, **`all`** (now honestly everything). Terminal selections order by `completed_at` desc (no rank outside the rankable set).
 - **`--is <verdict>` / `--not-is`** — the derived verdicts that aren't statuses: `stale`, `blocking`, `orphaned` (future `buried`). Repeatable.
-- **Field operators** — Norn's dogfooded `find` dialect, ported verbatim: `--eq`/`--not-eq FIELD:VALUE` · `--in`/`--not-in FIELD:V1,V2` (ANY-of) · `--has`/`--missing FIELD` · `--before`/`--on`/`--after FIELD:DATE` (+ `--not-before`/`--not-after` for inclusive bounds). Repeatable, AND-ed. **Queryable fields = the projection's bare fields** (no second vocabulary). **`tag` is a multi-valued pseudo-field**: `eq` = contains, `in` = any, `not-in` = none, `missing` = untagged.
+- **Field operators** — Norn's dogfooded `find` dialect, ported verbatim: `--eq`/`--not-eq FIELD:VALUE` · `--in`/`--not-in FIELD:V1,V2` (ANY-of) · `--has`/`--missing FIELD` · the five date ops `--on`/`--before`/`--after`/`--at-or-before`/`--at-or-after FIELD:DATE` ([ADR 0029](decisions/0029-caller-zoned-date-semantics.md)). Repeatable, AND-ed. **Queryable fields = the projection's bare fields** (no second vocabulary). **`tag` is a multi-valued pseudo-field**: `eq` = contains, `in` = any, `not-in` = none, `missing` = untagged.
+- **Date filters are caller-zoned** — one grammar for every date-bearing resource: the three node timestamps, an artifact's `created_at`, a seed's `created_at`. A bare `YYYY-MM-DD` is the **caller's** calendar day, resolved through one request-wide IANA timezone — the CLI's `--tz` (default: the invoking system's zone), MCP's `tz` argument, HTTP's `tz` query param, the browser's detected zone from the console. MCP and HTTP **refuse** a bare date with no zone. Windows are half-open (`on` runs from the day's opening instant up to the next day's, so a 23- or 25-hour DST day is exactly that long); `after` starts at the next day's opening instant and `at-or-before` ends there. A timestamp must carry `Z` or a numeric offset — zone-less is refused — and `before`/`after` are strict where `at-or-before`/`at-or-after` include the instant. `on` takes a bare date only.
 - **Composition rule:** `--status` picks the universe; operators filter within it. No mode-switching on flag presence.
 
-**Value faults warn, structural faults fail.** A well-formed request matching nothing is an _empty set_, not an error: enum miss (`priority:p9`) or unparseable literal (`created_at:notadate`) → **exit 0, empty result, warning**. Unknown field or operator-on-incompatible-type → **usage, exit 2** (the caller's program is wrong). Warnings are the non-fatal member of the diagnostic family — stderr, mirroring the error envelope, with zod-style correction info:
+**Value faults warn, structural faults fail.** A well-formed request matching nothing is an _empty set_, not an error: an enum miss (`priority:p9`) → **exit 0, empty result, warning**. Unknown field, operator-on-incompatible-type, or an unreadable date (`created_at:notadate`, `created_at:2026-02-30`, a zone-less timestamp, a bare date with no caller zone) → **usage, exit 2** (the caller's program is wrong — an unreadable bound is a question that cannot be answered, not a selection that matches nothing). Warnings are the non-fatal member of the diagnostic family — stderr, mirroring the error envelope, with zod-style correction info:
 
 ```json
 {
@@ -44,7 +45,7 @@ Supersedes `--predicate`. Three orthogonal pieces, AND-composed; **no OR** (acce
 
 Human formats render a `⚠` note line on stderr next to the `0 tasks` count. MCP (no stderr, no exit codes) folds `warnings` into the response payload beside the result.
 
-**The transition log is deliberately not a query surface.** It exists as carved-out substrate (ADR 0003); consolidation runs read it raw and shape it themselves. "What got done since X" is a stored-fact query: `list --status done --after completed_at:<ts>`.
+**The transition log is deliberately not a query surface.** It exists as carved-out substrate (ADR 0003); consolidation runs read it raw and shape it themselves. "What got done since X" is a stored-fact query: `list --status done --at-or-after completed_at:<ts>`.
 
 ## Identity grammar (addressability contract)
 

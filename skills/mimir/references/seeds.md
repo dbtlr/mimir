@@ -53,7 +53,8 @@ mimir get NRN-s3                  # one seed, resolved view
 
 - Default shows **live** seeds (`new`+`promoted`) **oldest-first** — the
   longest-waiting seed is the triage priority. `--status <word>|all`,
-  `--sort asc|desc`, `-p all` for every board.
+  `--sort asc|desc`, `-p all` for every board, and the shared date ops over
+  `created_at` (`--at-or-after created_at:2026-07-01`, `--tz <IANA>`).
 - `seed` (capture) / `seeds` (query) is a deliberate singular–plural idiom, kept
   because zero-friction capture is the point — it's a one-off, not a pattern.
   There's no `tasks` or `projects` twin; `list` owns node queries.
