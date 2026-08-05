@@ -1369,10 +1369,10 @@ test('an unknown tz is a validation error', async () => {
 // The retired spellings are undeclared args, so the strict schema refuses them
 // rather than dropping a bound the caller believed applied (ADR 0029).
 test.each([
-  ['artifacts', 'since', '2026-07-01'],
-  ['list', 'notBefore', ['created_at:2026-07-01']],
-  ['next', 'notAfter', ['created_at:2026-07-01']],
-])('%s refuses the retired %s arg', async (name, arg, value) => {
+  ['artifacts', 'since', '2026-07-01', 'atOrAfter'],
+  ['list', 'notBefore', ['created_at:2026-07-01'], 'atOrAfter'],
+  ['next', 'notAfter', ['created_at:2026-07-01'], 'atOrBefore'],
+])('%s refuses the retired %s arg', async (name, arg, value, replacement) => {
   const { client, close } = await connectClient();
   try {
     const res = (await client.callTool({ arguments: { [arg]: value }, name })) as ToolCall;
@@ -1381,7 +1381,23 @@ test.each([
       callText(res),
     );
     expect(parsed.error.message).toBe(`${arg} isn't an argument`);
-    expect(parsed.error.hint).toContain(name);
+    expect(parsed.error.hint).toContain(replacement);
+  } finally {
+    await close();
+  }
+});
+
+// A caller still sending the old scalar `before` gets the shape correction,
+// not a mystery: the arg still exists, as an array of FIELD:VALUE tokens.
+test('a scalar before arg is corrected to the token array', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const res = (await client.callTool({
+      arguments: { before: '2026-07-01' },
+      name: 'artifacts',
+    })) as ToolCall;
+    expect(res.isError).toBe(true);
+    expect(callText(res)).toContain('before must be an array');
   } finally {
     await close();
   }

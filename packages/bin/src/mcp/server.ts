@@ -242,6 +242,17 @@ function register<A>(
   registerTool(name, { description, inputSchema: schema }, (args) => handler(args as A));
 }
 
+/**
+ * The date arguments ADR 0029 retired, each with the correction that replaces
+ * it. The strict schema already refuses them as undeclared keys; this turns
+ * that refusal into a redirect instead of "check the tool schema".
+ */
+const RETIRED_ARGS: Readonly<Record<string, string>> = {
+  notAfter: "use atOrBefore: ['FIELD:VALUE'] for the inclusive upper bound",
+  notBefore: "use atOrAfter: ['FIELD:VALUE'] for the inclusive lower bound",
+  since: "use atOrAfter: ['created_at:YYYY-MM-DD'] with a tz",
+};
+
 const ARTICLE_VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);
 const articleFor = (word: string): string => (ARTICLE_VOWELS.has(word[0] ?? '') ? 'an' : 'a');
 
@@ -264,7 +275,13 @@ function schemaMissVoice(
     error.issues.find((candidate) => candidate.code === 'unrecognized_keys') ?? error.issues[0];
   if (issue?.code === 'unrecognized_keys') {
     const key = issue.keys[0] ?? 'input';
-    return { hint, message: `${key} isn't an argument` };
+    // A retired argument gets its replacement rather than the generic pointer:
+    // the caller's spelling was right once, and the schema alone can't say so.
+    const replacement = RETIRED_ARGS[key];
+    return {
+      hint: replacement === undefined ? hint : replacement,
+      message: `${key} isn't an argument`,
+    };
   }
   const field = issue === undefined ? 'input' : String(issue.path[0] ?? 'input');
   // Field-as-subject, unquoted, per the voice guide's token-as-subject rule
