@@ -7,10 +7,12 @@ import { dataQueryFields } from './field-spec';
 
 /**
  * The field-operator compiler (MMR-33). Structural faults — unknown field,
- * operator on an incompatible type — throw `validation` at parse time (the
- * caller's program is wrong; the CLI maps this to `usage`). Value faults —
- * enum miss, unparseable date — compile to a {@link ValueWarning} and an
- * empty result, never an error.
+ * operator on an incompatible type, an unreadable date bound (ADR 0029) —
+ * throw `validation` (the caller's program is wrong; the CLI maps this to
+ * `usage`). Value faults — an enum miss — compile to a {@link ValueWarning}
+ * and an empty result, never an error: a value outside a closed vocabulary
+ * still describes a selection, where an unreadable date describes no window
+ * at all.
  *
  * Queryable fields are the projection's bare fields (external snake_case
  * names — no second vocabulary), plus the multi-valued `tag` pseudo-field.

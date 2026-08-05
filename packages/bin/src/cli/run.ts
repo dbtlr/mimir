@@ -126,7 +126,7 @@ const OPTIONS = {
   'not-before': { multiple: true, type: 'string' },
   'not-after': { multiple: true, type: 'string' },
   since: { type: 'string' },
-  // The artifact/seed feeds' paging — `--offset` is theirs alone.
+  // The artifact feed's paging — `--offset` is its alone.
   offset: { type: 'string' },
   query: { short: 'q', type: 'string' },
   limit: { short: 'n', type: 'string' },
@@ -232,7 +232,7 @@ const COMMANDS: ReadonlySet<string> = new Set(
  *   settled write surface (ADR 0026 Decision 2). `create … --direction "…"`
  *   would drop the prose on the floor, which is worse for being exactly where
  *   the `--next` hint above sends the caller.
- * - `--offset` is the artifact/seed feeds' own paging. In the shared table it
+ * - `--offset` is the artifact feed's own paging. In the shared table it
  *   would otherwise make `mimir list --offset 20` exit 0 with the UNPAGED
  *   board — a silently-wrong answer where the invocation used to be a hard
  *   unknown-flag error. `list`/`next` cap with `-n, --limit`, which is where
