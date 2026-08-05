@@ -448,10 +448,11 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'next',
-    'Ready tasks in rank order — what to work on next. Optionally scope to a project key; filter by priority/size, verdicts (is/notIs: stale|blocking|orphaned), and field operators (eq/notEq/in/notIn/has/missing + date ops, FIELD:VALUE tokens). Value faults return an empty set plus a warnings array.',
+    'Ready tasks in rank order — what to work on next. Optionally scope to a project key; filter by case-insensitive title substring (q), priority/size, verdicts (is/notIs: stale|blocking|orphaned), and field operators (eq/notEq/in/notIn/has/missing + date ops, FIELD:VALUE tokens). Value faults return an empty set plus a warnings array.',
     {
       limit: LIMIT.optional(),
       priority: PRIORITY.optional(),
+      q: z.string().optional(),
       scope: z.string().optional(),
       size: SIZE.optional(),
       ...OPERATOR_SCHEMA,
@@ -462,10 +463,11 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'list',
-    'Broad selection: status picks the universe (ready|awaiting|in_progress|under_review|blocked|parked|done|abandoned or live|terminal|all; default live), verdicts (is/notIs) and field operators (FIELD:VALUE tokens) filter within it — all AND-composed. Value faults return an empty set plus a warnings array.',
+    'Broad selection: status picks the universe (ready|awaiting|in_progress|under_review|blocked|parked|done|abandoned or live|terminal|all; default live); case-insensitive title substring (q), verdicts (is/notIs), and field operators (FIELD:VALUE tokens) filter within it — all AND-composed. Value faults return an empty set plus a warnings array.',
     {
       limit: LIMIT.optional(),
       priority: PRIORITY.optional(),
+      q: z.string().optional(),
       scope: z.string().optional(),
       size: SIZE.optional(),
       status: STATUS.optional(),

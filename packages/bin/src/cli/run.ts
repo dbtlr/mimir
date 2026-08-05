@@ -118,7 +118,7 @@ const OPTIONS = {
   'not-after': { multiple: true, type: 'string' },
   tag: { multiple: true, short: 't', type: 'string' },
   // The artifact feed's own window (MMR-322) — `--before` and `-t` are shared
-  // with the query ops above; `--since`/`--offset`/`-q` are the feed's alone.
+  // with the query ops above; `--since`/`--offset` are the feed's alone.
   since: { type: 'string' },
   offset: { type: 'string' },
   query: { short: 'q', type: 'string' },
@@ -225,7 +225,7 @@ const COMMANDS: ReadonlySet<string> = new Set(
  *   settled write surface (ADR 0026 Decision 2). `create … --direction "…"`
  *   would drop the prose on the floor, which is worse for being exactly where
  *   the `--next` hint above sends the caller.
- * - `--since`, `--offset`, and `-q`/`--query` are `artifacts`' own selection
+ * - `--since` and `--offset` are `artifacts`' own selection
  *   (MMR-322). Adding them to the shared table would otherwise make
  *   `mimir list --since 2026-07-01` exit 0 with the UNFILTERED board — a
  *   silently-wrong answer where the invocation used to be a hard unknown-flag
@@ -249,7 +249,7 @@ type OwnedFlagValues = {
 
 const VERB_OWNED_FLAGS: readonly {
   flag: string;
-  owner: string;
+  owner: string | readonly string[];
   given: (values: OwnedFlagValues) => boolean;
   hint: string;
 }[] = [
@@ -304,8 +304,8 @@ const VERB_OWNED_FLAGS: readonly {
   {
     flag: '--query',
     given: (values) => values.query !== undefined,
-    hint: `'-q, --query' searches artifact titles; list selects by field op, e.g. '--eq title:…'`,
-    owner: 'artifacts',
+    hint: `'-q, --query' searches titles; use it with artifacts, list, or next`,
+    owner: ['artifacts', 'list', 'next'],
   },
 ];
 
@@ -475,7 +475,10 @@ export async function runCli(
     // Verb-owned flags, checked before any dispatch (inside the try so they
     // render through the usual usage path). See {@link VERB_OWNED_FLAGS}.
     for (const owned of VERB_OWNED_FLAGS) {
-      if (command !== owned.owner && owned.given(values)) {
+      const applies = Array.isArray(owned.owner)
+        ? owned.owner.includes(command)
+        : command === owned.owner;
+      if (!applies && owned.given(values)) {
         throw usage(`'${owned.flag}' doesn't apply to ${command}`, owned.hint);
       }
     }
@@ -520,6 +523,7 @@ export async function runCli(
           filters: parseFilters(values),
           limit: parseLimit(values.limit),
           priority: parsePriority(values.priority),
+          q: values.query,
           scope: nextScope,
           size: parseSize(values.size),
           verdicts: parseVerdicts(values.is, values['not-is']),
@@ -539,6 +543,7 @@ export async function runCli(
           filters: parseFilters(values),
           limit: parseLimit(values.limit),
           priority: parsePriority(values.priority),
+          q: values.query,
           scope: effectiveScope(values.scope, defaults.scope),
           size: parseSize(values.size),
           status: parseStatus(values.status),

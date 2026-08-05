@@ -354,6 +354,7 @@ async function echoProject(
 
 /** The set-selection args shared by `next` and `list` (MMR-33) — named arrays per operator. */
 export type SetQueryArgs = {
+  q?: string;
   scope?: string;
   status?: StatusSelector;
   is?: Verdict[];
@@ -423,6 +424,7 @@ export function toolNext(store: Store, args: SetQueryArgs): Promise<ToolResult> 
       filters: collectFilters(args),
       limit: args.limit,
       priority: args.priority,
+      q: args.q,
       scope: args.scope,
       size: args.size,
       verdicts: collectVerdicts(args),
@@ -447,6 +449,7 @@ export function toolList(store: Store, args: SetQueryArgs): Promise<ToolResult> 
       filters: collectFilters(args),
       limit: args.limit,
       priority: args.priority,
+      q: args.q,
       scope: args.scope,
       size: args.size,
       status: args.status,

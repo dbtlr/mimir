@@ -91,13 +91,16 @@ the HTTP API's records).
 
 ```sh
 mimir next -p p0                   # only the urgent ready work
+mimir next -q vault                # ready titles containing vault (case-insensitive)
 mimir next --eq size:small         # quick wins
+mimir list --query health          # live titles containing health
 mimir list -t release:v0.3 --status all     # everything in a release tag
 mimir list --eq priority:p1 --missing size  # grooming: p1 tasks nobody sized
 mimir list -s all --is stale       # cross-project hygiene sweep
 ```
 
-Operators take `FIELD:VALUE` tokens: `--eq/--not-eq`, `--in/--not-in` (csv any-of),
+`-q`/`--query` case-insensitively matches a title substring and AND-composes with
+the other selectors. Operators take `FIELD:VALUE` tokens: `--eq/--not-eq`, `--in/--not-in` (csv any-of),
 `--has/--missing FIELD` (presence), and date ops `--before/--on/--after/`
 `--not-before/--not-after FIELD:YYYY-MM-DD`. Fields are the projection fields
 (`type`, `priority`, `size`, `tag`, `created_at`, …); `tag` is multi-valued
