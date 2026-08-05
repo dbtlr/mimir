@@ -497,6 +497,11 @@ describe('nodeDossier', () => {
     expect(screen.getByText('created')).toBeDefined();
     expect(screen.getByText('updated')).toBeDefined();
     expect(screen.getByText('completed')).toBeDefined();
+    // The absolute meta rows read local and name their zone (ADR 0029) — the
+    // suite pins TZ, so 10:00Z is 06:00 EDT, never the raw UTC instant.
+    expect(screen.getAllByText('6/1/2026, 6:00:00 AM EDT')).toHaveLength(2);
+    expect(screen.getByText('6/30/2026, 8:00:00 PM EDT')).toBeDefined();
+    expect(screen.queryByText(/2026-07-01T00:00:00.000Z/)).toBeNull();
     // A non-URL external_ref renders as plain text, never a dead in-app link.
     const ref = screen.getByText('GH-123');
     expect(ref.tagName).not.toBe('A');

@@ -176,6 +176,38 @@ test('scratch UUID mutations require and advance the explicit guard', async () =
   expect(pads.get(ID)?.journal[0]?.content).toBe('note');
 });
 
+// MMR-350 (ADR 0029): the human formats render instants in the reader's zone;
+// the wire object `-f json` emits is untouched canonical UTC.
+test('scratch get renders local instants on records and canonical UTC on json', async () => {
+  const { pads, store } = memoryStore();
+  pads.set(ID, {
+    agenda: [],
+    anchors: [],
+    createdAt: '2026-08-05T13:14:00.000Z',
+    freezingAt: null,
+    id: ID,
+    journal: [{ at: '2026-08-05T13:20:00.000Z', content: 'note', number: 1 }],
+    project: 'MMR',
+    title: 'CLI',
+    updatedAt: '2026-08-05T13:20:00.000Z',
+  });
+
+  const human = fakeIo();
+  expect(await runCli(['scratch', 'get', ID, '-f', 'records'], () => store, human)).toBe(0);
+  const text = human.out.join('\n');
+  expect(text).toContain('created at  2026-08-05 09:14 EDT');
+  expect(text).toContain('updated at  2026-08-05 09:20 EDT');
+  expect(text).toContain('2026-08-05 09:20 EDT'); // the Journal entry's own stamp
+  expect(text).not.toMatch(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/);
+
+  const machine = fakeIo();
+  expect(await runCli(['scratch', 'get', ID, '-f', 'json'], () => store, machine)).toBe(0);
+  const wire = JSON.parse(machine.out[0] ?? '{}') as Record<string, unknown>;
+  expect(wire.created_at).toBe('2026-08-05T13:14:00.000Z');
+  expect(wire.updated_at).toBe('2026-08-05T13:20:00.000Z');
+  expect(JSON.stringify(wire.journal)).toContain('2026-08-05T13:20:00.000Z');
+});
+
 test('scratch update distinguishes omitted, repeated, and explicitly cleared links', async () => {
   const { pads, store } = memoryStore();
   pads.set(ID, {

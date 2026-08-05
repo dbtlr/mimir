@@ -11,6 +11,7 @@ import type {
   TreeView,
   TriageReport,
 } from '@mimir/contract';
+import { formatDay, formatInstant, relativeTime } from '@mimir/helpers';
 
 import {
   formatArtifactIds,
@@ -246,7 +247,7 @@ export function renderRecords(node: NodeView, io: Io): string {
     pairs.push(['branch', node.branch]);
   }
   if (node.completedAt != null) {
-    pairs.push(['completed', node.completedAt]);
+    pairs.push(['completed', formatInstant(node.completedAt, io.zone)]);
   }
 
   if (node.deps !== undefined && node.deps.dependsOn.length > 0) {
@@ -371,7 +372,7 @@ export function renderArtifactDetail(artifact: ArtifactDetail, format: Format, i
         [
           countLine(1, 'artifact'),
           '',
-          `${artifact.id}   ${artifact.title}${tags}   ${artifact.createdAt}`,
+          `${artifact.id}   ${artifact.title}${tags}   ${formatDay(artifact.createdAt, io.zone)}`,
         ].join('\n'),
       );
       break;
@@ -388,7 +389,7 @@ export function renderArtifactDetail(artifact: ArtifactDetail, format: Format, i
       if (artifact.tags.length > 0) {
         pairs.push(['tags', artifact.tags.join(', ')]);
       }
-      pairs.push(['created', artifact.createdAt]);
+      pairs.push(['created', formatInstant(artifact.createdAt, io.zone)]);
       const labelW = Math.max(...pairs.map(([label]) => label.length));
       const lines = [bold(artifact.id, io.plain), ...pairs.map(([l, v]) => row(l, v, labelW))];
       if (artifact.content !== undefined) {
@@ -423,7 +424,7 @@ export function renderSeedRecords(seed: SeedView, io: Io): string {
   if (seed.description != null && seed.description !== '') {
     pairs.push(['description', seed.description]);
   }
-  pairs.push(['created', seed.createdAt]);
+  pairs.push(['created', formatInstant(seed.createdAt, io.zone)]);
   const labelW = Math.max(...pairs.map(([label]) => label.length));
   return [bold(seed.id, io.plain), ...pairs.map(([l, v]) => row(l, v, labelW))].join('\n');
 }
@@ -437,11 +438,14 @@ export function seedRows(seeds: readonly SeedView[], io: Io): string[] {
   const lifeW = Math.max(...seeds.map((s) => s.lifecycle.length));
   const reqW = Math.max(...seeds.map((s) => (s.requester ?? '-').length));
   const idW = Math.max(...seeds.map((s) => s.id.length));
-  const ageW = Math.max(...seeds.map((s) => s.createdAt.length));
+  // The age column is relative, so its width comes from the rendered strings.
+  const now = Date.now();
+  const ages = seeds.map((s) => relativeTime(s.createdAt, now));
+  const ageW = Math.max(...ages.map((age) => age.length));
   const readyGlyph = io.plain ? ' *' : ' \x1b[32m●\x1b[0m';
-  return seeds.map((s) => {
+  return seeds.map((s, i) => {
     const ready = s.readyToResolve ? readyGlyph : '';
-    const head = `${pad(s.kind, kindW)}   ${pad(s.lifecycle, lifeW)}   ${pad(s.requester ?? '-', reqW)}   ${pad(s.createdAt, ageW)}   ${pad(s.id, idW)}   ${s.title}${ready}`;
+    const head = `${pad(s.kind, kindW)}   ${pad(s.lifecycle, lifeW)}   ${pad(s.requester ?? '-', reqW)}   ${pad(ages[i] ?? '', ageW)}   ${pad(s.id, idW)}   ${s.title}${ready}`;
     if (s.lede == null || s.lede === '') {
       return head;
     }
@@ -687,6 +691,27 @@ function handleClause(task: NodeView): string {
 }
 
 /**
+ * A session's activity window as one local reading — `2026-08-05 09:14 → 09:43
+ * EDT`. The zone label is stated once, and the date is elided on the closing
+ * edge when both edges land on the same local day; a window that spans midnight
+ * (or a zone transition, which changes the label) keeps both edges in full,
+ * because eliding there would read as a shorter session than it was.
+ */
+function sessionWindow(from: string, to: string, io: Io): string {
+  const reading = (iso: string): { day: string; label: string; time: string } => {
+    const [day = '', time = '', label = ''] = formatInstant(iso, io.zone).split(' ');
+    return { day, label, time };
+  };
+  const glyph = arrow(io.plain);
+  const [open, close] = [reading(from), reading(to)];
+  if (open.label === '' || open.label !== close.label) {
+    return `${formatInstant(from, io.zone)} ${glyph} ${formatInstant(to, io.zone)}`;
+  }
+  const closing = open.day === close.day ? close.time : `${close.day} ${close.time}`;
+  return `${open.day} ${open.time} ${glyph} ${closing} ${open.label}`;
+}
+
+/**
  * `overview` — the composite session-boot orientation surface (MMR-278, expanded
  * MMR-322). Attention-ordered sections: the project header (id · status word ·
  * rollup distribution), the owned `direction` prose, `in flight` (uncapped, each
@@ -747,12 +772,13 @@ export function renderOverview(report: OverviewReport, io: Io): string {
   taskSection('in flight', report.inFlight.count, report.inFlight.tasks, handleClause);
 
   out.push('', `active scratchpads (${String(report.scratchpads.count)})`);
+  const now = Date.now();
   for (const scratchpad of report.scratchpads.scratchpads) {
     const state = scratchpad.state === 'freezing' ? 'freezing · ' : '';
     const links =
       scratchpad.linkedWork.length === 0 ? '' : ` · linked ${scratchpad.linkedWork.join(', ')}`;
     out.push(
-      `  ${state}${scratchpad.id} · ${scratchpad.project} · ${scratchpad.title} · ${String(scratchpad.openAgenda)} open Agenda · ${scratchpad.updatedAt}${links}`,
+      `  ${state}${scratchpad.id} · ${scratchpad.project} · ${scratchpad.title} · ${String(scratchpad.openAgenda)} open Agenda · ${relativeTime(scratchpad.updatedAt, now)}${links}`,
     );
   }
 
@@ -778,7 +804,7 @@ export function renderOverview(report: OverviewReport, io: Io): string {
   // (MMR-322), unlike the parenthesised counts above it.
   out.push('', `recent sessions (${String(report.sessions.shown)} shown)`);
   for (const entry of report.sessions.entries) {
-    const parts = [entry.id ?? '(no session)', `${entry.from} ${arrow(io.plain)} ${entry.to}`];
+    const parts = [entry.id ?? '(no session)', sessionWindow(entry.from, entry.to, io)];
     if (entry.transitions > 0) {
       parts.push(countLine(entry.transitions, 'transition'));
     }
@@ -853,12 +879,13 @@ export function artifactRows(
   const projectW = Math.max(...items.map((a) => a.project.length));
   const titleW = Math.max(...items.map((a) => a.title.length));
   const tagW = Math.max(...items.map((a) => a.tags.join(', ').length));
+  const now = Date.now();
   return items.map((a) => {
     const cells = [pad(a.id, idW)];
     if (opts.showProject) {
       cells.push(pad(a.project, projectW));
     }
-    cells.push(pad(a.title, titleW), pad(a.tags.join(', '), tagW), a.createdAt);
+    cells.push(pad(a.title, titleW), pad(a.tags.join(', '), tagW), relativeTime(a.createdAt, now));
     const head = cells.join('   ');
     if (a.summary === undefined || a.summary === '') {
       return head;

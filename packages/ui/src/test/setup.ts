@@ -7,6 +7,11 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 
+// Every human-facing timestamp renders in the reader's zone (ADR 0029), so the
+// suite pins one: a date assertion means the same thing on any machine.
+// oxlint-disable-next-line vitest/require-hook
+process.env.TZ = 'America/New_York';
+
 // Node 26 defines its own global localStorage, so Vitest does not replace it
 // while copying jsdom's globals. Point the browser global at jsdom's in-memory
 // storage instead of requiring Node's persistent --localstorage-file.

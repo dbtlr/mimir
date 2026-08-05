@@ -11,7 +11,7 @@
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
 
-import { isMember } from '@mimir/helpers';
+import { formatInstant, isMember } from '@mimir/helpers';
 
 import { usage } from '../cli/errors';
 import { MimirError } from '../core';
@@ -459,8 +459,10 @@ function renderStatusHuman(s: ServiceStatusReport, io: Io): void {
   if (s.recentEvents.length > 0) {
     io.write('recent events:');
     for (const e of s.recentEvents) {
+      // The log line itself stays canonical UTC (service/format.ts); only this
+      // human reading of it is local.
       io.write(
-        `  ${e.at}  ${e.event} (${e.source}${e.detail === undefined ? '' : `, ${e.detail}`})`,
+        `  ${formatInstant(e.at, io.zone)}  ${e.event} (${e.source}${e.detail === undefined ? '' : `, ${e.detail}`})`,
       );
     }
   }

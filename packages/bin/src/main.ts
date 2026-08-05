@@ -19,6 +19,7 @@ import { parsePort } from '@mimir/helpers';
 
 import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
+import { systemTimeZone } from './core';
 import type { Store } from './core';
 import type { DoctorFacet } from './doctor/facet';
 import { computeDoctorFacet } from './doctor/serve';
@@ -76,6 +77,7 @@ function stdoutIo(): Io {
     isTTY,
     plain: process.env.NO_COLOR !== undefined || !isTTY,
     write: line(process.stdout),
+    zone: systemTimeZone(),
   };
 }
 

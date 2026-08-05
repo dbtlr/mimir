@@ -1,4 +1,5 @@
 import type { Scratchpad } from '@mimir/contract';
+import { formatInstant, relativeTime } from '@mimir/helpers';
 
 import { compareScratchpadRows, createScratchpadService, scratchpadReceiptToWire } from '../core';
 import type { ArtifactRecord, Store } from '../core';
@@ -88,6 +89,34 @@ const wire = (pad: Scratchpad) => ({
 
 const receipt = scratchpadReceiptToWire;
 
+/** The receipt keys whose value is an instant — rendered local on human formats,
+ * left as the canonical UTC wire value on `json`/`jsonl`. */
+const INSTANT_KEYS = new Set(['created_at', 'updated_at', 'freezing_at']);
+
+/** A wire receipt as a human reads it: instants in the reader's zone, Journal
+ * entries stamped the same way. The wire object itself is never mutated. */
+function localized(value: Record<string, unknown>, zone: string): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => {
+      if (INSTANT_KEYS.has(key) && typeof item === 'string') {
+        return [key, formatInstant(item, zone)];
+      }
+      if (key === 'journal' && Array.isArray(item)) {
+        return [key, item.map((entry) => localizedJournalEntry(entry, zone))];
+      }
+      return [key, item];
+    }),
+  );
+}
+
+function localizedJournalEntry(entry: unknown, zone: string): unknown {
+  if (typeof entry !== 'object' || entry === null || !('at' in entry)) {
+    return entry;
+  }
+  const { at } = entry as { at: unknown };
+  return typeof at === 'string' ? { ...entry, at: formatInstant(at, zone) } : entry;
+}
+
 function emit(value: Record<string, unknown>, format: Format, io: Io): void {
   if (format === 'json' || format === 'jsonl') {
     io.write(JSON.stringify(value));
@@ -98,7 +127,7 @@ function emit(value: Record<string, unknown>, format: Format, io: Io): void {
     return;
   }
   io.write(
-    Object.entries(value)
+    Object.entries(localized(value, io.zone))
       .map(([key, item]) => `${key.replaceAll('_', ' ')}  ${renderValue(item)}`)
       .join('\n'),
   );
@@ -193,13 +222,15 @@ export async function cmdScratch(c: ScratchContext): Promise<number> {
     } else if (c.format === 'jsonl') {
       c.io.write(values.map((pad) => JSON.stringify(pad)).join('\n'));
     } else {
+      // A dense row: relative age, like every other queue listing.
+      const now = Date.now();
       c.io.write(
         values.length === 0
           ? '0 scratchpads'
           : values
               .map(
                 (pad) =>
-                  `${pad.state === 'freezing' ? 'freezing  ' : ''}${pad.id}  ${pad.project}  ${pad.title}  ${pad.updated_at}`,
+                  `${pad.state === 'freezing' ? 'freezing  ' : ''}${pad.id}  ${pad.project}  ${pad.title}  ${relativeTime(pad.updated_at, now)}`,
               )
               .join('\n'),
       );

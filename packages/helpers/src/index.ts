@@ -11,6 +11,8 @@
  * be parsed safely without coupling this util to a specific validation library.
  */
 
+export { ago, formatDay, formatInstant, relativeTime } from './time';
+
 /** Minimal Standard Schema v1 surface — inlined to keep this package dependency-free. */
 export type StandardSchemaV1<Output = unknown> = {
   readonly '~standard': {

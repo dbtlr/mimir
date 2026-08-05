@@ -19,6 +19,7 @@ function fakeIo(overrides: Partial<Io> = {}): Io & { out: string[]; err: string[
     out,
     plain: true,
     write: (s) => out.push(s),
+    zone: 'America/New_York',
     ...overrides,
   };
 }
