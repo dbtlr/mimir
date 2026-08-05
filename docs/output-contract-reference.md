@@ -2,7 +2,7 @@
 title: 'mimir Output Contract Reference'
 status: accepted
 date: 2026-06-04
-last-updated: 2026-07-13
+last-updated: 2026-08-05
 ---
 
 # mimir Output Contract Reference
