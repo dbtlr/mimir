@@ -39,6 +39,18 @@ describe('formatInstant', () => {
   test('an unreadable instant renders the placeholder, never a raw value', () => {
     expect(formatInstant('not-a-date', 'UTC')).toBe('—');
   });
+
+  test('an out-of-range epoch renders the placeholder rather than throwing', () => {
+    expect(formatInstant(1e20, 'UTC')).toBe('—');
+    expect(formatInstant(Number.POSITIVE_INFINITY, 'UTC')).toBe('—');
+    expect(formatInstant(Number.NEGATIVE_INFINITY, 'UTC')).toBe('—');
+  });
+
+  test('a three-digit year is zero-padded to the YYYY-MM-DD shape', () => {
+    expect(formatInstant(Date.parse('0999-06-01T12:00:00.000Z'), 'UTC')).toBe(
+      '0999-06-01 12:00 UTC',
+    );
+  });
 });
 
 describe('formatDay', () => {
@@ -50,6 +62,13 @@ describe('formatDay', () => {
 
   test('an unreadable instant renders the placeholder', () => {
     expect(formatDay('', 'UTC')).toBe('—');
+    expect(formatDay(1e20, 'UTC')).toBe('—');
+  });
+
+  test('keeps the four-digit shape shortDate slices', () => {
+    const day = formatDay(Date.parse('0999-06-01T12:00:00.000Z'), 'UTC');
+    expect(day).toBe('0999-06-01');
+    expect(day.slice(5)).toBe('06-01');
   });
 });
 
@@ -70,8 +89,22 @@ describe('relativeTime', () => {
     expect(before(14 * 86_400_000)).toBe('2w');
   });
 
+  test('weeks give way to months, and months to years', () => {
+    expect(before(59 * 86_400_000)).toBe('8w');
+    expect(before(60 * 86_400_000)).toBe('2mo');
+    expect(before(300 * 86_400_000)).toBe('10mo');
+    expect(before(364 * 86_400_000)).toBe('12mo');
+    expect(before(365 * 86_400_000)).toBe('1y');
+    expect(before(10 * 365 * 86_400_000)).toBe('10y');
+  });
+
   test('a future instant never reads negative', () => {
     expect(relativeTime(now + 86_400_000, now)).toBe('now');
+  });
+
+  test('an unreadable now renders the placeholder, never "NaNw"', () => {
+    expect(relativeTime(now - 86_400_000, Number.NaN)).toBe('—');
+    expect(relativeTime(now - 86_400_000, Number.POSITIVE_INFINITY)).toBe('—');
   });
 
   test('accepts an ISO string as well as an epoch value', () => {
@@ -85,5 +118,10 @@ describe('ago', () => {
   test('phrases the ladder', () => {
     expect(ago(now - 30_000, now)).toBe('just now');
     expect(ago(now - 4 * 60_000, now)).toBe('4m ago');
+    expect(ago(now - 3 * 365 * 86_400_000, now)).toBe('3y ago');
+  });
+
+  test('an unreadable now phrases the placeholder', () => {
+    expect(ago(now - 4 * 60_000, Number.NaN)).toBe('— ago');
   });
 });

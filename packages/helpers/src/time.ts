@@ -41,10 +41,22 @@ const read = (
   type: Intl.DateTimeFormatPartTypes,
 ): string => parts.find((part) => part.type === type)?.value ?? '';
 
-/** An instant as epoch milliseconds, or `null` when the value is unreadable. */
+/** `year: 'numeric'` does not zero-pad, so year 999 would break the module's
+ * `YYYY-MM-DD` shape guarantee (and `shortDate`'s `slice(5)`). Years past 9999
+ * are simply longer, which is the only honest rendering. */
+const year = (parts: readonly Intl.DateTimeFormatPart[]): string =>
+  read(parts, 'year').padStart(4, '0');
+
+/** The widest instant `Date` — and therefore `formatToParts` — can read; beyond
+ * it the formatter throws rather than returning a value. */
+const MAX_EPOCH_MS = 8.64e15;
+
+/** An instant as epoch milliseconds, or `null` when the value is unreadable —
+ * which includes NaN, the infinities, and anything outside the representable
+ * range, all of which must render the placeholder rather than throw. */
 function epochOf(iso: string | number): number | null {
   const at = typeof iso === 'number' ? iso : Date.parse(iso);
-  return Number.isNaN(at) ? null : at;
+  return Number.isFinite(at) && Math.abs(at) <= MAX_EPOCH_MS ? at : null;
 }
 
 /**
@@ -57,7 +69,7 @@ export function formatInstant(iso: string | number, zone: string): string {
     return UNREADABLE;
   }
   const parts = formatterFor(zone).formatToParts(at);
-  const day = `${read(parts, 'year')}-${read(parts, 'month')}-${read(parts, 'day')}`;
+  const day = `${year(parts)}-${read(parts, 'month')}-${read(parts, 'day')}`;
   return `${day} ${read(parts, 'hour')}:${read(parts, 'minute')} ${read(parts, 'timeZoneName')}`;
 }
 
@@ -68,13 +80,19 @@ export function formatDay(iso: string | number, zone: string): string {
     return UNREADABLE;
   }
   const parts = formatterFor(zone).formatToParts(at);
-  return `${read(parts, 'year')}-${read(parts, 'month')}-${read(parts, 'day')}`;
+  return `${year(parts)}-${read(parts, 'month')}-${read(parts, 'day')}`;
 }
 
-/** Compact relative time for dense surfaces: "now", "4m", "3h", "6d", "8w". */
+/**
+ * Compact relative time for dense surfaces: "now", "4m", "3h", "6d", "8w",
+ * "10mo", "3y". The ladder runs all the way to years because an artifact feed
+ * outlives the week: "521w" is a number nobody reads as a decade. Months and
+ * years are the usual approximations — 30 and 365 days — in keeping with the
+ * rest of the ladder, which trades exactness for a glanceable width.
+ */
 export function relativeTime(iso: string | number, nowMs: number): string {
   const at = epochOf(iso);
-  if (at === null) {
+  if (at === null || !Number.isFinite(nowMs)) {
     return UNREADABLE;
   }
   const s = Math.max(0, Math.floor((nowMs - at) / 1000));
@@ -93,10 +111,16 @@ export function relativeTime(iso: string | number, nowMs: number): string {
   if (d < 14) {
     return `${String(d)}d`;
   }
-  return `${String(Math.floor(d / 7))}w`;
+  if (d < 60) {
+    return `${String(Math.floor(d / 7))}w`;
+  }
+  if (d < 365) {
+    return `${String(Math.floor(d / 30))}mo`;
+  }
+  return `${String(Math.floor(d / 365))}y`;
 }
 
-/** Relative time as a phrase: "just now" / "4m ago". */
+/** Relative time as a phrase: "just now" / "4m ago" / "3y ago". */
 export function ago(iso: string | number, nowMs: number): string {
   const rel = relativeTime(iso, nowMs);
   return rel === 'now' ? 'just now' : `${rel} ago`;

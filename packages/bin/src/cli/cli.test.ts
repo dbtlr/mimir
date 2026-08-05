@@ -5,6 +5,7 @@ import { parseJson } from '@mimir/helpers';
 import {
   attachArtifact,
   blockTask,
+  completeTask,
   createInitiative,
   createPhase,
   createProject,
@@ -475,6 +476,24 @@ test('archive -h prints the archive command help, not the generic dump (MMR-121)
   const out = io.out.join('');
   expect(out).toContain('mimir archive <KEY>');
   expect(out).not.toContain('work commands');
+});
+
+// MMR-350 follow-up (ADR 0029): `--tz` is the caller's zone for both halves of
+// a query — the calendar day a bare date means AND the wall clock the styled
+// formats render. Filtering Tokyo days and printing EDT reads as a bug.
+test.skipIf(!NORN)('an explicit --tz renders the styled formats in that zone', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 'x' });
+  await completeTask(store, await nodeIdOf(store, `MMR-${String(t.seq)}`));
+  const args = ['list', '-s', 'MMR', '--status', 'all', '-f', 'records'];
+
+  const tokyo = fakeIo(false);
+  expect(await runCli([...args, '--tz', 'Asia/Tokyo'], () => store, tokyo)).toBe(0);
+  expect(tokyo.out.join('\n')).toMatch(/completed {2}\d{4}-\d{2}-\d{2} \d{2}:\d{2} (JST|GMT\+9)/);
+
+  // Absent the flag, rendering stays the reader's own zone (the fixed test one).
+  const local = fakeIo(false);
+  expect(await runCli(args, () => store, local)).toBe(0);
+  expect(local.out.join('\n')).toMatch(/completed {2}\d{4}-\d{2}-\d{2} \d{2}:\d{2} E[SD]T/);
 });
 
 test.skipIf(!NORN)('next --format json lists ready tasks (count-led envelope)', async () => {

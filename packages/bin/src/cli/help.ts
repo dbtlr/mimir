@@ -174,7 +174,8 @@ options:
       --before F:DATE     date fields (also --on, --after, --at-or-before,
                           --at-or-after); DATE = YYYY-MM-DD, or a timestamp
                           carrying Z or a ±HH:MM offset
-      --tz <IANA>         the zone a bare YYYY-MM-DD means (default: this
+      --tz <IANA>         your zone: what a bare YYYY-MM-DD means, and the
+                          wall clock table/records render (default: this
                           machine's, e.g. America/New_York)
                           fields = the bare projection fields; tag is multi-valued
                           (eq=contains, in=any, not-in=none, missing=untagged)
@@ -297,7 +298,10 @@ const F_DATES: Row = [
   '--on created_at:<date>',
   'window created_at (also --before, --after, --at-or-before, --at-or-after)',
 ];
-const F_TZ: Row = ['--tz <IANA>', "the zone a bare YYYY-MM-DD means (default: this machine's)"];
+const F_TZ: Row = [
+  '--tz <IANA>',
+  "your zone: what a bare YYYY-MM-DD means, and what table/records render (default: this machine's)",
+];
 const SELECTION_NOTE: Row = [
   '--is / --eq / …',
   'verdict + field selection (see `mimir --help` for the full grammar)',

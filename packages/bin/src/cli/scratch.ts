@@ -89,9 +89,17 @@ const wire = (pad: Scratchpad) => ({
 
 const receipt = scratchpadReceiptToWire;
 
-/** The receipt keys whose value is an instant — rendered local on human formats,
- * left as the canonical UTC wire value on `json`/`jsonl`. */
-const INSTANT_KEYS = new Set(['created_at', 'updated_at', 'freezing_at']);
+/**
+ * The receipt keys whose value is a DISPLAY instant — rendered local on human
+ * formats, left as the canonical UTC wire value on `json`/`jsonl`.
+ *
+ * `updated_at` is deliberately absent: it is the optimistic-concurrency token a
+ * caller echoes back byte-exact via `--expected-updated-at`, not a reading. A
+ * localized token round-trips into a misleading "changed concurrently" refusal,
+ * so it stays the raw canonical `…Z` instant in every format, human ones
+ * included.
+ */
+const INSTANT_KEYS = new Set(['created_at', 'freezing_at']);
 
 /** A wire receipt as a human reads it: instants in the reader's zone, Journal
  * entries stamped the same way. The wire object itself is never mutated. */

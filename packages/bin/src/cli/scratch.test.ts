@@ -196,9 +196,9 @@ test('scratch get renders local instants on records and canonical UTC on json', 
   expect(await runCli(['scratch', 'get', ID, '-f', 'records'], () => store, human)).toBe(0);
   const text = human.out.join('\n');
   expect(text).toContain('created at  2026-08-05 09:14 EDT');
-  expect(text).toContain('updated at  2026-08-05 09:20 EDT');
   expect(text).toContain('2026-08-05 09:20 EDT'); // the Journal entry's own stamp
-  expect(text).not.toMatch(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/);
+  // Only `updated at` — the concurrency token — keeps its canonical form.
+  expect(text.replace(/^updated at .*$/m, '')).not.toMatch(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/);
 
   const machine = fakeIo();
   expect(await runCli(['scratch', 'get', ID, '-f', 'json'], () => store, machine)).toBe(0);
@@ -206,6 +206,43 @@ test('scratch get renders local instants on records and canonical UTC on json', 
   expect(wire.created_at).toBe('2026-08-05T13:14:00.000Z');
   expect(wire.updated_at).toBe('2026-08-05T13:20:00.000Z');
   expect(JSON.stringify(wire.journal)).toContain('2026-08-05T13:20:00.000Z');
+});
+
+// MMR-350 follow-up: `updated_at` is the optimistic-concurrency token, not a
+// reading. A localized receipt value would be a token the caller cannot echo
+// back — the guard would refuse it as a concurrent change.
+test('the human receipt prints updated_at as the byte-exact concurrency token', async () => {
+  const { pads, store } = memoryStore();
+  pads.set(ID, {
+    agenda: [],
+    anchors: [],
+    createdAt: '2026-08-05T13:14:00.000Z',
+    freezingAt: null,
+    id: ID,
+    journal: [],
+    project: 'MMR',
+    title: 'CLI',
+    updatedAt: '2026-08-05T13:20:00.000Z',
+  });
+
+  const human = fakeIo();
+  expect(await runCli(['scratch', 'get', ID, '-f', 'records'], () => store, human)).toBe(0);
+  const token = /^updated at {2}(.+)$/m.exec(human.out.join('\n'))?.[1] ?? '';
+  expect(token).toMatch(/Z$/);
+  expect(token).toBe('2026-08-05T13:20:00.000Z');
+
+  // The receipt value round-trips into the guard the mutation demands.
+  const checkpoint = fakeIo();
+  expect(
+    await runCli(
+      ['scratch', 'checkpoint', ID, 'note', '--expected-updated-at', token, '-f', 'records'],
+      () => store,
+      checkpoint,
+    ),
+  ).toBe(0);
+  const next = /^updated at {2}(.+)$/m.exec(checkpoint.out.join('\n'))?.[1] ?? '';
+  expect(next).toBe(pads.get(ID)?.updatedAt ?? '');
+  expect(next).toMatch(/Z$/);
 });
 
 test('scratch update distinguishes omitted, repeated, and explicitly cleared links', async () => {
