@@ -60,13 +60,15 @@ describe('artifactFilters', () => {
     const onChange = vi.fn();
     render(
       <ArtifactFilters
-        filters={{ project: 'MMR', since: '2026-06-01', tag: 'kind:session' }}
+        filters={{ atOrAfter: '2026-06-01', project: 'MMR', tag: 'kind:session' }}
         projects={['MMR']}
         onChange={onChange}
       />,
     );
     expect(screen.getByRole('button', { name: 'Remove filter kind:session' })).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Remove filter since 2026-06-01' })).toBeDefined();
+    expect(
+      screen.getByRole('button', { name: 'Remove filter on or after 2026-06-01' }),
+    ).toBeDefined();
     await userEvent.click(screen.getByRole('button', { name: 'Remove filter MMR' }));
     expect(onChange).toHaveBeenCalledWith({ project: '' });
   });

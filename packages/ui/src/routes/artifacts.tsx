@@ -14,7 +14,7 @@ import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { artifactsRoute } from '../router';
 
-const FILTER_KEYS = ['project', 'tag', 'q', 'since', 'before'] as const;
+const FILTER_KEYS = ['project', 'tag', 'q', 'atOrAfter', 'atOrBefore'] as const;
 
 /**
  * `/artifacts` — the portfolio artifact browser (Meridian 16a/16b): a 360px
