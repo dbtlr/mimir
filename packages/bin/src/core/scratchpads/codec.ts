@@ -5,11 +5,12 @@ import type {
   ScratchpadJournalEntry,
 } from '@mimir/contract';
 
+import { isCanonicalInstant } from '../time';
+
 export const SCRATCHPAD_JOURNAL_HEADING = 'Journal';
 export const SCRATCHPAD_AGENDA_HEADING = 'Agenda';
 
 const MARK: Record<AgendaItemState, string> = { done: 'x', open: ' ', superseded: '-' };
-const UTC_MILLIS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const JOURNAL_ENTRY = /^### ([1-9]\d*) — (\S+)$/;
 const AGENDA_ITEM = /^([1-9]\d*)\. \[([ x-])\] (.+)$/;
 
@@ -146,7 +147,7 @@ function parseJournal(
     if (number !== position + 1) {
       problems.push(finding(start, 'journal-sequence', lines));
     }
-    if (!isCanonicalUtcMillis(at)) {
+    if (!isCanonicalInstant(at)) {
       problems.push(finding(start, 'invalid-journal-timestamp', lines));
     }
     const next = boundaries[position + 1] ?? end;
@@ -200,14 +201,6 @@ function parseAgenda(
     items.push({ content, number, reason, state });
   }
   return items;
-}
-
-function isCanonicalUtcMillis(value: string): boolean {
-  if (!UTC_MILLIS.test(value)) {
-    return false;
-  }
-  const parsed = new Date(value);
-  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === value;
 }
 
 function trimBlank(lines: readonly string[]): string[] {

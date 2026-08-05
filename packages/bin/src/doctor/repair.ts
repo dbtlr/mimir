@@ -11,6 +11,7 @@ import {
   replaceBody,
   setFrontmatter,
 } from '../core/store-norn/plan';
+import { canonicalInstant } from '../core/time';
 import { projectFrontmatter } from '../core/vault-frontmatter';
 import type { DoctorFinding, DoctorIssueCode } from './checks';
 import type { DoctorSnapshot, DoctorSnapshotDocument } from './snapshot';
@@ -316,6 +317,19 @@ export function planDoctorRepairs(args: {
       stem: artifact.stem,
     });
   }
+  // Scratchpads (MMR-329) are a third snapshot slice, and they must be indexed
+  // too (MMR-351): a pad can now carry a repairable finding, and an unindexed
+  // one plans a `missing-snapshot-document` FAILURE — which
+  // `cmdDoctorRepair` treats as fatal for the WHOLE run, discarding every
+  // unrelated repair and exiting nonzero. One hand-edited pad must not be able
+  // to do that. Unlike artifacts these carry their real body and document hash,
+  // so a body-affecting recipe reaching one is a genuine CAS write, not a
+  // fabricated empty body.
+  const scratchpadPaths = new Set<string>();
+  for (const pad of args.snapshot.scratchpads ?? []) {
+    scratchpadPaths.add(pad.path);
+    indexDoc(pad);
+  }
   const bodies = new Map<string, BodyRepair>();
   const occupied = occupiedPaths(args.snapshot);
   const identityIndex = doctorIdentityIndex(args.snapshot);
@@ -378,8 +392,17 @@ export function planDoctorRepairs(args: {
       failures.push({ issue: entry, reason: 'missing-snapshot-document' });
       continue;
     }
-    const logicalStem = doctorLogicalStemAtPath(identityIndex, doc.path) ?? entry.stem;
-    if (physicalPathsByStem.get(logicalStem)?.size !== 1) {
+    // A Scratchpad is PATH-addressed. Its UUID stem sits deliberately outside
+    // the durable KEY grammar and therefore outside the identity index, so the
+    // work-state single-owner proof cannot be run against it — asking it anyway
+    // returns "no owner" and skips every pad repair as `ambiguous-identity`.
+    // `scratch/<uuid>.md` is its own sole owner; the docsByPath uniqueness check
+    // just above is the whole ownership proof a pad needs.
+    const scratchpad = scratchpadPaths.has(doc.path);
+    const logicalStem = scratchpad
+      ? entry.stem
+      : (doctorLogicalStemAtPath(identityIndex, doc.path) ?? entry.stem);
+    if (!scratchpad && physicalPathsByStem.get(logicalStem)?.size !== 1) {
       skipped.push({ issue: entry, reason: 'ambiguous-identity' });
       continue;
     }
@@ -425,13 +448,16 @@ export function planDoctorRepairs(args: {
       // as an `add_frontmatter` (absent) or a `set_frontmatter` asserting the
       // null old value (present-but-null), never a value-guarded `set_frontmatter`.
       const present = entry.evidence.present === true;
-      const created = doc.frontmatter?.created;
-      // The target population is hand-edited docs, so `created` itself may be
-      // garbage — only a parseable timestamp is trusted as the seed.
-      const stamp =
-        typeof created === 'string' && !Number.isNaN(Date.parse(created))
-          ? created
-          : args.timestamp;
+      // The target population is legacy and hand-edited docs, so `created` is
+      // exactly where a non-canonical value lives — and a repair must never
+      // write one. `Date.parse` would have accepted precisely the forms this
+      // invariant outlaws (zone-less above all) and stamped the corruption
+      // forward as a value nothing can normalize afterwards, since the instant
+      // it meant was never stated. Only a NORMALIZABLE `created` seeds the
+      // stamp, in its canonical form; anything else falls back to the run's own
+      // timestamp (MMR-351).
+      const seed = canonicalInstant(doc.frontmatter?.created);
+      const stamp = seed ?? args.timestamp;
       operations.push(
         present
           ? // norn (≥ 0.48, the pinned floor) coerces present-with-null and

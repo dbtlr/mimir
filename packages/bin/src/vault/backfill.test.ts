@@ -155,6 +155,16 @@ test.skipIf(!NORN)(
       "---\ntitle: t\nproject: '[[MMR]]'\nkind: feature\nlifecycle: sown\ntype: seed\ncreated: 2026-01-01T00:00:00Z\nupdated_at: 2026-01-01T00:00:00.000Z\n---\nx\n",
     );
 
+    // …and a Scratchpad, whose stamps live in the same invariant (ADR 0027 pads
+    // are project-anchored documents, so the migration must reach them too).
+    mkdirSync(join(vault, 'scratch'), { recursive: true });
+    writeFileSync(
+      join(vault, 'scratch', '018f3f36-7b2b-4c92-8f31-44c764a1a456.md'),
+      "---\ntitle: Working notes\nproject: '[[MMR]]'\ntype: scratch\n" +
+        'created: 2026-01-01T05:30:00+05:30\nupdated_at: 2026-01-01T00:00:00.000Z\n' +
+        'freezing_at: 2026-01-02T00:00:00\n---\n## Journal\n\n## Agenda\n',
+    );
+
     const result = await converge(vault, {
       allowCreate: false,
       exec: bunExec,
@@ -174,7 +184,14 @@ test.skipIf(!NORN)(
     expect(readFileSync(join(vault, 'MMR', 'seeds', 'MMR-s1.md'), 'utf8')).toContain(
       'created: 2026-01-01T00:00:00.000Z',
     );
-    // The value no one can interpret is untouched — the migration never guesses.
+    const pad = readFileSync(
+      join(vault, 'scratch', '018f3f36-7b2b-4c92-8f31-44c764a1a456.md'),
+      'utf8',
+    );
+    expect(pad).toContain('created: 2026-01-01T00:00:00.000Z');
+    // The value no one can interpret is untouched — the migration never guesses,
+    // on a pad (`freezing_at`) or on a work-state document (`completed_at`).
+    expect(pad).toContain('freezing_at: 2026-01-02T00:00:00');
     expect(readFileSync(join(vault, 'MMR', 'MMR-1.md'), 'utf8')).toContain(
       'completed_at: 2026-01-02T09:00:00',
     );

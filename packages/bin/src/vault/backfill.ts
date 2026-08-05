@@ -16,7 +16,7 @@ import { NornClient } from '../core/store-norn/client';
 import { stemOf } from '../core/store-norn/decode';
 import type { MigrationOp } from '../core/store-norn/plan';
 import { migrationPlan, setFrontmatter } from '../core/store-norn/plan';
-import { canonicalInstant, isCanonicalInstant } from '../core/time';
+import { canonicalInstant, isCanonicalInstant, TIMESTAMP_FIELDS } from '../core/time';
 
 /** The vault schema that introduced the `project` frontmatter field (MMR-170). */
 const PROJECT_FIELD_SCHEMA = 3;
@@ -28,9 +28,6 @@ const WORK_STATE_TYPES = 'type:project,task,phase,initiative';
 
 /** Every document kind that stores an instant — the whole vault, by type. */
 const TIMESTAMPED_TYPES = 'type:project,task,phase,initiative,seed,artifact,scratch';
-
-/** The frontmatter fields declared `datetime` by {@link ./schema}'s rules. */
-const TIMESTAMP_FIELDS = ['created', 'updated_at', 'completed_at', 'archived_at', 'freezing_at'];
 
 /**
  * Backfill the `project` frontmatter field (MMR-170) onto work-state documents

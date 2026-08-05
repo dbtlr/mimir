@@ -25,10 +25,14 @@ function issue(
   };
 }
 
-function snapshot(documents: DoctorSnapshotDocument[]): DoctorSnapshot {
+function snapshot(
+  documents: DoctorSnapshotDocument[],
+  scratchpads?: DoctorSnapshotDocument[],
+): DoctorSnapshot {
   return {
     documents,
     graph: { nodes: [], projectKeys: [] },
+    ...(scratchpads === undefined ? {} : { scratchpads }),
     sectionFailures: [],
     validateFindings: [],
   };
@@ -695,6 +699,64 @@ test('stamp-updated-at ignores an unparseable created and stamps the repair time
   ]);
 });
 
+// MMR-351: the stamp seed must itself satisfy the canonical invariant. The docs
+// missing `updated_at` are legacy ones, so their `created` is exactly where a
+// non-canonical value lives — `Date.parse` would have accepted it and stamped
+// corruption forward as a value nothing can normalize afterwards.
+
+test('stamp-updated-at refuses a zone-less created and stamps the repair timestamp', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('missing-updated-at', 'MMR-1', { present: false })],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: 'body',
+        documentHash: 'hash',
+        // Date.parse accepts this and reads it as HOST-LOCAL time; copying it
+        // into updated_at would mint an `uninterpretable-timestamp` that no
+        // repair can ever fix, because the instant it meant was never stated.
+        frontmatter: { created: '2026-01-01T00:00:00', type: 'task' },
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: { field: 'updated_at', new_value: '2026-07-13T12:00:00.000Z', path: 'MMR/MMR-1.md' },
+      kind: 'add_frontmatter',
+    },
+  ]);
+});
+
+test('stamp-updated-at seeds from a NORMALIZABLE created, in canonical form', () => {
+  const planned = planDoctorRepairs({
+    issues: [issue('missing-updated-at', 'MMR-1', { present: false })],
+    scope: 'MMR',
+    snapshot: snapshot([
+      {
+        body: 'body',
+        documentHash: 'hash',
+        frontmatter: { created: '2026-01-01T05:30:00+05:30', type: 'task' },
+        path: 'MMR/MMR-1.md',
+        stem: 'MMR-1',
+      },
+    ]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  // The offset value states its instant, so it still seeds the stamp — but the
+  // stamp written is the canonical form of it, never the variant verbatim.
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: { field: 'updated_at', new_value: '2026-01-01T00:00:00.000Z', path: 'MMR/MMR-1.md' },
+      kind: 'add_frontmatter',
+    },
+  ]);
+});
+
 // MMR-313: the seed store's mutating verbs share the MMR-303 co-write guard, so
 // a seed with a missing/null updated_at is repaired by the same stamp recipe,
 // seeded from the seed's `created` frontmatter key exactly as node/project docs.
@@ -1156,6 +1218,114 @@ test('a CRLF body keeps its line endings when a record timestamp is normalized',
       new_value: '## History\r\n### 2026-01-01T00:00:00.000Z — lifecycle\r\nactive → done\r\n',
     },
   });
+});
+
+// MMR-351: a Scratchpad is PATH-addressed — its UUID stem is deliberately
+// outside the durable KEY grammar, so it never enters the identity index. An
+// unindexed pad plans a `missing-snapshot-document` FAILURE, and a planning
+// failure is FATAL to the whole run (commands.ts discards every planned op and
+// exits nonzero) — so one hand-edited pad could take out every unrelated repair.
+
+const PAD = 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md';
+const PAD_STEM = '018f3f36-7b2b-4c92-8f31-44c764a1a456';
+
+function padIssue(): DoctorFinding {
+  return {
+    ...issue(
+      'non-canonical-timestamp',
+      PAD_STEM,
+      { canonical: '2026-01-01T00:00:00.000Z', field: 'updated_at', value: '2026-01-01T00:00:00Z' },
+      PAD,
+    ),
+    scopeKey: 'MMR',
+  };
+}
+
+function padDocument(): DoctorSnapshotDocument {
+  return {
+    body: '## Journal\n\n## Agenda\n',
+    documentHash: 'pad-hash',
+    frontmatter: {
+      created: '2026-01-01T00:00:00.000Z',
+      project: '[[MMR]]',
+      type: 'scratch',
+      updated_at: '2026-01-01T00:00:00Z',
+    },
+    path: PAD,
+    stem: PAD_STEM,
+  };
+}
+
+test('a Scratchpad timestamp is planned, not lost as a missing-snapshot-document', () => {
+  const planned = planDoctorRepairs({
+    issues: [padIssue()],
+    scope: 'MMR',
+    snapshot: snapshot([], [padDocument()]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  // Neither a planning failure (fatal to the run) nor an `ambiguous-identity`
+  // skip (what indexing pads WITHOUT path-addressed ownership would produce).
+  expect(planned.failures).toEqual([]);
+  expect(planned.skipped).toEqual([]);
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: {
+        expected_old_value: '2026-01-01T00:00:00Z',
+        field: 'updated_at',
+        new_value: '2026-01-01T00:00:00.000Z',
+        path: PAD,
+      },
+      kind: 'set_frontmatter',
+    },
+  ]);
+});
+
+test('a corrupt Scratchpad cannot strand the unrelated repairs in the same run', () => {
+  const planned = planDoctorRepairs({
+    issues: [padIssue(), issue('crlf-body', 'MMR-1', { count: 1 })],
+    scope: 'MMR',
+    snapshot: snapshot(
+      [
+        {
+          body: 'text\r\n',
+          documentHash: 'node-hash',
+          frontmatter: { type: 'task' },
+          path: 'MMR/MMR-1.md',
+          stem: 'MMR-1',
+        },
+      ],
+      [padDocument()],
+    ),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.failures).toEqual([]);
+  expect(planned.planned.map((item) => String(item.recipe)).toSorted()).toEqual([
+    'normalize-crlf',
+    'normalize-timestamp',
+  ]);
+  expect(planned.migration.operations).toHaveLength(2);
+});
+
+test('a Scratchpad body repair rides its REAL document hash, never a fabricated one', () => {
+  // Pads carry their own body and hash in the snapshot (unlike artifacts, whose
+  // slice fabricates `documentHash: null`), so a body-affecting recipe reaching
+  // one is a genuine CAS write rather than a `missing-cas-hash` failure.
+  const planned = planDoctorRepairs({
+    issues: [{ ...issue('crlf-body', PAD_STEM, { count: 1 }, PAD), scopeKey: 'MMR' }],
+    scope: 'MMR',
+    snapshot: snapshot([], [{ ...padDocument(), body: '## Journal\r\n' }]),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.failures).toEqual([]);
+  expect(planned.migration.operations).toEqual([
+    {
+      fields: { document_hash: 'pad-hash', new_value: '## Journal\n', path: PAD },
+      kind: 'replace_body',
+    },
+  ]);
 });
 
 test('timestamp findings key by field and line so one document cannot mask another', () => {

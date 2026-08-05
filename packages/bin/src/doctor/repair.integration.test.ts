@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdirSync, renameSync } from 'node:fs';
+import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { fakeIo } from '../cli/testing';
@@ -476,5 +476,65 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
       await cmdDoctor(fakeIo(), fixture.doctor, 'json', 'MMR', { dryRun: false, fix: true }),
     ).toBe(0);
     expect(fixture.readDocument(taskPath)).toBe(repairedTask);
+  });
+  test('a corrupt Scratchpad is repaired and never aborts the run (MMR-351)', async () => {
+    await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
+    const node = await createInitiative(fixture.store, {
+      projectId: 'MMR',
+      title: 'Unrelated work',
+    });
+    const nodePath = `MMR/${node.id}.md`;
+    const vaultRoot = fixture.doctor.repair?.vaultRoot;
+    if (vaultRoot === undefined) {
+      throw new Error('test fixture repair seam missing');
+    }
+
+    // A pad whose stored stamp is a millisecond-less variant, written straight
+    // into the vault the way a hand edit or a legacy import would leave it.
+    const padId = '018f3f36-7b2b-4c92-8f31-44c764a1a456';
+    const padPath = `scratch/${padId}.md`;
+    mkdirSync(join(vaultRoot, 'scratch'), { recursive: true });
+    writeFileSync(
+      join(vaultRoot, padPath),
+      "---\ntitle: Working notes\nproject: '[[MMR]]'\ntype: scratch\n" +
+        'created: 2026-01-01T00:00:00.000Z\nupdated_at: 2026-01-01T00:00:00Z\n---\n' +
+        '## Journal\n\n## Agenda\n',
+    );
+    // …plus an ORDINARY repairable corruption on an unrelated document. Before
+    // pads were indexed for planning, the pad's finding planned a
+    // `missing-snapshot-document` failure and cmdDoctorRepair discarded this
+    // node's repair with it — the whole run exited 1 having written nothing.
+    fixture.corruptDocument(nodePath, (raw) => raw.replaceAll('\n', '\r\n'));
+
+    const detected = await jsonDoctor('MMR');
+    expect(detected).toContainEqual(
+      expect.objectContaining({
+        code: 'non-canonical-timestamp',
+        locator: padPath,
+        scopeKey: 'MMR',
+        stem: padId,
+      }),
+    );
+
+    const io = fakeIo();
+    expect(await cmdDoctor(io, fixture.doctor, 'json', 'MMR', { dryRun: false, fix: true })).toBe(
+      0,
+    );
+    const report = JSON.parse(io.out.join('')) as {
+      failed: { code: string }[];
+      fixed: { code: string }[];
+    };
+    expect(report.failed).toEqual([]);
+    expect(report.fixed.map((item) => item.code).toSorted()).toEqual([
+      'crlf-body',
+      'non-canonical-timestamp',
+    ]);
+
+    // The pad is canonical, the unrelated repair landed, and nothing remains.
+    expect(fixture.readDocument(padPath)).toContain('updated_at: 2026-01-01T00:00:00.000Z');
+    // The body is LF again (the frontmatter block is norn's to serialize).
+    expect(fixture.readDocument(nodePath)).not.toContain('## Task Description\r\n');
+    const post = await jsonDoctor('MMR');
+    expect(post.some((entry) => entry.code === 'non-canonical-timestamp')).toBe(false);
   });
 });

@@ -17,7 +17,7 @@ import type { ValidateFinding } from '../core/store-norn/decode';
 import { collapse, stemOf } from '../core/store-norn/decode';
 import { decodeScratchpadDocument } from '../core/store-norn/scratchpads';
 import type { ScratchpadDocumentProblem } from '../core/store-norn/scratchpads';
-import { canonicalInstant, isCanonicalInstant } from '../core/time';
+import { canonicalInstant, isCanonicalInstant, TIMESTAMP_FIELDS } from '../core/time';
 import type { Drop } from '../core/validate';
 
 /** What a check reads: the raw vault documents to diagnose. */
@@ -455,16 +455,6 @@ export const updatedAtCheck: Diagnostic = {
   title: 'Frontmatter updated_at presence',
 };
 
-/**
- * Every frontmatter field the vault stores an instant in — the `datetime`
- * declarations `vault/schema.ts` renders, gathered in one list. Scanned on every
- * document kind rather than per-type: the invariant belongs to the VALUE, not to
- * the rule that declared it, so a field carried by a document type that never
- * declares it (a hand-added `completed_at` on a project) is still a stored
- * instant that a lexical comparison could reach.
- */
-const TIMESTAMP_FIELDS = ['created', 'updated_at', 'completed_at', 'archived_at', 'freezing_at'];
-
 /** One document the timestamp invariant applies to, from whichever feed. */
 type TimestampTarget = {
   body?: string;
@@ -548,8 +538,13 @@ export const timestampCheck: Diagnostic = {
       });
     }
     for (const { stem, path, frontmatter } of scratchpadDocs) {
-      // A scratchpad body holds Journal/Agenda sections, never History or
-      // Annotations records — frontmatter is its whole timestamp surface.
+      // Only FRONTMATTER is scanned for a pad. Its body holds Journal/Agenda
+      // sections, not the History/Annotations records `recordTimestamps` reads,
+      // and a Journal entry's `### <n> — <at>` instant is deliberately NOT
+      // covered here: those are string-compared too, but the codec already fails
+      // them closed as `invalid-journal-timestamp` (skipped by `--fix`), so
+      // routing them into this check's two classes is a repair-path change of
+      // its own. Tracked as follow-up work, not silently in scope.
       targets.push({
         frontmatter: frontmatter ?? {},
         path,

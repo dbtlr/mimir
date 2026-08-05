@@ -31,6 +31,23 @@ export function now(): string {
   return new Date().toISOString();
 }
 
+/**
+ * Every frontmatter field a vault document stores an instant in — the `datetime`
+ * declarations `vault/schema.ts` renders, in ONE list so the doctor check that
+ * reports a bad value and the migration that rewrites it cannot drift apart: a
+ * field added to one but not the other would be silently unenforced, or
+ * enforced with no way to repair it. Deliberately flat rather than keyed by
+ * document type: the invariant belongs to the VALUE, so a field carried by a
+ * type that never declares it is still a stored instant.
+ */
+export const TIMESTAMP_FIELDS: readonly string[] = [
+  'created',
+  'updated_at',
+  'completed_at',
+  'archived_at',
+  'freezing_at',
+];
+
 /** The canonical persisted form — ISO-8601 UTC, millisecond precision, `Z`. */
 const UTC_MILLIS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
@@ -38,19 +55,38 @@ const UTC_MILLIS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 export const BARE_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /**
- * The accepted timestamp shape (ADR 0029): `T`-separated, hours and minutes
- * required, seconds and a fractional part optional, and an explicit zone —
- * `Z` or a numeric `±HH:MM` offset — mandatory.
+ * TWO grammars, one parser — the asymmetry is deliberate, and this is the whole
+ * of it.
  *
- * Deliberately narrower than `Date.parse`, which also accepts a space separator,
- * a bare `±HHMM`/`±HH` offset, and (worst) a zone-LESS timestamp it silently
- * reads as host-local time. Leniency there would make normalization guess an
- * instant the document never stated, so the explicit grammar is the boundary in
- * both directions: what a caller may type, and what a stored value may be
- * rewritten from.
+ * {@link ZONED_TIMESTAMP} is the QUERY-INPUT grammar (ADR 0029, MMR-349):
+ * `T`-separated, hours and minutes required, seconds and a fractional part
+ * optional, an explicit zone (`Z` or `±HH:MM`) mandatory. It is what a caller
+ * may TYPE, and it stays narrow on purpose — one spelling per instant keeps the
+ * refusal messages teachable and the surface small.
+ *
+ * {@link STORED_INSTANT} is the STORED-VALUE grammar (MMR-351), and it is
+ * deliberately a little wider: a value already sitting in a document was not
+ * typed at a prompt, so the question is not "is this the spelling we teach?" but
+ * "does this state an instant unambiguously?". Two forms do and are therefore
+ * normalized rather than condemned:
+ * - a SPACE separator (`2026-01-01 09:30:00Z`) — norn's `datetime` type accepts
+ *   it, so it is a legitimately storable value;
+ * - a colon-LESS offset (`+0530`) — the annotation heading grammar
+ *   (`history-codec.ts`) accepts it and the reader sorts such records happily,
+ *   so calling it uninterpretable would strand a record the reader already reads.
+ * Widening ends there. A zone-LESS timestamp and a bare date state no instant in
+ * either grammar, and `Date.parse`'s remaining leniency (a bare `±HH` offset,
+ * month names, "GMT") is never admitted: normalizing those would mean inventing
+ * an instant the document never stated.
+ *
+ * Both spell the same capture groups in the same order, so one parser reads
+ * either match.
  */
 const ZONED_TIMESTAMP =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d+)?)?(?:Z|([+-])(\d{2}):(\d{2}))$/;
+
+const STORED_INSTANT =
+  /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(\.\d+)?)?(?:Z|([+-])(\d{2}):?(\d{2}))$/;
 
 export type CalendarDate = { year: number; month: number; day: number };
 
@@ -110,12 +146,24 @@ export function parseCalendarDate(value: string): CalendarDate | null {
   return { day, month, year };
 }
 
-/** An explicitly zoned timestamp as its epoch instant, or `null`. */
+/** An explicitly zoned timestamp as its epoch instant, or `null` — the
+ * QUERY-INPUT grammar (what a caller may type). */
 export function parseZonedInstant(value: string): number | null {
   const match = ZONED_TIMESTAMP.exec(value);
-  if (match === null) {
-    return null;
-  }
+  return match === null ? null : instantFromMatch(value, match);
+}
+
+/** A stored value as its epoch instant, or `null` — the slightly wider
+ * STORED-VALUE grammar (what a document may already hold). */
+function parseStoredInstant(value: string): number | null {
+  const match = STORED_INSTANT.exec(value);
+  return match === null ? null : instantFromMatch(value, match);
+}
+
+/** The shared arithmetic behind both grammars: calendar fields and a numeric
+ * offset to one epoch instant. Every date, time, and offset component is
+ * range-checked — the regexes constrain shape, never magnitude. */
+function instantFromMatch(value: string, match: RegExpExecArray): number | null {
   const date = parseCalendarDate(value.slice(0, 10));
   if (date === null) {
     return null;
@@ -157,8 +205,8 @@ export function isCanonicalInstant(value: unknown): value is string {
  * `null` is the refusal that matters: a zone-less timestamp, a bare date, an
  * unparseable string, or a non-string carries no stated instant, and normalizing
  * it would mean picking one (UTC? the host's zone? midnight?) the document never
- * said. Only the explicitly zoned grammar above — the same one the query surface
- * accepts — converts, and it converts by arithmetic, not by `Date.parse`.
+ * said. Only {@link STORED_INSTANT} converts, and it converts by arithmetic,
+ * not by `Date.parse`.
  */
 export function canonicalInstant(value: unknown): string | null {
   if (typeof value !== 'string') {
@@ -167,9 +215,15 @@ export function canonicalInstant(value: unknown): string | null {
   if (isCanonicalInstant(value)) {
     return value;
   }
-  const epochMs = parseZonedInstant(value);
+  const epochMs = parseStoredInstant(value);
   if (epochMs === null || !Number.isFinite(epochMs)) {
     return null;
   }
-  return new Date(epochMs).toISOString();
+  const candidate = new Date(epochMs).toISOString();
+  // The output is checked against the invariant it exists to satisfy, never
+  // assumed: an instant far enough outside the ±9999 range `toISOString` renders
+  // in the EXPANDED-year form (`+010000-01-01T…Z`), which is not canonical. A
+  // large offset can push a year-9999 value over that edge, and emitting it
+  // would have repair write a value the very next diagnosis calls corrupt.
+  return isCanonicalInstant(candidate) ? candidate : null;
 }

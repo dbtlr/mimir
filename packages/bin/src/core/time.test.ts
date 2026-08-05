@@ -53,6 +53,17 @@ describe('canonicalInstant normalizes an unambiguously zoned value', () => {
     ['2026-08-05T15:00:00+05:30', '2026-08-05T09:30:00.000Z', 'a half-hour offset is applied'],
     ['2026-08-05T09:30:00+00:00', '2026-08-05T09:30:00.000Z', 'a zero offset becomes Z'],
     ['2026-01-01T00:30:00+02:00', '2025-12-31T22:30:00.000Z', 'an offset may cross the year'],
+    // The two STORED-only widenings (MMR-351): both state their instant
+    // unambiguously, and both are already storable — norn's `datetime` accepts
+    // the space form, and the annotation heading grammar accepts `+0530`.
+    ['2026-08-05 09:30:00Z', '2026-08-05T09:30:00.000Z', 'a space separator is a stored variant'],
+    ['2026-08-05 05:30:00-04:00', '2026-08-05T09:30:00.000Z', 'a space separator with an offset'],
+    [
+      '2026-08-05T15:00:00+0530',
+      '2026-08-05T09:30:00.000Z',
+      'a colon-less offset is a stored variant',
+    ],
+    ['2026-08-05T09:30-0000', '2026-08-05T09:30:00.000Z', 'a colon-less zero offset'],
   ])('%p → %p (%s)', (value, expected) => {
     expect(canonicalInstant(value)).toBe(expected);
   });
@@ -90,8 +101,6 @@ describe('canonicalInstant refuses a value whose instant cannot be inferred', ()
   test.each([
     ['2026-08-05T09:30:00', 'zone-less — UTC or host-local would be a guess'],
     ['2026-08-05T09:30:00.000', 'zone-less with milliseconds'],
-    ['2026-08-05 09:30:00Z', 'a space separator Date.parse would accept'],
-    ['2026-08-05T09:30:00+0530', 'a colon-less offset Date.parse would accept'],
     ['2026-08-05T09:30:00+05', 'an hours-only offset'],
     ['2026-08-05T09Z', 'hours only — minutes are required'],
     ['2026-08-05', 'a bare date carries no time of day'],
@@ -105,8 +114,26 @@ describe('canonicalInstant refuses a value whose instant cannot be inferred', ()
     ['2026-08-05T09:30:00+24:00', 'an out-of-range offset'],
     ['tuesday', 'prose'],
     ['', 'the empty string'],
+    // The widening stops well short of `Date.parse`: these still state no
+    // instant a reader could agree on.
+    ['2026-08-05 09:30:00', 'a space separator is still no substitute for a zone'],
+    ['2026-08-05T09:30:00 +05:30', 'a spaced-off offset'],
+    ['2026-08-05T09:30:00+5:30', 'a one-digit offset hour'],
+    ['Aug 5 2026 09:30:00 GMT', 'a Date.parse-only spelling'],
+    ['2026-08-05T09:30:00Z extra', 'trailing content'],
   ])('%p → null (%s)', (value) => {
     expect(canonicalInstant(value)).toBeNull();
+  });
+
+  test('refuses a value whose canonical form would be an EXPANDED year', () => {
+    // A large negative offset pushes year 9999 past the range `toISOString`
+    // renders in the `YYYY` form; it falls back to `+010000-01-01T…Z`, which is
+    // NOT canonical. Emitting it would have repair write a value the next
+    // diagnosis calls corrupt — so the normalizer refuses instead.
+    expect(canonicalInstant('9999-12-31T23:59:59.999-23:00')).toBeNull();
+    // The same instant one day earlier still normalizes: the guard is on the
+    // rendered form, not a blanket year ceiling.
+    expect(canonicalInstant('9999-12-30T23:59:59.999-23:00')).toBe('9999-12-31T22:59:59.999Z');
   });
 
   test.each([[null], [undefined], [0], [1_754_386_200_000], [{}], [new Date(0)]])(
@@ -126,4 +153,15 @@ test('parseZonedInstant is the epoch arithmetic behind the normalizer', () => {
   expect(parseZonedInstant('2026-08-05T09:30:00.000Z')).toBe(Date.UTC(2026, 7, 5, 9, 30));
   expect(parseZonedInstant('2026-08-05T05:30:00-04:00')).toBe(Date.UTC(2026, 7, 5, 9, 30));
   expect(parseZonedInstant('2026-08-05T09:30:00')).toBeNull();
+});
+
+test('the QUERY grammar stays strict where the STORED grammar widened (MMR-349/351)', () => {
+  // The asymmetry is the point: a caller may not TYPE these two spellings — one
+  // spelling per instant keeps the query surface teachable — but a document
+  // already holding one states its instant, so it is normalized rather than
+  // condemned as corruption.
+  for (const stored of ['2026-08-05 09:30:00Z', '2026-08-05T15:00:00+0530']) {
+    expect(parseZonedInstant(stored)).toBeNull();
+    expect(canonicalInstant(stored)).toBe('2026-08-05T09:30:00.000Z');
+  }
 });
