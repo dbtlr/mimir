@@ -143,14 +143,34 @@ async function cliOutcome(argv: string[], id: string): Promise<Outcome> {
     : { refused: io.err.join('') };
 }
 
+/** One or more date filters, as the caller writes them. */
+type Filters = readonly (readonly [DateOp, string])[];
+
 /** One resource's three transport bindings — the same query, spoken three ways. */
 type Resource = {
   name: string;
   row: () => { id: string; createdAt: string };
-  cli: (op: DateOp, value: string, zone?: string) => Promise<Outcome>;
-  mcp: (op: DateOp, value: string, zone?: string) => Promise<Outcome>;
-  http: (op: DateOp, value: string, zone?: string) => Promise<Outcome>;
+  cli: (filters: Filters, zone?: string) => Promise<Outcome>;
+  mcp: (filters: Filters, zone?: string) => Promise<Outcome>;
+  http: (filters: Filters, zone?: string) => Promise<Outcome>;
 };
+
+/** The CLI flag pairs for a filter list. */
+const cliFlags = (filters: Filters): string[] =>
+  filters.flatMap(([op, value]) => [`--${op}`, `${FIELD}:${value}`]);
+
+/** The repeated query params for a filter list. */
+const httpParams = (filters: Filters): string =>
+  filters.map(([op, value]) => `&${op}=${encodeURIComponent(`${FIELD}:${value}`)}`).join('');
+
+/** The camelCase token arrays for a filter list. */
+function mcpArgs(filters: Filters): Record<string, string[]> {
+  const args: Record<string, string[]> = {};
+  for (const [op, value] of filters) {
+    (args[MCP_ARG[op]] ??= []).push(`${FIELD}:${value}`);
+  }
+  return args;
+}
 
 /** The CLI's zone flag pair, omitted when the case sends no zone (system default). */
 const tzFlag = (zone?: string): string[] => (zone === undefined ? [] : ['--tz', zone]);
@@ -159,69 +179,51 @@ const tzParam = (zone?: string): string => (zone === undefined ? '' : `&tz=${zon
 
 const RESOURCES: readonly Resource[] = [
   {
-    cli: (op, value, zone) =>
+    cli: (filters, zone) =>
       cliOutcome(
-        ['list', '-s', 'MMR', `--${op}`, `${FIELD}:${value}`, ...tzFlag(zone), '-f', 'json'],
+        ['list', '-s', 'MMR', ...cliFlags(filters), ...tzFlag(zone), '-f', 'json'],
         task.id,
       ),
-    http: (op, value, zone) =>
-      httpOutcome(
-        `${base}/api/nodes?project=MMR&${op}=${encodeURIComponent(`${FIELD}:${value}`)}${tzParam(zone)}`,
-        task.id,
-      ),
-    mcp: async (op, value, zone) =>
+    http: (filters, zone) =>
+      httpOutcome(`${base}/api/nodes?project=MMR${httpParams(filters)}${tzParam(zone)}`, task.id),
+    mcp: async (filters, zone) =>
       toolOutcome(
-        await toolList(store, {
-          [MCP_ARG[op]]: [`${FIELD}:${value}`],
-          scope: 'MMR',
-          ...tzArg(zone),
-        }),
+        await toolList(store, { scope: 'MMR', ...mcpArgs(filters), ...tzArg(zone) }),
         task.id,
       ),
     name: 'nodes',
     row: () => task,
   },
   {
-    cli: (op, value, zone) =>
+    cli: (filters, zone) =>
       cliOutcome(
-        ['artifacts', '-s', 'MMR', `--${op}`, `${FIELD}:${value}`, ...tzFlag(zone), '-f', 'json'],
+        ['artifacts', '-s', 'MMR', ...cliFlags(filters), ...tzFlag(zone), '-f', 'json'],
         artifact.id,
       ),
-    http: (op, value, zone) =>
+    http: (filters, zone) =>
       httpOutcome(
-        `${base}/api/artifacts?project=MMR&${op}=${encodeURIComponent(`${FIELD}:${value}`)}${tzParam(zone)}`,
+        `${base}/api/artifacts?project=MMR${httpParams(filters)}${tzParam(zone)}`,
         artifact.id,
       ),
-    mcp: async (op, value, zone) =>
+    mcp: async (filters, zone) =>
       toolOutcome(
-        await toolArtifacts(store, {
-          [MCP_ARG[op]]: [`${FIELD}:${value}`],
-          scope: 'MMR',
-          ...tzArg(zone),
-        }),
+        await toolArtifacts(store, { scope: 'MMR', ...mcpArgs(filters), ...tzArg(zone) }),
         artifact.id,
       ),
     name: 'artifacts',
     row: () => artifact,
   },
   {
-    cli: (op, value, zone) =>
+    cli: (filters, zone) =>
       cliOutcome(
-        ['seeds', '-p', 'MMR', `--${op}`, `${FIELD}:${value}`, ...tzFlag(zone), '-f', 'json'],
+        ['seeds', '-p', 'MMR', ...cliFlags(filters), ...tzFlag(zone), '-f', 'json'],
         seed.id,
       ),
-    http: (op, value, zone) =>
-      httpOutcome(
-        `${base}/api/seeds?project=MMR&${op}=${encodeURIComponent(`${FIELD}:${value}`)}${tzParam(zone)}`,
-        seed.id,
-      ),
-    mcp: async (op, value, zone) =>
+    http: (filters, zone) =>
+      httpOutcome(`${base}/api/seeds?project=MMR${httpParams(filters)}${tzParam(zone)}`, seed.id),
+    mcp: async (filters, zone) =>
       toolOutcome(
-        await toolSeeds(store, {
-          [MCP_ARG[op]]: [`${FIELD}:${value}`],
-          project: 'MMR',
-          ...tzArg(zone),
-        }),
+        await toolSeeds(store, { project: 'MMR', ...mcpArgs(filters), ...tzArg(zone) }),
         seed.id,
       ),
     name: 'seeds',
@@ -372,9 +374,10 @@ for (const resource of RESOURCES) {
         dateFilterWindow(matchCase.op, value, matchCase.zone),
         row.createdAt,
       );
-      expect(await resource.cli(matchCase.op, value, matchCase.zone)).toEqual({ matched });
-      expect(await resource.mcp(matchCase.op, value, matchCase.zone)).toEqual({ matched });
-      expect(await resource.http(matchCase.op, value, matchCase.zone)).toEqual({ matched });
+      const filters = [[matchCase.op, value]] as const;
+      expect(await resource.cli(filters, matchCase.zone)).toEqual({ matched });
+      expect(await resource.mcp(filters, matchCase.zone)).toEqual({ matched });
+      expect(await resource.http(filters, matchCase.zone)).toEqual({ matched });
     });
   }
 }
@@ -396,10 +399,11 @@ const REFUSAL_CASES: readonly { name: string; op: DateOp; value: string; says: s
 for (const resource of RESOURCES) {
   for (const refusal of REFUSAL_CASES) {
     test.skipIf(!NORN)(`${resource.name} refuses ${refusal.name}`, async () => {
+      const filters = [[refusal.op, refusal.value]] as const;
       for (const outcome of [
-        await resource.cli(refusal.op, refusal.value, 'UTC'),
-        await resource.mcp(refusal.op, refusal.value, 'UTC'),
-        await resource.http(refusal.op, refusal.value, 'UTC'),
+        await resource.cli(filters, 'UTC'),
+        await resource.mcp(filters, 'UTC'),
+        await resource.http(filters, 'UTC'),
       ]) {
         expect(outcome).toMatchObject({ refused: expect.stringContaining(refusal.says) });
       }
@@ -409,23 +413,120 @@ for (const resource of RESOURCES) {
   // Only the remote transports can be zone-less: the CLI defaults to the
   // invoking system's zone, so a bare date there always has a calendar.
   test.skipIf(!NORN)(`${resource.name} refuses a bare date with no tz off-CLI`, async () => {
-    const day = localDate(resource.row().createdAt, 'UTC');
-    expect(await resource.mcp('on', day)).toMatchObject({
+    const filters = [['on', localDate(resource.row().createdAt, 'UTC')]] as const;
+    expect(await resource.mcp(filters)).toMatchObject({
       refused: expect.stringContaining('no caller timezone'),
     });
-    expect(await resource.http('on', day)).toMatchObject({
+    expect(await resource.http(filters)).toMatchObject({
       refused: expect.stringContaining('no caller timezone'),
     });
-    expect(await resource.cli('on', day)).toEqual({ matched: expect.any(Boolean) });
+    expect(await resource.cli(filters)).toEqual({ matched: expect.any(Boolean) });
   });
 
   test.skipIf(!NORN)(`${resource.name} refuses an unknown timezone`, async () => {
+    const filters = [['on', '2026-07-31']] as const;
     for (const outcome of [
-      await resource.cli('on', '2026-07-31', 'Mars/Olympus'),
-      await resource.mcp('on', '2026-07-31', 'Mars/Olympus'),
-      await resource.http('on', '2026-07-31', 'Mars/Olympus'),
+      await resource.cli(filters, 'Mars/Olympus'),
+      await resource.mcp(filters, 'Mars/Olympus'),
+      await resource.http(filters, 'Mars/Olympus'),
     ]) {
       expect(outcome).toMatchObject({ refused: expect.stringContaining('unknown timezone') });
+    }
+  });
+
+  // `on` names a calendar day; an instant is not one, on any transport.
+  test.skipIf(!NORN)(`${resource.name} refuses on with a timestamp`, async () => {
+    const filters = [['on', '2026-07-31T10:15:00Z']] as const;
+    for (const outcome of [
+      await resource.cli(filters, 'UTC'),
+      await resource.mcp(filters, 'UTC'),
+      await resource.http(filters, 'UTC'),
+    ]) {
+      expect(outcome).toMatchObject({ refused: expect.stringContaining('not a calendar date') });
+    }
+  });
+}
+
+/**
+ * Windows whose edges are pinned to instants computed OUTSIDE this codebase — a
+ * minute-by-minute scan over Intl's `longOffset` readings, run across all 445
+ * zones and every offset transition from 1970 to 2038. Pinning them here keeps
+ * the transports honest against the CALENDAR, not merely against each other:
+ * the match cases above take their expectation from the date core, which can
+ * only prove the three agree.
+ */
+const ANCHORS: readonly { zone: string; day: string; from: string; until: string }[] = [
+  // A fall-back landing at 00:00 — the day opens at the FIRST of two midnights.
+  {
+    day: '2021-10-29',
+    from: '2021-10-28T21:00:00.000Z',
+    until: '2021-10-29T22:00:00.000Z',
+    zone: 'Asia/Amman',
+  },
+  // Spring forward — a 23-hour day.
+  {
+    day: '2026-03-08',
+    from: '2026-03-08T05:00:00.000Z',
+    until: '2026-03-09T04:00:00.000Z',
+    zone: 'America/New_York',
+  },
+  // A zone whose offset is not a whole hour.
+  {
+    day: '2026-06-10',
+    from: '2026-06-09T18:15:00.000Z',
+    until: '2026-06-10T18:15:00.000Z',
+    zone: 'Asia/Kathmandu',
+  },
+];
+
+for (const resource of RESOURCES) {
+  for (const anchor of ANCHORS) {
+    test.skipIf(!NORN)(
+      `${resource.name}: ${anchor.zone} ${anchor.day} lands on its true edges`,
+      async () => {
+        const created = Date.parse(resource.row().createdAt);
+        const [from, until] = [Date.parse(anchor.from), Date.parse(anchor.until)];
+        // The expectations come from the anchored instants alone — no module call.
+        const expected: Record<DateOp, boolean> = {
+          after: created >= until,
+          'at-or-after': created >= from,
+          'at-or-before': created < until,
+          before: created < from,
+          on: created >= from && created < until,
+        };
+        for (const op of Object.keys(expected)) {
+          const filters = [[op, anchor.day]] as Filters;
+          const matched = expected[op as DateOp];
+          expect(await resource.cli(filters, anchor.zone)).toEqual({ matched });
+          expect(await resource.mcp(filters, anchor.zone)).toEqual({ matched });
+          expect(await resource.http(filters, anchor.zone)).toEqual({ matched });
+        }
+      },
+    );
+  }
+
+  // Two ops compose to the intersection of their windows — on every transport.
+  test.skipIf(!NORN)(`${resource.name}: composed bounds intersect`, async () => {
+    const created = resource.row().createdAt;
+    const hour = 60 * 60 * 1000;
+    const before = new Date(Date.parse(created) + hour).toISOString();
+    const after = new Date(Date.parse(created) - hour).toISOString();
+    const straddles = [
+      ['after', after],
+      ['before', before],
+    ] as Filters;
+    // A window that excludes the row on its LOWER edge, the upper still open.
+    const misses = [
+      ['after', before],
+      ['before', new Date(Date.parse(created) + 2 * hour).toISOString()],
+    ] as Filters;
+    for (const [filters, matched] of [
+      [straddles, true],
+      [misses, false],
+    ] as const) {
+      expect(await resource.cli(filters, 'UTC')).toEqual({ matched });
+      expect(await resource.mcp(filters, 'UTC')).toEqual({ matched });
+      expect(await resource.http(filters, 'UTC')).toEqual({ matched });
     }
   });
 }
