@@ -390,4 +390,91 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
     await fixture.artifacts.applyTag('MMR', 1, 'b');
     expect((await fixture.artifacts.load('MMR', 1))?.tags.toSorted()).toEqual(['a', 'b']);
   });
+  test('normalizes zoned timestamp variants and leaves uninterpretable ones flagged (MMR-351)', async () => {
+    await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
+    const task = await createInitiative(fixture.store, {
+      projectId: 'MMR',
+      title: 'Legacy import',
+    });
+    await annotate(fixture.store, task.id, 'an imported note');
+    const taskPath = `MMR/${task.id}.md`;
+    const projectPath = 'MMR/MMR.md';
+
+    // Three classes at once, on documents mimir itself wrote canonically:
+    // a frontmatter OFFSET variant (repairable), a frontmatter ZONE-LESS value
+    // (not repairable), and a body annotation heading in an offset form.
+    fixture.corruptDocument(taskPath, (raw) =>
+      raw.replace(/^updated_at: .*$/m, 'updated_at: 2026-01-01T05:30:00+05:30'),
+    );
+    fixture.corruptDocument(taskPath, (raw) =>
+      raw.replace(/^created: .*$/m, 'created: 2026-01-01T00:00:00'),
+    );
+    fixture.corruptDocument(taskPath, (raw) =>
+      raw.replace(/^### \d{4}.*$/m, '### 2026-01-01T05:30:00+05:30'),
+    );
+    fixture.corruptDocument(projectPath, (raw) =>
+      raw.replace(/^updated_at: .*$/m, 'updated_at: 2026-01-01T00:00:00Z'),
+    );
+
+    const detected = await jsonDoctor('MMR');
+    const timestamps = detected.filter((entry) => String(entry.check) === 'timestamps');
+    expect(
+      timestamps
+        .map((entry) => `${String(entry.code)} ${String(entry.stem)} ${String(entry.where)}`)
+        .toSorted((a, b) => a.localeCompare(b)),
+    ).toEqual([
+      `non-canonical-record-timestamp ${task.id} Annotations · line 7`,
+      'non-canonical-timestamp MMR frontmatter · updated_at',
+      `non-canonical-timestamp ${task.id} frontmatter · updated_at`,
+      `uninterpretable-timestamp ${task.id} frontmatter · created`,
+    ]);
+    expect(timestamps.every((entry) => entry.severity === 'error')).toBe(true);
+
+    // Dry run previews the repairable ones and writes nothing.
+    const beforeTask = fixture.readDocument(taskPath);
+    const beforeProject = fixture.readDocument(projectPath);
+    const preview = fakeIo();
+    expect(
+      await cmdDoctor(preview, fixture.doctor, 'json', 'MMR', { dryRun: true, fix: true }),
+    ).toBe(0);
+    const previewed = JSON.parse(preview.out.join('')) as {
+      planned: { code: string }[];
+      skipped: { code: string; reason: string }[];
+    };
+    expect(previewed.planned.map((item) => item.code).toSorted()).toContain(
+      'non-canonical-timestamp',
+    );
+    expect(previewed.skipped).toContainEqual(
+      expect.objectContaining({
+        code: 'uninterpretable-timestamp',
+        reason: 'requires-explicit-correction',
+      }),
+    );
+    expect(fixture.readDocument(taskPath)).toBe(beforeTask);
+    expect(fixture.readDocument(projectPath)).toBe(beforeProject);
+
+    // --fix normalizes every value that stated an instant…
+    expect(
+      await cmdDoctor(fakeIo(), fixture.doctor, 'json', 'MMR', { dryRun: false, fix: true }),
+    ).toBe(0);
+    const repairedTask = fixture.readDocument(taskPath);
+    expect(repairedTask).toContain('updated_at: 2026-01-01T00:00:00.000Z');
+    expect(repairedTask).toContain('### 2026-01-01T00:00:00.000Z');
+    expect(fixture.readDocument(projectPath)).toContain('updated_at: 2026-01-01T00:00:00.000Z');
+    // …and leaves the one that stated none exactly as the human wrote it.
+    expect(repairedTask).toContain('created: 2026-01-01T00:00:00');
+    expect(repairedTask).not.toContain('created: 2026-01-01T00:00:00.000Z');
+
+    // The residual finding is still visible as corruption requiring correction.
+    const post = await jsonDoctor('MMR');
+    expect(post.filter((entry) => String(entry.check) === 'timestamps')).toEqual([
+      expect.objectContaining({ code: 'uninterpretable-timestamp', stem: task.id }),
+    ]);
+
+    // Idempotent: a second --fix has nothing left to write.
+    expect(
+      await cmdDoctor(fakeIo(), fixture.doctor, 'json', 'MMR', { dryRun: false, fix: true }),
+    ).toBe(0);
+    expect(fixture.readDocument(taskPath)).toBe(repairedTask);
+  });
 });

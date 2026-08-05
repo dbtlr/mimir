@@ -40,6 +40,8 @@ These hold for every document; the per-entity sections below don't repeat them.
 
 - **Timestamps** are ISO-8601 UTC strings, with millisecond precision and an explicit `Z` — human-readable, and lexically = chronologically sortable. The **creation** timestamp's frontmatter key is `created` (not `created_at`); the mutation/completion/archive stamps keep their `_at` suffix: `updated_at`, `completed_at`, `archived_at`. `created` is set once; `updated_at` is re-stamped by the core on every write. UTC always — local time is a UI-edge rendering, never stored.
 
+  That form is an **invariant of the stored value**, not merely a write convention ([ADR 0029](decisions/0029-caller-zoned-date-semantics.md), MMR-351): the query paths, the annotation sort, and the transition cursor all compare stored stamps as raw strings, and lexical order tracks chronology only while every value shares one width, one precision, and one zone. Norn's `datetime` type is broader — it accepts an offset zone, an absent millisecond, even a zone-less value — so the invariant is enforced above it. Vault schema 9 converges an older vault by rewriting the variants that state their instant (`2026-08-05T15:00:00+05:30` → `2026-08-05T09:30:00.000Z`); a **zone-less or malformed** stored value states none, so it is never guessed at — it survives the upgrade untouched and `mimir doctor` reports it as corruption requiring an explicit correction (`uninterpretable-timestamp`, skipped by `--fix`). The same two classes apply to the `### <ISO timestamp>` headings of `## History` and `## Annotations` records; `doctor --fix` normalizes the repairable ones in place.
+
 ---
 
 ## Shape at a glance
