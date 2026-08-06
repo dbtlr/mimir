@@ -34,13 +34,16 @@ that the episode produced it.
 
 ```sh
 mimir scratch create "shape the watcher" --link MMR-331   # → uuid + updated_at token
-mimir scratch checkpoint <uuid> "settled the API shape" --expected-updated-at <ts>
-mimir scratch agenda add <uuid> "verify recovery path" --expected-updated-at <ts>
-mimir scratch agenda complete <uuid> 1 --expected-updated-at <ts>
-mimir scratch agenda supersede <uuid> 2 --reason "covered by MMR-377" --expected-updated-at <ts>
-mimir scratch freeze <uuid> --summary "Watcher plan" --expected-updated-at <ts>   # episode settled
-mimir scratch discard <uuid> --expected-updated-at <ts>                           # episode dead
+mimir scratch checkpoint <uuid> "settled the API shape" --expected-updated-at <ts1>
+mimir scratch agenda add <uuid> "verify recovery path" --expected-updated-at <ts2>
+mimir scratch agenda complete <uuid> 1 --expected-updated-at <ts3>
+mimir scratch agenda supersede <uuid> 2 --reason "covered by MMR-377" --expected-updated-at <ts4>
+mimir scratch freeze <uuid> --summary "Watcher plan" --expected-updated-at <ts5>   # episode settled
+mimir scratch discard <uuid> --expected-updated-at <ts5>                           # episode dead
 ```
+
+(`<ts1>`…`<ts5>` are different values: every write moves the token, and each
+receipt carries the next one.)
 
 - `create` takes a title, an optional `-s KEY` (defaults to the bound project —
   a Scratchpad belongs to exactly one project), and repeatable `--link KEY-seq`
@@ -53,7 +56,7 @@ mimir scratch discard <uuid> --expected-updated-at <ts>                         
   `complete`/`supersede <number>` settle it (supersede requires a reason).
   Open Agenda is what `discard` refuses over — settle items when they settle.
 - `update` replaces title or linked work (`--link …` replaces the set;
-  `--clear-links` empties it).
+  `--clear-links` empties it; the two together is a usage error).
 
 ## The concurrency token — echo, never guess
 
@@ -89,12 +92,15 @@ snapshots the complete Journal + Agenda into a normally allocated, immutable
 Artifact — `scratchpad` tag and `source_scratch` provenance included — then
 deletes the temporary document. Freeze is a staged, **retryable** recovery
 protocol, not a transaction: interrupted, the Scratchpad shows `freezing` and
-rejects further writes — re-run the same `freeze` to finish; it is safe to
-retry until the Artifact receipt lands.
+rejects further writes — and the staging write itself moved the token, so
+`scratch get <uuid>` for the fresh one, then re-run `freeze` with it. The
+Artifact is created at most once; retry until its receipt lands.
 
 **Discard** when the episode is dead and produced nothing durable. It refuses
-while Agenda items are open; `--force --reason "…"` overrides, and the reason
-is required because it is the only trace the episode leaves.
+while Agenda items are open; `--force --reason "…"` overrides. The reason is
+demanded to make the override a deliberate act, not a reflex — it is **not
+recorded anywhere**: discard deletes the document and leaves no trace. An
+episode whose ending deserves a trace freezes instead.
 
 The end-of-session sweep includes Scratchpads: for each one you drove, freeze
 it if it settled, checkpoint it honestly if it continues, discard it if it is

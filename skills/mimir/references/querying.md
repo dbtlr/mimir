@@ -39,7 +39,8 @@ knowable total: `mimir artifacts -t session_summary` is the pageable view.
 Recent sessions is derived, not stored: transition rows grouped by the `session`
 handle `mimir start --session …` stamped. A retrospective joins on by linked-task
 overlap — attach it with `mimir attach <task> --file retro.md -t session_summary
---summary "…"`. Two limits are worth knowing:
+--summary "…"`, or, when the session ran on a Scratchpad, freeze that instead
+(`references/finishing.md`). Two limits are worth knowing:
 
 - **Only handle-moving boundaries are visible.** `start` and the clearing verbs
   (`done`/`abandon`, `park`/`block`) echo handles; `submit`/`return`/`reopen`/

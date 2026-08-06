@@ -1,6 +1,6 @@
 ---
 name: mimir
-description: Drive Mimir — the work-state source of truth (tasks, hierarchy, statuses, artifacts) — via the `mimir` CLI. Load at the START of every session in a repo containing a .mimir.toml (or when the user asks to track work, check the task queue, set up a project, or mentions task/work state). Teaches orientation, task authoring, status transitions, and the query surface.
+description: Drive Mimir — the work-state source of truth (tasks, hierarchy, statuses, artifacts, scratchpads) — via the `mimir` CLI. Load at the START of every session in a repo containing a .mimir.toml (or when the user asks to track work, check the task queue, set up a project, keep episode state or a scratchpad, or mentions task/work state). Teaches orientation, task authoring, status transitions, temporary episode state, and the query surface.
 ---
 
 # Mimir: the work-state source of truth
@@ -119,7 +119,8 @@ relaxes these.
 
 **3. Ids: one grammar.** Project = bare `KEY` (e.g. `MMR`) · work node = `KEY-seq`
 (`MMR-16`) · artifact = `KEY-a3` · seed = `KEY-s3`. Any id slot takes the full
-grammar; a verb rejects what it can't act on. This is what keeps lifecycle verbs
+grammar; a verb rejects what it can't act on. (A Scratchpad's UUID sits outside
+this grammar by design — it is a handle only `scratch` verbs accept.) This is what keeps lifecycle verbs
 flat instead of namespaced: `done KEY-42` needs no `task` prefix because the id's
 own shape already says what it acts on — `resolve KEY-s10` runs the identical
 flat-verb-plus-typed-id grammar for seeds.
@@ -176,7 +177,7 @@ the session is still fresh.
 | Set up tracking: install, bind, create a project, backfill history      | `references/setup.md`        |
 | Add or restructure work: tasks, phases, deps, artifacts, annotations    | `references/authoring.md`    |
 | Ask the board questions: queues, triage, drill-down, reports, scripting | `references/querying.md`     |
-| Keep an unsettled episode alive across compaction: Journal, Agenda, freeze | `references/scratchpad.md`   |
+| Keep an unsettled episode across compaction: Journal, Agenda, freeze    | `references/scratchpad.md`   |
 | Finish a task or session: transition, groom-next, summarize             | `references/finishing.md`    |
 | Understand a status word, group, or rollup                              | `references/status-model.md` |
 | Classify with tags                                                      | `references/tags.md`         |
