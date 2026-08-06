@@ -34,7 +34,7 @@ function mcpToolSchema(name: string): Record<string, unknown> & {
     return {};
   }
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return z.toJSONSchema(schema) as { properties?: Record<string, unknown> };
+  return z.toJSONSchema(schema);
 }
 
 /** The advertised inputSchema property names of a registered MCP tool. */
@@ -136,15 +136,15 @@ test('the HTTP body allow-list is exactly the spec keys — no hand-listed extra
 
 test('CLI flag spelling: default is --<kebab-key>, overrides diverge', () => {
   // Default derivation from the field model.
-  expect(updateFieldFlags('priority' as UpdateFieldKey)).toEqual([['priority', '--priority']]);
-  expect(updateFieldFlags('summary' as UpdateFieldKey)).toEqual([['summary', '--summary']]);
+  expect(updateFieldFlags('priority')).toEqual([['priority', '--priority']]);
+  expect(updateFieldFlags('summary')).toEqual([['summary', '--summary']]);
   // Overrides — the only hand-held spellings.
-  expect(updateFieldFlags('externalRef' as UpdateFieldKey)).toEqual([['ref', '--ref']]);
-  expect(updateFieldFlags('description' as UpdateFieldKey)).toEqual([['desc', '--desc']]);
+  expect(updateFieldFlags('externalRef')).toEqual([['ref', '--ref']]);
+  expect(updateFieldFlags('description')).toEqual([['desc', '--desc']]);
   // `--next` is `self-update`'s boolean channel flag, so the `## Next` narrative
   // writes through `--direction` (MMR-321).
-  expect(updateFieldFlags('next' as UpdateFieldKey)).toEqual([['direction', '--direction']]);
-  expect(updateFieldFlags('openEnded' as UpdateFieldKey)).toEqual([
+  expect(updateFieldFlags('next')).toEqual([['direction', '--direction']]);
+  expect(updateFieldFlags('openEnded')).toEqual([
     ['open-ended', '--open-ended'],
     ['not-open-ended', '--not-open-ended'],
   ]);

@@ -1,5 +1,5 @@
-import { toolingConfig } from '@dbtlr/tooling';
-import type { LintOverride } from '@dbtlr/tooling/vite-plus';
+import { defineConfig, toolingPlugin } from '@dbtlr/tooling';
+import type { LintOverride } from '@dbtlr/tooling';
 
 type Override = LintOverride;
 
@@ -95,6 +95,7 @@ const forbid = (files: string[], layers: string[], options?: { banFs?: boolean }
  */
 const quarantinedRules: Record<string, 'off'> = {
   'no-await-in-loop': 'off', // 57 — many are intentional sequential I/O
+  'unicorn/max-nested-calls': 'off', // nested renderer/composition expressions remain readable
   // contradicts vitest/prefer-called-once (which we keep) — opposite preferences,
   // both on by default; can't satisfy both, so this twin stays off.
   'vitest/prefer-called-times': 'off',
@@ -119,6 +120,7 @@ const uiLintOverride: Override = {
     'react-perf/jsx-no-new-array-as-prop': 'off', // 13
     'react-perf/jsx-no-new-function-as-prop': 'off', // 95
     'react-perf/jsx-no-new-object-as-prop': 'off', // 21
+    'react/function-component-definition': 'off',
     'react/hook-use-state': 'off', // 1
     'react/jsx-max-depth': 'off',
     'react/jsx-props-no-spreading': 'off',
@@ -160,15 +162,23 @@ const layerOverrides: Override[] = [
   uiLintOverride,
 ];
 
-export default toolingConfig({
-  fmt: {
-    // machine-written (scripts/generate-ui-assets.ts) and gitignored
-    ignores: ['**/*.generated.ts'],
-  },
-  lint: {
-    ignores: ['dist/**', '**/*.generated.ts'],
-    overrides: layerOverrides,
-    rules: quarantinedRules,
-  },
-  node: ['packages/bin/**'],
+export default defineConfig({
+  plugins: [
+    toolingPlugin({
+      fmt: {
+        // machine-written (scripts/generate-ui-assets.ts) and gitignored
+        ignores: ['**/*.generated.ts'],
+      },
+      lint: {
+        ignores: ['dist/**', '**/*.generated.ts'],
+        overrides: layerOverrides,
+        rules: quarantinedRules,
+      },
+      node: {
+        files: ['packages/bin/**'],
+        // Synchronous filesystem access is deliberate in this local-first CLI.
+        rules: { 'node/no-sync': 'off' },
+      },
+    }),
+  ],
 });
