@@ -244,6 +244,44 @@ const COMMANDS: ReadonlySet<string> = new Set(
  *   board — a silently-wrong answer where the invocation used to be a hard
  *   unknown-flag error. `list`/`next` cap with `-n, --limit`, which is where
  *   the hint sends the caller.
+ * - `--parent` sets the owning node at creation (`create initiative/phase/task`)
+ *   or when `promote` spawns a task from a seed. In the shared table it would
+ *   otherwise make `mimir list --parent MMR-2` exit 0 with the FULL unfiltered
+ *   board (MMR-360) — the exact `--offset` failure shape above, one flag over.
+ *   The uniform selector `--eq parent:KEY` is where the hint sends `list`/`next`
+ *   callers.
+ * - The MMR-360 sweep found the same shape wherever a write-owned flag's
+ *   spelling doubles as a `QUERY_FIELDS` name (`query.ts`): `--title`
+ *   (update/attach/promote/scratch), `--summary` (create/update/attach/
+ *   scratch), `--target` (create/update, phases only), `--ref`
+ *   (create/update, the `external_ref` field), `--upstream` (create/update,
+ *   plus `setup`'s unrelated snapshot-remote reuse of the same spelling),
+ *   and the four resume handles `--host`/`--harness`/`--session`/`--branch`
+ *   (create/update/start).
+ *   `mimir list --host my-branch` used to exit 0 with the FULL board for the
+ *   identical reason `--parent` did; each redirects to its own `--eq
+ *   FIELD:VALUE`.
+ * - `--project` has no `QUERY_FIELDS` counterpart, but it is not a harmless
+ *   no-op like `--name`/`--key` below: `attach` (associate an artifact),
+ *   `seed` (file against another board), and `seeds` (scope the queue to one
+ *   board, or `all`) all read it as a real filter/selector. A caller who has
+ *   just scoped `mimir seeds --project MMR` reasonably expects `mimir list
+ *   --project MMR` to scope the same way; instead it used to exit 0 with the
+ *   FULL cross-project board — a silently BROADER answer read as a
+ *   per-project one, the same hazard as `--parent` in the opposite direction.
+ *   `list`/`next` already own a real project scope, `-s, --scope KEY`, so
+ *   that is where the hint sends the caller instead of a nonexistent `--eq`.
+ * - `--requester` is `seeds`' own filter (seeds a board requested elsewhere);
+ *   it has no `QUERY_FIELDS` counterpart either (tasks carry no requester),
+ *   but the same "looks like a working filter on a sibling verb" hazard
+ *   applies, so it is guarded to `seeds` alone rather than left to silently
+ *   no-op on `list`/`next`.
+ *   Flags with no query-field counterpart AND no life as a filter on any
+ *   verb — `--name`, `--key`, `--kind` (`seed`'s required classification,
+ *   never used to filter the seed queue — `listSeeds` has no `kind` option),
+ *   and `--desc` (`description` is deliberately unqueryable, MMR-162) — stay
+ *   unguarded: a stray one is a genuine no-op, not a silently narrowed (or
+ *   broadened) answer masquerading as a filter.
  *
  * - `--tz`, `--at-or-before`, and `--at-or-after` belong to the four query
  *   verbs (ADR 0029). `--tz` names the caller's zone for both halves of a
@@ -280,6 +318,18 @@ type OwnedFlagValues = {
   offset?: string;
   query?: string;
   reason?: string;
+  parent?: string;
+  title?: string;
+  summary?: string;
+  target?: string;
+  ref?: string;
+  upstream?: string;
+  host?: string;
+  harness?: string;
+  session?: string;
+  branch?: string;
+  project?: string;
+  requester?: string;
 };
 
 /** No verb owns a tombstoned flag — every use is a usage error with a redirect. */
@@ -377,6 +427,82 @@ const VERB_OWNED_FLAGS: readonly {
     given: (values) => values.query !== undefined,
     hint: `'-q, --query' searches titles; use it with artifacts, list, or next`,
     owner: ['artifacts', 'list', 'next'],
+  },
+  {
+    flag: '--parent',
+    given: (values) => values.parent !== undefined,
+    hint: `'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'`,
+    owner: ['create', 'promote'],
+  },
+  // The MMR-360 sweep (see the doc comment above) — every remaining
+  // `QUERY_FIELDS` name that also spells a write-owned flag.
+  {
+    flag: '--title',
+    given: (values) => values.title !== undefined,
+    hint: `'--title' is a positional at create (mimir create task <title> …); the flag names a node at update/attach/scratch, or overrides promote's spawned title; list/next filter with '--eq title:KEY' or search with '-q, --query'`,
+    owner: ['update', 'attach', 'promote', 'scratch'],
+  },
+  {
+    flag: '--summary',
+    given: (values) => values.summary !== undefined,
+    hint: `'--summary' sets the summary at create/update/attach/scratch; list/next filter with '--eq summary:KEY'`,
+    owner: ['create', 'update', 'attach', 'scratch'],
+  },
+  {
+    flag: '--target',
+    given: (values) => values.target !== undefined,
+    hint: `'--target' sets a phase's target at create/update; list/next filter with '--eq target:KEY'`,
+    owner: ['create', 'update'],
+  },
+  {
+    flag: '--ref',
+    given: (values) => values.ref !== undefined,
+    hint: `'--ref' sets external_ref at create/update; list/next filter with '--eq external_ref:KEY'`,
+    owner: ['create', 'update'],
+  },
+  {
+    flag: '--upstream',
+    given: (values) => values.upstream !== undefined,
+    hint: `'--upstream' sets the requester-side seed pointer at create/update (or the snapshot git remote at setup); list/next filter the task field with '--eq upstream:KEY'`,
+    owner: ['create', 'update', 'setup'],
+  },
+  {
+    flag: '--host',
+    given: (values) => values.host !== undefined,
+    hint: `'--host' sets a resume handle at create/update/start; list/next filter with '--eq host:KEY'`,
+    owner: ['create', 'update', 'start'],
+  },
+  {
+    flag: '--harness',
+    given: (values) => values.harness !== undefined,
+    hint: `'--harness' sets a resume handle at create/update/start; list/next filter with '--eq harness:KEY'`,
+    owner: ['create', 'update', 'start'],
+  },
+  {
+    flag: '--session',
+    given: (values) => values.session !== undefined,
+    hint: `'--session' sets a resume handle at create/update/start; list/next filter with '--eq session:KEY'`,
+    owner: ['create', 'update', 'start'],
+  },
+  {
+    flag: '--branch',
+    given: (values) => values.branch !== undefined,
+    hint: `'--branch' sets a resume handle at create/update/start; list/next filter with '--eq branch:KEY'`,
+    owner: ['create', 'update', 'start'],
+  },
+  // `--project` and `--requester` have no `QUERY_FIELDS` counterpart, but each
+  // is a real filter/selector on a sibling verb — see the doc comment above.
+  {
+    flag: '--project',
+    given: (values) => values.project !== undefined,
+    hint: `'--project' targets attach/seed/seeds; list/next scope a project with '-s, --scope KEY'`,
+    owner: ['attach', 'seed', 'seeds'],
+  },
+  {
+    flag: '--requester',
+    given: (values) => values.requester !== undefined,
+    hint: `'--requester' filters seeds a board requested; use it with seeds`,
+    owner: 'seeds',
   },
 ];
 
