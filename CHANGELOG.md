@@ -13,6 +13,174 @@ and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
+## v0.18.0 - 2026-08-06
+
+### Added
+
+- **Establish Scratchpad persistence** (MMR-329). Add the validated Scratchpad, Journal, and Agenda document schema, an exact-ID storage seam, Norn-backed persistence, and doctor diagnostics for quarantined structure and recoverable anchor problems.
+- **Add the canonical Scratchpad lifecycle service** (MMR-330). Centralize working mutations, staged retry-safe freeze into a self-contained Artifact with `source_scratch` provenance, and guarded discard behind one storage-neutral service for thin transport reuse.
+- **Agent-facing Scratchpad workflow** (MMR-331). Added the `mimir scratch`
+  command group and matching `scratch_*` MCP tools with explicit stale-write
+  guards, compact mutation receipts, full resume reads, recoverable freeze and
+  safe discard flows, plus active Scratchpad discovery in `mimir overview`.
+- **Scratchpad HTTP resource parity** (MMR-332). Add strict collection, detail,
+  checkpoint, Agenda, freeze, and discard routes over the canonical
+  `ScratchpadService`, including active Scratchpads in the HTTP Overview.
+- **CLI and MCP task queries now support title-substring search** (MMR-339). `list` and `next` accept a case-insensitive `q` filter, exposed as `-q`/`--query` on the CLI, matching the existing core and HTTP behavior.
+- **`mimir doctor` detects non-canonical stored timestamps, and `--fix` repairs
+  the ones that can be repaired** (MMR-351). Two classes, decided when the
+  finding is made and never re-decided at repair time. A value that names its
+  instant — an offset zone, an absent millisecond, extra precision, and the
+  space-separated and colon-less-offset spellings norn and the annotation
+  reader already accept — is an `error` finding (`non-canonical-timestamp`)
+  that `--fix` rewrites under a compare-and-set on the observed value. A **zone-less or malformed** value
+  names none: `uninterpretable-timestamp` is reported as corruption and
+  deliberately skipped as `requires-explicit-correction`, since reading it as
+  UTC or as the host's local time would bake a silently wrong instant in
+  forever. Both classes are scanned on every timestamp field of every document
+  kind doctor can see, and on the `### <ISO timestamp>` headings of `## History`
+  and `## Annotations` records
+  (`non-canonical-record-timestamp` / `uninterpretable-record-timestamp`), whose
+  values feed the same string comparisons. A missing or nulled stamp is
+  unchanged territory — it stays the `missing-updated-at` check's story. A
+  Scratchpad whose stored stamp is a repairable variant now routes to the
+  repairable finding rather than being pinned unreadable.
+
+### Changed
+
+- **Date queries now speak one caller-zoned grammar on every surface**
+  (MMR-349, [ADR 0029](docs/decisions/0029-caller-zoned-date-semantics.md)).
+  Five operators over `FIELD:VALUE` tokens — `--on`, `--before`, `--after`,
+  `--at-or-before`, `--at-or-after` — are the whole date vocabulary, and they
+  reach every date-bearing resource: the three node timestamps on `list`/`next`, an artifact's
+  `created_at`, and — new — a seed's `created_at`. A bare `YYYY-MM-DD` is the
+  **caller's** calendar day, resolved through one request-wide IANA timezone:
+  `--tz` on the CLI (defaulting to the invoking machine's zone), a `tz`
+  argument on MCP, a `tz` query param on HTTP, and the browser's own zone from
+  the console. Day windows are half-open and carry the real 23-, 24-, or
+  25-hour length a timezone's rules produce, so nothing synthesizes a
+  `23:59:59.999` bound. Timestamps must carry `Z` or a numeric offset and
+  normalize to canonical ISO-ms UTC. Resolution and comparison live in one core
+  module — no transport does date arithmetic of its own.
+- **The console's artifact date filters are no longer off by a timezone**
+  (MMR-349). A day picked in the browser was sent bare and read as a UTC day
+  server-side, shifting the window by the viewer's offset; the console now
+  sends its detected IANA zone alongside the dates. Its URL search params are
+  renamed with them: `/artifacts?since=&before=` are now
+  `/artifacts?atOrAfter=&atOrBefore=`. A bookmarked or shared link using the
+  old keys still opens the browser, with those two filters dropped rather than
+  applied — re-pick the dates.
+- **An unreadable date bound is a refusal, not an empty set** (MMR-349).
+  `created_at:notadate` used to compile to a warning and zero rows, and
+  `created_at:2026-02-30` silently rolled forward to March 2 — a bound nobody
+  asked for. Both are now validation errors, as are zone-less timestamps and
+  (on MCP and HTTP) a bare date sent with no timezone.
+- **Human-facing timestamps now read in the reader's own timezone** (MMR-350,
+  [ADR 0029](docs/decisions/0029-caller-zoned-date-semantics.md)). Absolute
+  date-times render local wall clock and carry a visible zone label —
+  `completed  2026-08-05 09:14 EDT`, or a GMT offset where the zone has no
+  abbreviation — instead of the raw UTC instant they used to print. A bare
+  calendar day (the artifact table's one-liner, the console's ❄ / FROZEN
+  microlabels) renders as the reader's own local day, with no label to carry:
+  a date is not an instant. Dense rows take relative time instead: the seed
+  queue's age column, the artifact feed, the scratchpad listings, and
+  `overview`'s active scratchpads now read `3h` / `6d` / `8w` / `10mo` / `3y`.
+  An `overview` session window compacts to one reading with its label stated
+  once (`2026-08-05 09:14 → 09:43 EDT`), keeping both dates only when the window
+  crosses local midnight. `mimir service status`'s recent-events lines read local
+  too, though the event log itself is unchanged.
+- **`-f json` / `jsonl` / `ids`, MCP, and the HTTP API are untouched** (MMR-350).
+  The machine contract, the service event log, and the vault's own markdown all
+  remain canonical UTC ISO instants, byte for byte — only the styled `table` and
+  `records` formats and the console changed. A Scratchpad's `updated_at` is the
+  concurrency token callers echo back to `--expected-updated-at`, not a reading,
+  so it stays canonical on every format too. `--tz` now names the caller's zone
+  for both halves of a query — the calendar day a bare date means, and the wall
+  clock the styled formats render it in — so `mimir list --on … --tz Asia/Tokyo`
+  no longer reports a Tokyo-day answer in the invoking machine's zone.
+- **The canonical timestamp is now an invariant of stored data, not just of
+  writes** (MMR-351,
+  [ADR 0029](docs/decisions/0029-caller-zoned-date-semantics.md)). Every
+  timestamp frontmatter field, on every document kind, is ISO-8601 UTC with
+  millisecond precision and an explicit `Z`, as are the `### <ISO timestamp>`
+  headings of `## History` and `## Annotations` records — because the query
+  paths, the annotation sort, and the transition feed's cursor all compare
+  stored stamps as **raw strings**, and an offset form or a missing millisecond
+  sorts wrongly against every canonical stamp beside it.
+  Norn's `datetime` type accepts those variants, so the invariant is enforced
+  above it. The vault schema advances to v9 (a v8 binary refuses a v9 vault),
+  and converge rewrites the variants that state their instant across every
+  document kind: node, project, seed, artifact, and Scratchpad frontmatter.
+- **Updated the full dependency set** (MMR-353). Current releases now drive the CLI, MCP server, console, build, test, lint, and formatting toolchains; the shared tooling configuration uses its current plugin and test-helper APIs.
+- **Scratchpad Journal timestamps now obey the canonical persisted-instant
+  invariant** (MMR-352). Doctor classifies zoned variants as repairable and
+  malformed or zone-less values as requiring explicit correction; `--fix`
+  rewrites repairable headings under whole-document CAS without changing their
+  Journal number. Vault schema 10 applies the same normalization while
+  converging older Scratchpads.
+- **Richer deterministic demo workspace** (MMR-373). The owned fixture generator now creates a five-project fictional portfolio with archived work, direction prose, broader Artifact coverage, and stable state for documentation screenshots.
+- **Console updates are now operator-controlled and form-safe** (MMR-369).
+  New app shells install in the background without reloading open tabs; each
+  tab keeps its current DOM and unsaved input until its operator chooses the
+  persistent refresh action. Installed consoles check on focus, reconnect,
+  visibility return, and a bounded interval, while the version footer and
+  standalone header route through the same update controller. The app-shell
+  precache is now asserted complete and duplicate-free. The serial two-build
+  Chromium harness provides local and manual release verification for cross-tab
+  activation, explicit refresh, offline launch, and reconnect.
+
+### Removed
+
+- **The retired date spellings are gone, with no aliases** (MMR-349). This is a
+  breaking change: `--not-before` / `--not-after` are now `--at-or-after` /
+  `--at-or-before`, and the artifact feed's `--since` / `--before <date>` window
+  is replaced by the shared `created_at` date ops. The MCP `notBefore` /
+  `notAfter` / `since` arguments and the HTTP `not-before` / `not-after` /
+  `since` query params go with them, as do the console's `?since=` / `?before=`
+  URL search params. Every retired spelling is refused by name with the
+  replacement in the hint — never silently ignored; the HTTP API refuses the
+  camelCase spellings (`atOrAfter`, `atOrBefore`) the same way, since an
+  unrecognized query param would otherwise return the unfiltered set.
+  (`GET /api/transitions?since=` is untouched: that `since` is an opaque
+  cursor, not a date filter.)
+
+### Fixed
+
+- **Service status now validates daemon health responses** (MMR-337). Malformed or foreign payloads at `/api/health` fail soft as no response instead of reaching version comparison through an unchecked cast.
+- **HTTP artifact date filters now match CLI and MCP validation** (MMR-338). The artifact feed rejects malformed or impossible date bounds and canonicalizes accepted timestamps to UTC before filtering.
+- **Runtime safety boundaries now fail closed** (MMR-341, MMR-342). Only the literal production build profile can access production defaults, and stable self-update rejects malformed release redirect tags before version comparison.
+- **The console's archived-project ❄ date was a UTC slice** (MMR-350). A project
+  archived at 02:00Z showed the _following_ day to any reader west of UTC; the
+  shelf now renders the reader's own calendar day, like every other date in the
+  console. The drawer's `created` / `updated` / `completed` rows also gained the
+  zone label they were missing.
+- **`create` surfaces the `--` escape hatch for a leading-dash title** (MMR-359). A title like `--weird-title` used to parse as an unknown flag with no way out; the missing-title and unknown-flag failures on `create` now hint at the already-supported `--` option terminator, and `create task --help` shows a worked example.
+- **Annotation bodies were unreadable in every human view of `mimir get`** —
+  the styled `records` view showed only a count (`annotations  3`), forcing
+  `-f json | jq` just to read a note back (MMR-361). `mimir get KEY --col
+  annotations` now expands every annotation with its timestamp and content, in
+  stable chronological order — one entry per line, with any wrapped or
+  multi-line body indented under it, since (unlike `--col history`'s terse
+  machine tokens) annotation prose can itself contain `; ` or span multiple
+  lines. The default `get` output is unchanged — it still leads with the
+  compact count. Machine formats (`-f json`/`jsonl`/`ids`), MCP, and the HTTP
+  API were already structured and stay byte-for-byte unchanged.
+- **`list`/`next` reject create/update-owned flags instead of silently ignoring them** (MMR-360). `mimir list --parent KEY` used to exit 0 with the FULL unfiltered board — the flag is create/promote's own selector, parsed through the one shared options table but never read by `list`/`next`. The verb-owned flag guard (MMR-321/MMR-322) now covers `--parent` plus every other write-owned flag whose spelling doubles as a query field (`--title`, `--summary`, `--target`, `--ref`, `--upstream`, `--host`, `--harness`, `--session`, `--branch`): a mismatched verb exits 2 with no stdout and a hint pointing at the uniform `--eq FIELD:KEY` selector, refused before any query runs or the store opens. The guard also covers `--project` (attach/seed/seeds' board selector) and `--requester` (seeds' own filter) — neither has a `QUERY_FIELDS` counterpart, but each is a real filter on a sibling verb, and `mimir list --project KEY` used to exit 0 with the FULL cross-project board instead of the per-project one the invocation looks like; both redirect to the real selectors (`-s, --scope KEY`, `seeds`) instead of a nonexistent `--eq`.
+- **The embedded agent skill now teaches the Scratchpad** (MMR-375). The skill
+  shipped in the binary ([ADR 0024](docs/decisions/0024-cli-command-taxonomy.md)'s
+  no-skew guarantee) had no coverage of the cycle's headline feature: a new
+  `references/scratchpad.md` teaches the episode lifecycle — create,
+  checkpoint, Agenda, the `--expected-updated-at` token discipline, resume via
+  `overview`, and the freeze/discard endings ([ADR 0027](docs/decisions/0027-scratchpads-are-temporary-episode-state.md),
+  [ADR 0028](docs/decisions/0028-scratchpads-use-a-work-noun-group.md)) — and
+  the `overview` facet lists in `SKILL.md` and `references/querying.md` now
+  include **active scratchpads**, matching what the command actually prints.
+  `finishing.md` reconciles the retrospective paths: a session that ran on a
+  Scratchpad freezes it (`-t session_summary`) rather than attaching a
+  parallel file. Two smaller teaching gaps close with it: clearing a task's
+  seed pointer with the literal `--upstream none` sentinel (MMR-301), and the
+  `--` terminator for a leading-dash `create` title (MMR-359).
+
 ## v0.17.0 - 2026-08-02
 
 ### Added
