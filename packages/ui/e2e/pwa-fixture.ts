@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os';
 import { dirname, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { assertPrecache } from '../scripts/assert-precache';
+
 const UI_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..');
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -39,6 +41,7 @@ async function build(root: string, version: string): Promise<void> {
       }
     });
   });
+  await assertPrecache(root);
 }
 
 export class PwaFixture {
@@ -118,13 +121,39 @@ export class PwaFixture {
         status: 200,
       };
     }
+    if (path === '/api/projects') {
+      return {
+        body: JSON.stringify({
+          items: [
+            {
+              attention: {
+                lane: 'live',
+                last_activity: '2026-08-06T12:00:00.000Z',
+                stale: false,
+              },
+              created_at: '2026-08-06T12:00:00.000Z',
+              distribution: {},
+              id: 'PWA',
+              leaf_counts: { ready: 1 },
+              parent: null,
+              status: 'in_progress',
+              title: 'Offline-ready operator project',
+              type: 'project',
+              updated_at: '2026-08-06T12:00:00.000Z',
+            },
+          ],
+          total: 1,
+        }),
+        status: 200,
+      };
+    }
     return { body: JSON.stringify({ items: [], total: 0 }), status: 200 };
   }
 
   private async respond(pathWithQuery: string, response: ServerResponse) {
     const url = new URL(pathWithQuery, this.origin);
     if (url.pathname.startsWith('/api/')) {
-      const result = this.api(url.pathname);
+      const result = this.api(`${url.pathname}${url.search}`);
       response.writeHead(result.status, {
         'cache-control': 'no-store',
         'content-type': 'application/json; charset=utf-8',
@@ -167,11 +196,5 @@ export class PwaFixture {
 }
 
 export async function precacheUrls(buildRoot: string): Promise<string[]> {
-  const worker = await readFile(resolvePath(buildRoot, 'sw.js'), 'utf8');
-  const start = worker.indexOf('precacheAndRoute([');
-  const end = worker.indexOf('],{})', start);
-  if (start === -1 || end === -1) {
-    throw new Error('generated worker has no precache manifest');
-  }
-  return [...worker.slice(start, end).matchAll(/\{url:"([^"]+)"/g)].map((match) => match[1]);
+  return assertPrecache(buildRoot);
 }

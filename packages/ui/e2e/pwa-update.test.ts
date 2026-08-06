@@ -6,11 +6,13 @@ test.describe.configure({ mode: 'serial' });
 
 test('two builds defer updates per tab and preserve offline operation', async ({ context }) => {
   const fixture = await PwaFixture.create();
+  const cachedProjectTitle = 'Offline-ready operator project';
   try {
     const pageA = await context.newPage();
     await pageA.goto(fixture.origin);
     await pageA.evaluate(() => navigator.serviceWorker.ready);
     await expect(pageA.getByRole('status').filter({ hasText: 'Update' })).toHaveCount(0);
+    await expect(pageA.getByText(cachedProjectTitle, { exact: true })).toBeVisible();
 
     await pageA.getByRole('button', { name: 'New project' }).first().click();
     const title = pageA.getByRole('dialog').getByLabel('Title');
@@ -45,6 +47,7 @@ test('two builds defer updates per tab and preserve offline operation', async ({
       await expect(pageA.getByRole('status').filter({ hasText: 'Offline' })).toBeVisible({
         timeout: 20_000,
       });
+      await expect(pageA.getByText(cachedProjectTitle, { exact: true })).toBeVisible();
       await expect(pageA.getByRole('button', { name: 'New project' }).first()).toBeDisabled();
 
       await context.setOffline(false);
