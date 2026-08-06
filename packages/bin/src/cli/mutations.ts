@@ -68,7 +68,7 @@ import type {
 } from '../core';
 import { arrow, ok } from '../presentation';
 import type { Format, Io } from '../presentation';
-import { usage } from './errors';
+import { CREATE_DASH_TITLE_HINT, usage } from './errors';
 import { callerTimeZone, parseDateFilters, parsePriority, parseSize } from './parse';
 import {
   renderArtifactDetail,
@@ -94,10 +94,16 @@ export type Ctx = {
 };
 
 /** Assert that positional at index `i` is present and non-blank, else throw a usage error. */
-export function requirePos(c: Ctx, i: number, verb: string, noun = 'an id (KEY-seq)'): string {
+export function requirePos(
+  c: Ctx,
+  i: number,
+  verb: string,
+  noun = 'an id (KEY-seq)',
+  hint?: string,
+): string {
   const v = c.positionals[i];
   if (v === undefined || v.trim() === '') {
-    throw usage(`${verb} requires ${noun}`);
+    throw usage(`${verb} requires ${noun}`, hint);
   }
   return v;
 }
@@ -820,7 +826,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       return 0;
     }
     case 'initiative': {
-      const title = requirePos(c, 2, 'create initiative', 'a title');
+      const title = requirePos(c, 2, 'create initiative', 'a title', CREATE_DASH_TITLE_HINT);
       const node = await createNode(c.store, {
         description: optStr(c, 'desc'),
         openEnded: openEndedFlag(c),
@@ -839,7 +845,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       return 0;
     }
     case 'phase': {
-      const title = requirePos(c, 2, 'create phase', 'a title');
+      const title = requirePos(c, 2, 'create phase', 'a title', CREATE_DASH_TITLE_HINT);
       const node = await createNode(c.store, {
         description: optStr(c, 'desc'),
         openEnded: openEndedFlag(c),
@@ -860,7 +866,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       return 0;
     }
     case 'task': {
-      const title = requirePos(c, 2, 'create task', 'a title');
+      const title = requirePos(c, 2, 'create task', 'a title', CREATE_DASH_TITLE_HINT);
       const node = await createNode(c.store, {
         description: optStr(c, 'desc'),
         externalRef: optStr(c, 'ref'),

@@ -759,7 +759,10 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   },
   'create task': {
     args: [['<title>', 'task title']],
-    examples: ['mimir create task "wire the API" --parent MMR-2 --priority p1'],
+    examples: [
+      'mimir create task "wire the API" --parent MMR-2 --priority p1',
+      'mimir create task --parent MMR-2 -- --weird-title   # leading-dash title, after the -- terminator',
+    ],
     flags: [
       ['--parent <id>', 'the owning phase or initiative (KEY-seq, required)'],
       ['--priority <p0..p3>', 'priority signal'],

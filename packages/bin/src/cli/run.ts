@@ -55,7 +55,14 @@ import type { ServiceDeps } from '../service';
 import { cmdVault } from '../vault/commands';
 import type { VaultDeps } from '../vault/commands';
 import { BINDING_FILE, writeBinding } from './binding';
-import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from './errors';
+import {
+  CREATE_DASH_TITLE_HINT,
+  exitCodeFor,
+  isRenderable,
+  renderError,
+  renderWarnings,
+  usage,
+} from './errors';
 import type { UsageError } from './errors';
 import { COMMAND_HELP, helpForCommand, renderFullHelp, renderTerseHelp } from './help';
 import {
@@ -630,11 +637,12 @@ export async function runCli(
     // is the primary fault — surface its typo hint — otherwise it's a genuine
     // flag error on a known verb, so synthesize house voice for it and point
     // at THAT verb's help (MMR-211, MMR-289).
-    const command = lenientCommand(argv);
+    const lenient = lenientPositionals(argv);
+    const command = lenient[0];
     if (command !== undefined && !COMMANDS.has(command)) {
       return renderUnknownCommand(command, argv, io);
     }
-    renderError(synthesizeParseError(error, command), errorFormat(argv), io);
+    renderError(synthesizeParseError(error, command, lenient), errorFormat(argv), io);
     return 2;
   }
 
@@ -1165,18 +1173,21 @@ function nearest(input: string, candidates: Iterable<string>): string | undefine
 }
 
 /**
- * Recover the command (first positional) without throwing on unknown flags — a
- * lenient parse for the error paths, where the strict parse has already failed
- * and we still need to know which verb was invoked (MMR-211). Lenient parsing
- * still honors known value-taking flags, so a flag's value is never mistaken for
- * the verb (`mimir -s alpha get --bad` → `get`, not `alpha`).
+ * Recover the positionals without throwing on unknown flags — a lenient parse
+ * for the error paths, where the strict parse has already failed and we still
+ * need to know which verb was invoked (MMR-211), plus, for `create`, whether
+ * a title/name positional already made it through the flags (MMR-359: gates
+ * the leading-dash-title hint to only the invocations where nothing did).
+ * Lenient parsing still honors known value-taking flags, so a flag's value is
+ * never mistaken for a positional (`mimir -s alpha get --bad` → `get`, not
+ * `alpha`).
  */
-function lenientCommand(argv: string[]): string | undefined {
+function lenientPositionals(argv: string[]): string[] {
   try {
     return parseArgs({ allowPositionals: true, args: argv, options: OPTIONS, strict: false })
-      .positionals[0];
+      .positionals;
   } catch {
-    return argv.find((arg) => !arg.startsWith('-'));
+    return argv.filter((arg) => !arg.startsWith('-'));
   }
 }
 
@@ -1228,8 +1239,18 @@ function canonicalFlag(flag: string): string {
  * exists in FLAG_SPELLINGS, else the verb's own help pointer (rung 3) — there
  * is no statable fix (rung 1) for a parse failure, since the intended value is
  * unknowable.
+ *
+ * `positionals` is the lenient reparse's recovered positionals (verb +
+ * whatever survived) — `create`'s rung 3 only narrows to the leading-dash
+ * hint when none of them landed past the type, i.e. no title/name positional
+ * made it through (MMR-359). A title already present means the unknown flag
+ * is a genuine typo elsewhere in the invocation, not a swallowed title.
  */
-function synthesizeParseError(error: unknown, command: string | undefined): UsageError {
+function synthesizeParseError(
+  error: unknown,
+  command: string | undefined,
+  positionals: readonly string[],
+): UsageError {
   const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
   const message = error instanceof Error ? error.message : String(error);
   const help =
@@ -1243,9 +1264,17 @@ function synthesizeParseError(error: unknown, command: string | undefined): Usag
       // Short aliases stay in the candidate pool (a short typo is nearest to a
       // short spelling) but the suggestion always names the canonical long flag.
       const near = nearest(flag, FLAG_SPELLINGS);
+      // MMR-359: an unknown "flag" on `create` with no near match and no
+      // title/name positional recovered (verb + type only — nothing past
+      // that survived the lenient reparse) is more often a leading-dash
+      // title than a typo — a genuine near-miss (rung 2) still wins, since
+      // that's the more specific fix, and a title that already made it
+      // through is proof this isn't a swallowed-title failure at all.
+      const isDashTitleCandidate = command === 'create' && positionals.length <= 2;
+      const fallback = isDashTitleCandidate ? CREATE_DASH_TITLE_HINT : help;
       return usage(
         `unknown flag '${flag}'`,
-        near !== undefined ? `did you mean '${canonicalFlag(near)}'?` : help,
+        near !== undefined ? `did you mean '${canonicalFlag(near)}'?` : fallback,
       );
     }
   }
