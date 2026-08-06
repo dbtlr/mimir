@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { parseJson } from '@mimir/helpers';
 
 import {
+  annotate,
   attachArtifact,
   blockTask,
   completeTask,
@@ -973,6 +974,98 @@ test.skipIf(!NORN)(
     const err = io.err.join('');
     expect(err).toContain('always shown');
     expect(err).not.toContain('unknown column'); // the tailored hint, not the generic one
+  },
+);
+
+// annotation-body expansion (MMR-361): the default `get` stays the compact
+// count; `--col annotations` expands every entry, styled formats only —
+// machine formats already carry the full structured array, unchanged.
+
+test.skipIf(!NORN)(
+  'get: zero annotations — no --col annotations row, count or expanded',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+
+    const bare = fakeIo(false);
+    await runCli(['get', ref], () => store, bare);
+    expect(bare.out.join('')).not.toContain('annotations');
+
+    const expanded = fakeIo(false);
+    await runCli(['get', ref, '--col', 'annotations'], () => store, expanded);
+    expect(expanded.out.join('')).not.toContain('annotations');
+  },
+);
+
+test.skipIf(!NORN)('get: default records shows the compact count, never the body', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const ref = `MMR-${String(t.seq)}`;
+  const id = await nodeIdOf(store, ref);
+  await annotate(store, id, 'spun the edge case out to a follow-up');
+
+  const io = fakeIo(false);
+  await runCli(['get', ref], () => store, io);
+  const text = io.out.join('');
+  expect(text).toContain('annotations  1');
+  expect(text).not.toContain('spun the edge case out');
+});
+
+test.skipIf(!NORN)(
+  'get --col annotations: one annotation expands with its timestamp and content',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const id = await nodeIdOf(store, ref);
+    await annotate(store, id, 'solo note');
+
+    const io = fakeIo(false);
+    await runCli(['get', ref, '--col', 'annotations'], () => store, io);
+    const text = io.out.join('');
+    expect(text).toContain('solo note');
+    // A timestamp accompanies the body — not just the bare content.
+    expect(text).toMatch(/annotations\s+\d{4}-\d{2}-\d{2}/);
+  },
+);
+
+test.skipIf(!NORN)(
+  'get --col annotations: multiple annotations expand in stable chronological order',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const id = await nodeIdOf(store, ref);
+    await annotate(store, id, 'first note');
+    await annotate(store, id, 'second note');
+    await annotate(store, id, 'third note');
+
+    const io = fakeIo(false);
+    await runCli(['get', ref, '--col', 'annotations'], () => store, io);
+    const text = io.out.join('');
+    const line = text.split('\n').find((l) => l.includes('annotations'));
+    expect(line).toBeDefined();
+    const firstAt = line?.indexOf('first note') ?? -1;
+    const secondAt = line?.indexOf('second note') ?? -1;
+    const thirdAt = line?.indexOf('third note') ?? -1;
+    expect(firstAt).toBeGreaterThan(-1);
+    expect(firstAt).toBeLessThan(secondAt);
+    expect(secondAt).toBeLessThan(thirdAt);
+  },
+);
+
+test.skipIf(!NORN)(
+  '--col annotations leaves json/jsonl/ids byte-for-byte unchanged (MMR-361)',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const id = await nodeIdOf(store, ref);
+    await annotate(store, id, 'a machine-format note');
+
+    for (const format of ['json', 'jsonl', 'ids'] as const) {
+      const withCol = fakeIo(false);
+      await runCli(['get', ref, '--col', 'annotations', '-f', format], () => store, withCol);
+      const bare = fakeIo(false);
+      await runCli(['get', ref, '-f', format], () => store, bare);
+      expect(withCol.out.join('')).toBe(bare.out.join(''));
+    }
   },
 );
 

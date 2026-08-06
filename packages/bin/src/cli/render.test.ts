@@ -315,3 +315,67 @@ test('renderTable: empty set on a non-TTY keeps the bare count line only (MMR-95
   // Count line is still present (it's informational, not a message leak)
   expect(text).toContain('0 tasks');
 });
+
+// ─── Annotation-body expansion (MMR-361) ────────────────────────────────────
+//
+// The default `records` view keeps the compact count (annotation bodies are
+// otherwise unreadable in any human view); `expandAnnotations` (the `get
+// --col annotations` opt-in) prints every entry with its timestamp and
+// content, mirroring how the `history` facet already expands its row.
+
+test('records: no annotations facet at all — the row is absent, expanded or not (MMR-361)', () => {
+  const withoutFacet = task({ annotations: undefined });
+  expect(renderRecords(withoutFacet, fakeIo(false))).not.toContain('annotations');
+  expect(renderRecords(withoutFacet, fakeIo(false), true)).not.toContain('annotations');
+});
+
+test('records: zero annotations — the row is absent, expanded or not (MMR-361)', () => {
+  const zero = task({ annotations: [] });
+  expect(renderRecords(zero, fakeIo(false))).not.toContain('annotations');
+  expect(renderRecords(zero, fakeIo(false), true)).not.toContain('annotations');
+});
+
+test('records: default view shows the compact count, never the body (MMR-361)', () => {
+  const withAnnotations = task({
+    annotations: [
+      { content: 'first note', createdAt: '2026-08-05T13:14:00.000Z' },
+      { content: 'second note', createdAt: '2026-08-06T13:14:00.000Z' },
+    ],
+  });
+  const text = renderRecords(withAnnotations, fakeIo(false));
+  expect(text).toContain('annotations  2');
+  expect(text).not.toContain('first note');
+  expect(text).not.toContain('second note');
+});
+
+test('records: one annotation — --col annotations expands its timestamp and content (MMR-361)', () => {
+  const one = task({
+    annotations: [{ content: 'solo note', createdAt: '2026-08-05T13:14:00.000Z' }],
+  });
+  const text = renderRecords(one, fakeIo(false), true);
+  expect(text).toContain('2026-08-05 09:14 EDT');
+  expect(text).toContain('solo note');
+  expect(text).not.toMatch(RAW_ISO);
+});
+
+test('records: multiple annotations expand in stable chronological order (MMR-361)', () => {
+  const many = task({
+    annotations: [
+      { content: 'oldest', createdAt: '2026-08-05T13:14:00.000Z' },
+      { content: 'middle', createdAt: '2026-08-06T13:14:00.000Z' },
+      { content: 'newest', createdAt: '2026-08-07T13:14:00.000Z' },
+    ],
+  });
+  const text = renderRecords(many, fakeIo(false), true);
+  const line = text.split('\n').find((l) => l.includes('annotations'));
+  expect(line).toBeDefined();
+  const oldestAt = line?.indexOf('oldest') ?? -1;
+  const middleAt = line?.indexOf('middle') ?? -1;
+  const newestAt = line?.indexOf('newest') ?? -1;
+  expect(oldestAt).toBeGreaterThan(-1);
+  expect(oldestAt).toBeLessThan(middleAt);
+  expect(middleAt).toBeLessThan(newestAt);
+  expect(text).toContain('2026-08-05 09:14 EDT');
+  expect(text).toContain('2026-08-06 09:14 EDT');
+  expect(text).toContain('2026-08-07 09:14 EDT');
+});

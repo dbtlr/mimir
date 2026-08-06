@@ -689,7 +689,10 @@ export async function runCli(
         const node = await getNode(await getStore(), id, {
           facets: facets.length > 0 ? [...new Set([...CHEAP_FACETS, ...facets])] : undefined,
         });
-        return renderSingle(node, values.format, ctx);
+        // `annotations` rides CHEAP_FACETS (always fetched), so its presence on
+        // `node` can't signal an explicit ask the way `history`'s absence-by-
+        // default does — read the raw `--col` list instead (MMR-361).
+        return renderSingle(node, values.format, ctx, facets.includes('annotations'));
       }
       case 'status': {
         const id = requireId(positionals[1], 'status');
@@ -1219,8 +1222,13 @@ function emitStderrNote(
   }
 }
 
-function renderSingle(node: NodeView, explicit: string | undefined, io: Io): number {
-  renderNodeView(node, pickFormat(explicit, 'single', io), io);
+function renderSingle(
+  node: NodeView,
+  explicit: string | undefined,
+  io: Io,
+  expandAnnotations = false,
+): number {
+  renderNodeView(node, pickFormat(explicit, 'single', io), io, expandAnnotations);
   return 0;
 }
 

@@ -179,8 +179,15 @@ function onwardHint(node: NodeView, io: Io): string {
   return buildOnwardHint(node.id, node.type !== 'task', io);
 }
 
-/** `records` — bold id header + aligned `label  value` rows, bare fields then facets. */
-export function renderRecords(node: NodeView, io: Io): string {
+/**
+ * `records` — bold id header + aligned `label  value` rows, bare fields then
+ * facets. `expandAnnotations` is the `--col annotations` opt-in (MMR-361):
+ * the default stays the compact count (`annotations  3`) — annotation
+ * bodies are otherwise unreadable in any human view — and `true` expands
+ * every entry with its timestamp and content, in the store's own
+ * chronological order, one row per node exactly like the `history` facet.
+ */
+export function renderRecords(node: NodeView, io: Io, expandAnnotations = false): string {
   const lines = [bold(node.id, io.plain)];
   const isContainer = node.type !== 'task';
   const rollupNote = isContainer ? rollupSignpost(node) : '';
@@ -294,7 +301,20 @@ export function renderRecords(node: NodeView, io: Io): string {
     pairs.push(['tags', node.tags.map((t) => t.tag).join(', ')]);
   }
   if (node.annotations !== undefined && node.annotations.length > 0) {
-    pairs.push(['annotations', String(node.annotations.length)]);
+    if (expandAnnotations) {
+      // Mirrors the `history` row below: one line, entries joined "; ", so the
+      // two facets read as one system. Each entry carries its own timestamp —
+      // `history`'s row doesn't, but a bare count is exactly what's unreadable
+      // here, so the expansion must show it.
+      pairs.push([
+        'annotations',
+        node.annotations
+          .map((a) => `${formatInstant(a.createdAt, io.zone)} — ${a.content}`)
+          .join('; '),
+      ]);
+    } else {
+      pairs.push(['annotations', String(node.annotations.length)]);
+    }
   }
   if (node.artifacts !== undefined && node.artifacts.length > 0) {
     pairs.push(['artifacts', String(node.artifacts.length)]);
@@ -330,9 +350,16 @@ export function renderRecords(node: NodeView, io: Io): string {
  * Render a single node to `io` in the given format. Exhaustive over all five
  * `Format` values — TypeScript enforces no gaps. No `default` branch so the
  * compiler catches any missing case (no import from `./errors` to avoid the
- * render↔errors import cycle).
+ * render↔errors import cycle). `expandAnnotations` rides through to
+ * `renderRecords` (MMR-361); machine formats (`json`/`jsonl`/`ids`) ignore it —
+ * they already carry the full `annotations` array, structured and unchanged.
  */
-export function renderNodeView(view: NodeView, format: Format, io: Io): void {
+export function renderNodeView(
+  view: NodeView,
+  format: Format,
+  io: Io,
+  expandAnnotations = false,
+): void {
   switch (format) {
     case 'json':
     case 'jsonl': {
@@ -348,7 +375,7 @@ export function renderNodeView(view: NodeView, format: Format, io: Io): void {
       break;
     }
     case 'records': {
-      io.write(renderRecords(view, io));
+      io.write(renderRecords(view, io, expandAnnotations));
       break;
     }
   }
