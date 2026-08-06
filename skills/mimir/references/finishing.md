@@ -66,6 +66,13 @@ mimir attach KEY-9 --file retro.md --title "Session summary" \
   and a lede/body that describes its share of the session.
 - At a standalone non-completion boundary that produced no durable
   retrospective, omit this piece rather than manufacturing activity.
+- **If the session ran on a Scratchpad, freeze it instead of attaching a
+  parallel file** — `mimir scratch freeze <uuid> --summary "…" -t
+  session_summary` turns the episode's own Journal and Agenda into the
+  retrospective artifact (`references/scratchpad.md`); the same lede
+  discipline applies. Two records of one session drift; the episode's memory
+  is the retrospective. `attach --file` remains the path for sessions that
+  ran without one.
 
 This piece stands alone: it may record planning, review, or investigation even
 when no lifecycle transition or direction edit occurred.

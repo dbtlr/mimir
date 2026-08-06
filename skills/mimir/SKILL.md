@@ -11,7 +11,10 @@ not the record; the board is. You read it and you keep it true, through the `mim
 CLI (drive it with shell commands; every example here is a real invocation).
 
 Work-state commands are **flat top-level verbs** — `done`, `list`, `next`, never
-`task done` — because this is the hot path, invoked constantly. A separate,
+`task done` — because this is the hot path, invoked constantly. One deliberate
+work-plane exception: `scratch <operation>` groups the temporary episode-state
+lifecycle under its noun, because a Scratchpad is UUID-addressed working memory,
+not a sequenced work entity (`references/scratchpad.md`). A separate,
 noun-grouped **machinery plane** (`service`, `vault`, `skill`) manages the
 installation itself (supervision, snapshots, distribution) and sits outside what
 this skill teaches.
@@ -35,9 +38,11 @@ the gate below BEFORE other work. These thoughts mean STOP — you are rationali
 2. Is there a `.mimir.toml` here (this directory or any ancestor)? It binds the repo
    to its project and becomes the default `--scope`.
    - **Bound** → orient from `mimir overview`, the composite orientation surface
-     (project rollup · direction prose · in flight · next · awaiting · recent
-     sessions · hygiene counts and listings; drill-down surfaces in
-     `references/querying.md`). If the current Active Context already supplies
+     (project rollup · direction prose · in flight · active scratchpads · next ·
+     awaiting · recent sessions · hygiene counts and listings; drill-down
+     surfaces in `references/querying.md`). An active Scratchpad is a live
+     episode's memory — read it (`references/scratchpad.md`) before planning
+     work it may already cover. If the current Active Context already supplies
      `mimir overview` for this bound project, reuse it and do not run the command
      again. Otherwise run `mimir overview` now. On a board you own, follow with
      `mimir triage` — overview only reads; triage is the write-side sweep: it
@@ -100,7 +105,9 @@ relaxes these.
 - **The end-of-session sweep (the catch-all):** before ending, run
   `mimir list --status in_progress` and reconcile every row you touched — finish it
   (`done`), hand it forward honestly (`annotate` + leave), or shelve it
-  (`park`/`block`/`abandon`).
+  (`park`/`block`/`abandon`). Sweep Scratchpads you drove the same way: freeze
+  what settled, checkpoint what continues, discard what died
+  (`references/scratchpad.md`).
 
 | Rationalization                     | Reality                                          |
 | ----------------------------------- | ------------------------------------------------ |
@@ -169,6 +176,7 @@ the session is still fresh.
 | Set up tracking: install, bind, create a project, backfill history      | `references/setup.md`        |
 | Add or restructure work: tasks, phases, deps, artifacts, annotations    | `references/authoring.md`    |
 | Ask the board questions: queues, triage, drill-down, reports, scripting | `references/querying.md`     |
+| Keep an unsettled episode alive across compaction: Journal, Agenda, freeze | `references/scratchpad.md`   |
 | Finish a task or session: transition, groom-next, summarize             | `references/finishing.md`    |
 | Understand a status word, group, or rollup                              | `references/status-model.md` |
 | Classify with tags                                                      | `references/tags.md`         |

@@ -98,6 +98,16 @@ mimir block MMR-157 "waiting on $SID"
 The triage pass annotates your task when the upstream settles and suggests
 `unblock`. Reference-only: no dependency rollup crosses boards.
 
+Clearing the pointer takes the literal `none` sentinel — nothing else clears:
+
+```sh
+mimir update MMR-157 --upstream none    # edge recorded in error, or obsolete
+```
+
+A blank or omitted `--upstream` never clears (a deliberate refusal — an empty
+value is far likelier a scripting slip than an intent), and `none` is
+collision-free because a real seed id is always `KEY-sN`.
+
 ## The triage pass
 
 ```sh

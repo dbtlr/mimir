@@ -19,7 +19,10 @@ word) · **direction** (the owned `## Next` prose, verbatim, of the project and 
 every container parenting live work — in flight or ready; top 5 of the true
 count, the rest named) · **in flight** (`in_progress` +
 `under_review`, uncapped, each row showing its resume handles as
-`harness@host · branch · session` when set) · **next** (the ready head, top 5 of
+`harness@host · branch · session` when set) · **active scratchpads** (true
+count, top 5 — `uuid · project · title · N open Agenda · age · linked KEY…`,
+interrupted freezes flagged `freezing`; the resume surface for unsettled
+episodes, `references/scratchpad.md`) · **next** (the ready head, top 5 of
 the true count) · **awaiting** (dep-gated, top 5, each row naming what it
 awaits) · **recent sessions** (top 5: the session id, its window, the tasks it
 touched, and the lede of the `session_summary` artifact that covers it) ·

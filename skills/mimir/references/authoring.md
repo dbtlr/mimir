@@ -17,6 +17,9 @@ mimir create task "A discrete, verifiable outcome" --parent KEY-4 \
   doesn't need).
 - `priority`/`size` are optional **signals** — they filter and advise; they never
   reorder the queue. Leave them off rather than guessing.
+- A title that begins with a dash needs the `--` terminator so it isn't read as
+  a flag: flags first, then `-- <title>` —
+  `mimir create task --parent KEY-4 -- "--flag-name is misparsed"`.
 - `create <type>` is the single creation verb for tree nodes — one verb, a type
   positional, not one top-level verb per type. `seed` and `attach` are the only
   sanctioned exceptions: each earns its own verb because the creation ergonomics
