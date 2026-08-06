@@ -5,6 +5,7 @@ import { AttentionAlert } from '../components/attention-alert';
 import { ProjectPicker } from '../components/project-picker';
 import { PwaRefreshAction } from '../components/pwa-refresh-action';
 import { PwaUpdateBanner } from '../components/pwa-update-banner';
+import { PwaUpdateProvider } from '../components/pwa-update-provider';
 import { SeedCaptureProvider } from '../components/seed-capture';
 import { ThemeToggle } from '../components/theme-toggle';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/menu';
@@ -15,6 +16,14 @@ import { useToastPosition } from '../lib/use-toast-position';
 /** The app shell: brand + project picker, the routed surface, and the global
  * top-bar controls (artifacts, attention, theme). */
 export function Shell() {
+  return (
+    <PwaUpdateProvider>
+      <ShellContent />
+    </PwaUpdateProvider>
+  );
+}
+
+function ShellContent() {
   const { theme, toggle } = useTheme();
   const toastPosition = useToastPosition();
   const navigate = useNavigate();

@@ -10,7 +10,6 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { POLL_MS } from './api/queries';
-import { PwaUpdateProvider } from './components/pwa-update-provider';
 import { persister, shouldPersistQuery } from './lib/persist';
 import { router } from './router';
 
@@ -55,9 +54,7 @@ createRoot(root).render(
         persister,
       }}
     >
-      <PwaUpdateProvider>
-        <RouterProvider router={router} />
-      </PwaUpdateProvider>
+      <RouterProvider router={router} />
     </PersistQueryClientProvider>
   </StrictMode>,
 );
