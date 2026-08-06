@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/vanillajs" />
 // Ambient module augmentation — these must stay `interface` to merge with vite's.
 // oxlint-disable typescript/consistent-type-definitions
 

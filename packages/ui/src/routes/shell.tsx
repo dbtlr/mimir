@@ -3,6 +3,8 @@ import { Toaster } from 'sonner';
 
 import { AttentionAlert } from '../components/attention-alert';
 import { ProjectPicker } from '../components/project-picker';
+import { PwaRefreshAction } from '../components/pwa-refresh-action';
+import { PwaUpdateBanner } from '../components/pwa-update-banner';
 import { SeedCaptureProvider } from '../components/seed-capture';
 import { ThemeToggle } from '../components/theme-toggle';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/menu';
@@ -48,6 +50,7 @@ export function Shell() {
               Seeds
             </Link>
             <AttentionAlert />
+            <PwaRefreshAction />
             <ThemeToggle theme={theme} onToggle={toggle} />
             {/* mobile — the secondary nav folds into an overflow menu */}
             <MenuRoot>
@@ -90,6 +93,7 @@ export function Shell() {
             </MenuRoot>
           </div>
         </header>
+        <PwaUpdateBanner />
         <Outlet />
         <VersionFooter />
         {/* Desktop: bottom-LEFT — the sheet/dossier rail owns the bottom-right

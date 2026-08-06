@@ -44,7 +44,6 @@ export default defineConfig({
     // VitePWA is a plugin factory, not a constructor (third-party naming)
     // oxlint-disable-next-line new-cap
     VitePWA({
-      includeAssets: ['icons/mimir.svg', 'icons/mimir-maskable.svg'],
       manifest: {
         background_color: WELL_900.dark,
         description: 'Operator console — work state across every project',
@@ -62,7 +61,7 @@ export default defineConfig({
         short_name: 'Mimir',
         theme_color: WELL_900.dark,
       },
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,woff2,webmanifest}'],
         // The API is never the app shell — let /api/* hit the network/server.

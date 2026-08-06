@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { healthQuery } from '../api/queries';
 import { BUILD_VERSION } from '../lib/build-version';
+import { usePwaUpdate } from './pwa-update-provider';
 
 /**
  * The always-reachable build signal (MMR-260): a days-old binary serves a
@@ -14,6 +15,7 @@ import { BUILD_VERSION } from '../lib/build-version';
  */
 export function VersionFooter() {
   const health = useQuery(healthQuery);
+  const update = usePwaUpdate();
   const serverVersion = health.data?.version;
   const stale = serverVersion !== undefined && serverVersion !== BUILD_VERSION;
 
@@ -30,12 +32,15 @@ export function VersionFooter() {
         {serverVersion ?? BUILD_VERSION}
       </span>
       {stale && (
-        <span
-          className="text-micro text-ink-dim"
+        <button
+          type="button"
+          className="rounded text-micro text-ink-dim underline decoration-ink-ghost underline-offset-2 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
           title={`This console bundle (${BUILD_VERSION}) doesn't match the running daemon (${serverVersion}) — reload to converge; if the console is the newer side, restart or update the daemon instead.`}
+          disabled={update.phase === 'applying'}
+          onClick={() => void update.refreshNow()}
         >
-          · update available
-        </span>
+          · {update.phase === 'applying' ? 'refreshing…' : 'refresh console'}
+        </button>
       )}
     </footer>
   );
