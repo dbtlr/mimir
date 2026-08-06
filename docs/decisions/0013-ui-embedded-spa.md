@@ -209,3 +209,28 @@ roles, violet attention, verdict-first review). The refinement sections above
 remain as historical narrative. This ADR remains the decision of record for
 the SPA shape, navigation grammar, the board as primary lens, and the offline
 posture.
+
+## Refinement (v0.18, MMR-369): shell updates are installed globally but adopted per tab
+
+The app-shell boundary in §5 remains, but activating a deployed shell no longer
+forces every open console tab to reload. The service worker registers in prompt
+mode: discovery and installation can happen in the background, while each tab
+keeps its mounted DOM and unsaved form state until its operator chooses the
+persistent refresh action. Focus, reconnect, visibility return, and a bounded
+visible-tab interval drive throttled discovery for long-lived consoles.
+
+Activation is origin-wide, but adoption is per tab. The requesting tab reloads
+only after the new worker controls it; every other tab moves to an
+"activated elsewhere" state and waits for its own explicit action. Workbox's
+prompt-mode controlling event is local to the requester, so the registration
+adapter broadcasts that activation over an origin-scoped `BroadcastChannel`
+before deferring the requester's reload to the next task. That message changes
+peer state only — it never reloads a peer. The health-version mismatch footer,
+the persistent banner, and the standalone header action all route through this
+one controller.
+
+The worker remains an app-shell cache, never an API cache. Production builds
+now fail unless the precache has unique URLs and complete HTML, JavaScript,
+CSS, font, icon, and manifest coverage with `/api` still denied from navigation
+fallback; a serial two-build Chromium test pins update, offline, and reconnect
+behavior together.

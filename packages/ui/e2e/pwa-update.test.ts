@@ -30,9 +30,7 @@ test('two builds defer updates per tab and preserve offline operation', async ({
     await expect(pageB.locator('footer span')).toHaveAttribute('title', /console build-b/);
     await test.step('the deferred tab preserves input and adopts build B explicitly', async () => {
       await expect(title).toHaveValue('Unsaved operator work');
-      await expect(
-        pageA.getByRole('status').filter({ hasText: 'Update installed' }),
-      ).toBeVisible();
+      await expect(pageA.getByRole('status').filter({ hasText: 'Update installed' })).toBeVisible();
       // The modal correctly blocks shell actions; the operator finishes or
       // closes that work before taking the explicit refresh transition.
       await pageA.getByRole('dialog').press('Escape');
