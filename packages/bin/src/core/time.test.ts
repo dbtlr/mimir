@@ -27,6 +27,11 @@ describe('isCanonicalInstant', () => {
     ['2026-08-05 09:30:00.000Z', 'a space separator'],
     ['2026-08-05', 'a bare date'],
     ['2026-02-30T00:00:00.000Z', 'the shape of a day that never existed'],
+    // Canonical SHAPE, unresolvable ERA: the fast path must apply the same year
+    // bound the normalizer does, or one era reads healthy in the millisecond
+    // spelling and uninterpretable in every other.
+    ['0050-01-01T00:00:00.000Z', 'a year below the resolvable floor'],
+    ['0099-12-31T23:59:59.999Z', 'the last instant below the floor'],
     ['not-a-time', 'garbage'],
     ['', 'the empty string'],
   ])('rejects %p — %s', (value) => {
@@ -123,6 +128,21 @@ describe('canonicalInstant refuses a value whose instant cannot be inferred', ()
     ['2026-08-05T09:30:00Z extra', 'trailing content'],
   ])('%p → null (%s)', (value) => {
     expect(canonicalInstant(value)).toBeNull();
+  });
+
+  test('refuses a sub-MIN_YEAR value in EITHER spelling, and holds the boundary', () => {
+    // The consistency CodeRabbit caught: the millisecond form used to slip
+    // through the canonical fast path while every other spelling of the same
+    // instant was refused.
+    expect(canonicalInstant('0050-01-01T00:00:00.000Z')).toBeNull();
+    expect(canonicalInstant('0050-01-01T00:00:00Z')).toBeNull();
+    expect(isCanonicalInstant('0050-01-01T00:00:00.000Z')).toBe(false);
+    // MIN_YEAR itself is resolvable and stays canonical.
+    expect(canonicalInstant('0100-01-01T00:00:00.000Z')).toBe('0100-01-01T00:00:00.000Z');
+    expect(isCanonicalInstant('0100-01-01T00:00:00.000Z')).toBe(true);
+    // An offset that carries a resolvable value BELOW the floor is refused too,
+    // the mirror of the expanded-year guard: the output is checked, not assumed.
+    expect(canonicalInstant('0100-01-01T00:00:00+05:00')).toBeNull();
   });
 
   test('refuses a value whose canonical form would be an EXPANDED year', () => {

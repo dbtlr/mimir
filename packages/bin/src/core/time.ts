@@ -186,12 +186,24 @@ function instantFromMatch(value: string, match: RegExpExecArray): number | null 
 }
 
 /**
- * Is `value` already the canonical persisted form? The regex fixes the shape and
- * the round trip fixes the calendar: `2026-02-30T00:00:00.000Z` has the shape but
- * is no day, so only a value `Date` reproduces byte-for-byte passes.
+ * Is `value` already the canonical persisted form? The regex fixes the shape,
+ * the round trip fixes the calendar (`2026-02-30T00:00:00.000Z` has the shape
+ * but is no day, so only a value `Date` reproduces byte-for-byte passes), and
+ * {@link MIN_YEAR} fixes the era.
+ *
+ * That last bound is what keeps the two sides of this module AGREEING. Without
+ * it `0050-01-01T00:00:00.000Z` would be "already canonical" while the very same
+ * instant spelled `0050-01-01T00:00:00Z` refuses to normalize — the shape alone
+ * would decide, so one era would be simultaneously healthy and uninterpretable
+ * depending on how it happened to be written. Sub-{@link MIN_YEAR} values are
+ * uniformly non-canonical instead: the query grammar already refuses to write
+ * that era, so a stored one is corruption, and it reads as such.
  */
 export function isCanonicalInstant(value: unknown): value is string {
   if (typeof value !== 'string' || !UTC_MILLIS.test(value)) {
+    return false;
+  }
+  if (Number(value.slice(0, 4)) < MIN_YEAR) {
     return false;
   }
   const parsed = new Date(value);
@@ -221,9 +233,10 @@ export function canonicalInstant(value: unknown): string | null {
   }
   const candidate = new Date(epochMs).toISOString();
   // The output is checked against the invariant it exists to satisfy, never
-  // assumed: an instant far enough outside the ±9999 range `toISOString` renders
-  // in the EXPANDED-year form (`+010000-01-01T…Z`), which is not canonical. A
-  // large offset can push a year-9999 value over that edge, and emitting it
-  // would have repair write a value the very next diagnosis calls corrupt.
+  // assumed — an offset can carry a value over either end of the range. Past the
+  // top, `toISOString` renders the EXPANDED-year form (`+010000-01-01T…Z`);
+  // below the bottom, it renders a year under MIN_YEAR. Neither is canonical,
+  // and emitting one would have repair write a value the very next diagnosis
+  // calls corrupt.
   return isCanonicalInstant(candidate) ? candidate : null;
 }
