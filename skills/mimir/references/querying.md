@@ -19,7 +19,10 @@ word) · **direction** (the owned `## Next` prose, verbatim, of the project and 
 every container parenting live work — in flight or ready; top 5 of the true
 count, the rest named) · **in flight** (`in_progress` +
 `under_review`, uncapped, each row showing its resume handles as
-`harness@host · branch · session` when set) · **next** (the ready head, top 5 of
+`harness@host · branch · session` when set) · **active scratchpads** (true
+count, top 5 — `uuid · project · title · N open Agenda · age · linked KEY…`,
+interrupted freezes flagged `freezing`; the resume surface for unsettled
+episodes, `references/scratchpad.md`) · **next** (the ready head, top 5 of
 the true count) · **awaiting** (dep-gated, top 5, each row naming what it
 awaits) · **recent sessions** (top 5: the session id, its window, the tasks it
 touched, and the lede of the `session_summary` artifact that covers it) ·
@@ -36,7 +39,8 @@ knowable total: `mimir artifacts -t session_summary` is the pageable view.
 Recent sessions is derived, not stored: transition rows grouped by the `session`
 handle `mimir start --session …` stamped. A retrospective joins on by linked-task
 overlap — attach it with `mimir attach <task> --file retro.md -t session_summary
---summary "…"`. Two limits are worth knowing:
+--summary "…"`, or, when the session ran on a Scratchpad, freeze that instead
+(`references/finishing.md`). Two limits are worth knowing:
 
 - **Only handle-moving boundaries are visible.** `start` and the clearing verbs
   (`done`/`abandon`, `park`/`block`) echo handles; `submit`/`return`/`reopen`/
