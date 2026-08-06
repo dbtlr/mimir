@@ -30,6 +30,8 @@ export function PwaRefreshAction() {
   let label = 'Refresh console';
   if (update.checking) {
     label = 'Checking for updates';
+  } else if (update.phase === 'error') {
+    label = 'Update failed — retry';
   } else if (ready) {
     label = 'Update ready — refresh console';
   }

@@ -94,4 +94,22 @@ describe('PWA update surfaces (MMR-369)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Update ready — refresh console' }));
     expect(effects.activateWaiting).toHaveBeenCalledOnce();
   });
+
+  it('names the standalone retry when an update check fails', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      addEventListener: vi.fn(),
+      matches: query === '(display-mode: standalone)',
+      media: query,
+      removeEventListener: vi.fn(),
+    }));
+    const { controller, effects } = fixture();
+    vi.mocked(effects.checkForUpdate).mockRejectedValueOnce(new Error('network down'));
+    renderUpdate(controller, <PwaRefreshAction />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh console' }));
+
+    await expect(
+      screen.findByRole('button', { name: 'Update failed — retry' }),
+    ).resolves.toBeEnabled();
+  });
 });

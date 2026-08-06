@@ -103,6 +103,13 @@ export function createPwaUpdateController(effects: PwaUpdateEffects): PwaUpdateC
     };
   };
 
+  const restingPhase = (): 'idle' | 'waiting' | 'activated-elsewhere' => {
+    if (knownUpdate === 'waiting') {
+      return 'waiting';
+    }
+    return knownUpdate === 'activated' ? 'activated-elsewhere' : 'idle';
+  };
+
   const backgroundCheck = async () => {
     const now = effects.now();
     if (
@@ -132,11 +139,11 @@ export function createPwaUpdateController(effects: PwaUpdateEffects): PwaUpdateC
       if (checking !== null || applying) {
         return checking ?? Promise.resolve();
       }
-      publish({ ...snapshot, checking: true, error: null });
+      publish(phaseSnapshot(restingPhase(), { checking: true }));
       const runCheck = async () => {
         try {
           await effects.checkForUpdate();
-          publish({ ...snapshot, checking: false, error: null });
+          publish(phaseSnapshot(restingPhase()));
         } catch (error) {
           publish(
             phaseSnapshot('error', {

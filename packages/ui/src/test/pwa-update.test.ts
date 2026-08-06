@@ -102,6 +102,12 @@ describe('PWA update controller (MMR-369)', () => {
       error: 'network down',
       phase: 'error',
     });
+    await explicit.controller.checkForUpdate();
+    expect(explicit.controller.getSnapshot()).toMatchObject({
+      error: null,
+      message: null,
+      phase: 'idle',
+    });
 
     const background = fixture();
     vi.mocked(background.effects.checkForUpdate).mockRejectedValueOnce(new Error('network down'));
@@ -111,17 +117,36 @@ describe('PWA update controller (MMR-369)', () => {
     expect(background.controller.getSnapshot().phase).toBe('idle');
   });
 
+  it('returns to the waiting phase after a successful explicit-check retry', async () => {
+    const { controller, effects } = fixture();
+    controller.workerWaiting();
+    vi.mocked(effects.checkForUpdate).mockRejectedValueOnce(new Error('network down'));
+
+    await controller.checkForUpdate();
+    expect(controller.getSnapshot().phase).toBe('error');
+    await controller.checkForUpdate();
+
+    expect(controller.getSnapshot()).toMatchObject({
+      available: true,
+      checking: false,
+      error: null,
+      message: "Update ready — refresh when you're done",
+      phase: 'waiting',
+    });
+  });
+
   it('retries on reconnect when the preceding background check failed', async () => {
     const { controller, effects, emit } = fixture();
-    vi.mocked(effects.checkForUpdate).mockRejectedValueOnce(new Error('network down'));
+    const failedCheck = Promise.withResolvers<void>();
+    vi.mocked(effects.checkForUpdate).mockReturnValueOnce(failedCheck.promise);
     controller.start();
 
     emit('focus');
     await vi.waitFor(() => expect(effects.checkForUpdate).toHaveBeenCalledOnce());
-    await vi.waitFor(() => {
-      emit('online');
-      expect(effects.checkForUpdate).toHaveBeenCalledTimes(2);
-    });
+    failedCheck.reject(new Error('network down'));
+    await expect(failedCheck.promise).rejects.toThrow('network down');
+    emit('online');
+    await vi.waitFor(() => expect(effects.checkForUpdate).toHaveBeenCalledTimes(2));
 
     expect(controller.getSnapshot().phase).toBe('idle');
   });
