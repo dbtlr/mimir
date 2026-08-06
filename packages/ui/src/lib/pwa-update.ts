@@ -61,6 +61,7 @@ export function createPwaUpdateController(effects: PwaUpdateEffects): PwaUpdateC
   let applying = false;
   let reloaded = false;
   let checking: Promise<void> | null = null;
+  let backgroundChecking: Promise<void> | null = null;
   let lastBackgroundCheck = Number.NEGATIVE_INFINITY;
   let interval: ReturnType<typeof setInterval> | null = null;
   const listeners = new Set<() => void>();
@@ -107,16 +108,23 @@ export function createPwaUpdateController(effects: PwaUpdateEffects): PwaUpdateC
     if (
       !effects.isVisible() ||
       checking !== null ||
+      backgroundChecking !== null ||
       now - lastBackgroundCheck < UPDATE_CHECK_THROTTLE_MS
     ) {
       return;
     }
-    lastBackgroundCheck = now;
-    try {
-      await effects.checkForUpdate();
-    } catch {
-      // Discovery is fail-soft. An operator-requested check reports errors.
-    }
+    const runCheck = async () => {
+      try {
+        await effects.checkForUpdate();
+        lastBackgroundCheck = effects.now();
+      } catch {
+        // Discovery is fail-soft. An operator-requested check reports errors.
+      } finally {
+        backgroundChecking = null;
+      }
+    };
+    backgroundChecking = runCheck();
+    await backgroundChecking;
   };
 
   const controller: PwaUpdateController = {

@@ -111,6 +111,21 @@ describe('PWA update controller (MMR-369)', () => {
     expect(background.controller.getSnapshot().phase).toBe('idle');
   });
 
+  it('retries on reconnect when the preceding background check failed', async () => {
+    const { controller, effects, emit } = fixture();
+    vi.mocked(effects.checkForUpdate).mockRejectedValueOnce(new Error('network down'));
+    controller.start();
+
+    emit('focus');
+    await vi.waitFor(() => expect(effects.checkForUpdate).toHaveBeenCalledOnce());
+    await vi.waitFor(() => {
+      emit('online');
+      expect(effects.checkForUpdate).toHaveBeenCalledTimes(2);
+    });
+
+    expect(controller.getSnapshot().phase).toBe('idle');
+  });
+
   it('throttles visible lifecycle checks and skips hidden intervals', async () => {
     const { controller, effects, emit, setNow, setVisible } = fixture();
     controller.start();
