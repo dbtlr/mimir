@@ -1,12 +1,9 @@
 import { readFileSync } from 'node:fs';
 
-import { vitestReact } from '@dbtlr/tooling/vitest';
+import { defineConfig, domSetup, testReact } from '@dbtlr/tooling';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
-// `vitest/config` (not vite-plus) — it types nested plugin arrays (Plugin[][])
-// and the `test` block; vite-plus's defineConfig hits TS2321 excessive-depth here.
-import { defineConfig } from 'vitest/config';
 
 import { injectThemeColorMeta, WELL_900 } from './src/lib/theme-colors';
 
@@ -43,6 +40,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    domSetup(),
     // VitePWA is a plugin factory, not a constructor (third-party naming)
     // oxlint-disable-next-line new-cap
     VitePWA({
@@ -76,6 +74,6 @@ export default defineConfig({
     { name: 'meta-theme-color', transformIndexHtml: injectThemeColorMeta },
   ],
   // Lint/fmt are centralized in the root vite.config; this member carries only
-  // build + test. The jsdom test env comes from @dbtlr/tooling's vitestReact().
-  ...vitestReact({ setupFiles: ['./src/test/setup.ts'] }),
+  // build + test. The jsdom test env comes from @dbtlr/tooling's testReact().
+  test: testReact({ setupFiles: ['./src/test/setup.ts'] }),
 });

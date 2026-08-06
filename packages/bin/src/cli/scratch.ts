@@ -121,7 +121,7 @@ function localizedJournalEntry(entry: unknown, zone: string): unknown {
   if (typeof entry !== 'object' || entry === null || !('at' in entry)) {
     return entry;
   }
-  const { at } = entry as { at: unknown };
+  const { at } = entry;
   return typeof at === 'string' ? { ...entry, at: formatInstant(at, zone) } : entry;
 }
 

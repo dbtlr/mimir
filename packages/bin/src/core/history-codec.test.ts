@@ -867,11 +867,7 @@ test('duplicate ## Next findings interleave in document order with record findin
 // lintBodySections' story, so the two detectors partition the same lines.
 
 test('recordTimestamps reports every instant the reader accepts, in document order', () => {
-  const body = renderMigratedNodeBody(
-    'intro',
-    [SAMPLES.lifecycle as HistoryEntry],
-    [ANNOTATIONS.plain as AnnotationView],
-  );
+  const body = renderMigratedNodeBody('intro', [SAMPLES.lifecycle], [ANNOTATIONS.plain]);
   expect(recordTimestamps(body)).toEqual([
     { line: expect.any(Number), section: HISTORY_HEADING, value: SAMPLES.lifecycle.at },
     {

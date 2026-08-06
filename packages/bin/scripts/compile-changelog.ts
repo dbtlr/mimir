@@ -145,7 +145,7 @@ const CHANGES_DIR = '.changes';
 const pendingFragments = (): string[] =>
   readdirSync(CHANGES_DIR)
     .filter((name) => name.endsWith('.md') && name !== 'README.md')
-    .sort();
+    .toSorted();
 
 /** Landing order: epoch seconds of the commit that added the file (uncommitted → last). */
 const addedAt = (name: string): number => {
