@@ -22,6 +22,7 @@ export function VersionFooter() {
   return (
     <footer className="flex items-center justify-center gap-1.5 border-t border-line px-3 py-1">
       <span
+        data-testid="console-version"
         className="font-mono text-micro text-ink-ghost"
         title={
           serverVersion === undefined

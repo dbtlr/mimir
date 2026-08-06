@@ -51,7 +51,8 @@ describe('PWA registration adapter (MMR-369)', () => {
   });
 
   it('suppresses generated reloads and activates through the controller', async () => {
-    const { activate, adapter, location, options, workerTarget } = fixture();
+    const channel = new FakeChannel();
+    const { activate, adapter, location, options, workerTarget } = fixture(true, channel);
     adapter.start();
     options()?.onNeedReload?.();
     expect(location.reload).not.toHaveBeenCalled();
@@ -59,7 +60,10 @@ describe('PWA registration adapter (MMR-369)', () => {
     await adapter.controller.refreshNow();
     expect(activate).toHaveBeenCalledWith(false);
     workerTarget.dispatchEvent(new Event('controllerchange'));
+    expect(channel.postMessage).toHaveBeenCalledWith('activated');
     expect(location.reload).toHaveBeenCalledOnce();
+    adapter.stop();
+    expect(channel.close).toHaveBeenCalledOnce();
   });
 
   it('does not mistake first installation control for an update', () => {

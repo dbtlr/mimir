@@ -50,6 +50,9 @@ describe('versionFooter (MMR-260)', () => {
     apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.13.0-next.68' });
     renderFooter();
     await expect(screen.findByText('0.13.0-next.68')).resolves.toBeDefined();
+    await expect(
+      screen.findByTitle('daemon 0.13.0-next.68 · console 0.13.0-next.68'),
+    ).resolves.toHaveAttribute('data-testid', 'console-version');
     expect(screen.queryByText(/update available/)).toBeNull();
   });
 
