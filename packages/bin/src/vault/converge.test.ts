@@ -24,9 +24,9 @@ afterEach(() => {
 
 const vaultAt = (name: string) => join(root, name);
 
-test('schema 9 makes the canonical instant a persisted invariant (MMR-351)', () => {
-  expect(VAULT_SCHEMA).toBe(9);
-  // Schema 9 adds no norn rule — the invariant is enforced by the backfill and
+test('schema 10 covers Journal headings under the persisted-instant invariant (MMR-352)', () => {
+  expect(VAULT_SCHEMA).toBe(10);
+  // Schemas 9 and 10 add no norn rule — the invariant is enforced by backfill and
   // by doctor, not by a validator — but the marker must still ratchet, so an
   // older binary refuses a normalized vault instead of writing variants back
   // into it. The generated header carries the version, which is also what makes
