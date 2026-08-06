@@ -91,6 +91,13 @@ test.skipIf(!NORN)('every attention lane is populated across the projects', asyn
   }
 });
 
+test.skipIf(!NORN)('the documentation portfolio includes an archived project', async () => {
+  const ws = await store.loadWorkingSet();
+  const ember = ws.projects.find((project) => project.key === 'EMB');
+  expect(ember).toBeDefined();
+  expect(ember?.archived_at).not.toBeNull();
+});
+
 test.skipIf(!NORN)('seeds are present in all four lanes', async () => {
   const views = await listSeeds(store, { status: 'all' });
   const lanes = new Set(views.map((v) => seedLane(v)));
@@ -123,7 +130,7 @@ test.skipIf(!NORN)('the dependency chain, tags, and artifacts manifest', async (
 
   // A task-linked artifact and a project-level one.
   const artifacts = await store.artifacts.listForProject('AUR');
-  expect(artifacts.length).toBe(2);
+  expect(artifacts.length).toBe(4);
   expect(artifacts.some((a) => a.links.length > 0)).toBe(true);
   expect(artifacts.some((a) => a.links.length === 0)).toBe(true);
 });

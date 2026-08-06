@@ -31,6 +31,7 @@ import type { Lane, SeedLane, StatusWord, TaskStatusWord } from '@mimir/contract
 import {
   abandonTask,
   annotate,
+  archiveProject,
   attachArtifact,
   blockTask,
   completeTask,
@@ -55,6 +56,7 @@ import {
   tagEntities,
   transitionSeed,
   updateNode,
+  updateProject,
 } from '../src/core';
 import type { Store } from '../src/core';
 import { attentionOf } from '../src/core/attention';
@@ -124,6 +126,10 @@ class Board {
       projectId: await this.projectId(),
     });
     return this.stem(node.seq);
+  }
+
+  async direction(content: string): Promise<void> {
+    await updateProject(this.store, await this.projectId(), { next: content });
   }
 
   async phase(parentStem: string, input: { title: string; openEnded?: boolean }): Promise<string> {
@@ -355,6 +361,9 @@ async function buildAurora(store: Store): Promise<void> {
     tags: ['release:v1'],
   });
   const board = new Board(store, 'AUR');
+  await board.direction(
+    'Finish onboarding and delivery-receipt review before widening the release. Offline work follows once the welcome flow is stable.',
+  );
 
   const core = await board.initiative({
     summary: 'The everyday screens users touch first.',
@@ -443,7 +452,20 @@ async function buildAurora(store: Store): Promise<void> {
   });
   await board.attach({
     content: '# Q3 architecture overview\n\nModule boundaries and the sync strategy.\n',
+    tags: ['architecture'],
     title: 'Q3 architecture overview',
+  });
+  await board.attach({
+    content:
+      '# Release readiness\n\nThe onboarding flow and receipt delivery are the remaining release gates.\n',
+    tags: ['plan', 'release:v1'],
+    title: 'Release readiness plan',
+  });
+  await board.attach({
+    content:
+      '# Session summary\n\nConfirmed the offline cache boundary and left image exports as the only external dependency.\n',
+    tags: ['session_summary'],
+    title: 'Session summary — onboarding and offline review',
   });
 
   await buildAuroraSeeds(store, board);
@@ -511,6 +533,9 @@ async function buildBeaconCold(store: Store): Promise<void> {
     name: 'Beacon Analytics',
   });
   const board = new Board(store, 'BCN');
+  await board.direction(
+    'Restore momentum on the schema backfill before starting the cold-store partitioning work.',
+  );
   const ingestion = await board.initiative({ title: 'Ingestion Pipeline' });
   const stream = await board.phase(ingestion, { title: 'Stream Processing' });
 
@@ -520,6 +545,13 @@ async function buildBeaconCold(store: Store): Promise<void> {
   });
   await board.drive(backfill, 'in_progress'); // stale in_progress once the clock restores
   await board.task(stream, { title: 'Partition the cold store by tenant' }); // stale ready (untouched todo)
+  await board.attach({
+    content:
+      '# Schema v2 migration plan\n\nBackfill in tenant batches, verify counts, then switch readers.\n',
+    link: backfill,
+    tags: ['plan'],
+    title: 'Event schema v2 migration plan',
+  });
 }
 
 /** Cirrus (`CIR`) — the needs-unsticking board: a merge-engine phase whose only
@@ -531,13 +563,24 @@ async function buildCirrus(store: Store): Promise<void> {
     name: 'Cirrus Sync',
   });
   const board = new Board(store, 'CIR');
+  await board.direction(
+    'Unblock wall-clock skew handling before accepting more merge-engine work.',
+  );
   const conflict = await board.initiative({ title: 'Conflict Resolution' });
   const engine = await board.phase(conflict, { title: 'Merge Engine' });
 
   await board.drive(await board.task(engine, { title: 'Three-way merge of diffs' }), 'done');
   await board.drive(await board.task(engine, { title: 'Resolve tombstone races' }), 'abandoned');
   // The lone live sibling among terminals → orphaned (normal parent).
-  await board.drive(await board.task(engine, { title: 'Handle wall-clock skew' }), 'blocked');
+  const skew = await board.task(engine, { title: 'Handle wall-clock skew' });
+  await board.drive(skew, 'blocked');
+  await board.attach({
+    content:
+      '# Conflict model\n\nUse causal order where available and surface ambiguous wall-clock ties for review.\n',
+    link: skew,
+    tags: ['decision'],
+    title: 'Conflict-resolution model',
+  });
 }
 
 /** Delta (`DLT`) — the at-rest board, and the orphan-mute case: a parked leaf
@@ -549,6 +592,9 @@ async function buildDelta(store: Store): Promise<void> {
     name: 'Delta Records',
   });
   const board = new Board(store, 'DLT');
+  await board.direction(
+    'Keep the backlog quiet until the next records-import milestone is funded.',
+  );
   const backlog = await board.initiative({
     openEnded: true,
     summary: 'Standing home — filed work outliving its siblings is normal here.',
@@ -558,9 +604,33 @@ async function buildDelta(store: Store): Promise<void> {
   await board.drive(await board.task(backlog, { title: 'Vendor CSV adapter' }), 'parked'); // orphan-muted
 }
 
+/** Ember (`EMB`) — a completed pilot retained as an archived portfolio card. */
+async function buildEmberArchived(store: Store): Promise<void> {
+  await createProject(store, {
+    description: 'Completed prototype for the retired notification gateway.',
+    key: 'EMB',
+    name: 'Ember Gateway',
+  });
+  const board = new Board(store, 'EMB');
+  const pilot = await board.initiative({ title: 'Gateway Pilot' });
+  const rollout = await board.phase(pilot, { title: 'Pilot Rollout' });
+  await board.drive(
+    await board.task(rollout, { title: 'Validate delivery at pilot scale' }),
+    'done',
+  );
+  await board.attach({
+    content:
+      '# Pilot closeout\n\nThe pilot met its delivery target. The production path moved into Aurora.\n',
+    tags: ['session_summary'],
+    title: 'Ember pilot closeout',
+  });
+  await archiveProject(store, 'EMB', 'pilot completed and folded into Aurora');
+}
+
 export type FixtureSummary = {
   vaultPath: string;
   projects: string[];
+  archived: number;
   /** Every node's Status word (leaf + container rollup) → count across the vault. */
   statusWords: Partial<Record<StatusWord, number>>;
   /** Per-project attention lane → project count. */
@@ -657,6 +727,7 @@ export async function generateFixtureVault(target: string): Promise<FixtureSumma
     await buildAurora(store);
     await buildCirrus(store);
     await buildDelta(store);
+    await buildEmberArchived(store);
 
     return await summarize(store, absTarget);
   } finally {
@@ -699,6 +770,7 @@ async function summarize(store: Store, vaultPath: string): Promise<FixtureSummar
   }
 
   return {
+    archived: set.archivedProjects.size,
     artifacts,
     lanes,
     projects: ws.projects.map((p) => p.key).toSorted(),
@@ -724,6 +796,7 @@ function formatSummary(s: FixtureSummary): string {
   return [
     `vault:        ${s.vaultPath}`,
     `projects:     ${s.projects.join(', ')}`,
+    `archived:     ${String(s.archived)}`,
     `status words: ${kvLine(s.statusWords)}`,
     `attention:    ${kvLine(s.lanes)}`,
     `seed lanes:   ${kvLine(s.seedLanes)}`,

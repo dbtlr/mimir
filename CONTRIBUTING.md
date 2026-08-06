@@ -94,6 +94,13 @@ Conventional, plain-English commit messages. The first line is a short
 imperative summary (under ~72 chars); body paragraphs explain the _why_, not the
 _what_. `git log` is the best style reference.
 
+## Documentation
+
+Read the [documentation writing guide](docs/writing-style.md) before changing
+the README or user guides. Public documentation should be concise, concrete,
+and verified against the current product surfaces. Do not copy command help
+into narrative guides.
+
 ## Releases
 
 Releases are tag-driven, and the binary reports the exact tag it was built from
