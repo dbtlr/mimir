@@ -1,221 +1,110 @@
 # mimir
 
-Mimir is the source of truth for **work state** — tasks, the work hierarchy, and
-the frozen artifacts attached to them. It is the _work_ tool in a three-part
-split along the founding distinction of knowledge vs. work: **Norn** keeps
-knowledge, **Mimir** holds work state, **Saga** weaves them into a session.
+Mimir is a local-first source of truth for agent-driven work. It keeps projects,
+tasks, dependencies, decisions, and work products in one queryable system so an
+agent can act on current state and an operator can see what needs attention.
 
-Work state lives in a **Norn-managed markdown vault** — git-backed, inspectable
-markdown files are the source of truth; Norn owns all reads, writes, and
-integrity, and Mimir is the business-logic and derivation layer over it (ADR
-0016). Status rollups and dependency predicates are **derived live, never
-stored** (caching them is the sync problem Mimir exists to remove). One core
-query layer, four surfaces: a **CLI** for humans and scripts, **MCP** for
-agents (plus an embedded agent skill the binary installs itself), an **HTTP
-API**, and a web **operator console** served by the same binary.
+Work state lives as inspectable Markdown in a Norn-managed, git-backed vault.
+Mimir derives queues, status rollups, blockers, and stale work when queried;
+there is no second cache of project status to keep in sync.
 
-![The operator console — a project board](docs/assets/console-board.png)
+![Mimir portfolio overview showing active projects and work that needs attention](docs/assets/console-overview.png)
 
-> **Status:** **pre-release** (`0.x`), feature-complete for single-operator
-> use: the full read + write verb surface over CLI and MCP, the agent skill
-> (`mimir skill install`) with repo binding (`.mimir.toml`), the HTTP API
-> (`mimir serve`), and the read-only operator console — a kanban/tree PWA
-> embedded in the binary (columns are the status vocabulary; the Ready column
-> in rank order _is_ the queue). Write affordances in the console, and the
-> auth story that must precede them, are the next slices.
+## Why Mimir
 
-## Install
+- **One work model.** The CLI, MCP server, HTTP API, and operator console use the
+  same domain logic.
+- **Agent-ready context.** Repository binding and `mimir overview` give an agent
+  the current direction, active work, ready queue, dependencies, and recent
+  sessions.
+- **Operator control.** The console spans projects, tasks, Artifacts, Seeds, and
+  record health. It supports daily authoring and lifecycle actions.
+- **Local ownership.** Markdown is the source of truth. Norn owns validated,
+  atomic access; Git can snapshot and synchronize the vault.
+- **Derived state.** Rank, dependencies, lifecycle, and holds determine what is
+  ready, awaiting, blocked, stale, or complete.
 
-**Standalone binary** (no Bun needed on the target):
+## What it handles
+
+| Need | Mimir capability |
+| --- | --- |
+| Plan and run work | Project → initiative → phase → task hierarchy, ranked queues, dependencies, lifecycle, and holds |
+| Preserve outcomes | Frozen, tagged Artifacts linked to the work that produced them |
+| Keep temporary context | Resumable Scratchpads with a Journal and Agenda that freeze into Artifacts |
+| Groom new work | Seeds for ideas, bugs, features, and cross-project requests |
+| Resume agent sessions | Direction, execution handles, annotations, and session-summary Artifacts |
+| Operate the store | Record diagnostics, conservative repair, snapshots, service management, and self-update |
+
+## Five-minute start
+
+Install the standalone binary:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
+mimir setup
 ```
 
-Installs the binary for your platform from the latest [release](https://github.com/dbtlr/mimir/releases)
-to `~/.local/bin` (override with `MIMIR_INSTALL_DIR`, pin with `MIMIR_VERSION`).
-
-**From source** (requires [Bun](https://bun.sh) `1.3.14`):
+Mimir requires `norn` on `PATH`. Setup creates or adopts a vault and can install
+the local service. Then create a project and bind a repository to it:
 
 ```sh
-git clone https://github.com/dbtlr/mimir && cd mimir && bun install
-bun run build    # compiles dist/mimir; or `bun run mimir <verb>` straight from source
+mimir create project "Aurora" --key AUR --yes
+cd path/to/aurora
+mimir bind AUR
+mimir skill install --global --agent codex
 ```
 
-`bun run build` produces the production-profile binary and preserves the
-installed runtime resolution below. Direct `bun run mimir …` invocations use
-an isolated dev profile: ordinary runtime commands never read the operator's
-global config, default to `.dev/vault` and port `64747`, and still honor
-explicit `MIMIR_VAULT` / `MIMIR_PORT` overrides. The explicit `setup` command
-remains the configuration-administration path.
-
-## Quickstart
+From the bound repository, an agent can orient and begin the highest-ranked
+ready task without repeating the project key:
 
 ```sh
-mimir --version
-mimir --help
-mimir setup          # first-run: create the vault + optionally install the service
+mimir overview
+mimir next
+mimir create initiative "Release 1.0" --parent AUR
+mimir create task "Verify sign-in recovery" --parent AUR-1 --size s
+mimir start AUR-2
 ```
 
-The vault lives at `$XDG_DATA_HOME/mimir/vault` (default
-`~/.local/share/mimir/vault`) and is created on first use, so `mimir` works from
-any directory; set `MIMIR_VAULT` (or `[vault] path` in the config) to point at a
-vault elsewhere. Mimir shells out to the `norn` binary for all vault access
-(ADR 0018), so `norn` must be on `PATH`.
+Run `mimir serve` and open the URL printed at startup to use the operator
+console. The production default is `http://127.0.0.1:64647/`; Mimir remains
+loopback-only, so remote access belongs behind a trusted reverse proxy.
 
-Every entity has one rendered id, spoken by every surface: a project is the
-bare `KEY`, a tree node is `KEY-seq` (`MMR-16`), an artifact is `KEY-aN`
-(`MMR-a1`). Any id position takes the full grammar — the verb rejects what it
-can't act on.
+## Learn Mimir
 
-The read commands (one intent layer, rendered as CLI or MCP):
+- [Start with an agent-driven repository](docs/user/getting-started.md)
+- [Plan and run work](docs/user/planning-and-running-work.md)
+- [Capture temporary work with Scratchpads](docs/user/capturing-temporary-work.md)
+- [Preserve work products as Artifacts](docs/user/preserving-work-products.md)
+- [Groom new work with Seeds](docs/user/grooming-new-work.md)
+- [Use the operator console](docs/user/using-the-console.md)
+- [Work with agents](docs/user/working-with-agents.md)
 
-```sh
-mimir next                        # ready tasks in rank order — "what's next"
-mimir next --scope MMR -p p0      # filter by project / priority (signals, not sort)
-mimir list --status done          # universe: status words, or live|terminal|all
-mimir list --is stale             # verdicts: stale|blocking|orphaned (--not-is negates)
-mimir list --eq priority:p1 --missing size --after created_at:2026-06-01
-mimir get MMR                     # the whole-project view (rollup + roots)
-mimir get MMR-16                  # full record for one node (KEY-seq id)
-mimir get MMR-16 --col history    # add the transition log
-mimir get MMR-a1 --col content    # an artifact, with its frozen body
-mimir status MMR-3                # an initiative/phase rollup (distribution + status)
-mimir next --format json | jq .   # structured, pipe-safe output
-```
+The [user guide](docs/user/README.md) collects these workflows. Installed-service
+operations live in [docs/guides](docs/guides/README.md). The maintained
+[schema](docs/schema-reference.md), [output contract](docs/output-contract-reference.md),
+and [ADRs](docs/decisions/README.md) cover engineering details.
 
-Selection is AND-composed: `--status` picks the universe, `--is`/`--not-is`
-verdicts and the field operators (`--eq` `--not-eq` `--in` `--not-in` `--has`
-`--missing` + date ops) filter within it. A value miss (`--eq priority:p9`)
-warns and returns an empty set (exit 0); an unknown field is a usage error
-(exit 2).
+## Status
 
-The write verbs:
+Mimir is pre-release (`0.x`) and built for a single operator. The CLI, MCP,
+HTTP API, and console cover read and write workflows. The console is an
+installable PWA with cached offline reads; writes require a live server and are
+not queued offline. Authentication and multi-operator collaboration are outside
+the current binary.
 
-```sh
-mimir create task "wire the API" --parent MMR-2 --priority p1 --tag api
-mimir start MMR-3 && mimir done MMR-3
-mimir depend MMR-4 --on MMR-3     # MMR-4 waits on MMR-3
-mimir tag MMR-3,MMR-a1 spec v2    # tag tasks, projects, artifacts (free-text)
-mimir attach MMR-3 --file plan.md # freeze an artifact (title from basename)
-```
+## Develop
 
-Temporary episode state uses the Scratchpad noun group. Every mutation takes
-the latest `updated_at` returned by `create`, `get`, or the previous mutation:
-
-```sh
-mimir scratch create "shape import recovery" --link MMR-331 -f json
-mimir scratch list
-mimir scratch get <uuid> -f json
-mimir scratch checkpoint <uuid> "settled the retry contract" --expected-updated-at <timestamp>
-mimir scratch freeze <uuid> --summary "Import recovery design" --expected-updated-at <timestamp>
-```
-
-The matching MCP tools are named `scratch_create`, `scratch_list`,
-`scratch_get`, and `scratch_*` for the remaining operations.
-
-Formats: `table` / `records` (styled TTY) and `ids` / `json` / `jsonl`
-(structural, never styled). The default follows the destination — a table for a
-TTY set, `ids` when piped — and `--format` overrides. Identity selection
-(`get`/`status`) exits non-zero on a missing id; set selection (`next`/`list`)
-exits 0 on an empty result.
-
-Run as an MCP server for an agent:
-
-```sh
-mimir mcp     # JSON-RPC over stdio; the same read + write surface as tools
-```
-
-Serve the HTTP API and the operator console:
-
-```sh
-mimir serve           # installed production profile: http://127.0.0.1:64647/
-bun run mimir serve   # direct source dev profile: http://127.0.0.1:64747/
-```
-
-Those profile-specific URLs open the console (the screenshot above): an
-Overview of every project with an attention strip of in-flight and stuck work,
-and a per-project kanban board / tree with a detail drawer on every node. It is
-an installable PWA — usable from a phone behind your own reverse proxy — that
-polls while visible and, when the server is unreachable, shows the last-synced
-board behind an explicit offline banner. This first cut is **read-only**; the
-API under `/api/*` carries the same verb surface as the CLI/MCP for writes
-(TLS, hostnames, and exposure belong to the proxy in front — the binary stays
-loopback-only).
-
-## The model
-
-```
-project → initiative → phase → task        (the work tree, via parent_id)
-```
-
-- **Two status axes** on tasks: `lifecycle` (todo → in_progress → done /
-  abandoned) and a `hold` overlay (none / blocked / parked). Non-leaf nodes
-  store **no** status — their truth is the live **distribution** over children,
-  reduced to one **status word** by a canonical `interpret` cascade.
-- **Rank** is a single relative order that wins over priority; priority/size are
-  orthogonal _signals_ that filter and advise, never the sort.
-- **Derived, never stored:** `ready`, `awaiting`, `blocked`, `blocking`,
-  `stale`, `orphaned`, and every rollup.
-
-The reasoning behind the model lives in
-[`docs/decisions/`](docs/decisions/README.md) (the ADRs), with the concrete
-schema in [`docs/schema-reference.md`](docs/schema-reference.md) and the
-CLI/MCP output contract in
-[`docs/output-contract-reference.md`](docs/output-contract-reference.md).
-Operating an installed daemon day to day (service lifecycle, health
-probing, self-update, port/proxy posture, install location) is covered in
-[`docs/guides/`](docs/guides/README.md).
-
-## Development
+Mimir uses Bun `1.3.14`:
 
 ```sh
 bun install
-bun run verify    # the full gate: format, lint, typecheck, test
+bun run verify
 ```
 
-`verify` is `bun run check` (oxfmt + oxlint + type-aware typecheck, zero-warning)
-plus `bun test` (the store-backed suites run against a temp Norn vault, so they
-need `norn` on `PATH`; they skip without it) plus `bun run test:ui` (the
-console's vitest suite) — the same gate CI enforces. For UI work, run
-`vite dev` in `packages/ui` against a running `mimir serve` (localhost CORS is
-pre-wired); `bun run build` builds the console and embeds it in the compiled
-binary. `main` is protected; changes land via PR. See
-[CONTRIBUTING.md](./CONTRIBUTING.md), [CHANGELOG.md](./CHANGELOG.md), and
-[SECURITY.md](./SECURITY.md).
-
-For an isolated from-source CLI smoke, provision the target through the owned
-fixture generator and point the command at it explicitly:
-
-```sh
-MIMIR_SMOKE_VAULT=$(mktemp -d)
-bun run fixtures:vault "$MIMIR_SMOKE_VAULT"
-MIMIR_VAULT="$MIMIR_SMOKE_VAULT" bun run mimir overview -s AUR
-```
-
-The generator converges a valid Norn vault and seeds representative work state;
-it refuses to replace a non-empty directory it did not generate. Remove the
-temporary directory after the smoke. Do not use `mimir setup` for this job:
-`setup` is the operator configuration path and may persist global config.
-
-Architecture — one core, thin transports:
-
-```
-packages/contract/   @mimir/contract — pure DTO + wire types (the dependency-free leaf; the UI imports it)
-packages/bin/        @mimir/bin — the binary
-  src/core/          domain logic over the Store seam: derivation, rank, verbs, intent layer
-    store-norn/      the Norn store adapter — client + vault read/write path (speaks to the `norn` binary)
-  src/cli/           the human transport (parseArgs + styled/structured renderers)
-  src/mcp/           the agent transport (official MCP SDK over stdio)
-  src/http/          the UI transport (resource-shaped REST over Bun.serve)
-  src/main.ts        composition root — dispatches subcommands
-packages/ui/         @mimir/ui — the operator console SPA (embedded in the binary)
-```
-
-The layering `contract ← core ← transports` is enforced by an oxlint
-`no-restricted-imports` rule: `core` may not import a transport, and the
-transports may not import each other.
+Generate the deterministic demo workspace used for documentation and visual
+testing with `bun run fixtures:vault .dev/docs-fixture`. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the project structure and review process.
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](LICENSE)

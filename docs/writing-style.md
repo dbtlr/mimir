@@ -49,6 +49,25 @@ Verify user-facing behavior against its owning surface before publishing:
 Prefer workflow examples over exhaustive command listings. CLI help owns exact
 syntax; guides own intent, sequence, and the reason a workflow matters.
 
+## Refresh screenshots
+
+Screenshots use the generated demo workspace, never a personal vault:
+
+```sh
+bun run fixtures:vault .dev/docs-fixture
+MIMIR_VAULT=.dev/docs-fixture bun run mimir serve --port 64748 --no-hunt
+```
+
+Capture a dark 1440 × 900 viewport after the page settles:
+
+| File | Route |
+| --- | --- |
+| `docs/assets/console-overview.png` | `/` |
+| `docs/assets/console-project.png` | `/p/AUR?node=AUR-3` |
+
+Regenerate the fixture immediately before capture. Inspect both images at full
+size and at the width used by the rendered Markdown page.
+
 ## Review checklist
 
 - Every feature claim matches the current source-built product.
