@@ -10,6 +10,11 @@ name: Changelog guard
 # Escape hatch: a behavior-preserving PR (internal refactor, test/build-meta
 # only) applies the `skip-changelog` label instead of a fragment.
 #
+# Two release-procedure shapes pass structurally, no label needed: the
+# release-cut PR (fragment deletions only — the compile) and the cycle-open PR
+# (every changed line is a `"version"` field in packages/bin/package.json +
+# bun.lock — version metadata has no behavior to log).
+#
 # Runs on every PR and self-determines applicability (like version-guard) so it
 # is always a runnable, requireable check — a `paths:`-filtered required check
 # would hang "pending" on PRs that don't match. `labeled`/`unlabeled` are listed
@@ -47,6 +52,24 @@ jobs:
           if ! echo "$changed" | grep -qE '^(packages/|skills/mimir/|package\.json$|bun\.lock$|install\.sh$|\.github/workflows/(release|prerelease)\.yml$)'; then
             echo "No build-affecting paths changed — changelog fragment not required."
             exit 0
+          fi
+
+          # The cycle-open PR (release procedure's closing step) moves only the
+          # version strings in packages/bin/package.json and bun.lock's copy of
+          # it. Version metadata has no behavior to log — pass structurally so
+          # each cycle open doesn't need the label by hand. Both conditions
+          # bind: the file set AND every content line, so a bump smuggling any
+          # other change still requires its fragment. (Counted with `grep -cv`,
+          # not `-qv`: BSD grep short-circuits `-q` even under `-v`, and this
+          # script should stay correct wherever it is run by hand.)
+          other_files=$(echo "$changed" | grep -cvE '^(packages/bin/package\.json|bun\.lock)$' || true)
+          if [ "$other_files" -eq 0 ]; then
+            content=$(git diff -U0 "${base}...HEAD" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' || true)
+            nonversion_lines=$(echo "$content" | grep -cvE '^[+-][[:space:]]*"version": "' || true)
+            if [ -n "$content" ] && [ "$nonversion_lines" -eq 0 ]; then
+              echo "Version-metadata-only change (the cycle-open shape) — no behavior to log. Gate satisfied."
+              exit 0
+            fi
           fi
 
           if [ "$HAS_SKIP_LABEL" = "true" ]; then
