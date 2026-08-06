@@ -233,4 +233,6 @@ The worker remains an app-shell cache, never an API cache. Production builds
 now fail unless the precache has unique URLs and complete HTML, JavaScript,
 CSS, font, icon, and manifest coverage with `/api` still denied from navigation
 fallback; a serial two-build Chromium test pins update, offline, and reconnect
-behavior together.
+behavior together. It remains available as `bun run test:pwa` for local and
+manual release verification rather than running as a separate GitHub Actions
+gate.
