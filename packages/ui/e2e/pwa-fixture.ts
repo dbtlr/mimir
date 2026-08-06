@@ -125,7 +125,10 @@ export class PwaFixture {
     const url = new URL(pathWithQuery, this.origin);
     if (url.pathname.startsWith('/api/')) {
       const result = this.api(url.pathname);
-      response.writeHead(result.status, { 'content-type': 'application/json; charset=utf-8' });
+      response.writeHead(result.status, {
+        'cache-control': 'no-store',
+        'content-type': 'application/json; charset=utf-8',
+      });
       response.end(result.body);
       return;
     }
