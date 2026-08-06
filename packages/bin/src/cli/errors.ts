@@ -24,6 +24,17 @@ export class UsageError extends Error {
 
 export const usage = (message: string, hint?: string): UsageError => new UsageError(message, hint);
 
+/**
+ * MMR-359: the hint pointed to by every `create` failure a leading-dash title
+ * can cause — parseArgs reads `--weird-title` as a flag, not a positional, so
+ * both a swallowed title (`requirePos` never sees it → "requires a title")
+ * and a misread one (`ERR_PARSE_ARGS_UNKNOWN_OPTION`) land here. `--` is
+ * already-supported parseArgs behavior (an option terminator, not a new
+ * grammar) — this only makes it discoverable.
+ */
+export const CREATE_DASH_TITLE_HINT =
+  "a leading-dash title needs the '--' terminator: mimir create <type> [flags] -- <title>";
+
 export type RenderableError = MimirError | UsageError;
 
 export function isRenderable(err: unknown): err is RenderableError {

@@ -312,6 +312,27 @@ test('unknown flag with no near match: falls back to the verb help pointer (MMR-
   expect(err).not.toContain('positional argument');
 });
 
+test('create with a leading-dash title but no -- hits the strict unknown-flag error, hinting at the escape hatch (MMR-359)', async () => {
+  const io = fakeIo(true);
+  expect(
+    await runCli(['create', 'task', '--parent', 'MMR-2', '--weird-title'], neverStore, io),
+  ).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("unknown flag '--weird-title'");
+  expect(err).toContain("note: a leading-dash title needs the '--' terminator");
+  expect(err).toContain('mimir create <type> [flags] -- <title>');
+  // The parallel-grammar guard: `--weird-title` is still a strict parse
+  // failure, never silently accepted as the title.
+  expect(err).not.toContain('did you mean');
+});
+
+test('create task --help documents the -- escape hatch for a leading-dash title (MMR-359)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['create', 'task', '--help'], neverStore, io)).toBe(0);
+  const out = io.out.join('');
+  expect(out).toContain('mimir create task --parent MMR-2 -- --weird-title');
+});
+
 test('a flag missing its value is synthesized in house voice (MMR-289)', async () => {
   const io = fakeIo(true);
   expect(await runCli(['list', '--to'], neverStore, io)).toBe(2);

@@ -55,7 +55,14 @@ import type { ServiceDeps } from '../service';
 import { cmdVault } from '../vault/commands';
 import type { VaultDeps } from '../vault/commands';
 import { BINDING_FILE, writeBinding } from './binding';
-import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from './errors';
+import {
+  CREATE_DASH_TITLE_HINT,
+  exitCodeFor,
+  isRenderable,
+  renderError,
+  renderWarnings,
+  usage,
+} from './errors';
 import type { UsageError } from './errors';
 import { COMMAND_HELP, helpForCommand, renderFullHelp, renderTerseHelp } from './help';
 import {
@@ -1117,9 +1124,13 @@ function synthesizeParseError(error: unknown, command: string | undefined): Usag
       // Short aliases stay in the candidate pool (a short typo is nearest to a
       // short spelling) but the suggestion always names the canonical long flag.
       const near = nearest(flag, FLAG_SPELLINGS);
+      // MMR-359: an unknown "flag" on `create` with no near match is more often
+      // a leading-dash title than a typo — a genuine near-miss (rung 2) still
+      // wins, since that's the more specific fix.
+      const fallback = command === 'create' ? CREATE_DASH_TITLE_HINT : help;
       return usage(
         `unknown flag '${flag}'`,
-        near !== undefined ? `did you mean '${canonicalFlag(near)}'?` : help,
+        near !== undefined ? `did you mean '${canonicalFlag(near)}'?` : fallback,
       );
     }
   }
