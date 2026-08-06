@@ -9,6 +9,7 @@ import {
 } from '../scratchpads/codec';
 import { isScratchpadId } from '../scratchpads/store';
 import type { ScratchpadStore } from '../scratchpads/store';
+import { isCanonicalInstant } from '../time';
 import { applyReportOutcome } from './apply-report';
 import type { NornClient } from './client';
 import { collapse, isStringRecord } from './decode';
@@ -24,17 +25,7 @@ import {
 } from './plan';
 import { loadWorkingSetOverNorn } from './store';
 
-const UTC_MILLIS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-
 const pathOf = (id: string): string => `scratch/${id}.md`;
-
-function canonicalTime(value: unknown): value is string {
-  if (typeof value !== 'string' || !UTC_MILLIS.test(value)) {
-    return false;
-  }
-  const parsed = new Date(value);
-  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === value;
-}
 
 function frontmatterOf(scratchpad: Scratchpad): Record<string, unknown> {
   const fm: Record<string, unknown> = {
@@ -130,16 +121,20 @@ export function decodeScratchpadDocument(
   if (typeof title !== 'string' || title.trim() === '') {
     problems.push({ problem: 'invalid-title' });
   }
-  if (!canonicalTime(createdAt)) {
+  // Timestamps stay STRICT on the read path (MMR-351): a merely-normalizable
+  // stored instant (an offset form, a missing millisecond) fails closed here
+  // rather than being coerced, so the pad stays unreadable until `doctor`
+  // rewrites the document. Repairability is classified once, at detection.
+  if (!isCanonicalInstant(createdAt)) {
     problems.push({ problem: 'invalid-created' });
   }
-  if (!canonicalTime(updatedAt)) {
+  if (!isCanonicalInstant(updatedAt)) {
     problems.push({ problem: 'invalid-updated-at' });
   }
-  if (canonicalTime(createdAt) && canonicalTime(updatedAt) && createdAt > updatedAt) {
+  if (isCanonicalInstant(createdAt) && isCanonicalInstant(updatedAt) && createdAt > updatedAt) {
     problems.push({ problem: 'created-after-updated' });
   }
-  if (freezingRaw !== undefined && freezingRaw !== null && !canonicalTime(freezingRaw)) {
+  if (freezingRaw !== undefined && freezingRaw !== null && !isCanonicalInstant(freezingRaw)) {
     problems.push({ problem: 'invalid-freezing-at' });
   }
   if (body.value === null) {
@@ -150,8 +145,8 @@ export function decodeScratchpadDocument(
     id === undefined ||
     project === null ||
     typeof title !== 'string' ||
-    !canonicalTime(createdAt) ||
-    !canonicalTime(updatedAt) ||
+    !isCanonicalInstant(createdAt) ||
+    !isCanonicalInstant(updatedAt) ||
     body.value === null
   ) {
     return { invalidAnchors: [], problems, scratchpad: null };

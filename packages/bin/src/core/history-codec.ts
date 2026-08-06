@@ -753,6 +753,65 @@ function finding(
   return { heading, line: index + 1, problem, section };
 }
 
+/** One record heading's stored instant, anchored to the line carrying it. */
+export type BodyRecordTimestamp = {
+  /** {@link HISTORY_HEADING} or {@link ANNOTATIONS_HEADING}. */
+  section: string;
+  /** 1-based line number within the node body. */
+  line: number;
+  /** The timestamp text exactly as the heading carries it. */
+  value: string;
+};
+
+/**
+ * Every instant a body's `## History` / `## Annotations` record headings carry
+ * (MMR-351) — the body-side counterpart to a frontmatter timestamp field, and
+ * the input to the canonical-timestamp check.
+ *
+ * Reports only the headings the READER accepts as record boundaries, which is
+ * exactly the set whose instants reach a comparison: `parseHistorySection` and
+ * `parseAnnotationsSection` keep these and drop everything else, and the values
+ * they keep are then compared as raw strings — annotations are sorted on
+ * `createdAt` (`store-norn/body-sections.ts`), the transition feed orders and
+ * cursors on `at` (`store-norn/transitions.ts`), and session windows take their
+ * edges from it (`intent/sessions.ts`). A `### ` line the reader does NOT accept
+ * is already {@link lintBodySections}' story (`malformed-history-heading`,
+ * `unknown-transition-kind`, `non-iso-annotation-heading`) and is never repeated
+ * here, so the two detectors partition the same lines rather than overlapping.
+ *
+ * The heading grammars are both looser than the canonical instant the writer
+ * stamps: an annotation heading's zone is optional and its offset colon
+ * optional, and a history heading's `at` is unconstrained text. Classifying the
+ * values is the caller's job ({@link ../core/time}); this only extracts them.
+ */
+export function recordTimestamps(body: string): BodyRecordTimestamp[] {
+  const lines = splitLines(body);
+  const timestamps: BodyRecordTimestamp[] = [];
+  const history = sectionRange(lines, HISTORY_HEADING);
+  if (history !== null) {
+    for (let i = history.start; i < history.end; i++) {
+      const line = lines[i] ?? '';
+      const at = ESCAPED_HEADING_LINE.test(line) ? undefined : HEADING.exec(line)?.[1];
+      if (at !== undefined && isHistoryBoundary(line)) {
+        timestamps.push({ line: i + 1, section: HISTORY_HEADING, value: at });
+      }
+    }
+  }
+  const annotations = sectionRange(lines, ANNOTATIONS_HEADING);
+  if (annotations !== null) {
+    for (let i = annotations.start; i < annotations.end; i++) {
+      const line = lines[i] ?? '';
+      const createdAt = ESCAPED_HEADING_LINE.test(line)
+        ? undefined
+        : ANNOTATION_HEADING.exec(line)?.[1];
+      if (createdAt !== undefined) {
+        timestamps.push({ line: i + 1, section: ANNOTATIONS_HEADING, value: createdAt });
+      }
+    }
+  }
+  return timestamps.toSorted((a, b) => a.line - b.line);
+}
+
 /** The record block a boundary opens: its heading through to the next boundary
  * (or section end) — the same span {@link splitRecords} would hand the parser. */
 function recordBlock(

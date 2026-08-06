@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { NornClient } from '../core/store-norn/client';
 import type { NornSetArgs } from '../core/store-norn/client';
 import { bunExec } from '../exec';
-import { backfillProjectField, backfillVaultData } from './backfill';
+import { backfillCanonicalTimestamps, backfillProjectField, backfillVaultData } from './backfill';
 import { converge } from './converge';
 import { MARKER_FILE, NORN_CONFIG_FILE, renderNornConfig, VAULT_SCHEMA } from './schema';
 
@@ -53,10 +53,12 @@ test('backfillProjectField skips a document whose stem does not parse to an iden
   expect(sets).toEqual([]);
 });
 
-test('backfillVaultData is a no-op (no client) once the vault is at the project-field schema', async () => {
-  // fromSchema >= 3 short-circuits before touching Norn; an unusable path proves
-  // no client was spawned.
-  expect(await backfillVaultData('/nonexistent/vault', 3)).toEqual([]);
+test('backfillVaultData is a no-op (no client) once the vault is at the current schema', async () => {
+  // The short-circuit tracks the LATEST migration's schema (MMR-351 moved it from
+  // 3 to 9): a schema-3 vault still needs the timestamp pass, so only a vault at
+  // the current schema skips Norn entirely — an unusable path proves no client
+  // was spawned.
+  expect(await backfillVaultData('/nonexistent/vault', VAULT_SCHEMA)).toEqual([]);
 });
 
 // ── Integration: converge upgrades a schema-2 vault and backfills (real norn) ──
@@ -114,6 +116,90 @@ test.skipIf(!NORN)(
         no_limit: true,
       });
       expect(found.map((d) => d.path).toSorted()).toEqual(['MMR/MMR-1.md', 'MMR/MMR.md']);
+    } finally {
+      await client.close();
+    }
+  },
+);
+
+// ── MMR-351: the canonical-timestamp backfill ────────────────────────────────
+
+test.skipIf(!NORN)(
+  'converge normalizes zoned timestamp variants on a schema-8 vault and leaves the rest for doctor',
+  async () => {
+    const vault = join(root, 'v');
+    mkdirSync(join(vault, '.norn'), { recursive: true });
+    mkdirSync(join(vault, 'MMR', 'artifacts'), { recursive: true });
+    mkdirSync(join(vault, 'MMR', 'seeds'), { recursive: true });
+    writeFileSync(join(vault, NORN_CONFIG_FILE), renderNornConfig());
+    writeFileSync(join(vault, MARKER_FILE), 'schema = 8\n');
+    // A project whose stamps are an offset form and a millisecond-less Z form —
+    // both state their instant, so both normalize…
+    writeFileSync(
+      join(vault, 'MMR', 'MMR.md'),
+      "---\nkey: MMR\nname: n\nproject: '[[MMR]]'\ntype: project\ncreated: 2026-01-01T05:30:00+05:30\nupdated_at: 2026-01-01T00:00:00Z\n---\nx\n",
+    );
+    // …a task carrying a ZONE-LESS completed_at, which states none, so it must
+    // survive the upgrade byte-for-byte rather than being guessed at…
+    writeFileSync(
+      join(vault, 'MMR', 'MMR-1.md'),
+      "---\ntitle: t\nparent: '[[MMR]]'\nproject: '[[MMR]]'\ntype: task\ncreated: 2026-01-01T00:00:00.000Z\nupdated_at: 2026-01-01T00:00:00.000Z\ncompleted_at: 2026-01-02T09:00:00\n---\nx\n",
+    );
+    // …and an artifact + a seed, to prove the scan is not work-state-only.
+    writeFileSync(
+      join(vault, 'MMR', 'artifacts', 'MMR-a1.md'),
+      "---\ntitle: t\nproject: '[[MMR]]'\ntype: artifact\ncreated: 2026-01-01T00:00:00-04:00\nupdated_at: 2026-01-01T00:00:00.000Z\n---\nx\n",
+    );
+    writeFileSync(
+      join(vault, 'MMR', 'seeds', 'MMR-s1.md'),
+      "---\ntitle: t\nproject: '[[MMR]]'\nkind: feature\nlifecycle: sown\ntype: seed\ncreated: 2026-01-01T00:00:00Z\nupdated_at: 2026-01-01T00:00:00.000Z\n---\nx\n",
+    );
+
+    // …and a Scratchpad, whose stamps live in the same invariant (ADR 0027 pads
+    // are project-anchored documents, so the migration must reach them too).
+    mkdirSync(join(vault, 'scratch'), { recursive: true });
+    writeFileSync(
+      join(vault, 'scratch', '018f3f36-7b2b-4c92-8f31-44c764a1a456.md'),
+      "---\ntitle: Working notes\nproject: '[[MMR]]'\ntype: scratch\n" +
+        'created: 2026-01-01T05:30:00+05:30\nupdated_at: 2026-01-01T00:00:00.000Z\n' +
+        'freezing_at: 2026-01-02T00:00:00\n---\n## Journal\n\n## Agenda\n',
+    );
+
+    const result = await converge(vault, {
+      allowCreate: false,
+      exec: bunExec,
+      migrateData: backfillVaultData,
+    });
+    expect(result.outcome === 'converged' && result.upgraded).toBe(true);
+    expect(readFileSync(join(vault, MARKER_FILE), 'utf8')).toContain(
+      `schema = ${String(VAULT_SCHEMA)}`,
+    );
+
+    const project = readFileSync(join(vault, 'MMR', 'MMR.md'), 'utf8');
+    expect(project).toContain('created: 2026-01-01T00:00:00.000Z');
+    expect(project).toContain('updated_at: 2026-01-01T00:00:00.000Z');
+    expect(readFileSync(join(vault, 'MMR', 'artifacts', 'MMR-a1.md'), 'utf8')).toContain(
+      'created: 2026-01-01T04:00:00.000Z',
+    );
+    expect(readFileSync(join(vault, 'MMR', 'seeds', 'MMR-s1.md'), 'utf8')).toContain(
+      'created: 2026-01-01T00:00:00.000Z',
+    );
+    const pad = readFileSync(
+      join(vault, 'scratch', '018f3f36-7b2b-4c92-8f31-44c764a1a456.md'),
+      'utf8',
+    );
+    expect(pad).toContain('created: 2026-01-01T00:00:00.000Z');
+    // The value no one can interpret is untouched — the migration never guesses,
+    // on a pad (`freezing_at`) or on a work-state document (`completed_at`).
+    expect(pad).toContain('freezing_at: 2026-01-02T00:00:00');
+    expect(readFileSync(join(vault, 'MMR', 'MMR-1.md'), 'utf8')).toContain(
+      'completed_at: 2026-01-02T09:00:00',
+    );
+
+    // Idempotent: a second pass over the now-canonical vault changes nothing.
+    const client = new NornClient({ vaultPath: vault });
+    try {
+      expect(await backfillCanonicalTimestamps(client, vault)).toEqual([]);
     } finally {
       await client.close();
     }

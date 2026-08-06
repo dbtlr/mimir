@@ -294,7 +294,7 @@ test('corrupt project projections cannot hide per-document findings from canonic
         documents: docs.map(({ body, projectedProject, stem }) => ({
           body,
           documentHash: null,
-          frontmatter: { project: projectedProject, updated_at: '2026-01-01T00:00:00Z' },
+          frontmatter: { project: projectedProject, updated_at: '2026-01-01T00:00:00.000Z' },
           path: `${stem.split('-')[0] ?? stem}/${stem}.md`,
           stem,
         })),

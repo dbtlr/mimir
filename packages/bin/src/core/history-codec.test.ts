@@ -12,6 +12,7 @@ import {
   parseAnnotationsSection,
   parseDescriptionSection,
   parseHistorySection,
+  recordTimestamps,
   renderAnnotationRecord,
   renderAnnotationsBody,
   renderDescriptionSection,
@@ -857,4 +858,61 @@ test('an indented ## Next is code, not a duplicate (MMR-324)', () => {
 test('duplicate ## Next findings interleave in document order with record findings (MMR-321)', () => {
   const body = `## ${NEXT_HEADING}\n\na\n## ${NEXT_HEADING}\n\nb\n## ${HISTORY_HEADING}\n### not a real record\n`;
   expect(lintBodySections(body).map((f) => f.line)).toEqual([4, 8]);
+});
+
+// ── recordTimestamps (MMR-351) ───────────────────────────────────────────────
+// The extractor reports exactly the instants the READER accepts as records —
+// the set that reaches the lexical compares annotations, the transition feed,
+// and session windows perform. Everything the reader rejects stays
+// lintBodySections' story, so the two detectors partition the same lines.
+
+test('recordTimestamps reports every instant the reader accepts, in document order', () => {
+  const body = renderMigratedNodeBody(
+    'intro',
+    [SAMPLES.lifecycle as HistoryEntry],
+    [ANNOTATIONS.plain as AnnotationView],
+  );
+  expect(recordTimestamps(body)).toEqual([
+    { line: expect.any(Number), section: HISTORY_HEADING, value: SAMPLES.lifecycle.at },
+    {
+      line: expect.any(Number),
+      section: ANNOTATIONS_HEADING,
+      value: ANNOTATIONS.plain.createdAt,
+    },
+  ]);
+});
+
+test('recordTimestamps anchors each non-canonical instant to its own line', () => {
+  const body =
+    `## ${HISTORY_HEADING}\n` +
+    `### 2026-07-03T10:00:00+02:00 — lifecycle\nactive → done\n` +
+    `### tuesday — lifecycle\ndone → active\n` +
+    `## ${ANNOTATIONS_HEADING}\n` +
+    `### 2026-07-03T12:00:00\nzone-less note\n`;
+  expect(recordTimestamps(body)).toEqual([
+    { line: 2, section: HISTORY_HEADING, value: '2026-07-03T10:00:00+02:00' },
+    { line: 4, section: HISTORY_HEADING, value: 'tuesday' },
+    { line: 7, section: ANNOTATIONS_HEADING, value: '2026-07-03T12:00:00' },
+  ]);
+});
+
+test('recordTimestamps ignores lines the reader never reads as records', () => {
+  // An unknown kind, a heading with no kind tail, a non-ISO annotation heading,
+  // and escaped prose: none of these become a record, so none carries an instant
+  // that could reach a comparison.
+  const body =
+    `## ${HISTORY_HEADING}\n` +
+    `### 2026-07-03T10:00:00.000Z — frobnicate\nactive → done\n` +
+    `### not a real record\n` +
+    `\\### 2026-07-03T11:00:00.000Z — lifecycle\n` +
+    `## ${ANNOTATIONS_HEADING}\n` +
+    `### not-a-timestamp\nnote\n`;
+  expect(recordTimestamps(body)).toEqual([]);
+});
+
+test('recordTimestamps reads a CRLF body and a whitespace-suffixed anchor', () => {
+  const body = `## ${HISTORY_HEADING} \r\n### 2026-07-03T10:00:00Z — lifecycle\r\nactive → done\r\n`;
+  expect(recordTimestamps(body)).toEqual([
+    { line: 2, section: HISTORY_HEADING, value: '2026-07-03T10:00:00Z' },
+  ]);
 });

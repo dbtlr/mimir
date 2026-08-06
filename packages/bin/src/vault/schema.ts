@@ -29,9 +29,12 @@ import { SEQ_TOKEN } from '../core/store-norn/plan';
  * `summary` lede to the same rule (MMR-319). Schema 7 added the four optional
  * task resume handles to the node rule's `field_types` (MMR-320). Schema 8
  * adds the project-anchored Scratchpad document at `scratch/<uuid>.md`
- * (MMR-329, ADR 0027).
+ * (MMR-329, ADR 0027). Schema 9 makes the canonical instant — ISO-8601 UTC,
+ * millisecond precision, explicit `Z` — a persisted invariant rather than a
+ * write convention (MMR-351, ADR 0029): its backfill normalizes the zoned
+ * variants norn's `datetime` type accepts but lexical comparison does not.
  */
-export const VAULT_SCHEMA = 8;
+export const VAULT_SCHEMA = 9;
 
 export const MARKER_FILE = '.mimir-vault.toml';
 export const NORN_CONFIG_FILE = '.norn/config.yaml';

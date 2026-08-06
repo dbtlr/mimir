@@ -11,6 +11,7 @@ import {
   replaceBody,
   setFrontmatter,
 } from '../core/store-norn/plan';
+import { canonicalInstant } from '../core/time';
 import { projectFrontmatter } from '../core/vault-frontmatter';
 import type { DoctorFinding, DoctorIssueCode } from './checks';
 import type { DoctorSnapshot, DoctorSnapshotDocument } from './snapshot';
@@ -19,6 +20,8 @@ import { doctorIdentityIndex, doctorLogicalStemAtPath } from './snapshot';
 export type RepairRecipe =
   | 'add-canonical-heading'
   | 'normalize-crlf'
+  | 'normalize-record-timestamp'
+  | 'normalize-timestamp'
   | 'recover-missing-project'
   | 'restore-project-projection'
   | 'stamp-updated-at';
@@ -31,6 +34,9 @@ export type RepairSkipReason =
   | 'invalid-semantic-value'
   | 'non-corruption-warning'
   | 'out-of-scope'
+  /** The stored value names no instant (zone-less or malformed), so only a human
+   * can say what it meant — mimir will not guess one (MMR-351, ADR 0029). */
+  | 'requires-explicit-correction'
   | 'semantic-reference'
   | 'unreadable-document';
 
@@ -87,6 +93,10 @@ export const REPAIR_POLICY: Record<DoctorIssueCode, RepairPolicy> = {
   'missing-journal-section': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'missing-project': { kind: 'supported', recipe: 'recover-missing-project' },
   'missing-updated-at': { kind: 'supported', recipe: 'stamp-updated-at' },
+  // The two timestamp classes (MMR-351) are decided at DETECTION: a value that
+  // states its instant is normalized; one that does not is never guessed at.
+  'non-canonical-record-timestamp': { kind: 'supported', recipe: 'normalize-record-timestamp' },
+  'non-canonical-timestamp': { kind: 'supported', recipe: 'normalize-timestamp' },
   'non-iso-annotation-heading': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'orphaned-seed': { kind: 'supported', recipe: 'recover-missing-project' },
   'scratchpad-created-after-updated': { kind: 'skipped', reason: 'unreadable-document' },
@@ -110,6 +120,8 @@ export const REPAIR_POLICY: Record<DoctorIssueCode, RepairPolicy> = {
   'section-order': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'stem-project-divergence': { kind: 'supported', recipe: 'restore-project-projection' },
   'superseded-reason-required': { kind: 'skipped', reason: 'ambiguous-body-record' },
+  'uninterpretable-record-timestamp': { kind: 'skipped', reason: 'requires-explicit-correction' },
+  'uninterpretable-timestamp': { kind: 'skipped', reason: 'requires-explicit-correction' },
   'unknown-requester': { kind: 'skipped', reason: 'semantic-reference' },
   'unknown-transition-kind': { kind: 'skipped', reason: 'ambiguous-body-record' },
   'unparseable-history-record': { kind: 'skipped', reason: 'ambiguous-body-record' },
@@ -232,6 +244,33 @@ function recoveryOperation(key: string, timestamp: string): MigrationOp {
   );
 }
 
+/**
+ * Rewrite one `### <instant>` record heading to the canonical form the finding
+ * already computed (MMR-351), leaving every other byte of the line alone — a
+ * history heading keeps its ` — <kind>` tail, and a CRLF line keeps its `\r`.
+ * Returns `null` when the addressed line is not the heading the finding
+ * describes, so a shifted or concurrently-edited body is skipped rather than
+ * corrupted. Splitting on `\n` (not the codec's CRLF-tolerant split) keeps line
+ * endings untouched; both splitters index lines identically.
+ */
+function rewriteRecordTimestamp(body: string, issue: DoctorFinding): string | null {
+  const line = typeof issue.evidence.line === 'number' ? issue.evidence.line : undefined;
+  const value = typeof issue.evidence.value === 'string' ? issue.evidence.value : undefined;
+  const canonical =
+    typeof issue.evidence.canonical === 'string' ? issue.evidence.canonical : undefined;
+  if (line === undefined || value === undefined || canonical === undefined) {
+    return null;
+  }
+  const lines = body.split('\n');
+  const target = lines[line - 1];
+  const heading = `### ${value}`;
+  if (target === undefined || !target.startsWith(heading)) {
+    return null;
+  }
+  lines[line - 1] = `### ${canonical}${target.slice(heading.length)}`;
+  return lines.join('\n');
+}
+
 type BodyRepair = {
   body: string;
   doc: DoctorSnapshotDocument;
@@ -277,6 +316,19 @@ export function planDoctorRepairs(args: {
       path: artifact.path,
       stem: artifact.stem,
     });
+  }
+  // Scratchpads (MMR-329) are a third snapshot slice, and they must be indexed
+  // too (MMR-351): a pad can now carry a repairable finding, and an unindexed
+  // one plans a `missing-snapshot-document` FAILURE — which
+  // `cmdDoctorRepair` treats as fatal for the WHOLE run, discarding every
+  // unrelated repair and exiting nonzero. One hand-edited pad must not be able
+  // to do that. Unlike artifacts these carry their real body and document hash,
+  // so a body-affecting recipe reaching one is a genuine CAS write, not a
+  // fabricated empty body.
+  const scratchpadPaths = new Set<string>();
+  for (const pad of args.snapshot.scratchpads ?? []) {
+    scratchpadPaths.add(pad.path);
+    indexDoc(pad);
   }
   const bodies = new Map<string, BodyRepair>();
   const occupied = occupiedPaths(args.snapshot);
@@ -340,8 +392,17 @@ export function planDoctorRepairs(args: {
       failures.push({ issue: entry, reason: 'missing-snapshot-document' });
       continue;
     }
-    const logicalStem = doctorLogicalStemAtPath(identityIndex, doc.path) ?? entry.stem;
-    if (physicalPathsByStem.get(logicalStem)?.size !== 1) {
+    // A Scratchpad is PATH-addressed. Its UUID stem sits deliberately outside
+    // the durable KEY grammar and therefore outside the identity index, so the
+    // work-state single-owner proof cannot be run against it — asking it anyway
+    // returns "no owner" and skips every pad repair as `ambiguous-identity`.
+    // `scratch/<uuid>.md` is its own sole owner; the docsByPath uniqueness check
+    // just above is the whole ownership proof a pad needs.
+    const scratchpad = scratchpadPaths.has(doc.path);
+    const logicalStem = scratchpad
+      ? entry.stem
+      : (doctorLogicalStemAtPath(identityIndex, doc.path) ?? entry.stem);
+    if (!scratchpad && physicalPathsByStem.get(logicalStem)?.size !== 1) {
       skipped.push({ issue: entry, reason: 'ambiguous-identity' });
       continue;
     }
@@ -358,6 +419,25 @@ export function planDoctorRepairs(args: {
       continue;
     }
 
+    if (policy.recipe === 'normalize-timestamp') {
+      // Trusts the finding's own classification (never redetects): detection
+      // decided the value states an instant and computed its canonical form, and
+      // only that form is written. The snapshot is read for ONE thing — the raw
+      // value to assert as the CAS precondition — so a value that changed between
+      // diagnosis and apply refuses rather than overwrites.
+      const field = typeof entry.evidence.field === 'string' ? entry.evidence.field : undefined;
+      const canonical =
+        typeof entry.evidence.canonical === 'string' ? entry.evidence.canonical : undefined;
+      const observed = field === undefined ? undefined : doc.frontmatter?.[field];
+      if (field === undefined || canonical === undefined || observed === undefined) {
+        failures.push({ issue: entry, reason: 'missing-snapshot-value' });
+        continue;
+      }
+      operations.push(setFrontmatter(doc.path, field, canonical, observed));
+      planned.push({ issue: entry, recipe: policy.recipe });
+      continue;
+    }
+
     if (policy.recipe === 'stamp-updated-at') {
       // Trusts the finding's own classification (never redetects) — `present`
       // says whether `updated_at` sat in frontmatter with a null value or was
@@ -368,13 +448,16 @@ export function planDoctorRepairs(args: {
       // as an `add_frontmatter` (absent) or a `set_frontmatter` asserting the
       // null old value (present-but-null), never a value-guarded `set_frontmatter`.
       const present = entry.evidence.present === true;
-      const created = doc.frontmatter?.created;
-      // The target population is hand-edited docs, so `created` itself may be
-      // garbage — only a parseable timestamp is trusted as the seed.
-      const stamp =
-        typeof created === 'string' && !Number.isNaN(Date.parse(created))
-          ? created
-          : args.timestamp;
+      // The target population is legacy and hand-edited docs, so `created` is
+      // exactly where a non-canonical value lives — and a repair must never
+      // write one. `Date.parse` would have accepted precisely the forms this
+      // invariant outlaws (zone-less above all) and stamped the corruption
+      // forward as a value nothing can normalize afterwards, since the instant
+      // it meant was never stated. Only a NORMALIZABLE `created` seeds the
+      // stamp, in its canonical form; anything else falls back to the run's own
+      // timestamp (MMR-351).
+      const seed = canonicalInstant(doc.frontmatter?.created);
+      const stamp = seed ?? args.timestamp;
       operations.push(
         present
           ? // norn (≥ 0.48, the pinned floor) coerces present-with-null and
@@ -397,6 +480,16 @@ export function planDoctorRepairs(args: {
     }
     if (policy.recipe === 'normalize-crlf') {
       bodyRepair.body = toCanonicalLf(bodyRepair.body);
+      bodyRepair.issues.push({ issue: entry, recipe: policy.recipe });
+      continue;
+    }
+    if (policy.recipe === 'normalize-record-timestamp') {
+      const rewritten = rewriteRecordTimestamp(bodyRepair.body, entry);
+      if (rewritten === null) {
+        skipped.push({ issue: entry, reason: 'ambiguous-body-record' });
+        continue;
+      }
+      bodyRepair.body = rewritten;
       bodyRepair.issues.push({ issue: entry, recipe: policy.recipe });
       continue;
     }
@@ -453,6 +546,19 @@ export function repairIssueKey(issue: DoctorFinding): string {
     return `${issue.code}\0${projectKey}`;
   }
   if (issue.code === 'stem-project-divergence') {
+    return `${issue.code}\0${issue.locator}`;
+  }
+  // One document can carry several bad timestamps at once, so the code+stem key
+  // would conflate them and let a still-broken field ride in on a repaired one's
+  // verification. The field (frontmatter) and the `path:line` locator (a body
+  // record) are what make each finding distinct.
+  if (issue.code === 'non-canonical-timestamp' || issue.code === 'uninterpretable-timestamp') {
+    return `${issue.code}\0${issue.locator}\0${String(issue.evidence.field)}`;
+  }
+  if (
+    issue.code === 'non-canonical-record-timestamp' ||
+    issue.code === 'uninterpretable-record-timestamp'
+  ) {
     return `${issue.code}\0${issue.locator}`;
   }
   return `${issue.code}\0${issue.scopeKey}\0${issue.stem}`;
