@@ -68,13 +68,14 @@ mimir attach KEY-9 --file retro.md --title "Session summary" \
   retrospective, omit this piece rather than manufacturing activity.
 - **If the session ran on a Scratchpad, freeze it instead of attaching a
   parallel file** — `mimir scratch freeze <uuid> --summary "…" -t
-  session_summary` turns the episode's own Journal and Agenda into the
-  retrospective artifact (`references/scratchpad.md`); the same lede
-  discipline applies. The anchoring rule above still binds: the artifact
-  inherits the **Scratchpad's linked work** as its anchors, and linked-task
-  overlap is what joins it to the session in `overview` — so before freezing,
-  `scratch update <uuid> --link …` every task the session materially touched,
-  or the retrospective lands unjoined. Two records of one session drift; the
+  session_summary --expected-updated-at <ts>` turns the episode's own Journal
+  and Agenda into the retrospective artifact (`references/scratchpad.md`); the
+  same lede discipline applies. The anchoring rule above still binds: the
+  artifact inherits the **Scratchpad's linked work** as its anchors, and
+  linked-task overlap is what joins it to the session in `overview` — so
+  before freezing, link every task the session materially touched
+  (`scratch update <uuid> --link … --expected-updated-at <ts>`), or the
+  retrospective lands unjoined. Two records of one session drift; the
   episode's memory is the retrospective. `attach --file` remains the path for
   sessions that ran without one.
 
