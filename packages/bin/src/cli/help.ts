@@ -200,15 +200,17 @@ options:
   -y, --yes               create project: confirm the immutable key
                           (required when not at a TTY)
       --name <name>       create project: display name (or positional)
-      --title <text>      create/update: title text
+      --title <text>      update/attach/promote/scratch: title text
+                          (create takes it positional: create task <title> …)
       --desc <text>       create/update: description
       --direction <text>  update: the ## Next narrative (projects/containers)
-      --summary <text>    create/update/attach: summary (nodes and artifacts; 256 chars max)
+      --summary <text>    create/update/attach/scratch: summary (nodes and artifacts; 256 chars max)
       --target <text>     create/update: target date or milestone
       --ref <ref>         create/update: external reference
       --file <path>       attach: path to artifact file
       --link <ids>        attach: additional links — KEY-seq, comma-separated
-      --project <KEY>     attach: associate artifact with a project key
+      --project <KEY>     attach: associate artifact with a project key;
+                          seed/seeds: target/scope board
       --tag <t>           create: tag at creation (repeatable)
       -k, --kind <kind>   seed: idea|bug|feature (required)
       --requester <KEY>   seeds: filter to a requesting board
@@ -758,7 +760,10 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   },
   'create task': {
     args: [['<title>', 'task title']],
-    examples: ['mimir create task "wire the API" --parent MMR-2 --priority p1'],
+    examples: [
+      'mimir create task "wire the API" --parent MMR-2 --priority p1',
+      'mimir create task --parent MMR-2 -- --weird-title   # leading-dash title, after the -- terminator',
+    ],
     flags: [
       ['--parent <id>', 'the owning phase or initiative (KEY-seq, required)'],
       ['--priority <p0..p3>', 'priority signal'],

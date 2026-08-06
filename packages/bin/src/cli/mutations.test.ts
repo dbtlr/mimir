@@ -566,6 +566,30 @@ test.skipIf(!NORN)('create with an unknown type is a usage error → exit 2', as
 test.skipIf(!NORN)('create task without --parent is a usage error → exit 2', async () => {
   expect(await runCli(['create', 'task', 'orphan'], () => store, fakeIo(false))).toBe(2);
 });
+test.skipIf(!NORN)(
+  'create task: a leading-dash title after -- creates the node with that exact title (MMR-359)',
+  async () => {
+    // The already-supported parseArgs `--` terminator, not a parallel title
+    // grammar: everything after it is a positional, `--weird-title` included.
+    const io = fakeIo(false);
+    const code = await runCli(
+      ['create', 'task', '--parent', phaseRef, '-f', 'json', '--', '--weird-title'],
+      () => store,
+      io,
+    );
+    expect(code).toBe(0);
+    const v = JSON.parse(io.out[0] ?? '{}');
+    expect(v.title).toBe('--weird-title');
+  },
+);
+test.skipIf(!NORN)('create task with no title hints at the -- escape hatch (MMR-359)', async () => {
+  const io = fakeIo(false);
+  const code = await runCli(['create', 'task', '--parent', phaseRef], () => store, io);
+  expect(code).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain('create task requires a title');
+  expect(err).toContain("a leading-dash title needs the '--' terminator");
+});
 
 // attach verb
 test.skipIf(!NORN)('attach to a node infers the project and echoes an artifact id', async () => {

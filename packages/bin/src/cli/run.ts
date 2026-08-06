@@ -55,7 +55,14 @@ import type { ServiceDeps } from '../service';
 import { cmdVault } from '../vault/commands';
 import type { VaultDeps } from '../vault/commands';
 import { BINDING_FILE, writeBinding } from './binding';
-import { exitCodeFor, isRenderable, renderError, renderWarnings, usage } from './errors';
+import {
+  CREATE_DASH_TITLE_HINT,
+  exitCodeFor,
+  isRenderable,
+  renderError,
+  renderWarnings,
+  usage,
+} from './errors';
 import type { UsageError } from './errors';
 import { COMMAND_HELP, helpForCommand, renderFullHelp, renderTerseHelp } from './help';
 import {
@@ -237,6 +244,44 @@ const COMMANDS: ReadonlySet<string> = new Set(
  *   board — a silently-wrong answer where the invocation used to be a hard
  *   unknown-flag error. `list`/`next` cap with `-n, --limit`, which is where
  *   the hint sends the caller.
+ * - `--parent` sets the owning node at creation (`create initiative/phase/task`)
+ *   or when `promote` spawns a task from a seed. In the shared table it would
+ *   otherwise make `mimir list --parent MMR-2` exit 0 with the FULL unfiltered
+ *   board (MMR-360) — the exact `--offset` failure shape above, one flag over.
+ *   The uniform selector `--eq parent:KEY` is where the hint sends `list`/`next`
+ *   callers.
+ * - The MMR-360 sweep found the same shape wherever a write-owned flag's
+ *   spelling doubles as a `QUERY_FIELDS` name (`query.ts`): `--title`
+ *   (update/attach/promote/scratch), `--summary` (create/update/attach/
+ *   scratch), `--target` (create/update, phases only), `--ref`
+ *   (create/update, the `external_ref` field), `--upstream` (create/update,
+ *   plus `setup`'s unrelated snapshot-remote reuse of the same spelling),
+ *   and the four resume handles `--host`/`--harness`/`--session`/`--branch`
+ *   (create/update/start).
+ *   `mimir list --host my-branch` used to exit 0 with the FULL board for the
+ *   identical reason `--parent` did; each redirects to its own `--eq
+ *   FIELD:VALUE`.
+ * - `--project` has no `QUERY_FIELDS` counterpart, but it is not a harmless
+ *   no-op like `--name`/`--key` below: `attach` (associate an artifact),
+ *   `seed` (file against another board), and `seeds` (scope the queue to one
+ *   board, or `all`) all read it as a real filter/selector. A caller who has
+ *   just scoped `mimir seeds --project MMR` reasonably expects `mimir list
+ *   --project MMR` to scope the same way; instead it used to exit 0 with the
+ *   FULL cross-project board — a silently BROADER answer read as a
+ *   per-project one, the same hazard as `--parent` in the opposite direction.
+ *   `list`/`next` already own a real project scope, `-s, --scope KEY`, so
+ *   that is where the hint sends the caller instead of a nonexistent `--eq`.
+ * - `--requester` is `seeds`' own filter (seeds a board requested elsewhere);
+ *   it has no `QUERY_FIELDS` counterpart either (tasks carry no requester),
+ *   but the same "looks like a working filter on a sibling verb" hazard
+ *   applies, so it is guarded to `seeds` alone rather than left to silently
+ *   no-op on `list`/`next`.
+ *   Flags with no query-field counterpart AND no life as a filter on any
+ *   verb — `--name`, `--key`, `--kind` (`seed`'s required classification,
+ *   never used to filter the seed queue — `listSeeds` has no `kind` option),
+ *   and `--desc` (`description` is deliberately unqueryable, MMR-162) — stay
+ *   unguarded: a stray one is a genuine no-op, not a silently narrowed (or
+ *   broadened) answer masquerading as a filter.
  *
  * - `--tz`, `--at-or-before`, and `--at-or-after` belong to the four query
  *   verbs (ADR 0029). `--tz` names the caller's zone for both halves of a
@@ -273,6 +318,18 @@ type OwnedFlagValues = {
   offset?: string;
   query?: string;
   reason?: string;
+  parent?: string;
+  title?: string;
+  summary?: string;
+  target?: string;
+  ref?: string;
+  upstream?: string;
+  host?: string;
+  harness?: string;
+  session?: string;
+  branch?: string;
+  project?: string;
+  requester?: string;
 };
 
 /** No verb owns a tombstoned flag — every use is a usage error with a redirect. */
@@ -370,6 +427,82 @@ const VERB_OWNED_FLAGS: readonly {
     given: (values) => values.query !== undefined,
     hint: `'-q, --query' searches titles; use it with artifacts, list, or next`,
     owner: ['artifacts', 'list', 'next'],
+  },
+  {
+    flag: '--parent',
+    given: (values) => values.parent !== undefined,
+    hint: `'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'`,
+    owner: ['create', 'promote'],
+  },
+  // The MMR-360 sweep (see the doc comment above) — every remaining
+  // `QUERY_FIELDS` name that also spells a write-owned flag.
+  {
+    flag: '--title',
+    given: (values) => values.title !== undefined,
+    hint: `'--title' is a positional at create (mimir create task <title> …); the flag names a node at update/attach/scratch, or overrides promote's spawned title; list/next filter with '--eq title:KEY' or search with '-q, --query'`,
+    owner: ['update', 'attach', 'promote', 'scratch'],
+  },
+  {
+    flag: '--summary',
+    given: (values) => values.summary !== undefined,
+    hint: `'--summary' sets the summary at create/update/attach/scratch; list/next filter with '--eq summary:KEY'`,
+    owner: ['create', 'update', 'attach', 'scratch'],
+  },
+  {
+    flag: '--target',
+    given: (values) => values.target !== undefined,
+    hint: `'--target' sets a phase's target at create/update; list/next filter with '--eq target:KEY'`,
+    owner: ['create', 'update'],
+  },
+  {
+    flag: '--ref',
+    given: (values) => values.ref !== undefined,
+    hint: `'--ref' sets external_ref at create/update; list/next filter with '--eq external_ref:KEY'`,
+    owner: ['create', 'update'],
+  },
+  {
+    flag: '--upstream',
+    given: (values) => values.upstream !== undefined,
+    hint: `'--upstream' sets the requester-side seed pointer at create/update (or the snapshot git remote at setup); list/next filter the task field with '--eq upstream:KEY'`,
+    owner: ['create', 'update', 'setup'],
+  },
+  {
+    flag: '--host',
+    given: (values) => values.host !== undefined,
+    hint: `'--host' sets a resume handle at create/update/start; list/next filter with '--eq host:KEY'`,
+    owner: ['create', 'update', 'start'],
+  },
+  {
+    flag: '--harness',
+    given: (values) => values.harness !== undefined,
+    hint: `'--harness' sets a resume handle at create/update/start; list/next filter with '--eq harness:KEY'`,
+    owner: ['create', 'update', 'start'],
+  },
+  {
+    flag: '--session',
+    given: (values) => values.session !== undefined,
+    hint: `'--session' sets a resume handle at create/update/start; list/next filter with '--eq session:KEY'`,
+    owner: ['create', 'update', 'start'],
+  },
+  {
+    flag: '--branch',
+    given: (values) => values.branch !== undefined,
+    hint: `'--branch' sets a resume handle at create/update/start; list/next filter with '--eq branch:KEY'`,
+    owner: ['create', 'update', 'start'],
+  },
+  // `--project` and `--requester` have no `QUERY_FIELDS` counterpart, but each
+  // is a real filter/selector on a sibling verb — see the doc comment above.
+  {
+    flag: '--project',
+    given: (values) => values.project !== undefined,
+    hint: `'--project' targets attach/seed/seeds; list/next scope a project with '-s, --scope KEY'`,
+    owner: ['attach', 'seed', 'seeds'],
+  },
+  {
+    flag: '--requester',
+    given: (values) => values.requester !== undefined,
+    hint: `'--requester' filters seeds a board requested; use it with seeds`,
+    owner: 'seeds',
   },
 ];
 
@@ -504,11 +637,12 @@ export async function runCli(
     // is the primary fault — surface its typo hint — otherwise it's a genuine
     // flag error on a known verb, so synthesize house voice for it and point
     // at THAT verb's help (MMR-211, MMR-289).
-    const command = lenientCommand(argv);
+    const lenient = lenientPositionals(argv);
+    const command = lenient[0];
     if (command !== undefined && !COMMANDS.has(command)) {
       return renderUnknownCommand(command, argv, io);
     }
-    renderError(synthesizeParseError(error, command), errorFormat(argv), io);
+    renderError(synthesizeParseError(error, command, lenient), errorFormat(argv), io);
     return 2;
   }
 
@@ -1042,18 +1176,21 @@ function nearest(input: string, candidates: Iterable<string>): string | undefine
 }
 
 /**
- * Recover the command (first positional) without throwing on unknown flags — a
- * lenient parse for the error paths, where the strict parse has already failed
- * and we still need to know which verb was invoked (MMR-211). Lenient parsing
- * still honors known value-taking flags, so a flag's value is never mistaken for
- * the verb (`mimir -s alpha get --bad` → `get`, not `alpha`).
+ * Recover the positionals without throwing on unknown flags — a lenient parse
+ * for the error paths, where the strict parse has already failed and we still
+ * need to know which verb was invoked (MMR-211), plus, for `create`, whether
+ * a title/name positional already made it through the flags (MMR-359: gates
+ * the leading-dash-title hint to only the invocations where nothing did).
+ * Lenient parsing still honors known value-taking flags, so a flag's value is
+ * never mistaken for a positional (`mimir -s alpha get --bad` → `get`, not
+ * `alpha`).
  */
-function lenientCommand(argv: string[]): string | undefined {
+function lenientPositionals(argv: string[]): string[] {
   try {
     return parseArgs({ allowPositionals: true, args: argv, options: OPTIONS, strict: false })
-      .positionals[0];
+      .positionals;
   } catch {
-    return argv.find((arg) => !arg.startsWith('-'));
+    return argv.filter((arg) => !arg.startsWith('-'));
   }
 }
 
@@ -1105,8 +1242,18 @@ function canonicalFlag(flag: string): string {
  * exists in FLAG_SPELLINGS, else the verb's own help pointer (rung 3) — there
  * is no statable fix (rung 1) for a parse failure, since the intended value is
  * unknowable.
+ *
+ * `positionals` is the lenient reparse's recovered positionals (verb +
+ * whatever survived) — `create`'s rung 3 only narrows to the leading-dash
+ * hint when none of them landed past the type, i.e. no title/name positional
+ * made it through (MMR-359). A title already present means the unknown flag
+ * is a genuine typo elsewhere in the invocation, not a swallowed title.
  */
-function synthesizeParseError(error: unknown, command: string | undefined): UsageError {
+function synthesizeParseError(
+  error: unknown,
+  command: string | undefined,
+  positionals: readonly string[],
+): UsageError {
   const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
   const message = error instanceof Error ? error.message : String(error);
   const help =
@@ -1120,9 +1267,17 @@ function synthesizeParseError(error: unknown, command: string | undefined): Usag
       // Short aliases stay in the candidate pool (a short typo is nearest to a
       // short spelling) but the suggestion always names the canonical long flag.
       const near = nearest(flag, FLAG_SPELLINGS);
+      // MMR-359: an unknown "flag" on `create` with no near match and no
+      // title/name positional recovered (verb + type only — nothing past
+      // that survived the lenient reparse) is more often a leading-dash
+      // title than a typo — a genuine near-miss (rung 2) still wins, since
+      // that's the more specific fix, and a title that already made it
+      // through is proof this isn't a swallowed-title failure at all.
+      const isDashTitleCandidate = command === 'create' && positionals.length <= 2;
+      const fallback = isDashTitleCandidate ? CREATE_DASH_TITLE_HINT : help;
       return usage(
         `unknown flag '${flag}'`,
-        near !== undefined ? `did you mean '${canonicalFlag(near)}'?` : help,
+        near !== undefined ? `did you mean '${canonicalFlag(near)}'?` : fallback,
       );
     }
   }
