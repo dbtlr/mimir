@@ -8,14 +8,10 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { registerSW } from 'virtual:pwa-register';
 
 import { POLL_MS } from './api/queries';
 import { persister, shouldPersistQuery } from './lib/persist';
 import { router } from './router';
-
-// App-shell service worker (ADR 0013 §5) — the installed app always opens.
-registerSW({ immediate: true });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
