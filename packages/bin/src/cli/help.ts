@@ -204,7 +204,7 @@ options:
                           (create takes it positional: create task <title> …)
       --desc <text>       create/update: description
       --direction <text>  update: the ## Next narrative (projects/containers)
-      --summary <text>    create/update/attach: summary (nodes and artifacts; 256 chars max)
+      --summary <text>    create/update/attach/scratch: summary (nodes and artifacts; 256 chars max)
       --target <text>     create/update: target date or milestone
       --ref <ref>         create/update: external reference
       --file <path>       attach: path to artifact file
