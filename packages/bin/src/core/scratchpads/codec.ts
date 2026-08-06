@@ -14,6 +14,26 @@ const MARK: Record<AgendaItemState, string> = { done: 'x', open: ' ', superseded
 const JOURNAL_ENTRY = /^### ([1-9]\d*) — (\S+)$/;
 const AGENDA_ITEM = /^([1-9]\d*)\. \[([ x-])\] (.+)$/;
 
+export type JournalTimestamp = { line: number; section: 'Journal'; value: string };
+
+/** Journal heading instants accepted by the reader, with their body locations. */
+export function journalTimestamps(body: string): JournalTimestamp[] {
+  const lines = body.replaceAll('\r\n', '\n').split('\n');
+  const journal = lines.indexOf(`## ${SCRATCHPAD_JOURNAL_HEADING}`);
+  const agenda = lines.indexOf(`## ${SCRATCHPAD_AGENDA_HEADING}`, journal + 1);
+  if (journal === -1 || agenda === -1) {
+    return [];
+  }
+  const timestamps: JournalTimestamp[] = [];
+  for (let index = journal + 1; index < agenda; index++) {
+    const match = JOURNAL_ENTRY.exec(lines[index] ?? '');
+    if (match?.[2] !== undefined) {
+      timestamps.push({ line: index + 1, section: 'Journal', value: match[2] });
+    }
+  }
+  return timestamps;
+}
+
 export type ScratchpadBodyProblem =
   | 'missing-journal-section'
   | 'duplicate-journal-section'

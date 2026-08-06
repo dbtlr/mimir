@@ -263,11 +263,28 @@ function rewriteRecordTimestamp(body: string, issue: DoctorFinding): string | nu
   }
   const lines = body.split('\n');
   const target = lines[line - 1];
-  const heading = `### ${value}`;
-  if (target === undefined || !target.startsWith(heading)) {
+  if (target === undefined) {
     return null;
   }
-  lines[line - 1] = `### ${canonical}${target.slice(heading.length)}`;
+  if (issue.evidence.section === 'Journal') {
+    const cr = target.endsWith('\r') ? '\r' : '';
+    const content = cr === '' ? target : target.slice(0, -1);
+    const suffix = ` — ${value}`;
+    if (!content.startsWith('### ') || !content.endsWith(suffix)) {
+      return null;
+    }
+    const number = content.slice(4, -suffix.length);
+    if (!/^[1-9]\d*$/.test(number)) {
+      return null;
+    }
+    lines[line - 1] = `### ${number} — ${canonical}${cr}`;
+  } else {
+    const heading = `### ${value}`;
+    if (!target.startsWith(heading)) {
+      return null;
+    }
+    lines[line - 1] = `### ${canonical}${target.slice(heading.length)}`;
+  }
   return lines.join('\n');
 }
 

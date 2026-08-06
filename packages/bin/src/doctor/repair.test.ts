@@ -1148,6 +1148,46 @@ test('normalize-record-timestamp rewrites only the addressed heading, under the 
   ]);
 });
 
+test('normalize-record-timestamp preserves a Scratchpad Journal number', () => {
+  const body = '## Journal\n\n### 1 — 2026-01-01T05:30:00+05:30\n\nEntry\n\n## Agenda\n';
+  const planned = planDoctorRepairs({
+    issues: [
+      {
+        ...issue(
+          'non-canonical-record-timestamp',
+          '018f3f36-7b2b-4c92-8f31-44c764a1a456',
+          {
+            canonical: '2026-01-01T00:00:00.000Z',
+            line: 3,
+            section: 'Journal',
+            value: '2026-01-01T05:30:00+05:30',
+          },
+          'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md:3',
+        ),
+        scopeKey: 'MMR',
+      },
+    ],
+    scope: 'MMR',
+    snapshot: snapshot(
+      [],
+      [
+        {
+          body,
+          documentHash: 'pad-hash',
+          frontmatter: { project: '[[MMR]]', type: 'scratch' },
+          path: 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md',
+          stem: '018f3f36-7b2b-4c92-8f31-44c764a1a456',
+        },
+      ],
+    ),
+    timestamp: '2026-07-13T12:00:00.000Z',
+    vaultRoot: '/vault',
+  });
+  expect(planned.migration.operations[0]).toMatchObject({
+    fields: { new_value: '## Journal\n\n### 1 — 2026-01-01T00:00:00.000Z\n\nEntry\n\n## Agenda\n' },
+  });
+});
+
 test('normalize-record-timestamp skips a line that is not the heading the finding names', () => {
   const planned = planDoctorRepairs({
     issues: [
