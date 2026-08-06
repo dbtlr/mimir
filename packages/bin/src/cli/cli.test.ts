@@ -1040,14 +1040,63 @@ test.skipIf(!NORN)(
     const io = fakeIo(false);
     await runCli(['get', ref, '--col', 'annotations'], () => store, io);
     const text = io.out.join('');
-    const line = text.split('\n').find((l) => l.includes('annotations'));
-    expect(line).toBeDefined();
-    const firstAt = line?.indexOf('first note') ?? -1;
-    const secondAt = line?.indexOf('second note') ?? -1;
-    const thirdAt = line?.indexOf('third note') ?? -1;
+    // Each entry is its own line (MMR-361 blocker fix), so ordering is
+    // asserted across the whole record, not within a single joined line.
+    const firstAt = text.indexOf('first note');
+    const secondAt = text.indexOf('second note');
+    const thirdAt = text.indexOf('third note');
     expect(firstAt).toBeGreaterThan(-1);
     expect(firstAt).toBeLessThan(secondAt);
     expect(secondAt).toBeLessThan(thirdAt);
+  },
+);
+
+test.skipIf(!NORN)(
+  'get --col annotations: a body containing "; " is not mistaken for an entry boundary',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const id = await nodeIdOf(store, ref);
+    await annotate(store, id, 'Realized the parser must be rewritten; filed MMR-12.');
+    await annotate(store, id, 'second note');
+
+    const io = fakeIo(false);
+    await runCli(['get', ref, '--col', 'annotations'], () => store, io);
+    const text = io.out.join('');
+    // The whole body — semicolon included — survives verbatim.
+    expect(text).toContain('Realized the parser must be rewritten; filed MMR-12.');
+    const firstAt = text.indexOf('Realized the parser must be rewritten');
+    const secondAt = text.indexOf('second note');
+    expect(firstAt).toBeGreaterThan(-1);
+    expect(firstAt).toBeLessThan(secondAt);
+  },
+);
+
+test.skipIf(!NORN)(
+  'get --col annotations: a multi-line body indents continuation lines instead of breaking the record',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const id = await nodeIdOf(store, ref);
+    await annotate(store, id, 'Summary line.\n\nMore detail in a second paragraph.');
+    await annotate(store, id, 'second note');
+
+    const io = fakeIo(false);
+    await runCli(['get', ref, '--col', 'annotations'], () => store, io);
+    const text = io.out.join('');
+    const lines = text.split('\n');
+    const summaryIdx = lines.findIndex((l) => l.includes('Summary line.'));
+    const continuationIdx = lines.findIndex((l) =>
+      l.includes('More detail in a second paragraph.'),
+    );
+    const secondIdx = lines.findIndex((l) => l.includes('second note'));
+    expect(summaryIdx).toBeGreaterThan(-1);
+    expect(continuationIdx).toBeGreaterThan(summaryIdx);
+    expect(secondIdx).toBeGreaterThan(continuationIdx);
+    // The continuation line carries no timestamp — it isn't a new entry —
+    // and the second annotation's own timestamp starts its own line.
+    expect(lines[continuationIdx]).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+    expect(lines[secondIdx]).toMatch(/\d{4}-\d{2}-\d{2}.*second note/);
   },
 );
 

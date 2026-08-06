@@ -1,4 +1,5 @@
 import type {
+  AnnotationView,
   ArtifactDetail,
   ArtifactSummary,
   NodeView,
@@ -119,7 +120,37 @@ export function renderTable(result: SetResult<NodeView>, io: Io, emptyMsg?: stri
 }
 
 function row(label: string, value: string, labelW: number): string {
-  return `  ${pad(label, labelW)}  ${value}`;
+  // `value` may itself be multi-line (MMR-361's expanded `annotations`): every
+  // line after the first is indented to the value column so it reads as a
+  // continuation of the same record, never mistaken for a new label.
+  const [first, ...rest] = value.split('\n');
+  if (rest.length === 0) {
+    return `  ${pad(label, labelW)}  ${first}`;
+  }
+  const indent = ' '.repeat(labelW + 4);
+  return [`  ${pad(label, labelW)}  ${first}`, ...rest.map((line) => indent + line)].join('\n');
+}
+
+/**
+ * The `--col annotations` expansion (MMR-361): one line per annotation, its own
+ * timestamp leading its content, in the store's chronological order. Unlike
+ * `history` (whose entries are terse machine tokens safely joined `; `),
+ * annotation content is freeform prose — it can contain `; ` itself, and the
+ * codec defines it as the whole body under the heading, so multi-paragraph
+ * content is normal. Joining entries onto one line would make an embedded
+ * semicolon or a wrapped line indistinguishable from an entry boundary, so
+ * each entry gets its own line instead; `row()` indents any continuation
+ * lines (either a later entry or a wrapped line within one entry) under the
+ * `annotations` label.
+ */
+function formatAnnotationsExpanded(annotations: readonly AnnotationView[], io: Io): string {
+  const lines: string[] = [];
+  for (const a of annotations) {
+    const [firstLine, ...rest] = a.content.split('\n');
+    lines.push(`${formatInstant(a.createdAt, io.zone)} — ${firstLine}`);
+    lines.push(...rest);
+  }
+  return lines.join('\n');
 }
 
 /**
@@ -185,7 +216,7 @@ function onwardHint(node: NodeView, io: Io): string {
  * the default stays the compact count (`annotations  3`) — annotation
  * bodies are otherwise unreadable in any human view — and `true` expands
  * every entry with its timestamp and content, in the store's own
- * chronological order, one row per node exactly like the `history` facet.
+ * chronological order, one entry per line (see `formatAnnotationsExpanded`).
  */
 export function renderRecords(node: NodeView, io: Io, expandAnnotations = false): string {
   const lines = [bold(node.id, io.plain)];
@@ -302,16 +333,7 @@ export function renderRecords(node: NodeView, io: Io, expandAnnotations = false)
   }
   if (node.annotations !== undefined && node.annotations.length > 0) {
     if (expandAnnotations) {
-      // Mirrors the `history` row below: one line, entries joined "; ", so the
-      // two facets read as one system. Each entry carries its own timestamp —
-      // `history`'s row doesn't, but a bare count is exactly what's unreadable
-      // here, so the expansion must show it.
-      pairs.push([
-        'annotations',
-        node.annotations
-          .map((a) => `${formatInstant(a.createdAt, io.zone)} — ${a.content}`)
-          .join('; '),
-      ]);
+      pairs.push(['annotations', formatAnnotationsExpanded(node.annotations, io)]);
     } else {
       pairs.push(['annotations', String(node.annotations.length)]);
     }
