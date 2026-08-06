@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { parseJson } from '@mimir/helpers';
 
 import {
+  annotate,
   attachArtifact,
   blockTask,
   completeTask,
@@ -1015,6 +1016,147 @@ test.skipIf(!NORN)(
     const err = io.err.join('');
     expect(err).toContain('always shown');
     expect(err).not.toContain('unknown column'); // the tailored hint, not the generic one
+  },
+);
+
+// annotation-body expansion (MMR-361): the default `get` stays the compact
+// count; `--col annotations` expands every entry, styled formats only —
+// machine formats already carry the full structured array, unchanged.
+
+test.skipIf(!NORN)(
+  'get: zero annotations — no --col annotations row, count or expanded',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+
+    const bare = fakeIo(false);
+    await runCli(['get', ref], () => store, bare);
+    expect(bare.out.join('')).not.toContain('annotations');
+
+    const expanded = fakeIo(false);
+    await runCli(['get', ref, '--col', 'annotations'], () => store, expanded);
+    expect(expanded.out.join('')).not.toContain('annotations');
+  },
+);
+
+test.skipIf(!NORN)('get: default records shows the compact count, never the body', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const ref = `MMR-${String(t.seq)}`;
+  const id = await nodeIdOf(store, ref);
+  await annotate(store, id, 'spun the edge case out to a follow-up');
+
+  const io = fakeIo(false);
+  await runCli(['get', ref], () => store, io);
+  const text = io.out.join('');
+  expect(text).toContain('annotations  1');
+  expect(text).not.toContain('spun the edge case out');
+});
+
+test.skipIf(!NORN)(
+  'get --col annotations: one annotation expands with its timestamp and content',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const id = await nodeIdOf(store, ref);
+    await annotate(store, id, 'solo note');
+
+    const io = fakeIo(false);
+    await runCli(['get', ref, '--col', 'annotations'], () => store, io);
+    const text = io.out.join('');
+    expect(text).toContain('solo note');
+    // A timestamp accompanies the body — not just the bare content.
+    expect(text).toMatch(/annotations\s+\d{4}-\d{2}-\d{2}/);
+  },
+);
+
+test.skipIf(!NORN)(
+  'get --col annotations: multiple annotations expand in stable chronological order',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const id = await nodeIdOf(store, ref);
+    await annotate(store, id, 'first note');
+    await annotate(store, id, 'second note');
+    await annotate(store, id, 'third note');
+
+    const io = fakeIo(false);
+    await runCli(['get', ref, '--col', 'annotations'], () => store, io);
+    const text = io.out.join('');
+    // Each entry is its own line (MMR-361 blocker fix), so ordering is
+    // asserted across the whole record, not within a single joined line.
+    const firstAt = text.indexOf('first note');
+    const secondAt = text.indexOf('second note');
+    const thirdAt = text.indexOf('third note');
+    expect(firstAt).toBeGreaterThan(-1);
+    expect(firstAt).toBeLessThan(secondAt);
+    expect(secondAt).toBeLessThan(thirdAt);
+  },
+);
+
+test.skipIf(!NORN)(
+  'get --col annotations: a body containing "; " is not mistaken for an entry boundary',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const id = await nodeIdOf(store, ref);
+    await annotate(store, id, 'Realized the parser must be rewritten; filed MMR-12.');
+    await annotate(store, id, 'second note');
+
+    const io = fakeIo(false);
+    await runCli(['get', ref, '--col', 'annotations'], () => store, io);
+    const text = io.out.join('');
+    // The whole body — semicolon included — survives verbatim.
+    expect(text).toContain('Realized the parser must be rewritten; filed MMR-12.');
+    const firstAt = text.indexOf('Realized the parser must be rewritten');
+    const secondAt = text.indexOf('second note');
+    expect(firstAt).toBeGreaterThan(-1);
+    expect(firstAt).toBeLessThan(secondAt);
+  },
+);
+
+test.skipIf(!NORN)(
+  'get --col annotations: a multi-line body indents continuation lines instead of breaking the record',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const id = await nodeIdOf(store, ref);
+    await annotate(store, id, 'Summary line.\n\nMore detail in a second paragraph.');
+    await annotate(store, id, 'second note');
+
+    const io = fakeIo(false);
+    await runCli(['get', ref, '--col', 'annotations'], () => store, io);
+    const text = io.out.join('');
+    const lines = text.split('\n');
+    const summaryIdx = lines.findIndex((l) => l.includes('Summary line.'));
+    const continuationIdx = lines.findIndex((l) =>
+      l.includes('More detail in a second paragraph.'),
+    );
+    const secondIdx = lines.findIndex((l) => l.includes('second note'));
+    expect(summaryIdx).toBeGreaterThan(-1);
+    expect(continuationIdx).toBeGreaterThan(summaryIdx);
+    expect(secondIdx).toBeGreaterThan(continuationIdx);
+    // The continuation line carries no timestamp — it isn't a new entry —
+    // and the second annotation's own timestamp starts its own line.
+    expect(lines[continuationIdx]).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+    expect(lines[secondIdx]).toMatch(/\d{4}-\d{2}-\d{2}.*second note/);
+  },
+);
+
+test.skipIf(!NORN)(
+  '--col annotations leaves json/jsonl/ids byte-for-byte unchanged (MMR-361)',
+  async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const id = await nodeIdOf(store, ref);
+    await annotate(store, id, 'a machine-format note');
+
+    for (const format of ['json', 'jsonl', 'ids'] as const) {
+      const withCol = fakeIo(false);
+      await runCli(['get', ref, '--col', 'annotations', '-f', format], () => store, withCol);
+      const bare = fakeIo(false);
+      await runCli(['get', ref, '-f', format], () => store, bare);
+      expect(withCol.out.join('')).toBe(bare.out.join(''));
+    }
   },
 );
 

@@ -94,7 +94,7 @@ One **flat, closed** vocabulary on every selection front-end — _the dot-facet 
 ### Set-valued columns (heavier — same flat vocabulary)
 
 - `deps` — what this node depends on, plus the derived `blocking` reverse set.
-- `annotations` — freeform in-flight notes.
+- `annotations` — freeform in-flight notes. On `get` (a cheap default facet there — `list`/`next` omit it unless requested via `--col annotations`), structured formats (`json`/`jsonl`) carry the full array (`content` + `createdAt`, chronological); the styled `records` view stays a compact count (`annotations  3`) unless `--col annotations` is given, which expands every entry onto its own line with its timestamp and content — one entry per line, since unlike `history`'s terse machine tokens, annotation prose can itself contain `; ` or span multiple lines (MMR-361).
 - `artifacts` — attached artifacts: **`id` (`KEY-aN`), required `title`, tags, `created_at`** (groomed 2026-06-10, `MMR-34`: title is a required column — CLI defaults to the `--file` basename, MCP requires it; `attach` grows `--tag`; classification stays tags per ADR 0004, never a kind enum). **Bodies** via `get KEY-aN --col content` — realigning with this note's original `get <artifact-id>` intent, which Phase 3 under-delivered (the `#N` echo was unaddressable).
 - `content` — an **artifact's** frozen body. The one deliberately heavy column; opt-in always.
 - `history` — the transition log (`kind`, from→to, `at`, `reason`). Heavy; opt-in even on `get`.

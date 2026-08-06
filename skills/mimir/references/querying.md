@@ -116,8 +116,9 @@ trickery. The same grammar windows `artifacts` and `seeds` by `created_at`.
 ## 5. Drill-down
 
 ```sh
-mimir get KEY-9                    # full record: deps, tags, annotations…
+mimir get KEY-9                    # full record: deps, tags, annotations (count only)…
 mimir get KEY-9 --col history      # + the transition log
+mimir get KEY-9 --col annotations  # expand annotation bodies (timestamp + content)
 mimir status KEY-3                 # a container's distribution — the WHY of its word
 mimir get KEY-a2 --col content     # an artifact's frozen body
 mimir get KEY                      # the whole project: children + distribution

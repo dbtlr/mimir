@@ -315,3 +315,123 @@ test('renderTable: empty set on a non-TTY keeps the bare count line only (MMR-95
   // Count line is still present (it's informational, not a message leak)
   expect(text).toContain('0 tasks');
 });
+
+// ─── Annotation-body expansion (MMR-361) ────────────────────────────────────
+//
+// The default `records` view keeps the compact count (annotation bodies are
+// otherwise unreadable in any human view); `expandAnnotations` (the `get
+// --col annotations` opt-in) prints every entry with its timestamp and
+// content, mirroring how the `history` facet already expands its row.
+
+test('records: no annotations facet at all — the row is absent, expanded or not (MMR-361)', () => {
+  const withoutFacet = task({ annotations: undefined });
+  expect(renderRecords(withoutFacet, fakeIo(false))).not.toContain('annotations');
+  expect(renderRecords(withoutFacet, fakeIo(false), true)).not.toContain('annotations');
+});
+
+test('records: zero annotations — the row is absent, expanded or not (MMR-361)', () => {
+  const zero = task({ annotations: [] });
+  expect(renderRecords(zero, fakeIo(false))).not.toContain('annotations');
+  expect(renderRecords(zero, fakeIo(false), true)).not.toContain('annotations');
+});
+
+test('records: default view shows the compact count, never the body (MMR-361)', () => {
+  const withAnnotations = task({
+    annotations: [
+      { content: 'first note', createdAt: '2026-08-05T13:14:00.000Z' },
+      { content: 'second note', createdAt: '2026-08-06T13:14:00.000Z' },
+    ],
+  });
+  const text = renderRecords(withAnnotations, fakeIo(false));
+  expect(text).toContain('annotations  2');
+  expect(text).not.toContain('first note');
+  expect(text).not.toContain('second note');
+});
+
+test('records: one annotation — --col annotations expands its timestamp and content (MMR-361)', () => {
+  const one = task({
+    annotations: [{ content: 'solo note', createdAt: '2026-08-05T13:14:00.000Z' }],
+  });
+  const text = renderRecords(one, fakeIo(false), true);
+  expect(text).toContain('2026-08-05 09:14 EDT');
+  expect(text).toContain('solo note');
+  expect(text).not.toMatch(RAW_ISO);
+});
+
+test('records: multiple annotations expand in stable chronological order (MMR-361)', () => {
+  const many = task({
+    annotations: [
+      { content: 'oldest', createdAt: '2026-08-05T13:14:00.000Z' },
+      { content: 'middle', createdAt: '2026-08-06T13:14:00.000Z' },
+      { content: 'newest', createdAt: '2026-08-07T13:14:00.000Z' },
+    ],
+  });
+  const text = renderRecords(many, fakeIo(false), true);
+  // Each entry is its own line (MMR-361 blocker fix) — ordering is asserted
+  // across the whole record, not within a single joined line.
+  const oldestAt = text.indexOf('oldest');
+  const middleAt = text.indexOf('middle');
+  const newestAt = text.indexOf('newest');
+  expect(oldestAt).toBeGreaterThan(-1);
+  expect(oldestAt).toBeLessThan(middleAt);
+  expect(middleAt).toBeLessThan(newestAt);
+  expect(text).toContain('2026-08-05 09:14 EDT');
+  expect(text).toContain('2026-08-06 09:14 EDT');
+  expect(text).toContain('2026-08-07 09:14 EDT');
+});
+
+test('records: an annotation containing "; " is not mistaken for an entry boundary (MMR-361)', () => {
+  const withSemicolon = task({
+    annotations: [
+      {
+        content: 'Realized the parser must be rewritten; filed MMR-12.',
+        createdAt: '2026-08-05T13:14:00.000Z',
+      },
+      { content: 'second note', createdAt: '2026-08-06T13:14:00.000Z' },
+    ],
+  });
+  const text = renderRecords(withSemicolon, fakeIo(false), true);
+  // The whole first body — semicolon and all — survives verbatim on its own line.
+  expect(text).toContain('Realized the parser must be rewritten; filed MMR-12.');
+  const firstAt = text.indexOf('Realized the parser must be rewritten');
+  const secondAt = text.indexOf('second note');
+  expect(firstAt).toBeGreaterThan(-1);
+  expect(firstAt).toBeLessThan(secondAt);
+  // The second entry's own timestamp starts its own line — it never gets
+  // swallowed as if it were more of the first entry's content.
+  expect(text).toContain('2026-08-06 09:14 EDT — second note');
+});
+
+test('records: a multi-line annotation body indents continuation lines under the label, and the next entry starts its own line (MMR-361)', () => {
+  const multiLine = task({
+    annotations: [
+      {
+        content: 'Summary of the change.\n\nMore detail in a second paragraph.',
+        createdAt: '2026-08-05T13:14:00.000Z',
+      },
+      { content: 'second note', createdAt: '2026-08-06T13:14:00.000Z' },
+    ],
+  });
+  const text = renderRecords(multiLine, fakeIo(false), true);
+  const lines = text.split('\n');
+  const labelLineIdx = lines.findIndex((l) => l.includes('annotations'));
+  expect(labelLineIdx).toBeGreaterThan(-1);
+  const labelLine = lines[labelLineIdx] ?? '';
+  const labelIndent = /^\s*annotations\s+/.exec(labelLine)?.[0].length ?? -1;
+  expect(labelIndent).toBeGreaterThan(-1);
+  // The wrapped second paragraph is on its own line, indented to the value
+  // column — not merged into the timestamp line, and not flush-left.
+  const continuationIdx = lines.findIndex((l) => l.includes('More detail in a second paragraph.'));
+  expect(continuationIdx).toBeGreaterThan(labelLineIdx);
+  // Continuation lines line up under the value column exactly — same width
+  // as the label-line prefix ("  annotations  ").
+  expect(lines[continuationIdx]).toBe(
+    `${' '.repeat(labelIndent)}More detail in a second paragraph.`,
+  );
+  expect(lines[continuationIdx]).not.toContain('—');
+  // The second annotation's timestamp is never glued onto the first entry's
+  // trailing continuation line.
+  const secondIdx = lines.findIndex((l) => l.includes('second note'));
+  expect(secondIdx).toBeGreaterThan(continuationIdx);
+  expect(lines[secondIdx]).toContain('2026-08-06 09:14 EDT — second note');
+});

@@ -583,6 +583,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     examples: [
       'mimir get MMR-16               # full record (cheap facets included)',
       'mimir get MMR-16 --col history # add the transition log',
+      'mimir get MMR-16 --col annotations # expand annotation bodies, not just the count',
       "mimir get MMR-a1 --col content # an artifact's frozen body",
       'mimir get MMR-s1               # a seed (resolved view + description)',
     ],
@@ -1179,6 +1180,7 @@ examples:
   mimir list --eq type:phase                  # filter to phases (use --in type:phase,task for multi-type)
   mimir get MMR-16                    # full record (cheap facets included)
   mimir get MMR-16 --col history      # add the transition log
+  mimir get MMR-16 --col annotations  # expand annotation bodies, not just the count
   mimir get MMR-a1 --col content      # an artifact's frozen body
   mimir artifacts -t session_summary  # the retrospectives, newest first
   mimir status MMR-3                  # rollup of an initiative/phase
