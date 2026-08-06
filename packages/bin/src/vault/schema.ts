@@ -33,8 +33,10 @@ import { SEQ_TOKEN } from '../core/store-norn/plan';
  * millisecond precision, explicit `Z` — a persisted invariant rather than a
  * write convention (MMR-351, ADR 0029): its backfill normalizes the zoned
  * variants norn's `datetime` type accepts but lexical comparison does not.
+ * Schema 10 extends the invariant and convergence repair to Scratchpad Journal
+ * record headings (MMR-352).
  */
-export const VAULT_SCHEMA = 9;
+export const VAULT_SCHEMA = 10;
 
 export const MARKER_FILE = '.mimir-vault.toml';
 export const NORN_CONFIG_FILE = '.norn/config.yaml';

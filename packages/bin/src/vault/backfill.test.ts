@@ -6,7 +6,12 @@ import { join } from 'node:path';
 import { NornClient } from '../core/store-norn/client';
 import type { NornSetArgs } from '../core/store-norn/client';
 import { bunExec } from '../exec';
-import { backfillCanonicalTimestamps, backfillProjectField, backfillVaultData } from './backfill';
+import {
+  backfillCanonicalTimestamps,
+  backfillJournalTimestamps,
+  backfillProjectField,
+  backfillVaultData,
+} from './backfill';
 import { converge } from './converge';
 import { MARKER_FILE, NORN_CONFIG_FILE, renderNornConfig, VAULT_SCHEMA } from './schema';
 
@@ -162,7 +167,8 @@ test.skipIf(!NORN)(
       join(vault, 'scratch', '018f3f36-7b2b-4c92-8f31-44c764a1a456.md'),
       "---\ntitle: Working notes\nproject: '[[MMR]]'\ntype: scratch\n" +
         'created: 2026-01-01T05:30:00+05:30\nupdated_at: 2026-01-01T00:00:00.000Z\n' +
-        'freezing_at: 2026-01-02T00:00:00\n---\n## Journal\n\n## Agenda\n',
+        'freezing_at: 2026-01-02T00:00:00\n---\n## Journal\n\n' +
+        '### 1 — 2026-01-01T05:30:00+05:30\n\ncheckpoint\n\n## Agenda\n',
     );
 
     const result = await converge(vault, {
@@ -189,6 +195,7 @@ test.skipIf(!NORN)(
       'utf8',
     );
     expect(pad).toContain('created: 2026-01-01T00:00:00.000Z');
+    expect(pad).toContain('### 1 — 2026-01-01T00:00:00.000Z');
     // The value no one can interpret is untouched — the migration never guesses,
     // on a pad (`freezing_at`) or on a work-state document (`completed_at`).
     expect(pad).toContain('freezing_at: 2026-01-02T00:00:00');
@@ -200,6 +207,7 @@ test.skipIf(!NORN)(
     const client = new NornClient({ vaultPath: vault });
     try {
       expect(await backfillCanonicalTimestamps(client, vault)).toEqual([]);
+      expect(await backfillJournalTimestamps(client, vault)).toEqual([]);
     } finally {
       await client.close();
     }

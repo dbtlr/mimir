@@ -872,10 +872,12 @@ function timestampNodeDoc({
 }
 
 function timestampScratchpadDoc({
+  body,
   frontmatter,
   stem,
 }: {
   stem: string;
+  body?: string;
   frontmatter?: Record<string, unknown>;
 }): {
   stem: string;
@@ -883,7 +885,7 @@ function timestampScratchpadDoc({
   path: string;
   frontmatter?: Record<string, unknown>;
 } {
-  const doc = { body: '', path: `scratch/${stem}.md`, stem };
+  const doc = { body: body ?? '', path: `scratch/${stem}.md`, stem };
   return frontmatter === undefined ? doc : { ...doc, frontmatter };
 }
 
@@ -1096,6 +1098,35 @@ test('timestamps flags body record headings the reader accepts as records', asyn
     kind: 'skipped',
     reason: 'requires-explicit-correction',
   });
+});
+
+test('timestamps classifies Scratchpad Journal instants without duplicate body findings', async () => {
+  const stem = '018f3f36-7b2b-4c92-8f31-44c764a1a456';
+  const body =
+    '## Journal\n\n### 1 — 2026-01-01T05:30:00+05:30\n\nRepairable\n\n' +
+    '### 2 — 2026-01-01T00:00:00\n\nExplicit correction\n\n## Agenda\n';
+  const docs = [
+    {
+      body,
+      frontmatter: {
+        created: CANONICAL,
+        project: '[[MMR]]',
+        title: 'Working',
+        type: 'scratch',
+        updated_at: CANONICAL,
+      },
+      path: `scratch/${stem}.md`,
+      stem,
+    },
+  ];
+  const findings = await timestampCheck.run(timestampCtx({ scratchpads: docs }));
+  expect(findings.map((finding) => [finding.code, finding.where])).toEqual([
+    ['non-canonical-record-timestamp', 'Journal · line 3'],
+    ['uninterpretable-record-timestamp', 'Journal · line 7'],
+  ]);
+  expect(
+    await scratchpadBodyCheck.run({ ...timestampCtx({}), readScratchpadDocs: async () => docs }),
+  ).toEqual([]);
 });
 
 test('a non-canonical scratchpad stamp is classified once, by the timestamp check', async () => {

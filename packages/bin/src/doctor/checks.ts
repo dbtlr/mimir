@@ -10,7 +10,7 @@ import type { BodyRecordProblem, BodyRecordTimestamp } from '../core/history-cod
 import { lintBodySections, recordTimestamps } from '../core/history-codec';
 import { parseIdentity } from '../core/ids';
 import type { ScratchpadBodyProblem } from '../core/scratchpads/codec';
-import { lintScratchpadBody } from '../core/scratchpads/codec';
+import { journalTimestamps, lintScratchpadBody } from '../core/scratchpads/codec';
 import { isScratchpadId } from '../core/scratchpads/store';
 import type { ProjectDeclaration } from '../core/store-norn';
 import type { ValidateFinding } from '../core/store-norn/decode';
@@ -205,6 +205,9 @@ export const scratchpadBodyCheck: Diagnostic = {
           ? collapsedProject
           : doc.stem;
       for (const finding of lintScratchpadBody(doc.body)) {
+        if (finding.problem === 'invalid-journal-timestamp') {
+          continue;
+        }
         findings.push(
           scratchpadIssue({
             code: finding.problem,
@@ -537,15 +540,11 @@ export const timestampCheck: Diagnostic = {
         stem,
       });
     }
-    for (const { stem, path, frontmatter } of scratchpadDocs) {
-      // Only FRONTMATTER is scanned for a pad. Its body holds Journal/Agenda
-      // sections, not the History/Annotations records `recordTimestamps` reads,
-      // and a Journal entry's `### <n> — <at>` instant is deliberately NOT
-      // covered here: those are string-compared too, but the codec already fails
-      // them closed as `invalid-journal-timestamp` (skipped by `--fix`), so
-      // routing them into this check's two classes is a repair-path change of
-      // its own. Tracked as follow-up work, not silently in scope.
+    for (const { stem, path, frontmatter, body } of scratchpadDocs) {
+      // Scratchpads join the same invariant through their frontmatter and the
+      // Journal record headings accepted by the shared codec (MMR-352).
       targets.push({
+        body,
         frontmatter: frontmatter ?? {},
         path,
         scopeKey: scratchpadScope(frontmatter, stem),
@@ -565,7 +564,11 @@ export const timestampCheck: Diagnostic = {
         }
         findings.push(timestampIssue(target, field, raw));
       }
-      for (const record of recordTimestamps(target.body ?? '')) {
+      const body = target.body ?? '';
+      const records = target.path.startsWith('scratch/')
+        ? journalTimestamps(body)
+        : recordTimestamps(body);
+      for (const record of records) {
         if (isCanonicalInstant(record.value)) {
           continue;
         }

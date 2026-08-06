@@ -11,11 +11,12 @@
  * the change), so a resumed run completes the remainder.
  */
 import { parseIdentity, wikilink } from '../core/ids';
+import { journalTimestamps } from '../core/scratchpads/codec';
 import { applyReportOutcome } from '../core/store-norn/apply-report';
 import { NornClient } from '../core/store-norn/client';
 import { stemOf } from '../core/store-norn/decode';
 import type { MigrationOp } from '../core/store-norn/plan';
-import { migrationPlan, setFrontmatter } from '../core/store-norn/plan';
+import { migrationPlan, replaceBody, setFrontmatter } from '../core/store-norn/plan';
 import { canonicalInstant, isCanonicalInstant, TIMESTAMP_FIELDS } from '../core/time';
 
 /** The vault schema that introduced the `project` frontmatter field (MMR-170). */
@@ -23,6 +24,7 @@ const PROJECT_FIELD_SCHEMA = 3;
 
 /** The vault schema that made the canonical instant a persisted invariant (MMR-351). */
 const CANONICAL_TIMESTAMP_SCHEMA = 9;
+const JOURNAL_TIMESTAMP_SCHEMA = 10;
 
 const WORK_STATE_TYPES = 'type:project,task,phase,initiative';
 
@@ -129,6 +131,58 @@ export async function backfillCanonicalTimestamps(
   return changed;
 }
 
+/** Normalize recoverable Scratchpad Journal headings under whole-document CAS. */
+export async function backfillJournalTimestamps(
+  client: NornClient,
+  vaultRoot: string,
+): Promise<string[]> {
+  const docs = await client.find({
+    col: ['.body', '.document_hash'],
+    in: ['type:scratch'],
+    no_limit: true,
+  });
+  const operations: MigrationOp[] = [];
+  const changed: string[] = [];
+  for (const doc of docs) {
+    if (typeof doc.body !== 'string' || typeof doc.document_hash !== 'string') {
+      continue;
+    }
+    const lines = doc.body.split('\n');
+    let touched = false;
+    for (const record of journalTimestamps(doc.body)) {
+      const canonical = canonicalInstant(record.value);
+      if (canonical === null || canonical === record.value) {
+        continue;
+      }
+      const line = lines[record.line - 1];
+      if (line === undefined) {
+        continue;
+      }
+      lines[record.line - 1] = line.replace(` — ${record.value}`, ` — ${canonical}`);
+      touched = true;
+    }
+    if (touched) {
+      operations.push(replaceBody(doc.path, doc.document_hash, lines.join('\n')));
+      changed.push(doc.path);
+    }
+  }
+  if (operations.length === 0) {
+    return [];
+  }
+  const outcome = applyReportOutcome(
+    await client.applyPlan(
+      migrationPlan({ generator: 'mimir-converge', operations, vaultRoot }),
+      true,
+    ),
+  );
+  if (outcome !== 'applied') {
+    throw new Error(
+      `the Journal timestamp backfill did not apply (outcome: ${outcome ?? 'unrecognized'})`,
+    );
+  }
+  return changed;
+}
+
 /**
  * `converge`'s `migrateData` hook: run every data migration an upgrade from
  * `fromSchema` needs, over a transient client at `path`. Returns the changed
@@ -136,7 +190,7 @@ export async function backfillCanonicalTimestamps(
  * vault is already at or past every migration's target schema.
  */
 export async function backfillVaultData(path: string, fromSchema: number): Promise<string[]> {
-  if (fromSchema >= CANONICAL_TIMESTAMP_SCHEMA) {
+  if (fromSchema >= JOURNAL_TIMESTAMP_SCHEMA) {
     return [];
   }
   const client = new NornClient({ vaultPath: path });
@@ -145,7 +199,10 @@ export async function backfillVaultData(path: string, fromSchema: number): Promi
     if (fromSchema < PROJECT_FIELD_SCHEMA) {
       changed.push(...(await backfillProjectField(client)));
     }
-    changed.push(...(await backfillCanonicalTimestamps(client, path)));
+    if (fromSchema < CANONICAL_TIMESTAMP_SCHEMA) {
+      changed.push(...(await backfillCanonicalTimestamps(client, path)));
+    }
+    changed.push(...(await backfillJournalTimestamps(client, path)));
     return [...new Set(changed)];
   } finally {
     await client.close();
