@@ -1817,3 +1817,78 @@ describe('artifacts flags are verb-owned (MMR-322)', () => {
     ).toBe(0);
   });
 });
+
+// A create/update-owned flag parsed through the ONE shared options table used to
+// reach `list`/`next` unrefused: `mimir list --parent KEY` exited 0 with the
+// FULL unfiltered board, silently discarding the caller's apparent filter (the
+// exact failure `--offset` and `--since` were already guarded against, one
+// flag over) rather than the hard usage error a misspelled selector gets.
+// `neverStore` proves the guard fires before any dispatch — never mind a query
+// — ever opens the store (MMR-39).
+describe('create/update-owned flags cannot silently narrow list/next (MMR-360)', () => {
+  // The exact reproduction from the report, across both formats a human or an
+  // agent would actually run it in.
+  test.each([
+    ['list', 'list', ['list', '--parent', 'MMR-2']],
+    ['list -f json', 'list', ['list', '--parent', 'MMR-2', '-f', 'json']],
+    ['next', 'next', ['next', '--parent', 'MMR-2']],
+    ['next -f json', 'next', ['next', '--parent', 'MMR-2', '-f', 'json']],
+  ])('%s --parent KEY exits 2 with no stdout and the --eq redirect', async (_label, verb, argv) => {
+    const io = fakeIo(true);
+    expect(await runCli(argv, neverStore, io)).toBe(2);
+    expect(io.out).toHaveLength(0);
+    expect(io.err.join('')).toContain(`'--parent' doesn't apply to ${verb}`);
+    expect(io.err.join('')).toContain('--eq parent:KEY');
+  });
+
+  // The rest of the MMR-360 sweep: every other write-owned flag whose spelling
+  // doubles as a `QUERY_FIELDS` name gets the identical refusal, not a silent
+  // no-op that looks like an empty-or-full-set answer to a real filter.
+  test.each([
+    ['--title', 'a'],
+    ['--summary', 'a'],
+    ['--target', 'a'],
+    ['--ref', 'a'],
+    ['--upstream', 'MMR-s1'],
+    ['--host', 'a'],
+    ['--harness', 'a'],
+    ['--session', 'a'],
+    ['--branch', 'a'],
+  ])('list rejects %s before touching the store', async (flag, value) => {
+    const io = fakeIo(true);
+    expect(await runCli(['list', flag, value], neverStore, io)).toBe(2);
+    expect(io.out).toHaveLength(0);
+    expect(io.err.join('')).toContain(`'${flag}' doesn't apply to list`);
+    expect(io.err.join('')).toMatch(/--eq \S+:KEY/);
+  });
+
+  test.each([
+    ['--title', 'a'],
+    ['--summary', 'a'],
+    ['--target', 'a'],
+    ['--ref', 'a'],
+    ['--upstream', 'MMR-s1'],
+    ['--host', 'a'],
+    ['--harness', 'a'],
+    ['--session', 'a'],
+    ['--branch', 'a'],
+  ])('next rejects %s before touching the store', async (flag, value) => {
+    const io = fakeIo(true);
+    expect(await runCli(['next', flag, value], neverStore, io)).toBe(2);
+    expect(io.out).toHaveLength(0);
+    expect(io.err.join('')).toContain(`'${flag}' doesn't apply to next`);
+  });
+
+  // The flags stay usable on the verbs that actually own them — the guard
+  // refuses a MISMATCHED owner, not the flag itself.
+  test.skipIf(!NORN)('--parent stays create/promote-owned', async () => {
+    const io = fakeIo(false);
+    expect(
+      await runCli(
+        ['create', 'task', 'via parent', '--parent', 'MMR-1', '-f', 'ids'],
+        () => store,
+        io,
+      ),
+    ).toBe(0);
+  });
+});
