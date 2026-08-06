@@ -38,12 +38,16 @@ mimir scratch checkpoint <uuid> "settled the API shape" --expected-updated-at <t
 mimir scratch agenda add <uuid> "verify recovery path" --expected-updated-at <ts2>
 mimir scratch agenda complete <uuid> 1 --expected-updated-at <ts3>
 mimir scratch agenda supersede <uuid> 2 --reason "covered by MMR-377" --expected-updated-at <ts4>
+
+# then ONE of the two endings — never both (freeze deletes the document):
 mimir scratch freeze <uuid> --summary "Watcher plan" --expected-updated-at <ts5>   # episode settled
 mimir scratch discard <uuid> --expected-updated-at <ts5>                           # episode dead
 ```
 
 (`<ts1>`…`<ts5>` are different values: every write moves the token, and each
-receipt carries the next one.)
+`update`/`checkpoint`/`agenda` receipt carries the next one. Freeze and
+discard are terminal — their receipts return an Artifact and a discard
+confirmation, no further token.)
 
 - `create` takes a title, an optional `-s KEY` (defaults to the bound project —
   a Scratchpad belongs to exactly one project), and repeatable `--link KEY-seq`

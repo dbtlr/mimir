@@ -75,7 +75,8 @@ mimir attach KEY-9 --file retro.md --title "Session summary" \
   linked-task overlap is what joins it to the session in `overview` — so
   before freezing, link every task the session materially touched
   (`scratch update <uuid> --link … --expected-updated-at <ts>`), or the
-  retrospective lands unjoined. Two records of one session drift; the
+  retrospective lands unjoined. That update's receipt returns the fresh
+  token the freeze then takes — tokens move on every write. Two records of one session drift; the
   episode's memory is the retrospective. `attach --file` remains the path for
   sessions that ran without one.
 
