@@ -8,7 +8,7 @@ type PwaWorkerFixtures = {
 
 /**
  * Production builds are worker setup, not product behavior under test. Give
- * them an independent budget so a slow CI builder cannot consume the browser
+ * them an independent budget so a slow builder cannot consume the browser
  * lifecycle's test timeout; the unique temp root still tears down per worker.
  */
 export const test = base.extend<{}, PwaWorkerFixtures>({
