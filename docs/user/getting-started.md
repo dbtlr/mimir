@@ -29,12 +29,12 @@ mimir create project "Aurora" --key AUR --yes
 Create an initial home for work, then add a task:
 
 ```sh
-mimir create initiative "Release 1.0" --parent AUR
-mimir create phase "Sign-in reliability" --parent AUR-1
-mimir create task "Verify account recovery" --parent AUR-2 --size s
+initiative_id=$(mimir create initiative "Release 1.0" --parent AUR -f ids)
+phase_id=$(mimir create phase "Sign-in reliability" --parent "$initiative_id" -f ids)
+task_id=$(mimir create task "Verify account recovery" --parent "$phase_id" --size s -f ids)
 ```
 
-Mimir prints each allocated ID. Use that output in later commands; sequence
+The `ids` format captures each allocated ID for the next command. Sequence
 numbers are not an interface for predicting the next ID.
 
 ## Bind the repository
@@ -72,12 +72,15 @@ of responsibility.
 
 ## Begin and finish work
 
+Continue in the same shell, or replace `$task_id` with the task ID printed
+earlier:
+
 ```sh
 mimir overview
 mimir next
-mimir start AUR-3
+mimir start "$task_id"
 # do and verify the work
-mimir done AUR-3
+mimir done "$task_id"
 ```
 
 Use `submit` instead of `done` when the work is ready but still needs human

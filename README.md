@@ -60,9 +60,9 @@ ready task without repeating the project key:
 ```sh
 mimir overview
 mimir next
-mimir create initiative "Release 1.0" --parent AUR
-mimir create task "Verify sign-in recovery" --parent AUR-1 --size s
-mimir start AUR-2
+initiative_id=$(mimir create initiative "Release 1.0" --parent AUR -f ids)
+task_id=$(mimir create task "Verify sign-in recovery" --parent "$initiative_id" --size s -f ids)
+mimir start "$task_id"
 ```
 
 Run `mimir serve` and open the URL printed at startup to use the operator

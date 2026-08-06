@@ -94,6 +94,7 @@ test.skipIf(!NORN)('every attention lane is populated across the projects', asyn
 test.skipIf(!NORN)('the documentation portfolio includes an archived project', async () => {
   const ws = await store.loadWorkingSet();
   const ember = ws.projects.find((project) => project.key === 'EMB');
+  expect(ember).toBeDefined();
   expect(ember?.archived_at).not.toBeNull();
 });
 
