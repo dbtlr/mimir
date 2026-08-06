@@ -326,6 +326,27 @@ test('create with a leading-dash title but no -- hits the strict unknown-flag er
   expect(err).not.toContain('did you mean');
 });
 
+test('a genuine near-match typo on create still wins over the -- terminator hint (MMR-359)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['create', 'task', '--priorty', 'p1'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("unknown flag '--priorty'");
+  expect(err).toContain("note: did you mean '--priority'?");
+  expect(err).not.toContain('terminator');
+});
+
+test('an unrelated create flag typo with a title already present does not get misdiagnosed as a dash-title failure (MMR-359)', async () => {
+  const io = fakeIo(true);
+  expect(
+    await runCli(['create', 'task', 'a real title', '--parnet', 'MMR-2'], neverStore, io),
+  ).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("unknown flag '--parnet'");
+  expect(err).toContain("note: run 'mimir create -h' for its flags");
+  expect(err).not.toContain('terminator');
+  expect(err).not.toContain('did you mean');
+});
+
 test('create task --help documents the -- escape hatch for a leading-dash title (MMR-359)', async () => {
   const io = fakeIo(true);
   expect(await runCli(['create', 'task', '--help'], neverStore, io)).toBe(0);
