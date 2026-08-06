@@ -8,6 +8,11 @@ type Register = (options: RegisterSWOptions) => (reloadPage?: boolean) => Promis
 
 export type PwaRegistrationEnvironment = {
   clearInterval: (handle: ReturnType<typeof setInterval>) => void;
+  createUpdateChannel?: () => Pick<
+    BroadcastChannel,
+    'addEventListener' | 'close' | 'postMessage' | 'removeEventListener'
+  >;
+  defer?: (listener: () => void) => void;
   document: Pick<Document, 'addEventListener' | 'hidden' | 'removeEventListener'>;
   location: Pick<Location, 'reload'>;
   navigator: Pick<Navigator, 'onLine'> & { serviceWorker?: ServiceWorkerContainer };
@@ -65,16 +70,38 @@ export function createPwaRegistrationAdapter(
       if (container === undefined) {
         return () => {};
       }
+      const channel = environment.createUpdateChannel?.();
+      const onRemoteActivation = () => listener();
+      channel?.addEventListener('message', onRemoteActivation);
       const onControllerChange = () => {
         // A first install taking control is not an update. Every later change
         // is origin-wide activation and must be acknowledged by this tab.
         if (!hadController) {
           hadController = true;
-          return;
+          if (!controller.getSnapshot().available) {
+            return;
+          }
         }
-        listener();
+        // Workbox's prompt-mode controlling event is local to the tab that
+        // requested activation. Broadcast before its reload so every other
+        // tab preserves its DOM and exposes an explicit local transition.
+        // BroadcastChannel is origin-scoped and has no targetOrigin parameter.
+        // oxlint-disable-next-line unicorn/require-post-message-target-origin
+        channel?.postMessage('activated');
+        if (channel === undefined || environment.defer === undefined) {
+          listener();
+        } else {
+          environment.defer(listener);
+        }
       };
-      return listen(container, 'controllerchange', onControllerChange);
+      container.addEventListener('controllerchange', onControllerChange);
+      return () => {
+        container.removeEventListener('controllerchange', onControllerChange);
+        if (channel !== undefined) {
+          channel.removeEventListener('message', onRemoteActivation);
+          channel.close();
+        }
+      };
     },
     listenFocus: (listener) => listen(environment.window, 'focus', listener),
     listenOnline: (listener) => listen(environment.window, 'online', listener),
@@ -114,6 +141,8 @@ export function createPwaRegistrationAdapter(
 
 const browserEnvironment: PwaRegistrationEnvironment = {
   clearInterval: (handle) => globalThis.clearInterval(handle),
+  createUpdateChannel: () => new BroadcastChannel('mimir-pwa-update'),
+  defer: (listener) => globalThis.setTimeout(listener, 0),
   document: globalThis.document,
   location: globalThis.location,
   navigator: globalThis.navigator,

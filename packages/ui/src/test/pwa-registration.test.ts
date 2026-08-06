@@ -4,7 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { createPwaRegistrationAdapter } from '../lib/pwa-registration';
 import type { PwaRegistrationEnvironment } from '../lib/pwa-registration';
 
-function fixture(initiallyControlled = true) {
+class FakeChannel extends EventTarget {
+  close = vi.fn();
+  postMessage = vi.fn();
+}
+
+function fixture(initiallyControlled = true, channel?: FakeChannel) {
   const windowTarget = new EventTarget();
   const documentTarget = new EventTarget();
   const workerTarget = new EventTarget();
@@ -16,6 +21,7 @@ function fixture(initiallyControlled = true) {
   const location = { reload: vi.fn() };
   const environment: PwaRegistrationEnvironment = {
     clearInterval: vi.fn(),
+    createUpdateChannel: channel === undefined ? undefined : () => channel,
     document: Object.assign(documentTarget, { hidden: false }),
     location,
     navigator: { onLine: true, serviceWorker },
@@ -64,6 +70,14 @@ describe('PWA registration adapter (MMR-369)', () => {
     expect(location.reload).not.toHaveBeenCalled();
   });
 
+  it('recognizes a waiting update when the first page began uncontrolled', () => {
+    const { adapter, options, workerTarget } = fixture(false);
+    adapter.start();
+    options()?.onNeedRefresh?.();
+    workerTarget.dispatchEvent(new Event('controllerchange'));
+    expect(adapter.controller.getSnapshot().phase).toBe('activated-elsewhere');
+  });
+
   it('turns later cross-tab activation into an explicit local action', async () => {
     const { adapter, location, workerTarget } = fixture();
     adapter.start();
@@ -72,5 +86,14 @@ describe('PWA registration adapter (MMR-369)', () => {
     expect(location.reload).not.toHaveBeenCalled();
     await adapter.controller.refreshNow();
     expect(location.reload).toHaveBeenCalledOnce();
+  });
+
+  it('receives activation from the requesting tab over the update channel', () => {
+    const channel = new FakeChannel();
+    const { adapter, location } = fixture(true, channel);
+    adapter.start();
+    channel.dispatchEvent(new MessageEvent('message', { data: 'activated' }));
+    expect(adapter.controller.getSnapshot().phase).toBe('activated-elsewhere');
+    expect(location.reload).not.toHaveBeenCalled();
   });
 });

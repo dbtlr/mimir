@@ -159,6 +159,16 @@ const layerOverrides: Override[] = [
   // it reads packages/bin/package.json to stamp the bundle's build version
   // (MMR-260) alongside the binary's own MIMIR_BUILD_VERSION define.
   { files: ['packages/ui/vite.config.ts'], rules: { 'import/no-nodejs-modules': 'off' } },
+  // Playwright/build fixtures execute under Bun and own isolated temporary
+  // directories; they are not part of the browser bundle.
+  {
+    files: ['packages/ui/e2e/**', 'packages/ui/playwright.config.ts', 'packages/ui/scripts/**'],
+    rules: {
+      'import/no-nodejs-modules': 'off',
+      'promise/avoid-new': 'off',
+      'vitest/consistent-test-filename': 'off',
+    },
+  },
   uiLintOverride,
 ];
 

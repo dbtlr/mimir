@@ -30,6 +30,9 @@ packages/ui/dev-dist/
 
 # Playwright MCP scratch output (snapshots/screenshots from manual smokes)
 .playwright-mcp/
+# Playwright test evidence is uploaded on failure, never committed.
+packages/ui/playwright-report/
+packages/ui/test-results/
 .superpowers/
 .claude/saga-claude-hook.sh
 .mcp.json

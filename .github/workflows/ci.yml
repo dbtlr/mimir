@@ -73,3 +73,32 @@ jobs:
 
       - name: Test UI
         run: bun run test:ui
+
+  pwa:
+    name: PWA browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .tool-versions
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Test two-build PWA lifecycle
+        run: bun run test:pwa
+
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pwa-browser-results
+          path: packages/ui/test-results
+          if-no-files-found: ignore
+          retention-days: 7
