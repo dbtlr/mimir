@@ -1892,3 +1892,54 @@ describe('create/update-owned flags cannot silently narrow list/next (MMR-360)',
     ).toBe(0);
   });
 });
+
+// `--project` has no `QUERY_FIELDS` counterpart, but `attach`/`seed`/`seeds` all
+// read it as a real filter/selector — the same "looks like a working filter on
+// a sibling verb" hazard as `--parent`, just in the opposite direction: without
+// the guard, `mimir list --project KEY` exited 0 with the FULL cross-project
+// board (confirmed against a two-project store), read by the caller as a
+// per-project one. `--requester` is `seeds`' own filter and shares the same
+// hazard. Both redirect to real selectors rather than a nonexistent `--eq`.
+describe('--project and --requester cannot silently broaden list/next (MMR-360)', () => {
+  test.each([
+    ['list', 'list', ['list', '--project', 'MMR']],
+    ['list -f json', 'list', ['list', '--project', 'MMR', '-f', 'json']],
+    ['next', 'next', ['next', '--project', 'MMR']],
+    ['next -f json', 'next', ['next', '--project', 'MMR', '-f', 'json']],
+  ])(
+    '%s --project KEY exits 2 with no stdout and the --scope redirect',
+    async (_label, verb, argv) => {
+      const io = fakeIo(true);
+      expect(await runCli(argv, neverStore, io)).toBe(2);
+      expect(io.out).toHaveLength(0);
+      expect(io.err.join('')).toContain(`'--project' doesn't apply to ${verb}`);
+      expect(io.err.join('')).toContain('-s, --scope KEY');
+    },
+  );
+
+  test.each([
+    ['list', 'list', ['list', '--requester', 'MMR']],
+    ['list -f json', 'list', ['list', '--requester', 'MMR', '-f', 'json']],
+    ['next', 'next', ['next', '--requester', 'MMR']],
+    ['next -f json', 'next', ['next', '--requester', 'MMR', '-f', 'json']],
+  ])('%s --requester KEY exits 2 with no stdout', async (_label, verb, argv) => {
+    const io = fakeIo(true);
+    expect(await runCli(argv, neverStore, io)).toBe(2);
+    expect(io.out).toHaveLength(0);
+    expect(io.err.join('')).toContain(`'--requester' doesn't apply to ${verb}`);
+    expect(io.err.join('')).toContain('use it with seeds');
+  });
+
+  // The flags stay usable on the verbs that actually own them.
+  test.skipIf(!NORN)('--project stays attach/seed/seeds-owned', async () => {
+    const io = fakeIo(false);
+    expect(
+      await runCli(['seed', 'an ask', '-k', 'idea', '--project', 'MMR'], () => store, io),
+    ).toBe(0);
+  });
+
+  test.skipIf(!NORN)('--requester stays seeds-owned', async () => {
+    const io = fakeIo(false);
+    expect(await runCli(['seeds', '--requester', 'MMR', '-f', 'json'], () => store, io)).toBe(0);
+  });
+});

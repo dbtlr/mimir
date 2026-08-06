@@ -253,10 +253,28 @@ const COMMANDS: ReadonlySet<string> = new Set(
  *   (create/update/start).
  *   `mimir list --host my-branch` used to exit 0 with the FULL board for the
  *   identical reason `--parent` did; each redirects to its own `--eq
- *   FIELD:VALUE`. Flags with no query-field counterpart at all — `--name`,
- *   `--key`, `--project`, `--desc` (`description` is deliberately unqueryable,
- *   MMR-162) — stay unguarded: a stray one is a no-op, not a silently narrowed
- *   answer masquerading as a filter.
+ *   FIELD:VALUE`.
+ * - `--project` has no `QUERY_FIELDS` counterpart, but it is not a harmless
+ *   no-op like `--name`/`--key` below: `attach` (associate an artifact),
+ *   `seed` (file against another board), and `seeds` (scope the queue to one
+ *   board, or `all`) all read it as a real filter/selector. A caller who has
+ *   just scoped `mimir seeds --project MMR` reasonably expects `mimir list
+ *   --project MMR` to scope the same way; instead it used to exit 0 with the
+ *   FULL cross-project board — a silently BROADER answer read as a
+ *   per-project one, the same hazard as `--parent` in the opposite direction.
+ *   `list`/`next` already own a real project scope, `-s, --scope KEY`, so
+ *   that is where the hint sends the caller instead of a nonexistent `--eq`.
+ * - `--requester` is `seeds`' own filter (seeds a board requested elsewhere);
+ *   it has no `QUERY_FIELDS` counterpart either (tasks carry no requester),
+ *   but the same "looks like a working filter on a sibling verb" hazard
+ *   applies, so it is guarded to `seeds` alone rather than left to silently
+ *   no-op on `list`/`next`.
+ *   Flags with no query-field counterpart AND no life as a filter on any
+ *   verb — `--name`, `--key`, `--kind` (`seed`'s required classification,
+ *   never used to filter the seed queue — `listSeeds` has no `kind` option),
+ *   and `--desc` (`description` is deliberately unqueryable, MMR-162) — stay
+ *   unguarded: a stray one is a genuine no-op, not a silently narrowed (or
+ *   broadened) answer masquerading as a filter.
  *
  * - `--tz`, `--at-or-before`, and `--at-or-after` belong to the four query
  *   verbs (ADR 0029). `--tz` names the caller's zone for both halves of a
@@ -303,6 +321,8 @@ type OwnedFlagValues = {
   harness?: string;
   session?: string;
   branch?: string;
+  project?: string;
+  requester?: string;
 };
 
 /** No verb owns a tombstoned flag — every use is a usage error with a redirect. */
@@ -412,7 +432,7 @@ const VERB_OWNED_FLAGS: readonly {
   {
     flag: '--title',
     given: (values) => values.title !== undefined,
-    hint: `'--title' names a node at update/attach/scratch, or overrides promote's spawned title; list/next filter with '--eq title:KEY' or search with '-q, --query'`,
+    hint: `'--title' is a positional at create (mimir create task <title> …); the flag names a node at update/attach/scratch, or overrides promote's spawned title; list/next filter with '--eq title:KEY' or search with '-q, --query'`,
     owner: ['update', 'attach', 'promote', 'scratch'],
   },
   {
@@ -462,6 +482,20 @@ const VERB_OWNED_FLAGS: readonly {
     given: (values) => values.branch !== undefined,
     hint: `'--branch' sets a resume handle at create/update/start; list/next filter with '--eq branch:KEY'`,
     owner: ['create', 'update', 'start'],
+  },
+  // `--project` and `--requester` have no `QUERY_FIELDS` counterpart, but each
+  // is a real filter/selector on a sibling verb — see the doc comment above.
+  {
+    flag: '--project',
+    given: (values) => values.project !== undefined,
+    hint: `'--project' targets attach/seed/seeds; list/next scope a project with '-s, --scope KEY'`,
+    owner: ['attach', 'seed', 'seeds'],
+  },
+  {
+    flag: '--requester',
+    given: (values) => values.requester !== undefined,
+    hint: `'--requester' filters seeds a board requested; use it with seeds`,
+    owner: 'seeds',
   },
 ];
 

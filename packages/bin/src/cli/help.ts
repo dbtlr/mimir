@@ -200,7 +200,8 @@ options:
   -y, --yes               create project: confirm the immutable key
                           (required when not at a TTY)
       --name <name>       create project: display name (or positional)
-      --title <text>      create/update: title text
+      --title <text>      update/attach/promote/scratch: title text
+                          (create takes it positional: create task <title> …)
       --desc <text>       create/update: description
       --direction <text>  update: the ## Next narrative (projects/containers)
       --summary <text>    create/update/attach: summary (nodes and artifacts; 256 chars max)
@@ -208,7 +209,8 @@ options:
       --ref <ref>         create/update: external reference
       --file <path>       attach: path to artifact file
       --link <ids>        attach: additional links — KEY-seq, comma-separated
-      --project <KEY>     attach: associate artifact with a project key
+      --project <KEY>     attach: associate artifact with a project key;
+                          seed/seeds: target/scope board
       --tag <t>           create: tag at creation (repeatable)
       -k, --kind <kind>   seed: idea|bug|feature (required)
       --requester <KEY>   seeds: filter to a requesting board
