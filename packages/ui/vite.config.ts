@@ -63,7 +63,9 @@ export default defineConfig({
       },
       registerType: 'prompt',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,woff2,webmanifest}'],
+        // Keep these explicit: brace expansion is dependency-sensitive and a
+        // failed expansion silently reduced the cache to includeAssets only.
+        globPatterns: ['**/*.css', '**/*.html', '**/*.js', '**/*.woff2'],
         // The API is never the app shell — let /api/* hit the network/server.
         navigateFallbackDenylist: [/^\/api\//],
       },
