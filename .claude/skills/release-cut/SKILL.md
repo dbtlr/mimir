@@ -98,3 +98,10 @@ and `version-guard` is green.
 This step is required: `version-guard` fails any build-affecting change that lands
 while a released clean version has no next cycle open — so skipping it is loud, not
 silent. Close it here, as the cut's last move, not as a later follow-up.
+
+`changelog-guard` recognizes both release-procedure PR shapes structurally — the
+cut PR passes as fragment-deletions-only, the cycle-open PR as
+version-metadata-only (every changed line a `"version"` field in
+`packages/bin/package.json` + `bun.lock`) — so neither needs the
+`skip-changelog` label. If the guard goes red on a cycle-open PR, the bump is
+carrying something extra; split that change out rather than labeling past it.
