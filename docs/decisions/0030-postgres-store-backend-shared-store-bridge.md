@@ -63,10 +63,14 @@ section for the backend fence to return to.
 4. **Migration is export/import on the seam.** Every backend can export its
    stored facts into one backend-neutral document and import such a document
    with identity (ids, sequences, timestamps) preserved. Import also leaves
-   every allocator at or above the highest imported sequence for its project
-   (node and artifact counters alike), so the next create after an import
-   cannot reuse an identity; on Norn this is implicit because allocation scans
-   the directory, on Postgres it is an explicit counter write. Only stored
+   the target's allocation state consistent with the imported identities for
+   every per-project sequence kind (node, artifact, and seed, per ADR 0006),
+   so the next create after an import never yields an identity present in the
+   import. On Postgres that is an explicit write of each counter to the
+   highest imported sequence of its kind. On Norn it is implicit: the imported
+   documents are the allocation state, and an interior gap in the export is a
+   freed number Norn may re-hand, ADR 0006's accepted edge, not a collision.
+   Only stored
    facts cross the seam; status words, rollups, and predicates are recomputed
    on the target (ADR 0001). The document doubles as a portable backup.
    A fresh import requires that no imported project already exists on the
@@ -105,8 +109,8 @@ section for the backend fence to return to.
 - Every seam change lands in two backends. The conformance suite is what holds
   them behaviorally identical; it runs against both. It includes an
   import-then-create case: after importing records with existing sequences,
-  it creates one node and one artifact on the same project and checks each
-  new sequence against the imported maximum for its type.
+  it creates one node, one artifact, and one seed on the same project and
+  checks that none collides with an imported identity of its kind.
 - Postgres tests run on an in-process Postgres so the ordinary suite needs no
   database service; one integration lane against a real Postgres guards
   dialect drift.
