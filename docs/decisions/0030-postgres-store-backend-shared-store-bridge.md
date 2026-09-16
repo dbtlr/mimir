@@ -69,6 +69,12 @@ section for the backend fence to return to.
    the directory, on Postgres it is an explicit counter write. Only stored
    facts cross the seam; status words, rollups, and predicates are recomputed
    on the target (ADR 0001). The document doubles as a portable backup.
+   Import requires that no imported project already exists on the target.
+   Failure follows each backend's own contract: on Postgres the whole import is
+   one transaction, so a failure leaves nothing and a retry is a plain re-run;
+   on Norn it is partial success per ADR 0023, and a retry re-runs the same
+   document, which cannot duplicate because every imported identity is a
+   canonical path and the allocator derives from the directory.
 5. **Schema authority is explicit on the shared backend.** The Postgres backend
    carries a schema version. A binary refuses to run against a newer schema and
    upgrades an older one only through an explicit command. Norn's auto-converge
@@ -95,8 +101,9 @@ section for the backend fence to return to.
 
 - Every seam change lands in two backends. The conformance suite is what holds
   them behaviorally identical; it runs against both. It includes an
-  import-then-create case: after importing records with existing sequences, a
-  new create on the same project must allocate past them.
+  import-then-create case: after importing records with existing sequences,
+  it creates one node and one artifact on the same project and checks each
+  new sequence against the imported maximum for its type.
 - Postgres tests run on an in-process Postgres so the ordinary suite needs no
   database service; one integration lane against a real Postgres guards
   dialect drift.
