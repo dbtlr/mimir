@@ -121,6 +121,8 @@ section for the backend fence to return to.
   import with Norn implementing both; (B) the Postgres backend from the retired
   SQLite store, with the schema gate and the conformance suite over both;
   (C) the export and import commands and the cutover of existing boards.
-- ADR 0016 and ADR 0023 carry dated refinements pointing here. ADR 0018 is
-  unchanged: Norn-only access holds within the Norn backend. ADR 0010 and
+- ADR 0016, ADR 0020, and ADR 0023 carry dated refinements pointing here;
+  the ADR 0020 one retires its "Norn-backed only" note on the seeds seam,
+  which described the retiring SQLite backend rather than the seam. ADR 0018
+  is unchanged: Norn-only access holds within the Norn backend. ADR 0010 and
   ADR 0011 are unchanged for the bridge.

@@ -203,3 +203,13 @@ cross-board upstream seed by its `KEY-sN` stem on any board.
 - **Surfaces: CLI + MCP (`triage`, 1:1); HTTP is out of scope** for the pass
   itself — the report is operator/agent-facing, and the console's triage surface
   is the seeds queue UI (MMR-247).
+
+## Refinement (2026-09-16, MMR-354): the seeds seam is implemented by every backend
+
+The Consequences bullet calling `Store.seeds` "Norn-backed only" described the
+retiring SQLite backend of MMR-234, which never stored seeds. It is not a
+property of the seam. [ADR 0030](0030-postgres-store-backend-shared-store-bridge.md)
+adds a Postgres backend behind the same `Store` port, and every backend
+implements `Store.seeds` in full: the `KEY-sN` sequence is one of the three
+per-project sequence kinds (ADR 0006) that import preserves and the
+conformance suite exercises on both backends.
