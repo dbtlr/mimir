@@ -69,12 +69,15 @@ section for the backend fence to return to.
    the directory, on Postgres it is an explicit counter write. Only stored
    facts cross the seam; status words, rollups, and predicates are recomputed
    on the target (ADR 0001). The document doubles as a portable backup.
-   Import requires that no imported project already exists on the target.
-   Failure follows each backend's own contract: on Postgres the whole import is
-   one transaction, so a failure leaves nothing and a retry is a plain re-run;
-   on Norn it is partial success per ADR 0023, and a retry re-runs the same
-   document, which cannot duplicate because every imported identity is a
-   canonical path and the allocator derives from the directory.
+   A fresh import requires that no imported project already exists on the
+   target. Failure follows each backend's own contract: on Postgres the whole
+   import is one transaction, so a failure leaves nothing and a retry is a
+   fresh import again; on Norn it is partial success per ADR 0023, and a
+   retry is an explicit resume that skips every document already present at
+   its canonical path with content identical to the export and refuses on a
+   present document that differs. Resume cannot duplicate because every
+   imported identity is a canonical path, and the Norn allocator needs no
+   recovery because it derives from the directory.
 5. **Schema authority is explicit on the shared backend.** The Postgres backend
    carries a schema version. A binary refuses to run against a newer schema and
    upgrades an older one only through an explicit command. Norn's auto-converge
