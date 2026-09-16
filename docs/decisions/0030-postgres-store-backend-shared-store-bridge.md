@@ -62,9 +62,13 @@ section for the backend fence to return to.
    exists to remove.
 4. **Migration is export/import on the seam.** Every backend can export its
    stored facts into one backend-neutral document and import such a document
-   with identity (ids, sequences, timestamps) preserved. Only stored facts cross
-   the seam; status words, rollups, and predicates are recomputed on the target
-   (ADR 0001). The document doubles as a portable backup.
+   with identity (ids, sequences, timestamps) preserved. Import also leaves
+   every allocator at or above the highest imported sequence for its project
+   (node and artifact counters alike), so the next create after an import
+   cannot reuse an identity; on Norn this is implicit because allocation scans
+   the directory, on Postgres it is an explicit counter write. Only stored
+   facts cross the seam; status words, rollups, and predicates are recomputed
+   on the target (ADR 0001). The document doubles as a portable backup.
 5. **Schema authority is explicit on the shared backend.** The Postgres backend
    carries a schema version. A binary refuses to run against a newer schema and
    upgrades an older one only through an explicit command. Norn's auto-converge
@@ -90,7 +94,9 @@ section for the backend fence to return to.
 ## Consequences
 
 - Every seam change lands in two backends. The conformance suite is what holds
-  them behaviorally identical; it runs against both.
+  them behaviorally identical; it runs against both. It includes an
+  import-then-create case: after importing records with existing sequences, a
+  new create on the same project must allocate past them.
 - Postgres tests run on an in-process Postgres so the ordinary suite needs no
   database service; one integration lane against a real Postgres guards
   dialect drift.
