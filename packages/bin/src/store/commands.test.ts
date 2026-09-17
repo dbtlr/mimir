@@ -30,7 +30,11 @@ function injected(): Injected {
   };
   return {
     db,
-    deps: (global) => ({ openPostgres: open, readConfig: () => global }),
+    deps: (global) => ({
+      openPostgres: open,
+      readConfig: () => global,
+      readStdin: () => Promise.reject(new Error('store upgrade must not read stdin')),
+    }),
     opened,
   };
 }

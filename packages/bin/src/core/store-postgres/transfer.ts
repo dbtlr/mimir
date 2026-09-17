@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 
 import type { Insertable, Kysely, Transaction } from 'kysely';
+import { sql } from 'kysely';
 
 import { validation } from '../errors';
 import type {
@@ -12,14 +13,18 @@ import type {
   ImportReport,
   StoreExport,
 } from '../export';
-import { canonicalTransitionOrder, STORE_EXPORT_SCHEMA_VERSION } from '../export';
+import {
+  canonicalSetOrder,
+  canonicalTransitionOrder,
+  STORE_EXPORT_SCHEMA_VERSION,
+} from '../export';
 import { renderArtifactRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
 import type { NewAnnotationRecord, NewTransitionRecord } from '../store';
 import { now } from '../time';
 import { assertSingleValuedIdentities } from '../transfer-validate';
 import { exportArtifacts, insertExportedArtifacts } from './artifacts';
-import { insertBatched } from './batch';
+import { insertBatched, pairKey } from './batch';
 import { createPostgresBodySectionStore } from './body-sections';
 import type {
   AnnotationTable,
@@ -67,7 +72,11 @@ import { loadWorkingSet } from './working-set';
  * the fence, the per-record settle, and the constraints themselves — so the
  * preview cannot be a cheaper simulation without being a second implementation
  * that drifts. It is the same transaction, ended by {@link PreviewRollbackError}
- * instead of a commit.
+ * instead of a commit. A deferred constraint would escape that: `node.parent_id`
+ * is `DEFERRABLE INITIALLY DEFERRED`, so a dangling parent is caught at COMMIT,
+ * which a preview never reaches — it would preview clean and fail on apply. The
+ * preview therefore runs `SET CONSTRAINTS ALL IMMEDIATE` before it rolls back,
+ * which fires every deferred check right there, with the apply's own error.
  */
 
 /** Every body-section facet the export reads, in one batched pass. */
@@ -87,19 +96,18 @@ export async function exportPostgresStore(ex: Executor): Promise<StoreExport> {
     EXPORT_FACETS,
   );
 
+  // Re-sorted in JS, not trusted from the SQL `ORDER BY` that read them: that
+  // order is the database's collation, which the operator chose and a vault
+  // does not have (see `canonicalSetOrder`).
   const tags: ExportedTag[] = [
     ...projects.flatMap((project) =>
-      (workingSet.projectTags.get(project.key) ?? []).map(
-        (record): ExportedTag => ({
-          entity_id: project.key,
-          entity_type: 'project',
-          tag: record.tag,
-        }),
+      canonicalSetOrder((workingSet.projectTags.get(project.key) ?? []).map((row) => row.tag)).map(
+        (tag): ExportedTag => ({ entity_id: project.key, entity_type: 'project', tag }),
       ),
     ),
     ...nodes.flatMap((node) =>
-      (workingSet.nodeTags.get(node.id) ?? []).map(
-        (record): ExportedTag => ({ entity_id: node.id, entity_type: 'node', tag: record.tag }),
+      canonicalSetOrder((workingSet.nodeTags.get(node.id) ?? []).map((row) => row.tag)).map(
+        (tag): ExportedTag => ({ entity_id: node.id, entity_type: 'node', tag }),
       ),
     ),
   ];
@@ -168,10 +176,17 @@ export async function exportPostgresStore(ex: Executor): Promise<StoreExport> {
  * `canonicalTransitionOrder`): rows are read in insert order, which is this
  * backend's document order per entity — the stored fact ADR 0015 names — and
  * then grouped by entity the way every backend groups them, so a Norn export
- * and a Postgres export of the same facts are byte-identical. The global
- * insert order is NOT emitted: it is not a stored fact, and an import puts the
- * rows back in the order it reads them, which the canonical order keeps
- * per entity.
+ * and a Postgres export of the same facts are equal as values (the file writer
+ * fixes key order, so the files are byte-identical too — `canonicalJson`). The
+ * global insert order is NOT emitted: it is not a stored fact, and an import
+ * puts the rows back in the order it reads them, which the canonical order
+ * keeps per entity.
+ *
+ * One consequence the `transitions` FEED shows: two transitions on DIFFERENT
+ * entities stamped in the same millisecond may swap places in that feed's
+ * `(at, id)` order after a round trip, because the import re-numbers the rows
+ * in canonical order rather than the source's insert order. Nothing is lost —
+ * the global insert order was never a fact — and each entity's own order holds.
  */
 async function exportTransitions(ex: Executor): Promise<NewTransitionRecord[]> {
   const rows = await ex.selectFrom('transition_log').selectAll().orderBy('id').execute();
@@ -233,15 +248,48 @@ function groupBy<T>(rows: readonly T[], keyOf: (row: T) => string): Map<string, 
   return index;
 }
 
-function tagsFor(document: StoreExport, entityType: 'node' | 'project', id: string): string[] {
-  return document.tags
-    .filter((tag) => tag.entity_type === entityType && tag.entity_id === id)
-    .map((tag) => tag.tag)
-    .toSorted();
+/**
+ * Every entity's tag set, indexed once per document (MMR-380).
+ *
+ * Indexed rather than filtered per entity: the naive scan is one pass over the
+ * whole tag collection per node AND per project, which on a real board (8000
+ * nodes, 40000 tags) is the import's dominant cost — 2.7s against 187ms for the
+ * same board with no tags.
+ */
+type TagIndex = ReadonlyMap<string, string[]>;
+
+function tagIndexKey(entityType: 'node' | 'project', id: string): string {
+  return `${entityType}|${id}`;
+}
+
+function indexTags(document: StoreExport): TagIndex {
+  const index = new Map<string, string[]>();
+  for (const row of document.tags) {
+    if (row.entity_type !== 'node' && row.entity_type !== 'project') {
+      continue;
+    }
+    const key = tagIndexKey(row.entity_type, row.entity_id);
+    const tags = index.get(key);
+    if (tags === undefined) {
+      index.set(key, [row.tag]);
+    } else {
+      tags.push(row.tag);
+    }
+  }
+  // One set order for every backend, applied after the read (`canonicalSetOrder`).
+  for (const [key, tags] of index) {
+    index.set(key, canonicalSetOrder(tags));
+  }
+  return index;
+}
+
+function tagsFor(tags: TagIndex, entityType: 'node' | 'project', id: string): string[] {
+  return tags.get(tagIndexKey(entityType, id)) ?? [];
 }
 
 function bundlesOf(document: StoreExport): Bundles {
   const owned = new Map(document.bodySections.map((sections) => [sections.stem, sections]));
+  const tags = indexTags(document);
   const annotations = groupBy(document.annotations, (row) => row.node_id);
   const prereqs = groupBy(document.edges, (edge) => edge.node_id);
   const history = groupBy(document.transitions, (row) => row.node_id ?? row.project_id ?? '');
@@ -255,10 +303,10 @@ function bundlesOf(document: StoreExport): Bundles {
   for (const project of document.projects) {
     const { counters: _counters, ...record } = project;
     bundles.projects.set(project.key, {
-      history: (history.get(project.key) ?? []).map(withoutEntity),
+      history: (history.get(project.key) ?? []).map(comparableTransition),
       next: owned.get(project.key)?.next ?? null,
       record,
-      tags: tagsFor(document, 'project', project.key),
+      tags: tagsFor(tags, 'project', project.key),
     });
   }
   for (const node of document.nodes) {
@@ -268,11 +316,13 @@ function bundlesOf(document: StoreExport): Bundles {
         created_at: row.created_at,
       })),
       description: owned.get(node.id)?.description ?? null,
-      history: (history.get(node.id) ?? []).map(withoutEntity),
+      history: (history.get(node.id) ?? []).map(comparableTransition),
       next: owned.get(node.id)?.next ?? null,
-      prereqs: (prereqs.get(node.id) ?? []).map((edge) => edge.depends_on_node_id).toSorted(),
+      prereqs: canonicalSetOrder(
+        (prereqs.get(node.id) ?? []).map((edge) => edge.depends_on_node_id),
+      ),
       record: node,
-      tags: tagsFor(document, 'node', node.id),
+      tags: tagsFor(tags, 'node', node.id),
     });
   }
   for (const artifact of document.artifacts) {
@@ -287,10 +337,20 @@ function bundlesOf(document: StoreExport): Bundles {
   return bundles;
 }
 
-/** A transition without its entity key — the entity is the bundle it rides in. */
-function withoutEntity(row: NewTransitionRecord): unknown {
-  const { node_id: _node, project_id: _project, ...rest } = row;
-  return rest;
+/**
+ * One transition in the shape a resume compares on: without its entity key (the
+ * entity is the bundle it rides in), and canonical in the two fields a document
+ * may spell two ways.
+ *
+ * `reason` is `string | null | undefined` on the record, so a document that
+ * OMITS it imports fine and re-exports it as an explicit null — and a deep
+ * compare reads absent and null as different, which made a document refuse its
+ * own resume (MMR-380). `handles` is the mirror case and stays absent-when-
+ * absent, which is how both backends emit it.
+ */
+function comparableTransition(row: NewTransitionRecord): unknown {
+  const { node_id: _node, project_id: _project, handles, reason, ...rest } = row;
+  return { ...rest, reason: reason ?? null, ...(handles === undefined ? {} : { handles }) };
 }
 
 /** The refusal a `resume` raises when the target's record is not this one. */
@@ -337,6 +397,10 @@ export async function importPostgresStore(
     return await serializable(db, async (tx) => {
       const report = await applyImport(tx, document, opts, incoming);
       if (!report.applied) {
+        // The deferred checks (`node.parent_id`) fire here rather than at the
+        // COMMIT this preview never reaches — otherwise a document with a
+        // dangling parent previews clean and dies on apply.
+        await sql`set constraints all immediate`.execute(tx);
         throw new PreviewRollbackError(report);
       }
       return report;
@@ -408,14 +472,16 @@ async function applyImport(
   const projectRows: Insertable<ProjectTable>[] = [];
   const stale: { key: string; counters: ExportedCounters }[] = [];
   const tagRows: Insertable<TagTable>[] = [];
+  const tags = indexTags(document);
   const pushTags = (entityType: 'node' | 'project', entityId: string): void => {
-    for (const tag of tagsFor(document, entityType, entityId)) {
+    for (const tag of tagsFor(tags, entityType, entityId)) {
       tagRows.push({ entity_id: entityId, entity_type: entityType, tag });
     }
   };
 
+  const carried = carriedSequences(document);
   for (const project of document.projects) {
-    const counters = importedCounters(document, project);
+    const counters = importedCounters(carried, project);
     if (settle('projects', project.key)) {
       newProjects.add(project.key);
       projectRows.push({
@@ -460,7 +526,7 @@ async function applyImport(
     if (newNodes.has(edge.node_id)) {
       // Deduped across the batch: a repeated edge would be settled by the
       // conflict clause anyway, but not before spending bind parameters.
-      edgeRows.set(JSON.stringify([edge.node_id, edge.depends_on_node_id]), {
+      edgeRows.set(pairKey(edge.node_id, edge.depends_on_node_id), {
         depends_on_node_id: edge.depends_on_node_id,
         node_id: edge.node_id,
       });
@@ -530,12 +596,37 @@ async function applyImport(
   await insertExportedSeeds(tx, seeds);
   await insertScratchpads(tx, pads);
 
-  return { applied: opts.dryRun !== true, created, mode: opts.mode, skipped };
+  return { applied: !opts.dryRun, created, mode: opts.mode, skipped };
 }
 
-/** The largest sequence in the list; zero when the kind brings none. */
-function highest(seqs: readonly number[]): number {
-  return seqs.reduce((max, seq) => Math.max(max, seq), 0);
+/**
+ * The highest sequence of each kind the document actually CONTAINS, per project
+ * — one pass over each collection rather than one pass per project (MMR-380).
+ */
+type CarriedSequences = {
+  artifact: ReadonlyMap<string, number>;
+  node: ReadonlyMap<string, number>;
+  seed: ReadonlyMap<string, number>;
+};
+
+function raise(highest: Map<string, number>, key: string, seq: number): void {
+  highest.set(key, Math.max(highest.get(key) ?? 0, seq));
+}
+
+function carriedSequences(document: StoreExport): CarriedSequences {
+  const artifact = new Map<string, number>();
+  const node = new Map<string, number>();
+  const seed = new Map<string, number>();
+  for (const row of document.artifacts) {
+    raise(artifact, row.key, row.seq);
+  }
+  for (const row of document.nodes) {
+    raise(node, row.project_id, row.seq);
+  }
+  for (const row of document.seeds) {
+    raise(seed, row.key, row.seq);
+  }
+  return { artifact, node, seed };
 }
 
 /**
@@ -550,22 +641,13 @@ function highest(seqs: readonly number[]): number {
  * value is the greatest of what the document claims and what it contains.
  */
 function importedCounters(
-  document: StoreExport,
+  carried: CarriedSequences,
   project: ExportedProject,
 ): { artifact: number; node: number; seed: number } {
   return {
-    artifact: Math.max(
-      project.counters.artifact,
-      highest(document.artifacts.filter((a) => a.key === project.key).map((a) => a.seq)),
-    ),
-    node: Math.max(
-      project.counters.node,
-      highest(document.nodes.filter((n) => n.project_id === project.key).map((n) => n.seq)),
-    ),
-    seed: Math.max(
-      project.counters.seed,
-      highest(document.seeds.filter((seed) => seed.key === project.key).map((seed) => seed.seq)),
-    ),
+    artifact: Math.max(project.counters.artifact, carried.artifact.get(project.key) ?? 0),
+    node: Math.max(project.counters.node, carried.node.get(project.key) ?? 0),
+    seed: Math.max(project.counters.seed, carried.seed.get(project.key) ?? 0),
   };
 }
 

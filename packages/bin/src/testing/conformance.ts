@@ -6,6 +6,7 @@ import type { Scratchpad } from '@mimir/contract';
 import { createInitiative, createPhase, createProject, createTask } from '../core/create';
 import { MimirError } from '../core/errors';
 import type { StoreExport } from '../core/export';
+import { canonicalSetOrder } from '../core/export';
 import {
   annotate,
   archiveProject,
@@ -173,6 +174,12 @@ export const PAD_ID = '123e4567-e89b-42d3-a456-426614174000';
  * narrative on both a project and a container, and several transitions —
  * including one carrying resume handles.
  *
+ * The tag sets carry a CAPITALIZED member on purpose (MMR-380): a locale
+ * comparator and a database collation both rank `Draft` beside `draft`, while
+ * code-unit order ranks it before every lowercase tag, so a backend that sorted
+ * its own way emits a different document for these same facts, which is what
+ * the cross-backend conformance case catches.
+ *
  * Built through the ordinary verbs on purpose: the import must reproduce what
  * the NORMAL write path produces, so the oracle's source has to be grown that
  * way rather than hand-assembled.
@@ -210,7 +217,11 @@ export async function seedWorkingSet(store: Store): Promise<void> {
   });
 
   await depend(store, dependent.id, [prereq.id]);
-  await tagEntities(store, [{ entityId: prereq.id, entityType: 'node' }], ['api', 'urgent']);
+  await tagEntities(
+    store,
+    [{ entityId: prereq.id, entityType: 'node' }],
+    ['api', 'urgent', 'Handoff'],
+  );
   await annotate(store, prereq.id, 'a note with a ## heading line');
 
   // Two transitions, the first carrying resume handles.
@@ -237,7 +248,7 @@ export async function seedWorkingSet(store: Store): Promise<void> {
     summary: 'the transfer document',
     // Authored out of order on purpose: an artifact's tags are a set, and the
     // export must emit one order whichever backend stored them (MMR-380).
-    tags: ['spec', 'draft'],
+    tags: ['spec', 'Draft', 'api'],
     title: 'Transfer spec',
   });
 
@@ -301,19 +312,21 @@ export async function observe(store: Store): Promise<unknown> {
     for (const record of await store.artifacts.listForProject(project.key)) {
       const loaded = await store.artifacts.load(record.key, record.seq, { content: true });
       // Tags and links are sets (ADR 0005): a vault reads them in authored
-      // order and Postgres reads them sorted, and the export emits them sorted,
-      // so an imported vault holds them sorted where the grown one did not.
+      // order and Postgres under its own collation, and the export emits them
+      // in `canonicalSetOrder`, so an imported vault holds them ordered where
+      // the grown one did not. Normalized here through that same one comparator.
       artifacts.push(
         loaded === undefined
           ? loaded
-          : { ...loaded, links: loaded.links.toSorted(), tags: loaded.tags.toSorted() },
+          : {
+              ...loaded,
+              links: canonicalSetOrder(loaded.links),
+              tags: canonicalSetOrder(loaded.tags),
+            },
       );
     }
   }
-  // The feed's items, not its cursor: the cursor is opaque and encodes a
-  // backend position (a row id on Postgres) that an import legitimately
-  // reassigns — the same facts, a different internal number.
-  const transitions = (await store.transitions.list()).items;
+  const transitions = await store.transitions.list();
   const seeds = [];
   for (const record of (await store.seeds.listAll()).toSorted((a, b) => a.seq - b.seq)) {
     seeds.push({
@@ -338,8 +351,21 @@ export async function observe(store: Store): Promise<unknown> {
     projectsRead: [...(await store.loadProjects())].toSorted((a, b) => a.key.localeCompare(b.key)),
     scratchpads: await store.scratchpads.list(),
     seeds,
-    transitions,
+    transitions: { ...transitions, nextCursor: comparableCursor(transitions.nextCursor) },
   };
+}
+
+/**
+ * A feed cursor with its trailing position segment masked.
+ *
+ * The cursor is opaque and composite, and its LAST segment is the backend's own
+ * position — a row id on Postgres, an index within a stem on Norn — which an
+ * import legitimately reassigns: the same facts under a different internal
+ * number. Every segment before it is derived from the facts, so dropping the
+ * cursor whole would stop asserting that the fact-derived prefix round-trips.
+ */
+function comparableCursor(cursor: string | undefined): string | undefined {
+  return cursor?.replace(/\|\d+$/, '|<position>');
 }
 
 /** Everything but the stamp — the part of an export that must be reproducible. */

@@ -334,7 +334,12 @@ export type Store = {
    * `opts.dryRun` previews instead of writing (MMR-380): every check and
    * decision an apply would make, the same refusals with the same messages, and
    * a report whose counts describe the apply that did not happen
-   * ({@link ImportReport.applied} is then false). Nothing is left behind.
+   * ({@link ImportReport.applied} is then false). No FACT is left behind — a
+   * preview is not free of every trace. A rolled-back Postgres preview still
+   * consumes the row sequences it drew from (a sequence is not transactional)
+   * and holds the apply's locks for as long as it runs, so it costs what the
+   * apply costs and leaves the internal numbering moved on. Nothing a `Store`
+   * read can see is changed by it.
    */
   import: (document: StoreExport, opts: ImportOptions) => Promise<ImportReport>;
 

@@ -18,10 +18,11 @@
  * verbs take the same lazy `getStore` every data verb takes, so a usage error
  * is refused before any store opens.
  */
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 
 import { usage } from '../cli/errors';
 import type { ImportMode, ImportReport, StoreExport } from '../core/export';
+import { canonicalJson } from '../core/export';
 import type { Store } from '../core/store';
 import type { PostgresHandle, UpgradeReport } from '../core/store-postgres/index';
 import { upgradeSchema } from '../core/store-postgres/index';
@@ -37,6 +38,9 @@ export type StoreDeps = {
   readConfig: () => GlobalConfig;
   /** Open the Postgres connection named by `[store] url`. */
   openPostgres: (url: string) => PostgresHandle;
+  /** The whole standard input, for `store import -`. An effect like the other
+   * two, so a test can hand the layer a document without a real pipe. */
+  readStdin: () => Promise<string>;
 };
 
 const SUBCOMMANDS = ['upgrade', 'export', 'import'] as const;
@@ -70,12 +74,14 @@ export async function cmdStore(
 ): Promise<number> {
   const sub = positionals[1];
   if (sub === 'upgrade') {
+    refuseImportFlags('upgrade', flags);
     if (positionals.length > 2) {
       throw usage('store upgrade takes no arguments');
     }
     return await cmdStoreUpgrade(io, deps, format);
   }
   if (sub === 'export') {
+    refuseImportFlags('export', flags);
     return await cmdStoreExport(requireFile(positionals, 'export', 'stdout'), io, format, getStore);
   }
   if (sub === 'import') {
@@ -84,10 +90,34 @@ export async function cmdStore(
       flags,
       io,
       format,
+      deps,
       getStore,
     );
   }
   throw usage(`store: unknown subcommand (expected: ${SUBCOMMANDS.join(' | ')})`);
+}
+
+/**
+ * Refuse `--apply` and `--resume` on a subcommand that does not own them.
+ *
+ * The CLI's owned-flag guard owns this pair to the `store` VERB, which is as
+ * fine-grained as that table gets — so `store export vault.json --apply` passes
+ * it and lands on a verb that ignores the flag. Each one names a decision the
+ * caller believes they made; saying nothing would be agreeing with them.
+ */
+function refuseImportFlags(sub: string, flags: StoreFlags): void {
+  if (flags.apply === true) {
+    throw usage(
+      `'--apply' doesn't apply to store ${sub}`,
+      `'--apply' writes a previewed import; use it with store import`,
+    );
+  }
+  if (flags.resume === true) {
+    throw usage(
+      `'--resume' doesn't apply to store ${sub}`,
+      `'--resume' re-runs a partial import, skipping what is already identical; use it with store import`,
+    );
+  }
 }
 
 /** The single file positional a transfer verb takes, refused before any store opens. */
@@ -173,8 +203,11 @@ async function cmdStoreExport(
   const store = await getStore();
   const document = await store.export();
   // Two-space indent and a trailing newline: a backup is a file a human diffs
-  // and a line-oriented tool reads, not a one-line blob.
-  const text = `${JSON.stringify(document, null, 2)}\n`;
+  // and a line-oriented tool reads, not a one-line blob. `canonicalJson` also
+  // sorts the object keys, so two backends' documents of the same facts are
+  // equal as FILES and not only as values — a `diff` of two backups then shows
+  // the facts that changed rather than each backend's key order.
+  const text = `${canonicalJson(document)}\n`;
 
   // On `-` the document IS the output — no summary, in any format, or the
   // stream a pipe consumes would carry two documents.
@@ -231,9 +264,10 @@ async function cmdStoreImport(
   flags: StoreFlags,
   io: Io,
   format: Format,
+  deps: StoreDeps,
   getStore: () => Store | Promise<Store>,
 ): Promise<number> {
-  const document = await readDocument(file);
+  const document = await readDocument(file, deps);
   const mode: ImportMode = flags.resume === true ? 'resume' : 'fresh';
   const store = await getStore();
   const report = await store.import(document, { dryRun: flags.apply !== true, mode });
@@ -247,12 +281,23 @@ async function cmdStoreImport(
 }
 
 /** Read and shape-check the document at `file` (`-` is stdin). */
-async function readDocument(file: string): Promise<StoreExport> {
-  if (file !== STREAM && !existsSync(file)) {
-    throw usage(`store import: ${file} doesn't exist`);
+async function readDocument(file: string, deps: StoreDeps): Promise<StoreExport> {
+  if (file !== STREAM) {
+    if (!existsSync(file)) {
+      throw usage(`store import: ${file} doesn't exist`);
+    }
+    // A directory passes the existence check and then fails as a raw runtime
+    // error on the read, which names neither the verb nor the reason. Refuse it
+    // by name, like every other thing this file is not.
+    if (statSync(file).isDirectory()) {
+      throw usage(
+        `store import: ${file} is not a file`,
+        'pass the transfer document itself, or - to read it from stdin',
+      );
+    }
   }
   const source = file === STREAM ? 'stdin' : file;
-  const text = file === STREAM ? await Bun.stdin.text() : await Bun.file(file).text();
+  const text = file === STREAM ? await deps.readStdin() : await Bun.file(file).text();
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);

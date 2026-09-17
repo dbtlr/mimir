@@ -1,3 +1,5 @@
+import { invariant } from '../errors';
+
 /**
  * Multi-row INSERTs under PostgreSQL's bind-parameter ceiling (MMR-380).
  *
@@ -10,7 +12,10 @@
  *
  * So a batch is chunked by the row's own width. The parameters one row spends
  * is its column count, which is read off the first row rather than assumed:
- * every batch here is built uniformly, so one row's shape is the batch's.
+ * every batch here is built uniformly, so one row's shape is the batch's. That
+ * uniformity is checked rather than trusted — a batch built with a conditional
+ * key would chunk against the wrong width and blow the ceiling on a big import,
+ * a fault that never shows on a small one.
  */
 
 /** The bind parameters one PostgreSQL statement may carry. */
@@ -41,8 +46,29 @@ export async function insertBatched<R extends object>(
   if (first === undefined) {
     return;
   }
-  const perStatement = rowsPerStatement(Object.keys(first).length);
+  const columns = Object.keys(first).length;
+  // Cheap next to the statements it guards: one key count per row.
+  for (const [index, row] of rows.entries()) {
+    if (Object.keys(row).length !== columns) {
+      throw invariant(
+        `a batched insert was given rows of differing width: row ${String(index)} has ${String(Object.keys(row).length)} columns, the first has ${String(columns)}`,
+        'every row of one batch must carry the same keys — the chunk size is computed from the first row',
+      );
+    }
+  }
+  const perStatement = rowsPerStatement(columns);
   for (let start = 0; start < rows.length; start += perStatement) {
     await insert(rows.slice(start, start + perStatement));
   }
+}
+
+/**
+ * A pair-keyed dedupe key, unambiguous whatever the two values contain — the
+ * one spelling for "this row is already in the batch" (an artifact's tag or
+ * link, an import's dependency edge). Deduping before the batch keeps a repeat
+ * from spending bind parameters, which are the budget the chunking above is
+ * computed against.
+ */
+export function pairKey(left: string, right: string): string {
+  return JSON.stringify([left, right]);
 }

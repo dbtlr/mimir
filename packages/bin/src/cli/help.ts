@@ -1052,7 +1052,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   },
   // ── shared-store schema (ADR 0030) ──
   store: {
-    args: [['<file>', 'the transfer document to write or read (- is stdout/stdin)']],
+    args: [['<file>', 'export/import: the transfer document to write or read (- is stdout/stdin)']],
     examples: [
       'mimir store upgrade                  # create or advance the Postgres schema',
       'mimir store upgrade --format json    # the upgrade report, machine-readable',

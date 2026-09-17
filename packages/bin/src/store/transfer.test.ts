@@ -25,13 +25,21 @@ import { cmdStore } from './commands';
  */
 
 /** The store machinery deps — never reached by a transfer verb, which routes
- * through `getStore` like every other data verb. */
+ * through `getStore` like every other data verb. Stdin is an effect like the
+ * other two, so `store import -` is testable without a real pipe; the default
+ * refuses, and the stdin case passes its own. */
 const DEPS: StoreDeps = {
   openPostgres: () => {
     throw new Error('a transfer verb must not open the store machinery connection');
   },
   readConfig: (): GlobalConfig => ({ serve: {}, store: {}, vault: {} }),
+  readStdin: () => Promise.reject(new Error('this case must not read stdin')),
 };
+
+/** The same deps with a document waiting on stdin. */
+function withStdin(text: string): StoreDeps {
+  return { ...DEPS, readStdin: () => Promise.resolve(text) };
+}
 
 let dir = '';
 
@@ -69,6 +77,12 @@ function recordingStore(report: ImportReport): { store: Store; calls: ImportOpti
 
 /** The minimal document the shape check accepts — the backend validates the rest. */
 const MINIMAL: Pick<StoreExport, 'schema_version'> = { schema_version: 1 };
+
+/** A `getStore` that must never be called — a usage error is refused before
+ * any store opens. */
+const noStore = (): never => {
+  throw new Error('a usage error must be refused before any store opens');
+};
 
 async function message(run: Promise<unknown>): Promise<string> {
   try {
@@ -252,6 +266,82 @@ test('store import refuses a file that is not a transfer document, naming it', a
   expect(fake.calls).toEqual([]);
 });
 
+test('store import - reads the document from stdin', async () => {
+  const io = fakeIo();
+  const fake = recordingStore({ applied: false, created: 4, mode: 'fresh', skipped: 0 });
+
+  expect(
+    await cmdStore(
+      ['store', 'import', '-'],
+      {},
+      io,
+      withStdin(JSON.stringify(MINIMAL)),
+      'records',
+      () => fake.store,
+    ),
+  ).toBe(0);
+  expect(fake.calls).toEqual([{ dryRun: true, mode: 'fresh' }]);
+  expect(io.out.join('\n')).toContain('would create 4');
+});
+
+test('store import - names stdin when what it read is not a document', async () => {
+  const fake = recordingStore({ applied: true, created: 0, mode: 'fresh', skipped: 0 });
+  const text = await message(
+    cmdStore(
+      ['store', 'import', '-'],
+      {},
+      fakeIo(),
+      withStdin('not json'),
+      'records',
+      () => fake.store,
+    ),
+  );
+  expect(text).toContain('stdin');
+  expect(text).toContain('valid JSON');
+  expect(fake.calls).toEqual([]);
+});
+
+test('store import refuses a directory by name, without opening the store', async () => {
+  // `existsSync` passes on a directory and the read then throws a raw runtime
+  // error naming neither the verb nor the reason.
+  const fake = recordingStore({ applied: true, created: 0, mode: 'fresh', skipped: 0 });
+  const text = await message(
+    cmdStore(['store', 'import', dir], {}, fakeIo(), DEPS, 'records', () => fake.store),
+  );
+  expect(text).toContain(dir);
+  expect(text).toContain('is not a file');
+  expect(fake.calls).toEqual([]);
+});
+
+test('--apply and --resume are refused on a subcommand that does not own them', async () => {
+  // The CLI's owned-flag guard owns this pair to the `store` VERB, so a stray
+  // one reaches a subcommand that would silently ignore it (MMR-380).
+  const file = join(dir, 'vault.json');
+
+  expect(
+    await message(
+      cmdStore(['store', 'export', file], { apply: true }, fakeIo(), DEPS, 'records', noStore),
+    ),
+  ).toBe("'--apply' doesn't apply to store export");
+  expect(
+    await message(
+      cmdStore(['store', 'export', file], { resume: true }, fakeIo(), DEPS, 'records', noStore),
+    ),
+  ).toBe("'--resume' doesn't apply to store export");
+  expect(
+    await message(
+      cmdStore(['store', 'upgrade'], { apply: true }, fakeIo(), DEPS, 'records', noStore),
+    ),
+  ).toBe("'--apply' doesn't apply to store upgrade");
+  expect(
+    await message(
+      cmdStore(['store', 'upgrade'], { resume: true }, fakeIo(), DEPS, 'records', noStore),
+    ),
+  ).toBe("'--resume' doesn't apply to store upgrade");
+  // Nothing was written by the refused export.
+  expect(existsSync(file)).toBe(false);
+});
+
 test('store import requires a file argument', async () => {
   const fake = recordingStore({ applied: true, created: 0, mode: 'fresh', skipped: 0 });
   expect(
@@ -293,6 +383,13 @@ test('export, import --apply, and re-export round trip to the same document', as
     const after = JSON.parse(readFileSync(second, 'utf8')) as StoreExport;
     // `exported_at` is the one field a re-export may differ in (ADR 0030).
     expect({ ...after, exported_at: '' }).toEqual({ ...before, exported_at: '' });
+    // And the FILES match line for line but that one field: the writer sorts
+    // every object's keys, so a `diff` of two backups shows the facts that
+    // changed rather than each backend's key order (MMR-380).
+    const stamp = /"exported_at": ".*"/;
+    expect(readFileSync(second, 'utf8').replace(stamp, '')).toBe(
+      readFileSync(first, 'utf8').replace(stamp, ''),
+    );
   } finally {
     await source.close();
     await target.close();

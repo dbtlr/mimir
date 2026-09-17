@@ -146,7 +146,7 @@ test.skipIf(!NORN)('import writes in byte-bounded plans and round-trips unchange
     targetClient,
     targetVault,
     document,
-    { mode: 'fresh' },
+    { dryRun: false, mode: 'fresh' },
     { write: ONE_PER_CALL },
   );
 
@@ -176,7 +176,7 @@ test.skipIf(!NORN)(
     const legacy = document.artifacts.find((artifact) => artifact.seq === 9);
     expect(legacy?.updated_at).toBe('');
 
-    await importNornStore(targetClient, targetVault, document, { mode: 'fresh' });
+    await importNornStore(targetClient, targetVault, document, { dryRun: false, mode: 'fresh' });
     const target = createNornWriteStore(targetClient, targetVault);
     expect((await target.artifacts.load('MMR', 9))?.updated_at).toBe('');
   },
@@ -184,14 +184,17 @@ test.skipIf(!NORN)(
 
 test.skipIf(!NORN)('a resume reads the target in chunks and skips every document', async () => {
   const document = await exportNornStore(sourceClient);
-  const first = await importNornStore(targetClient, targetVault, document, { mode: 'fresh' });
+  const first = await importNornStore(targetClient, targetVault, document, {
+    dryRun: false,
+    mode: 'fresh',
+  });
 
   const counts = countCalls(targetClient);
   const resumed = await importNornStore(
     targetClient,
     targetVault,
     document,
-    { mode: 'resume' },
+    { dryRun: false, mode: 'resume' },
     { read: ONE_PER_CALL },
   );
 

@@ -99,7 +99,8 @@ holds something the document cannot carry, so the backup is never quietly
 narrower than the store.
 
 Export refuses to overwrite an existing file. Name a new path, or remove the
-old backup first. Write `-` instead of a path to send the document to stdout.
+old backup first. Write `-` instead of a path to send the document to stdout,
+and `-` in place of the import's path to read it from stdin.
 
 To restore, create the schema in an empty database and import the file:
 
@@ -109,10 +110,14 @@ mimir store import vault.json
 mimir store import vault.json --apply
 ```
 
-The first import is a preview: it runs every check the write would run and
-reports what it would create, but writes nothing. `--apply` writes it. An
-import refuses when the target already holds one of the projects in the
-document, so a restore cannot half-merge into a live board.
+The first import is a preview: it runs every decision the write would make —
+the version check, the identity checks, the project fence, and the per-record
+skip-or-refuse — and reports what it would create, but writes nothing. On a
+Postgres target it runs the write itself and rolls it back, so the database
+constraints answer too; on a vault target the decisions are checked and the
+documents are not written. `--apply` writes it. An import refuses when the
+target already holds one of the projects in the document, so a restore cannot
+half-merge into a live board.
 
 ## Moving an existing vault
 
@@ -152,7 +157,13 @@ Identity is preserved end to end: every `KEY-seq`, `KEY-aN`, and `KEY-sN`, every
 timestamp, and the sequence counters, so a create after the import never
 collides with an imported id.
 
-If an import stops part way, run the same file again with `--resume`:
+A failed import into a Postgres target leaves nothing behind: the whole import
+is one transaction, so a failure rolls it back and the retry is the same command
+again.
+
+`--resume` is for a vault target, whose failure contract is partial success: a
+failed import there leaves some documents written and the rest not, and the
+resume finishes it.
 
 ```sh
 mimir store import vault.json --apply --resume

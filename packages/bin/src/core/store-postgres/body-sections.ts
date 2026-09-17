@@ -71,8 +71,11 @@ async function annotationsByStem(
   const rows = await ex
     .selectFrom('annotation')
     .select(['node_id', 'content', 'created_at'])
-    .where('node_id', 'in', [...stems])
-    .orderBy('created_at')
+    // Insert order, NOT timestamp order (MMR-380). A node's `## Annotations`
+    // order is the stored fact, the same reasoning `canonicalTransitionOrder`
+    // spells out: an imported node whose notes are not timestamp-monotonic
+    // (hand-edited, backfilled, clock-skewed) would otherwise re-export in a
+    // different order than it was imported in, and then refuse its own resume.
     .orderBy('id')
     .execute();
   for (const row of rows) {

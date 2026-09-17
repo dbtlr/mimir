@@ -4,10 +4,11 @@ import type { ArtifactListQuery, ArtifactRecord, ArtifactStore } from '../artifa
 import { stripTrailingNewline } from '../content';
 import { withinWindow } from '../dates';
 import { invariant, projectNotFound } from '../errors';
+import { canonicalSetOrder } from '../export';
 import type { ExportedArtifact } from '../export';
 import { renderArtifactRef } from '../ids';
 import { now } from '../time';
-import { insertBatched } from './batch';
+import { insertBatched, pairKey } from './batch';
 import type { ArtifactRow, DB } from './schema';
 import type { Executor } from './tx';
 import { serializable } from './tx';
@@ -41,7 +42,14 @@ function toRecord(row: ArtifactRow, tags: string[], links: string[]): ArtifactRe
   };
 }
 
-/** Tag sets for many artifacts at once, keyed by stem and tag-sorted. */
+/**
+ * Tag sets for many artifacts at once, keyed by stem.
+ *
+ * Ordered in JS by {@link canonicalSetOrder} rather than by a SQL `ORDER BY`:
+ * the server's collation is the operator's choice and ranks `Draft` and `draft`
+ * differently from a vault, and the set order is one rule the whole seam shares
+ * (MMR-380).
+ */
 async function tagsFor(ex: Executor, ids: readonly string[]): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
   if (ids.length === 0) {
@@ -52,15 +60,14 @@ async function tagsFor(ex: Executor, ids: readonly string[]): Promise<Map<string
     .select(['entity_id', 'tag'])
     .where('entity_type', '=', 'artifact')
     .where('entity_id', 'in', [...ids])
-    .orderBy('tag')
     .execute();
   for (const row of rows) {
     out.set(row.entity_id, [...(out.get(row.entity_id) ?? []), row.tag]);
   }
-  return out;
+  return sortSets(out);
 }
 
-/** Link sets for many artifacts at once, keyed by stem and stem-sorted. */
+/** Link sets for many artifacts at once, keyed by stem, ordered like the tags. */
 async function linksFor(ex: Executor, ids: readonly string[]): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
   if (ids.length === 0) {
@@ -70,12 +77,19 @@ async function linksFor(ex: Executor, ids: readonly string[]): Promise<Map<strin
     .selectFrom('artifact_link')
     .select(['artifact_id', 'node_id'])
     .where('artifact_id', 'in', [...ids])
-    .orderBy('node_id')
     .execute();
   for (const row of rows) {
     out.set(row.artifact_id, [...(out.get(row.artifact_id) ?? []), row.node_id]);
   }
-  return out;
+  return sortSets(out);
+}
+
+/** Every set in the map in the seam's one set order. */
+function sortSets(sets: Map<string, string[]>): Map<string, string[]> {
+  for (const [id, values] of sets) {
+    sets.set(id, canonicalSetOrder(values));
+  }
+  return sets;
 }
 
 /** Decorate artifact rows with their tags and links in one pair of queries. */
@@ -143,11 +157,6 @@ export async function insertExportedArtifacts(
   );
 }
 
-/** A pair-keyed dedupe key, unambiguous whatever the two values contain. */
-function relationKey(id: string, value: string): string {
-  return JSON.stringify([id, value]);
-}
-
 /** One artifact's relations as the writer takes them. */
 type ArtifactRelations = {
   id: string;
@@ -169,14 +178,14 @@ async function writeRelations(
   const links = new Map<string, { artifact_id: string; node_id: string }>();
   for (const artifact of artifacts) {
     for (const tag of artifact.tags) {
-      tags.set(relationKey(artifact.id, tag), {
+      tags.set(pairKey(artifact.id, tag), {
         entity_id: artifact.id,
         entity_type: 'artifact',
         tag,
       });
     }
     for (const node_id of artifact.links) {
-      links.set(relationKey(artifact.id, node_id), { artifact_id: artifact.id, node_id });
+      links.set(pairKey(artifact.id, node_id), { artifact_id: artifact.id, node_id });
     }
   }
   await insertBatched([...tags.values()], (chunk) =>
@@ -266,10 +275,10 @@ export function createPostgresArtifactStore(db: Kysely<DB>): ArtifactStore {
           content,
           created_at: timestamp,
           key: input.key,
-          links: [...new Set(input.links)].toSorted(),
+          links: canonicalSetOrder([...new Set(input.links)]),
           seq,
           summary,
-          tags: [...new Set(input.tags)].toSorted(),
+          tags: canonicalSetOrder([...new Set(input.tags)]),
           title: input.title,
           updated_at: timestamp,
         };

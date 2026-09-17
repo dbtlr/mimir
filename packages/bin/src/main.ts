@@ -182,11 +182,11 @@ function realVaultDeps(): VaultDeps {
   };
 }
 
-/** The `store` machinery edges: the config this install reads, and the pool it
- * opens. Deliberately NOT the built store — `store upgrade` runs before the
- * schema gate would let a store exist. */
+/** The `store` machinery edges: the config this install reads, the pool it
+ * opens, and stdin for `store import -`. Deliberately NOT the built store —
+ * `store upgrade` runs before the schema gate would let a store exist. */
 function realStoreDeps(): StoreDeps {
-  return { openPostgres, readConfig: readRuntimeConfig };
+  return { openPostgres, readConfig: readRuntimeConfig, readStdin: () => Bun.stdin.text() };
 }
 
 async function main(argv: string[]): Promise<number> {

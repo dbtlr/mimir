@@ -13,7 +13,11 @@ import type {
   ImportReport,
   StoreExport,
 } from '../export';
-import { canonicalTransitionOrder, STORE_EXPORT_SCHEMA_VERSION } from '../export';
+import {
+  canonicalSetOrder,
+  canonicalTransitionOrder,
+  STORE_EXPORT_SCHEMA_VERSION,
+} from '../export';
 import { renderMigratedNodeBody, renderMigratedProjectBody, toCanonicalLf } from '../history-codec';
 import { parseId, renderArtifactRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
@@ -80,10 +84,13 @@ import { loadWorkingSetOverNorn } from './store';
  * **A preview is the whole import minus the write** (`dryRun`, MMR-380). It
  * renders every document, runs the fresh-mode fence and the resume-mode
  * skip-or-refuse decision per path, and then skips `createRawDocuments` — so it
- * refuses what an apply would refuse, with the same message, and reports the
- * counts an apply would report. Nothing cheaper would be worth reading: an
- * operator previews an import to learn whether it will land, and a check the
- * preview omitted is exactly the one that stops the apply.
+ * raises those refusals with the same messages an apply raises, and reports the
+ * counts an apply would report. What it cannot reach is the write itself: an
+ * occupied non-project path and norn's own apply refusals are seen by
+ * `createRawDocuments`, which a preview does not call, so a preview that lands
+ * clean is a statement about the DECISIONS, not a promise the vault will take
+ * the documents. That is the price of a backend whose failure contract is
+ * partial success; the alternative is a second write path to simulate the first.
  */
 
 /** Every body-section facet the export reads, in one batched round trip. */
@@ -201,7 +208,7 @@ export async function importNornStore(
   const documents = transferDocuments(document);
   // A preview takes every decision below and lands none of them: `applied` is
   // decided up front so each return states it, and every write is guarded on it.
-  const applied = opts.dryRun !== true;
+  const applied = !opts.dryRun;
 
   if (opts.mode === 'fresh') {
     // Refuse BEFORE writing anything: a fresh import owns the identities it
@@ -295,14 +302,19 @@ function byProjectThenSeq(a: Node, b: Node): number {
   return a.project_id === b.project_id ? a.seq - b.seq : a.project_id.localeCompare(b.project_id);
 }
 
+/** One entity's tag applications, in the seam's one set order — the same
+ * comparator Postgres re-sorts its own read with, so a capitalized or
+ * punctuated tag cannot make the two backends emit different documents. */
 function tagRecords(
   entityType: TagEntityType,
   entityId: string,
   applied: readonly NodeTag[] | undefined,
 ): ExportedTag[] {
-  return (applied ?? [])
-    .map((record) => ({ entity_id: entityId, entity_type: entityType, tag: record.tag }))
-    .toSorted((a, b) => a.tag.localeCompare(b.tag));
+  return canonicalSetOrder((applied ?? []).map((record) => record.tag)).map((tag) => ({
+    entity_id: entityId,
+    entity_type: entityType,
+    tag,
+  }));
 }
 
 function annotationRecord(nodeId: string, view: AnnotationView): NewAnnotationRecord {
