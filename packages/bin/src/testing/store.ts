@@ -12,8 +12,9 @@ import { NornClient } from '../core/store-norn/client';
 import { createNornSeedStore } from '../core/store-norn/seeds';
 import { createNornWriteStore } from '../core/store-norn/writer';
 import { now } from '../core/time';
-import type { DoctorDeps } from '../doctor/commands';
-import { readDoctorSnapshot } from '../doctor/snapshot';
+import type { DoctorBackend } from '../doctor/contract';
+import type { NornDoctorDeps } from '../doctor/norn/backend';
+import { createNornDoctorBackend, nornDoctorDeps } from '../doctor/norn/backend';
 import { bunExec } from '../exec';
 import { converge } from '../vault/converge';
 
@@ -40,8 +41,12 @@ export type TestStore = {
    * fixtures (the MMR-317 co-write guard cycle) drive it directly. */
   artifacts: ArtifactStore;
   close: () => Promise<void>;
-  /** CLI-only repair dependencies over this isolated Norn client. */
-  doctor: DoctorDeps;
+  /** The Norn doctor facet over this isolated vault, repair capability wired
+   * (the CLI composition root's shape). */
+  doctor: DoctorBackend;
+  /** The raw Norn doctor handles behind {@link doctor} — for a fixture that
+   * wraps one handle (an injected apply failure) and rebuilds the backend. */
+  doctorDeps: NornDoctorDeps;
   /** Deliberate hand-edit seam for corruption tests; path stays vault-relative. */
   corruptDocument: (path: string, mutate: (raw: string) => string) => void;
   /** Byte-exact observation seam for no-write/scope assertions. */
@@ -62,6 +67,7 @@ export async function createTestStore(): Promise<TestStore> {
   try {
     await converge(root, { allowCreate: true, exec: bunExec });
     const client = new NornClient({ vaultPath: root });
+    const doctorDeps = nornDoctorDeps(client, root, { repair: true });
     return {
       artifacts: createNornArtifactStore(client, root),
       close: async () => {
@@ -75,13 +81,8 @@ export async function createTestStore(): Promise<TestStore> {
         const absolute = safeVaultPath(root, path);
         writeFileSync(absolute, mutate(readFileSync(absolute, 'utf8')));
       },
-      doctor: {
-        readSnapshot: () => readDoctorSnapshot(client),
-        repair: {
-          applyPlan: (plan, confirm) => client.applyPlan(plan, confirm),
-          vaultRoot: root,
-        },
-      },
+      doctor: createNornDoctorBackend(doctorDeps),
+      doctorDeps,
       readDocument: (path) => readFileSync(safeVaultPath(root, path), 'utf8'),
       removeDocument: (path) => unlinkSync(safeVaultPath(root, path)),
       seeds: createNornSeedStore(client, root),

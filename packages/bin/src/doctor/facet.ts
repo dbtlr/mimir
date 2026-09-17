@@ -27,8 +27,7 @@ import {
 } from '@mimir/contract';
 
 import { parseIdentity } from '../core/ids';
-import type { DoctorFinding } from './checks';
-import type { DoctorScopeMatch } from './snapshot';
+import type { DoctorFinding, DoctorScopeMatch } from './contract';
 
 /** One line of a source snippet; `offending` marks the bad token's span (0-based
  * column into `text`) when this is the offending line. */
@@ -518,4 +517,10 @@ export function buildDoctorFacet(input: {
     scanned_at: scannedAt,
     scope: null,
   };
+}
+
+/** The empty facet — the clean-store zero state, and the fallback for a caller
+ * (e.g. a doctor-agnostic test server) that never wires a doctor facet provider. */
+export function emptyDoctorFacet(): DoctorFacet {
+  return { dropped_total: 0, groups: [], scanned_at: new Date().toISOString(), scope: null };
 }

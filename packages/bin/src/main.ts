@@ -21,9 +21,7 @@ import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
 import { systemTimeZone } from './core';
 import type { Store } from './core';
-import type { DoctorFacet } from './doctor/facet';
-import { computeDoctorFacet } from './doctor/serve';
-import type { DoctorFacetDeps } from './doctor/serve';
+import type { DoctorBackend } from './doctor/contract';
 import { DEFAULT_PORT, IS_PRODUCTION, envFlag, envPort } from './env';
 import { createServer } from './http';
 import { serveStdio } from './mcp';
@@ -219,16 +217,11 @@ async function main(argv: string[]): Promise<number> {
     const port = flagPort ?? overridePort ?? config.port ?? DEFAULT_PORT;
     // Long-running: the server keeps the process alive; loopback-only by
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
+    // Read-only transport: the store is built WITHOUT the doctor repair
+    // capability, so `/api/doctor` reaches the backend's record-health facet
+    // (MMR-185) and nothing that mutates.
     const built = await buildStore();
-    // The record-health facet provider (MMR-185): every read handle is wired
-    // unconditionally (the Norn vault is the only backend).
-    const { readDoctorSnapshot, readRaw } = built;
-    const deps: DoctorFacetDeps = {
-      readRaw,
-      readSnapshot: readDoctorSnapshot,
-    };
-    const doctor = (scope: string | undefined): Promise<DoctorFacet> =>
-      computeDoctorFacet(deps, scope);
+    const doctor = built.doctor.facet;
     let server: ReturnType<typeof createServer>;
     try {
       server = createServer(built.store, { doctor, hunt: !noHunt, port, version: VERSION });
@@ -284,38 +277,28 @@ async function main(argv: string[]): Promise<number> {
   // first ask; help, usage errors, and `skill install` never ask, so a bare
   // `mimir` / `mimir --help` never touches the vault. main holds no verb list.
   let built: BuiltStore | undefined;
-  const getStore = async (): Promise<Store> => {
-    if (built === undefined) {
-      built = await buildStore();
-    }
-    return built.store;
+  const getBuilt = async (): Promise<BuiltStore> => {
+    built ??= await buildStore({ repair: true });
+    return built;
   };
+  const getStore = async (): Promise<Store> => (await getBuilt()).store;
+  const cliDoctor = async (): Promise<DoctorBackend> => (await getBuilt()).doctor;
   try {
     // Project Binding (ADR 0011): the nearest .mimir.toml supplies the
     // default -s scope; resolved here so the CLI itself never reads cwd.
     return await runCli(argv, getStore, stdoutIo(), {
       cwd: process.cwd(),
       doctor: {
-        // Vault diagnostics: build the store (the client) and read one snapshot.
-        readSnapshot: async () => {
-          await getStore();
-          const snapshot = built?.readDoctorSnapshot();
-          if (snapshot === undefined) {
-            throw new Error('doctor snapshot unavailable after store initialization');
+        // The CLI is the one transport that may repair, so the store is built
+        // with that capability; every call first forces the lazy store build.
+        diagnose: async (scope) => (await cliDoctor()).diagnose(scope),
+        facet: async (scope) => (await cliDoctor()).facet(scope),
+        repair: async (request) => {
+          const backend = await cliDoctor();
+          if (backend.repair === undefined) {
+            throw new Error('doctor repair unavailable after store initialization');
           }
-          return snapshot;
-        },
-        repair: {
-          applyPlan: async (plan, confirm) => {
-            await getStore();
-            if (built === undefined) {
-              throw new Error('doctor repair unavailable after store initialization');
-            }
-            return built.applyDoctorPlan(plan, confirm);
-          },
-          get vaultRoot() {
-            return built?.vaultRoot ?? '';
-          },
+          return await backend.repair(request);
         },
       },
       scope: findBinding(process.cwd()),

@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 
-import type { DoctorFacetDeps } from './serve';
-import { computeDoctorFacet } from './serve';
+import type { DoctorFacetDeps } from './facet';
+import { computeDoctorFacet } from './facet';
 
 test('a scoped facet reports how many snapshot documents matched the scope', async () => {
   const deps: DoctorFacetDeps = {

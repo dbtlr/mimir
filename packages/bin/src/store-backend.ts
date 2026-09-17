@@ -1,68 +1,70 @@
 /**
- * Composition root for the work-state store (ADR 0016). The Norn markdown vault
- * is the sole backend since MMR-234 — there is no backend selection. `buildStore`
- * resolves + converges the vault (creating it at a derived default path, adopting
- * an existing one, failing fast otherwise), attaches one persistent `norn mcp`
- * client for the process lifetime, and returns the store plus the vault
- * diagnostics `mimir doctor` reads. `close` shuts that client down; no other
- * resource is held (no db handle is opened, no db handle to close).
+ * Composition root for the work-state store (ADR 0016, ADR 0030). `[store]
+ * backend` fences which backend this install runs on — `norn` (the markdown
+ * vault, and the default) or `postgres`. The fence is per install, never per
+ * project: the working-set load is deliberately whole-store because dependency
+ * edges cross project boundaries.
+ *
+ * This module is the fence and nothing else. It names no backend type: each arm
+ * lives in its own module and returns a {@link BuiltStore} whose only doctor
+ * surface is the backend's own facet (ADR 0030 Decision 6).
  */
 import type { Store } from './core';
-import { NornClient } from './core/store-norn/client';
-import type { MigrationPlan } from './core/store-norn/plan';
-import { createNornWriteStore } from './core/store-norn/writer';
-import type { DoctorSnapshot } from './doctor/snapshot';
-import { readDoctorSnapshot } from './doctor/snapshot';
-import { bunExec } from './exec';
-import { readRuntimeConfig } from './service/config';
-import { backfillVaultData } from './vault/backfill';
-import { converge } from './vault/converge';
-import { resolveVault } from './vault/resolve';
+import type { DoctorBackend } from './doctor/contract';
+import type { GlobalConfig } from './service/config';
+import { configPath, DEFAULT_STORE_BACKEND, readRuntimeConfig } from './service/config';
+import { buildNornStore } from './store-norn-backend';
 
 export type BuiltStore = {
   store: Store;
   /** Release every backend resource: the Norn subprocess. */
   close: () => Promise<void>;
-  /** One whole-vault diagnostic enumeration shared by every doctor check. */
-  readDoctorSnapshot: () => Promise<DoctorSnapshot>;
-  /** CLI-only doctor repair mutation seam. */
-  applyDoctorPlan: (plan: MigrationPlan, confirm: boolean) => Promise<unknown>;
-  vaultRoot: string;
   /**
-   * Read each path's exact on-disk text (frontmatter + body) — the location +
-   * snippet enrichment source for the `/api/doctor` record-health facet (MMR-185).
-   * Fetched by path so it resolves even for a document whose frontmatter won't
-   * parse (invisible to the type-enumerated node read). norn 0.48 sources this
-   * from `vault.get { format: "markdown" }` (the `.raw` facet was retired).
+   * The backend's doctor facet. `repair` is present only where the caller asked
+   * for a mutating wiring — see {@link buildStore}'s `repair` option.
    */
-  readRaw: (paths: string[]) => Promise<{ path: string; raw: string }[]>;
+  doctor: DoctorBackend;
+};
+
+/** Options for the one capability the composition root decides per transport. */
+export type BuildStoreOptions = {
+  /**
+   * Wire the doctor repair capability. The CLI passes `true`; the read-only
+   * transports (`serve`, `mcp`) leave it off, so the backend they hold cannot
+   * mutate the store through doctor at all.
+   */
+  repair?: boolean;
 };
 
 /**
- * Build the store for this process: resolve + converge the vault and attach a
- * persistent client. A converge failure (absent configured vault, foreign
- * directory) propagates so `serve` fails fast and a supervisor retries.
+ * The refusal for `[store] backend = "postgres"` before the Postgres backend
+ * exists. A stable, exact message: an operator who set the fence early must be
+ * told which release carries it, never handed a silent fallback to the vault.
  */
-export async function buildStore(): Promise<BuiltStore> {
-  const config = readRuntimeConfig();
-  const vault = resolveVault({
-    configPath: config.vault.path,
-    envPath: process.env.MIMIR_VAULT,
-  });
-  await converge(vault.path, {
-    allowCreate: vault.allowCreate,
-    exec: bunExec,
-    migrateData: backfillVaultData,
-  });
-  // `MIMIR_NORN` (baked into the serve launchd unit at install time) pins the
-  // absolute norn binary — launchd's minimal PATH can't resolve a bare `norn`.
-  const client = new NornClient({ command: process.env.MIMIR_NORN, vaultPath: vault.path });
-  return {
-    applyDoctorPlan: (plan, confirm) => client.applyPlan(plan, confirm),
-    close: () => client.close(),
-    readDoctorSnapshot: () => readDoctorSnapshot(client),
-    readRaw: (paths) => client.readRawDocuments(paths),
-    store: createNornWriteStore(client, vault.path),
-    vaultRoot: vault.path,
-  };
+export const POSTGRES_BACKEND_UNAVAILABLE =
+  '[store] backend = "postgres" is not available in this build: the Postgres store backend lands in MMR-379. Set backend = "norn" (the default) until then.';
+
+/**
+ * Build the store for this process. A converge failure (absent configured vault,
+ * foreign directory) propagates so `serve` fails fast and a supervisor retries.
+ * A `[store]` section that parsed to nothing usable is FATAL on the same terms:
+ * the fence selects which store gets written, so a typo in a Postgres install
+ * must never fall back to converging and writing a local markdown vault.
+ */
+export async function buildStore(
+  opts: BuildStoreOptions = {},
+  config: GlobalConfig = readRuntimeConfig(),
+): Promise<BuiltStore> {
+  if (config.store.problem !== undefined) {
+    throw new Error(
+      `[store] is unusable (${config.store.problem}) in ${configPath()} — set backend to one of: norn, postgres`,
+    );
+  }
+  const backend = config.store.backend ?? DEFAULT_STORE_BACKEND;
+  // `postgres` is a declared fence value with no backend behind it yet: refuse
+  // by name rather than fall through to the vault (MMR-379 lands it).
+  if (backend === 'postgres') {
+    throw new Error(POSTGRES_BACKEND_UNAVAILABLE);
+  }
+  return await buildNornStore(config, opts);
 }

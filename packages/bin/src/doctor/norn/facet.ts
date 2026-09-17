@@ -11,10 +11,10 @@
  * so it resolves even for a document whose frontmatter won't parse — the one
  * class of corruption absent from the type-enumerated node read.
  */
-import { stemOf } from '../core/store-norn/decode';
+import { stemOf } from '../../core/store-norn/decode';
+import { buildDoctorFacet, pathOfStem } from '../facet';
+import type { DoctorFacet } from '../facet';
 import { diagnoseDoctor } from './diagnosis';
-import { buildDoctorFacet, pathOfStem } from './facet';
-import type { DoctorFacet } from './facet';
 import type { DoctorSnapshot } from './snapshot';
 import {
   doctorIdentityIndex,
@@ -23,10 +23,9 @@ import {
   doctorStemInScope,
 } from './snapshot';
 
-/** The vault read handles the facet needs — the `cmdDoctor` set plus `readRaw`
- * (the exact-Markdown fetch for location enrichment). Norn is the sole `Store` port
- * implementor (ADR 0016 Refinement, MMR-279), so both are always available
- * wherever a vault-backed doctor facet is wired in. */
+/** The vault read handles the facet needs — the diagnosis snapshot plus
+ * `readRaw` (the exact-Markdown fetch for location enrichment). A read-only
+ * subset of the Norn doctor backend's handles, so the facet can never mutate. */
 export type DoctorFacetDeps = {
   /** The same one-enumeration diagnostic snapshot the CLI consumes (MMR-241). */
   readSnapshot: () => Promise<DoctorSnapshot>;
@@ -88,10 +87,4 @@ export async function computeDoctorFacet(
     ...facet,
     scope: doctorScopeMatch(snapshot, scope),
   };
-}
-
-/** The empty facet — the clean-vault zero state, and the fallback for a caller
- * (e.g. a doctor-agnostic test server) that never wires a doctor facet provider. */
-export function emptyDoctorFacet(): DoctorFacet {
-  return { dropped_total: 0, groups: [], scanned_at: new Date().toISOString(), scope: null };
 }

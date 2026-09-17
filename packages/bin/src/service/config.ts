@@ -48,14 +48,27 @@ export type VaultConfig = {
 /** The snapshot cadence when `[vault.snapshot] interval` is unset — the atlas precedent, 15 minutes. */
 export const DEFAULT_SNAPSHOT_INTERVAL_SECONDS = 900;
 
+/** Every store backend a mimir install can run on (ADR 0030 Decision 1). */
+export type StoreBackend = 'norn' | 'postgres';
+
+/** The backend an install runs on when `[store] backend` is absent. */
+export const DEFAULT_STORE_BACKEND: StoreBackend = 'norn';
+
 /**
- * The `[store]` section. Reserved, currently empty: the `backend` fence (and
- * its `artifacts` alias) that once lived here was retired at MMR-234 — the
- * Norn vault is the only store — and its MMR-279 tolerated-ignore shim is
- * retired in turn. A lingering `[store]` key, `backend` included, is an
- * ordinary unknown-key no-op: parsed, not interpreted, not flagged.
+ * The `[store]` section — the per-install backend fence, restored at MMR-378
+ * (ADR 0030 Decision 1) after its MMR-234 retirement. `backend` selects `norn`
+ * (the markdown vault, and the default when the key is absent) or `postgres`.
+ * The fence is per install, NEVER per project: the working-set load is
+ * deliberately whole-store because dependency edges cross project boundaries,
+ * so one install is wholly on one backend. An unrecognized backend word is
+ * `invalid-backend`, not a silent fallback — a typo must never quietly open a
+ * different store than the operator named.
  */
-export type StoreConfig = Record<string, never>;
+export type StoreConfig = {
+  backend?: StoreBackend;
+  /** Set when a config file exists but contributed nothing — callers may warn. */
+  problem?: 'invalid-backend' | 'malformed';
+};
 
 export type GlobalConfig = { serve: ServeConfig; vault: VaultConfig; store: StoreConfig };
 
@@ -108,6 +121,27 @@ function vaultSection(raw: unknown): VaultConfig {
   return { ...validPath, ...(snapshot === undefined ? {} : { snapshot }) };
 }
 
+function isStoreBackend(value: unknown): value is StoreBackend {
+  return value === 'norn' || value === 'postgres';
+}
+
+function storeSection(raw: unknown): StoreConfig {
+  if (raw === undefined) {
+    return {};
+  }
+  // `store = "norn"` (a string, not a table) must surface, not silently fall
+  // through to the default backend — the silent-wrong-store trap.
+  if (!isTable(raw)) {
+    return { problem: 'malformed' };
+  }
+  const backend = raw.backend;
+  // No backend key at all — not a problem, the caller uses the default.
+  if (backend === undefined) {
+    return {};
+  }
+  return isStoreBackend(backend) ? { backend } : { problem: 'invalid-backend' };
+}
+
 const isPositiveInt = (v: unknown): v is number =>
   typeof v === 'number' && Number.isInteger(v) && v >= 1;
 
@@ -158,28 +192,25 @@ function snapshotSection(raw: unknown): SnapshotConfig | 'invalid' | undefined {
  * belongs to the consumer (the port bind, the vault open), not the parse.
  * When a section is present but contributed nothing, its `problem` is set so
  * the consumer can warn that the config was ignored rather than silently
- * falling through to a default. `[store]` carries no declared keys (see
- * {@link StoreConfig}), so its content is never projected into
- * `GlobalConfig` — the TOML parse still covers it, but whatever it holds is
- * an unknown-key no-op.
+ * falling through to a default.
  */
 export function readConfig(file = configPath()): GlobalConfig {
   if (!existsSync(file)) {
     return { serve: {}, store: {}, vault: {} };
   }
-  let parsed: { serve?: unknown; vault?: unknown };
+  let parsed: { serve?: unknown; store?: unknown; vault?: unknown };
   try {
     parsed = Bun.TOML.parse(readFileSync(file, 'utf8'));
   } catch {
     return {
       serve: { problem: 'malformed' },
-      store: {},
+      store: { problem: 'malformed' },
       vault: { problem: 'malformed' },
     };
   }
   return {
     serve: serveSection(parsed.serve),
-    store: {},
+    store: storeSection(parsed.store),
     vault: vaultSection(parsed.vault),
   };
 }

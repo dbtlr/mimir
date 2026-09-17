@@ -1,82 +1,27 @@
 /**
- * The `mimir doctor` command (MMR-166) — run the vault diagnostics registry and
- * report. A vault-only surface: the body-section records it checks live in
- * hand-editable markdown. `readSnapshot` is the injected whole-vault diagnostic
- * read handle.
+ * The `mimir doctor` command (MMR-166) — ask the store backend for its
+ * diagnosis and report it. The backend owns every check and every repair
+ * (ADR 0030 Decision 6); this module is rendering, scope warnings, and the
+ * exit-code contract, and it names nothing backend-specific.
  *
  * Output honors the CLI contract: findings print to stderr and a clean run
  * prints one line on stdout. Doctor is a **non-gating diagnostic** (ADR 0017):
  * it always exits `0` on a successful run regardless of findings — surfacing
  * issues _is_ its job — so a nonzero exit is reserved for doctor itself failing
- * (the vault read throws). Per-finding `error`/`warn` is an informational triage
- * label, not an exit gate. The `json` (pretty array) / `jsonl` (one finding per
- * line) formats emit findings on stdout, same exit-0 contract.
+ * (the backend read throws) or a repair pass reporting `outcome: 'failed'`.
+ * Per-finding `error`/`warn` is an informational triage label, not an exit gate.
+ * The `json` (pretty array) / `jsonl` (one finding per line) formats emit
+ * findings on stdout, same exit-0 contract.
  */
-import type { MigrationPlan } from '../core/store-norn/plan';
-import { now } from '../core/time';
 import type { Format, Io } from '../presentation';
 import { ok, warn } from '../presentation';
-import type { DoctorFinding } from './checks';
-import { diagnoseDoctor } from './diagnosis';
-import type { DoctorRepairPlan, RepairItem } from './repair';
-import { planDoctorRepairs, repairIssueKey } from './repair';
-import type { DoctorSnapshot } from './snapshot';
-import { doctorScopeMatch } from './snapshot';
-
-export type DoctorDeps = {
-  /** Read every diagnostic input from one whole-vault enumeration (MMR-241). */
-  readSnapshot: () => Promise<DoctorSnapshot>;
-  /** CLI-only mutation capability. Read-only transports intentionally do not
-   * receive this dependency. */
-  repair?: {
-    applyPlan: (plan: MigrationPlan, confirm: boolean) => Promise<unknown>;
-    vaultRoot: string;
-  };
-};
-
-type RepairFailure = {
-  code: 'apply-failed' | 'apply-refused' | 'planning-failed' | 'verification-failed';
-  message: string;
-  issue?: DoctorFinding;
-};
-
-type DoctorRepairReport = {
-  /** Operational diagnostics are not issue outcomes and never inflate summary. */
-  details: RepairFailure[];
-  failed: RepairFailure[];
-  fixed: RepairItem[];
-  mode: 'apply' | 'dry-run';
-  outcome: 'applied' | 'failed' | 'preview';
-  planned: RepairItem[];
-  skipped: RepairItem[];
-  summary: { failed: number; fixed: number; planned: number; skipped: number };
-};
-
-function applyOutcome(report: unknown): string | undefined {
-  if (!isRecord(report)) {
-    return undefined;
-  }
-  const envelope = report;
-  const root = isRecord(envelope.report) ? envelope.report : envelope;
-  return typeof root.outcome === 'string' ? root.outcome : undefined;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function applyFailure(outcome: string | undefined, report: unknown): RepairFailure {
-  const base = `norn apply outcome: ${outcome ?? 'unrecognized'}`;
-  const detail = outcome === 'failed' ? `; report: ${JSON.stringify(report)}` : '';
-  return {
-    code: outcome === 'refused' ? 'apply-refused' : 'apply-failed',
-    message: `${base}${detail}`,
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
+import type {
+  DoctorBackend,
+  DoctorRepairReport,
+  DoctorScopeMatch,
+  RepairFailure,
+  RepairItem,
+} from './contract';
 
 function itemWire(item: RepairItem): Record<string, unknown> {
   return {
@@ -154,194 +99,44 @@ function renderRepair(io: Io, format: Format, report: DoctorRepairReport): void 
   );
 }
 
-function warnEmptyScope(io: Io, snapshot: DoctorSnapshot, scope: string | undefined): void {
-  const match = doctorScopeMatch(snapshot, scope);
+/** An absent or stale project scope must never read as a clean scan. */
+function warnEmptyScope(io: Io, match: DoctorScopeMatch): void {
   if (match?.matched_documents === 0) {
     warn(io, `doctor scope '${match.key}' matched 0 documents`);
   }
 }
 
-function finishReport(args: Omit<DoctorRepairReport, 'summary'>): DoctorRepairReport {
-  return {
-    ...args,
-    summary: {
-      failed: args.failed.length,
-      fixed: args.fixed.length,
-      planned: args.planned.length,
-      skipped: args.skipped.length,
-    },
-  };
-}
-
 async function cmdDoctorRepair(
   io: Io,
-  deps: DoctorDeps,
+  doctor: DoctorBackend,
   format: Format,
   scope: string | undefined,
   dryRun: boolean,
 ): Promise<number> {
-  if (deps.repair === undefined) {
+  if (doctor.repair === undefined) {
     throw new Error('doctor repair is unavailable in this context');
   }
-  const snapshot = await deps.readSnapshot();
-  warnEmptyScope(io, snapshot, scope);
-  const issues = await diagnoseDoctor(snapshot, scope);
-  const plan: DoctorRepairPlan = planDoctorRepairs({
-    issues,
-    scope,
-    snapshot,
-    timestamp: now(),
-    vaultRoot: deps.repair.vaultRoot,
-  });
-  const planningFailures: RepairFailure[] = plan.failures.map((failure) => ({
-    code: 'planning-failed',
-    issue: failure.issue,
-    message: failure.reason,
-  }));
-  if (planningFailures.length > 0) {
-    const unapplied: RepairFailure[] = plan.planned.map((item) => ({
-      code: 'planning-failed',
-      issue: item.issue,
-      message: 'repair plan not applied because planning failed',
-    }));
-    const report = finishReport({
-      details: [],
-      failed: [...planningFailures, ...unapplied],
-      fixed: [],
-      mode: dryRun ? 'dry-run' : 'apply',
-      outcome: 'failed',
-      planned: [],
-      skipped: plan.skipped,
-    });
-    renderRepair(io, format, report);
-    return 1;
-  }
-
-  if (plan.migration.operations.length === 0) {
-    const report = finishReport({
-      details: [],
-      failed: [],
-      fixed: [],
-      mode: dryRun ? 'dry-run' : 'apply',
-      outcome: dryRun ? 'preview' : 'applied',
-      planned: dryRun ? plan.planned : [],
-      skipped: plan.skipped,
-    });
-    renderRepair(io, format, report);
-    return 0;
-  }
-
-  let rawApply: unknown;
-  let thrown: unknown;
-  try {
-    rawApply = await deps.repair.applyPlan(plan.migration, !dryRun);
-  } catch (error) {
-    thrown = error;
-  }
-  const outcome = thrown === undefined ? applyOutcome(rawApply) : undefined;
-
-  if (dryRun) {
-    if (thrown !== undefined || outcome !== 'applied') {
-      const failure: RepairFailure =
-        thrown === undefined
-          ? applyFailure(outcome, rawApply)
-          : { code: 'apply-failed', message: `norn apply threw: ${errorMessage(thrown)}` };
-      const report = finishReport({
-        details: [failure],
-        failed: plan.planned.map((item) => ({
-          code: failure.code,
-          issue: item.issue,
-          message: 'repair plan validation failed',
-        })),
-        fixed: [],
-        mode: 'dry-run',
-        outcome: 'failed',
-        planned: [],
-        skipped: plan.skipped,
-      });
-      renderRepair(io, format, report);
-      return 1;
-    }
-    const report = finishReport({
-      details: [],
-      failed: [],
-      fixed: [],
-      mode: 'dry-run',
-      outcome: 'preview',
-      planned: plan.planned,
-      skipped: plan.skipped,
-    });
-    renderRepair(io, format, report);
-    return 0;
-  }
-
-  const applyFailures: RepairFailure[] = [];
-  if (thrown !== undefined) {
-    applyFailures.push({
-      code: 'apply-failed',
-      message: `norn apply threw: ${errorMessage(thrown)}`,
-    });
-  } else if (outcome !== 'applied') {
-    applyFailures.push(applyFailure(outcome, rawApply));
-  }
-
-  let fixed: RepairItem[] = [];
-  let verificationFailures: RepairFailure[] = [];
-  const verificationDetails: RepairFailure[] = [];
-  try {
-    const postIssues = await diagnoseDoctor(await deps.readSnapshot(), scope);
-    const residual = new Set(postIssues.map(repairIssueKey));
-    fixed = plan.planned.filter((item) => !residual.has(repairIssueKey(item.issue)));
-    verificationFailures = plan.planned
-      .filter((item) => residual.has(repairIssueKey(item.issue)))
-      .map((item) => ({
-        code: 'verification-failed',
-        issue: item.issue,
-        message: 'issue remains after apply',
-      }));
-  } catch (error) {
-    verificationFailures = plan.planned.map((item) => ({
-      code: 'verification-failed',
-      issue: item.issue,
-      message: 'post-apply result indeterminate',
-    }));
-    verificationDetails.push({
-      code: 'verification-failed',
-      message: `post-apply diagnosis failed: ${errorMessage(error)}`,
-    });
-  }
-  const details = [...applyFailures, ...verificationDetails];
-  const failed = verificationFailures;
-  const success = outcome === 'applied' && details.length === 0 && failed.length === 0;
-  const report = finishReport({
-    details,
-    failed,
-    fixed,
-    mode: 'apply',
-    outcome: success ? 'applied' : 'failed',
-    planned: [],
-    skipped: plan.skipped,
-  });
+  const report = await doctor.repair({ dryRun, scope });
+  warnEmptyScope(io, report.scope);
   renderRepair(io, format, report);
-  return success ? 0 : 1;
+  // `failed` is the one nonzero signal; `preview` and `applied` both exit 0.
+  return report.outcome === 'failed' ? 1 : 0;
 }
 
 export async function cmdDoctor(
   io: Io,
-  deps: DoctorDeps,
+  doctor: DoctorBackend,
   format: Format,
   scope: string | undefined,
   repair?: { dryRun: boolean; fix: boolean },
 ): Promise<number> {
   if (repair?.fix === true) {
-    return cmdDoctorRepair(io, deps, format, scope, repair.dryRun);
+    return cmdDoctorRepair(io, doctor, format, scope, repair.dryRun);
   }
-  // One shared post-refresh document set serves bodies, graph/declarations, and
-  // section diagnostics. The projection keeps MMR-240's authoritative stem scope
-  // while the unfiltered snapshot remains available to MMR-183's repair planner.
-  const snapshot = await deps.readSnapshot();
-  warnEmptyScope(io, snapshot, scope);
-  const findings = await diagnoseDoctor(snapshot, scope);
+  // One backend pass answers both the findings and what the scope matched, so a
+  // stale `-s` can never be mistaken for a clean store.
+  const { findings, scope: match } = await doctor.diagnose(scope);
+  warnEmptyScope(io, match);
 
   if (format === 'jsonl') {
     // One finding per line — the NDJSON contract every mimir surface honors.
@@ -362,7 +157,7 @@ export async function cmdDoctor(
   }
 
   // Non-gating (ADR 0017): a successful run always exits 0 — findings are the
-  // output, not the status. A doctor-itself failure (the vault read above throws)
+  // output, not the status. A doctor-itself failure (the backend read above throws)
   // is never caught here, so the rejection propagates out and the process exits
   // nonzero — the reserved failure signal.
   return 0;

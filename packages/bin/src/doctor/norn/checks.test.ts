@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
 
-import { parseIdentity } from '../core/ids';
-import type { ProjectDeclaration } from '../core/store-norn';
-import type { Drop } from '../core/validate';
+import { parseIdentity } from '../../core/ids';
+import type { ProjectDeclaration } from '../../core/store-norn';
+import type { Drop } from '../../core/validate';
 import type { DoctorContext } from './checks';
 import {
   artifactDuplicateStemCheck,

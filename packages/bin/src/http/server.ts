@@ -96,7 +96,7 @@ import {
   validation,
 } from '../core';
 import type { DoctorFacet } from '../doctor/facet';
-import { emptyDoctorFacet } from '../doctor/serve';
+import { emptyDoctorFacet } from '../doctor/facet';
 import type { Health } from '../service';
 import { VAULT_SCHEMA } from '../vault';
 import {

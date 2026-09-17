@@ -5,14 +5,15 @@
  * the body + full-content hash that deterministic repair planning needs, and
  * derives every document-based diagnostic input from that one post-refresh view.
  */
-import { parseIdentity } from '../core/ids';
-import type { VaultGraph, VaultGraphSource } from '../core/store-norn';
-import { vaultGraphFromDocs } from '../core/store-norn';
-import { readSectionFailuresFromDocuments } from '../core/store-norn/body-sections';
-import type { NornClient, NornDocument } from '../core/store-norn/client';
-import type { ValidateFinding } from '../core/store-norn/decode';
-import { collapse, decodeValidateFindings, stemOf } from '../core/store-norn/decode';
-import { validate } from '../core/validate';
+import { parseIdentity } from '../../core/ids';
+import type { VaultGraph, VaultGraphSource } from '../../core/store-norn';
+import { vaultGraphFromDocs } from '../../core/store-norn';
+import { readSectionFailuresFromDocuments } from '../../core/store-norn/body-sections';
+import type { NornClient, NornDocument } from '../../core/store-norn/client';
+import type { ValidateFinding } from '../../core/store-norn/decode';
+import { collapse, decodeValidateFindings, stemOf } from '../../core/store-norn/decode';
+import { validate } from '../../core/validate';
+import type { DoctorScopeMatch } from '../contract';
 import type { DoctorContext } from './checks';
 import { workStateStem } from './checks';
 
@@ -59,11 +60,8 @@ export function doctorStemInScope(stem: string, scope: string | undefined): bool
   return scope === undefined || scope === '' || stem === scope || stem.startsWith(`${scope}-`);
 }
 
-/** Metadata shared by every doctor transport so an absent/stale project scope
- * cannot be mistaken for a clean scan. Artifacts are intentionally excluded:
- * a valid project scope always owns a work-state project document. */
-export type DoctorScopeMatch = { key: string; matched_documents: number } | null;
-
+/** Count what a project scope actually matched. Artifacts are intentionally
+ * excluded: a valid project scope always owns a work-state project document. */
 export function doctorScopeMatch(
   snapshot: DoctorSnapshot,
   scope: string | undefined,

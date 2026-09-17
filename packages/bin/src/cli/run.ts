@@ -46,7 +46,7 @@ import {
 } from '../core';
 import type { Store } from '../core';
 import { cmdDoctor } from '../doctor/commands';
-import type { DoctorDeps } from '../doctor/commands';
+import type { DoctorBackend } from '../doctor/contract';
 import { defaultVaultPath } from '../env';
 import { arrow, FORMATS, ok, warn } from '../presentation';
 import type { Format, Io } from '../presentation';
@@ -523,9 +523,9 @@ export type Defaults = {
   service?: ServiceDeps;
   /** Real vault edges (git snapshot); absent where the vault is unavailable (tests). */
   vault?: VaultDeps;
-  /** The `doctor` vault diagnostics read handle; absent where doctor is
+  /** The store backend's doctor facet; absent where doctor is
    * unavailable (tests). */
-  doctor?: DoctorDeps;
+  doctor?: DoctorBackend;
 };
 
 /**
