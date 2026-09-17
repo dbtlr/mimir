@@ -71,13 +71,60 @@ export function renderNodeBody(description: string | null): string {
 }
 
 /**
- * The full sectioned body a node/seed carries: a `## <heading>` prose lede followed
- * by the empty `## History` and `## Annotations` append anchors. The one shape
- * {@link renderNodeBody} and {@link renderSeedBody} share — only the description
- * heading differs (`Task Description` vs `Seed Description`).
+ * The full sectioned body a node/seed carries: a `## <heading>` prose lede, the
+ * optional `## Next` narrative, then the `## History` and `## Annotations`
+ * anchors holding whatever records they carry. The one shape
+ * {@link renderNodeBody}, {@link renderSeedBody}, and the reconstructing
+ * `renderMigrated*` builders share — only the description heading differs
+ * (`Task Description` vs `Seed Description`) and, for a fresh create, every
+ * record list is empty.
+ *
+ * Section ORDER is the write path's, not a choice made here: a create seeds
+ * description → History → Annotations, and a first `## Next` write splices its
+ * block in above the `## History` anchor (MMR-321). A body reconstructed from
+ * records must land in that same order, or a re-created document would not be
+ * byte-identical to a grown one.
  */
-function renderSectionedBody(heading: string, description: string | null): string {
-  return `## ${heading}\n${renderDescriptionSection(description)}${renderHistoryBody()}${renderAnnotationsBody()}`;
+function renderSectionedBody(
+  heading: string,
+  description: string | null,
+  records?: SectionRecords,
+): string {
+  return `## ${heading}\n${renderDescriptionSection(description)}${renderNextPart(
+    records?.next,
+  )}${renderHistoryBody()}${renderHistoryRecords(records?.history)}${renderAnnotationsBody()}${renderAnnotationRecords(records?.annotations)}`;
+}
+
+/** The record lists a reconstructed body carries — an omitted list is empty,
+ * which renders exactly as the create-time (anchors-only) body. */
+type SectionRecords = {
+  /** The `## Next` narrative. Absent, null, or blank renders no section at all:
+   * a document carries the heading only while the narrative is set (MMR-321). */
+  next?: string | null;
+  history?: readonly HistoryEntry[];
+  annotations?: readonly AnnotationView[];
+};
+
+/**
+ * The whole `## Next` block as it sits ON DISK above the `## History` anchor, or
+ * nothing when the narrative is unset.
+ *
+ * {@link renderNextBlock} is the payload handed to norn's
+ * `insert_before_heading`, and norn absorbs that payload's trailing blank line
+ * when it splices the block in above the anchor (verified against norn 0.48). A
+ * body rebuilt from records has to land on the same bytes as one grown that way,
+ * so the block loses exactly that one newline here.
+ */
+function renderNextPart(next: string | null | undefined): string {
+  return next == null || next.trim() === '' ? '' : renderNextBlock(next).slice(0, -1);
+}
+
+function renderHistoryRecords(history: readonly HistoryEntry[] | undefined): string {
+  return (history ?? []).map(renderHistoryRecord).join('');
+}
+
+function renderAnnotationRecords(annotations: readonly AnnotationView[] | undefined): string {
+  return (annotations ?? []).map(renderAnnotationRecord).join('');
 }
 
 /**
@@ -157,18 +204,32 @@ export function renderMigratedNodeBody(
   description: string | null,
   history: readonly HistoryEntry[],
   annotations: readonly AnnotationView[],
+  next?: string | null,
 ): string {
-  return (
-    `## ${DESCRIPTION_HEADING}\n${renderDescriptionSection(description)}` +
-    `${renderHistoryBody()}${history.map(renderHistoryRecord).join('')}` +
-    `${renderAnnotationsBody()}${annotations.map(renderAnnotationRecord).join('')}`
-  );
+  return renderSectionedBody(DESCRIPTION_HEADING, description, { annotations, history, next });
+}
+
+/**
+ * A seed body with its `## History` populated — the seed twin of
+ * {@link renderMigratedNodeBody}, which the store import (ADR 0030 Decision 4)
+ * rebuilds a seed document from at its existing identity. Identical to
+ * {@link renderSeedBody} when the record lists are empty.
+ */
+export function renderMigratedSeedBody(
+  description: string | null,
+  history: readonly HistoryEntry[],
+  annotations: readonly AnnotationView[] = [],
+): string {
+  return renderSectionedBody(SEED_DESCRIPTION_HEADING, description, { annotations, history });
 }
 
 /** A project body with its `## History` reconstructed (archive transitions are
  * project-keyed); projects carry no `## Annotations` section. */
-export function renderMigratedProjectBody(history: readonly HistoryEntry[]): string {
-  return `${renderHistoryBody()}${history.map(renderHistoryRecord).join('')}`;
+export function renderMigratedProjectBody(
+  history: readonly HistoryEntry[],
+  next?: string | null,
+): string {
+  return `${renderNextPart(next)}${renderHistoryBody()}${renderHistoryRecords(history)}`;
 }
 
 /** An empty `## Annotations` section — the append anchor a fresh node seeds. */

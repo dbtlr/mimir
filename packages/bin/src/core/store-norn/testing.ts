@@ -1,15 +1,18 @@
-import { applyReportOutcome } from './apply-report';
 import type { NornClient } from './client';
-import { createDocumentPlan } from './plan';
+import { createRawDocument } from './raw-write';
 
 /**
- * Seed a document directly at a FIXED path via `create_document` (MMR-281) —
- * the fixture-seeding replacement for the retired `vault.new` RPC (`newDoc`
- * had zero production callers; only test fixtures seeded through it). Every
- * caller here wants a physical sibling/collider/hand-corrupt doc the typed
- * store API can't produce, so this bypasses every store and writes raw.
- * Throws if the write did not apply — a fixture collision must fail the test
- * loud rather than silently leaving the vault in an unexpected shape.
+ * Seed a document directly at a FIXED path (MMR-281) — the fixture-seeding
+ * replacement for the retired `vault.new` RPC (`newDoc` had zero production
+ * callers; only test fixtures seeded through it). Every caller here wants a
+ * physical sibling/collider/hand-corrupt doc the typed store API can't produce,
+ * so this bypasses every store and writes raw.
+ *
+ * A thin wrapper over {@link createRawDocument}, the production whole-document
+ * write primitive the store import shares (MMR-378): the fixture path and the
+ * import path must put bytes on disk the same way, or a fixture would prove
+ * nothing about the real writer. It keeps this name and its `(frontmatter,
+ * body)` argument order only because the fixtures read better that way.
  */
 export async function seedRawDoc(
   client: NornClient,
@@ -18,9 +21,5 @@ export async function seedRawDoc(
   frontmatter: Record<string, unknown>,
   body = '',
 ): Promise<void> {
-  const plan = createDocumentPlan(vaultRoot, path, frontmatter, body);
-  const outcome = applyReportOutcome(await client.applyPlan(plan, true));
-  if (outcome !== 'applied') {
-    throw new Error(`fixture seed at ${path} did not apply: ${String(outcome)}`);
-  }
+  await createRawDocument(client, vaultRoot, { body, frontmatter, path });
 }

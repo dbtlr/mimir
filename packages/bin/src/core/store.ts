@@ -11,6 +11,7 @@ import type {
 
 import type { ArtifactStore } from './artifacts/store';
 import type { BodySectionStore } from './body-sections/store';
+import type { ImportOptions, ImportReport, StoreExport } from './export';
 import type { Artifact, Dependency, Node, Project } from './model';
 import type { ScratchpadStore } from './scratchpads/store';
 import type { SeedStore } from './seeds/store';
@@ -305,6 +306,29 @@ export type Store = {
    * invariant failure leaves no partial rows.
    */
   transact: <T>(fn: (w: StoreWriter) => Promise<T>) => Promise<T>;
+
+  /**
+   * Read every stored fact into one backend-neutral document (ADR 0030
+   * Decision 4) — the migration and portable-backup surface. Facts only:
+   * status words, rollups, and predicates are recomputed on the target
+   * (ADR 0001). Two exports of the same unchanged store differ only in
+   * `exported_at`.
+   */
+  export: () => Promise<StoreExport>;
+
+  /**
+   * Write a {@link StoreExport} into this store verbatim (ADR 0030 Decision 4) —
+   * ids, sequences, and every `created_at`/`updated_at`/transition timestamp
+   * preserved, so the round trip is invisible.
+   *
+   * Afterwards the target's allocation state is consistent with the imported
+   * identities for every per-project sequence kind (node, artifact, seed — ADR
+   * 0006): the next create never yields an identity present in the import.
+   *
+   * Failure semantics are the backend's own. See {@link ImportMode} for what
+   * `fresh` refuses and how `resume` re-runs a partial import.
+   */
+  import: (document: StoreExport, opts: ImportOptions) => Promise<ImportReport>;
 
   /**
    * The artifact slice (MMR-143, ADR 0016 Phase 2a) — everything artifact-shaped

@@ -7,9 +7,12 @@ import type {
 } from '../artifacts/store';
 import { withinWindow } from '../dates';
 import { degradedUpdatedAt, invariant, validation } from '../errors';
+import type { ExportedArtifact } from '../export';
 import { parseIdentity, renderArtifactRef, wikilink } from '../ids';
 import { now } from '../time';
 import { applyReportOutcome, createdStem, decodeApplyReport } from './apply-report';
+import type { ChunkLimits } from './chunking';
+import { ASSUMED_BODY_BYTES, jsonBytes, READ_LIMITS, readBodies } from './chunking';
 import type { NornClient, NornDocument } from './client';
 import { collapse, isStringRecord, stringList } from './decode';
 import type { MigrationOp } from './plan';
@@ -21,6 +24,7 @@ import {
   SEQ_TOKEN,
   setFrontmatter,
 } from './plan';
+import type { RawDocument } from './raw-write';
 
 /**
  * The Norn-vault `ArtifactStore` (MMR-143, ADR 0016 Phase 2a): an artifact is
@@ -74,11 +78,17 @@ function artifactFrontmatter(fields: {
   sourceScratch?: string;
 }): Record<string, unknown> {
   const fm: Record<string, unknown> = {
-    created: fields.created,
+    ...(fields.created === '' ? {} : { created: fields.created }),
     project: wikilink(fields.key),
     title: fields.title,
     type: 'artifact',
-    updated_at: fields.updated_at,
+    // An EMPTY stamp means the source document carried none — the tolerant read
+    // in `toRecord` yields `''` for a legacy artifact predating the field. Write
+    // the absence back as absence rather than inventing a value: a store import
+    // preserves facts verbatim, and healing a degraded document is `mimir
+    // doctor --fix`'s decision to make, not a copy's (ADR 0017). `create`
+    // always stamps, so this only ever omits on a restore or an import.
+    ...(fields.updated_at === '' ? {} : { updated_at: fields.updated_at }),
   };
   if (fields.links.length > 0) {
     fm.anchor = fields.links.map(wikilink);
@@ -140,6 +150,100 @@ function summaryFieldOp(
 }
 
 /**
+ * The complete physical document one artifact record + its frozen content
+ * becomes — the same path, frontmatter, and body a `create` writes, only at the
+ * record's EXISTING identity instead of an allocated one. The single builder
+ * behind every fixed-path artifact write ({@link restoreArtifact} and the store
+ * import, ADR 0030 Decision 4), so a restored or imported artifact is
+ * byte-identical to a created one.
+ */
+export function artifactDocument(
+  record: ArtifactRecord & { content: string; source_scratch?: string | null },
+): RawDocument {
+  const frontmatter = artifactFrontmatter({
+    // Empty passes through as absent, like the stamp below — a legacy artifact
+    // with no `created` reads as `''` and must import back that way.
+    created: record.created_at,
+    key: record.key,
+    links: record.links,
+    summary: record.summary,
+    tags: record.tags,
+    title: record.title,
+    // Passed through as-is, empty included: see {@link artifactFrontmatter} —
+    // an absent stamp is a fact of the source document, not a gap to fill.
+    // `restoreArtifact` substitutes `created` itself, because a one-way cutover
+    // to a new substrate legitimately makes that call and an import does not.
+    updated_at: record.updated_at,
+    ...(record.source_scratch == null ? {} : { sourceScratch: record.source_scratch }),
+  });
+  return {
+    // The content is re-terminated, not written raw. Norn appends a trailing
+    // newline only when one is absent, and {@link stripTrailingNewline} removes
+    // exactly one on read — so writing a READ-BACK content verbatim sheds one
+    // more newline on every hop, and an artifact whose stored body ends in a
+    // blank line loses it. `content + '\n'` is the fixpoint of that pair: the
+    // file always ends in exactly the newlines the source file had, so the
+    // round trip is stable no matter how many times it runs.
+    body: `${record.content}\n`,
+    frontmatter,
+    path: pathOf(record.key, record.seq),
+  };
+}
+
+/**
+ * Every artifact in the vault with its frozen content and `source_scratch` — the
+ * store export's artifact collection (MMR-378, ADR 0030 Decision 4).
+ *
+ * Two phases, because artifact bodies are the largest thing in a vault and the
+ * MCP transport drops a response that grows too big (NRN-s30, see
+ * {@link ./chunking}): a metadata-only `find` enumerates every artifact, then
+ * the frozen bodies are fetched in byte-bounded `vault.get` chunks. The whole
+ * set in one `find` with `.body` is what fails on a real vault.
+ *
+ * Decodes through the same {@link toRecord} + {@link stripTrailingNewline} the
+ * seam's reads use, so an exported artifact equals what
+ * `load(..., {content: true})` would return. `source_scratch` is read raw here
+ * because no seam record carries it (only `findBySourceScratch` surfaces it),
+ * yet it is stored and must survive a round trip.
+ */
+export async function exportArtifacts(
+  client: NornClient,
+  limits: ChunkLimits = READ_LIMITS,
+): Promise<ExportedArtifact[]> {
+  const docs = await client.find({
+    col: ['.frontmatter'],
+    eq: ['type:artifact'],
+    no_limit: true,
+  });
+  const candidates = docs.flatMap((raw) => {
+    const doc = asDoc(raw);
+    const record = doc === null ? null : toRecord(doc);
+    return doc === null || record === null ? [] : [{ doc, record }];
+  });
+  const bodies = await readBodies(
+    client,
+    candidates.map((candidate) => ({
+      path: candidate.doc.path,
+      // The frontmatter is already in hand, so only the body is a guess.
+      weight: jsonBytes(candidate.doc.frontmatter) + ASSUMED_BODY_BYTES,
+    })),
+    limits,
+  );
+  const exported: ExportedArtifact[] = [];
+  for (const candidate of candidates) {
+    const sourceScratch = candidate.doc.frontmatter?.source_scratch;
+    exported.push({
+      ...candidate.record,
+      content: stripTrailingNewline(bodies.get(candidate.doc.path) ?? ''),
+      source_scratch: typeof sourceScratch === 'string' ? sourceScratch : null,
+    });
+  }
+  return exported.toSorted((a, b) =>
+    a.key === b.key ? a.seq - b.seq : a.key.localeCompare(b.key),
+  );
+}
+
+/**
  * Cutover-only (MMR-144): write one pre-existing artifact record into the
  * vault at its *existing* identity — the same `KEY-aN` stem and the same
  * `created` — so ids and timestamps survive the migration and a re-run is
@@ -156,17 +260,15 @@ export async function restoreArtifact(
   record: ArtifactRecord,
   content: string,
 ): Promise<'created' | 'skipped'> {
-  const path = pathOf(record.key, record.seq);
-  const frontmatter = artifactFrontmatter({
-    created: record.created_at,
-    key: record.key,
-    links: record.links,
-    summary: record.summary,
-    tags: record.tags,
-    title: record.title,
-    // Preserve the source `updated_at` across the migration so a re-run is
-    // idempotent; a legacy artifact predating the field falls back to `created`
-    // (the migration is birth-for-the-vault, so a real stamp must exist).
+  // The source `created` and `updated_at` are preserved across the migration (so
+  // a re-run is idempotent) by the shared document builder. A legacy artifact
+  // predating `updated_at` falls back to `created` HERE and not in the builder:
+  // this is a one-way cutover to a new substrate, so every migrated document
+  // gets a real stamp for the mutation guard (MMR-317), while a store import
+  // copies the absence through untouched.
+  const { frontmatter, path } = artifactDocument({
+    ...record,
+    content,
     updated_at: record.updated_at === '' ? record.created_at : record.updated_at,
   });
   const plan = createDocumentPlan(vaultRoot, path, frontmatter, content);

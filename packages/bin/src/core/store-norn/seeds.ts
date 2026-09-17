@@ -3,12 +3,14 @@ import type { SeedKind, SeedLifecycle } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import { degradedUpdatedAt, invariant, notFound, validation } from '../errors';
+import type { ExportedSeed } from '../export';
 import {
   HISTORY_HEADING,
   parseDescriptionSection,
   parseHistorySection,
   renderDescriptionSection,
   renderHistoryRecord,
+  renderMigratedSeedBody,
   renderSeedBody,
   SEED_DESCRIPTION_HEADING,
   sectionBody,
@@ -19,6 +21,8 @@ import type { SeedCreate, SeedPatch, SeedRecord, SeedStore } from '../seeds/stor
 import { canTransitionSeed, isTerminalSeed } from '../seeds/store';
 import { now } from '../time';
 import { applyReportOutcome, createdStem } from './apply-report';
+import type { ChunkLimits } from './chunking';
+import { ASSUMED_BODY_BYTES, jsonBytes, READ_LIMITS, readBodies } from './chunking';
 import type { NornClient, NornDocument } from './client';
 import {
   collapse,
@@ -37,6 +41,7 @@ import {
   SEQ_TOKEN,
   setFrontmatter,
 } from './plan';
+import type { RawDocument } from './raw-write';
 
 /**
  * The Norn-vault `SeedStore` (MMR-244) — a seed is a markdown document at
@@ -182,13 +187,18 @@ function seedFrontmatter(fields: {
   updated_at: string;
 }): Record<string, unknown> {
   const fm: Record<string, unknown> = {
-    created: fields.created,
+    // An EMPTY timestamp means the source document carried none — {@link toRecord}
+    // reads a legacy seed's missing `created`/`updated_at` as `''`. Write the
+    // absence back as absence: a store import preserves facts verbatim, and
+    // healing a degraded document is `mimir doctor --fix`'s call, not a copy's
+    // (ADR 0017). `create` always stamps both, so this only omits on an import.
+    ...(fields.created === '' ? {} : { created: fields.created }),
     kind: fields.kind,
     lifecycle: fields.lifecycle,
     project: wikilink(fields.key),
     title: fields.title,
     type: 'seed',
-    updated_at: fields.updated_at,
+    ...(fields.updated_at === '' ? {} : { updated_at: fields.updated_at }),
   };
   if (fields.requester !== null) {
     fm.requester = wikilink(fields.requester);
@@ -197,6 +207,89 @@ function seedFrontmatter(fields: {
     fm.spawned = fields.spawned.map(wikilink);
   }
   return fm;
+}
+
+/**
+ * The complete physical document one seed becomes — the same path, frontmatter,
+ * and sectioned body a `create` writes, at the seed's EXISTING identity and with
+ * its `## History` reconstructed. The store import's seed writer (ADR 0030
+ * Decision 4); byte-identical to a created-then-transitioned seed, so a round
+ * trip through the transfer document is invisible.
+ */
+export function seedDocument(seed: ExportedSeed): RawDocument {
+  return {
+    body: renderMigratedSeedBody(seed.description, seed.history),
+    frontmatter: seedFrontmatter({
+      created: seed.created_at,
+      key: seed.key,
+      kind: seed.kind,
+      lifecycle: seed.lifecycle,
+      requester: seed.requester,
+      spawned: seed.spawned,
+      title: seed.title,
+      updated_at: seed.updated_at,
+    }),
+    path: `${seed.key}/seeds/${stemOf(seed.key, seed.seq)}.md`,
+  };
+}
+
+/**
+ * Every seed in the vault with its description prose and its `## History` — the
+ * store export's seed collection (MMR-378), read in ONE `vault.find` with
+ * `.body` opted in rather than a `load` + `loadHistory` per seed. Decodes
+ * through the same {@link toRecord} and section parsers the seam's reads use.
+ *
+ * Identity collisions are dropped, not exported: two documents resolving to one
+ * `KEY-sN` are hidden from every seam read (the validator-parity filter in
+ * {@link createNornSeedStore}), so exporting one of them would carry a fact the
+ * store does not surface. `mimir doctor` remains the channel for the corruption.
+ */
+export async function exportSeeds(
+  client: NornClient,
+  limits: ChunkLimits = READ_LIMITS,
+): Promise<ExportedSeed[]> {
+  const docs = await client.find({
+    col: ['.frontmatter'],
+    eq: ['type:seed'],
+    no_limit: true,
+  });
+  const occupants = new Map<string, number>();
+  for (const doc of docs) {
+    const identity = seqFromPath(doc.path);
+    if (identity !== null) {
+      const stem = stemOf(identity.key, identity.seq);
+      occupants.set(stem, (occupants.get(stem) ?? 0) + 1);
+    }
+  }
+  // Bodies in byte-bounded chunks, never in the enumerating `find` — a seed body
+  // carries arbitrary description prose and a whole `## History` log, so the
+  // whole-vault set can outgrow the MCP response cap (NRN-s30, see ./chunking).
+  const bodies = await readBodies(
+    client,
+    docs.map((doc) => ({
+      path: doc.path,
+      weight: jsonBytes(doc.frontmatter) + ASSUMED_BODY_BYTES,
+    })),
+    limits,
+  );
+  return docs
+    .flatMap((doc) => {
+      const record = toRecord(doc);
+      if (record === null || occupants.get(stemOf(record.key, record.seq)) !== 1) {
+        return [];
+      }
+      const body = bodies.get(doc.path) ?? '';
+      return [
+        {
+          ...record,
+          description: parseDescriptionSection(
+            sectionBody(sliceSection(body, SEED_DESCRIPTION_HEADING)),
+          ),
+          history: parseHistorySection(sectionBody(sliceSection(body, HISTORY_HEADING))),
+        },
+      ];
+    })
+    .toSorted(byKeyThenSeq);
 }
 
 export function createNornSeedStore(client: NornClient, vaultRoot: string): SeedStore {

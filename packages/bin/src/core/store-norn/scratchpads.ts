@@ -23,6 +23,7 @@ import {
   replaceBody,
   setFrontmatter,
 } from './plan';
+import type { RawDocument } from './raw-write';
 import { loadWorkingSetOverNorn } from './store';
 
 const pathOf = (id: string): string => `scratch/${id}.md`;
@@ -191,6 +192,21 @@ export function decodeScratchpadDocument(
       title,
       updatedAt,
     },
+  };
+}
+
+/**
+ * The complete physical document one scratchpad becomes — the same path,
+ * frontmatter, and encoded body a `create` writes, at the pad's existing id and
+ * timestamps. The store import's scratchpad writer (ADR 0030 Decision 4). The
+ * pad's whole state is its two owned body sections, so nothing is reconstructed
+ * here: {@link encodeScratchpadBody} is the one encoder either path uses.
+ */
+export function scratchpadDocument(scratchpad: Scratchpad): RawDocument {
+  return {
+    body: encodeScratchpadBody(scratchpad),
+    frontmatter: frontmatterOf(scratchpad),
+    path: pathOf(scratchpad.id),
   };
 }
 
