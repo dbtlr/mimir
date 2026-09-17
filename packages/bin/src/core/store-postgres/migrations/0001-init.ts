@@ -129,6 +129,7 @@ export const statements: readonly string[] = [
    )`,
   `CREATE INDEX idx_transition_node ON transition_log(node_id, id)`,
   `CREATE INDEX idx_transition_at ON transition_log(at, id)`,
+  `CREATE INDEX idx_transition_project ON transition_log(project_key, id)`,
   `CREATE TABLE seed (
      id          text PRIMARY KEY,
      project_key text NOT NULL REFERENCES project(key),
@@ -146,7 +147,7 @@ export const statements: readonly string[] = [
   `CREATE TABLE seed_history (
      id         bigserial PRIMARY KEY,
      seed_id    text NOT NULL REFERENCES seed(id),
-     kind       text NOT NULL,
+     kind       text NOT NULL CHECK (kind IN (${inList(TRANSITION_KIND_VALUES)})),
      from_value text,
      to_value   text,
      reason     text,

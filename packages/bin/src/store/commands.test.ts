@@ -153,3 +153,18 @@ test('an unknown subcommand is a usage error naming the expected one', async () 
   expect(message).toBe('store: unknown subcommand (expected: upgrade)');
   await pg.db.destroy();
 });
+
+test('store upgrade rejects a surplus positional before opening anything', async () => {
+  const io = fakeIo();
+  const pg = injected();
+  let message = '';
+  try {
+    await cmdStore(['store', 'upgrade', 'extra'], io, pg.deps(POSTGRES), 'records');
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  expect(message).toBe('store upgrade takes no arguments');
+  // The usage error is refused before the connection is ever opened.
+  expect(pg.opened).toEqual([]);
+  await pg.db.destroy();
+});

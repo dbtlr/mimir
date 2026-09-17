@@ -54,6 +54,7 @@ function finding(input: {
   locator: string;
   message: string;
   scopeKey?: string;
+  severity?: 'error' | 'warn';
   stem: string;
   where: string;
 }): DoctorFinding {
@@ -65,7 +66,7 @@ function finding(input: {
     message: input.message,
     node: input.stem,
     scopeKey: input.scopeKey ?? parseIdentity(input.stem)?.key ?? input.stem,
-    severity: 'error',
+    severity: input.severity ?? 'error',
     stem: input.stem,
     where: input.where,
   };
@@ -154,7 +155,7 @@ async function checkDanglingEdge(db: Kysely<DB>): Promise<DoctorFinding[]> {
       locator: `dependency/${row.node_id}`,
       message: `the dependency ${row.node_id} → ${row.depends_on_node_id} names ${absent.join(' and ')}, which no node row holds`,
       stem: row.node_id,
-      where: 'dependency · node_id',
+      where: row.node_absent ? 'dependency · node_id' : 'dependency · depends_on_node_id',
     });
   });
 }
@@ -205,6 +206,7 @@ async function checkCounterBehind(db: Kysely<DB>): Promise<DoctorFinding[]> {
           locator: `project/${row.key}`,
           message: `${row.key} ${counter.column} is ${String(stored)}, below its highest ${counter.kind} sequence ${String(highest)}`,
           scopeKey: row.key,
+          severity: 'warn',
           stem: row.key,
           where: `project · ${counter.column}`,
         }),
@@ -292,9 +294,15 @@ async function countRecords(db: Kysely<DB>): Promise<Map<string, number>> {
 
 /** Findings for `scope`, or all of them when the run is unscoped. */
 async function diagnose(db: Kysely<DB>, scope: string | undefined): Promise<DoctorFinding[]> {
+  // The schema check runs alone, first: the table queries below assume the
+  // current schema's shape and can throw against an absent or older one, so a
+  // mismatch here is the whole diagnosis rather than one finding among many.
+  const schemaFindings = await checkSchemaVersion(db);
+  if (schemaFindings.length > 0) {
+    return schemaFindings;
+  }
   const findings = (
     await Promise.all([
-      checkSchemaVersion(db),
       checkDanglingParent(db),
       checkDanglingEdge(db),
       checkCounterBehind(db),

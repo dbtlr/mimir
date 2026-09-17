@@ -1,11 +1,12 @@
 import { expect, test } from 'bun:test';
 
-import type { Kysely } from 'kysely';
-import { sql } from 'kysely';
+import { PGlite } from '@electric-sql/pglite';
+import { Kysely, sql } from 'kysely';
 
 import { createProject } from '../../core/create';
 import type { Store } from '../../core/store';
 import type { DB } from '../../core/store-postgres/index';
+import { createPgliteDialect } from '../../core/store-postgres/pglite';
 import { createPgliteTestStore } from '../../core/store-postgres/testing';
 import { seedWorkingSet } from '../../testing/conformance';
 import type { DoctorBackend, DoctorFinding } from '../contract';
@@ -97,7 +98,7 @@ test('a node whose parent_id names no row reports dangling-parent', async () => 
   }
 });
 
-test('a dependency edge with a missing end reports dangling-edge', async () => {
+test('a dependency edge with a missing target reports dangling-edge against depends_on_node_id', async () => {
   const f = await fixture();
   try {
     await seedWorkingSet(f.store);
@@ -111,9 +112,32 @@ test('a dependency edge with a missing end reports dangling-edge', async () => {
       locator: 'dependency/MMR-3',
       scopeKey: 'MMR',
       stem: 'MMR-3',
-      where: 'dependency · node_id',
+      // The absent end is the target, so `where` must name it rather than the
+      // present source end.
+      where: 'dependency · depends_on_node_id',
     });
     // Only the absent end is named — the present one is not the problem.
+    expect(item?.evidence).toMatchObject({ absent: ['MMR-404'] });
+  } finally {
+    await f.close();
+  }
+});
+
+test('a dependency edge with a missing source reports dangling-edge against node_id', async () => {
+  const f = await fixture();
+  try {
+    await seedWorkingSet(f.store);
+    await unconstrained(f.db, [
+      "INSERT INTO dependency (node_id, depends_on_node_id) VALUES ('MMR-404', 'MMR-3')",
+    ]);
+
+    const [item, ...rest] = byCode((await f.doctor.diagnose(undefined)).findings, 'dangling-edge');
+    expect(rest).toEqual([]);
+    expect(item).toMatchObject({
+      locator: 'dependency/MMR-404',
+      stem: 'MMR-404',
+      where: 'dependency · node_id',
+    });
     expect(item?.evidence).toMatchObject({ absent: ['MMR-404'] });
   } finally {
     await f.close();
@@ -133,6 +157,9 @@ test('a project counter below its highest sequence reports counter-behind, per k
     expect(findings[0]).toMatchObject({
       locator: 'project/MMR',
       scopeKey: 'MMR',
+      // A counter behind its rows hides nothing on read, so it is a warning,
+      // not an error (the neutral contract in doctor/contract.ts).
+      severity: 'warn',
       stem: 'MMR',
       where: 'project · last_seq',
     });
@@ -192,6 +219,20 @@ test('a stored schema version other than this binary reports schema-version', as
   }
 });
 
+test('a database with no schema at all reports only schema-version, without throwing', async () => {
+  // No `upgradeSchema` call: the table queries the other checks run would
+  // throw against a database that has none of their tables yet.
+  const db = new Kysely<DB>({ dialect: createPgliteDialect(new PGlite()) });
+  const doctor = createPostgresDoctorBackend(db);
+  try {
+    const { findings } = await doctor.diagnose(undefined);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ check: 'schema-version', scopeKey: 'store' });
+  } finally {
+    await db.destroy();
+  }
+});
+
 test('connectivity failure throws rather than becoming a finding', async () => {
   const f = await fixture();
   await f.close();
@@ -207,23 +248,43 @@ test('connectivity failure throws rather than becoming a finding', async () => {
   expect(threw).toBe(true);
 });
 
-test('a project scope narrows to that project and excludes store-level findings', async () => {
+test('a project scope narrows to that project and excludes another project', async () => {
   const f = await fixture();
   try {
     await seedWorkingSet(f.store);
-    await sql.raw("UPDATE project SET last_seq = 0 WHERE key IN ('MMR', 'OPS')").execute(f.db);
-    await sql
-      .raw("INSERT INTO schema_version (version, applied_at) VALUES (99, 'x')")
-      .execute(f.db);
+    await createProject(f.store, { description: null, key: 'ZZZ', name: 'Zed' });
+    await sql.raw("UPDATE project SET last_seq = 0 WHERE key = 'MMR'").execute(f.db);
+    await unconstrained(f.db, ["UPDATE node SET parent_id = 'MMR-404' WHERE id = 'MMR-2'"]);
+    // ZZZ has a finding of its own, so scoping to MMR must exclude it.
+    await unconstrained(f.db, [
+      "INSERT INTO node (id, project_key, type, seq, title, next_present, created_at, updated_at) VALUES ('ZZZ-1', 'ZZZ', 'task', 1, 'Zed task', false, '2026-09-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z')",
+      "UPDATE node SET parent_id = 'ZZZ-404' WHERE id = 'ZZZ-1'",
+    ]);
 
     const scoped = await f.doctor.diagnose('MMR');
-    expect(scoped.findings.map((item) => item.scopeKey)).toEqual(['MMR']);
+    expect(scoped.findings.map((item) => item.scopeKey)).toEqual(['MMR', 'MMR']);
     expect(scoped.scope?.key).toBe('MMR');
     expect(scoped.scope?.matched_documents).toBeGreaterThan(0);
 
     const all = await f.doctor.diagnose(undefined);
     expect(all.scope).toBeNull();
-    expect(new Set(all.findings.map((item) => item.scopeKey))).toEqual(new Set(['MMR', 'store']));
+    expect(new Set(all.findings.map((item) => item.scopeKey))).toEqual(new Set(['MMR', 'ZZZ']));
+  } finally {
+    await f.close();
+  }
+});
+
+test('a schema mismatch dominates scoping: even a project scope sees only the schema-version finding', async () => {
+  const f = await fixture();
+  try {
+    await seedWorkingSet(f.store);
+    await sql.raw("UPDATE project SET last_seq = 0 WHERE key = 'MMR'").execute(f.db);
+    await sql
+      .raw("INSERT INTO schema_version (version, applied_at) VALUES (99, 'x')")
+      .execute(f.db);
+
+    const scoped = await f.doctor.diagnose('MMR');
+    expect(scoped.findings.map((item) => item.check)).toEqual(['schema-version']);
   } finally {
     await f.close();
   }

@@ -170,6 +170,7 @@ for (const backend of backends) {
   it('updateNode lands the patch and refuses an unknown id', async () => {
     const store = await fresh();
     const { first } = await base(store);
+    await nextTick();
     const updated = await updateNode(store, first.id, { summary: 'the export', title: 'Exported' });
     expect(updated).toMatchObject({ summary: 'the export', title: 'Exported' });
     expect(updated.updated_at > first.updated_at).toBe(true);

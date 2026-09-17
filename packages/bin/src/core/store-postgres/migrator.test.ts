@@ -120,3 +120,41 @@ test('an upgrade skips a migration whose version is already recorded', async () 
     await db.destroy();
   }
 });
+
+test('seed_history.kind is constrained to the transition-kind vocabulary', async () => {
+  const db = freshDb();
+  try {
+    await upgradeSchema(db);
+    await db
+      .insertInto('project')
+      .values({
+        created_at: '2026-09-01T00:00:00.000Z',
+        key: 'MMR',
+        name: 'Mimir',
+        updated_at: '2026-09-01T00:00:00.000Z',
+      })
+      .execute();
+    await db
+      .insertInto('seed')
+      .values({
+        created_at: '2026-09-01T00:00:00.000Z',
+        id: 'MMR-s1',
+        kind: 'idea',
+        lifecycle: 'new',
+        project_key: 'MMR',
+        seq: 1,
+        title: 'A seed',
+        updated_at: '2026-09-01T00:00:00.000Z',
+      })
+      .execute();
+    // A hand-written insert, not the app's typed writer: exercises the
+    // database CHECK directly, the way an older or foreign client could.
+    expect(
+      sql`insert into seed_history (seed_id, kind, at) values ('MMR-s1', 'not-a-real-kind', '2026-09-01T00:00:00.000Z')`.execute(
+        db,
+      ),
+    ).rejects.toThrow(/violates check constraint/);
+  } finally {
+    await db.destroy();
+  }
+});

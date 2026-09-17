@@ -24,9 +24,17 @@ url = "postgres://mimir:secret@db.example.internal:5432/mimir"
 The database must exist and the user must own it. The binary creates every
 table itself (next section). Keep the database on a private network: the bridge
 adds no authentication beyond Postgres's own and no transport encryption of its
-own, so when the network is not trusted use `sslmode=verify-full` in the URL,
-adding `sslrootcert=<path>` when the server uses a private CA. Do not add
-`uselibpqcompat=true`: it turns certificate verification off entirely.
+own, so when the network is not trusted, choose `sslmode` deliberately (tested
+against node-postgres 8.23 and pg-connection-string 2.14):
+
+- `verify-full` verifies the server certificate against a CA and checks the
+  hostname. This is the recommendation; add `sslrootcert=<path>` when the
+  server uses a private CA.
+- `verify-ca` validates the certificate against a CA but skips the hostname
+  check.
+- `prefer` and `require` encrypt the connection but do not validate the
+  certificate, unless `require` is given `sslrootcert`.
+- `disable` turns TLS off entirely.
 
 ## Create or upgrade the schema
 
@@ -58,8 +66,9 @@ runs against a mismatched schema.
 - **No offline mode.** A network outage is a hard failure; there is no local
   copy to fall back to.
 - **No git snapshots.** `vault snapshot` and the snapshot launchd unit do not
-  apply. The portable backup is the transfer document produced by the store
-  export (MMR-380), which also moves a board between backends.
+  apply. `store export` and `store import` are not in this release; they land
+  with MMR-380. Until then there is no backup or migration command on a
+  Postgres install.
 - **Doctor checks the database.** `mimir doctor` reports the schema version
   against the binary, a dangling parent or dependency reference, a sequence
   counter that fell behind its rows, and an orphan artifact link or scratchpad
@@ -69,7 +78,8 @@ runs against a mismatched schema.
 
 ## Moving an existing vault
 
-Export the vault on the Norn install and import it on the Postgres install
-(MMR-380). Identity is preserved end to end: every `KEY-seq`, `KEY-aN`, and
-`KEY-sN`, every timestamp, and the sequence counters, so a create after the
-import never collides with an imported id.
+`store export` and `store import` are not in this release; they land with
+MMR-380. Until then there is no command to move a vault onto a Postgres
+install. Once available, identity will be preserved end to end: every
+`KEY-seq`, `KEY-aN`, and `KEY-sN`, every timestamp, and the sequence counters,
+so a create after the import never collides with an imported id.

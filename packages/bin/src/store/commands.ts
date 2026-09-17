@@ -48,6 +48,9 @@ export async function cmdStore(
   if (sub !== 'upgrade') {
     throw usage(`store: unknown subcommand (expected: ${SUBCOMMANDS.join(' | ')})`);
   }
+  if (positionals.length > 2) {
+    throw usage('store upgrade takes no arguments');
+  }
   return await cmdStoreUpgrade(io, deps, format);
 }
 
