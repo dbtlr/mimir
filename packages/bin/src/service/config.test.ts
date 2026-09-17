@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -257,6 +257,21 @@ test('writeConfig creates parents and round-trips a vault path + snapshot', () =
     store: {},
     vault: { path: '/v', snapshot: { interval: 300, upstream: 'git@host:me/v.git' } },
   });
+});
+
+test('writeConfig leaves the config readable only by its owner', () => {
+  // The file carries `[store] url`, which holds the Postgres password. A
+  // world-readable credential file on a shared host is the credential leaked.
+  const file = join(dir, 'config.toml');
+  // A pre-existing loose file is TIGHTENED, not merely left alone: an operator
+  // who upgrades into this version gets the fix without doing anything.
+  writeFileSync(file, '', { mode: 0o644 });
+  writeConfig(file, { vault: { path: '/v' } });
+  expect(statSync(file).mode & 0o777).toBe(0o600);
+
+  const fresh = join(dir, 'fresh', 'config.toml');
+  writeConfig(fresh, { vault: { path: '/v' } });
+  expect(statSync(fresh).mode & 0o777).toBe(0o600);
 });
 
 test('writeConfig merges: a serve-port write preserves an existing [vault] path', () => {

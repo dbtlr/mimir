@@ -3,8 +3,8 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
-import type { PostgresTestStore } from '../core/store-postgres';
-import { createPgliteTestStore } from '../core/store-postgres';
+import type { PostgresTestStore } from '../core/store-postgres/testing';
+import { createPgliteTestStore } from '../core/store-postgres/testing';
 import { serveStdio } from './server';
 
 /**

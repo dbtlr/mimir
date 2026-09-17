@@ -30,7 +30,10 @@ test('a closure that serializes on its third attempt returns its value', async (
   expect(attempts).toBe(3);
 });
 
-test('a closure that never serializes exhausts its retries and fails as an invariant', async () => {
+test('a closure that never serializes exhausts its retries and refuses as a conflict', async () => {
+  // Ordinary contention is a DOMAIN refusal, not an internal error: nothing is
+  // broken, too many writers wanted the same row at once, and the caller's move
+  // is to run the command again.
   let attempts = 0;
   const failure = withSerializableRetry(() => {
     attempts += 1;
@@ -38,11 +41,14 @@ test('a closure that never serializes exhausts its retries and fails as an invar
   }, NO_BACKOFF);
   const error = await failure.catch((e: unknown) => e);
   expect(error).toBeInstanceOf(MimirError);
+  expect((error as MimirError).code).toBe('conflict');
   expect((error as MimirError).message).toBe(
-    'the store write path exhausted its serialization retries',
+    'the store is busy: 10 concurrent writers kept conflicting on this change',
   );
-  expect((error as MimirError).hint).toBe('postgres said 40001');
-  expect(attempts).toBe(5);
+  expect((error as MimirError).hint).toBe(
+    'retry the command; if this persists, fewer agents should write this board at once',
+  );
+  expect(attempts).toBe(10);
 });
 
 test('a retry never lands sooner than half its backoff window', async () => {

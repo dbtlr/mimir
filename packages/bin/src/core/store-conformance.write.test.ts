@@ -76,6 +76,13 @@ async function reloadProject(store: Store, key: string): Promise<Project> {
   return project;
 }
 
+/** Step past the current millisecond so a store-stamped `updated_at` is
+ * observably later than the record's `created_at`; the PGlite arm can create
+ * and re-stamp within one tick. */
+async function nextTick(): Promise<void> {
+  await Bun.sleep(2);
+}
+
 // oxlint-disable-next-line vitest/prefer-each
 for (const backend of backends) {
   const instances: Instance[] = [];
@@ -229,6 +236,27 @@ for (const backend of backends) {
     expect(await store.bodySections.readNext(initiative.id)).toMatchObject({
       present: false,
       text: null,
+    });
+  });
+
+  it('readNextSection sees a ## Next written earlier in the same transact', async () => {
+    const store = await fresh();
+    const { initiative } = await base(store);
+    // The write-side probe reads the TRANSACTION's state, not the committed
+    // store: `applyNextSection` takes it before every re-authoring, so a second
+    // re-authoring inside one transact must see the first one's prose.
+    const seen = await store.transact(async (w) => {
+      const before = await w.readNextSection('node', initiative.id);
+      await w.setNextSection('node', initiative.id, { present: before.present, text: 'first' });
+      const after = await w.readNextSection('node', initiative.id);
+      await w.updateNode(initiative.id, { updated_at: now() });
+      return { after, before };
+    });
+    expect(seen.before).toMatchObject({ ambiguous: false, present: false, text: null });
+    expect(seen.after).toMatchObject({ ambiguous: false, present: true, text: 'first' });
+    expect(await store.bodySections.readNext(initiative.id)).toMatchObject({
+      present: true,
+      text: 'first',
     });
   });
 
@@ -534,6 +562,7 @@ for (const backend of backends) {
       tags: [],
       title: 'Taggable',
     });
+    await nextTick();
     await store.artifacts.applyTag('MMR', created.seq, 'spec');
     const tagged = await store.artifacts.load('MMR', created.seq);
     expect(tagged?.tags).toEqual(['spec']);
@@ -553,6 +582,7 @@ for (const backend of backends) {
       tags: ['spec', 'draft'],
       title: 'Taggable',
     });
+    await nextTick();
     expect(await store.artifacts.removeTags('MMR', created.seq, ['spec', 'absent'])).toBe(1);
     const after = await store.artifacts.load('MMR', created.seq);
     expect(after?.tags).toEqual(['draft']);
@@ -754,6 +784,7 @@ for (const backend of backends) {
     await store.seeds.patch(seed.key, seed.seq, {});
     expect((await store.seeds.load(seed.key, seed.seq))?.updated_at).toBe(seed.updated_at);
 
+    await nextTick();
     await store.seeds.patch(seed.key, seed.seq, { title: 'Renamed' });
     const renamed = await store.seeds.load(seed.key, seed.seq);
     expect(renamed?.title).toBe('Renamed');

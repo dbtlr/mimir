@@ -6,9 +6,11 @@
  * There is no `repair`. On this backend the constraints are the validator: a
  * foreign key, a primary key, and a `CHECK` over each closed vocabulary make
  * nearly every state the Norn checks look for unrepresentable. What remains is
- * the short list below — reachable only through a hand edit at the `psql`
- * prompt, or through the one deferred foreign key inside a failed import — and
- * a state a human produced by hand is a state a human resolves by hand.
+ * the short list below — the referential checks catch a dropped or disabled
+ * constraint, i.e. a hand edit at the `psql` prompt, not a failed import (a
+ * deferred foreign key still fails at commit, and the whole import runs in one
+ * transaction) — and a state a human produced by hand is a state a human
+ * resolves by hand.
  *
  * Connectivity is not a finding. A query that cannot reach the database throws,
  * and doctor's own nonzero exit reports it: an unreachable store has no record
@@ -97,11 +99,12 @@ async function checkSchemaVersion(db: Kysely<DB>): Promise<DoctorFinding[]> {
 }
 
 /**
- * A node whose `parent_id` names no node row. The parent foreign key is the one
- * deferred constraint in the schema (a self-reference an import satisfies only
- * once the whole tree has landed), so this is the single dangling reference the
- * database itself could leave behind — after an import that failed between the
- * insert and the commit.
+ * A node whose `parent_id` names no node row. The parent foreign key is
+ * deferred (a self-reference an import satisfies only once the whole tree has
+ * landed), but a deferred constraint still fails at commit, and the whole
+ * import runs in one transaction, so a failed import writes nothing. This
+ * check exists for the constraint itself being dropped or disabled — a hand
+ * edit at the `psql` prompt — not for an import gone wrong.
  */
 async function checkDanglingParent(db: Kysely<DB>): Promise<DoctorFinding[]> {
   const rows = await db

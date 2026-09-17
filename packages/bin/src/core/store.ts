@@ -10,7 +10,7 @@ import type {
 } from '@mimir/contract';
 
 import type { ArtifactStore } from './artifacts/store';
-import type { BodySectionStore } from './body-sections/store';
+import type { BodySectionStore, NextSection } from './body-sections/store';
 import type { ImportOptions, ImportReport, StoreExport } from './export';
 import type { Artifact, Dependency, Node, Project } from './model';
 import type { ScratchpadStore } from './scratchpads/store';
@@ -217,6 +217,19 @@ export type StoreWriter = {
   listPrereqsOf: (nodeId: string) => Promise<string[]>;
   /** A project's ranked tasks (`rank` non-null), ordered `rank` asc then `seq` asc. */
   listRankedTasks: (projectId: string) => Promise<RankedTask[]>;
+  /**
+   * The `## Next` write-side probe, taken INSIDE this transaction (MMR-379).
+   *
+   * The same answer {@link BodySectionStore.readNext} gives, but read through
+   * the transaction's own in-flight state: a section written earlier in this
+   * same `transact` is visible, and the read costs no second connection. The
+   * `Store`-level facet cannot serve a verb here — on a pooled backend it would
+   * take a SECOND connection while this one holds the transaction open (N
+   * concurrent writers then deadlock the pool) and it would see committed state
+   * rather than this transaction's, so the read-modify-write it feeds would be
+   * built on a value the transaction never held.
+   */
+  readNextSection: (entityType: 'node' | 'project', entityId: string) => Promise<NextSection>;
 
   // Writes
   insertProject: (row: NewProjectRecord) => Promise<Project>;

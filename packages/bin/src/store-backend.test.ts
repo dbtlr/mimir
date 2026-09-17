@@ -3,7 +3,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createThrowawaySchema, openPostgres, upgradeSchema } from './core/store-postgres/index';
+import { openPostgres, upgradeSchema } from './core/store-postgres/index';
+import { createThrowawaySchema } from './core/store-postgres/testing';
 import { bunExec } from './exec';
 import { configPath } from './service/config';
 import { buildStore } from './store-backend';

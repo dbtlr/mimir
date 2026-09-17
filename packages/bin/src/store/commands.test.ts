@@ -5,7 +5,7 @@ import { Kysely, sql } from 'kysely';
 
 import { fakeIo } from '../cli/testing';
 import type { DB, PostgresHandle, UpgradeReport } from '../core/store-postgres/index';
-import { createPgliteDialect } from '../core/store-postgres/index';
+import { createPgliteDialect } from '../core/store-postgres/pglite';
 import type { GlobalConfig } from '../service/config';
 import type { StoreDeps } from './commands';
 import { cmdStore } from './commands';

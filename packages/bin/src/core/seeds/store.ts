@@ -1,5 +1,7 @@
 import type { HistoryEntry, SeedKind, SeedLifecycle } from '@mimir/contract';
 
+import { validation } from '../errors';
+
 /**
  * The seed storage seam (MMR-244) — a grooming-queue record filed against a
  * project that implies NO work, only triage. A seed is the artifact model's
@@ -123,6 +125,21 @@ export type TerminalSeedLifecycle = 'resolved' | 'rejected';
  * (the triage pass records `resolved`/`rejected` without a cast, MMR-246). */
 export function isTerminalSeed(lifecycle: SeedLifecycle): lifecycle is TerminalSeedLifecycle {
   return SEED_TRANSITIONS[lifecycle].length === 0;
+}
+
+/**
+ * Refuse a mutation of a TERMINAL seed, in the one wording every backend gives.
+ *
+ * The freeze is a rule of the seed model, not of a storage medium, so the
+ * refusal text belongs beside the machine that defines it: two backends writing
+ * it out separately is two places for the wording to drift. The `hint` is the
+ * calling verb's, because what may still be done to the seed depends on which
+ * verb was refused.
+ */
+export function assertLiveSeed(stem: string, lifecycle: SeedLifecycle, hint: string): void {
+  if (isTerminalSeed(lifecycle)) {
+    throw validation(`seed ${stem} is ${lifecycle} — a terminal seed is frozen`, hint);
+  }
 }
 
 /** May a seed move `from → to` under the lifecycle machine? */

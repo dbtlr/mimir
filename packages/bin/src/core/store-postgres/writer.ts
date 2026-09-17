@@ -286,6 +286,32 @@ export function createPostgresWriter(tx: Transaction<DB>): StoreWriter {
 
     loadWorkingSet: () => loadWorkingSet(tx),
 
+    async readNextSection(entityType, entityId) {
+      // The two `next_*` columns on the transaction itself: read-your-writes is
+      // what the transaction already gives, so a section this same `transact`
+      // wrote is here. Neither degraded state a markdown document can reach is
+      // representable — the section is a column pair, so it can be neither
+      // duplicated nor missing its insertion anchor.
+      const row = await (entityType === 'node'
+        ? tx
+            .selectFrom('node')
+            .select(['next_present', 'next_text'])
+            .where('id', '=', entityId)
+            .executeTakeFirst()
+        : tx
+            .selectFrom('project')
+            .select(['next_present', 'next_text'])
+            .where('key', '=', entityId)
+            .executeTakeFirst());
+      const text = (row?.next_text ?? '').trim();
+      return {
+        ambiguous: false,
+        insertAnchors: 1,
+        present: row?.next_present ?? false,
+        text: text === '' ? null : text,
+      };
+    },
+
     async setNextSection(entityType, entityId, write) {
       // Presence is DERIVED from the prose here, not trusted from the caller: a
       // markdown backend needs it to pick between inserting, replacing, and

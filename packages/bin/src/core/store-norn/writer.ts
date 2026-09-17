@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
+import type { BodySectionStore, NextSection } from '../body-sections/store';
 import { degradedUpdatedAt, invariant, validation } from '../errors';
 import {
   ANNOTATIONS_HEADING,
@@ -160,7 +161,7 @@ async function runTransact<T>(
   let lastError: unknown;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     const snapshot = await loadNornSnapshot(client);
-    const acc = new Accumulator(snapshot);
+    const acc = new Accumulator(snapshot, createNornBodySectionStore(client).readNext);
     const result = await fn(acc.writer);
     const operations = acc.buildOperations();
     if (operations.length === 0) {
@@ -274,6 +275,10 @@ class Accumulator {
   readonly creates: Create[] = [];
 
   private readonly snapshot: NornSnapshot;
+  /** The `## Next` read the Norn {@link BodySectionStore} does, for the
+   * write-side probe: a document's section is the durable fact, and a section
+   * this transact queued is overlaid on top of it. */
+  private readonly readNext: BodySectionStore['readNext'];
   private readonly nodes: Map<string, Node>;
   private readonly projects: Map<string, Project>;
   private edges: Dependency[];
@@ -282,8 +287,9 @@ class Accumulator {
   private readonly nodeMutations = new Map<string, Mutation>();
   private readonly projectMutations = new Map<string, Mutation>();
 
-  constructor(snapshot: NornSnapshot) {
+  constructor(snapshot: NornSnapshot, readNext: BodySectionStore['readNext']) {
     this.snapshot = snapshot;
+    this.readNext = readNext;
     const ws = snapshot.workingSet;
     this.nodes = new Map(ws.nodes.map((n) => [n.id, { ...n }]));
     this.projects = new Map(ws.projects.map((p) => [p.key, { ...p }]));
@@ -353,6 +359,7 @@ class Accumulator {
       loadNode: (id) => Promise.resolve(this.cloneNode(id)),
       loadProject: (key) => Promise.resolve(this.cloneProject(this.projects.get(key))),
       loadWorkingSet: () => Promise.resolve(this.overlayWorkingSet()),
+      readNextSection: (entityType, entityId) => this.readNextSection(entityType, entityId),
       setNextSection: (entityType, entityId, write) =>
         this.setNextSection(entityType, entityId, write),
       updateNode: (id, patch) => this.updateNode(id, patch),
@@ -626,6 +633,35 @@ class Accumulator {
    * does. A target absent from the snapshot fails loud rather than silently
    * dropping the prose, as the History/Annotations queues do.
    */
+  /**
+   * The `## Next` write-side probe INSIDE this transact (MMR-379). The durable
+   * answer is the document's, read exactly as {@link BodySectionStore.readNext}
+   * reads it — the queued ops have not been applied, so the vault still holds
+   * the pre-transact section — with any section this transact already queued
+   * overlaid on top. Without the overlay a verb that re-authored the section
+   * twice in one transact would read the stale prose the second time.
+   *
+   * A queued write is unambiguous by construction: the first probe of this
+   * transact refused a duplicate heading and proved an insert anchor, so a
+   * write that got queued has already cleared both.
+   */
+  private async readNextSection(
+    entityType: 'node' | 'project',
+    entityId: string,
+  ): Promise<NextSection> {
+    const mutations = entityType === 'node' ? this.nodeMutations : this.projectMutations;
+    const queued = mutations.get(entityId)?.next;
+    if (queued !== undefined) {
+      return {
+        ambiguous: false,
+        insertAnchors: 1,
+        present: queued.text !== null,
+        text: queued.text,
+      };
+    }
+    return this.readNext(entityId);
+  }
+
   private setNextSection(
     entityType: 'node' | 'project',
     entityId: string,

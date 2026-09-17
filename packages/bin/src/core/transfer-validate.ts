@@ -10,10 +10,11 @@ import { renderArtifactRef, renderSeedRef } from './ids';
  */
 
 /** How many offending identities a refusal names before it stops. */
-const REFUSAL_SAMPLE = 20;
+export const REFUSAL_SAMPLE = 20;
 
-/** The first {@link REFUSAL_SAMPLE} names, with a count of whatever is left. */
-function namedSample(names: readonly string[]): string {
+/** The first {@link REFUSAL_SAMPLE} names, with a count of whatever is left —
+ * a refusal must be actionable without printing a whole vault. */
+export function namedSample(names: readonly string[]): string {
   const shown = names.slice(0, REFUSAL_SAMPLE).join(', ');
   const rest = names.length - REFUSAL_SAMPLE;
   return rest > 0 ? `${shown} (and ${String(rest)} more)` : shown;

@@ -1,6 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises';
 
-import { invariant } from '../errors';
+import { conflict } from '../errors';
 
 /**
  * The serialization-failure retry loop behind `Store.transact` (ADR 0030).
@@ -19,7 +19,16 @@ import { invariant } from '../errors';
 /** SQLSTATEs that mean the transaction may be replayed as-is. */
 const RETRYABLE = new Set(['40001', '40P01']);
 
-const MAX_ATTEMPTS = 5;
+/**
+ * How many times the whole closure is replayed before the store gives up.
+ *
+ * Sized against real contention, not a round number: ten agents creating into
+ * one project all serialize on that project's counter row, and a five-attempt
+ * budget ran out on roughly one such burst in three (MMR-379). Ten attempts
+ * with a 1 s ceiling covers the burst; past that the store is genuinely
+ * oversubscribed and saying so beats retrying forever.
+ */
+const MAX_ATTEMPTS = 10;
 
 export type BackoffSettings = {
   /** The first sleep, doubling per attempt. */
@@ -28,7 +37,7 @@ export type BackoffSettings = {
   capMs: number;
 };
 
-export const DEFAULT_BACKOFF: BackoffSettings = { baseMs: 25, capMs: 400 };
+export const DEFAULT_BACKOFF: BackoffSettings = { baseMs: 25, capMs: 1000 };
 
 /** Is this a PostgreSQL serialization failure or deadlock — a replayable abort? */
 export function isSerializationFailure(error: unknown): boolean {
@@ -67,7 +76,6 @@ export async function withSerializableRetry<T>(
   fn: () => Promise<T>,
   settings: BackoffSettings = DEFAULT_BACKOFF,
 ): Promise<T> {
-  let lastError: unknown;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     try {
       return await fn();
@@ -75,12 +83,15 @@ export async function withSerializableRetry<T>(
       if (!isSerializationFailure(error)) {
         throw error;
       }
-      lastError = error;
       await backoff(attempt, settings);
     }
   }
-  throw invariant(
-    'the store write path exhausted its serialization retries',
-    lastError instanceof Error ? lastError.message : undefined,
+  // A DOMAIN refusal, not an internal error: nothing is broken and nothing is
+  // half-written — too many writers wanted the same rows at once, and the
+  // caller's move is to run the command again. `invariant` would read as a bug
+  // in mimir and send the operator looking for one.
+  throw conflict(
+    `the store is busy: ${String(MAX_ATTEMPTS)} concurrent writers kept conflicting on this change`,
+    'retry the command; if this persists, fewer agents should write this board at once',
   );
 }

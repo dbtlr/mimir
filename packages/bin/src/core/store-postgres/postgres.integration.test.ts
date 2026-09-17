@@ -4,6 +4,7 @@ import { sql } from 'kysely';
 
 import { observe, seedWorkingSet, withoutStamp } from '../../testing/conformance';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
+import { updateNode } from '../mutations';
 import { openPostgres } from './client';
 import { assertSchemaCurrent, readSchemaVersion, SCHEMA_VERSION, upgradeSchema } from './migrator';
 import { createPostgresStore } from './store';
@@ -109,6 +110,54 @@ lane('two concurrent upgrades from empty apply each migration exactly once', asy
     }
   });
 });
+
+lane(
+  'concurrent ## Next rewrites through the verb all settle',
+  async () => {
+    // The regression for the pooled-connection deadlock (MMR-379): `updateNode`
+    // reads the current `## Next` before re-authoring it. While that read went
+    // through the `Store` facet it took a SECOND pooled connection inside an
+    // open transaction, so once the writers outnumbered the pool (`pg` defaults
+    // to 10) every one of them held a connection and waited for one that would
+    // never come. It cannot be expressed on PGlite, which has a single
+    // in-process connection every read silently joins.
+    const WRITERS = 12;
+    await onFreshSchema(async (url) => {
+      const handle = openPostgres(url);
+      try {
+        await upgradeSchema(handle.db);
+        const store = createPostgresStore(handle.db);
+        await createProject(store, { description: null, key: 'MMR', name: 'Mimir' });
+        const containers = [];
+        for (let index = 0; index < WRITERS; index += 1) {
+          containers.push(
+            await createInitiative(store, { projectId: 'MMR', title: `Initiative ${index}` }),
+          );
+        }
+
+        // A deadlocked pool presents as a wall-clock hang: every writer holds a
+        // connection and waits for one nobody will release. The bound is what
+        // separates "slow under contention" from "will never finish".
+        const started = performance.now();
+        await Promise.all(
+          containers.map((node) => updateNode(store, node.id, { next: `next for ${node.id}` })),
+        );
+        expect(performance.now() - started).toBeLessThan(20_000);
+
+        const written = await sql<{ id: string; next_text: string }>`
+          select id, next_text from node where next_present order by id
+        `.execute(handle.db);
+        expect(written.rows.length).toBe(WRITERS);
+        for (const row of written.rows) {
+          expect(row.next_text).toContain(row.id);
+        }
+      } finally {
+        await handle.close();
+      }
+    });
+  },
+  60_000,
+);
 
 /** The worker script, addressed by path — it is spawned, never imported. */
 const WORKER = new URL('testing-concurrency-worker.ts', import.meta.url).pathname;

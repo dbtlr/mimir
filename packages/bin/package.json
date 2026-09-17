@@ -8,7 +8,6 @@
   },
   "type": "module",
   "dependencies": {
-    "@electric-sql/pglite": "0.5.8",
     "@mimir/contract": "workspace:*",
     "@mimir/helpers": "workspace:*",
     "@modelcontextprotocol/sdk": "1.30.0",
@@ -18,6 +17,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@types/pg": "8.23.1"
   }
 }

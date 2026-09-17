@@ -5,7 +5,7 @@ import { notFound, projectNotFound, validation } from '../errors';
 import type { ExportedSeed } from '../export';
 import { renderSeedRef } from '../ids';
 import type { SeedRecord, SeedStore } from '../seeds/store';
-import { canTransitionSeed, isTerminalSeed } from '../seeds/store';
+import { assertLiveSeed, canTransitionSeed } from '../seeds/store';
 import { now } from '../time';
 import type { DB, SeedRow } from './schema';
 import type { Executor } from './tx';
@@ -139,13 +139,6 @@ export async function insertExportedSeed(tx: Transaction<DB>, seed: ExportedSeed
   }
 }
 
-/** The shared terminal-freeze refusal; the hint carries the calling verb's nuance. */
-function assertLive(row: SeedRow, hint: string): void {
-  if (isTerminalSeed(row.lifecycle)) {
-    throw validation(`seed ${row.id} is ${row.lifecycle} — a terminal seed is frozen`, hint);
-  }
-}
-
 export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
   const rowOf = async (ex: Executor, key: string, seq: number): Promise<SeedRow | undefined> =>
     ex.selectFrom('seed').selectAll().where('id', '=', stemOf(key, seq)).executeTakeFirst();
@@ -210,7 +203,7 @@ export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
     async germinate(key, seq, nodeStem) {
       await serializable(db, async (tx) => {
         const row = await mutableRow(tx, key, seq);
-        assertLive(row, 'promote applies only to a new or promoted seed');
+        assertLiveSeed(row.id, row.lifecycle, 'promote applies only to a new or promoted seed');
         const alreadyLinked = row.spawned.includes(nodeStem);
         const needsPromote = row.lifecycle === 'new';
         // Idempotent: the stem is already linked AND the seed is already
@@ -296,7 +289,11 @@ export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
     async patch(key, seq, patch) {
       await serializable(db, async (tx) => {
         const row = await mutableRow(tx, key, seq);
-        assertLive(row, 'patches (title/kind/description) apply only to a new or promoted seed');
+        assertLiveSeed(
+          row.id,
+          row.lifecycle,
+          'patches (title/kind/description) apply only to a new or promoted seed',
+        );
         const changes = {
           ...(patch.title === undefined ? {} : { title: patch.title }),
           ...(patch.kind === undefined ? {} : { kind: patch.kind }),

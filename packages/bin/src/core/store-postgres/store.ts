@@ -20,6 +20,14 @@ import { createPostgresWriter } from './writer';
  * concurrent write landing between them would hand the derivation a working set
  * no moment ever held.
  *
+ * **A `Store`-level facet must never be called inside `transact`.** Each facet
+ * here runs on the pool, so a facet call from inside an open `transact` takes a
+ * SECOND connection while the first one still holds the transaction: N
+ * concurrent writers doing it exhaust the pool and deadlock, and the read that
+ * did get a connection sees COMMITTED state rather than the transaction's own.
+ * Anything a verb must read mid-transaction belongs on `StoreWriter`, which runs
+ * on the transaction (MMR-379 — `readNextSection` is the case that found this).
+ *
  * The caller must have passed the schema gate (`assertSchemaCurrent`) before
  * building this. That check belongs to the composition root, not here: it is a
  * once-per-process question, and a store that re-asked it per call would pay

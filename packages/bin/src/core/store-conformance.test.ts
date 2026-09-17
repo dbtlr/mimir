@@ -123,6 +123,57 @@ for (const backend of backends) {
   );
 
   test.skipIf(backend.skip)(
+    `${backend.name}: a create after an import clears the sequences even when the document's counters lag`,
+    async () => {
+      // A hand-edited or foreign-backend document can carry a counter BELOW the
+      // highest sequence it also carries. A backend that stored the counter
+      // verbatim would then re-hand an identity the same import just wrote, and
+      // the next create would collide (MMR-379).
+      const source = await fresh();
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+      const lowered: StoreExport = {
+        ...document,
+        projects: document.projects.map((project) => ({
+          ...project,
+          counters: { artifact: 0, node: 0, seed: 0 },
+        })),
+      };
+
+      const target = await fresh();
+      await target.store.import(lowered, { mode: 'fresh' });
+
+      const phase = document.nodes.find((node) => node.type === 'phase');
+      const task = await createTask(target.store, {
+        parentId: phase?.id ?? '',
+        title: 'after the lowered import',
+      });
+      const artifact = await target.store.artifacts.create({
+        content: 'later',
+        key: 'MMR',
+        links: [],
+        tags: [],
+        title: 'Later',
+      });
+      const seed = await target.store.seeds.create({
+        description: null,
+        key: 'MMR',
+        kind: 'idea',
+        requester: null,
+        title: 'Later seed',
+      });
+
+      const mmr = document.projects.find((project) => project.key === 'MMR');
+      expect(task.seq).toBeGreaterThan(mmr?.counters.node ?? 0);
+      expect(artifact.seq).toBeGreaterThan(mmr?.counters.artifact ?? 0);
+      expect(seed.seq).toBeGreaterThan(mmr?.counters.seed ?? 0);
+      // And nothing was lost to the collision the stored counter would have made.
+      expect(await observe(target.store)).not.toEqual(await observe(source.store));
+      expect((await target.store.loadWorkingSet()).nodes.length).toBe(document.nodes.length + 1);
+    },
+  );
+
+  test.skipIf(backend.skip)(
     `${backend.name}: a fresh import refuses when an imported project already exists`,
     async () => {
       const source = await fresh();

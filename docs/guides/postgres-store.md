@@ -16,14 +16,17 @@ url = "postgres://mimir:secret@db.example.internal:5432/mimir"
 ```
 
 - `backend` selects the store. Leave it out, or set `norn`, for the vault.
-- `url` is a libpq-style connection URL. It carries the credential, so keep the
-  file readable by you alone (`chmod 600`). There is no environment override.
+- `url` is a libpq-style connection URL. It carries the credential; the binary
+  writes the file 0600 itself, so keep it that way. There is no environment
+  override.
 - `[vault]` is ignored on a Postgres install; there is no vault behind it.
 
 The database must exist and the user must own it. The binary creates every
 table itself (next section). Keep the database on a private network: the bridge
 adds no authentication beyond Postgres's own and no transport encryption of its
-own, so use `sslmode=require` in the URL when the network is not trusted.
+own, so when the network is not trusted use `sslmode=verify-full` in the URL,
+adding `sslrootcert=<path>` when the server uses a private CA. Do not add
+`uselibpqcompat=true`: it turns certificate verification off entirely.
 
 ## Create or upgrade the schema
 

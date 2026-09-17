@@ -6,7 +6,7 @@ import { sql } from 'kysely';
 import { createProject } from '../../core/create';
 import type { Store } from '../../core/store';
 import type { DB } from '../../core/store-postgres/index';
-import { createPgliteTestStore } from '../../core/store-postgres/index';
+import { createPgliteTestStore } from '../../core/store-postgres/testing';
 import { seedWorkingSet } from '../../testing/conformance';
 import type { DoctorBackend, DoctorFinding } from '../contract';
 import { createPostgresDoctorBackend } from './backend';

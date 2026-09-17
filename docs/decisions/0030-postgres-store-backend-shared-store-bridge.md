@@ -66,8 +66,10 @@ section for the backend fence to return to.
    the target's allocation state consistent with the imported identities for
    every per-project sequence kind (node, artifact, and seed, per ADR 0006),
    so the next create after an import never yields an identity present in the
-   import. On Postgres that is an explicit write of each counter to the
-   highest imported sequence of its kind. On Norn it is implicit: the imported
+   import. On Postgres the transfer document carries each project's counters,
+   and import writes each counter to the greatest of the carried value, the
+   highest imported sequence of that kind, and, on resume, the counter already
+   in the target. On Norn it is implicit: the imported
    documents are the allocation state, and an interior gap in the export is a
    freed number Norn may re-hand, ADR 0006's accepted edge, not a collision.
    Only stored

@@ -348,6 +348,7 @@ export async function importPostgresStore(
     const newProjects = new Set<string>();
 
     for (const project of document.projects) {
+      const counters = importedCounters(document, project);
       if (settle('projects', project.key)) {
         newProjects.add(project.key);
         await tx
@@ -357,9 +358,9 @@ export async function importPostgresStore(
             created_at: project.created_at,
             description: project.description,
             key: project.key,
-            last_artifact_seq: project.counters.artifact,
-            last_seed_seq: project.counters.seed,
-            last_seq: project.counters.node,
+            last_artifact_seq: counters.artifact,
+            last_seed_seq: counters.seed,
+            last_seq: counters.node,
             name: project.name,
             ...nextOf(project.key),
             updated_at: project.updated_at,
@@ -367,8 +368,9 @@ export async function importPostgresStore(
           .execute();
       } else {
         // The allocator never moves backwards: after the import the next create
-        // must miss every identity the document brought (ADR 0006).
-        await raiseCounters(tx, project);
+        // must miss every identity the document brought (ADR 0006), and must
+        // not fall back below what a prior run of this import already set.
+        await raiseCounters(tx, project.key, counters);
       }
       await writeTags(tx, 'project', project.key, tagsFor(document, 'project', project.key));
     }
@@ -447,6 +449,42 @@ export async function importPostgresStore(
   });
 }
 
+/** The largest sequence in the list; zero when the kind brings none. */
+function highest(seqs: readonly number[]): number {
+  return seqs.reduce((max, seq) => Math.max(max, seq), 0);
+}
+
+/**
+ * The counters a project must carry AFTER an import: never below the highest
+ * sequence of its kind the document actually brings (MMR-379).
+ *
+ * The carried counter is not trusted on its own. A hand-edited or
+ * foreign-backend document can state a counter BELOW the sequences it also
+ * carries, and a store that wrote it verbatim would re-hand an identity the
+ * same import just wrote — the next create would then die on a raw primary-key
+ * violation. The allocator never moves backwards (ADR 0006), so the written
+ * value is the greatest of what the document claims and what it contains.
+ */
+function importedCounters(
+  document: StoreExport,
+  project: ExportedProject,
+): { artifact: number; node: number; seed: number } {
+  return {
+    artifact: Math.max(
+      project.counters.artifact,
+      highest(document.artifacts.filter((a) => a.key === project.key).map((a) => a.seq)),
+    ),
+    node: Math.max(
+      project.counters.node,
+      highest(document.nodes.filter((n) => n.project_id === project.key).map((n) => n.seq)),
+    ),
+    seed: Math.max(
+      project.counters.seed,
+      highest(document.seeds.filter((seed) => seed.key === project.key).map((seed) => seed.seq)),
+    ),
+  };
+}
+
 /** An otherwise-valid document with no records — the `fresh` mode's empty target. */
 const EMPTY_COLLECTIONS = {
   annotations: [],
@@ -462,18 +500,22 @@ const EMPTY_COLLECTIONS = {
 } satisfies Omit<StoreExport, 'exported_at' | 'schema_version'>;
 
 /** Raise a present project's counters to cover the identities being imported. */
-async function raiseCounters(tx: Transaction<DB>, project: ExportedProject): Promise<void> {
+async function raiseCounters(
+  tx: Transaction<DB>,
+  key: string,
+  counters: { artifact: number; node: number; seed: number },
+): Promise<void> {
   await tx
     .updateTable('project')
     .set((eb) => ({
       last_artifact_seq: eb.fn('greatest', [
         eb.ref('last_artifact_seq'),
-        eb.val(project.counters.artifact),
+        eb.val(counters.artifact),
       ]),
-      last_seed_seq: eb.fn('greatest', [eb.ref('last_seed_seq'), eb.val(project.counters.seed)]),
-      last_seq: eb.fn('greatest', [eb.ref('last_seq'), eb.val(project.counters.node)]),
+      last_seed_seq: eb.fn('greatest', [eb.ref('last_seed_seq'), eb.val(counters.seed)]),
+      last_seq: eb.fn('greatest', [eb.ref('last_seq'), eb.val(counters.node)]),
     }))
-    .where('key', '=', project.key)
+    .where('key', '=', key)
     .execute();
 }
 
