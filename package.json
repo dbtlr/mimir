@@ -22,7 +22,7 @@
     "build": "bun run build:ui && bun run assets && bun build packages/bin/src/main.ts --compile --outfile dist/mimir",
     "sandbox": "bun packages/sandbox/src/main.ts",
     "test:postgres": "bun run sandbox test",
-    "test:sandbox": "bun run build && MIMIR_SANDBOX_LIFECYCLE_TEST=1 bun test packages/sandbox/src/workflow.integration.test.ts"
+    "test:sandbox": "bun run build && MIMIR_SANDBOX_LIFECYCLE_TEST=1 bun test packages/sandbox/src/workflow.integration.test.ts packages/sandbox/src/installer.integration.test.ts"
   },
   "dependencies": {
     "vite": "^8.2.0"
