@@ -21,7 +21,7 @@
 import { existsSync, statSync, writeFileSync } from 'node:fs';
 
 import { usage } from '../cli/errors';
-import type { ImportMode, ImportReport, StoreExport } from '../core/export';
+import type { ImportMode, ImportReport } from '../core/export';
 import { canonicalJson } from '../core/export';
 import type { Store } from '../core/store';
 import type { PostgresHandle, UpgradeReport } from '../core/store-postgres/index';
@@ -305,7 +305,7 @@ async function cmdStoreImport(
 }
 
 /** Read and shape-check the document at `file` (`-` is stdin). */
-async function readDocument(file: string, deps: StoreDeps): Promise<StoreExport> {
+async function readDocument(file: string, deps: StoreDeps): Promise<unknown> {
   if (file !== STREAM) {
     if (!existsSync(file)) {
       throw usage(`store import: ${file} doesn't exist`);
@@ -339,14 +339,15 @@ async function readDocument(file: string, deps: StoreDeps): Promise<StoreExport>
 
 /**
  * The thin shape check: an object carrying a numeric `schema_version`. It is
- * deliberately not a full parse — the backend validates the document, and the
- * narrowing here exists only so the file is refused by name.
+ * deliberately not a full parse. Shared import validation checks the contents;
+ * this check lets the CLI refuse a non-document by filename.
  */
-function looksLikeDocument(parsed: unknown): parsed is StoreExport {
+function looksLikeDocument(parsed: unknown): boolean {
   return (
     typeof parsed === 'object' &&
     parsed !== null &&
-    typeof (parsed as { schema_version?: unknown }).schema_version === 'number'
+    'schema_version' in parsed &&
+    typeof parsed.schema_version === 'number'
   );
 }
 

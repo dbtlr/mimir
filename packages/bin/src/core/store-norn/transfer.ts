@@ -23,7 +23,7 @@ import { parseId, renderArtifactRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
 import type { NewAnnotationRecord, NewTransitionRecord, NodeTag } from '../store';
 import { now } from '../time';
-import { assertSingleValuedIdentities, namedSample } from '../transfer-validate';
+import { parseTransferDocument, namedSample } from '../transfer-validate';
 import { nodeFrontmatter, projectFrontmatter } from '../vault-frontmatter';
 import { artifactDocument, exportArtifacts } from './artifacts';
 import { createNornBodySectionStore } from './body-sections';
@@ -194,17 +194,11 @@ export async function exportNornStore(
 export async function importNornStore(
   client: NornClient,
   vaultRoot: string,
-  document: StoreExport,
+  input: unknown,
   opts: ImportOptions,
   limits: { read?: ChunkLimits; write?: ChunkLimits } = {},
 ): Promise<ImportReport> {
-  if (document.schema_version !== STORE_EXPORT_SCHEMA_VERSION) {
-    throw validation(
-      `unsupported transfer document schema version ${String(document.schema_version)}`,
-      `this binary reads schema version ${String(STORE_EXPORT_SCHEMA_VERSION)}`,
-    );
-  }
-  assertSingleValuedIdentities(document);
+  const document = parseTransferDocument(input);
   const documents = transferDocuments(document);
   // A preview takes every decision below and lands none of them: `applied` is
   // decided up front so each return states it, and every write is guarded on it.

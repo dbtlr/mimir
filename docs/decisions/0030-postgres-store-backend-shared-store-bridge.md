@@ -1,5 +1,6 @@
 ---
 title: 'ADR 0030: A Postgres store backend, selected per install, bridges to multi-machine work'
+description: Select a shared Postgres backend per installation and transfer stored facts through a backend-neutral document.
 status: accepted
 date: 2026-09-16
 ---
@@ -128,3 +129,30 @@ section for the backend fence to return to.
   which described the retiring SQLite backend rather than the seam. ADR 0018
   is unchanged: Norn-only access holds within the Norn backend. ADR 0010 and
   ADR 0011 are unchanged for the bridge.
+
+## Refinement (2026-09-17, MMR-382): validate transfer documents before writes
+
+Both backends apply one shared import validator before accessing the target.
+Preview, apply, and resume reject malformed record shapes, unsupported enum values,
+inconsistent identities, and unresolved document-local references with the same
+validation error. Resume validates the complete original document, not a delta.
+Parents, artifact links, and scratchpad anchors must belong to their owner's
+project. Dependencies can cross projects included in the document.
+
+The validator also rejects unowned annotations, tags, body sections, and history
+rows, which an importer could otherwise silently omit. Artifact tags belong on the
+artifact record, not in the top-level node/project tag collection. Each body-section
+owner occurs once, and each history row has exactly one node or project owner.
+
+This gate governs supplied transfer documents. ADR 0017's tolerant reads and
+ADR 0023's Norn write-failure contract remain unchanged. Import preserves legacy
+empty timestamps and accepts lagging allocation counters. Historical pointers
+(`upstream`, seed `requester`, and artifact `source_scratch`) do not require a live
+referent. Scratchpads retain their existing strict timestamp and body rules.
+Node fields must apply to their node type, and body facets must use their
+authoritative location. Import rejects parent and dependency cycles using the
+existing graph validator. Historical transition values remain unchanged.
+
+## Changelog
+
+- 2026-09-17: Clarified shared import validation and its compatibility boundaries.
