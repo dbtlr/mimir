@@ -74,6 +74,11 @@ export type ExportedTag = NewTagRecord;
  * fact no seam record carries — {@link ArtifactRecord} omits it, but
  * `ArtifactStore.findBySourceScratch` reads it back, so it is stored and must
  * survive the round trip.
+ *
+ * `tags` and `links` are sorted (MMR-380). Both are sets (ADR 0005 for tags;
+ * links are anchors), so their order is not a fact, and a vault stores them in
+ * authored order while Postgres reads them sorted — the export fixes one order
+ * so the two backends emit the same record.
  */
 export type ExportedArtifact = ArtifactRecord & {
   content: string;
@@ -139,9 +144,51 @@ export type StoreExport = {
   /** The owned prose sections of projects and nodes. */
   bodySections: readonly ExportedBodySections[];
   /** The `## History` rows of projects and nodes, entity-keyed (ADR 0015), with
-   * their resume-handle echoes, in document order per entity. */
+   * their resume-handle echoes, in {@link canonicalTransitionOrder}. */
   transitions: readonly NewTransitionRecord[];
 };
+
+/**
+ * The one order every backend emits {@link StoreExport.transitions} in
+ * (MMR-380): project rows first, by key; then node rows, by project key and
+ * numeric sequence; within an entity, the rows in the order given — which each
+ * backend supplies as its document order (the `## History` order on a vault,
+ * insert order on Postgres). That per-entity order is the stored fact
+ * (ADR 0015); the grouping across entities is a convention, fixed here so two
+ * backends holding the same facts emit byte-identical collections. A global
+ * timestamp order was rejected: it is not a stored fact, a hand-edited or
+ * clock-skewed history need not be monotonic, and sorting on it would reorder
+ * a `## History` section on the way through.
+ *
+ * Stable: ties (same entity) keep their input order.
+ */
+export function canonicalTransitionOrder(
+  rows: readonly NewTransitionRecord[],
+): NewTransitionRecord[] {
+  return rows
+    .map((row, index) => ({ index, key: entityRank(row), row }))
+    .toSorted((a, b) => compareEntityRank(a.key, b.key) || a.index - b.index)
+    .map((entry) => entry.row);
+}
+
+type EntityRank = { kind: 0 | 1; project: string; seq: number };
+
+/** Projects rank before nodes; a node's rank is its project key then sequence. */
+function entityRank(row: NewTransitionRecord): EntityRank {
+  if (row.node_id === undefined || row.node_id === null) {
+    return { kind: 0, project: row.project_id ?? '', seq: 0 };
+  }
+  const dash = row.node_id.lastIndexOf('-');
+  return {
+    kind: 1,
+    project: dash === -1 ? row.node_id : row.node_id.slice(0, dash),
+    seq: dash === -1 ? 0 : Number(row.node_id.slice(dash + 1)),
+  };
+}
+
+function compareEntityRank(a: EntityRank, b: EntityRank): number {
+  return a.kind - b.kind || a.project.localeCompare(b.project) || a.seq - b.seq;
+}
 
 /**
  * How an import treats the target (ADR 0030 Decision 4).
@@ -156,12 +203,25 @@ export type StoreExport = {
  */
 export type ImportMode = 'fresh' | 'resume';
 
-export type ImportOptions = { mode: ImportMode };
+export type ImportOptions = {
+  mode: ImportMode;
+  /**
+   * Preview (MMR-380): run every check and decision an apply would run —
+   * schema version, single-valued identities, the fresh-mode project fence,
+   * the resume-mode skip-or-refuse per record — and report the outcome, but
+   * write nothing. The default for the operator command is a preview; `--apply`
+   * clears this. Absent means apply, so a seam caller that predates the flag
+   * keeps writing.
+   */
+  dryRun?: boolean;
+};
 
-/** What one import did. */
+/** What one import did — or, on a preview, what an apply would do. */
 export type ImportReport = {
   mode: ImportMode;
-  /** Documents this run wrote. */
+  /** False on a preview: the counts describe an apply that did not happen. */
+  applied: boolean;
+  /** Documents this run wrote (or would write). */
   created: number;
   /** Documents already present and identical, left untouched (`resume` only). */
   skipped: number;

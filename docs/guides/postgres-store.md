@@ -70,9 +70,7 @@ runs against a mismatched schema.
 - **No offline mode.** A network outage is a hard failure; there is no local
   copy to fall back to.
 - **No git snapshots.** `vault snapshot` and the snapshot launchd unit do not
-  apply. `store export` and `store import` are not in this release; they land
-  with MMR-380. Until then there is no backup or migration command on a
-  Postgres install.
+  apply. `store export` is the backup on this backend; see [Back up](#back-up).
 - **Doctor checks the database.** `mimir doctor` reports the schema version
   against the binary, a dangling parent or dependency reference, a sequence
   counter that fell behind its rows, and an orphan artifact link or scratchpad
@@ -80,10 +78,87 @@ runs against a mismatched schema.
   nonzero exit instead. There is no repair pass; every state it reports is
   unreachable through the binary and points at a hand edit.
 
+## Back up
+
+`mimir store export` writes the whole store as one JSON document:
+
+```sh
+mimir store export vault.json
+```
+
+The document holds every stored fact: the projects with their sequence
+counters, the nodes, the dependency edges, the tags, the annotations, the
+artifacts with their frozen content, the seeds with their history, the
+scratchpads, the owned prose sections, and the transition log. It holds nothing
+derived — status, rollups, and attention are recomputed on read from these same
+facts. Identity is preserved: every `KEY-seq`, `KEY-aN`, and `KEY-sN`, every
+timestamp, and the counters. The document carries a `schema_version` of its own,
+separate from the database schema version, so a later binary knows what it
+reads. Export is fail-closed: it refuses, and names the records, when the store
+holds something the document cannot carry, so the backup is never quietly
+narrower than the store.
+
+Export refuses to overwrite an existing file. Name a new path, or remove the
+old backup first. Write `-` instead of a path to send the document to stdout.
+
+To restore, create the schema in an empty database and import the file:
+
+```sh
+mimir store upgrade
+mimir store import vault.json
+mimir store import vault.json --apply
+```
+
+The first import is a preview: it runs every check the write would run and
+reports what it would create, but writes nothing. `--apply` writes it. An
+import refuses when the target already holds one of the projects in the
+document, so a restore cannot half-merge into a live board.
+
 ## Moving an existing vault
 
-`store export` and `store import` are not in this release; they land with
-MMR-380. Until then there is no command to move a vault onto a Postgres
-install. Once available, identity will be preserved end to end: every
-`KEY-seq`, `KEY-aN`, and `KEY-sN`, every timestamp, and the sequence counters,
-so a create after the import never collides with an imported id.
+Export from the vault, then import into the Postgres database. Export reads the
+store seam, so the source backend does not matter.
+
+On the machine that holds the vault:
+
+```sh
+mimir store export vault.json
+```
+
+Copy the file to the target machine. There, point the install at the database:
+
+```toml
+[store]
+backend = "postgres"
+url = "postgres://mimir:secret@db.example.internal:5432/mimir"
+```
+
+Create the schema, preview the import, then write it:
+
+```sh
+mimir store upgrade
+mimir store import vault.json
+mimir store import vault.json --apply
+```
+
+Verify the result:
+
+```sh
+mimir overview
+mimir doctor
+```
+
+Identity is preserved end to end: every `KEY-seq`, `KEY-aN`, and `KEY-sN`, every
+timestamp, and the sequence counters, so a create after the import never
+collides with an imported id.
+
+If an import stops part way, run the same file again with `--resume`:
+
+```sh
+mimir store import vault.json --apply --resume
+```
+
+`--resume` skips every record already present and identical to what this import
+would write. A record that is present but different stops the import and names
+it: resume finishes a partial run of one document, it does not merge two
+different ones.

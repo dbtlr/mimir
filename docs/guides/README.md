@@ -11,7 +11,7 @@ binary should live. Each page is self-contained — read the one you need.
 | [Self-update](self-update.md)               | `mimir self-update`'s channels, verification, and restart behavior   |
 | [Port and proxy posture](port-and-proxy.md) | Port precedence, why the plist never bakes a port, proxy boundary    |
 | [Install location](install-location.md)     | Why the binary belongs at `~/.local/bin`, not a network volume       |
-| [Postgres store](postgres-store.md)         | Sharing one board across machines: `[store]`, `store upgrade`, doctor |
+| [Postgres store](postgres-store.md)         | Sharing one board across machines: `[store]`, `store upgrade`, export/import, doctor |
 
 A recipe worth keeping lands as a direct edit to one of these pages in the PR
 that discovers it (or a stub here if it isn't fully statable yet) — a recipe

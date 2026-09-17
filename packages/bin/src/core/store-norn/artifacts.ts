@@ -254,7 +254,11 @@ export async function exportArtifacts(
     exported.push({
       ...candidate.record,
       content: stripTrailingNewline(bodyOf(bodies, candidate.doc.path)),
+      // Sets, emitted in the seam's one order (see `ExportedArtifact`): the
+      // vault keeps the authored order, which a Postgres re-export would not.
+      links: candidate.record.links.toSorted(),
       source_scratch: typeof sourceScratch === 'string' ? sourceScratch : null,
+      tags: candidate.record.tags.toSorted(),
     });
   }
   return exported.toSorted((a, b) =>

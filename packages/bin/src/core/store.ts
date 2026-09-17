@@ -330,6 +330,11 @@ export type Store = {
    *
    * Failure semantics are the backend's own. See {@link ImportMode} for what
    * `fresh` refuses and how `resume` re-runs a partial import.
+   *
+   * `opts.dryRun` previews instead of writing (MMR-380): every check and
+   * decision an apply would make, the same refusals with the same messages, and
+   * a report whose counts describe the apply that did not happen
+   * ({@link ImportReport.applied} is then false). Nothing is left behind.
    */
   import: (document: StoreExport, opts: ImportOptions) => Promise<ImportReport>;
 

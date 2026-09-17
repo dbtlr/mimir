@@ -235,7 +235,9 @@ export async function seedWorkingSet(store: Store): Promise<void> {
     linkNodeIds: [prereq.id],
     projectId: 'MMR',
     summary: 'the transfer document',
-    tags: ['spec'],
+    // Authored out of order on purpose: an artifact's tags are a set, and the
+    // export must emit one order whichever backend stored them (MMR-380).
+    tags: ['spec', 'draft'],
     title: 'Transfer spec',
   });
 
@@ -297,9 +299,21 @@ export async function observe(store: Store): Promise<unknown> {
   const artifacts = [];
   for (const project of projects) {
     for (const record of await store.artifacts.listForProject(project.key)) {
-      artifacts.push(await store.artifacts.load(record.key, record.seq, { content: true }));
+      const loaded = await store.artifacts.load(record.key, record.seq, { content: true });
+      // Tags and links are sets (ADR 0005): a vault reads them in authored
+      // order and Postgres reads them sorted, and the export emits them sorted,
+      // so an imported vault holds them sorted where the grown one did not.
+      artifacts.push(
+        loaded === undefined
+          ? loaded
+          : { ...loaded, links: loaded.links.toSorted(), tags: loaded.tags.toSorted() },
+      );
     }
   }
+  // The feed's items, not its cursor: the cursor is opaque and encodes a
+  // backend position (a row id on Postgres) that an import legitimately
+  // reassigns — the same facts, a different internal number.
+  const transitions = (await store.transitions.list()).items;
   const seeds = [];
   for (const record of (await store.seeds.listAll()).toSorted((a, b) => a.seq - b.seq)) {
     seeds.push({
@@ -324,7 +338,7 @@ export async function observe(store: Store): Promise<unknown> {
     projectsRead: [...(await store.loadProjects())].toSorted((a, b) => a.key.localeCompare(b.key)),
     scratchpads: await store.scratchpads.list(),
     seeds,
-    transitions: await store.transitions.list(),
+    transitions,
   };
 }
 

@@ -4,6 +4,7 @@ import type { Insertable, Kysely, Transaction } from 'kysely';
 import { conflict, validation } from '../errors';
 import { lintScratchpadValue } from '../scratchpads/codec';
 import type { ScratchpadStore } from '../scratchpads/store';
+import { insertBatched } from './batch';
 import type { DB, ScratchpadRow, ScratchpadTable } from './schema';
 import type { Executor } from './tx';
 import { serializable } from './tx';
@@ -58,9 +59,17 @@ export async function exportScratchpads(ex: Executor): Promise<Scratchpad[]> {
   return rows.map(toScratchpad).toSorted(LIST_ORDER);
 }
 
-/** Write one whole scratchpad — shared by `create` and the store import. */
-export async function insertScratchpad(tx: Transaction<DB>, pad: Scratchpad): Promise<void> {
-  await tx.insertInto('scratchpad').values(toRow(pad)).execute();
+/**
+ * Write whole scratchpads — shared by `create`, which hands one, and the store
+ * import, which hands the whole collection in batched statements.
+ */
+export async function insertScratchpads(
+  tx: Transaction<DB>,
+  pads: readonly Scratchpad[],
+): Promise<void> {
+  await insertBatched(pads.map(toRow), (chunk) =>
+    tx.insertInto('scratchpad').values(chunk).execute(),
+  );
 }
 
 /** One pad's row by its UUID handle, or undefined. */
@@ -86,7 +95,7 @@ export function createPostgresScratchpadStore(db: Kysely<DB>): ScratchpadStore {
         if (project === undefined) {
           throw validation('the scratchpad is not valid for persistence');
         }
-        await insertScratchpad(tx, pad);
+        await insertScratchpads(tx, [pad]);
       });
     },
 

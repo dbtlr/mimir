@@ -13,7 +13,7 @@ import type {
   ImportReport,
   StoreExport,
 } from '../export';
-import { STORE_EXPORT_SCHEMA_VERSION } from '../export';
+import { canonicalTransitionOrder, STORE_EXPORT_SCHEMA_VERSION } from '../export';
 import { renderMigratedNodeBody, renderMigratedProjectBody, toCanonicalLf } from '../history-codec';
 import { parseId, renderArtifactRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
@@ -76,6 +76,14 @@ import { loadWorkingSetOverNorn } from './store';
  * **Failure is partial success** (ADR 0023). A multi-document plan may apply
  * some documents and refuse the rest, so a failed import leaves the target
  * half-written; `resume` is how the operator finishes it.
+ *
+ * **A preview is the whole import minus the write** (`dryRun`, MMR-380). It
+ * renders every document, runs the fresh-mode fence and the resume-mode
+ * skip-or-refuse decision per path, and then skips `createRawDocuments` — so it
+ * refuses what an apply would refuse, with the same message, and reports the
+ * counts an apply would report. Nothing cheaper would be worth reading: an
+ * operator previews an import to learn whether it will land, and a check the
+ * preview omitted is exactly the one that stops the apply.
  */
 
 /** Every body-section facet the export reads, in one batched round trip. */
@@ -118,9 +126,9 @@ export async function exportNornStore(
     (sections.get(node.id)?.annotations ?? []).map((view) => annotationRecord(node.id, view)),
   );
 
-  // Project rows first, then nodes — within an entity, document order is the
-  // `## History` order, which is the only ordering a markdown vault has.
-  const transitions: NewTransitionRecord[] = [
+  // Within an entity, document order is the `## History` order, the only
+  // ordering a markdown vault has; across entities the seam's canonical order.
+  const transitions: NewTransitionRecord[] = canonicalTransitionOrder([
     ...projects.flatMap((project) =>
       (sections.get(project.key)?.history ?? []).map((entry) =>
         transitionRecord(entry, { project_id: project.key }),
@@ -131,7 +139,7 @@ export async function exportNornStore(
         transitionRecord(entry, { node_id: node.id }),
       ),
     ),
-  ];
+  ]);
 
   const bodySections: ExportedBodySections[] = [
     // A project carries no `## Task Description` (its description is a
@@ -191,6 +199,9 @@ export async function importNornStore(
   }
   assertSingleValuedIdentities(document);
   const documents = transferDocuments(document);
+  // A preview takes every decision below and lands none of them: `applied` is
+  // decided up front so each return states it, and every write is guarded on it.
+  const applied = opts.dryRun !== true;
 
   if (opts.mode === 'fresh') {
     // Refuse BEFORE writing anything: a fresh import owns the identities it
@@ -207,8 +218,10 @@ export async function importNornStore(
         'a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import',
       );
     }
-    await createRawDocuments(client, vaultRoot, documents, limits.write ?? WRITE_LIMITS);
-    return { created: documents.length, mode: 'fresh', skipped: 0 };
+    if (applied) {
+      await createRawDocuments(client, vaultRoot, documents, limits.write ?? WRITE_LIMITS);
+    }
+    return { applied, created: documents.length, mode: 'fresh', skipped: 0 };
   }
 
   // Resume: every document already present at its canonical path with content
@@ -235,8 +248,10 @@ export async function importNornStore(
       );
     }
   }
-  await createRawDocuments(client, vaultRoot, pending, limits.write ?? WRITE_LIMITS);
-  return { created: pending.length, mode: 'resume', skipped };
+  if (applied) {
+    await createRawDocuments(client, vaultRoot, pending, limits.write ?? WRITE_LIMITS);
+  }
+  return { applied, created: pending.length, mode: 'resume', skipped };
 }
 
 // ── Export helpers ─────────────────────────────────────────────────────────

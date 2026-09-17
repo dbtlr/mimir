@@ -195,7 +195,7 @@ test.skipIf(!NORN)('a resume reads the target in chunks and skips every document
     { read: ONE_PER_CALL },
   );
 
-  expect(resumed).toEqual({ created: 0, mode: 'resume', skipped: first.created });
+  expect(resumed).toEqual({ applied: true, created: 0, mode: 'resume', skipped: first.created });
   // The presence probe is chunked too: one read per imported document.
   expect(counts.get).toBe(first.created);
   // Nothing written, so no plan was applied at all.
