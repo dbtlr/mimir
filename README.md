@@ -8,7 +8,8 @@ Mimir is a local-first source of truth for agent-driven work. It keeps projects,
 tasks, dependencies, decisions, and work products in one queryable system so an
 agent can act on current state and an operator can see what needs attention.
 
-Work state lives as inspectable Markdown in a Norn-managed, git-backed vault.
+Work state lives in a Norn-managed Markdown vault by default, or in a shared
+PostgreSQL database for agents on several machines.
 Mimir derives queues, status rollups, blockers, and stale work when queried;
 there is no second cache of project status to keep in sync.
 
@@ -23,8 +24,8 @@ there is no second cache of project status to keep in sync.
   sessions.
 - **Operator control.** The console spans projects, tasks, Artifacts, Seeds, and
   record health. It supports daily authoring and lifecycle actions.
-- **Local ownership.** Markdown is the source of truth. Norn owns validated,
-  atomic access; Git can snapshot and synchronize the vault.
+- **Store ownership.** Choose a local Markdown vault with Norn-managed access
+  and Git snapshots, or a shared PostgreSQL database with transactional writes.
 - **Derived state.** Rank, dependencies, lifecycle, and holds determine what is
   ready, awaiting, blocked, stale, or complete.
 
@@ -45,14 +46,23 @@ Install the standalone binary:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
-mimir setup
 ```
 
 For an existing installation without a receipt, use the
 [legacy upgrade procedure](docs/guides/install-location.md#upgrade-an-installation-without-a-receipt).
 
-Mimir requires `norn` on `PATH`. Setup creates or adopts a vault and can install
-the local service. Then create a project and bind a repository to it:
+Choose the store before setup:
+
+- **Norn (default):** Install `norn` on `PATH`, then run `mimir setup` to create
+  or adopt a vault and optionally install the local service.
+- **PostgreSQL:** Skip `mimir setup`. Follow the
+  [Postgres store guide](docs/guides/postgres-store.md) to set `[store] backend`
+  to `"postgres"` and `url` in the installation's bound `config.toml`, then run
+  `mimir store upgrade`. Run `mimir serve` directly or under your supervisor.
+  Optional macOS `mimir service install` still requires `norn` for its launchd
+  preflight, including on a PostgreSQL installation.
+
+Then create a project and bind a repository to it:
 
 ```sh
 mimir create project "Aurora" --key AUR --yes
