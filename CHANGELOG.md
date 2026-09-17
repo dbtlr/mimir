@@ -1,3 +1,7 @@
+---
+description: Released Mimir changes and upgrade guidance, compiled from pending changelog fragments at each release cut.
+---
+
 # Changelog
 
 All notable changes to this project are documented here.
@@ -12,6 +16,45 @@ Pending entries accrue as per-PR fragments in [`.changes/`](.changes/README.md)
 and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
+
+## v0.19.0 - 2026-09-17
+
+### Added
+
+- **Store backend fence and seam export/import** (MMR-378). The `[store] backend` config key returns as a per-install fence (`norn` by default, or `postgres` for a shared database). The `Store` seam gains `export` and `import`: export produces a backend-neutral document of stored facts with its schema version, and import writes it verbatim with ids, sequences, and timestamps preserved, so a vault can be moved or backed up on the seam. Export is fail-closed: it refuses, naming the documents and pointing at `mimir doctor`, when the store holds a record the document cannot carry, so a backup is never quietly narrower than the store it came from. The Norn backend implements both, proven by a new Store-level conformance suite ([ADR 0030](docs/decisions/0030-postgres-store-backend-shared-store-bridge.md)).
+- **Postgres store backend** (MMR-379). `[store] backend = "postgres"` with a `[store] url` now runs the whole binary against a shared Postgres database, so agents on several machines write one board. Every `transact` is one serializable transaction retried whole on serialization failure, and sequence numbers are allocated by a locked increment on the project row, so concurrent writers never lose an update or hand out one id twice. The Norn-managed vault stays the default local backend; the two are held behaviorally identical by a Store-level conformance suite that runs against both ([ADR 0030](docs/decisions/0030-postgres-store-backend-shared-store-bridge.md)).
+- **`mimir store upgrade`** (MMR-379). The Postgres backend carries an explicit schema version. A binary refuses to run against a newer schema and refuses to auto-upgrade an older one; `store upgrade` applies pending migrations on purpose, on one machine, under a lock. `store` is the new backend-neutral machinery noun ([ADR 0024 refinement](docs/decisions/0024-cli-command-taxonomy.md)).
+- **Postgres doctor facet** (MMR-379). `mimir doctor` and `/api/doctor` on a Postgres install report dangling parents and dependency edges, sequence counters behind stored rows, and orphan artifact links and scratchpad anchors. There is no automatic repair pass. An unreachable store fails the command. Schema mismatches stop normal commands before diagnostics run: use `mimir store upgrade` for an older schema, or update the binary for a newer schema.
+- **`mimir store export` and `mimir store import`** (MMR-380). The store's
+  transfer document gets its operator face. `store export <file>` writes every
+  stored fact — projects with their sequence counters, nodes, edges, tags,
+  annotations, artifacts with their content, seeds with their history,
+  scratchpads, prose sections, and the transition log — as one backend-neutral
+  JSON document with identity preserved, and refuses to overwrite an existing
+  file. `store import <file>` reads that document back: a preview by default
+  that runs every check and writes nothing, `--apply` to write it, and
+  `--resume` to finish a partial import by skipping records already present and
+  identical. Both run on either backend, so the pair is the backup on a
+  Postgres install and the way a vault moves onto one
+  ([ADR 0030](docs/decisions/0030-postgres-store-backend-shared-store-bridge.md)).
+- **Disposable Postgres development** (MMR-383). A Loom-based repository CLI provisions fixtures, restores PostgreSQL native snapshots, rehearses candidate migrations, and cleans up owned containers. Run records capture reproduction inputs and outcomes.
+
+### Changed
+
+- **Doctor is backend-provided** (MMR-378). The composition root exposes a backend-neutral doctor facet instead of Norn-typed plan members; the vault-shaped diagnostics and repairs move under the Norn backend as its implementation. `mimir doctor`, repair, and `/api/doctor` behave as before on a Norn install.
+- **One-time installer transition for existing installations** (MMR-384). If `mimir.installation.json` is absent beside the binary, run the current `install.sh` with the existing installation directory and XDG roots. An older `self-update` can replace the binary without creating its receipt, leaving the existing board inaccessible through that binary. After installation, verify the receipt and expected board with `mimir overview`, then restart any running service. This preserves the existing configuration and board; it does not require setup or data import. Follow the [legacy upgrade procedure](docs/guides/install-location.md#upgrade-an-installation-without-a-receipt). Later self-updates preserve the registration.
+- **Bun 1.4.0** (MMR-383). The workspace runtime pin supports the published Loom CLI packages.
+
+### Fixed
+
+- **`mimir mcp` released its store the moment the session connected** (MMR-379). The stdio server returned right after connecting, so the composition root closed the backend while the session was still serving tool calls. The Norn client reconnected lazily and hid it; a pooled backend failed every call with a destroyed driver. The session now holds the store until the client hangs up, and stdin ending is treated as the end of the session.
+- **The global config was written with default permissions** (MMR-379). `~/.config/mimir/config.toml` now carries a Postgres connection URL, password included, so `mimir setup` and `mimir service install` write it `0600` and tighten an existing file to `0600` on every write.
+- **Consistent import validation across backends** (MMR-382). Norn and Postgres reject malformed transfer records and missing references before writing. Preview, apply, and resume report the same validation errors instead of accepting invalid records or returning database constraint errors.
+- **Large Norn reads in doctor and scratchpad listing** (MMR-381). Document reads and diagnostic section probes use bounded batches that split when responses exceed the transport cap. A single oversized document produces an error that names its path.
+
+### Security
+
+- **Installation-bound live-store access** (MMR-383). Installer receipts bind executable identity and state directories. Uninstalled builds cannot inherit live configuration, and development connections must match a launcher-owned sandbox. The arbitrary database test URL and development service override are removed.
 
 ## v0.18.0 - 2026-08-06
 
