@@ -6,9 +6,12 @@
  * escape hatch. Orchestration (version gate, service restart, event log)
  * lives in the command layer; this module is the engine.
  */
-import { chmodSync, renameSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { existsSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 
 import { MimirError } from '../core';
+import { readInstallationAt, registerInstallation } from '../installation';
+import { requireInstallationProtocol } from '../installation/protocol';
 
 export type Fetcher = (url: string) => Promise<Response>;
 
@@ -132,10 +135,19 @@ export function verifyChecksum(body: Uint8Array, sums: string, asset: string): v
 
 /** Write-beside + rename: the swap is atomic on the same filesystem. */
 export function replaceBinary(targetPath: string, body: Uint8Array): void {
-  const staging = `${targetPath}.self-update`;
-  writeFileSync(staging, body);
-  chmodSync(staging, 0o755);
-  renameSync(staging, targetPath);
+  const installation = existsSync(targetPath) ? readInstallationAt(targetPath) : undefined;
+  const canonicalTarget = installation?.executable ?? targetPath;
+  const staging = `${canonicalTarget}.${randomUUID()}.self-update`;
+  writeFileSync(staging, body, { flag: 'wx', mode: 0o755 });
+  try {
+    requireInstallationProtocol(staging);
+    renameSync(staging, canonicalTarget);
+    if (installation !== undefined) {
+      registerInstallation(installation);
+    }
+  } finally {
+    rmSync(staging, { force: true });
+  }
 }
 
 export async function downloadAsset(

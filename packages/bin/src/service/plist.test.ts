@@ -71,15 +71,15 @@ test('the baked dev port round-trips from the installed plist', () => {
   expect(readServePlistPort(dir)).toBeUndefined();
 });
 
-test("plistPathFor lands the serve unit in the user's LaunchAgents", () => {
+test('uninstalled plistPathFor uses isolated LaunchAgents', () => {
   expect(plistPathFor(SERVE_LABEL)).toMatch(
-    /Library\/LaunchAgents\/com\.dbtlr\.mimir\.serve\.plist$/,
+    /\.dev\/LaunchAgents\/com\.dbtlr\.mimir\.serve\.plist$/,
   );
 });
 
 test('plistPathFor names the snapshot unit', () => {
   expect(plistPathFor(SNAPSHOT_LABEL)).toMatch(
-    /Library\/LaunchAgents\/com\.dbtlr\.mimir\.snapshot\.plist$/,
+    /\.dev\/LaunchAgents\/com\.dbtlr\.mimir\.snapshot\.plist$/,
   );
 });
 

@@ -1,0 +1,10 @@
+{
+  "name": "@mimir/sandbox",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@loomcli/core": "0.2.0",
+    "@loomcli/plugins": "0.2.0",
+    "zod": "4.4.3"
+  }
+}

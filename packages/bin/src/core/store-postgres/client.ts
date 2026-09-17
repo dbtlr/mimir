@@ -2,6 +2,7 @@ import { Kysely, PostgresDialect } from 'kysely';
 import type { PoolConfig } from 'pg';
 import { Pool } from 'pg';
 
+import { assertPostgresAccess } from '../../postgres-access';
 import type { DB } from './schema';
 
 /**
@@ -38,6 +39,7 @@ export type OpenOptions = {
 };
 
 export function openPostgres(url: string, options: OpenOptions = {}): PostgresHandle {
+  assertPostgresAccess(url);
   const createPool = options.createPool ?? ((config: PoolConfig) => new Pool(config));
   const log = options.log ?? ((line: string) => console.error(line));
   const pool = createPool({

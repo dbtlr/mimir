@@ -23,8 +23,10 @@ import { systemTimeZone } from './core';
 import type { Store } from './core';
 import { openPostgres } from './core/store-postgres/index';
 import type { DoctorBackend } from './doctor/contract';
-import { DEFAULT_PORT, IS_PRODUCTION, envFlag, envPort } from './env';
+import { DEFAULT_PORT, IS_PRODUCTION, envPort } from './env';
 import { createServer } from './http';
+import { runInstallationCommand } from './installation/command';
+import { INSTALLATION_PROTOCOL_RESPONSE } from './installation/protocol';
 import { serveStdio } from './mcp';
 import {
   DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
@@ -109,9 +111,8 @@ function realServiceDeps(): ServiceDeps {
   const uid = process.getuid?.() ?? 501;
   const explicitPort = envPort();
   return {
-    // Only a production build manages the host launchd by default; a dev/
-    // from-source run must opt in explicitly (the MMR-147 fence).
-    allowRealSupervisor: IS_PRODUCTION || envFlag(process.env.MIMIR_ALLOW_REAL_SERVICE),
+    // Only a verified live installation can manage the host supervisor.
+    allowRealSupervisor: IS_PRODUCTION,
     binPath,
     configFile: configPath(),
     defaultPort: DEFAULT_PORT,
@@ -191,6 +192,19 @@ function realStoreDeps(): StoreDeps {
 
 async function main(argv: string[]): Promise<number> {
   const command = argv[0];
+  if (command === 'installation-protocol') {
+    console.log(INSTALLATION_PROTOCOL_RESPONSE);
+    return 0;
+  }
+  if (command === 'installation-install') {
+    try {
+      runInstallationCommand(argv.slice(1));
+      return 0;
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      return 2;
+    }
+  }
 
   if (command === '--version') {
     console.log(VERSION);

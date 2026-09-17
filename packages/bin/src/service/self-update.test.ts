@@ -1,8 +1,18 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { readInstallationAt, registerInstallation } from '../installation';
+import { protocolCandidate } from '../installation/test-fixtures';
 import {
   assetName,
   compareSemver,
@@ -115,8 +125,8 @@ test('replaceBinary atomically swaps and preserves executability', () => {
   const target = join(dir, 'mimir');
   writeFileSync(target, 'old');
   chmodSync(target, 0o755);
-  replaceBinary(target, new TextEncoder().encode('new'));
-  expect(readFileSync(target, 'utf8')).toBe('new');
+  replaceBinary(target, new TextEncoder().encode(protocolCandidate));
+  expect(readFileSync(target, 'utf8')).toBe(protocolCandidate);
   expect(statSync(target).mode & 0o111).not.toBe(0);
 });
 
@@ -194,4 +204,45 @@ test('resolveNextChannelTag throws when the feed names no release', async () => 
   }
   expect(thrown).toBeInstanceOf(Error);
   expect((thrown as Error).message).toMatch(/prerelease|release/i);
+});
+
+test('self-update refreshes a verified receipt and preserves bindings', () => {
+  const target = join(dir, 'registered-mimir');
+  writeFileSync(target, 'old');
+  const original = registerInstallation({
+    executable: target,
+    mode: 'live',
+    paths: { cache: join(dir, 'cache'), config: join(dir, 'config'), data: join(dir, 'data') },
+  });
+  replaceBinary(target, new TextEncoder().encode(protocolCandidate));
+  const current = readInstallationAt(target);
+  expect(current?.paths).toEqual(original.paths);
+  expect(current?.mode).toBe('live');
+  expect(current?.sha256).not.toBe(original.sha256);
+});
+
+test('self-update rejects a legacy candidate without altering the installed binary or receipt', () => {
+  const target = join(dir, 'legacy-denied');
+  writeFileSync(target, 'original');
+  const original = registerInstallation({
+    executable: target,
+    mode: 'live',
+    paths: { cache: join(dir, 'cache'), config: join(dir, 'config'), data: join(dir, 'data') },
+  });
+  expect(() =>
+    replaceBinary(target, new TextEncoder().encode('#!/bin/sh\nprintf legacy\n')),
+  ).toThrow('installation protocol');
+  expect(readInstallationAt(target)).toEqual(original);
+  expect(readFileSync(target, 'utf8')).toBe('original');
+});
+
+test('self-update leaves a stale staging symlink and its target untouched', () => {
+  const target = join(dir, 'mimir');
+  const other = join(dir, 'other-binary');
+  writeFileSync(target, 'old');
+  writeFileSync(other, 'unrelated');
+  symlinkSync(other, `${target}.self-update`);
+  replaceBinary(target, new TextEncoder().encode(protocolCandidate));
+  expect(readFileSync(other, 'utf8')).toBe('unrelated');
+  expect(readFileSync(target, 'utf8')).toBe(protocolCandidate);
 });

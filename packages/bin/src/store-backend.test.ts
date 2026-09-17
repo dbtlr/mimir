@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { openPostgres, upgradeSchema } from './core/store-postgres/index';
 import { createThrowawaySchema } from './core/store-postgres/testing';
 import { bunExec } from './exec';
+import { sandboxAuthorityFromEnvironment } from './sandbox-authority';
 import { configPath } from './service/config';
 import { buildStore } from './store-backend';
 import { converge } from './vault/converge';
@@ -39,7 +40,7 @@ test.skipIf(!NORN)('buildStore returns the Norn store over the resolved vault', 
   await converge(dir, { allowCreate: true, exec: bunExec });
   process.env.MIMIR_VAULT = dir;
 
-  const built = await buildStore();
+  const built = await buildStore({}, { serve: {}, store: { backend: 'norn' }, vault: {} });
   try {
     // A fresh vault projects an empty working set — read through the vault.
     expect((await built.store.loadWorkingSet()).nodes).toEqual([]);
@@ -56,7 +57,10 @@ test.skipIf(!NORN)('a CLI build wires the doctor repair capability', async () =>
   await converge(dir, { allowCreate: true, exec: bunExec });
   process.env.MIMIR_VAULT = dir;
 
-  const built = await buildStore({ repair: true });
+  const built = await buildStore(
+    { repair: true },
+    { serve: {}, store: { backend: 'norn' }, vault: {} },
+  );
   try {
     expect(built.doctor.repair).toBeDefined();
   } finally {
@@ -87,7 +91,7 @@ test('the postgres backend refuses without [store] url', async () => {
  * would be a fresh store either way, and the gate's whole job is to tell a
  * fresh store from one an older binary already wrote.
  */
-const POSTGRES_URL = process.env.MIMIR_TEST_POSTGRES_URL;
+const POSTGRES_URL = sandboxAuthorityFromEnvironment()?.postgresUrl;
 
 test.skipIf(POSTGRES_URL === undefined)(
   'a postgres build refuses an unmigrated store, then builds once store upgrade has run',

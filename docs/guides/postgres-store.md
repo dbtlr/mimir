@@ -1,3 +1,7 @@
+---
+description: Configure a registered Postgres installation, manage its schema, and transfer store records.
+---
+
 # Postgres store
 
 Run one board from several machines by pointing every install at one Postgres
@@ -7,7 +11,14 @@ The fence is per install: one install is wholly on one backend.
 
 ## Configure
 
-In `~/.config/mimir/config.toml` (`$XDG_CONFIG_HOME` if set):
+The installer resolves the configuration directory from XDG settings and binds it
+to the installed executable. The default is `~/.config/mimir/config.toml`; later
+XDG environment changes do not redirect that installation. Uninstalled builds use
+isolated development paths and cannot connect to this database. Use the
+[development sandbox commands](development-sandboxes.md) for fixtures and migration
+rehearsals.
+
+In the bound `config.toml`:
 
 ```toml
 [store]

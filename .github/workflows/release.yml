@@ -106,9 +106,8 @@ jobs:
       - name: Compile
         run: |
           mkdir -p dist
-          # Every compiled artifact is a production binary — target the
-          # user-global store + port, not the from-source dev defaults (MMR-117).
-          define=(--define "MIMIR_BUILD_PROFILE=\"production\"")
+          # Only explicit installation grants access to live state.
+          define=()
           if [ -n "${MIMIR_BUILD_VERSION:-}" ]; then
             define+=(--define "MIMIR_BUILD_VERSION=\"${MIMIR_BUILD_VERSION}\"")
           fi

@@ -5,10 +5,9 @@
  * Serve's port precedence: --port > MIMIR_PORT > config > built-in default.
  */
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { IS_PRODUCTION } from '../env';
+import { runtimePaths } from '../env';
 
 export type ServeConfig = {
   port?: number;
@@ -16,10 +15,11 @@ export type ServeConfig = {
   problem?: 'malformed' | 'invalid-port';
 };
 
-/** `$XDG_CONFIG_HOME/mimir/config.toml`, defaulting to `~/.config`. */
-export function configPath(xdgConfigHome = process.env.XDG_CONFIG_HOME): string {
-  const base = xdgConfigHome ?? join(homedir(), '.config');
-  return join(base, 'mimir', 'config.toml');
+/** Installation-bound path. Explicit bases are for isolated configuration tools. */
+export function configPath(configHome?: string): string {
+  return configHome === undefined
+    ? join(runtimePaths().config, 'config.toml')
+    : join(configHome, 'mimir', 'config.toml');
 }
 
 /**
@@ -228,15 +228,9 @@ export function readConfig(file = configPath()): GlobalConfig {
   };
 }
 
-/**
- * Read operator runtime settings only in a production build. From-source/dev
- * commands deliberately do not open the global config path: their runtime
- * state is isolated under the repo unless an explicit environment override is
- * present. Configuration administration continues to use {@link readConfig}
- * directly.
- */
-export function readRuntimeConfig(file = configPath(), production = IS_PRODUCTION): GlobalConfig {
-  return production ? readConfig(file) : { serve: {}, store: {}, vault: {} };
+/** Read only the installation or sandbox configuration selected by configPath. */
+export function readRuntimeConfig(file = configPath()): GlobalConfig {
+  return readConfig(file);
 }
 
 /** The `[serve]` section — see {@link readConfig} for the tolerance contract. */
