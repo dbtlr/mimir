@@ -31,7 +31,7 @@ type FakeRelease = {
   assets: FakeAsset[];
 };
 type SeedRelease = Omit<FakeRelease, 'id' | 'assets'> & { assets?: Omit<FakeAsset, 'id'>[] };
-type UploadFault = { mode: '500' | 'hang' | 'ghost'; remaining: number };
+type UploadFault = { mode: '500' | 'hang' | 'ghost' | '429' | '403'; remaining: number };
 
 function sha256(bytes: Uint8Array) {
   return createHash('sha256').update(bytes).digest('hex');
@@ -215,6 +215,20 @@ class FakeGitHub {
       if (fault && fault.remaining > 0) {
         fault.remaining -= 1;
         this.events.push(`upload-fail:${name}`);
+        if (fault.mode === '429') {
+          const headers = { 'retry-after': '1' };
+          return Response.json({ message: 'API rate limit exceeded' }, { headers, status: 429 });
+        }
+        if (fault.mode === '403') {
+          const headers = {
+            'x-ratelimit-remaining': '0',
+            'x-ratelimit-reset': String(Math.ceil(Date.now() / 1000) + 3600),
+          };
+          return Response.json(
+            { message: 'You have exceeded a secondary rate limit.' },
+            { headers, status: 403 },
+          );
+        }
         if (fault.mode === 'ghost') {
           // The upload completed server-side but the client never learned it.
           this.hiddenFrom = this.nextId;
@@ -540,7 +554,7 @@ describe('publishRelease', () => {
 
     expect(outcome.status).toBe('incomplete');
     const [problem] = problemsOf(outcome);
-    expect(problem).toContain('gave up after 2 attempt(s)');
+    expect(problem).toContain('gave up after 1 attempt(s)');
     expect(problem).toContain('time budget of 0 ms exhausted');
     expect(github.events.filter((e) => e === 'upload-fail:mimir-linux-x64')).toHaveLength(1);
   });
@@ -554,5 +568,28 @@ describe('publishRelease', () => {
     expect(outcome.status).toBe('refused');
     expect(problemsOf(outcome)[0]).toContain('has 2 drafts');
     expect(github.events).toEqual([]);
+  });
+  test('treats a rate limit as transient and waits at least the hinted retry-after', async () => {
+    github.failUploads('mimir-linux-x64', 1, '429');
+
+    const started = Date.now();
+    const { log, outcome } = await run();
+
+    expect(outcome.status).toBe('published');
+    expect(Date.now() - started).toBeGreaterThanOrEqual(1_000);
+    expect(log.some((line) => line.includes('HTTP 429 rate limited, wait 1s'))).toBe(true);
+    expect(github.events.filter((e) => e === 'upload:mimir-linux-x64')).toHaveLength(1);
+  });
+
+  test('gives up, keeping the draft, when the rate-limit wait exceeds the budget', async () => {
+    github.failUploads('mimir-linux-x64', 1, '403');
+
+    const { outcome } = await run({ budgetMs: 5_000 });
+
+    expect(outcome.status).toBe('incomplete');
+    const [problem] = problemsOf(outcome);
+    expect(problem).toMatch(/HTTP 403 rate limited, wait 36\d\ds/);
+    expect(problem).toContain('time budget of 5000 ms exhausted');
+    expect(github.releases[0]?.draft).toBe(true);
   });
 });

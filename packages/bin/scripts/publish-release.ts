@@ -82,16 +82,47 @@ type LocalAsset = { name: string; path: string; size: number; sha256: string };
 
 type Init = Omit<RequestInit, 'headers'> & { headers?: Record<string, string> };
 
-/** A failure worth retrying: 5xx, a dropped connection, a hit deadline. */
+/**
+ * A failure worth retrying: 5xx, a dropped connection, a hit deadline, or a
+ * rate limit. `waitMs` is the minimum pause GitHub asked for before the
+ * next attempt, when it said.
+ */
 class TransientError extends Error {
   override name = 'TransientError';
+  readonly waitMs: number;
+  constructor(message: string, waitMs = 0) {
+    super(message);
+    this.waitMs = waitMs;
+  }
+}
+
+/**
+ * GitHub signals a primary or secondary rate limit with 429, or 403 plus a
+ * message naming the limit. The documented wait is `retry-after` seconds,
+ * else the `x-ratelimit-reset` epoch when `x-ratelimit-remaining` is 0,
+ * else at least one minute.
+ */
+function rateLimitWait(response: Response, text: string): number | null {
+  const limited = response.status === 429 || (response.status === 403 && /rate limit/i.test(text));
+  if (!limited) {
+    return null;
+  }
+  const retryAfter = Number(response.headers.get('retry-after'));
+  if (retryAfter > 0) {
+    return retryAfter * 1000;
+  }
+  const reset = Number(response.headers.get('x-ratelimit-reset'));
+  if (response.headers.get('x-ratelimit-remaining') === '0' && reset > 0) {
+    return Math.max(0, reset * 1000 - Date.now());
+  }
+  return 60_000;
 }
 
 /** One operation's retries ran out (attempts or the overall budget). */
 class GaveUpError extends Error {
   override name = 'GaveUpError';
-  constructor(label: string, failures: string[]) {
-    super(`${label}: gave up after ${failures.length} attempt(s)\n  ${failures.join('\n  ')}`);
+  constructor(label: string, attempts: number, failures: string[]) {
+    super(`${label}: gave up after ${attempts} attempt(s)\n  ${failures.join('\n  ')}`);
   }
 }
 
@@ -164,7 +195,9 @@ class Retrier {
 
   async run<T>(label: string, operation: (attempt: number) => Promise<T>): Promise<T> {
     const failures: string[] = [];
+    let attempts = 0;
     for (let attempt = 1; attempt <= this.options.maxAttempts; attempt++) {
+      attempts = attempt;
       try {
         return await operation(attempt);
       } catch (error) {
@@ -176,10 +209,11 @@ class Retrier {
         if (attempt === this.options.maxAttempts) {
           break;
         }
-        const delay = Math.min(
+        const backoff = Math.min(
           this.options.retryDelayMs * 2 ** (attempt - 1),
           this.options.retryDelayMs * 8,
         );
+        const delay = Math.max(backoff, error.waitMs);
         if (Date.now() + delay > this.deadline) {
           failures.push(`time budget of ${this.options.budgetMs} ms exhausted; not retrying`);
           break;
@@ -187,7 +221,7 @@ class Retrier {
         await Bun.sleep(delay);
       }
     }
-    throw new GaveUpError(label, failures);
+    throw new GaveUpError(label, attempts, failures);
   }
 }
 
@@ -233,7 +267,16 @@ class GitHub {
     if (response.status >= 500) {
       throw new TransientError(`${method} ${url}: HTTP ${response.status}`);
     }
-    return { body, response, text: () => new TextDecoder().decode(body) };
+    const text = () => new TextDecoder().decode(body);
+    const waitMs = rateLimitWait(response, text());
+    if (waitMs !== null) {
+      const seconds = Math.ceil(waitMs / 1000);
+      throw new TransientError(
+        `${method} ${url}: HTTP ${response.status} rate limited, wait ${seconds}s`,
+        waitMs,
+      );
+    }
+    return { body, response, text };
   }
 
   private async json<S extends z.ZodType>(url: string, schema: S, init: Init = {}) {
