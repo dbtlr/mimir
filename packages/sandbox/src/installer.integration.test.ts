@@ -154,7 +154,7 @@ esac
         const doctor = await run([target, 'doctor', '-s', 'all', '-f', 'json'], workspace, env);
         expect(doctor.code, doctor.stderr).toBe(0);
         expect(JSON.parse(doctor.stdout)).toEqual([]);
-        expect(await readdir(bin)).toEqual(['mimir', 'mimir.installation.json']);
+        expect((await readdir(bin)).toSorted()).toEqual(['mimir', 'mimir.installation.json']);
         expect(await readdir(temporary)).toEqual([]);
         expect(await Bun.file(join(redirected, 'config', 'mimir', 'config.toml')).exists()).toBe(
           false,
@@ -176,7 +176,7 @@ esac
       expect(readInstallationAt(target)).toEqual(receipt);
       expect(await readFile(`${target}.installation.json`, 'utf8')).toEqual(receiptBytes);
       expect(await Promise.all(files.map((file) => readFile(file)))).toEqual(contents);
-      expect(await readdir(bin)).toEqual(['mimir', 'mimir.installation.json']);
+      expect((await readdir(bin)).toSorted()).toEqual(['mimir', 'mimir.installation.json']);
       expect(await readdir(temporary)).toEqual([]);
       await sandbox.verify(id);
     } finally {
