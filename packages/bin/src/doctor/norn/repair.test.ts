@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import type { DoctorFinding, DoctorIssueCode } from './checks';
+import type { NornDoctorFinding, DoctorIssueCode } from './checks';
 import { planDoctorRepairs, repairIssueKey, REPAIR_POLICY } from './repair';
 import type { DoctorSnapshot, DoctorSnapshotDocument } from './snapshot';
 
@@ -9,7 +9,7 @@ function issue(
   stem: string,
   evidence: Record<string, unknown> = {},
   locator = 'test',
-): DoctorFinding {
+): NornDoctorFinding {
   const scopeKey = stem.split('-')[0] ?? stem;
   return {
     check: 'test',
@@ -1269,7 +1269,7 @@ test('a CRLF body keeps its line endings when a record timestamp is normalized',
 const PAD = 'scratch/018f3f36-7b2b-4c92-8f31-44c764a1a456.md';
 const PAD_STEM = '018f3f36-7b2b-4c92-8f31-44c764a1a456';
 
-function padIssue(): DoctorFinding {
+function padIssue(): NornDoctorFinding {
   return {
     ...issue(
       'non-canonical-timestamp',

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import type { DoctorFinding } from './checks';
+import type { DoctorFinding } from './contract';
 import { buildDoctorFacet, editDistance, locateField, nearest, pathOfStem } from './facet';
 
 describe('editDistance / nearest', () => {

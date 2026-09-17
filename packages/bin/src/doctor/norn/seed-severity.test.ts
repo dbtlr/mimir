@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import type { Drop } from '../core/validate';
+import type { Drop } from '../../core/validate';
 import type { DoctorContext } from './checks';
 import { seedValidityCheck, upstreamRefCheck } from './checks';
 

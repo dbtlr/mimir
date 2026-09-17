@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import {
   configPath,
+  DEFAULT_STORE_BACKEND,
   readConfig,
   readRuntimeConfig,
   readServeConfig,
@@ -186,20 +187,41 @@ test('a production runtime preserves the operator config projection', () => {
   expect(readRuntimeConfig(file, true)).toEqual(readConfig(file));
 });
 
-// The `[store] backend` fence was retired at MMR-234, and its MMR-279
-// tolerated-ignore shim (flagging the key so the composition root could note
-// it as ignored) is retired in turn: `[store]` carries no declared keys, so
-// any content there — `backend` included — is an ordinary unknown-key no-op.
-test('readConfig ignores [store] content entirely', () => {
+// The `[store] backend` fence is back per install (ADR 0030 Decision 1,
+// MMR-378): absent means `norn`, a named backend is carried through, and an
+// unrecognized word is flagged rather than silently opening another store.
+test('readConfig defaults an absent [store] backend to norn at the consumer', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(file, '[serve]\nport = 50124\n');
   expect(readConfig(file).store).toEqual({});
+  expect(readConfig(file).store.backend ?? DEFAULT_STORE_BACKEND).toBe('norn');
+});
+
+test('readConfig carries each known [store] backend', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[store]\nbackend = "norn"\n');
+  expect(readConfig(file).store).toEqual({ backend: 'norn' });
+  writeFileSync(file, '[store]\nbackend = "postgres"\n');
+  expect(readConfig(file).store).toEqual({ backend: 'postgres' });
+});
+
+test('readConfig flags an unrecognized or wrong-shaped [store] backend', () => {
+  const file = join(dir, 'config.toml');
   writeFileSync(file, '[store]\nbackend = "sqlite"\n');
-  expect(readConfig(file).store).toEqual({});
-  writeFileSync(file, '[store]\nartifacts = "norn"\n');
-  expect(readConfig(file).store).toEqual({});
-  // a non-table `store` still contributes nothing
+  expect(readConfig(file).store).toEqual({ problem: 'invalid-backend' });
+  writeFileSync(file, '[store]\nbackend = 7\n');
+  expect(readConfig(file).store).toEqual({ problem: 'invalid-backend' });
+  // a non-table `store` is malformed, not a silent default
   writeFileSync(file, 'store = "norn"\n');
+  expect(readConfig(file).store).toEqual({ problem: 'malformed' });
+  // an unparseable file marks every section, this one included
+  writeFileSync(file, 'not = = toml\n');
+  expect(readConfig(file).store).toEqual({ problem: 'malformed' });
+});
+
+test('an unknown key inside [store] stays an unknown-key no-op', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[store]\nartifacts = "norn"\n');
   expect(readConfig(file).store).toEqual({});
 });
 

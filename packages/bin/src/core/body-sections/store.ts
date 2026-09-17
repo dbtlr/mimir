@@ -20,10 +20,27 @@ export type BodySectionFacets = {
   history?: boolean;
 };
 
+/**
+ * The `## Next` facet as a read yields it: the parsed prose PLUS whether the
+ * heading is on the document at all.
+ *
+ * Presence is a fact the prose cannot carry. A hand-emptied `## Next` is present
+ * with null text, and so is a section whose prose is only whitespace — a reader
+ * that saw the text alone could not tell either from a document that has no
+ * such heading. The write path picks its section op from it (MMR-321) and the
+ * store export carries it, so the heading survives a round trip (ADR 0030
+ * Decision 4).
+ */
+export type NextFacet = {
+  /** norn resolved exactly one `## Next` heading on the document. */
+  present: boolean;
+  text: string | null;
+};
+
 /** A batched body-section read — only the facets named in the request are set. */
 export type BodySections = {
   description?: string | null;
-  next?: string | null;
+  next?: NextFacet;
   annotations?: AnnotationView[];
   history?: HistoryEntry[];
 };
@@ -36,10 +53,7 @@ export type BodySections = {
  * cannot be inferred from `text` alone (a hand-emptied section is present but
  * parses to null).
  */
-export type NextSection = {
-  /** norn resolved exactly one `## Next` heading on the document. */
-  present: boolean;
-  text: string | null;
+export type NextSection = NextFacet & {
   /**
    * The document carries a `## Next` heading norn could NOT resolve to a single
    * section — a hand-edited duplicate. Reads degrade to empty like every other

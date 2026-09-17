@@ -1,19 +1,19 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
 
-import { renderHistoryBody, renderHistoryRecord, toCanonicalLf } from '../core/history-codec';
-import { parseIdentity, wikilink } from '../core/ids';
-import type { Project } from '../core/model';
-import type { MigrationOp, MigrationPlan } from '../core/store-norn/plan';
+import { renderHistoryBody, renderHistoryRecord, toCanonicalLf } from '../../core/history-codec';
+import { parseIdentity, wikilink } from '../../core/ids';
+import type { Project } from '../../core/model';
+import type { MigrationOp, MigrationPlan } from '../../core/store-norn/plan';
 import {
   addFrontmatter,
   createDocument,
   migrationPlan,
   replaceBody,
   setFrontmatter,
-} from '../core/store-norn/plan';
-import { canonicalInstant } from '../core/time';
-import { projectFrontmatter } from '../core/vault-frontmatter';
-import type { DoctorFinding, DoctorIssueCode } from './checks';
+} from '../../core/store-norn/plan';
+import { canonicalInstant } from '../../core/time';
+import { projectFrontmatter } from '../../core/vault-frontmatter';
+import type { NornDoctorFinding, DoctorIssueCode } from './checks';
 import type { DoctorSnapshot, DoctorSnapshotDocument } from './snapshot';
 import { doctorIdentityIndex, doctorLogicalStemAtPath } from './snapshot';
 
@@ -129,13 +129,13 @@ export const REPAIR_POLICY: Record<DoctorIssueCode, RepairPolicy> = {
 };
 
 export type RepairItem = {
-  issue: DoctorFinding;
+  issue: NornDoctorFinding;
   recipe?: RepairRecipe;
   reason?: RepairSkipReason;
 };
 
 export type RepairPlanningFailure = {
-  issue: DoctorFinding;
+  issue: NornDoctorFinding;
   reason: 'missing-cas-hash' | 'missing-snapshot-document' | 'missing-snapshot-value';
 };
 
@@ -146,7 +146,7 @@ export type DoctorRepairPlan = {
   skipped: RepairItem[];
 };
 
-function issueInScope(issue: DoctorFinding, scope: string | undefined): boolean {
+function issueInScope(issue: NornDoctorFinding, scope: string | undefined): boolean {
   return scope === undefined || issue.scopeKey === scope;
 }
 
@@ -253,7 +253,7 @@ function recoveryOperation(key: string, timestamp: string): MigrationOp {
  * corrupted. Splitting on `\n` (not the codec's CRLF-tolerant split) keeps line
  * endings untouched; both splitters index lines identically.
  */
-function rewriteRecordTimestamp(body: string, issue: DoctorFinding): string | null {
+function rewriteRecordTimestamp(body: string, issue: NornDoctorFinding): string | null {
   const line = typeof issue.evidence.line === 'number' ? issue.evidence.line : undefined;
   const value = typeof issue.evidence.value === 'string' ? issue.evidence.value : undefined;
   const canonical =
@@ -298,7 +298,7 @@ type BodyRepair = {
  * classifies the supplied structured issues, using snapshot bytes only for CAS
  * values and the section recipe's required zero-resolver-equivalent-heading proof. */
 export function planDoctorRepairs(args: {
-  issues: readonly DoctorFinding[];
+  issues: readonly NornDoctorFinding[];
   scope: string | undefined;
   snapshot: DoctorSnapshot;
   timestamp: string;
@@ -557,7 +557,7 @@ export function planDoctorRepairs(args: {
 /** Stable identity used to reconcile a planned issue against post-image
  * diagnostics. A project projection follows its exact physical target even if a
  * concurrent key edit changes the finding's logical identity. */
-export function repairIssueKey(issue: DoctorFinding): string {
+export function repairIssueKey(issue: NornDoctorFinding): string {
   if (issue.code === 'missing-project' || issue.code === 'orphaned-seed') {
     const projectKey = typeof issue.evidence.key === 'string' ? issue.evidence.key : issue.scopeKey;
     return `${issue.code}\0${projectKey}`;

@@ -4,6 +4,7 @@ import { validation } from '../errors';
 import { HISTORY_HEADING, parseHistorySection, sectionBody } from '../history-codec';
 import type { TransitionsFeed } from '../transitions/store';
 import { validate } from '../validate';
+import { ASSUMED_BODY_BYTES, READ_LIMITS, readChunked } from './chunking';
 import type { NornClient } from './client';
 import { pathAndSections, stemOf } from './decode';
 import { vaultGraphFromDocs } from './store';
@@ -132,7 +133,17 @@ export function createNornTransitionsFeed(client: NornClient): TransitionsFeed {
         return { items: [] };
       }
 
-      const records = await client.getSections([...tokenByPath.keys()], [HISTORY_HEADING]);
+      // Byte-bounded, like every other whole-vault section read (NRN-s30, see
+      // ./chunking): this feed fans out EVERY node and project `## History` in
+      // the vault, so the one-call form silently closes the MCP connection on a
+      // real board (measured: 2070 documents, 4621 transitions).
+      const records = await readChunked(
+        [...tokenByPath.keys()],
+        () => ASSUMED_BODY_BYTES,
+        READ_LIMITS,
+        (path) => path,
+        (chunk) => client.getSections([...chunk], [HISTORY_HEADING]),
+      );
       const positioned: Positioned[] = [];
       for (const record of records) {
         const ps = pathAndSections(record);

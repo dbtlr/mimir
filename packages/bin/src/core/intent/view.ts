@@ -125,8 +125,8 @@ export async function buildNodeView(
     }
     // Omit-when-absent (MMR-321): a container with no narrative carries no key,
     // so an empty section and a missing one read identically.
-    if (wantNext && sections.next != null) {
-      view.next = sections.next;
+    if (wantNext && sections.next?.text != null) {
+      view.next = sections.next.text;
     }
     if (wantAnnotations) {
       view.annotations = sections.annotations ?? [];
@@ -328,8 +328,10 @@ export async function buildProjectView(
   // when the section is absent, exactly as on a container node.
   if (facets.has('next')) {
     const sections = await bodySections.readSections(project.key, { next: true });
-    if (sections.next != null) {
-      view.next = sections.next;
+    // The PROSE is the view's field — a present-but-empty section reads as no
+    // direction to a human, and the heading's presence is a write-path fact.
+    if (sections.next?.text != null) {
+      view.next = sections.next.text;
     }
   }
   return view;

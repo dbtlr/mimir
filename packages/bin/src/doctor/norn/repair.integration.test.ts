@@ -2,15 +2,26 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { fakeIo } from '../cli/testing';
-import { createInitiative, createProject } from '../core/create';
-import { MimirError } from '../core/errors';
-import { annotate } from '../core/mutations';
-import type { MigrationPlan } from '../core/store-norn/plan';
-import { createTestStore } from '../testing/store';
-import type { TestStore } from '../testing/store';
-import { cmdDoctor } from './commands';
-import type { DoctorDeps } from './commands';
+import { fakeIo } from '../../cli/testing';
+import { createInitiative, createProject } from '../../core/create';
+import { MimirError } from '../../core/errors';
+import { annotate } from '../../core/mutations';
+import type { MigrationPlan } from '../../core/store-norn/plan';
+import { createTestStore } from '../../testing/store';
+import type { TestStore } from '../../testing/store';
+import { cmdDoctor } from '../commands';
+import { createNornDoctorBackend } from './backend';
+import type { NornDoctorDeps } from './backend';
+
+/** The fixture's repair handles, asserted present — the test harness always
+ * wires them, so an absent seam is a broken fixture, not a test condition. */
+function repairSeam(fixture: TestStore): NonNullable<NornDoctorDeps['apply']> {
+  const apply = fixture.doctorDeps.apply;
+  if (apply === undefined) {
+    throw new Error('test fixture repair seam missing');
+  }
+  return apply;
+}
 
 const NORN = Bun.which('norn') !== null;
 
@@ -98,19 +109,17 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
     const beforeSkipped = fixture.readDocument(skippedPath);
 
     let applyCalls = 0;
-    const doctor: DoctorDeps = {
-      ...fixture.doctor,
-      repair: {
+    const baseApply = repairSeam(fixture);
+    const doctor = createNornDoctorBackend({
+      ...fixture.doctorDeps,
+      apply: {
         applyPlan: (plan: MigrationPlan, confirm: boolean) => {
           applyCalls += 1;
-          return (
-            fixture.doctor.repair?.applyPlan(plan, confirm) ??
-            Promise.reject(new Error('test fixture repair seam missing'))
-          );
+          return baseApply.applyPlan(plan, confirm);
         },
-        vaultRoot: fixture.doctor.repair?.vaultRoot ?? '',
+        vaultRoot: baseApply.vaultRoot,
       },
-    };
+    });
     const preview = fakeIo();
     expect(await cmdDoctor(preview, doctor, 'json', 'MMR', { dryRun: true, fix: true })).toBe(0);
     expect(applyCalls).toBe(1);
@@ -155,24 +164,21 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
     const path = `MMR/${node.id}.md`;
     fixture.corruptDocument(path, (raw) => raw.replaceAll('\n', '\r\n'));
 
-    const baseRepair = fixture.doctor.repair;
-    if (baseRepair === undefined) {
-      throw new Error('test fixture repair seam missing');
-    }
+    const baseApply = repairSeam(fixture);
     let drifted = false;
-    const doctor: DoctorDeps = {
-      ...fixture.doctor,
-      repair: {
+    const doctor = createNornDoctorBackend({
+      ...fixture.doctorDeps,
+      apply: {
         applyPlan: (plan, confirm) => {
           if (!drifted) {
             fixture.corruptDocument(path, (raw) => `${raw}\r\nconcurrent edit`);
             drifted = true;
           }
-          return baseRepair.applyPlan(plan, confirm);
+          return baseApply.applyPlan(plan, confirm);
         },
-        vaultRoot: baseRepair.vaultRoot,
+        vaultRoot: baseApply.vaultRoot,
       },
-    };
+    });
     const io = fakeIo();
     expect(await cmdDoctor(io, doctor, 'json', 'MMR', { dryRun: false, fix: true })).toBe(1);
     const after = fixture.readDocument(path);
@@ -210,10 +216,7 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
   test('relocated project declarations diagnose and repair by logical key and exact path', async () => {
     await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
     await createProject(fixture.store, { key: 'ABC', name: 'Alphabet' });
-    const vaultRoot = fixture.doctor.repair?.vaultRoot;
-    if (vaultRoot === undefined) {
-      throw new Error('test fixture repair seam missing');
-    }
+    const vaultRoot = fixture.vaultRoot;
     mkdirSync(join(vaultRoot, 'relocated'), { recursive: true });
     renameSync(join(vaultRoot, 'MMR/MMR.md'), join(vaultRoot, 'relocated/OTH.md'));
     renameSync(join(vaultRoot, 'ABC/ABC.md'), join(vaultRoot, 'relocated/custom.md'));
@@ -484,10 +487,7 @@ describe.skipIf(!NORN)('doctor deterministic repair over isolated real Norn', ()
       title: 'Unrelated work',
     });
     const nodePath = `MMR/${node.id}.md`;
-    const vaultRoot = fixture.doctor.repair?.vaultRoot;
-    if (vaultRoot === undefined) {
-      throw new Error('test fixture repair seam missing');
-    }
+    const vaultRoot = fixture.vaultRoot;
 
     // A pad whose stored stamp is a millisecond-less variant, written straight
     // into the vault the way a hand edit or a legacy import would leave it.

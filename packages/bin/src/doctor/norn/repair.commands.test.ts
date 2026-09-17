@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test';
 
-import { runCli } from '../cli/run';
-import { fakeIo } from '../cli/testing';
-import type { Store } from '../core';
-import type { MigrationPlan } from '../core/store-norn/plan';
-import { cmdDoctor } from './commands';
-import type { DoctorDeps } from './commands';
+import { runCli } from '../../cli/run';
+import { fakeIo } from '../../cli/testing';
+import type { Store } from '../../core';
+import type { MigrationPlan } from '../../core/store-norn/plan';
+import { cmdDoctor } from '../commands';
+import { createNornDoctorBackend } from './backend';
 import type { DoctorSnapshot } from './snapshot';
 
 const neverStore = (): Promise<Store> => Promise.reject(new Error('store should not be read'));
@@ -74,9 +74,8 @@ function projectProjectionSnapshot(key: string, project: string): DoctorSnapshot
 test('doctor --fix --dry-run emits a stable composite JSON report and never confirms', async () => {
   const confirms: boolean[] = [];
   const plans: MigrationPlan[] = [];
-  const deps: DoctorDeps = {
-    readSnapshot: () => Promise.resolve(repairSnapshot('plain\r\nbody\r\n')),
-    repair: {
+  const deps = createNornDoctorBackend({
+    apply: {
       applyPlan: (plan, confirm) => {
         plans.push(plan);
         confirms.push(confirm);
@@ -84,7 +83,9 @@ test('doctor --fix --dry-run emits a stable composite JSON report and never conf
       },
       vaultRoot: '/vault',
     },
-  };
+    readRaw: () => Promise.resolve([]),
+    readSnapshot: () => Promise.resolve(repairSnapshot('plain\r\nbody\r\n')),
+  });
   const io = fakeIo();
   const code = await cmdDoctor(io, deps, 'json', 'MMR', { dryRun: true, fix: true });
   expect(code).toBe(0);
@@ -127,12 +128,8 @@ test('doctor --fix --dry-run emits a stable composite JSON report and never conf
 test('doctor --fix applies once, rediagnoses, and treats residual skips as success', async () => {
   let reads = 0;
   let applies = 0;
-  const deps: DoctorDeps = {
-    readSnapshot: () => {
-      reads += 1;
-      return Promise.resolve(repairSnapshot(reads === 1 ? 'plain\r\nbody\r\n' : 'plain\nbody\n'));
-    },
-    repair: {
+  const deps = createNornDoctorBackend({
+    apply: {
       applyPlan: (_plan, confirm) => {
         applies += 1;
         expect(confirm).toBe(true);
@@ -140,7 +137,12 @@ test('doctor --fix applies once, rediagnoses, and treats residual skips as succe
       },
       vaultRoot: '/vault',
     },
-  };
+    readRaw: () => Promise.resolve([]),
+    readSnapshot: () => {
+      reads += 1;
+      return Promise.resolve(repairSnapshot(reads === 1 ? 'plain\r\nbody\r\n' : 'plain\nbody\n'));
+    },
+  });
   const io = fakeIo();
   expect(await cmdDoctor(io, deps, 'records', 'MMR', { dryRun: false, fix: true })).toBe(0);
   expect(applies).toBe(1);
@@ -151,13 +153,14 @@ test('doctor --fix applies once, rediagnoses, and treats residual skips as succe
 });
 
 test('a CAS refusal is a nonzero operational failure in stable JSONL output', async () => {
-  const deps: DoctorDeps = {
-    readSnapshot: () => Promise.resolve(repairSnapshot('plain\r\nbody\r\n')),
-    repair: {
+  const deps = createNornDoctorBackend({
+    apply: {
       applyPlan: () => Promise.resolve({ report: { outcome: 'refused' } }),
       vaultRoot: '/vault',
     },
-  };
+    readRaw: () => Promise.resolve([]),
+    readSnapshot: () => Promise.resolve(repairSnapshot('plain\r\nbody\r\n')),
+  });
   const io = fakeIo();
   expect(await cmdDoctor(io, deps, 'jsonl', 'MMR', { dryRun: false, fix: true })).toBe(1);
   const records = io.out
@@ -189,7 +192,12 @@ test('a CAS refusal is a nonzero operational failure in stable JSONL output', as
 });
 
 test('mixed planning failure partitions every repair issue exclusively into failed', async () => {
-  const deps: DoctorDeps = {
+  const deps = createNornDoctorBackend({
+    apply: {
+      applyPlan: () => Promise.reject(new Error('planning failures must not apply')),
+      vaultRoot: '/vault',
+    },
+    readRaw: () => Promise.resolve([]),
     readSnapshot: () =>
       Promise.resolve({
         ...twoRepairSnapshots('one\r\n', 'two\r\n'),
@@ -198,11 +206,7 @@ test('mixed planning failure partitions every repair issue exclusively into fail
           { body: 'two\r\n', documentHash: 'hash-2', path: 'MMR/MMR-2.md', stem: 'MMR-2' },
         ],
       }),
-    repair: {
-      applyPlan: () => Promise.reject(new Error('planning failures must not apply')),
-      vaultRoot: '/vault',
-    },
-  };
+  });
   const io = fakeIo();
   expect(await cmdDoctor(io, deps, 'json', 'MMR', { dryRun: true, fix: true })).toBe(1);
   const report = JSON.parse(io.out.join('')) as {
@@ -220,18 +224,19 @@ test('mixed planning failure partitions every repair issue exclusively into fail
 
 test('indeterminate post-apply diagnosis preserves every planned issue identity', async () => {
   let reads = 0;
-  const deps: DoctorDeps = {
+  const deps = createNornDoctorBackend({
+    apply: {
+      applyPlan: () => Promise.resolve({ report: { outcome: 'applied' } }),
+      vaultRoot: '/vault',
+    },
+    readRaw: () => Promise.resolve([]),
     readSnapshot: () => {
       reads += 1;
       return reads === 1
         ? Promise.resolve(twoRepairSnapshots('one\r\n', 'two\r\n'))
         : Promise.reject(new Error('snapshot unavailable'));
     },
-    repair: {
-      applyPlan: () => Promise.resolve({ report: { outcome: 'applied' } }),
-      vaultRoot: '/vault',
-    },
-  };
+  });
   const io = fakeIo();
   expect(await cmdDoctor(io, deps, 'json', 'MMR', { dryRun: false, fix: true })).toBe(1);
   const report = JSON.parse(io.out.join('')) as {
@@ -253,13 +258,14 @@ test('indeterminate post-apply diagnosis preserves every planned issue identity'
 });
 
 test('post-apply verification failure is nonzero and never rendered as fixed', async () => {
-  const deps: DoctorDeps = {
-    readSnapshot: () => Promise.resolve(repairSnapshot('plain\r\nbody\r\n')),
-    repair: {
+  const deps = createNornDoctorBackend({
+    apply: {
       applyPlan: () => Promise.resolve({ report: { outcome: 'applied' } }),
       vaultRoot: '/vault',
     },
-  };
+    readRaw: () => Promise.resolve([]),
+    readSnapshot: () => Promise.resolve(repairSnapshot('plain\r\nbody\r\n')),
+  });
   const io = fakeIo();
   expect(await cmdDoctor(io, deps, 'json', 'MMR', { dryRun: false, fix: true })).toBe(1);
   const report = JSON.parse(io.out.join('')) as {
@@ -280,14 +286,15 @@ test('post-apply verification failure is nonzero and never rendered as fixed', a
 
 test('project verification follows the exact repaired path when its logical key changes', async () => {
   let reads = 0;
-  const deps: DoctorDeps = {
-    readSnapshot: () =>
-      Promise.resolve(projectProjectionSnapshot(++reads === 1 ? 'MMR' : 'ABC', 'WRONG')),
-    repair: {
+  const deps = createNornDoctorBackend({
+    apply: {
       applyPlan: () => Promise.resolve({ report: { outcome: 'applied' } }),
       vaultRoot: '/vault',
     },
-  };
+    readRaw: () => Promise.resolve([]),
+    readSnapshot: () =>
+      Promise.resolve(projectProjectionSnapshot(++reads === 1 ? 'MMR' : 'ABC', 'WRONG')),
+  });
   const io = fakeIo();
   expect(await cmdDoctor(io, deps, 'json', 'MMR', { dryRun: false, fix: true })).toBe(1);
   const report = JSON.parse(io.out.join('')) as {
@@ -309,12 +316,13 @@ test('doctor --dry-run without --fix is a usage error before any vault read', as
   const io = fakeIo();
   expect(
     await runCli(['doctor', '--dry-run'], neverStore, io, {
-      doctor: {
+      doctor: createNornDoctorBackend({
+        readRaw: () => Promise.resolve([]),
         readSnapshot: () => {
           reads += 1;
           return Promise.resolve(repairSnapshot('body'));
         },
-      },
+      }),
     }),
   ).toBe(2);
   expect(reads).toBe(0);
@@ -323,16 +331,17 @@ test('doctor --dry-run without --fix is a usage error before any vault read', as
 
 test('a thrown apply error becomes a stable failed report and rediagnoses safely', async () => {
   let reads = 0;
-  const deps: DoctorDeps = {
+  const deps = createNornDoctorBackend({
+    apply: {
+      applyPlan: () => Promise.reject(new Error('transport died after dispatch')),
+      vaultRoot: '/vault',
+    },
+    readRaw: () => Promise.resolve([]),
     readSnapshot: () => {
       reads += 1;
       return Promise.resolve(repairSnapshot('plain\r\nbody\r\n'));
     },
-    repair: {
-      applyPlan: () => Promise.reject(new Error('transport died after dispatch')),
-      vaultRoot: '/vault',
-    },
-  };
+  });
   const io = fakeIo();
   expect(await cmdDoctor(io, deps, 'json', 'MMR', { dryRun: false, fix: true })).toBe(1);
   expect(reads).toBe(2);
@@ -357,14 +366,15 @@ test('a thrown apply error becomes a stable failed report and rediagnoses safely
 
 test('applied JSONL partitions each issue exclusively into fixed, never planned plus fixed', async () => {
   let reads = 0;
-  const deps: DoctorDeps = {
-    readSnapshot: () =>
-      Promise.resolve(repairSnapshot(++reads === 1 ? 'plain\r\nbody\r\n' : 'plain\nbody\n')),
-    repair: {
+  const deps = createNornDoctorBackend({
+    apply: {
       applyPlan: () => Promise.resolve({ report: { outcome: 'applied' } }),
       vaultRoot: '/vault',
     },
-  };
+    readRaw: () => Promise.resolve([]),
+    readSnapshot: () =>
+      Promise.resolve(repairSnapshot(++reads === 1 ? 'plain\r\nbody\r\n' : 'plain\nbody\n')),
+  });
   const io = fakeIo();
   expect(await cmdDoctor(io, deps, 'jsonl', 'MMR', { dryRun: false, fix: true })).toBe(0);
   const records = io.out
@@ -381,14 +391,8 @@ test('applied JSONL partitions each issue exclusively into fixed, never planned 
 
 test('a failed partial apply rediagnoses and reports fixed and residual issues exclusively', async () => {
   let reads = 0;
-  const deps: DoctorDeps = {
-    readSnapshot: () =>
-      Promise.resolve(
-        ++reads === 1
-          ? twoRepairSnapshots('one\r\n', 'two\r\n')
-          : twoRepairSnapshots('one\n', 'two\r\n'),
-      ),
-    repair: {
+  const deps = createNornDoctorBackend({
+    apply: {
       applyPlan: () =>
         Promise.resolve({
           report: {
@@ -401,7 +405,14 @@ test('a failed partial apply rediagnoses and reports fixed and residual issues e
         }),
       vaultRoot: '/vault',
     },
-  };
+    readRaw: () => Promise.resolve([]),
+    readSnapshot: () =>
+      Promise.resolve(
+        ++reads === 1
+          ? twoRepairSnapshots('one\r\n', 'two\r\n')
+          : twoRepairSnapshots('one\n', 'two\r\n'),
+      ),
+  });
   const io = fakeIo();
   expect(await cmdDoctor(io, deps, 'json', 'MMR', { dryRun: false, fix: true })).toBe(1);
   const report = JSON.parse(io.out.join('')) as {

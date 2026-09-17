@@ -1,24 +1,25 @@
 /**
  * The `mimir doctor` check registry (MMR-166). Doctor is a vault diagnostics
  * surface: each check is an independent {@link Diagnostic} that inspects the
- * vault and reports {@link DoctorFinding}s for a human to fix. This slice ships
+ * vault and reports {@link NornDoctorFinding}s for a human to fix. This slice ships
  * one check — body-section record integrity — with the registry structured so
  * siblings (orphans, acyclicity, backend parity, …) register the same way
  * without touching the runner (MMR-169).
  */
-import type { BodyRecordProblem, BodyRecordTimestamp } from '../core/history-codec';
-import { lintBodySections, recordTimestamps } from '../core/history-codec';
-import { parseIdentity } from '../core/ids';
-import type { ScratchpadBodyProblem } from '../core/scratchpads/codec';
-import { journalTimestamps, lintScratchpadBody } from '../core/scratchpads/codec';
-import { isScratchpadId } from '../core/scratchpads/store';
-import type { ProjectDeclaration } from '../core/store-norn';
-import type { ValidateFinding } from '../core/store-norn/decode';
-import { collapse, stemOf } from '../core/store-norn/decode';
-import { decodeScratchpadDocument } from '../core/store-norn/scratchpads';
-import type { ScratchpadDocumentProblem } from '../core/store-norn/scratchpads';
-import { canonicalInstant, isCanonicalInstant, TIMESTAMP_FIELDS } from '../core/time';
-import type { Drop } from '../core/validate';
+import type { BodyRecordProblem, BodyRecordTimestamp } from '../../core/history-codec';
+import { lintBodySections, recordTimestamps } from '../../core/history-codec';
+import { parseIdentity } from '../../core/ids';
+import type { ScratchpadBodyProblem } from '../../core/scratchpads/codec';
+import { journalTimestamps, lintScratchpadBody } from '../../core/scratchpads/codec';
+import { isScratchpadId } from '../../core/scratchpads/store';
+import type { ProjectDeclaration } from '../../core/store-norn';
+import type { ValidateFinding } from '../../core/store-norn/decode';
+import { collapse, stemOf } from '../../core/store-norn/decode';
+import { decodeScratchpadDocument } from '../../core/store-norn/scratchpads';
+import type { ScratchpadDocumentProblem } from '../../core/store-norn/scratchpads';
+import { canonicalInstant, isCanonicalInstant, TIMESTAMP_FIELDS } from '../../core/time';
+import type { Drop } from '../../core/validate';
+import type { DoctorFinding } from '../contract';
 
 /** What a check reads: the raw vault documents to diagnose. */
 export type DoctorContext = {
@@ -75,32 +76,12 @@ export type DoctorContext = {
   sectionFailures: readonly { path: string; stem: string; section: string }[];
 };
 
-/** One problem a check found, anchored for a human to locate and fix. */
-export type DoctorFinding = {
-  /** Stable machine code. The total repair registry is keyed by this union. */
-  code: DoctorIssueCode;
-  /** The reporting check's {@link Diagnostic.name}. */
-  check: string;
-  /** An informational triage label, never a gate (ADR 0017): `error` = a record
-   * the reader drops (data lost/hidden on read); `warn` = content the reader
-   * tolerates but that looks like an intended record. Doctor always exits 0 on a
-   * successful run regardless of severity. */
-  severity: 'error' | 'warn';
-  /** The offending node's `KEY-seq` stem. */
-  node: string;
-  /** Where in the document, e.g. `History · line 6`. */
-  where: string;
-  /** A one-line human description of the problem. */
-  message: string;
-  /** Canonical ownership derived from the stem, never from frontmatter. */
-  scopeKey: string;
-  /** Canonical entity identity (kept alongside `node` for JSON compatibility). */
-  stem: string;
-  /** Stable structured facts used by repair policy and machine consumers. */
-  evidence: Readonly<Record<string, unknown>>;
-  /** Physical or logical location of the issue. */
-  locator: string;
-};
+/**
+ * A {@link DoctorFinding} narrowed to this backend's closed code vocabulary.
+ * Every check emits one; the neutral contract widens `code` back to `string`
+ * so a transport never learns the Norn code union.
+ */
+export type NornDoctorFinding = Omit<DoctorFinding, 'code'> & { code: DoctorIssueCode };
 
 /** Every issue code the diagnostic registry can emit. Including Drop['rule']
  * makes a validator rule addition expand this union automatically; the repair
@@ -126,7 +107,10 @@ export type DoctorIssueCode =
   | 'uninterpretable-timestamp'
   | 'value-not-allowed';
 
-type FindingInput = Omit<DoctorFinding, 'code' | 'evidence' | 'locator' | 'scopeKey' | 'stem'> & {
+type FindingInput = Omit<
+  NornDoctorFinding,
+  'code' | 'evidence' | 'locator' | 'scopeKey' | 'stem'
+> & {
   code: DoctorIssueCode;
   evidence?: Readonly<Record<string, unknown>>;
   locator?: string;
@@ -134,7 +118,7 @@ type FindingInput = Omit<DoctorFinding, 'code' | 'evidence' | 'locator' | 'scope
 
 /** Build the additive structured issue envelope while preserving the original
  * human/JSON finding fields. */
-function issue(input: FindingInput): DoctorFinding {
+function issue(input: FindingInput): NornDoctorFinding {
   const identity = parseIdentity(input.node);
   return {
     ...input,
@@ -151,9 +135,9 @@ function scratchpadIssue(input: {
   line: number;
   path: string;
   project: string;
-  severity?: DoctorFinding['severity'];
+  severity?: NornDoctorFinding['severity'];
   stem: string;
-}): DoctorFinding {
+}): NornDoctorFinding {
   const documentLevel = input.code.startsWith('scratchpad-');
   const where = documentLevel ? 'frontmatter' : `body · line ${input.line}`;
   return {
@@ -178,7 +162,7 @@ function scratchpadIssue(input: {
 export type Diagnostic = {
   name: string;
   title: string;
-  run: (ctx: DoctorContext) => DoctorFinding[] | Promise<DoctorFinding[]>;
+  run: (ctx: DoctorContext) => NornDoctorFinding[] | Promise<NornDoctorFinding[]>;
 };
 
 /** The scratchpad decode problems that are really a timestamp FORMAT fault, and
@@ -197,7 +181,7 @@ export const scratchpadBodyCheck: Diagnostic = {
   name: 'scratchpad-body',
   async run(ctx) {
     const docs = await (ctx.readScratchpadDocs?.() ?? Promise.resolve([]));
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     for (const doc of docs) {
       const collapsedProject = collapse(doc.frontmatter?.project);
       const project =
@@ -275,33 +259,34 @@ export const scratchpadBodyCheck: Diagnostic = {
  * a `warn` — it reads fine, but it looks like a record a hand edit may have meant.
  * The label is informational triage only — neither severity gates (ADR 0017).
  */
-const PROBLEM: Record<BodyRecordProblem, { severity: DoctorFinding['severity']; message: string }> =
-  {
-    'duplicate-next-section': {
-      // Not a warn: norn resolves NEITHER copy, so the whole narrative reads
-      // empty and re-authoring it refuses until a human picks the survivor.
-      message:
-        'duplicate `## Next` heading — the direction narrative resolves to no section, so it reads empty and cannot be re-authored',
-      severity: 'error',
-    },
-    'malformed-history-heading': {
-      message:
-        'looks like a history record heading but is not one — read as text, not a transition',
-      severity: 'warn',
-    },
-    'non-iso-annotation-heading': {
-      message: 'looks like an annotation heading but is not an ISO-8601 timestamp — read as text',
-      severity: 'warn',
-    },
-    'unknown-transition-kind': {
-      message: 'history heading has an unknown transition kind — read as text, not a transition',
-      severity: 'warn',
-    },
-    'unparseable-history-record': {
-      message: 'history record dropped on read — missing or unparseable edge line',
-      severity: 'error',
-    },
-  };
+const PROBLEM: Record<
+  BodyRecordProblem,
+  { severity: NornDoctorFinding['severity']; message: string }
+> = {
+  'duplicate-next-section': {
+    // Not a warn: norn resolves NEITHER copy, so the whole narrative reads
+    // empty and re-authoring it refuses until a human picks the survivor.
+    message:
+      'duplicate `## Next` heading — the direction narrative resolves to no section, so it reads empty and cannot be re-authored',
+    severity: 'error',
+  },
+  'malformed-history-heading': {
+    message: 'looks like a history record heading but is not one — read as text, not a transition',
+    severity: 'warn',
+  },
+  'non-iso-annotation-heading': {
+    message: 'looks like an annotation heading but is not an ISO-8601 timestamp — read as text',
+    severity: 'warn',
+  },
+  'unknown-transition-kind': {
+    message: 'history heading has an unknown transition kind — read as text, not a transition',
+    severity: 'warn',
+  },
+  'unparseable-history-record': {
+    message: 'history record dropped on read — missing or unparseable edge line',
+    severity: 'error',
+  },
+};
 
 /**
  * Body-section record integrity: scan each node/project body for malformed
@@ -314,7 +299,7 @@ const PROBLEM: Record<BodyRecordProblem, { severity: DoctorFinding['severity']; 
 export const bodySectionCheck: Diagnostic = {
   name: 'body-sections',
   run: async (ctx) => {
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     for (const { stem, body, path } of await ctx.readNodeDocs()) {
       for (const f of lintBodySections(body)) {
         const { message, severity } = PROBLEM[f.problem];
@@ -348,7 +333,7 @@ export const bodySectionCheck: Diagnostic = {
 export const crlfCheck: Diagnostic = {
   name: 'crlf',
   run: async (ctx) => {
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     for (const { stem, body, path } of await ctx.readNodeDocs()) {
       const count = (body.match(/\r\n/g) ?? []).length;
       if (count > 0) {
@@ -411,7 +396,7 @@ export const crlfCheck: Diagnostic = {
 export const updatedAtCheck: Diagnostic = {
   name: 'updated-at',
   run: async (ctx) => {
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     // Both feeds: work-state docs (node/project/seed) carry `updated_at` in their
     // frontmatter, and artifacts (schema 5, MMR-317) arrive on the artifact feed.
     const nodeDocs = await ctx.readNodeDocs();
@@ -552,7 +537,7 @@ export const timestampCheck: Diagnostic = {
       });
     }
 
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     for (const target of targets) {
       for (const field of TIMESTAMP_FIELDS) {
         const raw = target.frontmatter[field];
@@ -582,7 +567,7 @@ export const timestampCheck: Diagnostic = {
 
 /** One frontmatter timestamp finding, classified by whether its instant is
  * recoverable from the value itself. */
-function timestampIssue(target: TimestampTarget, field: string, raw: unknown): DoctorFinding {
+function timestampIssue(target: TimestampTarget, field: string, raw: unknown): NornDoctorFinding {
   const canonical = canonicalInstant(raw);
   const shown = typeof raw === 'string' ? raw : JSON.stringify(raw);
   return {
@@ -604,7 +589,10 @@ function timestampIssue(target: TimestampTarget, field: string, raw: unknown): D
 
 /** One body record-heading timestamp finding — the same two classes, anchored to
  * the line whose heading carries the instant. */
-function recordTimestampIssue(target: TimestampTarget, record: BodyRecordTimestamp): DoctorFinding {
+function recordTimestampIssue(
+  target: TimestampTarget,
+  record: BodyRecordTimestamp,
+): NornDoctorFinding {
   const canonical = canonicalInstant(record.value);
   const line = String(record.line);
   return {
@@ -720,7 +708,7 @@ export const identityUniquenessCheck: Diagnostic = {
 export const danglingRefCheck: Diagnostic = {
   name: 'dangling-refs',
   run: (ctx) => {
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     for (const drop of ctx.dropped) {
       // Routing lives in RULE_OWNER; the `kind` guard narrows for `ref` (only edge
       // variants carry it — the two dangling-* rules this check owns are both edges).
@@ -807,7 +795,7 @@ export const missingProjectCheck: Diagnostic = {
 export const acyclicityCheck: Diagnostic = {
   name: 'acyclicity',
   run: (ctx) => {
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     for (const drop of ctx.dropped) {
       // Routing lives in RULE_OWNER; the `kind` guard narrows for `ref`.
       if (!ownsDrop(drop, 'acyclicity') || drop.kind !== 'edge') {
@@ -845,7 +833,7 @@ export const acyclicityCheck: Diagnostic = {
 export const fieldValidityCheck: Diagnostic = {
   name: 'field-validity',
   run: (ctx) => {
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     for (const drop of ctx.dropped) {
       // Routing lives in RULE_OWNER; the branches below narrow for `value`.
       if (!ownsDrop(drop, 'field-validity')) {
@@ -1015,7 +1003,7 @@ export const frontmatterCheck: Diagnostic = {
     // Dedup by stem: a parse-failed doc emits BOTH parse-failed and
     // required-missing(type). Keep the parse-failed (the root cause) when a stem
     // has both; first-parse-failed-wins, else first-seen.
-    const byStem = new Map<string, DoctorFinding>();
+    const byStem = new Map<string, NornDoctorFinding>();
     for (const finding of ctx.validateFindings) {
       const spec = FRONTMATTER[finding.code];
       // Not a code this check renders, or a field-scoped code on a field other
@@ -1086,7 +1074,7 @@ export const frontmatterCheck: Diagnostic = {
 export const stemProjectCheck: Diagnostic = {
   name: 'stem-project',
   run: (ctx) => {
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     for (const { kind, path, project, stem } of ctx.projectRefs) {
       // A missing/malformed `project` is norn's required-field concern (MMR-191).
       if (project === null) {
@@ -1182,7 +1170,7 @@ export const artifactDuplicateStemCheck: Diagnostic = {
       }
       pathsByStem.set(stem, [...(pathsByStem.get(stem) ?? []), path]);
     }
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     for (const [stem, paths] of pathsByStem) {
       if (paths.length < 2) {
         continue;
@@ -1347,7 +1335,7 @@ export const seqGapCheck: Diagnostic = {
     for (const finding of ctx.validateFindings) {
       occupy(workStateStem(finding.path)); // a doc norn's schema pass sees by path only
     }
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     // Deterministic order: by project key, then node before seed.
     const ordered = [...groups.values()].toSorted(
       (a, b) => a.key.localeCompare(b.key) || a.kind.localeCompare(b.kind),
@@ -1421,7 +1409,7 @@ export const seqGapCheck: Diagnostic = {
 export const seedValidityCheck: Diagnostic = {
   name: 'seed-validity',
   run: (ctx) => {
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     for (const drop of ctx.dropped) {
       if (!ownsDrop(drop, 'seed-validity')) {
         continue;
@@ -1530,7 +1518,7 @@ export const seedValidityCheck: Diagnostic = {
 export const upstreamRefCheck: Diagnostic = {
   name: 'upstream-refs',
   run: (ctx) => {
-    const findings: DoctorFinding[] = [];
+    const findings: NornDoctorFinding[] = [];
     for (const drop of ctx.dropped) {
       if (!ownsDrop(drop, 'upstream-refs') || drop.kind !== 'field') {
         continue;

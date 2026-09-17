@@ -1,4 +1,4 @@
-import type { DoctorFinding } from './checks';
+import type { NornDoctorFinding } from './checks';
 import { CHECKS } from './checks';
 import type { DoctorSnapshot } from './snapshot';
 import { doctorContextFromSnapshot, doctorPhysicalPathsByStem } from './snapshot';
@@ -8,9 +8,9 @@ import { doctorContextFromSnapshot, doctorPhysicalPathsByStem } from './snapshot
 export async function diagnoseDoctor(
   snapshot: DoctorSnapshot,
   scope: string | undefined,
-): Promise<DoctorFinding[]> {
+): Promise<NornDoctorFinding[]> {
   const ctx = doctorContextFromSnapshot(snapshot, scope);
-  const findings: DoctorFinding[] = [];
+  const findings: NornDoctorFinding[] = [];
   for (const check of CHECKS) {
     findings.push(...(await check.run(ctx)));
   }

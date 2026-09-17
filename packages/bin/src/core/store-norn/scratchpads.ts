@@ -11,6 +11,8 @@ import { isScratchpadId } from '../scratchpads/store';
 import type { ScratchpadStore } from '../scratchpads/store';
 import { isCanonicalInstant } from '../time';
 import { applyReportOutcome } from './apply-report';
+import type { ChunkLimits } from './chunking';
+import { ASSUMED_BODY_BYTES, bodyOf, jsonBytes, READ_LIMITS, readBodies } from './chunking';
 import type { NornClient } from './client';
 import { collapse, isStringRecord } from './decode';
 import type { MigrationOp } from './plan';
@@ -23,6 +25,7 @@ import {
   replaceBody,
   setFrontmatter,
 } from './plan';
+import type { RawDocument } from './raw-write';
 import { loadWorkingSetOverNorn } from './store';
 
 const pathOf = (id: string): string => `scratch/${id}.md`;
@@ -194,14 +197,90 @@ export function decodeScratchpadDocument(
   };
 }
 
-export function createNornScratchpadStore(client: NornClient, vaultRoot: string): ScratchpadStore {
-  const graph = async (): Promise<{ projects: Set<string>; anchors: Map<string, string> }> => {
-    const working = await loadWorkingSetOverNorn(client);
-    return {
-      anchors: new Map(working.nodes.map((node) => [node.id, node.project_id])),
-      projects: new Set(working.projects.map((project) => project.key)),
-    };
+/**
+ * The complete physical document one scratchpad becomes — the same path,
+ * frontmatter, and encoded body a `create` writes, at the pad's existing id and
+ * timestamps. The store import's scratchpad writer (ADR 0030 Decision 4). The
+ * pad's whole state is its two owned body sections, so nothing is reconstructed
+ * here: {@link encodeScratchpadBody} is the one encoder either path uses.
+ */
+export function scratchpadDocument(scratchpad: Scratchpad): RawDocument {
+  return {
+    body: encodeScratchpadBody(scratchpad),
+    frontmatter: frontmatterOf(scratchpad),
+    path: pathOf(scratchpad.id),
   };
+}
+
+/** The canonical work graph a scratchpad decode resolves its project and its
+ * anchors against — one home, so the store's reads and the export agree on what
+ * a valid anchor is. */
+type ScratchpadGraph = { projects: Set<string>; anchors: Map<string, string> };
+
+async function scratchpadGraph(client: NornClient): Promise<ScratchpadGraph> {
+  const working = await loadWorkingSetOverNorn(client);
+  return {
+    anchors: new Map(working.nodes.map((node) => [node.id, node.project_id])),
+    projects: new Set(working.projects.map((project) => project.key)),
+  };
+}
+
+/** Newest first, ties broken by id — the one order every scratchpad list has. */
+function byUpdatedAt(a: Scratchpad, b: Scratchpad): number {
+  return b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id);
+}
+
+/**
+ * Every scratchpad in the vault, whole — the store export's scratchpad
+ * collection (MMR-378, ADR 0030 Decision 4).
+ *
+ * A separate reader from {@link ScratchpadStore.list} on purpose. `list` is a
+ * hot-path read over the handful of pads one session holds and fetches their
+ * bodies in the enumerating `find`; the export reads EVERY pad in the vault, and
+ * a pad's body is an entire journal — the whole-vault set in one `find` with
+ * `.body` outgrows the MCP response cap and silently closes the connection
+ * (NRN-s30, see {@link ./chunking}). So this takes the same two-phase shape the
+ * artifact and seed exporters take: a metadata-only `find`, then byte-bounded
+ * body chunks. The decode is the shared {@link decodeScratchpadDocument}, so an
+ * exported pad is exactly what a `list` would return.
+ */
+export async function exportScratchpads(
+  client: NornClient,
+  limits: ChunkLimits = READ_LIMITS,
+): Promise<Scratchpad[]> {
+  const docs = await client.find({
+    col: ['.frontmatter'],
+    eq: ['type:scratch'],
+    no_limit: true,
+  });
+  const bodies = await readBodies(
+    client,
+    docs.map((doc) => ({
+      path: doc.path,
+      // The frontmatter is already in hand, so only the body is a guess.
+      weight: jsonBytes(doc.frontmatter) + ASSUMED_BODY_BYTES,
+    })),
+    limits,
+  );
+  const valid = await scratchpadGraph(client);
+  return docs
+    .flatMap((doc) => {
+      const fm = doc.frontmatter;
+      if (fm === undefined) {
+        return [];
+      }
+      const decoded = decodeScratchpadDocument(
+        { body: bodyOf(bodies, doc.path), documentHash: null, fm, path: doc.path },
+        valid.projects,
+        valid.anchors,
+      );
+      return decoded.scratchpad === null ? [] : [decoded.scratchpad];
+    })
+    .toSorted(byUpdatedAt);
+}
+
+export function createNornScratchpadStore(client: NornClient, vaultRoot: string): ScratchpadStore {
+  const graph = (): Promise<ScratchpadGraph> => scratchpadGraph(client);
 
   const getRaw = async (id: string): Promise<ScratchDocument | undefined> => {
     if (!isScratchpadId(id)) {
@@ -299,7 +378,7 @@ export function createNornScratchpadStore(client: NornClient, vaultRoot: string)
         .filter((doc): doc is ScratchDocument => doc !== null)
         .map((doc) => decodeScratchpadDocument(doc, valid.projects, valid.anchors).scratchpad)
         .filter((pad): pad is Scratchpad => pad !== null)
-        .toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id));
+        .toSorted(byUpdatedAt);
     },
 
     async load(id) {

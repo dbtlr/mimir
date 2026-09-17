@@ -16,9 +16,10 @@ import {
   updateProject,
 } from './core';
 import type { Store } from './core';
-import type { DoctorDeps } from './doctor/commands';
 import { cmdDoctor } from './doctor/commands';
-import { diagnoseDoctor } from './doctor/diagnosis';
+import type { DoctorBackend } from './doctor/contract';
+import type { NornDoctorDeps } from './doctor/norn/backend';
+import { diagnoseDoctor } from './doctor/norn/diagnosis';
 import { createServer } from './http/server';
 import { toolUpdate } from './mcp/tools';
 import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
@@ -37,7 +38,8 @@ let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
 let readDocument: (path: string) => string;
 let corruptDocument: (path: string, mutate: (raw: string) => string) => void;
-let doctorDeps: DoctorDeps;
+let doctor: DoctorBackend;
+let doctorDeps: NornDoctorDeps;
 let server: Server<undefined>;
 let base: string;
 let projectId: string;
@@ -54,7 +56,8 @@ beforeEach(async () => {
   ({
     close: closeStore,
     corruptDocument,
-    doctor: doctorDeps,
+    doctor,
+    doctorDeps,
     readDocument,
     store,
   } = await createTestStore());
@@ -221,7 +224,7 @@ test.skipIf(!NORN)('mimir doctor names the duplicated ## Next heading (MMR-321)'
   duplicateNextHeading('MMR/MMR.md');
 
   const io = fakeIo();
-  expect(await cmdDoctor(io, doctorDeps, 'json', 'MMR')).toBe(0);
+  expect(await cmdDoctor(io, doctor, 'json', 'MMR')).toBe(0);
   const findings = JSON.parse(io.out.join('')) as { code?: string; node?: string }[];
   const duplicate = findings.filter((f) => f.code === 'duplicate-next-section');
   expect(duplicate).toHaveLength(1);
