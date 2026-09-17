@@ -64,6 +64,15 @@ The tag fires `release.yml`: it builds the three platform binaries, checksums th
 extracts the release notes **from the CHANGELOG section you just promoted**,
 publishes the GitHub Release, and (official tags only) prunes old prereleases.
 
+Publication is staged (MMR-387): the release starts as a **draft**, each asset is
+uploaded with bounded retries and verified by size + SHA-256, and only the exact
+complete set flips it public. If the `publish` job fails, the draft stays behind
+with a per-asset diagnosis in the log — **re-run the failed `publish` job**
+(`gh run rerun <run-id> --failed`); it resumes from the draft with the same build
+artifacts, keeping verified assets and re-sending the rest. Do not rebuild, retag,
+or upload by hand. A release that is already public is never modified: a re-run
+against a complete one is a no-op, against an incomplete one a refusal.
+
 ## 3. Verify gate — not a glance
 
 Wait for the release run to finish (`gh run watch`), then confirm **every** item:
