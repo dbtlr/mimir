@@ -138,3 +138,14 @@ Given that, Mimir does not build cross-document rollback:
   success + retry, and `doctor` reaps any orphaned create — not a Norn
   whole-plan-atomicity dependency. The requester seed NRN-s3 / task NRN-107 are
   no longer load-bearing for Mimir.
+
+## Refinement (2026-09-16, MMR-354): the posture is backend-scoped
+
+This ADR's posture rests on the markdown substrate having no place to host a
+lock authority. [ADR 0030](0030-postgres-store-backend-shared-store-bridge.md)
+adds a Postgres backend whose transactions are exactly that authority, so the
+posture becomes backend-scoped: it holds in full for the Norn backend, and the
+Postgres backend declares cross-writer atomicity (serializable transactions,
+locked sequence allocation) instead of declining it. The 1.0 client/host
+topology still supersedes this ADR formally when the host becomes the only
+writer.

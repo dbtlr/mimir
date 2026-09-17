@@ -47,6 +47,8 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0026](0026-work-state-composition.md)                            | Work-state composition — views composed at read time               |
 | [0027](0027-scratchpads-are-temporary-episode-state.md)           | Scratchpads are temporary episode state                            |
 | [0028](0028-scratchpads-use-a-work-noun-group.md)                 | Scratchpads use a work-plane noun group                            |
+| [0029](0029-caller-zoned-date-semantics.md)                       | Date queries use caller timezone context                           |
+| [0030](0030-postgres-store-backend-shared-store-bridge.md)        | A Postgres store backend, per install, bridges to multi-machine work |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model

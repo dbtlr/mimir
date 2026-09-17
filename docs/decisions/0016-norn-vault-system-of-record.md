@@ -474,3 +474,15 @@ recorded here so this ADR stops pointing at stale risk:
   allowed values) instead of retiring it — the living reference Mimir's
   writer/reader and ADR 0017's validator are built from, not a historical
   artifact.
+
+## Refinement (2026-09-16, MMR-354): the backend fence returns; markdown-as-truth is the Norn backend's property
+
+[ADR 0030](0030-postgres-store-backend-shared-store-bridge.md) adds a second
+`Store` backend on Postgres, selected per install by `[store] backend`. The
+Norn-managed vault stays the default and the only local backend. What this ADR
+calls "the system of record" is now a property of the Norn backend rather than
+of Mimir: an install on Postgres has no markdown vault behind it. The seam this
+ADR's Phase 0 introduced, kept by the 2026-07-15 refinement as the compute
+core's store-agnostic port, is again the port for two live backends, and the
+conformance suite is again the A/B oracle. Migration between backends is an
+export/import pair on that seam.
