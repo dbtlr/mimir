@@ -71,6 +71,7 @@ async function annotationsByStem(
   const rows = await ex
     .selectFrom('annotation')
     .select(['node_id', 'content', 'created_at'])
+    .where('node_id', 'in', [...stems])
     // Insert order, NOT timestamp order (MMR-380). A node's `## Annotations`
     // order is the stored fact, the same reasoning `canonicalTransitionOrder`
     // spells out: an imported node whose notes are not timestamp-monotonic

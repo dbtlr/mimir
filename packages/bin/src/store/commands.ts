@@ -18,7 +18,7 @@
  * verbs take the same lazy `getStore` every data verb takes, so a usage error
  * is refused before any store opens.
  */
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, statSync, writeFileSync } from 'node:fs';
 
 import { usage } from '../cli/errors';
 import type { ImportMode, ImportReport, StoreExport } from '../core/export';
@@ -120,6 +120,23 @@ function refuseImportFlags(sub: string, flags: StoreFlags): void {
   }
 }
 
+/** The `code` of a Node filesystem error, or undefined for anything else. */
+function errnoCode(error: unknown): string | undefined {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code: unknown = error.code;
+    return typeof code === 'string' ? code : undefined;
+  }
+  return undefined;
+}
+
+/** The refusal for an export path that is already taken. */
+function alreadyExists(file: string): Error {
+  return usage(
+    `store export: ${file} already exists`,
+    'export refuses to overwrite a backup — remove or rename the file, or name another path',
+  );
+}
+
 /** The single file positional a transfer verb takes, refused before any store opens. */
 function requireFile(positionals: string[], verb: string, stream: string): string {
   const file = positionals[2];
@@ -195,10 +212,7 @@ async function cmdStoreExport(
   getStore: () => Store | Promise<Store>,
 ): Promise<number> {
   if (file !== STREAM && existsSync(file)) {
-    throw usage(
-      `store export: ${file} already exists`,
-      'export refuses to overwrite a backup — remove or rename the file, or name another path',
-    );
+    throw alreadyExists(file);
   }
   const store = await getStore();
   const document = await store.export();
@@ -216,7 +230,17 @@ async function cmdStoreExport(
     return 0;
   }
 
-  await Bun.write(file, text);
+  // Exclusive create (`wx`), not the check above alone: the check refuses
+  // before the export is read, but a file created between the check and the
+  // write would still be overwritten. The flag makes the refusal atomic.
+  try {
+    writeFileSync(file, text, { flag: 'wx' });
+  } catch (error) {
+    if (errnoCode(error) === 'EEXIST') {
+      throw alreadyExists(file);
+    }
+    throw error;
+  }
   const counts = {
     artifacts: document.artifacts.length,
     nodes: document.nodes.length,

@@ -30,12 +30,12 @@ test('a chunk stays under the statement bind-parameter ceiling at every row widt
 });
 
 test('an import round-trips a collection wider than one statement', async () => {
-  // Deliberately past the node chunk: a node row is ~26 columns, so a chunk
-  // holds ~1200 rows and this collection takes more than one statement. A
-  // document that fits in one chunk would pass whether the import chunked or
-  // not, and the failure this pins — a 65535-parameter statement — only appears
-  // past the boundary.
-  const count = rowsPerStatement(26) + 10;
+  // Deliberately past PostgreSQL's own ceiling, not merely past our chunk: a
+  // node row is 27 columns, so 3000 rows are ~81000 bind parameters — over the
+  // 65535 one statement may carry. A count that only crossed the chunk
+  // boundary (~1200 rows) would still fit an unchunked statement and pass
+  // whether the import chunked or not; this one cannot.
+  const count = 3000;
   const store_ = await createPgliteTestStore();
   try {
     await store_.store.import(wideDocument(count), { dryRun: false, mode: 'fresh' });

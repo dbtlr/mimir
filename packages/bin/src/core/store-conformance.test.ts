@@ -476,32 +476,40 @@ function crossBackendCase(source: Backend, target: Backend): void {
     `${source.name} → ${target.name}: the import re-exports the source's document, and a resume of it is a no-op`,
     async () => {
       const from = await source.make();
-      const to = await target.make();
       try {
-        await seedWorkingSet(from.store);
-        const document = await from.store.export();
+        // Each instance has its own cleanup path: a failing `make` of the
+        // target must still close the source, and a failing close of one must
+        // not skip the other.
+        const to = await target.make();
+        try {
+          await seedWorkingSet(from.store);
+          const document = await from.store.export();
 
-        await to.store.import(document, { dryRun: false, mode: 'fresh' });
-        const reexported = await to.store.export();
-        expect(withoutStamp(reexported)).toEqual(withoutStamp(document));
-        // Equal as values AND as bytes: each backend builds its records its own
-        // way, so the two documents carry their keys in different orders, and
-        // the file writer's `canonicalJson` is what makes a `diff` of two
-        // backups of the same board read as no change at all.
-        expect(canonicalJson(withoutStamp(reexported))).toBe(canonicalJson(withoutStamp(document)));
+          await to.store.import(document, { dryRun: false, mode: 'fresh' });
+          const reexported = await to.store.export();
+          expect(withoutStamp(reexported)).toEqual(withoutStamp(document));
+          // Equal as values AND as bytes: each backend builds its records its own
+          // way, so the two documents carry their keys in different orders, and
+          // the file writer's `canonicalJson` is what makes a `diff` of two
+          // backups of the same board read as no change at all.
+          expect(canonicalJson(withoutStamp(reexported))).toBe(
+            canonicalJson(withoutStamp(document)),
+          );
 
-        // The document the target now holds IS the one imported, so a resume
-        // finds every record present and identical — nothing to refuse.
-        const resumed = await to.store.import(document, { dryRun: false, mode: 'resume' });
-        expect(resumed).toEqual({
-          applied: true,
-          created: 0,
-          mode: 'resume',
-          skipped: resumed.skipped,
-        });
-        expect(resumed.skipped).toBeGreaterThan(0);
+          // The document the target now holds IS the one imported, so a resume
+          // finds every record present and identical — nothing to refuse.
+          const resumed = await to.store.import(document, { dryRun: false, mode: 'resume' });
+          expect(resumed).toEqual({
+            applied: true,
+            created: 0,
+            mode: 'resume',
+            skipped: resumed.skipped,
+          });
+          expect(resumed.skipped).toBeGreaterThan(0);
+        } finally {
+          await to.close();
+        }
       } finally {
-        await to.close();
         await from.close();
       }
     },
