@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import type { NornClient, NornFindArgs } from '../../core/store-norn/client';
+import type { NornClient, NornDocument, NornFindArgs } from '../../core/store-norn/client';
 import {
   doctorContextFromSnapshot,
   doctorPhysicalPathsByStem,
@@ -8,6 +8,11 @@ import {
 } from './snapshot';
 
 test('reads distinct work-state, artifact, and Scratchpad slices (MMR-241, MMR-282, MMR-329)', async () => {
+  const documents: NornDocument[] = [];
+  const remember = (docs: NornDocument[]) => {
+    documents.push(...docs);
+    return Promise.resolve(docs.map(({ path, frontmatter }) => ({ frontmatter, path })));
+  };
   let findCalls = 0;
   let validateCalls = 0;
   const findArgs: NornFindArgs[] = [];
@@ -19,7 +24,7 @@ test('reads distinct work-state, artifact, and Scratchpad slices (MMR-241, MMR-2
       // The artifact scan is a distinct, doctor-only find keyed on `type:artifact`;
       // the work-state enumeration is everything else.
       if (args.in?.includes('type:artifact')) {
-        return Promise.resolve([
+        return remember([
           {
             frontmatter: { project: '[[MMR]]', type: 'artifact' },
             path: 'MMR/artifacts/MMR-a1.md',
@@ -27,7 +32,7 @@ test('reads distinct work-state, artifact, and Scratchpad slices (MMR-241, MMR-2
         ]);
       }
       if (args.in?.includes('type:scratch')) {
-        return Promise.resolve([
+        return remember([
           {
             body: '## Journal\n\n## Agenda\n',
             document_hash: 'scratch-hash',
@@ -36,7 +41,7 @@ test('reads distinct work-state, artifact, and Scratchpad slices (MMR-241, MMR-2
           },
         ]);
       }
-      return Promise.resolve([
+      return remember([
         {
           body: '## History\n',
           document_hash: 'project-hash',
@@ -58,6 +63,7 @@ test('reads distinct work-state, artifact, and Scratchpad slices (MMR-241, MMR-2
         },
       ]);
     },
+    get: (paths: string[]) => Promise.resolve(documents.filter((doc) => paths.includes(doc.path))),
     sectionFailures: (paths: string[], sections: string[]) => {
       sectionCalls.push({ paths, sections });
       return Promise.resolve(sections[0] === 'Annotations' ? ['MMR/MMR-1.md'] : []);
@@ -78,12 +84,12 @@ test('reads distinct work-state, artifact, and Scratchpad slices (MMR-241, MMR-2
   expect(findCalls).toBe(3);
   expect(validateCalls).toBe(1);
   expect(findArgs).toContainEqual({
-    col: ['.frontmatter', '.body', '.document_hash'],
+    col: ['.frontmatter'],
     in: ['type:project,task,phase,initiative,seed'],
     no_limit: true,
   });
   expect(findArgs).toContainEqual({
-    col: ['.frontmatter', '.body', '.document_hash'],
+    col: ['.frontmatter'],
     in: ['type:scratch'],
     no_limit: true,
   });

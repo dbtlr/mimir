@@ -1,14 +1,15 @@
 /**
  * One reusable whole-vault diagnostic snapshot (MMR-241). Doctor used to run
  * three near-identical `vault.find` scans to obtain bodies, graph inputs, and
- * section-failure paths. This seam enumerates work-state documents once, opts in
- * the body + full-content hash that deterministic repair planning needs, and
- * derives every document-based diagnostic input from that one post-refresh view.
+ * section-failure paths. This seam enumerates metadata, then reads documents in
+ * bounded chunks. Each document's body, frontmatter, and repair hash come from
+ * the same read; the snapshot is not a transaction across the whole vault.
  */
 import { parseIdentity } from '../../core/ids';
 import type { VaultGraph, VaultGraphSource } from '../../core/store-norn';
 import { vaultGraphFromDocs } from '../../core/store-norn';
 import { readSectionFailuresFromDocuments } from '../../core/store-norn/body-sections';
+import { readDocuments } from '../../core/store-norn/chunking';
 import type { NornClient, NornDocument } from '../../core/store-norn/client';
 import type { ValidateFinding } from '../../core/store-norn/decode';
 import { collapse, decodeValidateFindings, stemOf } from '../../core/store-norn/decode';
@@ -211,8 +212,8 @@ function artifactSlice(doc: NornDocument): {
  * independently orchestrated by each doctor transport.
  */
 export async function readDoctorSnapshot(client: NornClient): Promise<DoctorSnapshot> {
-  const found = await client.find({
-    col: ['.frontmatter', '.body', '.document_hash'],
+  const workStateDocs = await client.find({
+    col: ['.frontmatter'],
     in: [WORK_STATE_TYPES],
     no_limit: true,
   });
@@ -228,17 +229,19 @@ export async function readDoctorSnapshot(client: NornClient): Promise<DoctorSnap
     no_limit: true,
   });
   const scratchpadDocs = await client.find({
-    col: ['.frontmatter', '.body', '.document_hash'],
+    col: ['.frontmatter'],
     in: [SCRATCHPAD_TYPE],
     no_limit: true,
   });
+  const found = await readDocuments(client, workStateDocs);
+  const scratchpads = await readDocuments(client, scratchpadDocs);
   const sectionFailures = await readSectionFailuresFromDocuments(client, found);
   const validateFindings = decodeValidateFindings(await client.validate());
   return {
     artifacts: artifactDocs.map(artifactSlice),
     documents: found.map(snapshotDocument),
     graph: vaultGraphFromDocs(found, { withSeeds: true }),
-    scratchpads: scratchpadDocs.map(snapshotDocument),
+    scratchpads: scratchpads.map(snapshotDocument),
     sectionFailures,
     validateFindings,
   };
