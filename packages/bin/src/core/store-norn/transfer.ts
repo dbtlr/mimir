@@ -19,6 +19,7 @@ import { parseId, renderArtifactRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
 import type { NewAnnotationRecord, NewTransitionRecord, NodeTag } from '../store';
 import { now } from '../time';
+import { assertSingleValuedIdentities } from '../transfer-validate';
 import { nodeFrontmatter, projectFrontmatter } from '../vault-frontmatter';
 import { artifactDocument, exportArtifacts } from './artifacts';
 import { createNornBodySectionStore } from './body-sections';
@@ -508,51 +509,6 @@ async function existingProjectKeys(client: NornClient): Promise<Set<string>> {
     }
   }
   return occupied;
-}
-
-/**
- * Refuse a transfer document whose collections claim one identity twice, BEFORE
- * anything is written (the fence a fresh import already sets for projects,
- * widened to every identity kind).
- *
- * An identity is a canonical path, so two records claiming it are two documents
- * competing for one file: the import would write one and then refuse on the
- * other, leaving the target half-written for a fault that was visible in the
- * document all along. A fail-closed export cannot PRODUCE such a document — it
- * refuses on the source collision first — but an import reads whatever it is
- * handed, including a hand-edited or foreign-backend document.
- */
-function assertSingleValuedIdentities(document: StoreExport): void {
-  const seen = new Set<string>();
-  const duplicates: string[] = [];
-  const claim = (identity: string): void => {
-    if (seen.has(identity)) {
-      duplicates.push(identity);
-      return;
-    }
-    seen.add(identity);
-  };
-  for (const project of document.projects) {
-    claim(`project ${project.key}`);
-  }
-  for (const node of document.nodes) {
-    claim(`node ${node.id}`);
-  }
-  for (const artifact of document.artifacts) {
-    claim(`artifact ${renderArtifactRef(artifact)}`);
-  }
-  for (const seed of document.seeds) {
-    claim(`seed ${renderSeedRef(seed)}`);
-  }
-  for (const pad of document.scratchpads) {
-    claim(`scratchpad ${pad.id}`);
-  }
-  if (duplicates.length > 0) {
-    throw validation(
-      `the transfer document claims one identity twice: ${namedSample(duplicates)}`,
-      'every identity is a canonical path, so two records claiming one would half-write the target — repair the document before importing it',
-    );
-  }
 }
 
 /** The physical work-state types the export must carry — every document kind

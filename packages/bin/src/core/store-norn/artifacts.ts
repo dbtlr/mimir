@@ -5,6 +5,7 @@ import type {
   ArtifactRecord,
   ArtifactStore,
 } from '../artifacts/store';
+import { stripTrailingNewline } from '../content';
 import { withinWindow } from '../dates';
 import { degradedUpdatedAt, invariant, validation } from '../errors';
 import type { ExportedArtifact } from '../export';
@@ -333,20 +334,6 @@ export async function restoreArtifact(
     throw validation('the artifact restore did not complete', message);
   }
   throw validation('the artifact restore collided with a different artifact', path);
-}
-
-/**
- * Norn writes markdown with a trailing newline (POSIX convention): a body
- * lacking one gets one appended at write time, while a body already ending in
- * `\n` is written as-is. Either way the file ends in exactly one trailing
- * `\n`, so stripping one on read round-trips a no-trailing-newline body
- * exactly (a trailing-newline body deliberately loses that one newline — the
- * sole content delta, benign for frozen markdown). Applying this SAME strip
- * directly to the input body (rather than the file `create` just wrote)
- * yields the identical result without a read-back (MMR-283).
- */
-function stripTrailingNewline(body: string): string {
-  return body.endsWith('\n') ? body.slice(0, -1) : body;
 }
 
 /** Parse `KEY-aN` out of a vault path; null for non-artifact paths. */
