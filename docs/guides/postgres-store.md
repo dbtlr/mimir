@@ -161,9 +161,10 @@ A failed import into a Postgres target leaves nothing behind: the whole import
 is one transaction, so a failure rolls it back and the retry is the same command
 again.
 
-`--resume` is for a vault target, whose failure contract is partial success: a
-failed import there leaves some documents written and the rest not, and the
-resume finishes it.
+`--resume` exists for a vault target, whose failure contract is partial
+success: a failed import there leaves some documents written and the rest not,
+and the resume finishes it. It works on a Postgres target too, where it skips
+a document already imported in full.
 
 ```sh
 mimir store import vault.json --apply --resume

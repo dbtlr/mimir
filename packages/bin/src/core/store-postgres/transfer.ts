@@ -252,9 +252,8 @@ function groupBy<T>(rows: readonly T[], keyOf: (row: T) => string): Map<string, 
  * Every entity's tag set, indexed once per document (MMR-380).
  *
  * Indexed rather than filtered per entity: the naive scan is one pass over the
- * whole tag collection per node AND per project, which on a real board (8000
- * nodes, 40000 tags) is the import's dominant cost — 2.7s against 187ms for the
- * same board with no tags.
+ * whole tag collection per node AND per project — quadratic in a board's size,
+ * and the import's dominant cost once the round trips are batched away.
  */
 type TagIndex = ReadonlyMap<string, string[]>;
 
