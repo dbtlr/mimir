@@ -328,7 +328,9 @@ export type Store = {
    * identities for every per-project sequence kind (node, artifact, seed — ADR
    * 0006): the next create never yields an identity present in the import.
    *
-   * Failure semantics are the backend's own. See {@link ImportMode} for what
+   * Input is untrusted. Shared validation checks shapes, vocabularies, identities,
+   * and document-local references before either backend accesses the target.
+   * Failure semantics after validation are the backend's own. See {@link ImportMode} for what
    * `fresh` refuses and how `resume` re-runs a partial import.
    *
    * `opts.dryRun` previews instead of writing (MMR-380): every DECISION an
@@ -346,7 +348,7 @@ export type Store = {
    * apply costs and leaves the internal numbering moved on. Nothing a `Store`
    * read can see is changed by it.
    */
-  import: (document: StoreExport, opts: ImportOptions) => Promise<ImportReport>;
+  import: (document: unknown, opts: ImportOptions) => Promise<ImportReport>;
 
   /**
    * The artifact slice (MMR-143, ADR 0016 Phase 2a) — everything artifact-shaped

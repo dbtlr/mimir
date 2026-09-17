@@ -6,16 +6,8 @@ import type { Node } from '../model';
 import { insertBatched, rowsPerStatement } from './batch';
 import { createPgliteTestStore } from './testing';
 
-/**
- * The Postgres-only half of the export/import contract (MMR-380) — the batched
- * write, the deferred constraints a preview has to fire by hand, and the two
- * document shapes only a relational target can get wrong. The behavior itself is
- * pinned by the backend-neutral conformance suite
- * (`core/store-conformance.test.ts`); what cannot live there is what belongs to
- * this backend alone — the CHUNKING against one backend's bind-parameter
- * ceiling (the shared fixture is far too small to cross it), and a constraint
- * only a relational schema has.
- */
+/** Postgres batching and representation tests. Shared import validation is covered
+ * by core/store-conformance.transfer.test.ts on both backends. */
 
 // A whole PGlite store plus a four-figure node collection.
 setDefaultTimeout(60_000);
@@ -87,7 +79,7 @@ function task(seq: number, overrides: Partial<Node> = {}): Node {
     description: null,
     external_ref: null,
     harness: null,
-    hold: null,
+    hold: 'none',
     hold_reason: null,
     host: null,
     id: `MMR-${String(seq)}`,
@@ -138,27 +130,6 @@ function document(overrides: Partial<StoreExport> = {}): StoreExport {
     ...overrides,
   };
 }
-
-test('a preview refuses a dangling parent, with the error the apply raises', async () => {
-  // `node.parent_id` is DEFERRABLE INITIALLY DEFERRED, so the check runs at
-  // COMMIT — which a preview, ended by a rollback, never reaches. Without the
-  // preview firing the deferred checks itself, this document previews clean and
-  // then dies on the apply the operator ran because the preview was clean.
-  const orphan = document({ nodes: [task(1, { parent_id: 'MMR-777' })] });
-  const store_ = await createPgliteTestStore();
-  try {
-    const previewed = await errorText(store_.store.import(orphan, { dryRun: true, mode: 'fresh' }));
-    expect(previewed).toContain('parent_id');
-    // Nothing written: the preview is still a rolled-back transaction.
-    expect((await store_.store.export()).nodes).toEqual([]);
-    expect((await store_.store.export()).projects).toEqual([]);
-
-    const applied = await errorText(store_.store.import(orphan, { dryRun: false, mode: 'fresh' }));
-    expect(previewed).toBe(applied);
-  } finally {
-    await store_.close();
-  }
-});
 
 test("an import keeps a node's annotation order, timestamps notwithstanding", async () => {
   // Document order per node is the stored fact, the same reasoning
@@ -231,7 +202,7 @@ function wideDocument(count: number): StoreExport {
       description: null,
       external_ref: null,
       harness: null,
-      hold: null,
+      hold: 'none',
       hold_reason: null,
       host: null,
       id: `WIDE-${String(seq)}`,

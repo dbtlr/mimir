@@ -22,7 +22,7 @@ import { renderArtifactRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
 import type { NewAnnotationRecord, NewTransitionRecord } from '../store';
 import { now } from '../time';
-import { assertSingleValuedIdentities } from '../transfer-validate';
+import { parseTransferDocument } from '../transfer-validate';
 import { exportArtifacts, insertExportedArtifacts } from './artifacts';
 import { insertBatched, pairKey } from './batch';
 import { createPostgresBodySectionStore } from './body-sections';
@@ -70,13 +70,10 @@ import { loadWorkingSet } from './working-set';
  * **A preview runs the whole import and rolls it back** (`dryRun`, MMR-380).
  * Every check an apply makes is a check this backend makes IN the transaction —
  * the fence, the per-record settle, and the constraints themselves — so the
- * preview cannot be a cheaper simulation without being a second implementation
- * that drifts. It is the same transaction, ended by {@link PreviewRollbackError}
- * instead of a commit. A deferred constraint would escape that: `node.parent_id`
- * is `DEFERRABLE INITIALLY DEFERRED`, so a dangling parent is caught at COMMIT,
- * which a preview never reaches — it would preview clean and fail on apply. The
- * preview therefore runs `SET CONSTRAINTS ALL IMMEDIATE` before it rolls back,
- * which fires every deferred check right there, with the apply's own error.
+ * preview cannot use a second implementation. Shared validation rejects faults
+ * in the supplied document before this transaction. The preview still forces
+ * deferred database constraints before rollback, so target-state failures are
+ * checked without relying on a COMMIT it never reaches.
  */
 
 /** Every body-section facet the export reads, in one batched pass. */
@@ -380,25 +377,17 @@ class PreviewRollbackError extends Error {
 
 export async function importPostgresStore(
   db: Kysely<DB>,
-  document: StoreExport,
+  input: unknown,
   opts: ImportOptions,
 ): Promise<ImportReport> {
-  if (document.schema_version !== STORE_EXPORT_SCHEMA_VERSION) {
-    throw validation(
-      `unsupported transfer document schema version ${String(document.schema_version)}`,
-      `this binary reads schema version ${String(STORE_EXPORT_SCHEMA_VERSION)}`,
-    );
-  }
-  assertSingleValuedIdentities(document);
+  const document = parseTransferDocument(input);
   const incoming = bundlesOf(document);
 
   try {
     return await serializable(db, async (tx) => {
       const report = await applyImport(tx, document, opts, incoming);
       if (!report.applied) {
-        // The deferred checks (`node.parent_id`) fire here rather than at the
-        // COMMIT this preview never reaches — otherwise a document with a
-        // dangling parent previews clean and dies on apply.
+        // Force target-state constraints before the rollback that replaces COMMIT.
         await sql`set constraints all immediate`.execute(tx);
         throw new PreviewRollbackError(report);
       }

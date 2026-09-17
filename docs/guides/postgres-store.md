@@ -121,6 +121,12 @@ mimir store import vault.json
 mimir store import vault.json --apply
 ```
 
+Both backends validate the complete transfer document before accessing the target.
+Malformed records, unsupported enum values, inconsistent identities, missing
+references, and cyclic parents or dependencies produce a validation error naming the offending fields or records.
+Repair the document before retrying. Preview, apply, and resume use the same rules.
+For resume, supply the original complete document, including records already imported.
+
 The first import is a preview: it runs every decision the write would make —
 the version check, the identity checks, the project fence, and the per-record
 skip-or-refuse — and reports what it would create, but writes nothing. On a
