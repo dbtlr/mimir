@@ -244,19 +244,68 @@ for (const backend of backends) {
     const { initiative } = await base(store);
     // The write-side probe reads the TRANSACTION's state, not the committed
     // store: `applyNextSection` takes it before every re-authoring, so a second
-    // re-authoring inside one transact must see the first one's prose.
+    // re-authoring inside one transact must see the first one's prose. The two
+    // writes then coalesce into the one section the document ends up carrying.
     const seen = await store.transact(async (w) => {
       const before = await w.readNextSection('node', initiative.id);
-      await w.setNextSection('node', initiative.id, { present: before.present, text: 'first' });
+      await w.setNextSection('node', initiative.id, { text: 'first' });
       const after = await w.readNextSection('node', initiative.id);
+      await w.setNextSection('node', initiative.id, { text: 'second' });
+      const last = await w.readNextSection('node', initiative.id);
       await w.updateNode(initiative.id, { updated_at: now() });
-      return { after, before };
+      return { after, before, last };
     });
     expect(seen.before).toMatchObject({ ambiguous: false, present: false, text: null });
     expect(seen.after).toMatchObject({ ambiguous: false, present: true, text: 'first' });
+    expect(seen.last).toMatchObject({ ambiguous: false, present: true, text: 'second' });
     expect(await store.bodySections.readNext(initiative.id)).toMatchObject({
       present: true,
-      text: 'first',
+      text: 'second',
+    });
+  });
+
+  it('a ## Next written then cleared in one transact leaves no section', async () => {
+    const store = await fresh();
+    const { initiative } = await base(store);
+    await updateNode(store, initiative.id, { next: 'land the export' });
+    // Both queued writes reduce to ONE op against the document as the transact
+    // found it: it HAD the heading, so the clear deletes it — the intermediate
+    // write is not a state the document ever reaches.
+    const seen = await store.transact(async (w) => {
+      const before = await w.readNextSection('node', initiative.id);
+      await w.setNextSection('node', initiative.id, { text: 'redraft' });
+      const after = await w.readNextSection('node', initiative.id);
+      await w.setNextSection('node', initiative.id, { text: null });
+      await w.updateNode(initiative.id, { updated_at: now() });
+      return { after, before };
+    });
+    expect(seen.before).toMatchObject({ present: true, text: 'land the export' });
+    expect(seen.after).toMatchObject({ present: true, text: 'redraft' });
+    expect(await store.bodySections.readNext(initiative.id)).toMatchObject({
+      present: false,
+      text: null,
+    });
+  });
+
+  it('a ## Next written then cleared leaves a section-less document untouched', async () => {
+    const store = await fresh();
+    const { phase } = await base(store);
+    // The mirror of the case above: the document had NO heading, so the pair of
+    // writes reduces to no op at all — not a delete against a heading that was
+    // never there.
+    const seen = await store.transact(async (w) => {
+      const before = await w.readNextSection('node', phase.id);
+      await w.setNextSection('node', phase.id, { text: 'redraft' });
+      const after = await w.readNextSection('node', phase.id);
+      await w.setNextSection('node', phase.id, { text: null });
+      await w.updateNode(phase.id, { updated_at: now() });
+      return { after, before };
+    });
+    expect(seen.before).toMatchObject({ present: false, text: null });
+    expect(seen.after).toMatchObject({ present: true, text: 'redraft' });
+    expect(await store.bodySections.readNext(phase.id)).toMatchObject({
+      present: false,
+      text: null,
     });
   });
 
@@ -264,7 +313,7 @@ for (const backend of backends) {
     const store = await fresh();
     await base(store);
     const error = await errorOf(
-      store.transact((w) => w.setNextSection('node', 'MMR-99', { present: false, text: 'x' })),
+      store.transact((w) => w.setNextSection('node', 'MMR-99', { text: 'x' })),
     );
     expect(error.code).toBe('invariant');
     expect(error.message).toContain('## Next');

@@ -226,7 +226,7 @@ export async function seedWorkingSet(store: Store): Promise<void> {
   // requires. Presence is a stored fact of its own: an export carrying only the
   // prose would drop the heading, and the round trip would be visible (MMR-378).
   await store.transact(async (w) => {
-    await w.setNextSection('node', phase.id, { present: false, text: '' });
+    await w.setNextSection('node', phase.id, { text: '' });
     await w.updateNode(phase.id, { updated_at: '2026-09-02T12:00:00.000Z' });
   });
 

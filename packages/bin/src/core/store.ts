@@ -139,15 +139,18 @@ export type NodePatch = {
 /**
  * The `## Next` section write (MMR-321, ADR 0026 Decision 2) — replace-not-
  * append: `text` is the whole re-authored narrative, and `null` clears the
- * section (the heading is removed, not emptied). `present` is what the verb read
- * on the target document a moment earlier; the write path needs it to pick
- * between inserting the section, replacing its body, and deleting it, and it
- * cannot be inferred from `text` (a hand-emptied section is present but reads
- * as null).
+ * section (the heading is removed, not emptied).
+ *
+ * The write carries prose only. Whether the target document currently HAS the
+ * heading — which a markdown backend needs to pick between inserting, replacing,
+ * and deleting it — is the backend's to derive against the state its transaction
+ * began from, never the caller's to assert: a verb that re-authors the section
+ * twice in one transact reads its own first write the second time, so a caller-
+ * supplied presence would describe the transaction rather than the document
+ * (MMR-379).
  */
 export type NextSectionWrite = {
   text: string | null;
-  present: boolean;
 };
 
 export type NewAnnotationRecord = {

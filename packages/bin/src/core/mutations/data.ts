@@ -129,7 +129,7 @@ async function applyNextSection(
       "the document was hand-edited — run 'mimir doctor' to find the duplicate heading and repair it",
     );
   }
-  await w.setNextSection(entityType, id, { present: current.present, text });
+  await w.setNextSection(entityType, id, { text });
   return true;
 }
 

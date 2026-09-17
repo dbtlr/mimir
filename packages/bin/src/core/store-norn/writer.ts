@@ -96,6 +96,21 @@ type HistoryAppend = HistoryEntry;
 /** A queued append under a node's `## Annotations` section. */
 type AnnotationAppend = AnnotationView;
 
+/**
+ * A queued `## Next` re-authoring, carried with the presence the DOCUMENT had
+ * when this transact began (MMR-379). Emit-time op selection reads
+ * `documentPresent`, never a caller's assertion: after one queued write the
+ * caller's probe reports the TRANSACTION's section, so trusting it would emit a
+ * `replace_section` against a document that still has no `## Next` heading —
+ * which norn refuses. Captured once, at the first queued write, and reused by
+ * every later write in the same transact so any number of them coalesce into the
+ * one correct op.
+ */
+type QueuedNextWrite = {
+  text: string | null;
+  documentPresent: boolean;
+};
+
 /** Accumulated mutation of one EXISTING (snapshot) document. */
 type Mutation = {
   /** Frontmatter field names whose overlay value must be reconciled to disk. */
@@ -106,7 +121,7 @@ type Mutation = {
   /** The queued whole-section `## Next` re-authoring (MMR-321), when a verb set
    * one. At most one per document: replace semantics means the last write wins,
    * and there is no append grain to accumulate. */
-  next?: NextSectionWrite;
+  next?: QueuedNextWrite;
 };
 
 /** A queued create of one NEW document, private to the writer. */
@@ -627,13 +642,6 @@ class Accumulator {
   }
 
   /**
-   * Queue the whole-section `## Next` re-authoring (MMR-321). Node- and
-   * project-addressable alike — the direction narrative is a container-level
-   * surface, and a project doc carries it exactly as an initiative or phase
-   * does. A target absent from the snapshot fails loud rather than silently
-   * dropping the prose, as the History/Annotations queues do.
-   */
-  /**
    * The `## Next` write-side probe INSIDE this transact (MMR-379). The durable
    * answer is the document's, read exactly as {@link BodySectionStore.readNext}
    * reads it — the queued ops have not been applied, so the vault still holds
@@ -662,18 +670,34 @@ class Accumulator {
     return this.readNext(entityId);
   }
 
-  private setNextSection(
+  /**
+   * Queue the whole-section `## Next` re-authoring (MMR-321). Node- and
+   * project-addressable alike — the direction narrative is a container-level
+   * surface, and a project doc carries it exactly as an initiative or phase
+   * does. A target absent from the snapshot fails loud rather than silently
+   * dropping the prose, as the History/Annotations queues do.
+   *
+   * Presence is DERIVED from the document, matching the Postgres backend's
+   * `setNextSection`: there the section IS a column pair, so a null text is
+   * simply absence; here the heading is real, so which op the write reduces to
+   * depends on whether the document carried one before this transact. The queued
+   * ops are not applied until the transact commits, so `readNext` still reports
+   * that pre-transact document. See {@link QueuedNextWrite}.
+   */
+  private async setNextSection(
     entityType: 'node' | 'project',
     entityId: string,
     write: NextSectionWrite,
   ): Promise<void> {
     const known = entityType === 'node' ? this.nodes.has(entityId) : this.projects.has(entityId);
     if (!known || !this.snapshot.pathByStem.has(entityId)) {
-      return Promise.reject(invariant('a ## Next write targets a record absent from the snapshot'));
+      throw invariant('a ## Next write targets a record absent from the snapshot');
     }
     const mutations = entityType === 'node' ? this.nodeMutations : this.projectMutations;
-    this.mutationOf(mutations, entityId).next = write;
-    return Promise.resolve();
+    const mutation = this.mutationOf(mutations, entityId);
+    const documentPresent =
+      mutation.next?.documentPresent ?? (await this.readNext(entityId)).present;
+    mutation.next = { documentPresent, text: write.text };
   }
 
   // ── Plan build (coalesce every effect into one op-set per document) ──────
@@ -872,8 +896,9 @@ class Accumulator {
    * Emit the one op the `## Next` re-authoring reduces to (MMR-321) — replace
    * semantics, so exactly one of three shapes and never an append:
    *
-   * - prose onto a document that already has the heading → `replace_section`;
-   * - prose onto one that doesn't → `insert_before_heading` above `## History`,
+   * - prose onto a document that already had the heading when this transact
+   *   began → `replace_section`;
+   * - prose onto one that didn't → `insert_before_heading` above `## History`,
    *   which every work-state document carries, fixing the section's position
    *   without rewriting the body;
    * - a clear (`text: null`) → `delete_section`, so the heading goes with the
@@ -887,19 +912,19 @@ class Accumulator {
   private emitNext(
     operations: MigrationOp[],
     path: string,
-    write: NextSectionWrite | undefined,
+    write: QueuedNextWrite | undefined,
   ): void {
     if (write === undefined) {
       return;
     }
     if (write.text === null) {
-      if (write.present) {
+      if (write.documentPresent) {
         operations.push(deleteSection(path, NEXT_HEADING));
       }
       return;
     }
     operations.push(
-      write.present
+      write.documentPresent
         ? replaceSection(path, NEXT_HEADING, renderNextSection(write.text))
         : insertBeforeHeading(path, HISTORY_HEADING, renderNextBlock(write.text)),
     );

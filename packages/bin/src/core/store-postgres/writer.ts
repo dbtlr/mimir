@@ -313,10 +313,10 @@ export function createPostgresWriter(tx: Transaction<DB>): StoreWriter {
     },
 
     async setNextSection(entityType, entityId, write) {
-      // Presence is DERIVED from the prose here, not trusted from the caller: a
-      // markdown backend needs it to pick between inserting, replacing, and
-      // deleting a heading, while here the heading IS the column pair — so a
-      // null text is simply absence, and any text is presence.
+      // Presence is DERIVED, never asserted by the caller (see
+      // {@link NextSectionWrite}): a markdown backend derives it from the
+      // document it started the transact against, while here the heading IS the
+      // column pair — so a null text is simply absence, and any text is presence.
       const values = { next_present: write.text !== null, next_text: write.text };
       const present =
         entityType === 'node' ? await nodeExists(entityId) : await projectExists(entityId);

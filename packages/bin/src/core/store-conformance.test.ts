@@ -167,9 +167,13 @@ for (const backend of backends) {
       expect(task.seq).toBeGreaterThan(mmr?.counters.node ?? 0);
       expect(artifact.seq).toBeGreaterThan(mmr?.counters.artifact ?? 0);
       expect(seed.seq).toBeGreaterThan(mmr?.counters.seed ?? 0);
-      // And nothing was lost to the collision the stored counter would have made.
-      expect(await observe(target.store)).not.toEqual(await observe(source.store));
-      expect((await target.store.loadWorkingSet()).nodes.length).toBe(document.nodes.length + 1);
+      // And nothing was lost to the collision the stored counter would have
+      // made: the new task took an identity no imported node holds, so every
+      // imported node is still addressable beside it.
+      const stems = new Set((await target.store.loadWorkingSet()).nodes.map((node) => node.id));
+      expect(document.nodes.filter((node) => !stems.has(node.id))).toEqual([]);
+      expect(stems.has(task.id)).toBe(true);
+      expect(stems.size).toBe(document.nodes.length + 1);
     },
   );
 
