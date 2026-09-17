@@ -239,6 +239,9 @@ machinery commands (the installation, host, or store — not the work itself):
   vault snapshot          commit the vault's working tree (commit-if-dirty),
                           then push + reconcile when an upstream is configured;
                           the cadence behind the scheduled snapshot unit
+  store upgrade           apply pending Postgres schema migrations (the one
+                          explicit schema move on a shared store); a norn
+                          install has nothing to upgrade
   skill install [--global|--local] [--agent claude|codex]
                           install the agent skill (default: --global, claude;
                           claude → .claude/skills, codex → .agents/skills)
@@ -1042,6 +1045,16 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     summary:
       "snapshot the vault's git working tree (commit-if-dirty), then push and reconcile a diverged upstream (fetch + merge). Quiet on success; the scheduled unit calls it on an interval",
     usage: 'mimir vault snapshot',
+  },
+  // ── shared-store schema (ADR 0030) ──
+  store: {
+    examples: [
+      'mimir store upgrade                  # create or advance the Postgres schema',
+      'mimir store upgrade --format json    # the upgrade report, machine-readable',
+    ],
+    summary:
+      'apply every pending Postgres schema migration, in order and under a lock, and report the version it moved from and to. The one explicit schema move on a shared store: no binary migrates implicitly, so run this once on one machine after every binary is new enough. A norn install converges its vault on open and has nothing to upgrade',
+    usage: 'mimir store upgrade',
   },
   // ── skill distribution (MMR-286) ──
   skill: {

@@ -18,6 +18,7 @@ import {
   updateProject,
 } from '../core/mutations';
 import type { Store } from '../core/store';
+import { createPgliteTestStore } from '../core/store-postgres/testing';
 import type { TestStore } from './store';
 import { createTestStore } from './store';
 
@@ -143,8 +144,22 @@ export async function nornInstance(): Promise<Instance> {
   };
 }
 
+/**
+ * The Postgres arm, on PGlite — real PostgreSQL in this process, so the arm
+ * never skips. It offers no document hooks: there is no physical substrate to
+ * hand-edit, and the corruption those hooks stage is unrepresentable behind a
+ * primary key and a foreign key.
+ */
+export async function postgresInstance(): Promise<Instance> {
+  const test_ = await createPgliteTestStore();
+  return { close: () => test_.close(), store: test_.store };
+}
+
 /** The backend table every conformance suite loops over. One row per backend. */
-export const backends: Backend[] = [{ make: nornInstance, name: 'norn', skip: !NORN }];
+export const backends: Backend[] = [
+  { make: nornInstance, name: 'norn', skip: !NORN },
+  { make: postgresInstance, name: 'postgres', skip: false },
+];
 
 // ── Fixture ────────────────────────────────────────────────────────────────
 

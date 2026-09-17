@@ -39,13 +39,22 @@ export function isSerializationFailure(error: unknown): boolean {
   return typeof code === 'string' && RETRYABLE.has(code);
 }
 
-/** Sleep for a jittered slice of this attempt's backoff window. */
+/**
+ * Sleep for a jittered slice of this attempt's backoff window.
+ *
+ * Half the window is fixed and half is random. Pure random jitter over the whole
+ * window draws a near-zero sleep often enough to matter: the loser of a contended
+ * row then retries straight back into the winner's next transaction, and a
+ * bounded budget can run out on a hot spot two writers would otherwise share
+ * comfortably. The fixed half guarantees the retry lands after the collision it
+ * lost to; the random half keeps two writers from colliding in lockstep.
+ */
 async function backoff(attempt: number, settings: BackoffSettings): Promise<void> {
   const window = Math.min(settings.baseMs * 2 ** attempt, settings.capMs);
   if (window <= 0) {
     return;
   }
-  await delay(Math.random() * window);
+  await delay(window / 2 + (Math.random() * window) / 2);
 }
 
 /**

@@ -45,6 +45,25 @@ test('a closure that never serializes exhausts its retries and fails as an invar
   expect(attempts).toBe(5);
 });
 
+test('a retry never lands sooner than half its backoff window', async () => {
+  // The floor is the point of the jitter split: a retry that can sleep ~0 ms
+  // lands straight back on the collision it just lost, and a bounded budget
+  // runs out on a hot spot two writers would otherwise share.
+  let attempts = 0;
+  const started = performance.now();
+  await withSerializableRetry(
+    () => {
+      attempts += 1;
+      if (attempts < 2) {
+        throw pgError('40001');
+      }
+      return Promise.resolve('landed');
+    },
+    { baseMs: 100, capMs: 100 },
+  );
+  expect(performance.now() - started).toBeGreaterThanOrEqual(50);
+});
+
 test('a non-serialization failure propagates unchanged on the first attempt', async () => {
   let attempts = 0;
   const failure = withSerializableRetry(() => {

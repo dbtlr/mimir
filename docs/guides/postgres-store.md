@@ -57,10 +57,12 @@ runs against a mismatched schema.
 - **No git snapshots.** `vault snapshot` and the snapshot launchd unit do not
   apply. The portable backup is the transfer document produced by the store
   export (MMR-380), which also moves a board between backends.
-- **Doctor checks the database.** `mimir doctor` reports connectivity, the
-  schema version against the binary, dangling parent and dependency references,
-  and a sequence counter that fell behind its rows. There is no repair pass;
-  those states are unreachable through the binary and point at a hand edit.
+- **Doctor checks the database.** `mimir doctor` reports the schema version
+  against the binary, a dangling parent or dependency reference, a sequence
+  counter that fell behind its rows, and an orphan artifact link or scratchpad
+  anchor. A store it cannot reach is not a finding: the command fails with a
+  nonzero exit instead. There is no repair pass; every state it reports is
+  unreachable through the binary and points at a hand edit.
 
 ## Moving an existing vault
 

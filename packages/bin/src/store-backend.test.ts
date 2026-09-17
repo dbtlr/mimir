@@ -3,9 +3,10 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { createThrowawaySchema, openPostgres, upgradeSchema } from './core/store-postgres/index';
 import { bunExec } from './exec';
 import { configPath } from './service/config';
-import { buildStore, POSTGRES_BACKEND_UNAVAILABLE } from './store-backend';
+import { buildStore } from './store-backend';
 import { converge } from './vault/converge';
 
 /**
@@ -62,20 +63,70 @@ test.skipIf(!NORN)('a CLI build wires the doctor repair capability', async () =>
   }
 });
 
-// The per-install backend fence (ADR 0030 Decision 1, MMR-378). `postgres` is
-// declared but unimplemented until MMR-379: it must refuse by name, never fall
-// back to the vault, so an operator who sets the fence early is not silently
-// left on the other store.
-test('buildStore refuses the postgres backend by name until MMR-379 lands', async () => {
+// The per-install backend fence (ADR 0030 Decision 1). A Postgres install needs
+// a connection URL: the fence alone names no database, and falling back to the
+// vault would silently open the wrong store.
+test('the postgres backend refuses without [store] url', async () => {
   let threw = false;
   try {
     await buildStore({}, { serve: {}, store: { backend: 'postgres' }, vault: {} });
   } catch (error) {
     threw = true;
-    expect((error as Error).message).toBe(POSTGRES_BACKEND_UNAVAILABLE);
+    const message = (error as Error).message;
+    expect(message).toContain('[store] url');
+    expect(message).toContain(configPath());
+    expect(message).toContain('docs/guides/postgres-store.md');
   }
   expect(threw).toBe(true);
 });
+
+/**
+ * The schema gate at the composition root (ADR 0030 Decision 5). Needs a real
+ * server, because the point is a database a previous run never touched: PGlite
+ * would be a fresh store either way, and the gate's whole job is to tell a
+ * fresh store from one an older binary already wrote.
+ */
+const POSTGRES_URL = process.env.MIMIR_TEST_POSTGRES_URL;
+
+test.skipIf(POSTGRES_URL === undefined)(
+  'a postgres build refuses an unmigrated store, then builds once store upgrade has run',
+  async () => {
+    const schema = await createThrowawaySchema(POSTGRES_URL ?? '');
+    const config = {
+      serve: {},
+      store: { backend: 'postgres' as const, url: schema.url },
+      vault: {},
+    };
+    try {
+      let refusal = '';
+      try {
+        await buildStore({}, config);
+      } catch (error) {
+        refusal = (error as Error).message;
+      }
+      expect(refusal).toContain('the Postgres store has no schema');
+
+      const handle = openPostgres(schema.url);
+      try {
+        await upgradeSchema(handle.db);
+      } finally {
+        await handle.close();
+      }
+
+      const built = await buildStore({}, config);
+      try {
+        expect((await built.store.loadWorkingSet()).nodes).toEqual([]);
+        // The backend supplies its own doctor facet, and it carries no repair.
+        expect((await built.doctor.diagnose(undefined)).findings).toEqual([]);
+        expect(built.doctor.repair).toBeUndefined();
+      } finally {
+        await built.close();
+      }
+    } finally {
+      await schema.drop();
+    }
+  },
+);
 
 test.skipIf(!NORN)('an absent or explicit norn fence both build the Norn backend', async () => {
   await converge(dir, { allowCreate: true, exec: bunExec });
@@ -94,14 +145,20 @@ test.skipIf(!NORN)('an absent or explicit norn fence both build the Norn backend
 test('an unusable [store] section is fatal, never a fallback to norn', async () => {
   // The fence selects which store gets WRITTEN: a typo in a Postgres install
   // must not converge and write a local vault instead.
-  for (const problem of ['invalid-backend', 'malformed'] as const) {
+  for (const [problem, remedy] of [
+    ['invalid-backend', 'set backend to one of: norn, postgres'],
+    ['malformed', 'set backend to one of: norn, postgres'],
+    // A bad url is a different fault and gets a different remedy: re-reading
+    // the list of backends does not fix a connection string.
+    ['invalid-url', 'set url to a Postgres connection URL'],
+  ] as const) {
     let threw = false;
     try {
       await buildStore({}, { serve: {}, store: { problem }, vault: {} });
     } catch (error) {
       threw = true;
       expect((error as Error).message).toContain(`[store] is unusable (${problem})`);
-      expect((error as Error).message).toContain('set backend to one of: norn, postgres');
+      expect((error as Error).message).toContain(remedy);
       expect((error as Error).message).toContain(configPath());
     }
     expect(threw).toBe(true);

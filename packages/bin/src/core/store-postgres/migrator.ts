@@ -33,16 +33,28 @@ const UPGRADE_LOCK = 379_231_001;
  * The schema version stored in the database, or `null` when the store carries
  * no schema at all.
  *
- * Absence is PROBED (`to_regclass`), never caught from a failed select. Inside a
- * transaction an undefined-table error aborts the whole scope, and the upgrade
- * reads the version inside the transaction that is about to create the table —
- * so a catch here would poison the very migration it guards.
+ * Absence is PROBED, never caught from a failed select. Inside a transaction an
+ * undefined-table error aborts the whole scope, and the upgrade reads the
+ * version inside the transaction that is about to create the table — so a catch
+ * here would poison the very migration it guards.
+ *
+ * The probe SCANS `pg_class` rather than calling `to_regclass`. `to_regclass` is
+ * a syscache lookup, and a negative lookup a connection already made can still
+ * be cached when a later transaction on that same connection asks again — which
+ * is precisely the losing side of a concurrent upgrade, where the table appeared
+ * between the two asks. Reading `pg_class` as a relation takes a lock on it, and
+ * that is what makes the backend accept the other connection's invalidation
+ * messages and answer from the current catalog.
  */
 export async function readSchemaVersion(db: Kysely<DB>): Promise<number | null> {
-  const probe = await sql<{
-    present: string | null;
-  }>`select to_regclass('schema_version')::text as present`.execute(db);
-  if ((probe.rows[0]?.present ?? null) === null) {
+  const probe = await sql<{ present: string }>`
+    select c.oid::text as present
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+     where c.relname = 'schema_version'
+       and n.nspname = any(current_schemas(false))
+  `.execute(db);
+  if (probe.rows.length === 0) {
     return null;
   }
   const row = await db

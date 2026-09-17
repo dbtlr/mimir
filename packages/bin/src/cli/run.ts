@@ -52,6 +52,8 @@ import { arrow, FORMATS, ok, warn } from '../presentation';
 import type { Format, Io } from '../presentation';
 import { cmdSelfUpdate, cmdService } from '../service';
 import type { ServiceDeps } from '../service';
+import { cmdStore } from '../store/commands';
+import type { StoreDeps } from '../store/commands';
 import { cmdVault } from '../vault/commands';
 import type { VaultDeps } from '../vault/commands';
 import { BINDING_FILE, writeBinding } from './binding';
@@ -523,6 +525,9 @@ export type Defaults = {
   service?: ServiceDeps;
   /** Real vault edges (git snapshot); absent where the vault is unavailable (tests). */
   vault?: VaultDeps;
+  /** Real store-machinery edges (the config + the Postgres pool); absent where
+   * the store is unavailable (tests). */
+  store?: StoreDeps;
   /** The store backend's doctor facet; absent where doctor is
    * unavailable (tests). */
   doctor?: DoctorBackend;
@@ -1063,6 +1068,13 @@ export async function runCli(
         }
         const format = pickFormat(values.format, 'report', ctx);
         return await cmdVault(positionals, ctx, defaults.vault, format);
+      }
+      case 'store': {
+        if (defaults.store === undefined) {
+          throw usage('store is unavailable in this context');
+        }
+        const format = pickFormat(values.format, 'report', ctx);
+        return await cmdStore(positionals, ctx, defaults.store, format);
       }
       case 'doctor': {
         if (defaults.doctor === undefined) {

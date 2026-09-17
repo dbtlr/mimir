@@ -21,6 +21,7 @@ import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
 import { systemTimeZone } from './core';
 import type { Store } from './core';
+import { openPostgres } from './core/store-postgres/index';
 import type { DoctorBackend } from './doctor/contract';
 import { DEFAULT_PORT, IS_PRODUCTION, envFlag, envPort } from './env';
 import { createServer } from './http';
@@ -47,6 +48,7 @@ import {
 import type { Health, ServiceDeps } from './service';
 import { buildStore } from './store-backend';
 import type { BuiltStore } from './store-backend';
+import type { StoreDeps } from './store/commands';
 import { resolveVault } from './vault';
 import type { VaultDeps } from './vault/commands';
 import { VERSION } from './version';
@@ -180,6 +182,13 @@ function realVaultDeps(): VaultDeps {
   };
 }
 
+/** The `store` machinery edges: the config this install reads, and the pool it
+ * opens. Deliberately NOT the built store — `store upgrade` runs before the
+ * schema gate would let a store exist. */
+function realStoreDeps(): StoreDeps {
+  return { openPostgres, readConfig: readRuntimeConfig };
+}
+
 async function main(argv: string[]): Promise<number> {
   const command = argv[0];
 
@@ -306,6 +315,7 @@ async function main(argv: string[]): Promise<number> {
       },
       scope: findBinding(process.cwd()),
       service: realServiceDeps(),
+      store: realStoreDeps(),
       vault: realVaultDeps(),
     });
   } finally {

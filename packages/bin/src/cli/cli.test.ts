@@ -128,6 +128,22 @@ test('skill/service/self-update print their own command help, not the top-level 
   }
 });
 
+test('store prints its own command help and never acquires the store (ADR 0030)', async () => {
+  // The schema-machinery noun: `store upgrade` runs BEFORE a store could be
+  // built, so neither its help nor its dispatch may open one.
+  const io = fakeIo(true);
+  expect(await runCli(['store', '-h'], neverStore, io)).toBe(0);
+  const out = io.out.join('');
+  expect(out).toContain('mimir store upgrade');
+  expect(out).not.toContain('usage: mimir <command>');
+});
+
+test('store is unavailable without injected deps, and never opens a store (ADR 0030)', async () => {
+  const io = fakeIo();
+  expect(await runCli(['store', 'upgrade'], neverStore, io)).toBe(2);
+  expect(io.err.join('\n')).toContain('store is unavailable in this context');
+});
+
 test("service <sub> -h renders that subcommand's own page, not the group page (MMR-299)", async () => {
   for (const [sub, usage] of [
     ['install', 'mimir service install ['],

@@ -10,5 +10,5 @@ export { assertSchemaCurrent, readSchemaVersion, SCHEMA_VERSION, upgradeSchema }
 export { createPgliteDialect } from './pglite';
 export type { DB } from './schema';
 export { createPostgresStore } from './store';
-export type { PostgresTestStore } from './testing';
-export { createPgliteTestStore } from './testing';
+export type { PostgresTestStore, ThrowawaySchema } from './testing';
+export { createPgliteTestStore, createThrowawaySchema } from './testing';
