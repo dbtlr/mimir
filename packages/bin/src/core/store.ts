@@ -160,18 +160,6 @@ export type NewAnnotationRecord = {
   created_at: string;
 };
 
-export type NewArtifactRecord = {
-  project_id: string;
-  seq: number;
-  title: string;
-  content: string;
-};
-
-/** `title` is an artifact's one mutable field — content stays frozen (ADR 0004). */
-export type ArtifactPatch = {
-  title?: string;
-};
-
 export type NewTagRecord = {
   entity_type: TagEntityType;
   entity_id: string;
@@ -204,9 +192,14 @@ export type RankedTask = {
 
 /**
  * The write scope (MMR-135): the storage vocabulary the verbs compose inside
- * one `transact` — point reads, allocation, and row-level writes. Primitives,
- * not verb-level operations; the behavioral invariants stay in the verbs.
- * Every method sees the transaction's own in-flight state.
+ * one `transact` — point reads and row-level writes over nodes, projects,
+ * edges, tags, annotations, and the transition log. Primitives, not verb-level
+ * operations; the behavioral invariants stay in the verbs. Every method sees
+ * the transaction's own in-flight state.
+ *
+ * Artifacts, seeds, and scratchpads are NOT here: each owns its slice on
+ * {@link Store}, allocation included, and that slice is the one write path to
+ * it (MMR-379).
  */
 export type StoreWriter = {
   /** The in-scope bulk snapshot the mutation guards derive over. */
@@ -224,9 +217,6 @@ export type StoreWriter = {
   listPrereqsOf: (nodeId: string) => Promise<string[]>;
   /** A project's ranked tasks (`rank` non-null), ordered `rank` asc then `seq` asc. */
   listRankedTasks: (projectId: string) => Promise<RankedTask[]>;
-
-  // Allocation (ADR 0006) — the atomic per-project counter bumps.
-  allocateArtifactSeq: (projectId: string) => Promise<number>;
 
   // Writes
   insertProject: (row: NewProjectRecord) => Promise<Project>;
@@ -249,9 +239,6 @@ export type StoreWriter = {
     entityId: string,
     write: NextSectionWrite,
   ) => Promise<void>;
-  insertArtifact: (row: NewArtifactRecord) => Promise<{ id: string }>;
-  updateArtifact: (id: string, patch: ArtifactPatch) => Promise<void>;
-  linkArtifact: (artifactId: string, nodeId: string) => Promise<void>;
   /** Idempotent tag insert — an existing (entity, tag) row is kept untouched;
    * `true` iff the tag was newly applied (so the verb can co-write its
    * CAS-guard stamp only when the tag set actually changed, MMR-303). */

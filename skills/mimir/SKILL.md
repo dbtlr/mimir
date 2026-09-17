@@ -15,9 +15,9 @@ Work-state commands are **flat top-level verbs** — `done`, `list`, `next`, nev
 work-plane exception: `scratch <operation>` groups the temporary episode-state
 lifecycle under its noun, because a Scratchpad is UUID-addressed working memory,
 not a sequenced work entity (`references/scratchpad.md`). A separate,
-noun-grouped **machinery plane** (`service`, `vault`, `skill`) manages the
-installation itself (supervision, snapshots, distribution) and sits outside what
-this skill teaches.
+noun-grouped **machinery plane** (`service`, `vault`, `store`, `skill`) manages
+the installation itself (supervision, snapshots, the store schema, distribution)
+and sits outside what this skill teaches.
 
 <EXTREMELY-IMPORTANT>
 If there is even a **1% chance** a session is starting in a Mimir-tracked repo, run

@@ -66,8 +66,12 @@ export const DEFAULT_STORE_BACKEND: StoreBackend = 'norn';
  */
 export type StoreConfig = {
   backend?: StoreBackend;
+  /** The Postgres connection URL (`postgres://user:pass@host/db`) — required by
+   * the `postgres` backend, ignored by `norn`. The secret lives in this file on
+   * purpose (ADR 0030): one install, one database, no env indirection. */
+  url?: string;
   /** Set when a config file exists but contributed nothing — callers may warn. */
-  problem?: 'invalid-backend' | 'malformed';
+  problem?: 'invalid-backend' | 'invalid-url' | 'malformed';
 };
 
 export type GlobalConfig = { serve: ServeConfig; vault: VaultConfig; store: StoreConfig };
@@ -135,11 +139,20 @@ function storeSection(raw: unknown): StoreConfig {
     return { problem: 'malformed' };
   }
   const backend = raw.backend;
-  // No backend key at all — not a problem, the caller uses the default.
-  if (backend === undefined) {
-    return {};
+  if (backend !== undefined && !isStoreBackend(backend)) {
+    return { problem: 'invalid-backend' };
   }
-  return isStoreBackend(backend) ? { backend } : { problem: 'invalid-backend' };
+  const url = raw.url;
+  // A wrong-typed or empty url is the silent-wrong-store trap in another key:
+  // a Postgres install that cannot connect must not quietly open a vault.
+  if (url !== undefined && !(typeof url === 'string' && url !== '')) {
+    return { problem: 'invalid-url' };
+  }
+  // No backend key at all is not a problem — the caller uses the default.
+  return {
+    ...(backend === undefined ? {} : { backend }),
+    ...(url === undefined ? {} : { url }),
+  };
 }
 
 const isPositiveInt = (v: unknown): v is number =>

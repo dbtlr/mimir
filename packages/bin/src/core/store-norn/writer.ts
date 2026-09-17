@@ -325,20 +325,15 @@ class Accumulator {
 
   private buildWriter(): StoreWriter {
     return {
-      allocateArtifactSeq: () => Promise.resolve(0),
       appendTransition: (row) => this.appendTransition(row),
       deleteDependency: (edge) => this.deleteDependency(edge),
       deleteTags: (entityType, entityId, tags) => this.deleteTags(entityType, entityId, tags),
       hasIdentityCollision: (stem) => Promise.resolve(this.snapshot.collidingPathsByStem.has(stem)),
       insertAnnotation: (row) => this.insertAnnotation(row),
-      insertArtifact: () =>
-        Promise.reject(invariant('artifact writes route through the artifact seam, not the plan')),
       insertDependency: (edge) => this.insertDependency(edge),
       insertNode: (row) => this.insertNode(row),
       insertProject: (row) => this.insertProject(row),
       insertTag: (row) => this.applyTag(row.entity_type, row.entity_id, row.tag),
-      linkArtifact: () =>
-        Promise.reject(invariant('artifact links route through the artifact seam, not the plan')),
       listChildren: (parentId) =>
         Promise.resolve(
           [...this.nodes.values()].filter((n) => n.parent_id === parentId).map((n) => n.id),
@@ -360,8 +355,6 @@ class Accumulator {
       loadWorkingSet: () => Promise.resolve(this.overlayWorkingSet()),
       setNextSection: (entityType, entityId, write) =>
         this.setNextSection(entityType, entityId, write),
-      updateArtifact: () =>
-        Promise.reject(invariant('artifact writes route through the artifact seam, not the plan')),
       updateNode: (id, patch) => this.updateNode(id, patch),
       updateProject: (id, patch) => this.updateProject(id, patch),
     };

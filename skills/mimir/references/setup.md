@@ -13,7 +13,11 @@ vault (default `$XDG_DATA_HOME/mimir/vault`, i.e. `~/.local/share/mimir/vault`;
 `[vault] path` in the config or `MIMIR_VAULT` overrides). Mimir shells out to the
 `norn` binary for all storage, so **`norn` must be on `PATH`** — check it with
 `command -v norn` (install: the dbtlr/norn release installer) — that is the one
-preflight; there are no migrations to run.
+preflight; there are no migrations to run. An install on the shared Postgres
+backend (`[store] backend = "postgres"` plus `url`) needs no `norn`; its one
+preflight is `mimir store upgrade`, which creates or upgrades the schema and
+must run before any other command (every other verb refuses on a mismatched
+schema; `docs/guides/postgres-store.md` in the repo).
 
 ## Case 1 — the project exists, this working copy isn't bound
 

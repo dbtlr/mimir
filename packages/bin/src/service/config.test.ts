@@ -219,6 +219,28 @@ test('readConfig flags an unrecognized or wrong-shaped [store] backend', () => {
   expect(readConfig(file).store).toEqual({ problem: 'malformed' });
 });
 
+test('readConfig carries a [store] url alongside the backend', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[store]\nbackend = "postgres"\nurl = "postgres://mimir@db.local/mimir"\n');
+  expect(readConfig(file).store).toEqual({
+    backend: 'postgres',
+    url: 'postgres://mimir@db.local/mimir',
+  });
+  // The url is carried on its own too: the backend fence decides whether it is needed.
+  writeFileSync(file, '[store]\nurl = "postgres://mimir@db.local/mimir"\n');
+  expect(readConfig(file).store).toEqual({ url: 'postgres://mimir@db.local/mimir' });
+});
+
+test('readConfig flags a wrong-shaped [store] url rather than dropping it', () => {
+  // A Postgres install whose url is unusable must not quietly open the default
+  // vault instead — the same silent-wrong-store trap the backend word guards.
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[store]\nbackend = "postgres"\nurl = 7\n');
+  expect(readConfig(file).store).toEqual({ problem: 'invalid-url' });
+  writeFileSync(file, '[store]\nbackend = "postgres"\nurl = ""\n');
+  expect(readConfig(file).store).toEqual({ problem: 'invalid-url' });
+});
+
 test('an unknown key inside [store] stays an unknown-key no-op', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(file, '[store]\nartifacts = "norn"\n');
