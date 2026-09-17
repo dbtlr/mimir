@@ -12,7 +12,7 @@ import { parseIdentity, renderArtifactRef, wikilink } from '../ids';
 import { now } from '../time';
 import { applyReportOutcome, createdStem, decodeApplyReport } from './apply-report';
 import type { ChunkLimits } from './chunking';
-import { ASSUMED_BODY_BYTES, jsonBytes, READ_LIMITS, readBodies } from './chunking';
+import { ASSUMED_BODY_BYTES, bodyOf, jsonBytes, READ_LIMITS, readBodies } from './chunking';
 import type { NornClient, NornDocument } from './client';
 import { collapse, isStringRecord, stringList } from './decode';
 import type { MigrationOp } from './plan';
@@ -252,7 +252,7 @@ export async function exportArtifacts(
     const sourceScratch = candidate.doc.frontmatter?.source_scratch;
     exported.push({
       ...candidate.record,
-      content: stripTrailingNewline(bodies.get(candidate.doc.path) ?? ''),
+      content: stripTrailingNewline(bodyOf(bodies, candidate.doc.path)),
       source_scratch: typeof sourceScratch === 'string' ? sourceScratch : null,
     });
   }

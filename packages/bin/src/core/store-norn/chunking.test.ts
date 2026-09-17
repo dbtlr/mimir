@@ -76,7 +76,12 @@ function cappedClient(
         ? Promise.reject(
             invariant('norn call vault.get failed: MCP error -32000: Connection closed'),
           )
-        : Promise.resolve(targets.map((path) => ({ body: bodies.get(path) ?? '', path })));
+        : Promise.resolve(
+            // A path the vault does not hold yields no record, as norn does.
+            targets
+              .filter((path) => bodies.has(path))
+              .map((path) => ({ body: bodies.get(path) ?? '', path })),
+          );
     },
   };
   // The reader touches `get` alone; asserting the whole client would need a live
@@ -110,6 +115,23 @@ test('a single document the transport cannot return refuses by name', async () =
   expect(async () => {
     await readBodies(client, BIG_TARGETS, { budget: 1000, ceiling: 100 });
   }).toThrow(/a\.md is too large/);
+});
+
+test('a body read that returns no record for a requested path refuses by name', async () => {
+  // An absent record is the ONLY signal that a body was not read — a genuinely
+  // empty body comes back as '' — so the reader must not let a caller mistake
+  // the one for the other and export a frozen artifact with empty content.
+  const { client } = cappedClient(
+    10_000,
+    new Map([
+      ['a.md', 'x'.repeat(100)],
+      ['b.md', 'x'.repeat(100)],
+      ['c.md', ''],
+    ]),
+  );
+  expect(async () => {
+    await readBodies(client, BIG_TARGETS, { budget: 1000, ceiling: 100 });
+  }).toThrow(/d\.md/);
 });
 
 test('a failure that is not the response cap propagates untouched', async () => {

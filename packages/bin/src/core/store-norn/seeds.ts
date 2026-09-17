@@ -22,7 +22,7 @@ import { canTransitionSeed, isTerminalSeed } from '../seeds/store';
 import { now } from '../time';
 import { applyReportOutcome, createdStem } from './apply-report';
 import type { ChunkLimits } from './chunking';
-import { ASSUMED_BODY_BYTES, jsonBytes, READ_LIMITS, readBodies } from './chunking';
+import { ASSUMED_BODY_BYTES, bodyOf, jsonBytes, READ_LIMITS, readBodies } from './chunking';
 import type { NornClient, NornDocument } from './client';
 import {
   collapse,
@@ -286,7 +286,7 @@ export async function exportSeeds(
       if (record === null || occupants.get(stemOf(record.key, record.seq)) !== 1) {
         return [];
       }
-      const body = bodies.get(doc.path) ?? '';
+      const body = bodyOf(bodies, doc.path);
       return [
         {
           ...record,

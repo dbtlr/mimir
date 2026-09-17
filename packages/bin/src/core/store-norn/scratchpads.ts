@@ -12,7 +12,7 @@ import type { ScratchpadStore } from '../scratchpads/store';
 import { isCanonicalInstant } from '../time';
 import { applyReportOutcome } from './apply-report';
 import type { ChunkLimits } from './chunking';
-import { ASSUMED_BODY_BYTES, jsonBytes, READ_LIMITS, readBodies } from './chunking';
+import { ASSUMED_BODY_BYTES, bodyOf, jsonBytes, READ_LIMITS, readBodies } from './chunking';
 import type { NornClient } from './client';
 import { collapse, isStringRecord } from './decode';
 import type { MigrationOp } from './plan';
@@ -270,7 +270,7 @@ export async function exportScratchpads(
         return [];
       }
       const decoded = decodeScratchpadDocument(
-        { body: bodies.get(doc.path) ?? '', documentHash: null, fm, path: doc.path },
+        { body: bodyOf(bodies, doc.path), documentHash: null, fm, path: doc.path },
         valid.projects,
         valid.anchors,
       );

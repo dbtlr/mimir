@@ -38,7 +38,7 @@
  * by name — no batching strategy can split a single oversized document.
  */
 
-import { MimirError, validation } from '../errors';
+import { invariant, MimirError, validation } from '../errors';
 import type { NornClient } from './client';
 import { pathAndBody } from './decode';
 
@@ -178,7 +178,10 @@ export type BodyTarget = { path: string; weight: number };
  * Fetch many documents' bodies in byte-bounded `vault.get` calls, keyed by vault
  * path. The one home the export's body-carrying reads (artifacts and seeds)
  * share, so both obey the same budget and a fix to the batching lands once.
- * A path that resolves to nothing is simply absent from the map.
+ * Fail-closed: every requested path must come back with a record. An absent
+ * record is the only signal a body was not read (an empty body reads as ''),
+ * so tolerating it would let an export carry a frozen artifact with empty
+ * content while the document census still passes.
  */
 export async function readBodies(
   client: NornClient,
@@ -203,5 +206,25 @@ export async function readBodies(
       bodies.set(doc.path, doc.body);
     }
   }
+  const missing = targets.map((target) => target.path).filter((path) => !bodies.has(path));
+  if (missing.length > 0) {
+    throw invariant(
+      `${missing.length} document body(ies) could not be read: ${missing.slice(0, 20).join(', ')}`,
+      'run `mimir doctor` and re-run the export',
+    );
+  }
   return bodies;
+}
+
+/**
+ * The typed accessor over a {@link readBodies} result: presence is guaranteed by
+ * the reader's fail-closed check, so a miss here is a programming error (a path
+ * that was never requested), not a vault condition.
+ */
+export function bodyOf(bodies: ReadonlyMap<string, string>, path: string): string {
+  const body = bodies.get(path);
+  if (body === undefined) {
+    throw invariant(`the body at ${path} was never requested from the vault`);
+  }
+  return body;
 }
