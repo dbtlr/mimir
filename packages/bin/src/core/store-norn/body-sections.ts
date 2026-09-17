@@ -14,6 +14,7 @@ import {
   sectionBody,
 } from '../history-codec';
 import { parseIdentity } from '../ids';
+import { ASSUMED_BODY_BYTES, READ_LIMITS, readChunked } from './chunking';
 import type { NornClient, NornDocument } from './client';
 import { pathAndBody, pathAndSections, stemOf } from './decode';
 
@@ -123,7 +124,16 @@ export async function readSectionFailuresFromDocuments(
     if (paths.length === 0) {
       return;
     }
-    for (const path of await client.sectionFailures(paths, [heading])) {
+    // Successful section content still crosses the transport even though this
+    // caller retains only failures, so these probes need the body-read budget.
+    const failures = await readChunked(
+      paths,
+      () => ASSUMED_BODY_BYTES,
+      READ_LIMITS,
+      (path) => path,
+      (chunk) => client.sectionFailures([...chunk], [heading]),
+    );
+    for (const path of failures) {
       out.push({ path, section: heading, stem: stemOf(path) });
     }
   };

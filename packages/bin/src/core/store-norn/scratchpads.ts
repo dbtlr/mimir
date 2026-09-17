@@ -12,7 +12,14 @@ import type { ScratchpadStore } from '../scratchpads/store';
 import { isCanonicalInstant } from '../time';
 import { applyReportOutcome } from './apply-report';
 import type { ChunkLimits } from './chunking';
-import { ASSUMED_BODY_BYTES, bodyOf, jsonBytes, READ_LIMITS, readBodies } from './chunking';
+import {
+  ASSUMED_BODY_BYTES,
+  bodyOf,
+  jsonBytes,
+  READ_LIMITS,
+  readBodies,
+  readDocuments,
+} from './chunking';
 import type { NornClient } from './client';
 import { collapse, isStringRecord } from './decode';
 import type { MigrationOp } from './plan';
@@ -234,15 +241,8 @@ function byUpdatedAt(a: Scratchpad, b: Scratchpad): number {
  * Every scratchpad in the vault, whole — the store export's scratchpad
  * collection (MMR-378, ADR 0030 Decision 4).
  *
- * A separate reader from {@link ScratchpadStore.list} on purpose. `list` is a
- * hot-path read over the handful of pads one session holds and fetches their
- * bodies in the enumerating `find`; the export reads EVERY pad in the vault, and
- * a pad's body is an entire journal — the whole-vault set in one `find` with
- * `.body` outgrows the MCP response cap and silently closes the connection
- * (NRN-s30, see {@link ./chunking}). So this takes the same two-phase shape the
- * artifact and seed exporters take: a metadata-only `find`, then byte-bounded
- * body chunks. The decode is the shared {@link decodeScratchpadDocument}, so an
- * exported pad is exactly what a `list` would return.
+ * Like {@link ScratchpadStore.list}, this enumerates metadata before bounded
+ * body reads. Export accepts custom limits and uses the same decoder as listing.
  */
 export async function exportScratchpads(
   client: NornClient,
@@ -367,17 +367,21 @@ export function createNornScratchpadStore(client: NornClient, vaultRoot: string)
       if (project !== undefined) {
         eq.push(`project:${project}`);
       }
-      const docs = await client.find({
-        col: ['.frontmatter', '.body', '.document_hash'],
+      const targets = await client.find({
+        col: ['.frontmatter'],
         eq,
         no_limit: true,
       });
+      const docs = await readDocuments(client, targets);
       const valid = await graph();
       return docs
         .map(rawDocument)
         .filter((doc): doc is ScratchDocument => doc !== null)
         .map((doc) => decodeScratchpadDocument(doc, valid.projects, valid.anchors).scratchpad)
-        .filter((pad): pad is Scratchpad => pad !== null)
+        .filter(
+          (pad): pad is Scratchpad =>
+            pad !== null && (project === undefined || pad.project === project),
+        )
         .toSorted(byUpdatedAt);
     },
 

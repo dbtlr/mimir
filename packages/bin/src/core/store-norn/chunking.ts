@@ -39,8 +39,8 @@
  */
 
 import { invariant, MimirError, validation } from '../errors';
-import type { NornClient } from './client';
-import { pathAndBody } from './decode';
+import type { NornClient, NornDocument } from './client';
+import { isStringRecord, pathAndBody } from './decode';
 
 /** One read call's limits: an expected-payload budget and a hard target count. */
 export type ChunkLimits = {
@@ -173,6 +173,49 @@ export function jsonBytes(value: unknown): number {
 
 /** One document whose body is wanted, with the expected cost of fetching it. */
 export type BodyTarget = { path: string; weight: number };
+
+/** Fetch each document's frontmatter, body, and repair hash together. Enumeration
+ * supplies paths and size estimates only, so concurrent edits cannot pair an old
+ * frontmatter value with a newer body and hash. Invalid content stays diagnostic
+ * input; an omitted document is an incomplete read and must fail. */
+export async function readDocuments(
+  client: NornClient,
+  targets: readonly NornDocument[],
+): Promise<NornDocument[]> {
+  const records = await readChunked(
+    targets,
+    (target) => jsonBytes(target.frontmatter) + ASSUMED_BODY_BYTES,
+    READ_LIMITS,
+    (target) => target.path,
+    (chunk) =>
+      client.get(
+        chunk.map((target) => target.path),
+        '.frontmatter,.body,.document_hash',
+      ),
+  );
+  const documents = new Map<string, NornDocument>();
+  for (const record of records) {
+    if (!isStringRecord(record) || typeof record.path !== 'string') {
+      throw invariant('norn vault.get returned a document without a path');
+    }
+    documents.set(record.path, {
+      body: record.body,
+      document_hash: record.document_hash,
+      ...(isStringRecord(record.frontmatter) ? { frontmatter: record.frontmatter } : {}),
+      path: record.path,
+    });
+  }
+  return targets.map((target) => {
+    const document = documents.get(target.path);
+    if (document === undefined) {
+      throw invariant(
+        `${target.path} could not be read`,
+        'retry the read after checking the vault',
+      );
+    }
+    return document;
+  });
+}
 
 /**
  * Fetch many documents' bodies in byte-bounded `vault.get` calls, keyed by vault
