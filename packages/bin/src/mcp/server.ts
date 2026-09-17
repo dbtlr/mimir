@@ -12,6 +12,7 @@ import {
 import type { FacetName, FieldKindName, OpFact } from '@mimir/contract';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
@@ -954,11 +955,38 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   return server;
 }
 
-/** Serve over stdio — the entry for `mimir mcp`. */
+/**
+ * Serve over stdio — the entry for `mimir mcp`. Settles when the transport
+ * closes, not when it connects: the caller releases the store the moment this
+ * returns, so an early return would tear the backend down under live requests
+ * (a lazily reconnecting client hid that; a pooled one does not). The transport
+ * is injectable so a test can drive the session in memory.
+ */
 export async function serveStdio(
   store: Store,
   version: string,
   boundScope?: string,
+  transport?: Transport,
 ): Promise<void> {
-  await buildMcpServer(store, version, boundScope).connect(new StdioServerTransport());
+  const server = buildMcpServer(store, version, boundScope);
+  const session = transport ?? new StdioServerTransport();
+  const closed = Promise.withResolvers<void>();
+  // The SDK's Protocol exposes a single `onclose` slot, not an event target.
+  // oxlint-disable-next-line unicorn/prefer-add-event-listener
+  server.server.onclose = () => {
+    closed.resolve();
+  };
+  await server.connect(session);
+  // The SDK's stdio transport never closes itself when the client hangs up;
+  // stdin ending IS the end of the session, so close the transport ourselves.
+  if (transport === undefined) {
+    if (process.stdin.readableEnded) {
+      await session.close();
+    } else {
+      process.stdin.once('end', () => {
+        void session.close();
+      });
+    }
+  }
+  await closed.promise;
 }

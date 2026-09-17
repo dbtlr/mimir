@@ -1,6 +1,6 @@
 ---
 title: 'ADR 0030: A Postgres store backend, selected per install, bridges to multi-machine work'
-status: proposed
+status: accepted
 date: 2026-09-16
 ---
 
