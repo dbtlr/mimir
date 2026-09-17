@@ -289,6 +289,22 @@ Query-layer outputs, intentionally **absent** from every document ([ADR 0001](de
 - **Transition cursors:** `newly_ready`, `recently_completed` (a caller cursor over `## History`); `unconsolidated` (a tag query).
 - **Flip-times / presentation:** `became_ready_at`, the seed lede.
 
+## Postgres backend
+
+A Postgres install ([ADR 0030](decisions/0030-postgres-store-backend-shared-store-bridge.md)) stores the same facts in tables instead of documents. Nothing above changes meaning: the vocabularies, the omit-empty rule, and the derived-never-stored list hold on both backends, and the conformance suite is what keeps them identical.
+
+**One table per entity, keyed by the stem.** `project`, `node`, `artifact`, `seed`, and `scratchpad` carry the identity the seam speaks — `KEY`, `KEY-seq`, `KEY-aN`, `KEY-sN`, and a scratchpad's UUID — as the primary key. There is no surrogate integer id to translate at the boundary, and the primary key is what makes a duplicate stem impossible rather than diagnosable.
+
+**Body sections become columns and rows.** A node's `## Description` is the `description` column and its `## Next` is the `next_present` / `next_text` pair. `## Annotations` is the `annotation` table, `## History` is `transition_log`, `depends_on` is the `dependency` table, and a seed's history is `seed_history`. The three append-only logs (`annotation`, `transition_log`, `seed_history`) carry a `bigserial` surrogate key, because their insertion ORDER is the fact.
+
+**Timestamps are text, never `timestamptz`.** Every instant is the canonical ISO-8601 UTC string this reference defines. A `timestamptz` round trip would reformat the value, and an export from a Postgres store must be byte-identical to an export of the same facts from a vault.
+
+**Three sequence counters live on `project`.** `last_seq`, `last_artifact_seq`, and `last_seed_seq` allocate the node, artifact, and seed sequences of [ADR 0006](decisions/0006-human-readable-node-ids.md). Allocation is an increment of the counter row inside the writing transaction, so two machines never mint one identity twice. An import writes each counter to the highest imported sequence of its kind.
+
+**`schema_version` records which schema the database carries.** Every normal store command refuses a version it does not exactly match, in either direction. `mimir store upgrade` is the one exception: it is built to open an older schema so it can move it forward. See the [Postgres store guide](guides/postgres-store.md).
+
+**Constraints replace the validator's referential checks.** On this backend the database enforces what [ADR 0017](decisions/0017-runtime-data-tolerance.md)'s tolerant reader diagnoses in a vault: a foreign key for every single-valued reference, a primary key for every identity, and a `CHECK` over each closed vocabulary. `tag.entity_id`, `scratchpad.anchors`, `seed.spawned`, and `artifact.source_scratch` carry none — the array-valued ones (scratchpad anchors) are why doctor still checks anchors. There is nothing to be tolerant of otherwise — a record that would fail the check cannot be written. `mimir doctor` on a Postgres install therefore reports a much shorter list (schema version, dangling parent and dependency references, a counter behind its rows, an orphan link) and offers no repair pass. A `schema-version` finding is a normal rollout state — one machine has run `store upgrade` and another has not — not a hand edit; the findings a rollout cannot produce (a dangling parent or dependency reference, a counter behind its rows, an orphan link) are the ones that point at one.
+
 ## Status
 
 The frontmatter contract is **settled and maintained**: the value sets, the omit-empty and wikilink conventions, the body-section grammar, and the timestamp format above are the shape Norn's read and write paths are built from and round-trip through. It moves with the model — a schema-affecting change updates this reference in step. The vault's referential, identity, and field integrity is owned by the shared validator ([ADR 0017](decisions/0017-runtime-data-tolerance.md)) and surfaced by `mimir doctor`, not by database constraints; duplicate canonical stems fail closed and remain diagnosable by every colliding path.

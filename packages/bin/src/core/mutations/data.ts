@@ -75,9 +75,11 @@ export function normalizeNext(value: string | null): string | null {
 /**
  * Queue a `## Next` re-authoring for one record (MMR-321, ADR 0026 Decision 2)
  * — the shared half of the node and project update verbs. Replace-not-append:
- * the current section is read (inside the transaction, so a concurrent write
- * either loses the `updated_at` CAS or is replayed against), the new prose
- * replaces it whole, and a blank clears it. Returns whether anything was
+ * the current section is read through the WRITER (MMR-379), so the read runs on
+ * the open transaction itself — it sees anything this same transact wrote, and
+ * it takes no second pooled connection while this one holds the transaction
+ * open. The new prose replaces the section whole, and a blank clears it.
+ * Returns whether anything was
  * queued, so the caller co-writes the `updated_at` stamp — the section ops
  * carry no precondition of their own — and so a rewrite with the identical text
  * writes NOTHING at all, leaving the stale clock where it was.
@@ -89,7 +91,6 @@ export function normalizeNext(value: string | null): string | null {
  * at `mimir doctor`, which names the duplicate (MMR-239's posture, MMR-321).
  */
 async function applyNextSection(
-  store: Store,
   w: StoreWriter,
   entityType: 'node' | 'project',
   id: string,
@@ -99,7 +100,7 @@ async function applyNextSection(
     return false;
   }
   const text = normalizeNext(value);
-  const current = await store.bodySections.readNext(id);
+  const current = await w.readNextSection(entityType, id);
   if (current.ambiguous) {
     throw validation(
       `${id} carries more than one '## Next' heading, so the section can't be re-authored`,
@@ -128,7 +129,7 @@ async function applyNextSection(
       "the document was hand-edited — run 'mimir doctor' to find the duplicate heading and repair it",
     );
   }
-  await w.setNextSection(entityType, id, { present: current.present, text });
+  await w.setNextSection(entityType, id, { text });
   return true;
 }
 
@@ -304,7 +305,7 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     // The `## Next` re-authoring is a body-section write, not a patch column —
     // but it must ride the same co-written `updated_at` stamp, so it is decided
     // before the stamp is taken and folded into the same write decision.
-    const wroteNext = await applyNextSection(store, w, 'node', id, fields.next);
+    const wroteNext = await applyNextSection(w, 'node', id, fields.next);
 
     if (Object.keys(patch).length > 0 || wroteNext) {
       patch.updated_at = now();
@@ -351,7 +352,7 @@ export async function updateProject(
       patch.description = fields.description;
     }
 
-    const wroteNext = await applyNextSection(store, w, 'project', id, fields.next);
+    const wroteNext = await applyNextSection(w, 'project', id, fields.next);
 
     if (Object.keys(patch).length > 0 || wroteNext) {
       patch.updated_at = now();

@@ -10,7 +10,7 @@ import type {
 } from '@mimir/contract';
 
 import type { ArtifactStore } from './artifacts/store';
-import type { BodySectionStore } from './body-sections/store';
+import type { BodySectionStore, NextSection } from './body-sections/store';
 import type { ImportOptions, ImportReport, StoreExport } from './export';
 import type { Artifact, Dependency, Node, Project } from './model';
 import type { ScratchpadStore } from './scratchpads/store';
@@ -139,15 +139,18 @@ export type NodePatch = {
 /**
  * The `## Next` section write (MMR-321, ADR 0026 Decision 2) — replace-not-
  * append: `text` is the whole re-authored narrative, and `null` clears the
- * section (the heading is removed, not emptied). `present` is what the verb read
- * on the target document a moment earlier; the write path needs it to pick
- * between inserting the section, replacing its body, and deleting it, and it
- * cannot be inferred from `text` (a hand-emptied section is present but reads
- * as null).
+ * section (the heading is removed, not emptied).
+ *
+ * The write carries prose only. Whether the target document currently HAS the
+ * heading — which a markdown backend needs to pick between inserting, replacing,
+ * and deleting it — is the backend's to derive against the state its transaction
+ * began from, never the caller's to assert: a verb that re-authors the section
+ * twice in one transact reads its own first write the second time, so a caller-
+ * supplied presence would describe the transaction rather than the document
+ * (MMR-379).
  */
 export type NextSectionWrite = {
   text: string | null;
-  present: boolean;
 };
 
 export type NewAnnotationRecord = {
@@ -158,18 +161,6 @@ export type NewAnnotationRecord = {
   // (ADR 0016 Refinement, MMR-279) — the `stamp` invariant (the core is the
   // sole time-maintainer) now holds for annotations too.
   created_at: string;
-};
-
-export type NewArtifactRecord = {
-  project_id: string;
-  seq: number;
-  title: string;
-  content: string;
-};
-
-/** `title` is an artifact's one mutable field — content stays frozen (ADR 0004). */
-export type ArtifactPatch = {
-  title?: string;
 };
 
 export type NewTagRecord = {
@@ -204,9 +195,14 @@ export type RankedTask = {
 
 /**
  * The write scope (MMR-135): the storage vocabulary the verbs compose inside
- * one `transact` — point reads, allocation, and row-level writes. Primitives,
- * not verb-level operations; the behavioral invariants stay in the verbs.
- * Every method sees the transaction's own in-flight state.
+ * one `transact` — point reads and row-level writes over nodes, projects,
+ * edges, tags, annotations, and the transition log. Primitives, not verb-level
+ * operations; the behavioral invariants stay in the verbs. Every method sees
+ * the transaction's own in-flight state.
+ *
+ * Artifacts, seeds, and scratchpads are NOT here: each owns its slice on
+ * {@link Store}, allocation included, and that slice is the one write path to
+ * it (MMR-379).
  */
 export type StoreWriter = {
   /** The in-scope bulk snapshot the mutation guards derive over. */
@@ -224,9 +220,19 @@ export type StoreWriter = {
   listPrereqsOf: (nodeId: string) => Promise<string[]>;
   /** A project's ranked tasks (`rank` non-null), ordered `rank` asc then `seq` asc. */
   listRankedTasks: (projectId: string) => Promise<RankedTask[]>;
-
-  // Allocation (ADR 0006) — the atomic per-project counter bumps.
-  allocateArtifactSeq: (projectId: string) => Promise<number>;
+  /**
+   * The `## Next` write-side probe, taken INSIDE this transaction (MMR-379).
+   *
+   * The same answer {@link BodySectionStore.readNext} gives, but read through
+   * the transaction's own in-flight state: a section written earlier in this
+   * same `transact` is visible, and the read costs no second connection. The
+   * `Store`-level facet cannot serve a verb here — on a pooled backend it would
+   * take a SECOND connection while this one holds the transaction open (N
+   * concurrent writers then deadlock the pool) and it would see committed state
+   * rather than this transaction's, so the read-modify-write it feeds would be
+   * built on a value the transaction never held.
+   */
+  readNextSection: (entityType: 'node' | 'project', entityId: string) => Promise<NextSection>;
 
   // Writes
   insertProject: (row: NewProjectRecord) => Promise<Project>;
@@ -249,9 +255,6 @@ export type StoreWriter = {
     entityId: string,
     write: NextSectionWrite,
   ) => Promise<void>;
-  insertArtifact: (row: NewArtifactRecord) => Promise<{ id: string }>;
-  updateArtifact: (id: string, patch: ArtifactPatch) => Promise<void>;
-  linkArtifact: (artifactId: string, nodeId: string) => Promise<void>;
   /** Idempotent tag insert — an existing (entity, tag) row is kept untouched;
    * `true` iff the tag was newly applied (so the verb can co-write its
    * CAS-guard stamp only when the tag set actually changed, MMR-303). */

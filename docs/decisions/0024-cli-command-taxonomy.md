@@ -154,3 +154,20 @@ regrouping + descriptors) and MMR-287 (skill-reference alignment).
   (MMR-322). The plural-noun disclaimer stands unchanged for node queries.
 - Scratchpads use the narrow `mimir scratch <operation>` exception recorded in
   ADR 0028; the ordinary work lifecycle remains flat.
+
+## Refinement (2026-09-16, MMR-379): `store` is the backend-neutral machinery noun
+
+The imminence clause above named `vault` as "the designated home for future
+store operations". That was written when the vault was the only store. With
+[ADR 0030](0030-postgres-store-backend-shared-store-bridge.md) an install may
+run on Postgres and have no vault at all, so an operation on the store as such
+cannot live under `vault` without reading wrongly on half the installs.
+
+A new machinery noun group, `store`, holds the operations that address the
+configured backend whichever it is. Its first verb is `store upgrade`, the
+explicit schema upgrade the Postgres backend requires (ADR 0030 Decision 5);
+`store export` and `store import` (MMR-380) are its clearly imminent siblings,
+which is what satisfies the loner rule. `vault` keeps the operations that are
+about the markdown vault specifically (`snapshot`); it is the Norn backend's
+noun, not the store's. `doctor` stays top-level under its existing exception
+and asks the configured backend for its diagnosis.

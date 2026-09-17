@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
+import type { BodySectionStore, NextSection } from '../body-sections/store';
 import { degradedUpdatedAt, invariant, validation } from '../errors';
 import {
   ANNOTATIONS_HEADING,
@@ -95,6 +96,21 @@ type HistoryAppend = HistoryEntry;
 /** A queued append under a node's `## Annotations` section. */
 type AnnotationAppend = AnnotationView;
 
+/**
+ * A queued `## Next` re-authoring, carried with the presence the DOCUMENT had
+ * when this transact began (MMR-379). Emit-time op selection reads
+ * `documentPresent`, never a caller's assertion: after one queued write the
+ * caller's probe reports the TRANSACTION's section, so trusting it would emit a
+ * `replace_section` against a document that still has no `## Next` heading —
+ * which norn refuses. Captured once, at the first queued write, and reused by
+ * every later write in the same transact so any number of them coalesce into the
+ * one correct op.
+ */
+type QueuedNextWrite = {
+  text: string | null;
+  documentPresent: boolean;
+};
+
 /** Accumulated mutation of one EXISTING (snapshot) document. */
 type Mutation = {
   /** Frontmatter field names whose overlay value must be reconciled to disk. */
@@ -105,7 +121,7 @@ type Mutation = {
   /** The queued whole-section `## Next` re-authoring (MMR-321), when a verb set
    * one. At most one per document: replace semantics means the last write wins,
    * and there is no append grain to accumulate. */
-  next?: NextSectionWrite;
+  next?: QueuedNextWrite;
 };
 
 /** A queued create of one NEW document, private to the writer. */
@@ -160,7 +176,7 @@ async function runTransact<T>(
   let lastError: unknown;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     const snapshot = await loadNornSnapshot(client);
-    const acc = new Accumulator(snapshot);
+    const acc = new Accumulator(snapshot, createNornBodySectionStore(client).readNext);
     const result = await fn(acc.writer);
     const operations = acc.buildOperations();
     if (operations.length === 0) {
@@ -274,6 +290,10 @@ class Accumulator {
   readonly creates: Create[] = [];
 
   private readonly snapshot: NornSnapshot;
+  /** The `## Next` read the Norn {@link BodySectionStore} does, for the
+   * write-side probe: a document's section is the durable fact, and a section
+   * this transact queued is overlaid on top of it. */
+  private readonly readNext: BodySectionStore['readNext'];
   private readonly nodes: Map<string, Node>;
   private readonly projects: Map<string, Project>;
   private edges: Dependency[];
@@ -282,8 +302,9 @@ class Accumulator {
   private readonly nodeMutations = new Map<string, Mutation>();
   private readonly projectMutations = new Map<string, Mutation>();
 
-  constructor(snapshot: NornSnapshot) {
+  constructor(snapshot: NornSnapshot, readNext: BodySectionStore['readNext']) {
     this.snapshot = snapshot;
+    this.readNext = readNext;
     const ws = snapshot.workingSet;
     this.nodes = new Map(ws.nodes.map((n) => [n.id, { ...n }]));
     this.projects = new Map(ws.projects.map((p) => [p.key, { ...p }]));
@@ -325,20 +346,15 @@ class Accumulator {
 
   private buildWriter(): StoreWriter {
     return {
-      allocateArtifactSeq: () => Promise.resolve(0),
       appendTransition: (row) => this.appendTransition(row),
       deleteDependency: (edge) => this.deleteDependency(edge),
       deleteTags: (entityType, entityId, tags) => this.deleteTags(entityType, entityId, tags),
       hasIdentityCollision: (stem) => Promise.resolve(this.snapshot.collidingPathsByStem.has(stem)),
       insertAnnotation: (row) => this.insertAnnotation(row),
-      insertArtifact: () =>
-        Promise.reject(invariant('artifact writes route through the artifact seam, not the plan')),
       insertDependency: (edge) => this.insertDependency(edge),
       insertNode: (row) => this.insertNode(row),
       insertProject: (row) => this.insertProject(row),
       insertTag: (row) => this.applyTag(row.entity_type, row.entity_id, row.tag),
-      linkArtifact: () =>
-        Promise.reject(invariant('artifact links route through the artifact seam, not the plan')),
       listChildren: (parentId) =>
         Promise.resolve(
           [...this.nodes.values()].filter((n) => n.parent_id === parentId).map((n) => n.id),
@@ -358,10 +374,9 @@ class Accumulator {
       loadNode: (id) => Promise.resolve(this.cloneNode(id)),
       loadProject: (key) => Promise.resolve(this.cloneProject(this.projects.get(key))),
       loadWorkingSet: () => Promise.resolve(this.overlayWorkingSet()),
+      readNextSection: (entityType, entityId) => this.readNextSection(entityType, entityId),
       setNextSection: (entityType, entityId, write) =>
         this.setNextSection(entityType, entityId, write),
-      updateArtifact: () =>
-        Promise.reject(invariant('artifact writes route through the artifact seam, not the plan')),
       updateNode: (id, patch) => this.updateNode(id, patch),
       updateProject: (id, patch) => this.updateProject(id, patch),
     };
@@ -627,24 +642,62 @@ class Accumulator {
   }
 
   /**
+   * The `## Next` write-side probe INSIDE this transact (MMR-379). The durable
+   * answer is the document's, read exactly as {@link BodySectionStore.readNext}
+   * reads it — the queued ops have not been applied, so the vault still holds
+   * the pre-transact section — with any section this transact already queued
+   * overlaid on top. Without the overlay a verb that re-authored the section
+   * twice in one transact would read the stale prose the second time.
+   *
+   * A queued write is unambiguous by construction: the first probe of this
+   * transact refused a duplicate heading and proved an insert anchor, so a
+   * write that got queued has already cleared both.
+   */
+  private async readNextSection(
+    entityType: 'node' | 'project',
+    entityId: string,
+  ): Promise<NextSection> {
+    const mutations = entityType === 'node' ? this.nodeMutations : this.projectMutations;
+    const queued = mutations.get(entityId)?.next;
+    if (queued !== undefined) {
+      return {
+        ambiguous: false,
+        insertAnchors: 1,
+        present: queued.text !== null,
+        text: queued.text,
+      };
+    }
+    return this.readNext(entityId);
+  }
+
+  /**
    * Queue the whole-section `## Next` re-authoring (MMR-321). Node- and
    * project-addressable alike — the direction narrative is a container-level
    * surface, and a project doc carries it exactly as an initiative or phase
    * does. A target absent from the snapshot fails loud rather than silently
    * dropping the prose, as the History/Annotations queues do.
+   *
+   * Presence is DERIVED from the document, matching the Postgres backend's
+   * `setNextSection`: there the section IS a column pair, so a null text is
+   * simply absence; here the heading is real, so which op the write reduces to
+   * depends on whether the document carried one before this transact. The queued
+   * ops are not applied until the transact commits, so `readNext` still reports
+   * that pre-transact document. See {@link QueuedNextWrite}.
    */
-  private setNextSection(
+  private async setNextSection(
     entityType: 'node' | 'project',
     entityId: string,
     write: NextSectionWrite,
   ): Promise<void> {
     const known = entityType === 'node' ? this.nodes.has(entityId) : this.projects.has(entityId);
     if (!known || !this.snapshot.pathByStem.has(entityId)) {
-      return Promise.reject(invariant('a ## Next write targets a record absent from the snapshot'));
+      throw invariant('a ## Next write targets a record absent from the snapshot');
     }
     const mutations = entityType === 'node' ? this.nodeMutations : this.projectMutations;
-    this.mutationOf(mutations, entityId).next = write;
-    return Promise.resolve();
+    const mutation = this.mutationOf(mutations, entityId);
+    const documentPresent =
+      mutation.next?.documentPresent ?? (await this.readNext(entityId)).present;
+    mutation.next = { documentPresent, text: write.text };
   }
 
   // ── Plan build (coalesce every effect into one op-set per document) ──────
@@ -843,8 +896,9 @@ class Accumulator {
    * Emit the one op the `## Next` re-authoring reduces to (MMR-321) — replace
    * semantics, so exactly one of three shapes and never an append:
    *
-   * - prose onto a document that already has the heading → `replace_section`;
-   * - prose onto one that doesn't → `insert_before_heading` above `## History`,
+   * - prose onto a document that already had the heading when this transact
+   *   began → `replace_section`;
+   * - prose onto one that didn't → `insert_before_heading` above `## History`,
    *   which every work-state document carries, fixing the section's position
    *   without rewriting the body;
    * - a clear (`text: null`) → `delete_section`, so the heading goes with the
@@ -858,19 +912,19 @@ class Accumulator {
   private emitNext(
     operations: MigrationOp[],
     path: string,
-    write: NextSectionWrite | undefined,
+    write: QueuedNextWrite | undefined,
   ): void {
     if (write === undefined) {
       return;
     }
     if (write.text === null) {
-      if (write.present) {
+      if (write.documentPresent) {
         operations.push(deleteSection(path, NEXT_HEADING));
       }
       return;
     }
     operations.push(
-      write.present
+      write.documentPresent
         ? replaceSection(path, NEXT_HEADING, renderNextSection(write.text))
         : insertBeforeHeading(path, HISTORY_HEADING, renderNextBlock(write.text)),
     );

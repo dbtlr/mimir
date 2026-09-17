@@ -18,7 +18,7 @@ import {
 } from '../history-codec';
 import { parseSeedRef, renderSeedRef, wikilink } from '../ids';
 import type { SeedCreate, SeedPatch, SeedRecord, SeedStore } from '../seeds/store';
-import { canTransitionSeed, isTerminalSeed } from '../seeds/store';
+import { assertLiveSeed, canTransitionSeed } from '../seeds/store';
 import { now } from '../time';
 import { applyReportOutcome, createdStem } from './apply-report';
 import type { ChunkLimits } from './chunking';
@@ -492,12 +492,11 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
           throw notFound(`${stemOf(key, seq)} doesn't exist`);
         }
         const { fm, record } = doc;
-        if (isTerminalSeed(record.lifecycle)) {
-          throw validation(
-            `seed ${stemOf(key, seq)} is ${record.lifecycle} — a terminal seed is frozen`,
-            'promote applies only to a new or promoted seed',
-          );
-        }
+        assertLiveSeed(
+          stemOf(key, seq),
+          record.lifecycle,
+          'promote applies only to a new or promoted seed',
+        );
         const alreadyLinked = record.spawned.includes(nodeStem);
         const needsPromote = record.lifecycle === 'new';
         // Idempotent: the stem is already linked AND the seed is already promoted →
@@ -655,12 +654,11 @@ export function createNornSeedStore(client: NornClient, vaultRoot: string): Seed
         throw notFound(`${stemOf(key, seq)} doesn't exist`);
       }
       const { fm, record } = doc;
-      if (isTerminalSeed(record.lifecycle)) {
-        throw validation(
-          `seed ${stemOf(key, seq)} is ${record.lifecycle} — a terminal seed is frozen`,
-          'patches (title/kind/description) apply only to a new or promoted seed',
-        );
-      }
+      assertLiveSeed(
+        stemOf(key, seq),
+        record.lifecycle,
+        'patches (title/kind/description) apply only to a new or promoted seed',
+      );
       const path = doc.path;
       const operations: MigrationOp[] = [];
       if (patch.title !== undefined) {

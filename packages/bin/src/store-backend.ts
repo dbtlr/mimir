@@ -14,10 +14,11 @@ import type { DoctorBackend } from './doctor/contract';
 import type { GlobalConfig } from './service/config';
 import { configPath, DEFAULT_STORE_BACKEND, readRuntimeConfig } from './service/config';
 import { buildNornStore } from './store-norn-backend';
+import { buildPostgresStore } from './store-postgres-backend';
 
 export type BuiltStore = {
   store: Store;
-  /** Release every backend resource: the Norn subprocess. */
+  /** Release every backend resource: the Norn subprocess, or the Postgres pool. */
   close: () => Promise<void>;
   /**
    * The backend's doctor facet. `repair` is present only where the caller asked
@@ -37,34 +38,39 @@ export type BuildStoreOptions = {
 };
 
 /**
- * The refusal for `[store] backend = "postgres"` before the Postgres backend
- * exists. A stable, exact message: an operator who set the fence early must be
- * told which release carries it, never handed a silent fallback to the vault.
+ * Refuse a `[store]` section that parsed to nothing usable. FATAL on the same
+ * terms as a failed converge: the fence selects which store gets WRITTEN, so a
+ * typo in a Postgres install must never fall back to converging and writing a
+ * local markdown vault. The remedy names the key that actually went wrong —
+ * a bad URL is not fixed by re-reading the list of backends.
+ *
+ * Shared with `store upgrade`, which reads the same section for the same fence.
  */
-export const POSTGRES_BACKEND_UNAVAILABLE =
-  '[store] backend = "postgres" is not available in this build: the Postgres store backend lands in MMR-379. Set backend = "norn" (the default) until then.';
+export function assertUsableStoreConfig(config: GlobalConfig): void {
+  const problem = config.store.problem;
+  if (problem === undefined) {
+    return;
+  }
+  const remedy =
+    problem === 'invalid-url'
+      ? 'set url to a Postgres connection URL (a non-empty string)'
+      : 'set backend to one of: norn, postgres';
+  throw new Error(`[store] is unusable (${problem}) in ${configPath()} — ${remedy}`);
+}
 
 /**
  * Build the store for this process. A converge failure (absent configured vault,
  * foreign directory) propagates so `serve` fails fast and a supervisor retries.
- * A `[store]` section that parsed to nothing usable is FATAL on the same terms:
- * the fence selects which store gets written, so a typo in a Postgres install
- * must never fall back to converging and writing a local markdown vault.
+ * A `[store]` section that parsed to nothing usable is FATAL on the same terms
+ * — see {@link assertUsableStoreConfig}.
  */
 export async function buildStore(
   opts: BuildStoreOptions = {},
   config: GlobalConfig = readRuntimeConfig(),
 ): Promise<BuiltStore> {
-  if (config.store.problem !== undefined) {
-    throw new Error(
-      `[store] is unusable (${config.store.problem}) in ${configPath()} — set backend to one of: norn, postgres`,
-    );
-  }
+  assertUsableStoreConfig(config);
   const backend = config.store.backend ?? DEFAULT_STORE_BACKEND;
-  // `postgres` is a declared fence value with no backend behind it yet: refuse
-  // by name rather than fall through to the vault (MMR-379 lands it).
-  if (backend === 'postgres') {
-    throw new Error(POSTGRES_BACKEND_UNAVAILABLE);
-  }
-  return await buildNornStore(config, opts);
+  return backend === 'postgres'
+    ? await buildPostgresStore(config, opts)
+    : await buildNornStore(config, opts);
 }

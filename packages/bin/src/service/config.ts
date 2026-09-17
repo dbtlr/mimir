@@ -4,7 +4,7 @@
  * reads this file at startup, so retargeting is edit-config + restart.
  * Serve's port precedence: --port > MIMIR_PORT > config > built-in default.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -66,8 +66,12 @@ export const DEFAULT_STORE_BACKEND: StoreBackend = 'norn';
  */
 export type StoreConfig = {
   backend?: StoreBackend;
+  /** The Postgres connection URL (`postgres://user:pass@host/db`) — required by
+   * the `postgres` backend, ignored by `norn`. The secret lives in this file on
+   * purpose (ADR 0030): one install, one database, no env indirection. */
+  url?: string;
   /** Set when a config file exists but contributed nothing — callers may warn. */
-  problem?: 'invalid-backend' | 'malformed';
+  problem?: 'invalid-backend' | 'invalid-url' | 'malformed';
 };
 
 export type GlobalConfig = { serve: ServeConfig; vault: VaultConfig; store: StoreConfig };
@@ -135,11 +139,20 @@ function storeSection(raw: unknown): StoreConfig {
     return { problem: 'malformed' };
   }
   const backend = raw.backend;
-  // No backend key at all — not a problem, the caller uses the default.
-  if (backend === undefined) {
-    return {};
+  if (backend !== undefined && !isStoreBackend(backend)) {
+    return { problem: 'invalid-backend' };
   }
-  return isStoreBackend(backend) ? { backend } : { problem: 'invalid-backend' };
+  const url = raw.url;
+  // A wrong-typed or empty url is the silent-wrong-store trap in another key:
+  // a Postgres install that cannot connect must not quietly open a vault.
+  if (url !== undefined && !(typeof url === 'string' && url !== '')) {
+    return { problem: 'invalid-url' };
+  }
+  // No backend key at all is not a problem — the caller uses the default.
+  return {
+    ...(backend === undefined ? {} : { backend }),
+    ...(url === undefined ? {} : { url }),
+  };
 }
 
 const isPositiveInt = (v: unknown): v is number =>
@@ -337,6 +350,13 @@ function emitTable(prefix: string, table: Table, out: string[]): void {
   }
 }
 
+/**
+ * Owner-only. The config carries `[store] url`, a Postgres connection string
+ * with its password in it, so the file is a credential file and is written as
+ * one.
+ */
+const CONFIG_MODE = 0o600;
+
 /** The outcome of {@link writeConfig}: whether an unparseable file was reset. */
 export type WriteResult = {
   /** True when the existing file was not valid TOML and was rewritten fresh (lossy). */
@@ -383,7 +403,12 @@ export function writeConfig(file: string, patch: ConfigPatch): WriteResult {
   const out: string[] = [];
   emitTable('', raw, out);
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, out.length === 0 ? '' : `${out.join('\n\n')}\n`);
+  writeFileSync(file, out.length === 0 ? '' : `${out.join('\n\n')}\n`, { mode: CONFIG_MODE });
+  // `mode` on `writeFileSync` applies only when the file is CREATED, so an
+  // existing file keeps whatever permissions it had. `chmod` after the write
+  // tightens that one too: the file carries `[store] url`, credentials and all,
+  // and an operator who upgrades into this version should not have to know.
+  chmodSync(file, CONFIG_MODE);
   return { reset };
 }
 
