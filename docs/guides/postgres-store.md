@@ -24,17 +24,21 @@ url = "postgres://mimir:secret@db.example.internal:5432/mimir"
 The database must exist and the user must own it. The binary creates every
 table itself (next section). Keep the database on a private network: the bridge
 adds no authentication beyond Postgres's own and no transport encryption of its
-own, so when the network is not trusted, choose `sslmode` deliberately (tested
-against node-postgres 8.23 and pg-connection-string 2.14):
+own, so when the network is not trusted, set `sslmode` in the URL. The binary
+hands the URL to node-postgres 8.23 unchanged, which reads it in
+pg-connection-string's default mode:
 
-- `verify-full` verifies the server certificate against a CA and checks the
-  hostname. This is the recommendation; add `sslrootcert=<path>` when the
-  server uses a private CA.
-- `verify-ca` validates the certificate against a CA but skips the hostname
-  check.
-- `prefer` and `require` encrypt the connection but do not validate the
-  certificate, unless `require` is given `sslrootcert`.
+- `verify-full` is the recommendation: the connection is TLS and the
+  certificate is fully validated, CA and hostname. Add `sslrootcert=<path>`
+  when the server uses a private CA.
+- `verify-ca`, `require`, and `prefer` behave the same as `verify-full` in
+  this mode, and node-postgres prints a deprecation warning for each of them.
+- `no-verify` encrypts the connection but skips certificate validation.
 - `disable` turns TLS off entirely.
+
+The libpq distinctions between those modes (`verify-ca` skipping the hostname
+check, `require` validating only with `sslrootcert`) apply only with
+`uselibpqcompat=true` in the URL, which this guide does not recommend.
 
 ## Create or upgrade the schema
 
