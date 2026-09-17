@@ -384,6 +384,31 @@ for (const backend of backends) {
     );
 
     test.skipIf(backend.skip)(
+      'restoreArtifact: content ending in a blank line survives the restore',
+      async () => {
+        // The restore writes the body the shared document builder produced, not
+        // the raw content: norn appends a trailing newline only when one is
+        // absent while the read strips exactly one, so writing the content
+        // verbatim would shed the blank line the source file ended on. The
+        // builder is the single author of every fixed-path artifact write
+        // precisely so this edge is fixed once (MMR-378).
+        const record: ArtifactRecord = {
+          created_at: '2026-01-01T00:00:00.000Z',
+          key: 'MMR',
+          links: [],
+          seq: 1,
+          summary: null,
+          tags: [],
+          title: 'trailing',
+          updated_at: '2026-02-02T00:00:00.000Z',
+        };
+        const content = '# notes\n\n## Agenda\n\n';
+        expect(await restoreArtifact(h.client, h.vaultRoot, record, content)).toBe('created');
+        expect((await h.artifacts.load('MMR', 1, { content: true }))?.content).toBe(content);
+      },
+    );
+
+    test.skipIf(backend.skip)(
       'restoreArtifact: re-running the identical restore is skipped (idempotent)',
       async () => {
         const record: ArtifactRecord = {

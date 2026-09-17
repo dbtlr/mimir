@@ -1,7 +1,7 @@
 import type { HistoryEntry, Scratchpad } from '@mimir/contract';
 
 import type { ArtifactRecord } from './artifacts/store';
-import type { BodySections } from './body-sections/store';
+import type { NextFacet } from './body-sections/store';
 import type { Dependency, Node, Project } from './model';
 import type { SeedRecord } from './seeds/store';
 import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord } from './store';
@@ -9,8 +9,19 @@ import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord } from './s
 /**
  * The backend-neutral transfer document (ADR 0030 Decision 4) — every STORED
  * FACT one `Store` holds, in one shape both backends export and import with
- * identity (ids, sequences, timestamps) preserved. It doubles as a portable
- * backup, and migrating between backends is an export/import pair on the seam.
+ * identity (ids, sequences, timestamps) preserved. Migrating between backends is
+ * an export/import pair on the seam.
+ *
+ * **It carries the facts the seam surfaces, and the export refuses when the
+ * store holds a document it cannot carry.** A `Store` read is deliberately
+ * tolerant of corruption (ADR 0017): it drops an orphaned node, prunes a
+ * dangling dependency edge, nulls a dangling scratchpad anchor, and hides an
+ * identity collision. Tolerance is right for a read and wrong for a copy — a
+ * silently narrower document would be a backup missing the very records the
+ * operator most needs. So the export is fail-closed: it enumerates the physical
+ * documents, refuses when any of them has no representative in the document, and
+ * names the paths. Under that refusal the "portable backup" claim is true, which
+ * is the only reason it is made.
  *
  * **Stored facts only.** Nothing derived crosses this boundary: no status word,
  * no rollup, no predicate, no attention state (ADR 0001 — the core recomputes
@@ -22,7 +33,7 @@ import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord } from './s
  * **Shapes are the seam's own.** Every collection is typed from the record the
  * `Store` seam already speaks ({@link Project}, {@link Node}, {@link Dependency},
  * {@link NewTagRecord}, {@link NewAnnotationRecord}, {@link ArtifactRecord},
- * {@link SeedRecord}, {@link Scratchpad}, {@link BodySections},
+ * {@link SeedRecord}, {@link Scratchpad}, {@link NextFacet},
  * {@link NewTransitionRecord}); a bespoke field appears only where no seam
  * record carries the fact, and is commented where it does.
  */
@@ -84,11 +95,20 @@ export type ExportedSeed = SeedRecord & {
  * The owned prose sections of one document, keyed by its canonical stem (a bare
  * `KEY` for a project, `KEY-seq` for a node). `description` is a node's
  * `## Task Description` — body-authoritative since MMR-162, which is why
- * {@link Node.description} reads null off a working set — and `next` is the
- * `## Next` direction narrative (MMR-321). The `annotations` and `history`
- * facets of {@link BodySections} are their own top-level collections.
+ * {@link Node.description} reads null off a working set. The `annotations` and
+ * `history` body facets are their own top-level collections.
+ *
+ * `next` is the `## Next` direction narrative (MMR-321) as the whole
+ * {@link NextFacet}, prose AND heading presence. Presence is a stored fact the
+ * prose cannot carry: a hand-emptied `## Next` is present with null text, and an
+ * export of the text alone would drop the heading on import — the section would
+ * come back absent, and the next write would INSERT rather than replace it.
  */
-export type ExportedBodySections = { stem: string } & Pick<BodySections, 'description' | 'next'>;
+export type ExportedBodySections = {
+  stem: string;
+  description?: string | null;
+  next: NextFacet;
+};
 
 /**
  * One whole store's stored facts. Each collection is justified against "what

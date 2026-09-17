@@ -140,7 +140,7 @@ export function createNornWriteStore(client: NornClient, vaultRoot: string): Sto
   return {
     artifacts: createNornArtifactStore(client, vaultRoot),
     bodySections: createNornBodySectionStore(client),
-    export: () => exportNornStore(client, vaultRoot),
+    export: () => exportNornStore(client),
     import: (document, opts) => importNornStore(client, vaultRoot, document, opts),
     loadNodesForProjects: (keys, valid) => loadNodesForProjectsOverNorn(client, keys, valid),
     loadProjects: () => loadProjectsOverNorn(client),

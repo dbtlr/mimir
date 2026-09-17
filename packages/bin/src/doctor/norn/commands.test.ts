@@ -59,7 +59,7 @@ function vaultDepsOf(
 }
 
 /** The same fixture as a whole doctor backend — no repair capability, which is
- * exactly the read-only transports' wiring. */
+ * exactly the `serve` and `mcp` wiring. */
 function vaultOf(...args: Parameters<typeof vaultDepsOf>): DoctorBackend {
   return createNornDoctorBackend(vaultDepsOf(...args));
 }

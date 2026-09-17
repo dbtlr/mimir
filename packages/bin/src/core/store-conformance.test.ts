@@ -53,6 +53,14 @@ type Instance = {
   corruptDocument?: (path: string, mutate: (raw: string) => string) => void;
   /** Deliberate removal, to stage the half-written target a resume finishes. */
   removeDocument?: (path: string) => void;
+  /** Write a document the typed API cannot produce — an orphan, a collider, a
+   * project with no `key`. The fail-closed export cases need it; a backend with
+   * no document substrate stages the same corruption its own way. */
+  seedDocument?: (
+    path: string,
+    frontmatter: Record<string, unknown>,
+    body?: string,
+  ) => Promise<void>;
   close: () => Promise<void>;
 };
 
@@ -121,6 +129,7 @@ async function nornInstance(): Promise<Instance> {
     close: () => test_.close(),
     corruptDocument: test_.corruptDocument,
     removeDocument: test_.removeDocument,
+    seedDocument: test_.seedDocument,
     store: test_.store,
   };
 }
@@ -185,6 +194,16 @@ async function seedWorkingSet(store: Store): Promise<void> {
 
   await updateNode(store, initiative.id, { next: 'land the export, then the import' });
   await updateProject(store, 'MMR', { next: 'ship the bridge' });
+
+  // A PRESENT but EMPTY `## Next` — the heading on the document with no prose
+  // under it. The verbs cannot author it (a blank narrative is a clear), so it
+  // goes through the writer directly, co-writing the stamp the write path
+  // requires. Presence is a stored fact of its own: an export carrying only the
+  // prose would drop the heading, and the round trip would be visible (MMR-378).
+  await store.transact(async (w) => {
+    await w.setNextSection('node', phase.id, { present: false, text: '' });
+    await w.updateNode(phase.id, { updated_at: '2026-09-02T12:00:00.000Z' });
+  });
 
   await attachArtifact(store, {
     content: '# spec\n\nthe transfer document',
@@ -395,6 +414,111 @@ for (const backend of backends) {
       expect(await refusalOf(target.store.import(document, { mode: 'fresh' }))).toContain('MMR');
       // Refused BEFORE writing anything.
       expect(await observe(target.store)).toEqual(before);
+    },
+  );
+
+  test.skipIf(backend.skip)(
+    `${backend.name}: the export refuses a store holding a record it cannot carry`,
+    async () => {
+      const source = await fresh();
+      await seedWorkingSet(source.store);
+      if (source.seedDocument === undefined) {
+        return;
+      }
+      // An orphan: a task whose `parent` names a node that does not exist. The
+      // tolerant read nulls that edge and hands back a root-level task (ADR
+      // 0017), so an export that trusted the read would ship a DIFFERENT
+      // hierarchy than the vault holds.
+      await source.seedDocument('MMR/MMR-9.md', {
+        created: '2026-09-01T00:00:00.000Z',
+        lifecycle: 'active',
+        parent: '[[MMR-99]]',
+        project: '[[MMR]]',
+        title: 'Orphan',
+        type: 'task',
+        updated_at: '2026-09-01T00:00:00.000Z',
+      });
+
+      const refusal = await refusalOf(source.store.export());
+      expect(refusal).toContain('MMR/MMR-9.md');
+      expect(refusal).toContain('mimir doctor');
+    },
+  );
+
+  test.skipIf(backend.skip)(
+    `${backend.name}: the export refuses an identity claimed by two records`,
+    async () => {
+      const source = await fresh();
+      await seedWorkingSet(source.store);
+      if (source.seedDocument === undefined) {
+        return;
+      }
+      // Two documents resolving to one `KEY-a1`. Every seam read hides both, so
+      // an export could only ship one of them — and would be choosing a winner
+      // the store itself declines to choose.
+      await source.seedDocument(
+        'MMR/artifacts/spare/MMR-a1.md',
+        {
+          created: '2026-09-01T00:00:00.000Z',
+          project: '[[MMR]]',
+          title: 'Collider',
+          type: 'artifact',
+          updated_at: '2026-09-01T00:00:00.000Z',
+        },
+        'other content',
+      );
+
+      expect(await refusalOf(source.store.export())).toContain('MMR-a1.md');
+    },
+  );
+
+  test.skipIf(backend.skip)(
+    `${backend.name}: an import refuses a document claiming one identity twice`,
+    async () => {
+      const source = await fresh();
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+      const first = document.artifacts.at(0);
+      if (first === undefined) {
+        throw new Error('the fixture must export at least one artifact');
+      }
+      const doubled: StoreExport = {
+        ...document,
+        artifacts: [...document.artifacts, { ...first, title: 'Impostor' }],
+      };
+
+      const target = await fresh();
+      const before = await observe(target.store);
+      expect(await refusalOf(target.store.import(doubled, { mode: 'fresh' }))).toContain('MMR-a1');
+      // Refused BEFORE writing anything — the alternative is a half-written
+      // target for a fault that was visible in the document all along.
+      expect(await observe(target.store)).toEqual(before);
+    },
+  );
+
+  test.skipIf(backend.skip)(
+    `${backend.name}: a fresh import refuses a project document that lost its key`,
+    async () => {
+      const source = await fresh();
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+
+      const target = await fresh();
+      if (target.seedDocument === undefined) {
+        return;
+      }
+      // The project's canonical path is occupied, but the document no longer
+      // carries the `key` field the occupancy read keys off. The path is the
+      // identity the import is about to claim, so it must refuse on that alone —
+      // otherwise the fence passes and the write refuses mid-import.
+      await target.seedDocument('MMR/MMR.md', {
+        created: '2026-09-01T00:00:00.000Z',
+        name: 'Nameless',
+        type: 'project',
+        updated_at: '2026-09-01T00:00:00.000Z',
+      });
+
+      expect(await refusalOf(target.store.import(document, { mode: 'fresh' }))).toContain('MMR');
     },
   );
 

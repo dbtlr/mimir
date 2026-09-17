@@ -217,9 +217,12 @@ async function main(argv: string[]): Promise<number> {
     const port = flagPort ?? overridePort ?? config.port ?? DEFAULT_PORT;
     // Long-running: the server keeps the process alive; loopback-only by
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
-    // Read-only transport: the store is built WITHOUT the doctor repair
-    // capability, so `/api/doctor` reaches the backend's record-health facet
-    // (MMR-185) and nothing that mutates.
+    // No doctor repair capability: the store is built without it, so
+    // `/api/doctor` reaches the backend's record-health facet (MMR-185) and
+    // nothing that repairs. The HTTP surface is not otherwise read-only — it
+    // serves the mutating action routes (ADR 0025) — but a repair pass rewrites
+    // documents wholesale on a diagnosis no caller can review, so it stays a
+    // deliberate, local decision at the CLI.
     const built = await buildStore();
     const doctor = built.doctor.facet;
     let server: ReturnType<typeof createServer>;

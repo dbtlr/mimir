@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import type { AnnotationView, HistoryEntry, TagEntityType } from '@mimir/contract';
 
-import type { BodySections } from '../body-sections/store';
+import type { BodySections, NextFacet } from '../body-sections/store';
 import { invariant, validation } from '../errors';
 import type {
   ExportedBodySections,
@@ -15,6 +15,7 @@ import type {
 } from '../export';
 import { STORE_EXPORT_SCHEMA_VERSION } from '../export';
 import { renderMigratedNodeBody, renderMigratedProjectBody, toCanonicalLf } from '../history-codec';
+import { parseId, renderArtifactRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
 import type { NewAnnotationRecord, NewTransitionRecord, NodeTag } from '../store';
 import { now } from '../time';
@@ -22,12 +23,12 @@ import { nodeFrontmatter, projectFrontmatter } from '../vault-frontmatter';
 import { artifactDocument, exportArtifacts } from './artifacts';
 import { createNornBodySectionStore } from './body-sections';
 import type { ChunkLimits } from './chunking';
-import { ASSUMED_BODY_BYTES, chunkByWeight, READ_LIMITS } from './chunking';
+import { ASSUMED_BODY_BYTES, READ_LIMITS, readChunked } from './chunking';
 import type { NornClient } from './client';
-import { collapse, isStringRecord } from './decode';
+import { collapse, isStringRecord, linkStems, stemOf } from './decode';
 import type { RawDocument } from './raw-write';
 import { createRawDocuments, WRITE_LIMITS } from './raw-write';
-import { createNornScratchpadStore, scratchpadDocument } from './scratchpads';
+import { exportScratchpads, scratchpadDocument } from './scratchpads';
 import { exportSeeds, seedDocument } from './seeds';
 import { loadWorkingSetOverNorn } from './store';
 
@@ -37,10 +38,22 @@ import { loadWorkingSetOverNorn } from './store';
  * such a document back in with every id, sequence, and timestamp preserved.
  *
  * **Export reuses the seam's own decoders.** Every collection comes from the
- * reader that already owns that shape (the working-set load, the artifact and
- * seed exporters in their own modules, the scratchpad store, the body-section
- * store), so an exported record is exactly what a `Store` read would return —
- * there is no second decode here to drift from the first.
+ * reader that already owns that shape (the working-set load, the artifact, seed,
+ * and scratchpad exporters in their own modules, the body-section store), so an
+ * exported record is exactly what a `Store` read would return — there is no
+ * second decode here to drift from the first.
+ *
+ * **Export carries the facts the seam surfaces, and REFUSES when the vault holds
+ * a document it cannot carry.** Those decoders are deliberately tolerant (ADR
+ * 0017): the working-set validator drops a node whose project or parent is
+ * missing and prunes a dangling `depends_on` edge, the scratchpad decode nulls a
+ * dangling anchor, and the artifact and seed exporters hide an identity
+ * collision. That tolerance is right for a read and wrong for a copy, so the
+ * export re-enumerates every physical work-state document (metadata only) and
+ * fails closed on anything the collections do not represent, naming the paths
+ * and pointing at `mimir doctor`. A pruned edge and a nulled anchor count as
+ * loss too — they are compared against the raw frontmatter of that same pass.
+ * The transfer document is a portable backup only because of this refusal.
  *
  * **Import reuses the seam's own encoders.** Each imported record is turned back
  * into a whole document by the same frontmatter and body builders the normal
@@ -74,13 +87,12 @@ const EXPORT_FACETS = {
 
 export async function exportNornStore(
   client: NornClient,
-  vaultRoot: string,
   limits: ChunkLimits = READ_LIMITS,
 ): Promise<StoreExport> {
   const workingSet = await loadWorkingSetOverNorn(client);
   const artifacts = await exportArtifacts(client, limits);
   const seeds = await exportSeeds(client, limits);
-  const scratchpads = await createNornScratchpadStore(client, vaultRoot).list();
+  const scratchpads = await exportScratchpads(client, limits);
 
   // Deterministic collection order, imposed here rather than trusted from the
   // readers: a re-export of an unchanged store must differ only in
@@ -123,14 +135,9 @@ export async function exportNornStore(
   const bodySections: ExportedBodySections[] = [
     // A project carries no `## Task Description` (its description is a
     // frontmatter field on the project record), so only `next` is projected.
-    ...projects.flatMap((project) =>
-      ownedSections(project.key, { next: sections.get(project.key)?.next ?? null }),
-    ),
+    ...projects.flatMap((project) => ownedSections(project.key, sections.get(project.key))),
     ...nodes.flatMap((node) =>
-      ownedSections(node.id, {
-        description: sections.get(node.id)?.description ?? null,
-        next: sections.get(node.id)?.next ?? null,
-      }),
+      ownedSections(node.id, sections.get(node.id), { description: true }),
     ),
   ];
 
@@ -144,7 +151,7 @@ export async function exportNornStore(
     });
   }
 
-  return {
+  const document: StoreExport = {
     annotations,
     artifacts,
     bodySections,
@@ -162,6 +169,10 @@ export async function exportNornStore(
     tags,
     transitions,
   };
+  // Last, over the finished document: a copy that silently narrows is worse
+  // than no copy at all.
+  assertCarriesEveryDocument(document, await physicalDocuments(client));
+  return document;
 }
 
 export async function importNornStore(
@@ -177,6 +188,7 @@ export async function importNornStore(
       `this binary reads schema version ${String(STORE_EXPORT_SCHEMA_VERSION)}`,
     );
   }
+  assertSingleValuedIdentities(document);
   const documents = transferDocuments(document);
 
   if (opts.mode === 'fresh') {
@@ -251,13 +263,14 @@ async function readSectionsChunked(
   limits: ChunkLimits,
 ): Promise<Map<string, BodySections>> {
   const store = createNornBodySectionStore(client);
-  const sections = new Map<string, BodySections>();
-  for (const chunk of chunkByWeight(stems, () => ASSUMED_BODY_BYTES, limits)) {
-    for (const [stem, facets] of await store.readSectionsMany(chunk, EXPORT_FACETS)) {
-      sections.set(stem, facets);
-    }
-  }
-  return sections;
+  const entries = await readChunked(
+    stems,
+    () => ASSUMED_BODY_BYTES,
+    limits,
+    (stem) => stem,
+    async (chunk) => [...(await store.readSectionsMany([...chunk], EXPORT_FACETS))],
+  );
+  return new Map(entries);
 }
 
 /** Nodes order by owning project, then allocated sequence — stable and
@@ -295,14 +308,30 @@ function transitionRecord(
   };
 }
 
-/** One document's owned prose sections, omitted entirely when it carries none —
- * an empty row would be noise in the transfer document and a no-op on import. */
+/** The `## Next` facet of a document that resolved no sections at all — absent,
+ * which is what an unread or section-less document means. */
+const NO_NEXT: NextFacet = { present: false, text: null };
+
+/**
+ * One document's owned prose sections, omitted entirely when it carries none —
+ * an empty row would be noise in the transfer document and a no-op on import.
+ *
+ * "Carries none" is presence, not prose: a `## Next` heading with a blank body
+ * is a document state an import must reproduce, so it earns a row even though
+ * its text is null. `owns.description` marks the documents that HAVE a
+ * `## Task Description` (nodes); a project's description is frontmatter.
+ */
 function ownedSections(
   stem: string,
-  owned: { description?: string | null; next: string | null },
+  sections: BodySections | undefined,
+  owns: { description?: boolean } = {},
 ): ExportedBodySections[] {
-  const carries = (owned.description ?? null) !== null || owned.next !== null;
-  return carries ? [{ stem, ...owned }] : [];
+  const next = sections?.next ?? NO_NEXT;
+  const description = owns.description === true ? (sections?.description ?? null) : null;
+  if (description === null && !next.present) {
+    return [];
+  }
+  return [{ next, stem, ...(owns.description === true ? { description } : {}) }];
 }
 
 /**
@@ -356,7 +385,7 @@ function transferDocuments(document: StoreExport): RawDocument[] {
           content: row.content,
           createdAt: row.created_at,
         })),
-        sections?.next ?? null,
+        sections?.next,
       ),
       frontmatter: nodeFrontmatter(node, {
         // Match the write path's relation shape exactly (`nodeRelations`):
@@ -388,10 +417,7 @@ function projectDocument(
   history: ReadonlyMap<string, HistoryEntry[]>,
 ): RawDocument {
   return {
-    body: renderMigratedProjectBody(
-      history.get(project.key) ?? [],
-      owned.get(project.key)?.next ?? null,
-    ),
+    body: renderMigratedProjectBody(history.get(project.key) ?? [], owned.get(project.key)?.next),
     frontmatter: projectFrontmatter(project, tagsFor(tags, 'project', project.key)),
     path: `${project.key}/${project.key}.md`,
   };
@@ -457,16 +483,221 @@ function groupBy<T>(rows: readonly T[], keyOf: (row: T) => string): Map<string, 
   return index;
 }
 
-/** The project keys the target already holds — read by frontmatter `key`, the
- * project's real identity (a project document may be physically relocated). */
+/**
+ * The project keys the target already holds — TWO occupancies, because a project
+ * has two identities and a fresh import must refuse on either.
+ *
+ * The frontmatter `key` is the project's real identity (a project document may
+ * be physically relocated), so it is read first. The canonical path `KEY/KEY.md`
+ * is the identity the IMPORT is about to claim, and a document sitting there
+ * blocks the write whatever its frontmatter says — a project doc whose `key`
+ * field was lost to a hand-edit would otherwise pass the fence and then refuse
+ * mid-write, half-importing the store.
+ */
 async function existingProjectKeys(client: NornClient): Promise<Set<string>> {
   const docs = await client.find({ eq: ['type:project'], no_limit: true });
-  return new Set(
-    docs.flatMap((doc) => {
-      const key = collapse(doc.frontmatter?.key);
-      return key === null ? [] : [key];
-    }),
-  );
+  const occupied = new Set<string>();
+  for (const doc of docs) {
+    const key = collapse(doc.frontmatter?.key);
+    if (key !== null) {
+      occupied.add(key);
+    }
+    const stem = stemOf(doc.path);
+    if (doc.path === `${stem}/${stem}.md`) {
+      occupied.add(stem);
+    }
+  }
+  return occupied;
+}
+
+/**
+ * Refuse a transfer document whose collections claim one identity twice, BEFORE
+ * anything is written (the fence a fresh import already sets for projects,
+ * widened to every identity kind).
+ *
+ * An identity is a canonical path, so two records claiming it are two documents
+ * competing for one file: the import would write one and then refuse on the
+ * other, leaving the target half-written for a fault that was visible in the
+ * document all along. A fail-closed export cannot PRODUCE such a document — it
+ * refuses on the source collision first — but an import reads whatever it is
+ * handed, including a hand-edited or foreign-backend document.
+ */
+function assertSingleValuedIdentities(document: StoreExport): void {
+  const seen = new Set<string>();
+  const duplicates: string[] = [];
+  const claim = (identity: string): void => {
+    if (seen.has(identity)) {
+      duplicates.push(identity);
+      return;
+    }
+    seen.add(identity);
+  };
+  for (const project of document.projects) {
+    claim(`project ${project.key}`);
+  }
+  for (const node of document.nodes) {
+    claim(`node ${node.id}`);
+  }
+  for (const artifact of document.artifacts) {
+    claim(`artifact ${renderArtifactRef(artifact)}`);
+  }
+  for (const seed of document.seeds) {
+    claim(`seed ${renderSeedRef(seed)}`);
+  }
+  for (const pad of document.scratchpads) {
+    claim(`scratchpad ${pad.id}`);
+  }
+  if (duplicates.length > 0) {
+    throw validation(
+      `the transfer document claims one identity twice: ${namedSample(duplicates)}`,
+      'every identity is a canonical path, so two records claiming one would half-write the target — repair the document before importing it',
+    );
+  }
+}
+
+/** The physical work-state types the export must carry — every document kind
+ * whose facts ride a collection of the transfer document. */
+const CARRIED_TYPES = 'type:project,task,phase,initiative,seed,artifact,scratch';
+
+/** How many offending paths a refusal names before it stops. */
+const REFUSAL_SAMPLE = 20;
+
+/** One physical document as the loss check sees it: where it lives, which
+ * exported identity should represent it, and its raw frontmatter. */
+type PhysicalDocument = {
+  path: string;
+  identity: string;
+  frontmatter: Record<string, unknown>;
+};
+
+/**
+ * Every physical work-state document in the vault, metadata only — the
+ * independent census the export is checked against.
+ *
+ * Metadata only is what makes this affordable: no body crosses the wire, so the
+ * whole-vault `find` stays well inside the response cap (NRN-s30, see
+ * ./chunking) however large the documents are.
+ */
+async function physicalDocuments(client: NornClient): Promise<PhysicalDocument[]> {
+  const docs = await client.find({ in: [CARRIED_TYPES], no_limit: true });
+  return docs.map((doc) => {
+    const frontmatter = doc.frontmatter ?? {};
+    const stem = stemOf(doc.path);
+    return {
+      frontmatter,
+      // A project is identified by its frontmatter `key`, which is what the
+      // export keys it by and survives a physical relocation; every other kind
+      // is identified by its stem, which IS its id.
+      identity:
+        collapse(frontmatter.type) === 'project' ? (collapse(frontmatter.key) ?? stem) : stem,
+      path: doc.path,
+    };
+  });
+}
+
+/**
+ * The frontmatter link fields whose exported counterpart the loss check compares
+ * against the raw document, and the exported links of one identity under each.
+ *
+ * A REF the export drops is loss exactly as a whole document is: the validator
+ * nulls a `parent` that resolves to no surviving node and prunes a `depends_on`
+ * or `spawned` ref the same way, and the scratchpad decode nulls a dangling
+ * `anchor`. The document survives, quietly thinner.
+ *
+ * A field absent from this map for a given identity is not compared — an
+ * artifact's `anchor` list, for instance, is carried verbatim on its own record
+ * with its dangling entries intact, so there is nothing to lose.
+ */
+type CarriedLinks = Map<string, Map<string, Set<string>>>;
+
+function carriedLinks(document: StoreExport): CarriedLinks {
+  const links: CarriedLinks = new Map();
+  const put = (identity: string, field: string, refs: Iterable<string>): void => {
+    const fields = links.get(identity) ?? new Map<string, Set<string>>();
+    fields.set(field, new Set(refs));
+    links.set(identity, fields);
+  };
+  const prereqs = groupBy(document.edges, (edge) => edge.node_id);
+  for (const node of document.nodes) {
+    // A bare project KEY in `parent` is a root marker, not an edge, so only a
+    // `KEY-seq` parent is comparable — see the filter at the call site.
+    put(node.id, 'parent', node.parent_id === null ? [] : [node.parent_id]);
+    put(
+      node.id,
+      'depends_on',
+      (prereqs.get(node.id) ?? []).map((edge) => edge.depends_on_node_id),
+    );
+  }
+  for (const seed of document.seeds) {
+    put(renderSeedRef(seed), 'spawned', seed.spawned);
+  }
+  for (const pad of document.scratchpads) {
+    put(pad.id, 'anchor', pad.anchors);
+  }
+  return links;
+}
+
+/**
+ * Fail closed: refuse the export when the vault holds a document or a link the
+ * collections do not carry.
+ *
+ * Two losses, one refusal, because they have one repair. A document with no
+ * representative was dropped by a tolerant decoder (a node whose project is
+ * missing or whose lifecycle is foreign, an identity collision, a pad with an
+ * unusable id or timestamp). A link on disk with no exported counterpart was
+ * nulled or pruned by the validator ({@link carriedLinks}). Each is vault
+ * corruption `mimir doctor` names and repairs, and each would leave the copy
+ * quietly narrower than the original.
+ */
+function assertCarriesEveryDocument(
+  document: StoreExport,
+  physical: readonly PhysicalDocument[],
+): void {
+  const carried = new Set<string>([
+    ...document.projects.map((project) => project.key),
+    ...document.nodes.map((node) => node.id),
+    ...document.artifacts.map((artifact) => renderArtifactRef(artifact)),
+    ...document.seeds.map((seed) => renderSeedRef(seed)),
+    ...document.scratchpads.map((pad) => pad.id),
+  ]);
+  const links = carriedLinks(document);
+
+  const lost: string[] = [];
+  for (const doc of physical) {
+    if (!carried.has(doc.identity)) {
+      lost.push(doc.path);
+      continue;
+    }
+    const fields = links.get(doc.identity);
+    if (fields === undefined) {
+      continue;
+    }
+    for (const [field, exported] of fields) {
+      const stored = linkStems(doc.frontmatter[field]).filter(
+        // A `parent` naming a bare project KEY is the root marker, which the
+        // export represents as a null `parent_id` rather than as an edge.
+        (ref) => field !== 'parent' || parseId(ref) !== null,
+      );
+      if (stored.some((ref) => !exported.has(ref))) {
+        lost.push(doc.path);
+        break;
+      }
+    }
+  }
+  if (lost.length > 0) {
+    throw validation(
+      `the export cannot carry ${String(lost.length)} vault document(s): ${namedSample(lost.toSorted((a, b) => a.localeCompare(b)))}`,
+      "the store read drops what it cannot resolve, and a copy that drops facts is not a backup — run 'mimir doctor' to find and repair the corruption, then export again",
+    );
+  }
+}
+
+/** The first {@link REFUSAL_SAMPLE} names, with a count of whatever is left —
+ * a refusal must be actionable without printing a whole vault. */
+function namedSample(names: readonly string[]): string {
+  const shown = names.slice(0, REFUSAL_SAMPLE).join(', ');
+  const rest = names.length - REFUSAL_SAMPLE;
+  return rest > 0 ? `${shown} (and ${String(rest)} more)` : shown;
 }
 
 type StoredDocument = { frontmatter: Record<string, unknown>; body: string };
@@ -484,13 +715,18 @@ async function readDocuments(
   paths: readonly string[],
   limits: ChunkLimits,
 ): Promise<Map<string, StoredDocument>> {
+  const records = await readChunked(
+    paths,
+    () => ASSUMED_BODY_BYTES,
+    limits,
+    (path) => path,
+    (chunk) => client.get([...chunk], '.frontmatter,.body'),
+  );
   const found = new Map<string, StoredDocument>();
-  for (const chunk of chunkByWeight(paths, () => ASSUMED_BODY_BYTES, limits)) {
-    for (const record of await client.get([...chunk], '.frontmatter,.body')) {
-      const doc = storedDocument(record);
-      if (doc !== null) {
-        found.set(doc.path, { body: doc.body, frontmatter: doc.frontmatter });
-      }
+  for (const record of records) {
+    const doc = storedDocument(record);
+    if (doc !== null) {
+      found.set(doc.path, { body: doc.body, frontmatter: doc.frontmatter });
     }
   }
   return found;

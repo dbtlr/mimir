@@ -10,6 +10,7 @@ import type { NodePatch } from '../core/store';
 import { createNornArtifactStore } from '../core/store-norn/artifacts';
 import { NornClient } from '../core/store-norn/client';
 import { createNornSeedStore } from '../core/store-norn/seeds';
+import { seedRawDoc } from '../core/store-norn/testing';
 import { createNornWriteStore } from '../core/store-norn/writer';
 import { now } from '../core/time';
 import type { DoctorBackend } from '../doctor/contract';
@@ -53,6 +54,14 @@ export type TestStore = {
   readDocument: (path: string) => string;
   /** Deliberate missing-container corruption for recovery tests. */
   removeDocument: (path: string) => void;
+  /** Write a whole document at a fixed vault path, bypassing every store — the
+   * seam for physical siblings, colliders, and orphans no typed API can
+   * produce. */
+  seedDocument: (
+    path: string,
+    frontmatter: Record<string, unknown>,
+    body?: string,
+  ) => Promise<void>;
 };
 
 function safeVaultPath(root: string, path: string): string {
@@ -85,6 +94,7 @@ export async function createTestStore(): Promise<TestStore> {
       doctorDeps,
       readDocument: (path) => readFileSync(safeVaultPath(root, path), 'utf8'),
       removeDocument: (path) => unlinkSync(safeVaultPath(root, path)),
+      seedDocument: (path, frontmatter, body) => seedRawDoc(client, root, path, frontmatter, body),
       seeds: createNornSeedStore(client, root),
       store: createNornWriteStore(client, root),
       vaultRoot: root,

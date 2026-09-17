@@ -27,8 +27,18 @@
  * pessimistic per-document assumption rather than a measurement. A count-only
  * batch cannot work: 100 documents is 200 KB of one vault's artifacts and 12 MB
  * of another's.
+ *
+ * **The estimate is a first guess, not a guarantee.** A vault whose documents
+ * run larger than the assumption packs a chunk that still exceeds the cap, and
+ * the failure mode is the silent connection close rather than a clean refusal.
+ * So {@link readChunked} treats that close as a signal: it halves the chunk and
+ * retries each half (the client reconnects on its next call), converging on
+ * whatever size this vault's transport actually tolerates. Only a chunk of ONE
+ * document that still closes the connection is unrecoverable, and that refuses
+ * by name — no batching strategy can split a single oversized document.
  */
 
+import { MimirError, validation } from '../errors';
 import type { NornClient } from './client';
 import { pathAndBody } from './decode';
 
@@ -89,6 +99,73 @@ export function chunkByWeight<T>(
   return chunks;
 }
 
+/**
+ * Is this failure the NRN-s30 response cap — the MCP transport closing the
+ * connection on an oversized response?
+ *
+ * Matched on the message text because there is nothing else to match on: the
+ * close carries no server-side error, and `NornClient` surfaces it as a typed
+ * connection failure (`invariant`) whose detail is the SDK's own
+ * `MCP error -32000: Connection closed`. A retry inside the client has already
+ * failed by the time this is asked, so a hit means the payload, not a flake.
+ */
+export function isResponseCapFailure(error: unknown): boolean {
+  const message = error instanceof MimirError ? error.message : String(error);
+  return /connection closed|-32000/i.test(message);
+}
+
+/**
+ * Run `read` over `items` in byte-bounded chunks, halving and retrying any chunk
+ * the transport drops, and concatenating every call's records.
+ *
+ * The single home of the read-side batching strategy: every whole-vault,
+ * body-carrying read goes through here, so the estimate, the adaptive split, and
+ * the single-document refusal are one behavior rather than five copies.
+ *
+ * `labelOf` names an item for the refusal — a vault path, so the operator is
+ * told which document the transport cannot carry.
+ */
+export async function readChunked<T, R>(
+  items: readonly T[],
+  weightOf: (item: T) => number,
+  limits: ChunkLimits,
+  labelOf: (item: T) => string,
+  read: (chunk: readonly T[]) => Promise<R[]>,
+): Promise<R[]> {
+  const records: R[] = [];
+  for (const chunk of chunkByWeight(items, weightOf, limits)) {
+    records.push(...(await readSplitting(chunk, labelOf, read)));
+  }
+  return records;
+}
+
+/** One chunk, split in half and retried for as long as the transport refuses it. */
+async function readSplitting<T, R>(
+  chunk: readonly T[],
+  labelOf: (item: T) => string,
+  read: (chunk: readonly T[]) => Promise<R[]>,
+): Promise<R[]> {
+  try {
+    return await read(chunk);
+  } catch (error) {
+    const only = chunk.length === 1 ? chunk[0] : undefined;
+    if (!isResponseCapFailure(error)) {
+      throw error;
+    }
+    if (only !== undefined) {
+      throw validation(
+        `${labelOf(only)} is too large for the norn transport to return`,
+        'the MCP response cap (NRN-s30) closes the connection on an oversized response, and a single document cannot be split further — shrink the document, or read it outside mimir',
+      );
+    }
+    const half = Math.floor(chunk.length / 2);
+    return [
+      ...(await readSplitting(chunk.slice(0, half), labelOf, read)),
+      ...(await readSplitting(chunk.slice(half), labelOf, read)),
+    ];
+  }
+}
+
 /** A value's size on the wire — the JSON encoding's byte length. */
 export function jsonBytes(value: unknown): number {
   return Buffer.byteLength(JSON.stringify(value) ?? '', 'utf8');
@@ -108,17 +185,22 @@ export async function readBodies(
   targets: readonly BodyTarget[],
   limits: ChunkLimits = READ_LIMITS,
 ): Promise<Map<string, string>> {
+  const records = await readChunked(
+    targets,
+    (target) => target.weight,
+    limits,
+    (target) => target.path,
+    (chunk) =>
+      client.get(
+        chunk.map((target) => target.path),
+        '.body',
+      ),
+  );
   const bodies = new Map<string, string>();
-  for (const chunk of chunkByWeight(targets, (target) => target.weight, limits)) {
-    const records = await client.get(
-      chunk.map((target) => target.path),
-      '.body',
-    );
-    for (const record of records) {
-      const doc = pathAndBody(record);
-      if (doc !== null) {
-        bodies.set(doc.path, doc.body);
-      }
+  for (const record of records) {
+    const doc = pathAndBody(record);
+    if (doc !== null) {
+      bodies.set(doc.path, doc.body);
     }
   }
   return bodies;

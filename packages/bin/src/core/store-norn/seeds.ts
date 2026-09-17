@@ -235,14 +235,22 @@ export function seedDocument(seed: ExportedSeed): RawDocument {
 
 /**
  * Every seed in the vault with its description prose and its `## History` — the
- * store export's seed collection (MMR-378), read in ONE `vault.find` with
- * `.body` opted in rather than a `load` + `loadHistory` per seed. Decodes
- * through the same {@link toRecord} and section parsers the seam's reads use.
+ * store export's seed collection (MMR-378).
+ *
+ * Two phases, like the artifact exporter: a metadata-only `vault.find`
+ * enumerates every seed, then the bodies are fetched in byte-bounded
+ * `vault.get` chunks (NRN-s30, see {@link ./chunking}) — a seed body carries
+ * arbitrary description prose and a whole `## History` log, so the whole-vault
+ * set in one `find` with `.body` is what fails on a real vault. Decodes through
+ * the same {@link toRecord} and section parsers the seam's reads use, so an
+ * exported seed equals what `load` + `loadHistory` would return.
  *
  * Identity collisions are dropped, not exported: two documents resolving to one
  * `KEY-sN` are hidden from every seam read (the validator-parity filter in
  * {@link createNornSeedStore}), so exporting one of them would carry a fact the
- * store does not surface. `mimir doctor` remains the channel for the corruption.
+ * store does not surface. The whole-store export refuses on the loss rather
+ * than shipping a half-vault (see `./transfer`), and `mimir doctor` remains the
+ * channel for the corruption.
  */
 export async function exportSeeds(
   client: NornClient,

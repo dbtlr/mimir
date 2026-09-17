@@ -181,11 +181,17 @@ function parseFacets(raw: Record<string, string>, want: BodySectionFacets): Body
     sections.description = parseDescriptionSection(sectionBody(raw[DESCRIPTION_HEADING] ?? ''));
   }
   if (want.next === true) {
-    // A duplicated `## Next` reads as EMPTY here, exactly as an ambiguous
-    // `## History`/`## Task Description` does — the deliberate graceful
-    // degradation of ADR 0017. `mimir doctor` names the duplicate so the drop
-    // isn't silent, and the WRITE path refuses outright (MMR-321).
-    sections.next = parseNextSection(sectionBody(raw[NEXT_HEADING] ?? ''));
+    // A duplicated `## Next` reads as ABSENT AND EMPTY here, exactly as an
+    // ambiguous `## History`/`## Task Description` reads empty — the deliberate
+    // graceful degradation of ADR 0017. `mimir doctor` names the duplicate so
+    // the drop isn't silent, and the WRITE path refuses outright (MMR-321).
+    // Presence comes from the RAW section map, not the parsed prose: a resolved
+    // heading whose prose is blank is present with null text.
+    const section = raw[NEXT_HEADING];
+    sections.next = {
+      present: section !== undefined,
+      text: parseNextSection(sectionBody(section ?? '')),
+    };
   }
   if (want.annotations === true) {
     sections.annotations = parseAnnotationsSection(
@@ -225,16 +231,11 @@ export function createNornBodySectionStore(client: NornClient): BodySectionStore
       // resolved heading is exactly "norn can target this section", which is
       // what a `replace_section`/`delete_section` op needs (MMR-321).
       const raw = await readNodeSections(client, stem, [NEXT_HEADING]);
-      const section = raw[NEXT_HEADING];
-      if (section !== undefined) {
+      const facet = parseFacets(raw, { next: true }).next;
+      if (facet?.present === true) {
         // Resolved: the write replaces or deletes THIS heading, so no insert
         // anchor is consulted.
-        return {
-          ambiguous: false,
-          insertAnchors: 1,
-          present: true,
-          text: parseNextSection(sectionBody(section)),
-        };
+        return { ...facet, ambiguous: false, insertAnchors: 1 };
       }
       // Not resolved — and norn reports a MISSING heading and a hand-duplicated
       // (AMBIGUOUS) one identically: both are warn-omitted from `sections`, both

@@ -88,10 +88,13 @@ export type DoctorRepairRequest = {
 
 /**
  * The doctor facet of a store backend. `repair` is OPTIONAL and present only
- * where a mutating transport asked for it: the CLI composition root wires a
- * backend that carries it, while the read-only transports (`serve`, `mcp`)
- * intentionally receive one that does not, so the repair capability cannot be
- * reached over HTTP or MCP at all.
+ * where the transport asked for it: the CLI composition root wires a backend
+ * that carries it, while `serve` and `mcp` intentionally receive one that does
+ * not, so the repair capability cannot be reached over HTTP or MCP at all.
+ *
+ * Not because those transports are read-only — both serve mutating work routes
+ * — but because a repair pass rewrites documents wholesale on a diagnosis its
+ * caller never sees. That stays a local, reviewed decision at the CLI.
  */
 export type DoctorBackend = {
   /** Run every check the backend knows, narrowed to `scope` when given. */

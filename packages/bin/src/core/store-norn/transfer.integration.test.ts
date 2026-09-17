@@ -96,6 +96,17 @@ beforeEach(async () => {
       requester: null,
       title: `Seed ${String(n)}`,
     });
+    await source.scratchpads.create({
+      agenda: [],
+      anchors: [],
+      createdAt: '2026-09-01T12:00:00.000Z',
+      freezingAt: null,
+      id: `123e4567-e89b-42d3-a456-42661417400${String(n)}`,
+      journal: [{ at: '2026-09-01T12:00:00.000Z', content: 'journal '.repeat(200), number: 1 }],
+      project: 'MMR',
+      title: `Pad ${String(n)}`,
+      updatedAt: '2026-09-01T12:00:00.000Z',
+    });
   }
 });
 
@@ -109,23 +120,27 @@ afterEach(async () => {
 });
 
 test.skipIf(!NORN)('export fans body reads out across chunks and is budget-invariant', async () => {
-  const unbatched = await exportNornStore(sourceClient, sourceVault);
+  const unbatched = await exportNornStore(sourceClient);
   expect(unbatched.artifacts).toHaveLength(4);
   expect(unbatched.seeds).toHaveLength(4);
+  expect(unbatched.scratchpads).toHaveLength(4);
 
   const counts = countCalls(sourceClient);
-  const chunked = await exportNornStore(sourceClient, sourceVault, ONE_PER_CALL);
+  const chunked = await exportNornStore(sourceClient, ONE_PER_CALL);
 
-  // One `vault.get` per artifact body and per seed body, and one section read
-  // per stem (the project, the initiative, the task) — no whole-set read left.
-  expect(counts.get).toBeGreaterThanOrEqual(8);
+  // One `vault.get` per artifact, seed, and SCRATCHPAD body, and one section
+  // read per stem (the project, the initiative, the task) — no whole-set body
+  // read left anywhere in the export, the scratchpad collection included: a pad
+  // body is a whole journal, and the whole-vault set in one `find` with `.body`
+  // is what closes the MCP connection on a real vault (NRN-s30).
+  expect(counts.get).toBeGreaterThanOrEqual(12);
   expect(counts.getSections).toBeGreaterThanOrEqual(3);
   // Same document either way: batching is a transport concern, never a content one.
   expect(withoutStamp(chunked)).toEqual(withoutStamp(unbatched));
 });
 
 test.skipIf(!NORN)('import writes in byte-bounded plans and round-trips unchanged', async () => {
-  const document = await exportNornStore(sourceClient, sourceVault);
+  const document = await exportNornStore(sourceClient);
   const counts = countCalls(targetClient);
   const report = await importNornStore(
     targetClient,
@@ -157,7 +172,7 @@ test.skipIf(!NORN)(
       type: 'artifact',
     });
 
-    const document = await exportNornStore(sourceClient, sourceVault);
+    const document = await exportNornStore(sourceClient);
     const legacy = document.artifacts.find((artifact) => artifact.seq === 9);
     expect(legacy?.updated_at).toBe('');
 
@@ -168,7 +183,7 @@ test.skipIf(!NORN)(
 );
 
 test.skipIf(!NORN)('a resume reads the target in chunks and skips every document', async () => {
-  const document = await exportNornStore(sourceClient, sourceVault);
+  const document = await exportNornStore(sourceClient);
   const first = await importNornStore(targetClient, targetVault, document, { mode: 'fresh' });
 
   const counts = countCalls(targetClient);

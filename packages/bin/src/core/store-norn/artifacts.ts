@@ -205,6 +205,12 @@ export function artifactDocument(
  * `load(..., {content: true})` would return. `source_scratch` is read raw here
  * because no seam record carries it (only `findBySourceScratch` surfaces it),
  * yet it is stored and must survive a round trip.
+ *
+ * Identity collisions are dropped, not exported: two documents resolving to one
+ * `KEY-aN` are two claims on one identity, and picking a winner here would
+ * invent a fact the vault does not hold. The whole-store export refuses on the
+ * loss rather than shipping a half-vault (see `./transfer`), and `mimir doctor`
+ * remains the channel for the corruption. Mirrors the seed exporter's filter.
  */
 export async function exportArtifacts(
   client: NornClient,
@@ -215,10 +221,22 @@ export async function exportArtifacts(
     eq: ['type:artifact'],
     no_limit: true,
   });
+  const occupants = new Map<string, number>();
+  for (const raw of docs) {
+    const doc = asDoc(raw);
+    const identity = doc === null ? null : seqFromPath(doc.path);
+    if (identity !== null) {
+      const stem = stemOf(identity.key, identity.seq);
+      occupants.set(stem, (occupants.get(stem) ?? 0) + 1);
+    }
+  }
   const candidates = docs.flatMap((raw) => {
     const doc = asDoc(raw);
     const record = doc === null ? null : toRecord(doc);
-    return doc === null || record === null ? [] : [{ doc, record }];
+    if (doc === null || record === null || occupants.get(stemOf(record.key, record.seq)) !== 1) {
+      return [];
+    }
+    return [{ doc, record }];
   });
   const bodies = await readBodies(
     client,
@@ -266,12 +284,16 @@ export async function restoreArtifact(
   // this is a one-way cutover to a new substrate, so every migrated document
   // gets a real stamp for the mutation guard (MMR-317), while a store import
   // copies the absence through untouched.
-  const { frontmatter, path } = artifactDocument({
+  const { body, frontmatter, path } = artifactDocument({
     ...record,
     content,
     updated_at: record.updated_at === '' ? record.created_at : record.updated_at,
   });
-  const plan = createDocumentPlan(vaultRoot, path, frontmatter, content);
+  // The BUILT body, not the raw content: the builder re-terminates the content
+  // so a read-back never sheds a trailing newline (see {@link artifactDocument}),
+  // and routing the restore around it would make this the one fixed-path write
+  // the single builder does not fully author.
+  const plan = createDocumentPlan(vaultRoot, path, frontmatter, body);
   const { operations, outcome } = decodeApplyReport(await client.applyPlan(plan, true));
   if (outcome === 'applied') {
     return 'created';

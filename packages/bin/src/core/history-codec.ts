@@ -7,6 +7,8 @@ import type {
 import { HANDLE_FIELD_KEYS, TRANSITION_KIND_VALUES } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
+import type { NextFacet } from './body-sections/store';
+
 /**
  * The `## History` record codec (MMR-153): the single grammar the vault write
  * path (this slice) and the read path (MMR-154) share, so a transition round-
@@ -98,25 +100,33 @@ function renderSectionedBody(
 /** The record lists a reconstructed body carries — an omitted list is empty,
  * which renders exactly as the create-time (anchors-only) body. */
 type SectionRecords = {
-  /** The `## Next` narrative. Absent, null, or blank renders no section at all:
-   * a document carries the heading only while the narrative is set (MMR-321). */
-  next?: string | null;
+  /** The `## Next` section. An omitted or absent one renders no section at all;
+   * a PRESENT one renders its heading even when the prose is null, because a
+   * hand-emptied section is a document state of its own (MMR-321, MMR-378). */
+  next?: NextFacet | null;
   history?: readonly HistoryEntry[];
   annotations?: readonly AnnotationView[];
 };
 
 /**
  * The whole `## Next` block as it sits ON DISK above the `## History` anchor, or
- * nothing when the narrative is unset.
+ * nothing when the section is absent.
  *
- * {@link renderNextBlock} is the payload handed to norn's
- * `insert_before_heading`, and norn absorbs that payload's trailing blank line
- * when it splices the block in above the anchor (verified against norn 0.48). A
- * body rebuilt from records has to land on the same bytes as one grown that way,
- * so the block loses exactly that one newline here.
+ * Three states, not two. An ABSENT section renders nothing. A section with prose
+ * renders {@link renderNextBlock} minus one newline: that block is the payload
+ * handed to norn's `insert_before_heading`, and norn absorbs its trailing blank
+ * line when it splices the block in above the anchor (verified against norn
+ * 0.48), so a body rebuilt from records has to shed the same newline to land on
+ * the same bytes. A PRESENT-but-empty section renders its bare heading, which is
+ * what norn leaves on disk when the spliced block carried no prose — the same
+ * shape the create-time `## History` and `## Annotations` anchors take.
  */
-function renderNextPart(next: string | null | undefined): string {
-  return next == null || next.trim() === '' ? '' : renderNextBlock(next).slice(0, -1);
+function renderNextPart(next: NextFacet | null | undefined): string {
+  if (next == null || !next.present) {
+    return '';
+  }
+  const text = next.text ?? '';
+  return text.trim() === '' ? `## ${NEXT_HEADING}\n` : renderNextBlock(text).slice(0, -1);
 }
 
 function renderHistoryRecords(history: readonly HistoryEntry[] | undefined): string {
@@ -204,7 +214,7 @@ export function renderMigratedNodeBody(
   description: string | null,
   history: readonly HistoryEntry[],
   annotations: readonly AnnotationView[],
-  next?: string | null,
+  next?: NextFacet | null,
 ): string {
   return renderSectionedBody(DESCRIPTION_HEADING, description, { annotations, history, next });
 }
@@ -227,7 +237,7 @@ export function renderMigratedSeedBody(
  * project-keyed); projects carry no `## Annotations` section. */
 export function renderMigratedProjectBody(
   history: readonly HistoryEntry[],
-  next?: string | null,
+  next?: NextFacet | null,
 ): string {
   return `${renderNextPart(next)}${renderHistoryBody()}${renderHistoryRecords(history)}`;
 }

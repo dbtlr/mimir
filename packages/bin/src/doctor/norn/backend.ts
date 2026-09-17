@@ -5,9 +5,9 @@
  * lives under this directory and is reached only through {@link DoctorBackend}.
  *
  * `repair` is produced only when the caller supplies the apply handles. The CLI
- * composition root supplies them; `serve` and `mcp` deliberately do not, so a
- * read-only transport holds a backend with no repair capability at all rather
- * than one that refuses at call time.
+ * composition root supplies them; `serve` and `mcp` deliberately do not, so
+ * those transports hold a backend with no repair capability at all rather than
+ * one that refuses at call time.
  */
 import type { NornClient } from '../../core/store-norn/client';
 import type { MigrationPlan } from '../../core/store-norn/plan';
@@ -263,7 +263,7 @@ export function createNornDoctorBackend(deps: NornDoctorDeps): DoctorBackend {
       };
     },
     facet: (scope): Promise<DoctorFacet> => computeDoctorFacet(deps, scope),
-    // Read-only transports intentionally do not receive this capability.
+    // `serve` and `mcp` intentionally do not receive this capability.
     ...(apply === undefined ? {} : { repair: (request) => runRepair({ ...deps, apply }, request) }),
   };
 }

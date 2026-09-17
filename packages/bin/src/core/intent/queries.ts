@@ -705,7 +705,7 @@ async function directionOf(
   );
   const withProse: OverviewDirection['containers'] = [];
   for (const node of ordered) {
-    const next = prose.get(node.id)?.next;
+    const next = prose.get(node.id)?.next?.text;
     if (next != null && next !== '') {
       withProse.push({ id: node.id, next, title: node.title });
     }
@@ -713,7 +713,7 @@ async function directionOf(
   return {
     containers: withProse.slice(0, OVERVIEW_CAP),
     count: withProse.length,
-    project: prose.get(scopeKey)?.next ?? null,
+    project: prose.get(scopeKey)?.next?.text ?? null,
   };
 }
 
