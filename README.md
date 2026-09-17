@@ -48,6 +48,9 @@ curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 mimir setup
 ```
 
+For an existing installation without a receipt, use the
+[legacy upgrade procedure](docs/guides/install-location.md#upgrade-an-installation-without-a-receipt).
+
 Mimir requires `norn` on `PATH`. Setup creates or adopts a vault and can install
 the local service. Then create a project and bind a repository to it:
 

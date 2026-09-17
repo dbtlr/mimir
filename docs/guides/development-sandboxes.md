@@ -43,8 +43,9 @@ bun run test:sandbox
 
 The ordinary suite includes PGlite tests without a server. `test:postgres` provisions
 an owned server and runs the real-Postgres conformance and concurrency cases.
-`test:sandbox` builds the candidate and exercises a real native snapshot rehearsal.
-Tests do not use the live installation or its database.
+`test:sandbox` builds the candidate and exercises a real native snapshot rehearsal
+and the legacy installer transition. Tests do not use the live installation or
+its database.
 
 State lives under `.dev/sandboxes/<sandbox-id>`. Each sandbox has its own installed
 binary, receipt, authority file, config, data, cache, and run records. Treat these
@@ -144,8 +145,27 @@ values to be identical.
 
 ## Live installation transition
 
-The release installer performs explicit registration and resolves Mimir's XDG
-directories. Receipt-aware updates preserve those bindings. A release predating
-receipts must be replaced through the new installer to become registered; copying
-a new binary over it is insufficient. This workflow never updates an existing live
-installation as part of development or testing.
+The [installation guide](install-location.md#upgrade-an-installation-without-a-receipt)
+describes the operator procedure. The release installer performs explicit
+registration and resolves Mimir's XDG directories. Updates to a registered
+installation preserve those bindings.
+
+`packages/sandbox/src/installer.integration.test.ts` models a legacy installation
+layout with an executable placeholder and no receipt. It uses a real synthetic
+board in an owned disposable Postgres sandbox. The placeholder never runs.
+
+The test runs the repository's shell installer against the compiled candidate.
+Only the download transport uses a local `curl` substitute. The test verifies the
+new receipt, configuration and cache preservation, and unchanged board contents.
+A second installation verifies that existing bindings survive different ambient
+XDG values. This is a modeled layout transition, not a run of an old release.
+
+The installer stages the binary as `<binary>.<uuid>.install` and then writes
+the receipt through `<binary>.installation.json.<uuid>.tmp`. Handled errors
+remove temporary files. Abrupt termination can leave them behind. The two renames
+are separate operations, so interruption can leave a mismatched receipt that
+refuses normal state access.
+
+This workflow never updates an existing live installation during development
+or testing. The shell installer creates a live-mode receipt only inside the
+disposable test layout.
