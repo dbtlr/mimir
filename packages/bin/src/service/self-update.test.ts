@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -226,4 +234,15 @@ test('self-update rejects a legacy candidate without altering the installed bina
   ).toThrow('installation protocol');
   expect(readInstallationAt(target)).toEqual(original);
   expect(readFileSync(target, 'utf8')).toBe('original');
+});
+
+test('self-update leaves a stale staging symlink and its target untouched', () => {
+  const target = join(dir, 'mimir');
+  const other = join(dir, 'other-binary');
+  writeFileSync(target, 'old');
+  writeFileSync(other, 'unrelated');
+  symlinkSync(other, `${target}.self-update`);
+  replaceBinary(target, new TextEncoder().encode(protocolCandidate));
+  expect(readFileSync(other, 'utf8')).toBe('unrelated');
+  expect(readFileSync(target, 'utf8')).toBe(protocolCandidate);
 });

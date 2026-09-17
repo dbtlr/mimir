@@ -3,8 +3,8 @@ import { z } from 'zod';
 export const snapshotSchema = z.object({
   capturedAt: z.iso.datetime(),
   id: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/),
-  pgDumpVersion: z.string(),
-  postgresVersion: z.string(),
+  pgDumpVersion: z.string().regex(/^18(?:\.[0-9]+)*$/),
+  postgresVersion: z.string().regex(/^18(?:\.[0-9]+)*$/),
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
   version: z.literal(1),
 });

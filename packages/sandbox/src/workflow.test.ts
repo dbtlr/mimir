@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { latestSnapshot } from './snapshot';
+import { latestSnapshot, snapshotSchema } from './snapshot';
 import { Sandbox } from './workflow';
 
 async function failure(promise: Promise<unknown>): Promise<string> {
@@ -115,5 +115,22 @@ test('sandbox run refuses installation machinery before opening a sandbox', asyn
     }
   } finally {
     await rm(root, { force: true, recursive: true });
+  }
+});
+
+test('snapshot manifests require numeric PostgreSQL 18 versions', () => {
+  const base = {
+    capturedAt: '2026-09-17T00:00:00Z',
+    id: 'capture',
+    pgDumpVersion: '18.6',
+    postgresVersion: '18.6',
+    sha256: '0'.repeat(64),
+    version: 1,
+  };
+  expect(snapshotSchema.safeParse(base).success).toBe(true);
+  for (const field of ['pgDumpVersion', 'postgresVersion']) {
+    for (const value of ['', 'PostgreSQL 18.6', '18.bad', '17.6']) {
+      expect(snapshotSchema.safeParse({ ...base, [field]: value }).success).toBe(false);
+    }
   }
 });

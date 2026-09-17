@@ -12,10 +12,12 @@
       "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$"
     },
     "pgDumpVersion": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^18(?:\\.[0-9]+)*$"
     },
     "postgresVersion": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^18(?:\\.[0-9]+)*$"
     },
     "sha256": {
       "type": "string",

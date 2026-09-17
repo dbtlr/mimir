@@ -6,7 +6,8 @@
  * escape hatch. Orchestration (version gate, service restart, event log)
  * lives in the command layer; this module is the engine.
  */
-import { chmodSync, existsSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { existsSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 
 import { MimirError } from '../core';
 import { readInstallationAt, registerInstallation } from '../installation';
@@ -136,10 +137,9 @@ export function verifyChecksum(body: Uint8Array, sums: string, asset: string): v
 export function replaceBinary(targetPath: string, body: Uint8Array): void {
   const installation = existsSync(targetPath) ? readInstallationAt(targetPath) : undefined;
   const canonicalTarget = installation?.executable ?? targetPath;
-  const staging = `${canonicalTarget}.self-update`;
-  writeFileSync(staging, body);
+  const staging = `${canonicalTarget}.${randomUUID()}.self-update`;
+  writeFileSync(staging, body, { flag: 'wx', mode: 0o755 });
   try {
-    chmodSync(staging, 0o755);
     requireInstallationProtocol(staging);
     renameSync(staging, canonicalTarget);
     if (installation !== undefined) {
