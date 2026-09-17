@@ -200,6 +200,11 @@ const OPTIONS = {
   'dry-run': { type: 'boolean' },
   // doctor deterministic repair (MMR-183)
   fix: { type: 'boolean' },
+  // store import (MMR-380) — the default is a preview; `--apply` writes.
+  // Spelled `--apply` rather than reusing `--dry-run`, which is doctor/triage's
+  // and inverts this verb's default.
+  apply: { type: 'boolean' },
+  resume: { type: 'boolean' },
   // self-update selectors (--tag reuses the multiple `tag` flag above,
   // last-wins like the other shared write-surface flags)
   next: { type: 'boolean' },
@@ -332,6 +337,8 @@ type OwnedFlagValues = {
   branch?: string;
   project?: string;
   requester?: string;
+  apply?: boolean;
+  resume?: boolean;
 };
 
 /** No verb owns a tombstoned flag — every use is a usage error with a redirect. */
@@ -506,6 +513,22 @@ const VERB_OWNED_FLAGS: readonly {
     hint: `'--requester' filters seeds a board requested; use it with seeds`,
     owner: 'seeds',
   },
+  // `store import`'s pair (MMR-380). Both are booleans, so a stray one silently
+  // no-ops — and each one names a decision the caller believes they made: that
+  // the import WRITES, and that it resumes a partial one rather than refusing a
+  // target that already holds the projects.
+  {
+    flag: '--apply',
+    given: (values) => values.apply === true,
+    hint: `'--apply' writes a previewed import; use it with store import`,
+    owner: 'store',
+  },
+  {
+    flag: '--resume',
+    given: (values) => values.resume === true,
+    hint: `'--resume' re-runs a partial import, skipping what is already identical; use it with store import`,
+    owner: 'store',
+  },
 ];
 
 /** Every valid flag spelling — long `--name` plus any short `-x` alias. */
@@ -630,6 +653,8 @@ export async function runCli(
     next?: boolean;
     'dry-run'?: boolean;
     fix?: boolean;
+    apply?: boolean;
+    resume?: boolean;
   };
   let positionals: string[];
   try {
@@ -1074,7 +1099,18 @@ export async function runCli(
           throw usage('store is unavailable in this context');
         }
         const format = pickFormat(values.format, 'report', ctx);
-        return await cmdStore(positionals, ctx, defaults.store, format);
+        // `getStore` rather than `defaults.store`: `export`/`import` are data
+        // verbs on the seam (ADR 0030 Decision 4), so they run on whichever
+        // backend this install is configured for — the machinery deps carry
+        // only the Postgres schema move.
+        return await cmdStore(
+          positionals,
+          { apply: values.apply, resume: values.resume },
+          ctx,
+          defaults.store,
+          format,
+          getStore,
+        );
       }
       case 'doctor': {
         if (defaults.doctor === undefined) {

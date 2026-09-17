@@ -4,9 +4,11 @@ import type { ArtifactListQuery, ArtifactRecord, ArtifactStore } from '../artifa
 import { stripTrailingNewline } from '../content';
 import { withinWindow } from '../dates';
 import { invariant, projectNotFound } from '../errors';
+import { canonicalSetOrder } from '../export';
 import type { ExportedArtifact } from '../export';
 import { renderArtifactRef } from '../ids';
 import { now } from '../time';
+import { insertBatched, pairKey } from './batch';
 import type { ArtifactRow, DB } from './schema';
 import type { Executor } from './tx';
 import { serializable } from './tx';
@@ -40,7 +42,14 @@ function toRecord(row: ArtifactRow, tags: string[], links: string[]): ArtifactRe
   };
 }
 
-/** Tag sets for many artifacts at once, keyed by stem and tag-sorted. */
+/**
+ * Tag sets for many artifacts at once, keyed by stem.
+ *
+ * Ordered in JS by {@link canonicalSetOrder} rather than by a SQL `ORDER BY`:
+ * the server's collation is the operator's choice and ranks `Draft` and `draft`
+ * differently from a vault, and the set order is one rule the whole seam shares
+ * (MMR-380).
+ */
 async function tagsFor(ex: Executor, ids: readonly string[]): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
   if (ids.length === 0) {
@@ -51,15 +60,14 @@ async function tagsFor(ex: Executor, ids: readonly string[]): Promise<Map<string
     .select(['entity_id', 'tag'])
     .where('entity_type', '=', 'artifact')
     .where('entity_id', 'in', [...ids])
-    .orderBy('tag')
     .execute();
   for (const row of rows) {
     out.set(row.entity_id, [...(out.get(row.entity_id) ?? []), row.tag]);
   }
-  return out;
+  return sortSets(out);
 }
 
-/** Link sets for many artifacts at once, keyed by stem and stem-sorted. */
+/** Link sets for many artifacts at once, keyed by stem, ordered like the tags. */
 async function linksFor(ex: Executor, ids: readonly string[]): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
   if (ids.length === 0) {
@@ -69,12 +77,19 @@ async function linksFor(ex: Executor, ids: readonly string[]): Promise<Map<strin
     .selectFrom('artifact_link')
     .select(['artifact_id', 'node_id'])
     .where('artifact_id', 'in', [...ids])
-    .orderBy('node_id')
     .execute();
   for (const row of rows) {
     out.set(row.artifact_id, [...(out.get(row.artifact_id) ?? []), row.node_id]);
   }
-  return out;
+  return sortSets(out);
+}
+
+/** Every set in the map in the seam's one set order. */
+function sortSets(sets: Map<string, string[]>): Map<string, string[]> {
+  for (const [id, values] of sets) {
+    sets.set(id, canonicalSetOrder(values));
+  }
+  return sets;
 }
 
 /** Decorate artifact rows with their tags and links in one pair of queries. */
@@ -110,52 +125,83 @@ export async function exportArtifacts(ex: Executor): Promise<ExportedArtifact[]>
   return exported;
 }
 
-/** Write one whole artifact at its EXISTING identity — the import's writer. */
-export async function insertExportedArtifact(
+/**
+ * Write whole artifacts at their EXISTING identities — the import's writer.
+ *
+ * Plural because the import brings the whole collection at once: three batched
+ * statements per chunk (rows, tags, links) rather than three per artifact.
+ */
+export async function insertExportedArtifacts(
   tx: Transaction<DB>,
-  artifact: ExportedArtifact,
+  artifacts: readonly ExportedArtifact[],
 ): Promise<void> {
-  const id = stemOf(artifact.key, artifact.seq);
-  await tx
-    .insertInto('artifact')
-    .values({
-      content: artifact.content,
-      created_at: artifact.created_at,
-      id,
-      project_key: artifact.key,
-      seq: artifact.seq,
-      source_scratch: artifact.source_scratch,
-      summary: artifact.summary,
-      title: artifact.title,
-      updated_at: artifact.updated_at,
-    })
-    .execute();
-  await writeRelations(tx, id, artifact.tags, artifact.links);
+  const rows = artifacts.map((artifact) => ({
+    content: artifact.content,
+    created_at: artifact.created_at,
+    id: stemOf(artifact.key, artifact.seq),
+    project_key: artifact.key,
+    seq: artifact.seq,
+    source_scratch: artifact.source_scratch,
+    summary: artifact.summary,
+    title: artifact.title,
+    updated_at: artifact.updated_at,
+  }));
+  await insertBatched(rows, (chunk) => tx.insertInto('artifact').values(chunk).execute());
+  await writeRelations(
+    tx,
+    artifacts.map((artifact) => ({
+      id: stemOf(artifact.key, artifact.seq),
+      links: artifact.links,
+      tags: artifact.tags,
+    })),
+  );
 }
 
-/** The tag and link rows of one artifact, deduped. */
+/** One artifact's relations as the writer takes them. */
+type ArtifactRelations = {
+  id: string;
+  tags: readonly string[];
+  links: readonly string[];
+};
+
+/**
+ * The tag and link rows of any number of artifacts, deduped across the whole
+ * batch. `ON CONFLICT DO NOTHING` would settle a repeat on its own; deduping
+ * first keeps a repeated tag from spending bind parameters, which are the
+ * budget the batch is chunked against (see ./batch).
+ */
 async function writeRelations(
   tx: Transaction<DB>,
-  id: string,
-  tags: readonly string[],
-  links: readonly string[],
+  artifacts: readonly ArtifactRelations[],
 ): Promise<void> {
-  const uniqueTags = [...new Set(tags)];
-  if (uniqueTags.length > 0) {
-    await tx
+  const tags = new Map<string, { entity_id: string; entity_type: 'artifact'; tag: string }>();
+  const links = new Map<string, { artifact_id: string; node_id: string }>();
+  for (const artifact of artifacts) {
+    for (const tag of artifact.tags) {
+      tags.set(pairKey(artifact.id, tag), {
+        entity_id: artifact.id,
+        entity_type: 'artifact',
+        tag,
+      });
+    }
+    for (const node_id of artifact.links) {
+      links.set(pairKey(artifact.id, node_id), { artifact_id: artifact.id, node_id });
+    }
+  }
+  await insertBatched([...tags.values()], (chunk) =>
+    tx
       .insertInto('tag')
-      .values(uniqueTags.map((tag) => ({ entity_id: id, entity_type: 'artifact' as const, tag })))
+      .values(chunk)
       .onConflict((oc) => oc.doNothing())
-      .execute();
-  }
-  const uniqueLinks = [...new Set(links)];
-  if (uniqueLinks.length > 0) {
-    await tx
+      .execute(),
+  );
+  await insertBatched([...links.values()], (chunk) =>
+    tx
       .insertInto('artifact_link')
-      .values(uniqueLinks.map((node_id) => ({ artifact_id: id, node_id })))
+      .values(chunk)
       .onConflict((oc) => oc.doNothing())
-      .execute();
-  }
+      .execute(),
+  );
 }
 
 export function createPostgresArtifactStore(db: Kysely<DB>): ArtifactStore {
@@ -220,7 +266,7 @@ export function createPostgresArtifactStore(db: Kysely<DB>): ArtifactStore {
             updated_at: timestamp,
           })
           .execute();
-        await writeRelations(tx, id, input.tags, input.links);
+        await writeRelations(tx, [{ id, links: input.links, tags: input.tags }]);
         // Echoed IN FULL from what was just written (MMR-283): every field is
         // either the create input or derived here, so a caller building a
         // create response never needs a follow-up `load`. Tags and links carry
@@ -229,10 +275,10 @@ export function createPostgresArtifactStore(db: Kysely<DB>): ArtifactStore {
           content,
           created_at: timestamp,
           key: input.key,
-          links: [...new Set(input.links)].toSorted(),
+          links: canonicalSetOrder([...new Set(input.links)]),
           seq,
           summary,
-          tags: [...new Set(input.tags)].toSorted(),
+          tags: canonicalSetOrder([...new Set(input.tags)]),
           title: input.title,
           updated_at: timestamp,
         };

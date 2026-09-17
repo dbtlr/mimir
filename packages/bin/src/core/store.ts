@@ -330,6 +330,21 @@ export type Store = {
    *
    * Failure semantics are the backend's own. See {@link ImportMode} for what
    * `fresh` refuses and how `resume` re-runs a partial import.
+   *
+   * `opts.dryRun` previews instead of writing (MMR-380): every DECISION an
+   * apply would make — the schema and identity checks, the mode fences, the
+   * per-record skip-or-refuse — with the same refusals and messages, and a
+   * report whose counts describe the apply that did not happen
+   * ({@link ImportReport.applied} is then false). How far past the decisions a
+   * preview reaches is the backend's: Postgres runs the real write inside its
+   * transaction, constraints included, and rolls it back; Norn stops short of
+   * the vault write, so a refusal the write itself would raise (an occupied
+   * path, a norn write refusal) appears only on apply. No FACT is left behind — a
+   * preview is not free of every trace. A rolled-back Postgres preview still
+   * consumes the row sequences it drew from (a sequence is not transactional)
+   * and holds the apply's locks for as long as it runs, so it costs what the
+   * apply costs and leaves the internal numbering moved on. Nothing a `Store`
+   * read can see is changed by it.
    */
   import: (document: StoreExport, opts: ImportOptions) => Promise<ImportReport>;
 

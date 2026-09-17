@@ -239,9 +239,13 @@ machinery commands (the installation, host, or store — not the work itself):
   vault snapshot          commit the vault's working tree (commit-if-dirty),
                           then push + reconcile when an upstream is configured;
                           the cadence behind the scheduled snapshot unit
-  store upgrade           apply pending Postgres schema migrations (the one
-                          explicit schema move on a shared store); a norn
-                          install has nothing to upgrade
+  store upgrade | export <file> | import <file> [--apply] [--resume]
+                          upgrade applies pending Postgres schema migrations
+                          (the one explicit schema move on a shared store; a
+                          norn install has nothing to upgrade). export writes
+                          the whole store as a portable document (- for
+                          stdout); import reads one back — a preview unless
+                          --apply, --resume re-runs a partial import
   skill install [--global|--local] [--agent claude|codex]
                           install the agent skill (default: --global, claude;
                           claude → .claude/skills, codex → .agents/skills)
@@ -1048,13 +1052,23 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   },
   // ── shared-store schema (ADR 0030) ──
   store: {
+    args: [['<file>', 'export/import: the transfer document to write or read (- is stdout/stdin)']],
     examples: [
       'mimir store upgrade                  # create or advance the Postgres schema',
       'mimir store upgrade --format json    # the upgrade report, machine-readable',
+      'mimir store export vault.json        # back the whole store up, identity intact',
+      'mimir store export -                 # the document on stdout, nothing else',
+      'mimir store import vault.json        # preview: what an import would do',
+      'mimir store import vault.json --apply           # write it',
+      'mimir store import vault.json --apply --resume  # finish a partial import',
+    ],
+    flags: [
+      ['--apply', 'write the import (the default is a preview)'],
+      ['--resume', 'skip records already present and identical, instead of refusing'],
     ],
     summary:
-      'apply every pending Postgres schema migration, in order and under a lock, and report the version it moved from and to. The one explicit schema move on a shared store: no binary migrates implicitly, so run this once on one machine after every binary is new enough. A norn install converges its vault on open and has nothing to upgrade',
-    usage: 'mimir store upgrade',
+      'the store machinery. upgrade applies every pending Postgres schema migration, in order and under a lock, and reports the version it moved from and to — the one explicit schema move on a shared store, since no binary migrates implicitly, so run it once on one machine after every binary is new enough (a norn install converges its vault on open and has nothing to upgrade). export writes every stored fact as one backend-neutral document, ids, sequences, and timestamps preserved, and refuses to overwrite an existing file. import reads that document into this store, on either backend: a preview by default, written with --apply, and re-runnable with --resume after a partial one',
+    usage: 'mimir store upgrade | export <file> | import <file> [--apply] [--resume]',
   },
   // ── skill distribution (MMR-286) ──
   skill: {

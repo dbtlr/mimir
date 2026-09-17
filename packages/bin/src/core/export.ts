@@ -2,6 +2,7 @@ import type { HistoryEntry, Scratchpad } from '@mimir/contract';
 
 import type { ArtifactRecord } from './artifacts/store';
 import type { NextFacet } from './body-sections/store';
+import { parseId } from './ids';
 import type { Dependency, Node, Project } from './model';
 import type { SeedRecord } from './seeds/store';
 import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord } from './store';
@@ -74,6 +75,12 @@ export type ExportedTag = NewTagRecord;
  * fact no seam record carries — {@link ArtifactRecord} omits it, but
  * `ArtifactStore.findBySourceScratch` reads it back, so it is stored and must
  * survive the round trip.
+ *
+ * `tags` and `links` are in {@link canonicalSetOrder} (MMR-380). Both are sets
+ * (ADR 0005 for tags; links are anchors), so their order is not a fact, and a
+ * vault stores them in authored order while Postgres reads them under the
+ * database collation — the export fixes one order so the two backends emit the
+ * same record.
  */
 export type ExportedArtifact = ArtifactRecord & {
   content: string;
@@ -124,9 +131,10 @@ export type StoreExport = {
   nodes: readonly Node[];
   /** The prerequisite edges — whole-store, because they cross project bounds. */
   edges: readonly Dependency[];
-  /** Node and project tag applications. An artifact's tags ride its own record
-   * ({@link ExportedArtifact} is an {@link ArtifactRecord}); a second copy here
-   * would be two sources for one fact. Seeds carry no tags. */
+  /** Node and project tag applications, per entity in {@link canonicalSetOrder}.
+   * An artifact's tags ride its own record ({@link ExportedArtifact} is an
+   * {@link ArtifactRecord}); a second copy here would be two sources for one
+   * fact. Seeds carry no tags. */
   tags: readonly ExportedTag[];
   /** The `## Annotations` notes. Node-only — projects carry no such section. */
   annotations: readonly NewAnnotationRecord[];
@@ -139,9 +147,112 @@ export type StoreExport = {
   /** The owned prose sections of projects and nodes. */
   bodySections: readonly ExportedBodySections[];
   /** The `## History` rows of projects and nodes, entity-keyed (ADR 0015), with
-   * their resume-handle echoes, in document order per entity. */
+   * their resume-handle echoes, in {@link canonicalTransitionOrder}. */
   transitions: readonly NewTransitionRecord[];
 };
+
+/**
+ * The one order every backend emits {@link StoreExport.transitions} in
+ * (MMR-380): project rows first, by key; then node rows, by project key and
+ * numeric sequence; within an entity, the rows in the order given — which each
+ * backend supplies as its document order (the `## History` order on a vault,
+ * insert order on Postgres). That per-entity order is the stored fact
+ * (ADR 0015); the grouping across entities is a convention, fixed here so two
+ * backends holding the same facts emit equal collections ({@link canonicalJson}
+ * then makes two such documents equal byte for byte). A global
+ * timestamp order was rejected: it is not a stored fact, a hand-edited or
+ * clock-skewed history need not be monotonic, and sorting on it would reorder
+ * a `## History` section on the way through.
+ *
+ * Stable: ties (same entity) keep their input order.
+ */
+export function canonicalTransitionOrder(
+  rows: readonly NewTransitionRecord[],
+): NewTransitionRecord[] {
+  return rows
+    .map((row, index) => ({ index, key: entityRank(row), row }))
+    .toSorted((a, b) => compareEntityRank(a.key, b.key) || a.index - b.index)
+    .map((entry) => entry.row);
+}
+
+/** `kind` ranks the entity families: projects, then nodes, then anything the
+ * id grammar does not parse. */
+type EntityRank = { kind: 0 | 1 | 2; key: string; seq: number };
+
+/** Projects rank before nodes; a node's rank is its project key then sequence.
+ * The node id is read with {@link parseId} rather than split by hand: a suffix
+ * that is not a number would otherwise rank as `NaN`, which compares false
+ * against everything and leaves the sort's result undefined. Such an id has no
+ * numeric rank to give, so it sorts last, by the whole id. */
+function entityRank(row: NewTransitionRecord): EntityRank {
+  if (row.node_id === undefined || row.node_id === null) {
+    return { key: row.project_id ?? '', kind: 0, seq: 0 };
+  }
+  const ref = parseId(row.node_id);
+  return ref === null
+    ? { key: row.node_id, kind: 2, seq: 0 }
+    : { key: ref.key, kind: 1, seq: ref.seq };
+}
+
+function compareEntityRank(a: EntityRank, b: EntityRank): number {
+  return a.kind - b.kind || canonicalStringOrder(a.key, b.key) || a.seq - b.seq;
+}
+
+/**
+ * The one comparator every set in a transfer document is ordered by (MMR-380).
+ *
+ * Deliberately code-unit order — plain `<`/`>` on the strings — and so free of
+ * both a locale (`localeCompare` ranks `Draft` beside `draft`) and a database
+ * collation (SQL `ORDER BY` ranks under the server's, which the operator sets,
+ * not us). Either one makes two backends holding the same facts emit different
+ * documents the moment a tag is capitalized or punctuated, which a re-export
+ * then shows as a difference and a resume refuses over.
+ */
+export function canonicalStringOrder(a: string, b: string): number {
+  if (a < b) {
+    return -1;
+  }
+  return a > b ? 1 : 0;
+}
+
+/** A set's values in {@link canonicalStringOrder} — a sorted copy, never in place. */
+export function canonicalSetOrder(values: readonly string[]): string[] {
+  return [...values].toSorted(canonicalStringOrder);
+}
+
+/**
+ * A transfer document as the bytes a file holds (MMR-380): the document's own
+ * two-space indent, with every object's keys in {@link canonicalStringOrder}
+ * and every array left in the order it was given.
+ *
+ * Key order is not a fact. Each backend builds its records its own way — Norn
+ * by spreading a seam record, Postgres by writing an object literal — so two
+ * documents equal AS VALUES serialize to files whose lines almost all differ,
+ * and `diff` of two backups of the same board reads as a rewrite. Sorting the
+ * keys on the way out makes the file the value: same facts, same bytes.
+ */
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(withSortedKeys(value), null, 2);
+}
+
+function withSortedKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item: unknown) => withSortedKeys(item));
+  }
+  if (!isRecord(value)) {
+    return value;
+  }
+  const sorted: Record<string, unknown> = {};
+  for (const key of canonicalSetOrder(Object.keys(value))) {
+    sorted[key] = withSortedKeys(value[key]);
+  }
+  return sorted;
+}
+
+/** Any non-null object — the only value whose keys have an order to fix. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
 /**
  * How an import treats the target (ADR 0030 Decision 4).
@@ -156,12 +267,24 @@ export type StoreExport = {
  */
 export type ImportMode = 'fresh' | 'resume';
 
-export type ImportOptions = { mode: ImportMode };
+export type ImportOptions = {
+  mode: ImportMode;
+  /**
+   * Preview (MMR-380): run every check and decision an apply would run —
+   * schema version, single-valued identities, the fresh-mode project fence,
+   * the resume-mode skip-or-refuse per record — and report the outcome, but
+   * write nothing. The default for the operator command is a preview; `--apply`
+   * clears this.
+   */
+  dryRun: boolean;
+};
 
-/** What one import did. */
+/** What one import did — or, on a preview, what an apply would do. */
 export type ImportReport = {
   mode: ImportMode;
-  /** Documents this run wrote. */
+  /** False on a preview: the counts describe an apply that did not happen. */
+  applied: boolean;
+  /** Documents this run wrote (or would write). */
   created: number;
   /** Documents already present and identical, left untouched (`resume` only). */
   skipped: number;

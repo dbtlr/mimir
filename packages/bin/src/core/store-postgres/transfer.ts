@@ -1,27 +1,42 @@
 import { isDeepStrictEqual } from 'node:util';
 
-import type { Kysely, Transaction } from 'kysely';
+import type { Insertable, Kysely, Transaction } from 'kysely';
+import { sql } from 'kysely';
 
 import { validation } from '../errors';
 import type {
   ExportedBodySections,
+  ExportedCounters,
   ExportedProject,
   ExportedTag,
   ImportOptions,
   ImportReport,
   StoreExport,
 } from '../export';
-import { STORE_EXPORT_SCHEMA_VERSION } from '../export';
+import {
+  canonicalSetOrder,
+  canonicalTransitionOrder,
+  STORE_EXPORT_SCHEMA_VERSION,
+} from '../export';
 import { renderArtifactRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
 import type { NewAnnotationRecord, NewTransitionRecord } from '../store';
 import { now } from '../time';
 import { assertSingleValuedIdentities } from '../transfer-validate';
-import { exportArtifacts, insertExportedArtifact } from './artifacts';
+import { exportArtifacts, insertExportedArtifacts } from './artifacts';
+import { insertBatched, pairKey } from './batch';
 import { createPostgresBodySectionStore } from './body-sections';
-import type { DB } from './schema';
-import { exportScratchpads, insertScratchpad } from './scratchpads';
-import { exportSeeds, insertExportedSeed } from './seeds';
+import type {
+  AnnotationTable,
+  DB,
+  DependencyTable,
+  NodeTable,
+  ProjectTable,
+  TagTable,
+  TransitionLogTable,
+} from './schema';
+import { exportScratchpads, insertScratchpads } from './scratchpads';
+import { exportSeeds, insertExportedSeeds } from './seeds';
 import type { Executor } from './tx';
 import { serializable, snapshotRead } from './tx';
 import { loadWorkingSet } from './working-set';
@@ -44,6 +59,24 @@ import { loadWorkingSet } from './working-set';
  * that comparison per collection, the import EXPORTS the target and compares the
  * two documents: the shapes are identical by construction, so "identical" means
  * what the transfer document says it means, and the two halves cannot drift.
+ *
+ * **Import writes whole collections, not rows.** Every table is filled by
+ * multi-row INSERTs chunked under the bind-parameter ceiling (see ./batch): the
+ * import's cost is otherwise one round trip per record, and a real board brings
+ * tens of thousands. The decisions come first and the statements second — the
+ * loops below settle every record into a batch, and the batches are written in
+ * foreign-key order afterwards.
+ *
+ * **A preview runs the whole import and rolls it back** (`dryRun`, MMR-380).
+ * Every check an apply makes is a check this backend makes IN the transaction —
+ * the fence, the per-record settle, and the constraints themselves — so the
+ * preview cannot be a cheaper simulation without being a second implementation
+ * that drifts. It is the same transaction, ended by {@link PreviewRollbackError}
+ * instead of a commit. A deferred constraint would escape that: `node.parent_id`
+ * is `DEFERRABLE INITIALLY DEFERRED`, so a dangling parent is caught at COMMIT,
+ * which a preview never reaches — it would preview clean and fail on apply. The
+ * preview therefore runs `SET CONSTRAINTS ALL IMMEDIATE` before it rolls back,
+ * which fires every deferred check right there, with the apply's own error.
  */
 
 /** Every body-section facet the export reads, in one batched pass. */
@@ -63,19 +96,18 @@ export async function exportPostgresStore(ex: Executor): Promise<StoreExport> {
     EXPORT_FACETS,
   );
 
+  // Re-sorted in JS, not trusted from the SQL `ORDER BY` that read them: that
+  // order is the database's collation, which the operator chose and a vault
+  // does not have (see `canonicalSetOrder`).
   const tags: ExportedTag[] = [
     ...projects.flatMap((project) =>
-      (workingSet.projectTags.get(project.key) ?? []).map(
-        (record): ExportedTag => ({
-          entity_id: project.key,
-          entity_type: 'project',
-          tag: record.tag,
-        }),
+      canonicalSetOrder((workingSet.projectTags.get(project.key) ?? []).map((row) => row.tag)).map(
+        (tag): ExportedTag => ({ entity_id: project.key, entity_type: 'project', tag }),
       ),
     ),
     ...nodes.flatMap((node) =>
-      (workingSet.nodeTags.get(node.id) ?? []).map(
-        (record): ExportedTag => ({ entity_id: node.id, entity_type: 'node', tag: record.tag }),
+      canonicalSetOrder((workingSet.nodeTags.get(node.id) ?? []).map((row) => row.tag)).map(
+        (tag): ExportedTag => ({ entity_id: node.id, entity_type: 'node', tag }),
       ),
     ),
   ];
@@ -140,23 +172,24 @@ export async function exportPostgresStore(ex: Executor): Promise<StoreExport> {
 }
 
 /**
- * The whole transition log in ONE globally ordered collection — `(at, id)`,
- * which is this backend's true insertion order.
+ * The transition log in the seam's canonical order (see
+ * `canonicalTransitionOrder`): rows are read in insert order, which is this
+ * backend's document order per entity — the stored fact ADR 0015 names — and
+ * then grouped by entity the way every backend groups them, so a Norn export
+ * and a Postgres export of the same facts are equal as values (the file writer
+ * fixes key order, so the files are byte-identical too — `canonicalJson`). The
+ * global insert order is NOT emitted: it is not a stored fact, and an import
+ * puts the rows back in the order it reads them, which the canonical order
+ * keeps per entity.
  *
- * Deliberately NOT the Norn shape (project rows, then node rows, each in
- * document order): a markdown vault has no global sequence to emit, so it emits
- * a per-entity one. This backend does, and emitting it is what makes an import
- * reproduce the source's own log order — which the resume cursor is derived
- * from, so a round trip through the transfer document leaves even the cursor
- * where it was.
+ * One consequence the `transitions` FEED shows: two transitions on DIFFERENT
+ * entities stamped in the same millisecond may swap places in that feed's
+ * `(at, id)` order after a round trip, because the import re-numbers the rows
+ * in canonical order rather than the source's insert order. Nothing is lost —
+ * the global insert order was never a fact — and each entity's own order holds.
  */
 async function exportTransitions(ex: Executor): Promise<NewTransitionRecord[]> {
-  const rows = await ex
-    .selectFrom('transition_log')
-    .selectAll()
-    .orderBy('at')
-    .orderBy('id')
-    .execute();
+  const rows = await ex.selectFrom('transition_log').selectAll().orderBy('id').execute();
   const records: NewTransitionRecord[] = [];
   for (const row of rows) {
     records.push({
@@ -171,7 +204,7 @@ async function exportTransitions(ex: Executor): Promise<NewTransitionRecord[]> {
       ...(row.handles === null ? {} : { handles: row.handles }),
     });
   }
-  return records;
+  return canonicalTransitionOrder(records);
 }
 
 /**
@@ -215,15 +248,47 @@ function groupBy<T>(rows: readonly T[], keyOf: (row: T) => string): Map<string, 
   return index;
 }
 
-function tagsFor(document: StoreExport, entityType: 'node' | 'project', id: string): string[] {
-  return document.tags
-    .filter((tag) => tag.entity_type === entityType && tag.entity_id === id)
-    .map((tag) => tag.tag)
-    .toSorted();
+/**
+ * Every entity's tag set, indexed once per document (MMR-380).
+ *
+ * Indexed rather than filtered per entity: the naive scan is one pass over the
+ * whole tag collection per node AND per project — quadratic in a board's size,
+ * and the import's dominant cost once the round trips are batched away.
+ */
+type TagIndex = ReadonlyMap<string, string[]>;
+
+function tagIndexKey(entityType: 'node' | 'project', id: string): string {
+  return `${entityType}|${id}`;
+}
+
+function indexTags(document: StoreExport): TagIndex {
+  const index = new Map<string, string[]>();
+  for (const row of document.tags) {
+    if (row.entity_type !== 'node' && row.entity_type !== 'project') {
+      continue;
+    }
+    const key = tagIndexKey(row.entity_type, row.entity_id);
+    const tags = index.get(key);
+    if (tags === undefined) {
+      index.set(key, [row.tag]);
+    } else {
+      tags.push(row.tag);
+    }
+  }
+  // One set order for every backend, applied after the read (`canonicalSetOrder`).
+  for (const [key, tags] of index) {
+    index.set(key, canonicalSetOrder(tags));
+  }
+  return index;
+}
+
+function tagsFor(tags: TagIndex, entityType: 'node' | 'project', id: string): string[] {
+  return tags.get(tagIndexKey(entityType, id)) ?? [];
 }
 
 function bundlesOf(document: StoreExport): Bundles {
   const owned = new Map(document.bodySections.map((sections) => [sections.stem, sections]));
+  const tags = indexTags(document);
   const annotations = groupBy(document.annotations, (row) => row.node_id);
   const prereqs = groupBy(document.edges, (edge) => edge.node_id);
   const history = groupBy(document.transitions, (row) => row.node_id ?? row.project_id ?? '');
@@ -237,10 +302,10 @@ function bundlesOf(document: StoreExport): Bundles {
   for (const project of document.projects) {
     const { counters: _counters, ...record } = project;
     bundles.projects.set(project.key, {
-      history: (history.get(project.key) ?? []).map(withoutEntity),
+      history: (history.get(project.key) ?? []).map(comparableTransition),
       next: owned.get(project.key)?.next ?? null,
       record,
-      tags: tagsFor(document, 'project', project.key),
+      tags: tagsFor(tags, 'project', project.key),
     });
   }
   for (const node of document.nodes) {
@@ -250,11 +315,13 @@ function bundlesOf(document: StoreExport): Bundles {
         created_at: row.created_at,
       })),
       description: owned.get(node.id)?.description ?? null,
-      history: (history.get(node.id) ?? []).map(withoutEntity),
+      history: (history.get(node.id) ?? []).map(comparableTransition),
       next: owned.get(node.id)?.next ?? null,
-      prereqs: (prereqs.get(node.id) ?? []).map((edge) => edge.depends_on_node_id).toSorted(),
+      prereqs: canonicalSetOrder(
+        (prereqs.get(node.id) ?? []).map((edge) => edge.depends_on_node_id),
+      ),
       record: node,
-      tags: tagsFor(document, 'node', node.id),
+      tags: tagsFor(tags, 'node', node.id),
     });
   }
   for (const artifact of document.artifacts) {
@@ -269,10 +336,20 @@ function bundlesOf(document: StoreExport): Bundles {
   return bundles;
 }
 
-/** A transition without its entity key — the entity is the bundle it rides in. */
-function withoutEntity(row: NewTransitionRecord): unknown {
-  const { node_id: _node, project_id: _project, ...rest } = row;
-  return rest;
+/**
+ * One transition in the shape a resume compares on: without its entity key (the
+ * entity is the bundle it rides in), and canonical in the two fields a document
+ * may spell two ways.
+ *
+ * `reason` is `string | null | undefined` on the record, so a document that
+ * OMITS it imports fine and re-exports it as an explicit null — and a deep
+ * compare reads absent and null as different, which made a document refuse its
+ * own resume (MMR-380). `handles` is the mirror case and stays absent-when-
+ * absent, which is how both backends emit it.
+ */
+function comparableTransition(row: NewTransitionRecord): unknown {
+  const { node_id: _node, project_id: _project, handles, reason, ...rest } = row;
+  return { ...rest, reason: reason ?? null, ...(handles === undefined ? {} : { handles }) };
 }
 
 /** The refusal a `resume` raises when the target's record is not this one. */
@@ -281,6 +358,24 @@ function differs(identity: string): never {
     `${identity} already exists and differs from the transfer document`,
     'a resume may only skip records a prior run of this same import wrote — inspect that record, or import into a clean target',
   );
+}
+
+/**
+ * Ends a preview's transaction without failing the import (MMR-380).
+ *
+ * Private and never thrown past this module. It carries no SQLSTATE, so
+ * `withSerializableRetry` treats it as it treats any deterministic failure —
+ * propagated, never replayed — and the catch below turns it back into the
+ * report the rolled-back transaction computed.
+ */
+class PreviewRollbackError extends Error {
+  readonly report: ImportReport;
+
+  constructor(report: ImportReport) {
+    super('the import preview rolled back');
+    this.name = 'PreviewRollbackError';
+    this.report = report;
+  }
 }
 
 export async function importPostgresStore(
@@ -297,161 +392,240 @@ export async function importPostgresStore(
   assertSingleValuedIdentities(document);
   const incoming = bundlesOf(document);
 
-  return serializable(db, async (tx) => {
-    if (opts.mode === 'fresh') {
-      // Refuse BEFORE writing anything: a fresh import owns the identities it
-      // brings, and an existing project means the target already holds some.
-      const occupied = new Set(
-        (await tx.selectFrom('project').select('key').execute()).map((row) => row.key),
-      );
-      const collisions = document.projects
-        .map((project) => project.key)
-        .filter((key) => occupied.has(key))
-        .toSorted((a, b) => a.localeCompare(b));
-      if (collisions.length > 0) {
-        throw validation(
-          `the target already holds an imported project: ${collisions.join(', ')}`,
-          'a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import',
-        );
+  try {
+    return await serializable(db, async (tx) => {
+      const report = await applyImport(tx, document, opts, incoming);
+      if (!report.applied) {
+        // The deferred checks (`node.parent_id`) fire here rather than at the
+        // COMMIT this preview never reaches — otherwise a document with a
+        // dangling parent previews clean and dies on apply.
+        await sql`set constraints all immediate`.execute(tx);
+        throw new PreviewRollbackError(report);
       }
+      return report;
+    });
+  } catch (error) {
+    if (error instanceof PreviewRollbackError) {
+      return error.report;
     }
-    const present =
-      opts.mode === 'resume'
-        ? bundlesOf(await exportPostgresStore(tx))
-        : bundlesOf({ ...document, ...EMPTY_COLLECTIONS });
-
-    let created = 0;
-    let skipped = 0;
-    /** Decide one record: skip an identical present one, refuse a differing one. */
-    const settle = (kind: keyof Bundles, identity: string): boolean => {
-      const existing = present[kind].get(identity);
-      if (existing === undefined) {
-        created += 1;
-        return true;
-      }
-      if (!isDeepStrictEqual(existing, incoming[kind].get(identity))) {
-        differs(identity);
-      }
-      skipped += 1;
-      return false;
-    };
-
-    const ownedSectionsByStem = new Map(
-      document.bodySections.map((sections) => [sections.stem, sections]),
-    );
-    const nextOf = (stem: string): { next_present: boolean; next_text: string | null } => {
-      const facet = ownedSectionsByStem.get(stem)?.next;
-      return { next_present: facet?.present ?? false, next_text: facet?.text ?? null };
-    };
-
-    const newNodes = new Set<string>();
-    const newProjects = new Set<string>();
-
-    for (const project of document.projects) {
-      const counters = importedCounters(document, project);
-      if (settle('projects', project.key)) {
-        newProjects.add(project.key);
-        await tx
-          .insertInto('project')
-          .values({
-            archived_at: project.archived_at,
-            created_at: project.created_at,
-            description: project.description,
-            key: project.key,
-            last_artifact_seq: counters.artifact,
-            last_seed_seq: counters.seed,
-            last_seq: counters.node,
-            name: project.name,
-            ...nextOf(project.key),
-            updated_at: project.updated_at,
-          })
-          .execute();
-      } else {
-        // The allocator never moves backwards: after the import the next create
-        // must miss every identity the document brought (ADR 0006), and must
-        // not fall back below what a prior run of this import already set.
-        await raiseCounters(tx, project.key, counters);
-      }
-      await writeTags(tx, 'project', project.key, tagsFor(document, 'project', project.key));
-    }
-
-    for (const node of document.nodes) {
-      if (!settle('nodes', node.id)) {
-        continue;
-      }
-      newNodes.add(node.id);
-      await tx
-        .insertInto('node')
-        .values({ ...nodeValues(node), ...nextOf(node.id) })
-        .execute();
-      await writeTags(tx, 'node', node.id, tagsFor(document, 'node', node.id));
-    }
-    // `description` is a column here but a body section in the document, so it
-    // is written after the row rather than as part of it.
-    for (const sections of document.bodySections) {
-      if (newNodes.has(sections.stem) && sections.description !== undefined) {
-        await tx
-          .updateTable('node')
-          .set({ description: sections.description })
-          .where('id', '=', sections.stem)
-          .execute();
-      }
-    }
-    for (const edge of document.edges) {
-      if (newNodes.has(edge.node_id)) {
-        await tx
-          .insertInto('dependency')
-          .values({ depends_on_node_id: edge.depends_on_node_id, node_id: edge.node_id })
-          .onConflict((oc) => oc.doNothing())
-          .execute();
-      }
-    }
-    for (const annotation of document.annotations) {
-      if (newNodes.has(annotation.node_id)) {
-        await tx.insertInto('annotation').values(annotation).execute();
-      }
-    }
-    for (const row of document.transitions) {
-      const entity = row.node_id ?? row.project_id ?? '';
-      if (!newNodes.has(entity) && !newProjects.has(entity)) {
-        continue;
-      }
-      await tx
-        .insertInto('transition_log')
-        .values({
-          at: row.at,
-          from_value: row.from_value,
-          handles: row.handles === undefined ? null : JSON.stringify(row.handles),
-          kind: row.kind,
-          node_id: row.node_id ?? null,
-          project_key: row.project_id ?? null,
-          reason: row.reason ?? null,
-          to_value: row.to_value,
-        })
-        .execute();
-    }
-    for (const artifact of document.artifacts) {
-      if (settle('artifacts', renderArtifactRef(artifact))) {
-        await insertExportedArtifact(tx, artifact);
-      }
-    }
-    for (const seed of document.seeds) {
-      if (settle('seeds', renderSeedRef(seed))) {
-        await insertExportedSeed(tx, seed);
-      }
-    }
-    for (const pad of document.scratchpads) {
-      if (settle('scratchpads', pad.id)) {
-        await insertScratchpad(tx, pad);
-      }
-    }
-    return { created, mode: opts.mode, skipped };
-  });
+    throw error;
+  }
 }
 
-/** The largest sequence in the list; zero when the kind brings none. */
-function highest(seqs: readonly number[]): number {
-  return seqs.reduce((max, seq) => Math.max(max, seq), 0);
+/** The whole import inside one open transaction — the preview runs it too. */
+async function applyImport(
+  tx: Transaction<DB>,
+  document: StoreExport,
+  opts: ImportOptions,
+  incoming: Bundles,
+): Promise<ImportReport> {
+  if (opts.mode === 'fresh') {
+    // Refuse BEFORE writing anything: a fresh import owns the identities it
+    // brings, and an existing project means the target already holds some.
+    const occupied = new Set(
+      (await tx.selectFrom('project').select('key').execute()).map((row) => row.key),
+    );
+    const collisions = document.projects
+      .map((project) => project.key)
+      .filter((key) => occupied.has(key))
+      .toSorted((a, b) => a.localeCompare(b));
+    if (collisions.length > 0) {
+      throw validation(
+        `the target already holds an imported project: ${collisions.join(', ')}`,
+        'a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import',
+      );
+    }
+  }
+  const present =
+    opts.mode === 'resume'
+      ? bundlesOf(await exportPostgresStore(tx))
+      : bundlesOf({ ...document, ...EMPTY_COLLECTIONS });
+
+  let created = 0;
+  let skipped = 0;
+  /** Decide one record: skip an identical present one, refuse a differing one. */
+  const settle = (kind: keyof Bundles, identity: string): boolean => {
+    const existing = present[kind].get(identity);
+    if (existing === undefined) {
+      created += 1;
+      return true;
+    }
+    if (!isDeepStrictEqual(existing, incoming[kind].get(identity))) {
+      differs(identity);
+    }
+    skipped += 1;
+    return false;
+  };
+
+  const ownedSectionsByStem = new Map(
+    document.bodySections.map((sections) => [sections.stem, sections]),
+  );
+  const nextOf = (stem: string): { next_present: boolean; next_text: string | null } => {
+    const facet = ownedSectionsByStem.get(stem)?.next;
+    return { next_present: facet?.present ?? false, next_text: facet?.text ?? null };
+  };
+
+  const newNodes = new Set<string>();
+  const newProjects = new Set<string>();
+
+  const projectRows: Insertable<ProjectTable>[] = [];
+  const stale: { key: string; counters: ExportedCounters }[] = [];
+  const tagRows: Insertable<TagTable>[] = [];
+  const tags = indexTags(document);
+  const pushTags = (entityType: 'node' | 'project', entityId: string): void => {
+    for (const tag of tagsFor(tags, entityType, entityId)) {
+      tagRows.push({ entity_id: entityId, entity_type: entityType, tag });
+    }
+  };
+
+  const carried = carriedSequences(document);
+  for (const project of document.projects) {
+    const counters = importedCounters(carried, project);
+    if (settle('projects', project.key)) {
+      newProjects.add(project.key);
+      projectRows.push({
+        archived_at: project.archived_at,
+        created_at: project.created_at,
+        description: project.description,
+        key: project.key,
+        last_artifact_seq: counters.artifact,
+        last_seed_seq: counters.seed,
+        last_seq: counters.node,
+        name: project.name,
+        ...nextOf(project.key),
+        updated_at: project.updated_at,
+      });
+    } else {
+      // The allocator never moves backwards: after the import the next create
+      // must miss every identity the document brought (ADR 0006), and must not
+      // fall back below what a prior run of this import already set.
+      stale.push({ counters, key: project.key });
+    }
+    pushTags('project', project.key);
+  }
+
+  const nodeRows: Insertable<NodeTable>[] = [];
+  for (const node of document.nodes) {
+    if (!settle('nodes', node.id)) {
+      continue;
+    }
+    newNodes.add(node.id);
+    nodeRows.push({
+      ...nodeValues(node),
+      // `description` is a body section in the document and a column here, so
+      // it rides the row rather than a follow-up UPDATE per node.
+      description: ownedSectionsByStem.get(node.id)?.description ?? null,
+      ...nextOf(node.id),
+    });
+    pushTags('node', node.id);
+  }
+
+  const edgeRows = new Map<string, Insertable<DependencyTable>>();
+  for (const edge of document.edges) {
+    if (newNodes.has(edge.node_id)) {
+      // Deduped across the batch: a repeated edge would be settled by the
+      // conflict clause anyway, but not before spending bind parameters.
+      edgeRows.set(pairKey(edge.node_id, edge.depends_on_node_id), {
+        depends_on_node_id: edge.depends_on_node_id,
+        node_id: edge.node_id,
+      });
+    }
+  }
+
+  const annotationRows: Insertable<AnnotationTable>[] = document.annotations
+    .filter((annotation) => newNodes.has(annotation.node_id))
+    .map((annotation) => ({
+      content: annotation.content,
+      created_at: annotation.created_at,
+      node_id: annotation.node_id,
+    }));
+
+  const transitionRows: Insertable<TransitionLogTable>[] = [];
+  for (const row of document.transitions) {
+    const entity = row.node_id ?? row.project_id ?? '';
+    if (!newNodes.has(entity) && !newProjects.has(entity)) {
+      continue;
+    }
+    transitionRows.push({
+      at: row.at,
+      from_value: row.from_value,
+      handles: row.handles === undefined ? null : JSON.stringify(row.handles),
+      kind: row.kind,
+      node_id: row.node_id ?? null,
+      project_key: row.project_id ?? null,
+      reason: row.reason ?? null,
+      to_value: row.to_value,
+    });
+  }
+
+  const artifacts = document.artifacts.filter((artifact) =>
+    settle('artifacts', renderArtifactRef(artifact)),
+  );
+  const seeds = document.seeds.filter((seed) => settle('seeds', renderSeedRef(seed)));
+  const pads = document.scratchpads.filter((pad) => settle('scratchpads', pad.id));
+
+  // Written in foreign-key order: a project owns its nodes, artifacts, seeds,
+  // and pads, and a node owns its edges, annotations, and transitions.
+  await insertBatched(projectRows, (chunk) => tx.insertInto('project').values(chunk).execute());
+  for (const project of stale) {
+    await raiseCounters(tx, project.key, project.counters);
+  }
+  await insertBatched(nodeRows, (chunk) => tx.insertInto('node').values(chunk).execute());
+  await insertBatched(tagRows, (chunk) =>
+    tx
+      .insertInto('tag')
+      .values(chunk)
+      .onConflict((oc) => oc.doNothing())
+      .execute(),
+  );
+  await insertBatched([...edgeRows.values()], (chunk) =>
+    tx
+      .insertInto('dependency')
+      .values(chunk)
+      .onConflict((oc) => oc.doNothing())
+      .execute(),
+  );
+  await insertBatched(annotationRows, (chunk) =>
+    tx.insertInto('annotation').values(chunk).execute(),
+  );
+  await insertBatched(transitionRows, (chunk) =>
+    tx.insertInto('transition_log').values(chunk).execute(),
+  );
+  await insertExportedArtifacts(tx, artifacts);
+  await insertExportedSeeds(tx, seeds);
+  await insertScratchpads(tx, pads);
+
+  return { applied: !opts.dryRun, created, mode: opts.mode, skipped };
+}
+
+/**
+ * The highest sequence of each kind the document actually CONTAINS, per project
+ * — one pass over each collection rather than one pass per project (MMR-380).
+ */
+type CarriedSequences = {
+  artifact: ReadonlyMap<string, number>;
+  node: ReadonlyMap<string, number>;
+  seed: ReadonlyMap<string, number>;
+};
+
+function raise(highest: Map<string, number>, key: string, seq: number): void {
+  highest.set(key, Math.max(highest.get(key) ?? 0, seq));
+}
+
+function carriedSequences(document: StoreExport): CarriedSequences {
+  const artifact = new Map<string, number>();
+  const node = new Map<string, number>();
+  const seed = new Map<string, number>();
+  for (const row of document.artifacts) {
+    raise(artifact, row.key, row.seq);
+  }
+  for (const row of document.nodes) {
+    raise(node, row.project_id, row.seq);
+  }
+  for (const row of document.seeds) {
+    raise(seed, row.key, row.seq);
+  }
+  return { artifact, node, seed };
 }
 
 /**
@@ -466,22 +640,13 @@ function highest(seqs: readonly number[]): number {
  * value is the greatest of what the document claims and what it contains.
  */
 function importedCounters(
-  document: StoreExport,
+  carried: CarriedSequences,
   project: ExportedProject,
 ): { artifact: number; node: number; seed: number } {
   return {
-    artifact: Math.max(
-      project.counters.artifact,
-      highest(document.artifacts.filter((a) => a.key === project.key).map((a) => a.seq)),
-    ),
-    node: Math.max(
-      project.counters.node,
-      highest(document.nodes.filter((n) => n.project_id === project.key).map((n) => n.seq)),
-    ),
-    seed: Math.max(
-      project.counters.seed,
-      highest(document.seeds.filter((seed) => seed.key === project.key).map((seed) => seed.seq)),
-    ),
+    artifact: Math.max(project.counters.artifact, carried.artifact.get(project.key) ?? 0),
+    node: Math.max(project.counters.node, carried.node.get(project.key) ?? 0),
+    seed: Math.max(project.counters.seed, carried.seed.get(project.key) ?? 0),
   };
 }
 
@@ -519,25 +684,8 @@ async function raiseCounters(
     .execute();
 }
 
-/** Tag rows for one entity, idempotently (a resume re-asserts what is there). */
-async function writeTags(
-  tx: Transaction<DB>,
-  entityType: 'node' | 'project',
-  entityId: string,
-  tags: readonly string[],
-): Promise<void> {
-  if (tags.length === 0) {
-    return;
-  }
-  await tx
-    .insertInto('tag')
-    .values(tags.map((tag) => ({ entity_id: entityId, entity_type: entityType, tag })))
-    .onConflict((oc) => oc.doNothing())
-    .execute();
-}
-
 /** One exported node as its row — `description` and `next` ride the sections. */
-function nodeValues(node: Node) {
+function nodeValues(node: Node): Insertable<NodeTable> {
   return {
     branch: node.branch,
     completed_at: node.completed_at,

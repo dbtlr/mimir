@@ -8,6 +8,7 @@ import type {
 import { stripTrailingNewline } from '../content';
 import { withinWindow } from '../dates';
 import { degradedUpdatedAt, invariant, validation } from '../errors';
+import { canonicalSetOrder } from '../export';
 import type { ExportedArtifact } from '../export';
 import { parseIdentity, renderArtifactRef, wikilink } from '../ids';
 import { now } from '../time';
@@ -254,7 +255,12 @@ export async function exportArtifacts(
     exported.push({
       ...candidate.record,
       content: stripTrailingNewline(bodyOf(bodies, candidate.doc.path)),
+      // Sets, emitted in the seam's one order (`canonicalSetOrder`, see
+      // `ExportedArtifact`): the vault keeps the authored order, which a
+      // Postgres re-export would not.
+      links: canonicalSetOrder(candidate.record.links),
       source_scratch: typeof sourceScratch === 'string' ? sourceScratch : null,
+      tags: canonicalSetOrder(candidate.record.tags),
     });
   }
   return exported.toSorted((a, b) =>

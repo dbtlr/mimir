@@ -7,6 +7,7 @@ import { renderSeedRef } from '../ids';
 import type { SeedRecord, SeedStore } from '../seeds/store';
 import { assertLiveSeed, canTransitionSeed } from '../seeds/store';
 import { now } from '../time';
+import { insertBatched } from './batch';
 import type { DB, SeedRow } from './schema';
 import type { Executor } from './tx';
 import { serializable } from './tx';
@@ -105,38 +106,47 @@ export async function exportSeeds(ex: Executor): Promise<ExportedSeed[]> {
   return exported;
 }
 
-/** Write one whole seed at its EXISTING identity — the import's writer. */
-export async function insertExportedSeed(tx: Transaction<DB>, seed: ExportedSeed): Promise<void> {
-  const id = stemOf(seed.key, seed.seq);
-  await tx
-    .insertInto('seed')
-    .values({
-      created_at: seed.created_at,
-      description: seed.description,
-      id,
-      kind: seed.kind,
-      lifecycle: seed.lifecycle,
-      project_key: seed.key,
-      requester: seed.requester,
-      seq: seed.seq,
-      spawned: seed.spawned,
-      title: seed.title,
-      updated_at: seed.updated_at,
-    })
-    .execute();
-  for (const entry of seed.history) {
-    await tx
-      .insertInto('seed_history')
-      .values({
-        at: entry.at,
-        from_value: entry.from,
-        kind: entry.kind,
-        reason: entry.reason,
-        seed_id: id,
-        to_value: entry.to,
-      })
-      .execute();
-  }
+/**
+ * Write whole seeds at their EXISTING identities — the import's writer.
+ *
+ * Plural because the import brings the whole collection at once: two batched
+ * statements per chunk (the rows, then every seed's `## History` together)
+ * rather than one round trip per seed and one per history entry.
+ *
+ * The history rows are written in document order across the whole batch, which
+ * is the order `historyOf` reads them back in — `seed_history` has no ordering
+ * column but its own insertion id.
+ */
+export async function insertExportedSeeds(
+  tx: Transaction<DB>,
+  seeds: readonly ExportedSeed[],
+): Promise<void> {
+  const rows = seeds.map((seed) => ({
+    created_at: seed.created_at,
+    description: seed.description,
+    id: stemOf(seed.key, seed.seq),
+    kind: seed.kind,
+    lifecycle: seed.lifecycle,
+    project_key: seed.key,
+    requester: seed.requester,
+    seq: seed.seq,
+    spawned: seed.spawned,
+    title: seed.title,
+    updated_at: seed.updated_at,
+  }));
+  await insertBatched(rows, (chunk) => tx.insertInto('seed').values(chunk).execute());
+
+  const history = seeds.flatMap((seed) =>
+    seed.history.map((entry) => ({
+      at: entry.at,
+      from_value: entry.from,
+      kind: entry.kind,
+      reason: entry.reason,
+      seed_id: stemOf(seed.key, seed.seq),
+      to_value: entry.to,
+    })),
+  );
+  await insertBatched(history, (chunk) => tx.insertInto('seed_history').values(chunk).execute());
 }
 
 export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {

@@ -71,7 +71,7 @@ lane('the conformance fixture round trips through export and import on real Post
 
         await seedWorkingSet(from);
         const document = await from.export();
-        const report = await into.import(document, { mode: 'fresh' });
+        const report = await into.import(document, { dryRun: false, mode: 'fresh' });
         expect(report.mode).toBe('fresh');
         expect(report.created).toBeGreaterThan(0);
 

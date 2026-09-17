@@ -1,6 +1,6 @@
 import { afterEach, expect, setDefaultTimeout, test } from 'bun:test';
 
-import type { Instance } from '../testing/conformance';
+import type { Backend, Instance } from '../testing/conformance';
 import {
   backends,
   byPath,
@@ -11,6 +11,7 @@ import {
 } from '../testing/conformance';
 import { createProject, createTask } from './create';
 import type { StoreExport } from './export';
+import { canonicalJson } from './export';
 
 /**
  * The `Store`-seam conformance oracle (MMR-378, ADR 0030) — the contract suite
@@ -52,7 +53,8 @@ for (const backend of backends) {
       const document = await source.store.export();
 
       const target = await fresh();
-      const report = await target.store.import(document, { mode: 'fresh' });
+      const report = await target.store.import(document, { dryRun: false, mode: 'fresh' });
+      expect(report.applied).toBe(true);
       expect(report.mode).toBe('fresh');
       expect(report.skipped).toBe(0);
       expect(report.created).toBeGreaterThan(0);
@@ -83,7 +85,7 @@ for (const backend of backends) {
       await seedWorkingSet(source.store);
       const document = await source.store.export();
       const target = await fresh();
-      await target.store.import(document, { mode: 'fresh' });
+      await target.store.import(document, { dryRun: false, mode: 'fresh' });
 
       const importedNodes = new Set(document.nodes.map((node) => node.id));
       const importedArtifacts = new Set(
@@ -141,7 +143,7 @@ for (const backend of backends) {
       };
 
       const target = await fresh();
-      await target.store.import(lowered, { mode: 'fresh' });
+      await target.store.import(lowered, { dryRun: false, mode: 'fresh' });
 
       const phase = document.nodes.find((node) => node.type === 'phase');
       const task = await createTask(target.store, {
@@ -188,7 +190,9 @@ for (const backend of backends) {
       await createProject(target.store, { description: null, key: 'MMR', name: 'Occupied' });
       const before = await observe(target.store);
 
-      expect(await refusalOf(target.store.import(document, { mode: 'fresh' }))).toContain('MMR');
+      expect(
+        await refusalOf(target.store.import(document, { dryRun: false, mode: 'fresh' })),
+      ).toContain('MMR');
       // Refused BEFORE writing anything.
       expect(await observe(target.store)).toEqual(before);
     },
@@ -266,7 +270,9 @@ for (const backend of backends) {
 
       const target = await fresh();
       const before = await observe(target.store);
-      expect(await refusalOf(target.store.import(doubled, { mode: 'fresh' }))).toContain('MMR-a1');
+      expect(
+        await refusalOf(target.store.import(doubled, { dryRun: false, mode: 'fresh' })),
+      ).toContain('MMR-a1');
       // Refused BEFORE writing anything — the alternative is a half-written
       // target for a fault that was visible in the document all along.
       expect(await observe(target.store)).toEqual(before);
@@ -295,7 +301,9 @@ for (const backend of backends) {
         updated_at: '2026-09-01T00:00:00.000Z',
       });
 
-      expect(await refusalOf(target.store.import(document, { mode: 'fresh' }))).toContain('MMR');
+      expect(
+        await refusalOf(target.store.import(document, { dryRun: false, mode: 'fresh' })),
+      ).toContain('MMR');
     },
   );
 
@@ -307,10 +315,15 @@ for (const backend of backends) {
       const document = await source.store.export();
 
       const target = await fresh();
-      const first = await target.store.import(document, { mode: 'fresh' });
+      const first = await target.store.import(document, { dryRun: false, mode: 'fresh' });
 
-      const resumed = await target.store.import(document, { mode: 'resume' });
-      expect(resumed).toEqual({ created: 0, mode: 'resume', skipped: first.created });
+      const resumed = await target.store.import(document, { dryRun: false, mode: 'resume' });
+      expect(resumed).toEqual({
+        applied: true,
+        created: 0,
+        mode: 'resume',
+        skipped: first.created,
+      });
       expect(await observe(target.store)).toEqual(await observe(source.store));
 
       // A half-written target — the state a partial import actually leaves
@@ -319,8 +332,9 @@ for (const backend of backends) {
       if (target.removeDocument !== undefined) {
         target.removeDocument('MMR/artifacts/MMR-a1.md');
         target.removeDocument('MMR/seeds/MMR-s1.md');
-        const finished = await target.store.import(document, { mode: 'resume' });
+        const finished = await target.store.import(document, { dryRun: false, mode: 'resume' });
         expect(finished).toEqual({
+          applied: true,
           created: 2,
           mode: 'resume',
           skipped: first.created - 2,
@@ -332,9 +346,172 @@ for (const backend of backends) {
         return;
       }
       target.corruptDocument('MMR/MMR-4.md', (raw) => raw.replace('Import', 'Imported'));
-      expect(await refusalOf(target.store.import(document, { mode: 'resume' }))).toContain(
-        'MMR/MMR-4.md',
+      expect(
+        await refusalOf(target.store.import(document, { dryRun: false, mode: 'resume' })),
+      ).toContain('MMR/MMR-4.md');
+    },
+  );
+
+  test.skipIf(backend.skip)(
+    `${backend.name}: a dry-run fresh import previews the apply and writes nothing`,
+    async () => {
+      const source = await fresh();
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+
+      const target = await fresh();
+      const empty = await observe(target.store);
+      const preview = await target.store.import(document, { dryRun: true, mode: 'fresh' });
+      expect(preview.applied).toBe(false);
+      expect(preview.created).toBeGreaterThan(0);
+      expect(preview.skipped).toBe(0);
+      // Nothing written, so the target is still the empty store a `fresh`
+      // import owns — the very same call runs next, and cannot collide.
+      expect(await observe(target.store)).toEqual(empty);
+
+      const applied = await target.store.import(document, { dryRun: false, mode: 'fresh' });
+      expect(applied).toEqual({ ...preview, applied: true });
+      // The stored facts, compared as the transfer document rather than through
+      // `observe`: a rolled-back preview still consumes a backend's internal row
+      // sequence (a PostgreSQL sequence is not transactional), and the resume
+      // cursor `observe` reads echoes that row id. The FACTS are identical.
+      expect(withoutStamp(await target.store.export())).toEqual(withoutStamp(document));
+    },
+  );
+
+  test.skipIf(backend.skip)(
+    `${backend.name}: a dry-run resume previews the resume that finishes a half-written target`,
+    async () => {
+      const source = await fresh();
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+
+      // The half-written target a failed import leaves (ADR 0023), staged
+      // through the seam rather than through one backend's substrate: the
+      // projects and nodes landed and the artifacts, seeds, and pads did not.
+      const target = await fresh();
+      await target.store.import(
+        { ...document, artifacts: [], scratchpads: [], seeds: [] },
+        { dryRun: false, mode: 'fresh' },
       );
+      const half = await observe(target.store);
+
+      const preview = await target.store.import(document, { dryRun: true, mode: 'resume' });
+      expect(preview.applied).toBe(false);
+      expect(preview.created).toBeGreaterThan(0);
+      expect(preview.skipped).toBeGreaterThan(0);
+      expect(await observe(target.store)).toEqual(half);
+
+      const applied = await target.store.import(document, { dryRun: false, mode: 'resume' });
+      expect(applied).toEqual({ ...preview, applied: true });
+      expect(await observe(target.store)).toEqual(await observe(source.store));
+    },
+  );
+
+  test.skipIf(backend.skip)(
+    `${backend.name}: a dry run refuses exactly what the apply refuses`,
+    async () => {
+      const source = await fresh();
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+
+      // The fresh fence: a project the target already holds.
+      const occupied = await fresh();
+      await createProject(occupied.store, { description: null, key: 'MMR', name: 'Occupied' });
+      const before = await observe(occupied.store);
+      const fenced = await refusalOf(
+        occupied.store.import(document, { dryRun: true, mode: 'fresh' }),
+      );
+      expect(fenced).toContain('MMR');
+      expect(fenced).toBe(
+        await refusalOf(occupied.store.import(document, { dryRun: false, mode: 'fresh' })),
+      );
+      expect(await observe(occupied.store)).toEqual(before);
+
+      // The resume fence: a record present under an imported identity whose
+      // content is not the one the document brings.
+      const drifted = await fresh();
+      await drifted.store.import(
+        {
+          ...document,
+          artifacts: document.artifacts.map((artifact) =>
+            artifact.seq === 1 ? { ...artifact, title: 'Impostor' } : artifact,
+          ),
+        },
+        { dryRun: false, mode: 'fresh' },
+      );
+      const staged = await observe(drifted.store);
+      const differing = await refusalOf(
+        drifted.store.import(document, { dryRun: true, mode: 'resume' }),
+      );
+      expect(differing).toContain('MMR-a1');
+      expect(differing).toBe(
+        await refusalOf(drifted.store.import(document, { dryRun: false, mode: 'resume' })),
+      );
+      expect(await observe(drifted.store)).toEqual(staged);
+    },
+  );
+}
+
+// ── Across backends ─────────────────────────────────────────────────────────
+//
+// The per-backend cases above prove each backend round-trips ITSELF. The
+// migration (ADR 0030 Decision 4) crosses backends, and a collection order or
+// a set order one backend emits and the other does not is invisible to a
+// self round trip: it surfaced only on a real vault imported into Postgres
+// (MMR-380), where the re-export differed and a resume then refused on a
+// record that was the same set in a different order. So every ordered pair of
+// backends must emit the same document for the same facts.
+for (const source of backends) {
+  for (const target of backends) {
+    if (source.name === target.name) {
+      continue;
+    }
+    crossBackendCase(source, target);
+  }
+}
+
+function crossBackendCase(source: Backend, target: Backend): void {
+  test.skipIf(source.skip || target.skip)(
+    `${source.name} → ${target.name}: the import re-exports the source's document, and a resume of it is a no-op`,
+    async () => {
+      const from = await source.make();
+      try {
+        // Each instance has its own cleanup path: a failing `make` of the
+        // target must still close the source, and a failing close of one must
+        // not skip the other.
+        const to = await target.make();
+        try {
+          await seedWorkingSet(from.store);
+          const document = await from.store.export();
+
+          await to.store.import(document, { dryRun: false, mode: 'fresh' });
+          const reexported = await to.store.export();
+          expect(withoutStamp(reexported)).toEqual(withoutStamp(document));
+          // Equal as values AND as bytes: each backend builds its records its own
+          // way, so the two documents carry their keys in different orders, and
+          // the file writer's `canonicalJson` is what makes a `diff` of two
+          // backups of the same board read as no change at all.
+          expect(canonicalJson(withoutStamp(reexported))).toBe(
+            canonicalJson(withoutStamp(document)),
+          );
+
+          // The document the target now holds IS the one imported, so a resume
+          // finds every record present and identical — nothing to refuse.
+          const resumed = await to.store.import(document, { dryRun: false, mode: 'resume' });
+          expect(resumed).toEqual({
+            applied: true,
+            created: 0,
+            mode: 'resume',
+            skipped: resumed.skipped,
+          });
+          expect(resumed.skipped).toBeGreaterThan(0);
+        } finally {
+          await to.close();
+        }
+      } finally {
+        await from.close();
+      }
     },
   );
 }

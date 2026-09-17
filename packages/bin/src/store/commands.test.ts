@@ -30,7 +30,11 @@ function injected(): Injected {
   };
   return {
     db,
-    deps: (global) => ({ openPostgres: open, readConfig: () => global }),
+    deps: (global) => ({
+      openPostgres: open,
+      readConfig: () => global,
+      readStdin: () => Promise.reject(new Error('store upgrade must not read stdin')),
+    }),
     opened,
   };
 }
@@ -39,13 +43,26 @@ function config(store: GlobalConfig['store']): GlobalConfig {
   return { serve: {}, store, vault: {} };
 }
 
+/** `store upgrade` moves a schema, never data: it must never reach for the
+ * store the transfer verbs route through (MMR-380). */
+const noStore = (): never => {
+  throw new Error('store upgrade must not open the data store');
+};
+
 const POSTGRES = config({ backend: 'postgres', url: 'postgres://localhost/mimir' });
 
 test('store upgrade on a norn install reports that the vault converges on its own', async () => {
   const io = fakeIo();
   const pg = injected();
   // The absent fence is the norn default — the common case for this message.
-  const code = await cmdStore(['store', 'upgrade'], io, pg.deps(config({})), 'records');
+  const code = await cmdStore(
+    ['store', 'upgrade'],
+    {},
+    io,
+    pg.deps(config({})),
+    'records',
+    noStore,
+  );
   expect(code).toBe(0);
   expect(io.out.join('\n')).toContain('nothing to upgrade');
   expect(io.err).toEqual([]);
@@ -58,11 +75,15 @@ test('store upgrade creates the schema, then reports it already current', async 
   const io = fakeIo();
   const pg = injected();
   try {
-    expect(await cmdStore(['store', 'upgrade'], io, pg.deps(POSTGRES), 'records')).toBe(0);
+    expect(
+      await cmdStore(['store', 'upgrade'], {}, io, pg.deps(POSTGRES), 'records', noStore),
+    ).toBe(0);
     expect(io.out.join('\n')).toContain('store: schema upgraded from 0 to 1 (0001_init)');
 
     const again = fakeIo();
-    expect(await cmdStore(['store', 'upgrade'], again, pg.deps(POSTGRES), 'records')).toBe(0);
+    expect(
+      await cmdStore(['store', 'upgrade'], {}, again, pg.deps(POSTGRES), 'records', noStore),
+    ).toBe(0);
     expect(again.out.join('\n')).toContain('store: schema at version 1 (already current)');
     expect(pg.opened).toEqual([POSTGRES.store.url ?? '', POSTGRES.store.url ?? '']);
   } finally {
@@ -74,7 +95,9 @@ test('json format emits the upgrade report', async () => {
   const io = fakeIo();
   const pg = injected();
   try {
-    expect(await cmdStore(['store', 'upgrade'], io, pg.deps(POSTGRES), 'json')).toBe(0);
+    expect(await cmdStore(['store', 'upgrade'], {}, io, pg.deps(POSTGRES), 'json', noStore)).toBe(
+      0,
+    );
     const parsed = JSON.parse(io.out.join('')) as UpgradeReport;
     expect(parsed).toEqual({ applied: ['0001_init'], from: 0, to: 1 });
   } finally {
@@ -87,7 +110,14 @@ test('a postgres install with no url refuses by naming the key', async () => {
   const pg = injected();
   let message = '';
   try {
-    await cmdStore(['store', 'upgrade'], io, pg.deps(config({ backend: 'postgres' })), 'records');
+    await cmdStore(
+      ['store', 'upgrade'],
+      {},
+      io,
+      pg.deps(config({ backend: 'postgres' })),
+      'records',
+      noStore,
+    );
   } catch (error) {
     message = error instanceof Error ? error.message : String(error);
   }
@@ -103,9 +133,11 @@ test('an unusable [store] section is fatal here too', async () => {
   try {
     await cmdStore(
       ['store', 'upgrade'],
+      {},
       io,
       pg.deps(config({ problem: 'invalid-url' })),
       'records',
+      noStore,
     );
   } catch (error) {
     message = error instanceof Error ? error.message : String(error);
@@ -118,14 +150,14 @@ test('a schema newer than the binary is the migrator refusal, not a silent downg
   const io = fakeIo();
   const pg = injected();
   try {
-    await cmdStore(['store', 'upgrade'], io, pg.deps(POSTGRES), 'records');
+    await cmdStore(['store', 'upgrade'], {}, io, pg.deps(POSTGRES), 'records', noStore);
     await sql
       .raw("INSERT INTO schema_version (version, applied_at) VALUES (99, '2026-01-01T00:00:00Z')")
       .execute(pg.db);
 
     let message = '';
     try {
-      await cmdStore(['store', 'upgrade'], fakeIo(), pg.deps(POSTGRES), 'records');
+      await cmdStore(['store', 'upgrade'], {}, fakeIo(), pg.deps(POSTGRES), 'records', noStore);
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
     }
@@ -141,16 +173,16 @@ test('a schema newer than the binary is the migrator refusal, not a silent downg
   }
 });
 
-test('an unknown subcommand is a usage error naming the expected one', async () => {
+test('an unknown subcommand is a usage error naming every subcommand', async () => {
   const io = fakeIo();
   const pg = injected();
   let message = '';
   try {
-    await cmdStore(['store', 'wat'], io, pg.deps(POSTGRES), 'records');
+    await cmdStore(['store', 'wat'], {}, io, pg.deps(POSTGRES), 'records', noStore);
   } catch (error) {
     message = error instanceof Error ? error.message : String(error);
   }
-  expect(message).toBe('store: unknown subcommand (expected: upgrade)');
+  expect(message).toBe('store: unknown subcommand (expected: upgrade | export | import)');
   await pg.db.destroy();
 });
 
@@ -159,7 +191,7 @@ test('store upgrade rejects a surplus positional before opening anything', async
   const pg = injected();
   let message = '';
   try {
-    await cmdStore(['store', 'upgrade', 'extra'], io, pg.deps(POSTGRES), 'records');
+    await cmdStore(['store', 'upgrade', 'extra'], {}, io, pg.deps(POSTGRES), 'records', noStore);
   } catch (error) {
     message = error instanceof Error ? error.message : String(error);
   }
