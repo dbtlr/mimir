@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-import { injectThemeColorMeta, WELL_900 } from './src/lib/theme-colors';
+import { injectThemeColorMeta, WELL_900 } from './src/lib/theme-colors.ts';
 
 /**
  * The bundle-side twin of `MIMIR_BUILD_VERSION` (packages/bin/src/version.ts,

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -28,11 +28,11 @@ test('configPath resolves under the given XDG base', () => {
 });
 
 // Fix 2 — new test that exercises the env-var path
-test('configPath uses XDG_CONFIG_HOME env var when set', () => {
+test('uninstalled config ignores ambient live XDG_CONFIG_HOME', () => {
   const original = process.env.XDG_CONFIG_HOME;
   try {
     process.env.XDG_CONFIG_HOME = dir;
-    expect(configPath()).toBe(join(dir, 'mimir', 'config.toml'));
+    expect(configPath()).toEndWith('/.dev/config/mimir/config.toml');
   } finally {
     if (original === undefined) {
       delete process.env.XDG_CONFIG_HOME;
@@ -169,22 +169,10 @@ test('readConfig parses once and returns every section', () => {
   });
 });
 
-test('a dev runtime never opens the operator config path', () => {
-  const unreadableAsConfig = join(dir, 'config-is-a-directory');
-  mkdirSync(unreadableAsConfig);
-
-  expect(readRuntimeConfig(unreadableAsConfig)).toEqual({
-    serve: {},
-    store: {},
-    vault: {},
-  });
-});
-
-test('a production runtime preserves the operator config projection', () => {
-  const file = join(dir, 'production.toml');
-  writeFileSync(file, '[serve]\nport = 50130\n\n[vault]\npath = "/operator/vault"\n');
-
-  expect(readRuntimeConfig(file, true)).toEqual(readConfig(file));
+test('runtime reads an explicitly selected isolated configuration', () => {
+  const file = join(dir, 'sandbox.toml');
+  writeFileSync(file, '[serve]\nport = 50130\n');
+  expect(readRuntimeConfig(file).serve).toEqual({ port: 50130 });
 });
 
 // The `[store] backend` fence is back per install (ADR 0030 Decision 1,

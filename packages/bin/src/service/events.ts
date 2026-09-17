@@ -6,10 +6,11 @@
  * human-frequency (verbs + self-updates), so the whole-file read stays cheap.
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { parseJson } from '@mimir/helpers';
+
+import { runtimePaths } from '../env';
 
 export type ServiceEventName =
   | 'install'
@@ -28,7 +29,7 @@ export type ServiceEvent = {
   detail?: string;
 };
 
-export const LOG_DIR = join(homedir(), 'Library', 'Logs', 'mimir');
+export const LOG_DIR = join(runtimePaths().data, 'logs');
 export const EVENTS_FILE = join(LOG_DIR, 'service-events.jsonl');
 export const SERVE_LOG_FILE = join(LOG_DIR, 'serve.log');
 /** launchd stdout/stderr for the scheduled snapshot unit (MMR-146). */

@@ -82,8 +82,26 @@ if curl -fsSL --proto '=https' "$base/SHA256SUMS" -o "$tmp/SHA256SUMS" 2>/dev/nu
 fi
 
 chmod +x "$tmp/mimir"
+# Probe legacy downloads only with empty state, before invoking their installer.
+mkdir -p "$tmp/home" "$tmp/config" "$tmp/data" "$tmp/cache"
+protocol=$(
+  cd "$tmp/home"
+  env -i HOME="$tmp/home" PATH=/usr/bin:/bin TMPDIR="$tmp" \
+    XDG_CONFIG_HOME="$tmp/config" XDG_DATA_HOME="$tmp/data" XDG_CACHE_HOME="$tmp/cache" \
+    "$tmp/mimir" installation-protocol
+) || err "candidate does not support installation protocol version 1"
+[ "$protocol" = '{"installationProtocol":1}' ] \
+  || err "candidate does not support installation protocol version 1"
 mkdir -p "$INSTALL_DIR"
-mv "$tmp/mimir" "$INSTALL_DIR/mimir"
+# The candidate validates the old receipt and preserves its bindings on upgrade.
+# Only this explicit installation step grants access to the resolved live paths.
+INSTALL_DIR=$(cd "$INSTALL_DIR" && pwd -P)
+"$tmp/mimir" installation-install \
+  --target "$INSTALL_DIR/mimir" \
+  --mode live \
+  --config "${XDG_CONFIG_HOME:-$HOME/.config}/mimir" \
+  --data "${XDG_DATA_HOME:-$HOME/.local/share}/mimir" \
+  --cache "${XDG_CACHE_HOME:-$HOME/.cache}/mimir"
 info "installed mimir to $INSTALL_DIR/mimir"
 
 case ":$PATH:" in

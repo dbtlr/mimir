@@ -232,10 +232,9 @@ machinery commands (the installation, host, or store — not the work itself):
                           status. unit is serve | snapshot | all; install
                           defaults to serve (snapshot is opt-in), uninstall +
                           the lifecycle verbs sweep whatever is installed.
-                          --port writes ~/.config/mimir/config.toml.
-                          dev/from-source runs refuse the mutating verbs
-                          (status stays open); MIMIR_ALLOW_REAL_SERVICE=1
-                          opts in to managing the real launchd
+                          --port writes the installation config.
+                          only registered live installations can mutate
+                          the real launchd; status stays available
   vault snapshot          commit the vault's working tree (commit-if-dirty),
                           then push + reconcile when an upstream is configured;
                           the cadence behind the scheduled snapshot unit
@@ -976,9 +975,9 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir service status                  # report every installed unit',
       'mimir service restart                 # restart whatever is installed',
     ],
-    flags: [['--port <n>', 'install: serve port to persist (~/.config/mimir/config.toml)']],
+    flags: [['--port <n>', 'install: serve port to persist (the installation config)']],
     summary:
-      "supervise the launchd units (macOS) — install/uninstall/start/stop/restart/status; uninstall and the lifecycle verbs sweep whatever is installed. dev/from-source runs refuse the mutating verbs (status stays open); MIMIR_ALLOW_REAL_SERVICE=1 opts in to managing the real launchd. run `mimir service <sub> -h` for a sub's own flags",
+      "supervise the launchd units (macOS) — install/uninstall/start/stop/restart/status; uninstall and the lifecycle verbs sweep whatever is installed. only registered live installations can mutate the real launchd; status stays available. run `mimir service <sub> -h` for a sub's own flags",
     usage: 'mimir service <sub> [unit]',
   },
   // ── service subcommands (MMR-299) ──
@@ -990,9 +989,9 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir service install --port 4100     # install serve, persisting the port',
       'mimir service install all             # install both units',
     ],
-    flags: [['--port <n>', 'serve port to persist (~/.config/mimir/config.toml)']],
+    flags: [['--port <n>', 'serve port to persist (the installation config)']],
     summary:
-      'install a launchd unit (macOS) — defaults to serve; snapshot is opt-in. --port persists to ~/.config/mimir/config.toml. dev/from-source runs refuse (MIMIR_ALLOW_REAL_SERVICE=1 opts in)',
+      'install a launchd unit (macOS) — defaults to serve; snapshot is opt-in. --port persists to the installation config. requires a registered live installation',
     usage: 'mimir service install [unit] [--port <n>]',
   },
   'service uninstall': {
@@ -1002,7 +1001,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir service uninstall snapshot      # tear down just the snapshot unit',
     ],
     summary:
-      'tear down installed launchd unit(s) (macOS) — config and logs kept. a bare uninstall sweeps whatever is installed; dev/from-source runs refuse (MIMIR_ALLOW_REAL_SERVICE=1 opts in)',
+      'tear down installed launchd unit(s) (macOS) — config and logs kept. a bare uninstall sweeps whatever is installed; requires a registered live installation',
     usage: 'mimir service uninstall [unit]',
   },
   'service start': {
@@ -1012,7 +1011,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir service start serve             # start just the serve unit',
     ],
     summary:
-      'start an installed launchd unit (macOS) — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. dev/from-source runs refuse (MIMIR_ALLOW_REAL_SERVICE=1 opts in)',
+      'start an installed launchd unit (macOS) — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. requires a registered live installation',
     usage: 'mimir service start [unit]',
   },
   'service stop': {
@@ -1022,7 +1021,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir service stop snapshot           # stop just the snapshot unit',
     ],
     summary:
-      'stop an installed launchd unit (macOS) — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. dev/from-source runs refuse (MIMIR_ALLOW_REAL_SERVICE=1 opts in)',
+      'stop an installed launchd unit (macOS) — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. requires a registered live installation',
     usage: 'mimir service stop [unit]',
   },
   'service restart': {
@@ -1032,7 +1031,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir service restart all             # restart every installed unit',
     ],
     summary:
-      'restart an installed launchd unit (macOS) — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. dev/from-source runs refuse (MIMIR_ALLOW_REAL_SERVICE=1 opts in)',
+      'restart an installed launchd unit (macOS) — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. requires a registered live installation',
     usage: 'mimir service restart [unit]',
   },
   'service status': {

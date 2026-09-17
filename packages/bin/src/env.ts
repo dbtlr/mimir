@@ -1,86 +1,50 @@
-/**
- * Environment defaults — the Norn-vault path and `serve` port, resolved against a
- * build profile so running from source never touches production state (MMR-117).
- *
- * The defaults are *dev by default*: from-source (`bun run mimir …`) and tests
- * resolve to an isolated, gitignored repo-local vault and an off-production
- * port. A release build overlays the production target by injecting
- * `MIMIR_BUILD_PROFILE="production"` via `bun build --define` — the same
- * build-time-constant idiom as `MIMIR_BUILD_VERSION` (MMR-57, see version.ts).
- * The polarity is deliberate: a build missing the define lands in dev (harmless),
- * so only a real compiled binary ever points at production work-state.
- *
- * Environment overrides still sit on top of the baked default in both profiles.
- * Only production reads the operator's global config between those sources;
- * dev/from-source never opens it.
- */
-import { homedir } from 'node:os';
+/** Runtime paths come from a verified installation, never a build profile. */
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parsePort } from '@mimir/helpers';
 
-// Replaced by a string literal at compile time in release builds; left
-// undeclared (undefined) from source. `typeof` on the possibly-undeclared
-// identifier is the one safe read.
-declare const MIMIR_BUILD_PROFILE: string | undefined;
+import { readInstallation } from './installation';
+import { readSandboxAuthority, sandboxAuthorityFromEnvironment } from './sandbox-authority';
 
-/** True only for the literal profile injected into a compiled release build. */
-export function isProductionBuildProfile(profile: string | undefined): boolean {
-  return profile === 'production';
-}
-
-export const IS_PRODUCTION = isProductionBuildProfile(
-  typeof MIMIR_BUILD_PROFILE === 'undefined' ? undefined : MIMIR_BUILD_PROFILE,
-);
-
-/** Production `serve` port — MIMIR on a phone keypad. */
+// Installer dispatch has no store access and must run before binding resolution.
+const installing =
+  process.argv[2] === 'installation-install' || process.argv[2] === 'installation-protocol';
+const installation = installing ? undefined : readInstallation();
+export const IS_PRODUCTION = installation?.mode === 'live';
 export const PROD_PORT = 64647;
-/** Dev/from-source `serve` port — off the production port so a from-source
- * `serve` never collides with the installed daemon (MMR-117). */
 export const DEV_PORT = 64747;
-
-/** The default `serve` port for this build: production unless from-source. */
 export const DEFAULT_PORT = IS_PRODUCTION ? PROD_PORT : DEV_PORT;
 
-/**
- * Resolve a path under the build's data root. Production resolves the single
- * user-global XDG root (`$XDG_DATA_HOME/mimir`, defaulting to
- * `~/.local/share/mimir`), so an installed `mimir` works from any directory.
- * Dev/from-source resolves an isolated repo-local `.dev` (relative to this
- * source file, not cwd, so it holds from any subdirectory).
- */
-function dataPath(...leaf: string[]): string {
-  if (!IS_PRODUCTION) {
-    const srcDir = dirname(fileURLToPath(import.meta.url)); // packages/bin/src
-    return join(srcDir, '..', '..', '..', '.dev', ...leaf);
+export function runtimePaths(): { config: string; data: string; cache: string } {
+  if (installation?.mode === 'live') {
+    return installation.paths;
   }
-  const dataHome = process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share');
-  return join(dataHome, 'mimir', ...leaf);
+  if (!installing) {
+    const authority =
+      installation?.mode === 'sandbox'
+        ? readSandboxAuthority(installation.sandboxAuthority)
+        : sandboxAuthorityFromEnvironment();
+    if (authority !== undefined) {
+      if (
+        installation?.mode === 'sandbox' &&
+        (['config', 'data', 'cache'] as const).some(
+          (key) => authority.paths[key] !== installation.paths[key],
+        )
+      ) {
+        throw new Error('Sandbox installation paths do not match its authority.');
+      }
+      return authority.paths;
+    }
+  }
+  const root = import.meta.url.startsWith('file:///$bunfs/')
+    ? join(dirname(process.execPath), '.dev')
+    : join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '.dev');
+  return { cache: join(root, 'cache', 'mimir'), config: join(root, 'config', 'mimir'), data: root };
 }
 
-/**
- * The default Norn-vault path for this build (MMR-142): production resolves
- * `$XDG_DATA_HOME/mimir/vault`; dev/from-source resolves the isolated repo-local
- * `.dev/vault`. `MIMIR_VAULT` overrides it in both profiles; `[vault] path`
- * participates only in production (see `readRuntimeConfig` + `resolveVault`).
- */
 export function defaultVaultPath(): string {
-  return dataPath('vault');
-}
-
-/**
- * A boolean env flag, value-based like a proper switch: only an explicit
- * affirmative (`1`/`true`/`yes`/`on`, case-insensitive) enables it. `0`,
- * `false`, `no`, `off`, empty, unset, or noise stay disabled — so exporting
- * the var with a falsy value can never read as an accidental opt-in. Used for
- * `MIMIR_ALLOW_REAL_SERVICE`, the MMR-147 real-supervisor escape hatch.
- */
-export function envFlag(raw: string | undefined): boolean {
-  if (raw === undefined) {
-    return false;
-  }
-  return ['1', 'true', 'yes', 'on'].includes(raw.trim().toLowerCase());
+  return join(runtimePaths().data, 'vault');
 }
 
 /**

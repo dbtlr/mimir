@@ -185,7 +185,7 @@ export default defineConfig({
         rules: quarantinedRules,
       },
       node: {
-        files: ['packages/bin/**'],
+        files: ['packages/bin/**', 'packages/sandbox/**'],
         // Synchronous filesystem access is deliberate in this local-first CLI.
         rules: { 'node/no-sync': 'off' },
       },

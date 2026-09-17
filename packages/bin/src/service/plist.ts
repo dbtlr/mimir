@@ -2,8 +2,7 @@
  * The launchd units (MMR-47, MMR-146). Two shapes share one escaper:
  *
  *   - **serve** — a KeepAlive daemon. ProgramArguments carry `serve --no-hunt`.
- *     Production resolves the port from global config; an explicitly opted-in
- *     dev install bakes `MIMIR_PORT` because that profile ignores global config.
+ *     Live installations resolve the port from their bound configuration.
  *     KeepAlive + the loud --no-hunt failure means launchd retries (~10s) while
  *     a squatter holds the port and self-heals.
  *   - **snapshot** — a StartInterval timer. It runs `vault snapshot` every
@@ -16,13 +15,16 @@ import { join } from 'node:path';
 
 import { parsePort } from '@mimir/helpers';
 
+import { IS_PRODUCTION, runtimePaths } from '../env';
 import { SERVE_LOG_FILE, SNAPSHOT_LOG_FILE } from './events';
 
 export const SERVE_LABEL = 'com.dbtlr.mimir.serve';
 export const SNAPSHOT_LABEL = 'com.dbtlr.mimir.snapshot';
 
 export function plistPathFor(label: string): string {
-  return join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`);
+  return IS_PRODUCTION
+    ? join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`)
+    : join(runtimePaths().data, 'LaunchAgents', `${label}.plist`);
 }
 
 /** Read the dev-only MIMIR_PORT baked into an owned serve plist. */

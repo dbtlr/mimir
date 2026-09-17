@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { fakeIo } from '../cli/testing';
 import { MimirError } from '../core';
 import { PROD_PORT } from '../env';
+import { protocolCandidate } from '../installation/test-fixtures';
 import type { ServiceDeps } from './commands';
 import { cmdSelfUpdate, cmdService } from './commands';
 import { readConfig, readServeConfig } from './config';
@@ -575,7 +576,7 @@ test('self-update logs the update even when restart fails', async () => {
   const newVersion = '0.6.0';
   const newTag = `v${newVersion}`;
   // Build a fake binary body and its matching SHA256SUMS line
-  const fakeBody = new TextEncoder().encode('fake-binary-content');
+  const fakeBody = new TextEncoder().encode(protocolCandidate);
   const sha256 = new Bun.CryptoHasher('sha256').update(fakeBody).digest('hex');
   // assetName() returns the platform asset name — import it to stay in sync
   const { assetName } = await import('./self-update');
@@ -670,7 +671,7 @@ test('self-update --next reports up to date when running the latest prerelease',
 // `0.15.0-next.1` as equal to `0.15.0`.
 test('self-update: stable channel proceeds past a prerelease onto the matching official release', async () => {
   const newTag = 'v0.15.0';
-  const fakeBody = new TextEncoder().encode('fake-binary-content');
+  const fakeBody = new TextEncoder().encode(protocolCandidate);
   const sha256 = new Bun.CryptoHasher('sha256').update(fakeBody).digest('hex');
   const { assetName } = await import('./self-update');
   const asset = assetName();
@@ -879,7 +880,7 @@ test('every mutating verb refuses without real-supervisor trust', async () => {
     expect(thrown).toBeInstanceOf(MimirError);
     expect(thrown instanceof Error && thrown.message).toMatch(/dev\/from-source/);
     expect(thrown instanceof Error && thrown.message).toContain(verb);
-    expect(thrown instanceof MimirError && thrown.hint).toContain('MIMIR_ALLOW_REAL_SERVICE');
+    expect(thrown instanceof MimirError && thrown.hint).toContain('registered live installation');
     expect(sup.calls).toEqual([]);
     expect(snapSup.calls).toEqual([]);
     expect(existsSync(d.units.serve.plistFile)).toBe(false);
@@ -905,7 +906,7 @@ test('status stays available without real-supervisor trust', async () => {
 // or surfaced" invariant.
 test('self-update without real-supervisor trust skips the daemon restart, loudly', async () => {
   const newTag = 'v0.6.0';
-  const fakeBody = new TextEncoder().encode('fake-binary-content');
+  const fakeBody = new TextEncoder().encode(protocolCandidate);
   const sha256 = new Bun.CryptoHasher('sha256').update(fakeBody).digest('hex');
   const { assetName } = await import('./self-update');
   const asset = assetName();

@@ -1,3 +1,7 @@
+---
+description: Mimir work-state storage, installation, interfaces, and development entry points.
+---
+
 # mimir
 
 Mimir is a local-first source of truth for agent-driven work. It keeps projects,
@@ -94,12 +98,17 @@ the current binary.
 
 ## Develop
 
-Mimir uses Bun `1.3.14`:
+Mimir uses Bun `1.4.0`:
 
 ```sh
 bun install
 bun run verify
 ```
+
+For Postgres development, run `bun run sandbox create`. Use
+`bun run test:postgres` for the disposable server lane and `bun run test:sandbox`
+for native snapshot rehearsals. See the [sandbox guide](docs/guides/development-sandboxes.md)
+for fixture, restore, upgrade, and cleanup commands.
 
 Generate the deterministic demo workspace used for documentation and visual
 testing with `bun run fixtures:vault .dev/docs-fixture`. See

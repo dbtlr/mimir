@@ -67,18 +67,15 @@ export type ServiceUnit = {
 
 export type ServiceDeps = {
   platform: NodeJS.Platform;
-  /** Whether this process may mutate the host supervisor (launchd). Production
-   *  builds are trusted; dev/from-source runs are refused unless the operator
-   *  opts in via `MIMIR_ALLOW_REAL_SERVICE=1`, so a smoke or dev invocation
-   *  can never pollute the real launchd by accident (MMR-147). Main wires the
-   *  real value; tests with fake supervisors set it freely. */
+  /** Only registered live installations may mutate the host supervisor.
+   * Tests supply fake supervisors and set this capability explicitly. */
   allowRealSupervisor: boolean;
   /** The binary the plist points at / self-update replaces (process.execPath). */
   binPath: string;
   /** This invocation's version (build-injected tag, or package.json) — the on-disk version by definition. */
   version: string;
   configFile: string;
-  /** The serve fallback baked into this build profile. */
+  /** The serve fallback for this installation. */
   defaultPort: number;
   /** Dev-only explicit environment override captured for service installation. */
   portOverride?: number;
@@ -146,7 +143,7 @@ function requireRealSupervisor(deps: ServiceDeps, verb: string): void {
     throw new MimirError(
       'validation',
       `service ${verb} manages the host launchd — refused from a dev/from-source build`,
-      'set MIMIR_ALLOW_REAL_SERVICE=1 to manage the real supervisor deliberately',
+      'use a registered live installation to manage the real supervisor',
     );
   }
 }
@@ -379,9 +376,7 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
   }
 
   const serveInfo = await deps.units.serve.supervisor.info();
-  // Probe the port this build profile's daemon actually resolves. In dev the
-  // operator config is absent by policy, so this falls back to DEV_PORT; in a
-  // production binary it remains the installed PROD_PORT behavior.
+  // Probe the port resolved from the installation-bound configuration.
   const port = deps.readInstalledPort() ?? deps.portOverride ?? config.port ?? deps.defaultPort;
   const healthRaw = await deps.health(port);
   const health: ServiceHealth | null =

@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 
 import { sql } from 'kysely';
 
+import { sandboxAuthorityFromEnvironment } from '../../sandbox-authority';
 import { observe, seedWorkingSet, withoutStamp } from '../../testing/conformance';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { updateNode } from '../mutations';
@@ -20,9 +21,9 @@ import { createThrowawaySchema } from './testing';
  * Each case owns a throwaway SQL schema, so a run neither sees nor disturbs
  * anything else in the database, and drops it afterwards.
  *
- * Set `MIMIR_TEST_POSTGRES_URL` to run it; without one, every case skips.
+ * Run `bun run sandbox test`; its authority enables this disposable-server lane.
  */
-const POSTGRES_URL = process.env.MIMIR_TEST_POSTGRES_URL;
+const POSTGRES_URL = sandboxAuthorityFromEnvironment()?.postgresUrl;
 const lane = test.skipIf(POSTGRES_URL === undefined);
 
 /** How many tasks, and how many contended patches, EACH worker process lands.

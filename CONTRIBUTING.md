@@ -1,3 +1,7 @@
+---
+description: Repository structure, runtime setup, checks, and contribution workflow.
+---
+
 # Contributing to mimir
 
 Thanks for considering a contribution. `mimir` is the source of truth for work
@@ -7,17 +11,21 @@ and feature work.
 
 ## Getting started
 
-Install [Bun](https://bun.sh) `1.3.14` (pinned in `.tool-versions`; `mise install`
+Install [Bun](https://bun.sh) `1.4.0` (pinned in `.tool-versions`; `mise install`
 picks it up), then:
 
 ```bash
 bun install
-bun run verify    # the full gate: format, lint, typecheck, test (what CI runs)
+bun run verify         # format, lint, types, binary tests, and UI tests
+bun run test:postgres  # disposable real-Postgres integration lane
+bun run test:sandbox   # build and native snapshot rehearsal
 ```
 
 `verify` is `bun run check` (oxfmt + oxlint + type-aware typecheck, zero-warning)
-plus `bun test`. The store-backed suites run against a temporary Norn vault, so
-they need the `norn` binary on `PATH` (they skip cleanly without it).
+plus binary and UI tests. Norn-backed suites use temporary vaults and need `norn`
+on `PATH`. Postgres unit tests use PGlite. The two disposable-server commands need
+Docker; CI runs all three gates. See the [sandbox guide](docs/guides/development-sandboxes.md)
+for fixtures, snapshots, and candidate migration tests.
 
 ## Project shape
 

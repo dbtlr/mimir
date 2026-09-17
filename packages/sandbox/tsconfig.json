@@ -1,0 +1,1 @@
+{ "extends": "@dbtlr/tooling/tsconfig/bun.json", "include": ["src"] }
