@@ -55,10 +55,14 @@ describe('foldDirection', () => {
     expect(foldDirection('   \n\n')).toBeUndefined();
   });
 
-  it('leaves snake_case identifiers alone', () => {
-    expect(foldDirection('Wire external_ref through the form')).toBe(
-      'Wire external_ref through the form',
+  it('leaves snake_case identifiers alone (intraword underscores are not emphasis)', () => {
+    expect(foldDirection('Ship foo_service_v2 and external_ref today')).toBe(
+      'Ship foo_service_v2 and external_ref today',
     );
+  });
+
+  it('still strips underscore emphasis at word boundaries', () => {
+    expect(foldDirection('Cut _main_ and __ship__ it')).toBe('Cut main and ship it');
   });
 });
 
@@ -169,6 +173,37 @@ describe('directionLine', () => {
     await user.click(screen.getByRole('button', TRIGGER));
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
     expect(screen.getByRole('textbox')).toHaveValue("Saga's own direction.");
+  });
+
+  it('a subject that returns does not re-arm the dialog', async () => {
+    const user = userEvent.setup();
+    const view = renderProject(PROSE);
+    await user.click(screen.getByRole('button', TRIGGER));
+    await screen.findByRole('dialog');
+
+    const saga = (
+      <DirectionLine
+        subject={{ key: 'SR', kind: 'project' }}
+        title="Saga"
+        next="Saga's own direction."
+        offline={false}
+      />
+    );
+    view.rerender(saga);
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    // Back to the subject the dialog was opened for: it stays closed. The
+    // route is one non-remounting component, so a stale "open for MMR" would
+    // reopen uninvited on the return trip.
+    view.rerender(
+      <DirectionLine
+        subject={{ key: 'MMR', kind: 'project' }}
+        title="Mimir"
+        next={PROSE}
+        offline={false}
+      />,
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('offline disables Edit', async () => {

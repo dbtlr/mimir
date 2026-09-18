@@ -14,10 +14,25 @@ function subjectId(subject: DirectionTarget): string {
 
 /** `[text](url)` → `text`, `![alt](url)` → `alt`. */
 const MARKDOWN_LINK = /!?\[([^\]]*)]\([^)]*\)/g;
-/** A paired emphasis/strong run: `**x**`, `__x__`, `*x*`, `_x_` (never bare snake_case). */
-const EMPHASIS = /(\*\*|__|\*|_)(?=\S)([\s\S]*?\S)\1/g;
+/** A paired star emphasis/strong run: `**x**`, `*x*`. */
+const STAR_EMPHASIS = /(\*\*|\*)(?=\S)([\s\S]*?\S)\1/g;
+/**
+ * The underscore twin. CommonMark forbids intraword underscore emphasis, so
+ * both delimiters must sit on a word boundary — otherwise `foo_service_v2`
+ * reads as emphasis and folds to `fooservicev2`.
+ */
+const UNDERSCORE_EMPHASIS = /(?<!\w)(__|_)(?=\S)([\s\S]*?\S)\1(?!\w)/g;
 /** Leading block syntax: blockquote marks, ATX hashes, and bullet or ordered markers. */
 const LEADING_BLOCK = /^(?:>\s*)*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)?/;
+
+/** Drop paired emphasis markers, twice: a nested `**_x_**` needs a second pass. */
+function stripEmphasis(line: string): string {
+  let out = line;
+  for (let pass = 0; pass < 2; pass += 1) {
+    out = out.replace(STAR_EMPHASIS, '$2').replace(UNDERSCORE_EMPHASIS, '$2');
+  }
+  return out;
+}
 
 /**
  * The fold: the first line that carries content, as plain text. The row is a
@@ -34,12 +49,7 @@ export function foldDirection(next: string | undefined): string | undefined {
   if (line === undefined) {
     return undefined;
   }
-  const plain = line
-    .replace(LEADING_BLOCK, '')
-    .replace(MARKDOWN_LINK, '$1')
-    // Twice: the inner run of a nested `**_x_**` needs a second pass.
-    .replace(EMPHASIS, '$2')
-    .replace(EMPHASIS, '$2')
+  const plain = stripEmphasis(line.replace(LEADING_BLOCK, '').replace(MARKDOWN_LINK, '$1'))
     .replaceAll('`', '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -69,6 +79,13 @@ export function DirectionLine({
   // swaps subjects under a mounted row (navigating between projects) closes
   // the dialog instead of pointing it at the new record.
   const [openFor, setOpenFor] = useState<string | null>(null);
+  // Adjusted during render, not in an effect: the project route is one
+  // non-remounting component, so a subject swap must forget the old open
+  // state immediately — an effect would let a return trip to the first
+  // subject reopen the dialog uninvited before it ran.
+  if (openFor !== null && openFor !== id) {
+    setOpenFor(null);
+  }
   const fold = foldDirection(next);
   return (
     <>
