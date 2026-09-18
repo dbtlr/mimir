@@ -10,6 +10,7 @@ import {
   treeQuery,
 } from '../api/queries';
 import { BoardView } from '../components/board';
+import { DirectionLine } from '../components/direction-line';
 import { DistributionBar } from '../components/distribution-bar';
 import { NewTaskButton } from '../components/new-task-button';
 import { NodeDossier } from '../components/node-dossier';
@@ -169,6 +170,19 @@ export function ProjectPage() {
             <NewTaskButton projectKey={key} offline={conn.offline} onOpenNode={openNode} />
           </div>
         </header>
+
+        {/* Direction under the header (MMR-390): the owned `## Next` prose
+            folded to one line, above the work itself. */}
+        {project.data !== undefined && (
+          <div className="px-5 pb-3">
+            <DirectionLine
+              subject={{ key, kind: 'project' }}
+              title={project.data.title}
+              next={project.data.next}
+              offline={conn.offline}
+            />
+          </div>
+        )}
 
         {view === 'board' && !boardReady && (live.isPending || done.isPending) && (
           <div className="grid grid-cols-2 gap-1.5 px-5 md:grid-cols-4">

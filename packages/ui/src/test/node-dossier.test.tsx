@@ -95,6 +95,29 @@ describe('nodeDossier', () => {
     expect(screen.getByText('IN PROGRESS')).toBeDefined();
   });
 
+  it('direction is a container facet: an initiative folds it, a task has none (MMR-390)', async () => {
+    mockNode(
+      task({
+        id: 'MMR-30',
+        next: 'Cut the console direction line.',
+        status: 'in_progress',
+        title: 'Console initiative',
+        type: 'initiative',
+      }),
+    );
+    const initiative = render(
+      <NodeDossier nodeId="MMR-30" onClose={vi.fn()} onOpenNode={vi.fn()} />,
+      { wrapper },
+    );
+    await expect(screen.findByText('Cut the console direction line.')).resolves.toBeDefined();
+    initiative.unmount();
+
+    mockNode(task({ id: 'MMR-31', status: 'in_progress', title: 'plain task' }));
+    render(<NodeDossier nodeId="MMR-31" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    await screen.findByText('plain task');
+    expect(screen.queryByRole('button', { name: /direction/i })).toBeNull();
+  });
+
   it('a dep in both depends_on and awaiting_on renders one chip, with the awaiting reading', async () => {
     mockNode(
       task({

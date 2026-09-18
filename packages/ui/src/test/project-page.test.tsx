@@ -49,3 +49,31 @@ describe('projectPage archived-404 (MMR-230)', () => {
     expect(screen.queryByText(/archived or no longer exists/i)).toBeNull();
   });
 });
+
+describe('projectPage direction (MMR-390)', () => {
+  it('a project with direction folds its first line under the header', async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/projects/MMR/tree') {
+        return Promise.resolve({ children: [], id: 'MMR', title: 'Mimir', type: 'project' });
+      }
+      if (path.startsWith('/api/projects/MMR')) {
+        return Promise.resolve({
+          description: null,
+          distribution: {},
+          id: 'MMR',
+          next: 'Ship the direction line.\n\nThen the dossier.',
+          status: 'in_progress',
+          title: 'Mimir',
+          type: 'project',
+        });
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    renderProject('MMR');
+
+    await expect(screen.findByText('Ship the direction line.')).resolves.toBeDefined();
+    expect(screen.getByRole('button', { name: /direction/i })).toBeDefined();
+    // The fold is one line — the rest stays in the dialog.
+    expect(screen.queryByText(/Then the dossier/)).toBeNull();
+  });
+});

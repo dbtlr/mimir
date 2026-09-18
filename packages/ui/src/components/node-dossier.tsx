@@ -15,6 +15,7 @@ import { availableTransitions } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
 import { AnnotationComposer } from './annotation-composer';
+import { DirectionLine } from './direction-line';
 import { MoveDialog } from './move-dialog';
 import { ReasonDialog } from './reason-dialog';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
@@ -681,6 +682,17 @@ function DossierBody({
                     {data.hold_reason}
                   </div>
                 )}
+
+              {/* Direction (MMR-390) is a container facet: initiatives and
+                  phases own `## Next`, tasks never do. */}
+              {(data.type === 'initiative' || data.type === 'phase') && (
+                <DirectionLine
+                  subject={{ id: data.id, kind: 'node' }}
+                  title={data.title}
+                  next={data.next}
+                  offline={offline === true}
+                />
+              )}
 
               {data.description != null && data.description.trim() !== '' && (
                 <section className="flex flex-col gap-1.5">
