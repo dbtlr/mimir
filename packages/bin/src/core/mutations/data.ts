@@ -17,6 +17,7 @@ import {
   assertProjectActive,
   reloadNode,
   renderNodeRef,
+  reorderContainerHint,
   requireNode,
   requireTask,
   stamp,
@@ -592,7 +593,7 @@ export async function reorder(
   refId: string | null = null,
 ): Promise<Node> {
   return store.transact(async (w) => {
-    const task = await requireTask(w, id);
+    const task = await requireTask(w, id, reorderContainerHint);
     if (task.rank === null) {
       throw validation(
         'cannot reorder a task outside the rankable set (terminal, held, or under review)',

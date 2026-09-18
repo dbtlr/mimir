@@ -565,6 +565,14 @@ test.skipIf(!NORN)(
     );
     expect((await send('POST', `/api/nodes/${task2}/reorder`, { after: task1 })).status).toBe(200);
     expect((await send('POST', `/api/nodes/${task2}/reorder`, {})).status).toBe(400);
+
+    // A container id is refused in reorder's own terms, not the start verb's.
+    const refused = await send('POST', `/api/nodes/${initiativeRef}/reorder`, { position: 'top' });
+    expect(refused.status).toBe(400);
+    const body = (await refused.json()) as { error: { message: string; hint: string } };
+    expect(body.error.message).toBe(`${initiativeRef} is an initiative, not a task`);
+    expect(body.error.hint).toContain('only tasks carry rank');
+    expect(body.error.hint).not.toContain("aren't started");
   },
 );
 
