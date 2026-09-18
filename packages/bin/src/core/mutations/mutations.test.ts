@@ -573,6 +573,24 @@ test.skipIf(!NORN)(
   },
 );
 
+test.skipIf(!NORN)('reorder on a container refuses with a reorder-specific hint', async () => {
+  const a = await task('a');
+  let refused: unknown;
+  try {
+    await reorder(store, await phaseId(), 'top');
+  } catch (error) {
+    refused = error;
+  }
+  expect(refused).toMatchObject({
+    code: 'validation',
+    message: `MMR-${String(mmrPhaseSeq)} is a phase, not a task`,
+  });
+  const { hint } = refused as MimirError;
+  expect(hint).toContain('only tasks carry rank');
+  expect(hint).toContain(await stemOf(a));
+  expect(hint).not.toContain("aren't started");
+});
+
 // ─── resolveAttachTargets: the shared attach link-resolution (MMR-305) ────────
 
 /** Build a second project OTH with one task; return its `KEY-seq` ref. */

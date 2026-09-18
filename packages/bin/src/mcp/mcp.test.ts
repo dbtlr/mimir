@@ -535,6 +535,18 @@ test.skipIf(!NORN)('reorder top echoes the node', async () => {
   expect(JSON.parse(textOf(res)).id).toBe(taskRef);
 });
 
+test.skipIf(!NORN)('reorder on a phase returns a reorder-specific validation hint', async () => {
+  const res = await toolReorder(store, { id: phaseRef, position: 'top' });
+  expect(res.isError).toBe(true);
+  const { error } = parseJson<{ error: { code: string; message: string; hint: string } }>(
+    textOf(res),
+  );
+  expect(error.code).toBe('validation');
+  expect(error.message).toBe(`${phaseRef} is a phase, not a task`);
+  expect(error.hint).toContain('only tasks carry rank');
+  expect(error.hint).not.toContain("aren't started");
+});
+
 test.skipIf(!NORN)(
   'reorder before/after without ref returns structured validation error',
   async () => {

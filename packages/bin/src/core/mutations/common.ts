@@ -90,18 +90,39 @@ async function readyDescendantIds(w: StoreWriter, container: Node): Promise<stri
   return ids;
 }
 
+/**
+ * The hint attached when a task-only verb is given a container. Each verb
+ * says what it can do with the container in its own terms; the ready tasks
+ * beneath it are the actionable alternative either way.
+ */
+export type ContainerHint = (rendered: string, readyIds: string[]) => string;
+
+const startContainerHint: ContainerHint = (rendered, readyIds) =>
+  readyIds.length > 0
+    ? `containers aren't started directly — start a ready task under it: ${readyIds.join(', ')}`
+    : `containers aren't started directly — no ready tasks under it; see its shape with 'mimir tree ${rendered}'`;
+
+/** Rank is task-only today (MMR-358 shapes container ordering). */
+export const reorderContainerHint: ContainerHint = (rendered, readyIds) =>
+  readyIds.length > 0
+    ? `only tasks carry rank — reorder a ready task under it instead: ${readyIds.join(', ')}`
+    : `only tasks carry rank — no ready tasks under it; see its shape with 'mimir tree ${rendered}'`;
+
 /** Load a node, asserting it is a task (verbs that touch lifecycle/hold/rank). */
-export async function requireTask(w: StoreWriter, id: string): Promise<Node> {
+export async function requireTask(
+  w: StoreWriter,
+  id: string,
+  hintFor: ContainerHint = startContainerHint,
+): Promise<Node> {
   const node = await requireNode(w, id);
   if (node.type !== 'task') {
     const rendered = (await renderNodeRef(w, id)) ?? 'it';
     const article = node.type === 'initiative' ? 'an' : 'a';
     const readyIds = await readyDescendantIds(w, node);
-    const hint =
-      readyIds.length > 0
-        ? `containers aren't started directly — start a ready task under it: ${readyIds.join(', ')}`
-        : `containers aren't started directly — no ready tasks under it; see its shape with 'mimir tree ${rendered}'`;
-    throw validation(`${rendered} is ${article} ${node.type}, not a task`, hint);
+    throw validation(
+      `${rendered} is ${article} ${node.type}, not a task`,
+      hintFor(rendered, readyIds),
+    );
   }
   return node;
 }

@@ -277,6 +277,15 @@ test.skipIf(!NORN)('reorder --before and --top', async () => {
 test.skipIf(!NORN)('reorder with no position flag is a usage error → exit 2', async () => {
   expect(await runCli(['reorder', taskRef], () => store, fakeIo(false))).toBe(2);
 });
+test.skipIf(!NORN)('reorder on a phase refuses in reorder terms, not start terms', async () => {
+  const io = fakeIo(false);
+  expect(await runCli(['reorder', phaseRef, '--top'], () => store, io)).toBe(1);
+  const err = io.err.join(' ');
+  expect(err).toContain(`${phaseRef} is a phase, not a task`);
+  expect(err).toContain('only tasks carry rank');
+  expect(err).toContain(taskRef);
+  expect(err).not.toContain("aren't started");
+});
 
 // data verbs: update / annotate
 test.skipIf(!NORN)('update patches scalar fields and echoes them', async () => {
