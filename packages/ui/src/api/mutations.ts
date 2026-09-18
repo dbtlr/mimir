@@ -17,12 +17,16 @@ const WRITE_KEYS: readonly (readonly string[])[] = [
   ['tree'],
 ];
 
-function useInvalidateOnWrite(): () => void {
+/**
+ * Invalidate every read a write can stale. The returned promise settles once
+ * the refetches land — most callers fire and forget (`void invalidate()`),
+ * while a surface that must not show the value it just replaced returns it
+ * from `onSettled` so the mutation stays pending until the record is fresh.
+ */
+function useInvalidateOnWrite(): () => Promise<void> {
   const qc = useQueryClient();
-  return () => {
-    for (const queryKey of WRITE_KEYS) {
-      void qc.invalidateQueries({ queryKey });
-    }
+  return async () => {
+    await Promise.all(WRITE_KEYS.map((queryKey) => qc.invalidateQueries({ queryKey })));
   };
 }
 
@@ -45,7 +49,7 @@ export function useTransition(id: string) {
     onError: (err: Error) => {
       toast.error(err.message);
     },
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -62,7 +66,7 @@ export function useReorder() {
     onError: (err: Error) => {
       toast.error(err.message);
     },
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -89,7 +93,7 @@ export function useCreateNode() {
   return useMutation({
     mutationFn: (input: CreateNodeInput) => apiSend<WireNode>('POST', '/api/nodes', input),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -121,7 +125,7 @@ export function useDepend(options?: UseDependOptions) {
     mutationFn: ({ id, on }: DependInput) =>
       apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/depend`, { on }),
     onError: silent ? undefined : (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -132,13 +136,15 @@ export function useUndepend() {
     mutationFn: ({ id, on }: DependInput) =>
       apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/undepend`, { on }),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
 export type UpdateNodeInput = {
   title?: string;
   description?: string;
+  /** Owned direction prose (ADR 0026) — containers only; tasks never carry it. */
+  next?: string;
   summary?: string;
   priority?: string;
   size?: string;
@@ -151,7 +157,7 @@ export function useUpdateNode(id: string) {
     mutationFn: (fields: UpdateNodeInput) =>
       apiSend<WireNode>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, fields),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -166,7 +172,7 @@ export function useMoveNode(id: string) {
     mutationFn: (to: string) =>
       apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/move`, { to }),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -186,7 +192,7 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: (input: CreateProjectInput) => apiSend<WireNode>('POST', '/api/projects', input),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -200,13 +206,15 @@ export function useArchiveProject(key: string) {
     mutationFn: () =>
       apiSend<WireNode>('POST', `/api/projects/${encodeURIComponent(key)}/archive`, undefined),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
 export type UpdateProjectInput = {
   title?: string;
   description?: string;
+  /** Owned direction prose (ADR 0026) — replace-whole, re-authored per session. */
+  next?: string;
 };
 
 export function useUpdateProject(key: string) {
@@ -214,6 +222,35 @@ export function useUpdateProject(key: string) {
   return useMutation({
     mutationFn: (fields: UpdateProjectInput) =>
       apiSend<WireNode>('PATCH', `/api/projects/${encodeURIComponent(key)}`, fields),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: () => void invalidate(),
+  });
+}
+
+/**
+ * What owns a direction (ADR 0026 Decision 2): a project addresses by key, an
+ * initiative or phase by node id. Tasks never carry one.
+ */
+export type DirectionTarget = { kind: 'project'; key: string } | { kind: 'node'; id: string };
+
+/** The PATCH route for a direction target — the two surfaces that accept `next`. */
+function directionPath(target: DirectionTarget): string {
+  return target.kind === 'project'
+    ? `/api/projects/${encodeURIComponent(target.key)}`
+    : `/api/nodes/${encodeURIComponent(target.id)}`;
+}
+
+/**
+ * Write a subject's direction (MMR-390) — one PATCH for both routes, since
+ * the body (`{ next }`) is the same either way. Unlike its siblings this one
+ * AWAITS the invalidation from `onSettled`: the editor closes on the settled
+ * mutation, so awaiting here is what keeps the reading pane from flashing the
+ * prose the operator just replaced.
+ */
+export function useUpdateDirection(target: DirectionTarget) {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: (next: string) => apiSend<WireNode>('PATCH', directionPath(target), { next }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: invalidate,
   });
@@ -231,7 +268,7 @@ export function useUnarchiveProject(key: string) {
     mutationFn: () =>
       apiSend<WireNode>('POST', `/api/projects/${encodeURIComponent(key)}/unarchive`, undefined),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -252,7 +289,7 @@ export function useFileSeed() {
   return useMutation({
     mutationFn: (input: FileSeedInput) => apiSend<WireSeed>('POST', '/api/seeds', input),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -267,7 +304,7 @@ export function useRejectSeed(id: string) {
     mutationFn: (reason: string) =>
       apiSend<WireSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/reject`, { reason }),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -278,7 +315,7 @@ export function useResolveSeed(id: string) {
     mutationFn: (reason: string) =>
       apiSend<WireSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/resolve`, { reason }),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -309,7 +346,7 @@ export function usePromoteSeed(id: string) {
     mutationFn: (input: PromoteSeedInput) =>
       apiSend<PromotedSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/promote`, input),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -330,7 +367,7 @@ export function useUpdateSeed(id: string) {
     mutationFn: (fields: UpdateSeedInput) =>
       apiSend<WireSeed>('PATCH', `/api/seeds/${encodeURIComponent(id)}`, fields),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -340,7 +377,7 @@ export function useAnnotate(id: string) {
     mutationFn: (content: string) =>
       apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/annotations`, { content }),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -354,7 +391,7 @@ export function useTag(id: string) {
         undefined,
       ),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
 
@@ -368,6 +405,6 @@ export function useUntag(id: string) {
         undefined,
       ),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: invalidate,
+    onSettled: () => void invalidate(),
   });
 }
