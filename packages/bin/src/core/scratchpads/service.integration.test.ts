@@ -1,7 +1,11 @@
 import { expect, setDefaultTimeout, test } from 'bun:test';
 
-import { backends } from '../../testing/conformance';
+import type { Scratchpad } from '@mimir/contract';
+
+import { NORN, backends } from '../../testing/conformance';
+import { createTestStore } from '../../testing/store';
 import { createInitiative, createProject } from '../create';
+import { scratchpadDocument } from '../store-norn/scratchpads';
 import { createPgliteTestStore } from '../store-postgres/testing';
 import { createScratchpadService } from './service';
 
@@ -230,3 +234,63 @@ test('an existing source artifact prevents repair and remains authoritative on f
     await fixture.close();
   }
 });
+
+test.skipIf(!NORN)(
+  'Norn staged raw invalid anchors retry freeze normally, retaining full Journal and Agenda',
+  async () => {
+    const fixture = await createTestStore();
+    try {
+      const store = fixture.store;
+      await createProject(store, { key: 'MMR', name: 'Mimir' });
+      await createProject(store, { key: 'NRN', name: 'Norn' });
+      const local = await createInitiative(store, { projectId: 'MMR', title: 'Local' });
+      const foreign = await createInitiative(store, { projectId: 'NRN', title: 'Foreign' });
+      const service = createScratchpadService(store.scratchpads, store.artifacts, store);
+      for (const invalid of ['MMR-999', 'MMR-1,MMR-2', foreign.id]) {
+        const pad: Scratchpad = {
+          agenda: [
+            { content: 'Keep the unresolved question.', number: 1, reason: null, state: 'open' },
+          ],
+          anchors: [local.id, invalid],
+          createdAt: '2026-08-03T12:00:00.000Z',
+          freezingAt: '2026-08-03T12:05:00.000Z',
+          id: crypto.randomUUID(),
+          journal: [
+            { at: '2026-08-03T12:00:00.000Z', content: 'Keep the complete finding.', number: 1 },
+          ],
+          project: 'MMR',
+          title: 'Legacy Norn episode',
+          updatedAt: '2026-08-03T12:05:00.000Z',
+        };
+        const doc = scratchpadDocument(pad);
+        await fixture.seedDocument(doc.path, doc.frontmatter, doc.body);
+        const raw = fixture.readDocument(doc.path);
+        expect(raw).toContain(invalid);
+        const read = await service.get(pad.id);
+        expect(read.anchors).toEqual([local.id]);
+        expect(read.freezingAt).toBe(pad.freezingAt);
+        expect(read.journal).toEqual(pad.journal);
+        expect(read.agenda).toEqual(pad.agenda);
+        await rejection(
+          service.updateMetadata(pad.id, { anchors: [], expectedUpdatedAt: read.updatedAt }),
+          /freezing/,
+        );
+        expect(fixture.readDocument(doc.path)).toBe(raw);
+        const artifact = await service.freeze(pad.id, {
+          expectedUpdatedAt: read.updatedAt,
+          summary: 'Recovered Norn episode',
+        });
+        expect(artifact.links).toEqual([local.id]);
+        expect(artifact.content).toBe(doc.body.replace(/\n$/, ''));
+        expect(await store.scratchpads.load(pad.id)).toBeUndefined();
+        expect(await store.artifacts.findBySourceScratch(pad.id)).toEqual(artifact);
+        expect(
+          await service.freeze(pad.id, { expectedUpdatedAt: read.updatedAt, summary: 'Retry' }),
+        ).toEqual(artifact);
+      }
+    } finally {
+      await fixture.close();
+    }
+  },
+  60000,
+);

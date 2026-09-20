@@ -235,8 +235,10 @@ A Scratchpad is temporary, project-anchored state for one unsettled work episode
 
 The service validates supplied anchors on create and metadata update, and before
 freeze stages a pad. Anchors must name existing work nodes in the same project.
-A staged pad with invalid anchors can clear or replace them only when no source
-Artifact exists. This guarded update clears `freezing_at` and advances `updated_at`.
+On Postgres, a staged pad with invalid anchors can clear or replace them only
+when no source Artifact exists. This guarded update clears `freezing_at` and
+advances `updated_at`. Norn filters invalid anchors on read, so its staged pads
+recover through normal freeze retry.
 Other staged pads remain locked for freeze retry.
 
 The body contains exactly one `## Journal` and one `## Agenda`. Their local number spaces are independent, start at 1, and remain contiguous and monotonic:

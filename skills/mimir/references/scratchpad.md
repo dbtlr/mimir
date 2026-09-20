@@ -102,10 +102,10 @@ rejects further writes — and the staging write itself moved the token, so
 `scratch get <uuid>` for the fresh one, then re-run `freeze` with it. The
 Artifact is created at most once; retry until its receipt lands.
 
-Freeze validates linked work before staging. If an older version left a pad
-`freezing` with invalid links, `update` can clear or replace those links when
-no source Artifact exists. This returns the pad to active state and preserves
-its Journal and Agenda:
+Freeze validates linked work before staging. On Postgres, `update` can repair
+a pad left `freezing` with invalid links by an older version. It can clear or
+replace those links only when no source Artifact exists. This returns the pad
+to active state and preserves its Journal and Agenda:
 
 ```sh
 mimir scratch get <uuid> -f json
@@ -115,7 +115,9 @@ mimir scratch update <uuid> --clear-links --expected-updated-at <current-token>
 
 To keep links, use repeated `--link` flags with valid IDs instead of
 `--clear-links`. If an Artifact already exists, retry `freeze` to finish cleanup.
-Other interrupted freezes remain locked for retry.
+Norn filters invalid links on read, so its pads recover through normal freeze
+retry with the remaining valid links. Other interrupted freezes remain locked
+for retry.
 
 **Discard** when the episode is dead and produced nothing durable. It refuses
 while Agenda items are open; `--force --reason "…"` overrides. The reason is
