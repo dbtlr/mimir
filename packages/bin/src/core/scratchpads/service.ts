@@ -3,9 +3,10 @@ import { randomUUID } from 'node:crypto';
 import type { Scratchpad, ScratchpadAgendaItem } from '@mimir/contract';
 
 import type { ArtifactRecord, ArtifactStore } from '../artifacts/store';
-import { conflict, notFound, validation } from '../errors';
-import type { Project } from '../model';
-import { normalizeSummary } from '../mutations/data';
+import { deriveSet } from '../derive';
+import { MimirError, conflict, notFound, validation } from '../errors';
+import { normalizeSummary, resolveAttachTargetsInSet } from '../mutations/data';
+import type { Store } from '../store';
 import { now } from '../time';
 import { encodeScratchpadBody } from './codec';
 import type { ScratchpadStore } from './store';
@@ -29,7 +30,7 @@ function assertGuard(scratchpad: Scratchpad, expectedUpdatedAt: string): void {
 export function createScratchpadService(
   scratchpads: ScratchpadStore,
   artifacts: ArtifactStore,
-  projects: { loadProjects: () => Promise<readonly Project[]> },
+  projects: Pick<Store, 'loadProjects' | 'loadWorkingSet'>,
   deps: { clock?: () => string; uuid?: () => string } = {},
 ) {
   const clock = deps.clock ?? now;
@@ -156,10 +157,19 @@ export function createScratchpadService(
           `unarchive it first: mimir unarchive ${project.key}`,
         );
       }
+      const anchors = input.anchors ?? [];
+      const links =
+        anchors.length === 0
+          ? []
+          : resolveAttachTargetsInSet(
+              deriveSet(await projects.loadWorkingSet()),
+              anchors,
+              input.project,
+            ).linkNodeIds;
       const timestamp = clock();
       const scratchpad: Scratchpad = {
         agenda: [],
-        anchors: input.anchors === undefined ? [] : [...new Set(input.anchors)],
+        anchors: links,
         createdAt: timestamp,
         freezingAt: null,
         id: uuid(),
@@ -211,6 +221,14 @@ export function createScratchpadService(
       }
       assertGuard(scratchpad, input.expectedUpdatedAt);
 
+      if (recovered === undefined && scratchpad.anchors.length > 0) {
+        resolveAttachTargetsInSet(
+          deriveSet(await projects.loadWorkingSet()),
+          scratchpad.anchors,
+          scratchpad.project,
+        );
+      }
+
       if (scratchpad.freezingAt === null) {
         const stamp = stampAfter(scratchpad.updatedAt);
         const staged = { ...scratchpad, freezingAt: stamp, updatedAt: stamp };
@@ -244,11 +262,49 @@ export function createScratchpadService(
       if (input.title !== undefined && input.title.trim() === '') {
         throw validation('scratchpad title cannot be blank');
       }
-      return mutate(id, input, (scratchpad) => ({
+      const scratchpad = await loadRequired(id);
+      assertGuard(scratchpad, input.expectedUpdatedAt);
+      let anchors = scratchpad.anchors;
+      if (input.anchors === undefined) {
+        assertWorking(scratchpad);
+      } else {
+        const set = deriveSet(await projects.loadWorkingSet());
+        anchors = resolveAttachTargetsInSet(set, input.anchors, scratchpad.project).linkNodeIds;
+        if (scratchpad.freezingAt !== null) {
+          // Only invalid links prove this snapshot cannot create an artifact.
+          // Read failures and ordinary interrupted freezes must stay locked.
+          let invalidLinks = false;
+          try {
+            resolveAttachTargetsInSet(set, scratchpad.anchors, scratchpad.project);
+          } catch (error) {
+            if (
+              !(error instanceof MimirError) ||
+              (error.code !== 'validation' && error.code !== 'not_found')
+            ) {
+              throw error;
+            }
+            invalidLinks = true;
+          }
+          if (!invalidLinks) {
+            assertWorking(scratchpad);
+          }
+          if ((await artifacts.findBySourceScratch(id)) !== undefined) {
+            throw validation(
+              'the scratchpad already has a frozen artifact',
+              'retry freeze to finish cleanup',
+            );
+          }
+        }
+      }
+      const replacement = {
         ...scratchpad,
-        anchors: input.anchors === undefined ? scratchpad.anchors : [...new Set(input.anchors)],
+        anchors,
+        freezingAt: null,
         title: input.title?.trim() ?? scratchpad.title,
-      }));
+        updatedAt: stampAfter(scratchpad.updatedAt),
+      };
+      await scratchpads.replace(replacement, scratchpad.updatedAt);
+      return replacement;
     },
   };
 }

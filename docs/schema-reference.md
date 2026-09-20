@@ -233,6 +233,12 @@ A Scratchpad is temporary, project-anchored state for one unsettled work episode
 
 `created <= updated_at` is the only relational timestamp invariant. Journal timestamps use the same canonical representation, but their numbering—not wall-clock order—is authoritative; they need not be monotonic or equal `updated_at`. A valid `freezing_at` document remains readable so the service can recover an interrupted freeze.
 
+The service validates supplied anchors on create and metadata update, and before
+freeze stages a pad. Anchors must name existing work nodes in the same project.
+A staged pad with invalid anchors can clear or replace them only when no source
+Artifact exists. This guarded update clears `freezing_at` and advances `updated_at`.
+Other staged pads remain locked for freeze retry.
+
 The body contains exactly one `## Journal` and one `## Agenda`. Their local number spaces are independent, start at 1, and remain contiguous and monotonic:
 
 ```md
