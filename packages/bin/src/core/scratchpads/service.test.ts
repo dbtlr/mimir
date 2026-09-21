@@ -1,8 +1,10 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 
 import type { Scratchpad } from '@mimir/contract';
 
 import type { ArtifactCreate, ArtifactRecord, ArtifactStore } from '../artifacts/store';
+import { createInitiative, createProject } from '../create';
+import { createPgliteTestStore } from '../store-postgres/testing';
 import { createScratchpadService } from './service';
 import type { ScratchpadStore } from './store';
 
@@ -20,7 +22,19 @@ async function rejection(run: () => Promise<unknown>, pattern: RegExp): Promise<
   expect((error as Error).message).toMatch(pattern);
 }
 
-function harness() {
+const fixtures: Awaited<ReturnType<typeof createPgliteTestStore>>[] = [];
+afterEach(async () => {
+  for (const fixture of fixtures.splice(0)) {
+    await fixture.close();
+  }
+});
+
+async function harness() {
+  const fixture = await createPgliteTestStore();
+  fixtures.push(fixture);
+  await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
+  await createInitiative(fixture.store, { projectId: 'MMR', title: 'First' });
+  await createInitiative(fixture.store, { projectId: 'MMR', title: 'Second' });
   const pads = new Map<string, Scratchpad>();
   const frozen = new Map<string, ArtifactRecord & { content: string }>();
   const creates: ArtifactCreate[] = [];
@@ -39,6 +53,7 @@ function harness() {
           updated_at: T0,
         },
       ]),
+    loadWorkingSet: fixture.store.loadWorkingSet,
   };
   const scratchpads: ScratchpadStore = {
     async create(pad) {
@@ -137,7 +152,7 @@ function harness() {
 
 describe('ScratchpadService', () => {
   test('create rejects missing and archived projects before persistence', async () => {
-    const h = harness();
+    const h = await harness();
     await rejection(
       () => h.service.create({ project: 'NOPE', title: 'Missing' }),
       /project NOPE doesn't exist/,
@@ -153,6 +168,9 @@ describe('ScratchpadService', () => {
           updated_at: T0,
         },
       ],
+      loadWorkingSet: async () => {
+        throw new Error('archived project must fail before loading links');
+      },
     };
     const archivedService = createScratchpadService(h.serviceStore, h.artifacts, archivedProjects);
     await rejection(
@@ -162,7 +180,7 @@ describe('ScratchpadService', () => {
     expect(h.pads.size).toBe(0);
   });
   test('owns create, checkpoint, Agenda transitions, metadata, reads, and CAS', async () => {
-    const h = harness();
+    const h = await harness();
     const created = await h.service.create({
       anchors: ['MMR-1'],
       project: 'MMR',
@@ -216,7 +234,7 @@ describe('ScratchpadService', () => {
   });
 
   test('freeze stages, creates one self-contained provenance artifact, and recovers deletion', async () => {
-    const h = harness();
+    const h = await harness();
     const created = await h.service.create({
       anchors: ['MMR-1'],
       project: 'MMR',
@@ -274,7 +292,7 @@ describe('ScratchpadService', () => {
   });
 
   test('freeze requires a summary and discard guards unresolved Agenda', async () => {
-    const h = harness();
+    const h = await harness();
     const created = await h.service.create({ project: 'MMR', title: 'Shape' });
     await rejection(
       () =>
@@ -309,7 +327,7 @@ describe('ScratchpadService', () => {
   });
 
   test('freeze recovers a persisted marker when artifact creation failed', async () => {
-    const h = harness();
+    const h = await harness();
     const created = await h.service.create({ project: 'MMR', title: 'Shape' });
     h.failNextCreate();
     await rejection(
@@ -323,6 +341,32 @@ describe('ScratchpadService', () => {
     const staged = await h.service.get(ID);
     expect(staged.freezingAt).not.toBeNull();
     expect(h.creates).toHaveLength(0);
+    await rejection(
+      () =>
+        h.service.updateMetadata(ID, {
+          anchors: [],
+          expectedUpdatedAt: staged.updatedAt,
+        }),
+      /freezing/,
+    );
+    await rejection(
+      () =>
+        h.service.updateMetadata(ID, {
+          expectedUpdatedAt: staged.updatedAt,
+          title: 'Still locked',
+        }),
+      /freezing/,
+    );
+    await rejection(
+      () =>
+        h.service.discard(ID, {
+          expectedUpdatedAt: staged.updatedAt,
+          force: true,
+          reason: 'Cannot cancel an uncertain freeze',
+        }),
+      /freezing/,
+    );
+    expect(await h.service.get(ID)).toEqual(staged);
 
     await h.service.freeze(ID, {
       expectedUpdatedAt: staged.updatedAt,

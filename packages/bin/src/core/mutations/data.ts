@@ -2,6 +2,7 @@ import type { Priority, Size } from '@mimir/contract';
 
 import type { ArtifactMetadataPatch, ArtifactRecord } from '../artifacts/store';
 import { deriveSet } from '../derive';
+import type { DerivationSet } from '../derive';
 import { invariant, notFound, validation } from '../errors';
 import { SPEC_UPDATE_KEYS, updateKeysForTypes } from '../field-spec';
 import type { SpecUpdateKey } from '../field-spec';
@@ -550,7 +551,21 @@ export async function resolveAttachTargets(
   explicitProject?: string,
   hints: AttachLinkHints = {},
 ): Promise<AttachTargets> {
-  const set = deriveSet(await store.loadWorkingSet());
+  return resolveAttachTargetsInSet(
+    deriveSet(await store.loadWorkingSet()),
+    tokens,
+    explicitProject,
+    hints,
+  );
+}
+
+/** Resolve links against an already loaded snapshot, without storage side effects. */
+export function resolveAttachTargetsInSet(
+  set: DerivationSet,
+  tokens: string[],
+  explicitProject?: string,
+  hints: AttachLinkHints = {},
+): AttachTargets {
   if (tokens.length === 0) {
     if (explicitProject === undefined) {
       throw invariant('attach resolution reached with neither a link nor a project');

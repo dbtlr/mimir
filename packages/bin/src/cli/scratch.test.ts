@@ -1,12 +1,12 @@
-import { expect, test } from 'bun:test';
+import { afterEach, expect, test } from 'bun:test';
 import { join } from 'node:path';
 
 import type { Scratchpad } from '@mimir/contract';
 
-import type { Store } from '../core';
-import { createProject } from '../core';
+import { createInitiative, createProject } from '../core';
 import type { ArtifactStore } from '../core/artifacts/store';
 import type { ScratchpadStore } from '../core/scratchpads/store';
+import { createPgliteTestStore } from '../core/store-postgres/testing';
 import { createTestStore } from '../testing/store';
 import { runCli } from './run';
 import { fakeIo } from './testing';
@@ -47,7 +47,20 @@ function freshCli(vaultRoot: string, args: string[]): { code: number; err: strin
 }
 const NORN = Bun.which('norn') !== null;
 
-function memoryStore() {
+const fixtures: Awaited<ReturnType<typeof createPgliteTestStore>>[] = [];
+afterEach(async () => {
+  for (const fixture of fixtures.splice(0)) {
+    await fixture.close();
+  }
+});
+
+async function memoryStore() {
+  const fixture = await createPgliteTestStore();
+  fixtures.push(fixture);
+  await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
+  for (const title of ['First', 'Second', 'Third']) {
+    await createInitiative(fixture.store, { projectId: 'MMR', title });
+  }
   const pads = new Map<string, Scratchpad>();
   const scratchpads: ScratchpadStore = {
     async create(pad) {
@@ -86,27 +99,16 @@ function memoryStore() {
   } as unknown as ArtifactStore;
   return {
     pads,
-    store: { artifacts, loadProjects: loadMemoryProjects, scratchpads } as unknown as Store,
+    store: { ...fixture.store, artifacts, loadProjects: loadMemoryProjects, scratchpads },
   };
 }
 
 test('scratch create uses binding and returns a compact concurrency receipt', async () => {
-  const { store } = memoryStore();
+  const { store } = await memoryStore();
   const io = fakeIo();
   expect(
     await runCli(
-      [
-        'scratch',
-        'create',
-        'CLI',
-        'contract',
-        '--link',
-        'MMR-331',
-        '--link',
-        'MMR-332',
-        '-f',
-        'json',
-      ],
+      ['scratch', 'create', 'CLI', 'contract', '--link', 'MMR-1', '--link', 'MMR-2', '-f', 'json'],
       () => store,
       io,
       { scope: 'MMR' },
@@ -138,7 +140,7 @@ test('Scratchpad-only flags are rejected by unrelated verbs before opening the s
 });
 
 test('scratch UUID mutations require and advance the explicit guard', async () => {
-  const { pads, store } = memoryStore();
+  const { pads, store } = await memoryStore();
   pads.set(ID, {
     agenda: [],
     anchors: [],
@@ -179,7 +181,7 @@ test('scratch UUID mutations require and advance the explicit guard', async () =
 // MMR-350 (ADR 0029): the human formats render instants in the reader's zone;
 // the wire object `-f json` emits is untouched canonical UTC.
 test('scratch get renders local instants on records and canonical UTC on json', async () => {
-  const { pads, store } = memoryStore();
+  const { pads, store } = await memoryStore();
   pads.set(ID, {
     agenda: [],
     anchors: [],
@@ -212,7 +214,7 @@ test('scratch get renders local instants on records and canonical UTC on json', 
 // reading. A localized receipt value would be a token the caller cannot echo
 // back — the guard would refuse it as a concurrent change.
 test('the human receipt prints updated_at as the byte-exact concurrency token', async () => {
-  const { pads, store } = memoryStore();
+  const { pads, store } = await memoryStore();
   pads.set(ID, {
     agenda: [],
     anchors: [],
@@ -246,7 +248,7 @@ test('the human receipt prints updated_at as the byte-exact concurrency token', 
 });
 
 test('scratch update distinguishes omitted, repeated, and explicitly cleared links', async () => {
-  const { pads, store } = memoryStore();
+  const { pads, store } = await memoryStore();
   pads.set(ID, {
     agenda: [],
     anchors: ['MMR-1'],
@@ -310,7 +312,7 @@ test('scratch update distinguishes omitted, repeated, and explicitly cleared lin
 });
 
 test('scratch list marks staged freezes in the human view', async () => {
-  const { pads, store } = memoryStore();
+  const { pads, store } = await memoryStore();
   pads.set(ID, {
     agenda: [],
     anchors: [],
