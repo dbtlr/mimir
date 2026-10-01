@@ -14,8 +14,9 @@ Exactly two things are seeds:
    as a seed, and the owning board decides what work to commit.
 2. **An own-board idea or observation with no statable fix**:
    decision-shaped — "should X?", "decide the policy", "prove it or delete
-   it" — it may or may not germinate into work. Typically one the operator
-   asks you to park.
+   it" — it may or may not germinate into work. It is not a follow-up of your
+   current task: even if the operator says "park that", work you defer to
+   keep scope is a task (see below).
 
 **Not a seed: work discovered on your own board.** Two tests, either one makes
 it a task — `create task`:

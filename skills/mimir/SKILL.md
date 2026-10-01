@@ -88,7 +88,8 @@ relaxes these.
 - **Discovered work on YOUR board = a new task** (`create task` + `depend` if it
   gates something), never a silent widening of the current one — and **never a
   seed**: if you can state the fix, you already triaged it, and work you defer
-  to keep the current task in scope is a task even when its fix is still open.
+  to keep the current task in scope is a task even when its fix, or a decision
+  inside it, is still open.
   Review findings and test follow-ups terminate in fixed, dismissed-with-reason,
   or deferred to a **task**. `annotate` the current task with what you found.
 - **A seed covers exactly two cases** (`mimir seed "…" -k <kind> [-p KEY]`, never
@@ -98,9 +99,10 @@ relaxes these.
      a board you don't own; the owning board commits its own work.
   2. **An own-board idea or observation with no statable fix** —
      decision-shaped ("should X?", "decide the policy"); it may or may not
-     germinate into work. Typically one the operator asks you to park. Work
-     you defer to keep your task's scope is not this case: it is a task,
-     even when its fix or a decision inside it is open.
+     germinate into work. Not a follow-up of your current task: work you defer
+     to keep your task's scope is not this case, even when "park that" is the
+     operator's phrasing. It is a task, even when its fix or a decision
+     inside it is open.
 - **If a seed blocks you:** `block` your task **and** set `--upstream KEY-sN` —
   never a prose-only hold.
 - `annotate <id> "note"` when something lands mid-flight — a decision, a surprise, a
@@ -117,7 +119,7 @@ relaxes these.
 | "I'll update statuses at the end"   | The end never comes. Transition at the moment.   |
 | "This was just a tiny fix"          | Tiny fixes are work. Track it or don't touch it. |
 | "I'll seed it so triage decides"    | A statable fix IS triaged. Own board → task.     |
-| "The fix is open, so seed it"       | Deferred to keep scope? Task, fix open or not.   |
+| "Fix or decision open, so seed it"  | Deferred to keep scope? Task, still open or not. |
 | "I don't want to clutter the board" | An untracked in-flight task IS the clutter.      |
 | "The user saw me do it"             | Mimir is the record, not the chat scroll.        |
 
