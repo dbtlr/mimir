@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { registerInstallation } from '../../bin/src/installation';
-import { readSandboxAuthority } from '../../bin/src/sandbox-authority';
+import { readDatabaseAuthority } from '../../bin/src/sandbox-authority';
 import { Sandbox } from './workflow';
 
 const repository = fileURLToPath(new URL('../../../', import.meta.url));
@@ -32,7 +32,7 @@ test.skipIf(process.env.MIMIR_SANDBOX_LIFECYCLE_TEST !== '1')(
     try {
       await symlink(join(repository, 'packages'), join(root, 'packages'));
       fixture = await sandbox.create(join(repository, 'dist', 'mimir'));
-      const authority = readSandboxAuthority(
+      const authority = readDatabaseAuthority(
         join(root, '.dev', 'sandboxes', fixture, 'authority.json'),
       );
       expect(

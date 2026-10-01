@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 
 import { sql } from 'kysely';
 
-import { sandboxAuthorityFromEnvironment } from '../../sandbox-authority';
+import { sandboxPostgresUrlFromEnvironment } from '../../sandbox-authority';
 import { observe, seedWorkingSet, withoutStamp } from '../../testing/conformance';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { updateNode } from '../mutations';
@@ -23,7 +23,7 @@ import { createThrowawaySchema } from './testing';
  *
  * Run `bun run sandbox test`; its authority enables this disposable-server lane.
  */
-const POSTGRES_URL = sandboxAuthorityFromEnvironment()?.postgresUrl;
+const POSTGRES_URL = sandboxPostgresUrlFromEnvironment();
 const lane = test.skipIf(POSTGRES_URL === undefined);
 
 /** How many tasks, and how many contended patches, EACH worker process lands.

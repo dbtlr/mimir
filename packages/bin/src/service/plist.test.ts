@@ -3,17 +3,20 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  SERVE_LABEL,
-  SNAPSHOT_LABEL,
-  plistFor,
-  plistForSnapshot,
-  plistPathFor,
-  readServePlistPort,
-} from './plist';
+import { plistFor, plistForSnapshot, plistPathFor, readServePlistPort } from './plist';
+import { SERVE_LABEL, SNAPSHOT_LABEL } from './units';
+
+test('a sandbox plist carries the installation-scoped label it was rendered for', () => {
+  const label = 'com.dbtlr.mimir.sandbox-1234abcd-1234-4234-8234-123456789012.serve';
+  expect(plistFor(label, '/sandbox/bin/mimir', {})).toContain(`<string>${label}</string>`);
+  const snapshot = label.replace(/serve$/, 'snapshot');
+  expect(plistForSnapshot(snapshot, '/sandbox/bin/mimir', { intervalSeconds: 60 })).toContain(
+    `<string>${snapshot}</string>`,
+  );
+});
 
 test('plist runs serve --no-hunt with no port and supervises it', () => {
-  const xml = plistFor('/Users/op/.local/bin/mimir', {});
+  const xml = plistFor(SERVE_LABEL, '/Users/op/.local/bin/mimir', {});
   expect(xml).toContain(`<string>${SERVE_LABEL}</string>`);
   expect(xml).toContain('<string>/Users/op/.local/bin/mimir</string>');
   expect(xml).toContain('<string>serve</string>');
@@ -39,7 +42,7 @@ test('plist runs serve --no-hunt with no port and supervises it', () => {
 test('the Norn backend bakes MIMIR_NORN + MIMIR_VAULT as absolute paths', () => {
   // launchd gives the daemon a minimal PATH and does no `~`/`$VAR` expansion, so
   // the norn binary and vault are baked as resolved absolutes (ADR 0018).
-  const xml = plistFor('/Users/op/.local/bin/mimir', {
+  const xml = plistFor(SERVE_LABEL, '/Users/op/.local/bin/mimir', {
     nornPath: '/Users/op/.cargo/bin/norn',
     vaultPath: '/Users/op/.local/share/mimir/vault',
   });
@@ -52,12 +55,12 @@ test('the Norn backend bakes MIMIR_NORN + MIMIR_VAULT as absolute paths', () => 
 });
 
 test('with no env baked, the serve unit carries no EnvironmentVariables', () => {
-  const xml = plistFor('/Users/op/.local/bin/mimir', {});
+  const xml = plistFor(SERVE_LABEL, '/Users/op/.local/bin/mimir', {});
   expect(xml).not.toContain('EnvironmentVariables');
 });
 
 test('an opted-in dev service can bake its resolved port as MIMIR_PORT', () => {
-  const xml = plistFor('/Users/op/workspaces/mimir/dev-bin', { port: 64747 });
+  const xml = plistFor(SERVE_LABEL, '/Users/op/workspaces/mimir/dev-bin', { port: 64747 });
   expect(xml).toContain('<key>MIMIR_PORT</key>');
   expect(xml).toContain('<string>64747</string>');
   expect(xml).not.toContain('--port');
@@ -65,7 +68,7 @@ test('an opted-in dev service can bake its resolved port as MIMIR_PORT', () => {
 
 test('the baked dev port round-trips from the installed plist', () => {
   const file = join(dir, 'serve.plist');
-  writeFileSync(file, plistFor('/Users/op/workspaces/mimir/dev-bin', { port: 55440 }));
+  writeFileSync(file, plistFor(SERVE_LABEL, '/Users/op/workspaces/mimir/dev-bin', { port: 55440 }));
   expect(readServePlistPort(file)).toBe(55440);
   expect(readServePlistPort(join(dir, 'missing.plist'))).toBeUndefined();
   expect(readServePlistPort(dir)).toBeUndefined();
@@ -84,7 +87,9 @@ test('plistPathFor names the snapshot unit', () => {
 });
 
 test('the snapshot plist runs `vault snapshot` on a StartInterval and does not KeepAlive', () => {
-  const xml = plistForSnapshot('/Users/op/.local/bin/mimir', { intervalSeconds: 900 });
+  const xml = plistForSnapshot(SNAPSHOT_LABEL, '/Users/op/.local/bin/mimir', {
+    intervalSeconds: 900,
+  });
   expect(xml).toContain(`<string>${SNAPSHOT_LABEL}</string>`);
   expect(xml).toContain(['    <string>vault</string>', '    <string>snapshot</string>'].join('\n'));
   expect(xml).toContain('<key>StartInterval</key>');
@@ -97,7 +102,7 @@ test('the snapshot plist runs `vault snapshot` on a StartInterval and does not K
 });
 
 test('MIMIR_VAULT present at install time is baked into the snapshot environment', () => {
-  const xml = plistForSnapshot('/usr/local/bin/mimir', {
+  const xml = plistForSnapshot(SNAPSHOT_LABEL, '/usr/local/bin/mimir', {
     intervalSeconds: 300,
     vaultPath: '~/vaults/mimir',
   });
@@ -109,7 +114,7 @@ test('MIMIR_VAULT present at install time is baked into the snapshot environment
 // message never points at the offending character, making this class of bug
 // very hard to diagnose after the fact.
 test('special XML characters in binPath and baked env values are escaped', () => {
-  const xml = plistFor('/Users/op/Drew & Co/bin/mimir', {
+  const xml = plistFor(SERVE_LABEL, '/Users/op/Drew & Co/bin/mimir', {
     vaultPath: '/data/a<b/vault',
   });
   expect(xml).toContain('Drew &amp; Co');
@@ -131,7 +136,7 @@ afterEach(() => {
 // every platform; this adds real plist validation where the tool exists (dev
 // + the macOS release runner), and is skipped on Linux CI.
 test.skipIf(process.platform !== 'darwin')('escaped plist passes plutil -lint', () => {
-  const xml = plistFor('/Users/op/Drew & Co/bin/mimir', {
+  const xml = plistFor(SERVE_LABEL, '/Users/op/Drew & Co/bin/mimir', {
     vaultPath: '/data/a<b/vault',
   });
   const file = join(dir, 'test.plist');
@@ -141,7 +146,7 @@ test.skipIf(process.platform !== 'darwin')('escaped plist passes plutil -lint', 
 });
 
 test.skipIf(process.platform !== 'darwin')('snapshot plist passes plutil -lint', () => {
-  const xml = plistForSnapshot('/Users/op/Drew & Co/bin/mimir', {
+  const xml = plistForSnapshot(SNAPSHOT_LABEL, '/Users/op/Drew & Co/bin/mimir', {
     intervalSeconds: 900,
     vaultPath: '~/a<b',
   });

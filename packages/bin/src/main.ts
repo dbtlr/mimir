@@ -24,7 +24,7 @@ import type { Store } from './core';
 import { openPostgres } from './core/store-postgres/index';
 import { warnConfigPermissions, withConfigFindings } from './doctor/config-permissions';
 import type { DoctorBackend } from './doctor/contract';
-import { DEFAULT_PORT, IS_PRODUCTION, envPort } from './env';
+import { DEFAULT_PORT, IS_PRODUCTION, envPort, supervisorScope } from './env';
 import { createServer } from './http';
 import { runInstallationCommand } from './installation/command';
 import { INSTALLATION_PROTOCOL_RESPONSE } from './installation/protocol';
@@ -33,10 +33,9 @@ import {
   DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
   EVENTS_FILE,
   LaunchdSupervisor,
-  SERVE_LABEL,
   SERVE_LOG_FILE,
-  SNAPSHOT_LABEL,
   SNAPSHOT_LOG_FILE,
+  SystemdSupervisor,
   bunExec,
   configPath,
   manualFetch,
@@ -45,10 +44,23 @@ import {
   plistPathFor,
   readRuntimeConfig,
   readServePlistPort,
+  readServeUnitPort,
   parseHealth,
   serveInstallEnv,
+  serveUnitFor,
+  snapshotServiceUnitFor,
+  snapshotTimerUnitFor,
+  systemdUnitPathFor,
+  unitLabels,
 } from './service';
-import type { Health, ServiceDeps } from './service';
+import type {
+  Health,
+  ServeUnitOptions,
+  ServiceDeps,
+  SnapshotUnitOptions,
+  SupervisorScope,
+} from './service';
+import type { GlobalConfig } from './service/config';
 import { buildStore } from './store-backend';
 import type { BuiltStore } from './store-backend';
 import type { StoreDeps } from './store/commands';
@@ -107,13 +119,99 @@ function servePort(args: string[]): number | null | undefined {
   return parsePort(raw);
 }
 
+/** The serve unit's baked environment. The daemon shells out to norn and reads
+ *  the vault (ADR 0018), so preflight both at install time and bake the absolute
+ *  norn path; only a non-live installation bakes its port. */
+function serveOptions(config: GlobalConfig, port: number | undefined): ServeUnitOptions {
+  const vault = resolveVault({ configPath: config.vault.path, envPath: process.env.MIMIR_VAULT });
+  return {
+    ...serveInstallEnv({ nornPath: Bun.which('norn') ?? undefined, vault }),
+    port: IS_PRODUCTION ? undefined : port,
+  };
+}
+
+/** Bake the interval from the SAME config file the command reports from, and
+ *  the vault at install time (supervisors do no shell expansion). */
+function snapshotOptions(config: GlobalConfig): SnapshotUnitOptions {
+  return {
+    intervalSeconds: config.vault.snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+    vaultPath: process.env.MIMIR_VAULT,
+  };
+}
+
+/**
+ * The serve and snapshot units for this platform's supervisor, under this
+ * installation's own unit names (service/units): launchd plists on macOS,
+ * systemd user units on Linux. The vault/norn preflight and the non-live port
+ * bake are shared; only the file shape and supervisor differ.
+ */
+function realServiceUnits(
+  binPath: string,
+  scope: SupervisorScope,
+): { units: ServiceDeps['units']; readInstalledPort: () => number | undefined } {
+  const labels = unitLabels(scope);
+  if (process.platform === 'linux') {
+    const serveFile = systemdUnitPathFor(`${labels.serve}.service`);
+    const timerFile = systemdUnitPathFor(`${labels.snapshot}.timer`);
+    const snapshotServiceFile = systemdUnitPathFor(`${labels.snapshot}.service`);
+    return {
+      readInstalledPort: () => readServeUnitPort(serveFile),
+      units: {
+        serve: {
+          label: labels.serve,
+          logFile: SERVE_LOG_FILE,
+          render: (_configFile, config, port) =>
+            serveUnitFor(labels.serve, binPath, serveOptions(config, port)),
+          supervisor: new SystemdSupervisor(bunExec, serveFile),
+          unitFile: serveFile,
+        },
+        snapshot: {
+          companion: {
+            file: snapshotServiceFile,
+            render: (_configFile, config) =>
+              snapshotServiceUnitFor(labels.snapshot, binPath, snapshotOptions(config)),
+          },
+          label: labels.snapshot,
+          logFile: SNAPSHOT_LOG_FILE,
+          render: (_configFile, config) =>
+            snapshotTimerUnitFor(labels.snapshot, snapshotOptions(config)),
+          supervisor: new SystemdSupervisor(bunExec, timerFile, [snapshotServiceFile]),
+          unitFile: timerFile,
+        },
+      },
+    };
+  }
+
+  const uid = process.getuid?.() ?? 501;
+  const servePlist = plistPathFor(labels.serve);
+  return {
+    readInstalledPort: () => readServePlistPort(servePlist),
+    units: {
+      serve: {
+        label: labels.serve,
+        logFile: SERVE_LOG_FILE,
+        render: (_configFile, config, port) =>
+          plistFor(labels.serve, binPath, serveOptions(config, port)),
+        supervisor: new LaunchdSupervisor(bunExec, uid, labels.serve),
+        unitFile: servePlist,
+      },
+      snapshot: {
+        label: labels.snapshot,
+        logFile: SNAPSHOT_LOG_FILE,
+        render: (_configFile, config) =>
+          plistForSnapshot(labels.snapshot, binPath, snapshotOptions(config)),
+        supervisor: new LaunchdSupervisor(bunExec, uid, labels.snapshot),
+        unitFile: plistPathFor(labels.snapshot),
+      },
+    },
+  };
+}
+
 function realServiceDeps(): ServiceDeps {
   const binPath = process.execPath;
-  const uid = process.getuid?.() ?? 501;
   const explicitPort = envPort();
+  const scope = supervisorScope();
   return {
-    // Only a verified live installation can manage the host supervisor.
-    allowRealSupervisor: IS_PRODUCTION,
     binPath,
     configFile: configPath(),
     defaultPort: DEFAULT_PORT,
@@ -135,38 +233,9 @@ function realServiceDeps(): ServiceDeps {
     platform: process.platform,
     portOverride: !IS_PRODUCTION && typeof explicitPort === 'number' ? explicitPort : undefined,
     readConfig: readRuntimeConfig,
-    readInstalledPort: () => readServePlistPort(plistPathFor(SERVE_LABEL)),
-    units: {
-      serve: {
-        logFile: SERVE_LOG_FILE,
-        plistFile: plistPathFor(SERVE_LABEL),
-        render: (_configFile, config, port) => {
-          // The daemon shells out to norn and reads the vault (ADR 0018), so
-          // preflight both at install time and bake the absolute norn path.
-          const vault = resolveVault({
-            configPath: config.vault.path,
-            envPath: process.env.MIMIR_VAULT,
-          });
-          return plistFor(binPath, {
-            ...serveInstallEnv({ nornPath: Bun.which('norn') ?? undefined, vault }),
-            port: IS_PRODUCTION ? undefined : port,
-          });
-        },
-        supervisor: new LaunchdSupervisor(bunExec, uid, SERVE_LABEL),
-      },
-      snapshot: {
-        logFile: SNAPSHOT_LOG_FILE,
-        plistFile: plistPathFor(SNAPSHOT_LABEL),
-        // Bake the interval from the SAME config file the command reports from,
-        // and the vault at install time (launchd does no shell expansion).
-        render: (_configFile, config) =>
-          plistForSnapshot(binPath, {
-            intervalSeconds: config.vault.snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
-            vaultPath: process.env.MIMIR_VAULT,
-          }),
-        supervisor: new LaunchdSupervisor(bunExec, uid, SNAPSHOT_LABEL),
-      },
-    },
+    // Only a registered installation drives the host supervisor, and only its own units.
+    scope,
+    ...realServiceUnits(binPath, scope),
     version: VERSION,
   };
 }

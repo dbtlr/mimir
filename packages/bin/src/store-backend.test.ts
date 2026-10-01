@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { openPostgres, upgradeSchema } from './core/store-postgres/index';
 import { createThrowawaySchema } from './core/store-postgres/testing';
 import { bunExec } from './exec';
-import { sandboxAuthorityFromEnvironment } from './sandbox-authority';
+import { sandboxPostgresUrlFromEnvironment } from './sandbox-authority';
 import { configPath } from './service/config';
 import { buildStore } from './store-backend';
 import { converge } from './vault/converge';
@@ -91,7 +91,7 @@ test('the postgres backend refuses without [store] url', async () => {
  * would be a fresh store either way, and the gate's whole job is to tell a
  * fresh store from one an older binary already wrote.
  */
-const POSTGRES_URL = sandboxAuthorityFromEnvironment()?.postgresUrl;
+const POSTGRES_URL = sandboxPostgresUrlFromEnvironment();
 
 test.skipIf(POSTGRES_URL === undefined)(
   'a postgres build refuses an unmigrated store, then builds once store upgrade has run',

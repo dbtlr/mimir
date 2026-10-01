@@ -1,6 +1,6 @@
 /**
  * The one impure process edge: run an argv, capture exit code and output.
- * Consumers (the launchd supervisor, the vault's git operations) take an
+ * Consumers (the supervisors, the vault's git operations) take an
  * `Exec` so tests inject a fake; `bunExec` is the real implementation.
  */
 

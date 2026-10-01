@@ -6,8 +6,8 @@ description: Self-update channels, installation receipt preservation, replacemen
 
 `mimir self-update [--next] [--tag <tag>]` replaces the running binary in
 place. A registered installation keeps its configuration, data, and cache
-directories. On macOS, a registered live installation also restarts its loaded
-`serve` unit.
+directories. A registered installation also restarts its own loaded `serve`
+unit (launchd on macOS, systemd on Linux).
 
 For an installation without a receipt, use the
 [legacy installation transition](install-location.md#upgrade-an-installation-without-a-receipt)
@@ -55,11 +55,11 @@ Neither replacement mechanism automatically rolls back a binary after its rename
 
 ## Restart-if-loaded
 
-After replacement, self-update inspects the macOS `serve` unit. If the unit is
-loaded and the binary has live installation authority, it restarts the unit
-with `launchctl kickstart -k`.
+After replacement, self-update inspects the installation's `serve` unit. If the
+unit is loaded and the installation owns it, it restarts the unit
+(`launchctl kickstart -k` on macOS, `systemctl --user restart` on Linux).
 
-Without live installation authority, the restart is skipped with a warning.
+Without that authority, the restart is skipped with a warning.
 A restart failure also produces a warning. In both cases, the binary replacement
 already succeeded. The `snapshot` unit uses the new binary on its next invocation.
 

@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import {
   chmod,
@@ -9,7 +9,6 @@ import {
   readFile,
   readdir,
   realpath,
-  rename,
   rm,
   writeFile,
 } from 'node:fs/promises';
@@ -18,93 +17,16 @@ import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
 
 import { installBinary, readInstallationAt } from '../../bin/src/installation/index';
-import { readSandboxAuthority } from '../../bin/src/sandbox-authority';
-import type { SandboxAuthority } from '../../bin/src/sandbox-authority';
+import { readDatabaseAuthority } from '../../bin/src/sandbox-authority';
+import type { DatabaseSandboxAuthority } from '../../bin/src/sandbox-authority';
+import { InterruptedError, command, hashFile, isolatedEnvironment, privateJson } from './process';
+import { removeSandboxUnits } from './sandbox-units';
 import { latestSnapshot, snapshotSchema } from './snapshot';
 
 export const POSTGRES_IMAGE =
   'postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2';
 const label = 'dev.mimir.sandbox';
-type Authority = SandboxAuthority;
-
-async function hashFile(path: string): Promise<string> {
-  const hash = createHash('sha256');
-  for await (const chunk of Bun.file(path).stream()) {
-    hash.update(chunk);
-  }
-  return hash.digest('hex');
-}
-
-async function privateJson(path: string, value: unknown): Promise<void> {
-  const temporary = `${path}.${randomUUID()}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-  await rename(temporary, path);
-}
-
-function isolatedEnvironment(): NodeJS.ProcessEnv {
-  const environment = { ...process.env };
-  for (const key of Object.keys(environment)) {
-    if (key.startsWith('PG') || key.startsWith('MIMIR_')) {
-      delete environment[key];
-    }
-  }
-  environment.PATH = `${dirname(process.execPath)}:${environment.PATH ?? ''}`;
-  return environment;
-}
-
-class InterruptedError extends Error {
-  override name = 'InterruptedError';
-}
-
-async function command(
-  args: string[],
-  options: { cwd: string; env?: NodeJS.ProcessEnv; inputFile?: string; timeout?: number },
-): Promise<string> {
-  const child = Bun.spawn(args, {
-    cwd: options.cwd,
-    env: options.env ?? isolatedEnvironment(),
-    stderr: 'pipe',
-    stdin: options.inputFile ? Bun.file(options.inputFile) : 'ignore',
-    stdout: 'pipe',
-  });
-  let interrupted = false;
-  let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    child.kill('SIGKILL');
-  }, options.timeout ?? 120_000);
-  const stop = () => {
-    interrupted = true;
-    child.kill('SIGKILL');
-  };
-  process.once('SIGINT', stop);
-  process.once('SIGTERM', stop);
-  try {
-    const [stdout, stderr, exit] = await Promise.all([
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-      child.exited,
-    ]);
-    if (interrupted) {
-      throw new InterruptedError(
-        'Sandbox operation interrupted; owned resources retained for cleanup.',
-      );
-    }
-    if (timedOut) {
-      throw new Error(`Sandbox subprocess timed out: ${args[0]}`);
-    }
-    if (exit !== 0) {
-      throw new Error(
-        `${args[0]} failed (${exit}): ${stderr.replace(/postgres(?:ql)?:\/\/[^\s"']+/g, '[database URL redacted]').slice(-4000)}`,
-      );
-    }
-    return stdout.trim();
-  } finally {
-    clearTimeout(timer);
-    process.removeListener('SIGINT', stop);
-    process.removeListener('SIGTERM', stop);
-  }
-}
+type Authority = DatabaseSandboxAuthority;
 
 /** Owns disposable resources beneath one checkout. No caller supplies a database URL. */
 export class Sandbox {
@@ -125,7 +47,7 @@ export class Sandbox {
     } catch {
       throw new Error(`Sandbox ${id} does not exist or has no authority file`);
     }
-    const authority = readSandboxAuthority(join(root, 'authority.json'));
+    const authority = readDatabaseAuthority(join(root, 'authority.json'));
     if (authority.image !== POSTGRES_IMAGE) {
       throw new Error('Sandbox image does not match pinned image');
     }
@@ -763,6 +685,9 @@ export class Sandbox {
       }
       await command(['docker', 'rm', '--force', '--volumes', target], { cwd: this.repository });
     }
+    // A registered sandbox may have installed supervisor units under its own
+    // names; unload them before their executable disappears.
+    await removeSandboxUnits(id, root);
     await rm(root, { recursive: true });
   }
 }

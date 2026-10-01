@@ -1,0 +1,138 @@
+name: Service verify
+
+# Proves the real supervisor lifecycle of `mimir service` (MMR-54): install,
+# status, restart, kill-and-recover, stop, start, and uninstall, under real
+# launchd on a macOS runner and real systemd user units on an Ubuntu runner.
+# Both jobs run the same `bun run sandbox service-verify` a developer runs
+# locally; it installs a sandbox installation under sandbox-scoped unit names,
+# so nothing here can address a live unit.
+#
+# Manual only. It never runs on push or pull_request: a supervisor lifecycle
+# takes minutes and needs nothing from an ordinary change.
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Which supervisor to verify
+        type: choice
+        options: [both, macos, linux]
+        default: both
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: launchd (macOS)
+    if: contains(fromJSON('["both","macos"]'), inputs.platform || 'both')
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .tool-versions
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # `service install` preflights norn (ADR 0018). Same pin and digests as
+      # ci.yml; bump them together.
+      - name: Install norn (pinned)
+        env:
+          NORN_VERSION: v0.48.0
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          case "$(uname -s)-$(uname -m)" in
+            Darwin-arm64)
+              target=aarch64-apple-darwin
+              sha256=146c150fabd3ad80593779e0bebd1bb6be23d393e880ee1366f8bb7dea4e6607 ;;
+            *) echo "unsupported runner: $(uname -s)-$(uname -m)" >&2; exit 1 ;;
+          esac
+          asset="norn-run-${target}.tar.xz"
+          curl -fsSLO "https://github.com/dbtlr/norn/releases/download/${NORN_VERSION}/${asset}"
+          echo "${sha256}  ${asset}" | shasum -a 256 -c
+          tar -xf "$asset"
+          mkdir -p norn-bin && mv "norn-run-${target}/norn" norn-bin/
+          echo "${RUNNER_TEMP}/norn-bin" >> "$GITHUB_PATH"
+
+      # GitHub's macOS runners log the runner user into an Aqua session, so the
+      # same gui/<uid> launchd domain a desktop uses is available.
+      - name: Verify the launchd lifecycle
+        run: bun run sandbox service-verify
+
+      - name: Upload the run report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: service-verify-macos
+          path: |
+            .dev/sandbox-results/
+            .dev/service-sandboxes/*/data/mimir/logs/
+          if-no-files-found: ignore
+
+  linux:
+    name: systemd (Linux)
+    if: contains(fromJSON('["both","linux"]'), inputs.platform || 'both')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .tool-versions
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install norn (pinned)
+        env:
+          NORN_VERSION: v0.48.0
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          case "$(uname -s)-$(uname -m)" in
+            Linux-x86_64)
+              target=x86_64-unknown-linux-musl
+              sha256=9985e026e7974b00ed20fceb964f18265b57e393dbd798a9d4a6df8974cac165 ;;
+            Linux-aarch64)
+              target=aarch64-unknown-linux-musl
+              sha256=f3c7adf0af86fd1f449cbab147bc507ba5312c1f113805cb67efb46fb1f2fc8e ;;
+            *) echo "unsupported runner: $(uname -s)-$(uname -m)" >&2; exit 1 ;;
+          esac
+          asset="norn-run-${target}.tar.xz"
+          curl -fsSLO "https://github.com/dbtlr/norn/releases/download/${NORN_VERSION}/${asset}"
+          echo "${sha256}  ${asset}" | shasum -a 256 -c
+          tar -xf "$asset"
+          mkdir -p norn-bin && mv "norn-run-${target}/norn" norn-bin/
+          echo "${RUNNER_TEMP}/norn-bin" >> "$GITHUB_PATH"
+
+      # systemd is PID 1 on the runner. Linger gives the runner user a
+      # `systemd --user` manager without a login session, as on a headless host.
+      - name: Start the runner user's systemd manager
+        run: |
+          set -euo pipefail
+          sudo loginctl enable-linger "$(id -un)"
+          runtime="/run/user/$(id -u)"
+          for _ in $(seq 1 60); do [ -S "$runtime/bus" ] && break; sleep 0.5; done
+          [ -S "$runtime/bus" ] || { echo "no user manager bus at $runtime/bus" >&2; exit 1; }
+          echo "XDG_RUNTIME_DIR=$runtime" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=$runtime/bus" >> "$GITHUB_ENV"
+
+      - name: Verify the systemd lifecycle
+        run: bun run sandbox service-verify
+
+      - name: Upload the run report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: service-verify-linux
+          path: |
+            .dev/sandbox-results/
+            .dev/service-sandboxes/*/data/mimir/logs/
+          if-no-files-found: ignore

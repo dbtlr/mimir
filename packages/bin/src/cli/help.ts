@@ -227,14 +227,15 @@ options:
                           clears one)
 
 machinery commands (the installation, host, or store — not the work itself):
-  service <sub> [unit]    supervise the launchd units (macOS): install
-                          [--port <n>] · uninstall · start · stop · restart ·
-                          status. unit is serve | snapshot | all; install
-                          defaults to serve (snapshot is opt-in), uninstall +
-                          the lifecycle verbs sweep whatever is installed.
-                          --port writes the installation config.
-                          only registered live installations can mutate
-                          the real launchd; status stays available
+  service <sub> [unit]    supervise the launchd (macOS) or systemd user
+                          (Linux) units: install [--port <n>] · uninstall ·
+                          start · stop · restart · status. unit is serve |
+                          snapshot | all; install defaults to serve (snapshot
+                          is opt-in), uninstall + the lifecycle verbs sweep
+                          whatever is installed. --port writes the
+                          installation config. only a registered installation
+                          can mutate the real supervisor, and only its own
+                          units; status stays available
   vault snapshot          commit the vault's working tree (commit-if-dirty),
                           then push + reconcile when an upstream is configured;
                           the cadence behind the scheduled snapshot unit
@@ -252,7 +253,7 @@ machinery commands (the installation, host, or store — not the work itself):
         [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]
                           interactive first-install + reconfiguration wizard:
                           converge the vault, write the config, install the
-                          launchd units. Prefills current values; re-runnable.
+                          supervisor units. Prefills current values; re-runnable.
                           Non-interactively takes flags + -y.
   serve [--port <n>] [--no-hunt]
                           HTTP API + console (loopback-only; port:
@@ -918,9 +919,9 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
         '--vault <path>',
         'vault location (~ expanded; default: current config, else the build default)',
       ],
-      ['--install-service', 'install/update the serve launchd unit (macOS)'],
+      ['--install-service', 'install/update the serve unit (launchd or systemd)'],
       ['--port <n>', 'serve port to persist (honored by serve even without the unit)'],
-      ['--install-snapshot', 'install/update the auto-snapshot launchd unit (macOS)'],
+      ['--install-snapshot', 'install/update the auto-snapshot unit (launchd or systemd)'],
       [
         '--snapshot-interval <s>',
         'snapshot cadence in seconds (requires --install-snapshot; default 900)',
@@ -929,7 +930,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['-y, --yes', 'run non-interactively from flags (required when not a TTY)'],
     ],
     summary:
-      'first-install + reconfiguration wizard — converge the vault, write the global config, install/update the launchd units you opt into (removal is `service uninstall`). Prefills current values; safe to re-run',
+      'first-install + reconfiguration wizard — converge the vault, write the global config, install/update the supervisor units you opt into (removal is `service uninstall`). Prefills current values; safe to re-run',
     usage:
       'mimir setup [--vault <path>] [--install-service] [--install-snapshot] [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]',
   },
@@ -978,28 +979,28 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ],
     ],
     examples: [
-      'mimir service install                 # install the serve launchd unit (macOS)',
+      'mimir service install                 # install the serve unit',
       'mimir service install snapshot        # install the (opt-in) snapshot unit',
       'mimir service status                  # report every installed unit',
       'mimir service restart                 # restart whatever is installed',
     ],
     flags: [['--port <n>', 'install: serve port to persist (the installation config)']],
     summary:
-      "supervise the launchd units (macOS) — install/uninstall/start/stop/restart/status; uninstall and the lifecycle verbs sweep whatever is installed. only registered live installations can mutate the real launchd; status stays available. run `mimir service <sub> -h` for a sub's own flags",
+      "supervise the launchd (macOS) or systemd user (Linux) units — install/uninstall/start/stop/restart/status; uninstall and the lifecycle verbs sweep whatever is installed. only a registered installation can mutate the real supervisor, and only its own units; status stays available. run `mimir service <sub> -h` for a sub's own flags",
     usage: 'mimir service <sub> [unit]',
   },
   // ── service subcommands (MMR-299) ──
   'service install': {
     args: [['[unit]', 'serve | snapshot | all (default: serve — snapshot is opt-in)']],
     examples: [
-      'mimir service install                 # install the serve launchd unit',
+      'mimir service install                 # install the serve unit',
       'mimir service install snapshot        # install the (opt-in) snapshot unit',
       'mimir service install --port 4100     # install serve, persisting the port',
       'mimir service install all             # install both units',
     ],
     flags: [['--port <n>', 'serve port to persist (the installation config)']],
     summary:
-      'install a launchd unit (macOS) — defaults to serve; snapshot is opt-in. --port persists to the installation config. requires a registered live installation',
+      'install a supervisor unit (launchd or systemd) — defaults to serve; snapshot is opt-in. --port persists to the installation config. requires a registered installation',
     usage: 'mimir service install [unit] [--port <n>]',
   },
   'service uninstall': {
@@ -1009,7 +1010,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir service uninstall snapshot      # tear down just the snapshot unit',
     ],
     summary:
-      'tear down installed launchd unit(s) (macOS) — config and logs kept. a bare uninstall sweeps whatever is installed; requires a registered live installation',
+      'tear down installed supervisor unit(s) — config and logs kept. a bare uninstall sweeps whatever is installed; requires a registered installation',
     usage: 'mimir service uninstall [unit]',
   },
   'service start': {
@@ -1019,7 +1020,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir service start serve             # start just the serve unit',
     ],
     summary:
-      'start an installed launchd unit (macOS) — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. requires a registered live installation',
+      'start an installed supervisor unit — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. requires a registered installation',
     usage: 'mimir service start [unit]',
   },
   'service stop': {
@@ -1029,7 +1030,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir service stop snapshot           # stop just the snapshot unit',
     ],
     summary:
-      'stop an installed launchd unit (macOS) — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. requires a registered live installation',
+      'stop an installed supervisor unit — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. requires a registered installation',
     usage: 'mimir service stop [unit]',
   },
   'service restart': {
@@ -1039,13 +1040,13 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir service restart all             # restart every installed unit',
     ],
     summary:
-      'restart an installed launchd unit (macOS) — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. requires a registered live installation',
+      'restart an installed supervisor unit — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. requires a registered installation',
     usage: 'mimir service restart [unit]',
   },
   'service status': {
     examples: ['mimir service status                  # report every installed unit'],
     summary:
-      "report every launchd unit's state (loaded/running, serve's port + health, snapshot's interval) plus recent events (macOS) — a read; never mutates, no dev-build refusal",
+      "report every supervisor unit's state (loaded/running, serve's port + health, snapshot's interval) plus recent events — a read; never mutates, no dev-build refusal",
     usage: 'mimir service status',
   },
   // ── vault cadence (MMR-146) ──

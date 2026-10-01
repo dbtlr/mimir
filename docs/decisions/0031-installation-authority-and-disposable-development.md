@@ -132,3 +132,45 @@ precise sidecar schema and runnable command syntax in the development guide.
 
 - [PostgreSQL pg_dump](https://www.postgresql.org/docs/current/app-pgdump.html)
 - [PostgreSQL pg_restore](https://www.postgresql.org/docs/current/app-pgrestore.html)
+
+## Refinement (2026-10-01, MMR-54): the supervisor fence is per installation
+
+The supervisor fence was a single capability: only a live installation could
+mutate the host supervisor, and every installation used the same unit names. That
+kept development away from the live daemon, but it also meant the real supervisor
+lifecycle could only be exercised against the live units. Adding systemd made that
+gap unacceptable, because a second backend needs the same real-lifecycle proof.
+
+The fence narrows instead of opening.
+
+- **Unit names belong to an installation.** A live installation keeps
+  `com.dbtlr.mimir.serve` and `com.dbtlr.mimir.snapshot` (launchd labels, and the
+  same names as systemd units), so existing installations need no migration. A
+  sandbox installation derives `com.dbtlr.mimir.sandbox-<id>.serve` and
+  `com.dbtlr.mimir.sandbox-<id>.snapshot` from its authority's identifier, a UUID
+  written in lowercase.
+- **An installation drives only its own units.** A live installation may mutate
+  only the live names. A sandbox installation may mutate only its own
+  sandbox-scoped names, so it can never address the live daemon or another
+  sandbox. A process without an installation still mutates nothing. Status
+  remains a read. Self-update restarts the daemon only under the same check.
+- **A sandbox may have no database.** A vault sandbox authority (`kind: "vault"`)
+  binds owned directories and no Postgres endpoint; no database URL matches it.
+  Its store is the Norn vault in its own data directory, so the lifecycle check
+  runs on hosts without Docker, such as GitHub's macOS runners.
+- **Lifecycle verification is a sandbox command.** `bun run sandbox
+  service-verify` installs a vault sandbox under the host supervisor (launchd on
+  macOS, systemd user units on Linux) and proves install, status, restart,
+  kill-and-recover, stop, start, and uninstall through `/api/health` and the
+  supervisor's own state. It records the live units' state before and after and
+  fails if it changed. `--target container` runs systemd as PID 1 in a
+  disposable container instead; there the release `install.sh` performs a live
+  installation that belongs to the container, with its own empty configuration.
+  A manually dispatched workflow runs the host check on both platforms. It never
+  runs on push or pull request.
+
+Unit files follow the supervisor's conventions. A live launchd plist stays in
+`~/Library/LaunchAgents`, and a live systemd unit is placed in
+`~/.config/systemd/user`. A sandbox keeps its unit files in its own data
+directory: `launchctl bootstrap` accepts any path, and `systemctl --user enable`
+links an out-of-path file into the manager.

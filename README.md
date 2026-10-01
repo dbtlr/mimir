@@ -59,8 +59,8 @@ Choose the store before setup:
   [Postgres store guide](docs/guides/postgres-store.md) to set `[store] backend`
   to `"postgres"` and `url` in the installation's bound `config.toml`, then run
   `mimir store upgrade`. Run `mimir serve` directly or under your supervisor.
-  Optional macOS `mimir service install` still requires `norn` for its launchd
-  preflight, including on a PostgreSQL installation.
+  Optional `mimir service install` (launchd on macOS, systemd on Linux) still
+  requires `norn` for its preflight, including on a PostgreSQL installation.
 
 Then create a project and bind a repository to it:
 

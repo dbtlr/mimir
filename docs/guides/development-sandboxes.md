@@ -57,6 +57,57 @@ until `destroy`. On failure, the CLI reports the retained identity and cleanup
 command. Never substitute a raw `docker rm` or directory deletion for that command:
 the script checks ownership and handles partial cleanup.
 
+## Verify the service lifecycle
+
+```sh
+bun run sandbox service-verify
+bun run sandbox service-verify --target container
+bun run sandbox service-destroy <sandbox-id>
+```
+
+`service-verify` proves `mimir service` against the real supervisor. It installs
+the candidate (built from the checkout, or `--binary <path>`) and then runs
+`install all`, `status`, `restart`, a `SIGKILL` that the supervisor must recover
+from, `stop`, `start`, and `uninstall`. After each transition it waits for the
+supervisor's state and `/api/health` to agree. It records the live units' state
+before and after the run and fails if that state changed. The state covers the
+running process, whether the unit is loaded and enabled, and a hash of each
+live unit file.
+
+- **`--target host`** (the default) creates a vault sandbox under
+  `.dev/service-sandboxes/<sandbox-id>`. The sandbox has its own directories,
+  a free loopback port, and no database. It is a registered sandbox
+  installation, so its units are `com.dbtlr.mimir.sandbox-<sandbox-id>.*` and the
+  fence lets it address nothing else. The command uses launchd on macOS and
+  systemd user units on Linux. On Linux, `systemctl --user` must reach your
+  manager (see [Service lifecycle](service-lifecycle.md#run-without-a-login-session)).
+- **`--target container`** checks systemd from any host with Docker. It builds
+  a Linux candidate for the engine's architecture and an image with systemd as
+  PID 1, a lingering non-root user, and the pinned `norn`
+  (`packages/sandbox/container/systemd.Dockerfile`). The repository's
+  `install.sh` installs the candidate as that user. Only the download is
+  substituted. The result is a live installation of the container alone, with
+  its own empty configuration; the command fails if that configuration names
+  Postgres. The container runs privileged, which systemd needs for its cgroup
+  tree.
+
+Both targets need `norn` on `PATH`, because `service install` checks for it.
+The report is written to `.dev/sandbox-results/service-<sandbox-id>.json`.
+Teardown always unloads the units or removes the container. A failed run keeps
+its directory, including the daemon logs, and prints the `service-destroy`
+command. For the container target, the logs and the systemd journal are copied
+into that directory before the container is removed. `sandbox destroy` also
+unloads any units a database sandbox's binary installed.
+
+The **Service verify** GitHub Actions workflow runs the host target on a macOS
+runner and an Ubuntu runner, where it enables linger for the runner user. It
+runs only when dispatched manually, with a `platform` input of `both`, `macos`,
+or `linux`:
+
+```sh
+gh workflow run service-verify.yml -f platform=both
+```
+
 ## Configure the snapshot source
 
 Create the local, ignored `.dev/sandbox.json` configuration:

@@ -1,32 +1,19 @@
 /**
- * The supervisor seam (MMR-47): `service` verbs speak this interface; launchd
- * is its first implementation (systemd is a parked follow-up behind the same
- * seam). Modern launchctl subcommands only. Quirks the shape encodes:
+ * The launchd implementation of the supervisor seam (MMR-47; see ./supervisor).
+ * Modern launchctl subcommands only. Quirks the shape encodes:
  * KeepAlive restarts a killed process, so honest stop is bootout (plist stays
  * on disk); restart is kickstart -k; a nonzero `print` means not loaded.
  */
-import { MimirError } from '../core';
+import type { MimirError } from '../core';
 import type { Exec, ExecResult } from '../exec';
-import { SERVE_LABEL } from './plist';
+import { supervisorError } from './supervisor';
+import type { ServiceInfo, Supervisor } from './supervisor';
+import { SERVE_LABEL } from './units';
 
 // Re-exported from the shared exec module so existing importers keep working.
 export type { Exec, ExecResult } from '../exec';
 export { bunExec } from '../exec';
-
-export type ServiceInfo = {
-  loaded: boolean;
-  running: boolean;
-  pid?: number;
-};
-
-export type Supervisor = {
-  install: (serviceFile: string) => Promise<void>;
-  uninstall: () => Promise<void>;
-  start: (serviceFile: string) => Promise<void>;
-  stop: () => Promise<void>;
-  restart: () => Promise<void>;
-  info: () => Promise<ServiceInfo>;
-};
+export type { ServiceInfo, Supervisor } from './supervisor';
 
 /** `bootout` is asynchronous — it returns before launchd has fully torn the old
  *  unit down, so an immediate `bootstrap` can lose the race and fail with error
@@ -59,11 +46,7 @@ export class LaunchdSupervisor implements Supervisor {
   /** The `validation` error a nonzero launchctl exit raises, built once so the
    *  message/category can't drift between `run` and `bootstrapWithRetry`. */
   private launchctlError(verb: string, failure: string, result: ExecResult): MimirError {
-    return new MimirError(
-      'validation',
-      `launchctl ${verb} failed (${String(result.code)}): ${failure}`,
-      result.stderr.trim() === '' ? undefined : result.stderr.trim(),
-    );
+    return supervisorError('launchctl', verb, failure, result);
   }
 
   private async run(argv: string[], failure: string, tolerate = false): Promise<void> {

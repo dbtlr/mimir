@@ -17,10 +17,11 @@ import { parsePort } from '@mimir/helpers';
 
 import { IS_PRODUCTION, runtimePaths } from '../env';
 import { SERVE_LOG_FILE, SNAPSHOT_LOG_FILE } from './events';
+import type { ServeUnitOptions, SnapshotUnitOptions } from './units';
 
-export const SERVE_LABEL = 'com.dbtlr.mimir.serve';
-export const SNAPSHOT_LABEL = 'com.dbtlr.mimir.snapshot';
-
+/** A live unit lives in `~/Library/LaunchAgents` so launchd loads it at login;
+ *  every other installation keeps its plist in its own data directory
+ *  (`launchctl bootstrap` takes any path). */
 export function plistPathFor(label: string): string {
   return IS_PRODUCTION
     ? join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`)
@@ -40,32 +41,6 @@ export function readServePlistPort(file: string): number | undefined {
     return undefined;
   }
 }
-
-export type PlistOptions = {
-  /** `MIMIR_PORT`, baked only for an explicitly opted-in dev service install. */
-  port?: number;
-  /**
-   * `MIMIR_NORN` — the absolute path to the `norn` binary, resolved and existence-
-   * checked at install time (mimir shells out to it, ADR 0018). Baked directly
-   * rather than relying on `PATH`: launchd gives the daemon only a minimal default
-   * `PATH` (no `$HOME/.cargo/bin`) and does no `~`/`$VAR` expansion, so a bare
-   * `norn` is unresolvable.
-   */
-  nornPath?: string;
-  /**
-   * `MIMIR_VAULT` — the absolute vault directory, existence-checked at install
-   * time. Baked so the daemon targets the vault via the highest-precedence source
-   * (env over config) and cannot drift with a later config edit.
-   */
-  vaultPath?: string;
-};
-
-export type SnapshotPlistOptions = {
-  /** launchd StartInterval — seconds between snapshot runs. */
-  intervalSeconds: number;
-  /** Baked in iff MIMIR_VAULT is set when `service install` runs (launchd does no shell expansion). */
-  vaultPath?: string;
-};
 
 /** Escape XML special characters in element content (ampersand must go first).
  * launchctl rejects a malformed plist loudly at install time, but the error
@@ -93,7 +68,7 @@ ${body}
   </dict>`;
 }
 
-export function plistFor(binPath: string, opts: PlistOptions): string {
+export function plistFor(label: string, binPath: string, opts: ServeUnitOptions): string {
   const env = envDict({
     MIMIR_NORN: opts.nornPath,
     MIMIR_PORT: opts.port === undefined ? undefined : String(opts.port),
@@ -104,7 +79,7 @@ export function plistFor(binPath: string, opts: PlistOptions): string {
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>${SERVE_LABEL}</string>
+  <string>${xmlEscape(label)}</string>
   <key>ProgramArguments</key>
   <array>
     <string>${xmlEscape(binPath)}</string>
@@ -116,22 +91,26 @@ export function plistFor(binPath: string, opts: PlistOptions): string {
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>${SERVE_LOG_FILE}</string>
+  <string>${xmlEscape(SERVE_LOG_FILE)}</string>
   <key>StandardErrorPath</key>
-  <string>${SERVE_LOG_FILE}</string>${env}
+  <string>${xmlEscape(SERVE_LOG_FILE)}</string>${env}
 </dict>
 </plist>
 `;
 }
 
-export function plistForSnapshot(binPath: string, opts: SnapshotPlistOptions): string {
+export function plistForSnapshot(
+  label: string,
+  binPath: string,
+  opts: SnapshotUnitOptions,
+): string {
   const env = envDict({ MIMIR_VAULT: opts.vaultPath });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>${SNAPSHOT_LABEL}</string>
+  <string>${xmlEscape(label)}</string>
   <key>ProgramArguments</key>
   <array>
     <string>${xmlEscape(binPath)}</string>
@@ -141,9 +120,9 @@ export function plistForSnapshot(binPath: string, opts: SnapshotPlistOptions): s
   <key>StartInterval</key>
   <integer>${String(opts.intervalSeconds)}</integer>
   <key>StandardOutPath</key>
-  <string>${SNAPSHOT_LOG_FILE}</string>
+  <string>${xmlEscape(SNAPSHOT_LOG_FILE)}</string>
   <key>StandardErrorPath</key>
-  <string>${SNAPSHOT_LOG_FILE}</string>${env}
+  <string>${xmlEscape(SNAPSHOT_LOG_FILE)}</string>${env}
 </dict>
 </plist>
 `;

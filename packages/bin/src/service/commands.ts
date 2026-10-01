@@ -1,6 +1,6 @@
 /**
  * The service command layer (MMR-47): verbs over the supervisor seam, the
- * config, the plist, and the event log. All effects flow through ServiceDeps
+ * config, the unit files, and the event log. All effects flow through ServiceDeps
  * so tests drive the layer with fakes; main wires the real edges.
  *
  * Output conforms to the CLI contract (MMR-59): each verb computes a typed
@@ -8,8 +8,8 @@
  * human prose. The picked format is supplied by the dispatcher (pickFormat's
  * "report" kind); the param defaults to human for direct/test callers.
  */
-import { existsSync, rmSync, writeFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { basename, dirname } from 'node:path';
 
 import { formatInstant, isMember } from '@mimir/helpers';
 
@@ -31,7 +31,6 @@ import type {
   UnitStatus,
 } from './format';
 import type { Health } from './health';
-import type { Supervisor } from './launchd';
 import {
   assetName,
   compareSemver,
@@ -44,6 +43,9 @@ import {
   verifyChecksum,
 } from './self-update';
 import type { Fetcher } from './self-update';
+import type { Supervisor } from './supervisor';
+import { mayDrive } from './units';
+import type { SupervisorScope } from './units';
 
 export type UpdateSelection = {
   /** Include prereleases — resolve the newest build on the next-version line (--next). */
@@ -52,25 +54,37 @@ export type UpdateSelection = {
   tag?: string;
 };
 
+/** Render one unit file from the given config file — the same file the command reads for its report. */
+export type UnitRender = (
+  configFile: string,
+  config: GlobalConfig,
+  port: number | undefined,
+) => string;
+
 /**
- * One managed launchd unit (MMR-146). The supervisor is label-bound; `render`
- * produces the plist at install time (reading live config for port/interval);
- * `logFile` is the unit's launchd stdout/stderr sink.
+ * One managed supervisor unit (MMR-146, MMR-54). The supervisor is bound to
+ * `label`; `render` produces the unit file (a launchd plist, a systemd .service
+ * or .timer) at install time, reading live config for port/interval; `logFile`
+ * is the unit's stdout/stderr sink. `companion` is a second owned file the unit
+ * needs (the systemd snapshot timer's oneshot service), written and removed with it.
  */
 export type ServiceUnit = {
+  /** The installation-scoped supervisor label (./units); the fence checks it. */
+  label: string;
   supervisor: Supervisor;
-  plistFile: string;
+  /** The primary unit file; its presence on disk means "installed". */
+  unitFile: string;
   logFile: string;
-  /** Render the plist from the given config file — the same file the command reads for its report. */
-  render: (configFile: string, config: GlobalConfig, port: number | undefined) => string;
+  render: UnitRender;
+  companion?: { file: string; render: UnitRender };
 };
 
 export type ServiceDeps = {
   platform: NodeJS.Platform;
-  /** Only registered live installations may mutate the host supervisor.
-   * Tests supply fake supervisors and set this capability explicitly. */
-  allowRealSupervisor: boolean;
-  /** The binary the plist points at / self-update replaces (process.execPath). */
+  /** Which installation is asking (./units): it may mutate only units it owns.
+   * Tests supply fake supervisors and set this scope explicitly. */
+  scope: SupervisorScope;
+  /** The binary the unit file points at / self-update replaces (process.execPath). */
   binPath: string;
   /** This invocation's version (build-injected tag, or package.json) — the on-disk version by definition. */
   version: string;
@@ -79,7 +93,7 @@ export type ServiceDeps = {
   defaultPort: number;
   /** Dev-only explicit environment override captured for service installation. */
   portOverride?: number;
-  /** Port baked into an installed dev unit; absent for production units. */
+  /** Port baked into an installed non-live unit; absent for live units. */
   readInstalledPort: () => number | undefined;
   /** The build-profile-aware config projection used by every service read/render. */
   readConfig: (file: string) => GlobalConfig;
@@ -87,7 +101,7 @@ export type ServiceDeps = {
   /** GET /api/health on a port, undefined when nothing answers. */
   health: (port: number) => Promise<Health | undefined>;
   fetcher: Fetcher;
-  /** The launchd units this surface manages, keyed by name. */
+  /** The supervisor units this surface manages, keyed by name. */
   units: Record<UnitName, ServiceUnit>;
 };
 
@@ -123,28 +137,44 @@ function resolveUnits(sel: 'all' | UnitName | undefined, fallback: () => UnitNam
   return fallback();
 }
 
-function requireDarwin(deps: ServiceDeps): void {
-  if (deps.platform !== 'darwin') {
+/** The platforms with a supervisor backend: launchd on macOS, systemd on Linux. */
+export function hasSupervisor(platform: NodeJS.Platform): boolean {
+  return platform === 'darwin' || platform === 'linux';
+}
+
+function requireSupervisor(deps: ServiceDeps): void {
+  if (!hasSupervisor(deps.platform)) {
     throw new MimirError(
       'validation',
-      'mimir service requires macOS (launchd)',
-      'run `mimir serve --no-hunt` under your supervisor of choice; systemd support is planned',
+      'mimir service requires launchd (macOS) or systemd (Linux)',
+      'run `mimir serve --no-hunt` under your supervisor of choice',
     );
   }
 }
 
-/** The dev-build fence (MMR-147): every supervisor-mutating verb refuses unless
- *  this process is trusted with the host launchd. Loud by design — a smoke that
- *  reaches for the real supervisor should fail its run, not silently pollute
+/** The supervisor fence (MMR-147, narrowed by MMR-54): every supervisor-mutating
+ *  verb refuses unless this process is an installation that owns every unit it
+ *  would drive — a live installation the live names, a sandbox installation only
+ *  its own sandbox-scoped names. Loud by design — a smoke that reaches for the
+ *  real supervisor should fail its run, not silently pollute
  *  `~/Library/LaunchAgents` (it has, three times). Reads stay open: `status`
  *  never mutates. */
 function requireRealSupervisor(deps: ServiceDeps, verb: string): void {
-  if (!deps.allowRealSupervisor) {
+  if (deps.scope.kind === 'none') {
     throw new MimirError(
       'validation',
-      `service ${verb} manages the host launchd — refused from a dev/from-source build`,
-      'use a registered live installation to manage the real supervisor',
+      `service ${verb} manages the host supervisor — refused from a dev/from-source build`,
+      'use a registered live or sandbox installation to manage the real supervisor',
     );
+  }
+  for (const unit of Object.values(deps.units)) {
+    if (!mayDrive(deps.scope, unit.label)) {
+      throw new MimirError(
+        'validation',
+        `service ${verb} refused — ${unit.label} belongs to another installation`,
+        'a sandbox installation drives only its own sandbox-scoped units; only a live installation drives the live ones',
+      );
+    }
   }
 }
 
@@ -168,7 +198,7 @@ export async function cmdService(
   if (sub === undefined || !isMember(sub, SUBCOMMANDS)) {
     throw usage(`service: unknown subcommand (expected: ${SUBCOMMANDS.join(' | ')})`);
   }
-  requireDarwin(deps);
+  requireSupervisor(deps);
 
   const log = (event: ServiceEventName, okFlag: boolean, detail?: string): void => {
     appendEvent(deps.eventsFile, {
@@ -188,7 +218,7 @@ export async function cmdService(
   requireRealSupervisor(deps, sub);
 
   const sel = parseSelector(positionals[2]);
-  const installed = (): UnitName[] => UNITS.filter((n) => existsSync(deps.units[n].plistFile));
+  const installed = (): UnitName[] => UNITS.filter((n) => existsSync(deps.units[n].unitFile));
   const emitActions = (results: ServiceActionResult[], humans: (() => void)[]): void => {
     report(
       io,
@@ -217,16 +247,22 @@ export async function cmdService(
           throw usage('service install: --port expects an integer in 1–65535');
         }
       }
-      // Render every plist before any mutation — this is where a bad Norn env aborts.
+      // Render every unit file before any mutation — this is where a bad Norn env aborts.
       const config = deps.readConfig(deps.configFile);
       const effectivePort = port ?? deps.portOverride ?? config.serve.port ?? deps.defaultPort;
       const rendered = units.map((name) => {
         const unit = deps.units[name];
-        return {
-          name,
-          plist: unit.render(deps.configFile, config, name === 'serve' ? effectivePort : undefined),
-          unit,
-        };
+        const unitPort = name === 'serve' ? effectivePort : undefined;
+        const files = [
+          { content: unit.render(deps.configFile, config, unitPort), path: unit.unitFile },
+        ];
+        if (unit.companion !== undefined) {
+          files.push({
+            content: unit.companion.render(deps.configFile, config, unitPort),
+            path: unit.companion.file,
+          });
+        }
+        return { files, name, unit };
       });
       // A reset means the prior file was unparseable and got rewritten fresh
       // (lossy) — surface it rather than clobbering other sections silently.
@@ -235,10 +271,17 @@ export async function cmdService(
       }
       const results: ServiceActionResult[] = [];
       const humans: (() => void)[] = [];
-      for (const { name, plist, unit } of rendered) {
-        writeFileSync(unit.plistFile, plist);
-        await unit.supervisor.install(unit.plistFile);
-        const paths = { config: deps.configFile, log: unit.logFile, plist: unit.plistFile };
+      const fileLabel = deps.platform === 'darwin' ? 'plist: ' : 'unit:  ';
+      for (const { files, name, unit } of rendered) {
+        for (const file of files) {
+          mkdirSync(dirname(file.path), { recursive: true });
+          writeFileSync(file.path, file.content);
+        }
+        // Neither supervisor creates a missing log directory; the unit would
+        // fail to spawn before writing a line.
+        mkdirSync(dirname(unit.logFile), { recursive: true });
+        await unit.supervisor.install(unit.unitFile);
+        const paths = { config: deps.configFile, log: unit.logFile, plist: unit.unitFile };
         if (name === 'serve') {
           log('install', true, `serve · port ${String(effectivePort)}`);
           results.push({
@@ -250,7 +293,7 @@ export async function cmdService(
           });
           humans.push(() => {
             ok(io, `serve installed — serving on http://127.0.0.1:${String(effectivePort)}`);
-            io.write(`  plist:  ${unit.plistFile}`);
+            io.write(`  ${fileLabel} ${unit.unitFile}`);
             io.write(
               `  config: ${deps.configFile}${port === undefined ? ' (defaults; set with service install --port)' : ''}`,
             );
@@ -262,7 +305,7 @@ export async function cmdService(
           results.push({ action: 'install', ok: true, paths, unit: 'snapshot' });
           humans.push(() => {
             ok(io, `snapshot installed — every ${String(interval)}s`);
-            io.write(`  plist:  ${unit.plistFile}`);
+            io.write(`  ${fileLabel} ${unit.unitFile}`);
             io.write(`  log:    ${unit.logFile}`);
           });
         }
@@ -271,10 +314,17 @@ export async function cmdService(
       return 0;
     }
     case 'uninstall': {
-      // A bare `uninstall` tears down whatever is installed — never orphaning
-      // the opt-in snapshot timer (which would keep auto-committing/pushing the
-      // vault). `uninstall <unit>` / `uninstall all` target explicitly.
-      const units = resolveUnits(sel, installed);
+      // "Present" = on disk OR still loaded (a unit file can vanish while the
+      // unit runs). A bare `uninstall` tears down every present unit — never
+      // orphaning the opt-in snapshot timer (which would keep auto-committing/
+      // pushing the vault) or a running daemon whose file is gone. `uninstall
+      // <unit>` / `uninstall all` target explicitly.
+      const present = new Map<UnitName, boolean>();
+      for (const name of UNITS) {
+        const unit = deps.units[name];
+        present.set(name, existsSync(unit.unitFile) || (await unit.supervisor.info()).loaded);
+      }
+      const units = resolveUnits(sel, () => UNITS.filter((name) => present.get(name) === true));
       const results: ServiceActionResult[] = [];
       const humans: (() => void)[] = [];
       if (units.length === 0) {
@@ -288,18 +338,16 @@ export async function cmdService(
       }
       for (const name of units) {
         const unit = deps.units[name];
-        const onDisk = existsSync(unit.plistFile);
-        // "Present" = on disk OR still loaded (a plist can vanish while the unit
-        // runs). The bootout is tolerant either way; we report/log a teardown
-        // exactly when there was something to tear down — no phantom event for a
-        // never-installed unit, no silent teardown of a live one.
-        const present = onDisk || (await unit.supervisor.info()).loaded;
+        // Report and log a teardown exactly when the unit was present — no
+        // phantom event for a never-installed unit, no silent teardown of a
+        // live one.
         await unit.supervisor.uninstall();
-        if (onDisk) {
-          rmSync(unit.plistFile);
+        rmSync(unit.unitFile, { force: true });
+        if (unit.companion !== undefined) {
+          rmSync(unit.companion.file, { force: true });
         }
         results.push({ action: 'uninstall', ok: true, unit: name });
-        if (present) {
+        if (present.get(name) === true) {
           log('uninstall', true, name);
           humans.push(() => ok(io, `${name} uninstalled (config and logs kept)`));
         } else {
@@ -314,20 +362,20 @@ export async function cmdService(
     case 'restart': {
       // A lifecycle verb acts only on an INSTALLED unit, whatever the selector:
       // a bare verb sweeps what's installed, and naming (or `all`-including) a
-      // not-installed unit is a reported no-op, never a launchctl throw.
+      // not-installed unit is a reported no-op, never a supervisor throw.
       const units = resolveUnits(sel, installed);
       const pastTense = { restart: 'restarted', start: 'started', stop: 'stopped' } as const;
       const results: ServiceActionResult[] = [];
       const humans: (() => void)[] = [];
       for (const name of units) {
         const unit = deps.units[name];
-        if (!existsSync(unit.plistFile)) {
+        if (!existsSync(unit.unitFile)) {
           results.push({ action: sub, ok: false, unit: name });
           humans.push(() => warn(io, `${name}: not installed — nothing to ${sub}`));
           continue;
         }
         if (sub === 'start') {
-          await unit.supervisor.start(unit.plistFile);
+          await unit.supervisor.start(unit.unitFile);
         } else if (sub === 'stop') {
           await unit.supervisor.stop();
         } else {
@@ -397,7 +445,7 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
     loaded: serveInfo.loaded,
     log: deps.units.serve.logFile,
     pid: serveInfo.pid ?? null,
-    plist: deps.units.serve.plistFile,
+    plist: deps.units.serve.unitFile,
     port,
     running: serveInfo.running,
     unit: 'serve',
@@ -409,7 +457,7 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
     loaded: snapInfo.loaded,
     log: deps.units.snapshot.logFile,
     pid: snapInfo.pid ?? null,
-    plist: deps.units.snapshot.plistFile,
+    plist: deps.units.snapshot.unitFile,
     running: snapInfo.running,
     unit: 'snapshot',
   };
@@ -444,7 +492,7 @@ function renderUnitHuman(u: UnitStatus, io: Io): void {
   } else {
     io.write(`  interval: every ${String(u.intervalSeconds ?? 0)}s`);
   }
-  io.write(`  plist ${u.plist} · log ${u.log}`);
+  io.write(`  unit file ${u.plist} · log ${u.log}`);
 }
 
 function renderStatusHuman(s: ServiceStatusReport, io: Io): void {
@@ -535,12 +583,12 @@ export async function cmdSelfUpdate(
   let restartFailed = false;
   // Self-update replaces the binary and restarts the serve daemon; the snapshot
   // unit is a short-lived timer that always re-execs the new binary next fire.
-  // The restart is a real-supervisor mutation, so it honors the same dev-build
-  // fence as the service verbs (the binary itself is already replaced) — but a
-  // loaded daemon left on stale code is never silent: restarted-or-surfaced is
-  // the invariant, and the trust skip surfaces like a failed restart would.
-  if (deps.platform === 'darwin' && (await deps.units.serve.supervisor.info()).loaded) {
-    if (!deps.allowRealSupervisor) {
+  // The restart is a real-supervisor mutation, so it honors the same fence as
+  // the service verbs (the binary itself is already replaced) — but a loaded
+  // daemon left on stale code is never silent: restarted-or-surfaced is the
+  // invariant, and the trust skip surfaces like a failed restart would.
+  if (hasSupervisor(deps.platform) && (await deps.units.serve.supervisor.info()).loaded) {
+    if (!mayDrive(deps.scope, deps.units.serve.label)) {
       warn(
         io,
         'service not restarted (untrusted build leaves the real daemon alone) — run `mimir service restart` (binary is updated)',
