@@ -80,8 +80,9 @@ runs against a mismatched schema.
   id twice.
 - **No offline mode.** A network outage is a hard failure; there is no local
   copy to fall back to.
-- **No git snapshots.** `vault snapshot` and the snapshot launchd unit do not
-  apply. `store export` is the backup on this backend; see [Back up](#back-up).
+- **No git snapshots.** `vault snapshot` and the snapshot unit (launchd or
+  systemd) do not apply. `store export` is the backup on this backend; see
+  [Back up](#back-up).
 - **Doctor checks the database.** `mimir doctor` reports the schema version
   against the binary, a dangling parent or dependency reference, a sequence
   counter that fell behind its rows, and an orphan artifact link or scratchpad

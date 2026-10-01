@@ -314,10 +314,17 @@ export async function cmdService(
       return 0;
     }
     case 'uninstall': {
-      // A bare `uninstall` tears down whatever is installed — never orphaning
-      // the opt-in snapshot timer (which would keep auto-committing/pushing the
-      // vault). `uninstall <unit>` / `uninstall all` target explicitly.
-      const units = resolveUnits(sel, installed);
+      // "Present" = on disk OR still loaded (a unit file can vanish while the
+      // unit runs). A bare `uninstall` tears down every present unit — never
+      // orphaning the opt-in snapshot timer (which would keep auto-committing/
+      // pushing the vault) or a running daemon whose file is gone. `uninstall
+      // <unit>` / `uninstall all` target explicitly.
+      const present = new Map<UnitName, boolean>();
+      for (const name of UNITS) {
+        const unit = deps.units[name];
+        present.set(name, existsSync(unit.unitFile) || (await unit.supervisor.info()).loaded);
+      }
+      const units = resolveUnits(sel, () => UNITS.filter((name) => present.get(name) === true));
       const results: ServiceActionResult[] = [];
       const humans: (() => void)[] = [];
       if (units.length === 0) {
@@ -331,19 +338,16 @@ export async function cmdService(
       }
       for (const name of units) {
         const unit = deps.units[name];
-        const onDisk = existsSync(unit.unitFile);
-        // "Present" = on disk OR still loaded (a unit file can vanish while the unit
-        // runs). The bootout is tolerant either way; we report/log a teardown
-        // exactly when there was something to tear down — no phantom event for a
-        // never-installed unit, no silent teardown of a live one.
-        const present = onDisk || (await unit.supervisor.info()).loaded;
+        // Report and log a teardown exactly when the unit was present — no
+        // phantom event for a never-installed unit, no silent teardown of a
+        // live one.
         await unit.supervisor.uninstall();
         rmSync(unit.unitFile, { force: true });
         if (unit.companion !== undefined) {
           rmSync(unit.companion.file, { force: true });
         }
         results.push({ action: 'uninstall', ok: true, unit: name });
-        if (present) {
+        if (present.get(name) === true) {
           log('uninstall', true, name);
           humans.push(() => ok(io, `${name} uninstalled (config and logs kept)`));
         } else {

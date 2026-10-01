@@ -82,8 +82,8 @@ installation's data directory), not to the journal.
 | `start`     | `start`                                                 |
 | `stop`      | `stop` (the unit stays enabled)                         |
 | `restart`   | `restart`                                               |
-| `uninstall` | `disable --now`, delete the unit files, `daemon-reload` |
-| `status`    | `show` (loaded means active, activating, or reloading)  |
+| `uninstall` | `stop` (each running unit), `disable`, delete the unit files, `daemon-reload` |
+| `status`    | `show` (loaded means active, activating, deactivating, or reloading) |
 
 For `snapshot`, `restart` re-arms the timer; it does not run a snapshot
 immediately.
@@ -107,9 +107,13 @@ reach the manager. A login shell sets it. In a non-login context such as `sudo
 
 A host that runs `mimir serve` directly, outside any supervisor:
 
-1. Stop the bare process.
-2. Run `mimir service install` (add `--port <n>` to persist a port).
-3. Run `mimir service status` and check that `serve` is running and
+1. Check that `command -v norn` prints a path. `service install` requires
+   `norn` on `PATH`, on a PostgreSQL-store installation too, and stops before
+   it writes a unit if `norn` is missing. Check first so the daemon is not left
+   down.
+2. Stop the bare process.
+3. Run `mimir service install` (add `--port <n>` to persist a port).
+4. Run `mimir service status` and check that `serve` is running and
    `/api/health` answers.
 
 ## The supervisor fence

@@ -24,8 +24,11 @@ export async function removeSandboxUnits(id: string, root: string): Promise<void
         root,
       );
     } else if (process.platform === 'linux') {
+      // Stop before disable: `disable --now` refuses a unit whose file is gone
+      // without stopping it, and Restart=always would keep it running.
       for (const unit of [`${label}.service`, `${label}.timer`]) {
-        await attempt(['systemctl', '--user', 'disable', '--now', unit], root);
+        await attempt(['systemctl', '--user', 'stop', unit], root);
+        await attempt(['systemctl', '--user', 'disable', unit], root);
       }
     }
   }

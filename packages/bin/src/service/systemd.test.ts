@@ -85,7 +85,12 @@ test('a failing restart during install surfaces with the stderr hint', async () 
   expect(err.message).toMatch(/systemctl restart failed \(5\)/);
 });
 
-test('uninstall disables the unit and its companions, removes their files, then reloads', async () => {
+/** `systemctl show` output for a unit, keyed by its ActiveState. */
+function shown(active: string): string {
+  return `MainPID=0\nLoadState=loaded\nActiveState=${active}\nSubState=x\n`;
+}
+
+test('uninstall stops running units, disables them, removes their files, then reloads', async () => {
   const timer = join(dir, TIMER);
   const oneshot = join(dir, 'com.dbtlr.mimir.snapshot.service');
   writeFileSync(timer, '[Timer]\n');
@@ -98,19 +103,67 @@ test('uninstall disables the unit and its companions, removes their files, then 
     if (argv[2] === 'daemon-reload') {
       expect(existsSync(timer) || existsSync(oneshot)).toBe(false);
     }
+    if (argv[2] === 'show') {
+      return { code: 0, stdout: shown(argv[3] === TIMER ? 'active' : 'inactive') };
+    }
     return ok();
   });
   await new SystemdSupervisor(exec, timer, [oneshot]).uninstall();
-  expect(calls).toEqual([
-    ['systemctl', '--user', 'disable', '--now', TIMER],
-    ['systemctl', '--user', 'disable', '--now', 'com.dbtlr.mimir.snapshot.service'],
+  expect(calls.filter((c) => c[2] !== 'show')).toEqual([
+    ['systemctl', '--user', 'stop', TIMER],
+    ['systemctl', '--user', 'disable', TIMER],
+    ['systemctl', '--user', 'disable', 'com.dbtlr.mimir.snapshot.service'],
     ['systemctl', '--user', 'daemon-reload'],
   ]);
 });
 
+test('uninstall stops a unit that still runs after its unit file vanished', async () => {
+  // `disable` fails on a missing unit file before anything is stopped, so the
+  // stop must not depend on it: Restart=always would otherwise keep the daemon up.
+  const { exec, calls } = fakeExec((argv) => {
+    if (argv[2] === 'show') {
+      return {
+        code: 0,
+        stdout: 'MainPID=4242\nLoadState=not-found\nActiveState=active\nSubState=running\n',
+      };
+    }
+    if (argv[2] === 'disable') {
+      return { code: 1, stderr: 'Unit file does not exist.', stdout: '' };
+    }
+    return ok();
+  });
+  await new SystemdSupervisor(exec, join(dir, SERVE)).uninstall();
+  expect(calls.map((c) => c[2])).toEqual(['show', 'stop', 'disable', 'daemon-reload']);
+});
+
+test('uninstall fails loudly when a running unit will not stop, keeping its file', async () => {
+  const serve = join(dir, SERVE);
+  writeFileSync(serve, '[Service]\n');
+  const { exec, calls } = fakeExec((argv) => {
+    if (argv[2] === 'show') {
+      return { code: 0, stdout: shown('active') };
+    }
+    return argv[2] === 'stop' ? { code: 1, stderr: 'Access denied', stdout: '' } : ok();
+  });
+  const err = await failure(new SystemdSupervisor(exec, serve).uninstall());
+  expect(err.message).toMatch(/systemctl stop failed \(1\)/);
+  expect(calls.map((c) => c[2])).toEqual(['show', 'stop']);
+  expect(existsSync(serve)).toBe(true);
+});
+
 test('uninstall tolerates units that are already gone', async () => {
-  const { exec } = fakeExec(() => ({ code: 1, stdout: '' }));
+  const { exec, calls } = fakeExec((argv) =>
+    argv[2] === 'show' ? { code: 0, stdout: shown('inactive') } : { code: 1, stdout: '' },
+  );
   await new SystemdSupervisor(exec, join(dir, SERVE)).uninstall(); // must not throw
+  expect(calls.map((c) => c[2])).not.toContain('stop');
+});
+
+test('uninstall on a host without systemctl only removes the files', async () => {
+  const serve = join(dir, SERVE);
+  writeFileSync(serve, '[Service]\n');
+  await new SystemdSupervisor(missingSystemctl, serve).uninstall(); // must not throw
+  expect(existsSync(serve)).toBe(false);
 });
 
 test('a host without systemctl reads as not loaded and fails installs loudly', async () => {
@@ -154,7 +207,7 @@ test('info reads load, activity, and the main pid from systemctl show', async ()
     '--user',
     'show',
     SERVE,
-    '--property=LoadState,ActiveState,SubState,MainPID',
+    '--property=ActiveState,MainPID',
   ]);
 });
 
@@ -180,6 +233,20 @@ test('info: a stopped or unknown unit is not loaded', async () => {
       running: false,
     });
   }
+});
+
+test('info: a unit still running after its unit file vanished is loaded', async () => {
+  // After a daemon-reload the manager keeps a running unit whose file is gone,
+  // with LoadState=not-found; status must not report it as down.
+  const { exec } = fakeExec(() => ({
+    code: 0,
+    stdout: 'MainPID=4242\nLoadState=not-found\nActiveState=active\nSubState=running\n',
+  }));
+  expect(await new SystemdSupervisor(exec, SERVE_FILE).info()).toEqual({
+    loaded: true,
+    pid: 4242,
+    running: true,
+  });
 });
 
 test('info: an armed timer is loaded with no process of its own', async () => {

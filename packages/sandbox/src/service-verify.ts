@@ -20,6 +20,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, realpathSync } from 'node:fs';
 import { chmod, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { z } from 'zod';
@@ -77,31 +78,55 @@ async function hostHealth(port: number): Promise<string | undefined> {
   }
 }
 
-/** The supervisor's view of the live units, by name, for a before/after comparison. */
+async function fileDigest(path: string | undefined): Promise<string> {
+  return path !== undefined && existsSync(path) ? await hashFile(path) : 'no file';
+}
+
+/** The supervisor's view of the live units and the hash of each unit file, by
+ *  name, for a before/after comparison. A change that leaves the process alone
+ *  (a disable, a rewritten or re-linked unit file) still shows. */
 async function liveUnitState(cwd: string): Promise<string> {
   if (process.platform === 'darwin') {
     const uid = String(process.getuid?.() ?? 501);
     const states = await Promise.all(
       [SERVE_LABEL, SNAPSHOT_LABEL].map(async (label) => {
+        const plist = await fileDigest(
+          join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`),
+        );
         const printed = await attempt(['launchctl', 'print', `gui/${uid}/${label}`], cwd);
         if (printed === undefined) {
-          return `${label}: not loaded`;
+          return `${label}: not loaded plist ${plist}`;
         }
         const pid = /\bpid = (\d+)/.exec(printed)?.[1] ?? 'none';
         const state = /\bstate = (\S+)/.exec(printed)?.[1] ?? 'unknown';
-        return `${label}: ${state} pid ${pid}`;
+        return `${label}: ${state} pid ${pid} plist ${plist}`;
       }),
     );
     return states.join('; ');
   }
   if (process.platform === 'linux') {
+    const units = [
+      `${SERVE_LABEL}.service`,
+      `${SNAPSHOT_LABEL}.timer`,
+      `${SNAPSHOT_LABEL}.service`,
+    ];
     const states = await Promise.all(
-      [`${SERVE_LABEL}.service`, `${SNAPSHOT_LABEL}.timer`].map(async (unit) => {
+      units.map(async (unit) => {
         const shown = await attempt(
-          ['systemctl', '--user', 'show', unit, '--property=ActiveState,MainPID'],
+          [
+            'systemctl',
+            '--user',
+            'show',
+            unit,
+            '--property=LoadState,ActiveState,MainPID,UnitFileState,FragmentPath',
+          ],
           cwd,
         );
-        return `${unit}: ${shown?.replace(/\n/g, ' ') ?? 'manager unavailable'}`;
+        if (shown === undefined) {
+          return `${unit}: manager unavailable`;
+        }
+        const digest = await fileDigest(/^FragmentPath=(.+)$/m.exec(shown)?.[1]?.trim());
+        return `${unit}: ${shown.trim().replace(/\n/g, ' ')} file ${digest}`;
       }),
     );
     return states.join('; ');

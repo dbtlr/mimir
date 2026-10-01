@@ -10,10 +10,13 @@
  *     Companion files (the snapshot timer's oneshot service) are linked first.
  *   - stop/start keep the unit enabled, like launchd's bootout/bootstrap keep the
  *     plist on disk: the unit comes back at the next manager start.
- *   - uninstall removes the unit files itself, between `disable` (which needs
- *     them) and `daemon-reload` (which must not find them).
+ *   - uninstall stops a running unit explicitly before `disable`: `disable
+ *     --now` refuses a unit whose file is gone before it stops anything. It then
+ *     removes the unit files itself, between `disable` (which needs them) and
+ *     `daemon-reload` (which must not find them).
  *   - `show` exits 0 even for unknown units, so `loaded` is read from the
- *     active state, never the exit code alone.
+ *     active state, never the exit code alone. The load state is ignored: a
+ *     unit whose file vanished keeps running as `not-found` after a reload.
  */
 import { rmSync } from 'node:fs';
 import { basename } from 'node:path';
@@ -73,12 +76,40 @@ export class SystemdSupervisor implements Supervisor {
     await this.run(['restart', this.unit], 'could not start the service');
   }
 
-  /** Disable, remove the unit files, then reload so the manager forgets the
-   *  units instead of keeping definitions whose files are gone. Disabling an
-   *  absent unit is the expected no-op, so every step tolerates failure. */
+  /** The unit's `show` properties; empty when the manager is unreachable. */
+  private async show(unit: string): Promise<Map<string, string>> {
+    const props = new Map<string, string>();
+    const result = await this.systemctl(['show', unit, '--property=ActiveState,MainPID']);
+    if (result.code !== 0) {
+      return props;
+    }
+    for (const line of result.stdout.split('\n')) {
+      const at = line.indexOf('=');
+      if (at > 0) {
+        props.set(line.slice(0, at), line.slice(at + 1).trim());
+      }
+    }
+    return props;
+  }
+
+  private async isUp(unit: string): Promise<boolean> {
+    return LOADED_STATES.has((await this.show(unit)).get('ActiveState') ?? '');
+  }
+
+  /** Stop what runs, disable, remove the unit files, then reload so the manager
+   *  forgets the units instead of keeping definitions whose files are gone. A
+   *  running unit that will not stop fails loudly, before any file is removed.
+   *  Disabling an absent unit is the expected no-op, so `disable` and the
+   *  reload tolerate failure. */
   async uninstall(): Promise<void> {
-    for (const file of [this.unitFile, ...this.companions]) {
-      await this.systemctl(['disable', '--now', basename(file)]);
+    const units = [this.unitFile, ...this.companions].map((file) => basename(file));
+    for (const unit of units) {
+      if (await this.isUp(unit)) {
+        await this.run(['stop', unit], 'could not stop the service');
+      }
+    }
+    for (const unit of units) {
+      await this.systemctl(['disable', unit]);
     }
     for (const file of [this.unitFile, ...this.companions]) {
       rmSync(file, { force: true });
@@ -99,23 +130,8 @@ export class SystemdSupervisor implements Supervisor {
   }
 
   async info(): Promise<ServiceInfo> {
-    const result = await this.systemctl([
-      'show',
-      this.unit,
-      '--property=LoadState,ActiveState,SubState,MainPID',
-    ]);
-    if (result.code !== 0) {
-      return { loaded: false, running: false };
-    }
-    const props = new Map<string, string>();
-    for (const line of result.stdout.split('\n')) {
-      const at = line.indexOf('=');
-      if (at > 0) {
-        props.set(line.slice(0, at), line.slice(at + 1).trim());
-      }
-    }
-    const loaded =
-      props.get('LoadState') === 'loaded' && LOADED_STATES.has(props.get('ActiveState') ?? '');
+    const props = await this.show(this.unit);
+    const loaded = LOADED_STATES.has(props.get('ActiveState') ?? '');
     const pid = Number(props.get('MainPID') ?? '0');
     const running = loaded && Number.isInteger(pid) && pid > 0;
     const info: ServiceInfo = { loaded, running };

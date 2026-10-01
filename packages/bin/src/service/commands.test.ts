@@ -399,6 +399,23 @@ test('uninstall of a loaded unit with no plist reports and logs a real teardown'
   expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['uninstall']);
 });
 
+// 4h. the bare sweep counts a loaded unit whose file vanished: otherwise it
+// reports "nothing installed" while the supervisor keeps the daemon running.
+test('uninstall with no selector tears down a loaded unit with no unit file', async () => {
+  const loadedServe = new FakeSupervisor();
+  loadedServe.state = { loaded: true, pid: 999, running: true };
+  const idleSnap = new FakeSupervisor();
+  const io = fakeIo();
+  const d = deps(loadedServe, {}, idleSnap);
+
+  const code = await cmdService(['service', 'uninstall'], {}, io, d);
+
+  expect(code).toBe(0);
+  expect(loadedServe.calls).toContain('uninstall');
+  expect(idleSnap.calls).not.toContain('uninstall');
+  expect(io.out.join('\n')).toContain('serve uninstalled');
+});
+
 // 4d. a bare `uninstall` sweeps whatever is installed — it must not orphan the
 // snapshot timer set up via `install all` (regression: uninstall defaulted to
 // serve only, leaving the auto-push timer running).

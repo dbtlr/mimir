@@ -21,3 +21,10 @@
   creates a missing unit or log directory instead of failing to start the unit.
   See the refinement in
   `docs/decisions/0031-installation-authority-and-disposable-development.md`.
+
+### Fixed
+
+- **`service uninstall` stops a unit whose file is gone** (MMR-54). A bare
+  `mimir service uninstall` now also tears down a unit the supervisor still
+  runs after its unit file was deleted, instead of reporting nothing installed
+  while the daemon keeps serving.

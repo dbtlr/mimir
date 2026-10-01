@@ -70,7 +70,9 @@ the candidate (built from the checkout, or `--binary <path>`) and then runs
 `install all`, `status`, `restart`, a `SIGKILL` that the supervisor must recover
 from, `stop`, `start`, and `uninstall`. After each transition it waits for the
 supervisor's state and `/api/health` to agree. It records the live units' state
-before and after the run and fails if that state changed.
+before and after the run and fails if that state changed. The state covers the
+running process, whether the unit is loaded and enabled, and a hash of each
+live unit file.
 
 - **`--target host`** (the default) creates a vault sandbox under
   `.dev/service-sandboxes/<sandbox-id>`. The sandbox has its own directories,
