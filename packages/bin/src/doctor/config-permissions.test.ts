@@ -3,7 +3,11 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { checkConfigPermissions, warnConfigPermissions, withConfigFindings } from './config-permissions';
+import {
+  checkConfigPermissions,
+  warnConfigPermissions,
+  withConfigFindings,
+} from './config-permissions';
 import type { DoctorDiagnosis } from './contract';
 
 const WITH_URL = '[store]\nbackend = "postgres"\nurl = "postgres://u:secret@db.example/mimir"\n';
