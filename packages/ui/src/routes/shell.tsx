@@ -2,6 +2,7 @@ import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 import { Toaster } from 'sonner';
 
 import { AttentionAlert } from '../components/attention-alert';
+import { BrandMark } from '../components/brand-mark';
 import { ProjectPicker } from '../components/project-picker';
 import { PwaRefreshAction } from '../components/pwa-refresh-action';
 import { PwaUpdateBanner } from '../components/pwa-update-banner';
@@ -33,8 +34,9 @@ function ShellContent() {
         <header className="z-20 flex items-center gap-2 border-b border-line bg-well-900/85 px-4 py-2 backdrop-blur">
           <Link
             to="/"
-            className="rounded font-mono text-card-mobile font-bold tracking-tight text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+            className="flex items-center gap-2 rounded font-mono text-card-mobile font-bold tracking-tight text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
           >
+            <BrandMark />
             Mimir
           </Link>
           <ProjectPicker />
