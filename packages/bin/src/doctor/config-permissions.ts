@@ -7,6 +7,7 @@
  * than implemented by each backend. A warning, never an error (ADR 0017).
  */
 import { configFileMode, readConfig } from '../service/config';
+import { findingLine } from './commands';
 import type { DoctorDiagnosis, DoctorFinding } from './contract';
 
 /** Group-read and other-read bits; the permission the credential file must not grant. */
@@ -65,4 +66,24 @@ export function withConfigFindings(
     return diagnosis;
   }
   return { ...diagnosis, findings: [...diagnosis.findings, ...checkConfigPermissions(file)] };
+}
+
+/**
+ * Print the config-file warnings straight to a line writer. The check reads only
+ * the config file, so it can run where the store never answers: before a repair
+ * pass, and when the backend throws (unreachable database, bad credentials) —
+ * the cases `withConfigFindings` cannot reach because there is no diagnosis to
+ * append to. A project scope excludes them, as it does in `withConfigFindings`.
+ */
+export function warnConfigPermissions(
+  scope: string | undefined,
+  file: string,
+  write: (line: string) => void,
+): void {
+  if (scope !== undefined && scope !== '') {
+    return;
+  }
+  for (const finding of checkConfigPermissions(file)) {
+    write(findingLine(finding));
+  }
 }

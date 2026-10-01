@@ -17,11 +17,20 @@ import type { Format, Io } from '../presentation';
 import { ok, warn } from '../presentation';
 import type {
   DoctorBackend,
+  DoctorFinding,
   DoctorRepairReport,
   DoctorScopeMatch,
   RepairFailure,
   RepairItem,
 } from './contract';
+
+/** One finding as the human line the CLI prints to stderr, e.g. `[warn] node: message (where)`. */
+export function findingLine(f: DoctorFinding): string {
+  // Tier-1 short spelling (`[err]`/`[warn]`, never `[error]`), so `error` never
+  // reads as a `warn`. The wire `severity` field keeps its `error`/`warn` vocabulary.
+  const tag = f.severity === 'error' ? 'err' : f.severity;
+  return `[${tag}] ${f.node}: ${f.message} (${f.where})`;
+}
 
 function itemWire(item: RepairItem): Record<string, unknown> {
   return {
@@ -147,12 +156,9 @@ export async function cmdDoctor(
     ok(io, 'doctor: no problems found');
   } else {
     // Findings are the loud channel: each on stderr, tagged by its informational
-    // severity — rendered as the tier-1 short spelling (`[err]`/`[warn]`, never
-    // `[error]`), so `error` never reads as a `warn`. The wire `severity` field
-    // keeps its `error`/`warn` vocabulary; only the human tag is short.
+    // severity.
     for (const f of findings) {
-      const tag = f.severity === 'error' ? 'err' : f.severity;
-      io.error(`[${tag}] ${f.node}: ${f.message} (${f.where})`);
+      io.error(findingLine(f));
     }
   }
 

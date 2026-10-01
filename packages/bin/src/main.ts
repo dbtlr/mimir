@@ -22,7 +22,7 @@ import type { Io } from './cli';
 import { systemTimeZone } from './core';
 import type { Store } from './core';
 import { openPostgres } from './core/store-postgres/index';
-import { withConfigFindings } from './doctor/config-permissions';
+import { warnConfigPermissions, withConfigFindings } from './doctor/config-permissions';
 import type { DoctorBackend } from './doctor/contract';
 import { DEFAULT_PORT, IS_PRODUCTION, envPort } from './env';
 import { createServer } from './http';
@@ -318,10 +318,24 @@ async function main(argv: string[]): Promise<number> {
       doctor: {
         // The CLI is the one transport that may repair, so the store is built
         // with that capability; every call first forces the lazy store build.
-        diagnose: async (scope) =>
-          withConfigFindings(await (await cliDoctor()).diagnose(scope), scope, configPath()),
+        diagnose: async (scope) => {
+          try {
+            return withConfigFindings(
+              await (await cliDoctor()).diagnose(scope),
+              scope,
+              configPath(),
+            );
+          } catch (err) {
+            // The permission check needs only the config file, so a store that
+            // cannot be built or read (down, bad credentials) must not hide it.
+            warnConfigPermissions(scope, configPath(), line(process.stderr));
+            throw err;
+          }
+        },
         facet: async (scope) => (await cliDoctor()).facet(scope),
         repair: async (request) => {
+          // Repair reports no findings, so the config warning prints up front.
+          warnConfigPermissions(request.scope, configPath(), line(process.stderr));
           const backend = await cliDoctor();
           if (backend.repair === undefined) {
             throw new Error('doctor repair unavailable after store initialization');
