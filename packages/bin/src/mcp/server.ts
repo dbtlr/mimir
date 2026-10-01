@@ -706,7 +706,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'reorder',
-    "Change a task's rank position (top|bottom|before|after). `ref` is required for before/after. Echoes the task.",
+    "Change a task's position in the project-wide rank (top|bottom|before|after). Only tasks carry rank: phases, initiatives, projects, and artifacts are refused. Rank orders tasks across the whole project, so `ref` for before/after is any ranked task in the same project, not only tasks under the same phase; it is required for before/after. To sequence phases, use `depend` between them instead. Echoes the task.",
     {
       id: z.string(),
       position: z.enum(['top', 'bottom', 'before', 'after']),

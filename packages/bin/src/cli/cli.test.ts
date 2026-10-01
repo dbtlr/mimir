@@ -98,6 +98,34 @@ test('per-command --help adds examples; -h omits them (MMR-118)', async () => {
   expect(full.out.join('')).toContain('mimir depend MMR-4 --on MMR-3');
 });
 
+test('reorder help states the task-only, project-wide rank contract (MMR-358)', async () => {
+  const full = fakeIo(true);
+  expect(await runCli(['reorder', '--help'], neverStore, full)).toBe(0);
+  const out = full.out.join('');
+  expect(out).toContain('tasks only');
+  expect(out).toContain('whole project');
+  expect(out).toContain('--before <id>');
+  expect(out).toContain('--after <id>');
+  expect(out).toContain('mimir reorder MMR-4 --before MMR-9');
+  // No container, project, or artifact reordering, and no "sibling" scoping.
+  for (const stale of [
+    'within the parent',
+    'sibling',
+    'phase/initiative',
+    'KEY (project)',
+    'KEY-aN',
+  ]) {
+    expect(out).not.toContain(stale);
+  }
+
+  const top = fakeIo(true);
+  expect(await runCli(['--help'], neverStore, top)).toBe(0);
+  const topOut = top.out.join('');
+  expect(topOut).toContain('rank a task across the whole project');
+  expect(topOut).not.toContain('within parent');
+  expect(topOut).not.toContain('this sibling');
+});
+
 test('create <type> --help dispatches on the subcommand (MMR-118)', async () => {
   const io = fakeIo(true);
   expect(await runCli(['create', 'task', '--help'], neverStore, io)).toBe(0);

@@ -1514,6 +1514,20 @@ test('the tools/list advertised inputSchema is undegraded (MMR-292)', async () =
   }
 });
 
+test('reorder advertises the task-only, project-wide rank contract on tools/list (MMR-358)', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const { tools } = await client.listTools();
+    const description = tools.find((t) => t.name === 'reorder')?.description ?? '';
+    expect(description).toContain('Only tasks carry rank');
+    expect(description).toContain('across the whole project');
+    expect(description).toContain('phases, initiatives, projects, and artifacts');
+    expect(description).not.toContain('sibling');
+  } finally {
+    await close();
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Unknown-tool voice guard (MMR-296) — the not-found sibling of MMR-292's
 // schema-miss guard, same choke point, same real transport.

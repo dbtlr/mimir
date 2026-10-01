@@ -85,8 +85,9 @@ export async function reindexRanks(w: StoreWriter, projectId: string): Promise<v
  * Move a ranked task to a position relative to the rankable set, updating only
  * its `rank`. `top`/`bottom` go beyond the current extent; `before`/`after`
  * take the midpoint against the reference's neighbour, reindexing once if the
- * neighbours are adjacent (the safety valve). Assumes the task — and `refId`
- * for before/after — are in the rankable set (the verb validates).
+ * neighbours are adjacent (the safety valve). Assumes the task is in the
+ * rankable set (the verb validates); `refId` for before/after must be ranked
+ * and in the same project, else a validation error.
  */
 export async function reorderTask(
   w: StoreWriter,
@@ -99,10 +100,14 @@ export async function reorderTask(
   await w.updateNode(taskId, { rank });
 }
 
-async function rankOf(w: StoreWriter, taskId: string): Promise<number> {
+/** A reference task's rank; it must be ranked and in the same project (rank is per-project). */
+async function rankOf(w: StoreWriter, projectId: string, taskId: string): Promise<number> {
   const node = await w.loadNode(taskId);
   if (node?.rank == null) {
     throw validation(`task ${taskId} is not in the rankable set`);
+  }
+  if (node.project_id !== projectId) {
+    throw validation(`task ${taskId} is in a different project; rank is per-project`);
   }
   return node.rank;
 }
@@ -130,7 +135,7 @@ async function computeTargetRank(
   if (refId === taskId) {
     throw validation('cannot position a task relative to itself');
   }
-  const refRank = await rankOf(w, refId);
+  const refRank = await rankOf(w, projectId, refId);
   const neighbor = await adjacentRank(
     w,
     projectId,
