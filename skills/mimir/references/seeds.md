@@ -14,12 +14,21 @@ Exactly two things are seeds:
    as a seed, and the owning board decides what work to commit.
 2. **An own-board idea or observation with no statable fix**:
    decision-shaped — "should X?", "decide the policy", "prove it or delete
-   it" — it may or may not germinate into work.
+   it" — it may or may not germinate into work. It is not a follow-up of your
+   current task: even if the operator says "park that", work you defer to
+   keep scope is a task (see below).
 
-**Not a seed: work discovered on your own board.** If you can state the fix,
-you already triaged it — `create task`. Review findings, test follow-ups, and
-build discoveries terminate in fixed, dismissed-with-reason, or deferred to a
-**task**; routing them through your own grooming queue is pure indirection.
+**Not a seed: work discovered on your own board.** Two tests, either one makes
+it a task — `create task`:
+
+- **Fix test:** you can state the fix, so you already triaged it.
+- **Motive test:** you are deferring it to keep the current task's scope. It is
+  a task even when the fix, or a decision inside it, is still open; put the
+  open question in the task description.
+
+Review findings, test follow-ups, and build discoveries terminate in fixed,
+dismissed-with-reason, or deferred to a **task**; routing them through your own
+grooming queue is pure indirection.
 
 ## Filing
 
