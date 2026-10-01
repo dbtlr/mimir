@@ -24,14 +24,18 @@ afterEach(() => {
 
 const vaultAt = (name: string) => join(root, name);
 
-test('schema 10 covers Journal headings under the persisted-instant invariant (MMR-352)', () => {
-  expect(VAULT_SCHEMA).toBe(10);
-  // Schemas 9 and 10 add no norn rule — the invariant is enforced by backfill and
-  // by doctor, not by a validator — but the marker must still ratchet, so an
-  // older binary refuses a normalized vault instead of writing variants back
-  // into it. The generated header carries the version, which is also what makes
-  // converge regenerate the rules file on upgrade.
+test('schema 11 declares the artifact freeze provenance so Norn indexes it (MMR-393)', () => {
+  expect(VAULT_SCHEMA).toBe(11);
+  // The generated header carries the version, which is also what makes converge
+  // regenerate the rules file on upgrade.
   expect(renderNornConfig()).toContain(`# Managed by mimir (vault schema ${String(VAULT_SCHEMA)})`);
+  // A bounded `string` type is what puts the field in Norn's derived index, so
+  // the freeze lookup by source_scratch reads the index instead of every document.
+  expect(renderNornConfig()).toContain(
+    ['        source_scratch: string', '      allowed_paths:', '        - "*/artifacts/*.md"'].join(
+      '\n',
+    ),
+  );
 });
 
 test('the scratch rule admits project-anchored Scratchpads only under scratch/', () => {

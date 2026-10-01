@@ -34,9 +34,11 @@ import { SEQ_TOKEN } from '../core/store-norn/plan';
  * write convention (MMR-351, ADR 0029): its backfill normalizes the zoned
  * variants norn's `datetime` type accepts but lexical comparison does not.
  * Schema 10 extends the invariant and convergence repair to Scratchpad Journal
- * record headings (MMR-352).
+ * record headings (MMR-352). Schema 11 declares the artifact's `source_scratch`
+ * freeze provenance as a `string` field_type, which puts it in Norn's derived
+ * index so the freeze lookup stops scanning every document (MMR-393).
  */
-export const VAULT_SCHEMA = 10;
+export const VAULT_SCHEMA = 11;
 
 export const MARKER_FILE = '.mimir-vault.toml';
 export const NORN_CONFIG_FILE = '.norn/config.yaml';
@@ -126,6 +128,11 @@ validate:
         tags: list_of_strings
         created: datetime
         updated_at: datetime
+        # Freeze provenance (MMR-393): the Scratchpad UUID an artifact was
+        # frozen from. Declared so its bounded type puts it in norn's derived
+        # index — freeze looks artifacts up by it, and an undeclared field makes
+        # that lookup scan every document. Optional, like the lede.
+        source_scratch: string
       allowed_paths:
         - "*/artifacts/*.md"
 
