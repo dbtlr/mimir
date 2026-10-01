@@ -22,6 +22,7 @@ import type { Io } from './cli';
 import { systemTimeZone } from './core';
 import type { Store } from './core';
 import { openPostgres } from './core/store-postgres/index';
+import { withConfigFindings } from './doctor/config-permissions';
 import type { DoctorBackend } from './doctor/contract';
 import { DEFAULT_PORT, IS_PRODUCTION, envPort } from './env';
 import { createServer } from './http';
@@ -317,7 +318,8 @@ async function main(argv: string[]): Promise<number> {
       doctor: {
         // The CLI is the one transport that may repair, so the store is built
         // with that capability; every call first forces the lazy store build.
-        diagnose: async (scope) => (await cliDoctor()).diagnose(scope),
+        diagnose: async (scope) =>
+          withConfigFindings(await (await cliDoctor()).diagnose(scope), scope, configPath()),
         facet: async (scope) => (await cliDoctor()).facet(scope),
         repair: async (request) => {
           const backend = await cliDoctor();
