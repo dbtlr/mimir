@@ -71,6 +71,31 @@ test('authority rejects paths escaping its owned root and a substituted endpoint
   }
 });
 
+test('a vault sandbox has owned directories and no database authority at all', () => {
+  const f = fixture();
+  try {
+    const vault = {
+      id: f.value.id,
+      kind: 'vault' as const,
+      paths: f.value.paths,
+      root: f.root,
+      version: 1 as const,
+    };
+    writeFileSync(f.file, JSON.stringify(vault));
+    const authority = readSandboxAuthority(f.file);
+    expect(authority).toEqual(vault);
+    // No URL matches: a vault sandbox never reaches any Postgres server.
+    for (const url of [f.value.postgresUrl, 'postgres://live:secret@production.example/live']) {
+      expect(() => assertSandboxPostgresUrl(url, authority)).toThrow('sandbox');
+    }
+    // A vault authority cannot smuggle in a database endpoint.
+    writeFileSync(f.file, JSON.stringify({ ...vault, postgresUrl: f.value.postgresUrl }));
+    expect(() => readSandboxAuthority(f.file)).toThrow('sandbox');
+  } finally {
+    f.close();
+  }
+});
+
 test('sandbox configuration cannot be a symlink to an external installation', () => {
   const f = fixture();
   try {

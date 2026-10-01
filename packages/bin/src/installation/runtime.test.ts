@@ -13,7 +13,7 @@ beforeAll(async () => {
   const probe = join(root, 'probe.ts');
   writeFileSync(
     probe,
-    `import { runtimePaths, IS_PRODUCTION } from ${JSON.stringify(join(sourceRoot, 'env.ts'))};\nif (process.argv[2] === 'installation-protocol') console.log('{"installationProtocol":1}'); else console.log(JSON.stringify({paths:runtimePaths(),live:IS_PRODUCTION}));`,
+    `import { runtimePaths, IS_PRODUCTION, supervisorScope } from ${JSON.stringify(join(sourceRoot, 'env.ts'))};\nif (process.argv[2] === 'installation-protocol') console.log('{"installationProtocol":1}'); else console.log(JSON.stringify({paths:runtimePaths(),live:IS_PRODUCTION,scope:supervisorScope()}));`,
   );
   const build = Bun.spawn(
     [
@@ -60,6 +60,8 @@ test('compiled production profile alone cannot select live paths', async () => {
       config: join(root, '.dev/config/mimir'),
       data: join(root, '.dev'),
     },
+    // No installation: the supervisor fence grants no unit at all.
+    scope: { kind: 'none' },
   });
 });
 test('registered compiled executable ignores ambient XDG and rejects replacement', async () => {
@@ -73,13 +75,44 @@ test('registered compiled executable ignores ambient XDG and rejects replacement
     data: join(root, 'bound/data'),
   };
   registerInstallation({ executable, mode: 'live', paths });
-  expect(JSON.parse((await run(executable)).stdout)).toEqual({ live: true, paths });
+  expect(JSON.parse((await run(executable)).stdout)).toEqual({
+    live: true,
+    paths,
+    scope: { kind: 'live' },
+  });
   const copied = join(root, 'copied');
   copyFileSync(executable, copied);
   copyFileSync(`${executable}.installation.json`, `${copied}.installation.json`);
   const denied = await run(copied);
   expect(denied.code).not.toBe(0);
   expect(denied.stderr).toContain('does not match');
+});
+
+test('a registered sandbox installation is scoped to its own sandbox id', async () => {
+  const sandboxRoot = join(root, 'vault-sandbox');
+  const paths = {
+    cache: join(sandboxRoot, 'cache', 'mimir'),
+    config: join(sandboxRoot, 'config', 'mimir'),
+    data: join(sandboxRoot, 'data', 'mimir'),
+  };
+  for (const path of Object.values(paths)) {
+    mkdirSync(path, { recursive: true });
+  }
+  const id = '1234abcd-1234-4234-8234-123456789012';
+  const sandboxAuthority = join(sandboxRoot, 'authority.json');
+  writeFileSync(
+    sandboxAuthority,
+    JSON.stringify({ id, kind: 'vault', paths, root: sandboxRoot, version: 1 }),
+  );
+  mkdirSync(join(sandboxRoot, 'bin'));
+  const executable = join(sandboxRoot, 'bin', 'mimir');
+  copyFileSync(binary, executable);
+  registerInstallation({ executable, mode: 'sandbox', paths, sandboxAuthority });
+  expect(JSON.parse((await run(executable)).stdout)).toEqual({
+    live: false,
+    paths,
+    scope: { id, kind: 'sandbox' },
+  });
 });
 
 test('compiled protocol candidate passes installer preflight', () => {

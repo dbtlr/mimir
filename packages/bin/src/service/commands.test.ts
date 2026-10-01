@@ -13,6 +13,7 @@ import { readConfig, readServeConfig } from './config';
 import { recentEvents } from './events';
 import type { ServiceInfo, Supervisor } from './launchd';
 import { plistFor, plistForSnapshot } from './plist';
+import { SERVE_LABEL, SNAPSHOT_LABEL, unitLabels } from './units';
 
 let dir: string;
 beforeEach(() => {
@@ -56,7 +57,6 @@ function deps(
   snapSup: FakeSupervisor = new FakeSupervisor(),
 ): ServiceDeps {
   return {
-    allowRealSupervisor: true,
     binPath: join(dir, 'mimir'),
     configFile: join(dir, 'config.toml'),
     defaultPort: PROD_PORT,
@@ -66,18 +66,22 @@ function deps(
     platform: 'darwin',
     readConfig,
     readInstalledPort: () => undefined,
+    scope: { kind: 'live' },
     units: {
       serve: {
+        label: SERVE_LABEL,
         logFile: join(dir, 'serve.log'),
-        plistFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
-        render: () => plistFor(join(dir, 'mimir'), {}),
+        render: () => plistFor(SERVE_LABEL, join(dir, 'mimir'), {}),
         supervisor: sup,
+        unitFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
       },
       snapshot: {
+        label: SNAPSHOT_LABEL,
         logFile: join(dir, 'snapshot.log'),
-        plistFile: join(dir, 'com.dbtlr.mimir.snapshot.plist'),
-        render: () => plistForSnapshot(join(dir, 'mimir'), { intervalSeconds: 900 }),
+        render: () =>
+          plistForSnapshot(SNAPSHOT_LABEL, join(dir, 'mimir'), { intervalSeconds: 900 }),
         supervisor: snapSup,
+        unitFile: join(dir, 'com.dbtlr.mimir.snapshot.plist'),
       },
     },
     version: '0.5.0',
@@ -94,8 +98,8 @@ test('install serve writes the plist, delegates, logs, and --port writes config'
   const code = await cmdService(['service', 'install', 'serve'], { port: '55440' }, io, d);
 
   expect(code).toBe(0);
-  expect(existsSync(d.units.serve.plistFile)).toBe(true);
-  const plistContent = readFileSync(d.units.serve.plistFile, 'utf8');
+  expect(existsSync(d.units.serve.unitFile)).toBe(true);
+  const plistContent = readFileSync(d.units.serve.unitFile, 'utf8');
   expect(plistContent).toContain('--no-hunt');
   const config = readServeConfig(d.configFile);
   expect(config).toEqual({ port: 55440 });
@@ -143,8 +147,8 @@ test('install with no unit installs only serve (snapshot is opt-in)', async () =
   expect(code).toBe(0);
   expect(serveSup.calls).toEqual(['install']);
   expect(snapSup.calls).toEqual([]);
-  expect(existsSync(d.units.serve.plistFile)).toBe(true);
-  expect(existsSync(d.units.snapshot.plistFile)).toBe(false);
+  expect(existsSync(d.units.serve.unitFile)).toBe(true);
+  expect(existsSync(d.units.snapshot.unitFile)).toBe(false);
   expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['install']);
 });
 
@@ -160,8 +164,8 @@ test('install all installs both serve and snapshot', async () => {
   expect(code).toBe(0);
   expect(serveSup.calls).toEqual(['install']);
   expect(snapSup.calls).toEqual(['install']);
-  expect(existsSync(d.units.serve.plistFile)).toBe(true);
-  expect(existsSync(d.units.snapshot.plistFile)).toBe(true);
+  expect(existsSync(d.units.serve.unitFile)).toBe(true);
+  expect(existsSync(d.units.snapshot.unitFile)).toBe(true);
   expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['install', 'install']);
 });
 
@@ -177,9 +181,9 @@ test('install snapshot installs only the snapshot unit', async () => {
   expect(code).toBe(0);
   expect(serveSup.calls).toEqual([]);
   expect(snapSup.calls).toEqual(['install']);
-  expect(existsSync(d.units.serve.plistFile)).toBe(false);
-  expect(existsSync(d.units.snapshot.plistFile)).toBe(true);
-  const plist = readFileSync(d.units.snapshot.plistFile, 'utf8');
+  expect(existsSync(d.units.serve.unitFile)).toBe(false);
+  expect(existsSync(d.units.snapshot.unitFile)).toBe(true);
+  const plist = readFileSync(d.units.snapshot.unitFile, 'utf8');
   expect(plist).toContain('StartInterval');
 });
 
@@ -211,7 +215,7 @@ test('a bad --port is a usage error and touches nothing', async () => {
   expect(thrown).toBeDefined();
   expect(thrown instanceof Error && thrown.message).toMatch(/--port/);
   expect(sup.calls).toEqual([]);
-  expect(existsSync(d.units.serve.plistFile)).toBe(false);
+  expect(existsSync(d.units.serve.unitFile)).toBe(false);
 });
 
 /** A serve render that fails the serve-env preflight (e.g. missing vault). */
@@ -226,16 +230,19 @@ test('a failing render aborts install before --port is persisted or the unit ins
   const d = deps(sup, {
     units: {
       serve: {
+        label: SERVE_LABEL,
         logFile: join(dir, 'serve.log'),
-        plistFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
         render: boomRender,
         supervisor: sup,
+        unitFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
       },
       snapshot: {
+        label: SNAPSHOT_LABEL,
         logFile: join(dir, 'snapshot.log'),
-        plistFile: join(dir, 'com.dbtlr.mimir.snapshot.plist'),
-        render: () => plistForSnapshot(join(dir, 'mimir'), { intervalSeconds: 900 }),
+        render: () =>
+          plistForSnapshot(SNAPSHOT_LABEL, join(dir, 'mimir'), { intervalSeconds: 900 }),
         supervisor: new FakeSupervisor(),
+        unitFile: join(dir, 'com.dbtlr.mimir.snapshot.plist'),
       },
     },
   });
@@ -251,7 +258,7 @@ test('a failing render aborts install before --port is persisted or the unit ins
   expect(existsSync(d.configFile)).toBe(false);
   // …and nothing was installed or written.
   expect(sup.calls).toEqual([]);
-  expect(existsSync(d.units.serve.plistFile)).toBe(false);
+  expect(existsSync(d.units.serve.unitFile)).toBe(false);
 });
 
 // 4. start/stop/restart delegate and log — events accumulate in order in ONE file
@@ -407,12 +414,12 @@ test('uninstall with no selector tears down every installed unit', async () => {
   expect(code).toBe(0);
   expect(serveSup.calls).toContain('uninstall');
   expect(snapSup.calls).toContain('uninstall');
-  expect(existsSync(d.units.serve.plistFile)).toBe(false);
-  expect(existsSync(d.units.snapshot.plistFile)).toBe(false); // no orphan
+  expect(existsSync(d.units.serve.unitFile)).toBe(false);
+  expect(existsSync(d.units.snapshot.unitFile)).toBe(false); // no orphan
 });
 
-// 5. unknown subcommand is usage; non-darwin is a loud operational error
-test('unknown subcommand is usage; non-darwin is a loud operational error', async () => {
+// 5. unknown subcommand is usage; a platform without a supervisor is a loud operational error
+test('unknown subcommand is usage; an unsupported platform is a loud operational error', async () => {
   const io = fakeIo();
 
   // unknown subcommand
@@ -429,10 +436,10 @@ test('unknown subcommand is usage; non-darwin is a loud operational error', asyn
     expect(thrown instanceof Error && thrown.message).toMatch(/service:/);
   }
 
-  // non-darwin
+  // neither launchd nor systemd
   {
     const sup = new FakeSupervisor();
-    const d = deps(sup, { platform: 'linux' });
+    const d = deps(sup, { platform: 'win32' });
     let thrown: unknown;
     try {
       await cmdService(['service', 'start'], {}, io, d);
@@ -440,8 +447,45 @@ test('unknown subcommand is usage; non-darwin is a loud operational error', asyn
       thrown = e;
     }
     expect(thrown).toBeDefined();
-    expect(thrown instanceof Error && thrown.message).toMatch(/macOS/);
+    expect(thrown instanceof Error && thrown.message).toMatch(/launchd \(macOS\) or systemd/);
+    expect(sup.calls).toEqual([]);
   }
+});
+
+// 5b. Linux drives the same verbs through its systemd units, companion files included
+test('on Linux, install writes the unit and its companion, and uninstall removes both', async () => {
+  const sup = new FakeSupervisor();
+  const snapSup = new FakeSupervisor();
+  const io = fakeIo();
+  const d = deps(sup, { platform: 'linux' }, snapSup);
+  d.units.snapshot = {
+    ...d.units.snapshot,
+    companion: { file: join(dir, 'snapshot.service'), render: () => '[Service]\n' },
+    render: () => '[Timer]\n',
+    unitFile: join(dir, 'snapshot.timer'),
+  };
+
+  expect(await cmdService(['service', 'install', 'all'], {}, io, d)).toBe(0);
+  expect(readFileSync(join(dir, 'snapshot.timer'), 'utf8')).toBe('[Timer]\n');
+  expect(readFileSync(join(dir, 'snapshot.service'), 'utf8')).toBe('[Service]\n');
+  expect(sup.calls).toEqual(['install']);
+  expect(snapSup.calls).toEqual(['install']);
+  expect(io.out.join('\n')).toContain(`unit:   ${join(dir, 'snapshot.timer')}`);
+
+  expect(await cmdService(['service', 'uninstall'], {}, fakeIo(), d)).toBe(0);
+  expect(existsSync(join(dir, 'snapshot.timer'))).toBe(false);
+  expect(existsSync(join(dir, 'snapshot.service'))).toBe(false);
+  expect(snapSup.calls).toEqual(['install', 'uninstall']);
+});
+
+// 5c. unit files land in a directory that may not exist yet (a fresh
+// ~/.config/systemd/user, a sandbox's data directory).
+test('install creates the unit file directory', async () => {
+  const sup = new FakeSupervisor();
+  const d = deps(sup);
+  d.units.serve = { ...d.units.serve, unitFile: join(dir, 'fresh', 'nested', 'serve.plist') };
+  expect(await cmdService(['service', 'install'], {}, fakeIo(), d)).toBe(0);
+  expect(existsSync(join(dir, 'fresh', 'nested', 'serve.plist'))).toBe(true);
 });
 
 // 6. status reports running vs on-disk version and restart pending
@@ -745,7 +789,7 @@ test('service status emits the json envelope when format is json', async () => {
     port: PROD_PORT,
     running: true,
   });
-  expect(serve.plist).toBe(d.units.serve.plistFile);
+  expect(serve.plist).toBe(d.units.serve.unitFile);
   // The snapshot unit is reported too, carrying its interval, not a port.
   const snap = parsed.units.find((u: { unit: string }) => u.unit === 'snapshot');
   expect(snap).toMatchObject({ interval_seconds: 900, unit: 'snapshot' });
@@ -802,7 +846,7 @@ test('service install serve echoes the action envelope when format is json', asy
     port: 55440,
     unit: 'serve',
   });
-  expect(parsed.actions[0].paths.plist).toBe(d.units.serve.plistFile);
+  expect(parsed.actions[0].paths.plist).toBe(d.units.serve.unitFile);
   // The human path's detail lines must not leak into json mode.
   expect(io.out.join('\n')).not.toContain('plist:');
 });
@@ -868,7 +912,7 @@ test('every mutating verb refuses without real-supervisor trust', async () => {
     const sup = new FakeSupervisor();
     const snapSup = new FakeSupervisor();
     const io = fakeIo();
-    const d = deps(sup, { allowRealSupervisor: false }, snapSup);
+    const d = deps(sup, { scope: { kind: 'none' } }, snapSup);
 
     let thrown: unknown;
     try {
@@ -880,10 +924,12 @@ test('every mutating verb refuses without real-supervisor trust', async () => {
     expect(thrown).toBeInstanceOf(MimirError);
     expect(thrown instanceof Error && thrown.message).toMatch(/dev\/from-source/);
     expect(thrown instanceof Error && thrown.message).toContain(verb);
-    expect(thrown instanceof MimirError && thrown.hint).toContain('registered live installation');
+    expect(thrown instanceof MimirError && thrown.hint).toContain(
+      'registered live or sandbox installation',
+    );
     expect(sup.calls).toEqual([]);
     expect(snapSup.calls).toEqual([]);
-    expect(existsSync(d.units.serve.plistFile)).toBe(false);
+    expect(existsSync(d.units.serve.unitFile)).toBe(false);
     expect(existsSync(d.eventsFile)).toBe(false);
   }
 });
@@ -892,7 +938,7 @@ test('every mutating verb refuses without real-supervisor trust', async () => {
 test('status stays available without real-supervisor trust', async () => {
   const sup = new FakeSupervisor();
   const io = fakeIo();
-  const d = deps(sup, { allowRealSupervisor: false });
+  const d = deps(sup, { scope: { kind: 'none' } });
 
   const code = await cmdService(['service', 'status'], {}, io, d);
 
@@ -915,7 +961,6 @@ test('self-update without real-supervisor trust skips the daemon restart, loudly
   sup.state = { loaded: true, pid: 1234, running: true };
   const io = fakeIo();
   const d = deps(sup, {
-    allowRealSupervisor: false,
     fetcher: (url: string) => {
       if (url.includes('/releases/latest')) {
         return Promise.resolve(
@@ -933,6 +978,7 @@ test('self-update without real-supervisor trust skips the daemon restart, loudly
       }
       return Promise.reject(new Error(`unexpected fetch: ${url}`));
     },
+    scope: { kind: 'none' },
     version: '0.5.0',
   });
 
@@ -947,4 +993,120 @@ test('self-update without real-supervisor trust skips the daemon restart, loudly
   expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['self-update']);
   // The skip is surfaced, not silent — the loaded daemon is running stale code.
   expect(io.err.join('\n')).toContain('service not restarted');
+});
+
+// --- the narrowed fence (MMR-54): an installation drives only the units it owns ---
+
+const SANDBOX_ID = '1234abcd-1234-4234-8234-123456789012';
+const sandboxScope = { id: SANDBOX_ID, kind: 'sandbox' } as const;
+
+/** A fetcher serving release `newTag` whose asset is a valid installation candidate. */
+async function releaseFetcher(newTag: string): Promise<{
+  fetcher: ServiceDeps['fetcher'];
+  body: Uint8Array;
+}> {
+  const body = new TextEncoder().encode(protocolCandidate);
+  const sha256 = new Bun.CryptoHasher('sha256').update(body).digest('hex');
+  const { assetName } = await import('./self-update');
+  const asset = assetName();
+  const fetcher: ServiceDeps['fetcher'] = (url: string) => {
+    if (url.includes('/releases/latest')) {
+      return Promise.resolve(
+        new Response(null, {
+          headers: { location: `https://github.com/dbtlr/mimir/releases/tag/${newTag}` },
+          status: 302,
+        }),
+      );
+    }
+    if (url.includes(`/download/${newTag}/SHA256SUMS`)) {
+      return Promise.resolve(new Response(`${sha256}  ${asset}\n`, { status: 200 }));
+    }
+    if (url.includes(`/download/${newTag}/${asset}`)) {
+      return Promise.resolve(new Response(body, { status: 200 }));
+    }
+    return Promise.reject(new Error(`unexpected fetch: ${url}`));
+  };
+  return { body, fetcher };
+}
+
+// 13. a sandbox installation can never address the live unit names
+test('a sandbox installation refuses every mutating verb on live unit names', async () => {
+  for (const verb of ['install', 'uninstall', 'start', 'stop', 'restart']) {
+    const sup = new FakeSupervisor();
+    const snapSup = new FakeSupervisor();
+    const d = deps(sup, { scope: sandboxScope }, snapSup);
+
+    let thrown: unknown;
+    try {
+      await cmdService(['service', verb], {}, fakeIo(), d);
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(MimirError);
+    expect(thrown instanceof Error && thrown.message).toContain(
+      `${SERVE_LABEL} belongs to another installation`,
+    );
+    expect(sup.calls).toEqual([]);
+    expect(snapSup.calls).toEqual([]);
+    expect(existsSync(d.units.serve.unitFile)).toBe(false);
+    expect(existsSync(d.eventsFile)).toBe(false);
+  }
+});
+
+// 13b. a live installation cannot be pointed at a sandbox's units either
+test('a live installation refuses to drive sandbox-scoped units', async () => {
+  const sup = new FakeSupervisor();
+  const d = deps(sup);
+  d.units.serve = { ...d.units.serve, label: unitLabels(sandboxScope).serve };
+  let thrown: unknown;
+  try {
+    await cmdService(['service', 'restart'], {}, fakeIo(), d);
+  } catch (e) {
+    thrown = e;
+  }
+  expect(thrown instanceof Error && thrown.message).toContain('belongs to another installation');
+  expect(sup.calls).toEqual([]);
+});
+
+// 13c. a sandbox installation drives the real supervisor for its own units
+test('a sandbox installation drives its own sandbox-scoped units', async () => {
+  const sup = new FakeSupervisor();
+  const snapSup = new FakeSupervisor();
+  const labels = unitLabels(sandboxScope);
+  const d = deps(sup, { scope: sandboxScope }, snapSup);
+  d.units.serve = { ...d.units.serve, label: labels.serve };
+  d.units.snapshot = { ...d.units.snapshot, label: labels.snapshot };
+
+  expect(await cmdService(['service', 'install', 'all'], {}, fakeIo(), d)).toBe(0);
+  expect(await cmdService(['service', 'restart'], {}, fakeIo(), d)).toBe(0);
+  expect(sup.calls).toEqual(['install', 'restart']);
+  expect(snapSup.calls).toEqual(['install', 'restart']);
+});
+
+// 13d. self-update's restart honors the same ownership check
+test('self-update from a sandbox never restarts a live-named daemon, and says so', async () => {
+  const sup = new FakeSupervisor();
+  sup.state = { loaded: true, pid: 1234, running: true };
+  const io = fakeIo();
+  const { fetcher } = await releaseFetcher('v0.6.0');
+  const d = deps(sup, { fetcher, scope: sandboxScope, version: '0.5.0' });
+
+  expect(await cmdSelfUpdate(io, d, {}, 'json')).toBe(0);
+  expect(sup.calls).not.toContain('restart');
+  expect(io.err.join('\n')).toContain('service not restarted');
+});
+
+// 13e. the systemd restart path: self-update restarts the daemon on Linux too
+test('self-update on Linux restarts the loaded serve unit', async () => {
+  const sup = new FakeSupervisor();
+  sup.state = { loaded: true, pid: 1234, running: true };
+  const { body, fetcher } = await releaseFetcher('v0.6.0');
+  const d = deps(sup, { fetcher, platform: 'linux', version: '0.5.0' });
+
+  const io = fakeIo();
+  expect(await cmdSelfUpdate(io, d, {}, 'json')).toBe(0);
+  expect(sup.calls).toEqual(['restart']);
+  expect(readFileSync(d.binPath)).toEqual(Buffer.from(body));
+  expect(JSON.parse(io.out.join('\n'))).toMatchObject({ restarted: true, updated: true });
 });

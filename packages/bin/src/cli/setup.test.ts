@@ -9,6 +9,7 @@ import type { ServiceDeps } from '../service';
 import { readConfig } from '../service/config';
 import type { ServiceInfo, Supervisor } from '../service/launchd';
 import { plistFor, plistForSnapshot } from '../service/plist';
+import { SERVE_LABEL, SNAPSHOT_LABEL } from '../service/units';
 import type { VaultDeps } from '../vault/commands';
 import { MARKER_FILE } from '../vault/schema';
 import { cmdSetup } from './setup';
@@ -57,7 +58,6 @@ function deps(
   platform: NodeJS.Platform = 'darwin',
 ): SetupDeps {
   const service: ServiceDeps = {
-    allowRealSupervisor: true,
     binPath: join(dir, 'mimir'),
     configFile: join(dir, 'config.toml'),
     defaultPort: 64647,
@@ -67,18 +67,22 @@ function deps(
     platform,
     readConfig,
     readInstalledPort: () => undefined,
+    scope: { kind: 'live' },
     units: {
       serve: {
+        label: SERVE_LABEL,
         logFile: join(dir, 'serve.log'),
-        plistFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
-        render: () => plistFor(join(dir, 'mimir'), {}),
+        render: () => plistFor(SERVE_LABEL, join(dir, 'mimir'), {}),
         supervisor: serve,
+        unitFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
       },
       snapshot: {
+        label: SNAPSHOT_LABEL,
         logFile: join(dir, 'snapshot.log'),
-        plistFile: join(dir, 'com.dbtlr.mimir.snapshot.plist'),
-        render: () => plistForSnapshot(join(dir, 'mimir'), { intervalSeconds: 900 }),
+        render: () =>
+          plistForSnapshot(SNAPSHOT_LABEL, join(dir, 'mimir'), { intervalSeconds: 900 }),
         supervisor: snap,
+        unitFile: join(dir, 'com.dbtlr.mimir.snapshot.plist'),
       },
     },
     version: '0.5.0',
@@ -166,7 +170,7 @@ test('--install-snapshot refuses without real-supervisor trust', async () => {
   const serve = new FakeSupervisor();
   const snap = new FakeSupervisor();
   const d = deps(serve, snap);
-  d.service.allowRealSupervisor = false;
+  d.service.scope = { kind: 'none' };
   const io = fakeIo(false);
 
   let thrown: unknown;
@@ -184,7 +188,7 @@ test('--install-snapshot refuses without real-supervisor trust', async () => {
   expect(thrown instanceof Error && thrown.message).toMatch(/dev\/from-source/);
   expect(serve.calls).toEqual([]);
   expect(snap.calls).toEqual([]);
-  expect(existsSync(d.service.units.snapshot.plistFile)).toBe(false);
+  expect(existsSync(d.service.units.snapshot.unitFile)).toBe(false);
 });
 
 test('--port persists to [serve] even without --install-service (serve reads it)', async () => {
@@ -394,7 +398,7 @@ test('a valid but wrong-typed config does NOT trigger the false "not valid TOML"
 test('declining an already-installed unit leaves it running and says so (install-only)', async () => {
   const d = deps(new FakeSupervisor(), new FakeSupervisor());
   // Simulate a snapshot unit already installed on disk.
-  writeFileSync(d.service.units.snapshot.plistFile, '<plist/>');
+  writeFileSync(d.service.units.snapshot.unitFile, '<plist/>');
   const io = fakeIo(false);
   const code = await cmdSetup(
     { installService: true, vault: join(dir, 'vault'), yes: true },
@@ -407,10 +411,25 @@ test('declining an already-installed unit leaves it running and says so (install
   expect(io.err.join('\n')).toMatch(/snapshot is still installed.*service uninstall snapshot/);
 });
 
-test('off darwin, install flags are ignored (launchd unavailable) but vault + config still land', async () => {
+test('on Linux, the service install goes through the systemd supervisor', async () => {
   const serve = new FakeSupervisor();
   const snap = new FakeSupervisor();
   const d = deps(serve, snap, 'linux');
+  const io = fakeIo(false);
+  const code = await cmdSetup(
+    { installService: true, vault: join(dir, 'vault'), yes: true },
+    io,
+    d,
+    'records',
+  );
+  expect(code).toBe(0);
+  expect(serve.calls).toEqual(['install']);
+});
+
+test('without a supervisor, install flags are ignored but vault + config still land', async () => {
+  const serve = new FakeSupervisor();
+  const snap = new FakeSupervisor();
+  const d = deps(serve, snap, 'win32');
   const io = fakeIo(false);
   const code = await cmdSetup(
     { installService: true, vault: join(dir, 'vault'), yes: true },

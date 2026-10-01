@@ -20,7 +20,7 @@ import { existsSync } from 'node:fs';
 
 import { notFound } from '../core';
 import type { ResolvedVault } from '../vault/resolve';
-import type { PlistOptions } from './plist';
+import type { ServeUnitOptions } from './units';
 
 export type ServeInstallInputs = {
   /** The absolute `norn` binary path (`Bun.which('norn')`), or undefined if unresolved. */
@@ -29,7 +29,7 @@ export type ServeInstallInputs = {
   vault?: ResolvedVault;
 };
 
-export function serveInstallEnv(inputs: ServeInstallInputs): PlistOptions {
+export function serveInstallEnv(inputs: ServeInstallInputs): ServeUnitOptions {
   if (inputs.nornPath === undefined) {
     throw notFound(
       'service install: mimir requires the `norn` binary, but it is not on PATH.',

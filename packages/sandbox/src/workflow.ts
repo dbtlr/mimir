@@ -18,14 +18,14 @@ import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
 
 import { installBinary, readInstallationAt } from '../../bin/src/installation/index';
-import { readSandboxAuthority } from '../../bin/src/sandbox-authority';
-import type { SandboxAuthority } from '../../bin/src/sandbox-authority';
+import { readDatabaseAuthority } from '../../bin/src/sandbox-authority';
+import type { DatabaseSandboxAuthority } from '../../bin/src/sandbox-authority';
 import { latestSnapshot, snapshotSchema } from './snapshot';
 
 export const POSTGRES_IMAGE =
   'postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2';
 const label = 'dev.mimir.sandbox';
-type Authority = SandboxAuthority;
+type Authority = DatabaseSandboxAuthority;
 
 async function hashFile(path: string): Promise<string> {
   const hash = createHash('sha256');
@@ -125,7 +125,7 @@ export class Sandbox {
     } catch {
       throw new Error(`Sandbox ${id} does not exist or has no authority file`);
     }
-    const authority = readSandboxAuthority(join(root, 'authority.json'));
+    const authority = readDatabaseAuthority(join(root, 'authority.json'));
     if (authority.image !== POSTGRES_IMAGE) {
       throw new Error('Sandbox image does not match pinned image');
     }

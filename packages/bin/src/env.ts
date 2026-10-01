@@ -6,6 +6,7 @@ import { parsePort } from '@mimir/helpers';
 
 import { readInstallation } from './installation';
 import { readSandboxAuthority, sandboxAuthorityFromEnvironment } from './sandbox-authority';
+import type { SupervisorScope } from './service/units';
 
 // Installer dispatch has no store access and must run before binding resolution.
 const installing =
@@ -41,6 +42,19 @@ export function runtimePaths(): { config: string; data: string; cache: string } 
     ? join(dirname(process.execPath), '.dev')
     : join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '.dev');
   return { cache: join(root, 'cache', 'mimir'), config: join(root, 'config', 'mimir'), data: root };
+}
+
+/** Which installation this process is, for the supervisor fence (service/units):
+ *  only a registered installation may drive the host supervisor, and a sandbox
+ *  only under its own sandbox-scoped unit names. */
+export function supervisorScope(): SupervisorScope {
+  if (installation?.mode === 'live') {
+    return { kind: 'live' };
+  }
+  if (installation?.mode === 'sandbox') {
+    return { id: readSandboxAuthority(installation.sandboxAuthority).id, kind: 'sandbox' };
+  }
+  return { kind: 'none' };
 }
 
 export function defaultVaultPath(): string {

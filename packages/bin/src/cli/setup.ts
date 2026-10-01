@@ -2,10 +2,10 @@
  * `mimir setup` (MMR-145) — the configuration wizard. One command for the first
  * install and every later reconfiguration: it prefills the current answers,
  * converges the vault at the chosen location, writes the global config, and
- * installs (or updates) the launchd units you opt into. Re-running is safe —
+ * installs (or updates) the supervisor units you opt into. Re-running is safe —
  * every action converges to the answered state.
  *
- * It installs and updates; it never *removes* a launchd unit. Declining a unit
+ * It installs and updates; it never *removes* a supervisor unit. Declining a unit
  * that is already installed leaves it running and says so, pointing at
  * `mimir service uninstall` — the deliberate, separate teardown door.
  *
@@ -18,7 +18,7 @@ import { existsSync } from 'node:fs';
 
 import { arrow, ok, warn } from '../presentation';
 import type { Format, Io } from '../presentation';
-import { cmdService } from '../service';
+import { cmdService, hasSupervisor } from '../service';
 import type { ServiceDeps } from '../service';
 import { DEFAULT_SNAPSHOT_INTERVAL_SECONDS, readConfig, writeConfig } from '../service/config';
 import type { SnapshotConfig } from '../service/config';
@@ -55,9 +55,9 @@ type SetupAnswers = {
   snapshot: SnapshotConfig;
 };
 
-/** launchd (and therefore the service/snapshot units) is macOS-only. */
-function launchdAvailable(deps: SetupDeps): boolean {
-  return deps.service.platform === 'darwin';
+/** The service/snapshot units need a supervisor: launchd (macOS) or systemd (Linux). */
+function supervisorAvailable(deps: SetupDeps): boolean {
+  return hasSupervisor(deps.service.platform);
 }
 
 /** Parse a port flag/answer, or throw a usage fault. */
@@ -85,8 +85,8 @@ function askLine(question: string, def: string): string {
 }
 
 /**
- * Gather answers interactively. The service/snapshot questions are launchd-only;
- * off darwin they are skipped with a note and left uninstalled (the vault +
+ * Gather answers interactively. The service/snapshot questions need a supervisor;
+ * without one they are skipped with a note and left uninstalled (the vault +
  * config still land).
  */
 function askInteractive(values: SetupValues, deps: SetupDeps, io: Io): SetupAnswers {
@@ -95,9 +95,9 @@ function askInteractive(values: SetupValues, deps: SetupDeps, io: Io): SetupAnsw
     askLine('Vault location', values.vault ?? cfg.vault.path ?? deps.defaultVaultPath),
   );
 
-  if (!launchdAvailable(deps)) {
+  if (!supervisorAvailable(deps)) {
     io.write(
-      'Background service (launchd) is macOS-only — skipping; run `mimir serve` under your supervisor.',
+      'Background service needs launchd (macOS) or systemd (Linux) — skipping; run `mimir serve` under your supervisor.',
     );
     return { installService: false, installSnapshot: false, snapshot: {}, vaultPath };
   }
@@ -203,7 +203,7 @@ async function applySetup(
 
   // 2. Persist the config in one write: the vault location, the serve port
   //    whenever given (a `[serve]` setting `mimir serve` reads on its own, so
-  //    honored even without the launchd unit), and the snapshot cadence when
+  //    honored even without the supervisor unit), and the snapshot cadence when
   //    the snapshot unit is being set up. Snapshot is written authoritatively —
   //    the table becomes exactly what was gathered. Install below reads the port
   //    back from here rather than being handed it again.
@@ -218,19 +218,22 @@ async function applySetup(
     warn(io, `existing config at ${deps.service.configFile} was not valid TOML — rewrote it fresh`);
   }
 
-  // 3. Install the opted-in launchd units in one call. Off darwin there are no
-  //    launchd units — skip with a note rather than letting service install
+  // 3. Install the opted-in supervisor units in one call. Without a supervisor there are no
+  //    units — skip with a note rather than letting service install
   //    throw; the vault + config above still landed.
-  const darwin = launchdAvailable(deps);
+  const supervised = supervisorAvailable(deps);
   const units: string[] = [];
-  if (darwin && answers.installService) {
+  if (supervised && answers.installService) {
     units.push('serve');
   }
-  if (darwin && answers.installSnapshot) {
+  if (supervised && answers.installSnapshot) {
     units.push('snapshot');
   }
-  if (!darwin && (answers.installService || answers.installSnapshot)) {
-    warn(io, 'launchd units are macOS-only — skipped; run `mimir serve` under your supervisor');
+  if (!supervised && (answers.installService || answers.installSnapshot)) {
+    warn(
+      io,
+      'service units need launchd (macOS) or systemd (Linux) — skipped; run `mimir serve` under your supervisor',
+    );
   }
   let serviceOk = true;
   if (units.length > 0) {
@@ -251,9 +254,9 @@ async function applySetup(
 
   // Setup installs and updates; it never removes. A unit left installed because
   // it wasn't opted into this run is called out, not silently kept.
-  const leftInstalled = darwin
+  const leftInstalled = supervised
     ? (['serve', 'snapshot'] as const).filter(
-        (n) => !units.includes(n) && existsSync(deps.service.units[n].plistFile),
+        (n) => !units.includes(n) && existsSync(deps.service.units[n].unitFile),
       )
     : [];
 
