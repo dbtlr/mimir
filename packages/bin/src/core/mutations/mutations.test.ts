@@ -573,6 +573,16 @@ test.skipIf(!NORN)(
   },
 );
 
+test.skipIf(!NORN)('reorder refuses a before/after ref from another project', async () => {
+  const a = await task('a');
+  const other = await nodeIdOf(store, await otherProjectTask());
+  const before = (await store.loadWorkingSet()).nodes.find((n) => n.id === a)?.rank;
+  await expectMimirError('validation', () => reorder(store, a, 'before', other));
+  await expectMimirError('validation', () => reorder(store, a, 'after', other));
+  const after = (await store.loadWorkingSet()).nodes.find((n) => n.id === a)?.rank;
+  expect(after).toBe(before);
+});
+
 test.skipIf(!NORN)('reorder on a container refuses with a reorder-specific hint', async () => {
   const a = await task('a');
   let refused: unknown;

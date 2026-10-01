@@ -75,8 +75,10 @@ mimir depend KEY-12 --on KEY-11    # phase 2 waits on phase 1
 ```
 
 Dependencies are inherited down the tree, so every task under phase 2 is held
-out of `next` until phase 1 settles (`done` or `abandoned`). Reorder then ranks
-tasks only within what is ready; it never orders phases themselves.
+out of `next` until phase 1 settles (`done` or `abandoned`). Reorder still ranks
+every unheld todo or in-progress task, including those awaiting a phase
+dependency, so you can pre-rank phase 2 now; `next` just skips them until
+phase 1 settles. Reorder never orders phases themselves.
 
 ## Patching vs annotating
 
