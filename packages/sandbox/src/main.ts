@@ -4,6 +4,7 @@ import { Application, Command } from '@loomcli/core';
 import { help } from '@loomcli/plugins/help';
 import { z } from 'zod';
 
+import { SERVICE_VERIFY_TARGETS, ServiceVerifier } from './service-verify';
 import { snapshotSchema } from './snapshot';
 import { Sandbox } from './workflow';
 
@@ -13,9 +14,9 @@ if (Bun.version !== '1.4.0') {
   );
 }
 
-const sandbox = new Sandbox(
-  fileURLToPath(new URL('../../../', import.meta.url)).replace(/\/$/, ''),
-);
+const repository = fileURLToPath(new URL('../../../', import.meta.url)).replace(/\/$/, '');
+const sandbox = new Sandbox(repository);
+const services = new ServiceVerifier(repository);
 const application = new Application('sandbox', {
   description: 'Reproducible disposable Mimir installations.',
   plugins: [help()],
@@ -89,6 +90,37 @@ const application = new Application('sandbox', {
       .argument('id', { required: true })
       .action(async ({ args }) => {
         await sandbox.destroy(args.id);
+      }),
+  )
+  .command(
+    new Command('service-verify', {
+      description:
+        'Verify the real supervisor lifecycle (install, status, restart, kill-and-recover, stop, start, uninstall) without touching live units. host: a sandbox installation under launchd (macOS) or systemd (Linux). container: systemd in a disposable container, installed through install.sh.',
+    })
+      .option('target', {
+        description: 'host (default) or container.',
+        type: 'string',
+      })
+      .option('binary', {
+        description:
+          'Existing compiled binary (a Linux binary for container); otherwise build the checkout.',
+        type: 'string',
+      })
+      .action(async ({ options, out }) => {
+        const target = SERVICE_VERIFY_TARGETS.find((t) => t === (options.target ?? 'host'));
+        if (target === undefined) {
+          throw new Error(`--target must be one of: ${SERVICE_VERIFY_TARGETS.join(', ')}`);
+        }
+        await out.print(await services.verify(target, options.binary));
+      }),
+  )
+  .command(
+    new Command('service-destroy', {
+      description: 'Tear down a retained service-verify sandbox by ownership.',
+    })
+      .argument('id', { required: true })
+      .action(async ({ args }) => {
+        await services.destroy(args.id);
       }),
   )
   .command(

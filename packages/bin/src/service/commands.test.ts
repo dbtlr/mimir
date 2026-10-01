@@ -480,12 +480,17 @@ test('on Linux, install writes the unit and its companion, and uninstall removes
 
 // 5c. unit files land in a directory that may not exist yet (a fresh
 // ~/.config/systemd/user, a sandbox's data directory).
-test('install creates the unit file directory', async () => {
+test('install creates the unit file and log directories', async () => {
   const sup = new FakeSupervisor();
   const d = deps(sup);
-  d.units.serve = { ...d.units.serve, unitFile: join(dir, 'fresh', 'nested', 'serve.plist') };
+  d.units.serve = {
+    ...d.units.serve,
+    logFile: join(dir, 'fresh-logs', 'serve.log'),
+    unitFile: join(dir, 'fresh', 'nested', 'serve.plist'),
+  };
   expect(await cmdService(['service', 'install'], {}, fakeIo(), d)).toBe(0);
   expect(existsSync(join(dir, 'fresh', 'nested', 'serve.plist'))).toBe(true);
+  expect(existsSync(join(dir, 'fresh-logs'))).toBe(true);
 });
 
 // 6. status reports running vs on-disk version and restart pending

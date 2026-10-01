@@ -277,6 +277,9 @@ export async function cmdService(
           mkdirSync(dirname(file.path), { recursive: true });
           writeFileSync(file.path, file.content);
         }
+        // Neither supervisor creates a missing log directory; the unit would
+        // fail to spawn before writing a line.
+        mkdirSync(dirname(unit.logFile), { recursive: true });
         await unit.supervisor.install(unit.unitFile);
         const paths = { config: deps.configFile, log: unit.logFile, plist: unit.unitFile };
         if (name === 'serve') {

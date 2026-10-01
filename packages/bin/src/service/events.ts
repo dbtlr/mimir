@@ -32,7 +32,7 @@ export type ServiceEvent = {
 export const LOG_DIR = join(runtimePaths().data, 'logs');
 export const EVENTS_FILE = join(LOG_DIR, 'service-events.jsonl');
 export const SERVE_LOG_FILE = join(LOG_DIR, 'serve.log');
-/** launchd stdout/stderr for the scheduled snapshot unit (MMR-146). */
+/** Supervisor stdout/stderr for the scheduled snapshot unit (MMR-146). */
 export const SNAPSHOT_LOG_FILE = join(LOG_DIR, 'snapshot.log');
 
 export function appendEvent(file: string, event: Omit<ServiceEvent, 'at'>): void {

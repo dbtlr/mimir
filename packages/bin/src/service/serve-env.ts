@@ -1,7 +1,7 @@
 /**
  * The serve unit's baked environment, resolved and validated at `service install`
  * time. This is a preflight guard, not just a value: the daemon shells out to the
- * `norn` binary (ADR 0018) and reads the vault, and launchd hands it only a
+ * `norn` binary (ADR 0018) and reads the vault, and the supervisor hands it only a
  * minimal `PATH` with no `~`/`$VAR` expansion. So a norn that is not on PATH would
  * install a unit that boots green and then fails every request. Fail the install
  * loudly instead — and bake the **absolute** norn path (`MIMIR_NORN`) directly, so

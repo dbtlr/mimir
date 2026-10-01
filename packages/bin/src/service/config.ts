@@ -28,7 +28,7 @@ export function configPath(configHome?: string): string {
  * push/pull on) for whatever the operator leaves unset.
  */
 export type SnapshotConfig = {
-  /** Seconds between scheduled snapshots — baked into the launchd StartInterval. */
+  /** Seconds between scheduled snapshots — baked into the launchd StartInterval or systemd timer. */
   interval?: number;
   /** Remote URL to push to / reconcile against when no upstream is configured on the branch. */
   upstream?: string;

@@ -20,7 +20,7 @@ export type ServicePaths = {
   log: string;
 };
 
-/** Which launchd unit a status/action concerns (MMR-146). */
+/** Which supervisor unit a status/action concerns (MMR-146). */
 export type UnitName = 'serve' | 'snapshot';
 
 /**
