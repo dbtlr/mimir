@@ -27,7 +27,8 @@ import { z } from 'zod';
 import { installBinary } from '../../bin/src/installation/index';
 import { readSandboxAuthority } from '../../bin/src/sandbox-authority';
 import { SERVE_LABEL, SNAPSHOT_LABEL, unitLabels } from '../../bin/src/service/units';
-import { command, hashFile, isolatedEnvironment, privateJson } from './process';
+import { attempt, command, hashFile, isolatedEnvironment, privateJson } from './process';
+import { removeSandboxUnits } from './sandbox-units';
 import { verifyServiceLifecycle } from './service-lifecycle';
 import type { ServiceHost } from './service-lifecycle';
 
@@ -53,15 +54,6 @@ const runSchema = z.object({
   version: z.literal(1),
 });
 type RunRecord = z.infer<typeof runSchema>;
-
-/** A command whose failure is expected during best-effort teardown. */
-async function attempt(args: string[], cwd: string): Promise<string | undefined> {
-  try {
-    return await command(args, { cwd, timeout: 60_000 });
-  } catch {
-    return undefined;
-  }
-}
 
 async function freePort(): Promise<number> {
   const listener = Bun.listen({ hostname: '127.0.0.1', port: 0, socket: { data() {} } });
@@ -153,6 +145,9 @@ export class ServiceVerifier {
       await privateJson(report, { ...run, ...result, outcome: 'passed' });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (target === 'container') {
+        await this.collectContainerLogs(id).catch(() => undefined);
+      }
       await this.teardown(id).catch(() => undefined);
       await privateJson(report, { ...run, message, outcome: 'failed' });
       process.stderr.write(
@@ -212,23 +207,43 @@ export class ServiceVerifier {
       }
       return;
     }
+    await removeSandboxUnits(id, this.directory(id));
+  }
+
+  /** Copy a failed container's daemon logs and user journal out before teardown. */
+  private async collectContainerLogs(id: string): Promise<void> {
     const root = this.directory(id);
-    const binary = join(root, 'bin', 'mimir');
-    if (existsSync(binary)) {
-      await attempt([binary, 'service', 'uninstall', 'all'], root);
+    const owned = await attempt(
+      [
+        'docker',
+        'container',
+        'ls',
+        '--all',
+        '--quiet',
+        '--filter',
+        `label=${CONTAINER_LABEL}=${id}`,
+      ],
+      root,
+    );
+    const containerId = owned?.split('\n')[0];
+    if (containerId === undefined || containerId === '') {
+      return;
     }
-    // Backstop for a half-installed unit: address only the sandbox-scoped names.
-    for (const label of Object.values(unitLabels({ id, kind: 'sandbox' }))) {
-      if (process.platform === 'darwin') {
-        await attempt(
-          ['launchctl', 'bootout', `gui/${String(process.getuid?.() ?? 501)}/${label}`],
-          root,
-        );
-      } else if (process.platform === 'linux') {
-        for (const unit of [`${label}.service`, `${label}.timer`]) {
-          await attempt(['systemctl', '--user', 'disable', '--now', unit], root);
-        }
-      }
+    await attempt(
+      [
+        'docker',
+        'cp',
+        `${containerId}:${CONTAINER_HOME}/.local/share/mimir/logs`,
+        join(root, 'logs'),
+      ],
+      root,
+    );
+    const journal = await attempt(
+      ['docker', 'exec', containerId, 'journalctl', '--no-pager', '--lines', '500'],
+      root,
+    );
+    if (journal !== undefined) {
+      await writeFile(join(root, 'journal.log'), journal);
     }
   }
 

@@ -38,6 +38,15 @@ export class InterruptedError extends Error {
   override name = 'InterruptedError';
 }
 
+/** A command whose failure is expected (best-effort teardown, probes): stdout, or undefined. */
+export async function attempt(args: string[], cwd: string): Promise<string | undefined> {
+  try {
+    return await command(args, { cwd, timeout: 60_000 });
+  } catch {
+    return undefined;
+  }
+}
+
 export async function command(
   args: string[],
   options: { cwd: string; env?: NodeJS.ProcessEnv; inputFile?: string; timeout?: number },

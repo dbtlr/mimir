@@ -20,6 +20,7 @@ import { installBinary, readInstallationAt } from '../../bin/src/installation/in
 import { readDatabaseAuthority } from '../../bin/src/sandbox-authority';
 import type { DatabaseSandboxAuthority } from '../../bin/src/sandbox-authority';
 import { InterruptedError, command, hashFile, isolatedEnvironment, privateJson } from './process';
+import { removeSandboxUnits } from './sandbox-units';
 import { latestSnapshot, snapshotSchema } from './snapshot';
 
 export const POSTGRES_IMAGE =
@@ -684,6 +685,9 @@ export class Sandbox {
       }
       await command(['docker', 'rm', '--force', '--volumes', target], { cwd: this.repository });
     }
+    // A registered sandbox may have installed supervisor units under its own
+    // names; unload them before their executable disappears.
+    await removeSandboxUnits(id, root);
     await rm(root, { recursive: true });
   }
 }

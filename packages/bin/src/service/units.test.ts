@@ -25,10 +25,16 @@ test('a sandbox installation derives unit names scoped to its own sandbox id', (
   });
 });
 
-test('a sandbox id that is not a lowercase UUID never becomes part of a unit name', () => {
-  for (const id of ['../escape', '', 'SANDBOX', `${SANDBOX_ID}.serve`, SANDBOX_ID.toUpperCase()]) {
+test('a sandbox id that is not a UUID never becomes part of a unit name', () => {
+  for (const id of ['../escape', '', 'SANDBOX', `${SANDBOX_ID}.serve`]) {
     expect(() => unitLabels({ id, kind: 'sandbox' })).toThrow('sandbox id');
   }
+});
+
+test('an uppercase sandbox id names the same units as its lowercase form', () => {
+  expect(unitLabels({ id: SANDBOX_ID.toUpperCase(), kind: 'sandbox' })).toEqual(
+    unitLabels(sandbox),
+  );
 });
 
 test('a live installation may drive only the live unit names', () => {

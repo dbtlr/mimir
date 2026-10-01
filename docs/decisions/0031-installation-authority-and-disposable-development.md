@@ -147,8 +147,8 @@ The fence narrows instead of opening.
   `com.dbtlr.mimir.serve` and `com.dbtlr.mimir.snapshot` (launchd labels, and the
   same names as systemd units), so existing installations need no migration. A
   sandbox installation derives `com.dbtlr.mimir.sandbox-<id>.serve` and
-  `com.dbtlr.mimir.sandbox-<id>.snapshot` from its authority's identifier, which
-  must be a lowercase UUID.
+  `com.dbtlr.mimir.sandbox-<id>.snapshot` from its authority's identifier, a UUID
+  written in lowercase.
 - **An installation drives only its own units.** A live installation may mutate
   only the live names. A sandbox installation may mutate only its own
   sandbox-scoped names, so it can never address the live daemon or another

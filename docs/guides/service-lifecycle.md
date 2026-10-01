@@ -82,7 +82,7 @@ installation's data directory), not to the journal.
 | `start`     | `start`                                                 |
 | `stop`      | `stop` (the unit stays enabled)                         |
 | `restart`   | `restart`                                               |
-| `uninstall` | `disable --now`, then delete the unit files             |
+| `uninstall` | `disable --now`, delete the unit files, `daemon-reload` |
 | `status`    | `show` (loaded means active, activating, or reloading)  |
 
 For `snapshot`, `restart` re-arms the timer; it does not run a snapshot

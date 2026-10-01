@@ -93,7 +93,9 @@ Both targets need `norn` on `PATH`, because `service install` checks for it.
 The report is written to `.dev/sandbox-results/service-<sandbox-id>.json`.
 Teardown always unloads the units or removes the container. A failed run keeps
 its directory, including the daemon logs, and prints the `service-destroy`
-command.
+command. For the container target, the logs and the systemd journal are copied
+into that directory before the container is removed. `sandbox destroy` also
+unloads any units a database sandbox's binary installed.
 
 The **Service verify** GitHub Actions workflow runs the host target on a macOS
 runner and an Ubuntu runner, where it enables linger for the runner user. It

@@ -44,8 +44,9 @@ export type SnapshotUnitOptions = {
   vaultPath?: string;
 };
 
-/** Sandbox ids are generated lowercase UUIDs; anything else never reaches a unit name. */
-const SANDBOX_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** Sandbox ids are UUIDs (the authority schema already requires one); anything
+ *  else never reaches a unit name. Names use the lowercase form. */
+const SANDBOX_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The supervisor labels this scope's units use. A process without an installation
  *  reads the live names (status stays a harmless read) but may drive none of them. */
@@ -56,7 +57,7 @@ export function unitLabels(scope: SupervisorScope): Record<UnitName, string> {
   if (!SANDBOX_ID.test(scope.id)) {
     throw new Error(`invalid sandbox id for unit names: ${JSON.stringify(scope.id)}`);
   }
-  const base = `${LABEL_PREFIX}.sandbox-${scope.id}`;
+  const base = `${LABEL_PREFIX}.sandbox-${scope.id.toLowerCase()}`;
   return { serve: `${base}.serve`, snapshot: `${base}.snapshot` };
 }
 

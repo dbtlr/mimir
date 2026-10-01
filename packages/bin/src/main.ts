@@ -162,7 +162,7 @@ function realServiceUnits(
           logFile: SERVE_LOG_FILE,
           render: (_configFile, config, port) =>
             serveUnitFor(labels.serve, binPath, serveOptions(config, port)),
-          supervisor: new SystemdSupervisor(bunExec, `${labels.serve}.service`),
+          supervisor: new SystemdSupervisor(bunExec, serveFile),
           unitFile: serveFile,
         },
         snapshot: {
@@ -175,9 +175,7 @@ function realServiceUnits(
           logFile: SNAPSHOT_LOG_FILE,
           render: (_configFile, config) =>
             snapshotTimerUnitFor(labels.snapshot, snapshotOptions(config)),
-          supervisor: new SystemdSupervisor(bunExec, `${labels.snapshot}.timer`, [
-            snapshotServiceFile,
-          ]),
+          supervisor: new SystemdSupervisor(bunExec, timerFile, [snapshotServiceFile]),
           unitFile: timerFile,
         },
       },
