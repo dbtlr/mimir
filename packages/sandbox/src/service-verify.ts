@@ -190,22 +190,25 @@ export class ServiceVerifier {
   private async teardown(id: string): Promise<void> {
     const run = await this.record(id);
     if (run.target === 'container') {
-      if (run.containerId !== undefined) {
-        const owner = await attempt(
-          [
-            'docker',
-            'inspect',
-            '--format',
-            `{{index .Config.Labels "${CONTAINER_LABEL}"}}`,
-            run.containerId,
-          ],
-          this.repository,
-        );
-        if (owner === id) {
-          await command(['docker', 'rm', '--force', '--volumes', run.containerId], {
-            cwd: this.repository,
-          });
-        }
+      // Select by the ownership label, so a container whose id was never
+      // recorded (an interrupted `docker run`) is still found.
+      const owned = await command(
+        [
+          'docker',
+          'container',
+          'ls',
+          '--all',
+          '--quiet',
+          '--no-trunc',
+          '--filter',
+          `label=${CONTAINER_LABEL}=${id}`,
+        ],
+        { cwd: this.repository },
+      );
+      for (const containerId of owned.split('\n').filter((line) => line !== '')) {
+        await command(['docker', 'rm', '--force', '--volumes', containerId], {
+          cwd: this.repository,
+        });
       }
       return;
     }
