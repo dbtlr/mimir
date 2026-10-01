@@ -1005,6 +1005,10 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           }),
       },
 
+      // Rank is task-only and project-wide (ADR 0007): `:id` must be a task, and
+      // `ref` / `before` / `after` may name any ranked task in the same project.
+      // Phases, initiatives, projects, and artifacts are refused — sequence
+      // phases with `depend`, not reorder.
       '/api/nodes/:id/reorder': {
         POST: (req) =>
           guarded(req, async () => {

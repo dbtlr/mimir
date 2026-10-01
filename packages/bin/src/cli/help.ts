@@ -118,7 +118,7 @@ ${HOLD_ROWS}
     depend <id> --on <ids>              add dependency edges
     undepend <id> --on <ids>            remove dependency edges
     move <id> --to <parent>             re-parent a task or phase
-    reorder <id> --top|--bottom|        change rank within parent
+    reorder <id> --top|--bottom|        rank a task across the whole project
              --before <id>|--after <id>
 
   data:
@@ -191,8 +191,8 @@ options:
   write-verb flags:
       --on <ids>          depend/undepend: comma-separated dependency ids
       --to <parent>       move: destination parent (KEY or KEY-seq)
-      --before <id>       reorder: insert before this sibling
-      --after <id>        reorder: insert after this sibling
+      --before <id>       reorder: insert before this task
+      --after <id>        reorder: insert after this task
       --top               reorder: move to first position
       --bottom            reorder: move to last position
       --parent <KEY|id>   create: parent for initiative/phase/task
@@ -315,6 +315,10 @@ const SELECTION_NOTE: Row = [
   'verdict + field selection (see `mimir --help` for the full grammar)',
 ];
 const A_ID: Row = ['<id>', 'KEY-seq (task/phase/initiative), KEY (project), or KEY-aN (artifact)'];
+const A_REORDER_ID: Row = [
+  '<id>',
+  'KEY-seq of a task (only tasks carry rank; sequence phases with `mimir depend`)',
+];
 const A_REASON: Row = ['[reason]', 'optional note recorded in the transition log'];
 const A_KEY: Row = ['<KEY>', 'a project key (bare KEY)'];
 
@@ -642,15 +646,19 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     usage: 'mimir move <id> --to <parent>',
   },
   reorder: {
-    args: [A_ID],
-    examples: ['mimir reorder MMR-4 --top', 'mimir reorder MMR-4 --after MMR-3'],
-    flags: [
-      ['--top', 'move to first position'],
-      ['--bottom', 'move to last position'],
-      ['--before <id>', 'insert before this sibling'],
-      ['--after <id>', 'insert after this sibling'],
+    args: [A_REORDER_ID],
+    examples: [
+      'mimir reorder MMR-4 --top',
+      'mimir reorder MMR-4 --after MMR-3',
+      'mimir reorder MMR-4 --before MMR-9   # any ranked task in the project, under any phase',
     ],
-    summary: 'change rank within the parent',
+    flags: [
+      ['--top', "move to first position in the project's rank"],
+      ['--bottom', "move to last position in the project's rank"],
+      ['--before <id>', 'insert before this task (any ranked task in the same project)'],
+      ['--after <id>', 'insert after this task (any ranked task in the same project)'],
+    ],
+    summary: "rank a task across the whole project (tasks only; phases and initiatives don't rank)",
     usage: 'mimir reorder <id> --top|--bottom|--before <id>|--after <id>',
   },
   // ── data ──

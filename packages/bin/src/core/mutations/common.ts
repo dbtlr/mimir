@@ -102,7 +102,12 @@ const startContainerHint: ContainerHint = (rendered, readyIds) =>
     ? `containers aren't started directly — start a ready task under it: ${readyIds.join(', ')}`
     : `containers aren't started directly — no ready tasks under it; see its shape with 'mimir tree ${rendered}'`;
 
-/** Rank is task-only today (MMR-358 shapes container ordering). */
+/**
+ * Rank is task-only by design (ADR 0007): one flat rank per project over tasks,
+ * so phases and initiatives carry none. Phase order comes from dependencies
+ * (`depend PHASE-2 --on PHASE-1` holds PHASE-2's tasks out of `next`), not
+ * from a container rank.
+ */
 export const reorderContainerHint: ContainerHint = (rendered, readyIds) =>
   readyIds.length > 0
     ? `only tasks carry rank — reorder a ready task under it instead: ${readyIds.join(', ')}`

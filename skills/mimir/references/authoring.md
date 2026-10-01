@@ -61,6 +61,22 @@ mimir reorder KEY-9 --top | --bottom | --before KEY-7 | --after KEY-7
 - `reorder` is the master "what's next" order (rank). It beats priority — placing a
   p2 above a p0 is legitimate and deliberate. Rank is relative only: you say
   before/after/top/bottom, never a number.
+- Rank belongs to **tasks only**, and it is one flat order across the whole
+  project: `--before`/`--after` take any ranked task in the project, not just a
+  sibling under the same phase. Phases and initiatives carry no rank, and
+  `reorder` on one is refused.
+
+### Sequencing phases
+
+To make one phase follow another, depend the containers, not their tasks:
+
+```sh
+mimir depend KEY-12 --on KEY-11    # phase 2 waits on phase 1
+```
+
+Dependencies are inherited down the tree, so every task under phase 2 is held
+out of `next` until phase 1 settles (`done` or `abandoned`). Reorder then ranks
+tasks only within what is ready; it never orders phases themselves.
 
 ## Patching vs annotating
 

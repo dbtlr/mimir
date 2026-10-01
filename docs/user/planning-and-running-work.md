@@ -30,6 +30,11 @@ mimir reorder AUR-8 --top
 mimir reorder AUR-9 --after AUR-8
 ```
 
+Rank belongs to tasks only and runs across the whole project, so `--before` and
+`--after` take any ranked task in the same project. Phases and initiatives carry
+no rank. To run one phase after another, depend on it: `mimir depend AUR-12 --on
+AUR-11` holds every task under AUR-12 out of `next` until AUR-11 settles.
+
 This keeps one answer to “what is next?” without maintaining a separate queue.
 
 ## Record dependencies
