@@ -10,8 +10,6 @@ name: Service verify
 # Manual only. It never runs on push or pull_request: a supervisor lifecycle
 # takes minutes and needs nothing from an ordinary change.
 on:
-  push:
-    branches: [mmr-54-systemd-supervisor]
   workflow_dispatch:
     inputs:
       platform:
