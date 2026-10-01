@@ -24,16 +24,16 @@ It does not change the plist. `setup` uses the same installation-bound path.
 
 ## Production plists do not bake a port
 
-The launchd unit's `ProgramArguments` for `serve` are always just
-`serve --no-hunt` — no `--port`. The daemon reads its port from the config
+The live `serve` unit (launchd `ProgramArguments`, systemd `ExecStart`) always
+runs just `serve --no-hunt` — no `--port`. The daemon reads its port from the config
 file (or `MIMIR_PORT`, if you've set that in the plist's own
 `EnvironmentVariables`, which install does not do for you) at process start.
 This means retargeting the port is edit-config-then-restart, never a plist
 rewrite: `mimir service install --port <n>` followed by
 `mimir service restart` (or just `install` again, which reinstalls the unit).
 
-Only registered live installations can install or manage the host service.
-There is no environment override that grants this authority to a development binary.
+Only a registered installation can install or manage a host service, and only
+its own units. There is no environment override that grants this authority to a development binary.
 
 ## Loopback only — the proxy is the boundary
 
