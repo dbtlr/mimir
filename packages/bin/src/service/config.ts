@@ -4,7 +4,7 @@
  * reads this file at startup, so retargeting is edit-config + restart.
  * Serve's port precedence: --port > MIMIR_PORT > config > built-in default.
  */
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { runtimePaths } from '../env';
@@ -350,6 +350,18 @@ function emitTable(prefix: string, table: Table, out: string[]): void {
  * one.
  */
 const CONFIG_MODE = 0o600;
+
+/**
+ * The config file's permission bits (`0o644`), or undefined when it cannot be
+ * statted. Lives here because doctor may not touch `node:fs` (ADR 0018).
+ */
+export function configFileMode(file = configPath()): number | undefined {
+  try {
+    return statSync(file).mode & 0o777;
+  } catch {
+    return undefined;
+  }
+}
 
 /** The outcome of {@link writeConfig}: whether an unparseable file was reset. */
 export type WriteResult = {

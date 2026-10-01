@@ -88,6 +88,9 @@ runs against a mismatched schema.
   anchor. A store it cannot reach is not a finding: the command fails with a
   nonzero exit instead. There is no repair pass; every state it reports is
   unreachable through the binary and points at a hand edit.
+- **Doctor checks the config file mode.** The `[store] url` carries the database
+  password, so `mimir doctor` warns when the config file grants group or world
+  read. The fix is `chmod 600` on the file the warning names.
 
 ## Back up
 
