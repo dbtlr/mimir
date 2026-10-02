@@ -306,20 +306,16 @@ const invalidCases: InvalidCase[] = [
     field: 'exactly one',
     name: 'no history owner',
   },
-  ...['type', 'lifecycle', 'hold', 'size'].map(
-    (field): InvalidCase => ({
-      change: (d) => ({ ...d, nodes: patchFirst(d.nodes, { [field]: 'invalid' }) }),
-      field,
-      name: `off-enum node ${field}`,
-    }),
-  ),
-  ...['kind', 'lifecycle'].map(
-    (field): InvalidCase => ({
-      change: (d) => ({ ...d, seeds: patchFirst(d.seeds, { [field]: 'invalid' }) }),
-      field,
-      name: `off-enum seed ${field}`,
-    }),
-  ),
+  ...['type', 'lifecycle', 'hold', 'size'].map((field): InvalidCase => ({
+    change: (d) => ({ ...d, nodes: patchFirst(d.nodes, { [field]: 'invalid' }) }),
+    field,
+    name: `off-enum node ${field}`,
+  })),
+  ...['kind', 'lifecycle'].map((field): InvalidCase => ({
+    change: (d) => ({ ...d, seeds: patchFirst(d.seeds, { [field]: 'invalid' }) }),
+    field,
+    name: `off-enum seed ${field}`,
+  })),
   {
     change: (d) => ({ ...d, transitions: patchFirst(d.transitions, { kind: 'invalid' }) }),
     field: 'kind',

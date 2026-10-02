@@ -149,12 +149,10 @@ export async function loadWorkingSet(ex: Executor): Promise<WorkingSet> {
     new Map(projects.map((project) => [project.key, project.created_at])),
   );
   return {
-    edges: edges.map(
-      (edge): Dependency => ({
-        depends_on_node_id: edge.depends_on_node_id,
-        node_id: edge.node_id,
-      }),
-    ),
+    edges: edges.map((edge): Dependency => ({
+      depends_on_node_id: edge.depends_on_node_id,
+      node_id: edge.node_id,
+    })),
     nodeTags,
     nodes: nodeRows.map(toNode),
     projectTags,

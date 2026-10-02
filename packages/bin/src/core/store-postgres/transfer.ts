@@ -110,13 +110,11 @@ export async function exportPostgresStore(ex: Executor): Promise<StoreExport> {
   ];
 
   const annotations: NewAnnotationRecord[] = nodes.flatMap((node) =>
-    (sections.get(node.id)?.annotations ?? []).map(
-      (view): NewAnnotationRecord => ({
-        content: view.content,
-        created_at: view.createdAt,
-        node_id: node.id,
-      }),
-    ),
+    (sections.get(node.id)?.annotations ?? []).map((view): NewAnnotationRecord => ({
+      content: view.content,
+      created_at: view.createdAt,
+      node_id: node.id,
+    })),
   );
 
   const transitions = await exportTransitions(ex);

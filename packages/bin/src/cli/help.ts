@@ -50,9 +50,10 @@ export function uniformFlagSpec(spec: OpFact): string {
  * fields — the flag spelled by the shared template, described by its field. */
 export function uniformFlagRows(spec: OpFact): Row[] {
   return specUpdateFields(spec.fields ?? []).flatMap((field) =>
-    updateFieldFlags(field.update).map(
-      ([, flag]): Row => [flag, FIELD_ARG_HELP[field.key] ?? `${field.key} recorded on the row`],
-    ),
+    updateFieldFlags(field.update).map(([, flag]): Row => [
+      flag,
+      FIELD_ARG_HELP[field.key] ?? `${field.key} recorded on the row`,
+    ]),
   );
 }
 
