@@ -6,7 +6,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 
@@ -18,7 +18,7 @@ import {
   installSkill,
   settleCodexLogin,
 } from './skill-eval-sandbox';
-import type { Harness } from './skill-eval-sandbox';
+import type { EvalSandbox, Harness } from './skill-eval-sandbox';
 import { SCENARIOS, UNIVERSAL_CHECKS } from './skill-eval-scenarios';
 import type { Scenario } from './skill-eval-scenarios';
 import {
@@ -136,6 +136,30 @@ export function escapes(commands: readonly string[], sandboxBinary: string): str
 const message = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
+/**
+ * Check `mimir` resolution in Claude's real tool shell, once per evaluation and
+ * before any scenario. The pre-run shell checks approximate that shell; this
+ * asks a cheap Claude session to record `type mimir` into a file, from the same
+ * environment and flags every run uses, and refuses unless it names the sandbox.
+ */
+async function verifyClaudeShell(root: string, binary: string): Promise<void> {
+  const sandbox = await createEvalSandbox({ binary, files: {}, harness: 'claude', root });
+  const prompt =
+    'Run exactly this shell command, once, and nothing else: type mimir > .shell-canary';
+  await capture(agentCommand('claude', prompt, 'haiku', sandbox.root), {
+    cwd: sandbox.work,
+    env: sandbox.env,
+    timeout: 5 * 60_000,
+  });
+  const recorded = await readFile(join(sandbox.work, '.shell-canary'), 'utf8').catch(() => '');
+  if (recorded.trim() !== `mimir is ${sandbox.binary}`) {
+    throw new SafetyError(
+      `Claude's tool shell resolves mimir as "${recorded.trim() || 'nothing recorded'}", not the sandbox binary; refusing to run`,
+    );
+  }
+  await rm(root, { force: true, recursive: true });
+}
+
 type Run = { scenario: Scenario; harness: Harness; attempt: number };
 
 async function runOne(
@@ -182,6 +206,32 @@ async function runOne(
     throw new SafetyError(`${root}: ${message(error)}`);
   }
 
+  try {
+    return await runAgent(sandbox, options, { attempt, harness, scenario }, ids, before, {
+      outcome,
+      signal,
+    });
+  } catch (error) {
+    // Only a safety failure, or the abort it triggers, ends the evaluation. A
+    // run's own failure (a timeout, a failed export) is that run's result.
+    if (error instanceof SafetyError || signal.aborted) {
+      throw error;
+    }
+    return outcome({ error: `run failed: ${message(error)}` });
+  }
+}
+
+/** Run the agent, then grade it. Throws `SafetyError` on an escape. */
+async function runAgent(
+  sandbox: EvalSandbox,
+  options: EvalOptions,
+  { scenario, harness }: Run,
+  ids: Record<string, string>,
+  before: unknown,
+  { outcome, signal }: { outcome: (fields: Partial<RunResult>) => RunResult; signal: AbortSignal },
+): Promise<RunResult> {
+  const root = sandbox.root;
+  const model = options.models[harness];
   const started = Date.now();
   let run;
   try {
@@ -246,12 +296,12 @@ async function runOne(
 /**
  * Run `tasks` with at most `limit` in flight. The first failure aborts the
  * shared signal, which stops new starts and kills the agents in flight; the
- * pool then settles and rethrows that first failure.
+ * pool then settles and returns what finished, with that first failure.
  */
 async function pool<T>(
   tasks: ((signal: AbortSignal) => Promise<T>)[],
   limit: number,
-): Promise<T[]> {
+): Promise<{ results: T[]; failure?: unknown }> {
   const controller = new AbortController();
   const results: T[] = [];
   let firstFailure: unknown;
@@ -273,10 +323,7 @@ async function pool<T>(
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, limit) }, worker));
-  if (controller.signal.aborted) {
-    throw firstFailure;
-  }
-  return results;
+  return controller.signal.aborted ? { failure: firstFailure, results } : { results };
 }
 
 /** The summary table: one row per scenario, one pass-count column per harness. */
@@ -339,6 +386,9 @@ export class SkillEval {
     await mkdir(reports, { mode: 0o700, recursive: true });
     process.stderr.write(`Skill eval ${id}: runs in ${evalRoot}\n`);
 
+    if (options.harnesses.includes('claude')) {
+      await verifyClaudeShell(join(evalRoot, 'claude-shell-canary'), binary);
+    }
     const selected = SCENARIOS.filter(
       (s) => options.scenarios.length === 0 || options.scenarios.includes(s.name),
     );
@@ -350,7 +400,7 @@ export class SkillEval {
         }),
       ),
     );
-    const results = await pool(tasks, options.concurrency);
+    const { results, failure } = await pool(tasks, options.concurrency);
     const report = join(reports, 'report.json');
     await privateJson(report, {
       binarySha256: await hashFile(binary),
@@ -359,8 +409,13 @@ export class SkillEval {
       results,
       skill,
       skillSha256: skillDigest(skill),
+      stoppedBy: failure === undefined ? null : message(failure),
       version: 1,
     });
+    if (failure !== undefined) {
+      process.stderr.write(`Partial report: ${report}\nRuns kept: ${evalRoot}\n`);
+      throw failure;
+    }
     const retained = results.filter((r) => !r.passed || options.keep).length;
     if (retained === 0) {
       await rm(evalRoot, { force: true, recursive: true });

@@ -6,7 +6,17 @@
  */
 import { randomUUID } from 'node:crypto';
 import { existsSync, lstatSync, realpathSync } from 'node:fs';
-import { copyFile, cp, mkdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  copyFile,
+  cp,
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -133,8 +143,9 @@ export async function installSkill(sandbox: EvalSandbox, skill: string, harness:
 /**
  * Refuse to run an agent unless its shell reaches the sandbox binary. `mimir`
  * must resolve on the agent's PATH to the sandbox (Codex's login zsh may reorder
- * PATH, so it is checked there), and the operator's interactive zsh setup, which
- * Claude's tool shell replays, must define no `mimir` alias or function.
+ * PATH, so it is checked there), and the operator's interactive zsh setup must
+ * define no `mimir` alias or function. Claude's actual tool shell is also probed
+ * once per evaluation (`verifyClaudeShell` in skill-eval.ts).
  */
 export async function assertSandboxResolution(sandbox: EvalSandbox, harness: Harness) {
   const run = (shell: string[], script: string) =>
@@ -166,6 +177,8 @@ export async function settleCodexLogin(sandbox: EvalSandbox): Promise<boolean> {
   if (refreshed) {
     const staging = `${codexLogin()}.${randomUUID()}.tmp`;
     await copyFile(linked, staging);
+    // A login token stays owner-only; copyFile's destination mode is not guaranteed.
+    await chmod(staging, 0o600);
     await rename(staging, codexLogin());
   }
   await rm(linked, { force: true });
