@@ -10,7 +10,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 
-import { capture, command, hashFile, privateJson } from './process';
+import { capture, command, hashFile, InterruptedError, privateJson } from './process';
 import {
   assertSandboxResolution,
   createEvalSandbox,
@@ -205,6 +205,9 @@ async function runOne(
     await installSkill(sandbox, options.skill, harness);
     before = await exportStore(sandbox, 'store-before');
   } catch (error) {
+    if (error instanceof InterruptedError) {
+      throw error;
+    }
     return outcome({ error: `setup failed: ${message(error)}` });
   }
   try {
@@ -219,9 +222,10 @@ async function runOne(
       signal,
     });
   } catch (error) {
-    // Only a safety failure, or the abort it triggers, ends the evaluation. A
-    // run's own failure (a timeout, a failed export) is that run's result.
-    if (error instanceof SafetyError || signal.aborted) {
+    // A safety failure, the abort it triggers, or the operator's interrupt ends
+    // the evaluation. A run's own failure (a timeout, a failed export) is that
+    // run's result.
+    if (error instanceof SafetyError || error instanceof InterruptedError || signal.aborted) {
       throw error;
     }
     return outcome({ error: `run failed: ${message(error)}` });
