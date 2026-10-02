@@ -123,7 +123,8 @@ controller.
   it: `ID=$(mimir create task "…" --parent MMR-2 -f ids)`. Sequence numbers are
   never reused, so a guessed id writes to the wrong row.
 - Inside a bound repo, commands default to the bound project. `-s KEY` targets
-  another project, and `-s all` spans every project.
+  another project, and `-s all` spans every project. `mimir projects` lists
+  every project key and ignores the binding.
 - `mimir get <id>` reads any record by id.
 - Use the verbs and flags the references show. The surface is exact, and a
   guessed flag can write the wrong field without an error. Before your first

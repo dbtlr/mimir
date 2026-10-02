@@ -28,6 +28,7 @@ import {
   toolMove,
   toolNext,
   toolOverview,
+  toolProjects,
   toolScratchAgendaAdd,
   toolScratchAgendaComplete,
   toolScratchAgendaSupersede,
@@ -1014,7 +1015,7 @@ test.skipIf(!NORN)(
 // --- project archive (ADR 0015, MMR-123) ---
 
 test.skipIf(!NORN)(
-  'MCP archive freezes + hides; the list door and unarchive round-trip',
+  'MCP archive freezes + hides; projects reveals it and unarchive round-trips',
   async () => {
     const arc = await toolUniform(store, 'archive', { key: 'MMR', reason: 'superseded' });
     expect(arc.isError).toBeUndefined();
@@ -1025,10 +1026,10 @@ test.skipIf(!NORN)(
     expect(frozen.isError).toBe(true);
     expect(parseJson<{ error: { code: string } }>(textOf(frozen)).error.code).toBe('conflict');
 
-    // hidden: a normal list excludes it; the door lists the archived project
+    // hidden: a normal list excludes it; projects lists the archived project
     const live = await toolList(store, { scope: 'MMR', status: 'all' });
     expect(parseJson<{ total: number }>(textOf(live)).total).toBe(0);
-    const door = await toolList(store, { status: 'archived' });
+    const door = await toolProjects(store, { status: 'archived' });
     const shelf = parseJson<{ projects: { id: string }[] }>(textOf(door));
     expect(shelf.projects.map((p) => p.id)).toEqual(['MMR']);
 
@@ -1037,6 +1038,23 @@ test.skipIf(!NORN)(
     expect(un.isError).toBeUndefined();
     expect(parseJson<{ archived_at?: string }>(textOf(un)).archived_at).toBeUndefined();
     expect((await toolUniform(store, 'start', { id: taskRef })).isError).toBeUndefined();
+  },
+);
+
+test.skipIf(!NORN)(
+  'MCP projects lists active by default and opens the shelf on request (MMR-406)',
+  async () => {
+    await createProject(store, { key: 'AAA', name: 'a' });
+    await toolUniform(store, 'archive', { key: 'AAA' });
+    const ids = async (status?: 'active' | 'archived' | 'all'): Promise<string[]> =>
+      parseJson<{ projects: { id: string }[] }>(
+        textOf(await toolProjects(store, status === undefined ? {} : { status })),
+      ).projects.map((p) => p.id);
+
+    expect(await ids()).toEqual(['MMR']);
+    expect(await ids('active')).toEqual(['MMR']);
+    expect(await ids('archived')).toEqual(['AAA']);
+    expect(await ids('all')).toEqual(['AAA', 'MMR']);
   },
 );
 
@@ -1639,7 +1657,7 @@ test('a registered tool name is unaffected by the not-found guard', async () => 
 // A compliant client omits the `arguments` key entirely; the SDK's own client
 // does this. The guard must coalesce and write back so the SDK's re-validation
 // sees `{}`, not `undefined` — else all-optional tools re-leak the zod dump.
-const ALL_OPTIONAL_TOOLS = ['next', 'list', 'seeds', 'overview', 'triage'];
+const ALL_OPTIONAL_TOOLS = ['next', 'list', 'projects', 'seeds', 'overview', 'triage'];
 
 test.each(ALL_OPTIONAL_TOOLS)(
   "a no-arguments call to '%s' never ships library text (MMR-292)",
@@ -1673,6 +1691,43 @@ test.skipIf(!NORN)('a no-arguments call to an all-optional tool succeeds (MMR-29
     expect(parseJson<{ total: number }>(callText(res)).total).toBeGreaterThanOrEqual(0);
   } finally {
     await client.close();
+  }
+});
+
+test.skipIf(!NORN)('the projects tool ignores the bound board (MMR-406)', async () => {
+  await createProject(store, { key: 'AAA', name: 'a' });
+  const server = buildMcpServer(store, '0.0.0', 'MMR');
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: 'test', version: '0.0.0' });
+  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+  try {
+    const res = (await client.callTool({ name: 'projects' })) as ToolCall;
+    expect(res.isError).toBeUndefined();
+    const ids = parseJson<{ projects: { id: string }[] }>(callText(res)).projects.map((p) => p.id);
+    expect(ids).toEqual(['AAA', 'MMR']);
+  } finally {
+    await client.close();
+  }
+});
+
+test('the projects tool refuses a node status and list refuses archived (MMR-406)', async () => {
+  const { client, close } = await connectClient();
+  try {
+    const projects = (await client.callTool({
+      arguments: { status: 'live' },
+      name: 'projects',
+    })) as ToolCall;
+    expect(projects.isError).toBe(true);
+    expect(callText(projects)).toContain("status must be one of 'active', 'archived', 'all'");
+
+    const list = (await client.callTool({
+      arguments: { status: 'archived' },
+      name: 'list',
+    })) as ToolCall;
+    expect(list.isError).toBe(true);
+    expect(callText(list)).toContain('status must be one of');
+  } finally {
+    await close();
   }
 });
 

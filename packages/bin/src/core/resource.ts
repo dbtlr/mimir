@@ -1,4 +1,4 @@
-import type { FacetName, NodeView, TreeView } from '@mimir/contract';
+import type { FacetName, NodeView, ProjectStatusSelector, TreeView } from '@mimir/contract';
 
 import type { DerivationSet } from './derive';
 import { deriveSet, findNodeInSet } from './derive';
@@ -21,12 +21,12 @@ import type { Store } from './store';
 /**
  * List projects. Archived projects are hidden by default (ADR 0015); `filter`
  * opts into the shelf — `'archived'` returns only archived projects (the
- * `list --status archived` door), `'all'` returns everything.
+ * `projects --status archived` door), `'all'` returns everything.
  */
 export async function listProjects(
   store: Store,
   facets: readonly FacetName[] = ['distribution', 'tags'],
-  filter: 'active' | 'archived' | 'all' = 'active',
+  filter: ProjectStatusSelector = 'active',
 ): Promise<NodeView[]> {
   const set = deriveSet(await store.loadWorkingSet());
   // ws.projects is key-ordered; the filter picks the shelf.

@@ -3,13 +3,14 @@ import {
   isTerminalLifecycle,
   LIFECYCLE_VALUES,
   PRIORITY_VALUES,
+  PROJECT_STATUS_SELECTOR_VALUES,
   SEED_KIND_VALUES,
   SEED_STATUS_SELECTOR_VALUES,
   SIZE_VALUES,
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
 } from '@mimir/contract';
-import type { FacetName, FieldKindName, OpFact } from '@mimir/contract';
+import type { FacetName, FieldKindName, OpFact, ProjectStatusSelector } from '@mimir/contract';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
@@ -32,6 +33,7 @@ import {
   toolNext,
   toolArtifacts,
   toolOverview,
+  toolProjects,
   toolPromote,
   toolReject,
   toolReorder,
@@ -75,6 +77,7 @@ import type {
 const PRIORITY = z.enum(PRIORITY_VALUES);
 const SIZE = z.enum(SIZE_VALUES);
 const STATUS = z.enum(STATUS_SELECTOR_VALUES);
+const PROJECT_STATUS = z.enum(PROJECT_STATUS_SELECTOR_VALUES);
 const VERDICT = z.enum(VERDICT_VALUES);
 const SEED_KIND = z.enum(SEED_KIND_VALUES);
 const SEED_STATUS = z.enum(SEED_STATUS_SELECTOR_VALUES);
@@ -509,6 +512,14 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       ...OPERATOR_SCHEMA,
     },
     (args: SetQueryArgs) => toolList(store, applyScope(args)),
+  );
+
+  register(
+    server,
+    'projects',
+    'Every project, key-ordered — the keys to scope a query, bind a repo, or file a seed against. Projects are the scope dimension itself, so the bound board never narrows this listing. status picks the shelf: active (default), archived (hidden from every other read), or all.',
+    { status: PROJECT_STATUS.optional() },
+    (args: { status?: ProjectStatusSelector }) => toolProjects(store, args),
   );
 
   register(

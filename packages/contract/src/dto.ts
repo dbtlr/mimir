@@ -376,7 +376,8 @@ export type NodeView = {
   open_ended?: boolean | null;
 
   // bare — project-only: the archived operator axis (ADR 0015). Present and
-  // non-null only when the project is archived (surfaced via the archived door).
+  // non-null only when the project is archived (surfaced via
+  // `projects --status archived`).
   archivedAt?: string | null;
 
   // facets — opt-in

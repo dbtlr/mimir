@@ -101,6 +101,8 @@ work commands (flat verbs — read or mutate work state; the agent hot path):
     overview        one project at a glance — direction, in flight, next,
                     awaiting, recent sessions, hygiene
     list            broad selection by predicate/scope/tag
+    projects        every project — the keys to scope, bind, or file
+                    seeds against (--status archived opens the shelf)
     artifacts       the artifact feed — frozen work products, newest first
     scratch <sub>   temporary resumable episode state (UUID-addressed)
     get <id>        full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN), seed (KEY-sN)
@@ -152,7 +154,8 @@ ${PROJECT_ROWS}
 
 options:
   -s, --scope <KEY>       limit to a project (default: the .mimir.toml
-                          binding if present; "all" = every project)
+                          binding if present; "all" = every project);
+                          projects takes no scope
   -p, --priority <p0..p3> filter by priority (signal, not sort)
       --size <s|m|l>      filter by size
   -t, --tag <tag>         list/artifacts: filter by tag
@@ -168,6 +171,7 @@ options:
       --status <word>     list: the universe — ready|awaiting|in_progress|
                           under_review|blocked|parked|done|abandoned, or
                           unions live (default) | terminal | all
+                          projects: active (default) | archived | all
       --is <verdict>      verdicts: stale|blocking|orphaned (repeatable)
       --not-is <verdict>  negated verdict (repeatable)
       --eq F:V            field equals (also --not-eq); --in F:V1,V2 any-of
@@ -334,7 +338,7 @@ const UNIFORM_EXAMPLES: Record<UniformVerb, readonly string[]> = {
   abandon: ['mimir abandon MMR-3 "superseded by MMR-9"'],
   archive: [
     'mimir archive SAGA "superseded by SAGA2"',
-    'mimir list --status archived        # the archived projects (the one door)',
+    'mimir projects --status archived    # the archived projects (the one door)',
   ],
   block: ['mimir block MMR-3 "upstream API down"'],
   done: ['mimir done MMR-3'],
@@ -404,6 +408,18 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     summary:
       'session-boot orientation for one project — direction, in flight, next, awaiting, sessions, hygiene',
     usage: 'mimir overview [-s <KEY>]',
+  },
+  projects: {
+    examples: [
+      'mimir projects                     # every active project, the binding ignored',
+      'mimir projects --status archived   # the archived shelf',
+      'mimir projects --status all -f ids # every key taken, archived included',
+      'mimir projects -f json | jq        # structured output for scripts',
+    ],
+    flags: [['--status <shelf>', 'active (default) | archived | all'], F_FORMAT],
+    summary:
+      'every project, key-ordered — the scope dimension itself, so the binding never narrows it',
+    usage: 'mimir projects [--status active|archived|all]',
   },
   artifacts: {
     examples: [
@@ -1220,6 +1236,7 @@ examples:
   mimir get MMR-16 --col annotations  # expand annotation bodies, not just the count
   mimir get MMR-a1 --col content      # an artifact's frozen body
   mimir artifacts -t session_summary  # the retrospectives, newest first
+  mimir projects                      # every project key (the binding never narrows it)
   mimir status MMR-3                  # rollup of an initiative/phase
   mimir tree MMR                      # full hierarchy under the project
   mimir tree MMR-3                    # subtree rooted at a phase/initiative

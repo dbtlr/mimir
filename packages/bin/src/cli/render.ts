@@ -105,9 +105,14 @@ export function taskRows(items: readonly NodeView[], io: Io): string[] {
   );
 }
 
-/** `table` — one task per line, count-led, in array (rank) order. */
-export function renderTable(result: SetResult<NodeView>, io: Io, emptyMsg?: string): string {
-  const lines = [countLine(result.total)];
+/** `table` — one row per line, count-led (`unit` names a row), in array (rank) order. */
+export function renderTable(
+  result: SetResult<NodeView>,
+  io: Io,
+  emptyMsg?: string,
+  unit = 'task',
+): string {
+  const lines = [countLine(result.total, unit)];
   const items = result.items;
   if (items.length === 0) {
     if (io.isTTY && emptyMsg !== undefined) {

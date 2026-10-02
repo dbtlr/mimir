@@ -21,8 +21,9 @@ import { expectMimirError } from './testing';
 
 /**
  * Read-side hiding (ADR 0015 Phase 1): an archived project + its whole subtree
- * + artifacts read as absent by default across every read path; a project-level
- * `--status archived` door is the sole opt-in. `unarchive` restores visibility.
+ * + artifacts read as absent by default across every read path; the
+ * `projects --status archived` listing is the sole opt-in. `unarchive`
+ * restores visibility.
  */
 
 const NORN = Bun.which('norn') !== null;

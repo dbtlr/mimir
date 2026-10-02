@@ -14,19 +14,24 @@ import { TASK_STATUS_WORD_VALUES } from './enums';
  */
 
 /**
- * The `--status` universe vocabulary: the closed task-reachable words + the
- * three unions, plus `archived` — the door to the hidden shelf (ADR 0015):
- * `list --status archived` lists the archived *projects*, the sole opt-in that
- * surfaces what default reads hide.
+ * The `--status` universe vocabulary for node selection: the closed
+ * task-reachable words + the three unions.
  */
 export const STATUS_SELECTOR_VALUES = [
   ...TASK_STATUS_WORD_VALUES,
   'live',
   'terminal',
   'all',
-  'archived',
 ] as const;
 export type StatusSelector = (typeof STATUS_SELECTOR_VALUES)[number];
+
+/**
+ * The project-listing shelf (ADR 0015, MMR-406): archived projects are hidden
+ * by default, and `projects --status archived` is the sole opt-in that
+ * surfaces them. `all` returns both shelves.
+ */
+export const PROJECT_STATUS_SELECTOR_VALUES = ['active', 'archived', 'all'] as const;
+export type ProjectStatusSelector = (typeof PROJECT_STATUS_SELECTOR_VALUES)[number];
 
 /** The verdict vocabulary — derived predicates selectable via `--is` / `--not-is`. */
 export const VERDICT_VALUES = ['stale', 'blocking', 'orphaned'] as const;

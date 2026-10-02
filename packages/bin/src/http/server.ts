@@ -3,6 +3,7 @@ import type {
   FacetName,
   FieldFilter,
   NodeView,
+  ProjectStatusSelector,
   SeedKind,
   StatusSelector,
   VerdictSelector,
@@ -239,7 +240,7 @@ async function archivedProjectKeys(store: Store): Promise<string[]> {
 }
 
 /** Map the `?status` param on the projects list to the listProjects filter (ADR 0015). */
-function projectFilter(status: string | null): 'active' | 'archived' | 'all' {
+function projectFilter(status: string | null): ProjectStatusSelector {
   if (status === 'archived') {
     return 'archived';
   }

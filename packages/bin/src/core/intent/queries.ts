@@ -163,7 +163,7 @@ function coversLive(selector: StatusSelector): boolean {
   if (selector === 'live' || selector === 'all') {
     return true;
   }
-  if (selector === 'terminal' || selector === 'archived') {
+  if (selector === 'terminal') {
     return false;
   }
   return !isTerminalWord(selector);
@@ -174,7 +174,7 @@ function coversTerminal(selector: StatusSelector): boolean {
   if (selector === 'terminal' || selector === 'all') {
     return true;
   }
-  if (selector === 'live' || selector === 'archived') {
+  if (selector === 'live') {
     return false;
   }
   return isTerminalWord(selector);
@@ -413,8 +413,8 @@ export async function listNodes(
       if (matchesQ !== undefined && !matchesQ(n.title)) {
         return false;
       }
-      // Hide archived projects' subtrees (ADR 0015). The `archived` universe is a
-      // project-level door handled by the transport, never reaching listNodes.
+      // Hide archived projects' subtrees (ADR 0015). Archived projects are
+      // listed only by `projects` (and `GET /api/projects`), never by listNodes.
       return !set.archivedProjects.has(n.project_id);
     })
     .toSorted(terminalOrder ? byCompletedOrder(set) : byRankOrder(set));
