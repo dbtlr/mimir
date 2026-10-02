@@ -45,8 +45,8 @@
     "packages/sandbox": {
       "name": "@mimir/sandbox",
       "dependencies": {
-        "@loomcli/core": "0.2.0",
-        "@loomcli/plugins": "0.2.0",
+        "@loomcli/core": "0.6.0",
+        "@loomcli/plugins": "0.6.0",
         "zod": "4.6.5",
       },
     },
@@ -359,9 +359,9 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@loomcli/core": ["@loomcli/core@0.2.0", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "@types/node": "22.20.1" } }, "sha512-sJlH3eWqqQWc2VZkNQ65SqVdD0hxQZ2dJgak/0erJhkqxq7YrI3PeL7yLmMVhdsdnX8txW7eUvJRz+VDVuPOkg=="],
+    "@loomcli/core": ["@loomcli/core@0.6.0", "", { "dependencies": { "@rockorager/uucode": "2.2.1", "@standard-schema/spec": "^1.1.0", "@types/node": "22.20.1" } }, "sha512-13tIUnrQNoZrEf4HHYN9eWWWJH5i1UuLOia6J2iwRh+hKmhzOdnzBcbzR7au304/Q4g+vJS+e/vm9fwfHF2Npg=="],
 
-    "@loomcli/plugins": ["@loomcli/plugins@0.2.0", "", { "dependencies": { "zod": "^4.5.4" }, "peerDependencies": { "@loomcli/core": "0.2.0" } }, "sha512-pfQxVE3MzSFxOFVNP+wualvzqMVOscgqZsocJXdCDQdSMpLVpWn+DiBwHnYdvTpwHgqxZlOtxbDBac9cF7E3Ug=="],
+    "@loomcli/plugins": ["@loomcli/plugins@0.6.0", "", { "dependencies": { "zod": "^4.5.4" }, "peerDependencies": { "@loomcli/core": "0.6.0" } }, "sha512-GGekmAJmsIJleAQn6F5AugtsEu8peJ9qYPaER5ulm/kgvegpVFGQG6hiTKzunE9D5YIDC72NJ94P5qOPyZHgCw=="],
 
     "@mimir/bin": ["@mimir/bin@workspace:packages/bin"],
 
@@ -472,6 +472,8 @@
     "@playwright/test": ["@playwright/test@1.63.0", "", { "dependencies": { "playwright": "1.63.0" }, "bin": { "playwright": "cli.js" } }, "sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ=="],
 
     "@polka/url": ["@polka/url@1.0.0-next.29", "", {}, "sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww=="],
+
+    "@rockorager/uucode": ["@rockorager/uucode@2.2.1", "", {}, "sha512-1jXmmlmZVenBrj0yZhxIDAwd8MNsQlgDex4zxXf+Gug3x6sYzPqibBTwCfAsuATI/IUAjjy0EcgnsueXIXP6Rw=="],
 
     "@rolldown/binding-android-arm-eabi": ["@rolldown/binding-android-arm-eabi@1.2.12", "", { "os": "android", "cpu": "arm" }, "sha512-dB/a1214qKfHMXCpgqR4OZT+jS4kTyEXbQGJPqzobt5EwH5rX080pxE37alt3RzvR1bf1Yz/yGqRfrYAxuPw0A=="],
 
