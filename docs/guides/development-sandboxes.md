@@ -1,5 +1,5 @@
 ---
-description: Reproduce Mimir development and migration tests with registered sandbox installations, disposable Postgres, and native snapshots.
+description: Reproduce Mimir development and migration tests with registered sandbox installations, disposable Postgres, and native snapshots, and evaluate the agent skill with real agents.
 ---
 
 # Development sandboxes
@@ -107,6 +107,44 @@ or `linux`:
 ```sh
 gh workflow run service-verify.yml -f platform=both
 ```
+
+## Evaluate the agent skill
+
+```sh
+bun run sandbox skill-eval
+bun run sandbox skill-eval --skill path/to/candidate-skill --repeat 3
+bun run sandbox skill-eval --harness codex --scenario cross-board,reopen
+```
+
+`skill-eval` gives real Claude Code and Codex agents one request each and grades
+what they did. Each scenario seeds a board, makes a request such as "fix the
+typo tracked as QEV-2" or "record that QEV-2 waits on another team's parser",
+and checks the result. The checks read the store, the working copy, and the
+`mimir` commands the agent ran. They never use the agent's own account of its
+work. Every scenario also fails a run that guesses a verb the CLI does not have.
+`--skill` takes the skill directory under test, so a revision can be measured
+before it is embedded in a binary.
+
+Each run is a vault sandbox under `.dev/skill-evals/<eval-id>/`. It has its own
+registered installation of the candidate (built from the checkout, or
+`--binary <path>`), an empty git working copy, and the skill installed as a
+project skill. The agent's `PATH` starts with that installation and drops every
+directory that holds another `mimir`. The command checks that `mimir` resolves
+to the sandbox before it starts the agent. It stops the whole evaluation if a
+transcript calls any other `mimir` binary.
+
+Claude runs with `--setting-sources project`, so user-level skills, `CLAUDE.md`,
+and hooks stay out of the run. Codex runs with its home directory and
+`CODEX_HOME` inside the sandbox. Only `auth.json` is linked in, so user skills
+and the global `AGENTS.md` stay out. Both harnesses use your existing logins.
+
+Agents vary from run to run. Compare two skill revisions with the same
+scenarios, models (`--claude-model`, `--codex-model`), and `--repeat`, never
+with single runs. The summary prints passes per scenario and harness. The
+report at `.dev/skill-evals/<eval-id>/report.json` records the skill and binary
+digests, each check's outcome, the `mimir` calls, and the final reply. Passing
+runs are deleted unless `--keep` is given. A failed run keeps its sandbox,
+including `transcript.jsonl`, for inspection.
 
 ## Configure the snapshot source
 

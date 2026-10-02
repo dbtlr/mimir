@@ -47,10 +47,12 @@ export async function attempt(args: string[], cwd: string): Promise<string | und
   }
 }
 
-export async function command(
-  args: string[],
-  options: { cwd: string; env?: NodeJS.ProcessEnv; inputFile?: string; timeout?: number },
-): Promise<string> {
+export type Captured = { stdout: string; stderr: string; exit: number };
+
+type SpawnOptions = { cwd: string; env?: NodeJS.ProcessEnv; inputFile?: string; timeout?: number };
+
+/** A bounded subprocess whose exit status is the caller's to judge. */
+export async function capture(args: string[], options: SpawnOptions): Promise<Captured> {
   const child = Bun.spawn(args, {
     cwd: options.cwd,
     env: options.env ?? isolatedEnvironment(),
@@ -84,15 +86,20 @@ export async function command(
     if (timedOut) {
       throw new Error(`Sandbox subprocess timed out: ${args[0]}`);
     }
-    if (exit !== 0) {
-      throw new Error(
-        `${args[0]} failed (${exit}): ${stderr.replace(/postgres(?:ql)?:\/\/[^\s"']+/g, '[database URL redacted]').slice(-4000)}`,
-      );
-    }
-    return stdout.trim();
+    return { exit, stderr, stdout };
   } finally {
     clearTimeout(timer);
     process.removeListener('SIGINT', stop);
     process.removeListener('SIGTERM', stop);
   }
+}
+
+export async function command(args: string[], options: SpawnOptions): Promise<string> {
+  const { exit, stderr, stdout } = await capture(args, options);
+  if (exit !== 0) {
+    throw new Error(
+      `${args[0]} failed (${exit}): ${stderr.replace(/postgres(?:ql)?:\/\/[^\s"']+/g, '[database URL redacted]').slice(-4000)}`,
+    );
+  }
+  return stdout.trim();
 }
