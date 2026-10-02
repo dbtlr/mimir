@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
 import type { ArtifactFilters as Filters } from '../api/queries';
 import { cn } from '../lib/cn';
@@ -53,22 +53,28 @@ export function ArtifactFilters({
   const chipRefs = useRef(new Map<string, HTMLButtonElement>());
   const addFilterRef = useRef<HTMLButtonElement>(null);
 
-  // Re-sync when `q` changes from outside (Back/Forward, clear-filters). When our
-  // own debounced push lands, filters.q already equals q, so this is a no-op.
-  useEffect(() => {
+  // Re-sync during render when `q` changes from outside (Back/Forward,
+  // clear-filters). When our own debounced push lands, filters.q already equals
+  // q, so this is a no-op.
+  const [syncedQ, setSyncedQ] = useState(filters.q);
+  if (filters.q !== syncedQ) {
+    setSyncedQ(filters.q);
     setQ(filters.q ?? '');
-  }, [filters.q]);
+  }
 
-  // Keep the latest onChange without re-arming the timer on every parent render.
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  // Call the latest onChange without re-arming the timer on every parent render.
+  const pushQ = useEffectEvent((value: string) => {
+    onChange({ q: value });
+  });
 
   // Push the paused value up once, after the debounce window.
   useEffect(() => {
     if (q === (filters.q ?? '')) {
       return undefined;
     }
-    const t = setTimeout(() => onChangeRef.current({ q }), SEARCH_DEBOUNCE_MS);
+    const t = setTimeout(() => {
+      pushQ(q);
+    }, SEARCH_DEBOUNCE_MS);
     return () => {
       clearTimeout(t);
     };

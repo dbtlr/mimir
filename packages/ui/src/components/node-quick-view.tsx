@@ -242,12 +242,13 @@ export function QuickViewPanel({
 }) {
   const detail = useQuery(nodeQuery(node.id));
   const annotations = useQuery(annotationsQuery(node.id));
-  const [open, setOpen] = useState(false);
+  // Entry animates from CSS `@starting-style`; close is the only state change.
+  const [closing, setClosing] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Close is animated: play the 180ms exit slide, then let the parent unmount us.
   const requestClose = useCallback(() => {
-    setOpen(false);
+    setClosing(true);
     if (closeTimer.current !== null) {
       clearTimeout(closeTimer.current);
     }
@@ -255,7 +256,6 @@ export function QuickViewPanel({
   }, [onClose]);
 
   useEffect(() => {
-    setOpen(true);
     // Esc closes the desktop drop panel only. This component is permanently
     // mounted (the swimlane is `hidden md:block`, not conditionally rendered), so
     // the listener must no-op below the md breakpoint — otherwise it would also
@@ -290,7 +290,9 @@ export function QuickViewPanel({
       className={cn(
         'mt-3.5 grid grid-cols-[1.3fr_1fr] gap-5 rounded-xl border bg-well-850 px-[18px] py-4 light:shadow-menu',
         'origin-top transition-[transform,opacity] duration-[180ms] ease-out',
-        open ? 'translate-y-0 opacity-100' : '-translate-y-1 opacity-0',
+        closing
+          ? '-translate-y-1 opacity-0'
+          : 'translate-y-0 opacity-100 starting:-translate-y-1 starting:opacity-0',
         isUnderReview ? 'border-attention/40' : 'border-accent/40',
       )}
     >
@@ -431,14 +433,15 @@ export function QuickShelf({
   offline?: boolean;
 }) {
   const detail = useQuery(nodeQuery(node.id));
-  const [open, setOpen] = useState(false);
+  // Entry animates from CSS `@starting-style`; close is the only state change.
+  const [closing, setClosing] = useState(false);
   const { run, dialog } = useVerbRunner(node.id);
   const shelfRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Close is animated: play the 180ms slide-down, then let the parent unmount us.
   const requestClose = useCallback(() => {
-    setOpen(false);
+    setClosing(true);
     if (closeTimer.current !== null) {
       clearTimeout(closeTimer.current);
     }
@@ -446,7 +449,6 @@ export function QuickShelf({
   }, [onClose]);
 
   useEffect(() => {
-    setOpen(true);
     // The shelf is a focused preview: move focus into it on open and restore it
     // to the triggering card on unmount (it replaced a focus-managed dialog).
     const previous = document.activeElement;
@@ -491,7 +493,7 @@ export function QuickShelf({
       className={cn(
         'fixed inset-x-0 bottom-0 z-40 flex flex-col gap-2.5 rounded-t-[18px] border-t-2 bg-well-850 px-4 pt-2.5 pb-5 focus:outline-none',
         'transition-transform duration-[180ms] ease-out dark:shadow-[0_-12px_34px_rgba(0,0,0,0.55)] light:shadow-overlay',
-        open ? 'translate-y-0' : 'translate-y-full',
+        closing ? 'translate-y-full' : 'translate-y-0 starting:translate-y-full',
         SHELF_BORDER[node.status],
       )}
     >

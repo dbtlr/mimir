@@ -204,11 +204,11 @@ async function writeRelations(
   );
 }
 
-export function createPostgresArtifactStore(db: Kysely<DB>): ArtifactStore {
-  /** One artifact row by its canonical identity, or undefined. */
-  const rowOf = async (ex: Executor, key: string, seq: number): Promise<ArtifactRow | undefined> =>
-    ex.selectFrom('artifact').selectAll().where('id', '=', stemOf(key, seq)).executeTakeFirst();
+/** One artifact row by its canonical identity, or undefined. */
+const rowOf = async (ex: Executor, key: string, seq: number): Promise<ArtifactRow | undefined> =>
+  ex.selectFrom('artifact').selectAll().where('id', '=', stemOf(key, seq)).executeTakeFirst();
 
+export function createPostgresArtifactStore(db: Kysely<DB>): ArtifactStore {
   return {
     async applyTag(key, seq, tag) {
       await serializable(db, async (tx) => {

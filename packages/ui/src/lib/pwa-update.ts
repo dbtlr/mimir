@@ -134,6 +134,9 @@ export function createPwaUpdateController(effects: PwaUpdateEffects): PwaUpdateC
     await backgroundChecking;
   };
 
+  /** Fire-and-forget trigger handed to the focus, online, visibility, and interval listeners. */
+  const check = () => void backgroundCheck();
+
   const controller: PwaUpdateController = {
     async checkForUpdate() {
       if (checking !== null || applying) {
@@ -214,7 +217,6 @@ export function createPwaUpdateController(effects: PwaUpdateEffects): PwaUpdateC
         return;
       }
       started = true;
-      const check = () => void backgroundCheck();
       cleanups = [
         effects.listenFocus(check),
         effects.listenOnline(check),

@@ -88,14 +88,15 @@ const lifecycleFinding: DoctorFinding = {
   where: 'frontmatter · lifecycle',
 };
 
+const timestampFinding = (code: DoctorFinding['code'], where: string): DoctorFinding => ({
+  ...lifecycleFinding,
+  check: 'timestamps',
+  code,
+  where,
+});
+
 describe('buildDoctorFacet', () => {
   test('names the two timestamp classes distinctly in the panel (MMR-351)', () => {
-    const timestampFinding = (code: DoctorFinding['code'], where: string): DoctorFinding => ({
-      ...lifecycleFinding,
-      check: 'timestamps',
-      code,
-      where,
-    });
     const facet = buildDoctorFacet({
       findings: [
         timestampFinding('non-canonical-timestamp', 'frontmatter · updated_at'),

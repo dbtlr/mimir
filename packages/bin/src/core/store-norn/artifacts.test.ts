@@ -141,12 +141,17 @@ test('removeTags on an artifact with an explicitly null updated_at refuses as de
   await expectDegradedRefusal(plans, () => store.removeTags('MMR', 1, ['a']));
 });
 
+const storeWithFrontmatter = (
+  fm: Record<string, unknown>,
+): ReturnType<typeof createNornArtifactStore> =>
+  createNornArtifactStore(fakeClient(artifactDoc(fm)).client, ROOT);
+
 test('the decoder reads a present summary and tolerates an absent or non-string one (MMR-319)', async () => {
-  const store = (fm: Record<string, unknown>): ReturnType<typeof createNornArtifactStore> =>
-    createNornArtifactStore(fakeClient(artifactDoc(fm)).client, ROOT);
-  expect((await store({ summary: 'a lede' }).load('MMR', 1))?.summary).toBe('a lede');
-  expect((await store({}).load('MMR', 1))?.summary).toBeNull();
-  expect((await store({ summary: 42 }).load('MMR', 1))?.summary).toBeNull();
+  expect((await storeWithFrontmatter({ summary: 'a lede' }).load('MMR', 1))?.summary).toBe(
+    'a lede',
+  );
+  expect((await storeWithFrontmatter({}).load('MMR', 1))?.summary).toBeNull();
+  expect((await storeWithFrontmatter({ summary: 42 }).load('MMR', 1))?.summary).toBeNull();
 });
 
 test('updateMetadata on a healthy artifact writes the updated_at stamp guarded by its CAS old value (MMR-317)', async () => {

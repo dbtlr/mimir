@@ -115,15 +115,15 @@ test.skipIf(!NORN)(
   },
 );
 
+const bound = async (argv: string[]): Promise<string[]> => {
+  const io = fakeIo();
+  expect(await runCli(argv, () => store, io, { scope: 'MMR' })).toBe(0);
+  return io.out.join('\n').split('\n').filter(Boolean);
+};
+
 test.skipIf(!NORN)(
   'the bound scope is the default for next/list; explicit -s wins; -s all escapes',
   async () => {
-    const bound = async (argv: string[]): Promise<string[]> => {
-      const io = fakeIo();
-      expect(await runCli(argv, () => store, io, { scope: 'MMR' })).toBe(0);
-      return io.out.join('\n').split('\n').filter(Boolean);
-    };
-
     const defaulted = await bound(['next', '-f', 'ids']);
     expect(defaulted).toEqual(['MMR-3']);
 

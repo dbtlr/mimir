@@ -2,10 +2,18 @@
 
 // Global test setup (matchers + afterEach cleanup), not a test body.
 // oxlint-disable vitest/require-top-level-describe
-// side-effect import: registers jest-dom matchers on vitest's expect
-// oxlint-disable-next-line import/no-unassigned-import
-import '@testing-library/jest-dom/vitest';
+// The matchers entry ships only named exports, so a namespace import is the
+// one way to hand the whole set to expect.extend.
+// oxlint-disable-next-line import/no-namespace
+import * as jestDomMatchers from '@testing-library/jest-dom/matchers';
 import { cleanup } from '@testing-library/react';
+
+// Register jest-dom's matchers by hand instead of importing
+// '@testing-library/jest-dom/vitest': that entry's type augmentation predates
+// Vitest 5's `Assertion<R, T>` and loses the matcher types. The corrected
+// augmentation lives in jest-dom-vitest.d.ts.
+// oxlint-disable-next-line vitest/require-hook
+expect.extend(jestDomMatchers);
 
 // Every human-facing timestamp renders in the reader's zone (ADR 0029), so the
 // suite pins one: a date assertion means the same thing on any machine.

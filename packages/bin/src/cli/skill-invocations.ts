@@ -323,15 +323,16 @@ function parserArgv(words: string[]): string[] {
 
 const STORE_REACHED = new Error('store reached');
 
+const getStore = (): Store => {
+  throw STORE_REACHED;
+};
+
 /**
  * Run the real parser inside a bound repo (the skill's setting); a usage
  * refusal (exit 2) before the store opens is drift.
  */
 async function parserRefusal(words: string[]): Promise<string | undefined> {
   const io = fakeIo();
-  const getStore = (): Store => {
-    throw STORE_REACHED;
-  };
   try {
     const code = await runCli(parserArgv(words), getStore, io, { scope: 'KEY' });
     return code === 2 ? io.err.join(' ') : undefined;

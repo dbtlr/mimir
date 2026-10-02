@@ -329,6 +329,8 @@ function TimelineNote({ content }: { content: string }) {
       // No computed line-height (jsdom): fall back to bare overflow detection.
       setLines(el.scrollHeight - el.clientHeight > 1 ? 4 : 0);
     }
+    // The effect measures the DOM `content` renders, so a new text must re-measure.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [content]);
   const overflowing = lines > 3;
   return (

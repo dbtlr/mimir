@@ -149,19 +149,19 @@ export async function insertExportedSeeds(
   await insertBatched(history, (chunk) => tx.insertInto('seed_history').values(chunk).execute());
 }
 
+const rowOf = async (ex: Executor, key: string, seq: number): Promise<SeedRow | undefined> =>
+  ex.selectFrom('seed').selectAll().where('id', '=', stemOf(key, seq)).executeTakeFirst();
+
+/** The row a mutation targets, or the canonical absent-seed refusal. */
+const mutableRow = async (tx: Transaction<DB>, key: string, seq: number): Promise<SeedRow> => {
+  const row = await rowOf(tx, key, seq);
+  if (row === undefined) {
+    throw notFound(`${stemOf(key, seq)} doesn't exist`);
+  }
+  return row;
+};
+
 export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
-  const rowOf = async (ex: Executor, key: string, seq: number): Promise<SeedRow | undefined> =>
-    ex.selectFrom('seed').selectAll().where('id', '=', stemOf(key, seq)).executeTakeFirst();
-
-  /** The row a mutation targets, or the canonical absent-seed refusal. */
-  const mutableRow = async (tx: Transaction<DB>, key: string, seq: number): Promise<SeedRow> => {
-    const row = await rowOf(tx, key, seq);
-    if (row === undefined) {
-      throw notFound(`${stemOf(key, seq)} doesn't exist`);
-    }
-    return row;
-  };
-
   return {
     async create(input) {
       return serializable(db, async (tx) => {

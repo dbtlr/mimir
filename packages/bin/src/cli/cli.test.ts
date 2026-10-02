@@ -1659,21 +1659,21 @@ describe.skipIf(!NORN)('overview composition (MMR-322)', () => {
   });
 });
 
+const attach = async (title: string, tags: string[] = [], summary?: string): Promise<string> =>
+  (
+    await attachArtifact(store, {
+      content: `# ${title}`,
+      projectId: await projectIdOf(store, 'MMR'),
+      summary,
+      tags,
+      title,
+    })
+  ).renderedId;
+
 // MMR-322: `artifacts` — the flat, cross-project artifact feed. A `set`-kind
 // read: the querying doctrine applies (empty set at exit 0 with a stderr note,
 // structural faults at exit 2).
 describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
-  const attach = async (title: string, tags: string[] = [], summary?: string): Promise<string> =>
-    (
-      await attachArtifact(store, {
-        content: `# ${title}`,
-        projectId: await projectIdOf(store, 'MMR'),
-        summary,
-        tags,
-        title,
-      })
-    ).renderedId;
-
   test('the table render is count-led and carries the lede', async () => {
     const id = await attach('vault notes', ['session_summary'], 'what the converge does');
     const io = fakeIo(true);
