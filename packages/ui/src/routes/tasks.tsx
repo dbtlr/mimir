@@ -36,14 +36,13 @@ const DEFAULT_TRACK = TASK_STATUS_ORDER.slice(0, 3);
 const isTaskStatusWord = (v: string): v is TaskStatusWord =>
   (TASK_STATUS_ORDER as readonly string[]).includes(v);
 
-/** The union universe selectors (`live`, `terminal`, `all`, `archived`) — never
+/** The union universe selectors (`live`, `terminal`, `all`) — never
  * offered by the chips, but a deep link (or an old `/tasks` bookmark) can carry
  * one, and the server filters on it, so the UI must show and preserve it. */
 type UnionSelector = Exclude<StatusSelector, TaskStatusWord>;
 
 const UNION_LABEL: Record<UnionSelector, string> = {
   all: 'All',
-  archived: 'Archived',
   live: 'Live',
   terminal: 'Terminal',
 };
@@ -316,7 +315,7 @@ export function TasksPage() {
               aria-label="Status filter"
               className="flex flex-wrap items-center gap-1 rounded-full border border-line-bright p-[3px]"
             >
-              {/* Deep-linked union selectors (live/terminal/all/archived) render as
+              {/* Deep-linked union selectors (live/terminal/all) render as
                   active, removable chips — accent wash, not a status wash, because
                   they name a universe, not a word. */}
               {statusUnions.map((union) => (

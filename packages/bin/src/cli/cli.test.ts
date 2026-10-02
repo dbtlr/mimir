@@ -494,7 +494,7 @@ test.skipIf(!NORN)('archive freezes the project; unarchive restores it (MMR-121)
 });
 
 test.skipIf(!NORN)(
-  'archive hides the project from reads; the --status archived door reveals it (MMR-122)',
+  'archive hides the project from reads; projects --status archived reveals it (MMR-122, MMR-406)',
   async () => {
     const task = await createTask(store, { parentId: phaseId, title: 'x' });
     const id = `MMR-${String(task.seq)}`;
@@ -507,9 +507,9 @@ test.skipIf(!NORN)(
     expect(await runCli(['get', 'MMR'], () => store, fakeIo(true))).toBe(1);
     expect(await runCli(['get', id], () => store, fakeIo(true))).toBe(1);
 
-    // the door lists the archived project
+    // the projects verb lists the archived project on request
     const door = fakeIo(true);
-    expect(await runCli(['list', '--status', 'archived'], () => store, door)).toBe(0);
+    expect(await runCli(['projects', '--status', 'archived'], () => store, door)).toBe(0);
     expect(door.out.join('')).toContain('MMR');
 
     // unarchive restores it
@@ -517,6 +517,104 @@ test.skipIf(!NORN)(
     expect(await runCli(['get', 'MMR'], () => store, fakeIo())).toBe(0);
   },
 );
+
+// --- projects: the flat project listing (MMR-406) ---
+
+/** The project ids `mimir projects …` prints with `-f ids`, one per line. */
+async function projectIds(args: string[], scope?: string): Promise<string[]> {
+  const io = fakeIo();
+  expect(await runCli(['projects', ...args, '-f', 'ids'], () => store, io, { scope })).toBe(0);
+  return io.out
+    .join('\n')
+    .split('\n')
+    .filter((line) => line !== '');
+}
+
+test.skipIf(!NORN)(
+  'projects lists active projects by default; --status archived and all open the shelf (MMR-406)',
+  async () => {
+    await createProject(store, { key: 'AAA', name: 'a' });
+    await runCli(['archive', 'AAA'], () => store, fakeIo(true));
+
+    expect(await projectIds([])).toEqual(['MMR']);
+    expect(await projectIds(['--status', 'active'])).toEqual(['MMR']);
+    expect(await projectIds(['--status', 'archived'])).toEqual(['AAA']);
+    expect(await projectIds(['--status', 'all'])).toEqual(['AAA', 'MMR']);
+  },
+);
+
+test.skipIf(!NORN)(
+  'projects ignores the bound scope — projects are the scope (MMR-406)',
+  async () => {
+    await createProject(store, { key: 'AAA', name: 'a' });
+    expect(await projectIds([], 'MMR')).toEqual(['AAA', 'MMR']);
+  },
+);
+
+test.skipIf(!NORN)('projects -f json wraps the rows under a projects key (MMR-406)', async () => {
+  const io = fakeIo();
+  expect(await runCli(['projects', '-f', 'json'], () => store, io)).toBe(0);
+  const parsed = parseJson<{ projects: { id: string }[]; total: number }>(io.out.join(''));
+  expect(parsed.projects.map((p) => p.id)).toEqual(['MMR']);
+  expect(parsed.total).toBe(1);
+});
+
+test.skipIf(!NORN)('the projects table counts projects, not tasks (MMR-406)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['projects'], () => store, io)).toBe(0);
+  const out = io.out.join('');
+  expect(out).toContain('1 project');
+  expect(out).not.toContain('task');
+});
+
+test('projects refuses a status outside active|archived|all before opening the store (MMR-406)', async () => {
+  const io = fakeIo();
+  expect(await runCli(['projects', '--status', 'live'], neverStore, io)).toBe(2);
+  expect(io.err.join('')).toContain('invalid status: live (expected active|archived|all)');
+});
+
+test('projects refuses a scope — it lists every project (MMR-406)', async () => {
+  const io = fakeIo();
+  expect(await runCli(['projects', '-s', 'MMR'], neverStore, io)).toBe(2);
+  expect(io.err.join('')).toContain("'--scope' doesn't apply to projects");
+});
+
+test.each([
+  [['-n', '1'], '--limit'],
+  [['-t', 'x'], '--tag'],
+  [['-q', 'x'], '--query'],
+])('projects refuses %j rather than ignoring it (MMR-406)', async (args, flag) => {
+  const io = fakeIo();
+  expect(await runCli(['projects', ...args], neverStore, io)).toBe(2);
+  expect(io.err.join('')).toContain(`'${flag}' doesn't apply to projects`);
+});
+
+test('projects refuses a positional and points a shelf name at --status (MMR-406)', async () => {
+  const io = fakeIo();
+  expect(await runCli(['projects', 'archived'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("projects takes no argument (got 'archived')");
+  expect(err).toContain("'mimir projects --status archived'");
+});
+
+test('list --status archived is refused with a pointer to projects (MMR-406)', async () => {
+  const io = fakeIo();
+  expect(await runCli(['list', '--status', 'archived', '-f', 'json'], neverStore, io)).toBe(2);
+  const parsed = parseJson<{ error: { code: string; message: string; hint?: string } }>(
+    io.err.join(''),
+  );
+  expect(parsed.error.code).toBe('usage');
+  expect(parsed.error.message).toContain('invalid status: archived');
+  expect(parsed.error.hint).toBe(
+    "archived projects are listed by 'mimir projects --status archived'",
+  );
+});
+
+test('the unknown command project suggests projects (MMR-406)', async () => {
+  const io = fakeIo();
+  expect(await runCli(['project'], neverStore, io)).toBe(2);
+  expect(io.err.join('')).toContain("did you mean 'projects'?");
+});
 
 test.skipIf(!NORN)('archive warns about released cross-project dependents (MMR-124)', async () => {
   const mmrTask = await createTask(store, { parentId: phaseId, title: 'prereq' });

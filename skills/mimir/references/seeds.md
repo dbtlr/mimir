@@ -44,7 +44,8 @@ mimir seed "should capture parse a title from the first line?" -k idea   # own b
 
 - Target board **and** requester default from the bound board. Filing onto
   **another** board records your board as `requester`; self-filing (or filing
-  unbound) leaves requester null.
+  unbound) leaves requester null. `mimir projects` lists the board keys `-p`
+  takes.
 - **Capture is one blob** (commit-message semantics): the **first line is the
   title** (the lede), everything after the first newline is the
   `## Seed Description` body — repro steps, context, links. The first line has

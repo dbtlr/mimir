@@ -12,7 +12,10 @@ Contents: [1. Orientation](#1-orientation--one-command) ·
 [7. Reporting and scripting](#7-reporting-and-scripting)
 
 `list` selects **tasks**. Containers (initiatives/phases) are reached by id
-(`get`/`status`) or explicitly: `--status all --eq type:initiative`.
+(`get`/`status`) or explicitly: `--status all --eq type:initiative`. Projects
+have their own listing, `mimir projects`, which ignores the binding: it lists
+every active project, and `--status archived` (or `all`) opens the archived
+shelf that every other read hides.
 
 ## 1. Orientation — one command
 

@@ -9,7 +9,7 @@ date: 2026-07-01
 A project gains an **`archived`** state: a stored, operator-set fact that makes the project and its whole subtree (nodes + artifacts) _go away_. Archived is two behaviors at once, plus a reversal:
 
 - **Frozen** — no mutation is permitted on an archived project or any descendant (lifecycle, hold, structure, data, create, tag, attach — all rejected).
-- **Hidden** — the project, its subtree, and its artifacts drop out of _every_ default read (`next`, `list`, `tree`, `get`, `status`, the Overview). They are reachable only through one deliberate door: a `--status archived` selection.
+- **Hidden** — the project, its subtree, and its artifacts drop out of _every_ default read (`next`, `list`, `tree`, `get`, `status`, the Overview). They are reachable only through one deliberate door: a `--status archived` selection (since MMR-406, `mimir projects --status archived`; see the refinement below).
 - **Reversible** — `unarchive` restores the project; archive is never a delete.
 
 Archive **replaces** any notion of hard-deleting a project. The store's DB file is no longer the only way to make a whole project leave the operator's world.
@@ -38,7 +38,7 @@ Archive **replaces** any notion of hard-deleting a project. The store's DB file 
 
 - **Schema:** `project` gains a nullable `archived_at`. `transition_log` becomes entity-keyed (`node_id` nullable, new nullable `project_id`, XOR check, `kind` gains `'archive'`, add `idx_transition_project`).
 - **Verbs:** `archive <KEY> [reason]` and `unarchive <KEY>` — project-only (bare `KEY`). Idempotency (archiving an already-archived project) resolves to a usage/invariant error.
-- **Reads:** the default universe excludes archived projects, their subtrees, and their artifacts across all read paths; `--status archived` is the sole opt-in. Direct `get`/`status`/`tree` on an archived subtree resolve as `not_found` without the opt-in.
+- **Reads:** the default universe excludes archived projects, their subtrees, and their artifacts across all read paths; `--status archived` is the sole opt-in — `mimir projects --status archived` on the CLI and MCP, `GET /api/projects?status=archived` over HTTP (refinement 2026-10-02 below). Direct `get`/`status`/`tree` on an archived subtree resolve as `not_found` without the opt-in.
 - **Writes:** a core guard rejects any mutation whose owning project is archived.
 - **Refines [ADR 0001](0001-task-status-two-axes-derived-rollup.md)/[0008](0008-state-word-projection-and-interpret-cascade.md):** "projects store no status" is sharpened to "projects store no _derived_ status" — an un-derivable operator axis (archived) is permitted.
 - **Refines [ADR 0003](0003-append-only-transition-log.md):** the transition log keys on an entity (node or project), not a node alone.
@@ -56,3 +56,7 @@ Cross-project dependency edges are permitted, so archiving interacts with depend
 - **Not silent:** archiving surfaces a warning naming the out-of-project dependents it released (`released N dependent(s): …`, via `releasedByArchive`), so the release is visible rather than a silent semantics change.
 
 This extends the settled-prerequisite rule ([ADR 0001](0001-task-status-two-axes-derived-rollup.md)) to a third settling condition (done · abandoned · **archived-project**), consistent with archive being a coarse, reversible "this effort is over."
+
+## Refinement (2026-10-02, MMR-406): the opt-in lives on `projects`
+
+The archived opt-in first shipped as `list --status archived`: one value of the node-selection universe that instead returned projects. [ADR 0024](0024-cli-command-taxonomy.md)'s MMR-406 amendment gives projects their own flat read verb, and the opt-in moves with them. `mimir projects --status archived` (CLI) and the MCP `projects` tool with `status: archived` list the archived shelf; `GET /api/projects?status=archived` is unchanged. `archived` is no longer a node status selector, so `list --status archived` is an invalid status whose error points at the new verb. The rule itself is unchanged: one deliberate opt-in, and every other read hides the archived project, its subtree, and its artifacts.

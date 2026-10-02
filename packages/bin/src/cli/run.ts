@@ -6,6 +6,7 @@ import {
   CHEAP_FACETS,
   FACET_NAMES,
   isUniformVerb,
+  PROJECT_STATUS_SELECTOR_VALUES,
   QUERY_OP_VALUES,
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
@@ -14,6 +15,7 @@ import type {
   FacetName,
   FieldFilter,
   NodeView,
+  ProjectStatusSelector,
   SetResult,
   StatusSelector,
   VerdictSelector,
@@ -800,30 +802,55 @@ export async function runCli(
           timeZone: callerTimeZone(values.tz),
           verdicts: parseVerdicts(values.is, values['not-is']),
         };
-        // The archived-projects shelf (ADR 0015) — the sole door to hidden
-        // projects; lists projects, not nodes, so it bypasses listNodes.
-        if (values.status === 'archived') {
-          const projects = await listProjects(
-            await getStore(),
-            ['distribution', 'tags'],
-            'archived',
-          );
-          // No issueCount here by design (MMR-184): this is a project-shelf
-          // resource, not a node working set — threading the doctor tally
-          // through would widen listProjects' cross-transport shape for a
-          // nudge, which is disproportionate.
-          return runSet(
-            { items: projects, returned: projects.length, startsAt: 0, total: projects.length },
-            values.format,
-            ctx,
-            'No archived projects',
-          );
-        }
         return runSet(
           await listNodes(await getStore(), listQuery),
           values.format,
           ctx,
           'No tasks match — try --status all, or drop a filter',
+        );
+      }
+      case 'projects': {
+        // Projects are the scope dimension itself (ADR 0024 amendment,
+        // MMR-406), so the listing ignores the binding and takes no scope.
+        // Input the listing can't honour is refused rather than silently
+        // ignored. Parsed before the store opens (MMR-39).
+        if (positionals[1] !== undefined) {
+          throw usage(
+            `projects takes no argument (got '${positionals[1]}')`,
+            "pick the shelf with --status, e.g. 'mimir projects --status archived'",
+          );
+        }
+        if (values.scope !== undefined) {
+          throw usage(
+            "'--scope' doesn't apply to projects",
+            "projects lists every project; read one with 'mimir get KEY'",
+          );
+        }
+        const unsupported = (
+          [
+            ['--limit', values.limit],
+            ['--tag', values.tag],
+            ['--query', values.query],
+          ] as const
+        ).find(([, value]) => value !== undefined);
+        if (unsupported !== undefined) {
+          throw usage(
+            `'${unsupported[0]}' doesn't apply to projects`,
+            'projects takes only --status and --format',
+          );
+        }
+        const shelf = parseProjectStatus(values.status);
+        const projects = await listProjects(await getStore(), ['distribution', 'tags'], shelf);
+        // No issueCount here by design (MMR-184): this is a project-shelf
+        // resource, not a node working set — threading the doctor tally
+        // through would widen listProjects' cross-transport shape for a
+        // nudge, which is disproportionate.
+        return runSet(
+          { items: projects, returned: projects.length, startsAt: 0, total: projects.length },
+          values.format,
+          ctx,
+          shelf === 'archived' ? 'No archived projects' : 'No projects',
+          'project',
         );
       }
       case 'get': {
@@ -1348,11 +1375,14 @@ function synthesizeParseError(
   return usage('invalid arguments', help);
 }
 
+/** Render a node set. `unit` names one row — the table's count line and the
+ * json wrapper's key (`task` → `tasks`, `project` → `projects`). */
 function runSet(
   result: SetResult<NodeView>,
   explicit: string | undefined,
   io: Io,
   emptyMsg?: string,
+  unit = 'task',
 ): number {
   const format = pickFormat(explicit, 'set', io);
   if (result.warnings !== undefined && result.warnings.length > 0) {
@@ -1365,7 +1395,7 @@ function runSet(
       break;
     }
     case 'json': {
-      io.write(formatSetJson(result));
+      io.write(formatSetJson(result, `${unit}s`));
       break;
     }
     case 'jsonl': {
@@ -1381,7 +1411,7 @@ function runSet(
       break;
     }
     case 'table': {
-      io.write(renderTable(result, io, emptyMsg));
+      io.write(renderTable(result, io, emptyMsg, unit));
       break;
     }
   }
@@ -1561,7 +1591,25 @@ function parseStatus(value: string | undefined): StatusSelector | undefined {
     return undefined;
   }
   if (!isMember(value, STATUS_SELECTOR_VALUES)) {
-    throw usage(`invalid status: ${value} (expected ${STATUS_SELECTOR_VALUES.join('|')})`);
+    // `archived` was the project shelf's door before `projects` existed
+    // (MMR-406); name the verb that now owns it.
+    throw usage(
+      `invalid status: ${value} (expected ${STATUS_SELECTOR_VALUES.join('|')})`,
+      value === 'archived'
+        ? "archived projects are listed by 'mimir projects --status archived'"
+        : undefined,
+    );
+  }
+  return value;
+}
+
+/** The `projects --status` shelf: active (the default), archived, or all. */
+function parseProjectStatus(value: string | undefined): ProjectStatusSelector {
+  if (value === undefined) {
+    return 'active';
+  }
+  if (!isMember(value, PROJECT_STATUS_SELECTOR_VALUES)) {
+    throw usage(`invalid status: ${value} (expected ${PROJECT_STATUS_SELECTOR_VALUES.join('|')})`);
   }
   return value;
 }

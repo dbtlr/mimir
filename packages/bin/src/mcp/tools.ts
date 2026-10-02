@@ -9,6 +9,7 @@ import type {
   FacetName,
   FieldFilter,
   Priority,
+  ProjectStatusSelector,
   QueryOp,
   SeedKind,
   Size,
@@ -461,16 +462,6 @@ export function toolNext(store: Store, args: SetQueryArgs): Promise<ToolResult> 
 
 export function toolList(store: Store, args: SetQueryArgs): Promise<ToolResult> {
   return guard(async () => {
-    // The archived-projects door (ADR 0015) — lists projects, not nodes.
-    if (args.status === 'archived') {
-      const items = await listProjects(store, undefined, 'archived');
-      return ok(
-        formatSetJson(
-          { items, returned: items.length, startsAt: 0, total: items.length },
-          'projects',
-        ),
-      );
-    }
     const result = await listNodes(store, {
       filters: collectFilters(args),
       limit: args.limit,
@@ -484,6 +475,26 @@ export function toolList(store: Store, args: SetQueryArgs): Promise<ToolResult> 
       verdicts: collectVerdicts(args),
     });
     return ok(formatSetJson(result, 'tasks', { includeWarnings: true }));
+  });
+}
+
+/**
+ * `projects` — every project, key-ordered (MMR-406). Projects are the scope
+ * dimension itself, so the bound board never narrows the listing; `status`
+ * picks the shelf (active by default, ADR 0015's archived opt-in, or all).
+ */
+export function toolProjects(
+  store: Store,
+  args: { status?: ProjectStatusSelector },
+): Promise<ToolResult> {
+  return guard(async () => {
+    const items = await listProjects(store, undefined, args.status);
+    return ok(
+      formatSetJson(
+        { items, returned: items.length, startsAt: 0, total: items.length },
+        'projects',
+      ),
+    );
   });
 }
 

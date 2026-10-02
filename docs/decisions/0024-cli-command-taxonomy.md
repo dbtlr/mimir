@@ -60,8 +60,9 @@ per verb; the grammar does not). Two rules ride on this:
   of these words picks a different verb rather than overloading the name.
 - The `seed` (capture) / `seeds` (query) singular–plural pair is a
   **grandfathered one-off idiom**, kept because zero-friction capture is the
-  point of seeds. It is not a pattern: no `tasks`, no `projects` — `list`
-  owns node queries.
+  point of seeds. It is not a pattern: no `tasks` — `list` owns node
+  queries. (This line originally read "no `tasks`, no `projects`"; the
+  `projects` half is superseded by the MMR-406 amendment below.)
 
 **Creation grammar.** `create <project|initiative|phase|task>` is the single
 creation verb for tree nodes — four types sharing one shape take one verb
@@ -92,6 +93,33 @@ a singular–plural **pair**, and the objection there was to the pair, not the
 plural. `artifacts` has no singular twin — creation is `attach`, whose relation
 is the command's essence (see the creation grammar above) — so it is a plain
 plural noun naming the set it returns.
+
+**Amendment (MMR-406): `projects` joins as a flat read verb.** The project
+listing becomes `mimir projects`, sibling to the read verbs above, and
+supersedes the "no `projects`" half of the seed rule. The node rule it carved
+out of still holds — `list` owns node queries — but a project is not a row
+among nodes:
+
+- A project is the root of the hierarchy and the scope dimension itself. Every
+  other read is scoped _by_ a project; listing projects is choosing among
+  scopes.
+- Listing projects therefore ignores the `.mimir.toml` binding scope. `list`
+  cannot express that without a hidden special case inside a filter, where one
+  `--status` value would silently change both the record type returned and
+  whether the binding applies.
+- The listing already has its own HTTP resource (`GET /api/projects`, ADR
+  0012). The CLI and MCP surfaces gain the same read rather than a special
+  case of a node query.
+- Agents reached for `mimir projects` and `mimir project --help` in skill
+  evals (MMR-404/MMR-406). The verb now exists under the name they guessed,
+  and the unknown-command suggestion carries `project` to it.
+
+The verb takes `--status active|archived|all` (default `active`) and the
+standard set formats. It moves ADR 0015's archived opt-in: the former
+`list --status archived` door is now `projects --status archived`, a pre-1.0
+hard break under the rename policy below. `list --status archived` is an
+invalid status whose error points at the new verb. MCP gains a matching
+`projects` tool, and the `list` tool loses its archived branch.
 
 **Exception (ADR 0028): Scratchpads use a work-plane noun group.** Scratchpads
 use UUID handles outside the sequenced work-id grammar and expose a complete
@@ -152,6 +180,10 @@ regrouping + descriptors) and MMR-287 (skill-reference alignment).
 - `mimir overview` lands under its audited name and placement (MMR-278).
 - `mimir artifacts` lands as a flat read verb under the amendment above
   (MMR-322). The plural-noun disclaimer stands unchanged for node queries.
+- `mimir projects` lands as a flat read verb under the MMR-406 amendment. It is
+  the only project listing on the CLI and MCP; `list` selects nodes only, and
+  ADR 0015's archived opt-in moves from `list --status archived` to
+  `projects --status archived`.
 - Scratchpads use the narrow `mimir scratch <operation>` exception recorded in
   ADR 0028; the ordinary work lifecycle remains flat.
 

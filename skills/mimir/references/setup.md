@@ -22,7 +22,7 @@ schema).
 ## Case 1 — the project exists, this working copy isn't bound
 
 A checked-in `.mimir.toml` normally travels with the repo. If it's absent but the
-project exists in the store (`mimir get KEY` succeeds):
+project exists in the store (`mimir projects` lists its key):
 
 ```sh
 mimir bind KEY        # validates KEY exists, writes ./.mimir.toml
@@ -36,9 +36,11 @@ Done. Commit the file — every clone is then bound for free.
 stop-and-ask in this skill — even when the user already named one.**
 
 1. Propose a 2–4 uppercase-letter key derived from the project name (`mimir` → `MMR`),
-   with one or two alternates. Ask the user to confirm. The CLI enforces this gate:
-   without `-y`/`--yes`, `create project` refuses non-interactively (exit 2) —
-   passing `--yes` is the record that confirmation happened.
+   with one or two alternates. Check them against `mimir projects --status all`,
+   which lists every key already taken, archived ones included. Ask the user to
+   confirm. The CLI enforces this gate: without `-y`/`--yes`, `create project`
+   refuses non-interactively (exit 2) — passing `--yes` is the record that
+   confirmation happened.
 2. Then:
 
 ```sh
