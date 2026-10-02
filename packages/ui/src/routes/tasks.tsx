@@ -2,7 +2,7 @@ import type { StatusSelector, TaskStatusWord } from '@mimir/contract';
 import { STATUS_SELECTOR_VALUES } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 
 import { projectsQuery, taskCensusQuery, tasksQuery } from '../api/queries';
 import type { TaskFilters } from '../api/queries';
@@ -150,18 +150,24 @@ export function TasksPage() {
     void navigate({ search: (prev) => ({ ...prev, node: undefined }), to: '/tasks' });
 
   // Controlled + debounced search (the MMR-63 pattern): the box updates now, the
-  // URL/query trails by the debounce; an external q change (Back/clear) re-syncs.
+  // URL/query trails by the debounce; an external q change (Back/clear) re-syncs
+  // during render.
   const [q, setQ] = useState(search.q ?? '');
-  useEffect(() => {
+  const [syncedQ, setSyncedQ] = useState(search.q);
+  if (search.q !== syncedQ) {
+    setSyncedQ(search.q);
     setQ(search.q ?? '');
-  }, [search.q]);
-  const setFilterRef = useRef(setFilter);
-  setFilterRef.current = setFilter;
+  }
+  const pushQ = useEffectEvent((value: string) => {
+    setFilter({ q: value });
+  });
   useEffect(() => {
     if (q === (search.q ?? '')) {
       return undefined;
     }
-    const t = setTimeout(() => setFilterRef.current({ q }), SEARCH_DEBOUNCE_MS);
+    const t = setTimeout(() => {
+      pushQ(q);
+    }, SEARCH_DEBOUNCE_MS);
     return () => {
       clearTimeout(t);
     };

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 
 /** Focus that owns text entry — a bare hotkey must not steal a keystroke from it. */
 function isEditableTarget(el: Element | null): boolean {
@@ -31,8 +31,8 @@ function hasOpenPopup(): boolean {
  * Guarded so a bare letter never hijacks typing or stacks over a modal or popup:
  * ignores the key when focus is in an input / textarea / select / contenteditable,
  * when focus is on a menu/select/combobox item, when any modifier is held, and
- * when another dialog, menu, or listbox is already open. The handler is held in
- * a ref so a fresh closure each render never re-binds the listener.
+ * when another dialog, menu, or listbox is already open. The handler is an
+ * effect event, so a fresh closure each render never re-binds the listener.
  */
 export function useHotkey(
   key: string,
@@ -40,8 +40,7 @@ export function useHotkey(
   opts: { enabled?: boolean } = {},
 ): void {
   const enabled = opts.enabled ?? true;
-  const handlerRef = useRef(handler);
-  handlerRef.current = handler;
+  const onHotkey = useEffectEvent(handler);
 
   useEffect(() => {
     if (!enabled) {
@@ -64,7 +63,7 @@ export function useHotkey(
         return;
       }
       e.preventDefault();
-      handlerRef.current();
+      onHotkey();
     }
     document.addEventListener('keydown', onKeyDown);
     return () => {

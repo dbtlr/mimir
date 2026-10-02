@@ -18,6 +18,8 @@ const NORN = Bun.which('norn') !== null;
 
 type Rec = Record<string, unknown>;
 
+const parse = async (response: Response): Promise<Rec> => parseJson<Rec>(await response.text());
+
 describe.skipIf(!NORN)('/api/scratchpads', () => {
   let store: Store;
   let closeStore: () => Promise<void>;
@@ -60,8 +62,6 @@ describe.skipIf(!NORN)('/api/scratchpads', () => {
       headers: { 'content-type': 'application/json' },
       method,
     });
-
-  const parse = async (response: Response): Promise<Rec> => parseJson<Rec>(await response.text());
 
   test('serves the working mutation lifecycle with optimistic concurrency', async () => {
     const createdResponse = await send('POST', '/api/scratchpads', {

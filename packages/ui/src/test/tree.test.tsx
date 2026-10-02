@@ -38,6 +38,16 @@ beforeEach(() => {
   mutate.mockClear();
 });
 
+function underReviewTree(): WireTreeNode {
+  return project([
+    branch({ id: 'MMR-2', status: 'in_progress', title: 'I', type: 'initiative' }, [
+      branch({ id: 'MMR-3', status: 'in_progress', title: 'P', type: 'phase' }, [
+        leaf({ id: 'MMR-10', status: 'under_review', title: 'needs a look' }),
+      ]),
+    ]),
+  ]);
+}
+
 describe('treeView', () => {
   it('renders the empty state verbatim for a childless project', () => {
     render(<TreeView root={project([])} onOpenNode={vi.fn()} />, { wrapper });
@@ -134,16 +144,6 @@ describe('treeView', () => {
     await userEvent.click(screen.getByText('open me'));
     expect(onOpen).toHaveBeenCalledWith('MMR-10');
   });
-
-  function underReviewTree(): WireTreeNode {
-    return project([
-      branch({ id: 'MMR-2', status: 'in_progress', title: 'I', type: 'initiative' }, [
-        branch({ id: 'MMR-3', status: 'in_progress', title: 'P', type: 'phase' }, [
-          leaf({ id: 'MMR-10', status: 'under_review', title: 'needs a look' }),
-        ]),
-      ]),
-    ]);
-  }
 
   it('an under-review leaf carries inline Approve / Return and its status word', () => {
     render(<TreeView root={underReviewTree()} onOpenNode={vi.fn()} />, { wrapper });

@@ -102,6 +102,16 @@ const quarantinedRules: Record<string, 'off'> = {
 };
 
 /**
+ * Deliberate style opt-outs, not backlog. oxlint 1.85 moved `one-var` into the
+ * `style` category; its default demands one combined declaration per scope,
+ * which no code here follows (6,237 hits). It belongs beside @dbtlr/tooling's
+ * relaxed defaults (TLG-s1); drop it here once the shared config turns it off.
+ */
+const styleOptOuts: Record<string, 'off'> = {
+  'one-var': 'off',
+};
+
+/**
  * Hand-rolled replacement for toolingConfig's `react` target (see header). Same
  * plugin bundle, but we own the severities: replicate the target's own opt-outs,
  * keep react correctness (rules-of-hooks etc.) live, and quarantine the noisy
@@ -182,7 +192,7 @@ export default defineConfig({
       lint: {
         ignores: ['dist/**', '**/*.generated.ts'],
         overrides: layerOverrides,
-        rules: quarantinedRules,
+        rules: { ...quarantinedRules, ...styleOptOuts },
       },
       node: {
         files: ['packages/bin/**', 'packages/sandbox/**'],

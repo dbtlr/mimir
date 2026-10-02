@@ -40,6 +40,7 @@ export function OverviewPage() {
   const conn = connectivity([projects, archived]);
   const openNode = (id: string) => void navigate({ search: { node: id }, to: '.' });
   const closeNode = () => void navigate({ search: {}, to: '.' });
+  const onOpen = (key: string) => void navigate({ params: { key }, to: '/p/$key' });
 
   return (
     <>
@@ -67,7 +68,6 @@ export function OverviewPage() {
         )}
         {projects.data !== undefined &&
           (() => {
-            const onOpen = (key: string) => void navigate({ params: { key }, to: '/p/$key' });
             if (projects.data.items.length === 0) {
               // A fresh vault's one useful action is creating a project —
               // offer the trigger right here, not a pointer at the CLI.
