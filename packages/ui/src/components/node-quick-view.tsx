@@ -269,11 +269,19 @@ export function QuickViewPanel({
     globalThis.addEventListener('keydown', onKey);
     return () => {
       globalThis.removeEventListener('keydown', onKey);
+    };
+  }, [requestClose]);
+
+  // Cancel a pending close only on unmount. The parent passes a fresh onClose
+  // each render, so clearing on every re-subscribe would strand a close in flight.
+  useEffect(
+    () => () => {
       if (closeTimer.current !== null) {
         clearTimeout(closeTimer.current);
       }
-    };
-  }, [requestClose]);
+    },
+    [],
+  );
 
   const isUnderReview = node.status === 'under_review';
   const d = detail.data;
@@ -289,7 +297,7 @@ export function QuickViewPanel({
       data-testid="quick-panel"
       className={cn(
         'mt-3.5 grid grid-cols-[1.3fr_1fr] gap-5 rounded-xl border bg-well-850 px-[18px] py-4 light:shadow-menu',
-        'origin-top transition-[transform,opacity] duration-[180ms] ease-out',
+        'origin-top transition-[translate,opacity] duration-[180ms] ease-out',
         closing
           ? '-translate-y-1 opacity-0'
           : 'translate-y-0 opacity-100 starting:-translate-y-1 starting:opacity-0',

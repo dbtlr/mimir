@@ -55,7 +55,7 @@ export function ArtifactFilters({
 
   // Re-sync during render when `q` changes from outside (Back/Forward,
   // clear-filters). When our own debounced push lands, filters.q already equals
-  // q, so this is a no-op.
+  // q, so the box keeps its value and only the tracked URL value advances.
   const [syncedQ, setSyncedQ] = useState(filters.q);
   if (filters.q !== syncedQ) {
     setSyncedQ(filters.q);

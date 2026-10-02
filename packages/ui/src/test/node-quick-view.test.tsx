@@ -147,6 +147,31 @@ describe('quickViewPanel — desktop drop panel', () => {
     }
   });
 
+  it('a parent re-render during the exit slide still closes the panel', () => {
+    // The board hands the panel a fresh onClose closure on every render, and a
+    // background poll can re-render it inside the 180ms exit window.
+    const original = globalThis.matchMedia;
+    stubMatchMedia(true);
+    vi.useFakeTimers();
+    try {
+      const closed = vi.fn();
+      const node = task({ id: 'MMR-37', status: 'ready', title: 'preview me' });
+      mockDetail(node);
+      const { rerender } = render(
+        <QuickViewPanel node={node} onClose={() => closed()} onOpenNode={vi.fn()} />,
+        { wrapper },
+      );
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      vi.advanceTimersByTime(CLOSE_MS / 3);
+      rerender(<QuickViewPanel node={node} onClose={() => closed()} onOpenNode={vi.fn()} />);
+      vi.advanceTimersByTime(CLOSE_MS + 40);
+      expect(closed).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+      globalThis.matchMedia = original;
+    }
+  });
+
   it('the panel Esc handler no-ops below md, so it cannot close the mobile shelf', () => {
     // The default test matchMedia reports no match (mobile) — the shared panel
     // is always mounted, and its Esc listener must not close the shelf (MMR-223 §6).
