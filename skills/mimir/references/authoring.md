@@ -3,7 +3,7 @@
 Contents: [Creating work](#creating-work) · [A task vs. a step](#a-task-vs-a-step) ·
 [Dependencies and structure](#dependencies-and-structure) ·
 [Patching vs annotating](#patching-vs-annotating) ·
-[The direction narrative](#the-direction-narrative-next) ·
+[The direction narrative](#the-direction-narrative--next) ·
 [Resume handles](#resume-handles-how-the-work-is-picked-back-up) ·
 [Artifacts](#artifacts-frozen-records) · [Tagging](#tagging)
 

@@ -31,6 +31,9 @@ test('the embedded skill carries the root, eight references, and Codex metadata,
   for (const f of SKILL_FILES) {
     expect(f.content.length).toBeGreaterThan(f.path.endsWith('.yaml') ? 50 : 200);
   }
+  const metadata = SKILL_FILES.find((f) => f.path === 'agents/openai.yaml')?.content ?? '';
+  expect(metadata).toContain('display_name: ');
+  expect(metadata).toContain('allow_implicit_invocation: true');
   // The root must carry the frontmatter and the load-bearing discipline inline.
   const root = SKILL_FILES[0]?.content ?? '';
   expect(root).toContain('name: mimir');
