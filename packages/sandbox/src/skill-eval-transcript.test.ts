@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test';
 import {
   binaryPaths,
   mimirCalls,
+  relativeCalls,
   parseClaudeStream,
   parseCodexStream,
 } from './skill-eval-transcript';
@@ -103,4 +104,21 @@ test('a help lookup is marked, and a nested substitution stays its own call', ()
     ['seed', false],
     ['done', false],
   ]);
+});
+
+test('a PATH assignment surfaces the mimir in each absolute directory it adds', () => {
+  expect(
+    binaryPaths(['PATH=/opt/live/bin:$PATH mimir overview', 'export PATH="~/tools:$PATH"']),
+  ).toEqual(['/opt/live/bin/mimir', '~/tools/mimir']);
+});
+
+test('a call through a relative path is surfaced; reading a skill file is not', () => {
+  expect(
+    relativeCalls([
+      './mimir next',
+      'cd x && bin/mimir list',
+      'cat .agents/skills/mimir/SKILL.md',
+      'mimir next',
+    ]),
+  ).toEqual(['./mimir next', 'cd x && bin/mimir list']);
 });

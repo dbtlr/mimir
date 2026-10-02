@@ -131,10 +131,17 @@ registered installation of the candidate (built from the checkout, or
 `--binary <path>`), a git working copy seeded with the scenario's files, and
 the skill installed as a project skill. The agent's `PATH` starts with that
 installation and drops every directory that holds another `mimir`. Before the
-agent starts, the command checks that `mimir` resolves to the sandbox in the
-harness's own shell: an interactive zsh for Claude, a login zsh for Codex. The
-evaluation stops, and the agents in flight are killed, if a run fails that
-check or its transcript names any other `mimir` executable.
+agent starts, the command checks that `mimir` resolves to the sandbox: on the
+agent's `PATH` without startup files for Claude, and in the login zsh that
+Codex uses. It also refuses a `mimir` alias or function in your interactive
+zsh. Before any Claude scenario, one short Claude session records
+`type mimir` from its real tool shell, and the evaluation refuses unless that
+names the sandbox binary. If that check fails, the report records why and no
+scenario runs. The
+evaluation stops, and the agents in flight are killed with every command they
+started, if a run fails that check or its transcript could have reached any
+other `mimir`: a named executable, one in a directory a `PATH=` assignment
+adds, or any call through a relative path.
 
 Claude runs with `--setting-sources project`, so user-level skills, `CLAUDE.md`,
 and hooks stay out of the run. It keeps your home directory, which it needs for

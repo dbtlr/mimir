@@ -24,6 +24,7 @@ import type { Scenario } from './skill-eval-scenarios';
 import {
   binaryPaths,
   mimirCalls,
+  relativeCalls,
   parseClaudeStream,
   parseCodexStream,
 } from './skill-eval-transcript';
@@ -123,14 +124,19 @@ export class SafetyError extends Error {
   override name = 'SafetyError';
 }
 
-/** Paths a transcript names that resolve to an executable `mimir` other than the sandbox's. */
+/**
+ * What a transcript could have reached besides the sandbox binary: named or
+ * PATH-added `mimir` executables that are not the sandbox's, and any call
+ * through a relative path, whose target cannot be known afterwards.
+ */
 export function escapes(commands: readonly string[], sandboxBinary: string): string[] {
   const sandbox = realpathSync(sandboxBinary);
-  return binaryPaths(commands).filter((path) => {
+  const named = binaryPaths(commands).filter((path) => {
     const absolute = path.startsWith('~') ? join(homedir(), path.slice(1)) : path;
     const stat = statSync(absolute, { throwIfNoEntry: false });
     return stat?.isFile() === true && realpathSync(absolute) !== sandbox;
   });
+  return [...named, ...relativeCalls(commands).map((c) => `relative call: ${c.slice(0, 120)}`)];
 }
 
 const message = (error: unknown): string =>
@@ -149,6 +155,7 @@ async function verifyClaudeShell(root: string, binary: string): Promise<void> {
   await capture(agentCommand('claude', prompt, 'haiku', sandbox.root), {
     cwd: sandbox.work,
     env: sandbox.env,
+    group: true,
     timeout: 5 * 60_000,
   });
   const recorded = await readFile(join(sandbox.work, '.shell-canary'), 'utf8').catch(() => '');
@@ -238,6 +245,7 @@ async function runAgent(
     run = await capture(agentCommand(harness, scenario.prompt(ids), model, sandbox.root), {
       cwd: sandbox.work,
       env: sandbox.env,
+      group: true,
       signal,
       timeout: AGENT_TIMEOUT_MS,
     });
@@ -386,8 +394,28 @@ export class SkillEval {
     await mkdir(reports, { mode: 0o700, recursive: true });
     process.stderr.write(`Skill eval ${id}: runs in ${evalRoot}\n`);
 
+    const report = join(reports, 'report.json');
+    const writeReport = async (results: RunResult[], failure: unknown) =>
+      privateJson(report, {
+        binarySha256: await hashFile(binary),
+        createdAt: new Date().toISOString(),
+        id,
+        results,
+        skill,
+        skillSha256: skillDigest(skill),
+        stoppedBy: failure === undefined ? null : message(failure),
+        version: 1,
+      });
     if (options.harnesses.includes('claude')) {
-      await verifyClaudeShell(join(evalRoot, 'claude-shell-canary'), binary);
+      try {
+        await verifyClaudeShell(join(evalRoot, 'claude-shell-canary'), binary);
+      } catch (error) {
+        // No scenario ran, so nothing under the root is worth keeping.
+        await writeReport([], error);
+        await rm(evalRoot, { force: true, recursive: true });
+        process.stderr.write(`Report: ${report}\n`);
+        throw error;
+      }
     }
     const selected = SCENARIOS.filter(
       (s) => options.scenarios.length === 0 || options.scenarios.includes(s.name),
@@ -401,17 +429,7 @@ export class SkillEval {
       ),
     );
     const { results, failure } = await pool(tasks, options.concurrency);
-    const report = join(reports, 'report.json');
-    await privateJson(report, {
-      binarySha256: await hashFile(binary),
-      createdAt: new Date().toISOString(),
-      id,
-      results,
-      skill,
-      skillSha256: skillDigest(skill),
-      stoppedBy: failure === undefined ? null : message(failure),
-      version: 1,
-    });
+    await writeReport(results, failure);
     if (failure !== undefined) {
       process.stderr.write(`Partial report: ${report}\nRuns kept: ${evalRoot}\n`);
       throw failure;

@@ -82,6 +82,16 @@ const CALL =
   /(?:^|&&|\|\||[;|\n(]|\$\(|-[a-z]*c[ \t]+['"])[ \t]*(?:\S*\/)?mimir[ \t]+([a-z][a-z-]*)(?:[ \t]+([^\s'"&|;)]+))?((?:[^\n;&|$)]|\$(?!\())*)/g;
 const HELP = /(?:^|\s)(?:-h|--help)(?:$|[\s'"])/;
 
+/**
+ * Calls through a relative path (`./mimir`, `bin/mimir`). The runner cannot
+ * tell which binary those reached, so any one is an escape.
+ */
+export function relativeCalls(commands: readonly string[]): string[] {
+  return commands.filter((command) =>
+    /(?:^|&&|\|\||[;|\n(]|\$\(|-[a-z]*c[ \t]+['"])[ \t]*(?!\/|~)\S*\/mimir[ \t]/.test(command),
+  );
+}
+
 export function mimirCalls(commands: readonly string[]): MimirCall[] {
   const calls: MimirCall[] = [];
   for (const command of commands) {
@@ -98,13 +108,21 @@ export function mimirCalls(commands: readonly string[]): MimirCall[] {
 }
 
 /**
- * Every absolute or home-relative path naming a file called `mimir`, wherever it
- * appears in a command. The runner treats any that resolves to an executable
- * other than the sandbox's as an escape, whatever position it was invoked from.
+ * Every place a command could find a `mimir` other than through the agent's
+ * PATH: absolute or home-relative paths naming a file called `mimir`, and
+ * `mimir` inside each directory a `PATH=` assignment adds. The runner treats
+ * any that resolves to an executable other than the sandbox's as an escape.
  */
 export function binaryPaths(commands: readonly string[]): string[] {
   const paths = new Set<string>();
   for (const command of commands) {
+    for (const match of command.matchAll(/\bPATH=["']?([^\s"';|&]+)/g)) {
+      for (const dir of (match[1] ?? '').split(':')) {
+        if (dir.startsWith('/') || dir.startsWith('~')) {
+          paths.add(`${dir.replace(/\/$/, '')}/mimir`);
+        }
+      }
+    }
     for (const match of command.matchAll(
       /(?:^|[\s'"(=`])((?:~|\/)[^\s'"`;|&()]*\/mimir)(?=$|[\s'"`;|&)])/g,
     )) {

@@ -56,26 +56,41 @@ type SpawnOptions = {
   timeout?: number;
   /** Kill the child when this aborts; the call then rejects as interrupted. */
   signal?: AbortSignal;
+  /** Start the child in its own process group, and kill the whole group on
+   *  timeout or abort, so commands it spawned die with it. */
+  group?: boolean;
 };
 
 /** A bounded subprocess whose exit status is the caller's to judge. */
 export async function capture(args: string[], options: SpawnOptions): Promise<Captured> {
   const child = Bun.spawn(args, {
     cwd: options.cwd,
+    detached: options.group === true,
     env: options.env ?? isolatedEnvironment(),
     stderr: 'pipe',
     stdin: options.inputFile ? Bun.file(options.inputFile) : 'ignore',
     stdout: 'pipe',
   });
+  const kill = (): void => {
+    if (options.group === true) {
+      try {
+        process.kill(-child.pid, 'SIGKILL');
+        return;
+      } catch {
+        // The group is already gone; fall through to the child itself.
+      }
+    }
+    child.kill('SIGKILL');
+  };
   let interrupted = false;
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
-    child.kill('SIGKILL');
+    kill();
   }, options.timeout ?? 120_000);
   const stop = () => {
     interrupted = true;
-    child.kill('SIGKILL');
+    kill();
   };
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
