@@ -2,17 +2,21 @@
 
 A **Scratchpad** is project-anchored working memory for an **unsettled
 episode** — shaping, grilling, planning, an investigation, or a task execution
-whose conversation may compact before the work settles (ADR 0027). It holds an
+whose conversation may compact before the work settles. It holds an
 append-only numbered **Journal** (checkpoints) and a numbered **Agenda** (open
 questions and follow-ups), and it appears in `mimir overview` so a fresh agent
 can recover the episode without the chat scroll. It is temporary by contract:
 **every episode ends in `freeze` or `discard`** — an active Scratchpad is
 staging state, never the durable record.
 
-Scratchpads are the deliberate exception to the flat-verb grammar (ADR 0028):
-they are UUID-addressed, not `KEY-seq`, so their whole lifecycle groups under
-`mimir scratch <operation>` (MCP: `scratch_*` tools). The UUID is a handle,
-not an id you compose with — no other verb accepts it.
+A Scratchpad is addressed by a UUID, not a `KEY-seq` id, so its whole
+lifecycle groups under `mimir scratch <operation>` (MCP: `scratch_*` tools).
+Only `scratch` subcommands accept the UUID.
+
+Contents: [When a Scratchpad](#when-a-scratchpad--and-when-not) ·
+[The lifecycle](#the-lifecycle) ·
+[The concurrency token](#the-concurrency-token--echo-never-guess) ·
+[Resume](#resume-the-recovery-surface) · [Ending the episode](#ending-the-episode)
 
 ## When a Scratchpad — and when not
 
@@ -25,10 +29,9 @@ not an id you compose with — no other verb accepts it.
 | Settled, self-contained content worth keeping                    | artifact (`attach` or `freeze`) |
 
 The gap Scratchpads fill: an episode may start **before any task or seed
-exists** and may span several pieces of linked work. Do not stretch the other
-primitives to cover it — and do not use a Scratchpad as a second board:
-the moment work is statable, it becomes a task; the Scratchpad only records
-that the episode produced it.
+exists** and may span several pieces of linked work. Notes stay in the
+Scratchpad, and commitments go on the board: the moment work is statable, it
+becomes a task, and the Scratchpad records that the episode produced it.
 
 ## The lifecycle
 
@@ -126,14 +129,8 @@ recorded anywhere**: discard deletes the document and leaves no trace. An
 episode whose ending deserves a trace freezes instead.
 
 The end-of-session sweep includes Scratchpads: for each one you drove, freeze
-it if it settled, checkpoint it honestly if it continues, discard it if it is
-dead. Leaving one active is a handoff, not a default — its Journal must let a
-stranger resume.
-
-| Rationalization                          | Reality                                                     |
-| ---------------------------------------- | ----------------------------------------------------------- |
-| "I'll keep notes in the chat"            | The chat compacts. The Scratchpad is the episode's memory.  |
-| "I'll make a task to hold my notes"      | Tasks are commitments, not notebooks. Unsettled → scratch.  |
-| "I'll freeze it later"                   | Later never comes. Settle the episode at its boundary.      |
-| "Discard refused — I'll just leave it"   | Settle or supersede the Agenda, then end it honestly.       |
-| "I'll reuse the last token"              | Tokens move per write. Read the receipt; thread it forward. |
+it if it settled, checkpoint it honestly if it continues, and discard it if it
+is dead. Settle the episode at its boundary, while the conversation still holds
+it. Leaving one active is a handoff: its Journal must let a stranger resume. A
+discard refused over open Agenda items calls for completing or superseding
+them first.

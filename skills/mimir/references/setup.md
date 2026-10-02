@@ -17,7 +17,7 @@ preflight; there are no migrations to run. An install on the shared Postgres
 backend (`[store] backend = "postgres"` plus `url`) needs no `norn`; its one
 preflight is `mimir store upgrade`, which creates or upgrades the schema and
 must run before any other command (every other verb refuses on a mismatched
-schema; `docs/guides/postgres-store.md` in the repo).
+schema).
 
 ## Case 1 — the project exists, this working copy isn't bound
 
@@ -48,7 +48,7 @@ mimir bind KEY
 
 Commit `.mimir.toml`.
 
-## Structure: start minimal — never pre-scaffold
+## Structure: start minimal
 
 The hierarchy is project → initiative → phase → task, but **create levels only when
 the work demands them**. Tasks may hang directly under an initiative; a phase exists

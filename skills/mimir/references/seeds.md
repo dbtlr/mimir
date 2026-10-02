@@ -1,5 +1,9 @@
 # Seeds: the grooming queue
 
+Contents: [Filing](#filing) · [Reading the queue](#reading-the-queue) ·
+[Triage verbs](#triage-verbs-the-triagers-surface) ·
+[Cross-board asks](#cross-board-asks-upstream) · [The triage pass](#the-triage-pass)
+
 A **seed** is a record filed against a board that implies **no committed work —
 only triage** (`kind` ∈ `idea|bug|feature`, ids `KEY-sN`). A seed either
 germinates into work or it doesn't; the **owning board's** triage decides what
@@ -9,9 +13,9 @@ never tree nodes — they have their own lifecycle, verbs, and queue.
 Exactly two things are seeds:
 
 1. **An ask against ANOTHER board** (~90% of seeds): a bug report, feature ask,
-   or capability need you hit in a surface you don't own. You **never** create
-   tasks on another board — however fully shaped the fix is, it crosses boards
-   as a seed, and the owning board decides what work to commit.
+   or capability need you hit in a surface you don't own. Only the owning board
+   creates its tasks: however fully shaped the fix is, it crosses boards as a
+   seed, and the owning board decides what work to commit.
 2. **An own-board idea or observation with no statable fix**:
    decision-shaped — "should X?", "decide the policy", "prove it or delete
    it" — it may or may not germinate into work. It is not a follow-up of your
@@ -64,9 +68,8 @@ mimir get NRN-s3                  # one seed, resolved view
   longest-waiting seed is the triage priority. `--status <word>|all`,
   `--sort asc|desc`, `-p all` for every board, and the shared date ops over
   `created_at` (`--at-or-after created_at:2026-07-01`, `--tz <IANA>`).
-- `seed` (capture) / `seeds` (query) is a deliberate singular–plural idiom, kept
-  because zero-friction capture is the point — it's a one-off, not a pattern.
-  There's no `tasks` or `projects` twin; `list` owns node queries.
+- `seed` captures and `seeds` queries. For tasks and other nodes, `list` is the
+  query verb.
 
 ## Triage verbs (the triager's surface)
 
@@ -81,11 +84,6 @@ mimir update  NRN-s2 --title "…" --kind idea      # patch a LIVE seed; termina
 - Lifecycle: `new → promoted → resolved | rejected` — and both terminals are
   reachable straight from `new` ("already fixed" is a **resolve**, not a reject;
   the reason string carries the nuance).
-- `promote`/`reject`/`resolve` are **seed-exclusive** verb names — a future
-  feature wanting one of these words picks something else rather than
-  overloading a seed verb. The grammar mirrors the task lifecycle
-  (`resolve KEY-s10` is the same flat-verb-plus-typed-id shape as
-  `done KEY-42`); only the argument arity differs per verb.
 - `promote` is **repeatable** while promoted — further germination appends
   `spawned` links. `--link` records work that already exists.
 - **Terminal states are set only by these explicit verbs.** All spawned work
@@ -95,8 +93,8 @@ mimir update  NRN-s2 --title "…" --kind idea      # patch a LIVE seed; termina
 
 ## Cross-board asks: `upstream`
 
-When your task waits on another board's seed, record the edge — never a
-prose-only hold:
+When your task waits on another board's seed, record the edge as data beside
+the block reason, so triage can follow it:
 
 ```sh
 SID=$(mimir seed "accept plans without vault_root" -k feature -p NRN -f ids)

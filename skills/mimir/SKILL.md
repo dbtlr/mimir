@@ -1,182 +1,128 @@
 ---
 name: mimir
-description: Drive Mimir — the work-state source of truth (tasks, hierarchy, statuses, artifacts, scratchpads) — via the `mimir` CLI. Load at the START of every session in a repo containing a .mimir.toml (or when the user asks to track work, check the task queue, set up a project, keep episode state or a scratchpad, or mentions task/work state). Teaches orientation, task authoring, status transitions, temporary episode state, and the query surface.
+description: Drives Mimir, the work-state store for tasks, their hierarchy, statuses, artifacts, and scratchpads, through the `mimir` CLI. Use at the start of every session in a repo with a `.mimir.toml`, when a request names a task id such as `MMR-12`, and when the user asks to track work, check the task queue, set up a project, or keep a scratchpad.
 ---
 
-# Mimir: the work-state source of truth
+# Mimir
 
-Mimir holds **work state** — the task board, the project → initiative → phase → task
-hierarchy, statuses, and frozen artifacts — in a queryable store. The chat scroll is
-not the record; the board is. You read it and you keep it true, through the `mimir`
-CLI (drive it with shell commands; every example here is a real invocation).
+Mimir holds a project's work state: the task board, the project → initiative →
+phase → task hierarchy, statuses, and frozen artifacts. The board is the record
+that outlives this conversation, so read it before you plan and keep it true as
+you work. You drive it with the `mimir` CLI. Every example in this skill is a
+real invocation.
 
-Work-state commands are **flat top-level verbs** — `done`, `list`, `next`, never
-`task done` — because this is the hot path, invoked constantly. One deliberate
-work-plane exception: `scratch <operation>` groups the temporary episode-state
-lifecycle under its noun, because a Scratchpad is UUID-addressed working memory,
-not a sequenced work entity (`references/scratchpad.md`). A separate,
-noun-grouped **machinery plane** (`service`, `vault`, `store`, `skill`) manages
-the installation itself (supervision, snapshots, the store schema, distribution)
-and sits outside what this skill teaches.
+## Orient first
 
-<EXTREMELY-IMPORTANT>
-If there is even a **1% chance** a session is starting in a Mimir-tracked repo, run
-the gate below BEFORE other work. These thoughts mean STOP — you are rationalizing:
+The board changes between sessions. An agent that plans from memory redoes or
+contradicts work already in flight, and orientation costs one command, so
+orient before other work, quick questions included:
 
-| Thought                                       | Reality                                               |
-| --------------------------------------------- | ----------------------------------------------------- |
-| "This is just a quick question"               | Orientation costs one command. Run the gate.          |
-| "I'll check the board when I start real work" | Work that isn't on the board gets lost. Board first.  |
-| "I remember the state from last time"         | State moved. The store is the truth, not your memory. |
+1. Run `command -v mimir`. If it is missing, Mimir is not installed. Mention
+   that only when the user wants work tracking (`references/setup.md`).
+2. Look for `.mimir.toml` in this directory or an ancestor. It binds the repo
+   to its project and sets the default scope.
+   - **Unbound:** this repo is not tracked. Carry on with the user's request
+     without Mimir, and set it up only when the user asks (`references/setup.md`).
+   - **Bound:** orient from `mimir overview`. It shows the project rollup,
+     direction, in-flight work, active scratchpads, the ready queue, recent
+     sessions, and hygiene (`references/querying.md`). If your context
+     already holds `mimir overview` for this bound project,
+     reuse it and do not run the command again. Read any active Scratchpad
+     before planning: it is a live episode's memory and may already cover the
+     work in front of you (`references/scratchpad.md`). On a board you own, follow with
+     `mimir triage`. It reports untriaged seeds and annotates your tasks whose
+     upstream seeds resolved, and it is safe to repeat (`references/seeds.md`).
 
-</EXTREMELY-IMPORTANT>
+## The working contract
 
-## The gate (run first, exit quietly if it fails)
+These rules hold for every Mimir interaction. The references add detail and
+never relax them.
 
-1. `command -v mimir` — missing → not installed; only raise it if the user wants
-   work tracking (install: see `references/setup.md`).
-2. Is there a `.mimir.toml` here (this directory or any ancestor)? It binds the repo
-   to its project and becomes the default `--scope`.
-   - **Bound** → orient from `mimir overview`, the composite orientation surface
-     (project rollup · direction prose · in flight · active scratchpads · next ·
-     awaiting · recent sessions · hygiene counts and listings; drill-down
-     surfaces in `references/querying.md`). An active Scratchpad is a live
-     episode's memory — read it (`references/scratchpad.md`) before planning
-     work it may already cover. If the current Active Context already supplies
-     `mimir overview` for this bound project, reuse it and do not run the command
-     again. Otherwise run `mimir overview` now. On a board you own, follow with
-     `mimir triage` — overview only reads; triage is the write-side sweep: it
-     reports untriaged seeds and ready-to-resolve flags, and annotates your
-     tasks whose upstream seeds have resolved (idempotent, safe every session;
-     `references/seeds.md`).
-   - **Not bound** → this repo isn't Mimir-tracked. **Exit quietly and proceed
-     normally.** Route to `references/setup.md` only if the user explicitly wants
-     this project tracked.
+**Statuses move through verbs.** `start`, `submit`, `return`, `done`,
+`abandon`, `reopen`, `park`/`unpark`, and `block`/`unblock` are the only way to
+change a task's status. `update` patches fields and leaves status alone. Seeds
+move through `promote`, `reject`, and `resolve`.
 
-## Non-negotiables
+**Transition at the moment the claim becomes true.** A transition recorded
+later is a guess about the past, and the next agent reads it as fact.
 
-These hold for every Mimir interaction. The references add detail; nothing in them
-relaxes these.
+- `start <id>` when you choose a task, before the first edit. Keep one task
+  `in_progress` at a time.
+- `done <id>` after verification and before you tell the user the work is
+  finished. Verification is evidence from this session: a passing test or
+  build, or the changed behavior run and observed.
+- `submit <id>` in place of `done` when a human must review the work before it
+  counts as finished. The reviewer runs `done` to approve, or
+  `return <id> "what to change"` to send it back to you.
+- `block <id> "reason"` when something external stops you, and
+  `park <id> "reason"` when you defer the task on purpose. The reason is the
+  next agent's context. `unblock` or `unpark` when you resume.
+- `abandon <id> "reason"` when a task or an approach dies. Abandoned tasks stay
+  on the record with their reason.
+- `reopen <id> "reason"` when a terminal call was wrong: a `done` that later
+  verification falsified, or an abandoned approach that is back on. More work
+  found after a genuine `done` is a new task.
+- `annotate <id> "note"` when a decision, a surprise, or a scope change lands
+  mid-task.
 
-**1. Statuses move only through verbs.** `start` · `submit` · `return` · `done` ·
-`abandon` · `reopen` · `park`/`unpark` · `block`/`unblock`. There is no editable status field, and
-`update` cannot touch status — that is by design, not an omission. Seeds
-(grooming-queue records) move through their own verbs — `promote` · `reject` ·
-`resolve` (`references/seeds.md`).
+**Route new work by whose board it is** (`references/seeds.md`):
 
-**2. The transition contract — transition at the moment, not later:**
+- Work for **your own board** that you find or defer is a new task:
+  `create task`, plus `depend` when it gates something. `annotate` the current
+  task with the finding. This holds when the fix, or a decision inside it, is
+  still open; put the open question in the task description. Review findings
+  and test follow-ups end as fixed, dismissed with a reason, or a deferred task.
+- Anything for **another board** is a seed on that board, however well you
+  can state the fix: `mimir seed "title" -k bug -p KEY`. The owning board
+  decides what work to commit, so you create tasks only on boards you own.
+  When that seed blocks your task, `block` the task and record the edge with
+  `mimir update <id> --upstream KEY-sN`, so triage can tell you when it resolves.
+- An own-board idea with no statable fix ("should we…?") is a seed too.
 
-- `start <id>` **when you choose the task, before the first edit.** Any touch counts;
-  no retroactive starts. Keep one task `in_progress` per working session.
-- `done <id>` **only after verification, and before telling the user it's finished.**
-  About to report completion? If you haven't run `done`, stop and run it.
-- `submit <id>` **when the work is shippable but wants a human review first** (the
-  optional `under_review` gate). Use it instead of `done` when a human must sign off
-  before it counts as finished; the reviewer then `done`s it (approve) or
-  `return <id> "what to change"`s it (back to `in_progress` for you to pick up).
-  Skip it and go straight to `done` when no review is wanted.
-- `block <id> "reason"` / `park <id> "reason"` **the moment you stall** — external
-  obstruction → block; deliberate deferral → park. Always give the reason; it is the
-  next agent's context. `unblock`/`unpark` on resume.
-- `abandon <id> "reason"` when an approach or task dies. Never delete, never leave a
-  zombie `todo`.
-- `reopen <id> "reason"` **when a terminal call was wrong** — a premature `done`
-  (verification later falsified it) or a wrongly-abandoned approach that's back on.
-  Not for new work found after a genuine `done`: that's a new task, never a reopen —
-  reopen means "the completion claim was wrong," not "there's more to do." Give the
-  reason; it's the next agent's context, same as `block`/`park`.
-- **Discovered work on YOUR board = a new task** (`create task` + `depend` if it
-  gates something), never a silent widening of the current one — and **never a
-  seed**: if you can state the fix, you already triaged it, and work you defer
-  to keep the current task in scope is a task even when its fix, or a decision
-  inside it, is still open.
-  Review findings and test follow-ups terminate in fixed, dismissed-with-reason,
-  or deferred to a **task**. `annotate` the current task with what you found.
-- **A seed covers exactly two cases** (`mimir seed "…" -k <kind> [-p KEY]`, never
-  a prose note that decays — `references/seeds.md`):
-  1. **Anything for ANOTHER board** (~90% of seeds) — a bug, feature, or
-     capability ask, however fully shaped the fix is. You never create tasks on
-     a board you don't own; the owning board commits its own work.
-  2. **An own-board idea or observation with no statable fix** —
-     decision-shaped ("should X?", "decide the policy"); it may or may not
-     germinate into work. Not a follow-up of your current task: work you defer
-     to keep your task's scope is not this case, even when "park that" is the
-     operator's phrasing. It is a task, even when its fix or a decision
-     inside it is open.
-- **If a seed blocks you:** `block` your task **and** set `--upstream KEY-sN` —
-  never a prose-only hold.
-- `annotate <id> "note"` when something lands mid-flight — a decision, a surprise, a
-  scope change.
-- **The end-of-session sweep (the catch-all):** before ending, run
-  `mimir list --status in_progress` and reconcile every row you touched — finish it
-  (`done`), hand it forward honestly (`annotate` + leave), or shelve it
-  (`park`/`block`/`abandon`). Sweep Scratchpads you drove the same way: freeze
-  what settled, checkpoint what continues, discard what died
-  (`references/scratchpad.md`).
+**Sweep before you stop.** Run `mimir list --status in_progress` and settle
+every task you touched: finish it, hand it forward with an `annotate`, or
+`park`, `block`, or `abandon` it. Settle the Scratchpads you drove the same
+way: freeze, checkpoint, or discard.
 
-| Rationalization                     | Reality                                          |
-| ----------------------------------- | ------------------------------------------------ |
-| "I'll update statuses at the end"   | The end never comes. Transition at the moment.   |
-| "This was just a tiny fix"          | Tiny fixes are work. Track it or don't touch it. |
-| "I'll seed it so triage decides"    | A statable fix IS triaged. Own board → task.     |
-| "Fix or decision open, so seed it"  | Deferred to keep scope? Task, still open or not. |
-| "I don't want to clutter the board" | An untracked in-flight task IS the clutter.      |
-| "The user saw me do it"             | Mimir is the record, not the chat scroll.        |
+**Finish in three pieces.** A work boundary may need a transition, a groom of
+the `## Next` direction, or a session summary. Completing a task takes all
+three, in that order. Read `references/finishing.md` before running any of them.
 
-**3. Ids: one grammar.** Project = bare `KEY` (e.g. `MMR`) · work node = `KEY-seq`
-(`MMR-16`) · artifact = `KEY-a3` · seed = `KEY-s3`. Any id slot takes the full
-grammar; a verb rejects what it can't act on. (A Scratchpad's UUID sits outside
-this grammar by design — it is a handle only `scratch` verbs accept.) This is what keeps lifecycle verbs
-flat instead of namespaced: `done KEY-42` needs no `task` prefix because the id's
-own shape already says what it acts on — `resolve KEY-s10` runs the identical
-flat-verb-plus-typed-id grammar for seeds.
+**Report board changes with the outcome.** Tell the user what moved on the
+board in the sentence that reports the work ("Fixed the typo; QEV-2 is done."),
+rather than narrating each command.
 
-**4. Compose with the echoed id — never guess the next number.** Every create/mutation
-echoes the affected id. Capture it (`ID=$(mimir create task "…" --parent MMR-2 -f ids)`);
-sequence numbers are never reused, so a guessed id hits the wrong row silently.
+**The user's explicit instruction wins.** When the user asks you to skip
+tracking for a change, skip it and say that the change went untracked.
 
-**5. The controller owns the board.** Reads are free for any agent. Mutation verbs
-belong to whoever owns verification: if you were dispatched as a subagent, transition
-only when your dispatch prompt explicitly delegates it — otherwise report back and let
-the controller transition. A solo agent is its own controller; the full contract applies.
+**The controller owns the board.** Any agent may read it. If you were
+dispatched as a subagent, change statuses only when your dispatch prompt
+delegates that; otherwise report back and let the controller transition. A solo
+agent is its own controller.
 
-**6. Scope is ambient.** Inside a bound repo, plain `mimir next` / `mimir list` are
-already scoped to the bound project. `-s KEY` targets another project; `-s all`
-queries every project.
+## Ids and commands
 
-**7. Drive from the reference, never from memory.** The verb and flag surface is
-exact and narrow — the only verbs that exist are the ones the references list.
-On every verb these references teach, `mimir <cmd> -h`/`--help` prints that
-command's own usage and flags (`-h` terse, `--help` adds worked examples) — a
-quick flag reminder, not a substitute for the
-reference, which stays the complete, authoritative teaching surface: workflow,
-rationale, and the pattern around the command. Renames are pre-1.0 hard breaks
-with no alias — a verb that used to work may have moved; the unknown-command
-error may tombstone the old name to the new one (no tombstone → check for a
-typo first).
-**Before your first create/update/restructure in a session, open the matching
-`references/*.md` (Routing, below) and drive from it.** Guessing a verb
-(`describe`? `show`? `edit`?) or a flag either errors and burns a round-trip, or
-— worse — silently writes the wrong field. Grepping the source for a flag is the
-tell that you skipped this step.
-
-| Rationalization                       | Reality                                                                       |
-| ------------------------------------- | ----------------------------------------------------------------------------- |
-| "I remember the verb/flag"            | The surface drifts; memory misfires. Open the reference.                      |
-| "`describe`/`show`/`edit` must exist" | Only the referenced verbs exist. Guessing fails or misfires.                  |
-| "`mimir <cmd> -h` will remind me"     | It reminds you of flags, not workflow — the reference is still the authority. |
-| "It's one scalar field, I'll wing it" | A wrong field patches the wrong row silently. Read first.                     |
-
-**8. Finish work in three standalone pieces.** A work boundary may need any one
-of **transition**, **groom-next**, or **summarize**; task completion composes all
-three in that order. Read `references/finishing.md` before running any piece.
-Do not defer them into one end-of-session ritual: settle state when it changes,
-re-author direction when the board changes, and freeze the retrospective while
-the session is still fresh.
+- Ids share one grammar: a project is `KEY` (`MMR`); a task, phase, or
+  initiative is `KEY-seq` (`MMR-16`); an artifact is `KEY-a3`; a seed is
+  `KEY-s3`. A Scratchpad is a UUID that only the `scratch` subcommands take.
+- Verbs are flat (`mimir done MMR-16`, `mimir resolve MMR-s3`), and Scratchpad
+  operations group under `mimir scratch`.
+- Every create and mutation echoes the affected id. Capture it and compose with
+  it: `ID=$(mimir create task "…" --parent MMR-2 -f ids)`. Sequence numbers are
+  never reused, so a guessed id writes to the wrong row.
+- Inside a bound repo, commands default to the bound project. `-s KEY` targets
+  another project, and `-s all` spans every project.
+- `mimir get <id>` reads any one record.
+- Use the verbs and flags the references show. The surface is exact, and a
+  guessed flag can write the wrong field without an error. Before your first
+  create, update, or restructure in a session, open the matching reference
+  below. `mimir <cmd> --help` prints a verb's flags and worked examples.
+  Renamed verbs keep no alias; the unknown-command error names the replacement
+  when there is one.
 
 ## Routing
 
-**Read the matching reference before you act in its area — not after a guess fails.**
+Read the matching reference before you act in its area.
 
 | You need to…                                                            | Read                         |
 | ----------------------------------------------------------------------- | ---------------------------- |
@@ -189,5 +135,5 @@ the session is still fresh.
 | Classify with tags                                                      | `references/tags.md`         |
 | File or triage grooming-queue records: ideas, bugs, cross-board asks    | `references/seeds.md`        |
 
-(If your host can't shell out but has the Mimir MCP server configured, the verbs map
-1:1 — same names, same arguments, same binding-derived default scope.)
+A host that cannot run shell commands but has the Mimir MCP server configured
+uses the same verbs as tools, with the same names, arguments, and default scope.

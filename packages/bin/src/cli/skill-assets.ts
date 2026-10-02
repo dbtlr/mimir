@@ -1,3 +1,4 @@
+import openaiMetadata from '../../../../skills/mimir/agents/openai.yaml' with { type: 'text' };
 import refAuthoring from '../../../../skills/mimir/references/authoring.md' with { type: 'text' };
 import refFinishing from '../../../../skills/mimir/references/finishing.md' with { type: 'text' };
 import refQuerying from '../../../../skills/mimir/references/querying.md' with { type: 'text' };
@@ -28,6 +29,8 @@ export const SKILL_FILES: readonly { path: string; content: string }[] = [
   { content: refStatusModel, path: 'references/status-model.md' },
   { content: refTags, path: 'references/tags.md' },
   { content: refSeeds, path: 'references/seeds.md' },
+  // Codex's per-skill metadata (display name, implicit invocation); other hosts ignore it.
+  { content: openaiMetadata, path: 'agents/openai.yaml' },
 ];
 
 export const SKILL_AGENTS = ['claude', 'codex'] as const;

@@ -1,7 +1,11 @@
 # Authoring: create, structure, record
 
-Every mutation echoes the affected id — capture it with `-f ids`; never guess the
-next sequence number (numbers are never reused; a guess writes to the wrong row).
+Contents: [Creating work](#creating-work) · [A task vs. a step](#a-task-vs-a-step) ·
+[Dependencies and structure](#dependencies-and-structure) ·
+[Patching vs annotating](#patching-vs-annotating) ·
+[The direction narrative](#the-direction-narrative-next) ·
+[Resume handles](#resume-handles-how-the-work-is-picked-back-up) ·
+[Artifacts](#artifacts-frozen-records) · [Tagging](#tagging)
 
 ## Creating work
 
@@ -20,11 +24,8 @@ mimir create task "A discrete, verifiable outcome" --parent KEY-4 \
 - A title that begins with a dash needs the `--` terminator so it isn't read as
   a flag: flags first, then `-- <title>` —
   `mimir create task --parent KEY-4 -- "--flag-name is misparsed"`.
-- `create <type>` is the single creation verb for tree nodes — one verb, a type
-  positional, not one top-level verb per type. `seed` and `attach` are the only
-  sanctioned exceptions: each earns its own verb because the creation ergonomics
-  ARE the feature (zero-friction capture; the relation itself is the command's
-  point) — see `references/seeds.md` and Artifacts, below.
+- `create <type>` creates every tree node. Seeds (`mimir seed`,
+  `references/seeds.md`) and artifacts (`mimir attach`, below) have their own verbs.
 
 ## A task vs. a step
 
@@ -116,11 +117,9 @@ mimir update KEY-4 --direction ""      # clear it
   being made.
 - **Replace, not append.** Each write re-authors the whole section against the
   current board; there is no append mode, and a blank value clears the section.
-  Read it, decide what is still true, write the new whole. Never paste an
-  addition onto a stale draft.
+  Read it, decide what is still true, and write the new whole.
 - The write is CAS-guarded like every other. If a concurrent write landed first,
-  it refuses — **re-read and merge**, then write again. Never replay the draft
-  you composed against the old state (ADR 0026).
+  it refuses: **re-read and merge** against the current text, then write again.
 - Re-writing identical text writes nothing, so an idempotent re-author doesn't
   move `updated_at` (and doesn't fake activity).
 - The flag is `--direction`, not `--next` (`--next` belongs to `self-update`).
@@ -171,7 +170,7 @@ mimir attach --project KEY --file log.md --tag session_log   # project-level, no
   human handle when tag hygiene is sloppy.
 - `--summary "…"` adds the optional lede (≤256 chars) — what the artifact says,
   for a reader scanning a list of them. Omit it when the title already tells all.
-- Artifacts are **append-only**: never edit one; correct by attaching a successor.
+- Artifacts are **append-only**: correct one by attaching a successor.
 - Classify by tag (`spec`, `plan`, `session_log` — see `references/tags.md`), find
   by tag + time, read back with `mimir get KEY-a3 --col content`.
 
