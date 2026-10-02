@@ -1,5 +1,5 @@
 ---
-description: Reproduce Mimir development and migration tests with registered sandbox installations, disposable Postgres, and native snapshots.
+description: Reproduce Mimir development and migration tests with registered sandbox installations, disposable Postgres, and native snapshots, and evaluate the agent skill with real agents.
 ---
 
 # Development sandboxes
@@ -107,6 +107,58 @@ or `linux`:
 ```sh
 gh workflow run service-verify.yml -f platform=both
 ```
+
+## Evaluate the agent skill
+
+```sh
+bun run sandbox skill-eval
+bun run sandbox skill-eval --skill path/to/candidate-skill --repeat 3
+bun run sandbox skill-eval --harness codex --scenario cross-board,reopen
+```
+
+`skill-eval` gives real Claude Code and Codex agents one request each and grades
+what they did. Each scenario seeds a board, makes a request such as "fix the
+typo tracked as QEV-2" or "record that QEV-2 waits on another team's parser",
+and checks the result. The checks read the store, the working copy, and the
+`mimir` commands the agent ran. They never use the agent's own account of its
+work. Every scenario also fails a run that guesses a verb the CLI does not have.
+`--skill` takes the skill directory under test, so a revision can be measured
+before it is embedded in a binary.
+
+Each run is a vault sandbox in a temporary directory outside the checkout, so
+no `.mimir.toml` above it binds the unbound scenarios. It has its own
+registered installation of the candidate (built from the checkout, or
+`--binary <path>`), a git working copy seeded with the scenario's files, and
+the skill installed as a project skill. The agent's `PATH` starts with that
+installation and drops every directory that holds another `mimir`. Before the
+agent starts, the command checks that `mimir` resolves to the sandbox: on the
+agent's `PATH` without startup files for Claude, and in the login zsh that
+Codex uses. It also refuses a `mimir` alias or function in your interactive
+zsh. Before any Claude scenario, one short Claude session records
+`type mimir` from its real tool shell, and the evaluation refuses unless that
+names the sandbox binary. If that check fails, the report records why and no
+scenario runs. The
+evaluation stops, and the agents in flight are killed with every command they
+started, if a run fails that check or its transcript could have reached any
+other `mimir`: a named executable, one in a directory a `PATH=` assignment
+adds, or any call through a relative path.
+
+Claude runs with `--setting-sources project`, so user-level skills, `CLAUDE.md`,
+and hooks stay out of the run. It keeps your home directory, which it needs for
+its login. Codex runs with its home directory and `CODEX_HOME` inside the
+sandbox, so user skills and the global `AGENTS.md` stay out. Only `auth.json`
+is linked in. If Codex refreshes its login during a run, the new file moves
+back to `~/.codex`, and no run keeps a copy.
+
+Agents vary from run to run. Compare two skill revisions with the same
+scenarios, models (`--claude-model`, `--codex-model`), and `--repeat`, never
+with single runs. The summary prints passes per scenario and harness. The
+report at `.dev/skill-evals/<eval-id>/report.json` records the skill and binary
+digests, each check's outcome, the `mimir` calls, the skills the agent loaded,
+and the final reply. "Writes nothing" checks compare `mimir store export`
+before and after the run. Passing runs are deleted unless `--keep` is given.
+Failed runs keep their sandbox, including `transcript.jsonl`, and the summary
+prints where.
 
 ## Configure the snapshot source
 

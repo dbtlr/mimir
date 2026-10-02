@@ -47,29 +47,57 @@ export async function attempt(args: string[], cwd: string): Promise<string | und
   }
 }
 
-export async function command(
-  args: string[],
-  options: { cwd: string; env?: NodeJS.ProcessEnv; inputFile?: string; timeout?: number },
-): Promise<string> {
+export type Captured = { stdout: string; stderr: string; exit: number };
+
+type SpawnOptions = {
+  cwd: string;
+  env?: NodeJS.ProcessEnv;
+  inputFile?: string;
+  timeout?: number;
+  /** Kill the child when this aborts; the call then rejects as interrupted. */
+  signal?: AbortSignal;
+  /** Start the child in its own process group, and kill the whole group on
+   *  timeout or abort, so commands it spawned die with it. */
+  group?: boolean;
+};
+
+/** A bounded subprocess whose exit status is the caller's to judge. */
+export async function capture(args: string[], options: SpawnOptions): Promise<Captured> {
   const child = Bun.spawn(args, {
     cwd: options.cwd,
+    detached: options.group === true,
     env: options.env ?? isolatedEnvironment(),
     stderr: 'pipe',
     stdin: options.inputFile ? Bun.file(options.inputFile) : 'ignore',
     stdout: 'pipe',
   });
+  const kill = (): void => {
+    if (options.group === true) {
+      try {
+        process.kill(-child.pid, 'SIGKILL');
+        return;
+      } catch {
+        // The group is already gone; fall through to the child itself.
+      }
+    }
+    child.kill('SIGKILL');
+  };
   let interrupted = false;
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
-    child.kill('SIGKILL');
+    kill();
   }, options.timeout ?? 120_000);
   const stop = () => {
     interrupted = true;
-    child.kill('SIGKILL');
+    kill();
   };
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
+  options.signal?.addEventListener('abort', stop, { once: true });
+  if (options.signal?.aborted === true) {
+    stop();
+  }
   try {
     const [stdout, stderr, exit] = await Promise.all([
       new Response(child.stdout).text(),
@@ -84,15 +112,21 @@ export async function command(
     if (timedOut) {
       throw new Error(`Sandbox subprocess timed out: ${args[0]}`);
     }
-    if (exit !== 0) {
-      throw new Error(
-        `${args[0]} failed (${exit}): ${stderr.replace(/postgres(?:ql)?:\/\/[^\s"']+/g, '[database URL redacted]').slice(-4000)}`,
-      );
-    }
-    return stdout.trim();
+    return { exit, stderr, stdout };
   } finally {
     clearTimeout(timer);
     process.removeListener('SIGINT', stop);
     process.removeListener('SIGTERM', stop);
+    options.signal?.removeEventListener('abort', stop);
   }
+}
+
+export async function command(args: string[], options: SpawnOptions): Promise<string> {
+  const { exit, stderr, stdout } = await capture(args, options);
+  if (exit !== 0) {
+    throw new Error(
+      `${args[0]} failed (${exit}): ${stderr.replace(/postgres(?:ql)?:\/\/[^\s"']+/g, '[database URL redacted]').slice(-4000)}`,
+    );
+  }
+  return stdout.trim();
 }
