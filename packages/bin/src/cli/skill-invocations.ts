@@ -140,24 +140,32 @@ const command = (line: string): string => line.replace(/^\s*\$\s+/, '');
 /** Every `mimir` invocation in a markdown document, in document order. */
 export function extractInvocations(file: string, markdown: string): SkillInvocation[] {
   const found: SkillInvocation[] = [];
-  let inFence = false;
+  // The open fence's marker (three or more backticks or tildes); empty outside a fence.
+  let fence = '';
   let shellFence = false;
   let pending = '';
   let heredoc: string | undefined;
   for (const line of markdown.split('\n')) {
-    const fenceMatch = /^\s*```(\w*)/.exec(line);
-    if (fenceMatch !== null) {
+    const marker = /^\s*(`{3,}|~{3,})\s*([\w-]*)\s*$/.exec(line);
+    // A fence closes only on a bare marker of its own character, at least as long.
+    const closes =
+      fence !== '' &&
+      marker !== null &&
+      marker[2] === '' &&
+      marker[1]?.[0] === fence[0] &&
+      (marker[1]?.length ?? 0) >= fence.length;
+    if (marker !== null && (fence === '' || closes)) {
       // A continuation left dangling at the fence ends with it.
       if (pending !== '') {
         found.push(...fromShell(file, command(pending)));
       }
-      shellFence = !inFence && SHELL_FENCES.has(fenceMatch[1] ?? '');
-      inFence = !inFence;
+      shellFence = fence === '' && SHELL_FENCES.has(marker[2] ?? '');
+      fence = fence === '' ? (marker[1] ?? '') : '';
       pending = '';
       heredoc = undefined;
       continue;
     }
-    if (inFence) {
+    if (fence !== '') {
       if (!shellFence) {
         continue;
       }

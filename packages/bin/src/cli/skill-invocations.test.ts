@@ -79,6 +79,21 @@ test('untagged and console fences count; other languages and heredoc bodies do n
   ]);
 });
 
+test('a fence closes only on its own marker, so nested and tilde fences read right', () => {
+  const md = [
+    '````markdown',
+    '```sh',
+    'mimir inside-a-quoted-example',
+    '```',
+    '````',
+    '~~~sh',
+    'mimir next',
+    '~~~',
+    'Then `mimir list`.',
+  ].join('\n');
+  expect(words(md)).toEqual([['next'], ['list']]);
+});
+
 test('a dangling continuation never leaks into the next block', () => {
   const md = [fence('mimir list \\'), fence('mimir next')].join('\n');
   expect(words(md)).toEqual([['list'], ['next']]);
