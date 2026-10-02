@@ -65,17 +65,15 @@ export function createPostgresTransitionsFeed(ex: Executor): TransitionsFeed {
         query = query.limit(opts.limit);
       }
       const rows = await query.execute();
-      const items = rows.map(
-        (row): TransitionView => ({
-          at: row.at,
-          from: row.from_value,
-          kind: row.kind,
-          // Entity-keyed (ADR 0015): exactly one of the two is set.
-          node: row.node_id ?? row.project_key ?? '',
-          reason: row.reason,
-          to: row.to_value,
-        }),
-      );
+      const items = rows.map((row): TransitionView => ({
+        at: row.at,
+        from: row.from_value,
+        kind: row.kind,
+        // Entity-keyed (ADR 0015): exactly one of the two is set.
+        node: row.node_id ?? row.project_key ?? '',
+        reason: row.reason,
+        to: row.to_value,
+      }));
       const last = rows.at(-1);
       return last === undefined
         ? { items }
