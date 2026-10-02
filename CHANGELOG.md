@@ -17,6 +17,113 @@ and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
+## v0.20.0 - 2026-10-02
+
+### Added
+
+- **Project and container direction in the console** (MMR-390). The owned direction prose (the `## Next` narrative, ADR 0026) now shows as a folded line under the project header and in the initiative and phase dossier. Expanding it opens a dialog that renders the prose as markdown, and Edit lets the operator rewrite the whole text in place.
+- **`mimir service` on Linux** (MMR-54). `service` and `setup` now manage systemd
+  user units (`com.dbtlr.mimir.serve.service`, and a `com.dbtlr.mimir.snapshot.timer`
+  that runs a oneshot snapshot service), with the same verbs, output, and event log
+  as launchd on macOS. Self-update restarts a loaded serve unit on Linux too. See
+  `docs/guides/service-lifecycle.md` for linger and the systemd details.
+- **`bun run sandbox service-verify`** (MMR-54). A development command that proves
+  install, status, restart, kill-and-recover, stop, start, and uninstall against
+  the real supervisor without touching live units: a vault sandbox under launchd
+  or systemd on the host, or systemd in a disposable container installed through
+  `install.sh`. A manually dispatched **Service verify** workflow runs it on macOS
+  and Linux runners.
+- **Codex metadata for the agent skill** (MMR-405). `mimir skill install`
+  now also writes `agents/openai.yaml`, which gives Codex the skill's display
+  name, short description, and default prompt.
+- **`mimir projects` lists projects** (MMR-406). A flat work-plane read verb
+  that lists the active projects key-ordered in the standard set formats, ignoring
+  the `.mimir.toml` binding because projects are the scope dimension itself.
+  `--status active|archived|all` picks the shelf (default `active`); any other
+  argument or selection flag is refused rather than ignored. MCP gains
+  a matching `projects` tool. See the amendment in
+  [ADR 0024](docs/decisions/0024-cli-command-taxonomy.md).
+
+### Changed
+
+- **New console mark: the Board** (MMR-272). The console icon is now three columns of cards with one card selected in the teal accent, replacing the pre-Meridian mark. It appears in the header beside the wordmark (themed from the Meridian tokens, so it follows dark and light), as the favicon, and as the standard and maskable PWA icons.
+- **Mimir skill: scope-deferred own-board work is a task** (MMR-395). The skill now adds a motive test beside the fix test: work deferred to keep the current task in scope is a task even when its fix, or a decision inside it, is still open. Own-board seeds stay for undecided ideas that are not follow-ups of the current task. The seed tool description and `mimir seed` help state the same rule.
+- **reorder's help and tool descriptions state what it does** (MMR-358).
+  `mimir reorder --help`, the MCP `reorder` tool, and the HTTP route used to
+  imply `reorder` ranks within a parent and accepts phases, projects, and
+  artifacts. They now say that only tasks carry rank, in one order across the
+  whole project, and that `--before`/`--after` take any ranked task in the
+  project. The Mimir skill and planning guide teach sequencing phases with
+  `mimir depend PHASE-2 --on PHASE-1`.
+  `reorder --before`/`--after` now refuse a reference task from another
+  project instead of silently ranking against that project's order.
+- **The supervisor fence is per installation** (MMR-54). A sandbox installation
+  now derives its own unit names (`com.dbtlr.mimir.sandbox-<id>.*`) and may drive
+  only those; only a live installation may drive the live names, which are
+  unchanged, so existing installs need no migration. `service install` also
+  creates a missing unit or log directory instead of failing to start the unit.
+  See the refinement in
+  `docs/decisions/0031-installation-authority-and-disposable-development.md`.
+- **The Mimir agent skill reads as stated reasons, not pressure** (MMR-405).
+  The skill was revised against current Anthropic and OpenAI skill guidance.
+  Emphatic gate blocks and rationalization tables are replaced by the reason
+  behind each rule. Each rule lives in one place. Contributor-only design notes
+  and repository-internal pointers are gone. The description is shorter and
+  front-loads its triggers, including a request that names a Mimir task id.
+  The root file is about a quarter smaller. New rules define what counts as
+  verification before `done` and defer to a project's own completion gate, ask
+  the agent to report board changes with the outcome, and let user and project
+  instructions take precedence. The four long references gain a table of
+  contents.
+- **Updated dependencies to their current minor and patch releases** (MMR-408).
+  The CLI and MCP server move to MCP SDK 1.31, `pg` 8.23.1, and zod 4.6. The
+  console moves to React 19.3 and current TanStack Query, Router, and Form
+  releases. The sandbox moves to loom 0.6. The build and test toolchains move
+  to Vite 8.3, vite-plus 0.2.9, and Playwright 1.63. Source formatting follows
+  the newer bundled formatter.
+- **Moved the build and test toolchain to vite-plus 1.0** (MMR-409). Linting
+  now runs oxlint 1.85, formatting runs oxfmt 0.70, and the console's tests run
+  on Vitest 5.
+- **The archived-project opt-in moved to `projects --status archived`**
+  (MMR-406). `list --status archived` (and the MCP `list` tool's
+  `status: archived`) is now an invalid status; the CLI error points at the new
+  verb. `GET /api/projects?status=archived` is unchanged. See the refinement in
+  [ADR 0015](docs/decisions/0015-project-archive-frozen-and-hidden.md).
+
+### Fixed
+
+- **Release publication stages a draft and verifies every asset** (MMR-387).
+  The release workflow no longer exposes a release before its binaries are
+  complete. It creates a draft, uploads each asset with bounded retries and a
+  request deadline, verifies size and SHA-256 against the built artifact, and
+  publishes only the exact complete set. Exhausted retries leave the draft
+  with a per-asset diagnosis, and re-running the publish job resumes from it
+  without rebuilding or moving the tag. A release that is already public is
+  never modified.
+- **reorder on a phase or initiative refuses in its own terms** (MMR-389).
+  Giving `reorder` a container id used to print the start verb's hint about
+  starting a task. The refusal now says that only tasks carry rank and points
+  at the ready tasks under the container, on the CLI, MCP, and HTTP surfaces
+  alike.
+- **Scratchpad freeze recovery** (MMR-391). Create and update reject invalid linked-work IDs before saving. Freeze validates links before staging. Pads already stuck with invalid links can clear or replace those links when no Artifact exists, preserving their Journal and Agenda.
+- **Scratchpad freeze no longer scans the whole vault** (MMR-393). On a Norn vault, freeze looks up its Artifact by `source_scratch` through Norn's derived index, so a populated vault no longer prints the `scanned N documents on unindexed field(s) 'source_scratch'` warning. The vault schema advances to v11, which declares the field on the artifact rule; the next command converges a v10 vault forward (a v10 binary refuses a v11 vault).
+- **`service uninstall` stops a unit whose file is gone** (MMR-54). A bare
+  `mimir service uninstall` now also tears down a unit the supervisor still
+  runs after its unit file was deleted, instead of reporting nothing installed
+  while the daemon keeps serving.
+- **`mimir update -h` lists `--kind`** (MMR-403). Seed updates have always
+  accepted `-k`/`--kind`, but the `update` help omitted it; the usage line now
+  also names `--name`. A new test holds every `mimir` command the agent skill
+  shows to the verbs, subcommands, and flags the CLI declares, so a rename can
+  no longer leave the skill teaching a dead command.
+- **The console's desktop quick-view panel now slides in** (MMR-409). It had
+  only faded, because its transition never covered the slide. Closing the panel
+  also completes when the board refreshes during the exit animation.
+
+### Security
+
+- **Doctor warns on a readable config file that carries credentials** (MMR-394). `mimir doctor` now reports a warning, with a `chmod 600` hint, when `[store] url` is set and the config file grants group or world read. `mimir setup` already writes the file owner-only, so this catches hand-edited or copied configs. The warning also prints when the store cannot be reached and before `doctor --fix`. It never fails the run and never prints the URL.
+
 ## v0.19.0 - 2026-09-17
 
 ### Added
