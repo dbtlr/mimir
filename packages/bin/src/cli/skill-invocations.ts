@@ -131,33 +131,52 @@ function fromShell(file: string, line: string): SkillInvocation[] {
   return found;
 }
 
+/** Fence languages whose lines are shell; an untagged fence counts, a `toml` or `json` one does not. */
+const SHELL_FENCES = new Set(['', 'sh', 'bash', 'shell', 'zsh', 'console']);
+
+/** A line's command text: a `$ ` prompt marker removed. */
+const command = (line: string): string => line.replace(/^\s*\$\s+/, '');
+
 /** Every `mimir` invocation in a markdown document, in document order. */
 export function extractInvocations(file: string, markdown: string): SkillInvocation[] {
   const found: SkillInvocation[] = [];
   let inFence = false;
   let shellFence = false;
   let pending = '';
+  let heredoc: string | undefined;
   for (const line of markdown.split('\n')) {
     const fenceMatch = /^\s*```(\w*)/.exec(line);
     if (fenceMatch !== null) {
-      shellFence = !inFence && ['sh', 'bash', 'shell'].includes(fenceMatch[1] ?? '');
+      // A continuation left dangling at the fence ends with it.
+      if (pending !== '') {
+        found.push(...fromShell(file, command(pending)));
+      }
+      shellFence = !inFence && SHELL_FENCES.has(fenceMatch[1] ?? '');
       inFence = !inFence;
+      pending = '';
+      heredoc = undefined;
       continue;
     }
     if (inFence) {
       if (!shellFence) {
         continue;
       }
+      // A heredoc body is data, not commands.
+      if (heredoc !== undefined) {
+        heredoc = line.trim() === heredoc ? undefined : heredoc;
+        continue;
+      }
+      heredoc = /<<-?\s*['"]?(\w+)['"]?/.exec(line)?.[1];
       if (line.trimEnd().endsWith('\\')) {
         pending += `${line.trimEnd().slice(0, -1)} `;
         continue;
       }
-      found.push(...fromShell(file, pending + line));
+      found.push(...fromShell(file, command(pending + line)));
       pending = '';
       continue;
     }
-    for (const span of line.matchAll(/`([^`]+)`/g)) {
-      const code = span[1] ?? '';
+    for (const span of line.matchAll(/(`+)([^`]+?)\1/g)) {
+      const code = command(span[2] ?? '').trim();
       if (code === 'mimir' || code.startsWith('mimir ')) {
         found.push(...fromShell(file, code));
       }
@@ -166,6 +185,8 @@ export function extractInvocations(file: string, markdown: string): SkillInvocat
   return found;
 }
 
+/** Flags `mimir` takes with no verb. */
+const ROOT_FLAGS = new Set(['-h', '--help', '-v', '--version']);
 /** Flags every verb accepts: the output format and help. */
 const UNIVERSAL_FLAGS = ['-f', '--format', '-h', '--help', '--ascii'];
 /** What a help row's `--on created_at:<date>` stands for: every date operator. */
@@ -182,8 +203,12 @@ const SELECTION_FLAGS = [
   '--missing',
   ...DATE_FLAGS,
 ];
-/** Verbs whose dispatch needs host wiring the bare CLI runner lacks; checked statically only. */
-const HOST_VERBS = new Set([
+/**
+ * Verbs checked statically only: most need host wiring the bare runner lacks
+ * (they refuse as "unavailable"), `version` is answered before the runner, and
+ * `skill install` would really write into $HOME — a side effect, not a parse.
+ */
+const STATIC_ONLY_VERBS = new Set([
   'setup',
   'service',
   'vault',
@@ -193,6 +218,7 @@ const HOST_VERBS = new Set([
   'skill',
   'serve',
   'mcp',
+  'version',
 ]);
 
 const isPlaceholder = (word: string): boolean =>
@@ -217,18 +243,38 @@ function declaredFlags(key: string): Set<string> {
   return declared;
 }
 
+/**
+ * A verb's subcommands: its space-keyed descriptors (`scratch create`), or the
+ * literal first words of its usage alternatives (`store upgrade | export …`).
+ */
+function subcommands(key: string): string[] {
+  const keyed = Object.keys(COMMAND_HELP)
+    .filter((k) => k.startsWith(`${key} `) && !k.slice(key.length + 1).includes(' '))
+    .map((k) => k.slice(key.length + 1));
+  if (keyed.length > 0 || key.includes(' ')) {
+    return keyed;
+  }
+  const synopsis = COMMAND_HELP[key]?.usage.slice(`mimir ${key}`.length).trim() ?? '';
+  return synopsis
+    .split(' | ')
+    .map((alternative) => alternative.split(' ')[0] ?? '')
+    .filter((word) => /^[a-z][a-z-]*$/.test(word));
+}
+
+type Resolved = { key: string; problem?: string; placeholder?: boolean };
+
 /** The deepest help key the leading words name (`scratch agenda add`, `create task`, `list`). */
-function resolveKey(words: string[]): { key: string; problem?: string; placeholder?: boolean } {
+function resolveKey(words: string[]): Resolved {
   let key = words[0] ?? '';
   for (const word of words.slice(1, 3)) {
-    const hasSubcommands = Object.keys(COMMAND_HELP).some((k) => k.startsWith(`${key} `));
-    if (!hasSubcommands || isFlag(word)) {
+    const subs = subcommands(key);
+    if (subs.length === 0 || isFlag(word)) {
       break;
     }
     if (isPlaceholder(word)) {
       return { key, placeholder: true };
     }
-    if (!(`${key} ${word}` in COMMAND_HELP)) {
+    if (!subs.includes(word)) {
       return { key, problem: `unknown subcommand '${word}' of mimir ${key}` };
     }
     key = `${key} ${word}`;
@@ -236,8 +282,36 @@ function resolveKey(words: string[]): { key: string; problem?: string; placehold
   return { key };
 }
 
-/** A stand-in value for a placeholder, so the parser sees a well-formed argv. */
-const standIn = (word: string): string => (isPlaceholder(word) ? 'KEY-1' : word);
+/** The flags a key declares; under a placeholder subcommand, any of its subcommands' flags. */
+function flagsFor(resolved: Resolved): Set<string> {
+  const declared = declaredFlags(resolved.key);
+  if (resolved.placeholder === true) {
+    for (const key of Object.keys(COMMAND_HELP).filter((k) => k.startsWith(`${resolved.key} `))) {
+      for (const flag of declaredFlags(key)) {
+        declared.add(flag);
+      }
+    }
+  }
+  return declared;
+}
+
+/**
+ * The argv the parser sees: a placeholder positional becomes a well-formed id,
+ * and a flag whose value is a placeholder is dropped (it was checked statically).
+ */
+function parserArgv(words: string[]): string[] {
+  const argv: string[] = [];
+  for (let i = 0; i < words.length; i += 1) {
+    const word = words[i] ?? '';
+    const next = words[i + 1];
+    if (isFlag(word) && next !== undefined && isPlaceholder(next)) {
+      i += 1;
+    } else {
+      argv.push(isPlaceholder(word) ? 'KEY-1' : word);
+    }
+  }
+  return argv;
+}
 
 const STORE_REACHED = new Error('store reached');
 
@@ -251,7 +325,7 @@ async function parserRefusal(words: string[]): Promise<string | undefined> {
     throw STORE_REACHED;
   };
   try {
-    const code = await runCli(words.map(standIn), getStore, io, { scope: 'KEY' });
+    const code = await runCli(parserArgv(words), getStore, io, { scope: 'KEY' });
     return code === 2 ? io.err.join(' ') : undefined;
   } catch (error) {
     if (error === STORE_REACHED) {
@@ -267,6 +341,9 @@ export async function invocationProblems(inv: SkillInvocation): Promise<string[]
   if (verb === undefined || isPlaceholder(verb)) {
     return [];
   }
+  if (isFlag(verb)) {
+    return ROOT_FLAGS.has(verb) ? [] : [`'${verb}' is not a top-level flag`];
+  }
   if (!(verb in COMMAND_HELP) || verb.includes(' ')) {
     return [`unknown command '${verb}'`];
   }
@@ -274,11 +351,8 @@ export async function invocationProblems(inv: SkillInvocation): Promise<string[]
   if (resolved.problem !== undefined) {
     return [resolved.problem];
   }
-  if (resolved.placeholder === true) {
-    return [];
-  }
   const problems: string[] = [];
-  const declared = declaredFlags(resolved.key);
+  const declared = flagsFor(resolved);
   const terminator = inv.words.indexOf('--');
   const options = terminator === -1 ? inv.words : inv.words.slice(0, terminator);
   for (const flag of options.filter(isFlag)) {
@@ -287,7 +361,9 @@ export async function invocationProblems(inv: SkillInvocation): Promise<string[]
     }
   }
   // A bare verb in prose (`one \`mimir get\` away`) names the command, not a full call.
-  if (problems.length === 0 && inv.words.length > 1 && !HOST_VERBS.has(verb)) {
+  // Under a placeholder subcommand the parser has no real command to run.
+  const runnable = inv.words.length > 1 && resolved.placeholder !== true;
+  if (problems.length === 0 && runnable && !STATIC_ONLY_VERBS.has(verb)) {
     const refusal = await parserRefusal(inv.words);
     if (refusal !== undefined) {
       problems.push(`the CLI refuses it: ${refusal}`);

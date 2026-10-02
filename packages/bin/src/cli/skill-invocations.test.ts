@@ -50,8 +50,38 @@ test('optional brackets and flag alternatives read as one invocation', () => {
 });
 
 test('an inline code span that starts with mimir is an invocation; prose spans are not', () => {
-  const md = 'Run `mimir overview -s KEY` first, then `done <id>` when verified.';
-  expect(words(md)).toEqual([['overview', '-s', 'KEY']]);
+  const md = 'Run `mimir overview -s KEY` or `$ mimir next`, then `done <id>` when verified.';
+  expect(words(md)).toEqual([['overview', '-s', 'KEY'], ['next']]);
+});
+
+test('untagged and console fences count; other languages and heredoc bodies do not', () => {
+  const md = [
+    '```',
+    'mimir list --status blocked',
+    '```',
+    '```console',
+    '$ mimir next -f ids',
+    '```',
+    '```toml',
+    'mimir = "not a command"',
+    '```',
+    '```sh',
+    "cat <<'EOF' > notes.md",
+    'mimir is great',
+    'EOF',
+    'mimir done KEY-9',
+    '```',
+  ].join('\n');
+  expect(words(md)).toEqual([
+    ['list', '--status', 'blocked'],
+    ['next', '-f', 'ids'],
+    ['done', 'KEY-9'],
+  ]);
+});
+
+test('a dangling continuation never leaks into the next block', () => {
+  const md = [fence('mimir list \\'), fence('mimir next')].join('\n');
+  expect(words(md)).toEqual([['list'], ['next']]);
 });
 
 test('a valid invocation has no problems', async () => {
@@ -60,24 +90,35 @@ test('a valid invocation has no problems', async () => {
   expect(await invocationProblems(inv!)).toEqual([]);
 });
 
-test('an unknown verb, unknown subcommand, or undeclared flag is a problem', async () => {
+test('an unknown verb, subcommand, or undeclared flag is a problem', async () => {
   const md = [
     '`mimir describe KEY-9`',
     '`mimir create bogus "x" --parent KEY-4`',
     '`mimir scratch rename <uuid>`',
+    '`mimir store migrate`',
+    '`mimir skill instal`',
     '`mimir done KEY-9 --priority p1`',
     '`mimir list --direction "x"`',
+    '`mimir create <type> "x" --parnet KEY`',
   ].join('\n');
   const problems = await Promise.all(extractInvocations('doc.md', md).map(invocationProblems));
+  expect(problems).toHaveLength(8);
   for (const found of problems) {
     expect(found.length).toBeGreaterThan(0);
   }
 });
 
-test('placeholders stand in for the verb or subcommand without being checked', async () => {
-  const md = '`mimir <cmd> -h` and `mimir scratch <operation>`';
+test('placeholders stand in for a verb, subcommand, or flag value without false alarms', async () => {
+  const md = [
+    '`mimir <cmd> -h`',
+    '`mimir scratch <operation>`',
+    '`mimir list -f <fmt> --priority <p>`',
+    '`mimir --help`',
+    '`mimir store upgrade`',
+    '`mimir version`',
+  ].join(' and ');
   const problems = await Promise.all(extractInvocations('doc.md', md).map(invocationProblems));
-  expect(problems).toEqual([[], []]);
+  expect(problems).toEqual([[], [], [], [], [], []]);
 });
 
 // The guard: the skill teaches agents exact verbs and flags, and agents drive
