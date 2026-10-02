@@ -14,7 +14,7 @@ const getStore = (): Store => {
   throw new Error('skill install must not touch the store');
 };
 
-test('the embedded skill carries the root + eight references, all non-empty', () => {
+test('the embedded skill carries the root, eight references, and Codex metadata, all non-empty', () => {
   const paths = SKILL_FILES.map((f) => f.path);
   expect(paths).toEqual([
     'SKILL.md',
@@ -26,10 +26,14 @@ test('the embedded skill carries the root + eight references, all non-empty', ()
     'references/status-model.md',
     'references/tags.md',
     'references/seeds.md',
+    'agents/openai.yaml',
   ]);
   for (const f of SKILL_FILES) {
-    expect(f.content.length).toBeGreaterThan(200);
+    expect(f.content.length).toBeGreaterThan(f.path.endsWith('.yaml') ? 50 : 200);
   }
+  const metadata = SKILL_FILES.find((f) => f.path === 'agents/openai.yaml')?.content ?? '';
+  expect(metadata).toContain('display_name: ');
+  expect(metadata).toContain('allow_implicit_invocation: true');
   // The root must carry the frontmatter and the load-bearing discipline inline.
   const root = SKILL_FILES[0]?.content ?? '';
   expect(root).toContain('name: mimir');

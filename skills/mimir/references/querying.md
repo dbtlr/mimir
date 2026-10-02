@@ -5,6 +5,12 @@ targets another project, `-s all` spans all of them. Selection flags AND-compose
 A well-formed query matching nothing is an **empty set + a stderr warning with the
 expected values** (exit 0) — only structurally bad invocations error (exit 2).
 
+Contents: [1. Orientation](#1-orientation--one-command) ·
+[2. What's in the middle?](#2-whats-in-the-middle) ·
+[3. Triage and hygiene](#3-triage-and-hygiene) · [4. Filtered queues](#4-filtered-queues) ·
+[5. Drill-down](#5-drill-down) · [6. Artifacts](#6-artifacts--the-frozen-work-products) ·
+[7. Reporting and scripting](#7-reporting-and-scripting)
+
 `list` selects **tasks**. Containers (initiatives/phases) are reached by id
 (`get`/`status`) or explicitly: `--status all --eq type:initiative`.
 

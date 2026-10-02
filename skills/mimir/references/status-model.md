@@ -85,12 +85,12 @@ names a ready child task to start instead. Complete the leaf tasks and the
 container's rollup follows automatically; there is nothing to do at the
 container level.
 
-## Don't fight the model
+## Working with the model
 
-- Don't look for a "backlog" state — the backlog is `todo` minus holds, ordered by
-  rank.
-- Don't `block` to record an edge — `depend` records edges; `block` is a manual
-  hold. The derived `awaiting` handles edge-waiting for you.
-- Don't expect an empty container to read `done` — it reads `new` (nothing was
-  ever done).
-- Don't cache or copy statuses anywhere — they are derived live; copies drift.
+- The backlog is `todo` minus holds, ordered by rank; there is no separate
+  backlog state.
+- `depend` records an edge, and the derived `awaiting` handles edge-waiting.
+  `block` is a manual hold for an external obstruction.
+- An empty container reads `new`, because nothing under it was ever done.
+- Read statuses from Mimir when you need them. They are derived live, so a
+  copied status drifts.

@@ -6,7 +6,7 @@ A tag is a flat, opaque string attachable to **any work node or artifact**. Mimi
 never interprets tag contents — it does set-membership filtering, composed with
 structural scope (`-t <tag>` on `list`, `--eq tag:x`, `--missing tag`). A tag
 application carries no note on any entity — vault `tags` frontmatter is a plain
-string set (ADR 0005). `untag` is a plain unlogged delete. Tags are cheap, not
+string set. `untag` is a plain unlogged delete. Tags are cheap, not
 precious — attach freely, remove freely.
 
 ```sh
@@ -18,12 +18,12 @@ mimir list -t release:v0.3 --status all
 
 ## Two hard rules
 
-1. **Scope is relational, not lexical.** Never encode in the string what a filter
-   already expresses: `api-bug` is wrong when `-s API --eq tag:bug` is the real
-   query. A tag's text should carry only what no structural filter can.
+1. **Scope is relational, not lexical.** A tag's text carries only what no
+   structural filter can: tag `bug` and query `-s API --eq tag:bug`, rather
+   than tagging `api-bug`.
 2. **A tag carries no rationale.** Tag membership is the whole signal. One-off
    rationale — why _this_ attachment — goes in `annotate`; grouping metadata that
-   several entities share goes in a tagged artifact (ADR 0005's own pattern).
+   several entities share goes in a tagged artifact.
 
 ## Suggested conventions (conventions, not law)
 
