@@ -692,10 +692,11 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
         'task only: the resume handles — how a takeover picks the work back up; a blank clears one',
       ],
       ['--name <name>', 'project only (KEY): rename it'],
+      ['-k, --kind <kind>', 'seed only (KEY-sN): idea|bug|feature'],
     ],
     summary: 'patch scalar fields (a dumb patch — status is excluded; use the lifecycle verbs)',
     usage:
-      'mimir update <id> [--title …] [--desc …] [--direction …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>] [--host …] [--harness …] [--session …] [--branch …]',
+      'mimir update <id> [--title …] [--desc …] [--direction …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>] [--host …] [--harness …] [--session …] [--branch …] [--name …] [--kind …]',
   },
   annotate: {
     args: [A_ID, ['<text>', 'note body (or stdin when omitted)']],
