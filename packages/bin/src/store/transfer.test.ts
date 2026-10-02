@@ -349,6 +349,7 @@ test('store import requires a file argument', async () => {
   ).toBe('store import requires a file (or - for stdin)');
 });
 
+// Three full store passes over PGlite; a slow CI runner needs more than Bun's 5s default.
 test('export, import --apply, and re-export round trip to the same document', async () => {
   const source = await seeded();
   const target = await createPgliteTestStore();
@@ -394,4 +395,4 @@ test('export, import --apply, and re-export round trip to the same document', as
     await source.close();
     await target.close();
   }
-});
+}, 30_000);
