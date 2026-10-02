@@ -6,15 +6,27 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 
 import { capture, command, hashFile, privateJson } from './process';
-import { assertSandboxResolution, createEvalSandbox, installSkill } from './skill-eval-sandbox';
+import {
+  assertSandboxResolution,
+  createEvalSandbox,
+  exportStore,
+  installSkill,
+  settleCodexLogin,
+} from './skill-eval-sandbox';
 import type { Harness } from './skill-eval-sandbox';
 import { SCENARIOS, UNIVERSAL_CHECKS } from './skill-eval-scenarios';
 import type { Scenario } from './skill-eval-scenarios';
-import { mimirCalls, parseClaudeStream, parseCodexStream } from './skill-eval-transcript';
+import {
+  binaryPaths,
+  mimirCalls,
+  parseClaudeStream,
+  parseCodexStream,
+} from './skill-eval-transcript';
 
 export const HARNESSES: readonly Harness[] = ['claude', 'codex'];
 
@@ -45,6 +57,10 @@ export type RunResult = {
   exit: number;
   mimirCalls: string[];
   finalText: string;
+  /** Skills the agent loaded, where the harness reports it (Claude). */
+  skills: string[];
+  /** Why the run could not be graded (a failed setup); absent when it ran. */
+  error?: string;
   root: string;
 };
 
@@ -102,96 +118,164 @@ function agentCommand(harness: Harness, prompt: string, model: string | undefine
   ];
 }
 
+/** A run that could reach a mimir other than its sandbox's: the whole evaluation stops. */
+export class SafetyError extends Error {
+  override name = 'SafetyError';
+}
+
+/** Paths a transcript names that resolve to an executable `mimir` other than the sandbox's. */
+export function escapes(commands: readonly string[], sandboxBinary: string): string[] {
+  const sandbox = realpathSync(sandboxBinary);
+  return binaryPaths(commands).filter((path) => {
+    const absolute = path.startsWith('~') ? join(homedir(), path.slice(1)) : path;
+    const stat = statSync(absolute, { throwIfNoEntry: false });
+    return stat?.isFile() === true && realpathSync(absolute) !== sandbox;
+  });
+}
+
+const message = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+type Run = { scenario: Scenario; harness: Harness; attempt: number };
+
 async function runOne(
   evalRoot: string,
   binary: string,
   options: EvalOptions,
-  scenario: Scenario,
-  harness: Harness,
-  attempt: number,
+  { scenario, harness, attempt }: Run,
+  signal: AbortSignal,
 ): Promise<RunResult> {
-  const sandbox = await createEvalSandbox({
-    binary,
-    files: scenario.files,
-    harness,
-    root: join(evalRoot, `${scenario.name}-${harness}-${String(attempt)}`),
-  });
-  const ids = await scenario.setup(sandbox.mimir);
-  if (scenario.bind !== undefined) {
-    await sandbox.mimir(['bind', scenario.bind]);
-  }
-  await installSkill(sandbox, options.skill, harness);
-  await assertSandboxResolution(sandbox, harness);
-
   const model = options.models[harness];
-  const started = Date.now();
-  const run = await capture(agentCommand(harness, scenario.prompt(ids), model, sandbox.root), {
-    cwd: sandbox.work,
-    env: sandbox.env,
-    timeout: AGENT_TIMEOUT_MS,
+  const root = join(evalRoot, `${scenario.name}-${harness}-${String(attempt)}`);
+  const outcome = (fields: Partial<RunResult>): RunResult => ({
+    attempt,
+    checks: [],
+    durationMs: 0,
+    exit: -1,
+    finalText: '',
+    harness,
+    mimirCalls: [],
+    model: model ?? 'default',
+    passed: false,
+    root,
+    scenario: scenario.name,
+    skills: [],
+    ...fields,
   });
+
+  const sandbox = await createEvalSandbox({ binary, files: scenario.files, harness, root });
+  let ids: Record<string, string>;
+  let before: unknown;
+  try {
+    ids = await scenario.setup(sandbox.mimir);
+    if (scenario.bind !== undefined) {
+      await sandbox.mimir(['bind', scenario.bind]);
+    }
+    await installSkill(sandbox, options.skill, harness);
+    before = await exportStore(sandbox, 'store-before');
+  } catch (error) {
+    return outcome({ error: `setup failed: ${message(error)}` });
+  }
+  try {
+    await assertSandboxResolution(sandbox, harness);
+  } catch (error) {
+    throw new SafetyError(`${root}: ${message(error)}`);
+  }
+
+  const started = Date.now();
+  let run;
+  try {
+    run = await capture(agentCommand(harness, scenario.prompt(ids), model, sandbox.root), {
+      cwd: sandbox.work,
+      env: sandbox.env,
+      signal,
+      timeout: AGENT_TIMEOUT_MS,
+    });
+  } finally {
+    if (harness === 'codex' && (await settleCodexLogin(sandbox))) {
+      process.stderr.write(`  ${root}: Codex refreshed its login; the new token moved back.\n`);
+    }
+  }
   const durationMs = Date.now() - started;
   await writeFile(join(sandbox.root, 'transcript.jsonl'), run.stdout);
   await writeFile(join(sandbox.root, 'agent.stderr'), run.stderr);
 
   const transcript =
     harness === 'claude' ? parseClaudeStream(run.stdout) : parseCodexStream(run.stdout);
-  const calls = mimirCalls(transcript.commands, sandbox.binary);
-  const escaped = calls.filter((call) => call.escaped);
+  const escaped = escapes(transcript.commands, sandbox.binary);
   if (escaped.length > 0) {
-    throw new Error(
-      `Run ${sandbox.root} invoked a mimir outside its sandbox: ${escaped.map((c) => c.command).join(' | ')}`,
-    );
+    throw new SafetyError(`${root} invoked a mimir outside its sandbox: ${escaped.join(', ')}`);
   }
-  const evidence = { calls, ids, mimir: sandbox.mimir, transcript, work: sandbox.work };
+  const calls = mimirCalls(transcript.commands);
+  const after = await exportStore(sandbox, 'store-after');
+  const evidence = {
+    calls,
+    ids,
+    mimir: sandbox.mimir,
+    storeAfter: after,
+    storeChanged: !Bun.deepEquals(before, after),
+    transcript,
+    work: sandbox.work,
+  };
   const checks: CheckResult[] = [];
   for (const check of [...scenario.checks, ...UNIVERSAL_CHECKS]) {
     try {
       checks.push({ name: check.name, passed: await check.test(evidence) });
     } catch (error) {
-      checks.push({
-        error: error instanceof Error ? error.message : String(error),
-        name: check.name,
-        passed: false,
-      });
+      checks.push({ error: message(error), name: check.name, passed: false });
     }
   }
-  const passed = run.exit === 0 && checks.every((c) => c.passed);
-  const result: RunResult = {
-    attempt,
+  const result = outcome({
     checks,
     durationMs,
     exit: run.exit,
     finalText: transcript.finalText.slice(0, 2000),
-    harness,
-    mimirCalls: calls.map((c) => [c.verb, c.sub].filter((w) => w !== undefined).join(' ')),
-    model: model ?? 'default',
-    passed,
-    root: sandbox.root,
-    scenario: scenario.name,
-  };
+    mimirCalls: calls.map((c) =>
+      [c.verb, c.sub, c.help ? '--help' : undefined].filter((w) => w !== undefined).join(' '),
+    ),
+    passed: run.exit === 0 && checks.every((c) => c.passed),
+    skills: transcript.skills,
+  });
   await privateJson(join(sandbox.root, 'result.json'), result);
-  if (passed && !options.keep) {
+  if (result.passed && !options.keep) {
     await rm(sandbox.root, { force: true, recursive: true });
   }
   return result;
 }
 
-/** Run `tasks` with at most `limit` in flight; the first thrown error stops new starts. */
-async function pool<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
+/**
+ * Run `tasks` with at most `limit` in flight. The first failure aborts the
+ * shared signal, which stops new starts and kills the agents in flight; the
+ * pool then settles and rethrows that first failure.
+ */
+async function pool<T>(
+  tasks: ((signal: AbortSignal) => Promise<T>)[],
+  limit: number,
+): Promise<T[]> {
+  const controller = new AbortController();
   const results: T[] = [];
+  let firstFailure: unknown;
   let next = 0;
   const worker = async (): Promise<void> => {
-    while (next < tasks.length) {
-      const index = next;
+    while (next < tasks.length && !controller.signal.aborted) {
+      const task = tasks[next];
       next += 1;
-      const task = tasks[index];
-      if (task !== undefined) {
-        results[index] = await task();
+      try {
+        if (task !== undefined) {
+          results.push(await task(controller.signal));
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          firstFailure = error;
+          controller.abort();
+        }
       }
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, limit) }, worker));
+  if (controller.signal.aborted) {
+    throw firstFailure;
+  }
   return results;
 }
 
@@ -248,23 +332,26 @@ export class SkillEval {
     const binary =
       options.binary === undefined ? await this.build() : resolve(this.repository, options.binary);
     const id = randomUUID();
-    const evalRoot = join(this.repository, '.dev', 'skill-evals', id);
-    await mkdir(evalRoot, { mode: 0o700, recursive: true });
-    process.stderr.write(`Skill eval ${id}: ${evalRoot}\n`);
+    // Runs live outside the checkout: an ancestor `.mimir.toml` would bind the
+    // unbound scenarios, and the checkout's own builds would sit within reach.
+    const evalRoot = realpathSync(await mkdtemp(join(tmpdir(), 'mimir-skill-eval-')));
+    const reports = join(this.repository, '.dev', 'skill-evals', id);
+    await mkdir(reports, { mode: 0o700, recursive: true });
+    process.stderr.write(`Skill eval ${id}: runs in ${evalRoot}\n`);
 
     const selected = SCENARIOS.filter(
       (s) => options.scenarios.length === 0 || options.scenarios.includes(s.name),
     );
     const tasks = selected.flatMap((scenario) =>
       options.harnesses.flatMap((harness) =>
-        Array.from({ length: options.repeat }, (_, i) => () => {
+        Array.from({ length: options.repeat }, (_, i) => (signal: AbortSignal) => {
           process.stderr.write(`  ${scenario.name} · ${harness} · ${String(i + 1)}\n`);
-          return runOne(evalRoot, binary, options, scenario, harness, i + 1);
+          return runOne(evalRoot, binary, options, { attempt: i + 1, harness, scenario }, signal);
         }),
       ),
     );
     const results = await pool(tasks, options.concurrency);
-    const report = join(evalRoot, 'report.json');
+    const report = join(reports, 'report.json');
     await privateJson(report, {
       binarySha256: await hashFile(binary),
       createdAt: new Date().toISOString(),
@@ -274,7 +361,12 @@ export class SkillEval {
       skillSha256: skillDigest(skill),
       version: 1,
     });
-    return `${summarize(results)}\n\nReport: ${report}`;
+    const retained = results.filter((r) => !r.passed || options.keep).length;
+    if (retained === 0) {
+      await rm(evalRoot, { force: true, recursive: true });
+    }
+    const kept = retained === 0 ? '' : `\nRuns kept for inspection: ${evalRoot}`;
+    return `${summarize(results)}\n\nReport: ${report}${kept}`;
   }
 
   private async build(): Promise<string> {

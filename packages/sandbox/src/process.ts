@@ -49,7 +49,14 @@ export async function attempt(args: string[], cwd: string): Promise<string | und
 
 export type Captured = { stdout: string; stderr: string; exit: number };
 
-type SpawnOptions = { cwd: string; env?: NodeJS.ProcessEnv; inputFile?: string; timeout?: number };
+type SpawnOptions = {
+  cwd: string;
+  env?: NodeJS.ProcessEnv;
+  inputFile?: string;
+  timeout?: number;
+  /** Kill the child when this aborts; the call then rejects as interrupted. */
+  signal?: AbortSignal;
+};
 
 /** A bounded subprocess whose exit status is the caller's to judge. */
 export async function capture(args: string[], options: SpawnOptions): Promise<Captured> {
@@ -72,6 +79,10 @@ export async function capture(args: string[], options: SpawnOptions): Promise<Ca
   };
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
+  options.signal?.addEventListener('abort', stop, { once: true });
+  if (options.signal?.aborted === true) {
+    stop();
+  }
   try {
     const [stdout, stderr, exit] = await Promise.all([
       new Response(child.stdout).text(),
@@ -91,6 +102,7 @@ export async function capture(args: string[], options: SpawnOptions): Promise<Ca
     clearTimeout(timer);
     process.removeListener('SIGINT', stop);
     process.removeListener('SIGTERM', stop);
+    options.signal?.removeEventListener('abort', stop);
   }
 }
 

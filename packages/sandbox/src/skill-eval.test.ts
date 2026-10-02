@@ -3,10 +3,10 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { summarize } from './skill-eval';
+import { escapes, summarize } from './skill-eval';
 import type { RunResult } from './skill-eval';
 import { agentPath } from './skill-eval-sandbox';
-import { asksToConfirmKey, isWrite, SCENARIOS, UNIVERSAL_CHECKS } from './skill-eval-scenarios';
+import { asksToConfirmKey, SCENARIOS, UNIVERSAL_CHECKS } from './skill-eval-scenarios';
 import type { Evidence } from './skill-eval-scenarios';
 import { mimirCalls } from './skill-eval-transcript';
 
@@ -25,15 +25,25 @@ test('the agent PATH leads with the sandbox and drops every directory holding an
   }
 });
 
-test('reads and triage leave the board unwritten; mutations and scratch edits write it', () => {
-  const calls = mimirCalls([
-    'mimir overview',
-    'mimir triage',
-    'mimir scratch get abc',
-    'mimir scratch checkpoint abc "x" --expected-updated-at t',
-    'mimir start QEV-2',
-  ]);
-  expect(calls.map(isWrite)).toEqual([false, false, false, true, true]);
+test('a named mimir executable other than the sandbox binary is an escape; directories are not', () => {
+  const root = mkdtempSync(join(tmpdir(), 'skill-eval-escape-'));
+  try {
+    const sandboxBin = join(root, 'bin', 'mimir');
+    const live = join(root, 'live', 'mimir');
+    mkdirSync(join(root, 'bin'));
+    mkdirSync(join(root, 'live'));
+    mkdirSync(join(root, 'skills', 'mimir'), { recursive: true });
+    writeFileSync(sandboxBin, '');
+    writeFileSync(live, '');
+    expect(
+      escapes(
+        [`${sandboxBin} next`, `${live} list`, `ls ${join(root, 'skills', 'mimir')}`],
+        sandboxBin,
+      ),
+    ).toEqual([live]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 const scenarioNamed = (name: string) => {
@@ -58,6 +68,8 @@ function evidenceWithHistory(work: string, startedAt: string): Evidence {
     calls: [],
     ids: { task: 'QEV-2' },
     mimir: () => Promise.resolve(JSON.stringify(view)),
+    storeAfter: {},
+    storeChanged: true,
     transcript: { commands: [], finalText: '', skills: [] },
     work,
   };
@@ -99,6 +111,7 @@ const runResult = (scenario: string, harness: 'claude' | 'codex', passed: boolea
   passed,
   root: '/x',
   scenario,
+  skills: [],
 });
 
 test('the summary counts passes per scenario and harness', () => {
@@ -118,6 +131,8 @@ const commandEvidence = (commands: string[]): Evidence => ({
   calls: mimirCalls(commands),
   ids: {},
   mimir: () => Promise.resolve(''),
+  storeAfter: {},
+  storeChanged: false,
   transcript: { commands, finalText: '', skills: [] },
   work: '/',
 });
@@ -131,5 +146,6 @@ test('a guessed verb fails the universal check; real verbs pass it', () => {
 test('a key proposal counts as asking whether it ends in a question or requests confirmation', () => {
   expect(asksToConfirmKey('Should I use WGT as the key?')).toBe(true);
   expect(asksToConfirmKey('Please confirm its permanent project key: **WGT**.')).toBe(true);
+  expect(asksToConfirmKey('OK, what should the API do?')).toBe(false);
   expect(asksToConfirmKey('Created project WGT and bound the repo.')).toBe(false);
 });

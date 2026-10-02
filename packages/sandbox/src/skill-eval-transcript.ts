@@ -7,8 +7,9 @@
 
 export type Transcript = { commands: string[]; skills: string[]; finalText: string };
 
-/** One `mimir` call found in a shell command. `escaped` marks a binary other than the sandbox's. */
-export type MimirCall = { verb: string; sub?: string; escaped: boolean; command: string };
+/** One `mimir` call found in a shell command. `help` marks a `-h`/`--help` lookup,
+ * which reads usage and acts on nothing. */
+export type MimirCall = { verb: string; sub?: string; help: boolean; command: string };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -75,22 +76,40 @@ export function parseCodexStream(stream: string): Transcript {
 /**
  * Every `mimir` call at command position: line start, after a control operator
  * or `$(`, or just inside a quoted `sh -c` body. `echo mimir` is not a call.
+ * A call's words stay on its own line; a substitution nested in it is its own call.
  */
 const CALL =
-  /(?:^|&&|\|\||[;|\n]|\$\(|-[a-z]*c\s+['"])\s*(\S*\/)?mimir\s+([a-z][a-z-]*)(?:\s+([^\s'"&|;)]+))?/g;
+  /(?:^|&&|\|\||[;|\n(]|\$\(|-[a-z]*c[ \t]+['"])[ \t]*(?:\S*\/)?mimir[ \t]+([a-z][a-z-]*)(?:[ \t]+([^\s'"&|;)]+))?((?:[^\n;&|$)]|\$(?!\())*)/g;
+const HELP = /(?:^|\s)(?:-h|--help)(?:$|[\s'"])/;
 
-export function mimirCalls(commands: readonly string[], sandboxBinary?: string): MimirCall[] {
+export function mimirCalls(commands: readonly string[]): MimirCall[] {
   const calls: MimirCall[] = [];
   for (const command of commands) {
     for (const match of command.matchAll(CALL)) {
-      const directory = match[1];
       calls.push({
         command,
-        escaped: directory !== undefined && `${directory}mimir` !== sandboxBinary,
-        sub: match[3],
-        verb: match[2] ?? '',
+        help: HELP.test(` ${match[2] ?? ''}${match[3] ?? ''}`),
+        sub: match[2],
+        verb: match[1] ?? '',
       });
     }
   }
   return calls;
+}
+
+/**
+ * Every absolute or home-relative path naming a file called `mimir`, wherever it
+ * appears in a command. The runner treats any that resolves to an executable
+ * other than the sandbox's as an escape, whatever position it was invoked from.
+ */
+export function binaryPaths(commands: readonly string[]): string[] {
+  const paths = new Set<string>();
+  for (const command of commands) {
+    for (const match of command.matchAll(
+      /(?:^|[\s'"(=`])((?:~|\/)[^\s'"`;|&()]*\/mimir)(?=$|[\s'"`;|&)])/g,
+    )) {
+      paths.add(match[1] ?? '');
+    }
+  }
+  return [...paths];
 }

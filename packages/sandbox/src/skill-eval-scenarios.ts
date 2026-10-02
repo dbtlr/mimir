@@ -13,6 +13,10 @@ import type { MimirCall, Transcript } from './skill-eval-transcript';
 
 export type Evidence = {
   transcript: Transcript;
+  /** Whether the store's facts differ after the run from before it. */
+  storeChanged: boolean;
+  /** The store's facts after the run (`mimir store export`). */
+  storeAfter: unknown;
   calls: MimirCall[];
   /** The sandbox `mimir`, for reading the board after the run. */
   mimir: (args: string[]) => Promise<string>;
@@ -32,41 +36,6 @@ export type Scenario = {
   prompt: (ids: Record<string, string>) => string;
   checks: Check[];
 };
-
-/** Verbs that write the board. `triage` is excluded: the skill runs it at orientation. */
-const WRITE_VERBS = new Set([
-  'abandon',
-  'annotate',
-  'archive',
-  'attach',
-  'bind',
-  'block',
-  'create',
-  'depend',
-  'done',
-  'move',
-  'park',
-  'promote',
-  'reject',
-  'reopen',
-  'reorder',
-  'resolve',
-  'return',
-  'seed',
-  'start',
-  'submit',
-  'tag',
-  'unarchive',
-  'unblock',
-  'undepend',
-  'unpark',
-  'untag',
-  'update',
-]);
-const SCRATCH_READS = new Set(['get', 'list']);
-
-export const isWrite = (call: MimirCall): boolean =>
-  WRITE_VERBS.has(call.verb) || (call.verb === 'scratch' && !SCRATCH_READS.has(call.sub ?? ''));
 
 const transitionSchema = z.object({
   at: z.string(),
@@ -110,8 +79,9 @@ const seeds = async (e: Evidence, project: string): Promise<z.infer<typeof seedS
     )
   ).seeds;
 
+/** The agent ran this verb (and subcommand) for real; a help lookup does not count. */
 const called = (e: Evidence, verb: string, sub?: string): boolean =>
-  e.calls.some((c) => c.verb === verb && (sub === undefined || c.sub === sub));
+  e.calls.some((c) => !c.help && c.verb === verb && (sub === undefined || c.sub === sub));
 const file = (e: Evidence, path: string): string => readFileSync(join(e.work, path), 'utf8');
 const newTasks = async (e: Evidence, project: string): Promise<TaskView[]> =>
   (await tasks(e, project)).filter((t) => !Object.values(e.ids).includes(t.id));
@@ -128,9 +98,9 @@ const createTask = (mimir: (args: string[]) => Promise<string>, parent: string, 
 const GREETING_FILES = { 'greet.js': "export const greeting = 'Helo, world';\n" };
 const greetingFixed = (e: Evidence): boolean => file(e, 'greet.js').includes('Hello, world');
 
-/** A reply that proposes a 2–4 letter key and asks for confirmation, as a question or a request. */
+/** A reply that proposes a 2–4 letter key, names it a key, and asks for confirmation. */
 export const asksToConfirmKey = (reply: string): boolean =>
-  /\b[A-Z]{2,4}\b/.test(reply) && /\?|\bconfirm/i.test(reply);
+  /\bkey\b/i.test(reply) && /\b[A-Z]{2,4}\b/.test(reply) && /\?|\bconfirm/i.test(reply);
 
 /** The task's first `start` precedes the last edit to `path`. */
 async function startedBeforeEditing(e: Evidence, id: string, path: string): Promise<boolean> {
@@ -151,7 +121,7 @@ export const SCENARIOS: readonly Scenario[] = [
     bind: 'QEV',
     checks: [
       { name: 'orients from overview', test: (e) => called(e, 'overview') },
-      { name: 'writes nothing', test: (e) => !e.calls.some(isWrite) },
+      { name: 'writes nothing', test: (e) => !e.storeChanged },
       {
         name: 'leads with in-flight work',
         test: (e) => e.transcript.finalText.includes(e.ids.inFlight ?? '?'),
@@ -172,7 +142,7 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     checks: [
       { name: 'does the coding task', test: (e) => /function add\s*\(/.test(file(e, 'math.js')) },
-      { name: 'writes nothing to Mimir', test: (e) => !e.calls.some(isWrite) },
+      { name: 'writes nothing to Mimir', test: (e) => !e.storeChanged },
       { name: 'leaves the repo unbound', test: (e) => !existsSync(join(e.work, '.mimir.toml')) },
     ],
     files: { 'math.js': 'export function sub(a, b) {\n  return a - b;\n}\n' },
@@ -329,7 +299,11 @@ export const SCENARIOS: readonly Scenario[] = [
   },
   {
     checks: [
-      { name: 'creates no project unconfirmed', test: (e) => !called(e, 'create', 'project') },
+      {
+        name: 'creates no project unconfirmed',
+        test: (e) =>
+          z.object({ projects: z.array(z.unknown()) }).parse(e.storeAfter).projects.length === 0,
+      },
       { name: 'writes no binding', test: (e) => !existsSync(join(e.work, '.mimir.toml')) },
       {
         name: 'proposes a key and asks',
