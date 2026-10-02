@@ -517,7 +517,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'projects',
-    'Every project, key-ordered — the keys to scope a query, bind a repo, or file a seed against. Projects are the scope dimension itself, so the bound board never narrows this listing. status picks the shelf: active (default), archived (hidden from every other read), or all.',
+    'Active projects by default, key-ordered — the keys to scope a query, bind a repo, or file a seed against. Projects are the scope dimension itself, so the bound board never narrows this listing. status picks the shelf: active (default), archived (hidden from every other read), or all.',
     { status: PROJECT_STATUS.optional() },
     (args: { status?: ProjectStatusSelector }) => toolProjects(store, args),
   );

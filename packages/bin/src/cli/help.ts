@@ -101,8 +101,9 @@ work commands (flat verbs — read or mutate work state; the agent hot path):
     overview        one project at a glance — direction, in flight, next,
                     awaiting, recent sessions, hygiene
     list            broad selection by predicate/scope/tag
-    projects        every project — the keys to scope, bind, or file
-                    seeds against (--status archived opens the shelf)
+    projects        active projects, whatever the binding — the keys to
+                    scope, bind, or file seeds against (--status all
+                    adds the archived shelf)
     artifacts       the artifact feed — frozen work products, newest first
     scratch <sub>   temporary resumable episode state (UUID-addressed)
     get <id>        full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN), seed (KEY-sN)
@@ -418,7 +419,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     flags: [['--status <shelf>', 'active (default) | archived | all'], F_FORMAT],
     summary:
-      'every project, key-ordered — the scope dimension itself, so the binding never narrows it',
+      'active projects, key-ordered — the scope dimension itself, so the binding never narrows it',
     usage: 'mimir projects [--status active|archived|all]',
   },
   artifacts: {
@@ -1236,7 +1237,7 @@ examples:
   mimir get MMR-16 --col annotations  # expand annotation bodies, not just the count
   mimir get MMR-a1 --col content      # an artifact's frozen body
   mimir artifacts -t session_summary  # the retrospectives, newest first
-  mimir projects                      # every project key (the binding never narrows it)
+  mimir projects                      # active project keys (the binding never narrows it)
   mimir status MMR-3                  # rollup of an initiative/phase
   mimir tree MMR                      # full hierarchy under the project
   mimir tree MMR-3                    # subtree rooted at a phase/initiative

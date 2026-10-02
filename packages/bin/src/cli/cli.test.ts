@@ -579,6 +579,24 @@ test('projects refuses a scope — it lists every project (MMR-406)', async () =
   expect(io.err.join('')).toContain("'--scope' doesn't apply to projects");
 });
 
+test.each([
+  [['-n', '1'], '--limit'],
+  [['-t', 'x'], '--tag'],
+  [['-q', 'x'], '--query'],
+])('projects refuses %j rather than ignoring it (MMR-406)', async (args, flag) => {
+  const io = fakeIo();
+  expect(await runCli(['projects', ...args], neverStore, io)).toBe(2);
+  expect(io.err.join('')).toContain(`'${flag}' doesn't apply to projects`);
+});
+
+test('projects refuses a positional and points a shelf name at --status (MMR-406)', async () => {
+  const io = fakeIo();
+  expect(await runCli(['projects', 'archived'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("projects takes no argument (got 'archived')");
+  expect(err).toContain("'mimir projects --status archived'");
+});
+
 test('list --status archived is refused with a pointer to projects (MMR-406)', async () => {
   const io = fakeIo();
   expect(await runCli(['list', '--status', 'archived', '-f', 'json'], neverStore, io)).toBe(2);

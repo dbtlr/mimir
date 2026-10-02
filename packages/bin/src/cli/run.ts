@@ -811,13 +811,32 @@ export async function runCli(
       }
       case 'projects': {
         // Projects are the scope dimension itself (ADR 0024 amendment,
-        // MMR-406), so the listing ignores the binding and takes no scope —
-        // refused rather than silently ignored. Parsed before the store opens
-        // (MMR-39).
+        // MMR-406), so the listing ignores the binding and takes no scope.
+        // Input the listing can't honour is refused rather than silently
+        // ignored. Parsed before the store opens (MMR-39).
+        if (positionals[1] !== undefined) {
+          throw usage(
+            `projects takes no argument (got '${positionals[1]}')`,
+            "pick the shelf with --status, e.g. 'mimir projects --status archived'",
+          );
+        }
         if (values.scope !== undefined) {
           throw usage(
             "'--scope' doesn't apply to projects",
             "projects lists every project; read one with 'mimir get KEY'",
+          );
+        }
+        const unsupported = (
+          [
+            ['--limit', values.limit],
+            ['--tag', values.tag],
+            ['--query', values.query],
+          ] as const
+        ).find(([, value]) => value !== undefined);
+        if (unsupported !== undefined) {
+          throw usage(
+            `'${unsupported[0]}' doesn't apply to projects`,
+            'projects takes only --status and --format',
           );
         }
         const shelf = parseProjectStatus(values.status);
