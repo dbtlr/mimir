@@ -5,7 +5,7 @@ description: Configure a registered Postgres installation, manage its schema, an
 # Postgres store
 
 Run one board from several machines by pointing every install at one Postgres
-database. The Norn-managed markdown vault stays the default, local backend; the
+database. The local SQLite file is the default backend; the
 Postgres backend is the shared one ([ADR 0030](../decisions/0030-postgres-store-backend-shared-store-bridge.md)).
 The fence is per install: one install is wholly on one backend.
 
@@ -26,7 +26,8 @@ backend = "postgres"
 url = "postgres://mimir:secret@db.example.internal:5432/mimir"
 ```
 
-- `backend` selects the store. Leave it out, or set `norn`, for the vault.
+- `backend` selects the store: `sqlite` (the default when it is absent),
+  `postgres`, or `norn`.
 - `url` is a libpq-style connection URL. It carries the credential; the binary
   writes the file 0600 itself, so keep it that way. There is no environment
   override.

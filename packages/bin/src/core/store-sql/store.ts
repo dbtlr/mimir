@@ -22,10 +22,13 @@ import { createSqlWriter } from './writer';
  * no moment ever held.
  *
  * **A `Store`-level facet must never be called inside `transact`.** Each facet
- * here runs on the pool, so a facet call from inside an open `transact` takes a
- * SECOND connection while the first one still holds the transaction: N
- * concurrent writers doing it exhaust the pool and deadlock, and the read that
- * did get a connection sees COMMITTED state rather than the transaction's own.
+ * here runs on the handle, not the transaction. On Postgres a facet call from
+ * inside an open `transact` takes a SECOND pooled connection while the first
+ * still holds the transaction: N concurrent writers doing it exhaust the pool
+ * and deadlock, and the read that did get a connection sees COMMITTED state
+ * rather than the transaction's own. SQLite has one connection, which the
+ * transaction holds, so its driver refuses the call outright rather than wait
+ * forever.
  * Anything a verb must read mid-transaction belongs on `StoreWriter`, which runs
  * on the transaction (MMR-379 — `readNextSection` is the case that found this).
  *

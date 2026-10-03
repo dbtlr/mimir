@@ -8,8 +8,9 @@ Mimir is a local-first source of truth for agent-driven work. It keeps projects,
 tasks, dependencies, decisions, and work products in one queryable system so an
 agent can act on current state and an operator can see what needs attention.
 
-Work state lives in a Norn-managed Markdown vault by default, or in a shared
-PostgreSQL database for agents on several machines.
+Work state lives in one local SQLite file by default, or in a shared
+PostgreSQL database for agents on several machines. A Norn-managed Markdown
+vault remains selectable.
 Mimir derives queues, status rollups, blockers, and stale work when queried;
 there is no second cache of project status to keep in sync.
 
@@ -24,8 +25,9 @@ there is no second cache of project status to keep in sync.
   sessions.
 - **Operator control.** The console spans projects, tasks, Artifacts, Seeds, and
   record health. It supports daily authoring and lifecycle actions.
-- **Store ownership.** Choose a local Markdown vault with Norn-managed access
-  and Git snapshots, or a shared PostgreSQL database with transactional writes.
+- **Store ownership.** Choose a local SQLite file, a shared PostgreSQL database
+  with transactional writes, or a Norn-managed Markdown vault with Git
+  snapshots.
 - **Derived state.** Rank, dependencies, lifecycle, and holds determine what is
   ready, awaiting, blocked, stale, or complete.
 
@@ -53,14 +55,20 @@ For an existing installation without a receipt, use the
 
 Choose the store before setup:
 
-- **Norn (default):** Install `norn` on `PATH`, then run `mimir setup` to create
-  or adopt a vault and optionally install the local service.
+- **SQLite (default):** Nothing to install. Mimir creates `store.sqlite` in its
+  data directory on first use. Run `mimir setup` to optionally install the
+  local service.
+- **Norn:** Set `[store] backend = "norn"`, install `norn` on `PATH`, then run
+  `mimir setup` to create or adopt a vault and optionally install the local
+  service. To move an existing vault to SQLite, run
+  `mimir store export vault.json` while `backend = "norn"` is set, remove that
+  line, then run `mimir store import vault.json --apply`.
 - **PostgreSQL:** Skip `mimir setup`. Follow the
   [Postgres store guide](docs/guides/postgres-store.md) to set `[store] backend`
   to `"postgres"` and `url` in the installation's bound `config.toml`, then run
   `mimir store upgrade`. Run `mimir serve` directly or under your supervisor.
-  Optional `mimir service install` (launchd on macOS, systemd on Linux) still
-  requires `norn` for its preflight, including on a PostgreSQL installation.
+  Optional `mimir service install` (launchd on macOS, systemd on Linux) needs
+  no `norn` on a PostgreSQL installation.
 
 Then create a project and bind a repository to it:
 

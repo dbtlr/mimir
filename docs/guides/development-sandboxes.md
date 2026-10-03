@@ -91,7 +91,9 @@ live unit file.
   Postgres. The container runs privileged, which systemd needs for its cgroup
   tree.
 
-Both targets need `norn` on `PATH`, because `service install` checks for it.
+Neither target needs `norn` on `PATH`. The sandbox configuration names no store
+backend, so it runs on SQLite, and `service install` checks for `norn` only on
+the Norn backend.
 The report is written to `.dev/sandbox-results/service-<sandbox-id>.json`.
 Teardown always unloads the units or removes the container. A failed run keeps
 its directory, including the daemon logs, and prints the `service-destroy`

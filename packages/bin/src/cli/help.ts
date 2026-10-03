@@ -246,11 +246,12 @@ machinery commands (the installation, host, or store — not the work itself):
                           then push + reconcile when an upstream is configured;
                           the cadence behind the scheduled snapshot unit
   store upgrade | export <file> | import <file> [--apply] [--resume]
-                          upgrade applies pending Postgres schema migrations
-                          (the one explicit schema move on a shared store; a
-                          norn install has nothing to upgrade). export writes
-                          the whole store as a portable document (- for
-                          stdout); import reads one back — a preview unless
+                          upgrade applies pending schema migrations (SQLite
+                          migrates on open; Postgres is the one explicit
+                          schema move on a shared store; a norn install has
+                          nothing to upgrade). export writes the whole store
+                          as a portable document (- for stdout) and is the
+                          backup; import reads one back — a preview unless
                           --apply, --resume re-runs a partial import
   skill install [--global|--local] [--agent claude|codex]
                           install the agent skill (default: --global, claude;
@@ -258,9 +259,12 @@ machinery commands (the installation, host, or store — not the work itself):
   setup [--vault <path>] [--install-service] [--install-snapshot]
         [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]
                           interactive first-install + reconfiguration wizard:
-                          converge the vault, write the config, install the
-                          supervisor units. Prefills current values; re-runnable.
-                          Non-interactively takes flags + -y.
+                          write the config, install the supervisor units. On
+                          sqlite and postgres it asks only about the service;
+                          --vault and the snapshot flags apply to the norn
+                          backend, which also converges the vault. Prefills
+                          current values; re-runnable. Non-interactively takes
+                          flags + -y.
   serve [--port <n>] [--no-hunt]
                           HTTP API + console (loopback-only; port:
                           ${PORT_PRECEDENCE}; a
@@ -273,8 +277,8 @@ machinery commands (the installation, host, or store — not the work itself):
                           restart the service if loaded. default: latest
                           official; --next: latest incl. prereleases; --tag:
                           an exact tag (e.g. v0.6.0-next.5)
-  doctor                  run vault diagnostics and report problems for a human
-                          to fix (nonzero exit on error findings). scoped by -s
+  doctor                  run store diagnostics and report problems for a human
+                          to fix (exits 0; findings are output). scoped by -s
 `;
 
 // ─── Per-command help (MMR-118) ────────────────────────────────────────────
@@ -936,20 +940,26 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     flags: [
       [
         '--vault <path>',
-        'vault location (~ expanded; default: current config, else the build default)',
+        'vault location (norn backend only; ~ expanded; default: current config, else the build default)',
       ],
       ['--install-service', 'install/update the serve unit (launchd or systemd)'],
       ['--port <n>', 'serve port to persist (honored by serve even without the unit)'],
-      ['--install-snapshot', 'install/update the auto-snapshot unit (launchd or systemd)'],
+      [
+        '--install-snapshot',
+        'install/update the auto-snapshot unit (launchd or systemd; norn backend only)',
+      ],
       [
         '--snapshot-interval <s>',
-        'snapshot cadence in seconds (requires --install-snapshot; default 900)',
+        'snapshot cadence in seconds (norn backend only; requires --install-snapshot; default 900)',
       ],
-      ['--upstream <url>', 'snapshot upstream (requires --install-snapshot; omit to clear)'],
+      [
+        '--upstream <url>',
+        'snapshot upstream (norn backend only; requires --install-snapshot; omit to clear)',
+      ],
       ['-y, --yes', 'run non-interactively from flags (required when not a TTY)'],
     ],
     summary:
-      'first-install + reconfiguration wizard — converge the vault, write the global config, install/update the supervisor units you opt into (removal is `service uninstall`). Prefills current values; safe to re-run',
+      'first-install + reconfiguration wizard — write the global config and install/update the supervisor units you opt into (removal is `service uninstall`). On the sqlite (default) and postgres backends it asks only about the service, and --vault and the snapshot flags are refused; on the norn backend it also converges the vault. Prefills current values; safe to re-run',
     usage:
       'mimir setup [--vault <path>] [--install-service] [--install-snapshot] [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]',
   },
@@ -1019,7 +1029,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     flags: [['--port <n>', 'serve port to persist (the installation config)']],
     summary:
-      'install a supervisor unit (launchd or systemd) — defaults to serve; snapshot is opt-in. --port persists to the installation config. requires a registered installation',
+      'install a supervisor unit (launchd or systemd) — defaults to serve; snapshot is opt-in. --port persists to the installation config. requires a registered installation. on the norn backend it also requires the `norn` binary on PATH and an existing vault; sqlite and postgres need neither',
     usage: 'mimir service install [unit] [--port <n>]',
   },
   'service uninstall': {
@@ -1081,7 +1091,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   store: {
     args: [['<file>', 'export/import: the transfer document to write or read (- is stdout/stdin)']],
     examples: [
-      'mimir store upgrade                  # create or advance the Postgres schema',
+      'mimir store upgrade                  # migrate the SQLite or Postgres schema',
       'mimir store upgrade --format json    # the upgrade report, machine-readable',
       'mimir store export vault.json        # back the whole store up, identity intact',
       'mimir store export -                 # the document on stdout, nothing else',
@@ -1094,7 +1104,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--resume', 'skip records already present and identical, instead of refusing'],
     ],
     summary:
-      'the store machinery. upgrade applies every pending Postgres schema migration, in order and under a lock, and reports the version it moved from and to — the one explicit schema move on a shared store, since no binary migrates implicitly, so run it once on one machine after every binary is new enough (a norn install converges its vault on open and has nothing to upgrade). export writes every stored fact as one backend-neutral document, ids, sequences, and timestamps preserved, and refuses to overwrite an existing file. import reads that document into this store, on either backend: a preview by default, written with --apply, and re-runnable with --resume after a partial one',
+      'the store machinery. upgrade applies every pending schema migration, in order, and reports the version it moved from and to. On the SQLite store, opening the file migrates it, so upgrade just opens it and reports. On Postgres it is the one explicit schema move on a shared store, run under a lock, since no binary migrates implicitly — run it once on one machine after every binary is new enough. A norn install converges its vault on open, so upgrade prints a note and has nothing to do. export writes every stored fact as one backend-neutral document, ids, sequences, and timestamps preserved, and refuses to overwrite an existing file; it is the SQLite backup (do not copy the live database file) and the way off a norn vault, with import. import reads that document into this store, on either backend: a preview by default, written with --apply, and re-runnable with --resume after a partial one',
     usage: 'mimir store upgrade | export <file> | import <file> [--apply] [--resume]',
   },
   // ── skill distribution (MMR-286) ──
@@ -1127,7 +1137,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'download + verify a release, replace this binary, and restart the service if loaded (default: latest official)',
     usage: 'mimir self-update [--next] [--tag <tag>]',
   },
-  // ── vault diagnostics (MMR-166) ──
+  // ── store diagnostics (MMR-166) ──
   doctor: {
     examples: [
       'mimir doctor                         # check the bound scope; always exits 0 (findings are output)',
@@ -1148,7 +1158,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--dry-run', 'preview and validate a repair plan without writing (requires --fix)'],
     ],
     summary:
-      'run read-only vault diagnostics, or use --fix for conservative CLI-only repair. Bare doctor stays non-gating and exits 0 after a successful read. Repair supports only deterministic structural recipes; every other finding is reported with a stable skip reason. Repair apply/refusal/verification failures are nonzero',
+      'run read-only store diagnostics (one shared check over the SQLite and Postgres databases; the norn backend checks its vault), or use --fix for conservative CLI-only repair on the norn backend (sqlite and postgres have no repair pass). Bare doctor stays non-gating and exits 0 after a successful read. Repair supports only deterministic structural recipes; every other finding is reported with a stable skip reason. Repair apply/refusal/verification failures are nonzero',
     usage: 'mimir doctor [-s <KEY>] [--format <fmt>] [--fix [--dry-run]]',
   },
   // ── binding ──
