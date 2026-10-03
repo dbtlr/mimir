@@ -50,6 +50,7 @@ export function DoctorPage() {
   const conn = connectivity([doctor]);
   const facet = doctor.data;
   const total = facet?.finding_total ?? 0;
+  const unknownScope = facet?.scope?.matched_records === 0;
 
   return (
     <>
@@ -92,7 +93,18 @@ export function DoctorPage() {
         {facet !== undefined &&
           facet.groups.map((group) => <DoctorGroup key={group.project} group={group} />)}
 
-        {facet !== undefined && total === 0 && (
+        {facet !== undefined && unknownScope && (
+          <div className="flex flex-col items-start gap-1.5 rounded-xl border border-line bg-well-850 px-4 py-5">
+            <span className="text-sm font-medium text-ink-bright">
+              No project {facet.scope?.key}
+            </span>
+            <span className="text-xs text-ink-dim">
+              The store holds no project with this key, so there is nothing to check.
+            </span>
+          </div>
+        )}
+
+        {facet !== undefined && total === 0 && !unknownScope && (
           <div className="flex flex-col items-start gap-1.5 rounded-xl border border-line bg-well-850 px-4 py-5">
             <span className="text-sm font-medium text-ink-bright">No findings</span>
             <span className="text-xs text-ink-dim">

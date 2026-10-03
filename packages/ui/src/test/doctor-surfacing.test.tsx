@@ -16,6 +16,7 @@ function facet(n: number): WireDoctorFacet {
     finding_total: n,
     groups: n === 0 ? [] : [{ finding_count: n, project: 'MMR', records: [] }],
     scanned_at: new Date().toISOString(),
+    scope: null,
   };
 }
 

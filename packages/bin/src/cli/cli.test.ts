@@ -367,6 +367,12 @@ test('--dry-run belongs to triage: doctor and write verbs refuse it rather than 
   }
 });
 
+test('store import --dry-run is refused with a pointer to its default preview', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['store', 'import', 'x.json', '--dry-run'], neverStore, io)).toBe(2);
+  expect(io.err.join('')).toContain('store import previews by default');
+});
+
 test('create with a leading-dash title but no -- hits the strict unknown-flag error, hinting at the escape hatch (MMR-359)', async () => {
   const io = fakeIo(true);
   expect(

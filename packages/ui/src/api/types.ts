@@ -237,11 +237,14 @@ export type WireDoctorGroup = {
 };
 
 /** `/api/doctor` (MMR-185) — the record-health facet: `mimir doctor` findings
- * grouped by project, with the scan time the panel derives "last scan Ns ago" from. */
+ * grouped by project, with the scan time the panel derives "last scan Ns ago" from.
+ * `scope` is null on an unscoped scan; a scoped one reports how many records the
+ * project holds, so an unknown key (zero) never reads as a clean board. */
 export type WireDoctorFacet = {
   scanned_at: string;
   finding_total: number;
   groups: WireDoctorGroup[];
+  scope: { key: string; matched_records: number } | null;
 };
 
 /** The project key a rendered id belongs to (`MMR-16` → `MMR`, `MMR` → `MMR`). */

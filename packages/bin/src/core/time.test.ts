@@ -50,4 +50,7 @@ test('parseZonedInstant is the zoned-instant epoch arithmetic', () => {
   expect(parseZonedInstant('2026-08-05T09:30:00.000Z')).toBe(Date.UTC(2026, 7, 5, 9, 30));
   expect(parseZonedInstant('2026-08-05T05:30:00-04:00')).toBe(Date.UTC(2026, 7, 5, 9, 30));
   expect(parseZonedInstant('2026-08-05T09:30:00')).toBeNull();
+  // One spelling per instant: the colon-less offset and the space separator are refused.
+  expect(parseZonedInstant('2026-08-05T15:00:00+0530')).toBeNull();
+  expect(parseZonedInstant('2026-08-05 09:30:00Z')).toBeNull();
 });

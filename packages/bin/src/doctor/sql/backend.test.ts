@@ -413,7 +413,7 @@ describe.each(arms)('$name', (arm) => {
       expect(group).toMatchObject({ finding_count: 1, project: 'MMR' });
       expect(group?.records[0]).toEqual({
         cause: 'dangling parent',
-        evidence: { parent_id: 'MMR-404', value: 'MMR-404' },
+        evidence: { parent_id: 'MMR-404' },
         field: 'parent_id',
         id: 'MMR-2',
         locator: 'node/MMR-2',

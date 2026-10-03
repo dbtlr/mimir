@@ -513,7 +513,7 @@ const VERB_OWNED_FLAGS: readonly {
   {
     flag: '--dry-run',
     given: (values) => values['dry-run'] === true,
-    hint: `'--dry-run' previews a triage pass; use it with triage`,
+    hint: `'--dry-run' previews a triage pass; use it with triage (store import previews by default)`,
     owner: 'triage',
   },
   // `store import`'s pair (MMR-380). Both are booleans, so a stray one silently

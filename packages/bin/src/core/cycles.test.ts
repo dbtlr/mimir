@@ -30,6 +30,14 @@ test('a 3-node depends_on cycle names exactly the cycle-closing edge', () => {
   expect(cycleEdges(g)).toEqual([{ ref: 'MMR-1', rule: 'cycle-depends-on', stem: 'MMR-3' }]);
 });
 
+test('a prerequisite listed twice closes its cycle once', () => {
+  const g = graphOf([
+    { dependsOn: ['MMR-2'], parent: null, stem: 'MMR-1' },
+    { dependsOn: ['MMR-1', 'MMR-1'], parent: null, stem: 'MMR-2' },
+  ]);
+  expect(cycleEdges(g)).toEqual([{ ref: 'MMR-1', rule: 'cycle-depends-on', stem: 'MMR-2' }]);
+});
+
 test('parent and depends_on cycles are reported separately, parent first', () => {
   const g = graphOf([
     { dependsOn: ['MMR-2'], parent: 'MMR-2', stem: 'MMR-1' },

@@ -237,7 +237,7 @@ Record-health panel, grouped by project:
           "locator": "node/MMR-2",
           "field": "parent_id",
           "value": "MMR-404",
-          "evidence": { "parent_id": "MMR-404", "value": "MMR-404" },
+          "evidence": { "parent_id": "MMR-404" },
           "note": "MMR-2 names parent MMR-404, which no node row holds"
         }
       ]

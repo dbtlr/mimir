@@ -377,12 +377,14 @@ function fieldOf(where: string): string | null {
 }
 
 /** One finding as a panel record: the row's locator and the finding's own
- * evidence, which is what a human needs to reach and fix it. */
+ * evidence, which is what a human needs to reach and fix it. The evidence's
+ * `value` repeats a named column already in it, so it moves to the record's
+ * own `value` rather than rendering twice. */
 function toRecord(item: DoctorFinding): DoctorRecord {
-  const value = item.evidence.value;
+  const { value, ...evidence } = item.evidence;
   return {
     cause: CAUSES[item.check] ?? item.check,
-    evidence: item.evidence,
+    evidence,
     field: fieldOf(item.where),
     id: item.stem,
     locator: item.locator,

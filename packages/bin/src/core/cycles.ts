@@ -78,7 +78,8 @@ function backEdges(
     if (relation === 'parent') {
       return node.parent !== null && parseId(node.parent) !== null ? [node.parent] : [];
     }
-    return node.dependsOn;
+    // A transfer document may list one prerequisite twice; one edge reports once.
+    return [...new Set(node.dependsOn)];
   };
 
   // Three-color DFS: white = unvisited, gray = on the current stack, black = done.

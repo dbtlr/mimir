@@ -161,8 +161,7 @@ export async function seedWorkingSet(store: Store): Promise<void> {
   await updateNode(store, initiative.id, { next: 'land the export, then the import' });
   await updateProject(store, 'MMR', { next: 'ship the bridge' });
 
-  // A PRESENT but EMPTY `## Next` — the heading on the document with no prose
-  // under it. The verbs cannot author it (a blank narrative is a clear), so it
+  // A PRESENT but EMPTY `## Next` — the section stored with no prose in it. The verbs cannot author it (a blank narrative is a clear), so it
   // goes through the writer directly, co-writing the stamp the write path
   // requires. Presence is a stored fact of its own: an export carrying only the
   // prose would drop the heading, and the round trip would be visible (MMR-378).

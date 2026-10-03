@@ -29,7 +29,7 @@ function damagedFacet(): WireDoctorFacet {
         records: [
           {
             cause: 'dangling parent',
-            evidence: { parent_id: 'MMR-404', value: 'MMR-404' },
+            evidence: { parent_id: 'MMR-404' },
             field: 'parent_id',
             id: 'MMR-97',
             locator: 'node/MMR-97',
@@ -41,6 +41,7 @@ function damagedFacet(): WireDoctorFacet {
       },
     ],
     scanned_at: new Date().toISOString(),
+    scope: null,
   };
 }
 
@@ -74,7 +75,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     expect(screen.getByText('MMR-97 names parent MMR-404, which no node row holds')).toBeDefined();
     const evidence = screen.getByLabelText('Evidence');
     expect(within(evidence).getByText('parent_id')).toBeDefined();
-    expect(within(evidence).getAllByText('MMR-404')).toHaveLength(2);
+    expect(within(evidence).getAllByText('MMR-404')).toHaveLength(1);
     // No file, line, or snippet survives on a SQL store.
     expect(screen.queryByText(/line \d+ · byte/)).toBeNull();
     expect(screen.queryByText(/in the file/)).toBeNull();
@@ -153,6 +154,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
         },
       ],
       scanned_at: new Date().toISOString(),
+      scope: null,
     };
     apiGet.mockImplementation((path: string) =>
       Promise.resolve(path.startsWith('/api/doctor') ? twin : { items: [], total: 0 }),
@@ -171,7 +173,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     apiGet.mockImplementation((path: string) =>
       Promise.resolve(
         path.startsWith('/api/doctor')
-          ? { finding_total: 0, groups: [], scanned_at: new Date().toISOString() }
+          ? { finding_total: 0, groups: [], scanned_at: new Date().toISOString(), scope: null }
           : { items: [], total: 0 },
       ),
     );
@@ -179,5 +181,24 @@ describe('doctorPage record-health panel (MMR-185)', () => {
 
     await expect(screen.findByText('No findings')).resolves.toBeDefined();
     expect(screen.queryByText(/in the store/)).toBeNull();
+  });
+
+  it('names an unknown project scope instead of reporting it clean', async () => {
+    apiGet.mockImplementation((path: string) =>
+      Promise.resolve(
+        path.startsWith('/api/doctor')
+          ? {
+              finding_total: 0,
+              groups: [],
+              scanned_at: new Date().toISOString(),
+              scope: { key: 'ZZZ', matched_records: 0 },
+            }
+          : { items: [], total: 0 },
+      ),
+    );
+    renderAt('/doctor?project=ZZZ');
+
+    await expect(screen.findByText('No project ZZZ')).resolves.toBeDefined();
+    expect(screen.queryByText('No findings')).toBeNull();
   });
 });
