@@ -13,10 +13,8 @@ import { PORT_HUNT_SPAN, createServer } from './server';
  * The hunt itself never touches the store (MMR-271) — only a test that goes on
  * to *request* something from the bound server does. Those tests bind an
  * {@link inertStore}; the one that fetches `/api/projects` supplies a real
- * Norn-backed store and stays `skipIf(!NORN)`.
+ * in-memory test store.
  */
-
-const NORN = Bun.which('norn') !== null;
 
 let squatters: Server<undefined>[] = [];
 let closeStore: (() => Promise<void>) | undefined;
@@ -79,7 +77,7 @@ test('a free requested port binds exactly', async () => {
   expect(server.port).toBe(port);
 });
 
-test.skipIf(!NORN)('a taken port hunts upward to the next free one', async () => {
+test('a taken port hunts upward to the next free one', async () => {
   const { close, store } = await createTestStore();
   closeStore = close;
   const taken = portOf(squatWithHeadroom());

@@ -2,7 +2,7 @@
   "name": "@mimir/bin",
   "version": "0.21.0-next",
   "private": true,
-  "description": "The mimir binary — core and the three transports (CLI, MCP, HTTP) over the Norn markdown vault.",
+  "description": "The mimir binary — core and the three transports (CLI, MCP, HTTP) over a SQLite or Postgres store.",
   "bin": {
     "mimir": "./src/main.ts"
   },

@@ -13,22 +13,18 @@ import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord } from './s
  * identity (ids, sequences, timestamps) preserved. Migrating between backends is
  * an export/import pair on the seam.
  *
- * **It carries the facts the seam surfaces, and the export refuses when the
- * store holds a document it cannot carry.** A `Store` read is deliberately
- * tolerant of corruption (ADR 0017): it drops an orphaned node, prunes a
- * dangling dependency edge, nulls a dangling scratchpad anchor, and hides an
- * identity collision. Tolerance is right for a read and wrong for a copy — a
- * silently narrower document would be a backup missing the very records the
- * operator most needs. So the export is fail-closed: it enumerates the physical
- * documents, refuses when any of them has no representative in the document, and
- * names the paths. Under that refusal the "portable backup" claim is true, which
- * is the only reason it is made.
+ * **It carries the facts the seam surfaces, and a copy must never be narrower
+ * than the store.** A silently narrower document would be a backup missing the
+ * very records the operator most needs. The relational schema makes every state
+ * a tolerant read would drop (an orphaned node, a dangling edge, an identity
+ * collision) unrepresentable, so the export has nothing to omit and the
+ * "portable backup" claim holds.
  *
  * **Stored facts only.** Nothing derived crosses this boundary: no status word,
  * no rollup, no predicate, no attention state (ADR 0001 — the core recomputes
  * all of it on the target from these same inputs). A fact that a `Store` read
- * synthesizes rather than persists (a vault tag's `created_at`, taken from its
- * document's `created`) is likewise absent: the import restores the fact it was
+ * synthesizes rather than persists (a tag's `created_at`, taken from its
+ * owning entity's `created_at`) is likewise absent: the import restores the fact it was
  * synthesized from, and the target re-synthesizes it identically.
  *
  * **Shapes are the seam's own.** Every collection is typed from the record the
@@ -46,11 +42,9 @@ export const STORE_EXPORT_SCHEMA_VERSION = 1;
  * One project's sequence-allocation state (ADR 0006): the highest sequence
  * handed out per kind, one counter per id grammar (`KEY-N`, `KEY-aN`, `KEY-sN`).
  *
- * Carried explicitly even though Norn derives it — for Norn the counters are
- * implicit in the documents present, so an export could omit them and a Norn
- * import would still allocate correctly. Postgres (MMR-379) stores them as
- * columns and must write them at import, so the document states them rather
- * than making one backend re-derive another's allocator state.
+ * Carried explicitly: the store keeps them as columns and must write them at
+ * import, so the document states them rather than making a backend re-derive
+ * another's allocator state.
  */
 export type ExportedCounters = {
   node: number;
@@ -64,9 +58,9 @@ export type ExportedProject = Project & {
 };
 
 /**
- * One tag application. `created_at` is deliberately absent: a vault tag set is
+ * One tag application. `created_at` is deliberately absent: a tag set is
  * plain strings (ADR 0005) and the read path synthesizes the timestamp from the
- * owning document's `created`, which the import preserves.
+ * owning entity's `created_at`, which the import preserves.
  */
 export type ExportedTag = NewTagRecord;
 
@@ -77,10 +71,9 @@ export type ExportedTag = NewTagRecord;
  * survive the round trip.
  *
  * `tags` and `links` are in {@link canonicalSetOrder} (MMR-380). Both are sets
- * (ADR 0005 for tags; links are anchors), so their order is not a fact, and a
- * vault stores them in authored order while Postgres reads them under the
- * database collation — the export fixes one order so the two backends emit the
- * same record.
+ * (ADR 0005 for tags; links are anchors), so their order is not a fact, and each
+ * database reads them under its own collation — the export fixes one order so
+ * the two backends emit the same record.
  */
 export type ExportedArtifact = ArtifactRecord & {
   content: string;
@@ -155,14 +148,13 @@ export type StoreExport = {
  * The one order every backend emits {@link StoreExport.transitions} in
  * (MMR-380): project rows first, by key; then node rows, by project key and
  * numeric sequence; within an entity, the rows in the order given — which each
- * backend supplies as its document order (the `## History` order on a vault,
- * insert order on Postgres). That per-entity order is the stored fact
+ * backend supplies as insertion order. That per-entity order is the stored fact
  * (ADR 0015); the grouping across entities is a convention, fixed here so two
  * backends holding the same facts emit equal collections ({@link canonicalJson}
  * then makes two such documents equal byte for byte). A global
- * timestamp order was rejected: it is not a stored fact, a hand-edited or
- * clock-skewed history need not be monotonic, and sorting on it would reorder
- * a `## History` section on the way through.
+ * timestamp order was rejected: it is not a stored fact, a clock-skewed
+ * history need not be monotonic, and sorting on it would reorder an entity's
+ * history on the way through.
  *
  * Stable: ties (same entity) keep their input order.
  */
@@ -225,8 +217,8 @@ export function canonicalSetOrder(values: readonly string[]): string[] {
  * two-space indent, with every object's keys in {@link canonicalStringOrder}
  * and every array left in the order it was given.
  *
- * Key order is not a fact. Each backend builds its records its own way — Norn
- * by spreading a seam record, Postgres by writing an object literal — so two
+ * Key order is not a fact. Each backend builds its records its own way — by
+ * spreading a seam record or writing an object literal — so two
  * documents equal AS VALUES serialize to files whose lines almost all differ,
  * and `diff` of two backups of the same board reads as a rewrite. Sorting the
  * keys on the way out makes the file the value: same facts, same bytes.
@@ -259,11 +251,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  *
  * - `fresh` — the target holds none of the imported projects. Refused, before
  *   anything is written, when any imported project key already exists.
- * - `resume` — re-run of the same document after a partial import (the Norn
- *   failure contract is partial success, ADR 0023). Every document already
- *   present at its canonical path with content identical to what this import
- *   would write is skipped; a present document whose content differs refuses,
- *   naming the path.
+ * - `resume` — re-run of the same document after a partial import. Every
+ *   record already present with content identical to what this import would
+ *   write is skipped; a present record whose content differs refuses.
  */
 export type ImportMode = 'fresh' | 'resume';
 

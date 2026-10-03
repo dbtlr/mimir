@@ -1,6 +1,3 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
-
 import type { Scratchpad } from '@mimir/contract';
 
 import { createInitiative, createPhase, createProject, createTask } from '../core/create';
@@ -21,8 +18,6 @@ import {
 import type { Store } from '../core/store';
 import { createPgliteTestStore } from '../core/store-postgres/testing';
 import { createSqliteTestStore } from '../core/store-sqlite/testing';
-import type { TestStore } from './store';
-import { createTestStore } from './store';
 
 /**
  * The shared harness behind the `Store`-seam conformance suites (MMR-378/379,
@@ -35,74 +30,16 @@ import { createTestStore } from './store';
  * {@link backends}.
  */
 
-/** Whether the Norn arm can run: its store needs a real `norn` binary on PATH. */
-export const NORN = Bun.which('norn') !== null;
-
-/**
- * One fresh, empty store of a backend, plus the two physical seams the Norn arm
- * needs and a Postgres arm would not have. Both are optional so a backend
- * without a document substrate can still run the seam-level cases; the cases
- * that use them say so.
- */
+/** One fresh, empty store of a backend. */
 export type Instance = {
   store: Store;
-  /** Byte-exact document BODY read — proves an imported body equals a grown one. */
-  bodies?: () => Map<string, string>;
-  /** Deliberate hand-edit, for the resume refuse-on-differing case. */
-  corruptDocument?: (path: string, mutate: (raw: string) => string) => void;
-  /** Deliberate removal, to stage the half-written target a resume finishes. */
-  removeDocument?: (path: string) => void;
-  /** Write a document the typed API cannot produce — an orphan, a collider, a
-   * project with no `key`. The fail-closed export cases need it; a backend with
-   * no document substrate stages the same corruption its own way. */
-  seedDocument?: (
-    path: string,
-    frontmatter: Record<string, unknown>,
-    body?: string,
-  ) => Promise<void>;
   close: () => Promise<void>;
 };
 
 export type Backend = {
   name: string;
   make: () => Promise<Instance>;
-  skip: boolean;
 };
-
-/**
- * Every `.md` document's BODY in a vault, keyed by its vault-relative path.
- *
- * The body only, deliberately. Frontmatter *facts* are compared through the seam
- * ({@link observe}), while frontmatter *field order* is not a fact the write path
- * fixes: a grown document appends each newly-set field in the order the verbs
- * set it, and a created one emits the encoder's order, so the normal write path
- * itself has no single field order for a given set of facts. The BODY is
- * different — its section order and record spacing are load-bearing markdown
- * a human reads and norn's section ops target, so an imported body must match a
- * grown one byte for byte.
- */
-export function vaultBodies(root: string): Map<string, string> {
-  const found = new Map<string, string>();
-  for (const entry of readdirSync(root, { recursive: true, withFileTypes: true })) {
-    if (!entry.isFile() || !entry.name.endsWith('.md')) {
-      continue;
-    }
-    const absolute = join(entry.parentPath, entry.name);
-    found.set(relative(root, absolute), bodyOf(readFileSync(absolute, 'utf8')));
-  }
-  return found;
-}
-
-/** Everything after a document's leading `---` frontmatter block. */
-function bodyOf(raw: string): string {
-  const end = raw.indexOf('\n---\n', '---\n'.length);
-  return end === -1 ? raw : raw.slice(end + '\n---\n'.length);
-}
-
-/** A path-keyed map as a path-ordered entry list, so two vaults compare. */
-export function byPath(documents: Map<string, string>): [string, string][] {
-  return [...documents].toSorted(([a], [b]) => a.localeCompare(b));
-}
 
 /**
  * Run an action that must be refused, and yield its refusal text (summary plus
@@ -134,33 +71,16 @@ export async function errorOf(action: Promise<unknown>): Promise<MimirError> {
   throw new Error('expected the call to be refused, but it completed');
 }
 
-export async function nornInstance(): Promise<Instance> {
-  const test_: TestStore = await createTestStore();
-  return {
-    bodies: () => vaultBodies(test_.vaultRoot),
-    close: () => test_.close(),
-    corruptDocument: test_.corruptDocument,
-    removeDocument: test_.removeDocument,
-    seedDocument: test_.seedDocument,
-    store: test_.store,
-  };
-}
-
 /**
  * The Postgres arm, on PGlite — real PostgreSQL in this process, so the arm
- * never skips. It offers no document hooks: there is no physical substrate to
- * hand-edit, and the corruption those hooks stage is unrepresentable behind a
- * primary key and a foreign key.
+ * never skips.
  */
 export async function postgresInstance(): Promise<Instance> {
   const test_ = await createPgliteTestStore();
   return { close: () => test_.close(), store: test_.store };
 }
 
-/**
- * The SQLite arm, in memory — like Postgres, it runs in this process and never
- * skips, and it has no document substrate to hand-edit.
- */
+/** The SQLite arm, in memory — like Postgres, it runs in this process. */
 export async function sqliteInstance(): Promise<Instance> {
   const test_ = await createSqliteTestStore();
   return { close: () => test_.close(), store: test_.store };
@@ -168,9 +88,8 @@ export async function sqliteInstance(): Promise<Instance> {
 
 /** The backend table every conformance suite loops over. One row per backend. */
 export const backends: Backend[] = [
-  { make: nornInstance, name: 'norn', skip: !NORN },
-  { make: postgresInstance, name: 'postgres', skip: false },
-  { make: sqliteInstance, name: 'sqlite', skip: false },
+  { make: postgresInstance, name: 'postgres' },
+  { make: sqliteInstance, name: 'sqlite' },
 ];
 
 // ── Fixture ────────────────────────────────────────────────────────────────
@@ -264,8 +183,8 @@ export async function seedWorkingSet(store: Store): Promise<void> {
   });
 
   // A body ending in a blank line — the edge a naive import sheds one newline
-  // from per hop, because norn appends a trailing newline only when one is
-  // absent while the read strips exactly one (found on a real vault).
+  // from per hop, because a write that appends a trailing newline only when one is
+  // absent, paired with a read that strips exactly one, drifts.
   await store.artifacts.create({
     content: '# notes\n\n## Agenda\n\n',
     key: 'MMR',
@@ -322,10 +241,9 @@ export async function observe(store: Store): Promise<unknown> {
   for (const project of projects) {
     for (const record of await store.artifacts.listForProject(project.key)) {
       const loaded = await store.artifacts.load(record.key, record.seq, { content: true });
-      // Tags and links are sets (ADR 0005): a vault reads them in authored
-      // order and Postgres under its own collation, and the export emits them
-      // in `canonicalSetOrder`, so an imported vault holds them ordered where
-      // the grown one did not. Normalized here through that same one comparator.
+      // Tags and links are sets (ADR 0005): each database reads them under its
+      // own collation, and the export emits them in `canonicalSetOrder`, so an
+      // imported store holds them ordered where the grown one did not. Normalized here through that same one comparator.
       artifacts.push(
         loaded === undefined
           ? loaded
@@ -395,7 +313,7 @@ function compareText(a: string, b: string): number {
  * A feed cursor with its trailing position segment masked.
  *
  * The cursor is opaque and composite, and its LAST segment is the backend's own
- * position — a row id on Postgres, an index within a stem on Norn — which an
+ * position — a row id — which an
  * import legitimately reassigns: the same facts under a different internal
  * number. Every segment before it is derived from the facts, so dropping the
  * cursor whole would stop asserting that the fact-derived prefix round-trips.

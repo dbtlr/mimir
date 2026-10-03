@@ -12,8 +12,6 @@ import { expectMimirError } from './testing';
  * the reason on the transition log; the original terminal transition is kept.
  */
 
-const NORN = Bun.which('norn') !== null;
-
 let store: Store;
 let closeStore: () => Promise<void>;
 let phaseId: string;
@@ -38,20 +36,17 @@ async function doneTask(): Promise<string> {
   return id;
 }
 
-test.skipIf(!NORN)(
-  'reopen moves done → in_progress, re-ranks, and clears completed_at',
-  async () => {
-    const id = await doneTask();
-    expect((await store.transact((w) => w.loadNode(id)))?.rank).toBeNull();
-    await reopenTask(store, id);
-    const node = await store.transact((w) => w.loadNode(id));
-    expect(node?.lifecycle).toBe('in_progress');
-    expect(node?.rank).not.toBeNull();
-    expect(node?.completed_at).toBeNull();
-  },
-);
+test('reopen moves done → in_progress, re-ranks, and clears completed_at', async () => {
+  const id = await doneTask();
+  expect((await store.transact((w) => w.loadNode(id)))?.rank).toBeNull();
+  await reopenTask(store, id);
+  const node = await store.transact((w) => w.loadNode(id));
+  expect(node?.lifecycle).toBe('in_progress');
+  expect(node?.rank).not.toBeNull();
+  expect(node?.completed_at).toBeNull();
+});
 
-test.skipIf(!NORN)('reopen moves abandoned → in_progress', async () => {
+test('reopen moves abandoned → in_progress', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't2' });
   const id = await nodeIdOf(store, `MMR-${String(t.seq)}`);
   await startTask(store, id);
@@ -60,26 +55,23 @@ test.skipIf(!NORN)('reopen moves abandoned → in_progress', async () => {
   expect((await store.transact((w) => w.loadNode(id)))?.lifecycle).toBe('in_progress');
 });
 
-test.skipIf(!NORN)(
-  'reopen carries the reason and preserves the original terminal transition',
-  async () => {
-    const id = await doneTask();
-    const node = await store.transact((w) => w.loadNode(id));
-    await reopenTask(store, id, 'verification never ran');
+test('reopen carries the reason and preserves the original terminal transition', async () => {
+  const id = await doneTask();
+  const node = await store.transact((w) => w.loadNode(id));
+  await reopenTask(store, id, 'verification never ran');
 
-    const { items } = await store.transitions.list();
-    const reopenEntry = items.find(
-      (t) => t.node === `MMR-${String(node!.seq)}` && t.from === 'done' && t.to === 'in_progress',
-    );
-    expect(reopenEntry?.reason).toBe('verification never ran');
+  const { items } = await store.transitions.list();
+  const reopenEntry = items.find(
+    (t) => t.node === `MMR-${String(node!.seq)}` && t.from === 'done' && t.to === 'in_progress',
+  );
+  expect(reopenEntry?.reason).toBe('verification never ran');
 
-    // the original in_progress → done row is still there (append-only)
-    const doneEntry = items.find((t) => t.node === `MMR-${String(node!.seq)}` && t.to === 'done');
-    expect(doneEntry).toBeDefined();
-  },
-);
+  // the original in_progress → done row is still there (append-only)
+  const doneEntry = items.find((t) => t.node === `MMR-${String(node!.seq)}` && t.to === 'done');
+  expect(doneEntry).toBeDefined();
+});
 
-test.skipIf(!NORN)('reopen is legal only from a terminal state', async () => {
+test('reopen is legal only from a terminal state', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't3' });
   const id = await nodeIdOf(store, `MMR-${String(t.seq)}`);
   await expectMimirError('validation', () => reopenTask(store, id)); // todo
@@ -89,7 +81,7 @@ test.skipIf(!NORN)('reopen is legal only from a terminal state', async () => {
   await expectMimirError('validation', () => reopenTask(store, id)); // under_review
 });
 
-test.skipIf(!NORN)('reopened then completed again re-stamps completed_at', async () => {
+test('reopened then completed again re-stamps completed_at', async () => {
   const id = await doneTask();
   await reopenTask(store, id);
   await completeTask(store, id);

@@ -59,8 +59,8 @@ describe('canonicalInstant normalizes an unambiguously zoned value', () => {
     ['2026-08-05T09:30:00+00:00', '2026-08-05T09:30:00.000Z', 'a zero offset becomes Z'],
     ['2026-01-01T00:30:00+02:00', '2025-12-31T22:30:00.000Z', 'an offset may cross the year'],
     // The two STORED-only widenings (MMR-351): both state their instant
-    // unambiguously, and both are already storable — norn's `datetime` accepts
-    // the space form, and the annotation heading grammar accepts `+0530`.
+    // unambiguously, and both appear in stored data carried over by
+    // `store import`.
     ['2026-08-05 09:30:00Z', '2026-08-05T09:30:00.000Z', 'a space separator is a stored variant'],
     ['2026-08-05 05:30:00-04:00', '2026-08-05T09:30:00.000Z', 'a space separator with an offset'],
     [

@@ -2,7 +2,7 @@
  * Presentation primitives shared by every command surface — the `Io` output
  * sink, the `Format` selector, and the small color/glyph helpers command
  * handlers reach for directly. Kept out of `cli/` because `doctor`, `service`,
- * and `vault` command handlers use these too, even though only the CLI
+ * and `store` command handlers use these too, even though only the CLI
  * transport currently invokes those commands: a presentation primitive isn't
  * a CLI-transport concept. The composed view renderers (`renderTable`,
  * `renderOverview`, and everything built on top of these primitives) stay in

@@ -31,12 +31,11 @@ import { now } from './time';
  * to `store.transact` only for the primitives no verb reaches.
  *
  * The backend table lives in `testing/conformance.ts`: a new backend joins this
- * sweep by adding a row there. The Norn arm needs a real `norn` binary and is
- * skipped when it is off PATH.
+ * sweep by adding a row there.
  */
 
-// Every case builds a whole temp vault over a `norn mcp` subprocess, which runs
-// well past bun's 5s default on a loaded runner.
+// Every case builds a whole store, which can run past bun's 5s default on a
+// loaded runner.
 setDefaultTimeout(60_000);
 
 /** A second UUIDv4 handle, for the scratchpad ordering cases. */
@@ -97,7 +96,7 @@ for (const backend of backends) {
     }
   });
   const it = (name: string, body: () => Promise<void>): void => {
-    test.skipIf(backend.skip)(`${backend.name}: ${name}`, body);
+    test(`${backend.name}: ${name}`, body);
   };
 
   // ── writer: projects and nodes ───────────────────────────────────────────

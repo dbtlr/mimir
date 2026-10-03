@@ -20,13 +20,13 @@ export type ServicePaths = {
   log: string;
 };
 
-/** Which supervisor unit a status/action concerns (MMR-146). */
-export type UnitName = 'serve' | 'snapshot';
+/** Which supervisor unit a status/action concerns (MMR-146). The serve daemon
+ *  is the only one; the wire keeps the name so the envelope stays a unit list. */
+export type UnitName = 'serve';
 
 /**
- * One unit's status. `loaded`/`running`/`pid`/`plist`/`log` are common; the
- * serve-only (`port`, `health`, `configProblem`) and snapshot-only
- * (`intervalSeconds`) fields are present only for their unit.
+ * One unit's status. `loaded`/`running`/`pid`/`plist`/`log` are the supervisor's
+ * view; `port`, `health`, and `configProblem` are the serve daemon's.
  */
 export type UnitStatus = {
   unit: UnitName;
@@ -38,7 +38,6 @@ export type UnitStatus = {
   port?: number;
   configProblem?: string | null;
   health?: ServiceHealth | null;
-  intervalSeconds?: number;
 };
 
 export type ServiceStatusReport = {
@@ -107,9 +106,6 @@ function unitToWire(u: UnitStatus): Record<string, unknown> {
             restart_pending: u.health.restartPending,
             running_version: u.health.runningVersion,
           };
-  }
-  if (u.intervalSeconds !== undefined) {
-    wire.interval_seconds = u.intervalSeconds;
   }
   return wire;
 }

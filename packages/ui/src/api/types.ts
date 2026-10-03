@@ -208,7 +208,7 @@ export type Collection<T> = {
   items: T[];
 };
 
-/** `/api/health` — the daemon's build + vault schema (MMR-260 stale-binary signal). */
+/** `/api/health` — the daemon's build + store schema (MMR-260 stale-binary signal). */
 export type WireHealth = {
   status: 'ok';
   version: string;

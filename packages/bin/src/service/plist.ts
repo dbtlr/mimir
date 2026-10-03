@@ -1,13 +1,8 @@
 /**
- * The launchd units (MMR-47, MMR-146). Two shapes share one escaper:
- *
- *   - **serve** — a KeepAlive daemon. ProgramArguments carry `serve --no-hunt`.
- *     Live installations resolve the port from their bound configuration.
- *     KeepAlive + the loud --no-hunt failure means launchd retries (~10s) while
- *     a squatter holds the port and self-heals.
- *   - **snapshot** — a StartInterval timer. It runs `vault snapshot` every
- *     interval and exits; a failure (missing volume, etc.) just re-fires next
- *     interval. No KeepAlive — a periodic command must not be kept alive.
+ * The launchd serve unit (MMR-47): a KeepAlive daemon whose ProgramArguments
+ * carry `serve --no-hunt`. Live installations resolve the port from their bound
+ * configuration. KeepAlive + the loud --no-hunt failure means launchd retries
+ * (~10s) while a squatter holds the port and self-heals.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -16,8 +11,8 @@ import { join } from 'node:path';
 import { parsePort } from '@mimir/helpers';
 
 import { IS_PRODUCTION, runtimePaths } from '../env';
-import { SERVE_LOG_FILE, SNAPSHOT_LOG_FILE } from './events';
-import type { ServeUnitOptions, SnapshotUnitOptions } from './units';
+import { SERVE_LOG_FILE } from './events';
+import type { ServeUnitOptions } from './units';
 
 /** A live unit lives in `~/Library/LaunchAgents` so launchd loads it at login;
  *  every other installation keeps its plist in its own data directory
@@ -70,9 +65,7 @@ ${body}
 
 export function plistFor(label: string, binPath: string, opts: ServeUnitOptions): string {
   const env = envDict({
-    MIMIR_NORN: opts.nornPath,
     MIMIR_PORT: opts.port === undefined ? undefined : String(opts.port),
-    MIMIR_VAULT: opts.vaultPath,
   });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -94,35 +87,6 @@ export function plistFor(label: string, binPath: string, opts: ServeUnitOptions)
   <string>${xmlEscape(SERVE_LOG_FILE)}</string>
   <key>StandardErrorPath</key>
   <string>${xmlEscape(SERVE_LOG_FILE)}</string>${env}
-</dict>
-</plist>
-`;
-}
-
-export function plistForSnapshot(
-  label: string,
-  binPath: string,
-  opts: SnapshotUnitOptions,
-): string {
-  const env = envDict({ MIMIR_VAULT: opts.vaultPath });
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>${xmlEscape(label)}</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>${xmlEscape(binPath)}</string>
-    <string>vault</string>
-    <string>snapshot</string>
-  </array>
-  <key>StartInterval</key>
-  <integer>${String(opts.intervalSeconds)}</integer>
-  <key>StandardOutPath</key>
-  <string>${xmlEscape(SNAPSHOT_LOG_FILE)}</string>
-  <key>StandardErrorPath</key>
-  <string>${xmlEscape(SNAPSHOT_LOG_FILE)}</string>${env}
 </dict>
 </plist>
 `;

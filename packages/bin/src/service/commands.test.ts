@@ -12,8 +12,8 @@ import { cmdSelfUpdate, cmdService } from './commands';
 import { readConfig, readServeConfig } from './config';
 import { recentEvents } from './events';
 import type { ServiceInfo, Supervisor } from './launchd';
-import { plistFor, plistForSnapshot } from './plist';
-import { SERVE_LABEL, SNAPSHOT_LABEL, unitLabels } from './units';
+import { plistFor } from './plist';
+import { SERVE_LABEL, unitLabels } from './units';
 
 let dir: string;
 beforeEach(() => {
@@ -51,11 +51,7 @@ class FakeSupervisor implements Supervisor {
   }
 }
 
-function deps(
-  sup: FakeSupervisor,
-  extra: Partial<ServiceDeps> = {},
-  snapSup: FakeSupervisor = new FakeSupervisor(),
-): ServiceDeps {
+function deps(sup: FakeSupervisor, extra: Partial<ServiceDeps> = {}): ServiceDeps {
   return {
     binPath: join(dir, 'mimir'),
     configFile: join(dir, 'config.toml'),
@@ -75,14 +71,6 @@ function deps(
         supervisor: sup,
         unitFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
       },
-      snapshot: {
-        label: SNAPSHOT_LABEL,
-        logFile: join(dir, 'snapshot.log'),
-        render: () =>
-          plistForSnapshot(SNAPSHOT_LABEL, join(dir, 'mimir'), { intervalSeconds: 900 }),
-        supervisor: snapSup,
-        unitFile: join(dir, 'com.dbtlr.mimir.snapshot.plist'),
-      },
     },
     version: '0.5.0',
     ...extra,
@@ -90,6 +78,22 @@ function deps(
 }
 
 // 1. install serve writes the plist, delegates, logs, and --port writes config
+test('install refuses an unusable [store] before writing a unit that would crash-loop', async () => {
+  const sup = new FakeSupervisor();
+  const d = deps(sup);
+  writeFileSync(d.configFile, '[store]\nbackend = "norn"\n');
+  let message = '';
+  try {
+    await cmdService(['service', 'install'], {}, fakeIo(), d);
+  } catch (error) {
+    message =
+      error instanceof MimirError ? `${error.message} — ${error.hint ?? ''}` : String(error);
+  }
+  expect(message).toContain('[store] is unusable (removed-backend)');
+  expect(existsSync(d.units.serve.unitFile)).toBe(false);
+  expect(sup.calls).toEqual([]);
+});
+
 test('install serve writes the plist, delegates, logs, and --port writes config', async () => {
   const sup = new FakeSupervisor();
   const io = fakeIo();
@@ -135,69 +139,33 @@ test('install without --port leaves config untouched', async () => {
   expect(existsSync(d.configFile)).toBe(false);
 });
 
-// 2b. snapshot is opt-in: a bare `install` sets up only serve
-test('install with no unit installs only serve (snapshot is opt-in)', async () => {
-  const serveSup = new FakeSupervisor();
-  const snapSup = new FakeSupervisor();
-  const io = fakeIo();
-  const d = deps(serveSup, {}, snapSup);
+// 2b. the unit argument is optional: a bare `install` sets up the serve daemon
+test('install with no unit installs serve', async () => {
+  const sup = new FakeSupervisor();
+  const d = deps(sup);
 
-  const code = await cmdService(['service', 'install'], {}, io, d);
+  expect(await cmdService(['service', 'install'], {}, fakeIo(), d)).toBe(0);
 
-  expect(code).toBe(0);
-  expect(serveSup.calls).toEqual(['install']);
-  expect(snapSup.calls).toEqual([]);
+  expect(sup.calls).toEqual(['install']);
   expect(existsSync(d.units.serve.unitFile)).toBe(true);
-  expect(existsSync(d.units.snapshot.unitFile)).toBe(false);
   expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['install']);
 });
 
-// 2b-all. `install all` opts into both units
-test('install all installs both serve and snapshot', async () => {
-  const serveSup = new FakeSupervisor();
-  const snapSup = new FakeSupervisor();
-  const io = fakeIo();
-  const d = deps(serveSup, {}, snapSup);
-
-  const code = await cmdService(['service', 'install', 'all'], {}, io, d);
-
-  expect(code).toBe(0);
-  expect(serveSup.calls).toEqual(['install']);
-  expect(snapSup.calls).toEqual(['install']);
-  expect(existsSync(d.units.serve.unitFile)).toBe(true);
-  expect(existsSync(d.units.snapshot.unitFile)).toBe(true);
-  expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['install', 'install']);
-});
-
-// 2c. a single-unit selector touches only that unit
-test('install snapshot installs only the snapshot unit', async () => {
-  const serveSup = new FakeSupervisor();
-  const snapSup = new FakeSupervisor();
-  const io = fakeIo();
-  const d = deps(serveSup, {}, snapSup);
-
-  const code = await cmdService(['service', 'install', 'snapshot'], {}, io, d);
-
-  expect(code).toBe(0);
-  expect(serveSup.calls).toEqual([]);
-  expect(snapSup.calls).toEqual(['install']);
-  expect(existsSync(d.units.serve.unitFile)).toBe(false);
-  expect(existsSync(d.units.snapshot.unitFile)).toBe(true);
-  const plist = readFileSync(d.units.snapshot.unitFile, 'utf8');
-  expect(plist).toContain('StartInterval');
-});
-
-// 2d. an unknown unit selector is a usage error
+// 2d. an unknown unit is a usage error — including the removed snapshot unit
+// and its `all` selector, which now name nothing.
 test('an unknown unit is a usage error', async () => {
-  const io = fakeIo();
-  const d = deps(new FakeSupervisor());
-  let thrown: unknown;
-  try {
-    await cmdService(['service', 'install', 'nope'], {}, io, d);
-  } catch (e) {
-    thrown = e;
+  for (const unit of ['nope', 'snapshot', 'all']) {
+    const sup = new FakeSupervisor();
+    const d = deps(sup);
+    let thrown: unknown;
+    try {
+      await cmdService(['service', 'install', unit], {}, fakeIo(), d);
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown instanceof Error && thrown.message).toMatch(/unknown unit/);
+    expect(sup.calls).toEqual([]);
   }
-  expect(thrown instanceof Error && thrown.message).toMatch(/unknown unit/);
 });
 
 // 3. a bad --port is a usage error and touches nothing
@@ -218,12 +186,12 @@ test('a bad --port is a usage error and touches nothing', async () => {
   expect(existsSync(d.units.serve.unitFile)).toBe(false);
 });
 
-/** A serve render that fails the serve-env preflight (e.g. missing vault). */
+/** A serve render that cannot produce its unit file (a line break in a baked value). */
 const boomRender = (): string => {
-  throw new Error('service install: the configured vault does not exist');
+  throw new Error('unit file value contains a line break');
 };
 
-// 3b. a render that throws (bad Norn env preflight) aborts before mutating config
+// 3b. a render that throws aborts before mutating config
 test('a failing render aborts install before --port is persisted or the unit installs', async () => {
   const sup = new FakeSupervisor();
   const io = fakeIo();
@@ -235,14 +203,6 @@ test('a failing render aborts install before --port is persisted or the unit ins
         render: boomRender,
         supervisor: sup,
         unitFile: join(dir, 'com.dbtlr.mimir.serve.plist'),
-      },
-      snapshot: {
-        label: SNAPSHOT_LABEL,
-        logFile: join(dir, 'snapshot.log'),
-        render: () =>
-          plistForSnapshot(SNAPSHOT_LABEL, join(dir, 'mimir'), { intervalSeconds: 900 }),
-        supervisor: new FakeSupervisor(),
-        unitFile: join(dir, 'com.dbtlr.mimir.snapshot.plist'),
       },
     },
   });
@@ -285,154 +245,77 @@ test('start/stop/restart delegate and log', async () => {
   ]);
 });
 
-// 4b. a bare lifecycle verb sweeps only INSTALLED units — it must not hard-fail
-// on a unit that was never set up (regression: default-all threw on snapshot).
-test('restart with no selector skips a not-installed unit instead of throwing', async () => {
-  const serveSup = new FakeSupervisor();
-  // A supervisor that throws on restart, mirroring launchctl kickstart on a
-  // not-loaded/not-installed service.
-  class ThrowingSupervisor extends FakeSupervisor {
-    override restart(): Promise<void> {
-      this.calls.push('restart');
-      return Promise.reject(new Error('kickstart: service not found'));
-    }
+// 4b. a lifecycle verb acts only on an installed unit: a missing one is a
+// reported failure, never a supervisor throw — and nonzero, so a `&&`-chaining
+// deploy step never proceeds on a no-op.
+test('a lifecycle verb on a not-installed unit reports it and exits nonzero', async () => {
+  const sup = new FakeSupervisor();
+  const d = deps(sup);
+  for (const args of [
+    ['service', 'restart'],
+    ['service', 'start', 'serve'],
+  ]) {
+    const io = fakeIo();
+    expect(await cmdService(args, {}, io, d)).toBe(1);
+    expect(io.err.join('\n')).toContain('serve: not installed');
   }
-  const snapSup = new ThrowingSupervisor();
   const io = fakeIo();
-  const d = deps(serveSup, {}, snapSup);
-  // serve is installed; snapshot is NOT (no plist on disk).
-  await cmdService(['service', 'install', 'serve'], {}, io, d);
-
-  const code = await cmdService(['service', 'restart'], {}, io, d);
-
-  expect(code).toBe(0);
-  expect(serveSup.calls).toContain('restart');
-  expect(snapSup.calls).toEqual([]); // the not-installed unit was never touched
-});
-
-// 4c. an explicit `all` (or a named not-installed unit) must ALSO skip an
-// uninstalled unit — the installed()-guard applies to every selector.
-test('restart all skips a not-installed unit instead of throwing', async () => {
-  const serveSup = new FakeSupervisor();
-  class ThrowingSupervisor extends FakeSupervisor {
-    override restart(): Promise<void> {
-      this.calls.push('restart');
-      return Promise.reject(new Error('kickstart: service not found'));
-    }
-  }
-  const snapSup = new ThrowingSupervisor();
-  const io = fakeIo();
-  const d = deps(serveSup, {}, snapSup);
-  await cmdService(['service', 'install', 'serve'], {}, io, d); // snapshot NOT installed
-
-  const code = await cmdService(['service', 'restart', 'all'], {}, io, d);
-
-  // `all` is a sweep like the bare verb: serve restarts, snapshot is a reported
-  // no-op (never a throw), and the sweep still succeeds (exit 0) on the common
-  // serve-only host where snapshot is simply not installed.
-  expect(code).toBe(0);
-  expect(serveSup.calls).toContain('restart');
-  expect(snapSup.calls).toEqual([]); // never touched despite `all`
-  expect(io.err.join('\n')).toContain('snapshot: not installed');
-});
-
-// 4e. exit-code contract: a lifecycle verb succeeds iff it acted on ≥1 unit, so
-// a `&&`-chaining deploy step never proceeds on a no-op.
-test('lifecycle exit code is 0 iff at least one unit was acted on', async () => {
-  const serveSup = new FakeSupervisor();
-  const snapSup = new FakeSupervisor();
-  const d = deps(serveSup, {}, snapSup);
-
-  // Nothing installed: a bare restart acted on nothing → nonzero, with guidance.
-  const io1 = fakeIo();
-  expect(await cmdService(['service', 'restart'], {}, io1, d)).toBe(1);
-  expect(io1.out.join('\n')).toContain('no units installed');
-
-  // `start all` when the serve daemon itself is absent acted on nothing → nonzero
-  // (a deploy chain must not proceed against a daemon that never started).
-  const io2 = fakeIo();
-  expect(await cmdService(['service', 'start', 'all'], {}, io2, d)).toBe(1);
-
-  // Explicitly starting a not-installed unit is a failed request → nonzero.
-  const io3 = fakeIo();
-  expect(await cmdService(['service', 'start', 'snapshot'], {}, io3, d)).toBe(1);
-  expect(io3.err.join('\n')).toContain('snapshot: not installed');
-
-  // Install serve, then `restart all`: serve is acted on → success, even though
-  // the opt-in snapshot is absent.
-  const io4 = fakeIo();
-  await cmdService(['service', 'install', 'serve'], {}, io4, d);
-  const io5 = fakeIo();
-  expect(await cmdService(['service', 'restart', 'all'], {}, io5, d)).toBe(0);
-  expect(serveSup.calls).toContain('restart');
-});
-
-// 4f. uninstalling a not-installed unit is idempotent — no phantom teardown
-// event, no "uninstalled" claim.
-test('uninstall of a not-installed unit logs nothing and reports honestly', async () => {
-  const io = fakeIo();
-  const d = deps(new FakeSupervisor(), {}, new FakeSupervisor());
-
-  const code = await cmdService(['service', 'uninstall', 'snapshot'], {}, io, d);
-
-  expect(code).toBe(0);
-  expect(io.out.join('\n')).toContain('not installed (nothing to remove)');
-  expect(io.out.join('\n')).not.toContain('snapshot uninstalled');
-  // No phantom 'uninstall' event was logged for a unit that never existed.
+  expect(await cmdService(['service', 'stop'], {}, io, d, 'json')).toBe(1);
+  expect(JSON.parse(io.out.join('\n'))).toEqual({
+    actions: [{ action: 'stop', ok: false, unit: 'serve' }],
+  });
+  expect(sup.calls).toEqual([]);
   expect(recentEvents(d.eventsFile, 10)).toEqual([]);
 });
 
-// 4g. a unit still loaded whose plist vanished is a REAL teardown — bootout
-// runs and the event is logged, not silently mis-reported as "not installed".
-test('uninstall of a loaded unit with no plist reports and logs a real teardown', async () => {
-  const loadedSnap = new FakeSupervisor();
-  loadedSnap.state = { loaded: true, pid: 999, running: true };
-  const io = fakeIo();
-  const d = deps(new FakeSupervisor(), {}, loadedSnap);
-  // No snapshot plist on disk, but the unit is loaded/running.
+// 4c. uninstalling a not-installed unit is idempotent — no supervisor call, no
+// phantom teardown event, no "uninstalled" claim.
+test('uninstall of a not-installed unit logs nothing and reports honestly', async () => {
+  for (const args of [
+    ['service', 'uninstall'],
+    ['service', 'uninstall', 'serve'],
+  ]) {
+    const sup = new FakeSupervisor();
+    const io = fakeIo();
+    const d = deps(sup);
 
-  const code = await cmdService(['service', 'uninstall', 'snapshot'], {}, io, d);
+    expect(await cmdService(args, {}, io, d)).toBe(0);
 
-  expect(code).toBe(0);
-  expect(loadedSnap.calls).toContain('uninstall'); // bootout actually ran
-  expect(io.out.join('\n')).toContain('snapshot uninstalled');
-  expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['uninstall']);
+    expect(io.out.join('\n')).toContain('nothing installed to uninstall');
+    expect(sup.calls).toEqual([]);
+    expect(recentEvents(d.eventsFile, 10)).toEqual([]);
+  }
 });
 
-// 4h. the bare sweep counts a loaded unit whose file vanished: otherwise it
-// reports "nothing installed" while the supervisor keeps the daemon running.
-test('uninstall with no selector tears down a loaded unit with no unit file', async () => {
-  const loadedServe = new FakeSupervisor();
-  loadedServe.state = { loaded: true, pid: 999, running: true };
-  const idleSnap = new FakeSupervisor();
+// 4d. uninstall tears the unit down, removes its file, and logs the teardown.
+test('uninstall tears down an installed unit and removes its file', async () => {
+  const sup = new FakeSupervisor();
   const io = fakeIo();
-  const d = deps(loadedServe, {}, idleSnap);
+  const d = deps(sup);
+  await cmdService(['service', 'install'], {}, io, d);
 
-  const code = await cmdService(['service', 'uninstall'], {}, io, d);
+  expect(await cmdService(['service', 'uninstall'], {}, io, d)).toBe(0);
 
-  expect(code).toBe(0);
-  expect(loadedServe.calls).toContain('uninstall');
-  expect(idleSnap.calls).not.toContain('uninstall');
-  expect(io.out.join('\n')).toContain('serve uninstalled');
-});
-
-// 4d. a bare `uninstall` sweeps whatever is installed — it must not orphan the
-// snapshot timer set up via `install all` (regression: uninstall defaulted to
-// serve only, leaving the auto-push timer running).
-test('uninstall with no selector tears down every installed unit', async () => {
-  const serveSup = new FakeSupervisor();
-  const snapSup = new FakeSupervisor();
-  const io = fakeIo();
-  const d = deps(serveSup, {}, snapSup);
-  await cmdService(['service', 'install', 'all'], {}, io, d);
-
-  const code = await cmdService(['service', 'uninstall'], {}, io, d);
-
-  expect(code).toBe(0);
-  expect(serveSup.calls).toContain('uninstall');
-  expect(snapSup.calls).toContain('uninstall');
+  expect(sup.calls).toEqual(['install', 'uninstall']);
   expect(existsSync(d.units.serve.unitFile)).toBe(false);
-  expect(existsSync(d.units.snapshot.unitFile)).toBe(false); // no orphan
+  expect(io.out.join('\n')).toContain('serve uninstalled');
+  expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['install', 'uninstall']);
+});
+
+// 4e. a unit still loaded whose file vanished is a REAL teardown — the
+// supervisor uninstall runs and the event is logged, not "nothing installed"
+// while the supervisor keeps the daemon running.
+test('uninstall of a loaded unit with no unit file reports and logs a real teardown', async () => {
+  const loaded = new FakeSupervisor();
+  loaded.state = { loaded: true, pid: 999, running: true };
+  const io = fakeIo();
+  const d = deps(loaded);
+
+  expect(await cmdService(['service', 'uninstall'], {}, io, d)).toBe(0);
+
+  expect(loaded.calls).toContain('uninstall');
+  expect(io.out.join('\n')).toContain('serve uninstalled');
+  expect(recentEvents(d.eventsFile, 10).map((e) => e.event)).toEqual(['uninstall']);
 });
 
 // 5. unknown subcommand is usage; a platform without a supervisor is a loud operational error
@@ -469,30 +352,21 @@ test('unknown subcommand is usage; an unsupported platform is a loud operational
   }
 });
 
-// 5b. Linux drives the same verbs through its systemd units, companion files included
-test('on Linux, install writes the unit and its companion, and uninstall removes both', async () => {
+// 5b. Linux drives the same verbs through its systemd unit
+test('on Linux, install writes the systemd unit and names it a unit file', async () => {
   const sup = new FakeSupervisor();
-  const snapSup = new FakeSupervisor();
   const io = fakeIo();
-  const d = deps(sup, { platform: 'linux' }, snapSup);
-  d.units.snapshot = {
-    ...d.units.snapshot,
-    companion: { file: join(dir, 'snapshot.service'), render: () => '[Service]\n' },
-    render: () => '[Timer]\n',
-    unitFile: join(dir, 'snapshot.timer'),
+  const d = deps(sup, { platform: 'linux' });
+  d.units.serve = {
+    ...d.units.serve,
+    render: () => '[Service]\n',
+    unitFile: join(dir, 'serve.service'),
   };
 
-  expect(await cmdService(['service', 'install', 'all'], {}, io, d)).toBe(0);
-  expect(readFileSync(join(dir, 'snapshot.timer'), 'utf8')).toBe('[Timer]\n');
-  expect(readFileSync(join(dir, 'snapshot.service'), 'utf8')).toBe('[Service]\n');
+  expect(await cmdService(['service', 'install'], {}, io, d)).toBe(0);
+  expect(readFileSync(join(dir, 'serve.service'), 'utf8')).toBe('[Service]\n');
   expect(sup.calls).toEqual(['install']);
-  expect(snapSup.calls).toEqual(['install']);
-  expect(io.out.join('\n')).toContain(`unit:   ${join(dir, 'snapshot.timer')}`);
-
-  expect(await cmdService(['service', 'uninstall'], {}, fakeIo(), d)).toBe(0);
-  expect(existsSync(join(dir, 'snapshot.timer'))).toBe(false);
-  expect(existsSync(join(dir, 'snapshot.service'))).toBe(false);
-  expect(snapSup.calls).toEqual(['install', 'uninstall']);
+  expect(io.out.join('\n')).toContain(`unit:   ${join(dir, 'serve.service')}`);
 });
 
 // 5c. unit files land in a directory that may not exist yet (a fresh
@@ -803,7 +677,8 @@ test('service status emits the json envelope when format is json', async () => {
 
   expect(code).toBe(0);
   const parsed = JSON.parse(io.out.join('\n'));
-  const serve = parsed.units.find((u: { unit: string }) => u.unit === 'serve');
+  expect(parsed.units).toHaveLength(1);
+  const serve = parsed.units[0];
   expect(serve).toMatchObject({
     health: { on_disk_version: '0.6.0', restart_pending: true, running_version: '0.5.0' },
     loaded: true,
@@ -812,9 +687,6 @@ test('service status emits the json envelope when format is json', async () => {
     running: true,
   });
   expect(serve.plist).toBe(d.units.serve.unitFile);
-  // The snapshot unit is reported too, carrying its interval, not a port.
-  const snap = parsed.units.find((u: { unit: string }) => u.unit === 'snapshot');
-  expect(snap).toMatchObject({ interval_seconds: 900, unit: 'snapshot' });
 });
 
 test('service status probes the build profile default when config contributes no port', async () => {
@@ -826,7 +698,7 @@ test('service status probes the build profile default when config contributes no
       probed = port;
       return Promise.resolve(undefined);
     },
-    readConfig: () => ({ serve: {}, store: {}, vault: {} }),
+    readConfig: () => ({ serve: {}, store: {} }),
   });
 
   expect(await cmdService(['service', 'status'], {}, io, d, 'json')).toBe(0);
@@ -843,7 +715,7 @@ test('service status prefers the port persisted in an installed dev plist', asyn
       probed = port;
       return Promise.resolve(undefined);
     },
-    readConfig: () => ({ serve: {}, store: {}, vault: {} }),
+    readConfig: () => ({ serve: {}, store: {} }),
     readInstalledPort: () => 55440,
   });
 
@@ -878,7 +750,7 @@ test('dev service install honors its captured MIMIR_PORT override', async () => 
   const d = deps(new FakeSupervisor(), {
     defaultPort: 64747,
     portOverride: 55441,
-    readConfig: () => ({ serve: {}, store: {}, vault: {} }),
+    readConfig: () => ({ serve: {}, store: {} }),
   });
 
   expect(await cmdService(['service', 'install', 'serve'], {}, io, d, 'json')).toBe(0);
@@ -932,9 +804,8 @@ test('self-update (default selection {}) still uses official latest + semver com
 test('every mutating verb refuses without real-supervisor trust', async () => {
   for (const verb of ['install', 'uninstall', 'start', 'stop', 'restart']) {
     const sup = new FakeSupervisor();
-    const snapSup = new FakeSupervisor();
     const io = fakeIo();
-    const d = deps(sup, { scope: { kind: 'none' } }, snapSup);
+    const d = deps(sup, { scope: { kind: 'none' } });
 
     let thrown: unknown;
     try {
@@ -950,7 +821,6 @@ test('every mutating verb refuses without real-supervisor trust', async () => {
       'registered live or sandbox installation',
     );
     expect(sup.calls).toEqual([]);
-    expect(snapSup.calls).toEqual([]);
     expect(existsSync(d.units.serve.unitFile)).toBe(false);
     expect(existsSync(d.eventsFile)).toBe(false);
   }
@@ -1055,8 +925,7 @@ async function releaseFetcher(newTag: string): Promise<{
 test('a sandbox installation refuses every mutating verb on live unit names', async () => {
   for (const verb of ['install', 'uninstall', 'start', 'stop', 'restart']) {
     const sup = new FakeSupervisor();
-    const snapSup = new FakeSupervisor();
-    const d = deps(sup, { scope: sandboxScope }, snapSup);
+    const d = deps(sup, { scope: sandboxScope });
 
     let thrown: unknown;
     try {
@@ -1070,7 +939,6 @@ test('a sandbox installation refuses every mutating verb on live unit names', as
       `${SERVE_LABEL} belongs to another installation`,
     );
     expect(sup.calls).toEqual([]);
-    expect(snapSup.calls).toEqual([]);
     expect(existsSync(d.units.serve.unitFile)).toBe(false);
     expect(existsSync(d.eventsFile)).toBe(false);
   }
@@ -1094,16 +962,12 @@ test('a live installation refuses to drive sandbox-scoped units', async () => {
 // 13c. a sandbox installation drives the real supervisor for its own units
 test('a sandbox installation drives its own sandbox-scoped units', async () => {
   const sup = new FakeSupervisor();
-  const snapSup = new FakeSupervisor();
-  const labels = unitLabels(sandboxScope);
-  const d = deps(sup, { scope: sandboxScope }, snapSup);
-  d.units.serve = { ...d.units.serve, label: labels.serve };
-  d.units.snapshot = { ...d.units.snapshot, label: labels.snapshot };
+  const d = deps(sup, { scope: sandboxScope });
+  d.units.serve = { ...d.units.serve, label: unitLabels(sandboxScope).serve };
 
-  expect(await cmdService(['service', 'install', 'all'], {}, fakeIo(), d)).toBe(0);
+  expect(await cmdService(['service', 'install', 'serve'], {}, fakeIo(), d)).toBe(0);
   expect(await cmdService(['service', 'restart'], {}, fakeIo(), d)).toBe(0);
   expect(sup.calls).toEqual(['install', 'restart']);
-  expect(snapSup.calls).toEqual(['install', 'restart']);
 });
 
 // 13d. self-update's restart honors the same ownership check

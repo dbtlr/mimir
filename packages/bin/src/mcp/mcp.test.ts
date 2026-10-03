@@ -48,8 +48,6 @@ import {
   toolUpdate,
 } from './tools';
 
-const NORN = Bun.which('norn') !== null;
-
 let store: Store;
 let projectId: string;
 let closeStore: () => Promise<void>;
@@ -81,7 +79,7 @@ const textOf = (result: { content: { text: string }[] }) =>
 // Server bootstrap
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('buildMcpServer registers tools without throwing', () => {
+test('buildMcpServer registers tools without throwing', () => {
   expect(() => buildMcpServer(store, '0.0.0')).not.toThrow();
 });
 
@@ -89,7 +87,7 @@ test.skipIf(!NORN)('buildMcpServer registers tools without throwing', () => {
 // Read tools
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('next tool returns the structured envelope', async () => {
+test('next tool returns the structured envelope', async () => {
   await createTask(store, { parentId: phaseId, title: 'first' });
   const result = await toolNext(store, { scope: 'MMR' });
   expect(result.isError).toBeUndefined();
@@ -99,7 +97,7 @@ test.skipIf(!NORN)('next tool returns the structured envelope', async () => {
   expect(parsed.tasks.some((t) => t.title === 'first')).toBe(true);
 });
 
-test.skipIf(!NORN)('list and next filter by case-insensitive title substring', async () => {
+test('list and next filter by case-insensitive title substring', async () => {
   await createTask(store, { parentId: phaseId, title: 'Ship Vault Search' });
   const list = parseJson<{ total: number; tasks: { title: string }[] }>(
     textOf(await toolList(store, { q: 'VAULT', scope: 'MMR' })),
@@ -111,22 +109,19 @@ test.skipIf(!NORN)('list and next filter by case-insensitive title substring', a
   expect(next.tasks.map((task) => task.title)).toEqual(['Ship Vault Search']);
 });
 
-test.skipIf(!NORN)(
-  'get tool returns a bare node; a missing id returns the structured error envelope',
-  async () => {
-    const ok = await toolGet(store, { id: taskRef });
-    expect(ok.isError).toBeUndefined();
-    expect(parseJson<{ title: string }>(textOf(ok)).title).toBe('t');
+test('get tool returns a bare node; a missing id returns the structured error envelope', async () => {
+  const ok = await toolGet(store, { id: taskRef });
+  expect(ok.isError).toBeUndefined();
+  expect(parseJson<{ title: string }>(textOf(ok)).title).toBe('t');
 
-    const missing = await toolGet(store, { id: 'MMR-999' });
-    expect(missing.isError).toBe(true);
-    const parsed = parseJson<{ error: { code: string; message: string } }>(textOf(missing));
-    expect(parsed.error.code).toBe('not_found');
-    expect(typeof parsed.error.message).toBe('string');
-  },
-);
+  const missing = await toolGet(store, { id: 'MMR-999' });
+  expect(missing.isError).toBe(true);
+  const parsed = parseJson<{ error: { code: string; message: string } }>(textOf(missing));
+  expect(parsed.error.code).toBe('not_found');
+  expect(typeof parsed.error.message).toBe('string');
+});
 
-test.skipIf(!NORN)('status tool returns the rollup', async () => {
+test('status tool returns the rollup', async () => {
   const result = await toolStatus(store, { id: phaseRef });
   const parsed = parseJson<{
     status: string;
@@ -136,7 +131,7 @@ test.skipIf(!NORN)('status tool returns the rollup', async () => {
   expect(parsed.distribution).toEqual({ ready: 1 });
 });
 
-test.skipIf(!NORN)('overview tool returns the composite envelope (MMR-278)', async () => {
+test('overview tool returns the composite envelope (MMR-278)', async () => {
   const result = await toolOverview(store, { scope: 'MMR' });
   expect(result.isError).toBeUndefined();
   const parsed = parseJson<{
@@ -171,7 +166,7 @@ test.skipIf(!NORN)('overview tool returns the composite envelope (MMR-278)', asy
 });
 
 // The artifact feed (MMR-322) — the one read tool that IS cross-project.
-test.skipIf(!NORN)('artifacts tool returns the artifacts-unit set wrapper', async () => {
+test('artifacts tool returns the artifacts-unit set wrapper', async () => {
   await toolAttach(store, {
     content: '# retro\n',
     node: taskRef,
@@ -195,7 +190,7 @@ test.skipIf(!NORN)('artifacts tool returns the artifacts-unit set wrapper', asyn
   expect(parsed.artifacts[0]?.summary).toBe('closed out the codec work');
 });
 
-test.skipIf(!NORN)('artifacts tool AND-composes its filters', async () => {
+test('artifacts tool AND-composes its filters', async () => {
   await toolAttach(store, { content: '# a\n', node: taskRef, tags: ['design'], title: 'a design' });
   await toolAttach(store, {
     content: '# b\n',
@@ -215,99 +210,96 @@ test.skipIf(!NORN)('artifacts tool AND-composes its filters', async () => {
   expect(missed.total).toBe(0);
 });
 
-test.skipIf(!NORN)('artifacts tool returns a structured error for an unknown scope', async () => {
+test('artifacts tool returns a structured error for an unknown scope', async () => {
   const result = await toolArtifacts(store, { scope: 'ZZZ' });
   expect(result.isError).toBe(true);
   expect(parseJson<{ error: { code: string } }>(textOf(result)).error.code).toBe('not_found');
 });
 
-test.skipIf(!NORN)(
-  'scratch tools create, mutate, read full state, and list compactly',
-  async () => {
-    const created = parseJson<{
-      id: string;
-      open_agenda: number;
-      updated_at: string;
-    }>(textOf(await toolScratchCreate(store, { scope: 'MMR', title: 'Episode' })));
-    expect(created.open_agenda).toBe(0);
+test('scratch tools create, mutate, read full state, and list compactly', async () => {
+  const created = parseJson<{
+    id: string;
+    open_agenda: number;
+    updated_at: string;
+  }>(textOf(await toolScratchCreate(store, { scope: 'MMR', title: 'Episode' })));
+  expect(created.open_agenda).toBe(0);
 
-    const checkpointed = parseJson<{ updated_at: string }>(
-      textOf(
-        await toolScratchCheckpoint(store, {
-          content: 'Found the seam',
-          expected_updated_at: created.updated_at,
-          id: created.id,
-        }),
-      ),
-    );
-    const agenda = parseJson<{ open_agenda: number; updated_at: string }>(
-      textOf(
-        await toolScratchAgendaAdd(store, {
-          content: 'Wire the transport',
-          expected_updated_at: checkpointed.updated_at,
-          id: created.id,
-        }),
-      ),
-    );
-    expect(agenda.open_agenda).toBe(1);
+  const checkpointed = parseJson<{ updated_at: string }>(
+    textOf(
+      await toolScratchCheckpoint(store, {
+        content: 'Found the seam',
+        expected_updated_at: created.updated_at,
+        id: created.id,
+      }),
+    ),
+  );
+  const agenda = parseJson<{ open_agenda: number; updated_at: string }>(
+    textOf(
+      await toolScratchAgendaAdd(store, {
+        content: 'Wire the transport',
+        expected_updated_at: checkpointed.updated_at,
+        id: created.id,
+      }),
+    ),
+  );
+  expect(agenda.open_agenda).toBe(1);
 
-    const completed = parseJson<{ open_agenda: number; updated_at: string }>(
-      textOf(
-        await toolScratchAgendaComplete(store, {
-          expected_updated_at: agenda.updated_at,
-          id: created.id,
-          number: 1,
-        }),
-      ),
-    );
-    expect(completed.open_agenda).toBe(0);
-    const second = parseJson<{ updated_at: string }>(
-      textOf(
-        await toolScratchAgendaAdd(store, {
-          content: 'Obsolete follow-up',
-          expected_updated_at: completed.updated_at,
-          id: created.id,
-        }),
-      ),
-    );
-    const superseded = parseJson<{ open_agenda: number; updated_at: string }>(
-      textOf(
-        await toolScratchAgendaSupersede(store, {
-          expected_updated_at: second.updated_at,
-          id: created.id,
-          number: 2,
-          reason: 'covered elsewhere',
-        }),
-      ),
-    );
-    expect(superseded.open_agenda).toBe(0);
-
-    const full = parseJson<{
-      journal: { content: string }[];
-      agenda: { content: string; number: number; reason: string | null; state: string }[];
-      linked_work: string[];
-    }>(textOf(await toolScratchGet(store, { id: created.id })));
-    expect(full.journal[0]?.content).toBe('Found the seam');
-    expect(full.agenda).toEqual([
-      expect.objectContaining({ content: 'Wire the transport', number: 1, state: 'done' }),
-      expect.objectContaining({
+  const completed = parseJson<{ open_agenda: number; updated_at: string }>(
+    textOf(
+      await toolScratchAgendaComplete(store, {
+        expected_updated_at: agenda.updated_at,
+        id: created.id,
+        number: 1,
+      }),
+    ),
+  );
+  expect(completed.open_agenda).toBe(0);
+  const second = parseJson<{ updated_at: string }>(
+    textOf(
+      await toolScratchAgendaAdd(store, {
         content: 'Obsolete follow-up',
+        expected_updated_at: completed.updated_at,
+        id: created.id,
+      }),
+    ),
+  );
+  const superseded = parseJson<{ open_agenda: number; updated_at: string }>(
+    textOf(
+      await toolScratchAgendaSupersede(store, {
+        expected_updated_at: second.updated_at,
+        id: created.id,
         number: 2,
         reason: 'covered elsewhere',
-        state: 'superseded',
       }),
-    ]);
-    expect(full.linked_work).toEqual([]);
+    ),
+  );
+  expect(superseded.open_agenda).toBe(0);
 
-    const listed = parseJson<{ total: number; scratchpads: Record<string, unknown>[] }>(
-      textOf(await toolScratchList(store, { scope: 'MMR' })),
-    );
-    expect(listed.total).toBe(1);
-    expect(listed.scratchpads[0]).not.toHaveProperty('journal');
-  },
-);
+  const full = parseJson<{
+    journal: { content: string }[];
+    agenda: { content: string; number: number; reason: string | null; state: string }[];
+    linked_work: string[];
+  }>(textOf(await toolScratchGet(store, { id: created.id })));
+  expect(full.journal[0]?.content).toBe('Found the seam');
+  expect(full.agenda).toEqual([
+    expect.objectContaining({ content: 'Wire the transport', number: 1, state: 'done' }),
+    expect.objectContaining({
+      content: 'Obsolete follow-up',
+      number: 2,
+      reason: 'covered elsewhere',
+      state: 'superseded',
+    }),
+  ]);
+  expect(full.linked_work).toEqual([]);
 
-test.skipIf(!NORN)('scratch update preserves omitted links and rejects a stale guard', async () => {
+  const listed = parseJson<{ total: number; scratchpads: Record<string, unknown>[] }>(
+    textOf(await toolScratchList(store, { scope: 'MMR' })),
+  );
+  expect(listed.total).toBe(1);
+  expect(listed.scratchpads[0]).not.toHaveProperty('journal');
+});
+
+test('scratch update preserves omitted links and rejects a stale guard', async () => {
   const created = parseJson<{ id: string; updated_at: string }>(
     textOf(
       await toolScratchCreate(store, {
@@ -337,47 +329,44 @@ test.skipIf(!NORN)('scratch update preserves omitted links and rejects a stale g
   expect(parseJson<{ error: { code: string } }>(textOf(stale)).error.code).toBe('validation');
 });
 
-test.skipIf(!NORN)(
-  'scratch freeze returns a compact artifact receipt and retries idempotently',
-  async () => {
-    const created = parseJson<{ id: string; updated_at: string }>(
-      textOf(await toolScratchCreate(store, { scope: 'MMR', title: 'Episode' })),
-    );
-    const args = {
-      expected_updated_at: created.updated_at,
-      id: created.id,
-      summary: 'Durable episode outcome',
-      tags: ['decision'],
-    };
+test('scratch freeze returns a compact artifact receipt and retries idempotently', async () => {
+  const created = parseJson<{ id: string; updated_at: string }>(
+    textOf(await toolScratchCreate(store, { scope: 'MMR', title: 'Episode' })),
+  );
+  const args = {
+    expected_updated_at: created.updated_at,
+    id: created.id,
+    summary: 'Durable episode outcome',
+    tags: ['decision'],
+  };
 
-    const first = await toolScratchFreeze(store, args);
-    expect(first.isError).toBeUndefined();
-    const receipt = parseJson<{
-      created_at: string;
-      id: string;
-      linked_work: string[];
-      project: string;
-      summary: string;
-      tags: string[];
-      title: string;
-    }>(textOf(first));
-    expect(receipt).toMatchObject({
-      linked_work: [],
-      project: 'MMR',
-      summary: 'Durable episode outcome',
-      title: 'Episode',
-    });
-    expect(receipt.id).toMatch(/^MMR-a\d+$/);
-    expect(receipt.tags).toEqual(expect.arrayContaining(['scratchpad', 'decision']));
-    expect(receipt).not.toHaveProperty('content');
+  const first = await toolScratchFreeze(store, args);
+  expect(first.isError).toBeUndefined();
+  const receipt = parseJson<{
+    created_at: string;
+    id: string;
+    linked_work: string[];
+    project: string;
+    summary: string;
+    tags: string[];
+    title: string;
+  }>(textOf(first));
+  expect(receipt).toMatchObject({
+    linked_work: [],
+    project: 'MMR',
+    summary: 'Durable episode outcome',
+    title: 'Episode',
+  });
+  expect(receipt.id).toMatch(/^MMR-a\d+$/);
+  expect(receipt.tags).toEqual(expect.arrayContaining(['scratchpad', 'decision']));
+  expect(receipt).not.toHaveProperty('content');
 
-    const retried = await toolScratchFreeze(store, args);
-    expect(retried.isError).toBeUndefined();
-    expect(parseJson<{ id: string }>(textOf(retried)).id).toBe(receipt.id);
-  },
-);
+  const retried = await toolScratchFreeze(store, args);
+  expect(retried.isError).toBeUndefined();
+  expect(parseJson<{ id: string }>(textOf(retried)).id).toBe(receipt.id);
+});
 
-test.skipIf(!NORN)('scratch discard refuses open Agenda unless forced with a reason', async () => {
+test('scratch discard refuses open Agenda unless forced with a reason', async () => {
   const created = parseJson<{ id: string; updated_at: string }>(
     textOf(await toolScratchCreate(store, { scope: 'MMR', title: 'Disposable' })),
   );
@@ -417,14 +406,14 @@ test.skipIf(!NORN)('scratch discard refuses open Agenda unless forced with a rea
   expect(parseJson<{ error: { code: string } }>(textOf(missing)).error.code).toBe('not_found');
 });
 
-test.skipIf(!NORN)('overview tool rejects the cross-project all escape (MMR-278)', async () => {
+test('overview tool rejects the cross-project all escape (MMR-278)', async () => {
   const result = await toolOverview(store, { scope: 'all' });
   expect(result.isError).toBe(true);
   const parsed = parseJson<{ error: { code: string; message: string } }>(textOf(result));
   expect(parsed.error.code).toBe('validation');
 });
 
-test.skipIf(!NORN)('overview tool defaults to the bound scope (MMR-278)', async () => {
+test('overview tool defaults to the bound scope (MMR-278)', async () => {
   const result = await toolOverview(store, {}, 'MMR');
   expect(result.isError).toBeUndefined();
   expect(parseJson<{ project: { id: string } }>(textOf(result)).project.id).toBe('MMR');
@@ -434,26 +423,26 @@ test.skipIf(!NORN)('overview tool defaults to the bound scope (MMR-278)', async 
 // Lifecycle mutation tools
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('start echoes the node as bare json with status in_progress', async () => {
+test('start echoes the node as bare json with status in_progress', async () => {
   const res = await toolUniform(store, 'start', { id: taskRef });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).status).toBe('in_progress');
 });
 
-test.skipIf(!NORN)('done echoes the node as bare json with status done', async () => {
+test('done echoes the node as bare json with status done', async () => {
   await toolUniform(store, 'start', { id: taskRef });
   const res = await toolUniform(store, 'done', { id: taskRef });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).status).toBe('done');
 });
 
-test.skipIf(!NORN)('abandon echoes the node with status abandoned', async () => {
+test('abandon echoes the node with status abandoned', async () => {
   const res = await toolUniform(store, 'abandon', { id: taskRef, reason: 'superseded' });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).status).toBe('abandoned');
 });
 
-test.skipIf(!NORN)('toolReopen sends a done task back to in_progress (MMR-104)', async () => {
+test('toolReopen sends a done task back to in_progress (MMR-104)', async () => {
   await toolUniform(store, 'start', { id: taskRef });
   await toolUniform(store, 'done', { id: taskRef });
   const res = await toolUniform(store, 'reopen', { id: taskRef, reason: 'unverified' });
@@ -462,7 +451,7 @@ test.skipIf(!NORN)('toolReopen sends a done task back to in_progress (MMR-104)',
   expect(node.status).toBe('in_progress');
 });
 
-test.skipIf(!NORN)('a not_found mutation returns the structured envelope as isError', async () => {
+test('a not_found mutation returns the structured envelope as isError', async () => {
   const res = await toolUniform(store, 'done', { id: 'MMR-9999' });
   expect(res.isError).toBe(true);
   const parsed = parseJson<{ error: { code: string } }>(textOf(res));
@@ -473,20 +462,20 @@ test.skipIf(!NORN)('a not_found mutation returns the structured envelope as isEr
 // Hold mutation tools
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('park sets the hold overlay → status parked', async () => {
+test('park sets the hold overlay → status parked', async () => {
   const res = await toolUniform(store, 'park', { id: taskRef, reason: 'waiting on review' });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).status).toBe('parked');
 });
 
-test.skipIf(!NORN)('unpark clears the hold', async () => {
+test('unpark clears the hold', async () => {
   await toolUniform(store, 'park', { id: taskRef });
   const res = await toolUniform(store, 'unpark', { id: taskRef });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).status).toBe('ready');
 });
 
-test.skipIf(!NORN)('block then unblock', async () => {
+test('block then unblock', async () => {
   const blocked = await toolUniform(store, 'block', { id: taskRef, reason: 'ci red' });
   expect(blocked.isError).toBeUndefined();
   expect(JSON.parse(textOf(blocked)).status).toBe('blocked');
@@ -500,7 +489,7 @@ test.skipIf(!NORN)('block then unblock', async () => {
 // Dependency mutation tools
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('depend adds edges; undepend removes them', async () => {
+test('depend adds edges; undepend removes them', async () => {
   const t2 = await createTask(store, { parentId: phaseId, title: 't2' });
   const ref2 = `MMR-${String(t2.seq)}`;
 
@@ -511,7 +500,7 @@ test.skipIf(!NORN)('depend adds edges; undepend removes them', async () => {
   expect(undepRes.isError).toBeUndefined();
 });
 
-test.skipIf(!NORN)('depend on a missing id returns structured not_found', async () => {
+test('depend on a missing id returns structured not_found', async () => {
   const res = await toolDepend(store, { id: taskRef, on: ['MMR-9999'] });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('not_found');
@@ -521,7 +510,7 @@ test.skipIf(!NORN)('depend on a missing id returns structured not_found', async 
 // Structure mutation tools
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('move re-parents a task under a new phase', async () => {
+test('move re-parents a task under a new phase', async () => {
   const phase2 = await createPhase(store, { parentId: initiativeId, title: 'ph2' });
   const ref2 = `MMR-${String(phase2.seq)}`;
   const res = await toolMove(store, { id: taskRef, to: ref2 });
@@ -530,13 +519,13 @@ test.skipIf(!NORN)('move re-parents a task under a new phase', async () => {
   expect(parsed.parent).toBe(ref2);
 });
 
-test.skipIf(!NORN)('reorder top echoes the node', async () => {
+test('reorder top echoes the node', async () => {
   const res = await toolReorder(store, { id: taskRef, position: 'top' });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).id).toBe(taskRef);
 });
 
-test.skipIf(!NORN)('reorder on a phase returns a reorder-specific validation hint', async () => {
+test('reorder on a phase returns a reorder-specific validation hint', async () => {
   const res = await toolReorder(store, { id: phaseRef, position: 'top' });
   expect(res.isError).toBe(true);
   const { error } = parseJson<{ error: { code: string; message: string; hint: string } }>(
@@ -548,20 +537,17 @@ test.skipIf(!NORN)('reorder on a phase returns a reorder-specific validation hin
   expect(error.hint).not.toContain("aren't started");
 });
 
-test.skipIf(!NORN)(
-  'reorder before/after without ref returns structured validation error',
-  async () => {
-    const res = await toolReorder(store, { id: taskRef, position: 'before' });
-    expect(res.isError).toBe(true);
-    expect(JSON.parse(textOf(res)).error.code).toBe('validation');
-  },
-);
+test('reorder before/after without ref returns structured validation error', async () => {
+  const res = await toolReorder(store, { id: taskRef, position: 'before' });
+  expect(res.isError).toBe(true);
+  expect(JSON.parse(textOf(res)).error.code).toBe('validation');
+});
 
 // ---------------------------------------------------------------------------
 // Data mutation tools
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('update patches scalar fields and echoes them', async () => {
+test('update patches scalar fields and echoes them', async () => {
   const res = await toolUpdate(store, {
     id: taskRef,
     priority: 'p1',
@@ -574,7 +560,7 @@ test.skipIf(!NORN)('update patches scalar fields and echoes them', async () => {
   expect(v.priority).toBe('p1');
 });
 
-test.skipIf(!NORN)('update echoes the description and summary it set (MMR-162)', async () => {
+test('update echoes the description and summary it set (MMR-162)', async () => {
   // description is facet-gated now; the tool echo must still return it (and the
   // bulk-cheap summary), else an MCP client cannot confirm the write.
   const res = await toolUpdate(store, {
@@ -588,62 +574,56 @@ test.skipIf(!NORN)('update echoes the description and summary it set (MMR-162)',
   expect(v.summary).toBe('the lede');
 });
 
-test.skipIf(!NORN)('annotate echoes the node', async () => {
+test('annotate echoes the node', async () => {
   const res = await toolAnnotate(store, { content: 'looked into this', id: taskRef });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).id).toBe(taskRef);
 });
 
-test.skipIf(!NORN)(
-  'annotate on a container echoes the true rollup, matching get (MMR-242)',
-  async () => {
-    await createTask(store, { parentId: phaseId, title: 't2' });
+test('annotate on a container echoes the true rollup, matching get (MMR-242)', async () => {
+  await createTask(store, { parentId: phaseId, title: 't2' });
 
-    const getView = parseJson<{ distribution: Record<string, number> }>(
-      textOf(await toolGet(store, { id: phaseRef })),
-    );
+  const getView = parseJson<{ distribution: Record<string, number> }>(
+    textOf(await toolGet(store, { id: phaseRef })),
+  );
 
-    const res = await toolAnnotate(store, { content: 'checked in', id: phaseRef });
-    expect(res.isError).toBeUndefined();
-    const annotateView = parseJson<{ distribution: Record<string, number> }>(textOf(res));
+  const res = await toolAnnotate(store, { content: 'checked in', id: phaseRef });
+  expect(res.isError).toBeUndefined();
+  const annotateView = parseJson<{ distribution: Record<string, number> }>(textOf(res));
 
-    // The mutation echo must derive its rollup from the same source as `get` —
-    // not read as an unloaded, childless node.
-    expect(annotateView.distribution).toEqual(getView.distribution);
-    expect(annotateView.distribution).toEqual({ ready: 2 });
-  },
-);
+  // The mutation echo must derive its rollup from the same source as `get` —
+  // not read as an unloaded, childless node.
+  expect(annotateView.distribution).toEqual(getView.distribution);
+  expect(annotateView.distribution).toEqual({ ready: 2 });
+});
 
-test.skipIf(!NORN)(
-  'update on a project echoes the true rollup, matching get (MMR-242)',
-  async () => {
-    // The project already carries one root initiative (from beforeEach) — add a
-    // second so the count is unambiguous.
-    await createInitiative(store, { projectId, title: 'i2' });
+test('update on a project echoes the true rollup, matching get (MMR-242)', async () => {
+  // The project already carries one root initiative (from beforeEach) — add a
+  // second so the count is unambiguous.
+  await createInitiative(store, { projectId, title: 'i2' });
 
-    const getView = parseJson<{ children: unknown[]; distribution: Record<string, number> }>(
-      textOf(await toolGet(store, { id: 'MMR' })),
-    );
+  const getView = parseJson<{ children: unknown[]; distribution: Record<string, number> }>(
+    textOf(await toolGet(store, { id: 'MMR' })),
+  );
 
-    const res = await toolUpdate(store, { description: 'renamed body', id: 'MMR' });
-    expect(res.isError).toBeUndefined();
-    const updateView = parseJson<{ children: unknown[]; distribution: Record<string, number> }>(
-      textOf(res),
-    );
+  const res = await toolUpdate(store, { description: 'renamed body', id: 'MMR' });
+  expect(res.isError).toBeUndefined();
+  const updateView = parseJson<{ children: unknown[]; distribution: Record<string, number> }>(
+    textOf(res),
+  );
 
-    // The project write-echo must derive its rollup from the same sources as
-    // `get KEY` — not read as an unloaded, childless project.
-    expect(updateView.children).toEqual(getView.children);
-    expect(updateView.distribution).toEqual(getView.distribution);
-    expect(updateView.distribution).toEqual({ new: 1, ready: 1 });
-  },
-);
+  // The project write-echo must derive its rollup from the same sources as
+  // `get KEY` — not read as an unloaded, childless project.
+  expect(updateView.children).toEqual(getView.children);
+  expect(updateView.distribution).toEqual(getView.distribution);
+  expect(updateView.distribution).toEqual({ new: 1, ready: 1 });
+});
 
 // ---------------------------------------------------------------------------
 // Create tool
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('create project echoes {project:{key,name}}', async () => {
+test('create project echoes {project:{key,name}}', async () => {
   const res = await toolCreate(store, { key: 'NEW', name: 'New Proj', type: 'project' });
   expect(res.isError).toBeUndefined();
   const v = parseJson<{ project: { key: string; name: string } }>(textOf(res));
@@ -651,13 +631,13 @@ test.skipIf(!NORN)('create project echoes {project:{key,name}}', async () => {
   expect(v.project.name).toBe('New Proj');
 });
 
-test.skipIf(!NORN)('create task echoes a task node', async () => {
+test('create task echoes a task node', async () => {
   const res = await toolCreate(store, { parent: phaseRef, title: 'x', type: 'task' });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).type).toBe('task');
 });
 
-test.skipIf(!NORN)('create phase echoes a phase node', async () => {
+test('create phase echoes a phase node', async () => {
   const initNode = findNodeInSet(deriveSet(await store.loadWorkingSet()), 'MMR-1');
   const initRef = initNode !== undefined ? `MMR-${String(initNode.seq)}` : 'MMR-1';
   const res = await toolCreate(store, { parent: initRef, title: 'p2', type: 'phase' });
@@ -665,22 +645,19 @@ test.skipIf(!NORN)('create phase echoes a phase node', async () => {
   expect(JSON.parse(textOf(res)).type).toBe('phase');
 });
 
-test.skipIf(!NORN)('create initiative under a bare project KEY', async () => {
+test('create initiative under a bare project KEY', async () => {
   const res = await toolCreate(store, { parent: 'MMR', title: 'Big bet', type: 'initiative' });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res)).type).toBe('initiative');
 });
 
-test.skipIf(!NORN)(
-  'create initiative with a node ref as parent returns structured validation error',
-  async () => {
-    const res = await toolCreate(store, { parent: taskRef, title: 'x', type: 'initiative' });
-    expect(res.isError).toBe(true);
-    expect(JSON.parse(textOf(res)).error.code).toBe('validation');
-  },
-);
+test('create initiative with a node ref as parent returns structured validation error', async () => {
+  const res = await toolCreate(store, { parent: taskRef, title: 'x', type: 'initiative' });
+  expect(res.isError).toBe(true);
+  expect(JSON.parse(textOf(res)).error.code).toBe('validation');
+});
 
-test.skipIf(!NORN)('create project without key returns validation error', async () => {
+test('create project without key returns validation error', async () => {
   const res = await toolCreate(store, { name: 'Missing Key', type: 'project' });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('validation');
@@ -690,77 +667,68 @@ test.skipIf(!NORN)('create project without key returns validation error', async 
 // Attach tool
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('attach to a node infers the project and echoes an artifact id', async () => {
+test('attach to a node infers the project and echoes an artifact id', async () => {
   const res = await toolAttach(store, { content: '# plan\n', node: taskRef, title: 'plan' });
   expect(res.isError).toBeUndefined();
   const v = parseJson<{ artifact: { id: string } }>(textOf(res));
   expect(v.artifact.id).toMatch(/^[A-Z]{2,4}-a\d+$/);
 });
 
-test.skipIf(!NORN)(
-  'attach summary lands on the record; over-length refuses (MMR-319)',
-  async () => {
-    const res = await toolAttach(store, {
-      content: '# plan\n',
-      node: taskRef,
-      summary: 'the lede',
-      title: 'plan',
-    });
-    const id = parseJson<{ artifact: { id: string } }>(textOf(res)).artifact.id;
-    expect((await getArtifact(store, id)).summary).toBe('the lede');
+test('attach summary lands on the record; over-length refuses (MMR-319)', async () => {
+  const res = await toolAttach(store, {
+    content: '# plan\n',
+    node: taskRef,
+    summary: 'the lede',
+    title: 'plan',
+  });
+  const id = parseJson<{ artifact: { id: string } }>(textOf(res)).artifact.id;
+  expect((await getArtifact(store, id)).summary).toBe('the lede');
 
-    const long = await toolAttach(store, {
-      content: '# plan\n',
-      node: taskRef,
-      summary: 'x'.repeat(257),
-      title: 'too long',
-    });
-    expect(long.isError).toBe(true);
-    expect(JSON.parse(textOf(long)).error.code).toBe('validation');
-  },
-);
+  const long = await toolAttach(store, {
+    content: '# plan\n',
+    node: taskRef,
+    summary: 'x'.repeat(257),
+    title: 'too long',
+  });
+  expect(long.isError).toBe(true);
+  expect(JSON.parse(textOf(long)).error.code).toBe('validation');
+});
 
-test.skipIf(!NORN)(
-  'toolUpdate on a KEY-aN sets, clears, and caps the summary lede (MMR-319)',
-  async () => {
-    const attached = await toolAttach(store, { content: '# a\n', node: taskRef, title: 'a' });
-    const aid = parseJson<{ artifact: { id: string } }>(textOf(attached)).artifact.id;
+test('toolUpdate on a KEY-aN sets, clears, and caps the summary lede (MMR-319)', async () => {
+  const attached = await toolAttach(store, { content: '# a\n', node: taskRef, title: 'a' });
+  const aid = parseJson<{ artifact: { id: string } }>(textOf(attached)).artifact.id;
 
-    const set = await toolUpdate(store, { id: aid, summary: 'a fresh lede' });
-    expect(set.isError).toBeUndefined();
-    expect(parseJson<{ summary: string }>(textOf(set)).summary).toBe('a fresh lede');
-    expect((await getArtifact(store, aid)).summary).toBe('a fresh lede');
+  const set = await toolUpdate(store, { id: aid, summary: 'a fresh lede' });
+  expect(set.isError).toBeUndefined();
+  expect(parseJson<{ summary: string }>(textOf(set)).summary).toBe('a fresh lede');
+  expect((await getArtifact(store, aid)).summary).toBe('a fresh lede');
 
-    const cleared = await toolUpdate(store, { id: aid, summary: '  ' });
-    expect(cleared.isError).toBeUndefined();
-    expect((await getArtifact(store, aid)).summary).toBeUndefined();
+  const cleared = await toolUpdate(store, { id: aid, summary: '  ' });
+  expect(cleared.isError).toBeUndefined();
+  expect((await getArtifact(store, aid)).summary).toBeUndefined();
 
-    const long = await toolUpdate(store, { id: aid, summary: 'x'.repeat(257) });
-    expect(long.isError).toBe(true);
-    expect(JSON.parse(textOf(long)).error.code).toBe('validation');
-    expect((await getArtifact(store, aid, { content: true })).content).toBe('# a');
-  },
-);
+  const long = await toolUpdate(store, { id: aid, summary: 'x'.repeat(257) });
+  expect(long.isError).toBe(true);
+  expect(JSON.parse(textOf(long)).error.code).toBe('validation');
+  expect((await getArtifact(store, aid, { content: true })).content).toBe('# a');
+});
 
-test.skipIf(!NORN)(
-  'attach dedupes a link equal to the node anchor and a repeated link (MMR-305)',
-  async () => {
-    const t2 = await createTask(store, { parentId: phaseId, title: 't2' });
-    const t2Ref = `MMR-${String(t2.seq)}`;
-    const res = await toolAttach(store, {
-      content: 'x',
-      links: [taskRef, t2Ref, t2Ref], // link==anchor, then a repeat
-      node: taskRef,
-      title: 'plan',
-    });
-    expect(res.isError).toBeUndefined();
-    const aId = parseJson<{ artifact: { id: string } }>(textOf(res)).artifact.id;
-    const detail = await getArtifact(store, aId);
-    expect(detail.links).toEqual([taskRef, t2Ref]); // deduped, first-occurrence order
-  },
-);
+test('attach dedupes a link equal to the node anchor and a repeated link (MMR-305)', async () => {
+  const t2 = await createTask(store, { parentId: phaseId, title: 't2' });
+  const t2Ref = `MMR-${String(t2.seq)}`;
+  const res = await toolAttach(store, {
+    content: 'x',
+    links: [taskRef, t2Ref, t2Ref], // link==anchor, then a repeat
+    node: taskRef,
+    title: 'plan',
+  });
+  expect(res.isError).toBeUndefined();
+  const aId = parseJson<{ artifact: { id: string } }>(textOf(res)).artifact.id;
+  const detail = await getArtifact(store, aId);
+  expect(detail.links).toEqual([taskRef, t2Ref]); // deduped, first-occurrence order
+});
 
-test.skipIf(!NORN)('attach cross-project link returns structured validation error', async () => {
+test('attach cross-project link returns structured validation error', async () => {
   await createProject(store, { key: 'OTH', name: 'o' });
   const otherProjectId = await projectIdOf(store, 'OTH');
   const oi = await createInitiative(store, { projectId: otherProjectId, title: 'i' });
@@ -780,50 +748,44 @@ test.skipIf(!NORN)('attach cross-project link returns structured validation erro
   expect(JSON.parse(textOf(res)).error.code).toBe('validation');
 });
 
-test.skipIf(!NORN)(
-  'attach with no node refs and no project returns structured validation error',
-  async () => {
-    const res = await toolAttach(store, { content: '# plan\n', title: 'plan' });
-    expect(res.isError).toBe(true);
-    expect(JSON.parse(textOf(res)).error.code).toBe('validation');
-  },
-);
+test('attach with no node refs and no project returns structured validation error', async () => {
+  const res = await toolAttach(store, { content: '# plan\n', title: 'plan' });
+  expect(res.isError).toBe(true);
+  expect(JSON.parse(textOf(res)).error.code).toBe('validation');
+});
 
-test.skipIf(!NORN)('attach to a missing node is not_found', async () => {
+test('attach to a missing node is not_found', async () => {
   const res = await toolAttach(store, { content: 'x', node: 'MMR-9999', title: 'x' });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('not_found');
 });
 
-test.skipIf(!NORN)(
-  'attach with project disagreement returns structured validation error',
-  async () => {
-    // Create a second project
-    await createProject(store, { key: 'OTH', name: 'o' });
-    const otherProjectId = await projectIdOf(store, 'OTH');
-    const oi = await createInitiative(store, { projectId: otherProjectId, title: 'i' });
-    const oiId = await nodeIdOf(store, `OTH-${String(oi.seq)}`);
-    const op = await createPhase(store, { parentId: oiId, title: 'p' });
-    const opId = await nodeIdOf(store, `OTH-${String(op.seq)}`);
-    await createTask(store, { parentId: opId, title: 't' });
+test('attach with project disagreement returns structured validation error', async () => {
+  // Create a second project
+  await createProject(store, { key: 'OTH', name: 'o' });
+  const otherProjectId = await projectIdOf(store, 'OTH');
+  const oi = await createInitiative(store, { projectId: otherProjectId, title: 'i' });
+  const oiId = await nodeIdOf(store, `OTH-${String(oi.seq)}`);
+  const op = await createPhase(store, { parentId: oiId, title: 'p' });
+  const opId = await nodeIdOf(store, `OTH-${String(op.seq)}`);
+  await createTask(store, { parentId: opId, title: 't' });
 
-    // node is in MMR but --project says OTH
-    const res = await toolAttach(store, {
-      content: 'x',
-      node: taskRef,
-      project: 'OTH',
-      title: 'x',
-    });
-    expect(res.isError).toBe(true);
-    expect(JSON.parse(textOf(res)).error.code).toBe('validation');
-  },
-);
+  // node is in MMR but --project says OTH
+  const res = await toolAttach(store, {
+    content: 'x',
+    node: taskRef,
+    project: 'OTH',
+    title: 'x',
+  });
+  expect(res.isError).toBe(true);
+  expect(JSON.parse(textOf(res)).error.code).toBe('validation');
+});
 
 // ---------------------------------------------------------------------------
 // Tag tools (MMR-31)
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('tag and untag round-trip over MCP, reaching project and node', async () => {
+test('tag and untag round-trip over MCP, reaching project and node', async () => {
   const res = await toolTag(store, { ids: [taskRef, 'MMR'], tags: ['spec'] });
   expect(res.isError).toBeUndefined();
   expect(JSON.parse(textOf(res))).toEqual({ tagged: { ids: [taskRef, 'MMR'], tags: ['spec'] } });
@@ -840,13 +802,13 @@ test.skipIf(!NORN)('tag and untag round-trip over MCP, reaching project and node
   expect(reread.tags).toEqual([]);
 });
 
-test.skipIf(!NORN)('tag on an unknown id returns a structured not_found', async () => {
+test('tag on an unknown id returns a structured not_found', async () => {
   const res = await toolTag(store, { ids: ['MMR-999'], tags: ['x'] });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('not_found');
 });
 
-test.skipIf(!NORN)('create task with tags applies them', async () => {
+test('create task with tags applies them', async () => {
   const res = await toolCreate(store, {
     parent: phaseRef,
     tags: ['v2'],
@@ -865,7 +827,7 @@ test.skipIf(!NORN)('create task with tags applies them', async () => {
 // Project update (MMR-88)
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('toolUpdate on a bare project KEY renames and patches description', async () => {
+test('toolUpdate on a bare project KEY renames and patches description', async () => {
   const res = await toolUpdate(store, { description: 'details', id: 'MMR', name: 'Renamed' });
   expect(res.isError).toBeUndefined();
   const v = parseJson<{ type: string; title: string; description: string }>(textOf(res));
@@ -874,78 +836,63 @@ test.skipIf(!NORN)('toolUpdate on a bare project KEY renames and patches descrip
   expect(v.description).toBe('details');
 });
 
-test.skipIf(!NORN)('toolUpdate project rejects node-only flags', async () => {
+test('toolUpdate project rejects node-only flags', async () => {
   const res = await toolUpdate(store, { id: 'MMR', priority: 'p1' });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('validation');
 });
 
-test.skipIf(!NORN)(
-  'toolUpdate project and artifact reject upstream, never silently no-op (MMR-284)',
-  async () => {
-    const proj = await toolUpdate(store, { id: 'MMR', upstream: 'NRN-s3' });
-    expect(proj.isError).toBe(true);
-    expect(JSON.parse(textOf(proj)).error.code).toBe('validation');
+test('toolUpdate project and artifact reject upstream, never silently no-op (MMR-284)', async () => {
+  const proj = await toolUpdate(store, { id: 'MMR', upstream: 'NRN-s3' });
+  expect(proj.isError).toBe(true);
+  expect(JSON.parse(textOf(proj)).error.code).toBe('validation');
 
-    const attached = await toolAttach(store, { content: '# a\n', node: taskRef, title: 'a' });
-    const aid = parseJson<{ artifact: { id: string } }>(textOf(attached)).artifact.id;
-    const art = await toolUpdate(store, { id: aid, upstream: 'NRN-s3' });
-    expect(art.isError).toBe(true);
-    expect(JSON.parse(textOf(art)).error.code).toBe('validation');
-  },
-);
+  const attached = await toolAttach(store, { content: '# a\n', node: taskRef, title: 'a' });
+  const aid = parseJson<{ artifact: { id: string } }>(textOf(attached)).artifact.id;
+  const art = await toolUpdate(store, { id: aid, upstream: 'NRN-s3' });
+  expect(art.isError).toBe(true);
+  expect(JSON.parse(textOf(art)).error.code).toBe('validation');
+});
 
-test.skipIf(!NORN)(
-  'toolUpdate upstream "none" clears a set seed pointer (set-then-clear roundtrip, MMR-301)',
-  async () => {
-    const set = await toolUpdate(store, { id: taskRef, upstream: 'NRN-s3' });
-    expect(set.isError).toBeUndefined();
-    expect(parseJson<{ upstream: string }>(textOf(set)).upstream).toBe('NRN-s3');
+test('toolUpdate upstream "none" clears a set seed pointer (set-then-clear roundtrip, MMR-301)', async () => {
+  const set = await toolUpdate(store, { id: taskRef, upstream: 'NRN-s3' });
+  expect(set.isError).toBeUndefined();
+  expect(parseJson<{ upstream: string }>(textOf(set)).upstream).toBe('NRN-s3');
 
-    const cleared = await toolUpdate(store, { id: taskRef, upstream: 'none' });
-    expect(cleared.isError).toBeUndefined();
-    expect(parseJson<{ upstream: string | null }>(textOf(cleared)).upstream).toBeNull();
-  },
-);
+  const cleared = await toolUpdate(store, { id: taskRef, upstream: 'none' });
+  expect(cleared.isError).toBeUndefined();
+  expect(parseJson<{ upstream: string | null }>(textOf(cleared)).upstream).toBeNull();
+});
 
-test.skipIf(!NORN)(
-  'toolUpdate upstream "none" on an already-empty upstream is idempotent (MMR-301)',
-  async () => {
-    const cleared = await toolUpdate(store, { id: taskRef, upstream: 'none' });
-    expect(cleared.isError).toBeUndefined();
-    expect(parseJson<{ upstream: string | null }>(textOf(cleared)).upstream).toBeNull();
-  },
-);
+test('toolUpdate upstream "none" on an already-empty upstream is idempotent (MMR-301)', async () => {
+  const cleared = await toolUpdate(store, { id: taskRef, upstream: 'none' });
+  expect(cleared.isError).toBeUndefined();
+  expect(parseJson<{ upstream: string | null }>(textOf(cleared)).upstream).toBeNull();
+});
 
-test.skipIf(!NORN)(
-  'toolUpdate upstream "" (blank) is still rejected, not treated as clear (MMR-301)',
-  async () => {
-    const res = await toolUpdate(store, { id: taskRef, upstream: '' });
-    expect(res.isError).toBe(true);
-    expect(JSON.parse(textOf(res)).error.code).toBe('validation');
-  },
-);
+test('toolUpdate upstream "" (blank) is still rejected, not treated as clear (MMR-301)', async () => {
+  const res = await toolUpdate(store, { id: taskRef, upstream: '' });
+  expect(res.isError).toBe(true);
+  expect(JSON.parse(textOf(res)).error.code).toBe('validation');
+});
 
-test.skipIf(!NORN)(
-  'toolUpdate upstream "none" leaves an unrelated field untouched (MMR-301)',
-  async () => {
-    const titled = await toolUpdate(store, { id: taskRef, title: 'kept across clear' });
-    expect(titled.isError).toBeUndefined();
-    const res = await toolUpdate(store, { id: taskRef, upstream: 'none' });
-    expect(res.isError).toBeUndefined();
-    const v = parseJson<{ upstream: string | null; title: string }>(textOf(res));
-    expect(v.upstream).toBeNull();
-    expect(v.title).toBe('kept across clear');
-  },
-);
+test('toolUpdate upstream "none" leaves an unrelated field untouched (MMR-301)', async () => {
+  const titled = await toolUpdate(store, { id: taskRef, title: 'kept across clear' });
+  expect(titled.isError).toBeUndefined();
+  const res = await toolUpdate(store, { id: taskRef, upstream: 'none' });
+  expect(res.isError).toBeUndefined();
+  const v = parseJson<{ upstream: string | null; title: string }>(textOf(res));
+  expect(v.upstream).toBeNull();
+  expect(v.title).toBe('kept across clear');
+});
 
-test.skipIf(!NORN)('toolUpdate project with missing key returns not_found', async () => {
+test('toolUpdate project with missing key returns not_found', async () => {
   const res = await toolUpdate(store, { id: 'ZZZ', name: 'x' });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('not_found');
 });
 
-test.skipIf(!NORN)('toolCreate project with description stores it', async () => {
+test('toolCreate project with description stores it', async () => {
   const res = await toolCreate(store, {
     description: 'a project',
     key: 'DSC',
@@ -962,7 +909,7 @@ test.skipIf(!NORN)('toolCreate project with description stores it', async () => 
 // Query surface v2 (MMR-33)
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('list folds value warnings into the payload (no stderr over MCP)', async () => {
+test('list folds value warnings into the payload (no stderr over MCP)', async () => {
   const res = await toolList(store, { eq: ['priority:p9'] });
   expect(res.isError).toBeUndefined();
   const parsed = parseJson<{
@@ -974,13 +921,13 @@ test.skipIf(!NORN)('list folds value warnings into the payload (no stderr over M
   expect(parsed.warnings[0]?.expected).toEqual(['p0', 'p1', 'p2', 'p3']);
 });
 
-test.skipIf(!NORN)('a structural fault over MCP is a validation error', async () => {
+test('a structural fault over MCP is a validation error', async () => {
   const res = await toolList(store, { eq: ['bogus:x'] });
   expect(res.isError).toBe(true);
   expect(JSON.parse(textOf(res)).error.code).toBe('validation');
 });
 
-test.skipIf(!NORN)('list selects by status universe and operators', async () => {
+test('list selects by status universe and operators', async () => {
   const start = await toolUniform(store, 'start', { id: taskRef });
   expect(start.isError).toBeUndefined();
   const inProgress = parseJson<{
@@ -994,75 +941,66 @@ test.skipIf(!NORN)('list selects by status universe and operators', async () => 
   expect(byStatus.tasks.map((t) => t.id)).toEqual([taskRef]);
 });
 
-test.skipIf(!NORN)(
-  'list filters through the not-eq/not-in arg keys, pinning the op → SetQueryArgs mapping (MMR-306)',
-  async () => {
-    const up = await toolUpdate(store, { id: taskRef, priority: 'p1' });
-    expect(up.isError).toBeUndefined();
+test('list filters through the not-eq/not-in arg keys, pinning the op → SetQueryArgs mapping (MMR-306)', async () => {
+  const up = await toolUpdate(store, { id: taskRef, priority: 'p1' });
+  expect(up.isError).toBeUndefined();
 
-    const notEq = parseJson<{ tasks: { id: string }[] }>(
-      textOf(await toolList(store, { notEq: ['priority:p2'] })),
-    );
-    expect(notEq.tasks.map((t) => t.id)).toContain(taskRef);
+  const notEq = parseJson<{ tasks: { id: string }[] }>(
+    textOf(await toolList(store, { notEq: ['priority:p2'] })),
+  );
+  expect(notEq.tasks.map((t) => t.id)).toContain(taskRef);
 
-    const notIn = parseJson<{ tasks: { id: string }[] }>(
-      textOf(await toolList(store, { notIn: ['priority:p2,p3'] })),
-    );
-    expect(notIn.tasks.map((t) => t.id)).toContain(taskRef);
-  },
-);
+  const notIn = parseJson<{ tasks: { id: string }[] }>(
+    textOf(await toolList(store, { notIn: ['priority:p2,p3'] })),
+  );
+  expect(notIn.tasks.map((t) => t.id)).toContain(taskRef);
+});
 
 // --- project archive (ADR 0015, MMR-123) ---
 
-test.skipIf(!NORN)(
-  'MCP archive freezes + hides; projects reveals it and unarchive round-trips',
-  async () => {
-    const arc = await toolUniform(store, 'archive', { key: 'MMR', reason: 'superseded' });
-    expect(arc.isError).toBeUndefined();
-    expect(parseJson<{ archived_at: string }>(textOf(arc)).archived_at).not.toBeUndefined();
+test('MCP archive freezes + hides; projects reveals it and unarchive round-trips', async () => {
+  const arc = await toolUniform(store, 'archive', { key: 'MMR', reason: 'superseded' });
+  expect(arc.isError).toBeUndefined();
+  expect(parseJson<{ archived_at: string }>(textOf(arc)).archived_at).not.toBeUndefined();
 
-    // frozen: a mutation under it is a conflict
-    const frozen = await toolUniform(store, 'start', { id: taskRef });
-    expect(frozen.isError).toBe(true);
-    expect(parseJson<{ error: { code: string } }>(textOf(frozen)).error.code).toBe('conflict');
+  // frozen: a mutation under it is a conflict
+  const frozen = await toolUniform(store, 'start', { id: taskRef });
+  expect(frozen.isError).toBe(true);
+  expect(parseJson<{ error: { code: string } }>(textOf(frozen)).error.code).toBe('conflict');
 
-    // hidden: a normal list excludes it; projects lists the archived project
-    const live = await toolList(store, { scope: 'MMR', status: 'all' });
-    expect(parseJson<{ total: number }>(textOf(live)).total).toBe(0);
-    const door = await toolProjects(store, { status: 'archived' });
-    const shelf = parseJson<{ projects: { id: string }[] }>(textOf(door));
-    expect(shelf.projects.map((p) => p.id)).toEqual(['MMR']);
+  // hidden: a normal list excludes it; projects lists the archived project
+  const live = await toolList(store, { scope: 'MMR', status: 'all' });
+  expect(parseJson<{ total: number }>(textOf(live)).total).toBe(0);
+  const door = await toolProjects(store, { status: 'archived' });
+  const shelf = parseJson<{ projects: { id: string }[] }>(textOf(door));
+  expect(shelf.projects.map((p) => p.id)).toEqual(['MMR']);
 
-    // unarchive restores mutation
-    const un = await toolUniform(store, 'unarchive', { key: 'MMR' });
-    expect(un.isError).toBeUndefined();
-    expect(parseJson<{ archived_at?: string }>(textOf(un)).archived_at).toBeUndefined();
-    expect((await toolUniform(store, 'start', { id: taskRef })).isError).toBeUndefined();
-  },
-);
+  // unarchive restores mutation
+  const un = await toolUniform(store, 'unarchive', { key: 'MMR' });
+  expect(un.isError).toBeUndefined();
+  expect(parseJson<{ archived_at?: string }>(textOf(un)).archived_at).toBeUndefined();
+  expect((await toolUniform(store, 'start', { id: taskRef })).isError).toBeUndefined();
+});
 
-test.skipIf(!NORN)(
-  'MCP projects lists active by default and opens the shelf on request (MMR-406)',
-  async () => {
-    await createProject(store, { key: 'AAA', name: 'a' });
-    await toolUniform(store, 'archive', { key: 'AAA' });
-    const ids = async (status?: 'active' | 'archived' | 'all'): Promise<string[]> =>
-      parseJson<{ projects: { id: string }[] }>(
-        textOf(await toolProjects(store, status === undefined ? {} : { status })),
-      ).projects.map((p) => p.id);
+test('MCP projects lists active by default and opens the shelf on request (MMR-406)', async () => {
+  await createProject(store, { key: 'AAA', name: 'a' });
+  await toolUniform(store, 'archive', { key: 'AAA' });
+  const ids = async (status?: 'active' | 'archived' | 'all'): Promise<string[]> =>
+    parseJson<{ projects: { id: string }[] }>(
+      textOf(await toolProjects(store, status === undefined ? {} : { status })),
+    ).projects.map((p) => p.id);
 
-    expect(await ids()).toEqual(['MMR']);
-    expect(await ids('active')).toEqual(['MMR']);
-    expect(await ids('archived')).toEqual(['AAA']);
-    expect(await ids('all')).toEqual(['AAA', 'MMR']);
-  },
-);
+  expect(await ids()).toEqual(['MMR']);
+  expect(await ids('active')).toEqual(['MMR']);
+  expect(await ids('archived')).toEqual(['AAA']);
+  expect(await ids('all')).toEqual(['AAA', 'MMR']);
+});
 
 // ---------------------------------------------------------------------------
 // Input-schema voice guard (MMR-292) — driven through the real transport, so
 // the SDK's pre-handler zod validation runs. The handler never executes on a
-// schema miss, so an inert store suffices and these run without norn (the
-// in-memory transport doubles as the MCP smoke).
+// schema miss, so an inert store suffices (the in-memory transport doubles
+// as the MCP smoke).
 // ---------------------------------------------------------------------------
 
 /** Connect an in-memory client to a freshly-built server over the given store —
@@ -1433,7 +1371,7 @@ test('a scalar before arg is corrected to the token array', async () => {
   }
 });
 
-test.skipIf(!NORN)('artifacts accepts a real leap day over dispatch', async () => {
+test('artifacts accepts a real leap day over dispatch', async () => {
   const { client, close } = await connectClient(store);
   try {
     await toolAttach(store, { content: '# a\n', node: taskRef, title: 'in window' });
@@ -1450,42 +1388,39 @@ test.skipIf(!NORN)('artifacts accepts a real leap day over dispatch', async () =
   }
 });
 
-test.skipIf(!NORN)(
-  'artifacts accepts an ISO timestamp with a numeric offset over dispatch',
-  async () => {
-    // A real store here: the assertion is that the bound APPLIED, which an inert
-    // store cannot answer. The bound sits 30 minutes either side of the fixture's
-    // own created_at, expressed as +02:00 local time — a far-past bound would
-    // pass whether or not the offset was ever converted to UTC.
-    const { client, close } = await connectClient(store);
-    try {
-      const attached = await toolAttach(store, {
-        content: '# a\n',
-        node: taskRef,
-        title: 'in window',
-      });
-      const id = parseJson<{ artifact: { id: string } }>(textOf(attached)).artifact.id;
-      const created = new Date((await getArtifact(store, id)).createdAt).getTime();
+test('artifacts accepts an ISO timestamp with a numeric offset over dispatch', async () => {
+  // A real store here: the assertion is that the bound APPLIED, which an inert
+  // store cannot answer. The bound sits 30 minutes either side of the fixture's
+  // own created_at, expressed as +02:00 local time — a far-past bound would
+  // pass whether or not the offset was ever converted to UTC.
+  const { client, close } = await connectClient(store);
+  try {
+    const attached = await toolAttach(store, {
+      content: '# a\n',
+      node: taskRef,
+      title: 'in window',
+    });
+    const id = parseJson<{ artifact: { id: string } }>(textOf(attached)).artifact.id;
+    const created = new Date((await getArtifact(store, id)).createdAt).getTime();
 
-      const included = (await client.callTool({
-        arguments: { atOrAfter: [`created_at:${asLocalOffset(created - 30 * 60 * 1000)}`] },
-        name: 'artifacts',
-      })) as ToolCall;
-      expect(included.isError).toBeUndefined();
-      expect(parseJson<{ total: number }>(callText(included)).total).toBe(1);
+    const included = (await client.callTool({
+      arguments: { atOrAfter: [`created_at:${asLocalOffset(created - 30 * 60 * 1000)}`] },
+      name: 'artifacts',
+    })) as ToolCall;
+    expect(included.isError).toBeUndefined();
+    expect(parseJson<{ total: number }>(callText(included)).total).toBe(1);
 
-      // The mirror case: 30 minutes AFTER, which must exclude it. Together these
-      // pin that the offset was converted rather than compared verbatim.
-      const excluded = (await client.callTool({
-        arguments: { atOrAfter: [`created_at:${asLocalOffset(created + 30 * 60 * 1000)}`] },
-        name: 'artifacts',
-      })) as ToolCall;
-      expect(parseJson<{ total: number }>(callText(excluded)).total).toBe(0);
-    } finally {
-      await close();
-    }
-  },
-);
+    // The mirror case: 30 minutes AFTER, which must exclude it. Together these
+    // pin that the offset was converted rather than compared verbatim.
+    const excluded = (await client.callTool({
+      arguments: { atOrAfter: [`created_at:${asLocalOffset(created + 30 * 60 * 1000)}`] },
+      name: 'artifacts',
+    })) as ToolCall;
+    expect(parseJson<{ total: number }>(callText(excluded)).total).toBe(0);
+  } finally {
+    await close();
+  }
+});
 
 test('artifacts advertises its filter args on tools/list', async () => {
   const { client, close } = await connectClient();
@@ -1678,13 +1613,13 @@ test.each(ALL_OPTIONAL_TOOLS)(
   },
 );
 
-test.skipIf(!NORN)('a no-arguments call to an all-optional tool succeeds (MMR-292)', async () => {
+test('a no-arguments call to an all-optional tool succeeds (MMR-292)', async () => {
   const server = buildMcpServer(store, '0.0.0');
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0.0.0' });
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
   try {
-    // `next` with no arguments runs against the whole vault (no bound board) —
+    // `next` with no arguments runs against the whole store (no bound board) —
     // it must reach the handler and return a set, not error on a missing arg.
     const res = (await client.callTool({ name: 'next' })) as ToolCall;
     expect(res.isError).toBeUndefined();
@@ -1694,7 +1629,7 @@ test.skipIf(!NORN)('a no-arguments call to an all-optional tool succeeds (MMR-29
   }
 });
 
-test.skipIf(!NORN)('the projects tool ignores the bound board (MMR-406)', async () => {
+test('the projects tool ignores the bound board (MMR-406)', async () => {
   await createProject(store, { key: 'AAA', name: 'a' });
   const server = buildMcpServer(store, '0.0.0', 'MMR');
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -1731,7 +1666,7 @@ test('the projects tool refuses a node status and list refuses archived (MMR-406
   }
 });
 
-test.skipIf(!NORN)('a valid call still dispatches to the handler through the guard', async () => {
+test('a valid call still dispatches to the handler through the guard', async () => {
   const server = buildMcpServer(store, '0.0.0');
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0.0.0' });

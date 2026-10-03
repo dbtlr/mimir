@@ -16,20 +16,17 @@ import type { DB, Executor, SeedRow } from './schema';
  * stem, its `## Seed Description` prose a column and its `## History` an
  * append-only child table.
  *
- * The lifecycle machine and the terminal freeze live here, exactly as they do
- * on the Norn backend: the seam owns them, not the verbs. What a markdown
- * backend has to achieve with one atomic apply plan — the lifecycle field and
- * its history record can never diverge — this achieves with the transaction it
- * already runs in.
+ * The lifecycle machine and the terminal freeze live here, the seam owns
+ * them, not the verbs. The lifecycle field and its history record can never
+ * diverge: they are written in the one transaction the seam already runs in.
  */
 
 const stemOf = (key: string, seq: number): string => renderSeedRef({ key, seq });
 
 /**
  * Normalize description prose to the READ-BACK semantics: a create echo must
- * equal what a subsequent load returns, and the Norn read runs the prose
- * through the section parser (trim; blank reads as none). Storing the
- * normalized form is what makes the two backends answer identically.
+ * equal what a subsequent load returns (trim; blank reads as none). Storing
+ * the normalized form is what makes the two answer identically.
  */
 function normalizeDescription(description: string | null | undefined): string | null {
   const trimmed = (description ?? '').trim();

@@ -46,7 +46,7 @@ function injected(): Injected {
 }
 
 function config(store: GlobalConfig['store']): GlobalConfig {
-  return { serve: {}, store, vault: {} };
+  return { serve: {}, store };
 }
 
 /** `store upgrade` moves a schema, never data: it must never reach for the
@@ -74,25 +74,6 @@ test('store upgrade on the default sqlite install opens the database and reports
   } finally {
     await pg.db.destroy();
   }
-});
-
-test('store upgrade on a norn install reports that the vault converges on its own', async () => {
-  const io = fakeIo();
-  const pg = injected();
-  const code = await cmdStore(
-    ['store', 'upgrade'],
-    {},
-    io,
-    pg.deps(config({ backend: 'norn' })),
-    'records',
-    noStore,
-  );
-  expect(code).toBe(0);
-  expect(io.out.join('\n')).toContain('nothing to upgrade');
-  expect(io.err).toEqual([]);
-  // No connection is opened for a backend that has none.
-  expect(pg.opened).toEqual([]);
-  await pg.db.destroy();
 });
 
 test('store upgrade creates the schema, then reports it already current', async () => {

@@ -11,8 +11,6 @@ import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { runCli } from './run';
 import { fakeIo } from './testing';
 
-const NORN = Bun.which('norn') !== null;
-
 let store: Store;
 let closeStore: () => Promise<void>;
 let taskRef: string;
@@ -40,16 +38,13 @@ afterEach(async () => {
 });
 
 describe('mutation signpost — styled formats only', () => {
-  test.skipIf(!NORN)(
-    'start emits the transition signpost above the record (records format)',
-    async () => {
-      const io = fakeIo(false);
-      await runCli(['start', taskRef, '-f', 'records'], () => store, io);
-      expect(io.out.join('\n')).toContain(`[ok] started ${taskRef} · todo -> in_progress`);
-    },
-  );
+  test('start emits the transition signpost above the record (records format)', async () => {
+    const io = fakeIo(false);
+    await runCli(['start', taskRef, '-f', 'records'], () => store, io);
+    expect(io.out.join('\n')).toContain(`[ok] started ${taskRef} · todo -> in_progress`);
+  });
 
-  test.skipIf(!NORN)('json carries only the record — no signpost prose', async () => {
+  test('json carries only the record — no signpost prose', async () => {
     const io = fakeIo(false);
     await runCli(['start', taskRef, '-f', 'json'], () => store, io);
     const text = io.out.join('');
@@ -57,28 +52,25 @@ describe('mutation signpost — styled formats only', () => {
     expect(() => JSON.parse(text)).not.toThrow();
   });
 
-  test.skipIf(!NORN)('ids carries only the id — no signpost prose', async () => {
+  test('ids carries only the id — no signpost prose', async () => {
     const io = fakeIo(false);
     await runCli(['start', taskRef, '-f', 'ids'], () => store, io);
     expect(io.out.join('')).toBe(taskRef);
   });
 
-  test.skipIf(!NORN)(
-    "reorder names the effect the record can't show (rank is never a field)",
-    async () => {
-      const io = fakeIo(false);
-      await runCli(['reorder', task2Ref, '--top', '-f', 'records'], () => store, io);
-      expect(io.out.join('\n')).toContain(`[ok] reordered ${task2Ref} -> top`);
-    },
-  );
+  test("reorder names the effect the record can't show (rank is never a field)", async () => {
+    const io = fakeIo(false);
+    await runCli(['reorder', task2Ref, '--top', '-f', 'records'], () => store, io);
+    expect(io.out.join('\n')).toContain(`[ok] reordered ${task2Ref} -> top`);
+  });
 
-  test.skipIf(!NORN)('move names the new parent', async () => {
+  test('move names the new parent', async () => {
     const io = fakeIo(false);
     await runCli(['move', taskRef, '--to', phaseRef, '-f', 'records'], () => store, io);
     expect(io.out.join('\n')).toContain(`[ok] moved ${taskRef} -> ${phaseRef}`);
   });
 
-  test.skipIf(!NORN)('depend names the edge', async () => {
+  test('depend names the edge', async () => {
     const io = fakeIo(false);
     await runCli(['depend', task2Ref, '--on', taskRef, '-f', 'records'], () => store, io);
     expect(io.out.join('\n')).toContain(`[ok] ${task2Ref} now depends on ${taskRef}`);
@@ -86,13 +78,13 @@ describe('mutation signpost — styled formats only', () => {
 });
 
 describe('empty-set lines point onward (TTY)', () => {
-  test.skipIf(!NORN)('list with no matches suggests widening', async () => {
+  test('list with no matches suggests widening', async () => {
     const io = fakeIo(true);
     await runCli(['list', '--status', 'done'], () => store, io);
     expect(io.out.join('\n')).toContain('No tasks match — try --status all, or drop a filter');
   });
 
-  test.skipIf(!NORN)('next with nothing ready points at the queue', async () => {
+  test('next with nothing ready points at the queue', async () => {
     const io = fakeIo(true);
     // park both tasks so nothing is ready
     await runCli(['park', taskRef], () => store, fakeIo(false));
@@ -103,7 +95,7 @@ describe('empty-set lines point onward (TTY)', () => {
 });
 
 describe("noun-policy error voice — no 'node', id leads", () => {
-  test.skipIf(!NORN)("a missing id reads as '<id> doesn't exist'", async () => {
+  test("a missing id reads as '<id> doesn't exist'", async () => {
     const io = fakeIo(false);
     await runCli(['get', 'MMR-9999'], () => store, io);
     const err = io.err.join(' ');
@@ -111,7 +103,7 @@ describe("noun-policy error voice — no 'node', id leads", () => {
     expect(err).not.toContain('node');
   });
 
-  test.skipIf(!NORN)("a task-only verb names the precise type (start → 'not a task')", async () => {
+  test("a task-only verb names the precise type (start → 'not a task')", async () => {
     const io = fakeIo(false);
     await runCli(['start', 'MMR'], () => store, io);
     const err = io.err.join(' ');
@@ -119,7 +111,7 @@ describe("noun-policy error voice — no 'node', id leads", () => {
     expect(err).not.toContain('node');
   });
 
-  test.skipIf(!NORN)('a generic verb enumerates the work types (annotate default)', async () => {
+  test('a generic verb enumerates the work types (annotate default)', async () => {
     const io = fakeIo(false);
     await runCli(['annotate', 'MMR', 'hi'], () => store, io);
     const err = io.err.join(' ');
@@ -127,14 +119,11 @@ describe("noun-policy error voice — no 'node', id leads", () => {
     expect(err).not.toContain('node');
   });
 
-  test.skipIf(!NORN)(
-    "the parent rule reads identically and names the wrong type, not 'node'",
-    async () => {
-      const io = fakeIo(false);
-      await runCli(['create', 'phase', 'X', '--parent', taskRef], () => store, io);
-      const err = io.err.join(' ');
-      expect(err).toContain("a phase's parent must be an initiative, not a task");
-      expect(err).not.toContain('node');
-    },
-  );
+  test("the parent rule reads identically and names the wrong type, not 'node'", async () => {
+    const io = fakeIo(false);
+    await runCli(['create', 'phase', 'X', '--parent', taskRef], () => store, io);
+    const err = io.err.join(' ');
+    expect(err).toContain("a phase's parent must be an initiative, not a task");
+    expect(err).not.toContain('node');
+  });
 });

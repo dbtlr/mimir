@@ -16,30 +16,19 @@ import {
   updateProject,
 } from './core';
 import type { Store } from './core';
-import { cmdDoctor } from './doctor/commands';
-import type { DoctorBackend } from './doctor/contract';
-import type { NornDoctorDeps } from './doctor/norn/backend';
-import { diagnoseDoctor } from './doctor/norn/diagnosis';
 import { createServer } from './http/server';
 import { toolUpdate } from './mcp/tools';
 import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
 
 /**
  * The owned `## Next` direction narrative (MMR-321, ADR 0026 Decision 2), end to
- * end over a real vault: the set → replace → clear → no-op cycle in the
- * document bytes, the container-only applicability refusals in each transport's
+ * end: the set → replace → clear → no-op cycle, the container-only applicability refusals in each transport's
  * own voice, and an accept-AND-apply pin per transport (the MMR-315 gap — a
  * surface that advertises the field but never writes it).
  */
 
-const NORN = Bun.which('norn') !== null;
-
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
-let readDocument: (path: string) => string;
-let corruptDocument: (path: string, mutate: (raw: string) => string) => void;
-let doctor: DoctorBackend;
-let doctorDeps: NornDoctorDeps;
 let server: Server<undefined>;
 let base: string;
 let projectId: string;
@@ -50,17 +39,7 @@ let seedRef: string;
 let artifactRef: string;
 
 beforeEach(async () => {
-  if (!NORN) {
-    return;
-  }
-  ({
-    close: closeStore,
-    corruptDocument,
-    doctor,
-    doctorDeps,
-    readDocument,
-    store,
-  } = await createTestStore());
+  ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'Mimir' });
   projectId = await projectIdOf(store, 'MMR');
   const initiative = await createInitiative(store, { projectId, title: 'init' });
@@ -102,42 +81,33 @@ async function cli(argv: string[], code = 0): Promise<string> {
 
 // ── The write cycle ────────────────────────────────────────────────────────
 
-test.skipIf(!NORN)('set, replace, and clear re-author the whole section (MMR-321)', async () => {
+test('set, replace, and clear re-author the whole section (MMR-321)', async () => {
   const id = await nodeIdOf(store, phaseRef);
   await updateNode(store, id, { next: 'Land the read path.' });
   expect(await readNext(phaseRef)).toBe('Land the read path.');
-  // The section sits above `## History`, and its prose is the WHOLE body.
-  const set = readDocument(`MMR/${phaseRef}.md`);
-  expect(set).toContain('## Next\n\nLand the read path.\n## History');
 
   await updateNode(store, id, { next: 'Actually: revisit caching first.' });
+  // Replace, not append — the superseded sentence is gone.
   expect(await readNext(phaseRef)).toBe('Actually: revisit caching first.');
-  // Replace, not append — the superseded sentence is gone, and there is exactly
-  // one `## Next` heading.
-  const replaced = readDocument(`MMR/${phaseRef}.md`);
-  expect(replaced).not.toContain('Land the read path.');
-  expect(replaced.split('## Next').length - 1).toBe(1);
 
   await updateNode(store, id, { next: '' });
+  // A clear removes the section — an empty one is never left behind.
   expect(await readNext(phaseRef)).toBeUndefined();
-  // A clear removes the heading too — an empty section is never left behind.
-  expect(readDocument(`MMR/${phaseRef}.md`)).not.toContain('## Next');
 });
 
-test.skipIf(!NORN)('a no-op re-author writes nothing at all (MMR-321)', async () => {
+test('a no-op re-author writes nothing at all (MMR-321)', async () => {
   const id = await nodeIdOf(store, phaseRef);
   await updateNode(store, id, { next: 'Hold the line.' });
-  const before = readDocument(`MMR/${phaseRef}.md`);
   const stampBefore = (await getNode(store, phaseRef)).updatedAt;
 
   await updateNode(store, id, { next: 'Hold the line.' });
-  // Byte-identical, stamp unmoved: `updated_at` drives the stale predicate, so a
-  // re-author that changes nothing must not look like activity.
-  expect(readDocument(`MMR/${phaseRef}.md`)).toBe(before);
+  // Stamp unmoved: `updated_at` drives the stale predicate, so a re-author that
+  // changes nothing must not look like activity.
+  expect(await readNext(phaseRef)).toBe('Hold the line.');
   expect((await getNode(store, phaseRef)).updatedAt).toBe(stampBefore);
 });
 
-test.skipIf(!NORN)('multiline prose round-trips through the section codec (MMR-321)', async () => {
+test('multiline prose round-trips through the section codec (MMR-321)', async () => {
   const prose = 'First, the read path.\n\n- then caching\n- then the UI\n\n## not a heading';
   await updateNode(store, await nodeIdOf(store, initiativeRef), { next: prose });
   expect(await readNext(initiativeRef)).toBe(prose);
@@ -145,12 +115,12 @@ test.skipIf(!NORN)('multiline prose round-trips through the section codec (MMR-3
 
 // ── Applicability ──────────────────────────────────────────────────────────
 
-test.skipIf(!NORN)('a task refuses the direction narrative (MMR-321)', async () => {
+test('a task refuses the direction narrative (MMR-321)', async () => {
   const out = await cli(['update', taskRef, '--direction', 'nope'], 1);
   expect(out).toContain('next applies only to phases and initiatives');
 });
 
-test.skipIf(!NORN)('a seed and an artifact refuse it in each voice (MMR-321)', async () => {
+test('a seed and an artifact refuse it in each voice (MMR-321)', async () => {
   const seedOut = await cli(['update', seedRef, '--direction', 'nope'], 2);
   expect(seedOut).toContain("--direction doesn't apply to a seed");
   const artifactOut = await cli(['update', artifactRef, '--direction', 'nope'], 1);
@@ -164,130 +134,16 @@ test.skipIf(!NORN)('a seed and an artifact refuse it in each voice (MMR-321)', a
   expect(artifactTool.content[0]?.text).toContain('next applies only to nodes');
 });
 
-// ── The hand-duplicated heading ────────────────────────────────────────────
-
-/**
- * norn warn-OMITS an AMBIGUOUS `## Next` from `sections` exactly as it omits a
- * MISSING one, and its structured `section_failures` channel is byte-identical
- * for the two — only the human-readable note distinguishes them. So the section
- * read alone reports a duplicate as "no section", and a write that trusted that
- * would insert a THIRD copy on every run while a clear reported success having
- * removed nothing. The write path counts the anchors and refuses.
- */
-
-/** Hand-edit a second `## Next` in ABOVE `## History`, as a careless merge would. */
-function duplicateNextHeading(path: string): void {
-  corruptDocument(path, (raw) => raw.replace('## History', '## Next\n\nsecond\n\n## History'));
-}
-
-/**
- * Hand-append a second `## Next` at END of file — after `## Annotations`, past
- * every seeded anchor. The other placement a careless edit produces, and the one
- * a plain `printf '\n## Next\n…' >> doc.md` makes; kept distinct from
- * {@link duplicateNextHeading} because the detector scans anchors rather than a
- * bounded section range, and only an EOF case proves it isn't range-bound.
- */
-function appendDuplicateNextAtEof(path: string): void {
-  corruptDocument(path, (raw) => `${raw}\n## Next\n\nsecond copy\n`);
-}
-
-test.skipIf(!NORN)('a duplicated ## Next refuses the set, writing nothing (MMR-321)', async () => {
-  const id = await nodeIdOf(store, phaseRef);
-  await updateNode(store, id, { next: 'first' });
-  duplicateNextHeading(`MMR/${phaseRef}.md`);
-  const before = readDocument(`MMR/${phaseRef}.md`);
-
-  const out = await cli(['update', phaseRef, '--direction', 'third'], 1);
-  expect(out).toContain("more than one '## Next' heading");
-  expect(out).toContain('mimir doctor');
-  // The pre-fix bug inserted a third section here.
-  expect(readDocument(`MMR/${phaseRef}.md`)).toBe(before);
-});
-
-test.skipIf(!NORN)(
-  'a duplicated ## Next refuses the clear rather than lying (MMR-321)',
-  async () => {
-    const id = await nodeIdOf(store, phaseRef);
-    await updateNode(store, id, { next: 'first' });
-    duplicateNextHeading(`MMR/${phaseRef}.md`);
-    const before = readDocument(`MMR/${phaseRef}.md`);
-
-    // The pre-fix bug echoed `updated (next)` at exit 0 having changed nothing.
-    const out = await cli(['update', phaseRef, '--direction', ''], 1);
-    expect(out).toContain("more than one '## Next' heading");
-    expect(readDocument(`MMR/${phaseRef}.md`)).toBe(before);
-  },
-);
-
-test.skipIf(!NORN)('mimir doctor names the duplicated ## Next heading (MMR-321)', async () => {
-  await updateProject(store, projectId, { next: 'first' });
-  duplicateNextHeading('MMR/MMR.md');
-
-  const io = fakeIo();
-  expect(await cmdDoctor(io, doctor, 'json', 'MMR')).toBe(0);
-  const findings = JSON.parse(io.out.join('')) as { code?: string; node?: string }[];
-  const duplicate = findings.filter((f) => f.code === 'duplicate-next-section');
-  expect(duplicate).toHaveLength(1);
-  expect(duplicate[0]?.node).toBe('MMR');
-});
-
-/**
- * The unscoped, EOF-append shape — a smoke run's exact steps: converge a vault,
- * write the narrative through the verb, `>>` a second heading onto the file, and
- * ask the production pipeline (`readDoctorSnapshot` → `diagnoseDoctor`, the same
- * pair `mimir doctor` runs) with NO scope, as a bare invocation outside a Project
- * Binding does. The sibling test above scopes explicitly and splices the
- * duplicate above `## History`; neither of those is what an operator does by
- * hand, so this pins the real one on both axes.
- */
-test.skipIf(!NORN)(
-  'the unscoped doctor pipeline reports a duplicate appended at EOF (MMR-321)',
-  async () => {
-    await updateNode(store, await nodeIdOf(store, initiativeRef), { next: 'legit' });
-    appendDuplicateNextAtEof(`MMR/${initiativeRef}.md`);
-
-    const findings = await diagnoseDoctor(await doctorDeps.readSnapshot(), undefined);
-    const duplicate = findings.filter((f) => f.code === 'duplicate-next-section');
-    expect(duplicate).toHaveLength(1);
-    expect(duplicate[0]?.stem).toBe(initiativeRef);
-    expect(duplicate[0]?.locator).toBe(`MMR/${initiativeRef}.md`);
-    expect(duplicate[0]?.severity).toBe('error');
-  },
-);
-
-/**
- * The trap that produced a false "doctor sees nothing" report during review, and
- * why it is not this feature's bug: `runCli` passes `scope: findBinding(cwd)`
- * (ADR 0011), and doctor filters findings by canonical stem — so an invocation
- * whose Project Binding names a project absent from the vault has NOTHING in
- * scope and reports clean. That silences every check equally, not just this one,
- * so it is pinned here beside the positive case rather than worked around.
- */
-test.skipIf(!NORN)(
-  'a doctor scope naming another project hides every finding (MMR-321)',
-  async () => {
-    await updateNode(store, await nodeIdOf(store, initiativeRef), { next: 'legit' });
-    appendDuplicateNextAtEof(`MMR/${initiativeRef}.md`);
-    const snapshot = await doctorDeps.readSnapshot();
-
-    expect(
-      (await diagnoseDoctor(snapshot, 'MMR')).filter((f) => f.code === 'duplicate-next-section'),
-    ).toHaveLength(1);
-    // A foreign scope matches no stem, so the same snapshot reads clean.
-    expect(await diagnoseDoctor(snapshot, 'OTHER')).toEqual([]);
-  },
-);
-
 // ── Per-transport accept AND apply ─────────────────────────────────────────
 
-test.skipIf(!NORN)('the CLI applies the narrative to a container and a project', async () => {
+test('the CLI applies the narrative to a container and a project', async () => {
   await cli(['update', phaseRef, '--direction', 'cli direction']);
   expect(await readNext(phaseRef)).toBe('cli direction');
   await cli(['update', 'MMR', '--direction', 'cli project direction']);
   expect(await readNext('MMR')).toBe('cli project direction');
 });
 
-test.skipIf(!NORN)('MCP applies the narrative to a container and a project', async () => {
+test('MCP applies the narrative to a container and a project', async () => {
   expect(
     (await toolUpdate(store, { id: initiativeRef, next: 'mcp direction' })).isError,
   ).toBeUndefined();
@@ -298,7 +154,7 @@ test.skipIf(!NORN)('MCP applies the narrative to a container and a project', asy
   expect(await readNext('MMR')).toBe('mcp project direction');
 });
 
-test.skipIf(!NORN)('HTTP applies the narrative to a container and a project', async () => {
+test('HTTP applies the narrative to a container and a project', async () => {
   const node = await fetch(`${base}/api/nodes/${phaseRef}`, {
     body: JSON.stringify({ next: 'http direction' }),
     headers: { 'content-type': 'application/json' },
@@ -328,7 +184,7 @@ test.skipIf(!NORN)('HTTP applies the narrative to a container and a project', as
  * worse for being exactly where the `--next` hint sends the caller.
  */
 
-test.skipIf(!NORN)('create refuses --direction and points at update (MMR-321)', async () => {
+test('create refuses --direction and points at update (MMR-321)', async () => {
   const out = await cli(
     ['create', 'initiative', 'made with direction', '--parent', 'MMR', '--direction', 'prose'],
     2,
@@ -339,7 +195,7 @@ test.skipIf(!NORN)('create refuses --direction and points at update (MMR-321)', 
   expect(await cli(['tree', 'MMR'])).not.toContain('made with direction');
 });
 
-test.skipIf(!NORN)('the HTTP create body rejects a stray next field (MMR-321)', async () => {
+test('the HTTP create body rejects a stray next field (MMR-321)', async () => {
   const res = await fetch(`${base}/api/nodes`, {
     body: JSON.stringify({ next: 'prose', parent: 'MMR', title: 'via http', type: 'initiative' }),
     headers: { 'content-type': 'application/json' },
@@ -353,7 +209,7 @@ test.skipIf(!NORN)('the HTTP create body rejects a stray next field (MMR-321)', 
 
 // ── Read surface ───────────────────────────────────────────────────────────
 
-test.skipIf(!NORN)('the records view shows the narrative only when set (MMR-321)', async () => {
+test('the records view shows the narrative only when set (MMR-321)', async () => {
   expect(await cli(['get', phaseRef])).not.toContain('rendered direction');
   await updateNode(store, await nodeIdOf(store, phaseRef), { next: 'rendered direction' });
   expect(await cli(['get', phaseRef])).toMatch(/\bnext\s+rendered direction\b/);
@@ -361,22 +217,17 @@ test.skipIf(!NORN)('the records view shows the narrative only when set (MMR-321)
   expect(await cli(['get', 'MMR'])).toMatch(/\bnext\s+project direction\b/);
 });
 
-test.skipIf(!NORN)(
-  '--col next is opt-in vocabulary and never lands on a task (MMR-321)',
-  async () => {
-    await updateNode(store, await nodeIdOf(store, phaseRef), { next: 'column direction' });
-    expect(await cli(['get', phaseRef, '--col', 'next', '-f', 'json'])).toContain(
-      'column direction',
-    );
-    // A task carries no `## Next`, so the key is absent even when asked for.
-    const task: unknown = JSON.parse(await cli(['get', taskRef, '--col', 'next', '-f', 'json']));
-    expect(Object.keys(task as Record<string, unknown>)).not.toContain('next');
-  },
-);
+test('--col next is opt-in vocabulary and never lands on a task (MMR-321)', async () => {
+  await updateNode(store, await nodeIdOf(store, phaseRef), { next: 'column direction' });
+  expect(await cli(['get', phaseRef, '--col', 'next', '-f', 'json'])).toContain('column direction');
+  // A task carries no `## Next`, so the key is absent even when asked for.
+  const task: unknown = JSON.parse(await cli(['get', taskRef, '--col', 'next', '-f', 'json']));
+  expect(Object.keys(task as Record<string, unknown>)).not.toContain('next');
+});
 
 // ── The `--next` trap ──────────────────────────────────────────────────────
 
-test.skipIf(!NORN)('`--next` is intercepted and pointed at --direction (MMR-321)', async () => {
+test('`--next` is intercepted and pointed at --direction (MMR-321)', async () => {
   // `--next` is self-update's BOOLEAN channel selector, so it swallows no value
   // and the text slides into the positionals: this used to exit 0 having written
   // nothing at all. Every machine surface spells the field `next`, so it is

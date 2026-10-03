@@ -6,10 +6,9 @@ import type { Executor } from './schema';
 import { toRowId } from './schema';
 
 /**
- * The SQL store's transition feed (ADR 0016 Phase 3). Unlike the Norn feed — which
- * fans every document's `## History` out of the vault and merges them on a
- * best-effort `at` order (MMR-168) — this reads ONE append-only table with a
- * real insertion sequence, so the order is true and the cursor is monotonic.
+ * The SQL store's transition feed (ADR 0016 Phase 3). It reads ONE
+ * append-only table with a real insertion sequence, so the order is true and
+ * the cursor is monotonic.
  *
  * The cursor stays opaque and the same shape of promise holds: pass back what
  * you were given, and you resume strictly after it.

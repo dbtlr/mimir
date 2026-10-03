@@ -18,9 +18,9 @@ On the default store, setup asks only whether to install the local service.
 Setup is safe to run again. See the [operations guides](../guides/README.md)
 for service details.
 
-An installation can instead set `[store] backend = "norn"` in its config. That
-backend requires `norn` on `PATH` and keeps work state in a Markdown vault. Its
-setup also asks for the vault path and scheduled Git snapshots.
+A team that shares one board across machines can use a PostgreSQL database
+instead. See the [Postgres store guide](../guides/postgres-store.md). Back up
+either store with `mimir store export <file>`.
 
 ## Create a project
 

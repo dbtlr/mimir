@@ -1,7 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
 import { parseJson } from '@mimir/helpers';
 
@@ -15,19 +12,13 @@ import {
   resolveProjectKeyInSet,
 } from '../core';
 import type { Store } from '../core';
-import { NornClient } from '../core/store-norn/client';
-import { createNornWriteStore } from '../core/store-norn/writer';
-import { bunExec } from '../exec';
-import { converge } from '../vault/converge';
+import { createTestStore } from '../testing/store';
 import { toolPromote, toolReject, toolResolve, toolSeed, toolSeeds, toolTriage } from './tools';
 import type { ToolResult } from './tools';
 
-/** The seed MCP tools (MMR-245) over a real Norn store. Needs `norn`. */
-const NORN = Bun.which('norn') !== null;
-
-let root: string;
-let client: NornClient;
+/** The seed MCP tools (MMR-245) over a real store. */
 let store: Store;
+let closeStore: () => Promise<void>;
 let phaseRef: string;
 
 const body = (r: ToolResult): Record<string, unknown> =>
@@ -42,11 +33,7 @@ async function idOf(ref: string): Promise<string> {
 }
 
 beforeEach(async () => {
-  root = mkdtempSync(join(tmpdir(), 'mimir-mcpseed-'));
-  const vault = join(root, 'vault');
-  await converge(vault, { allowCreate: true, exec: bunExec });
-  client = new NornClient({ vaultPath: vault });
-  store = createNornWriteStore(client, vault);
+  ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'Mimir' });
   const pid = resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), 'MMR');
   const init = await createInitiative(store, { projectId: pid, title: 'init' });
@@ -58,11 +45,10 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await client.close();
-  rmSync(root, { force: true, recursive: true });
+  await closeStore();
 });
 
-describe.skipIf(!NORN)('seed MCP tools', () => {
+describe('seed MCP tools', () => {
   test('seed defaults the target from the bound scope; seeds lists it', async () => {
     const filed = body(await toolSeed(store, { kind: 'bug', title: 'flaky' }, 'MMR'));
     expect(filed).toMatchObject({ id: 'MMR-s1', kind: 'bug', project: 'MMR', requester: null });

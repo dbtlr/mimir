@@ -15,10 +15,9 @@ import type { NodePatch } from '../store';
  *   normalizes a value to one line and REFUSES one the `## History` echo could not
  *   carry back verbatim;
  * - the ECHO boundary ({@link handlesOf}, behind every claiming/clearing
- *   transition) reads stored bytes and FLATTENS them, because the vault is a
- *   hand-editable substrate: a value the write path would have refused can still
- *   arrive from an editor, and it must be able neither to forge a transition row
- *   nor to block the verb (ADR 0017 runtime tolerance — bad field data degrades
+ *   transition) reads stored bytes and FLATTENS them, so a stored value the
+ *   write path would have refused can neither forge a transition row nor block
+ *   the verb (ADR 0017 runtime tolerance — bad field data degrades
  *   the field, it never fails a mutation).
  *
  * The legality rule itself lives with the grammar it protects, in

@@ -26,7 +26,7 @@ import { validate } from './validate';
 export const REFUSAL_SAMPLE = 20;
 
 /** The first {@link REFUSAL_SAMPLE} names, with a count of whatever is left —
- * a refusal must be actionable without printing a whole vault. */
+ * a refusal must be actionable without printing a whole store. */
 export function namedSample(names: readonly string[]): string {
   const shown = names.slice(0, REFUSAL_SAMPLE).join(', ');
   const rest = names.length - REFUSAL_SAMPLE;
@@ -38,9 +38,9 @@ export function namedSample(names: readonly string[]): string {
  * anything is written (the fence a fresh import already sets for projects,
  * widened to every identity kind).
  *
- * An identity is a single record's whole claim on the target — a canonical path
- * on Norn, a primary key on Postgres — so two records claiming it are two
- * documents competing for one place. The import would write one and then refuse
+ * An identity is a single record's whole claim on the target — a primary key
+ * in the SQL store — so two records claiming it are two documents competing
+ * for one place. The import would write one and then refuse
  * on the other, leaving the target half-written for a fault that was visible in
  * the document all along. A fail-closed export cannot PRODUCE such a document —
  * it refuses on the source collision first — but an import reads whatever it is

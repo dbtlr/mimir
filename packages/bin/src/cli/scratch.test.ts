@@ -10,7 +10,8 @@ import { createInitiative, createProject } from '../core';
 import type { ArtifactStore } from '../core/artifacts/store';
 import type { ScratchpadStore } from '../core/scratchpads/store';
 import { createPgliteTestStore } from '../core/store-postgres/testing';
-import { createTestStore } from '../testing/store';
+import { SQLITE_FILE } from '../core/store-sqlite/client';
+import { buildSqliteStore } from '../store-sqlite-backend';
 import { runCli } from './run';
 import { fakeIo } from './testing';
 
@@ -36,11 +37,12 @@ const jsonOutput = (io: ReturnType<typeof fakeIo>): Record<string, unknown> =>
   JSON.parse(io.out.at(-1) ?? '{}') as Record<string, unknown>;
 
 /**
- * A throwaway sandbox authority fencing a fresh process to the Norn vault at
- * `vaultRoot`. Without one, a from-source run would open the default local
- * store under the checkout's shared `.dev` directory.
+ * A throwaway sandbox authority fencing a fresh process to its own data
+ * directory. Its config names no backend, so the process opens the default
+ * SQLite store at `sqlitePath`. Without one, a from-source run would open the
+ * default local store under the checkout's shared `.dev` directory.
  */
-function nornAuthority(vaultRoot: string): string {
+function sandboxAuthority(): { authority: string; sqlitePath: string } {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'mimir-scratch-cli-')));
   const paths = {
     cache: join(root, 'cache', 'mimir'),
@@ -50,17 +52,14 @@ function nornAuthority(vaultRoot: string): string {
   for (const path of Object.values(paths)) {
     mkdirSync(path, { recursive: true });
   }
-  writeFileSync(
-    join(paths.config, 'config.toml'),
-    `[store]\nbackend = "norn"\n[vault]\npath = "${vaultRoot}"\n`,
-  );
+  writeFileSync(join(paths.config, 'config.toml'), '');
   const authority = join(root, 'authority.json');
   writeFileSync(
     authority,
-    JSON.stringify({ id: randomUUID(), kind: 'vault', paths, root, version: 1 }),
+    JSON.stringify({ id: randomUUID(), kind: 'local', paths, root, version: 1 }),
   );
   authorityRoots.push(root);
-  return authority;
+  return { authority, sqlitePath: join(paths.data, SQLITE_FILE) };
 }
 
 const authorityRoots: string[] = [];
@@ -70,10 +69,10 @@ afterEach(() => {
   }
 });
 
-function freshCli(vaultRoot: string, args: string[]): { code: number; err: string; out: string } {
+function freshCli(authority: string, args: string[]): { code: number; err: string; out: string } {
   const result = Bun.spawnSync({
     cmd: [process.execPath, join(import.meta.dir, '..', 'main.ts'), ...args],
-    env: { ...process.env, MIMIR_SANDBOX_AUTHORITY: nornAuthority(vaultRoot) },
+    env: { ...process.env, MIMIR_SANDBOX_AUTHORITY: authority },
     stderr: 'pipe',
     stdout: 'pipe',
   });
@@ -83,8 +82,6 @@ function freshCli(vaultRoot: string, args: string[]): { code: number; err: strin
     out: result.stdout.toString(),
   };
 }
-const NORN = Bun.which('norn') !== null;
-
 const fixtures: Awaited<ReturnType<typeof createPgliteTestStore>>[] = [];
 afterEach(async () => {
   for (const fixture of fixtures.splice(0)) {
@@ -383,193 +380,191 @@ test('nested Scratchpad help resolves the exact Agenda operation without opening
   );
 });
 
-test.skipIf(!NORN)(
-  'isolated-vault CLI lifecycle supports resume, guards, freeze recovery, and discard refusal',
-  async () => {
-    const fixture = await createTestStore();
-    try {
-      await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
-      const invoke = async (args: string[]) => {
-        const io = fakeIo();
-        const code = await runCli(args, () => fixture.store, io, { scope: 'MMR' });
-        return { code, io };
-      };
-      const created = await invoke(['scratch', 'create', 'Norn lifecycle', '-f', 'json']);
-      expect(created.code).toBe(0);
-      const createReceipt = jsonOutput(created.io);
-      const id = String(createReceipt.id);
-      let stamp = String(createReceipt.updated_at);
+test('isolated-store CLI lifecycle supports resume, guards, freeze recovery, and discard refusal', async () => {
+  const sandbox = sandboxAuthority();
+  const fixture = await buildSqliteStore({}, sandbox.sqlitePath);
+  try {
+    await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
+    const invoke = async (args: string[]) => {
+      const io = fakeIo();
+      const code = await runCli(args, () => fixture.store, io, { scope: 'MMR' });
+      return { code, io };
+    };
+    const created = await invoke(['scratch', 'create', 'Store lifecycle', '-f', 'json']);
+    expect(created.code).toBe(0);
+    const createReceipt = jsonOutput(created.io);
+    const id = String(createReceipt.id);
+    let stamp = String(createReceipt.updated_at);
 
-      const checkpoint = await invoke([
-        'scratch',
-        'checkpoint',
-        id,
-        'first durable checkpoint',
-        '--expected-updated-at',
-        stamp,
-        '-f',
-        'json',
-      ]);
-      expect(checkpoint.code).toBe(0);
-      stamp = String(jsonOutput(checkpoint.io).updated_at);
+    const checkpoint = await invoke([
+      'scratch',
+      'checkpoint',
+      id,
+      'first durable checkpoint',
+      '--expected-updated-at',
+      stamp,
+      '-f',
+      'json',
+    ]);
+    expect(checkpoint.code).toBe(0);
+    stamp = String(jsonOutput(checkpoint.io).updated_at);
 
-      const overviewIo = fakeIo(true);
-      expect(await runCli(['overview'], () => fixture.store, overviewIo, { scope: 'MMR' })).toBe(0);
-      expect(overviewIo.out.join('\n')).toContain('active scratchpads (1)');
-      expect(overviewIo.out.join('\n')).toContain(`${id} · MMR · Norn lifecycle · 0 open Agenda`);
+    const overviewIo = fakeIo(true);
+    expect(await runCli(['overview'], () => fixture.store, overviewIo, { scope: 'MMR' })).toBe(0);
+    expect(overviewIo.out.join('\n')).toContain('active scratchpads (1)');
+    expect(overviewIo.out.join('\n')).toContain(`${id} · MMR · Store lifecycle · 0 open Agenda`);
 
-      const addOne = await invoke([
-        'scratch',
-        'agenda',
-        'add',
-        id,
-        'ship the CLI',
-        '--expected-updated-at',
-        stamp,
-        '-f',
-        'json',
-      ]);
-      expect(addOne.code).toBe(0);
-      stamp = String(jsonOutput(addOne.io).updated_at);
-      const completeOne = await invoke([
-        'scratch',
-        'agenda',
-        'complete',
-        id,
-        '1',
-        '--expected-updated-at',
-        stamp,
-        '-f',
-        'json',
-      ]);
-      expect(completeOne.code).toBe(0);
-      stamp = String(jsonOutput(completeOne.io).updated_at);
-      const addTwo = await invoke([
-        'scratch',
-        'agenda',
-        'add',
-        id,
-        'obsolete follow-up',
-        '--expected-updated-at',
-        stamp,
-        '-f',
-        'json',
-      ]);
-      expect(addTwo.code).toBe(0);
-      stamp = String(jsonOutput(addTwo.io).updated_at);
-      const supersedeTwo = await invoke([
-        'scratch',
-        'agenda',
-        'supersede',
-        id,
-        '2',
-        '--reason',
-        'covered elsewhere',
-        '--expected-updated-at',
-        stamp,
-        '-f',
-        'json',
-      ]);
-      expect(supersedeTwo.code).toBe(0);
-      stamp = String(jsonOutput(supersedeTwo.io).updated_at);
+    const addOne = await invoke([
+      'scratch',
+      'agenda',
+      'add',
+      id,
+      'ship the CLI',
+      '--expected-updated-at',
+      stamp,
+      '-f',
+      'json',
+    ]);
+    expect(addOne.code).toBe(0);
+    stamp = String(jsonOutput(addOne.io).updated_at);
+    const completeOne = await invoke([
+      'scratch',
+      'agenda',
+      'complete',
+      id,
+      '1',
+      '--expected-updated-at',
+      stamp,
+      '-f',
+      'json',
+    ]);
+    expect(completeOne.code).toBe(0);
+    stamp = String(jsonOutput(completeOne.io).updated_at);
+    const addTwo = await invoke([
+      'scratch',
+      'agenda',
+      'add',
+      id,
+      'obsolete follow-up',
+      '--expected-updated-at',
+      stamp,
+      '-f',
+      'json',
+    ]);
+    expect(addTwo.code).toBe(0);
+    stamp = String(jsonOutput(addTwo.io).updated_at);
+    const supersedeTwo = await invoke([
+      'scratch',
+      'agenda',
+      'supersede',
+      id,
+      '2',
+      '--reason',
+      'covered elsewhere',
+      '--expected-updated-at',
+      stamp,
+      '-f',
+      'json',
+    ]);
+    expect(supersedeTwo.code).toBe(0);
+    stamp = String(jsonOutput(supersedeTwo.io).updated_at);
 
-      // Separate Mimir processes reconstruct the store over this isolated vault,
-      // discover the UUID, and resume the complete document.
-      const listed = freshCli(fixture.vaultRoot, ['scratch', 'list', '-s', 'MMR', '-f', 'ids']);
-      expect(listed.code, listed.err).toBe(0);
-      expect(listed.out).toContain(id);
-      const resumed = freshCli(fixture.vaultRoot, ['scratch', 'get', id, '-f', 'json']);
-      expect(resumed.code, resumed.err).toBe(0);
-      const full = JSON.parse(resumed.out) as Record<string, unknown>;
-      expect(full.journal).toEqual([
-        expect.objectContaining({ content: 'first durable checkpoint', number: 1 }),
-      ]);
-      expect(full.agenda).toEqual([
-        expect.objectContaining({ number: 1, state: 'done' }),
-        expect.objectContaining({ number: 2, reason: 'covered elsewhere', state: 'superseded' }),
-      ]);
+    // Separate Mimir processes open the store over this isolated database file,
+    // discover the UUID, and resume the complete document.
+    const listed = freshCli(sandbox.authority, ['scratch', 'list', '-s', 'MMR', '-f', 'ids']);
+    expect(listed.code, listed.err).toBe(0);
+    expect(listed.out).toContain(id);
+    const resumed = freshCli(sandbox.authority, ['scratch', 'get', id, '-f', 'json']);
+    expect(resumed.code, resumed.err).toBe(0);
+    const full = JSON.parse(resumed.out) as Record<string, unknown>;
+    expect(full.journal).toEqual([
+      expect.objectContaining({ content: 'first durable checkpoint', number: 1 }),
+    ]);
+    expect(full.agenda).toEqual([
+      expect.objectContaining({ number: 1, state: 'done' }),
+      expect.objectContaining({ number: 2, reason: 'covered elsewhere', state: 'superseded' }),
+    ]);
 
-      const stale = await invoke([
-        'scratch',
-        'update',
-        id,
-        '--title',
-        'must refuse',
-        '--expected-updated-at',
-        String(createReceipt.updated_at),
-      ]);
-      expect(stale.code).toBe(1);
-      expect(stale.io.err.join('\n')).toContain('changed concurrently');
+    const stale = await invoke([
+      'scratch',
+      'update',
+      id,
+      '--title',
+      'must refuse',
+      '--expected-updated-at',
+      String(createReceipt.updated_at),
+    ]);
+    expect(stale.code).toBe(1);
+    expect(stale.io.err.join('\n')).toContain('changed concurrently');
 
-      const frozen = await invoke([
-        'scratch',
-        'freeze',
-        id,
-        '--summary',
-        'Lifecycle proof',
-        '--expected-updated-at',
-        stamp,
-        '-f',
-        'json',
-      ]);
-      expect(frozen.code).toBe(0);
-      expect(jsonOutput(frozen.io).id).toBe('MMR-a1');
-      const recovered = await invoke([
-        'scratch',
-        'freeze',
-        id,
-        '--summary',
-        'Lifecycle proof',
-        '--expected-updated-at',
-        stamp,
-        '-f',
-        'json',
-      ]);
-      expect(recovered.code).toBe(0);
-      expect(jsonOutput(recovered.io).id).toBe('MMR-a1');
+    const frozen = await invoke([
+      'scratch',
+      'freeze',
+      id,
+      '--summary',
+      'Lifecycle proof',
+      '--expected-updated-at',
+      stamp,
+      '-f',
+      'json',
+    ]);
+    expect(frozen.code).toBe(0);
+    expect(jsonOutput(frozen.io).id).toBe('MMR-a1');
+    const recovered = await invoke([
+      'scratch',
+      'freeze',
+      id,
+      '--summary',
+      'Lifecycle proof',
+      '--expected-updated-at',
+      stamp,
+      '-f',
+      'json',
+    ]);
+    expect(recovered.code).toBe(0);
+    expect(jsonOutput(recovered.io).id).toBe('MMR-a1');
 
-      const disposable = await invoke(['scratch', 'create', 'Discard path', '-f', 'json']);
-      expect(disposable.code).toBe(0);
-      const discardId = String(jsonOutput(disposable.io).id);
-      let discardStamp = String(jsonOutput(disposable.io).updated_at);
-      const open = await invoke([
-        'scratch',
-        'agenda',
-        'add',
-        discardId,
-        'still open',
-        '--expected-updated-at',
-        discardStamp,
-        '-f',
-        'json',
-      ]);
-      discardStamp = String(jsonOutput(open.io).updated_at);
-      const refused = await invoke([
-        'scratch',
-        'discard',
-        discardId,
-        '--expected-updated-at',
-        discardStamp,
-      ]);
-      expect(refused.code).toBe(1);
-      expect(refused.io.err.join('\n')).toContain('open Agenda items');
-      const forced = await invoke([
-        'scratch',
-        'discard',
-        discardId,
-        '--force',
-        '--reason',
-        'test cleanup',
-        '--expected-updated-at',
-        discardStamp,
-        '-f',
-        'json',
-      ]);
-      expect(forced.code).toBe(0);
-      expect(jsonOutput(forced.io).result).toBe('discarded');
-      expect(await fixture.store.scratchpads.load(discardId)).toBeUndefined();
-    } finally {
-      await fixture.close();
-    }
-  },
-);
+    const disposable = await invoke(['scratch', 'create', 'Discard path', '-f', 'json']);
+    expect(disposable.code).toBe(0);
+    const discardId = String(jsonOutput(disposable.io).id);
+    let discardStamp = String(jsonOutput(disposable.io).updated_at);
+    const open = await invoke([
+      'scratch',
+      'agenda',
+      'add',
+      discardId,
+      'still open',
+      '--expected-updated-at',
+      discardStamp,
+      '-f',
+      'json',
+    ]);
+    discardStamp = String(jsonOutput(open.io).updated_at);
+    const refused = await invoke([
+      'scratch',
+      'discard',
+      discardId,
+      '--expected-updated-at',
+      discardStamp,
+    ]);
+    expect(refused.code).toBe(1);
+    expect(refused.io.err.join('\n')).toContain('open Agenda items');
+    const forced = await invoke([
+      'scratch',
+      'discard',
+      discardId,
+      '--force',
+      '--reason',
+      'test cleanup',
+      '--expected-updated-at',
+      discardStamp,
+      '-f',
+      'json',
+    ]);
+    expect(forced.code).toBe(0);
+    expect(jsonOutput(forced.io).result).toBe('discarded');
+    expect(await fixture.store.scratchpads.load(discardId)).toBeUndefined();
+  } finally {
+    await fixture.close();
+  }
+});

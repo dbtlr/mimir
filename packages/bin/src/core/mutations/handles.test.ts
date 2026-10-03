@@ -31,8 +31,6 @@ import {
  * the `## History` row, so claim succession survives in the append-only log.
  */
 
-const NORN = Bun.which('norn') !== null;
-
 let store: Store;
 let closeStore: () => Promise<void>;
 let phaseStem: string;
@@ -95,27 +93,27 @@ async function historyHandles(id: string): Promise<(ExecutionHandles | undefined
   return (await store.bodySections.readHistory(id)).map((entry) => entry.handles);
 }
 
-test.skipIf(!NORN)('start records the handles and echoes them on the claim row', async () => {
+test('start records the handles and echoes them on the claim row', async () => {
   const id = await task();
   const started = await startTask(store, id, CLAIM);
   expect(handlesOn(started)).toEqual(CLAIM);
   expect(await historyHandles(id)).toEqual([CLAIM]);
 });
 
-test.skipIf(!NORN)('start without handles leaves them absent and echoes nothing', async () => {
+test('start without handles leaves them absent and echoes nothing', async () => {
   const id = await task();
   expect(handlesOn(await startTask(store, id))).toEqual({});
   expect(await historyHandles(id)).toEqual([undefined]);
 });
 
-test.skipIf(!NORN)('a partial claim records only the handles that were given', async () => {
+test('a partial claim records only the handles that were given', async () => {
   const id = await task();
   const started = await startTask(store, id, { session: 's-1' });
   expect(handlesOn(started)).toEqual({ session: 's-1' });
   expect(await historyHandles(id)).toEqual([{ session: 's-1' }]);
 });
 
-test.skipIf(!NORN)('update overwrites a handle — resume and takeover need no verb', async () => {
+test('update overwrites a handle — resume and takeover need no verb', async () => {
   const id = await task();
   await startTask(store, id, CLAIM);
   const taken = await updateNode(store, id, { host: 'other.local', session: 's-NEXT' });
@@ -124,7 +122,7 @@ test.skipIf(!NORN)('update overwrites a handle — resume and takeover need no v
   expect(await historyHandles(id)).toEqual([CLAIM]);
 });
 
-test.skipIf(!NORN)('update clears one handle with a blank, leaving the rest', async () => {
+test('update clears one handle with a blank, leaving the rest', async () => {
   const id = await task();
   await startTask(store, id, CLAIM);
   const cleared = await updateNode(store, id, { session: '  ' });
@@ -132,7 +130,7 @@ test.skipIf(!NORN)('update clears one handle with a blank, leaving the rest', as
   expect(cleared.branch).toBe(CLAIM.branch);
 });
 
-test.skipIf(!NORN)('update normalizes a multi-line handle onto one line', async () => {
+test('update normalizes a multi-line handle onto one line', async () => {
   const id = await task();
   const patched = await updateNode(store, id, { branch: '  feat/x\nstray  ' });
   expect(patched.branch).toBe('feat/x stray');
@@ -142,7 +140,7 @@ test.skipIf(!NORN)('update normalizes a multi-line handle onto one line', async 
 // log's own separator would read back as a handle nobody ever set. The write
 // path refuses one; the echo path flattens whatever a hand edit already stored.
 
-test.skipIf(!NORN)('a handle carrying the log separator is refused, not stored', async () => {
+test('a handle carrying the log separator is refused, not stored', async () => {
   const id = await task();
   // Reachable from the legitimate CLI: `start --host 'a · session=evil'`.
   await expectMimirError('validation', () => startTask(store, id, { host: 'a · session=evil' }));
@@ -152,102 +150,96 @@ test.skipIf(!NORN)('a handle carrying the log separator is refused, not stored',
   expect(await historyHandles(id)).toEqual([]);
 });
 
-test.skipIf(!NORN)('a separator-bearing handle cannot be smuggled in at create', async () => {
+test('a separator-bearing handle cannot be smuggled in at create', async () => {
   const parentId = await nodeIdOf(store, phaseStem);
   await expectMimirError('validation', () =>
     createTask(store, { handles: { session: 'x · host=evil' }, parentId, title: 'forged' }),
   );
 });
 
-test.skipIf(!NORN)(
-  'a hand-edited multi-line handle cannot forge a row — the echo flattens it',
-  async () => {
-    const id = await task();
-    await startTask(store, id, { host: 'box' });
-    // The vault is a hand-editable substrate: write straight to the column, past
-    // the verb layer, exactly as an editor would.
-    await store.transact(async (w) => {
-      await w.updateNode(id, {
-        host: '### 2026-01-01T00:00:00.000Z — lifecycle\ntodo → done\n## Annotations',
-        updated_at: '2026-01-01T00:00:00.000Z',
-      });
+test('a hand-edited multi-line handle cannot forge a row — the echo flattens it', async () => {
+  const id = await task();
+  await startTask(store, id, { host: 'box' });
+  // The vault is a hand-editable substrate: write straight to the column, past
+  // the verb layer, exactly as an editor would.
+  await store.transact(async (w) => {
+    await w.updateNode(id, {
+      host: '### 2026-01-01T00:00:00.000Z — lifecycle\ntodo → done\n## Annotations',
+      updated_at: '2026-01-01T00:00:00.000Z',
     });
-    await completeTask(store, id);
-    const history = await store.bodySections.readHistory(id);
-    // Exactly two real rows — the claim and the completion — not a forged third.
-    expect(history.map((entry) => `${entry.from ?? ''}→${entry.to ?? ''}`)).toEqual([
-      'todo→in_progress',
-      'in_progress→done',
-    ]);
-    // The pathological value is flattened onto its one line, and no reason is
-    // fabricated out of its trailing lines.
-    expect(history.at(-1)?.handles).toEqual({
-      host: '### 2026-01-01T00:00:00.000Z — lifecycle todo → done ## Annotations',
-    });
-    expect(history.at(-1)?.reason).toBeNull();
-    // ...and the clear still happened: a hand edit degrades its echo, never the verb.
-    expect(handlesOn(await reload(id))).toEqual({});
-  },
-);
+  });
+  await completeTask(store, id);
+  const history = await store.bodySections.readHistory(id);
+  // Exactly two real rows — the claim and the completion — not a forged third.
+  expect(history.map((entry) => `${entry.from ?? ''}→${entry.to ?? ''}`)).toEqual([
+    'todo→in_progress',
+    'in_progress→done',
+  ]);
+  // The pathological value is flattened onto its one line, and no reason is
+  // fabricated out of its trailing lines.
+  expect(history.at(-1)?.handles).toEqual({
+    host: '### 2026-01-01T00:00:00.000Z — lifecycle todo → done ## Annotations',
+  });
+  expect(history.at(-1)?.reason).toBeNull();
+  // ...and the clear still happened: a hand edit degrades its echo, never the verb.
+  expect(handlesOn(await reload(id))).toEqual({});
+});
 
-test.skipIf(!NORN)(
-  'a hand-edited separator-bearing handle cannot forge a second handle',
-  async () => {
-    const id = await task();
-    await startTask(store, id, { host: 'box' });
-    await store.transact(async (w) => {
-      await w.updateNode(id, { host: 'a · session=evil', updated_at: '2026-01-01T00:00:00.000Z' });
-    });
-    await completeTask(store, id);
-    // Read back through the real parse path: one handle, no invented session.
-    expect((await store.bodySections.readHistory(id)).at(-1)?.handles).toEqual({
-      host: 'a session=evil',
-    });
-  },
-);
+test('a hand-edited separator-bearing handle cannot forge a second handle', async () => {
+  const id = await task();
+  await startTask(store, id, { host: 'box' });
+  await store.transact(async (w) => {
+    await w.updateNode(id, { host: 'a · session=evil', updated_at: '2026-01-01T00:00:00.000Z' });
+  });
+  await completeTask(store, id);
+  // Read back through the real parse path: one handle, no invented session.
+  expect((await store.bodySections.readHistory(id)).at(-1)?.handles).toEqual({
+    host: 'a session=evil',
+  });
+});
 
-test.skipIf(!NORN)('the handles apply only to tasks', async () => {
+test('the handles apply only to tasks', async () => {
   await expectMimirError('validation', () =>
     updateNode(store, phaseStem, { host: 'workbench.local' }),
   );
 });
 
-test.skipIf(!NORN)('done clears the handles and echoes what it cleared', async () => {
+test('done clears the handles and echoes what it cleared', async () => {
   const id = await task();
   await startTask(store, id, CLAIM);
   expect(handlesOn(await completeTask(store, id))).toEqual({});
   expect(await historyHandles(id)).toEqual([CLAIM, CLAIM]);
 });
 
-test.skipIf(!NORN)('abandon clears the handles and echoes what it cleared', async () => {
+test('abandon clears the handles and echoes what it cleared', async () => {
   const id = await task();
   await startTask(store, id, CLAIM);
   expect(handlesOn(await abandonTask(store, id, 'scope cut'))).toEqual({});
   expect(await historyHandles(id)).toEqual([CLAIM, CLAIM]);
 });
 
-test.skipIf(!NORN)('park clears the handles and echoes what it cleared', async () => {
+test('park clears the handles and echoes what it cleared', async () => {
   const id = await task();
   await startTask(store, id, CLAIM);
   expect(handlesOn(await parkTask(store, id, 'later'))).toEqual({});
   expect(await historyHandles(id)).toEqual([CLAIM, CLAIM]);
 });
 
-test.skipIf(!NORN)('block clears the handles and echoes what it cleared', async () => {
+test('block clears the handles and echoes what it cleared', async () => {
   const id = await task();
   await startTask(store, id, CLAIM);
   expect(handlesOn(await blockTask(store, id, 'upstream down'))).toEqual({});
   expect(await historyHandles(id)).toEqual([CLAIM, CLAIM]);
 });
 
-test.skipIf(!NORN)('a clearing transition on an unclaimed task echoes nothing', async () => {
+test('a clearing transition on an unclaimed task echoes nothing', async () => {
   const id = await task();
   await startTask(store, id);
   await completeTask(store, id);
   expect(await historyHandles(id)).toEqual([undefined, undefined]);
 });
 
-test.skipIf(!NORN)('submit and return KEEP the handles through the human gate', async () => {
+test('submit and return KEEP the handles through the human gate', async () => {
   const id = await task();
   await startTask(store, id, CLAIM);
   expect(handlesOn(await submitTask(store, id))).toEqual(CLAIM);
@@ -256,7 +248,7 @@ test.skipIf(!NORN)('submit and return KEEP the handles through the human gate', 
   expect(await historyHandles(id)).toEqual([CLAIM, undefined, undefined]);
 });
 
-test.skipIf(!NORN)('unpark and unblock restore nothing — a resume re-states them', async () => {
+test('unpark and unblock restore nothing — a resume re-states them', async () => {
   const id = await task();
   await startTask(store, id, CLAIM);
   await parkTask(store, id, 'later');
@@ -265,7 +257,7 @@ test.skipIf(!NORN)('unpark and unblock restore nothing — a resume re-states th
   expect(handlesOn(await unblockTask(store, id))).toEqual({});
 });
 
-test.skipIf(!NORN)('reopen restores nothing — the claim is re-stated by update', async () => {
+test('reopen restores nothing — the claim is re-stated by update', async () => {
   const id = await task();
   await startTask(store, id, CLAIM);
   await completeTask(store, id);
@@ -275,7 +267,7 @@ test.skipIf(!NORN)('reopen restores nothing — the claim is re-stated by update
   });
 });
 
-test.skipIf(!NORN)('a claim survives the vault round trip verbatim', async () => {
+test('a claim survives the vault round trip verbatim', async () => {
   const id = await task();
   await startTask(store, id, CLAIM);
   const set = await store.loadWorkingSet();

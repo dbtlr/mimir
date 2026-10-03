@@ -1,11 +1,7 @@
 import { expect, setDefaultTimeout, test } from 'bun:test';
 
-import type { Scratchpad } from '@mimir/contract';
-
-import { NORN, backends } from '../../testing/conformance';
-import { createTestStore } from '../../testing/store';
+import { backends } from '../../testing/conformance';
 import { createInitiative, createProject } from '../create';
-import { scratchpadDocument } from '../store-norn/scratchpads';
 import { createPgliteTestStore } from '../store-postgres/testing';
 import { createScratchpadService } from './service';
 
@@ -26,59 +22,56 @@ async function rejection(promise: Promise<unknown>, message: RegExp): Promise<vo
 
 // oxlint-disable-next-line vitest/prefer-each
 for (const backend of backends) {
-  test.skipIf(backend.skip)(
-    `${backend.name}: scratchpad links must name existing work in its project`,
-    async () => {
-      const fixture = await backend.make();
-      try {
-        const { store } = fixture;
-        await createProject(store, { key: 'MMR', name: 'Mimir' });
-        await createProject(store, { key: 'NRN', name: 'Norn' });
-        const local = await createInitiative(store, { projectId: 'MMR', title: 'Local work' });
-        const foreign = await createInitiative(store, { projectId: 'NRN', title: 'Foreign work' });
-        const service = createScratchpadService(store.scratchpads, store.artifacts, store);
-        const pad = await service.create({
-          anchors: [local.id, local.id],
-          project: 'MMR',
-          title: 'Valid',
-        });
-        expect(pad.anchors).toEqual([local.id]);
-        for (const [anchor, message] of [
-          [`${local.id},${local.id}`, /doesn't exist/],
-          ['MMR-999', /doesn't exist/],
-          ['MMR', /is a project/],
-          ['MMR-a1', /is an artifact/],
-          ['MMR-s1', /is a seed/],
-          [foreign.id, /project disagrees/],
-        ] as const) {
-          await rejection(
-            service.create({ anchors: [anchor], project: 'MMR', title: 'Invalid' }),
-            message,
-          );
-          await rejection(
-            service.updateMetadata(pad.id, {
-              anchors: [anchor],
-              expectedUpdatedAt: pad.updatedAt,
-              title: 'Must not persist',
-            }),
-            message,
-          );
-          expect(await service.get(pad.id)).toEqual(pad);
-          expect(await service.list()).toHaveLength(1);
-        }
-        const artifact = await service.freeze(pad.id, {
-          expectedUpdatedAt: pad.updatedAt,
-          summary: 'Valid links freeze',
-        });
-        expect(artifact.links).toEqual([local.id]);
-      } finally {
-        await fixture.close();
+  test(`${backend.name}: scratchpad links must name existing work in its project`, async () => {
+    const fixture = await backend.make();
+    try {
+      const { store } = fixture;
+      await createProject(store, { key: 'MMR', name: 'Mimir' });
+      await createProject(store, { key: 'NRN', name: 'Norn' });
+      const local = await createInitiative(store, { projectId: 'MMR', title: 'Local work' });
+      const foreign = await createInitiative(store, { projectId: 'NRN', title: 'Foreign work' });
+      const service = createScratchpadService(store.scratchpads, store.artifacts, store);
+      const pad = await service.create({
+        anchors: [local.id, local.id],
+        project: 'MMR',
+        title: 'Valid',
+      });
+      expect(pad.anchors).toEqual([local.id]);
+      for (const [anchor, message] of [
+        [`${local.id},${local.id}`, /doesn't exist/],
+        ['MMR-999', /doesn't exist/],
+        ['MMR', /is a project/],
+        ['MMR-a1', /is an artifact/],
+        ['MMR-s1', /is a seed/],
+        [foreign.id, /project disagrees/],
+      ] as const) {
+        await rejection(
+          service.create({ anchors: [anchor], project: 'MMR', title: 'Invalid' }),
+          message,
+        );
+        await rejection(
+          service.updateMetadata(pad.id, {
+            anchors: [anchor],
+            expectedUpdatedAt: pad.updatedAt,
+            title: 'Must not persist',
+          }),
+          message,
+        );
+        expect(await service.get(pad.id)).toEqual(pad);
+        expect(await service.list()).toHaveLength(1);
       }
-    },
-  );
+      const artifact = await service.freeze(pad.id, {
+        expectedUpdatedAt: pad.updatedAt,
+        summary: 'Valid links freeze',
+      });
+      expect(artifact.links).toEqual([local.id]);
+    } finally {
+      await fixture.close();
+    }
+  });
 }
 
-// Legacy Postgres rows retain invalid anchors; Norn's tolerant reader filters them.
+// Legacy SQL rows can retain invalid anchors.
 test('freeze refuses legacy invalid links before staging or allocating an artifact', async () => {
   const fixture = await createPgliteTestStore();
   try {
@@ -234,63 +227,3 @@ test('an existing source artifact prevents repair and remains authoritative on f
     await fixture.close();
   }
 });
-
-test.skipIf(!NORN)(
-  'Norn staged raw invalid anchors retry freeze normally, retaining full Journal and Agenda',
-  async () => {
-    const fixture = await createTestStore();
-    try {
-      const store = fixture.store;
-      await createProject(store, { key: 'MMR', name: 'Mimir' });
-      await createProject(store, { key: 'NRN', name: 'Norn' });
-      const local = await createInitiative(store, { projectId: 'MMR', title: 'Local' });
-      const foreign = await createInitiative(store, { projectId: 'NRN', title: 'Foreign' });
-      const service = createScratchpadService(store.scratchpads, store.artifacts, store);
-      for (const invalid of ['MMR-999', 'MMR-1,MMR-2', foreign.id]) {
-        const pad: Scratchpad = {
-          agenda: [
-            { content: 'Keep the unresolved question.', number: 1, reason: null, state: 'open' },
-          ],
-          anchors: [local.id, invalid],
-          createdAt: '2026-08-03T12:00:00.000Z',
-          freezingAt: '2026-08-03T12:05:00.000Z',
-          id: crypto.randomUUID(),
-          journal: [
-            { at: '2026-08-03T12:00:00.000Z', content: 'Keep the complete finding.', number: 1 },
-          ],
-          project: 'MMR',
-          title: 'Legacy Norn episode',
-          updatedAt: '2026-08-03T12:05:00.000Z',
-        };
-        const doc = scratchpadDocument(pad);
-        await fixture.seedDocument(doc.path, doc.frontmatter, doc.body);
-        const raw = fixture.readDocument(doc.path);
-        expect(raw).toContain(invalid);
-        const read = await service.get(pad.id);
-        expect(read.anchors).toEqual([local.id]);
-        expect(read.freezingAt).toBe(pad.freezingAt);
-        expect(read.journal).toEqual(pad.journal);
-        expect(read.agenda).toEqual(pad.agenda);
-        await rejection(
-          service.updateMetadata(pad.id, { anchors: [], expectedUpdatedAt: read.updatedAt }),
-          /freezing/,
-        );
-        expect(fixture.readDocument(doc.path)).toBe(raw);
-        const artifact = await service.freeze(pad.id, {
-          expectedUpdatedAt: read.updatedAt,
-          summary: 'Recovered Norn episode',
-        });
-        expect(artifact.links).toEqual([local.id]);
-        expect(artifact.content).toBe(doc.body.replace(/\n$/, ''));
-        expect(await store.scratchpads.load(pad.id)).toBeUndefined();
-        expect(await store.artifacts.findBySourceScratch(pad.id)).toEqual(artifact);
-        expect(
-          await service.freeze(pad.id, { expectedUpdatedAt: read.updatedAt, summary: 'Retry' }),
-        ).toEqual(artifact);
-      }
-    } finally {
-      await fixture.close();
-    }
-  },
-  60000,
-);

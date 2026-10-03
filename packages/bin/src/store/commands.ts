@@ -62,14 +62,6 @@ export type StoreFlags = {
 /** `-` is the standard stream stand-in: stdout for `export`, stdin for `import`. */
 const STREAM = '-';
 
-/**
- * What `store upgrade` reports on a Norn install. Not a refusal: the vault
- * converges itself on every open (ADR 0016), so there is nothing to move and
- * nothing the operator must do. Saying so is kinder than a usage error for an
- * operator following the shared-store guide on the wrong machine.
- */
-const NORN_NOTE = 'store: the norn backend converges its vault on open — nothing to upgrade';
-
 export async function cmdStore(
   positionals: string[],
   flags: StoreFlags,
@@ -107,7 +99,7 @@ export async function cmdStore(
  * Refuse `--apply` and `--resume` on a subcommand that does not own them.
  *
  * The CLI's owned-flag guard owns this pair to the `store` VERB, which is as
- * fine-grained as that table gets — so `store export vault.json --apply` passes
+ * fine-grained as that table gets — so `store export backup.json --apply` passes
  * it and lands on a verb that ignores the flag. Each one names a decision the
  * caller believes they made; saying nothing would be agreeing with them.
  */
@@ -161,14 +153,6 @@ async function cmdStoreUpgrade(io: Io, deps: StoreDeps, format: Format): Promise
   const machine = format === 'json' || format === 'jsonl';
 
   const backend = config.store.backend ?? DEFAULT_STORE_BACKEND;
-  if (backend === 'norn') {
-    if (machine) {
-      io.write(JSON.stringify({ backend: 'norn', note: NORN_NOTE }));
-    } else {
-      ok(io, NORN_NOTE);
-    }
-    return 0;
-  }
   if (backend === 'sqlite') {
     // Opening is the upgrade, refusal of a newer schema included.
     const handle = await deps.openSqlite();

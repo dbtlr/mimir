@@ -8,16 +8,18 @@
 curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 ```
 
-(or `bun add -g mimir` from source). Work state lives in a Norn-managed markdown
-vault (default `$XDG_DATA_HOME/mimir/vault`, i.e. `~/.local/share/mimir/vault`;
-`[vault] path` in the config or `MIMIR_VAULT` overrides). Mimir shells out to the
-`norn` binary for all storage, so **`norn` must be on `PATH`** — check it with
-`command -v norn` (install: the dbtlr/norn release installer) — that is the one
-preflight; there are no migrations to run. An install on the shared Postgres
-backend (`[store] backend = "postgres"` plus `url`) needs no `norn`; its one
-preflight is `mimir store upgrade`, which creates or upgrades the schema and
-must run before any other command (every other verb refuses on a mismatched
-schema).
+(or `bun add -g mimir` from source). Work state lives in one local SQLite file,
+`store.sqlite` in the installation's data directory (default
+`$XDG_DATA_HOME/mimir`, i.e. `~/.local/share/mimir`). Mimir creates and migrates
+it on first use, so there is no preflight beyond the binary. An install on the
+shared Postgres backend (`[store] backend = "postgres"` plus `url`) has one
+preflight: `mimir store upgrade` creates or upgrades the schema and must run
+before any other command (every other verb refuses on a mismatched schema).
+`[store] backend = "norn"` is a fatal config error, and a v0.20 config with no
+`backend` line (Norn was its default) opens an empty store. Export the old vault
+with mimir v0.20 (`mimir store export <file>`), remove any `backend = "norn"`
+line, then import the document with `mimir store import <file>` (a preview; add
+the `--apply` flag to write it).
 
 ## Case 1 — the project exists, this working copy isn't bound
 

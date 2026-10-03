@@ -22,8 +22,8 @@ bun run test:sandbox   # build and native snapshot rehearsal
 ```
 
 `verify` is `bun run check` (oxfmt + oxlint + type-aware typecheck, zero-warning)
-plus binary and UI tests. Norn-backed suites use temporary vaults and need `norn`
-on `PATH`. Postgres unit tests use PGlite. The two disposable-server commands need
+plus binary and UI tests. SQLite-backed suites use in-memory databases (a temporary file
+where the file itself is under test) and need nothing installed. Postgres unit tests use PGlite. The two disposable-server commands need
 Docker; CI runs all three gates. See the [sandbox guide](docs/guides/development-sandboxes.md)
 for fixtures, snapshots, and candidate migration tests.
 
@@ -33,8 +33,10 @@ One core, thin transports, in a Bun workspace. `packages/contract`
 (`@mimir/contract`) is the dependency-free type leaf — the wire vocabulary
 every consumer parses. `packages/bin` (`@mimir/bin`) is the binary: `src/core`
 is the domain logic (derivation, rank, mutation verbs, intent layer) over the
-`Store` seam; `src/core/store-norn` is the store adapter that speaks to the
-`norn` binary owning the vault;
+`Store` seam; `src/core/store-sql` is the one SQL store, written once, with
+`src/core/store-sqlite` (the default local file) and `src/core/store-postgres`
+(the shared database) supplying each dialect's connection, DDL, and column
+encodings;
 `src/cli`, `src/mcp`, and `src/http` are the transports; `src/main.ts` is the
 composition root. `packages/ui` (`@mimir/ui`) is the operator-console SPA,
 embedded in the binary at build time. Inside the binary the layering
@@ -118,7 +120,7 @@ fallback for local builds).
 **Continuous prereleases.** Between releases, `packages/bin/package.json` carries
 the next target as `X.Y.Z-next` (declared, never auto-written). Every
 build-affecting merge to `main` auto-publishes a `vX.Y.Z-next.N` prerelease
-(docs/vault-only merges produce nothing — the tagger is path-filtered). Install
+(docs-only merges produce nothing — the tagger is path-filtered). Install
 or update one with `MIMIR_NEXT=1 sh install.sh`, `mimir self-update --next`, or
 pin a build with `mimir self-update --tag v0.6.0-next.5`.
 

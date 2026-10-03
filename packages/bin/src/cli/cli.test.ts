@@ -25,16 +25,11 @@ import { UsageError, exitCodeFor, renderError } from './errors';
 import { runCli } from './run';
 import { fakeIo } from './testing';
 
-const NORN = Bun.which('norn') !== null;
-
 let store: Store;
 let closeStore: () => Promise<void>;
 let phaseId: string;
 let phaseSeq: number;
 beforeEach(async () => {
-  if (!NORN) {
-    return;
-  }
   ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'm' });
   const init = await createInitiative(store, {
@@ -47,19 +42,16 @@ beforeEach(async () => {
   phaseSeq = phase.seq;
 });
 afterEach(async () => {
-  if (!NORN) {
-    return;
-  }
   await closeStore();
 });
 
-test.skipIf(!NORN)('no command prints help and exits 0', async () => {
+test('no command prints help and exits 0', async () => {
   const io = fakeIo(true);
   expect(await runCli([], () => store, io)).toBe(0);
   expect(io.out.join('')).toContain('usage: mimir');
 });
 
-test.skipIf(!NORN)('unknown command exits 2 with an error', async () => {
+test('unknown command exits 2 with an error', async () => {
   const io = fakeIo(true);
   expect(await runCli(['frobnicate'], () => store, io)).toBe(2);
   expect(io.err.join('')).toContain('unknown command');
@@ -208,7 +200,7 @@ test('service install --help adds worked examples; -h omits them (MMR-299)', asy
   expect(await runCli(['service', 'install', '--help'], neverStore, full)).toBe(0);
   const fullOut = full.out.join('');
   expect(fullOut).toContain('examples:');
-  expect(fullOut).toContain('mimir service install snapshot');
+  expect(fullOut).toContain('mimir service install --port 4100');
 });
 
 test('service subcommand help never acquires the store (MMR-299, MMR-39)', async () => {
@@ -464,14 +456,14 @@ test('the JSON envelope carries the synthesized message, never the raw library t
 });
 
 test('deps-gated verbs are recognized, not "unknown command" — guards COMMANDS/switch drift (MMR-211)', async () => {
-  for (const verb of ['setup', 'service', 'vault', 'doctor', 'self-update', 'skill', 'bind']) {
+  for (const verb of ['setup', 'service', 'doctor', 'self-update', 'skill', 'bind']) {
     const io = fakeIo(true);
     await runCli([verb], neverStore, io);
     expect(`${io.err.join('')}${io.out.join('')}`).not.toContain('unknown command');
   }
 });
 
-test.skipIf(!NORN)('archive freezes the project; unarchive restores it (MMR-121)', async () => {
+test('archive freezes the project; unarchive restores it (MMR-121)', async () => {
   const task = await createTask(store, { parentId: phaseId, title: 'x' });
   const id = `MMR-${String(task.seq)}`;
 
@@ -493,30 +485,27 @@ test.skipIf(!NORN)('archive freezes the project; unarchive restores it (MMR-121)
   expect(await runCli(['start', id], () => store, fakeIo(true))).toBe(0);
 });
 
-test.skipIf(!NORN)(
-  'archive hides the project from reads; projects --status archived reveals it (MMR-122, MMR-406)',
-  async () => {
-    const task = await createTask(store, { parentId: phaseId, title: 'x' });
-    const id = `MMR-${String(task.seq)}`;
-    await runCli(['archive', 'MMR'], () => store, fakeIo(true));
+test('archive hides the project from reads; projects --status archived reveals it (MMR-122, MMR-406)', async () => {
+  const task = await createTask(store, { parentId: phaseId, title: 'x' });
+  const id = `MMR-${String(task.seq)}`;
+  await runCli(['archive', 'MMR'], () => store, fakeIo(true));
 
-    // hidden from list and from direct get (project + node)
-    const list = fakeIo(true);
-    await runCli(['list', '-s', 'all', '--status', 'all', '-f', 'ids'], () => store, list);
-    expect(list.out.join('')).not.toContain(id);
-    expect(await runCli(['get', 'MMR'], () => store, fakeIo(true))).toBe(1);
-    expect(await runCli(['get', id], () => store, fakeIo(true))).toBe(1);
+  // hidden from list and from direct get (project + node)
+  const list = fakeIo(true);
+  await runCli(['list', '-s', 'all', '--status', 'all', '-f', 'ids'], () => store, list);
+  expect(list.out.join('')).not.toContain(id);
+  expect(await runCli(['get', 'MMR'], () => store, fakeIo(true))).toBe(1);
+  expect(await runCli(['get', id], () => store, fakeIo(true))).toBe(1);
 
-    // the projects verb lists the archived project on request
-    const door = fakeIo(true);
-    expect(await runCli(['projects', '--status', 'archived'], () => store, door)).toBe(0);
-    expect(door.out.join('')).toContain('MMR');
+  // the projects verb lists the archived project on request
+  const door = fakeIo(true);
+  expect(await runCli(['projects', '--status', 'archived'], () => store, door)).toBe(0);
+  expect(door.out.join('')).toContain('MMR');
 
-    // unarchive restores it
-    await runCli(['unarchive', 'MMR'], () => store, fakeIo(true));
-    expect(await runCli(['get', 'MMR'], () => store, fakeIo())).toBe(0);
-  },
-);
+  // unarchive restores it
+  await runCli(['unarchive', 'MMR'], () => store, fakeIo(true));
+  expect(await runCli(['get', 'MMR'], () => store, fakeIo())).toBe(0);
+});
 
 // --- projects: the flat project listing (MMR-406) ---
 
@@ -530,28 +519,22 @@ async function projectIds(args: string[], scope?: string): Promise<string[]> {
     .filter((line) => line !== '');
 }
 
-test.skipIf(!NORN)(
-  'projects lists active projects by default; --status archived and all open the shelf (MMR-406)',
-  async () => {
-    await createProject(store, { key: 'AAA', name: 'a' });
-    await runCli(['archive', 'AAA'], () => store, fakeIo(true));
+test('projects lists active projects by default; --status archived and all open the shelf (MMR-406)', async () => {
+  await createProject(store, { key: 'AAA', name: 'a' });
+  await runCli(['archive', 'AAA'], () => store, fakeIo(true));
 
-    expect(await projectIds([])).toEqual(['MMR']);
-    expect(await projectIds(['--status', 'active'])).toEqual(['MMR']);
-    expect(await projectIds(['--status', 'archived'])).toEqual(['AAA']);
-    expect(await projectIds(['--status', 'all'])).toEqual(['AAA', 'MMR']);
-  },
-);
+  expect(await projectIds([])).toEqual(['MMR']);
+  expect(await projectIds(['--status', 'active'])).toEqual(['MMR']);
+  expect(await projectIds(['--status', 'archived'])).toEqual(['AAA']);
+  expect(await projectIds(['--status', 'all'])).toEqual(['AAA', 'MMR']);
+});
 
-test.skipIf(!NORN)(
-  'projects ignores the bound scope — projects are the scope (MMR-406)',
-  async () => {
-    await createProject(store, { key: 'AAA', name: 'a' });
-    expect(await projectIds([], 'MMR')).toEqual(['AAA', 'MMR']);
-  },
-);
+test('projects ignores the bound scope — projects are the scope (MMR-406)', async () => {
+  await createProject(store, { key: 'AAA', name: 'a' });
+  expect(await projectIds([], 'MMR')).toEqual(['AAA', 'MMR']);
+});
 
-test.skipIf(!NORN)('projects -f json wraps the rows under a projects key (MMR-406)', async () => {
+test('projects -f json wraps the rows under a projects key (MMR-406)', async () => {
   const io = fakeIo();
   expect(await runCli(['projects', '-f', 'json'], () => store, io)).toBe(0);
   const parsed = parseJson<{ projects: { id: string }[]; total: number }>(io.out.join(''));
@@ -559,7 +542,7 @@ test.skipIf(!NORN)('projects -f json wraps the rows under a projects key (MMR-40
   expect(parsed.total).toBe(1);
 });
 
-test.skipIf(!NORN)('the projects table counts projects, not tasks (MMR-406)', async () => {
+test('the projects table counts projects, not tasks (MMR-406)', async () => {
   const io = fakeIo(true);
   expect(await runCli(['projects'], () => store, io)).toBe(0);
   const out = io.out.join('');
@@ -616,7 +599,7 @@ test('the unknown command project suggests projects (MMR-406)', async () => {
   expect(io.err.join('')).toContain("did you mean 'projects'?");
 });
 
-test.skipIf(!NORN)('archive warns about released cross-project dependents (MMR-124)', async () => {
+test('archive warns about released cross-project dependents (MMR-124)', async () => {
   const mmrTask = await createTask(store, { parentId: phaseId, title: 'prereq' });
   // A task in another project depends on the MMR task (a cross-project edge).
   await createProject(store, { key: 'AAA', name: 'a' });
@@ -642,18 +625,15 @@ test.skipIf(!NORN)('archive warns about released cross-project dependents (MMR-1
   expect(out).toContain(`AAA-${String(a1.seq)}`);
 });
 
-test.skipIf(!NORN)(
-  'archive --format json echoes the project with its archived_at (MMR-121)',
-  async () => {
-    const io = fakeIo();
-    expect(await runCli(['archive', 'MMR', '--format', 'json'], () => store, io)).toBe(0);
-    const parsed = parseJson<{ project: { key: string; archived_at: string | null } }>(
-      io.out.join(''),
-    );
-    expect(parsed.project.key).toBe('MMR');
-    expect(parsed.project.archived_at).not.toBeNull();
-  },
-);
+test('archive --format json echoes the project with its archived_at (MMR-121)', async () => {
+  const io = fakeIo();
+  expect(await runCli(['archive', 'MMR', '--format', 'json'], () => store, io)).toBe(0);
+  const parsed = parseJson<{ project: { key: string; archived_at: string | null } }>(
+    io.out.join(''),
+  );
+  expect(parsed.project.key).toBe('MMR');
+  expect(parsed.project.archived_at).not.toBeNull();
+});
 
 test('archive -h prints the archive command help, not the generic dump (MMR-121)', async () => {
   const io = fakeIo(true);
@@ -666,7 +646,7 @@ test('archive -h prints the archive command help, not the generic dump (MMR-121)
 // MMR-350 follow-up (ADR 0029): `--tz` is the caller's zone for both halves of
 // a query — the calendar day a bare date means AND the wall clock the styled
 // formats render. Filtering Tokyo days and printing EDT reads as a bug.
-test.skipIf(!NORN)('an explicit --tz renders the styled formats in that zone', async () => {
+test('an explicit --tz renders the styled formats in that zone', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 'x' });
   await completeTask(store, await nodeIdOf(store, `MMR-${String(t.seq)}`));
   const args = ['list', '-s', 'MMR', '--status', 'all', '-f', 'records'];
@@ -681,7 +661,7 @@ test.skipIf(!NORN)('an explicit --tz renders the styled formats in that zone', a
   expect(local.out.join('\n')).toMatch(/completed {2}\d{4}-\d{2}-\d{2} \d{2}:\d{2} E[SD]T/);
 });
 
-test.skipIf(!NORN)('next --format json lists ready tasks (count-led envelope)', async () => {
+test('next --format json lists ready tasks (count-led envelope)', async () => {
   await createTask(store, { parentId: phaseId, priority: 'p1', title: 'first' });
   const io = fakeIo();
   expect(await runCli(['next', '--scope', 'MMR', '--format', 'json'], () => store, io)).toBe(0);
@@ -690,37 +670,34 @@ test.skipIf(!NORN)('next --format json lists ready tasks (count-led envelope)', 
   expect(parsed.tasks[0]?.title).toBe('first');
 });
 
-test.skipIf(!NORN)(
-  'next default is the informative table view whether piped or TTY (MMR-87)',
-  async () => {
-    const t = await createTask(store, { parentId: phaseId, title: 'x' });
-    const id = `MMR-${String(t.seq)}`;
+test('next default is the informative table view whether piped or TTY (MMR-87)', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 'x' });
+  const id = `MMR-${String(t.seq)}`;
 
-    // Piped (non-TTY): the same informative table content, not a bare id.
-    const piped = fakeIo(false);
-    await runCli(['next', '--scope', 'MMR'], () => store, piped);
-    const pipedText = piped.out.join('');
-    expect(pipedText).toContain('1 task');
-    expect(pipedText).toContain(id);
-    expect(pipedText).toContain('ready');
-    expect(pipedText).not.toBe(id);
+  // Piped (non-TTY): the same informative table content, not a bare id.
+  const piped = fakeIo(false);
+  await runCli(['next', '--scope', 'MMR'], () => store, piped);
+  const pipedText = piped.out.join('');
+  expect(pipedText).toContain('1 task');
+  expect(pipedText).toContain(id);
+  expect(pipedText).toContain('ready');
+  expect(pipedText).not.toBe(id);
 
-    // TTY: identical information (decoration differs, content does not).
-    const tty = fakeIo(true);
-    await runCli(['next', '--scope', 'MMR'], () => store, tty);
-    const ttyText = tty.out.join('');
-    expect(ttyText).toContain('1 task');
-    expect(ttyText).toContain(id);
-    expect(ttyText).toContain('ready');
+  // TTY: identical information (decoration differs, content does not).
+  const tty = fakeIo(true);
+  await runCli(['next', '--scope', 'MMR'], () => store, tty);
+  const ttyText = tty.out.join('');
+  expect(ttyText).toContain('1 task');
+  expect(ttyText).toContain(id);
+  expect(ttyText).toContain('ready');
 
-    // Bare ids only on explicit -f ids (the composable pipeline opt-in).
-    const ids = fakeIo(false);
-    await runCli(['next', '--scope', 'MMR', '-f', 'ids'], () => store, ids);
-    expect(ids.out.join('')).toBe(id);
-  },
-);
+  // Bare ids only on explicit -f ids (the composable pipeline opt-in).
+  const ids = fakeIo(false);
+  await runCli(['next', '--scope', 'MMR', '-f', 'ids'], () => store, ids);
+  expect(ids.out.join('')).toBe(id);
+});
 
-test.skipIf(!NORN)('list piped default is the table view, not bare ids (MMR-87)', async () => {
+test('list piped default is the table view, not bare ids (MMR-87)', async () => {
   await createTask(store, { parentId: phaseId, title: 'alpha' });
   const piped = fakeIo(false);
   await runCli(['list', '--scope', 'MMR', '--status', 'ready'], () => store, piped);
@@ -730,7 +707,7 @@ test.skipIf(!NORN)('list piped default is the table view, not bare ids (MMR-87)'
   expect(text).toContain('MMR-');
 });
 
-test.skipIf(!NORN)('get returns a record; a missing id exits non-zero', async () => {
+test('get returns a record; a missing id exits non-zero', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 'deep' });
   const ok = fakeIo();
   expect(await runCli(['get', `MMR-${String(t.seq)}`, '--format', 'json'], () => store, ok)).toBe(
@@ -744,7 +721,7 @@ test.skipIf(!NORN)('get returns a record; a missing id exits non-zero', async ()
   expect(missing.out).toHaveLength(0);
 });
 
-test.skipIf(!NORN)('get piped default is the records view, not a bare id (MMR-87)', async () => {
+test('get piped default is the records view, not a bare id (MMR-87)', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 'deep' });
   const id = `MMR-${String(t.seq)}`;
 
@@ -763,7 +740,7 @@ test.skipIf(!NORN)('get piped default is the records view, not a bare id (MMR-87
   expect(ids.out.join('')).toBe(id);
 });
 
-test.skipIf(!NORN)('status reports the rollup of a non-leaf', async () => {
+test('status reports the rollup of a non-leaf', async () => {
   await createTask(store, { parentId: phaseId, title: 't1' });
   const io = fakeIo();
   expect(
@@ -773,25 +750,25 @@ test.skipIf(!NORN)('status reports the rollup of a non-leaf', async () => {
   expect(parsed.status).toBe('ready');
 });
 
-test.skipIf(!NORN)('an invalid flag value is a usage error → exit 2', async () => {
+test('an invalid flag value is a usage error → exit 2', async () => {
   const io = fakeIo();
   expect(await runCli(['next', '--priority', 'p9'], () => store, io)).toBe(2);
   expect(io.err.join('')).toContain('invalid priority');
 });
 
-test.skipIf(!NORN)('list --status selects the matching universe', async () => {
+test('list --status selects the matching universe', async () => {
   await createTask(store, { parentId: phaseId, title: 'a' });
   const io = fakeIo();
   await runCli(['list', '--scope', 'MMR', '--status', 'ready', '--format', 'ids'], () => store, io);
   expect(io.out.join('')).toContain('MMR-');
 });
 
-test.skipIf(!NORN)('--predicate is gone — unknown flag is a usage error', async () => {
+test('--predicate is gone — unknown flag is a usage error', async () => {
   const io = fakeIo();
   expect(await runCli(['list', '--predicate', 'ready'], () => store, io)).toBe(2);
 });
 
-test.skipIf(!NORN)('a bad --format value is a usage error → exit 2', async () => {
+test('a bad --format value is a usage error → exit 2', async () => {
   const io = fakeIo(false);
   expect(await runCli(['next', '-f', 'bogus'], () => store, io)).toBe(2);
   expect(io.out).toHaveLength(0);
@@ -839,7 +816,7 @@ test('exitCodeFor returns 1 for MimirError and 2 for UsageError', () => {
 
 // addressability (MMR-32): the full id grammar at the CLI surface
 
-test.skipIf(!NORN)('get on a bare KEY renders the whole-project view', async () => {
+test('get on a bare KEY renders the whole-project view', async () => {
   const io = fakeIo(false);
   expect(await runCli(['get', 'MMR', '-f', 'json'], () => store, io)).toBe(0);
   const parsed = parseJson<{ id: string; type: string }>(io.out.join(''));
@@ -847,17 +824,14 @@ test.skipIf(!NORN)('get on a bare KEY renders the whole-project view', async () 
   expect(parsed.type).toBe('project');
 });
 
-test.skipIf(!NORN)(
-  'a task verb on a project KEY is a behavioral error (validation → exit 1)',
-  async () => {
-    const io = fakeIo(false);
-    expect(await runCli(['done', 'MMR'], () => store, io)).toBe(1);
-    expect(io.err.join('')).toContain('MMR is a project, not a task');
-    expect(io.out).toHaveLength(0);
-  },
-);
+test('a task verb on a project KEY is a behavioral error (validation → exit 1)', async () => {
+  const io = fakeIo(false);
+  expect(await runCli(['done', 'MMR'], () => store, io)).toBe(1);
+  expect(io.err.join('')).toContain('MMR is a project, not a task');
+  expect(io.out).toHaveLength(0);
+});
 
-test.skipIf(!NORN)('attach echoes KEY-aN and get reads the artifact back', async () => {
+test('attach echoes KEY-aN and get reads the artifact back', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
   const tmp = `${process.env.TMPDIR ?? '/tmp'}/mimir-aid.md`;
   await Bun.write(tmp, '# body\n');
@@ -880,7 +854,7 @@ test.skipIf(!NORN)('attach echoes KEY-aN and get reads the artifact back', async
   expect(parsed.links).toEqual([`MMR-${String(t.seq)}`]);
 });
 
-test.skipIf(!NORN)('a task verb on an artifact id is a behavioral error', async () => {
+test('a task verb on an artifact id is a behavioral error', async () => {
   const io = fakeIo(false);
   expect(await runCli(['start', 'MMR-a1'], () => store, io)).toBe(1);
   expect(io.err.join('')).toContain('MMR-a1 is an artifact, not a task');
@@ -888,7 +862,7 @@ test.skipIf(!NORN)('a task verb on an artifact id is a behavioral error', async 
 
 // tag write surface (MMR-31)
 
-test.skipIf(!NORN)('tag and untag round-trip through the CLI', async () => {
+test('tag and untag round-trip through the CLI', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
   const ref = `MMR-${String(t.seq)}`;
   const io = fakeIo(false);
@@ -910,13 +884,13 @@ test.skipIf(!NORN)('tag and untag round-trip through the CLI', async () => {
   expect(after.tags.map((x) => x.tag)).toEqual(['spec']);
 });
 
-test.skipIf(!NORN)('tag without tags is a usage error', async () => {
+test('tag without tags is a usage error', async () => {
   const io = fakeIo(false);
   expect(await runCli(['tag', 'MMR-1'], () => store, io)).toBe(2);
   expect(io.err.join('')).toContain('at least one tag');
 });
 
-test.skipIf(!NORN)('create task --tag applies creation-time tags', async () => {
+test('create task --tag applies creation-time tags', async () => {
   const io = fakeIo(false);
   const code = await runCli(
     [
@@ -945,7 +919,7 @@ test.skipIf(!NORN)('create task --tag applies creation-time tags', async () => {
 
 // query surface v2 (MMR-33)
 
-test.skipIf(!NORN)('list and next filter by case-insensitive title substring', async () => {
+test('list and next filter by case-insensitive title substring', async () => {
   await createTask(store, { parentId: phaseId, title: 'Ship Vault Search' });
   await createTask(store, { parentId: phaseId, title: 'Unrelated Work' });
 
@@ -957,7 +931,7 @@ test.skipIf(!NORN)('list and next filter by case-insensitive title substring', a
   }
 });
 
-test.skipIf(!NORN)('a value miss warns on stderr and exits 0 with an empty set', async () => {
+test('a value miss warns on stderr and exits 0 with an empty set', async () => {
   await createTask(store, { parentId: phaseId, priority: 'p1', title: 'a' });
   const io = fakeIo(true);
   const code = await runCli(
@@ -971,7 +945,7 @@ test.skipIf(!NORN)('a value miss warns on stderr and exits 0 with an empty set',
   expect(io.err.join('\n')).toContain('expected p0, p1, p2, p3');
 });
 
-test.skipIf(!NORN)('a value miss in json format emits the warning envelope on stderr', async () => {
+test('a value miss in json format emits the warning envelope on stderr', async () => {
   const io = fakeIo(false);
   const code = await runCli(['list', '--eq', 'priority:p9', '-f', 'json'], () => store, io);
   expect(code).toBe(0);
@@ -985,18 +959,18 @@ test.skipIf(!NORN)('a value miss in json format emits the warning envelope on st
   expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(0);
 });
 
-test.skipIf(!NORN)('an unknown field is a usage error (exit 2)', async () => {
+test('an unknown field is a usage error (exit 2)', async () => {
   const io = fakeIo(false);
   expect(await runCli(['list', '--eq', 'bogus:x'], () => store, io)).toBe(2);
   expect(io.err.join('')).toContain('unknown field bogus');
 });
 
-test.skipIf(!NORN)('a date op on a non-date field is a usage error (exit 2)', async () => {
+test('a date op on a non-date field is a usage error (exit 2)', async () => {
   const io = fakeIo(false);
   expect(await runCli(['list', '--before', 'priority:p1'], () => store, io)).toBe(2);
 });
 
-test.skipIf(!NORN)('--is/--not-is select verdicts; --status picks the universe', async () => {
+test('--is/--not-is select verdicts; --status picks the universe', async () => {
   const a = await createTask(store, { parentId: phaseId, title: 'a' });
   const b = await createTask(store, { parentId: phaseId, title: 'b' });
   const aRef = `MMR-${String(a.seq)}`;
@@ -1017,7 +991,7 @@ test.skipIf(!NORN)('--is/--not-is select verdicts; --status picks the universe',
   expect(terminal.out.join('')).toBe(aRef);
 });
 
-test.skipIf(!NORN)('depend --on still works as a write flag alongside the date op', async () => {
+test('depend --on still works as a write flag alongside the date op', async () => {
   const a = await createTask(store, { parentId: phaseId, title: 'a' });
   const b = await createTask(store, { parentId: phaseId, title: 'b' });
   const io = fakeIo(false);
@@ -1032,38 +1006,35 @@ test.skipIf(!NORN)('depend --on still works as a write flag alongside the date o
 
 // artifact title + readback (MMR-34)
 
-test.skipIf(!NORN)(
-  'attach defaults title from the file basename; --title overrides; --tag classifies',
-  async () => {
-    const t = await createTask(store, { parentId: phaseId, title: 't' });
-    const ref = `MMR-${String(t.seq)}`;
-    const tmp = `${process.env.TMPDIR ?? '/tmp'}/dogfood-plan.md`;
-    await Bun.write(tmp, '# body\n');
+test('attach defaults title from the file basename; --title overrides; --tag classifies', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const ref = `MMR-${String(t.seq)}`;
+  const tmp = `${process.env.TMPDIR ?? '/tmp'}/dogfood-plan.md`;
+  await Bun.write(tmp, '# body\n');
 
-    const io = fakeIo(false);
-    await runCli(['attach', ref, '--file', tmp, '--tag', 'spec'], () => store, io);
-    const read = fakeIo(false);
-    await runCli(['get', 'MMR-a1', '-f', 'json'], () => store, read);
-    const detail = parseJson<{ title: string; tags: string[] }>(read.out.join(''));
-    expect(detail.title).toBe('dogfood-plan.md');
-    expect(detail.tags).toEqual(['spec']);
+  const io = fakeIo(false);
+  await runCli(['attach', ref, '--file', tmp, '--tag', 'spec'], () => store, io);
+  const read = fakeIo(false);
+  await runCli(['get', 'MMR-a1', '-f', 'json'], () => store, read);
+  const detail = parseJson<{ title: string; tags: string[] }>(read.out.join(''));
+  expect(detail.title).toBe('dogfood-plan.md');
+  expect(detail.tags).toEqual(['spec']);
 
-    const io2 = fakeIo(false);
-    await runCli(['attach', ref, '--file', tmp, '--title', 'the plan'], () => store, io2);
-    const read2 = fakeIo(false);
-    await runCli(['get', 'MMR-a2', '-f', 'json'], () => store, read2);
-    expect(parseJson<{ title: string }>(read2.out.join('')).title).toBe('the plan');
-  },
-);
+  const io2 = fakeIo(false);
+  await runCli(['attach', ref, '--file', tmp, '--title', 'the plan'], () => store, io2);
+  const read2 = fakeIo(false);
+  await runCli(['get', 'MMR-a2', '-f', 'json'], () => store, read2);
+  expect(parseJson<{ title: string }>(read2.out.join('')).title).toBe('the plan');
+});
 
-test.skipIf(!NORN)('attach from stdin without --title is a usage error', async () => {
+test('attach from stdin without --title is a usage error', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
   const io = fakeIo(true); // TTY → no stdin content either, but flag check comes after content
   const code = await runCli(['attach', `MMR-${String(t.seq)}`], () => store, io);
   expect(code).toBe(2);
 });
 
-test.skipIf(!NORN)('get KEY-aN --col content returns the frozen body', async () => {
+test('get KEY-aN --col content returns the frozen body', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
   const tmp = `${process.env.TMPDIR ?? '/tmp'}/body.md`;
   await Bun.write(tmp, '# the frozen body\n');
@@ -1076,14 +1047,14 @@ test.skipIf(!NORN)('get KEY-aN --col content returns the frozen body', async () 
   const withContent = fakeIo(false);
   await runCli(['get', 'MMR-a1', '--col', 'content', '-f', 'json'], () => store, withContent);
   const parsed = parseJson<{ content: string }>(withContent.out.join(''));
-  // The Norn artifact store strips exactly one trailing newline on read
-  // (core/store-norn/artifacts.ts) — a documented, intentional round-trip delta.
+  // The artifact store keeps content without its trailing newline
+  // (core/store-sql/artifacts.ts) — the seam's read-back form.
   expect(parsed.content).toBe('# the frozen body');
 });
 
 // create project positional name (MMR-35)
 
-test.skipIf(!NORN)('create project accepts a positional name', async () => {
+test('create project accepts a positional name', async () => {
   const io = fakeIo(false);
   const code = await runCli(
     ['create', 'project', 'Other Tool', '--key', 'OTH', '-y', '-f', 'json'],
@@ -1094,7 +1065,7 @@ test.skipIf(!NORN)('create project accepts a positional name', async () => {
   expect(JSON.parse(io.out.join(''))).toEqual({ project: { key: 'OTH', name: 'Other Tool' } });
 });
 
-test.skipIf(!NORN)('create project still accepts --name and errors without either', async () => {
+test('create project still accepts --name and errors without either', async () => {
   const io = fakeIo(false);
   expect(
     await runCli(['create', 'project', '--key', 'FLG', '--name', 'Flagged', '-y'], () => store, io),
@@ -1120,7 +1091,7 @@ test('self-update --tag requires a value (usage error, exit 2)', async () => {
   expect(code).toBe(2);
 });
 
-test.skipIf(!NORN)('--col takes flat column names; the dot form is a usage error', async () => {
+test('--col takes flat column names; the dot form is a usage error', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
   const ref = `MMR-${String(t.seq)}`;
   const io = fakeIo(false);
@@ -1137,7 +1108,7 @@ test.skipIf(!NORN)('--col takes flat column names; the dot form is a usage error
   expect(unknown.err.join('')).toContain('unknown column: bogus');
 });
 
-test.skipIf(!NORN)('--col accepts a comma-separated list, not just repeats (MMR-212)', async () => {
+test('--col accepts a comma-separated list, not just repeats (MMR-212)', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
   const ref = `MMR-${String(t.seq)}`;
   const io = fakeIo(false);
@@ -1147,41 +1118,35 @@ test.skipIf(!NORN)('--col accepts a comma-separated list, not just repeats (MMR-
   expect(Array.isArray(view.annotations)).toBe(true);
 });
 
-test.skipIf(!NORN)(
-  '--col naming a base column hints that it is always shown, not an addable column (MMR-212)',
-  async () => {
-    const t = await createTask(store, { parentId: phaseId, title: 't' });
-    const ref = `MMR-${String(t.seq)}`;
-    const io = fakeIo(false);
-    // the 21-occurrence miss: `--col id,type,status` treats --col as a projection
-    expect(await runCli(['get', ref, '--col', 'id,type,status'], () => store, io)).toBe(2);
-    const err = io.err.join('');
-    expect(err).toContain('always shown');
-    expect(err).not.toContain('unknown column'); // the tailored hint, not the generic one
-  },
-);
+test('--col naming a base column hints that it is always shown, not an addable column (MMR-212)', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const ref = `MMR-${String(t.seq)}`;
+  const io = fakeIo(false);
+  // the 21-occurrence miss: `--col id,type,status` treats --col as a projection
+  expect(await runCli(['get', ref, '--col', 'id,type,status'], () => store, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain('always shown');
+  expect(err).not.toContain('unknown column'); // the tailored hint, not the generic one
+});
 
 // annotation-body expansion (MMR-361): the default `get` stays the compact
 // count; `--col annotations` expands every entry, styled formats only —
 // machine formats already carry the full structured array, unchanged.
 
-test.skipIf(!NORN)(
-  'get: zero annotations — no --col annotations row, count or expanded',
-  async () => {
-    const t = await createTask(store, { parentId: phaseId, title: 't' });
-    const ref = `MMR-${String(t.seq)}`;
+test('get: zero annotations — no --col annotations row, count or expanded', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const ref = `MMR-${String(t.seq)}`;
 
-    const bare = fakeIo(false);
-    await runCli(['get', ref], () => store, bare);
-    expect(bare.out.join('')).not.toContain('annotations');
+  const bare = fakeIo(false);
+  await runCli(['get', ref], () => store, bare);
+  expect(bare.out.join('')).not.toContain('annotations');
 
-    const expanded = fakeIo(false);
-    await runCli(['get', ref, '--col', 'annotations'], () => store, expanded);
-    expect(expanded.out.join('')).not.toContain('annotations');
-  },
-);
+  const expanded = fakeIo(false);
+  await runCli(['get', ref, '--col', 'annotations'], () => store, expanded);
+  expect(expanded.out.join('')).not.toContain('annotations');
+});
 
-test.skipIf(!NORN)('get: default records shows the compact count, never the body', async () => {
+test('get: default records shows the compact count, never the body', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
   const ref = `MMR-${String(t.seq)}`;
   const id = await nodeIdOf(store, ref);
@@ -1194,118 +1159,101 @@ test.skipIf(!NORN)('get: default records shows the compact count, never the body
   expect(text).not.toContain('spun the edge case out');
 });
 
-test.skipIf(!NORN)(
-  'get --col annotations: one annotation expands with its timestamp and content',
-  async () => {
-    const t = await createTask(store, { parentId: phaseId, title: 't' });
-    const ref = `MMR-${String(t.seq)}`;
-    const id = await nodeIdOf(store, ref);
-    await annotate(store, id, 'solo note');
+test('get --col annotations: one annotation expands with its timestamp and content', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const ref = `MMR-${String(t.seq)}`;
+  const id = await nodeIdOf(store, ref);
+  await annotate(store, id, 'solo note');
 
-    const io = fakeIo(false);
-    await runCli(['get', ref, '--col', 'annotations'], () => store, io);
-    const text = io.out.join('');
-    expect(text).toContain('solo note');
-    // A timestamp accompanies the body — not just the bare content.
-    expect(text).toMatch(/annotations\s+\d{4}-\d{2}-\d{2}/);
-  },
-);
+  const io = fakeIo(false);
+  await runCli(['get', ref, '--col', 'annotations'], () => store, io);
+  const text = io.out.join('');
+  expect(text).toContain('solo note');
+  // A timestamp accompanies the body — not just the bare content.
+  expect(text).toMatch(/annotations\s+\d{4}-\d{2}-\d{2}/);
+});
 
-test.skipIf(!NORN)(
-  'get --col annotations: multiple annotations expand in stable chronological order',
-  async () => {
-    const t = await createTask(store, { parentId: phaseId, title: 't' });
-    const ref = `MMR-${String(t.seq)}`;
-    const id = await nodeIdOf(store, ref);
-    await annotate(store, id, 'first note');
-    await annotate(store, id, 'second note');
-    await annotate(store, id, 'third note');
+test('get --col annotations: multiple annotations expand in stable chronological order', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const ref = `MMR-${String(t.seq)}`;
+  const id = await nodeIdOf(store, ref);
+  await annotate(store, id, 'first note');
+  await annotate(store, id, 'second note');
+  await annotate(store, id, 'third note');
 
-    const io = fakeIo(false);
-    await runCli(['get', ref, '--col', 'annotations'], () => store, io);
-    const text = io.out.join('');
-    // Each entry is its own line (MMR-361 blocker fix), so ordering is
-    // asserted across the whole record, not within a single joined line.
-    const firstAt = text.indexOf('first note');
-    const secondAt = text.indexOf('second note');
-    const thirdAt = text.indexOf('third note');
-    expect(firstAt).toBeGreaterThan(-1);
-    expect(firstAt).toBeLessThan(secondAt);
-    expect(secondAt).toBeLessThan(thirdAt);
-  },
-);
+  const io = fakeIo(false);
+  await runCli(['get', ref, '--col', 'annotations'], () => store, io);
+  const text = io.out.join('');
+  // Each entry is its own line (MMR-361 blocker fix), so ordering is
+  // asserted across the whole record, not within a single joined line.
+  const firstAt = text.indexOf('first note');
+  const secondAt = text.indexOf('second note');
+  const thirdAt = text.indexOf('third note');
+  expect(firstAt).toBeGreaterThan(-1);
+  expect(firstAt).toBeLessThan(secondAt);
+  expect(secondAt).toBeLessThan(thirdAt);
+});
 
-test.skipIf(!NORN)(
-  'get --col annotations: a body containing "; " is not mistaken for an entry boundary',
-  async () => {
-    const t = await createTask(store, { parentId: phaseId, title: 't' });
-    const ref = `MMR-${String(t.seq)}`;
-    const id = await nodeIdOf(store, ref);
-    await annotate(store, id, 'Realized the parser must be rewritten; filed MMR-12.');
-    await annotate(store, id, 'second note');
+test('get --col annotations: a body containing "; " is not mistaken for an entry boundary', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const ref = `MMR-${String(t.seq)}`;
+  const id = await nodeIdOf(store, ref);
+  await annotate(store, id, 'Realized the parser must be rewritten; filed MMR-12.');
+  await annotate(store, id, 'second note');
 
-    const io = fakeIo(false);
-    await runCli(['get', ref, '--col', 'annotations'], () => store, io);
-    const text = io.out.join('');
-    // The whole body — semicolon included — survives verbatim.
-    expect(text).toContain('Realized the parser must be rewritten; filed MMR-12.');
-    const firstAt = text.indexOf('Realized the parser must be rewritten');
-    const secondAt = text.indexOf('second note');
-    expect(firstAt).toBeGreaterThan(-1);
-    expect(firstAt).toBeLessThan(secondAt);
-  },
-);
+  const io = fakeIo(false);
+  await runCli(['get', ref, '--col', 'annotations'], () => store, io);
+  const text = io.out.join('');
+  // The whole body — semicolon included — survives verbatim.
+  expect(text).toContain('Realized the parser must be rewritten; filed MMR-12.');
+  const firstAt = text.indexOf('Realized the parser must be rewritten');
+  const secondAt = text.indexOf('second note');
+  expect(firstAt).toBeGreaterThan(-1);
+  expect(firstAt).toBeLessThan(secondAt);
+});
 
-test.skipIf(!NORN)(
-  'get --col annotations: a multi-line body indents continuation lines instead of breaking the record',
-  async () => {
-    const t = await createTask(store, { parentId: phaseId, title: 't' });
-    const ref = `MMR-${String(t.seq)}`;
-    const id = await nodeIdOf(store, ref);
-    await annotate(store, id, 'Summary line.\n\nMore detail in a second paragraph.');
-    await annotate(store, id, 'second note');
+test('get --col annotations: a multi-line body indents continuation lines instead of breaking the record', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const ref = `MMR-${String(t.seq)}`;
+  const id = await nodeIdOf(store, ref);
+  await annotate(store, id, 'Summary line.\n\nMore detail in a second paragraph.');
+  await annotate(store, id, 'second note');
 
-    const io = fakeIo(false);
-    await runCli(['get', ref, '--col', 'annotations'], () => store, io);
-    const text = io.out.join('');
-    const lines = text.split('\n');
-    const summaryIdx = lines.findIndex((l) => l.includes('Summary line.'));
-    const continuationIdx = lines.findIndex((l) =>
-      l.includes('More detail in a second paragraph.'),
-    );
-    const secondIdx = lines.findIndex((l) => l.includes('second note'));
-    expect(summaryIdx).toBeGreaterThan(-1);
-    expect(continuationIdx).toBeGreaterThan(summaryIdx);
-    expect(secondIdx).toBeGreaterThan(continuationIdx);
-    // The continuation line carries no timestamp — it isn't a new entry —
-    // and the second annotation's own timestamp starts its own line.
-    expect(lines[continuationIdx]).not.toMatch(/\d{4}-\d{2}-\d{2}/);
-    expect(lines[secondIdx]).toMatch(/\d{4}-\d{2}-\d{2}.*second note/);
-  },
-);
+  const io = fakeIo(false);
+  await runCli(['get', ref, '--col', 'annotations'], () => store, io);
+  const text = io.out.join('');
+  const lines = text.split('\n');
+  const summaryIdx = lines.findIndex((l) => l.includes('Summary line.'));
+  const continuationIdx = lines.findIndex((l) => l.includes('More detail in a second paragraph.'));
+  const secondIdx = lines.findIndex((l) => l.includes('second note'));
+  expect(summaryIdx).toBeGreaterThan(-1);
+  expect(continuationIdx).toBeGreaterThan(summaryIdx);
+  expect(secondIdx).toBeGreaterThan(continuationIdx);
+  // The continuation line carries no timestamp — it isn't a new entry —
+  // and the second annotation's own timestamp starts its own line.
+  expect(lines[continuationIdx]).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+  expect(lines[secondIdx]).toMatch(/\d{4}-\d{2}-\d{2}.*second note/);
+});
 
-test.skipIf(!NORN)(
-  '--col annotations leaves json/jsonl/ids byte-for-byte unchanged (MMR-361)',
-  async () => {
-    const t = await createTask(store, { parentId: phaseId, title: 't' });
-    const ref = `MMR-${String(t.seq)}`;
-    const id = await nodeIdOf(store, ref);
-    await annotate(store, id, 'a machine-format note');
+test('--col annotations leaves json/jsonl/ids byte-for-byte unchanged (MMR-361)', async () => {
+  const t = await createTask(store, { parentId: phaseId, title: 't' });
+  const ref = `MMR-${String(t.seq)}`;
+  const id = await nodeIdOf(store, ref);
+  await annotate(store, id, 'a machine-format note');
 
-    for (const format of ['json', 'jsonl', 'ids'] as const) {
-      const withCol = fakeIo(false);
-      await runCli(['get', ref, '--col', 'annotations', '-f', format], () => store, withCol);
-      const bare = fakeIo(false);
-      await runCli(['get', ref, '-f', format], () => store, bare);
-      expect(withCol.out.join('')).toBe(bare.out.join(''));
-    }
-  },
-);
+  for (const format of ['json', 'jsonl', 'ids'] as const) {
+    const withCol = fakeIo(false);
+    await runCli(['get', ref, '--col', 'annotations', '-f', format], () => store, withCol);
+    const bare = fakeIo(false);
+    await runCli(['get', ref, '-f', format], () => store, bare);
+    expect(withCol.out.join('')).toBe(bare.out.join(''));
+  }
+});
 
 // --type removal (MMR-94)
 
-test.skipIf(!NORN)('list --eq type:phase filters to phases only', async () => {
-  // The vault has one phase (phaseId) and a task; ensure --eq type:phase returns phase but not tasks.
+test('list --eq type:phase filters to phases only', async () => {
+  // The store has one phase (phaseId) and a task; ensure --eq type:phase returns phase but not tasks.
   const t = await createTask(store, { parentId: phaseId, title: 'a task' });
   const io = fakeIo(false);
   const code = await runCli(
@@ -1322,7 +1270,7 @@ test.skipIf(!NORN)('list --eq type:phase filters to phases only', async () => {
 
 // --where/upstream parity (MMR-265)
 
-test.skipIf(!NORN)('list --eq upstream:KEY-sN filters at parity with external_ref', async () => {
+test('list --eq upstream:KEY-sN filters at parity with external_ref', async () => {
   const a = await createTask(store, { parentId: phaseId, title: 'a', upstream: 'MMR-s6' });
   await createTask(store, { parentId: phaseId, title: 'b' });
   const io = fakeIo(false);
@@ -1335,7 +1283,7 @@ test.skipIf(!NORN)('list --eq upstream:KEY-sN filters at parity with external_re
   expect(io.out.join('').trim()).toBe(`MMR-${String(a.seq)}`);
 });
 
-test.skipIf(!NORN)('list --eq upstream:KEY-sN with no match returns an empty set', async () => {
+test('list --eq upstream:KEY-sN with no match returns an empty set', async () => {
   await createTask(store, { parentId: phaseId, title: 'a', upstream: 'MMR-s6' });
   const io = fakeIo(false);
   const code = await runCli(
@@ -1347,7 +1295,7 @@ test.skipIf(!NORN)('list --eq upstream:KEY-sN with no match returns an empty set
   expect(io.out.join('').trim()).toBe('');
 });
 
-test.skipIf(!NORN)('--type is now an unknown option → rejected with exit 2 (MMR-94)', async () => {
+test('--type is now an unknown option → rejected with exit 2 (MMR-94)', async () => {
   const io = fakeIo(false);
   const code = await runCli(['list', '--type', 'phase'], () => store, io);
   expect(code).toBe(2);
@@ -1355,7 +1303,7 @@ test.skipIf(!NORN)('--type is now an unknown option → rejected with exit 2 (MM
 
 // MMR-95: empty set views print a clear no-results line on a TTY
 
-test.skipIf(!NORN)('next empty on a TTY prints a no-results line (MMR-95)', async () => {
+test('next empty on a TTY prints a no-results line (MMR-95)', async () => {
   const io = fakeIo(true);
   const code = await runCli(['next', '--scope', 'MMR'], () => store, io);
   expect(code).toBe(0);
@@ -1363,56 +1311,44 @@ test.skipIf(!NORN)('next empty on a TTY prints a no-results line (MMR-95)', asyn
   expect(text).toMatch(/No ready tasks/i);
 });
 
-test.skipIf(!NORN)(
-  'next empty on a non-TTY (piped) omits the no-results line (MMR-95)',
-  async () => {
-    const io = fakeIo(false);
-    const code = await runCli(['next', '--scope', 'MMR'], () => store, io);
-    expect(code).toBe(0);
-    const text = io.out.join('');
-    // No human message — piped output is structural only
-    expect(text).not.toMatch(/No ready tasks/i);
-    expect(text).not.toMatch(/No tasks/i);
-  },
-);
+test('next empty on a non-TTY (piped) omits the no-results line (MMR-95)', async () => {
+  const io = fakeIo(false);
+  const code = await runCli(['next', '--scope', 'MMR'], () => store, io);
+  expect(code).toBe(0);
+  const text = io.out.join('');
+  // No human message — piped output is structural only
+  expect(text).not.toMatch(/No ready tasks/i);
+  expect(text).not.toMatch(/No tasks/i);
+});
 
-test.skipIf(!NORN)(
-  'list empty --status blocked on a TTY prints a no-results line (MMR-95)',
-  async () => {
-    const io = fakeIo(true);
-    const code = await runCli(['list', '--scope', 'MMR', '--status', 'blocked'], () => store, io);
-    expect(code).toBe(0);
-    const text = io.out.join('');
-    expect(text).toMatch(/No tasks/i);
-  },
-);
+test('list empty --status blocked on a TTY prints a no-results line (MMR-95)', async () => {
+  const io = fakeIo(true);
+  const code = await runCli(['list', '--scope', 'MMR', '--status', 'blocked'], () => store, io);
+  expect(code).toBe(0);
+  const text = io.out.join('');
+  expect(text).toMatch(/No tasks/i);
+});
 
-test.skipIf(!NORN)(
-  'next empty -f json produces unchanged structured output — no message leak (MMR-95)',
-  async () => {
-    const io = fakeIo(true);
-    const code = await runCli(['next', '--scope', 'MMR', '-f', 'json'], () => store, io);
-    expect(code).toBe(0);
-    const parsed = parseJson<{ total: number; returned: number }>(io.out.join(''));
-    expect(parsed.total).toBe(0);
-    expect(parsed.returned).toBe(0);
-    // No message text in the JSON output
-    expect(io.out.join('')).not.toContain('No');
-  },
-);
+test('next empty -f json produces unchanged structured output — no message leak (MMR-95)', async () => {
+  const io = fakeIo(true);
+  const code = await runCli(['next', '--scope', 'MMR', '-f', 'json'], () => store, io);
+  expect(code).toBe(0);
+  const parsed = parseJson<{ total: number; returned: number }>(io.out.join(''));
+  expect(parsed.total).toBe(0);
+  expect(parsed.returned).toBe(0);
+  // No message text in the JSON output
+  expect(io.out.join('')).not.toContain('No');
+});
 
-test.skipIf(!NORN)(
-  'next empty -f ids produces empty output — no message leak (MMR-95)',
-  async () => {
-    const io = fakeIo(true);
-    const code = await runCli(['next', '--scope', 'MMR', '-f', 'ids'], () => store, io);
-    expect(code).toBe(0);
-    // ids format on empty should be empty string (no message leak)
-    expect(io.out.join('')).toBe('');
-  },
-);
+test('next empty -f ids produces empty output — no message leak (MMR-95)', async () => {
+  const io = fakeIo(true);
+  const code = await runCli(['next', '--scope', 'MMR', '-f', 'ids'], () => store, io);
+  expect(code).toBe(0);
+  // ids format on empty should be empty string (no message leak)
+  expect(io.out.join('')).toBe('');
+});
 
-test.skipIf(!NORN)('next empty -f records on a TTY prints a no-results line (MMR-95)', async () => {
+test('next empty -f records on a TTY prints a no-results line (MMR-95)', async () => {
   const io = fakeIo(true);
   const code = await runCli(['next', '--scope', 'MMR', '-f', 'records'], () => store, io);
   expect(code).toBe(0);
@@ -1424,7 +1360,7 @@ test.skipIf(!NORN)('next empty -f records on a TTY prints a no-results line (MMR
 // tolerant reader's own drop tally for the load `next`/`list` already perform,
 // never a fresh `mimir doctor` pass.
 
-describe.skipIf(!NORN)('doctor issue-count trailer on next/list (MMR-184)', () => {
+describe('doctor issue-count trailer on next/list (MMR-184)', () => {
   let fixture: TestStore;
 
   beforeEach(async () => {
@@ -1435,19 +1371,6 @@ describe.skipIf(!NORN)('doctor issue-count trailer on next/list (MMR-184)', () =
     await fixture.close();
   });
 
-  /** One project, one ready task, and one dangling `parent` ref (a phase
-   * pointing at a nonexistent node) — the tolerant reader floats the phase to
-   * root and records exactly one drop, without losing the task underneath it. */
-  async function seedOneDrop(): Promise<void> {
-    await createProject(fixture.store, { key: 'MMR', name: 'm' });
-    const init = await createInitiative(fixture.store, { projectId: 'MMR', title: 'i' });
-    const phase = await createPhase(fixture.store, { parentId: init.id, title: 'ph' });
-    await createTask(fixture.store, { parentId: phase.id, title: 't' });
-    fixture.corruptDocument(`MMR/${phase.id}.md`, (raw) =>
-      raw.replace(/^parent:.*$/m, 'parent: "[[MMR-999]]"'),
-    );
-  }
-
   async function seedClean(): Promise<void> {
     await createProject(fixture.store, { key: 'MMR', name: 'm' });
     const init = await createInitiative(fixture.store, { projectId: 'MMR', title: 'i' });
@@ -1455,25 +1378,7 @@ describe.skipIf(!NORN)('doctor issue-count trailer on next/list (MMR-184)', () =
     await createTask(fixture.store, { parentId: phase.id, title: 't' });
   }
 
-  test('next prints the trailer on stderr (not stdout) when the load drops a record', async () => {
-    await seedOneDrop();
-    const io = fakeIo(true);
-    const code = await runCli(['next', '--scope', 'MMR'], () => fixture.store, io);
-    expect(code).toBe(0);
-    expect(io.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
-    expect(io.out.join('')).not.toContain('issue');
-  });
-
-  test('list prints the trailer on stderr (not stdout) when the load drops a record', async () => {
-    await seedOneDrop();
-    const io = fakeIo(true);
-    const code = await runCli(['list', '--scope', 'MMR'], () => fixture.store, io);
-    expect(code).toBe(0);
-    expect(io.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
-    expect(io.out.join('')).not.toContain('issue');
-  });
-
-  test('a clean vault shows no trailer on next or list', async () => {
+  test('a clean store shows no trailer on next or list', async () => {
     await seedClean();
 
     const nextIo = fakeIo(true);
@@ -1484,79 +1389,12 @@ describe.skipIf(!NORN)('doctor issue-count trailer on next/list (MMR-184)', () =
     expect(await runCli(['list', '--scope', 'MMR'], () => fixture.store, listIo)).toBe(0);
     expect(listIo.err.join('')).toBe('');
   });
-
-  test('the ids format keeps the prose trailer on stderr while stdout stays clean', async () => {
-    await seedOneDrop();
-    const io = fakeIo(true);
-    const code = await runCli(['list', '--scope', 'MMR', '-f', 'ids'], () => fixture.store, io);
-    expect(code).toBe(0);
-    expect(io.out.join('')).not.toContain('issue');
-    expect(io.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
-  });
-
-  test('json/jsonl formats emit a JSON-shaped trailer line on stderr, mirroring the warning envelope', async () => {
-    await seedOneDrop();
-    for (const format of ['json', 'jsonl'] as const) {
-      const io = fakeIo(true);
-      const code = await runCli(['list', '--scope', 'MMR', '-f', format], () => fixture.store, io);
-      expect(code).toBe(0);
-      expect(io.out.join('')).not.toContain('issue');
-      const trailer = parseJson<{ warning: string; issueCount: number }>(io.err.join(''));
-      expect(trailer.warning).toBe('1 issue — run mimir doctor');
-      expect(trailer.issueCount).toBe(1);
-    }
-  });
-
-  test('the trailer pluralizes past one issue', async () => {
-    await createProject(fixture.store, { key: 'MMR', name: 'm' });
-    const init = await createInitiative(fixture.store, { projectId: 'MMR', title: 'i' });
-    const phaseA = await createPhase(fixture.store, { parentId: init.id, title: 'a' });
-    const phaseB = await createPhase(fixture.store, { parentId: init.id, title: 'b' });
-    fixture.corruptDocument(`MMR/${phaseA.id}.md`, (raw) =>
-      raw.replace(/^parent:.*$/m, 'parent: "[[MMR-999]]"'),
-    );
-    fixture.corruptDocument(`MMR/${phaseB.id}.md`, (raw) =>
-      raw.replace(/^parent:.*$/m, 'parent: "[[MMR-998]]"'),
-    );
-
-    const io = fakeIo(true);
-    const code = await runCli(['list', '--scope', 'MMR'], () => fixture.store, io);
-    expect(code).toBe(0);
-    expect(io.err.join('')).toContain('[warn] 2 issues — run mimir doctor');
-  });
-
-  /** The tally is the whole-vault working-set count (MMR-184), not scoped to
-   * the selection: corruption lives entirely in project OTH, but a `next`/
-   * `list` scoped to the pristine project MMR still carries the trailer. If
-   * the count ever becomes scope-local this must fail. */
-  test('the trailer reflects the whole-vault tally even when the scoped project is clean', async () => {
-    await createProject(fixture.store, { key: 'MMR', name: 'm' });
-    const init = await createInitiative(fixture.store, { projectId: 'MMR', title: 'i' });
-    const phase = await createPhase(fixture.store, { parentId: init.id, title: 'ph' });
-    await createTask(fixture.store, { parentId: phase.id, title: 't' });
-
-    await createProject(fixture.store, { key: 'OTH', name: 'o' });
-    const otherInit = await createInitiative(fixture.store, { projectId: 'OTH', title: 'i' });
-    const otherPhase = await createPhase(fixture.store, { parentId: otherInit.id, title: 'ph' });
-    await createTask(fixture.store, { parentId: otherPhase.id, title: 't' });
-    fixture.corruptDocument(`OTH/${otherPhase.id}.md`, (raw) =>
-      raw.replace(/^parent:.*$/m, 'parent: "[[OTH-999]]"'),
-    );
-
-    const nextIo = fakeIo(true);
-    expect(await runCli(['next', '--scope', 'MMR'], () => fixture.store, nextIo)).toBe(0);
-    expect(nextIo.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
-
-    const listIo = fakeIo(true);
-    expect(await runCli(['list', '--scope', 'MMR'], () => fixture.store, listIo)).toBe(0);
-    expect(listIo.err.join('')).toContain('[warn] 1 issue — run mimir doctor');
-  });
 });
 
 // MMR-278: `overview` — the composite session-boot orientation surface. A
 // report-kind read: styled sections on a TTY, one JSON envelope when piped;
 // the set formats and `-s all` are usage errors pointing at `mimir list`.
-describe.skipIf(!NORN)('overview (MMR-278)', () => {
+describe('overview (MMR-278)', () => {
   test('records render carries the five sections and the ready row', async () => {
     await createTask(store, { parentId: phaseId, title: 'do the thing' });
     const io = fakeIo(true);
@@ -1655,7 +1493,7 @@ describe.skipIf(!NORN)('overview (MMR-278)', () => {
 
 // MMR-322: the composed sections — direction prose, recent sessions, the
 // in-flight resume handles, and the needs-attention listings behind the counts.
-describe.skipIf(!NORN)('overview composition (MMR-322)', () => {
+describe('overview composition (MMR-322)', () => {
   test('an in-flight row shows its handles compactly', async () => {
     const task = await createTask(store, { parentId: phaseId, title: 'running' });
     await startTask(store, `MMR-${String(task.seq)}`, {
@@ -1771,7 +1609,7 @@ const attach = async (title: string, tags: string[] = [], summary?: string): Pro
 // MMR-322: `artifacts` — the flat, cross-project artifact feed. A `set`-kind
 // read: the querying doctrine applies (empty set at exit 0 with a stderr note,
 // structural faults at exit 2).
-describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
+describe('artifacts (MMR-322)', () => {
   test('the table render is count-led and carries the lede', async () => {
     const id = await attach('vault notes', ['session_summary'], 'what the converge does');
     const io = fakeIo(true);
@@ -1947,7 +1785,7 @@ describe.skipIf(!NORN)('artifacts (MMR-322)', () => {
 
   // `list`/`next` share the limit parser, so the tightening reaches them too —
   // and, since MMR-322 hoisted their selection parse above the store open, they
-  // refuse a bad limit WITHOUT touching the vault, like every other usage error
+  // refuse a bad limit WITHOUT touching the store, like every other usage error
   // (MMR-39).
   test.each(['list', 'next'])('%s refuses a bad limit before opening the store', async (verb) => {
     const io = fakeIo(true);
@@ -2094,7 +1932,7 @@ describe('artifacts flags are verb-owned (MMR-322)', () => {
   });
 
   // The four query verbs own the grammar, so none of them refuses it.
-  test.skipIf(!NORN).each(['list', 'next', 'artifacts', 'seeds'])(
+  test.each(['list', 'next', 'artifacts', 'seeds'])(
     '%s accepts --tz and the at-or- bounds',
     async (verb) => {
       const io = fakeIo(false);
@@ -2120,7 +1958,7 @@ describe('artifacts flags are verb-owned (MMR-322)', () => {
     },
   );
 
-  test.skipIf(!NORN)('artifacts accepts the shared date grammar plus its paging', async () => {
+  test('artifacts accepts the shared date grammar plus its paging', async () => {
     const io = fakeIo(false);
     expect(
       await runCli(
@@ -2207,7 +2045,7 @@ describe('create/update-owned flags cannot silently narrow list/next (MMR-360)',
 
   // The flags stay usable on the verbs that actually own them — the guard
   // refuses a MISMATCHED owner, not the flag itself.
-  test.skipIf(!NORN)('--parent stays create/promote-owned', async () => {
+  test('--parent stays create/promote-owned', async () => {
     const io = fakeIo(false);
     expect(
       await runCli(
@@ -2257,14 +2095,14 @@ describe('--project and --requester cannot silently broaden list/next (MMR-360)'
   });
 
   // The flags stay usable on the verbs that actually own them.
-  test.skipIf(!NORN)('--project stays attach/seed/seeds-owned', async () => {
+  test('--project stays attach/seed/seeds-owned', async () => {
     const io = fakeIo(false);
     expect(
       await runCli(['seed', 'an ask', '-k', 'idea', '--project', 'MMR'], () => store, io),
     ).toBe(0);
   });
 
-  test.skipIf(!NORN)('--requester stays seeds-owned', async () => {
+  test('--requester stays seeds-owned', async () => {
     const io = fakeIo(false);
     expect(await runCli(['seeds', '--requester', 'MMR', '-f', 'json'], () => store, io)).toBe(0);
   });

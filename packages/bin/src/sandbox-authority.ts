@@ -20,19 +20,19 @@ const databaseAuthoritySchema = z
   })
   .strict();
 
-/** A vault sandbox (MMR-54): owned directories and no database at all. Its store is
- *  the Norn vault in its own data directory, so it runs where Docker cannot. */
-const vaultAuthoritySchema = z
+/** A local sandbox (MMR-54): owned directories and no database server. Its store is
+ *  the SQLite file in its own data directory, so it runs where Docker cannot. */
+const localAuthoritySchema = z
   .object({
     id: z.uuid(),
-    kind: z.literal('vault'),
+    kind: z.literal('local'),
     paths: pathsSchema,
     root: z.string(),
     version: z.literal(1),
   })
   .strict();
 
-const authoritySchema = z.union([databaseAuthoritySchema, vaultAuthoritySchema]);
+const authoritySchema = z.union([databaseAuthoritySchema, localAuthoritySchema]);
 
 export type DatabaseSandboxAuthority = z.infer<typeof databaseAuthoritySchema>;
 export type SandboxAuthority = z.infer<typeof authoritySchema>;
@@ -81,7 +81,7 @@ export function readSandboxAuthority(file: string): SandboxAuthority {
   }
 }
 
-/** A database sandbox's authority; a vault sandbox here is a caller error. */
+/** A database sandbox's authority; a local sandbox here is a caller error. */
 export function readDatabaseAuthority(file: string): DatabaseSandboxAuthority {
   const authority = readSandboxAuthority(file);
   if (!isDatabaseAuthority(authority)) {
@@ -107,11 +107,11 @@ export function sandboxAuthorityFromEnvironment(): SandboxAuthority | undefined 
 }
 
 /** Only the generated schema option may differ from the launcher-owned endpoint.
- *  A vault sandbox owns no endpoint, so no URL matches it. */
+ *  A local sandbox owns no endpoint, so no URL matches it. */
 export function assertSandboxPostgresUrl(url: string, authority: SandboxAuthority): void {
   if (!isDatabaseAuthority(authority)) {
     throw new Error(
-      'Postgres URL does not match sandbox authority: a vault sandbox has no database.',
+      'Postgres URL does not match sandbox authority: a local sandbox has no database.',
     );
   }
   const endpoint = new URL(url);

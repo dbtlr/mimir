@@ -8,8 +8,7 @@ import { runCli } from './run';
 import { SKILL_FILES, skillDirFor } from './skill-assets';
 import { fakeIo } from './testing';
 
-// `skill install` never touches the store — a throwing getter proves it and
-// keeps this suite norn-free.
+// `skill install` never touches the store — a throwing getter proves it.
 const getStore = (): Store => {
   throw new Error('skill install must not touch the store');
 };

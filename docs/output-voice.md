@@ -52,7 +52,7 @@ seeds — run 'mimir triage MMR'`).
   headers (`untriaged (3)`, never `UNTRIAGED (3)`). Emphasis is color/bold's
   job, never the shift key.
 - Ids keep their casing (`MMR-42`). Tool names follow their own style guides:
-  `norn` and `mimir` are always lowercase, even sentence-initial.
+  `mimir` is always lowercase, even sentence-initial.
 - **No trailing periods on any single-line output** — messages, hints, help
   fragments in both help tiers. The `-h`/`--help` tiers differ in coverage,
   never in punctuation.

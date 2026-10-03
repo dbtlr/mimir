@@ -17,12 +17,9 @@ import type { UiAssetMap } from './static';
  * embedded dist (same mechanism: paths `Bun.file` can open).
  *
  * Asset/SPA/non-GET routing never reaches the store (MMR-271) — `start`
- * defaults to an {@link inertStore}, so the whole suite runs without `norn`
- * on PATH. The one test that actually calls `/api/projects` supplies a real
- * Norn-backed store and stays `skipIf(!NORN)`.
+ * defaults to an {@link inertStore}. The one test that actually calls
+ * `/api/projects` supplies a real in-memory test store.
  */
-
-const NORN = Bun.which('norn') !== null;
 
 let closeStore: (() => Promise<void>) | undefined;
 let server: Server<undefined> | undefined;
@@ -90,23 +87,20 @@ test('any non-/api miss falls back to index.html — the SPA owns its routes', a
   }
 });
 
-test.skipIf(!NORN)(
-  '/api/* stays the resource envelope — routes answer, misses stay JSON 404s',
-  async () => {
-    const { close, store } = await createTestStore();
-    closeStore = close;
-    const base = start(fixtureAssets(), store);
-    const api = await fetch(`${base}/api/projects`);
-    expect(api.status).toBe(200);
-    expect(api.headers.get('content-type')).toContain('application/json');
-    expect(((await api.json()) as { items: unknown[] }).items).toEqual([]);
+test('/api/* stays the resource envelope — routes answer, misses stay JSON 404s', async () => {
+  const { close, store } = await createTestStore();
+  closeStore = close;
+  const base = start(fixtureAssets(), store);
+  const api = await fetch(`${base}/api/projects`);
+  expect(api.status).toBe(200);
+  expect(api.headers.get('content-type')).toContain('application/json');
+  expect(((await api.json()) as { items: unknown[] }).items).toEqual([]);
 
-    const miss = await fetch(`${base}/api/nope`);
-    expect(miss.status).toBe(404);
-    const body = (await miss.json()) as { error: { code: string } };
-    expect(body.error.code).toBe('not_found');
-  },
-);
+  const miss = await fetch(`${base}/api/nope`);
+  expect(miss.status).toBe(404);
+  const body = (await miss.json()) as { error: { code: string } };
+  expect(body.error.code).toBe('not_found');
+});
 
 test('an empty manifest serves no UI — non-/api paths are JSON 404s', async () => {
   const base = start({});

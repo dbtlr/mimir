@@ -473,9 +473,8 @@ export async function attachArtifact(
   // The lede runs the node summary's own normalizer (MMR-319) — one cap, one
   // refusal voice — and is checked before any write, like the title gate above.
   const summary = normalizeSummary(input.summary ?? null);
-  // Validate the project and every link against the node backend, and render
-  // the link stems, before the artifact write hits its own (possibly Norn)
-  // backend — the invariants stay verb-side (MMR-143). `assertProjectActive`
+  // Validate the project and every link, and render the link stems, before the
+  // artifact write — the invariants stay verb-side (MMR-143). `assertProjectActive`
   // runs BEFORE the artifact write below, so the project is known active at
   // write time — the echo needs no second active check (MMR-283).
   const { projectKey, linkStems } = await store.transact(async (w) => {

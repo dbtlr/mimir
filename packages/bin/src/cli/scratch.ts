@@ -40,7 +40,7 @@ const SCRATCH_SUBCOMMANDS = [
 ] as const;
 type ScratchSubcommand = (typeof SCRATCH_SUBCOMMANDS)[number];
 
-/** Validate the noun-group token before callers acquire the vault-backed Store. */
+/** Validate the noun-group token before callers acquire the Store. */
 export function scratchSubcommand(positionals: readonly string[]): ScratchSubcommand {
   const sub = positionals[1];
   if (

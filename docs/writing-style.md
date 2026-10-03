@@ -51,12 +51,9 @@ syntax; guides own intent, sequence, and the reason a workflow matters.
 
 ## Refresh screenshots
 
-Screenshots use the generated demo workspace, never a personal vault:
-
-```sh
-bun run fixtures:vault .dev/docs-fixture
-MIMIR_VAULT=.dev/docs-fixture bun run mimir serve --port 64748 --no-hunt
-```
+Screenshots use a generated demo workspace, never a personal store. The demo
+fixture generator is being replaced; serve the console from a disposable
+sandbox installation seeded with the demo workspace, never from the live store.
 
 Capture a dark 1440 × 900 viewport after the page settles:
 

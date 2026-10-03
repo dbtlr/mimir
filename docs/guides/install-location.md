@@ -95,9 +95,7 @@ installation. [Self-update](self-update.md) preserves the same bindings.
 To relocate the binary, run the installer with the new `MIMIR_INSTALL_DIR` and
 the existing XDG roots. At a new target path without a receipt, the installer
 creates a separate registration. If you use launchd, run `mimir service install`
-through the new binary to update the `serve` unit's executable path. If the
-`snapshot` unit is also installed, run `mimir service install snapshot` through
-the new binary to update that unit too.
+through the new binary to update the `serve` unit's executable path.
 
 Do not copy a binary and its receipt to a new path. A receipt with a different
 canonical path or executable digest fails validation before normal state access.

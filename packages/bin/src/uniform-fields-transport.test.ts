@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import { OP_FACTS } from '@mimir/contract';
 import type { Server } from 'bun';
@@ -31,8 +31,6 @@ import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
  * one turns this suite red.
  */
 
-const NORN = Bun.which('norn') !== null;
-
 /** The declared extra fields, resolved to their spec triples — the loop source. */
 const START_FIELDS: readonly SpecUpdateField[] = specUpdateFields(OP_FACTS.start.fields ?? []);
 
@@ -43,9 +41,6 @@ let base: string;
 let phaseId: string;
 
 beforeEach(async () => {
-  if (!NORN) {
-    return;
-  }
   ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'Mimir' });
   const init = await createInitiative(store, {
@@ -119,18 +114,19 @@ test('start declares at least one extra data-plane field', () => {
   expect(START_FIELDS.length).toBeGreaterThan(0);
 });
 
-for (const field of START_FIELDS) {
-  for (const [name, drive] of DRIVERS) {
-    test.skipIf(!NORN)(`${name} start applies ${field.key} onto the claimed task`, async () => {
+describe.each([...START_FIELDS])('start field $key', (field) => {
+  test.each(DRIVERS)(
+    `%s start applies ${field.key} onto the claimed task`,
+    async (_name, drive) => {
       const ref = await freshTask();
       const value = `claim-${field.key}`;
       await drive(ref, field, value);
       expect(await landedValue(ref, field)).toEqual(value);
-    });
-  }
-}
+    },
+  );
+});
 
-test.skipIf(!NORN)('HTTP refuses an extra field on a verb that declares none', async () => {
+test('HTTP refuses an extra field on a verb that declares none', async () => {
   const ref = await freshTask();
   await runCli(['start', ref], () => store, fakeIo(false));
   const res = await fetch(`${base}/api/nodes/${ref}/submit`, {
@@ -143,7 +139,7 @@ test.skipIf(!NORN)('HTTP refuses an extra field on a verb that declares none', a
   expect(res.status).toBe(400);
 });
 
-test.skipIf(!NORN)('the CLI start echo is unchanged by the handle flags', async () => {
+test('the CLI start echo is unchanged by the handle flags', async () => {
   const ref = await freshTask();
   const io = fakeIo(true);
   expect(await runCli(['start', ref, '--host', 'workbench.local'], () => store, io)).toBe(0);

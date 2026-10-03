@@ -5,8 +5,8 @@
 A tag is a flat, opaque string attachable to **any work node or artifact**. Mimir
 never interprets tag contents — it does set-membership filtering, composed with
 structural scope (`-t <tag>` on `list`, `--eq tag:x`, `--missing tag`). A tag
-application carries no note on any entity — vault `tags` frontmatter is a plain
-string set. `untag` is a plain unlogged delete. Tags are cheap, not
+application carries no note on any entity — a tag is a plain
+string with no per-tag note or timestamp. `untag` is a plain unlogged delete. Tags are cheap, not
 precious — attach freely, remove freely.
 
 ```sh

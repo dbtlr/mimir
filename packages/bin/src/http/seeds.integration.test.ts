@@ -1,7 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
 import type { Server } from 'bun';
 
@@ -14,29 +11,19 @@ import {
   resolveProjectKeyInSet,
 } from '../core';
 import type { Store } from '../core';
-import { NornClient } from '../core/store-norn/client';
-import { createNornWriteStore } from '../core/store-norn/writer';
-import { bunExec } from '../exec';
-import { converge } from '../vault/converge';
+import { createTestStore } from '../testing/store';
 import { createServer } from './server';
 
-/** The /api/seeds resource (MMR-245) end-to-end over a real Norn store. Needs `norn`. */
-const NORN = Bun.which('norn') !== null;
-
-let root: string;
-let client: NornClient;
+/** The /api/seeds resource (MMR-245) end-to-end over a real store. */
 let store: Store;
+let closeStore: () => Promise<void>;
 let server: Server<undefined>;
 let base: string;
 
 type Rec = Record<string, unknown>;
 
 beforeEach(async () => {
-  root = mkdtempSync(join(tmpdir(), 'mimir-httpseed-'));
-  const vault = join(root, 'vault');
-  await converge(vault, { allowCreate: true, exec: bunExec });
-  client = new NornClient({ vaultPath: vault });
-  store = createNornWriteStore(client, vault);
+  ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'Mimir' });
   server = createServer(store, { hunt: false, port: 0, version: 'test' });
   base = `http://127.0.0.1:${String(server.port)}`;
@@ -44,11 +31,10 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await server.stop(true);
-  await client.close();
-  rmSync(root, { force: true, recursive: true });
+  await closeStore();
 });
 
-describe.skipIf(!NORN)('/api/seeds', () => {
+describe('/api/seeds', () => {
   test('POST creates a seed and echoes the full wire record', async () => {
     const res = await fetch(`${base}/api/seeds`, {
       body: JSON.stringify({ description: 'prose', kind: 'bug', project: 'MMR', title: 'flaky' }),

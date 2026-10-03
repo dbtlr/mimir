@@ -209,63 +209,14 @@ tracked at MMR-288). JSON and JSONL findings retain the established
 `check`, `severity`, `node`, `where`, and `message` fields and add:
 
 - `code` — stable issue code;
-- `scopeKey` and `stem` — canonical identity derived from the path stem, not
-  frontmatter;
-- `locator` — the physical or logical issue location;
+- `scopeKey` and `stem` — canonical identity derived from the node's `KEY-seq`;
+- `locator` — the issue location, `<table>/<key>`;
 - `evidence` — rule-specific structured facts.
 
-`mimir doctor --fix [--dry-run]` is a separate CLI-only mutation envelope. The
-invocation is confirmation; `--dry-run` validates the Norn CAS plan with no
-write. A bound invocation or `-s KEY` writes only that canonical project; `-s
-all` admits every project. Dry-run partitions findings into `planned`, `skipped`,
-and `failed`; after an apply, each planned issue moves exclusively to `fixed` or
-`failed` and `planned` is empty. Unsupported findings always carry a stable
-`reason`; they do not make an otherwise successful repair nonzero. Planning,
-CAS/refusal, apply, and post-image verification failures exit `1`. `--dry-run`
-without `--fix` is usage and exits `2`.
-
-Issue outcomes alone populate the four partition arrays and their summary counts.
-An operational apply or verification diagnostic is emitted separately in
-`details`; it preserves transport/Norn error context without counting as another
-issue or duplicating an issue outcome.
-
-The JSON report is one object:
-
-```json
-{
-  "mode": "dry-run",
-  "outcome": "preview",
-  "planned": [
-    {
-      "code": "crlf-body",
-      "recipe": "normalize-crlf",
-      "scopeKey": "MMR",
-      "stem": "MMR-1"
-    }
-  ],
-  "fixed": [],
-  "skipped": [
-    {
-      "code": "dangling-parent",
-      "reason": "semantic-reference",
-      "scopeKey": "MMR",
-      "stem": "MMR-1"
-    }
-  ],
-  "failed": [],
-  "summary": { "planned": 1, "fixed": 0, "skipped": 1, "failed": 0 }
-}
-```
-
-JSONL emits one issue per line with `status: planned|fixed|skipped|failed`, any
-operational diagnostics with `status: detail`, then a
-final `status: summary` line carrying `mode`, `outcome`, and the four counts.
-`planned` occurs only in dry-run output; applied output never repeats an issue as
-both planned and fixed. A failed or indeterminate write is rediagnosed when safe,
-so its report separates actually fixed issues from residual verification failures
-while preserving a global apply failure detail and returning nonzero.
-Human output names every fixed/planned/skipped/failed issue and ends with the same
-counts. Repair is not exposed through MCP, HTTP, or the console.
+`mimir doctor --fix` and `--dry-run` are refused: the SQL backends (SQLite and
+PostgreSQL) have no repair pass. Every state doctor reports is unreachable
+through the binary and points at a hand edit. `--dry-run` without `--fix` is
+usage and exits `2`. Repair is not exposed through MCP, HTTP, or the console.
 
 ## Write contract (mutations)
 
@@ -313,7 +264,7 @@ sub-routes. Collection rows use `items` plus `total`; detail alone carries the
 Journal and Agenda. Every existing-Scratchpad mutation requires
 `expected_updated_at`; create takes no token. The collection accepts
 `?project=KEY` to scope one board and `?project=all` for every board. Unlike the
-CLI, an absent parameter reads the whole vault because the daemon has no bound
+CLI, an absent parameter reads every board because the daemon has no bound
 scope.
 
 - **IDs** are `KEY-seq` (nodes) / bare `KEY` (projects), resolved in the transport; **`--parent` is polymorphic** (bare KEY = project; KEY-seq = node). Lists are comma-separated (CLI) / arrays (MCP). MCP mirrors these as **named args** — no positionals, no files/stdin (`content` is a required arg).

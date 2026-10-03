@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 
+import { UsageError } from '../cli/errors';
 import { fakeIo } from '../cli/testing';
 import { cmdDoctor } from './commands';
 import type { DoctorBackend, DoctorFinding, DoctorRepairReport } from './contract';
@@ -8,8 +9,8 @@ import type { DoctorBackend, DoctorFinding, DoctorRepairReport } from './contrac
  * `cmdDoctor` against the backend-neutral contract (ADR 0030 Decision 6). These
  * cases name no backend at all: they pin the transport contract — the repair
  * capability gate, the exit-code mapping, and the empty-scope warning — over a
- * hand-built {@link DoctorBackend}. The Norn backend's own behavior is pinned
- * beside its implementation, under `./norn`.
+ * hand-built {@link DoctorBackend}. The SQL doctor's own behavior is pinned
+ * beside its implementation, under `./sql`.
  */
 
 function finding(overrides: Partial<DoctorFinding> = {}): DoctorFinding {
@@ -62,7 +63,9 @@ test('a backend without repair refuses --fix instead of silently doing nothing',
     await cmdDoctor(fakeIo(), readOnly, 'json', 'MMR', { dryRun: false, fix: true });
   } catch (error) {
     threw = true;
-    expect((error as Error).message).toBe('doctor repair is unavailable in this context');
+    // A usage error, which every renderer reports as a refusal — not a crash.
+    expect(error).toBeInstanceOf(UsageError);
+    expect((error as UsageError).message).toContain('doctor --fix is unavailable');
   }
   expect(threw).toBe(true);
 });

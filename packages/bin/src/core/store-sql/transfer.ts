@@ -45,12 +45,10 @@ import { loadWorkingSet } from './working-set';
  * store's stored facts out to one backend-neutral document, and such a document
  * back in with every id, sequence, and timestamp preserved.
  *
- * **The export never refuses.** The Norn export has to: its reader is tolerant
- * of corruption a vault can hold, so it re-enumerates the physical documents and
- * fails closed on anything the collections dropped. The relational schema makes
- * every one of those states unrepresentable — an orphan violates a foreign key,
- * a collider violates a primary key, a dangling edge violates both — so there is
- * nothing for a census to find and no refusal to make.
+ * **The export never refuses.** The relational schema makes every corrupt
+ * state unrepresentable — an orphan violates a foreign key, a collider violates
+ * a primary key, a dangling edge violates both — so there is nothing for a
+ * census to find and no refusal to make.
  *
  * **Import compares through the export.** A `resume` must skip a record a prior
  * run already wrote and refuse one that differs, which means deciding whether
@@ -93,8 +91,8 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
   );
 
   // Re-sorted in JS, not trusted from the SQL `ORDER BY` that read them: that
-  // order is the database's collation, which the operator chose and a vault
-  // does not have (see `canonicalSetOrder`).
+  // order is the database's collation, which the operator chose and which
+  // differs between databases (see `canonicalSetOrder`).
   const tags: ExportedTag[] = [
     ...projects.flatMap((project) =>
       canonicalSetOrder((workingSet.projectTags.get(project.key) ?? []).map((row) => row.tag)).map(
@@ -169,7 +167,7 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
  * The transition log in the seam's canonical order (see
  * `canonicalTransitionOrder`): rows are read in insert order, which is this
  * backend's document order per entity — the stored fact ADR 0015 names — and
- * then grouped by entity the way every backend groups them, so a Norn export
+ * then grouped by entity the way every backend groups them, so a SQLite export
  * and a Postgres export of the same facts are equal as values (the file writer
  * fixes key order, so the files are byte-identical too — `canonicalJson`). The
  * global insert order is NOT emitted: it is not a stored fact, and an import

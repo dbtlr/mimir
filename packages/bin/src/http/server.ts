@@ -96,10 +96,10 @@ import {
   updateProject,
   validation,
 } from '../core';
+import { SCHEMA_VERSION } from '../core/store-sql/migrator';
 import type { DoctorFacet } from '../doctor/facet';
 import { emptyDoctorFacet } from '../doctor/facet';
 import type { Health } from '../service';
-import { VAULT_SCHEMA } from '../vault';
 import {
   boolField,
   guarded,
@@ -588,10 +588,10 @@ export type ServeOptions = {
   hunt?: boolean;
   /**
    * The `/api/doctor` record-health facet provider (MMR-185) — computes the
-   * dropped-record diagnostics over the vault, scoped to an optional project.
+   * record-health diagnostics over the store, scoped to an optional project.
    * Optional so a doctor-agnostic test server can skip wiring it; the route
-   * then serves the empty facet. A live server always supplies one — Norn is
-   * the sole `Store` port implementor (ADR 0016 Refinement, MMR-279).
+   * then serves the empty facet. A live server always supplies one, from its
+   * backend's doctor (ADR 0030 Decision 6).
    */
   doctor?: (scope: string | undefined) => Promise<DoctorFacet>;
 };
@@ -766,7 +766,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               return json(req, facet);
             }
             // A project-scoped read keeps only that project's group; the referential
-            // graph is whole-vault, so another project's drops can ride along.
+            // checks are whole-store, so another project's findings can ride along.
             const groups = facet.groups.filter((g) => g.project === scope);
             const droppedTotal = groups.reduce((sum, g) => sum + g.dropped, 0);
             return json(req, { ...facet, dropped_total: droppedTotal, groups });
@@ -774,12 +774,12 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       },
 
       '/api/health': {
-        // `version` is the daemon's build (MMR-57); `schema` is the vault
-        // format it produces — together the console's stale-binary signal
+        // `version` is the daemon's build (MMR-57); `schema` is the store
+        // schema it reads and writes — together the console's stale-binary signal
         // (MMR-260): a running UI bundle compares its own build against this.
         GET: (req) =>
           json(req, {
-            schema: VAULT_SCHEMA,
+            schema: SCHEMA_VERSION,
             status: 'ok',
             version: opts.version,
           } satisfies Health),

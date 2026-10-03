@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import { createTestStore, nodeIdOf, projectIdOf } from '../../testing/store';
+import { createTestStore, nodeIdOf, projectIdOf, rawPatchNode } from '../../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import {
   archiveProject,
@@ -22,8 +22,6 @@ import { overviewOf } from './index';
  * One working-set load plus the composed sections' bounded reads; counts before
  * contents holds under every section cap.
  */
-
-const NORN = Bun.which('norn') !== null;
 
 let store: Store;
 let closeStore: () => Promise<void>;
@@ -47,7 +45,7 @@ afterEach(async () => {
 
 const idOf = (n: { seq: number }): string => `MMR-${String(n.seq)}`;
 
-test.skipIf(!NORN)('overviewOf composes the five sections with true counts', async () => {
+test('overviewOf composes the five sections with true counts', async () => {
   // 6 plain ready tasks + a ready prereq = 7 ready; a dependent awaits the prereq.
   for (let i = 0; i < 6; i += 1) {
     await createTask(store, { parentId: phaseId, title: `ready-${String(i)}` });
@@ -103,7 +101,7 @@ test.skipIf(!NORN)('overviewOf composes the five sections with true counts', asy
   expect(report.hygiene.dropped).toBe(0);
 });
 
-test.skipIf(!NORN)('empty sections carry a zero count', async () => {
+test('empty sections carry a zero count', async () => {
   const report = await overviewOf(store, 'MMR');
   expect(report.inFlight).toEqual({ count: 0, tasks: [] });
   expect(report.next).toEqual({ count: 0, tasks: [] });
@@ -120,55 +118,52 @@ test.skipIf(!NORN)('empty sections carry a zero count', async () => {
   expect(report.scratchpads).toEqual({ count: 0, scratchpads: [] });
 });
 
-test.skipIf(!NORN)(
-  'active Scratchpads are capped with a true count and freezing first',
-  async () => {
-    const ids = Array.from(
-      { length: 6 },
-      (_, i) => `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
-    );
-    for (const [index, id] of ids.entries()) {
-      const at = `2026-08-03T00:00:0${String(index)}.000Z`;
-      await store.scratchpads.create({
-        agenda:
-          index === 0
-            ? [
-                { content: 'open item', number: 1, reason: null, state: 'open' },
-                { content: 'finished item', number: 2, reason: null, state: 'done' },
-              ]
-            : [],
-        anchors: index === 0 ? [phaseStem] : [],
-        createdAt: at,
-        freezingAt: index === 0 ? at : null,
-        id,
-        journal: [],
-        project: 'MMR',
-        title: `pad-${String(index)}`,
-        updatedAt: at,
-      });
-    }
+test('active Scratchpads are capped with a true count and freezing first', async () => {
+  const ids = Array.from(
+    { length: 6 },
+    (_, i) => `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+  );
+  for (const [index, id] of ids.entries()) {
+    const at = `2026-08-03T00:00:0${String(index)}.000Z`;
+    await store.scratchpads.create({
+      agenda:
+        index === 0
+          ? [
+              { content: 'open item', number: 1, reason: null, state: 'open' },
+              { content: 'finished item', number: 2, reason: null, state: 'done' },
+            ]
+          : [],
+      anchors: index === 0 ? [phaseStem] : [],
+      createdAt: at,
+      freezingAt: index === 0 ? at : null,
+      id,
+      journal: [],
+      project: 'MMR',
+      title: `pad-${String(index)}`,
+      updatedAt: at,
+    });
+  }
 
-    const report = await overviewOf(store, 'MMR');
-    expect(report.scratchpads.count).toBe(6);
-    expect(report.scratchpads.scratchpads).toHaveLength(5);
-    const first = report.scratchpads.scratchpads[0];
-    expect(first?.id).toBe(ids[0]);
-    expect(first?.linkedWork).toEqual([phaseStem]);
-    expect(first?.openAgenda).toBe(1);
-    expect(first?.project).toBe('MMR');
-    expect(first?.state).toBe('freezing');
-    expect(first?.title).toBe('pad-0');
-    expect(first?.updatedAt).toBe('2026-08-03T00:00:00.000Z');
-    expect(report.scratchpads.scratchpads.slice(1).map((pad) => pad.title)).toEqual([
-      'pad-5',
-      'pad-4',
-      'pad-3',
-      'pad-2',
-    ]);
-  },
-);
+  const report = await overviewOf(store, 'MMR');
+  expect(report.scratchpads.count).toBe(6);
+  expect(report.scratchpads.scratchpads).toHaveLength(5);
+  const first = report.scratchpads.scratchpads[0];
+  expect(first?.id).toBe(ids[0]);
+  expect(first?.linkedWork).toEqual([phaseStem]);
+  expect(first?.openAgenda).toBe(1);
+  expect(first?.project).toBe('MMR');
+  expect(first?.state).toBe('freezing');
+  expect(first?.title).toBe('pad-0');
+  expect(first?.updatedAt).toBe('2026-08-03T00:00:00.000Z');
+  expect(report.scratchpads.scratchpads.slice(1).map((pad) => pad.title)).toEqual([
+    'pad-5',
+    'pad-4',
+    'pad-3',
+    'pad-2',
+  ]);
+});
 
-test.skipIf(!NORN)('stale hygiene counts tasks quiet past the threshold (asOf)', async () => {
+test('stale hygiene counts tasks quiet past the threshold (asOf)', async () => {
   const started = await createTask(store, { parentId: phaseId, title: 'started' });
   await startTask(store, idOf(started));
   // 100 days after the task's touch — well past the 14-day stale threshold.
@@ -177,18 +172,18 @@ test.skipIf(!NORN)('stale hygiene counts tasks quiet past the threshold (asOf)',
   expect(report.hygiene.stale).toBeGreaterThanOrEqual(1);
 });
 
-test.skipIf(!NORN)('an unknown scope key throws not_found', async () => {
+test('an unknown scope key throws not_found', async () => {
   await expectMimirError('not_found', () => overviewOf(store, 'ZZZ'));
 });
 
-test.skipIf(!NORN)('an archived project 404s like status/get (ADR 0015 hiding)', async () => {
+test('an archived project 404s like status/get (ADR 0015 hiding)', async () => {
   await archiveProject(store, 'MMR');
   await expectMimirError('not_found', () => overviewOf(store, 'MMR'));
 });
 
 // ─── Recent sessions (MMR-322, ADR 0026 Decision 4) ─────────────────────────
 
-test.skipIf(!NORN)('sessions group the transition rows a session handle stamped', async () => {
+test('sessions group the transition rows a session handle stamped', async () => {
   const one = await createTask(store, { parentId: phaseId, title: 'one' });
   const two = await createTask(store, { parentId: phaseId, title: 'two' });
   await startTask(store, idOf(one), { session: 's-alpha' });
@@ -206,7 +201,7 @@ test.skipIf(!NORN)('sessions group the transition rows a session handle stamped'
   expect((entry?.from ?? '') <= (entry?.to ?? '')).toBe(true);
 });
 
-test.skipIf(!NORN)('rows with no session handle are part of no group (legacy)', async () => {
+test('rows with no session handle are part of no group (legacy)', async () => {
   // A start with no handles writes a row byte-identical to a pre-MMR-320 one.
   const task = await createTask(store, { parentId: phaseId, title: 'unclaimed' });
   await startTask(store, idOf(task));
@@ -214,7 +209,7 @@ test.skipIf(!NORN)('rows with no session handle are part of no group (legacy)', 
   expect(report.sessions).toEqual({ entries: [], shown: 0 });
 });
 
-test.skipIf(!NORN)('a session_summary artifact joins its overlapping group', async () => {
+test('a session_summary artifact joins its overlapping group', async () => {
   const task = await createTask(store, { parentId: phaseId, title: 'claimed' });
   await startTask(store, idOf(task), { session: 's-beta' });
   const { renderedId } = await attachArtifact(store, {
@@ -236,7 +231,7 @@ test.skipIf(!NORN)('a session_summary artifact joins its overlapping group', asy
   });
 });
 
-test.skipIf(!NORN)('an untagged artifact never joins a session entry', async () => {
+test('an untagged artifact never joins a session entry', async () => {
   const task = await createTask(store, { parentId: phaseId, title: 'claimed' });
   await startTask(store, idOf(task), { session: 's-gamma' });
   await attachArtifact(store, {
@@ -250,7 +245,7 @@ test.skipIf(!NORN)('an untagged artifact never joins a session entry', async () 
   expect(report.sessions.entries[0]?.artifact).toBeUndefined();
 });
 
-test.skipIf(!NORN)('a summary linking no touched task keeps its own entry', async () => {
+test('a summary linking no touched task keeps its own entry', async () => {
   const claimed = await createTask(store, { parentId: phaseId, title: 'claimed' });
   await startTask(store, idOf(claimed), { session: 's-delta' });
   const untouched = await createTask(store, { parentId: phaseId, title: 'untouched' });
@@ -271,7 +266,7 @@ test.skipIf(!NORN)('a summary linking no touched task keeps its own entry', asyn
   expect(orphan?.artifact?.title).toBe('knowledge only');
 });
 
-test.skipIf(!NORN)('the sessions section caps entries at 5, `shown` counting them', async () => {
+test('the sessions section caps entries at 5, `shown` counting them', async () => {
   for (let i = 0; i < 7; i += 1) {
     const task = await createTask(store, { parentId: phaseId, title: `t-${String(i)}` });
     await startTask(store, idOf(task), { session: `s-${String(i)}` });
@@ -281,11 +276,16 @@ test.skipIf(!NORN)('the sessions section caps entries at 5, `shown` counting the
   expect(report.sessions.entries).toHaveLength(5);
 });
 
-test.skipIf(!NORN)('a session below the history scan window is invisible', async () => {
+test('a session below the history scan window is invisible', async () => {
   // The oldest claim, then 20 tasks touched after it — enough to push the
   // claiming task out of the 20-task `## History` scan window entirely.
   const old = await createTask(store, { parentId: phaseId, title: 'old claim' });
   await startTask(store, idOf(old), { session: 's-ancient' });
+  // Backdate the claim: an in-process store writes the fillers within the same
+  // millisecond, and a tie would leave the window's cut to the sort's stability.
+  await rawPatchNode(store, await nodeIdOf(store, idOf(old)), {
+    updated_at: '2026-01-01T00:00:00.000Z',
+  });
   for (let i = 0; i < 20; i += 1) {
     await createTask(store, { parentId: phaseId, title: `fresh-${String(i)}` });
   }
@@ -296,10 +296,14 @@ test.skipIf(!NORN)('a session below the history scan window is invisible', async
   expect(report.sessions.shown).toBe(0);
 });
 
-test.skipIf(!NORN)('an ordinary update evicts from the scan window, no transition', async () => {
+test('an ordinary update evicts from the scan window, no transition', async () => {
   const claimed = await createTask(store, { parentId: phaseId, title: 'claimed' });
   await startTask(store, idOf(claimed), { session: 's-evictable' });
   expect((await overviewOf(store, 'MMR')).sessions.shown).toBe(1);
+  // Backdate the claim so same-millisecond writes cannot tie with it.
+  await rawPatchNode(store, await nodeIdOf(store, idOf(claimed)), {
+    updated_at: '2026-01-01T00:00:00.000Z',
+  });
   // `updated_at` moves on ANY write. Twenty plain title patches — not one
   // transition among them — push the claim below the window.
   for (let i = 0; i < 20; i += 1) {
@@ -309,7 +313,7 @@ test.skipIf(!NORN)('an ordinary update evicts from the scan window, no transitio
   expect((await overviewOf(store, 'MMR')).sessions.shown).toBe(0);
 });
 
-test.skipIf(!NORN)('orphan summaries push `shown` above the derived group count', async () => {
+test('orphan summaries push `shown` above the derived group count', async () => {
   const claimed = await createTask(store, { parentId: phaseId, title: 'claimed' });
   await startTask(store, idOf(claimed), { session: 's-one' });
   // Three retrospectives that overlap no group — knowledge-only sittings.
@@ -330,27 +334,24 @@ test.skipIf(!NORN)('orphan summaries push `shown` above the derived group count'
   expect(report.sessions.entries.filter((e) => e.id === null)).toHaveLength(3);
 });
 
-test.skipIf(!NORN)(
-  'a review-only session leaves no mechanical trace (MMR-320 echo policy)',
-  async () => {
-    // `start` under one session, `submit` under another. submit moves no handle and
-    // echoes none, so the reviewing session produces no group at all — deliberate,
-    // not a gap: the handles are resume pointers, not a session ledger.
-    const task = await createTask(store, { parentId: phaseId, title: 'reviewed' });
-    await startTask(store, idOf(task), { session: 's-author' });
-    await submitTask(store, idOf(task));
+test('a review-only session leaves no mechanical trace (MMR-320 echo policy)', async () => {
+  // `start` under one session, `submit` under another. submit moves no handle and
+  // echoes none, so the reviewing session produces no group at all — deliberate,
+  // not a gap: the handles are resume pointers, not a session ledger.
+  const task = await createTask(store, { parentId: phaseId, title: 'reviewed' });
+  await startTask(store, idOf(task), { session: 's-author' });
+  await submitTask(store, idOf(task));
 
-    const report = await overviewOf(store, 'MMR');
-    expect(report.sessions.entries.map((e) => e.id)).toEqual(['s-author']);
-    // The submit row is invisible, so `transitions` counts handle-echoing rows —
-    // NOT boundaries the session crossed.
-    expect(report.sessions.entries[0]?.transitions).toBe(1);
-  },
-);
+  const report = await overviewOf(store, 'MMR');
+  expect(report.sessions.entries.map((e) => e.id)).toEqual(['s-author']);
+  // The submit row is invisible, so `transitions` counts handle-echoing rows —
+  // NOT boundaries the session crossed.
+  expect(report.sessions.entries[0]?.transitions).toBe(1);
+});
 
 // ─── Needs-attention listings (MMR-322) ─────────────────────────────────────
 
-test.skipIf(!NORN)('the blocked listing carries the lane word and the hold reason', async () => {
+test('the blocked listing carries the lane word and the hold reason', async () => {
   const stuck = await createTask(store, { parentId: phaseId, title: 'stuck' });
   await blockTask(store, idOf(stuck), 'upstream API down');
 
@@ -364,7 +365,7 @@ test.skipIf(!NORN)('the blocked listing carries the lane word and the hold reaso
   expect(row?.stale).toBe(false);
 });
 
-test.skipIf(!NORN)('the stale listing rides the same asOf the count does', async () => {
+test('the stale listing rides the same asOf the count does', async () => {
   const started = await createTask(store, { parentId: phaseId, title: 'quiet' });
   await startTask(store, idOf(started));
   const future = new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString();
@@ -375,7 +376,7 @@ test.skipIf(!NORN)('the stale listing rides the same asOf the count does', async
   expect(row?.lane).toBe('live');
 });
 
-test.skipIf(!NORN)('listings cap at 5 while the counts stay true', async () => {
+test('listings cap at 5 while the counts stay true', async () => {
   for (let i = 0; i < 7; i += 1) {
     const task = await createTask(store, { parentId: phaseId, title: `stuck-${String(i)}` });
     await blockTask(store, idOf(task), 'external');
@@ -388,7 +389,7 @@ test.skipIf(!NORN)('listings cap at 5 while the counts stay true', async () => {
   expect(report.hygiene.listings.untriaged).toHaveLength(5);
 });
 
-test.skipIf(!NORN)('untriaged seed rows carry id, title, and the derived lede', async () => {
+test('untriaged seed rows carry id, title, and the derived lede', async () => {
   const seed = await fileSeed(store, {
     description: 'the vault converge should report the schema it landed on',
     kind: 'idea',
@@ -407,7 +408,7 @@ test.skipIf(!NORN)('untriaged seed rows carry id, title, and the derived lede', 
 
 // ─── Direction prose (MMR-322, ADR 0026 Decision 2) ──────────────────────────
 
-test.skipIf(!NORN)('direction carries the project prose and live containers only', async () => {
+test('direction carries the project prose and live containers only', async () => {
   await updateProject(store, projectId, { next: 'finish the composition arc' });
   await updateNode(store, phaseId, { next: 'land phase 3' });
   const dormant = await createPhase(store, { parentId: initId, title: 'later' });
@@ -424,13 +425,13 @@ test.skipIf(!NORN)('direction carries the project prose and live containers only
   ]);
 });
 
-test.skipIf(!NORN)('a live container with no prose contributes no direction row', async () => {
+test('a live container with no prose contributes no direction row', async () => {
   await createTask(store, { parentId: phaseId, title: 'ready one' });
   const report = await overviewOf(store, 'MMR');
   expect(report.direction).toEqual({ containers: [], count: 0, project: null });
 });
 
-test.skipIf(!NORN)('a container parenting only in-flight work still shows its prose', async () => {
+test('a container parenting only in-flight work still shows its prose', async () => {
   await updateNode(store, phaseId, { next: 'drive the in-flight work home' });
   const task = await createTask(store, { parentId: phaseId, title: 'running' });
   await startTask(store, idOf(task));
@@ -438,7 +439,7 @@ test.skipIf(!NORN)('a container parenting only in-flight work still shows its pr
   expect(report.direction.containers.map((c) => c.id)).toEqual([phaseStem]);
 });
 
-test.skipIf(!NORN)('a container is listed once however many live tasks it parents', async () => {
+test('a container is listed once however many live tasks it parents', async () => {
   await updateNode(store, phaseId, { next: 'one row, not three' });
   for (let i = 0; i < 3; i += 1) {
     await createTask(store, { parentId: phaseId, title: `t-${String(i)}` });
@@ -448,7 +449,7 @@ test.skipIf(!NORN)('a container is listed once however many live tasks it parent
   expect(report.direction.count).toBe(1);
 });
 
-test.skipIf(!NORN)('prose-less containers cannot hide one that carries prose', async () => {
+test('prose-less containers cannot hide one that carries prose', async () => {
   // Six live containers, only the LAST by seq carrying direction. A cap applied
   // before the prose read would show the five empty ones and drop the only row
   // with anything to say.
@@ -466,7 +467,7 @@ test.skipIf(!NORN)('prose-less containers cannot hide one that carries prose', a
   expect(report.direction.containers[0]?.next).toBe('the only direction on the board');
 });
 
-test.skipIf(!NORN)('direction caps the list at 5 while `count` stays true', async () => {
+test('direction caps the list at 5 while `count` stays true', async () => {
   for (let i = 0; i < 7; i += 1) {
     const phase = await createPhase(store, { parentId: initId, title: `p-${String(i)}` });
     const id = await nodeIdOf(store, `MMR-${String(phase.seq)}`);

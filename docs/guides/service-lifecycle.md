@@ -4,27 +4,22 @@ description: "Reference for service lifecycle commands on launchd and systemd, a
 
 # Service lifecycle
 
-`mimir service` supervises two units: `serve` (the daemon, installed by
-default) and `snapshot` (the vault commit timer, opt-in — pass `snapshot` or
-`all` to `install` explicitly). On macOS the units are launchd agents. On Linux
-they are systemd user units. The verbs, the fence, and the output are the same
-on both platforms.
+`mimir service` supervises one unit: `serve`, the daemon. On macOS the unit is
+a launchd agent. On Linux it is a systemd user unit. The verbs, the fence, and
+the output are the same on both platforms.
 
 ## The verbs
 
-- **`install [unit]`** — writes the unit file(s) and loads them. A bare
-  `install` sets up `serve` only. Re-running `install` refreshes the units in
-  place.
+- **`install [unit]`** — writes the unit file and loads it. `serve` is the
+  only unit and the default. Re-running `install` refreshes the unit in place.
 - **`start` / `restart`** — `start` loads an installed-but-stopped unit;
   `restart` is a live in-place restart.
 - **`stop`** — a real stop: the unit stays installed but is not running, and
   the supervisor does not respawn it. It comes back at the next login (launchd)
   or the next start of the user manager (systemd).
 - **`uninstall [unit]`** — everything `stop` does, plus it deletes the unit
-  files. A bare `uninstall` tears down whatever is actually installed; it never
-  orphans the opt-in `snapshot` timer (which would otherwise keep
-  auto-committing/pushing the vault unattended).
-- **`status`** — read-only over every unit; never mutates, and works even
+  file.
+- **`status`** — read-only; never mutates, and works even
   from an untrusted build (see below).
 
 So: `stop` if you want the unit gone until you explicitly start it again but
@@ -37,9 +32,9 @@ about every 10 seconds until the port is free.
 
 ## macOS: launchd
 
-The units are `com.dbtlr.mimir.serve` (KeepAlive, RunAtLoad) and
-`com.dbtlr.mimir.snapshot` (StartInterval), loaded into the `gui/<uid>` domain.
-A live installation writes their plists to `~/Library/LaunchAgents/`.
+The unit is `com.dbtlr.mimir.serve` (KeepAlive, RunAtLoad), loaded into the
+`gui/<uid>` domain. A live installation writes its plist to
+`~/Library/LaunchAgents/`.
 
 | Verb        | launchctl                         |
 | ----------- | --------------------------------- |
@@ -63,30 +58,23 @@ loop of your own around `service install` or `service start`.
 
 ## Linux: systemd user units
 
-The units run in your `systemd --user` manager:
+The unit runs in your `systemd --user` manager:
 
 - `com.dbtlr.mimir.serve.service` — `Restart=always` with `RestartSec=10` and
   no start limit, `WantedBy=default.target`.
-- `com.dbtlr.mimir.snapshot.timer` — fires every interval after it is armed and
-  after each run, activating `com.dbtlr.mimir.snapshot.service`, a
-  `Type=oneshot` unit that runs `vault snapshot` and exits. Only the timer is
-  enabled.
 
-A live installation writes these files to `~/.config/systemd/user/`. Logs go to
-the same files as on macOS (`serve.log` and `snapshot.log` under the
-installation's data directory), not to the journal.
+A live installation writes this file to `~/.config/systemd/user/`. Logs go to
+the same file as on macOS (`serve.log` under the installation's data
+directory), not to the journal.
 
 | Verb        | `systemctl --user`                                      |
 | ----------- | ------------------------------------------------------- |
-| `install`   | `link` (snapshot's oneshot service), `enable <file>`, `daemon-reload`, `restart` |
+| `install`   | `enable <file>`, `daemon-reload`, `restart` |
 | `start`     | `start`                                                 |
 | `stop`      | `stop` (the unit stays enabled)                         |
 | `restart`   | `restart`                                               |
-| `uninstall` | `stop` (each running unit), `disable`, delete the unit files, `daemon-reload` |
+| `uninstall` | `stop`, `disable`, delete the unit file, `daemon-reload` |
 | `status`    | `show` (loaded means active, activating, deactivating, or reloading) |
-
-For `snapshot`, `restart` re-arms the timer; it does not run a snapshot
-immediately.
 
 ### Run without a login session
 
@@ -107,27 +95,22 @@ reach the manager. A login shell sets it. In a non-login context such as `sudo
 
 A host that runs `mimir serve` directly, outside any supervisor:
 
-1. On a Norn-backend installation, check that `command -v norn` prints a path.
-   `service install` requires `norn` on `PATH` and a vault there, and stops
-   before it writes a unit if either is missing. Check first so the daemon is
-   not left down. The SQLite and PostgreSQL backends need neither.
-2. Stop the bare process.
-3. Run `mimir service install` (add `--port <n>` to persist a port).
-4. Run `mimir service status` and check that `serve` is running and
+1. Stop the bare process.
+2. Run `mimir service install` (add `--port <n>` to persist a port).
+3. Run `mimir service status` and check that `serve` is running and
    `/api/health` answers.
 
 ## The supervisor fence
 
 Every mutating verb (`install`, `uninstall`, `start`, `stop`, `restart`)
 requires a registered installation, and it drives only that installation's own
-units. A build profile or environment variable cannot grant access to the host
+unit. A build profile or environment variable cannot grant access to the host
 supervisor. `status` remains read-only.
 
 - A **live installation** owns the names above.
-- A **sandbox installation** owns `com.dbtlr.mimir.sandbox-<id>.serve` and
-  `com.dbtlr.mimir.sandbox-<id>.snapshot`, derived from its sandbox identifier.
-  It keeps its unit files in its own data directory and cannot address the live
-  units or another sandbox's.
+- A **sandbox installation** owns `com.dbtlr.mimir.sandbox-<id>.serve`, derived from its sandbox identifier.
+  It keeps its unit file in its own data directory and cannot address the live
+  unit or another sandbox's.
 - A **source run or unregistered binary** mutates no unit.
 
 Self-update restarts the daemon only when the same check allows it; otherwise
@@ -152,4 +135,4 @@ live units. See [Development sandboxes](development-sandboxes.md#verify-the-serv
 
 `packages/bin/src/service/`: `launchd.ts` and `systemd.ts` (the supervisors),
 `plist.ts` and `systemd-unit.ts` (the generated unit files), `units.ts` (unit
-names and the fence), and `commands.ts` (the verb layer).
+name and the fence), and `commands.ts` (the verb layer).

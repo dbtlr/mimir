@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import { HANDLE_FIELD_KEYS } from '@mimir/contract';
 import type { NodeType } from '@mimir/contract';
@@ -34,8 +34,6 @@ import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
  * transport that accepts-but-drops it turns this suite red.
  */
 
-const NORN = Bun.which('norn') !== null;
-
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
 let server: Server<undefined>;
@@ -48,9 +46,6 @@ let phaseRef: string;
 let seedId: string;
 
 beforeEach(async () => {
-  if (!NORN) {
-    return;
-  }
   ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'Mimir' });
   projectId = await projectIdOf(store, 'MMR');
@@ -169,10 +164,11 @@ test('the spec advertises at least one generic-update field', () => {
   expect(SPEC_UPDATE_FIELDS.length).toBeGreaterThan(0);
 });
 
-for (const field of SPEC_UPDATE_FIELDS) {
+describe.each([...SPEC_UPDATE_FIELDS])('update field $key', (field) => {
   const type = FIELD_SPEC[field.key].appliesTo[0];
-  for (const [name, drive] of DRIVERS) {
-    test.skipIf(!NORN)(`${name} update applies ${field.key} onto a ${type ?? '?'}`, async () => {
+  test.each(DRIVERS)(
+    `%s update applies ${field.key} onto a ${type ?? '?'}`,
+    async (_name, drive) => {
       if (type === undefined) {
         throw new Error(`spec field ${field.key} applies to no node type`);
       }
@@ -180,9 +176,9 @@ for (const field of SPEC_UPDATE_FIELDS) {
       const { expected, native } = wireFor(field);
       await drive(ref, field, native);
       expect(await landedValue(ref, field)).toEqual(expected);
-    });
-  }
-}
+    },
+  );
+});
 
 /**
  * The create-path sibling gap (MMR-315): the create paths (HTTP `POST /api/nodes`,
@@ -297,16 +293,17 @@ test('the generated create matrix covers every resume handle', () => {
   expect(CREATE_DRIVERS.map(([name]) => name)).toEqual(['cli', 'http', 'mcp']);
 });
 
-for (const field of SPEC_UPDATE_FIELDS) {
+describe.each([...SPEC_UPDATE_FIELDS])('create field $key', (field) => {
   const type = FIELD_SPEC[field.key].appliesTo[0];
-  for (const [name, drive] of CREATE_DRIVERS) {
-    test.skipIf(!NORN)(`${name} create applies ${field.key} onto a ${type ?? '?'}`, async () => {
+  test.each(CREATE_DRIVERS)(
+    `%s create applies ${field.key} onto a ${type ?? '?'}`,
+    async (_name, drive) => {
       if (type === undefined) {
         throw new Error(`spec field ${field.key} applies to no node type`);
       }
       const { expected, native } = wireFor(field);
       const ref = await drive(type, field, native);
       expect(await landedValue(ref, field)).toEqual(expected);
-    });
-  }
-}
+    },
+  );
+});

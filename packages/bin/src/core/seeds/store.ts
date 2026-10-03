@@ -6,18 +6,17 @@ import { validation } from '../errors';
  * The seed storage seam (MMR-244) — a grooming-queue record filed against a
  * project that implies NO work, only triage. A seed is the artifact model's
  * sibling (ADR 0004 precedent): project-anchored, its own `KEY-sN` id grammar,
- * NOT a tree node. It lives at `KEY/seeds/KEY-sN.md`, sibling of `KEY/artifacts/`.
+ * NOT a tree node.
  *
  * Keyed by **external identity** (`key` + `seq`, the `KEY-sN` stem): no numeric
- * ids cross this boundary, exactly like the artifact seam — the Norn vault has
- * none (the file stem is the id, ADR 0016).
+ * ids cross this boundary, exactly like the artifact seam — the stem is the id
+ * (ADR 0016).
  *
  * The seam owns the lifecycle machine (`new → promoted | resolved | rejected`;
  * `promoted → resolved | rejected`) and the store-level mutation primitives
  * ({@link SeedStore.patch}/{@link SeedStore.transition}/{@link SeedStore.germinate}).
  * The verb surface (CLI/MCP/HTTP) rides on top in MMR-245; `requester`/`spawned`
- * are verb-owned relations, never patched directly. Seeds live in the vault
- * (a `KEY/seeds/KEY-sN.md` doc), like every entity since MMR-234.
+ * are verb-owned relations, never patched directly.
  */
 
 /** One seed's metadata, backend-neutral. Description is BODY prose, never here. */
@@ -73,12 +72,12 @@ export type SeedStore = {
    * the triage pass reads the terminal resolution reason from; `undefined` when
    * the seed doc is absent, `[]` when its History is empty. */
   loadHistory: (key: string, seq: number) => Promise<HistoryEntry[] | undefined>;
-  /** Every seed in the vault in ONE `type:seed` find — the whole-queue read (the
+  /** Every seed in ONE read — the whole-queue read (the
    * unbound `seeds` listing filters it to active boards), instead of a per-project
    * loop of `listForProject` (MMR-245/E1). */
   listAll: () => Promise<SeedRecord[]>;
-  /** Batch-read the `## Seed Description` prose for many seeds in ONE native
-   * section read (`vault.get { section }`), keyed by the `KEY-sN` stem — the
+  /** Batch-read the `## Seed Description` prose for many seeds in ONE
+   * read, keyed by the `KEY-sN` stem — the
    * derive-at-read lede source for the live queue (MMR-263). A seed with no
    * description (empty section) maps to `null`; an absent/ambiguous doc is simply
    * missing from the map. Nothing is stored; the caller derives the bounded lede. */

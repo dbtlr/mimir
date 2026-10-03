@@ -11,8 +11,7 @@ import type { Node } from './model';
  * codec directions from one declaration, so a field wired for emit but not decode
  * (or the reverse) is structurally impossible: {@link emitDataFields} and
  * {@link decodeDataFields} iterate the same {@link FIELD_SPEC}, and the full-node
- * round-trips below fail on any asymmetry. Pure over the spec — no vault or Norn
- * subprocess; the vault-level round-trip is `store.integration.test.ts`.
+ * round-trips below fail on any asymmetry. Pure over the spec — no store.
  */
 
 const DATA_KEYS = Object.keys(FIELD_SPEC) as DataFieldKey[];

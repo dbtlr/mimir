@@ -12,7 +12,6 @@ import { invariant, validation } from './errors';
 import { parseSeedRef, parseUpstreamField, UPSTREAM_CLEAR } from './ids';
 import type { Node } from './model';
 import type { UpdateFieldKey, UpdateFields } from './mutations/data';
-import { collapse } from './store-norn/decode';
 
 /**
  * The data-plane kind registry (ADR 0025) — the code bindings that compose with
@@ -119,6 +118,16 @@ function boolFieldOrNull(value: unknown): boolean | null {
  * collapsed stem and the resolving read seam (MMR-245) resolves it. The tiering
  * decision lives in `validate`; this is the mechanical "collapse + grammar guard".
  */
+/** A link value's stem — the `[[stem|alias]]` wikilink form unwrapped — or null. */
+function collapse(link: unknown): string | null {
+  if (typeof link !== 'string') {
+    return null;
+  }
+  const wikilink = link.startsWith('[[') && link.endsWith(']]');
+  const inner = wikilink ? (link.slice(2, -2).split('|')[0] ?? '').trim() : link;
+  return inner === '' ? null : inner;
+}
+
 function seedRefOrNull(value: unknown): string | null {
   const stem = collapse(value);
   return stem !== null && parseSeedRef(stem) !== null ? stem : null;

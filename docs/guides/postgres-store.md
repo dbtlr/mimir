@@ -26,12 +26,12 @@ backend = "postgres"
 url = "postgres://mimir:secret@db.example.internal:5432/mimir"
 ```
 
-- `backend` selects the store: `sqlite` (the default when it is absent),
-  `postgres`, or `norn`.
+- `backend` selects the store: `sqlite` (the default when it is absent) or
+  `postgres`. `backend = "norn"` is a fatal config error; see
+  [Moving from a Norn vault](#moving-from-a-norn-vault).
 - `url` is a libpq-style connection URL. It carries the credential; the binary
   writes the file 0600 itself, so keep it that way. There is no environment
   override.
-- `[vault]` is ignored on a Postgres install; there is no vault behind it.
 
 The database must exist and the user must own it. The binary creates every
 table itself (next section). Keep the database on a private network: the bridge
@@ -81,15 +81,15 @@ runs against a mismatched schema.
   id twice.
 - **No offline mode.** A network outage is a hard failure; there is no local
   copy to fall back to.
-- **No git snapshots.** `vault snapshot` and the snapshot unit (launchd or
-  systemd) do not apply. `store export` is the backup on this backend; see
-  [Back up](#back-up).
+- **Backup is an export.** `store export` is the backup on this backend, as on
+  SQLite; see [Back up](#back-up).
 - **Doctor checks the database.** `mimir doctor` reports the schema version
   against the binary, a dangling parent or dependency reference, a sequence
   counter that fell behind its rows, and an orphan artifact link or scratchpad
   anchor. A store it cannot reach is not a finding: the command fails with a
-  nonzero exit instead. There is no repair pass; every state it reports is
-  unreachable through the binary and points at a hand edit.
+  nonzero exit instead. There is no repair pass, and `doctor --fix` is refused;
+  every state it reports is unreachable through the binary and points at a hand
+  edit.
 - **Doctor checks the config file mode.** The `[store] url` carries the database
   password, so `mimir doctor` warns when the config file grants group or world
   read. The fix is `chmod 600` on the file the warning names.
@@ -99,7 +99,7 @@ runs against a mismatched schema.
 `mimir store export` writes the whole store as one JSON document:
 
 ```sh
-mimir store export vault.json
+mimir store export board.json
 ```
 
 The document holds every stored fact: the projects with their sequence
@@ -122,8 +122,8 @@ To restore, create the schema in an empty database and import the file:
 
 ```sh
 mimir store upgrade
-mimir store import vault.json
-mimir store import vault.json --apply
+mimir store import board.json
+mimir store import board.json --apply
 ```
 
 Both backends validate the complete transfer document before accessing the target.
@@ -134,28 +134,32 @@ For resume, supply the original complete document, including records already imp
 
 The first import is a preview: it runs every decision the write would make —
 the version check, the identity checks, the project fence, and the per-record
-skip-or-refuse — and reports what it would create, but writes nothing. On a
-Postgres target it runs the write itself and rolls it back, so the database
-constraints answer too; on a vault target the decisions are checked and the
-documents are not written. `--apply` writes it. An import refuses when the
+skip-or-refuse — and reports what it would create, but writes nothing. It
+runs the write itself and rolls it back, so the database constraints answer
+too. `--apply` writes it. An import refuses when the
 target already holds one of the projects in the document, so a restore cannot
 half-merge into a live board.
 
-## Moving an existing vault
+## Moving from a Norn vault
 
-Export from the vault, then import into the Postgres database. Export reads the
-store seam, so the source backend does not matter.
+Releases through v0.20 could keep work state in a Norn-managed Markdown vault.
+Norn was the v0.20 default, so a v0.20 config with no `backend` line under
+`[store]` is a Norn install too. This release removes that backend:
+`[store] backend = "norn"` is a fatal config error, and a config with no
+`backend` line opens an empty SQLite store and never reads the vault. Move the
+vault in two steps: export it with mimir v0.20, then import the document with
+this release. The document is the same transfer format
+that `store export` writes today, so the import reads it unchanged.
 
-On the machine that holds the vault, make sure its config selects the vault
-with `backend = "norn"` under `[store]`. An install that relied on the old
-default has no `backend` key and now opens the local SQLite store instead, so
-add the key first. Then export:
+On the machine that holds the vault, with mimir v0.20 still installed, export:
 
 ```sh
 mimir store export vault.json
 ```
 
-Copy the file to the target machine. There, point the install at the database:
+Install this release. Remove the `backend = "norn"` line if the config has one,
+and the `[vault]` section. The install now opens the local SQLite store.
+To import into Postgres instead, point the install at the database:
 
 ```toml
 [store]
@@ -163,10 +167,15 @@ backend = "postgres"
 url = "postgres://mimir:secret@db.example.internal:5432/mimir"
 ```
 
-Create the schema, preview the import, then write it:
+For Postgres, create the schema first. SQLite creates its own on open:
 
 ```sh
 mimir store upgrade
+```
+
+Preview the import, then write it:
+
+```sh
 mimir store import vault.json
 mimir store import vault.json --apply
 ```
@@ -182,20 +191,35 @@ Identity is preserved end to end: every `KEY-seq`, `KEY-aN`, and `KEY-sN`, every
 timestamp, and the sequence counters, so a create after the import never
 collides with an imported id.
 
-A failed import into a Postgres target leaves nothing behind: the whole import
-is one transaction, so a failure rolls it back and the retry is the same command
-again.
-
-`--resume` exists for a vault target, whose failure contract is partial
-success: a failed import there leaves some documents written and the rest not,
-and the resume finishes it. It works on a Postgres target too, where it skips
-a document already imported in full.
+A failed import leaves nothing behind on either backend: the whole import is one
+transaction, so a failure rolls it back and the retry is the same command again.
+`--resume` skips a record already present and identical to what this import
+would write:
 
 ```sh
 mimir store import vault.json --apply --resume
 ```
 
-`--resume` skips every record already present and identical to what this import
-would write. A record that is present but different stops the import and names
-it: resume finishes a partial run of one document, it does not merge two
-different ones.
+A record that is present but different stops the import and names it: resume
+finishes a partial run of one document, it does not merge two different ones.
+
+### Removing a leftover snapshot timer
+
+A v0.20 install that ran `mimir setup --install-snapshot` also has a snapshot
+timer unit, which this release no longer manages. It runs a command that no
+longer exists, so remove it by hand.
+
+On macOS:
+
+```sh
+launchctl bootout gui/$(id -u)/com.dbtlr.mimir.snapshot
+rm ~/Library/LaunchAgents/com.dbtlr.mimir.snapshot.plist
+```
+
+On Linux:
+
+```sh
+systemctl --user disable --now com.dbtlr.mimir.snapshot.timer
+rm ~/.config/systemd/user/com.dbtlr.mimir.snapshot.timer ~/.config/systemd/user/com.dbtlr.mimir.snapshot.service
+systemctl --user daemon-reload
+```
