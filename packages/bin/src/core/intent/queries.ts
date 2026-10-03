@@ -135,13 +135,8 @@ function byProjectRank(set: DerivationSet) {
     a.seq - b.seq;
 }
 
-function setResult(
-  items: NodeView[],
-  total: number,
-  issueCount: number | undefined,
-  startsAt = 0,
-): SetResult<NodeView> {
-  return { issueCount, items, returned: items.length, startsAt, total };
+function setResult(items: NodeView[], total: number, startsAt = 0): SetResult<NodeView> {
+  return { items, returned: items.length, startsAt, total };
 }
 
 /** Does this Status word fall inside the selected universe? */
@@ -329,7 +324,7 @@ export async function nextTasks(
   const items = await Promise.all(
     limited.map((node) => buildNodeView(store.bodySections, store.artifacts, set, node, facets)),
   );
-  return setResult(items, ready.length, set.ws.issueCount);
+  return setResult(items, ready.length);
 }
 
 export type ListOptions = {
@@ -441,7 +436,7 @@ export async function listNodes(
       buildNodeView(store.bodySections, store.artifacts, set, node, facets),
     ),
   );
-  return setResult(items, matched.length, set.ws.issueCount);
+  return setResult(items, matched.length);
 }
 
 export type GetOptions = {
@@ -565,8 +560,8 @@ export function overviewScratchpadOf(scratchpad: Scratchpad): OverviewScratchpad
 /**
  * How many of the project's tasks the recent-sessions layer reads `## History`
  * for (MMR-322) — the read-amplification bound. History is a body section: a
- * per-task document read that a big board would otherwise multiply by every task
- * it holds, for a section that shows five entries. The scan takes the most
+ * per-task read that a big board would otherwise multiply by every task it
+ * holds, for a section that shows five entries. The scan takes the most
  * recently touched tasks first, which is exactly the population the newest
  * sessions moved, so the bound costs coverage only for sessions already far
  * below the cap.
@@ -676,7 +671,7 @@ async function recentSessions(
  *
  * `count` is therefore a TRUE total over that population, and only the rendered
  * list caps at {@link OVERVIEW_CAP} — the prose is uncapped in length, so a board
- * with many parallel claims would otherwise turn a boot surface into a document
+ * with many parallel claims would otherwise turn a boot surface into a prose
  * dump. A dormant container's prose stays one `mimir get` away by design.
  */
 async function directionOf(
@@ -737,8 +732,7 @@ async function attentionRows(
  * MMR-322 per ADR 0026): a flat, id-free, scope-honoring read composing the whole
  * board state into attention-ordered sections. Still ONE `loadWorkingSet` +
  * `deriveSet` over the existing pure predicates — never a `next`/`list`/`status`
- * entry point (each reloads the store), never the doctor snapshot (the dropped
- * count is the free `WorkingSet.issueCount` byproduct, MMR-184).
+ * entry point (each reloads the store), never a doctor pass.
  *
  * The composed sections add reads the working set cannot serve, each **bounded by
  * construction** rather than by the board's size: one seeds read (the untriaged
@@ -809,9 +803,7 @@ export async function overviewOf(
   );
 
   // hygiene — the counts, each with the capped head of its own lane (MMR-322).
-  // Untriaged is the one seeds read (a `new` seed IS the untriaged lane); dropped
-  // is the free load byproduct (MMR-184) and stays count-only — it counts records
-  // the reader dropped, which by definition are not tasks anyone can list.
+  // Untriaged is the one seeds read (a `new` seed IS the untriaged lane).
   const untriagedSeeds = (await store.seeds.listForProject(scopeId)).filter(
     (seed) => seed.lifecycle === 'new',
   );
@@ -821,7 +813,6 @@ export async function overviewOf(
   const staleNodes = tasks
     .filter((n) => isStale(set, n, { asOf: opts.asOf }))
     .toSorted(byRankOrder(set));
-  const dropped = set.ws.issueCount ?? 0;
 
   const [direction, sessions, blockedRows, staleRows, untriagedRows] = await Promise.all([
     // The FULL ready set, not the capped head: the cap is a display bound on
@@ -839,7 +830,6 @@ export async function overviewOf(
     direction,
     hygiene: {
       blocked: blockedNodes.length,
-      dropped,
       listings: { blocked: blockedRows, stale: staleRows, untriaged: untriagedRows },
       stale: staleNodes.length,
       untriaged: untriagedSeeds.length,
@@ -971,7 +961,6 @@ export async function listArtifacts(
     return summary;
   });
   return {
-    issueCount: ws.issueCount,
     items,
     returned: items.length,
     startsAt: opts.offset ?? 0,

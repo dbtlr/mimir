@@ -19,7 +19,7 @@ import {
 import { createSqlDoctorBackend } from './doctor/sql/backend';
 import type { GlobalConfig } from './service/config';
 import { configPath } from './service/config';
-import type { BuildStoreOptions, BuiltStore } from './store-backend';
+import type { BuiltStore } from './store-backend';
 
 /**
  * The refusal for a Postgres install with no connection URL. It names the key,
@@ -33,16 +33,9 @@ export function postgresUrlMissing(): Error {
   );
 }
 
-/**
- * Build the Postgres store for this process. `opts` carries a doctor repair
- * capability; this backend has no repair pass to wire (every state its doctor
- * reports is unreachable through the binary and points at a hand edit), so the
- * option is deliberately unused here.
- */
-export async function buildPostgresStore(
-  config: GlobalConfig,
-  _opts: BuildStoreOptions,
-): Promise<BuiltStore> {
+/** Build the Postgres store for this process, refusing a schema this binary
+ * does not read. */
+export async function buildPostgresStore(config: GlobalConfig): Promise<BuiltStore> {
   const url = config.store.url;
   if (url === undefined) {
     throw postgresUrlMissing();

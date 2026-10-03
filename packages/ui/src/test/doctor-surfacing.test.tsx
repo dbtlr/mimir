@@ -10,12 +10,13 @@ import { router } from '../router';
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 
-/** A facet with `n` drops on project MMR — surfacing only needs the count. */
+/** A facet with `n` findings on project MMR — surfacing only needs the count. */
 function facet(n: number): WireDoctorFacet {
   return {
-    dropped_total: n,
-    groups: n === 0 ? [] : [{ dropped: n, path: 'MMR', project: 'MMR', readable: 40, records: [] }],
+    finding_total: n,
+    groups: n === 0 ? [] : [{ finding_count: n, project: 'MMR', records: [] }],
     scanned_at: new Date().toISOString(),
+    scope: null,
   };
 }
 
@@ -32,7 +33,7 @@ function renderAt(path: string) {
 }
 
 describe('record-health surfacing (MMR-185, mock 15b)', () => {
-  it('shows an amber dropped vital on the Overview card', async () => {
+  it('shows an amber findings vital on the Overview card', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/projects') {
         return Promise.resolve({
@@ -47,10 +48,10 @@ describe('record-health surfacing (MMR-185, mock 15b)', () => {
     });
     renderAt('/');
 
-    await expect(screen.findByText('2 dropped')).resolves.toBeDefined();
+    await expect(screen.findByText('2 findings')).resolves.toBeDefined();
   });
 
-  it('shows an amber attention pill + damage line when nothing else needs the operator', async () => {
+  it('shows an amber attention pill + health line when nothing else needs the operator', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/projects') {
         return Promise.resolve({
@@ -65,13 +66,15 @@ describe('record-health surfacing (MMR-185, mock 15b)', () => {
     });
     renderAt('/');
 
-    // The pill is reachable even with zero needs-you: it reads the dropped count.
+    // The pill is reachable even with zero needs-you: it reads the finding count.
     // Exact name disambiguates it from the Overview card button (whose name also
-    // contains "2 dropped").
-    const pill = await screen.findByRole('button', { name: '2 dropped' });
+    // contains "2 findings").
+    const pill = await screen.findByRole('button', { name: '2 findings' });
     await userEvent.click(pill);
-    // The damage line sits in the menu, deep-linking to the health panel.
-    await expect(screen.findByText(/Record damage in/)).resolves.toBeDefined();
+    // The health line sits in the menu, deep-linking to the health panel.
+    await expect(
+      screen.findByRole('menuitem', { name: /MMR — 2 findings/ }),
+    ).resolves.toBeDefined();
     expect(screen.getByText('health →')).toBeDefined();
   });
 
@@ -88,10 +91,10 @@ describe('record-health surfacing (MMR-185, mock 15b)', () => {
     renderAt('/');
 
     await expect(screen.findByText('Mimir')).resolves.toBeDefined();
-    expect(screen.queryByText(/dropped/)).toBeNull();
+    expect(screen.queryByText(/finding/)).toBeNull();
   });
 
-  it('puts an amber dropped chip in the project header, linking to the panel', async () => {
+  it('puts an amber findings chip in the project header, linking to the panel', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/projects/MMR') {
         return Promise.resolve({
@@ -118,7 +121,7 @@ describe('record-health surfacing (MMR-185, mock 15b)', () => {
     });
     renderAt('/p/MMR');
 
-    const chip = await screen.findByRole('link', { name: /2 dropped/ });
+    const chip = await screen.findByRole('link', { name: /2 findings/ });
     expect(chip.getAttribute('href')).toContain('/doctor');
     expect(chip.getAttribute('href')).toContain('project=MMR');
   });

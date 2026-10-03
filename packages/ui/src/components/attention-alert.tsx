@@ -6,6 +6,7 @@ import { projectKeyOf } from '../api/types';
 import type { AttentionReason } from '../lib/attention';
 import { attentionItems } from '../lib/attention';
 import { cn } from '../lib/cn';
+import { findingCount } from '../lib/health';
 import { ago } from '../lib/time';
 import { StatusDot } from './status-dot';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
@@ -18,12 +19,12 @@ import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
  * or a solid fill even when the set is blocked-heavy. Selecting an item opens it
  * on its board.
  *
- * Record damage (MMR-185) rides *below* the needs-you set as an amber line per
+ * Record health (MMR-185) rides *below* the needs-you set as an amber line per
  * project — a project vital, deliberately not an alarm: it never inflates the
  * "N for you" count and stays amber, never violet or red. When nothing needs the
- * operator but records are dropped, the pill still appears, amber, showing the
- * dropped count so the menu (and its damage lines) stay reachable. All of it is
- * absent at zero — no needs-you, no damage, no pill.
+ * operator but the store has findings, the pill still appears, amber, showing the
+ * finding count so the menu (and its health lines) stay reachable. All of it is
+ * absent at zero — no needs-you, no findings, no pill.
  */
 
 /** Per-reason label + its status-foreground meta tone. */
@@ -45,15 +46,15 @@ export function AttentionAlert() {
     stale.data?.items ?? [],
   );
   const count = items.length;
-  const damaged = (health.data?.groups ?? []).filter((g) => g.dropped > 0);
-  const droppedTotal = health.data?.dropped_total ?? 0;
+  const flagged = (health.data?.groups ?? []).filter((g) => g.finding_count > 0);
+  const findingTotal = health.data?.finding_total ?? 0;
 
-  // Absent at zero: nothing needs you AND nothing is dropped — no pill.
-  if (count === 0 && droppedTotal === 0) {
+  // Absent at zero: nothing needs you AND the store has no findings — no pill.
+  if (count === 0 && findingTotal === 0) {
     return null;
   }
 
-  // Amber-only when the sole reason to appear is record damage — a calm vital, not
+  // Amber-only when the sole reason to appear is record health — a calm vital, not
   // an "N for you" alarm.
   const amberOnly = count === 0;
 
@@ -74,7 +75,7 @@ export function AttentionAlert() {
             amberOnly ? 'bg-status-in-progress' : 'bg-attention',
           )}
         />
-        {amberOnly ? `${droppedTotal} dropped` : `${count} for you`}
+        {amberOnly ? findingCount(findingTotal) : `${count} for you`}
       </MenuTrigger>
       <MenuContent className="max-h-[70vh] w-[340px] overflow-auto">
         {count > 0 && (
@@ -115,9 +116,9 @@ export function AttentionAlert() {
             </MenuItem>
           );
         })}
-        {/* Record damage sits BELOW the needs-you set (MMR-185), amber, one line per
-            damaged project — a vital, never an alarm. */}
-        {damaged.map((group) => (
+        {/* Record health sits BELOW the needs-you set (MMR-185), amber, one line per
+            project with findings — a vital, never an alarm. */}
+        {flagged.map((group) => (
           <MenuItem
             key={group.project}
             className={cn('items-center', count > 0 && 'border-t border-status-in-progress/15')}
@@ -128,8 +129,8 @@ export function AttentionAlert() {
               className="inline-block size-[7px] shrink-0 rounded-full bg-status-in-progress"
             />
             <span className="min-w-0 flex-1 text-[12.5px] text-status-in-progress-foreground">
-              Record damage in <span className="font-mono">{group.project}</span> — {group.dropped}{' '}
-              dropped
+              <span className="font-mono">{group.project}</span> —{' '}
+              {findingCount(group.finding_count)}
             </span>
             <span className="shrink-0 text-micro text-ink-faint">health →</span>
           </MenuItem>

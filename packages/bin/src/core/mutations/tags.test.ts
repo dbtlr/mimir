@@ -62,7 +62,7 @@ test('tag reaches all three entity types via the identity grammar', async () => 
   expect(record?.tags).toEqual(['spec']);
 });
 
-// A node/project tag is a plain frontmatter string set (ADR 0005) — a tag
+// A node/project tag is a plain string set (ADR 0005) — a tag
 // application carries no note on any entity (MMR-270). Re-tagging never
 // duplicates a row.
 test('re-tagging is idempotent', async () => {

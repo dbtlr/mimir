@@ -382,7 +382,7 @@ test('nested Scratchpad help resolves the exact Agenda operation without opening
 
 test('isolated-store CLI lifecycle supports resume, guards, freeze recovery, and discard refusal', async () => {
   const sandbox = sandboxAuthority();
-  const fixture = await buildSqliteStore({}, sandbox.sqlitePath);
+  const fixture = await buildSqliteStore(sandbox.sqlitePath);
   try {
     await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
     const invoke = async (args: string[]) => {

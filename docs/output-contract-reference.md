@@ -159,8 +159,8 @@ the same **lean projection** `list`/`next` emit; each `awaiting` task adds an
 even where its array is capped (`next`/`awaiting` and
 `active_scratchpads.scratchpads` cap at `OVERVIEW_CAP`, currently 5;
 `in_flight` is uncapped). `active_scratchpads.count` likewise reports the true
-total before the cap. `hygiene` is counts only — `dropped` is the load's own
-`issueCount` byproduct (MMR-184), never a `doctor` pass.
+total before the cap. `hygiene` carries the `untriaged`, `blocked`, and `stale`
+counts, each with a capped `listings` head.
 
 ```json
 {
@@ -182,7 +182,7 @@ total before the cap. `hygiene` is counts only — `dropped` is the load's own
     "count": 12,
     "tasks": [{ "id": "MMR-9", "status": "awaiting", "awaiting_on": ["MMR-2", "MMR-3"] }]
   },
-  "hygiene": { "blocked": 1, "dropped": 0, "stale": 2, "untriaged": 3 },
+  "hygiene": { "blocked": 1, "stale": 2, "untriaged": 3 },
   "in_flight": {
     "count": 2,
     "tasks": [{ "id": "MMR-16", "status": "in_progress" }]
@@ -199,24 +199,57 @@ total before the cap. `hygiene` is counts only — `dropped` is the load's own
 The MCP `overview` tool and HTTP `GET /api/projects/:key/overview` return the
 identical envelope (ADR 0012).
 
-## Doctor diagnostics and repair
+## Doctor diagnostics
 
 `mimir doctor [-s KEY] [--format …]` is read-only and non-gating. A successful
-diagnostic read exits `0` even when findings exist. Human findings keep their
-severity-tagged lines (today `[error]` / `[warn]`; spelling is governed by the
-[Output Voice Guide](output-voice.md), which adopts `[err]` — reconciliation
-tracked at MMR-288). JSON and JSONL findings retain the established
-`check`, `severity`, `node`, `where`, and `message` fields and add:
+diagnostic read exits `0` even when findings exist. Human findings print to
+stderr as severity-tagged lines, `[err]` or `[warn]`, in the short spelling the
+[Output Voice Guide](output-voice.md) sets; the wire `severity` field keeps
+`error` / `warn`. JSON and JSONL findings carry `check`, `severity`, `node`,
+`where`, and `message`, plus:
 
 - `code` — stable issue code;
 - `scopeKey` and `stem` — canonical identity derived from the node's `KEY-seq`;
 - `locator` — the issue location, `<table>/<key>`;
 - `evidence` — rule-specific structured facts.
 
-`mimir doctor --fix` and `--dry-run` are refused: the SQL backends (SQLite and
-PostgreSQL) have no repair pass. Every state doctor reports is unreachable
-through the binary and points at a hand edit. `--dry-run` without `--fix` is
-usage and exits `2`. Repair is not exposed through MCP, HTTP, or the console.
+Doctor has no repair pass and no `--fix` flag; each finding is fixed by hand at
+the database. A scoped run naming a project key the store does not hold warns
+`doctor scope 'KEY' matched 0 records` on stderr, so a stale scope never reads
+as a clean scan.
+
+`GET /api/doctor[?project=KEY]` serves the same findings to the console's
+Record-health panel, grouped by project:
+
+```json
+{
+  "scanned_at": "2026-10-03T12:00:00.000Z",
+  "finding_total": 1,
+  "groups": [
+    {
+      "project": "MMR",
+      "finding_count": 1,
+      "records": [
+        {
+          "id": "MMR-2",
+          "cause": "dangling parent",
+          "severity": "error",
+          "locator": "node/MMR-2",
+          "field": "parent_id",
+          "value": "MMR-404",
+          "evidence": { "parent_id": "MMR-404" },
+          "note": "MMR-2 names parent MMR-404, which no node row holds"
+        }
+      ]
+    }
+  ],
+  "scope": null
+}
+```
+
+`scope` is `null` for an unscoped scan, and `{ "key", "matched_records" }` for
+a `?project` scan. A store-level finding, such as a schema-version mismatch,
+groups under the project word `store`.
 
 ## Write contract (mutations)
 

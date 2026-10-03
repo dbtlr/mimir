@@ -1,1 +1,1 @@
-export type { BodySectionStore, NextSection } from './store';
+export type { BodySectionStore, NextFacet } from './store';

@@ -28,9 +28,9 @@ export const healthQuery = queryOptions({
 });
 
 /**
- * The record-health facet (MMR-185): dropped-record diagnostics, optionally scoped
+ * The record-health facet (MMR-185): `mimir doctor` findings, optionally scoped
  * to one project. Unscoped feeds the always-on surfacing (overview vital, attention
- * damage line); the `key` form feeds the project header chip + the panel. Read-only
+ * findings line); the `key` form feeds the project header chip + the panel. Read-only
  * — no write ever invalidates it, so it rides the poll like every other read.
  */
 export const doctorQuery = (project?: string) =>

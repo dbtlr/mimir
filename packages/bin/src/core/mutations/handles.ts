@@ -66,7 +66,7 @@ export function normalizeHandle(value: string | null, field: HandleFieldKey): st
  * Copy the SET resume handles from a patch onto a {@link NodePatch}, normalized —
  * the one binding `create`, `start`, and `update` share, so no door can store a
  * value another would refuse. The camelCase arg name and the snake_case
- * frontmatter column coincide for all four (they are single words), so one loop
+ * store column coincide for all four (they are single words), so one loop
  * over {@link HANDLE_FIELD_KEYS} serves both sides.
  */
 export function applyHandlePatch(patch: NodePatch, fields: HandleFields): void {
@@ -86,10 +86,11 @@ export function applyHandlePatch(patch: NodePatch, fields: HandleFields): void {
  * Presence is decided by the STORED value (so `clearHandles` nulls exactly the
  * columns that hold something), but the reported value is {@link flattenHandle}'d.
  * That is the whole forgery guard: the edge line is written verbatim — unlike a
- * reason, it is never heading-escaped — so a hand-edited multi-line value would
- * otherwise inject a whole extra `### ` record (or close the section) and a
- * separator-bearing one would read back as a handle nobody set. Flattening here
- * cannot throw, so a hand edit degrades its own echo instead of blocking `done`.
+ * reason, it is never heading-escaped — so a stored multi-line value (an older
+ * write, or an imported one) would otherwise inject a whole extra `### ` record
+ * (or close the section) and a separator-bearing one would read back as a
+ * handle nobody set. Flattening here cannot throw, so such a value degrades its
+ * own echo instead of blocking `done`.
  */
 export function handlesOf(task: Node): ExecutionHandles {
   const handles: ExecutionHandles = {};
@@ -108,7 +109,7 @@ export function handlesOf(task: Node): ExecutionHandles {
  * (`done`, `abandon`) and the holds (`park`, `block`) drop the handles, because
  * the work is no longer in flight and a stale pointer is worse than none. Only
  * the SET handles are nulled, so an unclaimed task's transition writes no extra
- * frontmatter op. `submit`/`return` deliberately do NOT call this — the branch and
+ * column. `submit`/`return` deliberately do NOT call this — the branch and
  * session stay the live pointers at the human gate — and `reopen`/`unpark`/
  * `unblock` restore nothing: a resuming agent re-states them via `update`.
  */

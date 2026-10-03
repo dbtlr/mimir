@@ -206,7 +206,6 @@ function overview(over: Partial<OverviewReport> = {}): OverviewReport {
     direction: { containers: [], count: 0, project: null },
     hygiene: {
       blocked: 0,
-      dropped: 0,
       listings: { blocked: [], stale: [], untriaged: [] },
       stale: 0,
       untriaged: 0,

@@ -20,7 +20,6 @@ import {
 } from '../core';
 import type { Store } from '../core';
 import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
-import type { TestStore } from '../testing/store';
 import { UsageError, exitCodeFor, renderError } from './errors';
 import { runCli } from './run';
 import { fakeIo } from './testing';
@@ -347,6 +346,31 @@ test('unknown flag with no near match: falls back to the verb help pointer (MMR-
   expect(err).not.toContain('did you mean');
   expect(err).not.toContain('Unknown option');
   expect(err).not.toContain('positional argument');
+});
+
+test('doctor --fix is an unknown flag: doctor only reports (MMR-420)', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['doctor', '--fix'], neverStore, io)).toBe(2);
+  const err = io.err.join('');
+  expect(err).toContain("unknown flag '--fix'");
+  expect(io.out.join('')).toBe('');
+});
+
+test('--dry-run belongs to triage: doctor and write verbs refuse it rather than ignore it', async () => {
+  for (const argv of [
+    ['doctor', '--dry-run'],
+    ['update', 'MMR-1', '--title', 'x', '--dry-run'],
+  ]) {
+    const io = fakeIo(true);
+    expect(await runCli(argv, neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain(`'--dry-run' doesn't apply to ${argv[0] ?? ''}`);
+  }
+});
+
+test('store import --dry-run is refused with a pointer to its default preview', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['store', 'import', 'x.json', '--dry-run'], neverStore, io)).toBe(2);
+  expect(io.err.join('')).toContain('store import previews by default');
 });
 
 test('create with a leading-dash title but no -- hits the strict unknown-flag error, hinting at the escape hatch (MMR-359)', async () => {
@@ -1356,41 +1380,6 @@ test('next empty -f records on a TTY prints a no-results line (MMR-95)', async (
   expect(text).toMatch(/No ready tasks/i);
 });
 
-// MMR-184: the doctor issue-count trailer — a stderr-only nudge off the
-// tolerant reader's own drop tally for the load `next`/`list` already perform,
-// never a fresh `mimir doctor` pass.
-
-describe('doctor issue-count trailer on next/list (MMR-184)', () => {
-  let fixture: TestStore;
-
-  beforeEach(async () => {
-    fixture = await createTestStore();
-  });
-
-  afterEach(async () => {
-    await fixture.close();
-  });
-
-  async function seedClean(): Promise<void> {
-    await createProject(fixture.store, { key: 'MMR', name: 'm' });
-    const init = await createInitiative(fixture.store, { projectId: 'MMR', title: 'i' });
-    const phase = await createPhase(fixture.store, { parentId: init.id, title: 'ph' });
-    await createTask(fixture.store, { parentId: phase.id, title: 't' });
-  }
-
-  test('a clean store shows no trailer on next or list', async () => {
-    await seedClean();
-
-    const nextIo = fakeIo(true);
-    expect(await runCli(['next', '--scope', 'MMR'], () => fixture.store, nextIo)).toBe(0);
-    expect(nextIo.err.join('')).toBe('');
-
-    const listIo = fakeIo(true);
-    expect(await runCli(['list', '--scope', 'MMR'], () => fixture.store, listIo)).toBe(0);
-    expect(listIo.err.join('')).toBe('');
-  });
-});
-
 // MMR-278: `overview` — the composite session-boot orientation surface. A
 // report-kind read: styled sections on a TTY, one JSON envelope when piped;
 // the set formats and `-s all` are usage errors pointing at `mimir list`.
@@ -1440,7 +1429,6 @@ describe('overview (MMR-278)', () => {
         untriaged: number;
         blocked: number;
         stale: number;
-        dropped: number;
         listings: { blocked: unknown[]; stale: unknown[]; untriaged: unknown[] };
       };
     }>(io.out.join(''));
@@ -1449,7 +1437,6 @@ describe('overview (MMR-278)', () => {
     expect(env.next.tasks[0]?.status).toBe('ready');
     expect(env.hygiene).toEqual({
       blocked: 0,
-      dropped: 0,
       listings: { blocked: [], stale: [], untriaged: [] },
       stale: 0,
       untriaged: 0,

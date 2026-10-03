@@ -15,7 +15,8 @@ import type { StoreExport } from './export';
 import { STORE_EXPORT_SCHEMA_VERSION } from './export';
 import { isScratchpadId } from './scratchpads/store';
 
-// Preserve legacy empty timestamps. Import copies stored facts; doctor repairs them.
+// Plain text, not the canonical-instant grammar: import copies stored facts as they
+// stand, including a legacy empty timestamp a v0.20 export can carry.
 const text = z.string();
 const nullableText = text.nullable();
 const integer = z.int32();

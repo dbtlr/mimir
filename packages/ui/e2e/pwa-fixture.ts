@@ -114,9 +114,10 @@ export class PwaFixture {
     if (path === '/api/doctor') {
       return {
         body: JSON.stringify({
-          dropped_total: 0,
+          finding_total: 0,
           groups: [],
           scanned_at: '2026-08-06T12:00:00.000Z',
+          scope: null,
         }),
         status: 200,
       };

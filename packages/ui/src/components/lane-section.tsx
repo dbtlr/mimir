@@ -26,13 +26,13 @@ export function LaneSection({
   lane,
   onOpen,
   collapsible = false,
-  droppedByKey,
+  findingsByKey,
 }: {
   lane: LaneGroup;
   onOpen: (key: string) => void;
   collapsible?: boolean;
-  /** Per-project record-damage counts (MMR-185) — the card's amber vital. */
-  droppedByKey?: Map<string, number>;
+  /** Per-project record-health finding counts (MMR-185) — the card's amber vital. */
+  findingsByKey?: Map<string, number>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const count = lane.projects.length;
@@ -46,7 +46,7 @@ export function LaneSection({
           project={project}
           onOpen={onOpen}
           lane={lane.lane}
-          dropped={droppedByKey?.get(project.id)}
+          findings={findingsByKey?.get(project.id)}
         />
       ))}
     </div>

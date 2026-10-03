@@ -9,29 +9,25 @@ import type { DataFieldKey, FieldKindName, NodeType, Priority, Size } from '@mim
 import { isMember } from '@mimir/helpers';
 
 import { invariant, validation } from './errors';
-import { parseSeedRef, parseUpstreamField, UPSTREAM_CLEAR } from './ids';
-import type { Node } from './model';
+import { parseUpstreamField, UPSTREAM_CLEAR } from './ids';
 import type { UpdateFieldKey, UpdateFields } from './mutations/data';
 
 /**
  * The data-plane kind registry (ADR 0025) — the code bindings that compose with
  * the pure field facts in `@mimir/contract` ({@link FIELD_FACTS}, re-exported
  * here as {@link FIELD_SPEC}) to form the field spec every data-plane surface
- * derives from: the frontmatter codec (decode in `store-norn/store.ts`, emit in
- * `vault-frontmatter.ts` — the inverse pair ceases to exist as a hand-synced
- * pair), the `update` applicability gates (`mutations/data.ts`), the query
- * registry (`query.ts`), and the three transport surfaces (CLI flags, MCP zod
- * fragments, HTTP body allow-lists). Each field names a **kind**; the kind
- * ({@link FIELD_KINDS}) owns the parser/emitter pair, the wire parser, and the
- * query semantics — kinds are where code lives, fields are pure data (ADR 0025
- * Decision 2). Facts live in the contract so any consumer (including the UI) can
+ * derives from: the `update` applicability gates (`mutations/data.ts`), the
+ * query registry (`query.ts`), and the three transport surfaces (CLI flags, MCP
+ * zod fragments, HTTP body allow-lists). Each field names a **kind**; the kind
+ * ({@link FIELD_KINDS}) owns the wire parser and the query semantics — kinds
+ * are where code lives, fields are pure data (ADR 0025 Decision 2). Facts live in the contract so any consumer (including the UI) can
  * read them; this module holds only the bindings and the derivations.
  *
  * The identity/topology plane — id, type, parent, rank, tags, the timestamps
  * (`created_at`/`updated_at`/`completed_at`), transition history, and body
  * sections — is NOT here: those are what make a node a node in the graph, they
- * have their own verbs, and their decode is inherent structural work. They stay
- * bespoke in the codec (ADR 0025 Decision 1). `title` likewise stays structural:
+ * have their own verbs, and their handling is inherent structural work. They
+ * stay bespoke (ADR 0025 Decision 1). `title` likewise stays structural:
  * it is always-present node identity (never omit-empty) and its `update`
  * applicability spans the non-node kinds (project/artifact/seed), which this
  * node-typed spec does not model.
@@ -39,99 +35,7 @@ import type { UpdateFieldKey, UpdateFields } from './mutations/data';
 
 export type { DataFieldKey, FieldKindName } from '@mimir/contract';
 
-// ─── Kind implementations (the parser/emitter pairs) ────────────────────────
-
-/** A frontmatter value narrowed to a string, or null when it isn't one. */
-function str(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-/**
- * Narrow a frontmatter value to an enum member. Norn has no enum field_type, so
- * value legality can't be enforced at the vault layer — the reader is the guard.
- * An ABSENT field returns null (the caller applies its own default /
- * nullability); a PRESENT but out-of-vocabulary value throws, enforcing in
- * code the same enum invariant a column CHECK constraint would enforce in a
- * schema.
- */
-function enumFieldStrict<T extends string>(
-  value: unknown,
-  values: readonly T[],
-  stem: string,
-  field: string,
-): T | null {
-  if (value === undefined) {
-    return null;
-  }
-  const s = str(value);
-  if (s !== null && isMember(s, values)) {
-    return s;
-  }
-  throw invariant(
-    `node ${stem} has an invalid ${field} value`,
-    `${field} must be one of: ${values.join(', ')}`,
-  );
-}
-
-/**
- * The non-throwing enum narrow for the OPTIONAL task fields (`priority`/`size`,
- * MMR-177): absent → null, a valid member → the value, and a PRESENT foreign
- * value → null (no throw). Field validity keeps a node with a foreign
- * priority/size (null is a truthful "unset"), so a surviving node can still carry
- * one — this reads it as null rather than crashing the never-throw read path. The
- * tiering decision (null-the-field vs drop-the-node) lives only in `validate`;
- * this is the mechanical "don't crash" over the SAME vocabulary. NOT used for
- * `lifecycle`/`hold`, whose bad nodes the validator already drops — those stay on
- * {@link enumFieldStrict} as a seam backstop.
- */
-function enumFieldOrNull<T extends string>(value: unknown, values: readonly T[]): T | null {
-  const s = str(value);
-  return s !== null && isMember(s, values) ? s : null;
-}
-
-/**
- * The non-throwing boolean narrow for the container-only OPTIONAL field
- * `open_ended` (MMR-204). Norn has no boolean field_type, so the field rides
- * undeclared and round-trips as the strings `'true'`/`'false'` (see the `bool`
- * kind's emitter); a hand-authored YAML boolean is accepted too. Absent or any
- * foreign value → null — the foreign-nulls-the-field tiering that mirrors
- * {@link enumFieldOrNull} (the validator owns the null-vs-drop decision).
- */
-function boolFieldOrNull(value: unknown): boolean | null {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  const s = str(value);
-  if (s === 'true') {
-    return true;
-  }
-  return s === 'false' ? false : null;
-}
-
-/**
- * The non-throwing decode for a task's `upstream` seed pointer (MMR-244),
- * mirroring `validate`'s view WHERE THE READER CAN ACT LOCALLY: collapse the
- * wikilink form ({@link collapse}), then null unless the grammar is a `KEY-sN`
- * seed id — the grammar tier nulled here exactly as {@link enumFieldOrNull} nulls
- * a foreign priority/size. A DANGLING but well-formed ref (valid grammar, no such
- * seed) is NOT decided here: the hot read path loads no seeds, so it stays the
- * collapsed stem and the resolving read seam (MMR-245) resolves it. The tiering
- * decision lives in `validate`; this is the mechanical "collapse + grammar guard".
- */
-/** A link value's stem — the `[[stem|alias]]` wikilink form unwrapped — or null. */
-function collapse(link: unknown): string | null {
-  if (typeof link !== 'string') {
-    return null;
-  }
-  const wikilink = link.startsWith('[[') && link.endsWith(']]');
-  const inner = wikilink ? (link.slice(2, -2).split('|')[0] ?? '').trim() : link;
-  return inner === '' ? null : inner;
-}
-
-function seedRefOrNull(value: unknown): string | null {
-  const stem = collapse(value);
-  return stem !== null && parseSeedRef(stem) !== null ? stem : null;
-}
+// ─── Wire parsers ───────────────────────────────────────────────────────────
 
 /**
  * Validate a raw priority token against the enum — the one `invalid
@@ -183,12 +87,6 @@ export function parseUpstreamValue(value: string | undefined): string | null | u
 
 // ─── The kind registry ──────────────────────────────────────────────────────
 
-/** The scalar shapes a data-plane field takes in the model. */
-type ModelScalar = string | number | boolean | null;
-
-/** Context a decoder needs for a legality-throwing narrow (the enum guards). */
-export type DecodeCtx = { stem: string; field: string };
-
 /** The query-registry projection of a kind — `null` when the field isn't queryable. */
 type QueryProjection = { kind: 'enum'; values: readonly string[] } | { kind: 'string' };
 
@@ -197,23 +95,15 @@ type QueryProjection = { kind: 'enum'; values: readonly string[] } | { kind: 'st
 export type WireValue = string | boolean | null;
 
 /**
- * A field **kind** — the parser/emitter pair, query semantics, and wire parser a
- * field declares by name (ADR 0025 Decision 2). `decode` reads a frontmatter value
- * into the model (tolerant, or a legality throw for the strict enums); `emit`
- * projects the model value back to a frontmatter value (`null` omits the key,
- * the omit-empty shape); `query` is the registry projection; `wire` parses a raw
- * transport token into the {@link UpdateFields} value (the third direction — the
- * `update` write plane), reusing the kind's existing parse binding so every
- * transport shares one grammar and error wording. `wire` is `null` for a kind read
+ * A field **kind** — the query semantics and wire parser a field declares by
+ * name (ADR 0025 Decision 2). `query` is the registry projection; `wire` parses
+ * a raw transport token into the {@link UpdateFields} value (the `update` write
+ * plane), reusing the kind's parse binding so every transport shares one
+ * grammar and error wording. `wire` is `null` for a kind read
  * natively by every transport (the status axes, which have no generic `update`,
  * and `bool`, whose value arrives already typed) — those never route through it.
  */
 type FieldKind = {
-  decode: (value: unknown, ctx: DecodeCtx) => ModelScalar;
-  /** Model value → frontmatter value; `null` omits the key. A `bool` stringifies;
-   * the string/enum kinds pass their (string) value through, so the return widens
-   * to {@link ModelScalar} even though a passthrough never yields a boolean. */
-  emit: (value: ModelScalar) => ModelScalar;
   query: QueryProjection | null;
   /** Raw transport token → {@link UpdateFields} value, or `null` for a natively-read
    * kind (see {@link parseWireField}). */
@@ -222,55 +112,35 @@ type FieldKind = {
 
 const FIELD_KINDS: Record<FieldKindName, FieldKind> = {
   bool: {
-    decode: (value) => boolFieldOrNull(value),
-    // Norn has no boolean field_type, so a bool serializes as the strings
-    // 'true'/'false'; a deliberate `false` must round-trip, not collapse to
-    // absent, so both states emit explicitly (only null omits).
-    emit: (value) => (value === null ? null : String(value)),
     query: null,
     // A bool arrives already typed on every transport (the CLI flag pair, the MCP
     // boolean arg, the HTTP boolean body field), so it is read natively, not here.
     wire: null,
   },
   'enum:hold': {
-    // A task always carries a hold; an absent one defaults to the neutral 'none'.
-    decode: (value, ctx) => enumFieldStrict(value, HOLD_VALUES, ctx.stem, ctx.field) ?? 'none',
-    // 'none' is the neutral default — omit it (like null) so a task carries a
-    // hold only when actually held; the reader defaults absent → 'none'.
-    emit: (value) => (value === null || value === 'none' ? null : value),
     query: { kind: 'enum', values: HOLD_VALUES },
     // A status axis with its own verbs — no generic `update` plane.
     wire: null,
   },
   'enum:lifecycle': {
-    decode: (value, ctx) => enumFieldStrict(value, LIFECYCLE_VALUES, ctx.stem, ctx.field),
-    emit: (value) => value,
     query: { kind: 'enum', values: LIFECYCLE_VALUES },
     wire: null,
   },
   'enum:priority': {
-    decode: (value) => enumFieldOrNull(value, PRIORITY_VALUES),
-    emit: (value) => value,
     query: { kind: 'enum', values: PRIORITY_VALUES },
     // The shared priority assert — one wording across create/update/promote.
     wire: (value) => parsePriorityValue(value) ?? null,
   },
   'enum:size': {
-    decode: (value) => enumFieldOrNull(value, SIZE_VALUES),
-    emit: (value) => value,
     query: { kind: 'enum', values: SIZE_VALUES },
     wire: (value) => parseSizeValue(value) ?? null,
   },
   'seed-ref': {
-    decode: (value) => seedRefOrNull(value),
-    emit: (value) => value,
     query: { kind: 'string' },
     // `KEY-sN` passes through, `none` clears (→ null), anything else is rejected.
     wire: (value) => parseUpstreamValue(value) ?? null,
   },
   string: {
-    decode: (value) => str(value),
-    emit: (value) => value,
     query: { kind: 'string' },
     wire: (value) => value,
   },
@@ -286,10 +156,6 @@ const FIELD_KINDS: Record<FieldKindName, FieldKind> = {
  */
 export const FIELD_SPEC = FIELD_FACTS;
 
-/** The model-side subset one node carries for the data-plane fields — the codec's
- * output half, the complement of the structural fields `decodeNode` fills in. */
-export type DataFields = Pick<Node, DataFieldKey>;
-
 /**
  * One data-plane field's declaration, core-narrowed: the contract fact with its
  * `update` marker tied to the precise {@link UpdateFieldKey} union (the fact
@@ -300,13 +166,13 @@ export type DataFields = Pick<Node, DataFieldKey>;
 type DataFieldSpec = {
   key: DataFieldKey;
   kind: FieldKindName;
-  /** Node types that carry the field — the codec type-gate AND the update gate. */
+  /** Node types that carry the field — the import type-gate AND the update gate. */
   appliesTo: readonly NodeType[];
   /** The camelCase `UpdateFields` key, present when the generic `update` verb owns
    * the field; absent for the status axes, which have their own verbs. */
   update?: UpdateFieldKey;
-  /** A field an applicable node MUST carry post-validation; its absence on read is
-   * a seam invariant, not vault data (only `lifecycle`). */
+  /** A field an applicable node MUST carry (only `lifecycle`); a transfer import
+   * refuses a node without it. */
   required?: boolean;
 };
 
@@ -323,65 +189,6 @@ export type SpecUpdateKey = {
 /** The spec entries in canonical (alphabetical-key) order, core-narrowed. */
 const FIELD_SPEC_ENTRIES: readonly DataFieldSpec[] = Object.values(FIELD_SPEC);
 
-/** Does the field apply to (is it carried by) the given node type? */
-function appliesToType(spec: DataFieldSpec, type: NodeType): boolean {
-  return spec.appliesTo.includes(type);
-}
-
-// ─── Derived: the codec (both directions from one spec) ─────────────────────
-
-/**
- * Decode a node's data-plane fields from its frontmatter (ADR 0025) — the
- * generic loop over the spec that replaces `decodeNode`'s hand-written
- * data-field block. A field applies to the node's type or reads null; an
- * applicable strict-enum with a foreign value throws (the seam backstop), and a
- * `required` field absent on an applicable node is a validation-seam invariant.
- */
-export function decodeDataFields(
-  fm: Record<string, unknown>,
-  type: NodeType,
-  stem: string,
-): DataFields {
-  const out: Record<string, ModelScalar> = {};
-  for (const spec of FIELD_SPEC_ENTRIES) {
-    if (!appliesToType(spec, type)) {
-      out[spec.key] = null;
-      continue;
-    }
-    const value = FIELD_KINDS[spec.kind].decode(fm[spec.key], { field: spec.key, stem });
-    if (spec.required === true && value === null) {
-      throw invariant(
-        `${type} ${stem} survived validation without a ${spec.key}`,
-        `field validity (MMR-177) must drop a task with a missing or foreign ${spec.key} before the reader`,
-      );
-    }
-    out[spec.key] = value;
-  }
-  // The loop populated exactly the DataFieldKey set (one entry per spec field).
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return out as DataFields;
-}
-
-/**
- * Emit a node's data-plane fields into its frontmatter record (ADR 0025) — the
- * inverse of {@link decodeDataFields}, the generic loop over the same spec that
- * replaces `nodeFrontmatter`'s hand-written data-field block. Type-gated by the
- * same `appliesTo`, so a value never reaches frontmatter for a type that doesn't
- * carry the field; each emitted value is omit-when-empty (a `null` from the
- * kind's emitter drops the key).
- */
-export function emitDataFields(fm: Record<string, unknown>, node: Node): void {
-  for (const spec of FIELD_SPEC_ENTRIES) {
-    if (!appliesToType(spec, node.type)) {
-      continue;
-    }
-    const emitted = FIELD_KINDS[spec.kind].emit(node[spec.key]);
-    if (emitted !== null) {
-      fm[spec.key] = emitted;
-    }
-  }
-}
-
 // ─── Derived: the update applicability gates ────────────────────────────────
 
 /** The camelCase `update` keys of the spec's data fields — the generic `update`
@@ -392,7 +199,7 @@ export const SPEC_UPDATE_KEYS: readonly UpdateFieldKey[] = FIELD_SPEC_ENTRIES.fl
 );
 
 /** One data-plane field the generic `update` verb owns — the fact triple the
- * transport surfaces derive from: `key` is the snake_case body/frontmatter name
+ * transport surfaces derive from: `key` is the snake_case body/column name
  * (HTTP), `update` the camelCase arg name (CLI flags, MCP args), `kind` selects
  * the wire type. */
 export type SpecUpdateField = { key: DataFieldKey; kind: FieldKindName; update: UpdateFieldKey };

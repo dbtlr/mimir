@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import type { WireNode } from '../api/types';
 import { cn } from '../lib/cn';
+import { findingCount } from '../lib/health';
 import { overviewCardCounts } from '../lib/overview-card';
 import { ago } from '../lib/time';
 import { DistributionBar } from './distribution-bar';
@@ -54,14 +55,14 @@ export function ProjectCard({
   project,
   onOpen,
   lane,
-  dropped,
+  findings,
 }: {
   project: WireNode;
   onOpen: (key: string) => void;
   lane?: Lane;
-  /** Record-damage count (MMR-185) — an amber vital that pre-empts the lane
-   * signal when the project has dropped records; absent/0 renders the lane signal. */
-  dropped?: number;
+  /** Record-health finding count (MMR-185) — an amber vital that pre-empts the
+   * lane signal when the project has findings; absent/0 renders the lane signal. */
+  findings?: number;
 }) {
   const counts = overviewCardCounts(project.leaf_counts);
   // Live cards trade the held figure for a recency tail; other lanes keep held.
@@ -80,10 +81,10 @@ export function ProjectCard({
         <div className="flex items-baseline gap-2">
           <span className="shrink-0 font-mono text-tag text-ink-faint">{project.id}</span>
           <span className="truncate text-meta font-semibold text-ink-bright">{project.title}</span>
-          {dropped != null && dropped > 0 ? (
+          {findings != null && findings > 0 ? (
             <span className="ml-auto flex shrink-0 items-center gap-1.5 text-micro font-semibold text-status-in-progress-foreground">
               <span aria-hidden className="size-[5px] rounded-full bg-status-in-progress" />
-              {dropped} dropped
+              {findingCount(findings)}
             </span>
           ) : (
             laneSignal(project, lane)

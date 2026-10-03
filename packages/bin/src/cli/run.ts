@@ -195,11 +195,9 @@ const OPTIONS = {
   grouped: { type: 'boolean' },
   // triage preview (MMR-246)
   'dry-run': { type: 'boolean' },
-  // doctor deterministic repair (MMR-183)
-  fix: { type: 'boolean' },
   // store import (MMR-380) — the default is a preview; `--apply` writes.
-  // Spelled `--apply` rather than reusing `--dry-run`, which is doctor/triage's
-  // and inverts this verb's default.
+  // Spelled `--apply` rather than reusing `--dry-run`, which is triage's and
+  // inverts this verb's default.
   apply: { type: 'boolean' },
   resume: { type: 'boolean' },
   // self-update selectors (--tag reuses the multiple `tag` flag above,
@@ -333,6 +331,7 @@ type OwnedFlagValues = {
   branch?: string;
   project?: string;
   requester?: string;
+  'dry-run'?: boolean;
   apply?: boolean;
   resume?: boolean;
 };
@@ -509,6 +508,14 @@ const VERB_OWNED_FLAGS: readonly {
     hint: `'--requester' filters seeds a board requested; use it with seeds`,
     owner: 'seeds',
   },
+  // Triage's preview (MMR-246). A boolean, so a stray one silently no-ops — and
+  // on a write verb that means the caller asked for a preview and got a write.
+  {
+    flag: '--dry-run',
+    given: (values) => values['dry-run'] === true,
+    hint: `'--dry-run' previews a triage pass; use it with triage (store import previews by default)`,
+    owner: 'triage',
+  },
   // `store import`'s pair (MMR-380). Both are booleans, so a stray one silently
   // no-ops — and each one names a decision the caller believes they made: that
   // the import WRITES, and that it resumes a partial one rather than refusing a
@@ -643,7 +650,6 @@ export async function runCli(
     grouped?: boolean;
     next?: boolean;
     'dry-run'?: boolean;
-    fix?: boolean;
     apply?: boolean;
     resume?: boolean;
   };
@@ -830,10 +836,6 @@ export async function runCli(
         }
         const shelf = parseProjectStatus(values.status);
         const projects = await listProjects(await getStore(), ['distribution', 'tags'], shelf);
-        // No issueCount here by design (MMR-184): this is a project-shelf
-        // resource, not a node working set — threading the doctor tally
-        // through would widen listProjects' cross-transport shape for a
-        // nudge, which is disproportionate.
         return runSet(
           { items: projects, returned: projects.length, startsAt: 0, total: projects.length },
           values.format,
@@ -944,7 +946,6 @@ export async function runCli(
         };
         const format = pickFormat(values.format, 'set', ctx);
         const result = await listArtifacts(await getStore(), artifactQuery);
-        issueNudge(result.issueCount, format, ctx);
         // A well-formed query that returns NO ROWS is an empty set at exit 0, with
         // the reason on stderr so stdout stays a clean machine contract (ADR 0009).
         // Keyed off the returned rows, not the total: an `--offset` past the end
@@ -1113,16 +1114,12 @@ export async function runCli(
         if (defaults.doctor === undefined) {
           throw usage('doctor is unavailable in this context');
         }
-        if (values['dry-run'] === true && values.fix !== true) {
-          throw usage('doctor --dry-run requires --fix');
-        }
         const format = pickFormat(values.format, 'report', ctx);
         return await cmdDoctor(
           ctx,
           defaults.doctor,
           format,
           effectiveScope(values.scope, defaults.scope),
-          { dryRun: values['dry-run'] === true, fix: values.fix === true },
         );
       }
       case 'self-update': {
@@ -1358,7 +1355,6 @@ function runSet(
   if (result.warnings !== undefined && result.warnings.length > 0) {
     renderWarnings(result.warnings, format, io);
   }
-  issueNudge(result.issueCount, format, io);
   switch (format) {
     case 'ids': {
       io.write(formatIds(result.items));
@@ -1386,21 +1382,6 @@ function runSet(
     }
   }
   return 0;
-}
-
-/**
- * The doctor issue-count nudge (MMR-184): a stderr-only boot-orientation note,
- * off the tolerant reader's own drop tally for this load — never a fresh
- * `mimir doctor` pass. Unconditional of format (stdout stays a clean machine
- * contract either way) and silent at zero, matching the rare-condition cost bar.
- */
-function issueNudge(issueCount: number | undefined, format: Format, io: Io): void {
-  if (issueCount === undefined || issueCount === 0) {
-    return;
-  }
-  emitStderrNote(`${countLine(issueCount, 'issue')} — run mimir doctor`, format, io, {
-    issueCount,
-  });
 }
 
 /** The querying-doctrine note for a well-formed query that matched nothing

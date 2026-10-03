@@ -226,8 +226,6 @@ for (const backend of backends) {
     const { initiative } = await base(store);
     await updateNode(store, initiative.id, { next: 'land the export' });
     expect(await store.bodySections.readNext(initiative.id)).toEqual({
-      ambiguous: false,
-      insertAnchors: 1,
       present: true,
       text: 'land the export',
     });
@@ -255,9 +253,9 @@ for (const backend of backends) {
       await w.updateNode(initiative.id, { updated_at: now() });
       return { after, before, last };
     });
-    expect(seen.before).toMatchObject({ ambiguous: false, present: false, text: null });
-    expect(seen.after).toMatchObject({ ambiguous: false, present: true, text: 'first' });
-    expect(seen.last).toMatchObject({ ambiguous: false, present: true, text: 'second' });
+    expect(seen.before).toEqual({ present: false, text: null });
+    expect(seen.after).toEqual({ present: true, text: 'first' });
+    expect(seen.last).toEqual({ present: true, text: 'second' });
     expect(await store.bodySections.readNext(initiative.id)).toMatchObject({
       present: true,
       text: 'second',
@@ -1061,13 +1059,5 @@ for (const backend of backends) {
       present: true,
       text: 'land the export',
     });
-  });
-
-  it('annotationSectionFailures is empty on a clean store', async () => {
-    const store = await fresh();
-    const { first, second } = await base(store);
-    expect(await store.bodySections.annotationSectionFailures([first.id, second.id])).toEqual(
-      new Set(),
-    );
   });
 }

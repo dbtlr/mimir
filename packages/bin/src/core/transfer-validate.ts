@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import { FIELD_FACTS } from '@mimir/contract';
 
+import { cycleEdges } from './cycles';
 import { validation } from './errors';
 import type { StoreExport } from './export';
 import { STORE_EXPORT_SCHEMA_VERSION } from './export';
@@ -13,7 +14,6 @@ import {
 } from './scratchpads/codec';
 import { isCanonicalInstant } from './time';
 import { transferSchema } from './transfer-schema';
-import { validate } from './validate';
 
 /**
  * Transfer-document validation shared by every backend's import (ADR 0030
@@ -254,7 +254,7 @@ function assertReferences(document: StoreExport): void {
   }
 }
 
-/** Use the reader's graph rules, but refuse instead of dropping cycle edges. */
+/** Refuse a document whose `parent` or `depends_on` relation closes a cycle. */
 function assertAcyclic(document: StoreExport): void {
   const dependencies = new Map<string, string[]>();
   for (const edge of document.edges) {
@@ -265,21 +265,17 @@ function assertAcyclic(document: StoreExport): void {
       targets.push(edge.depends_on_node_id);
     }
   }
-  const graph = validate({
-    nodes: document.nodes.map((node) => ({
+  const cycles = cycleEdges(
+    document.nodes.map((node) => ({
       dependsOn: dependencies.get(node.id) ?? [],
       key: node.project_id,
       parent: node.parent_id,
       stem: node.id,
     })),
-    projectKeys: document.projects.map((project) => project.key),
-  });
-  const cycles = graph.dropped.filter(
-    (drop) => drop.rule === 'cycle-parent' || drop.rule === 'cycle-depends-on',
   );
   if (cycles.length > 0) {
     throw validation(
-      `invalid transfer document: ${namedSample(cycles.map((drop) => `${drop.stem}: ${drop.rule}`))}`,
+      `invalid transfer document: ${namedSample(cycles.map((edge) => `${edge.stem}: ${edge.rule}`))}`,
       'remove the cyclic references before importing it',
     );
   }

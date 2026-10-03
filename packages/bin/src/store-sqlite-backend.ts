@@ -12,16 +12,11 @@ import type { SqliteHandle } from './core/store-sqlite/index';
 import { createSqliteStore, openSqlite, sqliteDialect } from './core/store-sqlite/index';
 import { createSqlDoctorBackend } from './doctor/sql/backend';
 import { sqliteStorePath } from './env';
-import type { BuildStoreOptions, BuiltStore } from './store-backend';
+import type { BuiltStore } from './store-backend';
 
-/**
- * Build the SQLite store for this process. Like the Postgres arm, its doctor
- * has no repair pass, so `opts` is deliberately unused.
- */
-export async function buildSqliteStore(
-  _opts: BuildStoreOptions,
-  path: string = sqliteStorePath(),
-): Promise<BuiltStore> {
+/** Build the SQLite store for this process over the installation's database
+ * file, migrating it forward on open. */
+export async function buildSqliteStore(path: string = sqliteStorePath()): Promise<BuiltStore> {
   const handle = await openInstallationSqlite(path);
   return {
     close: () => handle.close(),

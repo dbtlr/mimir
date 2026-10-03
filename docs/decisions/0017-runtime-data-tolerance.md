@@ -6,6 +6,16 @@ date: 2026-07-05
 
 # ADR 0017: Runtime data-tolerance; doctor is a non-gating diagnostic
 
+> **Status update (2026-10-03, MMR-420): tolerant reader and repair retired.**
+> With the Norn backend removed ([ADR 0032](0032-sqlite-local-tier-shared-sql-store.md)),
+> no store reads hand-edited documents, so the data-tolerant reader, the shared
+> validator, and the `doctor --fix` repair refinement below are retired. The
+> SQL schema's keys and constraints, with the write path's cycle checks, now
+> refuse the corruptions the reader once contained.
+> `mimir doctor` remains the read-only, non-gating diagnostic decided here,
+> over the SQL store: it reports findings, always exits `0` on a successful
+> run, and a human fixes each finding at the database.
+
 > **Status update (2026-07-12, MMR-234): implemented.** With the SQLite backend
 > retired, the Norn-managed vault is the sole store, so the data-tolerant reader
 > and the single shared validator described here are the only path — there is no

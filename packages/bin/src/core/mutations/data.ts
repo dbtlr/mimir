@@ -64,7 +64,7 @@ export function normalizeSummary(value: string | null): string | null {
  * is the CLEAR — it stores as `null`, which removes the section outright.
  *
  * Deliberately uncapped, exactly like `description`: this is body prose, not a
- * frontmatter lede, and the codebase caps only the short `summary` field.
+ * short lede, and the codebase caps only the short `summary` field.
  */
 export function normalizeNext(value: string | null): string | null {
   if (value === null) {
@@ -81,16 +81,10 @@ export function normalizeNext(value: string | null): string | null {
  * the open transaction itself — it sees anything this same transact wrote, and
  * it takes no second pooled connection while this one holds the transaction
  * open. The new prose replaces the section whole, and a blank clears it.
- * Returns whether anything was
- * queued, so the caller co-writes the `updated_at` stamp — the section ops
- * carry no precondition of their own — and so a rewrite with the identical text
- * writes NOTHING at all, leaving the stale clock where it was.
- *
- * Fails CLOSED on a document whose `## Next` heading norn cannot resolve to one
- * section (a hand-edited duplicate): the read reports that as "no section" —
- * indistinguishable from a genuinely absent one — so proceeding would insert yet
- * another copy, or report a clear that removed nothing. The operator is pointed
- * at `mimir doctor`, which names the duplicate (MMR-239's posture, MMR-321).
+ * Returns whether anything was queued, so the caller co-writes the
+ * `updated_at` stamp — the section ops carry no precondition of their own —
+ * and so a rewrite with the identical text writes NOTHING at all, leaving the
+ * stale clock where it was.
  */
 async function applyNextSection(
   w: StoreWriter,
@@ -103,33 +97,11 @@ async function applyNextSection(
   }
   const text = normalizeNext(value);
   const current = await w.readNextSection(entityType, id);
-  if (current.ambiguous) {
-    throw validation(
-      `${id} carries more than one '## Next' heading, so the section can't be re-authored`,
-      "the document was hand-edited — run 'mimir doctor' to find the duplicate heading and repair it",
-    );
-  }
-  // A clear is a no-op only when the document carries no section at all: a
-  // present-but-empty heading (a hand edit) is still removed.
+  // A clear is a no-op only when the record carries no section at all: a
+  // present-but-empty section is still removed.
   const unchanged = text === null ? !current.present : current.text === text;
   if (unchanged) {
     return false;
-  }
-  // A FIRST write splices the section in above `## History`; without exactly one
-  // such anchor norn refuses the whole batch as an opaque apply failure. Name the
-  // fault instead — and tell the two apart, because "add the heading" and
-  // "delete the duplicate" are opposite repairs.
-  if (!current.present && current.insertAnchors === 0) {
-    throw validation(
-      `${id} has no '## History' heading for the '## Next' section to be written above`,
-      "the document was hand-edited or predates mimir management — run 'mimir doctor' to repair it",
-    );
-  }
-  if (!current.present && current.insertAnchors > 1) {
-    throw validation(
-      `${id} carries more than one '## History' heading, so the '## Next' section has no unambiguous anchor to be written above`,
-      "the document was hand-edited — run 'mimir doctor' to find the duplicate heading and repair it",
-    );
   }
   await w.setNextSection(entityType, id, { text });
   return true;
@@ -181,7 +153,7 @@ type _HandleValuesMatchUpdate = AssertNever<
 /**
  * The three update targets outside the data-plane spec (ADR 0025): `title` is
  * always-present node identity, and `description` and `next` (MMR-321) are body
- * prose rather than frontmatter scalars — and each applies across at least one
+ * prose rather than scalar fields — and each applies across at least one
  * non-node kind, so none is a node-typed spec field. Everything else in the
  * {@link UpdateFields} vocabulary is a spec `update` field.
  */
@@ -321,13 +293,13 @@ export type UpdateProjectFields = {
   name?: string;
   description?: string | null;
   /** The owned `## Next` direction narrative (MMR-321) — body prose, not a
-   * frontmatter scalar; blank clears the section. */
+   * scalar field; blank clears the section. */
   next?: string | null;
 };
 
 /**
  * The dumb scalar patcher for a project row (MMR-88): `name` and `description`
- * are its mutable frontmatter — `key` is immutable — joined since MMR-321 by
+ * are its mutable columns — `key` is immutable — joined since MMR-321 by
  * the `## Next` body section, which is written through the same transaction and
  * guarded by the same co-written `updated_at` stamp. No transition log
  * (projects have no status). Returns the updated project row directly.
@@ -455,8 +427,8 @@ export type AttachArtifactResult = {
 /**
  * Attach an artifact (MMR-34). Node-side validation (project active, links
  * in-project) runs in one transaction; the artifact write is a separate call
- * because it may target a different backend (ADR 0016 Phase 2a) that can't
- * join the node write's transaction.
+ * because the artifact slice owns its own write path outside `StoreWriter`
+ * (MMR-379), so it can't join the node write's transaction.
  *
  * Transitional non-atomicity: an `archive` that commits between the two would
  * let the artifact land against a now-archived project, where reads hide it —

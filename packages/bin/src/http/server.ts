@@ -202,7 +202,7 @@ const NODE_KIND_HINTS = {
 } as const;
 
 /** The data-plane body fields both node writes accept, derived from the field
- * spec (ADR 0025) — the snake_case frontmatter keys in canonical order. A new
+ * spec (ADR 0025) — the snake_case field keys in canonical order. A new
  * spec field with an `update` key joins both allow-lists with no route edit.
  * Parameterized for the derivation test. */
 export function nodeBodyFields(fields: readonly SpecUpdateField[] = SPEC_UPDATE_FIELDS): string[] {
@@ -754,22 +754,18 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       },
 
       // The record-health facet (MMR-185, ADR 0017): the console projection of the
-      // same dropped-record diagnostics `mimir doctor` reports. Read-only. `?project`
-      // scopes to one project's group (the project-header/panel case); unscoped
-      // returns every project's group (the overview + attention surfacing).
+      // same findings `mimir doctor` reports. Read-only. `?project` scopes to one
+      // project's group (the project-header/panel case) — the backend narrows the
+      // findings itself; unscoped returns every project's group (the overview +
+      // attention surfacing).
       '/api/doctor': {
         GET: (req) =>
           guarded(req, async () => {
             const scope = new URL(req.url).searchParams.get('project') ?? undefined;
-            const facet = opts.doctor === undefined ? emptyDoctorFacet() : await opts.doctor(scope);
-            if (scope === undefined) {
-              return json(req, facet);
-            }
-            // A project-scoped read keeps only that project's group; the referential
-            // checks are whole-store, so another project's findings can ride along.
-            const groups = facet.groups.filter((g) => g.project === scope);
-            const droppedTotal = groups.reduce((sum, g) => sum + g.dropped, 0);
-            return json(req, { ...facet, dropped_total: droppedTotal, groups });
+            return json(
+              req,
+              opts.doctor === undefined ? emptyDoctorFacet() : await opts.doctor(scope),
+            );
           }),
       },
 

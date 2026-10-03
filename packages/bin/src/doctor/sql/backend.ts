@@ -4,9 +4,9 @@
  * and SQLite alike. Every check reads rows:
  * one query whose result set IS the finding list.
  *
- * There is no `repair`. On this backend the constraints are the validator: a
- * foreign key, a primary key, and a `CHECK` over each closed vocabulary make
- * nearly every corrupt state unrepresentable. What remains is
+ * Doctor only reports. The constraints are the validator: a foreign key, a
+ * primary key, and a `CHECK` over each closed vocabulary make nearly every
+ * corrupt state unrepresentable. What remains is
  * the short list below — the referential checks catch a dropped or disabled
  * constraint, i.e. a hand edit at the database prompt, not a failed import (a
  * deferred foreign key still fails at commit, and the whole import runs in one
@@ -312,10 +312,9 @@ async function orphanAnchors(
 }
 
 /**
- * How many records each project holds — the denominator both the scope match
- * and the facet's readable tally are computed from. One "record" is one thing
- * the seam can read back: the project row itself, plus its nodes, artifacts,
- * seeds, and scratchpads.
+ * How many records each project holds — what a scoped run reports it matched.
+ * One "record" is one thing the seam can read back: the project row itself,
+ * plus its nodes, artifacts, seeds, and scratchpads.
  */
 async function countRecords(db: Kysely<DB>): Promise<Map<string, number>> {
   // `count(*)` is a bigint, which node-postgres hands back as a string and
@@ -377,54 +376,37 @@ function fieldOf(where: string): string | null {
   return tail === undefined || tail === '' ? null : tail;
 }
 
-/**
- * One finding as a panel record. Every locate-derived field is null: there is
- * no file to open, no line to point at, and no closed vocabulary to suggest a
- * nearest member of — the row IS the evidence, and `path` carries the table and
- * key that reaches it.
- */
+/** One finding as a panel record: the row's locator and the finding's own
+ * evidence, which is what a human needs to reach and fix it. The evidence's
+ * `value` repeats a named column already in it, so it moves to the record's
+ * own `value` rather than rendering twice. */
 function toRecord(item: DoctorFinding): DoctorRecord {
-  const value = item.evidence.value;
+  const { value, ...evidence } = item.evidence;
   return {
     cause: CAUSES[item.check] ?? item.check,
+    evidence,
     field: fieldOf(item.where),
     id: item.stem,
-    location: null,
+    locator: item.locator,
     note: item.message,
-    path: item.locator,
     severity: item.severity,
-    snippet: null,
-    suggestion: null,
-    title: null,
     value: typeof value === 'string' ? value : null,
   };
 }
 
-/** Group the findings by owning project — the facet's file-group analogue. */
-function toGroups(
-  findings: readonly DoctorFinding[],
-  records: ReadonlyMap<string, number>,
-): DoctorGroup[] {
-  const groups = new Map<string, { records: DoctorRecord[]; stems: Set<string> }>();
+/** Group the findings by owning project, groups sorted by key. */
+function toGroups(findings: readonly DoctorFinding[]): DoctorGroup[] {
+  const groups = new Map<string, DoctorRecord[]>();
   for (const item of findings) {
-    let group = groups.get(item.scopeKey);
-    if (group === undefined) {
-      group = { records: [], stems: new Set() };
-      groups.set(item.scopeKey, group);
+    const records = groups.get(item.scopeKey);
+    if (records === undefined) {
+      groups.set(item.scopeKey, [toRecord(item)]);
+    } else {
+      records.push(toRecord(item));
     }
-    group.records.push(toRecord(item));
-    group.stems.add(item.stem);
   }
   return [...groups]
-    .map(([project, group]) => ({
-      dropped: group.records.length,
-      // A group's "directory" on a store that has none: the project key. The
-      // per-record table and key live on each record's own `path`.
-      path: project,
-      project,
-      readable: Math.max(0, (records.get(project) ?? 0) - group.stems.size),
-      records: group.records,
-    }))
+    .map(([project, records]) => ({ finding_count: records.length, project, records }))
     .toSorted((a, b) => a.project.localeCompare(b.project));
 }
 
@@ -433,7 +415,7 @@ export function createSqlDoctorBackend(db: Kysely<DB>, dialect: StoreDialect): D
   const scopeMatch = async (scope: string | undefined): Promise<DoctorScopeMatch> =>
     scope === undefined || scope === ''
       ? null
-      : { key: scope, matched_documents: (await countRecords(db)).get(scope) ?? 0 };
+      : { key: scope, matched_records: (await countRecords(db)).get(scope) ?? 0 };
 
   return {
     diagnose: async (scope): Promise<DoctorDiagnosis> => ({
@@ -442,10 +424,9 @@ export function createSqlDoctorBackend(db: Kysely<DB>, dialect: StoreDialect): D
     }),
     facet: async (scope): Promise<DoctorFacet> => {
       const findings = await diagnose(db, dialect, scope);
-      const records = await countRecords(db);
       return {
-        dropped_total: findings.length,
-        groups: toGroups(findings, records),
+        finding_total: findings.length,
+        groups: toGroups(findings),
         scanned_at: now(),
         scope: await scopeMatch(scope),
       };

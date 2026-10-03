@@ -1095,12 +1095,10 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
         'limit to a project (default: the .mimir.toml binding; "all" = every project)',
       ],
       ['--format <fmt>', 'json (pretty findings array) | jsonl (one finding per line)'],
-      ['--fix', 'refused: neither backend has a repair pass'],
-      ['--dry-run', 'refused with --fix; usage without it'],
     ],
     summary:
-      'run read-only store diagnostics (one shared check over the SQLite and Postgres databases) and report findings for a human to fix. Non-gating: exits 0 after a successful read. --fix is refused: neither backend has a repair pass',
-    usage: 'mimir doctor [-s <KEY>] [--format <fmt>] [--fix [--dry-run]]',
+      'run read-only store diagnostics over the SQLite or Postgres database and report findings for a human to fix at the database. Non-gating: exits 0 after a successful read',
+    usage: 'mimir doctor [-s <KEY>] [--format <fmt>]',
   },
   // ── binding ──
   bind: {

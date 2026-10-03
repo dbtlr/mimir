@@ -98,7 +98,6 @@ test('overviewOf composes the five sections with true counts', async () => {
   expect(report.hygiene.untriaged).toBe(2);
   expect(report.hygiene.blocked).toBe(1);
   expect(report.hygiene.stale).toBe(0);
-  expect(report.hygiene.dropped).toBe(0);
 });
 
 test('empty sections carry a zero count', async () => {
@@ -108,7 +107,6 @@ test('empty sections carry a zero count', async () => {
   expect(report.awaiting).toEqual({ count: 0, tasks: [] });
   expect(report.hygiene).toEqual({
     blocked: 0,
-    dropped: 0,
     listings: { blocked: [], stale: [], untriaged: [] },
     stale: 0,
     untriaged: 0,

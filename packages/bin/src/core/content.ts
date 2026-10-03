@@ -2,9 +2,8 @@
  * Body-content normalizations shared by the storage backends.
  *
  * One implementation, because the rule is a CONTRACT rather than a backend
- * detail: an artifact's frozen content reads back the same whether it came off
- * a markdown file or a text column, so the transfer document carries the same
- * bytes either way.
+ * detail: an artifact's frozen content reads back the same on every backend, so
+ * the transfer document carries the same bytes whichever store wrote it.
  */
 
 /**

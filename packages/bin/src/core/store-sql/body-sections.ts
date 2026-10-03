@@ -6,16 +6,14 @@ import type { StoreDialect } from './dialect';
 import type { Executor, Stored } from './schema';
 
 /**
- * The SQL store's body-section slice (ADR 0016 Phase 3). What Norn keeps as prose
- * sections of a markdown document — `## Task Description`, `## Next`,
- * `## Annotations`, `## History` — is columns and rows here, so this module is
- * the projection back onto the seam's facet shapes.
+ * The SQL store's body-section slice. The output contract's prose and log
+ * sections — `## Task Description`, `## Next`, `## Annotations`, `## History` —
+ * are columns and rows here, so this module is the projection back onto the
+ * seam's facet shapes.
  *
  * `readSectionsMany` is a BATCH by construction: one query per requested facet
- * over the whole stem list, never one round trip per stem. The seam exists
- * because the Norn client serializes its calls (MMR-322); a relational backend
- * has no such limit, but a per-stem loop would still be N queries where one
- * `WHERE id IN (...)` does.
+ * over the whole stem list, never one round trip per stem — a per-stem loop
+ * would be N queries where one `WHERE id IN (...)` does.
  */
 
 /** A stored prose column as the seam yields it: trimmed, blank reads as none. */
@@ -200,25 +198,13 @@ export function createSqlBodySectionStore(ex: Executor, dialect: StoreDialect): 
     (await readSectionsMany([stem], want)).get(stem) ?? {};
 
   return {
-    // A relational store cannot hold an unresolvable section anchor — the
-    // corruption this reports is a markdown-vault fault (a hand-duplicated
-    // heading), and the columns behind it are always readable.
-    annotationSectionFailures: () => Promise.resolve(new Set<string>()),
     readAnnotations: async (stem) =>
       (await readSections(stem, { annotations: true })).annotations ?? [],
     readDescription: async (stem) =>
       (await readSections(stem, { description: true })).description ?? null,
     readHistory: async (stem) => (await readSections(stem, { history: true })).history ?? [],
-    readNext: async (stem) => {
-      const facet = (await readSections(stem, { next: true })).next ?? {
-        present: false,
-        text: null,
-      };
-      // Neither degraded state a markdown document can reach is reachable here:
-      // the section is a column pair, so it can be neither duplicated nor
-      // missing its insertion anchor.
-      return { ...facet, ambiguous: false, insertAnchors: 1 };
-    },
+    readNext: async (stem) =>
+      (await readSections(stem, { next: true })).next ?? { present: false, text: null },
     readSections,
     readSectionsMany,
   };

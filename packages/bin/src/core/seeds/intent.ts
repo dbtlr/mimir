@@ -28,15 +28,14 @@ import type { SeedRecord } from './store';
  * layer the CLI, MCP, and HTTP all render, paralleling the node intent layer.
  *
  * **The resolving read seam.** Every verb-facing read routes through a
- * {@link SeedResolver} + {@link resolveSeedView}, mirroring how the node reader
- * consumes `validate`'s valid subgraph (`loadNornSnapshot`): the per-record
- * store decoder stays dumb, and it is HERE that a read nulls/prunes what the
- * validator would drop — an unknown `requester` reads as `null`, a `spawned`
- * ref that resolves to no surviving work node is pruned. The resolver is
- * project-scoped (MMR-251): the single-seed reads and every write echo build it
- * from an all-projects read plus only the spawned targets' nodes — never a
- * whole-vault load — while the read still computes `readyToResolve` live (the
- * house rule: derive, never store).
+ * {@link SeedResolver} + {@link resolveSeedView}: the per-record store read stays
+ * dumb, and it is HERE that a read nulls/prunes a reference that names nothing
+ * live — an unknown or archived `requester` reads as `null`, a `spawned` ref
+ * that resolves to no live work node is pruned. The resolver is project-scoped
+ * (MMR-251): the single-seed reads and every write echo build it from an
+ * all-projects read plus only the spawned targets' nodes — never a whole-store
+ * load — while the read still computes `readyToResolve` live (the house rule:
+ * derive, never store).
  */
 
 /** The seed queue universe (MMR-245): a lifecycle word, or the `live`/`all` unions.
@@ -63,7 +62,7 @@ export function asSeedKind(value: unknown): SeedKind | null {
  *
  * **Project-scoped (MMR-251).** The single-seed reads and every write echo build
  * this from a lightweight all-projects read plus ONLY the nodes of the seed's
- * spawned targets' projects — never a whole-vault load. All projects are present
+ * spawned targets' projects — never a whole-store load. All projects are present
  * (the requester-null and archived-board-hiding derive over them); only the spawned
  * targets' nodes are loaded (a task settles by its own lifecycle, a container by its
  * in-project descendant rollup, so the target's project is the whole settledness
@@ -110,7 +109,7 @@ function buildResolver(projects: readonly Project[], nodes: readonly Node[]): Se
 
 /**
  * Read a seed and render its resolved view (MMR-251), scoping the resolution to the
- * spawned targets' projects rather than the whole vault. `projects` is the
+ * spawned targets' projects rather than the whole store. `projects` is the
  * already-loaded all-projects read (shared with the caller's guard, so it is read
  * once per verb); an absent seed throws `not_found`. Every write verb echoes through
  * here so its output renders identically to a standalone {@link getSeed}.
@@ -126,9 +125,9 @@ async function echoSeed(
     throw notFound(`${renderSeedRef(ref)} doesn't exist`);
   }
   const keys = spawnedTargetKeys([rec]);
-  // Presence for the scoped node read derives from the VALIDATED projects read (MMR-251),
-  // never the requested spawned-target keys: a target in a missing/duplicate-key project
-  // drops (missing-project) exactly as the whole-vault path drops it, so the ref prunes.
+  // Presence for the scoped node read derives from the projects read (MMR-251), never
+  // the requested spawned-target keys: a target in an unknown project loads no nodes,
+  // exactly as over the whole-store load, so the ref prunes.
   const valid = new Set(projects.map((p) => p.key));
   const nodes = keys.length > 0 ? await store.loadNodesForProjects(keys, valid) : [];
   return resolveSeedView(rec, buildResolver(projects, nodes));
@@ -139,11 +138,9 @@ async function echoSeed(
  * refuses every mutation, mirroring the node write-lock
  * (`mutations/common.ts#assertProjectActive`) with the same `conflict` vocabulary.
  * Asserted BEFORE any store write — and, for promote, before `createTask` — so a
- * frozen board is never mutated and never orphans a task. An absent board (no
- * project doc, or one the validator's presence rule dropped) refuses too: the
- * orphan seed's FILE still point-reads fine, so without this check a write
- * would mutate — or promotion spawn work into — a board that every read path
- * treats as unknown.
+ * frozen board is never mutated and never orphans a task. An absent board
+ * refuses too, so a write never mutates — or promotion never spawns work
+ * into — a board that every read path treats as unknown.
  */
 function assertSeedBoardActive(set: DerivationSet, key: string): void {
   const project = findProjectInSet(set, key);
@@ -242,8 +239,8 @@ export async function listSeeds(store: Store, opts: ListSeedsOptions = {}): Prom
 /**
  * The queue read PLUS the working set it resolved over (MMR-251/D4) — so the triage
  * pass reuses ONE load for both its live-seed checks (this listing) and its own
- * board-task check, rather than each deriving a whole-vault set. Unlike the
- * single-seed reads, the listing stays a whole-vault load: it is inherently
+ * board-task check, rather than each deriving a whole-store set. Unlike the
+ * single-seed reads, the listing stays a whole-store load: it is inherently
  * board-wide and its set is what triage's check (c) reads the board's own tasks from.
  */
 export async function listSeedsResolved(
@@ -251,7 +248,7 @@ export async function listSeedsResolved(
   opts: ListSeedsOptions = {},
 ): Promise<{ views: SeedView[]; set: DerivationSet }> {
   // Resolved BEFORE the read: an unreadable date is a refusal, and a refusal
-  // should never have cost a vault load (MMR-39's rule, at the intent seam).
+  // should never have cost a store load (MMR-39's rule, at the intent seam).
   const created =
     opts.dates === undefined || opts.dates.length === 0
       ? undefined
@@ -264,7 +261,7 @@ export async function listSeedsResolved(
   if (project !== undefined && !r.projectKeys.has(project)) {
     throw projectNotFound(project);
   }
-  // Bound: one project's inventory. Unbound: ONE whole-vault find (E1), filtered to
+  // Bound: one project's inventory. Unbound: ONE whole-store find (E1), filtered to
   // ACTIVE boards (archived-parity — an archived board's seeds read as absent, ADR 0015).
   const records: SeedRecord[] =
     project !== undefined
@@ -310,9 +307,8 @@ export async function listSeedsResolved(
 /** Attach the derived lede to the LIVE views in `views` (mutated in place) from a
  * single batched section read (MMR-263). A no-op when no view is live.
  *
- * The lede is decorative, so a REJECTED batch read (a transport-level fault —
- * per-document corruption already degrades inside the store) must not abort the
- * queue: the live rows degrade to `lede: null` and the fault is noted on stderr —
+ * The lede is decorative, so a REJECTED batch read (a transport-level fault)
+ * must not abort the queue: the live rows degrade to `lede: null` and the fault is noted on stderr —
  * the one channel every transport shares (CLI terminal, serve daemon log, MCP
  * server stderr) without a wire change — so the degradation is diagnosable, not
  * silent (ADR 0017's diagnosability rule). */
@@ -362,7 +358,7 @@ export async function getSeed(
     throw notFound(`${id} is not a seed id`, 'seed ids look like KEY-sN');
   }
   // Project-scoped (MMR-251): the lightweight all-projects read gates the board,
-  // then the echo loads only the seed's spawned targets — no whole-vault load.
+  // then the echo loads only the seed's spawned targets — no whole-store load.
   const projects = await store.loadProjects();
   if (!activeKeys(projects).has(ref.key)) {
     throw notFound(`${id} doesn't exist`);
@@ -378,7 +374,7 @@ export type FileSeedInput = {
   title: string;
   kind: SeedKind;
   /** Explicit prose for the `## Seed Description` body section — wins over the
-   * capture blob's split body when provided (never frontmatter). */
+   * capture blob's split body when provided. */
   description?: string | null;
   /** Requester-side project key; `null` = self-filed at the target board. */
   requester?: string | null;
@@ -405,7 +401,7 @@ export async function fileSeed(store: Store, input: FileSeedInput): Promise<Seed
     throw projectNotFound(input.project);
   }
   // Coerce '' → null up front so an empty requester can NEVER bypass the
-  // known-project guard nor write an empty `[[]]` wikilink (B5c); it self-files.
+  // known-project guard nor store an empty requester (B5c); it self-files.
   const requester = input.requester == null || input.requester === '' ? null : input.requester;
   if (requester !== null && !keys.has(requester)) {
     throw validation(
@@ -415,7 +411,7 @@ export async function fileSeed(store: Store, input: FileSeedInput): Promise<Seed
   }
   // `create` returns the held record IN FULL (MMR-251/MMR-196): a fresh seed adds no
   // work node and changes no project, so the projects read still resolves the echo —
-  // no read-back of the seed just written, no whole-vault load.
+  // no read-back of the seed just written, no whole-store load.
   const created = await store.seeds.create({
     description,
     key: input.project,
@@ -474,8 +470,8 @@ export async function promoteSeed(
     );
   }
 
-  // The mid-promote whole-vault load resolves an ARBITRARY `--parent`/`--link` node
-  // (any board), so it stays whole-vault; the echo reuses it (below) rather than
+  // The mid-promote whole-store load resolves an ARBITRARY `--parent`/`--link` node
+  // (any board), so it stays whole-store; the echo reuses it (below) rather than
   // paying a second find.
   const ws = await store.loadWorkingSet();
   const set = deriveSet(ws);
@@ -518,15 +514,15 @@ export async function promoteSeed(
 
   // ONE atomic seed write from ONE load: append the spawned link, cross
   // new → promoted (first promote only), stamp updated_at, append the History
-  // record — a single norn plan, so the task can never be created without the
-  // seed reflecting it (cross-DOCUMENT atomicity with createTask is impossible
-  // per the norn per-document limit; ADR 0016/NRN-107). Idempotent: a re-run with
-  // the stem already linked and the seed already promoted is a no-op, so a retried
-  // `--parent`/`--link` cannot double-record (B2).
+  // record — one store transaction. The task create above is its own
+  // transaction, so the pair is not atomic together; the seed write is
+  // idempotent instead: a re-run with the stem already linked and the seed
+  // already promoted is a no-op, so a retried `--parent`/`--link` cannot
+  // double-record (B2).
   await store.seeds.germinate(ref.key, ref.seq, createdStem);
   // Echo by reusing the mid-promote load (MMR-251/D2): resolution is project-scoped,
-  // so the whole-vault set already resolves every spawned ref; create mode just
-  // stitches in the task it spawned. No second whole-vault find. Only the now-promoted
+  // so the whole-store set already resolves every spawned ref; create mode just
+  // stitches in the task it spawned. No second whole-store find. Only the now-promoted
   // seed record is re-read (its lifecycle/spawned/updated_at changed).
   const echoSet =
     createdNode === undefined ? set : deriveSet({ ...ws, nodes: [...ws.nodes, createdNode] });
@@ -561,7 +557,7 @@ export async function transitionSeed(
     throw validation(`${to === 'rejected' ? 'reject' : 'resolve'} requires a reason`);
   }
   // One projects read serves the board-active guard AND the echo (MMR-251): no
-  // whole-vault load for either, and no second read for the echo.
+  // whole-store load for either, and no second read for the echo.
   const projects = await store.loadProjects();
   assertSeedBoardActive(buildResolver(projects, []).set, ref.key);
   await store.seeds.transition(ref.key, ref.seq, to, reason);

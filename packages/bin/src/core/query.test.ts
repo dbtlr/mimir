@@ -37,7 +37,7 @@ describe('parseFilterToken (structural validation)', () => {
   });
 
   test('summary is queryable; description is not (MMR-162)', async () => {
-    // `summary` (the frontmatter lede) is a valid string field and filters
+    // `summary` (the short lede) is a valid string field and filters
     expect(parseFilterToken('eq', 'summary:the lede')).toEqual({
       field: 'summary',
       op: 'eq',

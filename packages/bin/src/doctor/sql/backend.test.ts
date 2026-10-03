@@ -129,18 +129,9 @@ describe.each(arms)('$name', (arm) => {
       await seedWorkingSet(f.store);
       expect((await f.doctor.diagnose(undefined)).findings).toEqual([]);
       expect(await f.doctor.facet(undefined)).toMatchObject({
-        dropped_total: 0,
+        finding_total: 0,
         groups: [],
       });
-    } finally {
-      await f.close();
-    }
-  });
-
-  test(`${arm.name}: the SQL doctor carries no repair capability`, async () => {
-    const f = await arm.make();
-    try {
-      expect(f.doctor.repair).toBeUndefined();
     } finally {
       await f.close();
     }
@@ -378,7 +369,7 @@ describe.each(arms)('$name', (arm) => {
       const scoped = await f.doctor.diagnose('MMR');
       expect(scoped.findings.map((item) => item.scopeKey)).toEqual(['MMR', 'MMR']);
       expect(scoped.scope?.key).toBe('MMR');
-      expect(scoped.scope?.matched_documents).toBeGreaterThan(0);
+      expect(scoped.scope?.matched_records).toBeGreaterThan(0);
 
       const all = await f.doctor.diagnose(undefined);
       expect(all.scope).toBeNull();
@@ -404,7 +395,7 @@ describe.each(arms)('$name', (arm) => {
     }
   });
 
-  test(`${arm.name}: the facet groups records by project and carries the table and key as the path`, async () => {
+  test(`${arm.name}: the facet groups records by project with the row locator and the finding's evidence`, async () => {
     const f = await arm.make();
     try {
       await seedWorkingSet(f.store);
@@ -416,24 +407,20 @@ describe.each(arms)('$name', (arm) => {
       await arm.unconstrained(f.db, ["UPDATE node SET parent_id = 'MMR-404' WHERE id = 'MMR-2'"]);
 
       const facet = await f.doctor.facet(undefined);
-      expect(facet.dropped_total).toBe(1);
+      expect(facet.finding_total).toBe(1);
       expect(facet.groups).toHaveLength(1);
       const group = facet.groups[0];
-      expect(group).toMatchObject({ dropped: 1, project: 'MMR' });
-      // Readable is the project's remaining records — the whole project minus the
-      // one record the finding names.
-      expect(group?.readable).toBeGreaterThan(0);
-      expect(group?.records[0]).toMatchObject({
+      expect(group).toMatchObject({ finding_count: 1, project: 'MMR' });
+      expect(group?.records[0]).toEqual({
         cause: 'dangling parent',
+        evidence: { parent_id: 'MMR-404' },
         field: 'parent_id',
         id: 'MMR-2',
-        // There is no file behind a row: the table and the key reach it instead.
-        path: 'node/MMR-2',
+        locator: 'node/MMR-2',
+        note: 'MMR-2 names parent MMR-404, which no node row holds',
         severity: 'error',
         value: 'MMR-404',
       });
-      expect(group?.records[0]?.location).toBeNull();
-      expect(group?.records[0]?.snippet).toBeNull();
       expect(facet.scanned_at).not.toBe('');
     } finally {
       await f.close();

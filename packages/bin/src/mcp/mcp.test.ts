@@ -143,7 +143,6 @@ test('overview tool returns the composite envelope (MMR-278)', async () => {
       untriaged: number;
       blocked: number;
       stale: number;
-      dropped: number;
       listings: { blocked: unknown[]; stale: unknown[]; untriaged: unknown[] };
     };
     sessions: { shown: number; entries: unknown[] };
@@ -155,7 +154,6 @@ test('overview tool returns the composite envelope (MMR-278)', async () => {
   expect(parsed.next.tasks[0]?.status).toBe('ready');
   expect(parsed.hygiene).toEqual({
     blocked: 0,
-    dropped: 0,
     listings: { blocked: [], stale: [], untriaged: [] },
     stale: 0,
     untriaged: 0,

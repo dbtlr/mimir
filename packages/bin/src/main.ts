@@ -248,12 +248,7 @@ async function main(argv: string[]): Promise<number> {
     const port = flagPort ?? overridePort ?? config.port ?? DEFAULT_PORT;
     // Long-running: the server keeps the process alive; loopback-only by
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
-    // No doctor repair capability: the store is built without it, so
-    // `/api/doctor` reaches the backend's record-health facet (MMR-185) and
-    // nothing that repairs. The HTTP surface is not otherwise read-only — it
-    // serves the mutating action routes (ADR 0025) — but a repair pass rewrites
-    // documents wholesale on a diagnosis no caller can review, so it stays a
-    // deliberate, local decision at the CLI.
+    // `/api/doctor` serves the backend's read-only record-health facet (MMR-185).
     const built = await buildStore();
     const doctor = built.doctor.facet;
     let server: ReturnType<typeof createServer>;
@@ -312,7 +307,7 @@ async function main(argv: string[]): Promise<number> {
   // `mimir` / `mimir --help` never touches the store. main holds no verb list.
   let built: BuiltStore | undefined;
   const getBuilt = async (): Promise<BuiltStore> => {
-    built ??= await buildStore({ repair: true });
+    built ??= await buildStore();
     return built;
   };
   const getStore = async (): Promise<Store> => (await getBuilt()).store;
@@ -323,8 +318,7 @@ async function main(argv: string[]): Promise<number> {
     return await runCli(argv, getStore, stdoutIo(), {
       cwd: process.cwd(),
       doctor: {
-        // The CLI is the one transport that may repair, so the store is built
-        // with that capability; every call first forces the lazy store build.
+        // Every call first forces the lazy store build.
         diagnose: async (scope) => {
           try {
             return withConfigFindings(

@@ -69,8 +69,7 @@ seeds — run 'mimir triage MMR'`).
   Short spellings always — never `[error]`. Only tier 1 tags carry color and
   glyph.
 - **Tier 2 — domain tags:** a lowercase bracketed word or short phrase with
-  no glyph, for a stage/outcome vocabulary a command owns (doctor repair's
-  `[planned]` `[fixed]` `[skipped]` `[failed]` `[detail]`; triage's
+  no glyph, for a stage/outcome vocabulary a command owns (triage's
   `[dry run — no annotations written]`). Styled output may render a tier-2
   tag dim and parenthesized; the bracket form is the plain rendering.
   Extensible, but a domain vocabulary never restyles a tier-1 meaning — a
