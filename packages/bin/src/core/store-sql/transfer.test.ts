@@ -4,9 +4,10 @@ import type { StoreExport } from '../export';
 import { STORE_EXPORT_SCHEMA_VERSION } from '../export';
 import type { Node } from '../model';
 import { createPgliteTestStore } from '../store-postgres/testing';
-import { insertBatched, rowsPerStatement } from './batch';
+import { createSqliteTestStore } from '../store-sqlite/testing';
+import { inLists, insertBatched, rowsPerStatement } from './batch';
 
-/** Postgres batching and representation tests. Shared import validation is covered
+/** SQL-store batching and representation tests. Shared import validation is covered
  * by core/store-conformance.transfer.test.ts on both backends. */
 
 // A whole PGlite store plus a four-figure node collection.
@@ -16,31 +17,54 @@ test('a chunk stays under the statement bind-parameter ceiling at every row widt
   // PostgreSQL binds at most 65535 parameters per statement, and a row spends
   // one per column. The widest row the import writes is a node's (~26 columns).
   for (let columns = 1; columns <= 128; columns += 1) {
-    expect(rowsPerStatement(columns) * columns).toBeLessThanOrEqual(65_535);
-    expect(rowsPerStatement(columns)).toBeGreaterThanOrEqual(1);
+    expect(rowsPerStatement(columns, 65_535) * columns).toBeLessThanOrEqual(65_535);
+    expect(rowsPerStatement(columns, 65_535)).toBeGreaterThanOrEqual(1);
   }
 });
 
-test('an import round-trips a collection wider than one statement', async () => {
-  // Deliberately past PostgreSQL's own ceiling, not merely past our chunk: a
-  // node row is 27 columns, so 3000 rows are ~81000 bind parameters — over the
-  // 65535 one statement may carry. A count that only crossed the chunk
-  // boundary (~1200 rows) would still fit an unchunked statement and pass
-  // whether the import chunked or not; this one cannot.
-  const count = 3000;
-  const store_ = await createPgliteTestStore();
-  try {
-    await store_.store.import(wideDocument(count), { dryRun: false, mode: 'fresh' });
+/**
+ * Each SQL backend, with a node count past its own statement ceiling. A node
+ * row is 27 columns, so Postgres's 3000 rows are ~81000 bind parameters — over
+ * the 65535 one statement may carry. A count that only crossed the chunk
+ * boundary would still fit an unchunked statement and pass whether the import
+ * chunked or not; these cannot. SQLite's count is also past its ceiling for the
+ * export's `IN` lists: the history read binds two parameters per stem, and
+ * 17000 stems are 34000 — over SQLite's 32766.
+ */
+const wideBackends = [
+  { count: 3000, make: createPgliteTestStore, name: 'postgres' },
+  { count: 17_000, make: createSqliteTestStore, name: 'sqlite' },
+];
 
-    const exported = await store_.store.export();
-    expect(exported.nodes).toHaveLength(count);
-    expect(exported.nodes.at(0)?.id).toBe('WIDE-1');
-    expect(exported.nodes.at(-1)?.id).toBe(`WIDE-${String(count)}`);
-    expect(exported.nodes.at(-1)?.title).toBe(`Task ${String(count)}`);
-    expect(exported.projects.at(0)?.counters.node).toBe(count);
-  } finally {
-    await store_.close();
+test.each(wideBackends)(
+  '$name: an import and its export round-trip a collection wider than one statement',
+  async ({ count, make }) => {
+    const store_ = await make();
+    try {
+      await store_.store.import(wideDocument(count), { dryRun: false, mode: 'fresh' });
+
+      const exported = await store_.store.export();
+      expect(exported.nodes).toHaveLength(count);
+      expect(exported.nodes.at(0)?.id).toBe('WIDE-1');
+      expect(exported.nodes.at(-1)?.id).toBe(`WIDE-${String(count)}`);
+      expect(exported.nodes.at(-1)?.title).toBe(`Task ${String(count)}`);
+      expect(exported.projects.at(0)?.counters.node).toBe(count);
+    } finally {
+      await store_.close();
+    }
+  },
+);
+
+test('an IN list stays under the ceiling at every per-value cost', () => {
+  const values = Array.from({ length: 100_000 }, (_, index) => index);
+  for (const perValue of [1, 2, 3]) {
+    const lists = inLists(values, 32_766, perValue);
+    expect(lists.flat()).toEqual(values);
+    for (const list of lists) {
+      expect(list.length * perValue).toBeLessThanOrEqual(32_766);
+    }
   }
+  expect(inLists([], 32_766)).toEqual([]);
 });
 
 test('a batched insert refuses rows of differing width', async () => {
@@ -52,7 +76,7 @@ test('a batched insert refuses rows of differing width', async () => {
     statements += 1;
     return Promise.resolve();
   };
-  const ragged = insertBatched([{ a: 1, b: 2 }, { a: 1, b: 2 }, { a: 1 }], insert);
+  const ragged = insertBatched([{ a: 1, b: 2 }, { a: 1, b: 2 }, { a: 1 }], 65_535, insert);
   expect(await errorText(ragged)).toContain('row 2 has 1 columns');
   // Refused before a single statement ran.
   expect(statements).toBe(0);

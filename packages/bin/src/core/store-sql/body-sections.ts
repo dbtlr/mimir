@@ -1,6 +1,7 @@
 import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import type { BodySections, BodySectionStore, NextFacet } from '../body-sections/store';
+import { inLists } from './batch';
 import type { StoreDialect } from './dialect';
 import type { Executor, Stored } from './schema';
 
@@ -41,39 +42,56 @@ type Owners = {
   projects: Map<string, OwnerRow>;
 };
 
-async function resolveOwners(ex: Executor, stems: readonly string[]): Promise<Owners> {
-  if (stems.length === 0) {
-    return { nodes: new Map(), projects: new Map() };
+async function resolveOwners(
+  ex: Executor,
+  dialect: StoreDialect,
+  stems: readonly string[],
+): Promise<Owners> {
+  const owners: Owners = { nodes: new Map(), projects: new Map() };
+  for (const chunk of inLists(stems, dialect.maxParameters)) {
+    const nodeRows = await ex
+      .selectFrom('node')
+      .select(['id', 'description', 'next_present', 'next_text'])
+      .where('id', 'in', chunk)
+      .execute();
+    const projectRows = await ex
+      .selectFrom('project')
+      .select(['key', 'description', 'next_present', 'next_text'])
+      .where('key', 'in', chunk)
+      .execute();
+    for (const row of nodeRows) {
+      owners.nodes.set(row.id, row);
+    }
+    for (const row of projectRows) {
+      owners.projects.set(row.key, row);
+    }
   }
-  const nodeRows = await ex
-    .selectFrom('node')
-    .select(['id', 'description', 'next_present', 'next_text'])
-    .where('id', 'in', [...stems])
-    .execute();
-  const projectRows = await ex
-    .selectFrom('project')
-    .select(['key', 'description', 'next_present', 'next_text'])
-    .where('key', 'in', [...stems])
-    .execute();
-  return {
-    nodes: new Map(nodeRows.map((row) => [row.id, row])),
-    projects: new Map(projectRows.map((row) => [row.key, row])),
-  };
+  return owners;
 }
 
 /** The `## Annotations` rows of many nodes, keyed by stem, in append order. */
 async function annotationsByStem(
   ex: Executor,
+  dialect: StoreDialect,
   stems: readonly string[],
 ): Promise<Map<string, AnnotationView[]>> {
   const out = new Map<string, AnnotationView[]>();
-  if (stems.length === 0) {
-    return out;
+  // A stem's rows all land in its one chunk, so the per-stem order holds.
+  for (const chunk of inLists(stems, dialect.maxParameters)) {
+    await annotationsInto(out, ex, chunk);
   }
+  return out;
+}
+
+async function annotationsInto(
+  out: Map<string, AnnotationView[]>,
+  ex: Executor,
+  stems: string[],
+): Promise<void> {
   const rows = await ex
     .selectFrom('annotation')
     .select(['node_id', 'content', 'created_at'])
-    .where('node_id', 'in', [...stems])
+    .where('node_id', 'in', stems)
     // Insert order, NOT timestamp order (MMR-380). A node's `## Annotations`
     // order is the stored fact, the same reasoning `canonicalTransitionOrder`
     // spells out: an imported node whose notes are not timestamp-monotonic
@@ -85,7 +103,6 @@ async function annotationsByStem(
     const view: AnnotationView = { content: row.content, createdAt: row.created_at };
     out.set(row.node_id, [...(out.get(row.node_id) ?? []), view]);
   }
-  return out;
 }
 
 /** The `## History` rows of many nodes and projects, keyed by stem, in log order. */
@@ -95,13 +112,23 @@ async function historyByStem(
   stems: readonly string[],
 ): Promise<Map<string, HistoryEntry[]>> {
   const out = new Map<string, HistoryEntry[]>();
-  if (stems.length === 0) {
-    return out;
+  // Two parameters per stem: it is matched against both owner columns.
+  for (const chunk of inLists(stems, dialect.maxParameters, 2)) {
+    await historyInto(out, ex, dialect, chunk);
   }
+  return out;
+}
+
+async function historyInto(
+  out: Map<string, HistoryEntry[]>,
+  ex: Executor,
+  dialect: StoreDialect,
+  stems: string[],
+): Promise<void> {
   const rows = await ex
     .selectFrom('transition_log')
     .selectAll()
-    .where((eb) => eb.or([eb('node_id', 'in', [...stems]), eb('project_key', 'in', [...stems])]))
+    .where((eb) => eb.or([eb('node_id', 'in', stems), eb('project_key', 'in', stems)]))
     .orderBy('id')
     .execute();
   for (const row of rows) {
@@ -123,7 +150,6 @@ async function historyByStem(
     }
     out.set(stem, [...(out.get(stem) ?? []), entry]);
   }
-  return out;
 }
 
 export function createSqlBodySectionStore(ex: Executor, dialect: StoreDialect): BodySectionStore {
@@ -133,12 +159,13 @@ export function createSqlBodySectionStore(ex: Executor, dialect: StoreDialect): 
     if (unique.length === 0) {
       return out;
     }
-    const owners = await resolveOwners(ex, unique);
+    const owners = await resolveOwners(ex, dialect, unique);
     const present = unique.filter((stem) => owners.nodes.has(stem) || owners.projects.has(stem));
     const annotations =
       want.annotations === true
         ? await annotationsByStem(
             ex,
+            dialect,
             present.filter((stem) => owners.nodes.has(stem)),
           )
         : new Map<string, AnnotationView[]>();

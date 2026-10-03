@@ -18,6 +18,7 @@ export { openPostgres } from './client';
 export {
   assertSchemaCurrent,
   createPostgresStore,
+  postgresDialect,
   readSchemaVersion,
   upgradeSchema,
 } from './dialect';

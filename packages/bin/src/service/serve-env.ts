@@ -1,6 +1,10 @@
 /**
  * The serve unit's baked environment, resolved and validated at `service install`
- * time. This is a preflight guard, not just a value: the daemon shells out to the
+ * time. Only the Norn backend needs one: a SQLite or Postgres daemon reads its
+ * store through the binary and the config file alone, so it bakes nothing and
+ * requires nothing here.
+ *
+ * On Norn this is a preflight guard, not just a value: the daemon shells out to the
  * `norn` binary (ADR 0018) and reads the vault, and the supervisor hands it only a
  * minimal `PATH` with no `~`/`$VAR` expansion. So a norn that is not on PATH would
  * install a unit that boots green and then fails every request. Fail the install
@@ -20,9 +24,12 @@ import { existsSync } from 'node:fs';
 
 import { notFound } from '../core';
 import type { ResolvedVault } from '../vault/resolve';
+import type { StoreBackend } from './config';
 import type { ServeUnitOptions } from './units';
 
 export type ServeInstallInputs = {
+  /** The backend the daemon will open — the fence `[store] backend` resolves to. */
+  backend: StoreBackend;
   /** The absolute `norn` binary path (`Bun.which('norn')`), or undefined if unresolved. */
   nornPath?: string;
   /** The resolved vault (env over config over default), carrying `allowCreate`. */
@@ -30,6 +37,9 @@ export type ServeInstallInputs = {
 };
 
 export function serveInstallEnv(inputs: ServeInstallInputs): ServeUnitOptions {
+  if (inputs.backend !== 'norn') {
+    return {};
+  }
   if (inputs.nornPath === undefined) {
     throw notFound(
       'service install: mimir requires the `norn` binary, but it is not on PATH.',

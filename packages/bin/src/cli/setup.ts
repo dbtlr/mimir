@@ -1,9 +1,13 @@
 /**
  * `mimir setup` (MMR-145) — the configuration wizard. One command for the first
  * install and every later reconfiguration: it prefills the current answers,
- * converges the vault at the chosen location, writes the global config, and
- * installs (or updates) the supervisor units you opt into. Re-running is safe —
- * every action converges to the answered state.
+ * writes the global config, and installs (or updates) the supervisor units you
+ * opt into. Re-running is safe — every action converges to the answered state.
+ *
+ * What it asks follows the configured backend. The default local tier (ADR
+ * 0032) needs nothing set up: its database file is created on first use, so
+ * setup asks only about the background service. A Norn install also converges
+ * its vault at the chosen location and offers the vault's snapshot timer.
  *
  * It installs and updates; it never *removes* a supervisor unit. Declining a unit
  * that is already installed leaves it running and says so, pointing at
@@ -20,8 +24,13 @@ import { arrow, ok, warn } from '../presentation';
 import type { Format, Io } from '../presentation';
 import { cmdService, hasSupervisor } from '../service';
 import type { ServiceDeps } from '../service';
-import { DEFAULT_SNAPSHOT_INTERVAL_SECONDS, readConfig, writeConfig } from '../service/config';
-import type { SnapshotConfig } from '../service/config';
+import {
+  DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+  DEFAULT_STORE_BACKEND,
+  readConfig,
+  writeConfig,
+} from '../service/config';
+import type { SnapshotConfig, StoreBackend } from '../service/config';
 import { converge, expandTilde } from '../vault';
 import { backfillVaultData } from '../vault/backfill';
 import type { VaultDeps } from '../vault/commands';
@@ -32,6 +41,8 @@ export type SetupDeps = {
   vault: VaultDeps;
   /** The build's default vault path — the prefilled location answer. */
   defaultVaultPath: string;
+  /** The local store's database file — reported, never opened (MMR-39). */
+  sqlitePath: string;
 };
 
 /** The raw flag surface (the non-interactive answers). */
@@ -47,7 +58,9 @@ export type SetupValues = {
 
 /** The resolved answers, from prompts or flags — the input to {@link applySetup}. */
 type SetupAnswers = {
-  vaultPath: string;
+  backend: StoreBackend;
+  /** The vault to converge — set only on the Norn backend, the one with a vault. */
+  vaultPath?: string;
   installService: boolean;
   port?: number;
   installSnapshot: boolean;
@@ -91,15 +104,20 @@ function askLine(question: string, def: string): string {
  */
 function askInteractive(values: SetupValues, deps: SetupDeps, io: Io): SetupAnswers {
   const cfg = readConfig(deps.service.configFile);
-  const vaultPath = expandTilde(
-    askLine('Vault location', values.vault ?? cfg.vault.path ?? deps.defaultVaultPath),
-  );
+  const backend = cfg.store.backend ?? DEFAULT_STORE_BACKEND;
+  refuseVaultFlags(backend, values);
+  const vaultPath =
+    backend === 'norn'
+      ? expandTilde(
+          askLine('Vault location', values.vault ?? cfg.vault.path ?? deps.defaultVaultPath),
+        )
+      : undefined;
 
   if (!supervisorAvailable(deps)) {
     io.write(
       'Background service needs launchd (macOS) or systemd (Linux) — skipping; run `mimir serve` under your supervisor.',
     );
-    return { installService: false, installSnapshot: false, snapshot: {}, vaultPath };
+    return { backend, installService: false, installSnapshot: false, snapshot: {}, vaultPath };
   }
 
   const installService = globalThis.confirm('Install the background service (mimir serve)?');
@@ -115,6 +133,10 @@ function askInteractive(values: SetupValues, deps: SetupDeps, io: Io): SetupAnsw
     port = answer === '' ? undefined : parsePort(answer);
   }
 
+  // The snapshot timer commits the vault, so only a vault install is offered it.
+  if (vaultPath === undefined) {
+    return { backend, installService, installSnapshot: false, port, snapshot: {} };
+  }
   const installSnapshot = globalThis.confirm(
     'Install the auto-snapshot timer (commit + push the vault)?',
   );
@@ -138,12 +160,34 @@ function askInteractive(values: SetupValues, deps: SetupDeps, io: Io): SetupAnsw
       snapshot.upstream = answer;
     }
   }
-  return { installService, installSnapshot, port, snapshot, vaultPath };
+  return { backend, installService, installSnapshot, port, snapshot, vaultPath };
+}
+
+/**
+ * Refuse the vault and snapshot answers on a backend that has no vault. A flag
+ * that would be silently ignored reads as configured when it is not.
+ */
+function refuseVaultFlags(backend: StoreBackend, values: SetupValues): void {
+  if (backend === 'norn') {
+    return;
+  }
+  if (
+    values.vault !== undefined ||
+    values.installSnapshot === true ||
+    values.snapshotInterval !== undefined ||
+    values.upstream !== undefined
+  ) {
+    throw usage(
+      `setup: --vault and the snapshot flags apply only to the norn backend; this install runs on ${backend}`,
+    );
+  }
 }
 
 /** Gather answers from flags (the non-interactive path — requires `-y`). */
 function fromFlags(values: SetupValues, deps: SetupDeps): SetupAnswers {
   const cfg = readConfig(deps.service.configFile);
+  const backend = cfg.store.backend ?? DEFAULT_STORE_BACKEND;
+  refuseVaultFlags(backend, values);
   const installService = values.installService === true;
   const installSnapshot = values.installSnapshot === true;
   // Cadence belongs to the snapshot unit — reject it without --install-snapshot
@@ -172,15 +216,18 @@ function fromFlags(values: SetupValues, deps: SetupDeps): SetupAnswers {
     }
   }
   return {
+    backend,
     installService,
     installSnapshot,
     port: values.port === undefined ? undefined : parsePort(values.port),
     snapshot,
-    vaultPath: expandTilde(values.vault ?? cfg.vault.path ?? deps.defaultVaultPath),
+    ...(backend === 'norn'
+      ? { vaultPath: expandTilde(values.vault ?? cfg.vault.path ?? deps.defaultVaultPath) }
+      : {}),
   };
 }
 
-/** Converge the vault, persist config, install the opted-in units. */
+/** Converge the vault (Norn only), persist config, install the opted-in units. */
 async function applySetup(
   answers: SetupAnswers,
   io: Io,
@@ -189,15 +236,20 @@ async function applySetup(
 ): Promise<number> {
   const structured = format === 'json' || format === 'jsonl';
 
-  // 1. Converge the vault at the chosen path. Setup is the explicit, interactive
-  //    door where creating at a custom path is intended (resolve.ts), so
-  //    allowCreate holds; a foreign non-empty dir still refuses (converge).
-  const result = await converge(answers.vaultPath, {
-    allowCreate: true,
-    exec: deps.vault.exec,
-    migrateData: backfillVaultData,
-  });
-  for (const w of result.warnings) {
+  // 1. Converge the vault at the chosen path, on the one backend that has one.
+  //    Setup is the explicit, interactive door where creating at a custom path
+  //    is intended (resolve.ts), so allowCreate holds; a foreign non-empty dir
+  //    still refuses (converge).
+  const { vaultPath } = answers;
+  const result =
+    vaultPath === undefined
+      ? undefined
+      : await converge(vaultPath, {
+          allowCreate: true,
+          exec: deps.vault.exec,
+          migrateData: backfillVaultData,
+        });
+  for (const w of result?.warnings ?? []) {
     warn(io, `vault: ${w}`);
   }
 
@@ -209,10 +261,14 @@ async function applySetup(
   //    back from here rather than being handed it again.
   const { reset } = writeConfig(deps.service.configFile, {
     ...(answers.port === undefined ? {} : { serve: { port: answers.port } }),
-    vault: {
-      path: answers.vaultPath,
-      ...(answers.installSnapshot ? { snapshot: answers.snapshot } : {}),
-    },
+    ...(vaultPath === undefined
+      ? {}
+      : {
+          vault: {
+            path: vaultPath,
+            ...(answers.installSnapshot ? { snapshot: answers.snapshot } : {}),
+          },
+        }),
   });
   if (reset) {
     warn(io, `existing config at ${deps.service.configFile} was not valid TOML — rewrote it fresh`);
@@ -220,7 +276,7 @@ async function applySetup(
 
   // 3. Install the opted-in supervisor units in one call. Without a supervisor there are no
   //    units — skip with a note rather than letting service install
-  //    throw; the vault + config above still landed.
+  //    throw; the config above still landed.
   const supervised = supervisorAvailable(deps);
   const units: string[] = [];
   if (supervised && answers.installService) {
@@ -265,12 +321,22 @@ async function applySetup(
       JSON.stringify({
         configFile: deps.service.configFile,
         service: { leftInstalled, ok: serviceOk, units },
-        vault: { outcome: result.outcome, path: answers.vaultPath },
+        ...(vaultPath === undefined || result === undefined
+          ? { store: storeReport(answers.backend, deps) }
+          : { vault: { outcome: result.outcome, path: vaultPath } }),
       }),
     );
   } else {
-    const where = answers.vaultPath;
-    ok(io, result.outcome === 'created' ? `vault created at ${where}` : `vault ready at ${where}`);
+    if (vaultPath === undefined || result === undefined) {
+      ok(io, storeLine(answers.backend, deps));
+    } else {
+      ok(
+        io,
+        result.outcome === 'created'
+          ? `vault created at ${vaultPath}`
+          : `vault ready at ${vaultPath}`,
+      );
+    }
     ok(io, `config written ${arrow(io.plain)} ${deps.service.configFile}`);
     for (const n of leftInstalled) {
       warn(io, `${n} is still installed — remove it with \`mimir service uninstall ${n}\``);
@@ -278,6 +344,20 @@ async function applySetup(
     ok(io, 'setup complete');
   }
   return serviceOk ? 0 : 1;
+}
+
+/** The store a vault-less backend runs on — the local file, or the server. */
+function storeReport(
+  backend: StoreBackend,
+  deps: SetupDeps,
+): { backend: StoreBackend; path?: string } {
+  return backend === 'sqlite' ? { backend, path: deps.sqlitePath } : { backend };
+}
+
+function storeLine(backend: StoreBackend, deps: SetupDeps): string {
+  return backend === 'sqlite'
+    ? `local store at ${deps.sqlitePath} (created on first use)`
+    : `store: ${backend} — its connection is [store] in the config`;
 }
 
 export async function cmdSetup(

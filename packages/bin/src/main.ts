@@ -31,6 +31,7 @@ import { INSTALLATION_PROTOCOL_RESPONSE } from './installation/protocol';
 import { serveStdio } from './mcp';
 import {
   DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+  DEFAULT_STORE_BACKEND,
   EVENTS_FILE,
   LaunchdSupervisor,
   SERVE_LOG_FILE,
@@ -63,6 +64,7 @@ import type {
 import type { GlobalConfig } from './service/config';
 import { buildStore } from './store-backend';
 import type { BuiltStore } from './store-backend';
+import { openInstallationSqlite } from './store-sqlite-backend';
 import type { StoreDeps } from './store/commands';
 import { resolveVault } from './vault';
 import type { VaultDeps } from './vault/commands';
@@ -119,13 +121,20 @@ function servePort(args: string[]): number | null | undefined {
   return parsePort(raw);
 }
 
-/** The serve unit's baked environment. The daemon shells out to norn and reads
- *  the vault (ADR 0018), so preflight both at install time and bake the absolute
- *  norn path; only a non-live installation bakes its port. */
+/** The serve unit's baked environment. A Norn daemon shells out to norn and
+ *  reads the vault (ADR 0018), so that backend preflights both at install time
+ *  and bakes the absolute norn path; only a non-live installation bakes its port. */
 function serveOptions(config: GlobalConfig, port: number | undefined): ServeUnitOptions {
-  const vault = resolveVault({ configPath: config.vault.path, envPath: process.env.MIMIR_VAULT });
+  const backend = config.store.backend ?? DEFAULT_STORE_BACKEND;
+  const norn =
+    backend === 'norn'
+      ? {
+          nornPath: Bun.which('norn') ?? undefined,
+          vault: resolveVault({ configPath: config.vault.path, envPath: process.env.MIMIR_VAULT }),
+        }
+      : {};
   return {
-    ...serveInstallEnv({ nornPath: Bun.which('norn') ?? undefined, vault }),
+    ...serveInstallEnv({ backend, ...norn }),
     port: IS_PRODUCTION ? undefined : port,
   };
 }
@@ -257,7 +266,12 @@ function realVaultDeps(): VaultDeps {
  * opens, and stdin for `store import -`. Deliberately NOT the built store —
  * `store upgrade` runs before the schema gate would let a store exist. */
 function realStoreDeps(): StoreDeps {
-  return { openPostgres, readConfig: readRuntimeConfig, readStdin: () => Bun.stdin.text() };
+  return {
+    openPostgres,
+    openSqlite: () => openInstallationSqlite(),
+    readConfig: readRuntimeConfig,
+    readStdin: () => Bun.stdin.text(),
+  };
 }
 
 async function main(argv: string[]): Promise<number> {

@@ -7,7 +7,7 @@ import { renderSeedRef } from '../ids';
 import type { SeedRecord, SeedStore } from '../seeds/store';
 import { assertLiveSeed, canTransitionSeed } from '../seeds/store';
 import { now } from '../time';
-import { insertBatched } from './batch';
+import { inLists, insertBatched } from './batch';
 import type { StoreDialect } from './dialect';
 import type { DB, Executor, SeedRow } from './schema';
 
@@ -134,7 +134,9 @@ export async function insertExportedSeeds(
     title: seed.title,
     updated_at: seed.updated_at,
   }));
-  await insertBatched(rows, (chunk) => tx.insertInto('seed').values(chunk).execute());
+  await insertBatched(rows, dialect.maxParameters, (chunk) =>
+    tx.insertInto('seed').values(chunk).execute(),
+  );
 
   const history = seeds.flatMap((seed) =>
     seed.history.map((entry) => ({
@@ -146,7 +148,9 @@ export async function insertExportedSeeds(
       to_value: entry.to,
     })),
   );
-  await insertBatched(history, (chunk) => tx.insertInto('seed_history').values(chunk).execute());
+  await insertBatched(history, dialect.maxParameters, (chunk) =>
+    tx.insertInto('seed_history').values(chunk).execute(),
+  );
 }
 
 const rowOf = async (ex: Executor, key: string, seq: number): Promise<SeedRow | undefined> =>
@@ -280,13 +284,15 @@ export function createSqlSeedStore(db: Kysely<DB>, dialect: StoreDialect): SeedS
         return out;
       }
       const stems = [...new Set(refs.map(({ key, seq }) => stemOf(key, seq)))];
-      const rows = await db
-        .selectFrom('seed')
-        .select(['id', 'description'])
-        .where('id', 'in', stems)
-        .execute();
-      for (const row of rows) {
-        out.set(row.id, row.description);
+      for (const chunk of inLists(stems, dialect.maxParameters)) {
+        const rows = await db
+          .selectFrom('seed')
+          .select(['id', 'description'])
+          .where('id', 'in', chunk)
+          .execute();
+        for (const row of rows) {
+          out.set(row.id, row.description);
+        }
       }
       return out;
     },

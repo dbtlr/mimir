@@ -25,6 +25,7 @@ const derivedDefault = (path: string): ResolvedVault => ({
 
 test('bakes the resolved norn + an explicit existing vault', () => {
   const env = serveInstallEnv({
+    backend: 'norn',
     nornPath: '/Users/op/.cargo/bin/norn',
     vault: explicit(vault),
   });
@@ -32,12 +33,15 @@ test('bakes the resolved norn + an explicit existing vault', () => {
 });
 
 test('install fails loudly when norn is not on PATH', () => {
-  expect(() => serveInstallEnv({ nornPath: undefined, vault: explicit(vault) })).toThrow(/norn/);
+  expect(() =>
+    serveInstallEnv({ backend: 'norn', nornPath: undefined, vault: explicit(vault) }),
+  ).toThrow(/norn/);
 });
 
 test('install fails loudly when an explicit vault does not exist', () => {
   expect(() =>
     serveInstallEnv({
+      backend: 'norn',
       nornPath: '/Users/op/.cargo/bin/norn',
       vault: explicit(join(vault, 'does-not-exist')),
     }),
@@ -49,8 +53,23 @@ test('leaves the auto-creatable default unbaked (daemon converge creates it)', (
   // MIMIR_VAULT would flip resolveVault's allowCreate off at the daemon and
   // disable the boot-time create. So bake norn only, and do NOT require the path.
   const env = serveInstallEnv({
+    backend: 'norn',
     nornPath: '/Users/op/.cargo/bin/norn',
     vault: derivedDefault(join(vault, 'not-created-yet')),
   });
   expect(env).toEqual({ nornPath: '/Users/op/.cargo/bin/norn' });
+});
+
+test('a backend without a vault needs neither norn nor a vault, and bakes neither', () => {
+  for (const backend of ['sqlite', 'postgres'] as const) {
+    // No norn on PATH and a configured vault that does not exist: neither is
+    // this backend's concern, so neither may fail its install.
+    expect(
+      serveInstallEnv({
+        backend,
+        nornPath: undefined,
+        vault: explicit(join(vault, 'does-not-exist')),
+      }),
+    ).toEqual({});
+  }
 });

@@ -178,24 +178,24 @@ test('runtime reads an explicitly selected isolated configuration', () => {
 // The `[store] backend` fence is back per install (ADR 0030 Decision 1,
 // MMR-378): absent means `norn`, a named backend is carried through, and an
 // unrecognized word is flagged rather than silently opening another store.
-test('readConfig defaults an absent [store] backend to norn at the consumer', () => {
+test('readConfig defaults an absent [store] backend to sqlite at the consumer', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(file, '[serve]\nport = 50124\n');
   expect(readConfig(file).store).toEqual({});
-  expect(readConfig(file).store.backend ?? DEFAULT_STORE_BACKEND).toBe('norn');
+  expect(readConfig(file).store.backend ?? DEFAULT_STORE_BACKEND).toBe('sqlite');
 });
 
 test('readConfig carries each known [store] backend', () => {
   const file = join(dir, 'config.toml');
-  writeFileSync(file, '[store]\nbackend = "norn"\n');
-  expect(readConfig(file).store).toEqual({ backend: 'norn' });
-  writeFileSync(file, '[store]\nbackend = "postgres"\n');
-  expect(readConfig(file).store).toEqual({ backend: 'postgres' });
+  for (const backend of ['sqlite', 'postgres', 'norn'] as const) {
+    writeFileSync(file, `[store]\nbackend = "${backend}"\n`);
+    expect(readConfig(file).store).toEqual({ backend });
+  }
 });
 
 test('readConfig flags an unrecognized or wrong-shaped [store] backend', () => {
   const file = join(dir, 'config.toml');
-  writeFileSync(file, '[store]\nbackend = "sqlite"\n');
+  writeFileSync(file, '[store]\nbackend = "mysql"\n');
   expect(readConfig(file).store).toEqual({ problem: 'invalid-backend' });
   writeFileSync(file, '[store]\nbackend = 7\n');
   expect(readConfig(file).store).toEqual({ problem: 'invalid-backend' });

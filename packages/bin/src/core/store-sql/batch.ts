@@ -1,13 +1,14 @@
 import { invariant } from '../errors';
 
 /**
- * Multi-row INSERTs under PostgreSQL's bind-parameter ceiling (MMR-380).
+ * Multi-row INSERTs and `IN` lists under a dialect's bind-parameter ceiling
+ * (MMR-380, `StoreDialect.maxParameters`).
  *
  * The store import writes whole collections at once, and a row-at-a-time insert
  * spends one client/server round trip per record — the cost that dominates an
  * import of a real board, where the rows number in the tens of thousands. One
  * statement per table would be better still, except that a single statement may
- * carry at most 65535 bind parameters and the import's row count is the SOURCE
+ * carry only so many bind parameters and the import's row count is the SOURCE
  * store's, which has no bound at all.
  *
  * So a batch is chunked by the row's own width. The parameters one row spends
@@ -18,9 +19,6 @@ import { invariant } from '../errors';
  * a fault that never shows on a small one.
  */
 
-/** The bind parameters one PostgreSQL statement may carry. */
-const MAX_BIND_PARAMETERS = 65535;
-
 /**
  * The safety factor on the ceiling. Halving it costs nothing measurable — even
  * the widest row here (a node's ~26 columns) still puts over a thousand rows in
@@ -29,9 +27,9 @@ const MAX_BIND_PARAMETERS = 65535;
  */
 const MARGIN = 2;
 
-/** Rows per statement for a row of `columns` columns — at least one. */
-export function rowsPerStatement(columns: number): number {
-  return Math.max(1, Math.floor(MAX_BIND_PARAMETERS / MARGIN / Math.max(1, columns)));
+/** Rows per statement for a row of `columns` columns under `maxParameters` — at least one. */
+export function rowsPerStatement(columns: number, maxParameters: number): number {
+  return Math.max(1, Math.floor(maxParameters / MARGIN / Math.max(1, columns)));
 }
 
 /**
@@ -40,6 +38,7 @@ export function rowsPerStatement(columns: number): number {
  */
 export async function insertBatched<R extends object>(
   rows: readonly R[],
+  maxParameters: number,
   insert: (chunk: R[]) => Promise<unknown>,
 ): Promise<void> {
   const first = rows.at(0);
@@ -56,10 +55,27 @@ export async function insertBatched<R extends object>(
       );
     }
   }
-  const perStatement = rowsPerStatement(columns);
-  for (let start = 0; start < rows.length; start += perStatement) {
-    await insert(rows.slice(start, start + perStatement));
+  for (const chunk of chunked(rows, rowsPerStatement(columns, maxParameters))) {
+    await insert(chunk);
   }
+}
+
+/**
+ * `values` cut into the lists one `IN (...)` read may bind, when each value
+ * costs `perValue` parameters (a value matched against two columns costs two).
+ * A read over every stem of a store — the export's body sections — has the
+ * same unbounded width an import's insert has.
+ */
+export function inLists<T>(values: readonly T[], maxParameters: number, perValue = 1): T[][] {
+  return chunked(values, rowsPerStatement(perValue, maxParameters));
+}
+
+function chunked<T>(values: readonly T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let start = 0; start < values.length; start += size) {
+    chunks.push(values.slice(start, start + size));
+  }
+  return chunks;
 }
 
 /**

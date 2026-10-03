@@ -60,6 +60,19 @@ export type StoreDialect = {
   /** Each migration's literal DDL in this dialect, by migration name. */
   migrations: MigrationStatements;
 
+  /**
+   * What the schema gate tells the operator to do about a store with no
+   * schema, or one behind this binary — the explicit upgrade a shared store
+   * needs, or nothing more than reopening a store that migrates on open.
+   */
+  schemaRemedy: { missing: string; behind: string };
+
+  /**
+   * The bind parameters one statement may carry. Batched inserts and `IN`
+   * lists are chunked under it (see `./batch`).
+   */
+  maxParameters: number;
+
   /** The column shapes that differ by driver (see {@link Stored}). */
   codecs: ValueCodecs;
 };

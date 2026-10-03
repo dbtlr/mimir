@@ -73,6 +73,7 @@ export async function insertScratchpads(
 ): Promise<void> {
   await insertBatched(
     pads.map((pad) => toRow(pad, dialect)),
+    dialect.maxParameters,
     (chunk) => tx.insertInto('scratchpad').values(chunk).execute(),
   );
 }

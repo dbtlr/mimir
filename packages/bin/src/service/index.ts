@@ -1,6 +1,7 @@
 /** Service supervision + self-update (MMR-47, MMR-54). main wires realServiceDeps. */
 export {
   DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+  DEFAULT_STORE_BACKEND,
   type ConfigPatch,
   configPath,
   readConfig,

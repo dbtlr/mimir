@@ -20,6 +20,7 @@ import {
 } from '../core/mutations';
 import type { Store } from '../core/store';
 import { createPgliteTestStore } from '../core/store-postgres/testing';
+import { createSqliteTestStore } from '../core/store-sqlite/testing';
 import type { TestStore } from './store';
 import { createTestStore } from './store';
 
@@ -156,10 +157,20 @@ export async function postgresInstance(): Promise<Instance> {
   return { close: () => test_.close(), store: test_.store };
 }
 
+/**
+ * The SQLite arm, in memory — like Postgres, it runs in this process and never
+ * skips, and it has no document substrate to hand-edit.
+ */
+export async function sqliteInstance(): Promise<Instance> {
+  const test_ = await createSqliteTestStore();
+  return { close: () => test_.close(), store: test_.store };
+}
+
 /** The backend table every conformance suite loops over. One row per backend. */
 export const backends: Backend[] = [
   { make: nornInstance, name: 'norn', skip: !NORN },
   { make: postgresInstance, name: 'postgres', skip: false },
+  { make: sqliteInstance, name: 'sqlite', skip: false },
 ];
 
 // ── Fixture ────────────────────────────────────────────────────────────────
@@ -351,8 +362,33 @@ export async function observe(store: Store): Promise<unknown> {
     projectsRead: [...(await store.loadProjects())].toSorted((a, b) => a.key.localeCompare(b.key)),
     scratchpads: await store.scratchpads.list(),
     seeds,
-    transitions: { ...transitions, nextCursor: comparableCursor(transitions.nextCursor) },
+    transitions: {
+      ...transitions,
+      items: comparableFeedOrder(transitions.items),
+      nextCursor: comparableCursor(transitions.nextCursor),
+    },
   };
+}
+
+/**
+ * The feed's items with same-instant ties put in one order.
+ *
+ * The feed orders by `(at, position)`, and the position is the backend's own —
+ * the one an import reassigns, in the transfer document's per-entity order
+ * (`canonicalTransitionOrder`), as {@link comparableCursor} explains. Two
+ * entities' transitions written in the same millisecond can therefore swap
+ * across an import, and a fast backend writes many in one millisecond. The
+ * sort is stable, so one entity's own transitions keep their order.
+ */
+function comparableFeedOrder<T extends { at: string; node: string }>(items: readonly T[]): T[] {
+  return items.toSorted((a, b) => compareText(a.at, b.at) || compareText(a.node, b.node));
+}
+
+function compareText(a: string, b: string): number {
+  if (a === b) {
+    return 0;
+  }
+  return a < b ? -1 : 1;
 }
 
 /**

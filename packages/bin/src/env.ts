@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { parsePort } from '@mimir/helpers';
 
+import { SQLITE_FILE } from './core/store-sqlite/client';
 import { readInstallation } from './installation';
 import { readSandboxAuthority, sandboxAuthorityFromEnvironment } from './sandbox-authority';
 import type { SupervisorScope } from './service/units';
@@ -59,6 +60,11 @@ export function supervisorScope(): SupervisorScope {
 
 export function defaultVaultPath(): string {
   return join(runtimePaths().data, 'vault');
+}
+
+/** The local SQLite store's database file (ADR 0032): one per installation. */
+export function sqliteStorePath(): string {
+  return join(runtimePaths().data, SQLITE_FILE);
 }
 
 /**

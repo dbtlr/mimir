@@ -49,7 +49,7 @@ import {
 import type { Store } from '../core';
 import { cmdDoctor } from '../doctor/commands';
 import type { DoctorBackend } from '../doctor/contract';
-import { defaultVaultPath } from '../env';
+import { defaultVaultPath, sqliteStorePath } from '../env';
 import { arrow, FORMATS, ok, warn } from '../presentation';
 import type { Format, Io } from '../presentation';
 import { cmdSelfUpdate, cmdService } from '../service';
@@ -1102,6 +1102,7 @@ export async function runCli(
           {
             defaultVaultPath: defaultVaultPath(),
             service: defaults.service,
+            sqlitePath: sqliteStorePath(),
             vault: defaults.vault,
           },
           format,
