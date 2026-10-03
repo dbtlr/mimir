@@ -2,9 +2,9 @@ import type { TransitionView } from '@mimir/contract';
 import { sql } from 'kysely';
 
 import { validation } from '../errors';
+import type { Executor } from '../store-postgres/tx';
 import type { TransitionsFeed } from '../transitions/store';
 import { toRowId } from './schema';
-import type { Executor } from './tx';
 
 /**
  * The Postgres transition feed (ADR 0016 Phase 3). Unlike the Norn feed — which

@@ -1,6 +1,7 @@
 import type { Kysely } from 'kysely';
 
 import type { Store } from '../store';
+import { serializable, snapshotRead } from '../store-postgres/tx';
 import { createPostgresArtifactStore } from './artifacts';
 import { createPostgresBodySectionStore } from './body-sections';
 import type { DB } from './schema';
@@ -8,7 +9,6 @@ import { createPostgresScratchpadStore } from './scratchpads';
 import { createPostgresSeedStore } from './seeds';
 import { exportPostgresStoreFrom, importPostgresStore } from './transfer';
 import { createPostgresTransitionsFeed } from './transitions';
-import { serializable, snapshotRead } from './tx';
 import { loadNodesForProjects, loadProjects, loadWorkingSet } from './working-set';
 import { createPostgresWriter } from './writer';
 

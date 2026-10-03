@@ -3,7 +3,7 @@ import type { PoolConfig } from 'pg';
 import { Pool } from 'pg';
 
 import { assertPostgresAccess } from '../../postgres-access';
-import type { DB } from './schema';
+import type { DB } from '../store-sql/schema';
 
 /**
  * The real-Postgres connection (ADR 0030) — a `pg` pool behind Kysely's

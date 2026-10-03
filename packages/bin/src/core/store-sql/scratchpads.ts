@@ -4,10 +4,10 @@ import type { Insertable, Kysely, Transaction } from 'kysely';
 import { conflict, validation } from '../errors';
 import { lintScratchpadValue } from '../scratchpads/codec';
 import type { ScratchpadStore } from '../scratchpads/store';
+import type { Executor } from '../store-postgres/tx';
+import { serializable } from '../store-postgres/tx';
 import { insertBatched } from './batch';
 import type { DB, ScratchpadRow, ScratchpadTable } from './schema';
-import type { Executor } from './tx';
-import { serializable } from './tx';
 
 /**
  * The Postgres `ScratchpadStore` — UUID-addressed, project-owned temporary

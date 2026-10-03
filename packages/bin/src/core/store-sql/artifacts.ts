@@ -7,11 +7,11 @@ import { invariant, projectNotFound } from '../errors';
 import { canonicalSetOrder } from '../export';
 import type { ExportedArtifact } from '../export';
 import { renderArtifactRef } from '../ids';
+import type { Executor } from '../store-postgres/tx';
+import { serializable } from '../store-postgres/tx';
 import { now } from '../time';
 import { insertBatched, pairKey } from './batch';
 import type { ArtifactRow, DB } from './schema';
-import type { Executor } from './tx';
-import { serializable } from './tx';
 
 /**
  * The Postgres `ArtifactStore` (MMR-143, ADR 0016 Phase 2a). An artifact is one

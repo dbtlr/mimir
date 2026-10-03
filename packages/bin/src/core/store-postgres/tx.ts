@@ -1,7 +1,7 @@
 import type { Kysely, Transaction } from 'kysely';
 
+import type { DB } from '../store-sql/schema';
 import { withSerializableRetry } from './retry';
-import type { DB } from './schema';
 
 /**
  * The two transaction shapes the backend runs in, in one place so every slice

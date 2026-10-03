@@ -4,8 +4,8 @@ import { PGlite } from '@electric-sql/pglite';
 import { Kysely, sql } from 'kysely';
 
 import { MimirError } from '../errors';
+import { createPgliteDialect } from '../store-postgres/pglite';
 import { assertSchemaCurrent, readSchemaVersion, SCHEMA_VERSION, upgradeSchema } from './migrator';
-import { createPgliteDialect } from './pglite';
 import type { DB } from './schema';
 
 function freshDb(): Kysely<DB> {

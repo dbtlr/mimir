@@ -21,6 +21,8 @@ import {
 import { renderArtifactRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
 import type { NewAnnotationRecord, NewTransitionRecord } from '../store';
+import type { Executor } from '../store-postgres/tx';
+import { serializable, snapshotRead } from '../store-postgres/tx';
 import { now } from '../time';
 import { parseTransferDocument } from '../transfer-validate';
 import { exportArtifacts, insertExportedArtifacts } from './artifacts';
@@ -37,8 +39,6 @@ import type {
 } from './schema';
 import { exportScratchpads, insertScratchpads } from './scratchpads';
 import { exportSeeds, insertExportedSeeds } from './seeds';
-import type { Executor } from './tx';
-import { serializable, snapshotRead } from './tx';
 import { loadWorkingSet } from './working-set';
 
 /**

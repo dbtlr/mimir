@@ -2,11 +2,11 @@ import { PGlite } from '@electric-sql/pglite';
 import { Kysely, sql } from 'kysely';
 
 import type { Store } from '../store';
+import { upgradeSchema } from '../store-sql/migrator';
+import type { DB } from '../store-sql/schema';
+import { createPostgresStore } from '../store-sql/store';
 import { openPostgres } from './client';
-import { upgradeSchema } from './migrator';
 import { createPgliteDialect } from './pglite';
-import type { DB } from './schema';
-import { createPostgresStore } from './store';
 
 /**
  * A fresh, migrated Postgres store in this process — the fixture the conformance

@@ -1,7 +1,7 @@
 import type { Dependency, Node, Project } from '../model';
 import type { NodeTag, WorkingSet } from '../store';
+import type { Executor } from '../store-postgres/tx';
 import type { NodeRow, ProjectRow } from './schema';
-import type { Executor } from './tx';
 
 /**
  * The bulk read path (ADR 0016 Phase 0) — the projections every derivation view

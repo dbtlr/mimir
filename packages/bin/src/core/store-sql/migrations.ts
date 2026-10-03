@@ -1,8 +1,8 @@
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 
-import type { DB } from '../schema';
-import { statements as init } from './0001-init';
+import { statements as init } from '../store-postgres/migrations/0001-init';
+import type { DB } from './schema';
 
 /**
  * The forward-only migration list (ADR 0030). Static and ordered: a binary

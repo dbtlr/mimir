@@ -6,9 +6,14 @@ import { sandboxPostgresUrlFromEnvironment } from '../../sandbox-authority';
 import { observe, seedWorkingSet, withoutStamp } from '../../testing/conformance';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { updateNode } from '../mutations';
+import {
+  assertSchemaCurrent,
+  readSchemaVersion,
+  SCHEMA_VERSION,
+  upgradeSchema,
+} from '../store-sql/migrator';
+import { createPostgresStore } from '../store-sql/store';
 import { openPostgres } from './client';
-import { assertSchemaCurrent, readSchemaVersion, SCHEMA_VERSION, upgradeSchema } from './migrator';
-import { createPostgresStore } from './store';
 import { createThrowawaySchema } from './testing';
 
 /**

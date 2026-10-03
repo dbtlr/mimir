@@ -6,11 +6,11 @@ import type { ExportedSeed } from '../export';
 import { renderSeedRef } from '../ids';
 import type { SeedRecord, SeedStore } from '../seeds/store';
 import { assertLiveSeed, canTransitionSeed } from '../seeds/store';
+import type { Executor } from '../store-postgres/tx';
+import { serializable } from '../store-postgres/tx';
 import { now } from '../time';
 import { insertBatched } from './batch';
 import type { DB, SeedRow } from './schema';
-import type { Executor } from './tx';
-import { serializable } from './tx';
 
 /**
  * The Postgres `SeedStore` (MMR-244) — a seed is one row keyed by its `KEY-sN`

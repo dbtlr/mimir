@@ -1,7 +1,7 @@
 import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import type { BodySections, BodySectionStore, NextFacet } from '../body-sections/store';
-import type { Executor } from './tx';
+import type { Executor } from '../store-postgres/tx';
 
 /**
  * The Postgres body-section slice (ADR 0016 Phase 3). What Norn keeps as prose

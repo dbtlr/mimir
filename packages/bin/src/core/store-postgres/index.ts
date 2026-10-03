@@ -11,7 +11,12 @@
  */
 export type { PostgresHandle } from './client';
 export { openPostgres } from './client';
-export type { UpgradeReport } from './migrator';
-export { assertSchemaCurrent, readSchemaVersion, SCHEMA_VERSION, upgradeSchema } from './migrator';
-export type { DB } from './schema';
-export { createPostgresStore } from './store';
+export type { UpgradeReport } from '../store-sql/migrator';
+export {
+  assertSchemaCurrent,
+  readSchemaVersion,
+  SCHEMA_VERSION,
+  upgradeSchema,
+} from '../store-sql/migrator';
+export type { DB } from '../store-sql/schema';
+export { createPostgresStore } from '../store-sql/store';

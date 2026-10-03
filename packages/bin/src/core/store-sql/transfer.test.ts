@@ -3,8 +3,8 @@ import { expect, setDefaultTimeout, test } from 'bun:test';
 import type { StoreExport } from '../export';
 import { STORE_EXPORT_SCHEMA_VERSION } from '../export';
 import type { Node } from '../model';
+import { createPgliteTestStore } from '../store-postgres/testing';
 import { insertBatched, rowsPerStatement } from './batch';
-import { createPgliteTestStore } from './testing';
 
 /** Postgres batching and representation tests. Shared import validation is covered
  * by core/store-conformance.transfer.test.ts on both backends. */

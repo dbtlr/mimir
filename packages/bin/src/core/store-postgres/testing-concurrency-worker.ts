@@ -24,9 +24,9 @@
  * invokes it by path.
  */
 import { createTask } from '../create';
+import { createPostgresStore } from '../store-sql/store';
 import { now } from '../time';
 import { openPostgres } from './client';
-import { createPostgresStore } from './store';
 
 const USAGE = 'usage: testing-concurrency-worker <url> <create|patch> <stem> <label> <count>';
 
