@@ -11,7 +11,7 @@ import type {
   TransactionSettings,
 } from 'kysely';
 
-import { invariant } from '../errors';
+import { conflict, invariant } from '../errors';
 
 /**
  * A Kysely dialect over `bun:sqlite` — the connection under the SQLite store
@@ -23,13 +23,40 @@ import { invariant } from '../errors';
  * that reads and then writes upgrades its lock mid-flight, and two processes
  * doing that at once deadlock — one of them fails `SQLITE_BUSY` without the
  * busy timeout ever being consulted. An immediate BEGIN takes the write lock up
- * front, so a second writer waits on the busy timeout instead.
+ * front, so a second writer waits for it instead.
+ *
+ * It waits here, asynchronously, not in SQLite's busy timeout: `bun:sqlite` is
+ * synchronous, so a busy timeout spent waiting on another process's lock would
+ * stall every request `mimir serve` holds for as long as the wait lasts.
  *
  * A transaction asked for `read only` opens deferred: in WAL mode it reads one
  * snapshot and never contends with a writer.
  */
 
 const NO_STREAMING = 'the SQLite dialect does not support streaming queries';
+
+/** How long a writer waits for another process's write lock, by default. */
+export const WRITE_WAIT_MS = 5000;
+
+/** The pause between two tries for the write lock: short, then backing off. */
+const FIRST_RETRY_MS = 5;
+const MAX_RETRY_MS = 50;
+
+export type BunSqliteOptions = {
+  /** How long a write waits for the write lock before it fails. */
+  writeWaitMs?: number;
+};
+
+/** Is this driver error the database's lock being held elsewhere? */
+function isBusy(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof error.code === 'string' &&
+    error.code.startsWith('SQLITE_BUSY')
+  );
+}
 
 class SqliteConnection implements DatabaseConnection {
   private readonly database: Database;
@@ -65,6 +92,10 @@ class SqliteConnection implements DatabaseConnection {
  * handle, so a query on the handle from inside that callback waits for a
  * connection the callback itself holds — forever. The driver refuses it
  * instead (see {@link holdingConnection}).
+ *
+ * The mark follows async context, so work a callback merely STARTS (a timer, a
+ * detached promise) is refused too, even after the transaction ends. Nothing
+ * inside a store transaction starts such work.
  */
 const held = new AsyncLocalStorage<true>();
 
@@ -85,12 +116,14 @@ export function holdingConnection<T>(fn: () => Promise<T>): Promise<T> {
 class SqliteDriver implements Driver {
   private readonly connection: SqliteConnection;
   private readonly database: Database;
+  private readonly writeWaitMs: number;
   private queue: Promise<void> = Promise.resolve();
   private release: (() => void) | undefined;
 
-  constructor(database: Database) {
+  constructor(database: Database, options: BunSqliteOptions) {
     this.connection = new SqliteConnection(database);
     this.database = database;
+    this.writeWaitMs = options.writeWaitMs ?? WRITE_WAIT_MS;
   }
 
   async acquireConnection(): Promise<DatabaseConnection> {
@@ -121,8 +154,30 @@ class SqliteDriver implements Driver {
     connection: DatabaseConnection,
     settings: TransactionSettings,
   ): Promise<void> {
-    const begin = settings.accessMode === 'read only' ? 'begin deferred' : 'begin immediate';
-    await connection.executeQuery(CompiledQuery.raw(begin));
+    if (settings.accessMode === 'read only') {
+      await connection.executeQuery(CompiledQuery.raw('begin deferred'));
+      return;
+    }
+    const deadline = Date.now() + this.writeWaitMs;
+    let pause = FIRST_RETRY_MS;
+    for (;;) {
+      try {
+        await connection.executeQuery(CompiledQuery.raw('begin immediate'));
+        return;
+      } catch (error) {
+        if (!isBusy(error)) {
+          throw error;
+        }
+        if (Date.now() >= deadline) {
+          throw conflict(
+            `the local store stayed locked by another process for ${String(this.writeWaitMs)}ms`,
+            'retry; if it persists, a mimir process is stuck mid-write — stop it',
+          );
+        }
+      }
+      await Bun.sleep(pause);
+      pause = Math.min(pause * 2, MAX_RETRY_MS);
+    }
   }
 
   async commitTransaction(connection: DatabaseConnection): Promise<void> {
@@ -130,7 +185,12 @@ class SqliteDriver implements Driver {
   }
 
   async rollbackTransaction(connection: DatabaseConnection): Promise<void> {
-    await connection.executeQuery(CompiledQuery.raw('rollback'));
+    // Some failures (a full disk, an I/O error) roll the transaction back in
+    // SQLite itself; a second rollback would throw and mask the error that
+    // caused the first.
+    if (this.database.inTransaction) {
+      await connection.executeQuery(CompiledQuery.raw('rollback'));
+    }
   }
 
   init(): Promise<void> {
@@ -156,10 +216,13 @@ class OwnMutexSqliteAdapter extends SqliteAdapter {
 }
 
 /** A Kysely {@link Dialect} over an open `bun:sqlite` database. */
-export function createBunSqliteDialect(database: Database): Dialect {
+export function createBunSqliteDialect(
+  database: Database,
+  options: BunSqliteOptions = {},
+): Dialect {
   return {
     createAdapter: (): DialectAdapter => new OwnMutexSqliteAdapter(),
-    createDriver: () => new SqliteDriver(database),
+    createDriver: () => new SqliteDriver(database, options),
     createIntrospector: (db) => new SqliteIntrospector(db),
     createQueryCompiler: () => new SqliteQueryCompiler(),
   };

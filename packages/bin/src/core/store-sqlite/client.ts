@@ -5,7 +5,8 @@ import { Kysely, sql } from 'kysely';
 import { invariant } from '../errors';
 import type { UpgradeReport } from '../store-sql/migrator';
 import type { DB } from '../store-sql/schema';
-import { readSchemaVersion, upgradeSchema } from './dialect';
+import { readSchemaVersion, sqliteDialect, upgradeSchema } from './dialect';
+import type { BunSqliteOptions } from './driver';
 import { createBunSqliteDialect } from './driver';
 
 /**
@@ -22,11 +23,14 @@ import { createBunSqliteDialect } from './driver';
 export const SQLITE_FILE = 'store.sqlite';
 
 /**
- * How long a write waits for another process's write lock before it fails. A
- * local write holds the lock for milliseconds, so a wait this long means a
- * writer is stuck, not busy.
+ * SQLite's own busy timeout, which waits synchronously. Opening may wait this
+ * long — several processes opening a fresh file contend for the journal-mode
+ * switch, and nothing is being served yet. Once open, writers wait for the lock
+ * asynchronously in the driver ({@link BunSqliteOptions}), so the timeout drops
+ * to a token that only absorbs a momentary lock.
  */
-export const BUSY_TIMEOUT_MS = 5000;
+const OPEN_BUSY_TIMEOUT_MS = 5000;
+const OPEN_STORE_BUSY_TIMEOUT_MS = 10;
 
 export type SqliteHandle = {
   db: Kysely<DB>;
@@ -44,13 +48,16 @@ export type SqliteHandle = {
  * old schema intact, and it refuses a store whose schema is newer than this
  * binary's (ADR 0032 Decision 3).
  */
-export async function openSqlite(path: string): Promise<SqliteHandle> {
+export async function openSqlite(
+  path: string,
+  options: BunSqliteOptions = {},
+): Promise<SqliteHandle> {
   const database = new Database(path, { create: true, strict: true });
   // Foreign keys and the busy timeout are per connection and must be set on
   // every open; neither writes to the file.
   database.run('pragma foreign_keys = on');
-  database.run(`pragma busy_timeout = ${String(BUSY_TIMEOUT_MS)}`);
-  const db = new Kysely<DB>({ dialect: createBunSqliteDialect(database) });
+  database.run(`pragma busy_timeout = ${String(OPEN_BUSY_TIMEOUT_MS)}`);
+  const db = new Kysely<DB>({ dialect: createBunSqliteDialect(database, options) });
   try {
     // Before the journal mode, which does write: a refused file is left
     // exactly as it was found.
@@ -59,6 +66,7 @@ export async function openSqlite(path: string): Promise<SqliteHandle> {
     // property of the file, so this is a no-op after the first open.
     database.run('pragma journal_mode = wal');
     const upgrade = await upgradeSchema(db);
+    database.run(`pragma busy_timeout = ${String(OPEN_STORE_BUSY_TIMEOUT_MS)}`);
     return { close: () => db.destroy(), db, upgrade };
   } catch (error) {
     await db.destroy();
@@ -72,13 +80,18 @@ export async function openSqlite(path: string): Promise<SqliteHandle> {
  * build the store beside data that is not its own.
  */
 async function refuseForeignDatabase(db: Kysely<DB>, path: string): Promise<void> {
-  if ((await readSchemaVersion(db)) !== null) {
-    return;
-  }
-  const tables = await sql<{ name: string }>`
-    select name from sqlite_schema where type = 'table' and name not like 'sqlite_%'
-  `.execute(db);
-  if (tables.rows.length > 0) {
+  // One snapshot for both reads: another process creating the schema between
+  // them would otherwise read as tables with no version — a stranger's file.
+  const foreign = await sqliteDialect.snapshot(db, async (tx) => {
+    if ((await readSchemaVersion(tx)) !== null) {
+      return false;
+    }
+    const tables = await sql<{ name: string }>`
+      select name from sqlite_schema where type = 'table' and name not like 'sqlite_%'
+    `.execute(tx);
+    return tables.rows.length > 0;
+  });
+  if (foreign) {
     throw invariant(
       `${path} is not a Mimir store: it holds tables but no schema version`,
       'move the file aside; the store is created fresh on the next open',

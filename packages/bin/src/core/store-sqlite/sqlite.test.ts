@@ -125,6 +125,102 @@ test('a Store facet called inside transact is refused instead of deadlocking', a
   }
 });
 
+test('a failure SQLite rolls back itself surfaces as itself, not as a failed rollback', async () => {
+  const handle = await openSqlite(path);
+  try {
+    // Cap the file at its current size so the next sizable write is a full disk,
+    // one of the faults after which SQLite has already rolled the transaction back.
+    const pages = await sql<{ page_count: number }>`pragma page_count`.execute(handle.db);
+    await sql
+      .raw(`pragma max_page_count = ${String(pages.rows[0]?.page_count ?? 0)}`)
+      .execute(handle.db);
+    const store = createSqliteStore(handle.db);
+    const message = await refusal(
+      store.transact((writer) =>
+        writer.insertProject({
+          description: 'x'.repeat(1_000_000),
+          key: 'MMR',
+          name: 'Mimir',
+          tags: [],
+        }),
+      ),
+    );
+    expect(message).toContain('full');
+    expect(message).not.toContain('no transaction is active');
+  } finally {
+    await handle.close();
+  }
+});
+
+test("a writer waits out another process's lock without stalling the event loop", async () => {
+  const handle = await openSqlite(path);
+  // Another connection to the file stands in for another process: its lock is
+  // the database's, not this driver's.
+  const other = new Database(path);
+  try {
+    const store = createSqliteStore(handle.db);
+    other.run('begin immediate');
+    let ticks = 0;
+    const timer = setInterval(() => {
+      ticks += 1;
+    }, 5);
+    const write = store.transact((writer) =>
+      writer.insertProject({ description: null, key: 'MMR', name: 'Mimir', tags: [] }),
+    );
+    await Bun.sleep(250);
+    other.run('commit');
+    await write;
+    clearInterval(timer);
+    // A synchronous wait would have frozen the timer for the whole 250ms.
+    expect(ticks).toBeGreaterThan(20);
+    expect((await store.loadProjects()).map((project) => project.key)).toEqual(['MMR']);
+  } finally {
+    other.close();
+    await handle.close();
+  }
+});
+
+test('a writer that never gets the lock fails with a conflict, not a raw SQLite error', async () => {
+  const handle = await openSqlite(path, { writeWaitMs: 100 });
+  const other = new Database(path);
+  try {
+    other.run('begin immediate');
+    const message = await refusal(
+      createSqliteStore(handle.db).transact((writer) =>
+        writer.insertProject({ description: null, key: 'MMR', name: 'Mimir', tags: [] }),
+      ),
+    );
+    expect(message).toContain('stayed locked by another process');
+    other.run('rollback');
+  } finally {
+    other.close();
+    await handle.close();
+  }
+});
+
+/** Open (and so create and migrate) the store at `path` in a separate process. */
+const OPENER = `
+  import { openSqlite } from '${new URL('client.ts', import.meta.url).pathname}';
+  const handle = await openSqlite(process.argv[1]);
+  await handle.close();
+`;
+
+test('processes racing to open one fresh file all open it', async () => {
+  // A fresh install starts the daemon, MCP servers, and a CLI command at once.
+  for (let round = 0; round < 4; round++) {
+    const fresh = join(dir, 'data', `race-${String(round)}.sqlite`);
+    const openers = Array.from({ length: 8 }, () =>
+      Bun.spawn(['bun', '-e', OPENER, fresh], { stderr: 'pipe', stdout: 'pipe' }),
+    );
+    const exits = await Promise.all(openers.map((opener) => opener.exited));
+    for (const [index, code] of exits.entries()) {
+      if (code !== 0) {
+        throw new Error(await new Response(openers[index]?.stderr).text());
+      }
+    }
+  }
+}, 60_000);
+
 /** The worker script, addressed by path — it is spawned, never imported. */
 const WORKER = new URL('testing-concurrency-worker.ts', import.meta.url).pathname;
 

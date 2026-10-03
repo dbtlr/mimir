@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { ResolvedVault } from '../vault/resolve';
-import { serveInstallEnv } from './serve-env';
+import { assertSnapshotBackend, serveInstallEnv } from './serve-env';
 
 let vault: string;
 beforeEach(() => {
@@ -72,4 +72,11 @@ test('a backend without a vault needs neither norn nor a vault, and bakes neithe
       }),
     ).toEqual({});
   }
+});
+
+test('the snapshot timer is refused on a backend without a vault', () => {
+  for (const backend of ['sqlite', 'postgres'] as const) {
+    expect(() => assertSnapshotBackend(backend)).toThrow(/only the norn backend/);
+  }
+  expect(() => assertSnapshotBackend('norn')).not.toThrow();
 });

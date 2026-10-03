@@ -47,6 +47,7 @@ import {
   readServePlistPort,
   readServeUnitPort,
   parseHealth,
+  assertSnapshotBackend,
   serveInstallEnv,
   serveUnitFor,
   snapshotServiceUnitFor,
@@ -142,6 +143,7 @@ function serveOptions(config: GlobalConfig, port: number | undefined): ServeUnit
 /** Bake the interval from the SAME config file the command reports from, and
  *  the vault at install time (supervisors do no shell expansion). */
 function snapshotOptions(config: GlobalConfig): SnapshotUnitOptions {
+  assertSnapshotBackend(config.store.backend ?? DEFAULT_STORE_BACKEND);
   return {
     intervalSeconds: config.vault.snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
     vaultPath: process.env.MIMIR_VAULT,

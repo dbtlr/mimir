@@ -22,6 +22,7 @@
  */
 import { existsSync } from 'node:fs';
 
+import { usage } from '../cli/errors';
 import { notFound } from '../core';
 import type { ResolvedVault } from '../vault/resolve';
 import type { StoreBackend } from './config';
@@ -59,4 +60,19 @@ export function serveInstallEnv(inputs: ServeInstallInputs): ServeUnitOptions {
     );
   }
   return { nornPath: inputs.nornPath, vaultPath: vault.path };
+}
+
+/**
+ * Refuse the snapshot timer on a backend without a vault. The timer commits and
+ * pushes a Norn vault; on any other backend it would install a unit that fails
+ * every run. Checked at render, before any unit is written, like the serve
+ * preflight above.
+ */
+export function assertSnapshotBackend(backend: StoreBackend): void {
+  if (backend !== 'norn') {
+    throw usage(
+      `service install: the snapshot timer commits a vault, which only the norn backend has; this install runs on ${backend}`,
+      'install the serve unit alone: mimir service install serve',
+    );
+  }
 }

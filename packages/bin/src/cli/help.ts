@@ -1029,7 +1029,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     flags: [['--port <n>', 'serve port to persist (the installation config)']],
     summary:
-      'install a supervisor unit (launchd or systemd) — defaults to serve; snapshot is opt-in. --port persists to the installation config. requires a registered installation. on the norn backend it also requires the `norn` binary on PATH and an existing vault; sqlite and postgres need neither',
+      'install a supervisor unit (launchd or systemd) — defaults to serve; snapshot is opt-in. --port persists to the installation config. requires a registered installation. on the norn backend it also requires the `norn` binary on PATH and an existing vault; sqlite and postgres need neither, and refuse the snapshot unit, which commits a vault',
     usage: 'mimir service install [unit] [--port <n>]',
   },
   'service uninstall': {
