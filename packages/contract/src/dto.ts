@@ -239,7 +239,7 @@ export type TriageReport = {
   readyToResolve: SeedView[];
   /** Check (c): the board's tasks whose `upstream` seed went terminal. */
   upstreamResolutions: UpstreamResolution[];
-  /** Check (c) tasks skipped (corrupt anchor / read fault) — the pass never aborts. */
+  /** Check (c) tasks skipped (a per-task read or write fault) — the pass never aborts. */
   failures: TriageFailure[];
 };
 

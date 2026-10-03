@@ -214,7 +214,7 @@ stderr as severity-tagged lines, `[err]` or `[warn]`, in the short spelling the
 - `evidence` — rule-specific structured facts.
 
 Doctor has no repair pass and no `--fix` flag; each finding is fixed by hand at
-the database. A scoped run whose project holds no records warns
+the database. A scoped run naming a project key the store does not hold warns
 `doctor scope 'KEY' matched 0 records` on stderr, so a stale scope never reads
 as a clean scan.
 
