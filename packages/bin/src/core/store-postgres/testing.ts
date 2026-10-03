@@ -39,9 +39,9 @@ export async function createPgliteTestStore(): Promise<PostgresTestStore> {
  * The real-Postgres lane needs isolation without a database per case, so each
  * case gets its own SQL schema and a connection URL pinned to it through
  * libpq's `options=-c search_path=...`. Every unqualified name the backend uses
- * — including `to_regclass('schema_version')`, the fresh-store probe — then
- * resolves inside that schema, so a lane run neither sees nor disturbs anything
- * else in the database.
+ * — including the fresh-store probe, which looks `schema_version` up among
+ * `current_schemas` — then resolves inside that schema, so a lane run neither
+ * sees nor disturbs anything else in the database.
  */
 export type ThrowawaySchema = {
   name: string;

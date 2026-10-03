@@ -48,10 +48,11 @@ migrator, the DDL, and the deferred-constraint switch during import.
    `[store] backend = "postgres"` exactly as ADR 0030 describes. Neither tier
    replaces the other.
 2. **One shared SQL store.** The query code (working set, writer, artifacts,
-   seeds, scratchpads, transitions, transfer) is written once. A dialect seam
-   supplies the connection, the transaction and retry policy, the schema-version
-   probe and migrator, and the DDL. A seam change lands once, and the
-   conformance suite runs it against both dialects.
+   seeds, scratchpads, transitions, transfer) is written once. Each backend
+   opens its own connection; a dialect seam supplies the transaction and retry
+   policy, the schema-version probe and upgrade lock, the DDL, and the column
+   encodings and error codes that differ by driver. A seam change lands once,
+   and the conformance suite runs it against both dialects.
 3. **SQLite's write and schema posture.** The SQLite dialect runs in WAL mode
    with foreign keys enforced and a busy timeout, and opens write transactions
    with `BEGIN IMMEDIATE`, so concurrent local processes such as the CLI and
@@ -107,3 +108,7 @@ migrator, the DDL, and the deferred-constraint switch during import.
   is unaffected. It governs Mimir's own output, not the store.
 - The 2026-10-03 refinement in ADR 0030, which accepted Norn's automatic schema
   upgrade, becomes history once Norn is removed.
+
+## Changelog
+
+- 2026-10-03: Clarified that each backend opens its own connection and the dialect seam carries column encodings and error codes (MMR-416).
