@@ -46,9 +46,10 @@ export type BuildStoreOptions = {
  * local store. The remedy names the key that actually went wrong —
  * a bad URL is not fixed by re-reading the list of backends.
  *
- * Shared with `store upgrade`, which reads the same section for the same fence.
+ * Shared with `store upgrade` and `setup`, which read the same section for the
+ * same fence; `file` names the config the section came from.
  */
-export function assertUsableStoreConfig(config: GlobalConfig): void {
+export function assertUsableStoreConfig(config: GlobalConfig, file: string = configPath()): void {
   const problem = config.store.problem;
   if (problem === undefined) {
     return;
@@ -57,7 +58,7 @@ export function assertUsableStoreConfig(config: GlobalConfig): void {
     problem === 'invalid-url'
       ? 'set url to a Postgres connection URL (a non-empty string)'
       : 'set backend to one of: sqlite, postgres, norn';
-  throw new Error(`[store] is unusable (${problem}) in ${configPath()} — ${remedy}`);
+  throw new Error(`[store] is unusable (${problem}) in ${file} — ${remedy}`);
 }
 
 /**

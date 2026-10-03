@@ -58,6 +58,33 @@ function isBusy(error: unknown): boolean {
   );
 }
 
+/**
+ * Run `attempt` until it gets past a lock another process holds, waiting
+ * asynchronously between tries, and fail with a conflict once `waitMs` has
+ * passed. Any other error is the attempt's own and propagates at once.
+ */
+export async function whileBusy<T>(waitMs: number, attempt: () => Promise<T> | T): Promise<T> {
+  const deadline = Date.now() + waitMs;
+  let pause = FIRST_RETRY_MS;
+  for (;;) {
+    try {
+      return await attempt();
+    } catch (error) {
+      if (!isBusy(error)) {
+        throw error;
+      }
+      if (Date.now() >= deadline) {
+        throw conflict(
+          `the local store stayed locked by another process for ${String(waitMs)}ms`,
+          'retry; if it persists, a mimir process is stuck mid-write — stop it',
+        );
+      }
+    }
+    await Bun.sleep(pause);
+    pause = Math.min(pause * 2, MAX_RETRY_MS);
+  }
+}
+
 class SqliteConnection implements DatabaseConnection {
   private readonly database: Database;
 
@@ -158,26 +185,9 @@ class SqliteDriver implements Driver {
       await connection.executeQuery(CompiledQuery.raw('begin deferred'));
       return;
     }
-    const deadline = Date.now() + this.writeWaitMs;
-    let pause = FIRST_RETRY_MS;
-    for (;;) {
-      try {
-        await connection.executeQuery(CompiledQuery.raw('begin immediate'));
-        return;
-      } catch (error) {
-        if (!isBusy(error)) {
-          throw error;
-        }
-        if (Date.now() >= deadline) {
-          throw conflict(
-            `the local store stayed locked by another process for ${String(this.writeWaitMs)}ms`,
-            'retry; if it persists, a mimir process is stuck mid-write — stop it',
-          );
-        }
-      }
-      await Bun.sleep(pause);
-      pause = Math.min(pause * 2, MAX_RETRY_MS);
-    }
+    await whileBusy(this.writeWaitMs, () =>
+      connection.executeQuery(CompiledQuery.raw('begin immediate')),
+    );
   }
 
   async commitTransaction(connection: DatabaseConnection): Promise<void> {

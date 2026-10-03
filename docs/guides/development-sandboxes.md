@@ -67,7 +67,7 @@ bun run sandbox service-destroy <sandbox-id>
 
 `service-verify` proves `mimir service` against the real supervisor. It installs
 the candidate (built from the checkout, or `--binary <path>`) and then runs
-`install all`, `status`, `restart`, a `SIGKILL` that the supervisor must recover
+`install serve`, `status`, `restart`, a `SIGKILL` that the supervisor must recover
 from, `stop`, `start`, and `uninstall`. After each transition it waits for the
 supervisor's state and `/api/health` to agree. It records the live units' state
 before and after the run and fails if that state changed. The state covers the

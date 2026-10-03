@@ -30,7 +30,8 @@ import {
   readConfig,
   writeConfig,
 } from '../service/config';
-import type { SnapshotConfig, StoreBackend } from '../service/config';
+import type { GlobalConfig, SnapshotConfig, StoreBackend } from '../service/config';
+import { assertUsableStoreConfig } from '../store-backend';
 import { converge, expandTilde } from '../vault';
 import { backfillVaultData } from '../vault/backfill';
 import type { VaultDeps } from '../vault/commands';
@@ -104,8 +105,7 @@ function askLine(question: string, def: string): string {
  */
 function askInteractive(values: SetupValues, deps: SetupDeps, io: Io): SetupAnswers {
   const cfg = readConfig(deps.service.configFile);
-  const backend = cfg.store.backend ?? DEFAULT_STORE_BACKEND;
-  refuseVaultFlags(backend, values);
+  const backend = configuredBackend(cfg, deps, values);
   const vaultPath =
     backend === 'norn'
       ? expandTilde(
@@ -164,6 +164,27 @@ function askInteractive(values: SetupValues, deps: SetupDeps, io: Io): SetupAnsw
 }
 
 /**
+ * The backend the config fences this install to, before any answer is asked
+ * for. An unusable `[store]` section is refused rather than read as the
+ * default: setup would otherwise report success over a config every store
+ * command then refuses.
+ */
+function configuredBackend(cfg: GlobalConfig, deps: SetupDeps, values: SetupValues): StoreBackend {
+  // A file that is not TOML at all reads as malformed in every section; setup
+  // rewrites that one fresh, with a warning (see applySetup), so only a parsed
+  // file's bad section is refused here.
+  const unparseable = [cfg.serve, cfg.store, cfg.vault].every(
+    (section) => section.problem === 'malformed',
+  );
+  if (!unparseable) {
+    assertUsableStoreConfig(cfg, deps.service.configFile);
+  }
+  const backend = cfg.store.backend ?? DEFAULT_STORE_BACKEND;
+  refuseVaultFlags(backend, values);
+  return backend;
+}
+
+/**
  * Refuse the vault and snapshot answers on a backend that has no vault. A flag
  * that would be silently ignored reads as configured when it is not.
  */
@@ -186,8 +207,7 @@ function refuseVaultFlags(backend: StoreBackend, values: SetupValues): void {
 /** Gather answers from flags (the non-interactive path — requires `-y`). */
 function fromFlags(values: SetupValues, deps: SetupDeps): SetupAnswers {
   const cfg = readConfig(deps.service.configFile);
-  const backend = cfg.store.backend ?? DEFAULT_STORE_BACKEND;
-  refuseVaultFlags(backend, values);
+  const backend = configuredBackend(cfg, deps, values);
   const installService = values.installService === true;
   const installSnapshot = values.installSnapshot === true;
   // Cadence belongs to the snapshot unit — reject it without --install-snapshot

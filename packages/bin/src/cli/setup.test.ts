@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -152,6 +152,22 @@ test('-y on the default local tier converges no vault and writes no [vault]', as
     store: { backend: 'sqlite', path: join(dir, 'mimir.db') },
   });
   expect(serve.calls).toEqual([]);
+});
+
+test('an unusable [store] section is refused before setup writes anything', async () => {
+  for (const isTTY of [false, true]) {
+    const d = deps(new FakeSupervisor(), new FakeSupervisor(), 'darwin', null);
+    writeFileSync(d.service.configFile, '[store]\nbackend = "mysql"\n');
+    let message = '';
+    try {
+      await cmdSetup({ yes: true }, fakeIo(isTTY), d, 'records');
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).toContain('[store] is unusable (invalid-backend)');
+    // The bad section is the operator's to fix; setup leaves the file alone.
+    expect(readFileSync(d.service.configFile, 'utf8')).toBe('[store]\nbackend = "mysql"\n');
+  }
 });
 
 test('--install-service on the local tier installs the serve unit without a vault', async () => {

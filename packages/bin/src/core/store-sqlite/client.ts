@@ -7,7 +7,7 @@ import type { UpgradeReport } from '../store-sql/migrator';
 import type { DB } from '../store-sql/schema';
 import { readSchemaVersion, sqliteDialect, upgradeSchema } from './dialect';
 import type { BunSqliteOptions } from './driver';
-import { createBunSqliteDialect } from './driver';
+import { createBunSqliteDialect, WRITE_WAIT_MS, whileBusy } from './driver';
 
 /**
  * The local SQLite store's connection (ADR 0032) — one database file, opened
@@ -64,7 +64,11 @@ export async function openSqlite(
     await refuseForeignDatabase(db, path);
     // WAL lets a reader keep its snapshot while a writer commits. It is a
     // property of the file, so this is a no-op after the first open.
-    database.run('pragma journal_mode = wal');
+    // The switch needs the file to itself, and SQLite can refuse it at once
+    // while other openers hold it rather than wait, so it is retried.
+    await whileBusy(options.writeWaitMs ?? WRITE_WAIT_MS, () =>
+      database.run('pragma journal_mode = wal'),
+    );
     const upgrade = await upgradeSchema(db);
     database.run(`pragma busy_timeout = ${String(OPEN_STORE_BUSY_TIMEOUT_MS)}`);
     return { close: () => db.destroy(), db, upgrade };
@@ -80,9 +84,12 @@ export async function openSqlite(
  * build the store beside data that is not its own.
  */
 async function refuseForeignDatabase(db: Kysely<DB>, path: string): Promise<void> {
-  // One snapshot for both reads: another process creating the schema between
-  // them would otherwise read as tables with no version — a stranger's file.
-  const foreign = await sqliteDialect.snapshot(db, async (tx) => {
+  // Both reads under the write lock. Apart, another process creating the
+  // schema between them would read as tables with no version — a stranger's
+  // file. A read snapshot is not enough either: another opener switching the
+  // file to WAL can fail a reader mid-transaction without SQLite's busy wait,
+  // where a write-lock request is retried (see ./driver).
+  const foreign = await sqliteDialect.write(db, async (tx) => {
     if ((await readSchemaVersion(tx)) !== null) {
       return false;
     }

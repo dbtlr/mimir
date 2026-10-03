@@ -133,7 +133,7 @@ export async function verifyServiceLifecycle(
       await host.mimir([
         'service',
         'install',
-        'all',
+        'serve',
         '--port',
         String(options.port),
         '--format',
@@ -169,9 +169,11 @@ export async function verifyServiceLifecycle(
     !first.serve.running ||
     first.serve.pid === null ||
     first.serve.health?.running_version !== options.version ||
-    !first.snapshot.loaded
+    first.snapshot.loaded
   ) {
-    throw new Error(`status: expected both units loaded and serve healthy — ${describe(first)}`);
+    throw new Error(
+      `status: expected serve loaded and healthy, the snapshot timer not installed — ${describe(first)}`,
+    );
   }
   record('status', describe(first));
 
@@ -187,8 +189,8 @@ export async function verifyServiceLifecycle(
   );
 
   await host.mimir(['service', 'stop', 'serve', '--format', 'json']);
-  await down('stop', true);
-  record('stop', 'serve unloaded; port silent; snapshot still scheduled');
+  await down('stop', false);
+  record('stop', 'serve unloaded; port silent');
 
   await host.mimir(['service', 'start', 'serve', '--format', 'json']);
   const started = await running('start', null);
@@ -201,7 +203,7 @@ export async function verifyServiceLifecycle(
       throw new Error(`uninstall: ${file} is still on disk`);
     }
   }
-  record('uninstall', 'both units unloaded and their files removed');
+  record('uninstall', 'serve unloaded and its unit file removed');
 
   const liveAfter = await options.liveState();
   if (liveAfter !== liveBefore) {
