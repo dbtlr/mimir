@@ -1,10 +1,15 @@
 ---
 title: 'ADR 0016: A Norn-managed markdown vault is the system of record'
-status: accepted
+status: superseded
+superseded_by: 'ADR 0032'
 date: 2026-07-01
 ---
 
 # ADR 0016: A Norn-managed markdown vault is the system of record
+
+> **Superseded (2026-10-03, MMR-415) by [ADR 0032](0032-sqlite-local-tier-shared-sql-store.md).**
+> SQLite replaces the Norn vault as the local tier, beside the Postgres hosted
+> tier, and the Norn backend is removed. This record is kept for history.
 
 > **Status update (2026-07-12, MMR-234): implemented.** The incremental cutover is
 > complete. The SQLite store — implementation, schema/migrations, the `[store]`
