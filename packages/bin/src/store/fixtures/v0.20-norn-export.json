@@ -1,0 +1,323 @@
+{
+  "annotations": [
+    {
+      "content": "a note with a ## heading line",
+      "created_at": "2026-10-03T17:09:10.477Z",
+      "node_id": "MMR-3"
+    }
+  ],
+  "artifacts": [
+    {
+      "content": "# spec\n\nthe transfer document",
+      "created_at": "2026-10-03T17:09:10.501Z",
+      "key": "MMR",
+      "links": ["MMR-3"],
+      "seq": 1,
+      "source_scratch": null,
+      "summary": "the transfer document",
+      "tags": ["Draft", "api", "spec"],
+      "title": "Transfer spec",
+      "updated_at": "2026-10-03T17:09:10.501Z"
+    },
+    {
+      "content": "# notes\n\n## Agenda\n",
+      "created_at": "2026-10-03T17:09:10.502Z",
+      "key": "MMR",
+      "links": [],
+      "seq": 2,
+      "source_scratch": null,
+      "summary": null,
+      "tags": [],
+      "title": "Trailing newline",
+      "updated_at": "2026-10-03T17:09:10.502Z"
+    }
+  ],
+  "bodySections": [
+    {
+      "next": {
+        "present": true,
+        "text": "ship the bridge"
+      },
+      "stem": "MMR"
+    },
+    {
+      "description": "the bridge",
+      "next": {
+        "present": true,
+        "text": "land the export, then the import"
+      },
+      "stem": "MMR-1"
+    },
+    {
+      "description": null,
+      "next": {
+        "present": true,
+        "text": null
+      },
+      "stem": "MMR-2"
+    },
+    {
+      "description": "export first",
+      "next": {
+        "present": false,
+        "text": null
+      },
+      "stem": "MMR-3"
+    }
+  ],
+  "edges": [
+    {
+      "depends_on_node_id": "MMR-3",
+      "node_id": "MMR-4"
+    }
+  ],
+  "exported_at": "2026-10-03T17:09:10.524Z",
+  "nodes": [
+    {
+      "branch": null,
+      "completed_at": null,
+      "created_at": "2026-10-03T17:09:10.458Z",
+      "description": null,
+      "external_ref": null,
+      "harness": null,
+      "hold": null,
+      "hold_reason": null,
+      "host": null,
+      "id": "MMR-1",
+      "lifecycle": null,
+      "open_ended": null,
+      "parent_id": null,
+      "priority": null,
+      "project_id": "MMR",
+      "rank": null,
+      "seq": 1,
+      "session": null,
+      "size": null,
+      "summary": null,
+      "target": null,
+      "title": "Shared store",
+      "type": "initiative",
+      "updated_at": "2026-10-03T17:09:10.491Z",
+      "upstream": null
+    },
+    {
+      "branch": null,
+      "completed_at": null,
+      "created_at": "2026-10-03T17:09:10.461Z",
+      "description": null,
+      "external_ref": null,
+      "harness": null,
+      "hold": null,
+      "hold_reason": null,
+      "host": null,
+      "id": "MMR-2",
+      "lifecycle": null,
+      "open_ended": null,
+      "parent_id": "MMR-1",
+      "priority": null,
+      "project_id": "MMR",
+      "rank": null,
+      "seq": 2,
+      "session": null,
+      "size": null,
+      "summary": null,
+      "target": "2026-12-01",
+      "title": "Phase A",
+      "type": "phase",
+      "updated_at": "2026-09-02T12:00:00.000Z",
+      "upstream": null
+    },
+    {
+      "branch": "feat/export",
+      "completed_at": null,
+      "created_at": "2026-10-03T17:09:10.464Z",
+      "description": null,
+      "external_ref": null,
+      "harness": null,
+      "hold": "none",
+      "hold_reason": null,
+      "host": "workbench",
+      "id": "MMR-3",
+      "lifecycle": "under_review",
+      "open_ended": null,
+      "parent_id": "MMR-2",
+      "priority": "p1",
+      "project_id": "MMR",
+      "rank": null,
+      "seq": 3,
+      "session": null,
+      "size": null,
+      "summary": "the export",
+      "target": null,
+      "title": "Export",
+      "type": "task",
+      "updated_at": "2026-10-03T17:09:10.483Z",
+      "upstream": null
+    },
+    {
+      "branch": null,
+      "completed_at": null,
+      "created_at": "2026-10-03T17:09:10.468Z",
+      "description": null,
+      "external_ref": null,
+      "harness": null,
+      "hold": "none",
+      "hold_reason": null,
+      "host": null,
+      "id": "MMR-4",
+      "lifecycle": "todo",
+      "open_ended": null,
+      "parent_id": "MMR-2",
+      "priority": null,
+      "project_id": "MMR",
+      "rank": 131072,
+      "seq": 4,
+      "session": null,
+      "size": "medium",
+      "summary": null,
+      "target": null,
+      "title": "Import",
+      "type": "task",
+      "updated_at": "2026-10-03T17:09:10.472Z",
+      "upstream": null
+    }
+  ],
+  "projects": [
+    {
+      "archived_at": null,
+      "counters": {
+        "artifact": 2,
+        "node": 4,
+        "seed": 1
+      },
+      "created_at": "2026-10-03T17:09:10.449Z",
+      "description": "the work-state tool",
+      "key": "MMR",
+      "name": "Mimir",
+      "updated_at": "2026-10-03T17:09:10.495Z"
+    },
+    {
+      "archived_at": "2026-10-03T17:09:10.515Z",
+      "counters": {
+        "artifact": 0,
+        "node": 0,
+        "seed": 0
+      },
+      "created_at": "2026-10-03T17:09:10.454Z",
+      "description": null,
+      "key": "OPS",
+      "name": "Operations",
+      "updated_at": "2026-10-03T17:09:10.515Z"
+    }
+  ],
+  "schema_version": 1,
+  "scratchpads": [
+    {
+      "agenda": [
+        {
+          "content": "settle the document shape",
+          "number": 1,
+          "reason": null,
+          "state": "open"
+        }
+      ],
+      "anchors": ["MMR-3"],
+      "createdAt": "2026-09-01T12:00:00.000Z",
+      "freezingAt": null,
+      "id": "123e4567-e89b-42d3-a456-426614174000",
+      "journal": [
+        {
+          "at": "2026-09-01T12:00:00.000Z",
+          "content": "started",
+          "number": 1
+        }
+      ],
+      "project": "MMR",
+      "title": "Bridge notes",
+      "updatedAt": "2026-09-01T12:00:00.000Z"
+    }
+  ],
+  "seeds": [
+    {
+      "created_at": "2026-10-03T17:09:10.504Z",
+      "description": "someone should look at the cutover",
+      "history": [
+        {
+          "at": "2026-10-03T17:09:10.507Z",
+          "from": "new",
+          "kind": "lifecycle",
+          "reason": "promoted — spawned MMR-4",
+          "to": "promoted"
+        }
+      ],
+      "key": "MMR",
+      "kind": "idea",
+      "lifecycle": "promoted",
+      "requester": "OPS",
+      "seq": 1,
+      "spawned": ["MMR-4"],
+      "title": "Cutover",
+      "updated_at": "2026-10-03T17:09:10.507Z"
+    }
+  ],
+  "tags": [
+    {
+      "entity_id": "MMR",
+      "entity_type": "project",
+      "tag": "core"
+    },
+    {
+      "entity_id": "MMR-3",
+      "entity_type": "node",
+      "tag": "Handoff"
+    },
+    {
+      "entity_id": "MMR-3",
+      "entity_type": "node",
+      "tag": "api"
+    },
+    {
+      "entity_id": "MMR-3",
+      "entity_type": "node",
+      "tag": "urgent"
+    }
+  ],
+  "transitions": [
+    {
+      "at": "2026-10-03T17:09:10.515Z",
+      "from_value": "active",
+      "kind": "archive",
+      "project_id": "OPS",
+      "reason": null,
+      "to_value": "archived"
+    },
+    {
+      "at": "2026-10-03T17:09:10.480Z",
+      "from_value": "todo",
+      "handles": {
+        "branch": "feat/export",
+        "host": "workbench"
+      },
+      "kind": "lifecycle",
+      "node_id": "MMR-3",
+      "reason": null,
+      "to_value": "in_progress"
+    },
+    {
+      "at": "2026-10-03T17:09:10.483Z",
+      "from_value": "in_progress",
+      "kind": "lifecycle",
+      "node_id": "MMR-3",
+      "reason": null,
+      "to_value": "under_review"
+    },
+    {
+      "at": "2026-10-03T17:09:10.472Z",
+      "from_value": null,
+      "kind": "dependency",
+      "node_id": "MMR-4",
+      "reason": null,
+      "to_value": "MMR-3"
+    }
+  ]
+}
