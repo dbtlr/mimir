@@ -13,7 +13,7 @@ import { ActionButton } from '../components/ui/action-button';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
-import { droppedByProject } from '../lib/health';
+import { findingsByProject } from '../lib/health';
 import { groupIntoLanes } from '../lib/lanes';
 import { overviewRoute } from '../router';
 
@@ -32,10 +32,10 @@ export function OverviewPage() {
 
   const projects = useQuery(projectsQuery);
   const archived = useQuery(archivedProjectsQuery);
-  // Record-damage counts (MMR-185) — the card's amber vital; a miss (offline /
-  // pre-feature cache) simply yields no vital, never a broken overview.
+  // Record-health finding counts (MMR-185) — the card's amber vital; a miss
+  // (offline / pre-feature cache) simply yields no vital, never a broken overview.
   const health = useQuery(doctorQuery());
-  const droppedByKey = droppedByProject(health.data);
+  const findingsByKey = findingsByProject(health.data);
   const archivedProjects = archived.data?.items ?? [];
   const conn = connectivity([projects, archived]);
   const openNode = (id: string) => void navigate({ search: { node: id }, to: '.' });
@@ -95,7 +95,7 @@ export function OverviewPage() {
                         key={project.id}
                         project={project}
                         onOpen={onOpen}
-                        dropped={droppedByKey.get(project.id)}
+                        findings={findingsByKey.get(project.id)}
                       />
                     ))}
                   </div>
@@ -107,7 +107,7 @@ export function OverviewPage() {
                     lane={lane}
                     onOpen={onOpen}
                     collapsible={lane.lane === 'at_rest'}
-                    droppedByKey={droppedByKey}
+                    findingsByKey={findingsByKey}
                   />
                 ))
               );

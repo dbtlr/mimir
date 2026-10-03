@@ -27,7 +27,7 @@ afterEach(async () => {
 });
 
 describe('/api/doctor', () => {
-  test('a clean store yields no groups and no dropped records', async () => {
+  test('a clean store yields no groups and no findings', async () => {
     server = createServer(store, {
       doctor: doctor.facet,
       hunt: false,
@@ -36,12 +36,12 @@ describe('/api/doctor', () => {
     });
     base = `http://127.0.0.1:${String(server.port)}`;
     const facet = (await (await fetch(`${base}/api/doctor`)).json()) as {
-      dropped_total: number;
+      finding_total: number;
       groups: unknown[];
       scanned_at: string;
-      scope: { key: string; matched_documents: number } | null;
+      scope: { key: string; matched_records: number } | null;
     };
-    expect(facet.dropped_total).toBe(0);
+    expect(facet.finding_total).toBe(0);
     expect(facet.groups).toEqual([]);
     expect(typeof facet.scanned_at).toBe('string');
     expect(facet.scope).toBeNull();
@@ -56,20 +56,20 @@ describe('/api/doctor', () => {
     });
     base = `http://127.0.0.1:${String(server.port)}`;
     const facet = (await (await fetch(`${base}/api/doctor?project=OTH`)).json()) as {
-      dropped_total: number;
+      finding_total: number;
       groups: unknown[];
-      scope: { key: string; matched_documents: number } | null;
+      scope: { key: string; matched_records: number } | null;
     };
-    expect(facet.dropped_total).toBe(0);
+    expect(facet.finding_total).toBe(0);
     expect(facet.groups).toEqual([]);
-    expect(facet.scope).toEqual({ key: 'OTH', matched_documents: 0 });
+    expect(facet.scope).toEqual({ key: 'OTH', matched_records: 0 });
 
     const matching = (await (await fetch(`${base}/api/doctor?project=MMR`)).json()) as {
-      dropped_total: number;
-      scope: { key: string; matched_documents: number } | null;
+      finding_total: number;
+      scope: { key: string; matched_records: number } | null;
     };
-    expect(matching.dropped_total).toBe(0);
+    expect(matching.finding_total).toBe(0);
     expect(matching.scope?.key).toBe('MMR');
-    expect(matching.scope?.matched_documents).toBeGreaterThan(0);
+    expect(matching.scope?.matched_records).toBeGreaterThan(0);
   });
 });

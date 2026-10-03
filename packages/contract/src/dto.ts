@@ -205,16 +205,14 @@ export type UpstreamResolution = {
 
 /**
  * One check-(c) task the triage pass could NOT reconcile (MMR-246) — skipped so a
- * single bad task never aborts the board pass. Two causes: a corrupt
- * `## Annotations` anchor (a duplicate/missing heading norn cannot resolve —
- * appending would refuse), or a per-task read fault (e.g. a flaky cross-board
- * seed read). The pass records it here and continues; `mimir doctor` diagnoses
- * the corruption class.
+ * single bad task never aborts the board pass. The cause is a per-task fault
+ * (e.g. a flaky cross-board seed read or a refused annotation write); the pass
+ * records it here and continues.
  */
 export type TriageFailure = {
   /** The requester-side task stem (`KEY-seq`) that was skipped. */
   task: string;
-  /** Why it was skipped — human-facing; a corrupt-anchor message points at `mimir doctor`. */
+  /** Why it was skipped — human-facing. */
   message: string;
 };
 
@@ -382,11 +380,10 @@ export type NodeView = {
 
   // facets — opt-in
   /**
-   * Full description prose — the `## Task Description` body section,
-   * authoritative since MMR-162 (ADR 0016 Refinement). A facet, not a bare
-   * field: read per node on a detail `get` (in {@link CHEAP_FACETS}), absent
-   * from bulk `list`/`next` rows. For a project view it carries the project's
-   * (still frontmatter) description.
+   * Full description prose — the `## Task Description` body section (MMR-162).
+   * A facet, not a bare field: read per node on a detail `get` (in
+   * {@link CHEAP_FACETS}), absent from bulk `list`/`next` rows. For a project
+   * view it carries the project row's own description.
    */
   description?: string | null;
   /**
@@ -497,18 +494,17 @@ export type OverviewSeed = {
 };
 
 /** The capped listings behind the hygiene counts (MMR-322) — the head of each
- * attention lane, 5 rows apiece against the TRUE counts alongside them. `dropped`
- * has no listing by design: it is a load byproduct (MMR-184), not a set of tasks. */
+ * attention lane, 5 rows apiece against the TRUE counts alongside them. */
 export type OverviewHygieneListings = {
   blocked: OverviewAttentionTask[];
   stale: OverviewAttentionTask[];
   untriaged: OverviewSeed[];
 };
 
-/** The `overview` hygiene block (MMR-278, listings added MMR-322): the four counts,
- * each with its capped listing where one exists. Each nonzero count names a
- * follow-up command in the human render (`untriaged` → `mimir triage`,
- * `dropped` → `mimir doctor`, `blocked`/`stale` → the matching `mimir list`). */
+/** The `overview` hygiene block (MMR-278, listings added MMR-322): the three counts,
+ * each with its capped listing. Each nonzero count names a follow-up command in
+ * the human render (`untriaged` → `mimir triage`, `blocked`/`stale` → the
+ * matching `mimir list`). */
 export type OverviewHygiene = {
   /** New (untriaged) seeds on the board. */
   untriaged: number;
@@ -516,9 +512,6 @@ export type OverviewHygiene = {
   blocked: number;
   /** Tasks that have gone quiet past the stale threshold. */
   stale: number;
-  /** Records the tolerant reader dropped building the working set (MMR-184) —
-   * `WorkingSet.issueCount`, the free validate byproduct, never a doctor pass. */
-  dropped: number;
   /** The capped heads of the three task/seed-shaped counts (MMR-322). */
   listings: OverviewHygieneListings;
 };
@@ -681,8 +674,8 @@ export type FacetName = (typeof FACET_NAMES)[number];
  * bulk `list`/`next` (which pass no facets) omit it, so they never pay the
  * per-node body read. `next` (the direction narrative, MMR-321) joins it: on a
  * NODE it costs nothing extra, riding the same batched section read
- * `description` already pays for; on a PROJECT — whose `description` is
- * frontmatter, not a body section — it is one additional document read. Bulk
+ * `description` already pays for; on a PROJECT — whose `description` rides the
+ * project row, not a body section — it is one additional read. Bulk
  * `list`/`next`/`tree` pass their own facet lists, which exclude it. */
 export const CHEAP_FACETS: readonly FacetName[] = [
   'deps',
@@ -708,8 +701,8 @@ export const CHEAP_FACETS: readonly FacetName[] = [
  * rather than pulling `get`'s full facet set into every write echo. `next`
  * (MMR-321) rides for the same reason `description` does — a write that
  * re-authored the section echoes it back instead of dropping it. Free on a node
- * (it shares `description`'s batched section read); one extra document read on
- * a PROJECT echo, whose `description` is frontmatter and reads no body at all.
+ * (it shares `description`'s batched section read); one extra read on a
+ * PROJECT echo, whose `description` rides the project row.
  */
 export const WRITE_ECHO_FACETS: readonly FacetName[] = [
   'description',
@@ -733,10 +726,4 @@ export type SetResult<T> = {
   startsAt: number;
   items: T[];
   warnings?: ValueWarning[];
-  /** How many records the tolerant reader dropped/noted while building the
-   * working set this selection was read over (MMR-184) — the load's own
-   * byproduct, not a fresh `mimir doctor` pass. The CLI nudges toward `mimir
-   * doctor` on stderr when this is non-zero; absent when the load carried no
-   * count (e.g. the value-fault short-circuit, which never reaches the store). */
-  issueCount?: number;
 };

@@ -481,7 +481,6 @@ export function overviewToWire(report: OverviewReport): Record<string, unknown> 
     },
     hygiene: {
       blocked: report.hygiene.blocked,
-      dropped: report.hygiene.dropped,
       listings: {
         blocked: report.hygiene.listings.blocked.map(attentionTaskToWire),
         stale: report.hygiene.listings.stale.map(attentionTaskToWire),

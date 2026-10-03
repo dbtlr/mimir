@@ -10,7 +10,7 @@ import type {
 } from '@mimir/contract';
 
 import type { ArtifactStore } from './artifacts/store';
-import type { BodySectionStore, NextSection } from './body-sections/store';
+import type { BodySectionStore, NextFacet } from './body-sections/store';
 import type { ImportOptions, ImportReport, StoreExport } from './export';
 import type { Artifact, Dependency, Node, Project } from './model';
 import type { ScratchpadStore } from './scratchpads/store';
@@ -50,13 +50,6 @@ export type WorkingSet = {
   nodeTags: ReadonlyMap<string, readonly NodeTag[]>;
   /** Project key → its tag records in `created_at` order. Absent = untagged. */
   projectTags: ReadonlyMap<string, readonly NodeTag[]>;
-  /** How many records the tolerant reader dropped/noted (ADR 0017) while
-   * building this set — the shared `validate()` pass's `dropped.length`,
-   * carried as a byproduct of the load itself (MMR-184). Optional: only the
-   * Norn-backed `Store.loadWorkingSet` populates it; the write path's
-   * in-transaction overlay (`StoreWriter.loadWorkingSet`) omits it — a
-   * transact never re-validates, so it has no fresher count to offer. */
-  issueCount?: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -142,13 +135,11 @@ export type NodePatch = {
  * append: `text` is the whole re-authored narrative, and `null` clears the
  * section (the heading is removed, not emptied).
  *
- * The write carries prose only. Whether the target document currently HAS the
- * heading — which a markdown backend needs to pick between inserting, replacing,
- * and deleting it — is the backend's to derive against the state its transaction
- * began from, never the caller's to assert: a verb that re-authors the section
- * twice in one transact reads its own first write the second time, so a caller-
- * supplied presence would describe the transaction rather than the document
- * (MMR-379).
+ * The write carries prose only. Whether the record HAS the section afterwards
+ * is the store's to derive from `text`, never the caller's to assert: a verb
+ * that re-authors the section twice in one transact reads its own first write
+ * the second time, so a caller-supplied presence would describe the
+ * transaction rather than the record (MMR-379).
  */
 export type NextSectionWrite = {
   text: string | null;
@@ -208,8 +199,6 @@ export type RankedTask = {
 export type StoreWriter = {
   /** The in-scope bulk snapshot the mutation guards derive over. */
   loadWorkingSet: () => Promise<WorkingSet>;
-  /** Whether the durable snapshot contains more than one physical record for this identity. */
-  hasIdentityCollision: (stem: string) => Promise<boolean>;
 
   // Point reads
   loadNode: (id: string) => Promise<Node | undefined>;
@@ -233,7 +222,7 @@ export type StoreWriter = {
    * rather than this transaction's, so the read-modify-write it feeds would be
    * built on a value the transaction never held.
    */
-  readNextSection: (entityType: 'node' | 'project', entityId: string) => Promise<NextSection>;
+  readNextSection: (entityType: 'node' | 'project', entityId: string) => Promise<NextFacet>;
 
   // Writes
   insertProject: (row: NewProjectRecord) => Promise<Project>;
@@ -270,27 +259,26 @@ export type Store = {
   loadWorkingSet: () => Promise<WorkingSet>;
 
   /**
-   * The lightweight all-projects read (MMR-251): every project (archived included),
-   * WITHOUT the whole-store node load. The seed resolving seam's requester/board
-   * view — an unknown/archived requester nulls, an archived own-board freezes — needs
-   * only project keys and their `archived_at`, so this is the projects-only slice of
-   * {@link loadWorkingSet}.
+   * The projects-only slice of {@link loadWorkingSet} (MMR-251): every project
+   * (archived included) and no nodes, edges, or tags — one query where the
+   * whole-store load is several. The seed resolving seam's requester/board view
+   * (an unknown/archived requester nulls, an archived own-board freezes) needs
+   * only project keys and their `archived_at`.
    */
   loadProjects: () => Promise<readonly Project[]>;
 
   /**
    * The project-scoped node read (MMR-251): the nodes of the named projects only,
-   * shaped identically to {@link loadWorkingSet}. The seed resolving seam's
-   * spawned-target settledness closure — settledness is a task's own lifecycle
-   * or a container's descendant rollup, and every lineage is in-project (moves
-   * are within-project) — so loading the targets' projects is the whole closure
-   * without a whole-store load. Edges are not projected (settledness never
-   * consults them). An empty key list reads as no nodes (no query).
+   * shaped identically to {@link loadWorkingSet}, so a single-seed read pays for
+   * its spawned targets' projects rather than the whole store. That is the
+   * whole settledness closure — settledness is a task's own lifecycle or a
+   * container's descendant rollup, and every lineage is in-project (moves are
+   * within-project). Edges are not projected (settledness never consults them).
+   * An empty key list reads as no nodes (no query).
    *
-   * `validProjectKeys` is the caller's already-validated project-key set (from
-   * {@link loadProjects}): presence is derived from it, NOT trusted from the requested
-   * keys, so a target in an unknown project drops identically to the
-   * whole-store path (MMR-251).
+   * `validProjectKeys` is the caller's project-key set (from {@link loadProjects}):
+   * a requested key outside it reads as no nodes, so a spawned ref naming an
+   * unknown project prunes exactly as it does over the whole-store load.
    */
   loadNodesForProjects: (
     projectKeys: readonly string[],

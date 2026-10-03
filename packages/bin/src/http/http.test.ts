@@ -669,8 +669,8 @@ test('artifacts: the 201 create body renders from the held record and equals a s
 });
 
 test('artifact detail degrades a dangling link to its bare id (MMR-229)', async () => {
-  // The vault stores links as file-frontmatter stems (no referential
-  // enforcement), so they can go stale. Serve the same data with the artifact
+  // A link can outlive its target only through a hand edit at the database
+  // (doctor's orphan-link finding). Serve the same data with the artifact
   // read carrying one resolvable and one dangling stem: the wire must degrade
   // the dangler to `{ id }` — no invented title/status, no crash.
   await send('POST', `/api/nodes/${task1}/artifacts`, { content: 'body', title: 'stale link' });

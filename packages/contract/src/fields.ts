@@ -5,18 +5,18 @@ import type { NodeType } from './enums';
  * lifted here so every consumer (the binary transports today, the UI tomorrow)
  * reads one declaration. This module is data only: field keys, the **kind**
  * *name* each field declares, node applicability, `update` participation, and
- * the read-required flag. The kind's parser/emitter pair, its wire schema
- * fragment, and its query projection are code bindings and live in the core
+ * the required flag. The kind's wire parser, its wire schema fragment, and
+ * its query projection are code bindings and live in the core
  * (`core/field-spec.ts`); the core composes these facts with those bindings.
  *
  * The identity/topology plane — id, type, parent, rank, tags, the timestamps,
  * transition history, body sections, and the always-present `title` — is NOT a
  * fact here: those are what make a node a node in the graph, they have their own
- * verbs, and their decode is inherent structural work (ADR 0025 Decision 1).
+ * verbs, and their handling is inherent structural work (ADR 0025 Decision 1).
  */
 
 /** The data-plane field keys — the external snake_case names, which double as the
- * frontmatter keys and the query field names (no second vocabulary). */
+ * store column names and the query field names (no second vocabulary). */
 export type DataFieldKey =
   | 'summary'
   | 'lifecycle'
@@ -52,7 +52,7 @@ export type HandleFieldKey = (typeof HANDLE_FIELD_KEYS)[number];
 export type ExecutionHandles = Partial<Record<HandleFieldKey, string>>;
 
 /** A field **kind** *name* — the pure-fact half of a kind (ADR 0025 Decision 2).
- * The name selects the parser/emitter pair, wire schema fragment, and query
+ * The name selects the wire parser, wire schema fragment, and query
  * semantics, all of which live as code bindings in the core kind registry. */
 export type FieldKindName =
   | 'string'
@@ -72,12 +72,12 @@ export type FieldKindName =
 export type FieldFact = {
   key: DataFieldKey;
   kind: FieldKindName;
-  /** Node types that carry the field — the codec type-gate AND the update gate. */
+  /** Node types that carry the field — the import type-gate AND the update gate. */
   appliesTo: readonly NodeType[];
   /** The camelCase `UpdateFields` arg name, present when the generic `update` verb
    * owns the field; absent for the status axes. */
   update?: string;
-  /** A field an applicable node MUST carry post-validation (only `lifecycle`). */
+  /** A field an applicable node MUST carry (only `lifecycle`). */
   required?: boolean;
 };
 
@@ -87,7 +87,7 @@ const ALL_TYPES = ['task', 'phase', 'initiative'] as const;
 
 /**
  * The data-plane field facts — one entry per field, alphabetical by key. The
- * codec (both directions), the update gates, the query registry, and the three
+ * transfer import's checks, the update gates, the query registry, and the three
  * transport surfaces all derive from this one table. `as const` keeps each
  * entry's `update` literal so the core can extract the precise `UpdateFieldKey`
  * union it compile-checks its `UpdateFields` vocabulary against (ADR 0025).

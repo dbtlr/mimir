@@ -134,6 +134,6 @@ went terminal, appends the resolution annotation
   intent — and **never transitions any status**; resolve/unblock stay yours.
 - Idempotent across serial re-runs (the annotation marker is
   machine-recognized), so it is safe at every orientation.
-- Unreadable records and flaky reads land in a `failures` section (inspect with
-  `mimir doctor`) instead of aborting the pass. Always a report, never a gate —
-  exit 0.
+- A task the pass cannot reconcile (a flaky read, a refused write) lands in a
+  `failures` section instead of aborting the pass. Always a report, never a
+  gate — exit 0.

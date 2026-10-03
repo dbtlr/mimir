@@ -94,8 +94,8 @@ export type ArtifactStore = {
   findBySourceScratch: (id: string) => Promise<(ArtifactRecord & { content: string }) | undefined>;
   /** The cross-project feed, newest-first; metadata only. */
   list: (query: ArtifactListQuery) => Promise<{ total: number; items: ArtifactRecord[] }>;
-  /** Idempotent tag apply. Frontmatter tags are a plain string set (ADR 0005) —
-   * a tag application carries no note on any entity. */
+  /** Idempotent tag apply. Tags are a plain string set (ADR 0005) — a tag
+   * application carries no note on any entity. */
   applyTag: (key: string, seq: number, tag: string) => Promise<void>;
   /** Remove tags; returns how many were actually present. */
   removeTags: (key: string, seq: number, tags: string[]) => Promise<number>;

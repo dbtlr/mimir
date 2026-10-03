@@ -34,11 +34,6 @@ export function renderId(ref: NodeRef): string {
   return `${ref.key}-${String(ref.seq)}`;
 }
 
-/** Wrap a rendered id (stem) as a wikilink — the relation form in stored markdown bodies. */
-export function wikilink(stem: string): string {
-  return `[[${stem}]]`;
-}
-
 /** Render a project key + artifact sequence as the external `KEY-aN` artifact id. */
 export function renderArtifactRef(ref: NodeRef): string {
   return `${ref.key}-a${String(ref.seq)}`;

@@ -333,7 +333,7 @@ Export is **fail-closed**: it refuses, and names the records, when the store hol
 
 ## Constraints and diagnostics
 
-The database enforces what a tolerant reader once had to diagnose: a foreign key for every single-valued reference, a primary key for every identity, and a `CHECK` over each closed vocabulary. `tag.entity_id`, `scratchpad.anchors`, `seed.spawned`, `seed.requester`, and `artifact.source_scratch` carry no foreign key. A record that fails a constraint cannot be written. `mimir doctor` therefore reports a short list on either backend: a schema version mismatch, a dangling parent or dependency reference, a sequence counter behind its rows, and an orphan artifact link or scratchpad anchor. It has no repair pass, and `doctor --fix` is refused. The findings a rollout cannot produce — a dangling reference, a counter behind its rows, an orphan link — point at a hand edit of the database.
+The database enforces integrity itself: a foreign key for every single-valued reference, a primary key for every identity, and a `CHECK` over each closed vocabulary. `tag.entity_id`, `scratchpad.anchors`, `seed.spawned`, `seed.requester`, and `artifact.source_scratch` carry no foreign key. A record that fails a constraint cannot be written. `mimir doctor` therefore reports a short list on either backend: a schema version mismatch, a dangling parent or dependency reference, a sequence counter behind its rows, and an orphan artifact link or scratchpad anchor. Doctor only reports; there is no repair pass. The findings a rollout cannot produce — a dangling reference, a counter behind its rows, an orphan link — point at a hand edit of the database.
 
 ## Status
 

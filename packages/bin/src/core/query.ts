@@ -31,7 +31,7 @@ type FieldSpec = {
  * the data-plane field spec (ADR 0025): they are what makes a node a node, or a
  * derived/timestamp value, so they stay bespoke here. `description` is
  * deliberately absent (MMR-162): it is body prose read per node, not a
- * bulk-cheap frontmatter field — the short `summary` lede (a spec field) is the
+ * bulk-cheap working-set field — the short `summary` lede (a spec field) is the
  * queryable stand-in.
  */
 const STRUCTURAL_QUERY_FIELDS: Record<string, FieldSpec> = {

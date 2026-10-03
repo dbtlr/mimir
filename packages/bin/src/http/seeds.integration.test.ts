@@ -140,7 +140,7 @@ describe('/api/seeds', () => {
     expect(q.total).toBe(2);
   });
 
-  test('POST requester:"" stores null (frontmatter-absent), never [[]] (B5c)', async () => {
+  test('POST requester:"" stores null, never an empty requester (B5c)', async () => {
     const rec = (await (
       await fetch(`${base}/api/seeds`, {
         body: JSON.stringify({ kind: 'idea', project: 'MMR', requester: '', title: 'x' }),

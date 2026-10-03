@@ -105,8 +105,8 @@ export async function buildNodeView(
   if (facets.has('tags')) {
     view.tags = buildTags(set, node.id);
   }
-  // The body-section facets read one node document — fetch its body once
-  // and slice all requested sections in a single backend round-trip (MMR-164, F6).
+  // The body-section facets ride one batched read — every requested section in
+  // a single call (MMR-164, F6).
   const wantDescription = facets.has('description');
   // The direction narrative is container-only (MMR-321, ADR 0026 Decision 2), so
   // a task never pays for the heading and never carries the key.
@@ -323,8 +323,8 @@ export async function buildProjectView(
   if (facets.has('artifacts')) {
     view.artifacts = await buildProjectArtifacts(artifacts, project);
   }
-  // The project doc's own `## Next` body section (MMR-321) — the one body facet
-  // a project carries; its `description` is still frontmatter, above. Omitted
+  // The project's own `## Next` body section (MMR-321) — the one body facet
+  // a project carries; its `description` rides the project row, above. Omitted
   // when the section is absent, exactly as on a container node.
   if (facets.has('next')) {
     const sections = await bodySections.readSections(project.key, { next: true });

@@ -57,7 +57,8 @@ export function renderUpstreamAnnotation(
 
 /** Does an existing annotation already record THIS seed going to THIS terminal?
  * Keyed on `(seedId, lifecycle)` only — the reason text is deliberately ignored,
- * so a hand-edited reason never causes a duplicate annotation on a re-run. */
+ * so a reason that differs from the recorded one never causes a duplicate
+ * annotation on a re-run. */
 export function annotationRecordsResolution(
   content: string,
   seedId: string,
@@ -139,14 +140,6 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
   const upstreamResolutions: UpstreamResolution[] = [];
   const failures: TriageFailure[] = [];
 
-  // One batched MMR-239 probe: which of these tasks carry a `## Annotations` anchor
-  // norn can't resolve (duplicate/missing heading). Appending onto one would refuse
-  // and abort the whole pass, so they are quarantined into `failures[]` below —
-  // never blind-appended onto (the doctor-class corruption channel, ADR 0017).
-  const corruptAnchors = await store.bodySections.annotationSectionFailures(
-    tasks.map((task) => task.id),
-  );
-
   // Memoize the upstream seed reads across tasks — several requester tasks can
   // point at the SAME upstream seed, and the pass never mutates seeds, so the
   // load/history reads are stable within a run. Keyed on the KEY-sN stem.
@@ -211,21 +204,6 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
       const alreadyRecorded = existing.some((note) =>
         annotationRecordsResolution(note.content, upstream, terminal),
       );
-
-      // Corrupt-anchor quarantine (MMR-239), checked ONLY now that the task has
-      // actually reached the point of needing a write — a live upstream or an
-      // already-recorded resolution never gets here, so a corrupt anchor on THOSE
-      // tasks is irrelevant to this pass (nothing to reconcile, doctor's job).
-      // `readAnnotations` already degraded to `[]` above on a corrupt anchor, so
-      // `alreadyRecorded` is false here — this correctly intercepts before the write.
-      if (!alreadyRecorded && corruptAnchors.has(taskStem)) {
-        failures.push({
-          message:
-            'its `## Annotations` heading is missing or duplicated (ambiguous) — run `mimir doctor`',
-          task: taskStem,
-        });
-        continue;
-      }
 
       let annotated = false;
       if (!alreadyRecorded && !dryRun) {

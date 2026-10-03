@@ -7,10 +7,9 @@ import type { Executor, NodeRow, ProjectRow } from './schema';
  * The bulk read path (ADR 0016 Phase 0) — the projections every derivation view
  * starts from, as SQL.
  *
- * There is no tolerant-reader pass here and nothing to drop. The relational
- * schema forbids an orphan, a dangling edge, and a duplicate identity with a key
- * or a foreign key, so the read is the rows. That is also why
- * {@link WorkingSet.issueCount} is absent: there is no drop tally to report.
+ * The read is the rows: the relational schema forbids an orphan, a dangling
+ * edge, and a duplicate identity with a key or a foreign key, so there is
+ * nothing to filter out on the way in.
  */
 
 /** The node columns the working set projects; `description` rides bodySections. */
@@ -64,8 +63,8 @@ export async function loadProjects(ex: Executor): Promise<Project[]> {
 }
 
 /**
- * The nodes of the named projects, intersected with the caller's already-
- * validated project-key set (MMR-251). An empty key list reads as no nodes
+ * The nodes of the named projects, intersected with the caller's project-key
+ * set (MMR-251). An empty key list reads as no nodes
  * without a query.
  */
 export async function loadNodesForProjects(

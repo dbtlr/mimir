@@ -21,21 +21,8 @@ export type BuiltStore = {
   store: Store;
   /** Release every backend resource: the database file or the pool. */
   close: () => Promise<void>;
-  /**
-   * The backend's doctor facet. `repair` is present only where the caller asked
-   * for a mutating wiring — see {@link buildStore}'s `repair` option.
-   */
+  /** The backend's read-only doctor facet. */
   doctor: DoctorBackend;
-};
-
-/** Options for the one capability the composition root decides per transport. */
-export type BuildStoreOptions = {
-  /**
-   * Wire the doctor repair capability. The CLI passes `true`; the read-only
-   * transports (`serve`, `mcp`) leave it off, so the backend they hold cannot
-   * mutate the store through doctor at all.
-   */
-  repair?: boolean;
 };
 
 /**
@@ -70,13 +57,8 @@ const STORE_REMEDIES: Record<NonNullable<GlobalConfig['store']['problem']>, stri
  * A `[store]` section that parsed to nothing usable is FATAL on the same terms
  * — see {@link assertUsableStoreConfig}.
  */
-export async function buildStore(
-  opts: BuildStoreOptions = {},
-  config: GlobalConfig = readRuntimeConfig(),
-): Promise<BuiltStore> {
+export async function buildStore(config: GlobalConfig = readRuntimeConfig()): Promise<BuiltStore> {
   assertUsableStoreConfig(config);
   const backend = config.store.backend ?? DEFAULT_STORE_BACKEND;
-  return backend === 'postgres'
-    ? await buildPostgresStore(config, opts)
-    : await buildSqliteStore(opts);
+  return backend === 'postgres' ? await buildPostgresStore(config) : await buildSqliteStore();
 }

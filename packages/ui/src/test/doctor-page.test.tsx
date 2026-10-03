@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -18,35 +18,24 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-/** A facet with one dropped record (an illegal status word) fully enriched. */
+/** A facet with one finding: a node whose parent names no row. */
 function damagedFacet(): WireDoctorFacet {
   return {
-    dropped_total: 1,
+    finding_total: 1,
     groups: [
       {
-        dropped: 1,
-        path: 'MMR',
+        finding_count: 1,
         project: 'MMR',
-        readable: 84,
         records: [
           {
-            cause: 'illegal status word',
-            field: 'lifecycle',
+            cause: 'dangling parent',
+            evidence: { parent_id: 'MMR-404', value: 'MMR-404' },
+            field: 'parent_id',
             id: 'MMR-97',
-            location: { byte: 18240, line: 412 },
-            note: 'Not a status word.',
-            path: 'MMR/MMR-97.md',
+            locator: 'node/MMR-97',
+            note: 'MMR-97 names parent MMR-404, which no node row holds',
             severity: 'error',
-            snippet: {
-              lines: [
-                { n: 410, text: 'priority: p2' },
-                { n: 411, text: 'size: s' },
-                { n: 412, offending: { length: 6, start: 11 }, text: 'lifecycle: praked' },
-              ],
-            },
-            suggestion: 'parked',
-            title: 'Board polish: hover states',
-            value: 'praked',
+            value: 'MMR-404',
           },
         ],
       },
@@ -68,7 +57,7 @@ function renderAt(path: string) {
 }
 
 describe('doctorPage record-health panel (MMR-185)', () => {
-  it('renders the dropped record with cause, source snippet, and nearest-legal hint', async () => {
+  it('renders a finding with its cause, row locator, and evidence', async () => {
     apiGet.mockImplementation((path: string) =>
       Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : { items: [], total: 0 }),
     );
@@ -78,18 +67,23 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     // Scoped header names the project.
     expect(screen.getByText('MMR · mimir doctor')).toBeDefined();
     // Amber summary banner + cause chip (await the facet-dependent banner first).
-    await expect(screen.findByText('1 record dropped from view')).resolves.toBeDefined();
-    expect(screen.getByText('illegal status word')).toBeDefined();
-    // The offending token rides the source snippet; the nearest-legal word shows.
-    expect(screen.getByText('praked')).toBeDefined();
-    expect(screen.getByText('parked')).toBeDefined();
-    expect(screen.getByText(/line 412 · byte 18 240/)).toBeDefined();
+    await expect(screen.findByText('1 finding in the store')).resolves.toBeDefined();
+    expect(screen.getByText('dangling parent')).toBeDefined();
+    // The row's table and key, and the finding's evidence, are what reach it.
+    expect(screen.getByText('node/MMR-97')).toBeDefined();
+    expect(screen.getByText('MMR-97 names parent MMR-404, which no node row holds')).toBeDefined();
+    const evidence = screen.getByLabelText('Evidence');
+    expect(within(evidence).getByText('parent_id')).toBeDefined();
+    expect(within(evidence).getAllByText('MMR-404')).toHaveLength(2);
+    // No file, line, or snippet survives on a SQL store.
+    expect(screen.queryByText(/line \d+ · byte/)).toBeNull();
+    expect(screen.queryByText(/in the file/)).toBeNull();
     // Copy location is the ONLY affordance — read-only.
     expect(screen.getByRole('button', { name: 'Copy location' })).toBeDefined();
     expect(screen.queryByRole('button', { name: /fix|repair|edit/i })).toBeNull();
   });
 
-  it('copy location writes path:line and toasts success only after the write resolves', async () => {
+  it('copy location writes the row locator and toasts success only after the write resolves', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     apiGet.mockImplementation((path: string) =>
@@ -98,9 +92,9 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     renderAt('/doctor?project=MMR');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Copy location' }));
-    expect(writeText).toHaveBeenCalledWith('MMR/MMR-97.md:412');
+    expect(writeText).toHaveBeenCalledWith('node/MMR-97');
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Copied MMR/MMR-97.md:412');
+      expect(toast.success).toHaveBeenCalledWith('Copied node/MMR-97');
     });
     expect(toast.error).not.toHaveBeenCalled();
   });
@@ -115,7 +109,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Copy location' }));
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('MMR/MMR-97.md:412'));
+      expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('node/MMR-97'));
     });
     expect(toast.success).not.toHaveBeenCalled();
   });
@@ -129,37 +123,32 @@ describe('doctorPage record-health panel (MMR-185)', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Copy location' }));
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('MMR/MMR-97.md:412'));
+      expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('node/MMR-97'));
     });
     expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('renders two same-cause findings on one node without duplicate keys', async () => {
-    // Two dangling depends_on edges on one node: same id, same cause — the row
+    // Two dangling dependencies on one node: same id, same cause — the row
     // key must still be unique or React logs a duplicate-key error.
     const record = {
-      cause: 'dangling reference',
-      field: 'depends_on',
+      cause: 'dangling dependency',
+      field: 'depends_on_node_id',
       id: 'MMR-7',
-      location: null,
-      note: 'Points at no document — the edge is dropped on read.',
-      path: 'MMR/MMR-7.md',
+      locator: 'dependency/MMR-7',
+      note: 'the dependency names a node no row holds',
       severity: 'error' as const,
-      snippet: null,
-      suggestion: null,
-      title: 'twice-dangling',
+      value: null,
     };
     const twin: WireDoctorFacet = {
-      dropped_total: 2,
+      finding_total: 2,
       groups: [
         {
-          dropped: 2,
-          path: 'MMR',
+          finding_count: 2,
           project: 'MMR',
-          readable: 10,
           records: [
-            { ...record, value: 'MMR-90' },
-            { ...record, value: 'MMR-91' },
+            { ...record, evidence: { absent: ['MMR-90'] } },
+            { ...record, evidence: { absent: ['MMR-91'] } },
           ],
         },
       ],
@@ -171,24 +160,24 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     const consoleError = vi.spyOn(console, 'error');
     renderAt('/doctor?project=MMR');
 
-    await expect(screen.findAllByText('dangling reference')).resolves.toHaveLength(2);
+    await expect(screen.findAllByText('dangling dependency')).resolves.toHaveLength(2);
     expect(
       consoleError.mock.calls.filter((args) => String(args[0]).includes('same key')),
     ).toHaveLength(0);
     consoleError.mockRestore();
   });
 
-  it('shows the zero state when nothing is dropped', async () => {
+  it('shows the zero state when the store has no findings', async () => {
     apiGet.mockImplementation((path: string) =>
       Promise.resolve(
         path.startsWith('/api/doctor')
-          ? { dropped_total: 0, groups: [], scanned_at: new Date().toISOString() }
+          ? { finding_total: 0, groups: [], scanned_at: new Date().toISOString() }
           : { items: [], total: 0 },
       ),
     );
     renderAt('/doctor');
 
-    await expect(screen.findByText('No dropped records')).resolves.toBeDefined();
-    expect(screen.queryByText(/dropped from view/)).toBeNull();
+    await expect(screen.findByText('No findings')).resolves.toBeDefined();
+    expect(screen.queryByText(/in the store/)).toBeNull();
   });
 });

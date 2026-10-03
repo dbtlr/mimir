@@ -30,7 +30,7 @@ afterEach(() => {
 test('the postgres backend refuses without [store] url', async () => {
   let threw = false;
   try {
-    await buildStore({}, { serve: {}, store: { backend: 'postgres' } });
+    await buildStore({ serve: {}, store: { backend: 'postgres' } });
   } catch (error) {
     threw = true;
     const message = (error as Error).message;
@@ -60,7 +60,7 @@ test.skipIf(POSTGRES_URL === undefined)(
     try {
       let refusal = '';
       try {
-        await buildStore({}, config);
+        await buildStore(config);
       } catch (error) {
         refusal = (error as Error).message;
       }
@@ -73,12 +73,11 @@ test.skipIf(POSTGRES_URL === undefined)(
         await handle.close();
       }
 
-      const built = await buildStore({}, config);
+      const built = await buildStore(config);
       try {
         expect((await built.store.loadWorkingSet()).nodes).toEqual([]);
-        // The backend supplies its own doctor facet, and it carries no repair.
+        // The backend supplies its own doctor facet.
         expect((await built.doctor.diagnose(undefined)).findings).toEqual([]);
-        expect(built.doctor.repair).toBeUndefined();
       } finally {
         await built.close();
       }
@@ -93,11 +92,10 @@ test.skipIf(POSTGRES_URL === undefined)(
 // the installation's data directory.
 test('the sqlite arm creates its database on first build and reads it back', async () => {
   const path = join(dir, 'data', 'mimir.db');
-  const first = await buildSqliteStore({}, path);
+  const first = await buildSqliteStore(path);
   try {
     expect((await first.store.loadWorkingSet()).nodes).toEqual([]);
     expect((await first.doctor.diagnose(undefined)).findings).toEqual([]);
-    expect(first.doctor.repair).toBeUndefined();
     await first.store.transact((writer) =>
       writer.insertProject({ description: null, key: 'MMR', name: 'Mimir', tags: [] }),
     );
@@ -106,7 +104,7 @@ test('the sqlite arm creates its database on first build and reads it back', asy
   }
   expect(existsSync(path)).toBe(true);
 
-  const second = await buildSqliteStore({}, path);
+  const second = await buildSqliteStore(path);
   try {
     expect((await second.store.loadProjects()).map((project) => project.key)).toEqual(['MMR']);
   } finally {
@@ -126,7 +124,7 @@ test('an unusable [store] section is fatal, never a fallback to another store', 
   ] as const) {
     let threw = false;
     try {
-      await buildStore({}, { serve: {}, store: { problem } });
+      await buildStore({ serve: {}, store: { problem } });
     } catch (error) {
       threw = true;
       // A MimirError, so every transport renders the summary and the remedy as
@@ -143,7 +141,7 @@ test('an unusable [store] section is fatal, never a fallback to another store', 
 test('a removed norn backend names the removal and the export path to migrate', async () => {
   let message = '';
   try {
-    await buildStore({}, { serve: {}, store: { problem: 'removed-backend' } });
+    await buildStore({ serve: {}, store: { problem: 'removed-backend' } });
   } catch (error) {
     message = error instanceof MimirError ? `${error.message} — ${error.hint ?? ''}` : '';
   }

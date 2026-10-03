@@ -35,7 +35,7 @@ episodes, `references/scratchpad.md`) · **next** (the ready head, top 5 of
 the true count) · **awaiting** (dep-gated, top 5, each row naming what it
 awaits) · **recent sessions** (top 5: the session id, its window, the tasks it
 touched, and the lede of the `session_summary` artifact that covers it) ·
-**hygiene** (untriaged/blocked/stale/dropped counts, each nonzero count naming
+**hygiene** (untriaged/blocked/stale counts, each nonzero count naming
 its follow-up command, with the first 5 rows behind it — blocked and stale
 tasks carry their attention lane, untriaged seeds their lede). In flight comes
 before next by design — orienting via `next` alone is the classic trap (it

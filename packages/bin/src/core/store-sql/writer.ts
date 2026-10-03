@@ -124,10 +124,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
       return Number(deleted.numDeletedRows ?? 0n);
     },
 
-    // The primary key forbids two rows claiming one identity, so a collision
-    // is not a state this store can reach.
-    hasIdentityCollision: () => Promise.resolve(false),
-
     async insertAnnotation(row) {
       if (!(await nodeExists(row.node_id))) {
         throw invariant('an annotation targets a node absent from the snapshot');
@@ -286,9 +282,7 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
     async readNextSection(entityType, entityId) {
       // The two `next_*` columns on the transaction itself: read-your-writes is
       // what the transaction already gives, so a section this same `transact`
-      // wrote is here. Neither degraded state a markdown document can reach is
-      // representable — the section is a column pair, so it can be neither
-      // duplicated nor missing its insertion anchor.
+      // wrote is here.
       const row = await (entityType === 'node'
         ? tx
             .selectFrom('node')
@@ -302,8 +296,6 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
             .executeTakeFirst());
       const text = (row?.next_text ?? '').trim();
       return {
-        ambiguous: false,
-        insertAnchors: 1,
         present: row === undefined ? false : bool.decode(row.next_present),
         text: text === '' ? null : text,
       };
@@ -311,9 +303,8 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
 
     async setNextSection(entityType, entityId, write) {
       // Presence is DERIVED, never asserted by the caller (see
-      // {@link NextSectionWrite}): a markdown backend derives it from the
-      // document it started the transact against, while here the heading IS the
-      // column pair — so a null text is simply absence, and any text is presence.
+      // {@link NextSectionWrite}): a null text is absence, and any text is
+      // presence.
       const values = { next_present: bool.encode(write.text !== null), next_text: write.text };
       const present =
         entityType === 'node' ? await nodeExists(entityId) : await projectExists(entityId);

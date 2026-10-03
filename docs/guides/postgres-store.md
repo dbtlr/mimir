@@ -87,9 +87,9 @@ runs against a mismatched schema.
   against the binary, a dangling parent or dependency reference, a sequence
   counter that fell behind its rows, and an orphan artifact link or scratchpad
   anchor. A store it cannot reach is not a finding: the command fails with a
-  nonzero exit instead. There is no repair pass, and `doctor --fix` is refused;
-  every state it reports is unreachable through the binary and points at a hand
-  edit.
+  nonzero exit instead. Doctor only reports: every state it finds is
+  unreachable through the binary, points at a hand edit, and is fixed by hand at
+  the database.
 - **Doctor checks the config file mode.** The `[store] url` carries the database
   password, so `mimir doctor` warns when the config file grants group or world
   read. The fix is `chmod 600` on the file the warning names.

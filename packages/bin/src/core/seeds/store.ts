@@ -68,9 +68,9 @@ export type SeedStore = {
   ) => Promise<(SeedRecord & { description?: string | null }) | undefined>;
   /** A project's whole seed inventory, seq ascending. */
   listForProject: (key: string) => Promise<SeedRecord[]>;
-  /** A seed's `## History` transitions in document order (MMR-246) — the source
+  /** A seed's `## History` transitions in log order (MMR-246) — the source
    * the triage pass reads the terminal resolution reason from; `undefined` when
-   * the seed doc is absent, `[]` when its History is empty. */
+   * the seed is absent, `[]` when its History is empty. */
   loadHistory: (key: string, seq: number) => Promise<HistoryEntry[] | undefined>;
   /** Every seed in ONE read — the whole-queue read (the
    * unbound `seeds` listing filters it to active boards), instead of a per-project
@@ -79,7 +79,7 @@ export type SeedStore = {
   /** Batch-read the `## Seed Description` prose for many seeds in ONE
    * read, keyed by the `KEY-sN` stem — the
    * derive-at-read lede source for the live queue (MMR-263). A seed with no
-   * description (empty section) maps to `null`; an absent/ambiguous doc is simply
+   * description (empty section) maps to `null`; an absent seed is simply
    * missing from the map. Nothing is stored; the caller derives the bounded lede. */
   loadDescriptions: (
     refs: readonly { key: string; seq: number }[],

@@ -31,8 +31,8 @@ import type {
  * - **The external stem is the primary key.** `KEY`, `KEY-seq`, `KEY-aN`,
  *   `KEY-sN`, and a scratchpad's UUID are the identities the `Store` seam
  *   speaks, so they are the identities the rows carry. There is no surrogate
- *   integer id to translate at the boundary, and the primary key is therefore
- *   what makes `hasIdentityCollision` structurally false.
+ *   integer id to translate at the boundary, and the primary key is what
+ *   forbids two records claiming one identity.
  * - **Timestamps are `text`, never `timestamptz`.** Every instant the core
  *   writes is a canonical ISO-8601 UTC string (`core/time.ts`), the transfer
  *   document carries it verbatim, and lexical comparison of two stored values

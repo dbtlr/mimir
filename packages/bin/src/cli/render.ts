@@ -876,11 +876,10 @@ export function renderOverview(report: OverviewReport, io: Io): string {
   }
 
   // hygiene — the counts, each nonzero one naming its follow-up command scoped to
-  // the reported project so the pointer stays true under `-s KEY` (the dropped
-  // count is the whole-store tally, MMR-184 — its `doctor` pointer stays unscoped
-  // to match), then the capped listing beneath it: the lane word first, so the
-  // row reads as a standing, then the task's own line.
-  const { untriaged, blocked, stale, dropped, listings } = report.hygiene;
+  // the reported project so the pointer stays true under `-s KEY`, then the
+  // capped listing beneath it: the lane word first, so the row reads as a
+  // standing, then the task's own line.
+  const { untriaged, blocked, stale, listings } = report.hygiene;
   out.push('', 'hygiene');
   const hygiene: string[] = [];
   const pushAttention = (rows: readonly OverviewAttentionTask[]): void => {
@@ -915,9 +914,6 @@ export function renderOverview(report: OverviewReport, io: Io): string {
   if (stale > 0) {
     hygiene.push(`${String(stale)} stale — run 'mimir list -s ${id} --is stale'`);
     pushAttention(listings.stale);
-  }
-  if (dropped > 0) {
-    hygiene.push(`${countLine(dropped, 'dropped record')} — run 'mimir doctor'`);
   }
   out.push(...(hygiene.length === 0 ? ['  nothing flagged'] : hygiene.map((line) => `  ${line}`)));
 
