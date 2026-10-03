@@ -162,8 +162,9 @@ open still converges an older vault forward, including on read-only commands.
 - **The upgrade is non-destructive.** The data migration runs first and is
   idempotent, so a crash leaves the old schema marker and the next open
   finishes the work. The marker and generated rules then advance together.
-  When git is available, the upgrade is committed to the vault's own git
-  history, so it leaves an inspectable record.
+  Converge then tries to commit the upgrade to the vault's own git history. A
+  git failure becomes a warning and does not stop the upgrade, so the record
+  is best-effort.
 - **A newer vault refuses an older binary.** The downgrade guard stops an older
   binary with a `self-update` hint instead of misreading the vault.
 - **The forcing case is mostly closed elsewhere.** The case was a development
